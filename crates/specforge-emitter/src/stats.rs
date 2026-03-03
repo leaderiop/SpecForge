@@ -14,7 +14,7 @@ pub fn compute_stats(
     // Entity counts by kind
     let mut entity_counts = BTreeMap::new();
     for kind in EntityKind::ALL {
-        let count = graph.nodes_of_kind(kind).len();
+        let count = graph.nodes_of_kind(kind.clone()).len();
         if count > 0 {
             entity_counts.insert(kind.keyword().to_string(), count);
         }
@@ -239,6 +239,7 @@ mod tests {
                     span: SourceSpan::new("test.spec", 5, 1, 5, 1),
                 },
             ],
+            custom_defs: vec![],
             errors: vec![],
         }]
     }

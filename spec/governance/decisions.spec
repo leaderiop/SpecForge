@@ -242,3 +242,88 @@ decision terraform_style_extension_model "Terraform-Style Extension Model" {
 
   invariants [reference_resolution_completeness]
 }
+
+decision wasm_extism_plugin_runtime "Wasm/Extism Unified Plugin Runtime" {
+  status   accepted
+  date     2026-03-03
+
+  context """
+    The Terraform-style extension model (ADR terraform_style_extension_model)
+    defines three extension types: plugins, providers, and generators. These
+    extensions must work uniformly across all SpecForge surfaces — CLI, LSP,
+    and MCP. Subprocess JSON-RPC was considered but degrades for long-running
+    surfaces: LSP would need to manage child process lifecycles per edit, and
+    MCP would face the same overhead. Embedded scripting (Lua, Rhai, Starlark)
+    was evaluated but tree-sitter grammars compile to C at build time, making
+    parser-level extension impossible regardless of scripting engine. The
+    batch-compiler nature of SpecForge (short-lived, deterministic, CI-critical)
+    is a poor fit for event-driven scripting models designed for editors.
+  """
+
+  decision """
+    Use WebAssembly via Extism as the unified plugin runtime for all three
+    extension types. Plugins expose host functions (specforge.query_graph,
+    specforge.emit_diagnostic, specforge.register_entity) — Wasm modules
+    never touch the OS directly. Generators use specforge.emit_file(path,
+    content) instead of raw filesystem access, with the host validating paths
+    and enforcing sandboxing. Providers use specforge.http_get for external
+    service validation. Universal .wasm binaries are distributed via npm,
+    GitHub Releases, or OCI registries. Subprocess JSON-RPC is retained as
+    an escape hatch for generators requiring raw OS access (e.g., running
+    external formatters). AOT compilation caches .wasm modules for CLI cold
+    start; LSP and MCP keep warm engine instances in-process.
+  """
+
+  consequences [
+    "Hardware-enforced sandboxing — plugins cannot access filesystem or network without host consent",
+    "Multi-language plugin authoring — Rust, Go, TypeScript, Python via Wasm compilation",
+    "Universal .wasm binary distribution — same artifact runs on all platforms",
+    "Single runtime covers all three extension types and all three surfaces uniformly",
+    "+5MB binary size increase from Extism/Wasmtime runtime",
+    "Plugin authors need Wasm toolchain (cargo-component, tinygo, javy, etc.)",
+    "10-50ms cold start per plugin — mitigated by AOT caching for CLI, warm engines for LSP/MCP",
+    "Subprocess JSON-RPC retained as escape hatch — two plugin protocols to document",
+  ]
+
+  invariants [reference_resolution_completeness]
+}
+
+decision wasm_peer_dependencies "Wasm Plugin Peer Dependencies" {
+  status   accepted
+  date     2026-03-03
+
+  context """
+    Plugins naturally form dependency chains: @specforge/product entities
+    reference core entities (capability bundles feature), governance entities
+    reference core entities (decision protects invariant), and third-party
+    plugins may depend on official plugin entities. Today, cross-module
+    references use implicit soft resolution — if the target module is not
+    installed, the resolver emits I004 (info) instead of E001 (error). This
+    is insufficient for Wasm plugins that explicitly declare entity types
+    targeting another plugin's entities. A third-party @myorg/epic-tracker
+    defining an epic entity with a stories field referencing feature must
+    fail hard if @specforge/product is not installed, not silently degrade.
+  """
+
+  decision """
+    Wasm plugin manifests declare peer_dependencies with semver ranges. The
+    host validates all peer dependencies before loading and topologically
+    sorts plugins for initialization order (core first, then official plugins,
+    then third-party). All plugins share the same in-process graph via
+    specforge.query_graph host function — no serialization between plugins.
+    When a manifest declares a peer dependency that is not installed, the
+    host emits a hard error. The existing I004 soft resolution remains for
+    implicit cross-module references (fields without a manifest declaration).
+  """
+
+  consequences [
+    "Explicit dependency chains — plugin authors declare what they need upfront",
+    "Hard error on missing peer dependency vs soft I004 for implicit references",
+    "Topological loading order prevents plugins from querying entities not yet registered",
+    "Zero serialization cost — all Wasm plugins share the graph via host function calls",
+    "Manifest schema must include peer_dependencies with semver range validation",
+    "Circular plugin dependencies are detected and rejected at load time",
+  ]
+
+  invariants [reference_resolution_completeness]
+}

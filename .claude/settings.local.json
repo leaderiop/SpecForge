@@ -399,7 +399,11 @@
       "Bash(/bin/cp:*)",
       "Bash(/bin/rm:*)",
       "Bash(git checkout:*)",
-      "Bash(git add:*)"
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(do if:*)",
+      "WebFetch(domain:spec.modelcontextprotocol.io)",
+      "Bash(/tmp/error_recovery_test.spec:*)"
     ]
   }
 }

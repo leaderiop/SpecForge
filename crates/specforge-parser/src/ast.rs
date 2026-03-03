@@ -1,4 +1,4 @@
-use specforge_common::{EntityId, EntityKind, FieldMap, SourceSpan};
+use specforge_common::{CustomEntityDef, EntityId, EntityKind, FieldMap, SourceSpan};
 
 /// A parsed `.spec` file.
 #[derive(Debug, Clone)]
@@ -6,6 +6,7 @@ pub struct SpecFile {
     pub path: String,
     pub imports: Vec<UseImport>,
     pub entities: Vec<AstEntity>,
+    pub custom_defs: Vec<CustomEntityDef>,
     pub errors: Vec<ParseError>,
 }
 

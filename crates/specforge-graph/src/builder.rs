@@ -41,7 +41,7 @@ pub fn build_graph(files: &[SpecFile]) -> GraphBuildResult {
 fn entity_to_node(entity: &AstEntity, file: &str) -> GraphNode {
     GraphNode {
         id: entity.id.clone(),
-        kind: entity.kind,
+        kind: entity.kind.clone(),
         title: entity.title.clone(),
         file: file.to_string(),
         span: entity.span.clone(),
@@ -123,6 +123,7 @@ mod tests {
             path: path.to_string(),
             imports: Vec::new(),
             entities,
+            custom_defs: Vec::new(),
             errors: Vec::new(),
         }
     }

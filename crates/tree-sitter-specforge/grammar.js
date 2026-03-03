@@ -54,6 +54,7 @@ module.exports = grammar({
         $.decision_block,
         $.constraint_block,
         $.failure_mode_block,
+        $.define_block,
       ),
 
     // ─── spec (singleton) ──────────────────────────────────────
@@ -376,6 +377,20 @@ module.exports = grammar({
         "failure_mode",
         field("id", $.identifier),
         optional(field("title", $.string)),
+        "{",
+        repeat($.key_value),
+        "}",
+      ),
+
+    // ─── define (custom entity types) ─────────────────────────
+    // define my_entity {
+    //   testable true
+    //   field_name field_type
+    // }
+    define_block: ($) =>
+      seq(
+        "define",
+        field("name", $.identifier),
         "{",
         repeat($.key_value),
         "}",

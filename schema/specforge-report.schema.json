@@ -1,0 +1,76 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://specforge.dev/schema/specforge-report.json",
+  "title": "SpecForge Report",
+  "description": "Schema for specforge-report.json files produced by test runner adapters.",
+  "type": "object",
+  "required": ["entities"],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "description": "Schema version for the report format.",
+      "default": "1.0"
+    },
+    "timestamp": {
+      "type": "string",
+      "description": "ISO 8601 timestamp when the report was generated.",
+      "format": "date-time"
+    },
+    "adapter": {
+      "type": "string",
+      "description": "Name of the test runner adapter that produced this report (e.g., 'vitest', 'pytest', 'nextest')."
+    },
+    "entities": {
+      "type": "array",
+      "description": "Per-entity test results.",
+      "items": {
+        "$ref": "#/$defs/EntityResult"
+      }
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "EntityResult": {
+      "type": "object",
+      "required": ["entity_id", "tests"],
+      "properties": {
+        "entity_id": {
+          "type": "string",
+          "description": "The spec entity identifier (e.g., 'auth_login')."
+        },
+        "tests": {
+          "type": "array",
+          "description": "Individual test results for this entity.",
+          "items": {
+            "$ref": "#/$defs/TestResult"
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "TestResult": {
+      "type": "object",
+      "required": ["name", "status"],
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Test function name (e.g., 'auth_login__rejects_invalid_password')."
+        },
+        "status": {
+          "type": "string",
+          "enum": ["pass", "fail", "skip", "error"],
+          "description": "Test execution status."
+        },
+        "duration_ms": {
+          "type": "number",
+          "description": "Test duration in milliseconds."
+        },
+        "message": {
+          "type": "string",
+          "description": "Error or failure message."
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}

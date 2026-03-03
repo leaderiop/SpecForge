@@ -54,13 +54,19 @@ type GenConfig {
   readonly     boolean      @optional
   naming       string       @optional
   testPlugin   string       @optional
+  wasmPath     string       @optional
 }
 
 type PluginManifest {
-  name         string    @readonly
-  version      string    @readonly
-  entities     string[]
-  prefixes     string[]
-  edgeTypes    string[]
-  validations  string[]
+  name              string              @readonly
+  version           string              @readonly
+  wasmPath          string
+  entities          string[]
+  prefixes          string[]
+  edgeTypes         string[]
+  validations       string[]
+  hostFunctions     string[]            @optional
+  peerDependencies  string[]            @optional
+  sandboxPolicy     string              @optional
+  testable          boolean             @optional
 }

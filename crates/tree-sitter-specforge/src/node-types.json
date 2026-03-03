@@ -210,6 +210,32 @@
     }
   },
   {
+    "type": "define_block",
+    "named": true,
+    "fields": {
+      "name": {
+        "multiple": false,
+        "required": true,
+        "types": [
+          {
+            "type": "identifier",
+            "named": true
+          }
+        ]
+      }
+    },
+    "children": {
+      "multiple": true,
+      "required": false,
+      "types": [
+        {
+          "type": "key_value",
+          "named": true
+        }
+      ]
+    }
+  },
+  {
     "type": "deliverable_block",
     "named": true,
     "fields": {
@@ -1014,6 +1040,10 @@
           "named": true
         },
         {
+          "type": "define_block",
+          "named": true
+        },
+        {
           "type": "deliverable_block",
           "named": true
         },
@@ -1515,6 +1545,10 @@
   },
   {
     "type": "decision",
+    "named": false
+  },
+  {
+    "type": "define",
     "named": false
   },
   {

@@ -5,7 +5,7 @@ use crate::backend::Backend;
 use crate::position;
 
 /// Map EntityKind to an LSP SymbolKind.
-pub fn entity_kind_to_symbol_kind(kind: EntityKind) -> SymbolKind {
+pub fn entity_kind_to_symbol_kind(kind: &EntityKind) -> SymbolKind {
     match kind {
         EntityKind::Behavior => SymbolKind::FUNCTION,
         EntityKind::Invariant => SymbolKind::PROPERTY,
@@ -23,6 +23,7 @@ pub fn entity_kind_to_symbol_kind(kind: EntityKind) -> SymbolKind {
         EntityKind::Decision => SymbolKind::CONSTANT,
         EntityKind::Constraint => SymbolKind::TYPE_PARAMETER,
         EntityKind::FailureMode => SymbolKind::NULL,
+        EntityKind::Custom(_) => SymbolKind::VARIABLE,
     }
 }
 
@@ -45,7 +46,7 @@ pub fn document_symbol(
         if let Some(node) = state.graph.get_node(entity_id) {
             let name = node.title.clone().unwrap_or_else(|| node.id.raw().to_string());
             let detail = Some(format!("{}", node.kind));
-            let kind = entity_kind_to_symbol_kind(node.kind);
+            let kind = entity_kind_to_symbol_kind(&node.kind);
             let range = position::span_to_range(&node.span);
 
             #[allow(deprecated)]

@@ -10,14 +10,16 @@ behavior load_plugin_manifests "Load Plugin Manifests" {
 
   contract """
     At startup, the compiler MUST read the plugins list from specforge.spec
-    and load each plugin's manifest. The manifest MUST declare the entity
-    types, ID prefixes, edge types, and validation rules the plugin adds.
-    Missing plugins MUST produce a diagnostic, not a crash.
+    and locate each plugin's Wasm manifest. The manifest MUST declare the
+    entity types, ID prefixes, edge types, validation rules, wasmPath to
+    the .wasm binary, and optional peer dependencies. Missing plugins or
+    unloadable .wasm binaries MUST produce a diagnostic, not a crash.
   """
 
   verify unit "installed plugin manifest is loaded"
   verify unit "missing plugin produces diagnostic"
   verify unit "manifest declares prefixes and validations"
+  verify unit "manifest includes wasmPath to .wasm binary"
 }
 
 behavior register_plugin_prefixes "Register Plugin Prefixes" {
@@ -26,13 +28,14 @@ behavior register_plugin_prefixes "Register Plugin Prefixes" {
 
   contract """
     After loading manifests, the compiler MUST register each plugin's
-    ID prefixes in the prefix registry. When resolving references, the
-    registry MUST be consulted to determine which module owns each prefix
-    and whether soft resolution applies.
+    entity types. During the initialize() Wasm export, plugins register
+    types via the specforge.register_entity host function. When resolving
+    references, the registry MUST be consulted to determine which module
+    owns each entity type and whether soft resolution applies.
   """
 
-  verify unit "plugin prefixes are registered"
-  verify unit "unregistered prefix triggers soft resolution"
+  verify unit "plugin entity types are registered via host function"
+  verify unit "unregistered type triggers soft resolution"
 }
 
 behavior load_provider_configurations "Load Provider Configurations" {
@@ -73,14 +76,17 @@ behavior execute_generator_plugins "Execute Generator Plugins" {
 
   contract """
     When specforge gen invokes a generator plugin, the compiler MUST
-    serialize the graph to JSON, pipe it to the plugin's stdin, and
-    collect generated files from stdout. Plugin stderr MUST be captured
-    and forwarded as diagnostics.
+    call the plugin's generate() Wasm export. The plugin accesses the
+    graph via the specforge.query_graph host function and emits files
+    via specforge.emit_file. Diagnostics are emitted via
+    specforge.emit_diagnostic. Plugin Wasm traps MUST be caught and
+    forwarded as PluginError diagnostics.
   """
 
-  verify unit "graph JSON is piped to plugin stdin"
-  verify unit "generated files are collected from stdout"
-  verify unit "plugin stderr becomes diagnostics"
+  verify unit "graph available via query_graph host function"
+  verify unit "generated files collected via emit_file host function"
+  verify unit "plugin diagnostics forwarded via emit_diagnostic"
+  verify unit "Wasm trap produces PluginError"
 }
 
 behavior remove_plugin "Remove Plugin" {
@@ -130,13 +136,13 @@ behavior validate_generator_configuration "Validate Generator Configuration" {
 
   contract """
     When a gen block in specforge.spec references a generator, the compiler
-    MUST verify the generator is installed and executable. Missing generators
-    MUST produce a diagnostic. Invalid gen config fields MUST produce a
-    diagnostic with the field name and expected format.
+    MUST verify the generator's .wasm binary is loadable. Missing or
+    corrupt .wasm binaries MUST produce a diagnostic. Invalid gen config
+    fields MUST produce a diagnostic with the field name and expected format.
   """
 
-  verify unit "installed generator passes validation"
-  verify unit "missing generator produces diagnostic"
+  verify unit "loadable .wasm binary passes validation"
+  verify unit "missing .wasm binary produces diagnostic"
   verify unit "invalid gen config field produces diagnostic"
 }
 

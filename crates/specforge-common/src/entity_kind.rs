@@ -1,8 +1,9 @@
 use serde::{Deserialize, Serialize};
 use std::fmt;
 
-/// All 16 entity types across core + two official plugins.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+/// All 16 built-in entity types across core + two official plugins,
+/// plus user-defined custom entities via `define` blocks.
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum EntityKind {
     // Core (8)
     Spec,
@@ -25,6 +26,9 @@ pub enum EntityKind {
     Decision,
     Constraint,
     FailureMode,
+
+    // User-defined via `define` blocks
+    Custom(String),
 }
 
 impl EntityKind {
@@ -52,7 +56,7 @@ impl EntityKind {
     }
 
     /// Return the DSL keyword for this entity kind.
-    pub fn keyword(&self) -> &'static str {
+    pub fn keyword(&self) -> &str {
         match self {
             Self::Spec => "spec",
             Self::Invariant => "invariant",
@@ -70,6 +74,7 @@ impl EntityKind {
             Self::Decision => "decision",
             Self::Constraint => "constraint",
             Self::FailureMode => "failure_mode",
+            Self::Custom(name) => name.as_str(),
         }
     }
 
@@ -92,6 +97,8 @@ impl EntityKind {
             | Self::Glossary => super::Module::Product,
 
             Self::Decision | Self::Constraint | Self::FailureMode => super::Module::Governance,
+
+            Self::Custom(_) => super::Module::Core,
         }
     }
 
@@ -111,6 +118,9 @@ impl EntityKind {
     }
 
     /// Returns true if this entity kind can have tests declared (verify/scenario).
+    ///
+    /// For custom entities, this returns false — use `CompilerConfig::is_testable_with_config`
+    /// to check custom entity testability via the define block's `testable` field.
     pub fn is_testable(&self) -> bool {
         matches!(
             self,
@@ -121,6 +131,11 @@ impl EntityKind {
     /// Returns true if this entity kind can contain scenario blocks.
     pub fn supports_scenario(&self) -> bool {
         matches!(self, Self::Behavior | Self::Capability)
+    }
+
+    /// Returns true if this is a custom (user-defined) entity kind.
+    pub fn is_custom(&self) -> bool {
+        matches!(self, Self::Custom(_))
     }
 
     /// All entity kinds, in declaration order.

@@ -20,10 +20,10 @@ impl fmt::Display for Severity {
     }
 }
 
-/// All 38 validation codes.
+/// All 41 validation codes.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 pub enum ValidationCode {
-    // Errors (15)
+    // Errors (16)
     E001, // Unresolved reference
     E002, // Duplicate ID
     E003, // Circular import
@@ -39,8 +39,9 @@ pub enum ValidationCode {
     E013, // Reserved word used as identifier
     E014, // Invalid identifier characters
     E015, // Duplicate scenario title
+    E016, // Test file not found
 
-    // Warnings (18)
+    // Warnings (20)
     W001, // Orphan behavior
     W002, // Orphan feature (product)
     W003, // Unused invariant
@@ -57,8 +58,10 @@ pub enum ValidationCode {
     W015, // Scenario missing when step
     W016, // Scenario missing then step
     W017, // Unused entity (generic)
-    W018, // Deliverable with no capabilities (product)
+    W018, // Testable entity missing test links
     W019, // Constraint with no protected invariants (governance)
+    W020, // Unknown generator (not a built-in and binary not found)
+    W021, // Deliverable with no capabilities (product)
 
     // Info (5)
     I001, // Stale proposal (governance)
@@ -85,7 +88,8 @@ impl ValidationCode {
             | Self::E012
             | Self::E013
             | Self::E014
-            | Self::E015 => Severity::Error,
+            | Self::E015
+            | Self::E016 => Severity::Error,
 
             Self::W001
             | Self::W002
@@ -104,7 +108,9 @@ impl ValidationCode {
             | Self::W016
             | Self::W017
             | Self::W018
-            | Self::W019 => Severity::Warning,
+            | Self::W019
+            | Self::W020
+            | Self::W021 => Severity::Warning,
 
             Self::I001 | Self::I003 | Self::I004 | Self::I005 | Self::I006 => Severity::Info,
         }
@@ -128,6 +134,7 @@ impl ValidationCode {
             Self::E013 => "reserved word used as identifier",
             Self::E014 => "invalid identifier characters",
             Self::E015 => "duplicate scenario title",
+            Self::E016 => "test file not found",
             Self::W001 => "orphan behavior",
             Self::W002 => "orphan feature",
             Self::W003 => "unused invariant",
@@ -144,8 +151,10 @@ impl ValidationCode {
             Self::W015 => "scenario missing when step",
             Self::W016 => "scenario missing then step",
             Self::W017 => "unused entity",
-            Self::W018 => "deliverable with no capabilities",
+            Self::W018 => "testable entity missing test links",
             Self::W019 => "constraint with no protected invariants",
+            Self::W020 => "unknown generator",
+            Self::W021 => "deliverable with no capabilities",
             Self::I001 => "stale proposal",
             Self::I003 => "newer format available",
             Self::I004 => "unknown entity in reference field",
@@ -168,6 +177,7 @@ impl ValidationCode {
             | Self::E013
             | Self::E014
             | Self::E015
+            | Self::E016
             | Self::W001
             | Self::W003
             | Self::W004
@@ -177,6 +187,8 @@ impl ValidationCode {
             | Self::W015
             | Self::W016
             | Self::W017
+            | Self::W018
+            | Self::W020
             | Self::I003
             | Self::I004
             | Self::I005 => super::Module::Core,
@@ -189,7 +201,7 @@ impl ValidationCode {
             | Self::W009
             | Self::W010
             | Self::W011
-            | Self::W018
+            | Self::W021
             | Self::I006 => super::Module::Product,
 
             Self::E005 | Self::W005 | Self::W006 | Self::W019 | Self::I001 => {
@@ -217,6 +229,7 @@ impl fmt::Display for ValidationCode {
             Self::E013 => "E013",
             Self::E014 => "E014",
             Self::E015 => "E015",
+            Self::E016 => "E016",
             Self::W001 => "W001",
             Self::W002 => "W002",
             Self::W003 => "W003",
@@ -235,6 +248,8 @@ impl fmt::Display for ValidationCode {
             Self::W017 => "W017",
             Self::W018 => "W018",
             Self::W019 => "W019",
+            Self::W020 => "W020",
+            Self::W021 => "W021",
             Self::I001 => "I001",
             Self::I003 => "I003",
             Self::I004 => "I004",
@@ -374,7 +389,7 @@ mod tests {
 
     #[test]
     fn validation_code_count() {
-        // 15 errors + 18 warnings + 5 info = 38
+        // 16 errors + 20 warnings + 5 info = 41
         let errors: Vec<_> = [
             ValidationCode::E001,
             ValidationCode::E002,
@@ -391,9 +406,10 @@ mod tests {
             ValidationCode::E013,
             ValidationCode::E014,
             ValidationCode::E015,
+            ValidationCode::E016,
         ]
         .to_vec();
-        assert_eq!(errors.len(), 15);
+        assert_eq!(errors.len(), 16);
         for code in &errors {
             assert_eq!(code.severity(), Severity::Error);
         }
@@ -417,9 +433,11 @@ mod tests {
             ValidationCode::W017,
             ValidationCode::W018,
             ValidationCode::W019,
+            ValidationCode::W020,
+            ValidationCode::W021,
         ]
         .to_vec();
-        assert_eq!(warnings.len(), 18);
+        assert_eq!(warnings.len(), 20);
         for code in &warnings {
             assert_eq!(code.severity(), Severity::Warning);
         }
@@ -437,7 +455,7 @@ mod tests {
             assert_eq!(code.severity(), Severity::Info);
         }
 
-        assert_eq!(errors.len() + warnings.len() + infos.len(), 38);
+        assert_eq!(errors.len() + warnings.len() + infos.len(), 41);
     }
 
     #[test]

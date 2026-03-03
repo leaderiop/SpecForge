@@ -1,3 +1,4 @@
+use crate::pipeline;
 use clap::Args;
 use std::fs;
 use std::path::PathBuf;
@@ -26,16 +27,67 @@ pub fn run(args: AddArgs) -> i32 {
         return 1;
     }
 
-    let spec_path = args.path.join("specforge.spec");
-    if !spec_path.exists() {
-        eprintln!(
-            "specforge: no specforge.spec found in {}\nhint: run `specforge init` first",
-            args.path.display()
-        );
+    // Check for specforge.json first, then fall back to specforge.spec
+    let project_root = pipeline::find_project_root(&args.path);
+
+    match project_root {
+        Some(pipeline::ProjectRoot::Json(json_path)) => {
+            add_to_json(&json_path, &args.plugin)
+        }
+        Some(pipeline::ProjectRoot::Spec(spec_path)) => {
+            add_to_spec(&spec_path, &args.plugin)
+        }
+        None => {
+            // Fall back to looking for specforge.spec in path directly
+            let spec_path = args.path.join("specforge.spec");
+            if spec_path.exists() {
+                add_to_spec(&spec_path, &args.plugin)
+            } else {
+                eprintln!(
+                    "specforge: no specforge.json or specforge.spec found in {}\nhint: run `specforge init` first",
+                    args.path.display()
+                );
+                1
+            }
+        }
+    }
+}
+
+fn add_to_json(json_path: &std::path::Path, plugin: &str) -> i32 {
+    let mut config = match pipeline::load_json_config(json_path) {
+        Ok(c) => c,
+        Err(msg) => {
+            eprintln!("specforge: {msg}");
+            return 1;
+        }
+    };
+
+    if config.plugins.contains(&plugin.to_string()) {
+        eprintln!("specforge: {} is already installed", plugin);
+        return 0;
+    }
+
+    config.plugins.push(plugin.to_string());
+
+    let json = match serde_json::to_string_pretty(&config) {
+        Ok(j) => j,
+        Err(e) => {
+            eprintln!("specforge: error serializing config: {e}");
+            return 1;
+        }
+    };
+
+    if let Err(e) = fs::write(json_path, format!("{json}\n")) {
+        eprintln!("specforge: error writing {}: {e}", json_path.display());
         return 1;
     }
 
-    let content = match fs::read_to_string(&spec_path) {
+    eprintln!("specforge: added {plugin}");
+    0
+}
+
+fn add_to_spec(spec_path: &std::path::Path, plugin: &str) -> i32 {
+    let content = match fs::read_to_string(spec_path) {
         Ok(c) => c,
         Err(e) => {
             eprintln!("specforge: error reading {}: {e}", spec_path.display());
@@ -43,17 +95,17 @@ pub fn run(args: AddArgs) -> i32 {
         }
     };
 
-    match add_plugin_to_spec(&content, &args.plugin) {
+    match add_plugin_to_spec(&content, plugin) {
         AddResult::Added(new_content) => {
-            if let Err(e) = fs::write(&spec_path, new_content) {
+            if let Err(e) = fs::write(spec_path, new_content) {
                 eprintln!("specforge: error writing {}: {e}", spec_path.display());
                 return 1;
             }
-            eprintln!("specforge: added {}", args.plugin);
+            eprintln!("specforge: added {}", plugin);
             0
         }
         AddResult::AlreadyPresent => {
-            eprintln!("specforge: {} is already installed", args.plugin);
+            eprintln!("specforge: {} is already installed", plugin);
             0
         }
         AddResult::NoPluginsBlock => {
@@ -230,6 +282,33 @@ mod tests {
         let content = fs::read_to_string(&spec_path).unwrap();
         assert!(content.contains("\"@specforge/product\""));
         assert!(content.contains("\"@specforge/governance\""));
+    }
+
+    #[test]
+    fn add_plugin_to_json() {
+        let dir = tempfile::tempdir().unwrap();
+        let json_path = dir.path().join("specforge.json");
+        let config = specforge_common::SpecForgeJsonConfig::minimal("test");
+        fs::write(&json_path, serde_json::to_string_pretty(&config).unwrap()).unwrap();
+
+        let exit = add_to_json(&json_path, "@specforge/product");
+        assert_eq!(exit, 0);
+
+        let updated: specforge_common::SpecForgeJsonConfig =
+            serde_json::from_str(&fs::read_to_string(&json_path).unwrap()).unwrap();
+        assert!(updated.plugins.contains(&"@specforge/product".to_string()));
+    }
+
+    #[test]
+    fn add_duplicate_to_json_is_noop() {
+        let dir = tempfile::tempdir().unwrap();
+        let json_path = dir.path().join("specforge.json");
+        let mut config = specforge_common::SpecForgeJsonConfig::minimal("test");
+        config.plugins.push("@specforge/product".to_string());
+        fs::write(&json_path, serde_json::to_string_pretty(&config).unwrap()).unwrap();
+
+        let exit = add_to_json(&json_path, "@specforge/product");
+        assert_eq!(exit, 0); // noop, not error
     }
 
     fn result_name(r: &AddResult) -> &'static str {

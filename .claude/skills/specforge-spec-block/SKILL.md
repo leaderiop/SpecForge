@@ -5,6 +5,8 @@ description: "Write the spec root configuration block in specforge.spec. Declare
 
 # SpecForge Spec Block
 
+> **Note:** `specforge.json` is now the preferred configuration format. `specforge init` creates `specforge.json` instead of a `spec` block. The `spec` block in `.spec` files is still supported for backward compatibility — projects without `specforge.json` continue to extract config from the spec block.
+
 Rules and conventions for authoring the **`spec` root configuration block** in `specforge.spec`. The spec block is a singleton — exactly one per project — that declares project identity and configuration.
 
 ## When to Use

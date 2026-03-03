@@ -120,7 +120,7 @@ pub fn run(args: WatchArgs) -> i32 {
             .map(|p| p.to_string_lossy().to_string())
             .collect();
 
-        result = incremental_rebuild(&result, &changed_strs, |path| {
+        result = incremental_rebuild(&result, &changed_strs, watch_dir, |path| {
             if current_paths.contains(path) {
                 std::fs::read_to_string(path).ok()
             } else {
@@ -149,6 +149,7 @@ pub fn run(args: WatchArgs) -> i32 {
 pub fn incremental_rebuild(
     prev: &pipeline::PipelineResult,
     changed_files: &[String],
+    spec_root_dir: &std::path::Path,
     read_source: impl Fn(&str) -> Option<String>,
 ) -> pipeline::PipelineResult {
     // Compute invalidation set
@@ -190,6 +191,7 @@ pub fn incremental_rebuild(
         &resolved.files,
         &graph_result.graph,
         &resolved.config,
+        spec_root_dir,
     );
 
     let mut all_diagnostics = resolved.diagnostics.sorted();
@@ -300,6 +302,7 @@ mod tests {
             &resolved.files,
             &graph_result.graph,
             &resolved.config,
+            std::path::Path::new("."),
         );
 
         let mut all_diagnostics = resolved.diagnostics.sorted();
@@ -333,7 +336,7 @@ mod tests {
 
         // Fix the file: remove the dangling reference
         let fixed_source = "behavior beh_a { contract \"ok\" }";
-        let result = incremental_rebuild(&initial, &["a.spec".to_string()], |path| {
+        let result = incremental_rebuild(&initial, &["a.spec".to_string()], std::path::Path::new("."), |path| {
             if path == "a.spec" {
                 Some(fixed_source.to_string())
             } else {
@@ -371,6 +374,7 @@ mod tests {
         let result = incremental_rebuild(
             &initial,
             &["a.spec".to_string()],
+            std::path::Path::new("."),
             |path| {
                 if path == "a.spec" {
                     Some("behavior orphan_a { contract \"updated\" }".to_string())
@@ -405,6 +409,7 @@ mod tests {
         let incremental_result = incremental_rebuild(
             &initial,
             &["a.spec".to_string()],
+            std::path::Path::new("."),
             |path| {
                 if path == "a.spec" {
                     Some(fixed_a.to_string())

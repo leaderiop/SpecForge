@@ -1,6 +1,7 @@
 use crate::ast::{AstEntity, ParseError, SpecFile, UseImport};
 use crate::dedent::dedent_triple_quoted;
 use specforge_common::{
+    CustomEntityDef, CustomFieldDef, CustomFieldType,
     EntityId, EntityKind, FieldMap, FieldValue, Scenario, ScenarioStep, ScenarioStepKind,
     SourceSpan, VerifyKind, VerifyStatement,
 };
@@ -24,6 +25,7 @@ pub fn parse(source: &str, file_path: &str) -> SpecFile {
         file_path,
         imports: Vec::new(),
         entities: Vec::new(),
+        custom_defs: Vec::new(),
         errors: Vec::new(),
     };
 
@@ -33,6 +35,7 @@ pub fn parse(source: &str, file_path: &str) -> SpecFile {
         path: file_path.to_string(),
         imports: ctx.imports,
         entities: ctx.entities,
+        custom_defs: ctx.custom_defs,
         errors: ctx.errors,
     }
 }
@@ -42,6 +45,7 @@ struct ParseContext<'a> {
     file_path: &'a str,
     imports: Vec<UseImport>,
     entities: Vec<AstEntity>,
+    custom_defs: Vec<CustomEntityDef>,
     errors: Vec<ParseError>,
 }
 
@@ -71,14 +75,34 @@ impl<'a> ParseContext<'a> {
 }
 
 fn walk_root(ctx: &mut ParseContext, root: Node) {
+    // Pass 1: collect define blocks to know which keywords are custom entities
     let mut cursor = root.walk();
     for child in root.children(&mut cursor) {
+        if child.kind() == "define_block" {
+            parse_define_block(ctx, child);
+        }
+    }
+
+    // Build the set of custom entity names for pass 2
+    let custom_names: std::collections::HashSet<String> = ctx
+        .custom_defs
+        .iter()
+        .map(|d| d.name.clone())
+        .collect();
+
+    // Pass 2: parse all blocks (define_block is skipped since already processed)
+    let mut cursor2 = root.walk();
+    for child in root.children(&mut cursor2) {
         match child.kind() {
             "use_import" => parse_use_import(ctx, child),
             "comment" => {} // skip
             "ERROR" => {
-                ctx.error(child, format!("syntax error: {}", ctx.node_text(child)));
+                // Try to parse as a custom entity instance first
+                if !try_parse_error_as_custom_entity(ctx, child, &custom_names) {
+                    ctx.error(child, format!("syntax error: {}", ctx.node_text(child)));
+                }
             }
+            "define_block" => {} // already processed in pass 1
             kind if kind.ends_with("_block") => parse_block(ctx, child),
             _ => {} // skip other node types
         }
@@ -130,6 +154,7 @@ fn parse_block(ctx: &mut ParseContext, node: Node) {
         "decision_block" => EntityKind::Decision,
         "constraint_block" => EntityKind::Constraint,
         "failure_mode_block" => EntityKind::FailureMode,
+        "define_block" => return parse_define_block(ctx, node),
         _ => {
             ctx.error(node, format!("unknown block type: {kind_str}"));
             return;
@@ -178,6 +203,114 @@ fn parse_block(ctx: &mut ParseContext, node: Node) {
         title,
         fields,
         span: ctx.span(node),
+    });
+}
+
+/// Try to parse an ERROR node as one or more custom entity instances.
+///
+/// When tree-sitter encounters `keyword id [title] { fields }` where `keyword`
+/// is not a built-in entity type, it produces an ERROR node with flat children.
+/// Multiple consecutive custom entity blocks may be grouped into a single ERROR.
+/// This function splits them by detecting entity boundaries (keyword identifiers
+/// at column 0) and reconstructs each entity from the flat children.
+///
+/// Returns `true` if at least one entity was parsed, `false` to fall through.
+fn try_parse_error_as_custom_entity(
+    ctx: &mut ParseContext,
+    error_node: Node,
+    custom_names: &std::collections::HashSet<String>,
+) -> bool {
+    let mut cursor = error_node.walk();
+    let named_children: Vec<Node> = error_node.named_children(&mut cursor).collect();
+
+    // Need at least keyword + id
+    if named_children.len() < 2 {
+        return false;
+    }
+
+    // First named child must be an identifier matching a custom entity name
+    if named_children[0].kind() != "identifier" {
+        return false;
+    }
+    if !custom_names.contains(ctx.node_text(named_children[0])) {
+        return false;
+    }
+
+    // Find entity boundaries: each starts with a custom keyword at column 0
+    // followed by an identifier (the entity id).
+    let mut entity_starts: Vec<usize> = Vec::new();
+    for (i, child) in named_children.iter().enumerate() {
+        if child.kind() == "identifier"
+            && child.start_position().column == 0
+            && custom_names.contains(ctx.node_text(*child))
+            && i + 1 < named_children.len()
+            && named_children[i + 1].kind() == "identifier"
+        {
+            entity_starts.push(i);
+        }
+    }
+
+    if entity_starts.is_empty() {
+        return false;
+    }
+
+    // Parse each entity from its slice of named children
+    for (idx, &start) in entity_starts.iter().enumerate() {
+        let end = if idx + 1 < entity_starts.len() {
+            entity_starts[idx + 1]
+        } else {
+            named_children.len()
+        };
+        parse_custom_entity_from_children(ctx, &named_children[start..end], error_node);
+    }
+
+    true
+}
+
+/// Parse a single custom entity instance from a slice of flat named children.
+///
+/// Expected layout: `[keyword, id, optional_title, key1, val1, key2, val2, ...]`
+fn parse_custom_entity_from_children(
+    ctx: &mut ParseContext,
+    children: &[Node],
+    span_node: Node,
+) {
+    if children.len() < 2 {
+        return;
+    }
+
+    let keyword = ctx.node_text(children[0]).to_string();
+    let id = EntityId::parse(ctx.node_text(children[1]));
+
+    // Optional title (third child is a string)
+    let (title, field_start) = if children.len() > 2 && children[2].kind() == "string" {
+        (Some(unquote(ctx.node_text(children[2]))), 3)
+    } else {
+        (None, 2)
+    };
+
+    // Parse remaining children as flat key-value pairs
+    let mut fields = FieldMap::new();
+    let mut i = field_start;
+    while i + 1 < children.len() {
+        let key_node = children[i];
+        let val_node = children[i + 1];
+        if key_node.kind() == "identifier" {
+            let key = ctx.node_text(key_node).to_string();
+            let value = parse_value(ctx, val_node);
+            fields.insert(key, value);
+            i += 2;
+        } else {
+            i += 1;
+        }
+    }
+
+    ctx.entities.push(AstEntity {
+        kind: EntityKind::Custom(keyword),
+        id,
+        title,
+        fields,
+        span: ctx.span(span_node),
     });
 }
 
@@ -625,6 +758,69 @@ fn extract_type_expr(ctx: &ParseContext, node: Node) -> String {
     ctx.node_text(node).to_string()
 }
 
+/// Parse a `define` block into a `CustomEntityDef`.
+///
+/// Syntax:
+/// ```text
+/// define my_entity {
+///   testable true
+///   description string
+///   severity string
+/// }
+/// ```
+fn parse_define_block(ctx: &mut ParseContext, node: Node) {
+    let name = node
+        .child_by_field_name("name")
+        .map(|n| ctx.node_text(n).to_string())
+        .unwrap_or_default();
+
+    if name.is_empty() {
+        ctx.error(node, "define block must have a name");
+        return;
+    }
+
+    let mut testable = false;
+    let mut fields = Vec::new();
+
+    let mut cursor = node.walk();
+    for child in node.children(&mut cursor) {
+        if child.kind() == "key_value" {
+            let key = child
+                .child_by_field_name("key")
+                .map(|n| ctx.node_text(n).to_string())
+                .unwrap_or_default();
+            let value_node = child.child_by_field_name("value");
+
+            match key.as_str() {
+                "testable" => {
+                    if let Some(vn) = value_node {
+                        testable = ctx.node_text(vn) == "true";
+                    }
+                }
+                _ => {
+                    // Treat as a field definition: key is field name, value is field type
+                    if let Some(vn) = value_node {
+                        let type_str = ctx.node_text(vn);
+                        let field_type =
+                            CustomFieldType::from_str_opt(type_str).unwrap_or(CustomFieldType::String);
+                        fields.push(CustomFieldDef {
+                            name: key,
+                            field_type,
+                            required: false,
+                        });
+                    }
+                }
+            }
+        }
+    }
+
+    ctx.custom_defs.push(CustomEntityDef {
+        name,
+        testable,
+        fields,
+    });
+}
+
 fn unquote(s: &str) -> String {
     s.strip_prefix('"')
         .and_then(|s| s.strip_suffix('"'))
@@ -989,5 +1185,117 @@ invariant INV-SF-2 "Also Good" {
         } else {
             panic!("guarantee should be dedented String");
         }
+    }
+
+    #[test]
+    fn parse_define_block() {
+        let source = r#"define risk_register {
+  testable true
+  severity integer
+  description string
+}"#;
+        let result = parse(source, "test.spec");
+        assert_eq!(result.entities.len(), 0, "define blocks are not entities");
+        assert_eq!(result.custom_defs.len(), 1);
+        assert_eq!(result.custom_defs[0].name, "risk_register");
+        assert!(result.custom_defs[0].testable);
+        assert_eq!(result.custom_defs[0].fields.len(), 2);
+        assert_eq!(result.custom_defs[0].fields[0].name, "severity");
+        assert_eq!(result.custom_defs[0].fields[0].field_type, CustomFieldType::Integer);
+        assert_eq!(result.custom_defs[0].fields[1].name, "description");
+        assert_eq!(result.custom_defs[0].fields[1].field_type, CustomFieldType::String);
+    }
+
+    #[test]
+    fn parse_custom_entity_instance() {
+        let source = r#"define risk_register {
+  severity integer
+  description string
+}
+
+risk_register auth_risk "Auth Risk" {
+  severity 8
+  description "Authentication bypass"
+}"#;
+        let result = parse(source, "test.spec");
+        assert_eq!(result.errors.len(), 0, "no parse errors: {:?}", result.errors);
+        assert_eq!(result.custom_defs.len(), 1);
+        assert_eq!(result.entities.len(), 1);
+
+        let entity = &result.entities[0];
+        assert_eq!(entity.kind, EntityKind::Custom("risk_register".to_string()));
+        assert_eq!(entity.id, EntityId::parse("auth_risk"));
+        assert_eq!(entity.title.as_deref(), Some("Auth Risk"));
+
+        if let Some(FieldValue::Integer(sev)) = entity.fields.get("severity") {
+            assert_eq!(*sev, 8);
+        } else {
+            panic!("severity should be Integer, got: {:?}", entity.fields.get("severity"));
+        }
+
+        if let Some(FieldValue::String(desc)) = entity.fields.get("description") {
+            assert_eq!(desc, "Authentication bypass");
+        } else {
+            panic!("description should be String");
+        }
+    }
+
+    #[test]
+    fn parse_multiple_custom_entities() {
+        let source = r#"define risk_register {
+  severity integer
+  description string
+}
+
+risk_register auth_risk "Auth Risk" {
+  severity 8
+  description "high risk"
+}
+
+risk_register data_risk "Data Risk" {
+  severity 5
+  description "medium risk"
+}"#;
+        let result = parse(source, "test.spec");
+        assert_eq!(result.errors.len(), 0, "no parse errors: {:?}", result.errors);
+        assert_eq!(result.entities.len(), 2);
+
+        assert_eq!(result.entities[0].id, EntityId::parse("auth_risk"));
+        assert_eq!(result.entities[1].id, EntityId::parse("data_risk"));
+    }
+
+    #[test]
+    fn parse_unknown_entity_type_is_error() {
+        let source = r#"unknown_entity foo "Foo" {
+  bar "baz"
+}"#;
+        let result = parse(source, "test.spec");
+        assert_eq!(result.entities.len(), 0);
+        assert!(!result.errors.is_empty(), "should have a syntax error");
+    }
+
+    #[test]
+    fn custom_entity_coexists_with_builtins() {
+        let source = r#"define risk_register {
+  severity integer
+}
+
+invariant data_integrity "Data Integrity" {
+  guarantee """ok"""
+}
+
+risk_register auth_risk "Auth Risk" {
+  severity 8
+}
+
+behavior validate_input "Validate Input" {
+  contract """ok"""
+}"#;
+        let result = parse(source, "test.spec");
+        assert_eq!(result.errors.len(), 0, "no parse errors: {:?}", result.errors);
+        assert_eq!(result.entities.len(), 3);
+        assert_eq!(result.entities[0].kind, EntityKind::Invariant);
+        assert_eq!(result.entities[1].kind, EntityKind::Custom("risk_register".to_string()));
+        assert_eq!(result.entities[2].kind, EntityKind::Behavior);
     }
 }

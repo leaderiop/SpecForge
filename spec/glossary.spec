@@ -85,19 +85,11 @@ glossary {
 
   term "entity ID" {
     definition """
-      A globally unique identifier following the pattern PREFIX-INFIX-NUMBER
-      (e.g., BEH-SF-001). The infix is declared in the spec root and scopes
-      all IDs to the project.
+      A globally unique free-form identifier for an entity. Any valid identifier
+      (letters, digits, underscores, 2-60 chars, starts with a letter). No
+      enforced case convention — projects choose their own naming style.
     """
     aliases ["ID", "entity identifier"]
-  }
-
-  term "infix" {
-    definition """
-      A 2-4 uppercase letter code declared in the spec root block that scopes
-      all entity IDs to a project. For SpecForge, the infix is SF.
-    """
-    context "Not a general programming term — specific to SpecForge ID patterns."
   }
 
   term "traceability chain" {
@@ -140,27 +132,31 @@ glossary {
 
   term "plugin" {
     definition """
-      An extension that adds entity types, edge types, and validation rules
-      to the compiler. Installed via plugins list in the spec root.
-      Official plugins: @specforge/product and @specforge/governance.
+      A Wasm extension (.wasm binary) that adds entity types, edge types, and
+      validation rules to the compiler. Loaded via the Extism runtime. Communicates
+      with the compiler via host functions (specforge.register_entity,
+      specforge.emit_diagnostic, etc.). Official plugins: @specforge/product
+      and @specforge/governance.
     """
     context "Extends the entity model, not the output format. Compare with provider and generator."
   }
 
   term "provider" {
     definition """
-      An extension that registers ref schemes for external reference validation.
-      Validates identifier patterns, resolves URLs, and supports multiple
-      aliased instances. Example: @specforge/gh for GitHub references.
+      A Wasm extension that registers ref schemes for external reference validation.
+      Uses the specforge.http_get host function for network validation. Validates
+      identifier patterns, resolves URLs, and supports multiple aliased instances.
+      Example: @specforge/gh for GitHub references.
     """
     context "Extends ref validation, not the entity model. Compare with plugin and generator."
   }
 
   term "generator" {
     definition """
-      An extension that reads the compiled graph and produces output files.
-      Uses the subprocess I/O protocol (stdin JSON graph, stdout files,
-      stderr diagnostics). Example: @specforge/gen-typescript.
+      A Wasm extension that reads the compiled graph via the specforge.query_graph
+      host function and produces output files via specforge.emit_file. Diagnostics
+      are emitted via specforge.emit_diagnostic. Any language with a Wasm
+      compilation target can implement a generator. Example: @specforge/gen-typescript.
     """
     aliases ["code generator", "output plugin"]
     context "Extends output formats, not the entity model. Compare with plugin and provider."
@@ -334,5 +330,84 @@ glossary {
       testcase elements with classname, duration, and failure messages.
     """
     aliases ["JUnit report", "nextest XML"]
+  }
+
+  // ── Wasm/Extism Runtime ─────────────────────────────────────
+
+  term "Wasm" {
+    definition """
+      WebAssembly — a portable binary instruction format used as the
+      universal plugin runtime for SpecForge. Plugins, providers, and
+      generators compile to .wasm binaries that run in a sandboxed
+      environment via the Extism runtime.
+    """
+    aliases ["WebAssembly", ".wasm"]
+  }
+
+  term "Extism" {
+    definition """
+      A cross-language framework for building WebAssembly plugin systems.
+      SpecForge uses Extism as its sole plugin runtime, providing host
+      function registration, linear memory management, and sandboxed
+      execution. Statically linked into the specforge binary.
+    """
+  }
+
+  term "host function" {
+    definition """
+      A function provided by the SpecForge compiler that Wasm plugins can
+      call during execution. Host functions are the only way plugins
+      interact with the compiler and host system. Standard host functions:
+      specforge.query_graph, specforge.emit_diagnostic, specforge.register_entity,
+      specforge.register_edge, specforge.emit_file, specforge.http_get.
+    """
+    aliases ["host fn"]
+  }
+
+  term "linear memory" {
+    definition """
+      The contiguous block of memory available to a Wasm module. Each
+      plugin instance has its own isolated linear memory, capped at 64MB
+      by default. The host cannot be accessed outside this boundary —
+      attempts to do so result in a trap.
+    """
+  }
+
+  term "AOT compilation" {
+    definition """
+      Ahead-of-Time compilation of .wasm binaries to native machine code.
+      Cached in .specforge/cache/ using content-hash filenames. Reduces
+      plugin cold start to <50ms. Platform-specific — cache entries include
+      the target platform in their filename.
+    """
+    aliases ["ahead-of-time compilation", "AOT"]
+  }
+
+  term "peer dependency" {
+    definition """
+      A plugin's declared requirement that another plugin must be installed
+      and satisfy a semver version range. Peer dependencies determine
+      topological load order and are validated at compiler startup.
+      Unsatisfied peers produce a hard error.
+    """
+  }
+
+  term "sandbox policy" {
+    definition """
+      A configuration object that defines the security boundaries for a
+      Wasm plugin: maximum memory, execution time limit, allowed filesystem
+      paths, allowed network domains, and access levels. Enforced by the
+      Extism runtime and host function implementations.
+    """
+  }
+
+  term "PDK" {
+    definition """
+      Plugin Development Kit — the set of libraries, templates, and
+      documentation for authoring SpecForge Wasm plugins. Available for
+      Rust, Go, JavaScript/TypeScript, and other languages with Wasm
+      compilation targets. Accessed via specforge plugin init.
+    """
+    aliases ["Plugin Development Kit"]
   }
 }

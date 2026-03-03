@@ -154,7 +154,7 @@ fn field_name_completions(source: &str, line: u32, col: u32) -> Option<Vec<Compl
     let entity_kind = find_enclosing_entity_kind(source, line)?;
 
     let prefix = get_typed_prefix(source, line, col);
-    let fields = fields_for_kind(entity_kind);
+    let fields = fields_for_kind(&entity_kind);
 
     let items: Vec<CompletionItem> = fields
         .iter()
@@ -223,7 +223,7 @@ fn find_enclosing_entity_kind(source: &str, line: u32) -> Option<EntityKind> {
 }
 
 /// Return field names valid for a given entity kind.
-fn fields_for_kind(kind: EntityKind) -> &'static [&'static str] {
+fn fields_for_kind(kind: &EntityKind) -> &'static [&'static str] {
     match kind {
         EntityKind::Behavior => &[
             "contract",
@@ -285,6 +285,7 @@ fn fields_for_kind(kind: EntityKind) -> &'static [&'static str] {
         EntityKind::Glossary => &["terms"],
         EntityKind::Spec => &["name", "version", "plugins", "providers"],
         EntityKind::Ref => &[],
+        EntityKind::Custom(_) => &[],
     }
 }
 

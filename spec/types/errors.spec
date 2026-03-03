@@ -46,8 +46,10 @@ type EmitterError {
 }
 
 type PluginError {
-  _tag       "PluginError"     @literal
-  pluginName string
-  message    string
-  stderr     string            @optional
+  _tag            "PluginError"     @literal
+  pluginName      string
+  message         string
+  wasmTrap        string            @optional
+  lifecycleState  string            @optional
+  peerDependency  string            @optional
 }

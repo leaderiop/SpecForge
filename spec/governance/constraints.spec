@@ -17,10 +17,12 @@ use behaviors/rust-codegen
 use behaviors/rust-collection
 use behaviors/lsp
 use behaviors/extensions
+use behaviors/wasm
 use behaviors/error-reporting
 use behaviors/migration
 use behaviors/formatting
 use invariants/formatting
+use invariants/wasm
 
 constraint incremental_compilation_latency "Incremental Compilation Latency" {
   category    performance
@@ -91,7 +93,8 @@ constraint zero_runtime_dependencies "Zero Runtime Dependencies" {
   metric """
     The specforge-cli and specforge-lsp binaries MUST be statically
     linked with zero runtime dependencies beyond the OS. No Node.js,
-    Python, or JVM required at runtime.
+    Python, or JVM required at runtime. The Extism runtime is statically
+    linked into the binary.
   """
 
   constrains [check_mode_for_ci, go_to_definition]
@@ -230,7 +233,7 @@ constraint code_generation_correctness "Code Generation Correctness" {
     Schema validates with ajv; drift detection has no false positives
   """
 
-  constrains [generate_typescript_interfaces_from_types, generate_port_interfaces, generate_test_stubs, detect_generated_code_drift, verify_adapter_implementations, generate_json_schema_from_types, respect_naming_conventions, generate_readonly_fields, generate_unique_constraints, plugin_subprocess_protocol, incremental_code_generation, support_multiple_languages]
+  constrains [generate_typescript_interfaces_from_types, generate_port_interfaces, generate_test_stubs, detect_generated_code_drift, verify_adapter_implementations, generate_json_schema_from_types, respect_naming_conventions, generate_readonly_fields, generate_unique_constraints, plugin_wasm_protocol, incremental_code_generation, support_multiple_languages]
   protects [entity_id_uniqueness, diagnostic_determinism]
 
   verify unit "generated code compiles and validates correctly"
@@ -288,15 +291,17 @@ constraint extension_system_integrity "Extension System Integrity" {
   priority    must
 
   metric """
-    plugin install/remove never corrupts specforge.spec; provider
-    registration survives reload; generator subprocess failures
-    produce diagnostics, not crashes
+    plugin install/remove never corrupts specforge.spec; Wasm sandbox
+    contains all plugin execution; Wasm traps produce diagnostics, not
+    crashes; provider registration survives reload; timeout enforcement
+    prevents runaway plugins
   """
 
-  constrains [load_plugin_manifests, register_plugin_prefixes, load_provider_configurations, validate_provider_refs, execute_generator_plugins, remove_plugin, list_installed_plugins, custom_entity_types_via_define, validate_generator_configuration, list_configured_providers, validate_ref_target_format, validate_provider_kinds]
-  protects [spec_root_singleton, reference_resolution_completeness]
+  constrains [load_plugin_manifests, register_plugin_prefixes, load_provider_configurations, validate_provider_refs, execute_generator_plugins, remove_plugin, list_installed_plugins, custom_entity_types_via_define, validate_generator_configuration, list_configured_providers, validate_ref_target_format, validate_provider_kinds, load_wasm_module, initialize_wasm_plugin, enforce_wasm_sandbox, validate_wasm_peer_dependencies]
+  protects [spec_root_singleton, reference_resolution_completeness, wasm_sandbox_integrity]
 
   verify integration "extension operations never corrupt state or crash"
+  verify integration "Wasm traps produce diagnostics without crashing the compiler"
 }
 
 constraint rust_generation_correctness "Rust Generation Correctness" {
@@ -344,4 +349,56 @@ constraint rust_collection_accuracy "Rust Collection Accuracy" {
   protects [entity_mapping_precedence]
 
   verify unit "entity mapping and report generation are accurate"
+}
+
+constraint wasm_cold_start_budget "Wasm Cold Start Budget" {
+  category    performance
+  priority    must
+
+  metric """
+    Each Wasm plugin MUST load in under 50ms with AOT cache.
+    First load (without cache) SHOULD complete AOT compilation
+    in under 500ms for a typical plugin (<1MB .wasm).
+  """
+
+  constrains [load_wasm_module, aot_compile_wasm_module, cache_aot_artifacts]
+  protects [plugin_load_order_determinism]
+
+  verify load "benchmark AOT-cached plugin load, assert < 50ms"
+  verify load "benchmark first-load AOT compilation for 1MB .wasm, assert < 500ms"
+}
+
+constraint wasm_memory_limit "Wasm Memory Limit" {
+  category    performance
+  priority    must
+
+  metric """
+    Each Wasm plugin instance MUST be limited to 64MB of linear memory.
+    Total memory across all loaded plugins MUST NOT exceed 256MB.
+    Memory limit violations MUST trap the plugin.
+  """
+
+  constrains [enforce_wasm_sandbox, load_wasm_module]
+  protects [wasm_sandbox_integrity]
+
+  verify unit "plugin exceeding 64MB traps"
+  verify unit "total memory exceeding 256MB prevents new plugin load"
+}
+
+constraint wasm_sandbox_enforcement "Wasm Sandbox Enforcement" {
+  category    security
+  priority    must
+
+  metric """
+    Zero sandbox escapes in adversarial testing. Plugins MUST NOT
+    access host filesystem, network, environment variables, or
+    process control outside of designated host functions.
+  """
+
+  constrains [enforce_wasm_sandbox, provide_host_function_emit_file, provide_host_function_http_get]
+  protects [wasm_sandbox_integrity]
+
+  verify integration "adversarial plugin cannot escape sandbox"
+  verify unit "direct filesystem access from Wasm is blocked"
+  verify unit "direct network access from Wasm is blocked"
 }

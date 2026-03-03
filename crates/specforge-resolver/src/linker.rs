@@ -68,9 +68,22 @@ pub struct ResolvedProject {
 /// 1. Build file graph from imports
 /// 2. Detect import cycles (E003)
 /// 3. Build symbol table, detect duplicates (E002)
-/// 4. Extract compiler config from spec root
+/// 4. Extract compiler config from spec root (or use `external_config` if provided)
 /// 5. Resolve references (E001), with soft-ref logic for I004/I005
+///
+/// When `external_config` is `Some`, it is used directly and the spec root block
+/// extraction is skipped. This is the path taken when `specforge.json` provides
+/// the project configuration.
 pub fn resolve(files: Vec<SpecFile>, spec_root: &str) -> ResolvedProject {
+    resolve_with_config(files, spec_root, None)
+}
+
+/// Like [`resolve`], but accepts an optional pre-built `CompilerConfig`.
+pub fn resolve_with_config(
+    files: Vec<SpecFile>,
+    spec_root: &str,
+    external_config: Option<CompilerConfig>,
+) -> ResolvedProject {
     let mut diagnostics = DiagnosticBag::new();
     let mut file_graph = FileGraph::new();
     let mut symbols = SymbolTable::new();
@@ -103,7 +116,7 @@ pub fn resolve(files: Vec<SpecFile>, spec_root: &str) -> ResolvedProject {
         for entity in &file.entities {
             let decl = Declaration {
                 id: entity.id.clone(),
-                kind: entity.kind,
+                kind: entity.kind.clone(),
                 file: file.path.clone(),
                 span: entity.span.clone(),
             };
@@ -123,8 +136,29 @@ pub fn resolve(files: Vec<SpecFile>, spec_root: &str) -> ResolvedProject {
         }
     }
 
-    // Step 4: Extract config from spec root
-    let config = extract_config(&files, &symbols);
+    // Step 4: Extract config from spec root (or use external config)
+    let mut config = match external_config {
+        Some(cfg) => cfg,
+        None => extract_config(&files, &symbols),
+    };
+
+    // Step 4b: Collect custom entity definitions
+    for file in &files {
+        for def in &file.custom_defs {
+            if config.custom_entities.contains_key(&def.name) {
+                diagnostics.push(
+                    Diagnostic::new(
+                        ValidationCode::E002,
+                        SourceSpan::file_start(&file.path),
+                        format!("duplicate custom entity definition `{}`", def.name),
+                    )
+                    .with_help("each `define` name must be unique across all files"),
+                );
+            } else {
+                config.custom_entities.insert(def.name.clone(), def.clone());
+            }
+        }
+    }
 
     // Step 5: Resolve references
     let compiled = CompiledPatterns::from_config(&config);
@@ -302,6 +336,8 @@ fn config_from_spec_entity(entity: &AstEntity) -> CompilerConfig {
         surfaces,
         strict: false,
         gen_configs,
+        coverage: specforge_common::CoverageConfig::default(),
+        custom_entities: std::collections::HashMap::new(),
     }
 }
 

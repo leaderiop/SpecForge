@@ -129,7 +129,7 @@ fn create_entity_stub_actions(
 
         let keyword = kind.keyword();
         let title = id_to_title(&entity_id);
-        let primary_field = primary_field_for_kind(kind);
+        let primary_field = primary_field_for_kind(&kind);
         let line_count = source.lines().count();
 
         let stub = format!(
@@ -347,7 +347,7 @@ fn id_to_title(id: &str) -> String {
 }
 
 /// Return the primary text field for a given entity kind.
-fn primary_field_for_kind(kind: EntityKind) -> &'static str {
+fn primary_field_for_kind(kind: &EntityKind) -> &'static str {
     match kind {
         EntityKind::Behavior => "contract",
         EntityKind::Invariant => "guarantee",
@@ -437,8 +437,8 @@ mod tests {
 
     #[test]
     fn primary_field_coverage() {
-        assert_eq!(primary_field_for_kind(EntityKind::Behavior), "contract");
-        assert_eq!(primary_field_for_kind(EntityKind::Invariant), "guarantee");
-        assert_eq!(primary_field_for_kind(EntityKind::Feature), "problem");
+        assert_eq!(primary_field_for_kind(&EntityKind::Behavior), "contract");
+        assert_eq!(primary_field_for_kind(&EntityKind::Invariant), "guarantee");
+        assert_eq!(primary_field_for_kind(&EntityKind::Feature), "problem");
     }
 }

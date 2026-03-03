@@ -1,12 +1,13 @@
 // Code generation features
 
 use behaviors/codegen
+use behaviors/wasm
 
 feature type_and_port_code_generation "Type and Port Code Generation" {
   behaviors [
     generate_typescript_interfaces_from_types, generate_port_interfaces, generate_json_schema_from_types,
     respect_naming_conventions, generate_readonly_fields, generate_unique_constraints,
-    plugin_subprocess_protocol, incremental_code_generation, support_multiple_languages,
+    call_wasm_generate, incremental_code_generation, support_multiple_languages,
   ]
 
   problem """
@@ -19,7 +20,7 @@ feature type_and_port_code_generation "Type and Port Code Generation" {
     specforge gen produces typed interfaces from type and port blocks.
     Supports TypeScript, JSON Schema, and extensible generator plugins.
     Respects naming conventions, readonly annotations, and unique constraints.
-    Plugin subprocess protocol enables community generators.
+    Wasm plugin protocol enables community generators via host functions.
   """
 }
 

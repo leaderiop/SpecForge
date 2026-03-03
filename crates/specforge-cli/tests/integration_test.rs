@@ -490,13 +490,32 @@ fn w016_scenario_missing_then() {
     assert!(output.contains("[W016]"), "Should contain W016.\nOutput:\n{output}");
 }
 
-// --- W018: deliverable with no capabilities ---
+// --- W018: testable entity missing test links ---
 
 #[test]
-fn w018_deliverable_no_capabilities() {
+fn w018_testable_entity_no_test_links() {
     let (exit_code, output) = specforge_check(&fixture_path("invalid/w018"));
     assert_eq!(exit_code, 0, "W018 is a warning, should exit 0.\nOutput:\n{output}");
     assert!(output.contains("[W018]"), "Should contain W018.\nOutput:\n{output}");
+}
+
+// --- E016: test file not found ---
+
+#[test]
+fn e016_test_file_not_found() {
+    let (exit_code, output) = specforge_check(&fixture_path("invalid/e016"));
+    assert_eq!(exit_code, 1, "Expected exit code 1 for E016.\nOutput:\n{output}");
+    assert!(output.contains("[E016]"), "Should contain E016.\nOutput:\n{output}");
+    assert!(output.contains("nonexistent_test.rs"), "Should mention the missing file.\nOutput:\n{output}");
+}
+
+// --- W021: deliverable with no capabilities ---
+
+#[test]
+fn w021_deliverable_no_capabilities() {
+    let (exit_code, output) = specforge_check(&fixture_path("invalid/w021"));
+    assert_eq!(exit_code, 0, "W021 is a warning, should exit 0.\nOutput:\n{output}");
+    assert!(output.contains("[W021]"), "Should contain W021.\nOutput:\n{output}");
 }
 
 // --- W019: constraint with no protected invariants ---
@@ -603,5 +622,167 @@ fn trace_on_self_spec() {
     assert!(
         stdout.contains("Traceability Report"),
         "Should contain Traceability Report.\nStdout:\n{stdout}"
+    );
+}
+
+// --- specforge.json config tests ---
+
+#[test]
+fn json_config_basic() {
+    let (exit_code, output) = specforge_check(&fixture_path("json_config"));
+    assert_eq!(
+        exit_code, 0,
+        "JSON config basic should exit 0.\nOutput:\n{output}"
+    );
+    assert!(
+        !output.contains("[E"),
+        "Should have no errors.\nOutput:\n{output}"
+    );
+}
+
+#[test]
+fn json_config_with_plugins() {
+    let (exit_code, output) = specforge_check(&fixture_path("json_config_plugins"));
+    assert_eq!(
+        exit_code, 0,
+        "JSON config with plugins should exit 0.\nOutput:\n{output}"
+    );
+    assert!(
+        !output.contains("[E"),
+        "Should have no errors.\nOutput:\n{output}"
+    );
+}
+
+#[test]
+fn json_config_spec_root() {
+    let (exit_code, output) = specforge_check(&fixture_path("json_config_spec_root"));
+    assert_eq!(
+        exit_code, 0,
+        "JSON config with spec_root should exit 0.\nOutput:\n{output}"
+    );
+    assert!(
+        !output.contains("[E"),
+        "Should have no errors.\nOutput:\n{output}"
+    );
+}
+
+#[test]
+fn json_config_precedence() {
+    // Both specforge.json and specforge.spec exist — JSON wins.
+    // The spec block says name="spec-loses", JSON says name="json-wins".
+    // If JSON wins, the spec block is just another entity file and will
+    // have a spec entity named "spec-loses" — this should compile cleanly.
+    let (exit_code, output) = specforge_check(&fixture_path("json_config_precedence"));
+    assert_eq!(
+        exit_code, 0,
+        "JSON config precedence should exit 0.\nOutput:\n{output}"
+    );
+    assert!(
+        !output.contains("[E"),
+        "Should have no errors.\nOutput:\n{output}"
+    );
+}
+
+#[test]
+fn json_config_invalid_json() {
+    let dir = tempfile::tempdir().unwrap();
+    std::fs::write(dir.path().join("specforge.json"), "{ invalid json").unwrap();
+    std::fs::write(
+        dir.path().join("data.spec"),
+        r#"invariant test "Test" { guarantee """ok""" }"#,
+    )
+    .unwrap();
+
+    let (exit_code, _stdout, stderr) = specforge_cmd(&["check", &dir.path().to_string_lossy()]);
+    assert_eq!(
+        exit_code, 1,
+        "Invalid JSON should exit 1.\nStderr:\n{stderr}"
+    );
+    assert!(
+        stderr.contains("error parsing"),
+        "Should mention parse error.\nStderr:\n{stderr}"
+    );
+}
+
+// --- specforge schema command ---
+
+#[test]
+fn schema_prints_json() {
+    let (exit_code, stdout, stderr) = specforge_cmd(&["schema"]);
+    assert_eq!(
+        exit_code, 0,
+        "schema should exit 0.\nStderr:\n{stderr}"
+    );
+    // Should be valid JSON
+    let parsed: serde_json::Value =
+        serde_json::from_str(&stdout).expect("schema output should be valid JSON");
+    assert_eq!(
+        parsed["title"], "SpecForge Configuration",
+        "Schema title should match.\nStdout:\n{stdout}"
+    );
+    assert!(
+        parsed["properties"]["name"].is_object(),
+        "Schema should have name property.\nStdout:\n{stdout}"
+    );
+}
+
+// --- specforge init with JSON ---
+
+#[test]
+fn init_creates_json_config() {
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().to_string_lossy().to_string();
+    let (exit_code, _stdout, stderr) =
+        specforge_cmd(&["init", "--name", "test-init", &path]);
+    assert_eq!(
+        exit_code, 0,
+        "init should exit 0.\nStderr:\n{stderr}"
+    );
+
+    let json_path = dir.path().join("specforge.json");
+    assert!(json_path.exists(), "specforge.json should exist");
+
+    let content = std::fs::read_to_string(&json_path).unwrap();
+    let parsed: serde_json::Value = serde_json::from_str(&content).unwrap();
+    assert_eq!(parsed["name"], "test-init");
+    assert_eq!(parsed["version"], "1.0");
+    assert!(
+        parsed["$schema"].as_str().unwrap().contains("specforge"),
+        "Should have $schema field"
+    );
+
+    // specforge.spec should NOT be created
+    assert!(
+        !dir.path().join("specforge.spec").exists(),
+        "specforge.spec should NOT exist after init"
+    );
+}
+
+// --- Custom entity integration tests ---
+
+#[test]
+fn custom_entity_valid() {
+    let (exit_code, output) = specforge_check(&fixture_path("valid_custom_entity"));
+    assert_eq!(
+        exit_code, 0,
+        "Valid custom entity fixture should exit 0.\nOutput:\n{output}"
+    );
+    // Only W017 orphan warnings expected
+    assert!(
+        !output.contains("[E0"),
+        "Should have no errors.\nOutput:\n{output}"
+    );
+}
+
+#[test]
+fn custom_entity_type_error() {
+    let (exit_code, output) = specforge_check(&fixture_path("invalid_custom_entity"));
+    assert_eq!(
+        exit_code, 1,
+        "Invalid custom entity should exit 1.\nOutput:\n{output}"
+    );
+    assert!(
+        output.contains("[E010]"),
+        "Should contain E010 for wrong field type.\nOutput:\n{output}"
     );
 }

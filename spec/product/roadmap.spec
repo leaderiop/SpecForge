@@ -12,6 +12,7 @@ use features/rust-collection
 use features/migration
 use features/lsp
 use features/extensions
+use features/wasm
 use features/formatting
 use product/libraries
 use behaviors/init
@@ -29,6 +30,7 @@ use behaviors/rust-collection
 use behaviors/migration
 use behaviors/lsp
 use behaviors/extensions
+use behaviors/wasm
 use behaviors/error-reporting
 use behaviors/formatting
 
@@ -108,7 +110,7 @@ roadmap code_generation "Phase 4: Code Generation" {
     generate_typescript_interfaces_from_types, generate_port_interfaces, generate_test_stubs,
     detect_generated_code_drift, verify_adapter_implementations, generate_json_schema_from_types,
     respect_naming_conventions, generate_readonly_fields, generate_unique_constraints,
-    plugin_subprocess_protocol, incremental_code_generation, support_multiple_languages,
+    call_wasm_generate, plugin_wasm_protocol, incremental_code_generation, support_multiple_languages,
   ]
   features   [type_and_port_code_generation, test_stub_generation_and_drift_detection]
   libraries  [specforge_gen_typescript]
@@ -118,7 +120,7 @@ roadmap code_generation "Phase 4: Code Generation" {
     "Test stubs generated from verify statements",
     "Drift detection catches stale generated code",
     "Adapter verification confirms port implementations",
-    "Plugin subprocess protocol works with external generators",
+    "Wasm plugin protocol works with external generators via host functions",
   ]
 }
 
@@ -132,16 +134,42 @@ roadmap extensions_and_coverage "Phase 5: Extensions and Coverage" {
     validate_generator_configuration, list_configured_providers,
     validate_tests_field_references, validate_plugin_testability,
     format_diagnostics_with_source_context, provide_did_you_mean_suggestions, aggregate_diagnostic_summary,
+    load_wasm_module, initialize_wasm_plugin, call_wasm_validate,
+    provide_host_function_query_graph, provide_host_function_emit_diagnostic,
+    provide_host_function_register_entity, provide_host_function_register_edge,
+    provide_host_function_emit_file, provide_host_function_http_get,
+    enforce_wasm_sandbox, aot_compile_wasm_module, cache_aot_artifacts, warm_wasm_engine_instance,
+    validate_wasm_peer_dependencies, topological_sort_plugins,
   ]
-  features   [test_coverage_reporting, test_traceability, plugin_management, provider_based_ref_validation, generator_plugin_protocol]
-  libraries  [specforge_plugin_product, specforge_plugin_governance, specforge_provider_gh, specforge_coverage]
+  features   [test_coverage_reporting, test_traceability, plugin_management, provider_based_ref_validation, generator_plugin_protocol, wasm_plugin_runtime]
+  libraries  [specforge_plugin_product, specforge_plugin_governance, specforge_provider_gh, specforge_coverage, specforge_wasm]
 
   criteria [
     "specforge coverage merges reports and gates on threshold",
     "Plugin add/remove works without breaking existing spec files",
     "Provider-based ref validation catches malformed identifiers",
-    "Generator subprocess protocol handles crashes gracefully",
+    "Wasm plugin runtime loads, initializes, and validates plugins",
+    "Host functions (query_graph, emit_diagnostic, emit_file, http_get) work correctly",
+    "AOT compilation reduces cold start to <50ms per plugin",
+    "Sandbox enforcement blocks unauthorized filesystem and network access",
+    "Peer dependency validation catches missing or incompatible plugins",
     "Custom entity types via define blocks participate in validation",
+  ]
+}
+
+roadmap wasm_plugin_authoring_phase "Phase 5b: Wasm Plugin Authoring" {
+  status     planned
+  behaviors  [
+    scaffold_wasm_plugin_project, build_wasm_plugin, test_wasm_plugin_locally, publish_wasm_plugin,
+  ]
+  features   [wasm_plugin_authoring]
+  libraries  [specforge_wasm]
+
+  criteria [
+    "specforge plugin init scaffolds a working Wasm plugin project",
+    "specforge plugin build produces a valid .wasm binary",
+    "specforge plugin test runs against fixtures in production sandbox",
+    "specforge plugin publish packages and uploads to npm/OCI/GitHub",
   ]
 }
 

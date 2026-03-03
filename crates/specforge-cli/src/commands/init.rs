@@ -1,4 +1,5 @@
 use clap::Args;
+use specforge_common::SpecForgeJsonConfig;
 use std::fs;
 use std::path::PathBuf;
 
@@ -28,6 +29,10 @@ pub struct InitArgs {
     #[arg(long = "plugin")]
     pub plugins: Vec<String>,
 
+    /// Path to .spec files relative to project root (default ".")
+    #[arg(long, default_value = ".")]
+    pub spec_root: String,
+
     /// Directory to initialize in
     #[arg(default_value = ".")]
     pub path: PathBuf,
@@ -37,15 +42,15 @@ pub struct InitArgs {
 pub fn run(args: InitArgs) -> i32 {
     let dir = &args.path;
 
-    // Create spec directory structure
+    // Create directory structure
     if let Err(e) = fs::create_dir_all(dir) {
         eprintln!("specforge: error creating directory: {e}");
         return 1;
     }
 
-    let spec_path = dir.join("specforge.spec");
-    if spec_path.exists() {
-        eprintln!("specforge: {} already exists", spec_path.display());
+    let json_path = dir.join("specforge.json");
+    if json_path.exists() {
+        eprintln!("specforge: {} already exists", json_path.display());
         return 1;
     }
 
@@ -66,10 +71,10 @@ pub fn run(args: InitArgs) -> i32 {
         (name, args.namespace, args.plugins)
     };
 
-    let content = generate_spec(&name, namespace.as_deref(), &plugins);
+    let content = generate_json_config(&name, namespace.as_deref(), &plugins, &args.spec_root);
 
-    if let Err(e) = fs::write(&spec_path, content) {
-        eprintln!("specforge: error writing {}: {e}", spec_path.display());
+    if let Err(e) = fs::write(&json_path, content) {
+        eprintln!("specforge: error writing {}: {e}", json_path.display());
         return 1;
     }
 
@@ -135,25 +140,23 @@ fn prompt_interactive(args: &InitArgs) -> Result<(String, Option<String>, Vec<St
     Ok((name, namespace, plugins))
 }
 
-/// Generate the specforge.spec file content.
-pub fn generate_spec(name: &str, namespace: Option<&str>, plugins: &[String]) -> String {
-    let namespace_line = namespace
-        .map(|ns| format!("  namespace \"{ns}\"\n"))
-        .unwrap_or_default();
+/// Generate the specforge.json content.
+pub fn generate_json_config(
+    name: &str,
+    namespace: Option<&str>,
+    plugins: &[String],
+    spec_root: &str,
+) -> String {
+    let mut config = SpecForgeJsonConfig::minimal(name);
+    config.spec_root = spec_root.to_string();
 
-    if plugins.is_empty() {
-        format!(
-            "spec \"{name}\" {{\n{namespace_line}  version \"1.0\"\n  plugins []\n}}\n"
-        )
-    } else {
-        let plugin_lines: String = plugins
-            .iter()
-            .map(|p| format!("    \"{p}\",\n"))
-            .collect();
-        format!(
-            "spec \"{name}\" {{\n{namespace_line}  version \"1.0\"\n  plugins [\n{plugin_lines}  ]\n}}\n"
-        )
+    if let Some(ns) = namespace {
+        config.namespace = Some(ns.to_string());
     }
+
+    config.plugins = plugins.to_vec();
+
+    serde_json::to_string_pretty(&config).unwrap() + "\n"
 }
 
 #[cfg(test)]
@@ -161,33 +164,37 @@ mod tests {
     use super::*;
 
     #[test]
-    fn init_creates_spec_file() {
+    fn init_creates_json_config() {
         let dir = tempfile::tempdir().unwrap();
         let result = run(InitArgs {
             name: Some("testproject".to_string()),
             namespace: None,
             plugins: vec![],
+            spec_root: ".".to_string(),
             path: dir.path().to_path_buf(),
         });
         assert_eq!(result, 0);
 
-        let spec_path = dir.path().join("specforge.spec");
-        assert!(spec_path.exists());
+        let json_path = dir.path().join("specforge.json");
+        assert!(json_path.exists());
 
-        let content = fs::read_to_string(spec_path).unwrap();
-        assert!(content.contains("testproject"));
-        assert!(content.contains("plugins []"));
+        let content = fs::read_to_string(&json_path).unwrap();
+        let parsed: serde_json::Value = serde_json::from_str(&content).unwrap();
+        assert_eq!(parsed["name"], "testproject");
+        assert_eq!(parsed["version"], "1.0");
+        assert_eq!(parsed["spec_root"], ".");
     }
 
     #[test]
     fn init_fails_if_exists() {
         let dir = tempfile::tempdir().unwrap();
-        fs::write(dir.path().join("specforge.spec"), "existing").unwrap();
+        fs::write(dir.path().join("specforge.json"), "{}").unwrap();
 
         let result = run(InitArgs {
             name: Some("test".to_string()),
             namespace: None,
             plugins: vec![],
+            spec_root: ".".to_string(),
             path: dir.path().to_path_buf(),
         });
         assert_eq!(result, 1);
@@ -203,13 +210,14 @@ mod tests {
                 "@specforge/product".to_string(),
                 "@specforge/governance".to_string(),
             ],
+            spec_root: ".".to_string(),
             path: dir.path().to_path_buf(),
         });
         assert_eq!(result, 0);
 
-        let content = fs::read_to_string(dir.path().join("specforge.spec")).unwrap();
-        assert!(content.contains("\"@specforge/product\""));
-        assert!(content.contains("\"@specforge/governance\""));
+        let content = fs::read_to_string(dir.path().join("specforge.json")).unwrap();
+        assert!(content.contains("@specforge/product"));
+        assert!(content.contains("@specforge/governance"));
     }
 
     #[test]
@@ -219,40 +227,67 @@ mod tests {
             name: Some("auth-service".to_string()),
             namespace: Some("@auth-service".to_string()),
             plugins: vec![],
+            spec_root: ".".to_string(),
             path: dir.path().to_path_buf(),
         });
         assert_eq!(result, 0);
 
-        let content = fs::read_to_string(dir.path().join("specforge.spec")).unwrap();
-        assert!(content.contains("auth-service"));
-        assert!(content.contains("namespace \"@auth-service\""));
+        let content = fs::read_to_string(dir.path().join("specforge.json")).unwrap();
+        let parsed: serde_json::Value = serde_json::from_str(&content).unwrap();
+        assert_eq!(parsed["name"], "auth-service");
+        assert_eq!(parsed["namespace"], "@auth-service");
     }
 
     #[test]
-    fn generate_spec_without_plugins() {
-        let content = generate_spec("test", None, &[]);
-        assert!(content.contains("plugins []"));
-        assert!(content.contains(r#"spec "test""#));
-        assert!(!content.contains("namespace"));
+    fn generate_json_without_plugins() {
+        let content = generate_json_config("test", None, &[], ".");
+        let parsed: serde_json::Value = serde_json::from_str(&content).unwrap();
+        assert_eq!(parsed["name"], "test");
+        assert_eq!(parsed["version"], "1.0");
+        assert_eq!(parsed["plugins"], serde_json::json!([]));
+        assert!(parsed.get("namespace").is_none());
     }
 
     #[test]
-    fn generate_spec_with_namespace() {
-        let content = generate_spec("test", Some("@test"), &[]);
-        assert!(content.contains(r#"namespace "@test""#));
+    fn generate_json_with_namespace() {
+        let content = generate_json_config("test", Some("@test"), &[], ".");
+        let parsed: serde_json::Value = serde_json::from_str(&content).unwrap();
+        assert_eq!(parsed["namespace"], "@test");
     }
 
     #[test]
-    fn generate_spec_with_plugins() {
+    fn generate_json_with_plugins() {
         let plugins = vec![
             "@specforge/product".to_string(),
             "@specforge/governance".to_string(),
         ];
-        let content = generate_spec("test", None, &plugins);
-        assert!(content.contains("\"@specforge/product\""));
-        assert!(content.contains("\"@specforge/governance\""));
-        // Must be well-formed (plugins on separate lines)
-        assert!(content.contains("plugins ["));
-        assert!(content.contains("  ]"));
+        let content = generate_json_config("test", None, &plugins, ".");
+        let parsed: serde_json::Value = serde_json::from_str(&content).unwrap();
+        let plugin_arr = parsed["plugins"].as_array().unwrap();
+        assert_eq!(plugin_arr.len(), 2);
+        assert_eq!(plugin_arr[0], "@specforge/product");
+        assert_eq!(plugin_arr[1], "@specforge/governance");
+    }
+
+    #[test]
+    fn generate_json_with_spec_root() {
+        let content = generate_json_config("test", None, &[], "./spec");
+        let parsed: serde_json::Value = serde_json::from_str(&content).unwrap();
+        assert_eq!(parsed["spec_root"], "./spec");
+    }
+
+    #[test]
+    fn generated_json_is_valid_config() {
+        let content = generate_json_config(
+            "full-test",
+            Some("@ns"),
+            &["@specforge/product".to_string()],
+            "./specs",
+        );
+        let config: SpecForgeJsonConfig = serde_json::from_str(&content).unwrap();
+        assert_eq!(config.name, "full-test");
+        assert_eq!(config.namespace.as_deref(), Some("@ns"));
+        assert_eq!(config.spec_root, "./specs");
+        assert_eq!(config.plugins.len(), 1);
     }
 }

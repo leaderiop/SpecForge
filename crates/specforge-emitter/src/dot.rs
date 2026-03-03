@@ -4,7 +4,7 @@ use specforge_graph::SpecGraph;
 use std::fmt::Write;
 
 /// Map entity kind to a DOT node shape.
-fn dot_shape(kind: EntityKind) -> &'static str {
+fn dot_shape(kind: &EntityKind) -> &'static str {
     match kind {
         EntityKind::Invariant | EntityKind::TypeDef | EntityKind::Port => "box",
         EntityKind::Behavior | EntityKind::Event => "ellipse",
@@ -13,6 +13,7 @@ fn dot_shape(kind: EntityKind) -> &'static str {
         EntityKind::Decision | EntityKind::Constraint | EntityKind::FailureMode => "note",
         EntityKind::Ref => "diamond",
         EntityKind::Spec | EntityKind::Glossary | EntityKind::Roadmap => "tab",
+        EntityKind::Custom(_) => "box",
     }
 }
 
@@ -43,7 +44,7 @@ pub fn render_dot(graph: &SpecGraph) -> GeneratedFile {
             .as_deref()
             .map(|t| format!("\\n{}", dot_escape(t)))
             .unwrap_or_default();
-        let shape = dot_shape(node.kind);
+        let shape = dot_shape(&node.kind);
         writeln!(
             out,
             "  \"{id}\" [label=\"{id}{title}\" shape={shape}];",

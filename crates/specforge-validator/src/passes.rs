@@ -4,6 +4,7 @@ use specforge_common::{
 };
 use specforge_graph::SpecGraph;
 use specforge_parser::SpecFile;
+use std::path::Path;
 
 /// Run all validation passes on the spec graph.
 ///
@@ -18,6 +19,7 @@ pub fn validate(
     files: &[SpecFile],
     graph: &SpecGraph,
     config: &CompilerConfig,
+    spec_root_dir: &Path,
 ) -> DiagnosticBag {
     let mut bag = DiagnosticBag::new();
 
@@ -34,6 +36,10 @@ pub fn validate(
     check_naming_conventions(files, &mut bag);     // E013, E014, W013
     check_unused_entities(graph, &mut bag);         // W017
     check_format_version(config, files, &mut bag);  // I003
+    check_generator_configuration(config, &mut bag);  // W020
+    check_test_file_references(files, spec_root_dir, &mut bag); // E016
+    check_testable_entities_without_test_links(files, &mut bag); // W018
+    check_custom_entity_fields(files, config, &mut bag); // Custom entity validation
 
     // Product passes
     if config.has_plugin(Module::Product) {
@@ -45,7 +51,7 @@ pub fn validate(
         check_orphan_libraries(graph, &mut bag);         // W009
         check_deprecated_feature(files, &mut bag);       // W010
         check_orphan_capabilities(graph, &mut bag);      // W011
-        check_deliverables_with_no_capabilities(graph, &mut bag); // W018
+        check_deliverables_with_no_capabilities(graph, &mut bag); // W021
         check_unused_glossary_terms(files, &mut bag);    // I006
     }
 
@@ -708,7 +714,139 @@ fn check_format_version(config: &CompilerConfig, files: &[SpecFile], bag: &mut D
     }
 }
 
-// ── W018: deliverable with no capabilities (product) ────────────────────
+// ── E016: test file not found ────────────────────────────────────────────
+
+fn check_test_file_references(files: &[SpecFile], spec_root_dir: &Path, bag: &mut DiagnosticBag) {
+    for file in files {
+        for entity in &file.entities {
+            if let Some(FieldValue::StringList(paths)) = entity.fields.get("tests") {
+                for path_str in paths {
+                    let resolved = spec_root_dir.join(path_str);
+                    if !resolved.exists() {
+                        bag.push(
+                            Diagnostic::new(
+                                ValidationCode::E016,
+                                entity.span.clone(),
+                                format!(
+                                    "test file `{path_str}` referenced by `{}` does not exist",
+                                    entity.id.raw()
+                                ),
+                            )
+                            .with_help(format!("expected at {}", resolved.display())),
+                        );
+                    }
+                }
+            }
+        }
+    }
+}
+
+// ── W018: testable entity missing test links ────────────────────────────
+
+fn check_testable_entities_without_test_links(files: &[SpecFile], bag: &mut DiagnosticBag) {
+    for file in files {
+        for entity in &file.entities {
+            if !entity.kind.is_testable() {
+                continue;
+            }
+            let has_verify = entity.fields.get("verify").is_some();
+            let has_scenario = entity.fields.get("scenario").is_some();
+            if (has_verify || has_scenario) && entity.fields.get("tests").is_none() {
+                bag.push(
+                    Diagnostic::new(
+                        ValidationCode::W018,
+                        entity.span.clone(),
+                        format!(
+                            "testable entity `{}` has verify/scenario but no `tests` field",
+                            entity.id.raw()
+                        ),
+                    )
+                    .with_help("add a `tests` field linking to actual test files for traceability"),
+                );
+            }
+        }
+    }
+}
+
+// ── Custom entity field conformance ─────────────────────────────────────
+
+fn check_custom_entity_fields(
+    files: &[SpecFile],
+    config: &CompilerConfig,
+    bag: &mut DiagnosticBag,
+) {
+    use specforge_common::CustomFieldType;
+
+    for file in files {
+        for entity in &file.entities {
+            let name = match &entity.kind {
+                EntityKind::Custom(n) => n,
+                _ => continue,
+            };
+            let def = match config.custom_entities.get(name) {
+                Some(d) => d,
+                None => continue, // No definition found — parser already flagged this
+            };
+
+            // Check required fields are present
+            for field_def in &def.fields {
+                if field_def.required && entity.fields.get(&field_def.name).is_none() {
+                    bag.push(
+                        Diagnostic::new(
+                            ValidationCode::E010,
+                            entity.span.clone(),
+                            format!(
+                                "custom entity `{}` is missing required field `{}`",
+                                entity.id.raw(),
+                                field_def.name
+                            ),
+                        )
+                        .with_help(format!(
+                            "add `{} <value>` to this `{name}` block",
+                            field_def.name
+                        )),
+                    );
+                }
+            }
+
+            // Check field types match
+            for (key, value) in entity.fields.iter() {
+                if let Some(field_def) = def.fields.iter().find(|f| f.name == key) {
+                    let type_ok = match (&field_def.field_type, value) {
+                        (CustomFieldType::String, FieldValue::String(_)) => true,
+                        (CustomFieldType::Integer, FieldValue::Integer(_)) => true,
+                        (CustomFieldType::Bool, FieldValue::Bool(_)) => true,
+                        (CustomFieldType::Reference, FieldValue::Reference(_)) => true,
+                        (CustomFieldType::Reference, FieldValue::Enum(_)) => true, // identifier can be a reference
+                        (CustomFieldType::ReferenceList, FieldValue::ReferenceList(_)) => true,
+                        (CustomFieldType::StringList, FieldValue::StringList(_)) => true,
+                        (CustomFieldType::Enum(_), FieldValue::Enum(_)) => true,
+                        _ => false,
+                    };
+                    if !type_ok {
+                        bag.push(
+                            Diagnostic::new(
+                                ValidationCode::E010,
+                                entity.span.clone(),
+                                format!(
+                                    "field `{key}` in `{}` has wrong type; expected {:?}",
+                                    entity.id.raw(),
+                                    field_def.field_type
+                                ),
+                            )
+                            .with_help(format!(
+                                "the `define {name}` block declares `{key}` as {:?}",
+                                field_def.field_type
+                            )),
+                        );
+                    }
+                }
+            }
+        }
+    }
+}
+
+// ── W021: deliverable with no capabilities (product) ────────────────────
 
 fn check_deliverables_with_no_capabilities(graph: &SpecGraph, bag: &mut DiagnosticBag) {
     for node in graph.nodes_of_kind(EntityKind::Deliverable) {
@@ -719,7 +857,7 @@ fn check_deliverables_with_no_capabilities(graph: &SpecGraph, bag: &mut Diagnost
         if !has_capabilities {
             bag.push(
                 Diagnostic::new(
-                    ValidationCode::W018,
+                    ValidationCode::W021,
                     node.span.clone(),
                     format!("deliverable `{}` has no capabilities", node.id.raw()),
                 )
@@ -845,6 +983,44 @@ fn collect_text_from_fields(fields: &FieldMap, out: &mut String) {
     }
 }
 
+// ── W020: unknown generator ────────────────────────────────────────────
+
+const BUILTIN_GENERATORS: &[&str] = &["typescript", "json-schema"];
+
+fn check_generator_configuration(config: &CompilerConfig, bag: &mut DiagnosticBag) {
+    for gen_config in &config.gen_configs {
+        if BUILTIN_GENERATORS.contains(&gen_config.name.as_str()) {
+            continue;
+        }
+        // Plugin-backed generators (tests field referencing a @-scoped package) are managed
+        // by the plugin system, not expected to be standalone binaries on PATH.
+        if gen_config
+            .tests
+            .as_ref()
+            .is_some_and(|t| t.starts_with('@'))
+        {
+            continue;
+        }
+        // External generator: check if binary exists on PATH
+        if which::which(&gen_config.name).is_err() {
+            bag.push(
+                Diagnostic::new(
+                    ValidationCode::W020,
+                    SourceSpan::file_start("<config>"),
+                    format!(
+                        "generator `{}` is not a built-in generator and was not found on PATH",
+                        gen_config.name
+                    ),
+                )
+                .with_help(format!(
+                    "built-in generators: {}. External generators must be installed and available on PATH.",
+                    BUILTIN_GENERATORS.join(", ")
+                )),
+            );
+        }
+    }
+}
+
 // ── Helpers ────────────────────────────────────────────────────────────
 
 fn get_int_field(entity: &specforge_parser::AstEntity, field: &str) -> Option<i64> {
@@ -860,12 +1036,14 @@ mod tests {
     use specforge_common::{EntityId, FieldMap, FormatVersion, SourceSpan};
     use specforge_graph::build_graph;
     use specforge_parser::SpecFile;
+    use std::path::Path;
 
     fn make_file(path: &str, entities: Vec<specforge_parser::AstEntity>) -> SpecFile {
         SpecFile {
             path: path.to_string(),
             imports: Vec::new(),
             entities,
+            custom_defs: Vec::new(),
             errors: Vec::new(),
         }
     }
@@ -886,7 +1064,7 @@ mod tests {
 
     fn validate_files(files: &[SpecFile], config: &CompilerConfig) -> DiagnosticBag {
         let result = build_graph(files);
-        validate(files, &result.graph, config)
+        validate(files, &result.graph, config, Path::new("."))
     }
 
     fn diags_with_code(bag: &DiagnosticBag, code: ValidationCode) -> Vec<&Diagnostic> {
@@ -1705,10 +1883,10 @@ mod tests {
         assert_eq!(diags_with_code(&bag, ValidationCode::W017).len(), 0);
     }
 
-    // ── W018: deliverable with no capabilities (product) ─────────────
+    // ── W021: deliverable with no capabilities (product) ─────────────
 
     #[test]
-    fn w018_deliverable_with_no_capabilities() {
+    fn w021_deliverable_with_no_capabilities() {
         let files = vec![make_file(
             "test.spec",
             vec![make_entity("cli_app", EntityKind::Deliverable, FieldMap::new())],
@@ -1716,11 +1894,11 @@ mod tests {
         let mut config = CompilerConfig::default();
         config.plugins.push(Module::Product);
         let bag = validate_files(&files, &config);
-        assert_eq!(diags_with_code(&bag, ValidationCode::W018).len(), 1);
+        assert_eq!(diags_with_code(&bag, ValidationCode::W021).len(), 1);
     }
 
     #[test]
-    fn w018_deliverable_with_capabilities_ok() {
+    fn w021_deliverable_with_capabilities_ok() {
         let mut dlv_fields = FieldMap::new();
         dlv_fields.insert(
             "capabilities",
@@ -1736,7 +1914,7 @@ mod tests {
         let mut config = CompilerConfig::default();
         config.plugins.push(Module::Product);
         let bag = validate_files(&files, &config);
-        assert_eq!(diags_with_code(&bag, ValidationCode::W018).len(), 0);
+        assert_eq!(diags_with_code(&bag, ValidationCode::W021).len(), 0);
     }
 
     // ── W019: constraint with no protected invariants (governance) ────
@@ -1819,5 +1997,110 @@ mod tests {
         config.plugins.push(Module::Product);
         let bag = validate_files(&files, &config);
         assert_eq!(diags_with_code(&bag, ValidationCode::I006).len(), 0);
+    }
+
+    // ── E016: test file not found ────────────────────────────────────
+
+    #[test]
+    fn e016_nonexistent_test_file() {
+        let mut fields = FieldMap::new();
+        fields.insert(
+            "tests",
+            FieldValue::StringList(vec!["nonexistent_test.rs".to_string()]),
+        );
+        fields.insert(
+            "verify",
+            FieldValue::VerifyList(vec![specforge_common::VerifyStatement {
+                kind: specforge_common::VerifyKind::Unit,
+                description: "test it".to_string(),
+            }]),
+        );
+        let files = vec![make_file(
+            "test.spec",
+            vec![make_entity("create_user", EntityKind::Behavior, fields)],
+        )];
+        let result = build_graph(&files);
+        let bag = validate(&files, &result.graph, &CompilerConfig::default(), Path::new("."));
+        assert_eq!(diags_with_code(&bag, ValidationCode::E016).len(), 1);
+    }
+
+    #[test]
+    fn e016_existing_test_file_ok() {
+        let dir = tempfile::tempdir().unwrap();
+        let test_file = dir.path().join("test_create_user.rs");
+        std::fs::write(&test_file, "// test").unwrap();
+
+        let mut fields = FieldMap::new();
+        fields.insert(
+            "tests",
+            FieldValue::StringList(vec!["test_create_user.rs".to_string()]),
+        );
+        fields.insert(
+            "verify",
+            FieldValue::VerifyList(vec![specforge_common::VerifyStatement {
+                kind: specforge_common::VerifyKind::Unit,
+                description: "test it".to_string(),
+            }]),
+        );
+        let files = vec![make_file(
+            "test.spec",
+            vec![make_entity("create_user", EntityKind::Behavior, fields)],
+        )];
+        let result = build_graph(&files);
+        let bag = validate(&files, &result.graph, &CompilerConfig::default(), dir.path());
+        assert_eq!(diags_with_code(&bag, ValidationCode::E016).len(), 0);
+    }
+
+    // ── W018: testable entity with verify but no tests ──────────────
+
+    #[test]
+    fn w018_testable_entity_with_verify_but_no_tests() {
+        let mut fields = FieldMap::new();
+        fields.insert(
+            "verify",
+            FieldValue::VerifyList(vec![specforge_common::VerifyStatement {
+                kind: specforge_common::VerifyKind::Unit,
+                description: "test it".to_string(),
+            }]),
+        );
+        let files = vec![make_file(
+            "test.spec",
+            vec![make_entity("create_user", EntityKind::Behavior, fields)],
+        )];
+        let bag = validate_files(&files, &CompilerConfig::default());
+        assert_eq!(diags_with_code(&bag, ValidationCode::W018).len(), 1);
+    }
+
+    #[test]
+    fn w018_testable_entity_with_tests_field_ok() {
+        let mut fields = FieldMap::new();
+        fields.insert(
+            "verify",
+            FieldValue::VerifyList(vec![specforge_common::VerifyStatement {
+                kind: specforge_common::VerifyKind::Unit,
+                description: "test it".to_string(),
+            }]),
+        );
+        fields.insert(
+            "tests",
+            FieldValue::StringList(vec!["tests/create_user_test.rs".to_string()]),
+        );
+        let files = vec![make_file(
+            "test.spec",
+            vec![make_entity("create_user", EntityKind::Behavior, fields)],
+        )];
+        let bag = validate_files(&files, &CompilerConfig::default());
+        assert_eq!(diags_with_code(&bag, ValidationCode::W018).len(), 0);
+    }
+
+    #[test]
+    fn w018_declarative_entity_no_warning() {
+        // Feature is not testable — no W018 even without tests field
+        let files = vec![make_file(
+            "test.spec",
+            vec![make_entity("user_login", EntityKind::Feature, FieldMap::new())],
+        )];
+        let bag = validate_files(&files, &CompilerConfig::default());
+        assert_eq!(diags_with_code(&bag, ValidationCode::W018).len(), 0);
     }
 }

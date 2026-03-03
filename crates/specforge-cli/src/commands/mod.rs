@@ -1,10 +1,15 @@
 pub mod add;
 pub mod check;
+pub mod coverage;
 pub mod gen_cmd;
 pub mod graph_cmd;
 pub mod init;
 pub mod migrate;
+pub mod plugins;
+pub mod providers;
+pub mod remove;
 pub mod render;
+pub mod schema;
 pub mod stats;
 pub mod trace;
 pub mod verify_cmd;
@@ -25,16 +30,26 @@ pub enum Command {
     Add(add::AddArgs),
     /// Check spec files for errors and warnings
     Check(check::CheckArgs),
+    /// Compute test coverage from specforge-report.json files
+    Coverage(coverage::CoverageArgs),
     /// Generate code from spec entities (types, ports, test stubs)
     Gen(gen_cmd::GenArgs),
     /// Initialize a new specforge project
     Init(init::InitArgs),
     /// Migrate spec files to the latest format version
     Migrate(migrate::MigrateArgs),
+    /// List installed plugins
+    Plugins(plugins::PluginsArgs),
+    /// List configured providers
+    Providers(providers::ProvidersArgs),
+    /// Remove a plugin from the current project
+    Remove(remove::RemoveArgs),
     /// Render spec graph to a file format
     Render(render::RenderArgs),
     /// Print spec graph in DOT format to stdout
     Graph(graph_cmd::GraphArgs),
+    /// Print the JSON Schema for specforge.json
+    Schema(schema::SchemaArgs),
     /// Print project statistics to stdout
     Stats(stats::StatsArgs),
     /// Trace entity connections and report traceability gaps

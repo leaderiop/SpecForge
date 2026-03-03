@@ -4,6 +4,7 @@ use invariants/core
 use invariants/validation
 use invariants/rust
 use invariants/formatting
+use invariants/wasm
 
 failure_mode incremental_divergence "Incremental Divergence" {
   invariant  incremental_correctness
@@ -306,5 +307,81 @@ failure_mode rust_proc_macro_silent_drop "Rust Proc Macro Silent Drop" {
     occurrence 1
     detection  2
     rpn        10
+  }
+}
+
+failure_mode wasm_plugin_crash "Wasm Plugin Crash" {
+  invariant  wasm_sandbox_integrity
+  severity   6
+  occurrence 3
+  detection  3
+  rpn        54
+
+  cause      "Plugin Wasm module traps during validate() or generate() — e.g., out-of-bounds memory access, stack overflow, or unreachable instruction"
+  effect     "Plugin fails to complete its validation or generation pass — diagnostics from that plugin are lost, output may be incomplete"
+  mitigation "Extism catches all traps and returns error; compiler wraps call in Result, emits PluginError with trap details; remaining plugins continue execution"
+
+  post_mitigation {
+    severity   6
+    occurrence 1
+    detection  2
+    rpn        12
+  }
+}
+
+failure_mode wasm_host_function_timeout "Wasm Host Function Timeout" {
+  invariant  wasm_sandbox_integrity
+  severity   5
+  occurrence 3
+  detection  2
+  rpn        30
+
+  cause      "specforge.http_get host function makes a request to an unresponsive service — plugin blocks waiting for network response"
+  effect     "Compilation hangs or takes excessively long — developer experiences unexplained delay"
+  mitigation "Enforce timeout on all http_get calls (default 10s); fuel metering caps total execution time per plugin; timeout produces diagnostic with URL"
+
+  post_mitigation {
+    severity   5
+    occurrence 1
+    detection  1
+    rpn        5
+  }
+}
+
+failure_mode peer_dependency_version_mismatch "Peer Dependency Version Mismatch" {
+  invariant  peer_dependency_satisfaction
+  severity   6
+  occurrence 2
+  detection  2
+  rpn        24
+
+  cause      "Plugin A declares peer dependency on Plugin B >=2.0, but Plugin B version 1.x is installed — semver range check fails"
+  effect     "Plugin initialization fails — entity types from dependent plugin are unavailable, soft references degrade silently"
+  mitigation "Hard error on unsatisfied peer dependencies at startup; diagnostic includes installed vs required version; specforge add checks peers before installing"
+
+  post_mitigation {
+    severity   6
+    occurrence 1
+    detection  1
+    rpn        6
+  }
+}
+
+failure_mode aot_cache_corruption "AOT Cache Corruption" {
+  invariant  plugin_load_order_determinism
+  severity   5
+  occurrence 2
+  detection  4
+  rpn        40
+
+  cause      "AOT compiled artifact in .specforge/cache/ is corrupted — e.g., interrupted write, disk error, or platform mismatch after OS upgrade"
+  effect     "Plugin fails to load from cache — confusing error message if corruption not detected; potential wrong behavior if partially loaded"
+  mitigation "Content-hash verification on cache load; corrupted entries evicted and recompiled; platform string in cache filename prevents cross-platform misuse"
+
+  post_mitigation {
+    severity   5
+    occurrence 1
+    detection  1
+    rpn        5
   }
 }

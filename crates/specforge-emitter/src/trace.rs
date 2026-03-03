@@ -22,21 +22,21 @@ const CHAIN_KINDS: &[EntityKind] = &[
     EntityKind::Invariant,
 ];
 
-fn is_chain_kind(kind: EntityKind) -> bool {
-    CHAIN_KINDS.contains(&kind)
+fn is_chain_kind(kind: &EntityKind) -> bool {
+    CHAIN_KINDS.contains(kind)
 }
 
 /// Returns the expected downstream edge type for a chain kind, if any.
-fn chain_downstream_edge(kind: EntityKind) -> Option<EdgeType> {
+fn chain_downstream_edge(kind: &EntityKind) -> Option<EdgeType> {
     CHAIN_EDGES_DOWNSTREAM
         .iter()
-        .find(|(k, _)| *k == kind)
+        .find(|(k, _)| k == kind)
         .map(|(_, e)| *e)
 }
 
 /// Returns true if this kind is the top of the chain (no expected upstream).
-fn is_chain_top(kind: EntityKind) -> bool {
-    kind == EntityKind::Deliverable
+fn is_chain_top(kind: &EntityKind) -> bool {
+    kind == &EntityKind::Deliverable
 }
 
 /// Walk upstream from a node, following incoming edges.
@@ -52,7 +52,7 @@ fn walk_upstream(
         Some(n) => n,
         None => return (links, gaps),
     };
-    let kind = node.kind;
+    let kind = &node.kind;
 
     let incoming = graph.incoming_edges(id);
 
@@ -60,7 +60,7 @@ fn walk_upstream(
         // For chain kinds, check if there's at least one upstream chain connection
         let has_chain_upstream = incoming
             .iter()
-            .any(|(src, _)| is_chain_kind(src.kind));
+            .any(|(src, _)| is_chain_kind(&src.kind));
 
         if !has_chain_upstream && !is_chain_top(kind) {
             gaps.push(TraceGap {
@@ -77,7 +77,7 @@ fn walk_upstream(
         .map(|(src, edge)| {
             (
                 src.id.raw().to_string(),
-                src.kind,
+                src.kind.clone(),
                 edge.edge_type.label().to_string(),
             )
         })
@@ -118,7 +118,7 @@ fn walk_downstream(
         Some(n) => n,
         None => return (links, gaps),
     };
-    let kind = node.kind;
+    let kind = &node.kind;
 
     let outgoing = graph.outgoing_edges(id);
 
@@ -146,7 +146,7 @@ fn walk_downstream(
         .map(|(tgt, edge)| {
             (
                 tgt.id.raw().to_string(),
-                tgt.kind,
+                tgt.kind.clone(),
                 edge.edge_type.label().to_string(),
             )
         })
@@ -178,7 +178,7 @@ fn walk_downstream(
 /// Returns None if entity_id not found in graph.
 pub fn compute_trace(graph: &SpecGraph, entity_id: &str) -> Option<TraceChain> {
     let node = graph.get_node(entity_id)?;
-    let root_kind = node.kind;
+    let root_kind = node.kind.clone();
 
     let mut up_visited = HashSet::new();
     up_visited.insert(entity_id.to_string());
@@ -236,7 +236,7 @@ pub fn compute_full_trace(graph: &SpecGraph) -> TraceReport {
     // Find canonical-chain entities not visited by any deliverable chain
     for kind in CHAIN_KINDS {
         let mut nodes: Vec<_> = graph
-            .nodes_of_kind(*kind)
+            .nodes_of_kind(kind.clone())
             .iter()
             .map(|n| n.id.raw().to_string())
             .collect();

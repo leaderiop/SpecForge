@@ -12,6 +12,7 @@ use features/rust-collection
 use features/migration
 use features/lsp
 use features/extensions
+use features/wasm
 use features/formatting
 
 // ── Developer + CLI ──────────────────────────────────────────
@@ -216,14 +217,16 @@ capability migrate_spec_format "Migrate Spec Format" {
 capability manage_plugins "Manage Plugins" {
   persona  developer
   surface  [cli]
-  features [plugin_management]
+  features [plugin_management, wasm_plugin_runtime]
 
   flow """
     1. Developer runs specforge add @specforge/governance
-    2. System adds plugin to specforge.spec
-    3. New entity types become available
-    4. Developer runs specforge plugins to verify
-    5. Developer can later run specforge remove to uninstall
+    2. System downloads the .wasm plugin binary
+    3. System AOT compiles and caches in .specforge/cache/
+    4. System adds plugin to specforge.spec
+    5. New entity types become available
+    6. Developer runs specforge plugins to verify
+    7. Developer can later run specforge remove to uninstall
   """
 
   scenario "developer manages plugins" {
@@ -608,20 +611,22 @@ capability visualize_spec_graph "Visualize Spec Graph" {
 capability author_a_custom_plugin "Author a Custom Plugin" {
   persona  contributor
   surface  [cli]
-  features [plugin_management]
+  features [plugin_management, wasm_plugin_authoring]
 
   flow """
-    1. Contributor creates a plugin package with a manifest
-    2. Manifest declares entity types, ID prefixes, edge types, and validation rules
-    3. Contributor installs plugin locally via specforge add ./path/to/plugin
-    4. Compiler loads manifest and registers new entity types
-    5. Contributor writes .spec files using the new entities
-    6. Success: custom entities participate in resolution, validation, and orphan detection
-    7. Failure: manifest errors are reported as diagnostics
+    1. Contributor runs specforge plugin init to scaffold a Wasm plugin project
+    2. Contributor implements initialize/validate/generate exports using the PDK
+    3. Contributor runs specforge plugin build to compile to .wasm
+    4. Contributor runs specforge plugin test to verify against fixtures
+    5. Contributor installs locally via specforge add ./path/to/plugin.wasm
+    6. Compiler loads .wasm, calls initialize(), and registers new entity types
+    7. Contributor writes .spec files using the new entities
+    8. Success: custom entities participate in resolution, validation, and orphan detection
+    9. Failure: Wasm traps or manifest errors are reported as diagnostics
   """
 
   scenario "contributor authors a custom plugin" {
-    given "a plugin package with a manifest declaring custom entity types"
+    given "a Wasm plugin built with specforge plugin build declaring custom entity types"
     when "contributor installs the plugin and runs specforge check"
     then "custom entities are validated and participate in resolution and orphan detection"
   }
@@ -652,23 +657,88 @@ capability author_a_custom_provider "Author a Custom Provider" {
 capability author_a_custom_generator "Author a Custom Generator" {
   persona  contributor
   surface  [cli]
-  features [generator_plugin_protocol]
+  features [generator_plugin_protocol, wasm_plugin_authoring]
 
   flow """
-    1. Contributor creates a generator binary or script in any language
-    2. Generator reads JSON graph from stdin
-    3. Generator writes produced files to stdout
-    4. Generator writes diagnostics to stderr
-    5. Contributor configures gen block in specforge.spec pointing to the generator
-    6. Developer runs specforge gen <name>
-    7. Success: generated files are written to the output directory
-    8. Failure: plugin stderr is forwarded as compiler diagnostics
+    1. Contributor scaffolds a generator project with specforge plugin init --generator
+    2. Contributor implements the generate() Wasm export using the PDK
+    3. Generator accesses graph via specforge.query_graph host function
+    4. Generator emits files via specforge.emit_file host function
+    5. Generator emits diagnostics via specforge.emit_diagnostic host function
+    6. Contributor compiles to .wasm with specforge plugin build
+    7. Contributor configures gen block in specforge.spec with wasmPath
+    8. Developer runs specforge gen <name>
+    9. Success: generated files are written to the output directory
+    10. Failure: Wasm traps forwarded as compiler diagnostics
   """
 
   scenario "contributor authors a custom generator" {
-    given "a generator binary configured in a gen block in specforge.spec"
+    given "a generator .wasm binary configured in a gen block in specforge.spec"
     when "developer runs specforge gen with the generator name"
     then "generated files are written to the output directory"
+  }
+}
+
+capability scaffold_wasm_plugin "Scaffold a Wasm Plugin" {
+  persona  contributor
+  surface  [cli]
+  features [wasm_plugin_authoring]
+
+  flow """
+    1. Contributor runs specforge plugin init
+    2. System prompts for plugin name and type (entity plugin, provider, generator)
+    3. System scaffolds project with manifest, src/ skeleton, and build config
+    4. Skeleton implements initialize/validate/generate exports
+    5. README includes PDK documentation and examples
+    6. Success: project is ready for development
+  """
+
+  scenario "contributor scaffolds a Wasm plugin" {
+    given "an empty directory"
+    when "contributor runs specforge plugin init"
+    then "a Wasm plugin project is scaffolded with manifest, source skeleton, and build config"
+  }
+}
+
+capability test_wasm_plugin_locally_cap "Test a Wasm Plugin Locally" {
+  persona  contributor
+  surface  [cli]
+  features [wasm_plugin_authoring]
+
+  flow """
+    1. Contributor runs specforge plugin test
+    2. System builds .wasm binary
+    3. System loads binary in production sandbox
+    4. System runs against test fixtures
+    5. Success: test results printed
+    6. Failure: sandbox violations or Wasm traps reported
+  """
+
+  scenario "contributor tests a Wasm plugin locally" {
+    given "a Wasm plugin project with test fixtures"
+    when "contributor runs specforge plugin test"
+    then "the plugin is built, loaded in the sandbox, and test results are printed"
+  }
+}
+
+capability publish_wasm_plugin_cap "Publish a Wasm Plugin" {
+  persona  contributor
+  surface  [cli]
+  features [wasm_plugin_authoring]
+
+  flow """
+    1. Contributor runs specforge plugin publish
+    2. System validates manifest and .wasm binary
+    3. System packages binary and manifest
+    4. System publishes to configured registry (npm, OCI, or GitHub Releases)
+    5. Success: package URL printed
+    6. Failure: validation errors reported
+  """
+
+  scenario "contributor publishes a Wasm plugin" {
+    given "a Wasm plugin project with a valid manifest and built .wasm binary"
+    when "contributor runs specforge plugin publish"
+    then "the plugin is packaged and published to the configured registry"
   }
 }
 

@@ -11,6 +11,7 @@ use features/rust-collection
 use features/migration
 use features/lsp
 use features/extensions
+use features/wasm
 use features/project-init
 use features/formatting
 use ports/outbound
@@ -67,10 +68,17 @@ library specforge_formatter "specforge-formatter" {
   depends_on   [tree_sitter_specforge, specforge_parser]
 }
 
+library specforge_wasm "specforge-wasm" {
+  family       core
+  features     [wasm_plugin_runtime, wasm_plugin_authoring]
+  depends_on   [specforge_graph]
+  ports_defined [WasmRuntime]
+}
+
 library specforge_cli "specforge-cli" {
   family       platform
   features     [project_initialization, ci_integration, format_version_migration, generator_plugin_protocol]
-  depends_on   [specforge_parser, specforge_resolver, specforge_graph, specforge_validator, specforge_emitter, specforge_watch]
+  depends_on   [specforge_parser, specforge_resolver, specforge_graph, specforge_validator, specforge_emitter, specforge_watch, specforge_wasm]
   ports_defined [CompilerApi]
 }
 
@@ -84,25 +92,25 @@ library specforge_lsp "specforge-lsp" {
 library specforge_plugin_product "specforge-plugin-product" {
   family       plugin
   features     [plugin_management]
-  depends_on   [specforge_validator]
+  depends_on   [specforge_validator, specforge_wasm]
 }
 
 library specforge_plugin_governance "specforge-plugin-governance" {
   family       plugin
   features     [plugin_management]
-  depends_on   [specforge_validator]
+  depends_on   [specforge_validator, specforge_wasm]
 }
 
 library specforge_provider_gh "specforge-provider-gh" {
   family       plugin
   features     [provider_based_ref_validation]
-  depends_on   [specforge_validator]
+  depends_on   [specforge_validator, specforge_wasm]
 }
 
 library specforge_gen_typescript "specforge-gen-typescript" {
   family       plugin
   features     [type_and_port_code_generation, test_stub_generation_and_drift_detection]
-  depends_on   [specforge_graph]
+  depends_on   [specforge_graph, specforge_wasm]
 }
 
 library specforge_coverage "specforge-coverage" {

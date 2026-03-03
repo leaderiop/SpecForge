@@ -54,6 +54,18 @@ port RefValidator {
   method resolveUrl(scheme: string, kind: string, identifier: string) -> Result<string, EmitterError>
 }
 
+port WasmRuntime {
+  direction outbound
+  category  "runtime/wasm"
+
+  method loadModule(wasmPath: string) -> Result<string, PluginError>
+  method callExport(pluginId: string, exportName: string, input: string) -> Result<string, PluginError>
+  method registerHostFunction(name: string, handler: string) -> Result<void, PluginError>
+  method aotCompile(wasmPath: string, cachePath: string) -> Result<string, PluginError>
+  method unloadModule(pluginId: string) -> Result<void, PluginError>
+  method getMemoryUsage(pluginId: string) -> Result<integer, never>
+}
+
 port RustTestOutputParser {
   direction outbound
   category  "testing/rust"

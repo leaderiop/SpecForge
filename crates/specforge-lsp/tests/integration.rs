@@ -39,6 +39,7 @@ impl TestState {
             &resolved.files,
             &graph_result.graph,
             &resolved.config,
+            std::path::Path::new("."),
         );
 
         let mut all_diagnostics = resolved.diagnostics.sorted();
@@ -1462,7 +1463,7 @@ behavior validate_input "Validate Input" {
     let state = TestState::from_source("test.spec", source);
 
     // Replicate entity_kind_to_symbol_kind mapping
-    fn kind_to_symbol(kind: EntityKind) -> SymbolKind {
+    fn kind_to_symbol(kind: &EntityKind) -> SymbolKind {
         match kind {
             EntityKind::Behavior => SymbolKind::FUNCTION,
             EntityKind::Invariant => SymbolKind::PROPERTY,
@@ -1480,13 +1481,14 @@ behavior validate_input "Validate Input" {
             EntityKind::Decision => SymbolKind::CONSTANT,
             EntityKind::Constraint => SymbolKind::TYPE_PARAMETER,
             EntityKind::FailureMode => SymbolKind::NULL,
+            EntityKind::Custom(_) => SymbolKind::VARIABLE,
         }
     }
 
     for entity_id in state.file_index.entities_in("test.spec") {
         let node = state.graph.get_node(entity_id).unwrap();
         // Each outline entry has entity type (via SymbolKind mapping)
-        let _symbol_kind = kind_to_symbol(node.kind);
+        let _symbol_kind = kind_to_symbol(&node.kind);
         // Each outline entry has entity ID
         assert!(!node.id.raw().is_empty(), "outline entry must show entity ID");
         // Each outline entry has the detail (kind as string)

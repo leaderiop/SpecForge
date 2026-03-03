@@ -14,11 +14,12 @@ deliverable specforge_cli_deliverable "specforge-cli" {
     run_spec_validation_in_ci, gate_on_coverage_in_ci, detect_code_drift_in_ci,
     author_a_custom_plugin, author_a_custom_provider, author_a_custom_generator,
     define_custom_entity_types, configure_ref_providers, export_graph_as_json,
+    scaffold_wasm_plugin, test_wasm_plugin_locally_cap, publish_wasm_plugin_cap,
   ]
   libraries    [
     specforge_parser, specforge_resolver, specforge_graph, specforge_validator,
     specforge_emitter, specforge_watch, specforge_cli, specforge_coverage,
-    specforge_formatter,
+    specforge_formatter, specforge_wasm,
   ]
 }
 
@@ -76,6 +77,13 @@ deliverable specforge_gen_rust_deliverable "specforge/gen-rust" {
   personas     [developer, ci]
   capabilities [generate_rust_code_from_spec, collect_rust_test_results_cap, annotate_tests_with_proc_macro, detect_rust_code_drift_in_ci, gate_rust_coverage_in_ci]
   libraries    [specforge_gen_rust, specforge_test_lib, specforge_test_macros_lib]
+}
+
+deliverable specforge_wasm_runtime_deliverable "specforge-wasm" {
+  type         library
+  personas     [developer, contributor]
+  capabilities [manage_plugins, scaffold_wasm_plugin, test_wasm_plugin_locally_cap, publish_wasm_plugin_cap]
+  libraries    [specforge_wasm]
 }
 
 deliverable tree_sitter_specforge_deliverable "tree-sitter-specforge" {

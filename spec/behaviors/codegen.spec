@@ -141,20 +141,21 @@ behavior generate_unique_constraints "Generate Unique Constraints" {
   verify unit "unique annotation produces hint in output"
 }
 
-behavior plugin_subprocess_protocol "Plugin Subprocess Protocol" {
+behavior plugin_wasm_protocol "Plugin Wasm Protocol" {
   types      [PluginManifest]
   ports      [FileSystem]
 
   contract """
-    Generator plugins MUST communicate via the subprocess I/O protocol:
-    the compiler sends the JSON graph on stdin, the plugin writes
-    generated files to stdout, and diagnostics to stderr. The compiler
-    MUST handle plugin crashes gracefully with a PluginError.
+    Generator plugins MUST communicate via the Wasm host function protocol:
+    the plugin accesses the graph via specforge.query_graph, emits generated
+    files via specforge.emit_file, and emits diagnostics via
+    specforge.emit_diagnostic. The compiler MUST handle Wasm traps
+    gracefully with a PluginError.
   """
 
-  verify unit "compiler sends graph on stdin"
-  verify unit "compiler reads files from stdout"
-  verify unit "plugin crash produces PluginError"
+  verify unit "plugin accesses graph via query_graph host function"
+  verify unit "plugin emits files via emit_file host function"
+  verify unit "Wasm trap produces PluginError"
 }
 
 behavior incremental_code_generation "Incremental Code Generation" {

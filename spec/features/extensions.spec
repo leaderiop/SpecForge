@@ -1,9 +1,10 @@
 // Extension features — plugins, providers, generators
 
 use behaviors/extensions
+use behaviors/wasm
 
 feature plugin_management "Plugin Management" {
-  behaviors [load_plugin_manifests, register_plugin_prefixes, remove_plugin, list_installed_plugins, custom_entity_types_via_define]
+  behaviors [load_plugin_manifests, register_plugin_prefixes, remove_plugin, list_installed_plugins, custom_entity_types_via_define, load_wasm_module, initialize_wasm_plugin, validate_wasm_peer_dependencies, topological_sort_plugins]
 
   problem """
     Not every project needs all 16 entity types. Teams need to install
@@ -12,10 +13,12 @@ feature plugin_management "Plugin Management" {
   """
 
   solution """
-    Terraform-style plugin model: specforge add/remove installs plugins,
-    specforge plugins lists them. Cross-plugin references use soft
-    resolution (I004 if plugin missing). Custom entity types via
-    define blocks for domain-specific needs.
+    Terraform-style plugin model: specforge add/remove installs Wasm
+    plugin binaries, specforge plugins lists them. Plugins are .wasm
+    modules loaded via Extism with AOT caching. Peer dependencies are
+    validated at startup and plugins are initialized in topological order.
+    Cross-plugin references use soft resolution (I004 if plugin missing).
+    Custom entity types via define blocks for domain-specific needs.
   """
 }
 
@@ -29,14 +32,16 @@ feature provider_based_ref_validation "Provider-Based Ref Validation" {
   """
 
   solution """
-    Provider model: providers register ref schemes and kinds. The
-    compiler delegates validation to the appropriate provider.
-    Multiple aliased instances of the same provider are supported.
+    Provider model: providers are Wasm modules that register ref schemes
+    and kinds. The compiler delegates validation to the appropriate
+    provider via the Wasm runtime. Providers use the specforge.http_get
+    host function for network validation. Multiple aliased instances of
+    the same provider are supported.
   """
 }
 
 feature generator_plugin_protocol "Generator Plugin Protocol" {
-  behaviors [execute_generator_plugins, validate_generator_configuration]
+  behaviors [execute_generator_plugins, validate_generator_configuration, call_wasm_generate]
 
   problem """
     The built-in code generators cannot cover every language and framework.
@@ -45,8 +50,11 @@ feature generator_plugin_protocol "Generator Plugin Protocol" {
   """
 
   solution """
-    Subprocess I/O protocol: compiler pipes JSON graph to stdin,
-    plugin writes files to stdout, diagnostics to stderr. Any language
-    can implement a generator. No FFI or shared memory required.
+    Wasm host function protocol: generator plugins compile to .wasm
+    binaries and access the graph via the specforge.query_graph host
+    function. Generated files are emitted via specforge.emit_file,
+    diagnostics via specforge.emit_diagnostic. Any language with a
+    Wasm compilation target can implement a generator. Sandboxed
+    execution with no direct filesystem or network access.
   """
 }

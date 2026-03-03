@@ -1,0 +1,180 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://specforge.dev/schema/specforge.json",
+  "title": "SpecForge Configuration",
+  "description": "Configuration file for a SpecForge project. Like tsconfig.json for TypeScript, this file defines project identity, plugins, providers, and code generation targets.",
+  "type": "object",
+  "required": ["name", "version"],
+  "properties": {
+    "$schema": {
+      "type": "string",
+      "description": "JSON Schema reference for IDE autocomplete and validation."
+    },
+    "name": {
+      "type": "string",
+      "description": "Project name. Used in generated output headers and reports.",
+      "minLength": 1
+    },
+    "version": {
+      "type": "string",
+      "description": "Format version of .spec files. The compiler checks compatibility.",
+      "pattern": "^\\d+\\.\\d+$",
+      "default": "1.0"
+    },
+    "spec_root": {
+      "type": "string",
+      "description": "Path to .spec files relative to the project root directory.",
+      "default": "."
+    },
+    "strict": {
+      "type": "boolean",
+      "description": "When true, warnings are treated as errors.",
+      "default": false
+    },
+    "namespace": {
+      "type": "string",
+      "description": "Optional namespace for cross-project references (e.g., \"@auth-service\")."
+    },
+    "display_prefix": {
+      "type": "string",
+      "description": "Optional display prefix for reports (e.g., \"HP\"). Does not affect entity IDs."
+    },
+    "plugins": {
+      "type": "array",
+      "description": "Installed plugin packages that extend the entity model.",
+      "items": {
+        "type": "string",
+        "enum": ["@specforge/product", "@specforge/governance"]
+      },
+      "uniqueItems": true,
+      "default": []
+    },
+    "providers": {
+      "type": "object",
+      "description": "Provider configurations for external reference validation (GitHub, Jira, Figma, etc.).",
+      "additionalProperties": {
+        "$ref": "#/$defs/provider"
+      }
+    },
+    "personas": {
+      "type": "object",
+      "description": "Persona definitions for capability validation. Keys are persona IDs, values are display names.",
+      "additionalProperties": {
+        "type": "string"
+      }
+    },
+    "surfaces": {
+      "type": "object",
+      "description": "Surface definitions for capability validation. Keys are surface IDs, values are display names.",
+      "additionalProperties": {
+        "type": "string"
+      }
+    },
+    "test_dirs": {
+      "type": "array",
+      "description": "Glob patterns for test directories used in traceability analysis.",
+      "items": {
+        "type": "string"
+      },
+      "default": []
+    },
+    "coverage": {
+      "$ref": "#/$defs/coverage",
+      "description": "Test coverage configuration."
+    },
+    "gen": {
+      "type": "object",
+      "description": "Code generation configurations. Keys are generator names (e.g., \"typescript\", \"rust\").",
+      "additionalProperties": {
+        "$ref": "#/$defs/gen"
+      }
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "provider": {
+      "type": "object",
+      "description": "Configuration for a single provider instance.",
+      "required": ["package"],
+      "properties": {
+        "package": {
+          "type": "string",
+          "description": "Provider package name (e.g., \"@specforge/gh\")."
+        },
+        "repo": {
+          "type": "string",
+          "description": "Repository identifier (provider-specific, e.g., \"org/repo\" for GitHub)."
+        },
+        "kinds": {
+          "type": "array",
+          "description": "Valid reference kinds for this provider (e.g., [\"issue\", \"pr\"]).",
+          "items": {
+            "type": "string"
+          }
+        },
+        "id_patterns": {
+          "type": "object",
+          "description": "Regex patterns for validating reference identifiers per kind.",
+          "additionalProperties": {
+            "type": "string"
+          }
+        }
+      },
+      "additionalProperties": true
+    },
+    "coverage": {
+      "type": "object",
+      "description": "Test coverage thresholds and reporting configuration.",
+      "properties": {
+        "threshold": {
+          "type": "integer",
+          "description": "Minimum spec coverage percentage (0-100).",
+          "minimum": 0,
+          "maximum": 100
+        },
+        "require_violation_tests": {
+          "type": "boolean",
+          "description": "Require tests for invariant violation paths.",
+          "default": false
+        },
+        "fail_on_unknown_ids": {
+          "type": "boolean",
+          "description": "Fail if test report contains entity IDs not in the spec.",
+          "default": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "gen": {
+      "type": "object",
+      "description": "Configuration for a single code generator.",
+      "required": ["out"],
+      "properties": {
+        "out": {
+          "type": "string",
+          "description": "Output directory for generated files."
+        },
+        "result": {
+          "type": "string",
+          "description": "How to render Result types in generated code.",
+          "examples": ["hex-di", "plain", "never", "thiserror"]
+        },
+        "readonly": {
+          "type": "boolean",
+          "description": "Whether to add readonly modifiers to generated fields.",
+          "default": false
+        },
+        "naming": {
+          "type": "string",
+          "description": "Naming convention for generated identifiers.",
+          "enum": ["camelCase", "PascalCase", "snake_case", "kebab-case"]
+        },
+        "tests": {
+          "type": "string",
+          "description": "Test framework adapter package (e.g., \"@specforge/vitest\", \"@specforge/rust\")."
+        }
+      },
+      "additionalProperties": true
+    }
+  }
+}

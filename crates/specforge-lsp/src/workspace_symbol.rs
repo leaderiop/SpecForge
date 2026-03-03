@@ -38,7 +38,7 @@ pub fn workspace_symbol(
         #[allow(deprecated)]
         results.push(SymbolInformation {
             name: raw_id,
-            kind: entity_kind_to_symbol_kind(node.kind),
+            kind: entity_kind_to_symbol_kind(&node.kind),
             tags: None,
             deprecated: None,
             location,

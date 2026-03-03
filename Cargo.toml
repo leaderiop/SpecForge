@@ -9,6 +9,7 @@ members = [
     "crates/specforge-validator",
     "crates/specforge-emitter",
     "crates/specforge-codegen",
+    "crates/specforge-coverage",
     "crates/specforge-cli",
     "crates/specforge-lsp",
 ]
@@ -29,6 +30,7 @@ specforge-graph = { path = "crates/specforge-graph" }
 specforge-validator = { path = "crates/specforge-validator" }
 specforge-emitter = { path = "crates/specforge-emitter" }
 specforge-codegen = { path = "crates/specforge-codegen" }
+specforge-coverage = { path = "crates/specforge-coverage" }
 
 # External
 tree-sitter = "0.25"

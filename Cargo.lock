@@ -1337,6 +1337,7 @@ dependencies = [
  "serde_json",
  "specforge-codegen",
  "specforge-common",
+ "specforge-coverage",
  "specforge-emitter",
  "specforge-graph",
  "specforge-parser",
@@ -1369,6 +1370,20 @@ dependencies = [
  "insta",
  "lasso",
  "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "specforge-coverage"
+version = "0.1.0"
+dependencies = [
+ "insta",
+ "serde",
+ "serde_json",
+ "specforge-common",
+ "specforge-graph",
+ "specforge-parser",
+ "walkdir",
 ]
 
 [[package]]
@@ -1446,6 +1461,8 @@ dependencies = [
  "specforge-common",
  "specforge-graph",
  "specforge-parser",
+ "tempfile",
+ "which",
 ]
 
 [[package]]

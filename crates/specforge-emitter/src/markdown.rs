@@ -6,7 +6,7 @@ use specforge_parser::SpecFile;
 use std::fmt::Write;
 
 /// Return the markdown filename for a given entity kind.
-fn plural_filename(kind: EntityKind) -> String {
+fn plural_filename(kind: &EntityKind) -> String {
     match kind {
         EntityKind::Spec => "spec.md".to_string(),
         EntityKind::Glossary => "glossary.md".to_string(),
@@ -24,11 +24,12 @@ fn plural_filename(kind: EntityKind) -> String {
         EntityKind::Decision => "decisions.md".to_string(),
         EntityKind::Constraint => "constraints.md".to_string(),
         EntityKind::FailureMode => "failure_modes.md".to_string(),
+        EntityKind::Custom(name) => format!("{name}.md"),
     }
 }
 
 /// Return a display title for a group of entities of a kind.
-fn plural_title(kind: EntityKind) -> &'static str {
+fn plural_title(kind: &EntityKind) -> &str {
     match kind {
         EntityKind::Spec => "Spec",
         EntityKind::Glossary => "Glossary",
@@ -46,11 +47,12 @@ fn plural_title(kind: EntityKind) -> &'static str {
         EntityKind::Decision => "Decisions",
         EntityKind::Constraint => "Constraints",
         EntityKind::FailureMode => "Failure Modes",
+        EntityKind::Custom(name) => name.as_str(),
     }
 }
 
 /// Extract the primary description field for a given entity kind.
-fn description_field_key(kind: EntityKind) -> &'static str {
+fn description_field_key(kind: &EntityKind) -> &'static str {
     match kind {
         EntityKind::Behavior => "contract",
         EntityKind::Invariant => "guarantee",
@@ -87,8 +89,8 @@ pub fn render_markdown(
     }
 
     // Determine which kinds to render
-    let kinds: Vec<EntityKind> = if let Some(only_kind) = options.only {
-        vec![only_kind]
+    let kinds: Vec<EntityKind> = if let Some(ref only_kind) = options.only {
+        vec![only_kind.clone()]
     } else {
         EntityKind::ALL.to_vec()
     };
@@ -96,7 +98,7 @@ pub fn render_markdown(
     // Generate one file per populated kind
     for kind in &kinds {
         let mut nodes: Vec<_> = graph
-            .nodes_of_kind(*kind)
+            .nodes_of_kind(kind.clone())
             .into_iter()
             .collect();
         nodes.sort_by_key(|n| n.id.raw().to_string());
@@ -106,7 +108,7 @@ pub fn render_markdown(
         }
 
         let mut content = String::new();
-        writeln!(content, "# {}\n", plural_title(*kind)).unwrap();
+        writeln!(content, "# {}\n", plural_title(kind)).unwrap();
 
         for node in &nodes {
             let id = node.id.raw();
@@ -117,9 +119,9 @@ pub fn render_markdown(
 
             // Description
             if let Some(ast_entity) = entity_fields.get(id) {
-                let desc_key = description_field_key(*kind);
+                let desc_key = description_field_key(kind);
                 if let Some(field_value) = ast_entity.fields.get(desc_key) {
-                    let section_title = match *kind {
+                    let section_title = match kind {
                         EntityKind::Behavior => "Contract",
                         EntityKind::Invariant => "Guarantee",
                         EntityKind::Feature => "Problem",
@@ -136,7 +138,7 @@ pub fn render_markdown(
                 }
 
                 // For features, also show solution
-                if *kind == EntityKind::Feature {
+                if kind == &EntityKind::Feature {
                     if let Some(FieldValue::String(sol)) = ast_entity.fields.get("solution") {
                         writeln!(content, "### Solution").unwrap();
                         writeln!(content, "{sol}\n").unwrap();
@@ -152,7 +154,7 @@ pub fn render_markdown(
                     .iter()
                     .map(|(tgt, edge)| {
                         let tgt_id = tgt.id.raw().to_string();
-                        let tgt_kind = tgt.kind;
+                        let tgt_kind = &tgt.kind;
                         let file = plural_filename(tgt_kind);
                         let anchor = to_anchor(&tgt_id);
                         (
@@ -180,7 +182,7 @@ pub fn render_markdown(
 
                     for link in &chain.upstream {
                         if let Some(from_node) = graph.get_node(&link.from) {
-                            let from_kind = from_node.kind;
+                            let from_kind = &from_node.kind;
                             let file = plural_filename(from_kind);
                             let anchor = to_anchor(&link.from);
                             writeln!(
@@ -194,7 +196,7 @@ pub fn render_markdown(
                     }
                     for link in &chain.downstream {
                         if let Some(to_node) = graph.get_node(&link.to) {
-                            let to_kind = to_node.kind;
+                            let to_kind = &to_node.kind;
                             let file = plural_filename(to_kind);
                             let anchor = to_anchor(&link.to);
                             writeln!(
@@ -212,7 +214,7 @@ pub fn render_markdown(
         }
 
         generated.push(GeneratedFile {
-            path: plural_filename(*kind),
+            path: plural_filename(kind),
             content,
         });
     }
@@ -231,15 +233,15 @@ fn render_index(graph: &SpecGraph, config: &CompilerConfig, kinds: &[EntityKind]
     writeln!(content, "## Entities\n").unwrap();
 
     for kind in kinds {
-        let mut nodes: Vec<_> = graph.nodes_of_kind(*kind).into_iter().collect();
+        let mut nodes: Vec<_> = graph.nodes_of_kind(kind.clone()).into_iter().collect();
         nodes.sort_by_key(|n| n.id.raw().to_string());
 
         if nodes.is_empty() {
             continue;
         }
 
-        let file = plural_filename(*kind);
-        writeln!(content, "### {} ({})\n", plural_title(*kind), nodes.len()).unwrap();
+        let file = plural_filename(kind);
+        writeln!(content, "### {} ({})\n", plural_title(kind), nodes.len()).unwrap();
 
         for node in &nodes {
             let id = node.id.raw();
@@ -344,6 +346,7 @@ mod tests {
                 make_entity("validate_input", EntityKind::Behavior, "Validate Input", beh_fields),
                 make_entity("input_validation", EntityKind::Feature, "Input Validation", feat_fields),
             ],
+            custom_defs: vec![],
             errors: vec![],
         }];
 

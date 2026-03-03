@@ -52,7 +52,8 @@ All entity IDs are **variable-name identifiers** (not sequential numeric prefixe
 Canonical `.spec` file structure for a SpecForge project:
 
 ```
-specforge.spec           # spec block (root config) — MUST be at project root
+specforge.json           # project config (preferred) — created by `specforge init`
+specforge.spec           # spec block (legacy config) — only if specforge.json is absent
 invariants/
   data.spec              # invariant blocks grouped by domain
   auth.spec
@@ -222,7 +223,7 @@ behavior create_user "Create User" {
 
 ## Authoring Workflow
 
-1. **Start with `specforge.spec`** — invoke **specforge-spec-block** to declare project identity, version, plugins, and providers
+1. **Start with `specforge init`** — creates `specforge.json` (project config: name, version, plugins, providers, personas, surfaces, gen targets). Alternatively, invoke **specforge-spec-block** to declare config in a `spec` block (legacy path)
 2. **Define types** — invoke **specforge-types-dsl** for domain data shapes
 3. **Define ports** — invoke **specforge-ports-dsl** for interface contracts
 4. **Write invariants** — invoke **specforge-invariants-dsl** for runtime guarantees

@@ -16,6 +16,7 @@ specforge-graph = { workspace = true }
 specforge-validator = { workspace = true }
 specforge-emitter = { workspace = true }
 specforge-codegen = { workspace = true }
+specforge-coverage = { workspace = true }
 clap = { workspace = true }
 ariadne = { workspace = true }
 walkdir = { workspace = true }

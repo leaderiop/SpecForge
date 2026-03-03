@@ -29,7 +29,7 @@ pub fn generate_test_stubs(ctx: &GenerateContext) -> GenerateResult {
 
             let content = generate_stub_file(
                 raw_id,
-                entity.kind,
+                entity.kind.clone(),
                 verify_stmts.map(|v| v.as_slice()),
                 scenarios.map(|s| s.as_slice()),
             );

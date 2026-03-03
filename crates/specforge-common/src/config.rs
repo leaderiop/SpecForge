@@ -1,6 +1,30 @@
 use std::collections::HashMap;
 
-use crate::{FormatVersion, Module};
+use crate::{CustomEntityDef, EntityKind, FormatVersion, Module};
+
+/// Coverage configuration for the `specforge coverage` command.
+#[derive(Debug, Clone)]
+pub struct CoverageConfig {
+    /// Minimum coverage percentage (0–100) to pass the gate.
+    pub threshold: Option<u32>,
+    /// Require violation tests for constraint entities.
+    pub require_violation_tests: bool,
+    /// Fail if `specforge-report.json` contains entity IDs not in the spec graph.
+    pub fail_on_unknown_ids: bool,
+    /// Directories to scan for `specforge-report.json` files.
+    pub test_dirs: Vec<String>,
+}
+
+impl Default for CoverageConfig {
+    fn default() -> Self {
+        Self {
+            threshold: None,
+            require_violation_tests: false,
+            fail_on_unknown_ids: false,
+            test_dirs: Vec::new(),
+        }
+    }
+}
 
 /// Naming convention for generated code identifiers.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
@@ -96,6 +120,10 @@ pub struct CompilerConfig {
     pub strict: bool,
     /// Code generation configurations from `gen <name> { ... }` blocks.
     pub gen_configs: Vec<GenConfig>,
+    /// Coverage configuration.
+    pub coverage: CoverageConfig,
+    /// Custom entity definitions from `define` blocks.
+    pub custom_entities: HashMap<String, CustomEntityDef>,
 }
 
 impl CompilerConfig {
@@ -114,12 +142,30 @@ impl CompilerConfig {
             surfaces: Vec::new(),
             strict: false,
             gen_configs: Vec::new(),
+            coverage: CoverageConfig::default(),
+            custom_entities: HashMap::new(),
         }
     }
 
     /// Check if a plugin is installed.
     pub fn has_plugin(&self, module: Module) -> bool {
         module == Module::Core || self.plugins.contains(&module)
+    }
+
+    /// Check if a name corresponds to a registered custom entity.
+    pub fn is_custom_entity(&self, name: &str) -> bool {
+        self.custom_entities.contains_key(name)
+    }
+
+    /// Check testability for any entity kind, including custom entities.
+    pub fn is_testable_with_config(&self, kind: &EntityKind) -> bool {
+        match kind {
+            EntityKind::Custom(name) => self
+                .custom_entities
+                .get(name)
+                .map_or(false, |def| def.testable),
+            _ => kind.is_testable(),
+        }
     }
 
     /// Check if a persona ID is defined.
