@@ -2,7 +2,6 @@
 
 type CompilerConfig {
   name         string     @readonly
-  infix        string     @readonly
   version      string     @readonly
   plugins      string[]
   providers    ProviderConfig[]  @optional
@@ -57,16 +56,3 @@ type GenConfig {
   wasmPath     string       @optional
 }
 
-type PluginManifest {
-  name              string              @readonly
-  version           string              @readonly
-  wasmPath          string
-  entities          string[]
-  prefixes          string[]
-  edgeTypes         string[]
-  validations       string[]
-  hostFunctions     string[]            @optional
-  peerDependencies  string[]            @optional
-  sandboxPolicy     string              @optional
-  testable          boolean             @optional
-}

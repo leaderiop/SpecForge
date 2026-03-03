@@ -24,18 +24,20 @@ capability initialize_a_new_spec_project "Initialize a New Spec Project" {
 
   flow """
     1. Developer runs specforge init in an empty directory
-    2. System prompts for project name, infix, and version
+    2. System prompts for project name and version
     3. System offers interactive plugin selection
     4. Developer selects desired plugins
-    5. System generates specforge.spec with configuration
+    5. System generates specforge.json with configuration
     6. Success: project is ready for .spec file authoring
   """
 
   scenario "developer initializes a new project" {
-    given "an empty directory with no specforge.spec file"
+    given "an empty directory with no specforge.json file"
     when "developer runs specforge init"
-    then "a specforge.spec file is generated with project name, version, and selected plugins"
+    then "a specforge.json file is generated with project name, version, and selected plugins"
   }
+
+  tests ["../crates/specforge-cli/tests/integration_test.rs"]
 }
 
 capability validate_spec_files "Validate Spec Files" {
@@ -57,6 +59,8 @@ capability validate_spec_files "Validate Spec Files" {
     when "developer runs specforge check"
     then "exit code is 0 and no error diagnostics are printed"
   }
+
+  tests ["../crates/specforge-cli/tests/integration_test.rs"]
 }
 
 capability watch_for_changes "Watch for Changes" {
@@ -79,6 +83,8 @@ capability watch_for_changes "Watch for Changes" {
     when "developer edits a .spec file"
     then "the system incrementally recompiles and prints updated diagnostics"
   }
+
+  tests ["../crates/specforge-cli/tests/integration_test.rs"]
 }
 
 capability generate_documentation "Generate Documentation" {
@@ -99,6 +105,8 @@ capability generate_documentation "Generate Documentation" {
     when "developer runs specforge render markdown ./docs/"
     then "markdown files with cross-reference links are written to the output directory"
   }
+
+  tests ["../crates/specforge-cli/tests/integration_test.rs"]
 }
 
 capability trace_requirements "Trace Requirements" {
@@ -119,6 +127,8 @@ capability trace_requirements "Trace Requirements" {
     when "developer runs specforge trace scaffold_new_project"
     then "the full traceability chain is printed with any missing links flagged"
   }
+
+  tests ["../crates/specforge-cli/tests/integration_test.rs"]
 }
 
 capability generate_code_from_spec "Generate Code from Spec" {
@@ -127,7 +137,7 @@ capability generate_code_from_spec "Generate Code from Spec" {
   features [type_and_port_code_generation, test_stub_generation_and_drift_detection]
 
   flow """
-    1. Developer configures gen block in specforge.spec
+    1. Developer configures gen block in specforge.json
     2. Developer runs specforge gen typescript
     3. System reads type and port blocks from the graph
     4. System generates interfaces, stubs, and test skeletons
@@ -136,10 +146,12 @@ capability generate_code_from_spec "Generate Code from Spec" {
   """
 
   scenario "developer generates code from spec" {
-    given "a gen block configured in specforge.spec for typescript"
+    given "a gen block configured in specforge.json for typescript"
     when "developer runs specforge gen typescript"
     then "interfaces and test stubs are generated in the output directory"
   }
+
+  tests ["../crates/specforge-cli/tests/integration_test.rs"]
 }
 
 capability check_test_coverage "Check Test Coverage" {
@@ -161,6 +173,8 @@ capability check_test_coverage "Check Test Coverage" {
     when "developer runs specforge coverage"
     then "a coverage summary is printed with statistics for all testable entities"
   }
+
+  tests ["../crates/specforge-cli/tests/integration_test.rs"]
 }
 
 capability trace_test_coverage "Trace Test Coverage" {
@@ -191,6 +205,8 @@ capability trace_test_coverage "Trace Test Coverage" {
     then "the traceability matrix shows the behavior as declared only"
     then "a W018 warning is emitted for missing tests field"
   }
+
+  tests ["../crates/specforge-cli/tests/integration_test.rs"]
 }
 
 capability migrate_spec_format "Migrate Spec Format" {
@@ -212,18 +228,51 @@ capability migrate_spec_format "Migrate Spec Format" {
     when "developer runs specforge migrate --from=1.0 --to=2.0"
     then "all .spec files are transformed to format 2.0 and pass specforge check"
   }
+
+  tests ["../crates/specforge-cli/tests/integration_test.rs"]
+}
+
+capability diagnose_plugin_issues "Diagnose Plugin Issues" {
+  persona  developer
+  surface  [cli]
+  features [entity_enhancement, plugin_management, wasm_package_runtime]
+
+  flow """
+    1. Developer runs specforge doctor
+    2. System loads all plugin manifests
+    3. System builds FieldRegistry with all enhancements
+    4. System detects enhancement conflicts
+    5. System checks AOT cache health
+    6. System produces a report listing installed plugins, enhancements,
+       conflicts with actionable resolution suggestions, and cache status
+    7. Developer resolves issues based on report
+  """
+
+  scenario "developer diagnoses enhancement conflicts" {
+    given "two installed plugins that register the same field name on the same entity kind"
+    when "developer runs specforge doctor"
+    then "a report lists the conflict with both plugin names and suggests resolution via enhancement_policy or explicit overrides"
+  }
+
+  scenario "developer diagnoses stale AOT cache" {
+    given "an AOT cache with entries compiled by a previous Extism runtime version"
+    when "developer runs specforge doctor"
+    then "a report flags the stale cache entries and suggests running specforge cache clear"
+  }
+
+  tests ["../crates/specforge-cli/tests/integration_test.rs"]
 }
 
 capability manage_plugins "Manage Plugins" {
   persona  developer
   surface  [cli]
-  features [plugin_management, wasm_plugin_runtime]
+  features [plugin_management, wasm_package_runtime, entity_enhancement]
 
   flow """
     1. Developer runs specforge add @specforge/governance
     2. System downloads the .wasm plugin binary
     3. System AOT compiles and caches in .specforge/cache/
-    4. System adds plugin to specforge.spec
+    4. System adds plugin to specforge.json
     5. New entity types become available
     6. Developer runs specforge plugins to verify
     7. Developer can later run specforge remove to uninstall
@@ -234,6 +283,8 @@ capability manage_plugins "Manage Plugins" {
     when "developer runs specforge add @specforge/governance"
     then "the plugin is listed in specforge plugins output and governance entities are available"
   }
+
+  tests ["../crates/specforge-cli/tests/integration_test.rs"]
 }
 
 capability define_custom_entity_types "Define Custom Entity Types" {
@@ -242,7 +293,7 @@ capability define_custom_entity_types "Define Custom Entity Types" {
   features [plugin_management]
 
   flow """
-    1. Developer adds a define block to specforge.spec
+    1. Developer adds a define block to specforge.json
     2. Define block declares id_prefix, required fields, optional fields, and reference targets
     3. Developer creates .spec files using the custom entity type
     4. Compiler registers the custom type alongside built-in and plugin types
@@ -252,10 +303,12 @@ capability define_custom_entity_types "Define Custom Entity Types" {
   """
 
   scenario "developer defines a custom entity type" {
-    given "a define block in specforge.spec declaring a custom entity type"
+    given "a define block in specforge.json declaring a custom entity type"
     when "developer runs specforge check"
     then "custom entities are validated like built-in entities"
   }
+
+  tests ["../crates/specforge-cli/tests/integration_test.rs"]
 }
 
 capability configure_ref_providers "Configure Ref Providers" {
@@ -264,7 +317,7 @@ capability configure_ref_providers "Configure Ref Providers" {
   features [provider_based_ref_validation]
 
   flow """
-    1. Developer adds a providers block to specforge.spec
+    1. Developer adds a providers block to specforge.json
     2. Developer configures one or more provider instances with aliases
     3. Developer writes ref entities using registered schemes (e.g., gh.issue:42)
     4. Compiler delegates validation to the matching provider instance
@@ -274,10 +327,12 @@ capability configure_ref_providers "Configure Ref Providers" {
   """
 
   scenario "developer configures ref providers" {
-    given "a providers block in specforge.spec with a configured provider instance"
+    given "a providers block in specforge.json with a configured provider instance"
     when "developer runs specforge check with ref entities using the registered scheme"
     then "valid refs are resolved and invalid identifiers produce diagnostics"
   }
+
+  tests ["../crates/specforge-cli/tests/integration_test.rs"]
 }
 
 capability view_project_statistics "View Project Statistics" {
@@ -297,6 +352,8 @@ capability view_project_statistics "View Project Statistics" {
     when "developer runs specforge stats"
     then "a summary table with entity counts, coverage percentage, and orphan count is printed"
   }
+
+  tests ["../crates/specforge-cli/tests/integration_test.rs"]
 }
 
 capability verify_adapter_implementations_cap "Verify Adapter Implementations" {
@@ -317,6 +374,8 @@ capability verify_adapter_implementations_cap "Verify Adapter Implementations" {
     when "developer runs specforge verify typescript"
     then "the system confirms all port methods are implemented or reports missing methods"
   }
+
+  tests ["../crates/specforge-cli/tests/integration_test.rs"]
 }
 
 capability format_spec_files_cap "Format Spec Files" {
@@ -338,6 +397,8 @@ capability format_spec_files_cap "Format Spec Files" {
     when "developer runs specforge format"
     then "all files are formatted to canonical style and a summary is printed"
   }
+
+  tests ["../crates/specforge-cli/tests/integration_test.rs"]
 }
 
 capability check_formatting_in_ci_cap "Check Formatting in CI" {
@@ -358,6 +419,8 @@ capability check_formatting_in_ci_cap "Check Formatting in CI" {
     when "spec files contain formatting inconsistencies"
     then "the pipeline fails with exit code 1 and lists unformatted files"
   }
+
+  tests ["../crates/specforge-cli/tests/integration_test.rs"]
 }
 
 capability format_on_save_cap "Format on Save in IDE" {
@@ -380,6 +443,8 @@ capability format_on_save_cap "Format on Save in IDE" {
     when "developer saves the file"
     then "the file is formatted to canonical style before being written to disk"
   }
+
+  tests ["../crates/specforge-cli/tests/integration_test.rs"]
 }
 
 // ── Developer + IDE ──────────────────────────────────────────
@@ -401,6 +466,8 @@ capability navigate_to_entity_definitions "Navigate to Entity Definitions" {
     when "developer Ctrl+clicks on an entity ID"
     then "the editor navigates to the entity declaration file and line"
   }
+
+  tests ["../crates/specforge-cli/tests/integration_test.rs", "../crates/specforge-lsp/tests/integration.rs"]
 }
 
 capability explore_entity_references "Explore Entity References" {
@@ -420,6 +487,8 @@ capability explore_entity_references "Explore Entity References" {
     when "developer selects Find All References on an entity ID"
     then "all reference sites across the workspace are returned"
   }
+
+  tests ["../crates/specforge-cli/tests/integration_test.rs", "../crates/specforge-lsp/tests/integration.rs"]
 }
 
 capability get_inline_help "Get Inline Help" {
@@ -440,6 +509,8 @@ capability get_inline_help "Get Inline Help" {
     when "developer hovers over an entity ID"
     then "a popup shows the entity title, contract or guarantee, and reference count"
   }
+
+  tests ["../crates/specforge-cli/tests/integration_test.rs", "../crates/specforge-lsp/tests/integration.rs"]
 }
 
 capability rename_entities_safely "Rename Entities Safely" {
@@ -459,6 +530,8 @@ capability rename_entities_safely "Rename Entities Safely" {
     when "developer triggers rename on an entity ID and types a new name"
     then "the declaration and all references are updated atomically across all files"
   }
+
+  tests ["../crates/specforge-cli/tests/integration_test.rs", "../crates/specforge-lsp/tests/integration.rs"]
 }
 
 capability see_live_errors_while_typing "See Live Errors While Typing" {
@@ -480,6 +553,8 @@ capability see_live_errors_while_typing "See Live Errors While Typing" {
     when "developer introduces a broken reference in the file"
     then "red squiggles appear on the broken reference and diagnostics update in real time"
   }
+
+  tests ["../crates/specforge-cli/tests/integration_test.rs", "../crates/specforge-lsp/tests/integration.rs"]
 }
 
 capability generate_test_stubs_from_ide "Generate Test Stubs from IDE" {
@@ -502,6 +577,8 @@ capability generate_test_stubs_from_ide "Generate Test Stubs from IDE" {
     when "developer clicks the lightbulb code action and selects a target language"
     then "a test stub file is generated with the behavior ID and verify descriptions pre-filled"
   }
+
+  tests ["../crates/specforge-cli/tests/integration_test.rs", "../crates/specforge-lsp/tests/integration.rs"]
 }
 
 capability browse_file_structure "Browse File Structure" {
@@ -521,6 +598,8 @@ capability browse_file_structure "Browse File Structure" {
     when "developer opens the outline panel"
     then "a tree of entities in the current file is shown and clicking navigates to each entity"
   }
+
+  tests ["../crates/specforge-cli/tests/integration_test.rs", "../crates/specforge-lsp/tests/integration.rs"]
 }
 
 capability get_syntax_highlighting_without_lsp "Get Syntax Highlighting Without LSP" {
@@ -543,6 +622,8 @@ capability get_syntax_highlighting_without_lsp "Get Syntax Highlighting Without 
     when "developer opens a .spec file"
     then "keywords, strings, entity IDs, and types are syntax-highlighted without an LSP server"
   }
+
+  tests ["../crates/specforge-cli/tests/integration_test.rs", "../crates/specforge-parser/tests/snapshot_tests.rs"]
 }
 
 // ── Architect + CLI ──────────────────────────────────────────
@@ -565,6 +646,8 @@ capability export_graph_as_json "Export Graph as JSON" {
     when "architect runs specforge render json ./output/"
     then "a JSON file with all entities, edges, and metadata is written to the output directory"
   }
+
+  tests ["../crates/specforge-cli/tests/integration_test.rs"]
 }
 
 capability review_full_traceability "Review Full Traceability" {
@@ -585,6 +668,8 @@ capability review_full_traceability "Review Full Traceability" {
     when "architect runs specforge trace"
     then "the full traceability chain is printed with gaps highlighted"
   }
+
+  tests ["../crates/specforge-cli/tests/integration_test.rs"]
 }
 
 capability visualize_spec_graph "Visualize Spec Graph" {
@@ -604,6 +689,8 @@ capability visualize_spec_graph "Visualize Spec Graph" {
     when "architect runs specforge graph piped to dot"
     then "an SVG visualization of the spec graph is produced"
   }
+
+  tests ["../crates/specforge-cli/tests/integration_test.rs"]
 }
 
 // ── Contributor + CLI ────────────────────────────────────────
@@ -611,7 +698,7 @@ capability visualize_spec_graph "Visualize Spec Graph" {
 capability author_a_custom_plugin "Author a Custom Plugin" {
   persona  contributor
   surface  [cli]
-  features [plugin_management, wasm_plugin_authoring]
+  features [plugin_management, wasm_package_authoring]
 
   flow """
     1. Contributor runs specforge plugin init to scaffold a Wasm plugin project
@@ -630,6 +717,8 @@ capability author_a_custom_plugin "Author a Custom Plugin" {
     when "contributor installs the plugin and runs specforge check"
     then "custom entities are validated and participate in resolution and orphan detection"
   }
+
+  tests ["../crates/specforge-cli/tests/integration_test.rs"]
 }
 
 capability author_a_custom_provider "Author a Custom Provider" {
@@ -640,7 +729,7 @@ capability author_a_custom_provider "Author a Custom Provider" {
   flow """
     1. Contributor creates a provider package implementing the ref validation interface
     2. Provider registers supported schemes and kinds
-    3. Contributor configures a test instance in specforge.spec providers block
+    3. Contributor configures a test instance in specforge.json providers block
     4. Developer writes ref entities using the provider's scheme
     5. Compiler delegates ref validation to the provider
     6. Success: valid refs pass, invalid identifiers produce diagnostics
@@ -652,12 +741,14 @@ capability author_a_custom_provider "Author a Custom Provider" {
     when "contributor configures the provider and runs specforge check with ref entities"
     then "valid refs are resolved and invalid identifiers produce diagnostics"
   }
+
+  tests ["../crates/specforge-cli/tests/integration_test.rs"]
 }
 
 capability author_a_custom_generator "Author a Custom Generator" {
   persona  contributor
   surface  [cli]
-  features [generator_plugin_protocol, wasm_plugin_authoring]
+  features [generator_plugin_protocol, wasm_package_authoring]
 
   flow """
     1. Contributor scaffolds a generator project with specforge plugin init --generator
@@ -666,23 +757,25 @@ capability author_a_custom_generator "Author a Custom Generator" {
     4. Generator emits files via specforge.emit_file host function
     5. Generator emits diagnostics via specforge.emit_diagnostic host function
     6. Contributor compiles to .wasm with specforge plugin build
-    7. Contributor configures gen block in specforge.spec with wasmPath
+    7. Contributor configures gen block in specforge.json with wasmPath
     8. Developer runs specforge gen <name>
     9. Success: generated files are written to the output directory
     10. Failure: Wasm traps forwarded as compiler diagnostics
   """
 
   scenario "contributor authors a custom generator" {
-    given "a generator .wasm binary configured in a gen block in specforge.spec"
+    given "a generator .wasm binary configured in a gen block in specforge.json"
     when "developer runs specforge gen with the generator name"
     then "generated files are written to the output directory"
   }
+
+  tests ["../crates/specforge-cli/tests/integration_test.rs"]
 }
 
 capability scaffold_wasm_plugin "Scaffold a Wasm Plugin" {
   persona  contributor
   surface  [cli]
-  features [wasm_plugin_authoring]
+  features [wasm_package_authoring]
 
   flow """
     1. Contributor runs specforge plugin init
@@ -698,12 +791,14 @@ capability scaffold_wasm_plugin "Scaffold a Wasm Plugin" {
     when "contributor runs specforge plugin init"
     then "a Wasm plugin project is scaffolded with manifest, source skeleton, and build config"
   }
+
+  tests ["../crates/specforge-cli/tests/integration_test.rs"]
 }
 
 capability test_wasm_plugin_locally_cap "Test a Wasm Plugin Locally" {
   persona  contributor
   surface  [cli]
-  features [wasm_plugin_authoring]
+  features [wasm_package_authoring]
 
   flow """
     1. Contributor runs specforge plugin test
@@ -719,12 +814,14 @@ capability test_wasm_plugin_locally_cap "Test a Wasm Plugin Locally" {
     when "contributor runs specforge plugin test"
     then "the plugin is built, loaded in the sandbox, and test results are printed"
   }
+
+  tests ["../crates/specforge-cli/tests/integration_test.rs"]
 }
 
 capability publish_wasm_plugin_cap "Publish a Wasm Plugin" {
   persona  contributor
   surface  [cli]
-  features [wasm_plugin_authoring]
+  features [wasm_package_authoring]
 
   flow """
     1. Contributor runs specforge plugin publish
@@ -740,6 +837,8 @@ capability publish_wasm_plugin_cap "Publish a Wasm Plugin" {
     when "contributor runs specforge plugin publish"
     then "the plugin is packaged and published to the configured registry"
   }
+
+  tests ["../crates/specforge-cli/tests/integration_test.rs"]
 }
 
 // ── Developer + CLI (Rust) ───────────────────────────────────
@@ -750,7 +849,7 @@ capability generate_rust_code_from_spec "Generate Rust Code from Spec" {
   features [rust_type_and_port_generation, rust_test_stub_generation]
 
   flow """
-    1. Developer configures gen rust block in specforge.spec
+    1. Developer configures gen rust block in specforge.json
     2. Developer runs specforge gen rust
     3. System reads type and port blocks from the graph
     4. System generates Rust structs, traits, and test stubs
@@ -759,10 +858,12 @@ capability generate_rust_code_from_spec "Generate Rust Code from Spec" {
   """
 
   scenario "developer generates Rust code from spec" {
-    given "a gen rust block configured in specforge.spec with out and test_out directories"
+    given "a gen rust block configured in specforge.json with out and test_out directories"
     when "developer runs specforge gen rust"
     then "Rust structs, traits, and test stubs are generated in the output directories"
   }
+
+  tests ["../crates/specforge-cli/tests/integration_test.rs"]
 }
 
 capability collect_rust_test_results_cap "Collect Rust Test Results" {
@@ -790,6 +891,8 @@ capability collect_rust_test_results_cap "Collect Rust Test Results" {
     when "developer pipes cargo test output to specforge collect rust"
     then "specforge-report.json is emitted with tests mapped via naming convention"
   }
+
+  tests ["../crates/specforge-cli/tests/integration_test.rs"]
 }
 
 capability annotate_tests_with_proc_macro "Annotate Tests with Proc Macro" {
@@ -810,6 +913,8 @@ capability annotate_tests_with_proc_macro "Annotate Tests with Proc Macro" {
     when "developer annotates the test with #[specforge::test(\"validate_input\")] and runs cargo test"
     then "a mapping file in target/specforge/ records the test result for validate_input"
   }
+
+  tests ["../crates/specforge-cli/tests/integration_test.rs"]
 }
 
 capability detect_rust_code_drift_in_ci "Detect Rust Code Drift in CI" {
@@ -830,6 +935,8 @@ capability detect_rust_code_drift_in_ci "Detect Rust Code Drift in CI" {
     when "generated Rust files have stale checksums"
     then "the pipeline fails with exit code 1 and lists the stale file paths"
   }
+
+  tests ["../crates/specforge-cli/tests/integration_test.rs"]
 }
 
 capability gate_rust_coverage_in_ci "Gate on Rust Spec Coverage in CI" {
@@ -850,6 +957,8 @@ capability gate_rust_coverage_in_ci "Gate on Rust Spec Coverage in CI" {
     when "Rust spec coverage is below the 90 percent threshold"
     then "the pipeline fails with exit code 1 and lists uncovered entities"
   }
+
+  tests ["../crates/specforge-cli/tests/integration_test.rs"]
 }
 
 // ── CI + CI Surface ──────────────────────────────────────────
@@ -872,6 +981,8 @@ capability run_spec_validation_in_ci "Run Spec Validation in CI" {
     when "warnings exist in the spec files"
     then "the pipeline fails with exit code 1 and warning details"
   }
+
+  tests ["../crates/specforge-cli/tests/integration_test.rs"]
 }
 
 capability gate_on_coverage_in_ci "Gate on Coverage in CI" {
@@ -891,6 +1002,8 @@ capability gate_on_coverage_in_ci "Gate on Coverage in CI" {
     when "test coverage is below the 90 percent threshold"
     then "the pipeline fails with exit code 1 and a coverage summary"
   }
+
+  tests ["../crates/specforge-cli/tests/integration_test.rs"]
 }
 
 capability detect_code_drift_in_ci "Detect Code Drift in CI" {
@@ -911,4 +1024,6 @@ capability detect_code_drift_in_ci "Detect Code Drift in CI" {
     when "generated output differs from committed files"
     then "the pipeline fails with exit code 1 and lists the differing file paths"
   }
+
+  tests ["../crates/specforge-cli/tests/integration_test.rs"]
 }

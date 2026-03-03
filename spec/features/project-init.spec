@@ -12,8 +12,8 @@ feature project_initialization "Project Initialization" {
   """
 
   solution """
-    Interactive specforge init command that generates specforge.spec
-    with project name, infix, version, and selected plugins. Also
+    Interactive specforge init command that generates specforge.json
+    with project name, version, and selected plugins. Also
     supports specforge add for adding plugins to existing projects.
   """
 }

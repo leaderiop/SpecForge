@@ -4,6 +4,7 @@ use invariants/core
 use types/core
 use types/graph
 use types/codegen
+use types/wasm
 use types/errors
 use ports/outbound
 
@@ -22,6 +23,8 @@ behavior generate_typescript_interfaces_from_types "Generate TypeScript Interfac
   verify unit "readonly annotation produces readonly field"
   verify unit "union type produces literal union"
   verify unit "error type produces discriminated union"
+
+  tests ["../crates/specforge-cli/tests/integration_test.rs"]
 }
 
 behavior generate_port_interfaces "Generate Port Interfaces" {
@@ -37,6 +40,8 @@ behavior generate_port_interfaces "Generate Port Interfaces" {
   verify unit "port generates interface with method signatures"
   verify unit "Result types use configured style"
   verify unit "inbound and outbound ports are distinguished"
+
+  tests ["../crates/specforge-cli/tests/integration_test.rs"]
 }
 
 behavior generate_test_stubs "Generate Test Stubs" {
@@ -53,6 +58,8 @@ behavior generate_test_stubs "Generate Test Stubs" {
   verify unit "verify statement produces test stub"
   verify unit "stub includes behavior ID"
   verify unit "stub includes verify description"
+
+  tests ["../crates/specforge-cli/tests/integration_test.rs"]
 }
 
 behavior detect_generated_code_drift "Detect Generated Code Drift" {
@@ -69,6 +76,8 @@ behavior detect_generated_code_drift "Detect Generated Code Drift" {
   verify unit "no drift exits with code 0"
   verify unit "drift detected exits with code 1"
   verify unit "check mode writes no files"
+
+  tests ["../crates/specforge-cli/tests/integration_test.rs"]
 }
 
 behavior verify_adapter_implementations "Verify Adapter Implementations" {
@@ -85,6 +94,8 @@ behavior verify_adapter_implementations "Verify Adapter Implementations" {
   verify unit "adapter implementing all methods passes"
   verify unit "adapter missing a method is reported"
   verify unit "adapter with extra methods is allowed"
+
+  tests ["../crates/specforge-cli/tests/integration_test.rs"]
 }
 
 behavior generate_json_schema_from_types "Generate JSON Schema from Types" {
@@ -102,6 +113,8 @@ behavior generate_json_schema_from_types "Generate JSON Schema from Types" {
   verify unit "required fields appear in required array"
   verify unit "optional fields are not required"
   verify unit "union type uses enum pattern"
+
+  tests ["../crates/specforge-cli/tests/integration_test.rs"]
 }
 
 behavior respect_naming_conventions "Respect Naming Conventions" {
@@ -115,6 +128,8 @@ behavior respect_naming_conventions "Respect Naming Conventions" {
 
   verify unit "camelCase naming applied to identifiers"
   verify unit "snake_case naming applied to identifiers"
+
+  tests ["../crates/specforge-cli/tests/integration_test.rs"]
 }
 
 behavior generate_readonly_fields "Generate Readonly Fields" {
@@ -127,6 +142,8 @@ behavior generate_readonly_fields "Generate Readonly Fields" {
   """
 
   verify unit "readonly annotation produces readonly in TypeScript"
+
+  tests ["../crates/specforge-cli/tests/integration_test.rs"]
 }
 
 behavior generate_unique_constraints "Generate Unique Constraints" {
@@ -139,10 +156,12 @@ behavior generate_unique_constraints "Generate Unique Constraints" {
   """
 
   verify unit "unique annotation produces hint in output"
+
+  tests ["../crates/specforge-cli/tests/integration_test.rs"]
 }
 
 behavior plugin_wasm_protocol "Plugin Wasm Protocol" {
-  types      [PluginManifest]
+  types      [PackageManifest]
   ports      [FileSystem]
 
   contract """
@@ -150,12 +169,14 @@ behavior plugin_wasm_protocol "Plugin Wasm Protocol" {
     the plugin accesses the graph via specforge.query_graph, emits generated
     files via specforge.emit_file, and emits diagnostics via
     specforge.emit_diagnostic. The compiler MUST handle Wasm traps
-    gracefully with a PluginError.
+    gracefully with a PackageError.
   """
 
   verify unit "plugin accesses graph via query_graph host function"
   verify unit "plugin emits files via emit_file host function"
-  verify unit "Wasm trap produces PluginError"
+  verify unit "Wasm trap produces PackageError"
+
+  tests ["../crates/specforge-cli/tests/integration_test.rs"]
 }
 
 behavior incremental_code_generation "Incremental Code Generation" {
@@ -170,6 +191,8 @@ behavior incremental_code_generation "Incremental Code Generation" {
 
   verify unit "unchanged entity produces identical output"
   verify unit "changed entity is regenerated"
+
+  tests ["../crates/specforge-cli/tests/integration_test.rs"]
 }
 
 behavior support_multiple_languages "Support Multiple Languages" {
@@ -184,4 +207,6 @@ behavior support_multiple_languages "Support Multiple Languages" {
 
   verify unit "multiple gen blocks produce independent outputs"
   verify unit "language-specific settings are isolated"
+
+  tests ["../crates/specforge-cli/tests/integration_test.rs"]
 }

@@ -37,6 +37,8 @@ constraint incremental_compilation_latency "Incremental Compilation Latency" {
   protects [incremental_correctness]
 
   verify load "benchmark incremental recompile with 500 files, assert < 100ms"
+
+  tests ["../crates/specforge-cli/tests/integration_test.rs"]
 }
 
 constraint memory_usage "Memory Usage" {
@@ -52,6 +54,8 @@ constraint memory_usage "Memory Usage" {
   protects [string_interning_consistency]
 
   verify load "compile 500-file project, measure peak RSS < 50MB"
+
+  tests ["../crates/specforge-cli/tests/integration_test.rs"]
 }
 
 constraint cross_platform_compatibility "Cross-Platform Compatibility" {
@@ -68,6 +72,8 @@ constraint cross_platform_compatibility "Cross-Platform Compatibility" {
   protects [diagnostic_determinism]
 
   verify integration "CI matrix tests on all 5 platform targets"
+
+  tests ["../crates/specforge-cli/tests/integration_test.rs"]
 }
 
 constraint diagnostic_quality "Diagnostic Quality" {
@@ -84,6 +90,8 @@ constraint diagnostic_quality "Diagnostic Quality" {
   protects [diagnostic_determinism]
 
   verify unit "all error diagnostics include required fields"
+
+  tests ["../crates/specforge-cli/tests/integration_test.rs", "../crates/specforge-validator/src/passes.rs"]
 }
 
 constraint zero_runtime_dependencies "Zero Runtime Dependencies" {
@@ -101,6 +109,8 @@ constraint zero_runtime_dependencies "Zero Runtime Dependencies" {
   protects [multi_error_collection]
 
   verify integration "binary runs on clean OS install without additional packages"
+
+  tests ["../crates/specforge-cli/tests/integration_test.rs"]
 }
 
 constraint backward_compatibility "Backward Compatibility" {
@@ -117,6 +127,8 @@ constraint backward_compatibility "Backward Compatibility" {
   protects [multi_error_collection, spec_root_singleton]
 
   verify integration "previous version files compile with current compiler"
+
+  tests ["../crates/specforge-cli/tests/integration_test.rs"]
 }
 
 constraint cli_scaffolding_robustness "CLI Scaffolding Robustness" {
@@ -124,7 +136,7 @@ constraint cli_scaffolding_robustness "CLI Scaffolding Robustness" {
   priority    should
 
   metric """
-    init/add commands produce valid, parseable specforge.spec;
+    init/add commands produce valid, parseable specforge.json;
     existing files never overwritten without consent
   """
 
@@ -132,6 +144,8 @@ constraint cli_scaffolding_robustness "CLI Scaffolding Robustness" {
   protects [spec_root_singleton, entity_id_uniqueness]
 
   verify integration "scaffold and add commands produce valid spec files"
+
+  tests ["../crates/specforge-cli/tests/integration_test.rs"]
 }
 
 constraint parser_correctness "Parser Correctness" {
@@ -147,6 +161,8 @@ constraint parser_correctness "Parser Correctness" {
   protects [multi_error_collection]
 
   verify unit "parser handles all valid inputs and recovers from errors"
+
+  tests ["../crates/specforge-cli/tests/integration_test.rs", "../crates/specforge-parser/tests/snapshot_tests.rs"]
 }
 
 constraint editor_integration_quality "Editor Integration Quality" {
@@ -155,13 +171,18 @@ constraint editor_integration_quality "Editor Integration Quality" {
 
   metric """
     highlights.scm, folds.scm, indents.scm load without errors
-    in Tree-sitter editors
+    in Tree-sitter editors; plugin entities receive syntax
+    highlighting via generic_entity_block fallback and plugin
+    query extensions
   """
 
-  constrains [provide_syntax_highlighting_queries, provide_code_folding_queries, provide_indentation_queries]
+  constrains [provide_syntax_highlighting_queries, provide_code_folding_queries, provide_indentation_queries, parse_generic_entity_blocks, provide_plugin_query_extensions, compose_query_files_from_plugins]
   protects [multi_error_collection]
 
   verify integration "all query files load in Tree-sitter editors"
+  verify integration "plugin entities receive highlighting via generic_entity_block"
+
+  tests ["../crates/specforge-cli/tests/integration_test.rs", "../crates/specforge-lsp/tests/integration.rs"]
 }
 
 constraint reference_resolution_correctness "Reference Resolution Correctness" {
@@ -177,6 +198,8 @@ constraint reference_resolution_correctness "Reference Resolution Correctness" {
   protects [import_dag, reference_resolution_completeness]
 
   verify unit "references resolve correctly with no false positives or negatives"
+
+  tests ["../crates/specforge-cli/tests/integration_test.rs", "../crates/specforge-validator/src/passes.rs"]
 }
 
 constraint validation_pass_correctness "Validation Pass Correctness" {
@@ -192,6 +215,8 @@ constraint validation_pass_correctness "Validation Pass Correctness" {
   protects [reference_resolution_completeness]
 
   verify unit "each validation code fires iff its condition holds"
+
+  tests ["../crates/specforge-cli/tests/integration_test.rs", "../crates/specforge-validator/src/passes.rs"]
 }
 
 constraint plugin_validation_correctness "Plugin Validation Correctness" {
@@ -207,6 +232,8 @@ constraint plugin_validation_correctness "Plugin Validation Correctness" {
   protects [library_dag, rpn_arithmetic_integrity]
 
   verify unit "plugin checks activate only when plugin is installed"
+
+  tests ["../crates/specforge-cli/tests/integration_test.rs"]
 }
 
 constraint output_format_correctness "Output Format Correctness" {
@@ -222,6 +249,8 @@ constraint output_format_correctness "Output Format Correctness" {
   protects [diagnostic_determinism]
 
   verify unit "all emitters produce syntactically valid, deterministic output"
+
+  tests ["../crates/specforge-cli/tests/integration_test.rs"]
 }
 
 constraint code_generation_correctness "Code Generation Correctness" {
@@ -237,6 +266,8 @@ constraint code_generation_correctness "Code Generation Correctness" {
   protects [entity_id_uniqueness, diagnostic_determinism]
 
   verify unit "generated code compiles and validates correctly"
+
+  tests ["../crates/specforge-cli/tests/integration_test.rs"]
 }
 
 constraint test_coverage_accuracy "Test Coverage Accuracy" {
@@ -252,6 +283,8 @@ constraint test_coverage_accuracy "Test Coverage Accuracy" {
   protects [testable_entity_classification, traceability_chain_integrity]
 
   verify unit "coverage percentage and merge are accurate"
+
+  tests ["../crates/specforge-cli/tests/integration_test.rs"]
 }
 
 constraint lsp_responsiveness "LSP Responsiveness" {
@@ -267,6 +300,8 @@ constraint lsp_responsiveness "LSP Responsiveness" {
   protects [incremental_correctness]
 
   verify load "LSP features respond within 50ms on 500-file project"
+
+  tests ["../crates/specforge-cli/tests/integration_test.rs", "../crates/specforge-lsp/tests/integration.rs"]
 }
 
 constraint traceability_completeness "Traceability Completeness" {
@@ -284,6 +319,8 @@ constraint traceability_completeness "Traceability Completeness" {
   protects [traceability_chain_integrity]
 
   verify unit "all broken traceability links are detected with zero false negatives"
+
+  tests ["../crates/specforge-cli/tests/integration_test.rs"]
 }
 
 constraint extension_system_integrity "Extension System Integrity" {
@@ -291,17 +328,19 @@ constraint extension_system_integrity "Extension System Integrity" {
   priority    must
 
   metric """
-    plugin install/remove never corrupts specforge.spec; Wasm sandbox
+    plugin install/remove never corrupts specforge.json; Wasm sandbox
     contains all plugin execution; Wasm traps produce diagnostics, not
     crashes; provider registration survives reload; timeout enforcement
     prevents runaway plugins
   """
 
-  constrains [load_plugin_manifests, register_plugin_prefixes, load_provider_configurations, validate_provider_refs, execute_generator_plugins, remove_plugin, list_installed_plugins, custom_entity_types_via_define, validate_generator_configuration, list_configured_providers, validate_ref_target_format, validate_provider_kinds, load_wasm_module, initialize_wasm_plugin, enforce_wasm_sandbox, validate_wasm_peer_dependencies]
+  constrains [load_plugin_manifests, register_plugin_entity_types, load_provider_configurations, validate_provider_refs, execute_generator_plugins, remove_plugin, list_installed_plugins, custom_entity_types_via_define, validate_generator_configuration, list_configured_providers, validate_ref_target_format, validate_provider_kinds, load_wasm_module, initialize_wasm_package, enforce_wasm_sandbox, validate_package_peer_dependencies, call_package_validators, call_package_generators, provide_host_function_query_graph, provide_host_function_emit_diagnostic, provide_host_function_register_entity, provide_host_function_register_edge, warm_wasm_engine_instance, topological_sort_packages, load_package_manifest, register_entity_enhancements, detect_enhancement_conflicts, resolve_enhancement_conflicts, run_doctor_check, scaffold_wasm_package_project, build_wasm_package, test_wasm_package_locally, publish_wasm_package, reject_reserved_entity_kind, detect_entity_kind_collision, resolve_entity_kind_conflict_via_config, qualify_entity_kind_inline, upgrade_wasm_package, validate_package_manifest, handle_wasm_trap, discover_packages, parse_package_specifier, resolve_package_source, write_lock_file, read_lock_file, verify_wasm_integrity, dispatch_contribution_exports, validate_contribution_exports, toggle_package_contributions, migrate_v1_manifest]
   protects [spec_root_singleton, reference_resolution_completeness, wasm_sandbox_integrity]
 
   verify integration "extension operations never corrupt state or crash"
   verify integration "Wasm traps produce diagnostics without crashing the compiler"
+
+  tests ["../crates/specforge-cli/tests/integration_test.rs"]
 }
 
 constraint rust_generation_correctness "Rust Generation Correctness" {
@@ -317,6 +356,8 @@ constraint rust_generation_correctness "Rust Generation Correctness" {
   protects [deterministic_rust_generation, rust_drift_detection_accuracy]
 
   verify unit "generated Rust code compiles and checksums are accurate"
+
+  tests ["../crates/specforge-cli/tests/integration_test.rs"]
 }
 
 constraint formatting_correctness "Formatting Correctness" {
@@ -334,6 +375,8 @@ constraint formatting_correctness "Formatting Correctness" {
 
   verify property "format(format(x)) == format(x) for all valid inputs"
   verify unit "all comments preserved after formatting round-trip"
+
+  tests ["../crates/specforge-cli/tests/integration_test.rs"]
 }
 
 constraint rust_collection_accuracy "Rust Collection Accuracy" {
@@ -349,6 +392,8 @@ constraint rust_collection_accuracy "Rust Collection Accuracy" {
   protects [entity_mapping_precedence]
 
   verify unit "entity mapping and report generation are accurate"
+
+  tests ["../crates/specforge-cli/tests/integration_test.rs"]
 }
 
 constraint wasm_cold_start_budget "Wasm Cold Start Budget" {
@@ -361,11 +406,13 @@ constraint wasm_cold_start_budget "Wasm Cold Start Budget" {
     in under 500ms for a typical plugin (<1MB .wasm).
   """
 
-  constrains [load_wasm_module, aot_compile_wasm_module, cache_aot_artifacts]
+  constrains [load_wasm_module, aot_compile_wasm_module, cache_aot_artifacts, warm_wasm_engine_instance]
   protects [plugin_load_order_determinism]
 
   verify load "benchmark AOT-cached plugin load, assert < 50ms"
   verify load "benchmark first-load AOT compilation for 1MB .wasm, assert < 500ms"
+
+  tests ["../crates/specforge-cli/tests/integration_test.rs"]
 }
 
 constraint wasm_memory_limit "Wasm Memory Limit" {
@@ -383,6 +430,8 @@ constraint wasm_memory_limit "Wasm Memory Limit" {
 
   verify unit "plugin exceeding 64MB traps"
   verify unit "total memory exceeding 256MB prevents new plugin load"
+
+  tests ["../crates/specforge-cli/tests/integration_test.rs"]
 }
 
 constraint wasm_sandbox_enforcement "Wasm Sandbox Enforcement" {
@@ -395,10 +444,71 @@ constraint wasm_sandbox_enforcement "Wasm Sandbox Enforcement" {
     process control outside of designated host functions.
   """
 
-  constrains [enforce_wasm_sandbox, provide_host_function_emit_file, provide_host_function_http_get]
+  constrains [enforce_wasm_sandbox, provide_host_function_emit_file, provide_host_function_http_get, call_package_validators, call_package_generators, configure_sandbox_policy, enforce_per_call_site_permissions]
   protects [wasm_sandbox_integrity]
 
   verify integration "adversarial plugin cannot escape sandbox"
   verify unit "direct filesystem access from Wasm is blocked"
   verify unit "direct network access from Wasm is blocked"
+
+  tests ["../crates/specforge-cli/tests/integration_test.rs"]
+}
+
+constraint wasm_binary_size_limit "Wasm Binary Size Limit" {
+  category    portability
+  priority    should
+
+  metric """
+    Each plugin .wasm binary SHOULD be under 5MB. Binaries exceeding 10MB
+    MUST produce a warning diagnostic at install time. This ensures
+    reasonable download times and AOT compilation latency.
+  """
+
+  constrains [install_wasm_package, build_wasm_package, aot_compile_wasm_module]
+  protects [plugin_load_order_determinism]
+
+  verify unit "plugin under 5MB installs without warning"
+  verify unit "plugin over 10MB produces warning at install"
+
+  tests ["../crates/specforge-cli/tests/integration_test.rs"]
+}
+
+constraint plugin_count_limit "Plugin Count Limit" {
+  category    performance
+  priority    should
+
+  metric """
+    The system SHOULD support up to 20 plugins without performance
+    degradation. 21-50 plugins MUST produce a warning diagnostic.
+    More than 50 plugins MUST be refused with a hard error.
+  """
+
+  constrains [load_wasm_module, initialize_wasm_package, topological_sort_packages]
+  protects [wasm_sandbox_integrity]
+
+  verify unit "20 plugins load without warning"
+  verify unit "21+ plugins produce warning"
+  verify unit "51+ plugins produce hard error"
+
+  tests ["../crates/specforge-cli/tests/integration_test.rs"]
+}
+
+constraint aot_cache_size_limit "AOT Cache Size Limit" {
+  category    portability
+  priority    should
+
+  metric """
+    The AOT cache directory SHOULD stay under 500MB total. When the cache
+    exceeds this limit, LRU eviction MUST remove the least recently used
+    entries and an info diagnostic MUST be emitted.
+  """
+
+  constrains [aot_compile_wasm_module, cache_aot_artifacts, invalidate_aot_cache]
+  protects [aot_cache_integrity]
+
+  verify unit "cache under 500MB operates normally"
+  verify unit "cache over 500MB triggers LRU eviction"
+  verify unit "eviction emits info diagnostic"
+
+  tests ["../crates/specforge-cli/tests/integration_test.rs"]
 }

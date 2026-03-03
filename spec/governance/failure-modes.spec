@@ -127,8 +127,8 @@ failure_mode spec_root_duplication "Spec Root Duplication" {
   detection  2
   rpn        20
 
-  cause      "Bug in spec root detection allows two spec blocks to coexist without error — e.g., one in specforge.spec and one in a nested file"
-  effect     "Compiler uses unpredictable configuration — wrong infix, wrong plugins, wrong settings for all subsequent compilation"
+  cause      "Bug in spec root detection allows two spec blocks to coexist without error — e.g., one in specforge.json and one in a nested file"
+  effect     "Compiler uses unpredictable configuration — wrong plugins, wrong settings for all subsequent compilation"
   mitigation "Unit test: deliberate dual spec blocks across files triggers error; parsing stage checks global count before resolution"
 
   post_mitigation {
@@ -319,7 +319,7 @@ failure_mode wasm_plugin_crash "Wasm Plugin Crash" {
 
   cause      "Plugin Wasm module traps during validate() or generate() — e.g., out-of-bounds memory access, stack overflow, or unreachable instruction"
   effect     "Plugin fails to complete its validation or generation pass — diagnostics from that plugin are lost, output may be incomplete"
-  mitigation "Extism catches all traps and returns error; compiler wraps call in Result, emits PluginError with trap details; remaining plugins continue execution"
+  mitigation "Extism catches all traps and returns error; compiler wraps call in Result, emits PackageError with trap details; remaining plugins continue execution"
 
   post_mitigation {
     severity   6
@@ -367,6 +367,25 @@ failure_mode peer_dependency_version_mismatch "Peer Dependency Version Mismatch"
   }
 }
 
+failure_mode builtin_field_shadow "Built-in Field Shadow by Plugin" {
+  invariant  enhancement_builtin_precedence
+  severity   8
+  occurrence 2
+  detection  2
+  rpn        32
+
+  cause      "Plugin registers an enhancement field with the same name as a built-in field"
+  effect     "Built-in field is shadowed — parser/resolver uses plugin field definition instead of built-in, causing unpredictable validation and broken contract extraction"
+  mitigation "Enhancement registration checks every field name against the built-in FieldRegistry; shadow attempt produces hard error E018 regardless of enhancement_policy; integration test with deliberate shadow attempt"
+
+  post_mitigation {
+    severity   8
+    occurrence 1
+    detection  1
+    rpn        8
+  }
+}
+
 failure_mode aot_cache_corruption "AOT Cache Corruption" {
   invariant  plugin_load_order_determinism
   severity   5
@@ -383,5 +402,100 @@ failure_mode aot_cache_corruption "AOT Cache Corruption" {
     occurrence 1
     detection  1
     rpn        5
+  }
+}
+
+failure_mode circular_peer_dependency "Circular Peer Dependency" {
+  invariant  peer_dependency_satisfaction
+  severity   6
+  occurrence 2
+  detection  2
+  rpn        24
+
+  cause      "Plugin A declares peer dependency on Plugin B, which declares peer dependency on Plugin A — circular chain prevents topological sort"
+  effect     "Topological sort fails, all plugin functionality blocked — no plugin entities, no plugin validation, no plugin generation"
+  mitigation "Tarjan's cycle detection during topological sort; full cycle path included in diagnostic message; specforge doctor reports cycle with resolution suggestions"
+
+  post_mitigation {
+    severity   6
+    occurrence 1
+    detection  1
+    rpn        6
+  }
+}
+
+failure_mode manifest_schema_mismatch "Manifest Schema Mismatch" {
+  invariant  peer_dependency_satisfaction
+  severity   5
+  occurrence 2
+  detection  3
+  rpn        30
+
+  cause      "Plugin built against manifest v1 schema loaded by a v2 runtime — field names and semantics differ between versions"
+  effect     "Manifest fields misinterpreted — entity registrations wrong, peer dependencies ignored, sandbox policy defaults applied instead of declared values"
+  mitigation "manifestVersion is the first field checked; v1 on v2 runtime produces migration error with upgrade instructions; unknown fields produce warnings"
+
+  post_mitigation {
+    severity   5
+    occurrence 1
+    detection  1
+    rpn        5
+  }
+}
+
+failure_mode host_function_type_violation "Host Function Type Safety Violation" {
+  invariant  host_function_type_safety
+  severity   8
+  occurrence 2
+  detection  3
+  rpn        48
+
+  cause      "Plugin sends malformed or unexpected data through a host function — e.g., invalid JSON to specforge.register_entity, wrong schema to specforge.emit_diagnostic"
+  effect     "Host processes corrupted data — wrong entities registered, invalid diagnostics emitted, graph corruption possible"
+  mitigation "Schema validation on every host function input; malformed data returns PackageError to plugin; integration tests with deliberately malformed plugin inputs"
+
+  post_mitigation {
+    severity   8
+    occurrence 1
+    detection  1
+    rpn        8
+  }
+}
+
+failure_mode entity_kind_collision_undetected "Entity Kind Collision Undetected" {
+  invariant  entity_kind_uniqueness
+  severity   7
+  occurrence 2
+  detection  2
+  rpn        28
+
+  cause      "Two plugins register the same entity kind name but the KindRegistry fails to detect the collision — e.g., race condition or case-insensitive match not checked"
+  effect     "One plugin's entity kind silently shadows the other — entities parsed incorrectly, wrong validation rules applied, corrupted graph"
+  mitigation "KindRegistry checks all registrations against built-ins and existing plugin kinds; duplicate registration returns hard error E022/E023; property-based tests with random kind name combinations"
+
+  post_mitigation {
+    severity   7
+    occurrence 1
+    detection  1
+    rpn        7
+  }
+}
+
+failure_mode plugin_initialization_failure "Plugin Initialization Failure" {
+  invariant  plugin_isolation
+  severity   6
+  occurrence 3
+  detection  2
+  rpn        36
+
+  cause      "Plugin .wasm module missing or exporting wrong initialize() signature — e.g., built with incompatible PDK version"
+  effect     "Plugin entities not registered — references to plugin entities produce E001 instead of I004, misleading developers into thinking entities are misspelled"
+  mitigation "Detect missing/wrong initialize() at loadModule phase before any export calls; transition plugin to failed state; emit diagnostic with PDK version hint; continue loading remaining plugins"
+
+  post_mitigation {
+    severity   6
+    occurrence 1
+    detection  1
+    rpn        6
   }
 }

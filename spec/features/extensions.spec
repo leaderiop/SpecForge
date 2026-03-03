@@ -4,7 +4,7 @@ use behaviors/extensions
 use behaviors/wasm
 
 feature plugin_management "Plugin Management" {
-  behaviors [load_plugin_manifests, register_plugin_prefixes, remove_plugin, list_installed_plugins, custom_entity_types_via_define, load_wasm_module, initialize_wasm_plugin, validate_wasm_peer_dependencies, topological_sort_plugins]
+  behaviors [load_plugin_manifests, register_plugin_entity_types, remove_plugin, list_installed_plugins, custom_entity_types_via_define, load_wasm_module, initialize_wasm_package, validate_package_peer_dependencies, topological_sort_packages]
 
   problem """
     Not every project needs all 16 entity types. Teams need to install
@@ -13,7 +13,7 @@ feature plugin_management "Plugin Management" {
   """
 
   solution """
-    Terraform-style plugin model: specforge add/remove installs Wasm
+    Contribution-based package model: specforge add/remove installs Wasm
     plugin binaries, specforge plugins lists them. Plugins are .wasm
     modules loaded via Extism with AOT caching. Peer dependencies are
     validated at startup and plugins are initialized in topological order.
@@ -41,7 +41,7 @@ feature provider_based_ref_validation "Provider-Based Ref Validation" {
 }
 
 feature generator_plugin_protocol "Generator Plugin Protocol" {
-  behaviors [execute_generator_plugins, validate_generator_configuration, call_wasm_generate]
+  behaviors [execute_generator_plugins, validate_generator_configuration, call_package_generators]
 
   problem """
     The built-in code generators cannot cover every language and framework.

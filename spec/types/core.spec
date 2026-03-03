@@ -16,10 +16,8 @@ type Entity {
 }
 
 type EntityId {
-  prefix     string    @readonly
-  infix      string    @readonly
-  number     integer   @readonly
-  raw        string    @readonly  @unique
+  kind       EntityKind @readonly
+  raw        string     @readonly  @unique
 }
 
 type EntityKind = spec | invariant | behavior | feature | event

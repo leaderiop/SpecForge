@@ -67,8 +67,9 @@ glossary {
     definition """
       A compiler message with a severity (error, warning, info), a validation
       code, source location, and human-readable message. Styled like rustc
-      output. Error codes: E001-E003, E005-E012 (E004 reserved). Warning
-      codes: W001-W012. Info codes: I001, I003-I005 (I002 reserved).
+      output. Error codes: E001-E012, E015-E018, E020, E022-E023.
+      Warning codes: W001-W012, W015-W019, W023, W027-W028.
+      Info codes: I001, I003-I006.
     """
     aliases ["compiler diagnostic", "validation message"]
   }
@@ -195,8 +196,8 @@ glossary {
 
   term "spec root" {
     definition """
-      The singleton spec block in specforge.spec that declares project
-      identity (name, infix, version), installed plugins, provider
+      The project configuration in specforge.json that declares project
+      identity (name, version), installed plugins, provider
       configurations, personas, and surfaces. Exactly one per project.
     """
     aliases ["project root", "spec block"]
@@ -332,6 +333,42 @@ glossary {
     aliases ["JUnit report", "nextest XML"]
   }
 
+  // ── Editor & Syntax Support ────────────────────────────────
+
+  term "generic entity block" {
+    definition """
+      A grammar fallback rule that matches identifier-name-body patterns
+      not matching any built-in entity keyword. Produces a clean AST node
+      with a kind field containing the unknown keyword, enabling syntax
+      highlighting, code folding, and document symbols for plugin and
+      custom entity types without grammar modifications.
+    """
+    aliases ["generic_entity_block"]
+    context "Part of Tier 1 of the 3-tier highlighting architecture. See RES-22."
+  }
+
+  term "query extension" {
+    definition """
+      A .scm query pattern shipped by a plugin in its manifest to extend
+      editor syntax highlighting, code folding, or indentation for
+      plugin-specific entity types. Composed with base query files by
+      string concatenation in plugin load order.
+    """
+    aliases ["query extension pattern", ".scm extension"]
+    context "Part of Tier 2 of the 3-tier highlighting architecture. See RES-22."
+  }
+
+  term "semantic token" {
+    definition """
+      An LSP 3.16+ protocol mechanism for runtime syntax classification
+      beyond tree-sitter static queries. The LSP server assigns token
+      types (keyword, property, type, etc.) to source ranges. Used to
+      classify custom entity keywords, enhanced fields, and cross-plugin
+      references that static query files cannot capture.
+    """
+    context "Part of Tier 3 of the 3-tier highlighting architecture. See RES-22."
+  }
+
   // ── Wasm/Extism Runtime ─────────────────────────────────────
 
   term "Wasm" {
@@ -409,5 +446,54 @@ glossary {
       compilation targets. Accessed via specforge plugin init.
     """
     aliases ["Plugin Development Kit"]
+  }
+
+  term "entity enhancement" {
+    definition """
+      A plugin's ability to add fields and edges to existing entity types
+      via declarations in its manifest.json. Enhanced fields participate
+      in parsing, resolution, and validation like built-in fields. Conflicts
+      between plugins are resolved via configurable enhancement policies.
+    """
+    aliases ["field enhancement", "enhancement"]
+  }
+
+  term "Wasm trap" {
+    definition """
+      An unrecoverable WebAssembly error such as out-of-bounds memory
+      access, stack overflow, or unreachable instruction. The Extism
+      runtime catches all traps and converts them to Result errors.
+      Trapped plugins transition to the failed lifecycle state.
+    """
+    aliases ["trap", "Wasm fault"]
+  }
+
+  term "fuel metering" {
+    definition """
+      Extism/Wasmtime's instruction counting mechanism for enforcing
+      execution time limits on Wasm plugins. Each Wasm instruction
+      consumes fuel; when the fuel budget is exhausted, the plugin
+      traps. Prevents runaway plugins from blocking compilation.
+    """
+  }
+
+  term "content-addressed cache" {
+    definition """
+      The AOT cache naming strategy where compiled artifacts are stored
+      using the SHA256 hash of the source .wasm binary as the filename.
+      This ensures cache hits are always valid and cache misses trigger
+      recompilation. The platform triple is included in the key.
+    """
+  }
+
+  term "enhancement policy" {
+    definition """
+      The strategy for resolving conflicts when two plugins register the
+      same field name for the same entity kind. Three policies: error
+      (default, hard error on conflict), priority (first plugin wins,
+      warning emitted), namespace (conflicting fields prefixed with
+      plugin name). Configured in specforge.json.
+    """
+    aliases ["conflict policy"]
   }
 }

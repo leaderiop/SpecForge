@@ -24,6 +24,8 @@ behavior format_spec_files "Format Spec Files" {
   verify unit "changed files are printed to stdout"
   verify unit "summary count reflects actual changes"
   verify integration "formatting all files in spec/ directory succeeds"
+
+  tests ["../crates/specforge-cli/tests/integration_test.rs"]
 }
 
 behavior preserve_comments "Preserve Comments During Formatting" {
@@ -43,6 +45,8 @@ behavior preserve_comments "Preserve Comments During Formatting" {
   verify unit "section header comment attaches to next block group"
   verify unit "standalone comment block between entities is preserved"
   verify property "no comments are lost after formatting"
+
+  tests ["../crates/specforge-cli/tests/integration_test.rs"]
 }
 
 behavior check_formatting "Check Formatting Without Modifying Files" {
@@ -59,6 +63,8 @@ behavior check_formatting "Check Formatting Without Modifying Files" {
   verify unit "already formatted files exit with code 0"
   verify unit "unformatted files exit with code 1"
   verify unit "check mode writes no files to disk"
+
+  tests ["../crates/specforge-cli/tests/integration_test.rs"]
 }
 
 behavior show_formatting_diff "Show Formatting Diff" {
@@ -75,6 +81,8 @@ behavior show_formatting_diff "Show Formatting Diff" {
   verify unit "diff output uses unified format"
   verify unit "diff mode writes no files to disk"
   verify unit "unchanged files produce no diff output"
+
+  tests ["../crates/specforge-cli/tests/integration_test.rs"]
 }
 
 behavior format_from_stdin "Format from Standard Input" {
@@ -89,6 +97,8 @@ behavior format_from_stdin "Format from Standard Input" {
 
   verify unit "stdin content is formatted and written to stdout"
   verify unit "stdin mode does not read or write files"
+
+  tests ["../crates/specforge-cli/tests/integration_test.rs"]
 }
 
 behavior load_format_config "Load Format Configuration" {
@@ -97,7 +107,7 @@ behavior load_format_config "Load Format Configuration" {
 
   contract """
     The formatter MUST discover configuration by walking up from the
-    formatted file to the project root (directory containing specforge.spec).
+    formatted file to the project root (directory containing specforge.json).
     If .specforgefmt.toml is found, it MUST be parsed and validated.
     Invalid values MUST produce diagnostics and fall back to defaults.
     If no config file is found, defaults MUST be used.
@@ -107,6 +117,8 @@ behavior load_format_config "Load Format Configuration" {
   verify unit "config file in parent directory is discovered"
   verify unit "invalid indent_width produces diagnostic and uses default"
   verify unit "missing config file uses defaults"
+
+  tests ["../crates/specforge-cli/tests/integration_test.rs"]
 }
 
 behavior apply_format_rules "Apply Format Rules" {
@@ -127,6 +139,8 @@ behavior apply_format_rules "Apply Format Rules" {
   verify unit "wrapping rules break long reference lists to multi-line"
   verify unit "import sorting produces alphabetical order"
   verify unit "blank line rules enforce exactly one between blocks"
+
+  tests ["../crates/specforge-cli/tests/integration_test.rs"]
 }
 
 behavior maintain_format_idempotency "Maintain Format Idempotency" {
@@ -144,6 +158,8 @@ behavior maintain_format_idempotency "Maintain Format Idempotency" {
   verify property "format(format(x)) == format(x) for random valid inputs"
   verify unit "alignment rules do not oscillate between runs"
   verify unit "wrapping decisions are stable across runs"
+
+  tests ["../crates/specforge-cli/tests/integration_test.rs"]
 }
 
 behavior lsp_format_document "LSP Format Document" {
@@ -162,6 +178,8 @@ behavior lsp_format_document "LSP Format Document" {
   verify unit "formatting request returns TextEdit list"
   verify unit "response time is under 50ms for typical files"
   verify integration "LSP format produces same result as CLI format"
+
+  tests ["../crates/specforge-cli/tests/integration_test.rs"]
 }
 
 behavior lsp_format_range "LSP Format Range" {
@@ -179,6 +197,8 @@ behavior lsp_format_range "LSP Format Range" {
 
   verify unit "range is expanded to block boundaries"
   verify unit "range formatting matches full formatting for affected blocks"
+
+  tests ["../crates/specforge-cli/tests/integration_test.rs"]
 }
 
 behavior lsp_respect_editor_config "LSP Respect Editor Config" {
@@ -193,4 +213,6 @@ behavior lsp_respect_editor_config "LSP Respect Editor Config" {
 
   verify unit "editor tab size used when no config file exists"
   verify unit "config file takes precedence over editor settings"
+
+  tests ["../crates/specforge-cli/tests/integration_test.rs"]
 }

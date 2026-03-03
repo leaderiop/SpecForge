@@ -13,6 +13,7 @@ use features/migration
 use features/lsp
 use features/extensions
 use features/wasm
+use invariants/wasm
 use features/formatting
 use product/libraries
 use behaviors/init
@@ -35,10 +36,10 @@ use behaviors/error-reporting
 use behaviors/formatting
 
 roadmap core_compiler "Phase 1: Core Compiler" {
-  status     in_progress
+  status     completed
   behaviors  [
     scaffold_new_project, interactive_plugin_selection, add_plugin_to_existing_project,
-    parse_spec_file_to_ast, recover_from_syntax_errors, parse_use_imports, parse_all_block_types, parse_triple_quoted_strings, parse_scenario_blocks,
+    parse_spec_file_to_ast, recover_from_syntax_errors, parse_use_imports, parse_all_block_types, parse_triple_quoted_strings, parse_scenario_blocks, parse_generic_entity_blocks,
     provide_syntax_highlighting_queries, provide_code_folding_queries, provide_indentation_queries,
     resolve_use_imports, detect_import_cycles, link_entity_references, resolve_soft_cross_plugin_references, resolve_external_ref_declarations,
     build_in_memory_graph, maintain_mutable_graph, compute_subgraph_for_invalidation,
@@ -60,6 +61,7 @@ roadmap core_compiler "Phase 1: Core Compiler" {
     "specforge check passes on SpecForge's own .spec files",
     "Snapshot tests cover all diagnostic formats",
     "Query files provide syntax highlighting in Neovim and other editors",
+    "Generic entity blocks produce clean AST nodes for plugin entities",
   ]
 }
 
@@ -101,6 +103,7 @@ roadmap lsp_server "Phase 3: LSP Server" {
     "Rename updates all references atomically",
     "Live diagnostics appear within 100ms",
     "LSP shares incremental pipeline with watch mode",
+    "Semantic tokens classify custom entity keywords from plugins and define blocks",
   ]
 }
 
@@ -110,7 +113,7 @@ roadmap code_generation "Phase 4: Code Generation" {
     generate_typescript_interfaces_from_types, generate_port_interfaces, generate_test_stubs,
     detect_generated_code_drift, verify_adapter_implementations, generate_json_schema_from_types,
     respect_naming_conventions, generate_readonly_fields, generate_unique_constraints,
-    call_wasm_generate, plugin_wasm_protocol, incremental_code_generation, support_multiple_languages,
+    call_package_generators, plugin_wasm_protocol, incremental_code_generation, support_multiple_languages,
   ]
   features   [type_and_port_code_generation, test_stub_generation_and_drift_detection]
   libraries  [specforge_gen_typescript]
@@ -129,47 +132,63 @@ roadmap extensions_and_coverage "Phase 5: Extensions and Coverage" {
   behaviors  [
     merge_coverage_reports, compute_coverage_summary, gate_on_coverage_threshold, validate_test_ids_against_spec, consume_specforge_report, compute_three_layer_coverage, render_test_traceability_matrix,
     migrate_spec_files_between_versions, detect_format_version_mismatch,
-    load_plugin_manifests, register_plugin_prefixes, load_provider_configurations, validate_provider_refs,
+    load_plugin_manifests, register_plugin_entity_types, load_provider_configurations, validate_provider_refs,
     execute_generator_plugins, remove_plugin, list_installed_plugins, custom_entity_types_via_define,
     validate_generator_configuration, list_configured_providers,
     validate_tests_field_references, validate_plugin_testability,
     format_diagnostics_with_source_context, provide_did_you_mean_suggestions, aggregate_diagnostic_summary,
-    load_wasm_module, initialize_wasm_plugin, call_wasm_validate,
+    load_wasm_module, initialize_wasm_package, call_package_validators,
     provide_host_function_query_graph, provide_host_function_emit_diagnostic,
     provide_host_function_register_entity, provide_host_function_register_edge,
     provide_host_function_emit_file, provide_host_function_http_get,
     enforce_wasm_sandbox, aot_compile_wasm_module, cache_aot_artifacts, warm_wasm_engine_instance,
-    validate_wasm_peer_dependencies, topological_sort_plugins,
+    validate_package_peer_dependencies, topological_sort_packages,
+    provide_plugin_query_extensions, compose_query_files_from_plugins,
+    install_wasm_package, validate_package_manifest, handle_wasm_trap,
+    invalidate_aot_cache, discover_packages, configure_sandbox_policy, upgrade_wasm_package,
+    reject_reserved_entity_kind, detect_entity_kind_collision,
+    resolve_entity_kind_conflict_via_config, qualify_entity_kind_inline,
+    parse_package_specifier, resolve_package_source, write_lock_file, read_lock_file, verify_wasm_integrity,
+    dispatch_contribution_exports, enforce_per_call_site_permissions, validate_contribution_exports,
+    toggle_package_contributions, migrate_v1_manifest,
   ]
-  features   [test_coverage_reporting, test_traceability, plugin_management, provider_based_ref_validation, generator_plugin_protocol, wasm_plugin_runtime]
+  features   [test_coverage_reporting, test_traceability, plugin_management, provider_based_ref_validation, generator_plugin_protocol, wasm_package_runtime, package_syntax_extensions, wasm_package_lifecycle, entity_kind_conflict_prevention, contribution_based_extensions, package_source_resolution, package_version_management]
   libraries  [specforge_plugin_product, specforge_plugin_governance, specforge_provider_gh, specforge_coverage, specforge_wasm]
 
   criteria [
     "specforge coverage merges reports and gates on threshold",
-    "Plugin add/remove works without breaking existing spec files",
+    "Package add/remove works without breaking existing spec files",
     "Provider-based ref validation catches malformed identifiers",
-    "Wasm plugin runtime loads, initializes, and validates plugins",
+    "Wasm package runtime loads, initializes, and validates packages",
     "Host functions (query_graph, emit_diagnostic, emit_file, http_get) work correctly",
-    "AOT compilation reduces cold start to <50ms per plugin",
+    "AOT compilation reduces cold start to <50ms per package",
     "Sandbox enforcement blocks unauthorized filesystem and network access",
-    "Peer dependency validation catches missing or incompatible plugins",
+    "Peer dependency validation catches missing or incompatible packages",
     "Custom entity types via define blocks participate in validation",
+    "Package query extensions compose with base queries for editor delivery",
+    "Package install/upgrade resolves from registry, local, and git sources",
+    "Wasm traps produce structured diagnostics without crashing the compiler",
+    "AOT cache self-heals on corruption and invalidates on runtime upgrade",
+    "Entity kind conflicts between packages are detected and resolved via config",
+    "Contribution-based dispatch routes to correct exports per contribution type",
+    "Per-call-site permissions enforce least-privilege for each export",
+    "specforge.lock pins exact versions with SHA256 integrity hashes",
   ]
 }
 
-roadmap wasm_plugin_authoring_phase "Phase 5b: Wasm Plugin Authoring" {
+roadmap wasm_package_authoring_phase "Phase 5b: Wasm Package Authoring" {
   status     planned
   behaviors  [
-    scaffold_wasm_plugin_project, build_wasm_plugin, test_wasm_plugin_locally, publish_wasm_plugin,
+    scaffold_wasm_package_project, build_wasm_package, test_wasm_package_locally, publish_wasm_package,
   ]
-  features   [wasm_plugin_authoring]
+  features   [wasm_package_authoring]
   libraries  [specforge_wasm]
 
   criteria [
-    "specforge plugin init scaffolds a working Wasm plugin project",
-    "specforge plugin build produces a valid .wasm binary",
-    "specforge plugin test runs against fixtures in production sandbox",
-    "specforge plugin publish packages and uploads to npm/OCI/GitHub",
+    "specforge package init scaffolds a working Wasm package project",
+    "specforge package build produces a valid .wasm binary",
+    "specforge package test runs against fixtures in production sandbox",
+    "specforge package publish packages and uploads to npm/OCI/GitHub",
   ]
 }
 
