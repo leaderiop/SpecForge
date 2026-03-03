@@ -29,6 +29,9 @@ pub enum EdgeType {
     ShapedBy,
     Constrains,
     Mitigates,
+
+    // Plugin-contributed edge type; label stored in GraphEdge::enhanced_label
+    Enhanced,
 }
 
 impl EdgeType {
@@ -81,6 +84,7 @@ impl EdgeType {
             Self::ShapedBy => "shaped_by",
             Self::Constrains => "constrains",
             Self::Mitigates => "mitigates",
+            Self::Enhanced => "enhanced",
         }
     }
 
@@ -108,6 +112,8 @@ impl EdgeType {
             Self::Protects | Self::ShapedBy | Self::Constrains | Self::Mitigates => {
                 super::Module::Governance
             }
+
+            Self::Enhanced => super::Module::Core,
         }
     }
 
@@ -137,6 +143,7 @@ impl EdgeType {
             Self::ShapedBy => Some(EntityKind::Decision),
             Self::Constrains => None, // can target behavior or invariant
             Self::Mitigates => Some(EntityKind::Invariant),
+            Self::Enhanced => None, // target kind stored in enhancement metadata
         }
     }
 
@@ -146,7 +153,7 @@ impl EdgeType {
     }
 
     /// All edge types, in declaration order.
-    pub const ALL: [EdgeType; 20] = [
+    pub const ALL: [EdgeType; 21] = [
         Self::References,
         Self::Implements,
         Self::Produces,
@@ -167,6 +174,7 @@ impl EdgeType {
         Self::ShapedBy,
         Self::Constrains,
         Self::Mitigates,
+        Self::Enhanced,
     ];
 }
 
@@ -190,8 +198,8 @@ mod tests {
     }
 
     #[test]
-    fn all_has_20_variants() {
-        assert_eq!(EdgeType::ALL.len(), 20);
+    fn all_has_21_variants() {
+        assert_eq!(EdgeType::ALL.len(), 21);
     }
 
     #[test]

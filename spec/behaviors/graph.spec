@@ -18,6 +18,8 @@ behavior build_in_memory_graph "Build In-Memory Graph" {
   verify unit "graph contains one node per entity"
   verify unit "graph contains one edge per resolved reference"
   verify unit "edge types match relationship semantics"
+
+  tests ["../crates/specforge-graph/src/builder.rs"]
 }
 
 behavior maintain_mutable_graph "Maintain Mutable Graph" {
@@ -34,6 +36,8 @@ behavior maintain_mutable_graph "Maintain Mutable Graph" {
   verify unit "add and remove nodes from graph"
   verify unit "removing a node removes its edges"
   verify unit "graph consistency after batch mutations"
+
+  tests ["../crates/specforge-graph/src/builder.rs"]
 }
 
 behavior compute_subgraph_for_invalidation "Compute Subgraph for Invalidation" {
@@ -51,4 +55,6 @@ behavior compute_subgraph_for_invalidation "Compute Subgraph for Invalidation" {
   verify unit        "transitive dependents are included in subgraph"
   verify unit        "unaffected files are not invalidated"
   verify integration "subgraph rebuild matches full rebuild result"
+
+  tests ["../crates/specforge-graph/src/builder.rs"]
 }

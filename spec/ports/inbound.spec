@@ -29,7 +29,7 @@ port LspProtocol {
   direction inbound
   category  "api/lsp"
 
-  method initialize(config: CompilerConfig) -> Result<void, PluginError>
+  method initialize(config: CompilerConfig) -> Result<void, PackageError>
   method didOpen(path: string, content: string) -> Result<DiagnosticBag, ParseError>
   method didChange(path: string, content: string) -> Result<DiagnosticBag, ParseError>
   method didClose(path: string) -> Result<void, never>

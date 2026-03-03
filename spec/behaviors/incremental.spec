@@ -21,6 +21,8 @@ behavior watch_file_system_for_changes "Watch File System for Changes" {
   verify unit        "file creation triggers recompilation"
   verify unit        "file deletion triggers recompilation"
   verify integration "watch detects changes within 100ms"
+
+  tests ["../crates/specforge-cli/tests/integration_test.rs"]
 }
 
 behavior invalidate_changed_files "Invalidate Changed Files" {
@@ -38,6 +40,8 @@ behavior invalidate_changed_files "Invalidate Changed Files" {
   verify unit "direct importers are in invalidation set"
   verify unit "transitive importers are in invalidation set"
   verify unit "unrelated files are not re-parsed"
+
+  tests ["../crates/specforge-cli/tests/integration_test.rs"]
 }
 
 behavior rebuild_affected_subgraph "Rebuild Affected Subgraph" {
@@ -53,6 +57,8 @@ behavior rebuild_affected_subgraph "Rebuild Affected Subgraph" {
   verify unit        "stale nodes are removed"
   verify unit        "new nodes are added"
   verify property    "incremental rebuild equals cold rebuild"
+
+  tests ["../crates/specforge-cli/tests/integration_test.rs"]
 }
 
 behavior emit_incremental_diagnostics "Emit Incremental Diagnostics" {
@@ -69,4 +75,6 @@ behavior emit_incremental_diagnostics "Emit Incremental Diagnostics" {
   verify unit "diagnostics from changed files are refreshed"
   verify unit "diagnostics from unchanged files are preserved"
   verify unit "total diagnostic set matches full rebuild"
+
+  tests ["../crates/specforge-cli/tests/integration_test.rs"]
 }

@@ -15,6 +15,7 @@ specforge-parser.workspace = true
 specforge-resolver.workspace = true
 specforge-graph.workspace = true
 specforge-validator.workspace = true
+specforge-wasm.workspace = true
 tree-sitter-specforge.workspace = true
 
 tower-lsp.workspace = true

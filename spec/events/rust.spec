@@ -20,6 +20,8 @@ event rust_code_generated "Rust Code Generated" {
   consumers [detect_rust_code_drift]
 
   verify integration "emits rust_code_generated with correct file and entity counts"
+
+  tests ["../crates/specforge-cli/tests/integration_test.rs"]
 }
 
 event rust_tests_collected "Rust Tests Collected" {
@@ -37,4 +39,6 @@ event rust_tests_collected "Rust Tests Collected" {
   consumers [emit_specforge_report_from_rust]
 
   verify integration "emits rust_tests_collected with correct mapping counts and format"
+
+  tests ["../crates/specforge-cli/tests/integration_test.rs"]
 }

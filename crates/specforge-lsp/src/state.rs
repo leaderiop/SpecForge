@@ -1,7 +1,11 @@
-use specforge_common::{CompilerConfig, Diagnostic, SpecForgeJsonConfig, ValidationCode};
+use specforge_common::{
+    CompilerConfig, Diagnostic, FieldRegistry, SourceSpan,
+    SpecForgeJsonConfig, ValidationCode,
+};
 use specforge_graph::{FileIndex, SpecGraph};
 use specforge_parser::{parse, SpecFile};
 use specforge_resolver::{FileGraph, SymbolTable};
+use specforge_wasm::WarmInstancePool;
 use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 use walkdir::WalkDir;
@@ -17,6 +21,11 @@ pub struct ServerState {
     pub config: CompilerConfig,
     pub sources: HashMap<String, String>,
     pub spec_root: PathBuf,
+    pub field_registry: FieldRegistry,
+    /// External config from specforge.json (None = legacy spec-block mode).
+    external_config: Option<CompilerConfig>,
+    /// Warm Wasm package instance pool for reuse across rebuilds.
+    pub wasm_pool: WarmInstancePool,
 }
 
 impl ServerState {
@@ -49,19 +58,33 @@ impl ServerState {
         }
 
         let spec_root_str = spec_root_dir.to_string_lossy().to_string();
+        let saved_external_config = external_config.clone();
         let resolved =
             specforge_resolver::resolve_with_config(parsed_files, &spec_root_str, external_config);
-        let graph_result = specforge_graph::build_graph(&resolved.files);
+        let mut registry = build_field_registry(&resolved.config);
+
+        // Discover and load Wasm packages
+        let mut wasm_pool = WarmInstancePool::new();
+        let wasm_diagnostics =
+            discover_and_reconcile_wasm(&mut wasm_pool, &resolved.config, &spec_root_dir, &mut registry);
+
+        let graph_result = specforge_graph::build_graph(&resolved.files, &registry);
         let validation_bag = specforge_validator::validate(
             &resolved.files,
             &graph_result.graph,
             &resolved.config,
             &spec_root_dir,
+            &registry,
         );
+
+        // Run Wasm plugin validation
+        let wasm_validation_diagnostics = run_wasm_validation(&mut wasm_pool, &graph_result.graph);
 
         let mut all_diagnostics = resolved.diagnostics.sorted();
         all_diagnostics.extend(validation_bag.sorted());
         all_diagnostics.extend(parse_diagnostics);
+        all_diagnostics.extend(wasm_diagnostics);
+        all_diagnostics.extend(wasm_validation_diagnostics);
         all_diagnostics.sort();
 
         Self {
@@ -74,6 +97,9 @@ impl ServerState {
             config: resolved.config,
             sources,
             spec_root: spec_root_dir,
+            field_registry: registry,
+            external_config: saved_external_config,
+            wasm_pool,
         }
     }
 
@@ -141,18 +167,34 @@ impl ServerState {
         }
 
         let spec_root_str = self.spec_root.to_string_lossy().to_string();
-        let resolved = specforge_resolver::resolve(updated_files, &spec_root_str);
-        let graph_result = specforge_graph::build_graph(&resolved.files);
+        let resolved = specforge_resolver::resolve_with_config(
+            updated_files,
+            &spec_root_str,
+            self.external_config.clone(),
+        );
+        let mut registry = build_field_registry(&resolved.config);
+
+        // Reconcile Wasm packages (only reloads if hashes changed)
+        let wasm_diagnostics =
+            discover_and_reconcile_wasm(&mut self.wasm_pool, &resolved.config, &self.spec_root, &mut registry);
+
+        let graph_result = specforge_graph::build_graph(&resolved.files, &registry);
         let validation_bag = specforge_validator::validate(
             &resolved.files,
             &graph_result.graph,
             &resolved.config,
             &self.spec_root,
+            &registry,
         );
+
+        // Run Wasm plugin validation
+        let wasm_validation_diagnostics = run_wasm_validation(&mut self.wasm_pool, &graph_result.graph);
 
         let mut all_diagnostics = resolved.diagnostics.sorted();
         all_diagnostics.extend(validation_bag.sorted());
         all_diagnostics.extend(parse_diagnostics);
+        all_diagnostics.extend(wasm_diagnostics);
+        all_diagnostics.extend(wasm_validation_diagnostics);
         all_diagnostics.sort();
 
         self.files = resolved.files;
@@ -163,12 +205,163 @@ impl ServerState {
         self.diagnostics = all_diagnostics;
         self.config = resolved.config;
         self.sources = updated_sources;
+        self.field_registry = registry;
     }
 
     /// Update source text for a file (from did_change) without rebuilding yet.
     pub fn update_source(&mut self, path: &str, source: String) {
         self.sources.insert(path.to_string(), source);
     }
+}
+
+/// Discover Wasm packages and reconcile the warm instance pool.
+///
+/// Shared between `cold_build` and `incremental_rebuild` to avoid duplicating
+/// the discover → peer-dep validate → topo-sort → register → reconcile pipeline.
+fn discover_and_reconcile_wasm(
+    pool: &mut WarmInstancePool,
+    config: &CompilerConfig,
+    spec_root: &Path,
+    registry: &mut FieldRegistry,
+) -> Vec<Diagnostic> {
+    let mut diagnostics = Vec::new();
+    let wasm_specifiers = &config.wasm_package_specifiers;
+
+    if wasm_specifiers.is_empty() {
+        return diagnostics;
+    }
+
+    // spec_root's parent is the project root (spec_root may be a subdirectory)
+    let project_root = spec_root.parent().unwrap_or(spec_root);
+    let (manifests, discover_errors) =
+        specforge_wasm::discover::discover_packages(wasm_specifiers, project_root);
+
+    for err in discover_errors {
+        diagnostics.push(Diagnostic::new(
+            ValidationCode::E019,
+            SourceSpan::file_start("specforge.json"),
+            err.to_string(),
+        ));
+    }
+
+    if manifests.is_empty() {
+        return diagnostics;
+    }
+
+    // Validate peer dependencies
+    let peer_errors = specforge_wasm::peer_deps::validate_peer_dependencies(&manifests);
+    for err in &peer_errors {
+        let code = match err {
+            specforge_wasm::WasmError::CycleDetected { .. } => ValidationCode::E021,
+            _ => ValidationCode::E020,
+        };
+        diagnostics.push(Diagnostic::new(
+            code,
+            SourceSpan::file_start("specforge.json"),
+            err.to_string(),
+        ));
+    }
+
+    // Topological sort
+    let sorted = match specforge_wasm::peer_deps::topological_sort(&manifests) {
+        Ok(order) => order
+            .into_iter()
+            .map(|i| manifests[i].clone())
+            .collect::<Vec<_>>(),
+        Err(err) => {
+            diagnostics.push(Diagnostic::new(
+                ValidationCode::E021,
+                SourceSpan::file_start("specforge.json"),
+                err.to_string(),
+            ));
+            manifests
+        }
+    };
+
+    // Register enhancements from Wasm plugins
+    for m in &sorted {
+        if !m.enhancements.is_empty() {
+            registry.register_plugin(
+                &m.package,
+                &m.enhancements,
+                &m.dynamic_edge_types,
+                &config.enhancement_policy,
+                &config.enhancement_overrides,
+            );
+        }
+    }
+
+    // Reconcile warm pool (only reloads if wasm hashes changed)
+    let reconcile_errors = pool.reconcile(sorted);
+    for err in reconcile_errors {
+        diagnostics.push(Diagnostic::new(
+            ValidationCode::E019,
+            SourceSpan::file_start("specforge.json"),
+            err.to_string(),
+        ));
+    }
+
+    diagnostics
+}
+
+/// Serialize a `SpecGraph` to JSON for the Wasm `query_graph` host function.
+fn serialize_graph_for_wasm(graph: &SpecGraph) -> String {
+    let nodes: Vec<serde_json::Value> = graph
+        .nodes()
+        .map(|n| {
+            serde_json::json!({
+                "id": n.id.raw(),
+                "kind": format!("{}", n.kind),
+                "title": n.title,
+                "file": n.file,
+            })
+        })
+        .collect();
+
+    let edges: Vec<serde_json::Value> = graph
+        .edges()
+        .map(|(src, tgt, edge)| {
+            serde_json::json!({
+                "from": src.id.raw(),
+                "to": tgt.id.raw(),
+                "edge_type": format!("{}", edge.edge_type),
+                "field_name": edge.field_name,
+            })
+        })
+        .collect();
+
+    serde_json::json!({
+        "nodes": nodes,
+        "edges": edges,
+    })
+    .to_string()
+}
+
+/// Run Wasm plugin validation against the built graph.
+fn run_wasm_validation(pool: &mut WarmInstancePool, graph: &SpecGraph) -> Vec<Diagnostic> {
+    let mut diagnostics = Vec::new();
+    if let Some(runtime) = pool.runtime_mut() {
+        let graph_json = serialize_graph_for_wasm(graph);
+        let result = runtime.validate_all(&graph_json);
+        diagnostics.extend(result.diagnostics);
+        for err in result.errors {
+            diagnostics.push(Diagnostic::new(
+                ValidationCode::E019,
+                SourceSpan::file_start("specforge.json"),
+                err.to_string(),
+            ));
+        }
+    }
+    diagnostics
+}
+
+/// Build a `FieldRegistry` from the compiler config.
+///
+/// Built-in plugins have no enhancements — their fields are wired via
+/// `FieldRegistry::with_builtins()`. Wasm package enhancements are registered
+/// separately in `discover_and_reconcile_wasm()`.
+fn build_field_registry(_config: &CompilerConfig) -> FieldRegistry {
+    FieldRegistry::with_builtins()
 }
 
 /// Find the project root, returning the spec files directory and an optional external config.

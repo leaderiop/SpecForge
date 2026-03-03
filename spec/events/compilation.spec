@@ -25,6 +25,8 @@ event file_parsed "File Parsed" {
 
   verify integration "emits file_parsed with correct entityCount and errorCount after successful parse"
   verify integration "consumers receive file_parsed and proceed to error recovery and graph building"
+
+  tests ["../crates/specforge-cli/tests/integration_test.rs"]
 }
 
 event graph_built "Graph Built" {
@@ -42,6 +44,8 @@ event graph_built "Graph Built" {
 
   verify integration "emits graph_built with accurate nodeCount and edgeCount after graph construction"
   verify integration "consumers receive graph_built and trigger reference detection and subgraph computation"
+
+  tests ["../crates/specforge-cli/tests/integration_test.rs"]
 }
 
 event validation_complete "Validation Complete" {
@@ -59,6 +63,8 @@ event validation_complete "Validation Complete" {
 
   verify integration "emits validation_complete with correct error, warning, and info counts"
   verify integration "consumers receive validation_complete and format diagnostics with suggestions"
+
+  tests ["../crates/specforge-cli/tests/integration_test.rs"]
 }
 
 event file_changed "File Changed" {
@@ -75,6 +81,8 @@ event file_changed "File Changed" {
 
   verify integration "emits file_changed with correct filePath and changeType on filesystem modification"
   verify integration "consumer invalidate_changed_files receives event and triggers recompilation"
+
+  tests ["../crates/specforge-cli/tests/integration_test.rs"]
 }
 
 event subgraph_invalidated "Subgraph Invalidated" {
@@ -91,6 +99,8 @@ event subgraph_invalidated "Subgraph Invalidated" {
 
   verify integration "emits subgraph_invalidated with correct invalidatedFiles list and nodeCount"
   verify integration "consumers rebuild affected subgraph and emit incremental diagnostics"
+
+  tests ["../crates/specforge-cli/tests/integration_test.rs"]
 }
 
 event test_report_consumed "Test Report Consumed" {
@@ -108,4 +118,6 @@ event test_report_consumed "Test Report Consumed" {
 
   verify integration "emits test_report_consumed with correct entityCount, matchedCount, and unmatchedCount"
   verify integration "consumers compute three-layer coverage and render traceability matrix"
+
+  tests ["../crates/specforge-cli/tests/integration_test.rs"]
 }

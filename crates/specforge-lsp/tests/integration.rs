@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use specforge_common::{
-    CompilerConfig, Diagnostic, EntityKind, FieldValue, SourceSpan, ValidationCode,
+    CompilerConfig, Diagnostic, EntityKind, FieldRegistry, FieldValue, SourceSpan, ValidationCode,
 };
 use specforge_graph::{FileIndex, SpecGraph};
 use specforge_parser::SpecFile;
@@ -34,12 +34,14 @@ impl TestState {
         }
 
         let resolved = specforge_resolver::resolve(parsed_files, ".");
-        let graph_result = specforge_graph::build_graph(&resolved.files);
+        let registry = FieldRegistry::with_builtins();
+        let graph_result = specforge_graph::build_graph(&resolved.files, &registry);
         let validation_bag = specforge_validator::validate(
             &resolved.files,
             &graph_result.graph,
             &resolved.config,
             std::path::Path::new("."),
+            &registry,
         );
 
         let mut all_diagnostics = resolved.diagnostics.sorted();

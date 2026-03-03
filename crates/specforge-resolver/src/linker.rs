@@ -5,8 +5,9 @@ use regex::Regex;
 use crate::file_graph::FileGraph;
 use crate::symbol_table::{Declaration, SymbolTable};
 use specforge_common::{
-    CompilerConfig, Diagnostic, DiagnosticBag, EdgeType, EntityId, EntityKind, FieldValue,
-    FormatVersion, GenConfig, Module, NamingStyle, ResultStyle, SourceSpan, ValidationCode,
+    CompilerConfig, Diagnostic, DiagnosticBag, EdgeType, EntityId, EntityKind, FieldRegistry,
+    FieldValue, FormatVersion, GenConfig, Module, NamingStyle, ResultStyle, SourceSpan,
+    ValidationCode,
 };
 use specforge_parser::{AstEntity, SpecFile};
 
@@ -79,6 +80,9 @@ pub fn resolve(files: Vec<SpecFile>, spec_root: &str) -> ResolvedProject {
 }
 
 /// Like [`resolve`], but accepts an optional pre-built `CompilerConfig`.
+///
+/// When `registry` is provided via the config's enhancement data, it is used
+/// to determine which fields are reference fields during resolution.
 pub fn resolve_with_config(
     files: Vec<SpecFile>,
     spec_root: &str,
@@ -161,10 +165,11 @@ pub fn resolve_with_config(
     }
 
     // Step 5: Resolve references
+    let registry = FieldRegistry::with_builtins();
     let compiled = CompiledPatterns::from_config(&config);
     for file in &files {
         for entity in &file.entities {
-            resolve_entity_refs(entity, &symbols, &config, &compiled, &mut diagnostics);
+            resolve_entity_refs(entity, &symbols, &config, &compiled, &registry, &mut diagnostics);
         }
     }
 
@@ -338,6 +343,11 @@ fn config_from_spec_entity(entity: &AstEntity) -> CompilerConfig {
         gen_configs,
         coverage: specforge_common::CoverageConfig::default(),
         custom_entities: std::collections::HashMap::new(),
+        enhancement_policy: specforge_common::EnhancementPolicy::default(),
+        enhancement_overrides: std::collections::HashMap::new(),
+        wasm_package_specifiers: Vec::new(),
+        entity_kind_policy: specforge_common::EntityKindPolicy::default(),
+        entity_kind_overrides: std::collections::HashMap::new(),
     }
 }
 
@@ -346,6 +356,7 @@ fn resolve_entity_refs(
     symbols: &SymbolTable,
     config: &CompilerConfig,
     compiled: &CompiledPatterns,
+    registry: &FieldRegistry,
     diagnostics: &mut DiagnosticBag,
 ) {
     // Check entity ID itself if it's a scheme ref (e.g., ref gh.issue:42)
@@ -353,11 +364,12 @@ fn resolve_entity_refs(
         check_reference(&entity.id, &entity.span, "", symbols, config, compiled, diagnostics);
     }
 
+    let entity_kind = entity.kind.keyword();
+
     for (field_name, value) in entity.fields.iter() {
         // Only resolve references for fields that create edges in the graph.
-        // Fields without an edge type mapping (e.g., contract, status)
-        // contain data values, not entity references.
-        if EdgeType::from_field_name(field_name).is_none() {
+        // Use the registry to check both built-in and enhanced reference fields.
+        if !registry.is_reference_field(entity_kind, field_name) {
             // Still check scheme refs (gh.issue:42) in any field
             if let FieldValue::Reference(ref_id) = value {
                 if ref_id.scheme().is_some() {

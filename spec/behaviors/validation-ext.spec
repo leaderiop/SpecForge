@@ -16,6 +16,8 @@ behavior detect_orphan_features "Detect Orphan Features" {
 
   verify unit "feature not in any capability produces W002"
   verify unit "feature in a capability suppresses W002"
+
+  tests ["../crates/specforge-cli/tests/integration_test.rs", "../crates/specforge-validator/src/passes.rs"]
 }
 
 behavior detect_library_cycles "Detect Library Cycles" {
@@ -30,6 +32,8 @@ behavior detect_library_cycles "Detect Library Cycles" {
 
   verify unit "library cycle produces E007"
   verify unit "acyclic library graph passes"
+
+  tests ["../crates/specforge-cli/tests/integration_test.rs", "../crates/specforge-validator/src/passes.rs"]
 }
 
 behavior validate_behavior_ranges_in_roadmaps "Validate Behavior Ranges in Roadmaps" {
@@ -46,6 +50,8 @@ behavior validate_behavior_ranges_in_roadmaps "Validate Behavior Ranges in Roadm
   verify unit "valid range passes"
   verify unit "start > end produces E010"
   verify unit "range with non-existent behaviors produces E010"
+
+  tests ["../crates/specforge-validator/src/passes.rs"]
 }
 
 behavior validate_rpn_arithmetic "Validate RPN Arithmetic" {
@@ -62,6 +68,8 @@ behavior validate_rpn_arithmetic "Validate RPN Arithmetic" {
   verify unit "correct RPN passes"
   verify unit "incorrect RPN produces E005"
   verify unit "post_mitigation RPN also validated"
+
+  tests ["../crates/specforge-cli/tests/integration_test.rs", "../crates/specforge-validator/src/passes.rs"]
 }
 
 behavior detect_unmitigated_high_risk_invariants "Detect Unmitigated High-Risk Invariants" {
@@ -76,6 +84,8 @@ behavior detect_unmitigated_high_risk_invariants "Detect Unmitigated High-Risk I
   verify unit "high-risk invariant without failure_mode produces W005"
   verify unit "high-risk invariant with failure_mode suppresses W005"
   verify unit "medium-risk invariant without failure_mode does not produce W005"
+
+  tests ["../crates/specforge-cli/tests/integration_test.rs", "../crates/specforge-validator/src/passes.rs"]
 }
 
 behavior detect_orphan_capabilities "Detect Orphan Capabilities" {
@@ -89,6 +99,8 @@ behavior detect_orphan_capabilities "Detect Orphan Capabilities" {
 
   verify unit "capability not in any deliverable produces W006"
   verify unit "capability in a deliverable suppresses W006"
+
+  tests ["../crates/specforge-cli/tests/integration_test.rs", "../crates/specforge-validator/src/passes.rs"]
 }
 
 behavior detect_features_with_empty_behaviors "Detect Features with Empty Behaviors" {
@@ -102,6 +114,8 @@ behavior detect_features_with_empty_behaviors "Detect Features with Empty Behavi
 
   verify unit "feature with empty behaviors list produces W008"
   verify unit "feature with at least one behavior suppresses W008"
+
+  tests ["../crates/specforge-cli/tests/integration_test.rs"]
 }
 
 // Extended validation (continued) — structural completeness checks
@@ -117,6 +131,8 @@ behavior detect_deliverables_with_no_capabilities "Detect Deliverables with No C
 
   verify unit "deliverable with no capabilities produces W009"
   verify unit "deliverable with capabilities suppresses W009"
+
+  tests ["../crates/specforge-cli/tests/integration_test.rs", "../crates/specforge-validator/src/passes.rs"]
 }
 
 behavior detect_orphan_libraries "Detect Orphan Libraries" {
@@ -130,6 +146,8 @@ behavior detect_orphan_libraries "Detect Orphan Libraries" {
 
   verify unit "library not in any deliverable produces W010"
   verify unit "library in a deliverable suppresses W010"
+
+  tests ["../crates/specforge-cli/tests/integration_test.rs", "../crates/specforge-validator/src/passes.rs"]
 }
 
 behavior detect_constraints_with_no_protected_invariants "Detect Constraints with No Protected Invariants" {
@@ -143,6 +161,8 @@ behavior detect_constraints_with_no_protected_invariants "Detect Constraints wit
 
   verify unit "constraint with empty protects list produces W011"
   verify unit "constraint with valid protects suppresses W011"
+
+  tests ["../crates/specforge-cli/tests/integration_test.rs", "../crates/specforge-validator/src/passes.rs"]
 }
 
 behavior detect_unused_glossary_terms "Detect Unused Glossary Terms" {
@@ -156,4 +176,6 @@ behavior detect_unused_glossary_terms "Detect Unused Glossary Terms" {
 
   verify unit "glossary term referenced in a contract suppresses I001"
   verify unit "glossary term not referenced anywhere produces I001"
+
+  tests ["../crates/specforge-cli/tests/integration_test.rs", "../crates/specforge-validator/src/passes.rs"]
 }

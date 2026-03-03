@@ -82,7 +82,7 @@ deliverable specforge_gen_rust_deliverable "specforge/gen-rust" {
 deliverable specforge_wasm_runtime_deliverable "specforge-wasm" {
   type         library
   personas     [developer, contributor]
-  capabilities [manage_plugins, scaffold_wasm_plugin, test_wasm_plugin_locally_cap, publish_wasm_plugin_cap]
+  capabilities [manage_plugins, scaffold_wasm_plugin, test_wasm_plugin_locally_cap, publish_wasm_plugin_cap, diagnose_plugin_issues]
   libraries    [specforge_wasm]
 }
 

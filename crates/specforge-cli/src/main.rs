@@ -10,11 +10,15 @@ fn main() {
 
     let exit_code = match cli.command {
         Command::Add(args) => commands::add::run(args),
+        Command::Cache(args) => commands::cache::run(args),
         Command::Check(args) => commands::check::run(args),
+        Command::Doctor(args) => commands::doctor::run(args),
         Command::Coverage(args) => commands::coverage::run(args),
         Command::Gen(args) => commands::gen_cmd::run(args),
         Command::Init(args) => commands::init::run(args),
         Command::Migrate(args) => commands::migrate::run(args),
+        Command::Package(args) => commands::package::run(args),
+        Command::Plugin(args) => commands::plugin::run(args),
         Command::Plugins(args) => commands::plugins::run(args),
         Command::Providers(args) => commands::providers::run(args),
         Command::Remove(args) => commands::remove::run(args),

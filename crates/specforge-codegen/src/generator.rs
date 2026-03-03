@@ -16,31 +16,31 @@ pub struct GenerateContext<'a> {
 
 /// A typed error produced when an external plugin generator fails.
 #[derive(Debug, Clone)]
-pub enum PluginError {
-    NotFound { plugin_name: String, message: String },
-    ExecutionFailed { plugin_name: String, message: String, stderr: Option<String> },
-    InvalidOutput { plugin_name: String, message: String },
-    SpawnFailed { plugin_name: String, message: String },
+pub enum PackageError {
+    NotFound { package_name: String, message: String },
+    ExecutionFailed { package_name: String, message: String, stderr: Option<String> },
+    InvalidOutput { package_name: String, message: String },
+    SpawnFailed { package_name: String, message: String },
 }
 
-impl fmt::Display for PluginError {
+impl fmt::Display for PackageError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Self::NotFound { plugin_name, message } => {
-                write!(f, "plugin `{plugin_name}` not found: {message}")
+            Self::NotFound { package_name, message } => {
+                write!(f, "package `{package_name}` not found: {message}")
             }
-            Self::ExecutionFailed { plugin_name, message, stderr } => {
-                write!(f, "plugin `{plugin_name}` failed: {message}")?;
+            Self::ExecutionFailed { package_name, message, stderr } => {
+                write!(f, "package `{package_name}` failed: {message}")?;
                 if let Some(stderr) = stderr {
                     write!(f, "\n  stderr: {stderr}")?;
                 }
                 Ok(())
             }
-            Self::InvalidOutput { plugin_name, message } => {
-                write!(f, "plugin `{plugin_name}` produced invalid output: {message}")
+            Self::InvalidOutput { package_name, message } => {
+                write!(f, "package `{package_name}` produced invalid output: {message}")
             }
-            Self::SpawnFailed { plugin_name, message } => {
-                write!(f, "plugin `{plugin_name}` spawn failed: {message}")
+            Self::SpawnFailed { package_name, message } => {
+                write!(f, "package `{package_name}` spawn failed: {message}")
             }
         }
     }
@@ -50,7 +50,7 @@ impl fmt::Display for PluginError {
 pub struct GenerateResult {
     pub files: Vec<GeneratedFile>,
     pub warnings: Vec<String>,
-    pub errors: Vec<PluginError>,
+    pub errors: Vec<PackageError>,
     pub entity_checksums: HashMap<String, String>,
 }
 
@@ -106,47 +106,47 @@ mod tests {
     }
 
     #[test]
-    fn plugin_error_display_not_found() {
-        let err = PluginError::NotFound {
-            plugin_name: "foo".to_string(),
+    fn package_error_display_not_found() {
+        let err = PackageError::NotFound {
+            package_name: "foo".to_string(),
             message: "not on PATH".to_string(),
         };
-        assert_eq!(err.to_string(), "plugin `foo` not found: not on PATH");
+        assert_eq!(err.to_string(), "package `foo` not found: not on PATH");
     }
 
     #[test]
-    fn plugin_error_display_execution_failed_with_stderr() {
-        let err = PluginError::ExecutionFailed {
-            plugin_name: "bar".to_string(),
+    fn package_error_display_execution_failed_with_stderr() {
+        let err = PackageError::ExecutionFailed {
+            package_name: "bar".to_string(),
             message: "exit code 1".to_string(),
             stderr: Some("segfault".to_string()),
         };
         let s = err.to_string();
-        assert!(s.contains("plugin `bar` failed: exit code 1"));
+        assert!(s.contains("package `bar` failed: exit code 1"));
         assert!(s.contains("stderr: segfault"));
     }
 
     #[test]
-    fn plugin_error_display_invalid_output() {
-        let err = PluginError::InvalidOutput {
-            plugin_name: "baz".to_string(),
+    fn package_error_display_invalid_output() {
+        let err = PackageError::InvalidOutput {
+            package_name: "baz".to_string(),
             message: "expected array".to_string(),
         };
         assert_eq!(
             err.to_string(),
-            "plugin `baz` produced invalid output: expected array"
+            "package `baz` produced invalid output: expected array"
         );
     }
 
     #[test]
-    fn plugin_error_display_spawn_failed() {
-        let err = PluginError::SpawnFailed {
-            plugin_name: "qux".to_string(),
+    fn package_error_display_spawn_failed() {
+        let err = PackageError::SpawnFailed {
+            package_name: "qux".to_string(),
             message: "permission denied".to_string(),
         };
         assert_eq!(
             err.to_string(),
-            "plugin `qux` spawn failed: permission denied"
+            "package `qux` spawn failed: permission denied"
         );
     }
 

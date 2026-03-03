@@ -70,7 +70,7 @@ library specforge_formatter "specforge-formatter" {
 
 library specforge_wasm "specforge-wasm" {
   family       core
-  features     [wasm_plugin_runtime, wasm_plugin_authoring]
+  features     [wasm_package_runtime, wasm_package_authoring]
   depends_on   [specforge_graph]
   ports_defined [WasmRuntime]
 }

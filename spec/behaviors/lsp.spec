@@ -22,6 +22,8 @@ behavior go_to_definition "Go-to-Definition" {
   verify unit        "go-to-def navigates to entity declaration"
   verify unit        "go-to-def on non-existent ID returns no result"
   verify integration "go-to-def works across files"
+
+  tests ["../crates/specforge-lsp/tests/integration.rs"]
 }
 
 behavior find_all_references "Find All References" {
@@ -37,6 +39,8 @@ behavior find_all_references "Find All References" {
   verify unit "find-refs returns all reference sites"
   verify unit "find-refs includes the declaration site"
   verify unit "find-refs across multiple files"
+
+  tests ["../crates/specforge-lsp/tests/integration.rs"]
 }
 
 behavior hover_information "Hover Information" {
@@ -52,6 +56,8 @@ behavior hover_information "Hover Information" {
   verify unit "hover shows entity title and type"
   verify unit "hover shows contract or guarantee text"
   verify unit "hover shows reference count"
+
+  tests ["../crates/specforge-lsp/tests/integration.rs"]
 }
 
 behavior autocomplete_entity_ids "Autocomplete Entity IDs" {
@@ -68,6 +74,8 @@ behavior autocomplete_entity_ids "Autocomplete Entity IDs" {
   verify unit "autocomplete suggests matching IDs"
   verify unit "suggestions include entity titles"
   verify unit "suggestions filter by expected entity type"
+
+  tests ["../crates/specforge-lsp/tests/integration.rs"]
 }
 
 behavior rename_entity_id "Rename Entity ID" {
@@ -85,6 +93,8 @@ behavior rename_entity_id "Rename Entity ID" {
   verify unit "rename updates declaration and all references"
   verify unit "rename is atomic — all or nothing"
   verify unit "rename across multiple files"
+
+  tests ["../crates/specforge-lsp/tests/integration.rs"]
 }
 
 behavior live_diagnostics "Live Diagnostics" {
@@ -102,6 +112,8 @@ behavior live_diagnostics "Live Diagnostics" {
   verify unit        "diagnostics update after file change"
   verify unit        "only changed file diagnostics are refreshed"
   verify integration "diagnostics appear within 100ms"
+
+  tests ["../crates/specforge-lsp/tests/integration.rs"]
 }
 
 behavior code_actions_for_missing_tests "Code Actions for Missing Tests" {
@@ -117,6 +129,8 @@ behavior code_actions_for_missing_tests "Code Actions for Missing Tests" {
 
   verify unit "code action offered on untested behavior"
   verify unit "generated stub includes behavior ID"
+
+  tests ["../crates/specforge-lsp/tests/integration.rs"]
 }
 
 behavior outline_view "Outline View" {
@@ -132,6 +146,8 @@ behavior outline_view "Outline View" {
 
   verify unit "outline lists all entities in file"
   verify unit "outline shows entity type and ID"
+
+  tests ["../crates/specforge-lsp/tests/integration.rs"]
 }
 
 behavior workspace_symbol_search "Workspace Symbol Search" {
@@ -146,6 +162,8 @@ behavior workspace_symbol_search "Workspace Symbol Search" {
 
   verify unit "search by ID prefix returns matches"
   verify unit "search by title fragment returns matches"
+
+  tests ["../crates/specforge-lsp/tests/integration.rs"]
 }
 
 behavior shared_incremental_pipeline "Shared Incremental Pipeline" {
@@ -162,6 +180,8 @@ behavior shared_incremental_pipeline "Shared Incremental Pipeline" {
 
   verify unit        "LSP and watch share the same graph"
   verify integration "graph update serves all LSP features"
+
+  tests ["../crates/specforge-lsp/tests/integration.rs"]
 }
 
 behavior provide_semantic_tokens "Provide Semantic Tokens" {
@@ -172,13 +192,20 @@ behavior provide_semantic_tokens "Provide Semantic Tokens" {
     The LSP MUST provide semantic tokens for .spec files. Entity IDs MUST
     be classified by entity type (behavior, feature, invariant, etc.).
     Keywords (behavior, feature, use, etc.) MUST be classified as keywords.
-    Triple-quoted strings MUST be classified as strings. Semantic token
-    updates MUST use the shared incremental pipeline.
+    Triple-quoted strings MUST be classified as strings. Custom entity
+    keywords from plugins and define blocks MUST be classified as keyword.
+    Custom entity IDs MUST be classified by their entity kind. Enhanced
+    fields from entity enhancements MUST be classified as property.
+    Semantic token updates MUST use the shared incremental pipeline.
   """
 
   verify unit "entity IDs receive correct semantic token type"
   verify unit "keywords are classified as keywords"
   verify unit "triple-quoted strings are classified as strings"
+  verify unit "custom entity keywords from plugins are classified as keyword"
+  verify unit "enhanced fields are classified as property"
+
+  tests ["../crates/specforge-lsp/tests/integration.rs"]
 }
 
 behavior complete_field_names "Complete Field Names" {
@@ -195,6 +222,8 @@ behavior complete_field_names "Complete Field Names" {
   verify unit "field name completion inside a behavior block"
   verify unit "suggestions are filtered by entity kind"
   verify unit "no field name suggestions outside entity blocks"
+
+  tests ["../crates/specforge-lsp/tests/integration.rs"]
 }
 
 behavior complete_keywords "Complete Keywords" {
@@ -211,6 +240,8 @@ behavior complete_keywords "Complete Keywords" {
   verify unit "keyword completion at file top level"
   verify unit "no keyword suggestions inside entity blocks"
   verify unit "snippet templates include block structure"
+
+  tests ["../crates/specforge-lsp/tests/integration.rs"]
 }
 
 behavior goto_import_definition "Go-to-Definition on Imports" {
@@ -225,6 +256,8 @@ behavior goto_import_definition "Go-to-Definition on Imports" {
 
   verify unit "go-to-def on use path navigates to target file"
   verify unit "go-to-def on non-existent use path returns no result"
+
+  tests ["../crates/specforge-lsp/tests/integration.rs"]
 }
 
 behavior code_action_add_missing_import "Code Action: Add Missing Import" {
@@ -241,6 +274,8 @@ behavior code_action_add_missing_import "Code Action: Add Missing Import" {
   verify unit "code action offered on E001 for resolvable entity"
   verify unit "import is inserted after existing use statements"
   verify unit "no code action when entity does not exist anywhere"
+
+  tests ["../crates/specforge-lsp/tests/integration.rs"]
 }
 
 behavior code_action_create_entity_stub "Code Action: Create Entity Stub" {
@@ -258,6 +293,8 @@ behavior code_action_create_entity_stub "Code Action: Create Entity Stub" {
   verify unit "code action offered on E001 for non-existent entity"
   verify unit "stub uses correct entity kind from reference context"
   verify unit "stub is inserted at end of current file"
+
+  tests ["../crates/specforge-lsp/tests/integration.rs"]
 }
 
 behavior incremental_document_sync "Incremental Document Sync" {
@@ -276,4 +313,6 @@ behavior incremental_document_sync "Incremental Document Sync" {
   verify unit "incremental change applies correctly to source buffer"
   verify unit "multiple incremental changes produce correct source"
   verify integration "incremental sync reduces transfer size vs full sync"
+
+  tests ["../crates/specforge-lsp/tests/integration.rs"]
 }

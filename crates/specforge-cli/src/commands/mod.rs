@@ -1,10 +1,14 @@
 pub mod add;
+pub mod cache;
 pub mod check;
 pub mod coverage;
+pub mod doctor;
 pub mod gen_cmd;
 pub mod graph_cmd;
 pub mod init;
 pub mod migrate;
+pub mod package;
+pub mod plugin;
 pub mod plugins;
 pub mod providers;
 pub mod remove;
@@ -28,8 +32,12 @@ pub struct Cli {
 pub enum Command {
     /// Add a plugin to the current project
     Add(add::AddArgs),
+    /// Manage AOT compilation cache
+    Cache(cache::CacheArgs),
     /// Check spec files for errors and warnings
     Check(check::CheckArgs),
+    /// Diagnose plugin enhancements, conflicts, and configuration
+    Doctor(doctor::DoctorArgs),
     /// Compute test coverage from specforge-report.json files
     Coverage(coverage::CoverageArgs),
     /// Generate code from spec entities (types, ports, test stubs)
@@ -38,6 +46,10 @@ pub enum Command {
     Init(init::InitArgs),
     /// Migrate spec files to the latest format version
     Migrate(migrate::MigrateArgs),
+    /// Wasm package authoring commands (init, build, test, publish)
+    Package(package::PackageArgs),
+    /// Wasm plugin authoring commands (init, build, test, publish) [deprecated: use `package`]
+    Plugin(plugin::PluginArgs),
     /// List installed plugins
     Plugins(plugins::PluginsArgs),
     /// List configured providers

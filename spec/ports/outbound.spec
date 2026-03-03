@@ -58,12 +58,14 @@ port WasmRuntime {
   direction outbound
   category  "runtime/wasm"
 
-  method loadModule(wasmPath: string) -> Result<string, PluginError>
-  method callExport(pluginId: string, exportName: string, input: string) -> Result<string, PluginError>
-  method registerHostFunction(name: string, handler: string) -> Result<void, PluginError>
-  method aotCompile(wasmPath: string, cachePath: string) -> Result<string, PluginError>
-  method unloadModule(pluginId: string) -> Result<void, PluginError>
+  method loadModule(wasmPath: string) -> Result<string, PackageError>
+  method callExport(pluginId: string, exportName: string, input: string) -> Result<string, PackageError>
+  method registerHostFunction(name: string, handler: string) -> Result<void, PackageError>
+  method aotCompile(wasmPath: string, cachePath: string) -> Result<string, PackageError>
+  method unloadModule(pluginId: string) -> Result<void, PackageError>
   method getMemoryUsage(pluginId: string) -> Result<integer, never>
+  method discoverPlugins(source: string, packageSpec: string) -> Result<string[], PackageError>
+  method getCacheStatus(pluginId: string) -> Result<string, never>
 }
 
 port RustTestOutputParser {

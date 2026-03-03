@@ -21,6 +21,8 @@ behavior detect_dangling_references "Detect Dangling References" {
   verify unit "missing reference produces E001"
   verify unit "valid reference passes silently"
   verify unit "close match produces suggestion"
+
+  tests ["../crates/specforge-cli/tests/integration_test.rs", "../crates/specforge-validator/src/passes.rs"]
 }
 
 behavior detect_duplicate_entity_ids "Detect Duplicate Entity IDs" {
@@ -36,6 +38,8 @@ behavior detect_duplicate_entity_ids "Detect Duplicate Entity IDs" {
   verify unit "duplicate ID in same file produces E002"
   verify unit "duplicate ID across files produces E002"
   verify unit "E002 includes both source locations"
+
+  tests ["../crates/specforge-cli/tests/integration_test.rs", "../crates/specforge-validator/src/passes.rs"]
 }
 
 behavior validate_import_cycles "Detect Import Cycles" {
@@ -49,6 +53,8 @@ behavior validate_import_cycles "Detect Import Cycles" {
 
   verify unit "import cycle produces E003"
   verify unit "E003 lists all cycle participants"
+
+  tests ["../crates/specforge-cli/tests/integration_test.rs", "../crates/specforge-validator/src/passes.rs"]
 }
 
 behavior detect_orphan_behaviors "Detect Orphan Behaviors" {
@@ -62,6 +68,8 @@ behavior detect_orphan_behaviors "Detect Orphan Behaviors" {
 
   verify unit "behavior not in any feature produces W001"
   verify unit "behavior in a feature suppresses W001"
+
+  tests ["../crates/specforge-cli/tests/integration_test.rs", "../crates/specforge-validator/src/passes.rs"]
 }
 
 behavior detect_unused_invariants "Detect Unused Invariants" {
@@ -74,6 +82,8 @@ behavior detect_unused_invariants "Detect Unused Invariants" {
 
   verify unit "invariant not referenced by any behavior produces W003"
   verify unit "referenced invariant suppresses W003"
+
+  tests ["../crates/specforge-cli/tests/integration_test.rs", "../crates/specforge-validator/src/passes.rs"]
 }
 
 behavior detect_unverified_behaviors "Detect Unverified Behaviors" {
@@ -86,6 +96,8 @@ behavior detect_unverified_behaviors "Detect Unverified Behaviors" {
 
   verify unit "behavior without verify produces W004"
   verify unit "behavior with verify suppresses W004"
+
+  tests ["../crates/specforge-cli/tests/integration_test.rs", "../crates/specforge-validator/src/passes.rs"]
 }
 
 behavior detect_orphan_events "Detect Orphan Events" {
@@ -98,6 +110,8 @@ behavior detect_orphan_events "Detect Orphan Events" {
 
   verify unit "event without consumers produces W007"
   verify unit "event with consumers suppresses W007"
+
+  tests ["../crates/specforge-cli/tests/integration_test.rs", "../crates/specforge-validator/src/passes.rs"]
 }
 
 behavior validate_event_triggers "Validate Event Triggers" {
@@ -111,6 +125,8 @@ behavior validate_event_triggers "Validate Event Triggers" {
 
   verify unit "valid trigger passes"
   verify unit "non-existent trigger produces E006"
+
+  tests ["../crates/specforge-cli/tests/integration_test.rs", "../crates/specforge-validator/src/passes.rs"]
 }
 
 behavior validate_persona_references "Validate Persona References" {
@@ -124,6 +140,8 @@ behavior validate_persona_references "Validate Persona References" {
 
   verify unit "valid persona passes"
   verify unit "undeclared persona produces E008"
+
+  tests ["../crates/specforge-cli/tests/integration_test.rs", "../crates/specforge-validator/src/passes.rs"]
 }
 
 behavior validate_surface_references "Validate Surface References" {
@@ -137,6 +155,8 @@ behavior validate_surface_references "Validate Surface References" {
 
   verify unit "valid surface passes"
   verify unit "undeclared surface produces E009"
+
+  tests ["../crates/specforge-cli/tests/integration_test.rs", "../crates/specforge-validator/src/passes.rs"]
 }
 
 behavior detect_orphan_refs "Detect Orphan Refs" {
@@ -149,6 +169,8 @@ behavior detect_orphan_refs "Detect Orphan Refs" {
 
   verify unit "unreferenced ref produces W012"
   verify unit "referenced ref suppresses W012"
+
+  tests ["../crates/specforge-cli/tests/integration_test.rs", "../crates/specforge-validator/src/passes.rs"]
 }
 
 behavior validate_empty_scenario "Validate Empty Scenario" {
@@ -163,6 +185,8 @@ behavior validate_empty_scenario "Validate Empty Scenario" {
 
   verify unit "scenario with no steps produces E004"
   verify unit "scenario with steps suppresses E004"
+
+  tests ["../crates/specforge-cli/tests/integration_test.rs", "../crates/specforge-validator/src/passes.rs"]
 }
 
 behavior validate_duplicate_scenario_titles "Validate Duplicate Scenario Titles" {
@@ -177,6 +201,8 @@ behavior validate_duplicate_scenario_titles "Validate Duplicate Scenario Titles"
 
   verify unit "duplicate scenario title in same entity produces E015"
   verify unit "same scenario title in different entities is allowed"
+
+  tests ["../crates/specforge-cli/tests/integration_test.rs", "../crates/specforge-validator/src/passes.rs"]
 }
 
 behavior validate_scenario_steps "Validate Scenario Steps" {
@@ -193,6 +219,8 @@ behavior validate_scenario_steps "Validate Scenario Steps" {
   verify unit "scenario without when step produces W015"
   verify unit "scenario without then step produces W016"
   verify unit "scenario with all step kinds produces no warnings"
+
+  tests ["../crates/specforge-cli/tests/integration_test.rs", "../crates/specforge-validator/src/passes.rs"]
 }
 
 behavior validate_tests_field_references "Validate Tests Field References" {
@@ -209,6 +237,8 @@ behavior validate_tests_field_references "Validate Tests Field References" {
   verify unit "non-existent test file path produces E016"
   verify unit "existing test file path passes silently"
   verify unit "testable entity with verify but no tests field produces W018"
+
+  tests ["../crates/specforge-cli/tests/integration_test.rs", "../crates/specforge-validator/src/passes.rs"]
 }
 
 behavior validate_plugin_testability "Validate Plugin Testability" {
@@ -225,4 +255,6 @@ behavior validate_plugin_testability "Validate Plugin Testability" {
 
   verify unit "testable plugin entity without verify support produces W017"
   verify unit "entity with verify support but not marked testable produces I006"
+
+  tests ["../crates/specforge-validator/src/passes.rs"]
 }

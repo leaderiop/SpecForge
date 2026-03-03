@@ -21,6 +21,8 @@ behavior merge_coverage_reports "Merge Coverage Reports" {
   verify unit        "multiple reports are merged"
   verify unit        "duplicate behavior takes most recent result"
   verify integration "reports from configured test_dirs are discovered"
+
+  tests ["../crates/specforge-cli/tests/integration_test.rs"]
 }
 
 behavior compute_coverage_summary "Compute Coverage Summary" {
@@ -37,6 +39,8 @@ behavior compute_coverage_summary "Compute Coverage Summary" {
   verify unit "coverage percentage is correct"
   verify unit "missing behaviors are counted"
   verify unit "all status categories are tallied"
+
+  tests ["../crates/specforge-cli/tests/integration_test.rs"]
 }
 
 behavior gate_on_coverage_threshold "Gate on Coverage Threshold" {
@@ -52,6 +56,8 @@ behavior gate_on_coverage_threshold "Gate on Coverage Threshold" {
   verify unit "coverage above threshold exits 0"
   verify unit "coverage below threshold exits 1"
   verify unit "threshold from spec root is used as default"
+
+  tests ["../crates/specforge-cli/tests/integration_test.rs"]
 }
 
 behavior validate_test_ids_against_spec "Validate Test IDs Against Spec" {
@@ -67,6 +73,8 @@ behavior validate_test_ids_against_spec "Validate Test IDs Against Spec" {
   verify unit "known behavior ID passes"
   verify unit "unknown behavior ID fails when gate is enabled"
   verify unit "unknown IDs are ignored when gate is disabled"
+
+  tests ["../crates/specforge-cli/tests/integration_test.rs"]
 }
 
 behavior consume_specforge_report "Consume Specforge Report" {
@@ -84,6 +92,8 @@ behavior consume_specforge_report "Consume Specforge Report" {
   verify unit "report with unknown entity IDs collects unmatched entries"
   verify unit "malformed report produces parse error"
   verify integration "report files are discovered from configured directories"
+
+  tests ["../crates/specforge-cli/tests/integration_test.rs"]
 }
 
 behavior compute_three_layer_coverage "Compute Three-Layer Coverage" {
@@ -101,6 +111,8 @@ behavior compute_three_layer_coverage "Compute Three-Layer Coverage" {
   verify unit "linked count matches entities with tests field"
   verify unit "executed count matches entities in report"
   verify unit "passing count matches entities with all tests passing"
+
+  tests ["../crates/specforge-cli/tests/integration_test.rs"]
 }
 
 behavior render_test_traceability_matrix "Render Test Traceability Matrix" {
@@ -116,4 +128,6 @@ behavior render_test_traceability_matrix "Render Test Traceability Matrix" {
   verify unit "matrix includes all testable entities"
   verify unit "matrix shows correct status for each coverage level"
   verify integration "full trace output matches expected tabular format"
+
+  tests ["../crates/specforge-cli/tests/integration_test.rs"]
 }

@@ -45,9 +45,9 @@ type EmitterError {
   outputPath string            @optional
 }
 
-type PluginError {
-  _tag            "PluginError"     @literal
-  pluginName      string
+type PackageError {
+  _tag            "PackageError"    @literal
+  packageName     string
   message         string
   wasmTrap        string            @optional
   lifecycleState  string            @optional

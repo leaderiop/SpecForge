@@ -1,6 +1,6 @@
 use specforge_common::{
-    CompilerConfig, Diagnostic, DiagnosticBag, EdgeType, EntityId, EntityKind, FieldMap,
-    FieldValue, FormatVersion, Module, SourceSpan, ValidationCode,
+    CompilerConfig, Diagnostic, DiagnosticBag, EdgeType, EnhancedFieldType, EntityId, EntityKind,
+    FieldMap, FieldRegistry, FieldValue, FormatVersion, Module, SourceSpan, ValidationCode,
 };
 use specforge_graph::SpecGraph;
 use specforge_parser::SpecFile;
@@ -20,6 +20,7 @@ pub fn validate(
     graph: &SpecGraph,
     config: &CompilerConfig,
     spec_root_dir: &Path,
+    registry: &FieldRegistry,
 ) -> DiagnosticBag {
     let mut bag = DiagnosticBag::new();
 
@@ -40,6 +41,7 @@ pub fn validate(
     check_test_file_references(files, spec_root_dir, &mut bag); // E016
     check_testable_entities_without_test_links(files, &mut bag); // W018
     check_custom_entity_fields(files, config, &mut bag); // Custom entity validation
+    check_enhanced_field_types(files, registry, &mut bag); // W022, W024
 
     // Product passes
     if config.has_plugin(Module::Product) {
@@ -1030,6 +1032,147 @@ fn get_int_field(entity: &specforge_parser::AstEntity, field: &str) -> Option<i6
     }
 }
 
+// ── W022/W024: enhanced field type validation ─────────────────────────
+
+fn check_enhanced_field_types(
+    files: &[SpecFile],
+    registry: &FieldRegistry,
+    bag: &mut DiagnosticBag,
+) {
+    for file in files {
+        for entity in &file.entities {
+            let entity_kind = entity.kind.keyword();
+            let enhanced = registry.enhanced_fields_for_kind(entity_kind);
+
+            for reg_enh in &enhanced {
+                let enh = &reg_enh.enhancement;
+                let field_name = &enh.field_name;
+
+                match entity.fields.get(field_name) {
+                    Some(value) => {
+                        match &enh.field_type {
+                            EnhancedFieldType::Enum { values } => {
+                                match value {
+                                    FieldValue::Enum(v) | FieldValue::String(v) => {
+                                        if !values.contains(v) {
+                                            bag.push(
+                                                Diagnostic::new(
+                                                    ValidationCode::W022,
+                                                    entity.span.clone(),
+                                                    format!(
+                                                        "field `{field_name}` has value `{v}` which is not in allowed values [{}]",
+                                                        values.join(", ")
+                                                    ),
+                                                )
+                                                .with_help(format!(
+                                                    "allowed values: {}",
+                                                    values.join(", ")
+                                                )),
+                                            );
+                                        }
+                                    }
+                                    _ => {
+                                        bag.push(
+                                            Diagnostic::new(
+                                                ValidationCode::W022,
+                                                entity.span.clone(),
+                                                format!(
+                                                    "field `{field_name}` expected enum value, got different type"
+                                                ),
+                                            )
+                                            .with_help(format!(
+                                                "expected one of: {}",
+                                                values.join(", ")
+                                            )),
+                                        );
+                                    }
+                                }
+                            }
+                            EnhancedFieldType::String => {
+                                if !matches!(value, FieldValue::String(_) | FieldValue::Enum(_)) {
+                                    bag.push(
+                                        Diagnostic::new(
+                                            ValidationCode::W022,
+                                            entity.span.clone(),
+                                            format!("field `{field_name}` expected string value"),
+                                        )
+                                        .with_help("enhanced field type is 'string'"),
+                                    );
+                                }
+                            }
+                            EnhancedFieldType::Integer => {
+                                if !matches!(value, FieldValue::Integer(_)) {
+                                    bag.push(
+                                        Diagnostic::new(
+                                            ValidationCode::W022,
+                                            entity.span.clone(),
+                                            format!("field `{field_name}` expected integer value"),
+                                        )
+                                        .with_help("enhanced field type is 'integer'"),
+                                    );
+                                }
+                            }
+                            EnhancedFieldType::Bool => {
+                                if !matches!(value, FieldValue::Bool(_)) {
+                                    bag.push(
+                                        Diagnostic::new(
+                                            ValidationCode::W022,
+                                            entity.span.clone(),
+                                            format!("field `{field_name}` expected boolean value"),
+                                        )
+                                        .with_help("enhanced field type is 'bool'"),
+                                    );
+                                }
+                            }
+                            EnhancedFieldType::StringList => {
+                                if !matches!(
+                                    value,
+                                    FieldValue::StringList(_) | FieldValue::EnumList(_)
+                                ) {
+                                    bag.push(
+                                        Diagnostic::new(
+                                            ValidationCode::W022,
+                                            entity.span.clone(),
+                                            format!(
+                                                "field `{field_name}` expected string list value"
+                                            ),
+                                        )
+                                        .with_help("enhanced field type is 'string_list'"),
+                                    );
+                                }
+                            }
+                            EnhancedFieldType::Reference { .. }
+                            | EnhancedFieldType::ReferenceList { .. } => {
+                                // Reference fields are validated by the graph builder, not here
+                            }
+                        }
+                    }
+                    None => {
+                        // W024: missing required enhanced field
+                        if enh.required {
+                            bag.push(
+                                Diagnostic::new(
+                                    ValidationCode::W024,
+                                    entity.span.clone(),
+                                    format!(
+                                        "missing required enhanced field `{field_name}` on {} `{}`",
+                                        entity_kind,
+                                        entity.id.raw()
+                                    ),
+                                )
+                                .with_help(format!(
+                                    "add `{field_name}` field (contributed by {})",
+                                    reg_enh.source_plugin
+                                )),
+                            );
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1063,8 +1206,9 @@ mod tests {
     }
 
     fn validate_files(files: &[SpecFile], config: &CompilerConfig) -> DiagnosticBag {
-        let result = build_graph(files);
-        validate(files, &result.graph, config, Path::new("."))
+        let registry = FieldRegistry::with_builtins();
+        let result = build_graph(files, &registry);
+        validate(files, &result.graph, config, Path::new("."), &registry)
     }
 
     fn diags_with_code(bag: &DiagnosticBag, code: ValidationCode) -> Vec<&Diagnostic> {
@@ -2019,8 +2163,9 @@ mod tests {
             "test.spec",
             vec![make_entity("create_user", EntityKind::Behavior, fields)],
         )];
-        let result = build_graph(&files);
-        let bag = validate(&files, &result.graph, &CompilerConfig::default(), Path::new("."));
+        let registry = FieldRegistry::with_builtins();
+        let result = build_graph(&files, &registry);
+        let bag = validate(&files, &result.graph, &CompilerConfig::default(), Path::new("."), &registry);
         assert_eq!(diags_with_code(&bag, ValidationCode::E016).len(), 1);
     }
 
@@ -2046,8 +2191,9 @@ mod tests {
             "test.spec",
             vec![make_entity("create_user", EntityKind::Behavior, fields)],
         )];
-        let result = build_graph(&files);
-        let bag = validate(&files, &result.graph, &CompilerConfig::default(), dir.path());
+        let registry = FieldRegistry::with_builtins();
+        let result = build_graph(&files, &registry);
+        let bag = validate(&files, &result.graph, &CompilerConfig::default(), dir.path(), &registry);
         assert_eq!(diags_with_code(&bag, ValidationCode::E016).len(), 0);
     }
 
@@ -2102,5 +2248,158 @@ mod tests {
         )];
         let bag = validate_files(&files, &CompilerConfig::default());
         assert_eq!(diags_with_code(&bag, ValidationCode::W018).len(), 0);
+    }
+
+    // ── W022: enhanced field type validation ────────────────────────────
+
+    fn validate_with_registry(
+        files: &[SpecFile],
+        config: &CompilerConfig,
+        registry: &FieldRegistry,
+    ) -> DiagnosticBag {
+        let result = build_graph(files, registry);
+        validate(files, &result.graph, config, Path::new("."), registry)
+    }
+
+    fn make_enhanced_registry(
+        enhancements: Vec<specforge_common::FieldEnhancement>,
+    ) -> FieldRegistry {
+        use specforge_common::EnhancementPolicy;
+        let mut registry = FieldRegistry::with_builtins();
+        registry.register_plugin(
+            "@test/validator",
+            &enhancements,
+            &[],
+            &EnhancementPolicy::default(),
+            &std::collections::HashMap::new(),
+        );
+        registry
+    }
+
+    #[test]
+    fn w022_string_field_type_mismatch() {
+        let registry = make_enhanced_registry(vec![specforge_common::FieldEnhancement {
+            target_entity: "behavior".to_string(),
+            field_name: "label".to_string(),
+            field_type: EnhancedFieldType::String,
+            required: false,
+            description: String::new(),
+        }]);
+
+        // Integer value when string expected → W022
+        let mut fields = FieldMap::new();
+        fields.insert("label", FieldValue::Integer(42));
+        let files = vec![make_file(
+            "test.spec",
+            vec![make_entity("beh_a", EntityKind::Behavior, fields)],
+        )];
+        let bag = validate_with_registry(&files, &CompilerConfig::default(), &registry);
+        assert_eq!(diags_with_code(&bag, ValidationCode::W022).len(), 1);
+
+        // String value is OK
+        let mut fields2 = FieldMap::new();
+        fields2.insert("label", FieldValue::String("ok".to_string()));
+        let files2 = vec![make_file(
+            "test.spec",
+            vec![make_entity("beh_b", EntityKind::Behavior, fields2)],
+        )];
+        let bag2 = validate_with_registry(&files2, &CompilerConfig::default(), &registry);
+        assert_eq!(diags_with_code(&bag2, ValidationCode::W022).len(), 0);
+    }
+
+    #[test]
+    fn w022_integer_field_type_mismatch() {
+        let registry = make_enhanced_registry(vec![specforge_common::FieldEnhancement {
+            target_entity: "behavior".to_string(),
+            field_name: "priority".to_string(),
+            field_type: EnhancedFieldType::Integer,
+            required: false,
+            description: String::new(),
+        }]);
+
+        // String value when integer expected → W022
+        let mut fields = FieldMap::new();
+        fields.insert("priority", FieldValue::String("high".to_string()));
+        let files = vec![make_file(
+            "test.spec",
+            vec![make_entity("beh_a", EntityKind::Behavior, fields)],
+        )];
+        let bag = validate_with_registry(&files, &CompilerConfig::default(), &registry);
+        assert_eq!(diags_with_code(&bag, ValidationCode::W022).len(), 1);
+
+        // Integer value is OK
+        let mut fields2 = FieldMap::new();
+        fields2.insert("priority", FieldValue::Integer(1));
+        let files2 = vec![make_file(
+            "test.spec",
+            vec![make_entity("beh_b", EntityKind::Behavior, fields2)],
+        )];
+        let bag2 = validate_with_registry(&files2, &CompilerConfig::default(), &registry);
+        assert_eq!(diags_with_code(&bag2, ValidationCode::W022).len(), 0);
+    }
+
+    #[test]
+    fn w022_bool_field_type_mismatch() {
+        let registry = make_enhanced_registry(vec![specforge_common::FieldEnhancement {
+            target_entity: "behavior".to_string(),
+            field_name: "deprecated".to_string(),
+            field_type: EnhancedFieldType::Bool,
+            required: false,
+            description: String::new(),
+        }]);
+
+        // String value when bool expected → W022
+        let mut fields = FieldMap::new();
+        fields.insert("deprecated", FieldValue::String("yes".to_string()));
+        let files = vec![make_file(
+            "test.spec",
+            vec![make_entity("beh_a", EntityKind::Behavior, fields)],
+        )];
+        let bag = validate_with_registry(&files, &CompilerConfig::default(), &registry);
+        assert_eq!(diags_with_code(&bag, ValidationCode::W022).len(), 1);
+
+        // Bool value is OK
+        let mut fields2 = FieldMap::new();
+        fields2.insert("deprecated", FieldValue::Bool(true));
+        let files2 = vec![make_file(
+            "test.spec",
+            vec![make_entity("beh_b", EntityKind::Behavior, fields2)],
+        )];
+        let bag2 = validate_with_registry(&files2, &CompilerConfig::default(), &registry);
+        assert_eq!(diags_with_code(&bag2, ValidationCode::W022).len(), 0);
+    }
+
+    #[test]
+    fn w022_string_list_field_type_mismatch() {
+        let registry = make_enhanced_registry(vec![specforge_common::FieldEnhancement {
+            target_entity: "behavior".to_string(),
+            field_name: "tags".to_string(),
+            field_type: EnhancedFieldType::StringList,
+            required: false,
+            description: String::new(),
+        }]);
+
+        // Single string value when string list expected → W022
+        let mut fields = FieldMap::new();
+        fields.insert("tags", FieldValue::String("single".to_string()));
+        let files = vec![make_file(
+            "test.spec",
+            vec![make_entity("beh_a", EntityKind::Behavior, fields)],
+        )];
+        let bag = validate_with_registry(&files, &CompilerConfig::default(), &registry);
+        assert_eq!(diags_with_code(&bag, ValidationCode::W022).len(), 1);
+
+        // StringList value is OK
+        let mut fields2 = FieldMap::new();
+        fields2.insert(
+            "tags",
+            FieldValue::StringList(vec!["a".to_string(), "b".to_string()]),
+        );
+        let files2 = vec![make_file(
+            "test.spec",
+            vec![make_entity("beh_b", EntityKind::Behavior, fields2)],
+        )];
+        let bag2 = validate_with_registry(&files2, &CompilerConfig::default(), &registry);
+        assert_eq!(diags_with_code(&bag2, ValidationCode::W022).len(), 0);
     }
 }

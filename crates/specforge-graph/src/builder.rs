@@ -1,6 +1,6 @@
 use crate::file_index::FileIndex;
 use crate::spec_graph::{GraphEdge, GraphNode, SpecGraph};
-use specforge_common::{EdgeType, FieldValue};
+use specforge_common::{EdgeType, FieldLookup, FieldRegistry, FieldValue};
 use specforge_parser::{AstEntity, SpecFile};
 
 /// Result of building the spec graph from parsed files.
@@ -14,8 +14,8 @@ pub struct GraphBuildResult {
 /// Steps:
 /// 1. Create a node for each entity
 /// 2. Register entity-to-file mapping
-/// 3. Walk fields, mapping reference fields to typed edges via `EdgeType::from_field_name`
-pub fn build_graph(files: &[SpecFile]) -> GraphBuildResult {
+/// 3. Walk fields, mapping reference fields to typed edges via `FieldRegistry::lookup`
+pub fn build_graph(files: &[SpecFile], registry: &FieldRegistry) -> GraphBuildResult {
     let mut graph = SpecGraph::new();
     let mut file_index = FileIndex::new();
 
@@ -31,7 +31,7 @@ pub fn build_graph(files: &[SpecFile]) -> GraphBuildResult {
     // Step 3: Add edges from reference fields
     for file in files {
         for entity in &file.entities {
-            add_edges_for_entity(entity, &mut graph);
+            add_edges_for_entity(entity, &mut graph, registry);
         }
     }
 
@@ -48,24 +48,40 @@ fn entity_to_node(entity: &AstEntity, file: &str) -> GraphNode {
     }
 }
 
-fn add_edges_for_entity(entity: &AstEntity, graph: &mut SpecGraph) {
+fn add_edges_for_entity(entity: &AstEntity, graph: &mut SpecGraph, registry: &FieldRegistry) {
     let from_id = entity.id.raw();
+    let entity_kind = entity.kind.keyword();
 
     for (field_name, value) in entity.fields.iter() {
-        let Some(edge_type) = EdgeType::from_field_name(field_name) else {
-            // Not a reference field (e.g., contract, description, status)
-            // But check nested blocks for references too
-            if let FieldValue::Block(block) = value {
-                for (sub_field, sub_value) in block.iter() {
-                    if let Some(sub_edge_type) = EdgeType::from_field_name(sub_field) {
-                        add_ref_edges(from_id, sub_value, sub_edge_type, sub_field, graph);
+        match registry.lookup(entity_kind, field_name) {
+            Some(FieldLookup::Builtin(edge_type)) => {
+                add_ref_edges(from_id, value, edge_type, field_name, None, graph);
+            }
+            Some(FieldLookup::Enhanced(enh)) if enh.enhancement.field_type.is_reference() => {
+                let label = enh.enhancement.field_type.edge_label().map(|s| s.to_string());
+                add_ref_edges(from_id, value, EdgeType::Enhanced, field_name, label, graph);
+            }
+            None => {
+                // Not a reference field — check nested blocks for references too
+                if let FieldValue::Block(block) = value {
+                    for (sub_field, sub_value) in block.iter() {
+                        match registry.lookup(entity_kind, sub_field) {
+                            Some(FieldLookup::Builtin(sub_edge_type)) => {
+                                add_ref_edges(from_id, sub_value, sub_edge_type, sub_field, None, graph);
+                            }
+                            Some(FieldLookup::Enhanced(sub_enh))
+                                if sub_enh.enhancement.field_type.is_reference() =>
+                            {
+                                let label = sub_enh.enhancement.field_type.edge_label().map(|s| s.to_string());
+                                add_ref_edges(from_id, sub_value, EdgeType::Enhanced, sub_field, label, graph);
+                            }
+                            _ => {}
+                        }
                     }
                 }
             }
-            continue;
-        };
-
-        add_ref_edges(from_id, value, edge_type, field_name, graph);
+            _ => {} // Enhanced non-reference field — no edge
+        }
     }
 }
 
@@ -74,6 +90,7 @@ fn add_ref_edges(
     value: &FieldValue,
     edge_type: EdgeType,
     field_name: &str,
+    enhanced_label: Option<String>,
     graph: &mut SpecGraph,
 ) {
     match value {
@@ -84,6 +101,7 @@ fn add_ref_edges(
                 GraphEdge {
                     edge_type,
                     field_name: field_name.to_string(),
+                    enhanced_label: enhanced_label.clone(),
                 },
             );
         }
@@ -95,6 +113,7 @@ fn add_ref_edges(
                     GraphEdge {
                         edge_type,
                         field_name: field_name.to_string(),
+                        enhanced_label: enhanced_label.clone(),
                     },
                 );
             }
@@ -106,6 +125,7 @@ fn add_ref_edges(
                 GraphEdge {
                     edge_type,
                     field_name: field_name.to_string(),
+                    enhanced_label: enhanced_label.clone(),
                 },
             );
         }
@@ -116,7 +136,11 @@ fn add_ref_edges(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use specforge_common::{EntityId, EntityKind, FieldMap, SourceSpan};
+    use specforge_common::{
+        EnhancedFieldType, EnhancementPolicy, EntityId, EntityKind, FieldEnhancement, FieldMap,
+        FieldRegistry, SourceSpan,
+    };
+    use std::collections::HashMap;
 
     fn make_file(path: &str, entities: Vec<AstEntity>) -> SpecFile {
         SpecFile {
@@ -155,7 +179,8 @@ mod tests {
             ],
         )];
 
-        let result = build_graph(&files);
+        let registry = FieldRegistry::with_builtins();
+        let result = build_graph(&files, &registry);
         assert_eq!(result.graph.node_count(), 2);
         assert_eq!(result.graph.edge_count(), 1);
 
@@ -184,7 +209,8 @@ mod tests {
             ),
         ];
 
-        let result = build_graph(&files);
+        let registry = FieldRegistry::with_builtins();
+        let result = build_graph(&files, &registry);
         assert_eq!(result.file_index.entity_count(), 2);
         assert_eq!(result.file_index.file_of("INV-SF-1"), Some("invariants.spec"));
         assert_eq!(result.file_index.file_of("BEH-SF-1"), Some("behaviors.spec"));
@@ -213,7 +239,8 @@ mod tests {
             ],
         )];
 
-        let result = build_graph(&files);
+        let registry = FieldRegistry::with_builtins();
+        let result = build_graph(&files, &registry);
         assert_eq!(result.graph.node_count(), 3);
         assert_eq!(result.graph.edge_count(), 2);
 
@@ -238,7 +265,8 @@ mod tests {
             ],
         )];
 
-        let result = build_graph(&files);
+        let registry = FieldRegistry::with_builtins();
+        let result = build_graph(&files, &registry);
         let orphans = result.graph.orphans();
         assert_eq!(orphans.len(), 2);
     }
@@ -260,7 +288,8 @@ mod tests {
             ],
         )];
 
-        let result = build_graph(&files);
+        let registry = FieldRegistry::with_builtins();
+        let result = build_graph(&files, &registry);
         assert_eq!(result.graph.node_count(), 2);
         assert_eq!(result.graph.edge_count(), 1);
 
@@ -283,9 +312,49 @@ mod tests {
             vec![make_entity("BEH-SF-1", EntityKind::Behavior, fields)],
         )];
 
-        let result = build_graph(&files);
+        let registry = FieldRegistry::with_builtins();
+        let result = build_graph(&files, &registry);
         // INV-SF-99 doesn't exist as a node, so edge creation returns false
         assert_eq!(result.graph.node_count(), 1);
         assert_eq!(result.graph.edge_count(), 0);
+    }
+
+    #[test]
+    fn enhanced_reference_field_creates_enhanced_edge() {
+        let mut registry = FieldRegistry::with_builtins();
+        let enhancements = vec![FieldEnhancement {
+            target_entity: "behavior".to_string(),
+            field_name: "adapter_ref".to_string(),
+            field_type: EnhancedFieldType::Reference {
+                edge_label: "adapts".to_string(),
+                target_kind: None,
+            },
+            required: false,
+            description: String::new(),
+        }];
+        registry.register_plugin("@test/hex", &enhancements, &[], &EnhancementPolicy::default(), &HashMap::new());
+
+        let mut fields = FieldMap::new();
+        fields.insert(
+            "adapter_ref",
+            FieldValue::Reference(EntityId::parse("some_port")),
+        );
+
+        let files = vec![make_file(
+            "test.spec",
+            vec![
+                make_entity("my_beh", EntityKind::Behavior, fields),
+                make_entity("some_port", EntityKind::Port, FieldMap::new()),
+            ],
+        )];
+
+        let result = build_graph(&files, &registry);
+        let edges = result.graph.outgoing_edges("my_beh");
+        assert_eq!(edges.len(), 1);
+        assert_eq!(edges[0].1.edge_type, EdgeType::Enhanced);
+        assert_eq!(
+            edges[0].1.enhanced_label,
+            Some("adapts".to_string())
+        );
     }
 }

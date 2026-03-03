@@ -18,9 +18,13 @@ pub struct AddArgs {
 
 /// Run the add command. Returns exit code.
 pub fn run(args: AddArgs) -> i32 {
-    if !VALID_PLUGINS.contains(&args.plugin.as_str()) {
+    // Accept built-in plugins and local path plugins (starting with ./ or ../)
+    let is_valid = VALID_PLUGINS.contains(&args.plugin.as_str())
+        || specforge_wasm::discover::is_local_path(&args.plugin);
+
+    if !is_valid {
         eprintln!(
-            "specforge: unknown plugin \"{}\"\nvalid plugins: {}",
+            "specforge: unknown plugin \"{}\"\nvalid plugins: {}\nhint: use a local path (e.g., ./plugins/my-plugin) for Wasm plugins",
             args.plugin,
             VALID_PLUGINS.join(", ")
         );

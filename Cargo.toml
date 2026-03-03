@@ -10,6 +10,7 @@ members = [
     "crates/specforge-emitter",
     "crates/specforge-codegen",
     "crates/specforge-coverage",
+    "crates/specforge-wasm",
     "crates/specforge-cli",
     "crates/specforge-lsp",
 ]
@@ -31,6 +32,7 @@ specforge-validator = { path = "crates/specforge-validator" }
 specforge-emitter = { path = "crates/specforge-emitter" }
 specforge-codegen = { path = "crates/specforge-codegen" }
 specforge-coverage = { path = "crates/specforge-coverage" }
+specforge-wasm = { path = "crates/specforge-wasm" }
 
 # External
 tree-sitter = "0.25"
@@ -46,6 +48,9 @@ strsim = "0.11"
 regex = "1"
 inquire = "0.7"
 
+extism = "1"
+semver = "1"
+ureq = "3"
 sha2 = "0.10"
 which = "7"
 notify = "7"

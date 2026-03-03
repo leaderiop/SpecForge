@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 use std::fmt;
 
-/// Reserved keywords that cannot be used as entity names.
+/// Reserved keywords that cannot be used as entity names (the 16 entity keywords).
 const RESERVED_WORDS: &[&str] = &[
     "spec",
     "invariant",
@@ -19,6 +19,11 @@ const RESERVED_WORDS: &[&str] = &[
     "decision",
     "constraint",
     "failure_mode",
+];
+
+/// DSL syntax keywords that cannot be used as entity kind names.
+const DSL_SYNTAX_KEYWORDS: &[&str] = &[
+    "define", "use", "verify", "scenario", "given", "when", "then", "true", "false",
 ];
 
 /// Entity identifier with two variants matching the SpecForge ID patterns.
@@ -141,6 +146,14 @@ impl EntityId {
     /// Check if a string is a reserved keyword.
     pub fn is_reserved_word(s: &str) -> bool {
         RESERVED_WORDS.contains(&s)
+    }
+
+    /// Check if a string is a reserved keyword OR a DSL syntax keyword.
+    ///
+    /// Used by the Wasm host function guard to reject entity kind names
+    /// that would conflict with built-in keywords or DSL syntax.
+    pub fn is_reserved_or_syntax_keyword(s: &str) -> bool {
+        RESERVED_WORDS.contains(&s) || DSL_SYNTAX_KEYWORDS.contains(&s)
     }
 
     /// Auto-derive a human-readable title from an identifier.
@@ -286,6 +299,27 @@ mod tests {
         assert!(EntityId::is_reserved_word("failure_mode"));
         assert!(!EntityId::is_reserved_word("auth_login"));
         assert!(!EntityId::is_reserved_word("User"));
+    }
+
+    #[test]
+    fn reserved_or_syntax_keywords() {
+        // Built-in keywords
+        assert!(EntityId::is_reserved_or_syntax_keyword("spec"));
+        assert!(EntityId::is_reserved_or_syntax_keyword("behavior"));
+        assert!(EntityId::is_reserved_or_syntax_keyword("failure_mode"));
+        // DSL syntax keywords
+        assert!(EntityId::is_reserved_or_syntax_keyword("define"));
+        assert!(EntityId::is_reserved_or_syntax_keyword("verify"));
+        assert!(EntityId::is_reserved_or_syntax_keyword("scenario"));
+        assert!(EntityId::is_reserved_or_syntax_keyword("given"));
+        assert!(EntityId::is_reserved_or_syntax_keyword("when"));
+        assert!(EntityId::is_reserved_or_syntax_keyword("then"));
+        assert!(EntityId::is_reserved_or_syntax_keyword("true"));
+        assert!(EntityId::is_reserved_or_syntax_keyword("false"));
+        assert!(EntityId::is_reserved_or_syntax_keyword("use"));
+        // Valid names
+        assert!(!EntityId::is_reserved_or_syntax_keyword("microservice"));
+        assert!(!EntityId::is_reserved_or_syntax_keyword("epic"));
     }
 
     #[test]

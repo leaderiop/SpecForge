@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use crate::{CustomEntityDef, EntityKind, FormatVersion, Module};
+use crate::{CustomEntityDef, EnhancementPolicy, EntityKind, EntityKindPolicy, FormatVersion, Module};
 
 /// Coverage configuration for the `specforge coverage` command.
 #[derive(Debug, Clone)]
@@ -124,6 +124,16 @@ pub struct CompilerConfig {
     pub coverage: CoverageConfig,
     /// Custom entity definitions from `define` blocks.
     pub custom_entities: HashMap<String, CustomEntityDef>,
+    /// Enhancement conflict resolution policy.
+    pub enhancement_policy: EnhancementPolicy,
+    /// Explicit enhancement overrides: "entity.field" → "@plugin/name".
+    pub enhancement_overrides: HashMap<String, String>,
+    /// Wasm package specifiers (local paths or package names not matched by built-in modules).
+    pub wasm_package_specifiers: Vec<String>,
+    /// Entity kind conflict resolution policy.
+    pub entity_kind_policy: EntityKindPolicy,
+    /// Explicit entity kind overrides: kind_name → "@plugin/name".
+    pub entity_kind_overrides: HashMap<String, String>,
 }
 
 impl CompilerConfig {
@@ -144,6 +154,11 @@ impl CompilerConfig {
             gen_configs: Vec::new(),
             coverage: CoverageConfig::default(),
             custom_entities: HashMap::new(),
+            enhancement_policy: EnhancementPolicy::default(),
+            enhancement_overrides: HashMap::new(),
+            wasm_package_specifiers: Vec::new(),
+            entity_kind_policy: EntityKindPolicy::default(),
+            entity_kind_overrides: HashMap::new(),
         }
     }
 

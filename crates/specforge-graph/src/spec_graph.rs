@@ -19,6 +19,8 @@ pub struct GraphNode {
 pub struct GraphEdge {
     pub edge_type: EdgeType,
     pub field_name: String,
+    /// Set when `edge_type == Enhanced`; holds the plugin-contributed edge label.
+    pub enhanced_label: Option<String>,
 }
 
 /// The spec graph: a directed graph of entities connected by typed edges.
@@ -205,6 +207,7 @@ mod tests {
         GraphEdge {
             edge_type: EdgeType::from_field_name(field).unwrap_or(EdgeType::References),
             field_name: field.to_string(),
+            enhanced_label: None,
         }
     }
 

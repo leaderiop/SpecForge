@@ -61,14 +61,55 @@ pub fn run(args: GenArgs) -> i32 {
         .dir
         .unwrap_or_else(|| PathBuf::from(&gen_config.out));
 
-    let generator = resolve_generator(&gen_config.name);
-    let ctx = GenerateContext {
-        graph: &result.graph,
-        files: &result.files,
-        config: &result.config,
-        gen_config: &gen_config,
+    // Check if a Wasm generator provides this name
+    let gen_result = if result
+        .wasm_runtime
+        .as_ref()
+        .is_some_and(|rt| rt.has_generator(&gen_config.name))
+    {
+        let graph_json = serde_json::to_string(&serde_json::json!({
+            "nodes": result.graph.nodes().map(|n| serde_json::json!({
+                "id": n.id.raw(),
+                "kind": format!("{}", n.kind),
+                "title": n.title,
+                "file": n.file,
+            })).collect::<Vec<_>>(),
+            "edges": result.graph.edges().map(|(src, tgt, edge)| serde_json::json!({
+                "from": src.id.raw(),
+                "to": tgt.id.raw(),
+                "edge_type": format!("{}", edge.edge_type),
+                "field_name": edge.field_name,
+            })).collect::<Vec<_>>(),
+        })).unwrap_or_default();
+
+        let mut runtime = result.wasm_runtime.unwrap();
+        match runtime.generate(&gen_config.name, &graph_json, &out_dir) {
+            Ok(wasm_result) => {
+                for diag in &wasm_result.diagnostics {
+                    eprintln!("specforge: [{}] {}", diag.code, diag.message);
+                }
+                specforge_codegen::GenerateResult {
+                    files: wasm_result.files,
+                    warnings: vec![],
+                    errors: vec![],
+                    entity_checksums: HashMap::new(),
+                }
+            }
+            Err(e) => {
+                eprintln!("specforge: wasm generator error: {e}");
+                return 1;
+            }
+        }
+    } else {
+        let generator = resolve_generator(&gen_config.name);
+        let ctx = GenerateContext {
+            graph: &result.graph,
+            files: &result.files,
+            config: &result.config,
+            gen_config: &gen_config,
+        };
+        generator.generate(&ctx)
     };
-    let gen_result = generator.generate(&ctx);
 
     for warning in &gen_result.warnings {
         eprintln!("specforge: warning: {warning}");
@@ -271,7 +312,8 @@ type UserProfile {
 
         let parsed = specforge_parser::parse(source, "test.spec");
         let resolved = specforge_resolver::resolve(vec![parsed], ".");
-        let graph_result = specforge_graph::build_graph(&resolved.files);
+        let registry = specforge_common::FieldRegistry::with_builtins();
+        let graph_result = specforge_graph::build_graph(&resolved.files, &registry);
 
         let ts_config = specforge_common::GenConfig {
             name: "typescript".to_string(),
@@ -330,7 +372,8 @@ type UserProfile {
 
         let parsed = specforge_parser::parse(source, "test.spec");
         let resolved = specforge_resolver::resolve(vec![parsed], ".");
-        let graph_result = specforge_graph::build_graph(&resolved.files);
+        let registry = specforge_common::FieldRegistry::with_builtins();
+        let graph_result = specforge_graph::build_graph(&resolved.files, &registry);
 
         // TypeScript with CamelCase naming
         let ts_config = specforge_common::GenConfig {

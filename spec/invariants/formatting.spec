@@ -11,6 +11,8 @@ invariant formatting_idempotency "Formatting Idempotency" {
 
   verify property "formatting an already-formatted file produces identical output"
   verify property "random valid .spec files satisfy format(format(x)) == format(x)"
+
+  tests ["../crates/specforge-cli/tests/integration_test.rs"]
 }
 
 invariant comment_preservation "Comment Preservation" {
@@ -25,6 +27,8 @@ invariant comment_preservation "Comment Preservation" {
   verify property "every comment in input appears in formatted output"
   verify unit "trailing comments remain attached to their preceding node"
   verify unit "leading comments remain attached to their following node"
+
+  tests ["../crates/specforge-cli/tests/integration_test.rs"]
 }
 
 invariant formatting_consistency "Formatting Consistency" {
@@ -39,4 +43,6 @@ invariant formatting_consistency "Formatting Consistency" {
 
   verify property "two files differing only in whitespace produce identical formatted output"
   verify unit "tab-indented and space-indented inputs produce the same output"
+
+  tests ["../crates/specforge-cli/tests/integration_test.rs"]
 }

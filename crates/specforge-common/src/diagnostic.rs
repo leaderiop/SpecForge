@@ -20,10 +20,10 @@ impl fmt::Display for Severity {
     }
 }
 
-/// All 41 validation codes.
+/// All 57 validation codes.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 pub enum ValidationCode {
-    // Errors (16)
+    // Errors (18)
     E001, // Unresolved reference
     E002, // Duplicate ID
     E003, // Circular import
@@ -40,8 +40,15 @@ pub enum ValidationCode {
     E014, // Invalid identifier characters
     E015, // Duplicate scenario title
     E016, // Test file not found
+    E017, // Enhancement field conflict (unresolved)
+    E018, // Enhancement shadows built-in field
+    E019, // Wasm plugin load failed
+    E020, // Peer dependency unsatisfied
+    E021, // Peer dependency cycle
+    E022, // Entity kind conflict (two plugins register same name)
+    E023, // Entity kind shadows reserved/built-in word
 
-    // Warnings (20)
+    // Warnings (27)
     W001, // Orphan behavior
     W002, // Orphan feature (product)
     W003, // Unused invariant
@@ -62,13 +69,22 @@ pub enum ValidationCode {
     W019, // Constraint with no protected invariants (governance)
     W020, // Unknown generator (not a built-in and binary not found)
     W021, // Deliverable with no capabilities (product)
+    W022, // Enhanced field type mismatch
+    W023, // Load-order conflict resolution (priority policy)
+    W024, // Missing required enhanced field
+    W025, // Fuel exhausted (Wasm execution timeout)
+    W026, // Memory limit reached (Wasm)
+    W027, // Entity kind load-order resolution (priority policy)
 
-    // Info (5)
+    // Info (8)
     I001, // Stale proposal (governance)
     I003, // Newer format available
     I004, // Unknown entity in reference field (cross-plugin)
     I005, // Unknown provider scheme
     I006, // Unused glossary term (product)
+    I007, // AOT cache hit
+    I008, // Wasm plugin loaded
+    I009, // Wasm plugin initialized
 }
 
 impl ValidationCode {
@@ -89,7 +105,14 @@ impl ValidationCode {
             | Self::E013
             | Self::E014
             | Self::E015
-            | Self::E016 => Severity::Error,
+            | Self::E016
+            | Self::E017
+            | Self::E018
+            | Self::E019
+            | Self::E020
+            | Self::E021
+            | Self::E022
+            | Self::E023 => Severity::Error,
 
             Self::W001
             | Self::W002
@@ -110,9 +133,15 @@ impl ValidationCode {
             | Self::W018
             | Self::W019
             | Self::W020
-            | Self::W021 => Severity::Warning,
+            | Self::W021
+            | Self::W022
+            | Self::W023
+            | Self::W024
+            | Self::W025
+            | Self::W026
+            | Self::W027 => Severity::Warning,
 
-            Self::I001 | Self::I003 | Self::I004 | Self::I005 | Self::I006 => Severity::Info,
+            Self::I001 | Self::I003 | Self::I004 | Self::I005 | Self::I006 | Self::I007 | Self::I008 | Self::I009 => Severity::Info,
         }
     }
 
@@ -135,6 +164,13 @@ impl ValidationCode {
             Self::E014 => "invalid identifier characters",
             Self::E015 => "duplicate scenario title",
             Self::E016 => "test file not found",
+            Self::E017 => "enhancement field conflict",
+            Self::E018 => "enhancement shadows built-in field",
+            Self::E019 => "wasm plugin load failed",
+            Self::E020 => "peer dependency unsatisfied",
+            Self::E021 => "peer dependency cycle",
+            Self::E022 => "entity kind conflict",
+            Self::E023 => "entity kind shadows reserved word",
             Self::W001 => "orphan behavior",
             Self::W002 => "orphan feature",
             Self::W003 => "unused invariant",
@@ -155,11 +191,20 @@ impl ValidationCode {
             Self::W019 => "constraint with no protected invariants",
             Self::W020 => "unknown generator",
             Self::W021 => "deliverable with no capabilities",
+            Self::W022 => "enhanced field type mismatch",
+            Self::W023 => "load-order conflict resolution",
+            Self::W024 => "missing required enhanced field",
+            Self::W025 => "wasm fuel exhausted",
+            Self::W026 => "wasm memory limit reached",
+            Self::W027 => "entity kind load-order resolution",
             Self::I001 => "stale proposal",
             Self::I003 => "newer format available",
             Self::I004 => "unknown entity in reference field",
             Self::I005 => "unknown provider scheme",
             Self::I006 => "unused glossary term",
+            Self::I007 => "aot cache hit",
+            Self::I008 => "wasm plugin loaded",
+            Self::I009 => "wasm plugin initialized",
         }
     }
 
@@ -189,9 +234,25 @@ impl ValidationCode {
             | Self::W017
             | Self::W018
             | Self::W020
+            | Self::W022
+            | Self::W023
+            | Self::W024
+            | Self::E017
+            | Self::E018
+            | Self::E019
+            | Self::E020
+            | Self::E021
+            | Self::E022
+            | Self::E023
+            | Self::W025
+            | Self::W026
+            | Self::W027
             | Self::I003
             | Self::I004
-            | Self::I005 => super::Module::Core,
+            | Self::I005
+            | Self::I007
+            | Self::I008
+            | Self::I009 => super::Module::Core,
 
             Self::E007
             | Self::E008
@@ -230,6 +291,13 @@ impl fmt::Display for ValidationCode {
             Self::E014 => "E014",
             Self::E015 => "E015",
             Self::E016 => "E016",
+            Self::E017 => "E017",
+            Self::E018 => "E018",
+            Self::E019 => "E019",
+            Self::E020 => "E020",
+            Self::E021 => "E021",
+            Self::E022 => "E022",
+            Self::E023 => "E023",
             Self::W001 => "W001",
             Self::W002 => "W002",
             Self::W003 => "W003",
@@ -250,11 +318,20 @@ impl fmt::Display for ValidationCode {
             Self::W019 => "W019",
             Self::W020 => "W020",
             Self::W021 => "W021",
+            Self::W022 => "W022",
+            Self::W023 => "W023",
+            Self::W024 => "W024",
+            Self::W025 => "W025",
+            Self::W026 => "W026",
+            Self::W027 => "W027",
             Self::I001 => "I001",
             Self::I003 => "I003",
             Self::I004 => "I004",
             Self::I005 => "I005",
             Self::I006 => "I006",
+            Self::I007 => "I007",
+            Self::I008 => "I008",
+            Self::I009 => "I009",
         };
         f.write_str(code)
     }
@@ -389,7 +466,7 @@ mod tests {
 
     #[test]
     fn validation_code_count() {
-        // 16 errors + 20 warnings + 5 info = 41
+        // 23 errors + 26 warnings + 8 info = 57
         let errors: Vec<_> = [
             ValidationCode::E001,
             ValidationCode::E002,
@@ -407,9 +484,16 @@ mod tests {
             ValidationCode::E014,
             ValidationCode::E015,
             ValidationCode::E016,
+            ValidationCode::E017,
+            ValidationCode::E018,
+            ValidationCode::E019,
+            ValidationCode::E020,
+            ValidationCode::E021,
+            ValidationCode::E022,
+            ValidationCode::E023,
         ]
         .to_vec();
-        assert_eq!(errors.len(), 16);
+        assert_eq!(errors.len(), 23);
         for code in &errors {
             assert_eq!(code.severity(), Severity::Error);
         }
@@ -435,9 +519,15 @@ mod tests {
             ValidationCode::W019,
             ValidationCode::W020,
             ValidationCode::W021,
+            ValidationCode::W022,
+            ValidationCode::W023,
+            ValidationCode::W024,
+            ValidationCode::W025,
+            ValidationCode::W026,
+            ValidationCode::W027,
         ]
         .to_vec();
-        assert_eq!(warnings.len(), 20);
+        assert_eq!(warnings.len(), 26);
         for code in &warnings {
             assert_eq!(code.severity(), Severity::Warning);
         }
@@ -448,14 +538,17 @@ mod tests {
             ValidationCode::I004,
             ValidationCode::I005,
             ValidationCode::I006,
+            ValidationCode::I007,
+            ValidationCode::I008,
+            ValidationCode::I009,
         ]
         .to_vec();
-        assert_eq!(infos.len(), 5);
+        assert_eq!(infos.len(), 8);
         for code in &infos {
             assert_eq!(code.severity(), Severity::Info);
         }
 
-        assert_eq!(errors.len() + warnings.len() + infos.len(), 41);
+        assert_eq!(errors.len() + warnings.len() + infos.len(), 57);
     }
 
     #[test]

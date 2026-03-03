@@ -1,4 +1,4 @@
-use crate::generator::{GenerateContext, GenerateResult, Generator, PluginError};
+use crate::generator::{GenerateContext, GenerateResult, Generator, PackageError};
 use specforge_emitter::GeneratedFile;
 use std::collections::HashMap;
 use std::process::Command;
@@ -22,8 +22,8 @@ impl Generator for SubprocessGenerator {
                 return GenerateResult {
                     files: Vec::new(),
                     warnings: Vec::new(),
-                    errors: vec![PluginError::NotFound {
-                        plugin_name: self.name.clone(),
+                    errors: vec![PackageError::NotFound {
+                        package_name: self.name.clone(),
                         message: format!("`{bin_name}` not on PATH"),
                     }],
                     entity_checksums: HashMap::new(),
@@ -54,8 +54,8 @@ impl Generator for SubprocessGenerator {
                     return GenerateResult {
                         files: Vec::new(),
                         warnings: Vec::new(),
-                        errors: vec![PluginError::ExecutionFailed {
-                            plugin_name: self.name.clone(),
+                        errors: vec![PackageError::ExecutionFailed {
+                            package_name: self.name.clone(),
                             message: format!(
                                 "exit code {}",
                                 output.status.code().unwrap_or(-1)
@@ -77,8 +77,8 @@ impl Generator for SubprocessGenerator {
                     Err(e) => GenerateResult {
                         files: Vec::new(),
                         warnings: Vec::new(),
-                        errors: vec![PluginError::InvalidOutput {
-                            plugin_name: self.name.clone(),
+                        errors: vec![PackageError::InvalidOutput {
+                            package_name: self.name.clone(),
                             message: e.to_string(),
                         }],
                         entity_checksums: HashMap::new(),
@@ -88,8 +88,8 @@ impl Generator for SubprocessGenerator {
             Err(e) => GenerateResult {
                 files: Vec::new(),
                 warnings: Vec::new(),
-                errors: vec![PluginError::SpawnFailed {
-                    plugin_name: self.name.clone(),
+                errors: vec![PackageError::SpawnFailed {
+                    package_name: self.name.clone(),
                     message: e.to_string(),
                 }],
                 entity_checksums: HashMap::new(),
@@ -122,7 +122,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn plugin_crash_produces_plugin_error() {
+    fn missing_generator_produces_package_error() {
         let graph = specforge_graph::SpecGraph::new();
         let config = specforge_common::CompilerConfig::core_only("test");
         let gen_config = specforge_common::GenConfig {
@@ -150,8 +150,8 @@ mod tests {
         assert!(result.warnings.is_empty());
         assert_eq!(result.errors.len(), 1);
         match &result.errors[0] {
-            PluginError::NotFound { plugin_name, .. } => {
-                assert_eq!(plugin_name, "nonexistent-generator-xyz");
+            PackageError::NotFound { package_name, .. } => {
+                assert_eq!(package_name, "nonexistent-generator-xyz");
             }
             other => panic!("expected NotFound, got: {other:?}"),
         }

@@ -12,6 +12,8 @@ invariant deterministic_rust_generation "Deterministic Rust Generation" {
 
   verify property "identical spec + config produces byte-identical Rust output"
   verify unit "checksums match across multiple runs"
+
+  tests ["../crates/specforge-cli/tests/integration_test.rs"]
 }
 
 invariant entity_mapping_precedence "Entity Mapping Precedence" {
@@ -26,6 +28,8 @@ invariant entity_mapping_precedence "Entity Mapping Precedence" {
 
   verify property "tests field always overrides proc macro and convention"
   verify unit "ambiguous mappings produce diagnostics"
+
+  tests ["../crates/specforge-cli/tests/integration_test.rs"]
 }
 
 invariant rust_drift_detection_accuracy "Rust Drift Detection Accuracy" {
@@ -40,4 +44,6 @@ invariant rust_drift_detection_accuracy "Rust Drift Detection Accuracy" {
 
   verify property "every stale file is detected by drift check"
   verify unit "current files are not flagged as stale"
+
+  tests ["../crates/specforge-cli/tests/integration_test.rs"]
 }

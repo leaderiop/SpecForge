@@ -155,6 +155,7 @@ fn parse_block(ctx: &mut ParseContext, node: Node) {
         "constraint_block" => EntityKind::Constraint,
         "failure_mode_block" => EntityKind::FailureMode,
         "define_block" => return parse_define_block(ctx, node),
+        "qualified_entity_block" => return parse_qualified_entity_block(ctx, node),
         _ => {
             ctx.error(node, format!("unknown block type: {kind_str}"));
             return;
@@ -818,6 +819,60 @@ fn parse_define_block(ctx: &mut ParseContext, node: Node) {
         name,
         testable,
         fields,
+    });
+}
+
+/// Parse a `@plugin/kind` qualified entity block.
+///
+/// These blocks use the syntax `@plugin/kind id "Title" { ... }` to explicitly
+/// reference an entity kind from a specific plugin, resolving ambiguity when
+/// multiple plugins register the same kind name.
+fn parse_qualified_entity_block(ctx: &mut ParseContext, node: Node) {
+    let qualified_node = node.child_by_field_name("qualified_keyword");
+    let (plugin, kind_name) = if let Some(qn) = qualified_node {
+        let plugin = qn
+            .child_by_field_name("plugin")
+            .map(|n| ctx.node_text(n).to_string())
+            .unwrap_or_default();
+        let kind = qn
+            .child_by_field_name("kind")
+            .map(|n| ctx.node_text(n).to_string())
+            .unwrap_or_default();
+        (plugin, kind)
+    } else {
+        ctx.error(node, "qualified entity block must have @plugin/kind keyword");
+        return;
+    };
+
+    if plugin.is_empty() || kind_name.is_empty() {
+        ctx.error(node, "qualified entity keyword must have both plugin and kind");
+        return;
+    }
+
+    let qualified = format!("@{plugin}/{kind_name}");
+
+    let id_node = node.child_by_field_name("id");
+    let title_node = node.child_by_field_name("title");
+
+    let id = id_node
+        .map(|n| ctx.node_text(n).to_string())
+        .unwrap_or_default();
+    let title = title_node.map(|n| unquote(ctx.node_text(n)));
+
+    if id.is_empty() {
+        ctx.error(node, "qualified entity block must have an identifier");
+        return;
+    }
+
+    let entity_id = EntityId::parse(&id);
+    let fields = parse_fields(ctx, node);
+
+    ctx.entities.push(AstEntity {
+        kind: EntityKind::Custom(qualified),
+        id: entity_id,
+        title,
+        fields,
+        span: ctx.span(node),
     });
 }
 

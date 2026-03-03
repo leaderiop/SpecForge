@@ -49,6 +49,32 @@
       "uniqueItems": true,
       "default": []
     },
+    "enhancement_policy": {
+      "type": "string",
+      "description": "How to resolve conflicts when two plugins enhance the same field on the same entity kind.",
+      "enum": ["error", "priority", "namespace"],
+      "default": "error"
+    },
+    "enhancement_overrides": {
+      "type": "object",
+      "description": "Explicit conflict resolution for enhancement conflicts. Keys are 'entity.field' (e.g., 'behavior.layer'), values are the winning plugin package name.",
+      "additionalProperties": {
+        "type": "string"
+      }
+    },
+    "entity_kind_policy": {
+      "type": "string",
+      "description": "How to resolve conflicts when two plugins register the same entity kind name.",
+      "enum": ["error", "priority", "namespace"],
+      "default": "error"
+    },
+    "entity_kinds": {
+      "type": "object",
+      "description": "Explicit conflict resolution for entity kind conflicts. Keys are kind names, values are the winning plugin package name.",
+      "additionalProperties": {
+        "type": "string"
+      }
+    },
     "providers": {
       "type": "object",
       "description": "Provider configurations for external reference validation (GitHub, Jira, Figma, etc.).",

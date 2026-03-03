@@ -55,6 +55,26 @@ module.exports = grammar({
         $.constraint_block,
         $.failure_mode_block,
         $.define_block,
+        $.qualified_entity_block,
+      ),
+
+    // ─── Qualified entity block (@plugin/kind) ────────────────
+    qualified_entity_block: ($) =>
+      seq(
+        field("qualified_keyword", $.qualified_entity_keyword),
+        field("id", $.identifier),
+        optional(field("title", $.string)),
+        "{",
+        repeat(choice($.key_value, $.verify_statement, $.scenario_block)),
+        "}",
+      ),
+
+    qualified_entity_keyword: ($) =>
+      seq(
+        "@",
+        field("plugin", $.identifier),
+        "/",
+        field("kind", $.identifier),
       ),
 
     // ─── spec (singleton) ──────────────────────────────────────

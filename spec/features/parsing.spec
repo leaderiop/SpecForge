@@ -52,19 +52,24 @@ feature scenario_declaration "Scenario Declaration" {
 }
 
 feature editor_query_files "Editor Query Files" {
-  behaviors [provide_syntax_highlighting_queries, provide_code_folding_queries, provide_indentation_queries]
+  behaviors [provide_syntax_highlighting_queries, provide_code_folding_queries, provide_indentation_queries, parse_generic_entity_blocks]
 
   problem """
     Without query files, .spec files appear as plain text in
     Tree-sitter-aware editors like Neovim, Helix, Zed, and Emacs.
     Users get no syntax highlighting, code folding, or automatic
     indentation — even though the grammar is fully functional.
+    Plugin and custom entities produce ERROR nodes, breaking all
+    editor features for non-built-in entity types.
   """
 
   solution """
     Ship highlights.scm, folds.scm, and indents.scm alongside the
-    grammar. These standard query files enable any Tree-sitter-aware
-    editor to provide rich editing support without requiring an LSP
+    grammar. A generic_entity_block grammar rule catches plugin and
+    custom entity blocks that don't match built-in keywords, producing
+    clean AST nodes instead of ERROR nodes. These standard query files
+    enable any Tree-sitter-aware editor to provide rich editing support
+    for both built-in and plugin entities without requiring an LSP
     server.
   """
 }

@@ -12,6 +12,8 @@ invariant reference_resolution_completeness "Reference Resolution Completeness" 
 
   verify property "every entity ID in a reference list resolves to a declared entity or emits a diagnostic"
   verify unit "E001 is emitted for broken hard references and I004 for broken soft references"
+
+  tests ["../crates/specforge-cli/tests/integration_test.rs", "../crates/specforge-validator/src/passes.rs"]
 }
 
 invariant rpn_arithmetic_integrity "RPN Arithmetic Integrity" {
@@ -26,6 +28,8 @@ invariant rpn_arithmetic_integrity "RPN Arithmetic Integrity" {
 
   verify property "rpn equals severity times occurrence times detection when all fields are present"
   verify unit "E005 is emitted when rpn does not match the arithmetic product"
+
+  tests ["../crates/specforge-cli/tests/integration_test.rs", "../crates/specforge-validator/src/passes.rs"]
 }
 
 invariant diagnostic_determinism "Diagnostic Determinism" {
@@ -39,6 +43,8 @@ invariant diagnostic_determinism "Diagnostic Determinism" {
 
   verify property "identical source files produce identical diagnostics in the same order"
   verify unit "diagnostic output does not depend on filesystem iteration order or hashmap ordering"
+
+  tests ["../crates/specforge-cli/tests/integration_test.rs"]
 }
 
 invariant traceability_chain_integrity "Traceability Chain Integrity" {
@@ -53,6 +59,8 @@ invariant traceability_chain_integrity "Traceability Chain Integrity" {
 
   verify property "every path in the tests field references an existing file"
   verify unit "broken traceability links in the intent-linkage-proof chain are detected and reported"
+
+  tests ["../crates/specforge-cli/tests/integration_test.rs"]
 }
 
 invariant testable_entity_classification "Testable Entity Classification" {
@@ -67,4 +75,6 @@ invariant testable_entity_classification "Testable Entity Classification" {
 
   verify unit "is_testable returns true for behavior, invariant, event, constraint, and capability"
   verify unit "supports_scenario returns true only for behavior and capability"
+
+  tests ["../crates/specforge-validator/src/passes.rs"]
 }

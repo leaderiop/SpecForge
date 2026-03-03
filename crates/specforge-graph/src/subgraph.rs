@@ -64,6 +64,7 @@ mod tests {
         GraphEdge {
             edge_type: EdgeType::from_field_name(field).unwrap_or(EdgeType::References),
             field_name: field.to_string(),
+            enhanced_label: None,
         }
     }
 

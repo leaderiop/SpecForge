@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use serde::{Deserialize, Serialize};
 
-use crate::{CompilerConfig, CoverageConfig, FormatVersion, GenConfig, Module, NamingStyle, ResultStyle};
+use crate::{CompilerConfig, CoverageConfig, EnhancementPolicy, EntityKindPolicy, FormatVersion, GenConfig, Module, NamingStyle, ResultStyle};
 
 fn default_version() -> String {
     "1.0".to_string()
@@ -86,6 +86,14 @@ pub struct SpecForgeJsonConfig {
     #[serde(default, skip_serializing_if = "HashMap::is_empty")]
     #[serde(rename = "gen")]
     pub generators: HashMap<String, JsonGenConfig>,
+    #[serde(default)]
+    pub enhancement_policy: EnhancementPolicy,
+    #[serde(default, skip_serializing_if = "HashMap::is_empty")]
+    pub enhancement_overrides: HashMap<String, String>,
+    #[serde(default)]
+    pub entity_kind_policy: EntityKindPolicy,
+    #[serde(default, skip_serializing_if = "HashMap::is_empty")]
+    pub entity_kinds: HashMap<String, String>,
 }
 
 impl SpecForgeJsonConfig {
@@ -100,6 +108,14 @@ impl SpecForgeJsonConfig {
             .plugins
             .iter()
             .filter_map(|p| Module::from_package_name(p))
+            .collect();
+
+        // Wasm package specifiers are plugins NOT matched by Module::from_package_name()
+        let wasm_package_specifiers: Vec<String> = self
+            .plugins
+            .iter()
+            .filter(|p| Module::from_package_name(p).is_none())
+            .cloned()
             .collect();
 
         let mut provider_schemes = Vec::new();
@@ -181,6 +197,11 @@ impl SpecForgeJsonConfig {
             gen_configs,
             coverage,
             custom_entities: HashMap::new(),
+            enhancement_policy: self.enhancement_policy,
+            enhancement_overrides: self.enhancement_overrides.clone(),
+            wasm_package_specifiers,
+            entity_kind_policy: self.entity_kind_policy,
+            entity_kind_overrides: self.entity_kinds.clone(),
         }
     }
 
@@ -201,6 +222,10 @@ impl SpecForgeJsonConfig {
             test_dirs: Vec::new(),
             coverage: None,
             generators: HashMap::new(),
+            enhancement_policy: EnhancementPolicy::default(),
+            enhancement_overrides: HashMap::new(),
+            entity_kind_policy: EntityKindPolicy::default(),
+            entity_kinds: HashMap::new(),
         }
     }
 }

@@ -195,8 +195,8 @@ fn add_missing_import_actions(
 
     for entity in &spec_file.entities {
         for (field_name, value) in &entity.fields.entries {
-            // Only check reference fields (those that have an EdgeType mapping)
-            if EdgeType::from_field_name(field_name).is_none() {
+            // Only check reference fields (those that have an EdgeType or enhanced mapping)
+            if !state.field_registry.is_reference_field(entity.kind.keyword(), field_name) {
                 continue;
             }
 

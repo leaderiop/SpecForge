@@ -26,6 +26,8 @@ behavior generate_rust_structs_from_types "Generate Rust Structs from Types" {
   verify unit "array field maps to Vec<T>"
   verify unit "union type produces tagged enum"
   verify unit "readonly annotation produces doc comment, not Cow"
+
+  tests ["../crates/specforge-cli/tests/integration_test.rs"]
 }
 
 behavior generate_rust_traits_from_ports "Generate Rust Traits from Ports" {
@@ -42,6 +44,8 @@ behavior generate_rust_traits_from_ports "Generate Rust Traits from Ports" {
   verify unit "port generates Rust trait with method signatures"
   verify unit "Result types use configured style (thiserror/anyhow/raw)"
   verify unit "async ports use async-trait when enabled"
+
+  tests ["../crates/specforge-cli/tests/integration_test.rs"]
 }
 
 behavior generate_rust_test_stubs "Generate Rust Test Stubs" {
@@ -61,6 +65,8 @@ behavior generate_rust_test_stubs "Generate Rust Test Stubs" {
   verify unit "function name follows entity_id__slug convention"
   verify unit "generated file includes @specforge-checksum header"
   verify unit "scenario blocks produce multi-step test stubs with given/when/then comments"
+
+  tests ["../crates/specforge-cli/tests/integration_test.rs"]
 }
 
 behavior generate_rust_bench_stubs "Generate Rust Benchmark Stubs" {
@@ -73,6 +79,8 @@ behavior generate_rust_bench_stubs "Generate Rust Benchmark Stubs" {
   """
 
   verify unit "verify load produces criterion benchmark stub"
+
+  tests ["../crates/specforge-cli/tests/integration_test.rs"]
 }
 
 behavior generate_rust_module_tree "Generate Rust Module Tree" {
@@ -87,6 +95,8 @@ behavior generate_rust_module_tree "Generate Rust Module Tree" {
 
   verify unit "entry point re-exports all test modules"
   verify unit "module structure mirrors entity organization"
+
+  tests ["../crates/specforge-cli/tests/integration_test.rs"]
 }
 
 behavior slugify_verify_descriptions "Slugify Verify Descriptions" {
@@ -103,6 +113,8 @@ behavior slugify_verify_descriptions "Slugify Verify Descriptions" {
   verify unit "comparison operators become word equivalents"
   verify unit "non-alphanumeric characters are stripped"
   verify unit "result is a valid Rust identifier"
+
+  tests ["../crates/specforge-cli/tests/integration_test.rs"]
 }
 
 behavior detect_rust_code_drift "Detect Rust Code Drift" {
@@ -119,6 +131,8 @@ behavior detect_rust_code_drift "Detect Rust Code Drift" {
   verify unit "matching checksums exit 0"
   verify unit "mismatched checksums exit 1 with stale file paths"
   verify unit "check mode writes no files"
+
+  tests ["../crates/specforge-cli/tests/integration_test.rs"]
 }
 
 behavior safe_rust_regeneration "Safe Rust Regeneration" {
@@ -135,4 +149,6 @@ behavior safe_rust_regeneration "Safe Rust Regeneration" {
   verify unit "file with implementation is skipped without --force"
   verify unit "--merge preserves existing test bodies"
   verify unit "--force overwrites all files"
+
+  tests ["../crates/specforge-cli/tests/integration_test.rs"]
 }

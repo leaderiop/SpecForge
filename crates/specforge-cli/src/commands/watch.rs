@@ -181,17 +181,20 @@ pub fn incremental_rebuild(
     }
 
     // Re-run resolve → build graph → validate on the full file set
-    let spec_root_str = prev
-        .config
-        .name
-        .clone(); // Used as placeholder; resolver uses it for relative paths
-    let resolved = specforge_resolver::resolve(updated_files, &spec_root_str);
-    let graph_result = specforge_graph::build_graph(&resolved.files);
+    let spec_root_str = spec_root_dir.to_string_lossy().to_string();
+    let resolved = specforge_resolver::resolve_with_config(
+        updated_files,
+        &spec_root_str,
+        prev.external_config.clone(),
+    );
+    let registry = pipeline::build_field_registry(&resolved.config);
+    let graph_result = specforge_graph::build_graph(&resolved.files, &registry);
     let validation_bag = specforge_validator::validate(
         &resolved.files,
         &graph_result.graph,
         &resolved.config,
         spec_root_dir,
+        &registry,
     );
 
     let mut all_diagnostics = resolved.diagnostics.sorted();
@@ -206,6 +209,10 @@ pub fn incremental_rebuild(
         diagnostics: all_diagnostics,
         config: resolved.config,
         sources: updated_sources,
+        field_registry: registry,
+        external_config: prev.external_config.clone(),
+        wasm_runtime: None,
+        kind_registry: specforge_common::KindRegistry::with_builtins(),
     }
 }
 
@@ -297,12 +304,14 @@ mod tests {
         }
 
         let resolved = specforge_resolver::resolve(parsed_files, "test");
-        let graph_result = specforge_graph::build_graph(&resolved.files);
+        let registry = pipeline::build_field_registry(&resolved.config);
+        let graph_result = specforge_graph::build_graph(&resolved.files, &registry);
         let validation_bag = specforge_validator::validate(
             &resolved.files,
             &graph_result.graph,
             &resolved.config,
             std::path::Path::new("."),
+            &registry,
         );
 
         let mut all_diagnostics = resolved.diagnostics.sorted();
@@ -317,6 +326,10 @@ mod tests {
             diagnostics: all_diagnostics,
             config: resolved.config,
             sources: source_map,
+            field_registry: registry,
+            external_config: None,
+            wasm_runtime: None,
+            kind_registry: specforge_common::KindRegistry::with_builtins(),
         }
     }
 

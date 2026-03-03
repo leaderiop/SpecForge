@@ -7,7 +7,7 @@ feature type_and_port_code_generation "Type and Port Code Generation" {
   behaviors [
     generate_typescript_interfaces_from_types, generate_port_interfaces, generate_json_schema_from_types,
     respect_naming_conventions, generate_readonly_fields, generate_unique_constraints,
-    call_wasm_generate, incremental_code_generation, support_multiple_languages,
+    call_package_generators, incremental_code_generation, support_multiple_languages,
   ]
 
   problem """

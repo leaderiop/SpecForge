@@ -1,6 +1,5 @@
 use crate::pipeline;
 use clap::Args;
-use specforge_common::PluginManifest;
 use std::path::PathBuf;
 
 #[derive(Args)]
@@ -23,12 +22,22 @@ pub fn run(args: PluginsArgs) -> i32 {
     }
 
     for module in &result.config.plugins {
-        if let Some(manifest) = PluginManifest::for_module(*module) {
+        if let Some(package) = module.package_name() {
             println!(
-                "  {}  ({} entities, {} edges)",
-                manifest.package,
-                manifest.entity_count(),
-                manifest.edge_count(),
+                "  {}  ({} entities, {} edges)  [built-in]",
+                package,
+                module.entity_count(),
+                module.edge_count(),
+            );
+        }
+    }
+
+    // Show Wasm plugins
+    if let Some(ref runtime) = result.wasm_runtime {
+        for info in runtime.package_infos() {
+            println!(
+                "  {}  v{}  [{:?}]  [wasm]",
+                info.package, info.version, info.state,
             );
         }
     }

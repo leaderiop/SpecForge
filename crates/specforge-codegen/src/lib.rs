@@ -6,4 +6,4 @@ pub mod subprocess;
 pub mod test_stubs;
 pub mod typescript;
 
-pub use generator::{GenerateContext, GenerateResult, Generator, PluginError, resolve_generator};
+pub use generator::{GenerateContext, GenerateResult, Generator, PackageError, resolve_generator};

@@ -194,6 +194,7 @@ mod tests {
             GraphEdge {
                 edge_type: EdgeType::References,
                 field_name: "invariants".to_string(),
+                enhanced_label: None,
             },
         );
         // input_validation implements validate_input
@@ -203,6 +204,7 @@ mod tests {
             GraphEdge {
                 edge_type: EdgeType::Implements,
                 field_name: "behaviors".to_string(),
+                enhanced_label: None,
             },
         );
         // email_uniqueness, create_user, search_feature are orphans (no edges among themselves)

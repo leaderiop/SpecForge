@@ -385,6 +385,7 @@ mod tests {
         GraphEdge {
             edge_type,
             field_name: field.to_string(),
+            enhanced_label: None,
         }
     }
 

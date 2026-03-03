@@ -19,6 +19,8 @@ behavior format_diagnostics_with_source_context "Format Diagnostics with Source 
   verify unit "diagnostic shows file:line:col"
   verify unit "context snippet highlights offending token"
   verify unit "multi-line span shows full range"
+
+  tests ["../crates/specforge-cli/tests/integration_test.rs"]
 }
 
 behavior provide_did_you_mean_suggestions "Provide Did-You-Mean Suggestions" {
@@ -36,6 +38,8 @@ behavior provide_did_you_mean_suggestions "Provide Did-You-Mean Suggestions" {
   verify unit "close match produces suggestion"
   verify unit "distant match produces no suggestion"
   verify unit "suggestion appears in help text"
+
+  tests ["../crates/specforge-cli/tests/integration_test.rs"]
 }
 
 behavior aggregate_diagnostic_summary "Aggregate Diagnostic Summary" {
@@ -51,4 +55,6 @@ behavior aggregate_diagnostic_summary "Aggregate Diagnostic Summary" {
   verify unit "summary shows correct counts"
   verify unit "summary is red when errors exist"
   verify unit "summary matches actual diagnostics"
+
+  tests ["../crates/specforge-cli/tests/integration_test.rs"]
 }

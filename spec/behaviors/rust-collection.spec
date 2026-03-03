@@ -25,6 +25,8 @@ behavior collect_rust_test_results "Collect Rust Test Results" {
   verify unit "nextest JUnit XML is parsed"
   verify unit "libtest JSON is parsed"
   verify integration "end-to-end collect from cargo test to specforge-report.json"
+
+  tests ["../crates/specforge-cli/tests/integration_test.rs"]
 }
 
 behavior parse_junit_xml "Parse JUnit XML" {
@@ -42,6 +44,8 @@ behavior parse_junit_xml "Parse JUnit XML" {
   verify unit "testcase elements map to TestResultEntry"
   verify unit "classname extracts module path"
   verify unit "failure message is captured"
+
+  tests ["../crates/specforge-cli/tests/integration_test.rs"]
 }
 
 behavior parse_libtest_json "Parse Libtest JSON" {
@@ -55,6 +59,8 @@ behavior parse_libtest_json "Parse Libtest JSON" {
 
   verify unit "libtest JSON events map to TestResultEntry"
   verify unit "nextest JSON events map to TestResultEntry"
+
+  tests ["../crates/specforge-cli/tests/integration_test.rs"]
 }
 
 behavior resolve_entity_mapping "Resolve Entity Mapping" {
@@ -73,6 +79,8 @@ behavior resolve_entity_mapping "Resolve Entity Mapping" {
   verify unit "proc macro attribute overrides naming convention"
   verify unit "double-underscore convention extracts entity ID"
   verify unit "ambiguous mapping produces diagnostic"
+
+  tests ["../crates/specforge-cli/tests/integration_test.rs"]
 }
 
 behavior validate_rust_entity_ids "Validate Rust Entity IDs" {
@@ -87,6 +95,8 @@ behavior validate_rust_entity_ids "Validate Rust Entity IDs" {
   verify unit "known entity ID passes in strict mode"
   verify unit "unknown entity ID fails in strict mode"
   verify unit "unknown entity ID warns in lenient mode"
+
+  tests ["../crates/specforge-cli/tests/integration_test.rs"]
 }
 
 behavior merge_workspace_reports "Merge Workspace Reports" {
@@ -101,6 +111,8 @@ behavior merge_workspace_reports "Merge Workspace Reports" {
 
   verify unit "multiple mapping files are merged"
   verify unit "duplicate entities take most recent result"
+
+  tests ["../crates/specforge-cli/tests/integration_test.rs"]
 }
 
 behavior record_test_via_drop_guard "Record Test via Drop Guard" {
@@ -118,6 +130,8 @@ behavior record_test_via_drop_guard "Record Test via Drop Guard" {
   verify unit "panicking test records fail via Drop"
   verify unit "results written to target/specforge/ on process exit"
   verify unit "#[should_panic] incompatibility is documented"
+
+  tests ["../crates/specforge-cli/tests/integration_test.rs"]
 }
 
 behavior emit_specforge_report_from_rust "Emit Specforge Report from Rust" {
@@ -134,4 +148,6 @@ behavior emit_specforge_report_from_rust "Emit Specforge Report from Rust" {
   verify unit "emitted report conforms to SpecforgeReport schema"
   verify unit "runner field identifies the framework"
   verify integration "full pipeline from JUnit XML to valid specforge-report.json"
+
+  tests ["../crates/specforge-cli/tests/integration_test.rs"]
 }

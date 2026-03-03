@@ -106,6 +106,7 @@ mod tests {
             GraphEdge {
                 edge_type: EdgeType::References,
                 field_name: "invariants".to_string(),
+                enhanced_label: None,
             },
         );
         graph

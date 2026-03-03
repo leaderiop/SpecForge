@@ -23,6 +23,8 @@ behavior render_markdown_documentation "Render Markdown Documentation" {
   verify unit        "each entity group produces a markdown file"
   verify unit        "cross-references render as links"
   verify integration "output directory is created if missing"
+
+  tests ["../crates/specforge-cli/tests/integration_test.rs"]
 }
 
 behavior render_json_graph "Render JSON Graph" {
@@ -39,6 +41,8 @@ behavior render_json_graph "Render JSON Graph" {
   verify unit "JSON output contains all nodes"
   verify unit "JSON output contains all edges"
   verify unit "output is valid JSON"
+
+  tests ["../crates/specforge-cli/tests/integration_test.rs"]
 }
 
 behavior render_dot_visualization "Render DOT Visualization" {
@@ -54,6 +58,8 @@ behavior render_dot_visualization "Render DOT Visualization" {
   verify unit "DOT output is valid Graphviz syntax"
   verify unit "nodes are labeled with IDs"
   verify unit "edges are labeled with types"
+
+  tests ["../crates/specforge-cli/tests/integration_test.rs"]
 }
 
 behavior compute_traceability_chain "Compute Traceability Chain" {
@@ -70,6 +76,8 @@ behavior compute_traceability_chain "Compute Traceability Chain" {
   verify unit "trace from behavior shows upstream features and downstream invariants"
   verify unit "trace shows full chain depth"
   verify unit "missing link in chain is flagged"
+
+  tests ["../crates/specforge-cli/tests/integration_test.rs"]
 }
 
 behavior compute_project_statistics "Compute Project Statistics" {
@@ -84,6 +92,8 @@ behavior compute_project_statistics "Compute Project Statistics" {
 
   verify unit "stats reports correct entity counts"
   verify unit "stats reports coverage percentage"
+
+  tests ["../crates/specforge-cli/tests/integration_test.rs"]
 }
 
 behavior print_diagnostics_in_rustc_style "Print Diagnostics in Rustc Style" {
@@ -100,6 +110,8 @@ behavior print_diagnostics_in_rustc_style "Print Diagnostics in Rustc Style" {
   verify unit "error diagnostic is formatted with file:line:col"
   verify unit "diagnostic includes context snippet"
   verify unit "suggestion is displayed when available"
+
+  tests ["../crates/specforge-cli/tests/integration_test.rs"]
 }
 
 behavior exit_code_reflects_diagnostic_severity "Exit Code Reflects Diagnostic Severity" {
@@ -114,6 +126,8 @@ behavior exit_code_reflects_diagnostic_severity "Exit Code Reflects Diagnostic S
   verify unit "exit 0 with no errors"
   verify unit "exit 1 with errors"
   verify unit "exit 1 with warnings in strict mode"
+
+  tests ["../crates/specforge-cli/tests/integration_test.rs"]
 }
 
 behavior render_traceability_report "Render Traceability Report" {
@@ -128,6 +142,8 @@ behavior render_traceability_report "Render Traceability Report" {
 
   verify unit "full trace covers all deliverables"
   verify unit "gaps in chain are highlighted"
+
+  tests ["../crates/specforge-cli/tests/integration_test.rs"]
 }
 
 behavior render_index_files "Render Index Files" {
@@ -142,6 +158,8 @@ behavior render_index_files "Render Index Files" {
 
   verify unit "index file lists all entities by type"
   verify unit "index is regenerated on recompilation"
+
+  tests ["../crates/specforge-cli/tests/integration_test.rs"]
 }
 
 behavior selective_render_by_entity_type "Selective Render by Entity Type" {
@@ -156,6 +174,8 @@ behavior selective_render_by_entity_type "Selective Render by Entity Type" {
 
   verify unit "filter renders only matching entity types"
   verify unit "no filter renders all entity types"
+
+  tests ["../crates/specforge-cli/tests/integration_test.rs"]
 }
 
 behavior deterministic_output "Deterministic Output" {
@@ -169,6 +189,8 @@ behavior deterministic_output "Deterministic Output" {
   """
 
   verify property "same input produces identical output across runs"
+
+  tests ["../crates/specforge-cli/tests/integration_test.rs"]
 }
 
 behavior check_mode_for_ci "Check Mode for CI" {
@@ -185,4 +207,6 @@ behavior check_mode_for_ci "Check Mode for CI" {
   verify unit        "check mode produces no output files"
   verify unit        "check mode prints diagnostics to stderr"
   verify integration "check mode works in CI environment"
+
+  tests ["../crates/specforge-cli/tests/integration_test.rs"]
 }

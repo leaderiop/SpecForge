@@ -19,6 +19,8 @@ behavior migrate_spec_files_between_versions "Migrate Spec Files Between Version
   verify unit        "migration preserves all entities"
   verify unit        "migration updates syntax to new version"
   verify integration "round-trip migration produces equivalent files"
+
+  tests ["../crates/specforge-cli/tests/integration_test.rs"]
 }
 
 behavior detect_format_version_mismatch "Detect Format Version Mismatch" {
@@ -33,4 +35,6 @@ behavior detect_format_version_mismatch "Detect Format Version Mismatch" {
   verify unit "older version emits I003"
   verify unit "current version does not emit I003"
   verify unit "older version files still compile"
+
+  tests ["../crates/specforge-cli/tests/integration_test.rs", "../crates/specforge-validator/src/passes.rs"]
 }

@@ -10,6 +10,8 @@ invariant spec_root_singleton "Spec Root Singleton" {
 
   verify property "a project with exactly one spec block is accepted"
   verify unit "a project with zero or two spec blocks produces a diagnostic"
+
+  tests ["../crates/specforge-validator/src/passes.rs"]
 }
 
 invariant multi_error_collection "Multi-Error Collection" {
@@ -23,6 +25,8 @@ invariant multi_error_collection "Multi-Error Collection" {
 
   verify property "a file with N errors produces exactly N error diagnostics in one pass"
   verify unit "the compiler does not halt after the first error"
+
+  tests ["../crates/specforge-cli/tests/integration_test.rs"]
 }
 
 invariant string_interning_consistency "String Interning Consistency" {
@@ -37,6 +41,8 @@ invariant string_interning_consistency "String Interning Consistency" {
 
   verify property "interning the same string twice returns the same key"
   verify unit "comparison by interned key is equivalent to comparison by string value"
+
+  tests ["../crates/specforge-cli/tests/integration_test.rs"]
 }
 
 invariant import_dag "Import DAG" {
@@ -50,6 +56,8 @@ invariant import_dag "Import DAG" {
 
   verify property "an acyclic import graph is accepted without diagnostics"
   verify unit "a circular import produces E003 naming the cycle participants"
+
+  tests ["../crates/specforge-cli/tests/integration_test.rs", "../crates/specforge-validator/src/passes.rs"]
 }
 
 invariant entity_id_uniqueness "Entity ID Uniqueness" {
@@ -63,6 +71,8 @@ invariant entity_id_uniqueness "Entity ID Uniqueness" {
 
   verify property "all unique entity IDs across files are accepted"
   verify unit "a duplicate entity ID produces E002 naming both declaration sites"
+
+  tests ["../crates/specforge-cli/tests/integration_test.rs", "../crates/specforge-validator/src/passes.rs"]
 }
 
 invariant library_dag "Library DAG" {
@@ -76,6 +86,8 @@ invariant library_dag "Library DAG" {
 
   verify property "an acyclic library dependency graph is accepted"
   verify unit "a circular library dependency produces E007"
+
+  tests ["../crates/specforge-cli/tests/integration_test.rs", "../crates/specforge-validator/src/passes.rs"]
 }
 
 invariant incremental_correctness "Incremental Correctness" {
@@ -90,4 +102,6 @@ invariant incremental_correctness "Incremental Correctness" {
 
   verify property "incremental recompilation produces the same graph as a full rebuild"
   verify unit "no stale nodes or edges remain after incremental recompilation"
+
+  tests ["../crates/specforge-cli/tests/integration_test.rs"]
 }
