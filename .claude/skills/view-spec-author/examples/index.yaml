@@ -1,0 +1,25 @@
+name: "Search App"
+description: "A complete Search App view specification demonstrating the Flux pattern with collocated triads."
+version: "1.0.0"
+
+entities:
+  wireframe:
+    - wireframe.yaml
+  pages:
+    - pages/home.yaml
+  components:
+    - components/header.yaml
+    - components/search-bar.yaml
+  elements:
+    - elements/logo.yaml
+    - elements/search-input.yaml
+    - elements/search-button.yaml
+  actions:
+    - actions/navigate.yaml
+    - actions/submit-search.yaml
+  events:
+    - events/route-changed.yaml
+    - events/search-submitted.yaml
+  stores:
+    - stores/router-store.yaml
+    - stores/search-store.yaml

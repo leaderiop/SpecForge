@@ -1,0 +1,39 @@
+entity: store
+id: STR-router-store
+name: "Router Store"
+docs: ./router-store.md
+tests: ./router-store.feature
+
+initial-state:
+  currentPath: "/"
+  previousPath: null
+  params: {}
+  query: {}
+
+reducers:
+  EVT-route-changed:
+    - field: previousPath
+      operation: set
+      value: "state.currentPath"
+    - field: currentPath
+      operation: set
+      value: "payload.path"
+    - field: params
+      operation: set
+      value: "payload.params || {}"
+
+selectors:
+  - name: currentPath
+    compute: "state.currentPath"
+  - name: previousPath
+    compute: "state.previousPath"
+  - name: isHome
+    compute: "state.currentPath === '/'"
+
+consumers:
+  - $ref: CMP-header
+
+persistence:
+  enabled: false
+  storage: session-storage
+  key: "router-state"

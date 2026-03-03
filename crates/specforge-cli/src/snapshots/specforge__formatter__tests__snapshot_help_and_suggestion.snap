@@ -1,0 +1,12 @@
+---
+source: crates/specforge-cli/src/formatter.rs
+expression: "render(&[diag], &sources)"
+---
+[E001] Error: unresolved reference `data_persistance`
+   ╭─[test.spec:1:11]
+   │
+ 1 │ invariant data_integrity "Test" {
+   │ 
+   │ Help: did you mean `data_persistence`?
+───╯
+1 error

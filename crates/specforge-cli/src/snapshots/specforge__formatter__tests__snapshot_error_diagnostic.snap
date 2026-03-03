@@ -1,0 +1,12 @@
+---
+source: crates/specforge-cli/src/formatter.rs
+expression: "render(&[diag], &sources)"
+---
+[E001] Error: unresolved reference `nonexistent_inv`
+   ╭─[test.spec:1:1]
+   │
+ 1 │ invariant data_integrity "Test" {
+   │ 
+   │ Help: did you mean `data_integrity`?
+───╯
+1 error

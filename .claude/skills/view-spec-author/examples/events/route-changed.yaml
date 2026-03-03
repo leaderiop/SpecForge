@@ -1,0 +1,26 @@
+entity: event
+id: EVT-route-changed
+name: "Route Changed"
+docs: ./route-changed.md
+tests: ./route-changed.feature
+
+payload:
+  - name: path
+    type: string
+    required: true
+  - name: params
+    type: object
+    required: false
+
+target-stores:
+  - $ref: STR-router-store
+
+side-effects:
+  - type: navigation
+    config:
+      path: "payload.path"
+  - type: analytics
+    config:
+      event-name: "page_view"
+      properties:
+        path: "payload.path"

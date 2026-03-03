@@ -1,0 +1,49 @@
+entity: store
+id: STR-search-store
+name: "Search Store"
+docs: ./search-store.md
+tests: ./search-store.feature
+
+initial-state:
+  query: ""
+  results: []
+  isLoading: false
+  error: null
+  totalResults: 0
+
+reducers:
+  EVT-search-submitted:
+    - field: query
+      operation: set
+      value: "payload.query"
+    - field: isLoading
+      operation: set
+      value: true
+    - field: error
+      operation: clear
+    - field: results
+      operation: clear
+
+selectors:
+  - name: query
+    compute: "state.query"
+  - name: results
+    compute: "state.results"
+  - name: isLoading
+    compute: "state.isLoading"
+  - name: hasResults
+    compute: "state.results.length > 0"
+  - name: hasError
+    compute: "state.error !== null"
+  - name: resultCount
+    compute: "state.totalResults"
+
+consumers:
+  - $ref: CMP-search-bar
+  - $ref: ELM-search-input
+  - $ref: ELM-search-button
+
+persistence:
+  enabled: true
+  storage: session-storage
+  key: "search-state"

@@ -1,0 +1,12 @@
+---
+source: crates/specforge-cli/src/formatter.rs
+expression: "render(&[diag], &sources)"
+---
+[W004] Warning: unverified behavior `auth_login`
+   ╭─[behaviors.spec:1:1]
+   │
+   ┆ 
+   │ 
+   │ Help: add a `verify` or `scenario` block
+───╯
+1 warning

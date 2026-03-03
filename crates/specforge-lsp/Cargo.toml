@@ -1,0 +1,29 @@
+[package]
+name = "specforge-lsp"
+edition.workspace = true
+version.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[[bin]]
+name = "specforge-lsp"
+path = "src/main.rs"
+
+[dependencies]
+specforge-common.workspace = true
+specforge-parser.workspace = true
+specforge-resolver.workspace = true
+specforge-graph.workspace = true
+specforge-validator.workspace = true
+tree-sitter-specforge.workspace = true
+
+tower-lsp.workspace = true
+tokio.workspace = true
+tree-sitter.workspace = true
+serde_json.workspace = true
+walkdir.workspace = true
+strsim.workspace = true
+
+[dev-dependencies]
+insta.workspace = true
+tempfile.workspace = true

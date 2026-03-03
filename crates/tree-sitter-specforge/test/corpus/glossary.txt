@@ -1,0 +1,38 @@
+==================
+Glossary with terms
+==================
+
+glossary {
+  term "entity" {
+    definition """
+      A named, typed building block.
+    """
+    aliases ["node", "block"]
+  }
+
+  term "spec file" {
+    definition """
+      A .spec file containing entity declarations.
+    """
+  }
+}
+
+---
+
+(source_file
+  (glossary_block
+    (term_def
+      name: (string)
+      (key_value
+        key: (identifier)
+        value: (triple_quoted_string))
+      (key_value
+        key: (identifier)
+        value: (list
+          (string)
+          (string))))
+    (term_def
+      name: (string)
+      (key_value
+        key: (identifier)
+        value: (triple_quoted_string)))))

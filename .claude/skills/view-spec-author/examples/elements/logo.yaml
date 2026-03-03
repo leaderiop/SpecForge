@@ -1,0 +1,27 @@
+entity: element
+id: ELM-logo
+name: "Logo"
+docs: ./logo.md
+tests: ./logo.feature
+
+type: image
+
+states:
+  default:
+    width: 120
+    height: 40
+    cursor: pointer
+  hover:
+    opacity: 0.8
+    cursor: pointer
+
+actions:
+  - trigger: click
+    action: { $ref: ACT-navigate }
+
+accessibility:
+  role: img
+  label: "Search App logo - navigate to home"
+  keyboard:
+    - key: Enter
+      action: { $ref: ACT-navigate }

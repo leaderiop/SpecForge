@@ -1,0 +1,74 @@
+==================
+Struct type with annotations
+==================
+
+type User {
+  id string @readonly
+  email string @unique
+  role UserRole
+}
+
+---
+
+(source_file
+  (type_block
+    (type_struct
+      name: (identifier)
+      (type_field
+        name: (identifier)
+        type: (type_expr
+          (identifier))
+        (annotation))
+      (type_field
+        name: (identifier)
+        type: (type_expr
+          (identifier))
+        (annotation))
+      (type_field
+        name: (identifier)
+        type: (type_expr
+          (identifier))))))
+
+==================
+Union type
+==================
+
+type EntityKind = spec | invariant | behavior | feature
+
+---
+
+(source_file
+  (type_block
+    (type_union
+      name: (identifier)
+      (union_variants
+        (identifier)
+        (identifier)
+        (identifier)
+        (identifier)))))
+
+==================
+Array type field
+==================
+
+type SpecFile {
+  imports string[]
+  entities Entity[]
+}
+
+---
+
+(source_file
+  (type_block
+    (type_struct
+      name: (identifier)
+      (type_field
+        name: (identifier)
+        type: (type_expr
+          (array_type
+            (identifier))))
+      (type_field
+        name: (identifier)
+        type: (type_expr
+          (array_type
+            (identifier)))))))

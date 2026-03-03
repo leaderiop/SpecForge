@@ -1,0 +1,12 @@
+---
+source: crates/specforge-emitter/src/trace.rs
+expression: output
+---
+Trace: validate_input (behavior)
+  upstream:
+    input_validation --implements--> validate_input
+    chain_data_entry --traces_to--> input_validation
+    chain_cli_tool --bundles--> chain_data_entry
+  downstream:
+    validate_input --references--> data_integrity
+  gaps: none

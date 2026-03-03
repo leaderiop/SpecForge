@@ -1,0 +1,25 @@
+==================
+Comments between blocks
+==================
+
+// Core invariants
+
+invariant INV-SF-1 "Test" {
+  guarantee """
+    Test guarantee.
+  """
+}
+
+// Another comment
+
+---
+
+(source_file
+  (comment)
+  (invariant_block
+    id: (entity_id)
+    title: (string)
+    (key_value
+      key: (identifier)
+      value: (triple_quoted_string)))
+  (comment))

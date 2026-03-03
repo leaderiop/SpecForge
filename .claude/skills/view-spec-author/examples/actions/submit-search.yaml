@@ -1,0 +1,23 @@
+entity: action
+id: ACT-submit-search
+name: "Submit Search"
+docs: ./submit-search.md
+tests: ./submit-search.feature
+
+type: search-submit
+
+trigger:
+  element: { $ref: ELM-search-input }
+  interaction: submit
+
+preconditions:
+  - condition: "query.trim().length > 0"
+    fail-action: block
+
+events-dispatched:
+  - $ref: EVT-search-submitted
+
+debounce:
+  wait: 300
+  leading: false
+  trailing: true

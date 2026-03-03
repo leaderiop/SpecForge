@@ -1,0 +1,15 @@
+[package]
+name = "specforge-parser"
+edition.workspace = true
+version.workspace = true
+license.workspace = true
+
+[dependencies]
+specforge-common = { workspace = true }
+tree-sitter = { workspace = true }
+tree-sitter-language = { workspace = true }
+tree-sitter-specforge = { workspace = true }
+
+[dev-dependencies]
+insta = { workspace = true }
+serde_json = { workspace = true }

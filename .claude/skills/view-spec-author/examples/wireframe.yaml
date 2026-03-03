@@ -1,0 +1,29 @@
+entity: wireframe
+id: WF-search-app
+name: "Search App"
+docs: ./wireframe.md
+tests: ./wireframe.feature
+
+viewports:
+  desktop:
+    min-width: 1024
+  tablet:
+    min-width: 768
+    max-width: 1023
+  mobile:
+    max-width: 767
+
+theme:
+  colors:
+    primary: "#1A73E8"
+    secondary: "#34A853"
+    background: "#FFFFFF"
+    surface: "#F8F9FA"
+    text: "#202124"
+    error: "#D93025"
+  typography:
+    font-family: "Inter, system-ui, sans-serif"
+    base-size: "16px"
+
+pages:
+  - $ref: PG-home

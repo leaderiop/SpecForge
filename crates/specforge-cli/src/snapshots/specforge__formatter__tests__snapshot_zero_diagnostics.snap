@@ -1,0 +1,5 @@
+---
+source: crates/specforge-cli/src/formatter.rs
+expression: "render(&[], &sources)"
+---
+0 errors

@@ -1,0 +1,28 @@
+==================
+Deliverable with all fields
+==================
+
+deliverable DLV-SF-002 "SpecForge LSP" {
+  type language_server
+  capabilities [UX-SF-003]
+  libraries [LIB-SF-001, LIB-SF-002]
+}
+
+---
+
+(source_file
+  (deliverable_block
+    id: (entity_id)
+    title: (string)
+    (key_value
+      key: (identifier)
+      value: (identifier))
+    (key_value
+      key: (identifier)
+      value: (list
+        (entity_id)))
+    (key_value
+      key: (identifier)
+      value: (list
+        (entity_id)
+        (entity_id)))))

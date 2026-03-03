@@ -1,0 +1,12 @@
+[package]
+name = "specforge-common"
+edition.workspace = true
+version.workspace = true
+license.workspace = true
+
+[dependencies]
+lasso = { workspace = true }
+serde = { workspace = true }
+
+[dev-dependencies]
+insta = { workspace = true }

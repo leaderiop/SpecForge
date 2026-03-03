@@ -1,0 +1,32 @@
+entity: event
+id: EVT-search-submitted
+name: "Search Submitted"
+docs: ./search-submitted.md
+tests: ./search-submitted.feature
+
+payload:
+  - name: query
+    type: string
+    required: true
+  - name: timestamp
+    type: number
+    required: false
+
+target-stores:
+  - $ref: STR-search-store
+
+side-effects:
+  - type: api-call
+    config:
+      method: GET
+      url: "/api/search?q={query}"
+  - type: analytics
+    config:
+      event-name: "search"
+      properties:
+        query: "payload.query"
+
+on-success:
+  dispatch: EVT-search-results-received
+on-failure:
+  dispatch: EVT-search-failed

@@ -1,0 +1,339 @@
+# Spec Writing Flow
+
+Top-down approach: start from what you ship, zoom into implementation details.
+
+---
+
+## Overview
+
+```
+Phase 0          Phase 1           Phase 2          Phase 3
+FOUNDATION  ───► WHAT WE SHIP ───► WHAT USERS DO ──► WHAT THE SYSTEM DOES
+spec             deliverable        capability        feature
+glossary                                              behavior
+                                                      type
+
+     Phase 4           Phase 5          Phase 6          Phase 7
+───► COMMUNICATION ───► GUARANTEES ────► CODE ──────────► GOVERNANCE & TIMELINE
+     event              invariant        library          decision
+     port                                                 constraint
+                                                          failure_mode
+                                                          roadmap
+```
+
+Cross-cutting: `ref` — attach external references at any phase.
+
+---
+
+## Phase 0 — Foundation
+
+> *"What is this project? What do we call things?"*
+
+### Entities
+- **`spec`** — project identity, plugins, providers, personas, surfaces
+- **`glossary`** — ubiquitous language for the team
+
+### Key questions
+1. What is the project name and ID infix?
+2. Which plugins do we need? (`@specforge/product`, `@specforge/governance`)
+3. Which external providers? (`@specforge/gh`, `@specforge/jira`, `@specforge/figma`)
+4. Who are the personas? (e.g., `developer`, `admin`, `end-user`)
+5. What surfaces do they interact with? (e.g., `web`, `cli`, `api`, `mobile`)
+6. What are the core domain terms the team must agree on?
+
+### Checkpoint
+- [ ] `spec` block compiles with name, infix, version, plugins
+- [ ] Glossary covers every domain term the team uses differently than plain English
+- [ ] Personas and surfaces are declared — capabilities will reference them
+
+---
+
+## Phase 1 — What We Ship
+
+> *"What artifacts leave our hands and reach users?"*
+
+### Entity
+- **`deliverable`** (`DLV-{infix}-{n}`) — apps, services, CLIs, browser extensions, libraries
+
+### Key questions
+1. What are the distinct shippable artifacts?
+2. What type is each? (`webapp`, `api`, `cli`, `library`, `mobile`, `extension`)
+3. Who is each deliverable for? (→ link to personas from Phase 0)
+
+### How to write
+- One deliverable per shippable artifact
+- Leave `capabilities` empty for now — you'll fill them in Phase 2
+- Leave `libraries` empty — you'll fill them in Phase 6
+
+### Checkpoint
+- [ ] Every artifact the team ships has a `DLV` entry
+- [ ] No overlap — each artifact is distinct
+- [ ] Deliverable types match the actual deployment targets
+
+---
+
+## Phase 2 — What Users Can Do
+
+> *"For each persona + surface, what are the end-to-end flows?"*
+
+### Entity
+- **`capability`** (`UX-{infix}-{n}`) — a user-facing flow (persona × surface → features)
+
+### Key questions
+1. For each persona, what are the key journeys?
+2. On which surface does each journey happen?
+3. What is the happy-path flow? (describe steps)
+4. Which deliverable bundles this capability?
+
+### How to write
+- One capability per distinct user flow
+- Describe the `flow` in plain-language steps
+- Leave `features` as placeholder IDs — you'll define them in Phase 3
+- Back-link: update deliverables to `bundles` these capabilities
+
+### Checkpoint
+- [ ] Every persona has at least one capability
+- [ ] Every deliverable bundles at least one capability (avoids W011)
+- [ ] Flows are concrete enough that a designer could wireframe from them
+
+---
+
+## Phase 3 — What the System Does
+
+> *"What functionality supports those user flows? What are the contracts? What data shapes exist?"*
+
+### Entities
+- **`feature`** (`FEAT-{infix}-{n}`) — a user-facing capability composed of behaviors
+- **`behavior`** (`BEH-{infix}-{n}`) — atomic system contract
+- **`type`** — domain data shapes (structs, unions, enums)
+
+### Key questions — Features
+1. Break each capability into discrete features
+2. What problem does each feature solve?
+3. What is the solution approach?
+
+### Key questions — Behaviors
+1. For each feature, what are the atomic contracts?
+2. What does the contract guarantee? (use RFC 2119: MUST, SHOULD, MAY)
+3. How would you verify each behavior?
+
+### Key questions — Types
+1. What data structures does the domain need?
+2. What are the fields, which are required vs optional?
+3. Are there discriminated unions (tagged types)?
+
+### How to write
+1. Start with features — decompose each capability into 2-5 features
+2. For each feature, define its behaviors — these are the atomic units
+3. As behaviors mention data shapes, define types
+4. Back-link: update capabilities to `traces_to` these features
+
+### Checkpoint
+- [ ] Every capability traces to at least one feature
+- [ ] Every feature has at least one behavior (avoids W001 for orphan behaviors)
+- [ ] Every behavior has a `contract` with RFC 2119 keywords
+- [ ] Every behavior has a `verify` statement (avoids W004)
+- [ ] Types cover all data shapes mentioned in behavior contracts
+
+---
+
+## Phase 4 — Communication
+
+> *"How do components talk to each other? What events flow through the system?"*
+
+### Entities
+- **`event`** (`EVT-{infix}-{n}`) — domain events announced by the system
+- **`port`** — interface contracts between components
+
+### Key questions — Events
+1. Which behaviors produce side effects that other parts care about?
+2. What data does each event carry? (→ link to types from Phase 3)
+3. Which behaviors consume each event?
+
+### Key questions — Ports
+1. What are the inbound interfaces? (APIs others call into)
+2. What are the outbound interfaces? (external systems we call)
+3. What methods does each port expose?
+4. What category? (`persistence`, `messaging`, `http`, `auth`, etc.)
+
+### How to write
+1. Scan behaviors for produce/consume patterns → create events
+2. Scan behaviors for external dependencies → create outbound ports
+3. Scan behaviors for public interfaces → create inbound ports
+4. Back-link: update behaviors with `types`, `ports` references
+
+### Checkpoint
+- [ ] Every event has at least one consumer (avoids W007)
+- [ ] Every event's trigger references a valid behavior (avoids E006)
+- [ ] Ports cover all integration points
+- [ ] No behavior references a non-existent port or type (avoids E001)
+
+---
+
+## Phase 5 — Guarantees
+
+> *"What must ALWAYS be true, no matter what?"*
+
+### Entity
+- **`invariant`** (`INV-{infix}-{n}`) — runtime guarantees
+
+### Key questions
+1. What must never be violated? (data integrity, security, consistency)
+2. Which component enforces each invariant?
+3. What is the risk level if an invariant is broken? (`low`, `medium`, `high`)
+
+### How to write
+1. Review all behaviors — which ones have implicit guarantees?
+2. Extract those guarantees as explicit invariants
+3. Use `enforced_by` to point to the behavior(s) responsible
+4. Back-link: update behaviors to reference their invariants
+
+### Checkpoint
+- [ ] Every high-risk invariant is referenced by at least one behavior (avoids W003)
+- [ ] Every invariant has `enforced_by` behavior references
+- [ ] High-risk invariants should get failure_modes later (Phase 7)
+
+---
+
+## Phase 6 — Code Organization
+
+> *"How is the code structured? Which packages implement what?"*
+
+### Entity
+- **`library`** (`LIB-{infix}-{n}`) — code packages
+
+### Key questions
+1. What packages/crates/modules does the codebase have?
+2. Which features does each library implement?
+3. Which ports does each library define?
+4. What are the inter-library dependencies?
+5. Which deliverable is each library built into?
+
+### How to write
+1. Map your actual (or planned) code packages to library entities
+2. Link each library to the features it implements (`provides`)
+3. Link each library to the ports it defines (`defines_port`)
+4. Declare `depends_on` between libraries
+5. Back-link: update deliverables with `built_from` library references
+
+### Checkpoint
+- [ ] No circular library dependencies (avoids E007)
+- [ ] Every feature is provided by at least one library
+- [ ] Every library is referenced by at least one deliverable (avoids W009)
+- [ ] Every deliverable's capabilities are reachable via its libraries (avoids W008)
+
+---
+
+## Phase 7 — Governance & Timeline
+
+> *"Why did we make these choices? What are the quality limits? What can go wrong? When does it ship?"*
+
+### Entities
+- **`decision`** (`ADR-{n}`) — architectural decision records
+- **`constraint`** (`CON-{infix}-{n}`) — non-functional requirements
+- **`failure_mode`** (`FM-{infix}-{n}`) — FMEA risk analysis
+- **`roadmap`** (`RM-{n}`) — delivery timeline phases
+
+### Key questions — Decisions
+1. What significant architectural choices were made?
+2. What was the context? What alternatives were considered?
+3. What are the consequences?
+
+### Key questions — Constraints
+1. What are the performance requirements?
+2. What are the security requirements?
+3. What are the compliance requirements?
+4. What behaviors do they affect?
+
+### Key questions — Failure Modes
+1. For each high-risk invariant, what can go wrong?
+2. How severe is the failure? (1-10)
+3. How likely is it? (1-10)
+4. How detectable is it? (1-10)
+5. What is the mitigation?
+
+### Key questions — Roadmap
+1. What are the delivery phases?
+2. What features/deliverables ship in each phase?
+3. What are the acceptance criteria per phase?
+
+### How to write
+1. ADRs: one per significant choice, link invariants they protect
+2. Constraints: group by category (performance, security, etc.)
+3. Failure modes: one per high-risk invariant, calculate RPN = severity × occurrence × detection
+4. Roadmap: phases with status (`proposed` → `accepted` → `delivered`)
+5. Back-link: behaviors `shaped_by` decisions, constraints `constrains` behaviors
+
+### Checkpoint
+- [ ] Every significant choice has an ADR
+- [ ] Every high-risk invariant has a failure_mode (avoids W005)
+- [ ] RPN = severity × occurrence × detection (avoids E005)
+- [ ] Roadmap phases cover all deliverables
+- [ ] No stale proposals older than 30 days (avoids I001)
+
+---
+
+## Cross-Cutting: External References
+
+> *"What tickets, designs, and external docs are linked?"*
+
+### Entity
+- **`ref`** (`scheme.kind:identifier`) — external references
+
+### When to add
+- Anytime during any phase
+- When a behavior maps to a GitHub issue: `ref gh.issue:42`
+- When a capability maps to a Figma design: `ref figma.file:abc123`
+- When a decision references an RFC: `ref gh.discussion:7`
+
+---
+
+## Iteration Pattern
+
+The top-down flow is not strictly one-pass. Expect this loop:
+
+```
+ ┌──────────────────────────────────────────────────┐
+ │  Phase 0 → 1 → 2 → 3 → 4 → 5 → 6 → 7          │
+ │     │                                  │          │
+ │     │         DISCOVERY LOOP           │          │
+ │     │  ◄────────────────────────────── │          │
+ │     │  (defining behaviors reveals     │          │
+ │     │   new terms → update glossary,   │          │
+ │     │   new capabilities → update      │          │
+ │     │   deliverables, etc.)            │          │
+ └──────────────────────────────────────────────────┘
+```
+
+**First pass**: sketch everything with placeholder references.
+**Second pass**: fill in references, resolve IDs, close gaps.
+**Third pass**: validate — run `specforge check` and fix all errors/warnings.
+
+---
+
+## Validation Summary
+
+After completing all phases, the spec should have zero errors:
+
+| Check | What it catches |
+|-------|----------------|
+| No dangling refs (E001) | Every ID reference resolves |
+| No duplicate IDs (E002) | Each entity ID is unique |
+| No import cycles (E003) | File imports form a DAG |
+| No circular libs (E007) | Library deps form a DAG |
+| Valid RPN (E005) | Failure mode math checks out |
+| Valid personas (E008) | Capability personas match spec |
+| Valid surfaces (E009) | Capability surfaces match spec |
+| Valid triggers (E006) | Event triggers reference real behaviors |
+
+And minimal warnings:
+
+| Check | What it catches |
+|-------|----------------|
+| No orphan behaviors (W001) | Every behavior belongs to a feature |
+| No orphan features (W002) | Every feature belongs to a capability |
+| No orphan events (W007) | Every event has consumers |
+| No orphan libraries (W009) | Every library belongs to a deliverable |
+| No orphan capabilities (W011) | Every capability belongs to a deliverable |
+| Verified behaviors (W004) | Every behavior has a verify statement |
+| Mitigated risks (W005) | High-risk invariants have failure modes |

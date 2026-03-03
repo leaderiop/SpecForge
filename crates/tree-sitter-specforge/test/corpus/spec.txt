@@ -1,0 +1,71 @@
+==================
+Spec block with plugins
+==================
+
+spec "specforge" {
+  infix "SF"
+  version "1.0"
+
+  plugins [
+    "@specforge/product",
+    "@specforge/governance",
+  ]
+}
+
+---
+
+(source_file
+  (spec_block
+    name: (string)
+    (key_value
+      key: (identifier)
+      value: (string))
+    (key_value
+      key: (identifier)
+      value: (string))
+    (key_value
+      key: (identifier)
+      value: (list
+        (string)
+        (string)))))
+
+==================
+Spec with persona and surface
+==================
+
+spec "test" {
+  infix "TS"
+  version "1.0"
+
+  persona developer "Developer" {
+    description "Writes specs"
+  }
+
+  surface cli "CLI" {
+    type terminal
+  }
+}
+
+---
+
+(source_file
+  (spec_block
+    name: (string)
+    (key_value
+      key: (identifier)
+      value: (string))
+    (key_value
+      key: (identifier)
+      value: (string))
+    (persona_def
+      id: (identifier)
+      display_name: (string)
+      (key_value
+        key: (identifier)
+        value: (string)))
+    (surface_def
+      id: (identifier)
+      display_name: (string)
+      (key_value
+        key: (identifier)
+        value: (identifier)))))

@@ -1,0 +1,16 @@
+entity: action
+id: ACT-navigate
+name: "Navigate"
+docs: ./navigate.md
+tests: ./navigate.feature
+
+type: navigate
+
+trigger:
+  element: { $ref: ELM-logo }
+  interaction: click
+
+preconditions: []
+
+events-dispatched:
+  - $ref: EVT-route-changed

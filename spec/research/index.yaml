@@ -1,0 +1,75 @@
+kind: research
+package: "@specforge/core"
+entries:
+  - id: RES-11a
+    file: RES-11a-spec-dsl-core-compiler.md
+    title: "Spec DSL Core Compiler Architecture"
+    status: active
+    date: 2026-03-01
+  - id: RES-11b
+    file: RES-11b-spec-dsl-codegen-plugins.md
+    title: "Spec DSL Code Generation & Test Plugins"
+    status: active
+    date: 2026-03-01
+    depends_on: RES-11a
+  - id: RES-12
+    file: RES-12-dsl-concept-expansion.md
+    title: "DSL Concept Expansion — Which Spec Concepts Belong in the Compiler?"
+    status: active
+    date: 2026-03-01
+    depends_on: RES-11a
+  - id: RES-13
+    file: RES-13-market-landscape-2026.md
+    title: "Market Landscape Analysis for SpecForge (2025-2026)"
+    status: complete
+    date: 2026-03-01
+  - id: RES-14
+    file: RES-14-entity-testability-classification.md
+    title: "Entity Testability Classification — Which Spec Concepts Require Test Coverage?"
+    status: active
+    date: 2026-03-02
+    depends_on: RES-12
+  - id: RES-15
+    file: RES-15-verify-vs-scenario-dx-analysis.md
+    title: "Verify vs Scenario Dual Syntax — Developer Experience Analysis"
+    status: active
+    date: 2026-03-02
+    depends_on: [RES-14, RES-11a]
+  - id: RES-16
+    file: RES-16-test-execution-integration.md
+    title: "Test Execution Integration — How SpecForge Knows Tests Pass"
+    status: active
+    date: 2026-03-02
+    depends_on: [RES-11a, RES-11b, RES-15]
+  - id: RES-17
+    file: RES-17-specforge-rust-plugin-design.md
+    title: "SpecForge Rust Plugin Design — @specforge/rust Test Traceability for Rust Projects"
+    status: active
+    date: 2026-03-02
+    depends_on: [RES-14, RES-15, RES-16, RES-11b]
+  - id: RES-18
+    file: RES-18-ai-agent-token-economics.md
+    title: "AI Agent Token Economics — How Structured Specifications Reduce Agent Costs"
+    status: complete
+    priority: critical
+    date: 2026-03-03
+    depends_on: [RES-13, RES-15]
+  - id: RES-19
+    file: RES-19-market-position-success-estimation.md
+    title: "Market Position & Success Estimation — SpecForge in the AI Agent Era"
+    status: complete
+    priority: critical
+    date: 2026-03-03
+    depends_on: [RES-13, RES-18]
+  - id: RES-20
+    file: RES-20-lsp-implementation-review.md
+    title: "LSP Implementation Review — Gap Analysis and Improvement Roadmap"
+    status: active
+    date: 2026-03-03
+    depends_on: RES-11a
+  - id: RES-21
+    file: RES-21-specforge-format-design.md
+    title: "specforge format — CST-Based Code Formatter for .spec Files"
+    status: active
+    date: 2026-03-03
+    depends_on: [RES-11a, RES-18, RES-20]

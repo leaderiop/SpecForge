@@ -1,0 +1,16 @@
+---
+source: crates/specforge-parser/tests/snapshot_tests.rs
+expression: "serde_json::json!({\n    \"entity_count\": file.entities.len(), \"entities\": entities, \"error_count\":\n    file.errors.len(), \"errors\": errors, \"import_count\": file.imports.len(),\n})"
+---
+{
+  "entities": [
+    "invariant data_integrity Some(\"Valid\")",
+    "behavior validate_input Some(\"Also Valid\")"
+  ],
+  "entity_count": 2,
+  "error_count": 1,
+  "errors": [
+    "syntax error: this is invalid syntax"
+  ],
+  "import_count": 0
+}

@@ -1,0 +1,15 @@
+---
+source: crates/specforge-emitter/src/stats.rs
+expression: output
+---
+Entities: 6 total
+  behavior           2
+  feature            2
+  invariant          2
+Edges: 2 total
+Orphans: 3 (email_uniqueness, create_user, search_feature)
+Coverage:
+  behaviors with invariants   50.0%
+  behaviors with verify       50.0%
+  features with behaviors     50.0%
+Diagnostics: 1 errors, 2 warnings, 1 info

@@ -1,0 +1,33 @@
+entity: component
+id: CMP-search-bar
+name: "Search Bar"
+docs: ./search-bar.md
+tests: ./search-bar.feature
+
+props:
+  - name: placeholder
+    type: string
+    required: false
+    default: "Type to search..."
+  - name: maxLength
+    type: number
+    required: false
+    default: 256
+
+children:
+  - $ref: ELM-search-input
+  - $ref: ELM-search-button
+
+stores:
+  - $ref: STR-search-store
+    binds:
+      - selector: query
+        to: searchValue
+      - selector: isLoading
+        to: loading
+
+visibility:
+  responsive:
+    desktop: true
+    tablet: true
+    mobile: true

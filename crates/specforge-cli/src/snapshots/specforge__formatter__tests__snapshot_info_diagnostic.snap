@@ -1,0 +1,10 @@
+---
+source: crates/specforge-cli/src/formatter.rs
+expression: "render(&[diag], &sources)"
+---
+[I003] Advice: newer format available
+   ╭─[test.spec:1:1]
+   │
+ 1 │ invariant data_integrity "Test" {
+───╯
+1 info

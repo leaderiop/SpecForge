@@ -1,0 +1,29 @@
+entity: page
+id: PG-home
+name: "Home Page"
+docs: ./home.md
+tests: ./home.feature
+
+route:
+  path: "/"
+  params: []
+  query:
+    - name: q
+      type: string
+      default: ""
+  hash: false
+  guard: null
+
+layout: single-column
+
+meta:
+  title: "Search App - Home"
+  description: "Search anything with the Search App"
+
+components:
+  - $ref: CMP-header
+  - $ref: CMP-search-bar
+
+stores:
+  - $ref: STR-router-store
+  - $ref: STR-search-store

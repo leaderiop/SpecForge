@@ -1,0 +1,15 @@
+[package]
+name = "specforge-emitter"
+edition.workspace = true
+version.workspace = true
+license.workspace = true
+
+[dependencies]
+specforge-common = { workspace = true }
+specforge-parser = { workspace = true }
+specforge-graph = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+
+[dev-dependencies]
+insta = { workspace = true }

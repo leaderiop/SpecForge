@@ -1,0 +1,31 @@
+==================
+Feature block
+==================
+
+feature FEAT-SF-001 "Project Init" {
+  behaviors [BEH-SF-001, BEH-SF-002]
+  problem """
+    Teams need a starting point.
+  """
+  solution """
+    Scaffold a project with specforge init.
+  """
+}
+
+---
+
+(source_file
+  (feature_block
+    id: (entity_id)
+    title: (string)
+    (key_value
+      key: (identifier)
+      value: (list
+        (entity_id)
+        (entity_id)))
+    (key_value
+      key: (identifier)
+      value: (triple_quoted_string))
+    (key_value
+      key: (identifier)
+      value: (triple_quoted_string))))

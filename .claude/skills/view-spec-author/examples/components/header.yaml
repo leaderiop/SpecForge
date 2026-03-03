@@ -1,0 +1,26 @@
+entity: component
+id: CMP-header
+name: "Header"
+docs: ./header.md
+tests: ./header.feature
+
+props:
+  - name: title
+    type: string
+    required: false
+    default: "Search App"
+
+children:
+  - $ref: ELM-logo
+
+stores:
+  - $ref: STR-router-store
+    binds:
+      - selector: currentPath
+        to: activePath
+
+visibility:
+  responsive:
+    desktop: true
+    tablet: true
+    mobile: true

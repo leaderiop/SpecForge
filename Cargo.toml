@@ -1,0 +1,60 @@
+[workspace]
+resolver = "3"
+members = [
+    "crates/specforge-common",
+    "crates/tree-sitter-specforge",
+    "crates/specforge-parser",
+    "crates/specforge-resolver",
+    "crates/specforge-graph",
+    "crates/specforge-validator",
+    "crates/specforge-emitter",
+    "crates/specforge-codegen",
+    "crates/specforge-cli",
+    "crates/specforge-lsp",
+]
+
+[workspace.package]
+edition = "2024"
+version = "0.1.0"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/anthropics/specforge"
+
+[workspace.dependencies]
+# Shared across crates
+specforge-common = { path = "crates/specforge-common" }
+tree-sitter-specforge = { path = "crates/tree-sitter-specforge" }
+specforge-parser = { path = "crates/specforge-parser" }
+specforge-resolver = { path = "crates/specforge-resolver" }
+specforge-graph = { path = "crates/specforge-graph" }
+specforge-validator = { path = "crates/specforge-validator" }
+specforge-emitter = { path = "crates/specforge-emitter" }
+specforge-codegen = { path = "crates/specforge-codegen" }
+
+# External
+tree-sitter = "0.25"
+tree-sitter-language = "0.1"
+petgraph = "0.7"
+lasso = { version = "0.7", features = ["multi-threaded"] }
+clap = { version = "4", features = ["derive"] }
+ariadne = "0.4"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+walkdir = "2"
+strsim = "0.11"
+regex = "1"
+inquire = "0.7"
+
+sha2 = "0.10"
+which = "7"
+notify = "7"
+ctrlc = "3"
+tower-lsp = "0.20"
+tokio = { version = "1", features = ["full"] }
+
+# Dev/test
+insta = { version = "1", features = ["json"] }
+tempfile = "3"
+
+[profile.release]
+lto = true
+strip = true
