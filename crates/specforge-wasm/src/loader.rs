@@ -49,6 +49,9 @@ pub fn load_manifest(manifest_path: &Path) -> Result<PackageManifest, WasmError>
             message: e.to_string(),
         })?;
 
+    // Migrate v1 manifests: populate `contributes` from `kind` if needed
+    manifest.migrate_v1_if_needed();
+
     let manifest_dir = manifest_path
         .parent()
         .unwrap_or(Path::new("."));

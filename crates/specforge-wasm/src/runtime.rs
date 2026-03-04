@@ -50,8 +50,11 @@ impl WasmRuntime {
         let mut errors = Vec::new();
 
         for manifest in manifests {
-            let (functions, ctx) =
-                host_functions::build_host_functions(&manifest.package, manifest.sandbox.clone());
+            let (functions, ctx) = host_functions::build_host_functions(
+                &manifest.package,
+                manifest.sandbox.clone(),
+                manifest.contributes.clone(),
+            );
 
             match loader::load_wasm_module(manifest, functions) {
                 Ok(loaded) => {

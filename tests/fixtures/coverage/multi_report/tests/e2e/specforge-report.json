@@ -1,0 +1,18 @@
+{
+  "schema_version": "1.0",
+  "adapter": "playwright",
+  "entities": [
+    {
+      "entity_id": "behavior_a",
+      "tests": [
+        {"name": "behavior_a__e2e_test", "status": "pass"}
+      ]
+    },
+    {
+      "entity_id": "behavior_b",
+      "tests": [
+        {"name": "behavior_b__e2e_test", "status": "fail", "message": "timeout"}
+      ]
+    }
+  ]
+}

@@ -3,7 +3,7 @@ use specforge_common::{Diagnostic, EntityId, SourceSpan, ValidationCode};
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 
-use crate::manifest::SandboxPolicy;
+use crate::manifest::{PackageContributions, SandboxPolicy};
 use crate::sandbox;
 
 /// Shared state accessible by all host functions for a single package invocation.
@@ -23,6 +23,8 @@ pub struct HostContext {
     pub emitted_files: Vec<EmittedFile>,
     /// Sandbox policy for validation.
     pub sandbox_policy: SandboxPolicy,
+    /// Contribution permissions for this package.
+    pub contributions: PackageContributions,
     /// Allowed output directory for file emission.
     pub output_dir: Option<PathBuf>,
     /// Whether we are in the initialization phase (register_entity/edge allowed).
@@ -97,7 +99,11 @@ struct HttpGetInput {
 }
 
 impl HostContext {
-    pub fn new(package: &str, sandbox_policy: SandboxPolicy) -> Self {
+    pub fn new(
+        package: &str,
+        sandbox_policy: SandboxPolicy,
+        contributions: PackageContributions,
+    ) -> Self {
         Self {
             package: package.to_string(),
             graph_json: String::new(),
@@ -106,6 +112,7 @@ impl HostContext {
             registered_edges: Vec::new(),
             emitted_files: Vec::new(),
             sandbox_policy,
+            contributions,
             output_dir: None,
             in_initialize: false,
         }
@@ -138,9 +145,10 @@ impl HostContext {
 pub fn build_host_functions(
     package: &str,
     sandbox_policy: SandboxPolicy,
+    contributions: PackageContributions,
 ) -> (Vec<extism::Function>, Arc<Mutex<HostContext>>) {
     let user_data: extism::UserData<HostContext> =
-        extism::UserData::new(HostContext::new(package, sandbox_policy));
+        extism::UserData::new(HostContext::new(package, sandbox_policy, contributions));
     let ctx_handle = user_data.get().expect("UserData was just created");
 
     let functions = vec![
@@ -244,6 +252,12 @@ fn build_register_entity(user_data: extism::UserData<HostContext>) -> extism::Fu
                 ));
             }
 
+            if !ctx.contributions.entities {
+                return Err(extism::Error::msg(
+                    "register_entity requires `contributes.entities: true` in manifest",
+                ));
+            }
+
             // Layer 1: Guard — reject reserved/syntax keywords
             if EntityId::is_reserved_or_syntax_keyword(&entity.name) {
                 return Err(extism::Error::msg(format!(
@@ -322,6 +336,13 @@ fn build_emit_file(user_data: extism::UserData<HostContext>) -> extism::Function
 
             let ctx = ud.get()?;
             let ctx_guard = ctx.lock().unwrap();
+
+            if !ctx_guard.contributions.generators {
+                return Err(extism::Error::msg(
+                    "emit_file requires `contributes.generators: true` in manifest",
+                ));
+            }
+
             let output_dir = ctx_guard
                 .output_dir
                 .as_deref()
@@ -386,18 +407,27 @@ mod tests {
 
     #[test]
     fn host_context_new() {
-        let ctx = HostContext::new("@test/plugin", SandboxPolicy::default());
+        let ctx = HostContext::new(
+            "@test/plugin",
+            SandboxPolicy::default(),
+            PackageContributions::default(),
+        );
         assert_eq!(ctx.package, "@test/plugin");
         assert!(ctx.diagnostics.is_empty());
         assert!(ctx.registered_entities.is_empty());
         assert!(ctx.registered_edges.is_empty());
         assert!(ctx.emitted_files.is_empty());
         assert!(!ctx.in_initialize);
+        assert!(ctx.contributions.is_default());
     }
 
     #[test]
     fn host_context_take_diagnostics() {
-        let mut ctx = HostContext::new("test", SandboxPolicy::default());
+        let mut ctx = HostContext::new(
+            "test",
+            SandboxPolicy::default(),
+            PackageContributions::default(),
+        );
         ctx.diagnostics.push(Diagnostic::new(
             ValidationCode::W025,
             SourceSpan::file_start("test.spec"),
@@ -464,8 +494,53 @@ mod tests {
 
     #[test]
     fn build_host_functions_creates_six() {
-        let (functions, ctx) = build_host_functions("test", SandboxPolicy::default());
+        let (functions, ctx) = build_host_functions(
+            "test",
+            SandboxPolicy::default(),
+            PackageContributions::default(),
+        );
         assert_eq!(functions.len(), 6);
         assert_eq!(ctx.lock().unwrap().package, "test");
+    }
+
+    #[test]
+    fn contribution_check_entities() {
+        // With entities=false, the contribution check should block
+        let ctx = HostContext::new(
+            "test",
+            SandboxPolicy::default(),
+            PackageContributions::default(),
+        );
+        assert!(!ctx.contributions.entities);
+
+        // With entities=true, the contribution check should allow
+        let ctx = HostContext::new(
+            "test",
+            SandboxPolicy::default(),
+            PackageContributions::from_kind(crate::manifest::PluginKind::Plugin),
+        );
+        assert!(ctx.contributions.entities);
+    }
+
+    #[test]
+    fn contribution_check_generators() {
+        let ctx = HostContext::new(
+            "test",
+            SandboxPolicy::default(),
+            PackageContributions::from_kind(crate::manifest::PluginKind::Generator),
+        );
+        assert!(ctx.contributions.generators);
+        assert!(!ctx.contributions.entities);
+    }
+
+    #[test]
+    fn contribution_check_providers() {
+        let ctx = HostContext::new(
+            "test",
+            SandboxPolicy::default(),
+            PackageContributions::from_kind(crate::manifest::PluginKind::Provider),
+        );
+        assert!(ctx.contributions.providers);
+        assert!(!ctx.contributions.generators);
     }
 }

@@ -33,7 +33,7 @@ pub fn run(args: PluginsArgs) -> i32 {
     }
 
     // Show Wasm plugins
-    if let Some(ref runtime) = result.wasm_runtime {
+    if let Some(runtime) = result.wasm_pool.runtime() {
         for info in runtime.package_infos() {
             println!(
                 "  {}  v{}  [{:?}]  [wasm]",

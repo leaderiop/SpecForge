@@ -2,8 +2,9 @@ use crate::formatter;
 use crate::pipeline;
 use clap::Args;
 use notify::{EventKind, RecursiveMode, Watcher};
-use specforge_common::Severity;
+use specforge_common::{Diagnostic, KindRegistry, Severity, ValidationCode};
 use specforge_parser::{parse, SpecFile};
+use specforge_wasm::WarmInstancePool;
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc;
@@ -120,13 +121,16 @@ pub fn run(args: WatchArgs) -> i32 {
             .map(|p| p.to_string_lossy().to_string())
             .collect();
 
-        result = incremental_rebuild(&result, &changed_strs, watch_dir, |path| {
+        // Take the pool out of result so we can pass both &result and &mut pool
+        let mut pool = std::mem::replace(&mut result.wasm_pool, WarmInstancePool::new());
+        result = incremental_rebuild(&result, &changed_strs, watch_dir, &mut pool, |path| {
             if current_paths.contains(path) {
                 std::fs::read_to_string(path).ok()
             } else {
                 None
             }
         });
+        result.wasm_pool = pool;
 
         // Remove sources for files that no longer exist
         result.sources.retain(|k, _| current_paths.contains(k));
@@ -145,11 +149,13 @@ pub fn run(args: WatchArgs) -> i32 {
 /// Perform an incremental rebuild: re-parse only invalidated files, then re-resolve
 /// and re-validate the full set. Returns the updated pipeline result.
 ///
-/// This is the core logic extracted from the watch loop to support testing.
+/// Includes Wasm plugin processing, kind registry construction, and conflict diagnostics
+/// to match the cold-build pipeline exactly.
 pub fn incremental_rebuild(
     prev: &pipeline::PipelineResult,
     changed_files: &[String],
     spec_root_dir: &std::path::Path,
+    wasm_pool: &mut WarmInstancePool,
     read_source: impl Fn(&str) -> Option<String>,
 ) -> pipeline::PipelineResult {
     // Compute invalidation set
@@ -180,6 +186,18 @@ pub fn incremental_rebuild(
         }
     }
 
+    // Collect parse diagnostics
+    let mut parse_diagnostics = Vec::new();
+    for file in &updated_files {
+        for error in &file.errors {
+            parse_diagnostics.push(Diagnostic::new(
+                ValidationCode::E010,
+                error.span.clone(),
+                error.message.clone(),
+            ));
+        }
+    }
+
     // Re-run resolve → build graph → validate on the full file set
     let spec_root_str = spec_root_dir.to_string_lossy().to_string();
     let resolved = specforge_resolver::resolve_with_config(
@@ -187,7 +205,21 @@ pub fn incremental_rebuild(
         &spec_root_str,
         prev.external_config.clone(),
     );
-    let registry = pipeline::build_field_registry(&resolved.config);
+    let mut registry = specforge_common::FieldRegistry::with_builtins();
+
+    // Discover and reconcile Wasm packages
+    let project_root = spec_root_dir.parent().unwrap_or(spec_root_dir);
+    let wasm_diagnostics =
+        specforge_wasm::discover::discover_and_reconcile(wasm_pool, &resolved.config, project_root, &mut registry);
+
+    // Build kind registry from builtins + define kinds + wasm plugin entities
+    let mut kind_registry = KindRegistry::with_builtins();
+    let define_kind_names: Vec<String> = resolved.config.custom_entities.keys().cloned().collect();
+    kind_registry.add_define_kinds(&define_kind_names);
+
+    // Register entity kinds from Wasm plugins
+    specforge_wasm::orchestrate::register_wasm_entity_kinds(wasm_pool, &resolved.config, &mut kind_registry);
+
     let graph_result = specforge_graph::build_graph(&resolved.files, &registry);
     let validation_bag = specforge_validator::validate(
         &resolved.files,
@@ -197,8 +229,20 @@ pub fn incremental_rebuild(
         &registry,
     );
 
+    // Run Wasm plugin validation
+    let wasm_validation_diagnostics = specforge_wasm::orchestrate::run_wasm_validation(wasm_pool, &graph_result.graph);
+
+    // Merge all diagnostics
+    let enhancement_diagnostics = registry.conflict_diagnostics();
+    let kind_conflict_diagnostics = kind_registry.conflict_diagnostics();
+
     let mut all_diagnostics = resolved.diagnostics.sorted();
     all_diagnostics.extend(validation_bag.sorted());
+    all_diagnostics.extend(parse_diagnostics);
+    all_diagnostics.extend(enhancement_diagnostics);
+    all_diagnostics.extend(kind_conflict_diagnostics);
+    all_diagnostics.extend(wasm_diagnostics);
+    all_diagnostics.extend(wasm_validation_diagnostics);
     all_diagnostics.sort();
 
     pipeline::PipelineResult {
@@ -206,13 +250,14 @@ pub fn incremental_rebuild(
         graph: graph_result.graph,
         file_index: graph_result.file_index,
         file_graph: resolved.file_graph,
+        symbols: resolved.symbols,
         diagnostics: all_diagnostics,
         config: resolved.config,
         sources: updated_sources,
         field_registry: registry,
         external_config: prev.external_config.clone(),
-        wasm_runtime: None,
-        kind_registry: specforge_common::KindRegistry::with_builtins(),
+        wasm_pool: WarmInstancePool::new(), // Pool is owned by the watch loop, not the result
+        kind_registry,
     }
 }
 
@@ -304,7 +349,7 @@ mod tests {
         }
 
         let resolved = specforge_resolver::resolve(parsed_files, "test");
-        let registry = pipeline::build_field_registry(&resolved.config);
+        let registry = specforge_common::FieldRegistry::with_builtins();
         let graph_result = specforge_graph::build_graph(&resolved.files, &registry);
         let validation_bag = specforge_validator::validate(
             &resolved.files,
@@ -323,12 +368,13 @@ mod tests {
             graph: graph_result.graph,
             file_index: graph_result.file_index,
             file_graph: resolved.file_graph,
+            symbols: resolved.symbols,
             diagnostics: all_diagnostics,
             config: resolved.config,
             sources: source_map,
             field_registry: registry,
             external_config: None,
-            wasm_runtime: None,
+            wasm_pool: WarmInstancePool::new(),
             kind_registry: specforge_common::KindRegistry::with_builtins(),
         }
     }
@@ -349,7 +395,8 @@ mod tests {
 
         // Fix the file: remove the dangling reference
         let fixed_source = "behavior beh_a { contract \"ok\" }";
-        let result = incremental_rebuild(&initial, &["a.spec".to_string()], std::path::Path::new("."), |path| {
+        let mut pool = WarmInstancePool::new();
+        let result = incremental_rebuild(&initial, &["a.spec".to_string()], std::path::Path::new("."), &mut pool, |path| {
             if path == "a.spec" {
                 Some(fixed_source.to_string())
             } else {
@@ -384,10 +431,12 @@ mod tests {
         assert!(b_has_e001, "b.spec should have E001 initially");
 
         // Change only a.spec (give it a contract but it's still orphan)
+        let mut pool = WarmInstancePool::new();
         let result = incremental_rebuild(
             &initial,
             &["a.spec".to_string()],
             std::path::Path::new("."),
+            &mut pool,
             |path| {
                 if path == "a.spec" {
                     Some("behavior orphan_a { contract \"updated\" }".to_string())
@@ -419,10 +468,12 @@ mod tests {
 
         // Fix a.spec incrementally
         let fixed_a = "behavior beh_a { contract \"fixed\" }";
+        let mut pool = WarmInstancePool::new();
         let incremental_result = incremental_rebuild(
             &initial,
             &["a.spec".to_string()],
             std::path::Path::new("."),
+            &mut pool,
             |path| {
                 if path == "a.spec" {
                     Some(fixed_a.to_string())

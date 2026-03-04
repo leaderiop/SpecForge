@@ -1,8 +1,11 @@
+use std::path::PathBuf;
+
 use crate::manifest::PackageManifest;
 
 /// Compose query extensions from multiple plugins into a single query string.
 ///
 /// Base queries come first, followed by plugin extensions in load order.
+/// Query files are resolved relative to each plugin's manifest directory.
 pub fn compose_queries(
     base_query: &str,
     plugins: &[&PackageManifest],
@@ -15,9 +18,18 @@ pub fn compose_queries(
                 "\n\n;; --- Query extension from {} ---\n",
                 plugin.package
             ));
-            // In a full implementation, we'd read the file at ext.path
-            // For now, we just note the extension
-            composed.push_str(&format!(";; Extension: {} ({})\n", ext.path, ext.description));
+            let ext_path = plugin
+                .manifest_path
+                .parent()
+                .map(|p| p.join(&ext.path))
+                .unwrap_or_else(|| PathBuf::from(&ext.path));
+            match std::fs::read_to_string(&ext_path) {
+                Ok(content) => composed.push_str(&content),
+                Err(_) => composed.push_str(&format!(
+                    ";; WARNING: could not read {}\n",
+                    ext.path
+                )),
+            }
         }
     }
 
@@ -64,18 +76,47 @@ mod tests {
     }
 
     #[test]
-    fn compose_with_extensions() {
-        let base = "(base_query)";
-        let plugin = make_manifest_with_queries(
+    fn compose_reads_real_file() {
+        let dir = tempfile::tempdir().unwrap();
+        let query_dir = dir.path().join("queries");
+        std::fs::create_dir_all(&query_dir).unwrap();
+        std::fs::write(query_dir.join("custom.scm"), "(custom_pattern)").unwrap();
+
+        let manifest_path = dir.path().join("manifest.json");
+        std::fs::write(&manifest_path, "{}").unwrap();
+
+        let mut plugin = make_manifest_with_queries(
             "@specforge/test",
             vec![QueryExtension {
                 path: "queries/custom.scm".to_string(),
                 description: "Custom validation queries".to_string(),
             }],
         );
-        let result = compose_queries(base, &[&plugin]);
-        assert!(result.contains("(base_query)"));
+        plugin.manifest_path = manifest_path;
+
+        let result = compose_queries("(base)", &[&plugin]);
+        assert!(result.contains("(base)"));
+        assert!(result.contains("(custom_pattern)"));
         assert!(result.contains("@specforge/test"));
-        assert!(result.contains("custom.scm"));
+    }
+
+    #[test]
+    fn compose_missing_file_warns() {
+        let dir = tempfile::tempdir().unwrap();
+        let manifest_path = dir.path().join("manifest.json");
+        std::fs::write(&manifest_path, "{}").unwrap();
+
+        let mut plugin = make_manifest_with_queries(
+            "@specforge/test",
+            vec![QueryExtension {
+                path: "nonexistent.scm".to_string(),
+                description: "Missing query file".to_string(),
+            }],
+        );
+        plugin.manifest_path = manifest_path;
+
+        let result = compose_queries("(base)", &[&plugin]);
+        assert!(result.contains("WARNING"));
+        assert!(result.contains("nonexistent.scm"));
     }
 }

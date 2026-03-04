@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
-use crate::EntityKind;
+use crate::{Diagnostic, EntityKind, SourceSpan, ValidationCode};
 
 /// Conflict between two sources registering the same entity kind name.
 #[derive(Debug, Clone)]
@@ -235,6 +235,76 @@ impl KindRegistry {
     /// Get detected conflicts.
     pub fn conflicts(&self) -> &[KindConflict] {
         &self.conflicts
+    }
+
+    /// Generate diagnostics for all detected kind conflicts.
+    ///
+    /// Emits E022 (plugin-vs-plugin or plugin-vs-define), E023 (plugin-vs-builtin),
+    /// and W027 (load-order resolved).
+    pub fn conflict_diagnostics(&self) -> Vec<Diagnostic> {
+        let mut diagnostics = Vec::new();
+        for conflict in &self.conflicts {
+            let span = SourceSpan::file_start("specforge.json");
+            match &conflict.resolution {
+                KindConflictResolution::Unresolved => {
+                    if conflict.first_source == "(built-in)" {
+                        diagnostics.push(
+                            Diagnostic::new(
+                                ValidationCode::E023,
+                                span,
+                                format!(
+                                    "plugin `{}` cannot register entity kind `{}`: shadows built-in keyword",
+                                    conflict.second_source, conflict.kind_name
+                                ),
+                            )
+                            .with_help("entity kind names cannot shadow built-in keywords"),
+                        );
+                    } else if conflict.first_source == "(define)" {
+                        diagnostics.push(
+                            Diagnostic::new(
+                                ValidationCode::E022,
+                                span,
+                                format!(
+                                    "entity kind conflict: `{}` already defined by a `define` block, cannot be registered by `{}`",
+                                    conflict.kind_name, conflict.second_source
+                                ),
+                            )
+                            .with_help("remove the define block or rename the plugin's entity kind"),
+                        );
+                    } else {
+                        diagnostics.push(
+                            Diagnostic::new(
+                                ValidationCode::E022,
+                                span,
+                                format!(
+                                    "entity kind conflict: `{}` registered by both `{}` and `{}`",
+                                    conflict.kind_name, conflict.first_source, conflict.second_source
+                                ),
+                            )
+                            .with_help(format!(
+                                "add to specforge.json: \"entity_kinds\": {{ \"{}\": \"{}\" }}",
+                                conflict.kind_name, conflict.first_source
+                            )),
+                        );
+                    }
+                }
+                KindConflictResolution::LoadOrder { winner } => {
+                    diagnostics.push(
+                        Diagnostic::new(
+                            ValidationCode::W027,
+                            span,
+                            format!(
+                                "entity kind `{}` resolved to `{}` by load order (priority policy)",
+                                conflict.kind_name, winner
+                            ),
+                        )
+                        .with_help("use entity_kinds overrides for explicit resolution"),
+                    );
+                }
+                _ => {}
+            }
+        }
+        diagnostics
     }
 
     /// Number of built-in kind mappings.

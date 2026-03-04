@@ -1,8 +1,11 @@
 use std::path::{Path, PathBuf};
 
+use specforge_common::{CompilerConfig, Diagnostic, FieldRegistry, SourceSpan, ValidationCode};
+
 use crate::error::WasmError;
 use crate::loader;
 use crate::manifest::PackageManifest;
+use crate::warm::WarmInstancePool;
 
 /// Where a package was resolved from.
 #[derive(Debug, Clone)]
@@ -74,6 +77,112 @@ pub fn is_local_path(specifier: &str) -> bool {
 /// Check if a package specifier is a known built-in module.
 pub fn is_builtin_package(specifier: &str) -> bool {
     matches!(specifier, "@specforge/product" | "@specforge/governance")
+}
+
+/// Discover Wasm packages, validate peer deps, topologically sort, register enhancements,
+/// and reconcile the warm instance pool.
+///
+/// This is the shared orchestration used by the CLI pipeline, watch mode, and LSP server
+/// to avoid duplicating the discover → validate → sort → register → reconcile sequence.
+pub fn discover_and_reconcile(
+    pool: &mut WarmInstancePool,
+    config: &CompilerConfig,
+    project_root: &Path,
+    registry: &mut FieldRegistry,
+) -> Vec<Diagnostic> {
+    let mut diagnostics = Vec::new();
+    let wasm_specifiers = &config.wasm_package_specifiers;
+
+    if wasm_specifiers.is_empty() {
+        return diagnostics;
+    }
+
+    // Discover manifests from specifiers
+    let (manifests, discover_errors) = discover_packages(wasm_specifiers, project_root);
+
+    for err in discover_errors {
+        diagnostics.push(Diagnostic::new(
+            ValidationCode::E019,
+            SourceSpan::file_start("specforge.json"),
+            err.to_string(),
+        ));
+    }
+
+    if manifests.is_empty() {
+        return diagnostics;
+    }
+
+    // Validate peer dependencies
+    let peer_errors = crate::peer_deps::validate_peer_dependencies(&manifests);
+    for err in &peer_errors {
+        let code = match err {
+            WasmError::CycleDetected { .. } => ValidationCode::E021,
+            _ => ValidationCode::E020,
+        };
+        diagnostics.push(Diagnostic::new(
+            code,
+            SourceSpan::file_start("specforge.json"),
+            err.to_string(),
+        ));
+    }
+
+    // Topological sort
+    let sorted = match crate::peer_deps::topological_sort(&manifests) {
+        Ok(order) => order
+            .into_iter()
+            .map(|i| manifests[i].clone())
+            .collect::<Vec<_>>(),
+        Err(err) => {
+            diagnostics.push(Diagnostic::new(
+                ValidationCode::E021,
+                SourceSpan::file_start("specforge.json"),
+                err.to_string(),
+            ));
+            manifests
+        }
+    };
+
+    // Register enhancements from Wasm plugins in the field registry
+    for m in &sorted {
+        if !m.enhancements.is_empty() {
+            registry.register_plugin(
+                &m.package,
+                &m.enhancements,
+                &m.dynamic_edge_types,
+                &config.enhancement_policy,
+                &config.enhancement_overrides,
+            );
+        }
+    }
+
+    // Lock file: verify or create
+    let lock_path = project_root.join("specforge.lock");
+    if lock_path.exists() {
+        if let Ok(lock) = crate::lock::LockFile::read(&lock_path) {
+            for mismatch in lock.verify(&sorted) {
+                diagnostics.push(Diagnostic::new(
+                    ValidationCode::W025,
+                    SourceSpan::file_start("specforge.lock"),
+                    mismatch.to_string(),
+                ));
+            }
+        }
+    } else if !sorted.is_empty() {
+        let lock = crate::lock::LockFile::from_manifests(&sorted);
+        let _ = lock.write(&lock_path);
+    }
+
+    // Reconcile warm pool (only reloads if wasm hashes changed)
+    let reconcile_errors = pool.reconcile(sorted);
+    for err in reconcile_errors {
+        diagnostics.push(Diagnostic::new(
+            ValidationCode::E019,
+            SourceSpan::file_start("specforge.json"),
+            err.to_string(),
+        ));
+    }
+
+    diagnostics
 }
 
 #[cfg(test)]

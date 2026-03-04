@@ -1,0 +1,11 @@
+{
+  "schema_version": "1.0",
+  "entities": [
+    {
+      "entity_id": "step_one",
+      "tests": [
+        {"name": "step_one__runs", "status": "pass"}
+      ]
+    }
+  ]
+}

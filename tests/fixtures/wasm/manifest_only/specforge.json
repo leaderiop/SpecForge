@@ -1,0 +1,5 @@
+{
+  "name": "wasm-manifest-only",
+  "version": "1.0",
+  "spec_root": "."
+}

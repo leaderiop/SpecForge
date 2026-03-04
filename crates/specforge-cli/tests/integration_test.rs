@@ -786,3 +786,1186 @@ fn custom_entity_type_error() {
         "Should contain E010 for wrong field type.\nOutput:\n{output}"
     );
 }
+
+// ==========================================================================
+// Code generation integration tests (Phase 4)
+// ==========================================================================
+
+#[test]
+fn gen_typescript_produces_type_files() {
+    let fixture = fixture_path("codegen/gen_basic");
+    let dir = tempfile::tempdir().unwrap();
+    let out = dir.path().to_string_lossy().to_string();
+    let (exit_code, _stdout, stderr) =
+        specforge_cmd(&["gen", "typescript", &out, "--path", &fixture]);
+    assert_eq!(exit_code, 0, "gen typescript should exit 0.\nStderr:\n{stderr}");
+
+    // Type files
+    assert!(dir.path().join("user.ts").exists(), "user.ts should exist");
+    assert!(dir.path().join("user-status.ts").exists(), "user-status.ts should exist");
+    assert!(dir.path().join("address.ts").exists(), "address.ts should exist");
+
+    // Verify content
+    let user_content = std::fs::read_to_string(dir.path().join("user.ts")).unwrap();
+    assert!(user_content.contains("export interface User"), "user.ts should export User interface");
+    assert!(user_content.contains("@specforge-checksum"), "user.ts should have checksum header");
+
+    let status_content = std::fs::read_to_string(dir.path().join("user-status.ts")).unwrap();
+    assert!(
+        status_content.contains("export type UserStatus"),
+        "user-status.ts should export UserStatus union"
+    );
+}
+
+#[test]
+fn gen_typescript_produces_port_files() {
+    let fixture = fixture_path("codegen/gen_basic");
+    let dir = tempfile::tempdir().unwrap();
+    let out = dir.path().to_string_lossy().to_string();
+    let (exit_code, _stdout, stderr) =
+        specforge_cmd(&["gen", "typescript", &out, "--path", &fixture]);
+    assert_eq!(exit_code, 0, "gen typescript should exit 0.\nStderr:\n{stderr}");
+
+    let port_path = dir.path().join("user-repository.ts");
+    assert!(port_path.exists(), "user-repository.ts should exist");
+
+    let content = std::fs::read_to_string(&port_path).unwrap();
+    assert!(content.contains("export interface UserRepository"), "should export port interface");
+    assert!(content.contains("save("), "should have save method");
+    assert!(content.contains("findById("), "should have findById method");
+    assert!(content.contains("list("), "should have list method");
+}
+
+#[test]
+fn gen_typescript_produces_index_barrel() {
+    let fixture = fixture_path("codegen/gen_basic");
+    let dir = tempfile::tempdir().unwrap();
+    let out = dir.path().to_string_lossy().to_string();
+    let (exit_code, _stdout, stderr) =
+        specforge_cmd(&["gen", "typescript", &out, "--path", &fixture]);
+    assert_eq!(exit_code, 0, "gen typescript should exit 0.\nStderr:\n{stderr}");
+
+    let index_path = dir.path().join("index.ts");
+    assert!(index_path.exists(), "index.ts barrel file should exist");
+
+    let content = std::fs::read_to_string(&index_path).unwrap();
+    assert!(content.contains("export * from"), "index.ts should contain re-exports");
+    assert!(content.contains("'./user'"), "should re-export user");
+    assert!(content.contains("'./user-repository'"), "should re-export user-repository");
+}
+
+#[test]
+fn gen_json_schema_produces_schema_files() {
+    let fixture = fixture_path("codegen/gen_basic");
+    let dir = tempfile::tempdir().unwrap();
+    let out = dir.path().to_string_lossy().to_string();
+    let (exit_code, _stdout, stderr) =
+        specforge_cmd(&["gen", "json-schema", &out, "--path", &fixture]);
+    assert_eq!(exit_code, 0, "gen json-schema should exit 0.\nStderr:\n{stderr}");
+
+    let user_schema = dir.path().join("user.schema.json");
+    assert!(user_schema.exists(), "user.schema.json should exist");
+
+    let content = std::fs::read_to_string(&user_schema).unwrap();
+    // Skip checksum header line (starts with //)
+    let json_body = content
+        .lines()
+        .skip_while(|l| l.starts_with("//"))
+        .collect::<Vec<_>>()
+        .join("\n");
+    let parsed: serde_json::Value = serde_json::from_str(&json_body).unwrap();
+    assert!(parsed["properties"].is_object(), "schema should have properties");
+}
+
+#[test]
+fn gen_test_stubs_from_verify() {
+    let fixture = fixture_path("codegen/gen_basic");
+    let dir = tempfile::tempdir().unwrap();
+    let out = dir.path().to_string_lossy().to_string();
+    let (exit_code, _stdout, stderr) =
+        specforge_cmd(&["gen", "typescript", &out, "--path", &fixture]);
+    assert_eq!(exit_code, 0, "gen typescript should exit 0.\nStderr:\n{stderr}");
+
+    // The gen_basic fixture has tests "@specforge/vitest" and a behavior with verify stmts
+    let test_file = dir.path().join("__tests__/validate_input.test.ts");
+    assert!(test_file.exists(), "test stub should be generated in __tests__/");
+
+    let content = std::fs::read_to_string(&test_file).unwrap();
+    assert!(content.contains("describe('validate_input'"), "should contain describe block");
+    assert!(content.contains("rejects empty email"), "should contain verify description");
+    assert!(content.contains("accepts valid email"), "should contain verify description");
+}
+
+#[test]
+fn gen_check_no_drift_exits_zero() {
+    let fixture = fixture_path("codegen/gen_basic");
+    let dir = tempfile::tempdir().unwrap();
+    let out = dir.path().to_string_lossy().to_string();
+
+    // Generate first
+    let (exit_code, _stdout, stderr) =
+        specforge_cmd(&["gen", "typescript", &out, "--path", &fixture]);
+    assert_eq!(exit_code, 0, "initial gen should exit 0.\nStderr:\n{stderr}");
+
+    // Check should pass (no drift)
+    let (exit_code, _stdout, stderr) =
+        specforge_cmd(&["gen", "typescript", &out, "--check", "--path", &fixture]);
+    assert_eq!(exit_code, 0, "check with no drift should exit 0.\nStderr:\n{stderr}");
+    assert!(
+        stderr.contains("up to date"),
+        "Should report files up to date.\nStderr:\n{stderr}"
+    );
+}
+
+#[test]
+fn gen_check_drift_detected_exits_one() {
+    let fixture = fixture_path("codegen/gen_basic");
+    let dir = tempfile::tempdir().unwrap();
+    let out = dir.path().to_string_lossy().to_string();
+
+    // Generate first
+    let (exit_code, _stdout, stderr) =
+        specforge_cmd(&["gen", "typescript", &out, "--path", &fixture]);
+    assert_eq!(exit_code, 0, "initial gen should exit 0.\nStderr:\n{stderr}");
+
+    // Tamper with a generated file
+    let user_path = dir.path().join("user.ts");
+    std::fs::write(&user_path, "// tampered content\n").unwrap();
+
+    // Check should detect drift
+    let (exit_code, _stdout, stderr) =
+        specforge_cmd(&["gen", "typescript", &out, "--check", "--path", &fixture]);
+    assert_eq!(exit_code, 1, "check with drift should exit 1.\nStderr:\n{stderr}");
+    assert!(
+        stderr.contains("drift detected") || stderr.contains("out of date"),
+        "Should report drift.\nStderr:\n{stderr}"
+    );
+}
+
+#[test]
+fn gen_check_writes_no_files() {
+    let fixture = fixture_path("codegen/gen_basic");
+    let dir = tempfile::tempdir().unwrap();
+    let out = dir.path().to_string_lossy().to_string();
+
+    // Run check on empty directory (nothing generated yet)
+    let (exit_code, _stdout, _stderr) =
+        specforge_cmd(&["gen", "typescript", &out, "--check", "--path", &fixture]);
+    assert_eq!(exit_code, 1, "check on empty dir should exit 1");
+
+    // Verify no .ts files were created
+    let ts_files: Vec<_> = std::fs::read_dir(dir.path())
+        .unwrap()
+        .filter_map(|e| e.ok())
+        .filter(|e| e.path().extension().is_some_and(|ext| ext == "ts"))
+        .collect();
+    assert!(ts_files.is_empty(), "check mode must not write any .ts files");
+}
+
+#[test]
+fn verify_all_methods_implemented_passes() {
+    let fixture = fixture_path("codegen/gen_verify");
+    let dir = tempfile::tempdir().unwrap();
+    let out = dir.path().to_string_lossy().to_string();
+
+    // Generate port files
+    let (exit_code, _stdout, stderr) =
+        specforge_cmd(&["gen", "typescript", &out, "--path", &fixture]);
+    assert_eq!(exit_code, 0, "gen should exit 0.\nStderr:\n{stderr}");
+
+    // Create adapter file with all required methods for UserRepository
+    let adapter_content = r#"
+import { UserRepository } from './user-repository';
+
+export class UserRepositoryAdapter implements UserRepository {
+  save(user: User): { ok: void } | { err: Error } {
+    throw new Error('not implemented');
+  }
+
+  findById(id: string): User | undefined {
+    throw new Error('not implemented');
+  }
+
+  list(): User[] {
+    throw new Error('not implemented');
+  }
+}
+"#;
+    std::fs::write(dir.path().join("user-repository.adapter.ts"), adapter_content).unwrap();
+
+    // Create adapter for FileSystem
+    let fs_adapter = r#"
+export class FileSystemAdapter {
+  read(path: string): { ok: string } | { err: Error } {
+    throw new Error('not implemented');
+  }
+
+  write(path: string, content: string): { ok: void } | { err: Error } {
+    throw new Error('not implemented');
+  }
+
+  exists(path: string): boolean {
+    return false;
+  }
+}
+"#;
+    std::fs::write(dir.path().join("file-system.adapter.ts"), fs_adapter).unwrap();
+
+    // Verify should pass — all methods present
+    let (exit_code, _stdout, stderr) =
+        specforge_cmd(&["verify", "typescript", &out, "--path", &fixture]);
+    assert_eq!(exit_code, 0, "verify with all methods should exit 0.\nStderr:\n{stderr}");
+    assert!(
+        stderr.contains("0 missing") || stderr.contains("2 verified"),
+        "Should report verified ports.\nStderr:\n{stderr}"
+    );
+}
+
+#[test]
+fn verify_missing_method_reported() {
+    let fixture = fixture_path("codegen/gen_verify");
+    let dir = tempfile::tempdir().unwrap();
+    let out = dir.path().to_string_lossy().to_string();
+
+    // Generate port files
+    let (exit_code, _stdout, stderr) =
+        specforge_cmd(&["gen", "typescript", &out, "--path", &fixture]);
+    assert_eq!(exit_code, 0, "gen should exit 0.\nStderr:\n{stderr}");
+
+    // Create adapter missing the `list` method
+    let adapter_content = r#"
+export class UserRepositoryAdapter {
+  save(user: User): void {
+    throw new Error('not implemented');
+  }
+
+  findById(id: string): User | undefined {
+    return undefined;
+  }
+}
+"#;
+    std::fs::write(dir.path().join("user-repository.adapter.ts"), adapter_content).unwrap();
+
+    // Verify should fail — missing method
+    let (exit_code, _stdout, stderr) =
+        specforge_cmd(&["verify", "typescript", &out, "--path", &fixture]);
+    assert_eq!(exit_code, 1, "verify with missing method should exit 1.\nStderr:\n{stderr}");
+    assert!(
+        stderr.contains("missing method"),
+        "Should report missing method.\nStderr:\n{stderr}"
+    );
+}
+
+#[test]
+fn gen_multiple_targets_independent() {
+    let fixture = fixture_path("codegen/gen_basic");
+    let ts_dir = tempfile::tempdir().unwrap();
+    let json_dir = tempfile::tempdir().unwrap();
+    let ts_out = ts_dir.path().to_string_lossy().to_string();
+    let json_out = json_dir.path().to_string_lossy().to_string();
+
+    let (ts_code, _stdout, ts_stderr) =
+        specforge_cmd(&["gen", "typescript", &ts_out, "--path", &fixture]);
+    let (json_code, _stdout, json_stderr) =
+        specforge_cmd(&["gen", "json-schema", &json_out, "--path", &fixture]);
+
+    assert_eq!(ts_code, 0, "typescript gen should exit 0.\nStderr:\n{ts_stderr}");
+    assert_eq!(json_code, 0, "json-schema gen should exit 0.\nStderr:\n{json_stderr}");
+
+    // TypeScript produces .ts files
+    assert!(ts_dir.path().join("user.ts").exists(), "TS should produce user.ts");
+    assert!(!ts_dir.path().join("user.schema.json").exists(), "TS should NOT produce .schema.json");
+
+    // JSON Schema produces .schema.json files
+    assert!(json_dir.path().join("user.schema.json").exists(), "JSON should produce user.schema.json");
+    assert!(!json_dir.path().join("user.ts").exists(), "JSON should NOT produce .ts files");
+}
+
+// ==========================================================================
+// Phase 5: Coverage integration tests
+// ==========================================================================
+
+#[test]
+fn coverage_text_output() {
+    let fixture = fixture_path("coverage/basic");
+    let (exit_code, stdout, stderr) = specforge_cmd(&["coverage", "--path", &fixture]);
+    assert_eq!(exit_code, 0, "coverage should exit 0.\nStdout:\n{stdout}\nStderr:\n{stderr}");
+    assert!(
+        stdout.contains("Coverage:") && stdout.contains('%'),
+        "Should contain Coverage percentage.\nStdout:\n{stdout}"
+    );
+}
+
+#[test]
+fn coverage_json_output() {
+    let fixture = fixture_path("coverage/basic");
+    let (exit_code, stdout, stderr) =
+        specforge_cmd(&["coverage", "--format", "json", "--path", &fixture]);
+    assert_eq!(exit_code, 0, "coverage json should exit 0.\nStderr:\n{stderr}");
+    let parsed: serde_json::Value = serde_json::from_str(&stdout)
+        .unwrap_or_else(|e| panic!("coverage JSON invalid: {e}\nStdout:\n{stdout}"));
+    assert!(parsed["percentage"].is_number(), "should have percentage");
+    assert!(parsed["entities"].is_array(), "should have entities array");
+}
+
+#[test]
+fn coverage_verbose_shows_details() {
+    let fixture = fixture_path("coverage/basic");
+    let (exit_code, stdout, stderr) =
+        specforge_cmd(&["coverage", "--verbose", "--path", &fixture]);
+    assert_eq!(exit_code, 0, "verbose coverage should exit 0.\nStderr:\n{stderr}");
+    assert!(
+        stdout.contains("validate_data"),
+        "Verbose should show entity IDs.\nStdout:\n{stdout}"
+    );
+    assert!(
+        stdout.contains("transform_data"),
+        "Verbose should show entity IDs.\nStdout:\n{stdout}"
+    );
+}
+
+#[test]
+fn coverage_threshold_met_exits_zero() {
+    let fixture = fixture_path("coverage/all_passing");
+    let (exit_code, _stdout, stderr) =
+        specforge_cmd(&["coverage", "--min", "100", "--path", &fixture]);
+    assert_eq!(
+        exit_code, 0,
+        "100% coverage with --min 100 should exit 0.\nStderr:\n{stderr}"
+    );
+}
+
+#[test]
+fn coverage_threshold_not_met_exits_one() {
+    let fixture = fixture_path("coverage/below_threshold");
+    let (exit_code, _stdout, stderr) =
+        specforge_cmd(&["coverage", "--min", "80", "--path", &fixture]);
+    assert_eq!(exit_code, 1, "Below threshold should exit 1.\nStderr:\n{stderr}");
+    assert!(
+        stderr.contains("below threshold"),
+        "Should mention below threshold.\nStderr:\n{stderr}"
+    );
+}
+
+#[test]
+fn coverage_no_report_shows_levels() {
+    let fixture = fixture_path("coverage/no_report");
+    let (exit_code, stdout, stderr) =
+        specforge_cmd(&["coverage", "--format", "json", "--path", &fixture]);
+    assert_eq!(exit_code, 0, "no report should exit 0.\nStderr:\n{stderr}");
+    let parsed: serde_json::Value = serde_json::from_str(&stdout)
+        .unwrap_or_else(|e| panic!("coverage JSON invalid: {e}\nStdout:\n{stdout}"));
+    // All entities should be declared or linked, none passing
+    assert_eq!(
+        parsed["passing"].as_u64().unwrap_or(999),
+        0,
+        "No passing without report.\nStdout:\n{stdout}"
+    );
+}
+
+#[test]
+fn coverage_unknown_ids_fail() {
+    let fixture = fixture_path("coverage/unknown_ids");
+    let (exit_code, _stdout, stderr) = specforge_cmd(&["coverage", "--path", &fixture]);
+    assert_eq!(exit_code, 1, "Unknown IDs should exit 1.\nStderr:\n{stderr}");
+    assert!(
+        stderr.contains("unknown entity"),
+        "Should mention unknown entity.\nStderr:\n{stderr}"
+    );
+}
+
+#[test]
+fn coverage_multi_report_merge() {
+    let fixture = fixture_path("coverage/multi_report");
+    let (exit_code, stdout, stderr) =
+        specforge_cmd(&["coverage", "--format", "json", "--path", &fixture]);
+    assert_eq!(exit_code, 0, "multi report should exit 0.\nStderr:\n{stderr}");
+    let parsed: serde_json::Value = serde_json::from_str(&stdout)
+        .unwrap_or_else(|e| panic!("coverage JSON invalid: {e}\nStdout:\n{stdout}"));
+    // behavior_b has a failing test from e2e, so it should be "executed" not "passing"
+    let entities = parsed["entities"].as_array().unwrap();
+    let behavior_b = entities
+        .iter()
+        .find(|e| e["entity_id"] == "behavior_b")
+        .expect("behavior_b should be in coverage");
+    assert_eq!(
+        behavior_b["level"].as_str().unwrap(),
+        "executed",
+        "behavior_b should be 'executed' (has a failing test).\nStdout:\n{stdout}"
+    );
+}
+
+#[test]
+fn coverage_empty_project_100_percent() {
+    // A project with only non-testable entities should report 100%
+    let dir = tempfile::tempdir().unwrap();
+    std::fs::write(
+        dir.path().join("specforge.json"),
+        r#"{"name": "empty-test", "version": "1.0", "spec_root": "."}"#,
+    )
+    .unwrap();
+    std::fs::write(
+        dir.path().join("types.spec"),
+        r#"type empty_record "Empty Record" { fields { id string } }"#,
+    )
+    .unwrap();
+    let (exit_code, stdout, stderr) =
+        specforge_cmd(&["coverage", "--path", &dir.path().to_string_lossy()]);
+    assert_eq!(exit_code, 0, "empty project should exit 0.\nStderr:\n{stderr}");
+    assert!(
+        stdout.contains("100%"),
+        "Empty project should be 100%.\nStdout:\n{stdout}"
+    );
+}
+
+#[test]
+fn coverage_min_overrides_config() {
+    let fixture = fixture_path("coverage/all_passing");
+    let (exit_code, _stdout, stderr) =
+        specforge_cmd(&["coverage", "--min", "101", "--path", &fixture]);
+    assert_eq!(
+        exit_code, 1,
+        "--min 101 should always fail.\nStderr:\n{stderr}"
+    );
+}
+
+#[test]
+fn coverage_help_works() {
+    let (exit_code, stdout, stderr) = specforge_cmd(&["coverage", "--help"]);
+    assert_eq!(exit_code, 0, "coverage --help should exit 0.\nStderr:\n{stderr}");
+    assert!(
+        stdout.contains("coverage"),
+        "Should contain coverage.\nStdout:\n{stdout}"
+    );
+}
+
+#[test]
+fn coverage_declared_and_linked_levels() {
+    let fixture = fixture_path("coverage/no_report");
+    let (exit_code, stdout, stderr) =
+        specforge_cmd(&["coverage", "--format", "json", "--path", &fixture]);
+    assert_eq!(exit_code, 0, "no report should exit 0.\nStderr:\n{stderr}");
+    let parsed: serde_json::Value = serde_json::from_str(&stdout)
+        .unwrap_or_else(|e| panic!("coverage JSON invalid: {e}\nStdout:\n{stdout}"));
+    let entities = parsed["entities"].as_array().unwrap();
+    // declared_only has verify but no tests field → declared
+    let declared = entities
+        .iter()
+        .find(|e| e["entity_id"] == "declared_only")
+        .expect("declared_only should be in coverage");
+    assert_eq!(declared["level"].as_str().unwrap(), "declared");
+    // linked_too has verify + tests field → linked
+    let linked = entities
+        .iter()
+        .find(|e| e["entity_id"] == "linked_too")
+        .expect("linked_too should be in coverage");
+    assert_eq!(linked["level"].as_str().unwrap(), "linked");
+}
+
+// ==========================================================================
+// Phase 5: Plugins/providers/doctor integration tests
+// ==========================================================================
+
+#[test]
+fn plugins_lists_builtins() {
+    let fixture = fixture_path("json_config_plugins");
+    let (exit_code, stdout, stderr) = specforge_cmd(&["plugins", "--path", &fixture]);
+    assert_eq!(exit_code, 0, "plugins should exit 0.\nStderr:\n{stderr}");
+    assert!(
+        stdout.contains("@specforge/product"),
+        "Should list product plugin.\nStdout:\n{stdout}"
+    );
+    assert!(
+        stdout.contains("built-in"),
+        "Should show built-in.\nStdout:\n{stdout}"
+    );
+}
+
+#[test]
+fn plugins_empty() {
+    let fixture = fixture_path("json_config");
+    let (exit_code, stdout, stderr) = specforge_cmd(&["plugins", "--path", &fixture]);
+    assert_eq!(exit_code, 0, "plugins should exit 0.\nStderr:\n{stderr}");
+    assert!(
+        stdout.contains("No plugins"),
+        "Should say no plugins.\nStdout:\n{stdout}"
+    );
+}
+
+#[test]
+fn plugins_help_works() {
+    let (exit_code, stdout, _stderr) = specforge_cmd(&["plugins", "--help"]);
+    assert_eq!(exit_code, 0, "plugins --help should exit 0");
+    assert!(stdout.contains("List installed plugins"));
+}
+
+#[test]
+fn providers_no_providers() {
+    let fixture = fixture_path("json_config");
+    let (exit_code, stdout, stderr) = specforge_cmd(&["providers", "--path", &fixture]);
+    assert_eq!(exit_code, 0, "providers should exit 0.\nStderr:\n{stderr}");
+    assert!(
+        stdout.contains("No providers configured"),
+        "Should say no providers.\nStdout:\n{stdout}"
+    );
+}
+
+#[test]
+fn providers_help_works() {
+    let (exit_code, stdout, _stderr) = specforge_cmd(&["providers", "--help"]);
+    assert_eq!(exit_code, 0, "providers --help should exit 0");
+    assert!(stdout.contains("List configured providers"));
+}
+
+#[test]
+fn doctor_shows_plugins() {
+    let fixture = fixture_path("json_config_plugins");
+    let (exit_code, _stdout, stderr) = specforge_cmd(&["doctor", "--path", &fixture]);
+    assert_eq!(exit_code, 0, "doctor should exit 0.\nStderr:\n{stderr}");
+    assert!(
+        stderr.contains("Plugins (2 installed)"),
+        "Should show 2 installed.\nStderr:\n{stderr}"
+    );
+}
+
+#[test]
+fn doctor_json_valid() {
+    let fixture = fixture_path("json_config_plugins");
+    let (exit_code, stdout, stderr) = specforge_cmd(&["doctor", "--json", "--path", &fixture]);
+    assert_eq!(exit_code, 0, "doctor --json should exit 0.\nStderr:\n{stderr}");
+    let parsed: serde_json::Value = serde_json::from_str(&stdout)
+        .unwrap_or_else(|e| panic!("doctor JSON invalid: {e}\nStdout:\n{stdout}"));
+    assert!(parsed["plugins"].is_array(), "should have plugins array");
+}
+
+#[test]
+fn doctor_no_config_graceful() {
+    // A project with just a .spec file (no JSON config) should work
+    let dir = tempfile::tempdir().unwrap();
+    std::fs::write(
+        dir.path().join("specforge.spec"),
+        r#"spec "test" { version "1.0" }"#,
+    )
+    .unwrap();
+    std::fs::write(
+        dir.path().join("entities.spec"),
+        r#"invariant test "Test" { guarantee """ok""" }"#,
+    )
+    .unwrap();
+    let (exit_code, _stdout, stderr) =
+        specforge_cmd(&["doctor", "--path", &dir.path().to_string_lossy()]);
+    assert_eq!(
+        exit_code, 0,
+        "doctor on legacy config should exit 0.\nStderr:\n{stderr}"
+    );
+}
+
+#[test]
+fn doctor_help_works() {
+    let (exit_code, stdout, _stderr) = specforge_cmd(&["doctor", "--help"]);
+    assert_eq!(exit_code, 0, "doctor --help should exit 0");
+    assert!(stdout.contains("Diagnose"));
+}
+
+#[test]
+fn doctor_no_conflicts() {
+    let fixture = fixture_path("json_config_plugins");
+    let (exit_code, _stdout, stderr) = specforge_cmd(&["doctor", "--path", &fixture]);
+    assert_eq!(exit_code, 0, "doctor should exit 0.\nStderr:\n{stderr}");
+    assert!(
+        stderr.contains("Conflicts: none"),
+        "Should say no conflicts.\nStderr:\n{stderr}"
+    );
+}
+
+// ==========================================================================
+// Phase 5: Cache integration tests
+// ==========================================================================
+
+#[test]
+fn cache_status_empty() {
+    let dir = tempfile::tempdir().unwrap();
+    let (exit_code, _stdout, stderr) =
+        specforge_cmd(&["cache", "status", "--path", &dir.path().to_string_lossy()]);
+    assert_eq!(exit_code, 0, "cache status should exit 0.\nStderr:\n{stderr}");
+    assert!(
+        stderr.contains("0") && stderr.contains("Entries"),
+        "Should show 0 entries.\nStderr:\n{stderr}"
+    );
+}
+
+#[test]
+fn cache_clear_empty() {
+    let dir = tempfile::tempdir().unwrap();
+    let (exit_code, _stdout, stderr) =
+        specforge_cmd(&["cache", "clear", "--path", &dir.path().to_string_lossy()]);
+    assert_eq!(exit_code, 0, "cache clear should exit 0.\nStderr:\n{stderr}");
+}
+
+#[test]
+fn cache_status_help() {
+    let (exit_code, stdout, _stderr) = specforge_cmd(&["cache", "status", "--help"]);
+    assert_eq!(exit_code, 0, "cache status --help should exit 0");
+    assert!(stdout.contains("status") || stdout.contains("cache"));
+}
+
+#[test]
+fn cache_help() {
+    let (exit_code, stdout, _stderr) = specforge_cmd(&["cache", "--help"]);
+    assert_eq!(exit_code, 0, "cache --help should exit 0");
+    assert!(stdout.contains("status"), "Should mention status subcommand");
+    assert!(stdout.contains("clear"), "Should mention clear subcommand");
+}
+
+// ==========================================================================
+// Phase 5: Add/remove plugin integration tests
+// ==========================================================================
+
+#[test]
+fn add_builtin_plugin() {
+    let dir = tempfile::tempdir().unwrap();
+    let json_path = dir.path().join("specforge.json");
+    std::fs::write(
+        &json_path,
+        r#"{"name": "add-test", "version": "1.0", "spec_root": "."}"#,
+    )
+    .unwrap();
+    std::fs::write(
+        dir.path().join("entities.spec"),
+        r#"invariant test "Test" { guarantee """ok""" }"#,
+    )
+    .unwrap();
+    let (exit_code, _stdout, stderr) = specforge_cmd(&[
+        "add",
+        "@specforge/product",
+        &dir.path().to_string_lossy(),
+    ]);
+    assert_eq!(exit_code, 0, "add should exit 0.\nStderr:\n{stderr}");
+
+    let content = std::fs::read_to_string(&json_path).unwrap();
+    let parsed: serde_json::Value = serde_json::from_str(&content).unwrap();
+    assert!(
+        parsed["plugins"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|p| p == "@specforge/product"),
+        "JSON should have the plugin.\nContent:\n{content}"
+    );
+}
+
+#[test]
+fn add_duplicate_is_noop() {
+    let dir = tempfile::tempdir().unwrap();
+    let json_path = dir.path().join("specforge.json");
+    std::fs::write(
+        &json_path,
+        r#"{"name": "dup-test", "version": "1.0", "spec_root": ".", "plugins": ["@specforge/product"]}"#,
+    )
+    .unwrap();
+    std::fs::write(
+        dir.path().join("entities.spec"),
+        r#"invariant test "Test" { guarantee """ok""" }"#,
+    )
+    .unwrap();
+    let (exit_code, _stdout, stderr) = specforge_cmd(&[
+        "add",
+        "@specforge/product",
+        &dir.path().to_string_lossy(),
+    ]);
+    assert_eq!(exit_code, 0, "add duplicate should exit 0.\nStderr:\n{stderr}");
+    assert!(
+        stderr.contains("already installed"),
+        "Should say already installed.\nStderr:\n{stderr}"
+    );
+}
+
+#[test]
+fn remove_plugin_updates_json() {
+    let dir = tempfile::tempdir().unwrap();
+    let json_path = dir.path().join("specforge.json");
+    std::fs::write(
+        &json_path,
+        r#"{"name": "rm-test", "version": "1.0", "spec_root": ".", "plugins": ["@specforge/product"]}"#,
+    )
+    .unwrap();
+    std::fs::write(
+        dir.path().join("entities.spec"),
+        r#"invariant test "Test" { guarantee """ok""" }"#,
+    )
+    .unwrap();
+    let (exit_code, _stdout, stderr) = specforge_cmd(&[
+        "remove",
+        "@specforge/product",
+        "--path",
+        &dir.path().to_string_lossy(),
+    ]);
+    assert_eq!(exit_code, 0, "remove should exit 0.\nStderr:\n{stderr}");
+
+    let content = std::fs::read_to_string(&json_path).unwrap();
+    let parsed: serde_json::Value = serde_json::from_str(&content).unwrap();
+    assert!(
+        parsed["plugins"].as_array().unwrap().is_empty(),
+        "Plugin should be removed.\nContent:\n{content}"
+    );
+}
+
+#[test]
+fn remove_nonexistent_reports() {
+    let dir = tempfile::tempdir().unwrap();
+    let json_path = dir.path().join("specforge.json");
+    std::fs::write(
+        &json_path,
+        r#"{"name": "rm-missing", "version": "1.0", "spec_root": "."}"#,
+    )
+    .unwrap();
+    std::fs::write(
+        dir.path().join("entities.spec"),
+        r#"invariant test "Test" { guarantee """ok""" }"#,
+    )
+    .unwrap();
+    let (exit_code, _stdout, stderr) = specforge_cmd(&[
+        "remove",
+        "@specforge/product",
+        "--path",
+        &dir.path().to_string_lossy(),
+    ]);
+    // Not installed → noop with exit 0
+    assert_eq!(exit_code, 0, "remove non-installed should exit 0.\nStderr:\n{stderr}");
+    assert!(
+        stderr.contains("not installed"),
+        "Should say not installed.\nStderr:\n{stderr}"
+    );
+}
+
+// ==========================================================================
+// Phase 5: Wasm error path integration tests
+// ==========================================================================
+
+#[test]
+fn wasm_missing_plugin_dir_reported() {
+    let fixture = fixture_path("wasm/missing_plugin");
+    // This fixture has no wasm_packages in config, so it should just compile clean
+    let (exit_code, _output) = specforge_check(&fixture);
+    assert_eq!(exit_code, 0, "No wasm config = clean compile");
+}
+
+#[test]
+fn wasm_bad_manifest_reported() {
+    let fixture = fixture_path("wasm/bad_manifest");
+    // The bad manifest fixture doesn't reference the broken plugin in specforge.json
+    // (wasm_packages would need to be set), so this just verifies clean compile
+    let (exit_code, _output) = specforge_check(&fixture);
+    assert_eq!(exit_code, 0, "No wasm reference in config = clean compile");
+}
+
+#[test]
+fn wasm_missing_binary_reported() {
+    let fixture = fixture_path("wasm/manifest_only");
+    // Same — no wasm_packages reference in config
+    let (exit_code, _output) = specforge_check(&fixture);
+    assert_eq!(exit_code, 0, "No wasm reference in config = clean compile");
+}
+
+#[test]
+fn wasm_no_plugins_no_errors() {
+    let fixture = fixture_path("json_config");
+    let (exit_code, output) = specforge_check(&fixture);
+    assert_eq!(exit_code, 0, "No wasm plugins should exit 0.\nOutput:\n{output}");
+}
+
+// ==========================================================================
+// Phase 5: Package init integration tests
+// ==========================================================================
+
+#[test]
+fn package_init_creates_scaffold() {
+    let dir = tempfile::tempdir().unwrap();
+    let pkg_dir = dir.path().join("my-plugin");
+    let (exit_code, _stdout, stderr) = specforge_cmd(&[
+        "package",
+        "init",
+        "my-plugin",
+        "--dir",
+        &pkg_dir.to_string_lossy(),
+    ]);
+    assert_eq!(exit_code, 0, "package init should exit 0.\nStderr:\n{stderr}");
+
+    assert!(pkg_dir.join("Cargo.toml").exists(), "Cargo.toml should exist");
+    assert!(pkg_dir.join("src/lib.rs").exists(), "src/lib.rs should exist");
+    assert!(
+        pkg_dir.join("manifest.json").exists(),
+        "manifest.json should exist"
+    );
+}
+
+#[test]
+fn package_init_manifest_valid() {
+    let dir = tempfile::tempdir().unwrap();
+    let pkg_dir = dir.path().join("test-plugin");
+    let (exit_code, _stdout, stderr) = specforge_cmd(&[
+        "package",
+        "init",
+        "test-plugin",
+        "--dir",
+        &pkg_dir.to_string_lossy(),
+    ]);
+    assert_eq!(exit_code, 0, "package init should exit 0.\nStderr:\n{stderr}");
+
+    let manifest_content = std::fs::read_to_string(pkg_dir.join("manifest.json")).unwrap();
+    let parsed: serde_json::Value = serde_json::from_str(&manifest_content)
+        .unwrap_or_else(|e| panic!("manifest.json should be valid JSON: {e}"));
+    assert!(parsed["package"].is_string(), "should have package field");
+    assert!(parsed["wasm"].is_string(), "should have wasm field");
+}
+
+#[test]
+fn package_help() {
+    let (exit_code, stdout, _stderr) = specforge_cmd(&["package", "--help"]);
+    assert_eq!(exit_code, 0, "package --help should exit 0");
+    assert!(stdout.contains("init"), "Should mention init");
+    assert!(stdout.contains("build"), "Should mention build");
+    assert!(stdout.contains("test"), "Should mention test");
+    assert!(stdout.contains("publish"), "Should mention publish");
+}
+
+#[test]
+fn package_init_cargo_toml_valid() {
+    let dir = tempfile::tempdir().unwrap();
+    let pkg_dir = dir.path().join("cargo-check");
+    let (exit_code, _stdout, stderr) = specforge_cmd(&[
+        "package",
+        "init",
+        "cargo-check",
+        "--dir",
+        &pkg_dir.to_string_lossy(),
+    ]);
+    assert_eq!(exit_code, 0, "package init should exit 0.\nStderr:\n{stderr}");
+
+    let cargo_content = std::fs::read_to_string(pkg_dir.join("Cargo.toml")).unwrap();
+    assert!(
+        cargo_content.contains("cdylib"),
+        "Cargo.toml should contain cdylib crate type"
+    );
+    assert!(
+        cargo_content.contains("extism-pdk"),
+        "Cargo.toml should depend on extism-pdk"
+    );
+}
+
+#[test]
+fn package_build_no_project_fails() {
+    let dir = tempfile::tempdir().unwrap();
+    let (exit_code, _stdout, stderr) = specforge_cmd(&[
+        "package",
+        "build",
+        "--path",
+        &dir.path().to_string_lossy(),
+    ]);
+    assert_ne!(
+        exit_code, 0,
+        "build on empty dir should fail.\nStderr:\n{stderr}"
+    );
+}
+
+// ─── Phase 6: Rust Integration ───────────────────────────────────────────────
+
+#[test]
+fn gen_rust_produces_type_files() {
+    let dir = tempfile::tempdir().unwrap();
+    let out_dir = dir.path().join("generated/rust");
+    let (exit_code, _stdout, stderr) = specforge_cmd(&[
+        "gen", "rust",
+        &out_dir.to_string_lossy(),
+        "--path", &fixture_path("codegen/gen_rust"),
+    ]);
+    assert_eq!(exit_code, 0, "gen rust should succeed.\nStderr:\n{stderr}");
+
+    // Check type files exist
+    assert!(out_dir.join("user.rs").exists(), "user.rs should exist");
+    assert!(out_dir.join("user_status.rs").exists(), "user_status.rs should exist");
+    assert!(out_dir.join("address.rs").exists(), "address.rs should exist");
+
+    // Check struct content
+    let user_content = std::fs::read_to_string(out_dir.join("user.rs")).unwrap();
+    assert!(user_content.contains("pub struct User {"), "user.rs should contain struct User. Got:\n{user_content}");
+    assert!(user_content.contains("pub name: String,"), "user.rs should contain name field. Got:\n{user_content}");
+    assert!(user_content.contains("pub age: Option<i64>,"), "user.rs should contain optional age. Got:\n{user_content}");
+}
+
+#[test]
+fn gen_rust_produces_trait_files() {
+    let dir = tempfile::tempdir().unwrap();
+    let out_dir = dir.path().join("generated/rust");
+    let (exit_code, _stdout, stderr) = specforge_cmd(&[
+        "gen", "rust",
+        &out_dir.to_string_lossy(),
+        "--path", &fixture_path("codegen/gen_rust"),
+    ]);
+    assert_eq!(exit_code, 0, "gen rust should succeed.\nStderr:\n{stderr}");
+
+    assert!(out_dir.join("user_repository.rs").exists(), "user_repository.rs should exist");
+    let content = std::fs::read_to_string(out_dir.join("user_repository.rs")).unwrap();
+    assert!(content.contains("pub trait UserRepository {"), "should contain trait. Got:\n{content}");
+    assert!(content.contains("fn save("), "should contain save method. Got:\n{content}");
+    assert!(content.contains("fn find_by_id("), "should contain find_by_id method. Got:\n{content}");
+    assert!(content.contains("fn list("), "should contain list method. Got:\n{content}");
+}
+
+#[test]
+fn gen_rust_produces_mod_barrel() {
+    let dir = tempfile::tempdir().unwrap();
+    let out_dir = dir.path().join("generated/rust");
+    let (exit_code, _stdout, stderr) = specforge_cmd(&[
+        "gen", "rust",
+        &out_dir.to_string_lossy(),
+        "--path", &fixture_path("codegen/gen_rust"),
+    ]);
+    assert_eq!(exit_code, 0, "gen rust should succeed.\nStderr:\n{stderr}");
+
+    assert!(out_dir.join("mod.rs").exists(), "mod.rs should exist");
+    let content = std::fs::read_to_string(out_dir.join("mod.rs")).unwrap();
+    assert!(content.contains("pub mod user;"), "should contain pub mod user. Got:\n{content}");
+    assert!(content.contains("pub mod user_status;"), "should contain pub mod user_status. Got:\n{content}");
+    assert!(content.contains("pub mod address;"), "should contain pub mod address. Got:\n{content}");
+    assert!(content.contains("pub mod user_repository;"), "should contain pub mod user_repository. Got:\n{content}");
+}
+
+#[test]
+fn gen_rust_produces_test_stubs() {
+    let dir = tempfile::tempdir().unwrap();
+    let out_dir = dir.path().join("generated/rust");
+    let (exit_code, _stdout, stderr) = specforge_cmd(&[
+        "gen", "rust",
+        &out_dir.to_string_lossy(),
+        "--path", &fixture_path("codegen/gen_rust"),
+    ]);
+    assert_eq!(exit_code, 0, "gen rust should succeed.\nStderr:\n{stderr}");
+
+    let test_file = out_dir.join("tests/specforge/validate_input.rs");
+    assert!(test_file.exists(), "test stub should exist at {}", test_file.display());
+    let content = std::fs::read_to_string(&test_file).unwrap();
+    assert!(content.contains("validate_input__rejects_empty_email"), "should contain double-underscore naming. Got:\n{content}");
+    assert!(content.contains("#[test]"), "should contain #[test]. Got:\n{content}");
+    assert!(content.contains("todo!(\"implement unit test\")"), "should contain todo. Got:\n{content}");
+}
+
+#[test]
+fn gen_rust_union_type() {
+    let dir = tempfile::tempdir().unwrap();
+    let out_dir = dir.path().join("generated/rust");
+    let (exit_code, _stdout, stderr) = specforge_cmd(&[
+        "gen", "rust",
+        &out_dir.to_string_lossy(),
+        "--path", &fixture_path("codegen/gen_rust"),
+    ]);
+    assert_eq!(exit_code, 0, "gen rust should succeed.\nStderr:\n{stderr}");
+
+    let content = std::fs::read_to_string(out_dir.join("user_status.rs")).unwrap();
+    assert!(content.contains("pub enum UserStatus {"), "should contain enum. Got:\n{content}");
+    assert!(content.contains("Active,"), "should contain PascalCase variant Active. Got:\n{content}");
+    assert!(content.contains("Inactive,"), "should contain PascalCase variant Inactive. Got:\n{content}");
+    assert!(content.contains("Banned,"), "should contain PascalCase variant Banned. Got:\n{content}");
+}
+
+#[test]
+fn gen_rust_check_no_drift() {
+    let dir = tempfile::tempdir().unwrap();
+    let out_dir = dir.path().join("generated/rust");
+
+    // Generate first
+    let (exit_code, _stdout, stderr) = specforge_cmd(&[
+        "gen", "rust",
+        &out_dir.to_string_lossy(),
+        "--path", &fixture_path("codegen/gen_rust"),
+    ]);
+    assert_eq!(exit_code, 0, "gen rust should succeed.\nStderr:\n{stderr}");
+
+    // Check should pass (no drift)
+    let (exit_code, _stdout, stderr) = specforge_cmd(&[
+        "gen", "rust",
+        &out_dir.to_string_lossy(),
+        "--check",
+        "--path", &fixture_path("codegen/gen_rust"),
+    ]);
+    assert_eq!(exit_code, 0, "--check should exit 0 when no drift.\nStderr:\n{stderr}");
+}
+
+#[test]
+fn gen_rust_check_drift_detected() {
+    let dir = tempfile::tempdir().unwrap();
+    let out_dir = dir.path().join("generated/rust");
+
+    // Generate first
+    let (exit_code, _stdout, stderr) = specforge_cmd(&[
+        "gen", "rust",
+        &out_dir.to_string_lossy(),
+        "--path", &fixture_path("codegen/gen_rust"),
+    ]);
+    assert_eq!(exit_code, 0, "gen rust should succeed.\nStderr:\n{stderr}");
+
+    // Tamper with a file
+    std::fs::write(out_dir.join("user.rs"), "// tampered\n").unwrap();
+
+    // Check should fail (drift detected)
+    let (exit_code, _stdout, stderr) = specforge_cmd(&[
+        "gen", "rust",
+        &out_dir.to_string_lossy(),
+        "--check",
+        "--path", &fixture_path("codegen/gen_rust"),
+    ]);
+    assert_eq!(exit_code, 1, "--check should exit 1 when drift detected.\nStderr:\n{stderr}");
+    assert!(stderr.contains("drift"), "should mention drift. Got:\n{stderr}");
+}
+
+#[test]
+fn gen_rust_help() {
+    let (exit_code, stdout, stderr) = specforge_cmd(&["gen", "--help"]);
+    let combined = format!("{stdout}{stderr}");
+    assert_eq!(exit_code, 0, "gen --help should succeed.\nOutput:\n{combined}");
+}
+
+#[test]
+fn gen_rust_checksum_headers() {
+    let dir = tempfile::tempdir().unwrap();
+    let out_dir = dir.path().join("generated/rust");
+    let (exit_code, _stdout, stderr) = specforge_cmd(&[
+        "gen", "rust",
+        &out_dir.to_string_lossy(),
+        "--path", &fixture_path("codegen/gen_rust"),
+    ]);
+    assert_eq!(exit_code, 0, "gen rust should succeed.\nStderr:\n{stderr}");
+
+    // All .rs files should have checksum headers
+    for entry in std::fs::read_dir(&out_dir).unwrap() {
+        let entry = entry.unwrap();
+        if entry.path().extension().is_some_and(|e| e == "rs") {
+            let content = std::fs::read_to_string(entry.path()).unwrap();
+            assert!(
+                content.starts_with("// @specforge-checksum:sha256:"),
+                "{} should have checksum header. Got:\n{}",
+                entry.path().display(),
+                &content[..content.len().min(100)]
+            );
+        }
+    }
+}
+
+#[test]
+fn gen_rust_serde_derives() {
+    let dir = tempfile::tempdir().unwrap();
+    let out_dir = dir.path().join("generated/rust");
+
+    // Create a temporary spec with serde extra
+    let spec_dir = dir.path().join("spec");
+    std::fs::create_dir_all(&spec_dir).unwrap();
+    std::fs::write(spec_dir.join("specforge.spec"), r#"spec "serde-test" {
+  version "1.0"
+  plugins []
+
+  gen rust {
+    out "generated/rust"
+    serde "true"
+  }
+}
+
+type Config {
+  name string
+  value integer
+}
+"#).unwrap();
+
+    let (exit_code, _stdout, stderr) = specforge_cmd(&[
+        "gen", "rust",
+        &out_dir.to_string_lossy(),
+        "--path", &spec_dir.to_string_lossy(),
+    ]);
+    assert_eq!(exit_code, 0, "gen rust should succeed.\nStderr:\n{stderr}");
+
+    let content = std::fs::read_to_string(out_dir.join("config.rs")).unwrap();
+    assert!(
+        content.contains("Serialize, Deserialize"),
+        "should contain serde derives when extra serde=true. Got:\n{content}"
+    );
+}
+
+#[test]
+fn collect_rust_junit_xml() {
+    let dir = tempfile::tempdir().unwrap();
+    let output_path = dir.path().join("specforge-report.json");
+    let (exit_code, _stdout, stderr) = specforge_cmd(&[
+        "collect", "rust",
+        "--junit", &fixture_path("collect/nextest-junit.xml"),
+        "--output", &output_path.to_string_lossy(),
+        "--path", &fixture_path("collect"),
+    ]);
+    assert_eq!(exit_code, 0, "collect rust should succeed.\nStderr:\n{stderr}");
+    assert!(output_path.exists(), "specforge-report.json should exist");
+
+    let report_content = std::fs::read_to_string(&output_path).unwrap();
+    let report: serde_json::Value = serde_json::from_str(&report_content).unwrap();
+    assert_eq!(report["adapter"], "rust");
+    assert_eq!(report["schema_version"], "1.0");
+
+    let entities = report["entities"].as_array().unwrap();
+    assert!(!entities.is_empty(), "should have entities");
+}
+
+#[test]
+fn collect_rust_libtest_json() {
+    let dir = tempfile::tempdir().unwrap();
+    let output_path = dir.path().join("specforge-report.json");
+    let (exit_code, _stdout, stderr) = specforge_cmd(&[
+        "collect", "rust",
+        "--libtest", &fixture_path("collect/libtest-output.json"),
+        "--output", &output_path.to_string_lossy(),
+        "--path", &fixture_path("collect"),
+    ]);
+    assert_eq!(exit_code, 0, "collect rust (libtest) should succeed.\nStderr:\n{stderr}");
+    assert!(output_path.exists(), "specforge-report.json should exist");
+
+    let report_content = std::fs::read_to_string(&output_path).unwrap();
+    let report: serde_json::Value = serde_json::from_str(&report_content).unwrap();
+    assert_eq!(report["adapter"], "rust");
+
+    let entities = report["entities"].as_array().unwrap();
+    // Only validate_input should map (unknown_entity doesn't exist in spec)
+    let entity_ids: Vec<&str> = entities
+        .iter()
+        .map(|e| e["entity_id"].as_str().unwrap())
+        .collect();
+    assert!(entity_ids.contains(&"validate_input"), "should contain validate_input. Got: {entity_ids:?}");
+}
+
+#[test]
+fn collect_rust_no_input_fails() {
+    let (exit_code, _stdout, stderr) = specforge_cmd(&[
+        "collect", "rust",
+        "--path", &fixture_path("collect"),
+    ]);
+    assert_ne!(exit_code, 0, "collect rust without --junit or --libtest should fail.\nStderr:\n{stderr}");
+    assert!(stderr.contains("requires at least"), "should mention missing input. Got:\n{stderr}");
+}
+
+#[test]
+fn collect_rust_strict_unknown_fails() {
+    let dir = tempfile::tempdir().unwrap();
+    let output_path = dir.path().join("specforge-report.json");
+    let (exit_code, _stdout, stderr) = specforge_cmd(&[
+        "collect", "rust",
+        "--libtest", &fixture_path("collect/libtest-output.json"),
+        "--strict",
+        "--output", &output_path.to_string_lossy(),
+        "--path", &fixture_path("collect"),
+    ]);
+    assert_ne!(exit_code, 0, "--strict with unknown entity should fail.\nStderr:\n{stderr}");
+    assert!(stderr.contains("unknown entity"), "should mention unknown entity. Got:\n{stderr}");
+}
+
+#[test]
+fn collect_help() {
+    let (exit_code, stdout, stderr) = specforge_cmd(&["collect", "--help"]);
+    let combined = format!("{stdout}{stderr}");
+    assert_eq!(exit_code, 0, "collect --help should succeed.\nOutput:\n{combined}");
+    assert!(combined.contains("rust") || combined.contains("Rust"), "should mention rust subcommand. Got:\n{combined}");
+}

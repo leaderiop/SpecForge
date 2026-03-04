@@ -1,0 +1,6 @@
+{
+  "name": "cov-multi",
+  "version": "1.0",
+  "spec_root": ".",
+  "test_dirs": ["tests/unit", "tests/e2e"]
+}

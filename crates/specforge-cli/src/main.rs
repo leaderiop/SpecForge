@@ -12,6 +12,7 @@ fn main() {
         Command::Add(args) => commands::add::run(args),
         Command::Cache(args) => commands::cache::run(args),
         Command::Check(args) => commands::check::run(args),
+        Command::Collect(args) => commands::collect::run(args),
         Command::Doctor(args) => commands::doctor::run(args),
         Command::Coverage(args) => commands::coverage::run(args),
         Command::Gen(args) => commands::gen_cmd::run(args),

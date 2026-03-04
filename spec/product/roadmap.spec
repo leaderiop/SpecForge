@@ -87,11 +87,13 @@ roadmap cli_and_watch_mode "Phase 2: CLI and Watch Mode" {
 }
 
 roadmap lsp_server "Phase 3: LSP Server" {
-  status     planned
+  status     completed
   behaviors  [
     go_to_definition, find_all_references, hover_information, autocomplete_entity_ids,
     rename_entity_id, live_diagnostics, code_actions_for_missing_tests, outline_view,
     workspace_symbol_search, shared_incremental_pipeline, provide_semantic_tokens,
+    complete_field_names, complete_keywords, goto_import_definition,
+    code_action_add_missing_import, code_action_create_entity_stub, incremental_document_sync,
   ]
   features   [go_to_definition_and_references, hover_and_autocomplete, rename_refactoring, live_diagnostics_feature, code_actions, outline_and_symbol_search]
   libraries  [specforge_lsp]
@@ -100,15 +102,21 @@ roadmap lsp_server "Phase 3: LSP Server" {
     "Go-to-definition and find-references work across files",
     "Hover shows entity details and contract text",
     "Autocomplete suggests entity IDs in reference lists",
+    "Field name completion suggests context-appropriate fields inside blocks",
+    "Keyword completion suggests entity keywords at top level with snippet templates",
     "Rename updates all references atomically",
     "Live diagnostics appear within 100ms",
     "LSP shares incremental pipeline with watch mode",
     "Semantic tokens classify custom entity keywords from plugins and define blocks",
+    "Go-to-definition on use imports navigates to the target file",
+    "Code action adds missing use imports for cross-file references",
+    "Code action creates entity stubs for unresolved references",
+    "Incremental document sync applies range-based changes correctly",
   ]
 }
 
 roadmap code_generation "Phase 4: Code Generation" {
-  status     planned
+  status     completed
   behaviors  [
     generate_typescript_interfaces_from_types, generate_port_interfaces, generate_test_stubs,
     detect_generated_code_drift, verify_adapter_implementations, generate_json_schema_from_types,
@@ -128,7 +136,7 @@ roadmap code_generation "Phase 4: Code Generation" {
 }
 
 roadmap extensions_and_coverage "Phase 5: Extensions and Coverage" {
-  status     planned
+  status     completed
   behaviors  [
     merge_coverage_reports, compute_coverage_summary, gate_on_coverage_threshold, validate_test_ids_against_spec, consume_specforge_report, compute_three_layer_coverage, render_test_traceability_matrix,
     migrate_spec_files_between_versions, detect_format_version_mismatch,
@@ -177,7 +185,7 @@ roadmap extensions_and_coverage "Phase 5: Extensions and Coverage" {
 }
 
 roadmap wasm_package_authoring_phase "Phase 5b: Wasm Package Authoring" {
-  status     planned
+  status     completed
   behaviors  [
     scaffold_wasm_package_project, build_wasm_package, test_wasm_package_locally, publish_wasm_package,
   ]
@@ -193,7 +201,7 @@ roadmap wasm_package_authoring_phase "Phase 5b: Wasm Package Authoring" {
 }
 
 roadmap rust_integration "Phase 6: Rust Integration" {
-  status     planned
+  status     completed
   behaviors  [
     generate_rust_structs_from_types, generate_rust_traits_from_ports,
     generate_rust_test_stubs, generate_rust_bench_stubs, generate_rust_module_tree,

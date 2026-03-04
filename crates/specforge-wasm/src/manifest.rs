@@ -37,7 +37,23 @@ impl PackageContributions {
             },
         }
     }
+
+    /// Returns true if all fields are false (the default).
+    pub fn is_default(&self) -> bool {
+        !self.entities && !self.validators && !self.generators && !self.providers
+    }
 }
+
+impl PartialEq for PackageContributions {
+    fn eq(&self, other: &Self) -> bool {
+        self.entities == other.entities
+            && self.validators == other.validators
+            && self.generators == other.generators
+            && self.providers == other.providers
+    }
+}
+
+impl Eq for PackageContributions {}
 
 /// The sidecar manifest for a Wasm package (`manifest.json`).
 ///
@@ -102,6 +118,18 @@ pub struct PackageManifest {
     /// Resolved absolute path to the `.wasm` binary (set at load time, not serialized).
     #[serde(skip)]
     pub wasm_path: PathBuf,
+}
+
+impl PackageManifest {
+    /// Migrate a v1 manifest that has `kind` but no explicit `contributes`.
+    ///
+    /// If `manifest_version` is "1" and `contributes` is all-default (false),
+    /// auto-populate `contributes` from the legacy `kind` field.
+    pub fn migrate_v1_if_needed(&mut self) {
+        if self.manifest_version == "1" && self.contributes.is_default() {
+            self.contributes = PackageContributions::from_kind(self.kind);
+        }
+    }
 }
 
 /// The kind of Wasm extension.
@@ -342,6 +370,53 @@ mod tests {
         let json = serde_json::to_string(&manifest).unwrap();
         let parsed: PackageManifest = serde_json::from_str(&json).unwrap();
         assert_eq!(parsed.package, "@specforge/test");
+    }
+
+    #[test]
+    fn migrate_v1_plugin_kind() {
+        let json = r#"{
+            "package": "@specforge/test",
+            "manifest_version": "1",
+            "kind": "plugin",
+            "wasm": "test.wasm"
+        }"#;
+        let mut manifest: PackageManifest = serde_json::from_str(json).unwrap();
+        assert!(manifest.contributes.is_default());
+        manifest.migrate_v1_if_needed();
+        assert!(manifest.contributes.entities);
+        assert!(manifest.contributes.validators);
+        assert!(!manifest.contributes.generators);
+        assert!(!manifest.contributes.providers);
+    }
+
+    #[test]
+    fn migrate_v1_generator_kind() {
+        let json = r#"{
+            "package": "@specforge/gen-ts",
+            "manifest_version": "1",
+            "kind": "generator",
+            "wasm": "gen.wasm"
+        }"#;
+        let mut manifest: PackageManifest = serde_json::from_str(json).unwrap();
+        manifest.migrate_v1_if_needed();
+        assert!(manifest.contributes.generators);
+        assert!(!manifest.contributes.entities);
+    }
+
+    #[test]
+    fn migrate_v1_skips_if_contributes_set() {
+        let json = r#"{
+            "package": "@specforge/test",
+            "manifest_version": "1",
+            "kind": "plugin",
+            "wasm": "test.wasm",
+            "contributes": { "entities": true }
+        }"#;
+        let mut manifest: PackageManifest = serde_json::from_str(json).unwrap();
+        // contributes is not default (entities=true), so migration should not overwrite
+        manifest.migrate_v1_if_needed();
+        assert!(manifest.contributes.entities);
+        assert!(!manifest.contributes.validators);
     }
 
     #[test]

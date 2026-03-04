@@ -62,9 +62,10 @@ pub fn run(args: GenArgs) -> i32 {
         .unwrap_or_else(|| PathBuf::from(&gen_config.out));
 
     // Check if a Wasm generator provides this name
+    let mut result = result;
     let gen_result = if result
-        .wasm_runtime
-        .as_ref()
+        .wasm_pool
+        .runtime()
         .is_some_and(|rt| rt.has_generator(&gen_config.name))
     {
         let graph_json = serde_json::to_string(&serde_json::json!({
@@ -82,7 +83,7 @@ pub fn run(args: GenArgs) -> i32 {
             })).collect::<Vec<_>>(),
         })).unwrap_or_default();
 
-        let mut runtime = result.wasm_runtime.unwrap();
+        let runtime = result.wasm_pool.runtime_mut().unwrap();
         match runtime.generate(&gen_config.name, &graph_json, &out_dir) {
             Ok(wasm_result) => {
                 for diag in &wasm_result.diagnostics {

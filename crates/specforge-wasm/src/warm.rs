@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 
 use crate::error::WasmError;
+use crate::host_functions::RegisteredEntity;
 use crate::manifest::PackageManifest;
 use crate::runtime::WasmRuntime;
 
@@ -12,6 +13,8 @@ pub struct WarmInstancePool {
     runtime: Option<WasmRuntime>,
     /// Wasm hashes of currently loaded plugins, keyed by package name.
     loaded_hashes: HashMap<String, String>,
+    /// Registered entities from the last `initialize_all()` call.
+    registered_entities: Vec<RegisteredEntity>,
 }
 
 impl WarmInstancePool {
@@ -19,6 +22,7 @@ impl WarmInstancePool {
         Self {
             runtime: None,
             loaded_hashes: HashMap::new(),
+            registered_entities: Vec::new(),
         }
     }
 
@@ -58,7 +62,10 @@ impl WarmInstancePool {
         let errors = runtime.load_packages(manifests);
 
         if errors.is_empty() {
-            let _init = runtime.initialize_all();
+            let init = runtime.initialize_all();
+            self.registered_entities = init.entities;
+        } else {
+            self.registered_entities = Vec::new();
         }
 
         self.loaded_hashes = new_hashes;
@@ -66,10 +73,16 @@ impl WarmInstancePool {
         errors
     }
 
+    /// Entity kinds registered by plugins during initialization.
+    pub fn registered_entities(&self) -> &[RegisteredEntity] {
+        &self.registered_entities
+    }
+
     /// Unload all plugins.
     pub fn shutdown(&mut self) {
         self.runtime = None;
         self.loaded_hashes.clear();
+        self.registered_entities.clear();
     }
 
     /// Check if any plugins are loaded.

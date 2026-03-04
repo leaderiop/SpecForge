@@ -77,6 +77,7 @@ pub fn resolve_generator(name: &str) -> Box<dyn Generator> {
     match name {
         "typescript" => Box::new(crate::typescript::TypeScriptGenerator),
         "json-schema" => Box::new(crate::json_schema::JsonSchemaGenerator),
+        "rust" => Box::new(crate::rust::RustGenerator),
         _ => Box::new(crate::subprocess::SubprocessGenerator {
             name: name.to_string(),
         }),
@@ -97,6 +98,12 @@ mod tests {
     fn resolve_builtin_json_schema() {
         let generator = resolve_generator("json-schema");
         assert_eq!(generator.name(), "json-schema");
+    }
+
+    #[test]
+    fn resolve_builtin_rust() {
+        let generator = resolve_generator("rust");
+        assert_eq!(generator.name(), "rust");
     }
 
     #[test]

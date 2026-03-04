@@ -39,10 +39,7 @@ pub fn run(args: DoctorArgs) -> i32 {
     };
 
     // Build field registry
-    let registry = match &config {
-        Some(c) => pipeline::build_field_registry(c),
-        None => FieldRegistry::with_builtins(),
-    };
+    let registry = FieldRegistry::with_builtins();
 
     // Collect plugin info
     let plugins = &config

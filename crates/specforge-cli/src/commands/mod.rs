@@ -1,6 +1,7 @@
 pub mod add;
 pub mod cache;
 pub mod check;
+pub mod collect;
 pub mod coverage;
 pub mod doctor;
 pub mod gen_cmd;
@@ -36,6 +37,8 @@ pub enum Command {
     Cache(cache::CacheArgs),
     /// Check spec files for errors and warnings
     Check(check::CheckArgs),
+    /// Collect test results and map to spec entities
+    Collect(collect::CollectArgs),
     /// Diagnose plugin enhancements, conflicts, and configuration
     Doctor(doctor::DoctorArgs),
     /// Compute test coverage from specforge-report.json files

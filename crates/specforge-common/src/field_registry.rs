@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
-use crate::EdgeType;
+use crate::{Diagnostic, EdgeType, SourceSpan, ValidationCode};
 
 /// A field enhancement declared by a plugin for an existing entity kind.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -357,6 +357,64 @@ impl FieldRegistry {
     /// Get detected conflicts.
     pub fn conflicts(&self) -> &[EnhancementConflict] {
         &self.conflicts
+    }
+
+    /// Generate diagnostics for all detected enhancement conflicts.
+    ///
+    /// Emits E017 (plugin-vs-plugin), E018 (plugin-vs-builtin), and W023 (load-order resolved).
+    pub fn conflict_diagnostics(&self) -> Vec<Diagnostic> {
+        let mut diagnostics = Vec::new();
+        for conflict in &self.conflicts {
+            let span = SourceSpan::file_start("specforge.json");
+            match &conflict.resolution {
+                ConflictResolution::Unresolved => {
+                    if conflict.first_plugin == "(built-in)" {
+                        diagnostics.push(
+                            Diagnostic::new(
+                                ValidationCode::E018,
+                                span,
+                                format!(
+                                    "plugin `{}` cannot shadow built-in field `{}` on entity `{}`",
+                                    conflict.second_plugin, conflict.field_name, conflict.entity_kind
+                                ),
+                            )
+                            .with_help("built-in fields cannot be overridden by plugins"),
+                        );
+                    } else {
+                        diagnostics.push(
+                            Diagnostic::new(
+                                ValidationCode::E017,
+                                span,
+                                format!(
+                                    "enhancement conflict: field `{}` on entity `{}` claimed by `{}` and `{}`",
+                                    conflict.field_name, conflict.entity_kind,
+                                    conflict.first_plugin, conflict.second_plugin
+                                ),
+                            )
+                            .with_help(format!(
+                                "add to specforge.json: \"enhancement_overrides\": {{ \"{}.{}\": \"{}\" }}",
+                                conflict.entity_kind, conflict.field_name, conflict.first_plugin
+                            )),
+                        );
+                    }
+                }
+                ConflictResolution::LoadOrder { winner } => {
+                    diagnostics.push(
+                        Diagnostic::new(
+                            ValidationCode::W023,
+                            span,
+                            format!(
+                                "field `{}` on entity `{}` resolved to `{}` by load order (priority policy)",
+                                conflict.field_name, conflict.entity_kind, winner
+                            ),
+                        )
+                        .with_help("use enhancement_overrides for explicit resolution"),
+                    );
+                }
+                _ => {}
+            }
+        }
+        diagnostics
     }
 
     /// Number of built-in field mappings.

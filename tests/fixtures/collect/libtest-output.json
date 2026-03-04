@@ -1,0 +1,5 @@
+{ "type": "suite", "event": "started", "test_count": 3 }
+{ "type": "test", "event": "ok", "name": "validate_input__rejects_empty_email", "exec_time": 0.001 }
+{ "type": "test", "event": "ok", "name": "validate_input__accepts_valid_email", "exec_time": 0.002 }
+{ "type": "test", "event": "ok", "name": "unknown_entity__some_test", "exec_time": 0.001 }
+{ "type": "suite", "event": "ok", "passed": 3, "failed": 0 }
