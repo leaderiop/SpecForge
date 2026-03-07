@@ -9,6 +9,7 @@ depends_on: [RES-14, RES-11a]
 
 # RES-15: Verify vs Scenario Dual Syntax — DX Analysis
 
+
 ## Problem Statement
 
 SpecForge currently uses `verify unit|integration|property|load|e2e "description"` for all test declarations. RES-14 identified 5 testable entities (behavior, invariant, event, constraint, capability), where `capability` represents full user flows. The proposal: split test syntax into two constructs — `verify` for isolated tests and `scenario` blocks for user flows with Given/When/Then structure.
@@ -444,73 +445,9 @@ scenario "scenario name" {
 
 ---
 
-## 11. Code Generation Implications
+## 11. Historical Note: Code Generation
 
-### Test Scaffold Generation
-
-When `specforge gen typescript` runs on a capability with scenarios:
-
-**Input:**
-```spec
-capability UX-001 "Admin Creates User" {
-  persona  admin
-  surface  [web]
-
-  scenario "successful creation" {
-    given "admin is on user management page"
-    when  "admin fills name, email, role and clicks Create"
-    then  "success toast appears"
-    then  "new user appears in user list"
-  }
-}
-```
-
-**Generated output (Playwright example):**
-```typescript
-// tests/capabilities/UX-001-admin-creates-user.spec.ts
-import { test, expect } from '@playwright/test';
-
-test.describe('UX-001: Admin Creates User', () => {
-  test('successful creation', async ({ page }) => {
-    // Given: admin is on user management page
-    // TODO: navigate to user management page
-
-    // When: admin fills name, email, role and clicks Create
-    // TODO: fill form and click create
-
-    // Then: success toast appears
-    // TODO: assert toast is visible
-
-    // Then: new user appears in user list
-    // TODO: assert user is in list
-  });
-});
-```
-
-The generator emits **TODO comments** for each clause. The developer fills in the Playwright commands.
-
-### Alternative: Annotated Scenarios
-
-For advanced users, allow optional test code annotations:
-
-```spec
-scenario "successful creation" {
-  given "admin is on user management page"
-    test.ts """await page.goto('/users')"""
-
-  when "admin fills name, email, role and clicks Create"
-    test.ts """
-      await page.fill('[name=name]', 'Jane Doe')
-      await page.fill('[name=email]', 'jane@example.com')
-      await page.click('button:has-text("Create")')
-    """
-
-  then "success toast appears"
-    test.ts """await expect(page.locator('.toast-success')).toBeVisible()"""
-}
-```
-
-**Decision:** Defer this feature to 2.0 or later. The minimal viable syntax (string-only clauses) is sufficient for 1.0.
+`specforge gen` has been deprecated. AI agents consume the entity graph directly and produce test code — SpecForge provides context, agents do the producing. The scenario syntax described in this document serves as structured context that agents consume directly, without an intermediary code generator. The distinction is that SpecForge never generates code itself (Principle 3); agents produce code from the graph.
 
 ---
 
@@ -540,7 +477,7 @@ How do we measure whether the dual syntax improves DX?
 - **Validation:** Scenarios must have at least one `when` and one `then`. `given` is optional.
 - **Deprecation path:** Emit W010 for `verify e2e` in capabilities. Remove in 2.0.
 - **LSP support:** Autocomplete snippets for scenarios, semantic highlighting for keywords.
-- **Code generation:** Emit test scaffolds with TODO comments for each Given/When/Then clause.
+- **AI consumption:** Agents consume the entity graph and produce test code directly
 
 ### Rationale
 

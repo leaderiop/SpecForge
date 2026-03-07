@@ -4,8 +4,10 @@ use invariants/core
 use invariants/validation
 use types/diagnostics
 use types/core
+use events/compilation
 
 behavior format_diagnostics_with_source_context "Format Diagnostics with Source Context" {
+  // Runs inline during resolution pass, not event-driven
   invariants [multi_error_collection, diagnostic_determinism]
   types      [Diagnostic, SourceSpan, CodePrefix]
 
@@ -20,10 +22,10 @@ behavior format_diagnostics_with_source_context "Format Diagnostics with Source 
   verify unit "context snippet highlights offending token"
   verify unit "multi-line span shows full range"
 
-  tests ["../crates/specforge-cli/tests/integration_test.rs"]
 }
 
 behavior provide_did_you_mean_suggestions "Provide Did-You-Mean Suggestions" {
+  // Runs inline during resolution pass, not event-driven
   invariants [reference_resolution_completeness]
   types      [Diagnostic]
 
@@ -39,22 +41,22 @@ behavior provide_did_you_mean_suggestions "Provide Did-You-Mean Suggestions" {
   verify unit "distant match produces no suggestion"
   verify unit "suggestion appears in help text"
 
-  tests ["../crates/specforge-cli/tests/integration_test.rs"]
 }
 
 behavior aggregate_diagnostic_summary "Aggregate Diagnostic Summary" {
-  invariants [multi_error_collection]
+  invariants [multi_error_collection, diagnostic_determinism]
   types      [DiagnosticBag]
+  consumes  [declarative_validation_executed]
+  produces   [validation_complete]
 
   contract """
     After all diagnostics are printed, the compiler MUST print a summary
     line: "N errors, M warnings, K info". If errors exist, the summary
-    MUST be styled in red. The summary MUST match the actual counts.
+    MUST be visually distinguished as an error. The summary MUST match the actual counts.
   """
 
   verify unit "summary shows correct counts"
   verify unit "summary is red when errors exist"
   verify unit "summary matches actual diagnostics"
 
-  tests ["../crates/specforge-cli/tests/integration_test.rs"]
 }

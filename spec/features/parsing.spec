@@ -1,25 +1,36 @@
 // Parsing features
 
 use behaviors/parsing
+use behaviors/error-reporting
+
+// See also: zero_entity_bootstrap (features/zero-entity-core.spec) for
+// collapse_grammar_to_generic_entity_block and two_phase_parse_structural
 
 feature spec_file_parsing "Spec File Parsing" {
-  behaviors [parse_spec_file_to_ast, parse_use_imports, parse_all_block_types, parse_triple_quoted_strings]
+  behaviors [parse_spec_file_to_ast, parse_use_imports, parse_all_block_types, parse_triple_quoted_strings, parse_gherkin_statements, parse_verify_statements, parse_ref_blocks, parse_define_blocks]
 
   problem """
     .spec files need to be parsed into structured ASTs that preserve
-    source locations for all tokens, supporting all 16 block types
-    with their specific field syntax including triple-quoted strings.
+    source locations for all tokens, supporting any keyword via a
+    generic entity_block rule, with field syntax including triple-quoted
+    strings and gherkin file references.
   """
 
   solution """
-    Tree-sitter grammar that recognizes all block types, use imports,
-    reference lists, and triple-quoted strings. Produces per-file ASTs
-    with full source span information for every token.
+    A parser grammar with a single generic entity_block rule that
+    parses any keyword name { fields } structure into an AST node
+    carrying kind, name, and optional title. Only spec, ref, use,
+    and define have dedicated grammar rules (ref uses scheme:identifier
+    format). Use imports, reference lists, gherkin statements,
+    and triple-quoted strings are parsed structurally. Keyword validation
+    is deferred to the semantic phase after extensions populate the
+    KindRegistry. Produces per-file ASTs with full source span
+    information for every token.
   """
 }
 
 feature error_recovery_during_parsing "Error Recovery During Parsing" {
-  behaviors [recover_from_syntax_errors]
+  behaviors [recover_from_syntax_errors, format_diagnostics_with_source_context]
 
   problem """
     A single syntax error in one block should not prevent the compiler
@@ -28,48 +39,28 @@ feature error_recovery_during_parsing "Error Recovery During Parsing" {
   """
 
   solution """
-    Tree-sitter's error recovery produces partial ASTs even when syntax
+    The parser's error recovery produces partial ASTs even when syntax
     errors exist. The compiler collects all errors and continues parsing
     subsequent blocks, reporting all issues in a single pass.
   """
 }
 
-feature scenario_declaration "Scenario Declaration" {
-  behaviors [parse_scenario_blocks]
-
-  problem """
-    Behavior and capability blocks need a way to declare structured
-    acceptance criteria using given/when/then steps. This requires
-    the parser to recognize scenario blocks as a new syntax construct
-    within entity blocks.
-  """
-
-  solution """
-    Tree-sitter grammar recognizes scenario, given, when, and then
-    keywords within behavior and capability blocks. Scenario blocks
-    are parsed into ScenarioList field values in the AST.
-  """
-}
-
 feature editor_query_files "Editor Query Files" {
-  behaviors [provide_syntax_highlighting_queries, provide_code_folding_queries, provide_indentation_queries, parse_generic_entity_blocks]
+  behaviors [provide_syntax_highlighting_queries, provide_code_folding_queries, provide_indentation_queries]
 
   problem """
     Without query files, .spec files appear as plain text in
-    Tree-sitter-aware editors like Neovim, Helix, Zed, and Emacs.
+    editors with structural query support like Neovim, Helix, Zed, and Emacs.
     Users get no syntax highlighting, code folding, or automatic
     indentation — even though the grammar is fully functional.
-    Plugin and custom entities produce ERROR nodes, breaking all
-    editor features for non-built-in entity types.
   """
 
   solution """
     Ship highlights.scm, folds.scm, and indents.scm alongside the
-    grammar. A generic_entity_block grammar rule catches plugin and
-    custom entity blocks that don't match built-in keywords, producing
-    clean AST nodes instead of ERROR nodes. These standard query files
-    enable any Tree-sitter-aware editor to provide rich editing support
-    for both built-in and plugin entities without requiring an LSP
-    server.
+    grammar. The generic entity_block grammar rule parses all entity
+    blocks uniformly — there are no "built-in" keywords at the grammar
+    level. These standard query files enable any compatible
+    editor to provide rich editing support for all entity types
+    without requiring an LSP server.
   """
 }

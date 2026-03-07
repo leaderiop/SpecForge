@@ -1,11 +1,25 @@
 // Formatting features
+//
+// Fix #8 — Why formatting lives in core, not an extension (P7: extensions over builtins):
+// Formatting uses a hybrid model. Core owns generic CST formatting — indentation,
+// spacing, alignment, wrapping, blank lines, comments, imports, and string literals.
+// This is purely syntactic (no domain knowledge, no entity awareness) and must
+// complete in <50ms for the LSP path (P8: seconds to value); Wasm round-trips
+// would violate that budget. Extensions can contribute entity-specific formatting
+// rules via ExtensionFormatRule (e.g., field ordering within extension-defined
+// blocks). Core delegates to these at format time through the contribution registry.
+// Because core never inspects entity kinds or fields, it satisfies P7's real test:
+// "does this require a compiler change when a new domain appears?" — it does not.
 
 use behaviors/formatting
+use types/core
+use types/formatting
 
 feature code_formatting "Code Formatting" {
   behaviors [
     format_spec_files, preserve_comments, check_formatting, show_formatting_diff,
-    format_from_stdin, load_format_config, apply_format_rules, maintain_format_idempotency
+    format_from_stdin, load_format_config, apply_format_rules, maintain_format_idempotency,
+    format_with_parse_errors, discover_format_targets
   ]
 
   problem """
@@ -24,8 +38,8 @@ feature code_formatting "Code Formatting" {
   """
 }
 
-feature lsp_format_on_save "LSP Format on Save" {
-  behaviors [lsp_format_document, lsp_format_range, lsp_respect_editor_config]
+feature lsp_formatting "LSP Formatting" {
+  behaviors [lsp_format_document, lsp_format_range, lsp_respect_editor_config, format_with_parse_errors]
 
   problem """
     Developers must manually format .spec files or rely on CLI commands after editing.

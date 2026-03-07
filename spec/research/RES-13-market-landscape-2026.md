@@ -3,11 +3,11 @@
 **Research ID:** RES-13
 **Author:** Research Team
 **Date:** 2026-03-01
-**Status:** Complete
+**Status:** partially-superseded
 
 ## Executive Summary
 
-This document provides a comprehensive analysis of the competitive landscape for SpecForge, a Rust-based DSL and compiler for software specifications. The market research covers seven key categories:
+This document provides a comprehensive analysis of the competitive landscape for SpecForge, the structured context standard for AI agents. The market research covers seven key categories:
 
 1. **Enterprise Requirements Management** (DOORS, Polarion, Jama, Visure)
 2. **Requirements-as-Code Tools** (Doorstop, StrictDoc, TRLC)
@@ -448,7 +448,7 @@ This document provides a comprehensive analysis of the competitive landscape for
 **Competitive Positioning vs. SpecForge:**
 - Different problem space: TLA+ for formal verification, SpecForge for practical specifications
 - SpecForge targets broader developer audience with less formal background
-- SpecForge includes traceability and documentation generation
+- SpecForge includes traceability and documentation production (by renderers from graph)
 
 ---
 
@@ -570,7 +570,7 @@ This document provides a comprehensive analysis of the competitive landscape for
 **Competitive Positioning vs. SpecForge:**
 - TypeSpec: API specifications and code generation
 - SpecForge: Broader software specifications including requirements, behaviors, architecture, traceability
-- Complementary: SpecForge could generate TypeSpec for API definitions
+- Complementary: SpecForge's graph provides context for renderers to produce TypeSpec for API definitions
 
 ---
 
@@ -658,7 +658,7 @@ This document provides a comprehensive analysis of the competitive landscape for
 **Competitive Positioning vs. SpecForge:**
 - Structurizr: Architecture visualization
 - SpecForge: Comprehensive specifications including architecture as part of larger graph
-- Complementary: SpecForge could generate Structurizr diagrams
+- Complementary: SpecForge's graph provides context for renderers to produce Structurizr diagrams
 
 ---
 
@@ -704,8 +704,8 @@ This document provides a comprehensive analysis of the competitive landscape for
 
 **Competitive Positioning vs. SpecForge:**
 - PlantUML: Diagram generation
-- SpecForge: Specifications with diagram generation as output
-- Complementary: SpecForge could generate PlantUML
+- SpecForge: Specifications with diagram production by renderers from graph
+- Complementary: SpecForge's graph provides context for renderers to produce PlantUML
 
 ---
 
@@ -751,7 +751,7 @@ This document provides a comprehensive analysis of the competitive landscape for
 **Competitive Positioning vs. SpecForge:**
 - Mermaid: Diagram rendering
 - SpecForge: Specifications with Mermaid as output format
-- Complementary: SpecForge will generate Mermaid diagrams
+- Complementary: renderers consume SpecForge's graph to produce Mermaid diagrams
 
 ---
 
@@ -825,8 +825,8 @@ This document provides a comprehensive analysis of the competitive landscape for
 
 **Competitive Positioning vs. SpecForge:**
 - Cucumber: Executable tests from natural language
-- SpecForge: Comprehensive specifications including behaviors that could generate Cucumber/Gherkin
-- Complementary: SpecForge could generate Gherkin features from behavior specs
+- SpecForge: Comprehensive specifications including behaviors whose graph context enables renderers to produce Cucumber/Gherkin
+- Complementary: renderers consume SpecForge's graph to produce Gherkin features from behavior specs
 
 ---
 
@@ -1040,7 +1040,7 @@ All share similar characteristics: test-focused, no comprehensive specification 
 **Competitive Positioning vs. SpecForge:**
 - Docusaurus: Documentation site generation
 - SpecForge: Specifications with documentation as output
-- Complementary: SpecForge could generate Docusaurus sites
+- Complementary: renderers consume SpecForge's graph to produce Docusaurus sites
 
 ---
 
@@ -1133,7 +1133,7 @@ All share similar characteristics: test-focused, no comprehensive specification 
 **Competitive Positioning vs. SpecForge:**
 - Fern: API docs from OpenAPI
 - SpecForge: Broader specifications including APIs
-- Complementary: SpecForge could generate OpenAPI for Fern
+- Complementary: SpecForge's graph provides context for renderers to produce OpenAPI for Fern
 
 ---
 
@@ -1204,7 +1204,7 @@ All share similar characteristics: test-focused, no comprehensive specification 
 **Competitive Positioning vs. SpecForge:**
 - OpenAPI: REST API specifications
 - SpecForge: Broader specifications including APIs
-- Complementary: SpecForge could consume and generate OpenAPI
+- Complementary: SpecForge could consume OpenAPI; renderers produce OpenAPI from the graph
 
 ---
 
@@ -1242,7 +1242,7 @@ All share similar characteristics: test-focused, no comprehensive specification 
 **Competitive Positioning vs. SpecForge:**
 - AsyncAPI: Async API specifications
 - SpecForge: Broader specifications including event-driven behaviors
-- Complementary: SpecForge could generate AsyncAPI specs
+- Complementary: renderers consume SpecForge's graph to produce AsyncAPI specs
 
 ---
 
@@ -1418,7 +1418,7 @@ Notable projects from GitHub research:
 **Competitive Positioning vs. SpecForge:**
 - Design-by-contract: Code-level contracts
 - SpecForge: Higher-level specifications including behaviors
-- Complementary: SpecForge behaviors could generate contract code
+- Complementary: SpecForge's behavior graph provides context for agents to produce contract code
 
 ---
 
@@ -1507,7 +1507,7 @@ Modern tools support multiple languages and protocols:
 - Smithy: Protocol-agnostic
 - Cucumber: Polyglot (many language implementations)
 
-**Implication for SpecForge:** Plugin architecture for code generation across languages and frameworks.
+**Implication for SpecForge:** Package architecture for graph protocol consumption across languages and frameworks.
 
 ---
 
@@ -1549,20 +1549,20 @@ Tools with poor DX fail to gain adoption:
 | **Spec DSLs** | TLA+ | Distributed systems | Free OSS | Established (2.6k stars) | Formal verification, proven | Steep learning curve, niche | Different use case (formal verification) |
 | | Alloy | Security, architects | Free OSS | Niche | Model checking, security | Steep learning curve, niche | Different use case |
 | | Quint | Distributed systems | Free OSS | Growing (1.2k stars) | Modern TLA alternative | Newer, still formal | Different use case |
-| | TypeSpec | API developers | Free OSS | Strong (5.6k stars) | API consistency, Microsoft | API-only | Complementary (SpecForge could generate TypeSpec) |
+| | TypeSpec | API developers | Free OSS | Strong (5.6k stars) | API consistency, Microsoft | API-only | Complementary (renderers produce TypeSpec from graph) |
 | | Smithy | API developers | Free OSS | Moderate (2.2k stars) | Protocol-agnostic, Amazon | API-only | Complementary |
-| **Architecture** | Structurizr | Architects | Commercial | Established | C4 model, multiple views | Diagrams only | Complementary (SpecForge could generate) |
-| | PlantUML | Developers, architects | Free OSS | Strong | Mature, many diagram types, free | Diagrams only, layout challenges | Complementary (SpecForge could generate) |
-| | Mermaid | Developers, writers | Free OSS | Very strong | Ubiquitous, easy, integrated | Diagrams only | Complementary (SpecForge generates Mermaid) |
-| **BDD** | Cucumber | BDD teams | Free OSS | Market leader (3.4k stars) | Industry standard, natural language | Test-focused, no traceability | Complementary (SpecForge could generate Gherkin) |
+| **Architecture** | Structurizr | Architects | Commercial | Established | C4 model, multiple views | Diagrams only | Complementary (renderers produce from graph) |
+| | PlantUML | Developers, architects | Free OSS | Strong | Mature, many diagram types, free | Diagrams only, layout challenges | Complementary (renderers produce from graph) |
+| | Mermaid | Developers, writers | Free OSS | Very strong | Ubiquitous, easy, integrated | Diagrams only | Complementary (renderers produce Mermaid from graph) |
+| **BDD** | Cucumber | BDD teams | Free OSS | Market leader (3.4k stars) | Industry standard, natural language | Test-focused, no traceability | Complementary (renderers produce Gherkin from graph) |
 | | Specdown | Developers | Free OSS | Small (32 stars) | Markdown, Rust, docs-as-tests | Small community, limited scope | Adjacent, different approach |
 | **Product Mgmt** | ProductBoard | Product managers | Subscription | 6,000+ teams | Product specs, feedback, roadmaps | Not technical, no validation | Different audience |
 | | Aha.io | Product managers | Enterprise | 1M+ users | Comprehensive, strategy-to-execution | Not technical, expensive | Different audience |
-| **Docs-as-Code** | Docusaurus | OSS projects, docs teams | Free OSS | Very strong | Meta backing, great DX, popular | Docs only, React knowledge | Complementary (SpecForge could generate) |
+| **Docs-as-Code** | Docusaurus | OSS projects, docs teams | Free OSS | Very strong | Meta backing, great DX, popular | Docs only, React knowledge | Complementary (renderers produce from graph) |
 | | Backstage | Platform engineering | Free OSS | Very strong (32.7k stars) | Service catalog, CNCF, plugins | Infrastructure, not specs | Adjacent (SpecForge could integrate) |
 | | Fern | API developers | Unknown | Moderate (3.5k stars) | OpenAPI to SDKs/docs | API-only | Complementary |
 | | log4brains | Architects | Free OSS | Moderate (1.4k stars) | ADR workflow, docs generation | ADRs only | Adjacent (SpecForge includes ADRs) |
-| **API Specs** | OpenAPI | API developers | Free standard | Market leader | Industry standard, ecosystem | API-only, verbose | Complementary (SpecForge could consume/generate) |
+| **API Specs** | OpenAPI | API developers | Free standard | Market leader | Industry standard, ecosystem | API-only, verbose | Complementary (SpecForge consumes; renderers produce from graph) |
 | | AsyncAPI | Event-driven teams | Free standard | Growing | Async APIs, event-driven | API-only, smaller ecosystem | Complementary |
 | **Knowledge Mgmt** | Confluence | Atlassian users | Subscription | Very strong | Jira integration, collaboration | Not dev-native, no validation | Different tool type |
 | | Notion | General teams | Freemium | Very strong | Flexible, AI, good UX | GUI-first, no validation | Different tool type |
@@ -1610,17 +1610,17 @@ SpecForge occupies a **unique whitespace** at the intersection of:
 3. **vs. API Spec Tools (TypeSpec, Smithy, OpenAPI):**
    - Broader scope (requirements, behaviors, architecture, not just APIs)
    - Traceability across concerns
-   - Could generate API specs as output
+   - Graph context enables renderers to produce API specs as output
 
 4. **vs. Architecture Tools (Structurizr, PlantUML, Mermaid):**
-   - Specifications are source of truth (diagrams are generated)
+   - Specifications are source of truth (renderers produce diagrams from graph)
    - Validation and consistency checking
    - Traceability to implementation
 
 5. **vs. BDD Tools (Cucumber):**
    - Comprehensive specifications (not just tests)
    - Traceability from requirements through behaviors to tests
-   - Could generate Gherkin as output
+   - Graph context enables renderers to produce Gherkin as output
 
 ### Competitive Risks
 
@@ -1632,7 +1632,7 @@ SpecForge occupies a **unique whitespace** at the intersection of:
 2. **TypeSpec/Smithy Momentum:**
    - Strong backing (Microsoft, Amazon)
    - Established ecosystems
-   - **Mitigation:** Broader scope (not just APIs), complementary (generate TypeSpec/Smithy)
+   - **Mitigation:** Broader scope (not just APIs), complementary (renderers produce TypeSpec/Smithy from graph)
 
 3. **Enterprise Tool Incumbency:**
    - Regulated industries are conservative
@@ -1646,7 +1646,7 @@ SpecForge occupies a **unique whitespace** at the intersection of:
 5. **Fragmentation:**
    - Many specialized tools (PlantUML, Mermaid, Cucumber, OpenAPI) work well together
    - Why replace with one tool?
-   - **Mitigation:** Integration, not replacement. SpecForge generates outputs for these tools.
+   - **Mitigation:** Integration, not replacement. SpecForge provides graph context that agents/renderers use to produce outputs for these tools.
 
 ---
 
@@ -1797,12 +1797,7 @@ SpecForge occupies a **unique whitespace** at the intersection of:
 - Competition: PlantUML, Mermaid, TypeSpec
 - Goal: Integration with existing ecosystems
 
-**Phase 4: Code Generation**
-- Focus: Test generation (Cucumber/Gherkin), API clients, type definitions
-- Competition: TypeSpec, Smithy
-- Goal: End-to-end specifications to code
-
-**Phase 5: Enterprise Features**
+**Phase 4: Enterprise Features**
 - Focus: Compliance reports, audit trails, advanced traceability
 - Competition: DOORS, Jama, Polarion
 - Goal: Modernize regulated industry workflows
@@ -1847,10 +1842,10 @@ SpecForge occupies a **unique whitespace** at the intersection of:
 **Potential Integrations:**
 - **VS Code / Visual Studio:** LSP extension
 - **GitHub / GitLab:** Native integration for spec validation in PRs
-- **Docusaurus / Backstage:** Generate sites from specs
-- **Mermaid / PlantUML:** Diagram generation
-- **TypeSpec / Smithy:** API spec generation
-- **Cucumber / Behat:** Test generation
+- **Docusaurus / Backstage:** Renderers produce sites from graph
+- **Mermaid / PlantUML:** Diagram production by renderers from graph
+- **TypeSpec / Smithy:** API spec production by renderers from graph
+- **Cucumber / Behat:** Test production by agents from graph
 - **Terraform / Pulumi:** Infrastructure-as-code parallels
 
 **Potential Partners:**
@@ -1936,7 +1931,7 @@ SpecForge occupies a **unique whitespace** at the intersection of:
 - 5,000+ GitHub stars
 - 200+ contributors
 - 100+ production users
-- Rich output generation (docs, diagrams, tests)
+- Rich output production by renderers/agents (docs, diagrams, tests)
 
 **Year 3:**
 - 10,000+ GitHub stars

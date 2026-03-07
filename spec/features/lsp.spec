@@ -1,6 +1,29 @@
 // LSP features
 
 use behaviors/lsp
+use behaviors/zero-entity-lsp
+
+feature lsp_lifecycle "LSP Lifecycle" {
+  behaviors [lsp_initialize, lsp_shutdown, document_open_close]
+
+  problem """
+    The LSP server must properly initialize with capabilities that
+    reflect installed extensions, manage document lifecycle (open/close),
+    and clean up resources on shutdown. Without explicit lifecycle
+    management, the server may leak resources, advertise stale
+    capabilities, or fail to track open documents for incremental
+    compilation.
+  """
+
+  solution """
+    LSP initialization derives all capabilities from loaded extensions
+    via KindRegistry and FieldRegistry — the semantic token legend,
+    completion triggers, and code action kinds are all extension-driven.
+    Document open/close tracks which files participate in incremental
+    compilation. Shutdown releases the in-memory graph, Wasm engines,
+    and open document buffers.
+  """
+}
 
 feature go_to_definition_and_references "Go-to-Definition and References" {
   behaviors [go_to_definition, find_all_references, goto_import_definition]
@@ -19,7 +42,18 @@ feature go_to_definition_and_references "Go-to-Definition and References" {
 }
 
 feature hover_and_autocomplete "Hover and Autocomplete" {
-  behaviors [hover_information, autocomplete_entity_ids, complete_field_names, complete_keywords]
+  // Owned here (behaviors/lsp.spec):
+  //   hover_information, autocomplete_entity_ids, complete_keywords
+  // Bridge from extension_driven_lsp (features/zero-entity-core.spec):
+  //   complete_field_names — queries FieldRegistry for extension-defined field names
+  // Bridge references from zero-entity-core (behaviors/zero-entity-lsp.spec):
+  //   provide_extension_entity_hover, complete_extension_defined_keywords
+  behaviors [
+    hover_information, autocomplete_entity_ids, complete_keywords,
+    complete_field_names,
+    provide_extension_entity_hover,
+    complete_extension_defined_keywords,
+  ]
 
   problem """
     Users need quick access to entity details without navigating away
@@ -28,15 +62,15 @@ feature hover_and_autocomplete "Hover and Autocomplete" {
   """
 
   solution """
-    LSP hover shows entity title, contract/guarantee text, and reference
-    count. Autocomplete suggests matching entity IDs with titles when
+    LSP hover shows entity title, first string field summary, and
+    reference count. Autocomplete suggests matching entity IDs with titles when
     typing in reference lists, valid field names inside entity blocks,
     and entity keywords at the file top level.
   """
 }
 
 feature rename_refactoring "Rename Refactoring" {
-  behaviors [rename_entity_id]
+  behaviors [prepare_rename, rename_entity_id]
 
   problem """
     Renaming an entity ID requires updating every file that references
@@ -50,8 +84,8 @@ feature rename_refactoring "Rename Refactoring" {
   """
 }
 
-feature live_diagnostics_feature "Live Diagnostics" {
-  behaviors [live_diagnostics, shared_incremental_pipeline, provide_semantic_tokens, incremental_document_sync]
+feature live_diagnostics "Live Diagnostics" {
+  behaviors [live_diagnostics, shared_incremental_pipeline, incremental_document_sync, handle_text_document_change]
 
   problem """
     Users need immediate feedback as they type, not after saving.
@@ -66,26 +100,59 @@ feature live_diagnostics_feature "Live Diagnostics" {
   """
 }
 
-feature code_actions "Code Actions" {
-  behaviors [code_actions_for_missing_tests, code_action_add_missing_import, code_action_create_entity_stub]
+feature semantic_tokens "Semantic Tokens" {
+  // Owned here (behaviors/lsp.spec):
+  //   provide_semantic_tokens
+  // Bridge references from zero-entity-core (behaviors/zero-entity-lsp.spec):
+  //   provide_extension_entity_semantic_tokens
+  behaviors [provide_semantic_tokens, provide_extension_entity_semantic_tokens]
 
   problem """
-    Untested behaviors are easy to overlook. Generating test stubs
-    manually from verify statements is repetitive boilerplate.
-    Unresolved references require manual import addition or entity
-    creation.
+    Without semantic understanding, editors can only provide basic
+    syntax highlighting via TextMate grammars. Entity keywords defined
+    by extensions are indistinguishable from plain identifiers, and
+    field names lack contextual coloring.
   """
 
   solution """
-    LSP offers code actions on untested behaviors to generate test
-    stubs for the configured language with behavior ID and verify
-    descriptions pre-filled. On unresolved references, the LSP offers
-    quick-fixes to add the missing import or create an entity stub.
+    LSP provides semantic tokens that classify entity keywords using
+    extension-defined token types from the KindRegistry. Structural
+    keywords, entity IDs, triple-quoted strings, and extension-defined
+    fields each receive distinct token classifications for rich
+    highlighting.
+  """
+}
+
+feature code_actions "Code Actions" {
+  // Owned: code_action_add_missing_import
+  // Bridge: code_actions_for_missing_tests, code_action_create_entity_stub
+  //   (owned by extension_driven_code_actions in features/zero-entity-core.spec)
+  behaviors [
+    code_action_add_missing_import,
+    code_actions_for_missing_tests,
+    code_action_create_entity_stub,
+  ]
+
+  problem """
+    Untested entities are easy to overlook. Adding verify declarations
+    manually is repetitive. Unresolved references require manual import
+    addition or entity creation.
+  """
+
+  solution """
+    LSP offers code actions on untested testable entities (any entity kind
+    with testable=true in its extension manifest) to add verify stub
+    declarations to the .spec file. On unresolved references, the LSP
+    offers quick-fixes to add the missing import or create an entity stub.
   """
 }
 
 feature outline_and_symbol_search "Outline and Symbol Search" {
-  behaviors [outline_view, workspace_symbol_search]
+  // Owned here (behaviors/lsp.spec):
+  //   outline_view, workspace_symbol_search
+  // Bridge references from zero-entity-core (behaviors/zero-entity-lsp.spec):
+  //   provide_extension_defined_lsp_icons
+  behaviors [outline_view, workspace_symbol_search, provide_extension_defined_lsp_icons]
 
   problem """
     Large .spec files need a structural overview. Finding entities
@@ -93,8 +160,11 @@ feature outline_and_symbol_search "Outline and Symbol Search" {
   """
 
   solution """
-    LSP outline view shows a tree of all entities in the current file.
+    LSP outline view shows a tree of all entities in the current file
+    with extension-driven SymbolKind icons from the KindRegistry.
     Workspace symbol search finds entities by ID prefix or title
     fragment across all .spec files.
   """
 }
+
+// LSP formatting features (format on save, range format) are in features/formatting.spec

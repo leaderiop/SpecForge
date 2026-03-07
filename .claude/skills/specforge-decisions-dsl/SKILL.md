@@ -1,11 +1,11 @@
 ---
 name: specforge-decisions-dsl
-description: "Write decision (ADR) blocks in .spec DSL files (@specforge/governance plugin). Each decision declares an Architecture Decision Record with ADR-{n} IDs, status lifecycle, context/decision/consequences structure, and invariant protection links. Use when documenting why the system is built a certain way."
+description: "Write decision (ADR) blocks in .spec DSL files (@specforge/governance plugin). Each decision declares an Architecture Decision Record with free-form snake_case IDs, status lifecycle, context/decision/consequences structure, and invariant protection links. Use when documenting why the system is built a certain way."
 ---
 
 # SpecForge Decisions DSL
 
-Rules and conventions for authoring **`decision` blocks** in `.spec` files. Decisions are Architecture Decision Records (ADRs) — they capture the *why* behind significant technical choices.
+Rules and conventions for authoring **`decision` blocks** in `.spec` files. Decisions are Architecture Decision Records (ADRs) -- they capture the *why* behind significant technical choices.
 
 **Requires:** `@specforge/governance` plugin.
 
@@ -19,13 +19,13 @@ Rules and conventions for authoring **`decision` blocks** in `.spec` files. Deci
 ## Block Syntax
 
 ```spec
-decision ADR-001 "PostgreSQL over MongoDB" {
+decision postgres_over_mongodb "PostgreSQL over MongoDB" {
   status   accepted
   date     2025-03-01
 
   context """
     We need a primary datastore. Team has SQL expertise.
-    Document model not needed — data is relational.
+    Document model not needed -- data is relational.
   """
 
   decision """
@@ -38,7 +38,7 @@ decision ADR-001 "PostgreSQL over MongoDB" {
     "Team can leverage existing SQL knowledge",
   ]
 
-  invariants [INV-MS-1]
+  invariants [data_persistence]
 }
 ```
 
@@ -58,7 +58,7 @@ decision ADR-001 "PostgreSQL over MongoDB" {
 | Field | Type | Description |
 |-------|------|-------------|
 | `date` | date | When the decision was made (YYYY-MM-DD). |
-| `consequences` | string list | Known consequences — both positive and negative. |
+| `consequences` | string list | Known consequences -- both positive and negative. |
 | `invariants` | reference list | Invariants this decision protects. |
 | `refs` | reference list | External references linked to this decision. |
 
@@ -82,19 +82,15 @@ decision ADR-001 "PostgreSQL over MongoDB" {
 
 ### Incoming edges
 
-| From | Edge Type | Meaning |
-|------|-----------|---------|
-| `behavior` | `shaped_by` | Behaviors shaped by this decision (soft ref) |
+None. Decisions are referenced informally from behavior contracts.
 
 ## Writing Rules
 
-1. **Project-wide IDs** — `ADR-{n}` omits the infix (ADRs are sequential project-wide documents).
-2. **Context explains forces** — what problem, constraints, and trade-offs led to this decision.
-3. **Decision is the choice** — not the rationale (that is in context and consequences).
-4. **Consequences include negatives** — honest trade-offs, not just benefits.
-5. **Link to invariants** — decisions should protect invariants when applicable.
-6. **Status transitions** — `proposed → accepted → deprecated/superseded`.
-7. **`shaped_by` is a soft cross-module reference** — behaviors reference decisions via `adrs` field.
+1. **Context explains forces** -- what problem, constraints, and trade-offs led to this decision.
+2. **Decision is the choice** -- not the rationale (that is in context and consequences).
+3. **Consequences include negatives** -- honest trade-offs, not just benefits.
+4. **Link to invariants** -- decisions should protect invariants when applicable.
+5. **Status transitions** -- `proposed -> accepted -> deprecated/superseded`.
 
 ## Validation Rules
 
@@ -102,20 +98,20 @@ decision ADR-001 "PostgreSQL over MongoDB" {
 |------|------|
 | E001 | Every ID in `invariants` must resolve to an existing invariant. |
 | E002 | No duplicate decision IDs. |
-| I001 | Stale proposal — `proposed` status with `date` older than 30 days. |
+| I001 | Stale proposal -- `proposed` status with `date` older than 30 days. |
 
 ## Examples
 
 ### Technology Choice
 
 ```spec
-decision ADR-001 "PostgreSQL over MongoDB" {
+decision postgres_over_mongodb "PostgreSQL over MongoDB" {
   status   accepted
   date     2025-03-01
 
   context """
     We need a primary datastore. Team has SQL expertise.
-    Document model not needed — data is relational.
+    Document model not needed -- data is relational.
     ACID transactions are required for financial data integrity.
   """
 
@@ -127,10 +123,10 @@ decision ADR-001 "PostgreSQL over MongoDB" {
     "Migrations required for schema changes",
     "Strong ACID guarantees",
     "Team can leverage existing SQL knowledge",
-    "No native document storage — complex JSON queries are slower",
+    "No native document storage -- complex JSON queries are slower",
   ]
 
-  invariants [INV-MS-1]
+  invariants [data_persistence]
   refs [gh.discussion:12]
 }
 ```
@@ -138,7 +134,7 @@ decision ADR-001 "PostgreSQL over MongoDB" {
 ### Architectural Pattern
 
 ```spec
-decision ADR-005 "Event Sourcing for Audit Trail" {
+decision event_sourcing_for_audit "Event Sourcing for Audit Trail" {
   status   accepted
   date     2025-06-15
 
@@ -160,14 +156,14 @@ decision ADR-005 "Event Sourcing for Audit Trail" {
     "Eventually consistent read models required",
   ]
 
-  invariants [INV-MS-3, INV-MS-7]
+  invariants [audit_trail_integrity, event_ordering]
 }
 ```
 
 ### Proposed (Not Yet Accepted)
 
 ```spec
-decision ADR-012 "Migrate from REST to gRPC for Internal Services" {
+decision grpc_for_internal_services "Migrate from REST to gRPC for Internal Services" {
   status   proposed
   date     2026-02-15
 
@@ -193,7 +189,6 @@ decision ADR-012 "Migrate from REST to gRPC for Internal Services" {
 ## What NOT to Do
 
 - Do not write decisions without the `@specforge/governance` plugin installed
-- Do not add an infix to decision IDs — use `ADR-001`, not `ADR-MS-001`
 - Do not write ADRs for trivial, easily reversible choices
-- Do not omit consequences — especially negative trade-offs
+- Do not omit consequences -- especially negative trade-offs
 - Do not leave `proposed` decisions for more than 30 days without resolving (I001 warning)

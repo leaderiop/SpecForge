@@ -1,0 +1,20 @@
+// Embeddings extension — types for entity embeddings and similarity search
+
+type EntityEmbedding {
+  entity_id          string         @readonly
+  /// Serialized as a JSON array of floats. The dimensionality depends on the configured embedding provider.
+  vector             float[]        @readonly
+  source_text        string         @readonly
+  dimensions         integer        @readonly
+}
+
+type EmbeddingSimilarityConfig {
+  top_k      integer       @optional // Max results for similarity search (default: 10)
+}
+
+type SimilarityResult {
+  entity_id          string         @readonly
+  score              float          @readonly @doc "Range: 0.0 to 1.0 (cosine similarity)"
+  kind               string         @readonly
+  title              string         @readonly
+}

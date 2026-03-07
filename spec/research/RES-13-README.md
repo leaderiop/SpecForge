@@ -2,12 +2,12 @@
 
 **Research ID:** RES-13
 **Date:** 2026-03-01
-**Status:** Complete
+**Status:** partially-superseded
 **Author:** Research Team
 
 ## Overview
 
-This research analyzes the competitive landscape for SpecForge, a Rust-based DSL and compiler for software specifications. The research covers the current market as of 2025-2026, including enterprise requirements management tools, requirements-as-code projects, specification DSLs, architecture-as-code tools, BDD frameworks, and documentation platforms.
+This research analyzes the competitive landscape for SpecForge, the structured context standard for AI agents. The research covers the current market as of 2025-2026, including enterprise requirements management tools, requirements-as-code projects, specification DSLs, architecture-as-code tools, BDD frameworks, and documentation platforms.
 
 ## Documents
 
@@ -84,7 +84,7 @@ Comprehensive research document with detailed analysis of all competitors, tools
 - Rich DSL with compiler validation
 - Graph-based traceability
 - Developer-native tooling (LSP, CLI)
-- Multiple output formats (docs, diagrams, code, tests)
+- Graph Protocol output for agents and renderers
 - Open-source
 
 ### 2. Market Segmentation
@@ -94,10 +94,10 @@ Comprehensive research document with detailed analysis of all competitors, tools
 | **Enterprise Req Mgmt** | DOORS, Polarion, Jama | Different audience (too heavy/expensive) |
 | **Requirements-as-Code** | Doorstop, StrictDoc | **Direct competitor** (SpecForge has better tooling) |
 | **API Spec DSLs** | TypeSpec, Smithy, OpenAPI | Broader scope (SpecForge includes APIs + more) |
-| **Architecture-as-Code** | Structurizr, Mermaid, PlantUML | Complementary (SpecForge generates diagrams) |
-| **BDD Tools** | Cucumber, Specdown | Complementary (SpecForge generates Gherkin) |
+| **Architecture-as-Code** | Structurizr, Mermaid, PlantUML | Complementary (graph consumed by renderers to produce diagrams) |
+| **BDD Tools** | Cucumber, Specdown | Complementary (SpecForge consumes test results) |
 | **Product Mgmt** | ProductBoard, Aha.io | Different audience (PMs vs. developers) |
-| **Docs-as-Code** | Docusaurus, Backstage | Complementary (SpecForge generates docs) |
+| **Docs-as-Code** | Docusaurus, Backstage | Complementary (SpecForge emits structured data) |
 
 ### 3. Competitive Advantages
 
@@ -112,14 +112,14 @@ Comprehensive research document with detailed analysis of all competitors, tools
 - Compiler validation
 - LSP support
 - Graph-based traceability
-- Multiple output formats
+- Graph Protocol output
 
 **vs. API Spec Tools:**
 - Broader scope (requirements, behaviors, architecture)
 - Traceability across concerns
 
 **vs. Architecture Tools:**
-- Specifications as source of truth (diagrams generated)
+- Specifications as source of truth (diagrams produced by renderers from graph)
 - Validation and consistency checking
 
 ### 4. Market Trends (2025-2026)
@@ -159,21 +159,20 @@ Comprehensive research document with detailed analysis of all competitors, tools
 ## Strategic Recommendations
 
 ### Positioning
-**Primary Message:** "Compiler for software specifications. Like TypeScript for your requirements, architecture, and behaviors."
+**Primary Message:** "Structured context standard for AI agents."
 
 **Key Differentiators:**
 1. Compiler validation
 2. Graph-based traceability
 3. Developer-native (LSP, CLI, Git)
-4. Multiple outputs
+4. Graph Protocol
 5. Open-source and free
 
 ### Development Priorities
 1. **Phase 1 (MVP):** Core compiler (parsing, validation, graph)
 2. **Phase 2 (DX):** LSP, VS Code extension, error diagnostics
-3. **Phase 3 (Output):** Markdown docs, Mermaid diagrams, OpenAPI
-4. **Phase 4 (Codegen):** Test generation (Gherkin), API clients, types
-5. **Phase 5 (Enterprise):** Compliance reports, audit trails
+3. **Phase 3 (Ecosystem):** Renderers and agent integrations (Mermaid, OpenAPI, Markdown)
+4. **Phase 4 (Enterprise):** Compliance reports, audit trails
 
 ### Go-to-Market
 1. Open-source first (GitHub, MIT/Apache 2.0)
@@ -230,12 +229,12 @@ Comprehensive research document with detailed analysis of all competitors, tools
 2. ✅ **No Direct Competitor:** Unique combination of features
 3. ✅ **Strong Trends:** Everything-as-code, shift-left, open-source
 4. ✅ **Large Addressable Market:** Millions of developers + regulated industries
-5. ✅ **Clear Differentiation:** Compiler validation + traceability + LSP + multiple outputs
+5. ✅ **Clear Differentiation:** Compiler validation + traceability + LSP + Graph Protocol
 
 **The path forward is clear:**
 
 1. Build the best developer experience (LSP, error messages, docs)
-2. Integrate, don't replace (generate outputs for existing tools)
+2. Integrate, don't replace (provide graph context that agents/renderers use to produce outputs for existing tools)
 3. Start with early adopters (modern teams, not enterprise)
 4. Grow organically (open-source, community-driven)
 5. Move upmarket when ready (enterprise features for regulated industries)

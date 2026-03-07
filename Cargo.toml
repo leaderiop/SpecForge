@@ -8,7 +8,7 @@ members = [
     "crates/specforge-graph",
     "crates/specforge-validator",
     "crates/specforge-emitter",
-    "crates/specforge-codegen",
+
     "crates/specforge-coverage",
     "crates/specforge-wasm",
     "crates/specforge-cli",
@@ -19,20 +19,10 @@ members = [
 edition = "2024"
 version = "0.1.0"
 license = "MIT OR Apache-2.0"
-repository = "https://github.com/anthropics/specforge"
+repository = "https://github.com/specforge/specforge"
 
 [workspace.dependencies]
 # Shared across crates
-specforge-common = { path = "crates/specforge-common" }
-tree-sitter-specforge = { path = "crates/tree-sitter-specforge" }
-specforge-parser = { path = "crates/specforge-parser" }
-specforge-resolver = { path = "crates/specforge-resolver" }
-specforge-graph = { path = "crates/specforge-graph" }
-specforge-validator = { path = "crates/specforge-validator" }
-specforge-emitter = { path = "crates/specforge-emitter" }
-specforge-codegen = { path = "crates/specforge-codegen" }
-specforge-coverage = { path = "crates/specforge-coverage" }
-specforge-wasm = { path = "crates/specforge-wasm" }
 
 # External
 tree-sitter = "0.25"
@@ -53,7 +43,7 @@ semver = "1"
 ureq = "3"
 sha2 = "0.10"
 quick-xml = "0.37"
-which = "7"
+
 notify = "7"
 ctrlc = "3"
 tower-lsp = "0.20"

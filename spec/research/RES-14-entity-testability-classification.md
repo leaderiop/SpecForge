@@ -4,22 +4,23 @@ kind: research
 title: "Entity Testability Classification — Which Spec Concepts Require Test Coverage?"
 status: active
 date: 2026-03-02
-depends_on: RES-12
+depends_on: []
 ---
 
 # RES-14: Entity Testability Classification
 
+
 ## Problem Statement
 
-SpecForge defines 16 DSL entities across core (8), product (5), and governance (3) modules. When an AI agent or team uses SpecForge to specify a software system, **which of these concepts represent things that need automated test coverage in the target software**, and which are purely declarative metadata that the compiler validates structurally?
+SpecForge's standard extensions define 14 domain entities across `@specforge/software` (6), `@specforge/product` (5), and `@specforge/governance` (3) extensions (the core compiler itself has zero built-in entity types — see RES-26). When an AI agent or team uses SpecForge to specify a software system, **which of these concepts represent things that need automated test coverage in the target software**, and which are purely declarative metadata that the compiler validates structurally?
 
 This distinction drives:
 - **Test declaration**: which entities support `verify` and `scenario` blocks (RES-15)
 - **Traceability**: which entities require `tests` field linkage to real test files (RES-15)
 - **Coverage reporting**: which entities count toward "spec coverage" in `specforge trace`
-- **Code generation**: which entities emit test scaffolding via generator plugins
+- **Coverage reporting**: which entities require test coverage in the target software
 - **Agent workflow**: which entities an agent must implement AND test vs. only implement
-- **Plugin API**: `EntityKind::is_testable()` and `supports_scenario()` for built-in + custom entities
+- **Extension API**: `EntityKind::is_testable()` for extension-defined entities
 
 This analysis was produced by 10 specialized expert agents, each analyzing entities independently, then consolidated into a unified matrix.
 
@@ -37,32 +38,32 @@ An entity is **DECLARATIVE** if it:
 
 1. Describes structure, metadata, or organizational groupings
 2. Has no runtime behavior of its own
-3. Is validated by the compiler (structural checks), not by test suites
+3. Is validated through methods appropriate to the domain — compiler structural checks for software, governance audits for compliance, product reviews for business contexts, etc. — rather than requiring automated test suites in target software
 
 ---
 
 ## Consolidated Matrix
 
-| # | Entity | Module | Classification | Test Syntax | Rationale |
-|---|--------|--------|---------------|-------------|-----------|
-| 1 | **behavior** | Core | **TESTABLE** | verify + scenario | The atomic unit of "what the system does." Has `contract` (MUST/SHALL) + `verify` statements. Scenarios optional for API/integration flows. |
-| 2 | **invariant** | Core | **TESTABLE** | verify only | Runtime guarantee that must always hold. Falsifiable by definition. `verify property` is the natural fit. |
-| 3 | **event** | Core | **TESTABLE** | verify only | Runtime phenomenon: trigger, payload shape, channel, consumers. Testable via producer/consumer/contract tests. |
-| 4 | **constraint** | Governance | **TESTABLE** | verify only | Measurable NFR with thresholds (e.g., "p99 < 200ms"). `verify load/security` is the natural fit. |
-| 5 | **capability** | Product | **TESTABLE** | verify + scenario | UX flow with persona + surface. Scenarios provide structured Given/When/Then acceptance criteria for agents. |
-| 6 | feature | Core | Declarative | — | Organizational grouping of behaviors. Testing its behaviors suffices. |
-| 7 | type | Core | Declarative | — | Data shape definition (struct/union/enum). No runtime logic. |
-| 8 | port | Core | Declarative | — | Interface contract (method signatures). Implementations are tested, not the definition. |
-| 9 | spec | Core | Declarative | — | Project configuration. Configures the compiler, not the target software. |
-| 10 | ref | Core | Declarative | — | External link (gh.issue:42). Metadata anchor with zero runtime behavior. |
-| 11 | deliverable | Product | Declarative | — | Shipping manifest — bundles capabilities into artifacts. |
-| 12 | library | Product | Declarative | — | Code package declaration. Structural metadata, not executable. |
-| 13 | roadmap | Product | Declarative | — | Planning phase with status lifecycle. Temporal/scheduling metadata. |
-| 14 | decision | Governance | Declarative | — | ADR documenting "why." Historical rationale, no runtime behavior. |
-| 15 | failure_mode | Governance | Declarative | — | FMEA risk entry. Informs what to test, but is not itself testable. |
-| 16 | glossary | Product | Declarative | — | Vocabulary definitions. Pure reference material. |
+| # | Entity | Extension | Classification | Test Syntax | Rationale |
+|---|--------|---------|---------------|-------------|-----------|
+| 1 | **behavior** | @specforge/software | **TESTABLE** | verify only | The atomic unit of "what the system does." Has `contract` (MUST/SHALL) + `verify` statements. Scenarios restricted to capability only (RES-15). |
+| 2 | **invariant** | @specforge/software | **TESTABLE** | verify only | Runtime guarantee that must always hold. Falsifiable by definition. `verify property` is the natural fit. |
+| 3 | **event** | @specforge/software | **TESTABLE** | verify only | Runtime phenomenon: trigger, payload shape, channel, consumers. Testable via producer/consumer/contract tests. |
+| 4 | **constraint** | @specforge/governance | **TESTABLE** | verify only | Measurable NFR with thresholds (e.g., "p99 < 200ms"). `verify load/security` is the natural fit. |
+| 5 | **capability** | @specforge/product | **TESTABLE** | verify e2e¹ + scenario | UX flow with persona + surface. Scenario for structured acceptance criteria. `verify e2e` for one-liner test declarations. |
+| 6 | feature | @specforge/software | Declarative | — | Organizational grouping of behaviors. Testing its behaviors suffices. |
+| 7 | type | @specforge/software | Declarative | — | Data shape definition (struct/union/enum). No runtime logic. |
+| 8 | port | @specforge/software | Declarative | — | Interface contract (method signatures). Implementations are tested, not the definition. |
+| 9 | spec | Core (structural) | Declarative | — | Project configuration. Configures the compiler, not the target software. |
+| 10 | ref | Core (structural) | Declarative | — | External link (gh.issue:42). Metadata anchor with zero runtime behavior. |
+| 11 | deliverable | @specforge/product | Declarative | — | Shipping manifest — bundles capabilities into artifacts. |
+| 12 | library | @specforge/product | Declarative | — | Code package declaration. Structural metadata, not executable. |
+| 13 | roadmap | @specforge/product | Declarative | — | Planning phase with status lifecycle. Temporal/scheduling metadata. |
+| 14 | decision | @specforge/governance | Declarative | — | ADR documenting "why." Historical rationale, no runtime behavior. |
+| 15 | failure_mode | @specforge/governance | Declarative | — | FMEA risk entry. Informs what to test, but is not itself testable. |
+| 16 | glossary | @specforge/product | Declarative | — | Vocabulary definitions. Pure reference material. |
 
-**Result: 5 testable / 11 declarative.**
+**Result: 5 testable / 11 declarative (= 16 total rows: 14 domain entities from 3 extensions + 2 structural core keywords).**
 
 ---
 
@@ -71,11 +72,11 @@ An entity is **DECLARATIVE** if it:
 ```
                     verify    scenario    tests field
                     ──────    ────────    ───────────
-  behavior           ✅         ✅           ✅
+  behavior           ✅         ❌           ✅
   invariant          ✅         ❌           ✅
   event              ✅         ❌           ✅
   constraint         ✅         ❌           ✅
-  capability         ✅         ✅           ✅
+  capability         ⚠️¹        ✅           ✅
   ─────────────────────────────────────────────────
   (11 declarative)   ❌         ❌           ❌
 ```
@@ -83,6 +84,8 @@ An entity is **DECLARATIVE** if it:
 - **verify**: One-liner test intent. 5 kinds: `unit`, `integration`, `property`, `load`, `e2e`.
 - **scenario**: Structured Given/When/Then acceptance criteria. Only where flows make sense.
 - **tests**: File linkage to actual executable tests. The PRIMARY traceability mechanism.
+
+¹ `verify e2e` on capability is supported but deprecated in v1.0 and will be removed in v2.0 (RES-15). Prefer `scenario` blocks for capabilities.
 
 ---
 
@@ -95,7 +98,7 @@ An entity is **DECLARATIVE** if it:
 **Why testable:**
 - `contract` field uses RFC 2119 keywords (MUST, SHALL, SHOULD) defining precise, verifiable guarantees
 - `verify` statements declare test type and expected outcome
-- `scenario` blocks optional for API/integration flows (Given/When/Then)
+- Scenarios restricted to capability only (RES-15)
 - `tests` field links to actual test files for traceability
 - Has triggers, state changes, return values, and error conditions — all observable
 
@@ -273,7 +276,7 @@ These entities are **composition layers**. They don't add testable behavior — 
 | type | Data shapes (struct/union/enum) | Passive schema — no logic, no side effects |
 | port | Interface signatures (methods, params, return types) | Contract shape — implementations are tested, not the definition |
 
-These entities define **what things look like**, not **what things do**. Their generated code (TypeScript interfaces, Go interfaces) is validated by the type checker at compile time, not by test suites at runtime.
+These entities define **what things look like**, not **what things do**. The code that agents produce from their graph context (TypeScript interfaces, Go interfaces) is validated by the type checker at compile time, not by test suites at runtime.
 
 ### Group 3: Documentation / Metadata (6)
 
@@ -292,19 +295,17 @@ These entities exist for **human communication and tooling metadata**. The compi
 
 ## Implications for SpecForge
 
-### Code Generation (`@specforge/gen-typescript`, etc.)
+### Test Coverage
 
-Only the 5 testable entities should emit test scaffolding:
+Only the 5 testable entities require test coverage in the target software. The three-layer traceability model (RES-15) applies: Intent (verify/scenario) → Linkage (tests field) → Proof (specforge-report.json). AI agents or developers implement the tests; SpecForge validates the chain.
 
-| Entity | verify generates | scenario generates |
-|--------|-----------------|-------------------|
-| behavior | Test file with one test per `verify` statement | Structured test with Given/When/Then comments (if scenario present) |
-| invariant | Property-based test file asserting the `guarantee` | — |
-| event | Contract test file checking payload shape + delivery | — |
-| constraint | NFR test file with threshold assertions | — |
-| capability | Test stub per `verify e2e` | Playwright/Cypress test with scenario steps as structure |
-
-Cucumber `.feature` generation available via `@specforge/gen-cucumber` plugin (generates FROM inline scenarios).
+| Entity | verify intent | scenario intent |
+|--------|--------------|-----------------|
+| behavior | One test per `verify` statement | Structured test with Given/When/Then steps (if scenario present) |
+| invariant | Property-based test asserting the `guarantee` | — |
+| event | Contract test checking payload shape + delivery | — |
+| constraint | NFR test with threshold assertions | — |
+| capability | E2E test per `verify e2e` | Playwright/Cypress test following scenario steps |
 
 ### Coverage Reporting (`specforge trace`)
 
@@ -343,9 +344,11 @@ AI agents are SpecForge's primary consumer. The testability classification direc
 | **W018** | Testable entity has verify/scenario but no `tests` field | `"'{id}' has test declarations but no linked test files"` |
 | **E016** | `tests` field references a file that doesn't exist | `"test file '{path}' not found"` |
 
-### Plugin Testability API
+### Extension Testability API
 
 ```rust
+// NOTE: In zero-entity core (RES-26), these hardcoded matches are replaced
+// by dynamic KindRegistry lookups. Extension manifests declare testability.
 impl EntityKind {
     pub fn is_testable(&self) -> bool {
         matches!(self,
@@ -355,14 +358,14 @@ impl EntityKind {
     }
 
     pub fn supports_scenario(&self) -> bool {
-        matches!(self, Self::Behavior | Self::Capability)
+        matches!(self, Self::Capability)
     }
 }
 ```
 
-Plugin authors declare testability in `plugin.toml`:
+Extension authors declare testability in the extension manifest:
 ```toml
-[[entities]]
+[[entity_kinds]]
 keyword = "validation_rule"
 testable = true
 supports_verify = true
@@ -375,8 +378,8 @@ supports_scenario = false
 
 **The 5 testable entities are: behavior, invariant, event, constraint, capability.**
 
-These are the concepts that require automated test coverage in the target software. They support `verify` statements, `scenario` blocks (behavior + capability), and `tests` field linkage. They participate in the three-layer traceability model (intent → linkage → proof) and count toward spec coverage.
+These are the concepts that require automated test coverage in the target software. They support `verify` statements (behavior, invariant, event, constraint), `scenario` blocks (capability only), and `tests` field linkage. They participate in the three-layer traceability model (intent → linkage → proof) and count toward spec coverage.
 
-All other entities are validated structurally by the SpecForge compiler and do not need runtime test cases.
+All other entities are validated through domain-appropriate methods (compiler structural checks, governance audits, product reviews, etc.) and do not need automated test suites in target software.
 
-This classification informs code generation plugins, coverage reporting, traceability chains, agent workflow, plugin API, and developer documentation. See RES-15 for the full test declaration and traceability architecture.
+This classification informs coverage reporting, traceability chains, agent workflow, extension API, and developer documentation. See RES-15 for the full test declaration and traceability architecture.

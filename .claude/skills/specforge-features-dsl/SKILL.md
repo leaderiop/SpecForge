@@ -1,11 +1,15 @@
 ---
 name: specforge-features-dsl
-description: "Write feature blocks in .spec DSL files. Each feature declares a user-facing capability composed of behaviors with FEAT-{infix}-{n} IDs, problem/solution framing, and behavior composition. Use when grouping behaviors into coherent units of value for product planning."
+description: "Write feature blocks in .spec DSL files. Each feature declares a user-facing capability composed of behaviors with free-form snake_case IDs, problem/solution framing, and behavior composition. Features are NOT testable (testable=false). Use when grouping behaviors into coherent units of value for product planning."
 ---
 
 # SpecForge Features DSL
 
 Rules and conventions for authoring **`feature` blocks** in `.spec` files. Features bridge what users need (problem) and how the system delivers it (solution) by composing behaviors.
+
+**Requires:** `@specforge/software` plugin.
+
+**Note:** Features are NOT testable entities (`testable=false` in the extension manifest). They do not support `verify` statements. Testing happens at the behavior level.
 
 ## When to Use
 
@@ -19,8 +23,8 @@ Rules and conventions for authoring **`feature` blocks** in `.spec` files. Featu
 ```spec
 use behaviors/user-crud
 
-feature FEAT-MS-001 "User Management" {
-  behaviors [BEH-MS-001, BEH-MS-002, BEH-MS-003]
+feature user_management "User Management" {
+  behaviors [create_user, read_user_by_id, update_user_email]
 
   problem """
     Administrators need to manage user accounts
@@ -31,8 +35,6 @@ feature FEAT-MS-001 "User Management" {
     CRUD operations backed by PostgreSQL with
     unique email constraints and full audit trail.
   """
-
-  roadmap [RM-01]
 }
 ```
 
@@ -44,14 +46,13 @@ feature FEAT-MS-001 "User Management" {
 |-------|------|-------------|
 | `title` | string | Human-readable name (string after the entity ID). |
 | `behaviors` | reference list | Behaviors that compose this feature. Every one must exist. |
-| `problem` | string / triple-string | User need or pain point. Written from the user's perspective. |
-| `solution` | string / triple-string | How the system addresses the problem. Written from the system's perspective. |
 
 ### Optional
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `roadmap` | reference list | Roadmap milestones this feature is planned for. |
+| `problem` | string / triple-string | User need or pain point. Written from the user's perspective. |
+| `solution` | string / triple-string | How the system addresses the problem. Written from the system's perspective. |
 | `refs` | reference list | External references linked to this feature. |
 
 ## Relationships
@@ -73,12 +74,12 @@ feature FEAT-MS-001 "User Management" {
 
 ## Writing Rules
 
-1. **A feature groups multiple behaviors** — if it has only one behavior, it may be too granular.
-2. **Problem is user-perspective** — describe the pain point, not the solution.
-3. **Solution is system-perspective** — describe the approach at a high level.
-4. **Import behavior files** — `use` the files that declare the referenced behaviors.
-5. **`roadmap` is a soft reference** — if `@specforge/product` is not installed, emits `I004`.
-6. **Features go on roadmaps, behaviors go in test suites** — keep the distinction clear.
+1. **A feature groups multiple behaviors** -- if it has only one behavior, it may be too granular.
+2. **Problem is user-perspective** -- describe the pain point, not the solution.
+3. **Solution is system-perspective** -- describe the approach at a high level.
+4. **Import behavior files** -- `use` the files that declare the referenced behaviors.
+5. **Features go on roadmaps, behaviors go in test suites** -- keep the distinction clear.
+6. **Features are not testable** -- do not add `verify` statements; testing is at the behavior level.
 
 ## Validation Rules
 
@@ -86,7 +87,8 @@ feature FEAT-MS-001 "User Management" {
 |------|------|
 | E001 | Every ID in `behaviors` must resolve to an existing behavior. |
 | E002 | No duplicate feature IDs across all `.spec` files. |
-| W002 | Orphan feature — not referenced by any capability. |
+| W002 | Orphan feature -- not referenced by any capability. |
+| W008 | Feature with empty behaviors list. |
 
 ## Examples
 
@@ -95,8 +97,8 @@ feature FEAT-MS-001 "User Management" {
 ```spec
 use behaviors/auth
 
-feature FEAT-MS-002 "Password Authentication" {
-  behaviors [BEH-MS-010, BEH-MS-011, BEH-MS-012]
+feature password_authentication "Password Authentication" {
+  behaviors [authenticate_user, hash_password, validate_session]
 
   problem """
     Users need to securely authenticate to access their accounts.
@@ -111,13 +113,13 @@ feature FEAT-MS-002 "Password Authentication" {
 }
 ```
 
-### Feature with Roadmap and Refs
+### Feature with Refs
 
 ```spec
 use behaviors/search
 
-feature FEAT-MS-005 "Full-Text Search" {
-  behaviors [BEH-MS-030, BEH-MS-031, BEH-MS-032, BEH-MS-033]
+feature full_text_search "Full-Text Search" {
+  behaviors [index_documents, search_query, faceted_filter, highlight_matches]
 
   problem """
     Users with large datasets cannot find specific records quickly.
@@ -131,7 +133,6 @@ feature FEAT-MS-005 "Full-Text Search" {
     relevance with highlighting of matched terms.
   """
 
-  roadmap [RM-03]
   refs [gh.issue:88, figma.frame:search-ui]
 }
 ```
@@ -143,8 +144,8 @@ use behaviors/order-processing
 use behaviors/inventory
 use behaviors/billing
 
-feature FEAT-MS-010 "Order Checkout" {
-  behaviors [BEH-MS-050, BEH-MS-051, BEH-MS-060, BEH-MS-070]
+feature order_checkout "Order Checkout" {
+  behaviors [place_order, reserve_inventory, process_payment, confirm_order]
 
   problem """
     Customers need to complete purchases with confidence that
@@ -157,15 +158,14 @@ feature FEAT-MS-010 "Order Checkout" {
     process payment via Stripe, create order record. Compensating
     transactions on failure (release inventory, refund payment).
   """
-
-  roadmap [RM-02]
 }
 ```
 
 ## What NOT to Do
 
-- Do not write a feature with a single behavior — that is too granular
-- Do not put MUST/SHOULD keywords in the problem/solution — save those for behavior contracts
+- Do not write a feature with a single behavior -- that is too granular
+- Do not put MUST/SHOULD keywords in the problem/solution -- save those for behavior contracts
 - Do not confuse features (system-perspective value) with capabilities (user-perspective UX flow)
 - Do not reference behaviors from other files without a `use` import
-- Do not put implementation details in the `problem` field — it should be user-perspective
+- Do not put implementation details in the `problem` field -- it should be user-perspective
+- Do not add `verify` statements -- features are not testable entities

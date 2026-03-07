@@ -1,11 +1,11 @@
 ---
 name: specforge-capabilities-dsl
-description: "Write capability blocks in .spec DSL files (@specforge/product plugin). Each capability declares a UX flow with UX-{infix}-{n} IDs, mapping a persona on a surface to features with a step-by-step interaction flow. Use when describing how a specific user type experiences the system."
+description: "Write capability blocks in .spec DSL files (@specforge/product plugin). Each capability declares a UX flow with free-form snake_case IDs, mapping a persona on a surface to features with a step-by-step interaction flow. Use when describing how a specific user type experiences the system."
 ---
 
 # SpecForge Capabilities DSL
 
-Rules and conventions for authoring **`capability` blocks** in `.spec` files. Capabilities are the top of the traceability chain — they represent what a real user actually does with the system.
+Rules and conventions for authoring **`capability` blocks** in `.spec` files. Capabilities are the top of the traceability chain -- they represent what a real user actually does with the system.
 
 **Requires:** `@specforge/product` plugin.
 
@@ -21,16 +21,16 @@ Rules and conventions for authoring **`capability` blocks** in `.spec` files. Ca
 ```spec
 use features/user-management
 
-capability UX-MS-001 "Create a New User" {
+capability create_new_user "Create a New User" {
   persona  admin
   surface  [web, cli, api]
-  features [FEAT-MS-001]
+  features [user_management]
 
   flow """
     1. Admin opens user management page
     2. Clicks "New User"
     3. Fills form (name, email, role)
-    4. Submits — system validates uniqueness
+    4. Submits -- system validates uniqueness
     5. Success: user appears in list
     6. Failure: inline error on email field
   """
@@ -72,12 +72,12 @@ capability UX-MS-001 "Create a New User" {
 
 ## Writing Rules
 
-1. **Name as user actions** — "Create a New User" not "User Creation".
-2. **Numbered flow steps** — alternate between user actions and system responses.
-3. **Include success and failure paths** — both in the flow.
-4. **Persona must match spec root** — if `persona` definitions exist in `spec` block, this must match (E008).
-5. **Surface must match spec root** — if `surface` definitions exist, values must match (E009).
-6. **One capability per persona-action** — different personas doing the same thing = different capabilities.
+1. **Name as user actions** -- "Create a New User" not "User Creation".
+2. **Numbered flow steps** -- alternate between user actions and system responses.
+3. **Include success and failure paths** -- both in the flow.
+4. **Persona must match spec root** -- if `persona` definitions exist in `spec` block, this must match (E008).
+5. **Surface must match spec root** -- if `surface` definitions exist, values must match (E009).
+6. **One capability per persona-action** -- different personas doing the same thing = different capabilities.
 
 ## Validation Rules
 
@@ -87,17 +87,17 @@ capability UX-MS-001 "Create a New User" {
 | E002 | No duplicate capability IDs. |
 | E008 | `persona` must match a persona defined in the spec root. |
 | E009 | Every `surface` must match a surface defined in the spec root. |
-| W011 | Orphan capability — not referenced by any deliverable. |
+| W011 | Orphan capability -- not referenced by any deliverable. |
 
 ## Examples
 
 ### Web UI Capability
 
 ```spec
-capability UX-MS-001 "Create a New User" {
+capability create_new_user "Create a New User" {
   persona  admin
   surface  [web]
-  features [FEAT-MS-001]
+  features [user_management]
 
   flow """
     1. Admin navigates to Settings > Users
@@ -116,10 +116,10 @@ capability UX-MS-001 "Create a New User" {
 ### API Capability
 
 ```spec
-capability UX-MS-002 "Create User via API" {
+capability create_user_via_api "Create User via API" {
   persona  api_consumer
   surface  [api]
-  features [FEAT-MS-001]
+  features [user_management]
 
   flow """
     1. Consumer sends POST /api/v1/users with JSON body
@@ -135,10 +135,10 @@ capability UX-MS-002 "Create User via API" {
 ### Multi-Feature Capability
 
 ```spec
-capability UX-MS-020 "Purchase and Track Order" {
+capability purchase_and_track_order "Purchase and Track Order" {
   persona  user
   surface  [web, mobile]
-  features [FEAT-MS-010, FEAT-MS-011]
+  features [order_checkout, order_tracking]
 
   flow """
     1. User reviews cart and clicks "Checkout"
@@ -156,6 +156,6 @@ capability UX-MS-020 "Purchase and Track Order" {
 
 - Do not write capabilities without the `@specforge/product` plugin installed
 - Do not confuse capabilities (user-perspective UX flow) with features (system-perspective value)
-- Do not use generic personas — be specific: `admin`, `developer`, `api_consumer`
-- Do not omit failure paths from the flow — users need to know what happens on error
+- Do not use generic personas -- be specific: `admin`, `developer`, `api_consumer`
+- Do not omit failure paths from the flow -- users need to know what happens on error
 - Do not reference features from other files without a `use` import

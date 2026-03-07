@@ -1,52 +1,34 @@
 kind: research
-package: "@specforge/core"
+extension: "@specforge/core"
 entries:
   - id: RES-11a
     file: RES-11a-spec-dsl-core-compiler.md
     title: "Spec DSL Core Compiler Architecture"
-    status: active
+    status: partially-superseded
     date: 2026-03-01
-  - id: RES-11b
-    file: RES-11b-spec-dsl-codegen-plugins.md
-    title: "Spec DSL Code Generation & Test Plugins"
-    status: active
-    date: 2026-03-01
-    depends_on: RES-11a
-  - id: RES-12
-    file: RES-12-dsl-concept-expansion.md
-    title: "DSL Concept Expansion — Which Spec Concepts Belong in the Compiler?"
-    status: active
-    date: 2026-03-01
-    depends_on: RES-11a
   - id: RES-13
     file: RES-13-market-landscape-2026.md
     title: "Market Landscape Analysis for SpecForge (2025-2026)"
-    status: complete
+    status: partially-superseded
     date: 2026-03-01
   - id: RES-14
     file: RES-14-entity-testability-classification.md
     title: "Entity Testability Classification — Which Spec Concepts Require Test Coverage?"
     status: active
     date: 2026-03-02
-    depends_on: RES-12
+    depends_on: RES-11a
   - id: RES-15
     file: RES-15-verify-vs-scenario-dx-analysis.md
     title: "Verify vs Scenario Dual Syntax — Developer Experience Analysis"
     status: active
     date: 2026-03-02
     depends_on: [RES-14, RES-11a]
-  - id: RES-16
-    file: RES-16-test-execution-integration.md
-    title: "Test Execution Integration — How SpecForge Knows Tests Pass"
-    status: active
-    date: 2026-03-02
-    depends_on: [RES-11a, RES-11b, RES-15]
   - id: RES-17
     file: RES-17-specforge-rust-plugin-design.md
     title: "SpecForge Rust Plugin Design — @specforge/rust Test Traceability for Rust Projects"
     status: active
     date: 2026-03-02
-    depends_on: [RES-14, RES-15, RES-16, RES-11b]
+    depends_on: [RES-14, RES-15]
   - id: RES-18
     file: RES-18-ai-agent-token-economics.md
     title: "AI Agent Token Economics — How Structured Specifications Reduce Agent Costs"
@@ -57,7 +39,7 @@ entries:
   - id: RES-19
     file: RES-19-market-position-success-estimation.md
     title: "Market Position & Success Estimation — SpecForge in the AI Agent Era"
-    status: complete
+    status: partially-superseded
     priority: critical
     date: 2026-03-03
     depends_on: [RES-13, RES-18]
@@ -67,9 +49,62 @@ entries:
     status: active
     date: 2026-03-03
     depends_on: RES-11a
+  - id: RES-20b
+    file: RES-20-type-system-evolution.md
+    title: "Type System Evolution for SpecForge"
+    status: active
+    date: 2026-03-04
+    depends_on: [RES-11a, RES-25]
   - id: RES-21
     file: RES-21-specforge-format-design.md
     title: "specforge format — CST-Based Code Formatter for .spec Files"
     status: active
     date: 2026-03-03
     depends_on: [RES-11a, RES-18, RES-20]
+  - id: RES-21-plugins
+    file: lua/RES-21-plugin-runtime-decision.md
+    title: "Extension Runtime Decision — Wasm/Extism Adopted"
+    status: complete
+    date: 2026-03-03
+    depends_on: RES-11a
+  - id: RES-23
+    file: RES-23-contribution-based-extension-model.md
+    title: "Contribution-Based Extension Model — 10-Expert Redesign of the Extension Architecture"
+    status: active
+    priority: critical
+    date: 2026-03-03
+    depends_on: [RES-11a]
+  - id: RES-24
+    file: RES-24-surface-contribution-model.md
+    title: "Surface Contribution Model — Extension-Contributed CLI, MCP, and LSP Extensions"
+    status: active
+    priority: critical
+    date: 2026-03-04
+    depends_on: [RES-23, RES-18, RES-11a]
+  - id: RES-25
+    file: RES-25-formal-methods-integration.md
+    title: "Formal Methods Integration for SpecForge"
+    status: active
+    date: 2026-03-04
+    depends_on: [RES-11a, RES-20b]
+  - id: RES-26
+    file: RES-26-zero-entity-core-architecture.md
+    title: "Zero-Entity Core Architecture — Terraform-Exact Model"
+    status: active
+    priority: critical
+    date: 2026-03-04
+    depends_on: [RES-11a, RES-23]
+  - id: RES-27
+    file: RES-27-software-eng-entity-redesign.md
+    title: "Software Engineering Entity Redesign — 10-Expert Panel Validation"
+    status: active
+    priority: critical
+    date: 2026-03-04
+    depends_on: [RES-25, RES-26]
+  - id: RES-28
+    file: RES-28-extension-capability-gaps.md
+    title: "Extension Capability Gaps — Vision-to-Architecture Alignment Audit"
+    status: active
+    priority: critical
+    date: 2026-03-06
+    depends_on: [RES-23, RES-24, RES-26, RES-18]

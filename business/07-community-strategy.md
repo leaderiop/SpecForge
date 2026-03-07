@@ -16,7 +16,7 @@ SpecForge core (compiler, CLI, LSP) is licensed under Apache 2.0. This is a deli
 
 **Why Apache 2.0 over MIT:**
 
-- **Patent grant.** Apache 2.0 includes an explicit patent grant, protecting contributors and users. MIT does not. For a specification compiler that touches code generation, this matters.
+- **Patent grant.** Apache 2.0 includes an explicit patent grant, protecting contributors and users. MIT does not. For a specification compiler whose Graph Protocol is consumed by AI agents and third-party tools, this matters.
 - **Attribution preservation.** Apache 2.0 requires NOTICE files be preserved. This ensures SpecForge attribution survives redistribution by enterprises and AI tool vendors.
 - **Contributor clarity.** Apache 2.0 has well-understood contribution terms. Combined with a CLA, it creates an unambiguous IP chain that enterprise legal teams approve faster.
 - **Terraform lesson.** HashiCorp's BSL relicense fractured the Terraform community and spawned OpenTofu. We make an irrevocable commitment: the SpecForge compiler will never be relicensed. Apache 2.0 forever for the core.
@@ -28,9 +28,9 @@ SpecForge core (compiler, CLI, LSP) is licensed under Apache 2.0. This is a deli
 | `specforge-cli` binary | Apache 2.0 |
 | `specforge-lsp` binary | Apache 2.0 |
 | All parser/compiler crates | Apache 2.0 |
-| `@specforge/product` plugin | Apache 2.0 |
-| `@specforge/governance` plugin | Apache 2.0 |
-| First-party generators | Apache 2.0 |
+| `@specforge/product` extension | Apache 2.0 |
+| `@specforge/governance` extension | Apache 2.0 |
+| First-party extensions | Apache 2.0 |
 | First-party providers | Apache 2.0 |
 | Documentation and examples | CC BY 4.0 |
 | SpecForge Cloud (future) | Proprietary |
@@ -66,7 +66,7 @@ The `CONTRIBUTING.md` file is the front door of the project. It covers:
 |---------|----------|
 | **Code of Conduct** | Rust-style Code of Conduct (adapted from Rust RFC 1023). Zero tolerance for harassment. Enforcement by core team. |
 | **Getting Started** | Clone, install Rust toolchain, `cargo build`, `cargo test`. Under 5 minutes on any machine. |
-| **Issue Taxonomy** | Labels: `bug`, `enhancement`, `good-first-issue`, `help-wanted`, `plugin`, `provider`, `generator`, `docs`, `performance`. |
+| **Issue Taxonomy** | Labels: `bug`, `enhancement`, `good-first-issue`, `help-wanted`, `extension`, `provider`, `renderer`, `docs`, `performance`. |
 | **PR Process** | Fork - branch - commit - PR - review - merge. All PRs require 1 core team review. CI must pass (clippy, tests, formatting). |
 | **Commit Style** | Conventional commits: `feat:`, `fix:`, `docs:`, `refactor:`, `test:`, `chore:`. Scope optional: `feat(parser):`. |
 | **Architecture Decision Records** | Significant changes require an ADR (stored in `spec/decisions/`). Template provided. |
@@ -138,7 +138,7 @@ The `CONTRIBUTING.md` file is the front door of the project. It covers:
 
 **Requirements:**
 - 10+ merged PRs with sustained quality over 3+ months
-- Deep expertise in at least one subsystem (parser, graph, validator, LSP, codegen)
+- Deep expertise in at least one subsystem (parser, graph, validator, LSP, Wasm runtime)
 - Demonstrated sound judgment in code review
 - Nominated by a core team member, approved by majority vote
 
@@ -194,11 +194,11 @@ The `CONTRIBUTING.md` file is the front door of the project. It covers:
 
 | Repository | Purpose |
 |------------|---------|
-| `specforge/specforge` | Main monorepo (compiler, CLI, LSP, official plugins) |
+| `specforge/specforge` | Main monorepo (compiler, CLI, LSP, official extensions) |
 | `specforge/tree-sitter-specforge` | Tree-sitter grammar (separate for editor integration) |
 | `specforge/vscode-specforge` | VS Code extension |
 | `specforge/specforge.dev` | Documentation site source |
-| `specforge/awesome-specforge` | Community-curated list of plugins, generators, articles |
+| `specforge/awesome-specforge` | Community-curated list of extensions, providers, renderers, articles |
 | `specforge/rfcs` | RFC proposals for language and compiler changes |
 
 **GitHub Discussions categories:**
@@ -208,9 +208,9 @@ The `CONTRIBUTING.md` file is the front door of the project. It covers:
 | `Announcements` | Release notes, roadmap updates, events | Core team only (post), all (comment) |
 | `Q&A` | Technical questions, troubleshooting | Community-moderated, maintainer escalation |
 | `Ideas` | Feature requests, brainstorming | Open discussion, core team labels promising ideas |
-| `Show and Tell` | Community projects, plugins, blog posts | Open, highlighted in newsletter |
+| `Show and Tell` | Community projects, extensions, blog posts | Open, highlighted in newsletter |
 | `RFC Discussion` | Structured discussion on open RFCs | Open, linked from `specforge/rfcs` |
-| `Plugins & Extensions` | Extension development help, showcase | Open, provider/generator authors active |
+| `Extensions & Providers` | Extension development help, showcase | Open, extension/provider/renderer authors active |
 
 **Issue labels (standardized):**
 
@@ -224,10 +224,10 @@ The `CONTRIBUTING.md` file is the front door of the project. It covers:
 | `graph` | `#e4e669` | Entity graph or edge resolution |
 | `validator` | `#e4e669` | Validation codes |
 | `lsp` | `#e4e669` | Language server |
-| `codegen` | `#e4e669` | Code generation pipeline |
-| `plugin` | `#fbca04` | Plugin system |
+| `wasm-runtime` | `#e4e669` | Wasm extension runtime |
+| `extension` | `#fbca04` | Extension system |
 | `provider` | `#fbca04` | Provider system |
-| `generator` | `#fbca04` | Generator system |
+| `renderer` | `#fbca04` | Renderer extension system |
 | `docs` | `#0075ca` | Documentation |
 | `performance` | `#ff9f1c` | Performance improvement |
 | `breaking` | `#b60205` | Breaking change |
@@ -251,15 +251,15 @@ The `CONTRIBUTING.md` file is the front door of the project. It covers:
 | **Help** | `#help-getting-started` | Installation, first spec, basic questions |
 | | `#help-compiler` | Parser, validation, error messages |
 | | `#help-lsp` | LSP setup, editor integration |
-| | `#help-plugins` | Plugin/provider/generator questions |
+| | `#help-extensions` | Extension/provider/renderer questions |
 | **Development** | `#dev-compiler` | Compiler internals discussion |
 | | `#dev-lsp` | LSP development |
-| | `#dev-plugins` | Plugin/provider/generator SDK development |
+| | `#dev-extensions` | Extension/provider/renderer SDK development |
 | | `#dev-rfcs` | RFC discussion and drafting |
 | | `#pr-feed` | Bot-posted PR activity (read-only) |
 | | `#ci-status` | Build status notifications (read-only) |
-| **Ecosystem** | `#plugins-showcase` | Announce and discuss community plugins |
-| | `#generators` | Generator development and integration |
+| **Ecosystem** | `#extensions-showcase` | Announce and discuss community extensions |
+| | `#renderers` | Renderer extension development and integration |
 | | `#providers` | Provider development and integration |
 | **Private** | `#contributors` | Verified contributors only (Tier 2+) |
 | | `#maintainers` | Maintainers only (Tier 3+) |
@@ -380,26 +380,26 @@ docs.specforge.dev/
 │
 ├── reference/              # Section 3: Exhaustive reference
 │   ├── cli                 # Every command, flag, and output format
-│   ├── spec-language       # Formal grammar, all 16 entity types
+│   ├── spec-language       # Formal grammar, generic entity block syntax
 │   ├── validation-codes    # All 36 codes with examples
 │   ├── edge-types          # All 20 edges with semantics
 │   ├── configuration       # specforge.toml options
 │   └── output-formats      # agent-context, json, human-readable
 │
-├── plugins/                # Section 4: Extension ecosystem
-│   ├── overview            # Plugin/provider/generator model
-│   ├── product-plugin      # @specforge/product (5 entities)
-│   ├── governance-plugin   # @specforge/governance (3 entities)
+├── extensions/             # Section 4: Extension ecosystem
+│   ├── overview            # Extension/provider/renderer model
+│   ├── product-extension   # @specforge/product (5 entities)
+│   ├── governance-extension # @specforge/governance (3 entities)
 │   ├── github-provider     # @specforge/gh
 │   ├── jira-provider       # @specforge/jira
-│   ├── building-plugins    # Plugin SDK guide
+│   ├── building-extensions # Extension SDK guide
 │   ├── building-providers  # Provider SDK guide
-│   └── building-generators # Generator SDK guide
+│   └── building-renderers  # Renderer extension SDK guide
 │
 ├── examples/               # Section 5: Complete working examples
 │   ├── todo-app            # Minimal: 10 entities, core only
-│   ├── saas-platform       # Medium: 50 entities, product plugin
-│   ├── healthcare-system   # Large: 150 entities, all plugins + providers
+│   ├── saas-platform       # Medium: 50 entities, product extension
+│   ├── healthcare-system   # Large: 150 entities, all extensions + providers
 │   ├── rust-library        # Library project with test traceability
 │   └── self-hosting        # SpecForge's own specifications
 │
@@ -522,7 +522,7 @@ docs.specforge.dev/
 **Selection criteria:**
 - 12+ months as active Ambassador
 - Drove SpecForge adoption at 1+ organization (team of 5+)
-- Created a high-impact community resource (popular plugin, widely-used example project, or conference workshop)
+- Created a high-impact community resource (popular extension, widely-used example project, or conference workshop)
 
 **Benefits:**
 
@@ -619,7 +619,7 @@ Maintain a shared library of talk materials that anyone in the community can ada
 |-------|--------|-----|
 | "Intro to SpecForge" | 20-min deck + speaker notes | Meetup lightning talk |
 | "SpecForge for AI-Native Development" | 40-min deck + demo script | Conference talk |
-| "Building SpecForge Plugins" | 30-min workshop materials | Hands-on tutorial |
+| "Building SpecForge Extensions" | 30-min workshop materials | Hands-on tutorial |
 | "From CLAUDE.md to .spec" | 20-min deck + before/after examples | Migration-focused talk |
 | "Compiler Architecture Deep Dive" | 45-min deck + architecture diagrams | Technical conference talk |
 
@@ -642,8 +642,8 @@ All materials stored in `specforge/community-talks` repository under CC BY 4.0 l
 | **Release notes** | Per release (~biweekly) | "SpecForge 0.3: Watch Mode and 40% Faster Compilation" |
 | **Technical deep-dives** | 2x/month | "How Tree-sitter Error Recovery Works in SpecForge," "Inside the Entity Graph: petgraph at Scale" |
 | **Use case stories** | 1x/month | "How [Company] Reduced AI Hallucinations by 73% with SpecForge" |
-| **Tutorial / how-to** | 2x/month | "Setting Up SpecForge CI in GitHub Actions," "Writing Your First Generator" |
-| **Community spotlight** | 2x/month | Interviews with contributors, ambassador highlights, plugin showcases |
+| **Tutorial / how-to** | 2x/month | "Setting Up SpecForge CI in GitHub Actions," "Writing Your First Extension" |
+| **Community spotlight** | 2x/month | Interviews with contributors, ambassador highlights, extension showcases |
 | **Opinion / thought leadership** | 1x/month | "Why Every AI Agent Needs a Specification Compiler," "The End of CLAUDE.md" |
 | **Benchmark reports** | Quarterly | Token reduction measurements, compile performance, agent task-completion rates |
 
@@ -707,7 +707,7 @@ All materials stored in `specforge/community-talks` repository under CC BY 4.0 l
 | Quick tips | 2-5 min | 2x/week | "Tip: Use --scope for 10x smaller context" |
 | Tutorials | 10-20 min | 1x/week | "Building a REST API spec from scratch" |
 | Deep dives | 30-45 min | 2x/month | "Tree-sitter Grammar Design for SpecForge" |
-| Livestreams | 60-90 min | 1x/month | "Building a SpecForge Generator from Scratch (live)" |
+| Livestreams | 60-90 min | 1x/month | "Building a SpecForge Extension from Scratch (live)" |
 | Conference talks | 20-45 min | As recorded | All SpecForge conference talks republished |
 
 **Production quality:** Screen recordings with voiceover for tutorials. Face-to-camera for deep dives. Minimal editing; ship fast.
@@ -727,7 +727,7 @@ All materials stored in `specforge/community-talks` repository under CC BY 4.0 l
 | Lead story | Biggest news or feature of the past 2 weeks |
 | Release digest | Changelog summary with links |
 | Community highlights | 2-3 notable community contributions, blog posts, or projects |
-| Plugin of the week | Featured plugin/provider/generator |
+| Extension of the week | Featured extension/provider/renderer |
 | Tip of the week | One practical SpecForge tip with example |
 | Upcoming events | Meetups, conferences, AMAs |
 | Numbers | GitHub stars, downloads, contributor count (transparency) |
@@ -742,9 +742,9 @@ All materials stored in `specforge/community-talks` repository under CC BY 4.0 l
 
 ---
 
-## 8. Plugin Ecosystem Seeding
+## 8. Extension Ecosystem Seeding
 
-### Year 1 First-Party Plugin Target: 15-20 Extensions
+### Year 1 First-Party Extension Target: 15-20 Extensions
 
 Building the first wave of extensions ourselves establishes quality standards, proves the extension APIs, and gives users enough ecosystem to be productive.
 
@@ -752,14 +752,12 @@ Building the first wave of extensions ourselves establishes quality standards, p
 
 | Extension | Type | Priority | Target Quarter |
 |-----------|------|----------|---------------|
-| `@specforge/product` | Plugin | P0 | Q1 (ships with core) |
-| `@specforge/governance` | Plugin | P0 | Q1 (ships with core) |
-| `@specforge/gen-rust` | Generator | P0 | Q3 |
-| `@specforge/gen-typescript` | Generator | P0 | Q3 |
-| `@specforge/gen-python` | Generator | P1 | Q4 |
-| `@specforge/gen-markdown` | Generator | P1 | Q3 |
-| `@specforge/gen-mermaid` | Generator | P1 | Q4 |
-| `@specforge/gen-openapi` | Generator | P2 | Q4 |
+| `@specforge/product` | Extension | P0 | Q1 (ships with core) |
+| `@specforge/governance` | Extension | P0 | Q1 (ships with core) |
+| `@specforge/rust` | Test collector | P0 | Q3 |
+| `@specforge/rtm-renderer` | Renderer | P1 | Q3 |
+| `@specforge/mermaid-renderer` | Renderer | P1 | Q4 |
+| `@specforge/compliance` | Domain extension | P2 | Q4 |
 | `@specforge/gh` | Provider | P0 | Q3 |
 | `@specforge/jira` | Provider | P1 | Q4 |
 | `@specforge/figma` | Provider | P2 | Q5 |
@@ -774,26 +772,26 @@ Building the first wave of extensions ourselves establishes quality standards, p
 
 ### Extension SDK Quality Investment
 
-The extension SDK is what determines whether the community builds plugins. We treat it as a product.
+The extension SDK is what determines whether the community builds extensions. We treat it as a product.
 
 **SDK deliverables:**
 
 | Deliverable | Target | Purpose |
 |-------------|--------|---------|
-| Plugin SDK crate (`specforge-plugin-sdk`) | Q3 | Rust API for building plugins |
-| Generator SDK crate (`specforge-gen-sdk`) | Q3 | Rust API for building generators |
+| Extension SDK crate (`specforge-extension-sdk`) | Q3 | Rust API for building extensions |
+| Extension Development Kit (EDK) | Q3 | Libraries + templates for building Wasm extensions |
 | Provider SDK crate (`specforge-provider-sdk`) | Q3 | Rust API for building providers |
-| `specforge scaffold plugin` CLI command | Q3 | Generate plugin boilerplate |
-| `specforge scaffold generator` CLI command | Q3 | Generate generator boilerplate |
+| `specforge extension init` CLI command | Q3 | Generate extension boilerplate |
+| `specforge extension init` CLI command | Q3 | Scaffold new extension boilerplate |
 | `specforge scaffold provider` CLI command | Q3 | Generate provider boilerplate |
 | Extension testing harness | Q3 | Test extensions against mock spec graphs |
 | Extension documentation template | Q3 | Standardized README and docs structure |
 | Extension example repository | Q3 | 3 example extensions (one of each type) with detailed comments |
 
 **SDK quality bar:**
-- A new generator can be built in under 2 hours by a developer who has never seen the codebase.
+- A new extension can be built in under 2 hours by a developer who has never seen the codebase.
 - A new provider can be built in under 1 hour.
-- A new plugin (adding 1 entity type) can be built in under 4 hours.
+- A new extension (adding 1 entity type) can be built in under 4 hours.
 - Every SDK function has a doc comment, an example, and a test.
 
 ### Bounty Program
@@ -823,14 +821,14 @@ Starting Q4 2026, offer bounties for community-built extensions.
 
 | Extension | Type | Bounty |
 |-----------|------|--------|
-| `@community/gen-go` | Generator | Gold ($2,000) |
-| `@community/gen-java` | Generator | Gold ($2,000) |
-| `@community/gen-graphql` | Generator | Silver ($1,000) |
-| `@community/gen-asyncapi` | Generator | Silver ($1,000) |
+| `@community/api-design` | Domain extension | Gold ($2,000) |
+| `@community/atomic-design` | Domain extension | Gold ($2,000) |
+| `@community/openapi-renderer` | Renderer | Silver ($1,000) |
+| `@community/asyncapi-renderer` | Renderer | Silver ($1,000) |
 | `@community/linear` | Provider | Silver ($1,000) |
 | `@community/notion` | Provider | Silver ($1,000) |
 | `@community/azure-devops` | Provider | Gold ($2,000) |
-| `@community/security` | Plugin | Gold ($2,000) |
+| `@community/security` | Extension | Gold ($2,000) |
 
 ---
 
@@ -876,7 +874,7 @@ Starting Q4 2026, offer bounties for community-built extensions.
 | **Community extensions** | Published extensions by the community | 5-10 | 30-50 |
 | **Extension downloads** | Total downloads across all extensions (monthly) | 2,000 | 20,000 |
 | **Extension SDK satisfaction** | NPS among extension authors | 40+ | 50+ |
-| **Plugin bounties completed** | Bounties claimed and paid | 10 | 25 |
+| **Extension bounties completed** | Bounties claimed and paid | 10 | 25 |
 
 ### Satisfaction Metrics
 
@@ -911,7 +909,7 @@ Starting Q4 2026, offer bounties for community-built extensions.
 | **Ambassador Program** | $12,000 | 8% | Travel stipends ($500 x 12 approved talks), ambassador swag, virtual summit |
 | **Content Production** | $20,000 | 13% | Blog illustrations, video production, infographic design |
 | **Swag & Merch** | $8,000 | 5% | T-shirts, stickers, laptop decals (general inventory) |
-| **Plugin Bounties** | $15,000 | 10% | 10-15 bounties for community-built extensions |
+| **Extension Bounties** | $15,000 | 10% | 10-15 bounties for community-built extensions |
 | **Documentation Site** | $5,000 | 3% | Hosting, Algolia search, design |
 | **Community Tools** | $4,000 | 3% | Discord Nitro (bots/emojis), GitHub org, Buttondown newsletter, analytics |
 | **Contractor / Part-time DevRel** | $25,000 | 17% | Part-time developer advocate for content, community management |
@@ -930,7 +928,7 @@ Starting Q4 2026, offer bounties for community-built extensions.
 | **Champion Program** | $15,000 | 5% | Advisory board, paid appearances, Cloud credits |
 | **Content Production** | $35,000 | 12% | Professional video, podcast launch, increased blog output |
 | **Swag & Merch** | $12,000 | 4% | Expanded inventory for growing conference/event presence |
-| **Plugin Bounties** | $30,000 | 10% | 20-25 bounties, higher-value targets |
+| **Extension Bounties** | $30,000 | 10% | 20-25 bounties, higher-value targets |
 | **Documentation Site** | $8,000 | 3% | Translation infrastructure, improved search, versioned docs |
 | **Community Tools** | $6,000 | 2% | Scaled community infrastructure |
 | **Full-time DevRel Hire** | $65,000 | 22% | Partial-year salary for dedicated community/devrel lead |
@@ -943,7 +941,7 @@ Starting Q4 2026, offer bounties for community-built extensions.
 1. **No community spend without measurement.** Every program has metrics tied to the health indicators in Section 9. If a program is not moving metrics after 2 quarters, we reallocate.
 2. **Favor many small bets over few large ones.** 15 meetup talks are more valuable than 1 platinum conference sponsorship. Spread the budget to maximize touchpoints.
 3. **Pay community members fairly.** Bounties, travel stipends, and speaker fees are not gifts; they are compensation for work that benefits the project. Budget for them explicitly.
-4. **Invest in the SDK.** The plugin SDK is not a community expense; it is a product expense. But it is listed here because its quality directly determines community extension output. If we had to cut one line item, the SDK would be the last to go.
+4. **Invest in the SDK.** The extension SDK is not a community expense; it is a product expense. But it is listed here because its quality directly determines community extension output. If we had to cut one line item, the SDK would be the last to go.
 5. **Reinvest cloud revenue into community.** Starting Y2, 10% of SpecForge Cloud revenue is allocated back to the community budget (bounties, sponsorships, events).
 
 ### ROI Framework
@@ -953,6 +951,6 @@ Starting Q4 2026, offer bounties for community-built extensions.
 | Conference talks | Twitter followers, GitHub star spikes post-event | Inbound enterprise leads citing conference talk |
 | Pioneer program | Bug reports filed, feedback quality | Case studies published, production adoption |
 | Ambassador program | Monthly content output, meetup frequency | Geographic reach of community, non-English adoption |
-| Plugin bounties | Bounties claimed, extension PRs opened | Community extension count, ecosystem completeness |
+| Extension bounties | Bounties claimed, extension PRs opened | Community extension count, ecosystem completeness |
 | Content production | Blog traffic, newsletter growth | SEO rankings for "specification compiler," inbound organic traffic |
 | Documentation | Docs page views, CSAT scores | Reduced support volume, faster time-to-first-value |

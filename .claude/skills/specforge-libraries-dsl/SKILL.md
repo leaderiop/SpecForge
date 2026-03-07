@@ -1,11 +1,11 @@
 ---
 name: specforge-libraries-dsl
-description: "Write library blocks in .spec DSL files (@specforge/product plugin). Each library declares a code package with LIB-{infix}-{n} IDs, mapping features to ports with a validated dependency DAG. Use when making the relationship between code packages and spec-level features explicit."
+description: "Write library blocks in .spec DSL files (@specforge/product plugin). Each library declares a code package with free-form snake_case IDs, mapping features to ports with a validated dependency DAG. Use when making the relationship between code packages and spec-level features explicit."
 ---
 
 # SpecForge Libraries DSL
 
-Rules and conventions for authoring **`library` blocks** in `.spec` files. Libraries represent structural code units — they map features to ports and form a dependency DAG the compiler validates.
+Rules and conventions for authoring **`library` blocks** in `.spec` files. Libraries represent structural code units -- they map features to ports and form a dependency DAG the compiler validates.
 
 **Requires:** `@specforge/product` plugin.
 
@@ -22,10 +22,10 @@ Rules and conventions for authoring **`library` blocks** in `.spec` files. Libra
 use features/user-management
 use features/auth
 
-library LIB-MS-001 "@myservice/core" {
+library core_lib "@myservice/core" {
   family       core
-  features     [FEAT-MS-001, FEAT-MS-004]
-  depends_on   [LIB-MS-003]
+  features     [user_management, password_authentication]
+  depends_on   [crypto_lib]
   ports_defined [UserRepository, EmailService]
 }
 ```
@@ -68,12 +68,12 @@ library LIB-MS-001 "@myservice/core" {
 
 ## Writing Rules
 
-1. **Maps to real code packages** — each library corresponds to an npm package, Go module, Rust crate, etc.
-2. **Features are what it implements** — the spec-level features this code delivers.
-3. **`ports_defined` are the interfaces it owns** — the port interfaces defined in this package.
-4. **`depends_on` forms a DAG** — circular library dependencies are a compile error (E007).
-5. **Import feature and port files** — `use` the files declaring referenced entities.
-6. **DSL scope is references, not package details** — npm name, version, and path belong in external tooling.
+1. **Maps to real code packages** -- each library corresponds to an npm package, Go module, Rust crate, etc.
+2. **Features are what it implements** -- the spec-level features this code delivers.
+3. **`ports_defined` are the interfaces it owns** -- the port interfaces defined in this package.
+4. **`depends_on` forms a DAG** -- circular library dependencies are a compile error (E007).
+5. **Import feature and port files** -- `use` the files declaring referenced entities.
+6. **DSL scope is references, not package details** -- npm name, version, and path belong in external tooling.
 
 ## Validation Rules
 
@@ -81,18 +81,18 @@ library LIB-MS-001 "@myservice/core" {
 |------|------|
 | E001 | Every ID in `features`, `depends_on`, `ports_defined` must resolve. |
 | E002 | No duplicate library IDs. |
-| E007 | Circular library dependency — `depends_on` edges must form a DAG. |
-| W009 | Orphan library — not referenced by any deliverable. |
+| E007 | Circular library dependency -- `depends_on` edges must form a DAG. |
+| W009 | Orphan library -- not referenced by any deliverable. |
 
 ## Examples
 
 ### Platform Library
 
 ```spec
-library LIB-MS-001 "@myservice/core" {
+library core_lib "@myservice/core" {
   family       platform
-  features     [FEAT-MS-001, FEAT-MS-002]
-  depends_on   [LIB-MS-010]
+  features     [user_management, password_authentication]
+  depends_on   [crypto_lib]
   ports_defined [UserRepository, TokenService]
   refs         [gh.pr:187]
 }
@@ -101,10 +101,10 @@ library LIB-MS-001 "@myservice/core" {
 ### Integration Library
 
 ```spec
-library LIB-MS-005 "@myservice/email" {
+library email_lib "@myservice/email" {
   family       integration
-  features     [FEAT-MS-008]
-  depends_on   [LIB-MS-001]
+  features     [email_notifications]
+  depends_on   [core_lib]
   ports_defined [EmailService]
 }
 ```
@@ -112,8 +112,8 @@ library LIB-MS-005 "@myservice/email" {
 ### Minimal Library
 
 ```spec
-library LIB-MS-010 "@myservice/search" {
-  features     [FEAT-MS-005]
+library search_lib "@myservice/search" {
+  features     [full_text_search]
   ports_defined [SearchIndex]
 }
 ```
@@ -121,7 +121,7 @@ library LIB-MS-010 "@myservice/search" {
 ## What NOT to Do
 
 - Do not write libraries without the `@specforge/product` plugin installed
-- Do not create circular dependencies between libraries — E007 error
+- Do not create circular dependencies between libraries -- E007 error
 - Do not confuse libraries (code packages) with deliverables (shippable artifacts)
-- Do not put npm-specific details (version, package.json path) in library blocks — use external tooling
+- Do not put npm-specific details (version, package.json path) in library blocks -- use external tooling
 - Do not reference features, libraries, or ports from other files without `use` imports

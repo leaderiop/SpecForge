@@ -1,5 +1,8 @@
 # RES-21: specforge format — CST-Based Code Formatter for .spec Files
 
+> [!NOTE]
+> **ID collision:** The RES-21 namespace is shared with the plugin runtime decision files (RES-21a through RES-21e in `spec/research/lua/`). This document covers the formatter; cite as RES-21-format to disambiguate.
+
 > **Status:** active
 > **Date:** 2026-03-03
 > **Priority:** HIGH
@@ -42,9 +45,9 @@ Without an official formatter, `.spec` files accumulate style inconsistencies ov
 
 RES-18 established that agents waste 60-80% of tokens on discovery and disambiguation. Inconsistent formatting compounds this waste:
 
-- **Parsing overhead**: Agents must handle multiple formatting styles for the same semantic content.
-- **Example variations**: When generating `.spec` files, agents copy inconsistent examples, producing more inconsistency.
-- **Diff noise**: Style-only changes mixed with semantic changes force agents to distinguish meaningful from cosmetic diffs.
+- **Parsing overhead**: Inconsistent formatting forces the infrastructure to deliver suboptimal context — multiple style variations for the same semantic content increase noise for all consumers (Principle 6: infrastructure serves agents, not the reverse).
+- **Example variations**: When producing `.spec` files, agents copy inconsistent examples, propagating more inconsistency.
+- **Diff noise**: Style-only changes mixed with semantic changes force all consumers to distinguish meaningful from cosmetic diffs.
 - **Context pollution**: Inconsistently formatted specs consume more tokens per unit of information (extra whitespace, varying indentation depths).
 
 A canonical format eliminates these sources of waste entirely.

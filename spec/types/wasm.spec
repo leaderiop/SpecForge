@@ -1,61 +1,60 @@
-// Wasm/Extism package runtime types
+// Wasm/Extism extension runtime types
+//
+// Extension manifests use ManifestV2 from types/zero-entity-core.spec.
+// This file contains supporting types for the Wasm runtime: dependencies,
+// host function bindings, sandbox policies, caching, enhancements, and queries.
 
-type PackageManifest {
-  name              string          @readonly
-  version           string          @readonly
-  wasmPath          string
-  contributes       PackageContributions @optional
-  entities          string[]        @optional
-  edgeTypes         string[]        @optional
-  validations       string[]        @optional
-  hostFunctions     string[]        @optional
-  peerDependencies  PeerDependency[] @optional
-  sandboxPolicy     SandboxPolicy   @optional
-  testable          boolean         @optional
-}
-
-type PackageContributions {
-  entities          boolean         @optional
-  validators        boolean         @optional
-  generators        boolean         @optional
-  providers         boolean         @optional
-}
+use types/config
+use types/core
 
 type PeerDependency {
-  plugin            string
+  extension         string
   version           string
 }
 
 type HostFunctionBinding {
   name              string          @readonly
-  inputSchema       string
-  outputSchema      string
+  input_schema      string
+  output_schema     string
 }
 
 type SandboxPolicy {
-  maxMemoryMb       integer         @optional
-  maxExecutionMs    integer         @optional
-  allowedDomains    string[]        @optional
-  allowedPaths      string[]        @optional
-  fileSystemAccess  string          @optional
-  networkAccess     string          @optional
+  max_memory_mb     integer         @optional
+  max_execution_ms  integer         @optional
+  allowed_domains   string[]        @optional
+  allowed_paths     string[]        @optional
+  file_system_access string         @optional
+  network_access    string          @optional
+  // Default: 5000. Per-request HTTP timeout in milliseconds.
+  http_timeout_ms   integer         @optional
+  // Default: 15000. Total HTTP time budget per compilation in milliseconds.
+  http_total_budget_ms integer      @optional
+  // Default: [".json", ".html", ".csv", ".svg", ".dot", ".xml", ".txt", ".pdf"]
+  // .md is NOT in the default list — extensions that produce structured reports (not prose) MAY add .md to their own sandbox policy
+  allowed_output_extensions string[] @optional
 }
 
 type WasmModuleCache {
-  wasmHash          string          @readonly
-  aotPath           string
+  wasm_hash         string          @readonly
+  aot_path          string
   platform          string
-  createdAt         timestamp
+  created_at        string
 }
 
-type PluginLifecycleState = discovered | loading | initialized | validating | generating | unloaded | failed
+type WarmEngineConfig {
+  max_instances     u32             @doc "Default: 16"
+  max_memory_mb     u32             @doc "Default: 512"
+}
+
+// trapped state removed — extensions that trap are immediately unloaded
+type ExtensionLifecycleState = discovered | loading | initialized | validating | exporting | unloaded | failed
 
 // ── Entity Enhancement Types ─────────────────────────────────
 
 type FieldEnhancement {
-  targetEntity      string          @readonly
-  fieldName         string          @readonly
-  fieldType         EnhancedFieldType
+  target_entity     string          @readonly
+  field_name        string          @readonly
+  field_type        EnhancedFieldType
   required          boolean         @optional
   description       string          @optional
 }
@@ -67,27 +66,30 @@ type EnumFieldType {
 }
 
 type ReferenceFieldType {
-  edgeLabel         string
-  targetKind        string          @optional
+  // Maps to EdgeType.label when building graph edges
+  edge_label        string
+  target_kind       string          @optional
 }
 
 type DynamicEdgeType {
   label             string          @readonly
-  sourcePlugin      string          @readonly
+  source_extension    string          @readonly
   soft              boolean         @optional
 }
 
 type EnhancementConflict {
-  entityKind        string          @readonly
-  fieldName         string          @readonly
-  firstPlugin       string          @readonly
-  secondPlugin      string          @readonly
+  entity_kind       string          @readonly
+  field_name        string          @readonly
+  first_extension     string          @readonly
+  second_extension    string          @readonly
   resolution        ConflictResolution
 }
 
 type ConflictResolution = unresolved | explicit_override | load_order | namespaced
 
 type EnhancementPolicy = error | priority | namespace
+
+type EntityKindPolicy = error | priority | namespace
 
 // ── Query Extension Types ───────────────────────────────────
 
@@ -98,33 +100,110 @@ type QueryExtension {
 
 type QueryFileKind = highlights | folds | indents | injections
 
-// ── Package Lifecycle Types ─────────────────────────────────
+// ── Extension Lifecycle Types ─────────────────────────────────
 
-type PackageInstallResult {
-  packageName       string          @readonly
+type ExtensionInstallResult {
+  extension_name      string          @readonly
   version           string          @readonly
-  source            PackageSource
-  wasmSize          integer
-  aotCompiled       boolean
-  installedPath     string
+  source            ExtensionSource
+  wasm_size         integer
+  aot_compiled      boolean
+  installed_path    string
 }
 
-type PackageSource = registry | local | git
+type ExtensionSource = registry | local | git
 
 type WasmTrapInfo {
   kind              string          @readonly
   message           string          @readonly
-  exportName        string          @optional
-  memoryAddress     string          @optional
-  packageName       string
+  export_name       string          @optional
+  memory_address    string          @optional
+  extension_name      string
 }
 
 // ── Lock File Types ──────────────────────────────────────────
 
+// TrustLevel is defined canonically in types/config.spec.
+
 type LockFileEntry {
-  packageName       string          @readonly
+  extension_name      string          @readonly
   version           string          @readonly
-  source            PackageSource
-  wasmHash          string          @readonly
-  resolvedAt        timestamp
+  source            ExtensionSource
+  wasm_hash         string          @readonly
+  resolved_at       string
+  trust_level       TrustLevel      @optional
+}
+
+type LockFile {
+  path              string          @readonly
+  lockfile_version  integer         @readonly
+  entries           LockFileEntry[]
+}
+
+// ── Collector Contribution Types ────────────────────────────
+
+type CollectorContribution {
+  name              string          @readonly
+  description       string          @optional
+  input_formats     string[]
+  auto_detect       CollectorAutoDetect @optional
+  entity_mapping    CollectorEntityMapping
+  export            string
+  output_schema     string
+}
+
+type CollectorAutoDetect {
+  file_patterns     string[]
+  env_vars          string[]        @optional
+}
+
+type CollectorEntityMapping {
+  strategies        EntityMappingStrategy[]
+}
+
+type EntityMappingStrategy {
+  priority          integer
+  strategy_type     string          @readonly
+  description       string          @optional
+}
+
+type CollectorReport {
+  schema            string          @readonly
+  entries           CollectorReportEntry[]
+  unmapped_tests    string[]        @optional
+  stats             CollectorStats
+}
+
+type CollectorReportEntry {
+  entity_id         string
+  test_id           string
+  status            CollectorTestStatus
+  duration_ms       integer         @optional
+  source            string          @optional
+}
+
+type CollectorTestStatus = pass | fail | skip | error
+
+type CollectorStats {
+  total             integer
+  mapped            integer
+  unmapped          integer
+}
+
+type ExtensionSpecifier "Parsed Extension Specifier" {
+  raw        string
+  format     "registry" | "local" | "git"
+  scope      string @optional
+  name       string
+  version    string @optional
+  path       string @optional
+  git_ref    string @optional
+}
+
+
+type CollectorDispatchInput {
+  collector_id    string
+  test_report_path string
+  entity_ids      EntityId[]
+  options         JsonObject      @optional
 }

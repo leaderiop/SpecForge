@@ -121,34 +121,9 @@ scenario "successful creation" { }  // ← wrong
 
 ---
 
-## Code Generation Example
+## AI Agent Consumption
 
-### Input
-```spec
-capability UX-001 "Admin Creates User" {
-  scenario "successful creation" {
-    given "admin is on user management page"
-    when  "admin clicks Create"
-    then  "success toast appears"
-  }
-}
-```
-
-### Generated Output (Playwright)
-```typescript
-test('successful creation', async ({ page }) => {
-  // Given: admin is on user management page
-  // TODO: navigate to user management page
-
-  // When: admin clicks Create
-  // TODO: click create button
-
-  // Then: success toast appears
-  // TODO: assert toast is visible
-});
-```
-
-The generator emits **TODO comments** — developers fill in Playwright commands.
+Scenarios in capabilities serve as structured context for AI agents. Agents consume the entity graph and produce test code (e.g., Playwright tests) directly from scenario data — no code generation step needed.
 
 ---
 
@@ -207,7 +182,7 @@ The generator emits **TODO comments** — developers fill in Playwright commands
 1. Extend tree-sitter grammar to support `scenario { given/when/then }`
 2. Add validation rules (E011, E013, E014, W012)
 3. Update LSP for scenario autocomplete and semantic highlighting
-4. Update code generators to emit test scaffolds from scenarios
+4. Document scenario syntax for AI agent consumption
 5. Update docs with decision tree and examples
 6. Add deprecation warning W010 for `verify e2e` in capabilities
 7. Plan removal of `verify e2e` in 2.0

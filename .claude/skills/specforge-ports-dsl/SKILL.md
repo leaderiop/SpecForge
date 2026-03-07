@@ -1,18 +1,20 @@
 ---
 name: specforge-ports-dsl
-description: "Write port interface blocks in .spec DSL files. Each port declares an interface contract with direction (inbound/outbound), method signatures with Result types, and category grouping. Use when defining boundaries between the domain and external systems in hexagonal architecture."
+description: "Write port interface blocks in .spec DSL files. Each port declares an interface contract with direction (inbound/outbound), method signatures with Result types, and optional Design-by-Contract requires/ensures on individual operations. Use when defining boundaries between the domain and external systems in hexagonal architecture."
 ---
 
 # SpecForge Ports DSL
 
-Rules and conventions for authoring **`port` blocks** in `.spec` files. Ports define the boundaries in hexagonal architecture — the "holes" that adapters plug into. They generate language-specific interfaces.
+Rules and conventions for authoring **`port` blocks** in `.spec` files. Ports define the boundaries in hexagonal architecture -- the "holes" that adapters plug into.
+
+**Requires:** `@specforge/software` plugin.
 
 ## When to Use
 
 - Defining interface contracts between domain and external systems
 - Specifying method signatures with typed errors (Result types)
 - Distinguishing inbound (driving) and outbound (driven) ports
-- Creating interfaces for code generation (TypeScript, Python, Go)
+- Adding Design-by-Contract constraints on individual port operations
 
 ## Block Syntax
 
@@ -39,7 +41,7 @@ port UserRepository {
 |-------|------|-------------|
 | `name` | identifier | Port name (identifier after `port`). |
 | `direction` | enum | `inbound` or `outbound`. |
-| `methods` | method list | One or more method signatures. |
+| `methods` | method list | One or more method signatures (PortOperation). |
 
 ### Optional
 
@@ -55,17 +57,45 @@ port UserRepository {
 | `inbound` | Outside world calls into the system (driving port) | `UserAPI`, `WebhookHandler` |
 | `outbound` | System calls out to the world (driven port) | `UserRepository`, `EmailService` |
 
-### Method Signatures
+### Method Signatures (PortOperation)
 
-```ebnf
-method_decl = "method" , identifier , "(" , [param_list] , ")" , "->" , return_type ;
-```
+Each method is a PortOperation with these fields:
+
+| Field | Description |
+|-------|-------------|
+| `name` | Method identifier |
+| `inputType` | Parameter types |
+| `outputType` | Return type (typically `Result<Success, Error>`) |
+| `requires` | Optional preconditions block (Design-by-Contract) |
+| `ensures` | Optional postconditions block (Design-by-Contract) |
 
 Common return patterns:
-- `Result<Success, Error>` — operation that can fail
-- `Result<Success, ErrorA | ErrorB>` — multiple error types
-- `Result<Type?, never>` — nullable return, cannot fail
-- `Result<void, Error>` — no return value, can fail
+- `Result<Success, Error>` -- operation that can fail
+- `Result<Success, ErrorA | ErrorB>` -- multiple error types
+- `Result<Type?, never>` -- nullable return, cannot fail
+- `Result<void, Error>` -- no return value, can fail
+
+### Port Operation Contracts
+
+Individual methods can have `requires`/`ensures` blocks for formal contracts:
+
+```spec
+port PaymentGateway {
+  direction outbound
+  category  "external/payment"
+
+  method charge(amount: Money, method: PaymentMethod) -> Result<Receipt, PaymentError> {
+    requires {
+      positive_amount    "amount.value > 0"
+      valid_method       "method is a supported payment type"
+    }
+    ensures {
+      receipt_valid      "receipt contains transaction ID and timestamp"
+      idempotent         "retrying with same idempotency key is safe"
+    }
+  }
+}
+```
 
 ## Relationships
 
@@ -85,12 +115,13 @@ Common return patterns:
 
 ## Writing Rules
 
-1. **PascalCase names recommended** — by convention, ports typically use PascalCase (e.g., `UserRepository`, `EmailService`, `PaymentGateway`), but any valid identifier is accepted.
-2. **Naming conventions** — `{Entity}Repository` for persistence, `{Service}Service` or `{Service}Gateway` for external, `{Domain}API` for inbound.
-3. **All methods return Result types** — explicit error handling, no thrown exceptions.
-4. **Import types used in signatures** — `use types/user` before referencing `User`, `CreateUserCommand`.
-5. **Choose direction carefully** — inbound = system offers, outbound = system requires.
-6. **One port per concern** — don't mix persistence and messaging in the same port.
+1. **PascalCase names recommended** -- by convention, ports typically use PascalCase (e.g., `UserRepository`, `EmailService`, `PaymentGateway`), but any valid identifier is accepted.
+2. **Naming conventions** -- `{Entity}Repository` for persistence, `{Service}Service` or `{Service}Gateway` for external, `{Domain}API` for inbound.
+3. **All methods return Result types** -- explicit error handling, no thrown exceptions.
+4. **Import types used in signatures** -- `use types/user` before referencing `User`, `CreateUserCommand`.
+5. **Choose direction carefully** -- inbound = system offers, outbound = system requires.
+6. **One port per concern** -- don't mix persistence and messaging in the same port.
+7. **Use requires/ensures on operations** -- for formal contract verification on critical methods.
 
 ## Validation Rules
 
@@ -98,6 +129,9 @@ Common return patterns:
 |------|------|
 | E002 | No two ports may share the same identifier. |
 | E001 | Every type name in method signatures must resolve to a declared type or primitive. |
+| E004 | Port method references invalid type. |
+| W005 | Port with no behaviors referencing it. |
+| W036 | Port-behavior contract incompatibility -- port precondition stricter than behavior precondition. |
 
 ## Examples
 
@@ -147,10 +181,41 @@ port UserAPI {
 }
 ```
 
+### Port with Operation Contracts
+
+```spec
+use types/payment
+
+port PaymentGateway {
+  direction outbound
+  category  "external/payment"
+
+  method charge(amount: Money, method: PaymentMethod) -> Result<Receipt, PaymentError> {
+    requires {
+      positive_amount    "amount.value > 0"
+      valid_method       "payment method is supported"
+    }
+    ensures {
+      receipt_valid      "receipt contains transaction ID"
+      idempotent         "retry with same key is safe"
+    }
+  }
+
+  method refund(transactionId: string, amount: Money) -> Result<RefundReceipt, RefundError> {
+    requires {
+      transaction_exists "original transaction exists and is charged"
+      refund_amount_valid "refund amount <= original charge amount"
+    }
+    ensures {
+      refund_recorded    "refund recorded against original transaction"
+    }
+  }
+}
+```
+
 ## What NOT to Do
 
-- Do not use `PREFIX-INFIX-N` IDs for ports — ports use plain PascalCase identifiers
-- Do not define behavioral contracts in ports — ports define signatures, behaviors define semantics
+- Do not define behavioral contracts in ports -- ports define signatures, behaviors define semantics
 - Do not mix inbound and outbound concerns in a single port
-- Do not throw exceptions in method signatures — always use Result types
+- Do not throw exceptions in method signatures -- always use Result types
 - Do not forget to import types from other files used in method signatures

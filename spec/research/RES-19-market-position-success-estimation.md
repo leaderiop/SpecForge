@@ -1,6 +1,6 @@
 # RES-19: Market Position & Success Estimation — SpecForge in the AI Agent Era
 
-> **Status:** complete
+> **Status:** partially-superseded
 > **Date:** 2026-03-03
 > **Priority:** CRITICAL
 > **Depends on:** RES-13 (market landscape), RES-18 (token economics)
@@ -10,7 +10,7 @@
 
 ## Executive Summary
 
-SpecForge occupies a **genuinely unoccupied niche**: a compiled specification language designed as structured context for AI coding agents. No tool in the 2026 market offers the combination of compiler validation, entity graph traceability, and AI-agent-optimized context delivery that SpecForge proposes.
+SpecForge occupies a **genuinely unoccupied niche**: a compiled specification language designed as structured context for AI agents. No tool in the 2026 market offers the combination of compiler validation, entity graph traceability, and AI-agent-optimized context delivery that SpecForge proposes.
 
 **Key findings:**
 
@@ -87,7 +87,7 @@ After exhaustive research across 50+ tools, **no tool offers the same combinatio
 | **BDD/Gherkin** (Cucumber) | **MODERATE** | Mindshare: "we already have BDD." But Gherkin has no graph, no types, no architecture. |
 | **Enterprise RM** (DOORS, Jama, Polarion) | **LOW** | Cannot move down-market. Wrong audience (compliance vs. developers). |
 | **Formal spec** (TLA+, Alloy, Quint) | **LOW** | Different domain (algorithm verification vs. product specification). |
-| **Architecture docs** (Structurizr, C4, Mermaid) | **LOW** | Complementary. SpecForge generates diagrams, not competes. |
+| **Architecture docs** (Structurizr, C4, Mermaid) | **LOW** | Complementary. SpecForge provides graph context that renderers/agents use to produce diagrams. |
 | **Schema compilers** (Buf, AsyncAPI, Zod) | **NONE** | Different domain. But Buf is the best business model analog ($93M raised). |
 | **AI coding tools** (Cursor, Copilot, Claude Code) | **LOW** (direct) | Integration targets, not competitors. See moat analysis (§2.4). |
 | **AI app builders** (Bolt, v0, Lovable) | **NONE** | Different market (non-dev prototyping). |
@@ -148,18 +148,17 @@ SpecForge's positioning: **"The compiled middle ground"** — developer-native l
 
 ### 3.2 Primary Positioning
 
-> **"Compiler for software specifications. Like TypeScript for your requirements, architecture, and behaviors."**
+> **"Structured context standard for AI agents."**
 
-This framing works because:
-- Developers understand "compiler" (it validates, catches errors, produces output)
-- "Like TypeScript" signals the value prop (optional strictness that pays off at scale)
-- "Requirements, architecture, behaviors" scopes the domain clearly
+The competitive moat is the graph schema that every agent agrees to read — not the compiler, not the DSL.
 
 ### 3.3 AI-Era Positioning (New for 2026)
 
-> **"Structured context for AI coding agents. Reduce token waste by 75-86%. Make agents build the right thing on the first try."**
+> **"The graph protocol for software intent. Reduce agent token waste by 75-86%. Make agents build the right thing on the first try."**
 
 This framing targets the pain point directly: AI agent costs and accuracy. It positions SpecForge as infrastructure for the agentic era, not just a documentation tool.
+
+> **Vision alignment (Principle 1):** The graph IS the product — not the compiler, not the DSL. AI agents are a primary consumer of the graph, but not the sole one. The same Graph Protocol serves compliance tools, documentation generators, traceability dashboards, and any system that reads structured software intent. Token economics is one dimension of value; the universal schema is the moat.
 
 ### 3.4 Market Sizing
 
@@ -185,7 +184,7 @@ We evaluate success probability across five dimensions, each scored 1-10:
 |-----------|-------|-----------|
 | **Market timing** | 8/10 | AI agent adoption at 31% and growing fast. "Everything-as-code" proven. Context engineering emerging as discipline. Slightly early is better than late. |
 | **Problem severity** | 9/10 | 75-86% token waste (RES-18). $70-175k/year enterprise savings. Developer time wasted on AI rework. Pain is real and measured. |
-| **Solution quality** | 7/10 | Strong design (16 entities, 20 edges, 36 validations). Rust performance. Tree-sitter parser. But unproven until shipped. |
+| **Solution quality** | 7/10 | Strong design (14 domain entities from extensions, extension-declared edges, 36 validations). Rust performance. Tree-sitter parser. But unproven until shipped. |
 | **Competitive void** | 9/10 | No direct competitor found. Genuinely unoccupied niche. First-mover advantage available. |
 | **Adoption barriers** | 5/10 | Developers resist upfront spec work. "Good enough" plain text. New DSL to learn. ROI must be immediate and obvious. |
 
@@ -217,7 +216,7 @@ Based on patterns from successful developer tools (Terraform, Prisma, TypeScript
 
 #### Phase 3: Standard (Month 36+)
 - De facto standard for specification-as-code
-- Multiple generator ecosystems (TypeScript, Rust, Go, Python)
+- Multiple agent/renderer ecosystems consuming the graph (TypeScript, Rust, Go, Python)
 - Conference track at major dev conferences
 - Enterprise adoption in regulated industries
 - **Target:** 25,000+ stars, 10,000+ active users, commercial offerings
@@ -260,8 +259,8 @@ Trigger: AI models improve to the point where exploration is cheap and first-pas
 6. **Proof case studies** — 3-5 teams with before/after data
 
 **Growth enablers (within 18 months):**
-7. **AI-assisted spec authoring** — `specforge generate` from existing codebase
-8. **Spec-from-code inference** — lower the adoption barrier by generating initial specs
+7. **AI-assisted spec authoring** — AI agents infer `.spec` files from existing codebase using the graph protocol
+8. **Spec-from-code inference** — lower the adoption barrier by having AI agents generate initial specs from code analysis
 9. **Conference presence** — talk at one major conference (Strange Loop, QCon, etc.)
 
 ---
@@ -274,7 +273,7 @@ Trigger: AI models improve to the point where exploration is cheap and first-pas
 |-----------|----------|-----------|
 | **Format lock-in** | Medium (grows over time) | 1,000+ spec files in a project = high switching cost |
 | **Plugin ecosystem** | High (if achieved) | Terraform model: 20+ plugins make core irreplaceable. Each integration deepens the moat. |
-| **Domain expertise** | High | 16-entity model with 20 edge types, 36 validation codes = months of research. Not trivially replicable. |
+| **Domain expertise** | High | Zero-entity core + extension-defined entities, 36 validation codes = months of research. Not trivially replicable. |
 | **Community knowledge** | Medium | Best practices, tutorials, patterns for spec-first AI development. First mover in the niche. |
 | **Performance** | Medium | Rust + Tree-sitter = fast enough for watch mode and LSP. Hard to match in slower languages. |
 | **Integration surface** | High (if achieved) | Every IDE, CI system, AI tool, and test runner integration is a moat deepener. |
@@ -288,8 +287,8 @@ Terraform succeeded because:
 4. HashiCorp built commercial offerings on top of OSS
 
 SpecForge follows the same playbook:
-1. Small stable core (8 entities + compiler)
-2. Plugin ecosystem = moat (`@specforge/product`, `@specforge/governance`, generators, providers)
+1. Small stable core (zero-entity core + extension-defined entities)
+2. Extension ecosystem = moat (`@specforge/software`, `@specforge/product`, `@specforge/governance`, providers)
 3. Specification-as-code becomes a standard
 4. Commercial offerings (cloud dashboard, enterprise compliance, team collaboration)
 
@@ -327,7 +326,7 @@ SpecForge is "Buf for software specifications" — a new format (not an existing
 > "Stop wasting tokens on exploration. Give your AI agent a compiled specification and watch it build the right thing on the first try."
 
 **For architecture-minded engineers:**
-> "Compiler for software specifications. Like TypeScript for your requirements — catches errors before they become code."
+> "Structured context for your architecture — validated specs that agents consume."
 
 **For team leads / engineering managers:**
 > "Traceability from requirements to code to tests. Know what's built, what's tested, and what's missing."
@@ -339,7 +338,7 @@ SpecForge is "Buf for software specifications" — a new format (not an existing
 
 | Tier | Price | Includes |
 |------|-------|----------|
-| **Core CLI** | Free forever | Compiler, LSP, core entities, basic generators |
+| **Core CLI** | Free forever | Compiler, LSP, core entities, Graph Protocol export |
 | **Plugins** | Free (OSS) | @specforge/product, governance, vitest, gh, etc. |
 | **SpecForge Cloud** (future) | $15-30/user/mo | Spec dashboard, team collaboration, CI integration, hosted validation |
 | **Enterprise** (future) | $50-100/user/mo | Compliance reports, audit trails, SSO, on-premise, support SLA |
@@ -442,7 +441,7 @@ This follows the proven open-core model: free CLI builds adoption, cloud/enterpr
 
 8. **Don't build a GUI.** SpecForge's advantage is developer-native (CLI + LSP). A web dashboard is a Phase 3 concern.
 
-9. **Don't try to replace existing tools.** SpecForge generates Mermaid, OpenAPI, Gherkin. It complements, not competes.
+9. **Don't try to replace existing tools.** SpecForge provides structured context that agents and renderers use to produce Mermaid, OpenAPI, Gherkin. It complements, not competes.
 
 ---
 

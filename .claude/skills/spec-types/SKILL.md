@@ -1,17 +1,17 @@
 ---
 name: spec-types
-description: "Author domain TypeScript interface files in a spec's types/ directory. Each file documents interfaces for a domain with readonly fields, _tag discriminants, and behavior cross-references. Use when creating type specifications, auditing type completeness, or documenting domain interfaces."
+description: "Author domain type specification files in a spec's types/ directory. Each file documents types for a domain with field tables, immutability annotations, discriminant fields, and behavior cross-references. Use when creating type specifications, auditing type completeness, or documenting domain types."
 ---
 
 # Spec Types
 
-Rules and conventions for authoring **domain TypeScript interface files** in a spec's `types/` directory. Distinct from `type-system/` which covers compile-time safety patterns.
+Rules and conventions for authoring **domain type specification files** in a spec's `types/` directory. Distinct from `type-system/` which covers compile-time safety patterns.
 
 ## When to Use
 
-- Creating type specifications for domain interfaces
-- Auditing type files for completeness (missing readonly, missing _tag)
-- Documenting new domain interfaces
+- Creating type specifications for domain types
+- Auditing type files for completeness (missing immutability annotations, missing discriminant fields)
+- Documenting new domain types
 - Checking for duplicate type definitions across files
 
 ## Directory Structure
@@ -26,7 +26,7 @@ types/
 
 ```yaml
 kind: types
-package: "@hex-di/<name>"
+package: "@myproject/<name>"
 entries:
   - id: TYPE-001
     file: graph.md
@@ -65,32 +65,45 @@ adrs: []
 
 # <Domain> Types
 
-TypeScript interfaces for the <domain> domain.
+Type definitions for the <domain> domain.
 
 ---
 
 ## <TypeName>
 
-` ` `typescript
-interface <TypeName> {
-  readonly field: Type;
-  ...
-}
-` ` `
+| Field | Type | Mutability | Constraints | Description |
+|-------|------|------------|-------------|-------------|
+| field_a | String | immutable | required | <purpose> |
+| field_b | Integer | mutable | optional, >= 0 | <purpose> |
 
 <Prose explaining the type's purpose, constraints, and usage context.>
 
 ---
 ```
 
+### Discriminated Unions
+
+For types that use a discriminant field to distinguish variants:
+
+```markdown
+## <UnionTypeName>
+
+**Discriminant field:** `kind`
+
+| Variant | Discriminant Value | Additional Fields |
+|---------|-------------------|-------------------|
+| VariantA | `"variant_a"` | `payload: String` |
+| VariantB | `"variant_b"` | `count: Integer` |
+```
+
 ## Content Rules
 
 1. **YAML frontmatter** — Every types file MUST start with `---` frontmatter containing `id`, `kind: types`, `title`, `status`, `behaviors`, `adrs`. The `**Source behaviors:**` line is REMOVED from prose — that metadata lives in frontmatter.
-2. **Readonly fields** — All interfaces use `readonly` fields.
-2. **Unique _tag discriminants** — All error types have a unique `_tag` discriminant.
-3. **Behavior cross-references** — Cross-reference behavior files that use these types.
-4. **No duplicates** — No duplicate type definitions across `types/` files.
-5. **Errors file** — `types/errors.md` collects all error types with their `_tag` discriminants.
+2. **Immutability annotations** — All fields should declare mutability (immutable/mutable) in the field table.
+3. **Unique discriminant values** — All discriminated union types have unique discriminant values per variant.
+4. **Behavior cross-references** — Cross-reference behavior files that use these types.
+5. **No duplicates** — No duplicate type definitions across `types/` files.
+6. **Errors file** — `types/errors.md` collects all error types with their discriminant values.
 
 ## Cross-References
 

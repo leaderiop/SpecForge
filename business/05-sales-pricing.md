@@ -37,9 +37,9 @@ SpecForge pricing is built on five foundational principles that reflect both our
 | `specforge compile` (graph export) | Yes | Yes | Yes | Yes |
 | `specforge init` (project scaffolding) | Yes | Yes | Yes | Yes |
 | Tree-sitter parser with error recovery | Yes | Yes | Yes | Yes |
-| All 36 validation codes | Yes | Yes | Yes | Yes |
+| All core validation codes + extension codes | Yes | Yes | Yes | Yes |
 | Agent-context output format | Yes | Yes | Yes | Yes |
-| Community plugins + providers | Yes | Yes | Yes | Yes |
+| Community extensions + providers | Yes | Yes | Yes | Yes |
 | **Entity Limits** | | | | |
 | Maximum entities per project | 500 | Unlimited | Unlimited | Unlimited |
 | Maximum .spec files per project | 20 | Unlimited | Unlimited | Unlimited |
@@ -47,7 +47,7 @@ SpecForge pricing is built on five foundational principles that reflect both our
 | **Advanced Compiler** | | | | |
 | `specforge trace` (test traceability) | Basic (5 entities) | Full | Full | Full |
 | `specforge report` (coverage dashboard) | -- | CLI | CLI + JSON | CLI + JSON + HTML |
-| `specforge infer` (code-to-spec) | -- | Yes | Yes | Yes |
+| AI-assisted spec authoring (LSP) | -- | Yes | Yes | Yes |
 | `specforge query` (graph queries) | -- | Yes | Yes | Yes |
 | Diff-aware context (`--diff`) | -- | Yes | Yes | Yes |
 | Custom validation rules | -- | -- | Yes | Yes |
@@ -86,11 +86,11 @@ SpecForge pricing is built on five foundational principles that reflect both our
 | Dedicated Customer Success Manager | -- | -- | 10+ seats | Yes |
 | SLA (uptime guarantee) | -- | -- | 99.5% | 99.9% |
 | Onboarding + training sessions | -- | -- | 2 sessions | Unlimited |
-| **Plugins & Extensions** | | | | |
-| Community plugin registry | Yes | Yes | Yes | Yes |
-| Premium plugins (official) | -- | Yes | Yes | Yes |
-| Private plugin registry | -- | -- | -- | Yes |
-| Custom plugin development support | -- | -- | -- | Yes (professional services) |
+| **Extensions** | | | | |
+| Community extension registry | Yes | Yes | Yes | Yes |
+| Premium extensions (official) | -- | Yes | Yes | Yes |
+| Private extension registry | -- | -- | -- | Yes |
+| Custom extension development support | -- | -- | -- | Yes (professional services) |
 
 ### Tier Rationale
 
@@ -253,10 +253,10 @@ Week 13-14: Contract Execution & Onboarding Kickoff
 
 | Objection | Response Strategy | Supporting Evidence |
 |---|---|---|
-| "We already use CLAUDE.md / .cursor rules" | "SpecForge compiles where text files drift. Show the 36 validation codes that catch errors a text file never will. Offer side-by-side comparison pilot." | Token reduction benchmarks: 75-86% vs. 20-30% for plain text |
+| "We already use CLAUDE.md / .cursor rules" | "SpecForge compiles where text files drift. Show the validation codes that catch errors a text file never will. Offer side-by-side comparison pilot." | Token reduction benchmarks: 75-86% vs. 20-30% for plain text |
 | "Our developers won't adopt another tool" | "SpecForge is a 60-second install that lives inside their existing workflow. No new IDE, no new UI. CLI + LSP in the editor they already use." | Time-to-first-value data: <60 seconds |
 | "We're concerned about lock-in" | "The .spec format is open-source (MIT). The CLI compiler is open-source. Your specs are text files in your git repo. You can leave anytime." | Open-source codebase, no proprietary data format |
-| "We can build this in-house" | "Building a compiler with 16 entity types, 20 edge types, tree-sitter parser, LSP, and plugin system takes 18-24 months and 3-5 engineers. That is $1-2M in opportunity cost vs. $180K/year for SpecForge." | Compiler complexity estimates, Buf/Terraform development timelines |
+| "We can build this in-house" | "Building a zero-entity-core compiler with extension-defined entity types, tree-sitter parser, LSP, and Wasm extension system takes 18-24 months and 3-5 engineers. That is $1-2M in opportunity cost vs. $180K/year for SpecForge." | Compiler complexity estimates, Buf/Terraform development timelines |
 | "Token costs are dropping" | "Token volume per agent run is increasing faster than per-token costs are dropping. Structured context improves accuracy, not just cost. The value compounds." | Industry data on token consumption growth |
 | "We need SOC 2 / ISO compliance" | "SpecForge Enterprise generates Requirements Traceability Matrices (RTM) that map directly to ISO 27001 Annex A controls and SOC 2 trust criteria." | RTM export samples, compliance officer testimonials |
 | "The price is too high" | "At $149/seat/month for 100 seats, the annual cost is $178K. Your current AI token waste at 100 engineers is $60K-$240K/year. SpecForge pays for itself in token savings alone, before counting productivity gains." | ROI calculator with customer-specific inputs |
@@ -309,7 +309,7 @@ These partnerships put SpecForge in front of the exact developers who need it mo
 | **GitHub** | `@specforge/gh` provider + Actions marketplace | PR-level spec coverage; GitHub improves code review UX |
 | **GitLab** | GitLab CI templates + provider | Enterprise SCM integration; GitLab differentiates in AI-native tooling |
 | **Datadog / Grafana** | Spec coverage as observability metric | Novel metric for engineering health; deepens monitoring platform |
-| **Terraform (HashiCorp)** | Spec-to-Terraform module generator | SpecForge validates infra specs; HCP gains a specification layer |
+| **Terraform (HashiCorp)** | `@specforge/infrastructure` domain extension | SpecForge validates infra specs; HCP gains a specification layer |
 
 ### 6.4 Partnership Revenue Targets
 

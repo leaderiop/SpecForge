@@ -1,11 +1,11 @@
 ---
 name: specforge-roadmaps-dsl
-description: "Write roadmap blocks in .spec DSL files (@specforge/product plugin). Each roadmap declares a planning phase with RM-{n} IDs, status lifecycle, behavior ranges, feature scheduling, and exit criteria. Use when defining when things ship and what must be true before a phase is complete."
+description: "Write roadmap blocks in .spec DSL files (@specforge/product plugin). Each roadmap declares a planning phase with free-form snake_case IDs, status lifecycle, behavior and feature scheduling, and exit criteria. Use when defining when things ship and what must be true before a phase is complete."
 ---
 
 # SpecForge Roadmaps DSL
 
-Rules and conventions for authoring **`roadmap` blocks** in `.spec` files. Roadmap phases provide the temporal dimension — when things ship — with verifiable exit criteria.
+Rules and conventions for authoring **`roadmap` blocks** in `.spec` files. Roadmap phases provide the temporal dimension -- when things ship -- with verifiable exit criteria.
 
 **Requires:** `@specforge/product` plugin.
 
@@ -13,7 +13,7 @@ Rules and conventions for authoring **`roadmap` blocks** in `.spec` files. Roadm
 
 - Defining planning phases (MVP, v2, etc.) with verifiable exit criteria
 - Scheduling features and deliverables into release milestones
-- Tracking behavior coverage by range
+- Tracking behavior coverage by explicit references
 - Connecting planning to the compiler-validated traceability chain
 
 ## Block Syntax
@@ -22,12 +22,12 @@ Rules and conventions for authoring **`roadmap` blocks** in `.spec` files. Roadm
 use features/user-management
 use features/auth
 
-roadmap RM-01 "Phase 1: Core" {
+roadmap mvp "Phase 1: Core" {
   status    in_progress
-  behaviors [1, 8]
-  features  [FEAT-MS-001, FEAT-MS-002]
+  behaviors [create_user, read_user_by_id, update_user_email, authenticate_user, hash_password]
+  features  [user_management, password_authentication]
   criteria  [
-    "All BEH covered by tests",
+    "All behaviors covered by tests",
     "specforge check --strict passes",
   ]
 }
@@ -46,24 +46,16 @@ roadmap RM-01 "Phase 1: Core" {
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `behaviors` | range or list | Behavior range `[start, end]` or explicit list. Range expands using project infix. |
+| `behaviors` | reference list | Individual behavior entity IDs included in this phase. |
 | `features` | reference list | Features scheduled for this phase. |
 | `criteria` | string list | Exit criteria for phase completion. |
 | `refs` | reference list | External references linked to this roadmap phase. |
 
-### Behavior Ranges
-
-```spec
-behaviors [1, 50]  // expands to BEH-{infix}-001 through BEH-{infix}-050
-```
-
-The range uses the project infix from the `spec` root block.
-
 ### Status Lifecycle
 
 ```
-planned → in_progress → completed
-                ↓
+planned -> in_progress -> completed
+                |
               blocked
 ```
 
@@ -86,11 +78,10 @@ planned → in_progress → completed
 
 ## Writing Rules
 
-1. **Project-wide IDs** — `RM-{n}` omits the infix (roadmap phases are project-wide, not domain-scoped).
-2. **Verifiable criteria** — "specforge check --strict passes", "coverage >= 90%", not vague goals.
-3. **Behavior ranges are inclusive** — `[1, 50]` includes both BEH-{infix}-001 and BEH-{infix}-050.
-4. **Progressive phases** — each phase builds on previous ones.
-5. **Import feature files** — `use` the files that declare referenced features.
+1. **Verifiable criteria** -- "specforge check --strict passes", "coverage >= 90%", not vague goals.
+2. **Reference behaviors individually** -- list specific behavior entity IDs, not numeric ranges.
+3. **Progressive phases** -- each phase builds on previous ones.
+4. **Import feature files** -- `use` the files that declare referenced features.
 
 ## Validation Rules
 
@@ -98,20 +89,19 @@ planned → in_progress → completed
 |------|------|
 | E001 | Every ID in `features` and `behaviors` must resolve. |
 | E002 | No duplicate roadmap IDs. |
-| E010 | Behavior range invalid — start > end, or range contains non-existent behaviors. |
 
 ## Examples
 
 ### Active Phase
 
 ```spec
-roadmap RM-01 "MVP" {
+roadmap mvp "MVP" {
   status     in_progress
-  behaviors  [1, 50]
-  features   [FEAT-MS-001, FEAT-MS-002, FEAT-MS-003]
+  behaviors  [create_user, read_user_by_id, update_user_email, delete_user, authenticate_user]
+  features   [user_management, password_authentication, basic_search]
 
   criteria [
-    "All BEH-MS-001 through BEH-MS-050 passing",
+    "All MVP behaviors passing",
     "Coverage >= 90%",
     "Zero open E-level diagnostics",
   ]
@@ -123,9 +113,9 @@ roadmap RM-01 "MVP" {
 ### Planned Phase
 
 ```spec
-roadmap RM-02 "Search & Analytics" {
+roadmap search_analytics "Search & Analytics" {
   status    planned
-  features  [FEAT-MS-005, FEAT-MS-006]
+  features  [full_text_search, analytics_dashboard]
 
   criteria [
     "Full-text search returns results in < 200ms",
@@ -137,9 +127,9 @@ roadmap RM-02 "Search & Analytics" {
 ### Completed Phase
 
 ```spec
-roadmap RM-00 "Foundation" {
+roadmap foundation "Foundation" {
   status     completed
-  features   [FEAT-MS-000]
+  features   [project_scaffold]
 
   criteria [
     "Project scaffold complete",
@@ -152,7 +142,5 @@ roadmap RM-00 "Foundation" {
 ## What NOT to Do
 
 - Do not write roadmaps without the `@specforge/product` plugin installed
-- Do not use behavior ranges where start > end
-- Do not set vague criteria like "system is ready" — use measurable, automatable checks
+- Do not set vague criteria like "system is ready" -- use measurable, automatable checks
 - Do not reference features from other files without a `use` import
-- Do not add an infix to roadmap IDs — use `RM-01`, not `RM-MS-01`

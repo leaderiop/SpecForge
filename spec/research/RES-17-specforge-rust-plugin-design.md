@@ -4,16 +4,16 @@ kind: research
 title: "SpecForge Rust Plugin Design — @specforge/rust Test Traceability for Rust Projects"
 status: active
 date: 2026-03-02
-depends_on: [RES-14, RES-15, RES-16, RES-11b]
+depends_on: [RES-14, RES-15]
 ---
 
 # RES-17: SpecForge Rust Plugin Design
 
 ## Problem Statement
 
-SpecForge is written in Rust. Its first consumer is itself. The three-layer traceability model (RES-15: intent → linkage → proof) requires a language-specific plugin to close the loop for Rust projects: from `.spec` entities through generated Rust code to passing `cargo test` results in `specforge-report.json`.
+SpecForge is written in Rust. Its first consumer is itself. The three-layer traceability model (RES-15: intent → linkage → proof) requires a language-specific extension to close the loop for Rust projects: from `.spec` entities through Rust code to passing `cargo test` results in `specforge-report.json`.
 
-RES-11b defined code generation for TypeScript, Python, and Go. RES-16 chose Option B (consume results) over running tests directly. Neither document addresses Rust's specific constraints:
+RES-16 chose Option B (consume results) over running tests directly. The Rust integration needs to address Rust's specific constraints:
 
 1. **libtest has no reporter plugin API** — unlike vitest (JS) or pytest (Python), Rust's built-in test harness is not extensible
 2. **`cargo test --format json` is unstable** — stuck behind `-Z unstable-options` since 2018, no stabilization timeline
@@ -21,7 +21,7 @@ RES-11b defined code generation for TypeScript, Python, and Go. RES-16 chose Opt
 4. **`#[test]` is a lang item** — not a hookable proc macro; cannot intercept test registration
 5. **Multiple test binary fragmentation** — each crate and `tests/*.rs` file compiles to a separate binary
 
-This analysis was produced by 10 specialized expert agents researching the Rust test ecosystem, three-layer traceability mapping, report generation architecture, entity-to-test mapping, extension model fit, code generation, CI integration, crate architecture, competitive landscape, and developer experience.
+This analysis was produced by 10 specialized expert agents researching the Rust test ecosystem, three-layer traceability mapping, report collection architecture, entity-to-test mapping, extension model fit, CI integration, crate architecture, competitive landscape, and developer experience.
 
 ---
 
@@ -29,10 +29,9 @@ This analysis was produced by 10 specialized expert agents researching the Rust 
 
 | Decision | Choice |
 |----------|--------|
-| **Package name** | `@specforge/rust` (Generator + Adapter) |
-| **Extension type** | NOT a 4th extension type — uses existing Generator + Adapter interfaces |
+| **Extension name** | `@specforge/rust` |
+| **Extension type** | Uses existing Adapter interface for test collection |
 | **Crates (crates.io)** | `specforge-test` (runtime lib) + `specforge-test-macros` (proc macro) |
-| **Generator binary** | `specforge-gen-rust` — reads graph JSON, emits Rust files |
 | **Test annotation (primary)** | `#[specforge::test(behavior = "entity_id")]` proc macro attribute |
 | **Test annotation (fallback)** | `/// @specforge-behavior entity_id` doc comments |
 | **Convention fallback** | `mod entity_id { #[test] fn ... }` module naming |
@@ -42,13 +41,9 @@ This analysis was produced by 10 specialized expert agents researching the Rust 
 | **Report file** | `target/specforge/<binary-name>.json` per test binary, merged by collector |
 | **Entity mapping resolution** | `tests` field > proc macro attribute > module name convention |
 | **Proc macro behavior** | `Drop`-based guard — detects panicking, records pass/fail |
-| **Generated types** | Rust structs from `type` blocks → `src/generated/types/` |
-| **Generated ports** | Rust traits from `port` blocks → `src/generated/ports/` |
-| **Generated test stubs** | `todo!()` bodies (not `#[ignore]`) → `tests/spec/` |
 | **Verify description → fn name** | Slugification: lowercase, spaces to `_`, strip special chars |
 | **Naming convention separator** | `{entity_id}__{description_slug}` with double underscore |
-| **Drift detection** | `// @specforge-checksum:sha256:...` header in generated files |
-| **CI pipeline** | 4 gates: check → drift → test+collect → coverage |
+| **CI pipeline** | 2 gates: test+collect → coverage |
 | **Repository location** | `integrations/rust/` in monorepo (NOT a workspace member) |
 
 ---
@@ -57,22 +52,18 @@ This analysis was produced by 10 specialized expert agents researching the Rust 
 
 ### What `@specforge/rust` Is
 
-`@specforge/rust` is a Generator package that provides two interfaces:
+`@specforge/rust` is an Adapter extension that provides test traceability:
 
 ```
 ┌─────────────────────────────────────────────────────────┐
 │                    @specforge/rust                        │
 │                                                          │
-│  ┌──────────────────────┐  ┌───────────────────────────┐ │
-│  │ Generator             │  │ Adapter                   │ │
-│  │ specforge-gen-rust    │  │ specforge collect rust    │ │
-│  │                       │  │                           │ │
-│  │ Reads: graph JSON     │  │ Reads: cargo test output  │ │
-│  │ Emits: Rust files     │  │ Reads: test mappings      │ │
-│  │  - types (structs)    │  │ Emits: specforge-report   │ │
-│  │  - ports (traits)     │  │        .json              │ │
-│  │  - test stubs         │  │                           │ │
-│  └──────────────────────┘  └───────────────────────────┘ │
+│  ┌──────────────────────────────────────────────────────┐ │
+│  │ Adapter: specforge collect rust                      │ │
+│  │  - Reads: cargo test output (JUnit XML / JSON)       │ │
+│  │  - Reads: test mappings (proc macro / convention)    │ │
+│  │  - Emits: specforge-report.json                      │ │
+│  └──────────────────────────────────────────────────────┘ │
 │                                                          │
 │  ┌──────────────────────────────────────────────────────┐ │
 │  │ specforge-test crate (crates.io)                     │ │
@@ -87,25 +78,18 @@ This is NOT a 4th extension type. It fits within SpecForge's existing three exte
 
 | Mechanism | Role in `@specforge/rust` |
 |-----------|--------------------------|
-| **Generator** | `specforge gen rust` — produces types, ports, test stubs |
 | **Adapter** | `specforge collect rust` — transforms cargo test output to `specforge-report.json` |
-| **Plugin** | Not applicable — no new entity types |
+| **Extension** | Not applicable — no new entity types |
 | **Provider** | Not applicable — no new ref schemes |
 
-### Package Manifest
+### Extension Manifest
 
 ```toml
 # specforge-plugin.toml
 [package]
 name = "@specforge/rust"
 version = "0.1.0"
-description = "Rust code generation and test traceability for SpecForge"
-
-[generator]
-binary = "specforge-gen-rust"
-languages = ["rust"]
-input = "json"        # reads graph JSON from stdin
-output = "filesystem"  # writes files to output directory
+description = "Rust test traceability for SpecForge"
 
 [adapter]
 binary = "specforge-adapt-rust"  # or built into specforge-cli as `specforge collect rust`
@@ -113,30 +97,18 @@ runners = ["cargo-test", "cargo-nextest"]
 report_format = "specforge-report-v1"
 ```
 
-### Configuration in specforge.spec
+### Configuration
 
-```spec
-spec "my-service" {
-  version "1.0"
-
-  plugins ["@specforge/product"]
-
-  gen rust {
-    out            "src/generated/"
-    test_out       "tests/spec/"
-    bench_out      "benches/spec/"
-    naming         "snake_case"
-    result         "thiserror"     // "thiserror" | "anyhow" | "raw"
-    async          false
-    serde          true
-    tests          "@specforge/rust"
-  }
-
-  test_dirs ["tests/"]
-
-  coverage {
-    threshold 80
-    reports ["target/specforge/"]
+```jsonc
+// specforge.json
+{
+  "name": "my-service",
+  "version": "1.0",
+  "extensions": ["@specforge/software", "@specforge/product", "@specforge/rust"],
+  "test_dirs": ["tests/"],
+  "coverage": {
+    "threshold": 80,
+    "reports": ["target/specforge/"]
   }
 }
 ```
@@ -367,7 +339,7 @@ mod traceability_chain_integrity {
 
 ### Verify Description Slugification
 
-When code generation produces test stubs, verify descriptions become function names via deterministic rules:
+Verify descriptions become function names via deterministic slugification rules:
 
 ```
 "missing reference produces E001"    →  missing_reference_produces_e001
@@ -385,7 +357,7 @@ Rules:
 
 ### Naming Convention: Double Underscore Separator
 
-Generated test functions use `{entity_id}__{description_slug}` with `__` separating entity ID from test description. This allows the collector to unambiguously extract the entity ID from a function name:
+Test functions following the naming convention use `{entity_id}__{description_slug}` with `__` separating entity ID from test description. This allows the collector to unambiguously extract the entity ID from a function name:
 
 ```rust
 #[test]
@@ -573,221 +545,6 @@ Separate `Cargo.lock`, separate CI, separate release cycle. Same pattern as `rus
 
 ---
 
-## Code Generation: `specforge gen rust`
-
-### Output Artifacts
-
-| Artifact | Location | Source |
-|----------|----------|--------|
-| Type structs | `src/generated/types/*.rs` | `type` blocks in `.spec` |
-| Port traits | `src/generated/ports/*.rs` | `port` blocks in `.spec` |
-| Test stubs | `tests/spec/behaviors/*.rs`, `tests/spec/invariants/*.rs` | `verify`/`scenario` in testable entities |
-| Bench stubs | `benches/spec/*.rs` | `verify load` statements |
-| Entry point | `tests/specforge_tests.rs` | Auto-generated module tree |
-| Module files | `src/generated/mod.rs`, etc. | Glue |
-
-### Type Generation
-
-Spec types map to Rust types:
-
-| Spec Type | Rust Type |
-|-----------|-----------|
-| `string` | `String` |
-| `integer` | `i64` |
-| `number` | `f64` |
-| `boolean` | `bool` |
-| `timestamp` | `chrono::DateTime<Utc>` (opt-in) |
-| `T?` / `@optional` | `Option<T>` |
-| `T[]` | `Vec<T>` |
-| `@readonly` | Doc comment only (Rust has no readonly fields) |
-| `@unique` | Doc comment only (validation concern) |
-| `"literal" @literal` | `Error + Display` impl, `_tag` field dropped |
-| `A \| B` (union) | `#[serde(tag = "_tag")] enum { A(A), B(B) }` |
-| enum variants | `#[derive(Copy, Eq, Hash)] enum` |
-
-Concrete example from `spec/types/core.spec`:
-
-```spec
-type Scenario {
-  title       string    @readonly
-  steps       ScenarioStep[]
-}
-
-type ScenarioStepKind = given | when | then
-```
-
-Generates:
-
-```rust
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct Scenario {
-    /// @readonly
-    pub title: String,
-    pub steps: Vec<ScenarioStep>,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
-pub enum ScenarioStepKind {
-    Given,
-    When,
-    Then,
-}
-```
-
-### Port Generation
-
-Spec ports map to Rust traits:
-
-```spec
-port TestReporter {
-  direction outbound
-  method collectResults(reportPaths: string[]) -> Result<string, EmitterError>
-}
-```
-
-Generates:
-
-```rust
-/// Port: TestReporter (outbound)
-pub trait TestReporter {
-    fn collect_results(&self, report_paths: &[String]) -> Result<String, EmitterError>;
-}
-```
-
-Method signature mapping: borrow strings (`&str`), borrow arrays (`&[T]`), borrow structs (`&T`). All methods take `&self` by default. With `async = true` in config, generates `async fn` with `async-trait` or RPITIT.
-
-### Test Stub Generation
-
-For each testable entity with `verify` statements, generate a test file with one `mod` per entity and one `#[test]` fn per verify:
-
-```spec
-behavior parse_scenario_blocks "Parse Scenario Blocks" {
-  contract """The parser MUST recognize scenario blocks with given/when/then."""
-
-  verify unit "parse scenario block with all three step kinds"
-  verify unit "parse scenario with multiple steps of same kind"
-  verify unit "scenario outside behavior or capability produces parse error"
-}
-```
-
-Generates `tests/spec/behaviors/parsing_test.rs`:
-
-```rust
-//! Auto-generated by specforge — do not edit above the CUSTOM line.
-//! Source: spec/behaviors/parsing.spec
-//! @specforge-checksum:sha256:a1b2c3d4
-
-use specforge_test::prelude::*;
-
-/// Behavior: parse_scenario_blocks — "Parse Scenario Blocks"
-///
-/// Contract: The parser MUST recognize scenario blocks with the syntax
-/// scenario "title" { given/when/then } within behavior and capability blocks.
-mod parse_scenario_blocks {
-    use super::*;
-
-    #[specforge::test(behavior = "parse_scenario_blocks")]
-    #[test]
-    fn parse_scenario_block_with_all_three_step_kinds() {
-        // verify unit: "parse scenario block with all three step kinds"
-        todo!("parse scenario block with all three step kinds")
-    }
-
-    #[specforge::test(behavior = "parse_scenario_blocks")]
-    #[test]
-    fn parse_scenario_with_multiple_steps_of_same_kind() {
-        // verify unit: "parse scenario with multiple steps of same kind"
-        todo!("parse scenario with multiple steps of same kind")
-    }
-
-    #[specforge::test(behavior = "parse_scenario_blocks")]
-    #[test]
-    fn scenario_outside_behavior_or_capability_produces_parse_error() {
-        // verify unit: "scenario outside behavior or capability produces parse error"
-        todo!("scenario outside behavior or capability produces parse error")
-    }
-}
-```
-
-**Design decisions:**
-- `todo!()` instead of `#[ignore]` — panicking tests demand attention; ignored tests are invisible
-- Contract text in module doc comment — agents have full context when implementing
-- Both attribute AND convention present — belt and suspenders
-- `verify property` → `proptest!` macro frame with strategy params left as TODO
-- `verify load` → criterion benchmark stubs in `benches/spec/`
-- `verify e2e` / scenarios → `#[ignore = "e2e"]` because they need running infrastructure
-
-### Test Entry Point
-
-Rather than N files in `tests/` (each compiling as a separate binary), use one entry point for faster linking:
-
-```rust
-// tests/specforge_tests.rs — auto-generated
-#[path = "spec/behaviors/parsing_test.rs"]
-mod spec_behaviors_parsing;
-
-#[path = "spec/behaviors/validation_test.rs"]
-mod spec_behaviors_validation;
-
-#[path = "spec/invariants/validation_test.rs"]
-mod spec_invariants_validation;
-```
-
-One binary. Module path hierarchy lets the collector reconstruct entity IDs:
-```
-specforge_tests::spec_behaviors_parsing::parse_scenario_blocks::parse_scenario_block_with_all_three_step_kinds
-```
-
-### What Is NOT Generated
-
-| Tempting but wrong | Why not |
-|--------------------|---------|
-| `impl` blocks | Implementation is hand-written |
-| Builder patterns | Over-engineering |
-| `From`/`Into` impls | Domain-specific |
-| `proptest` strategies | Domain-specific — just the `proptest!` frame |
-| Test implementations | Stubs ONLY — `todo!()` body, never guess at logic |
-| `mod.rs` for user's `src/` root | Don't touch user's module tree |
-
-### Drift Detection
-
-`specforge gen rust --check` computes what would be generated, compares against files on disk via `@specforge-checksum` headers:
-
-```
-$ specforge gen rust --check
-
-error: generated code is stale (2 files)
-  src/generated/types/core.rs
-    spec changed: spec/types/core.spec (2026-03-02 14:30)
-    generated:    src/generated/types/core.rs (2026-03-01 10:00)
-
-  tests/spec/behaviors/parsing_test.rs
-    spec changed: spec/behaviors/parsing.spec (2026-03-02 14:30)
-    generated:    tests/spec/behaviors/parsing_test.rs (2026-03-01 10:00)
-
-Run `specforge gen rust` to regenerate.
-```
-
-Exit 1 if any file is stale. Exit 0 if all match. No files written in check mode.
-
-### Regeneration Safety
-
-The first version REFUSES to overwrite files that contain non-`todo!()` test bodies:
-
-```
-$ specforge gen rust
-
-  Generated  tests/spec/behaviors/validation_test.rs   (new)
-  Skipped    tests/spec/behaviors/parsing_test.rs       (has implementations)
-
-  1 file skipped (has implementations). Use --force to overwrite.
-  Use --merge to attempt body preservation (experimental).
-```
-
-Safe by default. `--merge` parses existing files with `syn`, matches test bodies by `@specforge-verify` annotations, and preserves hand-written implementations. `--force` overwrites everything.
-
----
-
 ## Report Collection: `specforge collect rust`
 
 ### The Go Pattern Applied to Rust
@@ -841,14 +598,12 @@ specforge coverage --min 90        # gates
 
 ## CI Integration Pipeline
 
-### Five Stages
+### Three Stages
 
 ```
 1. specforge check --strict          (< 1s)   spec validity
-2. specforge gen rust --check        (< 2s)   drift detection
-3. cargo test + specforge collect    (mins)    build, test, report
-4. specforge coverage --min=90       (< 1s)   spec coverage gate
-5. specforge trace --test-results    (< 2s)   traceability matrix
+2. cargo test + specforge collect    (mins)    build, test, report
+3. specforge coverage --min=90       (< 1s)   spec coverage gate
 ```
 
 Fast checks first. Expensive checks last. Fail early.
@@ -861,15 +616,7 @@ specforge check --strict
 
 Exit 0: no errors, no warnings. Exit 1: any error (E001-E016) or warning (W001-W018, treated as errors in strict mode). If this fails, stop — everything downstream depends on a valid spec graph.
 
-### Stage 2: Drift Detection
-
-```bash
-specforge gen rust --check
-```
-
-Catches: new type/port/behavior added but gen not re-run, field renamed but struct not regenerated, new verify statement but test stub missing. Does NOT catch: hand-written implementation changes (those are the developer's responsibility).
-
-### Stage 3: Build, Test, Collect
+### Stage 2: Build, Test, Collect
 
 ```bash
 cargo nextest run --profile ci
@@ -878,7 +625,7 @@ specforge collect rust --from-junit target/nextest/ci/junit.xml
 
 Standard Rust test execution. The `specforge collect` step transforms test results into `specforge-report.json`.
 
-### Stage 4: Coverage Gate
+### Stage 3: Coverage Gate
 
 ```bash
 specforge coverage --min=90
@@ -903,7 +650,7 @@ passing (14/20 = 70%)   — "The tests passed"
 
 `--min=90` gates on the **passing** level. Each level is a strict subset of the one above.
 
-### Stage 5: Traceability Report
+### Traceability Report (Optional)
 
 ```bash
 specforge trace --test-results
@@ -956,8 +703,6 @@ jobs:
         run: cargo install specforge-cli
       - name: Validate spec files
         run: specforge check --strict
-      - name: Check code generation drift
-        run: specforge gen rust --check
 
   build-and-test:
     name: Build & Test
@@ -1011,7 +756,6 @@ jobs:
 |---------|--------|--------|
 | `specforge check` | No errors | Any error (E001-E016) |
 | `specforge check --strict` | No errors, no warnings | Any error or warning |
-| `specforge gen rust --check` | Generated files match disk | Drift detected |
 | `specforge coverage --min=90` | Coverage >= 90% | Coverage < 90% |
 | `specforge trace --test-results` | Always 0 (informational) | — |
 | `specforge collect rust` | Report written | Parse error or no results |
@@ -1024,7 +768,7 @@ jobs:
 
 ```bash
 cd my-service
-specforge init                    # creates specforge.spec with gen rust config
+specforge init                    # creates specforge.json with @specforge/rust extension
 cargo add --dev specforge-test    # one dev-dependency
 ```
 
@@ -1037,10 +781,7 @@ vim spec/behaviors/user.spec
 # Validate
 specforge check
 
-# Generate types + ports + test stubs
-specforge gen rust
-
-# Implement the first test (replace todo!())
+# Write the first test
 vim tests/spec/behaviors/user_test.rs
 
 # Run tests and collect
@@ -1054,7 +795,6 @@ specforge trace create_user --test-results
 
 ```bash
 specforge check                              # validate
-specforge gen rust                           # regenerate (preserves implementations)
 cargo test 2>&1 | specforge collect rust     # test + report
 specforge coverage --test-results            # coverage summary
 specforge trace --test-results               # full matrix
@@ -1064,8 +804,7 @@ specforge trace --test-results               # full matrix
 
 ```bash
 specforge check --strict                     # gate 1: spec valid
-specforge gen rust --check                   # gate 2: no drift
-cargo nextest run --profile ci               # gate 3: tests pass
+cargo nextest run --profile ci               # gate 2: tests pass
 specforge collect rust --from-junit ...      # collect results
 specforge coverage --min 80                  # gate 4: coverage threshold
 ```
@@ -1075,11 +814,11 @@ specforge coverage --min 80                  # gate 4: coverage threshold
 The agent needs exactly three things:
 
 1. `specforge show <entity> --depth=2 --format=json` — the spec entity plus direct dependencies (types, ports, invariants)
-2. The generated Rust types and traits — so it knows the signatures
+2. The entity graph with type and port definitions — so it knows the signatures
 3. The naming convention — `{entity_id}__{description_slug}`
 
 ```
-Agent reads spec  →  generates implementation  →  fills test stubs  →  adds tests field  →  specforge trace validates
+Agent reads spec  →  produces implementation + tests  →  adds tests field  →  specforge trace validates
 ```
 
 The spec IS the prompt. The verify statements ARE the acceptance criteria.
@@ -1112,16 +851,6 @@ warning[W018]: 'delete_user' has test declarations but no linked test files
     = help: Run tests covering this behavior and collect results
 ```
 
-### Generated code is stale
-
-```
-error: generated code is stale
-  types/user.spec changed at 2026-03-02 14:30
-  src/generated/types/user.rs last generated at 2026-03-01 10:00
-
-  Run `specforge gen rust` to regenerate.
-```
-
 ---
 
 ## Competitive Landscape
@@ -1152,7 +881,7 @@ The closest prior art:
 | **Serenity BDD** | Living documentation HTML reports (`specforge trace --html`) | High |
 | **Polarion** | "Suspect links" — flag stale tests when specs change | High |
 | **TRLC** | Formal verification for invariants (CVC5 solver integration) | Future |
-| **cucumber-rs** | Target for scenario codegen (`.feature` + World struct stubs) | Medium |
+| **cucumber-rs** | Collect cucumber-rs test results via `specforge collect rust --from-cucumber` | Medium |
 
 ### The Moat
 
@@ -1174,13 +903,7 @@ Ship `specforge-test` and `specforge-test-macros` on crates.io. `#[specforge::te
 
 **Developer adds:** `specforge-test = "0.1"` to dev-dependencies.
 
-### Phase 3: Code Generation
-
-Ship `specforge-gen-rust` generator binary. `specforge gen rust` produces types, ports, test stubs. `specforge gen rust --check` for drift detection in CI.
-
-**Developer runs:** `specforge gen rust` after spec changes.
-
-### Phase 4: Advanced Features
+### Phase 3: Advanced Features
 
 - nextest JUnit XML integration
 - `specforge trace --html` living documentation
@@ -1194,33 +917,12 @@ Ship `specforge-gen-rust` generator binary. `specforge gen rust` produces types,
 
 | Question | Leaning | Status |
 |----------|---------|--------|
-| Should `src/generated/` be gitignored? | No — check it in, drift detection in CI | Needs convention doc |
 | Entity ID validation: compile-time vs runtime? | Runtime (proc macros cannot do I/O) or post-hoc in `specforge coverage` | Lean post-hoc |
-| `String` vs `Cow<'_, str>` in generated types? | Always `String`. Lifetimes are power-user concern. | Confirmed |
 | `cargo test` JSON stabilization? | Support as secondary behind `--unstable` flag | Waiting on rust-lang/rust#49359 |
 | `criterion` vs `divan` for `verify load`? | `criterion` (stable, widely used) | Survey needed |
 | Allure-compatible report output? | Yes, but not in v1 | Deferred |
-| cucumber-rs integration for scenarios? | Yes via `@specforge/gen-cucumber`, not in core | Deferred |
+| cucumber-rs integration for scenarios? | Via `specforge collect rust --from-cucumber`, not code generation | Deferred |
 | `#[should_panic]` support? | No. Incompatible with Drop guard. Use Result-based testing. | Confirmed |
-
----
-
-## SpecForge Self-Hosting Numbers
-
-Running `specforge gen rust` on SpecForge's own spec files would produce:
-
-| Category | Count |
-|----------|-------|
-| Type files | 6 (core, errors, graph, diagnostics, coverage, codegen) |
-| Port files | 2 (outbound, inbound) |
-| Behavior test files | 3 (parsing, validation, coverage) |
-| Invariant test files | 1 (validation) |
-| Bench files | 0 (no `verify load` in current specs) |
-| Entry point + glue | 4 |
-| **Total files** | **~16** |
-| **Total test stubs** | **~85 `#[test]` functions** |
-
-The developer runs `specforge gen rust`, gets a compilable skeleton, replaces `todo!()` calls one by one, and `specforge trace` shows progress through the four coverage levels.
 
 ---
 
@@ -1228,12 +930,11 @@ The developer runs `specforge gen rust`, gets a compilable skeleton, replaces `t
 
 ```bash
 # Setup
-specforge init                              # create specforge.spec
+specforge init                              # create specforge.json
 cargo add --dev specforge-test              # add proc macro dependency (optional)
 
 # Development
 specforge check                             # validate .spec files
-specforge gen rust                          # generate types + ports + test stubs
 cargo test                                  # run tests (standard Rust)
 cargo test 2>&1 | specforge collect rust    # collect results into report
 
@@ -1244,7 +945,6 @@ specforge coverage                          # coverage summary
 
 # CI
 specforge check --strict                    # warnings = errors
-specforge gen rust --check                  # drift detection
 cargo nextest run --profile ci              # run tests
 specforge collect rust --from-junit ...     # collect from nextest
 specforge coverage --min 90                 # gate
@@ -1254,4 +954,4 @@ specforge show create_user --format=json    # agent context loading
 specforge stats                             # project health overview
 ```
 
-Twelve commands. A developer is productive with three (`check`, `gen rust`, `collect rust`). An AI agent needs two (`show --format=json`, `trace`).
+Ten commands. A developer is productive with three (`check`, `collect rust`, `coverage`). An AI agent needs two (`show --format=json`, `trace`).

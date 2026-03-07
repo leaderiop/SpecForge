@@ -9,6 +9,9 @@ depends_on: RES-11a
 
 # RES-20: LSP Implementation Review
 
+> [!NOTE]
+> **ID collision:** This document shares the RES-20 ID with the Type System Evolution research. This LSP review should be cited as RES-20-LSP to avoid confusion.
+
 ## Problem Statement
 
 The SpecForge LSP (`crates/specforge-lsp/src/`, 17 files, ~2,200 lines) is functional: it provides go-to-definition, references, hover, completion, rename, code actions, semantic tokens, outline, and workspace symbol search. However, a systematic review against the LSP 3.17 specification and the declared behavioral contracts in `spec/behaviors/lsp.spec` reveals scaling gaps, DX gaps, and spec coverage gaps that will matter as SpecForge projects grow beyond a handful of files.
@@ -96,7 +99,7 @@ This review was performed to:
 
 ### 8. Code Actions — 4/10
 
-**Implementation**: `code_actions.rs` (130 lines). Offers a single action: "Generate test stub" on testable entities that have `verify`/`scenario` but no `tests` field.
+**Implementation**: `code_actions.rs` (130 lines). Offers a single action: "Add tests field" on testable entities that have `verify`/`scenario` but no `tests` field.
 
 **Strengths**: The one action it provides is well-implemented — correct entity detection, proper `WorkspaceEdit`.
 

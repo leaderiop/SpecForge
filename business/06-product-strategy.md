@@ -2,15 +2,15 @@
 
 ## 1. Product Vision (3-Year Horizon)
 
-**Vision Statement:** By 2029, SpecForge is the standard interface between human intent and AI-generated software — the specification layer that makes AI agents build the right thing, every time.
+**Vision Statement:** By 2029, SpecForge is the universal structured context standard for AI agents — the specification layer that makes any AI agent perform any task correctly, every time.
 
-**Year 1 (2026): The Compiler.** SpecForge ships as a developer tool that replaces unstructured context files with a validated, graph-aware specification language. Developers adopt it because their AI agents produce dramatically better code on the first pass. The CLI is rock-solid, the LSP makes authoring frictionless, and the token reduction (75-86%) is measurable and real. We win the AI-first developer persona by being obviously better than CLAUDE.md within 15 minutes of first use.
+**Year 1 (2026): The Compiler.** SpecForge ships as a developer tool that replaces unstructured context files with a validated, graph-aware specification language. Developers adopt it because their AI agents produce dramatically better results on the first pass — whether generating code, writing documentation, auditing compliance, or managing projects. The CLI is rock-solid, the LSP makes authoring frictionless, and the token reduction (75-86%) is measurable and real. We win the AI-first developer persona by being obviously better than CLAUDE.md within 15 minutes of first use.
 
-**Year 2 (2027): The Platform.** SpecForge becomes the connective tissue across the software development lifecycle. Generators emit test scaffolding, architecture diagrams, and API contracts from the same spec graph. Providers bridge SpecForge to GitHub, Jira, Figma, and CI systems. Engineering managers open a dashboard and see which features are specified, implemented, tested, and passing — derived entirely from the spec graph and test reports. We win the tech lead and engineering manager personas by being the single source of truth they never had.
+**Year 2 (2027): The Platform.** SpecForge becomes the connective tissue across the entire project lifecycle. The Graph Protocol is consumed by coding agents, PM agents, compliance agents, and documentation agents alike. Providers bridge SpecForge to GitHub, Jira, Figma, and CI systems. Engineering managers open a dashboard and see which features are specified, implemented, tested, and passing — derived entirely from the spec graph and test reports. We win the tech lead and engineering manager personas by being the single source of truth they never had.
 
-**Year 3 (2028): The Standard.** SpecForge specs are checked into every serious repository the way package.json or Cargo.toml are today. AI agents read .spec files natively. Cloud-hosted spec graphs enable cross-repository traceability for organizations. Compliance teams use SpecForge to satisfy FDA, ISO 27001, and SOC 2 audit requirements without separate tooling. The plugin ecosystem is self-sustaining, with community-contributed generators for every major framework and language. We win the compliance persona by being cheaper, faster, and more developer-friendly than DOORS or Jama.
+**Year 3 (2028): The Standard.** SpecForge specs are checked into every serious repository the way package.json or Cargo.toml are today. AI agents of all kinds read the Graph Protocol natively. Cloud-hosted spec graphs enable cross-repository traceability for organizations. Compliance teams use SpecForge to satisfy FDA, ISO 27001, and SOC 2 audit requirements without separate tooling. The extension ecosystem is self-sustaining. Agent framework integrations (LangChain, CrewAI, AutoGen, Claude Code) consume the Graph Protocol as their standard context source. We win the compliance persona by being cheaper, faster, and more developer-friendly than DOORS or Jama.
 
-**The North Star Metric:** Percentage of AI-generated code that requires zero human correction when the agent has access to a SpecForge spec graph. We believe this number moves from roughly 30% (plain-text context) to over 70% (structured spec graph) in Year 1, and to over 85% with test traceability feedback loops in Year 2.
+**The North Star Metric:** Percentage of AI agent tasks that require zero human correction when the agent has access to a SpecForge graph. We believe this number moves from roughly 30% (plain-text context) to over 70% (structured spec graph) in Year 1, and to over 85% with traceability feedback loops in Year 2. This metric applies to all agent tasks — coding, documentation, compliance, PM — not just coding.
 
 ---
 
@@ -27,11 +27,11 @@ A developer should go from `brew install specforge` to seeing validated output i
 ### P3: The Spec Is the Source of Truth
 The .spec file is not documentation that drifts from code. It is a compiled artifact with validation, graph semantics, and traceability. If something is true in the spec but false in the code, that is a bug in the code. This principle means we invest heavily in validation (36 codes and growing), drift detection, and CI integration — because the spec's authority depends on its accuracy.
 
-### P4: AI Agents Are First-Class Consumers
-Every output format, every graph query, every error message is designed to be consumed by AI agents as much as by humans. This means structured output (JSON, not just pretty-printed text), deterministic ordering, stable schemas, and token-efficient representations. We measure output quality not just by human readability but by agent task-completion rates.
+### P4: All AI Agents Are First-Class Consumers
+Every output format, every graph query, every error message is designed to be consumed by AI agents as much as by humans. The Graph Protocol serves coding agents, PM agents, compliance agents, documentation agents, security agents — any agent performing any task. This means structured output (JSON, not just pretty-printed text), deterministic ordering, stable schemas, multi-resolution queries, and token-efficient representations. We measure output quality not just by human readability but by agent task-completion rates across all task types.
 
-### P5: Small Core, Rich Ecosystem
-The compiler core stays small (8 entity types, 9 edge types) and stable. Everything else — additional entities, reference providers, output generators — lives in the plugin/provider/generator extension model. We would rather ship a clean extension API and let the community build 50 generators than ship 50 generators ourselves. The Terraform provider model is our north star for extension architecture.
+### P5: Zero-Entity Core, Infinite Ecosystem
+The compiler core has **zero built-in entity types** — it is a pure typed-graph engine. ALL domain vocabulary comes from installable extensions: `@specforge/software` for software engineering, `@specforge/atomic-design` for UI design, `@specforge/compliance` for regulatory work, `@specforge/api-design` for API specifications, and any domain a community extension author imagines. This is the Terraform-exact model: Terraform core has zero infrastructure knowledge (all in providers), SpecForge core has zero domain knowledge (all in extensions). We would rather ship a clean extension manifest format and let the community build 50 domain extensions than hardcode 50 entity types ourselves.
 
 ### P6: Validate Early, Validate Everything
 The compiler catches problems before code is written. Dangling references, missing test coverage, orphaned entities, ambiguous naming — these are compile-time errors, not runtime surprises. Every entity relationship is an edge in a validated graph. The cost of finding a specification error should be near zero (seconds in the editor), not thousands of dollars (in production).
@@ -41,7 +41,7 @@ Traceability (spec to code to test to result) is not a checkbox feature for comp
 
 ---
 
-## 3. User Journey Maps (AI-First Developer — Primary Persona)
+## 3. User Journey Maps (AI-First Teams — Primary Persona)
 
 ### Journey 1: First Encounter (Day 0)
 
@@ -69,9 +69,10 @@ Step 3: First compile
   Time: 2 seconds.
 
 Step 4: First AI integration
-  Developer adds `specforge compile --format agent-context` output to their
-  AI agent's context window. The agent builds a feature correctly on the
+  Developer adds `specforge export --format=context` output to their
+  AI agent's context window. The agent completes a task correctly on the
   first attempt that previously took 3 rounds of correction.
+  Works for any agent task: coding, documentation, compliance, PM.
   Time: 5 minutes.
   Emotional state: "This is real."
 
@@ -88,10 +89,11 @@ Morning: Developer opens IDE. LSP is active. They write a new behavior block.
   - Inline diagnostics show "W004: no test coverage" as they type
   - Go-to-definition jumps from a reference to the referenced entity
 
-Coding session: Developer tells their AI agent to implement a feature.
-  - Agent reads compiled spec context (200 tokens instead of 1400)
-  - Agent generates code + test stubs matching verify/scenario declarations
-  - Agent fills in the `tests` field linking to generated test files
+Agent session: Developer delegates a task to any AI agent.
+  - Agent reads compiled spec context via Graph Protocol (200 tokens instead of 1400)
+  - Coding agent generates code + test stubs matching verify/scenario declarations
+  - PM agent generates accurate status report from roadmap + deliverable entities
+  - Compliance agent audits constraints + failure modes against implementation
 
 End of day: Developer runs CI pipeline.
   - `specforge check` validates the spec graph (zero errors required)
@@ -106,14 +108,14 @@ End of day: Developer runs CI pipeline.
 New developer joins the project. Instead of reading 40 pages of architecture
 docs, they run:
 
-  $ specforge compile --format overview
+  $ specforge export --format=brief
   Shows all 47 entities, their relationships, coverage status
 
   $ specforge query "what implements the payment flow?"
   Returns: 3 behaviors, 2 types, 1 port, linked to 5 test files
 
-  $ specforge compile --format agent-context --scope payment
-  Generates scoped context for AI agent: just the payment subgraph
+  $ specforge export --format=context --scope payment
+  Generates scoped context for any AI agent: just the payment subgraph
 
 New developer is productive in hours, not days. The spec graph is the
 onboarding document that never goes stale.
@@ -168,7 +170,7 @@ We use a weighted scoring model with four dimensions. Each scored 1-5.
 | Agent-context output format | 5 | 4 | 3 | 3 | 4.00 |
 | LSP with autocomplete | 3 | 5 | 3 | 2 | 3.30 |
 | Cloud-hosted spec graph | 3 | 2 | 4 | 5 | 3.35 |
-| Plugin marketplace | 2 | 2 | 5 | 4 | 3.00 |
+| Extension marketplace | 2 | 2 | 5 | 4 | 3.00 |
 | Figma provider | 2 | 2 | 3 | 3 | 2.40 |
 
 ---
@@ -177,19 +179,19 @@ We use a weighted scoring model with four dimensions. Each scored 1-5.
 
 ### What "MVP" Means for SpecForge
 
-The MVP is the minimum product that makes an AI-first developer say: **"I am never going back to plain CLAUDE.md."** This is a high bar. It requires not just parsing a file but delivering a validated graph that demonstrably improves agent output quality.
+The MVP is the minimum product that makes an AI-first developer say: **"I am never going back to plain CLAUDE.md."** This is a high bar. It requires not just parsing a file but delivering a validated graph that demonstrably improves agent output quality for any task.
 
 ### MVP: In Scope
 
 | Component | Scope | Rationale |
 |-----------|-------|-----------|
-| **Parser** | Tree-sitter grammar for all 16 entity types. Multi-error recovery. | Core compiler. No parser = no product. Error recovery is non-negotiable because .spec files are edited live. |
+| **Parser** | Tree-sitter grammar with generic entity block rule (zero hardcoded entity types). Multi-error recovery. | Core compiler. No parser = no product. Error recovery is non-negotiable because .spec files are edited live. |
 | **Semantic model** | Entity graph with all 20 edge types. String interning via lasso. petgraph-backed. | The graph is the product. Without validated edges, we are just a linter. |
-| **Validation** | All 36 validation codes (15 errors, 17 warnings, 4 info). Dangling reference detection. Cycle detection. | Validation is what separates SpecForge from a text file. Every error caught at compile time is a round-trip saved with the AI agent. |
-| **CLI** | `specforge init`, `specforge check`, `specforge compile`. Three commands. | Init for onboarding. Check for CI. Compile for output. These three cover the entire MVP workflow. |
-| **Output: agent-context** | JSON output format optimized for AI agent consumption. Token-efficient. Deterministic. | This is the killer feature. The reason someone installs SpecForge is to feed better context to their AI agent. |
+| **Validation** | Core structural validation codes + extension-contributed codes. Dangling reference detection. Cycle detection. | Validation is what separates SpecForge from a text file. Every error caught at compile time is a round-trip saved with the AI agent. |
+| **CLI** | `specforge init`, `specforge check`, `specforge export`. Three commands. | Init for onboarding. Check for CI. Export for agent consumption. These three cover the entire MVP workflow. |
+| **Output: Graph Protocol** | JSON output format optimized for AI agent consumption. Token-efficient. Deterministic. Multiple formats: context (token-optimized), graph (complete), brief (minimal). | This is the killer feature. The reason someone installs SpecForge is to feed structured context to any AI agent. |
 | **Output: human-readable** | Pretty-printed terminal output with ariadne diagnostics. | Developers need to read error messages. ariadne gives us Rust-compiler-quality diagnostics for free. |
-| **Core plugin system** | Load `@specforge/product` and `@specforge/governance` as built-in plugins. | 16 entities are the minimum viable expressiveness. 8 core entities alone cannot model real projects. |
+| **Default extensions** | Ship `@specforge/software`, `@specforge/product`, and `@specforge/governance` as optional, installable extensions (not built into core). `specforge init` offers interactive extension selection. | These extensions provide the entities most teams need. The core compiler has zero built-in entity types — all vocabulary comes from extensions. |
 | **Distribution** | brew, npx, cargo install, GitHub releases (Linux/macOS/Windows). | Four channels cover 95%+ of the developer audience. npx for zero-install trial. |
 | **Spec format v1** | Stable .spec grammar with backward-compatibility commitment. | Developers will not adopt a format that breaks. v1 stability is a trust signal. |
 
@@ -198,14 +200,14 @@ The MVP is the minimum product that makes an AI-first developer say: **"I am nev
 | Component | Deferred To | Rationale |
 |-----------|-------------|-----------|
 | **LSP** | Q2 | The LSP is high-value but not required for the "aha" moment. The CLI alone proves the concept. LSP is a retention feature, not an acquisition feature. |
-| **Generators (test scaffolding, diagrams)** | Q3 | Code generation requires the spec format to be stable. Shipping generators on an unstable format creates upgrade debt. |
+| **Agent framework integrations** | Q3 | AI agents consume the Graph Protocol to perform their tasks. SpecForge provides structured context; agents produce output. Code generation is the agent's job, not SpecForge's. |
 | **Providers (GitHub, Jira, Figma)** | Q3-Q4 | External integrations multiply the maintenance surface. The MVP must prove value with zero external dependencies. |
 | **Watch mode** | Q2 | Nice-to-have for iteration speed. Not required for first value. |
 | **Cloud/web dashboard** | Q5+ | Premature. No cloud until the CLI has proven product-market fit with thousands of users. |
 | **`specforge trace` / test report consumption** | Q3 | Traceability requires the test ecosystem (proc macros, JUnit parsing) which is a large surface area. Ship the spec compiler first. |
-| **`specforge query`** | Q3 | Graph querying is powerful but not required for MVP. `compile --format agent-context --scope X` covers the 80% use case. |
+| **`specforge query`** | Q3 | Graph querying is powerful but not required for MVP. `export --format context --scope X` covers the 80% use case. |
 | **`scenario` blocks** | Q2 | verify blocks alone are sufficient for MVP test declarations. Scenarios add Gherkin-style complexity that can wait. |
-| **User-defined types (`define` blocks)** | Q3 | The 16 built-in types cover most projects. Meta-schema extensibility is important but not urgent. |
+| **User-defined types (`define` blocks)** | Q3 | Extension-provided entity types cover most projects. `define` blocks add user-level extensibility beyond extensions. |
 
 ### MVP Success Criteria
 
@@ -213,7 +215,7 @@ The MVP ships when all of the following are true:
 
 1. A developer can go from `brew install specforge` to validated output in under 60 seconds.
 2. `specforge check` catches at least 5 real error classes that would cause an AI agent to generate incorrect code.
-3. `specforge compile --format agent-context` produces output that is 70%+ smaller than equivalent plain-text context while preserving all semantic information.
+3. `specforge export --format=context` produces output that is 70%+ smaller than equivalent plain-text context while preserving all semantic information.
 4. The compiler handles 200+ entities with sub-500ms compile time.
 5. The .spec format is documented with a language reference and 10+ example files.
 6. At least 3 real-world projects (including SpecForge itself) are self-hosting on the MVP.
@@ -228,14 +230,14 @@ The MVP ships when all of the following are true:
 
 | Milestone | Deliverables | Success Metric |
 |-----------|-------------|----------------|
-| **M1: Parser** | Tree-sitter grammar, CST-AST transform, multi-error recovery | Parses all 16 entity types; recovers from 3+ errors per file |
+| **M1: Parser** | Tree-sitter grammar, CST-AST transform, multi-error recovery | Parses any entity block generically; recovers from 3+ errors per file |
 | **M2: Semantic Model** | Entity graph, edge resolution, string interning, petgraph integration | All 20 edge types resolve correctly; cycle detection works |
-| **M3: Validation** | All 36 validation codes, ariadne diagnostics | 100% of validation codes have snapshot tests |
-| **M4: CLI v0.1** | `init`, `check`, `compile` commands, agent-context output | End-to-end: init - write spec - check - compile in <60s |
+| **M3: Validation** | Core structural validation codes + extension validation framework, ariadne diagnostics | 100% of core codes have snapshot tests |
+| **M4: CLI v0.1** | `init`, `check`, `export` commands, Graph Protocol output | End-to-end: init - write spec - check - export in <60s |
 | **M5: Self-hosting** | SpecForge's own specifications written in .spec format | 50+ entities, used as primary test corpus |
 | **M6: Distribution** | brew tap, npm package, crates.io, GitHub releases | All 4 channels functional; CI builds for linux-x64, darwin-arm64, win-x64 |
 
-**Key risk:** Tree-sitter grammar complexity. Mitigation: start with core 8 entities, add plugin entities incrementally.
+**Key risk:** Tree-sitter grammar complexity. Mitigation: start with core 8 entities, add extension entities incrementally.
 
 ### Q2 2026 (July - September 2026): Developer Experience
 
@@ -252,21 +254,22 @@ The MVP ships when all of the following are true:
 
 **Key risk:** LSP performance on large files. Mitigation: incremental parsing via tree-sitter's edit API.
 
-### Q3 2026 (October - December 2026): Ecosystem Launch
+### Q3 2026 (October - December 2026): Ecosystem & Agent Integration
 
-**Theme: "Make it extensible."**
+**Theme: "Make it the standard context source."**
 
 | Milestone | Deliverables | Success Metric |
 |-----------|-------------|----------------|
-| **M13: Generator API** | Public generator trait, template engine, `specforge gen` command | 2+ first-party generators shipping |
-| **M14: Rust generator** | `@specforge/gen-rust` — test scaffolding, proc macro crate | Self-hosting: SpecForge's own tests generated from specs |
-| **M15: TypeScript generator** | `@specforge/gen-typescript` — test scaffolding for vitest/jest | 1 flagship TypeScript project using it |
+| **M13: Graph Protocol v1** | Stable JSON schema for graph export, multi-resolution queries, scoped export | Graph Protocol spec published, 2+ agent frameworks consuming it |
+| **M14: Multi-resolution queries** | `specforge query --scope=verify`, `--hop=1`, depth controls | Agents request exactly the context slice they need |
+| **M15: Agent framework integrations** | Claude Code, LangChain, and CrewAI consuming Graph Protocol | 3+ agent frameworks integrated |
 | **M16: Test traceability v1** | `specforge trace`, `specforge report`, JUnit XML consumption | Coverage percentage calculated for self-hosting project |
 | **M17: Provider API** | Provider trait, ref scheme registration, `specforge providers` | API documented, 1 first-party provider shipping |
 | **M18: GitHub provider** | `@specforge/gh` — validate issue/PR references, resolve URLs | Links from spec entities to GitHub issues validated at compile time |
 | **M19: `define` blocks** | User-defined entity types via meta-schema | Custom types compile and validate |
+| **M20: Renderer extension API** | Public Wasm trait for non-code renderers (reports, dashboards, traceability matrices) | Renderer API documented, community renderers emerging |
 
-**Key risk:** Generator API stability. Mitigation: mark as `0.x` with explicit instability warning; gather feedback from 3+ generator authors before stabilizing.
+**Key risk:** Graph Protocol adoption. Mitigation: integrate with top 3 agent frameworks first; stable schema before v1.
 
 ### Q4 2027 (January - March 2027): Enterprise Readiness
 
@@ -278,8 +281,8 @@ The MVP ships when all of the following are true:
 | **M21: Multi-file projects** | Cross-file reference resolution, namespace support, import statements | 500+ entity projects compile correctly |
 | **M22: Jira provider** | `@specforge/jira` — bidirectional sync of requirement status | 1 enterprise pilot using it |
 | **M23: Spec format v1.1** | Backward-compatible additions based on 6 months of feedback | Zero breaking changes from v1.0 |
-| **M24: Compliance output** | Requirements traceability matrix (RTM) generator for FDA/ISO | Generates RTM that a compliance officer can submit |
-| **M25: Drift detection** | `specforge gen --check` for CI, checksum headers in generated files | Zero drift in self-hosting project over 30-day period |
+| **M24: Compliance renderer** | RTM renderer extension for FDA/ISO (non-code output via `@specforge/compliance`) | Produces RTM that a compliance officer can submit |
+| **M25: Spec drift detection** | `specforge check --strict` in CI catches orphaned, contradicted, or stale entities | Zero spec drift in self-hosting project over 30-day period |
 
 ### Q5-Q6 2027 (April - September 2027): AI-Native Features
 
@@ -287,7 +290,7 @@ The MVP ships when all of the following are true:
 
 | Milestone | Deliverables | Success Metric |
 |-----------|-------------|----------------|
-| **M26: Spec inference** | `specforge infer` — generate .spec from existing codebase | Infers 60%+ of entities from a well-structured Rust/TS project |
+| **M26: AI-assisted authoring** | LSP-integrated AI suggestions while writing .spec files: suggest descriptions, missing edges, verify blocks | Reduces spec authoring time by 50%+ |
 | **M27: Agent SDK** | Programmatic API for AI agents to read/query the spec graph | 2+ AI tools integrate (Claude Code, Cursor, Cody) |
 | **M28: Diff-aware context** | `specforge compile --diff HEAD~1` — only entities affected by recent changes | 90%+ token reduction for incremental agent tasks |
 | **M29: Spec chat** | `specforge ask "what depends on UserRepository?"` — natural language graph queries | Answers 80%+ of common graph questions correctly |
@@ -301,7 +304,7 @@ The MVP ships when all of the following are true:
 |-----------|-------------|----------------|
 | **M31: SpecForge Cloud** | Hosted spec graph, web dashboard, team permissions | 100 teams on waitlist before launch |
 | **M32: Cross-repo traceability** | Spec graphs that span multiple repositories | 3 organizations using cross-repo features |
-| **M33: Plugin marketplace** | Community plugin registry, versioning, discovery | 20+ community plugins published |
+| **M33: Extension marketplace** | Community extension registry, versioning, discovery | 20+ community extensions published |
 | **M34: Figma provider** | `@specforge/figma` — link specs to design components | 5 design-to-dev teams using it |
 | **M35: Org-wide coverage** | Aggregate spec coverage across all repos in an org | CTO-level dashboard showing org-wide spec health |
 
@@ -355,7 +358,7 @@ The cloud layer is deliberately deferred to Q7. Premature cloud features would d
 - API access for custom integrations
 
 **Pricing model (preliminary):**
-- Free: CLI, LSP, all local features, community plugins. Forever.
+- Free: CLI, LSP, all local features, community extensions. Forever.
 - Team ($20/user/month): Cloud dashboard, cross-repo traceability, team permissions.
 - Enterprise ($50/user/month): SSO, audit logs, compliance reports, SLA.
 
@@ -367,17 +370,18 @@ The cloud layer is deliberately deferred to Q7. Premature cloud features would d
 
 | Extension Type | Purpose | Examples | Distribution |
 |---------------|---------|----------|-------------|
-| **Plugins** | Add entity types and edges | `@specforge/product`, `@specforge/governance`, `@community/security` | Registry (future), git repos (near-term) |
+| **Domain extensions** | Add entity kinds, edges, and validation rules | `@specforge/software`, `@specforge/product`, `@specforge/governance`, `@community/security` | Registry (future), git repos (near-term) |
 | **Providers** | Validate external references | `@specforge/gh`, `@specforge/jira`, `@specforge/figma` | Same |
-| **Generators** | Produce output from the graph | `@specforge/gen-rust`, `@specforge/gen-typescript`, `@community/gen-openapi` | Same |
+| **Renderers** | Produce non-code outputs from the graph | `@specforge/rtm-renderer`, `@community/mermaid-renderer` | Same |
+| **Test collectors** | Consume test runner output, emit specforge-report.json | `@specforge/rust`, `@specforge/vitest` | Same |
 
 ### Phase 1: First-Party Ecosystem (Q1-Q4)
 
 We build the first 8-10 extensions ourselves:
-- 2 plugins: `@specforge/product`, `@specforge/governance` (shipped with core)
-- 3 generators: `@specforge/gen-rust`, `@specforge/gen-typescript`, `@specforge/gen-markdown`
+- 3 domain extensions: `@specforge/software`, `@specforge/product`, `@specforge/governance` (optional, installed via `specforge init`)
 - 2 providers: `@specforge/gh`, `@specforge/jira`
-- 1 test runner adapter: `@specforge/vitest` (or `@specforge/rust` as proc macro crate)
+- 1 test collector: `@specforge/rust` (JUnit XML → specforge-report.json + proc macro crate)
+- 1 renderer: `@specforge/rtm-renderer` (traceability matrix output)
 
 ### Phase 2: Community Ecosystem (Q5-Q8)
 
@@ -385,10 +389,10 @@ We build the first 8-10 extensions ourselves:
 
 | Category | High-Value Extensions |
 |----------|----------------------|
-| **Generators** | OpenAPI spec, GraphQL schema, Terraform modules, Kubernetes manifests, C4 diagrams, Mermaid diagrams |
+| **Domain extensions** | `@community/security` (threat models), `@community/data` (schemas, migrations), `@community/api-design` (endpoints, operations), `@community/atomic-design` (atoms, molecules, organisms) |
 | **Providers** | Linear, Notion, Confluence, Azure DevOps, GitLab |
-| **Test adapters** | pytest, Go testing, JUnit, Playwright, k6, Cypress |
-| **Language plugins** | `@community/security` (threat models), `@community/data` (schemas, migrations) |
+| **Test collectors** | pytest, Go testing, JUnit, Playwright, k6, Cypress |
+| **Renderers** | Mermaid diagrams, C4 diagrams, OpenAPI spec export, compliance RTMs |
 
 ### Phase 3: Marketplace (Q7+)
 
@@ -398,17 +402,17 @@ A hosted registry where community extensions are published, versioned, and disco
 
 ## 9. AI-Native Features
 
-### 9.1 Spec Inference (`specforge infer`) — Q5
+### 9.1 AI-Assisted Authoring — Q5-Q6
 
-Analyzes an existing codebase and generates a draft .spec file. Reduces the cold-start problem from hours to minutes.
+LSP-integrated AI suggestions while writing .spec files: suggest descriptions, missing edges, and verify blocks based on existing spec context. Reduces the authoring effort from hours to minutes. Note: SpecForge does not infer specs from code — the spec is the source of truth, not the code.
 
 ### 9.2 Agent SDK — Q5-Q6
 
-Programmatic API for AI coding agents to read, query, and update the spec graph. Integration targets: Claude Code, Cursor, Continue.dev.
+Programmatic API for any AI agent to read, query, and consume the spec graph. Integration targets: Claude Code, Cursor, LangChain, CrewAI, AutoGen, Continue.dev.
 
 ### 9.3 Diff-Aware Context — Q5
 
-`specforge compile --diff HEAD~1` outputs only the entities and edges that changed. Estimated 90%+ token reduction for incremental tasks.
+`specforge export --diff HEAD~1` outputs only the entities and edges that changed. Estimated 90%+ token reduction for incremental agent tasks of any type.
 
 ### 9.4 Natural Language Queries — Q6
 
@@ -420,7 +424,7 @@ LSP-integrated AI suggestions while writing .spec files: suggest descriptions, m
 
 ### 9.6 Autonomous Feedback Loop — Q6
 
-Closes the loop: Agent reads spec - generates code + tests - tests run - specforge-report.json - agent sees failures - agent fixes. The ultimate value proposition.
+Closes the loop: Agent reads spec graph → performs task → results feed back into graph → agent sees gaps → agent fixes. Works for any agent type: coding agent sees failing tests, PM agent sees missing deliverables, compliance agent sees unmitigated risks. The ultimate value proposition.
 
 ---
 
@@ -432,7 +436,7 @@ Closes the loop: Agent reads spec - generates code + tests - tests run - specfor
 |--------|-----------|-------------|-------------|
 | **Weekly Active CLI Users** | Unique users running any `specforge` command per week | 5,000 | 50,000 |
 | **Spec Files in Public Repos** | GitHub code search for `.spec` files with SpecForge syntax | 1,000 | 25,000 |
-| **Agent Task Completion Rate** | % of AI coding tasks completed correctly on first attempt with spec context vs. without | +40% improvement | +60% improvement |
+| **Agent Task Completion Rate** | % of AI agent tasks (any type) completed correctly on first attempt with spec context vs. without | +40% improvement | +60% improvement |
 | **Time to First Value** | Median time from install to first successful `specforge check` | <60 seconds | <30 seconds |
 | **NPS (Developer)** | Net Promoter Score from in-CLI survey (quarterly, opt-in) | 50+ | 60+ |
 

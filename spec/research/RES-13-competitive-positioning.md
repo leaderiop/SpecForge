@@ -2,6 +2,7 @@
 
 **Research ID:** RES-13
 **Date:** 2026-03-01
+**Status:** partially-superseded
 **Related:** [RES-13-market-landscape-2026.md](./RES-13-market-landscape-2026.md), [RES-13-executive-summary.md](./RES-13-executive-summary.md)
 
 ## Market Positioning Matrix
@@ -63,7 +64,7 @@ Low Scope (Narrow)
 | **Behaviors** | ✅ | ⚠️ | ❌ | ❌ | ❌ | ✅ |
 | **Architecture** | ✅ | ⚠️ | ❌ | ❌ | ✅ | ❌ |
 | **API Specs** | ✅ | ❌ | ❌ | ✅ | ❌ | ❌ |
-| **Code Generation** | ✅ | ❌ | ❌ | ✅ | ❌ | ⚠️ |
+| **Code Generation** | ❌ | ❌ | ❌ | ✅ | ❌ | ⚠️ |
 | **Multiple Outputs** | ✅ | ⚠️ | ⚠️ | ✅ | ⚠️ | ❌ |
 | **Open Source** | ✅ | ❌ | ✅ | ✅ | ⚠️ | ✅ |
 | **Free** | ✅ | ❌ | ✅ | ✅ | ⚠️ | ✅ |
@@ -227,7 +228,7 @@ Low Scope (Narrow)
 
 **Unlike** heavy enterprise tools like DOORS (expensive, GUI-based) or simple tools like Doorstop (limited validation)...
 
-**SpecForge** is a developer-native compiler for software specifications that validates your specs, ensures traceability, and generates docs, diagrams, and code—all from version-controlled .spec files.
+**SpecForge** is the structured context standard for AI agents — validates your specs, ensures traceability, and emits graph protocol — all from version-controlled .spec files.
 
 ---
 
@@ -247,7 +248,7 @@ Low Scope (Narrow)
 
 **Unlike** API-only tools like TypeSpec (no requirements context) or documentation tools (no validation)...
 
-**SpecForge** lets you define the full context—requirements, behaviors, and API contracts—then generates OpenAPI, TypeSpec, or Smithy specs with complete traceability.
+**SpecForge** lets you define the full context—requirements, behaviors, and API contracts—then provides the entity graph that agents and renderers use to produce OpenAPI, TypeSpec, or Smithy specs with complete traceability.
 
 ---
 
@@ -258,14 +259,12 @@ Low Scope (Narrow)
 **Target:** Modern development teams (SaaS, startups, cloud-native)
 
 **Messaging:**
-- "Compiler for software specifications"
-- "Like TypeScript for your requirements"
-- "Requirements-as-code, done right"
+- "Structured context standard for AI agents"
 
 **Tactics:**
 - Open-source (GitHub)
 - Excellent DX (LSP, error messages)
-- Integration with existing tools (Mermaid, OpenAPI, Gherkin)
+- Graph integrations with existing ecosystems (Mermaid, OpenAPI, Gherkin via renderers)
 
 **Competitors:** Doorstop, StrictDoc (direct), TypeSpec, Structurizr (adjacent)
 
@@ -279,7 +278,7 @@ Low Scope (Narrow)
 
 **Tactics:**
 - Plugin architecture
-- Multiple output formats (docs, diagrams, code, tests)
+- Graph Protocol consumed by agents and renderers
 - Community contributions
 - Conference talks and blog posts
 
@@ -319,7 +318,7 @@ Low Scope (Narrow)
 2. LSP support (autocomplete, validation in IDE)
 3. Compiler validation (catch errors early)
 4. Graph traceability (impact analysis)
-5. Multiple outputs (Mermaid, OpenAPI, Gherkin)
+5. Graph context enables agents/renderers to produce outputs (Mermaid, OpenAPI, Gherkin)
 
 **Key Differentiator:** Developer experience (LSP + validation)
 
@@ -347,7 +346,7 @@ Low Scope (Narrow)
 1. Version control (Git vs. manual history)
 2. Validation (compiler catches errors)
 3. Traceability (automatic vs. manual links)
-4. Multiple outputs (docs, diagrams, code)
+4. Graph Protocol consumed by agents and renderers
 5. Developer-native (code-first)
 
 **Key Differentiator:** Automation and validation
@@ -360,11 +359,11 @@ Low Scope (Narrow)
 
 **Why SpecForge Complements:**
 1. SpecForge defines requirements and behaviors
-2. SpecForge generates TypeSpec specs from higher-level definitions
+2. SpecForge's graph provides structured context that agents use to produce TypeSpec specs
 3. Traceability from requirements → API contracts
 4. Both are code-first and developer-native
 
-**Integration:** SpecForge outputs TypeSpec files
+**Integration:** SpecForge's graph provides context for agents producing TypeSpec files
 
 ---
 
@@ -374,11 +373,11 @@ Low Scope (Narrow)
 
 **Why SpecForge Complements:**
 1. SpecForge architecture specs are source of truth
-2. SpecForge generates Mermaid diagrams automatically
+2. Renderers consume the SpecForge graph to produce Mermaid diagrams automatically
 3. Diagrams stay in sync with specifications
 4. Version controlled together
 
-**Integration:** SpecForge outputs Mermaid diagrams
+**Integration:** SpecForge's graph consumed by renderers to produce Mermaid diagrams
 
 ---
 
@@ -415,7 +414,7 @@ Low Scope (Narrow)
 **Target:** Mainstream developers, API-first organizations
 
 **Tactics:**
-- Multiple output formats (Mermaid, OpenAPI, Gherkin)
+- Renderer/agent integrations (Mermaid, OpenAPI, Gherkin from graph context)
 - Integrations (GitHub Actions, CI/CD)
 - Conference talks
 - Case studies
@@ -452,17 +451,17 @@ Low Scope (Narrow)
 
 2. **Multiple paths to market:**
    - **Direct competition:** Better than Doorstop/StrictDoc (richer DSL, better tooling)
-   - **Complementary:** Works with TypeSpec, Mermaid, Cucumber (generates outputs)
+   - **Complementary:** Works with TypeSpec, Mermaid, Cucumber (graph consumed by agents/renderers to produce outputs)
    - **Upmarket move:** Modern alternative to DOORS/Jama (eventually)
 
 3. **Strong trends:** Everything-as-code, shift-left, developer ownership, open-source
 
-4. **Clear differentiation:** Compiler validation + traceability + LSP + multiple outputs
+4. **Clear differentiation:** Compiler validation + traceability + LSP + Graph Protocol
 
 **The strategy is clear:**
 
 1. **Build the best developer experience** (LSP, error messages, docs)
-2. **Integrate, don't replace** (generate outputs for existing tools)
+2. **Integrate, don't replace** (provide graph context that agents/renderers use to produce outputs for existing tools)
 3. **Start with early adopters** (modern teams, not enterprise)
 4. **Grow organically** (open-source, community-driven)
 5. **Move upmarket when ready** (enterprise features for regulated industries)

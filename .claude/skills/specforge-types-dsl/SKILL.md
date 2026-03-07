@@ -5,7 +5,9 @@ description: "Write type definitions in .spec DSL files. Supports three syntax v
 
 # SpecForge Types DSL
 
-Rules and conventions for authoring **`type` blocks** in `.spec` files. Types define the data vocabulary — the shape of domain entities, commands, errors, and value objects. They drive code generation for TypeScript interfaces, Python dataclasses, Go structs, and JSON Schema.
+Rules and conventions for authoring **`type` blocks** in `.spec` files. Types define the data vocabulary -- the shape of domain entities, commands, errors, and value objects.
+
+**Requires:** `@specforge/software` plugin.
 
 ## When to Use
 
@@ -14,6 +16,7 @@ Rules and conventions for authoring **`type` blocks** in `.spec` files. Types de
 - Defining error types with discriminated unions (DuplicateEmailError)
 - Defining union/enum types (UserRole, OrderStatus)
 - Defining value objects (EmailAddress, Money, DateRange)
+- Defining event payload shapes referenced by events
 
 ## Block Syntax
 
@@ -63,6 +66,7 @@ type CreateUserCommand {
 | Field | Type | Description |
 |-------|------|-------------|
 | `name` | identifier | The type name (identifier after `type`). |
+| `kind` | enum | Type kind: `struct`, `union`, `enum`. Inferred from syntax if omitted. |
 | `fields` | field list | For struct types: fields with types and annotations. |
 | `variants` | identifier list | For union types: `= a \| b \| c`. |
 | `refs` | reference list | External references linked to this type. |
@@ -74,15 +78,16 @@ type CreateUserCommand {
 | `name` | Field identifier. |
 | `type` | Primitive, another type name, or array (`TypeName[]`). |
 | `annotations` | Zero or more: `@readonly`, `@unique`, `@literal`, `@optional`. |
+| `refined` | Optional refinement constraint on the field value. |
 
 ### Field Annotations
 
-| Annotation | Meaning | Code Generation |
-|------------|---------|-----------------|
-| `@readonly` | Set at creation, never modified | TS: `readonly`. Python: frozen. Go: no setter. |
-| `@unique` | Value unique across all instances | Generates unique constraint hints. |
-| `@literal` | Fixed literal value (for tagged unions) | TS: literal type. Python: `Literal["..."]`. |
-| `@optional` | Field may be absent | TS: `?`. Python: `Optional`. Go: pointer. |
+| Annotation | Semantic Meaning |
+|------------|-----------------|
+| `@readonly` | Set at creation, never modified after construction. |
+| `@unique` | Value unique across all instances of this type. |
+| `@literal` | Fixed literal value (for tagged unions / discriminants). |
+| `@optional` | Field may be absent. |
 
 ### Primitive Types
 
@@ -102,8 +107,8 @@ type CreateUserCommand {
 | From | Edge Type | Meaning |
 |------|-----------|---------|
 | `behavior` | `uses_type` | Behavior uses this type definition |
-| `event` | payload reference | Event carries data shaped like this type |
-| `port` | method signatures | Port uses this type in method signatures |
+| `event` | `uses_type` | Event carries data shaped like this type (via payload reference) |
+| `port` | `uses_type` | Port uses this type in method signatures |
 
 ### Outgoing edges
 
@@ -113,13 +118,13 @@ type CreateUserCommand {
 
 ## Writing Rules
 
-1. **PascalCase names recommended** — by convention, types typically use PascalCase (e.g., `User`, `CreateUserCommand`, `DuplicateEmailError`), but any valid identifier is accepted.
-2. **Suffix conventions** — `*Command` for commands, `*Error` for errors, no suffix for domain entities.
-3. **Use `_tag` + `@literal` for discriminated unions** — enables type-safe error handling.
-4. **Use `@readonly` for identity and audit fields** — `id`, `createdAt`, `updatedAt`.
-5. **Use `@unique` for business uniqueness constraints** — `email`, `slug`.
-6. **Union types for finite sets** — `type UserRole = admin | editor | viewer`.
-7. **Array fields use `TypeName[]`** — `items OrderItem[]`.
+1. **PascalCase names recommended** -- by convention, types typically use PascalCase (e.g., `User`, `CreateUserCommand`, `DuplicateEmailError`), but any valid identifier is accepted.
+2. **Suffix conventions** -- `*Command` for commands, `*Error` for errors, no suffix for domain entities.
+3. **Use `_tag` + `@literal` for discriminated unions** -- enables type-safe error handling.
+4. **Use `@readonly` for identity and audit fields** -- `id`, `createdAt`, `updatedAt`.
+5. **Use `@unique` for business uniqueness constraints** -- `email`, `slug`.
+6. **Union types for finite sets** -- `type UserRole = admin | editor | viewer`.
+7. **Array fields use `TypeName[]`** -- `items OrderItem[]`.
 
 ## Validation Rules
 
@@ -127,6 +132,8 @@ type CreateUserCommand {
 |------|------|
 | E002 | No two types may share the same identifier. |
 | E001 | Every type name used in a field type must resolve to a declared type or be a primitive. |
+| W002 | Orphan type -- not referenced by any behavior, event, or port. |
+| W010 | Unknown annotation -- annotation not in the recognized set. |
 
 ## Examples
 
@@ -175,6 +182,17 @@ type InsufficientInventoryError {
 }
 ```
 
+### Event Payload Type
+
+```spec
+type UserCreatedPayload {
+  userId    string      @readonly
+  email     string
+  role      UserRole
+  timestamp timestamp   @readonly
+}
+```
+
 ### Command with Nested Type
 
 ```spec
@@ -192,8 +210,7 @@ type OrderItemInput {
 
 ## What NOT to Do
 
-- Do not use `PREFIX-INFIX-N` IDs for types — types use plain PascalCase identifiers
-- Do not define operations on types — use `port` blocks for methods
-- Do not mix type definitions with behavior contracts — types are data shapes, behaviors are operations
+- Do not define operations on types -- use `port` blocks for methods
+- Do not mix type definitions with behavior contracts -- types are data shapes, behaviors are operations
 - Do not forget to import types referenced in field definitions from other files
-- Do not use lowercase for type names — they must be PascalCase to map to code
+- Do not use lowercase for type names -- they should be PascalCase by convention

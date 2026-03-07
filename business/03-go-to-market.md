@@ -90,7 +90,7 @@ SpecForge's go-to-market targets three concentric rings of adoption. The solo AI
 
 ### Positioning Statement
 
-For software teams using AI coding agents who are frustrated by token waste, context fragmentation, and untraceable specifications, SpecForge is a specification compiler that transforms unstructured system knowledge into a typed entity graph that AI agents consume in 75-86% fewer tokens. Unlike plain-text context files (CLAUDE.md), wiki-based documentation (Confluence), or legacy requirements tools (DOORS, Jama), SpecForge provides compiler-grade validation, 16 entity types with 20 relationship types, and full test traceability — all from a single `.spec` file format that lives in your repository alongside your code.
+For software teams using AI coding agents who are frustrated by token waste, context fragmentation, and untraceable specifications, SpecForge is a specification compiler that transforms unstructured system knowledge into a typed entity graph that AI agents consume in 75-86% fewer tokens. Unlike plain-text context files (CLAUDE.md), wiki-based documentation (Confluence), or legacy requirements tools (DOORS, Jama), SpecForge provides compiler-grade validation, extension-defined entity types with rich relationship graphs, and full test traceability — all from a single `.spec` file format that lives in your repository alongside your code.
 
 ### Tagline Options
 
@@ -178,8 +178,8 @@ AI coding agents waste 60-80% of their token budget rediscovering your architect
 | **AI tool integrations** | Ship official integration guides for Claude Code, Cursor, and Cody | 3 integration guides published |
 | **Conference circuit** | Submit CFPs to 5-8 conferences (see Content Marketing section) | 3 accepted talks |
 | **Enterprise pilot program** | "SpecForge Enterprise Early Access" — 10 companies, 90-day pilot, white-glove onboarding | 5 active enterprise pilots |
-| **Plugin ecosystem seeding** | Ship 8-10 first-party plugins/generators/providers | 10 first-party extensions |
-| **Community plugin bounties** | $500-2,000 bounties for high-value community plugins (OpenAPI generator, Linear provider, Playwright adapter) | 5 community plugins |
+| **Extension ecosystem seeding** | Ship 8-10 first-party extensions/providers/renderers | 10 first-party extensions |
+| **Community extension bounties** | $500-2,000 bounties for high-value community extensions (OpenAPI renderer, Linear provider, Playwright test collector) | 5 community extensions |
 | **Referral program** | "Invite a team" — users who bring 3+ new users get SpecForge swag + early access to Cloud beta | 200 referral-driven signups |
 | **Cloud waitlist** | Open waitlist for SpecForge Cloud with demo video and feature preview | 500 Cloud waitlist signups |
 | **Case study pipeline** | Publish 3 detailed case studies from design partners with quantified results | 3 published case studies |
@@ -197,7 +197,7 @@ AI coding agents waste 60-80% of their token budget rediscovering your architect
 | **Benchmarks & Data** | Prove the value proposition with numbers | All personas | Monthly |
 | **Tutorials & Guides** | Reduce time-to-value, drive activation | Solo devs, eng leads | Bi-weekly |
 | **Architecture Deep Dives** | Build credibility, attract compiler/systems engineers | Advanced devs, potential contributors | Monthly |
-| **Ecosystem Spotlights** | Showcase plugins, providers, generators | Plugin authors, ecosystem participants | Bi-weekly (from Month 8) |
+| **Ecosystem Spotlights** | Showcase extensions, providers, renderers | Extension authors, ecosystem participants | Bi-weekly (from Month 8) |
 | **Thought Leadership** | Category creation — "spec-first development" | Eng leads, architects, VPs | Monthly |
 
 ### Blog Cadence (52 posts in Year 1)
@@ -208,7 +208,7 @@ AI coding agents waste 60-80% of their token budget rediscovering your architect
 | 5 (Launch) | 6 | Launch announcement, HN post, 3 tutorials (one per persona), benchmark report |
 | 6 | 4 | "SpecForge vs. CLAUDE.md: A Quantified Comparison", LSP deep dive, first community spotlight, spec-first development manifesto |
 | 7 | 4 | "Designing a DSL for AI Agents" (architecture), "SpecForge for Rust Projects", "SpecForge for TypeScript Projects", entity model explainer |
-| 8 | 4 | First case study, plugin development guide, "How We Self-Host SpecForge with SpecForge", AI tool integration tutorial |
+| 8 | 4 | First case study, extension development guide, "How We Self-Host SpecForge with SpecForge", AI tool integration tutorial |
 | 9 | 5 | Second case study, "The Three-Layer Traceability Model", test coverage tutorial, monthly benchmark update, guest post from community |
 | 10 | 5 | Third case study, enterprise pilot learnings, compliance/RTM explainer, conference talk recap, "SpecForge in CI/CD" |
 | 11 | 4 | Year 1 retrospective preview, ecosystem status report, advanced graph queries tutorial, "Spec-First vs. Doc-First Development" |
@@ -239,14 +239,14 @@ AI coding agents waste 60-80% of their token budget rediscovering your architect
 2. "Migrating from CLAUDE.md to SpecForge" (Month 5)
 3. "SpecForge for Rust Projects" (Month 7)
 4. "SpecForge for TypeScript Projects" (Month 7)
-5. "Building Your First SpecForge Plugin" (Month 8)
+5. "Building Your First SpecForge Extension" (Month 8)
 6. "SpecForge in CI/CD: GitHub Actions, GitLab CI, CircleCI" (Month 10)
 
 ### Conference Talks (Target: 5 submitted, 3 accepted)
 
 | Conference | Talk Title | Timing | Status |
 |-----------|-----------|--------|--------|
-| **RustConf** | "Building a Specification Compiler in Rust: Tree-sitter, Petgraph, and 36 Validation Codes" | Sept-Oct | Submit CFP Month 5 |
+| **RustConf** | "Building a Specification Compiler in Rust: Tree-sitter, Petgraph, and a Zero-Entity-Core Architecture" | Sept-Oct | Submit CFP Month 5 |
 | **Strange Loop / QCon** | "The Specification Layer: Why AI Agents Need Compilers, Not Documents" | Oct-Nov | Submit CFP Month 6 |
 | **All Things Open** | "Open-Core Developer Tools: The SpecForge Playbook" | Oct | Submit CFP Month 5 |
 | **AI Engineer Summit** | "75% Fewer Tokens: Structured Specifications for AI Coding Agents" | Oct-Dec | Submit CFP Month 6 |
@@ -265,7 +265,7 @@ AI coding agents waste 60-80% of their token budget rediscovering your architect
 | **Pre-launch seeding** | Month 1-4 | Alpha testers star the repo, "building in public" followers | 50 |
 | **Launch spike** | Month 5 | HN front page, ProductHunt, X/Twitter virality, newsletter mentions | 1,500 |
 | **Post-launch momentum** | Month 6-7 | Blog content, Reddit posts, VS Code extension cross-promotion | 2,500 |
-| **Ecosystem growth** | Month 8-10 | Plugin ecosystem, conference talks, case studies | 3,800 |
+| **Ecosystem growth** | Month 8-10 | Extension ecosystem, conference talks, case studies | 3,800 |
 | **Compounding** | Month 11-12 | GitHub Trending, organic discovery, referral program | 5,000 |
 
 **GitHub repository optimization:**
@@ -286,7 +286,7 @@ AI coding agents waste 60-80% of their token budget rediscovering your architect
 | #general | Community discussion, announcements |
 | #help | Technical support, spec writing questions |
 | #showcase | Users share their .spec files and results |
-| #plugins | Plugin development discussion, bounty board |
+| #extensions | Extension development discussion, bounty board |
 | #contributing | Contributor coordination, PR reviews |
 | #enterprise | Private channel for enterprise pilot participants |
 | #ai-agents | Integration tips for Claude Code, Cursor, Cody, etc. |
@@ -337,7 +337,7 @@ AI coding agents waste 60-80% of their token budget rediscovering your architect
 | Role | Timing | Responsibility | Compensation |
 |------|--------|---------------|-------------|
 | **DevRel Lead / Developer Advocate #1** | Month 6 (post-launch) | Content, community, conference talks, integration guides | $150-180K + equity |
-| **Developer Advocate #2** | Month 10 (post-seed) | Livestreams, tutorials, plugin ecosystem, enterprise demos | $130-160K + equity |
+| **Developer Advocate #2** | Month 10 (post-seed) | Livestreams, tutorials, extension ecosystem, enterprise demos | $130-160K + equity |
 
 **Founder as DevRel (Months 1-6):** Before hiring, the founder handles all DevRel activities. This is critical — the founding story and technical credibility must come from the builder.
 
@@ -348,7 +348,7 @@ AI coding agents waste 60-80% of their token budget rediscovering your architect
 | Tier | Criteria | Benefits |
 |------|----------|----------|
 | **Contributor** | 1+ merged PR | Name in CONTRIBUTORS.md, contributor badge on Discord |
-| **Champion** | 3+ merged PRs OR 1 published plugin | SpecForge swag pack, direct Slack channel with founders, early access to features |
+| **Champion** | 3+ merged PRs OR 1 published extension | SpecForge swag pack, direct Slack channel with founders, early access to features |
 | **Ambassador** | Active community leader, conference speaker, or blog author | $500/quarter stipend, conference ticket sponsorship, co-authorship on official content |
 
 **Target: 20 Contributors, 8 Champions, 3 Ambassadors by end of Month 12.**
@@ -359,7 +359,7 @@ AI coding agents waste 60-80% of their token budget rediscovering your architect
 |--------|-----------|-------|---------|
 | **"Spec Review" office hours** | Bi-weekly, 30 min | Month 6 | Users submit .spec files for live review and feedback |
 | **"Ask the Compiler" Q&A** | Monthly, 45 min | Month 7 | Open Q&A about SpecForge architecture, roadmap, design decisions |
-| **Plugin development workshop** | Monthly, 60 min | Month 9 | Guided walkthrough of building a SpecForge plugin/generator/provider |
+| **Extension development workshop** | Monthly, 60 min | Month 9 | Guided walkthrough of building a SpecForge extension/provider/renderer |
 
 **Platform:** Discord voice channel (recorded and posted to YouTube).
 
@@ -369,7 +369,7 @@ AI coding agents waste 60-80% of their token budget rediscovering your architect
 |--------|-----------|-------|---------|
 | **"Building SpecForge"** | Weekly, 60-90 min | Month 3 (pre-launch) | Founder live-codes compiler features. Raw, unscripted. |
 | **"Spec It Up"** | Bi-weekly, 30 min | Month 7 | Take a real open-source project and write .spec files for it live |
-| **"Community Showcase"** | Monthly, 45 min | Month 9 | Community members demo their plugins, integrations, or workflows |
+| **"Community Showcase"** | Monthly, 45 min | Month 9 | Community members demo their extensions, integrations, or workflows |
 
 **Platforms:** YouTube Live + Twitch (cross-stream). Archive on YouTube.
 
@@ -388,8 +388,8 @@ AI coding agents waste 60-80% of their token budget rediscovering your architect
 | **5** | **LAUNCH** | Public launch week (HN, PH, X, Reddit, newsletters). 6 blog posts published. GitHub repo open-sourced. | 1,500 stars, 300 WAU, 200 Discord members |
 | **6** | Post-launch | DevRel Lead hired. 4 blog posts. "Spec Review" office hours begin. Newsletter outreach round 2. | 2,200 stars, 500 WAU, 300 Discord members |
 | **7** | Growth | VS Code extension launched. 4 blog posts. Conference CFPs submitted (5-8). Agent accuracy benchmark published. | 2,800 stars, 800 WAU, 350 Discord members |
-| **8** | Growth | First case study published. "SpecForge Champions" program launched. Plugin development guide. 4 blog posts. | 3,300 stars, 1,100 WAU, 400 Discord members |
-| **9** | Growth | Second case study. Plugin ecosystem at 8 first-party extensions. Community plugin bounties announced. 5 blog posts. | 3,800 stars, 1,400 WAU, 420 Discord members |
+| **8** | Growth | First case study published. "SpecForge Champions" program launched. Extension development guide. 4 blog posts. | 3,300 stars, 1,100 WAU, 400 Discord members |
+| **9** | Growth | Second case study. Extension ecosystem at 8 first-party extensions. Community extension bounties announced. 5 blog posts. | 3,800 stars, 1,400 WAU, 420 Discord members |
 | **10** | Growth | Developer Advocate #2 hired. Enterprise pilot program launched (10 targets). Third case study. First conference talk delivered. 5 blog posts. | 4,200 stars, 1,700 WAU, 450 Discord members |
 | **11** | Growth | Cloud waitlist opens. Enterprise ROI benchmark published. 2-3 additional conference talks. 4 blog posts. | 4,600 stars, 1,900 WAU, 480 Discord members, 500 Cloud waitlist |
 | **12** | Growth | Year 1 retrospective published. Year 2 roadmap announced. "State of AI Agent Specifications" report. 4 blog posts. | **5,000 stars, 2,000 WAU, 500 Discord, 5 enterprise pilots, $435K ARR pipeline** |
@@ -400,7 +400,7 @@ AI coding agents waste 60-80% of their token budget rediscovering your architect
 |---------|-------|------------------|-------------------|
 | **Q1 (M1-3)** | Build & Validate | Product development, alpha testing, design partners | $40K (15% of marketing + content prep) |
 | **Q2 (M4-6)** | Launch & Capture | Public launch, maximum awareness, hire DevRel Lead | $160K (33% — launch spike) |
-| **Q3 (M7-9)** | Activate & Expand | Content engine, plugin ecosystem, community programs | $145K (30%) |
+| **Q3 (M7-9)** | Activate & Expand | Content engine, extension ecosystem, community programs | $145K (30%) |
 | **Q4 (M10-12)** | Convert & Enterprise | Enterprise pilots, Cloud waitlist, hire DevRel #2, conference talks | $140K (29%) |
 
 ---
@@ -541,7 +541,7 @@ CLI install ......................... 10,000 (100%)
 **Retention levers:**
 - LSP (Q2) — makes SpecForge a daily-use tool, not a CI gate
 - Watch mode (Q2) — instant feedback loop during authoring
-- Plugin ecosystem (Q3) — more stack coverage = more reasons to stay
+- Extension ecosystem (Q3) — more stack coverage = more reasons to stay
 - `specforge trace` (Q3) — test traceability creates ongoing value
 
 #### Referral: "Do developers tell others about SpecForge?"
@@ -551,7 +551,7 @@ CLI install ......................... 10,000 (100%)
 | **Viral coefficient (k)** | Average referrals per active user | 0.15 | 0.30 |
 | **NPS** | Net Promoter Score (quarterly opt-in survey) | 45 | 55 |
 | **GitHub forks** | Indicator of community investment | 100 | 300 |
-| **Community plugins published** | Third-party extensions | 0 | 5 |
+| **Community extensions published** | Third-party extensions | 0 | 5 |
 | **Mentions on X/Twitter per week** | Organic social mentions (not by us) | 10 | 40 |
 | **Blog posts by community** | External blog posts mentioning SpecForge | 3 | 15 |
 | **Referral program conversions** | Users who joined via referral link | 0 | 200 |

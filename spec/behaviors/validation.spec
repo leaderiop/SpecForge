@@ -2,32 +2,44 @@
 
 use invariants/core
 use invariants/validation
+use invariants/zero-entity-core
 use types/core
 use types/graph
 use types/diagnostics
 use types/errors
+use types/zero-entity-core
+use ports/outbound
+use events/compilation
 
 behavior detect_dangling_references "Detect Dangling References" {
   invariants [reference_resolution_completeness]
-  types      [Diagnostic, EntityId, ValidationCode, Severity, ValidationError]
+  types      [Diagnostic, EntityId, ValidationCode, Severity, ValidationError, Graph, Edge]
+  consumes  [graph_built]
+  // Diagnostics from this validator flow into the declarative_validation_executed
+  // aggregate and ultimately to validation_complete. No separate event produced.
 
   contract """
-    The validator MUST check every entity ID in every reference list
-    against the graph's node registry. IDs that do not resolve to any
-    declared entity MUST produce an E001 diagnostic with source location
-    and a "did you mean?" suggestion.
+    This behavior is a post-resolution integrity assertion. User-facing
+    E001 diagnostics are emitted by link_entity_references during resolution.
+    This behavior delegates to link_entity_references for E001 emission.
+    The validator MUST NOT re-emit E001 for references already flagged
+    during resolution. The validator's role is to verify that every
+    reference list entry has a corresponding graph edge — if not, it
+    indicates a resolver bug, not a user error.
   """
 
-  verify unit "missing reference produces E001"
-  verify unit "valid reference passes silently"
-  verify unit "close match produces suggestion"
+  verify unit "reference without corresponding graph edge indicates resolver bug"
+  verify unit "reference with corresponding graph edge passes"
+  verify unit "empty graph with zero edges produces no dangling reference diagnostic"
 
-  tests ["../crates/specforge-cli/tests/integration_test.rs", "../crates/specforge-validator/src/passes.rs"]
 }
 
 behavior detect_duplicate_entity_ids "Detect Duplicate Entity IDs" {
   invariants [string_interning_consistency, entity_id_uniqueness]
   types      [Diagnostic, DuplicateIdError]
+  consumes  [all_files_parsed]
+  // Diagnostics from this validator flow into the declarative_validation_executed
+  // aggregate and ultimately to validation_complete. No separate event produced.
 
   contract """
     The validator MUST detect entity IDs declared more than once across
@@ -39,222 +51,126 @@ behavior detect_duplicate_entity_ids "Detect Duplicate Entity IDs" {
   verify unit "duplicate ID across files produces E002"
   verify unit "E002 includes both source locations"
 
-  tests ["../crates/specforge-cli/tests/integration_test.rs", "../crates/specforge-validator/src/passes.rs"]
 }
 
-behavior validate_import_cycles "Detect Import Cycles" {
-  invariants [import_dag]
-  types      [Diagnostic, CycleError]
+
+// ── Domain-Specific Validation ──────────────────────────────
+// Domain-specific validations (orphan entity checks, unused reference
+// warnings, unverified entity warnings, trigger consistency checks, etc.)
+// are declared as ValidationRulePatterns in extension manifests and are
+// defined in their owning extension directories:
+//   - spec/extensions/software/validation-rules.spec
+//   - spec/extensions/product/validation-rules.spec
+//   - spec/extensions/governance/validation-rules.spec
+// The core compiler executes these patterns generically via the declarative
+// validation engine (see behaviors/zero-entity-core.spec).
+// Diagnostic codes (W001, W003, W004, W007, E006, etc.) are defined by
+// their owning extensions, not by the core compiler.
+
+// ── Structural Validation (core — domain-agnostic) ───────────
+// DiagnosticBag accumulator pattern: core structural validators do not emit
+// individual diagnostic events. Instead, each validator appends Diagnostic
+// values into a shared DiagnosticBag. After all structural validators have
+// run, the bag is drained into the declarative_validation_executed aggregate
+// and forwarded to validation_complete. This avoids O(n) event fan-out for
+// large graphs and lets the pipeline batch diagnostics for deterministic
+// ordering (see diagnostic_determinism invariant).
+// Core structural validations operate on graph topology and field presence
+// WITHOUT knowledge of entity semantics. They check: dangling references,
+// duplicate IDs, import cycles, orphan structural nodes (W012 for any
+// grammar-level structural kind — ref, spec — with zero incoming edges),
+// and file-reference existence. Extension-defined entity kinds opt into
+// generic orphan detection via extension-defined `no_incoming_edges`
+// ValidationRulePatterns. Domain-specific orphan rules (e.g., W001 orphan
+// entity) are extension-defined ValidationRulePatterns.
+
+behavior detect_orphan_refs "Detect Orphan Structural Nodes" {
+  invariants [diagnostic_determinism]
+  types      [Diagnostic, EntityId, Graph]
+  consumes  [graph_built]
+  // Diagnostics from this validator flow into the declarative_validation_executed
+  // aggregate and ultimately to validation_complete. No separate event produced.
+
+  // H1: ref and spec are grammar-level structural constructs — parsed by the
+  // core grammar (like `use` and `define`), NOT extension-defined entity kinds.
+  // Because they are structural, their orphan detection belongs in core, not in
+  // extension manifests. Extension-defined entity kinds that want orphan
+  // detection declare a `no_incoming_edges` ValidationRulePattern in their
+  // extension manifest, which the declarative validation engine handles
+  // separately.
 
   contract """
-    The validator MUST verify the import graph is acyclic. Import cycles
-    MUST produce an E003 diagnostic listing the cycle participants in order.
-  """
+    The core validator MUST detect orphan nodes of ANY structural node
+    type (ref, spec) that have zero incoming edges in the compiled
+    graph. Orphan structural nodes MUST produce a W012 warning
+    identifying the unreferenced node.
 
-  verify unit "import cycle produces E003"
-  verify unit "E003 lists all cycle participants"
+    This is a generic structural check applied uniformly to all
+    grammar-level structural kinds — it does not encode domain
+    knowledge about any specific kind. The set of structural kinds is
+    defined by the grammar (currently ref and spec), not by
+    extensions.
 
-  tests ["../crates/specforge-cli/tests/integration_test.rs", "../crates/specforge-validator/src/passes.rs"]
-}
-
-behavior detect_orphan_behaviors "Detect Orphan Behaviors" {
-  types      [Diagnostic, EntityId]
-
-  contract """
-    The validator MUST detect behaviors not referenced by any feature.
-    Orphan behaviors MUST produce a W001 warning with the behavior's
-    source location.
-  """
-
-  verify unit "behavior not in any feature produces W001"
-  verify unit "behavior in a feature suppresses W001"
-
-  tests ["../crates/specforge-cli/tests/integration_test.rs", "../crates/specforge-validator/src/passes.rs"]
-}
-
-behavior detect_unused_invariants "Detect Unused Invariants" {
-  types      [Diagnostic, EntityId]
-
-  contract """
-    The validator MUST detect invariants not referenced by any behavior.
-    Unused invariants MUST produce a W003 warning.
-  """
-
-  verify unit "invariant not referenced by any behavior produces W003"
-  verify unit "referenced invariant suppresses W003"
-
-  tests ["../crates/specforge-cli/tests/integration_test.rs", "../crates/specforge-validator/src/passes.rs"]
-}
-
-behavior detect_unverified_behaviors "Detect Unverified Behaviors" {
-  types      [Diagnostic, EntityId]
-
-  contract """
-    The validator MUST detect behaviors that lack any verify statement.
-    Behaviors without verify statements MUST produce a W004 warning.
-  """
-
-  verify unit "behavior without verify produces W004"
-  verify unit "behavior with verify suppresses W004"
-
-  tests ["../crates/specforge-cli/tests/integration_test.rs", "../crates/specforge-validator/src/passes.rs"]
-}
-
-behavior detect_orphan_events "Detect Orphan Events" {
-  types      [Diagnostic, EntityId]
-
-  contract """
-    The validator MUST detect events with no consumers in their consumers
-    list. Events without consumers MUST produce a W007 warning.
-  """
-
-  verify unit "event without consumers produces W007"
-  verify unit "event with consumers suppresses W007"
-
-  tests ["../crates/specforge-cli/tests/integration_test.rs", "../crates/specforge-validator/src/passes.rs"]
-}
-
-behavior validate_event_triggers "Validate Event Triggers" {
-  invariants [reference_resolution_completeness]
-  types      [Diagnostic, EntityId]
-
-  contract """
-    The validator MUST verify that every event's trigger field references
-    an existing behavior. Invalid triggers MUST produce an E006 diagnostic.
-  """
-
-  verify unit "valid trigger passes"
-  verify unit "non-existent trigger produces E006"
-
-  tests ["../crates/specforge-cli/tests/integration_test.rs", "../crates/specforge-validator/src/passes.rs"]
-}
-
-behavior validate_persona_references "Validate Persona References" {
-  types      [Diagnostic, EntityId]
-
-  contract """
-    When the spec root defines personas, the validator MUST verify that
-    every capability's persona matches a declared persona. Undeclared
-    personas MUST produce an E008 diagnostic.
-  """
-
-  verify unit "valid persona passes"
-  verify unit "undeclared persona produces E008"
-
-  tests ["../crates/specforge-cli/tests/integration_test.rs", "../crates/specforge-validator/src/passes.rs"]
-}
-
-behavior validate_surface_references "Validate Surface References" {
-  types      [Diagnostic, EntityId]
-
-  contract """
-    When the spec root defines surfaces, the validator MUST verify that
-    every capability's surface values match declared surfaces. Undeclared
-    surfaces MUST produce an E009 diagnostic.
-  """
-
-  verify unit "valid surface passes"
-  verify unit "undeclared surface produces E009"
-
-  tests ["../crates/specforge-cli/tests/integration_test.rs", "../crates/specforge-validator/src/passes.rs"]
-}
-
-behavior detect_orphan_refs "Detect Orphan Refs" {
-  types      [Diagnostic, EntityId]
-
-  contract """
-    The validator MUST detect ref entities declared but never referenced
-    by any entity's refs field. Orphan refs MUST produce a W012 warning.
+    Extension-defined entity kinds that want generic orphan detection
+    declare a `no_incoming_edges` ValidationRulePattern in their
+    extension manifest, which the declarative validation engine
+    handles separately.
   """
 
   verify unit "unreferenced ref produces W012"
   verify unit "referenced ref suppresses W012"
+  verify unit "unreferenced structural node of any grammar-level kind produces W012"
+  verify unit "structural node with at least one incoming edge suppresses W012"
 
-  tests ["../crates/specforge-cli/tests/integration_test.rs", "../crates/specforge-validator/src/passes.rs"]
 }
 
-behavior validate_empty_scenario "Validate Empty Scenario" {
-  invariants [traceability_chain_integrity]
-  types      [Diagnostic, Scenario]
-
-  contract """
-    The validator MUST detect scenario blocks that contain no steps.
-    An empty scenario block MUST produce an E004 diagnostic with
-    the scenario title and source location.
-  """
-
-  verify unit "scenario with no steps produces E004"
-  verify unit "scenario with steps suppresses E004"
-
-  tests ["../crates/specforge-cli/tests/integration_test.rs", "../crates/specforge-validator/src/passes.rs"]
-}
-
-behavior validate_duplicate_scenario_titles "Validate Duplicate Scenario Titles" {
-  invariants [traceability_chain_integrity]
-  types      [Diagnostic, Scenario]
-
-  contract """
-    The validator MUST detect duplicate scenario titles within the
-    same entity. When two or more scenarios share the same title,
-    the validator MUST produce an E015 diagnostic for each duplicate.
-  """
-
-  verify unit "duplicate scenario title in same entity produces E015"
-  verify unit "same scenario title in different entities is allowed"
-
-  tests ["../crates/specforge-cli/tests/integration_test.rs", "../crates/specforge-validator/src/passes.rs"]
-}
-
-behavior validate_scenario_steps "Validate Scenario Steps" {
-  invariants [traceability_chain_integrity]
-  types      [Diagnostic, Scenario, ScenarioStep]
-
-  contract """
-    The validator MUST detect scenarios missing required step kinds.
-    A scenario without a when step MUST produce a W015 warning.
-    A scenario without a then step MUST produce a W016 warning.
-    A scenario MAY omit a given step without warning.
-  """
-
-  verify unit "scenario without when step produces W015"
-  verify unit "scenario without then step produces W016"
-  verify unit "scenario with all step kinds produces no warnings"
-
-  tests ["../crates/specforge-cli/tests/integration_test.rs", "../crates/specforge-validator/src/passes.rs"]
-}
-
-behavior validate_tests_field_references "Validate Tests Field References" {
-  invariants [traceability_chain_integrity]
-  types      [Diagnostic, TestFileRef]
-
-  contract """
-    The validator MUST check that every path in a tests field references
-    an existing file. Non-existent test files MUST produce an E016
-    diagnostic. Testable entities that have verify or scenario declarations
-    but no tests field MUST produce a W018 warning.
-  """
-
-  verify unit "non-existent test file path produces E016"
-  verify unit "existing test file path passes silently"
-  verify unit "testable entity with verify but no tests field produces W018"
-
-  tests ["../crates/specforge-cli/tests/integration_test.rs", "../crates/specforge-validator/src/passes.rs"]
-}
-
-behavior validate_plugin_testability "Validate Plugin Testability" {
-  invariants [testable_entity_classification]
+// Core structural validation: checks file existence for ANY field declared as
+// a file reference in extension metadata. This is purely structural and
+// domain-agnostic — the core checks that referenced files exist, just like it
+// checks that referenced entity IDs exist (E001). Gherkin .feature files are
+// the current use case, but this mechanism applies to any file-reference field
+// registered by any extension (e.g., a future extension could declare an
+// `openapi` field as a file reference).
+// W018 (missing gherkin on supported kind) is an extension-level concern:
+// it is declared as a missing_field_when_flag_set ValidationRulePattern by
+// @specforge/software, not hardcoded in core. The core only handles E016.
+behavior validate_file_reference_paths "Validate File Reference Paths" {
+  // reference_resolution_completeness applies here because file paths are a form
+  // of reference that must resolve: just as entity-ID references must resolve to
+  // graph nodes, file-path references must resolve to existing filesystem entries.
+  // Both are "references" in the graph-integrity sense — unresolved file paths
+  // violate the same completeness guarantee as dangling entity references.
+  invariants [reference_resolution_completeness]
   types      [Diagnostic]
+  ports      [FileSystem]
+  consumes  [graph_built]
+  // Diagnostics from this validator flow into the declarative_validation_executed
+  // aggregate and ultimately to validation_complete. No separate event produced.
 
   contract """
-    The validator MUST detect inconsistencies between plugin entity
-    testability declarations and grammar support. A plugin entity marked
-    testable but whose grammar lacks verify/scenario support MUST produce
-    a W017 warning. An entity that supports verify but is not marked
-    testable MUST produce an I006 info diagnostic.
+    This behavior performs generic file-path validation for any entity
+    field whose extension metadata declares it as a file reference.
+    The validation is domain-agnostic: the core does not interpret the
+    semantics of the referenced file — it only checks existence.
+    Gherkin .feature file references (from @specforge/software) are the
+    current use case, but any extension can register file-reference
+    fields (e.g., openapi, protobuf, schema) and they will be
+    validated by this same mechanism.
+
+    File existence (E016): every file path in a file-reference field
+    MUST reference an existing file relative to the spec root.
+    Non-existent files MUST produce an E016 diagnostic.
+
+    Field-presence warnings (e.g., W018 for missing gherkin on a kind
+    with supportsGherkin=true) are NOT handled here — they are declared
+    as missing_field_when_flag_set ValidationRulePatterns in the owning
+    extension manifest and executed by the declarative validation engine.
   """
 
-  verify unit "testable plugin entity without verify support produces W017"
-  verify unit "entity with verify support but not marked testable produces I006"
+  verify unit "non-existent file reference produces E016"
+  verify unit "existing file reference passes silently"
 
-  tests ["../crates/specforge-validator/src/passes.rs"]
 }
+
+// validate_extension_testability moved to behaviors/zero-entity-validation.spec
+// where its feature owner (zero-entity core) lives.

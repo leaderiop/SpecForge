@@ -2,12 +2,14 @@
 id: RES-11a
 kind: research
 title: "Spec DSL Core Compiler Architecture"
-status: active
+status: partially-superseded
 date: 2026-03-01
 split_from: RES-11
 ---
 
 # RES-11a: Spec DSL Core Compiler Architecture
+
+> **Status:** Active with inline corrections. Plugin architecture updated to Wasm/Extism (RES-21b, RES-23). Entity types updated to zero-entity core with extension-defined entities (RES-26). Compiler pipeline design and entity ID grammar remain as-is.
 
 ## Problem Statement
 
@@ -62,9 +64,9 @@ No database. No server. One binary.
                           │
                           ▼
                ┌─────────────────────┐
-               │   In-Memory Graph   │  nodes: invariant, behavior,
-               │                     │         feature, capability,
-               │   (the "database")  │         decision, risk...
+               │   In-Memory Graph   │  nodes: extension-defined entities
+               │                     │         (e.g. behavior, feature,
+               │   (the "database")  │         invariant, capability...)
                │                     │  edges: references, enforces,
                │                     │         implements, traces_to
                └────────┬────────────┘
@@ -372,7 +374,7 @@ comment         = "//" , { any_char_except_newline } ;
 
 3. **Fixed attribute set:** Each block type has a fixed set of allowed attributes. Unknown attributes are a compile error. This prevents typos and ensures all `.spec` files are interpretable by the compiler. Custom attributes use the `define` mechanism (see [Extensibility](#extensibility)).
 
-4. **Type syntax:** Type expressions like `Result<User, DuplicateEmailError>` and union types `DuplicateEmailError | UserNotFoundError` are parsed in `type` and `port` blocks only. These are fully parsed and resolved as part of the code generation layer (see RES-11b).
+4. **Type syntax:** Type expressions like `Result<User, DuplicateEmailError>` and union types `DuplicateEmailError | UserNotFoundError` are parsed in `type` and `port` blocks only. These are fully parsed and resolved as part of the type resolution pipeline.
 
 ---
 
@@ -382,13 +384,18 @@ The compiler builds an in-memory directed graph from parsed `.spec` files. This 
 
 ### Node Types
 
-Organized into core (7) + two official plugins (8). See `docs/entity-model.md` for full architecture rationale and cross-plugin reference semantics.
+All entity types below are extension-defined. `@specforge/software` provides behavior, event, feature, type, port, invariant. `@specforge/product` provides capability, deliverable, roadmap, library, glossary. `@specforge/governance` provides decision, constraint, failure_mode. The `spec` block is the only structural element defined by core.
 
-**Core:**
+**Core (structural):**
 
 | Node Type | Required Properties | Optional Properties |
 |---|---|---|
-| `spec` | `name`, `version` | `test_dirs`, `coverage`, `gen`, `persona`, `surface` |
+| `spec` | `name`, `version` | `test_dirs`, `coverage`, `persona`, `surface` |
+
+**@specforge/software:**
+
+| Node Type | Required Properties | Optional Properties |
+|---|---|---|
 | `invariant` | `guarantee` | `enforced_by`, `risk` |
 | `behavior` | `contract` | `invariants`, `adrs` (soft ref), `types`, `ports`, `verify[]`, `tests[]` |
 | `event` | `trigger` | `payload`, `consumers`, `channel` |
@@ -701,7 +708,7 @@ Rename `data_persistence` → updates every `.spec` file that references it.
 **Code actions:**
 ```
 create_order has no tests.
-  Quick fix: Generate test stub for Go | TypeScript | Python
+  Quick fix: Add verify block | Add tests field | View in graph
 ```
 
 **Outline view (sidebar):**
@@ -720,7 +727,7 @@ The tree-sitter grammar ships four query files in `queries/` that any tree-sitte
 
 | File | Purpose |
 |------|---------|
-| `highlights.scm` | Syntax highlighting — maps all 16 block keywords, sub-block keywords, entity names, strings, types, annotations, and punctuation to standard capture groups |
+| `highlights.scm` | Syntax highlighting — maps block keywords, sub-block keywords, entity names, strings, types, annotations, and punctuation to standard capture groups |
 | `folds.scm` | Code folding — marks all block types and sub-blocks (persona, surface, term, provider, nested) as foldable regions |
 | `indents.scm` | Auto-indentation — `{`/`[` trigger indent, `}`/`]` trigger dedent |
 | `injections.scm` | Language injection — enables markdown highlighting inside triple-quoted strings |
@@ -752,7 +759,7 @@ specforge lsp                         # start LSP server (editor integration)
 specforge migrate --from=1.0 --to=2.0 # migrate spec files between format versions
 ```
 
-> **Note:** Code generation commands (`specforge gen`, `specforge verify`, `specforge coverage`) are documented in [RES-11b](./RES-11b-spec-dsl-codegen-plugins.md).
+> **Note:** `specforge coverage` is documented in the coverage subsystem.
 
 ---
 
@@ -806,16 +813,17 @@ create_user "Create User"
 
 ## Extensibility
 
-### Fixed Core Schema
+### Core Schema
 
-The compiler has a fixed set of core constructs:
+The compiler core defines structural constructs only. All domain entity types come from extensions (RES-26).
 
-- **Node types:** `spec`, `invariant`, `constraint`, `decision`, `behavior`, `event`, `feature`, `capability`, `failure_mode`, `type`, `port`, `glossary`, `library`, `deliverable`, `roadmap`
-- **Attributes per node type:** The set documented in [Graph Schema](#graph-schema). Unknown attributes are compile errors.
+- **Core structural types:** `spec` (project root block)
+- **Entity types:** Extension-defined (see [Graph Schema](#graph-schema) for the full set across `@specforge/software`, `@specforge/product`, `@specforge/governance`)
+- **Attributes per node type:** Declared by extensions. Unknown attributes are compile errors.
 - **Edge types:** `references`, `implements`, `produces`, `consumes`, `uses_type`, `uses_port`, `enforces`, `imports`, `traces_to`, `bundles`, `built_from`, `provides`, `depends_on`, `defines_port`, `schedules`, `protects`, `shaped_by`, `constrains`, `mitigates`
 - **Emitters:** markdown, JSON, DOT graph, index.yaml, traceability report
 
-This fixed schema keeps the compiler simple, fast, and predictable. Every `.spec` file is fully interpretable by the compiler with no ambiguity.
+The core compiler parses any `keyword name { ... }` block generically. Extensions declare which keywords are valid and what attributes they accept.
 
 ### Meta-Schema: `define` Blocks
 
@@ -835,25 +843,16 @@ spec "my-service" {
 }
 ```
 
-### Plugin API
+### Extension API
 
-Extensibility beyond the `define` mechanism is supported through a plugin API:
+Extensibility beyond the `define` mechanism is supported through Wasm/Extism extensions (RES-21b, RES-23):
 
-1. **Custom node types:** Define new node kinds (e.g., `deployment`, `sla`, `metric`) via plugin manifests.
+1. **Custom node types:** Define new node kinds via extension manifests.
 2. **Custom attributes:** Extend existing node types with project-specific attributes.
-3. **Emitter plugins:** Custom output formats beyond the built-in set.
-4. **Validator plugins:** Custom graph-level validation rules.
-5. **Generator plugins:** Code generation for additional languages or frameworks (see [RES-11b](./RES-11b-spec-dsl-codegen-plugins.md)).
+3. **Emitter extensions:** Custom output formats beyond the built-in set.
+4. **Validator extensions:** Custom graph-level validation rules.
 
-**Plugin interface:**
-
-```
-Plugin receives:  JSON graph on stdin (nodes + edges + metadata)
-Plugin emits:     files on stdout (path + content pairs)
-                  diagnostics on stderr (structured JSON)
-```
-
-Plugins are standalone executables. Any language. No shared memory, no FFI. The compiler orchestrates them via subprocess I/O.
+Extensions are Wasm modules loaded via the Extism runtime. See RES-23 for the contribution-based extension model.
 
 ---
 
@@ -941,7 +940,7 @@ Both parsers produce the same AST. The handwritten parser can be the primary par
 | `.spec` files | Source of truth — behaviors, invariants, features, decisions |
 | `specforge.spec` project config | Thresholds, version |
 
-> **Note:** Test files with `spec()` / `violation()` wrappers are documented in [RES-11b](./RES-11b-spec-dsl-codegen-plugins.md).
+> **Note:** Test files with `spec()` / `violation()` wrappers are documented in the coverage subsystem.
 
 ---
 
@@ -969,7 +968,7 @@ The parser is a library shared by both binaries.
 
 | Step | Deliverable | Depends On |
 |------|-------------|------------|
-| 1 | **Tree-sitter grammar** — defines `.spec` syntax for 7 core block types + plugin loading | — |
+| 1 | **Tree-sitter grammar** — defines `.spec` syntax for ~~7 core block types~~ generic entity blocks + extension loading | — |
 | 2 | **Parser** — `.spec` → AST (shared library) | 1 |
 | 3 | **Resolver** — AST → in-memory graph, import resolution, symbol linking | 2 |
 | 4 | **Validator** — graph → diagnostics (E001–E003, E005–E010, W001–W011, I001, I003–I004) | 3 |
@@ -980,14 +979,9 @@ The parser is a library shared by both binaries.
 | 9 | `@specforge/pytest` — Python test runner plugin | 5 |
 | 10 | `@specforge/go` — Go test collector | 5 |
 | 11 | `specforge coverage` CLI — report merging + threshold gating | 8–10 |
-| 12 | `@specforge/gen-typescript` — TypeScript code generator | 3 |
-| 13 | `@specforge/gen-python` — Python code generator | 3 |
-| 14 | `@specforge/gen-go` — Go code generator | 3 |
-| 15 | Drift detection — `specforge gen --check` | 12–14 |
-| 16 | Adapter verification — `specforge verify` | 12–14 |
-| 17 | Plugin API — stdin/stdout interface for community plugins | 11, 15 |
+| 12 | Extension API — Wasm/Extism interface for community extensions | 11 |
 
-Steps 1–5 = usable tool. Step 6 = great DX. Step 7 = complete core. Steps 8–17 are documented in detail in [RES-11b](./RES-11b-spec-dsl-codegen-plugins.md). Steps 8–10 are parallelizable. Steps 12–14 are parallelizable.
+Steps 1–5 = usable tool. Step 6 = great DX. Step 7 = complete core. Steps 8–10 are parallelizable. Step 12 uses Wasm/Extism (RES-21b, RES-23).
 
 ---
 

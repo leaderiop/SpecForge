@@ -8,7 +8,7 @@
 
 ## The Question
 
-Should SpecForge embed a scripting engine (Lua, Rhai, Wasm, etc.) to allow runtime extensibility for plugins, providers, and generators — similar to how Neovim uses LuaJIT?
+Should SpecForge embed a scripting engine (Lua, Rhai, Wasm, etc.) to allow runtime extensibility for plugins and providers — similar to how Neovim uses LuaJIT?
 
 ## Decision Outcome
 
@@ -54,20 +54,22 @@ The panel research below is preserved as context for the decision override.
 
 ## The Fundamental Constraint: Tree-sitter
 
-This constraint remains valid regardless of runtime choice:
+> [!NOTE]
+> **Updated (RES-26):** The grammar now uses a generic `entity_block` rule that parses ANY `keyword name { fields }` pattern. Validation of which keywords are legal comes from extensions, not the grammar. The original constraint below described the old hardcoded approach.
+
+The grammar now uses a generic `entity_block` rule:
 
 ```javascript
-// grammar.js — ALL 16 entity types are hardcoded
+// grammar.js — generic entity_block (RES-26)
 _block: ($) => choice(
-    $.spec_block,
-    $.invariant_block,
-    $.behavior_block,
-    // ... all 16 enumerated at compile time
-    $.define_block,  // Only generic extension point
+    $.entity_block,   // generic — parses ANY keyword
+    $.spec_block,     // structural (stays in core)
+    $.use_statement,  // structural (stays in core)
+    $.define_block,   // structural (stays in core)
 ),
 ```
 
-**Tree-sitter grammars compile to C and are statically linked.** No runtime — Wasm or otherwise — can add new block types to the parser. Wasm plugins operate **downstream** of parsing, on the already-parsed graph via host functions (`specforge.query_graph`, `specforge.emit_diagnostic`, etc.).
+**Tree-sitter grammars compile to C and are statically linked.** The grammar now parses blocks generically. Wasm extensions operate **downstream** of parsing, on the already-parsed graph via host functions (`specforge.query_graph`, `specforge.emit_diagnostic`, etc.).
 
 ## Why Neovim's Model Doesn't Apply
 
@@ -88,7 +90,7 @@ Neovim needed Lua because users must customize editor behavior in real-time. Spe
 |----------------|-----------|---------------|
 | **Validation rules** | Post-parse graph analysis | `specforge.query_graph` + `specforge.emit_diagnostic` |
 | **Custom entities** | Entity registration | `specforge.register_entity` |
-| **Code generation** | File emission | `specforge.emit_file(path, content)` |
+| **File emission** | File output | `specforge.emit_file(path, content)` |
 | **Ref providers** | External service validation | `specforge.http_get` |
 | **Custom edges** | Edge registration | `specforge.register_edge` |
 
@@ -108,14 +110,13 @@ specforge.http_get(url) → response
 
 ```
 1. specforge reads specforge.json
-2. Validates peer_dependencies for all declared plugins
-3. Topologically sorts plugins (core → official → third-party)
+2. Validates peer_dependencies for all declared extensions
+3. Topologically sorts extensions (official → third-party)
 4. For CLI: AOT-compile and cache .wasm modules
 5. For LSP/MCP: keep warm engine instances in-process
-6. Load plugins, call initialize()
-7. After graph is built, call validate() on each plugin
-8. For generators, call generate() with graph access
-9. Merge diagnostics with built-in validation results
+6. Load extensions, call initialize() → registers entities, edges, validators
+7. After graph is built, call validate() on each extension
+8. Merge diagnostics with built-in validation results
 ```
 
 ### Performance Mitigations
@@ -152,8 +153,5 @@ specforge.http_get(url) → response
 
 - ADR `wasm_extism_plugin_runtime` in `spec/governance/decisions.spec`
 - ADR `wasm_peer_dependencies` in `spec/governance/decisions.spec`
-- See `RES-21a-lua-embedding-analysis.md` for full Lua research (rejected)
 - See `RES-21b-wasm-plugin-analysis.md` for full Wasm research (adopted)
-- See `RES-21c-alternatives-comparison.md` for Rhai/Starlark/Deno analysis (rejected)
-- See `RES-21d-neovim-lessons.md` for Neovim ecosystem lessons
 - See `RES-21e-specforge-architecture-constraints.md` for codebase analysis

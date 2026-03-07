@@ -13,6 +13,10 @@
 .DS_Store
 Thumbs.db
 
+# Generated code
+generated/
+tests/spec/
+
 # Environment
 .env
 .env.*

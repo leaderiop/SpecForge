@@ -5,7 +5,7 @@ description: "Write ref external reference declarations in .spec DSL files. Supp
 
 # SpecForge Refs DSL
 
-Rules and conventions for authoring **`ref` declarations** in `.spec` files. Refs are typed links to external resources — the bridge between the compiler-checked spec world and external issue trackers, design tools, and documentation.
+Rules and conventions for authoring **`ref` declarations** in `.spec` files. Refs are typed links to external resources -- the bridge between the compiler-checked spec world and external issue trackers, design tools, and documentation.
 
 ## When to Use
 
@@ -25,7 +25,7 @@ ref jira.epic:PROJ-123 "Q2 auth overhaul"
 ref mermaid:user-flow "User registration sequence"
 ```
 
-### Block Syntax (rare — for metadata)
+### Block Syntax (rare -- for metadata)
 
 ```spec
 ref gh.issue:42 "Track login timeout bug" {
@@ -37,7 +37,7 @@ ref gh.issue:42 "Track login timeout bug" {
 ### Inline References (in entity `refs` fields)
 
 ```spec
-behavior BEH-MS-001 "Create User" {
+behavior create_user "Create User" {
   contract "..."
   refs [gh.issue:42, jira.epic:PROJ-123]
 }
@@ -57,9 +57,9 @@ contract """
 scheme.kind:identifier
 ```
 
-- `scheme` — provider name (e.g., `gh`, `jira`, `figma`, `mermaid`)
-- `kind` — resource type within provider (e.g., `issue`, `pr`, `epic`, `frame`)
-- `identifier` — provider-specific locator (e.g., `42`, `PROJ-123`, `abc123`)
+- `scheme` -- provider name (e.g., `gh`, `jira`, `figma`, `mermaid`)
+- `kind` -- resource type within provider (e.g., `issue`, `pr`, `epic`, `frame`)
+- `identifier` -- provider-specific locator (e.g., `42`, `PROJ-123`, `abc123`)
 
 Some providers have only scheme and identifier (no kind): `mermaid:user-flow`.
 
@@ -89,26 +89,26 @@ Some providers have only scheme and identifier (no kind): `mermaid:user-flow`.
 
 ### Outgoing edges
 
-None. Refs are leaf nodes — they do not reference other spec entities.
+None. Refs are leaf nodes -- they do not reference other spec entities.
 
 ## Writing Rules
 
-1. **Use scheme-based IDs** — `gh.issue:42` not raw URLs, because they are compiler-aware and provider-validated.
-2. **One-line for most refs** — block syntax is only needed for provider-specific metadata.
-3. **Declare refs at the file level** — then reference them in entity `refs` fields.
-4. **Use inline `[gh.issue:42]` in prose** — for in-context navigation.
-5. **Configure providers in `specforge.spec`** — refs using `gh.*` require a `gh` provider configuration.
-6. **Ref IDs are globally unique** — no two refs share the same scheme.kind:identifier.
+1. **Use scheme-based IDs** -- `gh.issue:42` not raw URLs, because they are compiler-aware and provider-validated.
+2. **One-line for most refs** -- block syntax is only needed for provider-specific metadata.
+3. **Declare refs at the file level** -- then reference them in entity `refs` fields.
+4. **Use inline `[gh.issue:42]` in prose** -- for in-context navigation.
+5. **Configure providers in `specforge.spec`** -- refs using `gh.*` require a `gh` provider configuration.
+6. **Ref IDs are globally unique** -- no two refs share the same scheme.kind:identifier.
 
 ## Validation Rules
 
 | Code | Rule |
 |------|------|
 | E002 | No duplicate ref IDs across all `.spec` files. |
-| E011 | Invalid ref target format — provider validates identifier pattern. |
-| E012 | Unknown provider kind — kind not registered by the provider. |
-| W012 | Orphan ref — declared but never referenced by any entity's `refs` field. |
-| I005 | Unknown provider scheme — scheme not registered by any installed provider. |
+| E011 | Invalid ref target format -- provider validates identifier pattern. |
+| E012 | Unknown provider kind -- kind not registered by the provider. |
+| W012 | Orphan ref -- declared but never referenced by any entity's `refs` field. |
+| I005 | Unknown provider scheme -- scheme not registered by any installed provider. |
 
 ## Examples
 
@@ -139,8 +139,8 @@ ref figma.frame:abc123 "Login page redesign"
 ### Behavior with Refs
 
 ```spec
-behavior BEH-MS-001 "Create User" {
-  invariants [INV-MS-1, INV-MS-2]
+behavior create_user "Create User" {
+  invariants [data_persistence, email_uniqueness]
 
   contract """
     When a valid CreateUserCommand is received,
@@ -166,8 +166,8 @@ ref gh.issue:99 "Performance regression in search" {
 
 ## What NOT to Do
 
-- Do not use raw URLs instead of scheme-based IDs — use `gh.issue:42` not `https://github.com/...`
-- Do not use refs for internal cross-references between spec entities — use entity IDs directly
-- Do not declare refs without referencing them from at least one entity — or `W012` orphan warning fires
-- Do not use schemes without configuring the provider in `specforge.spec` — unknown schemes emit `I005`
-- Do not put the kind in the identifier — `gh.issue:42` not `gh:issue-42`
+- Do not use raw URLs instead of scheme-based IDs -- use `gh.issue:42` not `https://github.com/...`
+- Do not use refs for internal cross-references between spec entities -- use entity IDs directly
+- Do not declare refs without referencing them from at least one entity -- or `W012` orphan warning fires
+- Do not use schemes without configuring the provider in `specforge.spec` -- unknown schemes emit `I005`
+- Do not put the kind in the identifier -- `gh.issue:42` not `gh:issue-42`

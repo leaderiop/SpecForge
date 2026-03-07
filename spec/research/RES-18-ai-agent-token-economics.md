@@ -10,6 +10,8 @@
 
 ## Executive Summary
 
+> **Vision alignment (Principle 1):** The Graph Protocol is the product. Token economics for AI agents is one dimension of the graph's value — the same structured output also serves compliance tools, documentation generators, traceability dashboards, and any system that consumes software intent. This research quantifies the agent dimension specifically.
+
 AI coding agents waste 60-80% of their token budget on *discovery and disambiguation* — reading files, asking clarifying questions, making wrong assumptions, and reworking failed attempts. SpecForge eliminates this waste by providing agents with structured, pre-validated, machine-readable specifications.
 
 **Key findings:**

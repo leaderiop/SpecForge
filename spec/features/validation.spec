@@ -1,37 +1,141 @@
-// Validation feature
+// Validation features — core structural validation
+// Domain-specific validation (orphan entity checks, unused entity warnings, etc.)
+// is extension-driven via the declarative validation engine. These features cover
+// only core structural validation behaviors.
 
 use behaviors/resolution
 use behaviors/graph
 use behaviors/validation
-use behaviors/validation-ext
 use behaviors/error-reporting
-use behaviors/rust-collection
+use behaviors/output
+use behaviors/zero-entity-registries
+use behaviors/zero-entity-validation
 
-feature graph_validation "Graph Validation" {
+feature reference_resolution "Reference Resolution" {
   behaviors [
-    resolve_use_imports, validate_import_cycles, link_entity_references, resolve_soft_cross_plugin_references, resolve_external_ref_declarations,
-    build_in_memory_graph,
-    detect_dangling_references, detect_duplicate_entity_ids, detect_orphan_behaviors,
-    detect_unused_invariants, detect_unverified_behaviors, detect_orphan_events, validate_event_triggers,
-    validate_persona_references, validate_surface_references,
-    detect_orphan_refs, detect_orphan_features, detect_library_cycles, validate_behavior_ranges_in_roadmaps,
-    validate_rpn_arithmetic, detect_unmitigated_high_risk_invariants, detect_orphan_capabilities, detect_features_with_empty_behaviors,
-    detect_deliverables_with_no_capabilities, detect_orphan_libraries, detect_constraints_with_no_protected_invariants, detect_unused_glossary_terms,
-    validate_empty_scenario, validate_duplicate_scenario_titles, validate_scenario_steps, validate_tests_field_references, validate_plugin_testability,
-    validate_rust_entity_ids,
-    format_diagnostics_with_source_context, provide_did_you_mean_suggestions, aggregate_diagnostic_summary,
+    resolve_use_imports, detect_import_cycles, link_entity_references,
+    resolve_soft_cross_extension_references, resolve_external_ref_declarations,
   ]
 
   problem """
-    .spec files contain cross-references between entities across multiple
-    files. Broken references, duplicate IDs, import cycles, and orphan
-    entities must be detected and reported with actionable diagnostics.
+    .spec files reference entities across multiple files via use imports
+    and reference lists. Broken imports, circular dependencies, and
+    unresolvable cross-extension references must be detected.
   """
 
   solution """
-    Multi-pass validator that checks the in-memory graph for structural
-    invariants: dangling references (E001), duplicate IDs (E002), import
-    cycles (E003), orphans (W001-W011), and plugin-specific rules. All
-    diagnostics are formatted in rustc style with suggestions.
+    The resolver processes use imports, links entity references, detects
+    import cycles (E003), and resolves cross-extension references with soft
+    resolution (I004 for uninstalled extensions). External ref declarations
+    are resolved via provider schemes.
+  """
+}
+
+feature graph_construction "Graph Construction" {
+  behaviors [build_in_memory_graph, maintain_mutable_graph]
+
+  problem """
+    After resolution, entities and their resolved references must be
+    assembled into an in-memory typed entity graph for validation,
+    export, and querying.
+  """
+
+  solution """
+    The graph builder constructs an in-memory directed graph from
+    resolved ASTs. Nodes represent entities with kind and fields. Edges
+    represent resolved references with registered edge type labels.
+  """
+}
+
+feature structural_validation "Structural Validation" {
+  behaviors [
+    detect_dangling_references, detect_duplicate_entity_ids,
+    detect_orphan_refs, validate_file_reference_paths,
+  ]
+
+  problem """
+    The compiled graph may contain structural inconsistencies: dangling
+    references, duplicate IDs, orphan structural nodes, and missing
+    file references.
+  """
+
+  solution """
+    Core structural validation passes check the graph for: dangling
+    reference integrity (resolver bug detection), duplicate IDs (E002), orphan structural nodes
+    of any grammar-level kind — ref, spec — with zero incoming edges
+    (W012), and file-reference existence (E016). Domain-specific
+    validation is driven by declarative patterns from extensions.
+    Note: detect_duplicate_entity_ids runs at all_files_parsed time
+    (before graph construction). The remaining structural validators
+    run after graph_built.
+  """
+}
+
+feature diagnostic_reporting "Diagnostic Reporting" {
+  // JSON output path for agent consumption (P3)
+  // Note: print_diagnostics_structured and export_diagnostics_as_json also
+  // appear in features/output.spec::ci_integration. This is intentional:
+  // ci_integration describes the CI/CD output perspective, while this feature
+  // describes the validation-diagnostic perspective.
+  behaviors [
+    format_diagnostics_with_source_context, provide_did_you_mean_suggestions,
+    aggregate_diagnostic_summary, print_diagnostics_structured,
+    export_diagnostics_as_json,
+    // Bridge: exit code mapping is part of the diagnostic user story
+    exit_code_reflects_diagnostic_severity,
+  ]
+
+  problem """
+    Validation diagnostics must be formatted with source context, fuzzy
+    suggestions for typos, and aggregated into a final summary for
+    human and machine consumption.
+  """
+
+  solution """
+    Diagnostics are formatted with source snippets and underline markers
+    pointing to the exact source location. Fuzzy matching suggests
+    corrections for misspelled entity IDs. The aggregate summary collects
+    all diagnostics with error/warning/info counts. All diagnostics are
+    available in both human-readable (ariadne-rendered) and machine-parseable
+    (structured JSON via --format=json) formats — agents consume the JSON
+    format directly without parsing rendered output (per P3: agents are
+    first-class consumers). Two of the five behaviors
+    (format_diagnostics_with_source_context and provide_did_you_mean_suggestions)
+    run inline during the resolution pass rather than as post-validation
+    event consumers.
+  """
+}
+
+// Note: The three behaviors below (detect_unknown_entity_kinds,
+// detect_unknown_entity_fields, two_phase_validate_semantic) are also
+// listed in features/zero-entity-core.spec under zero_entity_bootstrap
+// and dynamic_entity_registration. This is intentional: those features
+// describe the architectural mechanism (registry-driven validation),
+// while this feature describes the validation-pipeline perspective
+// (what the user experiences during specforge check). A behavior MAY
+// appear in multiple features when it serves multiple user-facing
+// capabilities.
+feature zero_entity_validation "Zero-Entity Validation" {
+  behaviors [
+    detect_unknown_entity_kinds, detect_unknown_entity_fields,
+    two_phase_validate_semantic,
+    // Bridge: extension suggestions are tightly coupled to E024 detection
+    suggest_missing_extensions,
+  ]
+
+  problem """
+    Without extension-aware validation, entity keywords and field names
+    from uninstalled or misconfigured extensions go undetected, producing
+    silent graph corruption or misleading diagnostics.
+  """
+
+  solution """
+    Group the four zero-entity validation behaviors under a dedicated
+    feature: detect_unknown_entity_kinds checks keywords against the
+    KindRegistry (E024), detect_unknown_entity_fields checks fields
+    against the FieldRegistry (W020), and two_phase_validate_semantic
+    orchestrates the full Phase 2 semantic validation pass. These
+    behaviors execute in Phase 2 after registries are populated (see
+    dynamic_entity_registration in features/zero-entity-core.spec).
   """
 }

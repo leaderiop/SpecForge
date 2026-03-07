@@ -1,7 +1,7 @@
 # OPERATIONS & SCALING PLAN
 
-> **SpecForge** -- Compiler for Software Specifications
-> Open-core dev tool startup. Remote-first. Rust-native.
+> **SpecForge** -- The Structured Context Standard for AI Agents
+> Open-core dev tool startup. Remote-first. Rust-native. Domain-agnostic.
 > Revenue targets: $25K Y1, $295K Y2, $1.04M Y3
 
 ---
@@ -20,35 +20,36 @@
 
 | # | Role | Type | Rationale |
 |---|------|------|-----------|
-| 1 | Founder / CEO + Principal Engineer | Full-time | Architecture, compiler core, fundraising |
-| 2 | Senior Rust Compiler Engineer | Full-time | Tree-sitter grammar, parser, resolver, validator |
-| 3 | Senior Rust Systems Engineer | Full-time | Graph engine, LSP server, CLI, watch mode |
-| 4 | Developer Advocate / Community Lead | Full-time | Docs, tutorials, community, launch campaign |
-| 5 | Part-time Designer / Technical Writer | Contract | VS Code extension UX, website, brand identity |
+| 1 | Founder / CEO + Principal Engineer | Full-time | Architecture, zero-entity compiler core, Graph Protocol design, fundraising |
+| 2 | Senior Rust Compiler Engineer | Full-time | Tree-sitter grammar, parser, resolver, validator, Wasm/Extism extension runtime |
+| 3 | Senior Rust Systems Engineer | Full-time | Graph engine, LSP server, CLI, watch mode, MCP server prototype |
+| 4 | Developer Advocate / Community Lead | Full-time | Docs, tutorials, community, launch campaign, token-reduction benchmarks |
+| 5 | Part-time Designer / Technical Writer | Contract | VS Code extension UX, website, brand identity, Graph Protocol documentation |
 
 ### Year 2 Role Breakdown (10-14 People)
 
 | # | Role | Count | Rationale |
 |---|------|-------|-----------|
 | 1 | Founding team (retained) | 4 | Core continuity |
-| 2 | Plugin/Ecosystem Engineer | 2 | Build @specforge/vitest, gh, jira, typescript, rust generators |
-| 3 | Full-Stack Engineer (Cloud) | 2 | SpecForge Cloud dashboard, spec registry, CI integration |
-| 4 | Head of Growth / Marketing | 1 | Content marketing, conference strategy, developer relations |
-| 5 | Solutions Engineer / Pre-Sales | 1 | Enterprise pilot support, customer onboarding |
-| 6 | QA / Release Engineer | 1 | CI/CD pipeline, cross-platform builds, release automation |
-| 7 | Designer (Product) | 1 | Cloud dashboard UX, VS Code extension, docs site |
-| 8 | Office Manager / Operations | 0-1 | Finance, HR basics, vendor management (may be outsourced) |
+| 2 | Platform Engineer (Cloud) | 1 | SpecForge Cloud dashboard, extension registry, CI integration |
+| 3 | Extension / Ecosystem Engineers | 2 | Domain extensions (software, compliance, design systems), EDK, Wasm runtime hardening |
+| 4 | Solutions Engineer / Pre-Sales | 1 | Enterprise pilot support, customer onboarding, multi-domain proof-of-concepts |
+| 5 | DevRel #2 | 1 | Conference speaking, cross-domain content (compliance, data, design), partner outreach |
+| 6 | Product Manager | 1 | Extension marketplace, Graph Protocol versioning, cloud feature prioritization |
+| 7 | Full-Stack Engineer (Cloud) | 1 | Spec dashboard, registry backend, team collaboration features |
+| 8 | QA / Release Engineer | 0-1 | CI/CD pipeline, cross-platform builds, release automation |
 
 ### Year 3 Role Breakdown (25-35 People)
 
 | Department | Headcount | Key Roles Added |
 |------------|-----------|-----------------|
-| Engineering | 14-18 | VP Engineering, 2 team leads (compiler, cloud), 4-6 senior engineers, 2-3 mid-level engineers |
+| Engineering | 14-18 | VP Engineering, 2 team leads (compiler/runtime, cloud/ecosystem), 4-6 senior engineers, 2-3 mid-level engineers |
+| Extension Ecosystem | 3-4 | Ecosystem Lead, 2-3 extension engineers (seeding new domains: data pipelines, compliance, API design) |
 | Product | 2-3 | Head of Product, Product Manager (Enterprise), Product Designer |
-| Marketing & DevRel | 3-4 | Content Lead, 2 Developer Advocates, Events/Partnerships Manager |
+| Marketing and DevRel | 3-4 | Content Lead, 2 Developer Advocates (one focused on non-software domains), Events/Partnerships Manager |
 | Sales | 3-5 | VP Sales, 2-3 Account Executives (Enterprise), 1 SDR |
-| Operations | 2-3 | Head of Finance, People Lead, Customer Success Manager |
-| Support | 1-2 | Technical Support Engineer(s) |
+| Customer Success | 1-2 | Customer Success Manager, Technical Support Engineer |
+| Operations | 2-3 | Head of Finance, People Lead |
 
 ---
 
@@ -72,6 +73,7 @@
 - All engineers commit to the same monorepo.
 - Decisions made in Slack threads, ratified in weekly sync.
 - Every engineer does code review for every other engineer.
+- The founder owns Graph Protocol schema design decisions.
 
 ### Phase 2: Functional Teams (Year 2, 10-14 people)
 
@@ -91,13 +93,13 @@
 ```
 
 **Characteristics:**
-- Two engineering sub-teams: Core Compiler (parser, resolver, validator, graph, LSP) and Cloud/Ecosystem (plugins, generators, cloud dashboard, CI).
+- Two engineering sub-teams: Core Runtime (parser, resolver, validator, graph, LSP, Wasm/Extism runtime) and Cloud/Ecosystem (extensions, registry, dashboard, CI integration).
 - Tech leads for each sub-team, reporting to CEO (who remains technical).
-- Product and Design consolidated under one lead.
-- Growth/Marketing operates semi-independently with weekly alignment.
+- Product Manager owns extension marketplace and cloud roadmap.
+- Extension ecosystem engineers split across both sub-teams based on workload.
 - Bi-weekly sprint cadence introduced.
 
-### Phase 3: Matrix Organization (Year 3, 25-35 people)
+### Phase 3: Pod-Based Organization (Year 3, 25-35 people)
 
 ```
                         CEO
@@ -109,15 +111,15 @@
          |       |       |       |         |
     +----+----+  |    AE Team  DevRel    People
     |    |    |  PM(s)   |     Content    Finance
-   Core Cloud  QA/       SDR   Events     CS
-   Team Team  Release
+   Core Cloud Eco        SDR   Events     CS
+   Team Team  Team
 ```
 
 **Characteristics:**
-- VP Engineering hired to manage engineering org, freeing CEO for strategy and fundraising.
-- Product Managers embedded with engineering teams (matrix reporting).
-- Sales and Customer Success track enterprise pipeline.
-- Engineering teams organized around product areas: Core (compiler, LSP, CLI), Cloud (dashboard, registry, collaboration), Ecosystem (plugins, generators, integrations).
+- VP Engineering hired to manage engineering org, freeing CEO for strategy, partnerships, and Graph Protocol standardization efforts.
+- Three engineering pods: Core (compiler, LSP, CLI, MCP server), Cloud (dashboard, registry, federation), Ecosystem (extensions, EDK, community extension support).
+- Product Managers embedded with engineering pods (matrix reporting).
+- Extension Ecosystem team operates semi-independently with its own lead, focused on seeding new domain extensions and supporting community authors.
 - Quarterly OKR cycle introduced. Monthly all-hands. Weekly team standups.
 
 ---
@@ -126,7 +128,7 @@
 
 ### Hire #1: Senior Rust Compiler Engineer
 
-**Why this hire matters:** SpecForge is a compiler. The tree-sitter grammar, parser, incremental resolution, and error recovery system form the technical foundation that everything else depends on. Shipping a fast, correct, developer-friendly compiler is the single highest-risk engineering task.
+**Why this hire matters:** SpecForge is a compiler with a zero-entity core. The tree-sitter grammar, parser, incremental resolution, and Wasm/Extism extension loading form the technical foundation. Shipping a fast, correct, extensible compiler is the single highest-risk engineering task.
 
 | Attribute | Detail |
 |-----------|--------|
@@ -140,20 +142,21 @@
 - 5+ years Rust experience, 2+ years in compiler or language tooling.
 - Experience with tree-sitter, LALR/PEG parsers, or similar parser generators.
 - Strong understanding of incremental compilation, error recovery, and diagnostic reporting.
+- Familiarity with Wasm runtimes (Extism, Wasmtime, or similar) for plugin systems.
 - Familiarity with graph data structures (petgraph or equivalent).
-- Track record of shipping developer tools or language implementations.
 
 **Key Deliverables (First 6 Months):**
-- Complete tree-sitter grammar for the `.spec` DSL (16 entity types, all field syntaxes).
+- Complete tree-sitter grammar for the `.spec` DSL (generic `keyword name { fields }` block rule).
 - Parser producing typed AST with source span tracking for ariadne diagnostics.
 - Resolver with cross-file reference resolution, cycle detection, and fuzzy suggestions.
-- All 36 validation codes (E001-E015, W001-W017, I001-I005) implemented and tested.
+- Wasm/Extism extension runtime: load extensions, register entity kinds, apply validation rules.
+- Zero hardcoded entity types in core -- all domain vocabulary loaded from extensions at compile time.
 
 ---
 
 ### Hire #2: Senior Rust Systems Engineer
 
-**Why this hire matters:** The compiler is necessary but not sufficient. SpecForge must deliver a real-time IDE experience via LSP, a responsive CLI with watch mode, and a graph engine that supports incremental updates. This hire owns the runtime layer between the compiler and the user.
+**Why this hire matters:** The compiler alone does not deliver value. SpecForge must provide a real-time IDE experience via LSP, a responsive CLI with watch mode, a graph engine supporting incremental updates, and a Graph Protocol JSON export that agents consume. This hire owns the runtime layer between the compiler and the consumer.
 
 | Attribute | Detail |
 |-----------|--------|
@@ -171,17 +174,18 @@
 - Experience with cross-platform binary distribution (Linux, macOS, Windows).
 
 **Key Deliverables (First 6 Months):**
-- Fully functional `specforge-cli` binary: check, show, init, watch subcommands.
+- Fully functional `specforge-cli` binary: check, export, init, watch subcommands.
 - `specforge-lsp` server with diagnostics, go-to-definition, hover, completion.
 - Watch mode with sub-200ms incremental recompilation on file change.
-- Graph engine (petgraph-based) with query API for downstream consumers.
+- Graph Protocol JSON export -- the primary output format consumed by AI agents.
+- MCP server prototype for direct agent-to-graph communication.
 - Cross-platform CI/CD pipeline producing release binaries for all targets.
 
 ---
 
 ### Hire #3: Developer Advocate / Community Lead
 
-**Why this hire matters:** Developer tools live and die by community adoption. SpecForge needs someone who can write compelling content, build a community from zero, manage the open-source project, and execute the launch campaign. The research (RES-19) identifies "5-minute wow" and measurable ROI as critical success factors -- this hire makes both happen.
+**Why this hire matters:** Developer tools live and die by community adoption. SpecForge needs someone who can demonstrate the value gap between prose and structured specs, build a community from zero, manage the open-source project, and execute the launch campaign. The core marketing asset is the token-reduction benchmark showing 75-86% savings.
 
 | Attribute | Detail |
 |-----------|--------|
@@ -199,21 +203,22 @@
 - Existing presence in the Rust, AI tooling, or developer tools community is a strong plus.
 
 **Key Deliverables (First 6 Months):**
-- Documentation site: getting started guide, entity reference, plugin authoring guide.
+- Documentation site: getting started guide, extension authoring guide, Graph Protocol reference.
 - Launch campaign: Hacker News post, dev.to series, social media strategy.
-- Token reduction benchmark with Claude Code (the primary marketing asset per RES-19).
+- Token reduction benchmark with Claude Code and other agents (the primary marketing asset).
 - Community infrastructure: Discord server, contributor guide, issue templates, RFC process.
-- 3-5 case studies with early adopter teams.
+- 3-5 case studies with early adopter teams across at least 2 domains (software + one other).
+- "Context collapse" thought leadership content establishing the category.
 
 ---
 
-### Hire #4: Plugin / Ecosystem Engineer
+### Hire #4: Extension / Ecosystem Engineer
 
-**Why this hire matters:** The Terraform analogy (RES-19 Section 5.2) establishes that ecosystem is the moat. Plugins (@specforge/vitest, @specforge/gh, @specforge/typescript, @specforge/rust) are what make SpecForge sticky. Without at least 5-10 plugins at launch, the core compiler is a solution without integration points.
+**Why this hire matters:** The Terraform analogy is the strategic foundation: ecosystem is the moat. The zero-entity core needs extensions to be useful. Without `@specforge/software`, `@specforge/product`, `@specforge/governance` at launch, the compiler is a solution without vocabulary. Without the EDK, community authors cannot extend the ecosystem.
 
 | Attribute | Detail |
 |-----------|--------|
-| **Title** | Plugin / Ecosystem Engineer |
+| **Title** | Extension / Ecosystem Engineer |
 | **Timing** | Month 4-6 |
 | **Salary Range** | $150,000 - $190,000 (US remote) |
 | **Equity** | 1.0 - 2.0% |
@@ -221,27 +226,28 @@
 
 **Requirements:**
 - 4+ years software engineering, polyglot (Rust + TypeScript or Python minimum).
-- Experience building plugin systems, SDKs, or integration layers.
+- Experience building extension/plugin systems, SDKs, or integration layers.
+- Understanding of Wasm/Extism plugin runtimes and sandboxed execution.
 - Familiarity with GitHub API, Jira API, and CI/CD systems.
-- Understanding of code generation patterns and template engines.
-- Experience with npm/cargo publishing and developer toolchain distribution.
+- Experience with npm/crates.io publishing and developer toolchain distribution.
 
 **Key Deliverables (First 6 Months):**
-- Plugin SDK with stable API for entity registration, edge types, and validation rules.
-- @specforge/vitest and @specforge/rust generator plugins (test scaffolding).
-- @specforge/gh and @specforge/jira provider plugins (reference validation).
-- @specforge/typescript generator plugin (type definitions from spec types).
-- Plugin authoring documentation and example plugin template.
+- Extension Development Kit (EDK) with stable API for entity registration, edge types, validation rules, and contributions.
+- `@specforge/software` (behavior, invariant, feature, event, type, port), `@specforge/product` (capability, deliverable, roadmap, library, glossary), `@specforge/governance` (decision, constraint, failure_mode) -- the launch extensions.
+- Extension manifest v2 format: entity_kinds, edge_types, validation_rules, contributions (entities, validators, renderers, providers).
+- At least one non-software extension prototype (e.g., `@specforge/compliance` or `@specforge/api-design`) demonstrating domain-agnostic core.
+- Extension authoring documentation and example extension template.
+- Provider extension prototype for reference validation against external systems.
 
 ---
 
-### Hire #5: Full-Stack Engineer (Cloud)
+### Hire #5: Platform Engineer (Cloud)
 
-**Why this hire matters:** Revenue begins with SpecForge Cloud ($15-30/user/month). The cloud dashboard, spec registry, and team collaboration features are what convert free CLI users into paying customers. This hire bridges the gap between open-source adoption and commercial viability.
+**Why this hire matters:** Revenue begins with SpecForge Cloud ($15-30/user/month). The cloud dashboard, extension registry, and team collaboration features convert free CLI users into paying customers. The extension registry is also critical infrastructure for the ecosystem flywheel.
 
 | Attribute | Detail |
 |-----------|--------|
-| **Title** | Full-Stack Engineer (Cloud Platform) |
+| **Title** | Platform Engineer (Cloud) |
 | **Timing** | Month 8-10 (after Seed raise) |
 | **Salary Range** | $155,000 - $195,000 (US remote) |
 | **Equity** | 0.8 - 1.5% |
@@ -255,8 +261,8 @@
 - Experience with cloud infrastructure (AWS/GCP) and containerized deployments.
 
 **Key Deliverables (First 6 Months):**
-- Spec dashboard: visual entity graph, validation status, coverage metrics.
-- Spec registry: publish/share spec packages (analogous to Buf Schema Registry).
+- Spec dashboard: visual entity graph (domain-agnostic), validation status, coverage metrics.
+- Extension registry: publish/discover/install extensions (analogous to Terraform Registry).
 - Team collaboration: shared workspaces, commenting, review workflows.
 - CI integration: GitHub Action / GitLab CI template for `specforge check` in pull requests.
 - Authentication and billing infrastructure (Stripe integration).
@@ -281,7 +287,7 @@ SpecForge operates on the principle that **written communication is the default,
 
 | Tool | Purpose | Guidelines |
 |------|---------|------------|
-| **Slack** | Real-time discussion, quick questions, social | Channels: #general, #engineering, #product, #random, #alerts. Threads mandatory. No DMs for work decisions. |
+| **Slack** | Real-time discussion, quick questions, social | Channels: #general, #engineering, #product, #ecosystem, #random, #alerts. Threads mandatory. No DMs for work decisions. |
 | **Linear** | Issue tracking, sprint planning, roadmap | Source of truth for all engineering work. Every PR links to a Linear issue. |
 | **Notion** | Long-form documentation, RFCs, meeting notes | Knowledge base. RFCs require 48-hour async review before decision meetings. |
 | **GitHub** | Code, PRs, CI/CD, releases | All code discussion happens in PR comments, not Slack. |
@@ -298,8 +304,9 @@ SpecForge operates on the principle that **written communication is the default,
 | Sprint Planning | Bi-weekly | 60 min | Engineering + Product | Prioritize next sprint |
 | Sprint Retro | Bi-weekly | 45 min | Engineering | Process improvement |
 | 1:1s | Weekly | 30 min | Manager + report | Career growth, feedback, blockers |
-| Architecture Review | Monthly | 60 min | Senior engineers | Technical debt, architecture decisions |
-| Community Sync | Weekly | 30 min | DevRel + Engineering | Open-source priorities, contributor support |
+| Architecture Review | Monthly | 60 min | Senior engineers | Technical debt, architecture decisions, Graph Protocol evolution |
+| Community Sync | Weekly | 30 min | DevRel + Engineering | Open-source priorities, extension ecosystem health, contributor support |
+| Extension Review | Bi-weekly (Y2+) | 45 min | Ecosystem + Product | Extension quality, community submissions, EDK improvements |
 
 ### Timezone Strategy
 
@@ -317,7 +324,14 @@ SpecForge operates on the principle that **written communication is the default,
 
 ---
 
-## 5. Engineering Culture & Practices
+## 5. Engineering Culture and Practices
+
+### Core Cultural Commitments
+
+1. **Dogfooding.** SpecForge uses SpecForge. The compiler's own spec files (`spec/`) are the primary test case. Every new feature is validated against the project's own specifications first.
+2. **Rust-first.** The compiler, LSP, CLI, and MCP server are written in Rust. No exceptions for core runtime components. Extensions run in Wasm (compiled from Rust, AssemblyScript, or any Wasm-targeting language).
+3. **Open source by default.** All core components are open source (Apache 2.0). Proprietary code is limited to cloud infrastructure and enterprise features. Every engineering decision is made assuming the code is public.
+4. **The graph is the product.** Engineering priorities are measured against one question: does this make the Graph Protocol more useful to AI agents? Terminal output, CLI ergonomics, and developer UX matter -- but the graph is always the primary artifact.
 
 ### Development Workflow
 
@@ -325,10 +339,10 @@ SpecForge operates on the principle that **written communication is the default,
 
 | Practice | Standard |
 |----------|----------|
-| Branch naming | `<type>/<linear-id>-<short-description>` (e.g., `feat/SF-142-scenario-parser`) |
+| Branch naming | `<type>/<linear-id>-<short-description>` (e.g., `feat/SF-142-wasm-extension-loader`) |
 | Branch lifetime | Maximum 3 days. Longer branches require daily rebases. |
 | PR size | Target <400 lines changed. Larger changes split into stacked PRs. |
-| PR review | Minimum 1 approval required. 2 approvals for compiler core changes. |
+| PR review | Minimum 1 approval required. 2 approvals for compiler core and Graph Protocol schema changes. |
 | Review SLA | First review within 4 business hours. Blocking feedback within 8 hours. |
 | Merge strategy | Squash merge to main. Clean linear history. |
 | Force pushes | Prohibited on main. Allowed on feature branches with caution. |
@@ -341,7 +355,7 @@ SpecForge operates on the principle that **written communication is the default,
 | Linting | `cargo clippy -- -D warnings` | CI gate -- all warnings are errors |
 | Type safety | No `unsafe` without RFC and audit trail | `#![forbid(unsafe_code)]` in all crates except tree-sitter bindings |
 | Testing | All public APIs have unit tests | CI gate -- coverage must not decrease |
-| Snapshot tests | `insta` for parser output, diagnostics, graph queries | `cargo insta review` required before merge |
+| Snapshot tests | `insta` for parser output, diagnostics, graph queries, Graph Protocol exports | `cargo insta review` required before merge |
 | Documentation | All public items have doc comments | `#![warn(missing_docs)]` in all crates |
 | Dependencies | New dependencies require team discussion | `cargo-deny` for license and vulnerability auditing |
 
@@ -350,11 +364,12 @@ SpecForge operates on the principle that **written communication is the default,
 | Test Type | Scope | Tool | When |
 |-----------|-------|------|------|
 | Unit tests | Per-function, per-module | `cargo test` | Every PR |
-| Snapshot tests | Parser output, diagnostics, graph serialization | `insta` | Every PR |
-| Integration tests | Multi-crate workflows (parse -> resolve -> validate -> emit) | `cargo test --workspace` | Every PR |
+| Snapshot tests | Parser output, diagnostics, graph serialization, Graph Protocol JSON | `insta` | Every PR |
+| Integration tests | Multi-crate workflows (parse, resolve, validate, emit) | `cargo test --workspace` | Every PR |
 | End-to-end tests | CLI invocation with real `.spec` files | Custom harness in `tests/` | Every PR |
+| Extension tests | Wasm extension loading, entity registration, validation rule execution | Dedicated extension test harness | Every PR touching Wasm runtime |
 | Fuzz tests | Parser robustness against malformed input | `cargo-fuzz` | Nightly CI |
-| Performance benchmarks | Compilation time, memory usage, LSP latency | `criterion` | Weekly CI, reported in Notion |
+| Performance benchmarks | Compilation time, memory usage, LSP latency, extension load time | `criterion` | Weekly CI, reported in Notion |
 | Cross-platform tests | Linux (x86_64, aarch64), macOS (aarch64), Windows (x86_64) | GitHub Actions matrix | Every PR |
 
 **Coverage target:** 80% line coverage for compiler crates (parser, resolver, validator). No hard gate, but monitored weekly.
@@ -365,8 +380,8 @@ SpecForge operates on the principle that **written communication is the default,
 |--------------|-----------|----------|---------|
 | **Nightly** | Daily (automated) | Latest main, pre-release tag | Automated CI build, published to GitHub releases as pre-release |
 | **Weekly** | Every Monday | Bug fixes, minor improvements | Changelog generated from merged PRs, semantic versioning |
-| **Minor** | Every 4-6 weeks | New features, new entity support, new plugins | Full release notes, blog post for significant features |
-| **Major** | 2-3 per year | Breaking changes, format version bumps | Migration guide, 4-week deprecation notice, blog post |
+| **Minor** | Every 4-6 weeks | New features, new extension support, Graph Protocol additions | Full release notes, blog post for significant features |
+| **Major** | 2-3 per year | Breaking changes, Graph Protocol schema version bumps | Migration guide, 4-week deprecation notice, blog post |
 
 ### CI/CD Pipeline
 
@@ -387,6 +402,9 @@ PR Created
     |
     v
 [Snapshot Tests] --> cargo insta test
+    |
+    v
+[Extension Tests] --> Wasm extension loading + validation
     |
     v
 [Cross-Platform Matrix] --> Linux x86_64, Linux aarch64, macOS aarch64, Windows x86_64
@@ -411,7 +429,7 @@ PR Created
 
 ---
 
-## 6. Legal & IP Considerations
+## 6. Legal and IP Considerations
 
 ### Open-Source Licensing
 
@@ -420,7 +438,9 @@ PR Created
 | Core CLI (`specforge-cli`) | Apache 2.0 | Maximally permissive for adoption. Patent grant protects users. |
 | Core library crates | Apache 2.0 | Enables embedding in commercial tools without friction. |
 | Tree-sitter grammar | MIT | Standard for tree-sitter grammars. Enables editor integration. |
-| Official plugins | Apache 2.0 | Consistent with core. Encourages ecosystem. |
+| Graph Protocol schema | Apache 2.0 | Open standard. Anyone can produce or consume the graph. Critical for "the standard is the moat" strategy. |
+| Official extensions | Apache 2.0 | Consistent with core. Encourages ecosystem contributions. |
+| Extension Development Kit (EDK) | Apache 2.0 | Removes friction for community extension authors. |
 | SpecForge Cloud | Proprietary | Revenue-generating. Source-available (BSL or similar) considered for transparency. |
 | Enterprise features | Proprietary | SSO, audit trails, compliance reports, advanced RBAC. |
 
@@ -433,29 +453,28 @@ PR Created
 | Year 1 | DCO (sign-off in commit message) | Low friction for early contributors. Proven at Linux, Rust, Kubernetes. |
 | Year 2+ | CLA (CLA Assistant bot on GitHub) | Required before launching commercial products. Ensures the company can sublicense contributions. |
 
-**CLA terms:** Contributors grant a perpetual, irrevocable, non-exclusive license to their contributions. Contributors retain copyright. The CLA explicitly permits the company to release contributions under both open-source and commercial licenses.
-
-### Patent Strategy
-
-| Action | Timeline | Detail |
-|--------|----------|--------|
-| Provisional patent application | Month 12-18 | Cover the specification compilation pipeline: DSL-to-graph compilation, incremental entity resolution, AI agent context optimization via compiled specs. |
-| Patent search | Before provisional filing | Ensure no prior art conflicts. Focus on the novel combination of specification compiler + AI agent context delivery. |
-| Full patent application | Month 18-24 | Convert provisional to full utility patent if defensible. |
-| Defensive patent pledge | At filing | Commit to not asserting patents offensively against open-source projects. Only use defensively. |
-
-**Budget:** $15,000-25,000 for provisional + search. $30,000-50,000 for full utility patent.
-
 ### Trademark Protection
 
 | Mark | Type | Filing |
 |------|------|--------|
 | "SpecForge" (wordmark) | Federal trademark (US) | Month 1-3. Class 9 (software), Class 42 (SaaS). |
+| "Graph Protocol" (in SpecForge context) | Common law trademark | Establish through consistent usage. Consider registration if the term gains industry traction. |
 | SpecForge logo | Federal trademark (US) | After logo finalization. |
 | ".spec" file extension | Not trademarkable | Rely on community standard / convention. |
-| "@specforge/" plugin namespace | npm/crates.io namespace | Reserve on all package registries immediately. |
+| "@specforge/" extension namespace | npm/crates.io namespace | Reserve on all package registries immediately. |
 
 **Budget:** $2,000-4,000 for initial wordmark filing. $5,000-8,000 including attorney fees.
+
+### Patent Strategy
+
+| Action | Timeline | Detail |
+|--------|----------|--------|
+| Provisional patent application | Month 12-18 | Cover the specification compilation pipeline: DSL-to-graph compilation, zero-entity-core extension architecture, AI agent context optimization via compiled specs. |
+| Patent search | Before provisional filing | Ensure no prior art conflicts. Focus on the novel combination of specification compiler + domain-agnostic extension model + AI agent context delivery. |
+| Full patent application | Month 18-24 | Convert provisional to full utility patent if defensible. |
+| Defensive patent pledge | At filing | Commit to not asserting patents offensively against open-source projects. Only use defensively. |
+
+**Budget:** $15,000-25,000 for provisional + search. $30,000-50,000 for full utility patent.
 
 ### Open-Core Boundary
 
@@ -463,23 +482,25 @@ The boundary between open-source and commercial is drawn at **individual develop
 
 | Capability | Open-Source (Apache 2.0) | SpecForge Cloud (Paid) | Enterprise (Paid) |
 |-----------|--------------------------|------------------------|-------------------|
-| Compiler (parse, resolve, validate) | Yes | Yes | Yes |
-| CLI (check, show, init, watch, gen) | Yes | Yes | Yes |
+| Compiler (parse, resolve, validate, graph) | Yes | Yes | Yes |
+| CLI (check, export, init, watch) | Yes | Yes | Yes |
 | LSP server | Yes | Yes | Yes |
-| All core + plugin entities | Yes | Yes | Yes |
-| All generators and providers | Yes | Yes | Yes |
-| Plugin authoring SDK | Yes | Yes | Yes |
+| Graph Protocol JSON export | Yes | Yes | Yes |
+| MCP server (local) | Yes | Yes | Yes |
+| All extensions (via EDK) | Yes | Yes | Yes |
+| Extension Development Kit (EDK) | Yes | Yes | Yes |
 | Spec dashboard (visual graph) | No | Yes | Yes |
-| Spec registry (publish/share) | No | Yes | Yes |
+| Extension registry (publish/discover) | No | Yes | Yes |
 | Team collaboration (comments, reviews) | No | Yes | Yes |
 | CI/CD integration (hosted) | No | Yes | Yes |
+| Graph federation (multi-repo) | No | No | Yes |
 | SSO / SAML | No | No | Yes |
 | Audit trails / compliance reports | No | No | Yes |
 | On-premise deployment | No | No | Yes |
 | Custom SLA / priority support | No | No | Yes |
 | Advanced RBAC | No | No | Yes |
 
-**Principle:** A solo developer or small open-source team should never need to pay. Payment begins when teams need collaboration, visibility, or compliance.
+**Principle:** A solo developer or small open-source team should never need to pay. Payment begins when teams need collaboration, visibility, or compliance. The Graph Protocol and all core compilation features are permanently free and open.
 
 ---
 
@@ -508,7 +529,7 @@ The boundary between open-source and commercial is drawn at **individual develop
 |---------|----------|---------------|---------|
 | Compute | AWS (ECS Fargate) or Fly.io | $200-800/mo | API servers, background workers |
 | Database | AWS RDS (PostgreSQL) or Neon | $50-200/mo | User data, spec metadata, team workspaces |
-| Object Storage | AWS S3 | $20-50/mo | Compiled spec artifacts, registry packages |
+| Object Storage | AWS S3 | $20-50/mo | Compiled graph artifacts, extension registry packages |
 | CDN | Cloudflare | Free-$20/mo | Docs site, dashboard static assets |
 | DNS | Cloudflare | Free | DNS management, DDoS protection |
 | Monitoring | Grafana Cloud (Free tier) | Free | Infrastructure metrics, dashboards |
@@ -524,20 +545,21 @@ The boundary between open-source and commercial is drawn at **individual develop
 | Secret scanning | GitHub secret scanning enabled, 1Password for all credentials |
 | Binary signing | Release binaries signed with GPG/sigstore |
 | SBOM generation | Generated with each release for supply-chain transparency |
+| Extension sandboxing | All Wasm extensions run in sandboxed Extism runtime. No filesystem or network access by default. |
 | Access control | Principle of least privilege. GitHub branch protection on main. |
 | Incident response | Documented runbook in Notion. PagerDuty (Year 2+) for on-call. |
 
 ---
 
-## 8. Risk Management & Business Continuity
+## 8. Risk Management and Business Continuity
 
 ### Key Person Risk
 
 | Person | Bus Factor Risk | Mitigation |
 |--------|----------------|------------|
-| Founder / CEO | **Critical** -- sole architect, fundraiser, decision-maker | Document all architecture decisions (ADRs in Notion). Ensure at least 2 people understand every subsystem by Month 6. Hire VP Engineering by Year 3 to distribute technical leadership. |
-| Compiler Engineer | **High** -- tree-sitter grammar and parser are specialized knowledge | Pair programming sessions recorded. Grammar documented in `docs/grammar.md`. Snapshot tests capture expected behavior for every construct. |
-| Systems Engineer | **High** -- LSP and graph engine are complex subsystems | Architecture docs for LSP and graph modules. Integration tests serve as executable specifications. |
+| Founder / CEO | **Critical** -- sole architect, Graph Protocol designer, fundraiser | Document all architecture decisions (ADRs in Notion). Ensure at least 2 people understand every subsystem by Month 6. Hire VP Engineering by Year 3. |
+| Compiler Engineer | **High** -- tree-sitter grammar, parser, Wasm runtime are specialized | Pair programming sessions recorded. Grammar documented. Snapshot tests capture expected behavior for every construct. |
+| Systems Engineer | **High** -- LSP, graph engine, MCP server are complex | Architecture docs for LSP and graph modules. Integration tests serve as executable specifications. |
 | DevRel Lead | **Medium** -- community relationships are personal | Community processes documented. Multiple team members active in Discord. Content calendar in Notion. |
 
 ### Bus Factor Improvement Plan
@@ -549,20 +571,31 @@ The boundary between open-source and commercial is drawn at **individual develop
 | Onboarding time for new engineer | <2 weeks | <1 week | <3 days |
 | Code ownership coverage (CODEOWNERS) | 100% of crates | 100% of crates + cloud | 100% of all code |
 
-### Data Backup & Recovery
+### Data Backup and Recovery
 
 | Data Type | Backup Strategy | RPO | RTO |
 |-----------|----------------|-----|-----|
-| Source code (GitHub) | Git distributed + GitHub redundancy | 0 (distributed) | <1 hour (clone from any developer) |
+| Source code (GitHub) | Git distributed + GitHub redundancy | 0 (distributed) | <1 hour |
 | Issue tracking (Linear) | Linear's built-in backup + weekly JSON export | 1 week | <4 hours |
 | Documentation (Notion) | Notion's built-in backup + monthly HTML export | 1 month | <8 hours |
+| Graph Protocol schema (versioned) | Git-tracked, published to schema registry | 0 (distributed) | <1 hour |
 | User data (SpecForge Cloud, Year 2+) | Automated daily database backups to S3, 30-day retention | 24 hours | <2 hours |
-| Spec registry artifacts (Year 2+) | S3 with cross-region replication | <1 hour | <1 hour |
+| Extension registry artifacts (Year 2+) | S3 with cross-region replication | <1 hour | <1 hour |
 | Secrets (1Password) | 1Password's built-in vault redundancy | Real-time | <30 minutes |
 
 ### Incident Response Framework
 
-**Severity Levels (for SpecForge Cloud, Year 2+):**
+**For open-source CLI (Year 1+):**
+
+| Issue Type | Response Time | Resolution Target |
+|-----------|---------------|-------------------|
+| Security vulnerability (CVE) | <24 hours acknowledgment | Patch release within 72 hours |
+| Data corruption / graph correctness bug | <24 hours acknowledgment | Patch release within 1 week |
+| Crash / panic bug | <48 hours acknowledgment | Fix in next weekly release |
+| Extension runtime failure | <48 hours acknowledgment | Fix in next weekly release |
+| Feature request | <1 week acknowledgment | Triaged in next sprint planning |
+
+**For SpecForge Cloud (Year 2+):**
 
 | Severity | Definition | Response Time | Resolution Target |
 |----------|-----------|---------------|-------------------|
@@ -570,15 +603,6 @@ The boundary between open-source and commercial is drawn at **individual develop
 | SEV-2 (High) | Major feature broken, significant user impact | <1 hour | <8 hours |
 | SEV-3 (Medium) | Minor feature broken, workaround available | <4 hours | <48 hours |
 | SEV-4 (Low) | Cosmetic issue, no functional impact | <24 hours | Next sprint |
-
-**For open-source CLI (Year 1+):**
-
-| Issue Type | Response Time | Resolution Target |
-|-----------|---------------|-------------------|
-| Security vulnerability (CVE) | <24 hours acknowledgment | Patch release within 72 hours |
-| Data corruption bug | <24 hours acknowledgment | Patch release within 1 week |
-| Crash / panic bug | <48 hours acknowledgment | Fix in next weekly release |
-| Feature request | <1 week acknowledgment | Triaged in next sprint planning |
 
 ### Business Continuity Scenarios
 
@@ -588,7 +612,8 @@ The boundary between open-source and commercial is drawn at **individual develop
 | Key engineer departure | High -- knowledge loss | Pair programming culture, comprehensive tests, ADRs. 4-year vesting with 1-year cliff retains talent. |
 | GitHub outage | Medium -- development blocked | All developers have full repo clones. Can switch to self-hosted GitLab within 48 hours. |
 | Funding gap | High -- runway exhaustion | Maintain 6+ months runway buffer. Revenue from Cloud offsets burn by Year 2. Cost-cutting plan documented (reduce to 60% headcount if needed). |
-| Open-source fork | Low-Medium -- community split | CLA ensures commercial rights. Community goodwill is the real defense. Maintain responsiveness and transparency. |
+| Open-source fork | Low-Medium -- community split | CLA ensures commercial rights. Community goodwill is the real defense. Maintain responsiveness and transparency. Open Graph Protocol schema means forks strengthen the standard. |
+| AI platform ships proprietary context format | High -- market fragmentation | Accelerate Graph Protocol standardization. Position as open alternative. Partner with other AI tool vendors for multi-platform support. |
 
 ---
 
@@ -614,9 +639,11 @@ The boundary between open-source and commercial is drawn at **individual develop
 | Mean time to resolve P1 bugs | <1 week | Linear cycle time |
 | Test suite pass rate | >99% on main | CI dashboard |
 | Compiler crash rate (panics in production) | <0.01% of invocations | Sentry (opt-in telemetry) |
+| Graph Protocol schema correctness | 100% of exports match schema | Automated schema validation in CI |
 | Snapshot test coverage | 100% of parser constructs, 100% of diagnostics | `cargo insta` report |
+| Extension load success rate | >99.9% | Sentry (opt-in telemetry) |
 
-### Community & Adoption Metrics
+### Community and Adoption Metrics
 
 | Metric | Month 6 | Month 12 | Month 24 | Month 36 |
 |--------|---------|----------|----------|----------|
@@ -625,10 +652,11 @@ The boundary between open-source and commercial is drawn at **individual develop
 | Monthly active CLI users (telemetry) | 50-100 | 200-500 | 1,000-3,000 | 5,000-10,000 |
 | Discord community members | 50-100 | 200-500 | 1,000-2,000 | 3,000-5,000 |
 | External contributors (lifetime) | 5-10 | 20-50 | 50-100 | 100-200 |
-| Published plugins (community) | 0 | 2-5 | 10-20 | 30-50 |
-| GitHub issues opened (monthly) | 20-50 | 50-100 | 100-200 | 200-400 |
+| Published extensions (community) | 0 | 2-5 | 10-20 | 30-50 |
+| Domains with extensions | 1 (software) | 3-4 | 8-12 | 15-25 |
+| AI agent integrations consuming Graph Protocol | 1-2 | 3-5 | 8-12 | 15-25 |
 
-### Customer & Revenue Metrics (Year 2+)
+### Customer and Revenue Metrics (Year 2+)
 
 | Metric | Year 2 Target | Year 3 Target | Measurement |
 |--------|---------------|---------------|-------------|
@@ -638,7 +666,7 @@ The boundary between open-source and commercial is drawn at **individual develop
 | Monthly recurring revenue (MRR) | $5K-15K | $30K-80K | Stripe |
 | Customer churn (monthly) | <5% | <3% | Stripe analytics |
 | Net Promoter Score (NPS) | >40 | >50 | Quarterly survey |
-| Customer support response time | <4 hours (business hours) | <2 hours (business hours) | Intercom / Linear |
+| Agent first-attempt accuracy (with graph) | 55-65% | 70-85% | Benchmark suite |
 | Time to first value (new user) | <10 minutes | <5 minutes | Product analytics |
 
 ---
@@ -651,7 +679,7 @@ The boundary between open-source and commercial is drawn at **individual develop
 2. **Equity is the equalizer.** Early employees receive significant equity grants (1-4%) that, at a successful outcome ($100M+ valuation), represent 10-40x the salary gap vs. FAANG.
 3. **Pay fairly across geographies.** Single global pay band adjusted by cost-of-labor zone (not cost-of-living). Three zones: Tier 1 (US major metro, London, Zurich), Tier 2 (US non-major, Western EU, Canada, Australia), Tier 3 (Eastern EU, LATAM, SEA).
 4. **Transparency.** All salary bands are published internally. Compensation philosophy is shared during recruiting.
-5. **Annual review.** Compensation reviewed annually with market data (levels.fyi, Glassdoor, Rust community salary surveys). Adjustments for performance and market movement.
+5. **Annual review.** Compensation reviewed annually with market data. Adjustments for performance and market movement.
 
 ### Salary Benchmarks (Year 1-2, US Tier 1 Rates)
 
@@ -659,8 +687,8 @@ The boundary between open-source and commercial is drawn at **individual develop
 |------|-------|-------------|------------------|-------|
 | Senior Rust Compiler Engineer | L5/Senior | $170,000 - $210,000 | $220,000 - $280,000 | -20 to -25% |
 | Senior Rust Systems Engineer | L5/Senior | $160,000 - $200,000 | $210,000 - $260,000 | -20 to -23% |
-| Plugin / Ecosystem Engineer | L4-L5/Mid-Senior | $150,000 - $190,000 | $180,000 - $240,000 | -17 to -21% |
-| Full-Stack Engineer (Cloud) | L4-L5/Mid-Senior | $155,000 - $195,000 | $190,000 - $250,000 | -18 to -22% |
+| Extension / Ecosystem Engineer | L4-L5/Mid-Senior | $150,000 - $190,000 | $180,000 - $240,000 | -17 to -21% |
+| Platform Engineer (Cloud) | L4-L5/Mid-Senior | $155,000 - $195,000 | $190,000 - $250,000 | -18 to -22% |
 | Developer Advocate | L4-L5/Mid-Senior | $130,000 - $170,000 | $160,000 - $220,000 | -19 to -23% |
 | Head of Growth / Marketing | Director | $150,000 - $190,000 | $200,000 - $260,000 | -25 to -27% |
 | VP Engineering (Year 3) | VP | $200,000 - $260,000 | $300,000 - $400,000 | -33 to -35% |
@@ -697,21 +725,6 @@ The boundary between open-source and commercial is drawn at **individual develop
 | 11-20 | Post-Seed mid-level hires | 0.2 - 0.8% | Growing team, product-market fit in progress. |
 | 21-35 | Post-Series A hires | 0.1 - 0.5% | Scaled team, de-risked business. |
 
-### Equity Upside Illustration
-
-The compensation gap vs. FAANG is justified by equity upside. Here is the math for a Senior Rust Engineer (Hire #2):
-
-| Scenario | SpecForge Valuation | Equity Value (2.0%) | 4-Year Total Comp (Salary + Equity) | FAANG 4-Year Total Comp |
-|----------|--------------------|--------------------|--------------------------------------|------------------------|
-| Bear case | $30M | $600K | $1.32M | $1.40M |
-| Base case | $100M | $2.0M | $2.72M | $1.40M |
-| Bull case | $300M | $6.0M | $6.72M | $1.40M |
-| Home run | $1B | $20.0M | $20.72M | $1.40M |
-
-*FAANG 4-year total comp assumes $250K/year all-in (base + RSU + bonus). SpecForge salary assumes $180K/year base.*
-
-**The pitch:** "You take a $70K/year salary cut for a 3-30x upside on equity. If SpecForge becomes the Terraform of specifications, your equity is worth $2-20M. If we fail, you still earned a competitive salary and shipped a Rust compiler."
-
 ### Benefits (Year 1, Scaling with Funding)
 
 | Benefit | Year 1 | Year 2 (Post-Seed) | Year 3 (Post-Series A) |
@@ -720,7 +733,7 @@ The compensation gap vs. FAANG is justified by equity upside. Here is the math f
 | Health insurance (International) | Local market rate stipend | Local market rate stipend | Premium plan or equivalent stipend |
 | Equipment budget | $3,000 one-time | $3,500 one-time + $1,000/yr refresh | $4,000 one-time + $1,500/yr refresh |
 | Home office stipend | $500 one-time | $1,000 one-time | $1,500 one-time |
-| Learning & development | $500/year | $1,500/year | $2,500/year |
+| Learning and development | $500/year | $1,500/year | $2,500/year |
 | Conference travel | 1 conference/year | 2 conferences/year | 2-3 conferences/year |
 | PTO | Flexible (minimum 3 weeks enforced) | Flexible (minimum 4 weeks enforced) | Flexible (minimum 4 weeks enforced) |
 | Parental leave | 8 weeks (all parents) | 12 weeks (all parents) | 16 weeks (all parents) |
@@ -735,7 +748,7 @@ The compensation gap vs. FAANG is justified by equity upside. Here is the math f
 | Category | Monthly | Annual |
 |----------|---------|--------|
 | Salaries (4 FTE + 1 contractor) | $38,000 - $52,000 | $456,000 - $624,000 |
-| Benefits & stipends | $4,000 - $6,000 | $48,000 - $72,000 |
+| Benefits and stipends | $4,000 - $6,000 | $48,000 - $72,000 |
 | SaaS tools | $350 - $450 | $4,000 - $5,400 |
 | Legal (trademark, incorporation, CLA) | $500 - $1,500 | $6,000 - $18,000 |
 | Cloud infrastructure | $100 - $300 | $1,200 - $3,600 |
@@ -746,4 +759,4 @@ The compensation gap vs. FAANG is justified by equity upside. Here is the math f
 
 **Runway requirement (Year 1):** $550K - $760K. Funded via founder capital ($100-200K) + angel round ($200-400K) + early revenue ($25K target).
 
-**Seed raise trigger:** Product-market fit signals (1,000+ stars, 200+ active users, 3+ enterprise inquiries). Target close by Month 10-14.
+**Seed raise trigger:** Product-market fit signals (1,000+ stars, 200+ active users, 3+ enterprise inquiries, extensions from at least 2 domains). Target close by Month 10-14.

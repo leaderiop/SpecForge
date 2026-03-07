@@ -1,10 +1,9 @@
 // Outbound ports — interfaces the system requires from the outside world
 
 use types/core
+use types/config
 use types/diagnostics
 use types/errors
-use types/coverage
-use types/rust-codegen
 
 port FileSystem {
   direction outbound
@@ -15,6 +14,8 @@ port FileSystem {
   method listFiles(pattern: string) -> Result<string[], EmitterError>
   method watchFiles(patterns: string[]) -> Result<void, EmitterError>
   method exists(path: string) -> Result<boolean, never>
+  method atomicWrite(path: string, content: string) -> Result<void, EmitterError>
+  method rename(from: string, to: string) -> Result<void, EmitterError>
 }
 
 port SourceParser {
@@ -25,23 +26,13 @@ port SourceParser {
   method parseIncremental(content: string, path: string, previousTree: string) -> Result<SpecFile, ParseError>
 }
 
-port OutputRenderer {
+port GraphSerializer {
   direction outbound
   category  "io/output"
 
-  method renderMarkdown(templateName: string, data: string) -> Result<string, EmitterError>
-  method renderJson(data: string) -> Result<string, EmitterError>
-  method renderDot(data: string) -> Result<string, EmitterError>
+  method serializeJson(data: JsonValue) -> Result<string, EmitterError>
+  method serializeDot(data: JsonValue) -> Result<string, EmitterError>
   method writeOutput(path: string, content: string) -> Result<void, EmitterError>
-}
-
-port TestReporter {
-  direction outbound
-  category  "testing/reporter"
-
-  method collectResults(reportPaths: string[]) -> Result<string, EmitterError>
-  method mergeReports(reports: string[]) -> Result<string, EmitterError>
-  method formatCoverage(data: string) -> Result<string, EmitterError>
 }
 
 port RefValidator {
@@ -58,22 +49,26 @@ port WasmRuntime {
   direction outbound
   category  "runtime/wasm"
 
-  method loadModule(wasmPath: string) -> Result<string, PackageError>
-  method callExport(pluginId: string, exportName: string, input: string) -> Result<string, PackageError>
-  method registerHostFunction(name: string, handler: string) -> Result<void, PackageError>
-  method aotCompile(wasmPath: string, cachePath: string) -> Result<string, PackageError>
-  method unloadModule(pluginId: string) -> Result<void, PackageError>
-  method getMemoryUsage(pluginId: string) -> Result<integer, never>
-  method discoverPlugins(source: string, packageSpec: string) -> Result<string[], PackageError>
-  method getCacheStatus(pluginId: string) -> Result<string, never>
+  method loadModule(wasmPath: string) -> Result<string, ExtensionError>
+  method callExport(extensionId: string, exportName: string, input: JsonValue) -> Result<JsonValue, ExtensionError>
+  method registerHostFunction(name: string, handler: string) -> Result<void, ExtensionError>
+  method aotCompile(wasmPath: string, cachePath: string) -> Result<string, ExtensionError>
+  method unloadModule(extensionId: string) -> Result<void, ExtensionError>
+  method getMemoryUsage(extensionId: string) -> Result<integer, never>
+  method discoverExtensions(source: string, extensionSpec: string) -> Result<string[], ExtensionError>
+  method getCacheStatus(extensionId: string) -> Result<string, never>
 }
 
-port RustTestOutputParser {
+port RegistryClient {
   direction outbound
-  category  "testing/rust"
+  category  "io/registry"
 
-  method parseJunitXml(path: string) -> Result<TestResultEntry[], EmitterError>
-  method parseLibtestJson(input: string) -> Result<TestResultEntry[], EmitterError>
-  method parseCargoText(input: string) -> Result<TestResultEntry[], EmitterError>
-  method readMappingFiles(dir: string) -> Result<EntityMappingEntry[], EmitterError>
+  method fetchExtension(registryUrl: string, name: string) -> Result<RegistryResponse, EmitterError>
+  method fetchVersion(registryUrl: string, name: string, version: string) -> Result<RegistryResponse, EmitterError>
+  method downloadWasm(registryUrl: string, name: string, version: string) -> Result<string, EmitterError>
+  method search(registryUrl: string, query: string) -> Result<RegistrySearchResult, EmitterError>
+  method publish(registryUrl: string, name: string, wasmPath: string, manifest: string) -> Result<void, EmitterError>
+  method authenticate(registryUrl: string, credential: RegistryCredential) -> Result<string, RegistryError>
+  method validateCredential(credential: RegistryCredential) -> Result<boolean, RegistryError>
 }
+

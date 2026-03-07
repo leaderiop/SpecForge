@@ -1,26 +1,26 @@
 ---
 id: RES-24
 kind: research
-title: "Surface Contribution Model — 10-Expert Analysis of Package-Contributed CLI, MCP, and LSP Extensions"
+title: "Surface Contribution Model — 10-Expert Analysis of Extension-Contributed CLI, MCP, and LSP Extensions"
 status: active
 date: 2026-03-04
 depends_on: [RES-23, RES-18, RES-11a]
 priority: critical
-tags: [cli, mcp, lsp, extensions, packages, surfaces, ai-agents, wasm]
+tags: [cli, mcp, lsp, extensions, extensions, surfaces, ai-agents, wasm]
 ---
 
 # RES-24: Surface Contribution Model
 
 ## Executive Summary
 
-RES-23 established the contribution-based extension model for the **compilation pipeline** (entities, edges, validators, generators, ref_schemes, query_extensions). These are *graph contributions* — they extend SpecForge's internal spec graph. But packages cannot yet extend the **tooling surfaces** through which users and AI agents interact with SpecForge: CLI, MCP, and LSP.
+RES-23 established the contribution-based extension model for the **compilation pipeline** (entities, edges, validators, ref_schemes, query_extensions). These are *graph contributions* — they extend SpecForge's internal spec graph. But extensions cannot yet extend the **tooling surfaces** through which users and AI agents interact with SpecForge: CLI, MCP, and LSP.
 
 This creates a capability asymmetry:
 - `@specforge/rust` needs `specforge collect rust` as a CLI command but it's hardcoded
 - `@specforge/gh` should expose GitHub ref resolution as an MCP tool but can't
 - `@specforge/product` could provide entity-aware completions in LSP but has no hook
 
-The core insight driving this research: **MCP >= CLI + LSP**. MCP is the union surface for AI agents. Every CLI command should be available as an MCP tool. Every LSP feature should be queryable via MCP. Packages that extend one surface should automatically extend the superset.
+The core insight driving this research: **MCP >= CLI + LSP**. MCP is the union surface for AI agents. Every CLI command should be available as an MCP tool. Every LSP feature should be queryable via MCP. Extensions that extend one surface should automatically extend the superset.
 
 A **10-expert panel** evaluated six alternative architectures for surface contributions, ranging from minimal auto-promotion to full VS Code-style contribution points. This document presents all six alternatives with their tradeoffs, then synthesizes the panel's recommendation.
 
@@ -34,11 +34,11 @@ A **10-expert panel** evaluated six alternative architectures for surface contri
 
 ### 2. No MCP Server
 
-SpecForge has no MCP server implementation. When one is built, every package's capabilities should be automatically discoverable as MCP tools — but the current model has no concept of "surface exposure."
+SpecForge has no MCP server implementation. When one is built, every extension's capabilities should be automatically discoverable as MCP tools — but the current model has no concept of "surface exposure."
 
 ### 3. LSP is Static
 
-The LSP server has fixed capabilities. A package that adds `epic` and `story` entity kinds cannot contribute:
+The LSP server has fixed capabilities. An extension that adds `epic` and `story` entity kinds cannot contribute:
 - Completion items for those kinds
 - Hover documentation
 - Code actions (e.g., "Extract behavior from this scenario")
@@ -62,7 +62,7 @@ Users interact with SpecForge through three surfaces:
 └────────────────────────────────────────────────┘
 ```
 
-AI agents prefer MCP. Humans prefer CLI and LSP/IDE. If packages can only extend one surface, the others become second-class. The principle: **CLI + LSP < MCP**, therefore MCP must be the primary surface and the other two must derive from it or be co-equal.
+AI agents prefer MCP. Humans prefer CLI and LSP/IDE. If extensions can only extend one surface, the others become second-class. The principle: **CLI + LSP < MCP**, therefore MCP must be the primary surface and the other two must derive from it or be co-equal.
 
 ### 5. Cold Start vs. Discovery
 
@@ -83,7 +83,7 @@ manifest read (cold)  →  contribution registered (warm)  →  code loaded (hot
      ~1ms/ext              ~0ms (index update)                ~50ms (first use)
 ```
 
-**Verdict**: Static manifest declaration with lazy Wasm loading. The manifest declares what surfaces a package extends. The host indexes contributions at startup without loading Wasm. Wasm is loaded on first invocation.
+**Verdict**: Static manifest declaration with lazy Wasm loading. The manifest declares what surfaces an extension extends. The host indexes contributions at startup without loading Wasm. Wasm is loaded on first invocation.
 
 ### Expert #2 — Terraform/Cobra CLI Architect
 
@@ -91,26 +91,26 @@ manifest read (cold)  →  contribution registered (warm)  →  code loaded (hot
 
 **Counter-example**: Kubernetes `kubectl` supports plugins via the PATH — any `kubectl-foo` binary becomes `kubectl foo`. No registration needed. Discovery is filesystem-based.
 
-**Key insight**: CLI command contributions should be **discoverable without loading Wasm** and should have a **clear namespace** to avoid collisions. The package name IS the namespace.
+**Key insight**: CLI command contributions should be **discoverable without loading Wasm** and should have a **clear namespace** to avoid collisions. The extension name IS the namespace.
 
-**Verdict**: Package-contributed CLI commands live under a namespace: `specforge <package-action> [args]`. Example: `specforge collect rust` = package `@specforge/rust`, action `collect`. The host reads this from the manifest, creates a clap subcommand dynamically, and loads Wasm only when invoked.
+**Verdict**: Extension-contributed CLI commands live under a namespace: `specforge <extension-action> [args]`. Example: `specforge collect rust` = extension `@specforge/rust`, action `collect`. The host reads this from the manifest, creates a clap subcommand dynamically, and loads Wasm only when invoked.
 
 ### Expert #3 — MCP Protocol Designer
 
 **Prior art**: The MCP specification (2024-11-05) defines three primitives: **tools** (callable functions), **resources** (readable data), and **prompts** (templated text). Servers declare capabilities in `initialize` response. Tools have JSON Schema input definitions.
 
-**Key insight**: MCP is inherently a **contribution aggregation** protocol. The server's tool list is the union of all capabilities. SpecForge's MCP server should be a thin dispatcher that routes tool calls to the appropriate package's Wasm export.
+**Key insight**: MCP is inherently a **contribution aggregation** protocol. The server's tool list is the union of all capabilities. SpecForge's MCP server should be a thin dispatcher that routes tool calls to the appropriate extension's Wasm export.
 
 **Architecture**:
 ```
-AI Agent → MCP Client → SpecForge MCP Server → tool dispatch → Package Wasm export
+AI Agent → MCP Client → SpecForge MCP Server → tool dispatch → Extension Wasm export
                               ↓
                       Built-in tools (compile, query, trace, ...)
                               +
-                      Package-contributed tools (collect_rust, resolve_github, ...)
+                      Extension-contributed tools (collect_rust, resolve_github, ...)
 ```
 
-**Verdict**: Every package can contribute MCP tools, resources, and prompts. These are declared in the manifest with full JSON Schema. The MCP server aggregates them. Auto-promotion: every CLI command is also an MCP tool (with JSON input instead of argv).
+**Verdict**: Every extension can contribute MCP tools, resources, and prompts. These are declared in the manifest with full JSON Schema. The MCP server aggregates them. Auto-promotion: every CLI command is also an MCP tool (with JSON input instead of argv).
 
 ### Expert #4 — LSP Protocol Expert
 
@@ -121,9 +121,9 @@ AI Agent → MCP Client → SpecForge MCP Server → tool dispatch → Package W
 - `codeActionProvider` — quick fixes, refactors
 - `diagnosticProvider` — pull diagnostics (3.17+)
 
-**Key insight**: LSP capability contribution is **different in kind** from CLI/MCP contribution. CLI and MCP are request-response (package handles full request). LSP is **collaborative** — multiple sources contribute to a single response (e.g., completions from core + completions from package, merged into one list).
+**Key insight**: LSP capability contribution is **different in kind** from CLI/MCP contribution. CLI and MCP are request-response (extension handles full request). LSP is **collaborative** — multiple sources contribute to a single response (e.g., completions from core + completions from extension, merged into one list).
 
-**Verdict**: LSP contributions should use a **provider pattern** — packages register as additional providers for existing LSP capabilities, not as replacement implementations. The host merges results from all providers. This is fundamentally different from CLI/MCP where each tool is independent.
+**Verdict**: LSP contributions should use a **provider pattern** — extensions register as additional providers for existing LSP capabilities, not as replacement implementations. The host merges results from all providers. This is fundamentally different from CLI/MCP where each tool is independent.
 
 ### Expert #5 — Wasm Component Model Expert
 
@@ -172,7 +172,7 @@ interface lsp-completion-provider {
 
 ### Expert #6 — AI Agent Systems Architect
 
-**Prior art**: Claude Code, Cursor, and other AI agents discover tools dynamically. Tool count directly impacts token economics (RES-18): each tool definition costs ~100-200 tokens in the system prompt. An MCP server exposing 50 package-contributed tools adds 5,000-10,000 tokens of overhead per conversation turn.
+**Prior art**: Claude Code, Cursor, and other AI agents discover tools dynamically. Tool count directly impacts token economics (RES-18): each tool definition costs ~100-200 tokens in the system prompt. An MCP server exposing 50 extension-contributed tools adds 5,000-10,000 tokens of overhead per conversation turn.
 
 **Key insight**: Surface contributions must be **discoverable** but not necessarily **always loaded**. Agents need to know what tools exist (tool names + descriptions) but shouldn't pay the token cost of all tools in every conversation. This argues for tool categories, lazy tool loading, and agent-side tool filtering.
 
@@ -181,14 +181,14 @@ interface lsp-completion-provider {
 **Token budget analysis**:
 ```
 Built-in tools:        ~10 tools × 150 tokens = 1,500 tokens
-Package tools (10 pkgs): ~30 tools × 150 tokens = 4,500 tokens
+Extension tools (10 pkgs): ~30 tools × 150 tokens = 4,500 tokens
 Total MCP overhead:    ~6,000 tokens per turn
 
 Budget at 128K context:  ~5% overhead (acceptable)
 Budget at 8K context:    ~75% overhead (unacceptable)
 ```
 
-**Verdict**: MCP tools must have categories and support lazy listing. The MCP server should support `tools/list` with filtering (by package, by category). Default: only show built-in tools + tools from packages declared in project config. This prevents tool pollution.
+**Verdict**: MCP tools must have categories and support lazy listing. The MCP server should support `tools/list` with filtering (by extension, by category). Default: only show built-in tools + tools from extensions declared in project config. This prevents tool pollution.
 
 ### Expert #7 — Security / Sandbox Architect
 
@@ -209,43 +209,43 @@ LSP code action       -        ✓*       -         ✓           -          -
 * = scoped by sandbox policy
 ```
 
-**Verdict**: Each surface contribution type has a fixed permission ceiling. Sandbox policy can only restrict further, never expand. LSP providers are read-only by default (completion, hover). LSP code actions can write but only to spec files. CLI commands and MCP tools inherit from the package's sandbox policy. The user confirms permissions at `specforge add` time.
+**Verdict**: Each surface contribution type has a fixed permission ceiling. Sandbox policy can only restrict further, never expand. LSP providers are read-only by default (completion, hover). LSP code actions can write but only to spec files. CLI commands and MCP tools inherit from the extension's sandbox policy. The user confirms permissions at `specforge add` time.
 
 ### Expert #8 — Developer Experience Expert
 
 **Prior art**: Building a VS Code extension requires understanding activation events, contribution points, extension API, packaging, and marketplace. This is a significant learning curve. Terraform provider development is simpler — implement a Go interface, done.
 
-**Key insight**: Most package authors will contribute 1-2 surface items, not dozens. The DX should optimize for the common case: "I want to add one CLI command to my generator package." This should be ~10 lines of code on top of the existing generator implementation.
+**Key insight**: Most extension authors will contribute 1-2 surface items, not dozens. The DX should optimize for the common case: "I want to add one CLI command to my extension." This should be ~10 lines of code on top of the existing implementation.
 
-**Verdict**: The scaffolding (`specforge package init`) should ask about surface contributions and generate the minimal boilerplate. Surface-specific test helpers in the Extism PDK: `test_cli_command(args, expected_output)`, `test_mcp_tool(input_json, expected_json)`. Documentation: one page per surface type, not a 50-page surface contribution guide.
+**Verdict**: The scaffolding (`specforge extension init`) should ask about surface contributions and generate the minimal boilerplate. Surface-specific test helpers in the Extism PDK: `test_cli_command(args, expected_output)`, `test_mcp_tool(input_json, expected_json)`. Documentation: one page per surface type, not a 50-page surface contribution guide.
 
 ### Expert #9 — Platform / Ecosystem Strategist
 
 **Prior art**: VS Code's marketplace shows extensions by category (Themes, Linters, Debuggers). npm has keywords. Terraform Registry has provider/module distinction.
 
-**Key insight**: Surface contributions create a **capability marketplace** on top of RES-23's contribution marketplace. Users browse by what they can DO, not what the package IS. "Show me all packages that add CLI commands" or "Show me packages with MCP tools for GitHub."
+**Key insight**: Surface contributions create a **capability marketplace** on top of RES-23's contribution marketplace. Users browse by what they can DO, not what the extension IS. "Show me all extensions that add CLI commands" or "Show me extensions with MCP tools for GitHub."
 
-**Critical success factor**: The first 5 packages must demonstrate surface contributions working. If `@specforge/product`, `@specforge/governance`, `@specforge/gh`, `@specforge/gen-typescript`, and `@specforge/gen-rust` all contribute surface items, the pattern is validated. If only core has surfaces, packages feel second-class.
+**Critical success factor**: The first 5 extensions must demonstrate surface contributions working. If `@specforge/product`, `@specforge/governance`, `@specforge/gh`, `@specforge/rust`, and `@specforge/software` all contribute surface items, the pattern is validated. If only core has surfaces, extensions feel second-class.
 
-**Verdict**: Ship surface contributions for the 5 launch packages simultaneously with the core feature. Surface contribution is not a "Phase 2" afterthought — it's table stakes for the extension model to be credible.
+**Verdict**: Ship surface contributions for the 5 launch extensions simultaneously with the core feature. Surface contribution is not a "Phase 2" afterthought — it's table stakes for the extension model to be credible.
 
 ### Expert #10 — Compiler Pipeline / Runtime Architect
 
-**Prior art**: RES-23 maps contribution types to pipeline phases (parse → register → build → resolve → validate → generate). Surface contributions don't fit this model — they're not compilation phases. They're **runtime extension points** that happen outside the compilation pipeline.
+**Prior art**: RES-23 maps contribution types to pipeline phases (parse → register → build → resolve → validate → export). Surface contributions don't fit this model — they're not compilation phases. They're **runtime extension points** that happen outside the compilation pipeline.
 
 **Key insight**: There are two distinct extension planes:
 
 ```
 COMPILE-TIME PLANE (RES-23):
-  Parse → Register → Build Graph → Resolve → Validate → Generate
-  ↑ entities, edges, enhancements, ref_schemes, validators, generators
+  Parse → Register → Build Graph → Resolve → Validate → Export
+  ↑ entities, edges, enhancements, ref_schemes, validators
 
 RUNTIME PLANE (this research):
   CLI dispatch → MCP dispatch → LSP dispatch
   ↑ commands, tools, resources, prompts, completions, hover, code_actions
 ```
 
-These planes share the same Wasm module and package manifest but operate at different times with different lifecycles:
+These planes share the same Wasm module and extension manifest but operate at different times with different lifecycles:
 - Compile-time contributions run during `specforge compile`
 - CLI contributions run when a command is invoked
 - MCP contributions run when the MCP server handles a request
@@ -269,12 +269,12 @@ The 10 experts converged on six distinct architectural options for implementing 
 
 ```json
 {
-  "package": "@specforge/rust",
+  "extension": "@specforge/rust",
   "version": "1.0.0",
   "wasm": "rust.wasm",
 
   "contributes": {
-    "generators": [{ "name": "rust" }]
+    "collectors": [{ "name": "rust", "description": "Parse cargo-nextest JUnit XML into specforge-report.json" }]
   },
 
   "surfaces": {
@@ -377,7 +377,7 @@ IF surfaces.lsp.hover_providers declared:
 User types: specforge collect rust --junit-xml results.xml
 
 1. CLI parser sees unknown subcommand "collect"
-2. Scans package manifests (JSON only, no Wasm loaded)
+2. Scans extension manifests (JSON only, no Wasm loaded)
 3. Finds @specforge/rust declares command "collect"
 4. Builds clap Args from manifest's args schema
 5. Parses remaining args with generated clap command
@@ -396,7 +396,7 @@ CLI command "collect" in @specforge/rust
   → Output: { "stdout": "...", "stderr": "...", "exit_code": 0 }
 ```
 
-Package-declared MCP tools are additional — they can have richer schemas and return structured JSON instead of stdout/stderr.
+Extension-declared MCP tools are additional — they can have richer schemas and return structured JSON instead of stdout/stderr.
 
 #### Pros
 - Manifest-only discovery (no Wasm loading at startup)
@@ -407,10 +407,10 @@ Package-declared MCP tools are additional — they can have richer schemas and r
 - Matches VS Code's proven model
 
 #### Cons
-- Manifest becomes large for packages with many surface contributions
+- Manifest becomes large for extensions with many surface contributions
 - Duplicate information (command args in manifest AND Wasm code must agree)
 - Manifest schema versioning becomes more complex
-- Static declarations can't express dynamic capabilities (e.g., "I contribute one command per configured generator")
+- Static declarations can't express dynamic capabilities (e.g., "I contribute one command per configured target")
 
 ---
 
@@ -420,7 +420,7 @@ Package-declared MCP tools are additional — they can have richer schemas and r
 
 #### Mechanism
 
-During `specforge_init()`, packages call new host functions to register surface contributions:
+During `specforge_init()`, extensions call new host functions to register surface contributions:
 
 ```
 New host functions:
@@ -463,7 +463,7 @@ fn init() {
 
 ```
 CLI startup:
-1. Load ALL package Wasm modules (~50ms each)
+1. Load ALL extension Wasm modules (~50ms each)
 2. Call specforge_init() on each
 3. Collect registered commands/tools/resources
 4. Build CLI dispatch table
@@ -478,11 +478,11 @@ CLI startup:
 
 #### Cons
 - **Kills CLI cold start** — must load ALL Wasm modules before parsing first command
-- Every surface invocation loads every package (even unrelated ones)
+- Every surface invocation loads every extension (even unrelated ones)
 - Host function explosion (6 existing + 5 new = 11)
-- Order-dependent registration (package A registers tool X, package B wants to reference it)
+- Order-dependent registration (extension A registers tool X, extension B wants to reference it)
 - Cannot discover surface contributions without executing untrusted code
-- Not compatible with `specforge packages` listing tools without loading Wasm
+- Not compatible with `specforge extensions` listing tools without loading Wasm
 
 ---
 
@@ -498,7 +498,7 @@ Same as Option A — `surfaces` key in manifest declares all contributions stati
 
 #### Runtime Override (Optional)
 
-During `specforge_init()`, a package MAY call `specforge.override_surfaces(json)` to:
+During `specforge_init()`, an extension MAY call `specforge.override_surfaces(json)` to:
 - **Modify** a declared contribution (e.g., add args based on config)
 - **Disable** a declared contribution (e.g., if a required binary isn't installed)
 - **NOT add** entirely new contributions (must be in manifest)
@@ -545,7 +545,7 @@ fn init(config: &Config) {
 #### Cons
 - Two sources of truth (manifest + runtime override) — which one is correct?
 - Override semantics are complex (deep merge)
-- Packages might over-rely on overrides, making manifests misleading
+- Extensions might over-rely on overrides, making manifests misleading
 - Added complexity over pure Option A for marginal benefit
 
 ---
@@ -556,11 +556,11 @@ fn init(config: &Config) {
 
 #### Mechanism
 
-Each package ships sidecar JSON files alongside the Wasm binary:
+Each extension ships sidecar JSON files alongside the Wasm binary:
 
 ```
 @specforge/rust/
-  manifest.json         # existing package manifest (no surface info)
+  manifest.json         # existing extension manifest (no surface info)
   rust.wasm             # Wasm binary
   surfaces/
     cli.json            # CLI command definitions
@@ -590,21 +590,21 @@ Each package ships sidecar JSON files alongside the Wasm binary:
 
 ```
 CLI startup:
-1. Scan package directories
+1. Scan extension directories
 2. Check for surfaces/cli.json in each
 3. Parse only cli.json files (skip manifest.json, skip Wasm)
 4. Build dispatch table from collected commands
 5. Parse user's command
-6. Load only the matching package's Wasm
+6. Load only the matching extension's Wasm
 
 MCP startup:
-1. Scan package directories
+1. Scan extension directories
 2. Check for surfaces/mcp.json in each
 3. Parse, aggregate tools/resources/prompts
 4. Register with MCP server
 
 LSP startup:
-1. Scan package directories
+1. Scan extension directories
 2. Check for surfaces/lsp.json in each
 3. Parse, register providers
 ```
@@ -615,13 +615,13 @@ LSP startup:
 - Clear file-per-surface separation
 - Easy to inspect/debug (just read the JSON files)
 - No manifest bloat — surfaces are separate files
-- Can be generated by build tools (e.g., `specforge package build` generates sidecar files from code annotations)
+- Can be generated by build tools (e.g., `specforge extension build` generates sidecar files from code annotations)
 
 #### Cons
 - Multiple files to maintain (manifest.json + N sidecar files)
 - Distribution must include sidecar files (registry, npm, etc.)
 - Harder to validate consistency between manifest and sidecars
-- No single source of truth for "what does this package do?"
+- No single source of truth for "what does this extension do?"
 - More filesystem I/O at startup (reading N directories × M sidecar files)
 - Breaks the single-manifest model from RES-23
 
@@ -668,11 +668,6 @@ The host sends a `negotiate_surfaces` call to the Wasm module. The module respon
 No new contribution types. Every existing contribution is automatically promoted to all surfaces:
 
 ```
-Generator "rust"
-  → CLI: specforge gen rust (already exists)
-  → MCP tool: specforge.gen.rust (auto)
-  → LSP: code action "Generate Rust code" (auto)
-
 Validator "jira_key_format"
   → CLI: (runs during compile, no separate command)
   → MCP: (diagnostic results available via specforge.compile)
@@ -686,8 +681,8 @@ Ref scheme "jira"
 
 #### What Cannot Be Expressed
 
-- `specforge collect rust` — not a generator, not a validator, not a ref scheme. It's an **adapter** (RES-17), which has no contribution type.
-- A custom MCP tool that queries the graph in a package-specific way (e.g., "show Jira coverage dashboard")
+- `specforge collect rust` — not a validator, not a ref scheme. It's an **adapter** (RES-17), which has no contribution type.
+- A custom MCP tool that queries the graph in an extension-specific way (e.g., "show Jira coverage dashboard")
 - A custom LSP code action (e.g., "Extract scenario from this Given/When/Then block")
 - MCP resources with custom URI templates
 - MCP prompts for guided workflows
@@ -700,10 +695,10 @@ Ref scheme "jira"
 - Works for 60% of cases
 
 #### Cons
-- Cannot express package-specific commands (the `collect` use case)
+- Cannot express extension-specific commands (the `collect` use case)
 - Cannot express custom MCP tools beyond auto-promoted ones
 - Cannot express custom LSP features
-- Packages feel like second-class citizens (can't do what core can do)
+- Extensions feel like second-class citizens (can't do what core can do)
 - The 40% of cases it can't handle are the most valuable (adapters, custom tooling)
 
 ---
@@ -740,7 +735,7 @@ Ref scheme "jira"
 
 - **Option D (Sidecar)**: 4 votes. Fast cold start. But breaks the single-manifest model that RES-23 carefully established. Multiple files to maintain. 6 against — "fixing a performance problem that doesn't exist yet."
 - **Option C (Hybrid)**: 3 votes. Pragmatic. But "two sources of truth" concern raised by 7 experts. Override semantics are a complexity trap. The 10% of cases needing dynamic override don't justify the complexity.
-- **Option A (Static Manifest)**: 8 votes. Best alignment with RES-23. Proven at scale (VS Code). Fast cold start. Single source of truth. The "can't do dynamic contributions" limitation is acceptable — packages that need dynamic behavior can update their manifest at build time.
+- **Option A (Static Manifest)**: 8 votes. Best alignment with RES-23. Proven at scale (VS Code). Fast cold start. Single source of truth. The "can't do dynamic contributions" limitation is acceptable — extensions that need dynamic behavior can update their manifest at build time.
 
 ### Final Vote
 
@@ -759,7 +754,7 @@ The 8-vote consensus includes these refinements from the minority positions:
 
 1. **From Option F**: Auto-promotion as a **complement**, not alternative. Every CLI command is automatically an MCP tool. Every ref scheme automatically gets a resolve tool and LSP hover. Auto-promotion is the floor, explicit surface contributions are the ceiling.
 
-2. **From Option D**: The `specforge package build` step should **generate** manifest surface entries from code annotations when possible. This reduces manual manifest editing while keeping the manifest as the single source of truth.
+2. **From Option D**: The `specforge extension build` step should **produce** manifest surface entries from code annotations when possible. This reduces manual manifest editing while keeping the manifest as the single source of truth.
 
 3. **From Option C**: One narrow escape hatch: the `specforge_init()` export MAY return a JSON object with `disabled_surfaces: ["command:collect"]` to conditionally disable declared contributions at runtime. It cannot add or modify — only disable.
 
@@ -773,13 +768,13 @@ The `surfaces` key is added as a sibling to `contributes`:
 
 ```json
 {
-  "package": "@specforge/rust",
+  "extension": "@specforge/rust",
   "manifest_version": "2",
   "version": "1.0.0",
   "wasm": "rust.wasm",
 
   "contributes": {
-    "generators": [{ "name": "rust", "description": "Rust types, ports, and test stubs" }]
+    "collectors": [{ "name": "rust", "description": "Parse cargo-nextest JUnit XML into specforge-report.json" }]
   },
 
   "surfaces": {
@@ -795,13 +790,6 @@ The `surfaces` key is added as a sibling to `contributes`:
           { "name": "out", "type": "path", "required": false, "default": "specforge-report.json" }
         ]
       },
-      {
-        "id": "gen-check",
-        "title": "Check generated Rust files for drift",
-        "description": "Verify @specforge-checksum headers in generated files",
-        "category": "gen",
-        "export": "cmd__gen_check"
-      }
     ],
 
     "mcp_tools": [
@@ -861,23 +849,14 @@ The `surfaces` key is added as a sibling to `contributes`:
           "description": "Show test coverage status on hover"
         }
       ],
-      "code_actions": [
-        {
-          "id": "generate_test_stub",
-          "entity_kinds": ["behavior"],
-          "title": "Generate Rust test stub",
-          "export": "lsp__action_generate_test",
-          "kind": "quickfix"
-        }
-      ]
+      "code_actions": []
     }
   },
 
   "sandbox": {
     "max_memory_bytes": 268435456,
     "commands": {
-      "collect": { "fs_read": true, "fs_write": true },
-      "gen-check": { "fs_read": true }
+      "collect": { "fs_read": true, "fs_write": true }
     },
     "mcp_tools": {
       "collect_rust_results": { "fs_read": true },
@@ -892,7 +871,7 @@ The `surfaces` key is added as a sibling to `contributes`:
 
 | Surface Type | Key | Export Prefix | Description |
 |---|---|---|---|
-| CLI command | `surfaces.commands[]` | `cmd__` | Package-contributed CLI subcommands |
+| CLI command | `surfaces.commands[]` | `cmd__` | Extension-contributed CLI subcommands |
 | MCP tool | `surfaces.mcp_tools[]` | `mcp__` | Callable MCP tools with JSON Schema |
 | MCP resource | `surfaces.mcp_resources[]` | `mcp__` | Readable MCP resources with URI templates |
 | MCP prompt | `surfaces.mcp_prompts[]` | `mcp__` | Templated MCP prompts |
@@ -903,30 +882,30 @@ The `surfaces` key is added as a sibling to `contributes`:
 
 ### 3. CLI Command Routing
 
-Commands are namespaced under the package's short name (scope stripped):
+Commands are namespaced under the extension's short name (scope stripped):
 
 ```
-Package: @specforge/rust, command id: "collect"
+Extension: @specforge/rust, command id: "collect"
   → specforge collect rust [args]
-  → specforge rust collect [args]    (alternative: package-first)
+  → specforge rust collect [args]    (alternative: extension-first)
 
-Package: @specforge/gh, command id: "sync"
+Extension: @specforge/gh, command id: "sync"
   → specforge sync gh [args]
 
-Package: @specforge/jira, command id: "import"
+Extension: @specforge/jira, command id: "import"
   → specforge import jira [args]
 ```
 
-**Disambiguation**: If two packages contribute the same command ID, fully qualified invocation is required:
+**Disambiguation**: If two extensions contribute the same command ID, fully qualified invocation is required:
 ```
-specforge --package @specforge/rust collect [args]
+specforge --extension @specforge/rust collect [args]
 ```
 
-**Recommended pattern**: `specforge <verb> <package-short-name> [args]` — action-first, consistent with `specforge gen rust`, `specforge collect rust`.
+**Recommended pattern**: `specforge <verb> <extension-short-name> [args]` — action-first, consistent with `specforge collect rust`.
 
 ### 4. MCP Auto-Promotion Rules
 
-Every CLI command is **automatically** an MCP tool with the name `specforge.{package_short}.{command_id}`:
+Every CLI command is **automatically** an MCP tool with the name `specforge.{extension_short}.{command_id}`:
 
 ```
 CLI: specforge collect rust --junit-xml results.xml
@@ -949,7 +928,7 @@ Auto-promoted tools wrap CLI output:
 }
 ```
 
-Package-declared MCP tools (`surfaces.mcp_tools`) are **in addition** to auto-promoted ones. They provide richer structured output:
+Extension-declared MCP tools (`surfaces.mcp_tools`) are **in addition** to auto-promoted ones. They provide richer structured output:
 
 ```json
 {
@@ -981,22 +960,22 @@ Merged hover result:
   **Jira**: PROJ-42 — In Progress
 ```
 
-Provider ordering: core first, then packages in load order. Each provider returns its section. The host concatenates.
+Provider ordering: core first, then extensions in load order. Each provider returns its section. The host concatenates.
 
 ### 6. Surface Permission Model
 
 Extending RES-23's per-call-site sandbox:
 
 ```
-                     fs_read  fs_write  network  graph_read  register_*  emit_file
-                     -------  --------  -------  ----------  ----------  ---------
-cmd__{id}()            *        *         *         OK          -           -
-mcp__{name}()          *        *         *         OK          -           -
-mcp__{resource}()      *        -         *         OK          -           -
-lsp__complete_*()      -        -         -         OK          -           -
-lsp__hover_*()         -        -         -         OK          -           -
-lsp__action_*()        -        **        -         OK          -           -
-lsp__diagnose_*()      -        -         -         OK          -           -
+                     fs_read  fs_write  network  graph_read  register_*
+                     -------  --------  -------  ----------  ----------
+cmd__{id}()            *        *         *         OK          -
+mcp__{name}()          *        *         *         OK          -
+mcp__{resource}()      *        -         *         OK          -
+lsp__complete_*()      -        -         -         OK          -
+lsp__hover_*()         -        -         -         OK          -
+lsp__action_*()        -        **        -         OK          -
+lsp__diagnose_*()      -        -         -         OK          -
 
 *  = per-contribution sandbox (declared in manifest)
 ** = code actions can write to spec files only (sandbox enforced)
@@ -1015,7 +994,7 @@ COMPILE-TIME PLANE (RES-23 contributes):
   PHASE 3: BUILD GRAPH ----> (internal)
   PHASE 4: RESOLVE -------> ref_schemes
   PHASE 5: VALIDATE ------> validators
-  PHASE 6: GENERATE ------> generators
+  PHASE 6: EXPORT --------> (Graph Protocol, JSON, DOT)
 
 RUNTIME PLANE (RES-24 surfaces):
   PHASE 7: CLI DISPATCH ---> commands
@@ -1023,8 +1002,6 @@ RUNTIME PLANE (RES-24 surfaces):
   PHASE 9: LSP DISPATCH ---> lsp_providers (completion, hover, code_actions, diagnostics)
 
 AUTO-PROMOTION (cross-plane):
-  generators  → CLI (specforge gen {name}) [already exists]
-  generators  → MCP tool (specforge.gen.{name}) [auto]
   ref_schemes → MCP tool (specforge.resolve.{scheme}) [auto]
   ref_schemes → LSP hover (resolve on hover) [auto]
   commands    → MCP tool (specforge.{pkg}.{cmd}) [auto]
@@ -1038,19 +1015,19 @@ AUTO-PROMOTION (cross-plane):
 | E027 | Error | MCP tool input_schema is invalid JSON Schema |
 | E028 | Error | CLI command arg type is unknown |
 | E029 | Error | LSP provider references unknown entity_kind |
-| E030 | Error | Two packages contribute same command ID without disambiguation |
-| W028 | Warning | Surface contribution declared but package has no Wasm binary (stub package) |
+| E030 | Error | Two extensions contribute same command ID without disambiguation |
+| W028 | Warning | Surface contribution declared but extension has no Wasm binary (stub extension) |
 | W029 | Warning | MCP tool has no description (AI agents need descriptions) |
 | W030 | Warning | CLI command has no args (probably missing args declaration) |
 | I008 | Info | Auto-promoted CLI command conflicts with explicit MCP tool name (explicit wins) |
 
 ### 9. Concrete Example: @specforge/gh
 
-A GitHub provider package contributing to all three surfaces:
+A GitHub provider extension contributing to all three surfaces:
 
 ```json
 {
-  "package": "@specforge/gh",
+  "extension": "@specforge/gh",
   "manifest_version": "2",
   "version": "1.0.0",
   "wasm": "gh.wasm",
@@ -1176,7 +1153,7 @@ A GitHub provider package contributing to all three surfaces:
 }
 ```
 
-**Result**: From one package, users get:
+**Result**: From one extension, users get:
 - CLI: `specforge sync gh`, `specforge link gh`
 - MCP tools: `specforge.gh.sync`, `specforge.gh.link` (auto-promoted) + `resolve_github_ref`, `github_coverage` (explicit)
 - MCP resources: `specforge://gh/issue/{number}`
@@ -1199,7 +1176,7 @@ A GitHub provider package contributing to all three surfaces:
 | LSP code action contribution dispatch | Medium | Medium | 2 |
 | MCP resource serving | Low | Medium | 2 |
 | MCP prompt contributions | Low | Low | 3 |
-| `specforge package init` surface scaffolding | Low | Medium | 2 |
+| `specforge extension init` surface scaffolding | Low | Medium | 2 |
 | Validation codes E026-E030, W028-W030, I008 | Medium | Medium | 2 |
 | Registry surface indexing | Low | Low | 3 |
 
@@ -1224,7 +1201,7 @@ A GitHub provider package contributing to all three surfaces:
 **Phase 3: Ecosystem**
 - `surfaces.mcp_prompts`
 - Registry surface indexing
-- `specforge package init` surface scaffolding
+- `specforge extension init` surface scaffolding
 - Surface-specific test helpers in PDK
 
 ---
@@ -1237,6 +1214,6 @@ A GitHub provider package contributing to all three surfaces:
 - **RES-11a**: Core compiler architecture. Pipeline phases 1-6.
 - **RES-16**: Test execution integration. `specforge collect` pattern.
 - `docs/extension-model.md`: User-facing extension documentation (needs update).
-- `crates/specforge-wasm/src/manifest.rs`: `PackageManifest` and `PackageContributions` types (add `surfaces` field).
+- `crates/specforge-wasm/src/manifest.rs`: `ExtensionManifest` and `ExtensionContributions` types (add `surfaces` field).
 - `crates/specforge-wasm/src/host_functions.rs`: Host function dispatch (add surface-aware permission gating).
 - `crates/specforge-cli/src/main.rs`: CLI entrypoint (add dynamic command registration).

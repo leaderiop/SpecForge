@@ -2,6 +2,7 @@
 
 **Research ID:** RES-13
 **Date:** 2026-03-01
+**Status:** partially-superseded
 **Full Report:** [RES-13-market-landscape-2026.md](./RES-13-market-landscape-2026.md)
 
 ## TL;DR
@@ -41,7 +42,7 @@ SpecForge occupies a **unique whitespace** at the intersection of requirements-a
 - Compiler validation (vs. basic checks)
 - LSP support (IDE integration)
 - Graph-based traceability
-- Multiple output formats
+- Graph Protocol output for agents and renderers
 
 ---
 
@@ -50,11 +51,11 @@ SpecForge occupies a **unique whitespace** at the intersection of requirements-a
 **Size:** $3-5B API management market
 **Characteristics:**
 - API-focused (REST, gRPC, GraphQL)
-- Code generation (clients, servers, docs)
+- Code generation (clients, servers, docs) ← *these are competitor features, not SpecForge*
 - Strong tooling (LSP, linters)
 - Protocol-agnostic
 
-**SpecForge Position:** **Broader scope**. SpecForge includes APIs but also requirements, behaviors, architecture. **Complementary:** SpecForge could generate TypeSpec/Smithy/OpenAPI.
+**SpecForge Position:** **Broader scope**. SpecForge includes APIs but also requirements, behaviors, architecture. **Complementary:** SpecForge's entity graph provides structured context that agents or renderers use to produce TypeSpec/Smithy/OpenAPI.
 
 ---
 
@@ -66,7 +67,7 @@ SpecForge occupies a **unique whitespace** at the intersection of requirements-a
 - No validation or traceability
 - Output-only (not source of truth)
 
-**SpecForge Position:** **Complementary**. SpecForge specifications are source of truth, generate Mermaid/PlantUML as output.
+**SpecForge Position:** **Complementary**. SpecForge specifications are source of truth; agents or renderers consume the graph to produce Mermaid/PlantUML output.
 
 ---
 
@@ -78,7 +79,7 @@ SpecForge occupies a **unique whitespace** at the intersection of requirements-a
 - Bridges business and technical stakeholders
 - No traceability beyond tests
 
-**SpecForge Position:** **Complementary**. SpecForge behaviors could generate Gherkin features.
+**SpecForge Position:** **Complementary**. SpecForge behavior specs provide structured context that agents use to produce Gherkin features.
 
 ---
 
@@ -114,7 +115,7 @@ SpecForge occupies a **unique whitespace** at the intersection of requirements-a
 - No validation or traceability
 - Documentation output only
 
-**SpecForge Position:** **Complementary**. SpecForge could generate Docusaurus sites.
+**SpecForge Position:** **Complementary**. SpecForge's graph provides structured context that renderers or agents use to produce Docusaurus sites.
 
 ---
 
@@ -138,17 +139,17 @@ SpecForge occupies a **unique whitespace** at the intersection of requirements-a
 ### vs. API Spec Tools (TypeSpec, Smithy, OpenAPI)
 1. Broader scope (requirements, behaviors, architecture, not just APIs)
 2. Traceability across concerns
-3. Could generate API specs as output
+3. Graph provides structured context for agents to produce API specs
 
 ### vs. Architecture Tools (Structurizr, PlantUML, Mermaid)
-1. Specifications are source of truth (diagrams are generated)
+1. Specifications are source of truth (diagrams are produced by agents/renderers from the graph)
 2. Validation and consistency checking
 3. Traceability to implementation
 
 ### vs. BDD Tools (Cucumber)
 1. Comprehensive specifications (not just tests)
 2. Traceability from requirements through behaviors to tests
-3. Could generate Gherkin as output
+3. Graph context enables agents to produce Gherkin output
 
 ---
 
@@ -178,7 +179,7 @@ SpecForge occupies a **unique whitespace** at the intersection of requirements-a
 
 ### Trend 5: Polyglot and Protocol-Agnostic
 - Modern tools support multiple languages (TypeSpec, Smithy, Cucumber)
-- **Implication:** Plugin architecture for code generation
+- **Implication:** Extension architecture for multi-domain graph export
 
 ### Trend 6: Open Source Wins Developer Adoption
 - Mermaid, PlantUML, Docusaurus, Backstage, TLA+, Doorstop all open-source
@@ -209,7 +210,7 @@ SpecForge occupies a **unique whitespace** at the intersection of requirements-a
 **Characteristics:** Building platform APIs, using OpenAPI/TypeSpec
 **Pain Points:** API specs lack context, no traceability from requirements
 **Size:** Growing (API economy)
-**Go-to-Market:** Generate OpenAPI/TypeSpec from SpecForge specs
+**Go-to-Market:** SpecForge graph provides context for agents to produce OpenAPI/TypeSpec
 
 ---
 
@@ -221,7 +222,7 @@ SpecForge occupies a **unique whitespace** at the intersection of requirements-a
 
 ### Risk 2: TypeSpec/Smithy Momentum
 **Risk:** Strong backing (Microsoft, Amazon), established ecosystems
-**Mitigation:** Broader scope (not just APIs), complementary (generate TypeSpec/Smithy)
+**Mitigation:** Broader scope (not just APIs), complementary (graph context enables TypeSpec/Smithy production)
 
 ### Risk 3: Enterprise Incumbency
 **Risk:** DOORS/Jama entrenched in regulated industries
@@ -233,33 +234,29 @@ SpecForge occupies a **unique whitespace** at the intersection of requirements-a
 
 ### Risk 5: Fragmentation
 **Risk:** Many specialized tools (PlantUML, Mermaid, Cucumber) work well together. Why replace?
-**Mitigation:** Integration, not replacement. SpecForge generates outputs for these tools.
+**Mitigation:** Integration, not replacement. SpecForge provides structured context that agents and renderers use to produce outputs for these tools.
 
 ---
 
 ## Strategic Recommendations
 
 ### 1. Positioning
-**Primary Message:** "Compiler for software specifications. Like TypeScript for your requirements, architecture, and behaviors."
+**Primary Message:** "Structured context standard for AI agents."
 
-**Taglines:**
-- "Specifications that compile"
-- "Requirements-as-code, done right"
-- "The missing compiler for software specifications"
+**Tagline:** "Structured context that agents consume"
 
 **Key Differentiators:**
 1. Compiler validation (catch errors early)
 2. Graph-based traceability (impact analysis)
 3. Developer-native (LSP, CLI, Git)
-4. Multiple outputs (docs, diagrams, code, tests)
+4. Graph Protocol output consumed by agents and renderers
 5. Open-source and free
 
 ### 2. Development Priorities
 1. **Phase 1 (MVP):** Core compiler (parsing, validation, graph)
 2. **Phase 2 (DX):** LSP, VS Code extension, error diagnostics
-3. **Phase 3 (Output):** Markdown docs, Mermaid diagrams, OpenAPI
-4. **Phase 4 (Codegen):** Test generation (Gherkin), API clients, types
-5. **Phase 5 (Enterprise):** Compliance reports, audit trails
+3. **Phase 3 (Ecosystem):** Renderers and agent integrations (Mermaid, OpenAPI, Markdown)
+4. **Phase 4 (Enterprise):** Compliance reports, audit trails
 
 ### 3. Go-to-Market
 1. **Open Source First:** GitHub (MIT/Apache 2.0), community-driven
@@ -283,7 +280,7 @@ SpecForge occupies a **unique whitespace** at the intersection of requirements-a
 2. ✅ **No Direct Competitor:** Unique combination of features
 3. ✅ **Strong Trends:** Everything-as-code, shift-left, open-source
 4. ✅ **Large Addressable Market:** Millions of developers + regulated industries
-5. ✅ **Clear Differentiation:** Compiler validation + traceability + LSP + multiple outputs
+5. ✅ **Clear Differentiation:** Compiler validation + traceability + LSP + Graph Protocol
 
 **Competitive positioning is strong:**
 - **vs. Enterprise tools:** Developer-native, free, fast
@@ -295,10 +292,10 @@ SpecForge occupies a **unique whitespace** at the intersection of requirements-a
 **Critical success factors:**
 1. **Developer Experience:** Best-in-class LSP, errors, docs
 2. **Open Source:** Community-driven, GitHub-first
-3. **Integration:** Generate outputs for existing tools (don't replace)
+3. **Integration:** Provide structured context that agents and renderers use to produce outputs for existing tools (don't replace)
 4. **Target Modern Teams:** SaaS/startups first, enterprise second
 
-**The path is clear:** Build the compiler developers wish they had for specifications.
+**The path is clear:** Build the structured context standard developers wish they had.
 
 ---
 

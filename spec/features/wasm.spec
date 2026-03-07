@@ -1,80 +1,130 @@
-// Wasm/Extism package runtime features
+// Wasm/Extism extension runtime features
 
-use behaviors/wasm
+use behaviors/wasm-authoring
+use behaviors/wasm-extensions
+use behaviors/wasm-host-functions
+use behaviors/wasm-lifecycle
+use behaviors/wasm-sandbox
 
-feature wasm_package_runtime "Wasm Package Runtime" {
+feature wasm_extension_runtime "Wasm Extension Runtime" {
   behaviors [
-    load_wasm_module, initialize_wasm_package, call_package_validators, call_package_generators,
-    provide_host_function_query_graph, provide_host_function_emit_diagnostic,
-    provide_host_function_register_entity, provide_host_function_register_edge,
-    provide_host_function_emit_file, provide_host_function_http_get,
-    enforce_wasm_sandbox, aot_compile_wasm_module, cache_aot_artifacts, warm_wasm_engine_instance,
-    validate_package_peer_dependencies, topological_sort_packages,
-    handle_wasm_trap, validate_package_manifest, configure_sandbox_policy,
-    dispatch_contribution_exports, enforce_per_call_site_permissions, validate_contribution_exports,
+    load_wasm_module, initialize_wasm_extension, call_extension_validators,
+    validate_extension_peer_dependencies, topological_sort_extensions,
+    handle_wasm_trap,
   ]
 
   problem """
-    Packages need a unified, sandboxed runtime that works across all
-    platforms without requiring specific language runtimes (Node.js,
-    Python, JVM) on the host machine. The runtime must support AOT
-    compilation for fast cold starts and warm instances for interactive
-    use in LSP/MCP contexts.
+    Extensions need a unified runtime that works across all platforms
+    without requiring specific language runtimes (Node.js, Python, JVM)
+    on the host machine. The runtime must handle module lifecycle,
+    dependency ordering, and graceful error recovery.
   """
 
   solution """
-    Wasm/Extism as the sole package runtime. Packages compile to .wasm
-    binaries and communicate with the compiler via host functions
-    (specforge.query_graph, specforge.emit_diagnostic, specforge.register_entity,
-    specforge.register_edge, specforge.emit_file, specforge.http_get).
-    Sandbox enforcement via linear memory limits, fuel metering, and
-    domain allowlists. AOT compilation cached in .specforge/cache/
-    for CLI cold start; warm engine instances for LSP/MCP.
+    Wasm/Extism as the sole extension runtime. Extensions compile to .wasm
+    binaries. The compiler loads modules, validates peer dependencies,
+    initializes in topological order, calls validators, and handles traps
+    gracefully — failed extensions do not affect others.
   """
 }
 
-feature wasm_package_authoring "Wasm Package Authoring" {
-  behaviors [scaffold_wasm_package_project, build_wasm_package, test_wasm_package_locally, publish_wasm_package, discover_packages]
+feature wasm_host_function_api "Wasm Host Function API" {
+  behaviors [
+    compute_extension_query_scope, provide_host_function_query_graph,
+    provide_host_function_emit_diagnostic,
+    provide_host_function_add_graph_node, provide_host_function_add_graph_edge,
+    provide_host_function_emit_file, provide_host_function_http_get,
+    enforce_wasm_sandbox, configure_sandbox_policy,
+  ]
 
   problem """
-    Package authors need a streamlined workflow to create, test, and
-    publish Wasm packages. Without tooling, authors must manually
+    Extensions need controlled access to compiler internals (graph queries,
+    diagnostic emission, entity registration) and external resources (file
+    I/O, HTTP) without escaping the sandbox. Each host function needs
+    specific permission scoping.
+  """
+
+  solution """
+    Six host functions (specforge.query_graph, specforge.emit_diagnostic,
+    specforge.add_graph_node, specforge.add_graph_edge, specforge.emit_file,
+    specforge.http_get) with sandbox enforcement via linear memory limits,
+    fuel metering, filesystem restrictions, and domain allowlists. The
+    emit_file host function is restricted to non-code outputs only (reports,
+    dashboards, traceability matrices, graph visualizations) — extensions
+    MUST NOT use it to generate source code, configuration files, or
+    executable artifacts. SpecForge provides context, agents produce code.
+    Sandbox policy is computed by merging defaults, manifest, and project
+    overrides. Host functions are synchronous leaf operations and
+    intentionally produce no events — traceability comes from the calling
+    behavior's events. Debug-level tracing of individual host function
+    calls is available via the sandbox fuel metering counters reported in
+    extension lifecycle diagnostics.
+  """
+}
+
+feature wasm_performance_optimization "Wasm Performance Optimization" {
+  behaviors [
+    aot_compile_wasm_module, cache_aot_artifacts, warm_wasm_engine_instance,
+    evict_warm_engine_instance,
+  ]
+
+  problem """
+    Cold-loading .wasm binaries on every compilation is too slow for CLI
+    and unacceptable for interactive LSP/MCP contexts. Extensions need
+    fast startup without sacrificing sandbox isolation.
+  """
+
+  solution """
+    AOT compilation cached in .specforge/cache/ using content-addressed
+    filenames for CLI cold start performance. Warm engine instances kept
+    alive across compilations for LSP/MCP interactive use. Cache integrity
+    verified by re-hashing on load.
+  """
+}
+
+feature wasm_extension_authoring "Wasm Extension Authoring" {
+  behaviors [scaffold_wasm_extension_project, build_wasm_extension, validate_wasm_extension_locally, publish_wasm_extension]
+
+  problem """
+    Extension authors need a streamlined workflow to create, test, and
+    publish Wasm extensions. Without tooling, authors must manually
     configure build targets, sandbox policies, and registry publishing.
   """
 
   solution """
-    specforge package CLI subcommands: init scaffolds a project with
+    specforge extension CLI subcommands: init scaffolds a project with
     PDK skeleton, build compiles to .wasm targeting wasm32-wasi,
-    test loads the binary in a production sandbox against fixtures,
-    publish packages and uploads to npm/OCI/GitHub Releases.
+    validate loads the binary in a production sandbox against fixtures,
+    publish uploads to npm/OCI/GitHub Releases. Publishing adheres to
+    the registry_api_openness invariant — the registry API specification
+    is published as an open standard.
   """
 }
 
-feature package_syntax_extensions "Package Syntax Extensions" {
-  behaviors [provide_plugin_query_extensions, compose_query_files_from_plugins]
+feature extension_query_contributions "Extension Query Contributions" {
+  behaviors [provide_extension_query_extensions, compose_query_files_from_extensions]
 
   problem """
-    Package entities get no syntax highlighting because tree-sitter
-    query files are hardcoded for the 16 built-in entity types. When
-    a package registers a new entity type (e.g., constraint, threat),
-    the grammar produces ERROR nodes and all editor features break:
-    no highlighting, no code folding, no document symbols.
+    While the generic entity_block rule handles all entity blocks
+    uniformly, extensions may want custom syntax highlighting patterns
+    for their entity keywords. Without query extensions, all extension
+    entities share the same default highlighting.
   """
 
   solution """
-    Packages declare .scm query extensions in their manifest via the
+    Extensions declare .scm query extensions in their manifest via the
     queryExtensions field. The LSP composes final query files by
-    concatenating base queries with package extensions in load order.
-    Query patterns are validated at package load time — invalid patterns
-    produce warnings without blocking the package. Combined with the
-    generic_entity_block grammar fallback (Tier 1) and semantic tokens
-    (Tier 3), this provides full editor support for package entities.
+    concatenating base queries with extension extensions in load order.
+    Query patterns are validated at extension load time — invalid patterns
+    produce warnings without blocking the extension. Combined with the
+    generic entity_block grammar rule (Tier 1) and semantic tokens
+    (Tier 3), this provides rich editor support for extension entities.
   """
 }
 
 feature entity_enhancement "Entity Enhancement" {
   behaviors [
-    load_package_manifest,
+    load_extension_manifest,
     register_entity_enhancements,
     detect_enhancement_conflicts,
     resolve_enhancement_conflicts,
@@ -82,16 +132,16 @@ feature entity_enhancement "Entity Enhancement" {
   ]
 
   problem """
-    Packages can add new entity types but cannot enhance existing entities
-    with additional fields or edges. This blocks architectural packages
-    (e.g., hexagonal architecture) that need to annotate core entities
-    like behavior and port with domain-specific metadata.
+    Extensions can add new entity types but cannot enhance existing entities
+    with additional fields or edges. This blocks cross-cutting extensions
+    that need to annotate entity kinds defined by other extensions with
+    additional metadata.
   """
 
   solution """
-    Packages declare entity enhancements in their sidecar manifest.json.
+    Extensions declare entity enhancements in their sidecar manifest.json.
     The compiler loads enhancement declarations at startup, builds a
-    FieldRegistry combining built-in and enhanced fields, and threads
+    FieldRegistry combining extension-defined and enhanced fields, and threads
     it through the resolve/graph-build/validate pipeline. Enhanced
     reference fields create graph edges. Conflicts are detected at
     startup and resolved via configurable policies (error/priority/
@@ -110,10 +160,10 @@ feature entity_kind_conflict_prevention "Entity Kind Conflict Prevention" {
   ]
 
   problem """
-    Wasm packages register new entity kinds during initialization but
-    there is no mechanism to prevent name collisions. Two packages can
-    register the same kind name, a package can shadow a built-in keyword,
-    and define blocks can collide with package kinds — all silently.
+    Wasm extensions register new entity kinds during initialization but
+    there is no mechanism to prevent name collisions. Two extensions can
+    register the same kind name, an extension can shadow a reserved keyword,
+    and define blocks can collide with extension kinds — all silently.
   """
 
   solution """
@@ -121,90 +171,115 @@ feature entity_kind_conflict_prevention "Entity Kind Conflict Prevention" {
     words at registration time, Layer 2 detects duplicates via a
     KindRegistry, Layer 3 resolves conflicts through config-driven
     policies (error/priority/namespace), and Layer 4 supports inline
-    @plugin/kind qualification in the DSL for explicit disambiguation.
+    @extension/kind qualification in the DSL for explicit disambiguation.
   """
 }
 
-feature wasm_package_lifecycle "Wasm Package Lifecycle" {
+feature wasm_extension_installation "Wasm Extension Installation" {
   behaviors [
-    install_wasm_package, upgrade_wasm_package, invalidate_aot_cache, discover_packages,
-    parse_package_specifier, resolve_package_source,
-    write_lock_file, read_lock_file, verify_wasm_integrity,
+    install_wasm_extension, uninstall_wasm_extension, upgrade_wasm_extension,
+    parse_extension_specifier, resolve_extension_source,
   ]
 
   problem """
-    There is no specification for package install, upgrade, and cache
-    lifecycle management. Developers cannot install packages from sources,
-    upgrade to newer versions, or manage the AOT compilation cache through
-    documented, tested behaviors.
+    Extensions need a reliable install/uninstall/upgrade workflow that
+    resolves from multiple sources (registry, local, git) and maintains
+    project configuration integrity.
   """
 
   solution """
-    Explicit lifecycle behaviors covering the full install/upgrade/cache
-    workflow. Install resolves from multiple sources (registry, local, git),
-    verifies integrity, and AOT compiles. Upgrade checks compatibility
-    and handles breaking peer dependencies. Cache invalidation triggers on
-    runtime version changes, manual clear, and binary changes. Lock file
-    pins exact versions with SHA256 integrity hashes for reproducible builds.
+    Install resolves from multiple sources, verifies integrity, and AOT
+    compiles. Uninstall removes the extension, invalidates caches, and
+    checks peer dependencies. Upgrade checks compatibility and handles
+    breaking peer dependencies.
+  """
+}
+
+feature wasm_lock_management "Wasm Lock Management" {
+  behaviors [
+    write_lock_file, read_lock_file, refresh_lock_file, verify_wasm_integrity,
+  ]
+
+  problem """
+    Reproducible builds require pinning exact extension versions with
+    integrity verification. Without a lock file, different environments
+    may resolve different extension versions.
+  """
+
+  solution """
+    Lock file (specforge.lock) pins exact versions with SHA256 integrity
+    hashes for reproducible builds. Lock file is read at startup to verify
+    installed extensions match expected hashes. Refresh updates the lock
+    file when extensions are added or upgraded.
+  """
+}
+
+feature wasm_extension_maintenance "Wasm Extension Maintenance" {
+  behaviors [
+    discover_extensions, invalidate_aot_cache, update_all_extensions,
+  ]
+
+  problem """
+    Extension ecosystems need discovery, cache management, and bulk
+    update capabilities. Without these, users must manage extensions
+    individually and manually clear stale caches.
+  """
+
+  solution """
+    Discovery queries registries for available extensions. AOT cache
+    invalidation triggers on runtime version changes, manual clear,
+    and binary changes. Bulk update checks all extensions for newer
+    versions and upgrades them in dependency order.
   """
 }
 
 feature contribution_based_extensions "Contribution-Based Extensions" {
   behaviors [
+    validate_extension_manifest,
     dispatch_contribution_exports,
     validate_contribution_exports,
     enforce_per_call_site_permissions,
-    toggle_package_contributions,
-    migrate_v1_manifest,
+    toggle_extension_contributions,
   ]
 
   problem """
-    The PluginKind taxonomy forces each package into a single role
-    (plugin, provider, or generator). A package like @specforge/jira
-    that contributes entities, ref validation, AND code generation must
-    be split into three separate packages — tripling distribution,
-    versioning, and configuration overhead.
+    Extensions need a structured way to declare what they contribute
+    (entities, validators, renderers, providers, collectors) with
+    per-entity metadata such as testable flags, field type definitions,
+    and structured validation rule patterns.
   """
 
   solution """
-    Packages declare a contributes manifest key listing what they
-    contribute: entities, validators, generators, providers. The
-    compiler routes to namespaced Wasm exports based on contributions.
-    Per-call-site permissions enforce least-privilege for each export.
-    V1 manifests with PluginKind are auto-migrated with a W028 warning.
+    Structured manifest format with typed objects (entity_kinds
+    ManifestEntityKind[], validation_rules ValidationRulePattern[],
+    edge_types ManifestEdgeType[]). Each extension declares a contributes
+    key listing what it provides. The five contribution types are:
+    entities (domain vocabulary), validators (graph validation rules),
+    renderers (non-code outputs: reports, dashboards, traceability
+    matrices), providers (ref validation), and collectors (test result
+    ingestion). The compiler routes to namespaced Wasm exports based on
+    contributions. Per-call-site permissions enforce least-privilege for
+    each contribution export.
   """
 }
 
-feature package_source_resolution "Package Source Resolution" {
-  behaviors [parse_package_specifier, resolve_package_source, discover_packages]
+feature test_result_collection "Test Result Collection" {
+  behaviors [register_collector_contributions, auto_detect_collector, dispatch_collector, validate_collector_output, ingest_collector_report]
 
   problem """
-    Packages need reproducible installation from multiple sources. Local
-    development requires loading from filesystem paths without publishing.
-    Teams need to share packages via git before a registry is available.
+    SpecForge traces test results but does not execute tests. Extensions need
+    a formal contribution type for collectors that parse test runner output
+    (JUnit XML, TAP, etc.) and map results back to spec entities. Without a
+    collector contribution type, test result ingestion requires ad-hoc scripts
+    outside the extension model, breaking Principle 5 (extensions over built-ins).
   """
 
   solution """
-    Three source types with string shorthand and object form:
-    registry (@scope/name@version), local (./path), and git
-    (git:url#ref). The specifier format is parsed into a structured
-    source descriptor and resolved to a concrete manifest + .wasm binary.
-  """
-}
-
-feature package_version_management "Package Version Management" {
-  behaviors [write_lock_file, read_lock_file, verify_wasm_integrity]
-
-  problem """
-    Without version pinning, builds are not reproducible. Two developers
-    running specforge add at different times may get different package
-    versions, leading to inconsistent behavior and hard-to-debug issues.
-  """
-
-  solution """
-    specforge.lock pins exact resolved versions with SHA256 wasm_hash
-    for each installed package. Lock file is deterministic — same inputs
-    always produce byte-identical output. Integrity verification detects
-    tampering. Explicit specforge update workflow for version bumps.
+    Formal CollectorContribution type in extension manifests. Collectors
+    declare input formats, auto-detection criteria, entity mapping strategies,
+    and a Wasm export. The compiler registers collectors at startup, auto-detects
+    the appropriate collector, dispatches it with entity IDs, validates the
+    output against specforge-report/v1 schema, and ingests results into the
+    graph with coverage metadata.
   """
 }

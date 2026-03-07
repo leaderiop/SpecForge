@@ -3,14 +3,19 @@
 **Expert perspective:** SpecForge codebase architect — analysis of what CAN and CANNOT be extended
 **Decision outcome:** Wasm/Extism adopted as unified plugin runtime. Extension surface area analyzed below with Wasm-specific annotations.
 
+> **Note:** Sections 1-3 describe the historical architecture superseded by zero-entity core (RES-26). Code examples show old hardcoded enums for context. The extensibility analysis in sections 4-7 remains valid.
+
 ---
 
-## 1. Current Architecture: What's Hardcoded
+## 1. Historical Architecture (Superseded by RES-26)
 
-### Entity Types — Compile-Time Enum
+> **Note:** This section describes the old architecture. In the zero-entity core (RES-26), `EntityKind` uses `Custom(String)` for all extension-defined types, and the tree-sitter grammar parses a generic `entity_block` for ANY keyword.
+
+### Entity Types (Historical)
 
 ```rust
-// crates/specforge-common/src/lib.rs
+// OLD — replaced by zero-entity core (RES-26)
+// Now uses KindRegistry + Custom(String) variant
 pub enum EntityKind {
     Spec, Invariant, Behavior, Feature, Event, Type, Port, Ref,  // Core 8
     Capability, Deliverable, Roadmap, Library, Glossary,          // Product 5
@@ -18,34 +23,22 @@ pub enum EntityKind {
 }
 ```
 
-All 16 entity kinds are Rust enum variants. Adding a new kind requires recompiling. Rust's exhaustive match enforcement means every `match entity_kind { ... }` must handle all variants.
+`KindRegistry` is now populated at runtime by extensions. Core has zero built-in entity types.
 
-### Tree-sitter Grammar — Compiled to C
+### Tree-sitter Grammar (Historical)
 
 ```javascript
-// crates/tree-sitter-specforge/grammar.js
+// OLD — replaced by generic entity_block (RES-26)
+// Now the grammar parses ANY keyword generically
 _block: ($) => choice(
     $.spec_block,
     $.invariant_block,
-    $.behavior_block,
-    $.feature_block,
-    $.event_block,
-    $.type_block,
-    $.port_block,
-    $.ref_block,
-    $.capability_block,
-    $.deliverable_block,
-    $.roadmap_block,
-    $.library_block,
-    $.glossary_block,
-    $.decision_block,
-    $.constraint_block,
-    $.failure_mode_block,
-    $.define_block,  // <-- ONLY generic extension point
+    // ... all 16 enumerated at compile time
+    $.define_block,
 ),
 ```
 
-Tree-sitter compiles `grammar.js` to `parser.c` which is statically linked into the Rust binary. **Cannot be modified at runtime.** This constraint applies equally to all runtimes — Wasm, Lua, Rhai, or subprocess. Wasm plugins operate downstream of parsing, on the already-parsed graph.
+The grammar now uses a generic `entity_block` rule that parses any `keyword name { fields }` pattern. Validation of which keywords are legal comes from extensions, not the grammar.
 
 ### Edge Types — Compile-Time Enum
 
@@ -108,9 +101,9 @@ define epic {
 - No custom edge types (Wasm plugins fill this gap)
 - Second-class citizens in the graph
 
-### Generators (Fully Extensible via Wasm)
+### File Emission (Extensible via Wasm)
 
-Wasm plugins call `specforge.emit_file(path, content)` to produce output files. Host validates paths and enforces sandboxing.
+Wasm extensions call `specforge.emit_file(path, content)` to produce output files. Host validates paths and enforces sandboxing.
 
 ### Providers (Fully Extensible via Wasm)
 
@@ -126,7 +119,7 @@ Wasm plugins call `specforge.http_get(url)` for external service validation. Hos
 | **AST types** | NO | — | Upstream of Wasm |
 | **Validation passes** | YES | `specforge.query_graph` + `specforge.emit_diagnostic` | Primary Wasm use case |
 | **Graph queries** | YES (read-only) | `specforge.query_graph` | All plugins share same graph |
-| **Code generation** | YES | `specforge.emit_file` | Host validates output paths |
+| **File emission** | YES | `specforge.emit_file` | Host validates output paths |
 | **Ref providers** | YES | `specforge.http_get` | Host mediates network access |
 | **LSP completions** | YES (via contributions) | Plugin manifest `completions` | Merged with built-in completions |
 | **LSP diagnostics** | YES | Same as validation | Diagnostics merged into LSP stream |
@@ -178,16 +171,16 @@ This two-layer approach gives full extensibility:
 ## 5. Wasm Plugin Lifecycle
 
 ```
-1. specforge reads specforge.json → discovers plugins
-2. Validates peer_dependencies for all declared Wasm plugins
-3. Topologically sorts: core → @specforge/product → @specforge/governance → third-party
+1. specforge reads specforge.json → discovers extensions
+2. Validates peer_dependencies for all declared Wasm extensions
+3. Topologically sorts: @specforge/software → @specforge/product → @specforge/governance → third-party
 4. CLI: AOT-compile .wasm modules (cached in .specforge/cache/)
 5. LSP/MCP: keep warm Extism engine instances
-6. Load each plugin, call initialize() → registers entities, edges, host function bindings
-7. Parse .spec files (tree-sitter — no plugins involved)
-8. Build graph (core + define entities)
-9. Call validate() on each plugin → collect diagnostics
-10. For generators: call generate() → each plugin emits files via specforge.emit_file
+6. Load each extension, call initialize() → registers entities, edges, host function bindings
+7. Parse .spec files (tree-sitter — generic entity_block, no extensions involved)
+8. Build graph (extension-registered entities + define entities)
+9. Call validate() on each extension → collect diagnostics
+10. Export graph (Graph Protocol JSON, DOT, etc.)
 11. Merge all diagnostics with built-in validation
 12. Output results
 ```
@@ -226,7 +219,7 @@ The MCP server dynamically registers these tools. When invoked, the host calls t
 ```
 ┌─────────────────────────────────────────────┐
 │  Tree-sitter Parser (compile-time, static)  │
-│  Handles: 16 built-in blocks + define       │
+│  Handles: generic entity blocks + define       │
 │  NOT extensible at runtime                  │
 └──────────────────┬──────────────────────────┘
                    │ AST

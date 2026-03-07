@@ -176,12 +176,12 @@ AG2 represents a **complementary but different approach**:
 - **AG2:** Runtime orchestration framework (execution layer)
 - **SpecForge:** Specification-first framework (design & validation layer)
 
-SpecForge could potentially **generate AG2 orchestration code** from specifications as a target backend. AG2 has no equivalent to SpecForge's:
+SpecForge could potentially **provide structured context** from specifications that agents use to produce AG2 orchestration code. AG2 has no equivalent to SpecForge's:
 - Formal specification DSL
 - Entity model (behavior, invariant, capability, etc.)
 - Test traceability chains
 - Static validation of agent interactions
-- Code generation from specs
+- Structured context from specs (agents produce code, not SpecForge)
 
 ---
 
@@ -248,11 +248,11 @@ Implementation library translating formal specifications into executable runtime
 
 **Key Differences:**
 - **ABC:** Runtime monitoring library (enforcement layer)
-- **SpecForge:** Compiler + DSL + test generation (development layer)
+- **SpecForge:** Compiler + DSL + test traceability (development layer)
 - ABC focuses on **runtime compliance**
 - SpecForge focuses on **specification-driven development + test traceability**
 
-**Potential Synergy:** SpecForge specs could generate ABC contracts for runtime enforcement. SpecForge operates upstream (development-time), ABC operates downstream (runtime).
+**Potential Synergy:** SpecForge's entity graph provides structured context that agents use to produce ABC contracts for runtime enforcement. SpecForge operates upstream (development-time), ABC operates downstream (runtime).
 
 ---
 
@@ -338,7 +338,7 @@ Implemented by: AutoGPT, Auto-GPT-Forge, smol developer
 #### Relevance to SpecForge
 - **API standardization** (runtime interface)
 - **SpecForge:** Specification language (development-time contracts)
-- **Complementary:** SpecForge could generate Agent Protocol-compliant APIs from specs
+- **Complementary:** SpecForge's graph provides context for agents producing Agent Protocol-compliant APIs
 - Agent Protocol has no specification/validation layer - purely runtime API standard
 
 ---
@@ -363,7 +363,7 @@ Unified protocol for LLM-tool connections, eliminating need for custom integrati
 #### Relevance to SpecForge
 - **Tool integration protocol** (runtime tool access)
 - **SpecForge:** Specification framework (behavioral contracts)
-- **Integration opportunity:** SpecForge `port` entity could generate MCP server definitions
+- **Integration opportunity:** SpecForge `port` entity provides context for agents producing MCP server definitions
 - MCP has no specification/validation of agent behaviors - purely tool access standard
 
 ---
@@ -444,7 +444,7 @@ StateGraph(TypedDict)  # Define typed state schema
 - Infrastructure layer (graph execution engine)
 - **Not a specification framework** - developers define behavior via code
 - No formal validation, no test generation
-- **Complementary:** SpecForge could generate LangGraph workflows from specs
+- **Complementary:** SpecForge's graph provides context for agents producing LangGraph workflows
 
 ---
 
@@ -999,7 +999,7 @@ The "Agent OS" space is **highly fragmented** with no dominant specification fra
 | Category | Projects | Focus | SpecForge Overlap |
 |----------|----------|-------|-------------------|
 | **Orchestration Frameworks** | AG2, CrewAI, LangGraph, MetaGPT, ChatDev | Runtime agent coordination | Low - execution layer |
-| **Protocol Standards** | Agent Protocol, MCP | API/tool standardization | Medium - could generate compliant code |
+| **Protocol Standards** | Agent Protocol, MCP | API/tool standardization | Medium - graph context enables compliant code production |
 | **Academic Research** | ABC Framework, AgentOS paper, AI Runtime | Theoretical architectures | High - ABC closest to SpecForge mission |
 | **Code Generation** | smol developer, Devika, OpenHands | AI-powered code generation | Low - different problem domain |
 | **Infrastructure** | E2B, AgentD, AgentOps | Sandboxing, OS access, monitoring | Low - infrastructure layer |
@@ -1022,9 +1022,9 @@ The "Agent OS" space is **highly fragmented** with no dominant specification fra
    - No built-in connection between specs and test files
    - No verification that tests match specifications
 
-4. **Code generation from specifications**
+4. **Structured context from specifications for agent consumption**
    - Code generation agents create full apps (not test scaffolding)
-   - No frameworks generate tests from behavioral contracts
+   - No frameworks provide structured specification context for agents producing tests from behavioral contracts
 
 5. **Static validation** of multi-agent interactions
    - Validation happens at runtime (if at all)
@@ -1032,7 +1032,7 @@ The "Agent OS" space is **highly fragmented** with no dominant specification fra
 
 6. **Specification-first development workflow**
    - All frameworks are code-first or configuration-first
-   - SpecForge's "spec → validate → generate → test → trace" workflow is unique
+   - SpecForge's "spec → validate → export graph → agent consumes → test → trace" workflow is unique
 
 ### 10.3 Closest Competitors / Comparable Projects
 
@@ -1041,13 +1041,13 @@ The "Agent OS" space is **highly fragmented** with no dominant specification fra
 **Agent Behavioral Contracts (ABC Framework)**
 - **Overlap:** Formal specification of agent behaviors
 - **Difference:** Runtime enforcement library (not development-time compiler)
-- **Synergy Potential:** SpecForge specs could generate ABC contracts
+- **Synergy Potential:** SpecForge's entity graph provides structured context that agents use to produce ABC contracts
 - **Status:** Academic research (2026), implementation library exists
 
 **Pydantic AI**
 - **Overlap:** Type-driven validation, structured outputs
 - **Difference:** Runtime validation of outputs (not behavioral contracts)
-- **Synergy Potential:** SpecForge could generate Pydantic AI agent definitions
+- **Synergy Potential:** SpecForge's entity graph provides structured context that agents use to produce Pydantic AI agent definitions
 - **Status:** Production-ready framework (15.2k stars)
 
 #### Tier 2: Adjacent (Different Layer, Potential Integration)
@@ -1055,19 +1055,19 @@ The "Agent OS" space is **highly fragmented** with no dominant specification fra
 **AG2 (AutoGen)**
 - **Overlap:** Multi-agent orchestration
 - **Difference:** Runtime framework (not specification layer)
-- **Synergy Potential:** SpecForge generates AG2 orchestration code
+- **Synergy Potential:** SpecForge's graph provides structured context for agents producing AG2 orchestration code
 - **Status:** Production-ready, good adoption (~4.2k stars)
 
 **Agent Protocol**
 - **Overlap:** Standardization of agent interactions
 - **Difference:** API standard (not specification language)
-- **Synergy Potential:** SpecForge generates Agent Protocol-compliant APIs
+- **Synergy Potential:** SpecForge's graph provides structured context for agents producing Agent Protocol-compliant APIs
 - **Status:** Adopted by AutoGPT, Auto-GPT-Forge, smol developer
 
 **Model Context Protocol (MCP)**
 - **Overlap:** Standardization of tool access
 - **Difference:** Tool integration protocol (not agent behavior specs)
-- **Synergy Potential:** SpecForge `port` entity generates MCP servers
+- **Synergy Potential:** SpecForge `port` entity graph provides context for agents producing MCP server definitions
 - **Status:** Backed by major players (AWS, Azure, Atlassian)
 
 #### Tier 3: Tangentially Related (Different Problem Domain)
@@ -1075,17 +1075,17 @@ The "Agent OS" space is **highly fragmented** with no dominant specification fra
 **LangGraph, CrewAI, MetaGPT, ChatDev, Semantic Kernel**
 - Focus on runtime orchestration and execution
 - No specification or validation layer
-- Could be code generation targets for SpecForge
+- Could consume SpecForge's entity graph as structured context
 
 **smol developer, Devika, OpenHands**
 - Focus on AI-powered code generation
-- Different from specification-driven test generation
+- Different from specification-driven test traceability
 - Could potentially use SpecForge specs as input
 
 **E2B, AgentD, AgentOps**
 - Infrastructure/observability layer
 - Orthogonal to specification frameworks
-- SpecForge-generated agents could use these services
+- Agents working from SpecForge context could use these services
 
 ### 10.4 Market Position for SpecForge
 
@@ -1097,7 +1097,7 @@ SpecForge operates in a **largely unoccupied space** - the specification-driven 
 2. **Only test traceability framework** linking specs → tests → results
 3. **Only compiler-based validation** of agent contracts (static analysis)
 4. **Only entity model** for structured agent specifications
-5. **Upstream position** - generates code for other frameworks (AG2, LangGraph, etc.)
+5. **Upstream position** — provides structured context that agents consume to produce code for other frameworks (AG2, LangGraph, etc.)
 
 **Primary Target Audience (Based on Landscape Analysis):**
 1. **AI Engineering Teams** - need spec-driven development for agent systems
@@ -1122,11 +1122,11 @@ SpecForge operates in a **largely unoccupied space** - the specification-driven 
 - **ABC Framework:** Collaborate on spec → runtime enforcement pipeline
 - **Agent Protocol:** Generate compliant APIs from SpecForge specs
 - **MCP:** Generate MCP servers from SpecForge `port` entities
-- **AG2/LangGraph:** Code generation targets (SpecForge as specification layer)
+- **AG2/LangGraph:** Context consumers (SpecForge as upstream specification layer)
 
 **Differentiation Messaging:**
 - "Other frameworks focus on execution. SpecForge focuses on **specification and validation**."
-- "You write specs once. SpecForge generates tests, validates behaviors, and ensures traceability."
+- "You write specs once. SpecForge validates behaviors, provides structured context for agents, and ensures traceability."
 - "Move agent governance from runtime to **compile-time**."
 
 **Avoid Comparisons With:**
@@ -1166,7 +1166,7 @@ SpecForge operates in a **largely unoccupied space** - the specification-driven 
 
 **SpecForge should position as:**
 - **Complementary infrastructure** (not competitive with AG2/LangGraph)
-- **Upstream specification layer** (generates code for existing frameworks)
+- **Upstream specification layer** (provides structured context that agents consume to produce code for existing frameworks)
 - **Test traceability solution** (fills gap in agent development lifecycle)
 - **Formal methods approach** (aligns with academic research on agent governance)
 
@@ -1174,7 +1174,7 @@ SpecForge operates in a **largely unoccupied space** - the specification-driven 
 - ABC Framework (runtime enforcement)
 - Agent Protocol (API compliance)
 - MCP (tool integration)
-- AG2, LangGraph, CrewAI (code generation targets)
+- AG2, LangGraph, CrewAI (structured context consumers)
 
 **Avoid direct competition messaging** with popular frameworks - emphasize that SpecForge makes existing frameworks **safer, more reliable, and more maintainable** through formal specifications and test traceability.
 

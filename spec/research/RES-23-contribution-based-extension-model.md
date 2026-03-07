@@ -1,25 +1,25 @@
 ---
 id: RES-23
 kind: research
-title: "Contribution-Based Extension Model — 10-Expert Redesign of the Package Architecture"
+title: "Contribution-Based Extension Model — 10-Expert Redesign of the Extension Architecture"
 status: active
 date: 2026-03-03
 depends_on: [RES-11a, RES-22]
 priority: critical
-tags: [wasm, extensions, architecture, naming, packages]
+tags: [wasm, extensions, architecture, naming, extensions]
 ---
 
 # RES-23: Contribution-Based Extension Model
 
 ## Executive Summary
 
-The current extension model classifies every Wasm package as exactly one of three roles via `PluginKind::Plugin | Provider | Generator`. This forces artificial package splitting: a Jira integration requires three separate packages with version sync nightmares, duplicated internals, and self-referential peer dependencies.
+The current extension model classifies every Wasm extension as exactly one of three roles via `PluginKind::Plugin | Provider | Generator`. This forces artificial extension splitting: a Jira integration requires three separate extensions with version sync nightmares, duplicated internals, and self-referential peer dependencies.
 
-A **10-expert panel** converged on replacing the role-based taxonomy with a **contribution-based model** inspired by VS Code's `contributes` manifest key. A single package declares what it contributes — entities, edges, ref schemes, validators, generators — at the granularity of individual items, not coarse roles. The host dispatches to the right pipeline phase based on declared contributions.
+A **10-expert panel** converged on replacing the role-based taxonomy with a **contribution-based model** inspired by VS Code's `contributes` manifest key. A single extension declares what it contributes — entities, edges, ref schemes, validators — at the granularity of individual items, not coarse roles. The host dispatches to the right pipeline phase based on declared contributions.
 
 This document also establishes:
-- The **new naming convention** for the entire extension system, replacing "Wasm plugin" terminology with "package" terminology
-- The **package source resolution** model with registry, local path, and git sources
+- The **new naming convention** for the entire extension system, replacing "Wasm plugin" terminology with "extension" terminology
+- The **extension source resolution** model with registry, local path, and git sources
 - The **version pinning** strategy with semver ranges and a lock file
 - The **per-call-site sandbox** model for least-privilege security
 
@@ -27,23 +27,21 @@ This document also establishes:
 
 ## Problem Statement
 
-### 1. The `PluginKind` Enum Forces Single-Role Packages
+### 1. The `PluginKind` Enum Forces Single-Role Extensions
 
 ```rust
 // Current: crates/specforge-wasm/src/manifest.rs:69-76
 pub enum PluginKind {
     Plugin,     // entities + edges + validation
     Provider,   // ref schemes + URL resolution
-    Generator,  // file emission
 }
 ```
 
-A `@specforge/jira` package naturally provides all three concerns:
+A `@specforge/jira` extension naturally provides both concerns:
 - **Entities**: `epic`, `story`, `task`, `sprint` (plugin role)
 - **Ref resolution**: `jira:PROJ-42` → validate against Jira API (provider role)
-- **Generation**: export spec entities as Jira-importable CSV (generator role)
 
-The current model forces this into three packages or an arbitrary choice of one role.
+The current model forces this into three extensions or an arbitrary choice of one role.
 
 ### 2. Duplicated Structs
 
@@ -56,14 +54,14 @@ These should be one type.
 ### 3. Naming Inconsistency
 
 The term "plugin" is overloaded:
-- The `plugins` key in `specforge.json` lists all packages (including those that are providers or generators)
+- The `plugins` key in `specforge.json` lists all extensions (including those that are providers)
 - `PluginKind::Plugin` is one specific role
-- `WasmPluginManifest` describes all packages, not just plugins
+- `WasmPluginManifest` describes all extensions, not just plugins
 - The `specforge-wasm` crate prefixes everything with `Wasm` even though that's an implementation detail
 
 ### 4. No Version Control
 
-Packages have no version pinning, no source specifiers, and no lock file. Builds are not reproducible.
+Extensions have no version pinning, no source specifiers, and no lock file. Builds are not reproducible.
 
 ---
 
@@ -73,37 +71,37 @@ Packages have no version pinning, no source specifiers, and no lock file. Builds
 
 **Prior art**: Terraform providers register N resource types + N data sources in one binary. VSCode extensions contribute commands, languages, debuggers, themes in one `.vsix`. Kubernetes operators register CRDs, controllers, webhooks in one binary. None use a `kind` enum.
 
-**Verdict**: Replace role taxonomy with contribution declarations. A package says what it contributes, not what it is.
+**Verdict**: Replace role taxonomy with contribution declarations. An extension says what it contributes, not what it is.
 
-### Expert #2 — Package Manager Architect
+### Expert #2 — Extension Manager Architect
 
-**Principle**: The package is the unit of distribution. The contribution is the unit of functionality.
+**Principle**: The extension is the unit of distribution. The contribution is the unit of functionality.
 
-**Prior art**: npm packages contain bins, libs, types, browser bundles — no `kind: "library"` field. Cargo crates have `[[bin]]`, `[lib]`, features — multiple artifact types from one source.
+**Prior art**: npm extensions contain bins, libs, types, browser bundles — no `kind: "library"` field. Cargo crates have `[[bin]]`, `[lib]`, features — multiple artifact types from one source.
 
-**Verdict**: Separate distribution identity (package name, version) from functional identity (what it contributes). One package version covers all its contributions atomically. Add version pinning with semver ranges, source specifiers, and a lock file.
+**Verdict**: Separate distribution identity (extension name, version) from functional identity (what it contributes). One extension version covers all its contributions atomically. Add version pinning with semver ranges, source specifiers, and a lock file.
 
 ### Expert #3 — Wasm/Extism Expert
 
 **Key insight**: One `.wasm` module = one linear memory = one sandbox boundary. Multiple contributions share state naturally (Jira API client initialized once, used by entity registration, ref resolution, and generation).
 
-**Verdict**: Use namespaced Wasm exports (`entities__register`, `refs__resolve`, `generators__run`). The host calls only the exports that correspond to declared contributions. Missing export for declared contribution = load-time error `E020`.
+**Verdict**: Use namespaced Wasm exports (`entities__register`, `refs__resolve`, `validators__run`). The host calls only the exports that correspond to declared contributions. Missing export for declared contribution = load-time error `E020`.
 
 ### Expert #4 — Developer Experience
 
-**Principle**: A package that only adds one ref scheme should be 20 lines of code, not 200.
+**Principle**: An extension that only adds one ref scheme should be 20 lines of code, not 200.
 
-**Verdict**: No boilerplate for unused contribution types. Authors implement only the exports they declare. The `specforge package init` scaffolding asks "what will your package contribute?" and generates only the necessary code.
+**Verdict**: No boilerplate for unused contribution types. Authors implement only the exports they declare. The `specforge extension init` scaffolding asks "what will your extension contribute?" and generates only the necessary code.
 
 ### Expert #5 — Security Architect
 
-**Key insight**: The OS concept of "capabilities" means granting minimum necessary permissions per operation, not per identity. Apply this per call-site, not per package.
+**Key insight**: The OS concept of "capabilities" means granting minimum necessary permissions per operation, not per identity. Apply this per call-site, not per extension.
 
-**Verdict**: Same `.wasm` module gets different host function permissions depending on which export the host is calling. When the host calls `refs__resolve()`, it wires up `http_get` but blocks `emit_file`. When calling `generators__run()`, it wires up `emit_file` but blocks `http_get`. Enforcement at the host dispatch level. Lock file integrity hashes verify `.wasm` binaries haven't been tampered with.
+**Verdict**: Same `.wasm` module gets different host function permissions depending on which export the host is calling. When the host calls `refs__resolve()`, it wires up `http_get` but blocks `emit_diagnostic`. Enforcement at the host dispatch level. Lock file integrity hashes verify `.wasm` binaries haven't been tampered with.
 
 ### Expert #6 — Compiler Pipeline Architect
 
-**Key insight**: The compilation pipeline has phases (parse → register → build graph → resolve → validate → generate). Contributions plug into specific phases. The contribution types ARE the extension points — they're not arbitrary categories but pipeline insertion points.
+**Key insight**: The compilation pipeline has phases (parse → register → build graph → resolve → validate → export). Contributions plug into specific phases. The contribution types ARE the extension points — they're not arbitrary categories but pipeline insertion points.
 
 ```
 PHASE 1: PARSE ---------> query_extensions
@@ -111,7 +109,7 @@ PHASE 2: REGISTER ------> entities, edges, enhancements
 PHASE 3: BUILD GRAPH ----> (internal, no extension point)
 PHASE 4: RESOLVE -------> ref_schemes
 PHASE 5: VALIDATE ------> validators
-PHASE 6: GENERATE ------> generators
+PHASE 6: EXPORT --------> (Graph Protocol, JSON, DOT — internal, no extension point)
 PHASE 7: REPORT --------> reporters        (future)
 PHASE 8: SYNC ----------> syncers          (future)
 ```
@@ -126,21 +124,21 @@ PHASE 8: SYNC ----------> syncers          (future)
 
 ### Expert #8 — Registry / Distribution
 
-**Key insight**: Contribution-level indexing beats package-level search. Reproducible builds require a lock file.
+**Key insight**: Contribution-level indexing beats extension-level search. Reproducible builds require a lock file.
 
-**Verdict**: The registry indexes contributions, not packages. Search "who provides ref_scheme `jira`?" not "which packages are providers?". Conflict detection becomes automatic at the contribution level. `specforge.lock` pins exact versions and `.wasm` integrity hashes.
+**Verdict**: The registry indexes contributions, not extensions. Search "who provides ref_scheme `jira`?" not "which extensions are providers?". Conflict detection becomes automatic at the contribution level. `specforge.lock` pins exact versions and `.wasm` integrity hashes.
 
 ### Expert #9 — AI Agent Integration
 
-**Key insight**: Agents need flat queries: "what entity types exist?", "what can I generate?". The contribution model makes this a simple aggregation across all loaded packages.
+**Key insight**: Agents need flat queries: "what entity types exist?", "what validators run?". The contribution model makes this a simple aggregation across all loaded extensions.
 
-**Verdict**: Future `mcp_tools` contribution type lets packages expose MCP tools directly to AI agents. The flat contribution model makes discovery trivial.
+**Verdict**: Future `mcp_tools` contribution type lets extensions expose MCP tools directly to AI agents. The flat contribution model makes discovery trivial.
 
 ### Expert #10 — Ecosystem Strategist
 
-**Key insight**: Low barrier to entry drives ecosystem adoption. A package with just one ref scheme (20 lines of Rust) should be as easy to publish as a full-featured integration.
+**Key insight**: Low barrier to entry drives ecosystem adoption. An extension with just one ref scheme (20 lines of Rust) should be as easy to publish as a full-featured integration.
 
-**Verdict**: The contribution model creates a marketplace of capabilities, not a marketplace of packages. Three source types (registry, local, git) let authors iterate locally, share via git, and publish to registry when ready.
+**Verdict**: The contribution model creates a marketplace of capabilities, not a marketplace of extensions. Three source types (registry, local, git) let authors iterate locally, share via git, and publish to registry when ready.
 
 ---
 
@@ -152,7 +150,7 @@ The `kind` field is removed. Replaced by `contributes` with well-known keys:
 
 ```json
 {
-  "package": "@specforge/jira",
+  "extension": "@specforge/jira",
   "manifest_version": "2",
   "version": "1.0.0",
   "wasm": "jira.wasm",
@@ -213,13 +211,6 @@ The `kind` field is removed. Replaced by `contributes` with well-known keys:
       }
     ],
 
-    "generators": [
-      {
-        "name": "jira-sync",
-        "description": "Export spec entities as Jira-importable CSV"
-      }
-    ],
-
     "query_extensions": [
       { "path": "queries/jira-highlights.scm" }
     ]
@@ -230,9 +221,6 @@ The `kind` field is removed. Replaced by `contributes` with well-known keys:
     "max_fuel": 1000000,
     "refs": {
       "allowed_domains": ["*.atlassian.net"]
-    },
-    "generators": {
-      "output_subdir": "jira"
     }
   },
 
@@ -251,7 +239,6 @@ The `kind` field is removed. Replaced by `contributes` with well-known keys:
 | `dynamic_edge_types: [...]` | `contributes.edges: [...]` |
 | `enhancements: [...]` | `contributes.enhancements: [...]` |
 | `provider: { schemes, kinds }` | `contributes.ref_schemes: [...]` |
-| `generator: { name }` | `contributes.generators: [...]` (array, not single) |
 | `query_extensions: [...]` | `contributes.query_extensions: [...]` |
 | `sandbox: { flat }` | `sandbox: { per-contribution-type scoping }` |
 
@@ -264,7 +251,6 @@ v1.0 (ship with initial release):
   enhancements      Additional fields on existing entity kinds
   ref_schemes       Reference scheme handlers (resolve + validate)
   validators        Custom validation passes
-  generators        Code/artifact generators
   query_extensions  Tree-sitter .scm query patterns
 
 Future (additive, no schema migration):
@@ -290,16 +276,15 @@ Conflict detection applies per contribution item:
 
 | Conflict | Code | Resolution |
 |---|---|---|
-| Two packages contribute same ref scheme | E021 | Disable one via `enable` |
-| Two packages contribute same entity kind | E022 | Existing `entity_kind_policy` |
-| Two packages contribute same edge label | E023 | Disable one via `enable` |
-| Two packages contribute same generator name | E024 | Disable one via `enable` |
-| Two packages contribute same validator name | E025 | Disable one via `enable` |
-| Two packages enhance same (entity, field) | E017 | Existing `enhancement_policy` |
+| Two extensions contribute same ref scheme | E021 | Disable one via `enable` |
+| Two extensions contribute same entity kind | E022 | Existing `entity_kind_policy` |
+| Two extensions contribute same edge label | E023 | Disable one via `enable` |
+| Two extensions contribute same validator name | E025 | Disable one via `enable` |
+| Two extensions enhance same (entity, field) | E017 | Existing `enhancement_policy` |
 
 ---
 
-## 2. Package Source Resolution
+## 2. Extension Source Resolution
 
 ### 2.1 Three Source Types
 
@@ -311,8 +296,8 @@ REGISTRY (default):
   @scope/name@>=1.2,<2.0  bounded range
 
 LOCAL PATH (starts with . or /):
-  ./packages/my-plugin            relative to project root
-  /opt/specforge/packages/custom  absolute path
+  ./extensions/my-plugin            relative to project root
+  /opt/specforge/extensions/custom  absolute path
 
 GIT (git: prefix, any host):
   git:https://github.com/org/repo             default branch
@@ -345,8 +330,8 @@ Input: "@specforge/jira@^1.0.0"
      Source::Registry { name, version_req }
 
 
-Input: "./packages/my-plugin"
-  --> Source::Local { path: "./packages/my-plugin" }
+Input: "./extensions/my-plugin"
+  --> Source::Local { path: "./extensions/my-plugin" }
 
 Input: "git:https://github.com/org/repo#v1.2.0"
   --> Source::Git { url: "https://github.com/org/repo", git_ref: "v1.2.0" }
@@ -364,17 +349,16 @@ String shorthand and object form are both supported:
   "name": "my-project",
   "version": "1.0",
 
-  "packages": [
+  "extensions": [
     "@specforge/product@^1.0.0",
 
-    "./packages/my-plugin",
+    "./extensions/my-plugin",
 
     "git:https://github.com/myorg/ddd-plugin#main",
 
     {
-      "package": "@specforge/jira",
+      "extension": "@specforge/jira",
       "version": "^1.0.0",
-      "enable": { "generators": false },
       "config": { "instance": "myteam.atlassian.net" }
     },
 
@@ -385,7 +369,7 @@ String shorthand and object form are both supported:
     },
 
     {
-      "path": "./packages/internal"
+      "path": "./extensions/internal"
     }
   ]
 }
@@ -395,12 +379,11 @@ String shorthand and object form are both supported:
 
 ```json
 {
-  "package": "@specforge/jira",
+  "extension": "@specforge/jira",
   "version": "^1.0.0",
   "enable": {
     "entities": true,
-    "ref_schemes": true,
-    "generators": false
+    "ref_schemes": true
   }
 }
 ```
@@ -409,12 +392,11 @@ String shorthand and object form are both supported:
 
 ```json
 {
-  "package": "@specforge/jira",
+  "extension": "@specforge/jira",
   "version": "^1.0.0",
   "enable": {
     "entities": ["epic", "story"],
-    "ref_schemes": true,
-    "generators": false
+    "ref_schemes": true
   }
 }
 ```
@@ -426,7 +408,7 @@ Reproducible builds require pinning exact resolved versions and verifying binary
 ```json
 {
   "lockfile_version": 1,
-  "packages": {
+  "extensions": {
     "@specforge/product": {
       "version": "1.2.0",
       "source": "registry",
@@ -448,7 +430,7 @@ Reproducible builds require pinning exact resolved versions and verifying binary
       "resolved_ref": "a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0",
       "wasm_hash": "sha256:..."
     },
-    "./packages/my-plugin": {
+    "./extensions/my-plugin": {
       "version": "0.0.0-local",
       "source": "local",
       "wasm_hash": "sha256:..."
@@ -462,16 +444,16 @@ Reproducible builds require pinning exact resolved versions and verifying binary
 | Command | Behavior |
 |---|---|
 | `specforge compile` (lock exists) | Use locked versions. Verify `wasm_hash` after download. |
-| `specforge compile` (no lock) | Resolve all packages. Write `specforge.lock`. Warn: "commit this file". |
-| `specforge update` | Re-resolve all packages within version ranges. Update lock. Show diff. |
-| `specforge update @specforge/jira` | Re-resolve one package only. Update its lock entry. |
+| `specforge compile` (no lock) | Resolve all extensions. Write `specforge.lock`. Warn: "commit this file". |
+| `specforge update` | Re-resolve all extensions within version ranges. Update lock. Show diff. |
+| `specforge update @specforge/jira` | Re-resolve one extension only. Update its lock entry. |
 | `specforge add @specforge/jira@^1.0.0` | Add to `specforge.json` + resolve + update lock. |
 | `specforge remove @specforge/jira` | Remove from `specforge.json` + update lock. |
 
-### 2.5 Package Cache
+### 2.5 Extension Cache
 
 ```
-~/.specforge/cache/packages/
+~/.specforge/cache/extensions/
   @specforge/
     product/
       1.2.0/
@@ -490,7 +472,7 @@ AOT cache (existing, unchanged):
   .specforge/cache/{wasm_sha256}_{runtime_ver}.aot
 ```
 
-Local path packages are never cached — they are read directly from the filesystem. The `wasm_hash` in the lock file detects when a local package has changed since last compile.
+Local path extensions are never cached — they are read directly from the filesystem. The `wasm_hash` in the lock file detects when a local extension has changed since last compile.
 
 ---
 
@@ -508,22 +490,17 @@ ALWAYS REQUIRED:
 IF contributes.entities OR contributes.edges OR contributes.enhancements:
   fn entities__register()
      Host enables:  register_entity, register_edge, emit_diagnostic
-     Host blocks:   emit_file, http_get
+     Host blocks:   http_get
 
 IF contributes.ref_schemes:
   fn refs__resolve(input_json_ptr: u64) -> u64
   fn refs__validate(input_json_ptr: u64) -> u64
      Host enables:  http_get (scoped), emit_diagnostic
-     Host blocks:   emit_file, register_entity, register_edge
+     Host blocks:   register_entity, register_edge
 
 IF contributes.validators:
   fn validators__run()
      Host enables:  query_graph, emit_diagnostic
-     Host blocks:   emit_file, http_get, register_entity, register_edge
-
-IF contributes.generators:
-  fn generators__run(generator_name_ptr: u64)
-     Host enables:  query_graph, emit_file (scoped), emit_diagnostic
      Host blocks:   http_get, register_entity, register_edge
 ```
 
@@ -533,18 +510,16 @@ Extra export for an undeclared contribution = ignored (safe).
 ### 3.2 Per-Call-Site Permission Matrix
 
 ```
-                     register  register  emit     query   emit    http
-                     _entity   _edge     _diag    _graph  _file   _get
-                     --------  --------  -------  ------  ------  ------
-specforge_init()        -         -        OK       -       -       -
-entities__register()   OK        OK        OK       -       -       -
-refs__resolve()         -         -        OK       -       -      OK*
-refs__validate()        -         -        OK       -       -      OK*
-validators__run()       -         -        OK      OK       -       -
-generators__run()       -         -        OK      OK      OK**    -
+                     register  register  emit     query   http
+                     _entity   _edge     _diag    _graph  _get
+                     --------  --------  -------  ------  ------
+specforge_init()        -         -        OK       -       -
+entities__register()   OK        OK        OK       -       -
+refs__resolve()         -         -        OK       -      OK*
+refs__validate()        -         -        OK       -      OK*
+validators__run()       -         -        OK      OK       -
 
 *  scoped to sandbox.refs.allowed_domains
-** scoped to sandbox.generators.output_subdir
 ```
 
 ### 3.3 Per-Contribution Sandbox
@@ -560,11 +535,6 @@ The flat `SandboxPolicy` becomes scoped:
     "refs": {
       "allowed_domains": ["*.atlassian.net", "api.atlassian.com"],
       "allow_http": true
-    },
-
-    "generators": {
-      "allow_emit_file": true,
-      "output_subdir": "jira"
     }
   }
 }
@@ -580,20 +550,19 @@ The flat `SandboxPolicy` becomes scoped:
 
 | Current | New | Location |
 |---|---|---|
-| `WasmPluginManifest` | `PackageManifest` | `specforge-wasm/src/manifest.rs` |
-| `PluginManifestV2` | Removed (merged into `PackageManifest`) | `specforge-common/src/field_registry.rs` |
+| `WasmPluginManifest` | `ExtensionManifest` | `specforge-wasm/src/manifest.rs` |
+| `PluginManifestV2` | Removed (merged into `ExtensionManifest`) | `specforge-common/src/field_registry.rs` |
 | `PluginKind` | Removed (inferred from `contributes`) | `specforge-wasm/src/manifest.rs` |
-| `PluginLifecycleState` | `PackageLifecycleState` | `specforge-wasm/src/manifest.rs` |
+| `PluginLifecycleState` | `ExtensionLifecycleState` | `specforge-wasm/src/manifest.rs` |
 | `WasmEntityKind` | `ContributedEntity` | `specforge-wasm/src/manifest.rs` |
 | `WasmEntityField` | `ContributedField` | `specforge-wasm/src/manifest.rs` |
 | `WasmProviderConfig` | Removed (inline in `ContributedRefScheme`) | `specforge-wasm/src/manifest.rs` |
-| `WasmGeneratorConfig` | Removed (inline in `ContributedGenerator`) | `specforge-wasm/src/manifest.rs` |
-| `WasmRuntime` | `PackageRuntime` | `specforge-wasm/src/runtime.rs` |
-| `WasmError` | `PackageError` | `specforge-wasm/src/error.rs` |
-| `WarmInstancePool` | `WarmPackagePool` | `specforge-wasm/src/warm.rs` |
-| `LoadedPlugin` | `LoadedPackage` | `specforge-wasm/src/loader.rs` |
-| `load_wasm_module` | `load_package_module` | `specforge-wasm/src/loader.rs` |
-| `discover_wasm_plugins` | `discover_packages` | `specforge-wasm/src/discover.rs` |
+| `WasmRuntime` | `ExtensionRuntime` | `specforge-wasm/src/runtime.rs` |
+| `WasmError` | `ExtensionError` | `specforge-wasm/src/error.rs` |
+| `WarmInstancePool` | `WarmExtensionPool` | `specforge-wasm/src/warm.rs` |
+| `LoadedPlugin` | `LoadedExtension` | `specforge-wasm/src/loader.rs` |
+| `load_wasm_module` | `load_extension_module` | `specforge-wasm/src/loader.rs` |
+| `discover_wasm_plugins` | `discover_extensions` | `specforge-wasm/src/discover.rs` |
 | `HostContext.in_initialize` | `HostContext.active_phase` | `specforge-wasm/src/host_functions.rs` |
 
 Unchanged (correct as-is):
@@ -609,55 +578,52 @@ Unchanged (correct as-is):
 | Crate | Change | Rationale |
 |---|---|---|
 | `specforge-wasm` | Keep name | The crate IS the Wasm runtime. Internal naming is correct. |
-| `specforge-common` | Remove `PluginManifestV2` export, keep contribution types | Domain types (`ContributedEntity`, `FieldEnhancement`, etc.) stay here. Full `PackageManifest` lives in `specforge-wasm`. |
+| `specforge-common` | Remove `PluginManifestV2` export, keep contribution types | Domain types (`ContributedEntity`, `FieldEnhancement`, etc.) stay here. Full `ExtensionManifest` lives in `specforge-wasm`. |
 
 ### 4.3 specforge.json Schema
 
 | Current key | New key | Transition |
 |---|---|---|
-| `plugins: [...]` | `packages: [...]` | Deprecated alias (W027 warning, auto-merge) |
-| `providers: { alias: {...} }` | Inline in `packages` with `config` | Deprecated alias (W027 warning, auto-merge) |
-| `gen: { name: {...} }` | Unchanged | Output config is project-level, not package-level |
-
-**Note**: `gen` remains as a separate top-level key because it configures output paths and options (project-level concerns). The generator package that powers `gen.rust` is listed in `packages` but configured in `gen.rust`.
+| `plugins: [...]` | `extensions: [...]` | Deprecated alias (W027 warning, auto-merge) |
+| `providers: { alias: {...} }` | Inline in `extensions` with `config` | Deprecated alias (W027 warning, auto-merge) |
 
 ### 4.4 CLI Commands
 
 | Current | New |
 |---|---|
-| `specforge plugin init` | `specforge package init` |
-| `specforge plugin build` | `specforge package build` |
-| `specforge plugin test` | `specforge package test` |
-| `specforge plugin publish` | `specforge package publish` |
-| `specforge plugins` | `specforge packages` |
-| — | `specforge packages outdated` (new) |
+| `specforge plugin init` | `specforge extension init` |
+| `specforge plugin build` | `specforge extension build` |
+| `specforge plugin test` | `specforge extension test` |
+| `specforge plugin publish` | `specforge extension publish` |
+| `specforge plugins` | `specforge extensions` |
+| — | `specforge extensions outdated` (new) |
 | — | `specforge add <specifier>` (new) |
-| — | `specforge remove <package>` (new) |
-| — | `specforge update [package]` (new) |
+| — | `specforge remove <extension>` (new) |
+| — | `specforge update [extension]` (new) |
 
 ### 4.5 ADR Renames
 
 | Current | New |
 |---|---|
-| `wasm_extism_plugin_runtime` | `wasm_extism_package_runtime` |
-| `wasm_peer_dependencies` | `package_peer_dependencies` |
+| `wasm_extism_plugin_runtime` | `wasm_extism_extension_runtime` |
+| `wasm_peer_dependencies` | `extension_peer_dependencies` |
 
 ---
 
 ## 5. Rust Type Definitions
 
-### 5.1 PackageManifest
+### 5.1 ExtensionManifest
 
 ```rust
-/// The sidecar manifest for a SpecForge package (`manifest.json`).
+/// The sidecar manifest for a SpecForge extension (`manifest.json`).
 ///
-/// A package contributes to one or more extension points of the
+/// An extension contributes to one or more extension points of the
 /// compilation pipeline: entities, edges, ref schemes, validators,
-/// generators, etc.
+/// query extensions, etc.
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct PackageManifest {
-    /// Package name (e.g., `@specforge/jira`).
-    pub package: String,
+pub struct ExtensionManifest {
+    /// Extension name (e.g., `@specforge/jira`).
+    pub extension: String,
     /// Manifest schema version.
     #[serde(default = "default_manifest_version")]
     pub manifest_version: String,
@@ -666,19 +632,19 @@ pub struct PackageManifest {
     /// Human-readable description.
     #[serde(default)]
     pub description: String,
-    /// Package version (semver).
+    /// Extension version (semver).
     #[serde(default = "default_version")]
     pub version: String,
 
-    /// What this package contributes to the host.
+    /// What this extension contributes to the host.
     #[serde(default)]
-    pub contributes: PackageContributions,
+    pub contributes: ExtensionContributions,
 
     /// Sandbox policy (global limits + per-contribution scoping).
     #[serde(default)]
     pub sandbox: SandboxPolicy,
 
-    /// Peer dependencies on other packages (package name → semver range).
+    /// Peer dependencies on other extensions (extension name → semver range).
     #[serde(default)]
     pub peer_dependencies: HashMap<String, String>,
 
@@ -691,15 +657,15 @@ pub struct PackageManifest {
 }
 ```
 
-### 5.2 PackageContributions
+### 5.2 ExtensionContributions
 
 ```rust
-/// Everything a package contributes to the host.
+/// Everything an extension contributes to the host.
 ///
-/// All fields are optional — a package only implements the contributions
+/// All fields are optional — an extension only implements the contributions
 /// it declares. Empty vectors mean "no contributions of this type".
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
-pub struct PackageContributions {
+pub struct ExtensionContributions {
     #[serde(default)]
     pub entities: Vec<ContributedEntity>,
 
@@ -716,21 +682,17 @@ pub struct PackageContributions {
     pub validators: Vec<ContributedValidator>,
 
     #[serde(default)]
-    pub generators: Vec<ContributedGenerator>,
-
-    #[serde(default)]
     pub query_extensions: Vec<QueryExtension>,
 }
 
-impl PackageContributions {
-    /// Returns true if this package has no contributions at all.
+impl ExtensionContributions {
+    /// Returns true if this extension has no contributions at all.
     pub fn is_empty(&self) -> bool {
         self.entities.is_empty()
             && self.edges.is_empty()
             && self.enhancements.is_empty()
             && self.ref_schemes.is_empty()
             && self.validators.is_empty()
-            && self.generators.is_empty()
             && self.query_extensions.is_empty()
     }
 
@@ -751,17 +713,13 @@ impl PackageContributions {
         !self.validators.is_empty()
     }
 
-    /// Needs generators__run export.
-    pub fn has_generator_contributions(&self) -> bool {
-        !self.generators.is_empty()
-    }
 }
 ```
 
 ### 5.3 Contributed Types
 
 ```rust
-/// An entity kind contributed by a package.
+/// An entity kind contributed by an extension.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ContributedEntity {
     pub name: String,
@@ -783,7 +741,7 @@ pub struct ContributedField {
     pub required: bool,
 }
 
-/// A ref scheme contributed by a package.
+/// A ref scheme contributed by an extension.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ContributedRefScheme {
     /// Scheme prefix (e.g., `"jira"`).
@@ -793,7 +751,7 @@ pub struct ContributedRefScheme {
     pub kinds: Vec<String>,
 }
 
-/// A validation pass contributed by a package.
+/// A validation pass contributed by an extension.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ContributedValidator {
     pub name: String,
@@ -801,36 +759,28 @@ pub struct ContributedValidator {
     pub description: String,
 }
 
-/// A generator contributed by a package.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ContributedGenerator {
-    /// Generator name as referenced in `gen` config (e.g., `"jira-sync"`).
-    pub name: String,
-    #[serde(default)]
-    pub description: String,
-}
 ```
 
-### 5.4 Package Source Types
+### 5.4 Extension Source Types
 
 ```rust
-/// A package entry in specforge.json `packages` array.
+/// An extension entry in specforge.json `extensions` array.
 /// Supports string shorthand and object form.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
-pub enum PackageSpecifier {
+pub enum ExtensionSpecifier {
     /// String shorthand: "@scope/name@version", "./path", "git:url#ref"
     Short(String),
     /// Object form with explicit fields.
-    Full(PackageSpecifierFull),
+    Full(ExtensionSpecifierFull),
 }
 
-/// Object form of a package specifier.
+/// Object form of an extension specifier.
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct PackageSpecifierFull {
-    /// Registry package name (e.g., "@specforge/jira").
+pub struct ExtensionSpecifierFull {
+    /// Registry extension name (e.g., "@specforge/jira").
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub package: Option<String>,
+    pub extension: Option<String>,
 
     /// Semver version requirement (e.g., "^1.0.0"). Registry source only.
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -853,7 +803,7 @@ pub struct PackageSpecifierFull {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub enable: Option<ContributionToggle>,
 
-    /// Package-specific configuration passed to the Wasm module at init.
+    /// Extension-specific configuration passed to the Wasm module at init.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub config: Option<serde_json::Value>,
 }
@@ -888,8 +838,6 @@ pub struct ContributionToggle {
     #[serde(default)]
     pub validators: Option<ContributionFilter>,
     #[serde(default)]
-    pub generators: Option<ContributionFilter>,
-    #[serde(default)]
     pub query_extensions: Option<ContributionFilter>,
 }
 
@@ -907,7 +855,7 @@ pub enum ContributionFilter {
 ### 5.5 SandboxPolicy (revised)
 
 ```rust
-/// Sandbox policy for a package.
+/// Sandbox policy for an extension.
 ///
 /// Global limits (memory, fuel) apply to the Wasm module.
 /// Scoped limits apply per contribution type during dispatch.
@@ -922,9 +870,6 @@ pub struct SandboxPolicy {
     #[serde(default)]
     pub refs: RefSandbox,
 
-    /// Permissions scoped to generator contributions.
-    #[serde(default)]
-    pub generators: GeneratorSandbox,
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
@@ -933,15 +878,6 @@ pub struct RefSandbox {
     pub allowed_domains: Vec<String>,
     #[serde(default)]
     pub allow_http: bool,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct GeneratorSandbox {
-    #[serde(default = "default_true")]
-    pub allow_emit_file: bool,
-    /// If set, all emitted files must be under this subdirectory.
-    #[serde(default)]
-    pub output_subdir: Option<String>,
 }
 ```
 
@@ -952,17 +888,17 @@ pub struct GeneratorSandbox {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct LockFile {
     pub lockfile_version: u32,
-    pub packages: HashMap<String, LockedPackage>,
+    pub extensions: HashMap<String, LockedExtension>,
 }
 
-/// A resolved and pinned package entry.
+/// A resolved and pinned extension entry.
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct LockedPackage {
+pub struct LockedExtension {
     /// Exact resolved version.
     pub version: String,
     /// Resolved source description.
     pub source: String,
-    /// SHA-256 hash of the package archive (for registry/git sources).
+    /// SHA-256 hash of the extension archive (for registry/git sources).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub integrity: Option<String>,
     /// SHA-256 hash of the .wasm binary.
@@ -976,21 +912,21 @@ pub struct LockedPackage {
 }
 ```
 
-### 5.7 PackageLifecycleState
+### 5.7 ExtensionLifecycleState
 
 ```rust
-/// Lifecycle states for a loaded package.
+/// Lifecycle states for a loaded extension.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum PackageLifecycleState {
+pub enum ExtensionLifecycleState {
     /// Manifest loaded, binary not yet loaded.
     Discovered,
     /// Binary loaded into memory, not yet initialized.
     Loading,
-    /// Package has been initialized (contributions registered).
+    /// Extension has been initialized (contributions registered).
     Initialized,
-    /// Package is ready for validate/generate calls.
+    /// Extension is ready for validate calls.
     Ready,
-    /// Package encountered an error.
+    /// Extension encountered an error.
     Failed,
 }
 ```
@@ -1000,12 +936,12 @@ pub enum PackageLifecycleState {
 ## 6. Host Dispatch Logic
 
 ```rust
-/// In PackageRuntime (replaces WasmRuntime):
+/// In ExtensionRuntime (replaces WasmRuntime):
 
-pub fn initialize_package(
+pub fn initialize_extension(
     &mut self,
-    pkg: &LoadedPackage,
-) -> Result<(), PackageError> {
+    pkg: &LoadedExtension,
+) -> Result<(), ExtensionError> {
     // Always call specforge_init
     self.call_export(pkg, "specforge_init")?;
 
@@ -1023,7 +959,7 @@ pub fn initialize_package(
         }
     }
 
-    pkg.set_state(PackageLifecycleState::Initialized);
+    pkg.set_state(ExtensionLifecycleState::Initialized);
     Ok(())
 }
 
@@ -1032,7 +968,7 @@ pub fn validate_all(
     graph_json: &str,
 ) -> Vec<Diagnostic> {
     let mut diagnostics = Vec::new();
-    for pkg in &self.packages {
+    for pkg in &self.extensions {
         if pkg.manifest.contributes.has_validator_contributions() {
             self.set_phase(DispatchPhase::Validation);
             let diags = self.call_export(pkg, "validators__run");
@@ -1046,21 +982,12 @@ pub fn resolve_ref(
     &mut self,
     scheme: &str,
     target: &str,
-) -> Result<RefResolution, PackageError> {
-    let pkg = self.find_package_for_scheme(scheme)?;
+) -> Result<RefResolution, ExtensionError> {
+    let pkg = self.find_extension_for_scheme(scheme)?;
     self.set_phase(DispatchPhase::RefResolution);
     self.call_export_with_arg(pkg, "refs__resolve", target)
 }
 
-pub fn generate(
-    &mut self,
-    generator_name: &str,
-    graph_json: &str,
-) -> Result<Vec<EmittedFile>, PackageError> {
-    let pkg = self.find_package_for_generator(generator_name)?;
-    self.set_phase(DispatchPhase::Generation);
-    self.call_export_with_arg(pkg, "generators__run", generator_name)
-}
 ```
 
 ---
@@ -1072,9 +999,9 @@ pub fn generate(
 Manifests with a `kind` field (v1) are auto-migrated:
 
 ```rust
-impl PackageManifest {
+impl ExtensionManifest {
     fn migrate_v1(v1: &V1Manifest) -> Self {
-        let mut contributes = PackageContributions::default();
+        let mut contributes = ExtensionContributions::default();
         match v1.kind.as_str() {
             "plugin" => {
                 contributes.entities = v1.entity_kinds.into();
@@ -1092,14 +1019,6 @@ impl PackageManifest {
                         .collect();
                 }
             }
-            "generator" => {
-                if let Some(g) = &v1.generator {
-                    contributes.generators = vec![ContributedGenerator {
-                        name: g.name.clone(),
-                        description: String::new(),
-                    }];
-                }
-            }
             _ => {}
         }
         // ... map sandbox, peer_dependencies, etc.
@@ -1109,10 +1028,10 @@ impl PackageManifest {
 
 A deprecation warning `W026` is emitted for v1 manifests.
 
-### 7.2 specforge.json `plugins` → `packages`
+### 7.2 specforge.json `plugins` → `extensions`
 
 The `plugins` key is accepted as an alias. The compiler:
-1. Merges entries into the `packages` resolution list
+1. Merges entries into the `extensions` resolution list
 2. Emits deprecation warning `W027`
 
 The `providers` key entries are converted:
@@ -1121,14 +1040,14 @@ The `providers` key entries are converted:
 // Old:
 {
   "providers": {
-    "github": { "package": "@specforge/gh", "repo": "org/repo" }
+    "github": { "extension": "@specforge/gh", "repo": "org/repo" }
   }
 }
 
 // Equivalent:
 {
-  "packages": [
-    { "package": "@specforge/gh", "config": { "repo": "org/repo" } }
+  "extensions": [
+    { "extension": "@specforge/gh", "config": { "repo": "org/repo" } }
   ]
 }
 ```
@@ -1140,29 +1059,28 @@ The `providers` key entries are converted:
 | Code | Severity | Description |
 |---|---|---|
 | E020 | Error | Missing Wasm export for declared contribution |
-| E021 | Error | Ref scheme conflict (two packages, same scheme) |
-| E022 | Error | Entity kind conflict (two packages, same kind name) |
-| E023 | Error | Edge type conflict (two packages, same label) |
-| E024 | Error | Generator name conflict (two packages, same name) |
-| E025 | Error | Validator name conflict (two packages, same name) |
+| E021 | Error | Ref scheme conflict (two extensions, same scheme) |
+| E022 | Error | Entity kind conflict (two extensions, same kind name) |
+| E023 | Error | Edge type conflict (two extensions, same label) |
+| E025 | Error | Validator name conflict (two extensions, same name) |
 | E026 | Error | Lock file integrity mismatch (`wasm_hash` changed) |
-| E027 | Error | Package version not found (registry) or ref not found (git) |
+| E027 | Error | Extension version not found (registry) or ref not found (git) |
 | W026 | Warning | Manifest v1 format deprecated (has `kind` field) |
-| W027 | Warning | `plugins`/`providers` config keys deprecated, use `packages` |
-| W028 | Warning | Local package `.wasm` hash differs from lock file |
-| I008 | Info | Package contributes to N extension points |
+| W027 | Warning | `plugins`/`providers` config keys deprecated, use `extensions` |
+| W028 | Warning | Local extension `.wasm` hash differs from lock file |
+| I008 | Info | Extension contributes to N extension points |
 
 ---
 
 ## 9. Concrete Example
 
-### @specforge/jira — Single Package, Full Integration
+### @specforge/jira — Single Extension, Full Integration
 
 **manifest.json**:
 
 ```json
 {
-  "package": "@specforge/jira",
+  "extension": "@specforge/jira",
   "manifest_version": "2",
   "version": "1.0.0",
   "wasm": "jira.wasm",
@@ -1187,17 +1105,13 @@ The `providers` key entries are converted:
     "validators": [
       { "name": "jira_key_format" }
     ],
-    "generators": [
-      { "name": "jira-sync" }
-    ],
     "query_extensions": [
       { "path": "queries/jira-highlights.scm" }
     ]
   },
 
   "sandbox": {
-    "refs": { "allowed_domains": ["*.atlassian.net"], "allow_http": true },
-    "generators": { "output_subdir": "jira" }
+    "refs": { "allowed_domains": ["*.atlassian.net"], "allow_http": true }
   },
 
   "peer_dependencies": { "@specforge/product": ">=0.1.0" }
@@ -1210,18 +1124,15 @@ The `providers` key entries are converted:
 {
   "name": "my-project",
   "version": "1.0",
-  "packages": [
+  "extensions": [
     "@specforge/product@^1.0.0",
     "@specforge/governance@^1.0.0",
     {
-      "package": "@specforge/jira",
+      "extension": "@specforge/jira",
       "version": "^1.0.0",
       "config": { "instance": "myteam.atlassian.net" }
     }
-  ],
-  "gen": {
-    "jira-sync": { "out": "generated/jira" }
-  }
+  ]
 }
 ```
 
@@ -1268,9 +1179,9 @@ behavior validate_signup {
     entities: [epic, story, task, sprint]
     edges: [belongs_to_sprint]
     ref_schemes: [{ scheme: "jira" }]
-    generators: [{ name: "jira-export" }]
+    validators: [{ name: "jira_key_format" }]
 
-Same package. Same name. Additive evolution.
+Same extension. Same name. Additive evolution.
 ```
 
 ---
@@ -1279,22 +1190,22 @@ Same package. Same name. Additive evolution.
 
 | Change | Effort | Impact |
 |---|---|---|
-| `PackageManifest` + `PackageContributions` structs | Medium | Foundation for everything else |
-| Remove `PluginKind`, add `contributes` parsing | Low | Unblocks multi-role packages |
+| `ExtensionManifest` + `ExtensionContributions` structs | Medium | Foundation for everything else |
+| Remove `PluginKind`, add `contributes` parsing | Low | Unblocks multi-role extensions |
 | Per-call-site host function permissions | Medium | Security improvement |
-| Package source resolution (registry, local, git) | Medium | Enables version control |
+| Extension source resolution (registry, local, git) | Medium | Enables version control |
 | Lock file (`specforge.lock`) | Medium | Reproducible builds |
-| `specforge.json` `packages` key | Low | UX improvement |
+| `specforge.json` `extensions` key | Low | UX improvement |
 | Backward compat (v1 manifest, `plugins` alias) | Low | No ecosystem breakage |
-| Rename `Wasm*` → `Package*` across crate | Medium | Naming consistency |
+| Rename `Wasm*` → `Extension*` across crate | Medium | Naming consistency |
 | New validation codes E020-E027, W026-W028 | Low | Clear diagnostics |
-| CLI `specforge package *` + `add`/`remove`/`update` | Medium | Package management UX |
+| CLI `specforge extension*` + `add`/`remove`/`update` | Medium | Extension management UX |
 
 ---
 
 ## 11. Recommendations
 
-1. **Adopt the contribution model.** Replace `PluginKind` with `PackageContributions`. This is the critical architectural change.
+1. **Adopt the contribution model.** Replace `PluginKind` with `ExtensionContributions`. This is the critical architectural change.
 
 2. **Apply the rename table.** The naming convention in section 4 is comprehensive. Apply it in a single coordinated PR.
 
@@ -1304,11 +1215,11 @@ Same package. Same name. Additive evolution.
 
 5. **Implement per-call-site permissions.** This is a security win that comes naturally from the contribution dispatch model.
 
-6. **Merge `PluginManifestV2` into `PackageManifest`.** Eliminate the dual-struct problem. `specforge-common` exports contribution types; `specforge-wasm` owns the full manifest.
+6. **Merge `PluginManifestV2` into `ExtensionManifest`.** Eliminate the dual-struct problem. `specforge-common` exports contribution types; `specforge-wasm` owns the full manifest.
 
 7. **Keep `specforge-wasm` crate name.** The crate IS the Wasm runtime. Internal Wasm-specific types are fine. Only the public-facing types drop the `Wasm` prefix.
 
-8. **Reserve future contribution keys.** Document `importers`, `reporters`, `syncers`, `mcp_tools` as planned. This signals extensibility to package authors.
+8. **Reserve future contribution keys.** Document `importers`, `reporters`, `syncers`, `mcp_tools` as planned. This signals extensibility to extension authors.
 
 ---
 

@@ -1,11 +1,11 @@
 ---
 name: spec-visual
-description: "Sub-orchestrator for the visual/ directory in a spec. Manages the Flux Pattern view specification structure including pages, components, elements, stores, events, actions, and workflows. Delegates to view-spec-author for triad authoring (YAML + markdown wireframe + Gherkin feature)."
+description: "Sub-orchestrator for the visual/ directory in a spec. Manages the Flux Pattern view specification structure including pages, components, elements, stores, events, actions, and workflows. Handles triad authoring (YAML + markdown wireframe + Gherkin feature)."
 ---
 
 # Spec Visual (Sub-Orchestrator)
 
-Sub-orchestrator for the `visual/` directory in a spec. Manages the directory structure, entity index, and Flux Pattern overview. Delegates to **view-spec-author** for authoring individual entity triads.
+Sub-orchestrator for the `visual/` directory in a spec. Manages the directory structure, entity index, Flux Pattern overview, and individual entity triad authoring.
 
 ## When to Use
 
@@ -18,8 +18,8 @@ Sub-orchestrator for the `visual/` directory in a spec. Manages the directory st
 
 | Task | Delegate To |
 |------|-------------|
-| Authoring entity triads (.yaml + .md + .feature) | **view-spec-author** |
-| Flux Pattern cycle, entity types, YAML schema | **view-spec-author** |
+| Authoring entity triads (.yaml + .md + .feature) | _(handled by this skill)_ |
+| Flux Pattern cycle, entity types, YAML schema | _(handled by this skill)_ |
 
 **This skill owns:** directory structure, entity index, Flux Pattern overview, and cross-reference conventions.
 
@@ -61,7 +61,7 @@ visual/
 
 ```yaml
 kind: visual
-package: "@hex-di/<name>"
+package: "@myproject/<name>"
 entries:
   - id: PG-001
     file: pages/PG-001-dashboard/spec.yaml

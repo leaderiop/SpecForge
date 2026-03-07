@@ -1,17 +1,19 @@
 // SpecForge — Meta-specification: SpecForge specifying itself
-// Project root configuration
+// The structured context standard for AI agents.
+// The compiled entity graph is consumed by any agent for any task.
 
 spec "specforge" {
   version "1.0"
 
-  plugins [
+  extensions [
+    "@specforge/software",
     "@specforge/product",
     "@specforge/governance",
   ]
 
   providers {
     gh "specforge" {
-      package "@specforge/gh"
+      extension "@specforge/gh"
       repo    "anthropics/specforge"
     }
   }
@@ -25,11 +27,15 @@ spec "specforge" {
   }
 
   persona ci "CI Pipeline" {
-    description "Automated agent running specforge check, coverage gates, and drift detection"
+    description "Automated agent running specforge check, coverage gates, and graph validation"
   }
 
   persona contributor "Open Source Contributor" {
-    description "Extends SpecForge via plugins, providers, or generators"
+    description "Extends SpecForge via extensions with entity, provider, or renderer contributions"
+  }
+
+  persona agent "AI Agent" {
+    description "Any AI agent consuming the Graph Protocol for any task: coding, PM, compliance, docs, security"
   }
 
   surface cli "Command Line Interface" {
@@ -44,27 +50,19 @@ spec "specforge" {
     type automation
   }
 
+  surface graph_protocol "Graph Protocol" {
+    type api
+  }
+
+  surface mcp "MCP Server" {
+    type api
+  }
+
   test_dirs ["tests/"]
 
   coverage {
     threshold                90
     require_violation_tests  true
     fail_on_unknown_ids      true
-  }
-
-  gen typescript {
-    out       "packages/generated/"
-    result    "hex-di"
-    readonly  true
-    naming    "camelCase"
-    tests     "@specforge/vitest"
-  }
-
-  gen rust {
-    out       "src/generated/"
-    test_out  "tests/spec/"
-    result    "thiserror"
-    naming    "snake_case"
-    tests     "@specforge/rust"
   }
 }

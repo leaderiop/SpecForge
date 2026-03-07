@@ -1,5 +1,8 @@
 # RES-21b: WebAssembly/WASI Plugin System Analysis
 
+> [!NOTE]
+> **Winning analysis.** Wasm/Extism was adopted as the only extension runtime. "Plugin" terminology replaced by "extension" (RES-23). Binary size settled at +5MB.
+
 **Expert perspective:** Wasm ecosystem specialist, Extism/Wasmtime deep-dive
 **Decision outcome:** ADOPTED — Wasm/Extism is the unified plugin runtime (see ADR `wasm_extism_plugin_runtime`)
 

@@ -3,25 +3,30 @@
 use invariants/core
 use types/core
 use types/graph
+use events/compilation
 
 behavior build_in_memory_graph "Build In-Memory Graph" {
   invariants [string_interning_consistency, entity_id_uniqueness]
   types      [Graph, Node, Edge, SpecFile, EdgeType, FileIndex]
+  consumes  [resolution_complete]
+  produces   [graph_built]
 
   contract """
     After resolution, the compiler MUST construct an in-memory directed
-    graph where each entity becomes a node and each cross-reference
-    becomes a typed edge. The graph MUST contain exactly one node per
-    declared entity and one edge per resolved reference.
+    graph where each entity becomes a node and each resolved reference
+    becomes a typed edge. The graph builder materializes the pending
+    edges recorded by link_entity_references. The graph MUST contain
+    exactly one node per declared entity and one edge per resolved
+    reference.
   """
 
   verify unit "graph contains one node per entity"
   verify unit "graph contains one edge per resolved reference"
   verify unit "edge types match relationship semantics"
 
-  tests ["../crates/specforge-graph/src/builder.rs"]
 }
 
+// No produces — passive API behavior, graph mutations are observed via rebuild events
 behavior maintain_mutable_graph "Maintain Mutable Graph" {
   invariants [incremental_correctness]
   types      [Graph, Subgraph]
@@ -37,11 +42,10 @@ behavior maintain_mutable_graph "Maintain Mutable Graph" {
   verify unit "removing a node removes its edges"
   verify unit "graph consistency after batch mutations"
 
-  tests ["../crates/specforge-graph/src/builder.rs"]
 }
 
 behavior compute_subgraph_for_invalidation "Compute Subgraph for Invalidation" {
-  invariants [incremental_correctness]
+  invariants [incremental_correctness, graph_traversal_integrity]
   types      [Graph, Subgraph, FileEntry]
 
   contract """
@@ -49,6 +53,7 @@ behavior compute_subgraph_for_invalidation "Compute Subgraph for Invalidation" {
     subgraph: the changed file plus all files that transitively depend
     on it via use imports. Only nodes and edges from invalidated files
     MUST be removed and rebuilt. Unaffected subgraphs MUST remain intact.
+    Called by invalidate_changed_files during incremental rebuilds.
   """
 
   verify unit        "changed file and direct dependents are invalidated"
@@ -56,5 +61,4 @@ behavior compute_subgraph_for_invalidation "Compute Subgraph for Invalidation" {
   verify unit        "unaffected files are not invalidated"
   verify integration "subgraph rebuild matches full rebuild result"
 
-  tests ["../crates/specforge-graph/src/builder.rs"]
 }

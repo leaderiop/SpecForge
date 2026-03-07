@@ -5,7 +5,7 @@ description: "Write the glossary block in .spec DSL files (@specforge/product pl
 
 # SpecForge Glossary DSL
 
-Rules and conventions for authoring the **`glossary` block** in `.spec` files. The glossary is a singleton that establishes the ubiquitous language — precise definitions that prevent terminology drift.
+Rules and conventions for authoring the **`glossary` block** in `.spec` files. The glossary is a singleton that establishes the ubiquitous language -- precise definitions that prevent terminology drift.
 
 **Requires:** `@specforge/product` plugin.
 
@@ -26,7 +26,7 @@ glossary {
       AND durably persisted to the primary datastore.
     """
     aliases    ["persisted mutation", "durable write"]
-    see        [INV-MS-1, BEH-MS-001]
+    see        [data_persistence, create_user]
   }
 
   term "session" {
@@ -35,7 +35,7 @@ glossary {
       scoped to a single compilation unit. Not an HTTP session.
     """
     context "Specific to SpecForge compiler internals."
-    see     [ADR-003]
+    see     [session_architecture]
   }
 }
 ```
@@ -44,7 +44,7 @@ glossary {
 
 ### Glossary Block
 
-Singleton — no ID. One `glossary` block per project.
+Singleton -- no ID. One `glossary` block per project.
 
 ### Term Sub-Block
 
@@ -59,17 +59,17 @@ Singleton — no ID. One `glossary` block per project.
 
 ## Relationships
 
-The glossary does not participate in the traceability graph as edges. The `see` field is informational — it helps navigation but does not create compiler-tracked edges.
+The glossary does not participate in the traceability graph as edges. The `see` field is informational -- it helps navigation but does not create compiler-tracked edges.
 
 ## Writing Rules
 
-1. **One glossary per project** — singleton block, like `spec`.
-2. **Add terms when meaning is ambiguous** — if two people might interpret a word differently, define it.
-3. **Definitions are self-contained** — understandable without reading other definitions.
-4. **Use `aliases`** — capture the different ways people say the same thing.
-5. **Use `context` for disambiguation** — when your project uses a term differently from common usage.
-6. **`see` references are informational** — they link to entities but do not create graph edges.
-7. **Skip obvious terms** — "function", "variable", "database" do not need glossary entries.
+1. **One glossary per project** -- singleton block, like `spec`.
+2. **Add terms when meaning is ambiguous** -- if two people might interpret a word differently, define it.
+3. **Definitions are self-contained** -- understandable without reading other definitions.
+4. **Use `aliases`** -- capture the different ways people say the same thing.
+5. **Use `context` for disambiguation** -- when your project uses a term differently from common usage.
+6. **`see` references are informational** -- they link to entities but do not create graph edges.
+7. **Skip obvious terms** -- "function", "variable", "database" do not need glossary entries.
 
 ## Validation Rules
 
@@ -88,8 +88,8 @@ glossary {
     definition "A .spec file containing entity declarations in the SpecForge DSL."
   }
 
-  term "infix" {
-    definition "A 2-4 letter uppercase code that scopes entity IDs to a project."
+  term "entity" {
+    definition "A named, typed node in the SpecForge graph -- behavior, invariant, feature, etc."
   }
 }
 ```
@@ -105,7 +105,7 @@ glossary {
       is guaranteed to survive process restarts.
     """
     aliases ["persisted mutation", "durable write", "acknowledged write"]
-    see     [INV-MS-1, BEH-MS-001]
+    see     [data_persistence, create_user]
   }
 
   term "eventual consistency" {
@@ -114,7 +114,7 @@ glossary {
       for a bounded period after a write.
     """
     context "Our read models are eventually consistent with a 5-second window."
-    see     [ADR-005]
+    see     [event_sourcing_for_audit]
   }
 
   term "RPN" {
@@ -123,7 +123,7 @@ glossary {
       in an FMEA analysis. Higher RPN = higher risk priority.
     """
     aliases ["risk priority number"]
-    see     [FM-MS-001, FM-MS-005]
+    see     [write_acknowledged_but_lost, email_uniqueness_bypass]
   }
 }
 ```
@@ -140,7 +140,7 @@ glossary {
     """
     aliases   ["interface", "boundary"]
     context   "In SpecForge, 'port' means a hexagonal architecture port, not a network port."
-    see       [ADR-002]
+    see       [hexagonal_architecture]
   }
 
   term "Result type" {
@@ -150,7 +150,7 @@ glossary {
     """
     aliases   ["ResultAsync", "Result monad"]
     context   "TypeScript uses ResultAsync, Python uses Result[T, E], Go uses (T, error)."
-    see       [ADR-004]
+    see       [result_types]
   }
 }
 ```
@@ -160,5 +160,5 @@ glossary {
 - Do not write a glossary without the `@specforge/product` plugin installed
 - Do not add standard programming terms that need no clarification
 - Do not use the glossary for implementation details that don't appear in spec entities
-- Do not duplicate term definitions — each canonical name must be unique
-- Do not treat `see` references as compiler-tracked edges — they are informational only
+- Do not duplicate term definitions -- each canonical name must be unique
+- Do not treat `see` references as compiler-tracked edges -- they are informational only

@@ -769,12 +769,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "env_home"
-version = "0.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c7f84e12ccf0a7ddc17a6c41c93326024c42920d7ee630d04950e6926645c0fe"
-
-[[package]]
 name = "equivalent"
 version = "1.0.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2434,33 +2428,17 @@ dependencies = [
  "insta",
  "notify",
  "serde_json",
- "specforge-codegen",
  "specforge-common",
  "specforge-coverage",
  "specforge-emitter",
  "specforge-graph",
  "specforge-parser",
  "specforge-resolver",
+ "specforge-test",
  "specforge-validator",
  "specforge-wasm",
  "tempfile",
  "walkdir",
-]
-
-[[package]]
-name = "specforge-codegen"
-version = "0.1.0"
-dependencies = [
- "insta",
- "serde",
- "serde_json",
- "sha2",
- "specforge-common",
- "specforge-emitter",
- "specforge-graph",
- "specforge-parser",
- "tempfile",
- "which",
 ]
 
 [[package]]
@@ -2471,6 +2449,7 @@ dependencies = [
  "lasso",
  "serde",
  "serde_json",
+ "specforge-test",
 ]
 
 [[package]]
@@ -2485,6 +2464,7 @@ dependencies = [
  "specforge-graph",
  "specforge-parser",
  "specforge-resolver",
+ "specforge-test",
  "walkdir",
 ]
 
@@ -2498,6 +2478,7 @@ dependencies = [
  "specforge-common",
  "specforge-graph",
  "specforge-parser",
+ "specforge-test",
 ]
 
 [[package]]
@@ -2509,6 +2490,7 @@ dependencies = [
  "specforge-common",
  "specforge-parser",
  "specforge-resolver",
+ "specforge-test",
 ]
 
 [[package]]
@@ -2521,6 +2503,7 @@ dependencies = [
  "specforge-graph",
  "specforge-parser",
  "specforge-resolver",
+ "specforge-test",
  "specforge-validator",
  "specforge-wasm",
  "strsim",
@@ -2539,6 +2522,7 @@ dependencies = [
  "insta",
  "serde_json",
  "specforge-common",
+ "specforge-test",
  "tree-sitter",
  "tree-sitter-language",
  "tree-sitter-specforge",
@@ -2553,7 +2537,26 @@ dependencies = [
  "regex",
  "specforge-common",
  "specforge-parser",
+ "specforge-test",
  "strsim",
+]
+
+[[package]]
+name = "specforge-test"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "specforge-test-macros",
+]
+
+[[package]]
+name = "specforge-test-macros"
+version = "0.1.0"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
 ]
 
 [[package]]
@@ -2564,8 +2567,8 @@ dependencies = [
  "specforge-common",
  "specforge-graph",
  "specforge-parser",
+ "specforge-test",
  "tempfile",
- "which",
 ]
 
 [[package]]
@@ -2580,8 +2583,8 @@ dependencies = [
  "serde_json",
  "sha2",
  "specforge-common",
- "specforge-emitter",
  "specforge-graph",
+ "specforge-test",
  "tempfile",
  "ureq",
 ]
@@ -3015,6 +3018,7 @@ name = "tree-sitter-specforge"
 version = "0.1.0"
 dependencies = [
  "cc",
+ "specforge-test",
  "streaming-iterator",
  "tree-sitter",
  "tree-sitter-language",
@@ -3649,18 +3653,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "which"
-version = "7.0.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "24d643ce3fd3e5b54854602a080f34fb10ab75e0b813ee32d00ca2b44fa74762"
-dependencies = [
- "either",
- "env_home",
- "rustix 1.1.4",
- "winsafe",
-]
-
-[[package]]
 name = "wiggle"
 version = "37.0.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4051,12 +4043,6 @@ checksum = "5a5364e9d77fcdeeaa6062ced926ee3381faa2ee02d3eb83a5c27a8825540829"
 dependencies = [
  "memchr",
 ]
-
-[[package]]
-name = "winsafe"
-version = "0.0.19"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d135d17ab770252ad95e9a872d365cf3090e3be864a34ab46f48555993efc904"
 
 [[package]]
 name = "winx"

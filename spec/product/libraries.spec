@@ -1,14 +1,11 @@
-// Libraries — code packages that implement features
+// Libraries — code crates that implement features
 
 use features/parsing
 use features/validation
 use features/incremental
 use features/output
-use features/codegen
-use features/coverage
-use features/rust-codegen
-use features/rust-collection
-use features/migration
+use extensions/coverage/features
+use extensions/rust/features
 use features/lsp
 use features/extensions
 use features/wasm
@@ -31,7 +28,7 @@ library specforge_parser "specforge-parser" {
 
 library specforge_resolver "specforge-resolver" {
   family       core
-  features     [graph_validation]
+  features     [reference_resolution, graph_construction]
   depends_on   [specforge_parser]
 }
 
@@ -43,16 +40,16 @@ library specforge_graph "specforge-graph" {
 
 library specforge_validator "specforge-validator" {
   family       core
-  features     [graph_validation]
+  features     [structural_validation, diagnostic_reporting]
   depends_on   [specforge_graph]
   ports_defined [RefValidator]
 }
 
 library specforge_emitter "specforge-emitter" {
   family       core
-  features     [markdown_documentation_generation, json_and_dot_export, traceability_reports]
+  features     [json_and_dot_export, traceability_serialization, agent_export, self_describing_graph_protocol]
   depends_on   [specforge_graph]
-  ports_defined [OutputRenderer]
+  ports_defined [GraphSerializer]
 }
 
 library specforge_watch "specforge-watch" {
@@ -64,53 +61,47 @@ library specforge_watch "specforge-watch" {
 
 library specforge_formatter "specforge-formatter" {
   family       core
-  features     [code_formatting, lsp_format_on_save]
+  features     [code_formatting, lsp_formatting]
   depends_on   [tree_sitter_specforge, specforge_parser]
 }
 
 library specforge_wasm "specforge-wasm" {
   family       core
-  features     [wasm_package_runtime, wasm_package_authoring]
+  features     [wasm_extension_runtime, wasm_extension_authoring]
   depends_on   [specforge_graph]
   ports_defined [WasmRuntime]
 }
 
 library specforge_cli "specforge-cli" {
   family       platform
-  features     [project_initialization, ci_integration, format_version_migration, generator_plugin_protocol]
+  features     [project_initialization, ci_integration]
   depends_on   [specforge_parser, specforge_resolver, specforge_graph, specforge_validator, specforge_emitter, specforge_watch, specforge_wasm]
   ports_defined [CompilerApi]
 }
 
 library specforge_lsp "specforge-lsp" {
   family       platform
-  features     [go_to_definition_and_references, hover_and_autocomplete, rename_refactoring, live_diagnostics_feature, code_actions, outline_and_symbol_search]
+  features     [go_to_definition_and_references, hover_and_autocomplete, rename_refactoring, live_diagnostics, code_actions, outline_and_symbol_search]
   depends_on   [specforge_parser, specforge_resolver, specforge_graph, specforge_validator, specforge_watch]
   ports_defined [LspProtocol]
 }
 
-library specforge_plugin_product "specforge-plugin-product" {
-  family       plugin
-  features     [plugin_management]
+library specforge_package_product "specforge-package-product" {
+  family       extension
+  features     [extension_management]
   depends_on   [specforge_validator, specforge_wasm]
 }
 
-library specforge_plugin_governance "specforge-plugin-governance" {
-  family       plugin
-  features     [plugin_management]
+library specforge_package_governance "specforge-package-governance" {
+  family       extension
+  features     [extension_management]
   depends_on   [specforge_validator, specforge_wasm]
 }
 
 library specforge_provider_gh "specforge-provider-gh" {
-  family       plugin
+  family       extension
   features     [provider_based_ref_validation]
   depends_on   [specforge_validator, specforge_wasm]
-}
-
-library specforge_gen_typescript "specforge-gen-typescript" {
-  family       plugin
-  features     [type_and_port_code_generation, test_stub_generation_and_drift_detection]
-  depends_on   [specforge_graph, specforge_wasm]
 }
 
 library specforge_coverage "specforge-coverage" {
@@ -120,19 +111,19 @@ library specforge_coverage "specforge-coverage" {
   ports_defined [TestReporter]
 }
 
-library specforge_gen_rust "specforge-gen-rust" {
-  family       plugin
-  features     [rust_type_and_port_generation, rust_test_stub_generation, rust_test_collection]
+library specforge_collect_rust "specforge-collect-rust" {
+  family       extension
+  features     [rust_test_collection]
   depends_on   [specforge_graph]
 }
 
 library specforge_test_lib "specforge-test" {
-  family       plugin
+  family       extension
   features     [rust_proc_macro_annotation]
 }
 
 library specforge_test_macros_lib "specforge-test-macros" {
-  family       plugin
+  family       extension
   features     [rust_proc_macro_annotation]
   depends_on   [specforge_test_lib]
 }
