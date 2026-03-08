@@ -1,8 +1,0 @@
-{
-  "name": "cov-unknown-ids",
-  "version": "1.0",
-  "spec_root": ".",
-  "coverage": {
-    "fail_on_unknown_ids": true
-  }
-}

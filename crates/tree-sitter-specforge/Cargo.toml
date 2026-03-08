@@ -6,11 +6,10 @@ license.workspace = true
 build = "build.rs"
 
 [dependencies]
-tree-sitter-language = "0.1"
+tree-sitter-language = { workspace = true }
 
 [dev-dependencies]
 tree-sitter = { workspace = true }
-streaming-iterator = "0.1"
 
 [build-dependencies]
 cc = "1"

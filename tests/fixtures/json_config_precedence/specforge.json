@@ -1,7 +1,0 @@
-{
-  "$schema": "https://specforge.dev/schema/specforge.json",
-  "name": "json-wins",
-  "version": "1.0",
-  "spec_root": ".",
-  "plugins": []
-}

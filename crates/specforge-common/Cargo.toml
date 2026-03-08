@@ -8,6 +8,3 @@ license.workspace = true
 lasso = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
-
-[dev-dependencies]
-insta = { workspace = true }

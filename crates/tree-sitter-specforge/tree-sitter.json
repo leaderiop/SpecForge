@@ -1,23 +1,20 @@
 {
-  "metadata": {
-    "version": "0.1.0",
-    "license": "MIT",
-    "description": "Tree-sitter grammar for the SpecForge .spec DSL",
-    "authors": [{ "name": "SpecForge Contributors" }],
-    "links": {
-      "repository": "https://github.com/anthropics/specforge"
-    }
-  },
   "grammars": [
     {
       "name": "specforge",
       "camelcase": "Specforge",
       "scope": "source.specforge",
       "path": ".",
-      "file-types": ["spec"],
-      "highlights": "queries/highlights.scm",
-      "folds": "queries/folds.scm",
-      "indents": "queries/indents.scm"
+      "file-types": ["spec"]
     }
-  ]
+  ],
+  "metadata": {
+    "version": "0.1.0",
+    "license": "MIT OR Apache-2.0"
+  },
+  "bindings": {
+    "rust": {
+      "generate": true
+    }
+  }
 }

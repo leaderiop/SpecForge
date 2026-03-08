@@ -1,7 +1,0 @@
-{
-  "$schema": "https://specforge.dev/schema/specforge.json",
-  "name": "json-config-test",
-  "version": "1.0",
-  "spec_root": ".",
-  "plugins": []
-}

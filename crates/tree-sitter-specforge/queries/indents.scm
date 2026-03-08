@@ -1,4 +1,7 @@
-; indents.scm — Auto-indentation for SpecForge .spec files
+; Indent after opening brace/bracket
+"{" @indent
+"[" @indent
 
-["{" "["] @indent
-["}" "]"] @dedent
+; Dedent on closing brace/bracket
+"}" @dedent
+"]" @dedent

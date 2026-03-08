@@ -1,6 +1,5 @@
 mod ast;
-mod cst_to_ast;
-mod dedent;
+mod parse;
 
-pub use ast::{AstEntity, ParseError, SpecFile, UseImport};
-pub use cst_to_ast::parse;
+pub use ast::*;
+pub use parse::parse;

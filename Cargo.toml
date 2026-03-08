@@ -4,15 +4,6 @@ members = [
     "crates/specforge-common",
     "crates/tree-sitter-specforge",
     "crates/specforge-parser",
-    "crates/specforge-resolver",
-    "crates/specforge-graph",
-    "crates/specforge-validator",
-    "crates/specforge-emitter",
-
-    "crates/specforge-coverage",
-    "crates/specforge-wasm",
-    "crates/specforge-cli",
-    "crates/specforge-lsp",
 ]
 
 [workspace.package]
@@ -22,36 +13,23 @@ license = "MIT OR Apache-2.0"
 repository = "https://github.com/specforge/specforge"
 
 [workspace.dependencies]
-# Shared across crates
+# Internal
+specforge-common = { path = "crates/specforge-common" }
+tree-sitter-specforge = { path = "crates/tree-sitter-specforge" }
 
 # External
-tree-sitter = "0.25"
-tree-sitter-language = "0.1"
-petgraph = "0.7"
-lasso = { version = "0.7", features = ["multi-threaded"] }
-clap = { version = "4", features = ["derive"] }
-ariadne = "0.4"
-serde = { version = "1", features = ["derive"] }
-serde_json = "1"
-walkdir = "2"
-strsim = "0.11"
-regex = "1"
-inquire = "0.7"
+tree-sitter = "0.26.6"
+tree-sitter-language = "0.1.7"
+lasso = { version = "0.7.3", features = ["multi-threaded"] }
+serde = { version = "1.0.228", features = ["derive"] }
+serde_json = "1.0.149"
 
-extism = "1"
-semver = "1"
-ureq = "3"
-sha2 = "0.10"
-quick-xml = "0.37"
-
-notify = "7"
-ctrlc = "3"
-tower-lsp = "0.20"
-tokio = { version = "1", features = ["full"] }
+# Build
+cc = "1.2.56"
 
 # Dev/test
-insta = { version = "1", features = ["json"] }
-tempfile = "3"
+insta = { version = "1.46.3", features = ["json"] }
+tempfile = "3.26.0"
 
 [profile.release]
 lto = true

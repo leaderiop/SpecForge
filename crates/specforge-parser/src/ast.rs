@@ -1,26 +1,22 @@
-use specforge_common::{CustomEntityDef, EntityId, EntityKind, FieldMap, SourceSpan};
+use specforge_common::SourceSpan;
 
-/// A parsed `.spec` file.
 #[derive(Debug, Clone)]
 pub struct SpecFile {
     pub path: String,
-    pub imports: Vec<UseImport>,
-    pub entities: Vec<AstEntity>,
-    pub custom_defs: Vec<CustomEntityDef>,
+    pub imports: Vec<ImportDeclaration>,
+    pub entities: Vec<Entity>,
     pub errors: Vec<ParseError>,
 }
 
-/// A `use` import declaration.
 #[derive(Debug, Clone)]
-pub struct UseImport {
+pub struct ImportDeclaration {
     pub path: String,
-    pub selective: Option<Vec<String>>,
+    pub selected_ids: Option<Vec<String>>,
     pub span: SourceSpan,
 }
 
-/// A parsed entity block in the AST.
 #[derive(Debug, Clone)]
-pub struct AstEntity {
+pub struct Entity {
     pub kind: EntityKind,
     pub id: EntityId,
     pub title: Option<String>,
@@ -28,9 +24,68 @@ pub struct AstEntity {
     pub span: SourceSpan,
 }
 
-/// A parse error with source location.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct EntityKind {
+    pub raw: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct EntityId {
+    pub raw: String,
+}
+
+#[derive(Debug, Clone)]
+pub struct FieldMap {
+    entries: Vec<FieldEntry>,
+}
+
+impl FieldMap {
+    pub fn new() -> Self {
+        Self { entries: Vec::new() }
+    }
+
+    pub fn push(&mut self, key: String, value: FieldValue) {
+        self.entries.push(FieldEntry { key, value });
+    }
+
+    pub fn get(&self, key: &str) -> Option<&FieldValue> {
+        self.entries.iter().find(|e| e.key == key).map(|e| &e.value)
+    }
+
+    pub fn entries(&self) -> &[FieldEntry] {
+        &self.entries
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct FieldEntry {
+    pub key: String,
+    pub value: FieldValue,
+}
+
+#[derive(Debug, Clone)]
+pub enum FieldValue {
+    String(String),
+    ReferenceList(Vec<String>),
+    StringList(Vec<String>),
+    Block(FieldMap),
+    VerifyList(Vec<VerifyStatement>),
+    Integer(i64),
+    Boolean(bool),
+    Date(String),
+    Identifier(String),
+}
+
+#[derive(Debug, Clone)]
+pub struct VerifyStatement {
+    pub kind: String,
+    pub description: String,
+}
+
 #[derive(Debug, Clone)]
 pub struct ParseError {
     pub message: String,
     pub span: SourceSpan,
+    pub expected: Option<String>,
+    pub found: Option<String>,
 }
