@@ -1,4 +1,9 @@
 // @specforge/software analyze commands — CLI commands for formal analysis
+//
+// These commands use the surface contribution model (RES-24). In the
+// extension manifest, they are declared under surfaces.commands[] and
+// dispatched by register_surface_contributions / dispatch_surface_command.
+// Each command's Wasm export follows the cmd__{id} naming convention.
 
 use types/zero-entity-core
 use extensions/software/types

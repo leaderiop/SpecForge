@@ -187,7 +187,7 @@ failure_mode wasm_host_function_timeout "Wasm Host Function Timeout" {
 
   cause      "specforge.http_get host function makes a request to an unresponsive service — extension blocks waiting for network response"
   effect     "Compilation hangs or takes excessively long — developer experiences unexplained delay"
-  mitigation "Enforce timeout on all http_get calls (default 10s); fuel metering caps total execution time per extension; timeout produces diagnostic with URL"
+  mitigation "Enforce timeout on all http_get calls (default 5s); fuel metering caps total execution time per extension; timeout produces diagnostic with URL"
 
   post_mitigation {
     severity   5
@@ -223,7 +223,7 @@ failure_mode builtin_field_shadow "Grammar-Level Construct Shadow by Extension" 
   detection  2
   rpn        32
 
-  cause      "Extension registers an enhancement field with the same name as a grammar-level construct (entity title, verify, gherkin)"
+  cause      "Extension registers an enhancement field with the same name as a grammar-level construct (entity title, verify)"
   effect     "Grammar-level construct is shadowed — parser/resolver uses extension field definition instead of grammar-level syntax, causing unpredictable validation and broken contract extraction"
   mitigation "Enhancement registration checks every field name against the reserved grammar-level construct names; shadow attempt produces hard error E018 regardless of enhancement_policy; integration test with deliberate shadow attempt"
 
@@ -384,5 +384,65 @@ failure_mode extension_initialization_failure "Extension Initialization Failure"
     occurrence 1
     detection  1
     rpn        6
+  }
+}
+
+failure_mode grammar_conflict_between_extensions {
+  severity 6
+  occurrence 4
+  detection 3
+  rpn 72
+
+  cause "Two extensions declare grammars for the same entity kind with no conflict resolution policy configured."
+  effect "Ambiguous grammar composition leads to unpredictable parsing results or compilation failure."
+  mitigation "GrammarConflictPolicy (error | priority | namespace) is required when multiple extensions target the same entity kind. Default policy is error (fail fast)."
+
+  invariant grammar_composition_determinism
+
+  post_mitigation {
+    severity 3
+    occurrence 2
+    detection 2
+    rpn 12
+  }
+}
+
+failure_mode body_parser_crash {
+  severity 7
+  occurrence 3
+  detection 2
+  rpn 42
+
+  cause "Extension body parser Wasm export panics, exceeds timeout, or returns malformed JSON."
+  effect "Entity body cannot be parsed; compilation for affected entities fails."
+  mitigation "Wasm sandbox isolates crashes. Timeout enforcement (configurable, default 5000ms). Fallback to raw string field on parser error with diagnostic warning. Output JSON validated against declared schema before acceptance."
+
+  invariant body_parser_output_conformance
+
+  post_mitigation {
+    severity 4
+    occurrence 2
+    detection 1
+    rpn 8
+  }
+}
+
+failure_mode grammar_version_mismatch {
+  severity 5
+  occurrence 5
+  detection 4
+  rpn 100
+
+  cause "Extension provides grammar .wasm compiled for a different tree-sitter ABI version than the host runtime."
+  effect "Grammar loading fails or produces incorrect parse trees silently."
+  mitigation "ABI version validation during grammar loading. Compiler reports GrammarError with expected vs actual ABI version. Grammar cache invalidation on ABI version change."
+
+  invariant grammar_injection_isolation
+
+  post_mitigation {
+    severity 2
+    occurrence 2
+    detection 1
+    rpn 4
   }
 }

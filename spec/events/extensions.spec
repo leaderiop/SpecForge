@@ -229,8 +229,25 @@ event keyword_extension_index_generated "Keyword Extension Index Generated" {
 
 }
 
+event registry_request_retry_exhausted "Registry Request Retry Exhausted" {
+  trigger   retry_registry_request
+  channel   "extensions.registry_request_retry_exhausted"
+
+  payload {
+    registryUrl     string
+    lastStatusCode  integer
+    retryCount      integer
+    timestamp       timestamp
+  }
+
+  consumers []
+
+  verify integration "emits after all retry attempts are exhausted"
+
+}
+
 event extension_removed {
-  trigger   [remove_extension]
+  trigger   [remove_extension, provide_mcp_remove_extension_tool]
   channel   "extensions.extension_removed"
 
   payload {

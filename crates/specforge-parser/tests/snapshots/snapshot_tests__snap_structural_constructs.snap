@@ -1,0 +1,172 @@
+---
+source: crates/specforge-parser/tests/snapshot_tests.rs
+expression: "parse_ok(source, \"test.spec\").entities"
+---
+[
+  {
+    "kind": {
+      "raw": "spec"
+    },
+    "id": {
+      "raw": "SpecForge"
+    },
+    "title": "SpecForge",
+    "fields": {
+      "entries": [
+        {
+          "key": "version",
+          "value": {
+            "String": "0.1.0"
+          }
+        },
+        {
+          "key": "verify",
+          "value": {
+            "VerifyList": [
+              {
+                "kind": "integration",
+                "description": "project compiles"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    "raw_body": "\n    version \"0.1.0\"\n    verify integration \"project compiles\"\n",
+    "span": {
+      "file": "test.spec",
+      "start_line": 2,
+      "start_col": 1,
+      "end_line": 5,
+      "end_col": 2
+    }
+  },
+  {
+    "kind": {
+      "raw": "ref"
+    },
+    "id": {
+      "raw": "gh.issue:42"
+    },
+    "title": "Support Wasm extensions",
+    "fields": {
+      "entries": [
+        {
+          "key": "scheme",
+          "value": {
+            "String": "gh"
+          }
+        },
+        {
+          "key": "ref_kind",
+          "value": {
+            "String": "issue"
+          }
+        },
+        {
+          "key": "identifier",
+          "value": {
+            "String": "42"
+          }
+        }
+      ]
+    },
+    "raw_body": null,
+    "span": {
+      "file": "test.spec",
+      "start_line": 7,
+      "start_col": 1,
+      "end_line": 7,
+      "end_col": 42
+    }
+  },
+  {
+    "kind": {
+      "raw": "ref"
+    },
+    "id": {
+      "raw": "gh.issue:99"
+    },
+    "title": "Performance tracking",
+    "fields": {
+      "entries": [
+        {
+          "key": "scheme",
+          "value": {
+            "String": "gh"
+          }
+        },
+        {
+          "key": "ref_kind",
+          "value": {
+            "String": "issue"
+          }
+        },
+        {
+          "key": "identifier",
+          "value": {
+            "String": "99"
+          }
+        },
+        {
+          "key": "priority",
+          "value": {
+            "String": "high"
+          }
+        }
+      ]
+    },
+    "raw_body": null,
+    "span": {
+      "file": "test.spec",
+      "start_line": 9,
+      "start_col": 1,
+      "end_line": 11,
+      "end_col": 2
+    }
+  },
+  {
+    "kind": {
+      "raw": "define"
+    },
+    "id": {
+      "raw": "my_custom_kind"
+    },
+    "title": null,
+    "fields": {
+      "entries": [
+        {
+          "key": "base_kind",
+          "value": {
+            "String": "entity"
+          }
+        },
+        {
+          "key": "testable",
+          "value": {
+            "Boolean": true
+          }
+        },
+        {
+          "key": "verify",
+          "value": {
+            "VerifyList": [
+              {
+                "kind": "unit",
+                "description": "custom kind registers"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    "raw_body": "\n    base_kind \"entity\"\n    testable true\n    verify unit \"custom kind registers\"\n",
+    "span": {
+      "file": "test.spec",
+      "start_line": 13,
+      "start_col": 1,
+      "end_line": 17,
+      "end_col": 2
+    }
+  }
+]

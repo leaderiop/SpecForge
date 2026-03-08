@@ -31,8 +31,9 @@ feature test_traceability "Test Traceability" {
   """
 
   solution """
-    Three-layer traceability model: intent (verify/gherkin declarations),
-    linkage (tests field pointing to real files), and proof
+    Three-layer traceability model: intent (verify declarations and
+    extension file-reference fields), linkage (tests field pointing to
+    real files), and proof
     (specforge-report.json with pass/fail results). specforge trace
     --test-results renders the full matrix.
   """

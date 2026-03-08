@@ -31,18 +31,18 @@ feature declarative_validation_rules "Declarative Validation Rules" {
     with interpolation variables ({id}, {kind}, {field}). The core engine
     interprets these patterns against the compiled graph, eliminating the
     need for extension-specific Rust code. For complex validations that
-    cannot be expressed declaratively (cross-entity semantic checks,
-    custom graph traversals), extensions MAY export Wasm validator functions
-    that use the emit_diagnostic host function. Declarative patterns are
-    the primary mechanism; Wasm validators are the escape hatch.
+    cannot be expressed declaratively, extensions MAY export Wasm validator
+    functions that call the `specforge.query_graph` host function for graph
+    access and `specforge.emit_diagnostic` for reporting. Declarative
+    patterns are the primary mechanism; Wasm validators are the escape hatch.
 
     Extension-defined entity kinds are NOT automatically orphan-checked.
     Orphan detection (no_incoming_edges) is an opt-in validation pattern
     that each extension explicitly declares in its validationRules array.
     An entity kind without an explicit no_incoming_edges pattern in its
     extension manifest will NOT produce orphan warnings, even if it has
-    zero incoming edges. This is intentional — some entity kinds (e.g.,
-    top-level capabilities, roadmap phases) are naturally root nodes.
+    zero incoming edges. This is intentional — some entity kinds are
+    naturally root nodes with no expected incoming edges.
   """
 }
 
@@ -50,7 +50,9 @@ feature extension_manifest "Extension Manifest" {
   behaviors [
     validate_manifest_v2_schema, register_entity_kinds_from_manifest,
     register_edge_types_from_manifest, register_validation_rules_from_manifest,
-    register_verify_kinds_from_manifest, validate_extension_manifest_consistency,
+    register_verify_kinds_from_manifest,
+    register_grammar_contributions, register_body_parser_contributions,
+    validate_extension_manifest_consistency,
     detect_duplicate_entity_kinds, validate_peer_dependencies,
     validate_extension_testability,
   ]
@@ -66,7 +68,7 @@ feature extension_manifest "Extension Manifest" {
   solution """
     Structured entityKinds entries in the extension manifest carry full
     metadata: testable flag, singleton flag, supportsVerify flag,
-    supportsGherkin flag, semantic_token for LSP classification, lsp_icon
+    semantic_token for LSP classification, lsp_icon
     for outline SymbolKind, dot_shape for visualization, typed field
     definitions with edge mappings, custom allowedVerifyKinds, and
     extension-level verifyKinds. The manifest schema is validated at
@@ -148,9 +150,11 @@ feature extension_driven_visualization "Extension-Driven Visualization" {
 
   solution """
     The DOT graph serializer queries the KindRegistry for each entity's
-    dot_shape field from the extension manifest. Entity nodes use the
-    extension-defined DOT shape (box, ellipse, diamond, hexagon, etc.)
-    with a sensible default ("box") when no shape is specified. Edge
+    visual attributes from the extension manifest. Entity nodes use the
+    extension-defined DOT shape, color, and fill color from KindRegistryEntry
+    (shape: box, ellipse, diamond, hexagon, etc.; color: inherited when
+    unspecified; fillcolor: none when unspecified), with a sensible default
+    shape of "box" when no shape is specified. Edge
     rendering delegates to render_extension_defined_edge_styles which
     reads edge style metadata (color, style, arrowhead) from the edge
     type registry. Both node shapes and edge styles are fully extension-
@@ -165,6 +169,7 @@ feature zero_entity_bootstrap "Zero-Entity Bootstrap" {
     two_phase_parse_structural, two_phase_validate_semantic,
     suggest_missing_extensions, detect_unknown_entity_kinds,
     graceful_degradation_without_extensions,
+    handle_all_extensions_failed_to_load,
   ]
 
   problem """
@@ -180,13 +185,18 @@ feature zero_entity_bootstrap "Zero-Entity Bootstrap" {
     parsing — every keyword name { } block becomes a generic entity node
     with no keyword validation. Phase 2 loads extensions, populates
     registries, then validates all keywords against the KindRegistry.
+    Pipeline event sequence: all_files_parsed → extension_manifests_loaded →
+    registries_populated → define_blocks_registered → validation_complete.
     Unknown keywords produce E024 with help text suggesting which extension
     to install. The define_blocks_registered event fires after define
     blocks are processed, enabling user-defined types to participate in
     validation. Semantic validation waits for BOTH registries_populated
     AND define_blocks_registered — a dual barrier ensuring all entity
     kinds (extension-defined and project-defined) are available before
-    keyword validation begins. With zero extensions, the compiler gracefully degrades to
+    keyword validation begins. suggest_missing_extensions consumes a bundled
+    KeywordExtensionIndex data file produced by generate_keyword_extension_index
+    (extension_registry feature) at build time — see bridge comment in
+    behaviors/zero-entity-registries.spec. With zero extensions, the compiler gracefully degrades to
     structural-only mode with an I002 info diagnostic. Export commands
     (specforge export) MUST still produce valid Graph Protocol JSON from
     the structural-only graph, with generic entity nodes and reference
@@ -199,9 +209,9 @@ feature zero_entity_bootstrap "Zero-Entity Bootstrap" {
 // in features/output.spec — same 3 behaviors, consolidated to avoid duplication.
 
 feature extension_driven_code_actions "Extension-Driven Code Actions" {
-  // Owned: code_actions_for_missing_tests, code_action_create_entity_stub
+  // Owned: code_actions_for_missing_verify, code_action_create_entity_stub
   // Bridge: listed in features/lsp.spec code_actions
-  behaviors [code_actions_for_missing_tests, code_action_create_entity_stub]
+  behaviors [code_actions_for_missing_verify, code_action_create_entity_stub]
 
   problem """
     LSP code actions (quick fixes, refactorings) depend on extension
@@ -220,6 +230,9 @@ feature extension_driven_code_actions "Extension-Driven Code Actions" {
 }
 
 feature extension_driven_coverage "Extension-Driven Coverage" {
+  // Bridge: compute_project_statistics is defined in behaviors/output.spec and
+  // also listed in ci_integration (features/output.spec). This feature owns the
+  // extension-aware coverage aspect; ci_integration owns the CLI/exit-code aspect.
   behaviors [compute_project_statistics]
 
   problem """
@@ -236,8 +249,9 @@ feature extension_driven_coverage "Extension-Driven Coverage" {
     behaviors/output.spec. It queries the KindRegistry for the testable
     flag on each entity kind. Only entities whose kind has testable=true
     in the extension manifest contribute to the coverage denominator.
-    tested_entity_count includes entities with at least one verify or
-    gherkin declaration. Coverage percentage is tested_entity_count /
+    verified_entity_count includes entities with at least one verify
+    declaration or file-reference field value. Coverage percentage is
+    verified_entity_count /
     testable_entity_count (0% when testable_entity_count = 0). This
     ensures coverage percentages accurately reflect which entities are
     expected to have test evidence. Coverage is part of the traceability

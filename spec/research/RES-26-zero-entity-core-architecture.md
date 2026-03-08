@@ -381,7 +381,7 @@ audit_finding finding_001 "Incomplete Deletion Logging" {
 - **`KindRegistry`** — manages builtin + plugin + define with conflict detection
 - **`FieldRegistry`** — fully data-driven, looks up by string not enum
 - **`WasmEntityKind`** — already has name, testable, fields, reference_targets
-- **`qualified_entity_block`** — grammar already parses `@extension/kind id { fields }`
+- **No `@extension/kind` syntax** — duplicate kinds are a hard error, no disambiguation needed
 - **Graph builder** — already generic, uses string-based entity_kind
 
 ---

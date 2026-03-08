@@ -26,7 +26,7 @@ This is not a limitation. It is the architectural decision that makes SpecForge 
 
 When we are tempted to hardcode domain knowledge into core, we write an extension instead. Every time. The compiler earns its code by being domain-agnostic.
 
-**The test:** If a line of code in the compiler references a specific domain concept — "behavior", "endpoint", "regulation" — it is in the wrong place. Core can only reference structural concepts: "entity", "edge", "reference", "field".
+**The test:** If a line of code in the compiler references a specific domain concept — "behavior", "endpoint", "regulation" — it is in the wrong place. Core can only reference structural concepts: "entity", "edge", "reference", "field", "grammar injection", "body parser dispatch".
 
 ## 3. Agents are first-class consumers.
 

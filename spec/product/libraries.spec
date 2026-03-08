@@ -47,7 +47,7 @@ library specforge_validator "specforge-validator" {
 
 library specforge_emitter "specforge-emitter" {
   family       core
-  features     [json_and_dot_export, traceability_serialization, agent_export, self_describing_graph_protocol]
+  features     [json_and_dot_render, traceability_serialization, agent_export, self_describing_graph_protocol]
   depends_on   [specforge_graph]
   ports_defined [GraphSerializer]
 }
@@ -67,7 +67,7 @@ library specforge_formatter "specforge-formatter" {
 
 library specforge_wasm "specforge-wasm" {
   family       core
-  features     [wasm_extension_runtime, wasm_extension_authoring]
+  features     [wasm_extension_runtime, wasm_extension_authoring, wasm_grammar_contributions]
   depends_on   [specforge_graph]
   ports_defined [WasmRuntime]
 }

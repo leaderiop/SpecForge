@@ -74,7 +74,7 @@ capability initialize_project_as_agent "Initialize a Project as an AI Agent" {
 capability validate_spec_files "Validate Spec Files" {
   persona  developer
   surface  [cli]
-  features [spec_file_parsing, error_recovery_during_parsing, reference_resolution, graph_construction, structural_validation, diagnostic_reporting, gherkin_bridge, declarative_validation_rules, zero_entity_bootstrap]
+  features [spec_file_parsing, error_recovery_during_parsing, reference_resolution, graph_construction, structural_validation, diagnostic_reporting, declarative_validation_rules, zero_entity_bootstrap]
 
   flow """
     1. Developer runs specforge check
@@ -107,7 +107,7 @@ capability watch_for_changes "Watch for Changes" {
 capability export_graph_formats "Export Graph Formats" {
   persona  developer
   surface  [cli]
-  features [json_and_dot_export, traceability_serialization]
+  features [json_and_dot_render, traceability_serialization]
 
   flow """
     1. Developer runs specforge render json ./output/ or specforge graph
@@ -137,7 +137,7 @@ capability trace_requirements "Trace Requirements" {
 capability export_graph_for_agents "Export Graph for AI Agents" {
   persona  developer
   surface  [cli]
-  features [json_and_dot_export, agent_export]
+  features [json_and_dot_render, agent_export]
 
   flow """
     1. Developer runs specforge export --format=context
@@ -474,7 +474,7 @@ capability get_syntax_highlighting_without_lsp "Get Syntax Highlighting Without 
 capability export_graph_as_json "Export Graph as JSON" {
   persona  architect
   surface  [cli]
-  features [json_and_dot_export]
+  features [json_and_dot_render]
 
   flow """
     1. Architect runs specforge render json ./output/
@@ -504,7 +504,7 @@ capability review_full_traceability "Review Full Traceability" {
 capability visualize_spec_graph "Visualize Spec Graph" {
   persona  architect
   surface  [cli]
-  features [json_and_dot_export]
+  features [json_and_dot_render]
 
   flow """
     1. Architect runs specforge graph | dot -Tsvg > spec.svg
@@ -561,7 +561,7 @@ capability scaffold_wasm_extension "Scaffold a Wasm Extension" {
 
   flow """
     1. Contributor runs specforge extension init
-    2. System prompts for extension name and contribution types (entities, validators, renderers, providers)
+    2. System prompts for extension name and contribution types (entities, validators, renderers, providers, parsers, collectors)
     3. System scaffolds project with manifest v2, src/ skeleton, and build config
     4. Manifest declares entity_kinds, edge_types, validation_rules
     5. README includes PDK documentation and examples
@@ -841,6 +841,22 @@ capability migrate_spec_files_cap "Migrate Spec Files" {
     5. System backs up files and transforms to current format version
     6. System validates post-migration integrity automatically
     7. Success: all .spec files updated, graph structurally equivalent
+  """
+
+}
+
+capability author_custom_grammar_extension "Author Custom Grammar Extension" {
+  persona  contributor
+  surface  [cli]
+
+  features [wasm_grammar_contributions, wasm_extension_authoring]
+
+  flow """
+    1. Extension author creates tree-sitter grammar .wasm for their entity kinds
+    2. Extension author implements body_parse Wasm export for structured body parsing
+    3. Author declares grammar_contributions and body_parser_contributions in manifest
+    4. Author runs specforge extension validate to check grammar ABI and export signatures
+    5. Author publishes extension with grammar artifacts to registry
   """
 
 }

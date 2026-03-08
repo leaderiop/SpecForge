@@ -99,28 +99,28 @@
 │  Phase 3: Check event payloads                                │
 │           - Match producer payload vs consumer expectations    │
 │           - Validate structural compatibility                  │
-│           - Emit E030 on field mismatches                      │
+│           - Emit E041 on field mismatches                      │
 │                                                                │
 │  Phase 4: Check contract compatibility                        │
 │           - Validate behavior substitutability                 │
 │           - Check precondition weakening                       │
 │           - Check postcondition strengthening                  │
-│           - Emit E032/E033 on Liskov violations                │
+│           - Emit E043/E044 on Liskov violations                │
 │                                                                │
 │  Phase 5: Check port subtyping                                │
 │           - Validate parameter contravariance                  │
 │           - Validate return covariance                         │
-│           - Emit E034/E035 on variance violations              │
+│           - Emit E045/E046 on variance violations              │
 │                                                                │
 │  Phase 6: Check set constraints                               │
 │           - Validate set membership predicates                 │
 │           - Check subset relations                             │
-│           - Emit E036/E037 on set violations                   │
+│           - Emit E047/E048 on set violations                   │
 │                                                                │
 │  Phase 7 (Optional): SMT verification                         │
 │           - Translate contracts to SMT-LIB                     │
 │           - Query Z3 solver                                    │
-│           - Emit E038 on proof failures                        │
+│           - Emit E049 on proof failures                        │
 └───────────────────────────────────────────────────────────────┘
      │
      v
@@ -138,12 +138,12 @@
 
 | Feature | Syntax Example | Check Phase | Error Code | Version |
 |---------|---------------|-------------|------------|---------|
-| **Refinement Types** | `amount: number { > 0 }` | Phase 2 | E031, W020 | v2.2 |
-| **Event Payload** | `consumes event { field1, field2 }` | Phase 3 | E030 | v2.3 |
-| **Contract Subtyping** | `requires`/`ensures` clauses | Phase 4 | E032, E033 | v2.4 |
-| **Port Subtyping** | `port X extends Y` | Phase 5 | E034, E035 | v2.5 |
-| **Set Constraints** | `where result ⊆ {...}` | Phase 6 | E036, E037 | v2.6 |
-| **SMT Verification** | `--verify` flag | Phase 7 | E038, W022 | v3.0 |
+| **Refinement Types** | `amount: number { > 0 }` | Phase 2 | E042, W058 | v2.2 |
+| **Event Payload** | `consumes event { field1, field2 }` | Phase 3 | E041 | v2.3 |
+| **Contract Subtyping** | `requires`/`ensures` clauses | Phase 4 | E043, E044 | v2.4 |
+| **Port Subtyping** | `port X extends Y` | Phase 5 | E045, E046 | v2.5 |
+| **Set Constraints** | `where result ⊆ {...}` | Phase 6 | E047, E048 | v2.6 |
+| **SMT Verification** | `--verify` flag | Phase 7 | E049, W060 | v3.0 |
 | **Phantom Types** | `EntityId<K>` (internal) | Rust compiler | (compile error) | v2.1 |
 
 ## Example: Full Type System in Action
@@ -256,12 +256,12 @@ port PaymentRepository {
 
 | Error Type | Without Type System | With Type System |
 |------------|---------------------|------------------|
-| **Negative money amount** | Runtime error / Test failure | E031 at compile time (refinement violation) |
-| **Event field typo** | Runtime error / Undefined behavior | E030 at compile time (payload field missing) |
-| **Behavior violates Liskov** | Silent correctness bug | E032 at compile time (precondition strengthened) |
-| **Port incompatible substitution** | Runtime type error | E034/E035 at compile time (variance violation) |
+| **Negative money amount** | Runtime error / Test failure | E042 at compile time (refinement violation) |
+| **Event field typo** | Runtime error / Undefined behavior | E041 at compile time (payload field missing) |
+| **Behavior violates Liskov** | Silent correctness bug | E043 at compile time (precondition strengthened) |
+| **Port incompatible substitution** | Runtime type error | E045/E046 at compile time (variance violation) |
 | **Entity ID wrong kind** | Runtime panic or wrong results | Rust compile error (phantom type mismatch) |
-| **Contract contradiction** | Logic bug, hard to debug | E038 (optional, with --verify flag) |
+| **Contract contradiction** | Logic bug, hard to debug | E049 (optional, with --verify flag) |
 
 ## Adoption Strategy
 

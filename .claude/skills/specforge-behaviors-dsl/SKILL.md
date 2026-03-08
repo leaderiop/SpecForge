@@ -88,7 +88,7 @@ behavior create_user "Create User" {
 | `refines` | reference | Reference to an abstract behavior this concrete behavior refines. |
 | `verify` | verify statement(s) | Test specifications: `verify {kind} "{description}"`. Multiple allowed. |
 | `tests` | string list | Paths to existing test files/functions that exercise this behavior. |
-| `gherkin` | string list | Paths to Gherkin (.feature) files for BDD scenarios. |
+| `gherkin` | string list | Paths to Gherkin (.feature) files for BDD scenarios. Extension-declared field (`file_reference=true`) from `@specforge/software`. |
 | `refs` | reference list | External references linked to this behavior. |
 
 ### Verify Statement Kinds

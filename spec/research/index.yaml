@@ -108,3 +108,10 @@ entries:
     priority: critical
     date: 2026-03-06
     depends_on: [RES-23, RES-24, RES-26, RES-18]
+  - id: RES-29
+    file: RES-29-extension-defined-grammars.md
+    title: "Extension-Defined Grammars — Body Parser Architecture"
+    status: active
+    priority: critical
+    date: 2026-03-07
+    depends_on: [RES-11a, RES-23, RES-26]

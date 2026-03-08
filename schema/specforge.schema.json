@@ -67,6 +67,12 @@
       "enum": ["error", "priority", "namespace"],
       "default": "error"
     },
+    "grammar_policy": {
+      "type": "string",
+      "description": "How to resolve conflicts when two extensions contribute grammars for the same entity kind.",
+      "enum": ["error", "priority", "namespace"],
+      "default": "error"
+    },
     "entity_kinds": {
       "type": "object",
       "description": "Explicit conflict resolution for entity kind conflicts. Keys are kind names, values are the winning extension package name.",

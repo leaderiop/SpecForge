@@ -1,6 +1,7 @@
+use serde::Serialize;
 use specforge_common::SourceSpan;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
 pub struct SpecFile {
     pub path: String,
     pub imports: Vec<ImportDeclaration>,
@@ -8,33 +9,34 @@ pub struct SpecFile {
     pub errors: Vec<ParseError>,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
 pub struct ImportDeclaration {
     pub path: String,
     pub selected_ids: Option<Vec<String>>,
     pub span: SourceSpan,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
 pub struct Entity {
     pub kind: EntityKind,
     pub id: EntityId,
     pub title: Option<String>,
     pub fields: FieldMap,
+    pub raw_body: Option<String>,
     pub span: SourceSpan,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct EntityKind {
     pub raw: String,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct EntityId {
     pub raw: String,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
 pub struct FieldMap {
     entries: Vec<FieldEntry>,
 }
@@ -57,13 +59,13 @@ impl FieldMap {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
 pub struct FieldEntry {
     pub key: String,
     pub value: FieldValue,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
 pub enum FieldValue {
     String(String),
     ReferenceList(Vec<String>),
@@ -76,13 +78,13 @@ pub enum FieldValue {
     Identifier(String),
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
 pub struct VerifyStatement {
     pub kind: String,
     pub description: String,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
 pub struct ParseError {
     pub message: String,
     pub span: SourceSpan,

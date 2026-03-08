@@ -75,7 +75,7 @@ deliverable specforge_rust_traceability_deliverable "specforge/rust-traceability
 deliverable specforge_wasm_runtime_deliverable "specforge-wasm" {
   type         library
   personas     [developer, contributor]
-  capabilities [manage_extensions, scaffold_wasm_extension, validate_wasm_extension_locally_cap, publish_wasm_extension_cap, diagnose_extension_issues]
+  capabilities [manage_extensions, scaffold_wasm_extension, validate_wasm_extension_locally_cap, publish_wasm_extension_cap, diagnose_extension_issues, author_custom_grammar_extension]
   libraries    [specforge_wasm]
 }
 

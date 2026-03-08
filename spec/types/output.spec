@@ -17,6 +17,8 @@ type AgentExportConfig {
   depth      integer       @readonly @optional
   kind_filter string[]     @readonly @optional
   max_tokens integer       @readonly @optional
+  strategy   string        @readonly @optional // default: "prioritize"
+  centrality_metric string @readonly @optional // default: "degree"
 }
 
 // ── Token Economics ───────────────────────────────────────
@@ -58,7 +60,7 @@ type ProjectStatistics "Project-Level Statistics" {
   orphan_count          integer
   diagnostic_summary    DiagnosticSummary
   testable_entity_count integer
-  tested_entity_count   integer
+  verified_entity_count   integer
 }
 
 type DiagnosticSummary "Diagnostic Count Summary" {
@@ -82,7 +84,7 @@ type GraphAnnotation {
 // ── Schema Cache ───────────────────────────────────────────
 
 type SchemaCacheEntry {
-  schema_version string   @readonly
+  schema_version SchemaVersion @readonly
   hash           string   @readonly // SHA256 of the serialized schema JSON
   cached_at      string   @readonly // ISO 8601 timestamp
 }

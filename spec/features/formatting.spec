@@ -39,7 +39,7 @@ feature code_formatting "Code Formatting" {
 }
 
 feature lsp_formatting "LSP Formatting" {
-  behaviors [lsp_format_document, lsp_format_range, lsp_respect_editor_config, format_with_parse_errors]
+  behaviors [lsp_format_document, lsp_format_range, lsp_respect_editor_config, format_with_parse_errors, load_format_config, apply_format_rules, maintain_format_idempotency, preserve_comments]
 
   problem """
     Developers must manually format .spec files or rely on CLI commands after editing.
@@ -52,5 +52,11 @@ feature lsp_formatting "LSP Formatting" {
     using the same formatting engine as the CLI. Format-on-save triggers full-document
     formatting within 50ms. Range formatting expands to block boundaries and produces
     results consistent with full-document formatting.
+    LSP request cancellation ($/cancelRequest) is handled by the LSP protocol
+    layer generically for all request types — formatting operations complete
+    within the 50ms budget, making cancellation a protocol-level concern rather
+    than a formatting-specific behavior.
+    Extension-contributed formatting rules (ExtensionFormatRule) are applied
+    in the LSP path through the same contribution registry as the CLI path.
   """
 }

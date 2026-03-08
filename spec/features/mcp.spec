@@ -87,8 +87,10 @@ feature mcp_project_management_tools "MCP Project Management Tools" {
     diagnose issues, collect test results, and render outputs — operations
     that provide project health, status, and output generation through MCP.
     Three tools are read-only queries (extensions, providers, doctor); two
-    tools perform write operations (collect writes specforge-report.json,
-    render writes output files to disk).
+    tools write output artifacts (collect writes specforge-report.json,
+    render writes output files to disk). These are output-artifact writes,
+    not spec-source mutations — they produce mcp_tool_invoked events, not
+    mcp_mutation_completed, because they do not modify .spec source files.
   """
 
   solution """
@@ -96,12 +98,12 @@ feature mcp_project_management_tools "MCP Project Management Tools" {
     lists installed extensions with entity counts), specforge.providers
     (read-only, lists configured providers with registered schemes),
     specforge.doctor (read-only, runs health checks and reports conflicts),
-    specforge.collect (write, invokes a collector contribution to parse
-    test results and produce specforge-report.json), and specforge.render
-    (write, invokes renderer contributions to produce output files such as
-    JSON, DOT, or extension-defined formats). Together they give agents full
-    visibility into project configuration and health, plus test collection
-    and rendering capabilities.
+    specforge.collect (writes output artifact specforge-report.json by
+    invoking a collector contribution to parse test results), and
+    specforge.render (writes output files such as JSON, DOT, or
+    extension-defined formats by invoking renderer contributions).
+    Together they give agents full visibility into project configuration
+    and health, plus test collection and rendering capabilities.
   """
 }
 
@@ -124,7 +126,7 @@ feature mcp_delta_notifications "MCP Delta Notifications" {
 }
 
 feature mcp_prompts "MCP Prompts" {
-  behaviors [provide_mcp_implement_prompt, provide_mcp_review_prompt, provide_mcp_trace_prompt, provide_mcp_explore_prompt]
+  behaviors [provide_mcp_context_prompt, provide_mcp_review_prompt, provide_mcp_trace_prompt, provide_mcp_explore_prompt]
 
   problem """
     Agents need guided workflows for common spec tasks — implementing an entity,
@@ -142,6 +144,25 @@ feature mcp_prompts "MCP Prompts" {
   """
 }
 
+feature mcp_protocol_compliance "MCP Protocol Compliance" {
+  behaviors [handle_mcp_protocol_error, handle_mcp_request_cancellation, guard_mcp_reinitialization]
+
+  problem """
+    The MCP server implements SpecForge-specific tools and resources but does not
+    model standard JSON-RPC 2.0 / MCP protocol edge cases: malformed requests,
+    request cancellation, and duplicate initialization. Without explicit handling,
+    these scenarios may crash the server or produce non-standard error responses.
+  """
+
+  solution """
+    Three protocol compliance behaviors — handle_mcp_protocol_error for standard
+    JSON-RPC error codes, handle_mcp_request_cancellation for notifications/cancelled,
+    and guard_mcp_reinitialization for rejecting duplicate initialize requests —
+    ensure the server adheres to the MCP protocol specification and remains robust
+    under adversarial or misbehaving clients.
+  """
+}
+
 feature mcp_lifecycle "MCP Lifecycle" {
   behaviors [mcp_initialize, mcp_shutdown]
 
@@ -156,9 +177,11 @@ feature mcp_lifecycle "MCP Lifecycle" {
   solution """
     Two lifecycle behaviors — mcp_initialize and mcp_shutdown — bracket the
     MCP server session. Initialization compiles the project graph, loads
-    extensions, and registers all MCP capabilities before accepting requests.
-    Shutdown flushes pending notifications, releases all subscriptions and
-    Wasm engine instances, and exits cleanly.
+    extensions, registers all MCP capabilities (including surface-contributed
+    tools and resources from extension manifests), and merges them with core
+    capabilities before accepting requests. Shutdown flushes pending
+    notifications, releases all subscriptions and Wasm engine instances,
+    and exits cleanly.
   """
 }
 
@@ -176,8 +199,10 @@ feature mcp_discovery "MCP Discovery" {
   solution """
     Three listing operations — list_mcp_resources, list_mcp_tools, and
     list_mcp_prompts — return structured descriptors for all registered MCP
-    capabilities. Each descriptor includes the operation name, description,
-    and schema, enabling agents to dynamically adapt to the project's
-    installed extensions without prior knowledge of the available operations.
+    capabilities, including extension-contributed tools and resources from
+    surface contributions and auto-promoted CLI commands. Each descriptor
+    includes the operation name, description, and schema, enabling agents
+    to dynamically adapt to the project's installed extensions without prior
+    knowledge of the available operations.
   """
 }

@@ -156,7 +156,7 @@ constraint parser_correctness "Parser Correctness" {
     from all syntax errors without crashing
   """
 
-  constrains [parse_spec_file_to_ast, recover_from_syntax_errors, parse_use_imports, parse_all_block_types, parse_triple_quoted_strings, parse_gherkin_statements]
+  constrains [parse_spec_file_to_ast, recover_from_syntax_errors, parse_use_imports, parse_all_block_types, parse_triple_quoted_strings]
   protects [multi_error_collection]
 
   verify unit "parser handles all valid inputs and recovers from errors"
@@ -260,7 +260,7 @@ constraint lsp_responsiveness "LSP Responsiveness" {
     on a 500-file project
   """
 
-  constrains [go_to_definition, find_all_references, hover_information, autocomplete_entity_ids, rename_entity_id, live_diagnostics, code_actions_for_missing_tests, outline_view, workspace_symbol_search, shared_incremental_pipeline, provide_semantic_tokens, complete_field_names, complete_keywords, goto_import_definition, code_action_add_missing_import, code_action_create_entity_stub, incremental_document_sync]
+  constrains [go_to_definition, find_all_references, hover_information, autocomplete_entity_ids, rename_entity_id, live_diagnostics, code_actions_for_missing_verify, outline_view, workspace_symbol_search, shared_incremental_pipeline, provide_semantic_tokens, complete_field_names, complete_keywords, goto_import_definition, code_action_add_missing_import, code_action_create_entity_stub, incremental_document_sync]
   protects [incremental_correctness]
 
   verify load "LSP features respond within 50ms on 500-file project"
@@ -274,7 +274,7 @@ constraint traceability_completeness "Traceability Completeness" {
   metric """
     specforge trace MUST detect all broken links in the traceability
     chain with zero false negatives: missing tests field on testable
-    entities with verify/gherkin, non-existent test file paths,
+    entities with verify declarations, non-existent test file paths,
     missing report results for linked entities.
   """
 
@@ -296,7 +296,7 @@ constraint extension_system_integrity "Extension System Integrity" {
     prevents runaway extensions
   """
 
-  constrains [load_extension_manifests, register_extension_entity_types, load_provider_configurations, validate_provider_refs, remove_extension, list_installed_extensions, custom_entity_types_via_define, list_configured_providers, validate_ref_target_format, validate_provider_kinds, load_wasm_module, initialize_wasm_extension, enforce_wasm_sandbox, validate_extension_peer_dependencies, call_extension_validators, provide_host_function_query_graph, provide_host_function_emit_diagnostic, provide_host_function_add_graph_node, provide_host_function_add_graph_edge, warm_wasm_engine_instance, topological_sort_extensions, load_extension_manifest, register_entity_enhancements, detect_enhancement_conflicts, resolve_enhancement_conflicts, run_doctor_check, scaffold_wasm_extension_project, build_wasm_extension, validate_wasm_extension_locally, publish_wasm_extension, reject_reserved_entity_kind, detect_entity_kind_collision, resolve_entity_kind_conflict_via_config, qualify_entity_kind_inline, upgrade_wasm_extension, validate_extension_manifest, handle_wasm_trap, discover_extensions, parse_extension_specifier, resolve_extension_source, write_lock_file, read_lock_file, verify_wasm_integrity, dispatch_contribution_exports, validate_contribution_exports, toggle_extension_contributions]
+  constrains [load_extension_manifests, register_extension_entity_types, load_provider_configurations, validate_provider_refs, remove_extension, list_installed_extensions, custom_entity_types_via_define, list_configured_providers, validate_ref_target_format, validate_provider_kinds, load_wasm_module, initialize_wasm_extension, enforce_wasm_sandbox, validate_extension_peer_dependencies, call_extension_validators, provide_host_function_query_graph, provide_host_function_emit_diagnostic, provide_host_function_add_graph_node, provide_host_function_add_graph_edge, warm_wasm_engine_instance, topological_sort_extensions, load_extension_manifest, register_entity_enhancements, detect_enhancement_conflicts, resolve_enhancement_conflicts, run_doctor_check, scaffold_wasm_extension_project, build_wasm_extension, validate_wasm_extension_locally, publish_wasm_extension, reject_reserved_entity_kind, detect_entity_kind_collision, upgrade_wasm_extension, validate_extension_manifest, handle_wasm_trap, discover_extensions, parse_extension_specifier, resolve_extension_source, write_lock_file, read_lock_file, verify_wasm_integrity, dispatch_contribution_exports, validate_contribution_exports, toggle_extension_contributions]
   protects [spec_root_singleton, reference_resolution_completeness, wasm_sandbox_integrity]
 
   verify integration "extension operations never corrupt state or crash"
@@ -451,4 +451,23 @@ constraint schema_publication_accessibility "Schema Publication Accessibility" {
   verify integration "published schema is accessible without authentication"
   verify unit "schema URL is stable across patch versions"
 
+}
+
+constraint grammar_validation_quality {
+  category reliability
+  priority must
+
+  description "Grammar Wasm binaries and body parser exports MUST be validated before use. ABI version checks, size limits, and output schema conformance MUST be enforced to prevent extension-supplied code from corrupting the compilation pipeline."
+
+  constrains [
+    validate_grammar_wasm,
+    dispatch_body_parser
+  ]
+
+  protects [
+    body_parser_output_conformance
+  ]
+
+  verify integration "Grammar with invalid ABI version is rejected before loading"
+  verify integration "Body parser output not matching declared schema triggers BodyParserError"
 }

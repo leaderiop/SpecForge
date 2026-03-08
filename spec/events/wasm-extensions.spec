@@ -2,6 +2,7 @@
 // discovery, lock files, and doctor events
 
 use types/wasm
+use types/core
 use behaviors/wasm-extensions
 use behaviors/wasm-lifecycle
 use behaviors/wasm-sandbox
@@ -47,6 +48,7 @@ event entity_kind_conflict_detected "Entity Kind Conflict Detected" {
   trigger   detect_entity_kind_collision
   channel   "wasm.entity_kind_conflict_detected"
 
+  // Payload corresponds to EntityKindConflict (types/zero-entity-core.spec)
   payload {
     kindName          string
     firstExtension    string
@@ -54,29 +56,11 @@ event entity_kind_conflict_detected "Entity Kind Conflict Detected" {
     conflictType      string
   }
 
-  consumers [resolve_entity_kind_conflict_via_config]
+  consumers []
 
   verify integration "emits entity_kind_conflict_detected with both extension identities"
-  verify integration "consumer resolve_entity_kind_conflict_via_config receives event"
 
 }
-
-event entity_kind_conflict_resolved "Entity Kind Conflict Resolved" {
-  trigger   resolve_entity_kind_conflict_via_config
-  channel   "wasm.entity_kind_conflict_resolved"
-
-  payload {
-    kindName          string
-    winningExtension  string
-    policy            string
-    resolution        string
-  }
-
-  verify integration "emits entity_kind_conflict_resolved with winning extension and applied policy"
-
-}
-
-// ── Entity Kind Conflict Prevention Events ────────────────────
 
 event reserved_entity_kind_rejected "Reserved Entity Kind Rejected" {
   trigger   reject_reserved_entity_kind
@@ -91,22 +75,6 @@ event reserved_entity_kind_rejected "Reserved Entity Kind Rejected" {
   consumers []
 
   verify integration "emits reserved_entity_kind_rejected with kind name and reserving party"
-
-}
-
-event entity_kind_qualified "Entity Kind Qualified" {
-  trigger   qualify_entity_kind_inline
-  channel   "wasm.entity_kind_qualified"
-
-  payload {
-    qualifiedName     string
-    extensionName     string
-    resolvedKind      string
-  }
-
-  consumers []
-
-  verify integration "emits entity_kind_qualified with resolved kind details"
 
 }
 
@@ -265,6 +233,21 @@ event contribution_exports_dispatched "Contribution Exports Dispatched" {
 
 }
 
+event contribution_exports_validated "Contribution Exports Validated" {
+  trigger   validate_contribution_exports
+  channel   "wasm.contribution_exports_validated"
+
+  payload {
+    extensionName       string
+    validatedExports    integer
+  }
+
+  consumers [dispatch_contribution_exports]
+
+  verify integration "emits contribution_exports_validated after all declared exports verified"
+
+}
+
 event contribution_export_validation_failed "Contribution Export Validation Failed" {
   trigger   validate_contribution_exports
   channel   "wasm.contribution_export_validation_failed"
@@ -311,6 +294,10 @@ event contribution_toggled "Contribution Toggled" {
 }
 
 // ── Discovery Events ──────────────────────────────────────
+// Terminal events (consumers []) are intentionally leaf events for
+// observability, audit trails, and CLI output. Not every event requires
+// a behavioral consumer — these events serve as integration points for
+// external tooling, logging, and traceability.
 
 event extensions_discovered "Extensions Discovered" {
   trigger   discover_extensions
@@ -412,13 +399,13 @@ event lock_file_refreshed "Lock File Refreshed" {
   channel  "wasm.lock"
 
   payload {
-    path        string
-    entry_count integer
+    lockFilePath string
+    entryCount   integer
   }
 
   consumers []
 
-  verify integration "emits lock_file_refreshed with correct path and entry_count"
+  verify integration "emits lock_file_refreshed with correct lockFilePath and entryCount"
 
 }
 
@@ -474,4 +461,53 @@ event batch_update_completed "Batch Update Completed" {
   verify integration "emits batch_update_completed with correct updatedCount after bulk update"
   verify integration "consumer invalidate_aot_cache receives event to clear stale AOT artifacts"
 
+}
+
+// -- Extension-Defined Grammar Events ----------------------------------------
+
+event grammar_loaded "Grammar Loaded" {
+  trigger load_extension_grammar
+  payload GrammarCacheEntry
+  channel "wasm.grammar_loaded"
+
+  contract """
+    Emitted when a grammar .wasm binary is successfully loaded and cached.
+    Consumers MAY use this to update LSP highlighting configuration.
+  """
+
+  consumers [compose_grammar_injections]
+
+  verify integration "grammar_loaded emitted after successful grammar load"
+}
+
+event grammars_composed "Grammars Composed" {
+  trigger compose_grammar_injections
+  payload GrammarConflictPolicy
+  channel "wasm.grammars_composed"
+
+  contract """
+    Emitted after all grammar contributions have been composed into a
+    coherent grammar configuration. Consumers MAY use this to finalize
+    LSP highlighting setup.
+  """
+
+  consumers [load_extension_grammars_for_highlighting]
+
+  verify integration "grammars_composed emitted after composition completes"
+}
+
+event body_parsed "Body Parsed" {
+  trigger dispatch_body_parser
+  payload FieldMap
+  channel "wasm.body_parsed"
+
+  contract """
+    Emitted when a body parser successfully transforms raw body text
+    into structured JSON fields for an entity. The payload contains
+    the resulting FieldMap.
+  """
+
+  consumers [two_phase_validate_semantic]
+
+  verify integration "body_parsed emitted after successful body parse"
 }

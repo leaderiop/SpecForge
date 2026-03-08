@@ -77,7 +77,7 @@ Organized into core (structural) + three official extensions. The core compiler 
 | Block | Naming Convention | Purpose |
 |-------|-------------------|---------|
 | `invariant` | `identifier` | Runtime guarantee with `guarantee` text, `enforced_by` references, `risk`, `maintains`, `verify` |
-| `behavior` | `identifier` | Behavioral contract with `contract`, `category`, `requires`/`ensures`/`maintains`, `verify`, `abstract`/`refines`, `produces`/`consumers`, `tests`, `gherkin` |
+| `behavior` | `identifier` | Behavioral contract with `contract`, `category`, `requires`/`ensures`/`maintains`, `verify`, `abstract`/`refines`, `produces`/`consumers`, `tests`, `gherkin` (extension-declared field) |
 | `feature` | `identifier` | User-facing capability composed of behaviors, with problem/solution framing |
 | `event` | `identifier` | Domain/system event with trigger, payload (type reference), consumers, `sync` block, `verify` |
 | `type` | `identifier` | Data type definition with `kind`, fields, and annotations (`@readonly`, `@unique`, `@literal`, `@optional`) |

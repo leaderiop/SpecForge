@@ -105,13 +105,14 @@ behavior compute_four_level_coverage "Compute Four-Level Coverage" {
 
   contract """
     The system MUST compute four coverage levels from the spec graph
-    and report data: declared (has verify/gherkin), linked (has tests
-    field), executed (appears in report), and passing (all tests pass).
+    and report data: declared (has verify declarations or file-reference
+    fields like gherkin), linked (has tests field), executed (appears in
+    report), and passing (all tests pass).
     Each level MUST be expressed as both a count and a percentage of
     total testable entities.
   """
 
-  verify unit "declared count matches entities with verify or gherkin"
+  verify unit "declared count matches entities with verify or file-reference fields"
   verify unit "linked count matches entities with tests field"
   verify unit "executed count matches entities in report"
   verify unit "passing count matches entities with all tests passing"
@@ -126,8 +127,8 @@ behavior render_test_traceability_matrix "Render Test Traceability Matrix" {
   contract """
     The system MUST render the specforge trace --test-results output
     as a tabular display showing each testable entity with its intent
-    declarations (verify/gherkin count), linked test file, and test
-    execution status from the report.
+    declarations (verify and file-reference field count), linked test
+    file, and test execution status from the report.
   """
 
   verify unit "matrix includes all testable entities"

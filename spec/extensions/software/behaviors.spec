@@ -20,17 +20,17 @@ behavior se_register_entity_kinds "Register Software Entity Kinds" {
   }
 
   ensures {
-    behavior_registered    "KindRegistry contains behavior: testable=true, supportsVerify=true, supportsGherkin=true, semanticToken=function, lspIcon=Method, dotShape=box"
-    invariant_registered   "KindRegistry contains invariant: testable=true, supportsVerify=true, supportsGherkin=false, semanticToken=property, lspIcon=Property, dotShape=diamond"
-    feature_registered     "KindRegistry contains feature: testable=false, supportsVerify=false, supportsGherkin=false, semanticToken=class, lspIcon=Package, dotShape=hexagon"
-    event_registered       "KindRegistry contains event: testable=true, supportsVerify=true, supportsGherkin=false, semanticToken=event, lspIcon=Event, dotShape=ellipse"
-    type_registered        "KindRegistry contains type: testable=false, supportsVerify=false, supportsGherkin=false, semanticToken=type, lspIcon=Struct, dotShape=rectangle"
-    port_registered        "KindRegistry contains port: testable=false, supportsVerify=false, supportsGherkin=false, semanticToken=interface, lspIcon=Interface, dotShape=trapezium"
+    behavior_registered    "KindRegistry contains behavior: testable=true, supportsVerify=true, semanticToken=function, lspIcon=Method, dotShape=box"
+    invariant_registered   "KindRegistry contains invariant: testable=true, supportsVerify=true, semanticToken=property, lspIcon=Property, dotShape=diamond"
+    feature_registered     "KindRegistry contains feature: testable=false, supportsVerify=false, semanticToken=class, lspIcon=Package, dotShape=hexagon"
+    event_registered       "KindRegistry contains event: testable=true, supportsVerify=true, semanticToken=event, lspIcon=Event, dotShape=ellipse"
+    type_registered        "KindRegistry contains type: testable=false, supportsVerify=false, semanticToken=type, lspIcon=Struct, dotShape=rectangle"
+    port_registered        "KindRegistry contains port: testable=false, supportsVerify=false, semanticToken=interface, lspIcon=Interface, dotShape=trapezium"
     six_kinds_total        "KindRegistry has exactly 6 domain entries after registration"
   }
 
   verify unit "behavior registered with testable=true and supportsVerify=true"
-  verify unit "invariant registered with testable=true and supportsGherkin=false"
+  verify unit "invariant registered with testable=true and supportsVerify=true"
   verify unit "feature registered with testable=false"
   verify unit "event registered with semanticToken=event"
   verify unit "type registered with dotShape=rectangle"
@@ -196,26 +196,24 @@ behavior se_validate_entity_fields "Validate Software Entity Fields" {
 
 }
 
-behavior se_parse_gherkin_statements "Parse Gherkin Statements" {
+behavior se_parse_gherkin_statements "Register Gherkin Field" {
   category command
   invariants [se_behavior_testability]
-  types      [GherkinList]
-  ports      [SourceParser]
 
   contract """
-    The @specforge/software extension declares supportsGherkin=true for
-    behavior entities. The parser MUST recognize gherkin statements with
-    the syntax gherkin "path.feature" within any entity block. Gherkin
-    statements are structurally valid in any block; semantic validation
-    of whether the entity kind supports gherkin is deferred to the
-    semantic phase using the KindRegistry's supportsGherkin flag. Each
-    gherkin statement MUST be parsed into a GherkinList in the AST for
-    the enclosing entity.
+    The @specforge/software extension MUST declare a gherkin field with
+    type string_list and file_reference=true on the behavior entity kind
+    via the FieldRegistry. The field is parsed as a standard StringList
+    value — no dedicated grammar rule or AST type is needed. File
+    existence validation is handled by the generic
+    validate_file_reference_paths behavior (E016). The gherkin field
+    is NOT a core grammar construct — it is a regular extension-declared
+    field like any other.
   """
 
-  verify unit "parse gherkin statement in any entity block"
-  verify unit "parse multiple gherkin statements in same entity"
-  verify unit "semantic phase validates supportsGherkin per kind"
+  verify unit "gherkin field registered with type string_list"
+  verify unit "gherkin field has file_reference=true"
+  verify unit "gherkin values parsed as standard StringList"
 
 }
 

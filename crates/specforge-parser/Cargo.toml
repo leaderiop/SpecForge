@@ -6,6 +6,7 @@ license.workspace = true
 
 [dependencies]
 specforge-common = { workspace = true }
+serde = { workspace = true }
 tree-sitter = { workspace = true }
 tree-sitter-language = { workspace = true }
 tree-sitter-specforge = { workspace = true }

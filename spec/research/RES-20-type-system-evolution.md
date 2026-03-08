@@ -302,7 +302,7 @@ function checkEventPayloadCompatibility(event: Event, graph: Graph): Diagnostic[
 
         if (!isStructurallyCompatible(producerPayload, consumerExpectedPayload)) {
             errors.push({
-                code: "E030",
+                code: "E041",
                 severity: "error",
                 message: `Event '${event.id}' payload mismatch: consumer '${consumerId}' expects fields ${missing_fields}`,
                 span: event.span,
@@ -373,7 +373,7 @@ behavior send_welcome_email {
 Compiler error:
 
 ```
-error[E030]: event payload field missing
+error[E041]: event payload field missing
   ┌─ behaviors/notification.spec:5:42
   │
 5 │   consumes user_created { userId, email, name }
@@ -539,7 +539,7 @@ behavior update_quantity {
 Compiler error:
 
 ```
-error[E031]: refinement type violation
+error[E042]: refinement type violation
   ┌─ behaviors/inventory.spec:8:32
   │
 8 │     ensures product.quantity == -5
@@ -566,7 +566,7 @@ behavior create_user {
 Compiler warning:
 
 ```
-warning[W020]: possible refinement violation
+warning[W058]: possible refinement violation
   ┌─ behaviors/user.spec:6:28
   │
 6 │     ensures result.email == "invalid-email"
@@ -687,7 +687,7 @@ behavior strict_create_user {
 Compiler error:
 
 ```
-error[E032]: behavior not substitutable (precondition strengthened)
+error[E043]: behavior not substitutable (precondition strengthened)
   ┌─ behaviors/user.spec:15:5
   │
 15│     requires cmd.role == "admin"
@@ -811,7 +811,7 @@ port StrictUserRepository extends UserRepository {
 Compiler error:
 
 ```
-error[E033]: port method parameter not contravariant
+error[E044]: port method parameter not contravariant
   ┌─ ports/user-repo.spec:12:23
   │
 12│   method findById(id: UserId) -> Result<User, NotFoundError>
@@ -1067,7 +1067,7 @@ impl Resolver {
 - [ ] Extend grammar: `require`/`ensure` clauses in `contract` blocks
 - [ ] Extend grammar: refinement expressions `{ predicate }` on type fields
 - [ ] Parser recognizes new syntax, stores as opaque AST nodes
-- [ ] Validator warns on unrecognized refinement operators (W021)
+- [ ] Validator warns on unrecognized refinement operators (W059)
 - [ ] Documentation: syntax guide for contracts and refinements
 
 **Deliverable:** Specs can include typed contracts and refinements; compiler parses but doesn't validate yet.
@@ -1093,7 +1093,7 @@ impl Resolver {
 - [ ] Implement refinement expression parser (inside type checker)
 - [ ] Implement `validate_refinement_syntax()` (check operators match field types)
 - [ ] Implement `check_refinement_satisfaction()` (flow-sensitive checking)
-- [ ] Add error codes E031 (refinement violation), W020 (possible violation)
+- [ ] Add error codes E042 (refinement violation), W058 (possible violation)
 - [ ] Integrate with contract checker (prune redundant clauses)
 - [ ] Add snapshot tests for refinement errors
 
@@ -1105,8 +1105,8 @@ impl Resolver {
 
 - [ ] Extend grammar: consumer payload projection syntax `consumes event_id { field1, field2 }`
 - [ ] Implement `checkEventPayloadCompatibility()` in validator
-- [ ] Add error code E030 (payload field missing)
-- [ ] Add info code I006 (consumer uses only subset of payload)
+- [ ] Add error code E041 (payload field missing)
+- [ ] Add info code I018 (consumer uses only subset of payload)
 - [ ] Update event docs: payload evolution best practices
 - [ ] Add snapshot tests for event payload errors
 
@@ -1117,7 +1117,7 @@ impl Resolver {
 **Goal:** Validate behavior substitutability via contract checking.
 
 - [ ] Implement `check_behavior_substitutability()` in validator
-- [ ] Add error code E032 (precondition strengthened), E033 (postcondition weakened)
+- [ ] Add error code E043 (precondition strengthened), E044 (postcondition weakened)
 - [ ] Add logic for contract implication checking (SAT solver integration or heuristic)
 - [ ] Integrate with `enforced_by` edge validation
 - [ ] Add snapshot tests for contract compatibility errors
@@ -1130,7 +1130,7 @@ impl Resolver {
 
 - [ ] Extend grammar: `port X extends Y` syntax
 - [ ] Implement `check_port_subtyping()` in validator
-- [ ] Add error code E034 (parameter not contravariant), E035 (return not covariant)
+- [ ] Add error code E045 (parameter not contravariant), E046 (return not covariant)
 - [ ] Update port docs: subtyping rules and examples
 - [ ] Add snapshot tests for port subtyping errors
 
@@ -1143,8 +1143,8 @@ impl Resolver {
 - [ ] Extend grammar: `invariant` clause inside `type` blocks
 - [ ] Extend grammar: `where` clause in port method signatures
 - [ ] Implement `check_set_constraint()` in validator
-- [ ] Add error code E036 (set membership violation), E037 (subset violation)
-- [ ] Add info code I007 (set constraint as optimization hint)
+- [ ] Add error code E047 (set membership violation), E048 (subset violation)
+- [ ] Add info code I019 (set constraint as optimization hint)
 - [ ] Add snapshot tests for set constraint errors
 
 **Deliverable:** Compiler validates set membership and subset constraints.
@@ -1159,7 +1159,7 @@ impl Resolver {
 - [ ] Add `--verify` flag to enable SMT checking (opt-in)
 - [ ] Add `--verify-timeout` to limit SMT solver time
 - [ ] Cache SMT results per entity (incremental verification)
-- [ ] Add error code E038 (SMT verification failed), W022 (SMT timeout)
+- [ ] Add error code E049 (SMT verification failed), W060 (SMT timeout)
 
 **Deliverable:** Optional formal verification for contracts and refinements using SMT solver.
 
@@ -1392,7 +1392,7 @@ behavior invalid_order {
 Compiler error:
 
 ```
-error[E031]: refinement type violation
+error[E042]: refinement type violation
   ┌─ behaviors/order.spec:42:32
   │
 42│     ensures order.total.amount == -100
@@ -1413,7 +1413,7 @@ behavior send_email_receipt {
 Compiler error:
 
 ```
-error[E030]: event payload field missing
+error[E041]: event payload field missing
   ┌─ behaviors/notification.spec:8:42
   │
 8 │   consumes order_placed { orderId, customerEmail }
@@ -1437,7 +1437,7 @@ behavior strict_place_order extends place_order {
 Compiler error:
 
 ```
-error[E032]: behavior not substitutable (precondition strengthened)
+error[E043]: behavior not substitutable (precondition strengthened)
   ┌─ behaviors/order.spec:18:5
   │
 18│     requires cmd.items.length > 5
@@ -1460,7 +1460,7 @@ port RestrictedOrderRepository extends OrderRepository {
 Compiler error:
 
 ```
-error[E034]: port method parameter not contravariant
+error[E045]: port method parameter not contravariant
   ┌─ ports/order-repo.spec:15:23
   │
 15│   method findById(id: OrderId) -> Result<Order, NotFoundError>
@@ -1654,7 +1654,7 @@ impl TypeChecker {
 
                 if !is_payload_compatible(&event.payload, &expected_payload) {
                     errors.push(Diagnostic::error(
-                        "E030",
+                        "E041",
                         format!("Event '{}' payload mismatch for consumer '{}'",
                                 event.id.raw(), consumer_id.raw())
                     ));
@@ -1677,30 +1677,30 @@ impl TypeChecker {
 
 | Code | Severity | Name | Description |
 |------|----------|------|-------------|
-| E030 | Error | Event payload field missing | Consumer expects a field not provided by producer |
-| E031 | Error | Refinement type violation | Value doesn't satisfy field refinement constraint |
-| E032 | Error | Precondition strengthened | Subtype behavior requires more than parent (Liskov violation) |
-| E033 | Error | Postcondition weakened | Subtype behavior promises less than parent (Liskov violation) |
-| E034 | Error | Parameter not contravariant | Port method parameter is more specific than parent |
-| E035 | Error | Return not covariant | Port method return is more general than parent |
-| E036 | Error | Set membership violation | Value not in expected set |
-| E037 | Error | Subset violation | Collection not a subset of expected type |
-| E038 | Error | SMT verification failed | SMT solver couldn't prove contract/refinement |
+| E041 | Error | Event payload field missing | Consumer expects a field not provided by producer |
+| E042 | Error | Refinement type violation | Value doesn't satisfy field refinement constraint |
+| E043 | Error | Precondition strengthened | Subtype behavior requires more than parent (Liskov violation) |
+| E044 | Error | Postcondition weakened | Subtype behavior promises less than parent (Liskov violation) |
+| E045 | Error | Parameter not contravariant | Port method parameter is more specific than parent |
+| E046 | Error | Return not covariant | Port method return is more general than parent |
+| E047 | Error | Set membership violation | Value not in expected set |
+| E048 | Error | Subset violation | Collection not a subset of expected type |
+| E049 | Error | SMT verification failed | SMT solver couldn't prove contract/refinement |
 
 ### 12.2 New Warning Codes
 
 | Code | Severity | Name | Description |
 |------|----------|------|-------------|
-| W020 | Warning | Possible refinement violation | Static analysis suggests refinement might be violated |
-| W021 | Warning | Unknown refinement operator | Refinement uses operator not supported for field type |
-| W022 | Warning | SMT verification timeout | SMT solver timed out (inconclusive) |
+| W058 | Warning | Possible refinement violation | Static analysis suggests refinement might be violated |
+| W059 | Warning | Unknown refinement operator | Refinement uses operator not supported for field type |
+| W060 | Warning | SMT verification timeout | SMT solver timed out (inconclusive) |
 
 ### 12.3 New Info Codes
 
 | Code | Severity | Name | Description |
 |------|----------|------|-------------|
-| I006 | Info | Consumer payload projection | Consumer uses only a subset of event payload (good!) |
-| I007 | Info | Set constraint optimization hint | Set constraint provides query optimization opportunity |
+| I018 | Info | Consumer payload projection | Consumer uses only a subset of event payload (good!) |
+| I019 | Info | Set constraint optimization hint | Set constraint provides query optimization opportunity |
 
 ---
 

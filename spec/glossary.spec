@@ -93,7 +93,7 @@ glossary {
         E001 (dangling ref), E002 (duplicate ID), E003 (import cycle),
         E011 (invalid ID format), E012 (invalid field value),
         E013 (unknown provider kind), E015 (unsupported format version),
-        E016 (missing gherkin file), E017 (enhancement conflict unresolved),
+        E016 (missing file reference), E017 (enhancement conflict unresolved),
         E018 (enhancement shadows grammar-level construct),
         E020 (missing contribution export), E022 (entity kind collision
         with define block), E023 (reserved entity kind),
@@ -105,7 +105,7 @@ glossary {
       Core warning codes (structural validation):
         W012 (orphan ref), W015 (deprecated syntax), W017 (testable entity
         without verify — extension-declared testability flag),
-        W018 (missing gherkin on extension-supported kind — flag-driven),
+        W018 (missing file-reference field on extension-supported kind — pattern-driven),
         W019 (unused import), W020 (unknown field name on registered entity
         kind — field not in FieldRegistry for the entity's kind),
         W023 (deprecated field), W026 (enhancement conflict resolved by
@@ -116,12 +116,12 @@ glossary {
         I001 (unused glossary term), I003 (older format version suggestion),
         I004 (soft ref unresolved), I005 (unrecognized ref scheme),
         I006 (verify but not testable), I007 (cross-extension ref info),
-        I002 (no extensions installed).
+        I002 (no extensions installed), I016 (schema cache not found).
 
       Allocation ranges (non-overlapping, codes listed per owner):
         Core (structural):    E001-E003, E011-E028,
                               W012, W015, W017-W020, W023, W026-W027,
-                              I001-I007
+                              I001-I007, I016
 
         @specforge/software:  E004, E006, E030-E035,
                               W001-W005, W007-W010, W028-W040,
@@ -138,10 +138,19 @@ glossary {
 
         Wasm (core):          E029, I013
 
-        Reserved (future @specforge extensions): E036-E099,
+        Surface (core):       E036 (missing surface export),
+                              E037 (invalid MCP tool input_schema),
+                              E038 (unknown CLI command arg type),
+                              E039 (duplicate surface contribution),
+                              W055 (surface declared without Wasm binary),
+                              W056 (MCP tool without description),
+                              W057 (CLI command without args),
+                              I017 (auto-promoted tool conflicts with explicit)
+
+        Reserved (future @specforge extensions): E040-E099,
                               W011, W013-W014, W016, W021-W022, W024-W025,
-                              W045-W046, W049, W055-W099,
-                              I016-I099
+                              W045-W046, W049, W058-W099,
+                              I018-I099
         Third-party extensions: E100+, W100+, I100+
 
       Note: Allocation is by owner, not by contiguous numeric range.
@@ -328,6 +337,14 @@ glossary {
 
   // ── Editor & Syntax Support ────────────────────────────────
 
+  term "body parser" {
+    definition """
+      A Wasm export provided by an extension that transforms raw entity body
+      text into structured JSON fields during Phase 1.5 of compilation. Enables
+      extensions to define custom syntax beyond the core key-value field format.
+    """
+  }
+
   term "generic entity block" {
     definition """
       The single grammar rule that parses ALL entity blocks as
@@ -341,6 +358,28 @@ glossary {
     """
     aliases ["generic_entity_block", "entity_block"]
     context "Part of the zero-entity core architecture. The grammar is keyword-agnostic."
+  }
+
+  term "grammar composition" {
+    definition """
+      The process of combining grammar contributions from multiple extensions
+      into a coherent highlighting configuration, governed by
+      GrammarConflictPolicy.
+    """
+  }
+
+  term "grammar contribution" {
+    definition """
+      An extension contribution that provides a tree-sitter grammar .wasm
+      binary for editor syntax highlighting of extension-defined entity kinds.
+    """
+  }
+
+  term "grammar injection" {
+    definition """
+      The mechanism by which extension-provided tree-sitter grammars are loaded
+      into the LSP for syntax highlighting of extension-defined entity kinds.
+    """
   }
 
   term "query extension" {

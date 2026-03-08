@@ -82,7 +82,7 @@ If SpecForge reaches 100,000 projects and that number has not moved, we have fai
 
 These are forward-looking rejections. As SpecForge grows, pressure will mount to become each of these things. Each pressure will come with reasonable-sounding arguments. We will resist all of them.
 
-**A code generator.** SpecForge provides context. Agents produce output. These are fundamentally different jobs. The moment SpecForge generates code, it competes with every AI coding tool instead of empowering all of them. The entire value of the Graph Protocol depends on SpecForge being neutral infrastructure, not an opinionated output producer.
+**A code generator.** SpecForge provides context. Agents produce output. These are fundamentally different jobs. The moment SpecForge generates code, it competes with every AI coding tool instead of empowering all of them. The entire value of the Graph Protocol depends on SpecForge being neutral infrastructure, not an opinionated output producer. Extension renderers that emit spec-layer diagnostics — coverage reports, traceability matrices, validation summaries — are not output in this sense. They serve the compiler's own feedback loop, helping teams understand their graph. They are never application code, never deployed artifacts, never domain output.
 
 **A test framework.** SpecForge traces tests and consumes results. It never executes them. Test execution belongs to test runners — pytest, cargo test, vitest, JUnit. SpecForge belongs to the specification layer. Consuming test reports closes the traceability loop without coupling to any specific test framework.
 

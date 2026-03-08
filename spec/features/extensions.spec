@@ -7,7 +7,11 @@
 //   - features/zero-entity-core.spec — manifest schema, registries, LSP, bootstrap
 
 use behaviors/extensions
+use behaviors/wasm-lifecycle
 use invariants/extensions
+// Invariants (offline_first_extension_resolution, registry_api_openness) are
+// enforced transitively through behaviors — features inherit invariant coverage
+// from their behavior composition lists.
 
 // CLI surface: specforge add is in features/project-init.spec::project_initialization
 // (add_extension_to_existing_project behavior). specforge remove and specforge extensions
@@ -22,7 +26,8 @@ feature extension_management "Extension Management" {
   """
 
   solution """
-    Contribution-based extension model: specforge remove manages
+    Contribution-based extension model with nine contribution types (entities, validators, renderers, providers, parsers, collectors, grammars, body_parsers, verify_kinds — with prompts deferred to Phase 2):
+    specforge remove manages
     extension removal from specforge.json (specforge add is part of
     the project initialization feature). specforge extensions lists
     installed extensions. Extension manifests are loaded and their
@@ -37,9 +42,9 @@ feature provider_based_ref_validation "Provider-Based Ref Validation" {
   behaviors [load_provider_configurations, register_provider_schemes, validate_provider_refs, list_configured_providers, validate_ref_target_format, validate_provider_kinds]
 
   problem """
-    External references (issue trackers, design tools, project management
-    systems) need validation — typos in reference identifiers should be
-    caught at compile time, not discovered during a review.
+    External references with custom schemes need pluggable validation —
+    typos in reference identifiers should be caught at compile time, not
+    discovered during a review.
   """
 
   solution """
@@ -78,7 +83,10 @@ feature extension_registry "Extension Registry" {
     hashes and assigned trust levels (verified, community, local, git)
     recorded in specforge.lock. First-use MUST NOT require network access —
     local path and git sources work offline; network registries are opt-in
-    configuration.
+    configuration. At build/release time, a keyword-to-extension index is generated from the registry catalog and bundled as a data file. This index powers the suggest-missing-extensions diagnostic (E024 help text) for offline use.
+    The bundled keyword-to-extension index is a bootstrap convenience,
+    regenerable from any configured registries. It confers no preferential
+    status to any particular registry or set of extensions.
   """
 }
 
@@ -100,5 +108,9 @@ feature registry_authentication "Registry Authentication" {
     appropriate trust levels, and retries on authentication failures. Logout
     securely removes stored credentials for a given registry. Error messages
     never leak credential details.
+
+    P8 guard: Authentication MUST never be required for first use. The
+    default public registry is accessible without authentication.
+    Authentication is only required for private/enterprise registries.
   """
 }

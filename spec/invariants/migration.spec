@@ -62,7 +62,7 @@ invariant migration_event_ordering "Migration Event Ordering" {
     depend on this ordering (e.g., pre-migration snapshot capture)
     MUST receive events in the guaranteed sequence.
   """
-  enforced_by [migrate_spec_files_in_place, invoke_extension_migration_hooks, validate_post_migration_integrity, verify_graph_protocol_compatibility_after_migration]
+  enforced_by [migrate_spec_files_in_place, invoke_extension_migration_hooks, validate_post_migration_integrity, capture_pre_migration_schema_snapshot, verify_graph_protocol_compatibility_after_migration]
   risk high
 
   verify property "migration_starting always precedes migration_started"
@@ -70,4 +70,39 @@ invariant migration_event_ordering "Migration Event Ordering" {
   verify property "migration_complete always precedes extension_migration_hooks_complete"
   verify unit "no event emitted before its predecessor completes"
 
+}
+
+invariant migration_semantic_preservation "Migration Semantic Preservation" {
+  guarantee """
+    Migration transforms MUST preserve the entity graph structure. After
+    migration, the set of nodes (entity IDs, kinds, field values) and edges
+    (reference relationships) MUST be identical to the pre-migration graph.
+    Only syntax-level changes (whitespace, keyword spelling, block ordering)
+    are permitted. Any migration that adds, removes, or alters a node or
+    edge is a breaking change and MUST be flagged by
+    validate_post_migration_integrity.
+  """
+  enforced_by [migrate_spec_files_in_place, validate_post_migration_integrity]
+  risk high
+
+  verify property "pre-migration and post-migration entity graphs are structurally identical"
+  verify unit "migration that only changes formatting preserves graph structure"
+
+}
+
+invariant migration_cross_extension_stability "Migration Cross-Extension Reference Stability" {
+  guarantee """
+    Migration MUST preserve cross-extension reference resolution.
+    References that resolved before migration MUST resolve identically
+    after migration. References to entities in uninstalled extensions
+    MUST retain their soft-resolution status (I004).
+  """
+  enforced_by [
+    validate_post_migration_integrity,
+    verify_graph_protocol_compatibility_after_migration,
+    invoke_extension_migration_hooks,
+  ]
+  risk medium
+  verify integration "cross-extension references resolve identically after migration"
+  verify unit "soft-resolution I004 references preserved after migration"
 }

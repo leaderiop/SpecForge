@@ -8,6 +8,7 @@ use behaviors/mcp-operations
 use behaviors/mcp-prompts
 use behaviors/mcp-server
 use behaviors/mcp-tools
+use behaviors/surface-contributions
 
 // MCP protocol treats tool/prompt/resource listing as tool-like operations.
 // This event tracks discovery requests separately from regular tool invocations
@@ -29,7 +30,7 @@ event mcp_discovery_invoked "MCP Discovery Invoked" {
 }
 
 event mcp_resource_read "MCP Resource Read" {
-  trigger   [expose_graph_as_mcp_resource, expose_schema_as_mcp_resource, expose_context_as_mcp_resource, expose_brief_as_mcp_resource, expose_diagnostics_as_mcp_resource, expose_entity_as_mcp_resource]
+  trigger   [expose_graph_as_mcp_resource, expose_schema_as_mcp_resource, expose_context_as_mcp_resource, expose_brief_as_mcp_resource, expose_diagnostics_as_mcp_resource, expose_entity_as_mcp_resource, dispatch_surface_mcp_resource]
   channel   "mcp.resource_read"
 
   payload {
@@ -45,7 +46,7 @@ event mcp_resource_read "MCP Resource Read" {
 }
 
 event mcp_tool_invoked "MCP Tool Invoked" {
-  trigger   [list_mcp_resources, list_mcp_tools, list_mcp_prompts, provide_mcp_query_tool, provide_mcp_validate_tool, provide_mcp_export_tool, provide_mcp_trace_tool, provide_mcp_search_tool, provide_mcp_schema_tool, provide_mcp_coverage_tool, provide_mcp_stats_tool, provide_mcp_inspect_tool, provide_mcp_find_definition_tool, provide_mcp_find_references_tool, provide_mcp_outline_tool, provide_mcp_suggest_fixes_tool, provide_mcp_format_tool, provide_mcp_rename_tool, provide_mcp_init_tool, provide_mcp_add_extension_tool, provide_mcp_remove_extension_tool, provide_mcp_migrate_tool, provide_mcp_extensions_tool, provide_mcp_providers_tool, provide_mcp_doctor_tool, provide_mcp_collect_tool, provide_mcp_render_tool]
+  trigger   [provide_mcp_query_tool, provide_mcp_validate_tool, provide_mcp_export_tool, provide_mcp_trace_tool, provide_mcp_search_tool, provide_mcp_schema_tool, provide_mcp_coverage_tool, provide_mcp_stats_tool, provide_mcp_inspect_tool, provide_mcp_find_definition_tool, provide_mcp_find_references_tool, provide_mcp_outline_tool, provide_mcp_suggest_fixes_tool, provide_mcp_format_tool, provide_mcp_rename_tool, provide_mcp_init_tool, provide_mcp_add_extension_tool, provide_mcp_remove_extension_tool, provide_mcp_migrate_tool, provide_mcp_extensions_tool, provide_mcp_providers_tool, provide_mcp_doctor_tool, provide_mcp_collect_tool, provide_mcp_render_tool, dispatch_surface_mcp_tool]
   channel   "mcp.tool_invoked"
 
   payload {
@@ -84,7 +85,7 @@ event mcp_delta_notified "MCP Delta Notified" {
 }
 
 event mcp_prompt_invoked "MCP Prompt Invoked" {
-  trigger   [provide_mcp_implement_prompt, provide_mcp_review_prompt, provide_mcp_trace_prompt, provide_mcp_explore_prompt]
+  trigger   [provide_mcp_context_prompt, provide_mcp_review_prompt, provide_mcp_trace_prompt, provide_mcp_explore_prompt]
   channel   "mcp.prompt_invoked"
 
   payload {
@@ -109,6 +110,9 @@ event mcp_initialized "MCP Initialized" {
     resources_registered   integer
     prompts_registered     integer
     extensions_loaded      integer
+    surface_tools_registered    integer  @optional
+    surface_resources_registered integer @optional
+    auto_promoted_tools         integer  @optional
   }
 
   consumers []
@@ -182,6 +186,39 @@ event mcp_initialization_failed "MCP Initialization Failed" {
   consumers []
 
   verify integration "emits mcp_initialization_failed when MCP server fails to initialize"
+
+}
+
+event mcp_protocol_error_handled "MCP Protocol Error Handled" {
+  trigger   [handle_mcp_protocol_error, guard_mcp_reinitialization]
+  channel   "mcp.protocol_error_handled"
+
+  payload {
+    errorCode      integer
+    errorMessage   string
+    method         string    @optional
+    timestamp      timestamp
+  }
+
+  consumers []
+
+  verify integration "emits mcp_protocol_error_handled with correct errorCode for each error type"
+
+}
+
+event mcp_request_cancelled "MCP Request Cancelled" {
+  trigger   [handle_mcp_request_cancellation]
+  channel   "mcp.request_cancelled"
+
+  payload {
+    requestId      string
+    wasInProgress  boolean
+    timestamp      timestamp
+  }
+
+  consumers []
+
+  verify integration "emits mcp_request_cancelled with correct requestId and wasInProgress flag"
 
 }
 

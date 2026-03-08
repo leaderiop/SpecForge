@@ -4,6 +4,7 @@
 use types/wasm
 use behaviors/wasm-lifecycle
 use behaviors/wasm-sandbox
+use behaviors/surface-contributions
 
 event extension_loaded "Extension Loaded" {
   trigger   load_wasm_module
@@ -114,7 +115,7 @@ event manifest_validated "Manifest Validated" {
     validationPassed  boolean
   }
 
-  consumers [load_wasm_module]
+  consumers [load_wasm_module, register_surface_contributions]
 
   verify integration "emits manifest_validated with correct entityKindCount and validation status"
 

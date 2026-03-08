@@ -172,15 +172,15 @@ Optional SMT verification (v3.0): < 5s per entity, incremental, cached.
 
 | Code | Name | Description | Example |
 |------|------|-------------|---------|
-| E030 | Event payload field missing | Consumer expects field not in payload | `consumes event { nonexistent }` |
-| E031 | Refinement type violation | Value doesn't satisfy constraint | `amount == -100` when `amount { > 0 }` |
-| E032 | Precondition strengthened | Subtype requires more than parent | Liskov violation |
-| E033 | Postcondition weakened | Subtype promises less than parent | Liskov violation |
-| E034 | Parameter not contravariant | Port param more specific than parent | Variance violation |
-| E035 | Return not covariant | Port return more general than parent | Variance violation |
-| E036 | Set membership violation | Value not in expected set | `role ∈ {admin, editor}` |
-| E037 | Subset violation | Collection not subset of expected type | `result ⊆ {...}` |
-| E038 | SMT verification failed | Solver can't prove contract | (v3.0 only) |
+| E041 | Event payload field missing | Consumer expects field not in payload | `consumes event { nonexistent }` |
+| E042 | Refinement type violation | Value doesn't satisfy constraint | `amount == -100` when `amount { > 0 }` |
+| E043 | Precondition strengthened | Subtype requires more than parent | Liskov violation |
+| E044 | Postcondition weakened | Subtype promises less than parent | Liskov violation |
+| E045 | Parameter not contravariant | Port param more specific than parent | Variance violation |
+| E046 | Return not covariant | Port return more general than parent | Variance violation |
+| E047 | Set membership violation | Value not in expected set | `role ∈ {admin, editor}` |
+| E048 | Subset violation | Collection not subset of expected type | `result ⊆ {...}` |
+| E049 | SMT verification failed | Solver can't prove contract | (v3.0 only) |
 
 ---
 

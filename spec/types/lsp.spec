@@ -29,7 +29,7 @@ type HoverContent {
 
 type DocumentSymbolEntry {
   name        string       @readonly
-  kind        string
+  kind        SymbolKind
   range       SourceSpan
   children    DocumentSymbolEntry[] @optional
 }
@@ -44,3 +44,30 @@ type WorkspaceEditResult {
   edits            TextEdit[]
   document_count   integer
 }
+
+type CodeActionKind = QuickFix | Refactor | Source | SourceOrganizeImports
+
+type CodeAction {
+  title           string       @readonly
+  kind            CodeActionKind
+  diagnostic_code string       @optional
+  edits           TextEdit[]
+  is_preferred    boolean      @optional
+}
+
+type SemanticToken {
+  line            integer      @readonly
+  start_col       integer      @readonly
+  length          integer      @readonly
+  token_type      string       @readonly
+  modifiers       string[]     @optional
+}
+
+type WorkspaceSymbolEntry {
+  name            string       @readonly
+  kind            SymbolKind
+  location        SourceSpan
+  container       string       @optional
+}
+
+type SymbolKind = file | module | namespace | class | method | property | field | constructor | enum | interface | function | variable | constant | string | number | boolean | array | object | key | enum_member | struct | event | operator | type_parameter

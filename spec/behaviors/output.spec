@@ -15,11 +15,23 @@ use events/compilation
 // render_markdown_documentation moved to spec/extensions/markdown-renderer/behaviors.spec
 
 behavior serialize_json_graph "Serialize JSON Graph" {
-  invariants [graph_traversal_integrity, diagnostic_determinism, graph_schema_completeness]
+  invariants [graph_traversal_integrity, diagnostic_determinism, graph_schema_completeness, zero_domain_knowledge_core]
   types      [Graph, GraphProtocolSchema, OutputFile, EmitterError]
   ports      [GraphSerializer, FileSystem]
   consumes   [validation_complete]
   produces   [render_complete]
+
+  requires {
+    validation_complete_fired "validation_complete event has fired, confirming all diagnostics are collected and the graph is ready for serialization"
+  }
+
+  ensures {
+    all_nodes_serialized "JSON output contains exactly one entry per graph node"
+    all_edges_serialized "JSON output contains exactly one entry per graph edge"
+    schema_version_present "Output includes a schema_version field identifying the Graph Protocol version"
+    valid_json_produced "Output is valid JSON parseable by standard tools"
+    render_complete_emitted "render_complete event is emitted after successful serialization"
+  }
 
   contract """
     When specforge render json is invoked, the system MUST serialize
@@ -37,6 +49,7 @@ behavior serialize_json_graph "Serialize JSON Graph" {
   verify unit "empty graph produces valid JSON with empty nodes and edges arrays"
   verify unit "schema is included even for empty graph"
   verify integration "structural-only graph (zero extensions) produces valid Graph Protocol JSON with raw keywords in kind field"
+  verify contract "requires/ensures consistency for JSON graph serialization"
 
 }
 
@@ -46,11 +59,22 @@ behavior serialize_json_graph "Serialize JSON Graph" {
 // and render_extension_defined_edge_styles. See features/output.spec for
 // the full P7 rationale.
 behavior serialize_dot_visualization "Serialize DOT Visualization" {
-  invariants [graph_traversal_integrity, diagnostic_determinism]
+  invariants [graph_traversal_integrity, diagnostic_determinism, zero_domain_knowledge_core]
   types      [Graph, OutputFile, EmitterError]
   ports      [GraphSerializer, FileSystem]
   consumes   [validation_complete]
   produces   [render_complete]
+
+  requires {
+    validation_complete_fired "validation_complete event has fired, confirming the graph is finalized and ready for visualization"
+  }
+
+  ensures {
+    valid_dot_produced "Output is valid Graphviz DOT syntax"
+    nodes_labeled "All nodes are labeled with entity IDs and titles"
+    edges_labeled "All edges are labeled with edge types"
+    render_complete_emitted "render_complete event is emitted after successful DOT serialization"
+  }
 
   contract """
     When specforge render dot is invoked, the system MUST emit a DOT format
@@ -66,14 +90,26 @@ behavior serialize_dot_visualization "Serialize DOT Visualization" {
   verify unit "nodes are labeled with IDs"
   verify unit "edges are labeled with types"
   verify unit "node shapes use extension-defined dot_shape"
+  verify contract "requires/ensures consistency for DOT visualization"
 
 }
 
 behavior compute_traceability_chain "Compute Traceability Chain" {
-  invariants [graph_traversal_integrity, diagnostic_determinism]
+  invariants [graph_traversal_integrity, diagnostic_determinism, zero_domain_knowledge_core]
   types      [Graph, TraceChain, TraceLink]
   ports      [CompilerApi]
   consumes   [validation_complete]
+  produces   [trace_chain_computed]
+
+  requires {
+    validation_complete_fired "validation_complete event has fired, confirming entity references are resolved and the graph is traversable"
+  }
+
+  ensures {
+    full_chain_traversed "Trace covers both upstream and downstream connections from the target entity"
+    missing_links_flagged "Expected edges from extension manifests that are not instantiated are flagged with missing status"
+    trace_chain_computed_emitted "trace_chain_computed event is emitted after successful traversal"
+  }
 
   contract """
     When specforge trace is invoked with an entity ID, the system MUST
@@ -90,6 +126,7 @@ behavior compute_traceability_chain "Compute Traceability Chain" {
   verify unit "trace from entity shows upstream and downstream connections"
   verify unit "trace shows full chain depth"
   verify unit "missing link in chain is flagged"
+  verify contract "requires/ensures consistency for traceability chain computation"
 
 }
 
@@ -100,26 +137,51 @@ behavior compute_project_statistics "Compute Project Statistics" {
   types      [Graph, KindRegistryEntry, ProjectStatistics, DiagnosticSummary]
   consumes   [validation_complete]
 
+  requires {
+    validation_complete_fired "validation_complete event has fired, confirming graph state is finalized for statistics computation"
+  }
+
+  ensures {
+    entity_counts_produced "Statistics include entity counts grouped by kind"
+    coverage_computed "Coverage percentage is computed over testable entities only"
+    zero_testable_safe "Coverage is reported as 0% when testable_entity_count is zero, not as a division error"
+  }
+
   contract """
     When specforge stats is invoked, the system MUST compute and display:
     entity counts by kind, coverage percentage, orphan count, and
     diagnostic summary. Statistics MUST be derived from the current
     graph state. Coverage percentage MUST be computed only over entity
     kinds with testable=true in the KindRegistry, not over all entities.
+    An entity is "verified" if it has at least one verify declaration OR
+    at least one file-reference field value. Coverage percentage is
+    verified_entity_count / testable_entity_count. When testable_entity_count
+    is zero, coverage MUST be reported as 0%, not as a division error.
   """
 
   verify unit "stats reports correct entity counts"
   verify unit "stats reports coverage percentage"
   verify unit "stats reports orphan count"
   verify unit "stats reports diagnostic summary"
+  verify unit "coverage is 0% when testable_entity_count is zero"
+  verify contract "requires/ensures consistency for project statistics computation"
 
 }
 
 behavior print_diagnostics_structured "Print Diagnostics Structured" {
-  invariants [multi_error_collection, diagnostic_determinism]
+  invariants [multi_error_collection, diagnostic_determinism, zero_domain_knowledge_core]
   types      [Diagnostic, DiagnosticBag]
   ports      [CompilerApi]
   consumes   [validation_complete]
+
+  requires {
+    validation_complete_fired "validation_complete event has fired, confirming all diagnostics are collected in the DiagnosticBag"
+  }
+
+  ensures {
+    structured_format_enforced "Every diagnostic is formatted with file path, line number, column, source snippet, and color-coded severity"
+    color_coding_applied "Errors are red, warnings yellow, info blue"
+  }
 
   contract """
     All diagnostics MUST be formatted in a structured style: file path, line
@@ -131,14 +193,25 @@ behavior print_diagnostics_structured "Print Diagnostics Structured" {
   verify unit "error diagnostic is formatted with file:line:col"
   verify unit "diagnostic includes context snippet"
   verify unit "suggestion is displayed when available"
+  verify contract "requires/ensures consistency for structured diagnostic printing"
 
 }
 
 behavior exit_code_reflects_diagnostic_severity "Exit Code Reflects Diagnostic Severity" {
-  invariants [multi_error_collection]
+  invariants [multi_error_collection, diagnostic_determinism, zero_domain_knowledge_core]
   types      [DiagnosticBag]
   ports      [CompilerApi]
   consumes   [validation_complete]
+
+  requires {
+    validation_complete_fired "validation_complete event has fired, confirming all diagnostics are finalized"
+  }
+
+  ensures {
+    exit_zero_on_clean "Exit code is 0 when no error-level diagnostics exist"
+    exit_one_on_errors "Exit code is 1 when any error-level diagnostic exists"
+    strict_mode_enforced "In --strict mode, warnings also cause exit code 1"
+  }
 
   contract """
     specforge check MUST exit with code 0 if no errors exist. It MUST
@@ -149,15 +222,27 @@ behavior exit_code_reflects_diagnostic_severity "Exit Code Reflects Diagnostic S
   verify unit "exit 0 with no errors"
   verify unit "exit 1 with errors"
   verify unit "exit 1 with warnings in strict mode"
+  verify contract "requires/ensures consistency for exit code severity mapping"
 
 }
 
 behavior serialize_traceability_data "Serialize Traceability Data" {
-  invariants [graph_traversal_integrity, diagnostic_determinism]
+  invariants [graph_traversal_integrity, diagnostic_determinism, zero_domain_knowledge_core]
   types      [Graph, TraceChain, TraceLink, OutputFile]
   ports      [GraphSerializer, FileSystem]
   consumes   [validation_complete]
   produces   [render_complete]
+
+  requires {
+    validation_complete_fired "validation_complete event has fired, confirming the graph is finalized and all edge types are registered"
+  }
+
+  ensures {
+    full_trace_serialized "Full traceability chain from root to leaf entities is serialized as structured JSON"
+    gaps_included "Missing links in the chain are included with a missing status"
+    graph_protocol_conformance "Output conforms to the Graph Protocol schema"
+    render_complete_emitted "render_complete event is emitted after successful serialization"
+  }
 
   contract """
     When specforge trace is invoked without an entity ID, the system MUST
@@ -170,15 +255,28 @@ behavior serialize_traceability_data "Serialize Traceability Data" {
   verify unit "full trace covers all root entities across registered edge types"
   verify unit "gaps in chain are highlighted"
   verify unit "output conforms to Graph Protocol schema"
+  verify contract "requires/ensures consistency for traceability data serialization"
 
 }
 
 behavior validate_agent_plan "Validate Agent Implementation Plan" {
-  invariants [graph_traversal_integrity, diagnostic_determinism]
+  invariants [graph_traversal_integrity, diagnostic_determinism, zero_domain_knowledge_core]
   types      [Graph, TraceChain, TraceLink, AgentPlan, AgentPlanEntry, PlanValidationResult, PlanValidationEntry]
   ports      [CompilerApi]
   consumes   [validation_complete]
   produces   [plan_validated]
+
+  requires {
+    validation_complete_fired "validation_complete event has fired, confirming the spec graph is finalized for plan comparison"
+  }
+
+  ensures {
+    unresolvable_ids_diagnosed "Every plan entity ID that does not resolve to a declared entity produces an E001 diagnostic"
+    missing_entries_warned "Every testable entity missing from the plan produces a warning"
+    ordering_validated "Plan dependency order is validated against graph edge structure"
+    structured_report_produced "Output is a structured JSON report listing validated entries, gaps, and ordering violations"
+    plan_validated_emitted "plan_validated event is emitted after validation completes"
+  }
 
   contract """
     When specforge trace --plan plan.json is invoked, the system MUST parse
@@ -198,6 +296,7 @@ behavior validate_agent_plan "Validate Agent Implementation Plan" {
   verify unit "testable entity missing from plan produces warning"
   verify unit "plan dependency order contradicting graph produces diagnostic"
   verify unit "output is structured JSON"
+  verify contract "requires/ensures consistency for agent plan validation"
 
 }
 
@@ -205,10 +304,19 @@ behavior validate_agent_plan "Validate Agent Implementation Plan" {
 // spec/extensions/markdown-renderer/behaviors.spec
 
 behavior deterministic_output "Deterministic Output" {
-  invariants [diagnostic_determinism]
+  invariants [diagnostic_determinism, zero_domain_knowledge_core, graph_traversal_integrity]
   types      [OutputFile]
   ports      [CompilerApi]
   consumes   [validation_complete]
+
+  requires {
+    validation_complete_fired "validation_complete event has fired, confirming input graph state is finalized"
+  }
+
+  ensures {
+    byte_identical_output "Given identical input spec files, all output paths produce byte-for-byte identical output"
+    no_nondeterministic_values "Output contains no timestamps, random values, or iteration-order-dependent content"
+  }
 
   contract """
     Given identical input .spec files, all output paths — file emitters
@@ -218,14 +326,28 @@ behavior deterministic_output "Deterministic Output" {
   """
 
   verify property "same input produces identical output across runs"
+  verify unit "entity ordering is independent of hashmap iteration"
+  verify unit "file emission order is independent of filesystem readdir order"
+  verify unit "output contains no timestamps or non-deterministic values"
+  verify contract "requires/ensures consistency for deterministic output"
 
 }
 
 behavior check_mode_for_ci "Check Mode for CI" {
-  invariants [multi_error_collection, diagnostic_determinism]
+  invariants [multi_error_collection, diagnostic_determinism, zero_domain_knowledge_core]
   types      [DiagnosticBag]
   ports      [CompilerApi]
   consumes   [validation_complete]
+
+  requires {
+    validation_complete_fired "validation_complete event has fired, confirming all spec files have been parsed, resolved, and validated"
+  }
+
+  ensures {
+    no_output_files_produced "Check mode produces zero output files on disk"
+    diagnostics_to_stderr "All diagnostics are printed to stderr"
+    appropriate_exit_code "Exit code reflects diagnostic severity per exit_code_reflects_diagnostic_severity"
+  }
 
   contract """
     specforge check MUST parse, resolve, and validate all .spec files
@@ -237,14 +359,25 @@ behavior check_mode_for_ci "Check Mode for CI" {
   verify unit        "check mode produces no output files"
   verify unit        "check mode prints diagnostics to stderr"
   verify integration "check mode works in CI environment"
+  verify contract "requires/ensures consistency for CI check mode"
 
 }
 
 behavior export_diagnostics_as_json "Export Diagnostics as JSON" {
-  invariants [multi_error_collection, diagnostic_determinism]
+  invariants [multi_error_collection, diagnostic_determinism, zero_domain_knowledge_core]
   types      [DiagnosticBag, Diagnostic, DiagnosticFormat]
   ports      [CompilerApi]
   consumes   [validation_complete]
+
+  requires {
+    validation_complete_fired "validation_complete event has fired, confirming all diagnostics are collected"
+  }
+
+  ensures {
+    json_array_produced "All diagnostics are serialized as a JSON array to stdout"
+    diagnostic_fields_complete "Each diagnostic includes code, severity, message, file path, line, column"
+    exit_code_unaffected "The --format=json flag does not alter exit code behavior"
+  }
 
   contract """
     When specforge check --format=json is invoked, the system MUST output
@@ -262,6 +395,7 @@ behavior export_diagnostics_as_json "Export Diagnostics as JSON" {
   verify unit "JSON output is valid and parseable"
   verify unit "exit code unaffected by format flag"
   verify unit "suggestion field included when available"
+  verify contract "requires/ensures consistency for JSON diagnostic export"
 
 }
 
@@ -270,11 +404,23 @@ behavior export_diagnostics_as_json "Export Diagnostics as JSON" {
 // `specforge render` writes files to disk for batch/CI output (json, dot, markdown via extensions).
 
 behavior export_agent_context_format "Export Agent Context Format" {
-  invariants [graph_traversal_integrity, diagnostic_determinism, graph_schema_completeness]
+  invariants [graph_traversal_integrity, diagnostic_determinism, graph_schema_completeness, zero_domain_knowledge_core]
   types      [Graph, GraphProtocolSchema, OutputFile, AgentExportConfig, ProjectStatistics]
   ports      [CompilerApi]
   consumes   [validation_complete]
   produces   [export_complete]
+
+  requires {
+    validation_complete_fired "validation_complete event has fired, confirming the graph is ready for agent export"
+  }
+
+  ensures {
+    token_optimized_output "Output omits verbose prose fields to minimize token consumption"
+    schema_version_present "Output includes a schema_version field identifying the Graph Protocol version"
+    scope_enforced "When --scope is specified, only the reachable subgraph is returned"
+    invalid_scope_diagnosed "Non-existent scope entity produces E001 and exit code 1"
+    export_complete_emitted "export_complete event is emitted after successful export"
+  }
 
   contract """
     When specforge export --format=context is invoked, the system MUST produce
@@ -297,15 +443,26 @@ behavior export_agent_context_format "Export Agent Context Format" {
   verify unit "non-existent scope entity produces E001 and exit code 1"
   verify unit "output conforms to Graph Protocol schema"
   verify unit "output includes schema_version field"
+  verify contract "requires/ensures consistency for agent context export"
 
 }
 
 behavior export_agent_brief_format "Export Agent Brief Format" {
-  invariants [graph_traversal_integrity, diagnostic_determinism, graph_schema_completeness]
+  invariants [graph_traversal_integrity, diagnostic_determinism, graph_schema_completeness, zero_domain_knowledge_core]
   types      [Graph, GraphProtocolSchema, OutputFile, AgentExportConfig]
   ports      [CompilerApi]
   consumes   [validation_complete]
   produces   [export_complete]
+
+  requires {
+    validation_complete_fired "validation_complete event has fired, confirming the graph is ready for agent export"
+  }
+
+  ensures {
+    minimal_representation "Output contains only entity IDs, kinds, titles, and direct relationships"
+    schema_version_present "Output includes a schema_version field identifying the Graph Protocol version"
+    export_complete_emitted "export_complete event is emitted after successful export"
+  }
 
   contract """
     When specforge export --format=brief is invoked, the system MUST produce
@@ -320,15 +477,28 @@ behavior export_agent_brief_format "Export Agent Brief Format" {
   verify unit "brief format is smaller than context format"
   verify unit "output conforms to Graph Protocol schema"
   verify unit "output includes schema_version field"
+  verify contract "requires/ensures consistency for agent brief export"
 
 }
 
 behavior export_agent_graph_format "Export Agent Graph Format" {
-  invariants [graph_traversal_integrity, diagnostic_determinism, graph_schema_completeness]
+  invariants [graph_traversal_integrity, diagnostic_determinism, graph_schema_completeness, zero_domain_knowledge_core]
   types      [Graph, GraphProtocolSchema, OutputFile, AgentExportConfig]
   ports      [CompilerApi]
   consumes   [validation_complete]
   produces   [export_complete]
+
+  requires {
+    validation_complete_fired "validation_complete event has fired, confirming the graph is ready for full-fidelity export"
+  }
+
+  ensures {
+    full_fidelity_output "Output contains all nodes, edges, fields, and metadata"
+    schema_version_present "Output includes a schema_version field identifying the Graph Protocol version"
+    scope_enforced "When --scope is specified, only the reachable subgraph is returned"
+    invalid_scope_diagnosed "Non-existent scope entity produces E001 and exit code 1"
+    export_complete_emitted "export_complete event is emitted after successful export"
+  }
 
   contract """
     When specforge export --format=graph is invoked, the system MUST produce
@@ -349,14 +519,26 @@ behavior export_agent_graph_format "Export Agent Graph Format" {
   verify unit "output conforms to Graph Protocol schema"
   verify unit "output includes schema_version field"
   verify integration "structural-only graph exports valid JSON with raw keyword strings as entity kinds"
+  verify contract "requires/ensures consistency for agent graph export"
 }
 
 behavior query_graph_multi_resolution "Query Graph at Multiple Resolutions" {
-  invariants [graph_traversal_integrity, diagnostic_determinism, graph_schema_completeness]
+  invariants [graph_traversal_integrity, diagnostic_determinism, graph_schema_completeness, zero_domain_knowledge_core]
   types      [Graph, GraphProtocolSchema, AgentExportConfig]
   ports      [CompilerApi]
   consumes   [validation_complete]
   produces   [graph_queried]
+
+  requires {
+    validation_complete_fired "validation_complete event has fired, confirming the graph is finalized and traversable"
+  }
+
+  ensures {
+    depth_respected "Subgraph returned contains only entities within the requested hop distance"
+    kind_filter_applied "When --kind is specified, results are restricted to the specified entity kinds"
+    graph_protocol_conformance "Output is valid JSON conforming to the Graph Protocol schema with schema_version"
+    graph_queried_emitted "graph_queried event is emitted after query completes"
+  }
 
   contract """
     When specforge query is invoked with an entity ID and a --depth parameter,
@@ -365,7 +547,8 @@ behavior query_graph_multi_resolution "Query Graph at Multiple Resolutions" {
     Depth N returns all entities within N hops. An optional --kind parameter
     MUST filter results to only include entities of the specified kind(s),
     while preserving edges that connect through filtered-out nodes. Multiple
-    --kind values MAY be specified (e.g., --kind=behavior --kind=invariant).
+    --kind values MAY be specified (e.g., --kind=alpha --kind=beta).
+    Kind names are extension-defined; examples use placeholders.
     The output MUST be valid JSON conforming to the Graph Protocol schema
     with a schema_version field. This enables agents to request exactly the
     context slice they need without consuming the full graph.
@@ -379,17 +562,29 @@ behavior query_graph_multi_resolution "Query Graph at Multiple Resolutions" {
   verify unit "output conforms to Graph Protocol schema"
   verify unit "output includes schema_version field"
   verify property "querying same entity at same depth produces identical subgraph"
+  verify contract "requires/ensures consistency for multi-resolution graph query"
 
 }
 
 // ── Token Economics (Principle 3: agents are first-class consumers) ────
 
 behavior enforce_token_budget "Enforce Token Budget" {
-  invariants [graph_traversal_integrity, diagnostic_determinism, token_budget_subgraph_consistency]
+  invariants [graph_traversal_integrity, diagnostic_determinism, token_budget_subgraph_consistency, zero_domain_knowledge_core]
   types      [AgentExportConfig, TokenBudgetResult, Graph, OutputFile, ExportResult]
   ports      [CompilerApi]
   consumes   [validation_complete]
   produces   [token_budget_applied]
+
+  requires {
+    validation_complete_fired "validation_complete event has fired, confirming the graph is ready for token estimation"
+  }
+
+  ensures {
+    budget_respected "Output token count does not exceed the specified --max-tokens budget"
+    truncation_metadata_produced "TokenBudgetResult is included in output metadata when budget is applied"
+    valid_subgraph_after_truncation "Remaining subgraph after truncation has no dangling edge references"
+    token_budget_applied_emitted "token_budget_applied event is emitted after budget enforcement completes"
+  }
 
   contract """
     When specforge export is invoked with --max-tokens, the system MUST
@@ -400,10 +595,14 @@ behavior enforce_token_budget "Enforce Token Budget" {
     field MUST indicate which approach was used (truncate, prioritize, or
     error). If no --max-tokens is specified, this behavior MUST be skipped.
     The TokenBudgetResult MUST list any truncated entity IDs so agents can
-    request them individually via specforge query. The default strategy MUST
-    be `prioritize`. The default centrality metric MUST be degree centrality
-    (count of incoming + outgoing edges). Both MUST be overridable via
-    AgentExportConfig.
+    request them individually via specforge query. When truncating entities
+    from the budget, the system MUST remove all edges to and from truncated
+    entities before serialization. The remaining subgraph MUST be a valid
+    graph with no dangling edge references. The truncated_entities list in
+    TokenBudgetResult records which entities were removed. The default
+    strategy MUST be `prioritize`. The default centrality metric MUST be
+    degree centrality (count of incoming + outgoing edges). Both MUST be
+    overridable via AgentExportConfig.
   """
 
   verify unit "output within budget includes all entities"
@@ -412,5 +611,7 @@ behavior enforce_token_budget "Enforce Token Budget" {
   verify unit "truncated_entities lists omitted entity IDs"
   verify unit "no --max-tokens skips budget enforcement"
   verify integration "export with max_tokens produces output within budget and includes metadata"
+  verify unit "error strategy rejects export exceeding budget"
+  verify contract "requires/ensures consistency for token budget enforcement"
 
 }

@@ -5,7 +5,7 @@ use behaviors/graph
 use behaviors/lsp
 
 feature incremental_compilation "Incremental Compilation" {
-  // Bridge: shared_incremental_pipeline (owned by live_diagnostics in features/lsp.spec)
+  // Bridge: shared_incremental_pipeline (peer behavior, also listed in live_diagnostics in features/lsp.spec)
   behaviors [maintain_mutable_graph, watch_file_system_for_changes, debounce_file_changes, compute_subgraph_for_invalidation, invalidate_changed_files, track_import_dag_incrementally, rebuild_affected_subgraph, emit_incremental_diagnostics, shared_incremental_pipeline]
 
   problem """
@@ -29,7 +29,7 @@ feature incremental_graph_deltas "Incremental Graph Deltas" {
   // notify_graph_delta_via_mcp is part of the MCP feature, not this one.
   // See behaviors/mcp-server.spec for the MCP delta notification behavior.
   // Cross-feature: emit_incremental_diagnostics (incremental_compilation) consumes
-  // graph_delta_computed as a join barrier before emitting updated diagnostics.
+  // graph_delta_computed as a sequential prerequisite before emitting updated diagnostics.
 
   problem """
     After incremental recompilation, subscribers (LSP, MCP, agents) receive

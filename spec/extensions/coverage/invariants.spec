@@ -5,8 +5,8 @@ use behaviors/validation
 
 invariant traceability_chain_integrity "Traceability Chain Integrity" {
   guarantee """
-    Every file-reference field (gherkin paths, file paths in any
-    extension-declared field with file_reference=true) MUST reference an
+    Every file-reference field (any extension-declared field with
+    file_reference=true, e.g. gherkin) MUST reference an
     existing file. Every entity ID in a specforge-report.json MUST match
     a declared entity in the spec graph. No broken links MUST exist in
     the intent -> linkage -> proof traceability chain. The compiler MUST

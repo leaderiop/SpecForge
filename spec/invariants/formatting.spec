@@ -24,7 +24,7 @@ invariant comment_preservation "Comment Preservation" {
     Every comment present in the input MUST appear in the output at the correct
     attachment point. Comment content MUST NOT be modified.
   """
-  enforced_by [format_spec_files, preserve_comments, apply_format_rules, format_from_stdin, check_formatting, show_formatting_diff, format_with_parse_errors, lsp_format_document, lsp_format_range]
+  enforced_by [format_spec_files, preserve_comments, apply_format_rules, format_from_stdin, check_formatting, show_formatting_diff, format_with_parse_errors, lsp_format_document, lsp_format_range, provide_mcp_format_tool]
   risk high
 
   verify property "every comment in input appears in formatted output"
@@ -42,7 +42,7 @@ invariant formatting_consistency "Formatting Consistency" {
     guarantee: format_with_parse_errors preserves unparseable text verbatim,
     so two files with differently-shaped parse errors MAY produce different output.
   """
-  enforced_by [format_spec_files, apply_format_rules, check_formatting, show_formatting_diff, format_from_stdin, lsp_format_document, lsp_format_range, format_with_parse_errors]
+  enforced_by [format_spec_files, apply_format_rules, check_formatting, show_formatting_diff, format_from_stdin, lsp_format_document, lsp_format_range, format_with_parse_errors, provide_mcp_format_tool]
   risk medium
 
   verify property "two files differing only in whitespace produce identical formatted output"
@@ -90,11 +90,27 @@ invariant format_rule_determinism "Format Rule Determinism" {
     idempotency guarantees stability across re-application, while determinism
     guarantees stability across independent invocations with identical inputs.
   """
-  enforced_by [apply_format_rules, format_spec_files, format_from_stdin, lsp_format_document, lsp_format_range, check_formatting, show_formatting_diff, format_with_parse_errors]
+  enforced_by [apply_format_rules, format_spec_files, format_from_stdin, lsp_format_document, lsp_format_range, check_formatting, show_formatting_diff, format_with_parse_errors, provide_mcp_format_tool]
   risk medium
 
   verify property "same input and config produce identical output across CLI and LSP"
   verify property "same input and config produce identical output across platforms"
+
+}
+
+invariant formatting_semantic_preservation "Formatting Semantic Preservation" {
+  guarantee """
+    Formatting MUST NOT alter the semantic content of a .spec file. Formally:
+    parse_to_graph(format(spec)) MUST produce an entity graph identical to
+    parse_to_graph(spec) — same nodes, same edges, same field values. Only
+    whitespace and comment positioning MAY change. Any formatting operation
+    that alters the entity graph is a P0 bug.
+  """
+  enforced_by [format_spec_files, lsp_format_document, lsp_format_range, format_from_stdin, maintain_format_idempotency, apply_format_rules, check_formatting, show_formatting_diff, format_with_parse_errors, provide_mcp_format_tool]
+  risk high
+
+  verify property "format(spec) parses to an identical entity graph as spec"
+  verify unit "formatting does not alter entity IDs, field values, or reference lists"
 
 }
 
@@ -103,6 +119,9 @@ invariant format_rule_priority "Format Rule Application Order" {
     When multiple format rules apply to the same whitespace region,
     rules MUST be applied in a deterministic priority order:
     indent > newline > spacing > alignment > wrapping > comment > import > string.
+    Extension-contributed format rules MUST run after all 8 core rules at
+    priority level 9 (extension). Multiple extension rules at the same
+    priority level MUST be applied in extension load order.
     All compilers MUST produce identical output for the same input and config.
   """
   enforced_by [apply_format_rules]

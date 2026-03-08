@@ -10,8 +10,9 @@ invariant se_behavior_testability "Behavior Testability" {
   guarantee """
     Behavior entities MUST have testable=true. They MUST accept verify
     kinds: unit, integration, property, load, e2e, contract, refinement,
-    trace, mutation. Behavior entities MUST also support gherkin blocks
-    via supportsGherkin=true. This is the primary testable entity kind.
+    trace, mutation. Behavior entities MUST also declare a gherkin
+    file-reference field for BDD traceability. This is the primary
+    testable entity kind.
   """
   enforced_by [se_register_entity_kinds]
   risk high

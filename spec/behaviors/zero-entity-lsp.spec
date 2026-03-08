@@ -4,12 +4,14 @@ use invariants/zero-entity-core
 use types/zero-entity-core
 use types/lsp
 use invariants/lsp
+use ports/inbound
 
 // -- Extension-Driven LSP ----------------------------------------------------
 
 behavior complete_extension_defined_keywords "Complete Extension-Defined Keywords" {
   invariants [zero_domain_knowledge_core, lsp_response_latency]
   types      [KindRegistryEntry]
+  ports      [LspProtocol]
 
   contract """
     The LSP autocomplete MUST query the KindRegistry for all registered
@@ -19,15 +21,26 @@ behavior complete_extension_defined_keywords "Complete Extension-Defined Keyword
     showing the source extension name.
   """
 
+  requires {
+    kind_registry_populated "KindRegistry is populated (registries_populated event has fired)"
+  }
+
+  ensures {
+    all_registered_keywords_included "Every keyword from the KindRegistry is included in the completion list"
+    snippet_templates_provided "Each completion item includes a snippet template for block scaffolding"
+  }
+
   verify unit "completion includes all registered keywords"
   verify unit "completion items include snippet templates"
   verify unit "completion detail shows source extension"
+  verify contract "requires/ensures consistency for extension keyword completion"
 
 }
 
 behavior provide_extension_entity_semantic_tokens "Provide Extension Entity Semantic Tokens" {
   invariants [zero_domain_knowledge_core, lsp_response_latency]
   types      [KindRegistryEntry]
+  ports      [LspProtocol]
 
   contract """
     The LSP semantic token provider MUST classify entity keywords using
@@ -40,15 +53,26 @@ behavior provide_extension_entity_semantic_tokens "Provide Extension Entity Sema
     delegates here for keyword classification.
   """
 
+  requires {
+    kind_registry_populated "KindRegistry is populated (registries_populated event has fired)"
+  }
+
+  ensures {
+    token_type_resolved_from_registry "Token type for each entity keyword is resolved from KindRegistryEntry.semantic_token"
+    default_keyword_for_unregistered "Unspecified semantic_token defaults to keyword"
+  }
+
   verify unit "custom semantic token type used for extension keyword"
   verify unit "default keyword token used when semantic_token not specified"
   verify unit "custom token types included in legend"
+  verify contract "requires/ensures consistency for extension semantic tokens"
 
 }
 
 behavior provide_extension_entity_hover "Provide Extension Entity Hover" {
   invariants [zero_domain_knowledge_core, lsp_response_latency]
   types      [KindRegistryEntry, HoverContent]
+  ports      [LspProtocol]
 
   contract """
     When hovering over an entity keyword or entity ID, the LSP MUST show
@@ -65,17 +89,28 @@ behavior provide_extension_entity_hover "Provide Extension Entity Hover" {
     delegates here.
   """
 
+  requires {
+    kind_registry_populated "KindRegistry is populated (registries_populated event has fired)"
+  }
+
+  ensures {
+    hover_content_from_registry "Hover content is generated from KindRegistryEntry metadata"
+    source_extension_shown "Source extension name is displayed in hover content"
+  }
+
   verify unit "hover shows entity kind and source extension"
   verify unit "hover shows testability for testable kinds"
   verify unit "hover content formatted as markdown"
   verify unit "hover shows first string field as summary"
   verify unit "hover shows reference count from graph"
+  verify contract "requires/ensures consistency for extension entity hover"
 
 }
 
 behavior provide_extension_defined_lsp_icons "Provide Extension-Defined LSP Icons" {
   invariants [zero_domain_knowledge_core, lsp_response_latency]
   types      [KindRegistryEntry]
+  ports      [LspProtocol]
 
   contract """
     The LSP document symbols and workspace symbols MUST use the lsp_icon
@@ -84,8 +119,18 @@ behavior provide_extension_defined_lsp_icons "Provide Extension-Defined LSP Icon
     Extension-defined icons MUST appear in the outline view and symbol search.
   """
 
+  requires {
+    kind_registry_populated "KindRegistry is populated (registries_populated event has fired)"
+  }
+
+  ensures {
+    symbol_kind_from_registry "SymbolKind is resolved from KindRegistryEntry.lsp_icon"
+    default_object_for_unregistered "Unspecified lsp_icon defaults to SymbolKind::Object"
+  }
+
   verify unit "custom SymbolKind used from manifest lsp_icon"
   verify unit "default SymbolKind::Object when lsp_icon not specified"
   verify unit "extension icons appear in outline view"
+  verify contract "requires/ensures consistency for extension LSP icons"
 
 }

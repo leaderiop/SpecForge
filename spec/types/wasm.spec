@@ -30,8 +30,13 @@ type SandboxPolicy {
   // Default: 15000. Total HTTP time budget per compilation in milliseconds.
   http_total_budget_ms integer      @optional
   // Default: [".json", ".html", ".csv", ".svg", ".dot", ".xml", ".txt", ".pdf"]
-  // .md is NOT in the default list — extensions that produce structured reports (not prose) MAY add .md to their own sandbox policy
+  // .md is NOT in the default list because SpecForge is not a documentation
+  // generator (vision/README.md). Extensions that produce structured reports
+  // (traceability matrices, coverage dashboards — not prose) MAY add .md to
+  // their own sandbox policy via allowed_output_extensions override.
   allowed_output_extensions string[] @optional
+  // Default: 1MB. Maximum file size readable via read_file host function.
+  max_read_file_size u64           @optional
 }
 
 type WasmModuleCache {
@@ -87,9 +92,8 @@ type EnhancementConflict {
 
 type ConflictResolution = unresolved | explicit_override | load_order | namespaced
 
-type EnhancementPolicy = error | priority | namespace
-
-type EntityKindPolicy = error | priority | namespace
+// v1: error only. priority and namespace policies are deferred to a future phase.
+type EnhancementPolicy = error
 
 // ── Query Extension Types ───────────────────────────────────
 
@@ -134,6 +138,7 @@ type LockFileEntry {
   trust_level       TrustLevel      @optional
 }
 
+// Serialized as JSON (specforge.lock). See P6: standard is the moat.
 type LockFile {
   path              string          @readonly
   lockfile_version  integer         @readonly
@@ -192,7 +197,7 @@ type CollectorStats {
 
 type ExtensionSpecifier "Parsed Extension Specifier" {
   raw        string
-  format     "registry" | "local" | "git"
+  format     ExtensionSource
   scope      string @optional
   name       string
   version    string @optional
@@ -206,4 +211,31 @@ type CollectorDispatchInput {
   test_report_path string
   entity_ids      EntityId[]
   options         JsonObject      @optional
+}
+
+// --- Extension-Defined Grammar Types ---
+
+type GrammarContribution {
+  entity_kinds      string[]
+  grammar_wasm_path string
+  language_name     string
+  version           string          @optional
+  checksum          string          @optional
+}
+
+type BodyParserContribution {
+  entity_kinds      string[]
+  export_name       string
+  output_schema     string          @optional
+  timeout_ms        integer         @optional
+}
+
+type GrammarConflictPolicy = error | priority | namespace
+
+type GrammarCacheEntry {
+  grammar_hash      string
+  compiled_path     string
+  language_name     string
+  source_extension  string
+  created_at        string
 }

@@ -1,28 +1,28 @@
 // Parsing features
 
 use behaviors/parsing
-use behaviors/error-reporting
+use behaviors/wasm-lifecycle
 
 // See also: zero_entity_bootstrap (features/zero-entity-core.spec) for
 // collapse_grammar_to_generic_entity_block and two_phase_parse_structural
 
 feature spec_file_parsing "Spec File Parsing" {
-  behaviors [parse_spec_file_to_ast, parse_use_imports, parse_all_block_types, parse_triple_quoted_strings, parse_gherkin_statements, parse_verify_statements, parse_ref_blocks, parse_define_blocks]
+  behaviors [parse_spec_file_to_ast, parse_use_imports, parse_all_block_types, parse_triple_quoted_strings, parse_verify_statements, parse_ref_blocks, parse_define_blocks]
 
   problem """
     .spec files need to be parsed into structured ASTs that preserve
     source locations for all tokens, supporting any keyword via a
     generic entity_block rule, with field syntax including triple-quoted
-    strings and gherkin file references.
+    strings.
   """
 
   solution """
     A parser grammar with a single generic entity_block rule that
     parses any keyword name { fields } structure into an AST node
     carrying kind, name, and optional title. Only spec, ref, use,
-    and define have dedicated grammar rules (ref uses scheme:identifier
-    format). Use imports, reference lists, gherkin statements,
-    and triple-quoted strings are parsed structurally. Keyword validation
+    and define have dedicated grammar rules (ref uses scheme.kind:identifier
+    format). Use imports, reference lists, and triple-quoted strings
+    are parsed structurally. Keyword validation
     is deferred to the semantic phase after extensions populate the
     KindRegistry. Produces per-file ASTs with full source span
     information for every token.
@@ -30,7 +30,7 @@ feature spec_file_parsing "Spec File Parsing" {
 }
 
 feature error_recovery_during_parsing "Error Recovery During Parsing" {
-  behaviors [recover_from_syntax_errors, format_diagnostics_with_source_context]
+  behaviors [recover_from_syntax_errors]
 
   problem """
     A single syntax error in one block should not prevent the compiler
@@ -62,5 +62,23 @@ feature editor_query_files "Editor Query Files" {
     level. These standard query files enable any compatible
     editor to provide rich editing support for all entity types
     without requiring an LSP server.
+  """
+}
+
+feature extension_body_parsing "Extension Body Parsing" {
+  behaviors [delegate_body_parsing_to_extension, dispatch_body_parser]
+
+  problem """
+    The core parser produces generic entity blocks with raw body text.
+    Extensions that define custom syntax for their entity kinds have no
+    mechanism to parse that syntax into structured, validatable fields.
+  """
+
+  solution """
+    Phase 1.5 body parser dispatch: after structural parsing (Phase 1)
+    and registry population, the compiler calls registered body parser
+    Wasm exports to transform raw body text into structured JSON fields.
+    These structured fields then feed into Phase 2 semantic validation
+    as if they were parsed by the core field parser.
   """
 }

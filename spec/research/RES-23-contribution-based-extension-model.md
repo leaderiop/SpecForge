@@ -252,6 +252,8 @@ v1.0 (ship with initial release):
   ref_schemes       Reference scheme handlers (resolve + validate)
   validators        Custom validation passes
   query_extensions  Tree-sitter .scm query patterns
+  grammars          Extension-defined grammars for entity body content
+  body_parsers      Body parser functions dispatched per entity kind
 
 Future (additive, no schema migration):
   importers         Import from external formats (Jira export, Notion)
@@ -277,7 +279,7 @@ Conflict detection applies per contribution item:
 | Conflict | Code | Resolution |
 |---|---|---|
 | Two extensions contribute same ref scheme | E021 | Disable one via `enable` |
-| Two extensions contribute same entity kind | E022 | Existing `entity_kind_policy` |
+| Two extensions contribute same entity kind | E022 | Hard error at load time — author must rename |
 | Two extensions contribute same edge label | E023 | Disable one via `enable` |
 | Two extensions contribute same validator name | E025 | Disable one via `enable` |
 | Two extensions enhance same (entity, field) | E017 | Existing `enhancement_policy` |

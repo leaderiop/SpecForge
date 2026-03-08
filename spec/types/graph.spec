@@ -87,6 +87,8 @@ type SchemaEntityKind {
   testable        boolean
   singleton       boolean
   fields          SchemaField[]
+  has_body_parser boolean         @optional
+  grammar_extension string        @optional
 }
 
 type SchemaField {
@@ -117,7 +119,15 @@ type SchemaMigration {
   from_version   SchemaVersion   @readonly
   to_version     SchemaVersion   @readonly
   breaking       boolean
-  migration_steps string[]
+  changes        SchemaMigrationChange[] @optional
+}
+
+type SchemaMigrationChange {
+  change_type   string          @readonly // "kind_added" | "kind_removed" | "edge_added" | "edge_removed" | "field_added" | "field_removed"
+  entity_kind   string          @optional
+  edge_type     string          @optional
+  field_name    string          @optional
+  breaking      boolean
 }
 
 type SchemaCompatibility {
@@ -125,10 +135,17 @@ type SchemaCompatibility {
   supported_min  SchemaVersion   @readonly
   supported_max  SchemaVersion   @readonly
   compatible     boolean
+  // Sourced from CompilerConfig.supported_schema_min / .supported_schema_max (see ADR graph_protocol_version_management)
+  source         string          @readonly
 }
 
 // ── Graph Delta Types ────────────────────────────────────────
 
+// GraphDelta is used for incremental compilation and MCP delta notifications.
+// It is NOT part of the stable Graph Protocol schema (not included in
+// embed_schema_in_export output). Its structure may evolve between compiler
+// versions without requiring a Graph Protocol major version bump.
+// Arrays MUST be sorted by EntityId.raw (lexicographic) for deterministic output
 type GraphDelta {
   timestamp       timestamp       @readonly
   added_nodes     NodeChange[]
@@ -149,6 +166,9 @@ type NodeChange {
 type ModifiedNodeChange {
   id              string          @readonly
   changed_fields  string[]
+  // old_value and new_value are populated when delta_include_values is true
+  // in CompilerConfig (default false for token efficiency per P3), or always
+  // in debug mode (debug build configuration / --verify-incremental).
   old_value       JsonValue       @optional
   new_value       JsonValue       @optional
   file            string          @optional

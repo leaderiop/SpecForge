@@ -105,7 +105,9 @@ feature semantic_tokens "Semantic Tokens" {
   //   provide_semantic_tokens
   // Bridge references from zero-entity-core (behaviors/zero-entity-lsp.spec):
   //   provide_extension_entity_semantic_tokens
-  behaviors [provide_semantic_tokens, provide_extension_entity_semantic_tokens]
+  // Bridge from behaviors/lsp.spec: load_extension_grammars_for_highlighting
+  //   provides grammar-based highlighting data for extension-defined grammars
+  behaviors [provide_semantic_tokens, provide_extension_entity_semantic_tokens, load_extension_grammars_for_highlighting]
 
   problem """
     Without semantic understanding, editors can only provide basic
@@ -125,11 +127,11 @@ feature semantic_tokens "Semantic Tokens" {
 
 feature code_actions "Code Actions" {
   // Owned: code_action_add_missing_import
-  // Bridge: code_actions_for_missing_tests, code_action_create_entity_stub
+  // Bridge: code_actions_for_missing_verify, code_action_create_entity_stub
   //   (owned by extension_driven_code_actions in features/zero-entity-core.spec)
   behaviors [
     code_action_add_missing_import,
-    code_actions_for_missing_tests,
+    code_actions_for_missing_verify,
     code_action_create_entity_stub,
   ]
 
@@ -140,10 +142,11 @@ feature code_actions "Code Actions" {
   """
 
   solution """
-    LSP offers code actions on untested testable entities (any entity kind
-    with testable=true in its extension manifest) to add verify stub
-    declarations to the .spec file. On unresolved references, the LSP
-    offers quick-fixes to add the missing import or create an entity stub.
+    LSP offers three code actions: (1) on unresolved use references, add
+    the missing import statement; (2) on untested testable entities (any
+    entity kind with testable=true in its extension manifest), add verify
+    stub declarations to the .spec file; (3) on unresolved entity
+    references, create an entity stub in the appropriate file.
   """
 }
 

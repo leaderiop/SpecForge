@@ -1,8 +1,11 @@
 // Formatting types — data shapes for the code formatter
 
 type FormatConfig {
+  /// Default: 2
   indent_width    integer
+  /// Default: false
   use_tabs        boolean
+  /// Default: 100
   max_width       integer
   extension_rules JsonValue   @optional
 }
@@ -52,6 +55,9 @@ type StringRule {
 // Extensions can register custom formatting rules via their manifest.
 // The core formatter delegates to extension-provided rules for entity-specific
 // formatting concerns (e.g., field ordering within extension-defined blocks).
+// This is the P7 extension point: core formatting handles generic CST structure;
+// ExtensionFormatRule lets extensions customize entity-specific formatting
+// without modifying the core formatter. See features/formatting.spec P7 comment.
 type ExtensionFormatRule {
   extension_id   string
   rule_name      string

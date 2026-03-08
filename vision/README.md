@@ -64,7 +64,7 @@ The core loop is simple:
 
 1. **You write `.spec` files** — a concise, structured DSL describing the entities that matter to your work. What those entities are depends on the extensions you install. Software teams describe behaviors and invariants. Compliance teams describe regulations and controls. Design teams describe atoms and organisms. Any domain, one syntax.
 
-2. **The compiler builds a typed entity graph** — resolving references across files, validating constraints, detecting orphans and contradictions, and producing a rich graph with nodes, edges, and metadata. This is not linting. It is compilation. The graph has semantic meaning that the raw text does not.
+2. **The compiler builds a typed entity graph** — resolving references across files, validating constraints, detecting orphans and contradictions, and producing a rich graph with nodes, edges, and metadata. Between structural parsing and semantic validation, extensions may inject body parsers that interpret entity body content using extension-defined grammars. This is not linting. It is compilation. The graph has semantic meaning that the raw text does not.
 
 3. **AI agents consume the graph** — via the Graph Protocol, a standardized JSON schema that any agent framework can read. A coding agent reads it and generates correct code. A compliance agent reads it and produces audit trails. A PM agent reads it and writes accurate status reports. Same graph, different consumers, correct results.
 
@@ -168,7 +168,7 @@ Every new agent that learns to read the Graph Protocol makes every existing `.sp
 
 ## What SpecForge Is NOT
 
-**Not a code generator.** SpecForge does not produce code, configuration, documentation, or any output artifact. It provides structured context so that agents — and humans — can do their jobs better. The moment SpecForge generates code, it competes with every AI coding tool instead of empowering all of them.
+**Not a code generator.** SpecForge does not produce application code, configuration, documentation, or any domain output artifact. It provides structured context so that agents — and humans — can do their jobs better. The moment SpecForge generates code, it competes with every AI coding tool instead of empowering all of them. Extension renderers may emit spec-layer diagnostic artifacts — coverage reports, traceability matrices, validation dashboards — because these are part of the compiler's own feedback loop, not domain output. The distinction is clear: if an artifact helps you understand the graph, it belongs to SpecForge; if an artifact is consumed by end users or deployed to production, it belongs to an agent.
 
 **Not a test runner.** SpecForge can consume test reports to verify coverage and close the traceability loop, but it never executes anything. It is a compiler, not a runtime. Test execution belongs to test runners. SpecForge belongs to the specification layer.
 

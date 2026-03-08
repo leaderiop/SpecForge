@@ -20,7 +20,7 @@ use behaviors/output-schema
 // Vision: "SpecForge does not produce documentation." Markdown rendering is
 // a renderer contribution from the @specforge/markdown-renderer extension.
 
-feature json_and_dot_export "JSON and DOT Export" {
+feature json_and_dot_render "JSON and DOT Render" {
   // render_extension_defined_dot_shapes is owned by extension_driven_visualization
   // in zero-entity-core.spec; serialize_dot_visualization delegates to it.
   behaviors [serialize_json_graph, serialize_dot_visualization]
@@ -56,6 +56,10 @@ feature traceability_serialization "Traceability Serialization" {
     detection. specforge trace --plan validates agent implementation plans
     against the graph, ensuring every referenced entity exists, every testable
     entity is covered, and dependency ordering is consistent.
+
+    This closes the P5 feedback loop: declare intent (verify declarations and extension-declared test file fields) →
+    trace gaps (specforge trace) → implement → collect proof
+    (specforge collect) → trace again to confirm coverage.
   """
 }
 
@@ -94,11 +98,16 @@ feature ci_integration "CI Integration" {
     Exit code 0 for clean, 1 for errors. --strict treats warnings as errors.
     --format=json produces machine-readable diagnostic output for CI tools
     and AI agents. Output is deterministic for reproducible CI runs.
+
+    Bridge: diagnostic_reporting (features/validation.spec) defines the
+    diagnostic infrastructure that ci_integration consumes. Diagnostic codes,
+    severity levels, and structured output format are shared between both
+    features via the DiagnosticBag type.
   """
 }
 
 feature self_describing_graph_protocol "Self-Describing Graph Protocol" {
-  behaviors [generate_schema_from_registries, embed_schema_in_export, serve_schema_resource]
+  behaviors [generate_schema_from_registries, embed_schema_in_export, persist_schema_cache, serve_schema_resource]
 
   problem """
     The Graph Protocol JSON export contains nodes and edges but no schema
@@ -123,7 +132,7 @@ feature self_describing_graph_protocol "Self-Describing Graph Protocol" {
 }
 
 feature graph_protocol_versioning "Graph Protocol Versioning" {
-  behaviors [negotiate_schema_version, detect_breaking_schema_changes, publish_schema_specification]
+  behaviors [negotiate_schema_version, detect_breaking_schema_changes, compute_schema_version, publish_schema_specification]
 
   problem """
     The Graph Protocol schema evolves as extensions add entity kinds and edge
@@ -141,6 +150,10 @@ feature graph_protocol_versioning "Graph Protocol Versioning" {
     Non-breaking changes (added optional fields, new entity kinds) are allowed
     on minor increments. specforge schema --publish exports the schema as a
     standalone JSON Schema (draft 2020-12) for third-party validation.
+    Breaking change detection reads the previous schema from
+    .specforge/schema-cache.json (persisted in the prior compilation)
+    and compares against the freshly generated schema. The cache is
+    updated after comparison completes.
     See also: spec_file_migration feature for migration tooling.
   """
 }

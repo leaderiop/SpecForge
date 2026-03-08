@@ -83,7 +83,7 @@ behavior se_validate_unverified_testable "W004: Unverified Testable Entities" {
 
   contract """
     Detect testable entities that have no verify statements and no
-    gherkin references. Check pattern: missing_field_when_flag_set.
+    gherkin field values. Check pattern: missing_field_when_flag_set.
   """
 
   requires {
@@ -91,7 +91,7 @@ behavior se_validate_unverified_testable "W004: Unverified Testable Entities" {
   }
 
   ensures {
-    unverified_detected    "testable entity with no verify and no gherkin produces W004"
+    unverified_detected    "testable entity with no verify and no gherkin field value produces W004"
     verified_passes        "testable entity with verify produces no diagnostic"
     non_testable_exempt    "non-testable entity never produces W004"
     correct_template       "message template is: {kind} '{id}' is testable but has no verify or gherkin"

@@ -230,22 +230,26 @@ graph.add_edge(type_id, behavior_id, EdgeType::Implements);
 
 ## Error Codes Introduced
 
+> **Note:** These codes are reserved for the type system evolution roadmap (v2.2–v3.0)
+> and do not conflict with current core or extension allocations. They use the E041+
+> future range per the glossary allocation table (glossary.spec).
+
 | Code | Severity | Name | Phase |
 |------|----------|------|-------|
-| E030 | Error | Event payload field missing | v2.3 |
-| E031 | Error | Refinement type violation | v2.2 |
-| E032 | Error | Precondition strengthened | v2.4 |
-| E033 | Error | Postcondition weakened | v2.4 |
-| E034 | Error | Parameter not contravariant | v2.5 |
-| E035 | Error | Return not covariant | v2.5 |
-| E036 | Error | Set membership violation | v2.6 |
-| E037 | Error | Subset violation | v2.6 |
-| E038 | Error | SMT verification failed | v3.0 |
-| W020 | Warning | Possible refinement violation | v2.2 |
-| W021 | Warning | Unknown refinement operator | v2.2 |
-| W022 | Warning | SMT verification timeout | v3.0 |
-| I006 | Info | Consumer payload projection | v2.3 |
-| I007 | Info | Set constraint optimization hint | v2.6 |
+| E041 | Error | Event payload field missing | v2.3 |
+| E042 | Error | Refinement type violation | v2.2 |
+| E043 | Error | Precondition strengthened | v2.4 |
+| E044 | Error | Postcondition weakened | v2.4 |
+| E045 | Error | Parameter not contravariant | v2.5 |
+| E046 | Error | Return not covariant | v2.5 |
+| E047 | Error | Set membership violation | v2.6 |
+| E048 | Error | Subset violation | v2.6 |
+| E049 | Error | SMT verification failed | v3.0 |
+| W058 | Warning | Possible refinement violation | v2.2 |
+| W059 | Warning | Unknown refinement operator | v2.2 |
+| W060 | Warning | SMT verification timeout | v3.0 |
+| I018 | Info | Consumer payload projection | v2.3 |
+| I019 | Info | Set constraint optimization hint | v2.6 |
 
 ---
 

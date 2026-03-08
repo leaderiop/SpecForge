@@ -5,6 +5,7 @@ use behaviors/wasm-extensions
 use behaviors/wasm-host-functions
 use behaviors/wasm-lifecycle
 use behaviors/wasm-sandbox
+use behaviors/surface-contributions
 
 feature wasm_extension_runtime "Wasm Extension Runtime" {
   behaviors [
@@ -33,7 +34,8 @@ feature wasm_host_function_api "Wasm Host Function API" {
     compute_extension_query_scope, provide_host_function_query_graph,
     provide_host_function_emit_diagnostic,
     provide_host_function_add_graph_node, provide_host_function_add_graph_edge,
-    provide_host_function_emit_file, provide_host_function_http_get,
+    provide_host_function_read_file, provide_host_function_emit_file,
+    provide_host_function_http_get,
     enforce_wasm_sandbox, configure_sandbox_policy,
   ]
 
@@ -45,9 +47,12 @@ feature wasm_host_function_api "Wasm Host Function API" {
   """
 
   solution """
-    Six host functions (specforge.query_graph, specforge.emit_diagnostic,
-    specforge.add_graph_node, specforge.add_graph_edge, specforge.emit_file,
-    specforge.http_get) with sandbox enforcement via linear memory limits,
+    Seven host functions (specforge.query_graph, specforge.emit_diagnostic,
+    specforge.add_graph_node, specforge.add_graph_edge, specforge.read_file,
+    specforge.emit_file, specforge.http_get) plus three supporting behaviors
+    (compute_extension_query_scope for extension-scoped graph views,
+    enforce_wasm_sandbox and configure_sandbox_policy for sandbox enforcement)
+    providing linear memory limits,
     fuel metering, filesystem restrictions, and domain allowlists. The
     emit_file host function is restricted to non-code outputs only (reports,
     dashboards, traceability matrices, graph visualizations) — extensions
@@ -123,6 +128,8 @@ feature extension_query_contributions "Extension Query Contributions" {
 }
 
 feature entity_enhancement "Entity Enhancement" {
+  // Bridge: depends on validate_extension_manifest (contribution_based_extensions feature)
+  // for manifest schema validation before enhancement registration proceeds.
   behaviors [
     load_extension_manifest,
     register_entity_enhancements,
@@ -140,14 +147,16 @@ feature entity_enhancement "Entity Enhancement" {
 
   solution """
     Extensions declare entity enhancements in their sidecar manifest.json.
+    Manifest validation (validate_extension_manifest) runs before
+    enhancement loading — owned by contribution_based_extensions.
     The compiler loads enhancement declarations at startup, builds a
     FieldRegistry combining extension-defined and enhanced fields, and threads
     it through the resolve/graph-build/validate pipeline. Enhanced
     reference fields create graph edges. Conflicts are detected at
-    startup and resolved via configurable policies (error/priority/
-    namespace) or explicit overrides in specforge.json. The specforge
-    doctor command provides visibility into all enhancements and
-    actionable conflict resolution.
+    startup and resolved via the error policy (hard fail) or explicit
+    overrides in specforge.json. Additional policies (priority, namespace)
+    are deferred to a future phase. The specforge doctor command provides
+    visibility into all enhancements and actionable conflict resolution.
   """
 }
 
@@ -155,8 +164,6 @@ feature entity_kind_conflict_prevention "Entity Kind Conflict Prevention" {
   behaviors [
     reject_reserved_entity_kind,
     detect_entity_kind_collision,
-    resolve_entity_kind_conflict_via_config,
-    qualify_entity_kind_inline,
   ]
 
   problem """
@@ -167,11 +174,10 @@ feature entity_kind_conflict_prevention "Entity Kind Conflict Prevention" {
   """
 
   solution """
-    A 4-layer conflict prevention system: Layer 1 rejects reserved
-    words at registration time, Layer 2 detects duplicates via a
-    KindRegistry, Layer 3 resolves conflicts through config-driven
-    policies (error/priority/namespace), and Layer 4 supports inline
-    @extension/kind qualification in the DSL for explicit disambiguation.
+    A 2-layer conflict prevention system: Layer 1 rejects reserved
+    words at registration time, Layer 2 rejects any extension whose
+    manifest declares a kind already registered by a previously loaded
+    extension — duplicate kinds are a hard error at startup.
   """
 }
 
@@ -244,22 +250,40 @@ feature contribution_based_extensions "Contribution-Based Extensions" {
 
   problem """
     Extensions need a structured way to declare what they contribute
-    (entities, validators, renderers, providers, collectors) with
-    per-entity metadata such as testable flags, field type definitions,
-    and structured validation rule patterns.
+    (entities, validators, renderers, providers, parsers, collectors,
+    grammars, body_parsers, verify_kinds) with per-entity metadata such
+    as testable flags, field type definitions, and structured validation
+    rule patterns.
   """
 
   solution """
     Structured manifest format with typed objects (entity_kinds
     ManifestEntityKind[], validation_rules ValidationRulePattern[],
     edge_types ManifestEdgeType[]). Each extension declares a contributes
-    key listing what it provides. The five contribution types are:
+    key listing what it provides. The nine contribution types are:
     entities (domain vocabulary), validators (graph validation rules),
-    renderers (non-code outputs: reports, dashboards, traceability
-    matrices), providers (ref validation), and collectors (test result
-    ingestion). The compiler routes to namespaced Wasm exports based on
+    renderers (non-code diagnostic artifacts as enforced by the emit_file
+    allowlist), providers (ref validation), parsers (domain-specific file
+    parsing — see ADR extension_file_parsers), and collectors (test result
+    ingestion — see test_result_collection feature for collector
+    behaviors). The compiler routes to namespaced Wasm exports based on
     contributions. Per-call-site permissions enforce least-privilege for
-    each contribution export.
+    each contribution export. This feature owns compile-time contribution
+    dispatch (entities, validators, renderers, providers, parsers, grammars,
+    body_parsers). Test result collection (collectors) is owned by the
+    test_result_collection feature. Surface contributions (CLI commands,
+    MCP tools, MCP resources) are owned by the surface_contributions feature.
+    Collector behaviors (register_collector_contributions,
+    auto_detect_collector, dispatch_collector, validate_collector_output,
+    ingest_collector_report) are owned by the test_result_collection feature.
+    The eight dispatch contribution types and their feature owners:
+    1-5. entities, validators, renderers, providers, parsers — this feature.
+    6. collectors — test_result_collection feature.
+    7-8. grammars, body_parsers — wasm_grammar_contributions feature.
+    Additionally, verify_kinds is a declarative manifest field (no Wasm dispatch).
+    Cross-feature dependency: dispatch_contribution_exports consumes
+    collector_report_ingested from the test_result_collection feature,
+    re-rendering outputs after new evidence is ingested.
   """
 }
 
@@ -269,9 +293,10 @@ feature test_result_collection "Test Result Collection" {
   problem """
     SpecForge traces test results but does not execute tests. Extensions need
     a formal contribution type for collectors that parse test runner output
-    (JUnit XML, TAP, etc.) and map results back to spec entities. Without a
+    (structured output from external tools — format-specific parsing is
+    extension-owned) and map results back to spec entities. Without a
     collector contribution type, test result ingestion requires ad-hoc scripts
-    outside the extension model, breaking Principle 5 (extensions over built-ins).
+    outside the extension model, breaking Principle 7 (extensions over built-ins).
   """
 
   solution """
@@ -281,5 +306,66 @@ feature test_result_collection "Test Result Collection" {
     the appropriate collector, dispatches it with entity IDs, validates the
     output against specforge-report/v1 schema, and ingests results into the
     graph with coverage metadata.
+    The specforge collect CLI entry point is an extension-owned surface
+    contribution (P7: extensions over built-ins). Extensions providing
+    collectors declare a collect command in their manifest's surfaces.commands
+    array, dispatched via the surface_contributions feature.
+  """
+}
+
+feature surface_contributions "Surface Contributions" {
+  behaviors [
+    register_surface_contributions, validate_surface_exports,
+    validate_mcp_tool_schemas, validate_command_arg_types,
+    auto_promote_commands_to_mcp_tools,
+    dispatch_surface_command, dispatch_surface_mcp_tool,
+    dispatch_surface_mcp_resource,
+    enforce_surface_sandbox, toggle_surface_contributions,
+  ]
+
+  problem """
+    Extensions can extend the compilation pipeline (entities, validators,
+    renderers, providers, collectors, grammars, body_parsers) but cannot
+    extend the tooling surfaces — CLI and MCP server. This creates a
+    capability asymmetry: domain extensions need CLI commands (e.g., analyze, audit) but has no registration mechanism; extensions cannot register
+    MCP tools so agents only see core tools.
+  """
+
+  solution """
+    Extensions declare surface contributions in their manifest's surfaces
+    field: commands[] for CLI, mcp_tools[] for MCP tools, mcp_resources[]
+    for MCP resources. Core discovers contributions from manifests (static,
+    no code execution), validates Wasm exports exist, and dispatches lazily
+    on invocation. CLI commands are auto-promoted to MCP tools with the
+    specforge.{ext}.{cmd} naming convention. Per-contribution sandbox
+    overrides can only restrict below the type ceiling (MCP resources
+    cannot fs_write). Phase 1 covers CLI commands, MCP tools, and MCP
+    resources. LSP providers are deferred to Phase 2.
+  """
+}
+
+feature wasm_grammar_contributions "Wasm Grammar Contributions" {
+  // Bridge: invariants grammar_composition_determinism and body_parser_output_conformance
+  // reference register_grammar_contributions and register_body_parser_contributions in
+  // enforced_by, but those behaviors belong to dynamic_entity_registration feature in
+  // features/zero-entity-core.spec. This is a cross-feature dependency, similar to
+  // entity_enhancement's dependency on validate_extension_manifest.
+  behaviors [load_extension_grammar, validate_grammar_wasm, compose_grammar_injections, dispatch_body_parser, cache_grammar_artifacts]
+  refs      [register_grammar_contributions, register_body_parser_contributions]
+
+  problem """
+    Extensions needing structured syntax beyond key-value pairs must push
+    data into opaque strings the compiler cannot validate. The fixed
+    tree-sitter grammar cannot accommodate extension-specific body syntax,
+    violating zero-domain-knowledge and validation-is-the-value principles.
+  """
+
+  solution """
+    Two new contribution types: grammars (tree-sitter .wasm for editor
+    highlighting) and body_parsers (Wasm exports that parse raw body text
+    into structured JSON fields). Core grammar captures keyword name
+    { raw_body } and delegates parsing to extensions via Phase 1.5.
+    Grammar artifacts are cached using content-hash + ABI version keys.
+    Conflict resolution is configurable via GrammarConflictPolicy.
   """
 }

@@ -4,6 +4,7 @@ use types/core
 use types/config
 use types/diagnostics
 use types/errors
+use types/wasm
 
 port FileSystem {
   direction outbound
@@ -57,17 +58,20 @@ port WasmRuntime {
   method getMemoryUsage(extensionId: string) -> Result<integer, never>
   method discoverExtensions(source: string, extensionSpec: string) -> Result<string[], ExtensionError>
   method getCacheStatus(extensionId: string) -> Result<string, never>
+  method loadGrammar(contribution: GrammarContribution) -> Result<void, GrammarError>
+  method callBodyParser(export_name: string, raw_body: string) -> Result<FieldMap, BodyParserError>
+  method getGrammarCacheStatus(hash: string) -> Result<GrammarCacheEntry, GrammarError>
 }
 
 port RegistryClient {
   direction outbound
   category  "io/registry"
 
-  method fetchExtension(registryUrl: string, name: string) -> Result<RegistryResponse, EmitterError>
-  method fetchVersion(registryUrl: string, name: string, version: string) -> Result<RegistryResponse, EmitterError>
-  method downloadWasm(registryUrl: string, name: string, version: string) -> Result<string, EmitterError>
-  method search(registryUrl: string, query: string) -> Result<RegistrySearchResult, EmitterError>
-  method publish(registryUrl: string, name: string, wasmPath: string, manifest: string) -> Result<void, EmitterError>
+  method fetchExtension(registryUrl: string, name: string) -> Result<RegistryResponse, RegistryError>
+  method fetchVersion(registryUrl: string, name: string, version: string) -> Result<RegistryResponse, RegistryError>
+  method downloadWasm(registryUrl: string, name: string, version: string) -> Result<string, RegistryError>
+  method search(registryUrl: string, query: string) -> Result<RegistrySearchResult, RegistryError>
+  method publish(registryUrl: string, name: string, wasmPath: string, manifest: string) -> Result<void, RegistryError>
   method authenticate(registryUrl: string, credential: RegistryCredential) -> Result<string, RegistryError>
   method validateCredential(credential: RegistryCredential) -> Result<boolean, RegistryError>
 }

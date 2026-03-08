@@ -26,6 +26,7 @@ pub fn parse(source: &str, file_path: &str) -> SpecFile {
             "spec_block" => ctx.parse_spec_block(child),
             "ref_block" => ctx.parse_ref_block(child),
             "define_block" => ctx.parse_define_block(child),
+            "union_block" => ctx.parse_union_block(child),
             "use_import" => ctx.parse_use_import(child),
             "comment" => {}
             "ERROR" => ctx.push_error_node(child),
@@ -75,6 +76,26 @@ impl<'a> ParseContext<'a> {
         }
     }
 
+    fn extract_brace_body(&self, node: Node) -> Option<String> {
+        let mut open = None;
+        let mut close = None;
+        let mut cursor = node.walk();
+        for child in node.children(&mut cursor) {
+            if child.kind() == "{" {
+                open = Some(child.end_byte());
+            } else if child.kind() == "}" {
+                close = Some(child.start_byte());
+            }
+        }
+        match (open, close) {
+            (Some(start), Some(end)) if end > start => {
+                Some(self.source[start..end].to_string())
+            }
+            (Some(start), Some(end)) if start == end => Some(String::new()),
+            _ => None,
+        }
+    }
+
     fn push_error_node(&mut self, node: Node) {
         self.errors.push(ParseError {
             message: format!("syntax error: unexpected '{}'", self.text(node)),
@@ -95,6 +116,7 @@ impl<'a> ParseContext<'a> {
             .unwrap_or_default();
         let title = node.child_by_field_name("title").map(|n| self.unquote(n));
 
+        let raw_body = self.extract_brace_body(node);
         let (fields, verify) = self.parse_block_body(node);
         let mut field_map = fields;
         if !verify.is_empty() {
@@ -106,6 +128,7 @@ impl<'a> ParseContext<'a> {
             id: EntityId { raw: name },
             title,
             fields: field_map,
+            raw_body,
             span: self.span(node),
         });
     }
@@ -116,6 +139,7 @@ impl<'a> ParseContext<'a> {
             .map(|n| self.unquote(n))
             .unwrap_or_default();
 
+        let raw_body = self.extract_brace_body(node);
         let (fields, verify) = self.parse_block_body(node);
         let mut field_map = fields;
         if !verify.is_empty() {
@@ -129,6 +153,7 @@ impl<'a> ParseContext<'a> {
             id: EntityId { raw: name.clone() },
             title: Some(name),
             fields: field_map,
+            raw_body,
             span: self.span(node),
         });
     }
@@ -162,6 +187,45 @@ impl<'a> ParseContext<'a> {
             id: EntityId { raw: id_text },
             title,
             fields,
+            raw_body: None,
+            span: self.span(node),
+        });
+    }
+
+    fn parse_union_block(&mut self, node: Node) {
+        let kind = node
+            .child_by_field_name("kind")
+            .map(|n| self.text(n).to_string())
+            .unwrap_or_default();
+        let name = node
+            .child_by_field_name("name")
+            .map(|n| self.text(n).to_string())
+            .unwrap_or_default();
+
+        let mut variants = Vec::new();
+        if let Some(variants_node) = node.child_by_field_name("variants") {
+            let mut cursor = variants_node.walk();
+            for child in variants_node.children(&mut cursor) {
+                match child.kind() {
+                    "identifier" => variants.push(self.text(child).to_string()),
+                    "string" => variants.push(self.unquote(child)),
+                    "integer" | "negative_integer" => {
+                        variants.push(self.text(child).to_string())
+                    }
+                    _ => {}
+                }
+            }
+        }
+
+        let mut fields = FieldMap::new();
+        fields.push("variants".to_string(), FieldValue::ReferenceList(variants));
+
+        self.entities.push(Entity {
+            kind: EntityKind { raw: kind },
+            id: EntityId { raw: name },
+            title: None,
+            fields,
+            raw_body: None,
             span: self.span(node),
         });
     }
@@ -172,6 +236,7 @@ impl<'a> ParseContext<'a> {
             .map(|n| self.text(n).to_string())
             .unwrap_or_default();
 
+        let raw_body = self.extract_brace_body(node);
         let (fields, verify) = self.parse_block_body(node);
         let mut field_map = fields;
         if !verify.is_empty() {
@@ -185,6 +250,7 @@ impl<'a> ParseContext<'a> {
             id: EntityId { raw: name },
             title: None,
             fields: field_map,
+            raw_body,
             span: self.span(node),
         });
     }
@@ -255,6 +321,7 @@ impl<'a> ParseContext<'a> {
             "boolean" => FieldValue::Boolean(self.text(node) == "true"),
             "date_literal" => FieldValue::Date(self.text(node).to_string()),
             "identifier" => FieldValue::Identifier(self.text(node).to_string()),
+            "array_type" => FieldValue::Identifier(self.text(node).to_string()),
             "list" => self.parse_list(node),
             "nested_block" => self.parse_nested_block(node),
             _ => FieldValue::String(self.text(node).to_string()),
@@ -306,10 +373,13 @@ impl<'a> ParseContext<'a> {
     }
 
     fn parse_verify_statement(&self, node: Node) -> Option<VerifyStatement> {
-        let kind = node.child_by_field_name("kind")?;
         let desc = node.child_by_field_name("description")?;
+        let kind = node
+            .child_by_field_name("kind")
+            .map(|n| self.text(n).to_string())
+            .unwrap_or_default();
         Some(VerifyStatement {
-            kind: self.text(kind).to_string(),
+            kind,
             description: self.unquote(desc),
         })
     }

@@ -4,6 +4,8 @@ use types/core
 use types/diagnostics
 use types/formatting
 
+type JsonRpcErrorCode = -32700 | -32600 | -32601 | -32602 | -32603
+
 type McpErrorCode = "invalid_input" | "compilation_failed" | "entity_not_found" | "file_not_found" | "extension_not_found" | "permission_denied" | "timeout" | "not_initialized" | "schema_mismatch" | "internal_error"
 
 type JsonSchema "JSON Schema Object" {
@@ -42,8 +44,10 @@ type McpToolDescriptor {
   name           string          @readonly
   description    string
   input_schema   JsonSchema
-  output_schema  string          @optional
+  output_schema  JsonSchema      @optional
   category       McpToolCategory @optional
+  /// "core" for built-in tools, extension name for contributed tools
+  source         string          @optional
 }
 
 type McpSubscription {
@@ -94,9 +98,14 @@ type McpDefinitionResult {
   column         integer         @readonly
 }
 
+type McpReferenceLocation {
+  referencing_entity_id string   @readonly
+  source_span    SourceSpan      @readonly
+}
+
 type McpReferenceResult {
   entity_id      string          @readonly
-  locations      SourceSpan[]
+  locations      McpReferenceLocation[]
 }
 
 type McpOutlineEntry {
@@ -166,6 +175,7 @@ type McpInitResult {
   project_path   string          @readonly
   config_file    string          @readonly
   starter_file   string          @readonly
+  extensions_installed string[]  @optional
 }
 
 type McpFormatResult {
@@ -187,15 +197,21 @@ type McpSearchResult {
 
 type CoverageStatus = "covered" | "uncovered" | "partial"
 
+// P2 compliance: CoverageStatus is a structural computation, not domain vocabulary.
+// The three states map to a boolean triple computable without extension input:
+//   covered   = has_verify_declarations AND has_evidence_collected
+//   partial   = has_verify_declarations AND NOT has_evidence_collected
+//   uncovered = NOT has_verify_declarations
+// Extensions may overlay domain-specific labels (pass/fail, conformant/non-conformant)
+// via extension-contributed metadata fields on their entity kinds.
 type McpCoverageResult {
   entity_id      string          @readonly
   kind           string          @readonly
   status         CoverageStatus
   declared       boolean
   linked         boolean
-  /// Whether a test result has been collected from an external test runner report.
-  proof_collected boolean
-  passing        boolean
+  /// Whether evidence has been collected from an external report (test results, audit findings, review logs).
+  evidence_collected boolean
 }
 
 type McpRenameResult {
@@ -216,7 +232,7 @@ type McpTracePlanResult "Trace tool response when plan parameter is provided" {
 
 type McpCollectResult {
   report_path    string          @readonly
-  tests_found    integer
+  items_found    integer
   entities_mapped integer
 }
 
@@ -234,19 +250,19 @@ type McpRemoveExtensionResult {
 
 // The implement prompt provides structured context for agents, NOT generated
 // code or instructions. Per vision: "SpecForge provides context, agents
-// produce output." The context_hints field contains graph-derived structural
+// produce output." The structural_constraints field contains graph-derived structural
 // hints (invariants to satisfy, edge constraints, field expectations) — never
 // implementation directives or code suggestions.
-type McpImplementPromptResult "Implement Prompt Result" {
+type McpContextPromptResult "Context Prompt Result" {
   entity_id          string          @readonly
   kind               string          @readonly
   contract_text      string
   upstream_entities  string[]
   downstream_entities string[]
   verify_expectations string[]
-  // Graph-derived structural hints: invariants, edge constraints, field
+  // Graph-derived structural constraints: invariants, edge constraints, field
   // expectations — NOT implementation directives or code suggestions.
-  context_hints      string[]        @optional
+  structural_constraints string[]    @optional
   affected_entities  string[]        @optional
 }
 
@@ -266,8 +282,8 @@ type McpReviewFinding {
 type McpTracePromptResult "Trace Prompt Result" {
   /// Gaps in traceability between plan items and graph entities.
   coverage_gaps      McpTraceGap[]
-  /// Entity IDs that have no verify declarations, no linked tests, and no proof.
-  untested_entities  string[]
+  /// Entity IDs that have no verify declarations, no linked evidence, and no collected evidence.
+  unverified_entities  string[]
   /// Entity IDs that the plan touches directly or transitively via graph edges.
   affected_entities  string[]
 }
@@ -284,8 +300,8 @@ type McpExplorePromptResult "Explore Prompt Result" {
   /// and/or kind filter). When no filters are provided, contains all entities.
   matching_entities  string[]
   relationship_paths McpRelationshipPath[]
-  /// Suggested entity IDs for agents to begin exploring — typically high-degree
-  /// nodes or root-level features/capabilities.
+  /// Suggested entity IDs for agents to begin exploring — typically
+  /// root-level entities (high out-degree, low in-degree).
   starting_points    string[]
   /// Entity IDs with the highest edge counts (in-degree + out-degree), useful
   /// for understanding the most interconnected parts of the graph.

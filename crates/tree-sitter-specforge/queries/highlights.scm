@@ -55,5 +55,21 @@
 ; Identifiers in lists
 (list (identifier) @variable)
 
+; Union blocks
+(union_block
+  kind: (identifier) @keyword
+  name: (identifier) @constant)
+(union_variants (identifier) @type)
+
+; Annotations
+(annotation) @attribute
+
+; Array types
+(array_type
+  element: (identifier) @type)
+
+; Negative integers
+(negative_integer) @number
+
 ; Import paths
 (import_path) @string.special

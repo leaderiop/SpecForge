@@ -25,15 +25,28 @@ behavior provide_mcp_query_tool "Provide MCP Query Tool" {
   ports      [McpProtocol, CompilerApi]
   produces   [mcp_tool_invoked]
 
+  requires {
+    graph_available "Compiled graph is available via CompilerApi"
+  }
+
+  ensures {
+    subgraph_returned "Subgraph rooted at entityId returned up to requested depth"
+    unknown_kinds_reported "Unknown kind values silently filtered with I-level diagnostic in metadata"
+    tool_invoked_emitted "mcp_tool_invoked event emitted"
+  }
+
   contract """
     In MCP server mode, the system MUST register a specforge.query tool that
     accepts entityId (required), depth? (optional integer), kind?[] (optional
     array of entity kinds to include), include_coverage? (optional boolean),
     and format? (optional: graph|context|brief). The tool MUST return the
     subgraph rooted at the specified entity up to the requested depth. When
-    kind is specified, only nodes matching those kinds MUST be included. When
-    format is specified, the output MUST use that serialization format. If
-    entityId does not exist, the tool MUST return an error response.
+    kind is specified, only nodes matching those kinds MUST be included.
+    Unknown kind values in the kind[] array MUST be silently filtered out
+    and an I-level diagnostic MUST be included in the response metadata
+    listing the unrecognized kinds. When format is specified, the output
+    MUST use that serialization format. If entityId does not exist, the
+    tool MUST return an error response.
   """
 
   verify unit "specforge.query tool returns subgraph for valid entityId"
@@ -41,6 +54,8 @@ behavior provide_mcp_query_tool "Provide MCP Query Tool" {
   verify unit "kind filter restricts returned node types"
   verify unit "format parameter changes output serialization"
   verify unit "non-existent entityId returns error response"
+  verify unit "include_coverage parameter includes coverage status in response"
+  verify contract "requires/ensures consistency for MCP query tool"
 
 }
 
@@ -53,6 +68,16 @@ behavior provide_mcp_validate_tool "Provide MCP Validate Tool" {
   ports      [McpProtocol, CompilerApi]
   produces   [mcp_tool_invoked]
 
+  requires {
+    compiler_api_available "CompilerApi port is available for triggering compilation"
+  }
+
+  ensures {
+    diagnostics_returned "All diagnostics matching filter returned with severity, message, file path, and line number"
+    strict_promotion_enforced "When strict is true, warnings promoted to errors in response"
+    tool_invoked_emitted "mcp_tool_invoked event emitted"
+  }
+
   contract """
     In MCP server mode, the system MUST register a specforge.validate tool
     that triggers a full compilation and returns validation results as Graph
@@ -64,6 +89,12 @@ behavior provide_mcp_validate_tool "Provide MCP Validate Tool" {
     The response MUST include all diagnostics matching the filter with their
     severity, message, file path, and line number. When strict is true,
     warnings MUST be promoted to errors in the response.
+
+    Cache semantics: use_cached=true returns stale results if no compilation
+    has occurred since the last invocation. On cold start (no prior compilation),
+    use_cached=true MUST trigger a fresh compilation — it MUST NOT return an
+    empty result. Cache is invalidated on any file change detected by the
+    file watcher.
   """
 
   verify unit "specforge.validate tool triggers compilation"
@@ -72,6 +103,7 @@ behavior provide_mcp_validate_tool "Provide MCP Validate Tool" {
   verify unit "strict mode promotes warnings to errors"
   verify unit "validate with use_cached=false triggers fresh compilation"
   verify unit "validate with use_cached=true returns existing diagnostics without recompilation"
+  verify contract "requires/ensures consistency for MCP validate tool"
 
 }
 
@@ -80,6 +112,16 @@ behavior provide_mcp_export_tool "Provide MCP Export Tool" {
   types      [Graph, AgentExportConfig, OutputFile, McpToolDescriptor]
   ports      [McpProtocol, CompilerApi]
   produces   [mcp_tool_invoked]
+
+  requires {
+    graph_available "Compiled graph is available via CompilerApi"
+  }
+
+  ensures {
+    format_produced "Graph returned in requested agent-optimized format conforming to Graph Protocol schema"
+    token_budget_enforced "When max_tokens specified, output truncated to fit budget prioritizing high-connectivity nodes"
+    tool_invoked_emitted "mcp_tool_invoked event emitted"
+  }
 
   contract """
     In MCP server mode, the system MUST register a specforge.export tool that
@@ -95,6 +137,7 @@ behavior provide_mcp_export_tool "Provide MCP Export Tool" {
   verify unit "scope parameter restricts to subgraph"
   verify unit "max_tokens truncates output to fit token budget"
   verify unit "all three formats (context, brief, graph) supported"
+  verify contract "requires/ensures consistency for MCP export tool"
 
 }
 
@@ -103,6 +146,16 @@ behavior provide_mcp_trace_tool "Provide MCP Trace Tool" {
   types      [Graph, TraceChain, TraceLink, McpTracePlanResult, McpToolDescriptor]
   ports      [McpProtocol, CompilerApi]
   produces   [mcp_tool_invoked]
+
+  requires {
+    graph_available "Compiled graph is available via CompilerApi"
+  }
+
+  ensures {
+    trace_result_returned "TraceChain or McpTracePlanResult returned depending on input parameter"
+    gaps_identified "Missing traceability links flagged in trace output"
+    tool_invoked_emitted "mcp_tool_invoked event emitted"
+  }
 
   contract """
     In MCP server mode, the system MUST register a specforge.trace tool that
@@ -120,6 +173,7 @@ behavior provide_mcp_trace_tool "Provide MCP Trace Tool" {
   verify unit "non-existent entityId returns error response"
   verify unit "response includes upstream and downstream links"
   verify unit "missing links flagged in trace output"
+  verify contract "requires/ensures consistency for MCP trace tool"
 
 }
 
@@ -129,14 +183,27 @@ behavior provide_mcp_search_tool "Provide MCP Search Tool" {
   ports      [McpProtocol, CompilerApi]
   produces   [mcp_tool_invoked]
 
+  requires {
+    graph_available "Compiled graph is available via CompilerApi"
+  }
+
+  ensures {
+    filtered_results_returned "Search results returned combining all filters with AND semantics"
+    unknown_kinds_reported "Unknown kind values silently filtered with I-level diagnostic in metadata"
+    tool_invoked_emitted "mcp_tool_invoked event emitted"
+  }
+
   contract """
     In MCP server mode, the system MUST register a specforge.search tool that
     accepts kind?[] (entity kind filter), field? (field name), value? (field
     value), references? (entity_id to find referencing entities), text? (fuzzy
     text search across names and string fields), and limit? (max results, default
-    50). The tool MUST combine these filters with AND semantics. Fuzzy text
-    search MUST use the same algorithm as LSP workspaceSymbol. An empty query
-    with no filters MUST return all entities up to the limit.
+    50). The tool MUST combine these filters with AND semantics. Unknown
+    kind values in the kind[] array MUST be silently filtered out and an
+    I-level diagnostic MUST be included in the response metadata listing
+    the unrecognized kinds. Fuzzy text search MUST use the same algorithm
+    as LSP workspaceSymbol. An empty query with no filters MUST return
+    all entities up to the limit.
   """
 
   verify unit "text search finds entities matching by name or contract"
@@ -144,6 +211,8 @@ behavior provide_mcp_search_tool "Provide MCP Search Tool" {
   verify unit "field and value filter matches entity fields"
   verify unit "limit caps the number of returned results"
   verify unit "empty query returns all entities up to limit"
+  verify unit "references filter returns entities referencing target"
+  verify contract "requires/ensures consistency for MCP search tool"
 
 }
 
@@ -152,6 +221,15 @@ behavior provide_mcp_schema_tool "Provide MCP Schema Tool" {
   types      [GraphProtocolSchema, McpToolDescriptor]
   ports      [McpProtocol, CompilerApi]
   produces   [mcp_tool_invoked]
+
+  requires {
+    graph_available "Compiled graph is available via CompilerApi"
+  }
+
+  ensures {
+    schema_returned "GraphProtocolSchema returned, optionally filtered by kind"
+    tool_invoked_emitted "mcp_tool_invoked event emitted"
+  }
 
   contract """
     In MCP server mode, the system MUST register a specforge.schema tool that
@@ -167,21 +245,34 @@ behavior provide_mcp_schema_tool "Provide MCP Schema Tool" {
   verify unit "kind filter restricts schema to single entity kind"
   verify unit "include_edges false omits edge type definitions"
   verify unit "include_validation_rules true includes validation rules"
+  verify contract "requires/ensures consistency for MCP schema tool"
 
 }
 
 behavior provide_mcp_coverage_tool "Provide MCP Coverage Tool" {
-  invariants [graph_traversal_integrity, diagnostic_determinism, mcp_structured_error_responses, mcp_tool_idempotency]
+  invariants [graph_traversal_integrity, diagnostic_determinism, mcp_structured_error_responses, mcp_tool_idempotency, testable_entity_classification]
   types      [McpCoverageResult, McpToolDescriptor]
   ports      [McpProtocol, CompilerApi]
   produces   [mcp_tool_invoked]
+
+  requires {
+    graph_available "Compiled graph is available via CompilerApi"
+  }
+
+  ensures {
+    coverage_returned "Coverage status per entity returned including verify count and evidence count"
+    testability_respected "Testability determined by extension manifests, not hardcoded"
+    tool_invoked_emitted "mcp_tool_invoked event emitted"
+  }
 
   contract """
     In MCP server mode, the system MUST register a specforge.coverage tool
     that accepts entity_id? (optional, single entity), kind? (optional, filter
     by entity kind), and status_filter? (optional: covered|uncovered|partial).
-    The tool MUST return coverage status per entity including verify count,
-    linked test count, and proof status from specforge-report.json if available.
+    Status values are structurally computed from the entity's verify declarations
+    and collected evidence — no extension input is required to determine coverage
+    status (P2). The tool MUST return coverage status per entity including verify count,
+    linked evidence count, and evidence status from specforge-report.json if available.
     When no filters are provided, the tool MUST return coverage for all
     testable entities. Testability is determined by extension manifests.
   """
@@ -190,6 +281,7 @@ behavior provide_mcp_coverage_tool "Provide MCP Coverage Tool" {
   verify unit "entity_id filter returns single entity coverage"
   verify unit "kind filter restricts to matching entity kinds"
   verify unit "status_filter restricts to matching coverage status"
+  verify contract "requires/ensures consistency for MCP coverage tool"
 
 }
 
@@ -198,6 +290,16 @@ behavior provide_mcp_stats_tool "Provide MCP Stats Tool" {
   types      [McpStatsResult, McpToolDescriptor]
   ports      [McpProtocol, CompilerApi]
   produces   [mcp_tool_invoked]
+
+  requires {
+    graph_available "Compiled graph is available via CompilerApi"
+  }
+
+  ensures {
+    stats_returned "Aggregate statistics returned: entity counts, edge count, coverage, orphans, diagnostics"
+    latest_state_reflected "Response reflects the latest compilation state"
+    tool_invoked_emitted "mcp_tool_invoked event emitted"
+  }
 
   contract """
     In MCP server mode, the system MUST register a specforge.stats tool with
@@ -211,6 +313,7 @@ behavior provide_mcp_stats_tool "Provide MCP Stats Tool" {
   verify unit "response includes coverage percentage"
   verify unit "response includes orphan node count"
   verify unit "response includes diagnostic summary by severity"
+  verify contract "requires/ensures consistency for MCP stats tool"
 
 }
 
@@ -219,10 +322,19 @@ behavior provide_mcp_stats_tool "Provide MCP Stats Tool" {
 // ---------------------------------------------------------------------------
 
 behavior provide_mcp_inspect_tool "Provide MCP Inspect Tool" {
-  invariants [graph_traversal_integrity, diagnostic_determinism, mcp_structured_error_responses, mcp_tool_idempotency]
+  invariants [graph_traversal_integrity, diagnostic_determinism, mcp_structured_error_responses, mcp_tool_idempotency, testable_entity_classification]
   types      [McpInspectResult, McpToolDescriptor]
   ports      [McpProtocol, CompilerApi]
   produces   [mcp_tool_invoked]
+
+  requires {
+    graph_available "Compiled graph is available via CompilerApi"
+  }
+
+  ensures {
+    entity_details_returned "Full entity details returned: kind, fields, contract, references, verify, coverage, diagnostics"
+    tool_invoked_emitted "mcp_tool_invoked event emitted"
+  }
 
   contract """
     In MCP server mode, the system MUST register a specforge.inspect tool that
@@ -237,6 +349,7 @@ behavior provide_mcp_inspect_tool "Provide MCP Inspect Tool" {
   verify unit "specforge.inspect returns full entity details"
   verify unit "response includes references and verify declarations"
   verify unit "non-existent entity returns error response"
+  verify contract "requires/ensures consistency for MCP inspect tool"
 
 }
 
@@ -245,6 +358,15 @@ behavior provide_mcp_find_definition_tool "Provide MCP Find Definition Tool" {
   types      [McpDefinitionResult, McpToolDescriptor]
   ports      [McpProtocol, CompilerApi]
   produces   [mcp_tool_invoked]
+
+  requires {
+    graph_available "Compiled graph is available via CompilerApi"
+  }
+
+  ensures {
+    source_location_returned "Source location returned including file path, line number, and column"
+    tool_invoked_emitted "mcp_tool_invoked event emitted"
+  }
 
   contract """
     In MCP server mode, the system MUST register a specforge.find_definition
@@ -258,6 +380,7 @@ behavior provide_mcp_find_definition_tool "Provide MCP Find Definition Tool" {
 
   verify unit "specforge.find_definition returns file, line, and column"
   verify unit "non-existent entity returns error response"
+  verify contract "requires/ensures consistency for MCP find definition tool"
 
 }
 
@@ -266,6 +389,16 @@ behavior provide_mcp_find_references_tool "Provide MCP Find References Tool" {
   types      [McpReferenceResult, McpToolDescriptor]
   ports      [McpProtocol, CompilerApi]
   produces   [mcp_tool_invoked]
+
+  requires {
+    graph_available "Compiled graph is available via CompilerApi"
+  }
+
+  ensures {
+    references_returned "All reference locations returned with entity id, file path, line, and column"
+    empty_list_for_unreferenced "Entity with no references returns empty list, not an error"
+    tool_invoked_emitted "mcp_tool_invoked event emitted"
+  }
 
   contract """
     In MCP server mode, the system MUST register a specforge.find_references
@@ -280,6 +413,7 @@ behavior provide_mcp_find_references_tool "Provide MCP Find References Tool" {
   verify unit "specforge.find_references returns all reference locations"
   verify unit "entity with no references returns empty list"
   verify unit "non-existent entity returns error response"
+  verify contract "requires/ensures consistency for MCP find references tool"
 
 }
 
@@ -288,6 +422,15 @@ behavior provide_mcp_outline_tool "Provide MCP Outline Tool" {
   types      [McpOutlineEntry, McpToolDescriptor]
   ports      [McpProtocol, CompilerApi]
   produces   [mcp_tool_invoked]
+
+  requires {
+    graph_available "Compiled graph is available via CompilerApi"
+  }
+
+  ensures {
+    outline_returned "All entities in file returned as McpOutlineEntry with id, kind, name, line range, and children"
+    tool_invoked_emitted "mcp_tool_invoked event emitted"
+  }
 
   contract """
     In MCP server mode, the system MUST register a specforge.outline tool that
@@ -302,6 +445,7 @@ behavior provide_mcp_outline_tool "Provide MCP Outline Tool" {
   verify unit "specforge.outline returns all entities defined in file"
   verify unit "nested entries included for complex entities"
   verify unit "non-existent file returns error response"
+  verify contract "requires/ensures consistency for MCP outline tool"
 
 }
 
@@ -311,12 +455,23 @@ behavior provide_mcp_suggest_fixes_tool "Provide MCP Suggest Fixes Tool" {
   ports      [McpProtocol, CompilerApi]
   produces   [mcp_tool_invoked]
 
+  requires {
+    graph_available "Compiled graph is available via CompilerApi"
+  }
+
+  ensures {
+    fixes_returned "Applicable fix suggestions returned as McpFixSuggestion items with title, edits, and diagnostic"
+    empty_for_clean "Clean entity with no diagnostics returns empty list"
+    tool_invoked_emitted "mcp_tool_invoked event emitted"
+  }
+
   contract """
     In MCP server mode, the system MUST register a specforge.suggest_fixes tool
     that accepts entity_id? (optional), file_path? (optional), and
-    diagnostic_code? (optional). The tool MUST return applicable fix suggestions
-    as McpFixSuggestion items, each including a title, edit operations, and the
-    diagnostic it resolves. LSP equivalence: this tool mirrors
+    diagnostic_code? (optional). When all three parameters are omitted, the
+    system MUST return all fix suggestions for the current project. The tool
+    MUST return applicable fix suggestions as McpFixSuggestion items, each
+    including a title, edit operations, and the diagnostic it resolves. LSP equivalence: this tool mirrors
     textDocument/codeAction, returning the same quick-fix suggestions an IDE
     offers but over the MCP transport. Fix suggestions derive from extension
     validation rules — the core does not hardcode any fix patterns. A clean
@@ -326,5 +481,6 @@ behavior provide_mcp_suggest_fixes_tool "Provide MCP Suggest Fixes Tool" {
   verify unit "specforge.suggest_fixes returns applicable fix suggestions"
   verify unit "clean entity with no diagnostics returns empty list"
   verify unit "diagnostic_code filter restricts to matching diagnostics"
+  verify contract "requires/ensures consistency for MCP suggest fixes tool"
 
 }

@@ -1,10 +1,24 @@
 // Migration features — spec file format version migration
+//
+// P7 Justification — Why migration lives in core, not an extension:
+// Migration is infrastructure that runs before extensions load. It transforms
+// .spec file syntax (indentation, field ordering, block layout) structurally —
+// no entity kinds, field semantics, or domain vocabulary are inspected. This
+// parallels the formatting precedent (features/formatting.spec): core owns
+// generic CST-level operations; extensions contribute domain-specific migration
+// via Wasm hooks (ManifestV2.migration_hook). The P7 test — "does this require
+// a compiler change when a new domain appears?" — is satisfied: adding a new
+// extension requires zero changes to the migration engine.
+// See also: migration_as_core_infrastructure ADR in governance/decisions.spec.
 
 use behaviors/migration
+use types/migration
+use invariants/migration
+use events/compilation
 
 feature spec_file_migration "Spec File Migration" {
   // MCP: provide_mcp_migrate_tool in features/mcp.spec::mcp_mutation_tools
-  behaviors [detect_format_version_mismatch, migrate_spec_files_in_place, generate_migration_diff, validate_post_migration_integrity, verify_graph_protocol_compatibility_after_migration, invoke_extension_migration_hooks, rollback_failed_migration]
+  behaviors [detect_format_version_mismatch, migrate_spec_files_in_place, generate_migration_diff, validate_post_migration_integrity, capture_pre_migration_schema_snapshot, verify_graph_protocol_compatibility_after_migration, invoke_extension_migration_hooks, rollback_failed_migration]
 
   problem """
     As the .spec file format evolves across versions, existing projects

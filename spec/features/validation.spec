@@ -67,7 +67,8 @@ feature structural_validation "Structural Validation" {
     validation is driven by declarative patterns from extensions.
     Note: detect_duplicate_entity_ids runs at all_files_parsed time
     (before graph construction). The remaining structural validators
-    run after graph_built.
+    run after graph_built. Ordering enforced by validation_pipeline_ordering
+    invariant (invariants/validation.spec).
   """
 }
 
@@ -99,15 +100,16 @@ feature diagnostic_reporting "Diagnostic Reporting" {
     available in both human-readable (ariadne-rendered) and machine-parseable
     (structured JSON via --format=json) formats — agents consume the JSON
     format directly without parsing rendered output (per P3: agents are
-    first-class consumers). Two of the five behaviors
+    first-class consumers). Two of the six behaviors
     (format_diagnostics_with_source_context and provide_did_you_mean_suggestions)
     run inline during the resolution pass rather than as post-validation
     event consumers.
   """
 }
 
-// Note: The three behaviors below (detect_unknown_entity_kinds,
-// detect_unknown_entity_fields, two_phase_validate_semantic) are also
+// Note: The four behaviors below (detect_unknown_entity_kinds,
+// detect_unknown_entity_fields, two_phase_validate_semantic,
+// suggest_missing_extensions) are also
 // listed in features/zero-entity-core.spec under zero_entity_bootstrap
 // and dynamic_entity_registration. This is intentional: those features
 // describe the architectural mechanism (registry-driven validation),
@@ -133,9 +135,21 @@ feature zero_entity_validation "Zero-Entity Validation" {
     Group the four zero-entity validation behaviors under a dedicated
     feature: detect_unknown_entity_kinds checks keywords against the
     KindRegistry (E024), detect_unknown_entity_fields checks fields
-    against the FieldRegistry (W020), and two_phase_validate_semantic
-    orchestrates the full Phase 2 semantic validation pass. These
-    behaviors execute in Phase 2 after registries are populated (see
-    dynamic_entity_registration in features/zero-entity-core.spec).
+    against the FieldRegistry (W020), two_phase_validate_semantic
+    orchestrates the full Phase 2 semantic validation pass, and
+    suggest_missing_extensions attaches help text to E024 diagnostics
+    using a bundled KeywordExtensionIndex data file (generated at
+    build time by generate_keyword_extension_index in
+    behaviors/extensions.spec) that maps known keywords to their
+    providing extensions. These behaviors execute in Phase 2 after
+    registries are populated (see dynamic_entity_registration in
+    features/zero-entity-core.spec).
+
+    Bridge: detect_unknown_entity_kinds and detect_unknown_entity_fields
+    reuse the same validation infrastructure as the zero-entity-core
+    behaviors (behaviors/zero-entity-validation.spec). The KindRegistry
+    and FieldRegistry are populated by extension registration behaviors
+    (behaviors/zero-entity-registries.spec) and consumed by both
+    validation paths.
   """
 }

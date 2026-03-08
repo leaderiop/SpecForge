@@ -2,6 +2,7 @@
 
 use types/core
 use types/graph
+use types/wasm
 use types/diagnostics
 use behaviors/parsing
 use behaviors/resolution
@@ -53,12 +54,36 @@ event all_files_parsed "All Files Parsed" {
   // resolve_use_imports is NOT a consumer here — it runs in Phase 2 after
   // registries_populated.
   // Co-consumer ordering: detect_duplicate_entity_ids runs on raw IDs (no registry
-  // needed); load_extension_manifests loads extensions. These are independent —
-  // no ordering required between them.
-  consumers [detect_duplicate_entity_ids, load_extension_manifests]
+  // needed); load_extension_manifests loads extensions; read_lock_file reads
+  // specforge.lock for integrity verification. All three are independent.
+  // Lock verification feeds into load_wasm_module via wasm_integrity_verified.
+  consumers [detect_duplicate_entity_ids, load_extension_manifests, read_lock_file]
 
   verify integration "emits all_files_parsed after every file in the project has been parsed"
   verify integration "consumer populates the KindRegistry from extension manifests before Phase 2"
+
+}
+
+event structural_parse_complete "Structural Parse Complete" {
+  // Phase 1 completion signal — all .spec files have been structurally parsed
+  // into generic entity blocks. No keyword validation has occurred yet.
+  // This event marks the handoff from Phase 1 (structural parsing) to
+  // extension loading and registry population.
+  trigger   two_phase_parse_structural
+  channel   "compiler.structural_parse_complete"
+
+  payload {
+    fileCount     integer
+    entityCount   integer
+    timestamp     timestamp
+  }
+
+  // load_extension_manifests already consumes all_files_parsed. This event
+  // is a Phase 1 completion signal for traceability — it does not add a
+  // new consumer trigger.
+  consumers []
+
+  verify integration "emits structural_parse_complete after all files are structurally parsed"
 
 }
 
@@ -72,7 +97,7 @@ event extension_manifests_loaded {
     timestamp       timestamp
   }
 
-  consumers [register_extension_entity_types, load_provider_configurations]
+  consumers [register_extension_entity_types, load_provider_configurations, register_custom_validation_patterns, register_entity_kinds_from_manifest, register_edge_types_from_manifest, register_validation_rules_from_manifest, register_verify_kinds_from_manifest, register_grammar_contributions, register_body_parser_contributions, reject_reserved_entity_kind, detect_entity_kind_collision, load_extension_grammar, register_extension_validation_rules, provide_extension_query_extensions, populate_field_registry_from_extensions, populate_edge_registry_from_extensions]
 
   verify "Extension manifests MUST be loaded before populating the kind registry"
 }
@@ -95,7 +120,7 @@ event registries_populated "Registries Populated" {
   // Phase 2 begins: resolution and semantic validation run only after all
   // registries are populated. resolve_use_imports starts reference linking;
   // two_phase_validate_semantic checks keywords against the KindRegistry.
-  consumers [resolve_use_imports, two_phase_validate_semantic, validate_extension_testability, resolve_soft_cross_extension_references, generate_schema_from_registries]
+  consumers [resolve_use_imports, two_phase_validate_semantic, validate_extension_testability, resolve_soft_cross_extension_references, generate_schema_from_registries, custom_entity_types_via_define, graceful_degradation_without_extensions, detect_unknown_entity_kinds, detect_unknown_entity_fields]
 
   verify integration "emits registries_populated after KindRegistry, FieldRegistry, and edge type set are fully loaded"
   verify integration "consumer resolve_use_imports starts Phase 2 only after this event"
@@ -134,9 +159,8 @@ event graph_built "Graph Built" {
   // Core structural validators and the declarative validation engine all
   // run after the graph is built. detect_dangling_references verifies
   // resolver integrity. The remaining checks are core structural checks
-  // (orphan refs, gherkin file existence, extension testability flag
-  // consistency). execute_validation_pattern runs extension-defined
-  // declarative rules.
+  // (orphan refs, file reference existence). execute_validation_pattern
+  // runs extension-defined declarative rules.
   consumers [
     detect_dangling_references, execute_validation_pattern,
     detect_orphan_refs, validate_file_reference_paths,
@@ -181,7 +205,7 @@ event validation_complete "Validation Complete" {
   // emitted). They are NOT post-validation consumers. This event signals pipeline
   // completion — consumers are output-phase behaviors that need the final diagnostic
   // counts, such as CLI exit code decisions and emitter triggers.
-  consumers [serialize_json_graph, serialize_dot_visualization, compute_traceability_chain, serialize_traceability_data, validate_agent_plan, export_agent_context_format, export_agent_brief_format, export_agent_graph_format, query_graph_multi_resolution, enforce_token_budget, compute_project_statistics, print_diagnostics_structured, exit_code_reflects_diagnostic_severity, deterministic_output, check_mode_for_ci, export_diagnostics_as_json, negotiate_schema_version, embed_schema_in_export, serve_schema_resource, serve_graph_resource, publish_schema_specification, notify_diagnostics_delta_via_mcp]
+  consumers [serialize_json_graph, serialize_dot_visualization, compute_traceability_chain, serialize_traceability_data, validate_agent_plan, export_agent_context_format, export_agent_brief_format, export_agent_graph_format, query_graph_multi_resolution, enforce_token_budget, compute_project_statistics, print_diagnostics_structured, exit_code_reflects_diagnostic_severity, deterministic_output, check_mode_for_ci, export_diagnostics_as_json, negotiate_schema_version, embed_schema_in_export, serve_schema_resource, serve_graph_resource, publish_schema_specification, notify_diagnostics_delta_via_mcp, expose_graph_as_mcp_resource, expose_schema_as_mcp_resource, expose_context_as_mcp_resource, expose_brief_as_mcp_resource, expose_diagnostics_as_mcp_resource, expose_entity_as_mcp_resource]
 
   verify integration "emits validation_complete with correct error, warning, and info counts"
   verify integration "event signals Phase 2 completion — emitter phase may begin"
@@ -331,7 +355,7 @@ event format_complete "Format Complete" {
 event project_initialized "Project Initialized" {
   // Triggers are mutually exclusive — exactly one fires per init invocation depending on the code path.
   // interactive_extension_selection is a sub-step of scaffold_new_project, not an independent trigger.
-  trigger   [scaffold_new_project, non_interactive_init, graceful_zero_extension_init]
+  trigger   [scaffold_new_project, non_interactive_init, graceful_zero_extension_init, provide_mcp_init_tool]
   channel   "cli.project_initialized"
 
   payload {
@@ -349,7 +373,7 @@ event project_initialized "Project Initialized" {
 }
 
 event extension_added "Extension Added" {
-  trigger   add_extension_to_existing_project
+  trigger   [add_extension_to_existing_project, provide_mcp_add_extension_tool]
   channel   "cli.extension_added"
 
   payload {
@@ -422,7 +446,7 @@ event define_blocks_registered "Define Blocks Registered" {
   // Note: two_phase_validate_semantic waits for BOTH registries_populated AND
   // define_blocks_registered before running, ensuring all entity kinds
   // (extension-defined and project-defined) are available for validation.
-  consumers [resolve_use_imports, two_phase_validate_semantic]
+  consumers [resolve_use_imports, two_phase_validate_semantic, detect_unknown_entity_fields]
 
   verify integration "emits define_blocks_registered after all define blocks processed"
   verify integration "fires after registries_populated event"
@@ -494,9 +518,26 @@ event migration_starting "Migration Starting" {
     timestamp       timestamp
   }
 
-  consumers [verify_graph_protocol_compatibility_after_migration]
+  consumers [capture_pre_migration_schema_snapshot]
 
   verify integration "emits migration_starting before any migration transforms are applied"
+
+}
+
+event pre_migration_snapshot_captured "Pre-Migration Snapshot Captured" {
+  trigger   capture_pre_migration_schema_snapshot
+  channel   "compiler.pre_migration_snapshot_captured"
+
+  payload {
+    nodeKindCount   integer
+    edgeTypeCount   integer
+    fieldCount      integer
+    timestamp       timestamp
+  }
+
+  consumers [verify_graph_protocol_compatibility_after_migration]
+
+  verify integration "emits pre_migration_snapshot_captured after schema snapshot is taken"
 
 }
 
@@ -514,10 +555,9 @@ event migration_complete "Migration Complete" {
     timestamp       timestamp
   }
 
-  consumers [validate_post_migration_integrity, verify_graph_protocol_compatibility_after_migration, invoke_extension_migration_hooks]
+  consumers [invoke_extension_migration_hooks]
 
   verify integration "emits migration_complete with correct migratedCount, failedCount, and skippedCount"
-  verify integration "consumer validate_post_migration_integrity receives event"
   verify integration "consumer invoke_extension_migration_hooks receives event to run extension hooks"
 
 }
@@ -556,6 +596,22 @@ event extension_migration_hooks_complete "Extension Migration Hooks Complete" {
 
 }
 
+event migration_validation_complete "Migration Validation Complete" {
+  trigger   validate_post_migration_integrity
+  channel   "compiler.migration_validation_complete"
+
+  payload {
+    structuralDifferences  integer
+    newDiagnostics         integer
+    timestamp              timestamp
+  }
+
+  consumers []
+
+  verify integration "emits migration_validation_complete after post-migration validation finishes"
+
+}
+
 event migration_rolled_back "Migration Rolled Back" {
   trigger   rollback_failed_migration
   channel   "compiler.migration_rolled_back"
@@ -586,11 +642,47 @@ event schema_generated "Schema Generated" {
     timestamp       timestamp
   }
 
-  consumers [embed_schema_in_export, detect_breaking_schema_changes]
+  // embed_schema_in_export now waits for schema_version_computed (via the
+  // schema pipeline), not schema_generated directly.
+  consumers [persist_schema_cache, detect_breaking_schema_changes]
 
   verify integration "emits schema_generated with correct entityKindCount and edgeTypeCount"
-  verify integration "consumer embed_schema_in_export receives event"
+  verify integration "consumer persist_schema_cache receives event"
   verify integration "consumer detect_breaking_schema_changes receives event"
+
+}
+
+event schema_cache_persisted "Schema Cache Persisted" {
+  trigger   persist_schema_cache
+  channel   "compiler.schema_cache_persisted"
+
+  payload {
+    schemaVersion   string
+    hash            string
+    timestamp       timestamp
+  }
+
+  consumers []
+
+  verify integration "emits schema_cache_persisted after writing .specforge/schema-cache.json"
+
+}
+
+event schema_version_computed "Schema Version Computed" {
+  trigger   compute_schema_version
+  channel   "compiler.schema_version_computed"
+
+  payload {
+    major           integer
+    minor           integer
+    patch           integer
+    bumpType        string
+    timestamp       timestamp
+  }
+
+  consumers [embed_schema_in_export]
+
+  verify integration "emits schema_version_computed with correct major, minor, patch after schema comparison"
 
 }
 
@@ -612,7 +704,7 @@ event token_budget_applied "Token Budget Applied" {
 
 event schema_version_negotiated "Schema Version Negotiated" {
   trigger  negotiate_schema_version
-  payload  ExportResult
+  payload  SchemaCompatibility
   channel  compilation
 }
 
@@ -640,6 +732,11 @@ event graph_queried "Graph Queried" {
 // entity_search_performed moved to spec/extensions/embeddings/events.spec
 
 // ── Incremental Pipeline Terminal Events ──────────────────────
+// Terminal events (consumers []) are intentionally leaf events for
+// observability, audit trails, and CLI output. Not every event requires
+// a behavioral consumer — these events serve as integration points for
+// external tooling, logging, and traceability without mandating an
+// in-process consumer.
 
 event incremental_diagnostics_complete "Incremental Diagnostics Complete" {
   trigger   emit_incremental_diagnostics
@@ -738,6 +835,40 @@ event incremental_validators_dispatched "Incremental Validators Dispatched" {
 
 // ── Delta Validation Events ──────────────────────────────────
 
+event delta_validation_passed "Delta Validation Passed" {
+  // Success-path counterpart to delta_validation_failed — emitted when
+  // validate_delta_correctness confirms incremental and full-rebuild
+  // graph states are consistent.
+  trigger   validate_delta_correctness
+  channel   "watch.delta_validation_passed"
+
+  payload {
+    nodeCount   integer
+    edgeCount   integer
+  }
+
+  consumers []
+
+  verify integration "emits delta_validation_passed when incremental rebuild matches full rebuild"
+
+}
+
+event trace_chain_computed "Trace Chain Computed" {
+  trigger   compute_traceability_chain
+  channel   "output.trace_chain_computed"
+
+  payload {
+    entityId    string
+    chainDepth  integer
+    linkCount   integer
+  }
+
+  consumers []
+
+  verify integration "emits trace_chain_computed with correct entityId, chainDepth, and linkCount"
+
+}
+
 event delta_validation_failed "Delta Validation Failed" {
   // Debug-only event — emitted when validate_delta_correctness detects
   // a discrepancy between the incremental and full-rebuild graph states.
@@ -790,9 +921,53 @@ event schema_breaking_change_detected "Schema Breaking Change Detected" {
     timestamp       timestamp
   }
 
-  consumers [negotiate_schema_version]
+  consumers [compute_schema_version, negotiate_schema_version]
 
   verify integration "emits schema_breaking_change_detected with correct previousVersion and currentVersion"
   verify integration "consumer negotiate_schema_version receives event for version compatibility checks"
 
+}
+
+event graph_protocol_compatibility_verified "Graph Protocol Compatibility Verified" {
+  trigger   verify_graph_protocol_compatibility_after_migration
+  channel   "compiler.graph_protocol_compatibility_verified"
+
+  payload {
+    breakingChanges   integer
+    nonBreakingChanges integer
+    timestamp         timestamp
+  }
+
+  consumers []
+
+  verify integration "emits graph_protocol_compatibility_verified after post-migration schema comparison"
+
+}
+
+event grammar_contribution_registered "Grammar Contribution Registered" {
+  trigger register_grammar_contributions
+  payload GrammarContribution
+  channel "compilation.grammar_contribution_registered"
+
+  contract """
+    Emitted when a grammar contribution from an extension manifest is
+    successfully registered. Consumers use this to track which entity
+    kinds have custom grammars.
+  """
+
+  verify integration "event emitted per registered grammar contribution"
+}
+
+event body_parser_contribution_registered "Body Parser Contribution Registered" {
+  trigger register_body_parser_contributions
+  payload BodyParserContribution
+  channel "compilation.body_parser_contribution_registered"
+
+  contract """
+    Emitted when a body parser contribution from an extension manifest
+    is successfully registered. Consumers use this to track which entity
+    kinds have custom body parsers for Phase 1.5 dispatch.
+  """
+
+  verify integration "event emitted per registered body parser contribution"
 }

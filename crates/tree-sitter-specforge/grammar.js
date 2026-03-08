@@ -50,6 +50,7 @@ module.exports = grammar({
         $.spec_block,
         $.ref_block,
         $.define_block,
+        $.union_block,
         $.entity_block,
       ),
 
@@ -116,14 +117,35 @@ module.exports = grammar({
         "}",
       ),
 
+    // --- Union type block: keyword name = variant | variant | ... ---
+    union_block: ($) =>
+      seq(
+        field("kind", $.identifier),
+        field("name", $.identifier),
+        "=",
+        field("variants", $.union_variants),
+      ),
+
+    union_variants: ($) =>
+      seq($._union_variant, repeat(seq("|", $._union_variant))),
+
+    _union_variant: ($) =>
+      choice($.string, $.negative_integer, $.integer, $.identifier),
+
+    negative_integer: (_) => token(seq("-", /[0-9]+/)),
+
     // --- Shared rules ------------------------------------------------
 
-    // Field: key value
+    // Field: key value [annotations...]
     field: ($) =>
       seq(
         field("key", $.identifier),
         field("value", $._value),
+        repeat($.annotation),
       ),
+
+    annotation: ($) =>
+      seq(token(seq("@", /[a-zA-Z_][a-zA-Z0-9_]*/)), optional($.string)),
 
     _value: ($) =>
       choice(
@@ -134,14 +156,19 @@ module.exports = grammar({
         $.boolean,
         $.list,
         $.nested_block,
+        $.array_type,
         $.identifier,
       ),
 
-    // verify kind "description"
+    // Type[] — array type suffix (e.g., ImportDeclaration[])
+    array_type: ($) =>
+      seq(field("element", $.identifier), token.immediate("[]")),
+
+    // verify [kind] "description"
     verify_statement: ($) =>
       seq(
         "verify",
-        field("kind", $.identifier),
+        optional(field("kind", $.identifier)),
         field("description", $.string),
       ),
 

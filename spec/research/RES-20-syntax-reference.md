@@ -250,7 +250,7 @@ type Order {
 **Limitations (v2.2-2.6):**
 - Cross-field invariants are **validated heuristically** (pattern matching)
 - No SMT proof in v2.x — requires v3.0 `--verify` flag
-- Compiler warns if it can't validate: W021 "unknown invariant predicate"
+- Compiler warns if it can't validate: W059 "unknown invariant predicate"
 
 ---
 
@@ -392,7 +392,7 @@ payload_projection = "{" , identifier , { "," , identifier } , "}" ;
 ```
 
 **Type Checking Rules:**
-1. All fields in projection MUST exist in event payload (else E030)
+1. All fields in projection MUST exist in event payload (else E041)
 2. Consumer can use only fields in projection (else E039)
 3. Projection enables payload evolution (adding optional fields doesn't break consumers)
 
@@ -435,7 +435,7 @@ behavior send_receipt {
 - Producer MUST provide all required consumer fields
 - Producer CAN provide extra fields (ignored by consumers)
 - Adding `@optional` fields is backward compatible
-- Removing fields is BREAKING (E030 error)
+- Removing fields is BREAKING (E041 error)
 
 ---
 
@@ -473,7 +473,7 @@ behavior enhanced_create_user extends base_create_user {
 behavior strict_create_user extends base_create_user {
   contract {
     requires cmd.email != ""
-    requires cmd.role == "admin"     // STRONGER precondition (ERROR E032!)
+    requires cmd.role == "admin"     // STRONGER precondition (ERROR E043!)
     ensures result.id != ""
   }
 }
@@ -482,7 +482,7 @@ behavior strict_create_user extends base_create_user {
 Compiler error:
 
 ```
-error[E032]: behavior not substitutable (precondition strengthened)
+error[E043]: behavior not substitutable (precondition strengthened)
   ┌─ behaviors/user.spec:15:5
   │
 15│     requires cmd.role == "admin"
@@ -519,7 +519,7 @@ behavior extended_operation extends base_operation {
 **Type Checking Rule:**
 - Subtype MUST reference all parent invariants (or prove it implies them)
 - Subtype CAN add additional invariants
-- Compiler emits E033 if invariant is missing
+- Compiler emits E044 if invariant is missing
 
 ---
 
@@ -571,14 +571,14 @@ port GenericRepository extends UserRepository {
 
 // INVALID: Parameter more specific
 port StrictUserRepository extends UserRepository {
-  method create(user: ValidatedUser) -> Result<User, Error>  // ERROR E034!
+  method create(user: ValidatedUser) -> Result<User, Error>  // ERROR E045!
 }
 ```
 
 Compiler error:
 
 ```
-error[E034]: port method parameter not contravariant
+error[E045]: port method parameter not contravariant
   ┌─ ports/user-repo.spec:12:23
   │
 12│   method create(user: ValidatedUser) -> Result<User, Error>
@@ -603,14 +603,14 @@ port UserRepository extends BaseRepository {
 
 // INVALID: Return more general
 port VagueRepository extends BaseRepository {
-  method findById(id: string) -> Result<object, NotFoundError>  // ERROR E035!
+  method findById(id: string) -> Result<object, NotFoundError>  // ERROR E046!
 }
 ```
 
 Compiler error:
 
 ```
-error[E035]: port method return not covariant
+error[E046]: port method return not covariant
   ┌─ ports/vague-repo.spec:8:42
   │
 8 │   method findById(id: string) -> Result<object, NotFoundError>
@@ -639,7 +639,7 @@ port UserRepository extends BaseRepository {
 // INVALID: More error variants (more general)
 port FailableRepository extends BaseRepository {
   method findById(id: string) -> Result<Entity, NotFoundError | ValidationError | NetworkError>
-  // ERROR E035: error type not covariant (added NetworkError)
+  // ERROR E046: error type not covariant (added NetworkError)
 }
 ```
 
@@ -808,7 +808,7 @@ Checking behavior 'divide_amount' with Z3 solver...
   ❌ Precondition allows division by zero
   ✗ Verification failed (1.8s)
 
-error[E038]: SMT verification failed
+error[E049]: SMT verification failed
   ┌─ behaviors/payment.spec:42:5
   │
 42│     ensures result == amount / divisor
@@ -911,10 +911,10 @@ See `RES-20-type-system-evolution.md`, Section 10.1 for the full 200-line exampl
 
 ## 11. Error Message Examples
 
-### E030: Event Payload Field Missing
+### E041: Event Payload Field Missing
 
 ```
-error[E030]: event payload field missing
+error[E041]: event payload field missing
   ┌─ behaviors/notification.spec:8:42
   │
 8 │   consumes order_placed { orderId, customerEmail }
@@ -925,10 +925,10 @@ error[E030]: event payload field missing
   = help: use 'customerId' instead, or add 'customerEmail' to event payload
 ```
 
-### E031: Refinement Type Violation
+### E042: Refinement Type Violation
 
 ```
-error[E031]: refinement type violation
+error[E042]: refinement type violation
   ┌─ behaviors/order.spec:42:32
   │
 42│     ensures order.total.amount == -100
@@ -938,10 +938,10 @@ error[E031]: refinement type violation
   = help: ensure the assigned value satisfies the refinement constraint
 ```
 
-### E032: Precondition Strengthened
+### E043: Precondition Strengthened
 
 ```
-error[E032]: behavior not substitutable (precondition strengthened)
+error[E043]: behavior not substitutable (precondition strengthened)
   ┌─ behaviors/order.spec:18:5
   │
 18│     requires cmd.items.length > 5
@@ -953,10 +953,10 @@ error[E032]: behavior not substitutable (precondition strengthened)
   = help: relax precondition to '<= parent requirement', or remove 'extends' clause
 ```
 
-### E034: Parameter Not Contravariant
+### E045: Parameter Not Contravariant
 
 ```
-error[E034]: port method parameter not contravariant
+error[E045]: port method parameter not contravariant
   ┌─ ports/user-repo.spec:12:23
   │
 12│   method create(user: ValidatedUser) -> Result<User, Error>
@@ -967,10 +967,10 @@ error[E034]: port method parameter not contravariant
   = help: use 'User' or a supertype of 'User' for this parameter
 ```
 
-### W020: Possible Refinement Violation
+### W058: Possible Refinement Violation
 
 ```
-warning[W020]: possible refinement violation
+warning[W058]: possible refinement violation
   ┌─ behaviors/user.spec:6:28
   │
 6 │     ensures result.email == "invalid-email"
