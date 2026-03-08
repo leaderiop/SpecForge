@@ -481,6 +481,8 @@ dependencies = [
  "specforge-common",
  "specforge-parser",
  "specforge-resolver",
+ "specforge-test",
+ "specforge-test-macros",
  "strsim",
  "tempfile",
 ]
@@ -493,6 +495,8 @@ dependencies = [
  "serde",
  "serde_json",
  "specforge-common",
+ "specforge-test",
+ "specforge-test-macros",
  "tree-sitter",
  "tree-sitter-language",
  "tree-sitter-specforge",
@@ -507,6 +511,26 @@ dependencies = [
  "strsim",
  "tempfile",
  "walkdir",
+]
+
+[[package]]
+name = "specforge-test"
+version = "0.1.0"
+dependencies = [
+ "libc",
+ "serde",
+ "serde_json",
+ "specforge-test-macros",
+ "tempfile",
+]
+
+[[package]]
+name = "specforge-test-macros"
+version = "0.1.0"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
 ]
 
 [[package]]

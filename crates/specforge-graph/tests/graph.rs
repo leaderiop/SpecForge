@@ -1,6 +1,7 @@
 use specforge_graph::{Edge, Graph, Node};
 use specforge_common::SourceSpan;
 use specforge_parser::{EntityId, EntityKind, FieldMap};
+use specforge_test_macros::test as specforge_test;
 
 fn make_node(id: &str, kind: &str) -> Node {
     Node {
@@ -28,6 +29,7 @@ fn make_edge(source: &str, target: &str, label: &str) -> Edge {
 
 // --- build_in_memory_graph ---
 
+#[specforge_test(behavior = "build_in_memory_graph")]
 #[test]
 fn graph_one_node_per_entity() {
     let mut graph = Graph::new();
@@ -39,6 +41,7 @@ fn graph_one_node_per_entity() {
     assert!(graph.node("beta").is_some());
 }
 
+#[specforge_test(behavior = "build_in_memory_graph")]
 #[test]
 fn graph_one_edge_per_reference() {
     let mut graph = Graph::new();
@@ -51,6 +54,7 @@ fn graph_one_edge_per_reference() {
     assert_eq!(graph.edges()[0].target, "alpha");
 }
 
+#[specforge_test(behavior = "build_in_memory_graph")]
 #[test]
 fn graph_edges_connect_existing_nodes() {
     let mut graph = Graph::new();
@@ -67,6 +71,7 @@ fn graph_edges_connect_existing_nodes() {
 
 // --- maintain_mutable_graph ---
 
+#[specforge_test(behavior = "maintain_mutable_graph")]
 #[test]
 fn remove_node_from_graph() {
     let mut graph = Graph::new();
@@ -80,6 +85,7 @@ fn remove_node_from_graph() {
     assert!(graph.node("beta").is_some());
 }
 
+#[specforge_test(behavior = "maintain_mutable_graph")]
 #[test]
 fn removing_node_removes_its_edges() {
     let mut graph = Graph::new();
@@ -92,6 +98,7 @@ fn removing_node_removes_its_edges() {
     assert!(graph.edges().is_empty(), "edges to removed node should be gone");
 }
 
+#[specforge_test(behavior = "maintain_mutable_graph")]
 #[test]
 fn graph_consistency_after_batch_mutations() {
     let mut graph = Graph::new();
@@ -111,6 +118,7 @@ fn graph_consistency_after_batch_mutations() {
 
 // --- subgraph ---
 
+#[specforge_test(behavior = "compute_subgraph_for_invalidation")]
 #[test]
 fn subgraph_for_file() {
     let mut graph = Graph::new();
@@ -133,6 +141,7 @@ fn subgraph_for_file() {
 
 // === build_graph integration ===
 
+#[specforge_test(behavior = "build_in_memory_graph")]
 #[test]
 fn build_graph_one_node_per_entity() {
     use specforge_graph::build_graph;
@@ -156,6 +165,7 @@ feature gamma "G" { behaviors [alpha, beta] }
     );
 }
 
+#[specforge_test(behavior = "build_in_memory_graph")]
 #[test]
 fn build_graph_one_edge_per_resolved_reference() {
     use specforge_graph::build_graph;
@@ -177,6 +187,7 @@ feature gamma "G" { behaviors [alpha, beta] }
     assert!(edges_from_gamma.iter().all(|e| e.label == "behaviors"));
 }
 
+#[specforge_test(behavior = "build_in_memory_graph")]
 #[test]
 fn build_graph_unresolved_ref_produces_e001() {
     use specforge_graph::build_graph;
@@ -195,6 +206,7 @@ feature gamma "G" { behaviors [alpha, nonexistent] }
     assert!(errors[0].message.contains("nonexistent"));
 }
 
+#[specforge_test(behavior = "build_in_memory_graph")]
 #[test]
 fn build_graph_duplicate_entity_id_produces_e002() {
     use specforge_graph::build_graph;
@@ -211,6 +223,7 @@ fn build_graph_duplicate_entity_id_produces_e002() {
     assert_eq!(graph.node_count(), 1);
 }
 
+#[specforge_test(behavior = "build_in_memory_graph")]
 #[test]
 fn build_graph_cross_file_references() {
     use specforge_graph::build_graph;
@@ -232,6 +245,7 @@ fn build_graph_cross_file_references() {
     );
 }
 
+#[specforge_test(behavior = "build_in_memory_graph")]
 #[test]
 fn build_graph_did_you_mean_for_close_match() {
     use specforge_graph::build_graph;
@@ -254,6 +268,7 @@ feature gamma "G" { behaviors [alpha_parsr] }
 
 // === invalidation subgraph ===
 
+#[specforge_test(behavior = "compute_subgraph_for_invalidation")]
 #[test]
 fn invalidation_set_includes_changed_file() {
     use specforge_graph::build_graph;
@@ -273,6 +288,7 @@ fn invalidation_set_includes_changed_file() {
     assert!(!affected.contains("b.spec"), "independent file not affected");
 }
 
+#[specforge_test(behavior = "compute_subgraph_for_invalidation")]
 #[test]
 fn invalidation_set_includes_direct_dependents() {
     use specforge_graph::build_graph;
@@ -293,6 +309,7 @@ fn invalidation_set_includes_direct_dependents() {
     assert!(affected.contains("main.spec"), "direct dependent should be invalidated");
 }
 
+#[specforge_test(behavior = "compute_subgraph_for_invalidation")]
 #[test]
 fn invalidation_set_includes_transitive_dependents() {
     use specforge_graph::build_graph;
@@ -316,6 +333,7 @@ fn invalidation_set_includes_transitive_dependents() {
     assert!(affected.contains("c.spec"), "transitive dependent should be invalidated");
 }
 
+#[specforge_test(behavior = "compute_subgraph_for_invalidation")]
 #[test]
 fn invalidation_set_excludes_unaffected_files() {
     use specforge_graph::build_graph;
@@ -339,6 +357,7 @@ fn invalidation_set_excludes_unaffected_files() {
 
 // === ref blocks as graph nodes ===
 
+#[specforge_test(behavior = "build_in_memory_graph")]
 #[test]
 fn ref_blocks_become_graph_nodes() {
     use specforge_graph::build_graph;
@@ -356,6 +375,7 @@ ref gh.issue:42 "Support Wasm extensions"
     assert_eq!(ref_node.kind.raw, "ref");
 }
 
+#[specforge_test(behavior = "build_in_memory_graph")]
 #[test]
 fn ref_blocks_carry_scheme_metadata() {
     use specforge_graph::{build_graph, FieldValue};
@@ -387,6 +407,7 @@ fn setup_project(files: &[(&str, &str)]) -> tempfile::TempDir {
     dir
 }
 
+#[specforge_test(behavior = "build_in_memory_graph")]
 #[test]
 fn end_to_end_resolve_and_build() {
     use specforge_graph::build_graph;
@@ -415,6 +436,7 @@ fn end_to_end_resolve_and_build() {
     assert_eq!(graph.edges_from("gamma")[0].target, "alpha");
 }
 
+#[specforge_test(behavior = "build_in_memory_graph")]
 #[test]
 fn end_to_end_with_errors() {
     use specforge_graph::build_graph;

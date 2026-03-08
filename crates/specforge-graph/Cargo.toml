@@ -13,3 +13,5 @@ strsim = { workspace = true }
 [dev-dependencies]
 specforge-resolver = { path = "../specforge-resolver" }
 tempfile = { workspace = true }
+specforge-test = { workspace = true }
+specforge-test-macros = { workspace = true }

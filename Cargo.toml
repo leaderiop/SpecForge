@@ -36,6 +36,8 @@ cc = "1.2.56"
 # Dev/test
 insta = { version = "1.46.3", features = ["json"] }
 tempfile = "3.26.0"
+specforge-test = { path = "integrations/rust/specforge-test" }
+specforge-test-macros = { path = "integrations/rust/specforge-test-macros" }
 
 [profile.release]
 lto = true
