@@ -1,9 +1,26 @@
 use crate::{Edge, Graph, Node};
 use specforge_common::{Diagnostic, Severity};
 use specforge_parser::{FieldValue, SpecFile};
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
+
+#[derive(Debug, Default)]
+pub struct GraphConfig {
+    /// Provider schemes that are installed (e.g., "gh", "jira").
+    /// Refs with schemes not in this set emit I005.
+    pub known_provider_schemes: HashSet<String>,
+    /// Entity keywords registered by installed extensions (e.g., "behavior", "feature").
+    /// Keywords in this set are considered valid and skip I004 checks.
+    pub installed_keywords: HashSet<String>,
+    /// Mapping of entity keywords to the extension that provides them (full catalog).
+    /// Keywords not in `installed_keywords` but present here emit I004.
+    pub known_extension_keywords: HashMap<String, String>,
+}
 
 pub fn build_graph(spec_files: &[SpecFile]) -> (Graph, Vec<Diagnostic>) {
+    build_graph_with_config(spec_files, &GraphConfig::default())
+}
+
+pub fn build_graph_with_config(spec_files: &[SpecFile], config: &GraphConfig) -> (Graph, Vec<Diagnostic>) {
     let mut graph = Graph::new();
     let mut diagnostics = Vec::new();
 
@@ -32,6 +49,59 @@ pub fn build_graph(spec_files: &[SpecFile]) -> (Graph, Vec<Diagnostic>) {
                 source_span: entity.span.clone(),
             };
             graph.add_node(node);
+        }
+    }
+
+    // Check for unknown keywords that match known extensions (I004)
+    if !config.known_extension_keywords.is_empty() {
+        for spec_file in spec_files {
+            for entity in &spec_file.entities {
+                let keyword = &entity.kind.raw;
+                // Skip structural kinds that are always valid
+                if keyword == "ref" || keyword == "spec" {
+                    continue;
+                }
+                if config.installed_keywords.contains(keyword) {
+                    continue;
+                }
+                if let Some(extension) = config.known_extension_keywords.get(keyword) {
+                    diagnostics.push(Diagnostic {
+                        code: "I004".to_string(),
+                        severity: Severity::Info,
+                        message: format!(
+                            "keyword '{}' is provided by extension '{}' which is not installed",
+                            keyword, extension
+                        ),
+                        span: Some(entity.span.clone()),
+                        suggestion: Some(format!(
+                            "install it with: specforge add {}", extension
+                        )),
+                    });
+                }
+            }
+        }
+    }
+
+    // Check ref nodes for unknown provider schemes (I005)
+    if !config.known_provider_schemes.is_empty() {
+        for spec_file in spec_files {
+            for entity in &spec_file.entities {
+                if entity.kind.raw == "ref"
+                    && let Some(FieldValue::String(scheme)) = entity.fields.get("scheme")
+                    && !config.known_provider_schemes.contains(scheme)
+                {
+                    diagnostics.push(Diagnostic {
+                        code: "I005".to_string(),
+                        severity: Severity::Info,
+                        message: format!(
+                            "unrecognized ref scheme '{}' in '{}' — no provider installed for this scheme",
+                            scheme, entity.id.raw
+                        ),
+                        span: Some(entity.span.clone()),
+                        suggestion: None,
+                    });
+                }
+            }
         }
     }
 

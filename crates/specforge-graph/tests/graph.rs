@@ -393,6 +393,127 @@ fn ref_blocks_carry_scheme_metadata() {
     );
 }
 
+// === resolve_external_ref_declarations ===
+
+#[specforge_test(behavior = "resolve_external_ref_declarations")]
+#[test]
+fn ref_with_unknown_scheme_emits_i005() {
+    use specforge_graph::{build_graph_with_config, GraphConfig};
+    use specforge_parser::parse;
+
+    let source = r#"ref gh.issue:42 "Support Wasm extensions""#;
+    let spec_file = parse(source, "main.spec");
+    let config = GraphConfig {
+        known_provider_schemes: vec!["jira".to_string()].into_iter().collect(),
+        ..Default::default()
+    };
+    let (_, diagnostics) = build_graph_with_config(&[spec_file], &config);
+
+    let infos: Vec<_> = diagnostics.iter().filter(|d| d.code == "I005").collect();
+    assert_eq!(infos.len(), 1, "unknown scheme 'gh' should produce I005");
+    assert!(infos[0].message.contains("gh"), "I005 should mention the scheme");
+}
+
+#[specforge_test(behavior = "resolve_external_ref_declarations")]
+#[test]
+fn ref_with_no_providers_configured_skips_i005() {
+    use specforge_graph::build_graph;
+    use specforge_parser::parse;
+
+    let source = r#"ref gh.issue:42 "Support Wasm extensions""#;
+    let spec_file = parse(source, "main.spec");
+    // Default build_graph — no providers configured
+    let (_, diagnostics) = build_graph(&[spec_file]);
+
+    let infos: Vec<_> = diagnostics.iter().filter(|d| d.code == "I005").collect();
+    assert!(infos.is_empty(), "no I005 when no providers configured");
+}
+
+#[specforge_test(behavior = "resolve_external_ref_declarations")]
+#[test]
+fn ref_with_known_scheme_no_i005() {
+    use specforge_graph::{build_graph_with_config, GraphConfig};
+    use specforge_parser::parse;
+
+    let source = r#"ref gh.issue:42 "Support Wasm extensions""#;
+    let spec_file = parse(source, "main.spec");
+    let config = GraphConfig {
+        known_provider_schemes: vec!["gh".to_string()].into_iter().collect(),
+        ..Default::default()
+    };
+    let (_, diagnostics) = build_graph_with_config(&[spec_file], &config);
+
+    let infos: Vec<_> = diagnostics.iter().filter(|d| d.code == "I005").collect();
+    assert!(infos.is_empty(), "known scheme should not produce I005");
+}
+
+// === resolve_soft_cross_extension_references ===
+
+#[specforge_test(behavior = "resolve_soft_cross_extension_references")]
+#[test]
+fn unknown_keyword_matching_known_extension_emits_i004() {
+    use specforge_graph::{build_graph_with_config, GraphConfig};
+    use specforge_parser::parse;
+
+    // "capability" is not installed but is known to come from @specforge/product
+    let source = r#"capability onboarding_flow "Onboarding Flow" { problem "Users need onboarding" }"#;
+    let spec_file = parse(source, "main.spec");
+    let config = GraphConfig {
+        known_extension_keywords: vec![
+            ("capability".to_string(), "@specforge/product".to_string()),
+        ].into_iter().collect(),
+        ..Default::default()
+    };
+    let (_, diagnostics) = build_graph_with_config(&[spec_file], &config);
+
+    let infos: Vec<_> = diagnostics.iter().filter(|d| d.code == "I004").collect();
+    assert_eq!(infos.len(), 1, "unknown keyword with known extension should produce I004");
+    assert!(infos[0].message.contains("@specforge/product"), "I004 should suggest the extension");
+    assert!(infos[0].message.contains("capability"), "I004 should mention the keyword");
+}
+
+#[specforge_test(behavior = "resolve_soft_cross_extension_references")]
+#[test]
+fn installed_keyword_does_not_emit_i004() {
+    use specforge_graph::{build_graph_with_config, GraphConfig};
+    use specforge_parser::parse;
+
+    let source = r#"behavior alpha "A" { contract "first" }"#;
+    let spec_file = parse(source, "main.spec");
+    let config = GraphConfig {
+        installed_keywords: vec!["behavior".to_string()].into_iter().collect(),
+        known_extension_keywords: vec![
+            ("behavior".to_string(), "@specforge/software".to_string()),
+        ].into_iter().collect(),
+        ..Default::default()
+    };
+    let (_, diagnostics) = build_graph_with_config(&[spec_file], &config);
+
+    let infos: Vec<_> = diagnostics.iter().filter(|d| d.code == "I004").collect();
+    assert!(infos.is_empty(), "installed keyword should not produce I004");
+}
+
+#[specforge_test(behavior = "resolve_soft_cross_extension_references")]
+#[test]
+fn unknown_keyword_with_no_catalog_match_no_i004() {
+    use specforge_graph::{build_graph_with_config, GraphConfig};
+    use specforge_parser::parse;
+
+    // "foobar" is not in any catalog — no I004, will become E024 in validation phase
+    let source = r#"foobar xyz "X" { stuff "things" }"#;
+    let spec_file = parse(source, "main.spec");
+    let config = GraphConfig {
+        known_extension_keywords: vec![
+            ("behavior".to_string(), "@specforge/software".to_string()),
+        ].into_iter().collect(),
+        ..Default::default()
+    };
+    let (_, diagnostics) = build_graph_with_config(&[spec_file], &config);
+
+    let infos: Vec<_> = diagnostics.iter().filter(|d| d.code == "I004").collect();
+    assert!(infos.is_empty(), "unknown keyword not in catalog should not produce I004");
+}
+
 // === end-to-end pipeline: filesystem → resolve → build_graph ===
 
 fn setup_project(files: &[(&str, &str)]) -> tempfile::TempDir {
