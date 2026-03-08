@@ -62,14 +62,18 @@ fn detect_direct_import_cycle() {
 
     let result = resolve_project(dir.path());
 
-    let cycle_errors: Vec<_> = result
+    let cycle_warnings: Vec<_> = result
         .diagnostics
         .iter()
-        .filter(|d| d.code == "E003")
+        .filter(|d| d.code == "W003")
         .collect();
     assert!(
-        !cycle_errors.is_empty(),
-        "should detect import cycle with E003"
+        !cycle_warnings.is_empty(),
+        "should detect import cycle with W003"
+    );
+    assert!(
+        cycle_warnings.iter().all(|d| d.severity == Severity::Warning),
+        "import cycles should be warnings, not errors"
     );
 }
 
@@ -84,14 +88,14 @@ fn detect_transitive_import_cycle() {
 
     let result = resolve_project(dir.path());
 
-    let cycle_errors: Vec<_> = result
+    let cycle_warnings: Vec<_> = result
         .diagnostics
         .iter()
-        .filter(|d| d.code == "E003")
+        .filter(|d| d.code == "W003")
         .collect();
     assert!(
-        !cycle_errors.is_empty(),
-        "should detect transitive cycle with E003"
+        !cycle_warnings.is_empty(),
+        "should detect transitive cycle with W003"
     );
 }
 
@@ -186,7 +190,7 @@ feature gamma "G" {
     assert!(errors[0].message.contains("nonexistent"));
 }
 
-#[specforge_test(behavior = "link_entity_references", verify = "close match triggers did-you-mean suggestion")]
+#[specforge_test(behavior = "provide_did_you_mean_suggestions", verify = "close match produces suggestion")]
 #[test]
 fn close_match_triggers_did_you_mean() {
     let dir = setup_project(&[

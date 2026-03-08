@@ -83,6 +83,92 @@ impl Graph {
         self.edges.len()
     }
 
+    /// Extract the subgraph reachable from `root_id` following edges in both directions.
+    /// Returns None if `root_id` is not in the graph.
+    pub fn subgraph(&self, root_id: &str) -> Option<Graph> {
+        if !self.nodes.contains_key(root_id) {
+            return None;
+        }
+
+        let mut visited = HashSet::new();
+        let mut queue = VecDeque::new();
+        visited.insert(root_id.to_string());
+        queue.push_back(root_id.to_string());
+
+        while let Some(id) = queue.pop_front() {
+            for edge in &self.edges {
+                let neighbor = if edge.source == id {
+                    &edge.target
+                } else if edge.target == id {
+                    &edge.source
+                } else {
+                    continue;
+                };
+                if visited.insert(neighbor.clone()) {
+                    queue.push_back(neighbor.clone());
+                }
+            }
+        }
+
+        let mut sub = Graph::new();
+        for id in &visited {
+            if let Some(node) = self.nodes.get(id) {
+                sub.add_node(node.clone());
+            }
+        }
+        for edge in &self.edges {
+            if visited.contains(&edge.source) && visited.contains(&edge.target) {
+                sub.add_edge(edge.clone());
+            }
+        }
+        Some(sub)
+    }
+
+    /// Extract the subgraph reachable from `root_id` within `max_depth` hops (both directions).
+    /// Depth 0 returns only the root. Returns None if `root_id` is not in the graph.
+    pub fn subgraph_depth(&self, root_id: &str, max_depth: usize) -> Option<Graph> {
+        if !self.nodes.contains_key(root_id) {
+            return None;
+        }
+
+        let mut visited: HashMap<String, usize> = HashMap::new();
+        let mut queue = VecDeque::new();
+        visited.insert(root_id.to_string(), 0);
+        queue.push_back((root_id.to_string(), 0usize));
+
+        while let Some((id, depth)) = queue.pop_front() {
+            if depth >= max_depth {
+                continue;
+            }
+            for edge in &self.edges {
+                let neighbor = if edge.source == id {
+                    &edge.target
+                } else if edge.target == id {
+                    &edge.source
+                } else {
+                    continue;
+                };
+                if !visited.contains_key(neighbor) {
+                    visited.insert(neighbor.clone(), depth + 1);
+                    queue.push_back((neighbor.clone(), depth + 1));
+                }
+            }
+        }
+
+        let mut sub = Graph::new();
+        for (id, _) in &visited {
+            if let Some(node) = self.nodes.get(id) {
+                sub.add_node(node.clone());
+            }
+        }
+        for edge in &self.edges {
+            if visited.contains_key(&edge.source) && visited.contains_key(&edge.target) {
+                sub.add_edge(edge.clone());
+            }
+        }
+        Some(sub)
+    }
+
     /// Compute the set of files that need rebuilding when `changed_file` changes.
     /// `import_dag` maps each file to the files it imports (dependencies).
     /// Returns the changed file plus all transitive reverse-dependents.

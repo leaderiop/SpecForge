@@ -1,5 +1,5 @@
 use crate::ResolvedProject;
-use specforge_common::{Diagnostic, Severity};
+use specforge_common::{find_close_match, Diagnostic, Severity};
 use specforge_parser::FieldValue;
 use std::collections::HashMap;
 
@@ -37,7 +37,7 @@ pub fn link_references(project: &ResolvedProject) -> (Vec<PendingEdge>, Vec<Diag
                                 label: entry.key.clone(),
                             });
                         } else {
-                            let suggestion = find_close_match(target_id, &all_ids);
+                            let suggestion = find_close_match(target_id, all_ids.iter().copied());
                             diagnostics.push(Diagnostic {
                                 code: "E001".to_string(),
                                 severity: Severity::Error,
@@ -60,15 +60,3 @@ pub fn link_references(project: &ResolvedProject) -> (Vec<PendingEdge>, Vec<Diag
     (edges, diagnostics)
 }
 
-fn find_close_match<'a>(target: &str, candidates: &[&'a str]) -> Option<&'a str> {
-    let mut best: Option<(&str, f64)> = None;
-    for candidate in candidates {
-        let distance = strsim::jaro_winkler(target, candidate);
-        if distance > 0.85 {
-            if best.is_none() || distance > best.unwrap().1 {
-                best = Some((candidate, distance));
-            }
-        }
-    }
-    best.map(|(s, _)| s)
-}

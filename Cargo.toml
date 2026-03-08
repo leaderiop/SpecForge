@@ -6,6 +6,9 @@ members = [
     "crates/specforge-parser",
     "crates/specforge-resolver",
     "crates/specforge-graph",
+    "crates/specforge-validator",
+    "crates/specforge-emitter",
+    "crates/specforge-cli",
 ]
 
 [workspace.package]
@@ -27,13 +30,18 @@ petgraph = "0.8.3"
 lasso = { version = "0.7.3", features = ["multi-threaded"] }
 serde = { version = "1.0.228", features = ["derive"] }
 serde_json = "1.0.149"
+ariadne = "0.6.0"
 strsim = "0.11.1"
 walkdir = "2.5.0"
 
 # Build
 cc = "1.2.56"
 
+# CLI
+clap = { version = "4.5.60", features = ["derive"] }
+
 # Dev/test
+assert_cmd = "2.1.2"
 insta = { version = "1.46.3", features = ["json"] }
 tempfile = "3.26.0"
 specforge-test = { path = "integrations/rust/specforge-test" }

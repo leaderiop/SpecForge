@@ -1,21 +1,16 @@
 [package]
-name = "specforge-graph"
+name = "specforge-validator"
 edition.workspace = true
 version.workspace = true
 license.workspace = true
 
 [dependencies]
+ariadne = { workspace = true }
 specforge-common = { workspace = true }
+specforge-graph = { path = "../specforge-graph" }
 specforge-parser = { workspace = true }
-petgraph = { workspace = true }
-
-[build-dependencies]
-specforge-parser = { workspace = true }
-serde = { workspace = true }
-serde_json = { workspace = true }
 
 [dev-dependencies]
-specforge-resolver = { path = "../specforge-resolver" }
 tempfile = { workspace = true }
 specforge-test = { workspace = true }
 specforge-test-macros = { workspace = true }

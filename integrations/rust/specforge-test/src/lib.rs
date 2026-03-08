@@ -1,4 +1,5 @@
 pub mod atexit;
+pub mod coverage;
 pub mod guard;
 pub mod registry;
 pub mod report;

@@ -223,6 +223,27 @@ fn build_graph_duplicate_entity_id_produces_e002() {
     assert_eq!(graph.node_count(), 1);
 }
 
+#[specforge_test(behavior = "build_in_memory_graph", verify = "same ID with different kinds does not produce E002")]
+#[test]
+fn same_id_different_kind_no_e002() {
+    use specforge_graph::build_graph;
+    use specforge_parser::parse;
+
+    let file_a = parse(r#"feature code_formatting "Code Formatting" { }"#, "a.spec");
+    let file_b = parse(r#"roadmap code_formatting "Phase 8: Code Formatting" { }"#, "b.spec");
+    let (graph, diagnostics) = build_graph(&[file_a, file_b]);
+
+    let errors: Vec<_> = diagnostics.iter().filter(|d| d.code == "E002").collect();
+    assert!(
+        errors.is_empty(),
+        "same ID with different kinds should not produce E002, got: {:?}",
+        errors
+    );
+    // NOTE: graph currently stores one node per raw ID (last-writer-wins for
+    // same-ID-different-kind). Kind-qualified keys are a Phase 9 concern.
+    assert!(graph.node_count() >= 1);
+}
+
 #[specforge_test(behavior = "build_in_memory_graph", verify = "graph contains one edge per resolved reference")]
 #[test]
 fn build_graph_cross_file_references() {
@@ -245,7 +266,7 @@ fn build_graph_cross_file_references() {
     );
 }
 
-#[specforge_test(behavior = "build_in_memory_graph", verify = "graph contains one edge per resolved reference")]
+#[specforge_test(behavior = "provide_did_you_mean_suggestions", verify = "close match produces suggestion")]
 #[test]
 fn build_graph_did_you_mean_for_close_match() {
     use specforge_graph::build_graph;
@@ -263,6 +284,49 @@ feature gamma "G" { behaviors [alpha_parsr] }
     assert!(
         errors[0].suggestion.as_ref().is_some_and(|s| s.contains("alpha_parser")),
         "should suggest close match, got: {:?}", errors[0].suggestion
+    );
+}
+
+#[specforge_test(behavior = "provide_did_you_mean_suggestions", verify = "distant match produces no suggestion")]
+#[test]
+fn build_graph_no_suggestion_for_distant_match() {
+    use specforge_graph::build_graph;
+    use specforge_parser::parse;
+
+    let source = r#"
+behavior alpha "A" { contract "first" }
+feature gamma "G" { behaviors [zzzzz_totally_unrelated] }
+"#;
+    let spec_file = parse(source, "main.spec");
+    let (_, diagnostics) = build_graph(&[spec_file]);
+
+    let errors: Vec<_> = diagnostics.iter().filter(|d| d.code == "E001").collect();
+    assert_eq!(errors.len(), 1);
+    assert!(
+        errors[0].suggestion.is_none(),
+        "distant match should not produce suggestion, got: {:?}", errors[0].suggestion
+    );
+}
+
+#[specforge_test(behavior = "provide_did_you_mean_suggestions", verify = "suggestion appears in help text")]
+#[test]
+fn build_graph_suggestion_appears_in_help_text() {
+    use specforge_graph::build_graph;
+    use specforge_parser::parse;
+
+    let source = r#"
+behavior alpha_parser "A" { contract "first" }
+feature gamma "G" { behaviors [alpha_parsr] }
+"#;
+    let spec_file = parse(source, "main.spec");
+    let (_, diagnostics) = build_graph(&[spec_file]);
+
+    let errors: Vec<_> = diagnostics.iter().filter(|d| d.code == "E001").collect();
+    assert_eq!(errors.len(), 1);
+    let suggestion = errors[0].suggestion.as_ref().expect("should have suggestion");
+    assert!(
+        suggestion.contains("did you mean") && suggestion.contains("alpha_parser"),
+        "suggestion should be human-readable help text, got: {:?}", suggestion
     );
 }
 

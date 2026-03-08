@@ -1,13 +1,13 @@
 use crate::SourceSpan;
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
 pub enum Severity {
     Error,
     Warning,
     Info,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, serde::Serialize)]
 pub struct Diagnostic {
     pub code: String,
     pub severity: Severity,

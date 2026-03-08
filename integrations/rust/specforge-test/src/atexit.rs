@@ -1,4 +1,4 @@
-use crate::{registry, report};
+use crate::{coverage, registry, report};
 use std::path::PathBuf;
 use std::sync::Once;
 
@@ -29,8 +29,15 @@ extern "C" fn on_exit() {
 
     let dir = report_dir();
 
-    if let Err(e) = report::write_report(&dir, &binary_name, entries) {
+    if let Err(e) = report::write_report(&dir, &binary_name, entries.clone()) {
         eprintln!("[specforge-test] failed to write report: {e}");
+    }
+
+    // Coverage summary: load graph, compute diff, print
+    let graph_path = dir.join("graph.json");
+    if let Some(graph) = coverage::load_graph(&graph_path) {
+        let diffs = coverage::compute_coverage_diff(&graph, &entries);
+        let _ = coverage::format_coverage_summary(&mut std::io::stderr(), &diffs, &graph.timestamp);
     }
 }
 

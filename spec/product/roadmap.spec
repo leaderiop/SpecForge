@@ -105,7 +105,7 @@ roadmap resolution_and_graph "Phase 2: Resolution & Graph Construction" {
 }
 
 roadmap validation_and_errors "Phase 3: Validation & Error Reporting" {
-  status     planned
+  status     done
   behaviors  [
     // 3.1 Structural Validation
     detect_dangling_references, detect_duplicate_entity_ids,
@@ -130,7 +130,7 @@ roadmap validation_and_errors "Phase 3: Validation & Error Reporting" {
 }
 
 roadmap output_and_export "Phase 4: Output & Agent Export" {
-  status     planned
+  status     done
   behaviors  [
     // 4.1 Core Serialization
     serialize_json_graph, serialize_dot_visualization,

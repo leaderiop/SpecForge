@@ -1,5 +1,5 @@
 use crate::{Edge, Graph, Node};
-use specforge_common::{Diagnostic, Severity};
+use specforge_common::{find_close_match, Diagnostic, Severity};
 use specforge_parser::{FieldValue, SpecFile};
 use std::collections::{HashMap, HashSet};
 
@@ -24,11 +24,13 @@ pub fn build_graph_with_config(spec_files: &[SpecFile], config: &GraphConfig) ->
     let mut graph = Graph::new();
     let mut diagnostics = Vec::new();
 
-    // Add nodes, detecting duplicates
+    // Add nodes, detecting duplicates (same kind + same ID = duplicate)
+    let mut seen: HashSet<(String, String)> = HashSet::new();
     let mut entity_ids = HashSet::new();
     for spec_file in spec_files {
         for entity in &spec_file.entities {
-            if !entity_ids.insert(entity.id.raw.clone()) {
+            let key = (entity.kind.raw.clone(), entity.id.raw.clone());
+            if !seen.insert(key) {
                 diagnostics.push(Diagnostic {
                     code: "E002".to_string(),
                     severity: Severity::Error,
@@ -41,6 +43,7 @@ pub fn build_graph_with_config(spec_files: &[SpecFile], config: &GraphConfig) ->
                 });
                 continue;
             }
+            entity_ids.insert(entity.id.raw.clone());
             let node = Node {
                 id: entity.id.clone(),
                 kind: entity.kind.clone(),
@@ -118,7 +121,10 @@ pub fn build_graph_with_config(spec_files: &[SpecFile], config: &GraphConfig) ->
                                 label: entry.key.clone(),
                             });
                         } else {
-                            let suggestion = find_close_match(target_id, &entity_ids);
+                            let suggestion = find_close_match(
+                                target_id,
+                                entity_ids.iter().map(|s| s.as_str()),
+                            );
                             diagnostics.push(Diagnostic {
                                 code: "E001".to_string(),
                                 severity: Severity::Error,
@@ -140,13 +146,3 @@ pub fn build_graph_with_config(spec_files: &[SpecFile], config: &GraphConfig) ->
     (graph, diagnostics)
 }
 
-fn find_close_match<'a>(target: &str, candidates: &'a HashSet<String>) -> Option<&'a str> {
-    candidates
-        .iter()
-        .filter_map(|c| {
-            let score = strsim::jaro_winkler(target, c);
-            if score > 0.85 { Some((c.as_str(), score)) } else { None }
-        })
-        .max_by(|a, b| a.1.partial_cmp(&b.1).unwrap())
-        .map(|(s, _)| s)
-}

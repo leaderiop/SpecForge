@@ -1,0 +1,25 @@
+[package]
+name = "specforge-cli"
+edition.workspace = true
+version.workspace = true
+license.workspace = true
+
+[[bin]]
+name = "specforge"
+path = "src/main.rs"
+
+[dependencies]
+clap = { workspace = true }
+serde_json = { workspace = true }
+specforge-common = { workspace = true }
+specforge-graph = { path = "../specforge-graph" }
+specforge-parser = { workspace = true }
+specforge-resolver = { path = "../specforge-resolver" }
+specforge-emitter = { path = "../specforge-emitter" }
+specforge-validator = { path = "../specforge-validator" }
+
+[dev-dependencies]
+assert_cmd = { workspace = true }
+tempfile = { workspace = true }
+specforge-test = { workspace = true }
+specforge-test-macros = { workspace = true }

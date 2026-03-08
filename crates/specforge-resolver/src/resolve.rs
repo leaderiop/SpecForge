@@ -69,8 +69,8 @@ pub fn resolve_project(spec_root: &Path) -> ResolvedProject {
             })
             .collect();
         diagnostics.push(Diagnostic {
-            code: "E003".to_string(),
-            severity: Severity::Error,
+            code: "W003".to_string(),
+            severity: Severity::Warning,
             message: format!("circular import detected: {}", names.join(" -> ")),
             span: None,
             suggestion: None,
