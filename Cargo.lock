@@ -508,6 +508,8 @@ version = "0.1.0"
 dependencies = [
  "specforge-common",
  "specforge-parser",
+ "specforge-test",
+ "specforge-test-macros",
  "strsim",
  "tempfile",
  "walkdir",

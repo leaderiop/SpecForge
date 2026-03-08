@@ -6,6 +6,7 @@ pub struct TestGuard {
     entity_id: String,
     test_name: String,
     file: String,
+    verify: Option<String>,
 }
 
 impl TestGuard {
@@ -16,6 +17,7 @@ impl TestGuard {
         test_name: &str,
         file: &str,
         _line: u32,
+        verify: Option<&str>,
     ) -> Self {
         atexit::ensure_registered();
         Self {
@@ -23,6 +25,7 @@ impl TestGuard {
             entity_id: entity_id.to_string(),
             test_name: test_name.to_string(),
             file: file.to_string(),
+            verify: verify.map(|s| s.to_string()),
         }
     }
 }
@@ -40,6 +43,7 @@ impl Drop for TestGuard {
             entity_id: std::mem::take(&mut self.entity_id),
             test_name: std::mem::take(&mut self.test_name),
             file: std::mem::take(&mut self.file),
+            verify: std::mem::take(&mut self.verify),
             outcome,
         });
     }

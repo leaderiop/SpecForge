@@ -29,7 +29,7 @@ fn make_edge(source: &str, target: &str, label: &str) -> Edge {
 
 // --- build_in_memory_graph ---
 
-#[specforge_test(behavior = "build_in_memory_graph")]
+#[specforge_test(behavior = "build_in_memory_graph", verify = "graph contains one node per entity")]
 #[test]
 fn graph_one_node_per_entity() {
     let mut graph = Graph::new();
@@ -41,7 +41,7 @@ fn graph_one_node_per_entity() {
     assert!(graph.node("beta").is_some());
 }
 
-#[specforge_test(behavior = "build_in_memory_graph")]
+#[specforge_test(behavior = "build_in_memory_graph", verify = "graph contains one edge per resolved reference")]
 #[test]
 fn graph_one_edge_per_reference() {
     let mut graph = Graph::new();
@@ -54,7 +54,7 @@ fn graph_one_edge_per_reference() {
     assert_eq!(graph.edges()[0].target, "alpha");
 }
 
-#[specforge_test(behavior = "build_in_memory_graph")]
+#[specforge_test(behavior = "build_in_memory_graph", verify = "edge types match relationship semantics")]
 #[test]
 fn graph_edges_connect_existing_nodes() {
     let mut graph = Graph::new();
@@ -71,7 +71,7 @@ fn graph_edges_connect_existing_nodes() {
 
 // --- maintain_mutable_graph ---
 
-#[specforge_test(behavior = "maintain_mutable_graph")]
+#[specforge_test(behavior = "maintain_mutable_graph", verify = "add and remove nodes from graph")]
 #[test]
 fn remove_node_from_graph() {
     let mut graph = Graph::new();
@@ -85,7 +85,7 @@ fn remove_node_from_graph() {
     assert!(graph.node("beta").is_some());
 }
 
-#[specforge_test(behavior = "maintain_mutable_graph")]
+#[specforge_test(behavior = "maintain_mutable_graph", verify = "removing a node removes its edges")]
 #[test]
 fn removing_node_removes_its_edges() {
     let mut graph = Graph::new();
@@ -98,7 +98,7 @@ fn removing_node_removes_its_edges() {
     assert!(graph.edges().is_empty(), "edges to removed node should be gone");
 }
 
-#[specforge_test(behavior = "maintain_mutable_graph")]
+#[specforge_test(behavior = "maintain_mutable_graph", verify = "graph consistency after batch mutations")]
 #[test]
 fn graph_consistency_after_batch_mutations() {
     let mut graph = Graph::new();
@@ -118,7 +118,7 @@ fn graph_consistency_after_batch_mutations() {
 
 // --- subgraph ---
 
-#[specforge_test(behavior = "compute_subgraph_for_invalidation")]
+#[specforge_test(behavior = "compute_subgraph_for_invalidation", verify = "changed file and direct dependents are invalidated")]
 #[test]
 fn subgraph_for_file() {
     let mut graph = Graph::new();
@@ -141,7 +141,7 @@ fn subgraph_for_file() {
 
 // === build_graph integration ===
 
-#[specforge_test(behavior = "build_in_memory_graph")]
+#[specforge_test(behavior = "build_in_memory_graph", verify = "graph contains one node per entity")]
 #[test]
 fn build_graph_one_node_per_entity() {
     use specforge_graph::build_graph;
@@ -165,7 +165,7 @@ feature gamma "G" { behaviors [alpha, beta] }
     );
 }
 
-#[specforge_test(behavior = "build_in_memory_graph")]
+#[specforge_test(behavior = "build_in_memory_graph", verify = "graph contains one edge per resolved reference")]
 #[test]
 fn build_graph_one_edge_per_resolved_reference() {
     use specforge_graph::build_graph;
@@ -187,7 +187,7 @@ feature gamma "G" { behaviors [alpha, beta] }
     assert!(edges_from_gamma.iter().all(|e| e.label == "behaviors"));
 }
 
-#[specforge_test(behavior = "build_in_memory_graph")]
+#[specforge_test(behavior = "build_in_memory_graph", verify = "graph contains one edge per resolved reference")]
 #[test]
 fn build_graph_unresolved_ref_produces_e001() {
     use specforge_graph::build_graph;
@@ -206,7 +206,7 @@ feature gamma "G" { behaviors [alpha, nonexistent] }
     assert!(errors[0].message.contains("nonexistent"));
 }
 
-#[specforge_test(behavior = "build_in_memory_graph")]
+#[specforge_test(behavior = "build_in_memory_graph", verify = "graph contains one node per entity")]
 #[test]
 fn build_graph_duplicate_entity_id_produces_e002() {
     use specforge_graph::build_graph;
@@ -223,7 +223,7 @@ fn build_graph_duplicate_entity_id_produces_e002() {
     assert_eq!(graph.node_count(), 1);
 }
 
-#[specforge_test(behavior = "build_in_memory_graph")]
+#[specforge_test(behavior = "build_in_memory_graph", verify = "graph contains one edge per resolved reference")]
 #[test]
 fn build_graph_cross_file_references() {
     use specforge_graph::build_graph;
@@ -245,7 +245,7 @@ fn build_graph_cross_file_references() {
     );
 }
 
-#[specforge_test(behavior = "build_in_memory_graph")]
+#[specforge_test(behavior = "build_in_memory_graph", verify = "graph contains one edge per resolved reference")]
 #[test]
 fn build_graph_did_you_mean_for_close_match() {
     use specforge_graph::build_graph;
@@ -266,9 +266,43 @@ feature gamma "G" { behaviors [alpha_parsr] }
     );
 }
 
+// === edge types match relationship semantics ===
+
+#[specforge_test(behavior = "build_in_memory_graph", verify = "edge types match relationship semantics")]
+#[test]
+fn edge_labels_match_field_names() {
+    use specforge_graph::build_graph;
+    use specforge_parser::parse;
+
+    let source = r#"
+behavior alpha "A" { contract "first" }
+invariant inv1 "I1" { guarantee "always" }
+feature gamma "G" {
+  behaviors [alpha]
+  invariants [inv1]
+}
+"#;
+    let spec_file = parse(source, "main.spec");
+    let (graph, diagnostics) = build_graph(&[spec_file]);
+
+    assert!(
+        diagnostics.iter().all(|d| d.severity != specforge_graph::Severity::Error),
+        "no errors: {:?}",
+        diagnostics
+    );
+    let edges = graph.edges_from("gamma");
+    assert_eq!(edges.len(), 2, "two edges from gamma");
+
+    let behavior_edge = edges.iter().find(|e| e.target == "alpha").unwrap();
+    assert_eq!(behavior_edge.label, "behaviors", "edge label matches field name");
+
+    let invariant_edge = edges.iter().find(|e| e.target == "inv1").unwrap();
+    assert_eq!(invariant_edge.label, "invariants", "edge label matches field name");
+}
+
 // === invalidation subgraph ===
 
-#[specforge_test(behavior = "compute_subgraph_for_invalidation")]
+#[specforge_test(behavior = "compute_subgraph_for_invalidation", verify = "changed file and direct dependents are invalidated")]
 #[test]
 fn invalidation_set_includes_changed_file() {
     use specforge_graph::build_graph;
@@ -288,7 +322,7 @@ fn invalidation_set_includes_changed_file() {
     assert!(!affected.contains("b.spec"), "independent file not affected");
 }
 
-#[specforge_test(behavior = "compute_subgraph_for_invalidation")]
+#[specforge_test(behavior = "compute_subgraph_for_invalidation", verify = "changed file and direct dependents are invalidated")]
 #[test]
 fn invalidation_set_includes_direct_dependents() {
     use specforge_graph::build_graph;
@@ -309,7 +343,7 @@ fn invalidation_set_includes_direct_dependents() {
     assert!(affected.contains("main.spec"), "direct dependent should be invalidated");
 }
 
-#[specforge_test(behavior = "compute_subgraph_for_invalidation")]
+#[specforge_test(behavior = "compute_subgraph_for_invalidation", verify = "transitive dependents are included in subgraph")]
 #[test]
 fn invalidation_set_includes_transitive_dependents() {
     use specforge_graph::build_graph;
@@ -333,7 +367,7 @@ fn invalidation_set_includes_transitive_dependents() {
     assert!(affected.contains("c.spec"), "transitive dependent should be invalidated");
 }
 
-#[specforge_test(behavior = "compute_subgraph_for_invalidation")]
+#[specforge_test(behavior = "compute_subgraph_for_invalidation", verify = "unaffected files are not invalidated")]
 #[test]
 fn invalidation_set_excludes_unaffected_files() {
     use specforge_graph::build_graph;
@@ -355,9 +389,87 @@ fn invalidation_set_excludes_unaffected_files() {
     assert!(!affected.contains("c.spec"), "unrelated file not invalidated");
 }
 
+// === subgraph rebuild matches full rebuild ===
+
+#[specforge_test(behavior = "compute_subgraph_for_invalidation", verify = "subgraph rebuild matches full rebuild result")]
+#[test]
+fn subgraph_rebuild_matches_full_rebuild() {
+    use specforge_graph::build_graph;
+    use specforge_parser::parse;
+
+    // Setup: 3 files, b depends on a, c is independent
+    let a_v1 = parse(r#"behavior alpha "A" { contract "first" }"#, "a.spec");
+    let b = parse(r#"feature beta "B" { behaviors [alpha] }"#, "b.spec");
+    let c = parse(r#"behavior gamma "G" { contract "independent" }"#, "c.spec");
+
+    let import_dag = vec![
+        ("a.spec".to_string(), vec![]),
+        ("b.spec".to_string(), vec!["a.spec".to_string()]),
+        ("c.spec".to_string(), vec![]),
+    ];
+
+    // Initial build
+    let (mut graph, _) = build_graph(&[a_v1, b.clone(), c.clone()]);
+
+    // "Modify" a.spec: alpha renamed to alpha_v2, add new entity delta
+    let a_v2 = parse(
+        r#"
+behavior alpha_v2 "A v2" { contract "updated" }
+behavior delta "D" { contract "new" }
+"#,
+        "a.spec",
+    );
+
+    // Incremental: compute invalidation set, remove affected nodes, rebuild
+    let affected = graph.invalidation_set("a.spec", &import_dag);
+    // Remove all nodes from affected files
+    let nodes_to_remove: Vec<String> = graph
+        .nodes()
+        .iter()
+        .filter(|n| affected.contains(&n.source_span.file))
+        .map(|n| n.id.raw.clone())
+        .collect();
+    for id in &nodes_to_remove {
+        graph.remove_node(id);
+    }
+    // Rebuild only affected files
+    let b_reparsed = parse(r#"feature beta "B" { behaviors [alpha_v2] }"#, "b.spec");
+    let (rebuilt_subgraph, _) = build_graph(&[a_v2.clone(), b_reparsed.clone()]);
+    for node in rebuilt_subgraph.nodes() {
+        graph.add_node(node.clone());
+    }
+    for edge in rebuilt_subgraph.edges() {
+        graph.add_edge(edge.clone());
+    }
+
+    // Cold rebuild for comparison
+    let (cold_graph, _) = build_graph(&[a_v2, b_reparsed, c]);
+
+    // Compare: same nodes and edges
+    let mut incr_node_ids: Vec<_> = graph.nodes().iter().map(|n| n.id.raw.clone()).collect();
+    let mut cold_node_ids: Vec<_> = cold_graph.nodes().iter().map(|n| n.id.raw.clone()).collect();
+    incr_node_ids.sort();
+    cold_node_ids.sort();
+    assert_eq!(incr_node_ids, cold_node_ids, "incremental and cold rebuild should have same nodes");
+
+    let mut incr_edges: Vec<_> = graph
+        .edges()
+        .iter()
+        .map(|e| format!("{}->{} ({})", e.source, e.target, e.label))
+        .collect();
+    let mut cold_edges: Vec<_> = cold_graph
+        .edges()
+        .iter()
+        .map(|e| format!("{}->{} ({})", e.source, e.target, e.label))
+        .collect();
+    incr_edges.sort();
+    cold_edges.sort();
+    assert_eq!(incr_edges, cold_edges, "incremental and cold rebuild should have same edges");
+}
+
 // === ref blocks as graph nodes ===
 
-#[specforge_test(behavior = "build_in_memory_graph")]
+#[specforge_test(behavior = "build_in_memory_graph", verify = "graph contains one node per entity")]
 #[test]
 fn ref_blocks_become_graph_nodes() {
     use specforge_graph::build_graph;
@@ -375,7 +487,7 @@ ref gh.issue:42 "Support Wasm extensions"
     assert_eq!(ref_node.kind.raw, "ref");
 }
 
-#[specforge_test(behavior = "build_in_memory_graph")]
+#[specforge_test(behavior = "resolve_external_ref_declarations", verify = "ref node is added to graph with scheme metadata")]
 #[test]
 fn ref_blocks_carry_scheme_metadata() {
     use specforge_graph::{build_graph, FieldValue};
@@ -395,7 +507,7 @@ fn ref_blocks_carry_scheme_metadata() {
 
 // === resolve_external_ref_declarations ===
 
-#[specforge_test(behavior = "resolve_external_ref_declarations")]
+#[specforge_test(behavior = "resolve_external_ref_declarations", verify = "ref with unknown scheme emits I005")]
 #[test]
 fn ref_with_unknown_scheme_emits_i005() {
     use specforge_graph::{build_graph_with_config, GraphConfig};
@@ -414,7 +526,7 @@ fn ref_with_unknown_scheme_emits_i005() {
     assert!(infos[0].message.contains("gh"), "I005 should mention the scheme");
 }
 
-#[specforge_test(behavior = "resolve_external_ref_declarations")]
+#[specforge_test(behavior = "resolve_external_ref_declarations", verify = "ref with known scheme is registered and marked for provider validation")]
 #[test]
 fn ref_with_no_providers_configured_skips_i005() {
     use specforge_graph::build_graph;
@@ -429,10 +541,10 @@ fn ref_with_no_providers_configured_skips_i005() {
     assert!(infos.is_empty(), "no I005 when no providers configured");
 }
 
-#[specforge_test(behavior = "resolve_external_ref_declarations")]
+#[specforge_test(behavior = "resolve_external_ref_declarations", verify = "ref with known scheme is registered and marked for provider validation")]
 #[test]
-fn ref_with_known_scheme_no_i005() {
-    use specforge_graph::{build_graph_with_config, GraphConfig};
+fn ref_with_known_scheme_registered_and_no_i005() {
+    use specforge_graph::{build_graph_with_config, FieldValue, GraphConfig};
     use specforge_parser::parse;
 
     let source = r#"ref gh.issue:42 "Support Wasm extensions""#;
@@ -441,15 +553,23 @@ fn ref_with_known_scheme_no_i005() {
         known_provider_schemes: vec!["gh".to_string()].into_iter().collect(),
         ..Default::default()
     };
-    let (_, diagnostics) = build_graph_with_config(&[spec_file], &config);
+    let (graph, diagnostics) = build_graph_with_config(&[spec_file], &config);
 
     let infos: Vec<_> = diagnostics.iter().filter(|d| d.code == "I005").collect();
     assert!(infos.is_empty(), "known scheme should not produce I005");
+
+    // Ref node is registered in the graph with scheme metadata
+    let ref_node = graph.node("gh.issue:42").expect("ref should be a graph node");
+    assert_eq!(ref_node.kind.raw, "ref");
+    assert!(
+        matches!(ref_node.fields.get("scheme"), Some(FieldValue::String(s)) if s == "gh"),
+        "ref node should carry scheme field 'gh'"
+    );
 }
 
 // === resolve_soft_cross_extension_references ===
 
-#[specforge_test(behavior = "resolve_soft_cross_extension_references")]
+#[specforge_test(behavior = "resolve_soft_cross_extension_references", verify = "unknown keyword matching known extension emits I004")]
 #[test]
 fn unknown_keyword_matching_known_extension_emits_i004() {
     use specforge_graph::{build_graph_with_config, GraphConfig};
@@ -472,7 +592,7 @@ fn unknown_keyword_matching_known_extension_emits_i004() {
     assert!(infos[0].message.contains("capability"), "I004 should mention the keyword");
 }
 
-#[specforge_test(behavior = "resolve_soft_cross_extension_references")]
+#[specforge_test(behavior = "resolve_soft_cross_extension_references", verify = "installed extension with missing entity emits E001")]
 #[test]
 fn installed_keyword_does_not_emit_i004() {
     use specforge_graph::{build_graph_with_config, GraphConfig};
@@ -493,7 +613,7 @@ fn installed_keyword_does_not_emit_i004() {
     assert!(infos.is_empty(), "installed keyword should not produce I004");
 }
 
-#[specforge_test(behavior = "resolve_soft_cross_extension_references")]
+#[specforge_test(behavior = "resolve_soft_cross_extension_references", verify = "unknown keyword matching known extension emits I004")]
 #[test]
 fn unknown_keyword_with_no_catalog_match_no_i004() {
     use specforge_graph::{build_graph_with_config, GraphConfig};
@@ -514,6 +634,74 @@ fn unknown_keyword_with_no_catalog_match_no_i004() {
     assert!(infos.is_empty(), "unknown keyword not in catalog should not produce I004");
 }
 
+// === resolve_soft_cross_extension_references: installed keyword + missing entity ===
+
+#[specforge_test(behavior = "resolve_soft_cross_extension_references", verify = "installed extension with missing entity emits E001")]
+#[test]
+fn installed_keyword_with_missing_entity_emits_e001() {
+    use specforge_graph::{build_graph_with_config, GraphConfig};
+    use specforge_parser::parse;
+
+    // "behavior" is installed, but "nonexistent" entity doesn't exist
+    let source = r#"
+behavior alpha "A" { contract "first" }
+feature gamma "G" { behaviors [alpha, nonexistent] }
+"#;
+    let spec_file = parse(source, "main.spec");
+    let config = GraphConfig {
+        installed_keywords: vec!["behavior".to_string(), "feature".to_string()]
+            .into_iter()
+            .collect(),
+        known_extension_keywords: vec![
+            ("behavior".to_string(), "@specforge/software".to_string()),
+            ("feature".to_string(), "@specforge/software".to_string()),
+        ]
+        .into_iter()
+        .collect(),
+        ..Default::default()
+    };
+    let (_, diagnostics) = build_graph_with_config(&[spec_file], &config);
+
+    // Should get E001 (unresolved ref), NOT I004
+    let e001s: Vec<_> = diagnostics.iter().filter(|d| d.code == "E001").collect();
+    let i004s: Vec<_> = diagnostics.iter().filter(|d| d.code == "I004").collect();
+    assert_eq!(e001s.len(), 1, "missing entity should produce E001");
+    assert!(e001s[0].message.contains("nonexistent"));
+    assert!(i004s.is_empty(), "installed keywords should not produce I004");
+}
+
+#[specforge_test(behavior = "resolve_soft_cross_extension_references", verify = "installed extension with imported file but missing entity emits E001")]
+#[test]
+fn installed_keyword_cross_file_missing_entity_emits_e001() {
+    use specforge_graph::{build_graph_with_config, GraphConfig};
+    use specforge_parser::parse;
+
+    // "behavior" is installed, file is imported, but referenced entity doesn't exist there
+    let types = parse(r#"behavior alpha "A" { contract "first" }"#, "types.spec");
+    let main = parse(
+        r#"feature gamma "G" { behaviors [alpha, missing_beta] }"#,
+        "main.spec",
+    );
+    let config = GraphConfig {
+        installed_keywords: vec!["behavior".to_string(), "feature".to_string()]
+            .into_iter()
+            .collect(),
+        known_extension_keywords: vec![
+            ("behavior".to_string(), "@specforge/software".to_string()),
+            ("feature".to_string(), "@specforge/software".to_string()),
+        ]
+        .into_iter()
+        .collect(),
+        ..Default::default()
+    };
+    let (graph, diagnostics) = build_graph_with_config(&[types, main], &config);
+
+    let e001s: Vec<_> = diagnostics.iter().filter(|d| d.code == "E001").collect();
+    assert_eq!(e001s.len(), 1, "missing cross-file entity should produce E001");
+    assert!(e001s[0].message.contains("missing_beta"));
+    assert_eq!(graph.edge_count(), 1, "only valid ref alpha becomes edge");
+}
+
 // === end-to-end pipeline: filesystem → resolve → build_graph ===
 
 fn setup_project(files: &[(&str, &str)]) -> tempfile::TempDir {
@@ -528,7 +716,7 @@ fn setup_project(files: &[(&str, &str)]) -> tempfile::TempDir {
     dir
 }
 
-#[specforge_test(behavior = "build_in_memory_graph")]
+#[specforge_test(behavior = "build_in_memory_graph", verify = "graph contains one node per entity")]
 #[test]
 fn end_to_end_resolve_and_build() {
     use specforge_graph::build_graph;
@@ -557,7 +745,7 @@ fn end_to_end_resolve_and_build() {
     assert_eq!(graph.edges_from("gamma")[0].target, "alpha");
 }
 
-#[specforge_test(behavior = "build_in_memory_graph")]
+#[specforge_test(behavior = "build_in_memory_graph", verify = "graph contains one edge per resolved reference")]
 #[test]
 fn end_to_end_with_errors() {
     use specforge_graph::build_graph;

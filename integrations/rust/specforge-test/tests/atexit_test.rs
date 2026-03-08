@@ -11,6 +11,7 @@ fn atexit_writes_report_on_process_exit() {
         entity_id: "test_entity".to_string(),
         test_name: "test_fn".to_string(),
         file: "test.rs".to_string(),
+        verify: None,
         outcome: TestOutcome::Pass,
     }];
 

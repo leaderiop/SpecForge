@@ -2,7 +2,7 @@ use specforge_parser::{parse, EntityKind, EntityId, FieldValue};
 use specforge_test_macros::test as specforge_test;
 use std::path::PathBuf;
 
-#[specforge_test(behavior = "parse_all_block_types")]
+#[specforge_test(behavior = "parse_all_block_types", verify = "parse any keyword as generic entity_block")]
 #[test]
 fn parse_basic_entity_block() {
     let source = r#"
@@ -24,7 +24,7 @@ behavior parse_spec_file "Parse Spec File" {
     assert!(matches!(status, FieldValue::Identifier(id) if id == "planned"));
 }
 
-#[specforge_test(behavior = "parse_use_imports")]
+#[specforge_test(behavior = "parse_use_imports", verify = "parse full use import")]
 #[test]
 fn parse_use_import() {
     let source = "use behaviors/parsing\n";
@@ -36,7 +36,7 @@ fn parse_use_import() {
     assert!(result.imports[0].selected_ids.is_none());
 }
 
-#[specforge_test(behavior = "parse_use_imports")]
+#[specforge_test(behavior = "parse_use_imports", verify = "parse selective use import with braces")]
 #[test]
 fn parse_selective_import() {
     let source = "use types/core { SpecFile, ParseError }\n";
@@ -49,7 +49,7 @@ fn parse_selective_import() {
     assert_eq!(ids, &["SpecFile", "ParseError"]);
 }
 
-#[specforge_test(behavior = "parse_verify_statements")]
+#[specforge_test(behavior = "parse_verify_statements", verify = "parse verify statement in any entity block")]
 #[test]
 fn parse_verify_statements() {
     let source = r#"
@@ -76,7 +76,7 @@ behavior validate_input "Validate Input" {
     }
 }
 
-#[specforge_test(behavior = "parse_all_block_types")]
+#[specforge_test(behavior = "parse_all_block_types", verify = "spec block uses dedicated grammar rule")]
 #[test]
 fn parse_spec_block() {
     let source = r#"
@@ -97,7 +97,7 @@ spec "SpecForge" {
     assert!(matches!(version, FieldValue::String(v) if v == "0.1.0"));
 }
 
-#[specforge_test(behavior = "parse_ref_blocks")]
+#[specforge_test(behavior = "parse_ref_blocks", verify = "parse one-line ref syntax")]
 #[test]
 fn parse_ref_inline() {
     let source = r#"ref gh.issue:42 "Support Wasm extensions""#;
@@ -117,7 +117,7 @@ fn parse_ref_inline() {
     assert!(matches!(entity.fields.get("identifier"), Some(FieldValue::String(s)) if s == "42"));
 }
 
-#[specforge_test(behavior = "parse_ref_blocks")]
+#[specforge_test(behavior = "parse_ref_blocks", verify = "ref block supports optional title and body fields")]
 #[test]
 fn parse_ref_full_block() {
     let source = r#"
@@ -134,7 +134,7 @@ ref gh.issue:99 "Performance tracking" {
     assert!(matches!(entity.fields.get("priority"), Some(FieldValue::String(s)) if s == "high"));
 }
 
-#[specforge_test(behavior = "parse_define_blocks")]
+#[specforge_test(behavior = "parse_define_blocks", verify = "parse define block with name and body")]
 #[test]
 fn parse_define_block() {
     let source = r#"
@@ -156,7 +156,7 @@ define my_custom_type {
     assert!(entity.fields.get("verify").is_some());
 }
 
-#[specforge_test(behavior = "parse_all_block_types")]
+#[specforge_test(behavior = "parse_all_block_types", verify = "generic block preserves kind, name, title, and fields")]
 #[test]
 fn parse_all_field_value_types() {
     let source = r#"
@@ -213,7 +213,7 @@ behavior test_values "Test Values" {
     }
 }
 
-#[specforge_test(behavior = "parse_triple_quoted_strings")]
+#[specforge_test(behavior = "parse_triple_quoted_strings", verify = "common leading whitespace is stripped")]
 #[test]
 fn parse_triple_quoted_string() {
     let source = "behavior doc_test \"Doc Test\" {\n    contract \"\"\"\n        Given a valid input\n        When processed\n        Then output is correct\n    \"\"\"\n}\n";
@@ -235,7 +235,7 @@ fn parse_triple_quoted_string() {
     }
 }
 
-#[specforge_test(behavior = "recover_from_syntax_errors")]
+#[specforge_test(behavior = "recover_from_syntax_errors", verify = "valid blocks after syntax error are still parsed")]
 #[test]
 fn multi_error_recovery() {
     let source = r#"
@@ -271,7 +271,7 @@ behavior good_after "After" {
     );
 }
 
-#[specforge_test(behavior = "recover_from_syntax_errors")]
+#[specforge_test(behavior = "recover_from_syntax_errors", verify = "parser collects multiple errors from one file")]
 #[test]
 fn multiple_errors_produce_multiple_diagnostics() {
     let source = r#"
@@ -298,7 +298,7 @@ behavior valid "Valid" {
     assert_eq!(result.entities[0].id.raw, "valid");
 }
 
-#[specforge_test(behavior = "parse_all_block_types")]
+#[specforge_test(behavior = "parse_all_block_types", verify = "unknown keyword parsed without error")]
 #[test]
 fn comments_are_skipped() {
     let source = r#"
@@ -320,7 +320,7 @@ behavior example "Example" {
     assert_eq!(result.entities[0].id.raw, "example");
 }
 
-#[specforge_test(behavior = "parse_all_block_types")]
+#[specforge_test(behavior = "parse_all_block_types", verify = "any keyword produces generic entity_block AST node")]
 #[test]
 fn parse_entity_without_title() {
     let source = r#"
@@ -338,7 +338,7 @@ invariant no_orphans {
     assert!(e.title.is_none());
 }
 
-#[specforge_test(behavior = "parse_spec_file_to_ast")]
+#[specforge_test(behavior = "parse_spec_file_to_ast", verify = "parse valid file produces complete AST")]
 #[test]
 fn parse_multiple_entities_in_one_file() {
     let source = r#"
@@ -366,7 +366,7 @@ invariant third {
     assert_eq!(result.entities[2].id.raw, "third");
 }
 
-#[specforge_test(behavior = "parse_all_block_types")]
+#[specforge_test(behavior = "parse_all_block_types", verify = "parse string field values correctly")]
 #[test]
 fn parse_list_with_trailing_comma() {
     let source = r#"
@@ -385,7 +385,7 @@ behavior trailing "Trailing Comma" {
     }
 }
 
-#[specforge_test(behavior = "parse_ref_blocks")]
+#[specforge_test(behavior = "parse_ref_blocks", verify = "ref block extracts scheme, kind, and identifier components")]
 #[test]
 fn parse_mixed_list_with_scheme_refs() {
     let source = r#"
@@ -406,7 +406,7 @@ behavior with_refs "Refs" {
     }
 }
 
-#[specforge_test(behavior = "parse_use_imports")]
+#[specforge_test(behavior = "parse_use_imports", verify = "parse full use import")]
 #[test]
 fn parse_multiple_use_imports() {
     let source = r#"
@@ -425,7 +425,7 @@ use features/output
     assert_eq!(result.imports[3].path, "features/output");
 }
 
-#[specforge_test(behavior = "parse_spec_file_to_ast")]
+#[specforge_test(behavior = "parse_spec_file_to_ast", verify = "AST source spans match original token positions")]
 #[test]
 fn source_spans_are_accurate() {
     let source = "behavior first \"First\" {\n    status planned\n}\n";
@@ -439,7 +439,7 @@ fn source_spans_are_accurate() {
     assert_eq!(span.end_line, 3);
 }
 
-#[specforge_test(behavior = "parse_spec_file_to_ast")]
+#[specforge_test(behavior = "parse_spec_file_to_ast", verify = "parse valid file produces complete AST")]
 #[test]
 fn parse_empty_file() {
     let result = parse("", "empty.spec");
@@ -448,7 +448,7 @@ fn parse_empty_file() {
     assert!(result.imports.is_empty());
 }
 
-#[specforge_test(behavior = "parse_all_block_types")]
+#[specforge_test(behavior = "parse_all_block_types", verify = "any keyword produces generic entity_block AST node")]
 #[test]
 fn parse_empty_block() {
     let source = "behavior empty_block \"Empty\" {\n}\n";
@@ -460,7 +460,7 @@ fn parse_empty_block() {
     assert_eq!(result.entities[0].fields.entries().len(), 0);
 }
 
-#[specforge_test(behavior = "parse_spec_file_to_ast")]
+#[specforge_test(behavior = "parse_spec_file_to_ast", verify = "parse valid file produces complete AST")]
 #[test]
 fn parse_real_world_spec_file() {
     // A realistic .spec file exercising many constructs at once
@@ -532,7 +532,7 @@ behavior recover_from_syntax_errors "Recover from Syntax Errors" {
     assert_eq!(b2.id.raw, "recover_from_syntax_errors");
 }
 
-#[specforge_test(behavior = "parse_all_block_types")]
+#[specforge_test(behavior = "parse_all_block_types", verify = "generic block preserves kind, name, title, and fields")]
 #[test]
 fn parse_deeply_nested_dbc_blocks() {
     let source = r#"
@@ -577,7 +577,7 @@ behavior complex "Complex" {
     }
 }
 
-#[specforge_test(behavior = "parse_spec_file_to_ast")]
+#[specforge_test(behavior = "parse_spec_file_to_ast", verify = "parse valid file produces complete AST")]
 #[test]
 fn parse_actual_spec_files_from_project() {
     // Find the project root (crates/specforge-parser -> project root)
@@ -608,7 +608,7 @@ fn parse_actual_spec_files_from_project() {
     // Phase 1.5. The key assertion is no panics on any real content.
 }
 
-#[specforge_test(behavior = "parse_all_block_types")]
+#[specforge_test(behavior = "parse_all_block_types", verify = "any keyword produces generic entity_block AST node")]
 #[test]
 fn parse_type_struct_with_annotations() {
     let source = r#"
@@ -635,7 +635,7 @@ type SpecFile {
     assert!(entity.fields.get("path").is_some(), "missing 'path' field");
 }
 
-#[specforge_test(behavior = "parse_all_block_types")]
+#[specforge_test(behavior = "parse_all_block_types", verify = "any keyword produces generic entity_block AST node")]
 #[test]
 fn parse_union_type() {
     let source = r#"
@@ -655,7 +655,7 @@ type FieldValue = StringValue | ReferenceList | StringList | Block | VerifyList
     assert_eq!(entity.id.raw, "FieldValue");
 }
 
-#[specforge_test(behavior = "parse_all_block_types")]
+#[specforge_test(behavior = "parse_all_block_types", verify = "any keyword produces generic entity_block AST node")]
 #[test]
 fn parse_string_union_type() {
     let source = r#"
@@ -675,7 +675,7 @@ type McpErrorCode = "invalid_input" | "compilation_failed" | "entity_not_found"
     assert_eq!(entity.id.raw, "McpErrorCode");
 }
 
-#[specforge_test(behavior = "parse_all_block_types")]
+#[specforge_test(behavior = "parse_all_block_types", verify = "any keyword produces generic entity_block AST node")]
 #[test]
 fn parse_multiline_union_type() {
     // Multi-line union with continuation via leading |
@@ -694,7 +694,7 @@ type ExportFormat = "json" | "dot" | "context"
     assert_eq!(result.entities[0].id.raw, "ExportFormat");
 }
 
-#[specforge_test(behavior = "parse_all_block_types")]
+#[specforge_test(behavior = "parse_all_block_types", verify = "any keyword produces generic entity_block AST node")]
 #[test]
 fn parse_integer_union_type() {
     let source = r#"
@@ -711,7 +711,7 @@ type JsonRpcErrorCode = -32700 | -32600 | -32601
     assert_eq!(result.entities[0].id.raw, "JsonRpcErrorCode");
 }
 
-#[specforge_test(behavior = "parse_use_imports")]
+#[specforge_test(behavior = "parse_use_imports", verify = "reject use import with .spec extension")]
 #[test]
 fn reject_use_import_with_spec_extension() {
     let source = "use behaviors/parsing.spec\n";
@@ -726,7 +726,7 @@ fn reject_use_import_with_spec_extension() {
     );
 }
 
-#[specforge_test(behavior = "parse_verify_statements")]
+#[specforge_test(behavior = "parse_verify_statements", verify = "verify parsed in spec block")]
 #[test]
 fn verify_statements_in_spec_block() {
     let source = r#"
@@ -755,7 +755,7 @@ spec "MyProject" {
     }
 }
 
-#[specforge_test(behavior = "parse_verify_statements")]
+#[specforge_test(behavior = "parse_verify_statements", verify = "verify parsed in define block")]
 #[test]
 fn verify_statements_in_define_block() {
     let source = r#"
@@ -783,7 +783,7 @@ define my_custom_kind {
     }
 }
 
-#[specforge_test(behavior = "parse_triple_quoted_strings")]
+#[specforge_test(behavior = "parse_triple_quoted_strings", verify = "recover from unclosed triple-quoted string with diagnostic")]
 #[test]
 fn unclosed_triple_quoted_string_produces_error() {
     let source = r#"
@@ -805,7 +805,7 @@ behavior after "After" {
     );
 }
 
-#[specforge_test(behavior = "recover_from_syntax_errors")]
+#[specforge_test(behavior = "recover_from_syntax_errors", verify = "valid blocks after syntax error are still parsed")]
 #[test]
 fn unclosed_regular_string_recovers_next_block() {
     let source = "behavior broken \"Broken {\n    status planned\n}\n\nbehavior after \"After\" {\n    status done\n}\n";
@@ -821,7 +821,7 @@ fn unclosed_regular_string_recovers_next_block() {
     // the key invariant is that the parser doesn't panic
 }
 
-#[specforge_test(behavior = "parse_ref_blocks")]
+#[specforge_test(behavior = "parse_ref_blocks", verify = "reject ref block with missing scheme or identifier")]
 #[test]
 fn malformed_ref_missing_scheme_produces_error() {
     // ref without proper scheme.kind:identifier should produce a parse error
@@ -841,7 +841,7 @@ fn malformed_ref_missing_scheme_produces_error() {
     );
 }
 
-#[specforge_test(behavior = "parse_all_block_types")]
+#[specforge_test(behavior = "parse_all_block_types", verify = "generic block preserves kind, name, title, and fields")]
 #[test]
 fn entity_preserves_raw_body() {
     let source = r#"
@@ -863,7 +863,7 @@ behavior parse_things "Parse Things" {
     assert!(raw.contains("verify unit"), "raw_body should contain verify, got: {raw:?}");
 }
 
-#[specforge_test(behavior = "parse_all_block_types")]
+#[specforge_test(behavior = "parse_all_block_types", verify = "generic block preserves kind, name, title, and fields")]
 #[test]
 fn empty_block_has_empty_raw_body() {
     let source = "behavior empty \"Empty\" {\n}\n";
@@ -875,7 +875,7 @@ fn empty_block_has_empty_raw_body() {
     assert!(raw.trim().is_empty(), "expected empty raw_body, got: {raw:?}");
 }
 
-#[specforge_test(behavior = "parse_spec_file_to_ast")]
+#[specforge_test(behavior = "parse_spec_file_to_ast", verify = "parse valid file produces complete AST")]
 #[test]
 fn spec_files_without_extension_syntax_parse_cleanly() {
     // Files that use ONLY standard field syntax (no port method signatures,
@@ -934,7 +934,7 @@ fn spec_files_without_extension_syntax_parse_cleanly() {
     }
 }
 
-#[specforge_test(behavior = "parse_all_block_types")]
+#[specforge_test(behavior = "parse_all_block_types", verify = "parse string field values correctly")]
 #[test]
 fn annotation_with_string_value() {
     let source = r#"
@@ -949,7 +949,7 @@ type WasmConfig {
     assert!(entity.fields.get("max_memory_pages").is_some(), "field should be parsed");
 }
 
-#[specforge_test(behavior = "parse_verify_statements")]
+#[specforge_test(behavior = "parse_verify_statements", verify = "verify kind and description extracted correctly")]
 #[test]
 fn verify_statement_without_kind() {
     let source = r#"
@@ -973,7 +973,7 @@ event manifests_loaded "Manifests Loaded" {
     }
 }
 
-#[specforge_test(behavior = "parse_all_block_types")]
+#[specforge_test(behavior = "parse_all_block_types", verify = "parse string field values correctly")]
 #[test]
 fn string_field_values_distinct_from_identifiers() {
     let source = r#"
@@ -1026,7 +1026,7 @@ behavior example "Example" {
     );
 }
 
-#[specforge_test(behavior = "parse_triple_quoted_strings")]
+#[specforge_test(behavior = "parse_triple_quoted_strings", verify = "relative indentation is preserved")]
 #[test]
 fn triple_quoted_relative_indentation_preserved() {
     let source = "behavior b \"B\" {\n    contract \"\"\"\n        line one\n            indented deeper\n        back to base\n    \"\"\"\n}\n";
@@ -1046,7 +1046,7 @@ fn triple_quoted_relative_indentation_preserved() {
     }
 }
 
-#[specforge_test(behavior = "parse_all_block_types")]
+#[specforge_test(behavior = "parse_all_block_types", verify = "parse string field values correctly")]
 #[test]
 fn parse_empty_reference_list() {
     let source = r#"
@@ -1065,7 +1065,7 @@ behavior foo "T" {
     }
 }
 
-#[specforge_test(behavior = "parse_all_block_types")]
+#[specforge_test(behavior = "parse_all_block_types", verify = "generic block preserves kind, name, title, and fields")]
 #[test]
 fn parse_empty_nested_block() {
     let source = r#"
@@ -1084,7 +1084,7 @@ behavior foo "T" {
     }
 }
 
-#[specforge_test(behavior = "parse_all_block_types")]
+#[specforge_test(behavior = "parse_all_block_types", verify = "spec block uses dedicated grammar rule")]
 #[test]
 fn spec_block_preserves_raw_body() {
     let source = r#"
@@ -1099,7 +1099,7 @@ spec "MyProject" {
     assert!(raw.contains("version"), "spec block raw_body should contain fields, got: {raw:?}");
 }
 
-#[specforge_test(behavior = "parse_define_blocks")]
+#[specforge_test(behavior = "parse_define_blocks", verify = "define block supports standard field syntax")]
 #[test]
 fn define_block_preserves_raw_body() {
     let source = r#"
@@ -1114,7 +1114,7 @@ define my_kind {
     assert!(raw.contains("testable"), "define block raw_body should contain fields, got: {raw:?}");
 }
 
-#[specforge_test(behavior = "parse_all_block_types")]
+#[specforge_test(behavior = "parse_all_block_types", verify = "any keyword produces generic entity_block AST node")]
 #[test]
 fn parse_single_variant_union() {
     let source = "type Singleton = OnlyOne\n";
@@ -1133,7 +1133,7 @@ fn parse_single_variant_union() {
     }
 }
 
-#[specforge_test(behavior = "parse_all_block_types")]
+#[specforge_test(behavior = "parse_all_block_types", verify = "any keyword produces generic entity_block AST node")]
 #[test]
 fn parse_union_type_variants_extracted() {
     let source = "type FieldValue = StringValue | ReferenceList | StringList | Block | VerifyList\n";

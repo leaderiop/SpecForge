@@ -83,7 +83,7 @@ roadmap structural_parsing "Phase 1: Structural Parsing" {
 }
 
 roadmap resolution_and_graph "Phase 2: Resolution & Graph Construction" {
-  status     in_progress
+  status     done
   behaviors  [
     // 2.1 Import Resolution
     resolve_use_imports, detect_import_cycles, resolve_external_ref_declarations,

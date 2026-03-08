@@ -6,6 +6,7 @@ use syn::{Ident, ItemFn, LitStr, Token};
 struct TestAttr {
     entity_kind: String,
     entity_id: String,
+    verify: Option<String>,
 }
 
 impl Parse for TestAttr {
@@ -15,26 +16,30 @@ impl Parse for TestAttr {
         let id_lit: LitStr = input.parse()?;
 
         let entity_kind = kind_ident.to_string();
-        // Accept "behavior", "invariant", "event", and "verify" (which is skipped)
-        if !["behavior", "invariant", "event", "verify"].contains(&entity_kind.as_str()) {
+        if !["behavior", "invariant", "event"].contains(&entity_kind.as_str()) {
             return Err(syn::Error::new(
                 kind_ident.span(),
                 format!("expected `behavior`, `invariant`, or `event`, found `{entity_kind}`"),
             ));
         }
 
-        // Skip the "verify" key — it's metadata, not a guard
-        // Also skip any trailing comma + additional args
+        let mut verify = None;
+
         while !input.is_empty() {
             let _comma: Token![,] = input.parse()?;
-            let _key: Ident = input.parse()?;
+            let key: Ident = input.parse()?;
             let _eq: Token![=] = input.parse()?;
-            let _val: LitStr = input.parse()?;
+            let val: LitStr = input.parse()?;
+
+            if key == "verify" {
+                verify = Some(val.value());
+            }
         }
 
         Ok(TestAttr {
             entity_kind,
             entity_id: id_lit.value(),
+            verify,
         })
     }
 }
@@ -44,15 +49,15 @@ pub fn test(attr: TokenStream, item: TokenStream) -> TokenStream {
     let args = syn::parse_macro_input!(attr as TestAttr);
     let input_fn = syn::parse_macro_input!(item as ItemFn);
 
-    // "verify" attribute is metadata-only — no guard injected
-    if args.entity_kind == "verify" {
-        return quote! { #input_fn }.into();
-    }
-
     let entity_kind = &args.entity_kind;
     let entity_id = &args.entity_id;
     let fn_name = &input_fn.sig.ident;
     let fn_name_str = fn_name.to_string();
+
+    let verify_expr = match &args.verify {
+        Some(v) => quote! { Some(#v) },
+        None => quote! { None },
+    };
 
     let attrs = &input_fn.attrs;
     let vis = &input_fn.vis;
@@ -69,6 +74,7 @@ pub fn test(attr: TokenStream, item: TokenStream) -> TokenStream {
                 #fn_name_str,
                 file!(),
                 line!(),
+                #verify_expr,
             );
             #body
         }

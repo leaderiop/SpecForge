@@ -12,7 +12,7 @@ fn passing_test_records_pass() {
     registry::drain();
 
     {
-        let _guard = TestGuard::new("behavior", "create_user", "mod", "test_fn", "test.rs", 1);
+        let _guard = TestGuard::new("behavior", "create_user", "mod", "test_fn", "test.rs", 1, None);
     }
 
     let entries = registry::drain();
@@ -28,7 +28,7 @@ fn panicking_test_records_fail() {
     registry::drain();
 
     let result = panic::catch_unwind(panic::AssertUnwindSafe(|| {
-        let _guard = TestGuard::new("behavior", "delete_user", "mod", "test_fn", "test.rs", 1);
+        let _guard = TestGuard::new("behavior", "delete_user", "mod", "test_fn", "test.rs", 1, None);
         panic!("simulated test failure");
     }));
 
@@ -45,8 +45,8 @@ fn multiple_guards_record_multiple_entries() {
     registry::drain();
 
     {
-        let _g1 = TestGuard::new("behavior", "create_user", "mod", "test_fn", "test.rs", 1);
-        let _g2 = TestGuard::new("invariant", "unique_ids", "mod", "test_fn", "test.rs", 1);
+        let _g1 = TestGuard::new("behavior", "create_user", "mod", "test_fn", "test.rs", 1, None);
+        let _g2 = TestGuard::new("invariant", "unique_ids", "mod", "test_fn", "test.rs", 1, None);
     }
 
     let entries = registry::drain();
@@ -61,7 +61,7 @@ fn drain_clears_registry() {
     registry::drain();
 
     {
-        let _guard = TestGuard::new("behavior", "foo", "mod", "test_fn", "test.rs", 1);
+        let _guard = TestGuard::new("behavior", "foo", "mod", "test_fn", "test.rs", 1, None);
     }
 
     let first = registry::drain();

@@ -16,7 +16,7 @@ fn setup_project(files: &[(&str, &str)]) -> TempDir {
     dir
 }
 
-#[specforge_test(behavior = "resolve_use_imports")]
+#[specforge_test(behavior = "resolve_use_imports", verify = "resolve use path to file on disk")]
 #[test]
 fn resolve_use_import_to_file() {
     let dir = setup_project(&[
@@ -37,7 +37,7 @@ fn resolve_use_import_to_file() {
     assert_eq!(result.files.len(), 2);
 }
 
-#[specforge_test(behavior = "resolve_use_imports")]
+#[specforge_test(behavior = "resolve_use_imports", verify = "missing import file produces E025")]
 #[test]
 fn missing_import_produces_e025() {
     let dir = setup_project(&[("main.spec", "use nonexistent\nbehavior foo \"F\" { }")]);
@@ -52,7 +52,7 @@ fn missing_import_produces_e025() {
     assert_eq!(errors.len(), 1, "should produce E025 for missing import");
 }
 
-#[specforge_test(behavior = "detect_import_cycles")]
+#[specforge_test(behavior = "detect_import_cycles", verify = "detect direct cycle between two files")]
 #[test]
 fn detect_direct_import_cycle() {
     let dir = setup_project(&[
@@ -73,7 +73,7 @@ fn detect_direct_import_cycle() {
     );
 }
 
-#[specforge_test(behavior = "detect_import_cycles")]
+#[specforge_test(behavior = "detect_import_cycles", verify = "detect transitive cycle across three files")]
 #[test]
 fn detect_transitive_import_cycle() {
     let dir = setup_project(&[
@@ -95,7 +95,7 @@ fn detect_transitive_import_cycle() {
     );
 }
 
-#[specforge_test(behavior = "detect_import_cycles")]
+#[specforge_test(behavior = "detect_import_cycles", verify = "non-cyclic files still process when a cycle exists")]
 #[test]
 fn non_cyclic_files_still_resolve_when_cycle_exists() {
     let dir = setup_project(&[
@@ -111,9 +111,37 @@ fn non_cyclic_files_still_resolve_when_cycle_exists() {
     assert!(clean.is_some(), "non-cyclic file should still be resolved");
 }
 
+// --- nested directory imports ---
+
+#[specforge_test(behavior = "resolve_use_imports", verify = "imports across nested directories resolve correctly")]
+#[test]
+fn imports_across_nested_directories_resolve_correctly() {
+    let dir = setup_project(&[
+        ("sub/types.spec", r#"behavior alpha "A" { contract "first" }"#),
+        (
+            "main.spec",
+            "use sub/types\nbehavior beta \"B\" {\n  invariants [alpha]\n}",
+        ),
+    ]);
+
+    let result = resolve_project(dir.path());
+
+    assert!(
+        result.diagnostics.iter().all(|d| d.severity != Severity::Error),
+        "nested import should resolve without errors: {:?}",
+        result.diagnostics
+    );
+    assert_eq!(result.files.len(), 2);
+    // The file from the subdirectory should be present
+    assert!(
+        result.files.iter().any(|f| f.path.contains("sub")),
+        "subdirectory file should be in resolved files"
+    );
+}
+
 // --- link_entity_references ---
 
-#[specforge_test(behavior = "link_entity_references")]
+#[specforge_test(behavior = "link_entity_references", verify = "reference list IDs create graph edges")]
 #[test]
 fn reference_list_creates_pending_edges() {
     let dir = setup_project(&[
@@ -139,7 +167,7 @@ feature gamma "G" {
     assert!(edges.iter().any(|e| e.target == "beta"));
 }
 
-#[specforge_test(behavior = "link_entity_references")]
+#[specforge_test(behavior = "link_entity_references", verify = "unresolvable reference produces E001")]
 #[test]
 fn unresolvable_reference_produces_e001() {
     let dir = setup_project(&[
@@ -158,7 +186,7 @@ feature gamma "G" {
     assert!(errors[0].message.contains("nonexistent"));
 }
 
-#[specforge_test(behavior = "link_entity_references")]
+#[specforge_test(behavior = "link_entity_references", verify = "close match triggers did-you-mean suggestion")]
 #[test]
 fn close_match_triggers_did_you_mean() {
     let dir = setup_project(&[

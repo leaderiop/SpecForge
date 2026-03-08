@@ -7,6 +7,8 @@ pub struct TestRecordEntry {
     pub entity_id: String,
     pub test_name: String,
     pub file: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub verify: Option<String>,
     #[serde(rename = "status")]
     pub outcome: TestOutcome,
 }
