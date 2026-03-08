@@ -1,5 +1,6 @@
 use specforge_common::Severity;
 use specforge_resolver::{link_references, resolve_project};
+use specforge_test_macros::test as specforge_test;
 use std::fs;
 use tempfile::TempDir;
 
@@ -15,6 +16,7 @@ fn setup_project(files: &[(&str, &str)]) -> TempDir {
     dir
 }
 
+#[specforge_test(behavior = "resolve_use_imports")]
 #[test]
 fn resolve_use_import_to_file() {
     let dir = setup_project(&[
@@ -35,6 +37,7 @@ fn resolve_use_import_to_file() {
     assert_eq!(result.files.len(), 2);
 }
 
+#[specforge_test(behavior = "resolve_use_imports")]
 #[test]
 fn missing_import_produces_e025() {
     let dir = setup_project(&[("main.spec", "use nonexistent\nbehavior foo \"F\" { }")]);
@@ -49,6 +52,7 @@ fn missing_import_produces_e025() {
     assert_eq!(errors.len(), 1, "should produce E025 for missing import");
 }
 
+#[specforge_test(behavior = "detect_import_cycles")]
 #[test]
 fn detect_direct_import_cycle() {
     let dir = setup_project(&[
@@ -69,6 +73,7 @@ fn detect_direct_import_cycle() {
     );
 }
 
+#[specforge_test(behavior = "detect_import_cycles")]
 #[test]
 fn detect_transitive_import_cycle() {
     let dir = setup_project(&[
@@ -90,6 +95,7 @@ fn detect_transitive_import_cycle() {
     );
 }
 
+#[specforge_test(behavior = "detect_import_cycles")]
 #[test]
 fn non_cyclic_files_still_resolve_when_cycle_exists() {
     let dir = setup_project(&[
@@ -107,6 +113,7 @@ fn non_cyclic_files_still_resolve_when_cycle_exists() {
 
 // --- link_entity_references ---
 
+#[specforge_test(behavior = "link_entity_references")]
 #[test]
 fn reference_list_creates_pending_edges() {
     let dir = setup_project(&[
@@ -132,6 +139,7 @@ feature gamma "G" {
     assert!(edges.iter().any(|e| e.target == "beta"));
 }
 
+#[specforge_test(behavior = "link_entity_references")]
 #[test]
 fn unresolvable_reference_produces_e001() {
     let dir = setup_project(&[
@@ -150,6 +158,7 @@ feature gamma "G" {
     assert!(errors[0].message.contains("nonexistent"));
 }
 
+#[specforge_test(behavior = "link_entity_references")]
 #[test]
 fn close_match_triggers_did_you_mean() {
     let dir = setup_project(&[
