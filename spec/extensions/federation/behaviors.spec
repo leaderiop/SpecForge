@@ -1,15 +1,14 @@
 // Federation behaviors — cross-project references and graph merging
 
-use extensions/federation/invariants
-use extensions/federation/events
-use extensions/federation/types
-use types/graph
-use types/diagnostics
-use types/output
-use ports/outbound
-use ports/inbound
-use types/config
-
+use "extensions/federation/invariants"
+use "extensions/federation/events"
+use "extensions/federation/types"
+use "types/graph"
+use "types/diagnostics"
+use "types/output"
+use "ports/outbound"
+use "ports/inbound"
+use "types/config"
 behavior load_federation_config "Load Federation Config" {
   category   command
   invariants [cross_project_reference_safety]

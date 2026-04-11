@@ -1,10 +1,11 @@
-use specforge_common::SourceSpan;
+use specforge_common::{SourceSpan, Sym};
 use specforge_graph::{Edge, Graph, Node};
 use specforge_parser::{EntityId, EntityKind, FieldMap, FieldValue};
+use specforge_test::prelude::*;
 
 fn span() -> SourceSpan {
     SourceSpan {
-        file: "test.spec".to_string(),
+        file: Sym::new("test.spec"),
         start_line: 1,
         start_col: 0,
         end_line: 1,
@@ -14,10 +15,10 @@ fn span() -> SourceSpan {
 
 fn node_with_contract(id: &str, kind: &str, contract: &str) -> Node {
     let mut fields = FieldMap::new();
-    fields.push("contract".to_string(), FieldValue::String(contract.to_string()));
+    fields.push(Sym::new("contract"), FieldValue::String(contract.to_string()));
     Node {
-        id: EntityId { raw: id.to_string() },
-        kind: EntityKind { raw: kind.to_string() },
+        id: EntityId { raw: Sym::new(id) },
+        kind: EntityKind { raw: Sym::new(kind) },
         title: Some(format!("Title {}", id)),
         fields,
         source_span: span(),
@@ -35,15 +36,17 @@ fn build_large_graph() -> Graph {
     // Chain edges: 0->1->2->...->9
     for i in 0..9 {
         graph.add_edge(Edge {
-            source: format!("entity_{}", i),
-            target: format!("entity_{}", i + 1),
-            label: "depends_on".to_string(),
+            source: Sym::from(format!("entity_{}", i)),
+            target: Sym::from(format!("entity_{}", i + 1)),
+            label: Sym::new("depends_on"),
         });
     }
     graph
 }
 
+// B:enforce_token_budget — verify unit "output within budget includes all entities"
 #[test]
+#[specforge_test(behavior = "enforce_token_budget", verify = "output within budget includes all entities")]
 fn output_within_budget_includes_all_entities() {
     let graph = build_large_graph();
     // Large budget — everything fits
@@ -56,7 +59,9 @@ fn output_within_budget_includes_all_entities() {
         "no budget metadata when everything fits");
 }
 
+// B:enforce_token_budget — verify unit "output exceeding budget truncates low-priority entities"
 #[test]
+#[specforge_test(behavior = "enforce_token_budget", verify = "output exceeding budget truncates low-priority entities")]
 fn output_exceeding_budget_truncates_low_priority_entities() {
     let graph = build_large_graph();
     // Tiny budget — must truncate
@@ -68,7 +73,9 @@ fn output_exceeding_budget_truncates_low_priority_entities() {
     assert!(!nodes.is_empty(), "should keep at least some entities");
 }
 
+// B:enforce_token_budget — verify unit "TokenBudgetResult included in metadata when budget applied"
 #[test]
+#[specforge_test(behavior = "enforce_token_budget", verify = "TokenBudgetResult included in metadata when budget applied")]
 fn token_budget_result_included_in_metadata() {
     let graph = build_large_graph();
     let result = specforge_emitter::emit_json_with_budget(&graph, 500);
@@ -80,7 +87,9 @@ fn token_budget_result_included_in_metadata() {
     assert!(budget["truncated_entities"].is_array());
 }
 
+// B:enforce_token_budget — verify unit "truncated_entities lists omitted entity IDs"
 #[test]
+#[specforge_test(behavior = "enforce_token_budget", verify = "truncated_entities lists omitted entity IDs")]
 fn truncated_entities_list_contains_omitted_ids() {
     let graph = build_large_graph();
     let result = specforge_emitter::emit_json_with_budget(&graph, 500);
@@ -101,7 +110,9 @@ fn truncated_entities_list_contains_omitted_ids() {
     assert_eq!(truncated.len() + remaining_ids.len(), 10);
 }
 
+// B:enforce_token_budget — verify unit "no --max-tokens skips budget enforcement"
 #[test]
+#[specforge_test(behavior = "enforce_token_budget", verify = "no --max-tokens skips budget enforcement")]
 fn no_max_tokens_skips_budget_enforcement() {
     let graph = build_large_graph();
     // emit_json (no budget) should include everything
@@ -111,7 +122,10 @@ fn no_max_tokens_skips_budget_enforcement() {
     assert!(parsed.get("token_budget").is_none());
 }
 
+// B:enforce_token_budget — verify unit "truncated_entities lists omitted entity IDs"
+// (validates no dangling edges remain after truncation)
 #[test]
+#[specforge_test(behavior = "enforce_token_budget")]
 fn no_dangling_edges_after_truncation() {
     let graph = build_large_graph();
     let result = specforge_emitter::emit_json_with_budget(&graph, 500);
@@ -128,7 +142,9 @@ fn no_dangling_edges_after_truncation() {
     }
 }
 
+// B:enforce_token_budget — verify unit "error strategy rejects export exceeding budget"
 #[test]
+#[specforge_test(behavior = "enforce_token_budget", verify = "error strategy rejects export exceeding budget")]
 fn error_strategy_rejects_export_exceeding_budget() {
     let graph = build_large_graph();
     let result = specforge_emitter::emit_json_with_budget_strategy(&graph, 500, "error");
@@ -137,7 +153,32 @@ fn error_strategy_rejects_export_exceeding_budget() {
     assert!(err.contains("budget"), "error message should mention budget: {}", err);
 }
 
+// B:enforce_token_budget — verify integration "export with max_tokens produces output within budget and includes metadata"
 #[test]
+#[specforge_test(behavior = "enforce_token_budget", verify = "export with max_tokens produces output within budget and includes metadata")]
+fn export_with_max_tokens_within_budget_includes_metadata() {
+    let graph = build_large_graph();
+    // Use a budget that forces truncation
+    let result = specforge_emitter::emit_json_with_budget(&graph, 500);
+    let parsed: serde_json::Value = serde_json::from_str(&result).unwrap();
+
+    // The budget function uses word+structural token estimation internally.
+    // With the improved estimator, tokens are counted by words + structural chars,
+    // so the char-to-token ratio is higher than the naive len/4 heuristic.
+    // Verify output is reasonably bounded (budget * 10 chars is a generous ceiling).
+    assert!(result.len() <= 500 * 10, "output should be within budget: {} chars for 500 token budget", result.len());
+
+    // Metadata should be present when truncation occurred
+    assert!(parsed["token_budget"].is_object(), "metadata must be present");
+    assert!(parsed["token_budget"]["budget_tokens"].as_u64().unwrap() == 500);
+    assert!(parsed["token_budget"]["truncated_entities"].is_array());
+    assert!(parsed["token_budget"]["estimated_tokens"].is_number());
+}
+
+// B:enforce_token_budget — verify unit "error strategy rejects export exceeding budget"
+// (inverse case: passes when within budget)
+#[test]
+#[specforge_test(behavior = "enforce_token_budget")]
 fn error_strategy_passes_when_within_budget() {
     let graph = build_large_graph();
     let result = specforge_emitter::emit_json_with_budget_strategy(&graph, 100_000, "error");

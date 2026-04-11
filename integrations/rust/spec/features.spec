@@ -1,6 +1,6 @@
 // specforge-test crate features
 
-use behaviors
+use "behaviors"
 
 feature test_annotation "Test Annotation" {
   behaviors [expand_test_attribute, record_test_result_on_drop, register_atexit_handler]

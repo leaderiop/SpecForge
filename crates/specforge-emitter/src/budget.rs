@@ -34,18 +34,38 @@ struct TokenBudgetResult {
 }
 
 fn estimate_tokens(s: &str) -> usize {
-    // Rough token estimate: ~4 chars per token
-    s.len() / 4
+    // Count word-like sequences (alphanumeric runs) as ~1 token each,
+    // plus JSON structural characters ({, }, [, ], :, ,) as ~0.5 tokens each.
+    let mut words = 0usize;
+    let mut structural = 0usize;
+    let mut in_word = false;
+
+    for ch in s.chars() {
+        if ch.is_alphanumeric() || ch == '_' {
+            if !in_word {
+                words += 1;
+                in_word = true;
+            }
+        } else {
+            in_word = false;
+            if matches!(ch, '{' | '}' | '[' | ']' | ':' | ',' | '"') {
+                structural += 1;
+            }
+        }
+    }
+
+    // Each word ≈ 1 token, structural chars ≈ 0.5 tokens each (round up)
+    words + structural.div_ceil(2)
 }
 
 fn degree_centrality(graph: &Graph) -> HashMap<String, usize> {
     let mut degrees: HashMap<String, usize> = HashMap::new();
     for node in graph.nodes() {
-        degrees.entry(node.id.raw.clone()).or_insert(0);
+        degrees.entry(node.id.raw.to_string()).or_insert(0);
     }
     for edge in graph.edges() {
-        *degrees.entry(edge.source.clone()).or_insert(0) += 1;
-        *degrees.entry(edge.target.clone()).or_insert(0) += 1;
+        *degrees.entry(edge.source.to_string()).or_insert(0) += 1;
+        *degrees.entry(edge.target.to_string()).or_insert(0) += 1;
     }
     degrees
 }
@@ -61,8 +81,8 @@ pub fn emit_json_with_budget(graph: &Graph, max_tokens: usize) -> String {
     let degrees = degree_centrality(graph);
     let mut nodes_by_priority: Vec<_> = graph.nodes().into_iter().collect();
     nodes_by_priority.sort_by(|a, b| {
-        let da = degrees.get(&a.id.raw).copied().unwrap_or(0);
-        let db = degrees.get(&b.id.raw).copied().unwrap_or(0);
+        let da = degrees.get(a.id.raw.as_str()).copied().unwrap_or(0);
+        let db = degrees.get(b.id.raw.as_str()).copied().unwrap_or(0);
         da.cmp(&db).then(a.id.raw.cmp(&b.id.raw))
     });
 
@@ -77,10 +97,10 @@ pub fn emit_json_with_budget(graph: &Graph, max_tokens: usize) -> String {
         let nodes: Vec<BudgetedNode> = kept
             .iter()
             .map(|n| BudgetedNode {
-                id: n.id.raw.clone(),
-                kind: n.kind.raw.clone(),
+                id: n.id.raw.to_string(),
+                kind: n.kind.raw.to_string(),
                 title: n.title.clone(),
-                file: n.source_span.file.clone(),
+                file: n.source_span.file.to_string(),
                 line: n.source_span.start_line,
                 fields: field_map_to_json(&n.fields),
             })
@@ -132,7 +152,7 @@ pub fn emit_json_with_budget(graph: &Graph, max_tokens: usize) -> String {
 
         // Remove the least-connected node
         let removed = kept.remove(0);
-        truncated_ids.push(removed.id.raw.clone());
+        truncated_ids.push(removed.id.raw.to_string());
     }
 }
 

@@ -1,9 +1,8 @@
 // @specforge/software formal contracts — DbC + port contracts
 
-use types/zero-entity-core
-use extensions/software/types
-use extensions/software/invariants
-
+use "types/zero-entity-core"
+use "extensions/software/types"
+use "extensions/software/invariants"
 // ── Design by Contract (DbC) ────────────────────────────────
 
 behavior se_parse_requires_block "Parse Requires Block" {

@@ -1,13 +1,12 @@
 // Zero-entity core architecture features
 
-use behaviors/zero-entity-lsp
-use behaviors/zero-entity-registries
-use behaviors/zero-entity-validation
-use behaviors/validation
-use behaviors/output
-use behaviors/lsp
-use behaviors/extensions
-
+use "behaviors/zero-entity-lsp"
+use "behaviors/zero-entity-registries"
+use "behaviors/zero-entity-validation"
+use "behaviors/validation"
+use "behaviors/output"
+use "behaviors/lsp"
+use "behaviors/extensions"
 feature declarative_validation_rules "Declarative Validation Rules" {
   behaviors [
     parse_validation_rule_pattern, execute_validation_pattern,

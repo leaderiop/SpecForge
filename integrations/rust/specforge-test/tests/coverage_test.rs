@@ -2,14 +2,14 @@ use specforge_test::coverage::*;
 use specforge_test::registry::{TestOutcome, TestRecordEntry};
 use std::fs;
 
-fn make_entry(entity_id: &str, verify: Option<&str>) -> TestRecordEntry {
+fn make_entry(entity_id: &str, verify: Option<&str>, outcome: TestOutcome) -> TestRecordEntry {
     TestRecordEntry {
         entity_kind: "behavior".to_string(),
         entity_id: entity_id.to_string(),
         test_name: format!("test_{}", verify.unwrap_or("unknown")),
         file: "test.rs".to_string(),
         verify: verify.map(|s| s.to_string()),
-        outcome: TestOutcome::Pass,
+        outcome,
     }
 }
 
@@ -50,9 +50,9 @@ fn fully_covered_entity() {
     )]);
 
     let entries = vec![
-        make_entry("build_graph", Some("graph contains one node per entity")),
-        make_entry("build_graph", Some("graph contains one edge per resolved reference")),
-        make_entry("build_graph", Some("edge types match relationship semantics")),
+        make_entry("build_graph", Some("graph contains one node per entity"), TestOutcome::Pass),
+        make_entry("build_graph", Some("graph contains one edge per resolved reference"), TestOutcome::Pass),
+        make_entry("build_graph", Some("edge types match relationship semantics"), TestOutcome::Pass),
     ];
 
     let diffs = compute_coverage_diff(&graph, &entries);
@@ -60,6 +60,7 @@ fn fully_covered_entity() {
     assert_eq!(diffs[0].entity_id, "build_graph");
     assert_eq!(diffs[0].expected, 3);
     assert_eq!(diffs[0].covered, 3);
+    assert_eq!(diffs[0].passing, 3);
     assert_eq!(diffs[0].status, CoverageDiffStatus::FullyCovered);
 }
 
@@ -77,13 +78,14 @@ fn partially_covered_entity() {
     )]);
 
     let entries = vec![
-        make_entry("parse_imports", Some("parse full use import")),
+        make_entry("parse_imports", Some("parse full use import"), TestOutcome::Pass),
     ];
 
     let diffs = compute_coverage_diff(&graph, &entries);
     assert_eq!(diffs.len(), 1);
     assert_eq!(diffs[0].expected, 3);
     assert_eq!(diffs[0].covered, 1);
+    assert_eq!(diffs[0].passing, 1);
     assert_eq!(diffs[0].status, CoverageDiffStatus::PartiallyCovered);
 }
 
@@ -100,11 +102,12 @@ fn uncovered_entity() {
     )]);
 
     // Entity is tested but no verify descriptions match
-    let entries = vec![make_entry("resolve_refs", None)];
+    let entries = vec![make_entry("resolve_refs", None, TestOutcome::Pass)];
     let diffs = compute_coverage_diff(&graph, &entries);
     assert_eq!(diffs.len(), 1);
     assert_eq!(diffs[0].expected, 2);
     assert_eq!(diffs[0].covered, 0);
+    assert_eq!(diffs[0].passing, 0);
     assert_eq!(diffs[0].status, CoverageDiffStatus::Uncovered);
 }
 
@@ -118,11 +121,12 @@ fn no_intent_entity() {
     )]);
 
     // Entity is tested but has no verify statements in spec
-    let entries = vec![make_entry("some_behavior", None)];
+    let entries = vec![make_entry("some_behavior", None, TestOutcome::Pass)];
     let diffs = compute_coverage_diff(&graph, &entries);
     assert_eq!(diffs.len(), 1);
     assert_eq!(diffs[0].expected, 0);
     assert_eq!(diffs[0].covered, 0);
+    assert_eq!(diffs[0].passing, 0);
     assert_eq!(diffs[0].status, CoverageDiffStatus::NoIntent);
 }
 
@@ -133,11 +137,63 @@ fn non_testable_entities_excluded() {
         make_entity("feature_one", "feature", vec![], false),
     ]);
 
-    let entries = vec![make_entry("testable_one", Some("a test"))];
+    let entries = vec![make_entry("testable_one", Some("a test"), TestOutcome::Pass)];
     let diffs = compute_coverage_diff(&graph, &entries);
 
     assert_eq!(diffs.len(), 1, "non-testable entity should be excluded");
     assert_eq!(diffs[0].entity_id, "testable_one");
+}
+
+#[test]
+fn covered_with_failures() {
+    let graph = make_graph(vec![make_entity(
+        "auth_login",
+        "behavior",
+        vec![
+            ("unit", "valid credentials succeed"),
+            ("unit", "invalid password rejected"),
+        ],
+        true,
+    )]);
+
+    let entries = vec![
+        make_entry("auth_login", Some("valid credentials succeed"), TestOutcome::Pass),
+        make_entry("auth_login", Some("invalid password rejected"), TestOutcome::Fail),
+    ];
+
+    let diffs = compute_coverage_diff(&graph, &entries);
+    assert_eq!(diffs.len(), 1);
+    assert_eq!(diffs[0].expected, 2);
+    assert_eq!(diffs[0].covered, 2);
+    assert_eq!(diffs[0].passing, 1);
+    assert_eq!(diffs[0].status, CoverageDiffStatus::CoveredWithFailures);
+}
+
+#[test]
+fn mixed_pass_fail_partial() {
+    let graph = make_graph(vec![make_entity(
+        "data_export",
+        "behavior",
+        vec![
+            ("unit", "exports csv"),
+            ("unit", "exports json"),
+            ("unit", "exports xml"),
+        ],
+        true,
+    )]);
+
+    let entries = vec![
+        make_entry("data_export", Some("exports csv"), TestOutcome::Pass),
+        make_entry("data_export", Some("exports json"), TestOutcome::Fail),
+        // "exports xml" not covered at all
+    ];
+
+    let diffs = compute_coverage_diff(&graph, &entries);
+    assert_eq!(diffs.len(), 1);
+    assert_eq!(diffs[0].expected, 3);
+    assert_eq!(diffs[0].covered, 2);
+    assert_eq!(diffs[0].passing, 1);
+    assert_eq!(diffs[0].status, CoverageDiffStatus::PartiallyCovered);
 }
 
 // --- load_graph_at_exit ---
@@ -189,6 +245,7 @@ fn summary_includes_all_testable_entities() {
             entity_kind: "behavior".to_string(),
             expected: 3,
             covered: 3,
+            passing: 3,
             status: CoverageDiffStatus::FullyCovered,
         },
         CoverageDiff {
@@ -196,6 +253,7 @@ fn summary_includes_all_testable_entities() {
             entity_kind: "behavior".to_string(),
             expected: 2,
             covered: 1,
+            passing: 1,
             status: CoverageDiffStatus::PartiallyCovered,
         },
     ];
@@ -217,6 +275,7 @@ fn summary_includes_timestamp() {
         entity_kind: "behavior".to_string(),
         expected: 1,
         covered: 1,
+        passing: 1,
         status: CoverageDiffStatus::FullyCovered,
     }];
 
@@ -232,4 +291,22 @@ fn summary_empty_diffs_produces_no_output() {
     let mut buf = Vec::new();
     format_coverage_summary(&mut buf, &[], "2026-03-08T00:00:00Z").unwrap();
     assert!(buf.is_empty(), "empty diffs should produce no output");
+}
+
+#[test]
+fn summary_shows_failing_status() {
+    let diffs = vec![CoverageDiff {
+        entity_id: "gamma".to_string(),
+        entity_kind: "behavior".to_string(),
+        expected: 2,
+        covered: 2,
+        passing: 1,
+        status: CoverageDiffStatus::CoveredWithFailures,
+    }];
+
+    let mut buf = Vec::new();
+    format_coverage_summary(&mut buf, &diffs, "2026-03-08T00:00:00Z").unwrap();
+    let output = String::from_utf8(buf).unwrap();
+
+    assert!(output.contains("! failing"), "should show failing status: {output}");
 }

@@ -1,22 +1,22 @@
 // Migration behaviors — spec file format version migration
 
-use invariants/core
-use invariants/migration
-use invariants/validation
-use invariants/wasm
-use invariants/zero-entity-core
-use types/core
-use types/migration
-use types/diagnostics
-use types/graph
-use types/wasm
-use types/zero-entity-core
-use ports/inbound
-use ports/outbound
-use events/compilation
-
+use "invariants/core"
+use "invariants/migration"
+use "invariants/validation"
+use "invariants/wasm"
+use "invariants/zero-entity-core"
+use "types/core"
+use "types/migration"
+use "types/diagnostics"
+use "types/graph"
+use "types/wasm"
+use "types/zero-entity-core"
+use "ports/inbound"
+use "ports/outbound"
+use "events/compilation"
 behavior detect_format_version_mismatch "Detect Format Version Mismatch" {
   invariants [multi_error_collection, zero_domain_knowledge_core, diagnostic_determinism]
+  category   validation
   types      [SpecFile, FormatVersion]
 
   requires {
@@ -69,6 +69,7 @@ behavior detect_format_version_mismatch "Detect Format Version Mismatch" {
 // ensures that each version boundary is validated independently.
 behavior migrate_spec_files_in_place "Migrate Spec Files In Place" {
   invariants [multi_error_collection, migration_idempotency, migration_backup_safety, migration_atomicity, migration_semantic_preservation, zero_domain_knowledge_core]
+  category   mutation
   types      [SpecFile, MigrationResult, MigrationSummary, MigrationBackup]
   ports      [CompilerApi, FileSystem]
   produces   [migration_starting, migration_started, migration_complete]
@@ -135,6 +136,7 @@ behavior migrate_spec_files_in_place "Migrate Spec Files In Place" {
 
 behavior generate_migration_diff "Generate Migration Diff" {
   invariants [diagnostic_determinism, migration_idempotency, dry_run_side_effect_freedom, zero_domain_knowledge_core]
+  category   query
   types      [SpecFile, MigrationResult, MigrationDiff]
   ports      [CompilerApi]
   produces   [migration_diff_generated]
@@ -176,6 +178,7 @@ behavior generate_migration_diff "Generate Migration Diff" {
 
 behavior validate_post_migration_integrity "Validate Post-Migration Integrity" {
   invariants [multi_error_collection, graph_traversal_integrity, migration_event_ordering, diagnostic_determinism, migration_semantic_preservation, migration_cross_extension_stability, zero_domain_knowledge_core]
+  category   validation
   types      [Graph, DiagnosticBag]
   ports      [CompilerApi, GraphSerializer]
   // Runs exactly once after the terminal migration event
@@ -217,6 +220,7 @@ behavior validate_post_migration_integrity "Validate Post-Migration Integrity" {
 
 behavior capture_pre_migration_schema_snapshot "Capture Pre-Migration Schema Snapshot" {
   invariants [migration_event_ordering, graph_schema_completeness, zero_domain_knowledge_core]
+  category   command
   types      [Graph, SchemaEntityKind, SchemaEdgeType, PreMigrationSnapshot]
   ports      [CompilerApi]
   consumes   [migration_starting]
@@ -251,6 +255,7 @@ behavior capture_pre_migration_schema_snapshot "Capture Pre-Migration Schema Sna
 
 behavior verify_graph_protocol_compatibility_after_migration "Verify Graph Protocol Compatibility After Migration" {
   invariants [graph_traversal_integrity, graph_schema_completeness, migration_event_ordering, migration_cross_extension_stability, zero_domain_knowledge_core]
+  category   validation
   types      [Graph, FormatVersion, MigrationResult, SchemaVersion, SchemaEntityKind, SchemaEdgeType, PreMigrationSnapshot]
   ports      [CompilerApi]
   // Single-phase comparison: waits for the pre-migration snapshot and
@@ -321,6 +326,7 @@ behavior verify_graph_protocol_compatibility_after_migration "Verify Graph Proto
 
 behavior rollback_failed_migration "Rollback Failed Migration" {
   invariants [migration_backup_safety, migration_atomicity, zero_domain_knowledge_core]
+  category   command
   types      [MigrationResult, MigrationSummary, MigrationBackup]
   ports      [FileSystem]
   consumes   [migration_started]
@@ -372,6 +378,7 @@ behavior invoke_extension_migration_hooks "Invoke Extension Migration Hooks" {
   // multi_error_collection applies here because extension hook failures are
   // collected into the DiagnosticBag (not fail-fast) — each hook failure is
   // an independent error that must be reported alongside others.
+  category   command
   invariants [multi_error_collection, migration_idempotency, wasm_sandbox_integrity, extension_isolation, extension_load_order_determinism, migration_cross_extension_stability]
   types      [MigrationResult, ExtensionLifecycleState, WasmTrapInfo, ManifestV2]
   ports      [CompilerApi, WasmRuntime]

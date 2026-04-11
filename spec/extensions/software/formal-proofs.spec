@@ -1,9 +1,8 @@
 // @specforge/software formal proofs — proof obligations + info diagnostics
 
-use types/zero-entity-core
-use extensions/software/types
-use extensions/software/invariants
-
+use "types/zero-entity-core"
+use "extensions/software/types"
+use "extensions/software/invariants"
 behavior se_proof_obligation_pass "Proof Obligation Compiler Pass" {
   category command
   types [ContractCondition, RefinementChain]

@@ -1,8 +1,7 @@
 // Federation roadmap — cross-project federation delivery phase
 
-use extensions/federation/behaviors
-use extensions/federation/features
-
+use "extensions/federation/behaviors"
+use "extensions/federation/features"
 roadmap federation_phase "Phase 9b: Cross-Project Federation" {
   status     planned
   behaviors  [

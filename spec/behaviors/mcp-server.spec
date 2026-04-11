@@ -5,23 +5,23 @@
 //   - Resources (6): graph, schema, context, brief, diagnostics, entity
 //   - Notifications (2): graph delta, diagnostics delta
 
-use invariants/core
-use invariants/validation
-use invariants/mcp
-use invariants/zero-entity-core
-use events/mcp
-use events/compilation
-use types/graph
-use types/output
-use types/diagnostics
-use types/mcp
-use types/core
-use types/config
-use ports/inbound
-use ports/outbound
-
+use "invariants/core"
+use "invariants/validation"
+use "invariants/mcp"
+use "invariants/zero-entity-core"
+use "events/mcp"
+use "events/compilation"
+use "types/graph"
+use "types/output"
+use "types/diagnostics"
+use "types/mcp"
+use "types/core"
+use "types/config"
+use "ports/inbound"
+use "ports/outbound"
 behavior mcp_initialize "MCP Initialize" {
   types      [McpCapabilities, CompilerConfig]
+  category   command
   ports      [CompilerApi, WasmRuntime]
   produces   [mcp_initialized, mcp_initialization_failed]
   invariants [zero_domain_knowledge_core, mcp_structured_error_responses, registry_population_before_validation]
@@ -56,6 +56,7 @@ behavior mcp_initialize "MCP Initialize" {
 
 behavior mcp_shutdown "MCP Shutdown" {
   types      [McpSubscription]
+  category   command
   ports      [CompilerApi, WasmRuntime]
   produces   [mcp_server_shutdown, mcp_subscription_removed]
   invariants [mcp_subscription_cleanup, mcp_structured_error_responses]
@@ -87,6 +88,7 @@ behavior mcp_shutdown "MCP Shutdown" {
 
 behavior list_mcp_resources "List MCP Resources" {
   invariants [mcp_structured_error_responses, mcp_tool_idempotency]
+  category   query
   ports      [McpProtocol, CompilerApi]
   types [McpResourceDescriptor]
   produces [mcp_discovery_invoked]
@@ -118,6 +120,7 @@ behavior list_mcp_resources "List MCP Resources" {
 
 behavior list_mcp_tools "List MCP Tools" {
   invariants [mcp_structured_error_responses, mcp_tool_idempotency]
+  category   query
   ports      [McpProtocol, CompilerApi]
   types [McpToolDescriptor]
   produces [mcp_discovery_invoked]
@@ -149,6 +152,7 @@ behavior list_mcp_tools "List MCP Tools" {
 
 behavior list_mcp_prompts "List MCP Prompts" {
   invariants [mcp_structured_error_responses, mcp_tool_idempotency]
+  category   query
   ports      [McpProtocol, CompilerApi]
   types [McpPromptDescriptor]
   produces [mcp_discovery_invoked]
@@ -180,6 +184,7 @@ behavior list_mcp_prompts "List MCP Prompts" {
 
 behavior expose_graph_as_mcp_resource "Expose Graph as MCP Resource" {
   invariants [graph_traversal_integrity, graph_schema_completeness, diagnostic_determinism, mcp_structured_error_responses]
+  category   command
   types      [Graph, GraphProtocolSchema, McpResourceDescriptor]
   ports      [McpProtocol, CompilerApi]
   consumes   [validation_complete]
@@ -213,6 +218,7 @@ behavior expose_graph_as_mcp_resource "Expose Graph as MCP Resource" {
 
 behavior expose_schema_as_mcp_resource "Expose Schema as MCP Resource" {
   invariants [graph_schema_completeness, diagnostic_determinism, mcp_structured_error_responses]
+  category   command
   types      [GraphProtocolSchema, McpResourceDescriptor]
   ports      [McpProtocol, CompilerApi]
   consumes   [validation_complete]
@@ -244,6 +250,7 @@ behavior expose_schema_as_mcp_resource "Expose Schema as MCP Resource" {
 
 behavior expose_context_as_mcp_resource "Expose Context as MCP Resource" {
   invariants [graph_traversal_integrity, graph_schema_completeness, diagnostic_determinism, mcp_structured_error_responses]
+  category   command
   types      [Graph, AgentExportConfig, McpResourceDescriptor]
   ports      [McpProtocol, CompilerApi]
   consumes   [validation_complete]
@@ -274,6 +281,7 @@ behavior expose_context_as_mcp_resource "Expose Context as MCP Resource" {
 
 behavior expose_brief_as_mcp_resource "Expose Brief as MCP Resource" {
   invariants [graph_traversal_integrity, graph_schema_completeness, diagnostic_determinism, mcp_structured_error_responses]
+  category   command
   types      [Graph, AgentExportConfig, McpResourceDescriptor]
   ports      [McpProtocol, CompilerApi]
   consumes   [validation_complete]
@@ -304,6 +312,7 @@ behavior expose_brief_as_mcp_resource "Expose Brief as MCP Resource" {
 
 behavior expose_diagnostics_as_mcp_resource "Expose Diagnostics as MCP Resource" {
   invariants [diagnostic_determinism, mcp_structured_error_responses]
+  category   command
   types      [DiagnosticBag, McpResourceDescriptor]
   ports      [McpProtocol, CompilerApi]
   consumes   [validation_complete]
@@ -335,6 +344,7 @@ behavior expose_diagnostics_as_mcp_resource "Expose Diagnostics as MCP Resource"
 
 behavior expose_entity_as_mcp_resource "Expose Per-Entity MCP Resource" {
   invariants [graph_traversal_integrity, graph_schema_completeness, diagnostic_determinism, mcp_structured_error_responses]
+  category   command
   types      [Graph, Node, Edge, McpResourceDescriptor]
   ports      [McpProtocol, CompilerApi]
   consumes   [validation_complete]
@@ -374,6 +384,7 @@ behavior expose_entity_as_mcp_resource "Expose Per-Entity MCP Resource" {
 // MCP transport protocol.
 behavior notify_graph_delta_via_mcp "Notify Graph Delta via MCP" {
   invariants [incremental_correctness, graph_traversal_integrity, mcp_structured_error_responses, mcp_subscription_cleanup]
+  category   command
   types      [GraphDelta, McpSubscription]
   ports      [McpProtocol, CompilerApi]
   consumes   [graph_delta_computed]
@@ -408,6 +419,7 @@ behavior notify_graph_delta_via_mcp "Notify Graph Delta via MCP" {
 
 behavior notify_diagnostics_delta_via_mcp "Notify Diagnostics Delta via MCP" {
   invariants [incremental_correctness, diagnostic_determinism, mcp_structured_error_responses, mcp_subscription_cleanup]
+  category   command
   types      [DiagnosticsDelta, McpSubscription]
   ports      [McpProtocol, CompilerApi]
   consumes   [validation_complete]
@@ -446,6 +458,7 @@ behavior notify_diagnostics_delta_via_mcp "Notify Diagnostics Delta via MCP" {
 
 behavior handle_mcp_protocol_error "Handle MCP Protocol Error" {
   invariants [mcp_structured_error_responses]
+  category   command
   types      [McpError]
   ports      [McpProtocol]
   produces   [mcp_protocol_error_handled]
@@ -484,6 +497,7 @@ behavior handle_mcp_protocol_error "Handle MCP Protocol Error" {
 
 behavior handle_mcp_request_cancellation "Handle MCP Request Cancellation" {
   invariants [mcp_structured_error_responses]
+  category   command
   types      [McpError]
   ports      [McpProtocol, CompilerApi]
   produces   [mcp_request_cancelled]
@@ -517,6 +531,7 @@ behavior handle_mcp_request_cancellation "Handle MCP Request Cancellation" {
 
 behavior guard_mcp_reinitialization "Guard MCP Reinitialization" {
   invariants [mcp_structured_error_responses]
+  category   command
   types      [McpCapabilities]
   ports      [McpProtocol]
   produces   [mcp_protocol_error_handled]

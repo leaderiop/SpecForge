@@ -1,11 +1,10 @@
 // Outbound ports — interfaces the system requires from the outside world
 
-use types/core
-use types/config
-use types/diagnostics
-use types/errors
-use types/wasm
-
+use "types/core"
+use "types/config"
+use "types/diagnostics"
+use "types/errors"
+use "types/wasm"
 port FileSystem {
   direction outbound
   category  "io/filesystem"

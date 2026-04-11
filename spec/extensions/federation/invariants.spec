@@ -1,7 +1,6 @@
 // Federation-specific invariants
 
-use extensions/federation/behaviors
-
+use "extensions/federation/behaviors"
 invariant federated_graph_determinism "Federated Graph Determinism" {
   guarantee """
     The order in which remote project graphs are loaded and merged MUST

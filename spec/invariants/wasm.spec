@@ -1,14 +1,13 @@
 // Wasm runtime invariants
 
-use behaviors/wasm-authoring
-use behaviors/wasm-extensions
-use behaviors/wasm-host-functions
-use behaviors/wasm-lifecycle
-use behaviors/wasm-sandbox
-use behaviors/extensions
-use behaviors/init
-use behaviors/surface-contributions
-
+use "behaviors/wasm-authoring"
+use "behaviors/wasm-extensions"
+use "behaviors/wasm-host-functions"
+use "behaviors/wasm-lifecycle"
+use "behaviors/wasm-sandbox"
+use "behaviors/extensions"
+use "behaviors/init"
+use "behaviors/surface-contributions"
 invariant wasm_sandbox_integrity "Wasm Sandbox Integrity" {
   guarantee """
     Wasm extensions MUST NOT escape the Wasm sandbox. An extension MUST NOT

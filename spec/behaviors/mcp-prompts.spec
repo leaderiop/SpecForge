@@ -7,16 +7,16 @@
 //
 // 4 behaviors: context, review, trace, explore
 
-use invariants/core
-use invariants/mcp
-use events/mcp
-use types/graph
-use types/mcp
-use ports/inbound
-use ports/outbound
-
+use "invariants/core"
+use "invariants/mcp"
+use "events/mcp"
+use "types/graph"
+use "types/mcp"
+use "ports/inbound"
+use "ports/outbound"
 behavior provide_mcp_context_prompt "Provide MCP Context Prompt" {
   invariants [graph_traversal_integrity, diagnostic_determinism, mcp_structured_error_responses, mcp_tool_idempotency]
+  category   query
   types      [McpPromptDescriptor, Graph, McpContextPromptResult]
   ports      [McpProtocol, CompilerApi]
   produces   [mcp_prompt_invoked]
@@ -53,6 +53,7 @@ behavior provide_mcp_context_prompt "Provide MCP Context Prompt" {
 
 behavior provide_mcp_review_prompt "Provide MCP Review Prompt" {
   invariants [graph_traversal_integrity, diagnostic_determinism, mcp_structured_error_responses, mcp_tool_idempotency]
+  category   query
   types      [McpPromptDescriptor, McpCoverageResult, McpReviewPromptResult, McpReviewFinding]
   ports      [McpProtocol, CompilerApi]
   produces   [mcp_prompt_invoked]
@@ -85,6 +86,7 @@ behavior provide_mcp_review_prompt "Provide MCP Review Prompt" {
 
 behavior provide_mcp_trace_prompt "Provide MCP Trace Prompt" {
   invariants [graph_traversal_integrity, diagnostic_determinism, mcp_structured_error_responses, mcp_tool_idempotency]
+  category   query
   types      [McpPromptDescriptor, TraceChain, McpTracePromptResult, McpTraceGap]
   ports      [McpProtocol, CompilerApi]
   produces   [mcp_prompt_invoked]
@@ -120,6 +122,7 @@ behavior provide_mcp_trace_prompt "Provide MCP Trace Prompt" {
 
 behavior provide_mcp_explore_prompt "Provide MCP Explore Prompt" {
   invariants [graph_traversal_integrity, diagnostic_determinism, mcp_structured_error_responses, mcp_tool_idempotency]
+  category   query
   types      [McpPromptDescriptor, Graph, McpExplorePromptResult, McpRelationshipPath]
   ports      [McpProtocol, CompilerApi]
   produces   [mcp_prompt_invoked]

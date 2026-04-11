@@ -4,13 +4,13 @@
 // ValidationRulePattern entries in the @specforge/governance manifest.
 // The core declarative validation engine executes these patterns.
 
-use invariants/core
-use invariants/validation
-use extensions/governance/invariants
-use types/diagnostics
-
+use "invariants/core"
+use "invariants/validation"
+use "extensions/governance/invariants"
+use "types/diagnostics"
 behavior validate_rpn_arithmetic "Validate RPN Arithmetic" {
   invariants [rpn_arithmetic_integrity]
+  category   validation
   types      [Diagnostic]
 
   contract """
@@ -30,6 +30,7 @@ behavior validate_rpn_arithmetic "Validate RPN Arithmetic" {
 behavior detect_unmitigated_high_risk_invariants "Detect Unmitigated High-Risk Invariants" {
   types      [Diagnostic]
 
+  category   validation
   contract """
     The @specforge/governance extension MUST declare a field_value_constraint
     validation pattern that detects invariants with risk: high that have
@@ -46,6 +47,7 @@ behavior detect_unmitigated_high_risk_invariants "Detect Unmitigated High-Risk I
 behavior detect_constraints_with_no_protected_invariants "Detect Constraints with No Protected Invariants" {
   types      [Diagnostic]
 
+  category   validation
   contract """
     The @specforge/governance extension MUST declare a field_value_constraint
     validation pattern that detects constraints whose invariants list is

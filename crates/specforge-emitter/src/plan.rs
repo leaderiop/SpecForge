@@ -29,7 +29,7 @@ pub fn validate_plan(
         .unwrap_or_default();
 
     let mut plan_ids: Vec<String> = Vec::new();
-    let plan_id_set: HashSet<String>;
+    
 
     // Validate each entry
     for entry in &entries {
@@ -42,7 +42,7 @@ pub fn validate_plan(
             }
         }
     }
-    plan_id_set = plan_ids.iter().cloned().collect();
+    let plan_id_set: HashSet<String> = plan_ids.iter().cloned().collect();
 
     // Check for testable entities missing from plan
     let testable_set: HashSet<&str> = testable_kinds.iter().copied().collect();
@@ -54,7 +54,7 @@ pub fn validate_plan(
             node.fields.get("verify"),
             Some(FieldValue::VerifyList(stmts)) if !stmts.is_empty()
         );
-        if has_verify && !plan_id_set.contains(&node.id.raw) {
+        if has_verify && !plan_id_set.contains(node.id.raw.as_str()) {
             warnings.push(format!(
                 "testable entity '{}' ({}) is not covered by the plan",
                 node.id.raw, node.kind.raw
@@ -77,14 +77,12 @@ pub fn validate_plan(
         // So target should be implemented before source
         if let (Some(&src_pos), Some(&tgt_pos)) =
             (position.get(edge.source.as_str()), position.get(edge.target.as_str()))
-        {
-            if tgt_pos > src_pos {
+            && tgt_pos > src_pos {
                 ordering_violations.push(format!(
                     "'{}' depends on '{}' (via {}), but '{}' appears later in the plan",
                     edge.source, edge.target, edge.label, edge.target
                 ));
             }
-        }
     }
 
     PlanValidationResult {

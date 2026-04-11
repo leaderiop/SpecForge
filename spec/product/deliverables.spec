@@ -1,8 +1,7 @@
 // Deliverables — shippable artifacts
 
-use product/capabilities
-use product/libraries
-
+use "product/capabilities"
+use "product/libraries"
 deliverable specforge_cli_deliverable "specforge-cli" {
   type         cli
   personas     [developer, architect, ci, contributor]

@@ -1,8 +1,7 @@
 // Project initialization feature
 
-use behaviors/init
-use behaviors/mcp-operations
-
+use "behaviors/init"
+use "behaviors/mcp-operations"
 feature project_initialization "Project Initialization" {
   behaviors [
     scaffold_new_project, scaffold_starter_spec_file,

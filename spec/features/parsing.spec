@@ -1,8 +1,7 @@
 // Parsing features
 
-use behaviors/parsing
-use behaviors/wasm-lifecycle
-
+use "behaviors/parsing"
+use "behaviors/wasm-lifecycle"
 // See also: zero_entity_bootstrap (features/zero-entity-core.spec) for
 // collapse_grammar_to_generic_entity_block and two_phase_parse_structural
 

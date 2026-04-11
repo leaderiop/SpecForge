@@ -1,9 +1,8 @@
 // Incremental compilation feature
 
-use behaviors/incremental
-use behaviors/graph
-use behaviors/lsp
-
+use "behaviors/incremental"
+use "behaviors/graph"
+use "behaviors/lsp"
 feature incremental_compilation "Incremental Compilation" {
   // Bridge: shared_incremental_pipeline (peer behavior, also listed in live_diagnostics in features/lsp.spec)
   behaviors [maintain_mutable_graph, watch_file_system_for_changes, debounce_file_changes, compute_subgraph_for_invalidation, invalidate_changed_files, track_import_dag_incrementally, rebuild_affected_subgraph, emit_incremental_diagnostics, shared_incremental_pipeline]

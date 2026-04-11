@@ -29,11 +29,11 @@ Orchestrator skill for writing and maintaining `.spec` DSL files -- the source-o
 | `event` | **specforge-events-dsl** | `identifier` | @specforge/software |
 | `type` | **specforge-types-dsl** | `identifier` | @specforge/software |
 | `port` | **specforge-ports-dsl** | `identifier` | @specforge/software |
-| `capability` | **specforge-capabilities-dsl** | `identifier` | @specforge/product |
+| `journey` | **specforge-journeys-dsl** | `identifier` | @specforge/product |
 | `deliverable` | **specforge-deliverables-dsl** | `identifier` | @specforge/product |
-| `roadmap` | **specforge-roadmaps-dsl** | `identifier` | @specforge/product |
-| `library` | **specforge-libraries-dsl** | `identifier` | @specforge/product |
-| `glossary` | **specforge-glossary-dsl** | singleton | @specforge/product |
+| `milestone` | **specforge-milestones-dsl** | `identifier` | @specforge/product |
+| `module` | **specforge-modules-dsl** | `identifier` | @specforge/product |
+| `term` | **specforge-terms-dsl** | `identifier` | @specforge/product |
 | `decision` | **specforge-decisions-dsl** | `identifier` | @specforge/governance |
 | `constraint` | **specforge-constraints-dsl** | `identifier` | @specforge/governance |
 | `failure_mode` | **specforge-failure-modes-dsl** | `identifier` | @specforge/governance |
@@ -79,11 +79,11 @@ governance/
   constraints.spec       # constraint blocks (NFRs)
   failure-modes.spec     # failure_mode blocks (FMEA)
 product/
-  capabilities.spec      # capability blocks (UX flows)
+  journeys.spec          # journey blocks (UX flows)
   deliverables.spec      # deliverable blocks
-  roadmap.spec           # roadmap blocks
-  libraries.spec         # library blocks
-glossary.spec            # glossary block (singleton)
+  milestones.spec        # milestone blocks
+  modules.spec           # module blocks
+glossary.spec            # term blocks (individual entities)
 ```
 
 Files can be split further by domain as the project grows. The directory structure is a convention, not a compiler requirement -- the compiler discovers all `.spec` files under the spec root.
@@ -97,8 +97,8 @@ Files reference symbols from other files via `use` directives at the top of the 
 ```spec
 use invariants/data                      // imports all symbols from invariants/data.spec
 use invariants/data { data_persistence } // selective import
-use behaviors/user-crud
-use types/user
+use "behaviors/user-crud"
+use "types/user"
 ```
 
 ### Resolution Rules
@@ -165,8 +165,8 @@ contract """
 Always `use` the target file before referencing its entities:
 
 ```spec
-use invariants/data
-use types/user
+use "invariants/data"
+use "types/user"
 
 behavior create_user "Create User" {
   invariants [data_persistence]    // declared in invariants/data.spec
@@ -216,6 +216,8 @@ behavior create_user "Create User" {
 | E033 | Behavior not satisfying feature requirements |
 | E034 | Event deadlock detected (circular event dependency) |
 | E035 | Channel type mismatch -- producer and consumer payload types differ |
+| E041 | Refinement chain cycle -- cycle in RefinementChainLink DAG |
+| E042 | Process composition cycle -- cycle in ProcessComposition DAG |
 
 ### @specforge/software Warnings
 
@@ -233,11 +235,18 @@ behavior create_user "Create User" {
 | W033 | Starvation risk -- unfair port access |
 | W034 | Unbounded channel buffer -- no sync timeout |
 | W035 | Undischarged proof obligation |
-| W036 | Port-behavior contract incompatibility |
-| W037 | Unverifiable contract condition |
+| W036 | Port-behavior condition incompatibility |
+| W037 | Unverifiable condition |
 | W038 | Unreachable postcondition -- contradicts preconditions |
 | W039 | Redundant precondition -- implied by sibling |
 | W040 | Invariant without formal property -- no maintains block |
+| W058 | Feature coverage mismatch (downgraded from E033) |
+| W059-W060 | Condition entity validation (orphan, empty description) |
+| W061-W063 | Property entity validation (orphan, empty description, missing kind) |
+| W064-W065 | Axiom entity validation (orphan, empty description) |
+| W066-W068 | Protocol entity validation (orphan, empty description, ordering conflict) |
+| W069-W071 | Refinement entity validation (orphan, empty description, missing delta) |
+| W072-W074 | Process entity validation (orphan, empty description, missing alphabet) |
 
 ### @specforge/software Info
 
@@ -252,18 +261,19 @@ behavior create_user "Create User" {
 
 | Code | Description |
 |------|-------------|
-| E007 | Circular library dependency |
-| E008 | Persona not defined in spec root |
-| E009 | Surface not defined in spec root |
+| E007 | Circular module dependency |
+| E008 | Persona not defined in spec root (journey) |
+| E009 | Surface not defined in spec root (journey) |
 
 ### @specforge/product Warnings
 
 | Code | Description |
 |------|-------------|
-| W002 | Orphan feature -- not in any capability |
-| W008 | Uncovered capability in deliverable |
-| W009 | Orphan library |
-| W011 | Orphan capability |
+| W041 | Orphan feature -- not in any journey |
+| W042 | Orphan journey -- not in any deliverable |
+| W043 | Deliverable with no journeys |
+| W044 | Orphan module -- not referenced by any deliverable |
+| W045 | Circular feature dependency |
 
 ### @specforge/governance Errors
 
@@ -296,11 +306,11 @@ behavior create_user "Create User" {
    - **specforge-events-dsl** for domain events produced by behaviors
    - **specforge-features-dsl** to group behaviors into user-facing capabilities
 4. **Add product entities** (if @specforge/product installed):
-   - **specforge-capabilities-dsl** for UX flows
+   - **specforge-journeys-dsl** for UX flows
    - **specforge-deliverables-dsl** for shippable artifacts
-   - **specforge-libraries-dsl** for code packages
-   - **specforge-roadmaps-dsl** for planning phases
-   - **specforge-glossary-dsl** for domain vocabulary
+   - **specforge-modules-dsl** for code packages
+   - **specforge-milestones-dsl** for planning phases
+   - **specforge-terms-dsl** for domain vocabulary
 5. **Add governance entities** (if @specforge/governance installed):
    - **specforge-decisions-dsl** for ADRs
    - **specforge-constraints-dsl** for NFRs

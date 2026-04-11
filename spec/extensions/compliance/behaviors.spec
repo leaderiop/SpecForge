@@ -1,11 +1,11 @@
 // @specforge/compliance extension behaviors
 
-use extensions/compliance/manifest
-use extensions/compliance/types
-
+use "extensions/compliance/manifest"
+use "extensions/compliance/types"
 behavior ce_validate_compliance_graph "Validate Compliance Graph" {
   types [ComplianceRegulation, ComplianceControl, ComplianceEvidence, ComplianceAudit]
 
+  category   validation
   contract """
     The @specforge/compliance extension MUST validate the regulation -> control
     -> evidence traceability chain. Every regulation MUST have at least one
@@ -27,6 +27,7 @@ behavior ce_validate_compliance_graph "Validate Compliance Graph" {
 behavior ce_render_compliance_matrix "Render Compliance Matrix" {
   types [ComplianceRegulation, ComplianceControl, ComplianceEvidence]
 
+  category   query
   contract """
     The @specforge/compliance extension MUST provide a renderer contribution
     that produces a regulation-to-control traceability matrix. The matrix

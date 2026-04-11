@@ -1,10 +1,10 @@
 # feature
 
-> **Module:** `core`
+> **Module:** `@specforge/product`
 
 ## Purpose
 
-A `feature` declares a **user-facing capability** composed of one or more behaviors. Features bridge the gap between what users need (problem) and how the system delivers it (solution). They group behaviors into coherent units of value.
+A `feature` declares a **user-facing value unit** composed of one or more behaviors. Features bridge the gap between what users need (problem) and how the system delivers it (solution). They group behaviors into coherent units of value.
 
 It answers: **"What value does this deliver?"**
 
@@ -21,11 +21,7 @@ Examples: `user_management`, `password_auth`, `full_text_search`
 ## Syntax
 
 ```spec
-use behaviors/user-crud
-
 feature user_management "User Management" {
-  behaviors [create_user, read_user, update_email]
-
   problem """
     Administrators need to manage user accounts
     with guaranteed data integrity.
@@ -36,26 +32,29 @@ feature user_management "User Management" {
     unique email constraints and full audit trail.
   """
 
-  roadmap [mvp_phase]
+  priority   high
+  status     in_progress
+  depends_on [password_auth]
 }
 ```
 
 ## Fields
 
-### Required
-
-| Field | Type | Description |
-|-------|------|-------------|
-| `behaviors` | reference list | The behaviors that compose this feature. Every behavior referenced must exist. |
-| `problem` | string or triple-string | What user need or pain point this feature addresses. Written from the user's perspective. |
-| `solution` | string or triple-string | How the system addresses the problem. Written from the system's perspective. |
+All fields are optional at the type level. Features are intentionally lightweight — `problem` and `solution` are strongly recommended but not enforced by the compiler.
 
 ### Optional
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `title` | string | Human-readable name (the string after the identifier). Optional — auto-derived from identifier if omitted. |
-| `roadmap` | reference list | Roadmap milestones this feature is planned for. |
+| `title` | string | Human-readable name (the string after the identifier). Auto-derived from identifier if omitted. |
+| `problem` | string | What user need or pain point this feature addresses. Written from the user's perspective. |
+| `solution` | string | How the system addresses the problem. Written from the system's perspective. |
+| `priority` | Priority | Importance level: `critical`, `high`, `medium`, `low`. Validated by W078. |
+| `status` | FeatureStatus | Lifecycle state: `proposed`, `accepted`, `in_progress`, `done`, `deferred`. Validated by W077. Used in completion calculations. |
+| `acceptance` | string[] | Free-form acceptance criteria. Omission emits I048. |
+| `depends_on` | EntityId[] | Other features this one depends on. Creates `FeatureDependsOn` edges. Cycles detected by W045. |
+| `reason` | string | Rationale for current status (expected when `deferred`, checked by I059). |
+| `tags` | string[] | Free-form tags for categorization. Format validated by I068 (lowercase hyphen-separated, 2-50 chars). |
 | `refs` | reference list | External references (issues, tickets, diagrams) linked to this feature. |
 
 ## Relationships
@@ -64,24 +63,29 @@ feature user_management "User Management" {
 
 | To | Edge Type | Meaning |
 |----|-----------|---------|
-| `behavior` | `implements` | "This feature is composed of these behaviors" |
+| `feature` | `FeatureDependsOn` | "This feature depends on that feature" |
 | `ref` | `links_to` | "This feature links to these external references" |
 
 ### Incoming edges
 
 | From | Edge Type | Meaning |
 |------|-----------|---------|
-| `capability` | `traces_to` | "This UX capability delivers this feature" |
-| `library` | `provides` | "A library provides the code for this feature" |
-| `roadmap` | `schedules` | "A roadmap phase schedules this feature" |
+| `behavior` | `Implements` | "A behavior implements this feature" (requires `@specforge/software`) |
+| `journey` | `JourneyFeature` | "This UX journey delivers this feature" |
+| `module` | `ModuleFeature` | "A module provides the code for this feature" |
+| `milestone` | `MilestoneFeature` | "A milestone schedules this feature" |
 
 ## Validation Rules
 
-| Code | Rule |
-|------|------|
-| E001 | Every ID in `behaviors` must resolve to an existing `behavior`. |
-| E002 | No two features may share the same ID. |
-| W002 | If no `capability` references this feature, emit "orphan feature" warning. |
+| Code | Level | Rule |
+|------|-------|------|
+| W041 | warning | Feature not referenced by any journey, module, or milestone (orphan feature). |
+| W045 | warning | Circular feature dependency — `depends_on` edges form a cycle. |
+| W077 | warning | Invalid `status` value (not in FeatureStatus enum). |
+| W078 | warning | Invalid `priority` value (not in Priority enum). |
+| I048 | info | Feature has no acceptance criteria. |
+| I059 | info | Deferred feature without a `reason`. |
+| I063 | info | Done feature with incomplete dependencies (depends_on features not done). |
 
 ## Design Guidance
 
@@ -104,6 +108,16 @@ The `solution` field should:
 - Describe the approach at a high level
 - Reference specific technologies or patterns where relevant
 
+### Status Lifecycle
+
+```
+proposed -> accepted -> in_progress -> done
+                |
+             deferred (requires reason)
+```
+
+The `status` field drives milestone completion calculations. A feature counts as "done" only when `status` is `done`. Deferred features should include a `reason`.
+
 ### Feature vs. Behavior
 
 | Feature | Behavior |
@@ -114,35 +128,32 @@ The `solution` field should:
 | Goes on a roadmap | Goes in a test suite |
 | Problem/solution framing | Contract with MUST/SHOULD/MAY |
 
-### Feature vs. Capability
+### Feature vs. Journey
 
-| Feature | Capability |
-|---------|------------|
+| Feature | Journey |
+|---------|---------|
 | "User Management" | "Create a New User" |
 | What the system can do | How a specific persona experiences it |
-| Groups behaviors | Groups features by persona + surface |
+| Groups behaviors | Groups features by persona + channel |
 | System-centric | User-centric |
 
 ## Related Entities
 
 | Direction | Entity | Edge | Meaning |
 |-----------|--------|------|---------|
-| outgoing | [behavior](behavior.md) | `implements` | Behaviors that compose this feature |
+| outgoing | [feature](feature.md) | `FeatureDependsOn` | Features this feature depends on |
 | outgoing | [ref](ref.md) | `links_to` | External references linked to this feature |
-| incoming | [capability](capability.md) | `traces_to` | Capabilities that deliver this feature |
-| incoming | [library](library.md) | `provides` | Libraries that implement this feature |
-| incoming | [roadmap](roadmap.md) | `schedules` | Roadmap phases that schedule this feature |
+| incoming | [behavior](behavior.md) | `Implements` | Behaviors that implement this feature |
+| incoming | [journey](journey.md) | `JourneyFeature` | Journeys that deliver this feature |
+| incoming | [module](module.md) | `ModuleFeature` | Modules that implement this feature |
+| incoming | [milestone](milestone.md) | `MilestoneFeature` | Milestones that schedule this feature |
 
 ## Examples
 
 ### Simple Feature
 
 ```spec
-use behaviors/auth
-
 feature password_auth "Password Authentication" {
-  behaviors [login, logout, reset_password]
-
   problem """
     Users need to securely authenticate to access their accounts.
     The system must prevent unauthorized access while keeping
@@ -153,17 +164,15 @@ feature password_auth "Password Authentication" {
     Password-based authentication with bcrypt hashing,
     rate-limited login attempts, and secure session tokens.
   """
+
+  status accepted
 }
 ```
 
-### Feature with Roadmap
+### Feature with Dependencies
 
 ```spec
-use behaviors/search
-
 feature full_text_search "Full-Text Search" {
-  behaviors [search_query, search_suggest, search_facets, search_highlight]
-
   problem """
     Users with large datasets cannot find specific records quickly.
     Current filtering by exact field match is insufficient for
@@ -176,34 +185,36 @@ feature full_text_search "Full-Text Search" {
     relevance with highlighting of matched terms.
   """
 
-  roadmap [v2_phase]
+  priority   high
+  status     in_progress
+  depends_on [user_management]
+
+  acceptance [
+    "Search returns results within 200ms for datasets up to 1M records",
+    "Typo tolerance handles single-character errors",
+    "Results include highlighted matched terms",
+  ]
+
   refs [gh.issue:88, figma.frame:search-ui]
 }
 ```
 
-### Feature Composing Cross-Domain Behaviors
+### Deferred Feature
 
 ```spec
-use behaviors/order-processing
-use behaviors/inventory
-use behaviors/billing
-
-feature order_checkout "Order Checkout" {
-  behaviors [place_order, validate_inventory, process_payment, confirm_order]
-
+feature analytics_dashboard "Analytics Dashboard" {
   problem """
-    Customers need to complete purchases with confidence that
-    their order will be fulfilled, their payment processed correctly,
-    and inventory accurately reserved.
+    Product managers need visibility into usage patterns
+    and adoption metrics.
   """
 
   solution """
-    Orchestrated checkout flow: validate inventory, reserve items,
-    process payment via Stripe, create order record. Compensating
-    transactions on failure (release inventory, refund payment).
-    Event-driven notifications at each stage.
+    Real-time dashboard with configurable widgets,
+    date range filtering, and CSV export.
   """
 
-  roadmap [mvp_phase]
+  priority high
+  status   deferred
+  reason   "Deprioritized in favor of core CRUD features for MVP"
 }
 ```

@@ -8,14 +8,14 @@
 // decision: host functions are leaf operations in the call chain, not
 // pipeline stages that trigger downstream consumers.
 
-use invariants/wasm
-use invariants/zero-entity-core
-use types/wasm
-use types/zero-entity-core
-use ports/outbound
-
+use "invariants/wasm"
+use "invariants/zero-entity-core"
+use "types/wasm"
+use "types/zero-entity-core"
+use "ports/outbound"
 behavior compute_extension_query_scope "Compute Extension Query Scope" {
   invariants [wasm_sandbox_integrity, host_function_type_safety]
+  category   query
   types      [HostFunctionBinding, ManifestV2, SandboxPolicy]
   ports      [WasmRuntime]
 
@@ -52,6 +52,7 @@ behavior compute_extension_query_scope "Compute Extension Query Scope" {
 
 behavior provide_host_function_query_graph "Provide Host Function: query_graph" {
   invariants [wasm_sandbox_integrity, host_function_type_safety]
+  category   query
   types      [HostFunctionBinding]
   ports      [WasmRuntime]
 
@@ -83,6 +84,7 @@ behavior provide_host_function_query_graph "Provide Host Function: query_graph" 
 
 behavior provide_host_function_emit_diagnostic "Provide Host Function: emit_diagnostic" {
   invariants [host_function_type_safety]
+  category   query
   types      [HostFunctionBinding]
   ports      [WasmRuntime]
 
@@ -122,6 +124,7 @@ behavior provide_host_function_emit_diagnostic "Provide Host Function: emit_diag
 
 behavior provide_host_function_add_graph_node "Provide Host Function: add_graph_node" {
   invariants [host_function_type_safety, zero_domain_knowledge_core]
+  category   query
   types      [HostFunctionBinding, ManifestV2]
   ports      [WasmRuntime]
 
@@ -156,6 +159,7 @@ behavior provide_host_function_add_graph_node "Provide Host Function: add_graph_
 
 behavior provide_host_function_add_graph_edge "Provide Host Function: add_graph_edge" {
   invariants [host_function_type_safety, zero_domain_knowledge_core]
+  category   query
   types      [HostFunctionBinding]
   ports      [WasmRuntime]
 
@@ -191,6 +195,7 @@ behavior provide_host_function_add_graph_edge "Provide Host Function: add_graph_
 
 behavior provide_host_function_read_file "Provide Host Function: read_file" {
   invariants [wasm_sandbox_integrity, host_function_type_safety, extension_isolation]
+  category   query
   types      [HostFunctionBinding, SandboxPolicy]
   ports      [WasmRuntime, FileSystem]
 
@@ -238,6 +243,7 @@ behavior provide_host_function_read_file "Provide Host Function: read_file" {
 
 behavior provide_host_function_emit_file "Provide Host Function: emit_file" {
   invariants [wasm_sandbox_integrity, host_function_type_safety, extension_isolation]
+  category   query
   types      [HostFunctionBinding, SandboxPolicy]
   ports      [WasmRuntime, FileSystem]
 
@@ -292,6 +298,7 @@ behavior provide_host_function_emit_file "Provide Host Function: emit_file" {
 
 behavior provide_host_function_http_get "Provide Host Function: http_get" {
   invariants [wasm_sandbox_integrity, host_function_type_safety, extension_isolation]
+  category   query
   types      [HostFunctionBinding, SandboxPolicy]
   ports      [WasmRuntime]
 

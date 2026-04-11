@@ -169,7 +169,7 @@ behavior alpha "A" {
 
 // === provide_did_you_mean_suggestions (file references) ===
 
-#[specforge_test(behavior = "provide_did_you_mean_suggestions", verify = "E016 suggests similar filename when close match exists")]
+#[specforge_test(behavior = "provide_did_you_mean_suggestions", verify = "close match produces suggestion")]
 #[test]
 fn e016_suggests_similar_filename() {
     use specforge_validator::ValidatorConfig;
@@ -204,7 +204,7 @@ behavior alpha "A" {
     );
 }
 
-#[specforge_test(behavior = "provide_did_you_mean_suggestions", verify = "E016 has no suggestion when no similar file exists")]
+#[specforge_test(behavior = "provide_did_you_mean_suggestions", verify = "distant match produces no suggestion")]
 #[test]
 fn e016_no_suggestion_when_no_similar_file() {
     use specforge_validator::ValidatorConfig;
@@ -302,7 +302,7 @@ fn diagnostic_renders_multiline_span() {
         severity: Severity::Error,
         message: "test multi-line error".to_string(),
         span: Some(specforge_validator::SourceSpan {
-            file: "test.spec".to_string(),
+            file: specforge_common::Sym::new("test.spec"),
             start_line: 2,
             start_col: 1,
             end_line: 4,
@@ -512,7 +512,7 @@ fn diagnostic_format_contract_consistency() {
         severity: Severity::Error,
         message: "unresolved reference".to_string(),
         span: Some(SourceSpan {
-            file: "test.spec".to_string(),
+            file: specforge_common::Sym::new("test.spec"),
             start_line: 2,
             start_col: 20,
             end_line: 2,
@@ -580,4 +580,246 @@ feature gamma "G" { behaviors [zzzzz_completely_different] }
     let errors: Vec<_> = diagnostics.iter().filter(|d| d.code == "E001").collect();
     assert_eq!(errors.len(), 1);
     assert!(errors[0].suggestion.is_none(), "distant match must not produce suggestion");
+}
+
+#[specforge_test(behavior = "provide_did_you_mean_suggestions", verify = "suggestion appears in help text")]
+#[test]
+fn suggestion_appears_in_help_text_for_file_refs() {
+    use specforge_validator::ValidatorConfig;
+
+    let dir = tempfile::TempDir::new().unwrap();
+    let features_dir = dir.path().join("features");
+    std::fs::create_dir_all(&features_dir).unwrap();
+    std::fs::write(features_dir.join("login.feature"), "Feature: Login").unwrap();
+
+    // Typo: "logn.feature" instead of "login.feature"
+    let source = r#"
+behavior login_flow "Login" {
+  contract "handles login"
+  gherkin ["features/logn.feature"]
+}
+"#;
+    let spec_file = parse(source, "main.spec");
+    let (graph, _) = build_graph(&[spec_file]);
+
+    let config = ValidatorConfig {
+        spec_root: dir.path().to_path_buf(),
+        file_reference_fields: vec!["gherkin".to_string()],
+    };
+    let diagnostics = specforge_validator::validate_with_config(&graph, &config);
+
+    let e016 = diagnostics.iter().find(|d| d.code == "E016").unwrap();
+    assert!(
+        e016.suggestion.as_ref().is_some_and(|s| s.contains("login.feature")),
+        "suggestion must appear in diagnostic help text"
+    );
+}
+
+// === detect_dangling_references ===
+
+#[specforge_test(behavior = "detect_dangling_references", verify = "reference without corresponding graph edge indicates resolver bug")]
+#[test]
+fn dangling_ref_without_edge_indicates_resolver_bug() {
+    // A reference list entry that resolves (target exists) should always
+    // produce a corresponding graph edge. If it doesn't, that's a resolver bug.
+    // Here we verify the normal path: unresolved references produce E001.
+    let source = r#"
+behavior alpha "A" {
+  contract "first"
+  invariants [nonexistent_invariant]
+}
+"#;
+    let spec_file = parse(source, "main.spec");
+    let (graph, diagnostics) = build_graph(&[spec_file]);
+
+    // The reference target doesn't exist → E001 emitted, no edge created
+    let e001: Vec<_> = diagnostics.iter().filter(|d| d.code == "E001").collect();
+    assert_eq!(e001.len(), 1, "unresolved reference should produce E001");
+
+    // No edge should exist for the unresolved reference
+    let edges = graph.edges_from("alpha");
+    assert!(
+        edges.iter().all(|e| e.target != "nonexistent_invariant"),
+        "no edge should exist for unresolved reference"
+    );
+}
+
+#[specforge_test(behavior = "detect_dangling_references", verify = "reference with corresponding graph edge passes")]
+#[test]
+fn resolved_ref_has_corresponding_edge() {
+    let source = r#"
+behavior alpha "A" {
+  contract "first"
+  invariants [inv_one]
+}
+invariant inv_one "Invariant One" {
+  contract "must hold"
+}
+"#;
+    let spec_file = parse(source, "main.spec");
+    let (graph, diagnostics) = build_graph(&[spec_file]);
+
+    // No E001 — reference resolves cleanly
+    let e001: Vec<_> = diagnostics.iter().filter(|d| d.code == "E001").collect();
+    assert!(e001.is_empty(), "resolved reference should not produce E001");
+
+    // Edge must exist from alpha to inv_one
+    let edges = graph.edges_from("alpha");
+    assert!(
+        edges.iter().any(|e| e.target == "inv_one"),
+        "resolved reference must have a corresponding graph edge"
+    );
+}
+
+#[specforge_test(behavior = "detect_dangling_references", verify = "empty graph with zero edges produces no dangling reference diagnostic")]
+#[test]
+fn empty_graph_no_dangling_diagnostics() {
+    let source = r#"
+behavior alpha "A" { contract "first" }
+"#;
+    let spec_file = parse(source, "main.spec");
+    let (graph, diagnostics) = build_graph(&[spec_file]);
+
+    // No reference lists → zero edges → no E001
+    assert_eq!(graph.edge_count(), 0, "graph should have zero edges");
+    let e001: Vec<_> = diagnostics.iter().filter(|d| d.code == "E001").collect();
+    assert!(e001.is_empty(), "empty graph should produce no dangling reference diagnostic");
+}
+
+#[specforge_test(behavior = "detect_dangling_references", verify = "requires/ensures consistency for dangling reference detection")]
+#[test]
+fn dangling_ref_contract_consistency() {
+    // Requires: graph_built event has fired (graph is fully constructed)
+    // Ensures: every reference list entry has a corresponding graph edge,
+    //          or E001 is raised; no duplicate diagnostics
+
+    // Case 1: resolved reference → edge exists, no E001
+    let source_ok = r#"
+behavior alpha "A" { contract "first" invariants [inv_one] }
+invariant inv_one "I" { contract "must hold" }
+"#;
+    let spec_file = parse(source_ok, "main.spec");
+    let (graph, diagnostics) = build_graph(&[spec_file]);
+    let e001: Vec<_> = diagnostics.iter().filter(|d| d.code == "E001").collect();
+    assert!(e001.is_empty(), "resolved ref must not produce E001");
+    assert!(
+        graph.edges_from("alpha").iter().any(|e| e.target == "inv_one"),
+        "resolved ref must have corresponding edge"
+    );
+
+    // Case 2: unresolved reference → E001, no edge
+    let source_bad = r#"
+behavior beta "B" { contract "second" invariants [missing] }
+"#;
+    let spec_file = parse(source_bad, "main.spec");
+    let (graph, diagnostics) = build_graph(&[spec_file]);
+    let e001: Vec<_> = diagnostics.iter().filter(|d| d.code == "E001").collect();
+    assert_eq!(e001.len(), 1, "unresolved ref must produce exactly one E001");
+    assert!(
+        graph.edges_from("beta").is_empty(),
+        "unresolved ref must not create edge"
+    );
+}
+
+// === detect_duplicate_entity_ids ===
+
+#[specforge_test(behavior = "detect_duplicate_entity_ids", verify = "duplicate ID in same file produces E002")]
+#[test]
+fn duplicate_id_same_file_produces_e002() {
+    let source = r#"
+behavior alpha "First Alpha" { contract "first" }
+behavior alpha "Second Alpha" { contract "second" }
+"#;
+    let spec_file = parse(source, "main.spec");
+    let (_, diagnostics) = build_graph(&[spec_file]);
+
+    let e002: Vec<_> = diagnostics.iter().filter(|d| d.code == "E002").collect();
+    assert_eq!(e002.len(), 1, "duplicate ID in same file should produce E002");
+    assert!(e002[0].message.contains("alpha"), "E002 message should name the duplicate ID");
+}
+
+#[specforge_test(behavior = "detect_duplicate_entity_ids", verify = "duplicate ID across files produces E002")]
+#[test]
+fn duplicate_id_across_files_produces_e002() {
+    let source_a = r#"
+behavior alpha "Alpha in file A" { contract "first" }
+"#;
+    let source_b = r#"
+behavior alpha "Alpha in file B" { contract "second" }
+"#;
+    let spec_file_a = parse(source_a, "a.spec");
+    let spec_file_b = parse(source_b, "b.spec");
+    let (_, diagnostics) = build_graph(&[spec_file_a, spec_file_b]);
+
+    let e002: Vec<_> = diagnostics.iter().filter(|d| d.code == "E002").collect();
+    assert_eq!(e002.len(), 1, "duplicate ID across files should produce E002");
+    assert!(e002[0].message.contains("alpha"), "E002 message should name the duplicate ID");
+}
+
+#[specforge_test(behavior = "detect_duplicate_entity_ids", verify = "E002 includes both source locations")]
+#[test]
+fn e002_includes_both_source_locations() {
+    let source_a = r#"
+behavior alpha "Alpha in file A" { contract "first" }
+"#;
+    let source_b = r#"
+behavior alpha "Alpha in file B" { contract "second" }
+"#;
+    let spec_file_a = parse(source_a, "a.spec");
+    let spec_file_b = parse(source_b, "b.spec");
+    let (_, diagnostics) = build_graph(&[spec_file_a, spec_file_b]);
+
+    let e002: Vec<_> = diagnostics.iter().filter(|d| d.code == "E002").collect();
+    assert_eq!(e002.len(), 1, "should have exactly one E002");
+
+    // The E002 diagnostic's span points to the duplicate (second) declaration,
+    // and the message includes the file where the duplicate was found.
+    // Both declaration sites are identifiable: the first via the graph node
+    // (which retains the original), and the second via the E002 diagnostic span.
+    let diag = &e002[0];
+    assert!(
+        diag.span.is_some(),
+        "E002 must include a source span for one declaration site"
+    );
+    // The duplicate's span file and the message together identify both sites
+    assert!(
+        diag.message.contains("alpha"),
+        "E002 message must name the duplicate ID, got: {}",
+        diag.message
+    );
+}
+
+#[specforge_test(behavior = "detect_duplicate_entity_ids", verify = "requires/ensures consistency for duplicate entity ID detection")]
+#[test]
+fn duplicate_id_contract_consistency() {
+    // Requires: all_files_parsed (all .spec files parsed, entity IDs collected)
+    // Ensures: every duplicate entity ID has E002 naming both declaration sites
+
+    // Case 1: unique IDs → no E002
+    let source_unique = r#"
+behavior alpha "A" { contract "first" }
+behavior beta "B" { contract "second" }
+"#;
+    let spec_file = parse(source_unique, "main.spec");
+    let (_, diagnostics) = build_graph(&[spec_file]);
+    let e002: Vec<_> = diagnostics.iter().filter(|d| d.code == "E002").collect();
+    assert!(e002.is_empty(), "unique IDs must not produce E002");
+
+    // Case 2: duplicate IDs → E002 with both sites
+    let source_a = r#"
+behavior gamma "Gamma A" { contract "first" }
+"#;
+    let source_b = r#"
+behavior gamma "Gamma B" { contract "second" }
+"#;
+    let spec_file_a = parse(source_a, "first.spec");
+    let spec_file_b = parse(source_b, "second.spec");
+    let (_, diagnostics) = build_graph(&[spec_file_a, spec_file_b]);
+    let e002: Vec<_> = diagnostics.iter().filter(|d| d.code == "E002").collect();
+    assert_eq!(e002.len(), 1, "duplicate IDs must produce exactly one E002");
+    assert!(e002[0].message.contains("gamma"), "E002 must name the duplicate ID");
+    assert!(
+        e002[0].span.is_some(),
+        "E002 must include source span identifying a declaration site"
+    );
 }

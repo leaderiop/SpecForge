@@ -1,9 +1,8 @@
 // Extension registration and registry events
 
-use types/wasm
-use types/zero-entity-core
-use behaviors/extensions
-
+use "types/wasm"
+use "types/zero-entity-core"
+use "behaviors/extensions"
 // ── Extension Registration Events ──────────────────────────────
 
 event extension_entity_types_registered "Extension Entity Types Registered" {

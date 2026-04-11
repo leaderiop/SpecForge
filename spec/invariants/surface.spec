@@ -1,7 +1,6 @@
 // Surface contribution invariants — uniqueness and sandbox guarantees
 
-use behaviors/surface-contributions
-
+use "behaviors/surface-contributions"
 invariant surface_contribution_uniqueness "Surface Contribution Uniqueness" {
   guarantee """
     No two extensions MAY contribute the same name within a surface type.

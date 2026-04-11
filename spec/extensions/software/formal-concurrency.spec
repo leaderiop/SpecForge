@@ -1,9 +1,8 @@
 // @specforge/software formal concurrency — CSP
 
-use types/zero-entity-core
-use extensions/software/types
-use extensions/software/invariants
-
+use "types/zero-entity-core"
+use "extensions/software/types"
+use "extensions/software/invariants"
 behavior se_parse_sync_block "Parse Sync Block" {
   category command
   types [SyncBlock, SoftwareEvent]

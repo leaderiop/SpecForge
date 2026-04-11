@@ -1,0 +1,215 @@
+{
+  "name": "@specforge/formal",
+  "version": "1.0.0",
+  "manifestVersion": 2,
+  "wasmPath": "formal.wasm",
+  "extShort": "formal",
+  "contributes": {
+    "entities": true,
+    "validators": true
+  },
+  "peerDependencies": [
+    { "name": "@specforge/software", "version": "^1.0" }
+  ],
+  "entityKinds": [
+    {
+      "name": "Condition",
+      "keyword": "condition",
+      "testable": false,
+      "supportsVerify": false,
+      "semanticToken": "property",
+      "lspIcon": "Property",
+      "dotShape": "diamond",
+      "dotColor": "#1A237E",
+      "dotFillcolor": "#E8EAF6",
+      "fields": [
+        { "name": "expression", "fieldType": "string", "required": true },
+        { "name": "kind", "fieldType": "string" },
+        { "name": "strength", "fieldType": "string" },
+        { "name": "description", "fieldType": "string" },
+        { "name": "refs", "fieldType": "string_list" }
+      ]
+    },
+    {
+      "name": "Property",
+      "keyword": "property",
+      "testable": true,
+      "supportsVerify": true,
+      "allowedVerifyKinds": ["property", "unit"],
+      "semanticToken": "property",
+      "lspIcon": "Property",
+      "dotShape": "hexagon",
+      "dotColor": "#0D47A1",
+      "dotFillcolor": "#E3F2FD",
+      "fields": [
+        { "name": "expression", "fieldType": "string", "required": true },
+        { "name": "property_type", "fieldType": "string" },
+        { "name": "scope", "fieldType": "string" },
+        { "name": "description", "fieldType": "string" },
+        { "name": "refs", "fieldType": "string_list" }
+      ]
+    },
+    {
+      "name": "Axiom",
+      "keyword": "axiom",
+      "testable": false,
+      "supportsVerify": false,
+      "semanticToken": "constant",
+      "lspIcon": "Constant",
+      "dotShape": "ellipse",
+      "dotColor": "#311B92",
+      "dotFillcolor": "#EDE7F6",
+      "fields": [
+        { "name": "expression", "fieldType": "string", "required": true },
+        { "name": "justification", "fieldType": "string" },
+        { "name": "description", "fieldType": "string" },
+        { "name": "refs", "fieldType": "string_list" }
+      ]
+    },
+    {
+      "name": "Protocol",
+      "keyword": "protocol",
+      "testable": true,
+      "supportsVerify": true,
+      "allowedVerifyKinds": ["property", "integration"],
+      "semanticToken": "interface",
+      "lspIcon": "Interface",
+      "dotShape": "component",
+      "dotColor": "#004D40",
+      "dotFillcolor": "#E0F2F1",
+      "fields": [
+        { "name": "alphabet", "fieldType": "string_list" },
+        { "name": "states", "fieldType": "string_list" },
+        { "name": "transitions", "fieldType": "string_list" },
+        { "name": "initial_state", "fieldType": "string" },
+        { "name": "description", "fieldType": "string" },
+        { "name": "refs", "fieldType": "string_list" }
+      ]
+    },
+    {
+      "name": "Refinement",
+      "keyword": "refinement",
+      "testable": false,
+      "supportsVerify": true,
+      "allowedVerifyKinds": ["property"],
+      "semanticToken": "function",
+      "lspIcon": "Method",
+      "dotShape": "parallelogram",
+      "dotColor": "#1B5E20",
+      "dotFillcolor": "#E8F5E9",
+      "fields": [
+        { "name": "abstract_entity", "fieldType": "reference", "edge": "RefinesTo", "targetKind": "behavior" },
+        { "name": "concrete_entity", "fieldType": "reference", "edge": "RefinesTo", "targetKind": "behavior" },
+        { "name": "condition_deltas", "fieldType": "string_list" },
+        { "name": "description", "fieldType": "string" },
+        { "name": "refs", "fieldType": "string_list" }
+      ]
+    },
+    {
+      "name": "Process",
+      "keyword": "process",
+      "testable": true,
+      "supportsVerify": true,
+      "allowedVerifyKinds": ["property", "integration"],
+      "semanticToken": "function",
+      "lspIcon": "Method",
+      "dotShape": "ellipse",
+      "dotColor": "#006064",
+      "dotFillcolor": "#E0F7FA",
+      "fields": [
+        { "name": "alphabet", "fieldType": "string_list" },
+        { "name": "states", "fieldType": "string_list" },
+        { "name": "initial_state", "fieldType": "string" },
+        { "name": "composition", "fieldType": "string" },
+        { "name": "description", "fieldType": "string" },
+        { "name": "refs", "fieldType": "string_list" }
+      ]
+    }
+  ],
+  "edgeTypes": [
+    {
+      "label": "RequiresCondition",
+      "description": "Entity requires a condition as precondition",
+      "edgeStyle": "solid",
+      "edgeColor": "#1A237E"
+    },
+    {
+      "label": "EnsuresCondition",
+      "description": "Entity ensures a condition as postcondition",
+      "edgeStyle": "solid",
+      "edgeColor": "#1A237E"
+    },
+    {
+      "label": "MaintainsCondition",
+      "description": "Entity maintains a condition as invariant",
+      "edgeStyle": "dashed",
+      "edgeColor": "#1A237E"
+    },
+    {
+      "label": "AssumedBy",
+      "description": "Axiom is assumed by an entity",
+      "sourceKind": "axiom",
+      "edgeStyle": "dotted",
+      "edgeColor": "#311B92"
+    },
+    {
+      "label": "Satisfies",
+      "description": "Entity satisfies a property",
+      "edgeStyle": "solid",
+      "edgeColor": "#0D47A1"
+    },
+    {
+      "label": "FollowsProtocol",
+      "description": "Entity follows a protocol",
+      "edgeStyle": "solid",
+      "edgeColor": "#004D40"
+    },
+    {
+      "label": "PropertyDependsOn",
+      "description": "Property depends on another property",
+      "sourceKind": "property",
+      "targetKind": "property",
+      "edgeStyle": "dashed",
+      "edgeColor": "#0D47A1"
+    },
+    {
+      "label": "RefinesTo",
+      "description": "Refinement maps abstract to concrete entity",
+      "edgeStyle": "solid",
+      "edgeColor": "#1B5E20"
+    },
+    {
+      "label": "RefinementChainLink",
+      "description": "Chain of refinements",
+      "sourceKind": "refinement",
+      "targetKind": "refinement",
+      "edgeStyle": "dashed",
+      "edgeColor": "#1B5E20"
+    },
+    {
+      "label": "ParticipatesIn",
+      "description": "Entity participates in a process",
+      "edgeStyle": "solid",
+      "edgeColor": "#006064"
+    },
+    {
+      "label": "ProcessComposition",
+      "description": "Process composes sub-processes",
+      "sourceKind": "process",
+      "targetKind": "process",
+      "edgeStyle": "solid",
+      "edgeColor": "#006064"
+    }
+  ],
+  "entityEnhancements": [
+    {
+      "targetKind": "behavior",
+      "sourceExtension": "@specforge/software",
+      "fields": [
+        { "name": "sync", "fieldType": "string_list" }
+      ]
+    }
+  ],
+  "validationRules": [],
+  "reservedKeywords": []
+}

@@ -1,10 +1,11 @@
-use specforge_common::SourceSpan;
+use specforge_common::{SourceSpan, Sym};
 use specforge_graph::{Edge, Graph, Node};
 use specforge_parser::{EntityId, EntityKind, FieldMap};
+use specforge_test::prelude::*;
 
 fn span() -> SourceSpan {
     SourceSpan {
-        file: "test.spec".to_string(),
+        file: Sym::new("test.spec"),
         start_line: 1,
         start_col: 0,
         end_line: 1,
@@ -14,8 +15,8 @@ fn span() -> SourceSpan {
 
 fn node(id: &str, kind: &str) -> Node {
     Node {
-        id: EntityId { raw: id.to_string() },
-        kind: EntityKind { raw: kind.to_string() },
+        id: EntityId { raw: Sym::new(id) },
+        kind: EntityKind { raw: Sym::new(kind) },
         title: Some(format!("Title {}", id)),
         fields: FieldMap::new(),
         source_span: span(),
@@ -33,7 +34,9 @@ fn build_chain() -> Graph {
     graph
 }
 
+// B:compute_traceability_chain — verify unit "trace from entity shows upstream and downstream connections"
 #[test]
+#[specforge_test(behavior = "compute_traceability_chain", verify = "trace from entity shows upstream and downstream connections")]
 fn trace_shows_upstream_and_downstream() {
     let graph = build_chain();
     let trace = specforge_emitter::trace(&graph, "b").unwrap();
@@ -42,7 +45,9 @@ fn trace_shows_upstream_and_downstream() {
     assert!(trace.downstream.iter().any(|l| l.entity_id == "c"), "downstream should include c");
 }
 
+// B:compute_traceability_chain — verify unit "trace shows full chain depth"
 #[test]
+#[specforge_test(behavior = "compute_traceability_chain", verify = "trace shows full chain depth")]
 fn trace_shows_full_chain_depth() {
     let mut graph = build_chain();
     graph.add_node(node("d", "event"));
@@ -57,14 +62,19 @@ fn trace_shows_full_chain_depth() {
     assert!(ids.contains(&"d"));
 }
 
+// B:compute_traceability_chain — verify unit "trace from entity shows upstream and downstream connections"
+// (error case: nonexistent entity returns error)
 #[test]
+#[specforge_test(behavior = "compute_traceability_chain")]
 fn trace_nonexistent_entity_returns_error() {
     let graph = build_chain();
     let result = specforge_emitter::trace(&graph, "nonexistent");
     assert!(result.is_err());
 }
 
+// B:serialize_traceability_data — verify unit "output conforms to Graph Protocol schema"
 #[test]
+#[specforge_test(behavior = "serialize_traceability_data", verify = "output conforms to Graph Protocol schema")]
 fn trace_serializes_to_json() {
     let graph = build_chain();
     let trace = specforge_emitter::trace(&graph, "b").unwrap();
@@ -77,7 +87,10 @@ fn trace_serializes_to_json() {
     assert!(parsed["schema_version"].is_string());
 }
 
+// B:compute_traceability_chain — verify unit "trace from entity shows upstream and downstream connections"
+// (edge case: leaf has upstream only)
 #[test]
+#[specforge_test(behavior = "compute_traceability_chain")]
 fn trace_on_leaf_has_upstream_only() {
     let graph = build_chain();
     let trace = specforge_emitter::trace(&graph, "c").unwrap();
@@ -86,7 +99,10 @@ fn trace_on_leaf_has_upstream_only() {
     assert!(trace.downstream.is_empty(), "leaf should have no downstream");
 }
 
+// B:compute_traceability_chain — verify unit "trace from entity shows upstream and downstream connections"
+// (edge case: root has downstream only)
 #[test]
+#[specforge_test(behavior = "compute_traceability_chain")]
 fn trace_on_root_has_downstream_only() {
     let graph = build_chain();
     let trace = specforge_emitter::trace(&graph, "a").unwrap();
@@ -95,7 +111,9 @@ fn trace_on_root_has_downstream_only() {
     assert!(!trace.downstream.is_empty(), "root should have downstream");
 }
 
+// B:serialize_traceability_data — verify unit "full trace covers all root entities across registered edge types"
 #[test]
+#[specforge_test(behavior = "serialize_traceability_data", verify = "full trace covers all root entities across registered edge types")]
 fn trace_all_covers_all_root_entities() {
     let graph = build_chain();
     let traces = specforge_emitter::trace_all(&graph);
@@ -107,7 +125,9 @@ fn trace_all_covers_all_root_entities() {
     assert!(ids.contains(&"c"));
 }
 
+// B:serialize_traceability_data — verify unit "output conforms to Graph Protocol schema"
 #[test]
+#[specforge_test(behavior = "serialize_traceability_data")]
 fn trace_all_serializes_as_json_array() {
     let graph = build_chain();
     let traces = specforge_emitter::trace_all(&graph);
@@ -118,7 +138,30 @@ fn trace_all_serializes_as_json_array() {
     assert_eq!(parsed["traces"].as_array().unwrap().len(), 3);
 }
 
+// B:compute_traceability_chain — verify unit "missing link in chain is flagged"
 #[test]
+#[specforge_test(behavior = "compute_traceability_chain", verify = "missing link in chain is flagged")]
+fn trace_missing_link_flagged() {
+    // A graph with an edge pointing to a non-existent node represents a missing link
+    let mut graph = Graph::new();
+    graph.add_node(node("a", "feature"));
+    graph.add_node(node("b", "behavior"));
+    graph.add_edge(Edge { source: "a".into(), target: "b".into(), label: "behaviors".into() });
+    graph.add_edge(Edge { source: "b".into(), target: "phantom".into(), label: "invariants".into() });
+
+    let gaps = specforge_emitter::detect_trace_gaps(&graph);
+    assert!(gaps.iter().any(|g| g.contains("phantom")),
+        "missing link to phantom must be flagged: {:?}", gaps);
+
+    // Trace from "b" should work (b exists) but not include phantom in downstream
+    let trace = specforge_emitter::trace(&graph, "b").unwrap();
+    assert!(!trace.downstream.iter().any(|l| l.entity_id == "phantom"),
+        "phantom node should not appear in trace (it doesn't exist in graph)");
+}
+
+// B:serialize_traceability_data — verify unit "gaps in chain are highlighted"
+#[test]
+#[specforge_test(behavior = "serialize_traceability_data", verify = "gaps in chain are highlighted")]
 fn trace_detects_dangling_edge_as_gap() {
     let mut graph = Graph::new();
     graph.add_node(node("a", "feature"));

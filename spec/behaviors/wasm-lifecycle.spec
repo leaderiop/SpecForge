@@ -1,18 +1,18 @@
 // Wasm module lifecycle behaviors — load, init, validate, deps, sorting,
 // install, upgrade, uninstall, manifest validation, integrity
 
-use invariants/extensions
-use invariants/wasm
-use types/wasm
-use types/config
-use types/errors
-use ports/outbound
-use events/wasm-lifecycle
-
+use "invariants/extensions"
+use "invariants/wasm"
+use "types/wasm"
+use "types/config"
+use "types/errors"
+use "ports/outbound"
+use "events/wasm-lifecycle"
 // -- Wasm Module Lifecycle -----
 
 behavior load_wasm_module "Load Wasm Module" {
   invariants [wasm_sandbox_integrity]
+  category   command
   types      [ManifestV2, WasmModuleCache, ExtensionError]
   ports      [WasmRuntime]
   consumes   [manifest_validated, wasm_integrity_verified, extension_install_completed, extension_upgrade_completed]
@@ -48,6 +48,7 @@ behavior load_wasm_module "Load Wasm Module" {
 
 behavior initialize_wasm_extension "Initialize Wasm Extension" {
   invariants [peer_dependency_satisfaction]
+  category   command
   types      [ManifestV2, ExtensionLifecycleState]
   ports      [WasmRuntime]
   consumes   [extension_loaded]
@@ -96,6 +97,7 @@ behavior initialize_wasm_extension "Initialize Wasm Extension" {
 
 behavior call_extension_validators "Call Extension Validators" {
   invariants [extension_load_order_determinism]
+  category   command
   types      [ManifestV2, ExtensionLifecycleState]
   ports      [WasmRuntime]
   consumes   [extension_initialized, extensions_sorted]
@@ -132,6 +134,7 @@ behavior call_extension_validators "Call Extension Validators" {
 
 behavior validate_extension_peer_dependencies "Validate Extension Peer Dependencies" {
   invariants [peer_dependency_satisfaction]
+  category   validation
   types      [PeerDependency, ManifestV2, ExtensionError]
 
   requires {
@@ -162,6 +165,7 @@ behavior validate_extension_peer_dependencies "Validate Extension Peer Dependenc
 
 behavior topological_sort_extensions "Topological Sort Extensions" {
   invariants [extension_load_order_determinism]
+  category   command
   types      [PeerDependency, ManifestV2]
   consumes   [peer_dependencies_validated]
 
@@ -195,6 +199,7 @@ behavior topological_sort_extensions "Topological Sort Extensions" {
 
 behavior install_wasm_extension "Install Wasm Extension" {
   invariants [aot_cache_integrity, extension_operation_atomicity, offline_first_extension_resolution]
+  category   command
   types      [ManifestV2, ExtensionInstallResult, ExtensionSource, ExtensionError]
   ports      [WasmRuntime, FileSystem]
 
@@ -239,6 +244,7 @@ behavior install_wasm_extension "Install Wasm Extension" {
 
 behavior upgrade_wasm_extension "Upgrade Wasm Extension" {
   invariants [peer_dependency_satisfaction, aot_cache_integrity, extension_operation_atomicity]
+  category   mutation
   types      [ManifestV2, PeerDependency, ExtensionInstallResult, ExtensionError]
   ports      [WasmRuntime, FileSystem]
 
@@ -279,6 +285,7 @@ behavior upgrade_wasm_extension "Upgrade Wasm Extension" {
 // cleanup; remove_extension handles CLI interaction and post-removal messaging.
 behavior uninstall_wasm_extension "Uninstall Wasm Extension" {
   invariants [aot_cache_integrity, peer_dependency_satisfaction, extension_load_order_determinism, extension_operation_atomicity]
+  category   command
   types      [ManifestV2, ExtensionInstallResult, ExtensionError]
   ports      [WasmRuntime, FileSystem]
 
@@ -321,6 +328,7 @@ behavior uninstall_wasm_extension "Uninstall Wasm Extension" {
 
 behavior validate_extension_manifest "Validate Extension Manifest" {
   invariants [host_function_type_safety]
+  category   validation
   types      [ManifestV2, ExtensionError]
   ports      [FileSystem]
   consumes   [manifest_loaded]
@@ -359,6 +367,7 @@ behavior validate_extension_manifest "Validate Extension Manifest" {
 
 behavior verify_wasm_integrity "Verify Wasm Integrity" {
   invariants [aot_cache_integrity, registry_integrity]
+  category   validation
   types      [ManifestV2, LockFileEntry, ExtensionError]
   ports      [FileSystem]
   consumes   [lock_file_read]
@@ -394,6 +403,7 @@ behavior verify_wasm_integrity "Verify Wasm Integrity" {
 
 behavior load_extension_grammar "Load Extension Grammar" {
   invariants [aot_cache_integrity, grammar_injection_isolation]
+  category   command
   types      [GrammarContribution, GrammarCacheEntry, GrammarError]
   ports      [WasmRuntime, FileSystem]
   consumes   [extension_manifests_loaded]
@@ -429,6 +439,7 @@ behavior load_extension_grammar "Load Extension Grammar" {
 
 behavior validate_grammar_wasm "Validate Grammar Wasm" {
   invariants [grammar_injection_isolation]
+  category   validation
   types      [GrammarContribution, GrammarError]
 
   requires {
@@ -461,6 +472,7 @@ behavior validate_grammar_wasm "Validate Grammar Wasm" {
 
 behavior compose_grammar_injections "Compose Grammar Injections" {
   invariants [grammar_composition_determinism, grammar_injection_isolation]
+  category   command
   types      [GrammarContribution, GrammarConflictPolicy, KindRegistryEntry]
 
   requires {
@@ -498,6 +510,7 @@ behavior compose_grammar_injections "Compose Grammar Injections" {
 
 behavior dispatch_body_parser "Dispatch Body Parser" {
   invariants [body_parser_output_conformance, grammar_injection_isolation]
+  category   command
   types      [BodyParserContribution, BodyParserError, FieldMap]
   ports      [WasmRuntime]
 
@@ -542,6 +555,7 @@ behavior dispatch_body_parser "Dispatch Body Parser" {
 
 behavior cache_grammar_artifacts "Cache Grammar Artifacts" {
   invariants [aot_cache_integrity]
+  category   command
   types      [GrammarCacheEntry, GrammarContribution]
   ports      [FileSystem]
 

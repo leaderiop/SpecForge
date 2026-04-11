@@ -1,15 +1,14 @@
 // MCP Server events — signals emitted during MCP protocol interactions
 
-use types/graph
-use types/output
-use types/diagnostics
-use types/mcp
-use behaviors/mcp-operations
-use behaviors/mcp-prompts
-use behaviors/mcp-server
-use behaviors/mcp-tools
-use behaviors/surface-contributions
-
+use "types/graph"
+use "types/output"
+use "types/diagnostics"
+use "types/mcp"
+use "behaviors/mcp-operations"
+use "behaviors/mcp-prompts"
+use "behaviors/mcp-server"
+use "behaviors/mcp-tools"
+use "behaviors/surface-contributions"
 // MCP protocol treats tool/prompt/resource listing as tool-like operations.
 // This event tracks discovery requests separately from regular tool invocations
 // to distinguish capability negotiation from actual tool usage.

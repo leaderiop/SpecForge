@@ -1,11 +1,10 @@
 // Extension-specific invariants
 
-use behaviors/extensions
-use behaviors/init
-use behaviors/wasm-authoring
-use behaviors/wasm-lifecycle
-use behaviors/output-schema
-
+use "behaviors/extensions"
+use "behaviors/init"
+use "behaviors/wasm-authoring"
+use "behaviors/wasm-lifecycle"
+use "behaviors/output-schema"
 invariant offline_first_extension_resolution "Offline-First Extension Resolution" {
   guarantee """
     Extension resolution MUST work fully offline when cached manifests

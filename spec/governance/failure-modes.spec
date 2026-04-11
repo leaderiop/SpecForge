@@ -3,10 +3,9 @@
 // Extension-specific failure modes live in their respective extension directories
 // under spec/extensions/.
 
-use invariants/core
-use invariants/validation
-use invariants/wasm
-
+use "invariants/core"
+use "invariants/validation"
+use "invariants/wasm"
 failure_mode incremental_divergence "Incremental Divergence" {
   invariant  incremental_correctness
   severity   7

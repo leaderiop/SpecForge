@@ -1,15 +1,15 @@
 // @specforge/coverage extension behaviors — reporting and gating
 
-use extensions/coverage/invariants
-use extensions/coverage/types
-use types/config
-use types/diagnostics
-use extensions/coverage/ports
-use ports/outbound
-use extensions/coverage/events
-
+use "extensions/coverage/invariants"
+use "extensions/coverage/types"
+use "types/config"
+use "types/diagnostics"
+use "extensions/coverage/ports"
+use "ports/outbound"
+use "extensions/coverage/events"
 behavior merge_coverage_reports "Merge Coverage Reports" {
   invariants [traceability_chain_integrity]
+  category   command
   types      [CoverageReport, EntityCoverageResult]
   ports      [TestReporter, FileSystem]
 
@@ -29,6 +29,7 @@ behavior merge_coverage_reports "Merge Coverage Reports" {
 
 behavior compute_coverage_summary "Compute Coverage Summary" {
   invariants [traceability_chain_integrity]
+  category   query
   types      [CoverageReport, CoverageSummary, EntityCoverageResult, TestResult, TestResultStatus, TestStatus]
 
   contract """
@@ -46,6 +47,7 @@ behavior compute_coverage_summary "Compute Coverage Summary" {
 
 behavior gate_on_coverage_threshold "Gate on Coverage Threshold" {
   invariants [traceability_chain_integrity]
+  category   command
   types      [CoverageSummary, CoverageConfig]
 
   contract """
@@ -63,6 +65,7 @@ behavior gate_on_coverage_threshold "Gate on Coverage Threshold" {
 
 behavior validate_test_ids_against_spec "Validate Test IDs Against Spec" {
   invariants [traceability_chain_integrity]
+  category   validation
   types      [CoverageReport, DiagnosticBag]
 
   contract """
@@ -80,6 +83,7 @@ behavior validate_test_ids_against_spec "Validate Test IDs Against Spec" {
 
 behavior consume_specforge_report "Consume Specforge Report" {
   invariants [traceability_chain_integrity]
+  category   command
   types      [SpecforgeReport, TestResultEntry]
   ports      [TestReporter, FileSystem]
   produces   [test_report_consumed]
@@ -100,6 +104,7 @@ behavior consume_specforge_report "Consume Specforge Report" {
 
 behavior compute_four_level_coverage "Compute Four-Level Coverage" {
   invariants [traceability_chain_integrity]
+  category   query
   types      [CoverageSummary, CoverageLevel]
   consumers  [test_report_consumed]
 
@@ -121,6 +126,7 @@ behavior compute_four_level_coverage "Compute Four-Level Coverage" {
 
 behavior render_test_traceability_matrix "Render Test Traceability Matrix" {
   invariants [traceability_chain_integrity]
+  category   query
   types      [CoverageSummary, TestResultEntry]
   consumers  [test_report_consumed]
 

@@ -44,8 +44,8 @@ pub fn emit_context(graph: &Graph) -> String {
             });
 
             ContextNode {
-                id: n.id.raw.clone(),
-                kind: n.kind.raw.clone(),
+                id: n.id.raw.to_string(),
+                kind: n.kind.raw.to_string(),
                 title: n.title.clone(),
                 contract,
                 status,

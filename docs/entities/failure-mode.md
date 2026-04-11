@@ -21,7 +21,7 @@ Examples: `write_loss`, `email_race`, `audit_corruption`
 ## Syntax
 
 ```spec
-use invariants/data
+use "invariants/data"
 
 failure_mode write_loss "Write Acknowledged but Lost" {
   invariant  data_persistence

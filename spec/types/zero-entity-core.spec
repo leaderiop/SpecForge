@@ -4,10 +4,9 @@
 // format uses camelCase (wasmPath, entityKinds, validationRules). The
 // compiler handles serde rename during deserialization.
 
-use types/core
-use types/wasm
-use types/surface
-
+use "types/core"
+use "types/wasm"
+use "types/surface"
 type ManifestV2 {
   name              string              @readonly
   version           string              @readonly

@@ -1,12 +1,12 @@
 // Graph building behaviors — constructing the in-memory graph
 
-use invariants/core
-use types/core
-use types/graph
-use events/compilation
-
+use "invariants/core"
+use "types/core"
+use "types/graph"
+use "events/compilation"
 behavior build_in_memory_graph "Build In-Memory Graph" {
   invariants [string_interning_consistency, entity_id_uniqueness]
+  category   command
   types      [Graph, Node, Edge, SpecFile, EdgeType, FileIndex]
   consumes  [resolution_complete]
   produces   [graph_built]
@@ -40,6 +40,7 @@ behavior build_in_memory_graph "Build In-Memory Graph" {
 // No produces — passive API behavior, graph mutations are observed via rebuild events
 behavior maintain_mutable_graph "Maintain Mutable Graph" {
   invariants [incremental_correctness, graph_traversal_integrity]
+  category   command
   types      [Graph, Subgraph]
 
   requires {
@@ -71,6 +72,7 @@ behavior maintain_mutable_graph "Maintain Mutable Graph" {
 
 behavior compute_subgraph_for_invalidation "Compute Subgraph for Invalidation" {
   invariants [incremental_correctness, graph_traversal_integrity]
+  category   query
   types      [Graph, Subgraph, FileEntry]
 
   requires {

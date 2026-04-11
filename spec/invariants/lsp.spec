@@ -1,8 +1,7 @@
-use behaviors/lsp
-use behaviors/zero-entity-lsp
-use behaviors/incremental
-use behaviors/formatting
-
+use "behaviors/lsp"
+use "behaviors/zero-entity-lsp"
+use "behaviors/incremental"
+use "behaviors/formatting"
 invariant lsp_response_latency "LSP Response Latency" {
   guarantee """
     Diagnostic updates MUST appear within 100ms of the user stopping

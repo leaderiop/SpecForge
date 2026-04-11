@@ -1,7 +1,6 @@
 // Federation Architecture Decision Records
 
-use extensions/federation/invariants
-
+use "extensions/federation/invariants"
 decision federation_in_core "Federation in Core" {
   status   superseded
   date     2026-03-04

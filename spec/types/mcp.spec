@@ -1,9 +1,8 @@
 // MCP Server types — Model Context Protocol descriptors and response shapes
 
-use types/core
-use types/diagnostics
-use types/formatting
-
+use "types/core"
+use "types/diagnostics"
+use "types/formatting"
 type JsonRpcErrorCode = -32700 | -32600 | -32601 | -32602 | -32603
 
 type McpErrorCode = "invalid_input" | "compilation_failed" | "entity_not_found" | "file_not_found" | "extension_not_found" | "permission_denied" | "timeout" | "not_initialized" | "schema_mismatch" | "internal_error"

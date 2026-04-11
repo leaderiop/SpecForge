@@ -16,12 +16,6 @@ impl Parse for TestAttr {
         let id_lit: LitStr = input.parse()?;
 
         let entity_kind = kind_ident.to_string();
-        if !["behavior", "invariant", "event"].contains(&entity_kind.as_str()) {
-            return Err(syn::Error::new(
-                kind_ident.span(),
-                format!("expected `behavior`, `invariant`, or `event`, found `{entity_kind}`"),
-            ));
-        }
 
         let mut verify = None;
 

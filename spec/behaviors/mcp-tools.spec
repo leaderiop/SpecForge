@@ -4,23 +4,23 @@
 //   - Core Tools (8): query, validate, export, trace, search, schema, coverage, stats
 //   - Navigation Tools (5): inspect, find_definition, find_references, outline, suggest_fixes
 
-use invariants/core
-use invariants/validation
-use invariants/mcp
-use events/mcp
-use types/graph
-use types/output
-use types/diagnostics
-use types/mcp
-use ports/inbound
-use ports/outbound
-
+use "invariants/core"
+use "invariants/validation"
+use "invariants/mcp"
+use "events/mcp"
+use "types/graph"
+use "types/output"
+use "types/diagnostics"
+use "types/mcp"
+use "ports/inbound"
+use "ports/outbound"
 // ---------------------------------------------------------------------------
 // Core Tools
 // ---------------------------------------------------------------------------
 
 behavior provide_mcp_query_tool "Provide MCP Query Tool" {
   invariants [graph_traversal_integrity, diagnostic_determinism, mcp_structured_error_responses, mcp_tool_idempotency]
+  category   query
   types      [Graph, AgentExportConfig, McpToolDescriptor]
   ports      [McpProtocol, CompilerApi]
   produces   [mcp_tool_invoked]
@@ -64,6 +64,7 @@ behavior provide_mcp_query_tool "Provide MCP Query Tool" {
 // performs a full compilation pass.
 behavior provide_mcp_validate_tool "Provide MCP Validate Tool" {
   invariants [multi_error_collection, diagnostic_determinism, mcp_structured_error_responses, mcp_tool_idempotency]
+  category   validation
   types      [DiagnosticBag, McpToolDescriptor]
   ports      [McpProtocol, CompilerApi]
   produces   [mcp_tool_invoked]
@@ -109,6 +110,7 @@ behavior provide_mcp_validate_tool "Provide MCP Validate Tool" {
 
 behavior provide_mcp_export_tool "Provide MCP Export Tool" {
   invariants [graph_traversal_integrity, graph_schema_completeness, diagnostic_determinism, mcp_structured_error_responses, mcp_tool_idempotency]
+  category   query
   types      [Graph, AgentExportConfig, OutputFile, McpToolDescriptor]
   ports      [McpProtocol, CompilerApi]
   produces   [mcp_tool_invoked]
@@ -143,6 +145,7 @@ behavior provide_mcp_export_tool "Provide MCP Export Tool" {
 
 behavior provide_mcp_trace_tool "Provide MCP Trace Tool" {
   invariants [graph_traversal_integrity, reference_resolution_completeness, diagnostic_determinism, mcp_structured_error_responses, mcp_tool_idempotency]
+  category   query
   types      [Graph, TraceChain, TraceLink, McpTracePlanResult, McpToolDescriptor]
   ports      [McpProtocol, CompilerApi]
   produces   [mcp_tool_invoked]
@@ -179,6 +182,7 @@ behavior provide_mcp_trace_tool "Provide MCP Trace Tool" {
 
 behavior provide_mcp_search_tool "Provide MCP Search Tool" {
   invariants [graph_traversal_integrity, diagnostic_determinism, mcp_structured_error_responses, mcp_tool_idempotency]
+  category   query
   types      [Graph, McpSearchResult, McpToolDescriptor]
   ports      [McpProtocol, CompilerApi]
   produces   [mcp_tool_invoked]
@@ -218,6 +222,7 @@ behavior provide_mcp_search_tool "Provide MCP Search Tool" {
 
 behavior provide_mcp_schema_tool "Provide MCP Schema Tool" {
   invariants [graph_schema_completeness, diagnostic_determinism, mcp_structured_error_responses, mcp_tool_idempotency]
+  category   query
   types      [GraphProtocolSchema, McpToolDescriptor]
   ports      [McpProtocol, CompilerApi]
   produces   [mcp_tool_invoked]
@@ -251,6 +256,7 @@ behavior provide_mcp_schema_tool "Provide MCP Schema Tool" {
 
 behavior provide_mcp_coverage_tool "Provide MCP Coverage Tool" {
   invariants [graph_traversal_integrity, diagnostic_determinism, mcp_structured_error_responses, mcp_tool_idempotency, testable_entity_classification]
+  category   query
   types      [McpCoverageResult, McpToolDescriptor]
   ports      [McpProtocol, CompilerApi]
   produces   [mcp_tool_invoked]
@@ -287,6 +293,7 @@ behavior provide_mcp_coverage_tool "Provide MCP Coverage Tool" {
 
 behavior provide_mcp_stats_tool "Provide MCP Stats Tool" {
   invariants [graph_traversal_integrity, diagnostic_determinism, mcp_structured_error_responses, mcp_tool_idempotency]
+  category   query
   types      [McpStatsResult, McpToolDescriptor]
   ports      [McpProtocol, CompilerApi]
   produces   [mcp_tool_invoked]
@@ -323,6 +330,7 @@ behavior provide_mcp_stats_tool "Provide MCP Stats Tool" {
 
 behavior provide_mcp_inspect_tool "Provide MCP Inspect Tool" {
   invariants [graph_traversal_integrity, diagnostic_determinism, mcp_structured_error_responses, mcp_tool_idempotency, testable_entity_classification]
+  category   query
   types      [McpInspectResult, McpToolDescriptor]
   ports      [McpProtocol, CompilerApi]
   produces   [mcp_tool_invoked]
@@ -355,6 +363,7 @@ behavior provide_mcp_inspect_tool "Provide MCP Inspect Tool" {
 
 behavior provide_mcp_find_definition_tool "Provide MCP Find Definition Tool" {
   invariants [graph_traversal_integrity, diagnostic_determinism, mcp_structured_error_responses, mcp_tool_idempotency]
+  category   query
   types      [McpDefinitionResult, McpToolDescriptor]
   ports      [McpProtocol, CompilerApi]
   produces   [mcp_tool_invoked]
@@ -386,6 +395,7 @@ behavior provide_mcp_find_definition_tool "Provide MCP Find Definition Tool" {
 
 behavior provide_mcp_find_references_tool "Provide MCP Find References Tool" {
   invariants [graph_traversal_integrity, diagnostic_determinism, mcp_structured_error_responses, mcp_tool_idempotency]
+  category   query
   types      [McpReferenceResult, McpToolDescriptor]
   ports      [McpProtocol, CompilerApi]
   produces   [mcp_tool_invoked]
@@ -419,6 +429,7 @@ behavior provide_mcp_find_references_tool "Provide MCP Find References Tool" {
 
 behavior provide_mcp_outline_tool "Provide MCP Outline Tool" {
   invariants [graph_traversal_integrity, diagnostic_determinism, mcp_structured_error_responses, mcp_tool_idempotency]
+  category   query
   types      [McpOutlineEntry, McpToolDescriptor]
   ports      [McpProtocol, CompilerApi]
   produces   [mcp_tool_invoked]
@@ -451,6 +462,7 @@ behavior provide_mcp_outline_tool "Provide MCP Outline Tool" {
 
 behavior provide_mcp_suggest_fixes_tool "Provide MCP Suggest Fixes Tool" {
   invariants [graph_traversal_integrity, diagnostic_determinism, mcp_structured_error_responses, mcp_tool_idempotency]
+  category   query
   types      [McpFixSuggestion, McpToolDescriptor]
   ports      [McpProtocol, CompilerApi]
   produces   [mcp_tool_invoked]

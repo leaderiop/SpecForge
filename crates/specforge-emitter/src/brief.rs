@@ -18,13 +18,16 @@ struct BriefNode {
     title: Option<String>,
 }
 
+/// Emit a brief (minimal) JSON representation of the graph.
+///
+/// Returns the JSON string, or an error if serialization fails.
 pub fn emit_brief(graph: &Graph) -> String {
     let nodes: Vec<BriefNode> = graph
         .nodes()
         .iter()
         .map(|n| BriefNode {
-            id: n.id.raw.clone(),
-            kind: n.kind.raw.clone(),
+            id: n.id.raw.to_string(),
+            kind: n.kind.raw.to_string(),
             title: n.title.clone(),
         })
         .collect();

@@ -1,21 +1,20 @@
 // Zero-entity core architecture invariants
 
-use behaviors/zero-entity-lsp
-use behaviors/zero-entity-registries
-use behaviors/zero-entity-validation
-use behaviors/extensions
-use behaviors/lsp
-use behaviors/parsing
-use behaviors/init
-use behaviors/validation
-use behaviors/output
-use behaviors/output-schema
-use behaviors/incremental
-use behaviors/mcp-operations
-use behaviors/wasm-host-functions
-use behaviors/migration
-use behaviors/resolution
-
+use "behaviors/zero-entity-lsp"
+use "behaviors/zero-entity-registries"
+use "behaviors/zero-entity-validation"
+use "behaviors/extensions"
+use "behaviors/lsp"
+use "behaviors/parsing"
+use "behaviors/init"
+use "behaviors/validation"
+use "behaviors/output"
+use "behaviors/output-schema"
+use "behaviors/incremental"
+use "behaviors/mcp-operations"
+use "behaviors/wasm-host-functions"
+use "behaviors/migration"
+use "behaviors/resolution"
 invariant zero_domain_knowledge_core "Zero Domain Knowledge Core" {
   guarantee """
     The core compiler MUST have zero hardcoded entity types. All domain

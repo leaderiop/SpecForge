@@ -17,13 +17,13 @@ pub fn render_diagnostics(diagnostics: &[Diagnostic], sources: &HashMap<String, 
 
         let (file, offset) = if let Some(span) = &diag.span {
             let byte_range = line_col_to_byte_range(
-                sources.get(&span.file).map(|s| s.as_str()).unwrap_or(""),
+                sources.get(span.file.as_str()).map(|s| s.as_str()).unwrap_or(""),
                 span.start_line,
                 span.start_col,
                 span.end_line,
                 span.end_col,
             );
-            (span.file.clone(), byte_range)
+            (span.file.to_string(), byte_range)
         } else {
             let file = sources.keys().next().cloned().unwrap_or_default();
             (file, 0..1)

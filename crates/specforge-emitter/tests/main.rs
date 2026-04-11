@@ -1,0 +1,17 @@
+mod contracts;
+mod determinism;
+mod e2e_pipeline;
+mod diagnostics;
+mod emit_brief;
+mod emit_context;
+mod emit_dot;
+mod emit_graph;
+mod emit_json;
+mod plan;
+mod query;
+mod schema;
+mod scope;
+mod stats;
+mod stress;
+mod token_budget;
+mod trace;

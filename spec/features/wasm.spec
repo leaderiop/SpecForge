@@ -1,12 +1,11 @@
 // Wasm/Extism extension runtime features
 
-use behaviors/wasm-authoring
-use behaviors/wasm-extensions
-use behaviors/wasm-host-functions
-use behaviors/wasm-lifecycle
-use behaviors/wasm-sandbox
-use behaviors/surface-contributions
-
+use "behaviors/wasm-authoring"
+use "behaviors/wasm-extensions"
+use "behaviors/wasm-host-functions"
+use "behaviors/wasm-lifecycle"
+use "behaviors/wasm-sandbox"
+use "behaviors/surface-contributions"
 feature wasm_extension_runtime "Wasm Extension Runtime" {
   behaviors [
     load_wasm_module, initialize_wasm_extension, call_extension_validators,

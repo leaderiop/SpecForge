@@ -1,0 +1,119 @@
+---
+source: crates/specforge-parser/tests/snapshot_tests.rs
+assertion_line: 42
+expression: "parse_ok(source, \"test.spec\").entities"
+---
+[
+  {
+    "kind": {
+      "raw": "behavior"
+    },
+    "id": {
+      "raw": "test_values"
+    },
+    "title": "Test Values",
+    "fields": {
+      "entries": [
+        {
+          "key": "name",
+          "value": {
+            "String": "a string"
+          }
+        },
+        {
+          "key": "count",
+          "value": {
+            "Integer": 42
+          }
+        },
+        {
+          "key": "enabled",
+          "value": {
+            "Boolean": true
+          }
+        },
+        {
+          "key": "disabled",
+          "value": {
+            "Boolean": false
+          }
+        },
+        {
+          "key": "created",
+          "value": {
+            "Date": "2024-01-15"
+          }
+        },
+        {
+          "key": "status",
+          "value": {
+            "Identifier": "planned"
+          }
+        },
+        {
+          "key": "tags",
+          "value": {
+            "ReferenceList": [
+              "alpha",
+              "beta",
+              "gamma"
+            ]
+          }
+        },
+        {
+          "key": "labels",
+          "value": {
+            "StringList": [
+              "tag-one",
+              "tag-two"
+            ]
+          }
+        },
+        {
+          "key": "config",
+          "value": {
+            "Block": {
+              "entries": [
+                {
+                  "key": "timeout",
+                  "value": {
+                    "Integer": 30
+                  }
+                },
+                {
+                  "key": "retries",
+                  "value": {
+                    "Integer": 3
+                  }
+                }
+              ]
+            }
+          }
+        },
+        {
+          "key": "verify",
+          "value": {
+            "VerifyList": [
+              {
+                "kind": "unit",
+                "description": "it works"
+              },
+              {
+                "kind": "property",
+                "description": "always valid"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    "raw_body": "\n    name \"a string\"\n    count 42\n    enabled true\n    disabled false\n    created 2024-01-15\n    status planned\n    tags [alpha, beta, gamma]\n    labels [\"tag-one\", \"tag-two\"]\n    config {\n        timeout 30\n        retries 3\n    }\n    verify unit \"it works\"\n    verify property \"always valid\"\n",
+    "span": {
+      "file": "test.spec",
+      "start_line": 2,
+      "start_col": 1,
+      "end_line": 17,
+      "end_col": 2
+    }
+  }
+]

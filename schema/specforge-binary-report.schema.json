@@ -1,0 +1,61 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://specforge.dev/schema/specforge-binary-report.json",
+  "title": "SpecForge Binary Report",
+  "description": "Schema for per-binary intermediate report files produced by specforge-test at process exit.",
+  "type": "object",
+  "required": ["schema_version", "binary_name", "entries"],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "const": "1.0",
+      "description": "Schema version for forward compatibility."
+    },
+    "binary_name": {
+      "type": "string",
+      "description": "Name of the test binary that produced this report."
+    },
+    "entries": {
+      "type": "array",
+      "description": "Individual test record entries collected during execution.",
+      "items": {
+        "$ref": "#/$defs/TestRecordEntry"
+      }
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "TestRecordEntry": {
+      "type": "object",
+      "required": ["entity_kind", "entity_id", "test_name", "file", "status"],
+      "properties": {
+        "entity_kind": {
+          "type": "string",
+          "description": "The entity kind (e.g., 'behavior', 'invariant', 'constraint')."
+        },
+        "entity_id": {
+          "type": "string",
+          "description": "The spec entity identifier."
+        },
+        "test_name": {
+          "type": "string",
+          "description": "The test function name."
+        },
+        "file": {
+          "type": "string",
+          "description": "Source file containing the test."
+        },
+        "verify": {
+          "type": "string",
+          "description": "The verify description this test covers, if any."
+        },
+        "status": {
+          "type": "string",
+          "enum": ["pass", "fail"],
+          "description": "Test execution status."
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}

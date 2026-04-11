@@ -65,8 +65,8 @@ behavior good_after "After" {
 #[test]
 fn snap_real_world_spec() {
     let source = r#"
-use invariants/core
-use types/core
+use "invariants/core"
+use "types/core"
 
 behavior parse_spec_file_to_ast "Parse Spec File to AST" {
     invariants [multi_error_collection, string_interning_consistency]

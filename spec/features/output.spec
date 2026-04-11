@@ -14,8 +14,8 @@
 // formatting extension-defined entity blocks. DOT is a diagnostic/debugging
 // format for the graph engine, not a domain-specific output.
 
-use behaviors/output
-use behaviors/output-schema
+use "behaviors/output"
+use "behaviors/output-schema"
 // markdown_documentation_generation moved to spec/extensions/markdown-renderer/
 // Vision: "SpecForge does not produce documentation." Markdown rendering is
 // a renderer contribution from the @specforge/markdown-renderer extension.

@@ -1,0 +1,12 @@
+{
+  "$schema": "./schema/specforge.schema.json",
+  "name": "specforge",
+  "version": "0.1.0",
+  "spec_root": "spec",
+  "extensions": [
+    "./extensions/product",
+    "./extensions/software",
+    "./extensions/governance",
+    "./extensions/formal"
+  ]
+}

@@ -23,7 +23,7 @@ By convention, ports typically use PascalCase, but any valid identifier is accep
 ## Syntax
 
 ```spec
-use types/user
+use "types/user"
 
 port UserRepository {
   direction outbound
@@ -90,7 +90,7 @@ Common patterns:
 | From | Edge Type | Meaning |
 |------|-----------|---------|
 | `behavior` | `uses_port` | "This behavior uses this port interface" |
-| `library` | `defines_port` | "This library defines this port interface" |
+| `module` | `defines_port` | "This module defines this port interface" |
 | `invariant` | `enforces` | "This invariant is enforced by this port's implementation" |
 
 ### Outgoing edges
@@ -153,7 +153,7 @@ A behavior references the invariants that the port's implementation must uphold.
 |-----------|--------|------|---------|
 | outgoing | [ref](ref.md) | `links_to` | External references linked to this port |
 | incoming | [behavior](behavior.md) | `uses_port` | Behaviors that use this port interface |
-| incoming | [library](library.md) | `defines_port` | Libraries that define this port |
+| incoming | [module](module.md) | `defines_port` | Modules that define this port |
 | incoming | [invariant](invariant.md) | `enforces` | Invariants enforced by this port's implementation |
 
 ## Examples
@@ -161,7 +161,7 @@ A behavior references the invariants that the port's implementation must uphold.
 ### Outbound: Database
 
 ```spec
-use types/user
+use "types/user"
 
 port UserRepository {
   direction outbound
@@ -179,7 +179,7 @@ port UserRepository {
 ### Outbound: External Service
 
 ```spec
-use types/email
+use "types/email"
 
 port EmailService {
   direction outbound
@@ -193,7 +193,7 @@ port EmailService {
 ### Inbound: API Surface
 
 ```spec
-use types/user
+use "types/user"
 
 port UserAPI {
   direction inbound
@@ -210,7 +210,7 @@ port UserAPI {
 ### Outbound: Message Broker
 
 ```spec
-use types/order
+use "types/order"
 
 port OrderEventBus {
   direction outbound

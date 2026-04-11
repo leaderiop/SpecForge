@@ -20,7 +20,7 @@ Rules and conventions for authoring **`failure_mode` blocks** in `.spec` files. 
 ## Block Syntax
 
 ```spec
-use invariants/data
+use "invariants/data"
 
 failure_mode write_acknowledged_but_lost "Write Acknowledged but Lost" {
   invariant  data_persistence

@@ -1,0 +1,148 @@
+{
+  "name": "@specforge/governance",
+  "version": "1.0.0",
+  "manifestVersion": 2,
+  "wasmPath": "governance.wasm",
+  "extShort": "governance",
+  "contributes": {
+    "entities": true,
+    "validators": true
+  },
+  "peerDependencies": [
+    { "name": "@specforge/software", "version": "^1.0" }
+  ],
+  "entityKinds": [
+    {
+      "name": "Decision",
+      "keyword": "decision",
+      "testable": false,
+      "supportsVerify": false,
+      "semanticToken": "string",
+      "lspIcon": "Text",
+      "dotShape": "note",
+      "dotColor": "#6A1B9A",
+      "dotFillcolor": "#F3E5F5",
+      "fields": [
+        { "name": "status", "fieldType": "string" },
+        { "name": "context", "fieldType": "string" },
+        { "name": "decision", "fieldType": "string" },
+        { "name": "consequences", "fieldType": "string_list" },
+        { "name": "superseded_by", "fieldType": "reference", "edge": "Supersedes", "targetKind": "decision" },
+        { "name": "invariants", "fieldType": "reference_list", "edge": "DecisionProtects", "targetKind": "invariant" },
+        { "name": "refs", "fieldType": "string_list" },
+        { "name": "description", "fieldType": "string" },
+        { "name": "date", "fieldType": "string" },
+        { "name": "authors", "fieldType": "string_list" },
+        { "name": "tags", "fieldType": "string_list" },
+        { "name": "alternatives", "fieldType": "string_list" },
+        { "name": "reason", "fieldType": "string" },
+        { "name": "supersedes", "fieldType": "reference", "edge": "Supersedes", "targetKind": "decision" },
+        { "name": "deciders", "fieldType": "string_list" }
+      ]
+    },
+    {
+      "name": "Constraint",
+      "keyword": "constraint",
+      "testable": false,
+      "supportsVerify": true,
+      "allowedVerifyKinds": ["property", "load", "integration"],
+      "semanticToken": "property",
+      "lspIcon": "Property",
+      "dotShape": "octagon",
+      "dotColor": "#BF360C",
+      "dotFillcolor": "#FBE9E7",
+      "fields": [
+        { "name": "category", "fieldType": "string" },
+        { "name": "priority", "fieldType": "string" },
+        { "name": "metric", "fieldType": "string" },
+        { "name": "threshold", "fieldType": "string" },
+        { "name": "description", "fieldType": "string" },
+        { "name": "refs", "fieldType": "string_list" },
+        { "name": "enforced_by", "fieldType": "reference_list", "edge": "ConstraintEnforces", "targetKind": "behavior" },
+        { "name": "scope", "fieldType": "string" },
+        { "name": "constrains", "fieldType": "reference_list", "edge": "ConstraintConstrains", "targetKind": "behavior" },
+        { "name": "protects", "fieldType": "reference_list", "edge": "ConstraintProtects", "targetKind": "invariant" }
+      ]
+    },
+    {
+      "name": "FailureMode",
+      "keyword": "failure_mode",
+      "testable": false,
+      "supportsVerify": false,
+      "semanticToken": "variable",
+      "lspIcon": "Variable",
+      "dotShape": "triangle",
+      "dotColor": "#D32F2F",
+      "dotFillcolor": "#FFCDD2",
+      "fields": [
+        { "name": "severity", "fieldType": "string" },
+        { "name": "occurrence", "fieldType": "string" },
+        { "name": "detection", "fieldType": "string" },
+        { "name": "cause", "fieldType": "string" },
+        { "name": "effect", "fieldType": "string" },
+        { "name": "mitigation", "fieldType": "string" },
+        { "name": "post_severity", "fieldType": "string" },
+        { "name": "post_occurrence", "fieldType": "string" },
+        { "name": "post_detection", "fieldType": "string" },
+        { "name": "invariant", "fieldType": "reference", "edge": "FailureModeTargets", "targetKind": "invariant" },
+        { "name": "refs", "fieldType": "string_list" },
+        { "name": "description", "fieldType": "string" },
+        { "name": "risk", "fieldType": "string" },
+        { "name": "rpn", "fieldType": "integer" },
+        { "name": "post_mitigation", "fieldType": "string" }
+      ]
+    }
+  ],
+  "edgeTypes": [
+    {
+      "label": "DecisionProtects",
+      "description": "Decision protects an invariant",
+      "sourceKind": "decision",
+      "targetKind": "invariant",
+      "edgeStyle": "dashed",
+      "edgeColor": "#6A1B9A"
+    },
+    {
+      "label": "ConstraintEnforces",
+      "description": "Constraint is enforced by a behavior",
+      "sourceKind": "constraint",
+      "targetKind": "behavior",
+      "edgeStyle": "solid",
+      "edgeColor": "#BF360C"
+    },
+    {
+      "label": "Supersedes",
+      "description": "Decision supersedes a previous decision",
+      "sourceKind": "decision",
+      "targetKind": "decision",
+      "edgeStyle": "dotted",
+      "edgeColor": "#6A1B9A"
+    },
+    {
+      "label": "ConstraintConstrains",
+      "description": "Constraint constrains a behavior",
+      "sourceKind": "constraint",
+      "targetKind": "behavior",
+      "edgeStyle": "dashed",
+      "edgeColor": "#BF360C"
+    },
+    {
+      "label": "ConstraintProtects",
+      "description": "Constraint protects an invariant",
+      "sourceKind": "constraint",
+      "targetKind": "invariant",
+      "edgeStyle": "dashed",
+      "edgeColor": "#BF360C"
+    },
+    {
+      "label": "FailureModeTargets",
+      "description": "Failure mode targets an invariant",
+      "sourceKind": "failure_mode",
+      "targetKind": "invariant",
+      "edgeStyle": "dashed",
+      "edgeColor": "#D32F2F"
+    }
+  ],
+  "validationRules": [],
+  "reservedKeywords": []
+}

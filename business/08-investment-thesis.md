@@ -223,7 +223,7 @@ This is the biggest strategic shift from a "software specification tool" to a "s
 | Domain | Extension | Entity Kinds | Market Segment |
 |--------|-----------|-------------|---------------|
 | Software engineering | `@specforge/software` | behavior, invariant, feature, event, type, port | Developer tools ($1.5B) |
-| Product management | `@specforge/product` | capability, deliverable, roadmap, library, glossary | PM tools ($400M) |
+| Product management | `@specforge/product` | journey, deliverable, milestone, module, term | PM tools ($400M) |
 | Technical governance | `@specforge/governance` | decision, constraint, failure_mode | Internal tooling ($200M) |
 | Regulatory compliance | `@specforge/compliance` | regulation, control, evidence, audit | GRC tools ($800M) |
 | Design systems | `@specforge/atomic-design` | atom, molecule, organism, template, page | Design tools ($300M) |

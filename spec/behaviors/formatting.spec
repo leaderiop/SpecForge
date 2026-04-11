@@ -1,16 +1,16 @@
 // Formatting behaviors — the code formatter pipeline
 
-use invariants/formatting
-use invariants/core
-use types/config
-use types/core
-use types/formatting
-use ports/outbound
-use ports/inbound
-use events/compilation
-
+use "invariants/formatting"
+use "invariants/core"
+use "types/config"
+use "types/core"
+use "types/formatting"
+use "ports/outbound"
+use "ports/inbound"
+use "events/compilation"
 behavior format_spec_files "Format Spec Files" {
   invariants [formatting_idempotency, formatting_consistency, comment_preservation, format_rule_determinism, formatting_semantic_preservation]
+  category   query
   types      [FormatConfig, FormatDiff]
   ports      [FileSystem, CompilerApi]
   produces   [format_complete]
@@ -45,6 +45,7 @@ behavior format_spec_files "Format Spec Files" {
 
 behavior preserve_comments "Preserve Comments During Formatting" {
   invariants [comment_preservation]
+  category   command
   types      [FormatConfig]
 
   requires {
@@ -75,6 +76,7 @@ behavior preserve_comments "Preserve Comments During Formatting" {
 
 behavior check_formatting "Check Formatting Without Modifying Files" {
   // Dry-run mode: does not emit format_complete (no files modified)
+  category   validation
   invariants [formatting_idempotency, formatting_consistency, comment_preservation, format_rule_determinism, dry_run_side_effect_freedom, formatting_semantic_preservation]
   types      [FormatConfig, FormatDiff]
   ports      [FileSystem]
@@ -106,6 +108,7 @@ behavior check_formatting "Check Formatting Without Modifying Files" {
 
 behavior show_formatting_diff "Show Formatting Diff" {
   // Dry-run mode: does not emit format_complete (no files modified)
+  category   query
   invariants [formatting_idempotency, formatting_consistency, comment_preservation, format_rule_determinism, dry_run_side_effect_freedom, formatting_semantic_preservation]
   types      [FormatDiff]
   ports      [FileSystem]
@@ -136,6 +139,7 @@ behavior show_formatting_diff "Show Formatting Diff" {
 
 behavior format_from_stdin "Format from Standard Input" {
   invariants [formatting_idempotency, formatting_consistency, comment_preservation, format_rule_determinism, formatting_semantic_preservation]
+  category   query
   types      [FormatConfig]
   produces   [format_complete]
 
@@ -171,6 +175,7 @@ behavior format_from_stdin "Format from Standard Input" {
 
 behavior load_format_config "Load Format Configuration" {
   invariants [config_defaults_valid]
+  category   query
   types      [FormatConfig]
   ports      [FileSystem]
 
@@ -208,6 +213,7 @@ behavior load_format_config "Load Format Configuration" {
 
 behavior apply_format_rules "Apply Format Rules" {
   // Extension format rules are discovered via the contribution registry at format time
+  category   query
   invariants [formatting_idempotency, formatting_consistency, comment_preservation, format_rule_determinism, format_rule_priority, formatting_semantic_preservation]
   types      [FormatConfig, FormatRule]
   ports      [WasmRuntime]
@@ -255,6 +261,7 @@ behavior apply_format_rules "Apply Format Rules" {
 
 behavior maintain_format_idempotency "Maintain Format Idempotency" {
   invariants [formatting_idempotency, formatting_semantic_preservation]
+  category   query
   types      [FormatConfig]
 
   requires {
@@ -283,6 +290,7 @@ behavior maintain_format_idempotency "Maintain Format Idempotency" {
 
 behavior lsp_format_document "LSP Format Document" {
   invariants [formatting_idempotency, formatting_consistency, comment_preservation, format_rule_determinism, formatting_semantic_preservation]
+  category   query
   types      [FormatConfig, TextEdit]
   refs       [format_with_parse_errors]
   ports      [LspProtocol]
@@ -322,6 +330,7 @@ behavior lsp_format_document "LSP Format Document" {
 
 behavior lsp_format_range "LSP Format Range" {
   invariants [formatting_idempotency, formatting_consistency, comment_preservation, format_rule_determinism, formatting_semantic_preservation]
+  category   query
   types      [FormatConfig, TextEdit]
   ports      [LspProtocol]
   produces   [format_complete]
@@ -359,6 +368,7 @@ behavior lsp_format_range "LSP Format Range" {
 
 behavior lsp_respect_editor_config "LSP Respect Editor Config" {
   invariants [config_defaults_valid, format_rule_determinism]
+  category   command
   types      [FormatConfig]
   ports      [LspProtocol]
 
@@ -386,6 +396,7 @@ behavior lsp_respect_editor_config "LSP Respect Editor Config" {
 behavior format_with_parse_errors "Format Files with Parse Errors" {
   // formatting_consistency applies to well-formed regions only; error regions
   // are preserved verbatim and do not participate in consistency checks.
+  category   query
   invariants [comment_preservation, formatting_idempotency, formatting_consistency, format_rule_determinism, formatting_semantic_preservation]
   types      [FormatConfig, FormatDiff]
   ports      [FileSystem, LspProtocol]
@@ -427,6 +438,7 @@ behavior format_with_parse_errors "Format Files with Parse Errors" {
 
 behavior discover_format_targets "Discover Format Targets" {
   invariants [discover_completeness]
+  category   query
   types      [FormatConfig, CompilerConfig]
   ports      [FileSystem]
 

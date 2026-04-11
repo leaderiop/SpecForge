@@ -2,14 +2,14 @@
 // These behaviors are contributed by the markdown-renderer extension,
 // not part of the core compiler.
 
-use invariants/validation
-use types/graph
-use types/output
-use types/errors
-use ports/outbound
-
+use "invariants/validation"
+use "types/graph"
+use "types/output"
+use "types/errors"
+use "ports/outbound"
 behavior render_markdown_documentation "Render Markdown Documentation" {
   invariants [diagnostic_determinism]
+  category   query
   types      [Graph, OutputFile, EmitterError]
   ports      [GraphSerializer, FileSystem]
 
@@ -29,6 +29,7 @@ behavior render_markdown_documentation "Render Markdown Documentation" {
 
 behavior render_index_files "Render Index Files" {
   invariants [diagnostic_determinism]
+  category   query
   types      [Graph, OutputFile, EmitterError]
   ports      [GraphSerializer, FileSystem]
 
@@ -45,6 +46,7 @@ behavior render_index_files "Render Index Files" {
 
 behavior selective_render_by_entity_type "Selective Render by Entity Kind" {
   invariants [diagnostic_determinism]
+  category   query
   types      [Graph, OutputFile, EmitterError]
   ports      [GraphSerializer, FileSystem]
 

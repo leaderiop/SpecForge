@@ -36,6 +36,7 @@ type MappingResolutionLevel = tests_field | proc_macro | convention
 // Registry holds all collected test results for a single binary.
 // Written to target/specforge/<binary-name>.json at process exit.
 type BinaryReport {
+  schema_version string  @readonly
   binary_name  string    @readonly
   entries      TestRecordEntry[]
 }
@@ -66,7 +67,8 @@ type CoverageDiff {
   entity_kind  string    @readonly
   expected     integer
   covered      integer
+  passing      integer
   status       CoverageDiffStatus
 }
 
-type CoverageDiffStatus = fully_covered | partially_covered | uncovered | no_intent
+type CoverageDiffStatus = fully_covered | covered_with_failures | partially_covered | uncovered | no_intent

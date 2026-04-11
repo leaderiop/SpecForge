@@ -1,7 +1,6 @@
-use types/wasm
-use types/zero-entity-core
-use types/graph
-
+use "types/wasm"
+use "types/zero-entity-core"
+use "types/graph"
 // Configuration types — compiler and extension configuration
 //
 // DSL-to-type mapping for specforge.json / spec block syntax:

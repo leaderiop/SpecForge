@@ -1,14 +1,13 @@
 // @specforge/software features — capability groupings
 
-use behaviors/validation
-use extensions/software/behaviors
-use extensions/software/validation-rules
-use extensions/software/formal-contracts
-use extensions/software/formal-refinement
-use extensions/software/formal-concurrency
-use extensions/software/formal-proofs
-use extensions/software/analyze-commands
-
+use "behaviors/validation"
+use "extensions/software/behaviors"
+use "extensions/software/validation-rules"
+use "extensions/software/formal-contracts"
+use "extensions/software/formal-refinement"
+use "extensions/software/formal-concurrency"
+use "extensions/software/formal-proofs"
+use "extensions/software/analyze-commands"
 feature se_gherkin_bridge "Gherkin Bridge" {
   behaviors [se_parse_gherkin_statements, validate_file_reference_paths]
 

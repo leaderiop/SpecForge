@@ -1,11 +1,10 @@
 // @specforge/software extension invariants — guarantees on entity behavior
 
-use extensions/software/types
-use extensions/software/behaviors
-use extensions/software/formal-contracts
-use extensions/software/formal-refinement
-use extensions/software/validation-rules
-
+use "extensions/software/types"
+use "extensions/software/behaviors"
+use "extensions/software/formal-contracts"
+use "extensions/software/formal-refinement"
+use "extensions/software/validation-rules"
 invariant se_behavior_testability "Behavior Testability" {
   guarantee """
     Behavior entities MUST have testable=true. They MUST accept verify

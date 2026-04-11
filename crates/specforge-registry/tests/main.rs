@@ -1,0 +1,10 @@
+mod keyword_index;
+mod product_manifest;
+mod provider;
+mod registry_client;
+mod registry_config;
+mod registry_ops;
+mod software_manifest;
+mod surface;
+mod zero_entity_registries;
+mod zero_entity_validation;

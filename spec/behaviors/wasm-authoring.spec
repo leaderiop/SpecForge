@@ -1,14 +1,14 @@
 // Extension development workflow — scaffold, build, test, publish
 
-use invariants/wasm
-use invariants/extensions
-use types/wasm
-use types/errors
-use ports/outbound
-use events/wasm-authoring
-
+use "invariants/wasm"
+use "invariants/extensions"
+use "types/wasm"
+use "types/errors"
+use "ports/outbound"
+use "events/wasm-authoring"
 behavior scaffold_wasm_extension_project "Scaffold Wasm Extension Project" {
   invariants [extension_operation_atomicity]
+  category   command
   types      [ManifestV2]
   ports      [FileSystem]
 
@@ -41,6 +41,7 @@ behavior scaffold_wasm_extension_project "Scaffold Wasm Extension Project" {
 
 behavior build_wasm_extension "Build Wasm Extension" {
   invariants [extension_operation_atomicity]
+  category   command
   types      [ManifestV2, ExtensionError]
   ports      [FileSystem]
 
@@ -72,6 +73,7 @@ behavior build_wasm_extension "Build Wasm Extension" {
 
 behavior validate_wasm_extension_locally "Validate Wasm Extension Locally" {
   invariants [wasm_sandbox_integrity]
+  category   validation
   types      [ManifestV2, SandboxPolicy, ExtensionError]
   ports      [WasmRuntime, FileSystem]
 
@@ -115,6 +117,7 @@ behavior validate_wasm_extension_locally "Validate Wasm Extension Locally" {
 // Handles Wasm binary packaging and upload.
 behavior publish_wasm_extension "Publish Wasm Extension" {
   invariants [registry_integrity, registry_api_openness]
+  category   command
   types      [ManifestV2, ExtensionError]
   ports      [FileSystem, RegistryClient]
 

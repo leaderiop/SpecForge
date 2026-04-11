@@ -1,12 +1,11 @@
 // Extension entity kinds, enhancements, contributions, collectors,
 // discovery, lock files, and doctor events
 
-use types/wasm
-use types/core
-use behaviors/wasm-extensions
-use behaviors/wasm-lifecycle
-use behaviors/wasm-sandbox
-
+use "types/wasm"
+use "types/core"
+use "behaviors/wasm-extensions"
+use "behaviors/wasm-lifecycle"
+use "behaviors/wasm-sandbox"
 // ── Query Extension Events ───────────────────────────────────
 
 event query_extensions_loaded "Query Extensions Loaded" {

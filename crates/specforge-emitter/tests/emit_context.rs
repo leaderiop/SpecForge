@@ -1,10 +1,11 @@
-use specforge_common::SourceSpan;
+use specforge_common::{SourceSpan, Sym};
 use specforge_graph::{Edge, Graph, Node};
 use specforge_parser::{EntityId, EntityKind, FieldMap, FieldValue, VerifyStatement};
+use specforge_test::prelude::*;
 
 fn span() -> SourceSpan {
     SourceSpan {
-        file: "test.spec".to_string(),
+        file: Sym::new("test.spec"),
         start_line: 1,
         start_col: 0,
         end_line: 1,
@@ -15,19 +16,19 @@ fn span() -> SourceSpan {
 fn rich_node() -> Node {
     let mut fields = FieldMap::new();
     fields.push(
-        "contract".to_string(),
+        Sym::new("contract"),
         FieldValue::String("The system MUST do X".to_string()),
     );
     fields.push(
-        "description".to_string(),
+        Sym::new("description"),
         FieldValue::String("A very long verbose prose field that agents don't need".to_string()),
     );
     fields.push(
-        "status".to_string(),
+        Sym::new("status"),
         FieldValue::Identifier("done".to_string()),
     );
     fields.push(
-        "verify".to_string(),
+        Sym::new("verify"),
         FieldValue::VerifyList(vec![
             VerifyStatement {
                 kind: "unit".to_string(),
@@ -36,15 +37,17 @@ fn rich_node() -> Node {
         ]),
     );
     Node {
-        id: EntityId { raw: "alpha".to_string() },
-        kind: EntityKind { raw: "behavior".to_string() },
+        id: EntityId { raw: Sym::new("alpha") },
+        kind: EntityKind { raw: Sym::new("behavior") },
         title: Some("Alpha Behavior".to_string()),
         fields,
         source_span: span(),
     }
 }
 
+// B:export_agent_context_format — verify unit "context format includes entity IDs and contracts"
 #[test]
+#[specforge_test(behavior = "export_agent_context_format", verify = "context format includes entity IDs and contracts")]
 fn context_includes_contracts_and_verify() {
     let mut graph = Graph::new();
     graph.add_node(rich_node());
@@ -66,7 +69,9 @@ fn context_includes_contracts_and_verify() {
     assert_eq!(node["status"], "done");
 }
 
+// B:export_agent_context_format — verify unit "context format omits verbose prose fields"
 #[test]
+#[specforge_test(behavior = "export_agent_context_format", verify = "context format omits verbose prose fields")]
 fn context_omits_verbose_prose_fields() {
     let mut graph = Graph::new();
     graph.add_node(rich_node());
@@ -83,26 +88,29 @@ fn context_omits_verbose_prose_fields() {
     );
 }
 
+// B:export_agent_context_format — verify unit "output includes schema_version field"
+// B:export_agent_context_format — verify unit "output conforms to Graph Protocol schema"
 #[test]
+#[specforge_test(behavior = "export_agent_context_format", verify = "output includes schema_version field")]
 fn context_includes_edges_and_schema_version() {
     let mut graph = Graph::new();
     graph.add_node(rich_node());
     let mut node_b = Node {
-        id: EntityId { raw: "beta".to_string() },
-        kind: EntityKind { raw: "feature".to_string() },
+        id: EntityId { raw: Sym::new("beta") },
+        kind: EntityKind { raw: Sym::new("feature") },
         title: Some("Beta".to_string()),
         fields: FieldMap::new(),
         source_span: span(),
     };
     node_b.fields.push(
-        "contract".to_string(),
+        Sym::new("contract"),
         FieldValue::String("Feature contract".to_string()),
     );
     graph.add_node(node_b);
     graph.add_edge(Edge {
-        source: "beta".to_string(),
-        target: "alpha".to_string(),
-        label: "behaviors".to_string(),
+        source: Sym::new("beta"),
+        target: Sym::new("alpha"),
+        label: Sym::new("behaviors"),
     });
 
     let json = specforge_emitter::emit_context(&graph);
@@ -112,7 +120,32 @@ fn context_includes_edges_and_schema_version() {
     assert_eq!(parsed["edges"].as_array().unwrap().len(), 1);
 }
 
+// B:export_agent_context_format — verify unit "output conforms to Graph Protocol schema"
 #[test]
+#[specforge_test(behavior = "export_agent_context_format", verify = "output conforms to Graph Protocol schema")]
+fn context_conforms_to_graph_protocol_schema() {
+    let mut graph = Graph::new();
+    graph.add_node(rich_node());
+
+    let json = specforge_emitter::emit_context(&graph);
+    let parsed: serde_json::Value = serde_json::from_str(&json).expect("valid JSON");
+
+    // Graph Protocol requires: schema_version, nodes array, edges array
+    assert!(parsed["schema_version"].is_string(), "must have schema_version");
+    assert!(parsed["nodes"].is_array(), "must have nodes array");
+    assert!(parsed["edges"].is_array(), "must have edges array");
+
+    // Each node must have id and kind
+    for node in parsed["nodes"].as_array().unwrap() {
+        assert!(node["id"].is_string(), "each node must have id");
+        assert!(node["kind"].is_string(), "each node must have kind");
+    }
+}
+
+// B:export_agent_context_format — verify unit "context format omits verbose prose fields"
+// (demonstrates token optimization by size comparison)
+#[test]
+#[specforge_test(behavior = "export_agent_context_format")]
 fn context_is_smaller_than_full_json() {
     let mut graph = Graph::new();
     graph.add_node(rich_node());

@@ -1,5 +1,5 @@
 use crate::ValidatorConfig;
-use specforge_common::{find_close_match, Diagnostic, Severity};
+use specforge_common::{find_close_match, Diagnostic};
 use specforge_graph::Graph;
 use specforge_parser::FieldValue;
 use std::path::Path;
@@ -20,16 +20,18 @@ pub fn validate_file_references(
                     let full_path = config.spec_root.join(path);
                     if !full_path.exists() {
                         let suggestion = suggest_similar_file(path, &config.spec_root);
-                        diagnostics.push(Diagnostic {
-                            code: "E016".to_string(),
-                            severity: Severity::Error,
-                            message: format!(
+                        let mut diag = Diagnostic::error(
+                            "E016",
+                            format!(
                                 "file reference '{}' in entity '{}' does not exist",
                                 path, node.id.raw
                             ),
-                            span: Some(node.source_span.clone()),
-                            suggestion,
-                        });
+                        )
+                        .with_span(node.source_span.clone());
+                        if let Some(s) = suggestion {
+                            diag = diag.with_suggestion(s);
+                        }
+                        diagnostics.push(diag);
                     }
                 }
             }

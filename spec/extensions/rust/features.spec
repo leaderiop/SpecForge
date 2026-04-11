@@ -1,7 +1,6 @@
 // @specforge/rust extension features — Rust test collection
 
-use extensions/rust/behaviors
-
+use "extensions/rust/behaviors"
 feature rust_test_collection "Rust Test Collection" {
   behaviors [collect_rust_test_results, parse_junit_xml, parse_libtest_json, resolve_entity_mapping, validate_rust_entity_ids, merge_workspace_reports, emit_specforge_report_from_rust]
 

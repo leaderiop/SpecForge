@@ -1,4 +1,5 @@
 ; Keywords
+"pub" @keyword
 "use" @keyword
 "spec" @keyword
 "ref" @keyword
@@ -71,5 +72,6 @@
 ; Negative integers
 (negative_integer) @number
 
-; Import paths
-(import_path) @string.special
+; Import keywords
+"from" @keyword
+"as" @keyword

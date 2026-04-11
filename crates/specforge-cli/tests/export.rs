@@ -166,3 +166,132 @@ fn export_with_nonexistent_scope_exits_one() {
         .assert()
         .code(1);
 }
+
+// B:embed_schema_in_export — V2 format with embedded schema (default)
+#[test]
+fn export_default_produces_v2_with_schema() {
+    let dir = setup_project(&[("main.spec", SPEC_CONTENT)]);
+
+    let output = specforge_cmd()
+        .args(["export", "--format=graph"])
+        .arg(dir.path())
+        .output()
+        .unwrap();
+
+    assert!(output.status.success());
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let parsed: serde_json::Value = serde_json::from_str(&stdout).unwrap();
+
+    assert_eq!(parsed["format_version"], "2.0");
+    assert!(parsed["schema"].is_object());
+    assert!(parsed["schema_version"].is_string());
+}
+
+// B:embed_schema_in_export — --no-schema suppresses schema and outputs V1 format
+#[test]
+fn export_no_schema_flag_produces_v1() {
+    let dir = setup_project(&[("main.spec", SPEC_CONTENT)]);
+
+    let output = specforge_cmd()
+        .args(["export", "--format=graph", "--no-schema"])
+        .arg(dir.path())
+        .output()
+        .unwrap();
+
+    assert!(output.status.success());
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let parsed: serde_json::Value = serde_json::from_str(&stdout).unwrap();
+
+    assert!(parsed.get("format_version").is_none(), "V1 format has no format_version");
+    assert!(parsed.get("schema").is_none(), "V1 format has no schema key");
+    assert!(parsed["schema_version"].is_string(), "V1 format has schema_version");
+}
+
+// B:embed_schema_in_export — V2 brief with schema
+#[test]
+fn export_brief_produces_v2_with_schema() {
+    let dir = setup_project(&[("main.spec", SPEC_CONTENT)]);
+
+    let output = specforge_cmd()
+        .args(["export", "--format=brief"])
+        .arg(dir.path())
+        .output()
+        .unwrap();
+
+    assert!(output.status.success());
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let parsed: serde_json::Value = serde_json::from_str(&stdout).unwrap();
+
+    assert_eq!(parsed["format_version"], "2.0");
+    assert!(parsed["schema"].is_object());
+}
+
+// B:embed_schema_in_export — V2 context with schema
+#[test]
+fn export_context_produces_v2_with_schema() {
+    let dir = setup_project(&[("main.spec", SPEC_CONTENT)]);
+
+    let output = specforge_cmd()
+        .args(["export", "--format=context"])
+        .arg(dir.path())
+        .output()
+        .unwrap();
+
+    assert!(output.status.success());
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let parsed: serde_json::Value = serde_json::from_str(&stdout).unwrap();
+
+    assert_eq!(parsed["format_version"], "2.0");
+    assert!(parsed["schema"].is_object());
+}
+
+// B:negotiate_schema_version — invalid --schema-version exits 1
+#[test]
+fn export_invalid_schema_version_exits_one() {
+    let dir = setup_project(&[("main.spec", SPEC_CONTENT)]);
+
+    specforge_cmd()
+        .args(["export", "--format=graph", "--schema-version=invalid"])
+        .arg(dir.path())
+        .assert()
+        .code(1);
+}
+
+// B:serve_schema_resource — specforge schema command outputs JSON
+#[test]
+fn schema_command_outputs_json() {
+    let dir = setup_project(&[("main.spec", SPEC_CONTENT)]);
+
+    let output = specforge_cmd()
+        .args(["schema"])
+        .arg(dir.path())
+        .output()
+        .unwrap();
+
+    assert!(output.status.success());
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let parsed: serde_json::Value = serde_json::from_str(&stdout).unwrap();
+
+    assert!(parsed["schema_version"].is_object());
+    assert!(parsed["entity_kinds"].is_array());
+    assert!(parsed["edge_types"].is_array());
+}
+
+// B:publish_schema_specification — specforge schema --publish outputs JSON Schema
+#[test]
+fn schema_publish_outputs_json_schema() {
+    let dir = setup_project(&[("main.spec", SPEC_CONTENT)]);
+
+    let output = specforge_cmd()
+        .args(["schema", "--publish"])
+        .arg(dir.path())
+        .output()
+        .unwrap();
+
+    assert!(output.status.success());
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let parsed: serde_json::Value = serde_json::from_str(&stdout).unwrap();
+
+    assert_eq!(parsed["$schema"], "https://json-schema.org/draft/2020-12/schema");
+    assert_eq!(parsed["title"], "SpecForge Graph Protocol");
+}

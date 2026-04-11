@@ -1,7 +1,6 @@
 // LSP-specific types for hover, completion, and document symbols
 
-use types/core
-
+use "types/core"
 type ContentChangeEvent {
   start_line   integer
   start_col    integer

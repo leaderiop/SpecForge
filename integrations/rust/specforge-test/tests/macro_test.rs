@@ -5,7 +5,7 @@ static SERIAL: Mutex<()> = Mutex::new(());
 
 #[test]
 fn macro_injects_guard_that_records_to_registry() {
-    let _lock = SERIAL.lock().unwrap();
+    let _lock = SERIAL.lock().unwrap_or_else(|e| e.into_inner());
     registry::drain();
 
     annotated_passing_test();
@@ -19,7 +19,7 @@ fn macro_injects_guard_that_records_to_registry() {
 
 #[test]
 fn macro_supports_invariant_kind() {
-    let _lock = SERIAL.lock().unwrap();
+    let _lock = SERIAL.lock().unwrap_or_else(|e| e.into_inner());
     registry::drain();
 
     annotated_invariant_test();
@@ -31,8 +31,22 @@ fn macro_supports_invariant_kind() {
 }
 
 #[test]
+fn macro_accepts_custom_entity_kind() {
+    let _lock = SERIAL.lock().unwrap_or_else(|e| e.into_inner());
+    registry::drain();
+
+    annotated_custom_kind_test();
+
+    let entries = registry::drain();
+    assert_eq!(entries.len(), 1);
+    assert_eq!(entries[0].entity_kind, "constraint");
+    assert_eq!(entries[0].entity_id, "naming_convention");
+    assert_eq!(entries[0].outcome, TestOutcome::Pass);
+}
+
+#[test]
 fn multiple_attributes_produce_multiple_guards() {
-    let _lock = SERIAL.lock().unwrap();
+    let _lock = SERIAL.lock().unwrap_or_else(|e| e.into_inner());
     registry::drain();
 
     annotated_multi_entity();
@@ -46,7 +60,7 @@ fn multiple_attributes_produce_multiple_guards() {
 
 #[test]
 fn panicking_annotated_function_records_fail() {
-    let _lock = SERIAL.lock().unwrap();
+    let _lock = SERIAL.lock().unwrap_or_else(|e| e.into_inner());
     registry::drain();
 
     let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
@@ -66,6 +80,10 @@ fn annotated_passing_test() {
 
 #[specforge_test_macros::test(invariant = "unique_ids")]
 fn annotated_invariant_test() {
+}
+
+#[specforge_test_macros::test(constraint = "naming_convention")]
+fn annotated_custom_kind_test() {
 }
 
 #[specforge_test_macros::test(behavior = "create_user")]

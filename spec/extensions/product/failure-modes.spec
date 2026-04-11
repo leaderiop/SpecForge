@@ -3,8 +3,7 @@
 // Failure modes specific to the product entity model:
 // library dependency concerns.
 
-use extensions/product/invariants
-
+use "extensions/product/invariants"
 failure_mode library_cycle_detection_miss "Library Cycle Detection Miss" {
   invariant  library_dag
   severity   5

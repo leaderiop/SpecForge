@@ -1,10 +1,11 @@
-use specforge_common::SourceSpan;
+use specforge_common::{SourceSpan, Sym};
 use specforge_graph::{Edge, Graph, Node};
 use specforge_parser::{EntityId, EntityKind, FieldMap, FieldValue, VerifyStatement};
+use specforge_test::prelude::*;
 
 fn span() -> SourceSpan {
     SourceSpan {
-        file: "test.spec".to_string(),
+        file: Sym::new("test.spec"),
         start_line: 1,
         start_col: 0,
         end_line: 1,
@@ -14,8 +15,8 @@ fn span() -> SourceSpan {
 
 fn node(id: &str, kind: &str) -> Node {
     Node {
-        id: EntityId { raw: id.to_string() },
-        kind: EntityKind { raw: kind.to_string() },
+        id: EntityId { raw: Sym::new(id) },
+        kind: EntityKind { raw: Sym::new(kind) },
         title: None,
         fields: FieldMap::new(),
         source_span: span(),
@@ -25,22 +26,24 @@ fn node(id: &str, kind: &str) -> Node {
 fn node_with_verify(id: &str, kind: &str) -> Node {
     let mut fields = FieldMap::new();
     fields.push(
-        "verify".to_string(),
+        Sym::new("verify"),
         FieldValue::VerifyList(vec![VerifyStatement {
             kind: "unit".to_string(),
             description: "it works".to_string(),
         }]),
     );
     Node {
-        id: EntityId { raw: id.to_string() },
-        kind: EntityKind { raw: kind.to_string() },
+        id: EntityId { raw: Sym::new(id) },
+        kind: EntityKind { raw: Sym::new(kind) },
         title: None,
         fields,
         source_span: span(),
     }
 }
 
+// B:compute_project_statistics — verify unit "stats reports correct entity counts"
 #[test]
+#[specforge_test(behavior = "compute_project_statistics", verify = "stats reports correct entity counts")]
 fn stats_reports_correct_entity_counts() {
     let mut graph = Graph::new();
     graph.add_node(node("a", "behavior"));
@@ -53,38 +56,46 @@ fn stats_reports_correct_entity_counts() {
     assert_eq!(stats.entities_by_kind["feature"], 1);
 }
 
+// B:compute_project_statistics — verify unit "stats reports correct entity counts"
+// (covers edge count reporting)
 #[test]
+#[specforge_test(behavior = "compute_project_statistics")]
 fn stats_reports_edge_count() {
     let mut graph = Graph::new();
     graph.add_node(node("a", "feature"));
     graph.add_node(node("b", "behavior"));
     graph.add_edge(Edge {
-        source: "a".to_string(),
-        target: "b".to_string(),
-        label: "behaviors".to_string(),
+        source: Sym::new("a"),
+        target: Sym::new("b"),
+        label: Sym::new("behaviors"),
     });
 
     let stats = specforge_emitter::compute_stats(&graph);
     assert_eq!(stats.total_edges, 1);
 }
 
+// B:compute_project_statistics — verify unit "stats reports orphan count"
 #[test]
+#[specforge_test(behavior = "compute_project_statistics", verify = "stats reports orphan count")]
 fn stats_reports_orphan_count() {
     let mut graph = Graph::new();
     graph.add_node(node("a", "behavior")); // orphan — no edges
     graph.add_node(node("b", "feature"));
     graph.add_node(node("c", "behavior"));
     graph.add_edge(Edge {
-        source: "b".to_string(),
-        target: "c".to_string(),
-        label: "behaviors".to_string(),
+        source: Sym::new("b"),
+        target: Sym::new("c"),
+        label: Sym::new("behaviors"),
     });
 
     let stats = specforge_emitter::compute_stats(&graph);
     assert_eq!(stats.orphan_count, 1); // only "a" is orphan
 }
 
+// B:compute_project_statistics — verify unit "stats reports coverage percentage"
+// (covers verified entity counting for coverage computation)
 #[test]
+#[specforge_test(behavior = "compute_project_statistics")]
 fn stats_reports_verified_count() {
     let mut graph = Graph::new();
     graph.add_node(node_with_verify("a", "behavior"));
@@ -94,7 +105,10 @@ fn stats_reports_verified_count() {
     assert_eq!(stats.verified_count, 1);
 }
 
+// B:compute_project_statistics — verify unit "stats reports correct entity counts"
+// (edge case: empty graph)
 #[test]
+#[specforge_test(behavior = "compute_project_statistics")]
 fn stats_on_empty_graph() {
     let graph = Graph::new();
     let stats = specforge_emitter::compute_stats(&graph);
@@ -104,7 +118,9 @@ fn stats_on_empty_graph() {
     assert_eq!(stats.verified_count, 0);
 }
 
+// B:compute_project_statistics — verify unit "stats reports coverage percentage"
 #[test]
+#[specforge_test(behavior = "compute_project_statistics", verify = "stats reports coverage percentage")]
 fn stats_coverage_with_testable_kinds() {
     let mut graph = Graph::new();
     graph.add_node(node_with_verify("a", "behavior")); // testable + verified
@@ -119,7 +135,9 @@ fn stats_coverage_with_testable_kinds() {
     assert!((stats.coverage_pct - 50.0).abs() < 0.01);
 }
 
+// B:compute_project_statistics — verify unit "coverage is 0% when testable_entity_count is zero"
 #[test]
+#[specforge_test(behavior = "compute_project_statistics", verify = "coverage is 0% when testable_entity_count is zero")]
 fn stats_coverage_zero_when_no_testable_entities() {
     let mut graph = Graph::new();
     graph.add_node(node("a", "feature")); // not testable
@@ -130,7 +148,9 @@ fn stats_coverage_zero_when_no_testable_entities() {
     assert_eq!(stats.coverage_pct, 0.0);
 }
 
+// B:compute_project_statistics — verify unit "stats reports diagnostic summary"
 #[test]
+#[specforge_test(behavior = "compute_project_statistics", verify = "stats reports diagnostic summary")]
 fn stats_includes_diagnostic_summary() {
     let graph = Graph::new();
     let diagnostics = vec![

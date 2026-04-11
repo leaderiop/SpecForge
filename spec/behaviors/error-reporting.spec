@@ -1,15 +1,15 @@
 // Error reporting behaviors — diagnostic formatting and UX
 
-use invariants/core
-use invariants/validation
-use types/diagnostics
-use types/core
-use events/compilation
-use invariants/zero-entity-core
-use types/zero-entity-core
-
+use "invariants/core"
+use "invariants/validation"
+use "types/diagnostics"
+use "types/core"
+use "events/compilation"
+use "invariants/zero-entity-core"
+use "types/zero-entity-core"
 behavior format_diagnostics_with_source_context "Format Diagnostics with Source Context" {
   // Runs inline during resolution pass, not event-driven
+  category   query
   invariants [multi_error_collection, diagnostic_determinism, zero_domain_knowledge_core]
   types      [Diagnostic, SourceSpan, CodePrefix]
 
@@ -39,6 +39,7 @@ behavior format_diagnostics_with_source_context "Format Diagnostics with Source 
 
 behavior provide_did_you_mean_suggestions "Provide Did-You-Mean Suggestions" {
   // Runs inline during resolution pass, not event-driven
+  category   query
   invariants [reference_resolution_completeness, zero_domain_knowledge_core]
   types      [Diagnostic, EntityId]
 
@@ -69,6 +70,7 @@ behavior provide_did_you_mean_suggestions "Provide Did-You-Mean Suggestions" {
 
 behavior aggregate_diagnostic_summary "Aggregate Diagnostic Summary" {
   invariants [multi_error_collection, diagnostic_determinism, zero_domain_knowledge_core]
+  category   query
   types      [DiagnosticBag]
   consumes  [declarative_validation_executed]
   produces   [validation_complete]

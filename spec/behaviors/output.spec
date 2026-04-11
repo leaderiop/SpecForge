@@ -1,21 +1,21 @@
 // Output behaviors — serialization and export of the spec graph
 
-use invariants/core
-use invariants/validation
-use invariants/zero-entity-core
-use types/graph
-use types/output
-use types/diagnostics
-use types/errors
-use types/zero-entity-core
-use ports/outbound
-use ports/inbound
-use events/compilation
-
+use "invariants/core"
+use "invariants/validation"
+use "invariants/zero-entity-core"
+use "types/graph"
+use "types/output"
+use "types/diagnostics"
+use "types/errors"
+use "types/zero-entity-core"
+use "ports/outbound"
+use "ports/inbound"
+use "events/compilation"
 // render_markdown_documentation moved to spec/extensions/markdown-renderer/behaviors.spec
 
 behavior serialize_json_graph "Serialize JSON Graph" {
   invariants [graph_traversal_integrity, diagnostic_determinism, graph_schema_completeness, zero_domain_knowledge_core]
+  category   query
   types      [Graph, GraphProtocolSchema, OutputFile, EmitterError]
   ports      [GraphSerializer, FileSystem]
   consumes   [validation_complete]
@@ -60,6 +60,7 @@ behavior serialize_json_graph "Serialize JSON Graph" {
 // the full P7 rationale.
 behavior serialize_dot_visualization "Serialize DOT Visualization" {
   invariants [graph_traversal_integrity, diagnostic_determinism, zero_domain_knowledge_core]
+  category   query
   types      [Graph, OutputFile, EmitterError]
   ports      [GraphSerializer, FileSystem]
   consumes   [validation_complete]
@@ -96,6 +97,7 @@ behavior serialize_dot_visualization "Serialize DOT Visualization" {
 
 behavior compute_traceability_chain "Compute Traceability Chain" {
   invariants [graph_traversal_integrity, diagnostic_determinism, zero_domain_knowledge_core]
+  category   query
   types      [Graph, TraceChain, TraceLink]
   ports      [CompilerApi]
   consumes   [validation_complete]
@@ -134,6 +136,7 @@ behavior compute_traceability_chain "Compute Traceability Chain" {
 // not a pipeline signal.
 behavior compute_project_statistics "Compute Project Statistics" {
   invariants [diagnostic_determinism, testable_entity_classification, zero_domain_knowledge_core]
+  category   query
   types      [Graph, KindRegistryEntry, ProjectStatistics, DiagnosticSummary]
   consumes   [validation_complete]
 
@@ -170,6 +173,7 @@ behavior compute_project_statistics "Compute Project Statistics" {
 
 behavior print_diagnostics_structured "Print Diagnostics Structured" {
   invariants [multi_error_collection, diagnostic_determinism, zero_domain_knowledge_core]
+  category   command
   types      [Diagnostic, DiagnosticBag]
   ports      [CompilerApi]
   consumes   [validation_complete]
@@ -199,6 +203,7 @@ behavior print_diagnostics_structured "Print Diagnostics Structured" {
 
 behavior exit_code_reflects_diagnostic_severity "Exit Code Reflects Diagnostic Severity" {
   invariants [multi_error_collection, diagnostic_determinism, zero_domain_knowledge_core]
+  category   command
   types      [DiagnosticBag]
   ports      [CompilerApi]
   consumes   [validation_complete]
@@ -228,6 +233,7 @@ behavior exit_code_reflects_diagnostic_severity "Exit Code Reflects Diagnostic S
 
 behavior serialize_traceability_data "Serialize Traceability Data" {
   invariants [graph_traversal_integrity, diagnostic_determinism, zero_domain_knowledge_core]
+  category   query
   types      [Graph, TraceChain, TraceLink, OutputFile]
   ports      [GraphSerializer, FileSystem]
   consumes   [validation_complete]
@@ -261,6 +267,7 @@ behavior serialize_traceability_data "Serialize Traceability Data" {
 
 behavior validate_agent_plan "Validate Agent Implementation Plan" {
   invariants [graph_traversal_integrity, diagnostic_determinism, zero_domain_knowledge_core]
+  category   validation
   types      [Graph, TraceChain, TraceLink, AgentPlan, AgentPlanEntry, PlanValidationResult, PlanValidationEntry]
   ports      [CompilerApi]
   consumes   [validation_complete]
@@ -305,6 +312,7 @@ behavior validate_agent_plan "Validate Agent Implementation Plan" {
 
 behavior deterministic_output "Deterministic Output" {
   invariants [diagnostic_determinism, zero_domain_knowledge_core, graph_traversal_integrity]
+  category   command
   types      [OutputFile]
   ports      [CompilerApi]
   consumes   [validation_complete]
@@ -335,6 +343,7 @@ behavior deterministic_output "Deterministic Output" {
 
 behavior check_mode_for_ci "Check Mode for CI" {
   invariants [multi_error_collection, diagnostic_determinism, zero_domain_knowledge_core]
+  category   validation
   types      [DiagnosticBag]
   ports      [CompilerApi]
   consumes   [validation_complete]
@@ -365,6 +374,7 @@ behavior check_mode_for_ci "Check Mode for CI" {
 
 behavior export_diagnostics_as_json "Export Diagnostics as JSON" {
   invariants [multi_error_collection, diagnostic_determinism, zero_domain_knowledge_core]
+  category   query
   types      [DiagnosticBag, Diagnostic, DiagnosticFormat]
   ports      [CompilerApi]
   consumes   [validation_complete]
@@ -405,6 +415,7 @@ behavior export_diagnostics_as_json "Export Diagnostics as JSON" {
 
 behavior export_agent_context_format "Export Agent Context Format" {
   invariants [graph_traversal_integrity, diagnostic_determinism, graph_schema_completeness, zero_domain_knowledge_core]
+  category   query
   types      [Graph, GraphProtocolSchema, OutputFile, AgentExportConfig, ProjectStatistics]
   ports      [CompilerApi]
   consumes   [validation_complete]
@@ -449,6 +460,7 @@ behavior export_agent_context_format "Export Agent Context Format" {
 
 behavior export_agent_brief_format "Export Agent Brief Format" {
   invariants [graph_traversal_integrity, diagnostic_determinism, graph_schema_completeness, zero_domain_knowledge_core]
+  category   query
   types      [Graph, GraphProtocolSchema, OutputFile, AgentExportConfig]
   ports      [CompilerApi]
   consumes   [validation_complete]
@@ -483,6 +495,7 @@ behavior export_agent_brief_format "Export Agent Brief Format" {
 
 behavior export_agent_graph_format "Export Agent Graph Format" {
   invariants [graph_traversal_integrity, diagnostic_determinism, graph_schema_completeness, zero_domain_knowledge_core]
+  category   query
   types      [Graph, GraphProtocolSchema, OutputFile, AgentExportConfig]
   ports      [CompilerApi]
   consumes   [validation_complete]
@@ -524,6 +537,7 @@ behavior export_agent_graph_format "Export Agent Graph Format" {
 
 behavior query_graph_multi_resolution "Query Graph at Multiple Resolutions" {
   invariants [graph_traversal_integrity, diagnostic_determinism, graph_schema_completeness, zero_domain_knowledge_core]
+  category   query
   types      [Graph, GraphProtocolSchema, AgentExportConfig]
   ports      [CompilerApi]
   consumes   [validation_complete]
@@ -570,6 +584,7 @@ behavior query_graph_multi_resolution "Query Graph at Multiple Resolutions" {
 
 behavior enforce_token_budget "Enforce Token Budget" {
   invariants [graph_traversal_integrity, diagnostic_determinism, token_budget_subgraph_consistency, zero_domain_knowledge_core]
+  category   query
   types      [AgentExportConfig, TokenBudgetResult, Graph, OutputFile, ExportResult]
   ports      [CompilerApi]
   consumes   [validation_complete]

@@ -19,7 +19,7 @@ Rules and conventions for authoring **`port` blocks** in `.spec` files. Ports de
 ## Block Syntax
 
 ```spec
-use types/user
+use "types/user"
 
 port UserRepository {
   direction outbound
@@ -75,9 +75,9 @@ Common return patterns:
 - `Result<Type?, never>` -- nullable return, cannot fail
 - `Result<void, Error>` -- no return value, can fail
 
-### Port Operation Contracts
+### Port Operation Conditions
 
-Individual methods can have `requires`/`ensures` blocks for formal contracts:
+Individual methods can have `requires`/`ensures` blocks for structured conditions:
 
 ```spec
 port PaymentGateway {
@@ -104,7 +104,7 @@ port PaymentGateway {
 | From | Edge Type | Meaning |
 |------|-----------|---------|
 | `behavior` | `uses_port` | Behavior uses this port interface |
-| `library` | `defines_port` | Library defines this port interface |
+| `module` | `defines_port` | Module defines this port interface |
 | `invariant` | `enforces` | Invariant enforced by this port's implementation |
 
 ### Outgoing edges
@@ -131,14 +131,14 @@ port PaymentGateway {
 | E001 | Every type name in method signatures must resolve to a declared type or primitive. |
 | E004 | Port method references invalid type. |
 | W005 | Port with no behaviors referencing it. |
-| W036 | Port-behavior contract incompatibility -- port precondition stricter than behavior precondition. |
+| W036 | Port-behavior condition incompatibility -- port precondition stricter than behavior precondition. |
 
 ## Examples
 
 ### Outbound: Database
 
 ```spec
-use types/user
+use "types/user"
 
 port UserRepository {
   direction outbound
@@ -155,7 +155,7 @@ port UserRepository {
 ### Outbound: External Service
 
 ```spec
-use types/email
+use "types/email"
 
 port EmailService {
   direction outbound
@@ -169,7 +169,7 @@ port EmailService {
 ### Inbound: API Surface
 
 ```spec
-use types/user
+use "types/user"
 
 port UserAPI {
   direction inbound
@@ -181,10 +181,10 @@ port UserAPI {
 }
 ```
 
-### Port with Operation Contracts
+### Port with Operation Conditions
 
 ```spec
-use types/payment
+use "types/payment"
 
 port PaymentGateway {
   direction outbound

@@ -101,8 +101,8 @@ Incoming: any entity (`links_to`)
 
 ---
 
-### capability
-> Module: @specforge/product | ID: `UX-{infix}-{n}` | "How does the user experience this?"
+### journey
+> Module: @specforge/product | ID: `identifier` | "How does the user experience this?"
 
 | Required | Optional |
 |----------|----------|
@@ -118,43 +118,43 @@ Incoming: deliverable (`bundles`)
 
 | Required | Optional |
 |----------|----------|
-| title, capabilities | libraries, roadmap, personas, type |
+| title, journeys | modules, milestone, personas, type |
 
-Outgoing: capability (`bundles`), library (`built_from`)
-Incoming: roadmap (`schedules`)
+Outgoing: journey (`bundles`), module (`built_from`)
+Incoming: milestone (`schedules`)
 
 ---
 
-### roadmap
-> Module: @specforge/product | ID: `RM-{n}` | "When does this ship?"
+### milestone
+> Module: @specforge/product | ID: `identifier` | "When does this ship?"
 
 | Required | Optional |
 |----------|----------|
-| title, status | behaviors, features, criteria |
+| title, status | features, criteria |
 
 Outgoing: feature (`schedules`), deliverable (`schedules`)
-Incoming: feature (`roadmap` field), deliverable (`roadmap` field)
+Incoming: feature (`milestone` field), deliverable (`milestone` field)
 
 ---
 
-### library
-> Module: @specforge/product | ID: `LIB-{infix}-{n}` | "What code package implements this?"
+### module
+> Module: @specforge/product | ID: `identifier` | "What component delivers this?"
 
 | Required | Optional |
 |----------|----------|
-| title, features | depends_on, ports_defined, family |
+| title, features | depends_on, description, family |
 
-Outgoing: feature (`provides`), library (`depends_on`), port (`defines_port`)
-Incoming: deliverable (`built_from`), library (`depends_on`)
+Outgoing: feature (`provides`), module (`depends_on`)
+Incoming: deliverable (`built_from`), module (`depends_on`)
 
 ---
 
-### glossary
-> Module: @specforge/product | ID: singleton | "What do our terms mean?"
+### term
+> Module: @specforge/product | ID: `identifier` | "What does this term mean?"
 
 | Required | Optional |
 |----------|----------|
-| term blocks (name, definition) | aliases, context, see |
+| definition | title, aliases, context, see |
 
 No graph edges. The `see` field is informational only — it does not create compiler-tracked edges.
 
@@ -216,13 +216,13 @@ No incoming edges.
 
 | Edge | From | To | Meaning |
 |------|------|----|---------|
-| `traces_to` | capability | feature | UX flow maps to features |
-| `bundles` | deliverable | capability | Deliverable ships capabilities |
-| `built_from` | deliverable | library | Deliverable uses libraries |
-| `depends_on` | library | library | Library depends on another library |
-| `provides` | library | feature | Library implements features |
-| `defines_port` | library | port | Library defines port interfaces |
-| `schedules` | roadmap | feature/deliverable | Phase schedules features or deliverables |
+| `traces_to` | journey | feature | UX flow maps to features |
+| `bundles` | deliverable | journey | Deliverable ships journeys |
+| `built_from` | deliverable | module | Deliverable uses modules |
+| `depends_on` | module | module | Module depends on another module |
+| `provides` | module | feature | Module implements features |
+| `schedules` | milestone | feature/deliverable | Phase schedules features or deliverables |
+| `FeatureDependsOn` | feature | feature | Feature depends on another feature |
 
 ### @specforge/governance (4 edges)
 
@@ -248,9 +248,9 @@ No incoming edges.
 | E006 | core | Event trigger invalid — trigger must reference an existing behavior |
 | E011 | core | Invalid ref target format — provider validates identifier doesn't match expected pattern |
 | E012 | core | Unknown provider kind — ref uses kind not registered by its provider |
-| E007 | product | Circular library dependency — `depends_on` must form a DAG |
-| E008 | product | Persona not defined — capability persona must match spec root definition |
-| E009 | product | Surface not defined — capability surface must match spec root definition |
+| E007 | product | Circular module dependency — `depends_on` must form a DAG |
+| E008 | product | Persona not defined — journey persona must match spec root definition |
+| E009 | product | Surface not defined — journey surface must match spec root definition |
 | E010 | product | Behavior range invalid — range start > end or expanded IDs don't exist |
 
 ### Warnings (12 codes)
@@ -258,17 +258,17 @@ No incoming edges.
 | Code | Module | Rule |
 |------|--------|------|
 | W001 | core | Orphan behavior — not referenced by any feature |
-| W002 | product | Orphan feature — not referenced by any capability |
+| W002 | product | Orphan feature — not referenced by any journey |
 | W003 | core | Unused invariant — not referenced by any behavior |
 | W004 | core | Unverified behavior — no `verify` statement |
 | W005 | governance | Unmitigated high-risk invariant — `risk: high` with no failure_mode |
 | W006 | governance | Unconstrained behavior — no constraint coverage |
 | W007 | core | Orphan event — event with no consumers |
 | W012 | core | Orphan ref — declared but never referenced by any entity |
-| W008 | product | Uncovered capability — deliverable capability not reachable via libraries |
-| W009 | product | Orphan library — not referenced by any deliverable |
+| W008 | product | Uncovered journey — deliverable journey not reachable via modules |
+| W009 | product | Orphan module — not referenced by any deliverable |
 | W010 | product | Deprecated feature — using a deprecated format feature |
-| W011 | product | Orphan capability — not referenced by any deliverable |
+| W011 | product | Orphan journey — not referenced by any deliverable |
 
 ### Info (4 codes)
 

@@ -14,7 +14,7 @@ Rules and conventions for authoring the **`spec` root configuration block** in `
 - Initializing a new SpecForge project (`specforge.spec`)
 - Adding or removing plugins (`@specforge/product`, `@specforge/governance`)
 - Configuring providers for external references (GitHub, Jira, Figma)
-- Defining personas and surfaces for capability validation
+- Defining personas and surfaces for journey validation
 - Configuring test coverage thresholds
 - Adding meta-schema `define` blocks for custom entity types
 

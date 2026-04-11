@@ -67,8 +67,8 @@ spec "my-service" {
 | `plugins` | string list | Installed plugin packages (e.g., `"@specforge/product"`, `"@specforge/governance"`). |
 | `providers` | block | Provider configurations for external platform integrations. See [extension-model.md](../extension-model.md). |
 | `test_dirs` | string list | Glob patterns for directories containing test files. Used by coverage scanning. |
-| `persona` | sub-block(s) | Persona definitions. Validates that every `persona` in a `capability` block matches a defined persona. |
-| `surface` | sub-block(s) | Surface definitions. Validates that every `surface` in a `capability` block matches a defined surface. |
+| `persona` | sub-block(s) | Persona definitions. Validates that every `persona` in a `journey` block matches a defined persona. |
+| `surface` | sub-block(s) | Surface definitions. Validates that every `surface` in a `journey` block matches a defined surface. |
 | `define` | sub-block(s) | Meta-schema definitions for user-defined entity types beyond the core set. |
 | `coverage` | block | Test coverage configuration (threshold, report paths, flags). |
 | `gen` | block(s) | Code generation configuration per target language. |
@@ -84,21 +84,21 @@ spec "my-service" {
 
 ### Persona Sub-Block
 
-Persona definitions validate that every `persona` referenced in a `capability` block matches a defined persona.
+Persona definitions validate that every `persona` referenced in a `journey` block matches a defined persona.
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `name` | identifier | Persona identifier (the keyword after `persona`). Used in `capability` blocks. |
+| `name` | identifier | Persona identifier (the keyword after `persona`). Used in `journey` blocks. |
 | `title` | string | Human-readable persona name (the string after the identifier). |
 | `description` | string | Optional description of the persona's role and responsibilities. |
 
 ### Surface Sub-Block
 
-Surface definitions validate that every `surface` referenced in a `capability` block matches a defined surface.
+Surface definitions validate that every `surface` referenced in a `journey` block matches a defined surface.
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `name` | identifier | Surface identifier (the keyword after `surface`). Used in `capability` blocks. |
+| `name` | identifier | Surface identifier (the keyword after `surface`). Used in `journey` blocks. |
 | `title` | string | Human-readable surface name (the string after the identifier). |
 | `type` | string | Optional surface type (e.g., `webapp`, `terminal`, `mobile`, `api`). |
 

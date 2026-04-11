@@ -22,8 +22,8 @@ Rules and conventions for authoring **`behavior` blocks** in `.spec` files. Beha
 ## Block Syntax
 
 ```spec
-use invariants/data
-use types/user
+use "invariants/data"
+use "types/user"
 
 behavior create_user "Create User" {
   category command

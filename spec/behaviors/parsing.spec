@@ -1,16 +1,16 @@
 // Parsing behaviors — Tree-sitter grammar and AST construction
 
-use invariants/core
-use invariants/zero-entity-core
-use invariants/wasm
-use types/core
-use types/errors
-use types/wasm
-use ports/outbound
-use events/compilation
-
+use "invariants/core"
+use "invariants/zero-entity-core"
+use "invariants/wasm"
+use "types/core"
+use "types/errors"
+use "types/wasm"
+use "ports/outbound"
+use "events/compilation"
 behavior parse_spec_file_to_ast "Parse Spec File to AST" {
   invariants [multi_error_collection, string_interning_consistency, zero_domain_knowledge_core, source_span_completeness]
+  category   command
   types      [SpecFile, ParseError, SourceSpan]
   ports      [SourceParser]
   produces   [file_parsed, all_files_parsed]
@@ -45,6 +45,7 @@ behavior parse_spec_file_to_ast "Parse Spec File to AST" {
 
 behavior recover_from_syntax_errors "Recover From Syntax Errors" {
   invariants [multi_error_collection, zero_domain_knowledge_core, source_span_completeness]
+  category   command
   types      [SpecFile, ParseError]
   ports      [SourceParser]
 
@@ -73,6 +74,7 @@ behavior recover_from_syntax_errors "Recover From Syntax Errors" {
 
 behavior parse_use_imports "Parse Use Imports" {
   invariants [import_dag, zero_domain_knowledge_core, string_interning_consistency]
+  category   command
   types      [SpecFile, ImportDeclaration, SourceSpan]
   ports      [SourceParser]
 
@@ -101,6 +103,7 @@ behavior parse_use_imports "Parse Use Imports" {
 
 behavior parse_all_block_types "Parse All Block Types" {
   invariants [multi_error_collection, zero_domain_knowledge_core, source_span_completeness, string_interning_consistency]
+  category   command
   types      [Entity, EntityKind, FieldMap, FieldEntry, FieldValue, StringValue, ReferenceList, StringList, Block, VerifyList, VerifyStatement, VerifyKind, SourceSpan]
   ports      [SourceParser]
 
@@ -141,6 +144,7 @@ behavior parse_all_block_types "Parse All Block Types" {
 
 behavior parse_triple_quoted_strings "Parse Triple-Quoted Strings" {
   invariants [multi_error_collection, string_interning_consistency, zero_domain_knowledge_core]
+  category   command
   types      [SpecFile, StringValue]
   ports      [SourceParser]
 
@@ -171,6 +175,7 @@ behavior parse_triple_quoted_strings "Parse Triple-Quoted Strings" {
 
 behavior provide_syntax_highlighting_queries "Provide Syntax Highlighting Queries" {
   // Query file behaviors describe static .scm artifacts shipped with the grammar — no runtime types or events needed
+  category   query
   invariants [zero_domain_knowledge_core, query_file_grammar_consistency]
 
   contract """
@@ -194,6 +199,7 @@ behavior provide_syntax_highlighting_queries "Provide Syntax Highlighting Querie
 behavior provide_code_folding_queries "Provide Code Folding Queries" {
   invariants [zero_domain_knowledge_core, query_file_grammar_consistency]
 
+  category   query
   contract """
     The grammar MUST ship a folds.scm query file that marks all
     brace-delimited blocks as foldable regions. Every block type,
@@ -215,6 +221,7 @@ behavior provide_code_folding_queries "Provide Code Folding Queries" {
 // canonical FieldValue type and coercion documentation.
 behavior parse_verify_statements "Parse Verify Statements" {
   invariants [multi_error_collection, zero_domain_knowledge_core, source_span_completeness, string_interning_consistency]
+  category   validation
   types      [SpecFile, VerifyList, VerifyStatement, VerifyKind, SourceSpan]
   ports      [SourceParser]
 
@@ -252,6 +259,7 @@ behavior parse_verify_statements "Parse Verify Statements" {
 
 behavior parse_ref_blocks "Parse Ref Blocks" {
   invariants [multi_error_collection, zero_domain_knowledge_core, source_span_completeness, string_interning_consistency]
+  category   command
   types      [SpecFile, ParseError, SourceSpan]
   ports      [SourceParser]
   // Ref components stored as FieldEntry in FieldMap — no dedicated ref type needed
@@ -286,6 +294,7 @@ behavior parse_ref_blocks "Parse Ref Blocks" {
 
 behavior parse_define_blocks "Parse Define Blocks" {
   invariants [multi_error_collection, zero_domain_knowledge_core, source_span_completeness, string_interning_consistency]
+  category   command
   types      [SpecFile, ParseError, SourceSpan, FieldMap, FieldEntry, FieldValue]
   ports      [SourceParser]
 
@@ -318,6 +327,7 @@ behavior parse_define_blocks "Parse Define Blocks" {
 behavior provide_indentation_queries "Provide Indentation Queries" {
   invariants [zero_domain_knowledge_core, query_file_grammar_consistency]
 
+  category   query
   contract """
     The grammar MUST ship an indents.scm query file that provides
     automatic indentation for brace-delimited and bracket-delimited
@@ -337,6 +347,7 @@ behavior provide_indentation_queries "Provide Indentation Queries" {
 
 behavior delegate_body_parsing_to_extension "Delegate Body Parsing to Extension" {
   invariants [zero_domain_knowledge_core, body_parser_output_conformance]
+  category   command
   types      [Entity, FieldMap, BodyParserContribution, BodyParserError]
   ports      [WasmRuntime]
 

@@ -3,11 +3,15 @@ name = "specforge-graph"
 edition.workspace = true
 version.workspace = true
 license.workspace = true
+autotests = false
+
+[[test]]
+name = "tests"
+path = "tests/main.rs"
 
 [dependencies]
 specforge-common = { workspace = true }
 specforge-parser = { workspace = true }
-petgraph = { workspace = true }
 
 [build-dependencies]
 specforge-parser = { workspace = true }
@@ -15,7 +19,12 @@ serde = { workspace = true }
 serde_json = { workspace = true }
 
 [dev-dependencies]
+criterion = { workspace = true }
 specforge-resolver = { path = "../specforge-resolver" }
 tempfile = { workspace = true }
 specforge-test = { workspace = true }
 specforge-test-macros = { workspace = true }
+
+[[bench]]
+name = "graph"
+harness = false

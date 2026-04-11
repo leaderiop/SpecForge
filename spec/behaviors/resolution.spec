@@ -1,16 +1,16 @@
 // Resolution behaviors — import resolution and symbol linking
 
-use invariants/core
-use invariants/validation
-use invariants/zero-entity-core
-use types/core
-use types/graph
-use types/errors
-use ports/outbound
-use events/compilation
-
+use "invariants/core"
+use "invariants/validation"
+use "invariants/zero-entity-core"
+use "types/core"
+use "types/graph"
+use "types/errors"
+use "ports/outbound"
+use "events/compilation"
 behavior resolve_use_imports "Resolve Use Imports" {
   invariants [import_dag, reference_resolution_completeness, compilation_pipeline_ordering]
+  category   query
   types      [SpecFile, FileEntry]
   ports      [FileSystem]
   consumes  [registries_populated, define_blocks_registered]
@@ -44,6 +44,7 @@ behavior resolve_use_imports "Resolve Use Imports" {
 // No consumes — called inline during use import resolution
 behavior detect_import_cycles "Detect Import Cycles" {
   invariants [import_dag]
+  category   validation
   types      [CycleError, FileEntry]
 
   requires {
@@ -72,6 +73,7 @@ behavior detect_import_cycles "Detect Import Cycles" {
 
 behavior link_entity_references "Link Entity References" {
   invariants [string_interning_consistency, entity_id_uniqueness, reference_resolution_completeness]
+  category   command
   types      [EntityId, Graph, Edge, ResolutionError]
   produces   [resolution_complete]
 
@@ -103,6 +105,7 @@ behavior link_entity_references "Link Entity References" {
 
 behavior resolve_soft_cross_extension_references "Resolve Soft Cross-Extension References" {
   invariants [reference_resolution_completeness]
+  category   query
   types      [EntityId]
   consumes   [registries_populated]
 
@@ -140,6 +143,7 @@ behavior resolve_soft_cross_extension_references "Resolve Soft Cross-Extension R
 // No consumes — called inline during reference resolution
 behavior resolve_external_ref_declarations "Resolve External Ref Declarations" {
   invariants [reference_resolution_completeness]
+  category   query
   types      [EntityId, Graph]
   ports      [FileSystem]
 

@@ -76,22 +76,22 @@ Organized into core (structural) + three official extensions. The core compiler 
 
 | Block | Naming Convention | Purpose |
 |-------|-------------------|---------|
-| `invariant` | `identifier` | Runtime guarantee with `guarantee` text, `enforced_by` references, `risk`, `maintains`, `verify` |
-| `behavior` | `identifier` | Behavioral contract with `contract`, `category`, `requires`/`ensures`/`maintains`, `verify`, `abstract`/`refines`, `produces`/`consumers`, `tests`, `gherkin` (extension-declared field) |
+| `invariant` | `identifier` | Runtime guarantee with `guarantee` text, `enforced_by` references, `risk`, `verify` |
+| `behavior` | `identifier` | Behavioral contract with `contract`, `category`, `verify`, `produces`/`consumers`, `tests`, `gherkin` (extension-declared field). Formal fields (`requires`/`ensures`/`maintains`, `abstract`/`refines`) contributed by @specforge/formal |
 | `feature` | `identifier` | User-facing capability composed of behaviors, with problem/solution framing |
-| `event` | `identifier` | Domain/system event with trigger, payload (type reference), consumers, `sync` block, `verify` |
+| `event` | `identifier` | Domain/system event with trigger, payload (type reference), consumers, `verify`. Formal field (`sync` block) contributed by @specforge/formal |
 | `type` | `identifier` | Data type definition with `kind`, fields, and annotations (`@readonly`, `@unique`, `@literal`, `@optional`) |
-| `port` | `identifier` | Interface definition with direction, methods (PortOperation with requires/ensures), and Result types |
+| `port` | `identifier` | Interface definition with direction, methods (PortOperation), and Result types. Formal fields (requires/ensures on methods) contributed by @specforge/formal |
 
 **@specforge/product:**
 
 | Block | Naming Convention | Purpose |
 |-------|-------------------|---------|
-| `capability` | `identifier` | UX flow mapping persona + surface to features |
-| `deliverable` | `identifier` | Shippable artifact mapping capabilities to libraries |
-| `roadmap` | `identifier` | Planning phase with behaviors, features, exit criteria |
-| `library` | `identifier` | Code package mapping features to ports, with dependency DAG |
-| `glossary` | -- (singleton) | Ubiquitous language term definitions |
+| `journey` | `identifier` | UX flow mapping persona + surface to features |
+| `deliverable` | `identifier` | Shippable artifact mapping journeys to modules |
+| `milestone` | `identifier` | Planning phase with features, exit criteria |
+| `module` | `identifier` | Structural component mapping features to dependencies, with dependency DAG |
+| `term` | `identifier` | Ubiquitous language term definition |
 
 **@specforge/governance:**
 
@@ -101,13 +101,24 @@ Organized into core (structural) + three official extensions. The core compiler 
 | `constraint` | `identifier` | Non-functional requirement with metric and threshold |
 | `failure_mode` | `identifier` | FMEA risk assessment tied to an invariant (severity, occurrence, detection, RPN) |
 
+**@specforge/formal:**
+
+| Block | Naming Convention | Purpose |
+|-------|-------------------|---------|
+| `condition` | `identifier` | Named, reusable precondition/postcondition/frame invariant. Referenced via `requires [id]`, `ensures [id]`, `maintains [id]`. Dual-mode: inline blocks for one-off, condition entities for shared. testable=false |
+| `property` | `identifier` | Temporal/behavioral assertion (safety/liveness/fairness). Referenced via `satisfies [id]` on behaviors. testable=false |
+| `axiom` | `identifier` | Assumed-true foundation. Referenced via `assumes [id]` on conditions. No proof required, no coverage tracking item. testable=false |
+| `protocol` | `identifier` | Shared synchronization contract. Referenced via `follows_protocol [id]` on events. testable=false |
+| `refinement` | `identifier` | Abstract-to-concrete behavior mapping with condition deltas and proof status. Connected via RefinesTo/RefinementChainLink edges. Dual-mode with abstract/refines fields. testable=false |
+| `process` | `identifier` | CSP-style communicating process with alphabet (event set), states, and composition operators. Connected via ParticipatesIn/ProcessComposition edges. Dual-mode with inline sync blocks. testable=false |
+
 ### Entity Naming
 
 Entity IDs are **variable-name identifiers**, not sequential numeric prefixes:
 
 - Any valid identifier (starts with letter, letters/digits/underscores, 2-60 chars): `data_persistence`, `UserRepository`, `validate_input`
 - Titles are optional -- auto-derived from name if omitted (`auth_login` -> "Auth Login")
-- Names: 2-60 chars, letters/digits/underscores, no reserved words (the 16 entity keywords)
+- Names: 2-60 chars, letters/digits/underscores, no reserved words (the 17 entity keywords)
 - Scheme refs for external references: `gh.issue:42`, `jira.epic:PROJ-123`
 
 ### Syntax Features
@@ -118,13 +129,13 @@ Entity IDs are **variable-name identifiers**, not sequential numeric prefixes:
 - **`use` imports:** `use invariants/data` imports all symbols; `use invariants/data { data_persistence }` for selective import
 - **Comments:** `//` line comments
 - **`verify` statements:** `verify unit "description"` inside behavior, invariant, and event blocks
-- **Design-by-Contract blocks:** `requires { }`, `ensures { }`, `maintains { }` on behaviors and ports
-- **Sync blocks:** `sync { barrier [...] timeout 30s "..." }` on events for CSP concurrency
+- **Structured condition blocks (dual-mode):** `requires { }` inline blocks OR `requires [condition_id]` entity references (or both combined) on behaviors and ports (contributed by @specforge/formal)
+- **Sync blocks:** `sync { barrier [...] timeout 30s "..." }` on events for event graph linting (contributed by @specforge/formal)
 
 ### Example
 
 ```spec
-use invariants/data
+use "invariants/data"
 
 behavior create_user "Create User" {
   category command
@@ -172,7 +183,7 @@ behavior create_user "Create User" {
 1. **Parser** -- Tree-sitter grammar produces per-file ASTs
 2. **Resolver** -- Resolves `use` imports, links name references to definitions, builds the in-memory graph; processes files in topological order (dependencies first); detects import cycles
 3. **In-memory graph** -- Directed graph of nodes and edges; the "database" (no external database required)
-4. **Validators** -- Enforce graph invariants; emit errors (E001-E003, E005-E009, E011-E014, E030-E035), warnings (W001-W040), info diagnostics (I001, I003-I009, I011)
+4. **Validators** -- Enforce graph invariants; emit errors (E001-E003, E005-E009, E011-E014, E030-E035, E041-E042), warnings (W001-W040, W058-W074), info diagnostics (I001, I003-I009, I011, I014-I015)
 5. **LSP** -- Reads from the in-memory graph; provides go-to-def, find-refs, hover, autocomplete, rename, live diagnostics
 6. **Emitters** -- Traverse the graph to produce markdown, JSON, DOT graph, index.yaml, traceability reports
 
@@ -206,9 +217,9 @@ File change -> invalidation (changed file + transitive dependents) -> re-parse o
 | Node Type | Naming | Required Properties | Optional Properties |
 |---|---|---|---|
 | `invariant` | `identifier` | `guarantee` | `enforced_by`, `risk`, `maintains`, `verify[]` |
-| `behavior` | `identifier` | `contract` | `invariants`, `types`, `ports`, `produces`, `consumers`, `category`, `abstract`, `refines`, `requires`, `ensures`, `maintains`, `verify[]`, `tests[]`, `gherkin[]` |
+| `behavior` | `identifier` | `contract` | `invariants`, `types`, `ports`, `produces`, `consumers`, `category`, `verify[]`, `tests[]`, `gherkin[]`. Formal fields (`abstract`, `refines`, `requires`, `ensures`, `maintains`) added by @specforge/formal |
 | `feature` | `identifier` | `behaviors`, `problem`, `solution` | -- |
-| `event` | `identifier` | `trigger` | `payload` (type ref), `consumers`, `channel`, `sync`, `verify[]` |
+| `event` | `identifier` | `trigger` | `payload` (type ref), `consumers`, `channel`, `verify[]`. Formal field (`sync`) added by @specforge/formal |
 | `type` | `identifier` | `kind`, `fields` | -- |
 | `port` | `identifier` | `direction`, `methods` | `category` |
 
@@ -216,11 +227,11 @@ File change -> invalidation (changed file + transitive dependents) -> re-parse o
 
 | Node Type | Naming | Required Properties | Optional Properties |
 |---|---|---|---|
-| `capability` | `identifier` | `persona`, `features`, `flow` | `surface` |
-| `deliverable` | `identifier` | `capabilities` | `libraries`, `roadmap`, `personas`, `type` |
-| `roadmap` | `identifier` | `status` | `behaviors`, `features`, `criteria` |
-| `library` | `identifier` | `features` | `depends_on`, `ports_defined`, `family` |
-| `glossary` | -- (singleton) | `terms` | -- |
+| `journey` | `identifier` | `persona`, `features`, `flow` | `surface`, `tags` |
+| `deliverable` | `identifier` | `journeys` | `modules`, `personas`, `artifact_type`, `tags` |
+| `milestone` | `identifier` | `status` | `features`, `exit_criteria`, `modules`, `target_date`, `tags` |
+| `module` | `identifier` | `features` | `depends_on`, `description`, `family`, `tags` |
+| `term` | `identifier` | `definition` | `aliases`, `see_also`, `tags` |
 
 **@specforge/governance nodes:**
 
@@ -251,18 +262,19 @@ File change -> invalidation (changed file + transitive dependents) -> re-parse o
 | `uses_port` | behavior -> port | "This behavior uses these port interfaces" |
 | `enforces` | invariant -> behavior | "This invariant is enforced by these behaviors" |
 | `refines` | behavior -> behavior | "This behavior refines an abstract behavior" |
+| `MilestoneBehavior` | milestone -> behavior | "This phase includes these behaviors" (via entity_enhancement from @specforge/software) |
 
 **@specforge/product edges:**
 
 | Edge Type | From -> To | Semantics |
 |---|---|---|
-| `traces_to` | capability -> feature | "This UX capability maps to these features" |
-| `bundles` | deliverable -> capability | "This deliverable ships these capabilities" |
-| `built_from` | deliverable -> library | "This deliverable uses these libraries" |
-| `depends_on` | library -> library | "This library depends on that library" |
-| `provides` | library -> feature | "This library provides the code for these features" |
-| `defines_port` | library -> port | "This library defines this port interface" |
-| `schedules` | roadmap -> feature/deliverable | "This phase schedules these features" |
+| `JourneyFeature` | journey -> feature | "This UX journey maps to these features" |
+| `DeliverableJourney` | deliverable -> journey | "This deliverable ships these journeys" |
+| `DeliverableModule` | deliverable -> module | "This deliverable uses these modules" |
+| `ModuleDependsOn` | module -> module | "This module depends on that module" |
+| `ModuleFeature` | module -> feature | "This module implements these features" |
+| `MilestoneFeature` | milestone -> feature | "This phase schedules these features" |
+| `FeatureDependsOn` | feature -> feature | "This feature depends on that feature" |
 
 **@specforge/governance edges:**
 
@@ -286,9 +298,9 @@ File change -> invalidation (changed file + transitive dependents) -> re-parse o
 
 **@specforge/product invariants:**
 
-5. **Orphan detection (product)** -- Feature not in any capability -> `W002`
-6. **No circular library deps** -- `depends_on` edges between library nodes form a DAG (`E007`)
-7. **Deliverable coverage** -- Every capability in a deliverable should be reachable through its library chain (`W008`)
+5. **Orphan detection (product)** -- Feature not in any journey -> `W041`
+6. **No circular module deps** -- `depends_on` edges between module nodes form a DAG (`E007`)
+7. **Deliverable coverage** -- Every journey in a deliverable should be reachable through its module chain (`W043`)
 
 **@specforge/governance invariants:**
 
@@ -323,45 +335,76 @@ Diagnostics are module-scoped: plugin rules only fire when the plugin is install
 |------|-------|-------------|
 | `E004` | error | Port method references invalid type |
 | `E006` | error | Event trigger invalid -- event's trigger must reference an existing behavior |
-| `E030` | error | Always-false precondition in requires block |
-| `E031` | error | Liskov compliance violation -- strengthened precondition or weakened postcondition in refinement |
-| `E032` | error | Cycle in refinement chain |
-| `E033` | error | Behavior not satisfying feature requirements |
-| `E034` | error | Event deadlock detected -- circular event dependency |
-| `E035` | error | Channel type mismatch -- producer and consumer payload types differ |
-| `W001` | warning | Orphan behavior -- not referenced by any feature |
-| `W003` | warning | Unused invariant -- not referenced by any behavior |
-| `W004` | warning | Unverified behavior -- no `verify` statement |
-| `W007` | warning | Orphan event -- event with no consumers |
+| `E010` | error | Invalid behavior range in milestone (requires @specforge/product) |
+| `W001` | warning | Orphan behavior -- not implementing any feature |
+| `W002` | warning | Orphan type -- no incoming UsesType or ExtendsType edges |
+| `W003` | warning | Unused invariant -- no incoming Enforces edges |
+| `W004` | warning | Unverified testable -- no verify or test reference |
+| `W005` | warning | Orphan port -- no incoming UsesPort edges |
+| `W006` | warning | Missing behavior category |
+| `W007` | warning | Orphan event -- no incoming Produces edges |
+| `W008` | warning | Feature without behaviors (requires @specforge/product) |
+| `W009` | warning | Invalid verify kind for entity type |
 | `W010` | warning | Unknown annotation on type field |
+
+**@specforge/formal (requires warning_level=strict):**
+
+| Code | Level | Description |
+|------|-------|-------------|
+| `E030` | error | Contradictory precondition (X/not_X, tautological false) |
+| `E031` | error | Layering condition mismatch -- named-condition set violation |
+| `E032` | error | Layering cycle -- cycle in specification layering DAG |
+| `E034` | error | Unmitigated cycle -- circular dependency without timeout/@idempotent/circuit_breaker |
+| `E035` | error | Payload type mismatch -- producer/consumer disagree on event payload |
+| `W028` | warning | Conditions without verify |
 | `W029` | warning | Unmatched event producers -- no consumers |
-| `W030` | warning | Incomplete refinement chain -- abstract with no concrete |
-| `W031` | warning | Deep refinement chain (depth > 4) |
-| `W032` | warning | Livelock risk -- re-triggering without backoff |
-| `W033` | warning | Starvation risk -- unfair port access |
+| `W030` | warning | Incomplete layering -- abstract with no concrete |
+| `W031` | warning | Deep layering chain (depth > 4) |
+| `W032` | warning | Unmitigated retry cycle -- re-triggering without backoff |
+| `W033` | warning | Asymmetric connectivity -- structurally unbalanced access |
 | `W034` | warning | Unbounded channel buffer -- no sync timeout |
-| `W035` | warning | Undischarged proof obligation |
-| `W036` | warning | Port-behavior contract incompatibility |
-| `W037` | warning | Unverifiable contract condition |
+| `W035` | warning | Undischarged coverage item (aggregated summary) |
+| `W036` | warning | Port-behavior condition incompatibility -- port precondition stricter than behavior |
+| `W037` | warning | Unverifiable condition -- references external state |
 | `W038` | warning | Unreachable postcondition -- contradicts preconditions |
 | `W039` | warning | Redundant precondition -- implied by sibling |
-| `W040` | warning | Invariant without formal property -- no maintains block |
-| `I007` | info | Proof obligation verified by test |
-| `I008` | info | Deadlock freedom verified |
-| `I009` | info | Formal analysis available -- suggests `specforge analyze` |
-| `I011` | info | Ensures without requires |
+| `W040` | warning | Invariant without property -- no maintains block |
+| `W058` | warning | Feature coverage mismatch (downgraded from E033) |
+| `W059` | warning | Orphan condition -- no incoming RequiresCondition/EnsuresCondition/MaintainsCondition edges |
+| `W060` | warning | Empty condition description |
+| `W061` | warning | Orphan property -- no incoming Satisfies edges |
+| `W062` | warning | Empty property description |
+| `W063` | warning | Property without kind (safety/liveness/fairness) |
+| `W064` | warning | Orphan axiom -- no incoming AssumedBy edges |
+| `W065` | warning | Empty axiom description |
+| `W066` | warning | Orphan protocol -- no incoming FollowsProtocol edges |
+| `W067` | warning | Empty protocol description |
+| `W068` | warning | Protocol ordering conflict -- events not found |
+| `W069` | warning | Orphan refinement -- no RefinesTo/RefinementChainLink edges |
+| `W070` | warning | Empty refinement description |
+| `W071` | warning | Refinement without condition delta |
+| `W072` | warning | Orphan process -- no ParticipatesIn edges |
+| `W073` | warning | Empty process description |
+| `W074` | warning | Process without alphabet |
+| `E041` | error | Refinement chain cycle -- cycle in RefinementChainLink DAG |
+| `E042` | error | Process composition cycle -- cycle in ProcessComposition DAG |
+| `I008` | info | Coverage item covered by test |
+| `I009` | info | No structural cycles detected |
+| `I014` | info | Specification depth level computed |
+| `I015` | info | Formal analysis available -- suggests `specforge analyze` |
 
 **@specforge/product:**
 
 | Code | Level | Description |
 |------|-------|-------------|
-| `E007` | error | Circular library dependency -- `depends_on` edges between libraries form a cycle |
-| `E008` | error | Persona not defined -- capability's `persona` doesn't match any persona defined in `spec` root |
-| `E009` | error | Surface not defined -- capability's `surface` doesn't match any surface defined in `spec` root |
-| `W002` | warning | Orphan feature -- not referenced by any capability |
-| `W008` | warning | Uncovered capability -- deliverable references a capability not reachable via its libraries |
-| `W009` | warning | Orphan library -- library not referenced by any deliverable's `libraries` field |
-| `W011` | warning | Orphan capability -- capability not referenced by any deliverable's `capabilities` field |
+| `E007` | error | Circular module dependency -- `depends_on` edges between modules form a cycle |
+| `E008` | error | Persona not defined -- journey's `persona` doesn't match any persona defined in `spec` root |
+| `E009` | error | Surface not defined -- journey's `surface` doesn't match any surface defined in `spec` root |
+| `W041` | warning | Orphan feature -- not referenced by any journey |
+| `W042` | warning | Orphan journey -- not referenced by any deliverable |
+| `W043` | warning | Deliverable with no journeys |
+| `W044` | warning | Orphan module -- not referenced by any deliverable |
+| `W045` | warning | Circular feature dependency -- `depends_on` edges between features form a cycle |
 
 **@specforge/governance:**
 
@@ -428,9 +471,9 @@ specforge lsp                          # start LSP server (editor integration)
 
 specforge migrate --from=1.0 --to=2.0  # migrate spec files between format versions
 
-specforge analyze contracts            # run contract_check pass, report results
-specforge analyze refinement           # run refinement_verify pass
-specforge analyze concurrency          # run process_analyze pass (CSP analysis)
+specforge analyze conditions            # run condition_check pass, report results
+specforge analyze layering             # run layering_verify pass
+specforge analyze event-graph          # run event_graph_analyze pass
 specforge analyze all                  # run all analysis passes, unified report
 specforge analyze all --strict         # exit non-zero on any violation (for CI)
 specforge analyze all --json           # machine-readable JSON output
@@ -476,15 +519,14 @@ SpecForge has three extension mechanisms, inspired by Terraform's model:
 
 ### Syntax Examples
 
-**Library:**
+**Module:**
 
 ```spec
-library core_auth "Core Auth" {
-  family     platform
-  features   [user_authentication, token_management]
-  depends_on [crypto_lib]
-
-  ports_defined [UserRepository, TokenService]
+module core_auth "Core Auth" {
+  family      platform
+  features    [user_authentication, token_management]
+  depends_on  [crypto_mod]
+  description "Core authentication and token management"
 }
 ```
 
@@ -492,27 +534,25 @@ library core_auth "Core Auth" {
 
 ```spec
 deliverable web_app "Web Application" {
-  type        webapp
+  artifact_type webapp
   personas    [developer, admin]
-  capabilities [user_management_flow, admin_dashboard_flow]
-  libraries   [core_auth, web_framework]
-  roadmap     mvp
+  journeys    [user_management_flow, admin_dashboard_flow]
+  modules     [core_auth, web_framework]
 }
 ```
 
-**Roadmap:**
+**Milestone:**
 
 ```spec
-roadmap mvp "MVP" {
+milestone mvp "MVP" {
   status     active
-  behaviors  [create_user, validate_input, parse_spec_files]
   features   [user_management, input_validation, spec_parsing]
 
-  criteria """
-    All MVP behaviors passing.
-    Coverage >= 90%.
-    Zero open E-level diagnostics.
-  """
+  exit_criteria [
+    "All MVP behaviors passing",
+    "Coverage >= 90%",
+    "Zero open E-level diagnostics",
+  ]
 }
 ```
 

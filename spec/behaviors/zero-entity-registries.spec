@@ -1,20 +1,20 @@
 // Zero-entity core — manifest V2, dynamic registries, grammar, bootstrap, visualization, consistency
 
-use invariants/zero-entity-core
-use invariants/core
-use types/zero-entity-core
-use types/core
-use types/config
-use types/diagnostics
-use types/errors
-use types/wasm
-use ports/outbound
-use events/compilation
-
+use "invariants/zero-entity-core"
+use "invariants/core"
+use "types/zero-entity-core"
+use "types/core"
+use "types/config"
+use "types/diagnostics"
+use "types/errors"
+use "types/wasm"
+use "ports/outbound"
+use "events/compilation"
 // -- Extension Manifest V2 ---------------------------------------------------
 
 behavior validate_manifest_v2_schema "Validate Manifest V2 Schema" {
   invariants [zero_domain_knowledge_core, registry_population_before_validation]
+  category   validation
   types      [ManifestV2, ExtensionError]
 
   requires {
@@ -51,6 +51,7 @@ behavior validate_manifest_v2_schema "Validate Manifest V2 Schema" {
 
 behavior register_entity_kinds_from_manifest "Register Entity Kinds From Manifest" {
   invariants [zero_domain_knowledge_core, registry_population_before_validation]
+  category   command
   types      [ManifestV2, ManifestEntityKind, KindRegistryEntry]
   consumes   [extension_manifests_loaded]
 
@@ -86,6 +87,7 @@ behavior register_entity_kinds_from_manifest "Register Entity Kinds From Manifes
 
 behavior register_edge_types_from_manifest "Register Edge Types From Manifest" {
   invariants [zero_domain_knowledge_core, registry_population_before_validation]
+  category   command
   types      [ManifestV2, ManifestEdgeType]
   consumes   [extension_manifests_loaded]
 
@@ -126,6 +128,7 @@ behavior register_edge_types_from_manifest "Register Edge Types From Manifest" {
 
 behavior register_validation_rules_from_manifest "Register Validation Rules From Manifest" {
   invariants [zero_domain_knowledge_core, registry_population_before_validation, declarative_validation_determinism]
+  category   command
   types      [ManifestV2, ValidationRulePattern]
   consumes   [extension_manifests_loaded]
 
@@ -170,6 +173,7 @@ behavior register_validation_rules_from_manifest "Register Validation Rules From
 
 behavior register_verify_kinds_from_manifest "Register Verify Kinds From Manifest" {
   invariants [zero_domain_knowledge_core, registry_population_before_validation]
+  category   validation
   types      [ManifestV2, ManifestEntityKind]
   consumes   [extension_manifests_loaded]
 
@@ -202,6 +206,7 @@ behavior register_verify_kinds_from_manifest "Register Verify Kinds From Manifes
 
 behavior boot_empty_kind_registry "Boot Empty Kind Registry" {
   invariants [zero_domain_knowledge_core]
+  category   command
   types      [KindRegistryEntry]
 
   requires {
@@ -232,6 +237,7 @@ behavior boot_empty_kind_registry "Boot Empty Kind Registry" {
 
 behavior boot_empty_field_registry "Boot Empty Field Registry" {
   invariants [zero_domain_knowledge_core]
+  category   command
   types      [FieldRegistryEntry]
 
   requires {
@@ -262,6 +268,7 @@ behavior boot_empty_field_registry "Boot Empty Field Registry" {
 
 behavior boot_empty_edge_registry "Boot Empty Edge Registry" {
   invariants [zero_domain_knowledge_core]
+  category   command
   types      [ManifestEdgeType]
 
   requires {
@@ -289,6 +296,7 @@ behavior boot_empty_edge_registry "Boot Empty Edge Registry" {
 
 behavior custom_entity_types_via_define "Custom Entity Types via Define" {
   invariants [reference_resolution_completeness, entity_id_uniqueness, zero_domain_knowledge_core, define_extension_kind_uniqueness, compilation_pipeline_ordering]
+  category   command
   types      [CompilerConfig, DefineBlockConfig, KindRegistryEntry]
   consumes   [registries_populated]
   produces   [custom_entity_type_defined, define_blocks_registered]
@@ -338,6 +346,7 @@ behavior custom_entity_types_via_define "Custom Entity Types via Define" {
 
 behavior populate_kind_registry_from_extensions "Populate Kind Registry From Extensions" {
   invariants [zero_domain_knowledge_core, registry_population_before_validation, define_extension_kind_uniqueness, compilation_pipeline_ordering]
+  category   command
   types      [ManifestV2, ManifestEntityKind, KindRegistryEntry]
   produces   [registries_populated]
 
@@ -375,6 +384,7 @@ behavior populate_kind_registry_from_extensions "Populate Kind Registry From Ext
 
 behavior populate_field_registry_from_extensions "Populate Field Registry From Extensions" {
   invariants [zero_domain_knowledge_core, registry_population_before_validation]
+  category   command
   types      [ManifestV2, ManifestField, FieldRegistryEntry]
   consumes   [extension_manifests_loaded]
   // Orchestrated by populate_kind_registry_from_extensions which fires registries_populated after all three complete.
@@ -410,6 +420,7 @@ behavior populate_field_registry_from_extensions "Populate Field Registry From E
 
 behavior populate_edge_registry_from_extensions "Populate Edge Registry From Extensions" {
   invariants [zero_domain_knowledge_core, registry_population_before_validation]
+  category   command
   types      [ManifestV2, ManifestEdgeType, ManifestField, EdgeRegistryEntry]
   consumes   [extension_manifests_loaded]
   // Orchestrated by populate_kind_registry_from_extensions which fires registries_populated after all three complete.
@@ -441,6 +452,7 @@ behavior populate_edge_registry_from_extensions "Populate Edge Registry From Ext
 
 behavior validate_registered_entity_fields "Validate Registered Entity Fields" {
   invariants [zero_domain_knowledge_core, registry_population_before_validation]
+  category   validation
   types      [ManifestV2, ManifestField, ManifestEntityKind, ManifestEdgeType, FieldRegistryEntry, KindRegistryEntry]
 
   consumes  [registries_populated]
@@ -482,6 +494,7 @@ behavior validate_registered_entity_fields "Validate Registered Entity Fields" {
 
 behavior collapse_grammar_to_generic_entity_block "Collapse Grammar to Generic Entity Block" {
   invariants [zero_domain_knowledge_core]
+  category   command
   types      [SpecFile, Entity]
 
   requires {
@@ -519,6 +532,7 @@ behavior collapse_grammar_to_generic_entity_block "Collapse Grammar to Generic E
 
 behavior two_phase_parse_structural "Two-Phase Parse: Structural" {
   invariants [registry_population_before_validation, zero_domain_knowledge_core, compilation_pipeline_ordering]
+  category   command
   types      [SpecFile, Entity]
   produces   [structural_parse_complete]
 
@@ -554,6 +568,7 @@ behavior two_phase_parse_structural "Two-Phase Parse: Structural" {
 
 behavior two_phase_validate_semantic "Two-Phase Validate: Semantic" {
   invariants [registry_population_before_validation, zero_domain_knowledge_core, compilation_pipeline_ordering]
+  category   validation
   types      [KindRegistryEntry, FieldRegistryEntry]
   consumes   [registries_populated, define_blocks_registered]
   // barrier: MUST wait for ALL consumed events (registries_populated AND define_blocks_registered) before executing
@@ -611,6 +626,7 @@ behavior two_phase_validate_semantic "Two-Phase Validate: Semantic" {
 // the diagnostic help text with extension suggestions from the bundled index.
 behavior suggest_missing_extensions "Suggest Missing Extensions" {
   invariants [zero_domain_knowledge_core]
+  category   command
   types      [KindRegistryEntry, UnknownKindError, KeywordExtensionIndex]
 
   requires {
@@ -647,6 +663,7 @@ behavior suggest_missing_extensions "Suggest Missing Extensions" {
 // on registry state rather than on the validation rule engine.
 behavior detect_unknown_entity_kinds "Detect Unknown Entity Kinds" {
   invariants [zero_domain_knowledge_core, registry_population_before_validation]
+  category   validation
   types      [KindRegistryEntry, UnknownKindError]
   consumes   [registries_populated]
 
@@ -678,6 +695,7 @@ behavior detect_unknown_entity_kinds "Detect Unknown Entity Kinds" {
 
 behavior graceful_degradation_without_extensions "Graceful Degradation Without Extensions" {
   invariants [zero_domain_knowledge_core]
+  category   command
   types      [SpecFile, KindRegistryEntry]
   consumes   [registries_populated]
 
@@ -722,6 +740,7 @@ behavior graceful_degradation_without_extensions "Graceful Degradation Without E
 
 behavior handle_all_extensions_failed_to_load "Handle All Extensions Failed to Load" {
   invariants [zero_domain_knowledge_core, multi_error_collection]
+  category   command
   types      [ExtensionError, Diagnostic]
   consumes   [extension_manifests_loaded]
 
@@ -757,6 +776,7 @@ behavior handle_all_extensions_failed_to_load "Handle All Extensions Failed to L
 
 behavior render_extension_defined_dot_shapes "Render Extension-Defined DOT Shapes" {
   invariants [zero_domain_knowledge_core]
+  category   query
   types      [KindRegistryEntry]
 
   requires {
@@ -793,6 +813,7 @@ behavior render_extension_defined_dot_shapes "Render Extension-Defined DOT Shape
 
 behavior render_extension_defined_edge_styles "Render Extension-Defined Edge Styles" {
   invariants [zero_domain_knowledge_core]
+  category   query
   types      [ManifestEdgeType, EdgeRegistryEntry]
 
   requires {
@@ -831,6 +852,7 @@ behavior render_extension_defined_edge_styles "Render Extension-Defined Edge Sty
 
 behavior register_grammar_contributions "Register Grammar Contributions" {
   invariants [zero_domain_knowledge_core, grammar_composition_determinism]
+  category   command
   types      [GrammarContribution, ManifestV2, KindRegistryEntry]
   consumes   [extension_manifests_loaded]
   produces   [grammar_contribution_registered]
@@ -867,6 +889,7 @@ behavior register_grammar_contributions "Register Grammar Contributions" {
 
 behavior register_body_parser_contributions "Register Body Parser Contributions" {
   invariants [zero_domain_knowledge_core, body_parser_output_conformance]
+  category   command
   types      [BodyParserContribution, ManifestV2, KindRegistryEntry]
   consumes   [extension_manifests_loaded]
   produces   [body_parser_contribution_registered]
@@ -904,6 +927,7 @@ behavior register_body_parser_contributions "Register Body Parser Contributions"
 
 behavior validate_extension_manifest_consistency "Validate Extension Manifest Consistency" {
   invariants [zero_domain_knowledge_core, registry_population_before_validation]
+  category   validation
   types      [ManifestV2, ManifestEntityKind, ManifestEdgeType, ManifestField]
 
   requires {

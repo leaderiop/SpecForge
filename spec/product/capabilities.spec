@@ -2,21 +2,20 @@
 // SpecForge is the structured context standard for AI agents.
 // The graph is the product — consumed by any agent for any task.
 
-use features/project-init
-use features/parsing
-use features/validation
-use features/incremental
-use features/output
-use extensions/coverage/features
-use extensions/rust/features
-use features/lsp
-use features/extensions
-use features/wasm
-use features/zero-entity-core
-use features/formatting
-use features/mcp
-use features/migration
-
+use "features/project-init"
+use "features/parsing"
+use "features/validation"
+use "features/incremental"
+use "features/output"
+use "extensions/coverage/features"
+use "extensions/rust/features"
+use "features/lsp"
+use "features/extensions"
+use "features/wasm"
+use "features/zero-entity-core"
+use "features/formatting"
+use "features/mcp"
+use "features/migration"
 // ── Developer + CLI ──────────────────────────────────────────
 
 capability initialize_a_new_spec_project "Initialize a New Spec Project" {

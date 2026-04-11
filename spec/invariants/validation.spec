@@ -1,21 +1,20 @@
 // Validation-specific invariants
 
-use behaviors/resolution
-use behaviors/validation
-use behaviors/error-reporting
-use behaviors/output
-use behaviors/output-schema
-use behaviors/incremental
-use behaviors/extensions
-use behaviors/zero-entity-registries
-use behaviors/zero-entity-validation
-use behaviors/lsp
-use behaviors/mcp-operations
-use behaviors/mcp-prompts
-use behaviors/mcp-server
-use behaviors/mcp-tools
-use behaviors/migration
-
+use "behaviors/resolution"
+use "behaviors/validation"
+use "behaviors/error-reporting"
+use "behaviors/output"
+use "behaviors/output-schema"
+use "behaviors/incremental"
+use "behaviors/extensions"
+use "behaviors/zero-entity-registries"
+use "behaviors/zero-entity-validation"
+use "behaviors/lsp"
+use "behaviors/mcp-operations"
+use "behaviors/mcp-prompts"
+use "behaviors/mcp-server"
+use "behaviors/mcp-tools"
+use "behaviors/migration"
 invariant reference_resolution_completeness "Reference Resolution Completeness" {
   guarantee """
     Every entity ID in a reference list MUST resolve to a declared entity.

@@ -22,27 +22,47 @@ module.exports = grammar({
 
   rules: {
     source_file: ($) =>
-      repeat(choice($.use_import, $._block)),
+      repeat(choice($.use_import, $.pub_use_import, $._block)),
 
     // --- Comments ----------------------------------------------------
     comment: (_) => token(seq("//", /.*/)),
 
     // --- Use imports -------------------------------------------------
+    import_binding: ($) =>
+      seq($.identifier, optional(seq("as", field("alias", $.identifier)))),
+
+    import_bindings: ($) =>
+      seq("{", commaSep1($.import_binding), "}"),
+
+    namespace_import: ($) =>
+      seq("*", "as", field("alias", $.identifier)),
+
     use_import: ($) =>
       seq(
         "use",
-        field("path", $.import_path),
-        optional(field("selective", $.selective_import)),
+        choice(
+          // Full: use "path"
+          field("path", $.string),
+          // Selective: use { A, B } from "path"
+          seq(field("bindings", $.import_bindings), "from", field("path", $.string)),
+          // Namespace: use * as alias from "path"
+          seq(field("namespace", $.namespace_import), "from", field("path", $.string)),
+        ),
       ),
 
-    import_path: (_) =>
-      token(seq(
-        /[a-zA-Z_][a-zA-Z0-9_-]*/,
-        repeat(seq("/", /[a-zA-Z_][a-zA-Z0-9_-]*/)),
-      )),
-
-    selective_import: ($) =>
-      seq("{", commaSep1($.identifier), "}"),
+    pub_use_import: ($) =>
+      seq(
+        "pub",
+        "use",
+        choice(
+          // Full: pub use "path"
+          field("path", $.string),
+          // Selective: pub use { A, B } from "path"
+          seq(field("bindings", $.import_bindings), "from", field("path", $.string)),
+          // Namespace: pub use * as alias from "path"
+          seq(field("namespace", $.namespace_import), "from", field("path", $.string)),
+        ),
+      ),
 
     // --- Top-level blocks --------------------------------------------
     _block: ($) =>

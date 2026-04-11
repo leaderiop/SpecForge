@@ -29,7 +29,7 @@ extern "C" fn on_exit() {
 
     let dir = report_dir();
 
-    if let Err(e) = report::write_report(&dir, &binary_name, entries.clone()) {
+    if let Err(e) = report::write_report(&dir, &binary_name, &entries) {
         eprintln!("[specforge-test] failed to write report: {e}");
     }
 

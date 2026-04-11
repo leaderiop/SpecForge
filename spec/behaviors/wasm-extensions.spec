@@ -1,22 +1,22 @@
 // Extension entity kinds, enhancements, conflicts, queries, contributions,
 // collectors, discovery, lock files, and doctor
 
-use invariants/wasm
-use invariants/validation
-use invariants/extensions
-use types/wasm
-use types/zero-entity-core
-use types/config
-use types/errors
-use types/graph
-use ports/inbound
-use ports/outbound
-use events/wasm-extensions
-
+use "invariants/wasm"
+use "invariants/validation"
+use "invariants/extensions"
+use "types/wasm"
+use "types/zero-entity-core"
+use "types/config"
+use "types/errors"
+use "types/graph"
+use "ports/inbound"
+use "ports/outbound"
+use "events/wasm-extensions"
 // -- Query Extensions -----
 
 behavior provide_extension_query_extensions "Provide Extension Query Extensions" {
   invariants [host_function_type_safety]
+  category   query
   types      [ManifestV2, QueryExtension, QueryFileKind, ExtensionError]
   ports      [WasmRuntime]
   consumes   [extension_manifests_loaded]
@@ -54,6 +54,7 @@ behavior provide_extension_query_extensions "Provide Extension Query Extensions"
 
 behavior compose_query_files_from_extensions "Compose Query Files From Extensions" {
   invariants [extension_load_order_determinism]
+  category   query
   types      [QueryExtension, QueryFileKind]
   consumes   [query_extensions_loaded]
 
@@ -92,6 +93,7 @@ behavior compose_query_files_from_extensions "Compose Query Files From Extension
 
 behavior reject_reserved_entity_kind "Reject Reserved Entity Kind" {
   invariants [entity_kind_uniqueness]
+  category   command
   types      [KindRegistryEntry, ManifestV2]
   consumes   [extension_manifests_loaded]
 
@@ -140,6 +142,7 @@ behavior reject_reserved_entity_kind "Reject Reserved Entity Kind" {
 // during manifest loading. This behavior handles the policy-based resolution UI.
 behavior detect_entity_kind_collision "Detect Entity Kind Collision" {
   invariants [entity_kind_uniqueness]
+  category   validation
   types      [ManifestV2, ExtensionError, EntityKindConflict]
   consumes   [extension_manifests_loaded]
 
@@ -178,6 +181,7 @@ behavior detect_entity_kind_collision "Detect Entity Kind Collision" {
 
 behavior load_extension_manifest "Load Extension Manifest" {
   invariants [extension_load_order_determinism]
+  category   command
   types      [ManifestV2, ExtensionError]
   ports      [FileSystem]
   produces   [manifest_loaded]
@@ -228,6 +232,7 @@ behavior load_extension_manifest "Load Extension Manifest" {
 
 behavior register_entity_enhancements "Register Entity Enhancements" {
   invariants [enhancement_field_uniqueness, enhancement_builtin_precedence]
+  category   command
   types      [ManifestV2, FieldEnhancement, DynamicEdgeType]
 
   requires {
@@ -262,6 +267,7 @@ behavior register_entity_enhancements "Register Entity Enhancements" {
 
 behavior detect_enhancement_conflicts "Detect Enhancement Conflicts" {
   invariants [enhancement_field_uniqueness, enhancement_builtin_precedence]
+  category   validation
   types      [EnhancementConflict, FieldEnhancement, EnhancedFieldType, EnumFieldType, ReferenceFieldType]
 
   requires {
@@ -296,6 +302,7 @@ behavior detect_enhancement_conflicts "Detect Enhancement Conflicts" {
 
 behavior resolve_enhancement_conflicts "Resolve Enhancement Conflicts" {
   invariants [enhancement_field_uniqueness]
+  category   query
   types      [EnhancementConflict, ConflictResolution, EnhancementPolicy]
   consumes   [enhancement_conflict_detected]
 
@@ -330,6 +337,7 @@ behavior resolve_enhancement_conflicts "Resolve Enhancement Conflicts" {
 
 behavior dispatch_contribution_exports "Dispatch Contribution Exports" {
   invariants [extension_load_order_determinism]
+  category   query
   types      [ManifestV2, ExtensionContributions, ExtensionError]
   ports      [WasmRuntime]
   consumes   [contribution_exports_validated, contribution_toggled, collector_report_ingested]
@@ -392,6 +400,7 @@ behavior dispatch_contribution_exports "Dispatch Contribution Exports" {
 
 behavior enforce_per_call_site_permissions "Enforce Per-Call-Site Permissions" {
   invariants [wasm_sandbox_integrity]
+  category   command
   types      [ManifestV2, SandboxPolicy]
   ports      [WasmRuntime]
 
@@ -440,6 +449,7 @@ behavior enforce_per_call_site_permissions "Enforce Per-Call-Site Permissions" {
 
 behavior validate_contribution_exports "Validate Contribution Exports" {
   invariants [host_function_type_safety]
+  category   validation
   types      [ManifestV2, ExtensionError]
   ports      [WasmRuntime]
 
@@ -474,6 +484,7 @@ behavior validate_contribution_exports "Validate Contribution Exports" {
 
 behavior toggle_extension_contributions "Toggle Extension Contributions" {
   invariants [extension_load_order_determinism]
+  category   command
   types      [ManifestV2, ExtensionContributions]
   ports      [CompilerApi]
 
@@ -516,6 +527,7 @@ behavior toggle_extension_contributions "Toggle Extension Contributions" {
 // (behaviors/mcp-operations.spec).
 behavior register_collector_contributions "Register Collector Contributions" {
   invariants [extension_load_order_determinism]
+  category   query
   types      [ManifestV2, CollectorContribution, ExtensionContributions, ExtensionError]
   ports      [WasmRuntime]
 
@@ -556,6 +568,7 @@ behavior register_collector_contributions "Register Collector Contributions" {
 // event between detection and dispatch.
 behavior auto_detect_collector "Auto-Detect Collector" {
   invariants [extension_load_order_determinism]
+  category   validation
   types      [CollectorContribution, CollectorAutoDetect]
   ports      [FileSystem]
   consumes   [collector_registered]
@@ -596,6 +609,7 @@ behavior auto_detect_collector "Auto-Detect Collector" {
 
 behavior dispatch_collector "Dispatch Collector" {
   invariants [wasm_sandbox_integrity, extension_isolation]
+  category   query
   types      [CollectorContribution, CollectorDispatchInput, CollectorReport, ExtensionError, WasmTrapInfo]
   ports      [WasmRuntime, FileSystem]
 
@@ -634,6 +648,7 @@ behavior dispatch_collector "Dispatch Collector" {
 
 behavior validate_collector_output "Validate Collector Output" {
   invariants [collector_output_conformance]
+  category   validation
   types      [CollectorReport, CollectorStats, ExtensionError]
   consumes   [collector_dispatched]
 
@@ -669,6 +684,7 @@ behavior validate_collector_output "Validate Collector Output" {
 
 behavior ingest_collector_report "Ingest Collector Report" {
   invariants [collector_output_conformance]
+  category   query
   types      [CollectorReport, CollectorReportEntry, Graph]
   ports      [FileSystem]
   consumes   [collector_output_validated]
@@ -709,6 +725,7 @@ behavior ingest_collector_report "Ingest Collector Report" {
 
 behavior discover_extensions "Discover Extensions" {
   invariants [extension_load_order_determinism, registry_integrity, offline_first_extension_resolution]
+  category   command
   types      [ExtensionSource, ManifestV2, ExtensionError]
   ports      [WasmRuntime]
 
@@ -748,6 +765,7 @@ behavior discover_extensions "Discover Extensions" {
 behavior run_doctor_check "Run Doctor Check" {
   // Doctor REPORTS on invariant violations — it does not ENFORCE them.
   // Enforcement is done by the behaviors listed in each invariant's enforced_by.
+  category   validation
   invariants [diagnostic_determinism]
   types      [ManifestV2, EnhancementConflict, FieldEnhancement]
   ports      [FileSystem]
@@ -789,6 +807,7 @@ behavior run_doctor_check "Run Doctor Check" {
 
 behavior parse_extension_specifier "Parse Extension Specifier" {
   invariants [registry_integrity]
+  category   command
   types      [ExtensionSpecifier, ExtensionSource, ExtensionError]
 
   requires {
@@ -820,6 +839,7 @@ behavior parse_extension_specifier "Parse Extension Specifier" {
 
 behavior resolve_extension_source "Resolve Extension Source" {
   invariants [registry_integrity]
+  category   query
   types      [ManifestV2, ExtensionSpecifier, ExtensionSource, ExtensionError]
   ports      [FileSystem, RegistryClient]
   consumes   [extension_specifier_parsed]
@@ -856,6 +876,7 @@ behavior resolve_extension_source "Resolve Extension Source" {
 
 behavior write_lock_file "Write Lock File" {
   invariants [extension_load_order_determinism, registry_integrity]
+  category   command
   types      [ManifestV2, LockFile, LockFileEntry]
   ports      [FileSystem]
 
@@ -890,6 +911,7 @@ behavior write_lock_file "Write Lock File" {
 
 behavior read_lock_file "Read Lock File" {
   invariants [extension_load_order_determinism]
+  category   command
   types      [ManifestV2, LockFile, LockFileEntry, ExtensionError]
   ports      [FileSystem]
   consumes   [all_files_parsed]
@@ -925,6 +947,7 @@ behavior read_lock_file "Read Lock File" {
 
 behavior update_all_extensions "Update All Extensions" {
   invariants [wasm_sandbox_integrity, peer_dependency_satisfaction, aot_cache_integrity, extension_operation_atomicity]
+  category   command
   types      [ManifestV2, LockFileEntry, ExtensionError]
   ports      [WasmRuntime]
 
@@ -967,6 +990,7 @@ behavior update_all_extensions "Update All Extensions" {
 
 behavior refresh_lock_file "Refresh Lock File" {
   invariants [aot_cache_integrity, registry_integrity]
+  category   command
   types      [LockFileEntry, ManifestV2]
   ports      [WasmRuntime, FileSystem]
 

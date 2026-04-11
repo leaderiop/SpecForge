@@ -11,11 +11,10 @@
 // extension requires zero changes to the migration engine.
 // See also: migration_as_core_infrastructure ADR in governance/decisions.spec.
 
-use behaviors/migration
-use types/migration
-use invariants/migration
-use events/compilation
-
+use "behaviors/migration"
+use "types/migration"
+use "invariants/migration"
+use "events/compilation"
 feature spec_file_migration "Spec File Migration" {
   // MCP: provide_mcp_migrate_tool in features/mcp.spec::mcp_mutation_tools
   behaviors [detect_format_version_mismatch, migrate_spec_files_in_place, generate_migration_diff, validate_post_migration_integrity, capture_pre_migration_schema_snapshot, verify_graph_protocol_compatibility_after_migration, invoke_extension_migration_hooks, rollback_failed_migration]

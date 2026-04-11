@@ -4,12 +4,11 @@
 // ValidationRulePattern entries in the @specforge/product manifest.
 // The core declarative validation engine executes these patterns.
 
-use invariants/core
-use invariants/validation
-use extensions/product/invariants
-use types/diagnostics
-use types/graph
-
+use "invariants/core"
+use "invariants/validation"
+use "extensions/product/invariants"
+use "types/diagnostics"
+use "types/graph"
 behavior detect_orphan_features "Detect Orphan Features" {
   types      [Diagnostic]
 
@@ -27,6 +26,7 @@ behavior detect_orphan_features "Detect Orphan Features" {
 
 behavior detect_library_cycles "Detect Library Cycles" {
   invariants [library_dag]
+  category   validation
   types      [Diagnostic]
 
   contract """
@@ -43,6 +43,7 @@ behavior detect_library_cycles "Detect Library Cycles" {
 
 behavior validate_behavior_ranges_in_roadmaps "Validate Behavior Ranges in Roadmaps" {
   invariants [reference_resolution_completeness]
+  category   validation
   types      [Diagnostic]
 
   contract """
@@ -61,6 +62,7 @@ behavior validate_behavior_ranges_in_roadmaps "Validate Behavior Ranges in Roadm
 behavior detect_orphan_capabilities "Detect Orphan Capabilities" {
   types      [Diagnostic]
 
+  category   validation
   contract """
     The @specforge/product extension MUST declare a no_incoming_edges
     validation pattern that detects capabilities not referenced by any
@@ -75,6 +77,7 @@ behavior detect_orphan_capabilities "Detect Orphan Capabilities" {
 behavior detect_deliverables_with_no_capabilities "Detect Deliverables with No Capabilities" {
   types      [Diagnostic]
 
+  category   validation
   contract """
     The @specforge/product extension MUST declare a field_value_constraint
     validation pattern that detects deliverables with an empty capabilities
@@ -89,6 +92,7 @@ behavior detect_deliverables_with_no_capabilities "Detect Deliverables with No C
 behavior detect_orphan_libraries "Detect Orphan Libraries" {
   types      [Diagnostic]
 
+  category   validation
   contract """
     The @specforge/product extension MUST declare a no_incoming_edges
     validation pattern that detects libraries not bundled in any
@@ -103,6 +107,7 @@ behavior detect_orphan_libraries "Detect Orphan Libraries" {
 behavior detect_unused_glossary_terms "Detect Unused Glossary Terms" {
   types      [Diagnostic]
 
+  category   validation
   contract """
     The @specforge/product extension MUST declare a validation pattern
     (implemented via Wasm validate() for complex text scanning) that
@@ -134,6 +139,7 @@ behavior validate_persona_references "Validate Persona References" {
 
 behavior validate_surface_references "Validate Surface References" {
   invariants [diagnostic_code_uniqueness]
+  category   validation
   types      [Diagnostic]
 
   contract """

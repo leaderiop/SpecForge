@@ -1,19 +1,19 @@
 // Incremental compilation behaviors — watch mode and file change handling
 
-use invariants/core
-use invariants/validation
-use invariants/zero-entity-core
-use types/core
-use types/config
-use types/graph
-use types/diagnostics
-use types/zero-entity-core
-use ports/inbound
-use ports/outbound
-use events/compilation
-
+use "invariants/core"
+use "invariants/validation"
+use "invariants/zero-entity-core"
+use "types/core"
+use "types/config"
+use "types/graph"
+use "types/diagnostics"
+use "types/zero-entity-core"
+use "ports/inbound"
+use "ports/outbound"
+use "events/compilation"
 behavior watch_file_system_for_changes "Watch File System for Changes" {
   invariants [incremental_correctness, watch_mode_response_latency]
+  category   command
   types      [FileEntry]
   ports      [FileSystem]
   produces   [file_changed]
@@ -43,6 +43,7 @@ behavior watch_file_system_for_changes "Watch File System for Changes" {
 
 behavior invalidate_changed_files "Invalidate Changed Files" {
   invariants [incremental_correctness, graph_traversal_integrity]
+  category   validation
   types      [Graph, Subgraph, FileEntry]
   consumes   [file_changes_coalesced]
   produces   [subgraph_invalidated]
@@ -83,6 +84,7 @@ behavior invalidate_changed_files "Invalidate Changed Files" {
 
 behavior rebuild_affected_subgraph "Rebuild Affected Subgraph" {
   invariants [incremental_correctness, graph_traversal_integrity, zero_domain_knowledge_core]
+  category   command
   types      [Graph, Subgraph, FileEntry]
   ports      [SourceParser]
   // Sequential dependency: track_import_dag_incrementally consumes
@@ -134,6 +136,7 @@ behavior rebuild_affected_subgraph "Rebuild Affected Subgraph" {
 
 behavior emit_incremental_diagnostics "Emit Incremental Diagnostics" {
   invariants [multi_error_collection, incremental_correctness, diagnostic_determinism, zero_domain_knowledge_core, watch_mode_response_latency]
+  category   command
   types      [DiagnosticBag, DiagnosticsDelta]
   consumes   [incremental_rebuild_complete, graph_delta_computed, incremental_validators_dispatched]
   produces   [incremental_diagnostics_complete]
@@ -187,6 +190,7 @@ behavior emit_incremental_diagnostics "Emit Incremental Diagnostics" {
 
 behavior debounce_file_changes "Debounce File Changes" {
   invariants [incremental_correctness, diagnostic_determinism, watch_mode_response_latency]
+  category   command
   types      [FileEntry, CompilerConfig]
   consumes   [file_changed]
   produces   [file_changes_coalesced]
@@ -221,6 +225,7 @@ behavior debounce_file_changes "Debounce File Changes" {
 behavior track_import_dag_incrementally "Track Import DAG Incrementally" {
   // Runs synchronously before rebuild_affected_subgraph — the import DAG
   // must be up-to-date before any subgraph rebuild begins.
+  category   command
   invariants [import_dag, incremental_correctness]
   types      [Graph, FileEntry]
   consumes   [subgraph_invalidated]
@@ -259,6 +264,7 @@ behavior track_import_dag_incrementally "Track Import DAG Incrementally" {
 
 behavior compute_graph_delta "Compute Graph Delta" {
   invariants [incremental_correctness, graph_traversal_integrity, diagnostic_determinism, graph_delta_determinism]
+  category   query
   types      [Graph, GraphDelta, NodeChange, ModifiedNodeChange]
   consumes   [incremental_rebuild_complete]
   produces   [graph_delta_computed]
@@ -305,6 +311,7 @@ behavior compute_graph_delta "Compute Graph Delta" {
 
 behavior dispatch_incremental_validators "Dispatch Incremental Validators" {
   invariants [incremental_correctness, diagnostic_determinism, zero_domain_knowledge_core]
+  category   command
   types      [GraphDelta, Graph, ManifestEntityKind]
   ports      [WasmRuntime]
   consumes   [graph_delta_computed]
@@ -347,6 +354,7 @@ behavior dispatch_incremental_validators "Dispatch Incremental Validators" {
 
 behavior notify_delta_subscribers "Notify Delta Subscribers" {
   invariants [incremental_correctness, diagnostic_determinism, graph_traversal_integrity]
+  category   command
   types      [GraphDelta, DiagnosticsDelta]
   // MCP notification is handled by notify_graph_delta_via_mcp in behaviors/mcp-server.spec
   ports      [LspProtocol]
@@ -384,6 +392,7 @@ behavior notify_delta_subscribers "Notify Delta Subscribers" {
 
 behavior validate_delta_correctness "Validate Delta Correctness" {
   invariants [incremental_correctness, graph_delta_determinism]
+  category   validation
   types      [Graph, GraphDelta]
   consumes   [graph_delta_computed]
   produces   [delta_validation_failed, delta_validation_passed]

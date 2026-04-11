@@ -46,7 +46,7 @@ Consider what happens when a coding agent needs to add an authentication endpoin
 This is not unique to coding:
 
 - A **compliance agent** auditing your GDPR controls reads scattered policy documents and hopes it finds every relevant control. With a graph, every regulation links to its controls, every control links to its evidence, and gaps are visible immediately.
-- A **PM agent** writing a status report scans Jira, Slack, and meeting notes. With a graph, it reads structured roadmap entities with their linked deliverables and feature status — no scanning required.
+- A **PM agent** writing a status report scans Jira, Slack, and meeting notes. With a graph, it reads structured milestone entities with their linked deliverables and feature status — no scanning required.
 - A **documentation agent** producing API docs parses source code and guesses at intent. With a graph, it reads endpoint entities, their schemas, auth requirements, and rate limits — all validated at compile time.
 - A **security agent** assessing risk reads architecture docs that may be months out of date. With a graph, it reads the current port surface, constraint entities, and failure modes — and the compiler guarantees they are consistent.
 

@@ -2,10 +2,10 @@
 // Organized by phase: Phase 1 (annotation + collection),
 // Phase 2 (build.rs integration), Phase 3 (coverage summary).
 
-use types
-use invariants
-use ports
-use events
+use "types"
+use "invariants"
+use "ports"
+use "events"
 
 // ============================================================
 // Phase 1: Annotation + Collection (Option A)
@@ -26,7 +26,7 @@ behavior expand_test_attribute "Expand Test Attribute" {
   """
 
   requires {
-    valid_attribute_args "attribute contains entity_kind (behavior/invariant/event) and entity_id"
+    valid_attribute_args "attribute contains entity_kind (any identifier) and entity_id"
   }
 
   ensures {
@@ -289,6 +289,8 @@ behavior compute_coverage_diff "Compute Coverage Diff" {
   verify unit "entity with 2 verify and 0 tests is uncovered"
   verify unit "entity with 0 verify is no_intent"
   verify unit "non-testable entities are excluded"
+  verify unit "all verify covered but some failing is covered_with_failures"
+  verify unit "partial coverage with mixed pass/fail counted correctly"
 }
 
 behavior print_coverage_summary "Print Coverage Summary" {

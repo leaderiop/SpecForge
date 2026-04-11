@@ -1,13 +1,12 @@
 // Initialization behaviors — project scaffolding
 
-use invariants/core
-use invariants/zero-entity-core
-use invariants/wasm
-use types/config
-use ports/outbound
-use behaviors/wasm-extensions
-use events/compilation
-
+use "invariants/core"
+use "invariants/zero-entity-core"
+use "invariants/wasm"
+use "types/config"
+use "ports/outbound"
+use "behaviors/wasm-extensions"
+use "events/compilation"
 // L5: project_initialized event boundary — scaffold_new_project fires
 // project_initialized when extensions are selected; graceful_zero_extension_init
 // fires it when zero extensions are selected. These are mutually exclusive paths

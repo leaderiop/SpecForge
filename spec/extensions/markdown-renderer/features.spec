@@ -3,8 +3,7 @@
 // Vision: "SpecForge does not produce code, configuration, documentation,
 // or any output artifact." Markdown rendering is an extension responsibility.
 
-use extensions/markdown-renderer/behaviors
-
+use "extensions/markdown-renderer/behaviors"
 feature markdown_documentation_generation "Markdown Documentation Generation" {
   behaviors [render_markdown_documentation, render_index_files, selective_render_by_entity_type]
 

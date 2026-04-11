@@ -1,7 +1,6 @@
 // Migration-specific invariants
 
-use behaviors/migration
-
+use "behaviors/migration"
 invariant migration_idempotency "Migration Idempotency" {
   guarantee """
     Running specforge migrate twice on the same .spec files MUST produce

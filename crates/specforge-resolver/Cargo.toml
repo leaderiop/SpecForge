@@ -3,6 +3,11 @@ name = "specforge-resolver"
 edition.workspace = true
 version.workspace = true
 license.workspace = true
+autotests = false
+
+[[test]]
+name = "tests"
+path = "tests/main.rs"
 
 [dependencies]
 specforge-common = { workspace = true }

@@ -1,11 +1,10 @@
 // Wasm extension lifecycle events — load, init, validate, unload, deps,
 // sorting, manifest, integrity, install, remove, upgrade
 
-use types/wasm
-use behaviors/wasm-lifecycle
-use behaviors/wasm-sandbox
-use behaviors/surface-contributions
-
+use "types/wasm"
+use "behaviors/wasm-lifecycle"
+use "behaviors/wasm-sandbox"
+use "behaviors/surface-contributions"
 event extension_loaded "Extension Loaded" {
   trigger   load_wasm_module
   channel   "wasm.extension_loaded"

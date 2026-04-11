@@ -3,8 +3,7 @@
 // Decisions specific to the Rust language integration:
 // test guard design, JUnit format, naming conventions, delivery phases.
 
-use extensions/rust/invariants
-
+use "extensions/rust/invariants"
 decision drop_based_test_guard "Drop-Based Test Guard" {
   status   accepted
   date     2026-03-02

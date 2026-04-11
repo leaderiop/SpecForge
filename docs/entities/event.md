@@ -21,8 +21,8 @@ Examples: `user_created`, `email_changed`, `order_placed`
 ## Syntax
 
 ```spec
-use types/user
-use behaviors/user-crud
+use "types/user"
+use "behaviors/user-crud"
 
 event user_created "User Created" {
   trigger   create_user
@@ -176,7 +176,7 @@ event email_changed "User Email Changed" {
 ### Cross-Service Event
 
 ```spec
-use behaviors/order-processing
+use "behaviors/order-processing"
 
 event order_placed "Order Placed" {
   trigger   place_order

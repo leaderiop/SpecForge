@@ -1,8 +1,7 @@
 // LSP features
 
-use behaviors/lsp
-use behaviors/zero-entity-lsp
-
+use "behaviors/lsp"
+use "behaviors/zero-entity-lsp"
 feature lsp_lifecycle "LSP Lifecycle" {
   behaviors [lsp_initialize, lsp_shutdown, document_open_close]
 

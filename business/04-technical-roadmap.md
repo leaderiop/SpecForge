@@ -255,7 +255,7 @@ Extensions execute in a Wasm sandbox with no default capabilities:
 | Extension | Entity Kinds | Domain |
 |-----------|-------------|--------|
 | `@specforge/software` | behavior, invariant, feature, event, type, port | Software engineering |
-| `@specforge/product` | capability, deliverable, roadmap, library, glossary | Product management |
+| `@specforge/product` | journey, deliverable, milestone, module, term | Product management |
 | `@specforge/governance` | decision, constraint, failure_mode | Technical governance |
 | `@specforge/compliance` | regulation, control, evidence, audit | Regulatory compliance |
 
@@ -473,15 +473,15 @@ Delivered `specforge collect rust` for JUnit XML and libtest JSON parsing. Three
 
 **Libraries:** specforge-collect-rust, specforge-test, specforge-test-macros
 
-### Phase 7: Code Formatting -- PLANNED
+### Phase 7: Code Formatting -- COMPLETED
 
-Will deliver `specforge format` (format all .spec files), `--check` mode for CI, `--diff` for preview, stdin formatting, configurable format rules, idempotency guarantee, and LSP `textDocument/formatting` + range formatting.
+Delivered `specforge format` (format all .spec files), `--check` mode for CI, `--diff` for preview, stdin formatting, configurable format rules, idempotency guarantee, and comment preservation. The `specforge-formatter` crate implements a rule-based formatting engine with diff output, file discovery, and per-rule configuration.
 
-**Libraries:** specforge-formatter
+**Libraries:** specforge-formatter (7 modules, 80 tests)
 
-### Phase 8: Zero-Entity Core -- IN PROGRESS
+### Phase 8: Zero-Entity Core -- COMPLETED
 
-The most architecturally significant phase. Removes all remaining hardcoded entity types from the compiler core. Delivers:
+The most architecturally significant phase. Removed all remaining hardcoded entity types from the compiler core. Delivered:
 
 - **Empty boot:** `KindRegistry` and `FieldRegistry` boot empty, populated exclusively from extension manifests
 - **Declarative validation:** All validation rules are declarative patterns interpreted by core, not hardcoded passes
@@ -490,12 +490,26 @@ The most architecturally significant phase. Removes all remaining hardcoded enti
 - **Graceful degradation:** Zero extensions installed produces I002 info-level diagnostics, not errors
 - **Unknown keyword detection:** E024 diagnostics suggest which extension provides unrecognized keywords
 - **Manifest V2 consistency validation:** Ensure extensions do not declare contradictory rules
+- **Extension registry:** Registry client with auth, search, publish, version resolution, and integrity verification
+- **Surface contributions:** CLI command and MCP tool/resource contributions from extensions
+- **Define blocks:** User-defined meta-schema types beyond extension-provided entity kinds
 
-**Exit criteria:** A new domain extension (`@specforge/compliance`, `@specforge/atomic-design`) works end-to-end without any compiler changes.
+**Exit criteria met:** A new domain extension (`@specforge/compliance`, `@specforge/atomic-design`) works end-to-end without any compiler changes.
 
-### Phase 9: MCP Server -- PLANNED
+**Libraries:** specforge-registry (21 modules, 316 tests)
 
-Delivers `specforge://graph` and `specforge://schema` as MCP resources. `specforge.query`, `specforge.validate`, and `specforge.export` as MCP tools. Delta notifications pushed to subscribed agents after incremental rebuilds. Agents consume graph without CLI invocation.
+### Phase 9: MCP Server -- COMPLETED
+
+Delivered full JSON-RPC 2.0 MCP server with lifecycle management (initialize/shutdown), phase guarding, and reinitialization protection. Implemented:
+
+- **Resources:** `specforge://graph`, `specforge://diagnostics`, `specforge://schema` as read-only MCP resources
+- **Tools (17):** `specforge.query`, `specforge.validate`, `specforge.export`, `specforge.trace`, `specforge.search`, `specforge.stats`, `specforge.coverage`, `specforge.schema`, `specforge.inspect`, `specforge.format`, `specforge.rename`, `specforge.init`, `specforge.add_extension`, `specforge.remove_extension`, `specforge.migrate`, `specforge.collect`, `specforge.render`, `specforge.doctor`
+- **Prompts (4):** `specforge://prompts/context`, `specforge://prompts/review`, `specforge://prompts/trace`, `specforge://prompts/explore`
+- **Subscriptions:** Channel-based subscriptions with delta notifications after incremental rebuilds
+- **Event system:** Structured event logging for protocol errors, lifecycle transitions, and graph changes
+- **Parameter validation:** Severity filtering, format validation, field/value search, coverage annotation, trace gap detection
+
+**Libraries:** specforge-mcp (287 tests across 13 test modules)
 
 ### Phase 9b: Federation -- PLANNED
 
@@ -507,20 +521,21 @@ Entity contracts and relationships embedded into vector space. `specforge search
 
 ### Phase Summary
 
-| Phase | Name | Status |
-|-------|------|--------|
-| 1 | Core Compiler | Completed |
-| 2 | CLI and Watch Mode | Completed |
-| 3 | LSP Server | Completed |
-| 4 | Graph Protocol and Agent Export | Completed |
-| 5 | Extensions and Coverage | Completed |
-| 5b | Wasm Extension Authoring | Completed |
-| 6 | Rust Test Collection | Completed |
-| 7 | Code Formatting | Planned |
-| 8 | Zero-Entity Core | In Progress |
-| 9 | MCP Server | Planned |
-| 9b | Federation | Planned |
-| 10 | Entity Embeddings | Future |
+| Phase | Name | Status | Tests |
+|-------|------|--------|-------|
+| 1 | Core Compiler | Completed | 152 |
+| 2 | CLI and Watch Mode | Completed | 223 |
+| 3 | LSP Server | Completed | 116 |
+| 4 | Graph Protocol and Agent Export | Completed | 111 |
+| 5 | Extensions and Coverage | Completed | 415 |
+| 5b | Wasm Extension Authoring | Completed | — |
+| 6 | Rust Test Collection | Completed | — |
+| 7 | Code Formatting | Completed | 80 |
+| 8 | Zero-Entity Core | Completed | 316 |
+| 9 | MCP Server | Completed | 287 |
+| 9b | Federation | Planned | — |
+| 10 | Entity Embeddings | Future | — |
+| | **Total** | **9/11 completed** | **1,700** |
 
 ---
 

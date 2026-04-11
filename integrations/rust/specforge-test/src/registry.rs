@@ -1,5 +1,5 @@
+use crossbeam_queue::SegQueue;
 use serde::Serialize;
-use std::sync::Mutex;
 
 #[derive(Debug, Clone, Serialize, PartialEq)]
 pub struct TestRecordEntry {
@@ -20,13 +20,16 @@ pub enum TestOutcome {
     Fail,
 }
 
-static REGISTRY: Mutex<Vec<TestRecordEntry>> = Mutex::new(Vec::new());
+static REGISTRY: SegQueue<TestRecordEntry> = SegQueue::new();
 
 pub fn record(entry: TestRecordEntry) {
-    REGISTRY.lock().unwrap().push(entry);
+    REGISTRY.push(entry);
 }
 
 pub fn drain() -> Vec<TestRecordEntry> {
-    let mut lock = REGISTRY.lock().unwrap();
-    std::mem::take(&mut *lock)
+    let mut entries = Vec::new();
+    while let Some(entry) = REGISTRY.pop() {
+        entries.push(entry);
+    }
+    entries
 }

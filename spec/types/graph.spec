@@ -6,9 +6,8 @@
 // graph node. They are structurally identical but semantically distinct:
 // Entity belongs to a SpecFile, Node belongs to a Graph.
 
-use types/core
-use types/diagnostics
-
+use "types/core"
+use "types/diagnostics"
 type Graph {
   schema_version string    @readonly
   nodes      Node[]

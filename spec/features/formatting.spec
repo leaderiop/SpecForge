@@ -11,10 +11,9 @@
 // Because core never inspects entity kinds or fields, it satisfies P7's real test:
 // "does this require a compiler change when a new domain appears?" — it does not.
 
-use behaviors/formatting
-use types/core
-use types/formatting
-
+use "behaviors/formatting"
+use "types/core"
+use "types/formatting"
 feature code_formatting "Code Formatting" {
   behaviors [
     format_spec_files, preserve_comments, check_formatting, show_formatting_diff,

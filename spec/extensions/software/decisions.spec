@@ -3,8 +3,7 @@
 // Decisions specific to the software engineering entity model
 // and its traceability mechanisms.
 
-use invariants/validation
-
+use "invariants/validation"
 decision gherkin_bridge_for_traceability "Gherkin Bridge for Traceability" {
   status   accepted
   date     2026-03-04

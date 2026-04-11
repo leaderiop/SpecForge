@@ -1,17 +1,12 @@
 use specforge_emitter::{compute_stats_with_diagnostics, ProjectStats};
-use specforge_graph::build_graph;
-use specforge_resolver::resolve_project;
 use std::path::Path;
 
+use crate::pipeline;
+
 pub fn run(path: &Path, format: &str) -> i32 {
-    let resolved = resolve_project(path);
-    let spec_files: Vec<_> = resolved.files.iter().map(|f| f.spec_file.clone()).collect();
-    let (graph, build_diagnostics) = build_graph(&spec_files);
+    let ctx = pipeline::compile(path);
 
-    let mut all_diagnostics = resolved.diagnostics;
-    all_diagnostics.extend(build_diagnostics);
-
-    let stats = compute_stats_with_diagnostics(&graph, &[], &all_diagnostics);
+    let stats = compute_stats_with_diagnostics(&ctx.graph, &[], &ctx.diagnostics);
 
     match format {
         "json" => print_json(&stats),
@@ -48,5 +43,5 @@ fn print_json(stats: &ProjectStats) {
         "info_count": stats.info_count,
         "entities_by_kind": stats.entities_by_kind,
     });
-    println!("{}", serde_json::to_string_pretty(&json).unwrap());
+    println!("{}", serde_json::to_string_pretty(&json).expect("serialize JSON output"));
 }

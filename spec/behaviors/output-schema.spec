@@ -1,20 +1,20 @@
 // Output behaviors — schema generation, versioning, MCP graph serving, embeddings
 
-use invariants/core
-use invariants/extensions
-use invariants/validation
-use invariants/zero-entity-core
-use types/graph
-use types/output
-use types/zero-entity-core
-use ports/inbound
-use ports/outbound
-use events/compilation
-
+use "invariants/core"
+use "invariants/extensions"
+use "invariants/validation"
+use "invariants/zero-entity-core"
+use "types/graph"
+use "types/output"
+use "types/zero-entity-core"
+use "ports/inbound"
+use "ports/outbound"
+use "events/compilation"
 // ── Self-Describing Graph Protocol Schema ─────────────────────────────
 
 behavior generate_schema_from_registries "Generate Schema From Registries" {
   invariants [graph_schema_completeness, diagnostic_determinism, registry_population_before_validation, zero_domain_knowledge_core]
+  category   query
   types      [GraphProtocolSchema, SchemaEntityKind, SchemaEdgeType, SchemaField, KindRegistryEntry, FieldRegistryEntry]
   ports      [CompilerApi]
   consumes   [registries_populated]
@@ -55,6 +55,7 @@ behavior generate_schema_from_registries "Generate Schema From Registries" {
 
 behavior embed_schema_in_export "Embed Schema in Export" {
   invariants [graph_traversal_integrity, graph_schema_completeness, diagnostic_determinism, zero_domain_knowledge_core, schema_version_backward_compatibility]
+  category   query
   types      [Graph, GraphProtocolSchema, OutputFile]
   ports      [CompilerApi]
   // Barrier-join: schema pipeline must complete (schema_version_computed) AND
@@ -93,6 +94,7 @@ behavior embed_schema_in_export "Embed Schema in Export" {
 
 behavior persist_schema_cache "Persist Schema Cache" {
   invariants [graph_schema_completeness, diagnostic_determinism, schema_version_backward_compatibility, zero_domain_knowledge_core]
+  category   command
   types      [GraphProtocolSchema, SchemaCacheEntry]
   ports      [FileSystem]
   consumes   [schema_generated]
@@ -127,6 +129,7 @@ behavior persist_schema_cache "Persist Schema Cache" {
 
 behavior serve_schema_resource "Serve Schema Resource" {
   invariants [graph_traversal_integrity, graph_schema_completeness, diagnostic_determinism, zero_domain_knowledge_core]
+  category   command
   types      [GraphProtocolSchema, SchemaEntityKind]
   ports      [CompilerApi]
   consumes   [validation_complete]
@@ -168,6 +171,7 @@ behavior serve_schema_resource "Serve Schema Resource" {
 // Cross-feature: contributes to agent_export feature (features/output.spec).
 behavior serve_graph_resource "Serve Graph Resource via MCP" {
   invariants [graph_traversal_integrity, graph_schema_completeness, diagnostic_determinism, zero_domain_knowledge_core]
+  category   command
   types      [Graph, GraphProtocolSchema, AgentExportConfig, DiagnosticSummary]
   ports      [CompilerApi, McpProtocol]
   consumes   [validation_complete]
@@ -222,6 +226,7 @@ behavior serve_graph_resource "Serve Graph Resource via MCP" {
 
 behavior negotiate_schema_version "Negotiate Schema Version" {
   invariants [graph_schema_completeness, diagnostic_determinism, schema_version_backward_compatibility, zero_domain_knowledge_core]
+  category   command
   types      [SchemaVersion, SchemaCompatibility, GraphProtocolSchema, ExportResult]
   ports      [CompilerApi]
   consumes   [validation_complete, schema_breaking_change_detected]
@@ -262,6 +267,7 @@ behavior negotiate_schema_version "Negotiate Schema Version" {
 
 behavior detect_breaking_schema_changes "Detect Breaking Schema Changes" {
   invariants [graph_schema_completeness, diagnostic_determinism, schema_version_backward_compatibility, zero_domain_knowledge_core]
+  category   validation
   types      [SchemaVersion, SchemaMigration, GraphProtocolSchema, SchemaCacheEntry]
   ports      [CompilerApi, FileSystem]
   // Reads the previous schema from .specforge/schema-cache.json written by the
@@ -313,6 +319,7 @@ behavior detect_breaking_schema_changes "Detect Breaking Schema Changes" {
 
 behavior compute_schema_version "Compute Schema Version" {
   invariants [graph_schema_completeness, diagnostic_determinism, schema_version_backward_compatibility, zero_domain_knowledge_core]
+  category   query
   types      [SchemaVersion, SchemaMigration, GraphProtocolSchema, SchemaCacheEntry]
   ports      [CompilerApi]
   // compute_schema_version depends on breaking change classification from
@@ -351,6 +358,7 @@ behavior compute_schema_version "Compute Schema Version" {
 
 behavior publish_schema_specification "Publish Schema Specification" {
   invariants [graph_schema_completeness, diagnostic_determinism, registry_api_openness, zero_domain_knowledge_core]
+  category   command
   types      [GraphProtocolSchema, OutputFile]
   ports      [CompilerApi, FileSystem]
   consumes   [schema_version_computed, validation_complete]

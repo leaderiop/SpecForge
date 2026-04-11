@@ -1,7 +1,6 @@
 // Federation features — cross-project references and graph merging
 
-use extensions/federation/behaviors
-
+use "extensions/federation/behaviors"
 feature cross_project_references "Cross-Project References" {
   behaviors [load_federation_config, resolve_cross_project_references, load_remote_project_graph, validate_cross_project_edge_consistency]
 

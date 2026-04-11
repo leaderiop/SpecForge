@@ -1,26 +1,25 @@
 // Compilation events — signals emitted during the compiler pipeline
 
-use types/core
-use types/graph
-use types/wasm
-use types/diagnostics
-use behaviors/parsing
-use behaviors/resolution
-use behaviors/graph
-use behaviors/validation
-use behaviors/error-reporting
-use behaviors/incremental
-use behaviors/zero-entity-registries
-use behaviors/zero-entity-validation
-use behaviors/formatting
-use behaviors/output
-use behaviors/output-schema
-use behaviors/lsp
-use behaviors/init
-use behaviors/migration
-use behaviors/extensions
-use behaviors/mcp-server
-
+use "types/core"
+use "types/graph"
+use "types/wasm"
+use "types/diagnostics"
+use "behaviors/parsing"
+use "behaviors/resolution"
+use "behaviors/graph"
+use "behaviors/validation"
+use "behaviors/error-reporting"
+use "behaviors/incremental"
+use "behaviors/zero-entity-registries"
+use "behaviors/zero-entity-validation"
+use "behaviors/formatting"
+use "behaviors/output"
+use "behaviors/output-schema"
+use "behaviors/lsp"
+use "behaviors/init"
+use "behaviors/migration"
+use "behaviors/extensions"
+use "behaviors/mcp-server"
 event file_parsed "File Parsed" {
   trigger   parse_spec_file_to_ast
   channel   "compiler.file_parsed"

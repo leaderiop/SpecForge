@@ -233,7 +233,7 @@
 
 **Key Deliverables (First 6 Months):**
 - Extension Development Kit (EDK) with stable API for entity registration, edge types, validation rules, and contributions.
-- `@specforge/software` (behavior, invariant, feature, event, type, port), `@specforge/product` (capability, deliverable, roadmap, library, glossary), `@specforge/governance` (decision, constraint, failure_mode) -- the launch extensions.
+- `@specforge/software` (behavior, invariant, feature, event, type, port), `@specforge/product` (journey, deliverable, milestone, module, term), `@specforge/governance` (decision, constraint, failure_mode) -- the launch extensions.
 - Extension manifest v2 format: entity_kinds, edge_types, validation_rules, contributions (entities, validators, renderers, providers).
 - At least one non-software extension prototype (e.g., `@specforge/compliance` or `@specforge/api-design`) demonstrating domain-agnostic core.
 - Extension authoring documentation and example extension template.

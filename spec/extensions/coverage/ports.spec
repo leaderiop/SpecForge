@@ -1,8 +1,7 @@
 // @specforge/coverage extension ports
 
-use types/errors
-use extensions/coverage/types
-
+use "types/errors"
+use "extensions/coverage/types"
 port TestReporter {
   direction outbound
   category  "testing/reporter"

@@ -1,7 +1,8 @@
 use serde::{Deserialize, Serialize};
+use std::collections::{HashMap, HashSet};
 use std::path::Path;
 
-use crate::registry::TestRecordEntry;
+use crate::registry::{TestOutcome, TestRecordEntry};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct GraphExport {
@@ -30,6 +31,7 @@ pub struct CoverageDiff {
     pub entity_kind: String,
     pub expected: usize,
     pub covered: usize,
+    pub passing: usize,
     pub status: CoverageDiffStatus,
 }
 
@@ -37,6 +39,7 @@ pub struct CoverageDiff {
 #[serde(rename_all = "snake_case")]
 pub enum CoverageDiffStatus {
     FullyCovered,
+    CoveredWithFailures,
     PartiallyCovered,
     Uncovered,
     NoIntent,
@@ -46,9 +49,18 @@ pub fn compute_coverage_diff(
     graph: &GraphExport,
     entries: &[TestRecordEntry],
 ) -> Vec<CoverageDiff> {
-    // Only include entities that have at least one test in this binary
-    let tested_ids: std::collections::HashSet<&str> =
-        entries.iter().map(|e| e.entity_id.as_str()).collect();
+    // Pre-index entries by (entity_id, verify_desc) for O(1) lookup
+    let mut index: HashMap<(&str, &str), Vec<&TestRecordEntry>> = HashMap::new();
+    for entry in entries {
+        if let Some(ref desc) = entry.verify {
+            index
+                .entry((entry.entity_id.as_str(), desc.as_str()))
+                .or_default()
+                .push(entry);
+        }
+    }
+
+    let tested_ids: HashSet<&str> = entries.iter().map(|e| e.entity_id.as_str()).collect();
 
     graph
         .entities
@@ -56,21 +68,25 @@ pub fn compute_coverage_diff(
         .filter(|e| e.testable && tested_ids.contains(e.id.as_str()))
         .map(|entity| {
             let expected = entity.verify.len();
-            let covered = entity
-                .verify
-                .iter()
-                .filter(|v| {
-                    entries.iter().any(|e| {
-                        e.entity_id == entity.id
-                            && e.verify.as_deref() == Some(v.description.as_str())
-                    })
-                })
-                .count();
+            let mut covered = 0usize;
+            let mut passing = 0usize;
+
+            for v in &entity.verify {
+                let key = (entity.id.as_str(), v.description.as_str());
+                if let Some(matching) = index.get(&key) {
+                    covered += 1;
+                    if matching.iter().all(|e| e.outcome == TestOutcome::Pass) {
+                        passing += 1;
+                    }
+                }
+            }
 
             let status = if expected == 0 {
                 CoverageDiffStatus::NoIntent
-            } else if covered >= expected {
+            } else if covered >= expected && passing >= expected {
                 CoverageDiffStatus::FullyCovered
+            } else if covered >= expected {
+                CoverageDiffStatus::CoveredWithFailures
             } else if covered > 0 {
                 CoverageDiffStatus::PartiallyCovered
             } else {
@@ -82,6 +98,7 @@ pub fn compute_coverage_diff(
                 entity_kind: entity.kind.clone(),
                 expected,
                 covered,
+                passing,
                 status,
             }
         })
@@ -108,6 +125,7 @@ pub fn format_coverage_summary(
         let coverage = format!("{}/{}", d.covered, d.expected);
         let status = match d.status {
             CoverageDiffStatus::FullyCovered => "✓ covered",
+            CoverageDiffStatus::CoveredWithFailures => "! failing",
             CoverageDiffStatus::PartiallyCovered => "◐ partial",
             CoverageDiffStatus::Uncovered => "✗ uncovered",
             CoverageDiffStatus::NoIntent => "- no verify",

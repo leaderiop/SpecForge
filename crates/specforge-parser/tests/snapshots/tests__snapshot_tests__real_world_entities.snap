@@ -1,0 +1,191 @@
+---
+source: crates/specforge-parser/tests/snapshot_tests.rs
+assertion_line: 104
+expression: result.entities
+---
+[
+  {
+    "kind": {
+      "raw": "behavior"
+    },
+    "id": {
+      "raw": "parse_spec_file_to_ast"
+    },
+    "title": "Parse Spec File to AST",
+    "fields": {
+      "entries": [
+        {
+          "key": "invariants",
+          "value": {
+            "ReferenceList": [
+              "multi_error_collection",
+              "string_interning_consistency"
+            ]
+          }
+        },
+        {
+          "key": "types",
+          "value": {
+            "ReferenceList": [
+              "SpecFile",
+              "ParseError",
+              "SourceSpan"
+            ]
+          }
+        },
+        {
+          "key": "requires",
+          "value": {
+            "Block": {
+              "entries": [
+                {
+                  "key": "valid_utf8_input",
+                  "value": {
+                    "String": "Input buffer is valid UTF-8"
+                  }
+                }
+              ]
+            }
+          }
+        },
+        {
+          "key": "ensures",
+          "value": {
+            "Block": {
+              "entries": [
+                {
+                  "key": "ast_produced",
+                  "value": {
+                    "String": "A complete AST is produced"
+                  }
+                }
+              ]
+            }
+          }
+        },
+        {
+          "key": "contract",
+          "value": {
+            "String": "Given a source file\nWhen parsed by the Tree-sitter grammar\nThen an AST is produced with all entities"
+          }
+        },
+        {
+          "key": "verify",
+          "value": {
+            "VerifyList": [
+              {
+                "kind": "unit",
+                "description": "produces AST for minimal valid file"
+              },
+              {
+                "kind": "integration",
+                "description": "parses all .spec files in project"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    "raw_body": "\n    invariants [multi_error_collection, string_interning_consistency]\n    types      [SpecFile, ParseError, SourceSpan]\n\n    requires {\n        valid_utf8_input \"Input buffer is valid UTF-8\"\n    }\n\n    ensures {\n        ast_produced \"A complete AST is produced\"\n    }\n\n    contract \"\"\"\n        Given a source file\n        When parsed by the Tree-sitter grammar\n        Then an AST is produced with all entities\n    \"\"\"\n\n    verify unit \"produces AST for minimal valid file\"\n    verify integration \"parses all .spec files in project\"\n",
+    "span": {
+      "file": "behaviors/parsing.spec",
+      "start_line": 5,
+      "start_col": 1,
+      "end_line": 25,
+      "end_col": 2
+    }
+  },
+  {
+    "kind": {
+      "raw": "ref"
+    },
+    "id": {
+      "raw": "gh.issue:1"
+    },
+    "title": "Initial parser",
+    "fields": {
+      "entries": [
+        {
+          "key": "scheme",
+          "value": {
+            "String": "gh"
+          }
+        },
+        {
+          "key": "ref_kind",
+          "value": {
+            "String": "issue"
+          }
+        },
+        {
+          "key": "identifier",
+          "value": {
+            "String": "1"
+          }
+        }
+      ]
+    },
+    "raw_body": null,
+    "span": {
+      "file": "behaviors/parsing.spec",
+      "start_line": 27,
+      "start_col": 1,
+      "end_line": 27,
+      "end_col": 32
+    }
+  },
+  {
+    "kind": {
+      "raw": "behavior"
+    },
+    "id": {
+      "raw": "recover_from_syntax_errors"
+    },
+    "title": "Recover from Syntax Errors",
+    "fields": {
+      "entries": [
+        {
+          "key": "invariants",
+          "value": {
+            "ReferenceList": [
+              "multi_error_collection"
+            ]
+          }
+        },
+        {
+          "key": "types",
+          "value": {
+            "ReferenceList": [
+              "ParseError"
+            ]
+          }
+        },
+        {
+          "key": "status",
+          "value": {
+            "Identifier": "planned"
+          }
+        },
+        {
+          "key": "verify",
+          "value": {
+            "VerifyList": [
+              {
+                "kind": "property",
+                "description": "N errors produce N diagnostics"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    "raw_body": "\n    invariants [multi_error_collection]\n    types      [ParseError]\n    status     planned\n    verify property \"N errors produce N diagnostics\"\n",
+    "span": {
+      "file": "behaviors/parsing.spec",
+      "start_line": 29,
+      "start_col": 1,
+      "end_line": 34,
+      "end_col": 2
+    }
+  }
+]

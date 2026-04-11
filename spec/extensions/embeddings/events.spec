@@ -1,8 +1,7 @@
 // Embeddings extension — events for embedding generation and search
 
-use extensions/embeddings/behaviors
-use types/output
-
+use "extensions/embeddings/behaviors"
+use "types/output"
 event embeddings_generated "Embeddings Generated" {
   /// Emitted when entity embeddings have been generated or updated.
   trigger   [generate_entity_embeddings]

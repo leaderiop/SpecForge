@@ -1,9 +1,8 @@
 // @specforge/software validation rules — declarative validation patterns
 
-use types/zero-entity-core
-use extensions/software/types
-use extensions/software/invariants
-
+use "types/zero-entity-core"
+use "extensions/software/types"
+use "extensions/software/invariants"
 behavior se_validate_orphan_behaviors "W001: Orphan Behaviors" {
   category query
   invariants [se_edge_consistency]

@@ -1,0 +1,26 @@
+[package]
+name = "specforge-registry"
+edition.workspace = true
+version.workspace = true
+license.workspace = true
+autotests = false
+
+[[test]]
+name = "tests"
+path = "tests/main.rs"
+
+[dependencies]
+specforge-common = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+semver = { workspace = true }
+sha2 = { workspace = true }
+
+[dev-dependencies]
+insta = { workspace = true }
+tempfile = { workspace = true }
+specforge-test = { workspace = true }
+specforge-test-macros = { workspace = true }
+specforge-parser = { workspace = true }
+specforge-graph = { path = "../specforge-graph" }
+specforge-emitter = { path = "../specforge-emitter" }

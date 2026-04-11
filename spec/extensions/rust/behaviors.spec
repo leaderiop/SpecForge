@@ -1,17 +1,17 @@
 // @specforge/rust extension behaviors — Rust test collection
 
-use invariants/core
-use extensions/rust/invariants
-use types/core
-use types/diagnostics
-use extensions/coverage/types
-use extensions/rust/types
-use ports/outbound
-use extensions/rust/events
-use extensions/rust/decisions
-
+use "invariants/core"
+use "extensions/rust/invariants"
+use "types/core"
+use "types/diagnostics"
+use "extensions/coverage/types"
+use "extensions/rust/types"
+use "ports/outbound"
+use "extensions/rust/events"
+use "extensions/rust/decisions"
 behavior collect_rust_test_results "Collect Rust Test Results" {
   types      [SpecforgeReport, TestResultEntry, CollectFormat]
+  category   query
   ports      [TestReporter, FileSystem]
   invariants [entity_mapping_precedence]
   produces   [rust_tests_collected]
@@ -32,6 +32,7 @@ behavior collect_rust_test_results "Collect Rust Test Results" {
 
 behavior parse_junit_xml "Parse JUnit XML" {
   types      [TestResultEntry, CollectFormat]
+  category   command
   ports      [RustTestOutputParser]
   adrs       [nextest_junit_primary_format]
 
@@ -50,6 +51,7 @@ behavior parse_junit_xml "Parse JUnit XML" {
 
 behavior parse_libtest_json "Parse Libtest JSON" {
   types      [TestResultEntry, CollectFormat]
+  category   command
   ports      [RustTestOutputParser]
 
   contract """
@@ -65,6 +67,7 @@ behavior parse_libtest_json "Parse Libtest JSON" {
 
 behavior resolve_entity_mapping "Resolve Entity Mapping" {
   types      [EntityMappingEntry, MappingResolutionLevel]
+  category   query
   invariants [entity_mapping_precedence]
 
   contract """
@@ -84,6 +87,7 @@ behavior resolve_entity_mapping "Resolve Entity Mapping" {
 
 behavior validate_rust_entity_ids "Validate Rust Entity IDs" {
   invariants [entity_mapping_precedence]
+  category   validation
   types      [EntityMappingEntry, DiagnosticBag]
 
   contract """
@@ -100,6 +104,7 @@ behavior validate_rust_entity_ids "Validate Rust Entity IDs" {
 
 behavior merge_workspace_reports "Merge Workspace Reports" {
   types      [SpecforgeReport, TestResultEntry]
+  category   command
   ports      [FileSystem]
 
   contract """
@@ -116,6 +121,7 @@ behavior merge_workspace_reports "Merge Workspace Reports" {
 
 behavior record_test_via_drop_guard "Record Test via Drop Guard" {
   invariants [entity_mapping_precedence]
+  category   command
   types      [TestGuard, TestRegistry, RustFramework, RustFrameworkSupport, RustSupportLevel]
 
   contract """
@@ -135,6 +141,7 @@ behavior record_test_via_drop_guard "Record Test via Drop Guard" {
 
 behavior emit_specforge_report_from_rust "Emit Specforge Report from Rust" {
   types      [SpecforgeReport, TestResultEntry]
+  category   command
   ports      [FileSystem]
 
   contract """

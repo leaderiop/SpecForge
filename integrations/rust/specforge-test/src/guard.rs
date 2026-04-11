@@ -2,30 +2,30 @@ use crate::atexit;
 use crate::registry::{self, TestOutcome, TestRecordEntry};
 
 pub struct TestGuard {
-    entity_kind: String,
-    entity_id: String,
-    test_name: String,
-    file: String,
-    verify: Option<String>,
+    entity_kind: &'static str,
+    entity_id: &'static str,
+    test_name: &'static str,
+    file: &'static str,
+    verify: Option<&'static str>,
 }
 
 impl TestGuard {
     pub fn new(
-        entity_kind: &str,
-        entity_id: &str,
-        _module_path: &str,
-        test_name: &str,
-        file: &str,
+        entity_kind: &'static str,
+        entity_id: &'static str,
+        _module_path: &'static str,
+        test_name: &'static str,
+        file: &'static str,
         _line: u32,
-        verify: Option<&str>,
+        verify: Option<&'static str>,
     ) -> Self {
         atexit::ensure_registered();
         Self {
-            entity_kind: entity_kind.to_string(),
-            entity_id: entity_id.to_string(),
-            test_name: test_name.to_string(),
-            file: file.to_string(),
-            verify: verify.map(|s| s.to_string()),
+            entity_kind,
+            entity_id,
+            test_name,
+            file,
+            verify,
         }
     }
 }
@@ -39,11 +39,11 @@ impl Drop for TestGuard {
         };
 
         registry::record(TestRecordEntry {
-            entity_kind: std::mem::take(&mut self.entity_kind),
-            entity_id: std::mem::take(&mut self.entity_id),
-            test_name: std::mem::take(&mut self.test_name),
-            file: std::mem::take(&mut self.file),
-            verify: std::mem::take(&mut self.verify),
+            entity_kind: self.entity_kind.to_string(),
+            entity_id: self.entity_id.to_string(),
+            test_name: self.test_name.to_string(),
+            file: self.file.to_string(),
+            verify: self.verify.map(|s| s.to_string()),
             outcome,
         });
     }

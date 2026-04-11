@@ -1,10 +1,11 @@
-use specforge_common::SourceSpan;
+use specforge_common::{SourceSpan, Sym};
 use specforge_graph::{Edge, Graph, Node};
 use specforge_parser::{EntityId, EntityKind, FieldMap};
+use specforge_test::prelude::*;
 
 fn span() -> SourceSpan {
     SourceSpan {
-        file: "test.spec".to_string(),
+        file: Sym::new("test.spec"),
         start_line: 1,
         start_col: 0,
         end_line: 1,
@@ -14,8 +15,8 @@ fn span() -> SourceSpan {
 
 fn node(id: &str, kind: &str) -> Node {
     Node {
-        id: EntityId { raw: id.to_string() },
-        kind: EntityKind { raw: kind.to_string() },
+        id: EntityId { raw: Sym::new(id) },
+        kind: EntityKind { raw: Sym::new(kind) },
         title: Some(format!("Title {}", id)),
         fields: FieldMap::new(),
         source_span: span(),
@@ -30,19 +31,21 @@ fn build_chain_graph() -> Graph {
     graph.add_node(node("c", "invariant"));
     graph.add_node(node("d", "behavior")); // disconnected
     graph.add_edge(Edge {
-        source: "a".to_string(),
-        target: "b".to_string(),
-        label: "behaviors".to_string(),
+        source: Sym::new("a"),
+        target: Sym::new("b"),
+        label: Sym::new("behaviors"),
     });
     graph.add_edge(Edge {
-        source: "b".to_string(),
-        target: "c".to_string(),
-        label: "invariants".to_string(),
+        source: Sym::new("b"),
+        target: Sym::new("c"),
+        label: Sym::new("invariants"),
     });
     graph
 }
 
+// B:export_agent_graph_format — verify unit "scoped export returns only reachable subgraph"
 #[test]
+#[specforge_test(behavior = "export_agent_graph_format", verify = "scoped export returns only reachable subgraph")]
 fn scoped_json_returns_only_reachable_subgraph() {
     let graph = build_chain_graph();
     let json = specforge_emitter::emit_json_scoped(&graph, "b").unwrap();
@@ -58,7 +61,9 @@ fn scoped_json_returns_only_reachable_subgraph() {
     assert!(!ids.contains(&"d"), "disconnected node must be excluded");
 }
 
+// B:export_agent_context_format — verify unit "scoped export returns only reachable subgraph"
 #[test]
+#[specforge_test(behavior = "export_agent_context_format", verify = "scoped export returns only reachable subgraph")]
 fn scoped_context_returns_only_reachable_subgraph() {
     let graph = build_chain_graph();
     let json = specforge_emitter::emit_context_scoped(&graph, "a").unwrap();
@@ -74,7 +79,10 @@ fn scoped_context_returns_only_reachable_subgraph() {
     assert!(!ids.contains(&"d"));
 }
 
+// B:export_agent_context_format — verify unit "non-existent scope entity produces E001 and exit code 1"
+// B:export_agent_graph_format — verify unit "non-existent scope entity produces E001 and exit code 1"
 #[test]
+#[specforge_test(behavior = "export_agent_context_format", verify = "non-existent scope entity produces E001 and exit code 1")]
 fn scoped_export_on_nonexistent_entity_returns_error() {
     let graph = build_chain_graph();
     let result = specforge_emitter::emit_json_scoped(&graph, "nonexistent");
@@ -84,7 +92,22 @@ fn scoped_export_on_nonexistent_entity_returns_error() {
     assert!(err.contains("E001"), "error should contain E001: {}", err);
 }
 
+// B:export_agent_graph_format — verify unit "non-existent scope entity produces E001 and exit code 1"
 #[test]
+#[specforge_test(behavior = "export_agent_graph_format", verify = "non-existent scope entity produces E001 and exit code 1")]
+fn graph_scoped_export_on_nonexistent_entity_returns_e001() {
+    let graph = build_chain_graph();
+    let result = specforge_emitter::emit_json_scoped(&graph, "nonexistent");
+    assert!(result.is_err());
+
+    let err = result.unwrap_err();
+    assert!(err.contains("E001"), "error should contain E001: {}", err);
+}
+
+// B:export_agent_graph_format — verify unit "scoped export returns only reachable subgraph"
+// (validates edges are also scoped correctly)
+#[test]
+#[specforge_test(behavior = "export_agent_graph_format")]
 fn scoped_edges_only_between_reachable_nodes() {
     let graph = build_chain_graph();
     let json = specforge_emitter::emit_json_scoped(&graph, "a").unwrap();
@@ -94,7 +117,10 @@ fn scoped_edges_only_between_reachable_nodes() {
     assert_eq!(edges.len(), 2); // a->b, b->c
 }
 
+// B:export_agent_graph_format — verify unit "scoped export returns only reachable subgraph"
+// (edge case: disconnected leaf returns single node)
 #[test]
+#[specforge_test(behavior = "export_agent_graph_format")]
 fn scoped_leaf_node_returns_single_node() {
     let graph = build_chain_graph();
     // "d" is disconnected, so scope returns just d

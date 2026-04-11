@@ -1,0 +1,14 @@
+mod contracts;
+mod events;
+mod invariants;
+mod lifecycle;
+mod notifications;
+mod operations_mgmt;
+mod operations_mutation;
+mod prompts;
+mod protocol;
+mod resources;
+mod subscriptions;
+mod surface_wiring;
+mod tools_core;
+mod tools_navigation;

@@ -1,6 +1,6 @@
 // specforge-test crate invariants
 
-use types
+use "types"
 
 invariant zero_compiler_dependency "Zero Compiler Dependency" {
   guarantee """

@@ -1,6 +1,8 @@
-#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
+use crate::Sym;
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct SourceSpan {
-    pub file: String,
+    pub file: Sym,
     pub start_line: usize,
     pub start_col: usize,
     pub end_line: usize,

@@ -1,16 +1,16 @@
 use specforge_graph::{Edge, Graph, Node};
-use specforge_common::SourceSpan;
+use specforge_common::{SourceSpan, Sym};
 use specforge_parser::{EntityId, EntityKind, FieldMap};
 use specforge_test_macros::test as specforge_test;
 
 fn make_node(id: &str, kind: &str) -> Node {
     Node {
-        id: EntityId { raw: id.to_string() },
-        kind: EntityKind { raw: kind.to_string() },
+        id: EntityId { raw: Sym::new(id) },
+        kind: EntityKind { raw: Sym::new(kind) },
         title: Some(id.to_string()),
         fields: FieldMap::new(),
         source_span: SourceSpan {
-            file: "test.spec".to_string(),
+            file: Sym::new("test.spec"),
             start_line: 1,
             start_col: 1,
             end_line: 1,
@@ -21,9 +21,9 @@ fn make_node(id: &str, kind: &str) -> Node {
 
 fn make_edge(source: &str, target: &str, label: &str) -> Edge {
     Edge {
-        source: source.to_string(),
-        target: target.to_string(),
-        label: label.to_string(),
+        source: Sym::new(source),
+        target: Sym::new(target),
+        label: Sym::new(label),
     }
 }
 
@@ -124,11 +124,11 @@ fn subgraph_for_file() {
     let mut graph = Graph::new();
 
     let mut node_a = make_node("alpha", "behavior");
-    node_a.source_span.file = "a.spec".to_string();
+    node_a.source_span.file = Sym::new("a.spec");
     let mut node_b = make_node("beta", "behavior");
-    node_b.source_span.file = "b.spec".to_string();
+    node_b.source_span.file = Sym::new("b.spec");
     let mut node_c = make_node("gamma", "feature");
-    node_c.source_span.file = "a.spec".to_string();
+    node_c.source_span.file = Sym::new("a.spec");
 
     graph.add_node(node_a);
     graph.add_node(node_b);
@@ -230,7 +230,7 @@ fn same_id_different_kind_no_e002() {
     use specforge_parser::parse;
 
     let file_a = parse(r#"feature code_formatting "Code Formatting" { }"#, "a.spec");
-    let file_b = parse(r#"roadmap code_formatting "Phase 8: Code Formatting" { }"#, "b.spec");
+    let file_b = parse(r#"milestone code_formatting "Phase 8: Code Formatting" { }"#, "b.spec");
     let (graph, diagnostics) = build_graph(&[file_a, file_b]);
 
     let errors: Vec<_> = diagnostics.iter().filter(|d| d.code == "E002").collect();
@@ -490,8 +490,8 @@ behavior delta "D" { contract "new" }
     let nodes_to_remove: Vec<String> = graph
         .nodes()
         .iter()
-        .filter(|n| affected.contains(&n.source_span.file))
-        .map(|n| n.id.raw.clone())
+        .filter(|n| affected.contains(n.source_span.file.as_str()))
+        .map(|n| n.id.raw.to_string())
         .collect();
     for id in &nodes_to_remove {
         graph.remove_node(id);
@@ -510,8 +510,8 @@ behavior delta "D" { contract "new" }
     let (cold_graph, _) = build_graph(&[a_v2, b_reparsed, c]);
 
     // Compare: same nodes and edges
-    let mut incr_node_ids: Vec<_> = graph.nodes().iter().map(|n| n.id.raw.clone()).collect();
-    let mut cold_node_ids: Vec<_> = cold_graph.nodes().iter().map(|n| n.id.raw.clone()).collect();
+    let mut incr_node_ids: Vec<_> = graph.nodes().iter().map(|n| n.id.raw.to_string()).collect::<Vec<String>>();
+    let mut cold_node_ids: Vec<_> = cold_graph.nodes().iter().map(|n| n.id.raw.to_string()).collect::<Vec<String>>();
     incr_node_ids.sort();
     cold_node_ids.sort();
     assert_eq!(incr_node_ids, cold_node_ids, "incremental and cold rebuild should have same nodes");
@@ -639,12 +639,12 @@ fn unknown_keyword_matching_known_extension_emits_i004() {
     use specforge_graph::{build_graph_with_config, GraphConfig};
     use specforge_parser::parse;
 
-    // "capability" is not installed but is known to come from @specforge/product
-    let source = r#"capability onboarding_flow "Onboarding Flow" { problem "Users need onboarding" }"#;
+    // "journey" is not installed but is known to come from @specforge/product
+    let source = r#"journey onboarding_flow "Onboarding Flow" { problem "Users need onboarding" }"#;
     let spec_file = parse(source, "main.spec");
     let config = GraphConfig {
         known_extension_keywords: vec![
-            ("capability".to_string(), "@specforge/product".to_string()),
+            ("journey".to_string(), "@specforge/product".to_string()),
         ].into_iter().collect(),
         ..Default::default()
     };
@@ -653,7 +653,7 @@ fn unknown_keyword_matching_known_extension_emits_i004() {
     let infos: Vec<_> = diagnostics.iter().filter(|d| d.code == "I004").collect();
     assert_eq!(infos.len(), 1, "unknown keyword with known extension should produce I004");
     assert!(infos[0].message.contains("@specforge/product"), "I004 should suggest the extension");
-    assert!(infos[0].message.contains("capability"), "I004 should mention the keyword");
+    assert!(infos[0].message.contains("journey"), "I004 should mention the keyword");
 }
 
 #[specforge_test(behavior = "resolve_soft_cross_extension_references", verify = "installed extension with missing entity emits E001")]
@@ -830,4 +830,234 @@ feature gamma "G" { behaviors [alpha, nonexistent] }
     assert_eq!(graph.edge_count(), 1, "only valid ref becomes edge");
     let errors: Vec<_> = diagnostics.iter().filter(|d| d.code == "E001").collect();
     assert_eq!(errors.len(), 1);
+}
+
+#[test]
+// === edge index correctness ===
+
+#[specforge_test(behavior = "build_in_memory_graph", verify = "edge index returns same results as linear scan")]
+#[test]
+fn edges_from_returns_correct_edges_after_multiple_adds() {
+    let mut graph = Graph::new();
+    graph.add_node(make_node("a", "behavior"));
+    graph.add_node(make_node("b", "behavior"));
+    graph.add_node(make_node("c", "feature"));
+    graph.add_node(make_node("d", "feature"));
+    graph.add_edge(make_edge("c", "a", "behaviors"));
+    graph.add_edge(make_edge("c", "b", "behaviors"));
+    graph.add_edge(make_edge("d", "a", "behaviors"));
+
+    let from_c = graph.edges_from("c");
+    assert_eq!(from_c.len(), 2);
+    assert!(from_c.iter().any(|e| e.target == "a"));
+    assert!(from_c.iter().any(|e| e.target == "b"));
+
+    let from_d = graph.edges_from("d");
+    assert_eq!(from_d.len(), 1);
+    assert_eq!(from_d[0].target, "a");
+
+    let from_a = graph.edges_from("a");
+    assert!(from_a.is_empty(), "a has no outgoing edges");
+}
+
+#[specforge_test(behavior = "build_in_memory_graph", verify = "edge index updated on node removal")]
+#[test]
+fn edges_to_updated_after_node_removal() {
+    let mut graph = Graph::new();
+    graph.add_node(make_node("a", "behavior"));
+    graph.add_node(make_node("b", "behavior"));
+    graph.add_node(make_node("c", "feature"));
+    graph.add_edge(make_edge("c", "a", "behaviors"));
+    graph.add_edge(make_edge("c", "b", "behaviors"));
+
+    assert_eq!(graph.edges_to("a").len(), 1);
+    assert_eq!(graph.edges_to("b").len(), 1);
+
+    graph.remove_node("a");
+
+    assert!(graph.edges_to("a").is_empty(), "removed node should have no incoming edges");
+    assert_eq!(graph.edges_to("b").len(), 1, "b still has incoming edge");
+    assert_eq!(graph.edges_from("c").len(), 1, "c should have one edge left");
+}
+
+#[specforge_test(behavior = "maintain_mutable_graph", verify = "clear_edges resets all edge indexes")]
+#[test]
+fn clear_edges_resets_index() {
+    let mut graph = Graph::new();
+    graph.add_node(make_node("a", "behavior"));
+    graph.add_node(make_node("b", "feature"));
+    graph.add_edge(make_edge("b", "a", "behaviors"));
+
+    assert_eq!(graph.edges_from("b").len(), 1);
+    graph.clear_edges();
+    assert!(graph.edges_from("b").is_empty());
+    assert!(graph.edges_to("a").is_empty());
+}
+
+// === cycle detection ===
+
+#[specforge_test(behavior = "build_in_memory_graph", verify = "detects cycles in directed graph")]
+#[test]
+fn detect_cycles_finds_simple_cycle() {
+    let mut graph = Graph::new();
+    graph.add_node(make_node("a", "behavior"));
+    graph.add_node(make_node("b", "behavior"));
+    graph.add_node(make_node("c", "behavior"));
+    graph.add_edge(make_edge("a", "b", "depends_on"));
+    graph.add_edge(make_edge("b", "c", "depends_on"));
+    graph.add_edge(make_edge("c", "a", "depends_on")); // cycle: a->b->c->a
+
+    let cycles = graph.detect_cycles();
+    assert!(!cycles.is_empty(), "should detect the cycle");
+    // The cycle should contain a, b, c
+    let cycle = &cycles[0];
+    assert!(cycle.len() >= 3, "cycle should have at least 3 nodes");
+}
+
+#[specforge_test(behavior = "build_in_memory_graph", verify = "no false positives for acyclic graph")]
+#[test]
+fn detect_cycles_returns_empty_for_dag() {
+    let mut graph = Graph::new();
+    graph.add_node(make_node("a", "behavior"));
+    graph.add_node(make_node("b", "behavior"));
+    graph.add_node(make_node("c", "feature"));
+    graph.add_edge(make_edge("c", "a", "behaviors"));
+    graph.add_edge(make_edge("c", "b", "behaviors"));
+    graph.add_edge(make_edge("b", "a", "depends_on"));
+
+    let cycles = graph.detect_cycles();
+    assert!(cycles.is_empty(), "DAG should have no cycles");
+}
+
+#[specforge_test(behavior = "build_in_memory_graph", verify = "detects self-referencing cycle")]
+#[test]
+fn detect_cycles_finds_self_loop() {
+    let mut graph = Graph::new();
+    graph.add_node(make_node("a", "behavior"));
+    graph.add_edge(make_edge("a", "a", "depends_on")); // self-loop
+
+    let cycles = graph.detect_cycles();
+    assert!(!cycles.is_empty(), "self-loop should be detected as cycle");
+}
+
+#[specforge_test(behavior = "build_in_memory_graph", verify = "has_cycles returns boolean")]
+#[test]
+fn has_cycles_boolean_check() {
+    let mut graph = Graph::new();
+    graph.add_node(make_node("a", "behavior"));
+    graph.add_node(make_node("b", "behavior"));
+    graph.add_edge(make_edge("a", "b", "depends_on"));
+
+    assert!(!graph.has_cycles(), "DAG should not have cycles");
+
+    graph.add_edge(make_edge("b", "a", "depends_on"));
+    assert!(graph.has_cycles(), "should detect cycle after adding back-edge");
+}
+
+// === cycle detection in build_graph ===
+
+#[specforge_test(behavior = "build_in_memory_graph", verify = "build_graph emits W061 for reference cycles")]
+#[test]
+fn build_graph_emits_w061_for_reference_cycles() {
+    use specforge_graph::build_graph;
+    use specforge_parser::parse;
+
+    let source = r#"
+behavior a "A" { contract "c" depends_on [b] }
+behavior b "B" { contract "c" depends_on [c] }
+behavior c "C" { contract "c" depends_on [a] }
+"#;
+    let spec_file = parse(source, "main.spec");
+    let (_, diagnostics) = build_graph(&[spec_file]);
+
+    let w061s: Vec<_> = diagnostics.iter().filter(|d| d.code == "W061").collect();
+    assert!(!w061s.is_empty(), "reference cycles should produce W061");
+    assert!(w061s[0].message.contains("cycle"), "W061 should mention cycle");
+}
+
+#[specforge_test(behavior = "build_in_memory_graph", verify = "build_graph no W061 for acyclic refs")]
+#[test]
+fn build_graph_no_w061_for_acyclic_refs() {
+    use specforge_graph::build_graph;
+    use specforge_parser::parse;
+
+    let source = r#"
+behavior a "A" { contract "c" }
+behavior b "B" { contract "c" depends_on [a] }
+feature f "F" { behaviors [a, b] }
+"#;
+    let spec_file = parse(source, "main.spec");
+    let (_, diagnostics) = build_graph(&[spec_file]);
+
+    let w061s: Vec<_> = diagnostics.iter().filter(|d| d.code == "W061").collect();
+    assert!(w061s.is_empty(), "acyclic graph should not produce W061");
+}
+
+fn union_type_variants_do_not_produce_e001() {
+    use specforge_graph::build_graph;
+    use specforge_parser::parse;
+
+    let source = r#"
+type Status = active | inactive | archived
+behavior my_behavior "B" {
+    contract "must track status"
+}
+"#;
+    let spec_file = parse(source, "main.spec");
+    let (graph, diagnostics) = build_graph(&[spec_file]);
+
+    let e001s: Vec<_> = diagnostics.iter().filter(|d| d.code == "E001").collect();
+    assert!(e001s.is_empty(), "union variants should not produce E001: {:?}", e001s);
+    assert_eq!(graph.node_count(), 2, "type + behavior");
+    assert_eq!(graph.edge_count(), 0, "no edges from variant lists");
+}
+
+// === Phase 9: Predicate Query API ===
+
+#[specforge_test(behavior = "query_graph", verify = "filter_nodes returns matching nodes")]
+#[test]
+fn filter_nodes_by_kind() {
+    let mut graph = Graph::new();
+    graph.add_node(make_node("login", "behavior"));
+    graph.add_node(make_node("data_ok", "invariant"));
+    graph.add_node(make_node("logout", "behavior"));
+    graph.add_node(make_node("user_id", "type"));
+
+    let behaviors = graph.filter_nodes(|n| n.kind.raw == "behavior");
+    assert_eq!(behaviors.len(), 2, "should find 2 behaviors");
+
+    let invariants = graph.nodes_by_kind("invariant");
+    assert_eq!(invariants.len(), 1, "should find 1 invariant");
+    assert_eq!(invariants[0].id.raw.as_str(), "data_ok");
+}
+
+#[specforge_test(behavior = "query_graph", verify = "filter_nodes with field predicate")]
+#[test]
+fn filter_nodes_by_field_value() {
+    use specforge_parser::FieldValue;
+
+    let mut graph = Graph::new();
+    let mut node1 = make_node("login", "behavior");
+    node1.fields.push(Sym::new("status"), FieldValue::Identifier("planned".to_string()));
+    graph.add_node(node1);
+
+    let mut node2 = make_node("logout", "behavior");
+    node2.fields.push(Sym::new("status"), FieldValue::Identifier("implemented".to_string()));
+    graph.add_node(node2);
+
+    let planned = graph.filter_nodes(|n| {
+        matches!(n.fields.get("status"), Some(FieldValue::Identifier(s)) if s == "planned")
+    });
+    assert_eq!(planned.len(), 1);
+    assert_eq!(planned[0].id.raw.as_str(), "login");
+}
+
+#[specforge_test(behavior = "query_graph", verify = "nodes_by_kind returns empty for unknown kind")]
+#[test]
+fn nodes_by_kind_returns_empty_for_unknown() {
+    let mut graph = Graph::new();
+    graph.add_node(make_node("login", "behavior"));
+
+    let result = graph.nodes_by_kind("nonexistent");
+    assert!(result.is_empty());
 }

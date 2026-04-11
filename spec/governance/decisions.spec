@@ -4,11 +4,10 @@
 // Extension-specific decisions live in their respective extension directories
 // under spec/extensions/.
 
-use invariants/core
-use invariants/extensions
-use invariants/wasm
-use invariants/surface
-
+use "invariants/core"
+use "invariants/extensions"
+use "invariants/wasm"
+use "invariants/surface"
 decision tree_sitter_for_parsing "Tree-sitter for Parsing" {
   status   accepted
   date     2026-03-01

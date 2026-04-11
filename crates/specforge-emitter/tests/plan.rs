@@ -1,10 +1,11 @@
-use specforge_common::SourceSpan;
+use specforge_common::{SourceSpan, Sym};
 use specforge_graph::{Edge, Graph, Node};
 use specforge_parser::{EntityId, EntityKind, FieldMap, FieldValue, VerifyStatement};
+use specforge_test::prelude::*;
 
 fn span() -> SourceSpan {
     SourceSpan {
-        file: "test.spec".to_string(),
+        file: Sym::new("test.spec"),
         start_line: 1,
         start_col: 0,
         end_line: 1,
@@ -14,8 +15,8 @@ fn span() -> SourceSpan {
 
 fn node(id: &str, kind: &str) -> Node {
     Node {
-        id: EntityId { raw: id.to_string() },
-        kind: EntityKind { raw: kind.to_string() },
+        id: EntityId { raw: Sym::new(id) },
+        kind: EntityKind { raw: Sym::new(kind) },
         title: Some(format!("Title {}", id)),
         fields: FieldMap::new(),
         source_span: span(),
@@ -25,15 +26,15 @@ fn node(id: &str, kind: &str) -> Node {
 fn testable_node(id: &str) -> Node {
     let mut fields = FieldMap::new();
     fields.push(
-        "verify".to_string(),
+        Sym::new("verify"),
         FieldValue::VerifyList(vec![VerifyStatement {
             kind: "unit".to_string(),
             description: "it works".to_string(),
         }]),
     );
     Node {
-        id: EntityId { raw: id.to_string() },
-        kind: EntityKind { raw: "behavior".to_string() },
+        id: EntityId { raw: Sym::new(id) },
+        kind: EntityKind { raw: Sym::new("behavior") },
         title: Some(format!("Title {}", id)),
         fields,
         source_span: span(),
@@ -51,7 +52,9 @@ fn build_graph() -> Graph {
     graph
 }
 
+// B:validate_agent_plan — verify unit "plan with all valid entity IDs passes validation"
 #[test]
+#[specforge_test(behavior = "validate_agent_plan", verify = "plan with all valid entity IDs passes validation")]
 fn plan_with_all_valid_entity_ids_passes() {
     let graph = build_graph();
     let plan = serde_json::json!({
@@ -65,7 +68,9 @@ fn plan_with_all_valid_entity_ids_passes() {
     assert!(result.errors.is_empty(), "no errors expected: {:?}", result.errors);
 }
 
+// B:validate_agent_plan — verify unit "plan referencing nonexistent entity ID produces E001"
 #[test]
+#[specforge_test(behavior = "validate_agent_plan", verify = "plan referencing nonexistent entity ID produces E001")]
 fn plan_referencing_nonexistent_entity_produces_error() {
     let graph = build_graph();
     let plan = serde_json::json!({
@@ -82,7 +87,9 @@ fn plan_referencing_nonexistent_entity_produces_error() {
     );
 }
 
+// B:validate_agent_plan — verify unit "testable entity missing from plan produces warning"
 #[test]
+#[specforge_test(behavior = "validate_agent_plan", verify = "testable entity missing from plan produces warning")]
 fn testable_entity_missing_from_plan_produces_warning() {
     let graph = build_graph();
     // Plan only covers "b", missing "c"
@@ -99,7 +106,9 @@ fn testable_entity_missing_from_plan_produces_warning() {
     );
 }
 
+// B:validate_agent_plan — verify unit "plan dependency order contradicting graph produces diagnostic"
 #[test]
+#[specforge_test(behavior = "validate_agent_plan", verify = "plan dependency order contradicting graph produces diagnostic")]
 fn plan_dependency_order_contradicting_graph_produces_diagnostic() {
     let graph = build_graph();
     // Graph has edge b -> c (b references c, so c should be implemented before b).
@@ -118,7 +127,9 @@ fn plan_dependency_order_contradicting_graph_produces_diagnostic() {
     );
 }
 
+// B:validate_agent_plan — verify unit "output is structured JSON"
 #[test]
+#[specforge_test(behavior = "validate_agent_plan", verify = "output is structured JSON")]
 fn plan_validation_output_is_structured_json() {
     let graph = build_graph();
     let plan = serde_json::json!({
@@ -138,7 +149,9 @@ fn plan_validation_output_is_structured_json() {
     assert!(parsed["schema_version"].is_string());
 }
 
+// B:validate_agent_plan — verify contract "requires/ensures consistency for agent plan validation"
 #[test]
+#[specforge_test(behavior = "validate_agent_plan", verify = "requires/ensures consistency for agent plan validation")]
 fn plan_validation_contract_consistency() {
     // Requires: graph is finalized (we pass a built graph)
     // Ensures: unresolvable IDs diagnosed, missing entries warned, ordering validated, structured report

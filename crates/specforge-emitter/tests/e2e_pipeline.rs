@@ -1,0 +1,239 @@
+/// E2E pipeline tests: parse → resolve → graph → validate → emit
+/// These tests exercise the full compilation pipeline from spec source files
+/// to emitted output, verifying roundtrip integrity.
+
+use specforge_test::prelude::*;
+use tempfile::TempDir;
+use std::fs;
+
+/// Helper: write spec files to a temp dir and run the simple compilation pipeline.
+fn compile_specs(files: &[(&str, &str)]) -> specforge_emitter::compile::CompilationContext {
+    let dir = TempDir::new().unwrap();
+    for (name, content) in files {
+        let path = dir.path().join(name);
+        if let Some(parent) = path.parent() {
+            fs::create_dir_all(parent).unwrap();
+        }
+        fs::write(&path, content).unwrap();
+    }
+    specforge_emitter::compile_simple(dir.path())
+}
+
+// B:compile_pipeline — verify unit "single entity roundtrip: parse→graph→json"
+#[test]
+#[specforge_test(behavior = "compile_pipeline", verify = "single entity roundtrip produces valid graph")]
+fn single_entity_roundtrip() {
+    let ctx = compile_specs(&[(
+        "core.spec",
+        r#"behavior login "User Login" {
+    status planned
+    contract "The system MUST authenticate users"
+}
+"#,
+    )]);
+
+    // Graph should contain exactly one node
+    assert_eq!(ctx.graph.nodes().len(), 1, "expected 1 node, got {}", ctx.graph.nodes().len());
+    let node = &ctx.graph.nodes()[0];
+    assert_eq!(node.id.raw.as_str(), "login");
+    assert_eq!(node.kind.raw.as_str(), "behavior");
+    assert_eq!(node.title.as_deref(), Some("User Login"));
+
+    // Emit as JSON — should produce valid JSON
+    let json = specforge_emitter::emit_json(&ctx.graph);
+    let parsed: serde_json::Value = serde_json::from_str(&json).expect("emitted JSON must be valid");
+    let nodes = parsed["nodes"].as_array().expect("must have nodes array");
+    assert_eq!(nodes.len(), 1);
+    assert_eq!(nodes[0]["id"].as_str().unwrap(), "login");
+}
+
+// B:compile_pipeline — verify unit "multi-file resolution with imports"
+#[test]
+#[specforge_test(behavior = "compile_pipeline", verify = "multi-file resolution with imports")]
+fn multi_file_with_imports() {
+    let ctx = compile_specs(&[
+        ("types.spec", r#"type user_id "User ID" {
+    format "UUID"
+}
+"#),
+        ("behaviors.spec", r#"use "types"
+
+behavior login "User Login" {
+    status planned
+    types [user_id]
+}
+"#),
+    ]);
+
+    // Should have 2 nodes
+    assert_eq!(ctx.graph.nodes().len(), 2, "expected 2 nodes");
+    // Should have resolved the import (no E025 file-not-found errors)
+    let file_errors: Vec<_> = ctx.diagnostics.iter().filter(|d| d.code == "E025").collect();
+    assert!(file_errors.is_empty(), "should not have file errors: {:?}", file_errors);
+}
+
+// B:compile_pipeline — verify unit "cross-entity references produce edges"
+#[test]
+#[specforge_test(behavior = "compile_pipeline", verify = "cross-entity references produce edges")]
+fn cross_entity_references_produce_edges() {
+    let ctx = compile_specs(&[(
+        "core.spec",
+        r#"invariant data_integrity "Data Integrity" {
+    contract "Data MUST be consistent"
+}
+
+behavior save_record "Save Record" {
+    status planned
+    invariants [data_integrity]
+}
+"#,
+    )]);
+
+    assert_eq!(ctx.graph.nodes().len(), 2);
+    assert!(!ctx.graph.edges().is_empty(), "should have at least one edge from behavior to invariant");
+
+    // Check edge connects the right nodes
+    let edge = &ctx.graph.edges()[0];
+    assert_eq!(edge.source.as_str(), "save_record");
+    assert_eq!(edge.target.as_str(), "data_integrity");
+}
+
+// B:compile_pipeline — verify unit "validation diagnostics surface through pipeline"
+#[test]
+#[specforge_test(behavior = "compile_pipeline", verify = "validation diagnostics surface through pipeline")]
+fn validation_diagnostics_surface() {
+    let ctx = compile_specs(&[(
+        "core.spec",
+        r#"behavior broken "Broken" {
+    status planned
+    invariants [nonexistent_invariant]
+}
+"#,
+    )]);
+
+    // Should have a diagnostic about the unresolved reference
+    let has_ref_diag = ctx.diagnostics.iter().any(|d| {
+        d.message.contains("nonexistent_invariant") || d.code.starts_with("W")
+    });
+    assert!(has_ref_diag, "expected diagnostic about unresolved reference, got: {:?}", ctx.diagnostics);
+}
+
+// B:compile_pipeline — verify unit "empty project produces empty graph"
+#[test]
+#[specforge_test(behavior = "compile_pipeline", verify = "empty project produces empty graph")]
+fn empty_project_produces_empty_graph() {
+    let dir = TempDir::new().unwrap();
+    let ctx = specforge_emitter::compile_simple(dir.path());
+
+    assert!(ctx.graph.nodes().is_empty(), "empty project should have no nodes");
+    assert!(ctx.graph.edges().is_empty(), "empty project should have no edges");
+}
+
+// B:surface_wiring — verify unit "surfaces from manifests flow through CompilationContext"
+#[test]
+#[specforge_test(behavior = "surface_wiring", verify = "surfaces from manifests flow through CompilationContext")]
+fn surfaces_flow_through_compilation_context() {
+    let dir = TempDir::new().unwrap();
+
+    // Write a minimal spec file
+    fs::write(dir.path().join("core.spec"), r#"behavior hello "Hello" {
+    status planned
+    contract "greet the world"
+}
+"#).unwrap();
+
+    // Write specforge.json pointing to a local extension
+    fs::write(dir.path().join("specforge.json"), r#"{
+    "name": "test-project",
+    "version": "0.1.0",
+    "extensions": ["./ext-test"]
+}
+"#).unwrap();
+
+    // Write a minimal extension manifest with surface contributions
+    let ext_dir = dir.path().join("ext-test");
+    fs::create_dir_all(&ext_dir).unwrap();
+    fs::write(ext_dir.join("manifest.json"), r#"{
+    "name": "@test/surface-ext",
+    "version": "1.0.0",
+    "manifestVersion": 2,
+    "wasmPath": "ext.wasm",
+    "entityKinds": [],
+    "surfaces": {
+        "commands": [],
+        "mcpTools": [
+            {
+                "name": "test.list_stuff",
+                "description": "List stuff",
+                "export": "mcp__list_stuff",
+                "inputSchema": { "type": "object", "properties": {} }
+            }
+        ],
+        "mcpResources": [
+            {
+                "uriTemplate": "specforge://test/stuff",
+                "name": "test-stuff",
+                "description": "Test stuff resource",
+                "export": "mcp__test_stuff",
+                "mimeType": "application/json"
+            }
+        ]
+    }
+}
+"#).unwrap();
+
+    let ctx = specforge_emitter::compile(dir.path());
+
+    // Surface entries should be populated from the manifest
+    assert!(!ctx.surface_entries.is_empty(), "expected surface entries from manifest, got none");
+    assert!(
+        ctx.surface_entries.iter().any(|e| e.contribution_name == "test.list_stuff"),
+        "expected MCP tool entry 'test.list_stuff', got: {:?}",
+        ctx.surface_entries.iter().map(|e| &e.contribution_name).collect::<Vec<_>>()
+    );
+    assert!(
+        ctx.surface_entries.iter().any(|e| e.contribution_name == "test-stuff"),
+        "expected MCP resource entry 'test-stuff'"
+    );
+}
+
+// B:compile_pipeline — verify unit "all emit formats work on pipeline output"
+#[test]
+#[specforge_test(behavior = "compile_pipeline", verify = "all emit formats work on pipeline output")]
+fn all_emit_formats_work() {
+    let ctx = compile_specs(&[(
+        "core.spec",
+        r#"behavior auth "Authentication" {
+    status planned
+    contract "Users MUST be authenticated"
+
+    verify unit "credentials are validated"
+}
+
+invariant security "Security Invariant" {
+    contract "All endpoints MUST be authenticated"
+}
+"#,
+    )]);
+
+    // JSON format
+    let json = specforge_emitter::emit_json(&ctx.graph);
+    assert!(serde_json::from_str::<serde_json::Value>(&json).is_ok(), "JSON must be valid");
+
+    // Brief format
+    let brief = specforge_emitter::emit_brief(&ctx.graph);
+    assert!(!brief.is_empty(), "brief must not be empty");
+    assert!(brief.contains("auth"), "brief must mention entity");
+
+    // Context format
+    let context = specforge_emitter::emit_context(&ctx.graph);
+    assert!(!context.is_empty(), "context must not be empty");
+
+    // DOT format
+    let dot = specforge_emitter::emit_dot(&ctx.graph);
+    assert!(dot.contains("digraph"), "DOT must contain digraph");
+
+    // Stats
+    let stats = specforge_emitter::compute_stats(&ctx.graph);
+    assert!(stats.total_entities >= 2, "should have at least 2 entities");
+}

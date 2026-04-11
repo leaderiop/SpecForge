@@ -1,9 +1,8 @@
 // @specforge/rust extension ports
 
-use types/errors
-use extensions/coverage/types
-use extensions/rust/types
-
+use "types/errors"
+use "extensions/coverage/types"
+use "extensions/rust/types"
 port RustTestOutputParser {
   direction outbound
   category  "testing/rust"

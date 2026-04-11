@@ -33,7 +33,7 @@ pub(crate) struct JsonEdge {
 pub(crate) fn field_map_to_json(fields: &FieldMap) -> BTreeMap<String, Value> {
     let mut map = BTreeMap::new();
     for entry in fields.entries() {
-        map.insert(entry.key.clone(), field_value_to_json(&entry.value));
+        map.insert(entry.key.to_string(), field_value_to_json(&entry.value));
     }
     map
 }
@@ -47,6 +47,9 @@ pub(crate) fn field_value_to_json(value: &FieldValue) -> Value {
         FieldValue::Date(s) => Value::String(s.clone()),
         FieldValue::ReferenceList(refs) => {
             Value::Array(refs.iter().map(|r: &String| Value::String(r.clone())).collect())
+        }
+        FieldValue::VariantList(variants) => {
+            Value::Array(variants.iter().map(|v: &String| Value::String(v.clone())).collect())
         }
         FieldValue::StringList(list) => {
             Value::Array(list.iter().map(|s: &String| Value::String(s.clone())).collect())
@@ -73,9 +76,9 @@ pub(crate) fn sorted_edges(graph: &Graph) -> Vec<JsonEdge> {
         .edges()
         .iter()
         .map(|e| JsonEdge {
-            source: e.source.clone(),
-            target: e.target.clone(),
-            label: e.label.clone(),
+            source: e.source.to_string(),
+            target: e.target.to_string(),
+            label: e.label.to_string(),
         })
         .collect();
     edges.sort_by(|a, b| (&a.source, &a.target, &a.label).cmp(&(&b.source, &b.target, &b.label)));
@@ -87,10 +90,10 @@ pub fn emit_json(graph: &Graph) -> String {
         .nodes()
         .iter()
         .map(|n| JsonNode {
-            id: n.id.raw.clone(),
-            kind: n.kind.raw.clone(),
+            id: n.id.raw.to_string(),
+            kind: n.kind.raw.to_string(),
             title: n.title.clone(),
-            file: n.source_span.file.clone(),
+            file: n.source_span.file.to_string(),
             line: n.source_span.start_line,
             fields: field_map_to_json(&n.fields),
         })

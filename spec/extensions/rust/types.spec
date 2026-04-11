@@ -1,7 +1,6 @@
 // @specforge/rust extension types — Rust test collection
 
-use extensions/coverage/types
-
+use "extensions/coverage/types"
 type TestGuard {
   entity_kind     string    @readonly
   entity_id       string    @readonly

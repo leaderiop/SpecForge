@@ -1,8 +1,7 @@
 // Wasm sandbox and AOT cache events
 
-use types/wasm
-use behaviors/wasm-sandbox
-
+use "types/wasm"
+use "behaviors/wasm-sandbox"
 event wasm_aot_compiled "Wasm AOT Compiled" {
   trigger   aot_compile_wasm_module
   channel   "wasm.aot_compiled"

@@ -1,23 +1,22 @@
 // Core compiler invariants — guarantees that must always hold
 
-use behaviors/parsing
-use behaviors/resolution
-use behaviors/validation
-use behaviors/error-reporting
-use behaviors/graph
-use behaviors/incremental
-use behaviors/output
-use behaviors/output-schema
-use behaviors/init
-use behaviors/lsp
-use behaviors/extensions
-use behaviors/mcp-operations
-use behaviors/mcp-prompts
-use behaviors/mcp-server
-use behaviors/mcp-tools
-use behaviors/migration
-use behaviors/formatting
-
+use "behaviors/parsing"
+use "behaviors/resolution"
+use "behaviors/validation"
+use "behaviors/error-reporting"
+use "behaviors/graph"
+use "behaviors/incremental"
+use "behaviors/output"
+use "behaviors/output-schema"
+use "behaviors/init"
+use "behaviors/lsp"
+use "behaviors/extensions"
+use "behaviors/mcp-operations"
+use "behaviors/mcp-prompts"
+use "behaviors/mcp-server"
+use "behaviors/mcp-tools"
+use "behaviors/migration"
+use "behaviors/formatting"
 invariant spec_root_singleton "Spec Root Singleton" {
   guarantee """
     Exactly one project root MUST exist per project, identified by

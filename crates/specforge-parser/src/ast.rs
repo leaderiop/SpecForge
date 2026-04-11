@@ -1,18 +1,34 @@
 use serde::Serialize;
-use specforge_common::SourceSpan;
+use specforge_common::{SourceSpan, Sym};
 
 #[derive(Debug, Clone, Serialize)]
 pub struct SpecFile {
-    pub path: String,
+    pub path: Sym,
     pub imports: Vec<ImportDeclaration>,
     pub entities: Vec<Entity>,
     pub errors: Vec<ParseError>,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub enum ImportKind {
+    Full,
+    Selective,
+    Namespace,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct ImportBinding {
+    pub name: String,
+    pub alias: Option<String>,
+}
+
 #[derive(Debug, Clone, Serialize)]
 pub struct ImportDeclaration {
-    pub path: String,
-    pub selected_ids: Option<Vec<String>>,
+    pub path: Sym,
+    pub kind: ImportKind,
+    pub bindings: Option<Vec<ImportBinding>>,
+    pub namespace: Option<String>,
+    pub is_pub: bool,
     pub span: SourceSpan,
 }
 
@@ -26,14 +42,14 @@ pub struct Entity {
     pub span: SourceSpan,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize)]
 pub struct EntityKind {
-    pub raw: String,
+    pub raw: Sym,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize)]
 pub struct EntityId {
-    pub raw: String,
+    pub raw: Sym,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -41,12 +57,18 @@ pub struct FieldMap {
     entries: Vec<FieldEntry>,
 }
 
+impl Default for FieldMap {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl FieldMap {
     pub fn new() -> Self {
         Self { entries: Vec::new() }
     }
 
-    pub fn push(&mut self, key: String, value: FieldValue) {
+    pub fn push(&mut self, key: Sym, value: FieldValue) {
         self.entries.push(FieldEntry { key, value });
     }
 
@@ -61,7 +83,7 @@ impl FieldMap {
 
 #[derive(Debug, Clone, Serialize)]
 pub struct FieldEntry {
-    pub key: String,
+    pub key: Sym,
     pub value: FieldValue,
 }
 
@@ -69,6 +91,7 @@ pub struct FieldEntry {
 pub enum FieldValue {
     String(String),
     ReferenceList(Vec<String>),
+    VariantList(Vec<String>),
     StringList(Vec<String>),
     Block(FieldMap),
     VerifyList(Vec<VerifyStatement>),

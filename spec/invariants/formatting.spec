@@ -1,9 +1,8 @@
 // Formatting invariants — guarantees the formatter must always uphold
 
-use behaviors/formatting
-use behaviors/mcp-operations
-use types/formatting
-
+use "behaviors/formatting"
+use "behaviors/mcp-operations"
+use "types/formatting"
 invariant formatting_idempotency "Formatting Idempotency" {
   guarantee """
     Applying the formatter to an already-formatted file MUST produce identical output.

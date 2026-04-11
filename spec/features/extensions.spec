@@ -6,9 +6,9 @@
 //   - features/wasm.spec        — Wasm runtime, host functions, authoring
 //   - features/zero-entity-core.spec — manifest schema, registries, LSP, bootstrap
 
-use behaviors/extensions
-use behaviors/wasm-lifecycle
-use invariants/extensions
+use "behaviors/extensions"
+use "behaviors/wasm-lifecycle"
+use "invariants/extensions"
 // Invariants (offline_first_extension_resolution, registry_api_openness) are
 // enforced transitively through behaviors — features inherit invariant coverage
 // from their behavior composition lists.

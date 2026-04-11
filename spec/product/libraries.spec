@@ -1,19 +1,18 @@
 // Libraries — code crates that implement features
 
-use features/parsing
-use features/validation
-use features/incremental
-use features/output
-use extensions/coverage/features
-use extensions/rust/features
-use features/lsp
-use features/extensions
-use features/wasm
-use features/project-init
-use features/formatting
-use ports/outbound
-use ports/inbound
-
+use "features/parsing"
+use "features/validation"
+use "features/incremental"
+use "features/output"
+use "extensions/coverage/features"
+use "extensions/rust/features"
+use "features/lsp"
+use "features/extensions"
+use "features/wasm"
+use "features/project-init"
+use "features/formatting"
+use "ports/outbound"
+use "ports/inbound"
 library tree_sitter_specforge "tree-sitter-specforge" {
   family       core
   features     [spec_file_parsing, error_recovery_during_parsing, editor_query_files]

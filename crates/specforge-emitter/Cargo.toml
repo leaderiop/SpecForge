@@ -3,15 +3,30 @@ name = "specforge-emitter"
 edition.workspace = true
 version.workspace = true
 license.workspace = true
+autotests = false
+
+[[test]]
+name = "tests"
+path = "tests/main.rs"
 
 [dependencies]
 specforge-graph = { path = "../specforge-graph" }
 specforge-common = { path = "../specforge-common" }
+specforge-parser = { workspace = true }
+specforge-resolver = { path = "../specforge-resolver" }
+specforge-registry = { workspace = true }
+specforge-validator = { path = "../specforge-validator" }
 serde.workspace = true
 serde_json.workspace = true
+sha2.workspace = true
 
 [dev-dependencies]
+criterion.workspace = true
 insta.workspace = true
-specforge-parser = { path = "../specforge-parser" }
+tempfile.workspace = true
 specforge-test.workspace = true
 specforge-test-macros.workspace = true
+
+[[bench]]
+name = "emit"
+harness = false

@@ -1,0 +1,23 @@
+[package]
+name = "specforge-watch"
+edition.workspace = true
+version.workspace = true
+license.workspace = true
+autotests = false
+
+[[test]]
+name = "tests"
+path = "tests/main.rs"
+
+[dependencies]
+specforge-common = { workspace = true }
+specforge-graph = { path = "../specforge-graph" }
+specforge-parser = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+notify = { workspace = true }
+
+[dev-dependencies]
+specforge-test = { workspace = true }
+specforge-test-macros = { workspace = true }
+tempfile = { workspace = true }

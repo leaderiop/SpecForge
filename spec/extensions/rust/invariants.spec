@@ -1,7 +1,6 @@
 // @specforge/rust extension invariants
 
-use extensions/rust/behaviors
-
+use "extensions/rust/behaviors"
 invariant entity_mapping_precedence "Entity Mapping Precedence" {
   guarantee """
     Test-to-entity resolution MUST follow strict precedence: tests field

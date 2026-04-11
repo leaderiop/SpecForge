@@ -1,8 +1,7 @@
 // @specforge/coverage extension invariants
 
-use extensions/coverage/behaviors
-use behaviors/validation
-
+use "extensions/coverage/behaviors"
+use "behaviors/validation"
 invariant traceability_chain_integrity "Traceability Chain Integrity" {
   guarantee """
     Every file-reference field (any extension-declared field with

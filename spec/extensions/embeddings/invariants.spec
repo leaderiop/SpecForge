@@ -1,9 +1,8 @@
 // Embeddings extension — invariants for embedding cache and provider behavior
 
-use extensions/embeddings/behaviors
-use behaviors/incremental
-use behaviors/graph
-
+use "extensions/embeddings/behaviors"
+use "behaviors/incremental"
+use "behaviors/graph"
 invariant embedding_cache_consistency "Embedding Cache Consistency" {
   guarantee """
     The embedding cache MUST be invalidated when any entity's content or

@@ -20,8 +20,8 @@ Rules and conventions for authoring **`event` blocks** in `.spec` files. Events 
 ## Block Syntax
 
 ```spec
-use types/user
-use behaviors/user-crud
+use "types/user"
+use "behaviors/user-crud"
 
 event user_created "User Created" {
   trigger   create_user
@@ -168,7 +168,7 @@ event concurrency_analysis_complete "Concurrency Analysis Complete" {
 ### Cross-Service Event
 
 ```spec
-use behaviors/order-processing
+use "behaviors/order-processing"
 
 event order_placed "Order Placed" {
   trigger   place_order

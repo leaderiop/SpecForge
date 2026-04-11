@@ -184,6 +184,47 @@
     }
   },
   {
+    "type": "import_binding",
+    "named": true,
+    "fields": {
+      "alias": {
+        "multiple": false,
+        "required": false,
+        "types": [
+          {
+            "type": "identifier",
+            "named": true
+          }
+        ]
+      }
+    },
+    "children": {
+      "multiple": false,
+      "required": true,
+      "types": [
+        {
+          "type": "identifier",
+          "named": true
+        }
+      ]
+    }
+  },
+  {
+    "type": "import_bindings",
+    "named": true,
+    "fields": {},
+    "children": {
+      "multiple": true,
+      "required": true,
+      "types": [
+        {
+          "type": "import_binding",
+          "named": true
+        }
+      ]
+    }
+  },
+  {
     "type": "list",
     "named": true,
     "fields": {},
@@ -211,6 +252,22 @@
     }
   },
   {
+    "type": "namespace_import",
+    "named": true,
+    "fields": {
+      "alias": {
+        "multiple": false,
+        "required": true,
+        "types": [
+          {
+            "type": "identifier",
+            "named": true
+          }
+        ]
+      }
+    }
+  },
+  {
     "type": "nested_block",
     "named": true,
     "fields": {},
@@ -223,6 +280,42 @@
           "named": true
         }
       ]
+    }
+  },
+  {
+    "type": "pub_use_import",
+    "named": true,
+    "fields": {
+      "bindings": {
+        "multiple": false,
+        "required": false,
+        "types": [
+          {
+            "type": "import_bindings",
+            "named": true
+          }
+        ]
+      },
+      "namespace": {
+        "multiple": false,
+        "required": false,
+        "types": [
+          {
+            "type": "namespace_import",
+            "named": true
+          }
+        ]
+      },
+      "path": {
+        "multiple": false,
+        "required": true,
+        "types": [
+          {
+            "type": "string",
+            "named": true
+          }
+        ]
+      }
     }
   },
   {
@@ -307,21 +400,6 @@
     }
   },
   {
-    "type": "selective_import",
-    "named": true,
-    "fields": {},
-    "children": {
-      "multiple": true,
-      "required": true,
-      "types": [
-        {
-          "type": "identifier",
-          "named": true
-        }
-      ]
-    }
-  },
-  {
     "type": "source_file",
     "named": true,
     "root": true,
@@ -336,6 +414,10 @@
         },
         {
           "type": "entity_block",
+          "named": true
+        },
+        {
+          "type": "pub_use_import",
           "named": true
         },
         {
@@ -454,22 +536,32 @@
     "type": "use_import",
     "named": true,
     "fields": {
+      "bindings": {
+        "multiple": false,
+        "required": false,
+        "types": [
+          {
+            "type": "import_bindings",
+            "named": true
+          }
+        ]
+      },
+      "namespace": {
+        "multiple": false,
+        "required": false,
+        "types": [
+          {
+            "type": "namespace_import",
+            "named": true
+          }
+        ]
+      },
       "path": {
         "multiple": false,
         "required": true,
         "types": [
           {
-            "type": "import_path",
-            "named": true
-          }
-        ]
-      },
-      "selective": {
-        "multiple": false,
-        "required": false,
-        "types": [
-          {
-            "type": "selective_import",
+            "type": "string",
             "named": true
           }
         ]
@@ -503,6 +595,10 @@
     }
   },
   {
+    "type": "*",
+    "named": false
+  },
+  {
     "type": ",",
     "named": false
   },
@@ -523,6 +619,10 @@
     "named": false
   },
   {
+    "type": "as",
+    "named": false
+  },
+  {
     "type": "comment",
     "named": true,
     "extra": true
@@ -540,11 +640,11 @@
     "named": false
   },
   {
-    "type": "identifier",
-    "named": true
+    "type": "from",
+    "named": false
   },
   {
-    "type": "import_path",
+    "type": "identifier",
     "named": true
   },
   {
@@ -554,6 +654,10 @@
   {
     "type": "negative_integer",
     "named": true
+  },
+  {
+    "type": "pub",
+    "named": false
   },
   {
     "type": "ref",

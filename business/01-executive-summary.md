@@ -72,7 +72,7 @@ behavior auth_login {
 
 **Processing**: Tree-sitter parser -> typed entity graph -> validation engine -> graph export
 - Zero built-in entity types — all domain vocabulary from installable extensions
-- `@specforge/software` (behavior, invariant, feature, event, type, port), `@specforge/product` (capability, deliverable, roadmap, library, glossary), `@specforge/governance` (decision, constraint, failure_mode) — and 15+ domain extensions for any industry
+- `@specforge/software` (behavior, invariant, feature, event, type, port), `@specforge/product` (journey, deliverable, milestone, module, term), `@specforge/governance` (decision, constraint, failure_mode) — and 15+ domain extensions for any industry
 - Extensions declare entity kinds, edge types, validation rules, and testability flags
 - Cross-reference validation with cycle detection
 - Orphan detection for unreferenced entities
@@ -87,9 +87,9 @@ behavior auth_login {
 
 **Agent consumption examples** (same graph, different tasks):
 - Coding agent reads behaviors, types, ports → generates correct code on first pass
-- PM agent reads roadmaps, deliverables, features → produces accurate status reports
+- PM agent reads milestones, deliverables, features → produces accurate status reports
 - Compliance agent reads constraints, failure modes, decisions → generates audit trails
-- Documentation agent reads glossary, features, capabilities → produces consistent documentation
+- Documentation agent reads terms, features, journeys → produces consistent documentation
 - Security agent reads constraints, invariants, ports → identifies risk surface
 
 ### Token Reduction Performance

@@ -8,7 +8,7 @@ static SERIAL: Mutex<()> = Mutex::new(());
 
 #[test]
 fn passing_test_records_pass() {
-    let _lock = SERIAL.lock().unwrap();
+    let _lock = SERIAL.lock().unwrap_or_else(|e| e.into_inner());
     registry::drain();
 
     {
@@ -24,7 +24,7 @@ fn passing_test_records_pass() {
 
 #[test]
 fn panicking_test_records_fail() {
-    let _lock = SERIAL.lock().unwrap();
+    let _lock = SERIAL.lock().unwrap_or_else(|e| e.into_inner());
     registry::drain();
 
     let result = panic::catch_unwind(panic::AssertUnwindSafe(|| {
@@ -41,7 +41,7 @@ fn panicking_test_records_fail() {
 
 #[test]
 fn multiple_guards_record_multiple_entries() {
-    let _lock = SERIAL.lock().unwrap();
+    let _lock = SERIAL.lock().unwrap_or_else(|e| e.into_inner());
     registry::drain();
 
     {
@@ -57,7 +57,7 @@ fn multiple_guards_record_multiple_entries() {
 
 #[test]
 fn drain_clears_registry() {
-    let _lock = SERIAL.lock().unwrap();
+    let _lock = SERIAL.lock().unwrap_or_else(|e| e.into_inner());
     registry::drain();
 
     {

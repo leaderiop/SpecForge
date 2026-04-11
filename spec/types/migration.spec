@@ -1,7 +1,6 @@
 // Migration types — data shapes for spec file format migration
 
-use types/graph
-
+use "types/graph"
 // FormatVersion uses major.minor (no patch) because .spec file format changes
 // are always intentional and binary-compatible or not. SchemaVersion (in
 // types/graph.spec) uses semver with patch for the Graph Protocol's more

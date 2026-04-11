@@ -1,8 +1,7 @@
 // @specforge/software extension manifest declaration
 
-use types/zero-entity-core
-use extensions/software/types
-
+use "types/zero-entity-core"
+use "extensions/software/types"
 behavior se_declare_manifest "Declare @specforge/software Manifest" {
   category command
   types [ManifestV2, ManifestEntityKind, ManifestEdgeType]

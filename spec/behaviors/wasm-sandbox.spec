@@ -1,15 +1,15 @@
 // Wasm sandbox enforcement, AOT compilation, caching, warm engines,
 // error recovery, and sandbox configuration
 
-use invariants/wasm
-use types/wasm
-use types/config
-use types/errors
-use ports/outbound
-use events/wasm-sandbox
-
+use "invariants/wasm"
+use "types/wasm"
+use "types/config"
+use "types/errors"
+use "ports/outbound"
+use "events/wasm-sandbox"
 behavior enforce_wasm_sandbox "Enforce Wasm Sandbox" {
   invariants [wasm_sandbox_integrity, extension_isolation]
+  category   command
   types      [SandboxPolicy, ExtensionError]
   ports      [WasmRuntime]
 
@@ -44,6 +44,7 @@ behavior enforce_wasm_sandbox "Enforce Wasm Sandbox" {
 
 behavior aot_compile_wasm_module "AOT Compile Wasm Module" {
   invariants [aot_cache_integrity]
+  category   command
   types      [WasmModuleCache, ManifestV2]
   ports      [WasmRuntime, FileSystem]
   consumes   [aot_cache_invalidated]
@@ -77,6 +78,7 @@ behavior aot_compile_wasm_module "AOT Compile Wasm Module" {
 
 behavior cache_aot_artifacts "Cache AOT Artifacts" {
   invariants [aot_cache_integrity]
+  category   command
   types      [WasmModuleCache]
   ports      [FileSystem]
   consumes   [wasm_aot_compiled]
@@ -107,6 +109,7 @@ behavior cache_aot_artifacts "Cache AOT Artifacts" {
 
 behavior warm_wasm_engine_instance "Warm Wasm Engine Instance" {
   invariants [extension_isolation]
+  category   command
   types      [ExtensionLifecycleState, WarmEngineConfig]
   ports      [WasmRuntime]
   consumes   [engine_evicted]
@@ -139,6 +142,7 @@ behavior warm_wasm_engine_instance "Warm Wasm Engine Instance" {
 
 behavior evict_warm_engine_instance "Evict Warm Engine Instance" {
   invariants [extension_isolation]
+  category   command
   types      [ExtensionLifecycleState, WarmEngineConfig]
   ports      [WasmRuntime]
   consumes   [engine_warmed]
@@ -173,6 +177,7 @@ behavior evict_warm_engine_instance "Evict Warm Engine Instance" {
 
 behavior handle_wasm_trap "Handle Wasm Trap" {
   invariants [extension_isolation, wasm_sandbox_integrity]
+  category   command
   types      [WasmTrapInfo, ExtensionLifecycleState, ExtensionError]
   ports      [WasmRuntime]
   consumes   [wasm_sandbox_violation, wasm_integrity_check_failed]
@@ -211,6 +216,7 @@ behavior handle_wasm_trap "Handle Wasm Trap" {
 
 behavior invalidate_aot_cache "Invalidate AOT Cache" {
   invariants [aot_cache_integrity]
+  category   validation
   types      [WasmModuleCache]
   ports      [WasmRuntime, FileSystem]
   consumes   [wasm_extension_removed, batch_update_completed]
@@ -248,6 +254,7 @@ behavior invalidate_aot_cache "Invalidate AOT Cache" {
 // config-file generation by extensions that do not intend it.
 behavior configure_sandbox_policy "Configure Sandbox Policy" {
   invariants [wasm_sandbox_integrity]
+  category   command
   types      [SandboxPolicy, ManifestV2]
   ports      [FileSystem]
 

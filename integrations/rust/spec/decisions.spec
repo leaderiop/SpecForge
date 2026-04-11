@@ -1,7 +1,7 @@
 // specforge-test crate architectural decisions
 
-use invariants
-use behaviors
+use "invariants"
+use "behaviors"
 
 decision drop_over_catch_unwind "Drop Guard Over catch_unwind" {
   status accepted

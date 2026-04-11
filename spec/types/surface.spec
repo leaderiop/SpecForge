@@ -4,10 +4,9 @@
 // the CLI and MCP server dynamically. Core dispatches to Wasm exports
 // using the naming convention cmd__{id} and mcp__{name}.
 
-use types/core
-use types/wasm
-use types/mcp
-
+use "types/core"
+use "types/wasm"
+use "types/mcp"
 // ── Surface Contribution Container ──────────────────────────
 
 type SurfaceContributions {

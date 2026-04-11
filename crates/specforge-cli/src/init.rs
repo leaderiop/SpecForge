@@ -1,0 +1,232 @@
+use serde_json::json;
+use specforge_common::find_project_root;
+use std::path::Path;
+
+pub fn run(path: &Path, name: Option<&str>, version: Option<&str>, extensions: &[String], format: &str) -> i32 {
+    // Check for existing project
+    if let Some(existing) = find_project_root(path) {
+        eprintln!(
+            "error: project already exists at {}",
+            existing.display()
+        );
+        return 1;
+    }
+
+    // Determine project name: --name flag, or directory name
+    let project_name = match name {
+        Some(n) => n.to_string(),
+        None => path
+            .file_name()
+            .and_then(|n| n.to_str())
+            .unwrap_or("my-project")
+            .to_string(),
+    };
+
+    // Validate project name
+    if let Err(msg) = validate_project_name(&project_name) {
+        eprintln!("error: invalid project name '{}': {}", project_name, msg);
+        return 1;
+    }
+
+    // Validate extension specifiers
+    for ext in extensions {
+        if let Err(msg) = validate_extension_specifier(ext) {
+            eprintln!("error: unresolvable extension '{}': {}", ext, msg);
+            return 1;
+        }
+    }
+
+    let project_version = version.unwrap_or("0.1.0");
+    let spec_root = "spec";
+
+    // Build specforge.json
+    let config = json!({
+        "$schema": "https://specforge.dev/schema/specforge.json",
+        "name": project_name,
+        "version": project_version,
+        "spec_root": spec_root,
+        "extensions": extensions,
+    });
+
+    // Write specforge.json
+    let config_path = path.join("specforge.json");
+    let config_str = serde_json::to_string_pretty(&config).expect("serialize JSON output");
+    if let Err(e) = std::fs::write(&config_path, format!("{config_str}\n")) {
+        eprintln!("error: failed to write specforge.json: {e}");
+        return 1;
+    }
+
+    // Create spec_root directory
+    let spec_dir = path.join(spec_root);
+    if let Err(e) = std::fs::create_dir_all(&spec_dir) {
+        eprintln!("error: failed to create spec directory: {e}");
+        return 1;
+    }
+
+    // Write starter spec file — choose template based on installed extensions
+    let has_software = extensions.iter().any(|e| e.contains("software"));
+    let has_product = extensions.iter().any(|e| e.contains("product"));
+    let (starter_filename, starter_content) = if has_software {
+        ("hello.spec", generate_software_starter(&project_name))
+    } else if has_product {
+        ("hello.spec", generate_product_starter(&project_name))
+    } else {
+        ("hello.spec", generate_starter_spec(&project_name))
+    };
+    let starter_path = spec_dir.join(starter_filename);
+    if let Err(e) = std::fs::write(&starter_path, starter_content) {
+        eprintln!("error: failed to write starter spec file: {e}");
+        return 1;
+    }
+
+    // Output
+    match format {
+        "json" => {
+            let output = json!({
+                "project_root": path.canonicalize().unwrap_or_else(|_| path.to_path_buf()),
+                "config_path": config_path,
+                "spec_file_path": starter_path,
+                "extensions_installed": extensions,
+            });
+            println!("{}", serde_json::to_string_pretty(&output).expect("serialize JSON output"));
+        }
+        _ => {
+            println!("Initialized project '{}' at {}", project_name, path.display());
+            println!("  specforge.json");
+            println!("  {}/hello.spec", spec_root);
+            if extensions.is_empty() {
+                println!("\nNo extensions installed. Add one with: specforge add <extension>");
+            }
+            println!("\nNext steps:");
+            println!("  specforge check    # validate your spec files");
+            println!("  specforge export   # export the graph");
+        }
+    }
+
+    0
+}
+
+fn validate_project_name(name: &str) -> Result<(), &'static str> {
+    if name.is_empty() {
+        return Err("name must not be empty");
+    }
+    if name.len() > 214 {
+        return Err("name must not exceed 214 characters");
+    }
+    if name.starts_with('.') || name.starts_with('-') {
+        return Err("name must not start with '.' or '-'");
+    }
+    if name.contains(|c: char| c.is_whitespace()) {
+        return Err("name must not contain whitespace");
+    }
+    Ok(())
+}
+
+fn validate_extension_specifier(spec: &str) -> Result<(), &'static str> {
+    // Extension specifiers must follow @scope/name or @scope/name@version format
+    let base = spec.split('@').filter(|s| !s.is_empty()).collect::<Vec<_>>();
+    if base.is_empty() {
+        return Err("extension specifier must not be empty");
+    }
+    // Must start with @
+    if !spec.starts_with('@') {
+        return Err("extension specifier must start with '@' (e.g., @specforge/software)");
+    }
+    // Strip leading @ and optional trailing @version
+    let without_at = &spec[1..];
+    let name_part = if let Some(idx) = without_at.find('@') {
+        &without_at[..idx]
+    } else {
+        without_at
+    };
+    // Must contain scope/name
+    if !name_part.contains('/') {
+        return Err("extension specifier must be @scope/name (e.g., @specforge/software)");
+    }
+    Ok(())
+}
+
+fn generate_starter_spec(project_name: &str) -> String {
+    format!(
+        r#"// {project_name} — starter spec file
+//
+// This file uses only structural syntax that the core compiler
+// understands without any extensions. Install extensions to unlock
+// domain-specific entity types.
+//
+// Try: specforge check
+
+spec {project_name} "Starter specification" {{
+  version "0.1.0"
+}}
+"#
+    )
+}
+
+fn generate_software_starter(project_name: &str) -> String {
+    format!(
+        r#"// {project_name} — software specification
+//
+// Uses @specforge/software entity kinds: behavior, type, event, port, invariant.
+//
+// Try: specforge check
+
+spec {project_name} "Software specification" {{
+  version "0.1.0"
+}}
+
+behavior authenticate_user "Authenticate a user with credentials" {{
+  status draft
+  contract "Given valid credentials, returns an auth token"
+
+  verify "rejects invalid password" {{}}
+  verify "returns token on success" {{}}
+}}
+
+type user "User account" {{
+  status draft
+}}
+
+event user_logged_in "User successfully logged in" {{
+  direction outbound
+  payload user
+}}
+"#
+    )
+}
+
+fn generate_product_starter(project_name: &str) -> String {
+    format!(
+        r#"// {project_name} — product specification
+//
+// Uses @specforge/product entity kinds: feature, journey, milestone, deliverable, etc.
+//
+// Try: specforge check
+
+spec {project_name} "Product specification" {{
+  version "0.1.0"
+}}
+
+feature user_auth "User authentication" {{
+  status draft
+  priority high
+}}
+
+persona developer "Software developer" {{
+  technical_level expert
+}}
+
+journey onboarding "New user onboarding" {{
+  persona developer
+  features [user_auth]
+}}
+
+milestone mvp "Minimum Viable Product" {{
+  status planned
+  features [user_auth]
+  exit_criteria "Core auth flow works end-to-end"
+}}
+"#
+    )
+}
+

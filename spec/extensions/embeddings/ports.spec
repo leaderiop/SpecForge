@@ -1,7 +1,6 @@
 // Embeddings extension — outbound port for AI/ML embedding providers
 
-use types/errors
-
+use "types/errors"
 port EmbeddingProvider {
   direction outbound
   category  "ai/embeddings"

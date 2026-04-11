@@ -1,7 +1,6 @@
 // @specforge/compliance extension features
 
-use extensions/compliance/behaviors
-
+use "extensions/compliance/behaviors"
 feature compliance_validation "Compliance Validation" {
   behaviors [ce_validate_compliance_graph]
 

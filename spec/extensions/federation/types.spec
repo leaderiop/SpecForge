@@ -1,7 +1,6 @@
 // Federation types — cross-project reference and graph merging
 
-use types/graph
-
+use "types/graph"
 type ProjectDependency {
   name           string          @readonly
   // Relative to the directory containing specforge.json

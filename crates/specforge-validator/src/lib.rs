@@ -3,11 +3,10 @@ mod orphan;
 mod render;
 mod summary;
 
-pub use render::render_diagnostics;
-pub use summary::diagnostic_summary;
-
 pub use specforge_common::{Diagnostic, Severity, SourceSpan};
 pub use specforge_graph::Graph;
+pub use render::render_diagnostics;
+pub use summary::{diagnostic_summary, diagnostic_summary_detailed};
 use std::path::PathBuf;
 
 #[derive(Debug, Default)]

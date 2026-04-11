@@ -69,8 +69,8 @@ fn main() {
             };
 
             entities.push(ExportedEntity {
-                id: entity.id.raw.clone(),
-                kind: entity.kind.raw.clone(),
+                id: entity.id.raw.to_string(),
+                kind: entity.kind.raw.to_string(),
                 verify,
                 testable,
             });

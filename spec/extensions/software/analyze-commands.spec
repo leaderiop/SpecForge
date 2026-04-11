@@ -5,9 +5,8 @@
 // dispatched by register_surface_contributions / dispatch_surface_command.
 // Each command's Wasm export follows the cmd__{id} naming convention.
 
-use types/zero-entity-core
-use extensions/software/types
-
+use "types/zero-entity-core"
+use "extensions/software/types"
 behavior se_analyze_contracts "Analyze Contracts Command" {
   category command
   types [RequiresBlock, EnsuresBlock, ContractCondition]

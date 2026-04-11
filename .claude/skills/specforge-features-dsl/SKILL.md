@@ -16,12 +16,12 @@ Rules and conventions for authoring **`feature` blocks** in `.spec` files. Featu
 - Grouping related behaviors into a deliverable unit of value
 - Defining what a feature solves (problem) and how (solution)
 - Connecting behaviors to the product planning chain
-- Creating the features that capabilities will reference
+- Creating the features that journeys will reference
 
 ## Block Syntax
 
 ```spec
-use behaviors/user-crud
+use "behaviors/user-crud"
 
 feature user_management "User Management" {
   behaviors [create_user, read_user_by_id, update_user_email]
@@ -68,9 +68,9 @@ feature user_management "User Management" {
 
 | From | Edge Type | Meaning |
 |------|-----------|---------|
-| `capability` | `traces_to` | UX capability delivers this feature |
-| `library` | `provides` | Library implements this feature |
-| `roadmap` | `schedules` | Roadmap phase schedules this feature |
+| `journey` | `JourneyFeature` | UX journey delivers this feature |
+| `module` | `ModuleFeature` | Module implements this feature |
+| `milestone` | `MilestoneFeature` | Milestone phase schedules this feature |
 
 ## Writing Rules
 
@@ -87,7 +87,7 @@ feature user_management "User Management" {
 |------|------|
 | E001 | Every ID in `behaviors` must resolve to an existing behavior. |
 | E002 | No duplicate feature IDs across all `.spec` files. |
-| W002 | Orphan feature -- not referenced by any capability. |
+| W041 | Orphan feature -- not referenced by any journey. |
 | W008 | Feature with empty behaviors list. |
 
 ## Examples
@@ -95,7 +95,7 @@ feature user_management "User Management" {
 ### Simple Feature
 
 ```spec
-use behaviors/auth
+use "behaviors/auth"
 
 feature password_authentication "Password Authentication" {
   behaviors [authenticate_user, hash_password, validate_session]
@@ -116,7 +116,7 @@ feature password_authentication "Password Authentication" {
 ### Feature with Refs
 
 ```spec
-use behaviors/search
+use "behaviors/search"
 
 feature full_text_search "Full-Text Search" {
   behaviors [index_documents, search_query, faceted_filter, highlight_matches]
@@ -140,9 +140,9 @@ feature full_text_search "Full-Text Search" {
 ### Cross-Domain Feature
 
 ```spec
-use behaviors/order-processing
-use behaviors/inventory
-use behaviors/billing
+use "behaviors/order-processing"
+use "behaviors/inventory"
+use "behaviors/billing"
 
 feature order_checkout "Order Checkout" {
   behaviors [place_order, reserve_inventory, process_payment, confirm_order]

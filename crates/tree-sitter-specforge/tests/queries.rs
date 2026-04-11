@@ -39,7 +39,7 @@ fn highlights_captures_entity_kind_as_keyword() {
     let mut matches = cursor.matches(&query, tree.root_node(), source.as_bytes());
     while let Some(m) = matches.next() {
         for c in m.captures {
-            capture_names.push(&query.capture_names()[c.index as usize]);
+            capture_names.push(query.capture_names()[c.index as usize]);
         }
     }
 
@@ -202,18 +202,32 @@ ref gh.issue:2 "Full ref" {
 }
 
 #[test]
-fn highlights_captures_import_path_as_string_special() {
-    let source = "use behaviors/parsing\nuse types/core\n";
+fn highlights_captures_import_path_as_string() {
+    let source = "use \"behaviors/parsing\"\nuse \"types/core\"\n";
     let captures = highlight_captures(source);
-    let specials: Vec<&str> = captures
+    let strings: Vec<&str> = captures
         .iter()
-        .filter(|(name, _)| name == "string.special")
+        .filter(|(name, text)| name == "string" && text.contains('/'))
         .map(|(_, text)| text.as_str())
         .collect();
 
-    assert_eq!(specials.len(), 2, "expected 2 import paths as @string.special, got: {specials:?}");
-    assert!(specials.contains(&"behaviors/parsing"), "missing behaviors/parsing, got: {specials:?}");
-    assert!(specials.contains(&"types/core"), "missing types/core, got: {specials:?}");
+    assert_eq!(strings.len(), 2, "expected 2 import paths as @string, got: {strings:?}");
+    assert!(strings.contains(&"\"behaviors/parsing\""), "missing behaviors/parsing, got: {strings:?}");
+    assert!(strings.contains(&"\"types/core\""), "missing types/core, got: {strings:?}");
+}
+
+#[test]
+fn highlights_captures_from_and_as_keywords() {
+    let source = "use { Foo } from \"types/core\"\nuse * as ns from \"types/core\"\n";
+    let captures = highlight_captures(source);
+    let keywords: Vec<&str> = captures
+        .iter()
+        .filter(|(name, _)| name == "keyword")
+        .map(|(_, text)| text.as_str())
+        .collect();
+
+    assert!(keywords.contains(&"from"), "from should be @keyword, got: {keywords:?}");
+    assert!(keywords.contains(&"as"), "as should be @keyword, got: {keywords:?}");
 }
 
 #[test]
@@ -241,7 +255,7 @@ type MyType {
 fn highlights_captures_structural_keywords() {
     // use, spec, ref, define, verify should all be @keyword
     let source = r#"
-use behaviors/parsing
+use "behaviors/parsing"
 
 spec "My Project" {
     version "1.0"
@@ -266,6 +280,45 @@ define my_kind {
     assert!(keywords.contains(&"ref"), "ref should be @keyword, keywords: {keywords:?}");
     assert!(keywords.contains(&"define"), "define should be @keyword, keywords: {keywords:?}");
     assert!(keywords.contains(&"verify"), "verify should be @keyword, keywords: {keywords:?}");
+}
+
+#[test]
+fn parser_handles_consecutive_use_imports_without_error() {
+    let source = r#"// Error reporting behaviors
+use "events/compilation"
+use "invariants/core"
+use "invariants/validation"
+use "invariants/zero-entity-core"
+use "types/core"
+use "types/diagnostics"
+use "types/zero-entity-core"
+
+behavior format_diagnostics "Format Diagnostics" {
+  types [Diagnostic, SourceSpan]
+}
+"#;
+    let language = tree_sitter_specforge::LANGUAGE.into();
+    let mut parser = tree_sitter::Parser::new();
+    parser.set_language(&language).unwrap();
+    let tree = parser.parse(source, None).unwrap();
+    let root = tree.root_node();
+
+    // No ERROR nodes should exist
+    assert!(
+        !root.has_error(),
+        "consecutive use imports should parse without errors, tree: {}",
+        root.to_sexp()
+    );
+
+    // Count use_import nodes
+    let mut use_count = 0;
+    let mut cursor = root.walk();
+    for child in root.children(&mut cursor) {
+        if child.kind() == "use_import" {
+            use_count += 1;
+        }
+    }
+    assert_eq!(use_count, 7, "expected 7 use_import nodes, got {use_count}");
 }
 
 #[test]

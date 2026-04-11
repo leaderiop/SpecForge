@@ -3,8 +3,7 @@
 // Failure modes specific to the Rust language integration:
 // entity mapping accuracy and proc macro reliability.
 
-use extensions/rust/invariants
-
+use "extensions/rust/invariants"
 failure_mode rust_entity_mapping_mismatch "Rust Entity Mapping Mismatch" {
   invariant  entity_mapping_precedence
   severity   6

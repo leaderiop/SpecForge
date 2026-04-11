@@ -15,13 +15,14 @@ fn atexit_writes_report_on_process_exit() {
         outcome: TestOutcome::Pass,
     }];
 
-    report::write_report(&report_dir, "test_binary", entries).unwrap();
+    report::write_report(&report_dir, "test_binary", &entries).unwrap();
 
     let path = report_dir.join("test_binary.json");
     assert!(path.exists());
 
     let content: serde_json::Value =
         serde_json::from_str(&std::fs::read_to_string(&path).unwrap()).unwrap();
+    assert_eq!(content["schema_version"], "1.0");
     assert_eq!(content["binary_name"], "test_binary");
     assert_eq!(content["entries"][0]["entity_id"], "test_entity");
 }

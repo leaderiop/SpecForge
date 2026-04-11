@@ -3,14 +3,13 @@
 // is extension-driven via the declarative validation engine. These features cover
 // only core structural validation behaviors.
 
-use behaviors/resolution
-use behaviors/graph
-use behaviors/validation
-use behaviors/error-reporting
-use behaviors/output
-use behaviors/zero-entity-registries
-use behaviors/zero-entity-validation
-
+use "behaviors/resolution"
+use "behaviors/graph"
+use "behaviors/validation"
+use "behaviors/error-reporting"
+use "behaviors/output"
+use "behaviors/zero-entity-registries"
+use "behaviors/zero-entity-validation"
 feature reference_resolution "Reference Resolution" {
   behaviors [
     resolve_use_imports, detect_import_cycles, link_entity_references,

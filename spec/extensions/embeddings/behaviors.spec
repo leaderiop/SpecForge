@@ -1,17 +1,17 @@
 // Embeddings extension — entity embedding generation and similarity search
 
-use invariants/core
-use types/graph
-use types/output
-use ports/outbound
-use events/compilation
-use extensions/embeddings/ports
-use extensions/embeddings/types
-use extensions/embeddings/invariants
-use extensions/embeddings/events
-
+use "invariants/core"
+use "types/graph"
+use "types/output"
+use "ports/outbound"
+use "events/compilation"
+use "extensions/embeddings/ports"
+use "extensions/embeddings/types"
+use "extensions/embeddings/invariants"
+use "extensions/embeddings/events"
 behavior generate_entity_embeddings "Generate Entity Embeddings" {
   status     roadmap
+  category   query
   invariants [graph_traversal_integrity, embedding_provider_determinism, embedding_cache_consistency]
   types      [Graph, AgentExportConfig, EntityEmbedding]
   ports      [EmbeddingProvider]
@@ -39,6 +39,7 @@ behavior generate_entity_embeddings "Generate Entity Embeddings" {
 
 behavior search_entities_by_similarity "Search Entities by Similarity" {
   status     roadmap
+  category   query
   invariants [graph_traversal_integrity, embedding_provider_determinism, embedding_cache_consistency]
   types      [Graph, AgentExportConfig, EntityEmbedding, SimilarityResult]
   ports      [EmbeddingProvider]

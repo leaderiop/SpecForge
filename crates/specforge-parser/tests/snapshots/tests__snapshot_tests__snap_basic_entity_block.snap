@@ -1,0 +1,59 @@
+---
+source: crates/specforge-parser/tests/snapshot_tests.rs
+assertion_line: 19
+expression: "parse_ok(source, \"test.spec\").entities"
+---
+[
+  {
+    "kind": {
+      "raw": "behavior"
+    },
+    "id": {
+      "raw": "parse_spec_file"
+    },
+    "title": "Parse Spec File",
+    "fields": {
+      "entries": [
+        {
+          "key": "status",
+          "value": {
+            "Identifier": "planned"
+          }
+        },
+        {
+          "key": "tags",
+          "value": {
+            "ReferenceList": [
+              "alpha",
+              "beta",
+              "gamma"
+            ]
+          }
+        },
+        {
+          "key": "verify",
+          "value": {
+            "VerifyList": [
+              {
+                "kind": "unit",
+                "description": "produces AST for minimal valid file"
+              },
+              {
+                "kind": "integration",
+                "description": "parses all .spec files in project"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    "raw_body": "\n    status planned\n    tags [alpha, beta, gamma]\n    verify unit \"produces AST for minimal valid file\"\n    verify integration \"parses all .spec files in project\"\n",
+    "span": {
+      "file": "test.spec",
+      "start_line": 2,
+      "start_col": 1,
+      "end_line": 7,
+      "end_col": 2
+    }
+  }
+]

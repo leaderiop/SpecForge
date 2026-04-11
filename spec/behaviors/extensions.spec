@@ -1,19 +1,18 @@
 // Extension behaviors — extensions, providers, renderers
 
-use invariants/core
-use invariants/extensions
-use invariants/validation
-use invariants/wasm
-use invariants/zero-entity-core
-use types/config
-use types/zero-entity-core
-use types/wasm
-use types/errors
-use types/diagnostics
-use ports/outbound
-use events/extensions
-use events/compilation
-
+use "invariants/core"
+use "invariants/extensions"
+use "invariants/validation"
+use "invariants/wasm"
+use "invariants/zero-entity-core"
+use "types/config"
+use "types/zero-entity-core"
+use "types/wasm"
+use "types/errors"
+use "types/diagnostics"
+use "ports/outbound"
+use "events/extensions"
+use "events/compilation"
 // load_extension_manifests is the top-level orchestrator for extension discovery.
 // It delegates to load_extension_manifest (behaviors/wasm-lifecycle.spec) for per-extension
 // loading and to validate_extension_manifest (behaviors/wasm-lifecycle.spec) for schema
@@ -21,6 +20,7 @@ use events/compilation
 // via the behaviors in behaviors/zero-entity-core.spec.
 behavior load_extension_manifests "Load Extension Manifests" {
   invariants [registry_population_before_validation, zero_domain_knowledge_core, extension_load_order_determinism, offline_first_extension_resolution, compilation_pipeline_ordering]
+  category   command
   ports      [FileSystem]
   types      [ManifestV2, CompilerConfig, ExtensionError]
   consumes   [all_files_parsed]
@@ -75,6 +75,7 @@ behavior load_extension_manifests "Load Extension Manifests" {
 // are defined in the zero-entity-core behaviors.
 behavior register_extension_entity_types "Register Extension Entity Types" {
   invariants [reference_resolution_completeness, zero_domain_knowledge_core]
+  category   command
   types      [ManifestV2, KindRegistryEntry]
   consumes   [extension_manifests_loaded]
   produces   [extension_entity_types_registered]
@@ -117,6 +118,7 @@ behavior register_extension_entity_types "Register Extension Entity Types" {
 
 behavior load_provider_configurations "Load Provider Configurations" {
   invariants [reference_resolution_completeness, zero_domain_knowledge_core]
+  category   query
   types      [ProviderConfig, CompilerConfig]
   ports      [FileSystem]
   consumes   [extension_manifests_loaded]
@@ -153,6 +155,7 @@ behavior load_provider_configurations "Load Provider Configurations" {
 
 behavior register_provider_schemes "Register Provider Schemes" {
   invariants [reference_resolution_completeness, diagnostic_determinism, zero_domain_knowledge_core]
+  category   query
   types      [ProviderConfig, ManifestV2, SchemeRegistryEntry, Diagnostic]
   ports      [WasmRuntime]
   consumes   [provider_configured]
@@ -196,6 +199,7 @@ behavior register_provider_schemes "Register Provider Schemes" {
 
 behavior validate_provider_refs "Validate Provider Refs" {
   invariants [reference_resolution_completeness, zero_domain_knowledge_core]
+  category   validation
   types      [SchemeRegistryEntry, Diagnostic]
   ports      [RefValidator]
   consumes   [provider_schemes_registered]
@@ -233,6 +237,7 @@ behavior validate_provider_refs "Validate Provider Refs" {
 // diagnostic messaging; uninstall_wasm_extension owns the implementation.
 behavior remove_extension "Remove Extension" {
   invariants [reference_resolution_completeness, zero_domain_knowledge_core]
+  category   command
   types      [CompilerConfig, ExtensionError, Diagnostic, UnknownKindError]
   ports      [FileSystem]
   produces   [extension_removed]
@@ -275,6 +280,7 @@ behavior remove_extension "Remove Extension" {
 // Read-only query — no event produced.
 behavior list_installed_extensions "List Installed Extensions" {
   invariants [diagnostic_determinism, zero_domain_knowledge_core]
+  category   query
   types      [ManifestV2, KindRegistryEntry]
 
   requires {
@@ -304,6 +310,7 @@ behavior list_installed_extensions "List Installed Extensions" {
 // Read-only query — no event produced.
 behavior list_configured_providers "List Configured Providers" {
   invariants [diagnostic_determinism, zero_domain_knowledge_core]
+  category   query
   types      [ProviderConfig, SchemeRegistryEntry]
 
   requires {
@@ -337,6 +344,7 @@ behavior list_configured_providers "List Configured Providers" {
 // Depends on SchemeRegistryEntry data populated during provider registration.
 behavior validate_ref_target_format "Validate Ref Target Format" {
   invariants [reference_resolution_completeness, zero_domain_knowledge_core, diagnostic_determinism]
+  category   validation
   types      [Diagnostic, SchemeRegistryEntry]
   ports      [RefValidator]
 
@@ -368,6 +376,7 @@ behavior validate_ref_target_format "Validate Ref Target Format" {
 // Depends on SchemeRegistryEntry data populated during provider registration.
 behavior validate_provider_kinds "Validate Provider Kinds" {
   invariants [reference_resolution_completeness, zero_domain_knowledge_core, diagnostic_determinism]
+  category   validation
   types      [Diagnostic, SchemeRegistryEntry]
   ports      [RefValidator]
 
@@ -398,6 +407,7 @@ behavior validate_provider_kinds "Validate Provider Kinds" {
 
 behavior resolve_registry_source "Resolve Registry Source" {
   invariants [registry_integrity, multi_error_collection, extension_operation_atomicity, offline_first_extension_resolution]
+  category   query
   types      [RegistryConfig, RegistryResponse, CompilerConfig, ExtensionError]
   ports      [RegistryClient]
   consumes   [registries_configured]
@@ -438,6 +448,7 @@ behavior resolve_registry_source "Resolve Registry Source" {
 
 behavior search_registry "Search Registry" {
   invariants [diagnostic_determinism, multi_error_collection, offline_first_extension_resolution]
+  category   query
   types      [RegistryConfig, RegistrySearchResult, RegistryResponse, CompilerConfig]
   ports      [RegistryClient]
   produces   [registry_search_completed]
@@ -482,6 +493,7 @@ behavior search_registry "Search Registry" {
 // to publish_wasm_extension in behaviors/wasm-lifecycle.spec.
 behavior publish_to_registry "Publish to Registry" {
   invariants [registry_integrity, multi_error_collection, credential_secrecy]
+  category   command
   types      [ManifestV2, RegistryConfig, ExtensionError]
   ports      [RegistryClient, FileSystem]
   produces   [extension_published_to_registry]
@@ -520,6 +532,7 @@ behavior publish_to_registry "Publish to Registry" {
 
 behavior verify_registry_integrity "Verify Registry Integrity" {
   invariants [registry_integrity, aot_cache_integrity, offline_first_extension_resolution]
+  category   validation
   types      [RegistryResponse, LockFileEntry, TrustLevel, ExtensionError]
   ports      [FileSystem]
   produces   [registry_integrity_verified]
@@ -562,6 +575,7 @@ behavior verify_registry_integrity "Verify Registry Integrity" {
 
 behavior configure_registries "Configure Registries" {
   invariants [diagnostic_determinism, zero_domain_knowledge_core, registry_integrity, registry_api_openness, offline_first_extension_resolution]
+  category   command
   types      [RegistryConfig, CompilerConfig]
   ports      [FileSystem]
   produces   [registries_configured]
@@ -619,6 +633,7 @@ behavior configure_registries "Configure Registries" {
 // pre-configured credentials.
 behavior authenticate_registry_request "Authenticate Registry Request" {
   invariants [registry_integrity, multi_error_collection, credential_secrecy, offline_first_extension_resolution]
+  category   command
   types      [RegistryConfig, RegistryCredential, ExtensionError, RegistryError]
   ports      [RegistryClient]
   produces   [registry_authenticated]
@@ -676,6 +691,7 @@ behavior authenticate_registry_request "Authenticate Registry Request" {
 
 behavior retry_registry_request "Retry Registry Request" {
   invariants [registry_integrity, multi_error_collection, credential_secrecy]
+  category   command
   types      [RegistryConfig, RegistryError, ExtensionError]
   ports      [RegistryClient]
 
@@ -710,6 +726,7 @@ behavior retry_registry_request "Retry Registry Request" {
 
 behavior validate_registry_credentials "Validate Registry Credentials" {
   invariants [registry_integrity, diagnostic_determinism, credential_secrecy]
+  category   validation
   types      [RegistryCredential, RegistryConfig, RegistryError]
   ports      [RegistryClient]
   produces   [registry_credentials_validated]
@@ -745,6 +762,7 @@ behavior validate_registry_credentials "Validate Registry Credentials" {
 
 behavior logout_registry "Logout Registry" {
   invariants [registry_integrity, diagnostic_determinism, credential_secrecy]
+  category   command
   types      [RegistryConfig, RegistryCredential, RegistryError]
   ports      [FileSystem]
   produces   [registry_logged_out]
@@ -782,6 +800,7 @@ behavior logout_registry "Logout Registry" {
 
 behavior generate_keyword_extension_index "Generate Keyword Extension Index" {
   invariants [registry_integrity]
+  category   query
   types      [RegistryConfig, KeywordExtensionIndex]
   ports      [RegistryClient, FileSystem]
   produces   [keyword_extension_index_generated]
@@ -830,6 +849,7 @@ behavior generate_keyword_extension_index "Generate Keyword Extension Index" {
 
 behavior support_private_registries "Support Private Registries" {
   invariants [registry_integrity, wasm_sandbox_integrity, credential_secrecy]
+  category   command
   types      [RegistryConfig, RegistryCredential, TrustLevel, RegistryResponse]
   ports      [RegistryClient]
 

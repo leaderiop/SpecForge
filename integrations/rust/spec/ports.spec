@@ -1,7 +1,7 @@
 // specforge-test crate ports
 // Boundaries between the crate and external systems.
 
-use types
+use "types"
 
 port ProcessExit {
   direction outbound

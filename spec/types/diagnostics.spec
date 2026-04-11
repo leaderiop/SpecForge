@@ -1,7 +1,6 @@
 // Diagnostic types — compiler messages and validation codes
 
-use types/core
-
+use "types/core"
 type Diagnostic {
   code       ValidationCode  @readonly
   severity   Severity

@@ -1,21 +1,21 @@
 // Zero-entity core — declarative validation engine and field validation
 
-use invariants/zero-entity-core
-use invariants/core
-use types/zero-entity-core
-use types/core
-use types/config
-use types/diagnostics
-use types/errors
-use types/wasm
-use ports/outbound
-use events/compilation
-
+use "invariants/zero-entity-core"
+use "invariants/core"
+use "types/zero-entity-core"
+use "types/core"
+use "types/config"
+use "types/diagnostics"
+use "types/errors"
+use "types/wasm"
+use "ports/outbound"
+use "events/compilation"
 // -- Declarative Validation --------------------------------------------------
 
 // No consumes — synchronous helper called by register_validation_rules_from_manifest
 behavior parse_validation_rule_pattern "Parse Validation Rule Pattern" {
   invariants [zero_domain_knowledge_core, declarative_validation_determinism]
+  category   command
   types      [ValidationRulePattern, ValidationPatternKind]
 
   requires {
@@ -46,6 +46,7 @@ behavior parse_validation_rule_pattern "Parse Validation Rule Pattern" {
 
 behavior execute_validation_pattern "Execute Validation Pattern" {
   invariants [zero_domain_knowledge_core, declarative_validation_determinism]
+  category   command
   types      [ValidationRulePattern, ValidationPatternKind, Diagnostic]
   ports      [WasmRuntime]
   consumes   [graph_built]
@@ -94,6 +95,7 @@ behavior execute_validation_pattern "Execute Validation Pattern" {
 
 behavior emit_diagnostic_from_pattern "Emit Diagnostic From Pattern" {
   invariants [zero_domain_knowledge_core, declarative_validation_determinism]
+  category   command
   types      [ValidationRulePattern, Diagnostic]
 
   requires {
@@ -125,6 +127,7 @@ behavior emit_diagnostic_from_pattern "Emit Diagnostic From Pattern" {
 
 behavior register_extension_validation_rules "Register Extension Validation Rules" {
   invariants [zero_domain_knowledge_core, declarative_validation_determinism, registry_population_before_validation]
+  category   command
   types      [ValidationRulePattern, ManifestV2]
   consumes   [extension_manifests_loaded]
 
@@ -159,6 +162,7 @@ behavior register_extension_validation_rules "Register Extension Validation Rule
 
 behavior register_custom_validation_patterns "Register Custom Validation Patterns" {
   invariants [zero_domain_knowledge_core, declarative_validation_determinism]
+  category   command
   types      [ValidationRulePattern, CustomValidationPattern, ManifestV2]
   refs       [provide_host_function_query_graph]
   ports      [WasmRuntime]
@@ -201,6 +205,7 @@ behavior register_custom_validation_patterns "Register Custom Validation Pattern
 
 behavior detect_unknown_entity_fields "Detect Unknown Entity Fields" {
   invariants [zero_domain_knowledge_core, registry_population_before_validation]
+  category   validation
   types      [FieldRegistryEntry, KindRegistryEntry, Diagnostic]
   consumes   [registries_populated, define_blocks_registered]
 
@@ -242,6 +247,7 @@ behavior detect_unknown_entity_fields "Detect Unknown Entity Fields" {
 // orchestration — focuses exclusively on inter-extension kind collisions (E026).
 behavior detect_duplicate_entity_kinds "Detect Duplicate Entity Kinds" {
   invariants [zero_domain_knowledge_core, registry_population_before_validation]
+  category   validation
   types      [ManifestV2, ManifestEntityKind, KindRegistryEntry, Diagnostic]
 
   requires {
@@ -272,6 +278,7 @@ behavior detect_duplicate_entity_kinds "Detect Duplicate Entity Kinds" {
 
 behavior validate_peer_dependencies "Validate Peer Dependencies" {
   invariants [zero_domain_knowledge_core, registry_population_before_validation]
+  category   validation
   types      [ManifestV2, PeerDependency, ExtensionError]
   produces   [extension_loading_failed]
 
@@ -305,6 +312,7 @@ behavior validate_peer_dependencies "Validate Peer Dependencies" {
 // Moved from behaviors/validation.spec — belongs with zero-entity core validation
 behavior validate_extension_testability "Validate Extension Testability" {
   invariants [testable_entity_classification, zero_domain_knowledge_core]
+  category   validation
   types      [Diagnostic, KindRegistryEntry]
   consumes  [registries_populated]
 

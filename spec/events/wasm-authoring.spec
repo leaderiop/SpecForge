@@ -1,8 +1,7 @@
 // Extension authoring workflow events
 
-use types/wasm
-use behaviors/wasm-authoring
-
+use "types/wasm"
+use "behaviors/wasm-authoring"
 event extension_project_scaffolded "Extension Project Scaffolded" {
   trigger   scaffold_wasm_extension_project
   channel   "wasm.extension_project_scaffolded"

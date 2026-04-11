@@ -1,11 +1,10 @@
 // @specforge/software events — emitted by analysis passes
 
-use extensions/software/formal-contracts
-use extensions/software/formal-refinement
-use extensions/software/formal-concurrency
-use extensions/software/formal-proofs
-use extensions/software/types
-
+use "extensions/software/formal-contracts"
+use "extensions/software/formal-refinement"
+use "extensions/software/formal-concurrency"
+use "extensions/software/formal-proofs"
+use "extensions/software/types"
 event se_contract_check_complete "Contract Check Complete" {
   trigger se_contract_check_pass
   channel "analysis.contract"

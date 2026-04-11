@@ -9,16 +9,16 @@ Top-down approach: start from what you ship, zoom into implementation details.
 ```
 Phase 0          Phase 1           Phase 2          Phase 3
 FOUNDATION  ───► WHAT WE SHIP ───► WHAT USERS DO ──► WHAT THE SYSTEM DOES
-spec             deliverable        capability        feature
-glossary                                              behavior
+spec             deliverable        journey           feature
+term                                                  behavior
                                                       type
 
      Phase 4           Phase 5          Phase 6          Phase 7
 ───► COMMUNICATION ───► GUARANTEES ────► CODE ──────────► GOVERNANCE & TIMELINE
-     event              invariant        library          decision
+     event              invariant        module           decision
      port                                                 constraint
                                                           failure_mode
-                                                          roadmap
+                                                          milestone
 ```
 
 Cross-cutting: `ref` — attach external references at any phase.
@@ -31,7 +31,7 @@ Cross-cutting: `ref` — attach external references at any phase.
 
 ### Entities
 - **`spec`** — project identity, plugins, providers, personas, surfaces
-- **`glossary`** — ubiquitous language for the team
+- **`term`** — ubiquitous language definitions for the team
 
 ### Key questions
 1. What is the project name and ID infix?
@@ -43,8 +43,8 @@ Cross-cutting: `ref` — attach external references at any phase.
 
 ### Checkpoint
 - [ ] `spec` block compiles with name, infix, version, plugins
-- [ ] Glossary covers every domain term the team uses differently than plain English
-- [ ] Personas and surfaces are declared — capabilities will reference them
+- [ ] Term entities cover every domain term the team uses differently than plain English
+- [ ] Personas and surfaces are declared — journeys will reference them
 
 ---
 
@@ -62,8 +62,8 @@ Cross-cutting: `ref` — attach external references at any phase.
 
 ### How to write
 - One deliverable per shippable artifact
-- Leave `capabilities` empty for now — you'll fill them in Phase 2
-- Leave `libraries` empty — you'll fill them in Phase 6
+- Leave `journeys` empty for now — you'll fill them in Phase 2
+- Leave `modules` empty — you'll fill them in Phase 6
 
 ### Checkpoint
 - [ ] Every artifact the team ships has a `DLV` entry
@@ -77,23 +77,23 @@ Cross-cutting: `ref` — attach external references at any phase.
 > *"For each persona + surface, what are the end-to-end flows?"*
 
 ### Entity
-- **`capability`** (`UX-{infix}-{n}`) — a user-facing flow (persona × surface → features)
+- **`journey`** (`identifier`) — a user-facing flow (persona x surface -> features)
 
 ### Key questions
 1. For each persona, what are the key journeys?
 2. On which surface does each journey happen?
 3. What is the happy-path flow? (describe steps)
-4. Which deliverable bundles this capability?
+4. Which deliverable bundles this journey?
 
 ### How to write
-- One capability per distinct user flow
+- One journey per distinct user flow
 - Describe the `flow` in plain-language steps
 - Leave `features` as placeholder IDs — you'll define them in Phase 3
-- Back-link: update deliverables to `bundles` these capabilities
+- Back-link: update deliverables to `bundles` these journeys
 
 ### Checkpoint
-- [ ] Every persona has at least one capability
-- [ ] Every deliverable bundles at least one capability (avoids W011)
+- [ ] Every persona has at least one journey
+- [ ] Every deliverable bundles at least one journey (avoids W011)
 - [ ] Flows are concrete enough that a designer could wireframe from them
 
 ---
@@ -103,12 +103,12 @@ Cross-cutting: `ref` — attach external references at any phase.
 > *"What functionality supports those user flows? What are the contracts? What data shapes exist?"*
 
 ### Entities
-- **`feature`** (`FEAT-{infix}-{n}`) — a user-facing capability composed of behaviors
+- **`feature`** (`identifier`) — a user-facing value unit composed of behaviors
 - **`behavior`** (`BEH-{infix}-{n}`) — atomic system contract
 - **`type`** — domain data shapes (structs, unions, enums)
 
 ### Key questions — Features
-1. Break each capability into discrete features
+1. Break each journey into discrete features
 2. What problem does each feature solve?
 3. What is the solution approach?
 
@@ -123,13 +123,13 @@ Cross-cutting: `ref` — attach external references at any phase.
 3. Are there discriminated unions (tagged types)?
 
 ### How to write
-1. Start with features — decompose each capability into 2-5 features
+1. Start with features — decompose each journey into 2-5 features
 2. For each feature, define its behaviors — these are the atomic units
 3. As behaviors mention data shapes, define types
-4. Back-link: update capabilities to `traces_to` these features
+4. Back-link: update journeys to `traces_to` these features
 
 ### Checkpoint
-- [ ] Every capability traces to at least one feature
+- [ ] Every journey traces to at least one feature
 - [ ] Every feature has at least one behavior (avoids W001 for orphan behaviors)
 - [ ] Every behavior has a `contract` with RFC 2119 keywords
 - [ ] Every behavior has a `verify` statement (avoids W004)
@@ -200,27 +200,27 @@ Cross-cutting: `ref` — attach external references at any phase.
 > *"How is the code structured? Which packages implement what?"*
 
 ### Entity
-- **`library`** (`LIB-{infix}-{n}`) — code packages
+- **`module`** (`identifier`) — code packages
 
 ### Key questions
 1. What packages/crates/modules does the codebase have?
-2. Which features does each library implement?
-3. Which ports does each library define?
-4. What are the inter-library dependencies?
-5. Which deliverable is each library built into?
+2. Which features does each module implement?
+3. Which ports does each module define?
+4. What are the inter-module dependencies?
+5. Which deliverable is each module built into?
 
 ### How to write
-1. Map your actual (or planned) code packages to library entities
-2. Link each library to the features it implements (`provides`)
-3. Link each library to the ports it defines (`defines_port`)
-4. Declare `depends_on` between libraries
-5. Back-link: update deliverables with `built_from` library references
+1. Map your actual (or planned) code packages to module entities
+2. Link each module to the features it implements (`provides`)
+3. Link each module to the ports it defines (`defines_port`)
+4. Declare `depends_on` between modules
+5. Back-link: update deliverables with `built_from` module references
 
 ### Checkpoint
-- [ ] No circular library dependencies (avoids E007)
-- [ ] Every feature is provided by at least one library
-- [ ] Every library is referenced by at least one deliverable (avoids W009)
-- [ ] Every deliverable's capabilities are reachable via its libraries (avoids W008)
+- [ ] No circular module dependencies (avoids E007)
+- [ ] Every feature is provided by at least one module
+- [ ] Every module is referenced by at least one deliverable (avoids W009)
+- [ ] Every deliverable's journeys are reachable via its modules (avoids W008)
 
 ---
 
@@ -232,7 +232,7 @@ Cross-cutting: `ref` — attach external references at any phase.
 - **`decision`** (`ADR-{n}`) — architectural decision records
 - **`constraint`** (`CON-{infix}-{n}`) — non-functional requirements
 - **`failure_mode`** (`FM-{infix}-{n}`) — FMEA risk analysis
-- **`roadmap`** (`RM-{n}`) — delivery timeline phases
+- **`milestone`** (`identifier`) — delivery timeline phases
 
 ### Key questions — Decisions
 1. What significant architectural choices were made?
@@ -252,7 +252,7 @@ Cross-cutting: `ref` — attach external references at any phase.
 4. How detectable is it? (1-10)
 5. What is the mitigation?
 
-### Key questions — Roadmap
+### Key questions — Milestones
 1. What are the delivery phases?
 2. What features/deliverables ship in each phase?
 3. What are the acceptance criteria per phase?
@@ -261,14 +261,14 @@ Cross-cutting: `ref` — attach external references at any phase.
 1. ADRs: one per significant choice, link invariants they protect
 2. Constraints: group by category (performance, security, etc.)
 3. Failure modes: one per high-risk invariant, calculate RPN = severity × occurrence × detection
-4. Roadmap: phases with status (`proposed` → `accepted` → `delivered`)
+4. Milestones: phases with status (`proposed` -> `accepted` -> `delivered`)
 5. Back-link: behaviors `shaped_by` decisions, constraints `constrains` behaviors
 
 ### Checkpoint
 - [ ] Every significant choice has an ADR
 - [ ] Every high-risk invariant has a failure_mode (avoids W005)
 - [ ] RPN = severity × occurrence × detection (avoids E005)
-- [ ] Roadmap phases cover all deliverables
+- [ ] Milestone phases cover all deliverables
 - [ ] No stale proposals older than 30 days (avoids I001)
 
 ---
@@ -299,8 +299,8 @@ The top-down flow is not strictly one-pass. Expect this loop:
  │     │         DISCOVERY LOOP           │          │
  │     │  ◄────────────────────────────── │          │
  │     │  (defining behaviors reveals     │          │
- │     │   new terms → update glossary,   │          │
- │     │   new capabilities → update      │          │
+ │     │   new terms → update terms,      │          │
+ │     │   new journeys → update          │          │
  │     │   deliverables, etc.)            │          │
  └──────────────────────────────────────────────────┘
 ```
@@ -320,10 +320,10 @@ After completing all phases, the spec should have zero errors:
 | No dangling refs (E001) | Every ID reference resolves |
 | No duplicate IDs (E002) | Each entity ID is unique |
 | No import cycles (E003) | File imports form a DAG |
-| No circular libs (E007) | Library deps form a DAG |
+| No circular modules (E007) | Module deps form a DAG |
 | Valid RPN (E005) | Failure mode math checks out |
-| Valid personas (E008) | Capability personas match spec |
-| Valid surfaces (E009) | Capability surfaces match spec |
+| Valid personas (E008) | Journey personas match spec |
+| Valid surfaces (E009) | Journey surfaces match spec |
 | Valid triggers (E006) | Event triggers reference real behaviors |
 
 And minimal warnings:
@@ -331,9 +331,9 @@ And minimal warnings:
 | Check | What it catches |
 |-------|----------------|
 | No orphan behaviors (W001) | Every behavior belongs to a feature |
-| No orphan features (W002) | Every feature belongs to a capability |
+| No orphan features (W002) | Every feature belongs to a journey |
 | No orphan events (W007) | Every event has consumers |
-| No orphan libraries (W009) | Every library belongs to a deliverable |
-| No orphan capabilities (W011) | Every capability belongs to a deliverable |
+| No orphan modules (W009) | Every module belongs to a deliverable |
+| No orphan journeys (W011) | Every journey belongs to a deliverable |
 | Verified behaviors (W004) | Every behavior has a verify statement |
 | Mitigated risks (W005) | High-risk invariants have failure modes |

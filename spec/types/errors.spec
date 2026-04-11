@@ -1,7 +1,6 @@
 // Error types — typed errors for compiler operations
 
-use types/core
-
+use "types/core"
 type ParseError {
   _tag       "ParseError"      @literal
   message    string

@@ -1,8 +1,7 @@
 // @specforge/software extension types — entity kind shapes + formal methods
 
-use types/zero-entity-core
-use types/core
-
+use "types/zero-entity-core"
+use "types/core"
 // ── Entity Kind Shapes ───────────────────────────────────────
 
 type SoftwareBehavior {

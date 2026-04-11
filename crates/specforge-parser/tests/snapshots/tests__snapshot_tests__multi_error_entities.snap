@@ -1,0 +1,61 @@
+---
+source: crates/specforge-parser/tests/snapshot_tests.rs
+assertion_line: 61
+expression: result.entities
+---
+[
+  {
+    "kind": {
+      "raw": "behavior"
+    },
+    "id": {
+      "raw": "good_before"
+    },
+    "title": "Before",
+    "fields": {
+      "entries": [
+        {
+          "key": "status",
+          "value": {
+            "Identifier": "planned"
+          }
+        }
+      ]
+    },
+    "raw_body": "\n    status planned\n",
+    "span": {
+      "file": "test.spec",
+      "start_line": 2,
+      "start_col": 1,
+      "end_line": 4,
+      "end_col": 2
+    }
+  },
+  {
+    "kind": {
+      "raw": "behavior"
+    },
+    "id": {
+      "raw": "good_after"
+    },
+    "title": "After",
+    "fields": {
+      "entries": [
+        {
+          "key": "status",
+          "value": {
+            "Identifier": "done"
+          }
+        }
+      ]
+    },
+    "raw_body": "\n    status done\n",
+    "span": {
+      "file": "test.spec",
+      "start_line": 6,
+      "start_col": 1,
+      "end_line": 12,
+      "end_col": 2
+    }
+  }
+]

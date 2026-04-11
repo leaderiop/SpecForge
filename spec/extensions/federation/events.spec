@@ -1,9 +1,8 @@
 // Federation events — signals emitted during cross-project operations
 
-use extensions/federation/types
-use types/config
-use extensions/federation/behaviors
-
+use "extensions/federation/types"
+use "types/config"
+use "extensions/federation/behaviors"
 event federation_config_loaded "Federation Config Loaded" {
   trigger   load_federation_config
   channel   "federation.federation_config_loaded"

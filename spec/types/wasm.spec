@@ -4,9 +4,8 @@
 // This file contains supporting types for the Wasm runtime: dependencies,
 // host function bindings, sandbox policies, caching, enhancements, and queries.
 
-use types/config
-use types/core
-
+use "types/config"
+use "types/core"
 type PeerDependency {
   extension         string
   version           string

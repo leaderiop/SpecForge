@@ -1,18 +1,18 @@
 // Validation behaviors — core graph validation rules
 
-use invariants/core
-use invariants/validation
-use invariants/zero-entity-core
-use types/core
-use types/graph
-use types/diagnostics
-use types/errors
-use types/zero-entity-core
-use ports/outbound
-use events/compilation
-
+use "invariants/core"
+use "invariants/validation"
+use "invariants/zero-entity-core"
+use "types/core"
+use "types/graph"
+use "types/diagnostics"
+use "types/errors"
+use "types/zero-entity-core"
+use "ports/outbound"
+use "events/compilation"
 behavior detect_dangling_references "Detect Dangling References" {
   invariants [reference_resolution_completeness, diagnostic_determinism, validation_pipeline_ordering]
+  category   validation
   types      [Diagnostic, EntityId, ValidationCode, Severity, ValidationError, Graph, Edge]
   consumes  [graph_built]
   // Diagnostics from this validator flow into the declarative_validation_executed
@@ -46,6 +46,7 @@ behavior detect_dangling_references "Detect Dangling References" {
 
 behavior detect_duplicate_entity_ids "Detect Duplicate Entity IDs" {
   invariants [string_interning_consistency, entity_id_uniqueness]
+  category   validation
   types      [Diagnostic, DuplicateIdError]
   consumes  [all_files_parsed]
   // Diagnostics from this validator flow into the declarative_validation_executed
@@ -105,6 +106,7 @@ behavior detect_duplicate_entity_ids "Detect Duplicate Entity IDs" {
 
 behavior detect_orphan_refs "Detect Orphan Structural Nodes" {
   invariants [reference_resolution_completeness, diagnostic_determinism, validation_pipeline_ordering]
+  category   validation
   types      [Diagnostic, EntityId, Graph]
   consumes  [graph_built]
   // Diagnostics from this validator flow into the declarative_validation_executed
@@ -168,6 +170,7 @@ behavior validate_file_reference_paths "Validate File Reference Paths" {
   // graph nodes, file-path references must resolve to existing filesystem entries.
   // Both are "references" in the graph-integrity sense — unresolved file paths
   // violate the same completeness guarantee as dangling entity references.
+  category   validation
   invariants [reference_resolution_completeness, validation_pipeline_ordering]
   types      [Diagnostic]
   ports      [FileSystem]

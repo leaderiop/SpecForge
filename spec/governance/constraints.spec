@@ -3,34 +3,33 @@
 // Extension-specific constraints live in their respective extension directories
 // under spec/extensions/.
 
-use invariants/core
-use invariants/validation
-use behaviors/init
-use behaviors/parsing
-use behaviors/resolution
-use behaviors/graph
-use behaviors/validation
-use behaviors/zero-entity-registries
-use behaviors/zero-entity-validation
-use behaviors/incremental
-use behaviors/output
-use behaviors/output-schema
-use extensions/coverage/behaviors
-use behaviors/lsp
-use behaviors/extensions
-use behaviors/wasm-authoring
-use behaviors/wasm-extensions
-use behaviors/wasm-host-functions
-use behaviors/wasm-lifecycle
-use behaviors/wasm-sandbox
-use behaviors/error-reporting
-use behaviors/formatting
-use invariants/formatting
-use invariants/wasm
-
+use "invariants/core"
+use "invariants/validation"
+use "behaviors/init"
+use "behaviors/parsing"
+use "behaviors/resolution"
+use "behaviors/graph"
+use "behaviors/validation"
+use "behaviors/zero-entity-registries"
+use "behaviors/zero-entity-validation"
+use "behaviors/incremental"
+use "behaviors/output"
+use "behaviors/output-schema"
+use "extensions/coverage/behaviors"
+use "behaviors/lsp"
+use "behaviors/extensions"
+use "behaviors/wasm-authoring"
+use "behaviors/wasm-extensions"
+use "behaviors/wasm-host-functions"
+use "behaviors/wasm-lifecycle"
+use "behaviors/wasm-sandbox"
+use "behaviors/error-reporting"
+use "behaviors/formatting"
+use "invariants/formatting"
+use "invariants/wasm"
 constraint incremental_compilation_latency "Incremental Compilation Latency" {
   category    performance
-  priority    must
+  priority    critical
 
   metric """
     file_change_to_diagnostics < 100ms
@@ -46,7 +45,7 @@ constraint incremental_compilation_latency "Incremental Compilation Latency" {
 
 constraint memory_usage "Memory Usage" {
   category    performance
-  priority    must
+  priority    critical
 
   metric """
     peak_memory < 50MB for a project with 500 .spec files
@@ -62,7 +61,7 @@ constraint memory_usage "Memory Usage" {
 
 constraint cross_platform_compatibility "Cross-Platform Compatibility" {
   category    compatibility
-  priority    must
+  priority    critical
 
   metric """
     The CLI and LSP binaries MUST build and run on:
@@ -79,7 +78,7 @@ constraint cross_platform_compatibility "Cross-Platform Compatibility" {
 
 constraint diagnostic_quality "Diagnostic Quality" {
   category    usability
-  priority    must
+  priority    critical
 
   metric """
     Every error diagnostic MUST include: file path, line number,
@@ -96,7 +95,7 @@ constraint diagnostic_quality "Diagnostic Quality" {
 
 constraint zero_runtime_dependencies "Zero Runtime Dependencies" {
   category    portability
-  priority    must
+  priority    critical
 
   metric """
     The specforge-cli and specforge-lsp binaries MUST be statically
@@ -114,7 +113,7 @@ constraint zero_runtime_dependencies "Zero Runtime Dependencies" {
 
 constraint backward_compatibility "Backward Compatibility" {
   category    compatibility
-  priority    should
+  priority    high
 
   metric """
     The compiler SHOULD parse .spec files from the previous format version
@@ -130,7 +129,7 @@ constraint backward_compatibility "Backward Compatibility" {
 
 constraint cli_scaffolding_robustness "CLI Scaffolding Robustness" {
   category    usability
-  priority    should
+  priority    high
 
   metric """
     init/add commands produce valid, parseable specforge.json and a
@@ -149,7 +148,7 @@ constraint cli_scaffolding_robustness "CLI Scaffolding Robustness" {
 
 constraint parser_correctness "Parser Correctness" {
   category    reliability
-  priority    must
+  priority    critical
 
   metric """
     parser produces correct AST for all valid inputs and recovers
@@ -165,7 +164,7 @@ constraint parser_correctness "Parser Correctness" {
 
 constraint editor_integration_quality "Editor Integration Quality" {
   category    usability
-  priority    should
+  priority    high
 
   metric """
     highlights.scm, folds.scm, indents.scm load without errors
@@ -184,7 +183,7 @@ constraint editor_integration_quality "Editor Integration Quality" {
 
 constraint reference_resolution_correctness "Reference Resolution Correctness" {
   category    reliability
-  priority    must
+  priority    critical
 
   metric """
     every valid reference resolves exactly once; every invalid
@@ -200,7 +199,7 @@ constraint reference_resolution_correctness "Reference Resolution Correctness" {
 
 constraint validation_pass_correctness "Validation Pass Correctness" {
   category    reliability
-  priority    must
+  priority    critical
 
   metric """
     each validation code fires if and only if the specified condition
@@ -216,7 +215,7 @@ constraint validation_pass_correctness "Validation Pass Correctness" {
 
 constraint extension_validation_correctness "Extension Validation Correctness" {
   category    reliability
-  priority    must
+  priority    critical
 
   metric """
     extension-specific validation rules run only when the owning extension is
@@ -235,7 +234,7 @@ constraint extension_validation_correctness "Extension Validation Correctness" {
 
 constraint output_format_correctness "Output Format Correctness" {
   category    reliability
-  priority    must
+  priority    critical
 
   metric """
     every emitter produces syntactically valid output in its format
@@ -253,7 +252,7 @@ constraint output_format_correctness "Output Format Correctness" {
 
 constraint lsp_responsiveness "LSP Responsiveness" {
   category    usability
-  priority    should
+  priority    high
 
   metric """
     go-to-def, hover, completion respond within 50ms
@@ -269,7 +268,7 @@ constraint lsp_responsiveness "LSP Responsiveness" {
 
 constraint traceability_completeness "Traceability Completeness" {
   category    reliability
-  priority    must
+  priority    critical
 
   metric """
     specforge trace MUST detect all broken links in the traceability
@@ -287,7 +286,7 @@ constraint traceability_completeness "Traceability Completeness" {
 
 constraint extension_system_integrity "Extension System Integrity" {
   category    reliability
-  priority    must
+  priority    critical
 
   metric """
     extension install/remove never corrupts specforge.json; Wasm sandbox
@@ -308,7 +307,7 @@ constraint extension_system_integrity "Extension System Integrity" {
 
 constraint wasm_cold_start_budget "Wasm Cold Start Budget" {
   category    performance
-  priority    must
+  priority    critical
 
   metric """
     Each Wasm extension MUST load in under 50ms with AOT cache.
@@ -326,7 +325,7 @@ constraint wasm_cold_start_budget "Wasm Cold Start Budget" {
 
 constraint wasm_memory_limit "Wasm Memory Limit" {
   category    performance
-  priority    must
+  priority    critical
 
   metric """
     Each Wasm extension instance MUST be limited to 64MB of linear memory.
@@ -344,7 +343,7 @@ constraint wasm_memory_limit "Wasm Memory Limit" {
 
 constraint wasm_sandbox_enforcement "Wasm Sandbox Enforcement" {
   category    security
-  priority    must
+  priority    critical
 
   metric """
     Zero sandbox escapes in adversarial testing. Extensions MUST NOT
@@ -363,7 +362,7 @@ constraint wasm_sandbox_enforcement "Wasm Sandbox Enforcement" {
 
 constraint wasm_binary_size_limit "Wasm Binary Size Limit" {
   category    portability
-  priority    should
+  priority    high
 
   metric """
     Each extension .wasm binary SHOULD be under 5MB. Binaries exceeding 10MB
@@ -381,7 +380,7 @@ constraint wasm_binary_size_limit "Wasm Binary Size Limit" {
 
 constraint extension_count_limit "Extension Count Limit" {
   category    performance
-  priority    should
+  priority    high
 
   metric """
     The system SHOULD support up to 20 extensions without performance
@@ -400,7 +399,7 @@ constraint extension_count_limit "Extension Count Limit" {
 
 constraint aot_cache_size_limit "AOT Cache Size Limit" {
   category    portability
-  priority    should
+  priority    high
 
   metric """
     The AOT cache directory SHOULD stay under 500MB total. When the cache
@@ -419,7 +418,7 @@ constraint aot_cache_size_limit "AOT Cache Size Limit" {
 
 constraint formatting_correctness "Formatting Correctness" {
   category    reliability
-  priority    must
+  priority    critical
 
   metric """
     formatter output is idempotent (format(format(x)) == format(x));
@@ -437,7 +436,7 @@ constraint formatting_correctness "Formatting Correctness" {
 
 constraint schema_publication_accessibility "Schema Publication Accessibility" {
   category    interoperability
-  priority    must
+  priority    critical
 
   metric """
     The Graph Protocol schema MUST be publicly accessible as a standalone
@@ -455,7 +454,7 @@ constraint schema_publication_accessibility "Schema Publication Accessibility" {
 
 constraint grammar_validation_quality {
   category reliability
-  priority must
+  priority critical
 
   description "Grammar Wasm binaries and body parser exports MUST be validated before use. ABI version checks, size limits, and output schema conformance MUST be enforced to prevent extension-supplied code from corrupting the compilation pipeline."
 

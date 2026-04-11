@@ -1,0 +1,1009 @@
+// @specforge/product extension constraints — non-functional requirements
+//
+// Performance, reliability, and usability constraints specific to
+// the product entity model validation and query capabilities.
+
+use "extensions/product/behaviors-registration"
+use "extensions/product/behaviors-queries"
+use "extensions/product/behaviors-operations"
+use "extensions/product/behaviors-v1-1"
+use "extensions/product/surfaces-cli"
+use "extensions/product/surfaces-mcp"
+use "extensions/product/surfaces-shared"
+use "extensions/product/invariants"
+
+constraint product_validation_latency "Product Validation Latency" {
+  category   performance
+  priority   critical
+  metric     """
+    Product-specific validation rules (E007-E009, E015-E016, W041-W046,
+    W049, W057, W075-W091, I010, I046-I079) MUST complete in under
+    50ms for a project with up to 500 product entities across all 9 kinds.
+  """
+  constrains [
+    detect_orphan_features,
+    detect_module_cycles,
+    detect_milestone_cycles,
+    detect_feature_dependency_cycles,
+    detect_orphan_journeys,
+    detect_orphan_modules,
+    detect_orphan_terms,
+    detect_orphan_personas,
+    detect_orphan_channels,
+    detect_empty_milestones,
+    detect_deliverables_with_no_journeys,
+    detect_deliverables_with_no_modules,
+    detect_features_with_no_acceptance,
+    detect_deliverable_journey_module_gap,
+    detect_milestone_feature_module_gap,
+    detect_singleton_tags,
+    detect_journeys_without_persona,
+    detect_journeys_without_channels,
+    detect_term_see_also_non_term_refs,
+    detect_completed_milestone_without_criteria,
+    detect_blocked_milestone_without_dependency,
+    detect_journey_deprecated_persona,
+    detect_journey_deprecated_channels,
+    validate_persona_references,
+    validate_channel_references,
+    validate_feature_status_field,
+    validate_feature_priority_field,
+    validate_journey_flow_non_empty,
+    validate_milestone_target_date_format,
+    validate_journey_priority_field,
+    validate_milestone_priority_field,
+    validate_milestone_status_field,
+    validate_deliverable_artifact_type_field,
+    validate_persona_status_field,
+    validate_channel_status_field,
+    pe_validate_persona_fields,
+    pe_validate_channel_fields,
+    pe_validate_deliverable_completeness,
+    pe_validate_milestone_status,
+    detect_deliverable_cycles,
+    validate_deliverable_status_field,
+    detect_shipped_deliverable_incomplete_milestones,
+    detect_deprecated_deliverable_without_reason,
+    detect_deferred_feature_without_reason,
+    detect_blocked_milestone_without_reason,
+    validate_deliverable_version_format,
+    validate_module_family_field,
+    detect_done_feature_with_incomplete_deps,
+    detect_milestone_temporal_inconsistency,
+    detect_modules_with_no_features,
+    validate_tag_format,
+    detect_deprecated_persona_without_reason,
+    detect_deprecated_channel_without_reason,
+    detect_tag_namespace_collision,
+    detect_term_alias_conflicts,
+    detect_flow_step_structure,
+    detect_transitive_deprecated_persona,
+    detect_transitive_deprecated_channel,
+    validate_feature_status_transition,
+    validate_milestone_status_transition,
+    validate_deliverable_status_transition,
+    validate_persona_status_transition,
+    validate_channel_status_transition,
+    detect_deliverable_chain_gap,
+    detect_feature_multi_milestone,
+    detect_priority_escalation_gap,
+    detect_milestone_implicit_ordering,
+  ]
+  protects [module_dag, milestone_dag, feature_dag, deliverable_dag, module_feature_reachability, persona_lifecycle_consistency, channel_lifecycle_consistency, tag_cross_kind_awareness, term_alias_uniqueness, pe_deliverable_chain_integrity]
+
+  verify load "benchmark product validation with 500 entities, assert < 50ms"
+}
+
+constraint product_cycle_detection_correctness "Product Cycle Detection Correctness" {
+  category   reliability
+  priority   critical
+  metric     """
+    Cycle detection for modules (E007), milestones (E015), and features
+    (W045) MUST have zero false negatives — every cycle in the graph MUST
+    be detected. Zero false positives — acyclic graphs MUST never produce
+    cycle diagnostics. Verified by property-based testing with randomly
+    generated dependency graphs including transitive cycles.
+  """
+  constrains [
+    detect_module_cycles,
+    detect_milestone_cycles,
+    detect_feature_dependency_cycles,
+    detect_deliverable_cycles,
+  ]
+  protects [module_dag, milestone_dag, feature_dag, deliverable_dag]
+
+  verify property "cycle detection has zero false negatives on random graphs"
+  verify property "cycle detection has zero false positives on acyclic random graphs"
+}
+
+constraint product_orphan_detection_correctness "Product Orphan Detection Correctness" {
+  category   reliability
+  priority   critical
+  metric     """
+    Orphan detection for features (W041), journeys (W042), modules (W044),
+    personas (I046), channels (I047), and terms (I010) MUST fire if and
+    only if the entity has zero incoming edges of the expected type. Zero
+    false positives when entities have valid references. Zero false
+    negatives when entities are truly unreferenced.
+  """
+  constrains [
+    detect_orphan_features,
+    detect_orphan_journeys,
+    detect_orphan_modules,
+    detect_orphan_terms,
+    detect_orphan_personas,
+    detect_orphan_channels,
+  ]
+  protects [pe_feature_non_testable, pe_persona_non_testable, pe_channel_non_testable]
+
+  verify unit "each orphan rule fires iff entity has zero expected incoming edges"
+}
+
+constraint product_query_correctness "Product Query Correctness" {
+  category   reliability
+  priority   critical
+  metric     """
+    All product graph queries (milestone completion, deliverable traceability,
+    journey coverage, feature ordering, milestone timeline, feature
+    deliverables, feature milestones, persona journeys, channel journeys,
+    module deliverables, milestone deliverables, module features, term graph,
+    deliverable completion, persona channels, journey deliverables, feature
+    dependents, deliverable dependents, deliverable priority)
+    MUST return correct results for all graph topologies. Milestone completion
+    ratio MUST be mathematically correct (done_count / total). Deliverable
+    traceability MUST include all transitive features via both journey and
+    module paths. Reverse queries MUST return the exact inverse of
+    corresponding forward queries.
+  """
+  constrains [
+    pe_query_milestone_completion,
+    pe_query_deliverable_traceability,
+    pe_query_journey_coverage,
+    pe_query_feature_ordering,
+    pe_query_milestone_timeline,
+    pe_query_feature_deliverables,
+    pe_query_feature_milestones,
+    pe_query_persona_journeys,
+    pe_query_channel_journeys,
+    pe_query_module_deliverables,
+    pe_query_milestone_deliverables,
+    pe_query_module_features,
+    pe_query_term_graph,
+    pe_query_deliverable_completion,
+    pe_query_persona_channels,
+    pe_query_journey_deliverables,
+    pe_query_feature_dependents,
+    pe_query_deliverable_dependents,
+    pe_query_deliverable_priority,
+    pe_query_persona_features,
+    pe_query_feature_impact,
+    pe_query_milestone_velocity,
+    pe_query_deliverable_personas,
+    pe_query_unscheduled_features,
+    pe_query_feature_overlap,
+    pe_query_persona_coverage_matrix,
+    pe_query_critical_path,
+  ]
+  protects [deliverable_journey_module_consistency, pe_cross_extension_query_isolation]
+
+  verify unit "milestone completion ratio is mathematically correct"
+  verify unit "deliverable traceability includes all transitive features"
+  verify unit "feature ordering produces valid topological sort"
+  verify unit "reverse queries return exact inverse of forward queries"
+  verify unit "term graph respects maxHops boundary"
+}
+
+constraint product_standalone_operation "Product Standalone Operation" {
+  category   reliability
+  priority   critical
+  metric     """
+    All product queries operate purely on product entity kinds and edge
+    types. No query requires peer extensions. Feature coverage uses the
+    FeatureStatus field. No crashes, no false diagnostics, no panics.
+  """
+  constrains [
+    pe_query_milestone_completion,
+    pe_query_journey_coverage,
+  ]
+  protects [pe_feature_non_testable]
+
+  verify unit "all product queries operate without peer extensions"
+  verify unit "no panics when product extension is installed alone"
+}
+
+constraint product_entity_registration_determinism "Product Entity Registration Determinism" {
+  category   reliability
+  priority   critical
+  metric     """
+    Registration of 9 entity kinds, 16 edge types, and all field
+    definitions MUST be deterministic — same manifest input always
+    produces same KindRegistry and FieldRegistry state. Registration
+    order MUST NOT affect validation outcomes.
+  """
+  constrains [
+    pe_register_entity_kinds,
+    pe_register_edge_types,
+    pe_register_field_definitions,
+    pe_register_validation_rules,
+  ]
+  protects [pe_manifest_nine_entity_kinds, pe_manifest_sixteen_edge_types]
+
+  verify property "registration from same manifest produces identical registry state"
+}
+
+constraint product_surface_correctness "Product Surface Contribution Correctness" {
+  category   reliability
+  priority   critical
+  metric     """
+    All 21 declared CLI commands MUST resolve to valid Wasm exports
+    (cmd__{id}). Each auto-promoted MCP tool MUST have a valid JSON
+    Schema input declaration. 28 MCP resources MUST have valid
+    specforge:// URIs. Surface dispatch MUST NOT panic on any valid
+    input.
+  """
+  constrains [
+    pe_declare_surface_contributions,
+  ]
+
+  verify unit "all 21 CLI commands resolve to valid Wasm exports"
+  verify unit "MCP tool input schemas are valid JSON Schema"
+  verify unit "28 MCP resources have valid specforge:// URIs"
+}
+
+constraint product_diagnostic_severity_correctness "Product Diagnostic Severity Correctness" {
+  category   reliability
+  priority   critical
+  metric     """
+    All product diagnostics MUST fire at their declared severity level:
+    E-codes (E007-E009, E015-E016) are errors, W-codes (W041-W046, W049,
+    W057, W075-W091) are warnings, I-codes (I010, I046-I079) are info. No
+    diagnostic may fire at a different severity than its code prefix declares.
+  """
+  constrains [
+    pe_register_validation_rules,
+  ]
+
+  verify unit "E-code diagnostics fire at error level"
+  verify unit "W-code diagnostics fire at warning level"
+  verify unit "I-code diagnostics fire at info level"
+}
+
+constraint product_tag_detection_correctness "Product Tag Detection Correctness" {
+  category   reliability
+  priority   high
+  metric     """
+    Singleton tag detection (I052) MUST fire for tags on exactly one entity
+    and suppress for tags on 2+ entities. Levenshtein suggestions MUST NOT
+    produce false positives for intentionally short distinct tags. Tag format
+    validation (I068) MUST fire for tags not matching [a-z0-9][a-z0-9-]*[a-z0-9].
+    Combined tag detection MUST complete in under 10ms for up to 1000 tags
+    across 500 entities.
+  """
+  constrains [
+    detect_singleton_tags,
+    validate_tag_format,
+  ]
+  protects [pe_tags_per_entity_kind]
+
+  verify unit "singleton tag fires I052, multi-entity tag suppresses"
+  verify unit "tag format validation fires I068 for non-conforming tags"
+  verify load "tag detection completes in under 10ms for 1000 tags"
+}
+
+constraint product_large_scale_validation "Product Large-Scale Validation" {
+  category   performance
+  priority   high
+  metric     """
+    Product-specific validation rules SHOULD complete in under 500ms for
+    a project with up to 5000 product entities across all 9 kinds. For
+    projects exceeding 5000 entities, validation SHOULD complete in under
+    2 seconds. Cycle detection algorithms MUST remain O(V+E) regardless
+    of graph size. Orphan detection MUST remain O(V+E) by leveraging
+    pre-computed incoming-edge indexes.
+  """
+  constrains [
+    detect_module_cycles,
+    detect_milestone_cycles,
+    detect_feature_dependency_cycles,
+    detect_deliverable_cycles,
+    detect_orphan_features,
+    detect_orphan_journeys,
+    detect_orphan_modules,
+    detect_orphan_personas,
+    detect_orphan_channels,
+    detect_orphan_terms,
+    detect_singleton_tags,
+  ]
+  protects [module_dag, milestone_dag, feature_dag, deliverable_dag]
+
+  verify load "benchmark product validation with 5000 entities, assert < 500ms"
+  verify load "benchmark cycle detection with 50000-edge graph, assert O(V+E)"
+}
+
+constraint product_large_scale_query "Product Large-Scale Query Latency" {
+  category   performance
+  priority   high
+  metric     """
+    All product graph queries SHOULD complete in under 1 second for a
+    project with up to 5000 product entities across all 9 kinds.
+    Feature ordering (global topological sort) SHOULD complete in under
+    2 seconds for 5000 features. Queries on projects exceeding 5000
+    entities SHOULD return partial results or a timeout error rather
+    than blocking indefinitely.
+  """
+  constrains [
+    pe_query_milestone_completion,
+    pe_query_deliverable_traceability,
+    pe_query_journey_coverage,
+    pe_query_feature_ordering,
+    pe_query_milestone_timeline,
+    pe_query_feature_deliverables,
+    pe_query_feature_milestones,
+    pe_query_persona_journeys,
+    pe_query_channel_journeys,
+    pe_query_module_deliverables,
+    pe_query_milestone_deliverables,
+    pe_query_module_features,
+    pe_query_term_graph,
+    pe_query_deliverable_completion,
+    pe_query_persona_channels,
+    pe_query_journey_deliverables,
+    pe_query_feature_dependents,
+    pe_query_deliverable_dependents,
+    pe_query_deliverable_priority,
+    pe_query_persona_features,
+    pe_query_feature_impact,
+    pe_query_milestone_velocity,
+    pe_query_deliverable_personas,
+  ]
+
+  verify load "benchmark all product queries with 5000 entities, assert < 1s each"
+  verify load "benchmark feature ordering with 5000 features, assert < 2s"
+}
+
+constraint product_deliverable_lifecycle_correctness "Product Deliverable Lifecycle Correctness" {
+  category   reliability
+  priority   critical
+  metric     """
+    Deliverable status validation (W085) MUST fire if and only if the
+    status value is not a valid DeliverableStatus enum member. Shipped
+    deliverable incomplete milestone detection (I065) MUST fire for each
+    non-completed milestone in a shipped deliverable. Deprecated deliverable
+    reason detection (I066) MUST fire for deprecated deliverables with
+    empty or missing reason fields.
+  """
+  constrains [
+    validate_deliverable_status_field,
+    detect_shipped_deliverable_incomplete_milestones,
+    detect_deprecated_deliverable_without_reason,
+  ]
+  protects [deliverable_lifecycle_consistency]
+
+  verify unit "W085 fires iff status is not a valid DeliverableStatus"
+  verify unit "I065 fires per incomplete milestone in shipped deliverable"
+  verify unit "I066 fires for deprecated deliverable without reason"
+}
+
+constraint product_surface_schema_completeness "Product Surface Schema Completeness" {
+  category   reliability
+  priority   critical
+  metric     """
+    Every CLI command MUST have a typed input schema (ProductListFilter for
+    list commands, per-command input type for query commands) and a typed
+    output schema (per-kind list result type or query payload type). Every
+    MCP resource MUST have a documented URI template with parameter types
+    and a response schema matching ProductSurfaceResponse wrapping the
+    corresponding query payload. No surface may return untyped JSON.
+  """
+  constrains [
+    surface_list_features,
+    surface_list_journeys,
+    surface_list_deliverables,
+    surface_list_milestones,
+    surface_list_modules,
+    surface_list_terms,
+    surface_list_personas,
+    surface_list_channels,
+    surface_milestone_completion,
+    surface_journey_coverage,
+    surface_feature_ordering,
+    surface_milestone_timeline,
+    surface_milestone_deliverables,
+    surface_module_features,
+    resource_deliverable_traceability,
+    resource_feature_deliverables,
+    resource_feature_milestones,
+    resource_persona_journeys,
+    resource_channel_journeys,
+    resource_module_deliverables,
+    resource_milestone_deliverables,
+    resource_module_features,
+    resource_term_graph,
+    resource_deliverable_completion,
+    resource_persona_channels,
+    resource_journey_deliverables,
+    resource_feature_dependents,
+    resource_deliverable_dependents,
+    resource_deliverable_priority,
+    resource_persona_features,
+    resource_feature_impact,
+    resource_milestone_velocity,
+    surface_unscheduled_features,
+    surface_coverage_matrix,
+    surface_critical_path,
+    resource_unscheduled_features,
+    resource_feature_overlap,
+    resource_persona_coverage_matrix,
+    resource_critical_path,
+  ]
+  protects [pe_surface_response_envelope, pe_surface_error_consistency]
+
+  verify unit "every CLI command has a typed input and output schema"
+  verify unit "every MCP resource has a documented URI template and response schema"
+  verify unit "no surface returns untyped JSON"
+}
+
+constraint product_surface_error_correctness "Product Surface Error Correctness" {
+  category   reliability
+  priority   critical
+  metric     """
+    All product surfaces MUST use exactly three error codes:
+    ENTITY_NOT_FOUND, GRAPH_NOT_READY, INVALID_INPUT. CLI surfaces MUST
+    write errors to stderr and exit with code 1. MCP tool surfaces MUST
+    return JSON-RPC error responses. MCP resource surfaces MUST return
+    ProductSurfaceResponse with status=error. No surface may panic on
+    any input including null, empty string, or malformed JSON.
+  """
+  constrains [surface_error_handling]
+  protects [pe_surface_error_consistency]
+
+  verify unit "CLI errors written to stderr with exit code 1"
+  verify unit "MCP tool errors are JSON-RPC compliant"
+  verify unit "MCP resource errors use ProductSurfaceResponse envelope"
+  verify unit "no surface panics on malformed input"
+}
+
+constraint product_list_pagination_correctness "Product List Pagination Correctness" {
+  category   reliability
+  priority   critical
+  metric     """
+    All 8 list commands MUST return correct pagination: total is pre-pagination
+    count (after filtering), has_more is total > offset + returned count,
+    limit defaults to 100, offset defaults to 0. Negative offset or limit
+    values MUST produce INVALID_INPUT error. Limit > 1000 MUST be clamped
+    to 1000.
+  """
+  constrains [
+    surface_list_features,
+    surface_list_journeys,
+    surface_list_deliverables,
+    surface_list_milestones,
+    surface_list_modules,
+    surface_list_terms,
+    surface_list_personas,
+    surface_list_channels,
+  ]
+  protects [pe_list_pagination_correctness]
+
+  verify unit "default limit is 100, default offset is 0"
+  verify unit "negative offset produces INVALID_INPUT error"
+  verify unit "negative limit produces INVALID_INPUT error"
+  verify unit "limit > 1000 is clamped to 1000"
+  verify unit "total reflects filtered count before pagination"
+  verify unit "has_more is correct for all edge cases"
+}
+
+constraint product_surface_latency "Product Surface Latency" {
+  category   performance
+  priority   high
+  metric     """
+    All 14 CLI commands SHOULD complete in under 200ms for a project with
+    up to 500 product entities (includes graph query + JSON serialization
+    + stdout write). All 16 MCP resources SHOULD respond in under 100ms
+    (no stdout overhead). Surface overhead (serialization + dispatch) MUST
+    NOT exceed 50ms beyond the underlying query latency.
+  """
+  constrains [
+    surface_list_features,
+    surface_milestone_completion,
+    surface_journey_coverage,
+    surface_feature_ordering,
+    surface_milestone_timeline,
+    resource_deliverable_traceability,
+  ]
+
+  verify load "benchmark CLI commands with 500 entities, assert < 200ms each"
+  verify load "benchmark MCP resources with 500 entities, assert < 100ms each"
+  verify load "benchmark surface overhead, assert < 50ms beyond query latency"
+}
+
+constraint product_query_latency "Product Query Latency" {
+  category   performance
+  priority   high
+  metric     """
+    All 19 product graph queries (milestone-completion, deliverable-traceability,
+    journey-coverage, feature-ordering, milestone-timeline, feature-deliverables,
+    feature-milestones, persona-journeys, channel-journeys, module-deliverables,
+    milestone-deliverables, module-features, term-graph, deliverable-completion,
+    persona-channels, journey-deliverables, feature-dependents,
+    deliverable-dependents, deliverable-priority) SHOULD complete in under 100ms
+    for a project with up to 500 product entities across all 9 kinds.
+  """
+  constrains [
+    pe_query_milestone_completion,
+    pe_query_deliverable_traceability,
+    pe_query_journey_coverage,
+    pe_query_feature_ordering,
+    pe_query_milestone_timeline,
+    pe_query_feature_deliverables,
+    pe_query_feature_milestones,
+    pe_query_persona_journeys,
+    pe_query_channel_journeys,
+    pe_query_module_deliverables,
+    pe_query_milestone_deliverables,
+    pe_query_module_features,
+    pe_query_term_graph,
+    pe_query_deliverable_completion,
+    pe_query_persona_channels,
+    pe_query_journey_deliverables,
+    pe_query_feature_dependents,
+    pe_query_deliverable_dependents,
+    pe_query_deliverable_priority,
+  ]
+
+  verify load "benchmark all 19 product queries with 500 entities, assert < 100ms each"
+}
+
+constraint product_mcp_payload_size "Product MCP Payload Size" {
+  category   performance
+  priority   high
+  metric     """
+    All MCP resource responses SHOULD NOT exceed 64KB of serialized JSON
+    for a single response. For queries that may produce large payloads
+    (term-graph with high maxHops, deliverable-traceability with many
+    transitive features, feature-ordering on large feature graphs), the
+    response SHOULD be bounded by either: (a) limiting result arrays to a
+    configurable maximum (default 500 items), or (b) returning a truncated
+    flag with partial results. This ensures token-budget-aware AI agents
+    can consume responses without exceeding their context windows.
+  """
+  constrains [
+    resource_deliverable_traceability,
+    resource_term_graph,
+    resource_feature_dependents,
+    resource_deliverable_dependents,
+    resource_deliverable_priority,
+  ]
+
+  verify unit "MCP response for 500-entity project stays under 64KB"
+  verify unit "large term graph traversal returns truncated flag when exceeding limit"
+  verify unit "feature ordering result array is bounded by configurable maximum"
+}
+
+constraint product_persona_channel_lifecycle_correctness "Product Persona/Channel Lifecycle Correctness" {
+  category   reliability
+  priority   critical
+  metric     """
+    Deprecated persona reason detection (I069) MUST fire for deprecated
+    personas with empty or missing reason fields. Deprecated channel reason
+    detection (I070) MUST fire for deprecated channels with empty or missing
+    reason fields. Both diagnostics MUST suppress when the reason field is
+    present and non-empty. Both diagnostics MUST suppress for non-deprecated
+    entities and entities without a status field.
+  """
+  constrains [
+    detect_deprecated_persona_without_reason,
+    detect_deprecated_channel_without_reason,
+  ]
+  protects [persona_lifecycle_consistency, channel_lifecycle_consistency]
+
+  verify unit "I069 fires iff deprecated persona has empty/missing reason"
+  verify unit "I070 fires iff deprecated channel has empty/missing reason"
+}
+
+constraint product_impact_query_correctness "Product Impact Query Correctness" {
+  category   reliability
+  priority   critical
+  metric     """
+    Feature impact analysis (pe_query_feature_impact) MUST return the
+    complete transitive closure of all affected entities. Persona feature
+    traversal (pe_query_persona_features) MUST return the exact union of
+    features across all persona journeys. Both queries MUST produce
+    identical results regardless of edge traversal order.
+  """
+  constrains [
+    pe_query_feature_impact,
+    pe_query_persona_features,
+  ]
+
+  verify unit "feature impact returns complete transitive closure"
+  verify unit "persona features returns exact union across journeys"
+  verify property "traversal order does not affect results"
+}
+
+constraint product_term_alias_validation_correctness "Product Term Alias Validation Correctness" {
+  category   reliability
+  priority   critical
+  metric     """
+    Term alias conflict detection (W086) MUST fire if and only if two
+    terms share the same alias (case-insensitive) or a term's alias
+    matches another term's entity ID (case-insensitive). Zero false
+    positives for distinct aliases. Zero false negatives for conflicting
+    aliases.
+  """
+  constrains [detect_term_alias_conflicts]
+  protects   [term_alias_uniqueness]
+
+  verify unit "W086 fires for matching aliases"
+  verify unit "W086 suppresses for distinct aliases"
+  verify unit "case-insensitive comparison catches 'API' vs 'api'"
+}
+
+constraint product_deliverable_persona_correctness "Product Deliverable-Persona Query Correctness" {
+  category   reliability
+  priority   critical
+  metric     """
+    Deliverable persona traversal (pe_query_deliverable_personas) MUST return
+    the exact deduplicated set of personas reachable via deliverable->journey->
+    persona edges. via_journey_ids MUST include all intermediate journeys. The
+    result MUST be deterministic and identical regardless of edge traversal order.
+  """
+  constrains [pe_query_deliverable_personas]
+
+  verify unit "deliverable with journeys returns deduplicated personas"
+  verify unit "via_journey_ids includes all intermediate journeys"
+  verify property "traversal order does not affect result"
+}
+
+constraint product_pagination_sort_stability "Pagination Sort Stability" {
+  category   reliability
+  priority   critical
+  metric     """
+    List queries with pagination MUST produce stable sort order across
+    consecutive paginated requests when the graph has not been rebuilt.
+    Specifically: concatenating pages 0..N MUST produce the same entity
+    sequence as a single unpaginated query. Sort order MUST be deterministic
+    — entities with identical sort keys MUST be tie-broken by entity ID
+    (alphabetical ascending). Cursor-based pagination is not supported in v1;
+    offset-based pagination is the only mechanism.
+  """
+  constrains [pe_declare_surface_contributions]
+
+  verify unit "page 0 + page 1 concatenation equals unpaginated result"
+  verify unit "entities with same priority sorted alphabetically by ID"
+  verify unit "sort order stable across repeated identical requests"
+  verify property "union of all pages equals full result set with no duplicates"
+}
+
+constraint product_cross_extension_integration_correctness "Cross-Extension Integration Correctness" {
+  category   reliability
+  priority   critical
+  metric     """
+    When @specforge/software is installed alongside @specforge/product:
+    (1) product queries MUST return identical results to standalone operation
+    (no foreign edges followed), (2) entity_enhancements from software MUST
+    add fields to product entity kinds without affecting query behavior,
+    (3) the Implements edge MUST be traversable by software queries but
+    invisible to product queries. The 16-edge-type allowlist MUST be the
+    sole enforcement mechanism.
+  """
+  constrains [pe_cross_extension_integration]
+
+  verify integration "product queries identical with and without software extension"
+  verify integration "entity enhancement adds fields without changing query results"
+  verify unit "16-edge-type allowlist rejects Implements edge"
+  verify contract "product manifest peer_dependencies is empty"
+}
+
+constraint product_status_transition_correctness "Product Status Transition Correctness" {
+  category   reliability
+  priority   critical
+  metric     """
+    Status transition validation (W087-W091) MUST fire if and only if
+    the current status cannot be reached from the prior status via a
+    valid transition. Zero false negatives (every invalid transition is
+    caught). Zero false positives when a build cache exists and
+    transitions are valid. All transition checks MUST be suppressed
+    when no build cache file (specforge-cache.json) exists. Terminal
+    states MUST have zero outbound transitions.
+  """
+  constrains [
+    validate_feature_status_transition,
+    validate_milestone_status_transition,
+    validate_deliverable_status_transition,
+    validate_persona_status_transition,
+    validate_channel_status_transition,
+  ]
+  verify unit "valid transitions produce no warnings"
+  verify unit "invalid transitions produce correct W-code"
+  verify unit "terminal states reject all outbound transitions"
+  verify unit "first build without prior state produces no warnings"
+}
+
+constraint product_new_query_correctness "Product New Query Correctness" {
+  category   reliability
+  priority   critical
+  metric     """
+    All 4 new query methods (queryUnscheduledFeatures, queryFeatureOverlap,
+    queryPersonaCoverageMatrix, queryCriticalPath) MUST return correct
+    results for all graph topologies. Unscheduled features MUST have zero
+    MilestoneFeature edges. Feature overlap MUST be detected via both
+    journey and module paths. Coverage matrix ratios MUST be mathematically
+    correct. Critical path MUST be the longest incomplete milestone chain.
+  """
+  constrains [
+    pe_query_unscheduled_features,
+    pe_query_feature_overlap,
+    pe_query_persona_coverage_matrix,
+    pe_query_critical_path,
+  ]
+
+  verify unit "unscheduled features have zero MilestoneFeature edges"
+  verify unit "feature overlap detected via both journey and module paths"
+  verify unit "coverage matrix ratios are mathematically correct"
+  verify unit "critical path is the longest incomplete chain"
+}
+
+constraint product_new_query_latency "Product New Query Latency" {
+  category   performance
+  priority   high
+  metric     """
+    All 4 new query methods SHOULD complete in under 100ms for a project
+    with up to 500 product entities. Critical path computation (topological
+    sort + longest path) SHOULD complete in under 200ms for up to 5000
+    milestones. Coverage matrix computation SHOULD complete in under 500ms
+    for up to 5000 entities (it traverses persona→journey→feature for
+    every persona).
+  """
+  constrains [
+    pe_query_unscheduled_features,
+    pe_query_feature_overlap,
+    pe_query_persona_coverage_matrix,
+    pe_query_critical_path,
+  ]
+
+  verify load "benchmark new queries with 500 entities, assert < 100ms each"
+  verify load "benchmark critical path with 5000 milestones, assert < 200ms"
+  verify load "benchmark coverage matrix with 5000 entities, assert < 500ms"
+}
+
+constraint product_chain_validation_correctness "Product Chain Validation Correctness" {
+  category   reliability
+  priority   high
+  metric     """
+    End-to-end chain validation (I076) MUST fire for every uncovered
+    feature in the deliverable→milestone→feature→module chain. Feature
+    multi-milestone detection (I077) MUST fire for features in 2+
+    milestones. Priority escalation (I078) MUST fire only when both
+    feature and milestone have explicit priority and the feature's is
+    higher. Implicit ordering (I079) MUST fire only for milestones
+    with target_date fields.
+  """
+  constrains [
+    detect_deliverable_chain_gap,
+    detect_feature_multi_milestone,
+    detect_priority_escalation_gap,
+    detect_milestone_implicit_ordering,
+  ]
+  protects [pe_deliverable_chain_integrity]
+
+  verify unit "I076 fires per uncovered feature"
+  verify unit "I077 fires for features in 2+ milestones"
+  verify unit "I078 requires explicit priority on both sides"
+  verify unit "I079 requires target_date on both milestones"
+}
+
+constraint product_transitive_deprecated_correctness "Product Transitive Deprecated Reference Correctness" {
+  category   reliability
+  priority   high
+  metric     """
+    Transitive deprecated persona detection (I073) and transitive deprecated
+    channel detection (I074) SHOULD fire on deliverables that reference
+    journeys using deprecated personas or channels. SHOULD suppress when all
+    journey personas and channels are active or have no status.
+  """
+  constrains [
+    detect_transitive_deprecated_persona,
+    detect_transitive_deprecated_channel,
+  ]
+
+  verify unit "I073 fires for deliverable->journey->deprecated persona"
+  verify unit "I074 fires for deliverable->journey->deprecated channel"
+  verify unit "both suppress for active references"
+}
+
+// ---------------------------------------------------------------------------
+// v1.1 constraints — release, ownership, effort
+// ---------------------------------------------------------------------------
+
+constraint product_release_validation_latency "Release Validation Latency" {
+  category    performance
+  priority    high
+  metric      """
+    Release entity validation (cycle detection, lifecycle consistency, version
+    format, date format) MUST complete in under 50ms for 500 entities.
+  """
+  constrains  [detect_release_dependency_cycles, detect_release_version_not_semver, detect_invalid_release_date]
+
+  verify load "release validation under 50ms with 500 entities"
+}
+
+constraint product_owner_query_latency "Owner Workload Query Latency" {
+  category    performance
+  priority    high
+  metric      """
+    The owner workload query MUST complete in under 100ms for 500 entities.
+    The query scans all features, milestones, deliverables, and releases.
+  """
+  constrains  [pe_query_owner_workload]
+
+  verify load "owner-workload query under 100ms with 500 entities"
+}
+
+constraint product_weighted_completion_latency "Weighted Completion Query Latency" {
+  category    performance
+  priority    high
+  metric      """
+    The weighted milestone completion query MUST complete in under 100ms
+    for milestones with up to 200 features.
+  """
+  constrains  [pe_query_weighted_milestone_completion]
+
+  verify load "weighted-milestone-completion under 100ms with 200 features"
+}
+
+constraint product_release_query_latency "Release Query Latency" {
+  category    performance
+  priority    high
+  metric      """
+    Release queries (deliverables, milestones, completion) MUST complete
+    in under 100ms per query for 500 entities.
+  """
+  constrains  [pe_query_release_deliverables, pe_query_release_milestones, pe_query_release_completion]
+
+  verify load "release-deliverables query under 100ms with 500 entities"
+}
+
+constraint product_release_cycle_detection_correctness "Release Cycle Detection Correctness" {
+  category    reliability
+  priority    critical
+  metric      """
+    Release dependency cycle detection MUST have zero false negatives
+    and zero false positives. Uses same Tarjan algorithm as other DAGs.
+  """
+  constrains  [detect_release_dependency_cycles]
+  protects    [release_dag]
+
+  verify property "every release cycle produces W092"
+  verify property "no false positive W092 on acyclic release graph"
+}
+
+constraint product_ownership_field_consistency "Ownership Field Consistency" {
+  category    reliability
+  priority    high
+  metric      """
+    I080 MUST fire for every feature, milestone, deliverable, and release
+    without an owner field. I080 MUST NOT fire for entity kinds that do
+    not support owner (journey, module, term, persona, channel).
+  """
+  constrains  [detect_missing_owner]
+  protects    [pe_ownership_field_awareness]
+
+  verify property "I080 fires for all ownable entities without owner"
+  verify property "I080 does not fire for non-ownable entity kinds"
+}
+
+constraint product_effort_weight_correctness "Effort Weight Correctness" {
+  category    reliability
+  priority    critical
+  metric      """
+    Weighted milestone completion MUST use configured effort weights.
+    Default weights: xs=1, s=2, m=3, l=5, xl=8 (Fibonacci-inspired).
+    Teams MAY override via effort_weights in specforge.json. Features
+    without effort MUST default to the weight of m (3 by default).
+  """
+  constrains  [pe_query_weighted_milestone_completion]
+  protects    [pe_effort_weighted_completion]
+
+  verify property "each effort level maps to configured weight (default: Fibonacci)"
+  verify property "custom effort_weights override defaults"
+  verify property "missing effort defaults to m weight"
+}
+
+// ---------------------------------------------------------------------------
+constraint product_query_complexity "Product Query Complexity Bounds" {
+  category   performance
+  priority   high
+  metric     """
+    Multi-hop traversal queries (queryPersonaCoverageMatrix,
+    queryFeatureImpact, queryCriticalPath) SHOULD complete in under 500ms
+    for projects with up to 5000 entities. Queries SHOULD be bounded by
+    max_hops (default 5) to prevent unbounded traversal. The complexity
+    of queryPersonaCoverageMatrix is O(P*J*F) where P=personas, J=journeys,
+    F=features.
+  """
+  constrains [pe_query_persona_coverage_matrix, pe_query_feature_impact, pe_query_critical_path]
+
+  verify property "coverage matrix completes under 500ms at 5000 entities"
+  verify property "feature impact bounded by max_hops=5"
+}
+
+// ---------------------------------------------------------------------------
+// Scalability tiers — performance expectations beyond 500 entities
+// ---------------------------------------------------------------------------
+
+constraint product_scalability_tiers "Product Scalability Tiers" {
+  category   performance
+  priority   high
+  metric     """
+    Product extension operations MUST degrade gracefully as entity count
+    increases. Performance expectations are defined in three tiers:
+
+    Tier 1 (<=500 entities): validation <50ms, queries <100ms.
+    Tier 2 (501-2000 entities): validation <200ms, queries <500ms.
+    Tier 3 (2001-10000 entities): validation <1s, queries <2s.
+
+    Beyond 10,000 entities, no hard guarantees apply but the extension MUST
+    NOT exhibit superlinear (O(n^2) or worse) degradation for any operation.
+    Pagination becomes critical at Tier 3 — queries returning result sets
+    >1000 items MUST support pagination.
+
+    Cycle detection (Tarjan's) is O(V+E) at all tiers. Coverage matrix
+    (O(P*J*F)) is the highest-complexity query and MAY exceed 2s at Tier 3.
+    Critical path computation is O(V+E) via topological sort and does not
+    degrade significantly.
+  """
+  constrains [
+    pe_query_persona_coverage_matrix,
+    pe_query_feature_impact,
+    pe_query_critical_path,
+    pe_query_feature_ordering,
+    pe_query_module_coupling,
+    pe_query_owner_workload,
+  ]
+
+  verify load "validation completes under 200ms at 2000 entities"
+  verify load "validation completes under 1s at 10000 entities"
+  verify load "queries complete under 500ms at 2000 entities"
+  verify load "queries complete under 2s at 10000 entities"
+  verify load "no operation exhibits superlinear degradation from 500 to 10000 entities"
+}
+
+constraint product_query_pagination_required "Query Pagination for Large Result Sets" {
+  category   usability
+  priority   high
+  metric     """
+    Matrix and analytics queries (queryPersonaCoverageMatrix,
+    queryModuleCoupling, queryOwnerWorkload, queryFeatureOverlap,
+    queryChannelCoverageMatrix) SHOULD accept an optional
+    PaginatedQueryInput parameter with cursor-based pagination.
+
+    When pagination is provided:
+    - page_size defaults to 100, max 1000 (clamped like list commands)
+    - Result includes PaginationMetadata with next_cursor, total, has_more
+    - Cursor is opaque (base64-encoded position, not offset)
+    - Cursor is valid only for the current graph state — rebuild invalidates all cursors
+    - Invalid/expired cursor returns INVALID_INPUT error with message "cursor expired"
+
+    When pagination is omitted (backward-compatible):
+    - Full result set is returned (existing behavior preserved)
+    - For result sets >1000 items, a truncated flag SHOULD be set in the response
+
+    This enables AI agents to consume large result sets incrementally
+    without exceeding token budgets.
+  """
+  constrains [
+    pe_query_persona_coverage_matrix,
+    pe_query_module_coupling,
+    pe_query_owner_workload,
+    pe_query_feature_overlap,
+    pe_query_channel_coverage_matrix,
+  ]
+
+  verify unit "matrix query with page_size=10 returns at most 10 entries"
+  verify unit "next_cursor from page 1 retrieves page 2 correctly"
+  verify unit "cursor after graph rebuild returns INVALID_INPUT"
+  verify unit "omitted pagination returns full result set (backward-compatible)"
+  verify unit "page_size>1000 is clamped to 1000"
+}
+

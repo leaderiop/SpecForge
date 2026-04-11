@@ -1,0 +1,373 @@
+{
+  "name": "@specforge/software",
+  "version": "1.0.0",
+  "manifestVersion": 2,
+  "wasmPath": "software.wasm",
+  "extShort": "software",
+  "hostApiVersion": "1.0.0",
+  "starterTemplate": "templates/behavior.spec",
+  "incremental": true,
+  "contributes": {
+    "entities": true,
+    "validators": true
+  },
+  "verifyKinds": ["unit", "integration", "property", "load", "e2e", "mutation"],
+  "sandboxPolicy": {
+    "networkAccess": false,
+    "fileSystemAccess": false,
+    "maxMemoryMb": 256,
+    "maxExecutionMs": 5000
+  },
+  "peerDependencies": [
+    { "name": "@specforge/product", "version": "^1.0" }
+  ],
+  "entityKinds": [
+    {
+      "name": "Behavior",
+      "keyword": "behavior",
+      "testable": true,
+      "supportsVerify": true,
+      "allowedVerifyKinds": ["unit", "integration", "property", "load", "e2e", "mutation"],
+      "semanticToken": "function",
+      "lspIcon": "Method",
+      "dotShape": "box",
+      "dotColor": "#1565C0",
+      "dotFillcolor": "#E3F2FD",
+      "fields": [
+        { "name": "contract", "fieldType": "string", "required": true },
+        { "name": "invariants", "fieldType": "reference_list", "edge": "Enforces", "targetKind": "invariant" },
+        { "name": "types", "fieldType": "reference_list", "edge": "UsesType", "targetKind": "type" },
+        { "name": "ports", "fieldType": "reference_list", "edge": "UsesPort", "targetKind": "port" },
+        { "name": "produces", "fieldType": "reference_list", "edge": "Produces", "targetKind": "event" },
+        { "name": "consumes", "fieldType": "reference_list", "edge": "Consumes", "targetKind": "event" },
+        { "name": "category", "fieldType": "string" },
+        { "name": "tests", "fieldType": "string_list", "fileReference": true },
+        { "name": "gherkin", "fieldType": "string_list", "fileReference": true },
+        { "name": "features", "fieldType": "reference_list", "edge": "Implements", "targetKind": "feature" },
+        { "name": "requires", "fieldType": "string_list" },
+        { "name": "ensures", "fieldType": "string_list" },
+        { "name": "maintains", "fieldType": "string_list" },
+        { "name": "description", "fieldType": "string" },
+        { "name": "status", "fieldType": "string" },
+        { "name": "refs", "fieldType": "string_list" },
+        { "name": "severity", "fieldType": "string" },
+        { "name": "diagnostic", "fieldType": "string" }
+      ]
+    },
+    {
+      "name": "Invariant",
+      "keyword": "invariant",
+      "testable": true,
+      "supportsVerify": true,
+      "allowedVerifyKinds": ["property", "unit", "mutation", "integration"],
+      "semanticToken": "property",
+      "lspIcon": "Property",
+      "dotShape": "diamond",
+      "dotColor": "#C62828",
+      "dotFillcolor": "#FFEBEE",
+      "fields": [
+        { "name": "guarantee", "fieldType": "string", "required": true },
+        { "name": "risk", "fieldType": "string" },
+        { "name": "enforced_by", "fieldType": "reference_list", "edge": "Enforces", "targetKind": "behavior" },
+        { "name": "description", "fieldType": "string" },
+        { "name": "refs", "fieldType": "string_list" }
+      ]
+    },
+    {
+      "name": "Event",
+      "keyword": "event",
+      "testable": true,
+      "supportsVerify": true,
+      "allowedVerifyKinds": ["integration", "unit"],
+      "semanticToken": "event",
+      "lspIcon": "Event",
+      "dotShape": "ellipse",
+      "dotColor": "#E65100",
+      "dotFillcolor": "#FFF3E0",
+      "fields": [
+        { "name": "trigger", "fieldType": "reference_list", "edge": "Produces", "targetKind": "behavior" },
+        { "name": "channel", "fieldType": "string" },
+        { "name": "channel_type", "fieldType": "string" },
+        { "name": "category", "fieldType": "string" },
+        { "name": "payload", "fieldType": "reference", "edge": "UsesType", "targetKind": "type" },
+        { "name": "consumers", "fieldType": "reference_list", "edge": "Consumes", "targetKind": "behavior" },
+        { "name": "description", "fieldType": "string" },
+        { "name": "refs", "fieldType": "string_list" },
+        { "name": "contract", "fieldType": "string" },
+        { "name": "sync", "fieldType": "string_list" }
+      ]
+    },
+    {
+      "name": "Type",
+      "keyword": "type",
+      "testable": true,
+      "supportsVerify": true,
+      "allowedVerifyKinds": ["property", "unit", "mutation"],
+      "semanticToken": "type",
+      "lspIcon": "Struct",
+      "dotShape": "rectangle",
+      "dotColor": "#2E7D32",
+      "dotFillcolor": "#E8F5E9",
+      "openFields": true,
+      "fields": [
+        { "name": "kind", "fieldType": "string" },
+        { "name": "fields", "fieldType": "block" },
+        { "name": "fieldType", "fieldType": "reference_list", "edge": "UsesType", "targetKind": "type" },
+        { "name": "description", "fieldType": "string" },
+        { "name": "refs", "fieldType": "string_list" }
+      ]
+    },
+    {
+      "name": "Port",
+      "keyword": "port",
+      "testable": true,
+      "supportsVerify": true,
+      "allowedVerifyKinds": ["property", "unit"],
+      "semanticToken": "interface",
+      "lspIcon": "Interface",
+      "dotShape": "trapezium",
+      "dotColor": "#00695C",
+      "dotFillcolor": "#E0F2F1",
+      "openFields": true,
+      "fields": [
+        { "name": "direction", "fieldType": "string", "required": true },
+        { "name": "category", "fieldType": "string" },
+        { "name": "methods", "fieldType": "block" },
+        { "name": "description", "fieldType": "string" },
+        { "name": "refs", "fieldType": "string_list" }
+      ]
+    }
+  ],
+  "edgeTypes": [
+    {
+      "label": "References",
+      "description": "General cross-reference between entities"
+    },
+    {
+      "label": "Implements",
+      "description": "Behavior implements a feature (cross-extension via peer_dependency @specforge/product)",
+      "sourceKind": "behavior",
+      "targetKind": "feature",
+      "edgeStyle": "solid",
+      "edgeColor": "#1565C0"
+    },
+    {
+      "label": "Produces",
+      "description": "Behavior produces an event",
+      "sourceKind": "behavior",
+      "targetKind": "event",
+      "edgeStyle": "solid",
+      "edgeColor": "#E65100"
+    },
+    {
+      "label": "Consumes",
+      "description": "Behavior consumes an event",
+      "sourceKind": "behavior",
+      "targetKind": "event",
+      "edgeStyle": "dashed",
+      "edgeColor": "#E65100"
+    },
+    {
+      "label": "UsesType",
+      "description": "Entity references a type definition",
+      "edgeStyle": "solid",
+      "edgeColor": "#2E7D32"
+    },
+    {
+      "label": "UsesPort",
+      "description": "Behavior uses a port interface",
+      "sourceKind": "behavior",
+      "targetKind": "port",
+      "edgeStyle": "solid",
+      "edgeColor": "#00695C"
+    },
+    {
+      "label": "Enforces",
+      "description": "Behavior enforces an invariant",
+      "sourceKind": "behavior",
+      "targetKind": "invariant",
+      "edgeStyle": "dashed",
+      "edgeColor": "#C62828"
+    },
+    {
+      "label": "ExtendsType",
+      "description": "Type extends or composes another type",
+      "sourceKind": "type",
+      "targetKind": "type",
+      "edgeStyle": "solid",
+      "edgeArrowhead": "empty",
+      "edgeColor": "#2E7D32"
+    },
+    {
+      "label": "TestedBy",
+      "description": "Entity is tested by an external test file (from tests field with file_reference=true)",
+      "edgeStyle": "dotted",
+      "edgeColor": "#757575"
+    },
+    {
+      "label": "ExternalRef",
+      "description": "Entity references an external URI or resource",
+      "edgeStyle": "dotted",
+      "edgeColor": "#9E9E9E"
+    },
+    {
+      "label": "MilestoneBehavior",
+      "description": "Milestone delivers a behavior (cross-extension enhancement edge)",
+      "sourceKind": "milestone",
+      "targetKind": "behavior",
+      "edgeStyle": "solid",
+      "edgeColor": "#9C27B0"
+    }
+  ],
+  "entityEnhancements": [
+    {
+      "targetKind": "module",
+      "sourceExtension": "@specforge/product",
+      "fields": [
+        { "name": "ports", "fieldType": "reference_list", "edge": "UsesPort", "targetKind": "port" },
+        { "name": "ports_defined", "fieldType": "reference_list", "edge": "UsesPort", "targetKind": "port" }
+      ]
+    },
+    {
+      "targetKind": "milestone",
+      "sourceExtension": "@specforge/product",
+      "fields": [
+        { "name": "behaviors", "fieldType": "reference_list", "edge": "MilestoneBehavior", "targetKind": "behavior" }
+      ]
+    }
+  ],
+  "validationRules": [
+    {
+      "code": "W001",
+      "severity": "warning",
+      "messageTemplate": "behavior '{id}' does not implement any feature",
+      "check": "no_outgoing_edges",
+      "targetKind": "behavior",
+      "edgeType": "Implements"
+    },
+    {
+      "code": "W002",
+      "severity": "warning",
+      "messageTemplate": "type '{id}' is not referenced by any behavior, port, or type",
+      "check": "no_incoming_edges",
+      "targetKind": "type"
+    },
+    {
+      "code": "W003",
+      "severity": "warning",
+      "messageTemplate": "invariant '{id}' is not enforced by any behavior",
+      "check": "no_incoming_edges",
+      "targetKind": "invariant"
+    },
+    {
+      "code": "W004",
+      "severity": "warning",
+      "messageTemplate": "{kind} '{id}' is testable but has no verify or test reference",
+      "check": "missing_field_when_flag_set",
+      "field": "verify",
+      "targetKind": "behavior"
+    },
+    {
+      "code": "W004",
+      "severity": "warning",
+      "messageTemplate": "{kind} '{id}' is testable but has no verify or test reference",
+      "check": "missing_field_when_flag_set",
+      "field": "verify",
+      "targetKind": "invariant"
+    },
+    {
+      "code": "W004",
+      "severity": "warning",
+      "messageTemplate": "{kind} '{id}' is testable but has no verify or test reference",
+      "check": "missing_field_when_flag_set",
+      "field": "verify",
+      "targetKind": "event"
+    },
+    {
+      "code": "W004",
+      "severity": "warning",
+      "messageTemplate": "{kind} '{id}' is testable but has no verify or test reference",
+      "check": "missing_field_when_flag_set",
+      "field": "verify",
+      "targetKind": "type"
+    },
+    {
+      "code": "W004",
+      "severity": "warning",
+      "messageTemplate": "{kind} '{id}' is testable but has no verify or test reference",
+      "check": "missing_field_when_flag_set",
+      "field": "verify",
+      "targetKind": "port"
+    },
+    {
+      "code": "W005",
+      "severity": "warning",
+      "messageTemplate": "port '{id}' is not referenced by any behavior",
+      "check": "no_incoming_edges",
+      "targetKind": "port"
+    },
+    {
+      "code": "W006",
+      "severity": "warning",
+      "messageTemplate": "behavior '{id}' has no category — agents use category for task routing",
+      "check": "missing_field_when_flag_set",
+      "targetKind": "behavior",
+      "field": "category"
+    },
+    {
+      "code": "W007",
+      "severity": "warning",
+      "messageTemplate": "event '{id}' is not produced by any behavior",
+      "check": "no_incoming_edges",
+      "targetKind": "event"
+    },
+    {
+      "code": "W008",
+      "severity": "warning",
+      "messageTemplate": "feature '{id}' is not implemented by any behavior",
+      "check": "no_incoming_edges",
+      "targetKind": "feature",
+      "edgeType": "Implements"
+    },
+    {
+      "code": "W009",
+      "severity": "warning",
+      "messageTemplate": "{kind} '{id}' has verify kind '{value}' not in allowed set {allowed}",
+      "check": "custom",
+      "wasmFunction": "validate__verify_kind_allowlist"
+    },
+    {
+      "code": "W010",
+      "severity": "warning",
+      "messageTemplate": "type '{id}' field '{field}' has unknown annotation '{value}'",
+      "check": "custom",
+      "targetKind": "type",
+      "wasmFunction": "validate__type_field_annotations"
+    },
+    {
+      "code": "E004",
+      "severity": "error",
+      "messageTemplate": "port '{id}' method '{field}' references unknown type '{value}'",
+      "check": "custom",
+      "targetKind": "port",
+      "wasmFunction": "validate__port_methods"
+    },
+    {
+      "code": "E006",
+      "severity": "error",
+      "messageTemplate": "event '{id}' trigger must reference a behavior, found {kind} '{value}'",
+      "check": "custom",
+      "targetKind": "event",
+      "wasmFunction": "validate__event_triggers"
+    },
+    {
+      "code": "E010",
+      "severity": "error",
+      "messageTemplate": "milestone '{id}' behaviors range is invalid: {reason}",
+      "check": "custom",
+      "targetKind": "milestone",
+      "wasmFunction": "validate__milestone_behavior_ranges"
+    }
+  ],
+  "reservedKeywords": []
+}

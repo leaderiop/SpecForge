@@ -2,8 +2,8 @@
 // These are in-process events, not distributed events.
 // They model the lifecycle of test result collection within a single binary.
 
-use types
-use behaviors
+use "types"
+use "behaviors"
 
 event test_result_recorded "Test Result Recorded" {
   trigger   record_test_result_on_drop

@@ -1,10 +1,9 @@
 // MCP Server features
 
-use behaviors/mcp-operations
-use behaviors/mcp-prompts
-use behaviors/mcp-server
-use behaviors/mcp-tools
-
+use "behaviors/mcp-operations"
+use "behaviors/mcp-prompts"
+use "behaviors/mcp-server"
+use "behaviors/mcp-tools"
 feature mcp_resource_exposure "MCP Resource Exposure" {
   behaviors [expose_graph_as_mcp_resource, expose_schema_as_mcp_resource, expose_context_as_mcp_resource, expose_brief_as_mcp_resource, expose_diagnostics_as_mcp_resource, expose_entity_as_mcp_resource]
 

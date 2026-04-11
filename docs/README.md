@@ -21,11 +21,11 @@ This directory contains the entity model reference and design documentation for 
 
 | Entity | ID Pattern | Purpose |
 |--------|-----------|---------|
-| [capability](entities/capability.md) | `UX-{infix}-{n}` | UX flow mapping a persona + surface to features |
-| [deliverable](entities/deliverable.md) | `DLV-{infix}-{n}` | Shippable artifact bundling capabilities and libraries |
-| [roadmap](entities/roadmap.md) | `RM-{n}` | Planning phase with scheduled features and exit criteria |
-| [library](entities/library.md) | `LIB-{infix}-{n}` | Code package mapping features to ports |
-| [glossary](entities/glossary.md) | singleton | Structured vocabulary defining the project's ubiquitous language |
+| [journey](entities/journey.md) | `identifier` | UX flow mapping a persona + surface to features |
+| [deliverable](entities/deliverable.md) | `identifier` | Shippable artifact bundling journeys and modules |
+| [milestone](entities/milestone.md) | `identifier` | Planning phase with scheduled features and exit criteria |
+| [module](entities/module.md) | `identifier` | Code package mapping features to ports |
+| [term](entities/term.md) | `identifier` | Structured vocabulary defining the project's ubiquitous language |
 
 ### @specforge/governance (3 entities)
 
@@ -34,6 +34,19 @@ This directory contains the entity model reference and design documentation for 
 | [decision](entities/decision.md) | `ADR-{n}` | Architecture Decision Record — rationale for technical choices |
 | [constraint](entities/constraint.md) | `CON-{infix}-{n}` | Non-functional requirement with measurable thresholds |
 | [failure_mode](entities/failure-mode.md) | `FM-{infix}-{n}` | FMEA risk assessment tied to an invariant |
+
+### @specforge/formal (6 entity kinds + enhances @specforge/software)
+
+| Entity | ID Pattern | Purpose |
+|--------|-----------|---------|
+| condition | `identifier` | Named, reusable precondition/postcondition/frame invariant |
+| property | `identifier` | Temporal/behavioral assertion (safety/liveness/fairness) |
+| axiom | `identifier` | Assumed-true foundation (no proof required) |
+| protocol | `identifier` | Shared synchronization contract across events |
+| refinement | `identifier` | Abstract-to-concrete behavior mapping with condition deltas |
+| process | `identifier` | CSP-style communicating process with alphabet and composition |
+
+Provides structured conditions (dual-mode: inline blocks + condition entity references), specification layering, event graph linting, and coverage tracking. Contributes 11 edge types (RequiresCondition, EnsuresCondition, MaintainsCondition, AssumedBy, Satisfies, FollowsProtocol, PropertyDependsOn, RefinesTo, RefinementChainLink, ParticipatesIn, ProcessComposition), 4 compiler passes (condition_check, layering_verify, event_graph_analyze, coverage_tracking), and formal analysis diagnostics (E030-E035, E041-E042, W028-W040, W058-W074). Requires `warning_level=strict` in specforge.json.
 
 ## Traceability Chain
 
@@ -56,18 +69,17 @@ feature ──implements──→ behavior ──references──→ invariant
 ### Extended by @specforge/product
 
 ```
-deliverable ──bundles──→ capability ──traces_to──→ feature (core)
-  DLV-XX-N    │           UX-XX-N
-              │built_from
-              ▼
-            library ──provides──→ feature (core)
-            LIB-XX-N   │
+deliverable ──bundles──→ journey ──traces_to──→ feature (core)
+                │
+                │built_from
+                ▼
+              module ──provides──→ feature (core)
+                        │
                         │defines_port
                         ▼
                       port (core)
 
-roadmap ──schedules──→ feature (core) / deliverable
-  RM-N
+milestone ──schedules──→ feature (core) / deliverable
 ```
 
 ### Extended by @specforge/governance
@@ -83,7 +95,7 @@ failure_mode ──mitigates──→ invariant (core)
   FM-XX-N
 ```
 
-**Full chain:** `deliverable → capability → feature → behavior → invariant`
+**Full chain:** `deliverable -> journey -> feature -> behavior -> invariant`
 
 ## Quick Reference
 
@@ -131,9 +143,9 @@ A comprehensive business plan covering 10 areas (executive summary, financials, 
 | E006 | core | Event trigger invalid — trigger must reference an existing behavior |
 | E011 | core | Invalid ref target format — provider validates identifier doesn't match expected pattern |
 | E012 | core | Unknown provider kind — ref uses kind not registered by its provider |
-| E007 | product | Circular library dependency — `depends_on` edges must form a DAG |
-| E008 | product | Persona not defined — capability persona must match spec root definition |
-| E009 | product | Surface not defined — capability surface must match spec root definition |
+| E007 | product | Circular module dependency — `depends_on` edges must form a DAG |
+| E008 | product | Persona not defined — journey persona must match spec root definition |
+| E009 | product | Surface not defined — journey surface must match spec root definition |
 | E010 | product | Behavior range invalid — range start > end or expanded IDs don't exist |
 
 ### Warnings
@@ -141,17 +153,17 @@ A comprehensive business plan covering 10 areas (executive summary, financials, 
 | Code | Module | Rule |
 |------|--------|------|
 | W001 | core | Orphan behavior — not referenced by any feature |
-| W002 | product | Orphan feature — not referenced by any capability |
+| W002 | product | Orphan feature — not referenced by any journey |
 | W003 | core | Unused invariant — not referenced by any behavior |
 | W004 | core | Unverified behavior — no `verify` statement |
 | W005 | governance | Unmitigated high-risk invariant — `risk: high` with no failure_mode |
 | W006 | governance | Unconstrained behavior — no constraint coverage |
 | W007 | core | Orphan event — event with no consumers |
 | W012 | core | Orphan ref — declared but never referenced by any entity |
-| W008 | product | Uncovered capability — deliverable capability not reachable via libraries |
-| W009 | product | Orphan library — not referenced by any deliverable |
+| W008 | product | Uncovered journey — deliverable journey not reachable via modules |
+| W009 | product | Orphan module — not referenced by any deliverable |
 | W010 | product | Deprecated feature — using a deprecated format feature |
-| W011 | product | Orphan capability — not referenced by any deliverable |
+| W011 | product | Orphan journey — not referenced by any deliverable |
 
 ### Info
 

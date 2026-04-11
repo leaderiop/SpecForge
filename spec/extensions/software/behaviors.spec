@@ -1,9 +1,8 @@
 // @specforge/software extension behaviors — entity kind and edge registration
 
-use types/zero-entity-core
-use extensions/software/types
-use extensions/software/invariants
-
+use "types/zero-entity-core"
+use "extensions/software/types"
+use "extensions/software/invariants"
 behavior se_register_entity_kinds "Register Software Entity Kinds" {
   category command
   invariants [se_behavior_testability, se_invariant_testability, se_event_testability, se_feature_non_testable]

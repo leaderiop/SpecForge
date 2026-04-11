@@ -4,30 +4,30 @@
 //   - Mutation Tools (6): format, rename, init, add_extension, remove_extension, migrate
 //   - Project Management Tools (5): extensions, providers, doctor, collect, render
 
-use invariants/core
-use invariants/validation
-use invariants/formatting
-use invariants/mcp
-use invariants/zero-entity-core
-use events/mcp
-use events/compilation
-use types/graph
-use types/output
-use types/diagnostics
-use types/mcp
-use types/core
-use types/migration
-use types/config
-use types/formatting
-use ports/inbound
-use ports/outbound
-
+use "invariants/core"
+use "invariants/validation"
+use "invariants/formatting"
+use "invariants/mcp"
+use "invariants/zero-entity-core"
+use "events/mcp"
+use "events/compilation"
+use "types/graph"
+use "types/output"
+use "types/diagnostics"
+use "types/mcp"
+use "types/core"
+use "types/migration"
+use "types/config"
+use "types/formatting"
+use "ports/inbound"
+use "ports/outbound"
 // ---------------------------------------------------------------------------
 // Mutation Tools
 // ---------------------------------------------------------------------------
 
 behavior provide_mcp_format_tool "Provide MCP Format Tool" {
   invariants [diagnostic_determinism, formatting_idempotency, mcp_structured_error_responses, comment_preservation, formatting_consistency, format_rule_determinism, dry_run_side_effect_freedom]
+  category   query
   types      [McpFormatResult, FormatDiff, McpToolDescriptor]
   ports      [McpProtocol, CompilerApi, FileSystem]
   produces   [mcp_tool_invoked, mcp_mutation_completed]
@@ -62,6 +62,7 @@ behavior provide_mcp_format_tool "Provide MCP Format Tool" {
 
 behavior provide_mcp_rename_tool "Provide MCP Rename Tool" {
   invariants [entity_id_uniqueness, graph_traversal_integrity, diagnostic_determinism, mcp_structured_error_responses, dry_run_side_effect_freedom]
+  category   mutation
   types      [McpRenameResult, TextEdit, McpToolDescriptor]
   ports      [McpProtocol, CompilerApi, FileSystem]
   produces   [mcp_tool_invoked, mcp_mutation_completed]
@@ -106,6 +107,7 @@ behavior provide_mcp_rename_tool "Provide MCP Rename Tool" {
 // project, use the CLI: specforge init.
 behavior provide_mcp_init_tool "Provide MCP Init Tool" {
   invariants [diagnostic_determinism, init_config_validity, mcp_structured_error_responses, zero_domain_knowledge_core, spec_root_singleton]
+  category   query
   types      [McpInitResult, McpToolDescriptor]
   ports      [McpProtocol, CompilerApi, FileSystem]
   produces   [mcp_tool_invoked, mcp_mutation_completed, project_initialized]
@@ -153,6 +155,7 @@ behavior provide_mcp_init_tool "Provide MCP Init Tool" {
 
 behavior provide_mcp_add_extension_tool "Provide MCP Add Extension Tool" {
   invariants [diagnostic_determinism, mcp_structured_error_responses, init_config_validity, dry_run_side_effect_freedom]
+  category   query
   types      [McpExtensionInfo, McpToolDescriptor]
   ports      [McpProtocol, CompilerApi, FileSystem]
   produces   [mcp_tool_invoked, mcp_mutation_completed, extension_added]
@@ -194,6 +197,7 @@ behavior provide_mcp_add_extension_tool "Provide MCP Add Extension Tool" {
 
 behavior provide_mcp_remove_extension_tool "Provide MCP Remove Extension Tool" {
   invariants [diagnostic_determinism, mcp_structured_error_responses, init_config_validity, dry_run_side_effect_freedom]
+  category   query
   types      [McpRemoveExtensionResult, McpToolDescriptor]
   ports      [McpProtocol, CompilerApi, FileSystem]
   produces   [mcp_tool_invoked, mcp_mutation_completed]
@@ -234,6 +238,7 @@ behavior provide_mcp_remove_extension_tool "Provide MCP Remove Extension Tool" {
 
 behavior provide_mcp_migrate_tool "Provide MCP Migrate Tool" {
   invariants [diagnostic_determinism, mcp_structured_error_responses, dry_run_side_effect_freedom]
+  category   mutation
   types      [MigrationResult, MigrationSummary, McpToolDescriptor]
   ports      [McpProtocol, CompilerApi, FileSystem]
   produces   [mcp_tool_invoked, mcp_mutation_completed]
@@ -272,6 +277,7 @@ behavior provide_mcp_migrate_tool "Provide MCP Migrate Tool" {
 
 behavior provide_mcp_extensions_tool "Provide MCP Extensions Tool" {
   invariants [diagnostic_determinism, mcp_structured_error_responses, mcp_tool_idempotency]
+  category   query
   types      [McpExtensionInfo, McpToolDescriptor]
   ports      [McpProtocol, CompilerApi]
   produces   [mcp_tool_invoked]
@@ -301,6 +307,7 @@ behavior provide_mcp_extensions_tool "Provide MCP Extensions Tool" {
 
 behavior provide_mcp_providers_tool "Provide MCP Providers Tool" {
   invariants [diagnostic_determinism, mcp_structured_error_responses, mcp_tool_idempotency]
+  category   query
   types      [McpProviderInfo, McpToolDescriptor]
   ports      [McpProtocol, CompilerApi]
   produces   [mcp_tool_invoked]
@@ -329,6 +336,7 @@ behavior provide_mcp_providers_tool "Provide MCP Providers Tool" {
 
 behavior provide_mcp_doctor_tool "Provide MCP Doctor Tool" {
   invariants [diagnostic_determinism, mcp_structured_error_responses, mcp_tool_idempotency]
+  category   query
   types      [McpDoctorReport, McpToolDescriptor]
   ports      [McpProtocol, CompilerApi]
   produces   [mcp_tool_invoked]
@@ -360,6 +368,7 @@ behavior provide_mcp_doctor_tool "Provide MCP Doctor Tool" {
 
 behavior provide_mcp_collect_tool "Provide MCP Collect Tool" {
   invariants [diagnostic_determinism, mcp_structured_error_responses]
+  category   query
   types      [McpCollectResult, McpToolDescriptor]
   ports      [McpProtocol, CompilerApi, FileSystem]
   produces   [mcp_tool_invoked]
@@ -408,6 +417,7 @@ behavior provide_mcp_collect_tool "Provide MCP Collect Tool" {
 
 behavior provide_mcp_render_tool "Provide MCP Render Tool" {
   invariants [graph_traversal_integrity, diagnostic_determinism, mcp_structured_error_responses]
+  category   query
   types      [McpRenderResult, McpToolDescriptor]
   ports      [McpProtocol, CompilerApi, FileSystem]
   produces   [mcp_tool_invoked]

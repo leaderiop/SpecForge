@@ -1,16 +1,15 @@
 // Inbound ports — interfaces the system offers to the outside world
 
-use types/core
-use types/graph
-use types/output
-use types/diagnostics
-use types/config
-use types/errors
-use types/formatting
-use types/migration
-use types/lsp
-use types/wasm
-
+use "types/core"
+use "types/graph"
+use "types/output"
+use "types/diagnostics"
+use "types/config"
+use "types/errors"
+use "types/formatting"
+use "types/migration"
+use "types/lsp"
+use "types/wasm"
 port CompilerApi {
   direction inbound
   category  "api/compiler"

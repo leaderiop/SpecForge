@@ -10,7 +10,7 @@ pub fn emit_dot(graph: &Graph) -> String {
     for node in graph.nodes() {
         let label = match &node.title {
             Some(title) => format!("{}\\n{}", node.id.raw, title),
-            None => node.id.raw.clone(),
+            None => node.id.raw.to_string(),
         };
         writeln!(out, "  \"{}\" [label=\"{}\"];", node.id.raw, label).unwrap();
     }

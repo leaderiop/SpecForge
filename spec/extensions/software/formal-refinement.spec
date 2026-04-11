@@ -1,9 +1,8 @@
 // @specforge/software formal refinement — B-Method
 
-use types/zero-entity-core
-use extensions/software/types
-use extensions/software/invariants
-
+use "types/zero-entity-core"
+use "extensions/software/types"
+use "extensions/software/invariants"
 behavior se_parse_abstract_annotation "Parse Abstract Annotation" {
   category command
 

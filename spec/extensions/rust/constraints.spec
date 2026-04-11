@@ -3,11 +3,10 @@
 // Non-functional requirements specific to the Rust language integration:
 // entity mapping accuracy and report correctness.
 
-use invariants/core
-use extensions/rust/invariants
-use extensions/rust/behaviors
-use extensions/coverage/behaviors
-
+use "invariants/core"
+use "extensions/rust/invariants"
+use "extensions/rust/behaviors"
+use "extensions/coverage/behaviors"
 constraint test_coverage_accuracy "Test Coverage Accuracy" {
   category    reliability
   priority    must

@@ -36,7 +36,7 @@ This is exactly how **Terraform** works: Terraform's core has zero infrastructur
 | If your work involves... | You install... | You get entities like... |
 |---|---|---|
 | Software engineering | `@specforge/software` | behavior, invariant, feature, event, type, port |
-| Product management | `@specforge/product` | capability, deliverable, roadmap, library, glossary |
+| Product management | `@specforge/product` | journey, deliverable, milestone, module, term |
 | Architecture governance | `@specforge/governance` | decision, constraint, failure_mode |
 | Regulatory compliance | `@specforge/compliance` | regulation, control, evidence, audit |
 | API design | `@specforge/api-design` | endpoint, schema, operation |

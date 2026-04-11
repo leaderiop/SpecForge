@@ -4,8 +4,7 @@
 // execute_validation_pattern behavior. These rules are declared in the
 // extension manifest and registered into the validation rule set.
 
-use extensions/compliance/manifest
-
+use "extensions/compliance/manifest"
 // W101: A control entity with no incoming Governs edge from any regulation.
 // Indicates an orphan control not governed by any regulation.
 //

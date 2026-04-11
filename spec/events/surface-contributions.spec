@@ -1,9 +1,8 @@
 // Surface contribution events — CLI command, MCP tool, and MCP resource lifecycle
 
-use types/surface
-use types/mcp
-use behaviors/surface-contributions
-
+use "types/surface"
+use "types/mcp"
+use "behaviors/surface-contributions"
 event surface_contributions_registered "Surface Contributions Registered" {
   trigger   register_surface_contributions
   channel   "surface.contributions_registered"

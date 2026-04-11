@@ -1,5 +1,5 @@
 use crate::{Edge, Graph, Node};
-use specforge_common::{find_close_match, Diagnostic, Severity};
+use specforge_common::{Sym, find_close_match, Diagnostic};
 use specforge_parser::{FieldValue, SpecFile};
 use std::collections::{HashMap, HashSet};
 
@@ -16,37 +16,62 @@ pub struct GraphConfig {
     pub known_extension_keywords: HashMap<String, String>,
 }
 
+#[must_use = "diagnostics should be checked for errors"]
 pub fn build_graph(spec_files: &[SpecFile]) -> (Graph, Vec<Diagnostic>) {
     build_graph_with_config(spec_files, &GraphConfig::default())
 }
 
+#[must_use = "diagnostics should be checked for errors"]
 pub fn build_graph_with_config(spec_files: &[SpecFile], config: &GraphConfig) -> (Graph, Vec<Diagnostic>) {
     let mut graph = Graph::new();
     let mut diagnostics = Vec::new();
 
     // Add nodes, detecting duplicates (same kind + same ID = duplicate)
-    let mut seen: HashSet<(String, String)> = HashSet::new();
-    let mut entity_ids = HashSet::new();
+    let mut seen: HashSet<(Sym, Sym)> = HashSet::new();
+    let mut entity_ids: HashSet<Sym> = HashSet::new();
+    // Track entity ID to first-seen kind for cross-kind collision detection (W060)
+    let mut id_to_kind: HashMap<Sym, Sym> = HashMap::new();
     for spec_file in spec_files {
         for entity in &spec_file.entities {
-            let key = (entity.kind.raw.clone(), entity.id.raw.clone());
+            let key = (entity.kind.raw, entity.id.raw);
             if !seen.insert(key) {
-                diagnostics.push(Diagnostic {
-                    code: "E002".to_string(),
-                    severity: Severity::Error,
-                    message: format!(
-                        "duplicate entity ID '{}' (first declared in {})",
-                        entity.id.raw, entity.span.file
-                    ),
-                    span: Some(entity.span.clone()),
-                    suggestion: None,
-                });
+                diagnostics.push(
+                    Diagnostic::error(
+                        "E002",
+                        format!(
+                            "duplicate entity ID '{}' (first declared in {})",
+                            entity.id.raw, entity.span.file
+                        ),
+                    )
+                    .with_span(entity.span.clone()),
+                );
                 continue;
             }
-            entity_ids.insert(entity.id.raw.clone());
+
+            // Warn when the same ID is used by multiple entity kinds (W060).
+            // The graph stores nodes in a HashMap keyed by raw ID alone, so
+            // same-ID-different-kind entities will overwrite each other.
+            if let Some(&first_kind) = id_to_kind.get(&entity.id.raw) {
+                if first_kind != entity.kind.raw {
+                    diagnostics.push(
+                        Diagnostic::warning(
+                            "W060",
+                            format!(
+                                "entity ID '{}' is used by kind '{}' and kind '{}'; only one will be retained in the graph",
+                                entity.id.raw, first_kind, entity.kind.raw
+                            ),
+                        )
+                        .with_span(entity.span.clone()),
+                    );
+                }
+            } else {
+                id_to_kind.insert(entity.id.raw, entity.kind.raw);
+            }
+
+            entity_ids.insert(entity.id.raw);
             let node = Node {
-                id: entity.id.clone(),
-                kind: entity.kind.clone(),
+                id: entity.id,
+                kind: entity.kind,
                 title: entity.title.clone(),
                 fields: entity.fields.clone(),
                 source_span: entity.span.clone(),
@@ -59,7 +84,7 @@ pub fn build_graph_with_config(spec_files: &[SpecFile], config: &GraphConfig) ->
     if !config.known_extension_keywords.is_empty() {
         for spec_file in spec_files {
             for entity in &spec_file.entities {
-                let keyword = &entity.kind.raw;
+                let keyword = entity.kind.raw.as_str();
                 // Skip structural kinds that are always valid
                 if keyword == "ref" || keyword == "spec" {
                     continue;
@@ -68,18 +93,19 @@ pub fn build_graph_with_config(spec_files: &[SpecFile], config: &GraphConfig) ->
                     continue;
                 }
                 if let Some(extension) = config.known_extension_keywords.get(keyword) {
-                    diagnostics.push(Diagnostic {
-                        code: "I004".to_string(),
-                        severity: Severity::Info,
-                        message: format!(
-                            "keyword '{}' is provided by extension '{}' which is not installed",
-                            keyword, extension
-                        ),
-                        span: Some(entity.span.clone()),
-                        suggestion: Some(format!(
+                    diagnostics.push(
+                        Diagnostic::info(
+                            "I004",
+                            format!(
+                                "keyword '{}' is provided by extension '{}' which is not installed",
+                                keyword, extension
+                            ),
+                        )
+                        .with_span(entity.span.clone())
+                        .with_suggestion(format!(
                             "install it with: specforge add {}", extension
                         )),
-                    });
+                    );
                 }
             }
         }
@@ -93,16 +119,16 @@ pub fn build_graph_with_config(spec_files: &[SpecFile], config: &GraphConfig) ->
                     && let Some(FieldValue::String(scheme)) = entity.fields.get("scheme")
                     && !config.known_provider_schemes.contains(scheme)
                 {
-                    diagnostics.push(Diagnostic {
-                        code: "I005".to_string(),
-                        severity: Severity::Info,
-                        message: format!(
-                            "unrecognized ref scheme '{}' in '{}' — no provider installed for this scheme",
-                            scheme, entity.id.raw
-                        ),
-                        span: Some(entity.span.clone()),
-                        suggestion: None,
-                    });
+                    diagnostics.push(
+                        Diagnostic::info(
+                            "I005",
+                            format!(
+                                "unrecognized ref scheme '{}' in '{}' — no provider installed for this scheme",
+                                scheme, entity.id.raw
+                            ),
+                        )
+                        .with_span(entity.span.clone()),
+                    );
                 }
             }
         }
@@ -114,28 +140,30 @@ pub fn build_graph_with_config(spec_files: &[SpecFile], config: &GraphConfig) ->
             for entry in entity.fields.entries() {
                 if let FieldValue::ReferenceList(refs) = &entry.value {
                     for target_id in refs {
-                        if entity_ids.contains(target_id) {
+                        let target_sym = Sym::new(target_id);
+                        if entity_ids.contains(&target_sym) {
                             graph.add_edge(Edge {
-                                source: entity.id.raw.clone(),
-                                target: target_id.clone(),
-                                label: entry.key.clone(),
+                                source: entity.id.raw,
+                                target: target_sym,
+                                label: entry.key,
                             });
                         } else {
                             let suggestion = find_close_match(
                                 target_id,
                                 entity_ids.iter().map(|s| s.as_str()),
                             );
-                            diagnostics.push(Diagnostic {
-                                code: "E001".to_string(),
-                                severity: Severity::Error,
-                                message: format!(
+                            let mut diag = Diagnostic::error(
+                                "E001",
+                                format!(
                                     "unresolved reference '{}' in entity '{}'",
                                     target_id, entity.id.raw
                                 ),
-                                span: Some(entity.span.clone()),
-                                suggestion: suggestion
-                                    .map(|s| format!("did you mean '{}'?", s)),
-                            });
+                            )
+                            .with_span(entity.span.clone());
+                            if let Some(s) = suggestion {
+                                diag = diag.with_suggestion(format!("did you mean '{}'?", s));
+                            }
+                            diagnostics.push(diag);
                         }
                     }
                 }
@@ -143,6 +171,17 @@ pub fn build_graph_with_config(spec_files: &[SpecFile], config: &GraphConfig) ->
         }
     }
 
+    // Detect reference cycles and emit W061
+    let cycles = graph.detect_cycles();
+    for cycle in &cycles {
+        let path: Vec<String> = cycle.iter().map(|s| s.to_string()).collect();
+        diagnostics.push(
+            Diagnostic::warning(
+                "W061",
+                format!("reference cycle detected: {}", path.join(" -> ")),
+            ),
+        );
+    }
+
     (graph, diagnostics)
 }
-

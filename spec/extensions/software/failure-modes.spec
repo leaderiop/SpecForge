@@ -3,10 +3,9 @@
 // Failure modes specific to the software engineering entity model:
 // formatting, traceability, and library dependency concerns.
 
-use invariants/core
-use invariants/formatting
-use extensions/software/invariants
-
+use "invariants/core"
+use "invariants/formatting"
+use "extensions/software/invariants"
 failure_mode formatting_idempotency_violation "Formatting Idempotency Violation" {
   invariant  formatting_idempotency
   severity   7

@@ -3,6 +3,11 @@ name = "specforge-cli"
 edition.workspace = true
 version.workspace = true
 license.workspace = true
+autotests = false
+
+[[test]]
+name = "tests"
+path = "tests/main.rs"
 
 [[bin]]
 name = "specforge"
@@ -10,16 +15,26 @@ path = "src/main.rs"
 
 [dependencies]
 clap = { workspace = true }
+clap_complete = { workspace = true }
+serde = { workspace = true }
 serde_json = { workspace = true }
+sha2 = { workspace = true }
 specforge-common = { workspace = true }
+specforge-migrate = { workspace = true }
+specforge-formatter = { workspace = true }
 specforge-graph = { path = "../specforge-graph" }
 specforge-parser = { workspace = true }
 specforge-resolver = { path = "../specforge-resolver" }
 specforge-emitter = { path = "../specforge-emitter" }
 specforge-validator = { path = "../specforge-validator" }
+specforge-wasm = { workspace = true }
+specforge-mcp = { workspace = true }
+specforge-registry = { workspace = true }
 
 [dev-dependencies]
 assert_cmd = { workspace = true }
+predicates = { workspace = true }
 tempfile = { workspace = true }
 specforge-test = { workspace = true }
 specforge-test-macros = { workspace = true }
+specforge-migrate = { workspace = true }

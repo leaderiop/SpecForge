@@ -5,23 +5,23 @@
 // field. Core discovers, validates, and dispatches to Wasm exports using
 // the cmd__{id} and mcp__{name} naming conventions.
 
-use invariants/surface
-use invariants/wasm
-use invariants/mcp
-use types/surface
-use types/wasm
-use types/zero-entity-core
-use types/mcp
-use types/errors
-use ports/inbound
-use ports/outbound
-use events/surface-contributions
-use events/wasm-extensions
-
+use "invariants/surface"
+use "invariants/wasm"
+use "invariants/mcp"
+use "types/surface"
+use "types/wasm"
+use "types/zero-entity-core"
+use "types/mcp"
+use "types/errors"
+use "ports/inbound"
+use "ports/outbound"
+use "events/surface-contributions"
+use "events/wasm-extensions"
 // ── Registration & Validation ───────────────────────────────
 
 behavior register_surface_contributions "Register Surface Contributions" {
   invariants [surface_contribution_uniqueness]
+  category   command
   types      [ManifestV2, SurfaceContributions, SurfaceRegistryEntry, SurfaceType, SurfaceError]
   consumes   [manifest_loaded]
   produces   [surface_contributions_registered]
@@ -59,6 +59,7 @@ behavior register_surface_contributions "Register Surface Contributions" {
 
 behavior validate_surface_exports "Validate Surface Exports" {
   invariants [surface_sandbox_ceiling, host_function_type_safety]
+  category   validation
   types      [ManifestV2, SurfaceContributions, SurfaceError]
   ports      [WasmRuntime]
   consumes   [extension_loaded]
@@ -97,6 +98,7 @@ behavior validate_surface_exports "Validate Surface Exports" {
 
 behavior validate_mcp_tool_schemas "Validate MCP Tool Schemas" {
   invariants [surface_schema_validity]
+  category   validation
   types      [McpToolContribution, SurfaceError, JsonSchema]
   consumes   [surface_contributions_registered]
   produces   [mcp_tool_schemas_validated]
@@ -129,6 +131,7 @@ behavior validate_mcp_tool_schemas "Validate MCP Tool Schemas" {
 
 behavior validate_command_arg_types "Validate Command Arg Types" {
   invariants [surface_schema_validity]
+  category   validation
   types      [CommandContribution, CommandArg, CommandArgType, SurfaceError]
   consumes   [surface_contributions_registered]
   produces   [command_args_validated]
@@ -162,6 +165,7 @@ behavior validate_command_arg_types "Validate Command Arg Types" {
 
 behavior auto_promote_commands_to_mcp_tools "Auto-Promote Commands to MCP Tools" {
   invariants [surface_contribution_uniqueness]
+  category   command
   types      [CommandContribution, AutoPromotedMcpTool, SurfaceRegistryEntry]
   consumes   [surface_contributions_registered]
   produces   [commands_auto_promoted]
@@ -199,6 +203,7 @@ behavior auto_promote_commands_to_mcp_tools "Auto-Promote Commands to MCP Tools"
 
 behavior dispatch_surface_command "Dispatch Surface Command" {
   invariants [surface_sandbox_ceiling, wasm_sandbox_integrity, extension_isolation]
+  category   command
   types      [CommandContribution, CommandInput, CommandOutput, SurfaceError, WasmTrapInfo]
   ports      [WasmRuntime]
   consumes   [surface_exports_validated, command_args_validated]
@@ -243,6 +248,7 @@ behavior dispatch_surface_command "Dispatch Surface Command" {
 
 behavior dispatch_surface_mcp_tool "Dispatch Surface MCP Tool" {
   invariants [surface_sandbox_ceiling, wasm_sandbox_integrity, extension_isolation, mcp_structured_error_responses]
+  category   command
   types      [McpToolContribution, SurfaceError, WasmTrapInfo, JsonSchema]
   ports      [WasmRuntime, McpProtocol]
   consumes   [surface_exports_validated, mcp_tool_schemas_validated, commands_auto_promoted]
@@ -289,6 +295,7 @@ behavior dispatch_surface_mcp_tool "Dispatch Surface MCP Tool" {
 
 behavior dispatch_surface_mcp_resource "Dispatch Surface MCP Resource" {
   invariants [surface_sandbox_ceiling, wasm_sandbox_integrity, extension_isolation, mcp_structured_error_responses]
+  category   command
   types      [McpResourceContribution, SurfaceError, WasmTrapInfo]
   ports      [WasmRuntime, McpProtocol]
   consumes   [surface_exports_validated]
@@ -334,6 +341,7 @@ behavior dispatch_surface_mcp_resource "Dispatch Surface MCP Resource" {
 
 behavior enforce_surface_sandbox "Enforce Surface Sandbox" {
   invariants [surface_sandbox_ceiling, wasm_sandbox_integrity]
+  category   command
   types      [SurfaceSandboxOverride, SandboxPolicy, SurfaceType, SurfaceError]
   produces   [surface_permission_denied]
 
@@ -372,6 +380,7 @@ behavior enforce_surface_sandbox "Enforce Surface Sandbox" {
 
 behavior toggle_surface_contributions "Toggle Surface Contributions" {
   invariants [surface_contribution_uniqueness]
+  category   command
   types      [SurfaceRegistryEntry, SurfaceType]
   ports      [CompilerApi]
   consumes   [surface_contributions_registered]

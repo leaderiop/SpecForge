@@ -1,12 +1,11 @@
 // MCP-specific invariants — guarantees for MCP server protocol interactions
 
-use behaviors/mcp-operations
-use behaviors/mcp-prompts
-use behaviors/mcp-server
-use behaviors/mcp-tools
-use behaviors/surface-contributions
-use types/mcp
-
+use "behaviors/mcp-operations"
+use "behaviors/mcp-prompts"
+use "behaviors/mcp-server"
+use "behaviors/mcp-tools"
+use "behaviors/surface-contributions"
+use "types/mcp"
 invariant mcp_structured_error_responses "MCP Structured Error Responses" {
   guarantee """
     All MCP tools and resources MUST return structured error objects (not plain

@@ -1,15 +1,15 @@
 // Zero-entity core — extension-driven LSP features
 
-use invariants/zero-entity-core
-use types/zero-entity-core
-use types/lsp
-use invariants/lsp
-use ports/inbound
-
+use "invariants/zero-entity-core"
+use "types/zero-entity-core"
+use "types/lsp"
+use "invariants/lsp"
+use "ports/inbound"
 // -- Extension-Driven LSP ----------------------------------------------------
 
 behavior complete_extension_defined_keywords "Complete Extension-Defined Keywords" {
   invariants [zero_domain_knowledge_core, lsp_response_latency]
+  category   command
   types      [KindRegistryEntry]
   ports      [LspProtocol]
 
@@ -39,6 +39,7 @@ behavior complete_extension_defined_keywords "Complete Extension-Defined Keyword
 
 behavior provide_extension_entity_semantic_tokens "Provide Extension Entity Semantic Tokens" {
   invariants [zero_domain_knowledge_core, lsp_response_latency]
+  category   query
   types      [KindRegistryEntry]
   ports      [LspProtocol]
 
@@ -71,6 +72,7 @@ behavior provide_extension_entity_semantic_tokens "Provide Extension Entity Sema
 
 behavior provide_extension_entity_hover "Provide Extension Entity Hover" {
   invariants [zero_domain_knowledge_core, lsp_response_latency]
+  category   query
   types      [KindRegistryEntry, HoverContent]
   ports      [LspProtocol]
 
@@ -109,6 +111,7 @@ behavior provide_extension_entity_hover "Provide Extension Entity Hover" {
 
 behavior provide_extension_defined_lsp_icons "Provide Extension-Defined LSP Icons" {
   invariants [zero_domain_knowledge_core, lsp_response_latency]
+  category   query
   types      [KindRegistryEntry]
   ports      [LspProtocol]
 

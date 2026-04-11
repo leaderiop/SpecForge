@@ -8,16 +8,27 @@ pub struct BinaryReport {
     pub entries: Vec<TestRecordEntry>,
 }
 
-pub fn write_report(dir: &Path, binary_name: &str, entries: Vec<TestRecordEntry>) -> std::io::Result<()> {
+#[derive(Debug, Serialize)]
+struct BinaryReportRef<'a> {
+    schema_version: &'a str,
+    binary_name: &'a str,
+    entries: &'a [TestRecordEntry],
+}
+
+pub fn write_report(dir: &Path, binary_name: &str, entries: &[TestRecordEntry]) -> std::io::Result<()> {
     if entries.is_empty() {
         return Ok(());
     }
 
     std::fs::create_dir_all(dir)?;
 
-    let report = BinaryReport {
-        binary_name: binary_name.to_string(),
-        entries,
+    let mut sorted = entries.to_vec();
+    sorted.sort_by(|a, b| a.entity_id.cmp(&b.entity_id).then(a.test_name.cmp(&b.test_name)));
+
+    let report = BinaryReportRef {
+        schema_version: "1.0",
+        binary_name,
+        entries: &sorted,
     };
 
     let path = dir.join(format!("{binary_name}.json"));

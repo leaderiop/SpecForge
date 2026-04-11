@@ -30,7 +30,7 @@ pub fn trace(graph: &Graph, entity_id: &str) -> Result<TraceChain, String> {
 
     Ok(TraceChain {
         entity_id: entity_id.to_string(),
-        entity_kind: root.kind.raw.clone(),
+        entity_kind: root.kind.raw.to_string(),
         upstream,
         downstream,
     })
@@ -40,7 +40,7 @@ pub fn trace_all(graph: &Graph) -> Vec<TraceChain> {
     let mut chains: Vec<TraceChain> = graph
         .nodes()
         .iter()
-        .filter_map(|n| trace(graph, &n.id.raw).ok())
+        .filter_map(|n| trace(graph, n.id.raw.as_str()).ok())
         .collect();
     chains.sort_by(|a, b| a.entity_id.cmp(&b.entity_id));
     chains
@@ -121,14 +121,14 @@ fn directed_bfs(graph: &Graph, start: &str, direction: Direction) -> Vec<TraceLi
         for edge in graph.edges() {
             let (neighbor, label) = match direction {
                 Direction::Upstream => {
-                    if edge.target == current {
+                    if edge.target == *current {
                         (&edge.source, &edge.label)
                     } else {
                         continue;
                     }
                 }
                 Direction::Downstream => {
-                    if edge.source == current {
+                    if edge.source == *current {
                         (&edge.target, &edge.label)
                     } else {
                         continue;
@@ -136,17 +136,16 @@ fn directed_bfs(graph: &Graph, start: &str, direction: Direction) -> Vec<TraceLi
                 }
             };
 
-            if visited.insert(neighbor.clone()) {
-                if let Some(node) = graph.node(neighbor) {
+            if visited.insert(neighbor.to_string())
+                && let Some(node) = graph.node(neighbor.as_str()) {
                     links.push(TraceLink {
-                        entity_id: neighbor.clone(),
-                        entity_kind: node.kind.raw.clone(),
-                        edge_label: label.clone(),
+                        entity_id: neighbor.to_string(),
+                        entity_kind: node.kind.raw.to_string(),
+                        edge_label: label.to_string(),
                         depth: depth + 1,
                     });
-                    queue.push_back((neighbor.clone(), depth + 1));
+                    queue.push_back((neighbor.to_string(), depth + 1));
                 }
-            }
         }
     }
 

@@ -1,8 +1,7 @@
 // @specforge/coverage extension events
 
-use extensions/coverage/types
-use extensions/coverage/behaviors
-
+use "extensions/coverage/types"
+use "extensions/coverage/behaviors"
 event test_report_consumed "Test Report Consumed" {
   trigger   consume_specforge_report
   channel   "coverage.report_consumed"

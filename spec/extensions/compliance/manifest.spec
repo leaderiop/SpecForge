@@ -1,7 +1,6 @@
 // @specforge/compliance extension manifest declaration
 
-use types/zero-entity-core
-
+use "types/zero-entity-core"
 behavior ce_declare_manifest "Declare @specforge/compliance Manifest" {
   category command
   types [ManifestV2, ManifestEntityKind, ManifestEdgeType]

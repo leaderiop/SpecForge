@@ -1,23 +1,23 @@
 // LSP behaviors — Language Server Protocol features
 
-use invariants/core
-use invariants/lsp
-use invariants/validation
-use invariants/wasm
-use invariants/zero-entity-core
-use types/core
-use types/graph
-use types/diagnostics
-use types/zero-entity-core
-use types/lsp
-use types/wasm
-use events/compilation
-use ports/inbound
-use types/errors
-use ports/outbound
-
+use "invariants/core"
+use "invariants/lsp"
+use "invariants/validation"
+use "invariants/wasm"
+use "invariants/zero-entity-core"
+use "types/core"
+use "types/graph"
+use "types/diagnostics"
+use "types/zero-entity-core"
+use "types/lsp"
+use "types/wasm"
+use "events/compilation"
+use "ports/inbound"
+use "types/errors"
+use "ports/outbound"
 behavior lsp_initialize "LSP Initialize" {
   invariants [zero_domain_knowledge_core, lsp_extension_reload_consistency]
+  category   command
   types      [KindRegistryEntry, FieldRegistryEntry, SemanticTokenLegendEntry]
   ports      [LspProtocol]
   produces   [lsp_initialized]
@@ -57,6 +57,7 @@ behavior lsp_initialize "LSP Initialize" {
 
 behavior lsp_shutdown "LSP Shutdown" {
   invariants [incremental_correctness]
+  category   command
   types      [Graph]
   ports      [LspProtocol]
   produces   [lsp_shutdown_complete]
@@ -89,6 +90,7 @@ behavior lsp_shutdown "LSP Shutdown" {
 
 behavior document_open_close "Document Open/Close" {
   invariants [incremental_correctness]
+  category   command
   types      [SourceSpan]
   ports      [LspProtocol]
   produces   [file_changed]
@@ -124,6 +126,7 @@ behavior document_open_close "Document Open/Close" {
 // incremental rebuild (see shared_incremental_pipeline and behaviors/incremental.spec).
 behavior handle_text_document_change "Handle Text Document Change" {
   types      [SpecFile, SourceSpan, ContentChangeEvent]
+  category   command
   ports      [LspProtocol]
   produces   [file_changed]
   invariants [incremental_correctness, lsp_response_latency]
@@ -314,6 +317,7 @@ behavior prepare_rename "Prepare Rename" {
 
 behavior rename_entity_id "Rename Entity ID" {
   invariants [entity_id_uniqueness, lsp_response_latency, rename_atomicity, zero_domain_knowledge_core]
+  category   mutation
   types      [EntityId, TextEdit, WorkspaceEditResult]
   ports      [LspProtocol]
   produces   [entity_renamed]
@@ -347,6 +351,7 @@ behavior rename_entity_id "Rename Entity ID" {
 // No produces — delegates to shared_incremental_pipeline which produces incremental_diagnostics_complete
 behavior live_diagnostics "Live Diagnostics" {
   invariants [multi_error_collection, incremental_correctness, diagnostic_determinism, lsp_response_latency, zero_domain_knowledge_core]
+  category   command
   types      [DiagnosticBag]
   ports      [LspProtocol]
 
@@ -376,6 +381,7 @@ behavior live_diagnostics "Live Diagnostics" {
 
 behavior code_actions_for_missing_verify "Code Actions for Missing Verify" {
   invariants [zero_domain_knowledge_core, testable_entity_classification, lsp_response_latency, lsp_text_edit_non_overlapping]
+  category   validation
   types      [KindRegistryEntry, CodeAction]
   ports      [LspProtocol]
 
@@ -485,6 +491,7 @@ behavior workspace_symbol_search "Workspace Symbol Search" {
 // emit_incremental_diagnostics
 behavior shared_incremental_pipeline "Shared Incremental Pipeline" {
   invariants [incremental_correctness, zero_domain_knowledge_core, watch_mode_response_latency, lsp_extension_reload_consistency]
+  category   command
   types      [Graph]
   consumes   [incremental_rebuild_complete]
   // Delegates to emit_incremental_diagnostics which produces incremental_diagnostics_complete.
@@ -729,6 +736,7 @@ behavior code_action_create_entity_stub "Code Action: Create Entity Stub" {
 
 behavior incremental_document_sync "Incremental Document Sync" {
   invariants [incremental_correctness, lsp_response_latency]
+  category   command
   types      [SourceSpan]
   ports      [LspProtocol]
 
@@ -761,6 +769,7 @@ behavior incremental_document_sync "Incremental Document Sync" {
 
 behavior load_extension_grammars_for_highlighting "Load Extension Grammars for Highlighting" {
   invariants [grammar_injection_isolation, grammar_composition_determinism]
+  category   command
   types      [GrammarContribution, GrammarCacheEntry, GrammarError, KindRegistryEntry]
   ports      [WasmRuntime]
 

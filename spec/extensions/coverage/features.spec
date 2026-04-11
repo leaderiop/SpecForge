@@ -1,8 +1,7 @@
 // @specforge/coverage extension features — test coverage and traceability
 
-use extensions/coverage/behaviors
-use behaviors/validation
-
+use "extensions/coverage/behaviors"
+use "behaviors/validation"
 feature test_coverage_reporting "Test Coverage Reporting" {
   behaviors [merge_coverage_reports, compute_coverage_summary, gate_on_coverage_threshold, validate_test_ids_against_spec]
 
