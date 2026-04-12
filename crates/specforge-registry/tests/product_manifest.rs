@@ -16,9 +16,9 @@ fn test_product_manifest_deserializes() {
 }
 
 #[test]
-fn test_product_manifest_has_12_entity_kinds() {
+fn test_product_manifest_has_9_entity_kinds() {
     let manifest = load_product_manifest();
-    assert_eq!(manifest.entity_kinds.len(), 12);
+    assert_eq!(manifest.entity_kinds.len(), 9);
     let keywords: Vec<&str> = manifest.entity_kinds.iter().map(|k| k.keyword.as_str()).collect();
     assert!(keywords.contains(&"feature"));
     assert!(keywords.contains(&"journey"));
@@ -29,18 +29,15 @@ fn test_product_manifest_has_12_entity_kinds() {
     assert!(keywords.contains(&"persona"));
     assert!(keywords.contains(&"channel"));
     assert!(keywords.contains(&"release"));
-    assert!(keywords.contains(&"capability"));
-    assert!(keywords.contains(&"library"));
-    assert!(keywords.contains(&"roadmap"));
 }
 
 #[test]
-fn test_product_manifest_has_31_edge_types() {
+fn test_product_manifest_has_20_edge_types() {
     let manifest = load_product_manifest();
-    assert_eq!(manifest.edge_types.len(), 31);
+    assert_eq!(manifest.edge_types.len(), 20);
     let labels: Vec<&str> = manifest.edge_types.iter().map(|e| e.label.as_str()).collect();
-    // Original 17 + TermBelongsToModule
     assert!(labels.contains(&"FeatureDependsOn"));
+    assert!(labels.contains(&"FeatureRelatesTo"));
     assert!(labels.contains(&"JourneyExercisesFeature"));
     assert!(labels.contains(&"JourneyTargetsPersona"));
     assert!(labels.contains(&"JourneyUsesChannel"));
@@ -58,21 +55,6 @@ fn test_product_manifest_has_31_edge_types() {
     assert!(labels.contains(&"ReleaseIncludesDeliverable"));
     assert!(labels.contains(&"ReleaseCompletesMilestone"));
     assert!(labels.contains(&"ReleaseDependsOn"));
-    // 9 for capability/library/roadmap
-    assert!(labels.contains(&"CapabilityComposesFeature"));
-    assert!(labels.contains(&"LibraryProvidesFeature"));
-    assert!(labels.contains(&"LibraryDependsOn"));
-    assert!(labels.contains(&"LibraryDefinesPort"));
-    assert!(labels.contains(&"LibraryConsumesPort"));
-    assert!(labels.contains(&"RoadmapPlansBehavior"));
-    assert!(labels.contains(&"RoadmapPlansFeature"));
-    assert!(labels.contains(&"RoadmapPlansLibrary"));
-    assert!(labels.contains(&"RoadmapDependsOn"));
-    assert!(labels.contains(&"FeatureRelatesTo"));
-    // Phase 3: capability persona + channels edges
-    assert!(labels.contains(&"CapabilityTargetsPersona"));
-    assert!(labels.contains(&"CapabilityUsesChannel"));
-    // Phase 4: persona -> feature direct edge
     assert!(labels.contains(&"PersonaPrioritizesFeature"));
 }
 
@@ -96,8 +78,8 @@ fn test_product_manifest_populates_registries() {
     let (kind_reg, field_reg, edge_reg, diags) = populate_registries(&[manifest]);
     assert!(diags.is_empty(), "expected no population diagnostics, got: {:?}", diags);
 
-    // All 12 kinds registered
-    assert_eq!(kind_reg.len(), 12);
+    // All 9 kinds registered
+    assert_eq!(kind_reg.len(), 9);
     assert!(kind_reg.contains("feature"));
     assert!(kind_reg.contains("journey"));
     assert!(kind_reg.contains("deliverable"));
@@ -107,9 +89,6 @@ fn test_product_manifest_populates_registries() {
     assert!(kind_reg.contains("persona"));
     assert!(kind_reg.contains("channel"));
     assert!(kind_reg.contains("release"));
-    assert!(kind_reg.contains("capability"));
-    assert!(kind_reg.contains("library"));
-    assert!(kind_reg.contains("roadmap"));
 
     // Verify source extension
     assert_eq!(kind_reg.get("feature").unwrap().source_extension, "@specforge/product");
@@ -144,15 +123,6 @@ fn test_product_manifest_populates_registries() {
     assert_eq!(term_module.edge.as_deref(), Some("TermBelongsToModule"));
     assert_eq!(term_module.target_kind.as_deref(), Some("module"));
 
-    // Capability fields promoted to references in Phase 3
-    let cap_persona = field_reg.get("capability", "persona").unwrap();
-    assert_eq!(cap_persona.edge.as_deref(), Some("CapabilityTargetsPersona"));
-    assert_eq!(cap_persona.target_kind.as_deref(), Some("persona"));
-
-    let cap_channels = field_reg.get("capability", "channels").unwrap();
-    assert_eq!(cap_channels.edge.as_deref(), Some("CapabilityUsesChannel"));
-    assert_eq!(cap_channels.target_kind.as_deref(), Some("channel"));
-
     // Edge types registered including TermBelongsToModule
     assert!(edge_reg.contains("FeatureDependsOn"));
     assert!(edge_reg.contains("JourneyExercisesFeature"));
@@ -160,8 +130,6 @@ fn test_product_manifest_populates_registries() {
     assert!(edge_reg.contains("ReleaseIncludesDeliverable"));
     assert!(edge_reg.contains("TermBelongsToModule"));
     assert!(edge_reg.contains("FeatureRelatesTo"));
-    assert!(edge_reg.contains("CapabilityTargetsPersona"));
-    assert!(edge_reg.contains("CapabilityUsesChannel"));
     assert!(edge_reg.contains("PersonaPrioritizesFeature"));
 
     // Persona key_features field
@@ -180,7 +148,7 @@ fn test_product_manifest_verify_kinds() {
 fn test_product_manifest_validation_rules_count() {
     let manifest = load_product_manifest();
     // Should have validation rules for enum checks, orphan detection, and cycle detection
-    assert!(manifest.validation_rules.len() >= 19, "expected at least 19 validation rules, got {}", manifest.validation_rules.len());
+    assert!(manifest.validation_rules.len() >= 17, "expected at least 17 validation rules, got {}", manifest.validation_rules.len());
 }
 
 #[test]

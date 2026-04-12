@@ -223,66 +223,6 @@
         { "name": "reason", "description": "Justification for the current status or a status change", "fieldType": "string" },
         { "name": "refs", "description": "External references such as issues, URLs, or documents", "fieldType": "string_list" }
       ]
-    },
-    {
-      "name": "Capability",
-      "keyword": "capability",
-      "description": "A high-level product capability mapping personas to features via a flow",
-      "testable": false,
-      "supportsVerify": false,
-      "semanticToken": "function",
-      "lspIcon": "Method",
-      "dotShape": "component",
-      "dotColor": "#00BCD4",
-      "dotFillcolor": "#E0F7FA",
-      "fields": [
-        { "name": "persona", "description": "The user archetype who uses this capability", "fieldType": "reference", "edge": "CapabilityTargetsPersona", "targetKind": "persona" },
-        { "name": "channels", "description": "Channels or touchpoints through which this capability is accessed", "fieldType": "reference_list", "edge": "CapabilityUsesChannel", "targetKind": "channel" },
-        { "name": "features", "description": "Features that compose this capability", "fieldType": "reference_list", "edge": "CapabilityComposesFeature", "targetKind": "feature" },
-        { "name": "flow", "description": "Description of the interaction flow for this capability", "fieldType": "string" },
-        { "name": "description", "description": "Human-readable summary of this capability", "fieldType": "string" }
-      ]
-    },
-    {
-      "name": "Library",
-      "keyword": "library",
-      "description": "A reusable code library with defined ports and dependencies",
-      "testable": false,
-      "supportsVerify": false,
-      "semanticToken": "module",
-      "lspIcon": "Package",
-      "dotShape": "folder",
-      "dotColor": "#795548",
-      "dotFillcolor": "#EFEBE9",
-      "fields": [
-        { "name": "family", "description": "Category or family this library belongs to", "fieldType": "string" },
-        { "name": "features", "description": "Features this library provides or supports", "fieldType": "reference_list", "edge": "LibraryProvidesFeature", "targetKind": "feature" },
-        { "name": "depends_on", "description": "Other libraries this library depends on", "fieldType": "reference_list", "edge": "LibraryDependsOn", "targetKind": "library" },
-        { "name": "ports_defined", "description": "Ports (interfaces) defined by this library", "fieldType": "reference_list", "edge": "LibraryDefinesPort", "targetKind": "port" },
-        { "name": "ports_consumed", "description": "Ports (interfaces) consumed by this library", "fieldType": "reference_list", "edge": "LibraryConsumesPort", "targetKind": "port" },
-        { "name": "description", "description": "Human-readable summary of this library", "fieldType": "string" }
-      ]
-    },
-    {
-      "name": "Roadmap",
-      "keyword": "roadmap",
-      "description": "A strategic plan grouping features, behaviors, and libraries into a phased timeline",
-      "testable": false,
-      "supportsVerify": false,
-      "semanticToken": "namespace",
-      "lspIcon": "Folder",
-      "dotShape": "tab",
-      "dotColor": "#3F51B5",
-      "dotFillcolor": "#E8EAF6",
-      "fields": [
-        { "name": "status", "description": "Lifecycle state of this roadmap", "fieldType": "string" },
-        { "name": "behaviors", "description": "Behaviors planned in this roadmap", "fieldType": "reference_list", "edge": "RoadmapPlansBehavior", "targetKind": "behavior" },
-        { "name": "features", "description": "Features planned in this roadmap", "fieldType": "reference_list", "edge": "RoadmapPlansFeature", "targetKind": "feature" },
-        { "name": "libraries", "description": "Libraries planned in this roadmap", "fieldType": "reference_list", "edge": "RoadmapPlansLibrary", "targetKind": "library" },
-        { "name": "criteria", "description": "Success criteria for this roadmap phase", "fieldType": "string_list" },
-        { "name": "depends_on", "description": "Other roadmaps that must be completed before this one", "fieldType": "reference_list", "edge": "RoadmapDependsOn", "targetKind": "roadmap" },
-        { "name": "description", "description": "Human-readable summary of this roadmap", "fieldType": "string" }
-      ]
     }
   ],
   "edgeTypes": [
@@ -305,18 +245,7 @@
     { "label": "ReleaseIncludesDeliverable", "sourceKind": "release", "targetKind": "deliverable", "edgeStyle": "solid", "edgeColor": "#FF5722" },
     { "label": "ReleaseCompletesMilestone", "sourceKind": "release", "targetKind": "milestone", "edgeStyle": "solid", "edgeColor": "#FF5722" },
     { "label": "ReleaseDependsOn", "sourceKind": "release", "targetKind": "release", "edgeStyle": "dashed", "edgeColor": "#FF5722" },
-    { "label": "CapabilityComposesFeature", "sourceKind": "capability", "targetKind": "feature", "edgeStyle": "solid", "edgeColor": "#00BCD4" },
-    { "label": "CapabilityTargetsPersona", "description": "Capability targets a persona", "sourceKind": "capability", "targetKind": "persona", "edgeStyle": "solid", "edgeColor": "#E91E63" },
-    { "label": "CapabilityUsesChannel", "description": "Capability is accessed through a channel", "sourceKind": "capability", "targetKind": "channel", "edgeStyle": "solid", "edgeColor": "#00BCD4" },
-    { "label": "PersonaPrioritizesFeature", "description": "Persona prioritizes a feature", "sourceKind": "persona", "targetKind": "feature", "edgeStyle": "solid", "edgeColor": "#E91E63" },
-    { "label": "LibraryProvidesFeature", "sourceKind": "library", "targetKind": "feature", "edgeStyle": "solid", "edgeColor": "#795548" },
-    { "label": "LibraryDependsOn", "sourceKind": "library", "targetKind": "library", "edgeStyle": "dashed", "edgeColor": "#795548" },
-    { "label": "LibraryDefinesPort", "sourceKind": "library", "targetKind": "port", "edgeStyle": "solid", "edgeColor": "#795548" },
-    { "label": "LibraryConsumesPort", "sourceKind": "library", "targetKind": "port", "edgeStyle": "dashed", "edgeColor": "#795548" },
-    { "label": "RoadmapPlansBehavior", "sourceKind": "roadmap", "targetKind": "behavior", "edgeStyle": "solid", "edgeColor": "#3F51B5" },
-    { "label": "RoadmapPlansFeature", "sourceKind": "roadmap", "targetKind": "feature", "edgeStyle": "solid", "edgeColor": "#3F51B5" },
-    { "label": "RoadmapPlansLibrary", "sourceKind": "roadmap", "targetKind": "library", "edgeStyle": "solid", "edgeColor": "#3F51B5" },
-    { "label": "RoadmapDependsOn", "sourceKind": "roadmap", "targetKind": "roadmap", "edgeStyle": "dashed", "edgeColor": "#3F51B5" }
+    { "label": "PersonaPrioritizesFeature", "description": "Persona prioritizes a feature", "sourceKind": "persona", "targetKind": "feature", "edgeStyle": "solid", "edgeColor": "#E91E63" }
   ],
   "validationRules": [
     {
@@ -510,41 +439,14 @@
       "constraint": { "kind": "matches", "pattern": "." }
     },
     {
-      "code": "W096",
-      "severity": "warning",
-      "messageTemplate": "library dependency cycle detected involving '{id}'",
-      "check": "cycle_detection",
-      "targetKind": "library",
-      "edgeType": "LibraryDependsOn"
-    },
-    {
-      "code": "W097",
-      "severity": "warning",
-      "messageTemplate": "roadmap dependency cycle detected involving '{id}'",
-      "check": "cycle_detection",
-      "targetKind": "roadmap",
-      "edgeType": "RoadmapDependsOn"
-    },
-    {
       "code": "W049",
       "severity": "warning",
       "messageTemplate": "milestone '{id}' has no features and no modules — it may be empty",
       "check": "missing_field_when_flag_set",
       "targetKind": "milestone",
       "field": "features"
-    },
-    {
-      "code": "W098",
-      "severity": "warning",
-      "messageTemplate": "roadmap '{id}' has invalid status '{value}' — expected one of: draft, active, completed, archived",
-      "check": "field_value_constraint",
-      "targetKind": "roadmap",
-      "field": "status",
-      "constraint": { "kind": "one_of", "values": ["draft", "active", "completed", "archived"] }
     }
   ],
   "reservedKeywords": [],
-  "peerDependencies": [
-    { "name": "@specforge/software", "version": "^1.0" }
-  ]
+  "peerDependencies": []
 }

@@ -179,6 +179,8 @@ pub struct FieldConstraint {
 pub struct PeerDependency {
     pub name: String,
     pub version: String,
+    #[serde(default)]
+    pub optional: bool,
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]

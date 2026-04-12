@@ -8,6 +8,7 @@ mod emit;
 mod exit_code;
 mod json;
 pub mod model;
+pub mod outline;
 mod plan;
 mod query;
 pub mod schema;

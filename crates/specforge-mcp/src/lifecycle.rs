@@ -37,6 +37,7 @@ pub fn handle_initialize(state: &mut McpState, params: Value, id: Option<Value>)
             state.edge_registry = result.edge_registry;
             state.extension_info = result.extension_info;
             state.surface_entries = result.surface_entries;
+            state.manifests = result.manifests;
 
             // Register extension MCP tools and resources from manifest surfaces
             register_extension_surfaces(state, &result.manifest_surfaces);

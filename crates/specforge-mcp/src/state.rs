@@ -29,6 +29,7 @@ pub struct McpState {
     pub edge_registry: EdgeRegistry,
     pub extension_info: Vec<(String, String)>,
     pub surface_entries: Vec<SurfaceRegistryEntry>,
+    pub manifests: Vec<specforge_registry::ManifestV2>,
 }
 
 #[derive(Debug, Clone)]
@@ -61,6 +62,7 @@ impl McpState {
             edge_registry: EdgeRegistry::new(),
             extension_info: Vec::new(),
             surface_entries: Vec::new(),
+            manifests: Vec::new(),
         }
     }
 
@@ -86,5 +88,6 @@ impl McpState {
         self.edge_registry = EdgeRegistry::new();
         self.extension_info.clear();
         self.surface_entries.clear();
+        self.manifests.clear();
     }
 }

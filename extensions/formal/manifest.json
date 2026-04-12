@@ -13,25 +13,6 @@
   ],
   "entityKinds": [
     {
-      "name": "Condition",
-      "keyword": "condition",
-      "description": "A formal pre/post-condition or invariant for verification",
-      "testable": false,
-      "supportsVerify": false,
-      "semanticToken": "property",
-      "lspIcon": "Property",
-      "dotShape": "diamond",
-      "dotColor": "#1A237E",
-      "dotFillcolor": "#E8EAF6",
-      "fields": [
-        { "name": "expression", "description": "Formal expression defining the condition", "fieldType": "string", "required": true },
-        { "name": "kind", "description": "Classification of the condition (e.g. precondition, postcondition, invariant)", "fieldType": "string" },
-        { "name": "strength", "description": "Strength level of the condition (e.g. must, should, may)", "fieldType": "string" },
-        { "name": "description", "description": "Free-form description of the condition", "fieldType": "string" },
-        { "name": "refs", "description": "External references (URLs, documents, issue links)", "fieldType": "string_list" }
-      ]
-    },
-    {
       "name": "Property",
       "keyword": "property",
       "description": "A temporal property assertion (safety, liveness, fairness)",
@@ -64,7 +45,7 @@
       "dotFillcolor": "#EDE7F6",
       "fields": [
         { "name": "expression", "description": "Formal expression stating the axiom", "fieldType": "string", "required": true },
-        { "name": "assumes", "description": "Conditions this axiom assumes as foundational truths", "fieldType": "reference_list", "edge": "AxiomAssumesCondition", "targetKind": "condition" },
+        { "name": "assumes", "description": "Invariants this axiom assumes as foundational truths", "fieldType": "reference_list", "edge": "AxiomAssumesInvariant", "targetKind": "invariant" },
         { "name": "justification", "description": "Rationale for why this axiom is assumed true", "fieldType": "string" },
         { "name": "description", "description": "Free-form description of the axiom", "fieldType": "string" },
         { "name": "refs", "description": "External references (URLs, documents, issue links)", "fieldType": "string_list" }
@@ -137,34 +118,34 @@
   ],
   "edgeTypes": [
     {
-      "label": "BehaviorRequiresCondition",
-      "description": "Behavior requires a condition as precondition",
+      "label": "BehaviorRequiresInvariant",
+      "description": "Behavior requires an invariant as precondition",
       "sourceKind": "behavior",
-      "targetKind": "condition",
+      "targetKind": "invariant",
       "edgeStyle": "solid",
       "edgeColor": "#1A237E"
     },
     {
-      "label": "BehaviorEnsuresCondition",
-      "description": "Behavior ensures a condition as postcondition",
+      "label": "BehaviorEnsuresInvariant",
+      "description": "Behavior ensures an invariant as postcondition",
       "sourceKind": "behavior",
-      "targetKind": "condition",
+      "targetKind": "invariant",
       "edgeStyle": "solid",
       "edgeColor": "#1A237E"
     },
     {
-      "label": "BehaviorMaintainsCondition",
-      "description": "Behavior maintains a condition as frame invariant throughout execution",
+      "label": "BehaviorMaintainsInvariant",
+      "description": "Behavior maintains an invariant as frame invariant throughout execution",
       "sourceKind": "behavior",
-      "targetKind": "condition",
+      "targetKind": "invariant",
       "edgeStyle": "dashed",
       "edgeColor": "#1A237E"
     },
     {
-      "label": "AxiomAssumesCondition",
-      "description": "Axiom assumes a condition as foundational truth",
+      "label": "AxiomAssumesInvariant",
+      "description": "Axiom assumes an invariant as foundational truth",
       "sourceKind": "axiom",
-      "targetKind": "condition",
+      "targetKind": "invariant",
       "edgeStyle": "dotted",
       "edgeColor": "#311B92"
     },
@@ -185,10 +166,10 @@
       "edgeColor": "#004D40"
     },
     {
-      "label": "PropertyDependsOnCondition",
-      "description": "Property depends on a condition",
+      "label": "PropertyDependsOnInvariant",
+      "description": "Property depends on an invariant",
       "sourceKind": "property",
-      "targetKind": "condition",
+      "targetKind": "invariant",
       "edgeStyle": "dashed",
       "edgeColor": "#0D47A1"
     },
@@ -238,9 +219,9 @@
       "targetKind": "behavior",
       "sourceExtension": "@specforge/formal",
       "fields": [
-        { "name": "requires", "description": "Preconditions that must hold before execution", "fieldType": "reference_list", "edge": "BehaviorRequiresCondition", "targetKind": "condition" },
-        { "name": "ensures", "description": "Postconditions guaranteed after successful execution", "fieldType": "reference_list", "edge": "BehaviorEnsuresCondition", "targetKind": "condition" },
-        { "name": "maintains", "description": "Conditions preserved throughout execution", "fieldType": "reference_list", "edge": "BehaviorMaintainsCondition", "targetKind": "condition" },
+        { "name": "requires", "description": "Invariants that must hold as preconditions before execution", "fieldType": "reference_list", "edge": "BehaviorRequiresInvariant", "targetKind": "invariant" },
+        { "name": "ensures", "description": "Invariants guaranteed as postconditions after successful execution", "fieldType": "reference_list", "edge": "BehaviorEnsuresInvariant", "targetKind": "invariant" },
+        { "name": "maintains", "description": "Invariants preserved throughout execution", "fieldType": "reference_list", "edge": "BehaviorMaintainsInvariant", "targetKind": "invariant" },
         { "name": "satisfies", "description": "Temporal properties this behavior satisfies", "fieldType": "reference_list", "edge": "BehaviorSatisfiesProperty", "targetKind": "property" },
         { "name": "sync", "description": "Synchronization constraints for execution", "fieldType": "string_list" }
       ]
@@ -256,15 +237,6 @@
     }
   ],
   "validationRules": [
-    {
-      "code": "W058",
-      "severity": "warning",
-      "messageTemplate": "condition '{id}' has invalid kind '{value}' — expected one of: precondition, postcondition, invariant",
-      "check": "field_value_constraint",
-      "targetKind": "condition",
-      "field": "kind",
-      "constraint": { "kind": "one_of", "values": ["precondition", "postcondition", "invariant"] }
-    },
     {
       "code": "W059",
       "severity": "warning",

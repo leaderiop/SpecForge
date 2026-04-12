@@ -9,8 +9,7 @@
     "validators": true
   },
   "peerDependencies": [
-    { "name": "@specforge/software", "version": "^1.0" },
-    { "name": "@specforge/product", "version": "^1.0", "optional": true }
+    { "name": "@specforge/software", "version": "^1.0" }
   ],
   "entityKinds": [
     {

@@ -43,6 +43,7 @@ fn make_manifest(name: &str, version: &str, peers: &[(&str, &str)]) -> ManifestV
             .map(|(n, v)| PeerDependency {
                 name: n.to_string(),
                 version: v.to_string(),
+                optional: false,
             })
             .collect(),
         ..default_manifest()

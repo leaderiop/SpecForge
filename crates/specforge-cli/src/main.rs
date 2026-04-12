@@ -11,6 +11,7 @@ mod init;
 mod mcp;
 mod migrate;
 mod model;
+mod outline;
 mod pipeline;
 mod product;
 mod providers;
@@ -133,6 +134,24 @@ enum Commands {
         /// Maximum depth from root kind (requires --root)
         #[arg(long, requires = "root")]
         depth: Option<usize>,
+    },
+    /// Render the extension architecture (dependencies, enhancements, contributions)
+    Outline {
+        /// Path to the spec root directory
+        #[arg(default_value = ".")]
+        path: PathBuf,
+
+        /// Output format: markdown (default), mermaid, dot, json
+        #[arg(long, default_value = "markdown")]
+        format: String,
+
+        /// Detail level: none (overview only), keys (default), all (full field attribution)
+        #[arg(long, default_value = "keys")]
+        fields: String,
+
+        /// Dependency visibility: direct (declared only), effective (direct + used transitive), full (all transitive)
+        #[arg(long, default_value = "direct")]
+        deps: String,
     },
     /// Query the graph at multiple resolutions
     Query {
@@ -544,6 +563,10 @@ fn main() {
                 &path, &format, &group_by, &fields,
                 extension.as_deref(), &kinds, root.as_deref(), depth,
             );
+            std::process::exit(exit_code);
+        }
+        Commands::Outline { path, format, fields, deps } => {
+            let exit_code = outline::run(&path, &format, &fields, &deps);
             std::process::exit(exit_code);
         }
         Commands::Query { entity, path, depth, kind } => {

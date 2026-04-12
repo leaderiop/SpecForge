@@ -29,6 +29,7 @@ pub fn call(state: &mut McpState, args: Value, id: Option<Value>) -> JsonRpcResp
         state.edge_registry = result.edge_registry;
         state.extension_info = result.extension_info;
         state.surface_entries = result.surface_entries;
+        state.manifests = result.manifests;
 
         // Re-register extension surfaces (remove old extension tools/resources first)
         state.tool_registry.retain(|t| {

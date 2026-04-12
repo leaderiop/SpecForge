@@ -29,6 +29,8 @@ pub struct CompilationContext {
     pub surface_entries: Vec<SurfaceRegistryEntry>,
     /// Raw surface contributions from manifests (needed for MCP descriptor generation).
     pub manifest_surfaces: Vec<(String, SurfaceContributions)>,
+    /// Raw extension manifests (needed for outline rendering).
+    pub manifests: Vec<ManifestV2>,
     pub spec_root: std::path::PathBuf,
 }
 
@@ -209,6 +211,7 @@ pub fn compile(path: &Path) -> CompilationContext {
         extension_info,
         surface_entries,
         manifest_surfaces,
+        manifests,
         spec_root,
     }
 }
@@ -242,6 +245,7 @@ pub fn compile_simple(path: &Path) -> CompilationContext {
         extension_info: Vec::new(),
         surface_entries: Vec::new(),
         manifest_surfaces: Vec::new(),
+        manifests: Vec::new(),
         spec_root,
     }
 }

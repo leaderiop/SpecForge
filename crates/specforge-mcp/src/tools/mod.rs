@@ -10,6 +10,7 @@ mod inspect;
 mod find_definition;
 mod find_references;
 mod outline;
+mod outline_extensions;
 mod suggest_fixes;
 mod list;
 mod model;
@@ -56,6 +57,7 @@ pub fn handle_tool_call(state: &mut McpState, params: Value, id: Option<Value>) 
         "specforge.find_definition" => find_definition::call(state, arguments, id),
         "specforge.find_references" => find_references::call(state, arguments, id),
         "specforge.outline" => outline::call(state, arguments, id),
+        "specforge.outline_extensions" => outline_extensions::call(state, arguments, id),
         "specforge.suggest_fixes" => suggest_fixes::call(state, arguments, id),
         // Operations
         "specforge.format" | "specforge.rename" | "specforge.init"

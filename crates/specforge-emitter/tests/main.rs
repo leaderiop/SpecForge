@@ -8,6 +8,7 @@ mod emit_dot;
 mod emit_graph;
 mod emit_json;
 mod model;
+mod outline;
 mod plan;
 mod query;
 mod schema;

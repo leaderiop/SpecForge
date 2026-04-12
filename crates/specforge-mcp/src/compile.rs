@@ -1,6 +1,6 @@
 use specforge_common::Diagnostic;
 use specforge_graph::Graph;
-use specforge_registry::{KindRegistry, FieldRegistry, EdgeRegistry, SurfaceContributions, SurfaceRegistryEntry};
+use specforge_registry::{KindRegistry, FieldRegistry, EdgeRegistry, ManifestV2, SurfaceContributions, SurfaceRegistryEntry};
 use std::path::Path;
 
 pub struct CompileResult {
@@ -12,6 +12,7 @@ pub struct CompileResult {
     pub extension_info: Vec<(String, String)>,
     pub surface_entries: Vec<SurfaceRegistryEntry>,
     pub manifest_surfaces: Vec<(String, SurfaceContributions)>,
+    pub manifests: Vec<ManifestV2>,
 }
 
 /// Compile a project using the full shared pipeline.
@@ -29,5 +30,6 @@ pub fn compile_project(project_root: &Path) -> CompileResult {
         extension_info: ctx.extension_info,
         surface_entries: ctx.surface_entries,
         manifest_surfaces: ctx.manifest_surfaces,
+        manifests: ctx.manifests,
     }
 }

@@ -40,6 +40,7 @@ pub fn make_manifest(name: &str, peers: &[(&str, &str)]) -> ManifestV2 {
             .map(|(n, v)| PeerDependency {
                 name: n.to_string(),
                 version: v.to_string(),
+                optional: false,
             })
             .collect(),
         ..default_manifest()

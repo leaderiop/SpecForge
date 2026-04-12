@@ -567,7 +567,18 @@
       "Bash(INSTA_UPDATE=always cargo test -p specforge-emitter --test tests)",
       "Bash(./target/release/specforge schema:*)",
       "Bash(INSTA_UPDATE=always cargo test -p specforge-emitter)",
-      "Bash(./target/release/specforge-cli model:*)"
+      "Bash(./target/release/specforge-cli model:*)",
+      "mcp__specforge__specforge_extensions",
+      "Bash(./target/release/specforge outline:*)",
+      "Bash(git -C /Users/u1070457/Projects/Perso/specforge log --oneline --all)",
+      "Bash(git -C /Users/u1070457/Projects/Perso/specforge log --all --grep=\"capability\" --oneline)",
+      "Bash(git -C /Users/u1070457/Projects/Perso/specforge log -S \"capability\" --oneline -- spec/extensions/product/)",
+      "Bash(git -C /Users/u1070457/Projects/Perso/specforge show 1a0270b:spec/extensions/product/manifest.spec)",
+      "Bash(git -C /Users/u1070457/Projects/Perso/specforge show 24fee58:spec/extensions/product/manifest.spec)",
+      "Bash(git -C /Users/u1070457/Projects/Perso/specforge show 7716bb5:spec/extensions/product/manifest.spec)",
+      "Bash(git -C /Users/u1070457/Projects/Perso/specforge log --all --oneline -- spec/extensions/product/)",
+      "Bash(git -C /Users/u1070457/Projects/Perso/specforge show 7716bb5:spec/extensions/product/)",
+      "Bash(specforge list:*)"
     ]
   }
 }

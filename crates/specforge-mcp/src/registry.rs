@@ -239,6 +239,26 @@ fn default_tools() -> Vec<McpToolDescriptor> {
             category: Some("core".into()),
         },
         McpToolDescriptor {
+            name: "specforge.outline_extensions".into(),
+            description: "Renders the extension architecture hierarchy — how extensions relate via dependencies, enhancements, and cross-extension edges. Shows entity kinds, edge types, validation rules, and surface contributions per extension. Use this to understand the project's extension topology before making structural changes.".into(),
+            input_schema: json!({
+                "type": "object",
+                "properties": {
+                    "format": {
+                        "type": "string",
+                        "enum": ["markdown", "mermaid", "dot", "json"],
+                        "description": "Output format (default: json). JSON recommended for programmatic consumption."
+                    },
+                    "fields": {
+                        "type": "string",
+                        "enum": ["none", "keys", "all"],
+                        "description": "Detail level: none (counts only), keys (names + rule codes), all (full field attribution). Default: keys"
+                    }
+                }
+            }),
+            category: Some("core".into()),
+        },
+        McpToolDescriptor {
             name: "specforge.coverage".into(),
             description: "Get coverage status per entity".into(),
             input_schema: json!({
