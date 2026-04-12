@@ -8,6 +8,12 @@ type Span = (String, Range<usize>);
 pub fn render_diagnostics(diagnostics: &[Diagnostic], sources: &HashMap<String, String>) -> String {
     let mut buf = Vec::new();
 
+    let mut cache = ariadne::sources(
+        sources
+            .iter()
+            .map(|(k, v)| (k.clone(), v.clone())),
+    );
+
     for diag in diagnostics {
         let kind = match diag.severity {
             Severity::Error => ariadne::ReportKind::Error,
@@ -43,13 +49,7 @@ pub fn render_diagnostics(diagnostics: &[Diagnostic], sources: &HashMap<String, 
         }
 
         let report = builder.finish();
-
-        let cache = ariadne::sources(
-            sources
-                .iter()
-                .map(|(k, v)| (k.clone(), v.clone())),
-        );
-        report.write(cache, &mut buf).ok();
+        report.write(&mut cache, &mut buf).ok();
     }
 
     String::from_utf8_lossy(&buf).to_string()

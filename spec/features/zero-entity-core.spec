@@ -4,15 +4,9 @@ use "behaviors/zero-entity-lsp"
 use "behaviors/zero-entity-registries"
 use "behaviors/zero-entity-validation"
 use "behaviors/validation"
-use "behaviors/output"
 use "behaviors/lsp"
 use "behaviors/extensions"
 feature declarative_validation_rules "Declarative Validation Rules" {
-  behaviors [
-    parse_validation_rule_pattern, execute_validation_pattern,
-    emit_diagnostic_from_pattern, register_extension_validation_rules,
-    register_custom_validation_patterns,
-  ]
 
   problem """
     Validation passes are hardcoded functions in the compiler.
@@ -46,15 +40,6 @@ feature declarative_validation_rules "Declarative Validation Rules" {
 }
 
 feature extension_manifest "Extension Manifest" {
-  behaviors [
-    validate_manifest_v2_schema, register_entity_kinds_from_manifest,
-    register_edge_types_from_manifest, register_validation_rules_from_manifest,
-    register_verify_kinds_from_manifest,
-    register_grammar_contributions, register_body_parser_contributions,
-    validate_extension_manifest_consistency,
-    detect_duplicate_entity_kinds, validate_peer_dependencies,
-    validate_extension_testability,
-  ]
 
   problem """
     Extensions need a structured manifest format that carries rich metadata
@@ -79,13 +64,6 @@ feature extension_manifest "Extension Manifest" {
 }
 
 feature dynamic_entity_registration "Dynamic Entity Registration" {
-  behaviors [
-    boot_empty_kind_registry, boot_empty_field_registry, boot_empty_edge_registry,
-    populate_kind_registry_from_extensions, populate_field_registry_from_extensions,
-    populate_edge_registry_from_extensions, validate_registered_entity_fields,
-    detect_unknown_entity_fields,
-    custom_entity_types_via_define,
-  ]
 
   problem """
     Entity types are defined as a closed enum with hardcoded
@@ -106,16 +84,6 @@ feature dynamic_entity_registration "Dynamic Entity Registration" {
 }
 
 feature extension_driven_lsp "Extension-Driven LSP" {
-  behaviors [
-    complete_extension_defined_keywords, provide_extension_entity_semantic_tokens,
-    provide_extension_entity_hover, provide_extension_defined_lsp_icons,
-    // Bridge behavior: complete_field_names is shared between extension_driven_lsp
-    // (here) and hover_and_autocomplete (features/lsp.spec). It queries the
-    // FieldRegistry for extension-defined field names, so it is an extension-layer
-    // behavior owned by this feature. The LSP feature lists it as a bridge reference
-    // because it participates in the LSP autocomplete pipeline.
-    complete_field_names,
-  ]
 
   problem """
     LSP features for extension-defined entity kinds get generic treatment
@@ -137,7 +105,6 @@ feature extension_driven_lsp "Extension-Driven LSP" {
 }
 
 feature extension_driven_visualization "Extension-Driven Visualization" {
-  behaviors [render_extension_defined_dot_shapes, render_extension_defined_edge_styles]
 
   problem """
     Graph visualization uses hardcoded shapes and styles for entity nodes.
@@ -163,13 +130,6 @@ feature extension_driven_visualization "Extension-Driven Visualization" {
 }
 
 feature zero_entity_bootstrap "Zero-Entity Bootstrap" {
-  behaviors [
-    collapse_grammar_to_generic_entity_block,
-    two_phase_parse_structural, two_phase_validate_semantic,
-    suggest_missing_extensions, detect_unknown_entity_kinds,
-    graceful_degradation_without_extensions,
-    handle_all_extensions_failed_to_load,
-  ]
 
   problem """
     The compiler assumes entity keywords are known at parse time because
@@ -210,7 +170,6 @@ feature zero_entity_bootstrap "Zero-Entity Bootstrap" {
 feature extension_driven_code_actions "Extension-Driven Code Actions" {
   // Owned: code_actions_for_missing_verify, code_action_create_entity_stub
   // Bridge: listed in features/lsp.spec code_actions
-  behaviors [code_actions_for_missing_verify, code_action_create_entity_stub]
 
   problem """
     LSP code actions (quick fixes, refactorings) depend on extension
@@ -232,7 +191,6 @@ feature extension_driven_coverage "Extension-Driven Coverage" {
   // Bridge: compute_project_statistics is defined in behaviors/output.spec and
   // also listed in ci_integration (features/output.spec). This feature owns the
   // extension-aware coverage aspect; ci_integration owns the CLI/exit-code aspect.
-  behaviors [compute_project_statistics]
 
   problem """
     Coverage percentage must only count entity kinds that are testable,

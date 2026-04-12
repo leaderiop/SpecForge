@@ -33,7 +33,8 @@ pub use compilation::{
     register_body_parser_contributions, register_grammar_contributions, GrammarConflictPolicy,
     RegisteredBodyParser, RegisteredGrammar,
     // detection
-    detect_mistyped_references, EntityRefInfo,
+    detect_mistyped_references, detect_unknown_entity_kinds, detect_unknown_entity_fields,
+    EntityRefInfo,
     // populate
     apply_entity_enhancements, populate_registries,
     // validate

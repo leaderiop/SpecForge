@@ -5,7 +5,6 @@ use "behaviors/mcp-prompts"
 use "behaviors/mcp-server"
 use "behaviors/mcp-tools"
 feature mcp_resource_exposure "MCP Resource Exposure" {
-  behaviors [expose_graph_as_mcp_resource, expose_schema_as_mcp_resource, expose_context_as_mcp_resource, expose_brief_as_mcp_resource, expose_diagnostics_as_mcp_resource, expose_entity_as_mcp_resource]
 
   problem """
     AI agents using MCP need resource-based access to the spec graph, schema,
@@ -22,7 +21,6 @@ feature mcp_resource_exposure "MCP Resource Exposure" {
 }
 
 feature mcp_core_tools "MCP Core Tools" {
-  behaviors [provide_mcp_query_tool, provide_mcp_validate_tool, provide_mcp_export_tool, provide_mcp_trace_tool, provide_mcp_search_tool, provide_mcp_schema_tool, provide_mcp_coverage_tool, provide_mcp_stats_tool]
 
   problem """
     Agents need to invoke core spec operations (query subgraphs, trigger validation,
@@ -42,7 +40,6 @@ feature mcp_core_tools "MCP Core Tools" {
 }
 
 feature mcp_navigation_tools "MCP Navigation Tools" {
-  behaviors [provide_mcp_inspect_tool, provide_mcp_find_definition_tool, provide_mcp_find_references_tool, provide_mcp_outline_tool, provide_mcp_suggest_fixes_tool]
 
   problem """
     Agents need LSP-equivalent navigation capabilities — inspecting entities, finding
@@ -60,7 +57,6 @@ feature mcp_navigation_tools "MCP Navigation Tools" {
 }
 
 feature mcp_mutation_tools "MCP Mutation Tools" {
-  behaviors [provide_mcp_format_tool, provide_mcp_rename_tool, provide_mcp_init_tool, provide_mcp_add_extension_tool, provide_mcp_remove_extension_tool, provide_mcp_migrate_tool]
 
   problem """
     Agents that author or maintain spec projects need to format files, rename
@@ -79,7 +75,6 @@ feature mcp_mutation_tools "MCP Mutation Tools" {
 }
 
 feature mcp_project_management_tools "MCP Project Management Tools" {
-  behaviors [provide_mcp_extensions_tool, provide_mcp_providers_tool, provide_mcp_doctor_tool, provide_mcp_collect_tool, provide_mcp_render_tool]
 
   problem """
     Agents managing spec projects need to list extensions, check providers,
@@ -107,7 +102,6 @@ feature mcp_project_management_tools "MCP Project Management Tools" {
 }
 
 feature mcp_delta_notifications "MCP Delta Notifications" {
-  behaviors [notify_graph_delta_via_mcp, notify_diagnostics_delta_via_mcp]
 
   problem """
     Agents consuming the spec graph via MCP have no way to know when the graph
@@ -125,7 +119,6 @@ feature mcp_delta_notifications "MCP Delta Notifications" {
 }
 
 feature mcp_prompts "MCP Prompts" {
-  behaviors [provide_mcp_context_prompt, provide_mcp_review_prompt, provide_mcp_trace_prompt, provide_mcp_explore_prompt]
 
   problem """
     Agents need guided workflows for common spec tasks — implementing an entity,
@@ -144,7 +137,6 @@ feature mcp_prompts "MCP Prompts" {
 }
 
 feature mcp_protocol_compliance "MCP Protocol Compliance" {
-  behaviors [handle_mcp_protocol_error, handle_mcp_request_cancellation, guard_mcp_reinitialization]
 
   problem """
     The MCP server implements SpecForge-specific tools and resources but does not
@@ -163,7 +155,6 @@ feature mcp_protocol_compliance "MCP Protocol Compliance" {
 }
 
 feature mcp_lifecycle "MCP Lifecycle" {
-  behaviors [mcp_initialize, mcp_shutdown]
 
   problem """
     The MCP server must manage its full lifecycle — initialization of the
@@ -185,7 +176,6 @@ feature mcp_lifecycle "MCP Lifecycle" {
 }
 
 feature mcp_discovery "MCP Discovery" {
-  behaviors [list_mcp_resources, list_mcp_tools, list_mcp_prompts]
 
   problem """
     Agents connecting to the MCP server have no way to discover which tools,

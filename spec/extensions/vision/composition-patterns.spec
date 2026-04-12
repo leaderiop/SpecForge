@@ -436,7 +436,6 @@ behavior cp_milestone_behavior_edge_absent "Product MilestoneBehavior Edge When 
     3. If a .spec file attempts to use a behaviors field on milestone:
 
          milestone alpha_release {
-           behaviors [user_login, password_reset]
          }
 
        The compiler MUST emit a diagnostic for the unknown field

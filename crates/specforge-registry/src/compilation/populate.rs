@@ -90,6 +90,7 @@ fn register_entity_kinds(
     for kind in &manifest.entity_kinds {
         let entry = KindRegistryEntry {
             kind_name: kind.keyword.clone(),
+            description: kind.description.clone(),
             source_extension: manifest.name.clone(),
             testable: kind.testable,
             singleton: kind.singleton,
@@ -177,6 +178,7 @@ fn register_single_field(
     registry.register(FieldRegistryEntry {
         kind_name: kind_name.to_string(),
         field_name: field.name.clone(),
+        description: field.description.clone(),
         field_type,
         source_extension: source_extension.to_string(),
         edge: field.edge.clone(),
@@ -661,6 +663,80 @@ mod tests {
         assert!(diags.iter().any(|d| d.code == "W018" && d.message.contains("links_to")));
     }
 
+    // -- Description propagation tests --
+
+    #[test]
+    fn test_entity_kind_description_propagated_to_registry() {
+        let manifest: ManifestV2 = serde_json::from_str(
+            r#"{
+                "name": "@test/ext",
+                "version": "1.0.0",
+                "manifestVersion": 2,
+                "wasmPath": "x.wasm",
+                "entityKinds": [
+                    {
+                        "name": "Behavior",
+                        "keyword": "behavior",
+                        "description": "A testable unit of system functionality"
+                    }
+                ]
+            }"#,
+        )
+        .unwrap();
+        let (kind_reg, _, _, _) = populate_registries(&[manifest]);
+        let entry = kind_reg.get("behavior").unwrap();
+        assert_eq!(
+            entry.description.as_deref(),
+            Some("A testable unit of system functionality")
+        );
+    }
+
+    #[test]
+    fn test_entity_kind_without_description_has_none() {
+        let (kind_reg, _, _, _) = populate_registries(&[software_manifest()]);
+        let entry = kind_reg.get("behavior").unwrap();
+        assert!(entry.description.is_none());
+    }
+
+    #[test]
+    fn test_field_description_propagated_to_registry() {
+        let manifest: ManifestV2 = serde_json::from_str(
+            r#"{
+                "name": "@test/ext",
+                "version": "1.0.0",
+                "manifestVersion": 2,
+                "wasmPath": "x.wasm",
+                "entityKinds": [
+                    {
+                        "name": "Behavior",
+                        "keyword": "behavior",
+                        "fields": [
+                            {
+                                "name": "contract",
+                                "fieldType": "block",
+                                "description": "The behavioral contract this entity fulfills"
+                            }
+                        ]
+                    }
+                ]
+            }"#,
+        )
+        .unwrap();
+        let (_, field_reg, _, _) = populate_registries(&[manifest]);
+        let entry = field_reg.get("behavior", "contract").unwrap();
+        assert_eq!(
+            entry.description.as_deref(),
+            Some("The behavioral contract this entity fulfills")
+        );
+    }
+
+    #[test]
+    fn test_field_without_description_has_none() {
+        let (_, field_reg, _, _) = populate_registries(&[software_manifest()]);
+        let entry = field_reg.get("behavior", "contract").unwrap();
+        assert!(entry.description.is_none());
+    }
+
     // B:register_entity_kinds_from_manifest — verify contract "requires/ensures consistency for entity kind registration"
     #[test]
     fn test_register_entity_kinds_contract() {
@@ -776,6 +852,7 @@ mod tests {
                 fields: vec![crate::ManifestField {
                     name: "coverage_threshold".to_string(),
                     field_type: "string".to_string(),
+                    description: None,
                     edge: None,
                     target_kind: None,
                     file_reference: false,
@@ -800,6 +877,7 @@ mod tests {
                 fields: vec![crate::ManifestField {
                     name: "extra".to_string(),
                     field_type: "string".to_string(),
+                    description: None,
                     edge: None,
                     target_kind: None,
                     file_reference: false,
@@ -828,6 +906,7 @@ mod tests {
                 fields: vec![crate::ManifestField {
                     name: "contract".to_string(),
                     field_type: "string".to_string(), // Different type!
+                    description: None,
                     edge: None,
                     target_kind: None,
                     file_reference: false,
@@ -856,6 +935,7 @@ mod tests {
                     fields: vec![crate::ManifestField {
                         name: "priority".to_string(),
                         field_type: "string".to_string(),
+                        description: None,
                         edge: None,
                         target_kind: None,
                         file_reference: false,
@@ -871,6 +951,7 @@ mod tests {
                     fields: vec![crate::ManifestField {
                         name: "category".to_string(),
                         field_type: "string".to_string(),
+                        description: None,
                         edge: None,
                         target_kind: None,
                         file_reference: false,

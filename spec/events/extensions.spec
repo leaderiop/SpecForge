@@ -2,11 +2,9 @@
 
 use "types/wasm"
 use "types/zero-entity-core"
-use "behaviors/extensions"
 // ── Extension Registration Events ──────────────────────────────
 
 event extension_entity_types_registered "Extension Entity Types Registered" {
-  trigger   register_extension_entity_types
   channel   "extensions.entity_types_registered"
 
   payload {
@@ -16,14 +14,12 @@ event extension_entity_types_registered "Extension Entity Types Registered" {
   }
 
   // observability-only — emitted for tracing/logging, no downstream consumers
-  consumers []
 
   verify integration "emits after extension entity types are registered"
 
 }
 
 event provider_schemes_registered "Provider Schemes Registered" {
-  trigger   register_provider_schemes
   channel   "extensions.provider_schemes_registered"
 
   payload {
@@ -32,14 +28,12 @@ event provider_schemes_registered "Provider Schemes Registered" {
   }
 
   // observability-only — emitted for tracing/logging, no downstream consumers
-  consumers []
 
   verify integration "emits after provider schemes are registered"
 
 }
 
 event registry_integrity_verified "Registry Integrity Verified" {
-  trigger   verify_registry_integrity
   channel   "extensions.registry_integrity_verified"
 
   payload {
@@ -48,7 +42,6 @@ event registry_integrity_verified "Registry Integrity Verified" {
   }
 
   // observability-only — emitted for tracing/logging, no downstream consumers
-  consumers []
 
   verify integration "emits after registry integrity check completes"
 
@@ -57,7 +50,6 @@ event registry_integrity_verified "Registry Integrity Verified" {
 // ── Provider Events ──────────────────────────────────────
 
 event provider_configured "Provider Configured" {
-  trigger   load_provider_configurations
   channel   "extensions.provider_configured"
 
   payload {
@@ -67,14 +59,12 @@ event provider_configured "Provider Configured" {
     kindCount       integer
   }
 
-  consumers [register_provider_schemes]
 
   verify integration "emits provider_configured with correct alias and schemeCount"
 
 }
 
 event provider_ref_validated "Provider Ref Validated" {
-  trigger   validate_provider_refs
   channel   "extensions.provider_ref_validated"
 
   payload {
@@ -92,7 +82,6 @@ event provider_ref_validated "Provider Ref Validated" {
 // ── Registry Events ─────────────────────────────────────────
 
 event registry_resolved "Registry Resolved" {
-  trigger   resolve_registry_source
   channel   "extensions.registry_resolved"
 
   payload {
@@ -102,7 +91,6 @@ event registry_resolved "Registry Resolved" {
     wasmSizeBytes   integer
   }
 
-  consumers [verify_registry_integrity]
 
   verify integration "emits registry_resolved with correct extensionName and version"
   verify integration "consumer verify_registry_integrity receives event"
@@ -110,7 +98,6 @@ event registry_resolved "Registry Resolved" {
 }
 
 event registry_search_completed "Registry Search Completed" {
-  trigger   search_registry
   channel   "extensions.registry_search_completed"
 
   payload {
@@ -119,14 +106,12 @@ event registry_search_completed "Registry Search Completed" {
     registriesQueried integer
   }
 
-  consumers []
 
   verify integration "emits registry_search_completed with correct totalResults"
 
 }
 
 event extension_published_to_registry "Extension Published to Registry" {
-  trigger   publish_to_registry
   channel   "extensions.extension_published_to_registry"
 
   payload {
@@ -137,14 +122,12 @@ event extension_published_to_registry "Extension Published to Registry" {
     publishTimeMs   integer
   }
 
-  consumers []
 
   verify integration "emits extension_published_to_registry with correct extensionName and sha256"
 
 }
 
 event registries_configured "Registries Configured" {
-  trigger   configure_registries
   channel   "extensions.registries_configured"
 
   payload {
@@ -152,7 +135,6 @@ event registries_configured "Registries Configured" {
     configs         RegistryConfig[]
   }
 
-  consumers [resolve_registry_source]
 
   verify integration "emits registries_configured after registry configuration is parsed"
 
@@ -161,7 +143,6 @@ event registries_configured "Registries Configured" {
 // ── Registry Authentication Events ──────────────────────────
 
 event registry_authenticated "Registry Authenticated" {
-  trigger   authenticate_registry_request
   channel   "extensions.registry_authenticated"
 
   payload {
@@ -171,14 +152,12 @@ event registry_authenticated "Registry Authenticated" {
     timestamp       timestamp
   }
 
-  consumers []
 
   verify integration "emits registry_authenticated with correct registryUrl and authMethod"
 
 }
 
 event registry_credentials_validated "Registry Credentials Validated" {
-  trigger   validate_registry_credentials
   channel   "extensions.registry_credentials_validated"
 
   payload {
@@ -187,14 +166,12 @@ event registry_credentials_validated "Registry Credentials Validated" {
     timestamp       timestamp
   }
 
-  consumers []
 
   verify integration "emits registry_credentials_validated with correct registryUrl and valid status"
 
 }
 
 event registry_logged_out "Registry Logged Out" {
-  trigger   logout_registry
   channel   "extensions.registry_logged_out"
 
   payload {
@@ -202,7 +179,6 @@ event registry_logged_out "Registry Logged Out" {
     timestamp       timestamp
   }
 
-  consumers []
 
   verify integration "emits registry_logged_out with correct registryAlias"
 
@@ -214,7 +190,6 @@ event registry_logged_out "Registry Logged Out" {
 // registry_resolved). No additional event is needed.
 
 event keyword_extension_index_generated "Keyword Extension Index Generated" {
-  trigger   generate_keyword_extension_index
   channel   "extensions.keyword_extension_index_generated"
 
   payload {
@@ -222,14 +197,12 @@ event keyword_extension_index_generated "Keyword Extension Index Generated" {
     extensionCount  integer
   }
 
-  consumers []
 
   verify integration "emits after keyword extension index is generated"
 
 }
 
 event registry_request_retry_exhausted "Registry Request Retry Exhausted" {
-  trigger   retry_registry_request
   channel   "extensions.registry_request_retry_exhausted"
 
   payload {
@@ -239,14 +212,12 @@ event registry_request_retry_exhausted "Registry Request Retry Exhausted" {
     timestamp       timestamp
   }
 
-  consumers []
 
   verify integration "emits after all retry attempts are exhausted"
 
 }
 
 event extension_removed {
-  trigger   [remove_extension, provide_mcp_remove_extension_tool]
   channel   "extensions.extension_removed"
 
   payload {
@@ -254,7 +225,6 @@ event extension_removed {
     entity_kinds_unregistered  string[]
   }
 
-  consumers []
 
   verify integration "removing extension emits event with unregistered kinds"
 

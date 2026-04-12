@@ -385,7 +385,7 @@ behavior populate_kind_registry_from_extensions "Populate Kind Registry From Ext
 behavior populate_field_registry_from_extensions "Populate Field Registry From Extensions" {
   invariants [zero_domain_knowledge_core, registry_population_before_validation]
   category   command
-  types      [ManifestV2, ManifestField, FieldRegistryEntry]
+  types      [ManifestV2, ManifestField, FieldRegistryEntry, ManifestFieldType]
   consumes   [extension_manifests_loaded]
   // Orchestrated by populate_kind_registry_from_extensions which fires registries_populated after all three complete.
 
@@ -627,7 +627,7 @@ behavior two_phase_validate_semantic "Two-Phase Validate: Semantic" {
 behavior suggest_missing_extensions "Suggest Missing Extensions" {
   invariants [zero_domain_knowledge_core]
   category   command
-  types      [KindRegistryEntry, UnknownKindError, KeywordExtensionIndex]
+  types      [KindRegistryEntry, UnknownKindError, KeywordExtensionIndex, KeywordExtensionMapping]
 
   requires {
     e024_diagnostic_emitted "An E024 (unknown entity kind) diagnostic has been emitted and requires help text enrichment"

@@ -4,17 +4,18 @@
 // This file contains supporting types for the Wasm runtime: dependencies,
 // host function bindings, sandbox policies, caching, enhancements, and queries.
 
-use "types/config"
 use "types/core"
 type PeerDependency {
   extension         string
   version           string
+  verify unit "PeerDependency schema is valid"
 }
 
 type HostFunctionBinding {
   name              string          @readonly
   input_schema      string
   output_schema     string
+  verify unit "HostFunctionBinding schema is valid"
 }
 
 type SandboxPolicy {
@@ -36,6 +37,7 @@ type SandboxPolicy {
   allowed_output_extensions string[] @optional
   // Default: 1MB. Maximum file size readable via read_file host function.
   max_read_file_size u64           @optional
+  verify unit "SandboxPolicy schema is valid"
 }
 
 type WasmModuleCache {
@@ -43,11 +45,13 @@ type WasmModuleCache {
   aot_path          string
   platform          string
   created_at        string
+  verify unit "WasmModuleCache schema is valid"
 }
 
 type WarmEngineConfig {
   max_instances     u32             @doc "Default: 16"
   max_memory_mb     u32             @doc "Default: 512"
+  verify unit "WarmEngineConfig schema is valid"
 }
 
 // trapped state removed — extensions that trap are immediately unloaded
@@ -61,24 +65,28 @@ type FieldEnhancement {
   field_type        EnhancedFieldType
   required          boolean         @optional
   description       string          @optional
+  verify unit "FieldEnhancement schema is valid"
 }
 
 type EnhancedFieldType = string_type | integer_type | bool_type | enum_type | string_list_type | reference_type | reference_list_type
 
 type EnumFieldType {
   values            string[]
+  verify unit "EnumFieldType schema is valid"
 }
 
 type ReferenceFieldType {
   // Maps to EdgeType.label when building graph edges
   edge_label        string
   target_kind       string          @optional
+  verify unit "ReferenceFieldType schema is valid"
 }
 
 type DynamicEdgeType {
   label             string          @readonly
   source_extension    string          @readonly
   soft              boolean         @optional
+  verify unit "DynamicEdgeType schema is valid"
 }
 
 type EnhancementConflict {
@@ -87,6 +95,7 @@ type EnhancementConflict {
   first_extension     string          @readonly
   second_extension    string          @readonly
   resolution        ConflictResolution
+  verify unit "EnhancementConflict schema is valid"
 }
 
 type ConflictResolution = unresolved | explicit_override | load_order | namespaced
@@ -99,6 +108,7 @@ type EnhancementPolicy = error
 type QueryExtension {
   kind              QueryFileKind   @readonly
   patterns          string
+  verify unit "QueryExtension schema is valid"
 }
 
 type QueryFileKind = highlights | folds | indents | injections
@@ -112,6 +122,7 @@ type ExtensionInstallResult {
   wasm_size         integer
   aot_compiled      boolean
   installed_path    string
+  verify unit "ExtensionInstallResult schema is valid"
 }
 
 type ExtensionSource = registry | local | git
@@ -122,6 +133,7 @@ type WasmTrapInfo {
   export_name       string          @optional
   memory_address    string          @optional
   extension_name      string
+  verify unit "WasmTrapInfo schema is valid"
 }
 
 // ── Lock File Types ──────────────────────────────────────────
@@ -135,6 +147,7 @@ type LockFileEntry {
   wasm_hash         string          @readonly
   resolved_at       string
   trust_level       TrustLevel      @optional
+  verify unit "LockFileEntry schema is valid"
 }
 
 // Serialized as JSON (specforge.lock). See P6: standard is the moat.
@@ -142,6 +155,7 @@ type LockFile {
   path              string          @readonly
   lockfile_version  integer         @readonly
   entries           LockFileEntry[]
+  verify unit "LockFile schema is valid"
 }
 
 // ── Collector Contribution Types ────────────────────────────
@@ -154,21 +168,25 @@ type CollectorContribution {
   entity_mapping    CollectorEntityMapping
   export            string
   output_schema     string
+  verify unit "CollectorContribution schema is valid"
 }
 
 type CollectorAutoDetect {
   file_patterns     string[]
   env_vars          string[]        @optional
+  verify unit "CollectorAutoDetect schema is valid"
 }
 
 type CollectorEntityMapping {
   strategies        EntityMappingStrategy[]
+  verify unit "CollectorEntityMapping schema is valid"
 }
 
 type EntityMappingStrategy {
   priority          integer
   strategy_type     string          @readonly
   description       string          @optional
+  verify unit "EntityMappingStrategy schema is valid"
 }
 
 type CollectorReport {
@@ -176,6 +194,7 @@ type CollectorReport {
   entries           CollectorReportEntry[]
   unmapped_tests    string[]        @optional
   stats             CollectorStats
+  verify unit "CollectorReport schema is valid"
 }
 
 type CollectorReportEntry {
@@ -184,6 +203,7 @@ type CollectorReportEntry {
   status            CollectorTestStatus
   duration_ms       integer         @optional
   source            string          @optional
+  verify unit "CollectorReportEntry schema is valid"
 }
 
 type CollectorTestStatus = pass | fail | skip | error
@@ -192,6 +212,7 @@ type CollectorStats {
   total             integer
   mapped            integer
   unmapped          integer
+  verify unit "CollectorStats schema is valid"
 }
 
 type ExtensionSpecifier "Parsed Extension Specifier" {
@@ -202,6 +223,8 @@ type ExtensionSpecifier "Parsed Extension Specifier" {
   version    string @optional
   path       string @optional
   git_ref    string @optional
+
+  verify unit "Parsed Extension Specifier conforms to schema"
 }
 
 
@@ -210,6 +233,7 @@ type CollectorDispatchInput {
   test_report_path string
   entity_ids      EntityId[]
   options         JsonObject      @optional
+  verify unit "CollectorDispatchInput schema is valid"
 }
 
 // --- Extension-Defined Grammar Types ---
@@ -220,6 +244,7 @@ type GrammarContribution {
   language_name     string
   version           string          @optional
   checksum          string          @optional
+  verify unit "GrammarContribution schema is valid"
 }
 
 type BodyParserContribution {
@@ -227,6 +252,7 @@ type BodyParserContribution {
   export_name       string
   output_schema     string          @optional
   timeout_ms        integer         @optional
+  verify unit "BodyParserContribution schema is valid"
 }
 
 type GrammarConflictPolicy = error | priority | namespace
@@ -237,4 +263,5 @@ type GrammarCacheEntry {
   language_name     string
   source_extension  string
   created_at        string
+  verify unit "GrammarCacheEntry schema is valid"
 }

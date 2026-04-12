@@ -3,7 +3,6 @@
 use "behaviors/lsp"
 use "behaviors/zero-entity-lsp"
 feature lsp_lifecycle "LSP Lifecycle" {
-  behaviors [lsp_initialize, lsp_shutdown, document_open_close]
 
   problem """
     The LSP server must properly initialize with capabilities that
@@ -25,7 +24,6 @@ feature lsp_lifecycle "LSP Lifecycle" {
 }
 
 feature go_to_definition_and_references "Go-to-Definition and References" {
-  behaviors [go_to_definition, find_all_references, goto_import_definition]
 
   problem """
     Navigating between entity declarations and their references across
@@ -47,12 +45,6 @@ feature hover_and_autocomplete "Hover and Autocomplete" {
   //   complete_field_names — queries FieldRegistry for extension-defined field names
   // Bridge references from zero-entity-core (behaviors/zero-entity-lsp.spec):
   //   provide_extension_entity_hover, complete_extension_defined_keywords
-  behaviors [
-    hover_information, autocomplete_entity_ids, complete_keywords,
-    complete_field_names,
-    provide_extension_entity_hover,
-    complete_extension_defined_keywords,
-  ]
 
   problem """
     Users need quick access to entity details without navigating away
@@ -69,7 +61,6 @@ feature hover_and_autocomplete "Hover and Autocomplete" {
 }
 
 feature rename_refactoring "Rename Refactoring" {
-  behaviors [prepare_rename, rename_entity_id]
 
   problem """
     Renaming an entity ID requires updating every file that references
@@ -84,7 +75,6 @@ feature rename_refactoring "Rename Refactoring" {
 }
 
 feature live_diagnostics "Live Diagnostics" {
-  behaviors [live_diagnostics, shared_incremental_pipeline, incremental_document_sync, handle_text_document_change]
 
   problem """
     Users need immediate feedback as they type, not after saving.
@@ -106,7 +96,6 @@ feature semantic_tokens "Semantic Tokens" {
   //   provide_extension_entity_semantic_tokens
   // Bridge from behaviors/lsp.spec: load_extension_grammars_for_highlighting
   //   provides grammar-based highlighting data for extension-defined grammars
-  behaviors [provide_semantic_tokens, provide_extension_entity_semantic_tokens, load_extension_grammars_for_highlighting]
 
   problem """
     Without semantic understanding, editors can only provide basic
@@ -128,11 +117,6 @@ feature code_actions "Code Actions" {
   // Owned: code_action_add_missing_import
   // Bridge: code_actions_for_missing_verify, code_action_create_entity_stub
   //   (owned by extension_driven_code_actions in features/zero-entity-core.spec)
-  behaviors [
-    code_action_add_missing_import,
-    code_actions_for_missing_verify,
-    code_action_create_entity_stub,
-  ]
 
   problem """
     Untested entities are easy to overlook. Adding verify declarations
@@ -154,7 +138,6 @@ feature outline_and_symbol_search "Outline and Symbol Search" {
   //   outline_view, workspace_symbol_search
   // Bridge references from zero-entity-core (behaviors/zero-entity-lsp.spec):
   //   provide_extension_defined_lsp_icons
-  behaviors [outline_view, workspace_symbol_search, provide_extension_defined_lsp_icons]
 
   problem """
     Large .spec files need a structural overview. Finding entities

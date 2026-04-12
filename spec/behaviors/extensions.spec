@@ -22,7 +22,7 @@ behavior load_extension_manifests "Load Extension Manifests" {
   invariants [registry_population_before_validation, zero_domain_knowledge_core, extension_load_order_determinism, offline_first_extension_resolution, compilation_pipeline_ordering]
   category   command
   ports      [FileSystem]
-  types      [ManifestV2, CompilerConfig, ExtensionError]
+  types      [ManifestV2, CompilerConfig, ExtensionError, ExtensionManifest]
   consumes   [all_files_parsed]
   produces   [extension_manifests_loaded]
 
@@ -449,7 +449,7 @@ behavior resolve_registry_source "Resolve Registry Source" {
 behavior search_registry "Search Registry" {
   invariants [diagnostic_determinism, multi_error_collection, offline_first_extension_resolution]
   category   query
-  types      [RegistryConfig, RegistrySearchResult, RegistryResponse, CompilerConfig]
+  types      [RegistryConfig, RegistrySearchResult, RegistryResponse, CompilerConfig, ContributesSummary]
   ports      [RegistryClient]
   produces   [registry_search_completed]
 
@@ -634,7 +634,7 @@ behavior configure_registries "Configure Registries" {
 behavior authenticate_registry_request "Authenticate Registry Request" {
   invariants [registry_integrity, multi_error_collection, credential_secrecy, offline_first_extension_resolution]
   category   command
-  types      [RegistryConfig, RegistryCredential, ExtensionError, RegistryError]
+  types      [RegistryConfig, RegistryCredential, ExtensionError, RegistryError, AuthMethod]
   ports      [RegistryClient]
   produces   [registry_authenticated]
 

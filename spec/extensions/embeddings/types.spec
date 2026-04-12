@@ -6,10 +6,12 @@ type EntityEmbedding {
   vector             float[]        @readonly
   source_text        string         @readonly
   dimensions         integer        @readonly
+  verify unit "EntityEmbedding schema is valid"
 }
 
 type EmbeddingSimilarityConfig {
   top_k      integer       @optional // Max results for similarity search (default: 10)
+  verify unit "EmbeddingSimilarityConfig schema is valid"
 }
 
 type SimilarityResult {
@@ -17,4 +19,5 @@ type SimilarityResult {
   score              float          @readonly @doc "Range: 0.0 to 1.0 (cosine similarity)"
   kind               string         @readonly
   title              string         @readonly
+  verify unit "SimilarityResult schema is valid"
 }

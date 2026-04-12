@@ -23,6 +23,7 @@ failure_mode incremental_divergence "Incremental Divergence" {
     detection  2
     rpn        14
   }
+  verify unit "Incremental Divergence failure mode is handled"
 }
 
 failure_mode string_interning_collision "String Interning Collision" {
@@ -42,6 +43,7 @@ failure_mode string_interning_collision "String Interning Collision" {
     detection  2
     rpn        16
   }
+  verify unit "String Interning Collision failure mode is handled"
 }
 
 failure_mode duplicate_id_detection_miss "Duplicate ID Detection Miss" {
@@ -61,6 +63,7 @@ failure_mode duplicate_id_detection_miss "Duplicate ID Detection Miss" {
     detection  1
     rpn        7
   }
+  verify unit "Duplicate ID Detection Miss failure mode is handled"
 }
 
 failure_mode import_cycle_detection_miss "Import Cycle Detection Miss" {
@@ -80,6 +83,7 @@ failure_mode import_cycle_detection_miss "Import Cycle Detection Miss" {
     detection  1
     rpn        5
   }
+  verify unit "Import Cycle Detection Miss failure mode is handled"
 }
 
 failure_mode diagnostic_drop_under_error_collection "Diagnostic Drop Under Error Collection" {
@@ -99,6 +103,7 @@ failure_mode diagnostic_drop_under_error_collection "Diagnostic Drop Under Error
     detection  2
     rpn        12
   }
+  verify unit "Diagnostic Drop Under Error Collection failure mode is handled"
 }
 
 failure_mode silent_reference_swallow "Silent Reference Swallow" {
@@ -118,6 +123,7 @@ failure_mode silent_reference_swallow "Silent Reference Swallow" {
     detection  2
     rpn        16
   }
+  verify unit "Silent Reference Swallow failure mode is handled"
 }
 
 failure_mode spec_root_duplication "Spec Root Duplication" {
@@ -137,6 +143,7 @@ failure_mode spec_root_duplication "Spec Root Duplication" {
     detection  1
     rpn        5
   }
+  verify unit "Spec Root Duplication failure mode is handled"
 }
 
 failure_mode non_deterministic_diagnostic_order "Non-Deterministic Diagnostic Order" {
@@ -156,6 +163,7 @@ failure_mode non_deterministic_diagnostic_order "Non-Deterministic Diagnostic Or
     detection  1
     rpn        4
   }
+  verify unit "Non-Deterministic Diagnostic Order failure mode is handled"
 }
 
 failure_mode wasm_extension_crash "Wasm Extension Crash" {
@@ -175,6 +183,7 @@ failure_mode wasm_extension_crash "Wasm Extension Crash" {
     detection  2
     rpn        12
   }
+  verify unit "Wasm Extension Crash failure mode is handled"
 }
 
 failure_mode wasm_host_function_timeout "Wasm Host Function Timeout" {
@@ -194,6 +203,7 @@ failure_mode wasm_host_function_timeout "Wasm Host Function Timeout" {
     detection  1
     rpn        5
   }
+  verify unit "Wasm Host Function Timeout failure mode is handled"
 }
 
 failure_mode peer_dependency_version_mismatch "Peer Dependency Version Mismatch" {
@@ -213,6 +223,7 @@ failure_mode peer_dependency_version_mismatch "Peer Dependency Version Mismatch"
     detection  1
     rpn        6
   }
+  verify unit "Peer Dependency Version Mismatch failure mode is handled"
 }
 
 failure_mode builtin_field_shadow "Grammar-Level Construct Shadow by Extension" {
@@ -232,6 +243,7 @@ failure_mode builtin_field_shadow "Grammar-Level Construct Shadow by Extension" 
     detection  1
     rpn        8
   }
+  verify unit "Grammar-Level Construct Shadow by Extension failure mode is handled"
 }
 
 failure_mode aot_cache_corruption "AOT Cache Corruption" {
@@ -251,6 +263,7 @@ failure_mode aot_cache_corruption "AOT Cache Corruption" {
     detection  1
     rpn        5
   }
+  verify unit "AOT Cache Corruption failure mode is handled"
 }
 
 failure_mode circular_peer_dependency "Circular Peer Dependency" {
@@ -270,6 +283,7 @@ failure_mode circular_peer_dependency "Circular Peer Dependency" {
     detection  1
     rpn        6
   }
+  verify unit "Circular Peer Dependency failure mode is handled"
 }
 
 failure_mode manifest_schema_mismatch "Manifest Schema Mismatch" {
@@ -289,6 +303,7 @@ failure_mode manifest_schema_mismatch "Manifest Schema Mismatch" {
     detection  1
     rpn        5
   }
+  verify unit "Manifest Schema Mismatch failure mode is handled"
 }
 
 failure_mode host_function_type_violation "Host Function Type Safety Violation" {
@@ -308,6 +323,7 @@ failure_mode host_function_type_violation "Host Function Type Safety Violation" 
     detection  1
     rpn        8
   }
+  verify unit "Host Function Type Safety Violation failure mode is handled"
 }
 
 failure_mode entity_kind_collision_undetected "Entity Kind Collision Undetected" {
@@ -327,6 +343,7 @@ failure_mode entity_kind_collision_undetected "Entity Kind Collision Undetected"
     detection  1
     rpn        7
   }
+  verify unit "Entity Kind Collision Undetected failure mode is handled"
 }
 
 failure_mode registry_unavailability "Registry Unavailability" {
@@ -346,6 +363,7 @@ failure_mode registry_unavailability "Registry Unavailability" {
     detection  1
     rpn        8
   }
+  verify unit "Registry Unavailability failure mode is handled"
 }
 
 failure_mode collector_output_malformation "Collector Output Malformation" {
@@ -365,6 +383,7 @@ failure_mode collector_output_malformation "Collector Output Malformation" {
     detection  1
     rpn        5
   }
+  verify unit "Collector Output Malformation failure mode is handled"
 }
 
 failure_mode extension_initialization_failure "Extension Initialization Failure" {
@@ -384,6 +403,7 @@ failure_mode extension_initialization_failure "Extension Initialization Failure"
     detection  1
     rpn        6
   }
+  verify unit "Extension Initialization Failure failure mode is handled"
 }
 
 failure_mode grammar_conflict_between_extensions {

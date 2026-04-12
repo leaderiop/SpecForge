@@ -2,7 +2,6 @@
 
 use "extensions/rust/behaviors"
 feature rust_test_collection "Rust Test Collection" {
-  behaviors [collect_rust_test_results, parse_junit_xml, parse_libtest_json, resolve_entity_mapping, validate_rust_entity_ids, merge_workspace_reports, emit_specforge_report_from_rust]
 
   problem """
     Rust test frameworks (cargo test, nextest) produce results in various
@@ -19,7 +18,6 @@ feature rust_test_collection "Rust Test Collection" {
 }
 
 feature rust_proc_macro_annotation "Rust Proc Macro Annotation" {
-  behaviors [record_test_via_drop_guard]
 
   problem """
     Naming conventions alone are fragile and can break when test functions

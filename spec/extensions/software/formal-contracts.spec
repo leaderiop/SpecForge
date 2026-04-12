@@ -8,6 +8,7 @@ use "extensions/software/invariants"
 behavior se_parse_requires_block "Parse Requires Block" {
   category command
   types [RequiresBlock, ContractCondition]
+  features [se_formal_contracts]
 
   contract """
     Recognize the requires { } block on behavior entities as a
@@ -34,6 +35,7 @@ behavior se_parse_requires_block "Parse Requires Block" {
 behavior se_parse_ensures_block "Parse Ensures Block" {
   category command
   types [EnsuresBlock, ContractCondition]
+  features [se_formal_contracts]
 
   contract """
     Recognize the ensures { } block on behavior entities as a
@@ -60,6 +62,7 @@ behavior se_parse_ensures_block "Parse Ensures Block" {
 behavior se_parse_maintains_block "Parse Maintains Block" {
   category command
   types [MaintainsBlock, ContractCondition]
+  features [se_formal_contracts]
 
   contract """
     Recognize the maintains { } block on behavior and invariant
@@ -83,6 +86,7 @@ behavior se_validate_contract_consistency "Validate Contract Consistency" {
   category query
   invariants [se_formal_contract_consistency]
   types [RequiresBlock, EnsuresBlock, MaintainsBlock, ContractCondition]
+  features [se_formal_contracts]
 
   contract """
     Cross-check requires, ensures, and maintains blocks for
@@ -110,6 +114,8 @@ behavior se_contract_check_pass "Contract Check Compiler Pass" {
   category command
   invariants [se_formal_contract_consistency]
   types [RequiresBlock, EnsuresBlock, ContractCondition]
+  features [se_formal_contracts]
+  produces [se_contract_check_complete]
 
   contract """
     The contract_check compiler pass validates all behaviors with
@@ -141,6 +147,7 @@ behavior se_contract_check_pass "Contract Check Compiler Pass" {
 behavior se_detect_unverifiable_condition "W037: Unverifiable Contract Condition" {
   category query
   types [ContractCondition, RequiresBlock, EnsuresBlock]
+  features [se_formal_contracts]
 
   contract """
     Detect contract conditions (in requires or ensures) that cannot
@@ -161,6 +168,7 @@ behavior se_detect_unverifiable_condition "W037: Unverifiable Contract Condition
 behavior se_detect_unreachable_postcondition "W038: Unreachable Postcondition" {
   category query
   types [EnsuresBlock, RequiresBlock, ContractCondition]
+  features [se_formal_contracts]
 
   contract """
     Detect postconditions that can never be true given the
@@ -181,6 +189,7 @@ behavior se_detect_unreachable_postcondition "W038: Unreachable Postcondition" {
 behavior se_detect_redundant_precondition "W039: Redundant Precondition" {
   category query
   types [RequiresBlock, ContractCondition]
+  features [se_formal_contracts]
 
   contract """
     Detect preconditions that are implied by other preconditions
@@ -200,6 +209,7 @@ behavior se_detect_redundant_precondition "W039: Redundant Precondition" {
 behavior se_detect_invariant_without_property "W040: Invariant Without Formal Property" {
   category query
   types [SoftwareInvariant, MaintainsBlock]
+  features [se_formal_contracts]
 
   contract """
     Detect invariant entities that have a prose guarantee but no
@@ -222,6 +232,7 @@ behavior se_detect_invariant_without_property "W040: Invariant Without Formal Pr
 behavior se_parse_port_operation_contracts "Parse Port Operation Contracts" {
   category command
   types [PortOperation, RequiresBlock, EnsuresBlock, SoftwarePort]
+  features [se_formal_contracts]
 
   contract """
     Recognize requires/ensures blocks on individual port operations
@@ -241,6 +252,7 @@ behavior se_parse_port_operation_contracts "Parse Port Operation Contracts" {
 behavior se_validate_port_behavior_compatibility "W036: Port-Behavior Contract Compatibility" {
   category query
   types [SoftwarePort, PortOperation, SoftwareBehavior, RequiresBlock, EnsuresBlock]
+  features [se_formal_contracts]
 
   contract """
     Check that port operation contracts are compatible with the
@@ -269,6 +281,7 @@ behavior se_validate_port_behavior_compatibility "W036: Port-Behavior Contract C
 behavior se_validate_contracts_without_verify "W028: Contracts Without Formal Verify" {
   category query
   types [SoftwareBehavior, RequiresBlock, EnsuresBlock]
+  features [se_formal_contracts]
 
   contract """
     Detect behaviors that have requires/ensures blocks but no verify

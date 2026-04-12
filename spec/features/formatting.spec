@@ -15,11 +15,6 @@ use "behaviors/formatting"
 use "types/core"
 use "types/formatting"
 feature code_formatting "Code Formatting" {
-  behaviors [
-    format_spec_files, preserve_comments, check_formatting, show_formatting_diff,
-    format_from_stdin, load_format_config, apply_format_rules, maintain_format_idempotency,
-    format_with_parse_errors, discover_format_targets
-  ]
 
   problem """
     .spec files accumulate inconsistent formatting over time — varying indentation,
@@ -38,7 +33,6 @@ feature code_formatting "Code Formatting" {
 }
 
 feature lsp_formatting "LSP Formatting" {
-  behaviors [lsp_format_document, lsp_format_range, lsp_respect_editor_config, format_with_parse_errors, load_format_config, apply_format_rules, maintain_format_idempotency, preserve_comments]
 
   problem """
     Developers must manually format .spec files or rely on CLI commands after editing.

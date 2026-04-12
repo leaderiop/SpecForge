@@ -12,6 +12,8 @@ type JsonSchema "JSON Schema Object" {
   properties     object          @optional
   required       string[]        @optional
   description    string          @optional
+
+  verify unit "JSON Schema Object conforms to schema"
 }
 
 type McpError "MCP Structured Error Response" {
@@ -20,6 +22,8 @@ type McpError "MCP Structured Error Response" {
   entity_id  string @optional
   tool       string @optional
   timestamp  string
+
+  verify unit "MCP Structured Error Response conforms to schema"
 }
 
 type McpCapabilities "MCP Server Capabilities" {
@@ -30,6 +34,8 @@ type McpCapabilities "MCP Server Capabilities" {
   server_name       string
   server_version    string
   graph_protocol_version string
+
+  verify unit "MCP Server Capabilities conforms to schema"
 }
 
 type McpResourceDescriptor {
@@ -37,6 +43,7 @@ type McpResourceDescriptor {
   name           string
   description    string          @optional
   mime_type      string          @optional
+  verify unit "McpResourceDescriptor schema is valid"
 }
 
 type McpToolDescriptor {
@@ -47,12 +54,14 @@ type McpToolDescriptor {
   category       McpToolCategory @optional
   /// "core" for built-in tools, extension name for contributed tools
   source         string          @optional
+  verify unit "McpToolDescriptor schema is valid"
 }
 
 type McpSubscription {
   client_id      string          @readonly
   channel        string          @readonly
   subscribed_at  timestamp
+  verify unit "McpSubscription schema is valid"
 }
 
 // Tool categories: "management" corresponds to the "Project Management Tools"
@@ -65,12 +74,14 @@ type McpPromptDescriptor {
   name           string          @readonly
   description    string
   arguments      McpPromptArgument[]
+  verify unit "McpPromptDescriptor schema is valid"
 }
 
 type McpPromptArgument {
   name           string          @readonly
   description    string
   required       boolean
+  verify unit "McpPromptArgument schema is valid"
 }
 
 type McpInspectResult {
@@ -88,6 +99,7 @@ type McpInspectResult {
   verify_declarations string[]    @optional
   coverage_status string          @optional
   diagnostics     Diagnostic[]    @optional
+  verify unit "McpInspectResult schema is valid"
 }
 
 type McpDefinitionResult {
@@ -95,16 +107,19 @@ type McpDefinitionResult {
   file_path      string          @readonly
   line           integer         @readonly
   column         integer         @readonly
+  verify unit "McpDefinitionResult schema is valid"
 }
 
 type McpReferenceLocation {
   referencing_entity_id string   @readonly
   source_span    SourceSpan      @readonly
+  verify unit "McpReferenceLocation schema is valid"
 }
 
 type McpReferenceResult {
   entity_id      string          @readonly
   locations      McpReferenceLocation[]
+  verify unit "McpReferenceResult schema is valid"
 }
 
 type McpOutlineEntry {
@@ -113,6 +128,7 @@ type McpOutlineEntry {
   title          string
   range          SourceSpan      @readonly
   children       McpOutlineEntry[] @optional
+  verify unit "McpOutlineEntry schema is valid"
 }
 
 type McpFixSuggestion {
@@ -120,6 +136,7 @@ type McpFixSuggestion {
   kind           string
   diagnostic_code string          @optional
   edits          TextEdit[]
+  verify unit "McpFixSuggestion schema is valid"
 }
 
 type McpStatsResult {
@@ -128,17 +145,20 @@ type McpStatsResult {
   edge_count     integer
   orphan_count   integer
   diagnostic_summary McpDiagnosticSummary
+  verify unit "McpStatsResult schema is valid"
 }
 
 type McpEntityCount {
   kind           string          @readonly
   count          integer
+  verify unit "McpEntityCount schema is valid"
 }
 
 type McpDiagnosticSummary {
   errors         integer
   warnings       integer
   infos          integer
+  verify unit "McpDiagnosticSummary schema is valid"
 }
 
 type McpExtensionInfo {
@@ -147,6 +167,7 @@ type McpExtensionInfo {
   entity_kinds   string[]
   contribution_types string[]
   status         string          @optional
+  verify unit "McpExtensionInfo schema is valid"
 }
 
 type McpProviderInfo {
@@ -154,6 +175,7 @@ type McpProviderInfo {
   alias          string          @optional
   extension      string          @readonly
   status         string
+  verify unit "McpProviderInfo schema is valid"
 }
 
 type McpDoctorFinding {
@@ -161,6 +183,7 @@ type McpDoctorFinding {
   status         "ok" | "warn" | "error"
   code           string
   remediation    string          @optional
+  verify unit "McpDoctorFinding schema is valid"
 }
 
 type McpDoctorReport {
@@ -168,6 +191,7 @@ type McpDoctorReport {
   conflicts      string[]
   cache_status   string
   findings       McpDoctorFinding[]
+  verify unit "McpDoctorReport schema is valid"
 }
 
 type McpInitResult {
@@ -175,6 +199,7 @@ type McpInitResult {
   config_file    string          @readonly
   starter_file   string          @readonly
   extensions_installed string[]  @optional
+  verify unit "McpInitResult schema is valid"
 }
 
 type McpFormatResult {
@@ -182,6 +207,7 @@ type McpFormatResult {
   total_checked  integer
   all_clean      boolean
   diffs          FormatDiff[]    @optional
+  verify unit "McpFormatResult schema is valid"
 }
 
 type McpSearchResult {
@@ -192,6 +218,7 @@ type McpSearchResult {
   line           integer         @readonly
   match_field    string          @optional
   match_snippet  string          @optional
+  verify unit "McpSearchResult schema is valid"
 }
 
 type CoverageStatus = "covered" | "uncovered" | "partial"
@@ -211,6 +238,7 @@ type McpCoverageResult {
   linked         boolean
   /// Whether evidence has been collected from an external report (test results, audit findings, review logs).
   evidence_collected boolean
+  verify unit "McpCoverageResult schema is valid"
 }
 
 type McpRenameResult {
@@ -218,6 +246,7 @@ type McpRenameResult {
   new_name       string          @readonly
   affected_files integer
   edits          TextEdit[]
+  verify unit "McpRenameResult schema is valid"
 }
 
 type McpTracePlanResult "Trace tool response when plan parameter is provided" {
@@ -227,17 +256,21 @@ type McpTracePlanResult "Trace tool response when plan parameter is provided" {
   gaps               McpTraceGap[]
   /// Coverage status per affected entity.
   coverage_summary   McpCoverageResult[] @optional
+
+  verify unit "Trace tool response when plan parameter is provided conforms to schema"
 }
 
 type McpCollectResult {
   report_path    string          @readonly
   items_found    integer
   entities_mapped integer
+  verify unit "McpCollectResult schema is valid"
 }
 
 type McpRenderResult {
   format         string          @readonly
   output_files   string[]
+  verify unit "McpRenderResult schema is valid"
 }
 
 type McpRemoveExtensionResult {
@@ -245,6 +278,7 @@ type McpRemoveExtensionResult {
   removed_extension string
   orphan_warnings   string[]
   success           boolean
+  verify unit "McpRemoveExtensionResult schema is valid"
 }
 
 // The implement prompt provides structured context for agents, NOT generated
@@ -263,12 +297,16 @@ type McpContextPromptResult "Context Prompt Result" {
   // expectations — NOT implementation directives or code suggestions.
   structural_constraints string[]    @optional
   affected_entities  string[]        @optional
+
+  verify unit "Context Prompt Result conforms to schema"
 }
 
 type McpReviewPromptResult "Review Prompt Result" {
   entity_id          string          @readonly
   findings           McpReviewFinding[]
   coverage_summary   McpCoverageResult[] @optional
+
+  verify unit "Review Prompt Result conforms to schema"
 }
 
 type McpReviewFinding {
@@ -276,6 +314,7 @@ type McpReviewFinding {
   severity           string
   message            string
   gap_context        string          @optional
+  verify unit "McpReviewFinding schema is valid"
 }
 
 type McpTracePromptResult "Trace Prompt Result" {
@@ -285,6 +324,8 @@ type McpTracePromptResult "Trace Prompt Result" {
   unverified_entities  string[]
   /// Entity IDs that the plan touches directly or transitively via graph edges.
   affected_entities  string[]
+
+  verify unit "Trace Prompt Result conforms to schema"
 }
 
 type McpTraceGap {
@@ -292,6 +333,7 @@ type McpTraceGap {
   target_entity      string          @readonly
   missing_link_type  string
   gap_context        string          @optional
+  verify unit "McpTraceGap schema is valid"
 }
 
 type McpExplorePromptResult "Explore Prompt Result" {
@@ -308,6 +350,8 @@ type McpExplorePromptResult "Explore Prompt Result" {
   /// Entity IDs with no incoming or outgoing edges — candidates for cleanup or
   /// missing references.
   orphan_nodes       string[]
+
+  verify unit "Explore Prompt Result conforms to schema"
 }
 
 type McpRelationshipPath {
@@ -315,4 +359,5 @@ type McpRelationshipPath {
   to_entity          string          @readonly
   edge_types         string[]
   path_length        integer
+  verify unit "McpRelationshipPath schema is valid"
 }

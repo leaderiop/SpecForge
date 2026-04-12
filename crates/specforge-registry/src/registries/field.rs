@@ -16,6 +16,7 @@ pub enum ManifestFieldType {
 pub struct FieldRegistryEntry {
     pub kind_name: String,
     pub field_name: String,
+    pub description: Option<String>,
     pub field_type: ManifestFieldType,
     pub source_extension: String,
     pub edge: Option<String>,
@@ -105,6 +106,7 @@ mod tests {
         registry.register(FieldRegistryEntry {
             kind_name: "behavior".to_string(),
             field_name: "contract".to_string(),
+            description: None,
             field_type: ManifestFieldType::Block,
             source_extension: "@specforge/software".to_string(),
             edge: None,

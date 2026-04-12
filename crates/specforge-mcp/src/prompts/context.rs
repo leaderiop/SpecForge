@@ -46,13 +46,23 @@ pub fn get(state: &McpState, args: Value, id: Option<Value>) -> JsonRpcResponse 
         "verify_expectations": verify_expectations
     });
 
+    let instruction = format!(
+        "You are implementing the entity '{}' (kind: {}). \
+         Use the structured context below to guide your implementation. \
+         Respect the contract, satisfy verify expectations, and consider upstream/downstream dependencies.",
+        entity_id, node.kind.raw
+    );
+
     JsonRpcResponse::success(id, serde_json::json!({
-        "messages": [{
-            "role": "user",
-            "content": {
-                "type": "text",
-                "text": result.to_string()
+        "messages": [
+            {
+                "role": "user",
+                "content": { "type": "text", "text": instruction }
+            },
+            {
+                "role": "assistant",
+                "content": { "type": "text", "text": result.to_string() }
             }
-        }]
+        ]
     }))
 }

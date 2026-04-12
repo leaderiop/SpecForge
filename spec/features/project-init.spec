@@ -3,14 +3,6 @@
 use "behaviors/init"
 use "behaviors/mcp-operations"
 feature project_initialization "Project Initialization" {
-  behaviors [
-    scaffold_new_project, scaffold_starter_spec_file,
-    interactive_extension_selection, non_interactive_init,
-    add_extension_to_existing_project, graceful_zero_extension_init,
-    find_project_root,
-    // Bridge: MCP agent init surface (see features/mcp.spec::mcp_mutation_tools)
-    provide_mcp_init_tool,
-  ]
 
   problem """
     New users and AI agents need a quick way to scaffold a SpecForge

@@ -239,6 +239,7 @@ mod tests {
         let mut m1 = make_manifest("ext1", &[]);
         m1.entity_kinds = vec![ManifestEntityKind {
             name: "behavior".to_string(),
+            description: None,
             keyword: "behavior".to_string(),
             testable: false,
             singleton: false,
@@ -257,6 +258,7 @@ mod tests {
         let mut m2 = make_manifest("ext2", &[]);
         m2.entity_kinds = vec![ManifestEntityKind {
             name: "behavior".to_string(),
+            description: None,
             keyword: "behavior".to_string(),
             testable: false,
             singleton: false,

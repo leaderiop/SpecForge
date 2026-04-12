@@ -23,7 +23,6 @@ use "behaviors/output-schema"
 feature json_and_dot_render "JSON and DOT Render" {
   // render_extension_defined_dot_shapes is owned by extension_driven_visualization
   // in zero-entity-core.spec; serialize_dot_visualization delegates to it.
-  behaviors [serialize_json_graph, serialize_dot_visualization]
 
   problem """
     External tools (dashboards, analyzers, visualizers) need machine-readable
@@ -40,7 +39,6 @@ feature json_and_dot_render "JSON and DOT Render" {
 // Note: specforge export (--format=context|graph|brief) is defined in product/capabilities.spec as an agent-facing command distinct from specforge render
 
 feature traceability_serialization "Traceability Serialization" {
-  behaviors [compute_traceability_chain, serialize_traceability_data, validate_agent_plan]
 
   problem """
     Architects and auditors need to trace entities upstream and downstream
@@ -64,7 +62,6 @@ feature traceability_serialization "Traceability Serialization" {
 }
 
 feature agent_export "Agent-Optimized Export" {
-  behaviors [export_agent_context_format, export_agent_brief_format, export_agent_graph_format, query_graph_multi_resolution, serve_graph_resource, enforce_token_budget]
 
   problem """
     AI agents need structured, token-efficient context from the spec graph.
@@ -85,7 +82,6 @@ feature agent_export "Agent-Optimized Export" {
 }
 
 feature ci_integration "CI Integration" {
-  behaviors [compute_project_statistics, print_diagnostics_structured, export_diagnostics_as_json, exit_code_reflects_diagnostic_severity, deterministic_output, check_mode_for_ci]
 
   problem """
     CI pipelines need a single command that validates all .spec files,
@@ -107,7 +103,6 @@ feature ci_integration "CI Integration" {
 }
 
 feature self_describing_graph_protocol "Self-Describing Graph Protocol" {
-  behaviors [generate_schema_from_registries, embed_schema_in_export, persist_schema_cache, serve_schema_resource]
 
   problem """
     The Graph Protocol JSON export contains nodes and edges but no schema
@@ -132,7 +127,6 @@ feature self_describing_graph_protocol "Self-Describing Graph Protocol" {
 }
 
 feature graph_protocol_versioning "Graph Protocol Versioning" {
-  behaviors [negotiate_schema_version, detect_breaking_schema_changes, compute_schema_version, publish_schema_specification]
 
   problem """
     The Graph Protocol schema evolves as extensions add entity kinds and edge

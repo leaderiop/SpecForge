@@ -1,7 +1,9 @@
 use specforge_common::Diagnostic;
 use specforge_graph::Graph;
 
-const STRUCTURAL_KINDS: &[&str] = &["ref", "spec"];
+// Only check orphan status for `ref` entities. `spec` is the project root
+// container — it naturally has no incoming edges and should not produce W012.
+const STRUCTURAL_KINDS: &[&str] = &["ref"];
 
 pub fn detect_orphan_structural_nodes(graph: &Graph, diagnostics: &mut Vec<Diagnostic>) {
     for node in graph.nodes() {

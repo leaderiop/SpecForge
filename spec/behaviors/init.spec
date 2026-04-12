@@ -3,6 +3,7 @@
 use "invariants/core"
 use "invariants/zero-entity-core"
 use "invariants/wasm"
+use "invariants/extensions"
 use "types/config"
 use "ports/outbound"
 use "behaviors/wasm-extensions"
@@ -13,8 +14,8 @@ use "events/compilation"
 // in interactive mode (exactly one fires per init invocation).
 behavior scaffold_new_project "Scaffold New Project" {
   category   command
-  invariants [spec_root_singleton, init_config_validity, zero_domain_knowledge_core]
-  types      [CompilerConfig, InitConfig, InitError]
+  invariants [spec_root_singleton, init_config_validity, zero_domain_knowledge_core, authentication_never_gates_core_use]
+  types      [CompilerConfig, InitConfig, InitError, ProjectConfig]
   ports      [FileSystem]
   produces   [project_initialized]
 
@@ -107,7 +108,7 @@ behavior scaffold_starter_spec_file "Scaffold Starter Spec File" {
 behavior interactive_extension_selection "Interactive Extension Selection" {
   category   command
   invariants [spec_root_singleton, init_config_validity, zero_domain_knowledge_core]
-  types      [CompilerConfig, BundledExtensionCatalog]
+  types      [CompilerConfig, BundledExtensionCatalog, BundledExtensionEntry]
   ports      [FileSystem, RegistryClient]
 
   requires {

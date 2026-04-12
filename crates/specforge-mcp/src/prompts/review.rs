@@ -57,13 +57,24 @@ pub fn get(state: &McpState, args: Value, id: Option<Value>) -> JsonRpcResponse 
         "coverage_summary": coverage
     });
 
+    let scope = entity_filter.unwrap_or("the entire graph");
+    let instruction = format!(
+        "Analyze the following coverage report for {}. \
+         Identify the highest-priority gaps to address. \
+         Focus on entities marked 'uncovered' and orphan nodes that may indicate missing relationships.",
+        scope
+    );
+
     JsonRpcResponse::success(id, serde_json::json!({
-        "messages": [{
-            "role": "user",
-            "content": {
-                "type": "text",
-                "text": result.to_string()
+        "messages": [
+            {
+                "role": "user",
+                "content": { "type": "text", "text": instruction }
+            },
+            {
+                "role": "assistant",
+                "content": { "type": "text", "text": result.to_string() }
             }
-        }]
+        ]
     }))
 }

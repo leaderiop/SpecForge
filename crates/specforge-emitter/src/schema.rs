@@ -88,6 +88,17 @@ pub struct SchemaField {
     pub required: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub enum_values: Option<Vec<String>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub edge: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub target_kind: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub description: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub default_value: Option<String>,
+    /// Extension that contributed this field (may differ from the entity's owning extension
+    /// when the field comes from an entity enhancement).
+    pub source_extension: String,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -256,6 +267,11 @@ pub fn generate_schema(
                     field_type: map_field_type(&f.field_type),
                     required: f.required,
                     enum_values: enum_values(&f.field_type),
+                    edge: f.edge.clone(),
+                    target_kind: f.target_kind.clone(),
+                    description: f.description.clone(),
+                    default_value: None,
+                    source_extension: f.source_extension.clone(),
                 })
                 .collect();
             kind_fields.sort_by(|a, b| a.name.cmp(&b.name));
@@ -279,6 +295,43 @@ pub fn generate_schema(
             target_kinds: entry.target_kind.as_ref().map(|k| vec![k.clone()]),
         })
         .collect();
+
+    // Infer missing source/target kinds from field-level edge mappings.
+    // When an edge type has no sourceKind/targetKind in the registry, scan
+    // all entity fields for matching edge labels to discover the actual
+    // source and target kinds. This handles polymorphic edges like References.
+    for edge_type in &mut edge_types {
+        if edge_type.source_kinds.is_some() && edge_type.target_kinds.is_some() {
+            continue;
+        }
+        let mut sources: Vec<String> = edge_type.source_kinds.clone().unwrap_or_default();
+        let mut targets: Vec<String> = edge_type.target_kinds.clone().unwrap_or_default();
+
+        for (_, kind_entry) in kinds.iter() {
+            for field in fields.fields_for_kind(&kind_entry.kind_name) {
+                if field.edge.as_deref() == Some(&edge_type.label) {
+                    if !sources.contains(&kind_entry.kind_name) {
+                        sources.push(kind_entry.kind_name.clone());
+                    }
+                    if let Some(ref tk) = field.target_kind {
+                        if !targets.contains(tk) {
+                            targets.push(tk.clone());
+                        }
+                    }
+                }
+            }
+        }
+
+        if edge_type.source_kinds.is_none() && !sources.is_empty() {
+            sources.sort();
+            edge_type.source_kinds = Some(sources);
+        }
+        if edge_type.target_kinds.is_none() && !targets.is_empty() {
+            targets.sort();
+            edge_type.target_kinds = Some(targets);
+        }
+    }
+
     edge_types.sort_by(|a, b| a.label.cmp(&b.label));
 
     GraphProtocolSchema {

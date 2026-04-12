@@ -55,7 +55,7 @@ behavior mcp_initialize "MCP Initialize" {
 }
 
 behavior mcp_shutdown "MCP Shutdown" {
-  types      [McpSubscription]
+  types      [McpSubscription, timestamp]
   category   command
   ports      [CompilerApi, WasmRuntime]
   produces   [mcp_server_shutdown, mcp_subscription_removed]
@@ -122,7 +122,7 @@ behavior list_mcp_tools "List MCP Tools" {
   invariants [mcp_structured_error_responses, mcp_tool_idempotency]
   category   query
   ports      [McpProtocol, CompilerApi]
-  types [McpToolDescriptor]
+  types [McpToolDescriptor, McpToolCategory]
   produces [mcp_discovery_invoked]
 
   requires {
@@ -154,7 +154,7 @@ behavior list_mcp_prompts "List MCP Prompts" {
   invariants [mcp_structured_error_responses, mcp_tool_idempotency]
   category   query
   ports      [McpProtocol, CompilerApi]
-  types [McpPromptDescriptor]
+  types [McpPromptDescriptor, McpPromptArgument]
   produces [mcp_discovery_invoked]
 
   requires {
@@ -217,7 +217,7 @@ behavior expose_graph_as_mcp_resource "Expose Graph as MCP Resource" {
 }
 
 behavior expose_schema_as_mcp_resource "Expose Schema as MCP Resource" {
-  invariants [graph_schema_completeness, diagnostic_determinism, mcp_structured_error_responses]
+  invariants [graph_schema_completeness, diagnostic_determinism, mcp_structured_error_responses, mcp_type_schema_versioning]
   category   command
   types      [GraphProtocolSchema, McpResourceDescriptor]
   ports      [McpProtocol, CompilerApi]
@@ -459,7 +459,7 @@ behavior notify_diagnostics_delta_via_mcp "Notify Diagnostics Delta via MCP" {
 behavior handle_mcp_protocol_error "Handle MCP Protocol Error" {
   invariants [mcp_structured_error_responses]
   category   command
-  types      [McpError]
+  types      [McpError, JsonRpcErrorCode, McpErrorCode]
   ports      [McpProtocol]
   produces   [mcp_protocol_error_handled]
 

@@ -21,6 +21,7 @@ failure_mode silent_deadlock_miss "Silent Cycle Miss" {
     detection  3
     rpn        48
   }
+  verify unit "Silent Cycle Miss failure mode is handled"
 }
 
 failure_mode false_positive_layering_violation "False Positive Layering Condition Mismatch" {
@@ -38,6 +39,7 @@ failure_mode false_positive_layering_violation "False Positive Layering Conditio
     detection  3
     rpn        36
   }
+  verify unit "False Positive Layering Condition Mismatch failure mode is handled"
 }
 
 failure_mode coverage_tracking_leak "Coverage Tracking Item Leak" {
@@ -55,6 +57,7 @@ failure_mode coverage_tracking_leak "Coverage Tracking Item Leak" {
     detection  3
     rpn        42
   }
+  verify unit "Coverage Tracking Item Leak failure mode is handled"
 }
 
 failure_mode event_graph_analysis_timeout "Event Graph Analysis Timeout" {
@@ -72,6 +75,7 @@ failure_mode event_graph_analysis_timeout "Event Graph Analysis Timeout" {
     detection  2
     rpn        20
   }
+  verify unit "Event Graph Analysis Timeout failure mode is handled"
 }
 
 failure_mode protocol_ordering_false_positive "Protocol Ordering False Positive" {
@@ -89,6 +93,7 @@ failure_mode protocol_ordering_false_positive "Protocol Ordering False Positive"
     detection  2
     rpn        20
   }
+  verify unit "Protocol Ordering False Positive failure mode is handled"
 }
 
 failure_mode axiom_circularity_risk "Axiom Circularity Risk" {
@@ -106,6 +111,7 @@ failure_mode axiom_circularity_risk "Axiom Circularity Risk" {
     detection  2
     rpn        28
   }
+  verify unit "Axiom Circularity Risk failure mode is handled"
 }
 
 failure_mode false_negative_condition_check "False Negative Condition Check" {
@@ -123,6 +129,7 @@ failure_mode false_negative_condition_check "False Negative Condition Check" {
     detection  3
     rpn        48
   }
+  verify unit "False Negative Condition Check failure mode is handled"
 }
 
 failure_mode refinement_delta_drift "Refinement Condition Delta Drift" {
@@ -140,6 +147,7 @@ failure_mode refinement_delta_drift "Refinement Condition Delta Drift" {
     detection  3
     rpn        36
   }
+  verify unit "Refinement Condition Delta Drift failure mode is handled"
 }
 
 failure_mode process_alphabet_incomplete "Process Alphabet Incomplete" {
@@ -157,4 +165,5 @@ failure_mode process_alphabet_incomplete "Process Alphabet Incomplete" {
     detection  2
     rpn        20
   }
+  verify unit "Process Alphabet Incomplete failure mode is handled"
 }

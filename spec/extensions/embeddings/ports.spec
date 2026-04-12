@@ -7,4 +7,5 @@ port EmbeddingProvider {
 
   method generateEmbeddings(texts: string[]) -> Result<float[][], EmitterError>
   method computeSimilarity(query: string, candidates: string[]) -> Result<float[], EmitterError>
+  verify integration "EmbeddingProvider contract is satisfied"
 }

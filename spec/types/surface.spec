@@ -13,6 +13,7 @@ type SurfaceContributions {
   commands          CommandContribution[]      @optional
   mcp_tools         McpToolContribution[]      @optional
   mcp_resources     McpResourceContribution[]  @optional
+  verify unit "SurfaceContributions schema is valid"
 }
 
 // ── CLI Command Contributions ───────────────────────────────
@@ -26,6 +27,7 @@ type CommandContribution {
   export            string              @readonly
   args              CommandArg[]         @optional
   sandbox           SurfaceSandboxOverride @optional
+  verify unit "CommandContribution schema is valid"
 }
 
 type CommandArg {
@@ -36,6 +38,7 @@ type CommandArg {
   description       string              @optional
   // For enum_arg: allowed values
   values            string[]            @optional
+  verify unit "CommandArg schema is valid"
 }
 
 type CommandArgType = string_arg | path_arg | bool_arg | enum_arg | integer_arg
@@ -44,12 +47,14 @@ type CommandInput {
   args              FieldMap
   flags             FieldMap            @optional
   cwd               string
+  verify unit "CommandInput schema is valid"
 }
 
 type CommandOutput {
   exit_code         integer
   stdout            string              @optional
   stderr            string              @optional
+  verify unit "CommandOutput schema is valid"
 }
 
 // ── MCP Tool Contributions ──────────────────────────────────
@@ -62,6 +67,7 @@ type McpToolContribution {
   export            string              @readonly
   input_schema      JsonSchema
   sandbox           SurfaceSandboxOverride @optional
+  verify unit "McpToolContribution schema is valid"
 }
 
 // ── MCP Resource Contributions ──────────────────────────────
@@ -74,6 +80,7 @@ type McpResourceContribution {
   export            string              @readonly
   mime_type         string              @optional
   sandbox           SurfaceSandboxOverride @optional
+  verify unit "McpResourceContribution schema is valid"
 }
 
 // ── Sandbox Override ────────────────────────────────────────
@@ -85,6 +92,7 @@ type SurfaceSandboxOverride {
   fs_write          string[]            @optional
   // Domain allowlist for network access
   network           string[]            @optional
+  verify unit "SurfaceSandboxOverride schema is valid"
 }
 
 // ── Auto-Promotion ──────────────────────────────────────────
@@ -95,6 +103,7 @@ type AutoPromotedMcpTool {
   // MCP tool name: specforge.{ext_short}.{cmd_id}
   mcp_tool_name     string              @readonly
   derived_input_schema JsonSchema
+  verify unit "AutoPromotedMcpTool schema is valid"
 }
 
 // ── Surface Registry ────────────────────────────────────────
@@ -105,6 +114,7 @@ type SurfaceRegistryEntry {
   extension_name    string              @readonly
   export_name       string              @readonly
   enabled           boolean
+  verify unit "SurfaceRegistryEntry schema is valid"
 }
 
 type SurfaceType = command | mcp_tool | mcp_resource | auto_promoted_tool
@@ -117,4 +127,5 @@ type SurfaceError {
   contribution_id   string
   message           string
   export_name       string              @optional
+  verify unit "SurfaceError schema is valid"
 }

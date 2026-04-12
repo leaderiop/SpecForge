@@ -8,10 +8,12 @@ type TestGuard {
   module_path     string    @readonly
   file            string    @readonly
   line            integer   @readonly
+  verify unit "TestGuard schema is valid"
 }
 
 type TestRegistry {
   entries         EntityMappingEntry[]
+  verify unit "TestRegistry schema is valid"
 }
 
 type EntityMappingEntry {
@@ -21,6 +23,7 @@ type EntityMappingEntry {
   line            integer   @optional
   resolution      MappingResolutionLevel
   status          TestResultStatus  @optional
+  verify unit "EntityMappingEntry schema is valid"
 }
 
 type MappingResolutionLevel = tests_field | proc_macro | naming_convention
@@ -31,6 +34,7 @@ type RustFrameworkSupport {
   framework       RustFramework
   support         RustSupportLevel
   mechanism       string
+  verify unit "RustFrameworkSupport schema is valid"
 }
 
 type RustFramework = builtin | nextest | proptest | criterion | tokio | rstest | trybuild
@@ -43,4 +47,5 @@ type RustTestsCollectedPayload {
   unmappedTests   integer
   format          CollectFormat
   timestamp       timestamp
+  verify unit "RustTestsCollectedPayload schema is valid"
 }

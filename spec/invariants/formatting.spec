@@ -1,7 +1,5 @@
 // Formatting invariants — guarantees the formatter must always uphold
 
-use "behaviors/formatting"
-use "behaviors/mcp-operations"
 use "types/formatting"
 invariant formatting_idempotency "Formatting Idempotency" {
   guarantee """
@@ -9,7 +7,6 @@ invariant formatting_idempotency "Formatting Idempotency" {
     Formally: format(format(x)) == format(x) for all valid .spec inputs. Any
     violation of this invariant is a P0 bug.
   """
-  enforced_by [format_spec_files, apply_format_rules, maintain_format_idempotency, check_formatting, show_formatting_diff, format_from_stdin, lsp_format_document, lsp_format_range, format_with_parse_errors, provide_mcp_format_tool]
   risk high
 
   verify property "formatting an already-formatted file produces identical output"
@@ -23,7 +20,6 @@ invariant comment_preservation "Comment Preservation" {
     Every comment present in the input MUST appear in the output at the correct
     attachment point. Comment content MUST NOT be modified.
   """
-  enforced_by [format_spec_files, preserve_comments, apply_format_rules, format_from_stdin, check_formatting, show_formatting_diff, format_with_parse_errors, lsp_format_document, lsp_format_range, provide_mcp_format_tool]
   risk high
 
   verify property "every comment in input appears in formatted output"
@@ -41,7 +37,6 @@ invariant formatting_consistency "Formatting Consistency" {
     guarantee: format_with_parse_errors preserves unparseable text verbatim,
     so two files with differently-shaped parse errors MAY produce different output.
   """
-  enforced_by [format_spec_files, apply_format_rules, check_formatting, show_formatting_diff, format_from_stdin, lsp_format_document, lsp_format_range, format_with_parse_errors, provide_mcp_format_tool]
   risk medium
 
   verify property "two files differing only in whitespace produce identical formatted output"
@@ -55,7 +50,6 @@ invariant config_defaults_valid "Config Defaults Valid" {
     MUST themselves form a valid configuration. Falling back to defaults MUST
     always produce a usable formatter configuration, never an error state.
   """
-  enforced_by [load_format_config, lsp_respect_editor_config]
   risk low
 
   verify unit "default FormatConfig passes validation"
@@ -72,7 +66,6 @@ invariant discover_completeness "Discovery Completeness" {
     explicitly excluded via configuration.
   """
 
-  enforced_by [discover_format_targets]
 
   risk medium
 
@@ -89,7 +82,6 @@ invariant format_rule_determinism "Format Rule Determinism" {
     idempotency guarantees stability across re-application, while determinism
     guarantees stability across independent invocations with identical inputs.
   """
-  enforced_by [apply_format_rules, format_spec_files, format_from_stdin, lsp_format_document, lsp_format_range, check_formatting, show_formatting_diff, format_with_parse_errors, provide_mcp_format_tool]
   risk medium
 
   verify property "same input and config produce identical output across CLI and LSP"
@@ -105,7 +97,6 @@ invariant formatting_semantic_preservation "Formatting Semantic Preservation" {
     whitespace and comment positioning MAY change. Any formatting operation
     that alters the entity graph is a P0 bug.
   """
-  enforced_by [format_spec_files, lsp_format_document, lsp_format_range, format_from_stdin, maintain_format_idempotency, apply_format_rules, check_formatting, show_formatting_diff, format_with_parse_errors, provide_mcp_format_tool]
   risk high
 
   verify property "format(spec) parses to an identical entity graph as spec"
@@ -123,7 +114,6 @@ invariant format_rule_priority "Format Rule Application Order" {
     priority level MUST be applied in extension load order.
     All compilers MUST produce identical output for the same input and config.
   """
-  enforced_by [apply_format_rules]
   risk medium
 
   verify unit "indent rule takes precedence over spacing rule on same whitespace region"

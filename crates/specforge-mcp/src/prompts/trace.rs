@@ -47,13 +47,23 @@ pub fn get(state: &McpState, args: Value, id: Option<Value>) -> JsonRpcResponse 
         "affected_entities": affected
     });
 
+    let instruction = format!(
+        "Trace the dependency chain for entity '{}'. \
+         The data below shows all affected entities, unverified entities in the chain, \
+         and coverage gaps. Prioritize addressing unverified entities that are on critical paths.",
+        entity_id
+    );
+
     JsonRpcResponse::success(id, serde_json::json!({
-        "messages": [{
-            "role": "user",
-            "content": {
-                "type": "text",
-                "text": result.to_string()
+        "messages": [
+            {
+                "role": "user",
+                "content": { "type": "text", "text": instruction }
+            },
+            {
+                "role": "assistant",
+                "content": { "type": "text", "text": result.to_string() }
             }
-        }]
+        ]
     }))
 }

@@ -197,6 +197,48 @@ fn default_tools() -> Vec<McpToolDescriptor> {
             category: Some("core".into()),
         },
         McpToolDescriptor {
+            name: "specforge.model".into(),
+            description: "Render the logical data model (entity kinds, fields, relationships)".into(),
+            input_schema: json!({
+                "type": "object",
+                "properties": {
+                    "format": {
+                        "type": "string",
+                        "enum": ["markdown", "mermaid", "dot", "json", "dbml"],
+                        "description": "Output format (default: markdown)"
+                    },
+                    "group_by": {
+                        "type": "string",
+                        "enum": ["extension", "none"],
+                        "description": "Group entities by extension or list flat (default: extension)"
+                    },
+                    "fields": {
+                        "type": "string",
+                        "enum": ["none", "keys", "all"],
+                        "description": "Field detail level (default: keys)"
+                    },
+                    "extension": {
+                        "type": "string",
+                        "description": "Filter to a single extension"
+                    },
+                    "kinds": {
+                        "type": "array",
+                        "items": { "type": "string" },
+                        "description": "Filter to specific entity kinds"
+                    },
+                    "root": {
+                        "type": "string",
+                        "description": "Root entity kind for depth-scoped output"
+                    },
+                    "depth": {
+                        "type": "integer",
+                        "description": "Maximum depth from root kind (requires root)"
+                    }
+                }
+            }),
+            category: Some("core".into()),
+        },
+        McpToolDescriptor {
             name: "specforge.coverage".into(),
             description: "Get coverage status per entity".into(),
             input_schema: json!({

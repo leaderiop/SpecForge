@@ -13,6 +13,7 @@ type Graph {
   nodes      Node[]
   edges      Edge[]
   file_index FileIndex
+  verify unit "Graph schema is valid"
 }
 
 type Node {
@@ -21,12 +22,14 @@ type Node {
   title      string
   fields     FieldMap
   source_span SourceSpan  @readonly
+  verify unit "Node schema is valid"
 }
 
 type Edge {
   source     EntityId    @readonly
   target     EntityId    @readonly
   edge_type  EdgeType
+  verify unit "Edge schema is valid"
 }
 
 // EdgeType is an open string — not a closed enum.
@@ -34,26 +37,31 @@ type Edge {
 // in their manifests. The core only knows edge labels are strings.
 type EdgeType {
   label      string     @readonly
+  verify unit "EdgeType schema is valid"
 }
 
 type FileIndex {
   files      FileEntry[]
+  verify unit "FileIndex schema is valid"
 }
 
 type FileEntry {
   path       string     @readonly
   entities   EntityId[]
   imports    string[]
+  verify unit "FileEntry schema is valid"
 }
 
 type Subgraph {
   node_ids   EntityId[]
   edges      Edge[]
+  verify unit "Subgraph schema is valid"
 }
 
 type TraceChain {
   root       EntityId
   links      TraceLink[]
+  verify unit "TraceChain schema is valid"
 }
 
 type TraceLinkStatus = "resolved" | "missing"
@@ -64,6 +72,7 @@ type TraceLink {
   edge_type  EdgeType
   depth      integer
   status     TraceLinkStatus
+  verify unit "TraceLink schema is valid"
 }
 
 // ── Graph Protocol Schema Types ──────────────────────────────
@@ -73,11 +82,13 @@ type GraphProtocolSchema {
   extensions      SchemaExtensionInfo[]
   entity_kinds    SchemaEntityKind[]
   edge_types      SchemaEdgeType[]
+  verify unit "GraphProtocolSchema schema is valid"
 }
 
 type SchemaExtensionInfo {
   name            string          @readonly
   version         string          @readonly
+  verify unit "SchemaExtensionInfo schema is valid"
 }
 
 type SchemaEntityKind {
@@ -88,6 +99,7 @@ type SchemaEntityKind {
   fields          SchemaField[]
   has_body_parser boolean         @optional
   grammar_extension string        @optional
+  verify unit "SchemaEntityKind schema is valid"
 }
 
 type SchemaField {
@@ -96,6 +108,7 @@ type SchemaField {
   required        boolean
   target_kind     string          @optional
   enum_values     string[]        @optional
+  verify unit "SchemaField schema is valid"
 }
 
 type SchemaEdgeType {
@@ -103,6 +116,7 @@ type SchemaEdgeType {
   source_kinds    string[]        @optional
   target_kinds    string[]        @optional
   extension       string          @readonly
+  verify unit "SchemaEdgeType schema is valid"
 }
 
 // ── Graph Protocol Versioning ──────────────────────────────
@@ -112,6 +126,7 @@ type SchemaVersion {
   minor          integer         @readonly
   patch          integer         @readonly
   label          string          @optional @readonly
+  verify unit "SchemaVersion schema is valid"
 }
 
 type SchemaMigration {
@@ -119,6 +134,7 @@ type SchemaMigration {
   to_version     SchemaVersion   @readonly
   breaking       boolean
   changes        SchemaMigrationChange[] @optional
+  verify unit "SchemaMigration schema is valid"
 }
 
 type SchemaMigrationChange {
@@ -127,6 +143,7 @@ type SchemaMigrationChange {
   edge_type     string          @optional
   field_name    string          @optional
   breaking      boolean
+  verify unit "SchemaMigrationChange schema is valid"
 }
 
 type SchemaCompatibility {
@@ -136,6 +153,7 @@ type SchemaCompatibility {
   compatible     boolean
   // Sourced from CompilerConfig.supported_schema_min / .supported_schema_max (see ADR graph_protocol_version_management)
   source         string          @readonly
+  verify unit "SchemaCompatibility schema is valid"
 }
 
 // ── Graph Delta Types ────────────────────────────────────────
@@ -153,6 +171,7 @@ type GraphDelta {
   added_edges     Edge[]
   removed_edges   Edge[]
   affected_files  string[]
+  verify unit "GraphDelta schema is valid"
 }
 
 type NodeChange {
@@ -160,6 +179,7 @@ type NodeChange {
   kind            string          @readonly
   file            string          @optional
   line            integer         @optional
+  verify unit "NodeChange schema is valid"
 }
 
 type ModifiedNodeChange {
@@ -172,11 +192,13 @@ type ModifiedNodeChange {
   new_value       JsonValue       @optional
   file            string          @optional
   line            integer         @optional
+  verify unit "ModifiedNodeChange schema is valid"
 }
 
 type DiagnosticsDelta {
   added           Diagnostic[]
   removed         Diagnostic[]
+  verify unit "DiagnosticsDelta schema is valid"
 }
 
 // ── Agent Plan Types ──────────────────────────────────────
@@ -184,10 +206,12 @@ type DiagnosticsDelta {
 type AgentPlan {
   plan_id        string          @readonly @unique
   entries        AgentPlanEntry[]
+  verify unit "AgentPlan schema is valid"
 }
 
 type AgentPlanEntry {
   entity_id      string          @readonly
   action         string
   dependencies   string[]        @optional
+  verify unit "AgentPlanEntry schema is valid"
 }

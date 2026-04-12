@@ -3,6 +3,7 @@
 use "invariants/core"
 use "invariants/validation"
 use "invariants/zero-entity-core"
+use "features/zero-entity-core"
 use "types/graph"
 use "types/output"
 use "types/diagnostics"
@@ -16,7 +17,7 @@ use "events/compilation"
 behavior serialize_json_graph "Serialize JSON Graph" {
   invariants [graph_traversal_integrity, diagnostic_determinism, graph_schema_completeness, zero_domain_knowledge_core]
   category   query
-  types      [Graph, GraphProtocolSchema, OutputFile, EmitterError]
+  types      [Graph, GraphProtocolSchema, OutputFile, EmitterError, OutputFormat]
   ports      [GraphSerializer, FileSystem]
   consumes   [validation_complete]
   produces   [render_complete]
@@ -98,7 +99,7 @@ behavior serialize_dot_visualization "Serialize DOT Visualization" {
 behavior compute_traceability_chain "Compute Traceability Chain" {
   invariants [graph_traversal_integrity, diagnostic_determinism, zero_domain_knowledge_core]
   category   query
-  types      [Graph, TraceChain, TraceLink]
+  types      [Graph, TraceChain, TraceLink, TraceLinkStatus]
   ports      [CompilerApi]
   consumes   [validation_complete]
   produces   [trace_chain_computed]
@@ -137,8 +138,9 @@ behavior compute_traceability_chain "Compute Traceability Chain" {
 behavior compute_project_statistics "Compute Project Statistics" {
   invariants [diagnostic_determinism, testable_entity_classification, zero_domain_knowledge_core]
   category   query
-  types      [Graph, KindRegistryEntry, ProjectStatistics, DiagnosticSummary]
+  types      [Graph, KindRegistryEntry, ProjectStatistics, DiagnosticSummary, EntityKindCount]
   consumes   [validation_complete]
+  features   [extension_driven_coverage]
 
   requires {
     validation_complete_fired "validation_complete event has fired, confirming graph state is finalized for statistics computation"
@@ -416,7 +418,7 @@ behavior export_diagnostics_as_json "Export Diagnostics as JSON" {
 behavior export_agent_context_format "Export Agent Context Format" {
   invariants [graph_traversal_integrity, diagnostic_determinism, graph_schema_completeness, zero_domain_knowledge_core]
   category   query
-  types      [Graph, GraphProtocolSchema, OutputFile, AgentExportConfig, ProjectStatistics]
+  types      [Graph, GraphProtocolSchema, OutputFile, AgentExportConfig, ProjectStatistics, GraphAnnotation]
   ports      [CompilerApi]
   consumes   [validation_complete]
   produces   [export_complete]
@@ -585,7 +587,7 @@ behavior query_graph_multi_resolution "Query Graph at Multiple Resolutions" {
 behavior enforce_token_budget "Enforce Token Budget" {
   invariants [graph_traversal_integrity, diagnostic_determinism, token_budget_subgraph_consistency, zero_domain_knowledge_core]
   category   query
-  types      [AgentExportConfig, TokenBudgetResult, Graph, OutputFile, ExportResult]
+  types      [AgentExportConfig, TokenBudgetResult, Graph, OutputFile, ExportResult, TokenBudgetStrategy]
   ports      [CompilerApi]
   consumes   [validation_complete]
   produces   [token_budget_applied]

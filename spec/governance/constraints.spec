@@ -259,7 +259,7 @@ constraint lsp_responsiveness "LSP Responsiveness" {
     on a 500-file project
   """
 
-  constrains [go_to_definition, find_all_references, hover_information, autocomplete_entity_ids, rename_entity_id, live_diagnostics, code_actions_for_missing_verify, outline_view, workspace_symbol_search, shared_incremental_pipeline, provide_semantic_tokens, complete_field_names, complete_keywords, goto_import_definition, code_action_add_missing_import, code_action_create_entity_stub, incremental_document_sync]
+  constrains [go_to_definition, find_all_references, hover_information, autocomplete_entity_ids, rename_entity_id, emit_live_diagnostics, code_actions_for_missing_verify, outline_view, workspace_symbol_search, shared_incremental_pipeline, provide_semantic_tokens, complete_field_names, complete_keywords, goto_import_definition, code_action_add_missing_import, code_action_create_entity_stub, incremental_document_sync]
   protects [incremental_correctness]
 
   verify load "LSP features respond within 50ms on 500-file project"

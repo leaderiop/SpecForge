@@ -6,10 +6,12 @@
 // Each command's Wasm export follows the cmd__{id} naming convention.
 
 use "types/zero-entity-core"
+use "extensions/software/features"
 use "extensions/software/types"
 behavior se_analyze_contracts "Analyze Contracts Command" {
   category command
   types [RequiresBlock, EnsuresBlock, ContractCondition]
+  features [se_analyze_commands]
 
   contract """
     The specforge analyze contracts command MUST run the contract_check
@@ -37,6 +39,7 @@ behavior se_analyze_contracts "Analyze Contracts Command" {
 behavior se_analyze_refinement "Analyze Refinement Command" {
   category command
   types [RefinementChain]
+  features [se_analyze_commands]
 
   contract """
     The specforge analyze refinement command MUST run the
@@ -56,6 +59,7 @@ behavior se_analyze_refinement "Analyze Refinement Command" {
 behavior se_analyze_concurrency "Analyze Concurrency Command" {
   category command
   types [SoftwareEvent, SyncBlock]
+  features [se_analyze_commands]
 
   contract """
     The specforge analyze concurrency command MUST run the
@@ -74,6 +78,7 @@ behavior se_analyze_concurrency "Analyze Concurrency Command" {
 
 behavior se_analyze_all "Analyze All Command" {
   category command
+  features [se_analyze_commands]
 
   contract """
     The specforge analyze all command MUST run contract_check,

@@ -31,9 +31,12 @@ pub fn hover_info_with_registries(
 
     let mut parts = vec![format!("**{}** `{}`{}", node.kind.raw, node.id.raw, title)];
 
-    // Extension source from KindRegistry
+    // Description and extension source from KindRegistry
     if let Some(kind_reg) = kind_registry
         && let Some(entry) = kind_reg.get(node.kind.raw.as_str()) {
+            if let Some(ref desc) = entry.description {
+                parts.push(desc.clone());
+            }
             parts.push(format!("*from {}*", entry.source_extension));
     }
 
@@ -102,6 +105,10 @@ pub fn hover_field_info(
 
     let type_str = format_field_type(&entry.field_type);
     let mut parts = vec![format!("**`{}`** : {}", field_name, type_str)];
+
+    if let Some(ref desc) = entry.description {
+        parts.push(desc.clone());
+    }
 
     if let Some(ref target) = entry.target_kind {
         parts.push(format!("→ **{}**", target));

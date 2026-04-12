@@ -19,7 +19,9 @@ type CompilerConfig {
   extensions   string[]
   providers    ProviderConfig[]  @optional
   test_dirs    string[]          @optional
-  coverage     CoverageConfig    @optional
+  // Coverage configuration is owned by @specforge/coverage extension.
+  // At runtime this is a FieldMap deserialized into the extension's CoverageConfig type.
+  coverage     FieldMap          @optional
   enhancement_policy   EnhancementPolicy @optional
   enhancement_overrides FieldMap @optional
   registries   RegistryConfig[] @optional
@@ -36,6 +38,7 @@ type CompilerConfig {
   // Defaults to current major range (e.g., 1.0.0..1.x.x). See ADR graph_protocol_version_management.
   supported_schema_min SchemaVersion @optional
   supported_schema_max SchemaVersion @optional
+  verify unit "CompilerConfig schema is valid"
 }
 
 type ProviderConfig {
@@ -43,14 +46,12 @@ type ProviderConfig {
   alias      string    @unique
   extension  string
   settings   FieldMap  @optional
+  verify unit "ProviderConfig schema is valid"
 }
 
-type CoverageConfig {
-  threshold                integer
-  reports                  string[]      @optional
-  require_violation_tests  boolean       @optional
-  fail_on_unknown_ids      boolean       @optional
-}
+// CoverageConfig removed — canonical definition lives in
+// extensions/coverage/types.spec per Principle 5 (extensions over built-ins).
+// CompilerConfig.coverage uses FieldMap; the coverage extension deserializes it.
 
 // ── Registry Types ──────────────────────────────────────────
 
@@ -59,6 +60,7 @@ type RegistryConfig {
   url               string
   scope_filter      string[]        @optional
   credential        RegistryCredential @optional
+  verify unit "RegistryConfig schema is valid"
 }
 
 type RegistryResponse {
@@ -72,6 +74,7 @@ type RegistryResponse {
   published_at      string          @optional
   wasm_size_bytes   integer         @optional
   sha256            string          @optional
+  verify unit "RegistryResponse schema is valid"
 }
 
 type ContributesSummary {
@@ -87,12 +90,14 @@ type ContributesSummary {
   parsers           integer         @optional
   grammars          integer         @optional
   body_parsers      integer         @optional
+  verify unit "ContributesSummary schema is valid"
 }
 
 type RegistrySearchResult {
   results           RegistryResponse[]
   total_count       integer
   query             string
+  verify unit "RegistrySearchResult schema is valid"
 }
 
 type TrustLevel = verified | community | local | git
@@ -109,6 +114,7 @@ type RegistryCredential {
   token_env_var  string          @optional
   token_file     string          @optional
   auth_method    AuthMethod
+  verify unit "RegistryCredential schema is valid"
 }
 
 type InitConfig {
@@ -117,6 +123,7 @@ type InitConfig {
   extensions string[] @optional
   interactive boolean @optional
   version string @optional
+  verify unit "InitConfig schema is valid"
 }
 
 type InitOutput {
@@ -124,6 +131,7 @@ type InitOutput {
   config_path string @readonly
   spec_file_path string @readonly
   extensions_installed string[] @readonly
+  verify unit "InitOutput schema is valid"
 }
 
 // ProjectConfig is the serialization shape of specforge.json — the subset
@@ -136,6 +144,7 @@ type ProjectConfig {
   spec_root string
   extensions string[]
   providers ProviderConfig[] @optional
+  verify unit "ProjectConfig schema is valid"
 }
 
 type InitError {
@@ -143,10 +152,12 @@ type InitError {
   message string
   path string @optional
   extension string @optional
+  verify unit "InitError schema is valid"
 }
 
 type BundledExtensionCatalog {
   extensions BundledExtensionEntry[]
+  verify unit "BundledExtensionCatalog schema is valid"
 }
 
 type BundledExtensionEntry {
@@ -157,6 +168,7 @@ type BundledExtensionEntry {
   // favor any single domain — software, compliance, design, data, etc.
   // must receive equal prominence. See P2: zero domain knowledge in core.
   priority    u32     @optional
+  verify unit "BundledExtensionEntry schema is valid"
 }
 
 // ExtensionManifest is an alias for ManifestV2 (defined in types/zero-entity-core).

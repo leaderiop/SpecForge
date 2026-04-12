@@ -1,5 +1,5 @@
-use specforge_common::{SourceSpan, Sym};
-use specforge_parser::{EntityId, EntityKind, FieldMap};
+use specforge_common::{find_close_match, Diagnostic, SourceSpan, Sym};
+use specforge_parser::{EntityId, EntityKind, FieldMap, FieldValue};
 use std::collections::{HashMap, HashSet, VecDeque};
 
 #[derive(Debug, Clone)]
@@ -263,13 +263,162 @@ impl Graph {
         affected
     }
 
+    /// Resolve reference fields into graph edges and return E001
+    /// diagnostics for any unresolved references.
+    ///
+    /// This is the **single source of truth** for reference resolution.
+    /// Both the CLI (via `build_graph_with_config`) and the LSP call this
+    /// method so that diagnostics are identical.
+    ///
+    /// The method clears all existing edges, then iterates every node's
+    /// `ReferenceList` fields plus any `Identifier` fields that match
+    /// `single_ref_fields` (a set of `(entity_kind, field_name)` pairs
+    /// declaring which Identifier fields are single-reference fields).
+    /// For each target that exists in the graph an edge is created; for
+    /// each target that does *not* exist an E001 diagnostic is emitted
+    /// (with a fuzzy-match suggestion when possible).
+    pub fn resolve_references(&mut self) -> Vec<Diagnostic> {
+        self.resolve_references_with_singles(&HashSet::new())
+    }
+
+    /// Like [`resolve_references`] but also resolves single-reference
+    /// `Identifier` fields when `(entity_kind, field_name)` is in the set.
+    pub fn resolve_references_with_singles(
+        &mut self,
+        single_ref_fields: &HashSet<(String, String)>,
+    ) -> Vec<Diagnostic> {
+        self.clear_edges();
+
+        let entity_ids: HashSet<Sym> = self.nodes.keys().copied().collect();
+
+        // Snapshot node data so we can mutate edges while iterating.
+        let all_nodes: Vec<(Sym, Sym, FieldMap, SourceSpan)> = self
+            .nodes
+            .values()
+            .map(|n| (n.id.raw, n.kind.raw, n.fields.clone(), n.source_span.clone()))
+            .collect();
+
+        let mut diagnostics = Vec::new();
+
+        for (node_id, node_kind, fields, span) in &all_nodes {
+            for entry in fields.entries() {
+                match &entry.value {
+                    FieldValue::ReferenceList(refs) => {
+                        for target_id in refs {
+                            let target_sym = Sym::new(target_id);
+                            if entity_ids.contains(&target_sym) {
+                                self.add_edge(Edge {
+                                    source: *node_id,
+                                    target: target_sym,
+                                    label: entry.key,
+                                });
+                            } else {
+                                let suggestion = find_close_match(
+                                    target_id,
+                                    entity_ids.iter().map(|s| s.as_str()),
+                                );
+                                let mut diag = Diagnostic::error(
+                                    "E001",
+                                    format!(
+                                        "unresolved reference '{}' in entity '{}'",
+                                        target_id, node_id
+                                    ),
+                                )
+                                .with_span(span.clone());
+                                if let Some(s) = suggestion {
+                                    diag = diag
+                                        .with_suggestion(format!("did you mean '{}'?", s));
+                                }
+                                diagnostics.push(diag);
+                            }
+                        }
+                    }
+                    FieldValue::Identifier(target_id)
+                        if single_ref_fields.contains(&(
+                            node_kind.as_str().to_string(),
+                            entry.key.as_str().to_string(),
+                        )) =>
+                    {
+                        let target_sym = Sym::new(target_id);
+                        if entity_ids.contains(&target_sym) {
+                            self.add_edge(Edge {
+                                source: *node_id,
+                                target: target_sym,
+                                label: entry.key,
+                            });
+                        }
+                        // Single refs don't emit E001 — the value might be
+                        // a valid enum/identifier rather than a broken ref.
+                    }
+                    _ => {}
+                }
+            }
+        }
+
+        diagnostics
+    }
+
     /// Returns true if the directed edge set contains at least one cycle.
     pub fn has_cycles(&self) -> bool {
         !self.detect_cycles().is_empty()
     }
 
+    /// Known bidirectional edge pairs where A->B with label X and B->A with label Y
+    /// represent complementary relationships, not real circular dependencies.
+    /// Each pair is (label_forward, label_reverse).
+    const BIDIRECTIONAL_PAIRS: &[(&str, &str)] = &[
+        ("invariants", "enforced_by"),
+        ("constrains", "constrained_by"),
+        ("features", "behaviors"),
+    ];
+
+    /// Returns true if a 2-hop cycle (A -> B -> A) consists of a known
+    /// bidirectional edge pair and should NOT be reported as a real cycle.
+    fn is_bidirectional_pair_cycle(&self, a: Sym, b: Sym) -> bool {
+        // Collect edge labels from a -> b
+        let labels_ab: Vec<Sym> = self
+            .source_index
+            .get(&a)
+            .into_iter()
+            .flatten()
+            .filter(|&&idx| self.edges[idx].target == b)
+            .map(|&idx| self.edges[idx].label)
+            .collect();
+
+        // Collect edge labels from b -> a
+        let labels_ba: Vec<Sym> = self
+            .source_index
+            .get(&b)
+            .into_iter()
+            .flatten()
+            .filter(|&&idx| self.edges[idx].target == a)
+            .map(|&idx| self.edges[idx].label)
+            .collect();
+
+        // Check if any (ab_label, ba_label) combination matches a known pair
+        for &lab_ab in &labels_ab {
+            for &lab_ba in &labels_ba {
+                let ab_str = lab_ab.as_str();
+                let ba_str = lab_ba.as_str();
+                for &(fwd, rev) in Self::BIDIRECTIONAL_PAIRS {
+                    if (ab_str == fwd && ba_str == rev)
+                        || (ab_str == rev && ba_str == fwd)
+                    {
+                        return true;
+                    }
+                }
+            }
+        }
+
+        false
+    }
+
     /// Detect all cycles in the directed edge set using DFS.
     /// Returns a list of cycles, where each cycle is a Vec of node IDs forming the path.
+    ///
+    /// Two-hop cycles that consist entirely of known bidirectional edge pairs
+    /// (e.g., `invariants`/`enforced_by`) are excluded, since they represent
+    /// complementary relationships rather than real circular dependencies.
     pub fn detect_cycles(&self) -> Vec<Vec<Sym>> {
         #[derive(Clone, Copy, PartialEq)]
         enum Color {
@@ -298,7 +447,7 @@ impl Graph {
                     let target = edges[idx].target;
                     match color.get(&target).copied().unwrap_or(Color::White) {
                         Color::Gray => {
-                            // Found a cycle — extract the cycle path from the stack
+                            // Found a cycle -- extract the cycle path from the stack
                             if let Some(pos) = path.iter().position(|&n| n == target) {
                                 let mut cycle: Vec<Sym> = path[pos..].to_vec();
                                 cycle.push(target); // close the loop
@@ -323,6 +472,17 @@ impl Graph {
                 dfs(node, &mut color, &mut path, &mut cycles, &self.source_index, &self.edges);
             }
         }
+
+        // Filter out 2-hop cycles that are known bidirectional pairs.
+        // A 2-hop cycle is represented as [A, B, A] (3 elements, first == last).
+        cycles.retain(|cycle| {
+            if cycle.len() == 3 && cycle[0] == cycle[2] {
+                // This is a 2-hop cycle: A -> B -> A
+                !self.is_bidirectional_pair_cycle(cycle[0], cycle[1])
+            } else {
+                true // keep all longer cycles and self-loops
+            }
+        });
 
         cycles
     }

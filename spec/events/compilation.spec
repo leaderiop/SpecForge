@@ -4,24 +4,7 @@ use "types/core"
 use "types/graph"
 use "types/wasm"
 use "types/diagnostics"
-use "behaviors/parsing"
-use "behaviors/resolution"
-use "behaviors/graph"
-use "behaviors/validation"
-use "behaviors/error-reporting"
-use "behaviors/incremental"
-use "behaviors/zero-entity-registries"
-use "behaviors/zero-entity-validation"
-use "behaviors/formatting"
-use "behaviors/output"
-use "behaviors/output-schema"
-use "behaviors/lsp"
-use "behaviors/init"
-use "behaviors/migration"
-use "behaviors/extensions"
-use "behaviors/mcp-server"
 event file_parsed "File Parsed" {
-  trigger   parse_spec_file_to_ast
   channel   "compiler.file_parsed"
 
   payload {
@@ -33,14 +16,12 @@ event file_parsed "File Parsed" {
 
   // recover_from_syntax_errors runs INSIDE the parser (Tree-sitter error
   // recovery), not as a post-parse event consumer.
-  consumers []
 
   verify integration "emits file_parsed with correct entityCount and errorCount after successful parse"
 
 }
 
 event all_files_parsed "All Files Parsed" {
-  trigger   parse_spec_file_to_ast
   channel   "compiler.all_files_parsed"
 
   payload {
@@ -56,7 +37,6 @@ event all_files_parsed "All Files Parsed" {
   // needed); load_extension_manifests loads extensions; read_lock_file reads
   // specforge.lock for integrity verification. All three are independent.
   // Lock verification feeds into load_wasm_module via wasm_integrity_verified.
-  consumers [detect_duplicate_entity_ids, load_extension_manifests, read_lock_file]
 
   verify integration "emits all_files_parsed after every file in the project has been parsed"
   verify integration "consumer populates the KindRegistry from extension manifests before Phase 2"
@@ -68,7 +48,6 @@ event structural_parse_complete "Structural Parse Complete" {
   // into generic entity blocks. No keyword validation has occurred yet.
   // This event marks the handoff from Phase 1 (structural parsing) to
   // extension loading and registry population.
-  trigger   two_phase_parse_structural
   channel   "compiler.structural_parse_complete"
 
   payload {
@@ -80,14 +59,12 @@ event structural_parse_complete "Structural Parse Complete" {
   // load_extension_manifests already consumes all_files_parsed. This event
   // is a Phase 1 completion signal for traceability — it does not add a
   // new consumer trigger.
-  consumers []
 
   verify integration "emits structural_parse_complete after all files are structurally parsed"
 
 }
 
 event extension_manifests_loaded {
-  trigger load_extension_manifests
   channel internal
 
   payload {
@@ -96,7 +73,6 @@ event extension_manifests_loaded {
     timestamp       timestamp
   }
 
-  consumers [register_extension_entity_types, load_provider_configurations, register_custom_validation_patterns, register_entity_kinds_from_manifest, register_edge_types_from_manifest, register_validation_rules_from_manifest, register_verify_kinds_from_manifest, register_grammar_contributions, register_body_parser_contributions, reject_reserved_entity_kind, detect_entity_kind_collision, load_extension_grammar, register_extension_validation_rules, provide_extension_query_extensions, populate_field_registry_from_extensions, populate_edge_registry_from_extensions]
 
   verify "Extension manifests MUST be loaded before populating the kind registry"
 }
@@ -105,7 +81,6 @@ event registries_populated "Registries Populated" {
   // Fires after populate_kind_registry, populate_field_registry, and
   // populate_edge_registry all complete. The kind registry populator
   // orchestrates all three and fires this event last.
-  trigger   populate_kind_registry_from_extensions
   channel   "compiler.registries_populated"
 
   payload {
@@ -119,7 +94,6 @@ event registries_populated "Registries Populated" {
   // Phase 2 begins: resolution and semantic validation run only after all
   // registries are populated. resolve_use_imports starts reference linking;
   // two_phase_validate_semantic checks keywords against the KindRegistry.
-  consumers [resolve_use_imports, two_phase_validate_semantic, validate_extension_testability, resolve_soft_cross_extension_references, generate_schema_from_registries, custom_entity_types_via_define, graceful_degradation_without_extensions, detect_unknown_entity_kinds, detect_unknown_entity_fields]
 
   verify integration "emits registries_populated after KindRegistry, FieldRegistry, and edge type set are fully loaded"
   verify integration "consumer resolve_use_imports starts Phase 2 only after this event"
@@ -128,7 +102,6 @@ event registries_populated "Registries Populated" {
 }
 
 event resolution_complete "Resolution Complete" {
-  trigger   link_entity_references
   channel   "compiler.resolution_complete"
 
   payload {
@@ -137,7 +110,6 @@ event resolution_complete "Resolution Complete" {
     timestamp   timestamp
   }
 
-  consumers [build_in_memory_graph]
 
   verify integration "emits resolution_complete after all imports resolved"
   verify integration "consumer build_in_memory_graph receives event and constructs graph"
@@ -145,7 +117,6 @@ event resolution_complete "Resolution Complete" {
 }
 
 event graph_built "Graph Built" {
-  trigger   build_in_memory_graph
   channel   "compiler.graph_built"
 
   payload {
@@ -160,10 +131,6 @@ event graph_built "Graph Built" {
   // resolver integrity. The remaining checks are core structural checks
   // (orphan refs, file reference existence). execute_validation_pattern
   // runs extension-defined declarative rules.
-  consumers [
-    detect_dangling_references, execute_validation_pattern,
-    detect_orphan_refs, validate_file_reference_paths,
-  ]
 
   verify integration "emits graph_built with accurate nodeCount and edgeCount after graph construction"
   verify integration "consumers receive graph_built and trigger structural validation and declarative pattern execution"
@@ -171,7 +138,6 @@ event graph_built "Graph Built" {
 }
 
 event declarative_validation_executed "Declarative Validation Executed" {
-  trigger   execute_validation_pattern
   channel   "compiler.declarative_validation_executed"
 
   payload {
@@ -181,7 +147,6 @@ event declarative_validation_executed "Declarative Validation Executed" {
     timestamp       timestamp
   }
 
-  consumers [aggregate_diagnostic_summary]
 
   verify integration "emits declarative_validation_executed with correct ruleCount and violationCount"
   verify integration "consumer aggregate_diagnostic_summary collects pattern diagnostics into final summary"
@@ -189,7 +154,6 @@ event declarative_validation_executed "Declarative Validation Executed" {
 }
 
 event validation_complete "Validation Complete" {
-  trigger   aggregate_diagnostic_summary
   channel   "compiler.validation_complete"
 
   payload {
@@ -204,7 +168,6 @@ event validation_complete "Validation Complete" {
   // emitted). They are NOT post-validation consumers. This event signals pipeline
   // completion — consumers are output-phase behaviors that need the final diagnostic
   // counts, such as CLI exit code decisions and emitter triggers.
-  consumers [serialize_json_graph, serialize_dot_visualization, compute_traceability_chain, serialize_traceability_data, validate_agent_plan, export_agent_context_format, export_agent_brief_format, export_agent_graph_format, query_graph_multi_resolution, enforce_token_budget, compute_project_statistics, print_diagnostics_structured, exit_code_reflects_diagnostic_severity, deterministic_output, check_mode_for_ci, export_diagnostics_as_json, negotiate_schema_version, embed_schema_in_export, serve_schema_resource, serve_graph_resource, publish_schema_specification, notify_diagnostics_delta_via_mcp, expose_graph_as_mcp_resource, expose_schema_as_mcp_resource, expose_context_as_mcp_resource, expose_brief_as_mcp_resource, expose_diagnostics_as_mcp_resource, expose_entity_as_mcp_resource]
 
   verify integration "emits validation_complete with correct error, warning, and info counts"
   verify integration "event signals Phase 2 completion — emitter phase may begin"
@@ -212,7 +175,6 @@ event validation_complete "Validation Complete" {
 }
 
 event file_changed "File Changed" {
-  trigger   [watch_file_system_for_changes, handle_text_document_change, document_open_close]
   channel   "watch.file_changed"
 
   payload {
@@ -221,7 +183,6 @@ event file_changed "File Changed" {
     timestamp   timestamp
   }
 
-  consumers [debounce_file_changes]
 
   verify integration "emits file_changed with correct filePath and changeType on filesystem modification"
   verify integration "consumer debounce_file_changes receives event and coalesces into batch"
@@ -229,7 +190,6 @@ event file_changed "File Changed" {
 }
 
 event file_changes_coalesced "File Changes Coalesced" {
-  trigger   debounce_file_changes
   channel   "watch.file_changes_coalesced"
 
   payload {
@@ -238,7 +198,6 @@ event file_changes_coalesced "File Changes Coalesced" {
     timestamp    timestamp
   }
 
-  consumers [invalidate_changed_files]
 
   verify integration "emits file_changes_coalesced with correct filePaths after debounce window expires"
   verify integration "consumer invalidate_changed_files receives coalesced batch and computes invalidation set"
@@ -246,7 +205,6 @@ event file_changes_coalesced "File Changes Coalesced" {
 }
 
 event subgraph_invalidated "Subgraph Invalidated" {
-  trigger   invalidate_changed_files
   channel   "watch.subgraph_invalidated"
 
   payload {
@@ -255,7 +213,6 @@ event subgraph_invalidated "Subgraph Invalidated" {
     timestamp        timestamp
   }
 
-  consumers [rebuild_affected_subgraph, track_import_dag_incrementally]
 
   verify integration "emits subgraph_invalidated with correct invalidatedFiles list and nodeCount"
   verify integration "consumer rebuild_affected_subgraph receives event and re-parses invalidated files"
@@ -264,7 +221,6 @@ event subgraph_invalidated "Subgraph Invalidated" {
 }
 
 event import_dag_updated "Import DAG Updated" {
-  trigger   track_import_dag_incrementally
   channel   "watch.import_dag_updated"
 
   payload {
@@ -274,7 +230,6 @@ event import_dag_updated "Import DAG Updated" {
     timestamp       timestamp
   }
 
-  consumers [rebuild_affected_subgraph]
 
   verify integration "emits import_dag_updated after file dependency edges are added or removed"
   verify integration "consumer rebuild_affected_subgraph waits for import DAG to be current before rebuilding"
@@ -282,7 +237,6 @@ event import_dag_updated "Import DAG Updated" {
 }
 
 event incremental_rebuild_complete "Incremental Rebuild Complete" {
-  trigger   rebuild_affected_subgraph
   channel   "watch.incremental_rebuild_complete"
 
   payload {
@@ -293,7 +247,6 @@ event incremental_rebuild_complete "Incremental Rebuild Complete" {
     timestamp        timestamp
   }
 
-  consumers [emit_incremental_diagnostics, shared_incremental_pipeline, compute_graph_delta]
 
   verify integration "emits incremental_rebuild_complete with correct rebuiltFiles and node counts"
   verify integration "consumer emit_incremental_diagnostics refreshes diagnostics for rebuilt files"
@@ -303,7 +256,6 @@ event incremental_rebuild_complete "Incremental Rebuild Complete" {
 }
 
 event render_complete "Render Complete" {
-  trigger   [serialize_json_graph, serialize_dot_visualization, serialize_traceability_data, publish_schema_specification]
   channel   "compiler.render_complete"
 
   payload {
@@ -312,14 +264,12 @@ event render_complete "Render Complete" {
     timestamp        timestamp
   }
 
-  consumers []
 
   verify integration "emits render_complete with correct outputFileCount after rendering"
 
 }
 
 event export_complete "Export Complete" {
-  trigger   [export_agent_context_format, export_agent_brief_format, export_agent_graph_format]
   channel   "compiler.export_complete"
 
   payload {
@@ -329,14 +279,12 @@ event export_complete "Export Complete" {
     timestamp       timestamp
   }
 
-  consumers []
 
   verify integration "emits export_complete with correct format and entityCount after agent export"
 
 }
 
 event format_complete "Format Complete" {
-  trigger   [format_spec_files, lsp_format_document, lsp_format_range, format_from_stdin]
   channel   "compiler.format_complete"
 
   payload {
@@ -345,7 +293,6 @@ event format_complete "Format Complete" {
     timestamp     timestamp
   }
 
-  consumers []
 
   verify integration "emits format_complete with correct filesChecked and filesChanged"
 
@@ -354,7 +301,6 @@ event format_complete "Format Complete" {
 event project_initialized "Project Initialized" {
   // Triggers are mutually exclusive — exactly one fires per init invocation depending on the code path.
   // interactive_extension_selection is a sub-step of scaffold_new_project, not an independent trigger.
-  trigger   [scaffold_new_project, non_interactive_init, graceful_zero_extension_init, provide_mcp_init_tool]
   channel   "cli.project_initialized"
 
   payload {
@@ -364,7 +310,6 @@ event project_initialized "Project Initialized" {
     timestamp       timestamp
   }
 
-  consumers []
 
   verify integration "emits project_initialized with correct projectName and extensionCount"
   verify integration "specFilePath refers to the starter entity spec file, not specforge.json"
@@ -372,7 +317,6 @@ event project_initialized "Project Initialized" {
 }
 
 event extension_added "Extension Added" {
-  trigger   [add_extension_to_existing_project, provide_mcp_add_extension_tool]
   channel   "cli.extension_added"
 
   payload {
@@ -382,7 +326,6 @@ event extension_added "Extension Added" {
     timestamp           timestamp
   }
 
-  consumers []
 
   verify integration "emits extension_added with correct extensionSpecifier after specforge add"
   verify unit "wasDuplicate is true when extension was already installed"
@@ -390,7 +333,6 @@ event extension_added "Extension Added" {
 }
 
 event extension_loading_failed {
-  trigger   [load_extension_manifests, validate_peer_dependencies]
   channel   "compilation.extension_loading_failed"
 
   payload {
@@ -399,7 +341,6 @@ event extension_loading_failed {
     message        string
   }
 
-  consumers []
 
   verify integration "manifest parse error emits extension_loading_failed event"
 
@@ -408,7 +349,6 @@ event extension_loading_failed {
 event custom_entity_type_defined "Custom Entity Type Defined" {
   // Emitted once per define block. After ALL define blocks are processed,
   // define_blocks_registered fires as the aggregate signal.
-  trigger   custom_entity_types_via_define
   channel   "compiler.custom_entity_type_defined"
 
   payload {
@@ -418,7 +358,6 @@ event custom_entity_type_defined "Custom Entity Type Defined" {
     timestamp       timestamp
   }
 
-  consumers []
 
   verify integration "emits custom_entity_type_defined when a define block registers a custom entity type"
   verify integration "fires after registries_populated (define blocks run in Phase 2)"
@@ -431,7 +370,6 @@ event define_blocks_registered "Define Blocks Registered" {
   // fires after registries_populated (extension kinds) but before resolution
   // begins, ensuring that both extension-defined and project-defined kinds
   // are available for semantic validation.
-  trigger   custom_entity_types_via_define
   channel   "compiler.define_blocks_registered"
 
   payload {
@@ -445,7 +383,6 @@ event define_blocks_registered "Define Blocks Registered" {
   // Note: two_phase_validate_semantic waits for BOTH registries_populated AND
   // define_blocks_registered before running, ensuring all entity kinds
   // (extension-defined and project-defined) are available for validation.
-  consumers [resolve_use_imports, two_phase_validate_semantic, detect_unknown_entity_fields]
 
   verify integration "emits define_blocks_registered after all define blocks processed"
   verify integration "fires after registries_populated event"
@@ -456,7 +393,6 @@ event define_blocks_registered "Define Blocks Registered" {
 // ── LSP Lifecycle Events ─────────────────────────────────────
 
 event lsp_initialized "LSP Initialized" {
-  trigger   lsp_initialize
   channel   "lsp.initialized"
 
   payload {
@@ -465,21 +401,18 @@ event lsp_initialized "LSP Initialized" {
     timestamp       timestamp
   }
 
-  consumers []
 
   verify integration "emits lsp_initialized after LSP server completes initialization"
 
 }
 
 event lsp_shutdown_complete "LSP Shutdown Complete" {
-  trigger   lsp_shutdown
   channel   "lsp.shutdown_complete"
 
   payload {
     timestamp       timestamp
   }
 
-  consumers []
 
   verify integration "emits lsp_shutdown_complete after LSP server shuts down cleanly"
 
@@ -490,7 +423,6 @@ event lsp_shutdown_complete "LSP Shutdown Complete" {
 // migration_started fires after the backup is created but before transforms run.
 // Contrast with migration_starting, which fires before any file I/O begins.
 event migration_started "Migration Started" {
-  trigger   migrate_spec_files_in_place
   channel   "compiler.migration_started"
 
   payload {
@@ -499,7 +431,6 @@ event migration_started "Migration Started" {
     timestamp       timestamp
   }
 
-  consumers [rollback_failed_migration]
 
   verify integration "emits migration_started with correct fileCount and targetVersion"
 
@@ -508,7 +439,6 @@ event migration_started "Migration Started" {
 // migration_starting fires before any file I/O begins (pre-backup).
 // Contrast with migration_started, which fires after the backup is created.
 event migration_starting "Migration Starting" {
-  trigger   migrate_spec_files_in_place
   channel   "compiler.migration_starting"
 
   payload {
@@ -517,14 +447,12 @@ event migration_starting "Migration Starting" {
     timestamp       timestamp
   }
 
-  consumers [capture_pre_migration_schema_snapshot]
 
   verify integration "emits migration_starting before any migration transforms are applied"
 
 }
 
 event pre_migration_snapshot_captured "Pre-Migration Snapshot Captured" {
-  trigger   capture_pre_migration_schema_snapshot
   channel   "compiler.pre_migration_snapshot_captured"
 
   payload {
@@ -534,14 +462,12 @@ event pre_migration_snapshot_captured "Pre-Migration Snapshot Captured" {
     timestamp       timestamp
   }
 
-  consumers [verify_graph_protocol_compatibility_after_migration]
 
   verify integration "emits pre_migration_snapshot_captured after schema snapshot is taken"
 
 }
 
 event migration_complete "Migration Complete" {
-  trigger   migrate_spec_files_in_place
   channel   "compiler.migration_complete"
 
   payload {
@@ -554,7 +480,6 @@ event migration_complete "Migration Complete" {
     timestamp       timestamp
   }
 
-  consumers [invoke_extension_migration_hooks]
 
   verify integration "emits migration_complete with correct migratedCount, failedCount, and skippedCount"
   verify integration "consumer invoke_extension_migration_hooks receives event to run extension hooks"
@@ -562,7 +487,6 @@ event migration_complete "Migration Complete" {
 }
 
 event migration_diff_generated "Migration Diff Generated" {
-  trigger   generate_migration_diff
   channel   "compiler.migration_diff_generated"
 
   payload {
@@ -571,14 +495,12 @@ event migration_diff_generated "Migration Diff Generated" {
     timestamp       timestamp
   }
 
-  consumers []
 
   verify integration "emits migration_diff_generated with correct fileCount and totalDiffLines after dry-run"
 
 }
 
 event extension_migration_hooks_complete "Extension Migration Hooks Complete" {
-  trigger   invoke_extension_migration_hooks
   channel   "compiler.extension_migration_hooks_complete"
 
   payload {
@@ -588,7 +510,6 @@ event extension_migration_hooks_complete "Extension Migration Hooks Complete" {
     timestamp         timestamp
   }
 
-  consumers [validate_post_migration_integrity, verify_graph_protocol_compatibility_after_migration]
 
   verify integration "emits extension_migration_hooks_complete after all extension hooks finish"
   verify integration "consumer validate_post_migration_integrity receives event"
@@ -596,7 +517,6 @@ event extension_migration_hooks_complete "Extension Migration Hooks Complete" {
 }
 
 event migration_validation_complete "Migration Validation Complete" {
-  trigger   validate_post_migration_integrity
   channel   "compiler.migration_validation_complete"
 
   payload {
@@ -605,14 +525,12 @@ event migration_validation_complete "Migration Validation Complete" {
     timestamp              timestamp
   }
 
-  consumers []
 
   verify integration "emits migration_validation_complete after post-migration validation finishes"
 
 }
 
 event migration_rolled_back "Migration Rolled Back" {
-  trigger   rollback_failed_migration
   channel   "compiler.migration_rolled_back"
 
   payload {
@@ -622,7 +540,6 @@ event migration_rolled_back "Migration Rolled Back" {
     timestamp       timestamp
   }
 
-  consumers []
 
   verify integration "emits migration_rolled_back with correct restored, skipped, and failed counts"
 
@@ -631,7 +548,6 @@ event migration_rolled_back "Migration Rolled Back" {
 // ── Schema Events ────────────────────────────────────────────
 
 event schema_generated "Schema Generated" {
-  trigger   generate_schema_from_registries
   channel   "compiler.schema_generated"
 
   payload {
@@ -643,7 +559,6 @@ event schema_generated "Schema Generated" {
 
   // embed_schema_in_export now waits for schema_version_computed (via the
   // schema pipeline), not schema_generated directly.
-  consumers [persist_schema_cache, detect_breaking_schema_changes]
 
   verify integration "emits schema_generated with correct entityKindCount and edgeTypeCount"
   verify integration "consumer persist_schema_cache receives event"
@@ -652,7 +567,6 @@ event schema_generated "Schema Generated" {
 }
 
 event schema_cache_persisted "Schema Cache Persisted" {
-  trigger   persist_schema_cache
   channel   "compiler.schema_cache_persisted"
 
   payload {
@@ -661,14 +575,12 @@ event schema_cache_persisted "Schema Cache Persisted" {
     timestamp       timestamp
   }
 
-  consumers []
 
   verify integration "emits schema_cache_persisted after writing .specforge/schema-cache.json"
 
 }
 
 event schema_version_computed "Schema Version Computed" {
-  trigger   compute_schema_version
   channel   "compiler.schema_version_computed"
 
   payload {
@@ -679,7 +591,6 @@ event schema_version_computed "Schema Version Computed" {
     timestamp       timestamp
   }
 
-  consumers [embed_schema_in_export]
 
   verify integration "emits schema_version_computed with correct major, minor, patch after schema comparison"
 
@@ -690,27 +601,29 @@ event schema_version_computed "Schema Version Computed" {
 // ── Agent & Schema Events ─────────────────────────────────────
 
 event plan_validated "Agent Plan Validated" {
-  trigger  validate_agent_plan
   payload  PlanValidationResult
   channel  compilation
+
+  verify integration "Agent Plan Validated emitted correctly"
 }
 
 event token_budget_applied "Token Budget Applied" {
-  trigger  enforce_token_budget
   payload  ExportResult
   channel  compilation
+
+  verify integration "Token Budget Applied emitted correctly"
 }
 
 event schema_version_negotiated "Schema Version Negotiated" {
-  trigger  negotiate_schema_version
   payload  SchemaCompatibility
   channel  compilation
+
+  verify integration "Schema Version Negotiated emitted correctly"
 }
 
 // ── Output Query Events ──────────────────────────────────────
 
 event graph_queried "Graph Queried" {
-  trigger   query_graph_multi_resolution
   channel   "output"
 
   payload {
@@ -721,7 +634,6 @@ event graph_queried "Graph Queried" {
     timestamp       timestamp
   }
 
-  consumers []
 
   verify integration "emits graph_queried with correct entityId, scope, and resultNodeCount"
   verify integration "payload includes depth and scope used for the query"
@@ -738,7 +650,6 @@ event graph_queried "Graph Queried" {
 // in-process consumer.
 
 event incremental_diagnostics_complete "Incremental Diagnostics Complete" {
-  trigger   emit_incremental_diagnostics
   channel   "watch.incremental_diagnostics_complete"
 
   payload {
@@ -749,14 +660,12 @@ event incremental_diagnostics_complete "Incremental Diagnostics Complete" {
     timestamp       timestamp
   }
 
-  consumers []
 
   verify integration "emits incremental_diagnostics_complete after incremental diagnostic pipeline finishes"
 
 }
 
 event delta_subscribers_notified "Delta Subscribers Notified" {
-  trigger   notify_delta_subscribers
   channel   "watch.delta_subscribers_notified"
 
   payload {
@@ -764,7 +673,6 @@ event delta_subscribers_notified "Delta Subscribers Notified" {
     timestamp       timestamp
   }
 
-  consumers []
 
   verify integration "emits delta_subscribers_notified after all subscribers receive delta"
 
@@ -773,7 +681,6 @@ event delta_subscribers_notified "Delta Subscribers Notified" {
 // ── Rename Events ───────────────────────────────────────────
 
 event entity_renamed "Entity Renamed" {
-  trigger   rename_entity_id
   channel   "lsp.entity_renamed"
 
   payload {
@@ -783,7 +690,6 @@ event entity_renamed "Entity Renamed" {
     timestamp       timestamp
   }
 
-  consumers [notify_delta_subscribers]
 
   verify integration "emits entity_renamed with correct oldId, newId, and affectedFiles"
 
@@ -792,7 +698,6 @@ event entity_renamed "Entity Renamed" {
 // ── Graph Delta Events ──────────────────────────────────────
 
 event graph_delta_computed "Graph Delta Computed" {
-  trigger   compute_graph_delta
   channel   "watch.graph_delta_computed"
 
   payload {
@@ -805,7 +710,6 @@ event graph_delta_computed "Graph Delta Computed" {
     timestamp       timestamp
   }
 
-  consumers [dispatch_incremental_validators, notify_delta_subscribers, validate_delta_correctness, emit_incremental_diagnostics, notify_graph_delta_via_mcp]
 
   verify integration "emits graph_delta_computed with correct node and edge counts"
   verify integration "consumer dispatch_incremental_validators receives delta event"
@@ -815,7 +719,6 @@ event graph_delta_computed "Graph Delta Computed" {
 }
 
 event incremental_validators_dispatched "Incremental Validators Dispatched" {
-  trigger   dispatch_incremental_validators
   channel   "watch.incremental_validators_dispatched"
 
   payload {
@@ -825,7 +728,6 @@ event incremental_validators_dispatched "Incremental Validators Dispatched" {
     timestamp             timestamp
   }
 
-  consumers [emit_incremental_diagnostics]
 
   verify integration "emits incremental_validators_dispatched with correct extension counts"
   verify integration "payload distinguishes incremental vs full-rebuild extension counts"
@@ -838,7 +740,6 @@ event delta_validation_passed "Delta Validation Passed" {
   // Success-path counterpart to delta_validation_failed — emitted when
   // validate_delta_correctness confirms incremental and full-rebuild
   // graph states are consistent.
-  trigger   validate_delta_correctness
   channel   "watch.delta_validation_passed"
 
   payload {
@@ -846,14 +747,12 @@ event delta_validation_passed "Delta Validation Passed" {
     edgeCount   integer
   }
 
-  consumers []
 
   verify integration "emits delta_validation_passed when incremental rebuild matches full rebuild"
 
 }
 
 event trace_chain_computed "Trace Chain Computed" {
-  trigger   compute_traceability_chain
   channel   "output.trace_chain_computed"
 
   payload {
@@ -862,7 +761,6 @@ event trace_chain_computed "Trace Chain Computed" {
     linkCount   integer
   }
 
-  consumers []
 
   verify integration "emits trace_chain_computed with correct entityId, chainDepth, and linkCount"
 
@@ -871,7 +769,6 @@ event trace_chain_computed "Trace Chain Computed" {
 event delta_validation_failed "Delta Validation Failed" {
   // Debug-only event — emitted when validate_delta_correctness detects
   // a discrepancy between the incremental and full-rebuild graph states.
-  trigger   validate_delta_correctness
   channel   "watch.delta_validation_failed"
 
   payload {
@@ -880,7 +777,6 @@ event delta_validation_failed "Delta Validation Failed" {
     timestamp           timestamp
   }
 
-  consumers []
 
   verify unit "emits delta_validation_failed when incremental rebuild diverges from full rebuild"
 
@@ -889,7 +785,6 @@ event delta_validation_failed "Delta Validation Failed" {
 // ── MCP Graph Resource Events ─────────────────────────────────
 
 event graph_resource_served "Graph Resource Served" {
-  trigger   serve_graph_resource
   channel   "mcp"
 
   payload {
@@ -900,7 +795,6 @@ event graph_resource_served "Graph Resource Served" {
     timestamp       timestamp
   }
 
-  consumers []
 
   verify integration "emits graph_resource_served with correct resourceUri and format after MCP resource read"
 
@@ -909,7 +803,6 @@ event graph_resource_served "Graph Resource Served" {
 // ── Schema Breaking Change Events ─────────────────────────────
 
 event schema_breaking_change_detected "Schema Breaking Change Detected" {
-  trigger   detect_breaking_schema_changes
   channel   "internal"
 
   payload {
@@ -920,7 +813,6 @@ event schema_breaking_change_detected "Schema Breaking Change Detected" {
     timestamp       timestamp
   }
 
-  consumers [compute_schema_version, negotiate_schema_version]
 
   verify integration "emits schema_breaking_change_detected with correct previousVersion and currentVersion"
   verify integration "consumer negotiate_schema_version receives event for version compatibility checks"
@@ -928,7 +820,6 @@ event schema_breaking_change_detected "Schema Breaking Change Detected" {
 }
 
 event graph_protocol_compatibility_verified "Graph Protocol Compatibility Verified" {
-  trigger   verify_graph_protocol_compatibility_after_migration
   channel   "compiler.graph_protocol_compatibility_verified"
 
   payload {
@@ -937,14 +828,12 @@ event graph_protocol_compatibility_verified "Graph Protocol Compatibility Verifi
     timestamp         timestamp
   }
 
-  consumers []
 
   verify integration "emits graph_protocol_compatibility_verified after post-migration schema comparison"
 
 }
 
 event grammar_contribution_registered "Grammar Contribution Registered" {
-  trigger register_grammar_contributions
   payload GrammarContribution
   channel "compilation.grammar_contribution_registered"
 
@@ -958,7 +847,6 @@ event grammar_contribution_registered "Grammar Contribution Registered" {
 }
 
 event body_parser_contribution_registered "Body Parser Contribution Registered" {
-  trigger register_body_parser_contributions
   payload BodyParserContribution
   channel "compilation.body_parser_contribution_registered"
 

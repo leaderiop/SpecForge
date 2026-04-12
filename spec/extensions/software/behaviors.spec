@@ -5,7 +5,7 @@ use "extensions/software/types"
 use "extensions/software/invariants"
 behavior se_register_entity_kinds "Register Software Entity Kinds" {
   category command
-  invariants [se_behavior_testability, se_invariant_testability, se_event_testability, se_feature_non_testable]
+  invariants [se_behavior_testability, se_invariant_testability, se_event_testability, se_feature_non_testable, se_manifest_six_entity_kinds]
   types [ManifestEntityKind, SoftwareBehavior, SoftwareInvariant, SoftwareFeature, SoftwareEvent, SoftwareTypeDef, SoftwarePort]
 
   contract """
@@ -39,6 +39,7 @@ behavior se_register_entity_kinds "Register Software Entity Kinds" {
 
 behavior se_register_edge_types "Register Software Edge Types" {
   category command
+  invariants [se_manifest_nine_edge_types]
   types [ManifestEdgeType]
 
   contract """
@@ -72,7 +73,7 @@ behavior se_register_edge_types "Register Software Edge Types" {
 
 behavior se_register_field_definitions "Register Software Field Definitions" {
   category command
-  types [ManifestField, ManifestEntityKind]
+  types [ManifestField, ManifestEntityKind, BehaviorCategory, PortDirection, TypeDefKind, TypeFieldDef, RiskLevel, ProofObligationKind]
 
   contract """
     The @specforge/software extension MUST register field definitions for
@@ -171,6 +172,7 @@ behavior se_register_lsp_metadata "Register Software LSP Metadata" {
 
 behavior se_validate_entity_fields "Validate Software Entity Fields" {
   category query
+  invariants [se_port_direction_constraint]
   types [ManifestField, ManifestEntityKind]
 
   contract """

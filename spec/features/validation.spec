@@ -11,10 +11,6 @@ use "behaviors/output"
 use "behaviors/zero-entity-registries"
 use "behaviors/zero-entity-validation"
 feature reference_resolution "Reference Resolution" {
-  behaviors [
-    resolve_use_imports, detect_import_cycles, link_entity_references,
-    resolve_soft_cross_extension_references, resolve_external_ref_declarations,
-  ]
 
   problem """
     .spec files reference entities across multiple files via use imports
@@ -31,7 +27,6 @@ feature reference_resolution "Reference Resolution" {
 }
 
 feature graph_construction "Graph Construction" {
-  behaviors [build_in_memory_graph, maintain_mutable_graph]
 
   problem """
     After resolution, entities and their resolved references must be
@@ -47,10 +42,6 @@ feature graph_construction "Graph Construction" {
 }
 
 feature structural_validation "Structural Validation" {
-  behaviors [
-    detect_dangling_references, detect_duplicate_entity_ids,
-    detect_orphan_refs, validate_file_reference_paths,
-  ]
 
   problem """
     The compiled graph may contain structural inconsistencies: dangling
@@ -77,13 +68,6 @@ feature diagnostic_reporting "Diagnostic Reporting" {
   // appear in features/output.spec::ci_integration. This is intentional:
   // ci_integration describes the CI/CD output perspective, while this feature
   // describes the validation-diagnostic perspective.
-  behaviors [
-    format_diagnostics_with_source_context, provide_did_you_mean_suggestions,
-    aggregate_diagnostic_summary, print_diagnostics_structured,
-    export_diagnostics_as_json,
-    // Bridge: exit code mapping is part of the diagnostic user story
-    exit_code_reflects_diagnostic_severity,
-  ]
 
   problem """
     Validation diagnostics must be formatted with source context, fuzzy
@@ -117,12 +101,6 @@ feature diagnostic_reporting "Diagnostic Reporting" {
 // appear in multiple features when it serves multiple user-facing
 // capabilities.
 feature zero_entity_validation "Zero-Entity Validation" {
-  behaviors [
-    detect_unknown_entity_kinds, detect_unknown_entity_fields,
-    two_phase_validate_semantic,
-    // Bridge: extension suggestions are tightly coupled to E024 detection
-    suggest_missing_extensions,
-  ]
 
   problem """
     Without extension-aware validation, entity keywords and field names

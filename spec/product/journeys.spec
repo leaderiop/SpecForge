@@ -165,7 +165,7 @@ journey trace_requirements "Trace Requirements" {
 
 journey export_graph_for_agents "Export Graph for AI Agents" {
   persona  developer
-  channels [cli]
+  channels [cli, ch_graph_protocol]
   priority critical
   tags     ["developer", "cli"]
   features [json_and_dot_render, agent_export]
@@ -714,7 +714,7 @@ journey j_validate_agent_plan "Validate Agent Implementation Plan" {
   """
 }
 
-journey collect_rust_test_results "Collect Rust Test Results" {
+journey j_collect_rust_test_results "Collect Rust Test Results" {
   persona  developer
   channels [cli]
   priority medium

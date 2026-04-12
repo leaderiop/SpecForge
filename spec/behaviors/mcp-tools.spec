@@ -257,7 +257,7 @@ behavior provide_mcp_schema_tool "Provide MCP Schema Tool" {
 behavior provide_mcp_coverage_tool "Provide MCP Coverage Tool" {
   invariants [graph_traversal_integrity, diagnostic_determinism, mcp_structured_error_responses, mcp_tool_idempotency, testable_entity_classification]
   category   query
-  types      [McpCoverageResult, McpToolDescriptor]
+  types      [McpCoverageResult, McpToolDescriptor, CoverageStatus]
   ports      [McpProtocol, CompilerApi]
   produces   [mcp_tool_invoked]
 
@@ -294,7 +294,7 @@ behavior provide_mcp_coverage_tool "Provide MCP Coverage Tool" {
 behavior provide_mcp_stats_tool "Provide MCP Stats Tool" {
   invariants [graph_traversal_integrity, diagnostic_determinism, mcp_structured_error_responses, mcp_tool_idempotency]
   category   query
-  types      [McpStatsResult, McpToolDescriptor]
+  types      [McpStatsResult, McpToolDescriptor, McpEntityCount, McpDiagnosticSummary]
   ports      [McpProtocol, CompilerApi]
   produces   [mcp_tool_invoked]
 
@@ -396,7 +396,7 @@ behavior provide_mcp_find_definition_tool "Provide MCP Find Definition Tool" {
 behavior provide_mcp_find_references_tool "Provide MCP Find References Tool" {
   invariants [graph_traversal_integrity, diagnostic_determinism, mcp_structured_error_responses, mcp_tool_idempotency]
   category   query
-  types      [McpReferenceResult, McpToolDescriptor]
+  types      [McpReferenceResult, McpToolDescriptor, McpReferenceLocation]
   ports      [McpProtocol, CompilerApi]
   produces   [mcp_tool_invoked]
 

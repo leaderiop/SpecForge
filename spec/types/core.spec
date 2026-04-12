@@ -5,6 +5,7 @@ type SpecFile {
   imports    ImportDeclaration[]
   entities   Entity[]
   errors     ParseError[]  @optional
+  verify unit "SpecFile schema is valid"
 }
 
 type Entity {
@@ -16,6 +17,7 @@ type Entity {
   title      string
   fields     FieldMap
   source_span SourceSpan  @readonly
+  verify unit "Entity schema is valid"
 }
 
 // EntityId uniqueness is on the raw string alone — two entities with
@@ -24,6 +26,7 @@ type Entity {
 type EntityId {
   kind       EntityKind @readonly
   raw        string     @readonly  @unique
+  verify unit "EntityId schema is valid"
 }
 
 // EntityKind is an open string — not a closed enum.
@@ -39,15 +42,18 @@ type EntityId {
 // See zero-entity-core architecture.
 type EntityKind {
   raw        string     @readonly
+  verify unit "EntityKind schema is valid"
 }
 
 type FieldMap {
   entries    FieldEntry[]
+  verify unit "FieldMap schema is valid"
 }
 
 type FieldEntry {
   key        string
   value      FieldValue
+  verify unit "FieldEntry schema is valid"
 }
 
 // Note: integer, bool, and enum field values are parsed as StringValue
@@ -58,31 +64,37 @@ type FieldValue = StringValue | ReferenceList | StringList | Block | VerifyList
 type StringValue {
   _tag       "StringValue"    @literal
   content    string
+  verify unit "StringValue schema is valid"
 }
 
 type ReferenceList {
   _tag       "ReferenceList"  @literal
   ids        EntityId[]
+  verify unit "ReferenceList schema is valid"
 }
 
 type StringList {
   _tag       "StringList"     @literal
   items      string[]
+  verify unit "StringList schema is valid"
 }
 
 type Block {
   _tag       "Block"          @literal
   entries    FieldEntry[]
+  verify unit "Block schema is valid"
 }
 
 type VerifyList {
   _tag       "VerifyList"     @literal
   items      VerifyStatement[]
+  verify unit "VerifyList schema is valid"
 }
 
 type VerifyStatement {
   kind       VerifyKind
   description string
+  verify unit "VerifyStatement schema is valid"
 }
 
 // VerifyKind is an open string — not a closed enum.
@@ -90,6 +102,7 @@ type VerifyStatement {
 // The core compiler does not define any built-in verify kinds.
 type VerifyKind {
   raw        string     @readonly
+  verify unit "VerifyKind schema is valid"
 }
 
 // Opaque JSON value for Wasm host function I/O.
@@ -97,6 +110,7 @@ type VerifyKind {
 type JsonValue {
   _tag       "JsonValue"     @literal
   raw        string
+  verify unit "JsonValue schema is valid"
 }
 
 type SourceSpan {
@@ -105,17 +119,20 @@ type SourceSpan {
   start_col  integer   @readonly
   end_line   integer   @readonly
   end_col    integer   @readonly
+  verify unit "SourceSpan schema is valid"
 }
 
 type TextEdit {
   file_path  string    @readonly
   range      SourceSpan
   new_text   string
+  verify unit "TextEdit schema is valid"
 }
 
 type ImportDeclaration {
   path           string
   selected_ids   EntityId[]      @optional
+  verify unit "ImportDeclaration schema is valid"
 }
 
 type timestamp = string

@@ -151,7 +151,7 @@ impl<'a> ParseContext<'a> {
             )
         } else if trimmed.starts_with('}') {
             (
-                format!("syntax error: unexpected '}}' — possible extra closing brace"),
+                "syntax error: unexpected '}' — possible extra closing brace".to_string(),
                 Some("a valid entity block (e.g., behavior name \"Title\" {{ ... }})".to_string()),
             )
         } else {

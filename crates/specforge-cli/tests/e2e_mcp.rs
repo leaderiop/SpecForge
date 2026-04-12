@@ -884,11 +884,13 @@ fn mcp_prompt_context_returns_messages() {
     assert!(resp["error"].is_null(), "should not be error: {}", resp);
     let messages = resp["result"]["messages"].as_array()
         .expect("prompt should return messages array");
-    assert!(!messages.is_empty(), "should have at least one message");
-    let text = messages[0]["content"]["text"].as_str()
-        .unwrap_or_else(|| panic!("message should have content.text: {}", messages[0]));
+    assert!(messages.len() >= 2, "should have instruction + data messages");
+    // Data is in the last message (assistant role)
+    let data_msg = messages.last().unwrap();
+    let text = data_msg["content"]["text"].as_str()
+        .unwrap_or_else(|| panic!("data message should have content.text: {}", data_msg));
     let parsed: serde_json::Value = serde_json::from_str(text)
-        .unwrap_or_else(|e| panic!("message text not valid JSON: {}\ntext: {}", e, text));
+        .unwrap_or_else(|e| panic!("data message text not valid JSON: {}\ntext: {}", e, text));
     assert_eq!(parsed["entity_id"], "alpha");
 }
 
@@ -907,11 +909,12 @@ fn mcp_prompt_review_returns_findings() {
     assert!(resp["error"].is_null(), "should not be error: {}", resp);
     let messages = resp["result"]["messages"].as_array()
         .expect("prompt should return messages array");
-    assert!(!messages.is_empty(), "should have at least one message");
-    let text = messages[0]["content"]["text"].as_str()
-        .unwrap_or_else(|| panic!("message should have content.text: {}", messages[0]));
+    assert!(messages.len() >= 2, "should have instruction + data messages");
+    let data_msg = messages.last().unwrap();
+    let text = data_msg["content"]["text"].as_str()
+        .unwrap_or_else(|| panic!("data message should have content.text: {}", data_msg));
     let parsed: serde_json::Value = serde_json::from_str(text)
-        .unwrap_or_else(|e| panic!("message text not valid JSON: {}\ntext: {}", e, text));
+        .unwrap_or_else(|e| panic!("data message text not valid JSON: {}\ntext: {}", e, text));
     assert!(parsed.get("findings").is_some(), "review should have findings: {}", parsed);
     assert!(parsed.get("coverage_summary").is_some(), "review should have coverage_summary: {}", parsed);
 }
@@ -931,11 +934,12 @@ fn mcp_prompt_trace_returns_gaps() {
     assert!(resp["error"].is_null(), "should not be error: {}", resp);
     let messages = resp["result"]["messages"].as_array()
         .expect("prompt should return messages array");
-    assert!(!messages.is_empty(), "should have at least one message");
-    let text = messages[0]["content"]["text"].as_str()
-        .unwrap_or_else(|| panic!("message should have content.text: {}", messages[0]));
+    assert!(messages.len() >= 2, "should have instruction + data messages");
+    let data_msg = messages.last().unwrap();
+    let text = data_msg["content"]["text"].as_str()
+        .unwrap_or_else(|| panic!("data message should have content.text: {}", data_msg));
     let parsed: serde_json::Value = serde_json::from_str(text)
-        .unwrap_or_else(|e| panic!("message text not valid JSON: {}\ntext: {}", e, text));
+        .unwrap_or_else(|e| panic!("data message text not valid JSON: {}\ntext: {}", e, text));
     assert!(parsed.get("unverified_entities").is_some() || parsed.get("coverage_gaps").is_some(),
         "trace prompt should have unverified_entities or coverage_gaps: {}", parsed);
 }
@@ -955,11 +959,12 @@ fn mcp_prompt_explore_returns_starting_points() {
     assert!(resp["error"].is_null(), "should not be error: {}", resp);
     let messages = resp["result"]["messages"].as_array()
         .expect("prompt should return messages array");
-    assert!(!messages.is_empty(), "should have at least one message");
-    let text = messages[0]["content"]["text"].as_str()
-        .unwrap_or_else(|| panic!("message should have content.text: {}", messages[0]));
+    assert!(messages.len() >= 2, "should have instruction + data messages");
+    let data_msg = messages.last().unwrap();
+    let text = data_msg["content"]["text"].as_str()
+        .unwrap_or_else(|| panic!("data message should have content.text: {}", data_msg));
     let parsed: serde_json::Value = serde_json::from_str(text)
-        .unwrap_or_else(|e| panic!("message text not valid JSON: {}\ntext: {}", e, text));
+        .unwrap_or_else(|e| panic!("data message text not valid JSON: {}\ntext: {}", e, text));
     assert!(parsed.get("starting_points").is_some(), "explore should have starting_points: {}", parsed);
     assert!(parsed.get("high_connectivity").is_some(), "explore should have high_connectivity: {}", parsed);
 }

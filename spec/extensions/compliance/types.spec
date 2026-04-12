@@ -8,22 +8,26 @@ type ComplianceRegulation {
   jurisdiction    string
   effective_date  string          @optional
   controls        string[]
+  verify unit "ComplianceRegulation schema is valid"
 }
 
 type ComplianceControl {
   category        string
   maturity        string
   evidence        string[]
+  verify unit "ComplianceControl schema is valid"
 }
 
 type ComplianceEvidence {
   evidence_type   string
   collected_date  string          @optional
   expires         string          @optional
+  verify unit "ComplianceEvidence schema is valid"
 }
 
 type ComplianceAudit {
   audit_type      string
   scope           string[]
   findings        string          @optional
+  verify unit "ComplianceAudit schema is valid"
 }

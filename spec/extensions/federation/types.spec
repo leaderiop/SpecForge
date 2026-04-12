@@ -10,23 +10,27 @@ type ProjectDependency {
   registry       string          @optional
   // Semver constraint when from registry, git ref when from git, ignored for local path
   version        string          @optional
+  verify unit "ProjectDependency schema is valid"
 }
 
 type FederatedEntityId {
   project        string          @readonly
   entity_id      string          @readonly
+  verify unit "FederatedEntityId schema is valid"
 }
 // Project identifiers: lowercase alphanumeric with hyphens, 2-64 chars
 // The qualified form is "project::entity_id"
 
 type FederationConfig {
   dependencies   ProjectDependency[]
+  verify unit "FederationConfig schema is valid"
 }
 
 type FederationMetadata {
   merged_at             timestamp
   source_projects       string[]
   schema_compatible     boolean
+  verify unit "FederationMetadata schema is valid"
 }
 
 type FederatedGraph {
@@ -36,6 +40,7 @@ type FederatedGraph {
   cross_edges           Edge[]
   schema_version        string
   federation_metadata   FederationMetadata
+  verify unit "FederatedGraph schema is valid"
 }
 
 type FederatedExportConfig {
@@ -45,4 +50,5 @@ type FederatedExportConfig {
   depth              integer         @optional
   format             "context" | "graph" | "brief"  @optional
   max_tokens         integer         @optional
+  verify unit "FederatedExportConfig schema is valid"
 }

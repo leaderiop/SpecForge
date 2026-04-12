@@ -1061,3 +1061,119 @@ fn nodes_by_kind_returns_empty_for_unknown() {
     let result = graph.nodes_by_kind("nonexistent");
     assert!(result.is_empty());
 }
+
+// --- one-way authoring, bidirectional query ---
+
+#[specforge_test(behavior = "query_graph", verify = "querying a feature returns behaviors that reference it via incoming edges")]
+#[test]
+fn subgraph_depth_finds_behavior_via_incoming_implements_edge() {
+    let mut graph = Graph::new();
+    // Feature has NO behaviors field -- it's a plain node
+    graph.add_node(make_node("my_feature", "feature"));
+    // Behavior declares features [my_feature] -- creates an Implements edge
+    graph.add_node(make_node("my_behavior", "behavior"));
+    graph.add_edge(make_edge("my_behavior", "my_feature", "BehaviorImplementsFeature"));
+
+    // Querying the feature at depth 1 should find the behavior
+    // via the INCOMING Implements edge -- no reverse edge needed
+    let sub = graph.subgraph_depth("my_feature", 1).unwrap();
+    assert_eq!(sub.nodes().len(), 2, "feature + behavior");
+    assert!(sub.node("my_feature").is_some());
+    assert!(sub.node("my_behavior").is_some());
+    assert_eq!(sub.edges().len(), 1);
+}
+
+#[specforge_test(behavior = "query_graph", verify = "one-way Implements edge is sufficient -- no reverse behaviors edge needed")]
+#[test]
+fn subgraph_depth_no_reverse_edge_needed_for_feature_behavior_link() {
+    let mut graph = Graph::new();
+    graph.add_node(make_node("feat_a", "feature"));
+    graph.add_node(make_node("beh_1", "behavior"));
+    graph.add_node(make_node("beh_2", "behavior"));
+    // Both behaviors point to feat_a -- one-way authoring
+    graph.add_edge(make_edge("beh_1", "feat_a", "BehaviorImplementsFeature"));
+    graph.add_edge(make_edge("beh_2", "feat_a", "BehaviorImplementsFeature"));
+
+    let sub = graph.subgraph_depth("feat_a", 1).unwrap();
+    assert_eq!(sub.nodes().len(), 3, "feature + 2 behaviors");
+    assert!(sub.node("beh_1").is_some());
+    assert!(sub.node("beh_2").is_some());
+}
+
+#[specforge_test(behavior = "query_graph", verify = "one-way enforced_by edge is sufficient -- no reverse invariants edge needed")]
+#[test]
+fn subgraph_depth_invariant_found_via_incoming_enforced_by_edge() {
+    let mut graph = Graph::new();
+    graph.add_node(make_node("my_invariant", "invariant"));
+    graph.add_node(make_node("my_behavior", "behavior"));
+    // Behavior says invariants [my_invariant] -- one-way authoring
+    graph.add_edge(make_edge("my_behavior", "my_invariant", "invariants"));
+
+    // Querying the invariant should find the behavior via incoming edge
+    let sub = graph.subgraph_depth("my_invariant", 1).unwrap();
+    assert_eq!(sub.nodes().len(), 2);
+    assert!(sub.node("my_behavior").is_some());
+}
+
+#[specforge_test(behavior = "query_graph", verify = "one-way constrains edge is sufficient -- no reverse edge needed")]
+#[test]
+fn subgraph_depth_constraint_found_via_incoming_constrains_edge() {
+    let mut graph = Graph::new();
+    graph.add_node(make_node("my_constraint", "constraint"));
+    graph.add_node(make_node("my_behavior", "behavior"));
+    // Constraint says constrains [my_behavior] -- one-way authoring
+    graph.add_edge(make_edge("my_constraint", "my_behavior", "constrains"));
+
+    // Querying the behavior should find the constraint via incoming edge
+    let sub = graph.subgraph_depth("my_behavior", 1).unwrap();
+    assert_eq!(sub.nodes().len(), 2);
+    assert!(sub.node("my_constraint").is_some());
+}
+
+#[specforge_test(behavior = "query_graph", verify = "one-way produces edge is sufficient -- no reverse trigger edge needed")]
+#[test]
+fn subgraph_depth_event_found_via_incoming_produces_edge() {
+    let mut graph = Graph::new();
+    graph.add_node(make_node("my_event", "event"));
+    graph.add_node(make_node("my_behavior", "behavior"));
+    // Behavior says produces [my_event] -- one-way authoring
+    graph.add_edge(make_edge("my_behavior", "my_event", "BehaviorProducesEvent"));
+
+    // Querying the event should find the producing behavior via incoming edge
+    let sub = graph.subgraph_depth("my_event", 1).unwrap();
+    assert_eq!(sub.nodes().len(), 2);
+    assert!(sub.node("my_behavior").is_some());
+}
+
+#[specforge_test(behavior = "query_graph", verify = "one-way consumes edge is sufficient -- no reverse consumers edge needed")]
+#[test]
+fn subgraph_depth_event_found_via_incoming_consumes_edge() {
+    let mut graph = Graph::new();
+    graph.add_node(make_node("my_event", "event"));
+    graph.add_node(make_node("consumer_behavior", "behavior"));
+    // Behavior says consumes [my_event] -- one-way authoring
+    graph.add_edge(make_edge("consumer_behavior", "my_event", "BehaviorConsumesEvent"));
+
+    // Querying the event should find the consuming behavior via incoming edge
+    let sub = graph.subgraph_depth("my_event", 1).unwrap();
+    assert_eq!(sub.nodes().len(), 2);
+    assert!(sub.node("consumer_behavior").is_some());
+}
+
+#[specforge_test(behavior = "query_graph", verify = "querying invariant finds enforcing behaviors without enforced_by reverse field")]
+#[test]
+fn subgraph_depth_invariant_found_via_incoming_invariants_edge() {
+    let mut graph = Graph::new();
+    graph.add_node(make_node("inv_1", "invariant"));
+    graph.add_node(make_node("beh_a", "behavior"));
+    graph.add_node(make_node("beh_b", "behavior"));
+    // Both behaviors declare invariants [inv_1] -- one-way authoring
+    graph.add_edge(make_edge("beh_a", "inv_1", "BehaviorEnforcesInvariant"));
+    graph.add_edge(make_edge("beh_b", "inv_1", "BehaviorEnforcesInvariant"));
+
+    // Querying the invariant should find both behaviors
+    let sub = graph.subgraph_depth("inv_1", 1).unwrap();
+    assert_eq!(sub.nodes().len(), 3, "invariant + 2 behaviors");
+    assert!(sub.node("beh_a").is_some());
+    assert!(sub.node("beh_b").is_some());
+}

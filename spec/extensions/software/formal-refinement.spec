@@ -1,10 +1,12 @@
 // @specforge/software formal refinement — B-Method
 
 use "types/zero-entity-core"
+use "extensions/software/events"
 use "extensions/software/types"
 use "extensions/software/invariants"
 behavior se_parse_abstract_annotation "Parse Abstract Annotation" {
   category command
+  features [se_formal_refinement]
 
   contract """
     Recognize the abstract field with value true on behavior entities.
@@ -24,6 +26,7 @@ behavior se_parse_abstract_annotation "Parse Abstract Annotation" {
 
 behavior se_parse_refines_annotation "Parse Refines Annotation" {
   category command
+  features [se_formal_refinement]
 
   contract """
     Recognize the refines field on behavior entities as a reference
@@ -47,6 +50,7 @@ behavior se_build_refinement_chain "Build Refinement Chain" {
   category command
   invariants [se_refinement_dag]
   types [RefinementChain]
+  features [se_formal_refinement]
 
   contract """
     Build refinement chains from all refines edges after graph
@@ -74,6 +78,7 @@ behavior se_build_refinement_chain "Build Refinement Chain" {
 behavior se_validate_refinement_completeness "Validate Refinement Completeness" {
   category query
   types [RefinementChain]
+  features [se_formal_refinement]
 
   contract """
     Check that every abstract behavior has at least one concrete
@@ -97,6 +102,8 @@ behavior se_validate_refinement_completeness "Validate Refinement Completeness" 
 behavior se_refinement_verify_pass "Refinement Verify Compiler Pass" {
   category command
   types [RefinementChain]
+  features [se_formal_refinement]
+  produces [se_refinement_check_complete]
 
   contract """
     The refinement_verify compiler pass validates all refinement chains

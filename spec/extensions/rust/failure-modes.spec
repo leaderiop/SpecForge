@@ -21,6 +21,7 @@ failure_mode rust_entity_mapping_mismatch "Rust Entity Mapping Mismatch" {
     detection  2
     rpn        12
   }
+  verify unit "Rust Entity Mapping Mismatch failure mode is handled"
 }
 
 failure_mode rust_proc_macro_silent_drop "Rust Proc Macro Silent Drop" {
@@ -40,4 +41,5 @@ failure_mode rust_proc_macro_silent_drop "Rust Proc Macro Silent Drop" {
     detection  2
     rpn        10
   }
+  verify unit "Rust Proc Macro Silent Drop failure mode is handled"
 }

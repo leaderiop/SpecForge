@@ -18,7 +18,7 @@ pub fn get(state: &McpState, args: Value, id: Option<Value>) -> JsonRpcResponse 
         .map(|n| n.id.raw.to_string())
         .collect();
 
-    // High connectivity: nodes with most edges
+    // High connectivity: nodes with most edges (exclude zero-edge nodes)
     let mut connectivity: Vec<(String, usize)> = state.graph.nodes().into_iter()
         .map(|n| {
             let count = state.graph.edges_from(n.id.raw.as_str()).len() + state.graph.edges_to(n.id.raw.as_str()).len();
@@ -26,7 +26,11 @@ pub fn get(state: &McpState, args: Value, id: Option<Value>) -> JsonRpcResponse 
         })
         .collect();
     connectivity.sort_by(|a, b| b.1.cmp(&a.1));
-    let high_connectivity: Vec<String> = connectivity.iter().take(10).map(|(id, _)| id.clone()).collect();
+    let high_connectivity: Vec<String> = connectivity.iter()
+        .filter(|(_, count)| *count > 0)
+        .take(10)
+        .map(|(id, _)| id.clone())
+        .collect();
 
     // Orphans: no edges at all
     let orphans: Vec<String> = connectivity.iter()
@@ -53,13 +57,21 @@ pub fn get(state: &McpState, args: Value, id: Option<Value>) -> JsonRpcResponse 
         "orphan_nodes": orphans
     });
 
+    let instruction = "Explore the spec graph using the data below. \
+         Start with high-connectivity nodes to understand the core structure, \
+         then investigate orphan nodes that may need relationships. \
+         Use starting_points for top-down traversal.";
+
     JsonRpcResponse::success(id, serde_json::json!({
-        "messages": [{
-            "role": "user",
-            "content": {
-                "type": "text",
-                "text": result.to_string()
+        "messages": [
+            {
+                "role": "user",
+                "content": { "type": "text", "text": instruction }
+            },
+            {
+                "role": "assistant",
+                "content": { "type": "text", "text": result.to_string() }
             }
-        }]
+        ]
     }))
 }

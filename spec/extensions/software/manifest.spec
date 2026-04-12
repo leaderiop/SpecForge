@@ -46,7 +46,6 @@ invariant se_manifest_six_entity_kinds "Six Entity Kinds" {
     This count was validated by a 10-expert panel (RES-27) and represents
     the minimal complete set for software engineering specification.
   """
-  enforced_by [se_declare_manifest]
   risk high
 
   verify property "manifest entityKinds array has exactly 6 entries"
@@ -60,7 +59,6 @@ invariant se_manifest_nine_edge_types "Nine Edge Types" {
     Enforces, Imports, LinksTo. These edges model all relationships
     between the 6 entity kinds in the software engineering domain.
   """
-  enforced_by [se_declare_manifest]
   risk medium
 
   verify property "manifest edgeTypes array has exactly 9 entries"

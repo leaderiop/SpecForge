@@ -2,13 +2,14 @@
 
 use "extensions/coverage/invariants"
 use "extensions/coverage/types"
+use "extensions/coverage/manifest"
 use "types/config"
 use "types/diagnostics"
 use "extensions/coverage/ports"
 use "ports/outbound"
 use "extensions/coverage/events"
 behavior merge_coverage_reports "Merge Coverage Reports" {
-  invariants [traceability_chain_integrity]
+  invariants [traceability_chain_integrity, cv_language_agnostic_collection]
   category   command
   types      [CoverageReport, EntityCoverageResult]
   ports      [TestReporter, FileSystem]
@@ -84,7 +85,7 @@ behavior validate_test_ids_against_spec "Validate Test IDs Against Spec" {
 behavior consume_specforge_report "Consume Specforge Report" {
   invariants [traceability_chain_integrity]
   category   command
-  types      [SpecforgeReport, TestResultEntry]
+  types      [SpecforgeReport, TestResultEntry, TestReportConsumedPayload]
   ports      [TestReporter, FileSystem]
   produces   [test_report_consumed]
 
@@ -106,7 +107,6 @@ behavior compute_four_level_coverage "Compute Four-Level Coverage" {
   invariants [traceability_chain_integrity]
   category   query
   types      [CoverageSummary, CoverageLevel]
-  consumers  [test_report_consumed]
 
   contract """
     The system MUST compute four coverage levels from the spec graph
@@ -128,7 +128,6 @@ behavior render_test_traceability_matrix "Render Test Traceability Matrix" {
   invariants [traceability_chain_integrity]
   category   query
   types      [CoverageSummary, TestResultEntry]
-  consumers  [test_report_consumed]
 
   contract """
     The system MUST render the specforge trace --test-results output

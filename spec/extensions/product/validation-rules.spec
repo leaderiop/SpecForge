@@ -10,6 +10,7 @@ use "extensions/product/invariants"
 use "types/diagnostics"
 use "types/graph"
 behavior detect_orphan_features "Detect Orphan Features" {
+  category   validation
   types      [Diagnostic]
 
   contract """
@@ -121,6 +122,7 @@ behavior detect_unused_glossary_terms "Detect Unused Glossary Terms" {
 }
 
 behavior validate_persona_references "Validate Persona References" {
+  category   validation
   invariants [diagnostic_code_uniqueness]
   types      [Diagnostic]
 

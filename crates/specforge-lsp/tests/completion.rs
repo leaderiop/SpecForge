@@ -104,6 +104,7 @@ fn complete_field_names_from_registry() {
     reg.register(FieldRegistryEntry {
         kind_name: "behavior".into(),
         field_name: "contract".into(),
+        description: None,
         field_type: ManifestFieldType::Block,
         source_extension: "@specforge/software".into(),
         edge: None,
@@ -114,6 +115,7 @@ fn complete_field_names_from_registry() {
     reg.register(FieldRegistryEntry {
         kind_name: "behavior".into(),
         field_name: "invariants".into(),
+        description: None,
         field_type: ManifestFieldType::ReferenceList,
         source_extension: "@specforge/software".into(),
         edge: Some("enforces".into()),

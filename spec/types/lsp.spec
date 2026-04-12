@@ -7,6 +7,7 @@ type ContentChangeEvent {
   end_line     integer
   end_col      integer
   text         string
+  verify unit "ContentChangeEvent schema is valid"
 }
 
 type CompletionItem {
@@ -14,6 +15,7 @@ type CompletionItem {
   detail      string       @optional
   kind        string
   insert_text string       @optional
+  verify unit "CompletionItem schema is valid"
 }
 
 type HoverContent {
@@ -24,6 +26,7 @@ type HoverContent {
   summary          string         @optional
   incoming_reference_count  integer
   outgoing_reference_count  integer
+  verify unit "HoverContent schema is valid"
 }
 
 type DocumentSymbolEntry {
@@ -31,17 +34,20 @@ type DocumentSymbolEntry {
   kind        SymbolKind
   range       SourceSpan
   children    DocumentSymbolEntry[] @optional
+  verify unit "DocumentSymbolEntry schema is valid"
 }
 
 type SemanticTokenLegendEntry {
   token_type       string       @readonly
   token_modifiers  string[]     @optional
   source_extension string       @optional
+  verify unit "SemanticTokenLegendEntry schema is valid"
 }
 
 type WorkspaceEditResult {
   edits            TextEdit[]
   document_count   integer
+  verify unit "WorkspaceEditResult schema is valid"
 }
 
 type CodeActionKind = QuickFix | Refactor | Source | SourceOrganizeImports
@@ -52,6 +58,7 @@ type CodeAction {
   diagnostic_code string       @optional
   edits           TextEdit[]
   is_preferred    boolean      @optional
+  verify unit "CodeAction schema is valid"
 }
 
 type SemanticToken {
@@ -60,6 +67,7 @@ type SemanticToken {
   length          integer      @readonly
   token_type      string       @readonly
   modifiers       string[]     @optional
+  verify unit "SemanticToken schema is valid"
 }
 
 type WorkspaceSymbolEntry {
@@ -67,6 +75,7 @@ type WorkspaceSymbolEntry {
   kind            SymbolKind
   location        SourceSpan
   container       string       @optional
+  verify unit "WorkspaceSymbolEntry schema is valid"
 }
 
 type SymbolKind = file | module | namespace | class | method | property | field | constructor | enum | interface | function | variable | constant | string | number | boolean | array | object | key | enum_member | struct | event | operator | type_parameter

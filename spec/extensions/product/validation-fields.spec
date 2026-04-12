@@ -313,27 +313,6 @@ behavior validate_journey_flow_non_empty "Validate Journey Flow Non-Empty" {
   verify unit "journey with flow steps suppresses I050"
 }
 
-behavior validate_persona_references "Validate Persona References" {
-  category   validation
-  types      [Diagnostic]
-  contract   """
-    The @specforge/product extension MUST validate that all persona
-    references in entity fields resolve to persona entity kinds declared
-    in the project. References to undeclared personas MUST produce an
-    E008 diagnostic. Valid persona references MUST pass without
-    diagnostics.
-  """
-  ensures    {
-    fires_when_missing "reference to undeclared persona produces E008"
-    suppresses_valid   "reference to declared persona produces no diagnostic"
-  }
-
-  features [pe_validation_suite]
-
-  verify unit "references to undeclared personas produce E008"
-  verify unit "valid persona references pass without diagnostics"
-}
-
 behavior validate_channel_references "Validate Channel References" {
   category   validation
   types      [Diagnostic]

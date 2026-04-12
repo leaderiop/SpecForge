@@ -46,6 +46,7 @@ mod tests {
         ManifestEntityKind {
             name: keyword.to_string(),
             keyword: keyword.to_string(),
+            description: None,
             testable,
             singleton: false,
             supports_verify: testable,
@@ -144,6 +145,7 @@ mod tests {
         m.fields.push(ManifestField {
             name: "contract".to_string(),
             field_type: "block".to_string(),
+            description: None,
             edge: None,
             target_kind: None,
             file_reference: false,

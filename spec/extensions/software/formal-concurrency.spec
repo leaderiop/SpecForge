@@ -1,11 +1,14 @@
 // @specforge/software formal concurrency — CSP
 
 use "types/zero-entity-core"
+use "extensions/software/events"
+use "extensions/software/features"
 use "extensions/software/types"
 use "extensions/software/invariants"
 behavior se_parse_sync_block "Parse Sync Block" {
   category command
   types [SyncBlock, SoftwareEvent]
+  features [se_formal_concurrency]
 
   contract """
     Recognize the sync { } block on event entities as CSP
@@ -29,6 +32,7 @@ behavior se_parse_sync_block "Parse Sync Block" {
 behavior se_build_event_bipartite_graph "Build Event-Behavior Bipartite Graph" {
   category command
   types [SoftwareEvent, SoftwareBehavior, SyncBlock]
+  features [se_formal_concurrency]
 
   contract """
     Construct the event-behavior bipartite graph from Produces and
@@ -59,6 +63,7 @@ behavior se_build_event_bipartite_graph "Build Event-Behavior Bipartite Graph" {
 behavior se_detect_event_deadlocks "E034: Detect Event Deadlocks" {
   category query
   types [SoftwareEvent, SyncBlock]
+  features [se_formal_concurrency]
 
   contract """
     Detect circular event dependencies that may cause deadlocks
@@ -84,6 +89,7 @@ behavior se_detect_event_deadlocks "E034: Detect Event Deadlocks" {
 behavior se_detect_channel_type_mismatch "E035: Channel Type Mismatch" {
   category query
   types [SoftwareEvent, SoftwareTypeDef]
+  features [se_formal_concurrency]
 
   contract """
     Verify that event producers and consumers agree on payload type.
@@ -106,6 +112,7 @@ behavior se_detect_channel_type_mismatch "E035: Channel Type Mismatch" {
 behavior se_detect_unmatched_producers "W029: Unmatched Producers" {
   category query
   types [SoftwareEvent]
+  features [se_formal_concurrency]
 
   contract """
     Detect events that have producers but no consumers. This is a warning
@@ -126,6 +133,7 @@ behavior se_detect_unmatched_producers "W029: Unmatched Producers" {
 behavior se_detect_unbounded_channel "W034: Unbounded Channel Buffer" {
   category query
   types [SoftwareEvent, SyncBlock]
+  features [se_formal_concurrency]
 
   contract """
     Detect events with no sync timeout or buffer limit, which may
@@ -145,6 +153,7 @@ behavior se_detect_unbounded_channel "W034: Unbounded Channel Buffer" {
 behavior se_detect_starvation_risk "W033: Starvation Risk" {
   category query
   types [SoftwarePort, SoftwareEvent]
+  features [se_formal_concurrency]
 
   contract """
     Detect ports with unfair access patterns where one consumer
@@ -164,6 +173,7 @@ behavior se_detect_starvation_risk "W033: Starvation Risk" {
 behavior se_detect_livelock_risk "W032: Livelock Risk" {
   category query
   types [SoftwareEvent, SyncBlock]
+  features [se_formal_concurrency]
 
   contract """
     Detect potential livelocks: event chains where a consumer
@@ -183,6 +193,8 @@ behavior se_detect_livelock_risk "W032: Livelock Risk" {
 behavior se_process_analyze_pass "Process Analyze Compiler Pass" {
   category command
   types [SoftwareEvent, SyncBlock, SoftwareTypeDef, ConcurrencyAnalysisReport]
+  features [se_formal_concurrency]
+  produces [se_concurrency_analysis_complete]
 
   contract """
     The process_analyze compiler pass performs full CSP analysis over

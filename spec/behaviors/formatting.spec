@@ -215,7 +215,7 @@ behavior apply_format_rules "Apply Format Rules" {
   // Extension format rules are discovered via the contribution registry at format time
   category   query
   invariants [formatting_idempotency, formatting_consistency, comment_preservation, format_rule_determinism, format_rule_priority, formatting_semantic_preservation]
-  types      [FormatConfig, FormatRule]
+  types      [FormatConfig, FormatRule, IndentRule, SpacingRule, AlignmentRule, WrappingRule, NewlineRule, CommentRule, ImportRule, StringRule, ExtensionFormatRule]
   ports      [WasmRuntime]
 
   requires {

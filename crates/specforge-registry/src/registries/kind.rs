@@ -3,6 +3,7 @@ use std::collections::HashMap;
 #[derive(Debug, Clone)]
 pub struct KindRegistryEntry {
     pub kind_name: String,
+    pub description: Option<String>,
     pub source_extension: String,
     pub testable: bool,
     pub singleton: bool,

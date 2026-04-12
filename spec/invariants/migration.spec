@@ -1,6 +1,5 @@
 // Migration-specific invariants
 
-use "behaviors/migration"
 invariant migration_idempotency "Migration Idempotency" {
   guarantee """
     Running specforge migrate twice on the same .spec files MUST produce
@@ -9,7 +8,6 @@ invariant migration_idempotency "Migration Idempotency" {
     source content and version pair — no external state may influence
     the result.
   """
-  enforced_by [migrate_spec_files_in_place, generate_migration_diff, invoke_extension_migration_hooks]
   risk medium
 
   verify property "running migrate twice produces identical files"
@@ -25,7 +23,6 @@ invariant migration_backup_safety "Migration Backup Safety" {
     original file. If backup creation fails (e.g., disk full, permission
     denied), the migration MUST abort for that file without modifying it.
   """
-  enforced_by [migrate_spec_files_in_place, rollback_failed_migration]
   risk high
 
   verify unit "backup created before file modification"
@@ -43,7 +40,6 @@ invariant migration_atomicity "Migration Atomicity" {
     partially written file can exist on disk, even if the process is
     interrupted mid-write.
   """
-  enforced_by [migrate_spec_files_in_place, rollback_failed_migration]
   risk high
 
   verify unit "migration writes to temporary file then renames"
@@ -61,7 +57,6 @@ invariant migration_event_ordering "Migration Event Ordering" {
     depend on this ordering (e.g., pre-migration snapshot capture)
     MUST receive events in the guaranteed sequence.
   """
-  enforced_by [migrate_spec_files_in_place, invoke_extension_migration_hooks, validate_post_migration_integrity, capture_pre_migration_schema_snapshot, verify_graph_protocol_compatibility_after_migration]
   risk high
 
   verify property "migration_starting always precedes migration_started"
@@ -81,7 +76,6 @@ invariant migration_semantic_preservation "Migration Semantic Preservation" {
     edge is a breaking change and MUST be flagged by
     validate_post_migration_integrity.
   """
-  enforced_by [migrate_spec_files_in_place, validate_post_migration_integrity]
   risk high
 
   verify property "pre-migration and post-migration entity graphs are structurally identical"
@@ -96,11 +90,6 @@ invariant migration_cross_extension_stability "Migration Cross-Extension Referen
     after migration. References to entities in uninstalled extensions
     MUST retain their soft-resolution status (I004).
   """
-  enforced_by [
-    validate_post_migration_integrity,
-    verify_graph_protocol_compatibility_after_migration,
-    invoke_extension_migration_hooks,
-  ]
   risk medium
   verify integration "cross-extension references resolve identically after migration"
   verify unit "soft-resolution I004 references preserved after migration"

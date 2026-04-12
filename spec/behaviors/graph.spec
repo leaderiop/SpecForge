@@ -7,7 +7,7 @@ use "events/compilation"
 behavior build_in_memory_graph "Build In-Memory Graph" {
   invariants [string_interning_consistency, entity_id_uniqueness]
   category   command
-  types      [Graph, Node, Edge, SpecFile, EdgeType, FileIndex]
+  types      [Graph, Node, Edge, SpecFile, EdgeType, FileIndex, JsonValue, JsonObject]
   consumes  [resolution_complete]
   produces   [graph_built]
 

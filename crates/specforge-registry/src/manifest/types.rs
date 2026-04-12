@@ -81,6 +81,8 @@ pub struct ManifestEntityKind {
     pub name: String,
     pub keyword: String,
     #[serde(default)]
+    pub description: Option<String>,
+    #[serde(default)]
     pub testable: bool,
     #[serde(default)]
     pub singleton: bool,
@@ -131,6 +133,8 @@ pub struct ManifestEdgeType {
 pub struct ManifestField {
     pub name: String,
     pub field_type: String,
+    #[serde(default)]
+    pub description: Option<String>,
     #[serde(default)]
     pub edge: Option<String>,
     #[serde(default)]

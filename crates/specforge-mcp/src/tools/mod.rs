@@ -12,6 +12,7 @@ mod find_references;
 mod outline;
 mod suggest_fixes;
 mod list;
+mod model;
 
 use serde_json::{json, Value};
 use specforge_registry::SurfaceType;
@@ -46,6 +47,7 @@ pub fn handle_tool_call(state: &mut McpState, params: Value, id: Option<Value>) 
         "specforge.trace" => trace::call(state, arguments, id),
         "specforge.search" => search::call(state, arguments, id),
         "specforge.schema" => schema::call(state, arguments, id),
+        "specforge.model" => model::call(state, arguments, id),
         "specforge.coverage" => coverage::call(state, arguments, id),
         "specforge.stats" => stats::call(state, arguments, id),
         // Navigation tools

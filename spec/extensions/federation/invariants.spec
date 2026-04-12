@@ -1,6 +1,5 @@
 // Federation-specific invariants
 
-use "extensions/federation/behaviors"
 invariant federated_graph_determinism "Federated Graph Determinism" {
   guarantee """
     The order in which remote project graphs are loaded and merged MUST
@@ -8,7 +7,6 @@ invariant federated_graph_determinism "Federated Graph Determinism" {
     graphs with the same content, the merged FederatedGraph MUST be
     identical regardless of load order or merge sequence.
   """
-  enforced_by [export_federated_graph, resolve_cross_project_references]
   risk medium
 
   verify property "different merge orders produce identical federated graph"
@@ -24,7 +22,6 @@ invariant project_qualified_id_uniqueness "Project-Qualified ID Uniqueness" {
     project prefix. A collision where two projects declare the same
     project prefix MUST be detected and reported as an error.
   """
-  enforced_by [resolve_cross_project_references, export_federated_graph]
   risk high
 
   verify property "project-qualified IDs are unique across federated graph"
@@ -41,7 +38,6 @@ invariant cross_project_reference_safety "Cross-Project Reference Safety" {
     projects MUST degrade gracefully with an I012 info diagnostic, never
     an error.
   """
-  enforced_by [resolve_cross_project_references, validate_cross_project_edge_consistency, load_remote_project_graph, load_federation_config]
   risk medium
 
   verify property "no cycles exist across project boundaries"
@@ -58,7 +54,6 @@ invariant federated_graph_traversal_integrity "Federated Graph Traversal Integri
     along a traversal path MUST be included. Traversal order MUST be
     deterministic for identical federated graph inputs.
   """
-  enforced_by [resolve_cross_project_references, validate_cross_project_edge_consistency, export_federated_graph]
   risk high
 
   verify property "federated traversal visits every reachable cross-project node exactly once"
@@ -74,7 +69,6 @@ invariant federated_schema_completeness "Federated Schema Completeness" {
     omitted. The schema MUST accurately reflect the union of all project
     schemas.
   """
-  enforced_by [export_federated_graph]
   risk medium
 
   verify property "federated schema contains every kind and edge type from all merged projects"

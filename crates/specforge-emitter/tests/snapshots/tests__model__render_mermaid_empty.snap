@@ -1,0 +1,5 @@
+---
+source: crates/specforge-emitter/tests/model.rs
+expression: output
+---
+erDiagram

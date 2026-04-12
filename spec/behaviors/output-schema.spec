@@ -15,7 +15,7 @@ use "events/compilation"
 behavior generate_schema_from_registries "Generate Schema From Registries" {
   invariants [graph_schema_completeness, diagnostic_determinism, registry_population_before_validation, zero_domain_knowledge_core]
   category   query
-  types      [GraphProtocolSchema, SchemaEntityKind, SchemaEdgeType, SchemaField, KindRegistryEntry, FieldRegistryEntry]
+  types      [GraphProtocolSchema, SchemaEntityKind, SchemaEdgeType, SchemaField, KindRegistryEntry, FieldRegistryEntry, SchemaExtensionInfo]
   ports      [CompilerApi]
   consumes   [registries_populated]
   produces   [schema_generated]
@@ -268,7 +268,7 @@ behavior negotiate_schema_version "Negotiate Schema Version" {
 behavior detect_breaking_schema_changes "Detect Breaking Schema Changes" {
   invariants [graph_schema_completeness, diagnostic_determinism, schema_version_backward_compatibility, zero_domain_knowledge_core]
   category   validation
-  types      [SchemaVersion, SchemaMigration, GraphProtocolSchema, SchemaCacheEntry]
+  types      [SchemaVersion, SchemaMigration, GraphProtocolSchema, SchemaCacheEntry, SchemaMigrationChange]
   ports      [CompilerApi, FileSystem]
   // Reads the previous schema from .specforge/schema-cache.json written by the
   // PRIOR compilation. Does NOT depend on persist_schema_cache in the current

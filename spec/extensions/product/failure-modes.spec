@@ -21,4 +21,5 @@ failure_mode library_cycle_detection_miss "Library Cycle Detection Miss" {
     detection  1
     rpn        5
   }
+  verify unit "Library Cycle Detection Miss failure mode is handled"
 }

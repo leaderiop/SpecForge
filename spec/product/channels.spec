@@ -24,7 +24,7 @@ channel ci_surface "CI/CD Surface" {
   tags               ["automation"]
 }
 
-channel graph_protocol "Graph Protocol" {
+channel ch_graph_protocol "Graph Protocol" {
   description        "The JSON graph output consumed by external tools, dashboards, and agents that don't use MCP. Direct file-based or piped export consumption."
   interaction_model  api
   status             active

@@ -554,7 +554,20 @@
       "WebFetch(domain:cosmograph.app)",
       "WebFetch(domain:formulae.brew.sh)",
       "Bash(sort -t: -k2 -rn)",
-      "Bash(sort -t' ' -k3 -rn)"
+      "Bash(sort -t' ' -k3 -rn)",
+      "Read(//Users/u1070457/.claude/**)",
+      "mcp__specforge__specforge_validate",
+      "mcp__specforge__specforge_stats",
+      "mcp__specforge__specforge_query",
+      "Bash(./target/release/specforge stats:*)",
+      "Bash(./target/release/specforge validate:*)",
+      "Bash(./target/debug/specforge export:*)",
+      "mcp__specforge__specforge_model",
+      "Bash(./target/release/specforge model:*)",
+      "Bash(INSTA_UPDATE=always cargo test -p specforge-emitter --test tests)",
+      "Bash(./target/release/specforge schema:*)",
+      "Bash(INSTA_UPDATE=always cargo test -p specforge-emitter)",
+      "Bash(./target/release/specforge-cli model:*)"
     ]
   }
 }

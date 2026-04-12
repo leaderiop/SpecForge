@@ -42,10 +42,11 @@ ref gh.issue:42 "Support Wasm extensions"
     assert!(warnings.is_empty(), "referenced ref should not produce W012");
 }
 
-#[specforge_test(behavior = "detect_orphan_refs", verify = "unreferenced structural node of any grammar-level kind produces W012")]
+#[specforge_test(behavior = "detect_orphan_refs", verify = "spec block is a root container and does not produce W012")]
 #[test]
-fn unreferenced_spec_block_produces_w012() {
-    // spec blocks are structural kinds — orphan detection applies
+fn spec_block_does_not_produce_w012() {
+    // spec blocks are project root containers — they naturally have no
+    // incoming edges and should NOT produce W012.
     let source = r#"
 spec "MyProject" {
   version "1.0"
@@ -58,8 +59,7 @@ behavior alpha "A" { contract "first" }
     let diagnostics = specforge_validator::validate(&graph);
 
     let warnings: Vec<_> = diagnostics.iter().filter(|d| d.code == "W012").collect();
-    assert_eq!(warnings.len(), 1, "orphan spec block should produce W012");
-    assert!(warnings[0].message.contains("spec"));
+    assert!(warnings.is_empty(), "spec block should not produce W012, got: {:?}", warnings);
 }
 
 #[specforge_test(behavior = "detect_orphan_refs", verify = "structural node with at least one incoming edge suppresses W012")]

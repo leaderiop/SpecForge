@@ -10,6 +10,7 @@ mod format;
 mod init;
 mod mcp;
 mod migrate;
+mod model;
 mod pipeline;
 mod product;
 mod providers;
@@ -98,6 +99,40 @@ enum Commands {
         /// Publish as standalone JSON Schema (draft 2020-12)
         #[arg(long)]
         publish: bool,
+    },
+    /// Render the logical data model (entity kinds, fields, relationships)
+    Model {
+        /// Path to the spec root directory
+        #[arg(default_value = ".")]
+        path: PathBuf,
+
+        /// Output format: markdown (default), mermaid, dot, json, dbml
+        #[arg(long, default_value = "markdown")]
+        format: String,
+
+        /// Group entities by: extension (default), none
+        #[arg(long, default_value = "extension")]
+        group_by: String,
+
+        /// Field detail level: none, keys (default), all
+        #[arg(long, default_value = "keys")]
+        fields: String,
+
+        /// Filter to a single extension
+        #[arg(long)]
+        extension: Option<String>,
+
+        /// Filter to specific entity kinds (comma-separated)
+        #[arg(long, value_delimiter = ',')]
+        kinds: Vec<String>,
+
+        /// Root entity kind for depth-scoped output
+        #[arg(long)]
+        root: Option<String>,
+
+        /// Maximum depth from root kind (requires --root)
+        #[arg(long, requires = "root")]
+        depth: Option<usize>,
     },
     /// Query the graph at multiple resolutions
     Query {
@@ -502,6 +537,13 @@ fn main() {
         }
         Commands::Schema { path, kind, publish } => {
             let exit_code = export::run_schema(&path, kind.as_deref(), publish);
+            std::process::exit(exit_code);
+        }
+        Commands::Model { path, format, group_by, fields, extension, kinds, root, depth } => {
+            let exit_code = model::run(
+                &path, &format, &group_by, &fields,
+                extension.as_deref(), &kinds, root.as_deref(), depth,
+            );
             std::process::exit(exit_code);
         }
         Commands::Query { entity, path, depth, kind } => {

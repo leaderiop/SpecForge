@@ -9,7 +9,7 @@ use "extensions/rust/behaviors"
 use "extensions/coverage/behaviors"
 constraint test_coverage_accuracy "Test Coverage Accuracy" {
   category    reliability
-  priority    must
+  priority    critical
 
   metric """
     coverage percentage matches actual verified/total ratio;
@@ -25,7 +25,7 @@ constraint test_coverage_accuracy "Test Coverage Accuracy" {
 
 constraint rust_collection_accuracy "Rust Collection Accuracy" {
   category    reliability
-  priority    must
+  priority    critical
 
   metric """
     entity mapping has zero false positives; specforge-report.json

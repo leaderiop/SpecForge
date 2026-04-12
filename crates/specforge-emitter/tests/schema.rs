@@ -41,6 +41,7 @@ fn node(id: &str, kind: &str, title: Option<&str>) -> Node {
 fn make_kind_entry(name: &str, ext: &str, testable: bool) -> KindRegistryEntry {
     KindRegistryEntry {
         kind_name: name.to_string(),
+        description: None,
         source_extension: ext.to_string(),
         testable,
         singleton: false,
@@ -71,6 +72,7 @@ fn make_field_entry(kind: &str, field: &str, ft: ManifestFieldType, required: bo
     FieldRegistryEntry {
         kind_name: kind.to_string(),
         field_name: field.to_string(),
+        description: None,
         field_type: ft,
         source_extension: "@specforge/software".to_string(),
         edge: None,
@@ -97,6 +99,11 @@ fn sample_schema() -> GraphProtocolSchema {
                     field_type: "string".to_string(),
                     required: false,
                     enum_values: None,
+                    edge: None,
+                    target_kind: None,
+                    description: None,
+                    default_value: None,
+                    source_extension: "@specforge/software".to_string(),
                 }],
             },
             SchemaEntityKind {
@@ -416,6 +423,11 @@ fn diff_added_optional_field_non_breaking() {
         field_type: "string".to_string(),
         required: false,
         enum_values: None,
+        edge: None,
+        target_kind: None,
+        description: None,
+        default_value: None,
+        source_extension: "@specforge/software".to_string(),
     });
 
     let migration = diff_schemas(&old, &new);
@@ -434,6 +446,11 @@ fn diff_added_required_field_is_breaking() {
         field_type: "string".to_string(),
         required: true,
         enum_values: None,
+        edge: None,
+        target_kind: None,
+        description: None,
+        default_value: None,
+        source_extension: "@specforge/software".to_string(),
     });
 
     let migration = diff_schemas(&old, &new);
@@ -1047,6 +1064,11 @@ fn diff_multiple_field_changes() {
         field_type: "string".to_string(),
         required: false,
         enum_values: None,
+        edge: None,
+        target_kind: None,
+        description: None,
+        default_value: None,
+        source_extension: "@specforge/software".to_string(),
     });
 
     let migration = diff_schemas(&old, &new);
@@ -1408,6 +1430,11 @@ fn detect_breaking_contract() {
         field_type: "string".to_string(),
         required: false,
         enum_values: None,
+        edge: None,
+        target_kind: None,
+        description: None,
+        default_value: None,
+        source_extension: "@specforge/software".to_string(),
     });
     let migration2 = diff_schemas(&old, &new_nonbreaking);
     // ensures: nonbreaking_changes_classified

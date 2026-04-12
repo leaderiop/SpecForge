@@ -98,7 +98,6 @@ invariant pe_manifest_nine_entity_kinds "Nine Entity Kinds" {
     and channel are first-class entity kinds. Release coordinates
     multi-deliverable shipping.
   """
-  enforced_by [pe_declare_manifest]
   risk        high
 
   verify property "manifest entityKinds array has exactly 9 entries"
@@ -114,7 +113,6 @@ invariant pe_manifest_sixteen_edge_types "Sixteen Edge Types" {
     DeliverableDependsOn, ReleaseDeliverable, ReleaseMilestone.
     These edges model relationships between the 9 entity kinds.
   """
-  enforced_by [pe_declare_manifest]
   risk        medium
 
   verify property "manifest edgeTypes array has exactly 16 entries"

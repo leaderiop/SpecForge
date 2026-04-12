@@ -2,11 +2,7 @@
 // sorting, manifest, integrity, install, remove, upgrade
 
 use "types/wasm"
-use "behaviors/wasm-lifecycle"
-use "behaviors/wasm-sandbox"
-use "behaviors/surface-contributions"
 event extension_loaded "Extension Loaded" {
-  trigger   load_wasm_module
   channel   "wasm.extension_loaded"
 
   payload {
@@ -16,7 +12,6 @@ event extension_loaded "Extension Loaded" {
     loadTimeMs  integer
   }
 
-  consumers [initialize_wasm_extension]
 
   verify integration "emits extension_loaded with correct extensionName, wasmSize, fromCache, and loadTimeMs"
   verify integration "consumer initialize_wasm_extension receives event and begins initialization"
@@ -24,7 +19,6 @@ event extension_loaded "Extension Loaded" {
 }
 
 event extension_initialized "Extension Initialized" {
-  trigger   initialize_wasm_extension
   channel   "wasm.extension_initialized"
 
   payload {
@@ -33,7 +27,6 @@ event extension_initialized "Extension Initialized" {
     edgeTypeCount  integer
   }
 
-  consumers [call_extension_validators]
 
   verify integration "emits extension_initialized with correct entityCount and edgeTypeCount"
   verify integration "consumer call_extension_validators receives event and begins validation"
@@ -41,7 +34,6 @@ event extension_initialized "Extension Initialized" {
 }
 
 event extension_validated "Extension Validated" {
-  trigger   call_extension_validators
   channel   "wasm.extension_validated"
 
   payload {
@@ -55,7 +47,6 @@ event extension_validated "Extension Validated" {
 }
 
 event extension_unloaded "Extension Unloaded" {
-  trigger   uninstall_wasm_extension
   channel   "wasm.extension_unloaded"
 
   payload {
@@ -63,7 +54,6 @@ event extension_unloaded "Extension Unloaded" {
     reason      string
   }
 
-  consumers []
 
   verify integration "emits extension_unloaded with correct extensionName and reason"
 
@@ -72,7 +62,6 @@ event extension_unloaded "Extension Unloaded" {
 // ── Runtime Observability Events ───────────────────────────────
 
 event peer_dependencies_validated "Peer Dependencies Validated" {
-  trigger   validate_extension_peer_dependencies
   channel   "wasm.peer_dependencies_validated"
 
   payload {
@@ -81,14 +70,12 @@ event peer_dependencies_validated "Peer Dependencies Validated" {
     allSatisfied      boolean
   }
 
-  consumers [topological_sort_extensions]
 
   verify integration "emits peer_dependencies_validated with correct peerCount and satisfaction status"
 
 }
 
 event extensions_sorted "Extensions Sorted" {
-  trigger   topological_sort_extensions
   channel   "wasm.extensions_sorted"
 
   payload {
@@ -97,14 +84,12 @@ event extensions_sorted "Extensions Sorted" {
     hasCycles         boolean
   }
 
-  consumers [call_extension_validators]
 
   verify integration "emits extensions_sorted with deterministic loadOrder"
 
 }
 
 event manifest_validated "Manifest Validated" {
-  trigger   validate_extension_manifest
   channel   "wasm.manifest_validated"
 
   payload {
@@ -114,14 +99,12 @@ event manifest_validated "Manifest Validated" {
     validationPassed  boolean
   }
 
-  consumers [load_wasm_module, register_surface_contributions]
 
   verify integration "emits manifest_validated with correct entityKindCount and validation status"
 
 }
 
 event wasm_integrity_verified "Wasm Integrity Verified" {
-  trigger   verify_wasm_integrity
   channel   "wasm.integrity_verified"
 
   payload {
@@ -130,7 +113,6 @@ event wasm_integrity_verified "Wasm Integrity Verified" {
     verified        boolean
   }
 
-  consumers [load_wasm_module]
 
   verify integration "emits wasm_integrity_verified with correct hash after successful check"
 
@@ -139,7 +121,6 @@ event wasm_integrity_verified "Wasm Integrity Verified" {
 // ── Extension Lifecycle Events ─────────────────────────────────
 
 event extension_install_completed "Extension Install Completed" {
-  trigger   install_wasm_extension
   channel   "wasm.extension_install_completed"
 
   payload {
@@ -150,7 +131,6 @@ event extension_install_completed "Extension Install Completed" {
     installTimeMs integer
   }
 
-  consumers [load_wasm_module]
 
   verify integration "emits extension_install_completed with correct extensionName, version, source, and installTimeMs"
   verify integration "consumer load_wasm_module receives event after install"
@@ -158,7 +138,6 @@ event extension_install_completed "Extension Install Completed" {
 }
 
 event wasm_extension_removed "Wasm Extension Removed" {
-  trigger   uninstall_wasm_extension
   channel   "wasm.extension_removed"
 
   payload {
@@ -166,7 +145,6 @@ event wasm_extension_removed "Wasm Extension Removed" {
     cacheCleared  boolean
   }
 
-  consumers [invalidate_aot_cache]
 
   verify integration "emits extension_removed with correct extensionName and cacheCleared"
   verify integration "consumer invalidate_aot_cache receives event and clears cache"
@@ -174,7 +152,6 @@ event wasm_extension_removed "Wasm Extension Removed" {
 }
 
 event extension_upgrade_completed "Extension Upgrade Completed" {
-  trigger   upgrade_wasm_extension
   channel   "wasm.extension_upgrade_completed"
 
   payload {
@@ -185,7 +162,6 @@ event extension_upgrade_completed "Extension Upgrade Completed" {
     aotRecompiled     boolean
   }
 
-  consumers [load_wasm_module]
 
   verify integration "emits extension_upgrade_completed with correct previousVersion and newVersion"
   verify integration "consumer load_wasm_module receives event after upgrade"

@@ -750,6 +750,7 @@ behavior detect_release_without_milestones "Detect Release Without Milestones" {
 
 behavior detect_released_release_incomplete_deliverables "Detect Released Release With Incomplete Deliverables" {
   category    validation
+  features    [pe_release_coordination]
   invariants  [pe_release_lifecycle_consistency]
   contract    """
     A release with status=released SHOULD have all referenced deliverables
@@ -914,6 +915,7 @@ behavior detect_blocked_milestone_without_blockers "Detect Blocked Milestone Wit
 
 behavior detect_inconsistent_owner_strings "Detect Inconsistent Owner Strings" {
   category    validation
+  features    [pe_ownership_tracking]
   invariants  [pe_ownership_field_awareness, pe_owner_string_consistency]
   contract    """
     The @specforge/product extension SHOULD detect when different entities
@@ -957,6 +959,7 @@ behavior detect_cache_absent_awareness "Detect Cache-Absent Transition Suppressi
 
 behavior detect_duplicate_release_version "Detect Duplicate Release Version" {
   category    validation
+  features    [pe_release_coordination]
   invariants  [pe_release_version_uniqueness]
   contract    """
     The @specforge/product extension SHOULD detect when two or more release

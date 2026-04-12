@@ -6,7 +6,6 @@ use "behaviors/wasm-lifecycle"
 // collapse_grammar_to_generic_entity_block and two_phase_parse_structural
 
 feature spec_file_parsing "Spec File Parsing" {
-  behaviors [parse_spec_file_to_ast, parse_use_imports, parse_all_block_types, parse_triple_quoted_strings, parse_verify_statements, parse_ref_blocks, parse_define_blocks]
 
   problem """
     .spec files need to be parsed into structured ASTs that preserve
@@ -29,7 +28,6 @@ feature spec_file_parsing "Spec File Parsing" {
 }
 
 feature error_recovery_during_parsing "Error Recovery During Parsing" {
-  behaviors [recover_from_syntax_errors]
 
   problem """
     A single syntax error in one block should not prevent the compiler
@@ -45,7 +43,6 @@ feature error_recovery_during_parsing "Error Recovery During Parsing" {
 }
 
 feature editor_query_files "Editor Query Files" {
-  behaviors [provide_syntax_highlighting_queries, provide_code_folding_queries, provide_indentation_queries]
 
   problem """
     Without query files, .spec files appear as plain text in
@@ -65,7 +62,6 @@ feature editor_query_files "Editor Query Files" {
 }
 
 feature extension_body_parsing "Extension Body Parsing" {
-  behaviors [delegate_body_parsing_to_extension, dispatch_body_parser]
 
   problem """
     The core parser produces generic entity blocks with raw body text.

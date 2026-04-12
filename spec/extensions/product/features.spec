@@ -345,7 +345,6 @@ feature pe_ownership_tracking "Ownership Tracking" {
     owner-workload query that aggregates ownership across all product entities.
     I080 info diagnostic encourages ownership assignment without requiring it.
   """
-  behaviors [pe_register_ownership_fields, pe_query_owner_workload, detect_missing_owner]
   tags ["ownership", "planning", "v1-1"]
 }
 
@@ -363,7 +362,6 @@ feature pe_effort_estimation "Effort Estimation" {
     without effort default to m weight. I081 info diagnostic (pedantic
     profile only) encourages effort estimation.
   """
-  behaviors [pe_register_effort_field, pe_query_weighted_milestone_completion, detect_missing_effort]
   tags ["estimation", "planning", "v1-1"]
 }
 
@@ -379,16 +377,6 @@ feature pe_release_coordination "Release Coordination" {
     milestones, release_date, changelog, depends_on, owner, contributors.
     Two new edge types: ReleaseDeliverable and ReleaseMilestone.
   """
-  behaviors [
-    pe_register_release_kind,
-    pe_register_release_edges,
-    pe_query_release_deliverables,
-    pe_query_release_milestones,
-    pe_query_release_completion,
-    detect_release_dependency_cycles,
-    detect_release_version_not_semver,
-    validate_release_status_transition,
-  ]
   tags ["release", "coordination", "v1-1"]
 }
 
@@ -403,7 +391,6 @@ feature pe_temporal_planning "Temporal Planning" {
     temporal consistency validation to check start_date vs target_date
     ordering. I087 validates format.
   """
-  behaviors [pe_register_temporal_fields, detect_invalid_start_date]
   tags ["temporal", "planning", "v1-1"]
 }
 
@@ -417,7 +404,6 @@ feature pe_external_blockers "External Blocker Tracking" {
     Add blockers (string[] @optional) to milestones. I084 detects blocked
     milestones with neither depends_on nor blockers.
   """
-  behaviors [pe_register_temporal_fields, detect_blocked_milestone_without_blockers]
   tags ["blockers", "planning", "v1-1"]
 }
 
@@ -432,7 +418,6 @@ feature pe_journey_flow_validation "Journey Flow Validation" {
     declared features. I090 warns when a flow step references an
     undeclared feature.
   """
-  behaviors [pe_validate_journey_flow_features, detect_journey_flow_feature_references]
   tags ["validation", "journeys", "v1-1"]
 }
 

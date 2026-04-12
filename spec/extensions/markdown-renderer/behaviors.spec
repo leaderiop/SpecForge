@@ -12,6 +12,7 @@ behavior render_markdown_documentation "Render Markdown Documentation" {
   category   query
   types      [Graph, OutputFile, EmitterError]
   ports      [GraphSerializer, FileSystem]
+  features   [markdown_documentation_generation]
 
   contract """
     When specforge render markdown is invoked, the system MUST traverse
@@ -32,6 +33,7 @@ behavior render_index_files "Render Index Files" {
   category   query
   types      [Graph, OutputFile, EmitterError]
   ports      [GraphSerializer, FileSystem]
+  features   [markdown_documentation_generation]
 
   contract """
     The render command MUST auto-generate index files listing all entities
@@ -49,6 +51,7 @@ behavior selective_render_by_entity_type "Selective Render by Entity Kind" {
   category   query
   types      [Graph, OutputFile, EmitterError]
   ports      [GraphSerializer, FileSystem]
+  features   [markdown_documentation_generation]
 
   contract """
     The render command SHOULD support filtering by entity kind

@@ -1,5 +1,5 @@
-use crate::{Edge, Graph, Node};
-use specforge_common::{Sym, find_close_match, Diagnostic};
+use crate::{Graph, Node};
+use specforge_common::{Diagnostic, Sym};
 use specforge_parser::{FieldValue, SpecFile};
 use std::collections::{HashMap, HashSet};
 
@@ -134,42 +134,9 @@ pub fn build_graph_with_config(spec_files: &[SpecFile], config: &GraphConfig) ->
         }
     }
 
-    // Link references → edges
-    for spec_file in spec_files {
-        for entity in &spec_file.entities {
-            for entry in entity.fields.entries() {
-                if let FieldValue::ReferenceList(refs) = &entry.value {
-                    for target_id in refs {
-                        let target_sym = Sym::new(target_id);
-                        if entity_ids.contains(&target_sym) {
-                            graph.add_edge(Edge {
-                                source: entity.id.raw,
-                                target: target_sym,
-                                label: entry.key,
-                            });
-                        } else {
-                            let suggestion = find_close_match(
-                                target_id,
-                                entity_ids.iter().map(|s| s.as_str()),
-                            );
-                            let mut diag = Diagnostic::error(
-                                "E001",
-                                format!(
-                                    "unresolved reference '{}' in entity '{}'",
-                                    target_id, entity.id.raw
-                                ),
-                            )
-                            .with_span(entity.span.clone());
-                            if let Some(s) = suggestion {
-                                diag = diag.with_suggestion(format!("did you mean '{}'?", s));
-                            }
-                            diagnostics.push(diag);
-                        }
-                    }
-                }
-            }
-        }
-    }
+    // Link references → edges (shared with LSP via Graph::resolve_references)
+    let ref_diags = graph.resolve_references();
+    diagnostics.extend(ref_diags);
 
     // Detect reference cycles and emit W061
     let cycles = graph.detect_cycles();

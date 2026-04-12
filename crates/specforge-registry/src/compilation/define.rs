@@ -23,6 +23,7 @@ pub fn register_define_blocks(
     for define in defines {
         let entry = KindRegistryEntry {
             kind_name: define.keyword.clone(),
+            description: None,
             source_extension: "<project>".to_string(),
             testable: false,
             singleton: false,
@@ -58,6 +59,7 @@ pub fn register_define_blocks(
             field_reg.register(FieldRegistryEntry {
                 kind_name: define.keyword.clone(),
                 field_name: field_name.clone(),
+                description: None,
                 field_type: ManifestFieldType::String,
                 source_extension: "<project>".to_string(),
                 edge: None,
@@ -70,6 +72,7 @@ pub fn register_define_blocks(
             field_reg.register(FieldRegistryEntry {
                 kind_name: define.keyword.clone(),
                 field_name: field_name.clone(),
+                description: None,
                 field_type: ManifestFieldType::String,
                 source_extension: "<project>".to_string(),
                 edge: None,
@@ -82,6 +85,7 @@ pub fn register_define_blocks(
             field_reg.register(FieldRegistryEntry {
                 kind_name: define.keyword.clone(),
                 field_name: target.clone(),
+                description: None,
                 field_type: ManifestFieldType::ReferenceList,
                 source_extension: "<project>".to_string(),
                 edge: None,

@@ -46,7 +46,6 @@ invariant ge_manifest_three_entity_kinds "Three Entity Kinds" {
     decision, constraint, failure_mode. All three are declarative records
     with testable=false and supportsVerify=false.
   """
-  enforced_by [ge_declare_manifest]
   risk        high
 
   verify property "manifest entityKinds array has exactly 3 entries"
@@ -59,7 +58,6 @@ invariant ge_manifest_four_edge_types "Four Edge Types" {
     (constraint->behavior, cross-extension), ProtectsInvariant
     (constraint->invariant), FailureModeInvariant (failure_mode->invariant).
   """
-  enforced_by [ge_declare_manifest]
   risk        medium
 
   verify property "manifest edgeTypes array has exactly 4 entries"

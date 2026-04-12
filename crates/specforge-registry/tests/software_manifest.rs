@@ -40,27 +40,31 @@ fn test_software_manifest_has_5_entity_kinds() {
     assert!(keywords.contains(&"port"));
 }
 
-// B:se_declare_manifest — verify unit "manifest declares exactly 11 edge types"
+// B:se_declare_manifest — verify unit "manifest declares exactly 15 edge types"
 #[test]
-fn test_software_manifest_has_11_edge_types() {
+fn test_software_manifest_has_15_edge_types() {
     let manifest = load_software_manifest();
-    assert_eq!(manifest.edge_types.len(), 11);
+    assert_eq!(manifest.edge_types.len(), 15);
     let labels: Vec<&str> = manifest
         .edge_types
         .iter()
         .map(|e| e.label.as_str())
         .collect();
     assert!(labels.contains(&"References"));
-    assert!(labels.contains(&"Implements"));
-    assert!(labels.contains(&"Produces"));
-    assert!(labels.contains(&"Consumes"));
-    assert!(labels.contains(&"UsesType"));
-    assert!(labels.contains(&"UsesPort"));
-    assert!(labels.contains(&"Enforces"));
-    assert!(labels.contains(&"ExtendsType"));
+    assert!(labels.contains(&"BehaviorImplementsFeature"));
+    assert!(labels.contains(&"BehaviorProducesEvent"));
+    assert!(labels.contains(&"BehaviorConsumesEvent"));
+    assert!(labels.contains(&"BehaviorReferencesType"));
+    assert!(labels.contains(&"EventCarriesPayloadType"));
+    assert!(labels.contains(&"TypeComposesType"));
+    assert!(labels.contains(&"BehaviorUsesPort"));
+    assert!(labels.contains(&"BehaviorEnforcesInvariant"));
+    assert!(labels.contains(&"TypeExtendsType"));
     assert!(labels.contains(&"TestedBy"));
     assert!(labels.contains(&"ExternalRef"));
-    assert!(labels.contains(&"MilestoneBehavior"));
+    assert!(labels.contains(&"MilestoneIncludesBehavior"));
+    assert!(labels.contains(&"ModuleConsumesPort"));
+    assert!(labels.contains(&"ModuleDefinesPort"));
 }
 
 // B:se_declare_manifest — verify unit "contributes declares entities and validators"
@@ -109,7 +113,7 @@ fn test_software_manifest_enhancement_milestone() {
     assert!(field_names.contains(&"behaviors"));
     // behaviors field maps to MilestoneBehavior edge
     let beh_field = ms_enh.fields.iter().find(|f| f.name == "behaviors").unwrap();
-    assert_eq!(beh_field.edge.as_deref(), Some("MilestoneBehavior"));
+    assert_eq!(beh_field.edge.as_deref(), Some("MilestoneIncludesBehavior"));
     assert_eq!(beh_field.target_kind.as_deref(), Some("behavior"));
 }
 
@@ -321,7 +325,7 @@ fn test_software_implements_edge() {
     let edge = manifest
         .edge_types
         .iter()
-        .find(|e| e.label == "Implements")
+        .find(|e| e.label == "BehaviorImplementsFeature")
         .unwrap();
     assert_eq!(edge.source_kind.as_deref(), Some("behavior"));
     assert_eq!(edge.target_kind.as_deref(), Some("feature"));
@@ -334,7 +338,7 @@ fn test_software_produces_edge() {
     let edge = manifest
         .edge_types
         .iter()
-        .find(|e| e.label == "Produces")
+        .find(|e| e.label == "BehaviorProducesEvent")
         .unwrap();
     assert_eq!(edge.source_kind.as_deref(), Some("behavior"));
     assert_eq!(edge.target_kind.as_deref(), Some("event"));
@@ -347,7 +351,7 @@ fn test_software_enforces_edge() {
     let edge = manifest
         .edge_types
         .iter()
-        .find(|e| e.label == "Enforces")
+        .find(|e| e.label == "BehaviorEnforcesInvariant")
         .unwrap();
     assert_eq!(edge.source_kind.as_deref(), Some("behavior"));
     assert_eq!(edge.target_kind.as_deref(), Some("invariant"));
@@ -360,7 +364,7 @@ fn test_software_extends_type_edge() {
     let edge = manifest
         .edge_types
         .iter()
-        .find(|e| e.label == "ExtendsType")
+        .find(|e| e.label == "TypeExtendsType")
         .unwrap();
     assert_eq!(edge.source_kind.as_deref(), Some("type"));
     assert_eq!(edge.target_kind.as_deref(), Some("type"));
@@ -437,13 +441,12 @@ fn test_software_manifest_populates_registries() {
     assert!(field_reg.contains("invariant", "risk"));
 
     // Event fields
-    assert!(field_reg.contains("event", "trigger"));
     assert!(field_reg.contains("event", "channel"));
     assert!(field_reg.contains("event", "payload"));
 
     // Type fields
     assert!(field_reg.contains("type", "kind"));
-    assert!(field_reg.contains("type", "fieldType"));
+    assert!(field_reg.contains("type", "composed_types"));
 
     // Port fields
     assert!(field_reg.contains("port", "direction"));
@@ -451,23 +454,27 @@ fn test_software_manifest_populates_registries() {
 
     // Edge types
     assert!(edge_reg.contains("References"));
-    assert!(edge_reg.contains("Implements"));
-    assert!(edge_reg.contains("Produces"));
-    assert!(edge_reg.contains("Consumes"));
-    assert!(edge_reg.contains("UsesType"));
-    assert!(edge_reg.contains("UsesPort"));
-    assert!(edge_reg.contains("Enforces"));
-    assert!(edge_reg.contains("ExtendsType"));
+    assert!(edge_reg.contains("BehaviorImplementsFeature"));
+    assert!(edge_reg.contains("BehaviorProducesEvent"));
+    assert!(edge_reg.contains("BehaviorConsumesEvent"));
+    assert!(edge_reg.contains("BehaviorReferencesType"));
+    assert!(edge_reg.contains("EventCarriesPayloadType"));
+    assert!(edge_reg.contains("TypeComposesType"));
+    assert!(edge_reg.contains("BehaviorUsesPort"));
+    assert!(edge_reg.contains("BehaviorEnforcesInvariant"));
+    assert!(edge_reg.contains("TypeExtendsType"));
     assert!(edge_reg.contains("TestedBy"));
     assert!(edge_reg.contains("ExternalRef"));
-    assert!(edge_reg.contains("MilestoneBehavior"));
+    assert!(edge_reg.contains("MilestoneIncludesBehavior"));
+    assert!(edge_reg.contains("ModuleConsumesPort"));
+    assert!(edge_reg.contains("ModuleDefinesPort"));
 }
 
 // Validation rules are parseable
 #[test]
 fn test_software_manifest_validation_rules_parse() {
     let manifest = load_software_manifest();
-    assert_eq!(manifest.validation_rules.len(), 17);
+    assert_eq!(manifest.validation_rules.len(), 18);
 
     let rules: Vec<_> = manifest
         .validation_rules

@@ -84,8 +84,27 @@ pub fn compile(path: &Path) -> CompilationContext {
 
     // 8. Build graph
     let spec_files: Vec<_> = resolved.files.iter().map(|f| f.spec_file.clone()).collect();
-    let (graph, build_diags) = build_graph_with_config(&spec_files, &graph_config);
+    let (mut graph, build_diags) = build_graph_with_config(&spec_files, &graph_config);
     diagnostics.extend(build_diags);
+
+    // 8a. Re-resolve references with single-reference field awareness.
+    // build_graph_with_config only resolves ReferenceList fields. Now that
+    // we have the FieldRegistry, re-resolve to also create edges for single
+    // Reference fields (e.g., journey.persona -> persona entity).
+    if !field_reg.is_empty() {
+        let single_ref_fields: HashSet<(String, String)> = field_reg
+            .iter()
+            .filter(|(_, entry)| entry.field_type == specforge_registry::ManifestFieldType::Reference)
+            .map(|((kind, field), _)| (kind.clone(), field.clone()))
+            .collect();
+        if !single_ref_fields.is_empty() {
+            let ref_diags = graph.resolve_references_with_singles(&single_ref_fields);
+            // Replace the E001 diagnostics from the initial resolution.
+            // Remove previously-added E001s from build_diags and add the new ones.
+            diagnostics.retain(|d| d.code != "E001");
+            diagnostics.extend(ref_diags);
+        }
+    }
 
     // 9. Run core validation
     let validation_diags = validate(&graph);
@@ -329,6 +348,17 @@ fn run_extension_validation(
                     }
                     specforge_parser::FieldValue::Date(d) => {
                         fields.insert(entry.key.to_string(), d.clone());
+                    }
+                    specforge_parser::FieldValue::VerifyList(stmts) => {
+                        if !stmts.is_empty() {
+                            let descriptions: Vec<&str> = stmts.iter().map(|s| s.description.as_str()).collect();
+                            fields.insert(entry.key.to_string(), descriptions.join("; "));
+                        }
+                    }
+                    specforge_parser::FieldValue::VariantList(variants) => {
+                        if !variants.is_empty() {
+                            fields.insert(entry.key.to_string(), variants.join(" | "));
+                        }
                     }
                     _ => {}
                 }

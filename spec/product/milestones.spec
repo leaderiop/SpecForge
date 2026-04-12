@@ -10,7 +10,10 @@
 // H1: P1 > P2 > P3 > P4 > P5, P4 > P6 > P7, P4 > P8
 // H2: P8 > P9 > P10 > P11, P4 > P12 > P13, P11 > P14
 
+use "extensions/compliance/features"
+use "extensions/embeddings/features"
 use "extensions/formal/features"
+use "extensions/markdown-renderer/features"
 use "extensions/product/features"
 use "extensions/software/features"
 use "features/extensions"
@@ -40,7 +43,7 @@ milestone structural_parsing "Phase 1: Structural Parsing" {
   owner       "specforge-team"
   contributors ["specforge-team"]
   features    [spec_file_parsing, error_recovery_during_parsing, editor_query_files]
-  modules     [tree_sitter_specforge, specforge_parser]
+  modules     [tree_sitter_specforge, specforge_parser, specforge_common]
   tags        ["h1", "core"]
   exit_criteria [
     "Tree-sitter grammar parses any keyword name { fields } block",
@@ -229,6 +232,8 @@ milestone zero_entity_core "Phase 9: Zero-Entity Core Architecture" {
     zero_entity_validation,
     entity_enhancement,
     product_entity_registration,
+    extension_driven_code_actions,
+    extension_driven_coverage,
   ]
   modules     [specforge_wasm]
   tags        ["h2", "architecture"]
@@ -270,7 +275,7 @@ milestone wasm_runtime "Phase 10: Wasm Extension Runtime" {
     product_impact_and_whatif,
     product_graph_diff,
   ]
-  modules     [specforge_wasm]
+  modules     [specforge_wasm, specforge_provider_gh]
   tags        ["h2", "runtime"]
   exit_criteria [
     "Wasm extensions load, initialize, and validate without errors",
@@ -310,6 +315,19 @@ milestone extension_ecosystem "Phase 11: Extension Ecosystem" {
     pe_planning_insights,
     pe_external_blockers,
     fa_progressive_warnings,
+    compliance_reporting,
+    compliance_validation,
+    entity_embedding_search,
+    markdown_documentation_generation,
+  ]
+  modules [
+    specforge_package_formal,
+    specforge_package_product,
+    specforge_package_governance,
+    specforge_coverage,
+    specforge_collect_rust,
+    specforge_test_lib,
+    specforge_test_macros_lib,
   ]
   tags        ["h2", "ecosystem"]
   exit_criteria [
@@ -335,7 +353,7 @@ milestone software_extension_v1 "Phase 11a: @specforge/software Extension v1" {
   owner       "specforge-team"
   contributors ["specforge-team"]
   depends_on  [zero_entity_core, wasm_runtime]
-  features    [se_core_entity_kinds, se_validation_suite, se_gherkin_bridge]
+  features    [se_core_entity_kinds, se_validation_suite, se_gherkin_bridge, se_formal_contracts, se_formal_refinement, se_formal_concurrency, se_proof_obligations, se_analyze_commands]
   modules     [specforge_package_software]
   tags        ["h2", "extension"]
   exit_criteria [

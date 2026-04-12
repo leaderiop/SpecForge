@@ -41,7 +41,6 @@ invariant ce_manifest_four_entity_kinds "Four Entity Kinds" {
     regulation, control, evidence, audit. These represent the minimal
     complete set for regulatory compliance specification.
   """
-  enforced_by [ce_declare_manifest]
   risk high
 
   verify property "manifest entityKinds array has exactly 4 entries"
@@ -55,7 +54,6 @@ invariant ce_manifest_four_edge_types "Four Edge Types" {
     ProvidedBy (evidence -> audit), Audits (audit -> regulation). These
     edges model the compliance traceability chain.
   """
-  enforced_by [ce_declare_manifest]
   risk medium
 
   verify property "manifest edgeTypes array has exactly 4 entries"

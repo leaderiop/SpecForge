@@ -35,27 +35,45 @@ fn test_product_manifest_has_12_entity_kinds() {
 }
 
 #[test]
-fn test_product_manifest_has_17_edge_types() {
+fn test_product_manifest_has_31_edge_types() {
     let manifest = load_product_manifest();
-    assert_eq!(manifest.edge_types.len(), 17);
+    assert_eq!(manifest.edge_types.len(), 31);
     let labels: Vec<&str> = manifest.edge_types.iter().map(|e| e.label.as_str()).collect();
+    // Original 17 + TermBelongsToModule
     assert!(labels.contains(&"FeatureDependsOn"));
-    assert!(labels.contains(&"JourneyFeature"));
-    assert!(labels.contains(&"JourneyPersona"));
-    assert!(labels.contains(&"JourneyChannel"));
-    assert!(labels.contains(&"DeliverableJourney"));
-    assert!(labels.contains(&"DeliverableModule"));
-    assert!(labels.contains(&"DeliverableMilestone"));
+    assert!(labels.contains(&"JourneyExercisesFeature"));
+    assert!(labels.contains(&"JourneyTargetsPersona"));
+    assert!(labels.contains(&"JourneyUsesChannel"));
+    assert!(labels.contains(&"DeliverableSupportsJourney"));
+    assert!(labels.contains(&"DeliverableContainsModule"));
+    assert!(labels.contains(&"DeliverableTrackedByMilestone"));
     assert!(labels.contains(&"DeliverableDependsOn"));
-    assert!(labels.contains(&"MilestoneFeature"));
-    assert!(labels.contains(&"MilestoneModule"));
+    assert!(labels.contains(&"MilestoneDeliversFeature"));
+    assert!(labels.contains(&"MilestoneScopesModule"));
     assert!(labels.contains(&"MilestoneDependsOn"));
-    assert!(labels.contains(&"ModuleFeature"));
+    assert!(labels.contains(&"ModuleContainsFeature"));
     assert!(labels.contains(&"ModuleDependsOn"));
-    assert!(labels.contains(&"TermSeeAlso"));
-    assert!(labels.contains(&"ReleaseDeliverable"));
-    assert!(labels.contains(&"ReleaseMilestone"));
+    assert!(labels.contains(&"TermReferencesRelatedTerm"));
+    assert!(labels.contains(&"TermBelongsToModule"));
+    assert!(labels.contains(&"ReleaseIncludesDeliverable"));
+    assert!(labels.contains(&"ReleaseCompletesMilestone"));
     assert!(labels.contains(&"ReleaseDependsOn"));
+    // 9 for capability/library/roadmap
+    assert!(labels.contains(&"CapabilityComposesFeature"));
+    assert!(labels.contains(&"LibraryProvidesFeature"));
+    assert!(labels.contains(&"LibraryDependsOn"));
+    assert!(labels.contains(&"LibraryDefinesPort"));
+    assert!(labels.contains(&"LibraryConsumesPort"));
+    assert!(labels.contains(&"RoadmapPlansBehavior"));
+    assert!(labels.contains(&"RoadmapPlansFeature"));
+    assert!(labels.contains(&"RoadmapPlansLibrary"));
+    assert!(labels.contains(&"RoadmapDependsOn"));
+    assert!(labels.contains(&"FeatureRelatesTo"));
+    // Phase 3: capability persona + channels edges
+    assert!(labels.contains(&"CapabilityTargetsPersona"));
+    assert!(labels.contains(&"CapabilityUsesChannel"));
+    // Phase 4: persona -> feature direct edge
+    assert!(labels.contains(&"PersonaPrioritizesFeature"));
 }
 
 #[test]
@@ -116,15 +134,40 @@ fn test_product_manifest_populates_registries() {
     assert!(field_reg.contains("milestone", "exit_criteria"));
     assert!(field_reg.contains("module", "family"));
     assert!(field_reg.contains("term", "definition"));
+    assert!(field_reg.contains("term", "module"));
     assert!(field_reg.contains("persona", "technical_level"));
     assert!(field_reg.contains("channel", "interaction_model"));
     assert!(field_reg.contains("release", "version"));
 
-    // All 16 edge types registered
+    // Term module field has correct edge and target_kind
+    let term_module = field_reg.get("term", "module").unwrap();
+    assert_eq!(term_module.edge.as_deref(), Some("TermBelongsToModule"));
+    assert_eq!(term_module.target_kind.as_deref(), Some("module"));
+
+    // Capability fields promoted to references in Phase 3
+    let cap_persona = field_reg.get("capability", "persona").unwrap();
+    assert_eq!(cap_persona.edge.as_deref(), Some("CapabilityTargetsPersona"));
+    assert_eq!(cap_persona.target_kind.as_deref(), Some("persona"));
+
+    let cap_channels = field_reg.get("capability", "channels").unwrap();
+    assert_eq!(cap_channels.edge.as_deref(), Some("CapabilityUsesChannel"));
+    assert_eq!(cap_channels.target_kind.as_deref(), Some("channel"));
+
+    // Edge types registered including TermBelongsToModule
     assert!(edge_reg.contains("FeatureDependsOn"));
-    assert!(edge_reg.contains("JourneyFeature"));
+    assert!(edge_reg.contains("JourneyExercisesFeature"));
     assert!(edge_reg.contains("ModuleDependsOn"));
-    assert!(edge_reg.contains("ReleaseDeliverable"));
+    assert!(edge_reg.contains("ReleaseIncludesDeliverable"));
+    assert!(edge_reg.contains("TermBelongsToModule"));
+    assert!(edge_reg.contains("FeatureRelatesTo"));
+    assert!(edge_reg.contains("CapabilityTargetsPersona"));
+    assert!(edge_reg.contains("CapabilityUsesChannel"));
+    assert!(edge_reg.contains("PersonaPrioritizesFeature"));
+
+    // Persona key_features field
+    let persona_features = field_reg.get("persona", "key_features").unwrap();
+    assert_eq!(persona_features.edge.as_deref(), Some("PersonaPrioritizesFeature"));
+    assert_eq!(persona_features.target_kind.as_deref(), Some("feature"));
 }
 
 #[test]

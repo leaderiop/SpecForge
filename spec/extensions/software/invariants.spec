@@ -1,10 +1,6 @@
 // @specforge/software extension invariants — guarantees on entity behavior
 
 use "extensions/software/types"
-use "extensions/software/behaviors"
-use "extensions/software/formal-contracts"
-use "extensions/software/formal-refinement"
-use "extensions/software/validation-rules"
 invariant se_behavior_testability "Behavior Testability" {
   guarantee """
     Behavior entities MUST have testable=true. They MUST accept verify
@@ -13,7 +9,6 @@ invariant se_behavior_testability "Behavior Testability" {
     file-reference field for BDD traceability. This is the primary
     testable entity kind.
   """
-  enforced_by [se_register_entity_kinds]
   risk high
 
   verify property "behavior kind has testable=true in manifest"
@@ -28,7 +23,6 @@ invariant se_invariant_testability "Invariant Testability" {
     that can be verified via property-based testing, direct unit tests,
     or mutation testing of contract-derived mutants (RES-25).
   """
-  enforced_by [se_register_entity_kinds]
   risk medium
 
   verify property "invariant kind has testable=true in manifest"
@@ -43,7 +37,6 @@ invariant se_event_testability "Event Testability" {
     asynchronous communication that requires integration-level testing
     and formal concurrency verification.
   """
-  enforced_by [se_register_entity_kinds]
   risk medium
 
   verify property "event kind has testable=true in manifest"
@@ -58,7 +51,6 @@ invariant se_feature_non_testable "Feature, Type, Port Non-Testable" {
     data shape declarations. Ports are interface contracts. None of
     these directly produce test obligations.
   """
-  enforced_by [se_register_entity_kinds]
   risk medium
 
   verify property "feature kind has testable=false"
@@ -74,7 +66,6 @@ invariant se_edge_consistency "Edge-Field Mapping Consistency" {
     reference an entity kind declared in this manifest or a peer
     dependency. No orphan edge mappings MUST exist.
   """
-  enforced_by [se_register_edge_types, se_register_field_definitions]
   risk medium
 
   verify property "every field edge mapping has a corresponding edgeType"
@@ -89,7 +80,6 @@ invariant se_refinement_dag "Refinement DAG" {
     diagnostics. This ensures well-founded refinement from abstract
     specifications to concrete implementations.
   """
-  enforced_by [se_build_refinement_chain]
   risk high
 
   verify property "refines edges form a DAG with no cycles"
@@ -104,7 +94,6 @@ invariant se_formal_contract_consistency "Formal Contract Consistency" {
     or the entity's own scope (types, ports, invariants fields). This
     prevents postconditions from depending on undefined state.
   """
-  enforced_by [se_validate_contract_consistency]
   risk medium
 
   verify unit "ensures referencing unknown identifier detected"
@@ -119,7 +108,6 @@ invariant se_event_trigger_validity "Event Trigger Validity" {
     non-behavior entity kinds. Invalid trigger references MUST produce
     E006 error diagnostics.
   """
-  enforced_by [se_validate_event_triggers]
   risk high
 
   verify unit "event trigger referencing behavior passes"
@@ -134,7 +122,6 @@ invariant se_port_direction_constraint "Port Direction Constraint" {
     error diagnostic. This enforces the hexagonal architecture
     boundary model.
   """
-  enforced_by [se_validate_entity_fields]
   risk low
 
   verify unit "port with direction inbound passes"

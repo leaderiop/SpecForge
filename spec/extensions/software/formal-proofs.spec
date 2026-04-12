@@ -1,11 +1,15 @@
 // @specforge/software formal proofs — proof obligations + info diagnostics
 
 use "types/zero-entity-core"
+use "extensions/software/events"
+use "extensions/software/features"
 use "extensions/software/types"
 use "extensions/software/invariants"
 behavior se_proof_obligation_pass "Proof Obligation Compiler Pass" {
   category command
   types [ContractCondition, RefinementChain]
+  features [se_proof_obligations]
+  produces [se_proof_obligations_generated]
 
   contract """
     Generate machine-readable verification conditions after all
@@ -33,6 +37,7 @@ behavior se_proof_obligation_pass "Proof Obligation Compiler Pass" {
 behavior se_track_proof_discharge "Track Proof Obligation Discharge" {
   category query
   types [ProofObligation, ProofDischargeStatus]
+  features [se_proof_obligations]
 
   contract """
     Track which proof obligations are discharged by existing tests
@@ -67,6 +72,7 @@ behavior se_track_proof_discharge "Track Proof Obligation Discharge" {
 behavior se_emit_proof_verified_info "I008: Proof Obligation Verified by Test" {
   category query
   types [ProofObligation]
+  features [se_proof_obligations]
 
   contract """
     When a proof obligation transitions to test_verified status, emit
@@ -83,6 +89,7 @@ behavior se_emit_proof_verified_info "I008: Proof Obligation Verified by Test" {
 
 behavior se_emit_deadlock_freedom_info "I009: Deadlock Freedom Verified" {
   category query
+  features [se_formal_concurrency]
 
   contract """
     When the process_analyze pass confirms no deadlocks exist in the
@@ -99,6 +106,7 @@ behavior se_emit_deadlock_freedom_info "I009: Deadlock Freedom Verified" {
 
 behavior se_emit_formal_analysis_available "I015: Formal Analysis Available" {
   category query
+  features [se_formal_contracts]
 
   contract """
     When the @specforge/software extension detects behaviors with
@@ -120,6 +128,7 @@ behavior se_emit_formal_analysis_available "I015: Formal Analysis Available" {
 behavior se_detect_formality_level "I014: Progressive Formality Level" {
   category query
   types [FormalityLevel, ProofObligation]
+  features [se_proof_obligations]
 
   contract """
     Compute the per-entity formality level using the FormalityLevel

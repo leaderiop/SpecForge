@@ -17,6 +17,7 @@ behavior generate_entity_embeddings "Generate Entity Embeddings" {
   ports      [EmbeddingProvider]
   consumes   [validation_complete]
   produces   [embeddings_generated]
+  features   [entity_embedding_search]
 
   contract """
     When specforge embed is invoked, the system MUST generate vector
@@ -41,10 +42,11 @@ behavior search_entities_by_similarity "Search Entities by Similarity" {
   status     roadmap
   category   query
   invariants [graph_traversal_integrity, embedding_provider_determinism, embedding_cache_consistency]
-  types      [Graph, AgentExportConfig, EntityEmbedding, SimilarityResult]
+  types      [Graph, AgentExportConfig, EntityEmbedding, SimilarityResult, EmbeddingSimilarityConfig]
   ports      [EmbeddingProvider]
   consumes   [validation_complete]
   produces   [entity_search_performed]
+  features   [entity_embedding_search]
 
   contract """
     When specforge query --semantic is invoked with a natural language query,

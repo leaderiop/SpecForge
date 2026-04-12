@@ -61,8 +61,10 @@ fn contract_initialize() {
     assert!(result["tools"].is_array());
     assert!(result["resources"].is_array());
     assert!(result["prompts"].is_array());
-    assert!(result["server_name"].is_string());
-    assert!(result["server_version"].is_string());
+    assert!(result["serverInfo"]["name"].is_string());
+    assert!(result["serverInfo"]["version"].is_string());
+    assert!(result["protocolVersion"].is_string());
+    assert!(result["capabilities"].is_object());
 }
 
 #[test]

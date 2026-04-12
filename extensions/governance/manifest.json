@@ -9,12 +9,14 @@
     "validators": true
   },
   "peerDependencies": [
-    { "name": "@specforge/software", "version": "^1.0" }
+    { "name": "@specforge/software", "version": "^1.0" },
+    { "name": "@specforge/product", "version": "^1.0", "optional": true }
   ],
   "entityKinds": [
     {
       "name": "Decision",
       "keyword": "decision",
+      "description": "An architectural or design decision with rationale and status",
       "testable": false,
       "supportsVerify": false,
       "semanticToken": "string",
@@ -23,26 +25,28 @@
       "dotColor": "#6A1B9A",
       "dotFillcolor": "#F3E5F5",
       "fields": [
-        { "name": "status", "fieldType": "string" },
-        { "name": "context", "fieldType": "string" },
-        { "name": "decision", "fieldType": "string" },
-        { "name": "consequences", "fieldType": "string_list" },
-        { "name": "superseded_by", "fieldType": "reference", "edge": "Supersedes", "targetKind": "decision" },
-        { "name": "invariants", "fieldType": "reference_list", "edge": "DecisionProtects", "targetKind": "invariant" },
-        { "name": "refs", "fieldType": "string_list" },
-        { "name": "description", "fieldType": "string" },
-        { "name": "date", "fieldType": "string" },
-        { "name": "authors", "fieldType": "string_list" },
-        { "name": "tags", "fieldType": "string_list" },
-        { "name": "alternatives", "fieldType": "string_list" },
-        { "name": "reason", "fieldType": "string" },
-        { "name": "supersedes", "fieldType": "reference", "edge": "Supersedes", "targetKind": "decision" },
-        { "name": "deciders", "fieldType": "string_list" }
+        { "name": "status", "description": "Current lifecycle status of the decision (e.g. proposed, accepted, deprecated)", "fieldType": "string" },
+        { "name": "context", "description": "Background and circumstances that motivated this decision", "fieldType": "string" },
+        { "name": "statement", "description": "The decision statement itself", "fieldType": "string" },
+        { "name": "consequences", "description": "Expected outcomes and trade-offs resulting from this decision", "fieldType": "string_list" },
+        { "name": "superseded_by", "description": "Reference to a newer decision that replaces this one", "fieldType": "reference", "edge": "DecisionSupersedesDecision", "targetKind": "decision" },
+        { "name": "invariants", "description": "Invariants that this decision protects", "fieldType": "reference_list", "edge": "DecisionProtectsInvariant", "targetKind": "invariant" },
+        { "name": "refs", "description": "External references (URLs, documents, issue links)", "fieldType": "string_list" },
+        { "name": "description", "description": "Free-form description of the decision", "fieldType": "string" },
+        { "name": "date", "description": "Date the decision was made or last updated", "fieldType": "string" },
+        { "name": "authors", "description": "People who authored this decision record", "fieldType": "string_list" },
+        { "name": "tags", "description": "Categorization tags for filtering and grouping", "fieldType": "string_list" },
+        { "name": "alternatives", "description": "Alternative options that were considered", "fieldType": "string_list" },
+        { "name": "reason", "description": "Justification for why this option was chosen over alternatives", "fieldType": "string" },
+        { "name": "deciders", "description": "People who approved or signed off on this decision", "fieldType": "string_list" },
+        { "name": "affects_features", "description": "Product features affected by this decision (requires @specforge/product)", "fieldType": "reference_list", "edge": "DecisionAffectsFeature", "targetKind": "feature" },
+        { "name": "constraints", "description": "Constraints imposed by this decision", "fieldType": "reference_list", "edge": "DecisionImposesConstraint", "targetKind": "constraint" }
       ]
     },
     {
       "name": "Constraint",
       "keyword": "constraint",
+      "description": "A technical or business constraint that limits design choices",
       "testable": false,
       "supportsVerify": true,
       "allowedVerifyKinds": ["property", "load", "integration"],
@@ -52,21 +56,23 @@
       "dotColor": "#BF360C",
       "dotFillcolor": "#FBE9E7",
       "fields": [
-        { "name": "category", "fieldType": "string" },
-        { "name": "priority", "fieldType": "string" },
-        { "name": "metric", "fieldType": "string" },
-        { "name": "threshold", "fieldType": "string" },
-        { "name": "description", "fieldType": "string" },
-        { "name": "refs", "fieldType": "string_list" },
-        { "name": "enforced_by", "fieldType": "reference_list", "edge": "ConstraintEnforces", "targetKind": "behavior" },
-        { "name": "scope", "fieldType": "string" },
-        { "name": "constrains", "fieldType": "reference_list", "edge": "ConstraintConstrains", "targetKind": "behavior" },
-        { "name": "protects", "fieldType": "reference_list", "edge": "ConstraintProtects", "targetKind": "invariant" }
+        { "name": "category", "description": "Classification of the constraint (e.g. performance, security, regulatory)", "fieldType": "string" },
+        { "name": "priority", "description": "Relative importance of this constraint", "fieldType": "string" },
+        { "name": "metric", "description": "Measurable quantity used to evaluate compliance", "fieldType": "string" },
+        { "name": "threshold", "description": "Acceptable limit or target value for the metric", "fieldType": "string" },
+        { "name": "description", "description": "Free-form description of the constraint", "fieldType": "string" },
+        { "name": "refs", "description": "External references (URLs, documents, issue links)", "fieldType": "string_list" },
+        { "name": "enforced_by", "description": "Behaviors that enforce this constraint at runtime", "fieldType": "reference_list", "edge": "ConstraintEnforcedByBehavior", "targetKind": "behavior" },
+        { "name": "scope", "description": "Applicability scope (e.g. system-wide, per-module, per-request)", "fieldType": "string" },
+        { "name": "constrains", "description": "Behaviors that are limited or governed by this constraint", "fieldType": "reference_list", "edge": "ConstraintConstrainsBehavior", "targetKind": "behavior" },
+        { "name": "protects", "description": "Invariants that this constraint helps protect", "fieldType": "reference_list", "edge": "ConstraintProtectsInvariant", "targetKind": "invariant" },
+        { "name": "governs_features", "description": "Product features this constraint governs (requires @specforge/product)", "fieldType": "reference_list", "edge": "ConstraintGovernsFeature", "targetKind": "feature" }
       ]
     },
     {
       "name": "FailureMode",
       "keyword": "failure_mode",
+      "description": "A potential failure scenario with severity and mitigation",
       "testable": false,
       "supportsVerify": false,
       "semanticToken": "variable",
@@ -75,27 +81,29 @@
       "dotColor": "#D32F2F",
       "dotFillcolor": "#FFCDD2",
       "fields": [
-        { "name": "severity", "fieldType": "string" },
-        { "name": "occurrence", "fieldType": "string" },
-        { "name": "detection", "fieldType": "string" },
-        { "name": "cause", "fieldType": "string" },
-        { "name": "effect", "fieldType": "string" },
-        { "name": "mitigation", "fieldType": "string" },
-        { "name": "post_severity", "fieldType": "string" },
-        { "name": "post_occurrence", "fieldType": "string" },
-        { "name": "post_detection", "fieldType": "string" },
-        { "name": "invariant", "fieldType": "reference", "edge": "FailureModeTargets", "targetKind": "invariant" },
-        { "name": "refs", "fieldType": "string_list" },
-        { "name": "description", "fieldType": "string" },
-        { "name": "risk", "fieldType": "string" },
-        { "name": "rpn", "fieldType": "integer" },
-        { "name": "post_mitigation", "fieldType": "string" }
+        { "name": "severity", "description": "Impact severity rating before mitigation (e.g. critical, high, medium, low)", "fieldType": "string" },
+        { "name": "occurrence", "description": "Likelihood of this failure occurring before mitigation", "fieldType": "string" },
+        { "name": "detection", "description": "Likelihood of detecting this failure before it causes harm", "fieldType": "string" },
+        { "name": "cause", "description": "Root cause or trigger of the failure", "fieldType": "string" },
+        { "name": "effect", "description": "Consequence or impact when the failure occurs", "fieldType": "string" },
+        { "name": "mitigation", "description": "Strategy or action to reduce risk of the failure", "fieldType": "string" },
+        { "name": "post_severity", "description": "Impact severity rating after mitigation is applied", "fieldType": "string" },
+        { "name": "post_occurrence", "description": "Likelihood of occurrence after mitigation is applied", "fieldType": "string" },
+        { "name": "post_detection", "description": "Likelihood of detection after mitigation is applied", "fieldType": "string" },
+        { "name": "invariant", "description": "The invariant that this failure mode threatens", "fieldType": "reference", "edge": "FailureModeTargetsInvariant", "targetKind": "invariant" },
+        { "name": "refs", "description": "External references (URLs, documents, issue links)", "fieldType": "string_list" },
+        { "name": "description", "description": "Free-form description of the failure mode", "fieldType": "string" },
+        { "name": "risk", "description": "Overall risk assessment combining severity, occurrence, and detection", "fieldType": "string" },
+        { "name": "rpn", "description": "Risk Priority Number (severity x occurrence x detection)", "fieldType": "integer" },
+        { "name": "post_mitigation", "description": "Summary of the residual risk state after mitigation", "fieldType": "string" },
+        { "name": "threatens_features", "description": "Product features threatened by this failure mode (requires @specforge/product)", "fieldType": "reference_list", "edge": "FailureModeThreatensFeature", "targetKind": "feature" },
+        { "name": "affected_behaviors", "description": "Behaviors affected by this failure mode as failure vectors", "fieldType": "reference_list", "edge": "FailureModeAffectsBehavior", "targetKind": "behavior" }
       ]
     }
   ],
   "edgeTypes": [
     {
-      "label": "DecisionProtects",
+      "label": "DecisionProtectsInvariant",
       "description": "Decision protects an invariant",
       "sourceKind": "decision",
       "targetKind": "invariant",
@@ -103,7 +111,7 @@
       "edgeColor": "#6A1B9A"
     },
     {
-      "label": "ConstraintEnforces",
+      "label": "ConstraintEnforcedByBehavior",
       "description": "Constraint is enforced by a behavior",
       "sourceKind": "constraint",
       "targetKind": "behavior",
@@ -111,7 +119,7 @@
       "edgeColor": "#BF360C"
     },
     {
-      "label": "Supersedes",
+      "label": "DecisionSupersedesDecision",
       "description": "Decision supersedes a previous decision",
       "sourceKind": "decision",
       "targetKind": "decision",
@@ -119,7 +127,7 @@
       "edgeColor": "#6A1B9A"
     },
     {
-      "label": "ConstraintConstrains",
+      "label": "ConstraintConstrainsBehavior",
       "description": "Constraint constrains a behavior",
       "sourceKind": "constraint",
       "targetKind": "behavior",
@@ -127,7 +135,7 @@
       "edgeColor": "#BF360C"
     },
     {
-      "label": "ConstraintProtects",
+      "label": "ConstraintProtectsInvariant",
       "description": "Constraint protects an invariant",
       "sourceKind": "constraint",
       "targetKind": "invariant",
@@ -135,14 +143,118 @@
       "edgeColor": "#BF360C"
     },
     {
-      "label": "FailureModeTargets",
+      "label": "FailureModeTargetsInvariant",
       "description": "Failure mode targets an invariant",
       "sourceKind": "failure_mode",
       "targetKind": "invariant",
       "edgeStyle": "dashed",
       "edgeColor": "#D32F2F"
+    },
+    {
+      "label": "ConstraintGovernsFeature",
+      "description": "Constraint governs a product feature",
+      "sourceKind": "constraint",
+      "targetKind": "feature",
+      "edgeStyle": "dashed",
+      "edgeColor": "#CC6600"
+    },
+    {
+      "label": "DecisionAffectsFeature",
+      "description": "Decision affects a product feature",
+      "sourceKind": "decision",
+      "targetKind": "feature",
+      "edgeStyle": "dashed",
+      "edgeColor": "#CC6600"
+    },
+    {
+      "label": "FailureModeThreatensFeature",
+      "description": "Failure mode threatens a product feature",
+      "sourceKind": "failure_mode",
+      "targetKind": "feature",
+      "edgeStyle": "dashed",
+      "edgeColor": "#CC0000"
+    },
+    {
+      "label": "DecisionImposesConstraint",
+      "description": "Decision imposes a constraint on the system",
+      "sourceKind": "decision",
+      "targetKind": "constraint",
+      "edgeStyle": "solid",
+      "edgeColor": "#6A1B9A"
+    },
+    {
+      "label": "FailureModeAffectsBehavior",
+      "description": "Failure mode identifies a behavior as a failure vector",
+      "sourceKind": "failure_mode",
+      "targetKind": "behavior",
+      "edgeStyle": "dashed",
+      "edgeColor": "#D32F2F"
     }
   ],
-  "validationRules": [],
+  "validationRules": [
+    {
+      "code": "W050",
+      "severity": "warning",
+      "messageTemplate": "decision '{id}' has invalid status '{value}' — expected one of: proposed, accepted, deprecated, superseded",
+      "check": "field_value_constraint",
+      "targetKind": "decision",
+      "field": "status",
+      "constraint": { "kind": "one_of", "values": ["proposed", "accepted", "deprecated", "superseded"] }
+    },
+    {
+      "code": "W051",
+      "severity": "warning",
+      "messageTemplate": "failure_mode '{id}' has invalid severity '{value}' — expected one of: critical, high, medium, low",
+      "check": "field_value_constraint",
+      "targetKind": "failure_mode",
+      "field": "severity",
+      "constraint": { "kind": "one_of", "values": ["critical", "high", "medium", "low"] }
+    },
+    {
+      "code": "W051",
+      "severity": "warning",
+      "messageTemplate": "failure_mode '{id}' has invalid post_severity '{value}' — expected one of: critical, high, medium, low",
+      "check": "field_value_constraint",
+      "targetKind": "failure_mode",
+      "field": "post_severity",
+      "constraint": { "kind": "one_of", "values": ["critical", "high", "medium", "low"] }
+    },
+    {
+      "code": "W052",
+      "severity": "warning",
+      "messageTemplate": "failure_mode '{id}' has invalid occurrence '{value}' — expected one of: certain, likely, occasional, unlikely, rare",
+      "check": "field_value_constraint",
+      "targetKind": "failure_mode",
+      "field": "occurrence",
+      "constraint": { "kind": "one_of", "values": ["certain", "likely", "occasional", "unlikely", "rare"] }
+    },
+    {
+      "code": "W052",
+      "severity": "warning",
+      "messageTemplate": "failure_mode '{id}' has invalid post_occurrence '{value}' — expected one of: certain, likely, occasional, unlikely, rare",
+      "check": "field_value_constraint",
+      "targetKind": "failure_mode",
+      "field": "post_occurrence",
+      "constraint": { "kind": "one_of", "values": ["certain", "likely", "occasional", "unlikely", "rare"] }
+    },
+    {
+      "code": "W053",
+      "severity": "warning",
+      "messageTemplate": "failure_mode '{id}' has invalid detection '{value}' — expected one of: certain, likely, moderate, unlikely, undetectable",
+      "check": "field_value_constraint",
+      "targetKind": "failure_mode",
+      "field": "detection",
+      "constraint": { "kind": "one_of", "values": ["certain", "likely", "moderate", "unlikely", "undetectable"] }
+    },
+    {
+      "code": "W053",
+      "severity": "warning",
+      "messageTemplate": "failure_mode '{id}' has invalid post_detection '{value}' — expected one of: certain, likely, moderate, unlikely, undetectable",
+      "check": "field_value_constraint",
+      "targetKind": "failure_mode",
+      "field": "post_detection",
+      "constraint": { "kind": "one_of", "values": ["certain", "likely", "moderate", "unlikely", "undetectable"] }
+    }
+  ],
   "reservedKeywords": []
 }

@@ -8,6 +8,7 @@ type Diagnostic {
   span       SourceSpan      @readonly
   context    string          @optional
   suggestion string          @optional
+  verify unit "Diagnostic schema is valid"
 }
 
 // ValidationCode is a structured type with a display format: the prefix
@@ -17,6 +18,7 @@ type Diagnostic {
 type ValidationCode {
   prefix     CodePrefix
   number     integer
+  verify unit "ValidationCode schema is valid"
 }
 
 type CodePrefix = E | W | I
@@ -30,4 +32,5 @@ type DiagnosticBag {
   error_count integer
   warn_count  integer
   info_count  integer
+  verify unit "DiagnosticBag schema is valid"
 }

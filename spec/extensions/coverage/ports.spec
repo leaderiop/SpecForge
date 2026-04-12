@@ -9,4 +9,5 @@ port TestReporter {
   method collectResults(reportPaths: string[]) -> Result<CoverageReport, EmitterError>
   method mergeReports(reports: CoverageReport[]) -> Result<CoverageReport, EmitterError>
   method formatCoverage(data: CoverageReport) -> Result<string, EmitterError>
+  verify integration "TestReporter contract is satisfied"
 }

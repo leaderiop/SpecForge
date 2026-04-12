@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "specforge": {
+      "command": "/Users/u1070457/Projects/Perso/specforge/target/release/specforge",
+      "args": ["mcp", "."]
+    }
+  }
+}

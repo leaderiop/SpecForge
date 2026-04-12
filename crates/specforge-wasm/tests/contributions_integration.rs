@@ -189,6 +189,7 @@ fn register_enhancement_new_field() {
         fields: vec![ManifestField {
             name: "custom_field".to_string(),
             field_type: "string".to_string(),
+            description: None,
             edge: None,
             target_kind: None,
             file_reference: false,
@@ -209,6 +210,7 @@ fn register_enhancement_conflict_e034() {
     let field = ManifestField {
         name: "priority".to_string(),
         field_type: "string".to_string(),
+        description: None,
         edge: None,
         target_kind: None,
         file_reference: false,

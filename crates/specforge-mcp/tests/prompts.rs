@@ -57,19 +57,35 @@ fn call_prompt(server: &mut McpServer, name: &str, args: Value) -> Value {
 }
 
 fn prompt_text(resp: &Value) -> String {
-    resp["result"]["messages"][0]["content"]["text"].as_str().unwrap().to_string()
+    // Data is in the last message (assistant role), instruction is first (user role)
+    let messages = resp["result"]["messages"].as_array().unwrap();
+    let last = messages.last().unwrap();
+    last["content"]["text"].as_str().unwrap().to_string()
 }
 
 // --- specforge://prompts/context ---
 
-// B:provide_mcp_context_prompt — verify unit "returns entity context"
+// B:provide_mcp_context_prompt — verify unit "returns entity context with instructional framing"
 #[test]
 #[specforge_test(behavior = "provide_mcp_context_prompt", verify = "specforge://prompts/context returns structured entity context")]
 fn context_prompt_returns_context() {
     let mut server = test_server();
     let resp = call_prompt(&mut server, "specforge://prompts/context", json!({"entity_id": "alpha"}));
-    let text = prompt_text(&resp);
-    let parsed: Value = serde_json::from_str(&text).unwrap();
+    let messages = resp["result"]["messages"].as_array().unwrap();
+
+    // Must have instruction message + data message
+    assert!(messages.len() >= 2, "prompt must have instruction + data messages, got {}", messages.len());
+
+    // First message is instruction (role: user)
+    assert_eq!(messages[0]["role"], "user", "instruction message should be role 'user'");
+    let instruction = messages[0]["content"]["text"].as_str().unwrap();
+    assert!(instruction.contains("implement") || instruction.contains("context") || instruction.contains("entity"),
+        "instruction should guide the agent, got: {}", instruction);
+
+    // Second message has the data (role: assistant)
+    assert_eq!(messages[1]["role"], "assistant", "data message should be role 'assistant'");
+    let text = messages[1]["content"]["text"].as_str().unwrap();
+    let parsed: Value = serde_json::from_str(text).unwrap();
     assert_eq!(parsed["entity_id"], "alpha");
     assert!(parsed["contract_text"].is_string());
     assert!(parsed["upstream_entities"].is_array());
@@ -339,15 +355,23 @@ fn explore_entity_id_focus() {
     assert!(matching.contains(&json!("alpha")));
 }
 
-// B:provide_mcp_explore_prompt — verify unit "high_connectivity field lists entities with highest edge degree"
+// B:provide_mcp_explore_prompt — verify unit "high_connectivity excludes zero-edge nodes"
 #[test]
-#[specforge_test(behavior = "provide_mcp_explore_prompt", verify = "high_connectivity field lists entities with highest edge degree")]
+#[specforge_test(behavior = "provide_mcp_explore_prompt", verify = "high_connectivity excludes zero-edge nodes")]
 fn explore_high_connectivity() {
     let mut server = test_server();
     let resp = call_prompt(&mut server, "specforge://prompts/explore", json!({}));
     let text = prompt_text(&resp);
     let parsed: Value = serde_json::from_str(&text).unwrap();
-    assert!(parsed["high_connectivity"].is_array());
+    let high_conn = parsed["high_connectivity"].as_array().unwrap();
+    // gamma_orphan has zero edges — must NOT appear in high_connectivity
+    assert!(
+        !high_conn.contains(&json!("gamma_orphan")),
+        "zero-edge nodes must not appear in high_connectivity, got: {:?}", high_conn
+    );
+    // alpha and beta have edges — they should be in high_connectivity
+    assert!(high_conn.contains(&json!("alpha")), "alpha (has edges) should be in high_connectivity");
+    assert!(high_conn.contains(&json!("beta")), "beta (has edges) should be in high_connectivity");
 }
 
 // B:provide_mcp_review_prompt — verify unit "reviews all entities when entity_id is omitted"

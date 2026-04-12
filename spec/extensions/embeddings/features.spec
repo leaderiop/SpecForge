@@ -2,8 +2,7 @@
 
 use "extensions/embeddings/behaviors"
 feature entity_embedding_search "Entity Embedding Search" {
-  status     roadmap
-  behaviors  [generate_entity_embeddings, search_entities_by_similarity]
+  status     proposed
 
   problem """
     Agents need semantic search over spec entities to find relevant context

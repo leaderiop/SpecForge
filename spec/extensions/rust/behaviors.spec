@@ -10,7 +10,7 @@ use "ports/outbound"
 use "extensions/rust/events"
 use "extensions/rust/decisions"
 behavior collect_rust_test_results "Collect Rust Test Results" {
-  types      [SpecforgeReport, TestResultEntry, CollectFormat]
+  types      [SpecforgeReport, TestResultEntry, CollectFormat, RustTestsCollectedPayload]
   category   query
   ports      [TestReporter, FileSystem]
   invariants [entity_mapping_precedence]
@@ -34,7 +34,6 @@ behavior parse_junit_xml "Parse JUnit XML" {
   types      [TestResultEntry, CollectFormat]
   category   command
   ports      [RustTestOutputParser]
-  adrs       [nextest_junit_primary_format]
 
   contract """
     The system MUST parse JUnit XML produced by cargo-nextest. Each

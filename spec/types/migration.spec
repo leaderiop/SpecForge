@@ -8,6 +8,7 @@ use "types/graph"
 type FormatVersion {
   major      integer   @readonly
   minor      integer   @readonly
+  verify unit "FormatVersion schema is valid"
 }
 
 type MigrationDiff {
@@ -16,6 +17,7 @@ type MigrationDiff {
   after_hash      string         @readonly
   changed_ranges  integer[][]    @optional
   unified_text    string         @optional
+  verify unit "MigrationDiff schema is valid"
 }
 
 type MigrationResult {
@@ -26,12 +28,14 @@ type MigrationResult {
   error           string         @optional
   diff            MigrationDiff  @optional
   backup_path     string         @optional
+  verify unit "MigrationResult schema is valid"
 }
 
 type MigrationBackup {
   original_path   string    @readonly
   backup_path     string    @readonly
   content_hash    string    @readonly
+  verify unit "MigrationBackup schema is valid"
 }
 
 type MigrationSummary {
@@ -40,6 +44,7 @@ type MigrationSummary {
   skipped_count   integer   @readonly
   results         MigrationResult[]
   backups         MigrationBackup[]   @optional
+  verify unit "MigrationSummary schema is valid"
 }
 
 type PreMigrationSnapshot {
@@ -47,4 +52,5 @@ type PreMigrationSnapshot {
   edge_types    SchemaEdgeType[]    @readonly
   field_defs    SchemaField[]       @readonly
   captured_at   string              @readonly // ISO 8601 timestamp
+  verify unit "PreMigrationSnapshot schema is valid"
 }

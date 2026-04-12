@@ -1,6 +1,5 @@
 // Surface contribution invariants — uniqueness and sandbox guarantees
 
-use "behaviors/surface-contributions"
 invariant surface_contribution_uniqueness "Surface Contribution Uniqueness" {
   guarantee """
     No two extensions MAY contribute the same name within a surface type.
@@ -9,7 +8,6 @@ invariant surface_contribution_uniqueness "Surface Contribution Uniqueness" {
     be unique across all extensions. Duplicate contributions MUST produce
     E039 at extension load time.
   """
-  enforced_by [register_surface_contributions, toggle_surface_contributions]
   risk medium
 
   verify property "no two extensions can register the same CLI command ID"
@@ -26,7 +24,6 @@ invariant surface_sandbox_ceiling "Surface Sandbox Ceiling" {
     SandboxPolicy. Surface dispatch MUST enforce the ceiling before
     calling any Wasm export.
   """
-  enforced_by [enforce_surface_sandbox, dispatch_surface_command, dispatch_surface_mcp_tool, dispatch_surface_mcp_resource, validate_surface_exports]
   risk high
 
   verify property "sandbox override cannot expand beyond type ceiling"

@@ -3,7 +3,6 @@
 use "extensions/coverage/behaviors"
 use "behaviors/validation"
 feature test_coverage_reporting "Test Coverage Reporting" {
-  behaviors [merge_coverage_reports, compute_coverage_summary, gate_on_coverage_threshold, validate_test_ids_against_spec]
 
   problem """
     Teams need to know which behaviors have tests, which are missing
@@ -20,7 +19,6 @@ feature test_coverage_reporting "Test Coverage Reporting" {
 }
 
 feature test_traceability "Test Traceability" {
-  behaviors [consume_specforge_report, compute_four_level_coverage, render_test_traceability_matrix, validate_file_reference_paths]
 
   problem """
     Teams need end-to-end proof that spec entities are implemented

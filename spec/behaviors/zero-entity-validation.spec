@@ -16,7 +16,7 @@ use "events/compilation"
 behavior parse_validation_rule_pattern "Parse Validation Rule Pattern" {
   invariants [zero_domain_knowledge_core, declarative_validation_determinism]
   category   command
-  types      [ValidationRulePattern, ValidationPatternKind]
+  types      [ValidationRulePattern, ValidationPatternKind, FieldConstraint]
 
   requires {
     manifest_rules_available "Extension manifest's validationRules array is accessible as structured data"

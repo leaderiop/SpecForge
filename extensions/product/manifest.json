@@ -12,12 +12,13 @@
   "verifyKinds": ["acceptance"],
   "incremental": true,
   "fields": [
-    { "name": "tags", "fieldType": "string_list" }
+    { "name": "tags", "description": "Freeform labels for filtering and categorization", "fieldType": "string_list" }
   ],
   "entityKinds": [
     {
       "name": "Feature",
       "keyword": "feature",
+      "description": "A user-facing capability that solves a specific problem",
       "testable": false,
       "supportsVerify": true,
       "allowedVerifyKinds": ["acceptance"],
@@ -27,25 +28,25 @@
       "dotColor": "#2196F3",
       "dotFillcolor": "#E3F2FD",
       "fields": [
-        { "name": "description", "fieldType": "string" },
-        { "name": "problem", "fieldType": "string" },
-        { "name": "solution", "fieldType": "string" },
-        { "name": "priority", "fieldType": "string" },
-        { "name": "status", "fieldType": "string" },
-        { "name": "acceptance", "fieldType": "string_list" },
-        { "name": "depends_on", "fieldType": "reference_list", "edge": "FeatureDependsOn", "targetKind": "feature" },
-        { "name": "features", "fieldType": "reference_list", "targetKind": "feature" },
-        { "name": "behaviors", "fieldType": "reference_list", "targetKind": "behavior" },
-        { "name": "refs", "fieldType": "string_list" },
-        { "name": "reason", "fieldType": "string" },
-        { "name": "owner", "fieldType": "string" },
-        { "name": "contributors", "fieldType": "string_list" },
-        { "name": "effort", "fieldType": "string" }
+        { "name": "description", "description": "Human-readable summary of the feature", "fieldType": "string" },
+        { "name": "problem", "description": "The user problem this feature addresses", "fieldType": "string" },
+        { "name": "solution", "description": "How this feature solves the stated problem", "fieldType": "string" },
+        { "name": "priority", "description": "Importance level: critical, high, medium, or low", "fieldType": "string" },
+        { "name": "status", "description": "Lifecycle state: proposed, accepted, in_progress, done, deferred, or deprecated", "fieldType": "string" },
+        { "name": "acceptance", "description": "Criteria that must be met for the feature to be considered complete", "fieldType": "string_list" },
+        { "name": "depends_on", "description": "Other features that must be completed before this one", "fieldType": "reference_list", "edge": "FeatureDependsOn", "targetKind": "feature" },
+        { "name": "features", "description": "Related features referenced by this feature", "fieldType": "reference_list", "edge": "FeatureRelatesTo", "targetKind": "feature" },
+        { "name": "refs", "description": "External references such as issues, URLs, or documents", "fieldType": "string_list" },
+        { "name": "reason", "description": "Justification for the current status or a status change", "fieldType": "string" },
+        { "name": "owner", "description": "Person or team responsible for this feature", "fieldType": "string" },
+        { "name": "contributors", "description": "Additional people or teams contributing to this feature", "fieldType": "string_list" },
+        { "name": "effort", "description": "T-shirt size estimate: xs, s, m, l, or xl", "fieldType": "string" }
       ]
     },
     {
       "name": "Journey",
       "keyword": "journey",
+      "description": "A user journey through the product experience",
       "testable": false,
       "supportsVerify": false,
       "semanticToken": "event",
@@ -54,17 +55,18 @@
       "dotColor": "#FF9800",
       "dotFillcolor": "#FFF3E0",
       "fields": [
-        { "name": "persona", "fieldType": "reference", "edge": "JourneyPersona", "targetKind": "persona" },
-        { "name": "description", "fieldType": "string" },
-        { "name": "channels", "fieldType": "reference_list", "edge": "JourneyChannel", "targetKind": "channel" },
-        { "name": "features", "fieldType": "reference_list", "edge": "JourneyFeature", "targetKind": "feature" },
-        { "name": "flow", "fieldType": "string_list" },
-        { "name": "priority", "fieldType": "string" }
+        { "name": "persona", "description": "The user archetype who undertakes this journey", "fieldType": "reference", "edge": "JourneyTargetsPersona", "targetKind": "persona" },
+        { "name": "description", "description": "Human-readable summary of the journey", "fieldType": "string" },
+        { "name": "channels", "description": "Communication or distribution channels used in this journey", "fieldType": "reference_list", "edge": "JourneyUsesChannel", "targetKind": "channel" },
+        { "name": "features", "description": "Features exercised during this journey", "fieldType": "reference_list", "edge": "JourneyExercisesFeature", "targetKind": "feature" },
+        { "name": "flow", "description": "Ordered steps the user takes through the journey", "fieldType": "string_list" },
+        { "name": "priority", "description": "Importance level: critical, high, medium, or low", "fieldType": "string" }
       ]
     },
     {
       "name": "Deliverable",
       "keyword": "deliverable",
+      "description": "A shippable unit of work with dependencies and milestones",
       "testable": false,
       "supportsVerify": true,
       "allowedVerifyKinds": ["acceptance"],
@@ -74,22 +76,23 @@
       "dotColor": "#4CAF50",
       "dotFillcolor": "#E8F5E9",
       "fields": [
-        { "name": "description", "fieldType": "string" },
-        { "name": "artifact_type", "fieldType": "string" },
-        { "name": "status", "fieldType": "string" },
-        { "name": "journeys", "fieldType": "reference_list", "edge": "DeliverableJourney", "targetKind": "journey" },
-        { "name": "modules", "fieldType": "reference_list", "edge": "DeliverableModule", "targetKind": "module" },
-        { "name": "version", "fieldType": "string" },
-        { "name": "milestones", "fieldType": "reference_list", "edge": "DeliverableMilestone", "targetKind": "milestone" },
-        { "name": "depends_on", "fieldType": "reference_list", "edge": "DeliverableDependsOn", "targetKind": "deliverable" },
-        { "name": "reason", "fieldType": "string" },
-        { "name": "owner", "fieldType": "string" },
-        { "name": "contributors", "fieldType": "string_list" }
+        { "name": "description", "description": "Human-readable summary of the deliverable", "fieldType": "string" },
+        { "name": "artifact_type", "description": "Kind of artifact produced: cli, service, library, web_app, mobile_app, api, extension, documentation, or package", "fieldType": "string" },
+        { "name": "status", "description": "Lifecycle state: draft, in_progress, shipped, or deprecated", "fieldType": "string" },
+        { "name": "journeys", "description": "User journeys this deliverable supports", "fieldType": "reference_list", "edge": "DeliverableSupportsJourney", "targetKind": "journey" },
+        { "name": "modules", "description": "Modules included in this deliverable", "fieldType": "reference_list", "edge": "DeliverableContainsModule", "targetKind": "module" },
+        { "name": "version", "description": "Semantic version of this deliverable", "fieldType": "string" },
+        { "name": "milestones", "description": "Milestones this deliverable is tracked under", "fieldType": "reference_list", "edge": "DeliverableTrackedByMilestone", "targetKind": "milestone" },
+        { "name": "depends_on", "description": "Other deliverables that must ship before this one", "fieldType": "reference_list", "edge": "DeliverableDependsOn", "targetKind": "deliverable" },
+        { "name": "reason", "description": "Justification for the current status or a status change", "fieldType": "string" },
+        { "name": "owner", "description": "Person or team responsible for this deliverable", "fieldType": "string" },
+        { "name": "contributors", "description": "Additional people or teams contributing to this deliverable", "fieldType": "string_list" }
       ]
     },
     {
       "name": "Milestone",
       "keyword": "milestone",
+      "description": "A significant project checkpoint with tracked progress",
       "testable": false,
       "supportsVerify": true,
       "allowedVerifyKinds": ["acceptance"],
@@ -99,25 +102,26 @@
       "dotColor": "#9C27B0",
       "dotFillcolor": "#F3E5F5",
       "fields": [
-        { "name": "description", "fieldType": "string" },
-        { "name": "status", "fieldType": "string" },
-        { "name": "features", "fieldType": "reference_list", "edge": "MilestoneFeature", "targetKind": "feature" },
-        { "name": "exit_criteria", "fieldType": "string_list" },
-        { "name": "target_date", "fieldType": "string" },
-        { "name": "start_date", "fieldType": "string" },
-        { "name": "modules", "fieldType": "reference_list", "edge": "MilestoneModule", "targetKind": "module" },
-        { "name": "depends_on", "fieldType": "reference_list", "edge": "MilestoneDependsOn", "targetKind": "milestone" },
-        { "name": "blockers", "fieldType": "string_list" },
-        { "name": "priority", "fieldType": "string" },
-        { "name": "reason", "fieldType": "string" },
-        { "name": "owner", "fieldType": "string" },
-        { "name": "contributors", "fieldType": "string_list" },
-        { "name": "refs", "fieldType": "string_list" }
+        { "name": "description", "description": "Human-readable summary of the milestone", "fieldType": "string" },
+        { "name": "status", "description": "Lifecycle state: planned, in_progress, completed, or blocked", "fieldType": "string" },
+        { "name": "features", "description": "Features that must be delivered to complete this milestone", "fieldType": "reference_list", "edge": "MilestoneDeliversFeature", "targetKind": "feature" },
+        { "name": "exit_criteria", "description": "Conditions that must be met to consider the milestone complete", "fieldType": "string_list" },
+        { "name": "target_date", "description": "Planned completion date for this milestone", "fieldType": "string" },
+        { "name": "start_date", "description": "Date when work on this milestone began or is planned to begin", "fieldType": "string" },
+        { "name": "modules", "description": "Modules scoped to this milestone", "fieldType": "reference_list", "edge": "MilestoneScopesModule", "targetKind": "module" },
+        { "name": "depends_on", "description": "Other milestones that must be completed before this one", "fieldType": "reference_list", "edge": "MilestoneDependsOn", "targetKind": "milestone" },
+        { "name": "blockers", "description": "Outstanding issues preventing progress on this milestone", "fieldType": "string_list" },
+        { "name": "priority", "description": "Importance level: critical, high, medium, or low", "fieldType": "string" },
+        { "name": "reason", "description": "Justification for the current status or a status change", "fieldType": "string" },
+        { "name": "owner", "description": "Person or team responsible for this milestone", "fieldType": "string" },
+        { "name": "contributors", "description": "Additional people or teams contributing to this milestone", "fieldType": "string_list" },
+        { "name": "refs", "description": "External references such as issues, URLs, or documents", "fieldType": "string_list" }
       ]
     },
     {
       "name": "Module",
       "keyword": "module",
+      "description": "A logical grouping of related features and behaviors",
       "testable": false,
       "supportsVerify": false,
       "semanticToken": "namespace",
@@ -126,16 +130,17 @@
       "dotColor": "#607D8B",
       "dotFillcolor": "#ECEFF1",
       "fields": [
-        { "name": "family", "fieldType": "string" },
-        { "name": "description", "fieldType": "string" },
-        { "name": "features", "fieldType": "reference_list", "edge": "ModuleFeature", "targetKind": "feature" },
-        { "name": "depends_on", "fieldType": "reference_list", "edge": "ModuleDependsOn", "targetKind": "module" },
-        { "name": "reason", "fieldType": "string" }
+        { "name": "family", "description": "Category or family this module belongs to", "fieldType": "string" },
+        { "name": "description", "description": "Human-readable summary of the module", "fieldType": "string" },
+        { "name": "features", "description": "Features contained within this module", "fieldType": "reference_list", "edge": "ModuleContainsFeature", "targetKind": "feature" },
+        { "name": "depends_on", "description": "Other modules this module depends on", "fieldType": "reference_list", "edge": "ModuleDependsOn", "targetKind": "module" },
+        { "name": "reason", "description": "Justification for this module's existence or grouping", "fieldType": "string" }
       ]
     },
     {
       "name": "Term",
       "keyword": "term",
+      "description": "A glossary entry defining domain-specific vocabulary",
       "testable": false,
       "supportsVerify": false,
       "singleton": false,
@@ -145,15 +150,17 @@
       "dotColor": "#795548",
       "dotFillcolor": "#EFEBE9",
       "fields": [
-        { "name": "definition", "fieldType": "string", "required": true },
-        { "name": "context", "fieldType": "string" },
-        { "name": "aliases", "fieldType": "string_list" },
-        { "name": "see_also", "fieldType": "reference_list", "edge": "TermSeeAlso", "targetKind": "term" }
+        { "name": "definition", "description": "The precise meaning of this term in the project's domain", "fieldType": "string", "required": true },
+        { "name": "context", "description": "Where or how this term is typically used", "fieldType": "string" },
+        { "name": "aliases", "description": "Alternative names or abbreviations for this term", "fieldType": "string_list" },
+        { "name": "see_also", "description": "Related terms for cross-referencing", "fieldType": "reference_list", "edge": "TermReferencesRelatedTerm", "targetKind": "term" },
+        { "name": "module", "description": "The module (bounded context) that owns this term's definition", "fieldType": "reference", "edge": "TermBelongsToModule", "targetKind": "module" }
       ]
     },
     {
       "name": "Persona",
       "keyword": "persona",
+      "description": "A user archetype representing a target audience segment",
       "testable": false,
       "supportsVerify": false,
       "semanticToken": "variable",
@@ -162,17 +169,19 @@
       "dotColor": "#E91E63",
       "dotFillcolor": "#FCE4EC",
       "fields": [
-        { "name": "description", "fieldType": "string" },
-        { "name": "technical_level", "fieldType": "string" },
-        { "name": "goals", "fieldType": "string_list" },
-        { "name": "pain_points", "fieldType": "string_list" },
-        { "name": "status", "fieldType": "string" },
-        { "name": "reason", "fieldType": "string" }
+        { "name": "description", "description": "Human-readable summary of this persona", "fieldType": "string" },
+        { "name": "technical_level", "description": "Technical proficiency of this persona (e.g., beginner, intermediate, expert)", "fieldType": "string" },
+        { "name": "goals", "description": "What this persona wants to achieve with the product", "fieldType": "string_list" },
+        { "name": "pain_points", "description": "Frustrations or problems this persona currently faces", "fieldType": "string_list" },
+        { "name": "status", "description": "Whether this persona is active or deprecated", "fieldType": "string" },
+        { "name": "reason", "description": "Justification for the current status or a status change", "fieldType": "string" },
+        { "name": "key_features", "description": "Features this persona cares about most", "fieldType": "reference_list", "edge": "PersonaPrioritizesFeature", "targetKind": "feature" }
       ]
     },
     {
       "name": "Channel",
       "keyword": "channel",
+      "description": "A communication or distribution channel for the product",
       "testable": false,
       "supportsVerify": false,
       "semanticToken": "interface",
@@ -181,16 +190,17 @@
       "dotColor": "#00BCD4",
       "dotFillcolor": "#E0F7FA",
       "fields": [
-        { "name": "description", "fieldType": "string" },
-        { "name": "interaction_model", "fieldType": "string" },
-        { "name": "url", "fieldType": "string" },
-        { "name": "status", "fieldType": "string" },
-        { "name": "reason", "fieldType": "string" }
+        { "name": "description", "description": "Human-readable summary of this channel", "fieldType": "string" },
+        { "name": "interaction_model", "description": "How users interact through this channel (e.g., sync, async, push, pull)", "fieldType": "string" },
+        { "name": "url", "description": "URL or endpoint for this channel", "fieldType": "string" },
+        { "name": "status", "description": "Whether this channel is active or deprecated", "fieldType": "string" },
+        { "name": "reason", "description": "Justification for the current status or a status change", "fieldType": "string" }
       ]
     },
     {
       "name": "Release",
       "keyword": "release",
+      "description": "A versioned product release bundling deliverables",
       "testable": false,
       "supportsVerify": false,
       "semanticToken": "constant",
@@ -199,24 +209,25 @@
       "dotColor": "#FF5722",
       "dotFillcolor": "#FBE9E7",
       "fields": [
-        { "name": "description", "fieldType": "string" },
-        { "name": "version", "fieldType": "string", "required": true },
-        { "name": "status", "fieldType": "string" },
-        { "name": "deliverables", "fieldType": "reference_list", "edge": "ReleaseDeliverable", "targetKind": "deliverable" },
-        { "name": "milestones", "fieldType": "reference_list", "edge": "ReleaseMilestone", "targetKind": "milestone" },
-        { "name": "target_date", "fieldType": "string" },
-        { "name": "release_date", "fieldType": "string" },
-        { "name": "changelog", "fieldType": "string" },
-        { "name": "depends_on", "fieldType": "reference_list", "edge": "ReleaseDependsOn", "targetKind": "release" },
-        { "name": "owner", "fieldType": "string" },
-        { "name": "contributors", "fieldType": "string_list" },
-        { "name": "reason", "fieldType": "string" },
-        { "name": "refs", "fieldType": "string_list" }
+        { "name": "description", "description": "Human-readable summary of this release", "fieldType": "string" },
+        { "name": "version", "description": "Semantic version identifier for this release", "fieldType": "string", "required": true },
+        { "name": "status", "description": "Lifecycle state of the release", "fieldType": "string" },
+        { "name": "deliverables", "description": "Deliverables included in this release", "fieldType": "reference_list", "edge": "ReleaseIncludesDeliverable", "targetKind": "deliverable" },
+        { "name": "milestones", "description": "Milestones completed by this release", "fieldType": "reference_list", "edge": "ReleaseCompletesMilestone", "targetKind": "milestone" },
+        { "name": "target_date", "description": "Planned release date", "fieldType": "string" },
+        { "name": "release_date", "description": "Actual date the release shipped", "fieldType": "string" },
+        { "name": "changelog", "description": "Summary of changes included in this release", "fieldType": "string" },
+        { "name": "depends_on", "description": "Prior releases that must ship before this one", "fieldType": "reference_list", "edge": "ReleaseDependsOn", "targetKind": "release" },
+        { "name": "owner", "description": "Person or team responsible for this release", "fieldType": "string" },
+        { "name": "contributors", "description": "Additional people or teams contributing to this release", "fieldType": "string_list" },
+        { "name": "reason", "description": "Justification for the current status or a status change", "fieldType": "string" },
+        { "name": "refs", "description": "External references such as issues, URLs, or documents", "fieldType": "string_list" }
       ]
     },
     {
       "name": "Capability",
       "keyword": "capability",
+      "description": "A high-level product capability mapping personas to features via a flow",
       "testable": false,
       "supportsVerify": false,
       "semanticToken": "function",
@@ -225,16 +236,17 @@
       "dotColor": "#00BCD4",
       "dotFillcolor": "#E0F7FA",
       "fields": [
-        { "name": "persona", "fieldType": "string" },
-        { "name": "surface", "fieldType": "reference_list" },
-        { "name": "features", "fieldType": "reference_list", "targetKind": "feature" },
-        { "name": "flow", "fieldType": "string" },
-        { "name": "description", "fieldType": "string" }
+        { "name": "persona", "description": "The user archetype who uses this capability", "fieldType": "reference", "edge": "CapabilityTargetsPersona", "targetKind": "persona" },
+        { "name": "channels", "description": "Channels or touchpoints through which this capability is accessed", "fieldType": "reference_list", "edge": "CapabilityUsesChannel", "targetKind": "channel" },
+        { "name": "features", "description": "Features that compose this capability", "fieldType": "reference_list", "edge": "CapabilityComposesFeature", "targetKind": "feature" },
+        { "name": "flow", "description": "Description of the interaction flow for this capability", "fieldType": "string" },
+        { "name": "description", "description": "Human-readable summary of this capability", "fieldType": "string" }
       ]
     },
     {
       "name": "Library",
       "keyword": "library",
+      "description": "A reusable code library with defined ports and dependencies",
       "testable": false,
       "supportsVerify": false,
       "semanticToken": "module",
@@ -243,17 +255,18 @@
       "dotColor": "#795548",
       "dotFillcolor": "#EFEBE9",
       "fields": [
-        { "name": "family", "fieldType": "string" },
-        { "name": "features", "fieldType": "reference_list", "targetKind": "feature" },
-        { "name": "depends_on", "fieldType": "reference_list", "targetKind": "library" },
-        { "name": "ports_defined", "fieldType": "reference_list", "targetKind": "port" },
-        { "name": "ports_consumed", "fieldType": "reference_list", "targetKind": "port" },
-        { "name": "description", "fieldType": "string" }
+        { "name": "family", "description": "Category or family this library belongs to", "fieldType": "string" },
+        { "name": "features", "description": "Features this library provides or supports", "fieldType": "reference_list", "edge": "LibraryProvidesFeature", "targetKind": "feature" },
+        { "name": "depends_on", "description": "Other libraries this library depends on", "fieldType": "reference_list", "edge": "LibraryDependsOn", "targetKind": "library" },
+        { "name": "ports_defined", "description": "Ports (interfaces) defined by this library", "fieldType": "reference_list", "edge": "LibraryDefinesPort", "targetKind": "port" },
+        { "name": "ports_consumed", "description": "Ports (interfaces) consumed by this library", "fieldType": "reference_list", "edge": "LibraryConsumesPort", "targetKind": "port" },
+        { "name": "description", "description": "Human-readable summary of this library", "fieldType": "string" }
       ]
     },
     {
       "name": "Roadmap",
       "keyword": "roadmap",
+      "description": "A strategic plan grouping features, behaviors, and libraries into a phased timeline",
       "testable": false,
       "supportsVerify": false,
       "semanticToken": "namespace",
@@ -262,34 +275,48 @@
       "dotColor": "#3F51B5",
       "dotFillcolor": "#E8EAF6",
       "fields": [
-        { "name": "status", "fieldType": "string" },
-        { "name": "behaviors", "fieldType": "reference_list", "targetKind": "behavior" },
-        { "name": "features", "fieldType": "reference_list", "targetKind": "feature" },
-        { "name": "libraries", "fieldType": "reference_list", "targetKind": "library" },
-        { "name": "criteria", "fieldType": "string_list" },
-        { "name": "depends_on", "fieldType": "reference_list", "targetKind": "roadmap" },
-        { "name": "description", "fieldType": "string" }
+        { "name": "status", "description": "Lifecycle state of this roadmap", "fieldType": "string" },
+        { "name": "behaviors", "description": "Behaviors planned in this roadmap", "fieldType": "reference_list", "edge": "RoadmapPlansBehavior", "targetKind": "behavior" },
+        { "name": "features", "description": "Features planned in this roadmap", "fieldType": "reference_list", "edge": "RoadmapPlansFeature", "targetKind": "feature" },
+        { "name": "libraries", "description": "Libraries planned in this roadmap", "fieldType": "reference_list", "edge": "RoadmapPlansLibrary", "targetKind": "library" },
+        { "name": "criteria", "description": "Success criteria for this roadmap phase", "fieldType": "string_list" },
+        { "name": "depends_on", "description": "Other roadmaps that must be completed before this one", "fieldType": "reference_list", "edge": "RoadmapDependsOn", "targetKind": "roadmap" },
+        { "name": "description", "description": "Human-readable summary of this roadmap", "fieldType": "string" }
       ]
     }
   ],
   "edgeTypes": [
     { "label": "FeatureDependsOn", "sourceKind": "feature", "targetKind": "feature", "edgeStyle": "dashed", "edgeColor": "#2196F3" },
-    { "label": "JourneyFeature", "sourceKind": "journey", "targetKind": "feature", "edgeStyle": "solid", "edgeColor": "#FF9800" },
-    { "label": "JourneyPersona", "sourceKind": "journey", "targetKind": "persona", "edgeStyle": "solid", "edgeColor": "#E91E63" },
-    { "label": "JourneyChannel", "sourceKind": "journey", "targetKind": "channel", "edgeStyle": "solid", "edgeColor": "#00BCD4" },
-    { "label": "DeliverableJourney", "sourceKind": "deliverable", "targetKind": "journey", "edgeStyle": "solid", "edgeColor": "#4CAF50" },
-    { "label": "DeliverableModule", "sourceKind": "deliverable", "targetKind": "module", "edgeStyle": "solid", "edgeColor": "#607D8B" },
-    { "label": "DeliverableMilestone", "sourceKind": "deliverable", "targetKind": "milestone", "edgeStyle": "solid", "edgeColor": "#9C27B0" },
+    { "label": "FeatureRelatesTo", "description": "Feature has a non-dependency relationship to another feature", "sourceKind": "feature", "targetKind": "feature", "edgeStyle": "dotted", "edgeColor": "#2196F3" },
+    { "label": "JourneyExercisesFeature", "sourceKind": "journey", "targetKind": "feature", "edgeStyle": "solid", "edgeColor": "#FF9800" },
+    { "label": "JourneyTargetsPersona", "sourceKind": "journey", "targetKind": "persona", "edgeStyle": "solid", "edgeColor": "#E91E63" },
+    { "label": "JourneyUsesChannel", "sourceKind": "journey", "targetKind": "channel", "edgeStyle": "solid", "edgeColor": "#00BCD4" },
+    { "label": "DeliverableSupportsJourney", "sourceKind": "deliverable", "targetKind": "journey", "edgeStyle": "solid", "edgeColor": "#4CAF50" },
+    { "label": "DeliverableContainsModule", "sourceKind": "deliverable", "targetKind": "module", "edgeStyle": "solid", "edgeColor": "#607D8B" },
+    { "label": "DeliverableTrackedByMilestone", "sourceKind": "deliverable", "targetKind": "milestone", "edgeStyle": "solid", "edgeColor": "#9C27B0" },
     { "label": "DeliverableDependsOn", "sourceKind": "deliverable", "targetKind": "deliverable", "edgeStyle": "dashed", "edgeColor": "#4CAF50" },
-    { "label": "MilestoneFeature", "sourceKind": "milestone", "targetKind": "feature", "edgeStyle": "solid", "edgeColor": "#9C27B0" },
-    { "label": "MilestoneModule", "sourceKind": "milestone", "targetKind": "module", "edgeStyle": "solid", "edgeColor": "#607D8B" },
+    { "label": "MilestoneDeliversFeature", "sourceKind": "milestone", "targetKind": "feature", "edgeStyle": "solid", "edgeColor": "#9C27B0" },
+    { "label": "MilestoneScopesModule", "sourceKind": "milestone", "targetKind": "module", "edgeStyle": "solid", "edgeColor": "#607D8B" },
     { "label": "MilestoneDependsOn", "sourceKind": "milestone", "targetKind": "milestone", "edgeStyle": "dashed", "edgeColor": "#9C27B0" },
-    { "label": "ModuleFeature", "sourceKind": "module", "targetKind": "feature", "edgeStyle": "solid", "edgeColor": "#607D8B" },
+    { "label": "ModuleContainsFeature", "sourceKind": "module", "targetKind": "feature", "edgeStyle": "solid", "edgeColor": "#607D8B" },
     { "label": "ModuleDependsOn", "sourceKind": "module", "targetKind": "module", "edgeStyle": "dashed", "edgeColor": "#607D8B" },
-    { "label": "TermSeeAlso", "sourceKind": "term", "targetKind": "term", "edgeStyle": "dotted", "edgeColor": "#795548" },
-    { "label": "ReleaseDeliverable", "sourceKind": "release", "targetKind": "deliverable", "edgeStyle": "solid", "edgeColor": "#FF5722" },
-    { "label": "ReleaseMilestone", "sourceKind": "release", "targetKind": "milestone", "edgeStyle": "solid", "edgeColor": "#FF5722" },
-    { "label": "ReleaseDependsOn", "sourceKind": "release", "targetKind": "release", "edgeStyle": "dashed", "edgeColor": "#FF5722" }
+    { "label": "TermReferencesRelatedTerm", "sourceKind": "term", "targetKind": "term", "edgeStyle": "dotted", "edgeColor": "#795548" },
+    { "label": "TermBelongsToModule", "description": "Term is defined within a module's bounded context", "sourceKind": "term", "targetKind": "module", "edgeStyle": "dotted", "edgeColor": "#795548" },
+    { "label": "ReleaseIncludesDeliverable", "sourceKind": "release", "targetKind": "deliverable", "edgeStyle": "solid", "edgeColor": "#FF5722" },
+    { "label": "ReleaseCompletesMilestone", "sourceKind": "release", "targetKind": "milestone", "edgeStyle": "solid", "edgeColor": "#FF5722" },
+    { "label": "ReleaseDependsOn", "sourceKind": "release", "targetKind": "release", "edgeStyle": "dashed", "edgeColor": "#FF5722" },
+    { "label": "CapabilityComposesFeature", "sourceKind": "capability", "targetKind": "feature", "edgeStyle": "solid", "edgeColor": "#00BCD4" },
+    { "label": "CapabilityTargetsPersona", "description": "Capability targets a persona", "sourceKind": "capability", "targetKind": "persona", "edgeStyle": "solid", "edgeColor": "#E91E63" },
+    { "label": "CapabilityUsesChannel", "description": "Capability is accessed through a channel", "sourceKind": "capability", "targetKind": "channel", "edgeStyle": "solid", "edgeColor": "#00BCD4" },
+    { "label": "PersonaPrioritizesFeature", "description": "Persona prioritizes a feature", "sourceKind": "persona", "targetKind": "feature", "edgeStyle": "solid", "edgeColor": "#E91E63" },
+    { "label": "LibraryProvidesFeature", "sourceKind": "library", "targetKind": "feature", "edgeStyle": "solid", "edgeColor": "#795548" },
+    { "label": "LibraryDependsOn", "sourceKind": "library", "targetKind": "library", "edgeStyle": "dashed", "edgeColor": "#795548" },
+    { "label": "LibraryDefinesPort", "sourceKind": "library", "targetKind": "port", "edgeStyle": "solid", "edgeColor": "#795548" },
+    { "label": "LibraryConsumesPort", "sourceKind": "library", "targetKind": "port", "edgeStyle": "dashed", "edgeColor": "#795548" },
+    { "label": "RoadmapPlansBehavior", "sourceKind": "roadmap", "targetKind": "behavior", "edgeStyle": "solid", "edgeColor": "#3F51B5" },
+    { "label": "RoadmapPlansFeature", "sourceKind": "roadmap", "targetKind": "feature", "edgeStyle": "solid", "edgeColor": "#3F51B5" },
+    { "label": "RoadmapPlansLibrary", "sourceKind": "roadmap", "targetKind": "library", "edgeStyle": "solid", "edgeColor": "#3F51B5" },
+    { "label": "RoadmapDependsOn", "sourceKind": "roadmap", "targetKind": "roadmap", "edgeStyle": "dashed", "edgeColor": "#3F51B5" }
   ],
   "validationRules": [
     {
@@ -415,8 +442,8 @@
     {
       "code": "I010",
       "severity": "info",
-      "messageTemplate": "term '{id}' has no incoming edges — it may be unreferenced",
-      "check": "no_incoming_edges",
+      "messageTemplate": "term '{id}' has no edges — it may be unreferenced",
+      "check": "no_edges",
       "targetKind": "term"
     },
     {
@@ -483,12 +510,37 @@
       "constraint": { "kind": "matches", "pattern": "." }
     },
     {
+      "code": "W096",
+      "severity": "warning",
+      "messageTemplate": "library dependency cycle detected involving '{id}'",
+      "check": "cycle_detection",
+      "targetKind": "library",
+      "edgeType": "LibraryDependsOn"
+    },
+    {
+      "code": "W097",
+      "severity": "warning",
+      "messageTemplate": "roadmap dependency cycle detected involving '{id}'",
+      "check": "cycle_detection",
+      "targetKind": "roadmap",
+      "edgeType": "RoadmapDependsOn"
+    },
+    {
       "code": "W049",
       "severity": "warning",
       "messageTemplate": "milestone '{id}' has no features and no modules — it may be empty",
       "check": "missing_field_when_flag_set",
       "targetKind": "milestone",
       "field": "features"
+    },
+    {
+      "code": "W098",
+      "severity": "warning",
+      "messageTemplate": "roadmap '{id}' has invalid status '{value}' — expected one of: draft, active, completed, archived",
+      "check": "field_value_constraint",
+      "targetKind": "roadmap",
+      "field": "status",
+      "constraint": { "kind": "one_of", "values": ["draft", "active", "completed", "archived"] }
     }
   ],
   "reservedKeywords": [],

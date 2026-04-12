@@ -10,7 +10,10 @@ use tower_lsp::{Client, LanguageServer};
 use specforge_common::Sym;
 use specforge_graph::Node;
 use specforge_parser::{EntityId, EntityKind};
-use specforge_registry::{detect_mistyped_references, populate_registries, EntityRefInfo, ManifestV2};
+use specforge_registry::{
+    detect_mistyped_references, detect_unknown_entity_fields, detect_unknown_entity_kinds,
+    populate_registries, EntityRefInfo, ManifestV2,
+};
 
 use crate::formatting::{format_document, format_document_range, EditorOptions};
 use crate::{
@@ -128,7 +131,10 @@ impl Backend {
         // work immediately (before any file is opened in the editor).
         let mut state = self.state.write().await;
         let graph = state.graph_mut();
-        Self::rebuild_edges(graph);
+        // Use the shared resolve_references (same as CLI) — this clears
+        // edges and rebuilds them from reference lists, discarding the
+        // diagnostics since we haven't opened any documents yet.
+        let _ = graph.resolve_references();
 
         count
     }
@@ -186,32 +192,6 @@ impl Backend {
         count
     }
 
-    /// Rebuild all edges in the graph from reference list fields.
-    /// Called after any operation that changes the node set.
-    fn rebuild_edges(graph: &mut specforge_graph::Graph) {
-        graph.clear_edges();
-        let all_nodes: Vec<(Sym, specforge_parser::FieldMap)> = graph
-            .nodes()
-            .iter()
-            .map(|n| (n.id.raw, n.fields.clone()))
-            .collect();
-        for (node_id, fields) in &all_nodes {
-            for entry in fields.entries() {
-                if let specforge_parser::FieldValue::ReferenceList(refs) = &entry.value {
-                    for target_id in refs {
-                        if graph.node(target_id).is_some() {
-                            graph.add_edge(specforge_graph::Edge {
-                                source: *node_id,
-                                target: Sym::new(target_id),
-                                label: entry.key,
-                            });
-                        }
-                    }
-                }
-            }
-        }
-    }
-
     /// Parse a document, update the graph, and return diagnostics grouped by file URI.
     /// Diagnostics are keyed by URI so callers can publish each file's diagnostics
     /// under the correct URI (not all under the triggering file).
@@ -267,9 +247,12 @@ impl Backend {
             });
         }
 
-        // Rebuild all edges from reference lists across all nodes.
-        // This ensures cross-file references are resolved when new nodes appear.
-        graph.clear_edges();
+        // Resolve references → edges using the shared function (same as CLI).
+        // This is the single source of truth for E001 unresolved-reference
+        // diagnostics, ensuring LSP and CLI report identical errors.
+        let ref_diags = graph.resolve_references();
+
+        // Snapshot node data for registry-based diagnostics below.
         let all_nodes: Vec<(Sym, specforge_parser::FieldMap, specforge_common::SourceSpan)> =
             graph
                 .nodes()
@@ -296,36 +279,17 @@ impl Backend {
                 });
         }
 
-        // Resolver diagnostics: unresolved references, grouped by the referencing entity's file
-        for (node_id, fields, span) in &all_nodes {
-            for entry in fields.entries() {
-                if let specforge_parser::FieldValue::ReferenceList(refs) = &entry.value {
-                    for target_id in refs {
-                        if graph.node(target_id).is_some() {
-                            graph.add_edge(specforge_graph::Edge {
-                                source: *node_id,
-                                target: Sym::new(target_id),
-                                label: entry.key,
-                            });
-                        } else {
-                            let diag_uri = file_path_to_uri(span.file.as_str());
-                            diags_by_file.entry(diag_uri).or_default().push(
-                                Diagnostic {
-                                    range: source_span_to_range(span),
-                                    severity: Some(DiagnosticSeverity::ERROR),
-                                    code: Some(NumberOrString::String("E001".into())),
-                                    source: Some("specforge".into()),
-                                    message: format!(
-                                        "unresolved reference '{}' in entity '{}'",
-                                        target_id, node_id
-                                    ),
-                                    ..Default::default()
-                                },
-                            );
-                        }
-                    }
-                }
-            }
+        // Resolver diagnostics: unresolved references, grouped by file
+        for rd in &ref_diags {
+            let diag_uri = rd
+                .span
+                .as_ref()
+                .map(|s| file_path_to_uri(s.file.as_str()))
+                .unwrap_or_else(|| uri.clone());
+            diags_by_file
+                .entry(diag_uri)
+                .or_default()
+                .push(diagnostic_to_lsp(rd));
         }
 
         // Release the mutable graph borrow so we can access state immutably below
@@ -394,6 +358,57 @@ impl Backend {
                     .entry(diag_uri)
                     .or_default()
                     .push(diagnostic_to_lsp(d));
+            }
+        }
+
+        // E024: Unknown entity kinds + W020: Unknown entity fields
+        // Only fire when registries are populated (not in structural-only mode).
+        if !kind_reg.is_empty() {
+            let graph = state.graph();
+
+            // E024: entity kinds not registered by any extension
+            let entity_kinds: Vec<(String, String, specforge_common::SourceSpan)> = graph
+                .nodes()
+                .iter()
+                .map(|n| (n.kind.raw.to_string(), n.id.raw.to_string(), n.source_span.clone()))
+                .collect();
+            let e024_diags = detect_unknown_entity_kinds(&entity_kinds, kind_reg, None);
+            for d in &e024_diags {
+                let diag_uri = d
+                    .span
+                    .as_ref()
+                    .map(|s| file_path_to_uri(s.file.as_str()))
+                    .unwrap_or_else(|| uri.clone());
+                diags_by_file
+                    .entry(diag_uri)
+                    .or_default()
+                    .push(diagnostic_to_lsp(d));
+            }
+
+            // W020: fields not registered for their entity kind
+            if !field_reg.is_empty() {
+                let entity_fields: Vec<(String, String, Vec<String>, specforge_common::SourceSpan)> = graph
+                    .nodes()
+                    .iter()
+                    .map(|n| {
+                        let field_names: Vec<String> = n.fields.entries().iter()
+                            .map(|e| e.key.to_string())
+                            .collect();
+                        (n.kind.raw.to_string(), n.id.raw.to_string(), field_names, n.source_span.clone())
+                    })
+                    .collect();
+                let w020_diags = detect_unknown_entity_fields(&entity_fields, kind_reg, field_reg);
+                for d in &w020_diags {
+                    let diag_uri = d
+                        .span
+                        .as_ref()
+                        .map(|s| file_path_to_uri(s.file.as_str()))
+                        .unwrap_or_else(|| uri.clone());
+                    diags_by_file
+                        .entry(diag_uri)
+                        .or_default()
+                        .push(diagnostic_to_lsp(d));
+                }
             }
         }
 
@@ -830,8 +845,9 @@ impl LanguageServer for Backend {
                     });
                 }
 
-                // Rebuild edges
-                graph.clear_edges();
+                // Resolve references → edges using the shared function (same as CLI)
+                let ref_diags = graph.resolve_references();
+
                 let all_nodes: Vec<(Sym, specforge_parser::FieldMap, specforge_common::SourceSpan)> =
                     graph
                         .nodes()
@@ -856,33 +872,12 @@ impl LanguageServer for Backend {
                         });
                 }
 
-                for (node_id, fields, span) in &all_nodes {
-                    for entry in fields.entries() {
-                        if let specforge_parser::FieldValue::ReferenceList(refs) = &entry.value {
-                            for target_id in refs {
-                                if graph.node(target_id).is_some() {
-                                    graph.add_edge(specforge_graph::Edge {
-                                        source: *node_id,
-                                        target: Sym::new(target_id),
-                                        label: entry.key,
-                                    });
-                                } else {
-                                    let diag_uri = file_path_to_uri(span.file.as_str());
-                                    diags_by_file.entry(diag_uri).or_default().push(Diagnostic {
-                                        range: source_span_to_range(span),
-                                        severity: Some(DiagnosticSeverity::ERROR),
-                                        code: Some(NumberOrString::String("E001".into())),
-                                        source: Some("specforge".into()),
-                                        message: format!(
-                                            "unresolved reference '{}' in entity '{}'",
-                                            target_id, node_id
-                                        ),
-                                        ..Default::default()
-                                    });
-                                }
-                            }
-                        }
-                    }
+                // Resolver diagnostics from shared function
+                for rd in &ref_diags {
+                    let diag_uri = rd.span.as_ref()
+                        .map(|sp| file_path_to_uri(sp.file.as_str()))
+                        .unwrap_or_else(|| uri_clone.clone());
+                    diags_by_file.entry(diag_uri).or_default().push(diagnostic_to_lsp(rd));
                 }
 
                 // Validator diagnostics
@@ -897,6 +892,68 @@ impl LanguageServer for Backend {
                         .entry(diag_uri)
                         .or_default()
                         .push(diagnostic_to_lsp(vd));
+                }
+
+                // E024/W020/E022: Registry-based diagnostics
+                let kind_reg = s.kind_registry();
+                let field_reg = s.field_registry();
+                if !kind_reg.is_empty() {
+                    let graph = s.graph();
+
+                    // E024: unknown entity kinds
+                    let entity_kinds: Vec<(String, String, specforge_common::SourceSpan)> = graph
+                        .nodes().iter()
+                        .map(|n| (n.kind.raw.to_string(), n.id.raw.to_string(), n.source_span.clone()))
+                        .collect();
+                    for d in &detect_unknown_entity_kinds(&entity_kinds, kind_reg, None) {
+                        let diag_uri = d.span.as_ref()
+                            .map(|sp| file_path_to_uri(sp.file.as_str()))
+                            .unwrap_or_else(|| uri_clone.clone());
+                        diags_by_file.entry(diag_uri).or_default().push(diagnostic_to_lsp(d));
+                    }
+
+                    // W020: unknown entity fields
+                    if !field_reg.is_empty() {
+                        let entity_fields: Vec<(String, String, Vec<String>, specforge_common::SourceSpan)> = graph
+                            .nodes().iter()
+                            .map(|n| {
+                                let fnames: Vec<String> = n.fields.entries().iter().map(|e| e.key.to_string()).collect();
+                                (n.kind.raw.to_string(), n.id.raw.to_string(), fnames, n.source_span.clone())
+                            })
+                            .collect();
+                        for d in &detect_unknown_entity_fields(&entity_fields, kind_reg, field_reg) {
+                            let diag_uri = d.span.as_ref()
+                                .map(|sp| file_path_to_uri(sp.file.as_str()))
+                                .unwrap_or_else(|| uri_clone.clone());
+                            diags_by_file.entry(diag_uri).or_default().push(diagnostic_to_lsp(d));
+                        }
+
+                        // E022: mistyped references
+                        let node_kind_index: std::collections::HashMap<String, String> = graph
+                            .nodes().iter()
+                            .map(|n| (n.id.raw.to_string(), n.kind.raw.to_string()))
+                            .collect();
+                        let entity_refs: Vec<EntityRefInfo> = all_nodes.iter()
+                            .map(|(id, fields, span)| {
+                                let ref_fields: Vec<(String, Vec<String>)> = fields.entries().iter()
+                                    .filter_map(|entry| {
+                                        if let specforge_parser::FieldValue::ReferenceList(refs) = &entry.value {
+                                            Some((entry.key.to_string(), refs.clone()))
+                                        } else { None }
+                                    })
+                                    .collect();
+                                let entity_kind = graph.node(id.as_str())
+                                    .map(|n| n.kind.raw.to_string()).unwrap_or_default();
+                                (entity_kind, id.to_string(), ref_fields, span.clone())
+                            })
+                            .collect();
+                        for d in &detect_mistyped_references(&entity_refs, field_reg, kind_reg, &node_kind_index) {
+                            let diag_uri = d.span.as_ref()
+                                .map(|sp| file_path_to_uri(sp.file.as_str()))
+                                .unwrap_or_else(|| uri_clone.clone());
+                            diags_by_file.entry(diag_uri).or_default().push(diagnostic_to_lsp(d));
+                        }
+                    }
                 }
 
                 diags_by_file.entry(uri_clone.clone()).or_default();
@@ -956,8 +1013,8 @@ impl LanguageServer for Backend {
                     for id in &old_ids {
                         graph.remove_node(id.as_str());
                     }
-                    // Rebuild edges — other files may now have broken references
-                    Self::rebuild_edges(graph);
+                    // Resolve references using the shared function (same as CLI)
+                    let ref_diags = graph.resolve_references();
 
                     // Run validator and publish updated diagnostics for all affected files
                     let validator_diags = specforge_validator::validate(graph);
@@ -975,43 +1032,16 @@ impl LanguageServer for Backend {
                     // Publish updated diagnostics for remaining files
                     let mut diags_by_file: std::collections::HashMap<Url, Vec<Diagnostic>> =
                         std::collections::HashMap::new();
-                    // Resolver diagnostics for broken references
-                    let all_nodes: Vec<(
-                        Sym,
-                        specforge_parser::FieldMap,
-                        specforge_common::SourceSpan,
-                    )> = graph
-                        .nodes()
-                        .iter()
-                        .map(|n| (n.id.raw, n.fields.clone(), n.source_span.clone()))
-                        .collect();
-                    for (node_id, fields, span) in &all_nodes {
-                        for entry in fields.entries() {
-                            if let specforge_parser::FieldValue::ReferenceList(refs) =
-                                &entry.value
-                            {
-                                for target_id in refs {
-                                    if graph.node(target_id).is_none() {
-                                        let diag_uri = file_path_to_uri(span.file.as_str());
-                                        diags_by_file.entry(diag_uri).or_default().push(
-                                            Diagnostic {
-                                                range: source_span_to_range(span),
-                                                severity: Some(DiagnosticSeverity::ERROR),
-                                                code: Some(NumberOrString::String(
-                                                    "E001".into(),
-                                                )),
-                                                source: Some("specforge".into()),
-                                                message: format!(
-                                                    "unresolved reference '{}' in entity '{}'",
-                                                    target_id, node_id
-                                                ),
-                                                ..Default::default()
-                                            },
-                                        );
-                                    }
-                                }
-                            }
-                        }
+                    for rd in &ref_diags {
+                        let diag_uri = rd
+                            .span
+                            .as_ref()
+                            .map(|s| file_path_to_uri(s.file.as_str()))
+                            .unwrap_or_else(|| uri.clone());
+                        diags_by_file
+                            .entry(diag_uri)
+                            .or_default()
+                            .push(diagnostic_to_lsp(rd));
                     }
                     for vd in &validator_diags {
                         let diag_uri = vd

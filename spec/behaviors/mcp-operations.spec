@@ -337,7 +337,7 @@ behavior provide_mcp_providers_tool "Provide MCP Providers Tool" {
 behavior provide_mcp_doctor_tool "Provide MCP Doctor Tool" {
   invariants [diagnostic_determinism, mcp_structured_error_responses, mcp_tool_idempotency]
   category   query
-  types      [McpDoctorReport, McpToolDescriptor]
+  types      [McpDoctorReport, McpToolDescriptor, McpDoctorFinding]
   ports      [McpProtocol, CompilerApi]
   produces   [mcp_tool_invoked]
 

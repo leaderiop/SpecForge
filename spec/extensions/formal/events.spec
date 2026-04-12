@@ -10,7 +10,6 @@ use "extensions/formal/structured-conditions"
 use "extensions/formal/types"
 
 event fa_condition_check_complete "Condition Check Complete" {
-  trigger   [fa_condition_check_pass]
   channel   "analysis.condition"
   payload   CoverageTrackingItem
 
@@ -19,7 +18,6 @@ event fa_condition_check_complete "Condition Check Complete" {
 }
 
 event fa_layering_check_complete "Layering Check Complete" {
-  trigger   [fa_layering_verify_pass]
   channel   "analysis.layering"
   payload   RefinementChain
 
@@ -29,7 +27,6 @@ event fa_layering_check_complete "Layering Check Complete" {
 }
 
 event fa_event_graph_analysis_complete "Event Graph Analysis Complete" {
-  trigger   [fa_event_graph_analyze_pass]
   channel   "analysis.event_graph"
   payload   EventGraphAnalysisReport
   sync      {
@@ -43,7 +40,6 @@ event fa_event_graph_analysis_complete "Event Graph Analysis Complete" {
 }
 
 event fa_coverage_items_generated "Coverage Items Generated" {
-  trigger   [fa_coverage_tracking_pass]
   channel   "analysis.coverage"
   payload   CoverageTrackingItem
 

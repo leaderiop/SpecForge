@@ -17,7 +17,6 @@ use "invariants/extensions"
 // (add_extension_to_existing_project behavior). specforge remove and specforge extensions
 // are managed here. See also features/wasm.spec for install/uninstall lifecycle.
 feature extension_management "Extension Management" {
-  behaviors [load_extension_manifests, register_extension_entity_types, remove_extension, list_installed_extensions]
 
   problem """
     The core compiler has zero built-in entity types. Teams need to
@@ -39,7 +38,6 @@ feature extension_management "Extension Management" {
 }
 
 feature provider_based_ref_validation "Provider-Based Ref Validation" {
-  behaviors [load_provider_configurations, register_provider_schemes, validate_provider_refs, list_configured_providers, validate_ref_target_format, validate_provider_kinds]
 
   problem """
     External references with custom schemes need pluggable validation —
@@ -61,7 +59,6 @@ feature extension_registry "Extension Registry" {
   // Cross-feature: registry_api_openness invariant also references
   // publish_schema_specification from features/output.spec — the open registry
   // API schema is part of the Graph Protocol publishing surface.
-  behaviors [resolve_registry_source, search_registry, publish_to_registry, verify_registry_integrity, configure_registries, generate_keyword_extension_index]
 
   problem """
     Extensions are currently resolved from local paths or direct URLs.
@@ -91,7 +88,6 @@ feature extension_registry "Extension Registry" {
 }
 
 feature registry_authentication "Registry Authentication" {
-  behaviors [authenticate_registry_request, retry_registry_request, validate_registry_credentials, support_private_registries, logout_registry]
 
   problem """
     Extension registries may require authentication for private or enterprise

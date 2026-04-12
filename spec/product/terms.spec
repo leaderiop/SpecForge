@@ -9,7 +9,7 @@ term graph_protocol "Graph Protocol" {
   definition "The JSON schema output format produced by specforge export. Contains all entities, edges, metadata, and schema version. The graph protocol is the primary contract between SpecForge and its consumers (agents, dashboards, CI tools)."
   context    "Used in export commands, MCP resources, and agent consumption. The graph is the product — not the compiler, not the DSL."
   aliases    ["graph_schema", "entity_graph"]
-  see_also   [surface_contribution, traceability_chain]
+  see_also   [surface_contribution, traceability_chain, t_entity_enhancement, impact_analysis, schema_evolution, lifecycle_consistency, owner, effort, release_entity, blocker, release_status_lifecycle]
   tags       ["core", "output"]
 }
 
@@ -17,7 +17,7 @@ term surface_contribution "Surface Contribution" {
   definition "A CLI command, MCP tool, or MCP resource declared by an extension in its manifest surfaces field. CLI commands are auto-promoted to MCP tools. Surface contributions are the primary way extensions expose functionality to users and agents."
   context    "Declared in ManifestV2 surfaces field. Each CLI command maps to a cmd__{id} Wasm export; each MCP tool/resource maps to an mcp__{name} Wasm export."
   aliases    ["surface", "cli_command", "mcp_tool"]
-  see_also   [graph_protocol, declarative_validation]
+  see_also   [declarative_validation]
   tags       ["core", "extension"]
 }
 
@@ -25,7 +25,7 @@ term diagnostic "Diagnostic" {
   definition "A compiler message emitted during validation with a severity level (error, warning, info), a unique code (E/W/I prefix + number), a source location (file, line, column), and a human-readable message. Diagnostics are the primary feedback mechanism for spec quality."
   context    "E-codes block compilation, W-codes warn but pass, I-codes inform. Each extension owns a range of diagnostic codes. Diagnostics include source context and did-you-mean suggestions."
   aliases    ["compiler_message", "validation_error"]
-  see_also   [orphan_entity, cycle_detection, declarative_validation]
+  see_also   [orphan_entity, cycle_detection, declarative_validation, health_score, graph_diff, fuzzy_matching]
   tags       ["core", "validation"]
 }
 
@@ -33,7 +33,7 @@ term orphan_entity "Orphan Entity" {
   definition "An entity with zero incoming edges of the expected type(s) for its kind. Orphan detection produces warnings (W-codes) or info diagnostics (I-codes) depending on the entity kind and the severity of being unreferenced."
   context    "Orphan features (W041), journeys (W042), modules (W044), terms (I010), personas (I046), channels (I047). Orphan detection uses the no_incoming_edges validation pattern."
   aliases    ["unreferenced_entity", "disconnected_entity"]
-  see_also   [diagnostic, traceability_chain]
+  see_also   [traceability_chain]
   tags       ["validation", "graph"]
 }
 
@@ -41,7 +41,6 @@ term cycle_detection "Cycle Detection" {
   definition "The process of finding circular dependencies in a directed graph. SpecForge detects cycles in module (E007), milestone (E015), feature (W045), and deliverable (E016) dependency graphs using Tarjan's algorithm. Cycles in E-coded graphs are errors; cycles in W-coded graphs are warnings."
   context    "All dependency graphs (depends_on fields) must form DAGs. Cycle members are named in the diagnostic message."
   aliases    ["circular_dependency", "dag_violation"]
-  see_also   [diagnostic, orphan_entity]
   tags       ["validation", "graph"]
 }
 
@@ -49,7 +48,7 @@ term traceability_chain "Traceability Chain" {
   definition "The path through the entity graph from a user need (journey) through planning (feature, milestone) to structural implementation (module) to shippable artifact (deliverable). A complete traceability chain means every journey feature is reachable from a deliverable via both journey and module paths."
   context    "specforge trace prints the chain. Gaps in the chain produce diagnostics (I049 for deliverable journey-module gap, I051 for milestone feature-module gap)."
   aliases    ["trace_chain", "requirement_trace"]
-  see_also   [graph_protocol, completion_ratio, coverage]
+  see_also   [coverage]
   tags       ["core", "planning"]
 }
 
@@ -65,7 +64,6 @@ term coverage "Coverage" {
   definition "The fraction of features referenced by a journey that have status=done. Journey coverage measures how much of a user experience has been implemented. Unlike completion_ratio (which measures milestone/deliverable progress), coverage measures journey-level feature readiness."
   context    "Queried via pe_query_journey_coverage. Features without a status field are treated as uncovered."
   aliases    ["journey_coverage", "feature_coverage"]
-  see_also   [completion_ratio, traceability_chain]
   tags       ["metrics", "planning"]
 }
 
@@ -73,7 +71,6 @@ term declarative_validation "Declarative Validation" {
   definition "The pattern-based validation engine where extensions declare validation rules as data (ValidationRulePattern entries in the manifest) rather than imperative code. The core compiler interprets these patterns. Patterns include: no_incoming_edges, no_outgoing_edges, missing_field_when_flag_set, field_value_constraint, cycle_detection, file_exists, and custom (Wasm-backed)."
   context    "All 47 product diagnostic codes are declared as validation patterns. The engine executes them deterministically in diagnostic-code order."
   aliases    ["pattern_validation", "rule_engine"]
-  see_also   [diagnostic, surface_contribution]
   tags       ["core", "validation"]
 }
 
@@ -97,28 +94,26 @@ term cross_extension_coexistence "Cross-Extension Coexistence" {
   definition "The behavior of multiple installed extensions operating on the same entity graph without conflicts. Each extension owns its entity kinds, edge types, and diagnostic codes. Cross-extension interactions occur only via peer_dependency declarations and entity_enhancements. Product queries operate exclusively on product-owned entities and edges."
   context    "When @specforge/software is co-installed with @specforge/product, software creates Implements edges (behavior->feature) but product queries do not traverse these edges. Product queries are standalone by design."
   aliases    ["extension_coexistence", "multi_extension"]
-  see_also   [peer_dependency]
   tags       ["extension", "architecture"]
 }
 
 term feature_status_lifecycle "Feature Status Lifecycle" {
   definition "The progression of a feature through FeatureStatus values: proposed -> accepted -> in_progress -> done. Features may also be deferred (with a reason field documenting justification). Status drives completion_ratio and coverage calculations. Features without a status field are treated as not-done for coverage purposes."
   aliases    ["feature_lifecycle"]
-  see_also   [completion_ratio, coverage, milestone_status_lifecycle, deliverable_status_lifecycle]
+  see_also   [coverage, milestone_status_lifecycle, deliverable_status_lifecycle]
   tags       ["lifecycle", "planning"]
 }
 
 term milestone_status_lifecycle "Milestone Status Lifecycle" {
   definition "The progression of a milestone through MilestoneStatus values: planned -> in_progress -> completed. Milestones may also be blocked (with a depends_on reference documenting what blocks them). Completed milestones should have non-empty exit_criteria. Blocked milestones should have dependencies."
   aliases    ["milestone_lifecycle"]
-  see_also   [completion_ratio, feature_status_lifecycle, deliverable_status_lifecycle]
+  see_also   [deliverable_status_lifecycle]
   tags       ["lifecycle", "planning"]
 }
 
 term deliverable_status_lifecycle "Deliverable Status Lifecycle" {
   definition "The progression of a deliverable through DeliverableStatus values: draft -> in_progress -> shipped. Deliverables may also be deprecated (with a reason field documenting justification). Shipped deliverables should have all referenced milestones completed. Absent status is treated as draft for incremental adoption."
   aliases    ["deliverable_lifecycle"]
-  see_also   [completion_ratio, feature_status_lifecycle, milestone_status_lifecycle]
   tags       ["lifecycle", "planning"]
 }
 
@@ -166,7 +161,7 @@ term what_if_simulation "What-If Simulation" {
   definition "A read-only query that applies a hypothetical action (defer, remove, block, complete) to a temporary graph clone and computes before/after metrics without mutating the real graph. Returns completion and coverage deltas, affected milestones and deliverables, and status boundary crossing predictions."
   context    "Queried via pe_query_what_if. The graph is NEVER mutated. Four actions: defer (status=deferred), remove (delete entity), block (status=blocked), complete (status=done/completed)."
   aliases    ["simulation", "hypothetical_query"]
-  see_also   [impact_analysis, completion_ratio, coverage]
+  see_also   [completion_ratio, coverage]
   tags       ["metrics", "query"]
 }
 
@@ -226,7 +221,6 @@ term contributors "Contributors" {
   definition "A list of free-form strings identifying people or teams contributing to a feature, milestone, deliverable, or release. Complementary to owner — owner is the single accountable party, contributors are additional participants."
   context    "Used alongside owner on features, milestones, deliverables, and releases"
   aliases    ["collaborators", "participants"]
-  see_also   [owner]
   tags       ["ownership", "planning"]
 }
 
@@ -260,4 +254,56 @@ term release_status_lifecycle "Release Status Lifecycle" {
   aliases    []
   see_also   [feature_status_lifecycle, milestone_status_lifecycle, deliverable_status_lifecycle]
   tags       ["lifecycle", "governance"]
+}
+
+// ---------------------------------------------------------------------------
+// Infrastructure & protocol terms
+// ---------------------------------------------------------------------------
+
+term t_mcp "Model Context Protocol" {
+  definition "The JSON-RPC over stdio protocol used by AI agents to interact with SpecForge. Provides tools, resources, and prompts for graph queries, entity inspection, and project management."
+  context    "SpecForge exposes MCP tools (auto-promoted from CLI commands) and MCP resources (read-only graph views). Extensions declare surface contributions that map to mcp__{name} Wasm exports."
+  aliases    ["model_context_protocol"]
+  see_also   [surface_contribution, lsp, graph_protocol]
+  tags       ["core", "protocol"]
+}
+
+term lsp "Language Server Protocol" {
+  definition "The protocol used by IDEs and editors to interact with the SpecForge language server. Provides diagnostics, hover info, go-to-definition, completions, and code actions for .spec files."
+  context    "Implemented via tower-lsp in the specforge-lsp crate. Runs as a long-lived process with warm Wasm engines for low-latency responses."
+  aliases    ["language_server_protocol", "language_server"]
+  see_also   [watch_mode]
+  tags       ["core", "protocol"]
+}
+
+term token_budget "Token Budget" {
+  definition "The maximum number of tokens an AI agent can consume in a single interaction. SpecForge optimizes output formats (brief, context, graph) to stay within token budgets while maximizing information density."
+  context    "Multi-resolution graph queries expose the entity graph at multiple zoom levels. specforge export --format=brief produces the most compact output; --format=graph produces the most detailed."
+  aliases    ["context_window", "token_limit"]
+  see_also   [graph_protocol, t_mcp]
+  tags       ["agent", "performance"]
+}
+
+term define_block "Define Block" {
+  definition "A meta-block in the .spec DSL that allows users to declare custom types beyond what extensions provide. Uses the syntax define { ... } to extend the type system without requiring extension authorship."
+  context    "Parsed by the core compiler as a structural construct. Define blocks enable project-specific vocabulary while keeping extensions focused on reusable domain concepts."
+  aliases    ["define", "meta_block"]
+  see_also   [declarative_validation, planning_entity, token_budget]
+  tags       ["core", "dsl"]
+}
+
+term fuzzy_matching "Fuzzy Matching" {
+  definition "Approximate string matching used in diagnostic suggestions (did you mean X?) and the specforge search command. Powered by edit-distance algorithms to find entities with similar names."
+  context    "Implemented via the strsim crate. Fuzzy matching improves developer experience by suggesting corrections for typos in entity references, field names, and keyword usage."
+  aliases    ["approximate_matching", "edit_distance"]
+  see_also   [define_block]
+  tags       ["core", "developer_experience"]
+}
+
+term watch_mode "Watch Mode" {
+  definition "Incremental recompilation triggered by file system changes. The compiler watches spec files and rebuilds only affected entities when changes are detected, enabling real-time feedback in development."
+  context    "Implemented via the notify crate. Watch mode keeps the graph hot in memory for LSP and MCP server modes, invalidating the query cache on each rebuild."
+  aliases    ["file_watching", "incremental_mode"]
+  see_also   [query_cache]
+  tags       ["core", "performance"]
 }

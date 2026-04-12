@@ -336,7 +336,7 @@ behavior resolve_enhancement_conflicts "Resolve Enhancement Conflicts" {
 // -- Contribution Model -----
 
 behavior dispatch_contribution_exports "Dispatch Contribution Exports" {
-  invariants [extension_load_order_determinism]
+  invariants [extension_load_order_determinism, renderer_output_restriction]
   category   query
   types      [ManifestV2, ExtensionContributions, ExtensionError]
   ports      [WasmRuntime]
@@ -528,7 +528,7 @@ behavior toggle_extension_contributions "Toggle Extension Contributions" {
 behavior register_collector_contributions "Register Collector Contributions" {
   invariants [extension_load_order_determinism]
   category   query
-  types      [ManifestV2, CollectorContribution, ExtensionContributions, ExtensionError]
+  types      [ManifestV2, CollectorContribution, ExtensionContributions, ExtensionError, CollectorEntityMapping, EntityMappingStrategy, CollectorTestStatus]
   ports      [WasmRuntime]
 
   requires {

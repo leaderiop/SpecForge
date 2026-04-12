@@ -113,7 +113,7 @@ behavior validate_cross_project_edge_consistency "Validate Cross-Project Edge Co
 behavior export_federated_graph "Export Federated Graph" {
   category   command
   invariants [federated_graph_traversal_integrity, federated_schema_completeness, federated_graph_determinism, project_qualified_id_uniqueness]
-  types      [FederatedGraph, Graph, OutputFile, FederatedExportConfig]
+  types      [FederatedGraph, Graph, OutputFile, FederatedExportConfig, FederationMetadata]
   ports      [CompilerApi]
   produces   [federated_graph_exported]
 

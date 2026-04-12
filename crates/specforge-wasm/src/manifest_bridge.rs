@@ -213,6 +213,7 @@ mod tests {
         m1.name = "@ext/a".to_string();
         m1.entity_kinds = vec![ManifestEntityKind {
             name: "Behavior".to_string(),
+            description: None,
             keyword: "behavior".to_string(),
             testable: false, singleton: false, supports_verify: false,
             allowed_verify_kinds: vec![], semantic_token: None, lsp_icon: None,
@@ -224,6 +225,7 @@ mod tests {
         m2.name = "@ext/b".to_string();
         m2.entity_kinds = vec![ManifestEntityKind {
             name: "Behavior".to_string(),
+            description: None,
             keyword: "behavior".to_string(),
             testable: false, singleton: false, supports_verify: false,
             allowed_verify_kinds: vec![], semantic_token: None, lsp_icon: None,
@@ -244,6 +246,7 @@ mod tests {
         m.name = "@ext/bad".to_string();
         m.entity_kinds = vec![ManifestEntityKind {
             name: "Spec".to_string(),
+            description: None,
             keyword: "spec".to_string(),
             testable: false, singleton: false, supports_verify: false,
             allowed_verify_kinds: vec![], semantic_token: None, lsp_icon: None,
@@ -264,6 +267,7 @@ mod tests {
         m1.name = "@ext/a".to_string();
         m1.entity_kinds = vec![ManifestEntityKind {
             name: "Behavior".to_string(),
+            description: None,
             keyword: "behavior".to_string(),
             testable: false, singleton: false, supports_verify: false,
             allowed_verify_kinds: vec![], semantic_token: None, lsp_icon: None,
@@ -275,6 +279,7 @@ mod tests {
         m2.name = "@ext/b".to_string();
         m2.entity_kinds = vec![ManifestEntityKind {
             name: "Feature".to_string(),
+            description: None,
             keyword: "feature".to_string(),
             testable: false, singleton: false, supports_verify: false,
             allowed_verify_kinds: vec![], semantic_token: None, lsp_icon: None,
@@ -297,6 +302,7 @@ mod tests {
         m.name = "@ext/a".to_string();
         m.entity_kinds = vec![ManifestEntityKind {
             name: "Task".to_string(),
+            description: None,
             keyword: "task".to_string(),
             testable: false, singleton: false, supports_verify: false,
             allowed_verify_kinds: vec![], semantic_token: None, lsp_icon: None,
@@ -310,6 +316,7 @@ mod tests {
         bad.name = "@ext/bad".to_string();
         bad.entity_kinds = vec![ManifestEntityKind {
             name: "Use".to_string(),
+            description: None,
             keyword: "use".to_string(),
             testable: false, singleton: false, supports_verify: false,
             allowed_verify_kinds: vec![], semantic_token: None, lsp_icon: None,

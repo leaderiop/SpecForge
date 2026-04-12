@@ -7,6 +7,7 @@ mod dot;
 mod emit;
 mod exit_code;
 mod json;
+pub mod model;
 mod plan;
 mod query;
 pub mod schema;

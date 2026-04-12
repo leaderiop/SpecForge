@@ -349,7 +349,7 @@ behavior rename_entity_id "Rename Entity ID" {
 }
 
 // No produces — delegates to shared_incremental_pipeline which produces incremental_diagnostics_complete
-behavior live_diagnostics "Live Diagnostics" {
+behavior emit_live_diagnostics "Live Diagnostics" {
   invariants [multi_error_collection, incremental_correctness, diagnostic_determinism, lsp_response_latency, zero_domain_knowledge_core]
   category   command
   types      [DiagnosticBag]
@@ -382,8 +382,9 @@ behavior live_diagnostics "Live Diagnostics" {
 behavior code_actions_for_missing_verify "Code Actions for Missing Verify" {
   invariants [zero_domain_knowledge_core, testable_entity_classification, lsp_response_latency, lsp_text_edit_non_overlapping]
   category   validation
-  types      [KindRegistryEntry, CodeAction]
+  types      [KindRegistryEntry, CodeAction, CodeActionKind]
   ports      [LspProtocol]
+  features   [extension_driven_code_actions]
 
   requires {
     kind_registry_available "KindRegistry is populated with testable flags and allowed_verify_kinds"
@@ -426,7 +427,7 @@ behavior code_actions_for_missing_verify "Code Actions for Missing Verify" {
 behavior outline_view "Outline View" {
   category query
   invariants [zero_domain_knowledge_core, reference_resolution_completeness, lsp_response_latency]
-  types      [Node, EntityId, KindRegistryEntry, DocumentSymbolEntry]
+  types      [Node, EntityId, KindRegistryEntry, DocumentSymbolEntry, SymbolKind]
   ports      [LspProtocol]
 
   requires {
@@ -696,6 +697,7 @@ behavior code_action_create_entity_stub "Code Action: Create Entity Stub" {
   invariants [zero_domain_knowledge_core, lsp_response_latency, lsp_text_edit_non_overlapping]
   types      [EntityId, KindRegistryEntry, FieldRegistryEntry, CodeAction]
   ports      [LspProtocol]
+  features   [extension_driven_code_actions]
 
   requires {
     graph_available "in-memory graph is built and E001 diagnostics are available"

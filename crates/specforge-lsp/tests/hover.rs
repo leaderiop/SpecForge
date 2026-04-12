@@ -144,6 +144,7 @@ fn hover_shows_extension_source() {
     let mut kind_reg = KindRegistry::new();
     kind_reg.register(KindRegistryEntry {
         kind_name: "behavior".into(),
+        description: None,
         source_extension: "@specforge/software".into(),
         testable: true,
         singleton: false,
@@ -173,6 +174,7 @@ fn hover_shows_registered_fields() {
     field_reg.register(FieldRegistryEntry {
         kind_name: "behavior".into(),
         field_name: "contract".into(),
+        description: None,
         field_type: ManifestFieldType::Block,
         source_extension: "@specforge/software".into(),
         edge: None,
@@ -183,6 +185,7 @@ fn hover_shows_registered_fields() {
     field_reg.register(FieldRegistryEntry {
         kind_name: "behavior".into(),
         field_name: "invariants".into(),
+        description: None,
         field_type: ManifestFieldType::ReferenceList,
         source_extension: "@specforge/software".into(),
         edge: Some("enforces".into()),
@@ -208,6 +211,60 @@ fn hover_no_fields_section_without_registry() {
 }
 
 #[test]
+fn hover_shows_entity_kind_description() {
+    use specforge_registry::{KindRegistry, KindRegistryEntry};
+    let mut g = Graph::new();
+    g.add_node(node("login", "behavior", Some("User Login")));
+
+    let mut kind_reg = KindRegistry::new();
+    kind_reg.register(KindRegistryEntry {
+        kind_name: "behavior".into(),
+        description: Some("A testable unit of system functionality".into()),
+        source_extension: "@specforge/software".into(),
+        testable: true,
+        singleton: false,
+        supports_verify: true,
+        allowed_verify_kinds: vec![],
+        semantic_token: None,
+        lsp_icon: None,
+        dot_shape: None,
+        dot_color: None,
+        dot_fillcolor: None,
+        open_fields: false,
+    });
+
+    let text = specforge_lsp::hover_info_with_registries(&g, "login", Some(&kind_reg), None)
+        .unwrap();
+    assert!(
+        text.contains("A testable unit of system functionality"),
+        "should show entity kind description:\n{text}"
+    );
+}
+
+#[test]
+fn hover_shows_field_description() {
+    use specforge_registry::{FieldRegistry, FieldRegistryEntry, ManifestFieldType};
+    let mut reg = FieldRegistry::new();
+    reg.register(FieldRegistryEntry {
+        kind_name: "behavior".into(),
+        field_name: "contract".into(),
+        description: Some("The behavioral contract this entity fulfills".into()),
+        field_type: ManifestFieldType::String,
+        source_extension: "@specforge/software".into(),
+        edge: None,
+        target_kind: None,
+        file_reference: false,
+        required: false,
+    });
+
+    let text = specforge_lsp::hover_field_info("contract", "behavior", &reg).unwrap();
+    assert!(
+        text.contains("The behavioral contract this entity fulfills"),
+        "should show field description:\n{text}"
+    );
+}
+
+#[test]
 fn hover_no_extension_source_without_registry() {
     let mut g = Graph::new();
     g.add_node(node("login", "behavior", Some("Login")));
@@ -224,6 +281,7 @@ fn make_field_registry() -> specforge_registry::FieldRegistry {
     reg.register(FieldRegistryEntry {
         kind_name: "behavior".into(),
         field_name: "contract".into(),
+        description: None,
         field_type: ManifestFieldType::String,
         source_extension: "@specforge/software".into(),
         edge: None,
@@ -234,9 +292,10 @@ fn make_field_registry() -> specforge_registry::FieldRegistry {
     reg.register(FieldRegistryEntry {
         kind_name: "behavior".into(),
         field_name: "features".into(),
+        description: None,
         field_type: ManifestFieldType::ReferenceList,
         source_extension: "@specforge/software".into(),
-        edge: Some("Implements".into()),
+        edge: Some("BehaviorImplementsFeature".into()),
         target_kind: Some("feature".into()),
         file_reference: false,
         required: true,
@@ -258,7 +317,7 @@ fn field_hover_shows_target_kind_and_edge() {
     let reg = make_field_registry();
     let text = specforge_lsp::hover_field_info("features", "behavior", &reg).unwrap();
     assert!(text.contains("→ **feature**"), "should show target kind:\n{text}");
-    assert!(text.contains("Edge: `Implements`"), "should show edge type:\n{text}");
+    assert!(text.contains("Edge: `BehaviorImplementsFeature`"), "should show edge type:\n{text}");
     assert!(text.contains("*required*"), "should show required:\n{text}");
 }
 

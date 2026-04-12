@@ -11,4 +11,5 @@ port RustTestOutputParser {
   method parseLibtestJson(input: string) -> Result<TestResultEntry[], EmitterError>
   method parseCargoText(input: string) -> Result<TestResultEntry[], EmitterError>
   method readMappingFiles(dir: string) -> Result<EntityMappingEntry[], EmitterError>
+  verify integration "RustTestOutputParser contract is satisfied"
 }

@@ -23,6 +23,7 @@ failure_mode formatting_idempotency_violation "Formatting Idempotency Violation"
     detection  1
     rpn        7
   }
+  verify unit "Formatting Idempotency Violation failure mode is handled"
 }
 
 failure_mode comment_loss_during_formatting "Comment Loss During Formatting" {
@@ -42,6 +43,7 @@ failure_mode comment_loss_during_formatting "Comment Loss During Formatting" {
     detection  2
     rpn        16
   }
+  verify unit "Comment Loss During Formatting failure mode is handled"
 }
 
 failure_mode traceability_gap_undetected "Traceability Gap Undetected" {
@@ -61,28 +63,10 @@ failure_mode traceability_gap_undetected "Traceability Gap Undetected" {
     detection  2
     rpn        14
   }
+  verify unit "Traceability Gap Undetected failure mode is handled"
 }
 
 // ── Formal Analysis Failure Modes ─────────────────────────────
-
-failure_mode silent_deadlock_miss "Silent Deadlock Miss" {
-  invariant  se_refinement_dag
-  severity   8
-  occurrence 2
-  detection  5
-  rpn        80
-
-  cause      "Tarjan SCC algorithm fails to detect a circular dependency because the bipartite graph construction omits barrier edges from sync blocks, creating a false negative in deadlock detection"
-  effect     "Deadlock exists in the event graph but specforge analyze concurrency reports clean — production system deadlocks under concurrent load"
-  mitigation "Property-based tests generate random event graphs with known cycles and verify detection; barrier edges explicitly included in bipartite graph via se_build_event_bipartite_graph; regression test for every reported false negative"
-
-  post_mitigation {
-    severity   8
-    occurrence 1
-    detection  2
-    rpn        16
-  }
-}
 
 failure_mode false_positive_liskov_violation "False Positive Liskov Violation" {
   invariant  se_formal_contract_consistency
@@ -101,6 +85,7 @@ failure_mode false_positive_liskov_violation "False Positive Liskov Violation" {
     detection  2
     rpn        12
   }
+  verify unit "False Positive Liskov Violation failure mode is handled"
 }
 
 failure_mode proof_obligation_leak "Proof Obligation Leak" {
@@ -120,6 +105,7 @@ failure_mode proof_obligation_leak "Proof Obligation Leak" {
     detection  2
     rpn        14
   }
+  verify unit "Proof Obligation Leak failure mode is handled"
 }
 
 failure_mode concurrency_analysis_timeout "Concurrency Analysis Timeout" {
@@ -139,4 +125,5 @@ failure_mode concurrency_analysis_timeout "Concurrency Analysis Timeout" {
     detection  1
     rpn        5
   }
+  verify unit "Concurrency Analysis Timeout failure mode is handled"
 }

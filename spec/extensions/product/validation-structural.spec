@@ -9,30 +9,6 @@
 use "types/diagnostics"
 use "types/graph"
 
-behavior detect_orphan_features "Detect Orphan Features" {
-  category validation
-  types    [Diagnostic]
-  contract """
-    The @specforge/product extension MUST declare a no_incoming_edges
-    validation pattern that detects features with zero incoming edges
-    from product edge types: JourneyFeature, ModuleFeature, and
-    MilestoneFeature. Orphan features MUST produce a W041 warning.
-  """
-  ensures  {
-    fires_when_orphan    "feature with zero incoming JourneyFeature, ModuleFeature, MilestoneFeature edges produces W041"
-    suppresses_journey   "feature with at least one JourneyFeature edge suppresses W041"
-    suppresses_module    "feature with at least one ModuleFeature edge suppresses W041"
-    suppresses_milestone "feature with at least one MilestoneFeature edge suppresses W041"
-  }
-
-  features [pe_validation_suite]
-
-  verify unit "feature with no incoming product edges produces W041"
-  verify unit "feature in a journey suppresses W041"
-  verify unit "feature with only ModuleFeature edge suppresses W041"
-  verify unit "feature with only MilestoneFeature edge suppresses W041"
-}
-
 behavior detect_orphan_journeys "Detect Orphan Journeys" {
   category validation
   types    [Diagnostic]

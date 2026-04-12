@@ -45,6 +45,7 @@ type ManifestV2 {
   collector_contributions CollectorContribution[] @optional
   // Surface contributions: CLI commands, MCP tools, MCP resources (Phase 1)
   surfaces            SurfaceContributions @optional
+  verify unit "ManifestV2 schema is valid"
 }
 
 // Contribution flags declaring what an extension provides.
@@ -61,6 +62,7 @@ type ExtensionContributions {
   parsers           boolean         @optional
   grammars          boolean         @optional
   body_parsers      boolean         @optional
+  verify unit "ExtensionContributions schema is valid"
 }
 
 type ManifestEntityKind {
@@ -81,6 +83,7 @@ type ManifestEntityKind {
   // Whether this entity kind receives GraphDelta (true) or full Graph (false) during incremental validation
   incremental       boolean             @optional
   has_body_parser   boolean             @optional
+  verify unit "ManifestEntityKind schema is valid"
 }
 
 type ManifestEdgeType {
@@ -94,6 +97,7 @@ type ManifestEdgeType {
   edge_color        string              @optional
   // Edge arrowhead for graph rendering: "normal" | "dot" | "diamond" | "none" (default: "normal")
   edge_arrowhead    string              @optional
+  verify unit "ManifestEdgeType schema is valid"
 }
 
 type EntityKindConflict {
@@ -103,6 +107,7 @@ type EntityKindConflict {
   conflict_type     string              @readonly
   resolution        string              @optional
   policy_applied    string              @optional
+  verify unit "EntityKindConflict schema is valid"
 }
 
 type ManifestField {
@@ -112,6 +117,7 @@ type ManifestField {
   target_kind       string              @optional
   file_reference    boolean             @optional
   required          boolean             @optional
+  verify unit "ManifestField schema is valid"
 }
 
 // ManifestFieldType covers field types available in .spec DSL syntax for
@@ -136,12 +142,14 @@ type ValidationRulePattern {
   edge_type         string              @optional
   field             string              @optional
   constraint        FieldConstraint     @optional
+  verify unit "ValidationRulePattern schema is valid"
 }
 
 type FieldConstraint {
   kind              string              @readonly
   pattern           string              @optional
   values            string[]            @optional
+  verify unit "FieldConstraint schema is valid"
 }
 
 type ValidationPatternKind = no_incoming_edges | no_outgoing_edges
@@ -152,6 +160,7 @@ type CustomValidationPattern {
   name              string              @readonly
   wasm_function     string              @readonly
   params            FieldMap            @optional
+  verify unit "CustomValidationPattern schema is valid"
 }
 
 type FieldRegistryEntry {
@@ -163,6 +172,7 @@ type FieldRegistryEntry {
   target_kind       string              @optional
   file_reference    boolean             @optional
   required          boolean             @optional
+  verify unit "FieldRegistryEntry schema is valid"
 }
 
 type KindRegistryEntry {
@@ -179,6 +189,7 @@ type KindRegistryEntry {
   dot_shape         string              @optional
   dot_color         string              @optional
   dot_fillcolor     string              @optional
+  verify unit "KindRegistryEntry schema is valid"
 }
 
 // SchemeRegistryEntry maps a ref scheme to the provider extension that
@@ -190,6 +201,7 @@ type SchemeRegistryEntry {
   provider_alias    string              @readonly
   extension_name    string              @readonly
   supported_kinds   string[]            @optional
+  verify unit "SchemeRegistryEntry schema is valid"
 }
 
 // DefineBlockConfig captures a user-defined entity type declared via a
@@ -202,12 +214,14 @@ type DefineBlockConfig {
   required_fields   string[]            @optional
   optional_fields   string[]            @optional
   reference_targets string[]            @optional
+  verify unit "DefineBlockConfig schema is valid"
 }
 
 type KeywordExtensionMapping {
   keyword           string
   extension         string
   entity_kind       string
+  verify unit "KeywordExtensionMapping schema is valid"
 }
 
 type EdgeRegistryEntry {
@@ -218,9 +232,26 @@ type EdgeRegistryEntry {
   edge_style        string    @optional
   edge_color        string    @optional
   edge_arrowhead    string    @optional
+  verify unit "EdgeRegistryEntry schema is valid"
 }
 
 type KeywordExtensionIndex {
   _tag              "KeywordExtensionIndex"  @literal
   entries           KeywordExtensionMapping[]
+  verify unit "KeywordExtensionIndex schema is valid"
+}
+
+type CompilerPassDeclaration {
+  name              string              @readonly
+  run_after         string              @optional
+  wasm_function     string              @readonly
+  description       string              @optional
+  verify unit "CompilerPassDeclaration schema is valid"
+}
+
+type FeatureFlagDeclaration {
+  name              string              @readonly
+  default_value     boolean
+  description       string              @optional
+  verify unit "FeatureFlagDeclaration schema is valid"
 }

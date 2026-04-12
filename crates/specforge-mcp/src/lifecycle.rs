@@ -5,7 +5,7 @@ use crate::compile::compile_project;
 use crate::protocol::{JsonRpcResponse, error_codes};
 use crate::registry::{register_defaults, register_extension_surfaces};
 use crate::state::{McpState, ServerPhase};
-use crate::types::McpCapabilities;
+use crate::types::{McpCapabilities, McpCapabilityFlags, McpToolCapability, McpResourceCapability, McpPromptCapability, McpServerInfo};
 
 pub fn handle_initialize(state: &mut McpState, params: Value, id: Option<Value>) -> JsonRpcResponse {
     if state.phase == ServerPhase::Initialized {
@@ -46,13 +46,19 @@ pub fn handle_initialize(state: &mut McpState, params: Value, id: Option<Value>)
     state.phase = ServerPhase::Initialized;
 
     let capabilities = McpCapabilities {
+        protocol_version: "2025-03-26".into(),
+        capabilities: McpCapabilityFlags {
+            tools: McpToolCapability { list_changed: false },
+            resources: McpResourceCapability { subscribe: false, list_changed: false },
+            prompts: McpPromptCapability { list_changed: false },
+        },
+        server_info: McpServerInfo {
+            name: "specforge-mcp".into(),
+            version: env!("CARGO_PKG_VERSION").into(),
+        },
         tools: state.tool_registry.clone(),
         resources: state.resource_registry.clone(),
         prompts: state.prompt_registry.clone(),
-        subscriptions: true,
-        server_name: "specforge-mcp".into(),
-        server_version: env!("CARGO_PKG_VERSION").into(),
-        graph_protocol_version: "0.1.0".into(),
     };
 
     state.push_event("mcp_initialized", serde_json::json!({

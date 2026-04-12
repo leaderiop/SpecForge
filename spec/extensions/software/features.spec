@@ -1,15 +1,9 @@
 // @specforge/software features — capability groupings
 
 use "behaviors/validation"
-use "extensions/software/behaviors"
-use "extensions/software/validation-rules"
 use "extensions/software/formal-contracts"
 use "extensions/software/formal-refinement"
-use "extensions/software/formal-concurrency"
-use "extensions/software/formal-proofs"
-use "extensions/software/analyze-commands"
 feature se_gherkin_bridge "Gherkin Bridge" {
-  behaviors [se_parse_gherkin_statements, validate_file_reference_paths]
 
   problem """
     Behavior entities need a way to reference Gherkin .feature files for
@@ -29,12 +23,6 @@ feature se_gherkin_bridge "Gherkin Bridge" {
 }
 
 feature se_core_entity_kinds "Core Entity Kind Registration" {
-  behaviors [
-    se_register_entity_kinds, se_register_edge_types,
-    se_register_field_definitions, se_register_validation_rules,
-    se_register_verify_kinds, se_register_lsp_metadata,
-    se_validate_entity_fields, se_validate_entity_references,
-  ]
 
   problem """
     The @specforge/software extension must register 6 entity kinds with
@@ -53,15 +41,6 @@ feature se_core_entity_kinds "Core Entity Kind Registration" {
 }
 
 feature se_validation_suite "Software Validation Suite" {
-  behaviors [
-    se_validate_orphan_behaviors, se_validate_orphan_types,
-    se_validate_unused_invariants, se_validate_unverified_testable,
-    se_validate_orphan_ports, se_validate_event_triggers,
-    se_validate_orphan_events, se_validate_features_with_empty_behaviors,
-    se_validate_verify_kind_allowlist, se_validate_port_methods,
-    se_validate_type_field_annotations,
-    se_validate_contracts_without_verify,
-  ]
 
   problem """
     Without domain-specific validation rules, the compiler can only
@@ -82,18 +61,6 @@ feature se_validation_suite "Software Validation Suite" {
 }
 
 feature se_formal_contracts "Design by Contract" {
-  behaviors [
-    se_parse_requires_block, se_parse_ensures_block,
-    se_parse_maintains_block, se_validate_contract_consistency,
-    se_contract_check_pass,
-    se_detect_unverifiable_condition,
-    se_detect_unreachable_postcondition,
-    se_detect_redundant_precondition,
-    se_detect_invariant_without_property,
-    se_parse_port_operation_contracts,
-    se_validate_port_behavior_compatibility,
-    se_validate_contracts_without_verify,
-  ]
 
   problem """
     Behavior contract fields are free-form prose. Preconditions and
@@ -117,11 +84,6 @@ feature se_formal_contracts "Design by Contract" {
 }
 
 feature se_formal_refinement "B-Method Refinement" {
-  behaviors [
-    se_parse_abstract_annotation, se_parse_refines_annotation,
-    se_build_refinement_chain, se_validate_refinement_completeness,
-    se_refinement_verify_pass,
-  ]
 
   problem """
     There is no way to express that a behavior is an abstract
@@ -142,13 +104,6 @@ feature se_formal_refinement "B-Method Refinement" {
 }
 
 feature se_formal_concurrency "CSP Concurrency Analysis" {
-  behaviors [
-    se_parse_sync_block, se_build_event_bipartite_graph,
-    se_detect_event_deadlocks, se_detect_channel_type_mismatch,
-    se_detect_unmatched_producers, se_detect_livelock_risk,
-    se_detect_starvation_risk, se_detect_unbounded_channel,
-    se_process_analyze_pass,
-  ]
 
   problem """
     Event entities declare producers and consumers but the compiler
@@ -170,11 +125,6 @@ feature se_formal_concurrency "CSP Concurrency Analysis" {
 }
 
 feature se_proof_obligations "Proof Obligations and Discharge" {
-  behaviors [
-    se_proof_obligation_pass, se_track_proof_discharge,
-    se_emit_proof_verified_info, se_emit_deadlock_freedom_info,
-    se_emit_formal_analysis_available, se_detect_formality_level,
-  ]
 
   problem """
     There is no way to know whether formal properties (contracts,
@@ -195,10 +145,6 @@ feature se_proof_obligations "Proof Obligations and Discharge" {
 }
 
 feature se_analyze_commands "Formal Analysis CLI Commands" {
-  behaviors [
-    se_analyze_contracts, se_analyze_refinement,
-    se_analyze_concurrency, se_analyze_all,
-  ]
 
   problem """
     Formal analysis results are only available as part of the full

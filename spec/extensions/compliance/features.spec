@@ -1,8 +1,6 @@
 // @specforge/compliance extension features
 
-use "extensions/compliance/behaviors"
 feature compliance_validation "Compliance Validation" {
-  behaviors [ce_validate_compliance_graph]
 
   problem """
     Regulatory compliance specifications (SOC 2, HIPAA, GDPR, ISO 27001)
@@ -22,7 +20,6 @@ feature compliance_validation "Compliance Validation" {
 }
 
 feature compliance_reporting "Compliance Reporting" {
-  behaviors [ce_render_compliance_matrix]
 
   problem """
     Compliance auditors need a visual traceability matrix mapping regulations

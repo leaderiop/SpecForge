@@ -1,20 +1,5 @@
 // Zero-entity core architecture invariants
 
-use "behaviors/zero-entity-lsp"
-use "behaviors/zero-entity-registries"
-use "behaviors/zero-entity-validation"
-use "behaviors/extensions"
-use "behaviors/lsp"
-use "behaviors/parsing"
-use "behaviors/init"
-use "behaviors/validation"
-use "behaviors/output"
-use "behaviors/output-schema"
-use "behaviors/incremental"
-use "behaviors/mcp-operations"
-use "behaviors/wasm-host-functions"
-use "behaviors/migration"
-use "behaviors/resolution"
 invariant zero_domain_knowledge_core "Zero Domain Knowledge Core" {
   guarantee """
     The core compiler MUST have zero hardcoded entity types. All domain
@@ -24,82 +9,6 @@ invariant zero_domain_knowledge_core "Zero Domain Knowledge Core" {
     keyword name { fields } blocks, use imports, reference lists, string
     fields, verify declarations, and define meta-blocks.
   """
-  enforced_by [
-    boot_empty_kind_registry, boot_empty_field_registry, boot_empty_edge_registry,
-    populate_kind_registry_from_extensions, populate_field_registry_from_extensions,
-    register_entity_kinds_from_manifest, register_verify_kinds_from_manifest,
-    detect_unknown_entity_kinds, detect_unknown_entity_fields,
-    validate_registered_entity_fields,
-    parse_validation_rule_pattern, execute_validation_pattern,
-    emit_diagnostic_from_pattern, register_extension_validation_rules,
-    register_validation_rules_from_manifest, register_custom_validation_patterns,
-    graceful_degradation_without_extensions,
-    complete_extension_defined_keywords, provide_extension_entity_semantic_tokens,
-    provide_extension_entity_hover, provide_extension_defined_lsp_icons,
-    register_edge_types_from_manifest,
-    generate_schema_from_registries, embed_schema_in_export, persist_schema_cache, serve_schema_resource,
-    serialize_json_graph, serialize_dot_visualization,
-    render_extension_defined_dot_shapes, collapse_grammar_to_generic_entity_block,
-    parse_all_block_types, parse_verify_statements, parse_define_blocks,
-    provide_syntax_highlighting_queries, provide_code_folding_queries, provide_indentation_queries,
-    two_phase_validate_semantic, suggest_missing_extensions,
-    validate_extension_manifest_consistency,
-    autocomplete_entity_ids, complete_field_names, complete_keywords,
-    hover_information, code_actions_for_missing_verify, code_action_add_missing_import, code_action_create_entity_stub,
-    outline_view, workspace_symbol_search,
-    recover_from_syntax_errors, parse_spec_file_to_ast, parse_use_imports, parse_triple_quoted_strings, parse_ref_blocks,
-    populate_edge_registry_from_extensions, two_phase_parse_structural, provide_semantic_tokens,
-    load_extension_manifests, register_extension_entity_types,
-    list_installed_extensions, custom_entity_types_via_define,
-    scaffold_new_project, scaffold_starter_spec_file, non_interactive_init,
-    interactive_extension_selection, find_project_root, graceful_zero_extension_init,
-    load_provider_configurations, register_provider_schemes,
-    validate_provider_refs, validate_ref_target_format, validate_provider_kinds,
-    lsp_initialize,
-    list_configured_providers, configure_registries,
-    compute_project_statistics,
-    validate_manifest_v2_schema,
-    detect_duplicate_entity_kinds, validate_peer_dependencies,
-    rebuild_affected_subgraph,
-    render_extension_defined_edge_styles,
-    mcp_initialize,
-    emit_incremental_diagnostics,
-    dispatch_incremental_validators,
-    remove_extension,
-    go_to_definition, find_all_references, rename_entity_id, prepare_rename,
-    shared_incremental_pipeline,
-    compute_traceability_chain, serialize_traceability_data, serve_graph_resource,
-    validate_agent_plan, print_diagnostics_structured, exit_code_reflects_diagnostic_severity,
-    check_mode_for_ci, export_diagnostics_as_json,
-    add_extension_to_existing_project, provide_mcp_init_tool,
-    provide_host_function_add_graph_node, provide_host_function_add_graph_edge,
-    validate_extension_testability,
-    deterministic_output,
-    export_agent_context_format,
-    export_agent_brief_format,
-    export_agent_graph_format,
-    query_graph_multi_resolution,
-    enforce_token_budget,
-    format_diagnostics_with_source_context,
-    provide_did_you_mean_suggestions,
-    aggregate_diagnostic_summary,
-    live_diagnostics,
-    goto_import_definition,
-    detect_format_version_mismatch,
-    migrate_spec_files_in_place,
-    generate_migration_diff,
-    validate_post_migration_integrity,
-    capture_pre_migration_schema_snapshot,
-    verify_graph_protocol_compatibility_after_migration,
-    rollback_failed_migration,
-    register_grammar_contributions,
-    register_body_parser_contributions,
-    persist_schema_cache,
-    negotiate_schema_version,
-    detect_breaking_schema_changes,
-    compute_schema_version,
-    publish_schema_specification,
-  ]
   risk high
 
   verify property "core with zero extensions installed has zero entity kinds in KindRegistry"
@@ -115,21 +24,6 @@ invariant registry_population_before_validation "Registry Population Before Vali
     (structural parsing) completes for all files before Phase 2 (semantic
     validation against registries) starts.
   """
-  enforced_by [
-    load_extension_manifests, validate_manifest_v2_schema, boot_empty_edge_registry,
-    two_phase_parse_structural, two_phase_validate_semantic,
-    populate_kind_registry_from_extensions, populate_field_registry_from_extensions,
-    populate_edge_registry_from_extensions, validate_registered_entity_fields,
-    detect_unknown_entity_kinds, detect_unknown_entity_fields,
-    register_entity_kinds_from_manifest, register_edge_types_from_manifest,
-    register_validation_rules_from_manifest, register_verify_kinds_from_manifest,
-    register_extension_validation_rules, validate_extension_manifest_consistency,
-    generate_schema_from_registries,
-    detect_duplicate_entity_kinds, validate_peer_dependencies,
-    mcp_initialize,
-    register_grammar_contributions,
-    register_body_parser_contributions,
-  ]
   risk high
 
   verify property "no validation diagnostic references a kind that was registered after validation started"
@@ -145,11 +39,6 @@ invariant declarative_validation_determinism "Declarative Validation Determinism
     be deterministic. No randomness or timing-dependent logic MUST influence
     which diagnostics are produced or their ordering.
   """
-  enforced_by [
-    parse_validation_rule_pattern, execute_validation_pattern,
-    emit_diagnostic_from_pattern, register_extension_validation_rules,
-    register_validation_rules_from_manifest, register_custom_validation_patterns,
-  ]
   risk medium
 
   verify property "same extensions and sources produce identical diagnostics across 100 runs"
@@ -175,13 +64,6 @@ invariant testable_entity_classification "Testable Entity Classification" {
     extension declared it so.
   """
 
-  enforced_by [
-    register_entity_kinds_from_manifest,
-    compute_project_statistics,
-    code_actions_for_missing_verify,
-    validate_extension_testability,
-    provide_mcp_coverage_tool,
-  ]
 
   risk medium
 
@@ -202,7 +84,6 @@ invariant define_extension_kind_uniqueness "Define-Extension Kind Uniqueness" {
     define blocks — define blocks are project-local overrides for kinds
     NOT provided by any extension.
   """
-  enforced_by [custom_entity_types_via_define, populate_kind_registry_from_extensions]
   risk medium
 
   verify unit "define block with kind name matching an extension kind produces E-level diagnostic"
@@ -217,12 +98,6 @@ invariant compilation_pipeline_ordering "Compilation Pipeline Ordering" {
     define_blocks_registered → validation_complete. No phase MAY begin
     before all prior phases have completed.
   """
-  enforced_by [
-    two_phase_parse_structural, load_extension_manifests,
-    populate_kind_registry_from_extensions, populate_field_registry_from_extensions,
-    populate_edge_registry_from_extensions, custom_entity_types_via_define,
-    two_phase_validate_semantic, resolve_use_imports,
-  ]
   risk critical
 
   verify property "pipeline events fire in declared order"

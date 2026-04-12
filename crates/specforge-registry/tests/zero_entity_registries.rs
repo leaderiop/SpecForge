@@ -204,6 +204,7 @@ fn boot_field_registry_title_not_a_field() {
     registry.register(FieldRegistryEntry {
         kind_name: "behavior".to_string(),
         field_name: "contract".to_string(),
+        description: None,
         field_type: ManifestFieldType::Block,
         source_extension: "@specforge/software".to_string(),
         edge: None,
@@ -1280,6 +1281,7 @@ fn enhancements_merge_fields() {
             fields: vec![ManifestField {
                 name: "coverage_threshold".to_string(),
                 field_type: "string".to_string(),
+                description: None,
                 edge: None,
                 target_kind: None,
                 file_reference: false,
@@ -1303,6 +1305,7 @@ fn enhancements_unknown_kind_i004() {
             fields: vec![ManifestField {
                 name: "extra".to_string(),
                 field_type: "string".to_string(),
+                description: None,
                 edge: None,
                 target_kind: None,
                 file_reference: false,
@@ -1328,6 +1331,7 @@ fn enhancements_no_overwrite() {
             fields: vec![ManifestField {
                 name: "contract".to_string(),
                 field_type: "string".to_string(), // different type!
+                description: None,
                 edge: None,
                 target_kind: None,
                 file_reference: false,
@@ -1354,6 +1358,7 @@ fn enhancements_two_non_conflicting() {
                 fields: vec![ManifestField {
                     name: "priority".to_string(),
                     field_type: "string".to_string(),
+                    description: None,
                     edge: None,
                     target_kind: None,
                     file_reference: false,
@@ -1369,6 +1374,7 @@ fn enhancements_two_non_conflicting() {
                 fields: vec![ManifestField {
                     name: "category".to_string(),
                     field_type: "string".to_string(),
+                    description: None,
                     edge: None,
                     target_kind: None,
                     file_reference: false,

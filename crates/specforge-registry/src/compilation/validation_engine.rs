@@ -19,6 +19,7 @@ pub struct ValidationRulePattern {
 pub enum ValidationPatternKind {
     NoIncomingEdges,
     NoOutgoingEdges,
+    NoEdges,
     MissingFieldWhenFlagSet,
     FieldValueConstraint,
     CycleDetection,
@@ -70,6 +71,7 @@ pub fn parse_rule_pattern(
     let check = match rule.check.as_str() {
         "no_incoming_edges" => ValidationPatternKind::NoIncomingEdges,
         "no_outgoing_edges" => ValidationPatternKind::NoOutgoingEdges,
+        "no_edges" => ValidationPatternKind::NoEdges,
         "missing_field_when_flag_set" => ValidationPatternKind::MissingFieldWhenFlagSet,
         "field_value_constraint" => ValidationPatternKind::FieldValueConstraint,
         "cycle_detection" => ValidationPatternKind::CycleDetection,
@@ -183,9 +185,19 @@ pub fn execute_pattern(
         let violated = match pattern.check {
             ValidationPatternKind::NoIncomingEdges => entity.incoming_edge_count == 0,
             ValidationPatternKind::NoOutgoingEdges => entity.outgoing_edge_count == 0,
+            ValidationPatternKind::NoEdges => {
+                entity.incoming_edge_count == 0 && entity.outgoing_edge_count == 0
+            }
             ValidationPatternKind::MissingFieldWhenFlagSet => {
                 if let Some(ref field_name) = pattern.field {
-                    !entity.fields.contains_key(field_name)
+                    // Union types (type X = A | B) have a "variants" field but
+                    // cannot syntactically hold verify statements, so skip them
+                    // for verify-related checks.
+                    if field_name == "verify" && entity.fields.contains_key("variants") {
+                        false
+                    } else {
+                        !entity.fields.contains_key(field_name)
+                    }
                 } else {
                     false
                 }

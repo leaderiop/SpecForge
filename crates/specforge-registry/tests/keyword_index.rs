@@ -39,6 +39,7 @@ fn make_entity_kind(keyword: &str) -> ManifestEntityKind {
     ManifestEntityKind {
         name: keyword.to_string(),
         keyword: keyword.to_string(),
+        description: None,
         testable: false,
         singleton: false,
         supports_verify: false,

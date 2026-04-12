@@ -16,6 +16,7 @@ port FileSystem {
   method exists(path: string) -> Result<boolean, never>
   method atomicWrite(path: string, content: string) -> Result<void, EmitterError>
   method rename(from: string, to: string) -> Result<void, EmitterError>
+  verify integration "FileSystem contract is satisfied"
 }
 
 port SourceParser {
@@ -24,6 +25,7 @@ port SourceParser {
 
   method parseSource(content: string, path: string) -> Result<SpecFile, ParseError>
   method parseIncremental(content: string, path: string, previousTree: string) -> Result<SpecFile, ParseError>
+  verify integration "SourceParser contract is satisfied"
 }
 
 port GraphSerializer {
@@ -33,6 +35,7 @@ port GraphSerializer {
   method serializeJson(data: JsonValue) -> Result<string, EmitterError>
   method serializeDot(data: JsonValue) -> Result<string, EmitterError>
   method writeOutput(path: string, content: string) -> Result<void, EmitterError>
+  verify integration "GraphSerializer contract is satisfied"
 }
 
 port RefValidator {
@@ -43,6 +46,7 @@ port RefValidator {
   method validateKind(scheme: string, kind: string) -> Result<boolean, never>
   method validateIdentifier(scheme: string, kind: string, identifier: string) -> Result<boolean, ValidationError>
   method resolveUrl(scheme: string, kind: string, identifier: string) -> Result<string, EmitterError>
+  verify integration "RefValidator contract is satisfied"
 }
 
 port WasmRuntime {
@@ -60,6 +64,7 @@ port WasmRuntime {
   method loadGrammar(contribution: GrammarContribution) -> Result<void, GrammarError>
   method callBodyParser(export_name: string, raw_body: string) -> Result<FieldMap, BodyParserError>
   method getGrammarCacheStatus(hash: string) -> Result<GrammarCacheEntry, GrammarError>
+  verify integration "WasmRuntime contract is satisfied"
 }
 
 port RegistryClient {
@@ -73,5 +78,6 @@ port RegistryClient {
   method publish(registryUrl: string, name: string, wasmPath: string, manifest: string) -> Result<void, RegistryError>
   method authenticate(registryUrl: string, credential: RegistryCredential) -> Result<string, RegistryError>
   method validateCredential(credential: RegistryCredential) -> Result<boolean, RegistryError>
+  verify integration "RegistryClient contract is satisfied"
 }
 

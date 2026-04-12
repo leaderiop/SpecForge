@@ -4,10 +4,6 @@ use "extensions/federation/behaviors"
 use "extensions/federation/features"
 roadmap federation_phase "Phase 9b: Cross-Project Federation" {
   status     planned
-  behaviors  [
-    resolve_cross_project_references, load_remote_project_graph,
-    validate_cross_project_edge_consistency, export_federated_graph,
-  ]
   features   [cross_project_references, federated_graph_export]
 
   criteria [

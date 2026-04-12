@@ -5,7 +5,6 @@
 
 use "extensions/markdown-renderer/behaviors"
 feature markdown_documentation_generation "Markdown Documentation Generation" {
-  behaviors [render_markdown_documentation, render_index_files, selective_render_by_entity_type]
 
   problem """
     Stakeholders who don't work with .spec files need readable

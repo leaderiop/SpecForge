@@ -40,20 +40,31 @@ feature greeting "Greeting Feature" {
     (server, dir)
 }
 
-// B:mcp_initialize — verify unit "returns McpCapabilities"
+// B:mcp_initialize — verify unit "returns MCP-compliant init response"
 #[test]
-#[specforge_test(behavior = "mcp_initialize", verify = "returns McpCapabilities")]
+#[specforge_test(behavior = "mcp_initialize", verify = "returns MCP-compliant init response")]
 fn initialize_returns_capabilities() {
     let mut server = McpServer::new();
     let resp = call(&mut server, "initialize", json!({}));
     let result = &resp["result"];
 
+    // MCP-standard fields
+    assert!(result["protocolVersion"].is_string(), "must have protocolVersion");
+    assert!(result["capabilities"].is_object(), "must have capabilities object");
+    assert!(result["serverInfo"].is_object(), "must have serverInfo object");
+    assert_eq!(result["serverInfo"]["name"], "specforge-mcp");
+    assert!(result["serverInfo"]["version"].is_string());
+
+    // Capabilities declares supported categories
+    let caps = &result["capabilities"];
+    assert!(caps["tools"].is_object(), "capabilities must declare tools support");
+    assert!(caps["resources"].is_object(), "capabilities must declare resources support");
+    assert!(caps["prompts"].is_object(), "capabilities must declare prompts support");
+
+    // Convenience arrays still present for backwards compat
     assert!(result["tools"].is_array());
     assert!(result["resources"].is_array());
     assert!(result["prompts"].is_array());
-    assert_eq!(result["server_name"], "specforge-mcp");
-    assert!(result["server_version"].is_string());
-    assert_eq!(result["subscriptions"], true);
 }
 
 // B:mcp_initialize — verify unit "registers tools"

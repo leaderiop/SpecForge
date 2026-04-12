@@ -5,7 +5,6 @@ use "behaviors/graph"
 use "behaviors/lsp"
 feature incremental_compilation "Incremental Compilation" {
   // Bridge: shared_incremental_pipeline (peer behavior, also listed in live_diagnostics in features/lsp.spec)
-  behaviors [maintain_mutable_graph, watch_file_system_for_changes, debounce_file_changes, compute_subgraph_for_invalidation, invalidate_changed_files, track_import_dag_incrementally, rebuild_affected_subgraph, emit_incremental_diagnostics, shared_incremental_pipeline]
 
   problem """
     Full recompilation on every file change is too slow for interactive
@@ -24,7 +23,6 @@ feature incremental_compilation "Incremental Compilation" {
 }
 
 feature incremental_graph_deltas "Incremental Graph Deltas" {
-  behaviors [compute_graph_delta, dispatch_incremental_validators, notify_delta_subscribers, validate_delta_correctness]
   // notify_graph_delta_via_mcp is part of the MCP feature, not this one.
   // See behaviors/mcp-server.spec for the MCP delta notification behavior.
   // Cross-feature: emit_incremental_diagnostics (incremental_compilation) consumes

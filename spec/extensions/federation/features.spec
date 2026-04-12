@@ -2,7 +2,6 @@
 
 use "extensions/federation/behaviors"
 feature cross_project_references "Cross-Project References" {
-  behaviors [load_federation_config, resolve_cross_project_references, load_remote_project_graph, validate_cross_project_edge_consistency]
 
   problem """
     Large organizations split specifications across multiple projects (e.g.,
@@ -21,7 +20,6 @@ feature cross_project_references "Cross-Project References" {
 }
 
 feature federated_graph_export "Federated Graph Export" {
-  behaviors [export_federated_graph]
 
   problem """
     Even with cross-project references resolved, there is no way to export

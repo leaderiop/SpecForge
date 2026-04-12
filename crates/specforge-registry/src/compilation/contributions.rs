@@ -208,6 +208,7 @@ mod tests {
     fn make_kind_entry(name: &str, ext: &str) -> KindRegistryEntry {
         KindRegistryEntry {
             kind_name: name.to_string(),
+            description: None,
             source_extension: ext.to_string(),
             testable: false,
             singleton: false,

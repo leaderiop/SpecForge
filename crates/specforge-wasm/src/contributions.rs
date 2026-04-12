@@ -671,6 +671,7 @@ mod tests {
             fields: vec![ManifestField {
                 name: "coverage_threshold".to_string(),
                 field_type: "string".to_string(),
+                description: None,
                 edge: None,
                 target_kind: None,
                 file_reference: false,
@@ -695,6 +696,7 @@ mod tests {
                 fields: vec![ManifestField {
                     name: "priority".to_string(),
                     field_type: "string".to_string(),
+                    description: None,
                     edge: None,
                     target_kind: None,
                     file_reference: false,
@@ -711,6 +713,7 @@ mod tests {
             fields: vec![ManifestField {
                 name: "priority".to_string(), // Same field name!
                 field_type: "string".to_string(),
+                description: None,
                 edge: None,
                 target_kind: None,
                 file_reference: false,
@@ -735,6 +738,7 @@ mod tests {
                 fields: vec![ManifestField {
                     name: "priority".to_string(),
                     field_type: "string".to_string(),
+                    description: None,
                     edge: None,
                     target_kind: None,
                     file_reference: false,
@@ -751,6 +755,7 @@ mod tests {
             fields: vec![ManifestField {
                 name: "priority".to_string(),
                 field_type: "string".to_string(),
+                description: None,
                 edge: None,
                 target_kind: None,
                 file_reference: false,

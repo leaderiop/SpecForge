@@ -106,9 +106,9 @@ pub fn diagnostic_summary(diagnostics: &[Diagnostic]) -> String {
     }
 
     if diagnostics.len() > 5 {
-        summary.push_str(&format!(
+        summary.push_str(
             "\n  run `specforge explain <code>` for details on any diagnostic code"
-        ));
+        );
     }
 
     summary

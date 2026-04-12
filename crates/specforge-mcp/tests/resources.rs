@@ -82,18 +82,23 @@ fn graph_resource_has_mime_type() {
     assert_eq!(resp["result"]["contents"][0]["mimeType"], "application/json");
 }
 
-// B:expose_schema_as_mcp_resource — verify unit "returns schema with entity kinds"
+// B:expose_schema_as_mcp_resource — verify unit "returns schema with entity kinds derived from graph"
 #[test]
-#[specforge_test(behavior = "expose_schema_as_mcp_resource", verify = "specforge://schema resource returns GraphProtocolSchema JSON")]
+#[specforge_test(behavior = "expose_schema_as_mcp_resource", verify = "specforge://schema resource returns graph-derived entity kinds")]
 fn schema_resource_returns_kinds() {
     let mut server = test_server();
     let resp = read_resource(&mut server, "specforge://schema");
     let text = resource_text(&resp);
     let parsed: Value = serde_json::from_str(&text).unwrap();
-    // Schema resource returns a full GraphProtocolSchema with structured entity_kinds
-    assert!(parsed["entity_kinds"].is_array());
-    assert!(parsed["schema_version"].is_object());
-    assert!(parsed["edge_types"].is_array());
+    // Schema resource must derive entity kinds from the graph (not from registries)
+    let entity_kinds = &parsed["entity_kinds"];
+    assert!(entity_kinds.is_object(), "entity_kinds should be an object mapping kind->fields, got: {}", entity_kinds);
+    // test_server has behavior and feature nodes
+    let kinds_obj = entity_kinds.as_object().unwrap();
+    assert!(kinds_obj.contains_key("behavior"), "schema should include 'behavior' kind from graph nodes");
+    assert!(kinds_obj.contains_key("feature"), "schema should include 'feature' kind from graph nodes");
+    assert!(parsed["schema_version"].is_string(), "schema_version should be a string like '0.1.0'");
+    assert!(parsed["edge_labels"].is_array(), "should have edge_labels array");
 }
 
 // B:expose_context_as_mcp_resource — verify unit "returns context-optimized graph"
@@ -239,24 +244,33 @@ fn graph_refreshes_after_recompilation() {
     assert_eq!(count2, count1 + 1);
 }
 
-// B:expose_schema_as_mcp_resource — verify unit "schema updates when extensions change"
+// B:expose_schema_as_mcp_resource — verify unit "schema updates when graph changes"
 #[test]
-#[specforge_test(behavior = "expose_schema_as_mcp_resource", verify = "schema updates when extensions change")]
+#[specforge_test(behavior = "expose_schema_as_mcp_resource", verify = "schema updates when graph changes")]
 fn schema_updates_when_graph_changes() {
     let mut server = test_server();
     let resp1 = read_resource(&mut server, "specforge://schema");
     let text1 = resource_text(&resp1);
     let parsed1: Value = serde_json::from_str(&text1).unwrap();
 
-    // Schema resource now returns a proper GraphProtocolSchema
-    // Without extension registries loaded, it returns an empty schema
-    assert!(parsed1["entity_kinds"].is_array());
-    assert!(parsed1["schema_version"].is_object());
+    // Schema is derived from graph — should have entity_kinds from current nodes
+    let kinds1 = parsed1["entity_kinds"].as_object().unwrap();
+    assert!(!kinds1.contains_key("event"), "initially no event kind in graph");
 
-    // Subsequent calls return the same schema (stable)
+    // Add a new kind to the graph
+    server.state_mut().graph.add_node(Node {
+        id: EntityId { raw: "evt1".into() },
+        kind: EntityKind { raw: "event".into() },
+        title: Some("Test Event".into()),
+        fields: FieldMap::new(),
+        source_span: span(),
+    });
+
     let resp2 = read_resource(&mut server, "specforge://schema");
     let text2 = resource_text(&resp2);
-    assert_eq!(text1, text2, "schema is stable across calls");
+    let parsed2: Value = serde_json::from_str(&text2).unwrap();
+    let kinds2 = parsed2["entity_kinds"].as_object().unwrap();
+    assert!(kinds2.contains_key("event"), "after adding event node, schema should include 'event' kind");
 }
 
 // B:expose_context_as_mcp_resource — verify unit "resource refreshes after recompilation"

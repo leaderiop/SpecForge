@@ -7,11 +7,6 @@ use "behaviors/wasm-lifecycle"
 use "behaviors/wasm-sandbox"
 use "behaviors/surface-contributions"
 feature wasm_extension_runtime "Wasm Extension Runtime" {
-  behaviors [
-    load_wasm_module, initialize_wasm_extension, call_extension_validators,
-    validate_extension_peer_dependencies, topological_sort_extensions,
-    handle_wasm_trap,
-  ]
 
   problem """
     Extensions need a unified runtime that works across all platforms
@@ -29,14 +24,6 @@ feature wasm_extension_runtime "Wasm Extension Runtime" {
 }
 
 feature wasm_host_function_api "Wasm Host Function API" {
-  behaviors [
-    compute_extension_query_scope, provide_host_function_query_graph,
-    provide_host_function_emit_diagnostic,
-    provide_host_function_add_graph_node, provide_host_function_add_graph_edge,
-    provide_host_function_read_file, provide_host_function_emit_file,
-    provide_host_function_http_get,
-    enforce_wasm_sandbox, configure_sandbox_policy,
-  ]
 
   problem """
     Extensions need controlled access to compiler internals (graph queries,
@@ -67,10 +54,6 @@ feature wasm_host_function_api "Wasm Host Function API" {
 }
 
 feature wasm_performance_optimization "Wasm Performance Optimization" {
-  behaviors [
-    aot_compile_wasm_module, cache_aot_artifacts, warm_wasm_engine_instance,
-    evict_warm_engine_instance,
-  ]
 
   problem """
     Cold-loading .wasm binaries on every compilation is too slow for CLI
@@ -87,7 +70,6 @@ feature wasm_performance_optimization "Wasm Performance Optimization" {
 }
 
 feature wasm_extension_authoring "Wasm Extension Authoring" {
-  behaviors [scaffold_wasm_extension_project, build_wasm_extension, validate_wasm_extension_locally, publish_wasm_extension]
 
   problem """
     Extension authors need a streamlined workflow to create, test, and
@@ -106,7 +88,6 @@ feature wasm_extension_authoring "Wasm Extension Authoring" {
 }
 
 feature extension_query_contributions "Extension Query Contributions" {
-  behaviors [provide_extension_query_extensions, compose_query_files_from_extensions]
 
   problem """
     While the generic entity_block rule handles all entity blocks
@@ -129,13 +110,6 @@ feature extension_query_contributions "Extension Query Contributions" {
 feature entity_enhancement "Entity Enhancement" {
   // Bridge: depends on validate_extension_manifest (contribution_based_extensions feature)
   // for manifest schema validation before enhancement registration proceeds.
-  behaviors [
-    load_extension_manifest,
-    register_entity_enhancements,
-    detect_enhancement_conflicts,
-    resolve_enhancement_conflicts,
-    run_doctor_check,
-  ]
 
   problem """
     Extensions can add new entity types but cannot enhance existing entities
@@ -160,10 +134,6 @@ feature entity_enhancement "Entity Enhancement" {
 }
 
 feature entity_kind_conflict_prevention "Entity Kind Conflict Prevention" {
-  behaviors [
-    reject_reserved_entity_kind,
-    detect_entity_kind_collision,
-  ]
 
   problem """
     Wasm extensions register new entity kinds during initialization but
@@ -181,10 +151,6 @@ feature entity_kind_conflict_prevention "Entity Kind Conflict Prevention" {
 }
 
 feature wasm_extension_installation "Wasm Extension Installation" {
-  behaviors [
-    install_wasm_extension, uninstall_wasm_extension, upgrade_wasm_extension,
-    parse_extension_specifier, resolve_extension_source,
-  ]
 
   problem """
     Extensions need a reliable install/uninstall/upgrade workflow that
@@ -201,9 +167,6 @@ feature wasm_extension_installation "Wasm Extension Installation" {
 }
 
 feature wasm_lock_management "Wasm Lock Management" {
-  behaviors [
-    write_lock_file, read_lock_file, refresh_lock_file, verify_wasm_integrity,
-  ]
 
   problem """
     Reproducible builds require pinning exact extension versions with
@@ -220,9 +183,6 @@ feature wasm_lock_management "Wasm Lock Management" {
 }
 
 feature wasm_extension_maintenance "Wasm Extension Maintenance" {
-  behaviors [
-    discover_extensions, invalidate_aot_cache, update_all_extensions,
-  ]
 
   problem """
     Extension ecosystems need discovery, cache management, and bulk
@@ -239,13 +199,6 @@ feature wasm_extension_maintenance "Wasm Extension Maintenance" {
 }
 
 feature contribution_based_extensions "Contribution-Based Extensions" {
-  behaviors [
-    validate_extension_manifest,
-    dispatch_contribution_exports,
-    validate_contribution_exports,
-    enforce_per_call_site_permissions,
-    toggle_extension_contributions,
-  ]
 
   problem """
     Extensions need a structured way to declare what they contribute
@@ -287,7 +240,6 @@ feature contribution_based_extensions "Contribution-Based Extensions" {
 }
 
 feature test_result_collection "Test Result Collection" {
-  behaviors [register_collector_contributions, auto_detect_collector, dispatch_collector, validate_collector_output, ingest_collector_report]
 
   problem """
     SpecForge traces test results but does not execute tests. Extensions need
@@ -313,14 +265,6 @@ feature test_result_collection "Test Result Collection" {
 }
 
 feature surface_contributions "Surface Contributions" {
-  behaviors [
-    register_surface_contributions, validate_surface_exports,
-    validate_mcp_tool_schemas, validate_command_arg_types,
-    auto_promote_commands_to_mcp_tools,
-    dispatch_surface_command, dispatch_surface_mcp_tool,
-    dispatch_surface_mcp_resource,
-    enforce_surface_sandbox, toggle_surface_contributions,
-  ]
 
   problem """
     Extensions can extend the compilation pipeline (entities, validators,
@@ -349,7 +293,6 @@ feature wasm_grammar_contributions "Wasm Grammar Contributions" {
   // enforced_by, but those behaviors belong to dynamic_entity_registration feature in
   // features/zero-entity-core.spec. This is a cross-feature dependency, similar to
   // entity_enhancement's dependency on validate_extension_manifest.
-  behaviors [load_extension_grammar, validate_grammar_wasm, compose_grammar_injections, dispatch_body_parser, cache_grammar_artifacts]
   refs      [register_grammar_contributions, register_body_parser_contributions]
 
   problem """

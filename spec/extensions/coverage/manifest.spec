@@ -54,7 +54,6 @@ invariant cv_language_agnostic_collection "Language-Agnostic Collection" {
     it reads specforge-report.json by default. Language-specific parsers
     are opt-in via --parser flag or collector_contributions.
   """
-  enforced_by [cv_declare_manifest]
   risk        high
 
   verify property "collect command defaults to specforge-report.json input"
