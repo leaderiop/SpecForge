@@ -2,6 +2,31 @@ use crate::ast::*;
 use specforge_common::{SourceSpan, Sym};
 use tree_sitter::{Node, Parser};
 
+/// Process escape sequences in a string literal (after quote stripping).
+fn unescape(s: &str) -> String {
+    let mut result = String::with_capacity(s.len());
+    let mut chars = s.chars();
+    while let Some(c) = chars.next() {
+        if c == '\\' {
+            match chars.next() {
+                Some('"') => result.push('"'),
+                Some('\\') => result.push('\\'),
+                Some('n') => result.push('\n'),
+                Some('t') => result.push('\t'),
+                Some('r') => result.push('\r'),
+                Some(other) => {
+                    result.push('\\');
+                    result.push(other);
+                }
+                None => result.push('\\'),
+            }
+        } else {
+            result.push(c);
+        }
+    }
+    result
+}
+
 pub fn parse(source: &str, file_path: &str) -> SpecFile {
     parse_incremental(source, file_path, None).0
 }
@@ -106,7 +131,8 @@ impl<'a> ParseContext<'a> {
     fn unquote(&self, node: Node) -> String {
         let text = self.text(node);
         if text.starts_with('"') && text.ends_with('"') && text.len() >= 2 {
-            text[1..text.len() - 1].to_string()
+            let inner = &text[1..text.len() - 1];
+            unescape(inner)
         } else {
             text.to_string()
         }
@@ -243,7 +269,7 @@ impl<'a> ParseContext<'a> {
         if inner.kind() == "ref_full" {
             let (body_fields, _) = self.parse_block_body(inner);
             for entry in body_fields.entries() {
-                fields.push(entry.key, entry.value.clone());
+                fields.push_annotated(entry.key, entry.value.clone(), entry.annotations.clone());
             }
         }
 
@@ -373,8 +399,8 @@ impl<'a> ParseContext<'a> {
         for child in node.children(&mut cursor) {
             match child.kind() {
                 "field" => {
-                    if let Some((key, value)) = self.parse_field(child) {
-                        fields.push(key, value);
+                    if let Some((key, value, annotations)) = self.parse_field(child) {
+                        fields.push_annotated(key, value, annotations);
                     }
                 }
                 "verify_statement" => {
@@ -390,7 +416,7 @@ impl<'a> ParseContext<'a> {
         (fields, verify)
     }
 
-    fn parse_field(&mut self, node: Node) -> Option<(Sym, FieldValue)> {
+    fn parse_field(&mut self, node: Node) -> Option<(Sym, FieldValue, Vec<Annotation>)> {
         let key = node.child_by_field_name("key")?;
         let value = node.child_by_field_name("value")?;
         let key_sym = Sym::new(self.text(key));
@@ -401,14 +427,58 @@ impl<'a> ParseContext<'a> {
         {
             field_value = FieldValue::VariantList(items.clone());
         }
-        Some((key_sym, field_value))
+
+        // Extract annotations (children with kind "annotation")
+        let mut annotations = Vec::new();
+        let mut cursor = node.walk();
+        for child in node.children(&mut cursor) {
+            if child.kind() == "annotation" {
+                annotations.push(self.parse_annotation(child));
+            }
+        }
+
+        Some((key_sym, field_value, annotations))
+    }
+
+    /// Parse an annotation node. The grammar defines annotation as:
+    ///   `TOKEN("@" + identifier_pattern) string?`
+    ///
+    /// The `@name` portion is an opaque TOKEN — tree-sitter does not create a
+    /// child node for it. Instead the `@name` text is the beginning of the
+    /// annotation node's own source text. The only possible named child is
+    /// an optional `string` node carrying the annotation value.
+    fn parse_annotation(&self, node: Node) -> Annotation {
+        // The annotation node's full text starts with "@name" followed by
+        // optional whitespace and a quoted string value.
+        // Extract the name by taking the first whitespace-delimited token
+        // and stripping the leading '@'.
+        let full_text = self.text(node).trim();
+        let name = full_text
+            .split_whitespace()
+            .next()
+            .unwrap_or(full_text)
+            .strip_prefix('@')
+            .unwrap_or(full_text)
+            .to_string();
+
+        // Look for an optional string child (the annotation value).
+        // The grammar does not use field names on annotation children,
+        // so we search by node kind.
+        let value = {
+            let mut cursor = node.walk();
+            node.children(&mut cursor)
+                .find(|c| c.kind() == "string")
+                .map(|n| self.unquote(n))
+        };
+
+        Annotation { name, value }
     }
 
     fn parse_value(&mut self, node: Node) -> FieldValue {
         match node.kind() {
             "string" => FieldValue::String(self.unquote(node)),
             "triple_quoted_string" => FieldValue::String(self.parse_triple_quoted(node)),
-            "integer" => {
+            "integer" | "negative_integer" => {
                 let text = self.text(node);
                 match text.parse::<i64>() {
                     Ok(val) => FieldValue::Integer(val),
@@ -442,41 +512,83 @@ impl<'a> ParseContext<'a> {
     fn parse_list(&mut self, node: Node) -> FieldValue {
         let mut has_string = false;
         let mut has_identifier = false;
-        let mut items = Vec::new();
+        let mut has_integer = false;
+        let mut has_boolean = false;
+
+        // Collect typed items for mixed-type detection
+        let mut typed_items: Vec<FieldValue> = Vec::new();
+        // Parallel flat string items for homogeneous lists
+        let mut flat_items: Vec<String> = Vec::new();
 
         let mut cursor = node.walk();
         for child in node.children(&mut cursor) {
             match child.kind() {
                 "identifier" => {
-                    has_identifier = true;
-                    items.push(self.text(child).to_string());
+                    let text = self.text(child).to_string();
+                    // Detect boolean literals that tree-sitter parses
+                    // as identifiers inside list context.
+                    if text == "true" || text == "false" {
+                        has_boolean = true;
+                        typed_items.push(FieldValue::Boolean(text == "true"));
+                    } else {
+                        has_identifier = true;
+                        typed_items.push(FieldValue::Identifier(text.clone()));
+                    }
+                    flat_items.push(text);
                 }
                 "string" => {
+                    let text = self.unquote(child);
                     has_string = true;
-                    items.push(self.unquote(child));
+                    typed_items.push(FieldValue::String(text.clone()));
+                    flat_items.push(text);
                 }
                 "scheme_ref_id" => {
+                    let text = self.text(child).to_string();
                     has_identifier = true;
-                    items.push(self.text(child).to_string());
+                    typed_items.push(FieldValue::Identifier(text.clone()));
+                    flat_items.push(text);
                 }
-                "integer" => items.push(self.text(child).to_string()),
+                "integer" => {
+                    let text = self.text(child);
+                    has_integer = true;
+                    let val = text.parse::<i64>().unwrap_or(0);
+                    typed_items.push(FieldValue::Integer(val));
+                    flat_items.push(text.to_string());
+                }
+                "boolean" => {
+                    let text = self.text(child);
+                    has_boolean = true;
+                    typed_items.push(FieldValue::Boolean(text == "true"));
+                    flat_items.push(text.to_string());
+                }
                 _ => {}
             }
         }
 
-        if has_string && has_identifier {
-            self.errors.push(ParseError {
-                message: "mixed list contains both quoted strings and bare identifiers; treating as string list".to_string(),
-                span: self.span(node),
-                expected: Some("either all quoted strings or all bare identifiers".to_string()),
-                found: None,
-            });
+        // Determine how many distinct type categories are present
+        let type_count = [has_string, has_identifier, has_integer, has_boolean]
+            .iter()
+            .filter(|&&b| b)
+            .count();
+
+        if type_count > 1 {
+            // Mixed types detected — emit warning and preserve per-item types
+            if has_string && has_identifier {
+                self.errors.push(ParseError {
+                    message: "mixed list contains both quoted strings and bare identifiers".to_string(),
+                    span: self.span(node),
+                    expected: Some("either all quoted strings or all bare identifiers".to_string()),
+                    found: None,
+                });
+            }
+            return FieldValue::MixedList(typed_items);
         }
 
+        // Homogeneous list — use flat string representation
         if has_string {
-            FieldValue::StringList(items)
+            FieldValue::StringList(flat_items)
         } else {
-            FieldValue::ReferenceList(items)
+            FieldValue::ReferenceList(flat_items)
         }
     }
 
@@ -485,8 +597,8 @@ impl<'a> ParseContext<'a> {
         let mut cursor = node.walk();
         for child in node.children(&mut cursor) {
             if child.kind() == "field"
-                && let Some((key, value)) = self.parse_field(child) {
-                    fields.push(key, value);
+                && let Some((key, value, annotations)) = self.parse_field(child) {
+                    fields.push_annotated(key, value, annotations);
                 }
         }
         FieldValue::Block(fields)

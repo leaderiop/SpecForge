@@ -1,22 +1,26 @@
+use specforge_emitter::builtins::{
+    FormalExtension, GovernanceExtension, ProductExtension, SoftwareExtension,
+};
 use specforge_emitter::outline::*;
 use specforge_registry::ManifestV2;
+use specforge_wasm::builtin::BuiltinExtension;
+use specforge_wasm::protocol::{
+    load_protocol_extension, protocol_extension_to_manifest, ProtocolHost,
+};
+use specforge_wasm::BuiltinRuntime;
 
 fn load_manifest(name: &str) -> ManifestV2 {
-    let path = format!("../../../extensions/{}/manifest.json", name);
-    let json = std::fs::read_to_string(
-        std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("tests").join(&path),
-    )
-    .unwrap_or_else(|_| {
-        // Try relative from workspace root
-        let ws_path = format!(
-            "{}/extensions/{}/manifest.json",
-            env!("CARGO_MANIFEST_DIR").replace("/crates/specforge-emitter", ""),
-            name
-        );
-        std::fs::read_to_string(&ws_path)
-            .unwrap_or_else(|e| panic!("cannot read manifest for {}: {}", name, e))
-    });
-    serde_json::from_str(&json).unwrap_or_else(|e| panic!("cannot parse manifest for {}: {}", name, e))
+    let (ext_name, ext): (&str, Box<dyn BuiltinExtension>) = match name {
+        "product" => ("@specforge/product", Box::new(ProductExtension)),
+        "software" => ("@specforge/software", Box::new(SoftwareExtension)),
+        "governance" => ("@specforge/governance", Box::new(GovernanceExtension)),
+        "formal" => ("@specforge/formal", Box::new(FormalExtension)),
+        _ => panic!("unknown extension: {}", name),
+    };
+    let runtime = BuiltinRuntime::new().with_extension(ext_name, ext);
+    let host = ProtocolHost::new(&runtime);
+    let proto_ext = load_protocol_extension(&host, ext_name).unwrap();
+    protocol_extension_to_manifest(&proto_ext)
 }
 
 fn load_all_manifests() -> Vec<ManifestV2> {

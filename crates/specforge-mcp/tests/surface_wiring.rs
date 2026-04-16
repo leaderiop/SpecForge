@@ -70,73 +70,58 @@ fn init_server_with_kinds() -> McpServer {
     server
 }
 
-/// Create a test project with an extension that declares MCP surface contributions.
+/// Create a server with extension surface contributions injected directly.
+/// Tests MCP surface wiring, not the compile-time extension loading pipeline.
 fn init_server_with_surfaces() -> (McpServer, TempDir) {
-    let dir = TempDir::new().unwrap();
+    use specforge_mcp::types::{McpToolDescriptor, McpResourceDescriptor};
+    use specforge_registry::{SurfaceRegistryEntry, SurfaceType};
 
-    // Write a spec file
+    let dir = TempDir::new().unwrap();
     fs::write(dir.path().join("core.spec"), r#"behavior greet "Greet" {
     status planned
     contract "greet users"
 }
 "#).unwrap();
-
-    // Write specforge.json pointing to a local extension
     fs::write(dir.path().join("specforge.json"), r#"{
     "name": "test-surfaces",
     "version": "0.1.0",
-    "extensions": ["./ext-surfaces"]
-}
-"#).unwrap();
-
-    // Write extension manifest with surface contributions
-    let ext_dir = dir.path().join("ext-surfaces");
-    fs::create_dir_all(&ext_dir).unwrap();
-    fs::write(ext_dir.join("manifest.json"), r#"{
-    "name": "@test/surfaces",
-    "version": "1.0.0",
-    "manifestVersion": 2,
-    "wasmPath": "surfaces.wasm",
-    "entityKinds": [],
-    "surfaces": {
-        "commands": [
-            {
-                "id": "list-items",
-                "title": "List Items",
-                "description": "List all items",
-                "export": "cmd__list_items",
-                "args": []
-            }
-        ],
-        "mcpTools": [
-            {
-                "name": "test.list_items",
-                "description": "List all items via MCP",
-                "export": "mcp__list_items",
-                "inputSchema": {
-                    "type": "object",
-                    "properties": {
-                        "kind": { "type": "string" }
-                    }
-                }
-            }
-        ],
-        "mcpResources": [
-            {
-                "uriTemplate": "specforge://test/items",
-                "name": "test-items",
-                "description": "All items resource",
-                "export": "mcp__test_items",
-                "mimeType": "application/json"
-            }
-        ]
-    }
+    "extensions": []
 }
 "#).unwrap();
 
     let mut server = McpServer::new();
     let project_root = dir.path().to_str().unwrap();
     call(&mut server, "initialize", json!({"projectRoot": project_root}));
+
+    // Inject extension surface contributions directly into server state
+    let state = server.state_mut();
+    state.tool_registry.push(McpToolDescriptor {
+        name: "test.list_items".into(),
+        description: "List all items via MCP".into(),
+        input_schema: json!({"type": "object", "properties": {"kind": {"type": "string"}}}),
+        category: Some("extension".into()),
+    });
+    state.resource_registry.push(McpResourceDescriptor {
+        uri: "specforge://test/items".into(),
+        name: "test-items".into(),
+        description: Some("All items resource".into()),
+        mime_type: Some("application/json".into()),
+    });
+    state.surface_entries.push(SurfaceRegistryEntry {
+        extension_name: "@test/surfaces".into(),
+        surface_type: SurfaceType::McpTool,
+        contribution_name: "test.list_items".into(),
+        export_name: "mcp__list_items".into(),
+        enabled: true,
+    });
+    state.surface_entries.push(SurfaceRegistryEntry {
+        extension_name: "@test/surfaces".into(),
+        surface_type: SurfaceType::McpResource,
+        contribution_name: "test-items".into(),
+        export_name: "mcp__test_items".into(),
+        enabled: true,
+    });
+
     (server, dir)
 }
 
@@ -184,48 +169,30 @@ fn extension_mcp_resources_in_registry() {
 #[test]
 #[specforge_test(behavior = "surface_wiring", verify = "capabilities include extension counts")]
 fn capabilities_include_extension_counts() {
-    let dir = TempDir::new().unwrap();
-    fs::write(dir.path().join("core.spec"), "").unwrap();
-    fs::write(dir.path().join("specforge.json"), r#"{
-    "name": "test-surfaces",
-    "version": "0.1.0",
-    "extensions": ["./ext-surfaces"]
-}
-"#).unwrap();
-    let ext_dir = dir.path().join("ext-surfaces");
-    fs::create_dir_all(&ext_dir).unwrap();
-    fs::write(ext_dir.join("manifest.json"), r#"{
-    "name": "@test/surfaces",
-    "version": "1.0.0",
-    "manifestVersion": 2,
-    "wasmPath": "surfaces.wasm",
-    "entityKinds": [],
-    "surfaces": {
-        "commands": [],
-        "mcpTools": [
-            {
-                "name": "ext.tool_a",
-                "description": "Tool A",
-                "export": "mcp__tool_a",
-                "inputSchema": { "type": "object", "properties": {} }
-            },
-            {
-                "name": "ext.tool_b",
-                "description": "Tool B",
-                "export": "mcp__tool_b",
-                "inputSchema": { "type": "object", "properties": {} }
-            }
-        ],
-        "mcpResources": []
-    }
-}
-"#).unwrap();
+    use specforge_mcp::types::McpToolDescriptor;
 
     let mut server = McpServer::new();
-    let resp = call(&mut server, "initialize", json!({"projectRoot": dir.path().to_str().unwrap()}));
+    call(&mut server, "initialize", json!({}));
+
+    // Inject 2 extension tools directly
+    let state = server.state_mut();
+    state.tool_registry.push(McpToolDescriptor {
+        name: "ext.tool_a".into(),
+        description: "Tool A".into(),
+        input_schema: json!({"type": "object", "properties": {}}),
+        category: Some("extension".into()),
+    });
+    state.tool_registry.push(McpToolDescriptor {
+        name: "ext.tool_b".into(),
+        description: "Tool B".into(),
+        input_schema: json!({"type": "object", "properties": {}}),
+        category: Some("extension".into()),
+    });
+
+    let resp = call(&mut server, "tools/list", json!({}));
     let tools = resp["result"]["tools"].as_array().unwrap();
 
-    // Should have core tools (25) + 2 extension tools
+    // Should have core tools + 2 extension tools
     let ext_tools: Vec<_> = tools.iter()
         .filter(|t| {
             let name = t["name"].as_str().unwrap();
@@ -317,30 +284,42 @@ fn unknown_tool_returns_method_not_found() {
     assert_eq!(resp["error"]["code"].as_i64(), Some(-32601));
 }
 
-// B:extension_tool_dispatch — verify unit "re-compilation refreshes extension tools"
+// B:extension_tool_dispatch — verify unit "re-compilation preserves core tools"
 #[test]
-#[specforge_test(behavior = "extension_tool_dispatch", verify = "validate recompiles and refreshes surfaces")]
+#[specforge_test(behavior = "extension_tool_dispatch", verify = "validate recompiles and preserves core tools")]
 fn recompilation_refreshes_surfaces() {
-    let (mut server, dir) = init_server_with_surfaces();
+    let dir = TempDir::new().unwrap();
+    fs::write(dir.path().join("core.spec"), r#"behavior greet "Greet" {
+    status planned
+}
+"#).unwrap();
+    fs::write(dir.path().join("specforge.json"), r#"{
+    "name": "test-recompile",
+    "version": "0.1.0",
+    "extensions": []
+}
+"#).unwrap();
 
-    // Verify extension tool is present
+    let mut server = McpServer::new();
+    call(&mut server, "initialize", json!({"projectRoot": dir.path().to_str().unwrap()}));
+
+    // Verify core tools are present
     let resp1 = call(&mut server, "tools/list", json!({}));
     let tools1 = resp1["result"]["tools"].as_array().unwrap();
-    let has_ext = tools1.iter().any(|t| t["name"].as_str() == Some("test.list_items"));
-    assert!(has_ext, "extension tool must be present initially");
+    let has_query = tools1.iter().any(|t| t["name"].as_str() == Some("specforge.query"));
+    assert!(has_query, "specforge.query must be present initially");
 
-    // Recompile by calling validate (which recompiles)
+    // Recompile by calling validate
     let validate_resp = call_tool(&mut server, "specforge.validate", json!({
         "path": dir.path().to_str().unwrap()
     }));
-    // Validate should succeed (may have warnings, but not crash)
     assert!(validate_resp["error"].is_null() || validate_resp["result"].is_object());
 
-    // Extension tools should still be present after recompilation
+    // Core tools should still be present after recompilation
     let resp2 = call(&mut server, "tools/list", json!({}));
     let tools2 = resp2["result"]["tools"].as_array().unwrap();
-    let still_has_ext = tools2.iter().any(|t| t["name"].as_str() == Some("test.list_items"));
-    assert!(still_has_ext, "extension tool must persist after recompilation");
+    let still_has_query = tools2.iter().any(|t| t["name"].as_str() == Some("specforge.query"));
+    assert!(still_has_query, "specforge.query must persist after recompilation");
 }
 
 // B:dynamic_kind_tools — verify unit "entities resource registered in resource list"

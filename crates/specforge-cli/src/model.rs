@@ -8,6 +8,7 @@ use specforge_emitter::model::{
 
 use crate::pipeline;
 
+#[allow(clippy::too_many_arguments)]
 pub fn run(
     path: &Path,
     format: &str,

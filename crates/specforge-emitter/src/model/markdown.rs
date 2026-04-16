@@ -91,8 +91,8 @@ fn render_entity(
         writeln!(out, "|-------|------|----------|--------------|--------|-------------|").unwrap();
 
         for field in &entity.fields {
-            let type_str = if field.references.is_some() {
-                format!("{}({})", field.field_type, field.references.as_ref().unwrap())
+            let type_str = if let Some(ref target) = field.references {
+                format!("{}({})", field.field_type, target)
             } else {
                 field.field_type.to_string()
             };

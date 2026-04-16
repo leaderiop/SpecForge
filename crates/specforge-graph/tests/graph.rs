@@ -239,9 +239,43 @@ fn same_id_different_kind_no_e002() {
         "same ID with different kinds should not produce E002, got: {:?}",
         errors
     );
-    // NOTE: graph currently stores one node per raw ID (last-writer-wins for
-    // same-ID-different-kind). Kind-qualified keys are a Phase 9 concern.
-    assert!(graph.node_count() >= 1);
+    // W060 should be emitted for cross-kind ID collision
+    let w060: Vec<_> = diagnostics.iter().filter(|d| d.code == "W060").collect();
+    assert_eq!(w060.len(), 1, "should emit W060 for same-ID-different-kind");
+
+    // First-writer-wins: the first entity (feature) is retained, second (milestone) is skipped.
+    // The graph stores one node per raw ID; the first declaration wins deterministically.
+    assert_eq!(graph.node_count(), 1);
+    let node = graph.node("code_formatting").expect("node should exist");
+    assert_eq!(
+        node.kind.raw.to_string(),
+        "feature",
+        "first-writer-wins: feature was declared first, should be retained"
+    );
+}
+
+#[specforge_test(behavior = "build_in_memory_graph", verify = "parse errors are surfaced as diagnostics")]
+#[test]
+fn build_graph_surfaces_parse_errors() {
+    use specforge_graph::build_graph;
+    use specforge_parser::parse;
+
+    // Malformed spec: `???` is not a valid entity ID, triggers parse errors
+    let source = r#"
+behavior good "Good" { status planned }
+behavior ??? { broken content }
+behavior also_good "Also Good" { status done }
+"#;
+    let spec = parse(source, "bad.spec");
+    assert!(!spec.errors.is_empty(), "parser should report errors for malformed input");
+
+    let (_graph, diagnostics) = build_graph(&[spec]);
+    let parse_diags: Vec<_> = diagnostics.iter().filter(|d| d.code == "W062").collect();
+    assert!(
+        !parse_diags.is_empty(),
+        "build_graph should surface parse errors as W062 diagnostics, got: {:?}",
+        diagnostics
+    );
 }
 
 #[specforge_test(behavior = "build_in_memory_graph", verify = "graph contains one edge per resolved reference")]
@@ -788,7 +822,7 @@ fn end_to_end_resolve_and_build() {
 
     let dir = setup_project(&[
         ("types.spec", r#"behavior alpha "A" { contract "first" }"#),
-        ("main.spec", "use types\nfeature gamma \"G\" {\n  behaviors [alpha]\n}"),
+        ("main.spec", "use \"types\"\nfeature gamma \"G\" {\n  behaviors [alpha]\n}"),
     ]);
 
     let resolved = resolve_project(dir.path());
@@ -1176,4 +1210,215 @@ fn subgraph_depth_invariant_found_via_incoming_invariants_edge() {
     assert_eq!(sub.nodes().len(), 3, "invariant + 2 behaviors");
     assert!(sub.node("beh_a").is_some());
     assert!(sub.node("beh_b").is_some());
+}
+
+// === H10: Custom bidirectional pairs from config ===
+
+#[specforge_test(behavior = "build_in_memory_graph", verify = "custom bidirectional pairs suppress false-positive cycles")]
+#[test]
+fn custom_bidirectional_pairs_suppress_cycle_warning() {
+    use specforge_graph::{build_graph_with_config, GraphConfig};
+    use specforge_parser::parse;
+
+    // Create a spec with a 2-hop cycle: a -> b (via "guards") and b -> a (via "guarded_by")
+    let source = r#"
+behavior a "A" { contract "first" guards [b] }
+behavior b "B" { contract "second" guarded_by [a] }
+"#;
+    let spec_file = parse(source, "main.spec");
+
+    // Without bidirectional pairs configured, the cycle should be reported as W061
+    let config_no_pairs = GraphConfig::default();
+    let (_, diags_no_pairs) = build_graph_with_config(&[spec_file.clone()], &config_no_pairs);
+    let w061_no_pairs: Vec<_> = diags_no_pairs.iter().filter(|d| d.code == "W061").collect();
+    assert!(
+        !w061_no_pairs.is_empty(),
+        "without bidirectional pairs, 2-hop cycle should produce W061"
+    );
+
+    // With custom bidirectional pairs configured, the 2-hop cycle should be suppressed
+    let config_with_pairs = GraphConfig {
+        bidirectional_pairs: vec![
+            ("guards".to_string(), "guarded_by".to_string()),
+        ],
+        ..Default::default()
+    };
+    let (_, diags_with_pairs) = build_graph_with_config(&[spec_file], &config_with_pairs);
+    let w061_with_pairs: Vec<_> = diags_with_pairs.iter().filter(|d| d.code == "W061").collect();
+    assert!(
+        w061_with_pairs.is_empty(),
+        "with bidirectional pairs configured, 2-hop cycle should be suppressed, got: {:?}",
+        w061_with_pairs
+    );
+}
+
+// === M3/M4: Diagnostics carry actionable suggestions ===
+
+#[specforge_test(behavior = "build_in_memory_graph", verify = "W061 carries actionable suggestion")]
+#[test]
+fn w061_cycle_warning_has_suggestion() {
+    use specforge_graph::build_graph;
+    use specforge_parser::parse;
+
+    let source = r#"
+behavior a "A" { contract "c" depends_on [b] }
+behavior b "B" { contract "c" depends_on [c] }
+behavior c "C" { contract "c" depends_on [a] }
+"#;
+    let spec_file = parse(source, "main.spec");
+    let (_, diagnostics) = build_graph(&[spec_file]);
+
+    let w061s: Vec<_> = diagnostics.iter().filter(|d| d.code == "W061").collect();
+    assert!(!w061s.is_empty(), "reference cycles should produce W061");
+    assert!(
+        w061s[0].suggestion.is_some(),
+        "W061 should carry an actionable suggestion, got None"
+    );
+    assert!(
+        w061s[0].suggestion.as_ref().unwrap().contains("break the cycle"),
+        "W061 suggestion should advise breaking the cycle, got: {:?}",
+        w061s[0].suggestion
+    );
+}
+
+#[specforge_test(behavior = "build_in_memory_graph", verify = "E002 carries actionable suggestion")]
+#[test]
+fn e002_duplicate_entity_has_suggestion() {
+    use specforge_graph::build_graph;
+    use specforge_parser::parse;
+
+    let file_a = parse(r#"behavior alpha "A" { contract "first" }"#, "a.spec");
+    let file_b = parse(r#"behavior alpha "Duplicate" { contract "dup" }"#, "b.spec");
+    let (_, diagnostics) = build_graph(&[file_a, file_b]);
+
+    let e002s: Vec<_> = diagnostics.iter().filter(|d| d.code == "E002").collect();
+    assert_eq!(e002s.len(), 1, "duplicate ID should produce E002");
+    assert!(
+        e002s[0].suggestion.is_some(),
+        "E002 should carry an actionable suggestion, got None"
+    );
+    assert!(
+        e002s[0].suggestion.as_ref().unwrap().contains("rename"),
+        "E002 suggestion should advise renaming, got: {:?}",
+        e002s[0].suggestion
+    );
+}
+
+#[specforge_test(behavior = "build_in_memory_graph", verify = "W060 carries actionable suggestion")]
+#[test]
+fn w060_cross_kind_collision_has_suggestion() {
+    use specforge_graph::build_graph;
+    use specforge_parser::parse;
+
+    let file_a = parse(r#"feature code_fmt "Code Formatting" { }"#, "a.spec");
+    let file_b = parse(r#"milestone code_fmt "Phase 8" { }"#, "b.spec");
+    let (_, diagnostics) = build_graph(&[file_a, file_b]);
+
+    let w060s: Vec<_> = diagnostics.iter().filter(|d| d.code == "W060").collect();
+    assert_eq!(w060s.len(), 1, "same-ID-different-kind should produce W060");
+    assert!(
+        w060s[0].suggestion.is_some(),
+        "W060 should carry an actionable suggestion, got None"
+    );
+    assert!(
+        w060s[0].suggestion.as_ref().unwrap().contains("distinct"),
+        "W060 suggestion should advise using distinct IDs, got: {:?}",
+        w060s[0].suggestion
+    );
+}
+
+#[specforge_test(behavior = "build_in_memory_graph", verify = "Graph::with_bidirectional_pairs stores pairs for cycle suppression")]
+#[test]
+fn graph_with_bidirectional_pairs_stores_pairs() {
+    let mut graph = Graph::with_bidirectional_pairs(vec![
+        ("invariants".to_string(), "enforced_by".to_string()),
+    ]);
+
+    // Build a 2-hop cycle with the known bidirectional pair
+    graph.add_node(make_node("inv1", "invariant"));
+    graph.add_node(make_node("beh1", "behavior"));
+    graph.add_edge(make_edge("beh1", "inv1", "invariants"));
+    graph.add_edge(make_edge("inv1", "beh1", "enforced_by"));
+
+    // Should NOT detect cycles because this is a known bidirectional pair
+    let cycles = graph.detect_cycles();
+    assert!(
+        cycles.is_empty(),
+        "known bidirectional pair should not be flagged as cycle, got: {:?}",
+        cycles
+    );
+
+    // But a REAL cycle with different labels should still be detected
+    graph.add_node(make_node("x", "behavior"));
+    graph.add_node(make_node("y", "behavior"));
+    graph.add_edge(make_edge("x", "y", "depends_on"));
+    graph.add_edge(make_edge("y", "x", "depends_on"));
+
+    let cycles2 = graph.detect_cycles();
+    assert!(
+        !cycles2.is_empty(),
+        "real cycle with non-bidirectional labels should still be detected"
+    );
+}
+
+// --- add_edge_checked: node existence validation ---
+
+#[specforge_test(behavior = "build_in_memory_graph", verify = "add_edge_checked rejects edge with non-existent source")]
+#[test]
+fn add_edge_checked_rejects_nonexistent_source() {
+    let mut graph = Graph::new();
+    graph.add_node(make_node("alpha", "behavior"));
+    // "ghost" does not exist as a node
+    let diag = graph.add_edge_checked(make_edge("ghost", "alpha", "depends_on"));
+    assert!(
+        diag.is_some(),
+        "add_edge_checked should return a diagnostic when source node doesn't exist"
+    );
+    let d = diag.unwrap();
+    assert_eq!(d.code, "W011");
+    assert!(d.message.contains("ghost"), "diagnostic should mention the missing node ID");
+    // Edge should NOT be added
+    assert_eq!(graph.edge_count(), 0, "edge should not be added when source is missing");
+}
+
+#[specforge_test(behavior = "build_in_memory_graph", verify = "add_edge_checked rejects edge with non-existent target")]
+#[test]
+fn add_edge_checked_rejects_nonexistent_target() {
+    let mut graph = Graph::new();
+    graph.add_node(make_node("alpha", "behavior"));
+    let diag = graph.add_edge_checked(make_edge("alpha", "phantom", "depends_on"));
+    assert!(
+        diag.is_some(),
+        "add_edge_checked should return a diagnostic when target node doesn't exist"
+    );
+    let d = diag.unwrap();
+    assert_eq!(d.code, "W011");
+    assert!(d.message.contains("phantom"), "diagnostic should mention the missing node ID");
+    assert_eq!(graph.edge_count(), 0, "edge should not be added when target is missing");
+}
+
+#[specforge_test(behavior = "build_in_memory_graph", verify = "add_edge_checked accepts edge between existing nodes")]
+#[test]
+fn add_edge_checked_accepts_valid_edge() {
+    let mut graph = Graph::new();
+    graph.add_node(make_node("alpha", "behavior"));
+    graph.add_node(make_node("beta", "feature"));
+    let diag = graph.add_edge_checked(make_edge("beta", "alpha", "behaviors"));
+    assert!(
+        diag.is_none(),
+        "add_edge_checked should return None when both nodes exist"
+    );
+    assert_eq!(graph.edge_count(), 1, "edge should be added when both nodes exist");
+}
+
+#[specforge_test(behavior = "build_in_memory_graph", verify = "add_edge_checked rejects edge when both source and target are missing")]
+#[test]
+fn add_edge_checked_rejects_both_missing() {
+    let mut graph = Graph::new();
+    let diag = graph.add_edge_checked(make_edge("ghost_a", "ghost_b", "depends_on"));
+    assert!(
+        diag.is_some(),
+        "add_edge_checked should return a diagnostic when both nodes don't exist"
+    );
+    assert_eq!(graph.edge_count(), 0, "edge should not be added when both nodes are missing");
 }

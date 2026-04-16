@@ -2,7 +2,7 @@ use crate::integrity::hex_sha256;
 use specforge_common::{Diagnostic, Severity};
 use std::path::{Path, PathBuf};
 
-/// Reason for AOT cache invalidation.
+/// Reason for cache invalidation.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum InvalidationReason {
     RuntimeVersionChange,
@@ -11,11 +11,16 @@ pub enum InvalidationReason {
     ExtensionRemoved,
 }
 
-/// AOT cache entry metadata.
+/// Cached Wasm binary entry metadata.
+///
+/// Despite the field name `cached_path`, the cached artifact is currently a
+/// byte-for-byte copy of the original `.wasm` binary stored under a
+/// content-addressed filename. True AOT (compile-to-native) support is
+/// deferred until the Extism runtime exposes an AOT compilation API.
 #[derive(Debug, Clone)]
-pub struct AotCacheEntry {
+pub struct CacheEntry {
     pub wasm_hash: String,
-    pub aot_path: PathBuf,
+    pub cached_path: PathBuf,
     pub platform: String,
 }
 
@@ -24,67 +29,71 @@ pub fn cache_path_for_hash(cache_dir: &Path, wasm_hash: &str) -> PathBuf {
     cache_dir.join(format!("{}.aot", wasm_hash))
 }
 
-/// AOT compile a .wasm binary and cache the result.
-/// In this implementation, we simulate AOT by copying the binary into the cache dir
-/// with a content-hash filename. Real Extism would produce a native module.
-pub fn aot_compile(
+/// Cache a .wasm binary using content-addressed storage.
+///
+/// Stores the binary in `cache_dir` under a SHA-256-derived filename so that
+/// subsequent loads can skip re-reading and re-hashing the original file.
+/// This is **not** true AOT compilation (Extism does not yet expose a
+/// compile-to-native API); the cached artifact is the original Wasm bytes
+/// stored at a deterministic, content-addressed path for fast lookup.
+pub fn cache_wasm_binary(
     wasm_path: &Path,
     cache_dir: &Path,
-) -> Result<AotCacheEntry, Diagnostic> {
+) -> Result<CacheEntry, Diagnostic> {
     let bytes = std::fs::read(wasm_path).map_err(|e| Diagnostic {
         code: "E028".to_string(),
         severity: Severity::Error,
-        message: format!("cannot read .wasm binary for AOT compilation: {}", e),
+        message: format!("cannot read .wasm binary for caching: {}", e),
         span: None,
         suggestion: None,
     })?;
 
     let wasm_hash = hex_sha256(&bytes);
-    let aot_path = cache_path_for_hash(cache_dir, &wasm_hash);
+    let cached_path = cache_path_for_hash(cache_dir, &wasm_hash);
 
     std::fs::create_dir_all(cache_dir).map_err(|e| Diagnostic {
         code: "E028".to_string(),
         severity: Severity::Error,
-        message: format!("cannot create AOT cache directory: {}", e),
+        message: format!("cannot create cache directory: {}", e),
         span: None,
         suggestion: None,
     })?;
 
-    // Write compiled artifact (simulated — in production this would be Extism AOT output)
-    std::fs::write(&aot_path, &bytes).map_err(|e| Diagnostic {
+    // Write Wasm bytes to content-addressed cache path
+    std::fs::write(&cached_path, &bytes).map_err(|e| Diagnostic {
         code: "E028".to_string(),
         severity: Severity::Error,
-        message: format!("cannot write AOT cache artifact: {}", e),
+        message: format!("cannot write cache artifact: {}", e),
         span: None,
         suggestion: None,
     })?;
 
-    Ok(AotCacheEntry {
+    Ok(CacheEntry {
         wasm_hash,
-        aot_path,
+        cached_path,
         platform: std::env::consts::ARCH.to_string(),
     })
 }
 
 /// Check if a valid cache entry exists for the given wasm binary.
-pub fn has_cached_artifact(wasm_path: &Path, cache_dir: &Path) -> Option<AotCacheEntry> {
+pub fn has_cached_artifact(wasm_path: &Path, cache_dir: &Path) -> Option<CacheEntry> {
     let bytes = std::fs::read(wasm_path).ok()?;
     let wasm_hash = hex_sha256(&bytes);
-    let aot_path = cache_path_for_hash(cache_dir, &wasm_hash);
+    let cached_path = cache_path_for_hash(cache_dir, &wasm_hash);
 
-    if aot_path.exists() {
+    if cached_path.exists() {
         // Verify integrity: re-hash the cached artifact
-        let cached_bytes = std::fs::read(&aot_path).ok()?;
+        let cached_bytes = std::fs::read(&cached_path).ok()?;
         let cached_hash = hex_sha256(&cached_bytes);
         if cached_hash == wasm_hash {
-            return Some(AotCacheEntry {
+            return Some(CacheEntry {
                 wasm_hash,
-                aot_path,
+                cached_path,
                 platform: std::env::consts::ARCH.to_string(),
             });
         }
         // Corrupted — evict silently
-        let _ = std::fs::remove_file(&aot_path);
+        let _ = std::fs::remove_file(&cached_path);
     }
     None
 }
@@ -193,8 +202,8 @@ mod tests {
         let cache_dir = dir.path().join("cache");
         let wasm_path = create_fake_wasm(&dir, "ext.wasm", b"\x00asm_data");
 
-        let entry = aot_compile(&wasm_path, &cache_dir).unwrap();
-        assert!(entry.aot_path.exists());
+        let entry = cache_wasm_binary(&wasm_path, &cache_dir).unwrap();
+        assert!(entry.cached_path.exists());
         assert!(!entry.wasm_hash.is_empty());
     }
 
@@ -207,9 +216,9 @@ mod tests {
         let wasm_path = create_fake_wasm(&dir, "ext.wasm", content);
         let expected_hash = hex_sha256(content);
 
-        let entry = aot_compile(&wasm_path, &cache_dir).unwrap();
+        let entry = cache_wasm_binary(&wasm_path, &cache_dir).unwrap();
         assert_eq!(entry.wasm_hash, expected_hash);
-        assert_eq!(entry.aot_path.file_name().unwrap().to_str().unwrap(), format!("{}.aot", expected_hash));
+        assert_eq!(entry.cached_path.file_name().unwrap().to_str().unwrap(), format!("{}.aot", expected_hash));
     }
 
     // B:aot_compile_wasm_module — verify unit "subsequent load uses cached artifact"
@@ -220,7 +229,7 @@ mod tests {
         let wasm_path = create_fake_wasm(&dir, "ext.wasm", b"module_bytes");
 
         // First compile
-        aot_compile(&wasm_path, &cache_dir).unwrap();
+        cache_wasm_binary(&wasm_path, &cache_dir).unwrap();
 
         // Subsequent check finds cached
         let cached = has_cached_artifact(&wasm_path, &cache_dir);
@@ -235,8 +244,8 @@ mod tests {
         let wasm_path = create_fake_wasm(&dir, "ext.wasm", b"binary");
 
         // ensures: wasm_aot_compiled — compilation succeeds
-        let entry = aot_compile(&wasm_path, &cache_dir).unwrap();
-        assert!(entry.aot_path.exists());
+        let entry = cache_wasm_binary(&wasm_path, &cache_dir).unwrap();
+        assert!(entry.cached_path.exists());
 
         // ensures: artifact_cached — content-hash filename
         let expected_hash = hex_sha256(b"binary");
@@ -258,11 +267,11 @@ mod tests {
         let wasm_a = create_fake_wasm(&dir, "a.wasm", content_a);
         let wasm_b = create_fake_wasm(&dir, "b.wasm", content_b);
 
-        let entry_a = aot_compile(&wasm_a, &cache_dir).unwrap();
-        let entry_b = aot_compile(&wasm_b, &cache_dir).unwrap();
+        let entry_a = cache_wasm_binary(&wasm_a, &cache_dir).unwrap();
+        let entry_b = cache_wasm_binary(&wasm_b, &cache_dir).unwrap();
 
         // Different content -> different filenames
-        assert_ne!(entry_a.aot_path, entry_b.aot_path);
+        assert_ne!(entry_a.cached_path, entry_b.cached_path);
         assert_ne!(entry_a.wasm_hash, entry_b.wasm_hash);
     }
 
@@ -274,15 +283,15 @@ mod tests {
         let wasm_path = create_fake_wasm(&dir, "ext.wasm", b"good_data");
 
         // Compile first
-        let entry = aot_compile(&wasm_path, &cache_dir).unwrap();
+        let entry = cache_wasm_binary(&wasm_path, &cache_dir).unwrap();
 
         // Corrupt the cache
-        std::fs::write(&entry.aot_path, b"corrupted_data").unwrap();
+        std::fs::write(&entry.cached_path, b"corrupted_data").unwrap();
 
         // Cache check should evict corrupted entry
         let cached = has_cached_artifact(&wasm_path, &cache_dir);
         assert!(cached.is_none());
-        assert!(!entry.aot_path.exists()); // Evicted
+        assert!(!entry.cached_path.exists()); // Evicted
     }
 
     // B:cache_aot_artifacts — verify contract "requires/ensures consistency for AOT artifact caching"
@@ -293,11 +302,11 @@ mod tests {
         let wasm_path = create_fake_wasm(&dir, "ext.wasm", b"data");
 
         // ensures: content_addressed
-        let entry = aot_compile(&wasm_path, &cache_dir).unwrap();
-        assert!(entry.aot_path.to_str().unwrap().contains(&entry.wasm_hash));
+        let entry = cache_wasm_binary(&wasm_path, &cache_dir).unwrap();
+        assert!(entry.cached_path.to_str().unwrap().contains(&entry.wasm_hash));
 
         // ensures: corruption_detected + corruption_recovered
-        std::fs::write(&entry.aot_path, b"bad").unwrap();
+        std::fs::write(&entry.cached_path, b"bad").unwrap();
         assert!(has_cached_artifact(&wasm_path, &cache_dir).is_none());
     }
 
@@ -309,7 +318,7 @@ mod tests {
         let dir = TempDir::new().unwrap();
         let cache_dir = dir.path().join("cache");
         let wasm_path = create_fake_wasm(&dir, "ext.wasm", b"data");
-        aot_compile(&wasm_path, &cache_dir).unwrap();
+        cache_wasm_binary(&wasm_path, &cache_dir).unwrap();
 
         let removed = invalidate_cache(&cache_dir, InvalidationReason::RuntimeVersionChange);
         assert_eq!(removed.len(), 1);
@@ -322,8 +331,8 @@ mod tests {
         let cache_dir = dir.path().join("cache");
         let wasm_a = create_fake_wasm(&dir, "a.wasm", b"a");
         let wasm_b = create_fake_wasm(&dir, "b.wasm", b"b");
-        aot_compile(&wasm_a, &cache_dir).unwrap();
-        aot_compile(&wasm_b, &cache_dir).unwrap();
+        cache_wasm_binary(&wasm_a, &cache_dir).unwrap();
+        cache_wasm_binary(&wasm_b, &cache_dir).unwrap();
 
         let removed = invalidate_cache(&cache_dir, InvalidationReason::UserClear);
         assert_eq!(removed.len(), 2);
@@ -335,12 +344,12 @@ mod tests {
         let dir = TempDir::new().unwrap();
         let cache_dir = dir.path().join("cache");
         let wasm_path = create_fake_wasm(&dir, "ext.wasm", b"v1_data");
-        let entry = aot_compile(&wasm_path, &cache_dir).unwrap();
+        let entry = cache_wasm_binary(&wasm_path, &cache_dir).unwrap();
         let old_hash = entry.wasm_hash.clone();
 
         // Invalidate old entry
         assert!(invalidate_entry(&cache_dir, &old_hash));
-        assert!(!entry.aot_path.exists());
+        assert!(!entry.cached_path.exists());
     }
 
     // B:invalidate_aot_cache — verify unit "removes stale AOT artifacts"
@@ -349,11 +358,11 @@ mod tests {
         let dir = TempDir::new().unwrap();
         let cache_dir = dir.path().join("cache");
         let wasm_path = create_fake_wasm(&dir, "ext.wasm", b"data");
-        let entry = aot_compile(&wasm_path, &cache_dir).unwrap();
-        assert!(entry.aot_path.exists());
+        let entry = cache_wasm_binary(&wasm_path, &cache_dir).unwrap();
+        assert!(entry.cached_path.exists());
 
         invalidate_cache(&cache_dir, InvalidationReason::UserClear);
-        assert!(!entry.aot_path.exists());
+        assert!(!entry.cached_path.exists());
     }
 
     // B:invalidate_aot_cache — verify contract "requires/ensures consistency for AOT cache invalidation"
@@ -362,7 +371,7 @@ mod tests {
         let dir = TempDir::new().unwrap();
         let cache_dir = dir.path().join("cache");
         let wasm_path = create_fake_wasm(&dir, "ext.wasm", b"module");
-        aot_compile(&wasm_path, &cache_dir).unwrap();
+        cache_wasm_binary(&wasm_path, &cache_dir).unwrap();
 
         // ensures: aot_cache_invalidated — stale removed
         let removed = invalidate_cache(&cache_dir, InvalidationReason::RuntimeVersionChange);
@@ -372,8 +381,8 @@ mod tests {
         assert!(has_cached_artifact(&wasm_path, &cache_dir).is_none());
 
         // Recompile works after invalidation
-        let new_entry = aot_compile(&wasm_path, &cache_dir).unwrap();
-        assert!(new_entry.aot_path.exists());
+        let new_entry = cache_wasm_binary(&wasm_path, &cache_dir).unwrap();
+        assert!(new_entry.cached_path.exists());
     }
 
     // -- grammar cache --

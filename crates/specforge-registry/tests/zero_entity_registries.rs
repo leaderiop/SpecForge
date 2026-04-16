@@ -1278,6 +1278,7 @@ fn enhancements_merge_fields() {
         FieldEnhancement {
             target_kind: "behavior".to_string(),
             source_extension: "@test/coverage".to_string(),
+            edge_types: vec![],
             fields: vec![ManifestField {
                 name: "coverage_threshold".to_string(),
                 field_type: "string".to_string(),
@@ -1286,6 +1287,8 @@ fn enhancements_merge_fields() {
                 target_kind: None,
                 file_reference: false,
                 required: false,
+                default_value: None,
+                enum_values: vec![],
             }],
         },
     )];
@@ -1302,6 +1305,7 @@ fn enhancements_unknown_kind_i004() {
         FieldEnhancement {
             target_kind: "nonexistent_kind".to_string(),
             source_extension: "@test/ext".to_string(),
+            edge_types: vec![],
             fields: vec![ManifestField {
                 name: "extra".to_string(),
                 field_type: "string".to_string(),
@@ -1310,6 +1314,8 @@ fn enhancements_unknown_kind_i004() {
                 target_kind: None,
                 file_reference: false,
                 required: false,
+                default_value: None,
+                enum_values: vec![],
             }],
         },
     )];
@@ -1328,6 +1334,7 @@ fn enhancements_no_overwrite() {
         FieldEnhancement {
             target_kind: "behavior".to_string(),
             source_extension: "@test/ext".to_string(),
+            edge_types: vec![],
             fields: vec![ManifestField {
                 name: "contract".to_string(),
                 field_type: "string".to_string(), // different type!
@@ -1336,6 +1343,8 @@ fn enhancements_no_overwrite() {
                 target_kind: None,
                 file_reference: false,
                 required: false,
+                default_value: None,
+                enum_values: vec![],
             }],
         },
     )];
@@ -1355,6 +1364,7 @@ fn enhancements_two_non_conflicting() {
             FieldEnhancement {
                 target_kind: "behavior".to_string(),
                 source_extension: "@ext/a".to_string(),
+            edge_types: vec![],
                 fields: vec![ManifestField {
                     name: "priority".to_string(),
                     field_type: "string".to_string(),
@@ -1363,6 +1373,8 @@ fn enhancements_two_non_conflicting() {
                     target_kind: None,
                     file_reference: false,
                     required: false,
+                default_value: None,
+                enum_values: vec![],
                 }],
             },
         ),
@@ -1371,6 +1383,7 @@ fn enhancements_two_non_conflicting() {
             FieldEnhancement {
                 target_kind: "behavior".to_string(),
                 source_extension: "@ext/b".to_string(),
+            edge_types: vec![],
                 fields: vec![ManifestField {
                     name: "category".to_string(),
                     field_type: "string".to_string(),
@@ -1379,6 +1392,8 @@ fn enhancements_two_non_conflicting() {
                     target_kind: None,
                     file_reference: false,
                     required: false,
+                default_value: None,
+                enum_values: vec![],
                 }],
             },
         ),

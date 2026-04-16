@@ -11,7 +11,7 @@ pub struct UpgradeResult {
     pub name: String,
     pub old_version: String,
     pub new_version: String,
-    pub aot_recompiled: bool,
+    pub recached: bool,
 }
 
 /// Check if a newer version is available (compare version strings).
@@ -34,7 +34,7 @@ pub fn check_newer_version(current: &str, available: &str) -> bool {
     }
 }
 
-/// Upgrade an extension: validate peer compat -> install new -> invalidate old AOT -> recompile.
+/// Upgrade an extension: validate peer compat -> install new -> invalidate old cache -> recache.
 #[allow(clippy::too_many_arguments)]
 pub fn upgrade_extension(
     name: &str,
@@ -97,7 +97,7 @@ pub fn upgrade_extension(
         });
     }
 
-    // 3. Invalidate old AOT cache
+    // 3. Invalidate old cache entry
     if !old_hash.is_empty() {
         invalidate_entry(cache_dir, &old_hash);
     }
@@ -111,13 +111,13 @@ pub fn upgrade_extension(
         extensions_dir,
         cache_dir,
         lock,
-        false, // always AOT compile on upgrade
+        false, // always cache on upgrade
     )?;
 
     Ok(UpgradeResult {
         name: name.to_string(),
         old_version,
         new_version: new_version.to_string(),
-        aot_recompiled: install_result.aot_compiled,
+        recached: install_result.cached,
     })
 }

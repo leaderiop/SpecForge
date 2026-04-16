@@ -1437,6 +1437,7 @@ dependencies = [
  "specforge-test",
  "specforge-test-macros",
  "specforge-validator",
+ "specforge-wasm",
  "tempfile",
 ]
 
@@ -1480,6 +1481,7 @@ version = "0.1.0"
 dependencies = [
  "serde_json",
  "specforge-common",
+ "specforge-emitter",
  "specforge-formatter",
  "specforge-graph",
  "specforge-parser",
@@ -1487,6 +1489,7 @@ dependencies = [
  "specforge-test",
  "specforge-test-macros",
  "specforge-validator",
+ "specforge-wasm",
  "specforge-watch",
  "tempfile",
  "tokio",
@@ -1509,6 +1512,7 @@ dependencies = [
  "specforge-registry",
  "specforge-test",
  "specforge-test-macros",
+ "specforge-wasm",
  "strsim",
  "tempfile",
 ]
@@ -1610,6 +1614,7 @@ dependencies = [
 name = "specforge-wasm"
 version = "0.1.0"
 dependencies = [
+ "semver",
  "serde",
  "serde_json",
  "sha2",

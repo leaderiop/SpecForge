@@ -576,3 +576,59 @@ fn test_register_entity_types_contract() {
     // ensures: edges populated
     assert!(edge_reg.contains("depends_on"));
 }
+
+// ============================================================================
+// H11: Provider scheme isolation — each provider registered to its matching extension only
+// ============================================================================
+
+// H11 — verify "two extensions, two providers, each only registered to its owner"
+#[test]
+fn test_provider_scheme_isolation_each_registered_to_owner() {
+    // Two extensions, each contributing providers
+    let manifests = vec![
+        ("@ext/github".to_string(), make_manifest("@ext/github", true)),
+        ("@ext/jira".to_string(), make_manifest("@ext/jira", true)),
+    ];
+
+    // Two provider configs, each with a distinct scheme matching one extension
+    let providers = vec![
+        ProviderConfig {
+            name: "github".to_string(),
+            scheme: "gh".to_string(),
+            base_url: None,
+            api_key_env: None,
+        },
+        ProviderConfig {
+            name: "jira".to_string(),
+            scheme: "jira".to_string(),
+            base_url: None,
+            api_key_env: None,
+        },
+    ];
+
+    let (registry, diags) = register_provider_schemes(&providers, &manifests);
+
+    // No diagnostics — each provider maps to a different extension via name/scheme matching
+    assert!(
+        diags.is_empty(),
+        "expected no diagnostics for isolated providers, got: {:?}",
+        diags
+    );
+
+    // Both schemes registered
+    assert_eq!(registry.entries.len(), 2, "both providers should be registered");
+
+    // "gh" scheme should map to @ext/github (contains "gh")
+    let gh_entry = registry.find_by_scheme("gh").expect("gh scheme should be registered");
+    assert_eq!(
+        gh_entry.extension_name, "@ext/github",
+        "gh scheme should be registered to @ext/github, not cross-assigned"
+    );
+
+    // "jira" scheme should map to @ext/jira (contains "jira")
+    let jira_entry = registry.find_by_scheme("jira").expect("jira scheme should be registered");
+    assert_eq!(
+        jira_entry.extension_name, "@ext/jira",
+        "jira scheme should be registered to @ext/jira, not cross-assigned"
+    );
+}

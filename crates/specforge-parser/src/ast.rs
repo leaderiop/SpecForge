@@ -69,7 +69,11 @@ impl FieldMap {
     }
 
     pub fn push(&mut self, key: Sym, value: FieldValue) {
-        self.entries.push(FieldEntry { key, value });
+        self.entries.push(FieldEntry { key, value, annotations: Vec::new() });
+    }
+
+    pub fn push_annotated(&mut self, key: Sym, value: FieldValue, annotations: Vec<Annotation>) {
+        self.entries.push(FieldEntry { key, value, annotations });
     }
 
     pub fn get(&self, key: &str) -> Option<&FieldValue> {
@@ -81,10 +85,17 @@ impl FieldMap {
     }
 }
 
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct Annotation {
+    pub name: String,
+    pub value: Option<String>,
+}
+
 #[derive(Debug, Clone, Serialize)]
 pub struct FieldEntry {
     pub key: Sym,
     pub value: FieldValue,
+    pub annotations: Vec<Annotation>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -93,6 +104,9 @@ pub enum FieldValue {
     ReferenceList(Vec<String>),
     VariantList(Vec<String>),
     StringList(Vec<String>),
+    /// A list containing items of mixed types (e.g., strings, integers, booleans).
+    /// Preserves per-item type information instead of flattening to StringList.
+    MixedList(Vec<FieldValue>),
     Block(FieldMap),
     VerifyList(Vec<VerifyStatement>),
     Integer(i64),
@@ -113,4 +127,14 @@ pub struct ParseError {
     pub span: SourceSpan,
     pub expected: Option<String>,
     pub found: Option<String>,
+}
+
+impl From<&ParseError> for specforge_common::Diagnostic {
+    fn from(err: &ParseError) -> Self {
+        // Parse errors are warnings, not errors: tree-sitter recovers partial ASTs,
+        // so entities from files with syntax issues are still usable. The grammar
+        // is intentionally permissive and doesn't cover all valid spec syntax.
+        specforge_common::Diagnostic::warning("W062", &err.message)
+            .with_span(err.span.clone())
+    }
 }

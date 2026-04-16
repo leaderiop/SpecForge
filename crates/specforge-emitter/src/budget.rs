@@ -3,6 +3,7 @@ use serde_json::Value;
 use specforge_graph::Graph;
 use std::collections::HashMap;
 
+use crate::error::EmitterError;
 use crate::json::{field_map_to_json, sorted_edges, JsonEdge, SCHEMA_VERSION};
 
 #[derive(Serialize)]
@@ -160,7 +161,7 @@ pub fn emit_json_with_budget_strategy(
     graph: &Graph,
     max_tokens: usize,
     strategy: &str,
-) -> Result<String, String> {
+) -> Result<String, EmitterError> {
     let full = crate::json::emit_json(graph);
     let est = estimate_tokens(&full);
 
@@ -169,10 +170,10 @@ pub fn emit_json_with_budget_strategy(
     }
 
     match strategy {
-        "error" => Err(format!(
+        "error" => Err(EmitterError::Other(format!(
             "token budget exceeded: estimated {} tokens, budget is {}",
             est, max_tokens
-        )),
+        ))),
         _ => Ok(emit_json_with_budget(graph, max_tokens)),
     }
 }

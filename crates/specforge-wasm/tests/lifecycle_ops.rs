@@ -160,11 +160,11 @@ fn test_install_aot_compiles_after_placement() {
     )
     .unwrap();
 
-    assert!(result.aot_compiled);
+    assert!(result.cached);
 
-    // AOT cache artifact exists
-    let aot_path = cache_dir.join(format!("{}.aot", expected_hash));
-    assert!(aot_path.exists());
+    // Cache artifact exists
+    let cached_path = cache_dir.join(format!("{}.aot", expected_hash));
+    assert!(cached_path.exists());
 }
 
 // B:install_wasm_extension — verify unit "install updates lock file with extension entry"
@@ -257,11 +257,11 @@ fn test_install_defers_aot_when_skip_aot() {
     )
     .unwrap();
 
-    assert!(!result.aot_compiled);
+    assert!(!result.cached);
 
-    // No AOT cache artifact
-    let aot_path = cache_dir.join(format!("{}.aot", expected_hash));
-    assert!(!aot_path.exists());
+    // No cache artifact
+    let cached_path = cache_dir.join(format!("{}.aot", expected_hash));
+    assert!(!cached_path.exists());
 }
 
 // ============================================================================
@@ -416,13 +416,13 @@ fn test_upgrade_invalidates_old_aot_and_recompiles() {
     )
     .unwrap();
 
-    // Old AOT was invalidated
+    // Old cache was invalidated
     assert!(!old_aot_path.exists());
 
-    // New AOT was compiled
-    assert!(result.aot_recompiled);
-    let new_aot_path = cache_dir.join(format!("{}.aot", expected_hash));
-    assert!(new_aot_path.exists());
+    // New binary was cached
+    assert!(result.recached);
+    let new_cached_path = cache_dir.join(format!("{}.aot", expected_hash));
+    assert!(new_cached_path.exists());
 
     // Lock file updated
     assert_eq!(lock.entries.len(), 1);

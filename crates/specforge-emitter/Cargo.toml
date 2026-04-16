@@ -16,6 +16,7 @@ specforge-parser = { workspace = true }
 specforge-resolver = { path = "../specforge-resolver" }
 specforge-registry = { workspace = true }
 specforge-validator = { path = "../specforge-validator" }
+specforge-wasm = { path = "../specforge-wasm" }
 serde.workspace = true
 serde_json.workspace = true
 sha2.workspace = true

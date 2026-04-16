@@ -4,5 +4,8 @@ mod discovery_and_lockfile;
 mod grammar_and_cache;
 mod host_functions_integration;
 mod lifecycle_ops;
+mod protocol_bridge;
+mod protocol_host;
+mod protocol_types;
 mod sandbox_integration;
 mod wasm_lifecycle;

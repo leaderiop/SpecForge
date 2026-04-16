@@ -1,6 +1,5 @@
 ---
 source: crates/specforge-parser/tests/snapshot_tests.rs
-assertion_line: 139
 expression: "parse_ok(source, \"test.spec\").entities"
 ---
 [
@@ -18,7 +17,8 @@ expression: "parse_ok(source, \"test.spec\").entities"
           "key": "version",
           "value": {
             "String": "0.1.0"
-          }
+          },
+          "annotations": []
         },
         {
           "key": "verify",
@@ -29,7 +29,8 @@ expression: "parse_ok(source, \"test.spec\").entities"
                 "description": "project compiles"
               }
             ]
-          }
+          },
+          "annotations": []
         }
       ]
     },
@@ -56,19 +57,22 @@ expression: "parse_ok(source, \"test.spec\").entities"
           "key": "scheme",
           "value": {
             "String": "gh"
-          }
+          },
+          "annotations": []
         },
         {
           "key": "ref_kind",
           "value": {
             "String": "issue"
-          }
+          },
+          "annotations": []
         },
         {
           "key": "identifier",
           "value": {
             "String": "42"
-          }
+          },
+          "annotations": []
         }
       ]
     },
@@ -95,25 +99,29 @@ expression: "parse_ok(source, \"test.spec\").entities"
           "key": "scheme",
           "value": {
             "String": "gh"
-          }
+          },
+          "annotations": []
         },
         {
           "key": "ref_kind",
           "value": {
             "String": "issue"
-          }
+          },
+          "annotations": []
         },
         {
           "key": "identifier",
           "value": {
             "String": "99"
-          }
+          },
+          "annotations": []
         },
         {
           "key": "priority",
           "value": {
             "String": "high"
-          }
+          },
+          "annotations": []
         }
       ]
     },
@@ -140,13 +148,15 @@ expression: "parse_ok(source, \"test.spec\").entities"
           "key": "base_kind",
           "value": {
             "String": "entity"
-          }
+          },
+          "annotations": []
         },
         {
           "key": "testable",
           "value": {
             "Boolean": true
-          }
+          },
+          "annotations": []
         },
         {
           "key": "verify",
@@ -157,7 +167,8 @@ expression: "parse_ok(source, \"test.spec\").entities"
                 "description": "custom kind registers"
               }
             ]
-          }
+          },
+          "annotations": []
         }
       ]
     },

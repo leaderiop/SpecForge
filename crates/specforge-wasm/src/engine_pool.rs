@@ -1,4 +1,5 @@
 use std::collections::VecDeque;
+use std::sync::Mutex;
 
 /// Configuration for the warm engine instance pool.
 #[derive(Debug, Clone)]
@@ -24,41 +25,52 @@ pub struct WarmInstance {
 }
 
 /// LRU-based pool of warm Wasm engine instances.
+///
+/// Thread-safe: wraps the instance queue in a `Mutex` so the pool
+/// can be shared via `Arc<EnginePool>` across concurrent request handlers
+/// (e.g., MCP server). All mutating methods take `&self`.
 #[derive(Debug)]
 pub struct EnginePool {
-    instances: VecDeque<WarmInstance>,
+    instances: Mutex<VecDeque<WarmInstance>>,
     config: WarmEngineConfig,
 }
 
 impl EnginePool {
     pub fn new(config: WarmEngineConfig) -> Self {
         Self {
-            instances: VecDeque::new(),
+            instances: Mutex::new(VecDeque::new()),
             config,
         }
     }
 
     /// Warm (add or refresh) an engine instance.
     /// Returns the evicted instance name if eviction was needed.
-    pub fn warm(&mut self, extension_name: &str, memory_mb: u32) -> Option<String> {
+    pub fn warm(&self, extension_name: &str, memory_mb: u32) -> Option<String> {
+        let mut instances = self.instances.lock().expect("EnginePool lock poisoned");
+
         // Remove existing entry for this extension (refresh to front)
-        self.instances.retain(|i| i.extension_name != extension_name);
+        instances.retain(|i| i.extension_name != extension_name);
 
         let mut evicted = None;
 
         // Check capacity
-        if self.instances.len() as u32 >= self.config.max_instances {
-            evicted = self.instances.pop_front().map(|i| i.extension_name);
+        if instances.len() as u32 >= self.config.max_instances {
+            evicted = instances.pop_front().map(|i| i.extension_name);
         }
 
         // Check memory ceiling
-        while self.total_memory() + memory_mb > self.config.max_memory_mb
-            && !self.instances.is_empty()
+        let total_mem: u32 = instances.iter().map(|i| i.memory_mb).sum();
+        let mut current_total = total_mem;
+        while current_total + memory_mb > self.config.max_memory_mb
+            && !instances.is_empty()
         {
-            evicted = self.instances.pop_front().map(|i| i.extension_name);
+            if let Some(removed) = instances.pop_front() {
+                current_total -= removed.memory_mb;
+                evicted = Some(removed.extension_name);
+            }
         }
 
-        self.instances.push_back(WarmInstance {
+        instances.push_back(WarmInstance {
             extension_name: extension_name.to_string(),
             memory_mb,
         });
@@ -67,31 +79,37 @@ impl EnginePool {
     }
 
     /// Evict and return the least-recently-used instance.
-    pub fn evict_lru(&mut self) -> Option<String> {
-        self.instances.pop_front().map(|i| i.extension_name)
+    pub fn evict_lru(&self) -> Option<String> {
+        let mut instances = self.instances.lock().expect("EnginePool lock poisoned");
+        instances.pop_front().map(|i| i.extension_name)
     }
 
     /// Remove a specific extension from the pool.
-    pub fn remove(&mut self, extension_name: &str) -> bool {
-        let before = self.instances.len();
-        self.instances.retain(|i| i.extension_name != extension_name);
-        self.instances.len() < before
+    pub fn remove(&self, extension_name: &str) -> bool {
+        let mut instances = self.instances.lock().expect("EnginePool lock poisoned");
+        let before = instances.len();
+        instances.retain(|i| i.extension_name != extension_name);
+        instances.len() < before
     }
 
     pub fn len(&self) -> usize {
-        self.instances.len()
+        let instances = self.instances.lock().expect("EnginePool lock poisoned");
+        instances.len()
     }
 
     pub fn is_empty(&self) -> bool {
-        self.instances.is_empty()
+        let instances = self.instances.lock().expect("EnginePool lock poisoned");
+        instances.is_empty()
     }
 
     pub fn total_memory(&self) -> u32 {
-        self.instances.iter().map(|i| i.memory_mb).sum()
+        let instances = self.instances.lock().expect("EnginePool lock poisoned");
+        instances.iter().map(|i| i.memory_mb).sum()
     }
 
     pub fn contains(&self, extension_name: &str) -> bool {
-        self.instances.iter().any(|i| i.extension_name == extension_name)
+        let instances = self.instances.lock().expect("EnginePool lock poisoned");
+        instances.iter().any(|i| i.extension_name == extension_name)
     }
 }
 
@@ -104,7 +122,7 @@ mod tests {
     // B:warm_wasm_engine_instance — verify unit "warm instance reused across compilations"
     #[test]
     fn test_warm_instance_reused_across_compilations() {
-        let mut pool = EnginePool::new(WarmEngineConfig::default());
+        let pool = EnginePool::new(WarmEngineConfig::default());
         pool.warm("ext-a", 32);
 
         assert!(pool.contains("ext-a"));
@@ -118,7 +136,7 @@ mod tests {
     // B:warm_wasm_engine_instance — verify unit "instance unloaded on extension removal"
     #[test]
     fn test_instance_unloaded_on_extension_removal() {
-        let mut pool = EnginePool::new(WarmEngineConfig::default());
+        let pool = EnginePool::new(WarmEngineConfig::default());
         pool.warm("ext-a", 32);
         pool.warm("ext-b", 32);
 
@@ -130,7 +148,7 @@ mod tests {
     // B:warm_wasm_engine_instance — verify contract "requires/ensures consistency for warm engine instance management"
     #[test]
     fn test_warm_engine_contract() {
-        let mut pool = EnginePool::new(WarmEngineConfig { max_instances: 2, max_memory_mb: 100 });
+        let pool = EnginePool::new(WarmEngineConfig { max_instances: 2, max_memory_mb: 100 });
 
         // ensures: engine_warmed — instances tracked
         pool.warm("a", 30);
@@ -151,7 +169,7 @@ mod tests {
     // B:evict_warm_engine_instance — verify unit "LRU engine evicted when max instances exceeded"
     #[test]
     fn test_lru_engine_evicted_when_max_instances_exceeded() {
-        let mut pool = EnginePool::new(WarmEngineConfig { max_instances: 2, max_memory_mb: 512 });
+        let pool = EnginePool::new(WarmEngineConfig { max_instances: 2, max_memory_mb: 512 });
         pool.warm("first", 10);
         pool.warm("second", 10);
 
@@ -166,7 +184,7 @@ mod tests {
     // B:evict_warm_engine_instance — verify unit "memory ceiling triggers eviction of least-recent engine"
     #[test]
     fn test_memory_ceiling_triggers_eviction() {
-        let mut pool = EnginePool::new(WarmEngineConfig { max_instances: 10, max_memory_mb: 100 });
+        let pool = EnginePool::new(WarmEngineConfig { max_instances: 10, max_memory_mb: 100 });
         pool.warm("a", 40);
         pool.warm("b", 40);
 
@@ -180,7 +198,7 @@ mod tests {
     // B:evict_warm_engine_instance — verify contract "requires/ensures consistency for warm engine eviction"
     #[test]
     fn test_evict_engine_contract() {
-        let mut pool = EnginePool::new(WarmEngineConfig { max_instances: 2, max_memory_mb: 512 });
+        let pool = EnginePool::new(WarmEngineConfig { max_instances: 2, max_memory_mb: 512 });
         pool.warm("old", 10);
         pool.warm("new", 10);
 
@@ -194,5 +212,43 @@ mod tests {
 
         // ensures: memory_ceiling_enforced
         assert!(pool.total_memory() <= 512);
+    }
+
+    // M8: EnginePool thread safety — verify that EnginePool methods take &self
+    // and the pool can be shared across threads via Arc<EnginePool> (no external Mutex).
+    #[test]
+    fn test_engine_pool_thread_safe_via_arc() {
+        use std::sync::Arc;
+        use std::thread;
+
+        // EnginePool has an internal Mutex, so Arc<EnginePool> is Send + Sync.
+        let pool = Arc::new(EnginePool::new(WarmEngineConfig {
+            max_instances: 16,
+            max_memory_mb: 512,
+        }));
+
+        let pool1 = Arc::clone(&pool);
+        let pool2 = Arc::clone(&pool);
+
+        let t1 = thread::spawn(move || {
+            pool1.warm("ext-thread-1", 32);
+            pool1.contains("ext-thread-1")
+        });
+
+        let t2 = thread::spawn(move || {
+            pool2.warm("ext-thread-2", 64);
+            pool2.contains("ext-thread-2")
+        });
+
+        let r1 = t1.join().expect("thread 1 panicked");
+        let r2 = t2.join().expect("thread 2 panicked");
+
+        assert!(r1, "thread 1 should see its own warmed instance");
+        assert!(r2, "thread 2 should see its own warmed instance");
+
+        // After both threads complete, the shared pool should contain both
+        assert!(pool.contains("ext-thread-1"));
+        assert!(pool.contains("ext-thread-2"));
+        assert_eq!(pool.len(), 2);
     }
 }

@@ -51,7 +51,7 @@ fn self_check_runs_without_crashing() {
     assert!(
         diagnostics.iter().all(|d| {
             let code = d["code"].as_str().unwrap_or("");
-            ["E001", "E002", "W003", "W012", "W060", "W061"].contains(&code)
+            ["E001", "E002", "W003", "W012", "W060", "W061", "W062"].contains(&code)
         }),
         "self-check should only produce known diagnostic codes"
     );

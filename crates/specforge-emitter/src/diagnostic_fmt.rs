@@ -11,7 +11,9 @@ pub fn format_diagnostic(diag: &Diagnostic) -> String {
     let location = if let Some(span) = &diag.span {
         format!("{}:{}:{}", span.file, span.start_line, span.start_col)
     } else {
-        "<unknown>".to_string()
+        // Use the diagnostic code as a deterministic fallback so that
+        // spanless diagnostics are still identifiable and grep-able.
+        format!("<{}>", diag.code)
     };
 
     let mut output = format!("{}: {}[{}]: {}", location, severity_label, diag.code, diag.message);

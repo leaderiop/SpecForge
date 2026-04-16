@@ -1,5 +1,6 @@
 use specforge_graph::Graph;
 
+use crate::error::EmitterError;
 use crate::schema::GraphProtocolSchema;
 
 /// Output format for graph emission.
@@ -57,7 +58,7 @@ impl Default for EmitOptions<'_> {
 ///
 /// Replaces the combinatorial `emit_{json,context,brief}[_scoped][_with_schema]` API.
 /// Returns `Err` only when `scope` references a nonexistent entity.
-pub fn emit(graph: &Graph, options: &EmitOptions<'_>) -> Result<String, String> {
+pub fn emit(graph: &Graph, options: &EmitOptions<'_>) -> Result<String, EmitterError> {
     // Resolve scope: use depth-limited subgraph when depth is set, otherwise full subgraph
     let scoped_graph;
     let g = if let Some(scope_id) = options.scope {
@@ -67,10 +68,10 @@ pub fn emit(graph: &Graph, options: &EmitOptions<'_>) -> Result<String, String> 
             graph.subgraph(scope_id)
         }
         .ok_or_else(|| {
-            format!(
+            EmitterError::EntityNotFound(format!(
                 "E001: unresolved scope entity '{}' — entity not found in graph",
                 scope_id
-            )
+            ))
         })?;
         &scoped_graph
     } else {

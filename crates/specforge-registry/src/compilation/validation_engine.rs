@@ -25,6 +25,10 @@ pub enum ValidationPatternKind {
     CycleDetection,
     FileExists,
     Custom,
+    /// When a condition field equals a specific value, a required field must be present.
+    /// Uses `constraint.pattern` as the condition field name, `constraint.values` as
+    /// the triggering values, and `field` as the required field.
+    ConditionalFieldRequired,
 }
 
 #[derive(Debug, Clone)]
@@ -77,6 +81,7 @@ pub fn parse_rule_pattern(
         "cycle_detection" => ValidationPatternKind::CycleDetection,
         "file_exists" => ValidationPatternKind::FileExists,
         "custom" => ValidationPatternKind::Custom,
+        "conditional_field_required" => ValidationPatternKind::ConditionalFieldRequired,
         other => {
             return Err(Diagnostic {
                 code: "W024".to_string(),
@@ -241,6 +246,35 @@ pub fn execute_pattern(
                 // Cycle detection requires full graph traversal — deferred
                 // to the caller who has access to the graph structure.
                 false
+            }
+            ValidationPatternKind::ConditionalFieldRequired => {
+                // When constraint.pattern (condition field) equals one of constraint.values,
+                // then pattern.field (required field) must be present and non-empty.
+                if let (Some(required_field), Some(constraint)) =
+                    (&pattern.field, &pattern.constraint)
+                {
+                    if let Some(condition_field) = &constraint.pattern {
+                        if let Some(condition_value) = entity.fields.get(condition_field) {
+                            // Check if the condition value matches one of the trigger values
+                            let condition_met = constraint.values.contains(condition_value);
+                            if condition_met {
+                                // Condition met — required field must be present and non-empty
+                                match entity.fields.get(required_field) {
+                                    None => true, // field missing => violation
+                                    Some(v) => v.is_empty(), // empty => violation
+                                }
+                            } else {
+                                false // condition not met, no violation
+                            }
+                        } else {
+                            false // condition field not present on entity
+                        }
+                    } else {
+                        false // no condition field configured
+                    }
+                } else {
+                    false // misconfigured pattern
+                }
             }
             ValidationPatternKind::Custom => {
                 if let (Some(func), Some(rt)) = (&pattern.wasm_function, wasm) {
@@ -895,5 +929,147 @@ mod tests {
         assert_eq!(registered.len(), 2);
         // ensures: unresolvable Wasm produces warning
         assert!(diags.iter().any(|d| d.code == "W025"));
+    }
+
+    // -- B:conditional_field_required -- M1 fix: remove hardcoded CONDITIONAL_RULES
+
+    // RED: parses "conditional_field_required" check kind
+    #[test]
+    fn test_parses_conditional_field_required() {
+        let rule = ManifestValidationRule {
+            code: "I059".to_string(),
+            severity: "info".to_string(),
+            message_template: "feature '{id}' has status 'deferred' but no reason".to_string(),
+            check: "conditional_field_required".to_string(),
+            target_kind: Some("feature".to_string()),
+            field: Some("reason".to_string()),
+            constraint: Some(crate::FieldConstraint {
+                kind: "when_field_equals".to_string(),
+                pattern: Some("status".to_string()),
+                values: vec!["deferred".to_string()],
+            }),
+            edge_type: None,
+            wasm_function: None,
+        };
+        let pattern = parse_rule_pattern(&rule, "@specforge/product").unwrap();
+        assert_eq!(pattern.check, ValidationPatternKind::ConditionalFieldRequired);
+        assert_eq!(pattern.field.as_deref(), Some("reason"));
+        assert_eq!(pattern.constraint.as_ref().unwrap().kind, "when_field_equals");
+        assert_eq!(pattern.constraint.as_ref().unwrap().pattern.as_deref(), Some("status"));
+        assert_eq!(pattern.constraint.as_ref().unwrap().values, vec!["deferred"]);
+    }
+
+    // RED: conditional_field_required fires when condition met and field missing
+    #[test]
+    fn test_conditional_field_required_fires_when_condition_met_field_missing() {
+        let rule = ManifestValidationRule {
+            code: "I059".to_string(),
+            severity: "info".to_string(),
+            message_template: "feature '{id}' has status 'deferred' but no reason".to_string(),
+            check: "conditional_field_required".to_string(),
+            target_kind: Some("feature".to_string()),
+            field: Some("reason".to_string()),
+            constraint: Some(crate::FieldConstraint {
+                kind: "when_field_equals".to_string(),
+                pattern: Some("status".to_string()),
+                values: vec!["deferred".to_string()],
+            }),
+            edge_type: None,
+            wasm_function: None,
+        };
+        let pattern = parse_rule_pattern(&rule, "@specforge/product").unwrap();
+
+        // Entity has status=deferred but no reason field
+        let mut entity = make_entity("my_feature", "feature", 1, 0);
+        entity.fields.insert("status".to_string(), "deferred".to_string());
+
+        let diags = execute_pattern(&pattern, &[entity], None);
+        assert_eq!(diags.len(), 1);
+        assert_eq!(diags[0].code, "I059");
+        assert!(diags[0].message.contains("my_feature"));
+    }
+
+    // RED: conditional_field_required does NOT fire when condition not met
+    #[test]
+    fn test_conditional_field_required_silent_when_condition_not_met() {
+        let rule = ManifestValidationRule {
+            code: "I059".to_string(),
+            severity: "info".to_string(),
+            message_template: "feature '{id}' has status 'deferred' but no reason".to_string(),
+            check: "conditional_field_required".to_string(),
+            target_kind: Some("feature".to_string()),
+            field: Some("reason".to_string()),
+            constraint: Some(crate::FieldConstraint {
+                kind: "when_field_equals".to_string(),
+                pattern: Some("status".to_string()),
+                values: vec!["deferred".to_string()],
+            }),
+            edge_type: None,
+            wasm_function: None,
+        };
+        let pattern = parse_rule_pattern(&rule, "@specforge/product").unwrap();
+
+        // Entity has status=active (not deferred), no reason field
+        let mut entity = make_entity("my_feature", "feature", 1, 0);
+        entity.fields.insert("status".to_string(), "active".to_string());
+
+        let diags = execute_pattern(&pattern, &[entity], None);
+        assert!(diags.is_empty(), "should not fire when condition value doesn't match");
+    }
+
+    // RED: conditional_field_required does NOT fire when required field present
+    #[test]
+    fn test_conditional_field_required_silent_when_field_present() {
+        let rule = ManifestValidationRule {
+            code: "I059".to_string(),
+            severity: "info".to_string(),
+            message_template: "feature '{id}' has status 'deferred' but no reason".to_string(),
+            check: "conditional_field_required".to_string(),
+            target_kind: Some("feature".to_string()),
+            field: Some("reason".to_string()),
+            constraint: Some(crate::FieldConstraint {
+                kind: "when_field_equals".to_string(),
+                pattern: Some("status".to_string()),
+                values: vec!["deferred".to_string()],
+            }),
+            edge_type: None,
+            wasm_function: None,
+        };
+        let pattern = parse_rule_pattern(&rule, "@specforge/product").unwrap();
+
+        // Entity has status=deferred AND reason field
+        let mut entity = make_entity("my_feature", "feature", 1, 0);
+        entity.fields.insert("status".to_string(), "deferred".to_string());
+        entity.fields.insert("reason".to_string(), "Waiting for upstream".to_string());
+
+        let diags = execute_pattern(&pattern, &[entity], None);
+        assert!(diags.is_empty(), "should not fire when required field is present");
+    }
+
+    // RED: conditional_field_required does NOT fire when condition field absent
+    #[test]
+    fn test_conditional_field_required_silent_when_condition_field_absent() {
+        let rule = ManifestValidationRule {
+            code: "I059".to_string(),
+            severity: "info".to_string(),
+            message_template: "feature '{id}' has status 'deferred' but no reason".to_string(),
+            check: "conditional_field_required".to_string(),
+            target_kind: Some("feature".to_string()),
+            field: Some("reason".to_string()),
+            constraint: Some(crate::FieldConstraint {
+                kind: "when_field_equals".to_string(),
+                pattern: Some("status".to_string()),
+                values: vec!["deferred".to_string()],
+            }),
+            edge_type: None,
+            wasm_function: None,
+        };
+        let pattern = parse_rule_pattern(&rule, "@specforge/product").unwrap();
+
+        // Entity has no status field at all
+        let entity = make_entity("my_feature", "feature", 1, 0);
+
+        let diags = execute_pattern(&pattern, &[entity], None);
+        assert!(diags.is_empty(), "should not fire when condition field is absent");
     }
 }

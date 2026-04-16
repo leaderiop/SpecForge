@@ -150,7 +150,7 @@ fn error_strategy_rejects_export_exceeding_budget() {
     let result = specforge_emitter::emit_json_with_budget_strategy(&graph, 500, "error");
     assert!(result.is_err(), "error strategy should reject exceeding budget");
     let err = result.unwrap_err();
-    assert!(err.contains("budget"), "error message should mention budget: {}", err);
+    assert!(err.to_string().contains("budget"), "error message should mention budget: {}", err);
 }
 
 // B:enforce_token_budget — verify integration "export with max_tokens produces output within budget and includes metadata"

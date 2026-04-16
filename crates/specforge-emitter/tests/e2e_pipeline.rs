@@ -129,73 +129,8 @@ fn empty_project_produces_empty_graph() {
     assert!(ctx.graph.edges().is_empty(), "empty project should have no edges");
 }
 
-// B:surface_wiring — verify unit "surfaces from manifests flow through CompilationContext"
-#[test]
-#[specforge_test(behavior = "surface_wiring", verify = "surfaces from manifests flow through CompilationContext")]
-fn surfaces_flow_through_compilation_context() {
-    let dir = TempDir::new().unwrap();
-
-    // Write a minimal spec file
-    fs::write(dir.path().join("core.spec"), r#"behavior hello "Hello" {
-    status planned
-    contract "greet the world"
-}
-"#).unwrap();
-
-    // Write specforge.json pointing to a local extension
-    fs::write(dir.path().join("specforge.json"), r#"{
-    "name": "test-project",
-    "version": "0.1.0",
-    "extensions": ["./ext-test"]
-}
-"#).unwrap();
-
-    // Write a minimal extension manifest with surface contributions
-    let ext_dir = dir.path().join("ext-test");
-    fs::create_dir_all(&ext_dir).unwrap();
-    fs::write(ext_dir.join("manifest.json"), r#"{
-    "name": "@test/surface-ext",
-    "version": "1.0.0",
-    "manifestVersion": 2,
-    "wasmPath": "ext.wasm",
-    "entityKinds": [],
-    "surfaces": {
-        "commands": [],
-        "mcpTools": [
-            {
-                "name": "test.list_stuff",
-                "description": "List stuff",
-                "export": "mcp__list_stuff",
-                "inputSchema": { "type": "object", "properties": {} }
-            }
-        ],
-        "mcpResources": [
-            {
-                "uriTemplate": "specforge://test/stuff",
-                "name": "test-stuff",
-                "description": "Test stuff resource",
-                "export": "mcp__test_stuff",
-                "mimeType": "application/json"
-            }
-        ]
-    }
-}
-"#).unwrap();
-
-    let ctx = specforge_emitter::compile(dir.path());
-
-    // Surface entries should be populated from the manifest
-    assert!(!ctx.surface_entries.is_empty(), "expected surface entries from manifest, got none");
-    assert!(
-        ctx.surface_entries.iter().any(|e| e.contribution_name == "test.list_stuff"),
-        "expected MCP tool entry 'test.list_stuff', got: {:?}",
-        ctx.surface_entries.iter().map(|e| &e.contribution_name).collect::<Vec<_>>()
-    );
-    assert!(
-        ctx.surface_entries.iter().any(|e| e.contribution_name == "test-stuff"),
-        "expected MCP resource entry 'test-stuff'"
-    );
-}
+// (Removed: surfaces_flow_through_compilation_context — tested manifest.json surface loading
+// which is no longer supported. Surface wiring is tested in MCP surface_wiring tests.)
 
 // B:compile_pipeline — verify unit "all emit formats work on pipeline output"
 #[test]

@@ -1,6 +1,5 @@
 ---
 source: crates/specforge-parser/tests/snapshot_tests.rs
-assertion_line: 19
 expression: "parse_ok(source, \"test.spec\").entities"
 ---
 [
@@ -18,7 +17,8 @@ expression: "parse_ok(source, \"test.spec\").entities"
           "key": "status",
           "value": {
             "Identifier": "planned"
-          }
+          },
+          "annotations": []
         },
         {
           "key": "tags",
@@ -28,7 +28,8 @@ expression: "parse_ok(source, \"test.spec\").entities"
               "beta",
               "gamma"
             ]
-          }
+          },
+          "annotations": []
         },
         {
           "key": "verify",
@@ -43,7 +44,8 @@ expression: "parse_ok(source, \"test.spec\").entities"
                 "description": "parses all .spec files in project"
               }
             ]
-          }
+          },
+          "annotations": []
         }
       ]
     },

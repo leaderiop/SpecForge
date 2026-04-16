@@ -12,7 +12,10 @@ use specforge_graph::Node;
 use specforge_parser::{EntityId, EntityKind};
 use specforge_registry::{
     detect_mistyped_references, detect_unknown_entity_fields, detect_unknown_entity_kinds,
-    populate_registries, EntityRefInfo, ManifestV2,
+    populate_registries, EntityRefInfo,
+};
+use specforge_wasm::protocol::{
+    load_protocol_extension, protocol_extension_to_manifest, ProtocolHost,
 };
 
 use crate::formatting::{format_document, format_document_range, EditorOptions};
@@ -139,7 +142,7 @@ impl Backend {
         count
     }
 
-    /// Load extension manifests from specforge.json and populate registries.
+    /// Load extensions via the protocol pipeline and populate registries.
     /// Returns the number of extensions loaded.
     async fn load_registries(&self, project_root: &str) -> usize {
         let config_path = std::path::Path::new(project_root).join("specforge.json");
@@ -165,20 +168,23 @@ impl Backend {
             return 0;
         }
 
-        let project_path = std::path::Path::new(project_root);
+        let runtime = specforge_emitter::builtins::default_runtime();
+        let host = ProtocolHost::new(&runtime);
         let mut manifests = Vec::new();
+
         for ext_spec in &extensions {
-            let manifest_path = if ext_spec.starts_with('.') || ext_spec.starts_with('/') {
-                project_path.join(ext_spec).join("manifest.json")
+            // Normalize path-style specifiers to canonical @specforge/ names
+            let ext_name = if ext_spec.starts_with('@') {
+                ext_spec.clone()
             } else {
-                let short_name = ext_spec
-                    .strip_prefix("@specforge/")
+                let last = std::path::Path::new(ext_spec)
+                    .file_name()
+                    .and_then(|n| n.to_str())
                     .unwrap_or(ext_spec);
-                project_path.join("extensions").join(short_name).join("manifest.json")
+                format!("@specforge/{}", last)
             };
-            if let Ok(content) = std::fs::read_to_string(&manifest_path)
-                && let Ok(manifest) = serde_json::from_str::<ManifestV2>(&content) {
-                    manifests.push(manifest);
+            if let Ok(proto_ext) = load_protocol_extension(&host, &ext_name) {
+                manifests.push(protocol_extension_to_manifest(&proto_ext));
             }
         }
 
@@ -684,7 +690,7 @@ impl LanguageServer for Backend {
                 self.client
                     .log_message(
                         MessageType::INFO,
-                        format!("specforge-lsp: loaded {ext_count} extension manifest(s)"),
+                        format!("specforge-lsp: loaded {ext_count} extension(s)"),
                     )
                     .await;
             }

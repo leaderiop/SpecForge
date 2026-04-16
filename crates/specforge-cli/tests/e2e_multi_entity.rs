@@ -223,7 +223,7 @@ behavior emit_output "Emit Output" {
 }
 "#),
         ("features.spec", r#"
-use behaviors
+use "behaviors"
 
 feature fast_parsing "Fast Parsing" {
     problem "Users need quick feedback"

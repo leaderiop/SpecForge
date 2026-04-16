@@ -1,6 +1,5 @@
 ---
 source: crates/specforge-parser/tests/snapshot_tests.rs
-assertion_line: 42
 expression: "parse_ok(source, \"test.spec\").entities"
 ---
 [
@@ -18,37 +17,43 @@ expression: "parse_ok(source, \"test.spec\").entities"
           "key": "name",
           "value": {
             "String": "a string"
-          }
+          },
+          "annotations": []
         },
         {
           "key": "count",
           "value": {
             "Integer": 42
-          }
+          },
+          "annotations": []
         },
         {
           "key": "enabled",
           "value": {
             "Boolean": true
-          }
+          },
+          "annotations": []
         },
         {
           "key": "disabled",
           "value": {
             "Boolean": false
-          }
+          },
+          "annotations": []
         },
         {
           "key": "created",
           "value": {
             "Date": "2024-01-15"
-          }
+          },
+          "annotations": []
         },
         {
           "key": "status",
           "value": {
             "Identifier": "planned"
-          }
+          },
+          "annotations": []
         },
         {
           "key": "tags",
@@ -58,7 +63,8 @@ expression: "parse_ok(source, \"test.spec\").entities"
               "beta",
               "gamma"
             ]
-          }
+          },
+          "annotations": []
         },
         {
           "key": "labels",
@@ -67,7 +73,8 @@ expression: "parse_ok(source, \"test.spec\").entities"
               "tag-one",
               "tag-two"
             ]
-          }
+          },
+          "annotations": []
         },
         {
           "key": "config",
@@ -78,17 +85,20 @@ expression: "parse_ok(source, \"test.spec\").entities"
                   "key": "timeout",
                   "value": {
                     "Integer": 30
-                  }
+                  },
+                  "annotations": []
                 },
                 {
                   "key": "retries",
                   "value": {
                     "Integer": 3
-                  }
+                  },
+                  "annotations": []
                 }
               ]
             }
-          }
+          },
+          "annotations": []
         },
         {
           "key": "verify",
@@ -103,7 +113,8 @@ expression: "parse_ok(source, \"test.spec\").entities"
                 "description": "always valid"
               }
             ]
-          }
+          },
+          "annotations": []
         }
       ]
     },

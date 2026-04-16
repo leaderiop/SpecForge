@@ -65,6 +65,7 @@ fn line_col_to_byte_range(
     let mut byte_offset = 0;
     let mut start = 0;
     let mut end = source.len();
+    let src_bytes = source.as_bytes();
 
     for (i, line) in source.lines().enumerate() {
         let line_num = i + 1; // 1-based
@@ -75,10 +76,60 @@ fn line_col_to_byte_range(
             end = byte_offset + end_col.saturating_sub(1);
             break;
         }
-        byte_offset += line.len() + 1; // +1 for newline
+        byte_offset += line.len();
+        // Detect actual line ending: \r\n adds 2, \n adds 1
+        if src_bytes.get(byte_offset) == Some(&b'\r')
+            && src_bytes.get(byte_offset + 1) == Some(&b'\n')
+        {
+            byte_offset += 2;
+        } else if byte_offset < source.len() {
+            byte_offset += 1;
+        }
     }
 
     let start = start.min(source.len());
     let end = end.min(source.len()).max(start + 1);
     start..end
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn line_col_to_byte_range_unix_newlines() {
+        // "abc\ndef\nghi\n" — line 2 col 1..3 should be bytes 4..6
+        let source = "abc\ndef\nghi\n";
+        let range = line_col_to_byte_range(source, 2, 1, 2, 3);
+        assert_eq!(range, 4..6);
+    }
+
+    #[test]
+    fn line_col_to_byte_range_crlf_newlines() {
+        // "abc\r\ndef\r\nghi\r\n" — line 2 col 1..3 should be bytes 5..7
+        let source = "abc\r\ndef\r\nghi\r\n";
+        let range = line_col_to_byte_range(source, 2, 1, 2, 3);
+        assert_eq!(range, 5..7);
+        assert_eq!(&source[range], "de");
+    }
+
+    #[test]
+    fn line_col_to_byte_range_crlf_multiline() {
+        // Verify that offsets accumulate correctly across multiple CRLF lines
+        let source = "line1\r\nline2\r\nline3\r\n";
+        // line 3 starts at byte 14 (5+2+5+2), col 1..5 -> bytes 14..18
+        let range = line_col_to_byte_range(source, 3, 1, 3, 5);
+        assert_eq!(range, 14..18);
+        assert_eq!(&source[range], "line");
+    }
+
+    #[test]
+    fn line_col_to_byte_range_mixed_newlines() {
+        // "abc\ndef\r\nghi\n" — line 3 col 1..3 should be bytes 9..11
+        // abc(3) + \n(1) + def(3) + \r\n(2) = 9
+        let source = "abc\ndef\r\nghi\n";
+        let range = line_col_to_byte_range(source, 3, 1, 3, 3);
+        assert_eq!(range, 9..11);
+        assert_eq!(&source[range], "gh");
+    }
 }

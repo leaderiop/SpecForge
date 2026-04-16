@@ -99,7 +99,12 @@ pub fn load_provider_configurations(
 }
 
 /// Register provider schemes from provider configs + extension manifests.
-/// Duplicate schemes across extensions produce E033.
+/// Duplicate schemes produce E033 regardless of which extension they map to.
+///
+/// Each provider config is matched to a contributing extension by checking
+/// whether the extension name contains the provider scheme or provider name
+/// as a substring, or by assigning to the first unmatched contributing
+/// extension. A provider is only registered once (to one extension).
 pub fn register_provider_schemes(
     providers: &[ProviderConfig],
     manifests: &[(String, ManifestV2)],
@@ -109,61 +114,72 @@ pub fn register_provider_schemes(
     let mut seen_schemes: std::collections::HashMap<String, String> =
         std::collections::HashMap::new();
 
-    // Register from manifests that contribute providers
-    for (ext_name, manifest) in manifests {
-        if !manifest.contributes.providers {
+    // Collect contributing extensions
+    let contributing: Vec<&str> = manifests
+        .iter()
+        .filter(|(_, m)| m.contributes.providers)
+        .map(|(name, _)| name.as_str())
+        .collect();
+
+    // For each provider config, find the best-matching contributing extension.
+    // Match heuristic: extension name contains the provider scheme or provider name.
+    // If no heuristic match, assign to the first contributing extension.
+    for provider in providers {
+        // Find a matching contributing extension for this provider
+        let matched_ext = contributing
+            .iter()
+            .find(|ext_name| {
+                ext_name.contains(&provider.scheme) || ext_name.contains(&provider.name)
+            })
+            .or(contributing.first());
+
+        let ext_name = match matched_ext {
+            Some(name) => *name,
+            None => continue, // No contributing extensions at all
+        };
+
+        if let Some(existing_ext) = seen_schemes.get(&provider.scheme) {
+            diagnostics.push(Diagnostic {
+                code: "E033".to_string(),
+                severity: Severity::Error,
+                message: format!(
+                    "scheme '{}' registered by extension '{}' conflicts with '{}'",
+                    provider.scheme, ext_name, existing_ext
+                ),
+                span: None,
+                suggestion: Some(
+                    "use distinct schemes for each provider extension".to_string(),
+                ),
+            });
             continue;
         }
 
-        // Find matching provider config
-        for provider in providers {
-            if seen_schemes.contains_key(&provider.scheme) {
-                let existing_ext = &seen_schemes[&provider.scheme];
-                if existing_ext != ext_name {
-                    diagnostics.push(Diagnostic {
-                        code: "E033".to_string(),
-                        severity: Severity::Error,
-                        message: format!(
-                            "scheme '{}' registered by extension '{}' conflicts with '{}'",
-                            provider.scheme, ext_name, existing_ext
-                        ),
-                        span: None,
-                        suggestion: Some(
-                            "use distinct schemes for each provider extension".to_string(),
-                        ),
-                    });
-                }
-                continue;
-            }
-
-            seen_schemes.insert(provider.scheme.clone(), ext_name.clone());
-            registry.entries.push(SchemeRegistryEntry {
-                scheme: provider.scheme.clone(),
-                provider_name: provider.name.clone(),
-                extension_name: ext_name.clone(),
-            });
-        }
+        seen_schemes.insert(provider.scheme.clone(), ext_name.to_string());
+        registry.entries.push(SchemeRegistryEntry {
+            scheme: provider.scheme.clone(),
+            provider_name: provider.name.clone(),
+            extension_name: ext_name.to_string(),
+        });
     }
 
     // Warn about providers without matching manifests
-    for provider in providers {
-        let has_manifest = manifests
+    if !providers.is_empty() {
+        let has_contributor = manifests
             .iter()
             .any(|(_, m)| m.contributes.providers);
-        if !has_manifest {
+        if !has_contributor {
             diagnostics.push(Diagnostic {
                 code: "W033".to_string(),
                 severity: Severity::Warning,
                 message: format!(
                     "provider '{}' configured but no extension contributes providers",
-                    provider.name
+                    providers[0].name
                 ),
                 span: None,
                 suggestion: Some(
                     "install an extension that contributes providers".to_string(),
                 ),
             });
-            break;
         }
     }
 

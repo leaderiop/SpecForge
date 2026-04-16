@@ -1,5 +1,7 @@
+mod builtins;
 mod contracts;
 mod determinism;
+mod dual_mode;
 mod e2e_pipeline;
 mod diagnostics;
 mod emit_brief;
@@ -7,6 +9,7 @@ mod emit_context;
 mod emit_dot;
 mod emit_graph;
 mod emit_json;
+mod emitter_error;
 mod model;
 mod outline;
 mod plan;

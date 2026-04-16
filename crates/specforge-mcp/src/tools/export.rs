@@ -26,6 +26,6 @@ pub fn call(state: &McpState, args: Value, id: Option<Value>) -> JsonRpcResponse
                 }]
             }))
         }
-        Err(msg) => JsonRpcResponse::error(id, error_codes::INVALID_PARAMS, msg),
+        Err(err) => JsonRpcResponse::error(id, error_codes::INVALID_PARAMS, err.to_string()),
     }
 }

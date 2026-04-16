@@ -1,6 +1,5 @@
 ---
 source: crates/specforge-parser/tests/snapshot_tests.rs
-assertion_line: 104
 expression: result.entities
 ---
 [
@@ -21,7 +20,8 @@ expression: result.entities
               "multi_error_collection",
               "string_interning_consistency"
             ]
-          }
+          },
+          "annotations": []
         },
         {
           "key": "types",
@@ -31,7 +31,8 @@ expression: result.entities
               "ParseError",
               "SourceSpan"
             ]
-          }
+          },
+          "annotations": []
         },
         {
           "key": "requires",
@@ -42,11 +43,13 @@ expression: result.entities
                   "key": "valid_utf8_input",
                   "value": {
                     "String": "Input buffer is valid UTF-8"
-                  }
+                  },
+                  "annotations": []
                 }
               ]
             }
-          }
+          },
+          "annotations": []
         },
         {
           "key": "ensures",
@@ -57,17 +60,20 @@ expression: result.entities
                   "key": "ast_produced",
                   "value": {
                     "String": "A complete AST is produced"
-                  }
+                  },
+                  "annotations": []
                 }
               ]
             }
-          }
+          },
+          "annotations": []
         },
         {
           "key": "contract",
           "value": {
             "String": "Given a source file\nWhen parsed by the Tree-sitter grammar\nThen an AST is produced with all entities"
-          }
+          },
+          "annotations": []
         },
         {
           "key": "verify",
@@ -82,7 +88,8 @@ expression: result.entities
                 "description": "parses all .spec files in project"
               }
             ]
-          }
+          },
+          "annotations": []
         }
       ]
     },
@@ -109,19 +116,22 @@ expression: result.entities
           "key": "scheme",
           "value": {
             "String": "gh"
-          }
+          },
+          "annotations": []
         },
         {
           "key": "ref_kind",
           "value": {
             "String": "issue"
-          }
+          },
+          "annotations": []
         },
         {
           "key": "identifier",
           "value": {
             "String": "1"
-          }
+          },
+          "annotations": []
         }
       ]
     },
@@ -150,7 +160,8 @@ expression: result.entities
             "ReferenceList": [
               "multi_error_collection"
             ]
-          }
+          },
+          "annotations": []
         },
         {
           "key": "types",
@@ -158,13 +169,15 @@ expression: result.entities
             "ReferenceList": [
               "ParseError"
             ]
-          }
+          },
+          "annotations": []
         },
         {
           "key": "status",
           "value": {
             "Identifier": "planned"
-          }
+          },
+          "annotations": []
         },
         {
           "key": "verify",
@@ -175,7 +188,8 @@ expression: result.entities
                 "description": "N errors produce N diagnostics"
               }
             ]
-          }
+          },
+          "annotations": []
         }
       ]
     },

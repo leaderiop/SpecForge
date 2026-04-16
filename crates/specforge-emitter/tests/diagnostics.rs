@@ -339,3 +339,61 @@ fn diagnostics_ext_has_errors() {
     assert!(with_errors.has_errors());
     assert_eq!(with_errors.error_count(), 1);
 }
+
+// ============================================================================
+// Spanless diagnostic fallback (L9)
+// ============================================================================
+
+// L9: spanless diagnostic uses code as fallback location
+#[test]
+#[specforge_test(behavior = "print_diagnostics_structured", verify = "spanless diagnostic uses code as fallback location")]
+fn spanless_diagnostic_uses_code_as_fallback() {
+    let diag = Diagnostic {
+        code: "W061".to_string(),
+        severity: Severity::Warning,
+        message: "some warning without location".to_string(),
+        span: None,
+        suggestion: None,
+    };
+    let formatted = specforge_emitter::format_diagnostic(&diag);
+    // Should include the diagnostic code in the location fallback
+    assert!(
+        formatted.contains("<W061>"),
+        "spanless diagnostic should use code as fallback location, got: {}",
+        formatted,
+    );
+    // Should NOT use the generic "<unknown>"
+    assert!(
+        !formatted.contains("<unknown>"),
+        "should not use generic '<unknown>' fallback, got: {}",
+        formatted,
+    );
+}
+
+#[test]
+#[specforge_test(behavior = "print_diagnostics_structured", verify = "spanless error diagnostic also uses code")]
+fn spanless_error_diagnostic_uses_code() {
+    let diag = Diagnostic {
+        code: "E001".to_string(),
+        severity: Severity::Error,
+        message: "unresolved".to_string(),
+        span: None,
+        suggestion: None,
+    };
+    let formatted = specforge_emitter::format_diagnostic(&diag);
+    assert!(
+        formatted.contains("<E001>"),
+        "expected code-based fallback, got: {}",
+        formatted,
+    );
+}
+
+#[test]
+#[specforge_test(behavior = "print_diagnostics_structured", verify = "spanned diagnostic ignores code fallback")]
+fn spanned_diagnostic_ignores_code_fallback() {
+    let diag = diag_with_span("E001", Severity::Error, "bad ref", "src/test.spec", 10, 5);
+    let formatted = specforge_emitter::format_diagnostic(&diag);
+    // Should use the real span, not the code fallback
+    assert!(formatted.contains("src/test.spec:10:5"));
+    assert!(!formatted.contains("<E001>"));
+}

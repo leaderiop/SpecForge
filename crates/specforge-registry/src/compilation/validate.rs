@@ -10,9 +10,9 @@ pub fn validate_registered_entity_fields(
 ) -> Vec<Diagnostic> {
     let mut diagnostics = Vec::new();
 
-    for ((kind_name, field_name), entry) in field_reg.iter() {
+    for (kind_name, field_name, entry) in field_reg.iter() {
         // Validate target_kind references
-        if let Some(ref target) = entry.target_kind
+        if let Some(target) = &entry.target_kind
             && !kind_reg.contains(target)
         {
             diagnostics.push(Diagnostic {
@@ -28,7 +28,7 @@ pub fn validate_registered_entity_fields(
         }
 
         // Validate edge label references
-        if let Some(ref edge) = entry.edge
+        if let Some(edge) = &entry.edge
             && !edge_reg.contains(edge)
         {
             diagnostics.push(Diagnostic {

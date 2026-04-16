@@ -137,7 +137,7 @@ fn graph_format_scoped_nonexistent_entity_produces_e001() {
     let result = specforge_emitter::emit_json_scoped(&graph, "nonexistent");
     assert!(result.is_err(), "should return error for nonexistent entity");
     let err = result.unwrap_err();
-    assert!(err.contains("E001"), "error should contain E001: {}", err);
+    assert!(err.to_string().contains("E001"), "error should contain E001: {}", err);
 }
 
 // B:export_agent_graph_format — verify integration "structural-only graph exports valid JSON with raw keyword strings as entity kinds"

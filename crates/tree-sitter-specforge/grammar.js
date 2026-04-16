@@ -172,6 +172,7 @@ module.exports = grammar({
         $.triple_quoted_string,
         $.string,
         $.date_literal,
+        $.negative_integer,
         $.integer,
         $.boolean,
         $.list,

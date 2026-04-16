@@ -127,9 +127,9 @@ mod tests {
         let wasm_path = dir.path().join("ext.wasm");
         std::fs::write(&wasm_path, b"module_data").unwrap();
 
-        let entry = crate::cache::aot_compile(&wasm_path, &cache_dir).unwrap();
+        let entry = crate::cache::cache_wasm_binary(&wasm_path, &cache_dir).unwrap();
         // Corrupt
-        std::fs::write(&entry.aot_path, b"garbage").unwrap();
+        std::fs::write(&entry.cached_path, b"garbage").unwrap();
         // Detection
         assert!(crate::cache::has_cached_artifact(&wasm_path, &cache_dir).is_none());
     }
@@ -143,7 +143,7 @@ mod tests {
         let cache_dir = dir.path().join("cache");
         let wasm_path = dir.path().join("ext.wasm");
         std::fs::write(&wasm_path, b"v1").unwrap();
-        crate::cache::aot_compile(&wasm_path, &cache_dir).unwrap();
+        crate::cache::cache_wasm_binary(&wasm_path, &cache_dir).unwrap();
 
         // Change the binary
         std::fs::write(&wasm_path, b"v2").unwrap();
@@ -290,7 +290,7 @@ mod tests {
         let cache_dir = dir.path().join("cache");
         let missing = dir.path().join("nonexistent.wasm");
 
-        let result = crate::cache::aot_compile(&missing, &cache_dir);
+        let result = crate::cache::cache_wasm_binary(&missing, &cache_dir);
         assert!(result.is_err());
         // No cache artifacts created for failed operation
         assert!(!cache_dir.exists() || std::fs::read_dir(&cache_dir).unwrap().count() == 0);

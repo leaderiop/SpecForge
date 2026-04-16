@@ -1,4 +1,4 @@
-use crate::cache::aot_compile;
+use crate::cache::cache_wasm_binary;
 use crate::integrity::hex_sha256;
 use crate::lock_file::{LockFile, LockFileEntry};
 use specforge_common::{Diagnostic, Severity};
@@ -10,11 +10,11 @@ pub struct InstallResult {
     pub name: String,
     pub version: String,
     pub wasm_hash: String,
-    pub aot_compiled: bool,
+    pub cached: bool,
 }
 
 /// Install an extension from downloaded bytes.
-/// Steps: verify SHA256 -> place binary (atomic via temp dir) -> AOT compile -> update lock file.
+/// Steps: verify SHA256 -> place binary (atomic via temp dir) -> cache binary -> update lock file.
 #[allow(clippy::too_many_arguments)]
 pub fn install_extension(
     name: &str,
@@ -90,10 +90,10 @@ pub fn install_extension(
         });
     }
 
-    // 3. AOT compile (optional)
-    let aot_compiled = if !skip_aot {
+    // 3. Cache wasm binary (optional)
+    let cached = if !skip_aot {
         let wasm_path = ext_dir.join("extension.wasm");
-        aot_compile(&wasm_path, cache_dir).is_ok()
+        cache_wasm_binary(&wasm_path, cache_dir).is_ok()
     } else {
         false
     };
@@ -116,7 +116,7 @@ pub fn install_extension(
         name: name.to_string(),
         version: version.to_string(),
         wasm_hash: actual_hash,
-        aot_compiled,
+        cached,
     })
 }
 

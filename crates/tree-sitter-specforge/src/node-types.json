@@ -158,6 +158,10 @@
             "named": true
           },
           {
+            "type": "negative_integer",
+            "named": true
+          },
+          {
             "type": "nested_block",
             "named": true
           },

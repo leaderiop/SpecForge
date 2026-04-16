@@ -148,7 +148,7 @@ pub fn resolve_project_with_config(spec_root: &Path, config: &ResolveConfig) -> 
             severity: Severity::Warning,
             message: format!("circular import detected: {}", names.join(" -> ")),
             span: None,
-            suggestion: None,
+            suggestion: Some("break the cycle by removing one of the `use` imports or extracting shared entities into a separate file".to_string()),
         });
     }
 

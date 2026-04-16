@@ -116,8 +116,20 @@ pub fn host_read_file_check(
         });
     }
 
+    // Resolve symlinks via canonicalize to prevent sandbox escape.
+    // If canonicalize succeeds (file exists), use the resolved paths for comparison.
+    // If it fails (file doesn't exist), fall back to the lexical starts_with check
+    // since a nonexistent file will fail to read anyway.
+    let (effective_path, effective_root) = match (
+        std::fs::canonicalize(path),
+        std::fs::canonicalize(spec_root),
+    ) {
+        (Ok(canon_path), Ok(canon_root)) => (canon_path, canon_root),
+        _ => (path.to_path_buf(), spec_root.to_path_buf()),
+    };
+
     // Path must be under spec_root
-    if !path.starts_with(spec_root) {
+    if !effective_path.starts_with(&effective_root) {
         return Err(Diagnostic {
             code: "E031".to_string(),
             severity: Severity::Error,
@@ -857,6 +869,99 @@ mod tests {
                 site
             );
         }
+    }
+
+    // -- M10: symlink resolution in host_read_file_check --
+
+    // M10 — verify unit "canonicalized symlink outside spec_root is denied"
+    #[test]
+    fn test_read_file_denies_symlink_outside_spec_root() {
+        // Create a temp directory structure:
+        //   spec_root/   (inside sandbox)
+        //   outside/secret.spec  (outside sandbox)
+        //   spec_root/link -> ../outside/secret.spec  (symlink escapes)
+        let tmp = tempfile::tempdir().unwrap();
+        let spec_root = tmp.path().join("spec_root");
+        let outside = tmp.path().join("outside");
+        std::fs::create_dir_all(&spec_root).unwrap();
+        std::fs::create_dir_all(&outside).unwrap();
+        std::fs::write(outside.join("secret.spec"), "secret data").unwrap();
+
+        // Create symlink: spec_root/link -> ../outside/secret.spec
+        #[cfg(unix)]
+        std::os::unix::fs::symlink(
+            outside.join("secret.spec"),
+            spec_root.join("link"),
+        )
+        .unwrap();
+
+        let policy = SandboxPolicy {
+            file_system_access: Some(true),
+            ..Default::default()
+        };
+
+        // The path spec_root/link looks like it's under spec_root, but resolves outside
+        let result = host_read_file_check(
+            "ext",
+            &spec_root.join("link"),
+            &spec_root,
+            CallSite::Validator,
+            &policy,
+        );
+        // After fix: should be denied because canonicalized path is outside spec_root
+        assert!(result.is_err(), "symlink escaping spec_root should be denied");
+        assert!(result.unwrap_err().message.contains("not under spec_root"));
+    }
+
+    // M10 — verify unit "canonicalized path inside spec_root is allowed"
+    #[test]
+    fn test_read_file_allows_canonicalized_path_inside_spec_root() {
+        let tmp = tempfile::tempdir().unwrap();
+        let spec_root = tmp.path().join("spec_root");
+        let subdir = spec_root.join("subdir");
+        std::fs::create_dir_all(&subdir).unwrap();
+        std::fs::write(subdir.join("file.spec"), "data").unwrap();
+
+        // Create symlink within spec_root: spec_root/link -> spec_root/subdir/file.spec
+        #[cfg(unix)]
+        std::os::unix::fs::symlink(
+            subdir.join("file.spec"),
+            spec_root.join("link"),
+        )
+        .unwrap();
+
+        let policy = SandboxPolicy {
+            file_system_access: Some(true),
+            ..Default::default()
+        };
+
+        let result = host_read_file_check(
+            "ext",
+            &spec_root.join("link"),
+            &spec_root,
+            CallSite::Validator,
+            &policy,
+        );
+        assert!(result.is_ok(), "symlink within spec_root should be allowed");
+    }
+
+    // M10 — verify unit "nonexistent file falls back to lexical check (no canonicalize failure)"
+    #[test]
+    fn test_read_file_nonexistent_path_under_spec_root_allowed() {
+        let policy = SandboxPolicy {
+            file_system_access: Some(true),
+            ..Default::default()
+        };
+        // This path doesn't exist on disk, so canonicalize will fail.
+        // Fallback to lexical check: path starts with spec_root, no ".." => allowed
+        let result = host_read_file_check(
+            "ext",
+            Path::new("/nonexistent/spec/file.spec"),
+            Path::new("/nonexistent/spec"),
+            CallSite::Validator,
+            &policy,
+        );
+        assert!(result.is_ok(), "nonexistent path under spec_root should fall back to lexical check");
     }
 
     // -- Wave 4: provide_host_function_emit_diagnostic + provide_host_function_http_get gaps --

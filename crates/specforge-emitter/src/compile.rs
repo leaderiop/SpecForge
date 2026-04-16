@@ -10,7 +10,8 @@ use specforge_registry::{
     },
 };
 use specforge_resolver::{resolve_project, ResolvedProject};
-use specforge_validator::validate;
+use specforge_validator::{validate_with_config, ValidatorConfig};
+use specforge_wasm::WasmRuntime;
 use std::collections::{HashMap, HashSet};
 use std::path::Path;
 
@@ -38,14 +39,29 @@ pub struct CompilationContext {
 ///
 /// This is the single source of truth for compilation. All consumers
 /// (CLI, MCP, LSP) should call this to get consistent results.
+///
+/// Extensions are loaded from the built-in runtime (native Rust implementations
+/// of `@specforge/product`, `@specforge/software`, `@specforge/governance`, `@specforge/formal`).
 pub fn compile(path: &Path) -> CompilationContext {
+    let runtime = crate::builtins::default_runtime();
+    compile_with_runtime(path, Some(&runtime))
+}
+
+/// Run the full compilation pipeline with an optional Wasm runtime.
+///
+/// When `runtime` is `Some`, extensions are loaded via the protocol
+/// (`__handshake` / `__describe`). When `None`, no extensions are loaded.
+pub fn compile_with_runtime(path: &Path, runtime: Option<&dyn WasmRuntime>) -> CompilationContext {
     let mut diagnostics = Vec::new();
 
     // 1. Load project config
     let config = load_project_config(path);
 
-    // 2. Load extension manifests
-    let manifests = load_extension_manifests(path, &config.extensions, &mut diagnostics);
+    // 2. Load extensions via protocol
+    let manifests = match runtime {
+        Some(rt) => load_extensions(&config.extensions, rt, &mut diagnostics),
+        None => Vec::new(),
+    };
 
     // 3. Populate registries
     let (kind_reg, field_reg, edge_reg, pop_diags) = populate_registries(&manifests);
@@ -59,7 +75,7 @@ pub fn compile(path: &Path) -> CompilationContext {
     let (patterns, rule_diags) = parse_all_rule_patterns(&rule_inputs);
     diagnostics.extend(rule_diags);
 
-    // 5. Build keyword→extension index for I004 messages
+    // 5. Build keyword->extension index for I004 messages
     let known_extension_keywords: HashMap<String, String> = manifests
         .iter()
         .flat_map(|m| {
@@ -69,11 +85,22 @@ pub fn compile(path: &Path) -> CompilationContext {
         })
         .collect();
 
+    // 5a. Build bidirectional pairs from extension edge types.
+    // Domain-specific knowledge (e.g., invariants/enforced_by) comes from extensions,
+    // not the core graph engine. For now, hardcode the same pairs that were previously
+    // in graph.rs to keep behavior identical while moving them out of the graph crate.
+    let bidirectional_pairs = vec![
+        ("invariants".to_string(), "enforced_by".to_string()),
+        ("constrains".to_string(), "constrained_by".to_string()),
+        ("features".to_string(), "behaviors".to_string()),
+    ];
+
     // 6. Build GraphConfig from registries
     let graph_config = GraphConfig {
         installed_keywords: kind_reg.keywords().cloned().collect(),
         known_provider_schemes: HashSet::new(),
         known_extension_keywords,
+        bidirectional_pairs,
     };
 
     // 7. Resolve project (use configured spec_root, default to project root)
@@ -96,8 +123,8 @@ pub fn compile(path: &Path) -> CompilationContext {
     if !field_reg.is_empty() {
         let single_ref_fields: HashSet<(String, String)> = field_reg
             .iter()
-            .filter(|(_, entry)| entry.field_type == specforge_registry::ManifestFieldType::Reference)
-            .map(|((kind, field), _)| (kind.clone(), field.clone()))
+            .filter(|(_, _, entry)| entry.field_type == specforge_registry::ManifestFieldType::Reference)
+            .map(|(kind, field, _)| (kind.to_string(), field.to_string()))
             .collect();
         if !single_ref_fields.is_empty() {
             let ref_diags = graph.resolve_references_with_singles(&single_ref_fields);
@@ -108,8 +135,19 @@ pub fn compile(path: &Path) -> CompilationContext {
         }
     }
 
-    // 9. Run core validation
-    let validation_diags = validate(&graph);
+    // 9. Run core validation (with file reference fields from registries)
+    let file_ref_fields: Vec<String> = field_reg
+        .iter()
+        .filter(|(_, _, entry)| entry.file_reference)
+        .map(|(_, field_name, _)| field_name.to_string())
+        .collect::<std::collections::HashSet<_>>()
+        .into_iter()
+        .collect();
+    let validator_config = ValidatorConfig {
+        spec_root: spec_root.clone(),
+        file_reference_fields: file_ref_fields,
+    };
+    let validation_diags = validate_with_config(&graph, &validator_config);
     diagnostics.extend(validation_diags);
 
     // 10. Run strict field validation against extension registries
@@ -174,9 +212,8 @@ pub fn compile(path: &Path) -> CompilationContext {
     let extension_diags = run_extension_validation(&patterns, &graph, &edge_label_to_field);
     diagnostics.extend(extension_diags);
 
-    // 13. Run conditional field validation (status-dependent rules)
-    let conditional_diags = run_conditional_validation(&graph);
-    diagnostics.extend(conditional_diags);
+    // 13. (Conditional field validation now handled by extension validation rules
+    //     via the ConditionalFieldRequired pattern kind — no hardcoded rules.)
 
     // 14. Build extension info for schema generation
     let extension_info: Vec<(String, String)> = manifests
@@ -228,7 +265,7 @@ pub fn compile_simple(path: &Path) -> CompilationContext {
     let resolved = resolve_project(&spec_root);
     let spec_files: Vec<_> = resolved.files.iter().map(|f| f.spec_file.clone()).collect();
     let (graph, build_diagnostics) = build_graph(&spec_files);
-    let validation_diagnostics = validate(&graph);
+    let validation_diagnostics = validate_with_config(&graph, &ValidatorConfig::default());
 
     let mut diagnostics = resolved.diagnostics.clone();
     diagnostics.extend(build_diagnostics);
@@ -250,68 +287,66 @@ pub fn compile_simple(path: &Path) -> CompilationContext {
     }
 }
 
-fn load_extension_manifests(
-    project_root: &Path,
+/// Normalize an extension specifier to its canonical `@specforge/` name.
+///
+/// Config files can reference extensions as paths (`./extensions/product`,
+/// `/abs/path/to/extensions/product`) or canonical names (`@specforge/product`).
+/// The runtime dispatches by canonical name.
+fn normalize_extension_name(ext_spec: &str) -> String {
+    if ext_spec.starts_with('@') {
+        return ext_spec.to_string();
+    }
+    let last = std::path::Path::new(ext_spec)
+        .file_name()
+        .and_then(|n| n.to_str())
+        .unwrap_or(ext_spec);
+    format!("@specforge/{}", last)
+}
+
+/// Load extensions via the protocol path only (no manifest.json).
+/// Each extension name is resolved through the runtime's __handshake/__describe exports.
+fn load_extensions(
     extensions: &[String],
+    runtime: &dyn WasmRuntime,
     diagnostics: &mut Vec<Diagnostic>,
 ) -> Vec<ManifestV2> {
+    use specforge_wasm::protocol::{
+        protocol_extension_to_manifest, ProtocolHost,
+        load_protocol_extension as proto_load,
+    };
+
+    let host = ProtocolHost::new(runtime);
     let mut manifests = Vec::new();
 
     for ext_spec in extensions {
-        let manifest_path = if ext_spec.starts_with('.') || ext_spec.starts_with('/') {
-            project_root.join(ext_spec).join("manifest.json")
-        } else {
-            let short_name = ext_spec
-                .strip_prefix("@specforge/")
-                .unwrap_or(ext_spec);
-            project_root.join("extensions").join(short_name).join("manifest.json")
-        };
-
-        let content = match std::fs::read_to_string(&manifest_path) {
-            Ok(c) => c,
-            Err(_) => {
-                diagnostics.push(Diagnostic {
-                    code: "W030".to_string(),
-                    severity: Severity::Warning,
-                    message: format!(
-                        "extension '{}': manifest not found at '{}'",
-                        ext_spec,
-                        manifest_path.display()
-                    ),
-                    span: None,
-                    suggestion: Some(format!("install with: specforge add {}", ext_spec)),
-                });
-                continue;
+        let ext_name = normalize_extension_name(ext_spec);
+        match proto_load(&host, &ext_name) {
+            Ok(proto_ext) => {
+                let manifest = protocol_extension_to_manifest(&proto_ext);
+                let schema_diags = validate_manifest(&manifest);
+                let consistency_diags = validate_manifest_consistency(&manifest);
+                diagnostics.extend(schema_diags);
+                diagnostics.extend(consistency_diags);
+                manifests.push(manifest);
             }
-        };
-
-        let manifest: ManifestV2 = match serde_json::from_str(&content) {
-            Ok(m) => m,
             Err(e) => {
                 diagnostics.push(Diagnostic {
-                    code: "E030".to_string(),
+                    code: "E031".to_string(),
                     severity: Severity::Error,
                     message: format!(
-                        "extension '{}': failed to parse manifest: {}",
-                        ext_spec, e
+                        "extension '{}': protocol loading failed: {}",
+                        ext_name, e
                     ),
                     span: None,
                     suggestion: None,
                 });
-                continue;
             }
-        };
-
-        let schema_diags = validate_manifest(&manifest);
-        let consistency_diags = validate_manifest_consistency(&manifest);
-        diagnostics.extend(schema_diags);
-        diagnostics.extend(consistency_diags);
-
-        manifests.push(manifest);
+        }
     }
 
     manifests
 }
+
 
 fn run_extension_validation(
     patterns: &[ValidationRulePattern],
@@ -490,114 +525,8 @@ fn detect_cycles(
     diagnostics
 }
 
-/// Rules: when entity has status=X, field Y must be present.
-struct ConditionalRule {
-    code: &'static str,
-    severity: Severity,
-    kind: &'static str,
-    status_field: &'static str,
-    status_value: &'static str,
-    required_field: &'static str,
-    message: &'static str,
-}
-
-const CONDITIONAL_RULES: &[ConditionalRule] = &[
-    ConditionalRule {
-        code: "I059",
-        severity: Severity::Info,
-        kind: "feature",
-        status_field: "status",
-        status_value: "deferred",
-        required_field: "reason",
-        message: "feature '{id}' has status 'deferred' but no reason — consider adding a reason field",
-    },
-    ConditionalRule {
-        code: "W057",
-        severity: Severity::Warning,
-        kind: "milestone",
-        status_field: "status",
-        status_value: "completed",
-        required_field: "exit_criteria",
-        message: "milestone '{id}' has status 'completed' but no exit_criteria",
-    },
-    ConditionalRule {
-        code: "I060",
-        severity: Severity::Info,
-        kind: "milestone",
-        status_field: "status",
-        status_value: "blocked",
-        required_field: "blockers",
-        message: "milestone '{id}' has status 'blocked' but no blockers — consider listing what is blocking",
-    },
-    ConditionalRule {
-        code: "I066",
-        severity: Severity::Info,
-        kind: "deliverable",
-        status_field: "status",
-        status_value: "deprecated",
-        required_field: "reason",
-        message: "deliverable '{id}' has status 'deprecated' but no reason",
-    },
-    ConditionalRule {
-        code: "I069",
-        severity: Severity::Info,
-        kind: "persona",
-        status_field: "status",
-        status_value: "deprecated",
-        required_field: "reason",
-        message: "persona '{id}' has status 'deprecated' but no reason",
-    },
-    ConditionalRule {
-        code: "I070",
-        severity: Severity::Info,
-        kind: "channel",
-        status_field: "status",
-        status_value: "deprecated",
-        required_field: "reason",
-        message: "channel '{id}' has status 'deprecated' but no reason",
-    },
-];
-
-fn run_conditional_validation(graph: &Graph) -> Vec<Diagnostic> {
-    let mut diagnostics = Vec::new();
-
-    for node in graph.nodes() {
-        for rule in CONDITIONAL_RULES {
-            if node.kind.raw != rule.kind {
-                continue;
-            }
-            let has_status = node.fields.entries().iter().any(|e| {
-                e.key == rule.status_field
-                    && match &e.value {
-                        specforge_parser::FieldValue::Identifier(s)
-                        | specforge_parser::FieldValue::String(s) => s == rule.status_value,
-                        _ => false,
-                    }
-            });
-            if !has_status {
-                continue;
-            }
-            let has_required = node.fields.entries().iter().any(|e| {
-                e.key == rule.required_field
-                    && match &e.value {
-                        specforge_parser::FieldValue::String(s) => !s.is_empty(),
-                        specforge_parser::FieldValue::StringList(list) => !list.is_empty(),
-                        specforge_parser::FieldValue::ReferenceList(refs) => !refs.is_empty(),
-                        _ => true,
-                    }
-            });
-            if !has_required {
-                let message = rule.message.replace("{id}", node.id.raw.as_str());
-                diagnostics.push(Diagnostic {
-                    code: rule.code.to_string(),
-                    severity: rule.severity,
-                    message,
-                    span: Some(node.source_span.clone()),
-                    suggestion: None,
-                });
-            }
-        }
-    }
-
-    diagnostics
-}
+// Conditional field validation (status-dependent rules like I059, W057, I060,
+// I066, I069, I070) is now handled by the ConditionalFieldRequired pattern kind
+// in the validation engine. The rules are declared by @specforge/product's
+// validation_rules() and executed in step 12 alongside all other extension
+// validation patterns. No hardcoded domain knowledge remains in the compiler.

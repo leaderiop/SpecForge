@@ -668,6 +668,7 @@ mod tests {
         manifest.entity_enhancements = vec![FieldEnhancement {
             target_kind: "behavior".to_string(),
             source_extension: "@test/coverage".to_string(),
+            edge_types: vec![],
             fields: vec![ManifestField {
                 name: "coverage_threshold".to_string(),
                 field_type: "string".to_string(),
@@ -676,6 +677,8 @@ mod tests {
                 target_kind: None,
                 file_reference: false,
                 required: false,
+                default_value: None,
+                enum_values: vec![],
             }],
         }];
 
@@ -693,6 +696,7 @@ mod tests {
             FieldEnhancement {
                 target_kind: "behavior".to_string(),
                 source_extension: "@ext/a".to_string(),
+            edge_types: vec![],
                 fields: vec![ManifestField {
                     name: "priority".to_string(),
                     field_type: "string".to_string(),
@@ -701,6 +705,8 @@ mod tests {
                     target_kind: None,
                     file_reference: false,
                     required: false,
+                default_value: None,
+                enum_values: vec![],
                 }],
             },
         )];
@@ -710,6 +716,7 @@ mod tests {
         manifest.entity_enhancements = vec![FieldEnhancement {
             target_kind: "behavior".to_string(),
             source_extension: "@ext/b".to_string(),
+            edge_types: vec![],
             fields: vec![ManifestField {
                 name: "priority".to_string(), // Same field name!
                 field_type: "string".to_string(),
@@ -718,6 +725,8 @@ mod tests {
                 target_kind: None,
                 file_reference: false,
                 required: false,
+                default_value: None,
+                enum_values: vec![],
             }],
         }];
 
@@ -735,6 +744,7 @@ mod tests {
             FieldEnhancement {
                 target_kind: "behavior".to_string(),
                 source_extension: "@ext/a".to_string(),
+            edge_types: vec![],
                 fields: vec![ManifestField {
                     name: "priority".to_string(),
                     field_type: "string".to_string(),
@@ -743,6 +753,8 @@ mod tests {
                     target_kind: None,
                     file_reference: false,
                     required: false,
+                default_value: None,
+                enum_values: vec![],
                 }],
             },
         )];
@@ -752,6 +764,7 @@ mod tests {
         manifest.entity_enhancements = vec![FieldEnhancement {
             target_kind: "behavior".to_string(),
             source_extension: "@ext/a".to_string(),
+            edge_types: vec![],
             fields: vec![ManifestField {
                 name: "priority".to_string(),
                 field_type: "string".to_string(),
@@ -760,6 +773,8 @@ mod tests {
                 target_kind: None,
                 file_reference: false,
                 required: false,
+                default_value: None,
+                enum_values: vec![],
             }],
         }];
 

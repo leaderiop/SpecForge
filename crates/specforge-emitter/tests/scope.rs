@@ -89,7 +89,7 @@ fn scoped_export_on_nonexistent_entity_returns_error() {
     assert!(result.is_err());
 
     let err = result.unwrap_err();
-    assert!(err.contains("E001"), "error should contain E001: {}", err);
+    assert!(err.to_string().contains("E001"), "error should contain E001: {}", err);
 }
 
 // B:export_agent_graph_format — verify unit "non-existent scope entity produces E001 and exit code 1"
@@ -101,7 +101,7 @@ fn graph_scoped_export_on_nonexistent_entity_returns_e001() {
     assert!(result.is_err());
 
     let err = result.unwrap_err();
-    assert!(err.contains("E001"), "error should contain E001: {}", err);
+    assert!(err.to_string().contains("E001"), "error should contain E001: {}", err);
 }
 
 // B:export_agent_graph_format — verify unit "scoped export returns only reachable subgraph"

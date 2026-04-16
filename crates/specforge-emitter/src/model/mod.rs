@@ -15,9 +15,10 @@ use serde::{Deserialize, Serialize};
 // Enums
 // ---------------------------------------------------------------------------
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum ModelFormat {
+    #[default]
     Markdown,
     Mermaid,
     Dot,
@@ -25,37 +26,21 @@ pub enum ModelFormat {
     Dbml,
 }
 
-impl Default for ModelFormat {
-    fn default() -> Self {
-        Self::Markdown
-    }
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum GroupBy {
+    #[default]
     Extension,
     None,
 }
 
-impl Default for GroupBy {
-    fn default() -> Self {
-        Self::Extension
-    }
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum FieldLevel {
     None,
+    #[default]
     Keys,
     All,
-}
-
-impl Default for FieldLevel {
-    fn default() -> Self {
-        Self::Keys
-    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -131,7 +116,7 @@ impl ModelFieldType {
 // Options
 // ---------------------------------------------------------------------------
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct ModelOptions {
     pub format: ModelFormat,
     pub group_by: GroupBy,
@@ -140,20 +125,6 @@ pub struct ModelOptions {
     pub kind_filter: Option<Vec<String>>,
     pub root: Option<String>,
     pub depth: Option<usize>,
-}
-
-impl Default for ModelOptions {
-    fn default() -> Self {
-        Self {
-            format: ModelFormat::default(),
-            group_by: GroupBy::default(),
-            fields: FieldLevel::default(),
-            extension_filter: None,
-            kind_filter: None,
-            root: None,
-            depth: None,
-        }
-    }
 }
 
 // ---------------------------------------------------------------------------

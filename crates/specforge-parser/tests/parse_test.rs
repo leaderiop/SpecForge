@@ -1,5 +1,5 @@
 use specforge_common::Sym;
-use specforge_parser::{parse, EntityKind, EntityId, FieldValue};
+use specforge_parser::{parse, Annotation, EntityKind, EntityId, FieldValue};
 use specforge_test_macros::test as specforge_test;
 use std::path::PathBuf;
 
@@ -1390,6 +1390,44 @@ pub use { Foo } from "./another_public"
     assert_eq!(bindings[0].name, "Foo");
 }
 
+#[specforge_test(behavior = "parse_all_block_types", verify = "negative integer parsed as field value")]
+#[test]
+fn parse_negative_integer_as_field_value() {
+    let source = r#"
+behavior test "Test" {
+    priority -1
+}
+"#;
+    let result = parse(source, "test.spec");
+
+    assert!(result.errors.is_empty(), "unexpected errors: {:?}", result.errors);
+    assert_eq!(result.entities.len(), 1);
+
+    let entity = &result.entities[0];
+    match entity.fields.get("priority") {
+        Some(FieldValue::Integer(val)) => assert_eq!(*val, -1, "expected -1, got {val}"),
+        other => panic!("expected FieldValue::Integer(-1), got {:?}", other),
+    }
+}
+
+#[specforge_test(behavior = "parse_all_block_types", verify = "negative integer parsed as field value with larger magnitude")]
+#[test]
+fn parse_negative_integer_larger_magnitude() {
+    let source = r#"
+behavior test "Test" {
+    offset -42
+}
+"#;
+    let result = parse(source, "test.spec");
+
+    assert!(result.errors.is_empty(), "unexpected errors: {:?}", result.errors);
+    let entity = &result.entities[0];
+    match entity.fields.get("offset") {
+        Some(FieldValue::Integer(val)) => assert_eq!(*val, -42, "expected -42, got {val}"),
+        other => panic!("expected FieldValue::Integer(-42), got {:?}", other),
+    }
+}
+
 fn walkdir(dir: PathBuf) -> Vec<PathBuf> {
     let mut results = Vec::new();
     if let Ok(entries) = std::fs::read_dir(&dir) {
@@ -1416,20 +1454,20 @@ behavior test "Test" {
   status planned
 }
 "#;
-    
+
     let result = parse(source, "test.spec");
-    
+
     eprintln!("=== UNQUOTED IMPORT TEST ===");
     eprintln!("Imports: {}", result.imports.len());
     for imp in &result.imports {
         eprintln!("  - path={}", imp.path);
     }
-    
+
     eprintln!("Entities: {}", result.entities.len());
     for (i, ent) in result.entities.iter().enumerate() {
         eprintln!("  [{}] kind={}, id={}, line={}", i, ent.kind.raw, ent.id.raw, ent.span.start_line);
     }
-    
+
     eprintln!("Errors: {}", result.errors.len());
     for err in &result.errors {
         eprintln!("  - line={}: {}", err.span.start_line, err.message);
@@ -1440,33 +1478,33 @@ behavior test "Test" {
 fn debug_treesitter_ast() {
     use std::path::PathBuf;
     use tree_sitter::Parser;
-    
+
     let source = r#"use invariants/core
 
 behavior test "Test" {
   status planned
 }"#;
-    
+
     let mut parser = Parser::new();
     parser.set_language(&tree_sitter_specforge::LANGUAGE.into()).unwrap();
     let tree = parser.parse(source, None).unwrap();
-    
+
     fn print_node(node: tree_sitter::Node, source: &str, indent: usize) {
         let indent_str = " ".repeat(indent);
         let text = node.utf8_text(source.as_bytes()).unwrap_or("???");
-        let text_display = if text.len() > 40 { 
-            format!("{}...", &text[..40]) 
-        } else { 
-            text.to_string() 
+        let text_display = if text.len() > 40 {
+            format!("{}...", &text[..40])
+        } else {
+            text.to_string()
         };
         eprintln!("{}kind={}, line={}, text={:?}", indent_str, node.kind(), node.start_position().row + 1, text_display);
-        
+
         let mut cursor = node.walk();
         for child in node.children(&mut cursor) {
             print_node(child, source, indent + 2);
         }
     }
-    
+
     eprintln!("\n=== TREE-SITTER AST ===");
     print_node(tree.root_node(), source, 0);
 }
@@ -1541,5 +1579,158 @@ behavior normal "Normal" {
     match entity.fields.get("priority") {
         Some(FieldValue::Integer(val)) => assert_eq!(*val, 42),
         other => panic!("expected Integer(42), got {:?}", other),
+    }
+}
+
+#[specforge_test(behavior = "parse_all_block_types", verify = "escaped quotes in strings are unescaped")]
+#[test]
+fn unquote_processes_escaped_quotes() {
+    let source = r#"behavior test "Test" { contract "hello \"world\"" }"#;
+    let result = parse(source, "test.spec");
+    assert!(result.errors.is_empty(), "unexpected errors: {:?}", result.errors);
+    let entity = &result.entities[0];
+    match entity.fields.get("contract") {
+        Some(FieldValue::String(val)) => assert_eq!(val, r#"hello "world""#),
+        other => panic!(r#"expected String with unescaped quotes, got {:?}"#, other),
+    }
+}
+
+#[specforge_test(behavior = "parse_all_block_types", verify = "escaped backslashes in strings are unescaped")]
+#[test]
+fn unquote_processes_escaped_backslashes() {
+    let source = r#"behavior test "Test" { contract "back\\slash" }"#;
+    let result = parse(source, "test.spec");
+    assert!(result.errors.is_empty(), "unexpected errors: {:?}", result.errors);
+    let entity = &result.entities[0];
+    match entity.fields.get("contract") {
+        Some(FieldValue::String(val)) => assert_eq!(val, r#"back\slash"#),
+        other => panic!(r#"expected String with unescaped backslash, got {:?}"#, other),
+    }
+}
+
+// === H8: Annotations on fields ===
+
+#[specforge_test(behavior = "parse_all_block_types", verify = "field annotations are extracted into FieldEntry")]
+#[test]
+fn parse_field_annotation_deprecated() {
+    // A single @deprecated annotation on a field should be extracted
+    let source = r#"
+behavior annotated "Annotated" {
+    status "active"  @deprecated
+}
+"#;
+    let result = parse(source, "test.spec");
+
+    assert!(result.errors.is_empty(), "unexpected errors: {:?}", result.errors);
+    let entity = &result.entities[0];
+    let entry = entity.fields.entries().iter().find(|e| e.key == "status").expect("missing 'status' field");
+    assert_eq!(entry.annotations.len(), 1, "expected 1 annotation, got: {:?}", entry.annotations);
+    assert_eq!(entry.annotations[0], Annotation { name: "deprecated".to_string(), value: None });
+}
+
+#[specforge_test(behavior = "parse_all_block_types", verify = "multiple annotations on a single field are all extracted")]
+#[test]
+fn parse_field_multiple_annotations() {
+    // Two annotations: @optional (no value) and @doc with a string value
+    let source = r#"
+type Config {
+    limit 16  @optional @doc "Default: 16"
+}
+"#;
+    let result = parse(source, "test.spec");
+
+    assert!(result.errors.is_empty(), "unexpected errors: {:?}", result.errors);
+    let entity = &result.entities[0];
+    let entry = entity.fields.entries().iter().find(|e| e.key == "limit").expect("missing 'limit' field");
+    assert_eq!(entry.annotations.len(), 2, "expected 2 annotations, got: {:?}", entry.annotations);
+    assert_eq!(entry.annotations[0], Annotation { name: "optional".to_string(), value: None });
+    assert_eq!(entry.annotations[1], Annotation { name: "doc".to_string(), value: Some("Default: 16".to_string()) });
+}
+
+// ============================================================================
+// Mixed-type list parsing (L4)
+// ============================================================================
+
+#[specforge_test(behavior = "parse_all_block_types", verify = "mixed-type list preserves per-item types")]
+#[test]
+fn parse_mixed_list_preserves_item_types() {
+    let source = r#"
+behavior mixed_test "Mixed Test" {
+    items ["hello", 42, true]
+}
+"#;
+    let result = parse(source, "test.spec");
+
+    // Mixed lists produce a warning but should still parse
+    let entity = &result.entities[0];
+    let items = entity.fields.get("items").expect("missing 'items' field");
+    match items {
+        FieldValue::MixedList(values) => {
+            assert_eq!(values.len(), 3, "expected 3 items in mixed list");
+            assert!(
+                matches!(&values[0], FieldValue::String(s) if s == "hello"),
+                "first item should be String(\"hello\"), got: {:?}", values[0]
+            );
+            assert!(
+                matches!(&values[1], FieldValue::Integer(42)),
+                "second item should be Integer(42), got: {:?}", values[1]
+            );
+            assert!(
+                matches!(&values[2], FieldValue::Boolean(true)),
+                "third item should be Boolean(true), got: {:?}", values[2]
+            );
+        }
+        other => panic!("expected MixedList, got: {:?}", other),
+    }
+}
+
+#[specforge_test(behavior = "parse_all_block_types", verify = "homogeneous string list is not MixedList")]
+#[test]
+fn parse_homogeneous_string_list_remains_string_list() {
+    let source = r#"
+behavior homo_test "Homo Test" {
+    tags ["a", "b", "c"]
+}
+"#;
+    let result = parse(source, "test.spec");
+    assert!(result.errors.is_empty(), "unexpected errors: {:?}", result.errors);
+    let entity = &result.entities[0];
+    let tags = entity.fields.get("tags").expect("missing 'tags' field");
+    assert!(matches!(tags, FieldValue::StringList(_)), "expected StringList, got: {:?}", tags);
+}
+
+#[specforge_test(behavior = "parse_all_block_types", verify = "homogeneous reference list is not MixedList")]
+#[test]
+fn parse_homogeneous_ref_list_remains_ref_list() {
+    let source = r#"
+behavior ref_test "Ref Test" {
+    features [auth_login, auth_logout]
+}
+"#;
+    let result = parse(source, "test.spec");
+    assert!(result.errors.is_empty(), "unexpected errors: {:?}", result.errors);
+    let entity = &result.entities[0];
+    let features = entity.fields.get("features").expect("missing 'features' field");
+    assert!(matches!(features, FieldValue::ReferenceList(_)), "expected ReferenceList, got: {:?}", features);
+}
+
+#[specforge_test(behavior = "parse_all_block_types", verify = "mixed list with strings and integers preserves both")]
+#[test]
+fn parse_mixed_list_strings_and_integers() {
+    let source = r#"
+behavior mix_si "Mix String Int" {
+    values ["alpha", 99]
+}
+"#;
+    let result = parse(source, "test.spec");
+    let entity = &result.entities[0];
+    let values = entity.fields.get("values").expect("missing 'values' field");
+    match values {
+        FieldValue::MixedList(items) => {
+            assert_eq!(items.len(), 2);
+            assert!(matches!(&items[0], FieldValue::String(s) if s == "alpha"));
+            assert!(matches!(&items[1], FieldValue::Integer(99)));
+        }
+        other => panic!("expected MixedList, got: {:?}", other),
     }
 }

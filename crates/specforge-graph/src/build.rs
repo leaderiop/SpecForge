@@ -14,6 +14,11 @@ pub struct GraphConfig {
     /// Mapping of entity keywords to the extension that provides them (full catalog).
     /// Keywords not in `installed_keywords` but present here emit I004.
     pub known_extension_keywords: HashMap<String, String>,
+    /// Bidirectional edge pairs from extensions. Each pair (forward_label, reverse_label)
+    /// represents a complementary relationship that should not be flagged as a cycle.
+    /// Example: `("invariants", "enforced_by")` means an invariants/enforced_by 2-hop
+    /// cycle is a known bidirectional relationship, not a real circular dependency.
+    pub bidirectional_pairs: Vec<(String, String)>,
 }
 
 #[must_use = "diagnostics should be checked for errors"]
@@ -23,8 +28,15 @@ pub fn build_graph(spec_files: &[SpecFile]) -> (Graph, Vec<Diagnostic>) {
 
 #[must_use = "diagnostics should be checked for errors"]
 pub fn build_graph_with_config(spec_files: &[SpecFile], config: &GraphConfig) -> (Graph, Vec<Diagnostic>) {
-    let mut graph = Graph::new();
+    let mut graph = Graph::with_bidirectional_pairs(config.bidirectional_pairs.clone());
     let mut diagnostics = Vec::new();
+
+    // Surface parse errors as diagnostics so CLI/MCP consumers see them
+    for spec_file in spec_files {
+        for error in &spec_file.errors {
+            diagnostics.push(Diagnostic::from(error));
+        }
+    }
 
     // Add nodes, detecting duplicates (same kind + same ID = duplicate)
     let mut seen: HashSet<(Sym, Sym)> = HashSet::new();
@@ -43,26 +55,29 @@ pub fn build_graph_with_config(spec_files: &[SpecFile], config: &GraphConfig) ->
                             entity.id.raw, entity.span.file
                         ),
                     )
-                    .with_span(entity.span.clone()),
+                    .with_span(entity.span.clone())
+                    .with_suggestion("rename one of the entities to avoid the collision"),
                 );
                 continue;
             }
 
             // Warn when the same ID is used by multiple entity kinds (W060).
-            // The graph stores nodes in a HashMap keyed by raw ID alone, so
-            // same-ID-different-kind entities will overwrite each other.
+            // First-writer-wins: the first entity with a given raw ID is retained,
+            // subsequent entities with the same ID but different kind are skipped.
             if let Some(&first_kind) = id_to_kind.get(&entity.id.raw) {
                 if first_kind != entity.kind.raw {
                     diagnostics.push(
                         Diagnostic::warning(
                             "W060",
                             format!(
-                                "entity ID '{}' is used by kind '{}' and kind '{}'; only one will be retained in the graph",
-                                entity.id.raw, first_kind, entity.kind.raw
+                                "entity ID '{}' is used by kind '{}' and kind '{}'; first declaration (kind '{}') is retained",
+                                entity.id.raw, first_kind, entity.kind.raw, first_kind
                             ),
                         )
-                        .with_span(entity.span.clone()),
+                        .with_span(entity.span.clone())
+                        .with_suggestion("use distinct IDs for entities of different kinds"),
                     );
+                    continue;
                 }
             } else {
                 id_to_kind.insert(entity.id.raw, entity.kind.raw);
@@ -123,7 +138,7 @@ pub fn build_graph_with_config(spec_files: &[SpecFile], config: &GraphConfig) ->
                         Diagnostic::info(
                             "I005",
                             format!(
-                                "unrecognized ref scheme '{}' in '{}' — no provider installed for this scheme",
+                                "unrecognized ref scheme '{}' in '{}' --- no provider installed for this scheme",
                                 scheme, entity.id.raw
                             ),
                         )
@@ -134,7 +149,7 @@ pub fn build_graph_with_config(spec_files: &[SpecFile], config: &GraphConfig) ->
         }
     }
 
-    // Link references → edges (shared with LSP via Graph::resolve_references)
+    // Link references -> edges (shared with LSP via Graph::resolve_references)
     let ref_diags = graph.resolve_references();
     diagnostics.extend(ref_diags);
 
@@ -146,7 +161,8 @@ pub fn build_graph_with_config(spec_files: &[SpecFile], config: &GraphConfig) ->
             Diagnostic::warning(
                 "W061",
                 format!("reference cycle detected: {}", path.join(" -> ")),
-            ),
+            )
+            .with_suggestion("break the cycle by removing or inverting one reference"),
         );
     }
 

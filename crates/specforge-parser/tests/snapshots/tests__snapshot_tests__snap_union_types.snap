@@ -1,6 +1,5 @@
 ---
 source: crates/specforge-parser/tests/snapshot_tests.rs
-assertion_line: 116
 expression: "parse_ok(source, \"test.spec\").entities"
 ---
 [
@@ -22,7 +21,8 @@ expression: "parse_ok(source, \"test.spec\").entities"
               "ReferenceList",
               "Block"
             ]
-          }
+          },
+          "annotations": []
         }
       ]
     },
@@ -53,7 +53,8 @@ expression: "parse_ok(source, \"test.spec\").entities"
               "compilation_failed",
               "entity_not_found"
             ]
-          }
+          },
+          "annotations": []
         }
       ]
     },
@@ -84,7 +85,8 @@ expression: "parse_ok(source, \"test.spec\").entities"
               "-32600",
               "-32601"
             ]
-          }
+          },
+          "annotations": []
         }
       ]
     },

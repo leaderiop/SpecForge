@@ -65,15 +65,15 @@ fn render_flat(model: &ModelIntermediate, out: &mut String) {
 
 fn render_enums(entity: &super::ModelEntity, out: &mut String) {
     for field in &entity.fields {
-        if field.field_type == ModelFieldType::Enum {
-            if let Some(ref values) = field.enum_values {
-                writeln!(out).unwrap();
-                writeln!(out, "Enum {}_{} {{", entity.name, field.name).unwrap();
-                for val in values {
-                    writeln!(out, "  {}", val).unwrap();
-                }
-                writeln!(out, "}}").unwrap();
+        let has_enum_values = field.field_type == ModelFieldType::Enum
+            && field.enum_values.is_some();
+        if has_enum_values {
+            writeln!(out).unwrap();
+            writeln!(out, "Enum {}_{} {{", entity.name, field.name).unwrap();
+            for val in field.enum_values.as_ref().unwrap() {
+                writeln!(out, "  {}", val).unwrap();
             }
+            writeln!(out, "}}").unwrap();
         }
     }
 }

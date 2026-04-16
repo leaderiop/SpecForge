@@ -143,6 +143,10 @@ pub struct ManifestField {
     pub file_reference: bool,
     #[serde(default)]
     pub required: bool,
+    #[serde(default)]
+    pub default_value: Option<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub enum_values: Vec<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -208,6 +212,8 @@ pub struct FieldEnhancement {
     pub target_kind: String,
     pub source_extension: String,
     pub fields: Vec<ManifestField>,
+    #[serde(default)]
+    pub edge_types: Vec<ManifestEdgeType>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -807,5 +813,98 @@ mod tests {
 
         assert_eq!(manifest.collector_contributions.len(), 1);
         assert!(manifest.collector_contributions[0].auto_detect.is_none());
+    }
+
+    // -- H6: ManifestField with default_value and enum_values --
+
+    #[test]
+    fn test_manifest_field_with_default_value_and_enum_values_deserializes() {
+        let manifest: ManifestV2 = serde_json::from_str(
+            r#"{
+                "name": "@test/ext",
+                "version": "1.0.0",
+                "manifestVersion": 2,
+                "wasmPath": "x.wasm",
+                "entityKinds": [
+                    {
+                        "name": "Feature",
+                        "keyword": "feature",
+                        "fields": [
+                            {
+                                "name": "status",
+                                "fieldType": "string",
+                                "defaultValue": "draft",
+                                "enumValues": ["draft", "active", "done"]
+                            }
+                        ]
+                    }
+                ]
+            }"#,
+        )
+        .unwrap();
+
+        let field = &manifest.entity_kinds[0].fields[0];
+        assert_eq!(field.default_value.as_deref(), Some("draft"));
+        assert_eq!(field.enum_values, vec!["draft", "active", "done"]);
+    }
+
+    #[test]
+    fn test_manifest_field_without_default_value_and_enum_values_defaults() {
+        let manifest = minimal_valid_manifest();
+        // Fields from JSON deserialization without these fields should get defaults
+        let field: ManifestField = serde_json::from_str(
+            r#"{ "name": "contract", "fieldType": "block" }"#,
+        )
+        .unwrap();
+        assert!(field.default_value.is_none());
+        assert!(field.enum_values.is_empty());
+    }
+
+    // -- H5: FieldEnhancement with edge_types --
+
+    #[test]
+    fn test_field_enhancement_with_edge_types_deserializes() {
+        let manifest: ManifestV2 = serde_json::from_str(
+            r#"{
+                "name": "@test/ext",
+                "version": "1.0.0",
+                "manifestVersion": 2,
+                "wasmPath": "x.wasm",
+                "entityEnhancements": [
+                    {
+                        "targetKind": "behavior",
+                        "sourceExtension": "@test/ext",
+                        "fields": [],
+                        "edgeTypes": [
+                            {
+                                "label": "RequiresCondition",
+                                "sourceKind": "behavior",
+                                "targetKind": "condition"
+                            }
+                        ]
+                    }
+                ]
+            }"#,
+        )
+        .unwrap();
+
+        let enh = &manifest.entity_enhancements[0];
+        assert_eq!(enh.edge_types.len(), 1);
+        assert_eq!(enh.edge_types[0].label, "RequiresCondition");
+        assert_eq!(enh.edge_types[0].source_kind.as_deref(), Some("behavior"));
+        assert_eq!(enh.edge_types[0].target_kind.as_deref(), Some("condition"));
+    }
+
+    #[test]
+    fn test_field_enhancement_without_edge_types_defaults_empty() {
+        let enh: FieldEnhancement = serde_json::from_str(
+            r#"{
+                "targetKind": "behavior",
+                "sourceExtension": "@test/ext",
+                "fields": []
+            }"#,
+        )
+        .unwrap();
+        assert!(enh.edge_types.is_empty());
     }
 }

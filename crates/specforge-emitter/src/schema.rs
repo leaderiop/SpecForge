@@ -13,6 +13,8 @@ use specforge_registry::{
     EdgeRegistry, FieldRegistry, KindRegistry, ManifestFieldType,
 };
 
+use crate::error::EmitterError;
+
 use crate::json::{field_map_to_json, sorted_edges, JsonEdge};
 
 // ---------------------------------------------------------------------------
@@ -313,10 +315,8 @@ pub fn generate_schema(
                     if !sources.contains(&kind_entry.kind_name) {
                         sources.push(kind_entry.kind_name.clone());
                     }
-                    if let Some(ref tk) = field.target_kind {
-                        if !targets.contains(tk) {
-                            targets.push(tk.clone());
-                        }
+                    if let Some(tk) = field.target_kind.as_ref().filter(|tk| !targets.contains(tk)) {
+                        targets.push(tk.clone());
                     }
                 }
             }
@@ -769,9 +769,9 @@ pub fn emit_json_scoped_with_schema(
     graph: &Graph,
     scope: &str,
     schema: &GraphProtocolSchema,
-) -> Result<String, String> {
+) -> Result<String, EmitterError> {
     let sub = graph.subgraph(scope).ok_or_else(|| {
-        format!("E001: unresolved scope entity '{}' — entity not found in graph", scope)
+        EmitterError::EntityNotFound(format!("E001: unresolved scope entity '{}' — entity not found in graph", scope))
     })?;
     Ok(emit_json_with_schema(&sub, schema))
 }
@@ -780,9 +780,9 @@ pub fn emit_context_scoped_with_schema(
     graph: &Graph,
     scope: &str,
     schema: &GraphProtocolSchema,
-) -> Result<String, String> {
+) -> Result<String, EmitterError> {
     let sub = graph.subgraph(scope).ok_or_else(|| {
-        format!("E001: unresolved scope entity '{}' — entity not found in graph", scope)
+        EmitterError::EntityNotFound(format!("E001: unresolved scope entity '{}' — entity not found in graph", scope))
     })?;
     Ok(emit_context_with_schema(&sub, schema))
 }
@@ -791,9 +791,9 @@ pub fn emit_brief_scoped_with_schema(
     graph: &Graph,
     scope: &str,
     schema: &GraphProtocolSchema,
-) -> Result<String, String> {
+) -> Result<String, EmitterError> {
     let sub = graph.subgraph(scope).ok_or_else(|| {
-        format!("E001: unresolved scope entity '{}' — entity not found in graph", scope)
+        EmitterError::EntityNotFound(format!("E001: unresolved scope entity '{}' — entity not found in graph", scope))
     })?;
     Ok(emit_brief_with_schema(&sub, schema))
 }
@@ -809,13 +809,13 @@ pub fn emit_schema(schema: &GraphProtocolSchema) -> String {
 pub fn emit_schema_for_kind(
     schema: &GraphProtocolSchema,
     kind: &str,
-) -> Result<String, String> {
+) -> Result<String, EmitterError> {
     schema
         .entity_kinds
         .iter()
         .find(|k| k.name == kind)
         .map(|k| serde_json::to_string_pretty(k).expect("schema serialization cannot fail"))
-        .ok_or_else(|| format!("unknown entity kind: '{}'", kind))
+        .ok_or_else(|| EmitterError::EntityNotFound(format!("unknown entity kind: '{}'", kind)))
 }
 
 // ---------------------------------------------------------------------------

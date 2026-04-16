@@ -193,6 +193,7 @@ fn parse_field_type(s: &str) -> Option<ManifestFieldType> {
         "string" | "string_type" => Some(ManifestFieldType::String),
         "integer" | "integer_type" => Some(ManifestFieldType::Integer),
         "bool" | "bool_type" => Some(ManifestFieldType::Bool),
+        "enum" | "enum_type" => Some(ManifestFieldType::Enum(vec![])),
         "string_list" | "string_list_type" => Some(ManifestFieldType::StringList),
         "reference" | "reference_type" => Some(ManifestFieldType::Reference),
         "reference_list" | "reference_list_type" => Some(ManifestFieldType::ReferenceList),
@@ -817,6 +818,102 @@ mod tests {
         assert!(!diags.iter().any(|d| d.code == "W018"));
     }
 
+    // -- parse_field_type tests --
+
+    #[test]
+    fn test_parse_field_type_enum_returns_enum_variant() {
+        let result = parse_field_type("enum");
+        assert!(result.is_some(), "parse_field_type(\"enum\") should return Some");
+        assert!(
+            matches!(result, Some(ManifestFieldType::Enum(_))),
+            "parse_field_type(\"enum\") should return Enum variant, got: {:?}",
+            result
+        );
+    }
+
+    #[test]
+    fn test_parse_field_type_enum_type_returns_enum_variant() {
+        let result = parse_field_type("enum_type");
+        assert!(result.is_some(), "parse_field_type(\"enum_type\") should return Some");
+        assert!(
+            matches!(result, Some(ManifestFieldType::Enum(_))),
+            "parse_field_type(\"enum_type\") should return Enum variant, got: {:?}",
+            result
+        );
+    }
+
+    #[test]
+    fn test_parse_field_type_enum_returns_empty_values() {
+        // Enum values come from ManifestField.enum_values, not the type string
+        if let Some(ManifestFieldType::Enum(values)) = parse_field_type("enum") {
+            assert!(values.is_empty(), "parse_field_type(\"enum\") should return empty enum values");
+        } else {
+            panic!("expected Some(Enum(..))");
+        }
+    }
+
+    #[test]
+    fn test_parse_field_type_all_known_types_return_some() {
+        let known_types = [
+            "string", "string_type",
+            "integer", "integer_type",
+            "bool", "bool_type",
+            "enum", "enum_type",
+            "string_list", "string_list_type",
+            "reference", "reference_type",
+            "reference_list", "reference_list_type",
+            "block", "block_type",
+        ];
+        for t in &known_types {
+            assert!(
+                parse_field_type(t).is_some(),
+                "parse_field_type(\"{}\") should return Some",
+                t
+            );
+        }
+    }
+
+    #[test]
+    fn test_enum_field_type_registered_through_manifest() {
+        let manifest: ManifestV2 = serde_json::from_str(
+            r#"{
+                "name": "@test/ext",
+                "version": "1.0.0",
+                "manifestVersion": 2,
+                "wasmPath": "x.wasm",
+                "entityKinds": [
+                    {
+                        "name": "Feature",
+                        "keyword": "feature",
+                        "fields": [
+                            {
+                                "name": "status",
+                                "fieldType": "enum",
+                                "enumValues": ["draft", "active", "done"]
+                            }
+                        ]
+                    }
+                ]
+            }"#,
+        )
+        .unwrap();
+        let (_, field_reg, _, diags) = populate_registries(&[manifest]);
+        // No W019 warning for "enum" field type
+        assert!(
+            !diags.iter().any(|d| d.code == "W019"),
+            "enum field type should not produce W019, got: {:?}",
+            diags
+        );
+        // Field should be registered
+        assert!(field_reg.contains("feature", "status"));
+        let entry = field_reg.get("feature", "status").unwrap();
+        assert!(
+            matches!(entry.field_type, ManifestFieldType::Enum(_)),
+            "field type should be Enum, got: {:?}",
+            entry.field_type
+        );
+    }
+
     // -- Slice 6: apply_entity_enhancements tests --
 
     fn enhancement_manifest() -> ManifestV2 {
@@ -857,7 +954,10 @@ mod tests {
                     target_kind: None,
                     file_reference: false,
                     required: false,
+                    default_value: None,
+                    enum_values: vec![],
                 }],
+                edge_types: vec![],
             },
         )];
         let diags = apply_entity_enhancements(&enhancements, &kind_reg, &mut field_reg);
@@ -882,7 +982,10 @@ mod tests {
                     target_kind: None,
                     file_reference: false,
                     required: false,
+                    default_value: None,
+                    enum_values: vec![],
                 }],
+                edge_types: vec![],
             },
         )];
         let diags = apply_entity_enhancements(&enhancements, &kind_reg, &mut field_reg);
@@ -911,7 +1014,10 @@ mod tests {
                     target_kind: None,
                     file_reference: false,
                     required: false,
+                    default_value: None,
+                    enum_values: vec![],
                 }],
+                edge_types: vec![],
             },
         )];
         let diags = apply_entity_enhancements(&enhancements, &kind_reg, &mut field_reg);
@@ -940,7 +1046,10 @@ mod tests {
                         target_kind: None,
                         file_reference: false,
                         required: false,
+                        default_value: None,
+                        enum_values: vec![],
                     }],
+                    edge_types: vec![],
                 },
             ),
             (
@@ -956,7 +1065,10 @@ mod tests {
                         target_kind: None,
                         file_reference: false,
                         required: false,
+                        default_value: None,
+                        enum_values: vec![],
                     }],
+                    edge_types: vec![],
                 },
             ),
         ];

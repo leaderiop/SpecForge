@@ -68,6 +68,9 @@ pub(crate) fn field_value_to_json(value: &FieldValue) -> Value {
         FieldValue::Block(inner) => {
             Value::Object(field_map_to_json(inner).into_iter().collect())
         }
+        FieldValue::MixedList(items) => {
+            Value::Array(items.iter().map(field_value_to_json).collect())
+        }
     }
 }
 

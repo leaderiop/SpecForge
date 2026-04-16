@@ -839,7 +839,7 @@ fn context_nonexistent_scope() {
     let graph = build_graph();
     let result = specforge_emitter::emit_context_scoped(&graph, "nonexistent");
     assert!(result.is_err(), "non-existent scope must return error");
-    assert!(result.unwrap_err().contains("E001"), "error must contain E001");
+    assert!(result.unwrap_err().to_string().contains("E001"), "error must contain E001");
 }
 
 #[test]
@@ -905,7 +905,7 @@ fn graph_format_nonexistent_scope() {
     let graph = build_graph();
     let result = specforge_emitter::emit_json_scoped(&graph, "nonexistent");
     assert!(result.is_err());
-    assert!(result.unwrap_err().contains("E001"));
+    assert!(result.unwrap_err().to_string().contains("E001"));
 }
 
 #[test]
@@ -1107,5 +1107,5 @@ fn budget_error_strategy() {
     let graph = build_graph();
     let result = specforge_emitter::emit_json_with_budget_strategy(&graph, 10, "error");
     assert!(result.is_err(), "error strategy should reject over-budget");
-    assert!(result.unwrap_err().contains("budget exceeded"));
+    assert!(result.unwrap_err().to_string().contains("budget exceeded"));
 }

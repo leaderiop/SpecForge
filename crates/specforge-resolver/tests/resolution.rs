@@ -734,6 +734,38 @@ fn relative_import_path_traversal_rejected() {
     );
 }
 
+// === M3: W003 import cycle diagnostic carries suggestion ===
+
+#[specforge_test(behavior = "detect_import_cycles", verify = "W003 carries actionable suggestion")]
+#[test]
+fn w003_import_cycle_has_suggestion() {
+    let dir = setup_project(&[
+        ("a.spec", "use \"b\"\nbehavior alpha \"A\" { }"),
+        ("b.spec", "use \"a\"\nbehavior beta \"B\" { }"),
+    ]);
+
+    let result = resolve_project(dir.path());
+
+    let w003s: Vec<_> = result
+        .diagnostics
+        .iter()
+        .filter(|d| d.code == "W003")
+        .collect();
+    assert!(
+        !w003s.is_empty(),
+        "import cycle should produce W003"
+    );
+    assert!(
+        w003s[0].suggestion.is_some(),
+        "W003 should carry an actionable suggestion, got None"
+    );
+    assert!(
+        w003s[0].suggestion.as_ref().unwrap().contains("break"),
+        "W003 suggestion should advise breaking the cycle, got: {:?}",
+        w003s[0].suggestion
+    );
+}
+
 fn pub_use_through_cycle_no_transitive() {
     // a.spec and b.spec form a cycle. c.spec pub-uses a.spec.
     // c should get a.spec's declared entities, but not anything
@@ -751,4 +783,48 @@ fn pub_use_through_cycle_no_transitive() {
     assert!(c_scope.exported.contains("Alpha"), "c should export Alpha from a.spec");
     // c should also have Gamma (its own declaration)
     assert!(c_scope.exported.contains("Gamma"), "c should export its own Gamma");
+}
+
+// === H2: Cross-file duplicate entity ID detection (W063) ===
+
+#[specforge_test(behavior = "link_entity_references", verify = "cross-file duplicate entity ID produces W063")]
+#[test]
+fn cross_file_duplicate_entity_id_produces_w063() {
+    let dir = setup_project(&[
+        ("a.spec", r#"behavior alpha "Alpha in file A" { contract "first" }"#),
+        ("b.spec", r#"behavior alpha "Alpha in file B" { contract "second" }"#),
+    ]);
+
+    let resolved = resolve_project(dir.path());
+    let (_, diagnostics) = link_references(&resolved);
+
+    let w063s: Vec<_> = diagnostics.iter().filter(|d| d.code == "W063").collect();
+    assert_eq!(
+        w063s.len(), 1,
+        "cross-file duplicate entity ID should produce exactly one W063, got: {:?}",
+        w063s
+    );
+    assert!(
+        w063s[0].message.contains("alpha"),
+        "W063 message should mention the duplicate ID 'alpha'"
+    );
+}
+
+#[specforge_test(behavior = "link_entity_references", verify = "same ID different kind across files does not produce W063")]
+#[test]
+fn same_id_different_kind_across_files_no_w063() {
+    let dir = setup_project(&[
+        ("a.spec", r#"behavior alpha "Alpha behavior" { contract "first" }"#),
+        ("b.spec", r#"feature alpha "Alpha feature" { problem "different kind" }"#),
+    ]);
+
+    let resolved = resolve_project(dir.path());
+    let (_, diagnostics) = link_references(&resolved);
+
+    let w063s: Vec<_> = diagnostics.iter().filter(|d| d.code == "W063").collect();
+    assert!(
+        w063s.is_empty(),
+        "same ID with different kind should NOT produce W063, got: {:?}",
+        w063s
+    );
 }

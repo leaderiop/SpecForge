@@ -26,6 +26,11 @@ pub struct Graph {
     source_index: HashMap<Sym, Vec<usize>>,
     /// Index: target sym -> indices into `edges`
     target_index: HashMap<Sym, Vec<usize>>,
+    /// Known bidirectional edge pairs where A->B with label X and B->A with label Y
+    /// represent complementary relationships, not real circular dependencies.
+    /// Each pair is (label_forward, label_reverse).
+    /// Populated by callers (e.g., from extension edge types) rather than hardcoded.
+    bidirectional_pairs: Vec<(String, String)>,
 }
 
 impl Default for Graph {
@@ -41,6 +46,20 @@ impl Graph {
             edges: Vec::new(),
             source_index: HashMap::new(),
             target_index: HashMap::new(),
+            bidirectional_pairs: Vec::new(),
+        }
+    }
+
+    /// Create a new graph with the given bidirectional edge pairs.
+    /// These pairs are used to suppress false-positive cycle detection
+    /// for complementary relationships (e.g., `invariants`/`enforced_by`).
+    pub fn with_bidirectional_pairs(bidirectional_pairs: Vec<(String, String)>) -> Self {
+        Self {
+            nodes: HashMap::new(),
+            edges: Vec::new(),
+            source_index: HashMap::new(),
+            target_index: HashMap::new(),
+            bidirectional_pairs,
         }
     }
 
@@ -70,6 +89,39 @@ impl Graph {
         self.source_index.entry(edge.source).or_default().push(idx);
         self.target_index.entry(edge.target).or_default().push(idx);
         self.edges.push(edge);
+    }
+
+    /// Like [`add_edge`] but checks that both `source` and `target` exist as
+    /// nodes in the graph. Returns `Some(Diagnostic)` (W011) and does **not**
+    /// insert the edge when either endpoint is missing. Returns `None` on
+    /// success (edge was added).
+    pub fn add_edge_checked(&mut self, edge: Edge) -> Option<Diagnostic> {
+        let source_exists = self.nodes.contains_key(&edge.source);
+        let target_exists = self.nodes.contains_key(&edge.target);
+
+        if !source_exists || !target_exists {
+            let missing: Vec<&str> = [
+                (!source_exists).then_some(edge.source.as_str()),
+                (!target_exists).then_some(edge.target.as_str()),
+            ]
+            .into_iter()
+            .flatten()
+            .collect();
+
+            return Some(Diagnostic::warning(
+                "W011",
+                format!(
+                    "edge '{}' --[{}]--> '{}': node(s) not found: {}",
+                    edge.source.as_str(),
+                    edge.label.as_str(),
+                    edge.target.as_str(),
+                    missing.join(", "),
+                ),
+            ));
+        }
+
+        self.add_edge(edge);
+        None
     }
 
     pub fn clear_edges(&mut self) {
@@ -137,6 +189,22 @@ impl Graph {
         self.edges.len()
     }
 
+    /// Collect all neighbor node syms for a given node, using the source and target indexes.
+    fn neighbors(&self, id: Sym) -> Vec<Sym> {
+        let mut result = Vec::new();
+        if let Some(indices) = self.source_index.get(&id) {
+            for &idx in indices {
+                result.push(self.edges[idx].target);
+            }
+        }
+        if let Some(indices) = self.target_index.get(&id) {
+            for &idx in indices {
+                result.push(self.edges[idx].source);
+            }
+        }
+        result
+    }
+
     /// Extract the subgraph reachable from `root_id` following edges in both directions.
     /// Returns None if `root_id` is not in the graph.
     pub fn subgraph(&self, root_id: &str) -> Option<Graph> {
@@ -151,21 +219,14 @@ impl Graph {
         queue.push_back(root_sym);
 
         while let Some(id) = queue.pop_front() {
-            for edge in &self.edges {
-                let neighbor = if edge.source == id {
-                    edge.target
-                } else if edge.target == id {
-                    edge.source
-                } else {
-                    continue;
-                };
+            for neighbor in self.neighbors(id) {
                 if visited.insert(neighbor) {
                     queue.push_back(neighbor);
                 }
             }
         }
 
-        let mut sub = Graph::new();
+        let mut sub = Graph::with_bidirectional_pairs(self.bidirectional_pairs.clone());
         for id in &visited {
             if let Some(node) = self.nodes.get(id) {
                 sub.add_node(node.clone());
@@ -196,14 +257,7 @@ impl Graph {
             if depth >= max_depth {
                 continue;
             }
-            for edge in &self.edges {
-                let neighbor = if edge.source == id {
-                    edge.target
-                } else if edge.target == id {
-                    edge.source
-                } else {
-                    continue;
-                };
+            for neighbor in self.neighbors(id) {
                 if let std::collections::hash_map::Entry::Vacant(e) = visited.entry(neighbor) {
                     e.insert(depth + 1);
                     queue.push_back((neighbor, depth + 1));
@@ -211,7 +265,7 @@ impl Graph {
             }
         }
 
-        let mut sub = Graph::new();
+        let mut sub = Graph::with_bidirectional_pairs(self.bidirectional_pairs.clone());
         for id in visited.keys() {
             if let Some(node) = self.nodes.get(id) {
                 sub.add_node(node.clone());
@@ -363,15 +417,6 @@ impl Graph {
         !self.detect_cycles().is_empty()
     }
 
-    /// Known bidirectional edge pairs where A->B with label X and B->A with label Y
-    /// represent complementary relationships, not real circular dependencies.
-    /// Each pair is (label_forward, label_reverse).
-    const BIDIRECTIONAL_PAIRS: &[(&str, &str)] = &[
-        ("invariants", "enforced_by"),
-        ("constrains", "constrained_by"),
-        ("features", "behaviors"),
-    ];
-
     /// Returns true if a 2-hop cycle (A -> B -> A) consists of a known
     /// bidirectional edge pair and should NOT be reported as a real cycle.
     fn is_bidirectional_pair_cycle(&self, a: Sym, b: Sym) -> bool {
@@ -400,7 +445,7 @@ impl Graph {
             for &lab_ba in &labels_ba {
                 let ab_str = lab_ab.as_str();
                 let ba_str = lab_ba.as_str();
-                for &(fwd, rev) in Self::BIDIRECTIONAL_PAIRS {
+                for (fwd, rev) in &self.bidirectional_pairs {
                     if (ab_str == fwd && ba_str == rev)
                         || (ab_str == rev && ba_str == fwd)
                     {

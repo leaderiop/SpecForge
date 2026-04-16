@@ -39,15 +39,13 @@ pub fn infer_cardinality(
             continue;
         }
         // Check if this field's internal edge label matches
-        if let Some(ref edge) = field.edge_label {
-            if edge == edge_label {
-                let cardinality = match field.field_type {
-                    ModelFieldType::Reference => Cardinality::ManyToOne,
-                    ModelFieldType::ReferenceList => Cardinality::ManyToMany,
-                    _ => Cardinality::ManyToMany,
-                };
-                return (cardinality, Some(field.name.clone()));
-            }
+        if field.edge_label.as_deref() == Some(edge_label) {
+            let cardinality = match field.field_type {
+                ModelFieldType::Reference => Cardinality::ManyToOne,
+                ModelFieldType::ReferenceList => Cardinality::ManyToMany,
+                _ => Cardinality::ManyToMany,
+            };
+            return (cardinality, Some(field.name.clone()));
         }
     }
 

@@ -1,5 +1,6 @@
 #![allow(clippy::result_large_err)]
 
+pub mod builtin;
 mod cache;
 mod contributions;
 mod discovery;
@@ -9,6 +10,7 @@ mod install;
 mod integrity;
 mod lifecycle;
 mod lock_file;
+pub mod protocol;
 pub mod runtime;
 mod query_extensions;
 mod sandbox;
@@ -25,8 +27,8 @@ mod invariants;
 pub(crate) mod test_helpers;
 
 pub use cache::{
-    aot_compile, cache_grammar_artifact, cache_path_for_hash, grammar_cache_key,
-    has_cached_artifact, has_cached_grammar, invalidate_cache, invalidate_entry, AotCacheEntry,
+    cache_wasm_binary, cache_grammar_artifact, cache_path_for_hash, grammar_cache_key,
+    has_cached_artifact, has_cached_grammar, invalidate_cache, invalidate_entry, CacheEntry,
     InvalidationReason,
 };
 pub use contributions::{
@@ -80,6 +82,7 @@ pub use surface::{
     validate_surface_exports, AutoPromotedMcpTool, CommandOutput, EffectiveSandbox, SurfaceEntry,
     SurfaceEntryType, SurfaceSandboxOverrideValues,
 };
+pub use builtin::{BuiltinExtension, BuiltinRuntime};
 pub use trap::{handle_wasm_trap, should_skip_extension};
 pub use install::{install_extension, install_from_local, installed_wasm_path, InstallResult};
 pub use uninstall::{check_dependents, uninstall_extension, UninstallResult};

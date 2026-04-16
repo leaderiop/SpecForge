@@ -194,7 +194,10 @@ fn register_enhancement_new_field() {
             target_kind: None,
             file_reference: false,
             required: false,
+            default_value: None,
+            enum_values: vec![],
         }],
+        edge_types: vec![],
     }];
 
     let mut existing = Vec::new();
@@ -215,6 +218,8 @@ fn register_enhancement_conflict_e034() {
         target_kind: None,
         file_reference: false,
         required: false,
+        default_value: None,
+        enum_values: vec![],
     };
 
     // First extension registers successfully
@@ -224,6 +229,7 @@ fn register_enhancement_conflict_e034() {
             target_kind: "behavior".to_string(),
             source_extension: "@ext/first".to_string(),
             fields: vec![field.clone()],
+            edge_types: vec![],
         },
     )];
 
@@ -234,6 +240,7 @@ fn register_enhancement_conflict_e034() {
         target_kind: "behavior".to_string(),
         source_extension: "@ext/second".to_string(),
         fields: vec![field],
+        edge_types: vec![],
     }];
 
     let diags = register_entity_enhancements(&manifest, &mut existing);
@@ -246,7 +253,7 @@ fn register_enhancement_conflict_e034() {
 // B:register_entity_enhancements — verify contract "requires manifest with entity_enhancements, ensures conflict detection"
 #[test]
 fn register_entity_enhancements_contract() {
-    // No enhancements → no diagnostics, no additions
+    // No enhancements -> no diagnostics, no additions
     let manifest = default_manifest();
     let mut existing = Vec::new();
     let diags = register_entity_enhancements(&manifest, &mut existing);
@@ -477,7 +484,7 @@ fn detect_grammar_conflicts_contract_empty_manifests() {
     let diags = detect_grammar_contribution_conflicts(&[]);
     assert!(diags.is_empty());
 
-    // Manifests without grammar contributions → no conflicts
+    // Manifests without grammar contributions -> no conflicts
     let m1 = default_manifest();
     let m2 = default_manifest();
     let diags = detect_grammar_contribution_conflicts(&[m1, m2]);
