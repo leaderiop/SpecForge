@@ -48,10 +48,10 @@ pub fn detect_unknown_entity_kinds(
             if let Some(ext) = idx.lookup(keyword) {
                 Some(format!("install it with: specforge add {}", ext))
             } else {
-                Some("run: specforge search <keyword>".to_string())
+                Some("check available extensions with: specforge outline".to_string())
             }
         } else {
-            Some("run: specforge search <keyword>".to_string())
+            Some("check available extensions with: specforge outline".to_string())
         };
 
         diagnostics.push(Diagnostic {
@@ -600,7 +600,7 @@ mod tests {
         let index = KeywordExtensionIndex::new();
         let entities = vec![("xyzzy".to_string(), "x1".to_string(), span("test.spec"))];
         let diags = detect_unknown_entity_kinds(&entities, &kind_reg, Some(&index));
-        assert!(diags[0].suggestion.as_ref().unwrap().contains("specforge search"));
+        assert!(diags[0].suggestion.as_ref().unwrap().contains("specforge outline"));
     }
 
     // B:suggest_missing_extensions — verify unit "keyword-to-extension index is loaded from bundled data file"
@@ -629,7 +629,7 @@ mod tests {
         // ensures: unknown keyword gets search suggestion
         let e2 = vec![("xyzzy".to_string(), "x1".to_string(), span("test.spec"))];
         let d2 = detect_unknown_entity_kinds(&e2, &kind_reg, Some(&index));
-        assert!(d2[0].suggestion.as_ref().unwrap().contains("specforge search"));
+        assert!(d2[0].suggestion.as_ref().unwrap().contains("specforge outline"));
     }
 
     // -- B:detect_unknown_entity_kinds --

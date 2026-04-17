@@ -751,7 +751,7 @@ fn suggest_missing_ext_unknown_keyword() {
     let index = specforge_registry::compilation::KeywordExtensionIndex::new();
     let entities = vec![("xyzzy".to_string(), "x1".to_string(), span("test.spec"))];
     let diags = specforge_registry::compilation::detect_unknown_entity_kinds(&entities, &kind_reg, Some(&index));
-    assert!(diags[0].suggestion.as_ref().unwrap().contains("specforge search"));
+    assert!(diags[0].suggestion.as_ref().unwrap().contains("specforge outline"));
 }
 
 #[spec(behavior = "suggest_missing_extensions", verify = "keyword-to-extension index is loaded from bundled data file")]
@@ -775,7 +775,7 @@ fn suggest_missing_ext_contract() {
     assert!(d1[0].suggestion.as_ref().unwrap().contains("@specforge/software"));
     let e2 = vec![("xyzzy".to_string(), "x1".to_string(), span("test.spec"))];
     let d2 = specforge_registry::compilation::detect_unknown_entity_kinds(&e2, &kind_reg, Some(&index));
-    assert!(d2[0].suggestion.as_ref().unwrap().contains("specforge search"));
+    assert!(d2[0].suggestion.as_ref().unwrap().contains("specforge outline"));
 }
 
 // ===========================================================================
