@@ -109,13 +109,24 @@ fn autocomplete_entity_ids_contract() {
 #[test]
 #[specforge_test(behavior = "complete_field_names", verify = "requires/ensures consistency for field name completion")]
 fn complete_field_names_contract() {
-    // Requires: entity kind name
+    // Requires: entity kind name + populated FieldRegistry
     // Ensures: field names appropriate for that kind returned
-    let behavior_fields = specforge_lsp::complete_field_names("behavior", None);
+    let runtime = specforge_emitter::builtins::default_runtime();
+    let host = specforge_wasm::protocol::ProtocolHost::new(&runtime);
+    let builtins = ["@specforge/software", "@specforge/product", "@specforge/governance", "@specforge/formal"];
+    let mut manifests = Vec::new();
+    for name in &builtins {
+        if let Ok(ext) = specforge_wasm::protocol::load_protocol_extension(&host, name) {
+            manifests.push(specforge_wasm::protocol::protocol_extension_to_manifest(&ext));
+        }
+    }
+    let (_kind_reg, field_reg, _edge_reg, _diags) = specforge_registry::populate_registries(&manifests);
+
+    let behavior_fields = specforge_lsp::complete_field_names("behavior", Some(&field_reg));
     assert!(!behavior_fields.is_empty(), "known kind must have field suggestions");
     assert!(behavior_fields.iter().any(|f| f == "contract"), "behavior must include 'contract'");
 
-    let unknown_fields = specforge_lsp::complete_field_names("__nonexistent__", None);
+    let unknown_fields = specforge_lsp::complete_field_names("__nonexistent__", Some(&field_reg));
     assert!(unknown_fields.is_empty(), "unknown kind must return no fields");
 }
 

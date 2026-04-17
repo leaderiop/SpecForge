@@ -185,6 +185,7 @@ fn register_single_field(
         target_kind: field.target_kind.clone(),
         file_reference: field.file_reference,
         required: field.required,
+        inverse_of: field.inverse_of.clone(),
     });
 }
 
@@ -956,6 +957,7 @@ mod tests {
                     required: false,
                     default_value: None,
                     enum_values: vec![],
+                    inverse_of: None,
                 }],
                 edge_types: vec![],
             },
@@ -984,6 +986,7 @@ mod tests {
                     required: false,
                     default_value: None,
                     enum_values: vec![],
+                    inverse_of: None,
                 }],
                 edge_types: vec![],
             },
@@ -1016,6 +1019,7 @@ mod tests {
                     required: false,
                     default_value: None,
                     enum_values: vec![],
+                    inverse_of: None,
                 }],
                 edge_types: vec![],
             },
@@ -1048,6 +1052,7 @@ mod tests {
                         required: false,
                         default_value: None,
                         enum_values: vec![],
+                        inverse_of: None,
                     }],
                     edge_types: vec![],
                 },
@@ -1067,6 +1072,7 @@ mod tests {
                         required: false,
                         default_value: None,
                         enum_values: vec![],
+                        inverse_of: None,
                     }],
                     edge_types: vec![],
                 },

@@ -1,7 +1,22 @@
 use specforge_common::{SourceSpan, Sym};
 use specforge_graph::{Graph, Node};
 use specforge_parser::{EntityId, EntityKind, FieldMap};
+use specforge_registry::FieldRegistry;
 use specforge_test_macros::test as spec;
+
+fn default_field_registry() -> FieldRegistry {
+    let runtime = specforge_emitter::builtins::default_runtime();
+    let host = specforge_wasm::protocol::ProtocolHost::new(&runtime);
+    let builtins = ["@specforge/software", "@specforge/product", "@specforge/governance", "@specforge/formal"];
+    let mut manifests = Vec::new();
+    for name in &builtins {
+        if let Ok(ext) = specforge_wasm::protocol::load_protocol_extension(&host, name) {
+            manifests.push(specforge_wasm::protocol::protocol_extension_to_manifest(&ext));
+        }
+    }
+    let (_kind_reg, field_reg, _edge_reg, _diags) = specforge_registry::populate_registries(&manifests);
+    field_reg
+}
 
 fn node(id: &str, kind: &str, title: Option<&str>) -> Node {
     Node {
@@ -72,18 +87,17 @@ fn autocomplete_all_ids_without_filter() {
 #[spec(behavior = "complete_field_names", verify = "field name completion uses FieldRegistry for entity kind")]
 #[test]
 fn complete_field_names_for_kind() {
-    // Without a real FieldRegistry, we test the structural field set
-    let fields = specforge_lsp::complete_field_names("behavior", None);
+    let reg = default_field_registry();
+    let fields = specforge_lsp::complete_field_names("behavior", Some(&reg));
     assert!(fields.iter().any(|f| f == "contract"));
-    assert!(fields.iter().any(|f| f == "verify"));
 }
 
 #[spec(behavior = "complete_field_names", verify = "suggestions are filtered by entity kind")]
 #[test]
 fn field_names_differ_by_kind() {
-    let behavior_fields = specforge_lsp::complete_field_names("behavior", None);
-    let type_fields = specforge_lsp::complete_field_names("type", None);
-    // Different kinds should have different field sets
+    let reg = default_field_registry();
+    let behavior_fields = specforge_lsp::complete_field_names("behavior", Some(&reg));
+    let type_fields = specforge_lsp::complete_field_names("type", Some(&reg));
     assert_ne!(behavior_fields, type_fields);
 }
 
@@ -111,6 +125,7 @@ fn complete_field_names_from_registry() {
         target_kind: None,
         file_reference: false,
         required: false,
+        inverse_of: None,
     });
     reg.register(FieldRegistryEntry {
         kind_name: "behavior".into(),
@@ -122,6 +137,7 @@ fn complete_field_names_from_registry() {
         target_kind: Some("invariant".into()),
         file_reference: false,
         required: false,
+        inverse_of: None,
     });
     let fields = specforge_lsp::complete_field_names("behavior", Some(&reg));
     assert!(fields.contains(&"contract".to_string()));
@@ -129,14 +145,13 @@ fn complete_field_names_from_registry() {
     assert_eq!(fields.len(), 2);
 }
 
-#[spec(behavior = "complete_field_names", verify = "falls back to hardcoded when registry has no fields")]
+#[spec(behavior = "complete_field_names", verify = "returns empty when registry has no fields for kind")]
 #[test]
-fn complete_field_names_fallback_when_registry_empty_for_kind() {
+fn complete_field_names_empty_when_registry_has_no_fields() {
     use specforge_registry::FieldRegistry;
     let reg = FieldRegistry::new();
-    // Registry has no fields for behavior, should fall back to hardcoded
     let fields = specforge_lsp::complete_field_names("behavior", Some(&reg));
-    assert!(fields.contains(&"contract".to_string()));
+    assert!(fields.is_empty());
 }
 
 // -- complete_keywords --------------------------------------------------------

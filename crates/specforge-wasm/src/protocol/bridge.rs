@@ -186,6 +186,7 @@ fn convert_field(desc: &FieldDescriptor) -> specforge_registry::ManifestField {
         required: desc.required,
         default_value: desc.default_value.clone(),
         enum_values: desc.enum_values.clone(),
+        inverse_of: desc.inverse_of.clone(),
     }
 }
 

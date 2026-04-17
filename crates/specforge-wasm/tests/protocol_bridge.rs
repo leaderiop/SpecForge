@@ -127,6 +127,7 @@ fn convert_entity_kind_fields_to_manifest_fields() {
                     file_reference: false,
                     default_value: None,
                     enum_values: vec![],
+                    inverse_of: None,
                 },
                 FieldDescriptor {
                     name: "invariants".to_string(),
@@ -138,6 +139,7 @@ fn convert_entity_kind_fields_to_manifest_fields() {
                     file_reference: false,
                     default_value: None,
                     enum_values: vec![],
+                    inverse_of: None,
                 },
             ],
             testable: true,
@@ -191,6 +193,7 @@ fn populate_from_protocol_registers_kind_and_fields() {
                     file_reference: false,
                     default_value: None,
                     enum_values: vec![],
+                    inverse_of: None,
                 },
             ],
             testable: true,
@@ -390,6 +393,7 @@ fn convert_entity_enhancements_to_manifest() {
             file_reference: false,
             default_value: None,
             enum_values: vec![],
+            inverse_of: None,
         }],
         edge_types: vec![],
     }];
@@ -423,6 +427,7 @@ fn populate_from_protocol_applies_enhancements_across_extensions() {
                 file_reference: false,
                 default_value: None,
                 enum_values: vec![],
+                inverse_of: None,
             }],
             testable: true,
             singleton: false,
@@ -454,6 +459,7 @@ fn populate_from_protocol_applies_enhancements_across_extensions() {
             file_reference: false,
             default_value: None,
             enum_values: vec![],
+            inverse_of: None,
         }],
         edge_types: vec![],
     }];
@@ -488,6 +494,7 @@ fn convert_shared_fields_to_manifest() {
         file_reference: false,
         default_value: Some("draft".to_string()),
         enum_values: vec!["draft".to_string(), "active".to_string()],
+        inverse_of: None,
     }];
 
     let manifest = protocol_extension_to_manifest(&ext);
@@ -738,6 +745,7 @@ fn parity_protocol_vs_manifest_registries() {
                     required: false,
                     default_value: None,
                     enum_values: vec![],
+                    inverse_of: None,
                 },
                 specforge_registry::ManifestField {
                     name: "invariants".to_string(),
@@ -749,6 +757,7 @@ fn parity_protocol_vs_manifest_registries() {
                     required: false,
                     default_value: None,
                     enum_values: vec![],
+                    inverse_of: None,
                 },
             ],
             incremental: None,
@@ -817,6 +826,7 @@ fn parity_protocol_vs_manifest_registries() {
                         file_reference: false,
                         default_value: None,
                         enum_values: vec![],
+                        inverse_of: None,
                     },
                     FieldDescriptor {
                         name: "invariants".to_string(),
@@ -828,6 +838,7 @@ fn parity_protocol_vs_manifest_registries() {
                         file_reference: false,
                         default_value: None,
                         enum_values: vec![],
+                        inverse_of: None,
                     },
                 ],
                 testable: true,

@@ -196,6 +196,7 @@ fn register_enhancement_new_field() {
             required: false,
             default_value: None,
             enum_values: vec![],
+            inverse_of: None,
         }],
         edge_types: vec![],
     }];
@@ -220,6 +221,7 @@ fn register_enhancement_conflict_e034() {
         required: false,
         default_value: None,
         enum_values: vec![],
+        inverse_of: None,
     };
 
     // First extension registers successfully

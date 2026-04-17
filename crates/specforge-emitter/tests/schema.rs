@@ -79,6 +79,7 @@ fn make_field_entry(kind: &str, field: &str, ft: ManifestFieldType, required: bo
         target_kind: None,
         file_reference: false,
         required,
+        inverse_of: None,
     }
 }
 

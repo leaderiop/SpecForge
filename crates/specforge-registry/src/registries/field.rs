@@ -23,6 +23,7 @@ pub struct FieldRegistryEntry {
     pub target_kind: Option<String>,
     pub file_reference: bool,
     pub required: bool,
+    pub inverse_of: Option<String>,
 }
 
 #[derive(Debug, Default)]
@@ -90,6 +91,22 @@ impl FieldRegistry {
             })
         })
     }
+
+    pub fn bidirectional_pairs(&self) -> Vec<(String, String)> {
+        let mut pairs = Vec::new();
+        let mut seen = std::collections::HashSet::new();
+        for (_kind, field_name, entry) in self.iter() {
+            if let Some(ref inverse) = entry.inverse_of {
+                let a = field_name.to_string();
+                let b = inverse.clone();
+                let key = if a < b { (a.clone(), b.clone()) } else { (b.clone(), a.clone()) };
+                if seen.insert(key) {
+                    pairs.push((a, b));
+                }
+            }
+        }
+        pairs
+    }
 }
 
 #[cfg(test)]
@@ -130,6 +147,7 @@ mod tests {
             target_kind: None,
             file_reference: false,
             required: false,
+            inverse_of: None,
         });
         assert!(registry.get("behavior", "title").is_none());
     }
@@ -164,6 +182,7 @@ mod tests {
             target_kind: None,
             file_reference: false,
             required: false,
+            inverse_of: None,
         });
 
         // These calls should not allocate — they take &str and use HashMap<String,_>::get(&str)
@@ -189,6 +208,7 @@ mod tests {
             target_kind: None,
             file_reference: false,
             required: false,
+            inverse_of: None,
         };
         registry.register(entry.clone());
         assert_eq!(registry.len(), 1);
@@ -204,6 +224,7 @@ mod tests {
             target_kind: None,
             file_reference: false,
             required: false,
+            inverse_of: None,
         };
         registry.register(entry2);
         assert_eq!(registry.len(), 1);
@@ -219,6 +240,7 @@ mod tests {
             target_kind: None,
             file_reference: false,
             required: false,
+            inverse_of: None,
         });
         assert_eq!(registry.len(), 2);
     }
@@ -237,6 +259,7 @@ mod tests {
             target_kind: None,
             file_reference: false,
             required: false,
+            inverse_of: None,
         });
         registry.register(FieldRegistryEntry {
             kind_name: "event".to_string(),
@@ -248,6 +271,7 @@ mod tests {
             target_kind: None,
             file_reference: false,
             required: false,
+            inverse_of: None,
         });
 
         let items: Vec<_> = registry.iter().collect();

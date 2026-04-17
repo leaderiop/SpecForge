@@ -49,6 +49,8 @@ impl GovernanceExtension {
                 dot_shape: Some("octagon".into()),
                 dot_color: Some("#BF360C".into()),
                 dot_fillcolor: Some("#FBE9E7".into()),
+                testable: true,
+                supports_verify: true,
                 fields: vec![
                     fd("category", "string", false, Some("Classification of the constraint (e.g. performance, security, regulatory)"), None, None),
                     fd("priority", "string", false, Some("Relative importance of this constraint"), None, None),
@@ -56,7 +58,7 @@ impl GovernanceExtension {
                     fd("threshold", "string", false, Some("Acceptable limit or target value for the metric"), None, None),
                     fd("description", "string", false, Some("Free-form description of the constraint"), None, None),
                     fd("refs", "string_list", false, Some("External references (URLs, documents, issue links)"), None, None),
-                    fd_ref("enforced_by", "reference_list", "ConstraintEnforcedByBehavior", "behavior", Some("Behaviors that enforce this constraint at runtime")),
+                    fd_ref_inv("enforced_by", "reference_list", "ConstraintEnforcedByBehavior", "behavior", "invariants", Some("Behaviors that enforce this constraint at runtime")),
                     fd("scope", "string", false, Some("Applicability scope (e.g. system-wide, per-module, per-request)"), None, None),
                     fd_ref("constrains", "reference_list", "ConstraintConstrainsBehavior", "behavior", Some("Behaviors that are limited or governed by this constraint")),
                     fd_ref("protects", "reference_list", "ConstraintProtectsInvariant", "invariant", Some("Invariants that this constraint helps protect")),
@@ -136,7 +138,7 @@ impl GovernanceExtension {
 impl BuiltinExtension for GovernanceExtension {
     fn handshake(&self) -> HandshakeResponse {
         HandshakeResponse {
-            protocol_version: "1.0".into(),
+            protocol_version: "1.0.0".into(),
             name: "@specforge/governance".into(),
             version: "1.0.0".into(),
             contribution_flags: ContributionFlags {
@@ -186,6 +188,7 @@ fn fd_defaults() -> FieldDescriptor {
         file_reference: false,
         default_value: None,
         enum_values: vec![],
+        inverse_of: None,
     }
 }
 
@@ -203,6 +206,12 @@ fn fd(name: &str, ft: &str, required: bool, desc: Option<&str>, edge: Option<&st
 
 fn fd_ref(name: &str, ft: &str, edge: &str, target: &str, desc: Option<&str>) -> FieldDescriptor {
     fd(name, ft, false, desc, Some(edge), Some(target))
+}
+
+fn fd_ref_inv(name: &str, ft: &str, edge: &str, target: &str, inverse: &str, desc: Option<&str>) -> FieldDescriptor {
+    let mut f = fd(name, ft, false, desc, Some(edge), Some(target));
+    f.inverse_of = Some(inverse.into());
+    f
 }
 
 fn ekd_defaults() -> EntityKindDescriptor {

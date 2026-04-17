@@ -147,6 +147,8 @@ pub struct ManifestField {
     pub default_value: Option<String>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub enum_values: Vec<String>,
+    #[serde(default)]
+    pub inverse_of: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

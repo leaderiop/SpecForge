@@ -55,12 +55,12 @@ async fn e2e_hover_on_empty_returns_null() {
 async fn e2e_hover_on_non_entity_word() {
     let text = "behavior foo \"Foo\" {\n  contract \"test\"\n}\n";
     let (mut client, uri) = start_server_with_doc(None, "test.spec", text).await;
-    // Hover on "contract" keyword (line 1, col 4)
-    let resp = client.hover(&uri, 1, 4).await;
+    // Hover on "test" inside the string value (line 1, col 13) — not an entity ID or field name
+    let resp = client.hover(&uri, 1, 13).await;
     let result = &resp["result"];
-    // "contract" is not an entity ID in the graph, so null
+    // "test" is just a string value, not an entity ID in the graph, so null
     assert!(
         result.is_null(),
-        "Expected null hover for non-entity word 'contract'"
+        "Expected null hover for non-entity word 'test'"
     );
 }

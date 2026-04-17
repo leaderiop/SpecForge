@@ -168,6 +168,7 @@ mod tests {
                 file_reference: false,
                 default_value: None,
                 enum_values: vec![],
+                inverse_of: None,
             }
         }
     }

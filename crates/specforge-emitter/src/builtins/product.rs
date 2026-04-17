@@ -351,7 +351,7 @@ impl ProductExtension {
 impl BuiltinExtension for ProductExtension {
     fn handshake(&self) -> HandshakeResponse {
         HandshakeResponse {
-            protocol_version: "1.0".into(),
+            protocol_version: "1.0.0".into(),
             name: "@specforge/product".into(),
             version: "1.0.0".into(),
             contribution_flags: ContributionFlags {
@@ -397,6 +397,7 @@ fn fd_defaults() -> FieldDescriptor {
         file_reference: false,
         default_value: None,
         enum_values: vec![],
+        inverse_of: None,
     }
 }
 

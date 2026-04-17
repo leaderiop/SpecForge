@@ -211,6 +211,7 @@ fn boot_field_registry_title_not_a_field() {
         target_kind: None,
         file_reference: false,
         required: false,
+        inverse_of: None,
     });
     // title is NOT a field — it's a grammar-level construct
     assert!(registry.get("behavior", "title").is_none());
@@ -1289,6 +1290,7 @@ fn enhancements_merge_fields() {
                 required: false,
                 default_value: None,
                 enum_values: vec![],
+                inverse_of: None,
             }],
         },
     )];
@@ -1316,6 +1318,7 @@ fn enhancements_unknown_kind_i004() {
                 required: false,
                 default_value: None,
                 enum_values: vec![],
+                inverse_of: None,
             }],
         },
     )];
@@ -1345,6 +1348,7 @@ fn enhancements_no_overwrite() {
                 required: false,
                 default_value: None,
                 enum_values: vec![],
+                inverse_of: None,
             }],
         },
     )];
@@ -1375,6 +1379,7 @@ fn enhancements_two_non_conflicting() {
                     required: false,
                 default_value: None,
                 enum_values: vec![],
+                inverse_of: None,
                 }],
             },
         ),
@@ -1394,6 +1399,7 @@ fn enhancements_two_non_conflicting() {
                     required: false,
                 default_value: None,
                 enum_values: vec![],
+                inverse_of: None,
                 }],
             },
         ),

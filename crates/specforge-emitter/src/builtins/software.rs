@@ -24,13 +24,13 @@ impl SoftwareExtension {
                 dot_fillcolor: Some("#E3F2FD".into()),
                 fields: vec![
                     fd("contract", "string", true, Some("The behavioral contract this behavior guarantees"), None, None),
-                    fd_ref("invariants", "reference_list", "BehaviorEnforcesInvariant", "invariant", Some("Invariants this behavior enforces")),
+                    fd_ref_inv("invariants", "reference_list", "BehaviorEnforcesInvariant", "invariant", "enforced_by", Some("Invariants this behavior enforces")),
                     fd_ref("types", "reference_list", "BehaviorReferencesType", "type", Some("Type definitions used by this behavior")),
                     fd_ref("ports", "reference_list", "BehaviorUsesPort", "port", Some("Port interfaces this behavior interacts with")),
                     fd_ref("produces", "reference_list", "BehaviorProducesEvent", "event", Some("Events produced as a result of this behavior")),
                     fd_ref("consumes", "reference_list", "BehaviorConsumesEvent", "event", Some("Events this behavior reacts to")),
                     fd("category", "string", false, Some("Classification tag for agent task routing"), None, None),
-                    fd_ref("features", "reference_list", "BehaviorImplementsFeature", "feature", Some("Product features this behavior implements")),
+                    fd_ref_inv("features", "reference_list", "BehaviorImplementsFeature", "feature", "behaviors", Some("Product features this behavior implements")),
                     fd("description", "string", false, Some("Human-readable summary of this behavior"), None, None),
                     fd("status", "string", false, Some("Current lifecycle status of this behavior"), None, None),
                     fd("refs", "string_list", false, Some("External references such as issue or document URIs"), None, None),
@@ -177,7 +177,7 @@ impl SoftwareExtension {
                 target_kind: "milestone".into(),
                 source_extension: "@specforge/product".into(),
                 fields: vec![
-                    fd_ref("behaviors", "reference_list", "MilestoneIncludesBehavior", "behavior", Some("Behaviors this milestone includes in its delivery scope")),
+                    fd_ref_inv("behaviors", "reference_list", "MilestoneIncludesBehavior", "behavior", "features", Some("Behaviors this milestone includes in its delivery scope")),
                 ],
                 edge_types: vec![],
             },
@@ -279,7 +279,7 @@ impl SoftwareExtension {
 impl BuiltinExtension for SoftwareExtension {
     fn handshake(&self) -> HandshakeResponse {
         HandshakeResponse {
-            protocol_version: "1.0".into(),
+            protocol_version: "1.0.0".into(),
             name: "@specforge/software".into(),
             version: "1.0.0".into(),
             contribution_flags: ContributionFlags {
@@ -335,6 +335,7 @@ fn fd_defaults() -> FieldDescriptor {
         file_reference: false,
         default_value: None,
         enum_values: vec![],
+        inverse_of: None,
     }
 }
 
@@ -367,15 +368,28 @@ fn fd_ref(
     fd(name, ft, false, desc, Some(edge), Some(target))
 }
 
+fn fd_ref_inv(
+    name: &str,
+    ft: &str,
+    edge: &str,
+    target: &str,
+    inverse: &str,
+    desc: Option<&str>,
+) -> FieldDescriptor {
+    let mut f = fd(name, ft, false, desc, Some(edge), Some(target));
+    f.inverse_of = Some(inverse.into());
+    f
+}
+
 fn ekd_defaults() -> EntityKindDescriptor {
     EntityKindDescriptor {
         name: String::new(),
         keyword: None,
         description: None,
         fields: vec![],
-        testable: false,
+        testable: true,
         singleton: false,
-        supports_verify: false,
+        supports_verify: true,
         incremental: None,
         has_body_parser: false,
         open_fields: false,

@@ -12,7 +12,7 @@ use specforge_graph::Node;
 use specforge_parser::{EntityId, EntityKind};
 use specforge_registry::{
     detect_mistyped_references, detect_unknown_entity_fields, detect_unknown_entity_kinds,
-    populate_registries, EntityRefInfo,
+    populate_registries, EntityRefInfo, KindRegistry,
 };
 use specforge_wasm::protocol::{
     load_protocol_extension, protocol_extension_to_manifest, ProtocolHost,
@@ -27,38 +27,6 @@ use crate::{
     source_span_to_lsp_range,
     workspace_symbols, LspState,
 };
-
-/// Default entity kinds used when no extension registry is available.
-pub const DEFAULT_KINDS: &[&str] = &[
-    "behavior",
-    "type",
-    "feature",
-    "invariant",
-    "event",
-    "port",
-    "journey",
-    "deliverable",
-    "milestone",
-    "module",
-    "term",
-    "decision",
-    "constraint",
-    "failure_mode",
-    "persona",
-    "channel",
-    "spec",
-    "ref",
-];
-
-/// Testable kinds that support verify statements.
-pub const TESTABLE_KINDS: &[&str] = &[
-    "behavior",
-    "type",
-    "invariant",
-    "event",
-    "port",
-    "constraint",
-];
 
 /// Debounce delay for `did_change` reparse (milliseconds).
 const DEBOUNCE_MS: u64 = 150;
@@ -491,15 +459,32 @@ fn diagnostic_to_lsp(diag: &specforge_common::Diagnostic) -> Diagnostic {
     }
 }
 
-fn symbol_kind_from_entity(kind: &str) -> SymbolKind {
-    match kind {
-        "behavior" => SymbolKind::METHOD,
-        "type" => SymbolKind::STRUCT,
-        "feature" => SymbolKind::MODULE,
-        "invariant" => SymbolKind::CONSTANT,
-        "event" => SymbolKind::EVENT,
-        "port" => SymbolKind::INTERFACE,
-        "spec" => SymbolKind::NAMESPACE,
+fn symbol_kind_from_entity(kind: &str, kind_registry: &KindRegistry) -> SymbolKind {
+    if kind == "spec" {
+        return SymbolKind::NAMESPACE;
+    }
+    if let Some(entry) = kind_registry.get(kind)
+        && let Some(ref icon) = entry.lsp_icon
+    {
+        return lsp_icon_to_symbol_kind(icon);
+    }
+    SymbolKind::VARIABLE
+}
+
+fn lsp_icon_to_symbol_kind(icon: &str) -> SymbolKind {
+    match icon {
+        "Method" => SymbolKind::METHOD,
+        "Struct" => SymbolKind::STRUCT,
+        "Class" => SymbolKind::CLASS,
+        "Module" => SymbolKind::MODULE,
+        "Constant" => SymbolKind::CONSTANT,
+        "Event" => SymbolKind::EVENT,
+        "Interface" => SymbolKind::INTERFACE,
+        "Property" => SymbolKind::PROPERTY,
+        "Variable" => SymbolKind::VARIABLE,
+        "Text" => SymbolKind::STRING,
+        "Package" => SymbolKind::PACKAGE,
+        "Folder" => SymbolKind::NAMESPACE,
         _ => SymbolKind::VARIABLE,
     }
 }
@@ -604,7 +589,11 @@ impl LanguageServer for Backend {
         }).or_else(|| root.clone());
         *self.spec_root.lock().await = resolved_spec_root;
         *self.root_dir.lock().await = root;
-        let caps = server_capabilities(DEFAULT_KINDS);
+        let state = self.state.read().await;
+        let kind_keywords: Vec<String> = state.kind_registry().keywords().cloned().collect();
+        let kind_refs: Vec<&str> = kind_keywords.iter().map(|s| s.as_str()).collect();
+        drop(state);
+        let caps = server_capabilities(&kind_refs);
         let token_types: Vec<SemanticTokenType> = crate::TOKEN_TYPES
             .iter()
             .map(|t| SemanticTokenType::new(t))
@@ -1171,26 +1160,15 @@ impl LanguageServer for Backend {
         }
 
         if pos.character < 2 {
-            // Use registered kinds if available, fall back to hardcoded defaults
             let kind_reg = state.kind_registry();
             let dynamic_kinds: Vec<String> = kind_reg.keywords().cloned().collect();
-            if !dynamic_kinds.is_empty() {
-                let kind_refs: Vec<&str> = dynamic_kinds.iter().map(|s| s.as_str()).collect();
-                for kw in complete_keywords(&kind_refs) {
-                    items.push(CompletionItem {
-                        label: kw,
-                        kind: Some(CompletionItemKind::KEYWORD),
-                        ..Default::default()
-                    });
-                }
-            } else {
-                for kw in complete_keywords(DEFAULT_KINDS) {
-                    items.push(CompletionItem {
-                        label: kw,
-                        kind: Some(CompletionItemKind::KEYWORD),
-                        ..Default::default()
-                    });
-                }
+            let kind_refs: Vec<&str> = dynamic_kinds.iter().map(|s| s.as_str()).collect();
+            for kw in complete_keywords(&kind_refs) {
+                items.push(CompletionItem {
+                    label: kw,
+                    kind: Some(CompletionItemKind::KEYWORD),
+                    ..Default::default()
+                });
             }
         }
 
@@ -1328,7 +1306,12 @@ impl LanguageServer for Backend {
         let file_path = uri_to_file_path(&uri);
 
         let state = self.state.read().await;
-        let actions = code_actions_missing_verify(state.graph(), &file_path, TESTABLE_KINDS);
+        let testable: Vec<String> = state.kind_registry().iter()
+            .filter(|(_, entry)| entry.supports_verify)
+            .map(|(name, _)| name.clone())
+            .collect();
+        let testable_refs: Vec<&str> = testable.iter().map(|s| s.as_str()).collect();
+        let actions = code_actions_missing_verify(state.graph(), &file_path, &testable_refs);
 
         if actions.is_empty() {
             return Ok(None);
@@ -1383,12 +1366,13 @@ impl LanguageServer for Backend {
             return Ok(None);
         }
 
+        let kind_reg = state.kind_registry();
         #[allow(deprecated)]
         let lsp_symbols: Vec<SymbolInformation> = symbols
             .into_iter()
             .map(|s| SymbolInformation {
                 name: s.id,
-                kind: symbol_kind_from_entity(&s.kind),
+                kind: symbol_kind_from_entity(&s.kind, kind_reg),
                 tags: None,
                 deprecated: None,
                 location: source_span_to_location(&s.span),
@@ -1410,12 +1394,13 @@ impl LanguageServer for Backend {
             return Ok(None);
         }
 
+        let kind_reg = state.kind_registry();
         #[allow(deprecated)]
         let lsp_symbols: Vec<SymbolInformation> = symbols
             .into_iter()
             .map(|s| SymbolInformation {
                 name: s.id,
-                kind: symbol_kind_from_entity(&s.kind),
+                kind: symbol_kind_from_entity(&s.kind, kind_reg),
                 tags: None,
                 deprecated: None,
                 location: source_span_to_location(&s.span),
@@ -1438,7 +1423,9 @@ impl LanguageServer for Backend {
             None => return Ok(None),
         };
 
-        let caps = server_capabilities(DEFAULT_KINDS);
+        let kind_keywords: Vec<String> = state.kind_registry().keywords().cloned().collect();
+        let kind_refs: Vec<&str> = kind_keywords.iter().map(|s| s.as_str()).collect();
+        let caps = server_capabilities(&kind_refs);
         let token_type_index: std::collections::HashMap<&str, u32> = caps
             .semantic_token_types
             .iter()
@@ -1446,7 +1433,7 @@ impl LanguageServer for Backend {
             .map(|(i, t)| (t.as_str(), i as u32))
             .collect();
 
-        let tokens = classify_tokens(&content, DEFAULT_KINDS);
+        let tokens = classify_tokens(&content, &kind_refs);
 
         let mut data = Vec::new();
         let mut prev_line: u32 = 0;

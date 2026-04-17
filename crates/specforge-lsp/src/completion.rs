@@ -171,8 +171,7 @@ pub fn complete_entity_ids_filtered(
     items
 }
 
-/// Return field names valid for a given entity kind.
-/// Queries the FieldRegistry first; falls back to hardcoded defaults when empty.
+/// Return field names valid for a given entity kind from the FieldRegistry.
 pub fn complete_field_names(kind: &str, field_registry: Option<&FieldRegistry>) -> Vec<String> {
     if let Some(reg) = field_registry {
         let fields = reg.fields_for_kind(kind);
@@ -182,45 +181,7 @@ pub fn complete_field_names(kind: &str, field_registry: Option<&FieldRegistry>) 
             return names;
         }
     }
-    complete_field_names_fallback(kind)
-}
-
-/// Hardcoded field name defaults for common entity kinds.
-fn complete_field_names_fallback(kind: &str) -> Vec<String> {
-    match kind {
-        "behavior" => vec![
-            "contract".into(),
-            "verify".into(),
-            "invariants".into(),
-            "types".into(),
-            "ports".into(),
-            "produces".into(),
-            "consumes".into(),
-            "requires".into(),
-            "ensures".into(),
-        ],
-        "type" => vec!["fields".into(), "verify".into()],
-        "feature" => vec!["problem".into(), "solution".into(), "behaviors".into()],
-        "invariant" => vec![
-            "guarantee".into(),
-            "enforced_by".into(),
-            "risk".into(),
-            "verify".into(),
-        ],
-        "event" => vec![
-            "trigger".into(),
-            "payload".into(),
-            "channel".into(),
-            "consumers".into(),
-            "verify".into(),
-        ],
-        "port" => vec![
-            "direction".into(),
-            "methods".into(),
-            "verify".into(),
-        ],
-        _ => vec![],
-    }
+    vec![]
 }
 
 /// Return keyword completions including structural keywords and registered entity kinds.

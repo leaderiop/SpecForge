@@ -181,6 +181,7 @@ fn hover_shows_registered_fields() {
         target_kind: None,
         file_reference: false,
         required: false,
+        inverse_of: None,
     });
     field_reg.register(FieldRegistryEntry {
         kind_name: "behavior".into(),
@@ -192,6 +193,7 @@ fn hover_shows_registered_fields() {
         target_kind: Some("invariant".into()),
         file_reference: false,
         required: false,
+        inverse_of: None,
     });
 
     let text = specforge_lsp::hover_info_with_registries(&g, "login", None, Some(&field_reg))
@@ -255,6 +257,7 @@ fn hover_shows_field_description() {
         target_kind: None,
         file_reference: false,
         required: false,
+        inverse_of: None,
     });
 
     let text = specforge_lsp::hover_field_info("contract", "behavior", &reg).unwrap();
@@ -288,6 +291,7 @@ fn make_field_registry() -> specforge_registry::FieldRegistry {
         target_kind: None,
         file_reference: false,
         required: false,
+        inverse_of: None,
     });
     reg.register(FieldRegistryEntry {
         kind_name: "behavior".into(),
@@ -299,6 +303,7 @@ fn make_field_registry() -> specforge_registry::FieldRegistry {
         target_kind: Some("feature".into()),
         file_reference: false,
         required: true,
+        inverse_of: None,
     });
     reg
 }

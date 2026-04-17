@@ -85,15 +85,7 @@ pub fn compile_with_runtime(path: &Path, runtime: Option<&dyn WasmRuntime>) -> C
         })
         .collect();
 
-    // 5a. Build bidirectional pairs from extension edge types.
-    // Domain-specific knowledge (e.g., invariants/enforced_by) comes from extensions,
-    // not the core graph engine. For now, hardcode the same pairs that were previously
-    // in graph.rs to keep behavior identical while moving them out of the graph crate.
-    let bidirectional_pairs = vec![
-        ("invariants".to_string(), "enforced_by".to_string()),
-        ("constrains".to_string(), "constrained_by".to_string()),
-        ("features".to_string(), "behaviors".to_string()),
-    ];
+    let bidirectional_pairs = field_reg.bidirectional_pairs();
 
     // 6. Build GraphConfig from registries
     let graph_config = GraphConfig {

@@ -24,7 +24,7 @@ fn product_extension_loads_via_protocol() {
     assert_eq!(manifest.version, "1.0.0");
     assert_eq!(manifest.entity_kinds.len(), 9);
     assert_eq!(manifest.edge_types.len(), 20);
-    assert_eq!(manifest.validation_rules.len(), 24);
+    assert_eq!(manifest.validation_rules.len(), 30);
     assert_eq!(manifest.fields.len(), 1, "shared fields (tags)");
     assert!(manifest.contributes.entities);
     assert!(manifest.contributes.validators);

@@ -66,6 +66,7 @@ pub fn register_define_blocks(
                 target_kind: None,
                 file_reference: false,
                 required: true,
+                inverse_of: None,
             });
         }
         for field_name in &define.optional_fields {
@@ -79,6 +80,7 @@ pub fn register_define_blocks(
                 target_kind: None,
                 file_reference: false,
                 required: false,
+                inverse_of: None,
             });
         }
         for target in &define.reference_targets {
@@ -92,6 +94,7 @@ pub fn register_define_blocks(
                 target_kind: Some(target.clone()),
                 file_reference: false,
                 required: false,
+                inverse_of: None,
             });
         }
     }
