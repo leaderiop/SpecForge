@@ -66,12 +66,13 @@ pub fn run(path: &Path, name: Option<&str>, version: Option<&str>, extensions: &
     // Write starter spec file — choose template based on installed extensions
     let has_software = extensions.iter().any(|e| e.contains("software"));
     let has_product = extensions.iter().any(|e| e.contains("product"));
+    let spec_id = sanitize_entity_id(&project_name);
     let (starter_filename, starter_content) = if has_software {
-        ("hello.spec", generate_software_starter(&project_name))
+        ("hello.spec", generate_software_starter(&spec_id))
     } else if has_product {
-        ("hello.spec", generate_product_starter(&project_name))
+        ("hello.spec", generate_product_starter(&spec_id))
     } else {
-        ("hello.spec", generate_starter_spec(&project_name))
+        ("hello.spec", generate_starter_spec(&spec_id))
     };
     let starter_path = spec_dir.join(starter_filename);
     if let Err(e) = std::fs::write(&starter_path, starter_content) {
@@ -146,6 +147,12 @@ fn validate_extension_specifier(spec: &str) -> Result<(), &'static str> {
     Ok(())
 }
 
+fn sanitize_entity_id(name: &str) -> String {
+    name.chars()
+        .map(|c| if c.is_ascii_alphanumeric() || c == '_' { c } else { '_' })
+        .collect()
+}
+
 fn generate_starter_spec(project_name: &str) -> String {
     format!(
         r#"// {project_name} — starter spec file
@@ -156,7 +163,7 @@ fn generate_starter_spec(project_name: &str) -> String {
 //
 // Try: specforge check
 
-spec {project_name} "Starter specification" {{
+spec "{project_name}" {{
   version "0.1.0"
 }}
 "#
@@ -171,24 +178,25 @@ fn generate_software_starter(project_name: &str) -> String {
 //
 // Try: specforge check
 
-spec {project_name} "Software specification" {{
+spec "{project_name}" {{
   version "0.1.0"
-}}
-
-behavior authenticate_user "Authenticate a user with credentials" {{
-  status draft
-  contract "Given valid credentials, returns an auth token"
-
-  verify "rejects invalid password" {{}}
-  verify "returns token on success" {{}}
 }}
 
 type user "User account" {{
   status draft
 }}
 
+behavior authenticate_user "Authenticate a user with credentials" {{
+  status draft
+  category "auth"
+  contract "Given valid credentials, returns an auth token"
+  produces [user_logged_in]
+
+  verify "rejects invalid password"
+  verify "returns token on success"
+}}
+
 event user_logged_in "User successfully logged in" {{
-  direction outbound
   payload user
 }}
 "#
@@ -203,28 +211,48 @@ fn generate_product_starter(project_name: &str) -> String {
 //
 // Try: specforge check
 
-spec {project_name} "Product specification" {{
+spec "{project_name}" {{
   version "0.1.0"
-}}
-
-feature user_auth "User authentication" {{
-  status draft
-  priority high
 }}
 
 persona developer "Software developer" {{
   technical_level expert
+  status active
+}}
+
+channel cli "Command-line interface" {{
+  status active
+}}
+
+feature user_auth "User authentication" {{
+  status proposed
+  priority high
+  problem "Users need secure access to the system"
 }}
 
 journey onboarding "New user onboarding" {{
   persona developer
+  channels [cli]
+  features [user_auth]
+}}
+
+module core "Core module" {{
   features [user_auth]
 }}
 
 milestone mvp "Minimum Viable Product" {{
   status planned
   features [user_auth]
-  exit_criteria "Core auth flow works end-to-end"
+  modules [core]
+  exit_criteria ["Core auth flow works end-to-end"]
+}}
+
+deliverable app "Application" {{
+  status draft
+  artifact_type cli
+  journeys [onboarding]
+  modules [core]
+  milestones [mvp]
 }}
 "#
     )
