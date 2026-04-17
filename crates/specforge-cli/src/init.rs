@@ -187,7 +187,7 @@ type user "User account" {{
 }}
 
 behavior authenticate_user "Authenticate a user with credentials" {{
-  status draft
+  status   draft
   category "auth"
   contract "Given valid credentials, returns an auth token"
   produces [user_logged_in]
@@ -217,7 +217,7 @@ spec "{project_name}" {{
 
 persona developer "Software developer" {{
   technical_level expert
-  status active
+  status          active
 }}
 
 channel cli "Command-line interface" {{
@@ -225,13 +225,13 @@ channel cli "Command-line interface" {{
 }}
 
 feature user_auth "User authentication" {{
-  status proposed
+  status   proposed
   priority high
-  problem "Users need secure access to the system"
+  problem  "Users need secure access to the system"
 }}
 
 journey onboarding "New user onboarding" {{
-  persona developer
+  persona  developer
   channels [cli]
   features [user_auth]
 }}
@@ -241,18 +241,18 @@ module core "Core module" {{
 }}
 
 milestone mvp "Minimum Viable Product" {{
-  status planned
-  features [user_auth]
-  modules [core]
+  status        planned
+  features      [user_auth]
+  modules       [core]
   exit_criteria ["Core auth flow works end-to-end"]
 }}
 
 deliverable app "Application" {{
-  status draft
+  status        draft
   artifact_type cli
-  journeys [onboarding]
-  modules [core]
-  milestones [mvp]
+  journeys      [onboarding]
+  modules       [core]
+  milestones    [mvp]
 }}
 "#
     )
