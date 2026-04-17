@@ -4,20 +4,13 @@ use tempfile::TempDir;
 fn setup_project_with_extension(spec_content: &str) -> TempDir {
     let dir = TempDir::new().unwrap();
 
-    // Create specforge.json referencing the product extension
-    let manifest_dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-        .join("../../extensions/product")
-        .canonicalize()
-        .unwrap();
-
     let config = serde_json::json!({
         "name": "test-project",
         "version": "0.1.0",
-        "extensions": [manifest_dir.to_str().unwrap()]
+        "extensions": ["@specforge/product"]
     });
     fs::write(dir.path().join("specforge.json"), config.to_string()).unwrap();
 
-    // Write spec file
     fs::write(dir.path().join("test.spec"), spec_content).unwrap();
 
     dir
