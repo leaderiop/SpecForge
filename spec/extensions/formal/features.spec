@@ -23,16 +23,13 @@ feature fa_structured_conditions "Structured Conditions" {
   solution  """
     Structured requires/ensures/maintains blocks with named conditions
     augment (not replace) prose contracts (progressive specification
-    depth Level 2). Dual-mode: inline blocks for one-off conditions,
-    condition entities for shared/reusable conditions referenced by
-    multiple behaviors. @specforge/formal contributes 6 entity kinds:
-    condition (shared conditions), property (temporal assertions), axiom
-    (assumed-true foundations), protocol (sync contracts), refinement
-    (abstract-to-concrete behavior mappings), and process (CSP-style
-    communicating processes). The
-    condition entity kind is a first-class graph node (addressable,
-    traversable, queryable) that participates in RequiresCondition,
-    EnsuresCondition, and MaintainsCondition edges.
+    depth Level 2). Inline blocks produce ConditionEntry nodes in the
+    AST. Shared, reusable constraints are modeled as invariant entities
+    (contributed by @specforge/software), which are already first-class
+    graph nodes. @specforge/formal contributes 5 entity kinds: property
+    (temporal assertions), axiom (assumed-true foundations), protocol
+    (sync contracts), refinement (abstract-to-concrete behavior mappings),
+    and process (CSP-style communicating processes).
 
     The condition_check compiler pass performs heuristic structural checks
     on named conditions (not formal semantic analysis) for satisfiability,

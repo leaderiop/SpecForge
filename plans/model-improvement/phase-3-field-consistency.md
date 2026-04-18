@@ -164,38 +164,12 @@ Any existing `.spec` files using `surface [web, mobile, api]` inside a capabilit
 
 ---
 
-## 3.3: condition.kind -- add enum constraint
+## 3.3: ~~condition.kind -- add enum constraint~~ REMOVED
 
-**File**: `extensions/formal/manifest.json`
-**Severity**: MEDIUM
-**Axes improved**: 3, 4
-
-### Problem
-
-The `condition.kind` field accepts any string, but its description says "precondition, postcondition, invariant." These are the only valid values per the formal methods domain.
-
-### Fix
-
-Add a validation rule to `extensions/formal/manifest.json` `validationRules` array:
-
-```json
-{
-  "code": "W058",
-  "severity": "warning",
-  "messageTemplate": "condition '{id}' has invalid kind '{value}' — expected one of: precondition, postcondition, invariant",
-  "check": "field_value_constraint",
-  "targetKind": "condition",
-  "field": "kind",
-  "constraint": { "kind": "one_of", "values": ["precondition", "postcondition", "invariant"] }
-}
-```
-
-Diagnostic code W058 is within `@specforge/formal`'s allocated range (W058-W074).
-
-### Progress
-
-- [ ] Add W058 validation rule to `extensions/formal/manifest.json`
-- [ ] Update affected Rust test fixtures and snapshots
+**Status**: REMOVED (2026-04-18) -- The `condition` entity kind was removed from
+@specforge/formal. Conditions are inline fields (requires/ensures/maintains) on
+behaviors that reference invariants, not standalone entities. This validation rule
+is no longer applicable. W058 is now used for Feature Coverage Mismatch.
 
 ---
 
@@ -430,7 +404,7 @@ The following fields were audited and determined NOT to need changes:
 | behavior | category | string | Agent routing tag. Intentionally free-form for flexibility. |
 | behavior | status | string | No constraint added here because behavior status is intentionally open-ended (lifecycle varies by project). Unlike feature/milestone/deliverable which have product-standard lifecycles, behaviors may use project-specific states. If a constraint is desired later, use W012. |
 | port | direction | string | Already has implicit validation via Wasm function. Values: inbound, outbound, bidirectional. Could add a `one_of` constraint in a future pass but low priority since the Wasm validator already covers this. |
-| condition | strength | string | Values "must/should/may" are well-defined but come from RFC 2119. Intentionally not constrained to allow domain-specific strength levels. |
+| ~~condition~~ | ~~strength~~ | ~~string~~ | REMOVED -- condition entity kind removed. Conditions are inline fields on behaviors. |
 
 ---
 
@@ -452,7 +426,7 @@ The following fields were audited and determined NOT to need changes:
 | W051 | governance | failure_mode | severity, post_severity | one_of: critical, high, medium, low |
 | W052 | governance | failure_mode | occurrence, post_occurrence | one_of: certain, likely, occasional, unlikely, rare |
 | W053 | governance | failure_mode | detection, post_detection | one_of: certain, likely, moderate, unlikely, undetectable |
-| W058 | formal | condition | kind | one_of: precondition, postcondition, invariant |
+| ~~W058~~ | ~~formal~~ | ~~condition~~ | ~~kind~~ | REMOVED -- condition entity kind removed |
 | W059 | formal | property | property_type | one_of: safety, liveness, fairness |
 | W098 | product | roadmap | status | one_of: draft, active, completed, archived |
 

@@ -105,9 +105,8 @@ Organized into core (structural) + three official extensions. The core compiler 
 
 | Block | Naming Convention | Purpose |
 |-------|-------------------|---------|
-| `condition` | `identifier` | Named, reusable precondition/postcondition/frame invariant. Referenced via `requires [id]`, `ensures [id]`, `maintains [id]`. Dual-mode: inline blocks for one-off, condition entities for shared. testable=false |
 | `property` | `identifier` | Temporal/behavioral assertion (safety/liveness/fairness). Referenced via `satisfies [id]` on behaviors. testable=false |
-| `axiom` | `identifier` | Assumed-true foundation. Referenced via `assumes [id]` on conditions. No proof required, no coverage tracking item. testable=false |
+| `axiom` | `identifier` | Assumed-true foundation. Referenced via `assumes [id]` on invariants. No proof required, no coverage tracking item. testable=false |
 | `protocol` | `identifier` | Shared synchronization contract. Referenced via `follows_protocol [id]` on events. testable=false |
 | `refinement` | `identifier` | Abstract-to-concrete behavior mapping with condition deltas and proof status. Connected via RefinesTo/RefinementChainLink edges. Dual-mode with abstract/refines fields. testable=false |
 | `process` | `identifier` | CSP-style communicating process with alphabet (event set), states, and composition operators. Connected via ParticipatesIn/ProcessComposition edges. Dual-mode with inline sync blocks. testable=false |
@@ -129,7 +128,7 @@ Entity IDs are **variable-name identifiers**, not sequential numeric prefixes:
 - **`use` imports:** `use invariants/data` imports all symbols; `use invariants/data { data_persistence }` for selective import
 - **Comments:** `//` line comments
 - **`verify` statements:** `verify unit "description"` inside behavior, invariant, and event blocks
-- **Structured condition blocks (dual-mode):** `requires { }` inline blocks OR `requires [condition_id]` entity references (or both combined) on behaviors and ports (contributed by @specforge/formal)
+- **Structured condition blocks:** `requires { }` inline blocks on behaviors and ports (contributed by @specforge/formal). Conditions are inline fields, not standalone entities.
 - **Sync blocks:** `sync { barrier [...] timeout 30s "..." }` on events for event graph linting (contributed by @specforge/formal)
 
 ### Example
@@ -370,8 +369,8 @@ Diagnostics are module-scoped: plugin rules only fire when the plugin is install
 | `W039` | warning | Redundant precondition -- implied by sibling |
 | `W040` | warning | Invariant without property -- no maintains block |
 | `W058` | warning | Feature coverage mismatch (downgraded from E033) |
-| `W059` | warning | Orphan condition -- no incoming RequiresCondition/EnsuresCondition/MaintainsCondition edges |
-| `W060` | warning | Empty condition description |
+| `W059` | warning | REMOVED -- condition entity kind removed |
+| `W060` | warning | REMOVED -- condition entity kind removed |
 | `W061` | warning | Orphan property -- no incoming Satisfies edges |
 | `W062` | warning | Empty property description |
 | `W063` | warning | Property without kind (safety/liveness/fairness) |

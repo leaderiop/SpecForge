@@ -4,10 +4,9 @@
 // Terminology: "Design by Contract" -> "Structured Conditions"
 // All behavior IDs renamed se_ -> fa_
 //
-// Dual-mode conditions: inline blocks AND condition entity references.
+// Conditions are inline blocks on behaviors that reference invariants.
 // Inline:    requires { name "description" }
-// Reference: requires [condition_id, another_condition]
-// Both can be combined on a single entity.
+// Inline conditions produce ConditionEntry nodes in the AST.
 
 use "extensions/formal/invariants"
 use "extensions/formal/types"
@@ -17,125 +16,94 @@ use "types/zero-entity-core"
 
 behavior fa_parse_requires_block "Parse Requires Block" {
   category command
-  types    [RequiresBlock, ConditionEntry, FormalCondition]
+  types    [RequiresBlock, ConditionEntry]
   contract """
-    Recognize the requires field on behavior entities. Supports dual-mode:
+    Recognize the requires field on behavior entities. Parses inline
+    blocks into ordered ConditionEntry lists:
     - Inline block: requires { name "description" } — parsed as ordered
       ConditionEntry list (inline conditions, not graph nodes)
-    - Reference list: requires [condition_id] — resolved to condition
-      entities, producing RequiresCondition edges in the graph
-    - Both modes can be combined on a single entity
-
-    When a reference list is used, each ID MUST resolve to a condition
-    entity. Unresolved IDs produce E001 (or I004 if @specforge/formal
-    not installed).
   """
   requires {
     entity_is_behavior     "the enclosing entity has kind=behavior"
   }
   ensures  {
     inline_parsed          "inline requires block parsed into RequiresBlock AST node with ordered ConditionEntry list"
-    refs_resolved          "reference list IDs resolved to condition entities, producing RequiresCondition edges"
     named_conditions       "each inline condition has a name (identifier) and description (string)"
     empty_permitted        "empty requires block produces empty ConditionEntry list"
     non_behavior_warned    "requires block on non-behavior entity produces warning"
-    dual_mode_combined     "inline block and reference list can coexist on same entity"
   }
 
   features [fa_structured_conditions]
 
   verify unit "inline requires block with named conditions parsed"
-  verify unit "requires reference list resolved to condition entities"
-  verify unit "requires reference list produces RequiresCondition edges"
-  verify unit "dual-mode requires with both inline and refs parsed"
   verify unit "empty requires block produces empty ConditionEntry list"
   verify unit "requires block on non-behavior entity produces warning"
-  verify unit "unresolved condition reference produces E001"
 }
 
 behavior fa_parse_ensures_block "Parse Ensures Block" {
   category command
-  types    [EnsuresBlock, ConditionEntry, FormalCondition]
+  types    [EnsuresBlock, ConditionEntry]
   contract """
-    Recognize the ensures field on behavior entities. Supports dual-mode:
+    Recognize the ensures field on behavior entities. Parses inline
+    blocks into ordered ConditionEntry lists:
     - Inline block: ensures { name "description" } — parsed as ordered
       ConditionEntry list (inline conditions, not graph nodes)
-    - Reference list: ensures [condition_id] — resolved to condition
-      entities, producing EnsuresCondition edges in the graph
-    - Both modes can be combined on a single entity
   """
   requires {
     entity_is_behavior     "the enclosing entity has kind=behavior"
   }
   ensures  {
     inline_parsed          "inline ensures block parsed into EnsuresBlock AST node with ordered ConditionEntry list"
-    refs_resolved          "reference list IDs resolved to condition entities, producing EnsuresCondition edges"
     named_conditions       "each inline condition has a name (identifier) and description (string)"
     empty_permitted        "empty ensures block produces empty ConditionEntry list"
     standalone_info        "ensures without requires produces info diagnostic"
-    dual_mode_combined     "inline block and reference list can coexist on same entity"
   }
 
   features [fa_structured_conditions]
 
   verify unit "inline ensures block with named conditions parsed"
-  verify unit "ensures reference list resolved to condition entities"
-  verify unit "ensures reference list produces EnsuresCondition edges"
-  verify unit "dual-mode ensures with both inline and refs parsed"
   verify unit "empty ensures block produces empty ConditionEntry list"
   verify unit "ensures without requires produces info diagnostic"
 }
 
 behavior fa_parse_maintains_block "Parse Maintains Block" {
   category command
-  types    [MaintainsBlock, ConditionEntry, FormalCondition]
+  types    [MaintainsBlock, ConditionEntry]
   contract """
     Recognize the maintains field on behavior and invariant entities as
-    frame invariants (must hold before AND after). Supports dual-mode:
+    frame invariants (must hold before AND after). Parses inline blocks:
     - Inline block: maintains { name "description" }
-    - Reference list: maintains [condition_id] — produces MaintainsCondition edges
-    - Both modes can be combined
   """
   ensures  {
     behavior_permitted     "maintains block on behavior entity parsed"
     invariant_permitted    "maintains block on invariant entity parsed"
     other_warned           "maintains block on feature/event/type/port produces warning"
     named_conditions       "each inline condition has a name and description"
-    refs_resolved          "reference list IDs resolved to condition entities, producing MaintainsCondition edges"
-    dual_mode_combined     "inline block and reference list can coexist"
   }
 
   features [fa_structured_conditions]
 
   verify unit "maintains block on behavior parsed"
   verify unit "maintains block on invariant parsed"
-  verify unit "maintains reference list produces MaintainsCondition edges"
   verify unit "maintains block on feature produces warning"
 }
 
 behavior fa_validate_condition_consistency "Validate Condition Consistency" {
   category   query
   invariants [fa_condition_consistency]
-  types      [RequiresBlock, EnsuresBlock, MaintainsBlock, ConditionEntry, FormalCondition]
+  types      [RequiresBlock, EnsuresBlock, MaintainsBlock, ConditionEntry]
   contract   """
     Cross-check requires, ensures, and maintains blocks for structural
     consistency of condition names and scopes. This is a heuristic
     structural check, not formal semantic analysis.
-
-    For dual-mode conditions, both inline conditions AND referenced
-    condition entities are included in the consistency check. A referenced
-    condition entity's description is treated equivalently to an inline
-    condition's description for scope checking purposes.
   """
   requires   {
     blocks_parsed          "requires, ensures, maintains blocks are parsed into AST"
-    refs_resolved          "condition entity references are resolved (if present)"
   }
   ensures    {
     scope_checked          "postconditions referencing undefined state produce warning"
     maintains_consistent   "maintains conditions consistent with requires and ensures"
     missing_requires_info  "ensures without requires produces I011 info"
-    refs_included          "referenced condition entities included in consistency check"
   }
 
   features [fa_structured_conditions]
@@ -144,7 +112,6 @@ behavior fa_validate_condition_consistency "Validate Condition Consistency" {
   verify unit "ensures referencing undefined state produces warning"
   verify unit "maintains consistent with requires and ensures passes"
   verify unit "ensures without requires produces I011 info"
-  verify unit "referenced condition entities included in consistency check"
 }
 
 behavior fa_condition_check_pass "Condition Check Compiler Pass" {

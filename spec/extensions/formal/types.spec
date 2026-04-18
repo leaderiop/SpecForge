@@ -9,17 +9,6 @@
 use "types/core"
 use "types/zero-entity-core"
 
-// ── Condition Entity Kind ─────────────────────────────────
-// First-class entity kind contributed by @specforge/formal.
-// Supports dual-mode usage: inline blocks AND shared entity references.
-
-type FormalCondition {
-  description string
-  references  EntityId[] @optional
-
-  verify property "FormalCondition"
-}
-
 // ── Property Entity Kind ────────────────────────────────────
 // Temporal/behavioral assertion (safety, liveness, fairness).
 // Distinct from condition: conditions are point-in-time state,
@@ -114,9 +103,8 @@ type ConditionEntry {
   verify property "ConditionEntry"
 }
 
-// Dual-mode: inline conditions OR entity references (or both)
+// Inline conditions produce ConditionEntry nodes in the AST.
 // Inline:    requires { name "description" }
-// Reference: requires [condition_id, another_condition]
 // Note: RequiresBlock, EnsuresBlock, MaintainsBlock, SyncBlock are defined
 // in extensions/software/types.spec — shared via peer_dependency.
 

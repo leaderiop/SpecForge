@@ -219,7 +219,7 @@ Load order: `product` first (no dependencies), then `software` (depends on produ
 ### Notes
 
 - Requires `warning_level=strict` in `specforge.json` for formal warnings to fire.
-- Structured conditions operate in dual mode: inline blocks within behavior/event bodies, and named invariant entity references.
+- Structured conditions are inline blocks (requires/ensures/maintains) within behavior bodies. Conditions are not standalone entities; shared constraints are modeled as invariant entities.
 - Cycle detection on refinement chains (E041) and process composition (E042) prevents infinite layering.
 
 ## @specforge/software-testing

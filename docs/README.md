@@ -35,18 +35,17 @@ This directory contains the entity model reference and design documentation for 
 | [constraint](entities/constraint.md) | `CON-{infix}-{n}` | Non-functional requirement with measurable thresholds |
 | [failure_mode](entities/failure-mode.md) | `FM-{infix}-{n}` | FMEA risk assessment tied to an invariant |
 
-### @specforge/formal (6 entity kinds + enhances @specforge/software)
+### @specforge/formal (5 entity kinds + enhances @specforge/software)
 
 | Entity | ID Pattern | Purpose |
 |--------|-----------|---------|
-| condition | `identifier` | Named, reusable precondition/postcondition/frame invariant |
 | property | `identifier` | Temporal/behavioral assertion (safety/liveness/fairness) |
 | axiom | `identifier` | Assumed-true foundation (no proof required) |
 | protocol | `identifier` | Shared synchronization contract across events |
 | refinement | `identifier` | Abstract-to-concrete behavior mapping with condition deltas |
 | process | `identifier` | CSP-style communicating process with alphabet and composition |
 
-Provides structured conditions (dual-mode: inline blocks + condition entity references), specification layering, event graph linting, and coverage tracking. Contributes 11 edge types (RequiresCondition, EnsuresCondition, MaintainsCondition, AssumedBy, Satisfies, FollowsProtocol, PropertyDependsOn, RefinesTo, RefinementChainLink, ParticipatesIn, ProcessComposition), 4 compiler passes (condition_check, layering_verify, event_graph_analyze, coverage_tracking), and formal analysis diagnostics (E030-E035, E041-E042, W028-W040, W058-W074). Requires `warning_level=strict` in specforge.json.
+Provides structured conditions (inline requires/ensures/maintains fields on behaviors), specification layering, event graph linting, and coverage tracking. Conditions are inline fields that reference invariants, not standalone entities. Contributes 8 edge types (AssumedBy, Satisfies, FollowsProtocol, PropertyDependsOn, RefinesTo, RefinementChainLink, ParticipatesIn, ProcessComposition), 4 compiler passes (condition_check, layering_verify, event_graph_analyze, coverage_tracking), and formal analysis diagnostics (E030-E035, E041-E042, W028-W040, W058, W061-W074). Requires `warning_level=strict` in specforge.json.
 
 ## Traceability Chain
 

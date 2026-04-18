@@ -86,7 +86,7 @@ deliverable specforge_software "specforge/software" {
 }
 
 deliverable specforge_formal "specforge/formal" {
-  description "The @specforge/formal Wasm extension package providing condition, property, axiom, protocol, refinement, and process kinds."
+  description "The @specforge/formal Wasm extension package providing property, axiom, protocol, refinement, and process kinds."
 }
 
 deliverable specforge_gh "specforge/gh" {

@@ -141,7 +141,7 @@ across extensions, the first-wins policy (W018) might be eating formal's edges.
 ```bash
 # After fix, run the model command and check formal's edge count
 specforge model --format json | jq '.extensions[] | select(.name == "@specforge/formal")'
-# Expected: { "name": "@specforge/formal", "version": "1.0.0", "entity_count": 6, "edge_count": 11 }
+# Expected: { "name": "@specforge/formal", "version": "1.0.0", "entity_count": 5, "edge_count": 8 }
 
 # Check total edge types matches
 specforge schema | jq '.edge_types | length'
@@ -347,7 +347,7 @@ Phases 1-4, the model header reports accurate entity counts per extension.
 | @specforge/software | 6 | 10 | behavior, invariant, event, type, port + MilestoneBehavior via enhancement. 8 original + Implements + MilestoneBehavior. |
 | @specforge/product | 12 | 16 | journey, deliverable, milestone, module, term, feature, persona, channel, release + 3 more from Phase 4. 16 edge types declared. |
 | @specforge/governance | 3 | 6 | decision, constraint, failure_mode. 6 edge types. |
-| @specforge/formal | 6 | 11 | condition, property, axiom, protocol, refinement, process. 11 edge types. |
+| @specforge/formal | 5 | 8 | property, axiom, protocol, refinement, process. 8 edge types. |
 
 ### Investigation Steps
 

@@ -21,7 +21,6 @@ behavior fa_annotate_graph_with_results "Annotate Graph with Analysis Results" {
   }
   ensures  {
     condition_annotations  "condition_check pass results annotated on behavior nodes"
-    condition_entity_ann   "condition entities annotated with referencing behavior count and edge types"
     layering_annotations   "layering_verify pass results annotated on behavior nodes"
     refinement_annotations "layering_verify pass results annotated on refinement nodes"
     cycle_annotations      "event_graph_analyze pass results annotated on event nodes"
@@ -34,7 +33,6 @@ behavior fa_annotate_graph_with_results "Annotate Graph with Analysis Results" {
   features [fa_graph_annotations]
 
   verify unit "condition analysis results annotated on behavior nodes"
-  verify unit "condition entity nodes annotated with referencing behaviors"
   verify unit "layering analysis results annotated on behavior nodes"
   verify unit "cycle analysis results annotated on event nodes"
   verify unit "coverage results annotated on all analyzed nodes"
@@ -55,9 +53,8 @@ behavior fa_declare_graph_views "Declare Named Graph Views" {
     event_flow             "event-flow view: all events with Produces/Consumes edges and sync blocks"
     traceability_chain     "traceability-chain view: verify statements -> tests -> coverage items"
     formal_analysis        "formal-analysis view: all nodes with FormalAnalysisAnnotation attached"
-    condition_graph        "condition-graph view: all condition entities with RequiresCondition/EnsuresCondition/MaintainsCondition edges to behaviors"
-    property_graph         "property-graph view: all property entities with Satisfies edges from behaviors and PropertyDependsOn edges to conditions"
-    axiom_graph            "axiom-graph view: all axiom entities with AssumedBy edges from conditions"
+    property_graph         "property-graph view: all property entities with Satisfies edges from behaviors and PropertyDependsOn edges to invariants"
+    axiom_graph            "axiom-graph view: all axiom entities with AssumedBy edges from invariants"
     protocol_graph         "protocol-graph view: all protocol entities with FollowsProtocol edges from events"
     refinement_graph       "refinement-graph view: all refinement entities with RefinesTo edges to behaviors and RefinementChainLink edges"
     process_graph          "process-graph view: all process entities with ParticipatesIn edges from events and ProcessComposition edges"
@@ -70,7 +67,6 @@ behavior fa_declare_graph_views "Declare Named Graph Views" {
   verify unit "event-flow view contains events with Produces/Consumes edges"
   verify unit "traceability-chain view follows verify -> tests -> coverage"
   verify unit "formal-analysis view contains only annotated nodes"
-  verify unit "condition-graph view contains condition entities with edges to behaviors"
   verify unit "property-graph view contains property entities with Satisfies edges"
   verify unit "axiom-graph view contains axiom entities with AssumedBy edges"
   verify unit "protocol-graph view contains protocol entities with FollowsProtocol edges"

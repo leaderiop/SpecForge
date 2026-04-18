@@ -8,9 +8,9 @@ Four official extensions provide the domain vocabulary:
 - **@specforge/software** (5 kinds): behavior, invariant, event, type, port
 - **@specforge/product** (9 kinds): journey, deliverable, milestone, module, term, feature, persona, channel, release
 - **@specforge/governance** (3 kinds): decision, constraint, failure_mode
-- **@specforge/formal** (6 kinds): condition, property, axiom, protocol, refinement, process — plus structured conditions, specification layering, event graph linting, coverage tracking via entity_enhancements on @specforge/software entities
+- **@specforge/formal** (5 kinds): property, axiom, protocol, refinement, process — plus structured conditions (inline requires/ensures/maintains fields), specification layering, event graph linting, coverage tracking via entity_enhancements on @specforge/software entities
 
-Total: 2 structural + 23 domain = 25 entity kinds (no budget cap).
+Total: 2 structural + 22 domain = 24 entity kinds (no budget cap).
 
 Every entity has a unique ID, compiler-checked cross-references, and a defined role in the traceability chain. Teams adopt only what they need — start with structural kinds, add extensions as projects grow.
 
@@ -33,10 +33,10 @@ Every entity has a unique ID, compiler-checked cross-references, and a defined r
 │  feature · persona · channel │                               │
 │  release                     │                               │
 ├──────────────────────────────┘                               │
-│  @specforge/formal (6 kinds: condition, property, axiom,     │
-│  protocol, refinement, process) · structured conditions ·    │
+│  @specforge/formal (5 kinds: property, axiom, protocol,      │
+│  refinement, process) · structured conditions (inline) ·     │
 │  specification layering · event graph linting · coverage     │
-│  tracking · 11 edge types · 4 compiler passes · 3 feature   │
+│  tracking · 8 edge types · 4 compiler passes · 3 feature    │
 │  flags                                                       │
 └──────────────────────────────────────────────────────────────┘
 ```
@@ -62,7 +62,7 @@ specforge init                          # structural core only (2 kinds: spec, r
 specforge add @specforge/software       # + 5 software entities (recommended)
 specforge add @specforge/product        # + 8 product entities
 specforge add @specforge/governance     # + 3 governance entities
-specforge add @specforge/formal         # + 6 formal entities (condition, property, axiom, protocol, refinement, process)
+specforge add @specforge/formal         # + 5 formal entities (property, axiom, protocol, refinement, process)
 specforge remove @specforge/governance  # remove extension
 specforge plugins                       # list installed extensions
 ```
@@ -74,7 +74,7 @@ specforge plugins                       # list installed extensions
   ● @specforge/software    — behavior, invariant, event, type, port (recommended)
   ○ @specforge/product     — journey, deliverable, milestone, module, term, feature, persona, channel, release
   ○ @specforge/governance  — decision, constraint, failure_mode
-  ○ @specforge/formal      — condition, property, axiom, protocol, refinement, process + structured analysis
+  ○ @specforge/formal      — property, axiom, protocol, refinement, process + structured conditions (inline)
 ```
 
 ## Entity Summary
@@ -122,40 +122,35 @@ specforge plugins                       # list installed extensions
 
 | # | Entity | ID Pattern | Question It Answers |
 |---|--------|-----------|---------------------|
-| 20 | condition | `identifier` | What named precondition/postcondition is reusable? |
-| 21 | property | `identifier` | What temporal assertion must hold over time? |
-| 22 | axiom | `identifier` | What is assumed true without proof? |
-| 23 | protocol | `identifier` | What synchronization contract do events share? |
-| 24 | refinement | `identifier` | What abstract-to-concrete mapping exists? |
-| 25 | process | `identifier` | What communicating process do events participate in? |
+| 20 | property | `identifier` | What temporal assertion must hold over time? |
+| 21 | axiom | `identifier` | What is assumed true without proof? |
+| 22 | protocol | `identifier` | What synchronization contract do events share? |
+| 23 | refinement | `identifier` | What abstract-to-concrete mapping exists? |
+| 24 | process | `identifier` | What communicating process do events participate in? |
 
 #### @specforge/formal Entity & Edge Diagram
 
 ```
 ┌──────────────────────────────────────────────────────────────────────┐
-│                    @specforge/formal (6 kinds, 11 edges)             │
+│                    @specforge/formal (5 kinds, 8 edges)              │
 ├──────────────────────────────────────────────────────────────────────┤
 │                                                                      │
 │  ┌─────────────────── Structured Conditions ──────────────────────┐  │
 │  │                                                                │  │
-│  │   ┌───────────┐  RequiresCondition   ┌───────────┐            │  │
-│  │   │ behavior  │─────────────────────▶│ condition │            │  │
-│  │   │(enhanced) │  EnsuresCondition    │           │            │  │
-│  │   │           │─────────────────────▶│           │            │  │
-│  │   │           │  MaintainsCondition  │           │  AssumedBy │  │
-│  │   │           │─────────────────────▶│           │───────────▶│  │
-│  │   │           │                      └───────────┘            │  │
-│  │   │           │  Satisfies           ┌───────────┐  ┌───────┐│  │
-│  │   │           │─────────────────────▶│ property  │  │ axiom ││  │
-│  │   └───────────┘                      │           │  └───────┘│  │
-│  │        ▲                             └─────┬─────┘            │  │
-│  │        │ MaintainsCondition                │                  │  │
-│  │   ┌────┴──────┐                PropertyDependsOn              │  │
-│  │   │ invariant │                            │                  │  │
-│  │   │(enhanced) │                            ▼                  │  │
-│  │   └───────────┘                      ┌───────────┐            │  │
-│  │                                      │ condition │            │  │
-│  │                                      └───────────┘            │  │
+│  │   ┌───────────┐                                               │  │
+│  │   │ behavior  │  requires/ensures/maintains (inline fields)   │  │
+│  │   │(enhanced) │  → ConditionEntry AST nodes                   │  │
+│  │   │           │                                               │  │
+│  │   │           │  Satisfies           ┌───────────┐            │  │
+│  │   │           │─────────────────────▶│ property  │            │  │
+│  │   └───────────┘                      │           │            │  │
+│  │                                      └─────┬─────┘            │  │
+│  │   ┌───────────┐  AssumedBy          PropertyDependsOn         │  │
+│  │   │ invariant │────────────────┐           │                  │  │
+│  │   │(enhanced) │                ▼           ▼                  │  │
+│  │   └───────────┘           ┌───────┐  ┌───────────┐            │  │
+│  │                           │ axiom │  │ invariant │            │  │
+│  │                           └───────┘  └───────────┘            │  │
 │  └────────────────────────────────────────────────────────────────┘  │
 │                                                                      │
 │  ┌─────────────────── Specification Layering ─────────────────────┐  │
@@ -185,11 +180,11 @@ specforge plugins                       # list installed extensions
 │  │                  └──────────┘                                │  │
 │  └────────────────────────────────────────────────────────────────┘  │
 │                                                                      │
-│  Entity kinds:  condition · property · axiom · protocol              │
-│                 refinement · process                                  │
+│  Entity kinds:  property · axiom · protocol · refinement · process   │
 │  All: testable=false, supports_verify=false                          │
+│  Conditions: inline fields (requires/ensures/maintains), not entities│
 │  Errors:   E030-E035, E041 (refinement cycle), E042 (process cycle)  │
-│  Warnings: W028-W040, W058-W074                                      │
+│  Warnings: W028-W040, W058, W061-W074                                │
 │  Passes:   condition_check → layering_verify → event_graph_analyze   │
 │            → coverage_tracking                                       │
 └──────────────────────────────────────────────────────────────────────┘
@@ -488,12 +483,12 @@ The compiler enforces structural invariants. Each rule belongs to the extension 
 | W039 | **Redundant precondition** — precondition implied by sibling |
 | W040 | **Invariant without property** — prose guarantee without maintains block |
 | W058 | **Feature coverage mismatch** — behavior may not satisfy feature requirements (structural check only, downgraded from E033) |
-| W059 | **Orphan condition** — no incoming RequiresCondition/EnsuresCondition/MaintainsCondition edges |
-| W060 | **Empty condition description** — condition has blank description |
+| W059 | ~~REMOVED~~ — condition entity kind removed |
+| W060 | ~~REMOVED~~ — condition entity kind removed |
 | W061 | **Orphan property** — no incoming Satisfies edges from behaviors |
 | W062 | **Empty property description** — property has blank description |
 | W063 | **Property without kind** — missing safety/liveness/fairness classification |
-| W064 | **Orphan axiom** — no incoming AssumedBy edges from conditions |
+| W064 | **Orphan axiom** — no incoming AssumedBy edges from invariants |
 | W065 | **Empty axiom description** — axiom has blank description |
 | W066 | **Orphan protocol** — no incoming FollowsProtocol edges from events |
 | W067 | **Empty protocol description** — protocol has blank description |
@@ -561,9 +556,9 @@ The compiler enforces structural invariants. Each rule belongs to the extension 
 
 ## DSL Scope Boundaries
 
-### What belongs in the DSL (24 entity types across 4 extensions + structural core)
+### What belongs in the DSL (23 entity types across 4 extensions + structural core)
 
-The 24 entity types above are the complete set of compiled block types. They were selected because they have high cross-reference density, benefit from compiler validation, and complete the traceability chain.
+The 23 entity types above are the complete set of compiled block types. They were selected because they have high cross-reference density, benefit from compiler validation, and complete the traceability chain.
 
 ### What stays as markdown
 
@@ -630,9 +625,10 @@ For teams using structured conditions, specification layering, or event graph li
 
 ```bash
 specforge add @specforge/formal
-# → +6 entity kinds: condition, property, axiom, protocol, refinement, process
+# → +5 entity kinds: property, axiom, protocol, refinement, process
 # → +4 compiler passes: condition_check, layering_verify, event_graph_analyze, coverage_tracking
-# → +11 edge types (RequiresCondition, EnsuresCondition, MaintainsCondition, AssumedBy, Satisfies, FollowsProtocol, PropertyDependsOn, RefinesTo, RefinementChainLink, ParticipatesIn, ProcessComposition)
+# → +8 edge types (AssumedBy, Satisfies, FollowsProtocol, PropertyDependsOn, RefinesTo, RefinementChainLink, ParticipatesIn, ProcessComposition)
+# → Inline condition fields (requires/ensures/maintains) enhanced on behavior entities
 # → Requires warning_level=strict in specforge.json for formal warnings
 ```
 
@@ -663,7 +659,7 @@ A team using only @specforge/software gets full value from `specforge check` + `
 2. **Every entity earns its place** — each answers a distinct question no other entity answers
 3. **Compiler-checked references** — entity names are typed, resolved, and validated at compile time; cross-extension references degrade gracefully via soft references
 4. **Traceability by construction** — the graph structure enforces traceability; orphan detection catches missing links
-5. **Progressive adoption** — start with structural core, add @specforge/software (5), @specforge/product (8), @specforge/governance (3), @specforge/formal (6 kinds, 4 passes) as needed
+5. **Progressive adoption** — start with structural core, add @specforge/software (5), @specforge/product (8), @specforge/governance (3), @specforge/formal (5 kinds, 4 passes) as needed
 6. **Language-agnostic** — the entity model works for any software project regardless of implementation language
-7. **Bounded complexity** — the DSL balances expressiveness with readability (currently 25 entity kinds across 4 extensions); beyond official extensions, use `define` or community extensions
+7. **Bounded complexity** — the DSL balances expressiveness with readability (currently 24 entity kinds across 4 extensions); beyond official extensions, use `define` or community extensions
 8. **Extensions don't break specs** — a spec file is always valid with structural core alone; extensions add validation, they don't remove it

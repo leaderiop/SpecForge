@@ -166,7 +166,7 @@ module specforge_package_software "specforge-package-software" {
 
 module specforge_package_formal "specforge-package-formal" {
   family      extension
-  description "Wasm package for @specforge/formal: condition, property, axiom, protocol, refinement, process entities"
+  description "Wasm package for @specforge/formal: property, axiom, protocol, refinement, process entities"
   features    [extension_management]
   depends_on  [specforge_validator, specforge_wasm]
   tags        ["extension", "domain"]

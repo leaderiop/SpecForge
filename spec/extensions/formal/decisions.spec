@@ -15,11 +15,10 @@ decision formal_extension_split "Split Formal Analysis from Software Extension" 
   """
   decision     """
     Extract all formal analysis content from @specforge/software into a
-    new @specforge/formal extension. The formal extension declares 1 entity
-    kind (condition) and 3 edge types (RequiresCondition, EnsuresCondition,
-    MaintainsCondition). It also operates through entity_enhancements on
-    @specforge/software entities for inline condition blocks. This follows
-    the "extensions over built-ins" principle (P5) and keeps the software
+    new @specforge/formal extension. The formal extension operates through
+    entity_enhancements on @specforge/software entities for inline
+    condition blocks (requires/ensures/maintains). This follows the
+    "extensions over built-ins" principle (P5) and keeps the software
     extension focused on core entity registration. Users opt into formal
     analysis by installing @specforge/formal and setting warning_level=strict.
   """
@@ -30,12 +29,12 @@ decision formal_extension_split "Split Formal Analysis from Software Extension" 
     "ManifestV2 gains passes and feature_flags for extension-contributed analysis",
     "Entity enhancement mechanism proves its value for cross-extension composition",
     "@specforge/formal requires peer_dependency on @specforge/software",
-    "condition entity kind enables shared/reusable conditions as first-class graph nodes",
+    "Inline condition fields (requires/ensures/maintains) reference invariants for reusable constraints",
   ]
 }
 
 decision formal_condition_entity "Condition as First-Class Entity Kind" {
-  status       accepted
+  status       superseded
   date         2026-03-10
   context      """
     10-expert panel and decision matrix evaluated three options for
@@ -55,25 +54,31 @@ decision formal_condition_entity "Condition as First-Class Entity Kind" {
     Option C scored 44/50 — extension entity kind makes conditions true
     graph citizens: addressable, traversable, queryable, with typed
     edges to behaviors. Supports dual-mode (inline + reference).
+
+    SUPERSEDED (2026-04-18): After further analysis, the condition
+    entity kind was removed. Conditions are inline fields
+    (requires/ensures/maintains) on behaviors that reference invariants.
+    The added complexity of a standalone condition entity kind was not
+    justified: invariant entities already serve as reusable, addressable
+    graph nodes for shared constraints. Inline ConditionEntry nodes in
+    the AST provide sufficient structure for condition analysis without
+    requiring a dedicated entity kind. This simplifies the extension
+    from 6 to 5 entity kinds and removes 3 edge types
+    (RequiresCondition, EnsuresCondition, MaintainsCondition).
   """
   decision     """
-    Add condition as a first-class entity kind contributed by
-    @specforge/formal. Conditions support dual-mode usage:
-    - Inline: requires { name "description" } — inline ConditionEntry
-    - Reference: requires [condition_id] — graph edge to condition entity
-    Both modes can be combined on a single entity.
-
-    Design constraints (per expert panel warnings):
-    - NO depends_on chaining between conditions (complexity trap)
-    - testable=false (conditions are not independently testable)
-    - Simple shape: { description string, references EntityId[] @optional }
+    REVERSED: Conditions remain as inline fields (requires/ensures/maintains)
+    on behaviors, not as a standalone entity kind. Inline blocks produce
+    ConditionEntry nodes in the AST. Shared, reusable constraints are
+    modeled as invariant entities, which are already first-class graph
+    nodes contributed by @specforge/software.
   """
   consequences [
-    "Conditions are first-class graph nodes — addressable, traversable, queryable",
-    "Shared conditions eliminate duplication across behaviors",
-    "RequiresCondition/EnsuresCondition/MaintainsCondition edges enable graph analysis",
-    "Dual-mode preserves backward compatibility with inline blocks",
-    "condition-graph view enables agent queries on condition topology",
+    "Conditions are inline fields, not standalone entities — simpler model",
+    "Invariant entities serve as the reusable, addressable graph nodes for shared constraints",
+    "RequiresCondition/EnsuresCondition/MaintainsCondition edges removed",
+    "Extension simplified from 6 to 5 entity kinds, 11 to 8 edge types",
+    "condition-graph view removed; invariant-graph view serves the same purpose",
   ]
 }
 
@@ -81,10 +86,10 @@ decision formal_entity_expansion "Expand Formal Extension to 4 Entity Kinds" {
   status       accepted
   date         2026-03-10
   context      """
-    @specforge/formal initially contributed 1 entity kind (condition)
-    with a hard budget cap of 20 total entity kinds. Three formal
-    methods concepts were modeled only as inline fields or types but
-    deserve first-class entity status:
+    @specforge/formal initially contributed structured conditions as
+    inline fields with a hard budget cap of 20 total entity kinds.
+    Three formal methods concepts were modeled only as inline fields
+    or types but deserve first-class entity status:
 
     - property: temporal/behavioral assertions (safety/liveness/fairness)
       are distinct from conditions (point-in-time state vs behavior over
@@ -101,11 +106,12 @@ decision formal_entity_expansion "Expand Formal Extension to 4 Entity Kinds" {
     renumbering to W058-W068.
   """
   decision     """
-    Expand @specforge/formal from 1 to 4 entity kinds: condition,
-    property, axiom, protocol. All 4 are testable=false,
-    supports_verify=false. Add 4 new edge types: AssumedBy (condition →
-    axiom), Satisfies (behavior → property), FollowsProtocol (event →
-    protocol), PropertyDependsOn (property → condition). Total edges: 7.
+    Expand @specforge/formal to 3 entity kinds: property, axiom,
+    protocol. All 3 are testable=false, supports_verify=false.
+    Add 3 new edge types: AssumedBy (invariant → axiom), Satisfies
+    (behavior → property), FollowsProtocol (event → protocol).
+    PropertyDependsOn (property → invariant) added for property-invariant
+    dependency tracking.
 
     Remove the arbitrary 20-entity budget cap. Quality and readability
     over artificial limits. New entity total: 2 structural + 20 domain
@@ -118,12 +124,12 @@ decision formal_entity_expansion "Expand Formal Extension to 4 Entity Kinds" {
   consequences [
     "property/axiom/protocol are first-class graph nodes — addressable, traversable, queryable",
     "Temporal properties (safety/liveness/fairness) can be queried and traced via Satisfies edges",
-    "Axiom dependencies are explicit — conditions declare their assumed-true foundations",
+    "Axiom dependencies are explicit — invariants declare their assumed-true foundations",
     "Protocol entities replace duplicated sync blocks — single definition, multiple event references",
     "Axioms generate no coverage tracking items (assumed-true by definition)",
-    "Entity budget cap removed — 22 total entity kinds with no artificial limit",
+    "Entity budget cap removed — 21 total entity kinds with no artificial limit",
     "Formal diagnostic codes renumbered to W058-W068 (no collision with product W042-W044)",
-    "Entity enhancements add assumes/satisfies to behavior, follows_protocol to event",
+    "Entity enhancements add assumes to invariant, satisfies to behavior, follows_protocol to event",
   ]
 }
 
@@ -131,8 +137,8 @@ decision formal_refinement_process_entities "Add Refinement and Process Entity K
   status       accepted
   date         2026-03-10
   context      """
-    @specforge/formal has 4 entity kinds covering 2 of 3 disciplines:
-    - Structured Conditions: condition, property, axiom (3 entities)
+    @specforge/formal has 3 entity kinds covering 2 of 3 disciplines:
+    - Structured Conditions: property, axiom (2 entities, plus inline fields)
     - Event Graph Linting: protocol (1 entity)
     - Specification Layering: NO dedicated entity — only abstract/refines
       field annotations on behaviors
@@ -141,12 +147,12 @@ decision formal_refinement_process_entities "Add Refinement and Process Entity K
     analysis operates only at event-behavior bipartite level, not process level.
   """
   decision     """
-    Add refinement and process as entity kinds 5 and 6. Both testable=false,
+    Add refinement and process as entity kinds 4 and 5. Both testable=false,
     supports_verify=false. 4 new edge types: RefinesTo, RefinementChainLink,
     ParticipatesIn, ProcessComposition. 2 new error codes: E041 (refinement
     chain cycle), E042 (process composition cycle). 6 new warnings: W069-W074.
     Entity enhancements: behavior gets refinement field, event gets process field.
-    Total: 6 entity kinds, 11 edge types, 24 project entities.
+    Total: 5 entity kinds, 8 edge types, 23 project entities.
   """
   consequences [
     "Each formal discipline has representative entity kinds",
@@ -155,7 +161,7 @@ decision formal_refinement_process_entities "Add Refinement and Process Entity K
     "Dual-mode: new entities coexist with field-based mechanisms",
     "4 new edge types enable new graph traversal patterns",
     "Coverage tracking extended with process_coverage",
-    "Total project entities: 2 structural + 22 domain = 24",
+    "Total project entities: 2 structural + 21 domain = 23",
   ]
 }
 

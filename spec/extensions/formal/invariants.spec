@@ -22,28 +22,16 @@ invariant fa_condition_consistency "Structured Condition Consistency" {
     In an ensures block, condition descriptions MUST NOT reference
     identifiers that are absent from the corresponding requires block
     or the entity's own scope (types, ports, invariants fields). This
-    prevents postconditions from depending on undefined state. Applies
-    to both inline conditions and referenced condition entities.
+    prevents postconditions from depending on undefined state.
   """
   risk        medium
 
   verify unit "ensures referencing unknown identifier detected"
   verify unit "ensures referencing requires identifier passes"
-  verify unit "referenced condition entity included in scope check"
 }
 
-invariant fa_condition_entity_reachability "Condition Entity Reachability" {
-  guarantee   """
-    Every condition entity MUST be referenced by at least one
-    RequiresCondition, EnsuresCondition, or MaintainsCondition edge.
-    Unreferenced condition entities produce W059 warning. This prevents
-    orphaned conditions that exist in the graph but are never used.
-  """
-  risk        low
-
-  verify unit "condition with RequiresCondition edge passes"
-  verify unit "condition with no incoming edges produces W059"
-}
+// fa_condition_entity_reachability removed: condition entity kind no longer exists.
+// Conditions are inline fields, not standalone entities.
 
 invariant fa_property_entity_reachability "Property Entity Reachability" {
   guarantee   """

@@ -2,7 +2,7 @@
 //
 // W058 (downgraded from E033): behavior not satisfying feature requirements
 // is a structural coverage check, not semantic verification.
-// W059-W060: condition entity validation
+// W059-W060: removed (were condition entity validation, condition entity kind removed)
 // W061-W063: property entity validation
 // W064-W065: axiom entity validation
 // W066-W068: protocol entity validation
@@ -13,7 +13,7 @@ use "extensions/formal/types"
 use "extensions/formal/invariants"
 use "types/zero-entity-core"
 
-// ── Condition Validation (W058-W060) ─────────────────────────
+// ── Feature Coverage Validation (W058) ──────────────────────
 
 behavior fa_validate_w058_feature_coverage_mismatch "W058: Feature Coverage Mismatch" {
   category query
@@ -46,55 +46,8 @@ behavior fa_validate_w058_feature_coverage_mismatch "W058: Feature Coverage Mism
   verify unit "W058 only fires at warning_level=strict"
 }
 
-behavior fa_validate_orphan_conditions "W059: Orphan Conditions" {
-  category   query
-  invariants [fa_condition_entity_reachability]
-  types      [FormalCondition]
-  contract   """
-    Detect condition entities with no incoming RequiresCondition,
-    EnsuresCondition, or MaintainsCondition edges. An orphan condition
-    is a graph node that exists but is never referenced by any behavior
-    or invariant — it should either be referenced or removed.
-    Requires warning_level=strict to fire.
-  """
-  requires   {
-    graph_built            "entity graph is fully constructed with all edges"
-    strict_warning_level   "warning_level is set to strict"
-  }
-  ensures    {
-    orphan_detected        "condition with no incoming edges produces W059 warning"
-    referenced_passes      "condition with at least one incoming edge produces no diagnostic"
-    correct_template       "message template is: condition '{id}' is not referenced by any behavior or invariant"
-  }
-
-  features [fa_structured_conditions]
-
-  verify unit "condition with no incoming edges produces W059"
-  verify unit "condition with RequiresCondition edge passes"
-  verify unit "condition with EnsuresCondition edge passes"
-  verify unit "condition with MaintainsCondition edge passes"
-  verify unit "W059 only fires at warning_level=strict"
-}
-
-behavior fa_validate_condition_description "W060: Empty Condition Description" {
-  category query
-  types    [FormalCondition]
-  contract """
-    Detect condition entities with an empty or whitespace-only description.
-    Conditions are machine-readable contracts — a blank description defeats
-    the purpose and makes the condition opaque to agents.
-  """
-  ensures  {
-    empty_warned           "condition with empty description produces W060 warning"
-    non_empty_passes       "condition with non-empty description passes"
-    correct_template       "message template is: condition '{id}' has empty description"
-  }
-
-  features [fa_structured_conditions]
-
-  verify unit "condition with empty description produces W060"
-  verify unit "condition with non-empty description passes"
-}
+// W059-W060 removed: condition entity kind no longer exists.
+// Conditions are inline fields, not standalone entities.
 
 // ── Property Validation (W061-W063) ──────────────────────────
 
