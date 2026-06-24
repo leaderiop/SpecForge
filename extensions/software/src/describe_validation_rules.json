@@ -121,26 +121,6 @@
       "severity": "error",
       "target_kind": "milestone",
       "wasm_function": "validate__milestone_behavior_ranges"
-    },
-    {
-      "check": "field_value_constraint",
-      "code": "W011",
-      "constraint": {
-        "kind": "one_of",
-        "pattern": null,
-        "values": [
-          "struct",
-          "enum",
-          "alias",
-          "opaque"
-        ]
-      },
-      "edge_type": null,
-      "field": "kind",
-      "message_template": "type '{id}' has invalid kind '{value}' — expected one of: struct, enum, alias, opaque",
-      "severity": "warning",
-      "target_kind": "type",
-      "wasm_function": null
     }
   ]
 }

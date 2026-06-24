@@ -76,7 +76,7 @@ fn software_extension_loads_via_protocol() {
     assert_eq!(manifest.version, "1.0.0");
     assert_eq!(manifest.entity_kinds.len(), 5);
     assert_eq!(manifest.edge_types.len(), 14);
-    assert_eq!(manifest.validation_rules.len(), 12);
+    assert_eq!(manifest.validation_rules.len(), 11);
     assert_eq!(manifest.entity_enhancements.len(), 2);
     assert_eq!(manifest.peer_dependencies.len(), 1);
     assert!(manifest.sandbox_policy.is_some());

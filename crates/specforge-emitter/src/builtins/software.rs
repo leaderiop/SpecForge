@@ -2,7 +2,7 @@ use specforge_wasm::builtin::BuiltinExtension;
 use specforge_wasm::protocol::{
     CompilerPassDescriptor, ContributionFlags, DescribeResponse, EdgeTypeDescriptor,
     EntityEnhancementDescriptor, EntityKindDescriptor, FeatureFlagDescriptor,
-    FieldConstraintDescriptor, FieldDescriptor, HandshakeResponse, PeerDependency, SandboxPolicy,
+    FieldDescriptor, HandshakeResponse, PeerDependency, SandboxPolicy,
     SharedFieldDescriptor, SurfaceDescriptor, ValidationRuleDescriptor, ValidationSeverity,
 };
 
@@ -279,14 +279,13 @@ impl SoftwareExtension {
                 wasm_function: Some("validate__milestone_behavior_ranges".into()),
                 ..vrd_defaults()
             },
-            // W011: type kind field value constraint
-            fvc(
-                "W011",
-                "type",
-                "kind",
-                &["struct", "enum", "alias", "opaque"],
-                "type '{id}' has invalid kind '{value}' \u{2014} expected one of: struct, enum, alias, opaque",
-            ),
+            // NOTE: there used to be a W011 rule constraining a `type`'s `kind`
+            // field to struct/enum/alias/opaque. It was removed: `kind` is also
+            // an extremely common *domain* field name (e.g. CodeAction.kind), and
+            // since type bodies use `open_fields`, the rule fired on every such
+            // field as a false positive. The struct/union distinction is derived
+            // from syntax (union_block vs entity_block), not from a `kind` field,
+            // so the constraint validated a meta-attribute the DSL does not use.
         ]
     }
 }
@@ -462,29 +461,6 @@ fn vrd_defaults() -> ValidationRuleDescriptor {
         field: None,
         constraint: None,
         wasm_function: None,
-    }
-}
-
-fn fvc(
-    code: &str,
-    target: &str,
-    field: &str,
-    values: &[&str],
-    msg: &str,
-) -> ValidationRuleDescriptor {
-    ValidationRuleDescriptor {
-        code: code.into(),
-        severity: ValidationSeverity::Warning,
-        message_template: msg.into(),
-        check: "field_value_constraint".into(),
-        target_kind: Some(target.into()),
-        field: Some(field.into()),
-        constraint: Some(FieldConstraintDescriptor {
-            kind: "one_of".into(),
-            pattern: None,
-            values: values.iter().map(|s| (*s).into()).collect(),
-        }),
-        ..vrd_defaults()
     }
 }
 

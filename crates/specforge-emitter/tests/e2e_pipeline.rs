@@ -110,6 +110,34 @@ type Manifest "M" {
     );
 }
 
+// B:compile_pipeline — verify unit "a domain field named `kind` on a type is not flagged as an invalid meta-kind"
+#[test]
+#[specforge_test(behavior = "compile_pipeline", verify = "type with a domain field named kind does not produce W011")]
+fn type_domain_kind_field_does_not_produce_w011() {
+    let ctx = compile_with_builtins(
+        &["@specforge/software"],
+        &[(
+            "main.spec",
+            r#"spec "t" { version "0.1.0" }
+type CodeActionKind = quick_fix | refactor | source
+type CodeAction "Code Action" {
+  title string
+  kind  CodeActionKind
+}
+"#,
+        )],
+    );
+
+    // `kind` here is an ordinary struct field (of type CodeActionKind), not the
+    // struct meta-attribute. It must NOT trip the type-kind enum constraint.
+    let w011: Vec<_> = ctx.diagnostics.iter().filter(|d| d.code == "W011").collect();
+    assert!(
+        w011.is_empty(),
+        "a domain field named `kind` must not produce W011, got: {:?}",
+        w011
+    );
+}
+
 // B:compile_pipeline — verify unit "single entity roundtrip: parse→graph→json"
 #[test]
 #[specforge_test(behavior = "compile_pipeline", verify = "single entity roundtrip produces valid graph")]
