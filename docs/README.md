@@ -96,6 +96,17 @@ failure_mode ──mitigates──→ invariant (core)
 
 **Full chain:** `deliverable -> journey -> feature -> behavior -> invariant`
 
+## Authoring Guides
+
+Learn to write `.spec` files:
+
+- **[Zero to Hero Tutorial](guides/authoring-spec-files.md)** — the guided, end-to-end learning path (orientation → core concepts → entity tour → a complete worked project).
+- **[Cookbook](guides/spec-cookbook.md)** — task-oriented recipes ("how do I model X?").
+- **[Best Practices](guides/spec-best-practices.md)** — prescriptive rules and named anti-patterns.
+- **[Troubleshooting](guides/spec-troubleshooting.md)** — diagnostic codes and how to fix them.
+- **[Product Getting Started](guides/product-getting-started.md)** — `@specforge/product` walkthrough.
+- **[Worked Example: todo-app](../examples/todo-app/)** — a complete, validated reference project.
+
 ## Quick Reference
 
 See **[quick-reference.md](quick-reference.md)** for a single-page cheat sheet covering all 16 entities, 20 edge types, and 27 validation codes.
