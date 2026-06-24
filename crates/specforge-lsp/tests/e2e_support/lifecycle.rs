@@ -237,7 +237,7 @@ async fn e2e_did_open_parse_error_publishes_e001() {
 }
 
 #[tokio::test]
-async fn e2e_resolver_diagnostic_e001_unresolved_reference() {
+async fn e2e_resolver_diagnostic_e003_unresolved_reference() {
     let mut client = start_server(None).await;
     let uri = "file:///test/resolve.spec";
     // Reference to 'nonexistent' which is not defined anywhere
@@ -256,13 +256,13 @@ async fn e2e_resolver_diagnostic_e001_unresolved_reference() {
         .as_array()
         .unwrap()
         .to_vec();
-    // Should have at least one E001 for unresolved reference
-    let has_e001 = diags
+    // Should have at least one E003 for unresolved reference
+    let has_e003 = diags
         .iter()
-        .any(|d| d["code"].as_str() == Some("E001") && d["message"].as_str().is_some_and(|m| m.contains("unresolved")));
+        .any(|d| d["code"].as_str() == Some("E003") && d["message"].as_str().is_some_and(|m| m.contains("unresolved")));
     assert!(
-        has_e001,
-        "Expected E001 unresolved reference diagnostic, got: {diags:?}"
+        has_e003,
+        "Expected E003 unresolved reference diagnostic, got: {diags:?}"
     );
 }
 

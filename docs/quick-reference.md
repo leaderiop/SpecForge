@@ -241,9 +241,9 @@ No incoming edges.
 
 | Code | Module | Rule |
 |------|--------|------|
-| E001 | core | No dangling references — every ID must resolve to a declared entity |
+| E001 | core | Parse error — the `.spec` file has invalid syntax |
 | E002 | core | No duplicate IDs — each entity ID is globally unique |
-| E003 | core | No import cycles — `imports` edges form a DAG |
+| E003 | core | No dangling references — every ID in a reference list must resolve to a declared entity |
 | E005 | governance | RPN mismatch — severity x occurrence x detection must equal declared rpn |
 | E006 | core | Event trigger invalid — trigger must reference an existing behavior |
 | E011 | core | Invalid ref target format — provider validates identifier doesn't match expected pattern |

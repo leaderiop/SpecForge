@@ -189,7 +189,7 @@ feature gamma "G" { behaviors [alpha, beta] }
 
 #[specforge_test(behavior = "build_in_memory_graph", verify = "graph contains one edge per resolved reference")]
 #[test]
-fn build_graph_unresolved_ref_produces_e001() {
+fn build_graph_unresolved_ref_produces_e003() {
     use specforge_graph::build_graph;
     use specforge_parser::parse;
 
@@ -201,9 +201,14 @@ feature gamma "G" { behaviors [alpha, nonexistent] }
     let (graph, diagnostics) = build_graph(&[spec_file]);
 
     assert_eq!(graph.edge_count(), 1, "only valid ref becomes edge");
-    let errors: Vec<_> = diagnostics.iter().filter(|d| d.code == "E001").collect();
+    // Unresolved references use E003 ("Unresolved reference"); E001 is parse-only.
+    let errors: Vec<_> = diagnostics.iter().filter(|d| d.code == "E003").collect();
     assert_eq!(errors.len(), 1);
     assert!(errors[0].message.contains("nonexistent"));
+    assert!(
+        diagnostics.iter().all(|d| d.code != "E001"),
+        "an unresolved reference must not be reported as a parse error (E001)"
+    );
 }
 
 #[specforge_test(behavior = "build_in_memory_graph", verify = "graph contains one node per entity")]
@@ -313,7 +318,7 @@ feature gamma "G" { behaviors [alpha_parsr] }
     let spec_file = parse(source, "main.spec");
     let (_, diagnostics) = build_graph(&[spec_file]);
 
-    let errors: Vec<_> = diagnostics.iter().filter(|d| d.code == "E001").collect();
+    let errors: Vec<_> = diagnostics.iter().filter(|d| d.code == "E003").collect();
     assert_eq!(errors.len(), 1);
     assert!(
         errors[0].suggestion.as_ref().is_some_and(|s| s.contains("alpha_parser")),
@@ -334,7 +339,7 @@ feature gamma "G" { behaviors [zzzzz_totally_unrelated] }
     let spec_file = parse(source, "main.spec");
     let (_, diagnostics) = build_graph(&[spec_file]);
 
-    let errors: Vec<_> = diagnostics.iter().filter(|d| d.code == "E001").collect();
+    let errors: Vec<_> = diagnostics.iter().filter(|d| d.code == "E003").collect();
     assert_eq!(errors.len(), 1);
     assert!(
         errors[0].suggestion.is_none(),
@@ -355,7 +360,7 @@ feature gamma "G" { behaviors [alpha_parsr] }
     let spec_file = parse(source, "main.spec");
     let (_, diagnostics) = build_graph(&[spec_file]);
 
-    let errors: Vec<_> = diagnostics.iter().filter(|d| d.code == "E001").collect();
+    let errors: Vec<_> = diagnostics.iter().filter(|d| d.code == "E003").collect();
     assert_eq!(errors.len(), 1);
     let suggestion = errors[0].suggestion.as_ref().expect("should have suggestion");
     assert!(
@@ -734,9 +739,9 @@ fn unknown_keyword_with_no_catalog_match_no_i004() {
 
 // === resolve_soft_cross_extension_references: installed keyword + missing entity ===
 
-#[specforge_test(behavior = "resolve_soft_cross_extension_references", verify = "installed extension with missing entity emits E001")]
+#[specforge_test(behavior = "resolve_soft_cross_extension_references", verify = "installed extension with missing entity emits E003")]
 #[test]
-fn installed_keyword_with_missing_entity_emits_e001() {
+fn installed_keyword_with_missing_entity_emits_e003() {
     use specforge_graph::{build_graph_with_config, GraphConfig};
     use specforge_parser::parse;
 
@@ -760,17 +765,17 @@ feature gamma "G" { behaviors [alpha, nonexistent] }
     };
     let (_, diagnostics) = build_graph_with_config(&[spec_file], &config);
 
-    // Should get E001 (unresolved ref), NOT I004
-    let e001s: Vec<_> = diagnostics.iter().filter(|d| d.code == "E001").collect();
+    // Should get E003 (unresolved ref), NOT I004
+    let e003s: Vec<_> = diagnostics.iter().filter(|d| d.code == "E003").collect();
     let i004s: Vec<_> = diagnostics.iter().filter(|d| d.code == "I004").collect();
-    assert_eq!(e001s.len(), 1, "missing entity should produce E001");
-    assert!(e001s[0].message.contains("nonexistent"));
+    assert_eq!(e003s.len(), 1, "missing entity should produce E003");
+    assert!(e003s[0].message.contains("nonexistent"));
     assert!(i004s.is_empty(), "installed keywords should not produce I004");
 }
 
-#[specforge_test(behavior = "resolve_soft_cross_extension_references", verify = "installed extension with imported file but missing entity emits E001")]
+#[specforge_test(behavior = "resolve_soft_cross_extension_references", verify = "installed extension with imported file but missing entity emits E003")]
 #[test]
-fn installed_keyword_cross_file_missing_entity_emits_e001() {
+fn installed_keyword_cross_file_missing_entity_emits_e003() {
     use specforge_graph::{build_graph_with_config, GraphConfig};
     use specforge_parser::parse;
 
@@ -794,9 +799,9 @@ fn installed_keyword_cross_file_missing_entity_emits_e001() {
     };
     let (graph, diagnostics) = build_graph_with_config(&[types, main], &config);
 
-    let e001s: Vec<_> = diagnostics.iter().filter(|d| d.code == "E001").collect();
-    assert_eq!(e001s.len(), 1, "missing cross-file entity should produce E001");
-    assert!(e001s[0].message.contains("missing_beta"));
+    let e003s: Vec<_> = diagnostics.iter().filter(|d| d.code == "E003").collect();
+    assert_eq!(e003s.len(), 1, "missing cross-file entity should produce E003");
+    assert!(e003s[0].message.contains("missing_beta"));
     assert_eq!(graph.edge_count(), 1, "only valid ref alpha becomes edge");
 }
 
@@ -862,7 +867,7 @@ feature gamma "G" { behaviors [alpha, nonexistent] }
 
     assert_eq!(graph.node_count(), 2);
     assert_eq!(graph.edge_count(), 1, "only valid ref becomes edge");
-    let errors: Vec<_> = diagnostics.iter().filter(|d| d.code == "E001").collect();
+    let errors: Vec<_> = diagnostics.iter().filter(|d| d.code == "E003").collect();
     assert_eq!(errors.len(), 1);
 }
 
@@ -1027,7 +1032,9 @@ feature f "F" { behaviors [a, b] }
     assert!(w061s.is_empty(), "acyclic graph should not produce W061");
 }
 
-fn union_type_variants_do_not_produce_e001() {
+#[specforge_test(behavior = "build_in_memory_graph", verify = "union type variants are not treated as references")]
+#[test]
+fn union_type_variants_do_not_produce_unresolved_ref() {
     use specforge_graph::build_graph;
     use specforge_parser::parse;
 
@@ -1040,8 +1047,17 @@ behavior my_behavior "B" {
     let spec_file = parse(source, "main.spec");
     let (graph, diagnostics) = build_graph(&[spec_file]);
 
-    let e001s: Vec<_> = diagnostics.iter().filter(|d| d.code == "E001").collect();
-    assert!(e001s.is_empty(), "union variants should not produce E001: {:?}", e001s);
+    // Variant identifiers are not reference lists, so they must not be reported
+    // as unresolved references (E003) or parse errors (E001).
+    let unresolved: Vec<_> = diagnostics
+        .iter()
+        .filter(|d| d.code == "E001" || d.code == "E003")
+        .collect();
+    assert!(
+        unresolved.is_empty(),
+        "union variants should not produce E001/E003: {:?}",
+        unresolved
+    );
     assert_eq!(graph.node_count(), 2, "type + behavior");
     assert_eq!(graph.edge_count(), 0, "no edges from variant lists");
 }

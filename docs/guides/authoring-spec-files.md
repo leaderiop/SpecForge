@@ -238,26 +238,26 @@ behavior create_task "Create a task" {
 specforge check
 ```
 ```
-[E001] Error: unresolved reference 'Tsak' in entity 'create_task'
+[E003] Error: unresolved reference 'Tsak' in entity 'create_task'
    ╭─[ tasks.spec ]
    │  types    [Tsak]
    │           ──┬─
    │             ╰── 'Tsak' does not resolve to any entity
 ```
 
-Read it like a pair programmer: **code** (`E001`), **message** (unresolved reference),
+Read it like a pair programmer: **code** (`E003`), **message** (unresolved reference),
 **span** (which line). Fix the typo, re-run, get `0 errors`. That loop —
 *edit → check → read → fix* — is how you author specs.
 
-> 💡 Run `specforge explain E001` for a full description of any diagnostic code. The
+> 💡 Run `specforge explain E003` for a full description of any diagnostic code. The
 > compiler reports **all** errors at once (it doesn't stop at the first), so you can fix in
-> batches.
+> batches. (`E001` is a parse/syntax error; `E003` is an unresolved reference.)
 
 **Severity levels:**
 
 | Level | Symbol | Meaning |
 |-------|--------|---------|
-| Error | `E001` | Blocks compilation. Must fix. |
+| Error | `E003` | Blocks compilation. Must fix. |
 | Warning | `W001` | A likely problem (orphan, missing coverage). Doesn't block. |
 | Info | `I010` | Advice (pedantic profile). Surfaced with `--lint=pedantic`. |
 

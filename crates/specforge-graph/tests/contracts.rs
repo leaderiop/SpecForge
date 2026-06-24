@@ -196,9 +196,9 @@ feature gamma "G" { behaviors [alpha_parsr] }
     let spec_file = parse(source_close, "test.spec");
     let config = GraphConfig::default();
     let (_, diagnostics) = build_graph_with_config(&[spec_file], &config);
-    let e001: Vec<_> = diagnostics.iter().filter(|d| d.code == "E001").collect();
-    assert_eq!(e001.len(), 1);
-    assert!(e001[0].suggestion.is_some(), "close match must produce suggestion");
+    let e003: Vec<_> = diagnostics.iter().filter(|d| d.code == "E003").collect();
+    assert_eq!(e003.len(), 1);
+    assert!(e003[0].suggestion.is_some(), "close match must produce suggestion");
 
     let source_far = r#"
 behavior alpha "A" { contract "first" }
@@ -206,7 +206,7 @@ feature gamma "G" { behaviors [zzzzz_completely_different] }
 "#;
     let spec_file = parse(source_far, "test.spec");
     let (_, diagnostics) = build_graph_with_config(&[spec_file], &config);
-    let e001: Vec<_> = diagnostics.iter().filter(|d| d.code == "E001").collect();
-    assert_eq!(e001.len(), 1);
-    assert!(e001[0].suggestion.is_none(), "distant match must not produce suggestion");
+    let e003: Vec<_> = diagnostics.iter().filter(|d| d.code == "E003").collect();
+    assert_eq!(e003.len(), 1);
+    assert!(e003[0].suggestion.is_none(), "distant match must not produce suggestion");
 }

@@ -208,11 +208,11 @@ fn diagnostics_from_changed_files_are_refreshed() {
         ("a.spec", r#"behavior foo "Foo" { contract "x" behaviors [nonexistent] }"#),
     ]);
 
-    // Initial build should have an E001 (unresolved reference)
+    // Initial build should have an E003 (unresolved reference)
     let initial_diags = pipeline.diagnostics();
     assert!(
-        initial_diags.iter().any(|d| d.code == "E001"),
-        "expected E001 in initial diagnostics"
+        initial_diags.iter().any(|d| d.code == "E003"),
+        "expected E003 in initial diagnostics"
     );
 
     // Fix the file
@@ -223,10 +223,10 @@ fn diagnostics_from_changed_files_are_refreshed() {
 
     let result = pipeline.rebuild(&["a.spec".to_string()], |f| sources.get(f).cloned());
 
-    // E001 should be gone
+    // E003 should be gone
     assert!(
-        !result.diagnostics.iter().any(|d| d.code == "E001"),
-        "E001 should be cleared after fix"
+        !result.diagnostics.iter().any(|d| d.code == "E003"),
+        "E003 should be cleared after fix"
     );
 }
 
@@ -240,7 +240,7 @@ fn diagnostics_from_unchanged_files_are_preserved() {
         ("b.spec", r#"behavior bar "Bar" { contract "y" }"#),
     ]);
 
-    // a.spec has E001
+    // a.spec has E003
     let initial_diags = pipeline.diagnostics();
     let a_errors: Vec<_> = initial_diags
         .iter()
@@ -256,10 +256,10 @@ fn diagnostics_from_unchanged_files_are_preserved() {
 
     let result = pipeline.rebuild(&["b.spec".to_string()], |f| sources.get(f).cloned());
 
-    // a.spec E001 should still be present (unchanged file)
+    // a.spec E003 should still be present (unchanged file)
     assert!(
-        result.diagnostics.iter().any(|d| d.code == "E001"),
-        "E001 from a.spec should be preserved"
+        result.diagnostics.iter().any(|d| d.code == "E003"),
+        "E003 from a.spec should be preserved"
     );
 }
 
@@ -548,9 +548,9 @@ fn emit_incremental_diagnostics_contract() {
         ("b.spec", r#"behavior bar "Bar" { contract "y" behaviors [missing_ref] }"#),
     ]);
 
-    // b.spec has E001 from unresolved reference
+    // b.spec has E003 from unresolved reference
     let initial_diags = pipeline.diagnostics();
-    assert!(initial_diags.iter().any(|d| d.code == "E001"), "precondition: E001 from b.spec");
+    assert!(initial_diags.iter().any(|d| d.code == "E003"), "precondition: E003 from b.spec");
 
     // Edit a.spec only — b.spec diagnostics should be preserved
     sources.insert(

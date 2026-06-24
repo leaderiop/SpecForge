@@ -72,7 +72,7 @@ fn detect_import_cycles_contract() {
 #[specforge_test(behavior = "link_entity_references", verify = "requires/ensures consistency for entity reference linking")]
 fn link_entity_references_contract() {
     // Requires: project with cross-file entity references
-    // Ensures: valid references produce edges, invalid produce E001
+    // Ensures: valid references produce edges, invalid produce E003
     let dir = setup_project(&[
         ("main.spec", r#"
 behavior alpha "A" { contract "first" }
@@ -91,8 +91,8 @@ feature gamma "G" {
     assert!(edges.iter().any(|e| e.target == "beta"), "beta reference must produce edge");
     assert!(edges.iter().all(|e| e.source == "gamma"), "all edges must originate from gamma");
 
-    // Invalid reference produces E001
-    let e001s: Vec<_> = diagnostics.iter().filter(|d| d.code == "E001").collect();
-    assert_eq!(e001s.len(), 1, "unresolvable reference must produce E001");
-    assert!(e001s[0].message.contains("nonexistent"), "E001 must mention the unresolved ID");
+    // Invalid reference produces E003
+    let e001s: Vec<_> = diagnostics.iter().filter(|d| d.code == "E003").collect();
+    assert_eq!(e001s.len(), 1, "unresolvable reference must produce E003");
+    assert!(e001s[0].message.contains("nonexistent"), "E003 must mention the unresolved ID");
 }

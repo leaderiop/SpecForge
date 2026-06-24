@@ -173,9 +173,9 @@ feature gamma "G" {
     assert!(edges.iter().any(|e| e.target == "beta"));
 }
 
-#[specforge_test(behavior = "link_entity_references", verify = "unresolvable reference produces E001")]
+#[specforge_test(behavior = "link_entity_references", verify = "unresolvable reference produces E003")]
 #[test]
-fn unresolvable_reference_produces_e001() {
+fn unresolvable_reference_produces_e003() {
     let dir = setup_project(&[
         ("main.spec", r#"
 behavior alpha "A" { contract "first" }
@@ -187,7 +187,7 @@ feature gamma "G" {
     let resolved = resolve_project(dir.path());
     let (_, diagnostics) = link_references(&resolved);
 
-    let errors: Vec<_> = diagnostics.iter().filter(|d| d.code == "E001").collect();
+    let errors: Vec<_> = diagnostics.iter().filter(|d| d.code == "E003").collect();
     assert_eq!(errors.len(), 1);
     assert!(errors[0].message.contains("nonexistent"));
 }
@@ -206,7 +206,7 @@ feature gamma "G" {
     let resolved = resolve_project(dir.path());
     let (_, diagnostics) = link_references(&resolved);
 
-    let errors: Vec<_> = diagnostics.iter().filter(|d| d.code == "E001").collect();
+    let errors: Vec<_> = diagnostics.iter().filter(|d| d.code == "E003").collect();
     assert_eq!(errors.len(), 1);
     assert!(
         errors[0].suggestion.as_ref().is_some_and(|s| s.contains("alpha_handler")),
@@ -228,7 +228,7 @@ feature gamma "G" {
     let resolved = resolve_project(dir.path());
     let (_, diagnostics) = link_references(&resolved);
 
-    let errors: Vec<_> = diagnostics.iter().filter(|d| d.code == "E001").collect();
+    let errors: Vec<_> = diagnostics.iter().filter(|d| d.code == "E003").collect();
     assert_eq!(errors.len(), 1);
     assert!(
         errors[0].suggestion.is_some(),
@@ -254,7 +254,7 @@ feature gamma "G" {
     let resolved = resolve_project(dir.path());
     let (_, diagnostics) = link_references(&resolved);
 
-    let errors: Vec<_> = diagnostics.iter().filter(|d| d.code == "E001").collect();
+    let errors: Vec<_> = diagnostics.iter().filter(|d| d.code == "E003").collect();
     assert_eq!(errors.len(), 1);
     assert!(
         errors[0].suggestion.is_none(),
@@ -276,7 +276,7 @@ feature gamma "G" {
     let resolved = resolve_project(dir.path());
     let (_, diagnostics) = link_references(&resolved);
 
-    let errors: Vec<_> = diagnostics.iter().filter(|d| d.code == "E001").collect();
+    let errors: Vec<_> = diagnostics.iter().filter(|d| d.code == "E003").collect();
     assert_eq!(errors.len(), 1);
     let suggestion = errors[0].suggestion.as_ref().expect("should have suggestion");
     assert!(
@@ -297,7 +297,7 @@ feature gamma "G" { behaviors [alpha_parsr] }
     ]);
     let resolved = resolve_project(dir.path());
     let (_, diagnostics) = link_references(&resolved);
-    let e001: Vec<_> = diagnostics.iter().filter(|d| d.code == "E001").collect();
+    let e001: Vec<_> = diagnostics.iter().filter(|d| d.code == "E003").collect();
     assert_eq!(e001.len(), 1);
     assert!(e001[0].suggestion.is_some(), "requires: close match → suggestion");
 
@@ -310,7 +310,7 @@ feature gamma "G" { behaviors [xyz_totally_different] }
     ]);
     let resolved2 = resolve_project(dir2.path());
     let (_, diagnostics2) = link_references(&resolved2);
-    let e001_2: Vec<_> = diagnostics2.iter().filter(|d| d.code == "E001").collect();
+    let e001_2: Vec<_> = diagnostics2.iter().filter(|d| d.code == "E003").collect();
     assert_eq!(e001_2.len(), 1);
     assert!(e001_2[0].suggestion.is_none(), "ensures: distant match → no suggestion");
 }

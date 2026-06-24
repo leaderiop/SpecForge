@@ -113,6 +113,46 @@ pub fn compile_with_runtime(path: &Path, runtime: Option<&dyn WasmRuntime>) -> C
     let (mut graph, build_diags) = build_graph_with_config(&spec_files, &graph_config);
     diagnostics.extend(build_diags);
 
+    // 8.0. Suppress core parse errors (E001) that fall inside the body of an
+    // entity whose kind declares a body parser. Such kinds (e.g. `port`, whose
+    // body holds `method name(args) -> Result<...>` signatures) carry
+    // extension-owned syntax the core grammar deliberately does not parse; the
+    // entity itself still resolves from its recognized fields. Without this, the
+    // tree-sitter ERROR nodes from that body would surface as spurious E001s.
+    let body_parser_kinds: HashSet<String> = manifests
+        .iter()
+        .flat_map(|m| m.entity_kinds.iter())
+        .filter(|k| k.has_body_parser)
+        .map(|k| k.keyword.clone())
+        .collect();
+    if !body_parser_kinds.is_empty() {
+        // Collect (file, start_line, end_line) ranges of body-parser entities.
+        let body_ranges: Vec<(String, usize, usize)> = resolved
+            .files
+            .iter()
+            .flat_map(|f| f.spec_file.entities.iter())
+            .filter(|e| body_parser_kinds.contains(e.kind.raw.as_str()))
+            .map(|e| {
+                (
+                    e.span.file.as_str().to_string(),
+                    e.span.start_line,
+                    e.span.end_line,
+                )
+            })
+            .collect();
+        diagnostics.retain(|d| {
+            if d.code != "E001" {
+                return true;
+            }
+            let Some(span) = &d.span else { return true };
+            let file = span.file.as_str();
+            // Keep the parse error unless it lies within a body-parser entity.
+            !body_ranges.iter().any(|(f, start, end)| {
+                f == file && span.start_line >= *start && span.start_line <= *end
+            })
+        });
+    }
+
     // 8a. Re-resolve references with single-reference field awareness.
     // build_graph_with_config only resolves ReferenceList fields. Now that
     // we have the FieldRegistry, re-resolve to also create edges for single
@@ -125,9 +165,10 @@ pub fn compile_with_runtime(path: &Path, runtime: Option<&dyn WasmRuntime>) -> C
             .collect();
         if !single_ref_fields.is_empty() {
             let ref_diags = graph.resolve_references_with_singles(&single_ref_fields);
-            // Replace the E001 diagnostics from the initial resolution.
-            // Remove previously-added E001s from build_diags and add the new ones.
-            diagnostics.retain(|d| d.code != "E001");
+            // Replace the unresolved-reference diagnostics (E003) from the initial
+            // resolution. Remove previously-added E003s from build_diags and add the
+            // re-resolved ones (which also account for single Reference fields).
+            diagnostics.retain(|d| d.code != "E003");
             diagnostics.extend(ref_diags);
         }
     }

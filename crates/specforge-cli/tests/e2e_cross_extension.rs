@@ -16,8 +16,8 @@ fn cross_kind_references_resolve() {
 }
 
 #[test]
-#[specforge_test(behavior = "link_entity_references", verify = "unresolvable reference produces E001")]
-fn unresolved_cross_ref_produces_e001() {
+#[specforge_test(behavior = "link_entity_references", verify = "unresolvable reference produces E003")]
+fn unresolved_cross_ref_produces_e003() {
     let dir = setup_project(&[("main.spec", r#"
 behavior alpha "A" { contract "first" }
 feature gamma "G" { behaviors [alpha, nonexistent_behavior] }
@@ -33,8 +33,8 @@ feature gamma "G" { behaviors [alpha, nonexistent_behavior] }
     let parsed = parse_json_stdout(&output);
     let diagnostics = parsed.as_array().unwrap();
     assert!(
-        diagnostics.iter().any(|d| d["code"] == "E001"),
-        "should have E001 for unresolved reference: {:?}", diagnostics,
+        diagnostics.iter().any(|d| d["code"] == "E003"),
+        "should have E003 for unresolved reference: {:?}", diagnostics,
     );
 }
 
@@ -101,8 +101,8 @@ decision use_rust "D" {
     let parsed = parse_json_stdout(&output);
     let diagnostics = parsed.as_array().unwrap();
     assert!(
-        diagnostics.iter().any(|d| d["code"] == "E001"),
-        "should produce E001 for nonexistent ref in cross-kind context"
+        diagnostics.iter().any(|d| d["code"] == "E003"),
+        "should produce E003 for nonexistent ref in cross-kind context"
     );
 }
 

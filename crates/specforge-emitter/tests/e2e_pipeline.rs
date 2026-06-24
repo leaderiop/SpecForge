@@ -19,6 +19,69 @@ fn compile_specs(files: &[(&str, &str)]) -> specforge_emitter::compile::Compilat
     specforge_emitter::compile_simple(dir.path())
 }
 
+/// Helper: compile with the builtin runtime for the given extensions (full pipeline).
+fn compile_with_builtins(
+    extensions: &[&str],
+    files: &[(&str, &str)],
+) -> specforge_emitter::compile::CompilationContext {
+    let dir = TempDir::new().unwrap();
+    let ext_json = extensions
+        .iter()
+        .map(|e| format!("\"{e}\""))
+        .collect::<Vec<_>>()
+        .join(", ");
+    fs::write(
+        dir.path().join("specforge.json"),
+        format!(
+            r#"{{ "name": "t", "version": "0.1.0", "spec_root": "spec", "extensions": [{ext_json}] }}"#
+        ),
+    )
+    .unwrap();
+    for (name, content) in files {
+        let path = dir.path().join("spec").join(name);
+        if let Some(parent) = path.parent() {
+            fs::create_dir_all(parent).unwrap();
+        }
+        fs::write(&path, content).unwrap();
+    }
+    let runtime = specforge_emitter::builtins::runtime_for_extensions(
+        &extensions.iter().map(|s| s.to_string()).collect::<Vec<_>>(),
+    );
+    specforge_emitter::compile_with_runtime(dir.path(), Some(&runtime))
+}
+
+// B:compile_pipeline — verify unit "port method body syntax does not surface parse errors"
+#[test]
+#[specforge_test(behavior = "compile_pipeline", verify = "extension-owned body syntax (port methods) does not surface E001")]
+fn port_method_body_does_not_surface_parse_errors() {
+    let ctx = compile_with_builtins(
+        &["@specforge/software"],
+        &[(
+            "main.spec",
+            r#"spec "t" { version "0.1.0" }
+type Task "T" { id string }
+port TaskRepository "Repo" {
+  direction outbound
+  category  "persistence/task"
+  method create(input: Task) -> Result<Task, never>
+  method findById(id: string) -> Result<Task, never>
+  verify integration "contract satisfied"
+}
+"#,
+        )],
+    );
+
+    // Port method signatures are extension-owned body syntax. The core grammar
+    // cannot parse them, but they must NOT surface as E001 parse errors to the
+    // user — the `port` entity itself parses fine (direction, category, verify).
+    let e001: Vec<_> = ctx.diagnostics.iter().filter(|d| d.code == "E001").collect();
+    assert!(
+        e001.is_empty(),
+        "port method body must not produce E001 parse errors, got: {:?}",
+        e001
+    );
+}
+
 // B:compile_pipeline — verify unit "single entity roundtrip: parse→graph→json"
 #[test]
 #[specforge_test(behavior = "compile_pipeline", verify = "single entity roundtrip produces valid graph")]

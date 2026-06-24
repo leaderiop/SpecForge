@@ -473,7 +473,7 @@
           "target_kind": null
         }
       ],
-      "has_body_parser": false,
+      "has_body_parser": true,
       "incremental": null,
       "inference_guide": "Look for trait definitions, abstract classes, interface declarations, and adapter patterns that define boundaries between system layers. Signals: Rust traits in ports/ or interfaces/ directories; TypeScript/Java interfaces for repositories, gateways, or external services; abstract base classes; dependency injection interfaces; API client contracts. Set direction to 'inbound' (receives requests), 'outbound' (calls external systems), or 'bidirectional'. Use open_fields/methods to list the port's operations. Set category to 'http', 'grpc', 'database', 'queue', 'filesystem', etc. Skip: internal module boundaries, utility traits (Display, Debug), marker traits, framework-imposed interfaces.",
       "keyword": "port",

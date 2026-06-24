@@ -13,7 +13,7 @@ fn diagnostics_update_after_change() {
     let diags = vec![Diagnostic {
         code: String::new(),
         suggestion: None,
-        message: "E001: unresolved reference 'b'".into(),
+        message: "E003: unresolved reference 'b'".into(),
         severity: Severity::Error,
         span: None,
     }];
@@ -21,7 +21,7 @@ fn diagnostics_update_after_change() {
 
     let current = state.diagnostics("file:///a.spec");
     assert_eq!(current.len(), 1);
-    assert!(current[0].message.contains("E001"));
+    assert!(current[0].message.contains("E003"));
 }
 
 #[spec(behavior = "live_diagnostics", verify = "only changed file diagnostics are refreshed")]
@@ -66,7 +66,7 @@ fn diagnostics_appear_within_latency_budget() {
     // Simulate the diagnostic pipeline: apply change + set diagnostics
     state.apply_change("file:///a.spec", 1, 7, 1, 18, "also_missing");
     state.set_diagnostics("file:///a.spec", vec![Diagnostic {
-        code: "E001".into(),
+        code: "E003".into(),
         suggestion: None,
         message: "unresolved reference 'also_missing'".into(),
         severity: Severity::Error,

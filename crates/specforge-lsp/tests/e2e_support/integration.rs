@@ -213,7 +213,7 @@ async fn e2e_workspace_index_builds_edges_immediately() {
     );
 }
 
-/// Verify that deleting a file publishes E001 diagnostics for files with broken references.
+/// Verify that deleting a file publishes E003 diagnostics for files with broken references.
 #[tokio::test]
 async fn e2e_delete_file_publishes_broken_reference_diagnostics() {
     let dir = TempDir::new().unwrap();
@@ -260,8 +260,8 @@ async fn e2e_delete_file_publishes_broken_reference_diagnostics() {
         )
         .await;
 
-    // Collect diagnostics — a.spec should now have E001 for broken 'shared_token' ref
-    let mut found_a_e001 = false;
+    // Collect diagnostics — a.spec should now have E003 for broken 'shared_token' ref
+    let mut found_a_e003 = false;
     for _ in 0..5 {
         if let Some(notif) = client
             .wait_for_notification("textDocument/publishDiagnostics", 2000)
@@ -272,9 +272,9 @@ async fn e2e_delete_file_publishes_broken_reference_diagnostics() {
             if notif_uri.contains("a.spec")
                 && diags
                     .iter()
-                    .any(|d| d["code"].as_str() == Some("E001"))
+                    .any(|d| d["code"].as_str() == Some("E003"))
             {
-                found_a_e001 = true;
+                found_a_e003 = true;
                 break;
             }
         } else {
@@ -282,14 +282,14 @@ async fn e2e_delete_file_publishes_broken_reference_diagnostics() {
         }
     }
     assert!(
-        found_a_e001,
-        "Deleting b.spec should publish E001 under a.spec for broken 'shared_token' reference"
+        found_a_e003,
+        "Deleting b.spec should publish E003 under a.spec for broken 'shared_token' reference"
     );
 }
 
 /// Verify that cross-file diagnostics land on the correct file's URI.
 /// When entity in file A references something deleted from file B,
-/// the E001 diagnostic must appear under file A's URI (where the
+/// the E003 diagnostic must appear under file A's URI (where the
 /// broken reference lives), not under file B's URI (which was edited).
 #[tokio::test]
 async fn e2e_cross_file_diagnostic_on_correct_uri() {
@@ -339,7 +339,7 @@ async fn e2e_cross_file_diagnostic_on_correct_uri() {
         .await;
 
     // Collect ALL publishDiagnostics notifications (there should be multiple:
-    // one for b.spec and one for a.spec with the E001).
+    // one for b.spec and one for a.spec with the E003).
     let mut diag_notifications = Vec::new();
     for _ in 0..5 {
         if let Some(notif) = client
@@ -352,21 +352,21 @@ async fn e2e_cross_file_diagnostic_on_correct_uri() {
         }
     }
 
-    // The E001 for unresolved 'shared_token' must be published under a.spec's URI
+    // The E003 for unresolved 'shared_token' must be published under a.spec's URI
     let a_has_e001 = diag_notifications.iter().any(|notif| {
         let notif_uri = notif["params"]["uri"].as_str().unwrap_or("");
         let diags = notif["params"]["diagnostics"].as_array().unwrap();
         notif_uri.contains("a.spec")
             && diags
                 .iter()
-                .any(|d| d["code"].as_str() == Some("E001"))
+                .any(|d| d["code"].as_str() == Some("E003"))
     });
     assert!(
         a_has_e001,
-        "E001 for broken reference must appear under a.spec, not b.spec. Got: {diag_notifications:?}"
+        "E003 for broken reference must appear under a.spec, not b.spec. Got: {diag_notifications:?}"
     );
 
-    // b.spec should NOT have the E001 (the broken ref is in a.spec, not b.spec)
+    // b.spec should NOT have the E003 (the broken ref is in a.spec, not b.spec)
     let b_has_e001 = diag_notifications.iter().any(|notif| {
         let notif_uri = notif["params"]["uri"].as_str().unwrap_or("");
         let diags = notif["params"]["diagnostics"].as_array().unwrap();
@@ -374,7 +374,7 @@ async fn e2e_cross_file_diagnostic_on_correct_uri() {
             && diags
                 .iter()
                 .any(|d| {
-                    d["code"].as_str() == Some("E001")
+                    d["code"].as_str() == Some("E003")
                         && d["message"]
                             .as_str()
                             .is_some_and(|m| m.contains("unresolved"))
@@ -382,13 +382,13 @@ async fn e2e_cross_file_diagnostic_on_correct_uri() {
     });
     assert!(
         !b_has_e001,
-        "E001 for broken reference must NOT appear under b.spec"
+        "E003 for broken reference must NOT appear under b.spec"
     );
 }
 
 /// Verify that opening a file BEFORE workspace indexing completes does not leave
-/// stale E001 diagnostics. The user opens a file in Neovim immediately, and the
-/// LSP should eventually (after indexing) publish corrected diagnostics with no E001
+/// stale E003 diagnostics. The user opens a file in Neovim immediately, and the
+/// LSP should eventually (after indexing) publish corrected diagnostics with no E003
 /// for entities that exist in the workspace. This is the exact race condition from
 /// the Neovim screenshot bug.
 #[tokio::test]
@@ -481,7 +481,7 @@ async fn e2e_cross_file_references_no_stale_e001_after_indexing() {
     client.did_open(&uri, "specforge", &text).await;
 
     // Collect ALL diagnostic notifications over 5 seconds
-    // The final notification for the behavior file should have zero E001
+    // The final notification for the behavior file should have zero E003
     let mut final_e001: Vec<String> = Vec::new();
     let mut final_diags: Vec<serde_json::Value> = Vec::new();
     for _ in 0..20 {
@@ -497,7 +497,7 @@ async fn e2e_cross_file_references_no_stale_e001_after_indexing() {
                     .unwrap_or_default();
                 final_e001 = diags
                     .iter()
-                    .filter(|d| d["code"].as_str() == Some("E001"))
+                    .filter(|d| d["code"].as_str() == Some("E003"))
                     .map(|d| d["message"].as_str().unwrap_or("").to_string())
                     .collect();
                 final_diags = diags;
@@ -508,11 +508,11 @@ async fn e2e_cross_file_references_no_stale_e001_after_indexing() {
     }
 
     // After indexing + re-diagnosis, the LAST diagnostics for the behavior file
-    // must have zero E001 (all cross-file references should have resolved)
+    // must have zero E003 (all cross-file references should have resolved)
     assert!(
         final_e001.is_empty(),
         "After indexing completes, cross-file references should resolve. \
-         Stale E001 diagnostics remain: {:?}\n\
+         Stale E003 diagnostics remain: {:?}\n\
          All diagnostics: {:?}",
         final_e001,
         final_diags,
@@ -521,7 +521,7 @@ async fn e2e_cross_file_references_no_stale_e001_after_indexing() {
 
 /// Verify that cross-file references resolve cleanly after workspace indexing.
 /// When a behavior file references types, invariants, and features from other files,
-/// and all those entities exist in the workspace, there should be zero E001 diagnostics.
+/// and all those entities exist in the workspace, there should be zero E003 diagnostics.
 /// This is the exact scenario from the Neovim screenshot bug.
 #[tokio::test]
 async fn e2e_cross_file_references_no_false_e001() {
@@ -626,7 +626,7 @@ async fn e2e_cross_file_references_no_false_e001() {
                     .unwrap_or_default();
                 let e001s: Vec<String> = diags
                     .iter()
-                    .filter(|d| d["code"].as_str() == Some("E001"))
+                    .filter(|d| d["code"].as_str() == Some("E003"))
                     .map(|d| d["message"].as_str().unwrap_or("").to_string())
                     .collect();
                 last_diags_for_behavior = Some(diags);
@@ -637,12 +637,12 @@ async fn e2e_cross_file_references_no_false_e001() {
         }
     }
 
-    // The final diagnostics for the behavior file should have ZERO E001 errors
+    // The final diagnostics for the behavior file should have ZERO E003 errors
     // because all referenced entities exist in the workspace
     assert!(
         all_e001_for_behavior.is_empty(),
         "Cross-file references should resolve cleanly after indexing. \
-         Got E001 diagnostics: {:?}\n\
+         Got E003 diagnostics: {:?}\n\
          All diagnostics: {:?}",
         all_e001_for_behavior,
         last_diags_for_behavior,

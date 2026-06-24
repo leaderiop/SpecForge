@@ -68,9 +68,9 @@ fn plan_with_all_valid_entity_ids_passes() {
     assert!(result.errors.is_empty(), "no errors expected: {:?}", result.errors);
 }
 
-// B:validate_agent_plan — verify unit "plan referencing nonexistent entity ID produces E001"
+// B:validate_agent_plan — verify unit "plan referencing nonexistent entity ID produces E003"
 #[test]
-#[specforge_test(behavior = "validate_agent_plan", verify = "plan referencing nonexistent entity ID produces E001")]
+#[specforge_test(behavior = "validate_agent_plan", verify = "plan referencing nonexistent entity ID produces E003")]
 fn plan_referencing_nonexistent_entity_produces_error() {
     let graph = build_graph();
     let plan = serde_json::json!({
@@ -82,8 +82,8 @@ fn plan_referencing_nonexistent_entity_produces_error() {
 
     let result = specforge_emitter::validate_plan(&graph, &plan, &["behavior"]);
     assert!(
-        result.errors.iter().any(|e| e.contains("E001") && e.contains("nonexistent")),
-        "should report E001 for nonexistent: {:?}", result.errors
+        result.errors.iter().any(|e| e.contains("E003") && e.contains("nonexistent")),
+        "should report E003 for nonexistent: {:?}", result.errors
     );
 }
 

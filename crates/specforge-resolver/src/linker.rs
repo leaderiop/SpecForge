@@ -65,7 +65,7 @@ pub fn link_references(project: &ResolvedProject) -> (Vec<PendingEdge>, Vec<Diag
                         } else {
                             let suggestion = find_close_match(target_id, all_ids.iter().copied());
                             diagnostics.push(Diagnostic {
-                                code: "E001".to_string(),
+                                code: "E003".to_string(),
                                 severity: Severity::Error,
                                 message: format!(
                                     "unresolved reference '{}' in entity '{}'",

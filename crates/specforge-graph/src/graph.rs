@@ -372,7 +372,7 @@ impl Graph {
                                     entity_ids.iter().map(|s| s.as_str()),
                                 );
                                 let mut diag = Diagnostic::error(
-                                    "E001",
+                                    "E003",
                                     format!(
                                         "unresolved reference '{}' in entity '{}'",
                                         target_id, node_id

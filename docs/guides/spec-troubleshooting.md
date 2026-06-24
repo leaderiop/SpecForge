@@ -13,14 +13,14 @@ Find the code or symptom, read the cause, apply the fix. For a guided introducti
 ## Reading a diagnostic
 
 ```
-[E001] Error: unresolved reference 'Tsak' in entity 'create_task'
+[E003] Error: unresolved reference 'Tsak' in entity 'create_task'
    ╭─[ tasks.spec ]
    │  types    [Tsak]
    │           ──┬─
    │             ╰── 'Tsak' does not resolve to any entity
 ```
 
-- **Code** (`E001`) — look it up below or run `specforge explain E001`.
+- **Code** (`E003`) — look it up below or run `specforge explain E003`.
 - **Severity** — `E` error (blocks), `W` warning (doesn't block), `I` info (advice).
 - **Message** — what's wrong.
 - **Span** — which file and line.
@@ -31,7 +31,8 @@ Find the code or symptom, read the cause, apply the fix. For a guided introducti
 
 | Code | Symptom | Cause | Fix |
 |------|---------|-------|-----|
-| **E001** | `unresolved reference 'X' in entity 'Y'` | A reference list points at an entity that doesn't exist (often a typo or a missing `use`). | Correct the name, or `use` the file that defines it. Check you used an unquoted reference, not a string. |
+| **E001** | a parse / syntax error | A `.spec` file could not be parsed (missing brace, unclosed string, invalid field syntax). | Fix the syntax at the reported span. |
+| **E003** | `unresolved reference 'X' in entity 'Y'` | A reference list points at an entity that doesn't exist (often a typo or a missing `use`). | Correct the name, or `use` the file that defines it. Check you used an unquoted reference, not a string. |
 | **E006** | `entity 'X' is missing required field 'F'` | A required field is absent (e.g. `constraint` without `description`, `feature` without `problem`, `persona`/`channel` without `description`, `journey` without `flow`, `term` without `definition`). | Add the required field. |
 | **E022** | `reference 'X' in field 'F' of 'Y' targets a 'A', but this field expects 'B'` | A reference points to the wrong *kind* of entity (e.g. `term.see_also` pointing at a behavior — it only accepts terms). | Point the field at an entity of the expected kind. |
 | **E024** | `unknown entity kind 'K' for entity 'X'` | You used a keyword from an extension that isn't installed. | `specforge add @specforge/<ext>`, or fix the keyword. |

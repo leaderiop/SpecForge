@@ -69,7 +69,7 @@ pub fn emit(graph: &Graph, options: &EmitOptions<'_>) -> Result<String, EmitterE
         }
         .ok_or_else(|| {
             EmitterError::EntityNotFound(format!(
-                "E001: unresolved scope entity '{}' — entity not found in graph",
+                "E003: unresolved scope entity '{}' — entity not found in graph",
                 scope_id
             ))
         })?;

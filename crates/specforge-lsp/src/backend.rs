@@ -237,7 +237,7 @@ impl Backend {
         }
 
         // Resolve references → edges using the shared function (same as CLI).
-        // This is the single source of truth for E001 unresolved-reference
+        // This is the single source of truth for E003 unresolved-reference
         // diagnostics, ensuring LSP and CLI report identical errors.
         let ref_diags = graph.resolve_references();
 

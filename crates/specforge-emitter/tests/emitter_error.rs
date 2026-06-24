@@ -48,7 +48,7 @@ fn query_nonexistent_returns_entity_not_found() {
     );
     // Display still includes human-readable message
     let msg = format!("{}", err);
-    assert!(msg.contains("E001"), "error message should contain E001: {}", msg);
+    assert!(msg.contains("E003"), "error message should contain E003: {}", msg);
 }
 
 // M2: trace for non-existent entity returns EmitterError::EntityNotFound

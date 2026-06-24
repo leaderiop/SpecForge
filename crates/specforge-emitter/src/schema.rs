@@ -771,7 +771,7 @@ pub fn emit_json_scoped_with_schema(
     schema: &GraphProtocolSchema,
 ) -> Result<String, EmitterError> {
     let sub = graph.subgraph(scope).ok_or_else(|| {
-        EmitterError::EntityNotFound(format!("E001: unresolved scope entity '{}' — entity not found in graph", scope))
+        EmitterError::EntityNotFound(format!("E003: unresolved scope entity '{}' — entity not found in graph", scope))
     })?;
     Ok(emit_json_with_schema(&sub, schema))
 }
@@ -782,7 +782,7 @@ pub fn emit_context_scoped_with_schema(
     schema: &GraphProtocolSchema,
 ) -> Result<String, EmitterError> {
     let sub = graph.subgraph(scope).ok_or_else(|| {
-        EmitterError::EntityNotFound(format!("E001: unresolved scope entity '{}' — entity not found in graph", scope))
+        EmitterError::EntityNotFound(format!("E003: unresolved scope entity '{}' — entity not found in graph", scope))
     })?;
     Ok(emit_context_with_schema(&sub, schema))
 }
@@ -793,7 +793,7 @@ pub fn emit_brief_scoped_with_schema(
     schema: &GraphProtocolSchema,
 ) -> Result<String, EmitterError> {
     let sub = graph.subgraph(scope).ok_or_else(|| {
-        EmitterError::EntityNotFound(format!("E001: unresolved scope entity '{}' — entity not found in graph", scope))
+        EmitterError::EntityNotFound(format!("E003: unresolved scope entity '{}' — entity not found in graph", scope))
     })?;
     Ok(emit_brief_with_schema(&sub, schema))
 }

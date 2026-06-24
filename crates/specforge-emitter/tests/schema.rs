@@ -1623,7 +1623,7 @@ fn scoped_v2_nonexistent_scope_error() {
     let schema = GraphProtocolSchema::empty();
     let result = emit_json_scoped_with_schema(&graph, "nonexistent", &schema);
     assert!(result.is_err());
-    assert!(result.unwrap_err().to_string().contains("E001"));
+    assert!(result.unwrap_err().to_string().contains("E003"));
 }
 
 // ===========================================================================

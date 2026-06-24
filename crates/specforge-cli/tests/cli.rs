@@ -51,7 +51,7 @@ fn self_check_runs_without_crashing() {
     assert!(
         diagnostics.iter().all(|d| {
             let code = d["code"].as_str().unwrap_or("");
-            ["E001", "E002", "W003", "W012", "W060", "W061", "W062"].contains(&code)
+            ["E001", "E002", "E003", "W003", "W012", "W060", "W061", "W062"].contains(&code)
         }),
         "self-check should only produce known diagnostic codes"
     );
@@ -341,7 +341,7 @@ feature gamma "G" { behaviors [alpha, nonexistent] }
     let stderr = String::from_utf8_lossy(&output.stderr);
     // Structured format: file path + error code + source context
     assert!(stderr.contains("main.spec"), "must include file path");
-    assert!(stderr.contains("E001"), "must include error code");
+    assert!(stderr.contains("E003"), "must include error code");
 }
 
 #[specforge_test(behavior = "exit_code_reflects_diagnostic_severity", verify = "requires/ensures consistency for exit code severity mapping")]

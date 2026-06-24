@@ -200,7 +200,7 @@ When an entity references another entity from a different extension, the compile
 |----------|------|----|----------|
 | **Same Extension** | extension entity | same extension entity | Always validated. |
 | **Extension → Structural** | extension entity | spec/ref | Always validated. |
-| **Cross-Extension** | extension entity | other extension entity | **Soft reference.** If target extension installed → validated (`E001` on miss). If not installed → `I004` info. |
+| **Cross-Extension** | extension entity | other extension entity | **Soft reference.** If target extension installed → validated (`E003` on miss). If not installed → `I004` info. |
 
 ### Diagnostic: I004 (Unknown Entity in Reference Field)
 
@@ -234,7 +234,7 @@ After `specforge add @specforge/product`:
 // Same file — now product is installed
 behavior create_user {
   invariants [data_persistence]    // ✅ Same extension: validated
-  features   [user_management]     // ✅ Cross-extension: validated (E001 if not found)
+  features   [user_management]     // ✅ Cross-extension: validated (E003 if not found)
 
   contract "..."
 }
@@ -263,7 +263,7 @@ The compiler uses the field name in which a reference appears to determine the e
 | `invariant` (singular) | Invariant | @specforge/software |
 | `affects` | Behavior | @specforge/software |
 
-When the target kind's extension is not installed, the compiler emits `I004` instead of `E001`.
+When the target kind's extension is not installed, the compiler emits `I004` instead of `E003`.
 
 ## Naming Conventions
 
@@ -422,9 +422,9 @@ The compiler enforces structural invariants. Each rule belongs to the extension 
 
 | Code | Rule |
 |------|------|
-| E001 | **No dangling references** — every ID in a reference list must resolve to a declared entity (soft for cross-extension references) |
+| E001 | **Parse error** — a `.spec` file could not be parsed (invalid syntax) |
 | E002 | **No duplicate IDs** — each entity ID is globally unique across all `.spec` files |
-| E003 | **No import cycles** — the `use` statements form a DAG |
+| E003 | **No dangling references** — every ID in a reference list must resolve to a declared entity (soft for cross-extension references) |
 | E011 | **Invalid ref target format** — provider validates identifier doesn't match expected pattern |
 | E012 | **Unknown provider kind** — ref uses kind not registered by its provider |
 | E013 | **Reserved word used as identifier** — entity name is a reserved keyword |

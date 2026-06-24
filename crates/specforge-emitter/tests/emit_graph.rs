@@ -121,9 +121,9 @@ fn graph_format_includes_schema_version() {
     assert!(!version.is_empty(), "schema_version must not be empty");
 }
 
-// B:export_agent_graph_format — verify unit "non-existent scope entity produces E001 and exit code 1"
+// B:export_agent_graph_format — verify unit "non-existent scope entity produces E003 and exit code 1"
 #[test]
-#[specforge_test(behavior = "export_agent_graph_format", verify = "non-existent scope entity produces E001 and exit code 1")]
+#[specforge_test(behavior = "export_agent_graph_format", verify = "non-existent scope entity produces E003 and exit code 1")]
 fn graph_format_scoped_nonexistent_entity_produces_e001() {
     let mut graph = Graph::new();
     graph.add_node(Node {
@@ -137,7 +137,7 @@ fn graph_format_scoped_nonexistent_entity_produces_e001() {
     let result = specforge_emitter::emit_json_scoped(&graph, "nonexistent");
     assert!(result.is_err(), "should return error for nonexistent entity");
     let err = result.unwrap_err();
-    assert!(err.to_string().contains("E001"), "error should contain E001: {}", err);
+    assert!(err.to_string().contains("E003"), "error should contain E003: {}", err);
 }
 
 // B:export_agent_graph_format — verify integration "structural-only graph exports valid JSON with raw keyword strings as entity kinds"

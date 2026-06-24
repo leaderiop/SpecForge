@@ -117,6 +117,11 @@ impl SoftwareExtension {
                 dot_color: Some("#00695C".into()),
                 dot_fillcolor: Some("#E0F2F1".into()),
                 open_fields: true,
+                // Port bodies carry extension-owned method signatures
+                // (`method name(args) -> Result<...>`) that the core grammar
+                // does not parse. Declaring a body parser tells the pipeline to
+                // suppress the resulting core parse errors for this kind.
+                has_body_parser: true,
                 fields: vec![
                     fd("direction", "string", true, Some("Whether this port is inbound, outbound, or bidirectional"), None, None),
                     fd("category", "string", false, Some("Classification of this port (e.g. http, grpc, database, queue)"), None, None),

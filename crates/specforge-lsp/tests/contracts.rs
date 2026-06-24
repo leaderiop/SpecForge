@@ -438,7 +438,7 @@ fn live_diagnostics_contract() {
 
     // After file change, diagnostics are pushed
     state.set_diagnostics("file:///a.spec", vec![specforge_common::Diagnostic {
-        code: "E001".into(),
+        code: "E003".into(),
         suggestion: None,
         message: "unresolved reference".into(),
         severity: specforge_common::Severity::Error,

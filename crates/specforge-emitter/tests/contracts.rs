@@ -675,7 +675,7 @@ fn plan_all_valid_ids() {
 }
 
 #[test]
-#[specforge_test(behavior = "validate_agent_plan", verify = "plan referencing nonexistent entity ID produces E001")]
+#[specforge_test(behavior = "validate_agent_plan", verify = "plan referencing nonexistent entity ID produces E003")]
 fn plan_nonexistent_id() {
     let graph = build_graph();
     let plan = serde_json::json!({
@@ -834,12 +834,12 @@ fn context_scoped_export() {
 }
 
 #[test]
-#[specforge_test(behavior = "export_agent_context_format", verify = "non-existent scope entity produces E001 and exit code 1")]
+#[specforge_test(behavior = "export_agent_context_format", verify = "non-existent scope entity produces E003 and exit code 1")]
 fn context_nonexistent_scope() {
     let graph = build_graph();
     let result = specforge_emitter::emit_context_scoped(&graph, "nonexistent");
     assert!(result.is_err(), "non-existent scope must return error");
-    assert!(result.unwrap_err().to_string().contains("E001"), "error must contain E001");
+    assert!(result.unwrap_err().to_string().contains("E003"), "error must contain E003");
 }
 
 #[test]
@@ -900,12 +900,12 @@ fn graph_format_scoped() {
 }
 
 #[test]
-#[specforge_test(behavior = "export_agent_graph_format", verify = "non-existent scope entity produces E001 and exit code 1")]
+#[specforge_test(behavior = "export_agent_graph_format", verify = "non-existent scope entity produces E003 and exit code 1")]
 fn graph_format_nonexistent_scope() {
     let graph = build_graph();
     let result = specforge_emitter::emit_json_scoped(&graph, "nonexistent");
     assert!(result.is_err());
-    assert!(result.unwrap_err().to_string().contains("E001"));
+    assert!(result.unwrap_err().to_string().contains("E003"));
 }
 
 #[test]

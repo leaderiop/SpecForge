@@ -38,7 +38,7 @@ pub fn validate_plan(
             if graph.node(id).is_some() {
                 validated_entries.push(id.to_string());
             } else {
-                errors.push(format!("E001: unresolved entity '{}' in plan — not found in graph", id));
+                errors.push(format!("E003: unresolved entity '{}' in plan — not found in graph", id));
             }
         }
     }

@@ -23,7 +23,7 @@ pub struct TraceLink {
 
 pub fn trace(graph: &Graph, entity_id: &str) -> Result<TraceChain, EmitterError> {
     let root = graph.node(entity_id).ok_or_else(|| {
-        EmitterError::EntityNotFound(format!("E001: unresolved entity '{}' — not found in graph", entity_id))
+        EmitterError::EntityNotFound(format!("E003: unresolved entity '{}' — not found in graph", entity_id))
     })?;
 
     let upstream = directed_bfs(graph, entity_id, Direction::Upstream);

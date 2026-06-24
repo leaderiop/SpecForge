@@ -85,7 +85,7 @@ fn verify_action_no_code_gen() {
 
 // -- code_action_add_missing_import -------------------------------------------
 
-#[spec(behavior = "code_action_add_missing_import", verify = "code action offered on E001 for resolvable entity")]
+#[spec(behavior = "code_action_add_missing_import", verify = "code action offered on E003 for resolvable entity")]
 #[test]
 fn add_import_offered_for_resolvable_entity() {
     let mut g = Graph::new();
@@ -125,7 +125,7 @@ fn no_import_for_nonexistent_entity() {
 
 // -- code_action_create_entity_stub -------------------------------------------
 
-#[spec(behavior = "code_action_create_entity_stub", verify = "code action offered on E001 for non-existent entity")]
+#[spec(behavior = "code_action_create_entity_stub", verify = "code action offered on E003 for non-existent entity")]
 #[test]
 fn create_stub_offered() {
     let _g = Graph::new();

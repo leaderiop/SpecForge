@@ -261,7 +261,7 @@ feature gamma "G" { behaviors [alpha, nonexistent] }
 
     assert!(output.contains("main.spec"), "output should contain filename");
     // ariadne renders line numbers — check the output has location info
-    assert!(output.contains("E001"), "output should contain error code");
+    assert!(output.contains("E003"), "output should contain error code");
     assert!(output.contains("nonexistent"), "output should contain the unresolved reference");
 }
 
@@ -566,7 +566,7 @@ feature gamma "G" { behaviors [alpha_parsr] }
 "#;
     let spec_file = parse(source_close, "main.spec");
     let (_, diagnostics) = build_graph(&[spec_file]);
-    let errors: Vec<_> = diagnostics.iter().filter(|d| d.code == "E001").collect();
+    let errors: Vec<_> = diagnostics.iter().filter(|d| d.code == "E003").collect();
     assert_eq!(errors.len(), 1);
     assert!(errors[0].suggestion.is_some(), "close match must produce suggestion");
 
@@ -577,7 +577,7 @@ feature gamma "G" { behaviors [zzzzz_completely_different] }
 "#;
     let spec_file = parse(source_far, "main.spec");
     let (_, diagnostics) = build_graph(&[spec_file]);
-    let errors: Vec<_> = diagnostics.iter().filter(|d| d.code == "E001").collect();
+    let errors: Vec<_> = diagnostics.iter().filter(|d| d.code == "E003").collect();
     assert_eq!(errors.len(), 1);
     assert!(errors[0].suggestion.is_none(), "distant match must not produce suggestion");
 }
@@ -622,7 +622,7 @@ behavior login_flow "Login" {
 fn dangling_ref_without_edge_indicates_resolver_bug() {
     // A reference list entry that resolves (target exists) should always
     // produce a corresponding graph edge. If it doesn't, that's a resolver bug.
-    // Here we verify the normal path: unresolved references produce E001.
+    // Here we verify the normal path: unresolved references produce E003.
     let source = r#"
 behavior alpha "A" {
   contract "first"
@@ -632,9 +632,9 @@ behavior alpha "A" {
     let spec_file = parse(source, "main.spec");
     let (graph, diagnostics) = build_graph(&[spec_file]);
 
-    // The reference target doesn't exist → E001 emitted, no edge created
-    let e001: Vec<_> = diagnostics.iter().filter(|d| d.code == "E001").collect();
-    assert_eq!(e001.len(), 1, "unresolved reference should produce E001");
+    // The reference target doesn't exist → E003 emitted, no edge created
+    let e001: Vec<_> = diagnostics.iter().filter(|d| d.code == "E003").collect();
+    assert_eq!(e001.len(), 1, "unresolved reference should produce E003");
 
     // No edge should exist for the unresolved reference
     let edges = graph.edges_from("alpha");
@@ -659,9 +659,9 @@ invariant inv_one "Invariant One" {
     let spec_file = parse(source, "main.spec");
     let (graph, diagnostics) = build_graph(&[spec_file]);
 
-    // No E001 — reference resolves cleanly
-    let e001: Vec<_> = diagnostics.iter().filter(|d| d.code == "E001").collect();
-    assert!(e001.is_empty(), "resolved reference should not produce E001");
+    // No E003 — reference resolves cleanly
+    let e001: Vec<_> = diagnostics.iter().filter(|d| d.code == "E003").collect();
+    assert!(e001.is_empty(), "resolved reference should not produce E003");
 
     // Edge must exist from alpha to inv_one
     let edges = graph.edges_from("alpha");
@@ -680,9 +680,9 @@ behavior alpha "A" { contract "first" }
     let spec_file = parse(source, "main.spec");
     let (graph, diagnostics) = build_graph(&[spec_file]);
 
-    // No reference lists → zero edges → no E001
+    // No reference lists → zero edges → no E003
     assert_eq!(graph.edge_count(), 0, "graph should have zero edges");
-    let e001: Vec<_> = diagnostics.iter().filter(|d| d.code == "E001").collect();
+    let e001: Vec<_> = diagnostics.iter().filter(|d| d.code == "E003").collect();
     assert!(e001.is_empty(), "empty graph should produce no dangling reference diagnostic");
 }
 
@@ -691,30 +691,30 @@ behavior alpha "A" { contract "first" }
 fn dangling_ref_contract_consistency() {
     // Requires: graph_built event has fired (graph is fully constructed)
     // Ensures: every reference list entry has a corresponding graph edge,
-    //          or E001 is raised; no duplicate diagnostics
+    //          or E003 is raised; no duplicate diagnostics
 
-    // Case 1: resolved reference → edge exists, no E001
+    // Case 1: resolved reference → edge exists, no E003
     let source_ok = r#"
 behavior alpha "A" { contract "first" invariants [inv_one] }
 invariant inv_one "I" { contract "must hold" }
 "#;
     let spec_file = parse(source_ok, "main.spec");
     let (graph, diagnostics) = build_graph(&[spec_file]);
-    let e001: Vec<_> = diagnostics.iter().filter(|d| d.code == "E001").collect();
-    assert!(e001.is_empty(), "resolved ref must not produce E001");
+    let e001: Vec<_> = diagnostics.iter().filter(|d| d.code == "E003").collect();
+    assert!(e001.is_empty(), "resolved ref must not produce E003");
     assert!(
         graph.edges_from("alpha").iter().any(|e| e.target == "inv_one"),
         "resolved ref must have corresponding edge"
     );
 
-    // Case 2: unresolved reference → E001, no edge
+    // Case 2: unresolved reference → E003, no edge
     let source_bad = r#"
 behavior beta "B" { contract "second" invariants [missing] }
 "#;
     let spec_file = parse(source_bad, "main.spec");
     let (graph, diagnostics) = build_graph(&[spec_file]);
-    let e001: Vec<_> = diagnostics.iter().filter(|d| d.code == "E001").collect();
-    assert_eq!(e001.len(), 1, "unresolved ref must produce exactly one E001");
+    let e001: Vec<_> = diagnostics.iter().filter(|d| d.code == "E003").collect();
+    assert_eq!(e001.len(), 1, "unresolved ref must produce exactly one E003");
     assert!(
         graph.edges_from("beta").is_empty(),
         "unresolved ref must not create edge"
