@@ -38,14 +38,13 @@ impl WasmRuntime for MockRuntime {
 
     fn call_export(&self, _extension_name: &str, export_name: &str, input: &[u8]) -> WasmCallResult {
         // For __describe, extract category from the input JSON to build a compound key
-        if export_name == "__describe" {
-            if let Ok(req) = serde_json::from_slice::<DescribeRequest>(input) {
+        if export_name == "__describe"
+            && let Ok(req) = serde_json::from_slice::<DescribeRequest>(input) {
                 let compound_key = format!("__describe::{}", req.category);
                 if let Some(result) = self.call_results.get(&compound_key) {
                     return result.clone();
                 }
             }
-        }
         // Fallback: look up by export name alone
         self.call_results
             .get(export_name)

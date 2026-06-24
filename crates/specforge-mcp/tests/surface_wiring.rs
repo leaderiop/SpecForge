@@ -1,7 +1,7 @@
-/// Tests for wiring extension surface contributions to MCP tool/resource registries.
-/// Verifies that manifest-declared MCP tools and resources appear in the MCP server's
-/// discovery responses after initialization with a project containing surface-contributing extensions.
-/// Also tests dynamic kind-based tools and resources generated from the graph.
+//! Tests for wiring extension surface contributions to MCP tool/resource registries.
+//! Verifies that manifest-declared MCP tools and resources appear in the MCP server's
+//! discovery responses after initialization with a project containing surface-contributing extensions.
+//! Also tests dynamic kind-based tools and resources generated from the graph.
 
 use specforge_mcp::McpServer;
 use specforge_common::SourceSpan;

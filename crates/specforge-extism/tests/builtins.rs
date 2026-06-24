@@ -32,7 +32,7 @@ fn software_describe_entities() {
     };
     let value: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
     assert_eq!(value["category"], "entities");
-    assert!(value["items"].as_array().unwrap().len() > 0);
+    assert!(!value["items"].as_array().unwrap().is_empty());
 }
 
 #[test]

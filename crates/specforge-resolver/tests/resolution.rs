@@ -664,8 +664,6 @@ fn pub_use_unknown_entity_w027() {
     assert!(warnings[0].message.contains("NonExistent"));
 }
 
-#[specforge_test(behavior = "resolve_reexports", verify = "pub use through cycle participant uses only declared set")]
-#[test]
 // === symlink safety ===
 
 #[specforge_test(behavior = "resolve_use_imports", verify = "symlink pointing outside spec_root is rejected")]
@@ -766,6 +764,8 @@ fn w003_import_cycle_has_suggestion() {
     );
 }
 
+#[specforge_test(behavior = "resolve_reexports", verify = "pub use through cycle participant uses only declared set")]
+#[test]
 fn pub_use_through_cycle_no_transitive() {
     // a.spec and b.spec form a cycle. c.spec pub-uses a.spec.
     // c should get a.spec's declared entities, but not anything

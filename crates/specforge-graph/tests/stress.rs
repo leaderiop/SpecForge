@@ -54,5 +54,5 @@ fn stress_subgraph_full_1000_chain() {
     let graph = build_chain_graph(1000);
     let sub = graph.subgraph("entity_500").unwrap();
     // Should include entity_500 and everything it transitively depends on
-    assert!(sub.nodes().len() >= 1);
+    assert!(!sub.nodes().is_empty());
 }

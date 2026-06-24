@@ -30,7 +30,7 @@ fn bench_build_graph_small(c: &mut Criterion) {
     let source = generate_connected_spec(50);
     let spec_file = parse(&source, "bench.spec");
     c.bench_function("build_graph_50_entities", |b| {
-        b.iter(|| build_graph(black_box(&[spec_file.clone()])))
+        b.iter(|| build_graph(black_box(std::slice::from_ref(&spec_file))))
     });
 }
 
@@ -38,7 +38,7 @@ fn bench_build_graph_medium(c: &mut Criterion) {
     let source = generate_connected_spec(250);
     let spec_file = parse(&source, "bench.spec");
     c.bench_function("build_graph_250_entities", |b| {
-        b.iter(|| build_graph(black_box(&[spec_file.clone()])))
+        b.iter(|| build_graph(black_box(std::slice::from_ref(&spec_file))))
     });
 }
 
@@ -46,7 +46,7 @@ fn bench_build_graph_large(c: &mut Criterion) {
     let source = generate_connected_spec(1000);
     let spec_file = parse(&source, "bench.spec");
     c.bench_function("build_graph_1000_entities", |b| {
-        b.iter(|| build_graph(black_box(&[spec_file.clone()])))
+        b.iter(|| build_graph(black_box(std::slice::from_ref(&spec_file))))
     });
 }
 

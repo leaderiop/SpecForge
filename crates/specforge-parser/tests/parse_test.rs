@@ -1476,7 +1476,7 @@ behavior test "Test" {
 
 #[test]
 fn debug_treesitter_ast() {
-    use std::path::PathBuf;
+    
     use tree_sitter::Parser;
 
     let source = r#"use invariants/core

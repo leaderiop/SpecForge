@@ -164,47 +164,6 @@ mod tests {
         }
     }
 
-    impl Default for FieldDescriptor {
-        fn default() -> Self {
-            Self {
-                name: String::new(),
-                field_type: String::new(),
-                required: false,
-                description: None,
-                edge: None,
-                target_kind: None,
-                file_reference: false,
-                default_value: None,
-                enum_values: vec![],
-                inverse_of: None,
-            }
-        }
-    }
-
-    impl Default for EntityKindDescriptor {
-        fn default() -> Self {
-            Self {
-                name: String::new(),
-                keyword: None,
-                description: None,
-                fields: vec![],
-                testable: false,
-                singleton: false,
-                supports_verify: false,
-                incremental: None,
-                has_body_parser: false,
-                open_fields: false,
-                semantic_token: None,
-                lsp_icon: None,
-                dot_shape: None,
-                dot_color: None,
-                dot_fillcolor: None,
-                verify_kinds: vec![],
-                inference_guide: None,
-            }
-        }
-    }
-
     #[test]
     fn handshake_returns_correct_response() {
         let runtime = BuiltinRuntime::new()

@@ -1,5 +1,5 @@
-/// Protocol extension loading: extensions are loaded via the Wasm protocol
-/// (__handshake / __describe) through a WasmRuntime implementation.
+//! Protocol extension loading: extensions are loaded via the Wasm protocol
+//! (__handshake / __describe) through a WasmRuntime implementation.
 
 use specforge_test::prelude::*;
 use specforge_wasm::{WasmCallResult, WasmRuntime, WasmTrapInfo};
@@ -83,14 +83,13 @@ impl WasmRuntime for MockRuntime {
     }
 
     fn call_export(&self, _extension_name: &str, export_name: &str, input: &[u8]) -> WasmCallResult {
-        if export_name == "__describe" {
-            if let Ok(req) = serde_json::from_slice::<DescribeRequest>(input) {
+        if export_name == "__describe"
+            && let Ok(req) = serde_json::from_slice::<DescribeRequest>(input) {
                 let compound_key = format!("__describe::{}", req.category);
                 if let Some(result) = self.call_results.get(&compound_key) {
                     return result.clone();
                 }
             }
-        }
         self.call_results
             .get(export_name)
             .cloned()
@@ -115,7 +114,7 @@ fn protocol_extension_loaded_with_runtime() {
 
     let ext_dir = dir.path().join("ext-proto");
     fs::create_dir_all(&ext_dir).unwrap();
-    fs::write(ext_dir.join("extension.wasm"), &[0x00, 0x61, 0x73, 0x6d]).unwrap();
+    fs::write(ext_dir.join("extension.wasm"), [0x00, 0x61, 0x73, 0x6d]).unwrap();
 
     let runtime = MockRuntime::new()
         .with_handshake("@test/proto", true, false)
@@ -163,7 +162,7 @@ fn protocol_handshake_trap_produces_e031() {
 
     let ext_dir = dir.path().join("ext-broken");
     fs::create_dir_all(&ext_dir).unwrap();
-    fs::write(ext_dir.join("extension.wasm"), &[0x00, 0x61, 0x73, 0x6d]).unwrap();
+    fs::write(ext_dir.join("extension.wasm"), [0x00, 0x61, 0x73, 0x6d]).unwrap();
 
     let runtime = MockRuntime::new()
         .with_call_trap("__handshake", WasmTrapInfo {
@@ -192,7 +191,7 @@ fn protocol_version_mismatch_produces_e031() {
 
     let ext_dir = dir.path().join("ext-badver");
     fs::create_dir_all(&ext_dir).unwrap();
-    fs::write(ext_dir.join("extension.wasm"), &[0x00, 0x61, 0x73, 0x6d]).unwrap();
+    fs::write(ext_dir.join("extension.wasm"), [0x00, 0x61, 0x73, 0x6d]).unwrap();
 
     // Return a handshake with wrong protocol version
     let bad_handshake = HandshakeResponse {

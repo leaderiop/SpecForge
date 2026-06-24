@@ -57,7 +57,7 @@ mod tests {
     #[test]
     fn detect_protocol_when_wasm_file_exists() {
         let dir = TempDir::new().unwrap();
-        std::fs::write(dir.path().join("extension.wasm"), &[0x00, 0x61, 0x73, 0x6d]).unwrap();
+        std::fs::write(dir.path().join("extension.wasm"), [0x00, 0x61, 0x73, 0x6d]).unwrap();
         assert_eq!(detect_extension_mode(dir.path()), Some(ExtensionMode::Protocol));
     }
 
@@ -71,7 +71,7 @@ mod tests {
     fn manifest_wins_when_both_exist() {
         let dir = TempDir::new().unwrap();
         std::fs::write(dir.path().join("manifest.json"), "{}").unwrap();
-        std::fs::write(dir.path().join("extension.wasm"), &[0x00]).unwrap();
+        std::fs::write(dir.path().join("extension.wasm"), [0x00]).unwrap();
         assert_eq!(detect_extension_mode(dir.path()), Some(ExtensionMode::Manifest));
     }
 
@@ -79,7 +79,7 @@ mod tests {
     fn find_wasm_binary_returns_path() {
         let dir = TempDir::new().unwrap();
         let wasm_path = dir.path().join("my_ext.wasm");
-        std::fs::write(&wasm_path, &[0x00, 0x61, 0x73, 0x6d]).unwrap();
+        std::fs::write(&wasm_path, [0x00, 0x61, 0x73, 0x6d]).unwrap();
         assert_eq!(find_wasm_binary(dir.path()), Some(wasm_path));
     }
 

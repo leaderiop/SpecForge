@@ -1007,7 +1007,7 @@ mod tests {
 
     #[test]
     fn test_manifest_field_without_default_value_and_enum_values_defaults() {
-        let manifest = minimal_valid_manifest();
+        let _manifest = minimal_valid_manifest();
         // Fields from JSON deserialization without these fields should get defaults
         let field: ManifestField = serde_json::from_str(
             r#"{ "name": "contract", "fieldType": "block" }"#,

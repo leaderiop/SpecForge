@@ -1,6 +1,6 @@
-/// E2E pipeline tests: parse → resolve → graph → validate → emit
-/// These tests exercise the full compilation pipeline from spec source files
-/// to emitted output, verifying roundtrip integrity.
+//! E2E pipeline tests: parse → resolve → graph → validate → emit
+//! These tests exercise the full compilation pipeline from spec source files
+//! to emitted output, verifying roundtrip integrity.
 
 use specforge_test::prelude::*;
 use tempfile::TempDir;

@@ -65,8 +65,8 @@ pub fn scan_source_files(
         };
 
         let result = runtime.call_export(&entry.extension_name, &entry.scan_export, &input);
-        if let specforge_wasm::runtime::WasmCallResult::Ok(output) = result {
-            if let Ok(resp) = serde_json::from_slice::<ScanResponse>(&output) {
+        if let specforge_wasm::runtime::WasmCallResult::Ok(output) = result
+            && let Ok(resp) = serde_json::from_slice::<ScanResponse>(&output) {
                 for item in resp.items {
                     all_items.push(SourceItem {
                         name: item.name,
@@ -80,7 +80,6 @@ pub fn scan_source_files(
                     scanners_used.push(entry.extension_name.clone());
                 }
             }
-        }
     }
 
     (all_items, scanners_used)

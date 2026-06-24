@@ -542,7 +542,7 @@ behavior delta "D" { contract "new" }
         graph.add_node(node.clone());
     }
     for edge in rebuilt_subgraph.edges() {
-        graph.add_edge(edge.clone());
+        graph.add_edge(*edge);
     }
 
     // Cold rebuild for comparison
@@ -871,7 +871,6 @@ feature gamma "G" { behaviors [alpha, nonexistent] }
     assert_eq!(errors.len(), 1);
 }
 
-#[test]
 // === edge index correctness ===
 
 #[specforge_test(behavior = "build_in_memory_graph", verify = "edge index returns same results as linear scan")]
@@ -1245,7 +1244,7 @@ behavior b "B" { contract "second" guarded_by [a] }
 
     // Without bidirectional pairs configured, the cycle should be reported as W061
     let config_no_pairs = GraphConfig::default();
-    let (_, diags_no_pairs) = build_graph_with_config(&[spec_file.clone()], &config_no_pairs);
+    let (_, diags_no_pairs) = build_graph_with_config(std::slice::from_ref(&spec_file), &config_no_pairs);
     let w061_no_pairs: Vec<_> = diags_no_pairs.iter().filter(|d| d.code == "W061").collect();
     assert!(
         !w061_no_pairs.is_empty(),

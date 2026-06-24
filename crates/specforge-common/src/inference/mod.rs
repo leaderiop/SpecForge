@@ -267,8 +267,10 @@ mod tests {
 
     #[test]
     fn round_trip_serialization() {
-        let mut m = InferenceManifest::default();
-        m.source_roots = vec!["src/".to_string()];
+        let mut m = InferenceManifest {
+            source_roots: vec!["src/".to_string()],
+            ..Default::default()
+        };
         m.upsert_source_entry(SourceFileEntry {
             path: "src/main.rs".to_string(),
             content_hash: "abc123".to_string(),
@@ -308,8 +310,10 @@ mod tests {
     #[test]
     fn save_and_load_round_trip() {
         let dir = TempDir::new().unwrap();
-        let mut m = InferenceManifest::default();
-        m.source_roots = vec!["crates/my-crate/src".to_string()];
+        let mut m = InferenceManifest {
+            source_roots: vec!["crates/my-crate/src".to_string()],
+            ..Default::default()
+        };
         m.upsert_source_entry(SourceFileEntry {
             path: "crates/my-crate/src/lib.rs".to_string(),
             content_hash: "deadbeef".to_string(),

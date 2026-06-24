@@ -124,7 +124,7 @@ async fn main() {
                 if tokens.is_empty() {
                     println!("No tokens found.");
                 } else {
-                    println!("{:<12} {:<20} {:<16} {}", "PREFIX", "LABEL", "SCOPE", "CREATED");
+                    println!("{:<12} {:<20} {:<16} CREATED", "PREFIX", "LABEL", "SCOPE");
                     for t in &tokens {
                         println!("{:<12} {:<20} {:<16} {}",
                             &t.token_hash[..8],

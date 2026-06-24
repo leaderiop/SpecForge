@@ -105,7 +105,7 @@ impl DescribeResponse {
 // ── Entity Kind Descriptor ──
 
 /// Describes an entity kind contributed by an extension.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
 pub struct EntityKindDescriptor {
     pub name: String,
     #[serde(default)]
@@ -145,7 +145,7 @@ pub struct EntityKindDescriptor {
 // ── Field Descriptor ──
 
 /// Describes a field on an entity kind.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
 pub struct FieldDescriptor {
     pub name: String,
     pub field_type: String,
