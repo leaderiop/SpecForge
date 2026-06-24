@@ -47,6 +47,8 @@ pub struct ContributionFlags {
     pub grammars: bool,
     #[serde(default)]
     pub body_parsers: bool,
+    #[serde(default)]
+    pub analyzers: bool,
 }
 
 /// Declares a dependency on another extension.
@@ -136,6 +138,8 @@ pub struct EntityKindDescriptor {
     pub dot_fillcolor: Option<String>,
     #[serde(default)]
     pub verify_kinds: Vec<String>,
+    #[serde(default)]
+    pub inference_guide: Option<String>,
 }
 
 // ── Field Descriptor ──
@@ -371,6 +375,91 @@ pub struct CollectorDescriptor {
     pub export: String,
     #[serde(default)]
     pub auto_detect: Option<AutoDetectConfig>,
+}
+
+// ── Analyzer Protocol Types ──
+
+/// Request to scan a source file for public items.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct ScanRequest {
+    pub file_path: String,
+    pub content: String,
+}
+
+/// A single scanned item from source code.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct ScannedItem {
+    pub name: String,
+    pub item_kind: String,
+    pub line: usize,
+    #[serde(default)]
+    pub visibility: Option<String>,
+    #[serde(default)]
+    pub signature: Option<String>,
+}
+
+/// Response from scanning a source file.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct ScanResponse {
+    pub items: Vec<ScannedItem>,
+    #[serde(default)]
+    pub language: Option<String>,
+}
+
+/// Request to classify scanned items into specforge entity categories.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct ClassifyRequest {
+    pub items: Vec<ScannedItem>,
+    pub file_path: String,
+}
+
+/// Classification result for a scanned item.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct ClassifiedItem {
+    pub name: String,
+    pub item_kind: String,
+    pub suggested_entity_kind: Option<String>,
+    pub confidence: f64,
+    pub line: usize,
+}
+
+/// Response from classifying scanned items.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct ClassifyResponse {
+    pub items: Vec<ClassifiedItem>,
+}
+
+/// Request to map a source symbol to a specforge entity ID.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct MapSymbolRequest {
+    pub name: String,
+    pub item_kind: String,
+    pub file_path: String,
+    #[serde(default)]
+    pub existing_entity_ids: Vec<String>,
+}
+
+/// Response from mapping a symbol to an entity ID.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct MapSymbolResponse {
+    pub entity_id: Option<String>,
+    pub mapping_strategy: String,
+}
+
+// ── Analyzer Descriptor ──
+
+/// Describes a language analyzer contributed by an extension.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct AnalyzerDescriptor {
+    pub language: String,
+    pub file_extensions: Vec<String>,
+    #[serde(default)]
+    pub excluded_dirs: Vec<String>,
+    pub scan_export: String,
+    pub classify_export: String,
+    pub map_export: String,
+    #[serde(default)]
+    pub description: Option<String>,
 }
 
 // ── Compiler Pass Descriptor ──

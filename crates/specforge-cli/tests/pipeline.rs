@@ -188,6 +188,7 @@ channel cli "CLI" {
 }
 
 feature f1 "Core Feature" {
+    problem "Users need a core feature"
     status proposed
     priority high
 }
@@ -197,6 +198,11 @@ journey j1 "Dev Flow" {
     channels [cli]
     features [f1]
     description "Developer uses CLI"
+    flow [
+        "Open CLI"
+        "Run command"
+        "See output"
+    ]
 }
 
 module mod1 "Core Module" {
@@ -343,4 +349,53 @@ milestone m1 "Done Milestone" {
 
     let w057_diags: Vec<_> = ctx.diagnostics.iter().filter(|d| d.code == "W057").collect();
     assert!(!w057_diags.is_empty(), "expected W057 for completed milestone without exit_criteria, diagnostics: {:?}", ctx.diagnostics);
+}
+#[test]
+fn test_pipeline_e006_fires_for_missing_required_fields() {
+    let dir = setup_project_with_extension(
+        r#"feature broken_feat "Missing problem" {
+    status proposed
+    priority high
+}
+
+journey broken_journey "Missing flow" {
+    description "no flow field"
+}
+"#,
+    );
+
+    let ctx = specforge_emitter::compile::compile(dir.path());
+
+    let e006_diags: Vec<_> = ctx.diagnostics.iter()
+        .filter(|d| d.code == "E006")
+        .collect();
+
+    assert!(e006_diags.iter().any(|d| d.message.contains("problem")),
+        "Expected E006 for feature missing 'problem', got: {:?}", e006_diags);
+    assert!(e006_diags.iter().any(|d| d.message.contains("flow")),
+        "Expected E006 for journey missing 'flow', got: {:?}", e006_diags);
+}
+
+#[test]
+fn test_pipeline_e006_silent_when_required_fields_present() {
+    let dir = setup_project_with_extension(
+        r#"feature f1 "Complete" {
+    problem "Users need this"
+    status proposed
+    priority high
+}
+
+journey j1 "Complete" {
+    flow ["step 1", "step 2"]
+    features [f1]
+}
+"#,
+    );
+
+    let ctx = specforge_emitter::compile::compile(dir.path());
+
+    let e006_diags: Vec<_> = ctx.diagnostics.iter()
+        .filter(|d| d.code == "E006")
+        .collect();
+    assert!(e006_diags.is_empty(), "Expected no E006 when required fields present, got: {:?}", e006_diags);
 }

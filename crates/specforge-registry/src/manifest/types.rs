@@ -49,6 +49,8 @@ pub struct ManifestV2 {
     #[serde(default)]
     pub collector_contributions: Vec<CollectorContribution>,
     #[serde(default)]
+    pub analyzer_contributions: Vec<AnalyzerContribution>,
+    #[serde(default)]
     pub surfaces: Option<SurfaceContributions>,
 }
 
@@ -73,6 +75,8 @@ pub struct ExtensionContributions {
     pub grammars: bool,
     #[serde(default)]
     pub body_parsers: bool,
+    #[serde(default)]
+    pub analyzers: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -108,6 +112,8 @@ pub struct ManifestEntityKind {
     pub has_body_parser: bool,
     #[serde(default)]
     pub open_fields: bool,
+    #[serde(default)]
+    pub inference_guide: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -252,6 +258,21 @@ pub struct CollectorAutoDetect {
     pub env_vars: Vec<String>,
 }
 
+/// Declares a language analyzer contributed by an extension.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct AnalyzerContribution {
+    pub language: String,
+    pub file_extensions: Vec<String>,
+    #[serde(default)]
+    pub excluded_dirs: Vec<String>,
+    pub scan_export: String,
+    pub classify_export: String,
+    pub map_export: String,
+    #[serde(default)]
+    pub description: Option<String>,
+}
+
 /// Validate a ManifestV2 against the v2 schema rules.
 /// Returns diagnostics for any issues found.
 pub fn validate_manifest(manifest: &ManifestV2) -> Vec<Diagnostic> {
@@ -335,6 +356,47 @@ pub fn validate_manifest(manifest: &ManifestV2) -> Vec<Diagnostic> {
                 span: None,
                 suggestion: None,
             });
+        }
+    }
+
+    for ac in &manifest.analyzer_contributions {
+        if ac.language.is_empty() {
+            diagnostics.push(Diagnostic {
+                code: "E030".to_string(),
+                severity: Severity::Error,
+                message: format!(
+                    "extension '{}': analyzerContribution has empty language",
+                    manifest.name
+                ),
+                span: None,
+                suggestion: None,
+            });
+        }
+        if ac.file_extensions.is_empty() {
+            diagnostics.push(Diagnostic {
+                code: "E030".to_string(),
+                severity: Severity::Error,
+                message: format!(
+                    "extension '{}': analyzerContribution for '{}' has no file extensions",
+                    manifest.name, ac.language
+                ),
+                span: None,
+                suggestion: None,
+            });
+        }
+        for export in [&ac.scan_export, &ac.classify_export, &ac.map_export] {
+            if export.is_empty() {
+                diagnostics.push(Diagnostic {
+                    code: "E030".to_string(),
+                    severity: Severity::Error,
+                    message: format!(
+                        "extension '{}': analyzerContribution for '{}' has empty export name",
+                        manifest.name, ac.language
+                    ),
+                    span: None,
+                    suggestion: None,
+                });
+            }
         }
     }
 
@@ -815,6 +877,99 @@ mod tests {
 
         assert_eq!(manifest.collector_contributions.len(), 1);
         assert!(manifest.collector_contributions[0].auto_detect.is_none());
+    }
+
+    // -- AnalyzerContribution tests --
+
+    #[test]
+    fn test_manifest_with_analyzer_contributions_deserializes() {
+        let manifest: ManifestV2 = serde_json::from_str(
+            r#"{
+                "name": "@specforge/rust",
+                "version": "1.0.0",
+                "manifestVersion": 2,
+                "wasmPath": "rust.wasm",
+                "contributes": { "analyzers": true },
+                "analyzerContributions": [
+                    {
+                        "language": "rust",
+                        "fileExtensions": [".rs"],
+                        "excludedDirs": ["target"],
+                        "scanExport": "scan__rust",
+                        "classifyExport": "classify__rust",
+                        "mapExport": "map__rust",
+                        "description": "Rust source analyzer"
+                    }
+                ]
+            }"#,
+        )
+        .unwrap();
+
+        assert_eq!(manifest.analyzer_contributions.len(), 1);
+        assert!(manifest.contributes.analyzers);
+        let ac = &manifest.analyzer_contributions[0];
+        assert_eq!(ac.language, "rust");
+        assert_eq!(ac.file_extensions, vec![".rs"]);
+        assert_eq!(ac.excluded_dirs, vec!["target"]);
+        assert_eq!(ac.scan_export, "scan__rust");
+        assert_eq!(ac.classify_export, "classify__rust");
+        assert_eq!(ac.map_export, "map__rust");
+        assert_eq!(ac.description.as_deref(), Some("Rust source analyzer"));
+    }
+
+    #[test]
+    fn test_manifest_without_analyzer_contributions_defaults_empty() {
+        let manifest = minimal_valid_manifest();
+        assert!(manifest.analyzer_contributions.is_empty());
+        assert!(!manifest.contributes.analyzers);
+    }
+
+    #[test]
+    fn test_validate_manifest_rejects_empty_analyzer_language() {
+        let manifest: ManifestV2 = serde_json::from_str(
+            r#"{
+                "name": "@test/ext",
+                "version": "1.0.0",
+                "manifestVersion": 2,
+                "wasmPath": "x.wasm",
+                "analyzerContributions": [
+                    {
+                        "language": "",
+                        "fileExtensions": [".rs"],
+                        "scanExport": "scan__x",
+                        "classifyExport": "classify__x",
+                        "mapExport": "map__x"
+                    }
+                ]
+            }"#,
+        )
+        .unwrap();
+        let diags = validate_manifest(&manifest);
+        assert!(diags.iter().any(|d| d.code == "E030" && d.message.contains("empty language")));
+    }
+
+    #[test]
+    fn test_validate_manifest_rejects_empty_analyzer_exports() {
+        let manifest: ManifestV2 = serde_json::from_str(
+            r#"{
+                "name": "@test/ext",
+                "version": "1.0.0",
+                "manifestVersion": 2,
+                "wasmPath": "x.wasm",
+                "analyzerContributions": [
+                    {
+                        "language": "rust",
+                        "fileExtensions": [".rs"],
+                        "scanExport": "",
+                        "classifyExport": "classify__rust",
+                        "mapExport": "map__rust"
+                    }
+                ]
+            }"#,
+        )
+        .unwrap();
+        let diags = validate_manifest(&manifest);
+        assert!(diags.iter().any(|d| d.code == "E030" && d.message.contains("empty export")));
     }
 
     // -- H6: ManifestField with default_value and enum_values --

@@ -3,6 +3,7 @@ mod budget;
 pub mod builtins;
 pub mod compile;
 mod context;
+pub mod scanner_dispatch;
 mod diagnostic_fmt;
 mod dot;
 mod emit;
@@ -21,7 +22,7 @@ mod trace;
 // --- Primary API (use these) ---
 pub use error::EmitterError;
 pub use emit::{emit, EmitFormat, EmitOptions};
-pub use compile::{compile, compile_simple, compile_with_runtime, CompilationContext};
+pub use compile::{build_validation_entities, compile, compile_simple, compile_with_runtime, CompilationContext};
 pub use exit_code::{compute_exit_code, compute_exit_code_strict};
 pub use stats::{compute_stats, compute_stats_with_diagnostics, compute_stats_with_testable, ProjectStats};
 pub use query::query;

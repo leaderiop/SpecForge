@@ -1,0 +1,185 @@
+{
+  "category": "edges",
+  "items": [
+    {
+      "description": null,
+      "edge_arrowhead": null,
+      "edge_color": "#2196F3",
+      "edge_style": "dashed",
+      "label": "FeatureDependsOn",
+      "source_kind": "feature",
+      "target_kind": "feature"
+    },
+    {
+      "description": "Feature has a non-dependency relationship to another feature",
+      "edge_arrowhead": null,
+      "edge_color": "#2196F3",
+      "edge_style": "dotted",
+      "label": "FeatureRelatesTo",
+      "source_kind": "feature",
+      "target_kind": "feature"
+    },
+    {
+      "description": null,
+      "edge_arrowhead": null,
+      "edge_color": "#FF9800",
+      "edge_style": "solid",
+      "label": "JourneyExercisesFeature",
+      "source_kind": "journey",
+      "target_kind": "feature"
+    },
+    {
+      "description": null,
+      "edge_arrowhead": null,
+      "edge_color": "#E91E63",
+      "edge_style": "solid",
+      "label": "JourneyTargetsPersona",
+      "source_kind": "journey",
+      "target_kind": "persona"
+    },
+    {
+      "description": null,
+      "edge_arrowhead": null,
+      "edge_color": "#00BCD4",
+      "edge_style": "solid",
+      "label": "JourneyUsesChannel",
+      "source_kind": "journey",
+      "target_kind": "channel"
+    },
+    {
+      "description": null,
+      "edge_arrowhead": null,
+      "edge_color": "#4CAF50",
+      "edge_style": "solid",
+      "label": "DeliverableSupportsJourney",
+      "source_kind": "deliverable",
+      "target_kind": "journey"
+    },
+    {
+      "description": null,
+      "edge_arrowhead": null,
+      "edge_color": "#607D8B",
+      "edge_style": "solid",
+      "label": "DeliverableContainsModule",
+      "source_kind": "deliverable",
+      "target_kind": "module"
+    },
+    {
+      "description": null,
+      "edge_arrowhead": null,
+      "edge_color": "#9C27B0",
+      "edge_style": "solid",
+      "label": "DeliverableTrackedByMilestone",
+      "source_kind": "deliverable",
+      "target_kind": "milestone"
+    },
+    {
+      "description": null,
+      "edge_arrowhead": null,
+      "edge_color": "#4CAF50",
+      "edge_style": "dashed",
+      "label": "DeliverableDependsOn",
+      "source_kind": "deliverable",
+      "target_kind": "deliverable"
+    },
+    {
+      "description": null,
+      "edge_arrowhead": null,
+      "edge_color": "#9C27B0",
+      "edge_style": "solid",
+      "label": "MilestoneDeliversFeature",
+      "source_kind": "milestone",
+      "target_kind": "feature"
+    },
+    {
+      "description": null,
+      "edge_arrowhead": null,
+      "edge_color": "#607D8B",
+      "edge_style": "solid",
+      "label": "MilestoneScopesModule",
+      "source_kind": "milestone",
+      "target_kind": "module"
+    },
+    {
+      "description": null,
+      "edge_arrowhead": null,
+      "edge_color": "#9C27B0",
+      "edge_style": "dashed",
+      "label": "MilestoneDependsOn",
+      "source_kind": "milestone",
+      "target_kind": "milestone"
+    },
+    {
+      "description": null,
+      "edge_arrowhead": null,
+      "edge_color": "#607D8B",
+      "edge_style": "solid",
+      "label": "ModuleContainsFeature",
+      "source_kind": "module",
+      "target_kind": "feature"
+    },
+    {
+      "description": null,
+      "edge_arrowhead": null,
+      "edge_color": "#607D8B",
+      "edge_style": "dashed",
+      "label": "ModuleDependsOn",
+      "source_kind": "module",
+      "target_kind": "module"
+    },
+    {
+      "description": null,
+      "edge_arrowhead": null,
+      "edge_color": "#795548",
+      "edge_style": "dotted",
+      "label": "TermReferencesRelatedTerm",
+      "source_kind": "term",
+      "target_kind": "term"
+    },
+    {
+      "description": "Term is defined within a module's bounded context",
+      "edge_arrowhead": null,
+      "edge_color": "#795548",
+      "edge_style": "dotted",
+      "label": "TermBelongsToModule",
+      "source_kind": "term",
+      "target_kind": "module"
+    },
+    {
+      "description": null,
+      "edge_arrowhead": null,
+      "edge_color": "#FF5722",
+      "edge_style": "solid",
+      "label": "ReleaseIncludesDeliverable",
+      "source_kind": "release",
+      "target_kind": "deliverable"
+    },
+    {
+      "description": null,
+      "edge_arrowhead": null,
+      "edge_color": "#FF5722",
+      "edge_style": "solid",
+      "label": "ReleaseCompletesMilestone",
+      "source_kind": "release",
+      "target_kind": "milestone"
+    },
+    {
+      "description": null,
+      "edge_arrowhead": null,
+      "edge_color": "#FF5722",
+      "edge_style": "dashed",
+      "label": "ReleaseDependsOn",
+      "source_kind": "release",
+      "target_kind": "release"
+    },
+    {
+      "description": "Persona prioritizes a feature",
+      "edge_arrowhead": null,
+      "edge_color": "#E91E63",
+      "edge_style": "solid",
+      "label": "PersonaPrioritizesFeature",
+      "source_kind": "persona",
+      "target_kind": "feature"
+    }
+  ]
+}

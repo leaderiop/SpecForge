@@ -33,6 +33,7 @@ fn default_test_manifest() -> specforge_registry::ManifestV2 {
         ext_short: None,
         query_scope: None,
         collector_contributions: vec![],
+        analyzer_contributions: vec![],
         surfaces: None,
     }
 }

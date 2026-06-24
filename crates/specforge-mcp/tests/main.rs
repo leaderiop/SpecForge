@@ -12,3 +12,4 @@ mod subscriptions;
 mod surface_wiring;
 mod tools_core;
 mod tools_navigation;
+mod tools_inference;

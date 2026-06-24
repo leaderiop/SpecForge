@@ -63,6 +63,24 @@ pub fn run(path: &Path, name: Option<&str>, version: Option<&str>, extensions: &
         return 1;
     }
 
+    // Append specforge-infer.json to .gitignore (create if missing)
+    let gitignore_path = path.join(".gitignore");
+    let needs_entry = match std::fs::read_to_string(&gitignore_path) {
+        Ok(content) => !content.lines().any(|l| l.trim() == "specforge-infer.json"),
+        Err(_) => true,
+    };
+    if needs_entry {
+        let mut file = std::fs::OpenOptions::new()
+            .create(true)
+            .append(true)
+            .open(&gitignore_path)
+            .ok();
+        if let Some(ref mut f) = file {
+            use std::io::Write;
+            let _ = writeln!(f, "specforge-infer.json");
+        }
+    }
+
     // Write starter spec file — choose template based on installed extensions
     let has_software = extensions.iter().any(|e| e.contains("software"));
     let has_product = extensions.iter().any(|e| e.contains("product"));

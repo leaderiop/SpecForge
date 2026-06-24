@@ -89,7 +89,12 @@ pub fn protocol_extension_to_manifest(ext: &ProtocolExtension) -> ManifestV2 {
             .iter()
             .map(convert_collector)
             .collect(),
-        // H7: Map surfaces from protocol data instead of hardcoding None.
+        analyzer_contributions: ext
+            .descriptions
+            .analyzers
+            .iter()
+            .map(convert_analyzer)
+            .collect(),
         surfaces: ext
             .descriptions
             .surfaces
@@ -125,6 +130,7 @@ fn convert_contribution_flags(
         parsers: flags.parsers,
         grammars: flags.grammars,
         body_parsers: flags.body_parsers,
+        analyzers: flags.analyzers,
     }
 }
 
@@ -171,6 +177,7 @@ fn convert_entity_kind(desc: &EntityKindDescriptor) -> specforge_registry::Manif
         incremental: desc.incremental,
         has_body_parser: desc.has_body_parser,
         open_fields: desc.open_fields,
+        inference_guide: desc.inference_guide.clone(),
     }
 }
 
@@ -271,6 +278,18 @@ fn convert_collector(desc: &CollectorDescriptor) -> specforge_registry::Collecto
                 env_vars: ad.env_vars.clone(),
             }
         }),
+    }
+}
+
+fn convert_analyzer(desc: &AnalyzerDescriptor) -> specforge_registry::AnalyzerContribution {
+    specforge_registry::AnalyzerContribution {
+        language: desc.language.clone(),
+        file_extensions: desc.file_extensions.clone(),
+        excluded_dirs: desc.excluded_dirs.clone(),
+        scan_export: desc.scan_export.clone(),
+        classify_export: desc.classify_export.clone(),
+        map_export: desc.map_export.clone(),
+        description: desc.description.clone(),
     }
 }
 

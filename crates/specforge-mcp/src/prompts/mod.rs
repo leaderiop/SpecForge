@@ -1,7 +1,8 @@
 mod context;
+mod explore;
+mod infer;
 mod review;
 mod trace;
-mod explore;
 
 use serde_json::Value;
 
@@ -27,6 +28,7 @@ pub fn handle_prompt_get(state: &mut McpState, params: Value, id: Option<Value>)
         "specforge://prompts/review" => review::get(state, arguments, id),
         "specforge://prompts/trace" => trace::get(state, arguments, id),
         "specforge://prompts/explore" => explore::get(state, arguments, id),
+        "specforge://prompts/infer" => infer::get(state, arguments, id),
         _ => JsonRpcResponse::error(id, error_codes::INVALID_PARAMS, format!("Unknown prompt: {}", name)),
     }
 }

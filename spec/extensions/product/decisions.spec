@@ -323,7 +323,6 @@ decision pe_journey_description_field "Journey Description Field" {
 decision pe_i058_query_time_only "I058 Overdue Detection as Query-Time Only" {
   status       superseded
   date         2026-03-13
-  supersedes   "pe_i058_inline_diagnostic (2026-03-10)"
   context      """
     The original decision (pe_i058_inline_diagnostic) had I058 produced inline
     by pe_query_milestone_timeline during the validation phase. This made
@@ -1624,7 +1623,7 @@ decision pe_blockers_on_milestones "External Blockers on Milestones" {
 }
 
 decision pe_acceptance_criteria_future "Structured Acceptance Criteria" {
-  status     deferred
+  status     proposed
   reason     "Deferred to entity_enhancement from @specforge/software"
   context    """
     Feature acceptance criteria are free-form string[]. Structured acceptance
@@ -1714,7 +1713,7 @@ decision pe_release_v1_1_migration "Release Entity v1.1 Migration Path" {
 }
 
 decision pe_cross_extension_query_depth "Cross-Extension Query Depth" {
-  status     deferred
+  status     proposed
   reason     "Deferred until extension interop protocol is stable"
   context    """
     Product queries traverse only the 16 product-owned edge types. Cross-extension

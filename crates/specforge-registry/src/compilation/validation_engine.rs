@@ -29,6 +29,9 @@ pub enum ValidationPatternKind {
     /// Uses `constraint.pattern` as the condition field name, `constraint.values` as
     /// the triggering values, and `field` as the required field.
     ConditionalFieldRequired,
+    /// A field declared `required: true` must be present on every entity of its kind.
+    /// Produces E006 at Error severity.
+    MissingRequiredField,
 }
 
 #[derive(Debug, Clone)]
@@ -82,6 +85,7 @@ pub fn parse_rule_pattern(
         "file_exists" => ValidationPatternKind::FileExists,
         "custom" => ValidationPatternKind::Custom,
         "conditional_field_required" => ValidationPatternKind::ConditionalFieldRequired,
+        "missing_required_field" => ValidationPatternKind::MissingRequiredField,
         other => {
             return Err(Diagnostic {
                 code: "W024".to_string(),
@@ -274,6 +278,13 @@ pub fn execute_pattern(
                     }
                 } else {
                     false // misconfigured pattern
+                }
+            }
+            ValidationPatternKind::MissingRequiredField => {
+                if let Some(ref field_name) = pattern.field {
+                    !entity.fields.contains_key(field_name)
+                } else {
+                    false
                 }
             }
             ValidationPatternKind::Custom => {
@@ -1071,5 +1082,67 @@ mod tests {
 
         let diags = execute_pattern(&pattern, &[entity], None);
         assert!(diags.is_empty(), "should not fire when condition field is absent");
+    }
+
+    // -- B:missing_required_field --
+
+    #[test]
+    fn test_parses_missing_required_field() {
+        let mut rule = make_rule("E006", "missing_required_field");
+        rule.severity = "error".to_string();
+        rule.field = Some("contract".to_string());
+        rule.message_template = "behavior '{id}' is missing required field 'contract'".to_string();
+        let pattern = parse_rule_pattern(&rule, "@specforge/software").unwrap();
+        assert_eq!(pattern.check, ValidationPatternKind::MissingRequiredField);
+        assert_eq!(pattern.field.as_deref(), Some("contract"));
+        assert_eq!(pattern.severity, Severity::Error);
+    }
+
+    #[test]
+    fn test_missing_required_field_fires_when_absent() {
+        let mut rule = make_rule("E006", "missing_required_field");
+        rule.severity = "error".to_string();
+        rule.field = Some("contract".to_string());
+        rule.message_template = "behavior '{id}' is missing required field 'contract'".to_string();
+        let pattern = parse_rule_pattern(&rule, "@specforge/software").unwrap();
+
+        let entity = make_entity("my_beh", "behavior", 1, 0);
+        let diags = execute_pattern(&pattern, &[entity], None);
+        assert_eq!(diags.len(), 1);
+        assert_eq!(diags[0].code, "E006");
+        assert_eq!(diags[0].severity, Severity::Error);
+        assert!(diags[0].message.contains("my_beh"));
+        assert!(diags[0].message.contains("contract"));
+    }
+
+    #[test]
+    fn test_missing_required_field_silent_when_present() {
+        let mut rule = make_rule("E006", "missing_required_field");
+        rule.severity = "error".to_string();
+        rule.field = Some("contract".to_string());
+        rule.message_template = "behavior '{id}' is missing required field 'contract'".to_string();
+        let pattern = parse_rule_pattern(&rule, "@specforge/software").unwrap();
+
+        let mut entity = make_entity("my_beh", "behavior", 1, 0);
+        entity.fields.insert("contract".to_string(), "Handles user login".to_string());
+        let diags = execute_pattern(&pattern, &[entity], None);
+        assert!(diags.is_empty());
+    }
+
+    #[test]
+    fn test_missing_required_field_only_targets_matching_kind() {
+        let mut rule = make_rule("E006", "missing_required_field");
+        rule.severity = "error".to_string();
+        rule.field = Some("contract".to_string());
+        rule.message_template = "behavior '{id}' is missing required field 'contract'".to_string();
+        let pattern = parse_rule_pattern(&rule, "@specforge/software").unwrap();
+
+        // behavior without contract → fire
+        let beh = make_entity("my_beh", "behavior", 1, 0);
+        // event without contract → skip (different kind)
+        let evt = make_entity("my_evt", "event", 1, 0);
+        let diags = execute_pattern(&pattern, &[beh, evt], None);
+        assert_eq!(diags.len(), 1);
+        assert!(diags[0].message.contains("my_beh"));
     }
 }

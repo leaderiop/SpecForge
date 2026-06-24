@@ -1,20 +1,45 @@
 mod formal;
 mod governance;
 mod product;
+mod rust;
 mod software;
+mod typescript;
 
 pub use formal::FormalExtension;
 pub use governance::GovernanceExtension;
 pub use product::ProductExtension;
+pub use rust::RustExtension;
 pub use software::SoftwareExtension;
+pub use typescript::TypeScriptExtension;
 
 use specforge_wasm::BuiltinRuntime;
 
-/// Create a `BuiltinRuntime` with all built-in extensions registered.
-pub fn default_runtime() -> BuiltinRuntime {
-    BuiltinRuntime::new()
-        .with_extension("@specforge/product", Box::new(ProductExtension))
-        .with_extension("@specforge/software", Box::new(SoftwareExtension))
-        .with_extension("@specforge/governance", Box::new(GovernanceExtension))
-        .with_extension("@specforge/formal", Box::new(FormalExtension))
+/// All known builtin extension names.
+pub const KNOWN_BUILTINS: &[&str] = &[
+    "@specforge/product",
+    "@specforge/software",
+    "@specforge/governance",
+    "@specforge/formal",
+    "@specforge/rust",
+    "@specforge/typescript",
+];
+
+/// Create a `BuiltinRuntime` containing only the requested extensions.
+///
+/// Extension names not recognized as builtins are silently skipped (they may
+/// be external Wasm extensions loaded separately).
+pub fn runtime_for_extensions(names: &[String]) -> BuiltinRuntime {
+    let mut runtime = BuiltinRuntime::new();
+    for name in names {
+        match name.as_str() {
+            "@specforge/product" => { runtime = runtime.with_extension(name, Box::new(ProductExtension)); }
+            "@specforge/software" => { runtime = runtime.with_extension(name, Box::new(SoftwareExtension)); }
+            "@specforge/governance" => { runtime = runtime.with_extension(name, Box::new(GovernanceExtension)); }
+            "@specforge/formal" => { runtime = runtime.with_extension(name, Box::new(FormalExtension)); }
+            "@specforge/rust" => { runtime = runtime.with_extension(name, Box::new(RustExtension)); }
+            "@specforge/typescript" => { runtime = runtime.with_extension(name, Box::new(TypeScriptExtension)); }
+            _ => {}
+        }
+    }
+    runtime
 }

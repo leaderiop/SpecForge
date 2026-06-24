@@ -28,4 +28,5 @@ pub const SUPPORTED_CATEGORIES: &[&str] = &[
     "collectors",
     "passes",
     "feature_flags",
+    "analyzers",
 ];

@@ -1,101 +1,156 @@
 # SpecForge
 
-A compiler for `.spec` files that builds a typed entity graph with full traceability — from user-facing capabilities down to runtime invariants. Write specifications in a structured DSL, and the compiler validates cross-references, detects orphans, and generates code.
+**Compile human intent into a validated, typed entity graph that AI agents can actually consume.**
+
+Intent is trapped in prose — scattered across docs, comments, tickets, and tribal knowledge. AI agents waste most of their token budget rediscovering what should have been specified. SpecForge gives them a structured, validated, machine-readable representation of what your team means.
+
+**The graph is the product.** Not the compiler, not the DSL — the typed graph, exported as an open JSON schema (the Graph Protocol), is what makes agents reliable. SpecForge is *not* a code generator and *not* a test runner: it provides context, agents produce output, and it traces tests rather than executing them.
 
 ## Quick Example
 
 ```spec
-invariant INV-MS-1 "Data Persistence" {
-  guarantee "All committed writes survive process restarts."
-  enforced_by [persist_committed_writes, replay_write_ahead_log]
-  risk high
+spec "payments" {
+  version "0.1.0"
 }
 
-behavior BEH-MS-001 "Create User" {
-  invariants [INV-MS-1]
-  contract """
-    When a valid CreateUserCommand is received,
-    the system MUST create a user record with unique email
-    and MUST return Result<User, DuplicateEmailError>.
-  """
-  verify unit "insert user, retrieve by ID, assert equal"
+type user "User account" {
+  status draft
 }
 
-feature FEAT-MS-001 "User Management" {
-  behaviors [BEH-MS-001]
-  problem  "Administrators need to manage user accounts."
-  solution "CRUD operations backed by PostgreSQL with unique email constraints."
+behavior authenticate_user "Authenticate a user with credentials" {
+  status   draft
+  category "auth"
+  contract "Given valid credentials, returns an auth token"
+  produces [user_logged_in]
+
+  verify "rejects invalid password"
+  verify "returns token on success"
+}
+
+event user_logged_in "User successfully logged in" {
+  payload user
 }
 ```
 
-## Core + Plugins
-
-```
-┌────────────────────────────────────────────────────────────┐
-│                      CORE (7 entities)                     │
-│  spec · invariant · behavior · feature · event · type · port│
-│  + meta-schema `define` mechanism                          │
-├─────────────────────────────┬──────────────────────────────┤
-│   @specforge/product (5)    │   @specforge/governance (3)  │
-│  capability · deliverable   │  decision · constraint       │
-│  roadmap · library · glossary│  failure_mode               │
-└─────────────────────────────┴──────────────────────────────┘
+```bash
+specforge init        # scaffold a project (interactive extension selection)
+specforge check       # validate all .spec files and report diagnostics
+specforge export      # emit the typed graph for an agent to consume
 ```
 
-Small stable core (7 entities) covers the universal specification chain. Plugins extend it for product planning and architecture governance. Start with core, add plugins as projects grow.
+## Zero-Domain-Knowledge Core + Extensions
+
+The compiler is a **pure typed-graph engine**. It knows how to parse `keyword name { fields }` blocks, resolve references, detect orphans and cycles, and emit a validated graph — but it carries **no domain vocabulary**. Every entity kind, edge type, and validation rule comes from an extension. If a new domain required a compiler change, the architecture would have failed.
+
+Four extensions ship as builtins:
+
+| Extension | Entity kinds | Purpose |
+|-----------|-------------|---------|
+| **`@specforge/software`** | behavior · invariant · event · type · port | The universal specification chain: contracts, guarantees, data, interfaces. |
+| **`@specforge/product`** | journey · deliverable · milestone · module · term · feature · persona · channel · release | Product planning, roadmaps, and ubiquitous language. |
+| **`@specforge/governance`** | decision · constraint · failure_mode | Architecture decisions, non-functional requirements, FMEA risk. |
+| **`@specforge/formal`** | property · axiom · protocol · refinement · process | Formal methods: temporal properties, specification layering, event-graph linting. Enhances software entities. |
+
+Start with one extension and a single spec file — that already improves agent output. Add more as your project grows. Anyone can author and publish their own extension; the open Graph Protocol is the moat, not the implementation.
 
 ## Why SpecForge? — The AI Agent Cost Problem
 
-AI coding agents waste **60-80% of their token budget** on exploration and disambiguation — reading files, guessing requirements, making wrong assumptions, and reworking failed attempts. Only 15-25% of tokens produce actual code.
+AI coding agents spend most of their token budget on exploration and disambiguation — reading files, guessing requirements, making wrong assumptions, and reworking failed attempts. SpecForge replaces that exploration with a structured query:
 
-SpecForge fixes this by giving agents **exactly what they need** in a structured, validated format:
+| Without SpecForge | With SpecForge |
+|-------------------|----------------|
+| Agent reads 20–50 files to reconstruct intent | Agent queries the spec graph in a few KB |
+| Agent guesses requirements, asks questions | Contracts, types, and ports are explicit |
+| 30–50% of tasks need rework | Rework drops sharply on first attempt |
 
-| Without SpecForge | With SpecForge | Reduction |
-|-------------------|----------------|-----------|
-| Agent reads 20-50 files (50k-200k tokens) | Agent queries spec graph (1k-7k tokens) | **~90%** |
-| Agent guesses requirements, asks questions | Contracts + types + ports are explicit | **~95%** |
-| 30-50% of tasks need rework | 5-15% need rework | **~70%** |
-| **115k-410k tokens/task** | **18k-57k tokens/task** | **75-86%** |
-
-**At project scale (50 features):** ~58M fewer tokens, ~$900 saved on Claude Opus, ~50 fewer hours of developer wait time. The developer-time savings alone exceed token costs by 10x.
-
-The most expensive token is the one spent discovering what should have been specified.
+The goal: lift AI agent first-attempt accuracy from ~30% (prose) toward 70–85% (graph). The most expensive token is the one spent discovering what should have been specified.
 
 > See **[RES-18: AI Agent Token Economics](spec/research/RES-18-ai-agent-token-economics.md)** for the full analysis with industry data and citations.
+
+## Agents Are First-Class Consumers
+
+- **Multi-resolution queries** — `specforge query <id> --depth N` exposes the graph at multiple zoom levels.
+- **Agent-optimized exports** — `specforge export --format=context|brief|graph|dot`.
+- **Stable, open schema** — `specforge schema` emits the Graph Protocol (JSON Schema draft 2020-12).
+- **MCP server** — `specforge mcp` exposes the graph and tools to agents over JSON-RPC.
+- **Plan validation** — trace tests and entities end to end (Intent → Linkage → Proof).
 
 ## CLI Commands
 
 ```bash
-specforge init                          # scaffold a new project (core only)
-specforge check                         # validate all .spec files
-specforge check --strict                # errors + warnings as errors
-specforge trace FEAT-MS-001             # trace a feature through the graph
-specforge add @specforge/product        # install product planning plugin (+5 entities)
-specforge add @specforge/governance     # install governance plugin (+3 entities)
-specforge plugins                       # list installed plugins
+# Project lifecycle
+specforge init                       # scaffold a new project
+specforge check                      # validate .spec files
+specforge check --strict             # promote warnings to errors
+specforge check --lint=pedantic      # include info-level diagnostics
+
+# Graph access (for agents and humans)
+specforge export --format=context    # token-efficient context for an agent
+specforge query <id> --depth 2       # multi-resolution neighborhood query
+specforge trace <id>                 # traceability chain for an entity
+specforge schema                     # emit the Graph Protocol schema
+specforge model                      # render the logical data model
+specforge outline                    # render the extension architecture
+specforge stats                      # project statistics
+
+# Extensions & registry
+specforge extensions                 # list installed extensions
+specforge add @specforge/product     # install an extension
+specforge remove <name>              # uninstall an extension
+specforge search <query>             # search registries
+specforge publish                    # publish an extension to a registry
+
+# Tooling
+specforge format                     # format .spec files
+specforge collect                    # ingest test results (traces, never runs)
+specforge doctor                     # health-check installed extensions
+specforge mcp                        # start the MCP server (stdio)
+specforge explain E001               # explain a diagnostic code
 ```
+
+## Configuration
+
+Projects are configured via **`specforge.json`** (like `tsconfig.json`):
+
+```json
+{
+  "name": "payments",
+  "version": "0.1.0",
+  "spec_root": "spec",
+  "extensions": ["@specforge/software"]
+}
+```
+
+`specforge init` creates this for you with interactive extension selection.
+
+## Architecture
+
+- **Parser** — Tree-sitter grammar that parses any `keyword name { ... }` block generically, with error recovery (collects multiple diagnostics, never fails fast).
+- **Graph** — petgraph-backed mutable graph, built incrementally to support watch mode and the LSP.
+- **Plugin runtime** — Wasm (Extism) is the only extension runtime, with AOT caching for the CLI and warm engines for the LSP/MCP servers.
+- **Surfaces** — CLI (`specforge-cli`), LSP (`specforge-lsp`), and MCP (`specforge-mcp`) all consume the same graph.
+
+The implementation is a Rust workspace (edition 2024) under [`crates/`](crates/).
 
 ## Documentation
 
-- **[Documentation Hub](docs/README.md)** — entity reference tables, traceability chain, validation codes
-- **[Entity Model](docs/entity-model.md)** — full architecture: core + plugins, edges, validation rules, design principles
-- **[Quick Reference](docs/quick-reference.md)** — single-page cheat sheet for all 15 entities, 19 edges, 23 validation codes
+- **[Vision](vision/README.md)** — the manifesto, [principles](vision/principles.md), and [north star](vision/north-star.md). The source of truth for every product decision.
+- **[Documentation Hub](docs/README.md)** — entity reference tables, traceability chain, validation codes.
+- **[Entity Model](docs/entity-model.md)** — full architecture: core engine, extensions, edges, validation rules.
+- **[Quick Reference](docs/quick-reference.md)** — single-page cheat sheet.
+- **[Extension Protocol](docs/extension-protocol.md)** — how to author and publish your own extension.
 
 ## Business Plan
 
-A comprehensive 10-section business plan is available in **[business/](business/README.md)**, covering executive summary, financial projections, go-to-market, technical roadmap, sales & pricing, product strategy, community, investment thesis, operations, and strategic analysis.
-
-## Project Status
-
-SpecForge is in the **specification phase** — the entity model and DSL grammar are defined, the compiler architecture is designed, and implementation is next.
+A comprehensive business plan lives in **[business/](business/README.md)**.
 
 ## Research Specs
 
 | ID | Title |
 |----|-------|
 | [RES-11a](spec/research/RES-11a-spec-dsl-core-compiler.md) | Core compiler architecture |
-| [RES-11b](spec/research/RES-11b-spec-dsl-codegen-plugins.md) | Code generation & test plugins |
-| [RES-12](spec/research/RES-12-dsl-concept-expansion.md) | DSL concept expansion analysis |
-| [RES-13](spec/research/RES-13-README.md) | Market landscape 2026 |
-| [RES-18](spec/research/RES-18-ai-agent-token-economics.md) | **AI agent token economics — cost reduction analysis** |
-| [RES-19](spec/research/RES-19-market-position-success-estimation.md) | **Market position & success estimation** |
+| [RES-18](spec/research/RES-18-ai-agent-token-economics.md) | AI agent token economics — cost reduction analysis |
+| [RES-19](spec/research/RES-19-market-position-success-estimation.md) | Market position & success estimation |
+| [RES-25](spec/research/RES-25-formal-methods-integration.md) | Formal methods integration |
+| [RES-26](spec/research/RES-26-zero-entity-core-architecture.md) | Zero-entity core architecture |
+| [RES-27](spec/research/RES-27-software-eng-entity-redesign.md) | Software engineering entity redesign |

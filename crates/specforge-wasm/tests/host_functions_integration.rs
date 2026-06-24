@@ -38,6 +38,7 @@ fn default_manifest() -> ManifestV2 {
         ext_short: None,
         query_scope: None,
         collector_contributions: vec![],
+        analyzer_contributions: vec![],
         surfaces: None,
     }
 }

@@ -1,4 +1,4 @@
-use specforge_common::Diagnostic;
+use specforge_common::{Diagnostic, ProjectConfig};
 use specforge_graph::Graph;
 use specforge_registry::{KindRegistry, FieldRegistry, EdgeRegistry, SurfaceRegistryEntry};
 use std::collections::HashMap;
@@ -30,6 +30,7 @@ pub struct McpState {
     pub extension_info: Vec<(String, String)>,
     pub surface_entries: Vec<SurfaceRegistryEntry>,
     pub manifests: Vec<specforge_registry::ManifestV2>,
+    pub project_config: ProjectConfig,
 }
 
 #[derive(Debug, Clone)]
@@ -63,6 +64,7 @@ impl McpState {
             extension_info: Vec::new(),
             surface_entries: Vec::new(),
             manifests: Vec::new(),
+            project_config: ProjectConfig::default(),
         }
     }
 

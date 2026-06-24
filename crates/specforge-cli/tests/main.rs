@@ -23,5 +23,6 @@ mod migrate;
 mod pipeline;
 mod product_commands;
 mod query;
+mod registry;
 mod stats;
 mod trace;

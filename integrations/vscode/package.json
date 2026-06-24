@@ -1,0 +1,498 @@
+{
+  "name": "specforge",
+  "displayName": "SpecForge",
+  "description": "Write .spec files to build typed entity graphs that give AI agents structured context. Full language support: highlighting, diagnostics, completion, graph visualization, and AI integration.",
+  "version": "0.1.0",
+  "publisher": "specforge",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/specforge/specforge"
+  },
+  "engines": {
+    "vscode": "^1.95.0"
+  },
+  "categories": [
+    "Programming Languages",
+    "Linters",
+    "Visualization"
+  ],
+  "keywords": [
+    "spec",
+    "dsl",
+    "entity-graph",
+    "ai-agents",
+    "specification",
+    "behavior-driven",
+    "domain-model",
+    "structured-context",
+    "copilot",
+    "mcp"
+  ],
+  "activationEvents": [
+    "workspaceContains:specforge.json",
+    "workspaceContains:**/*.spec"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "specforge-explorer",
+          "title": "SpecForge",
+          "icon": "media/specforge-icon.svg"
+        }
+      ]
+    },
+    "views": {
+      "specforge-explorer": [
+        {
+          "id": "specforge.entities",
+          "name": "Entities"
+        },
+        {
+          "id": "specforge.extensions",
+          "name": "Extensions"
+        }
+      ]
+    },
+    "viewsWelcome": [
+      {
+        "view": "specforge.entities",
+        "contents": "No spec entities found.\n[Initialize Project](command:specforge.init)\n[Open Documentation](https://specforge.dev/docs)",
+        "when": "!specforge:hasEntities"
+      }
+    ],
+    "languages": [
+      {
+        "id": "specforge",
+        "aliases": [
+          "SpecForge",
+          "specforge"
+        ],
+        "extensions": [
+          ".spec"
+        ],
+        "configuration": "./language-configuration.json",
+        "icon": {
+          "light": "./media/spec-file-icon.svg",
+          "dark": "./media/spec-file-icon.svg"
+        }
+      }
+    ],
+    "grammars": [
+      {
+        "language": "specforge",
+        "scopeName": "source.specforge",
+        "path": "./syntaxes/specforge.tmLanguage.json"
+      }
+    ],
+    "semanticTokenScopes": [
+      {
+        "language": "specforge",
+        "scopes": {
+          "keyword": [
+            "keyword.control.specforge"
+          ],
+          "type": [
+            "entity.name.type.specforge"
+          ],
+          "function": [
+            "entity.name.function.specforge"
+          ],
+          "variable": [
+            "variable.other.reference.specforge"
+          ],
+          "property": [
+            "variable.other.property.specforge"
+          ],
+          "string": [
+            "string.quoted.double.specforge"
+          ],
+          "comment": [
+            "comment.line.double-slash.specforge"
+          ],
+          "number": [
+            "constant.numeric.specforge"
+          ],
+          "enumMember": [
+            "variable.other.enummember.specforge"
+          ]
+        }
+      }
+    ],
+    "themes": [
+      {
+        "label": "SpecForge Dark",
+        "uiTheme": "vs-dark",
+        "path": "./themes/specforge-dark-color-theme.json"
+      },
+      {
+        "label": "SpecForge Light",
+        "uiTheme": "vs",
+        "path": "./themes/specforge-light-color-theme.json"
+      }
+    ],
+    "walkthroughs": [
+      {
+        "id": "specforge.getStarted",
+        "title": "Get Started with SpecForge",
+        "description": "Learn to write structured specs and build entity graphs for AI agents.",
+        "steps": [
+          {
+            "id": "createProject",
+            "title": "Create Your First Project",
+            "description": "Initialize a SpecForge project with extensions for your domain.\n\n[Initialize Project](command:specforge.init)",
+            "media": { "markdown": "media/walkthrough/step1-init.md" },
+            "completionEvents": ["onCommand:specforge.init"]
+          },
+          {
+            "id": "writeSpec",
+            "title": "Write Your First Entity",
+            "description": "Open a .spec file and use snippets to create entities. Type `bhv` + Tab for a behavior, `feat` + Tab for a feature.\n\n[New Spec File](command:specforge.newFile)",
+            "media": { "markdown": "media/walkthrough/step2-write.md" },
+            "completionEvents": ["onLanguage:specforge"]
+          },
+          {
+            "id": "checkDiagnostics",
+            "title": "Understand Diagnostics",
+            "description": "Save your file to see real-time diagnostics. Hover squiggles for details, click the lightbulb for quick fixes.\n\n[Check Project](command:specforge.check)",
+            "media": { "markdown": "media/walkthrough/step3-diagnostics.md" },
+            "completionEvents": ["onView:workbench.panel.markers"]
+          },
+          {
+            "id": "exploreGraph",
+            "title": "Explore the Entity Graph",
+            "description": "Visualize your entity relationships as an interactive graph.\n\n[Show Graph](command:specforge.showGraph)",
+            "media": { "markdown": "media/walkthrough/step4-graph.md" },
+            "completionEvents": ["onCommand:specforge.showGraph"]
+          },
+          {
+            "id": "aiIntegration",
+            "title": "Connect AI Agents",
+            "description": "Export structured context for AI agents. Use `specforge export --format=context` for Claude/Copilot integration.\n\n[Export Graph](command:specforge.export)",
+            "media": { "markdown": "media/walkthrough/step5-ai.md" },
+            "completionEvents": ["onCommand:specforge.export"]
+          }
+        ]
+      }
+    ],
+    "snippets": [
+      {
+        "language": "specforge",
+        "path": "./snippets/specforge.json"
+      }
+    ],
+    "jsonValidation": [
+      {
+        "fileMatch": "specforge.json",
+        "url": "./schemas/specforge.schema.json"
+      }
+    ],
+    "configuration": {
+      "title": "SpecForge",
+      "properties": {
+        "specforge.lsp.path": {
+          "type": "string",
+          "default": "",
+          "description": "Path to specforge-lsp binary. If empty, uses bundled binary or $PATH.",
+          "scope": "machine"
+        },
+        "specforge.lsp.trace": {
+          "type": "string",
+          "enum": [
+            "off",
+            "messages",
+            "verbose"
+          ],
+          "default": "off",
+          "description": "Trace LSP communication (for debugging)."
+        },
+        "specforge.codeLens.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show reference counts and verify status above entities."
+        },
+        "specforge.graph.defaultLayout": {
+          "type": "string",
+          "enum": [
+            "force",
+            "dagre",
+            "concentric",
+            "grid"
+          ],
+          "default": "force",
+          "description": "Default graph layout algorithm."
+        },
+        "specforge.graph.autoUpdate": {
+          "type": "boolean",
+          "default": true,
+          "description": "Update graph visualization on file save."
+        },
+        "specforge.format.onSave": {
+          "type": "boolean",
+          "default": false,
+          "description": "Auto-format .spec files on save."
+        },
+        "specforge.lint.profile": {
+          "type": "string",
+          "enum": [
+            "default",
+            "pedantic"
+          ],
+          "default": "default",
+          "description": "Diagnostic profile (pedantic enables info-level diagnostics)."
+        },
+        "specforge.mcp.autoStart": {
+          "type": "boolean",
+          "default": true,
+          "description": "Automatically start MCP server for AI agent integration."
+        },
+        "specforge.entityExplorer.groupBy": {
+          "type": "string",
+          "enum": [
+            "kind",
+            "extension",
+            "file"
+          ],
+          "default": "kind",
+          "description": "How to group entities in the explorer."
+        }
+      }
+    },
+    "commands": [
+      {
+        "command": "specforge.init",
+        "title": "Initialize Project",
+        "category": "SpecForge"
+      },
+      {
+        "command": "specforge.check",
+        "title": "Check Project",
+        "category": "SpecForge"
+      },
+      {
+        "command": "specforge.export",
+        "title": "Export Graph",
+        "category": "SpecForge"
+      },
+      {
+        "command": "specforge.showGraph",
+        "title": "Show Graph",
+        "category": "SpecForge",
+        "icon": "$(graph)"
+      },
+      {
+        "command": "specforge.showExplorer",
+        "title": "Show Entity Explorer",
+        "category": "SpecForge"
+      },
+      {
+        "command": "specforge.showStats",
+        "title": "Show Stats",
+        "category": "SpecForge"
+      },
+      {
+        "command": "specforge.explainError",
+        "title": "Explain Error",
+        "category": "SpecForge"
+      },
+      {
+        "command": "specforge.doctor",
+        "title": "Run Doctor",
+        "category": "SpecForge"
+      },
+      {
+        "command": "specforge.newFile",
+        "title": "New Spec File",
+        "category": "SpecForge",
+        "icon": "$(new-file)"
+      },
+      {
+        "command": "specforge.focusInGraph",
+        "title": "Focus Entity in Graph",
+        "category": "SpecForge"
+      },
+      {
+        "command": "specforge.inspect",
+        "title": "Inspect Entity",
+        "category": "SpecForge"
+      },
+      {
+        "command": "specforge.coverage",
+        "title": "Show Coverage",
+        "category": "SpecForge"
+      },
+      {
+        "command": "specforge.trace",
+        "title": "Trace Entity",
+        "category": "SpecForge"
+      },
+      {
+        "command": "specforge.search",
+        "title": "Search Entities",
+        "category": "SpecForge",
+        "icon": "$(search)"
+      },
+      {
+        "command": "specforge.model",
+        "title": "Show Model",
+        "category": "SpecForge"
+      },
+      {
+        "command": "specforge.addExtension",
+        "title": "Add Extension",
+        "category": "SpecForge"
+      },
+      {
+        "command": "specforge.removeExtension",
+        "title": "Remove Extension",
+        "category": "SpecForge"
+      },
+      {
+        "command": "specforge.restartLsp",
+        "title": "Restart Language Server",
+        "category": "SpecForge"
+      },
+      {
+        "command": "specforge.copyEntityJson",
+        "title": "Copy Entity as JSON",
+        "category": "SpecForge"
+      },
+      {
+        "command": "specforge.outline",
+        "title": "Show Outline",
+        "category": "SpecForge"
+      },
+      {
+        "command": "specforge.refreshEntities",
+        "title": "Refresh Entities",
+        "category": "SpecForge",
+        "icon": "$(refresh)"
+      }
+    ],
+    "keybindings": [
+      {
+        "command": "specforge.showGraph",
+        "key": "ctrl+shift+g",
+        "mac": "cmd+shift+g",
+        "when": "specforge:hasEntities"
+      },
+      {
+        "command": "specforge.focusInGraph",
+        "key": "alt+g",
+        "when": "editorLangId == specforge"
+      },
+      {
+        "command": "specforge.inspect",
+        "key": "alt+i",
+        "when": "editorLangId == specforge"
+      },
+      {
+        "command": "specforge.search",
+        "key": "ctrl+shift+s",
+        "mac": "cmd+shift+s",
+        "when": "specforge:projectDetected"
+      }
+    ],
+    "menus": {
+      "view/title": [
+        {
+          "command": "specforge.refreshEntities",
+          "when": "view == specforge.entities",
+          "group": "navigation"
+        }
+      ],
+      "commandPalette": [
+        {
+          "command": "specforge.init",
+          "when": "!specforge:projectDetected"
+        },
+        {
+          "command": "specforge.check",
+          "when": "specforge:projectDetected"
+        },
+        {
+          "command": "specforge.export",
+          "when": "specforge:hasEntities"
+        },
+        {
+          "command": "specforge.showGraph",
+          "when": "specforge:hasEntities"
+        },
+        {
+          "command": "specforge.focusInGraph",
+          "when": "editorLangId == specforge"
+        },
+        {
+          "command": "specforge.inspect",
+          "when": "editorLangId == specforge"
+        },
+        {
+          "command": "specforge.coverage",
+          "when": "specforge:hasEntities"
+        },
+        {
+          "command": "specforge.trace",
+          "when": "editorLangId == specforge"
+        },
+        {
+          "command": "specforge.copyEntityJson",
+          "when": "editorLangId == specforge"
+        },
+        {
+          "command": "specforge.newFile",
+          "when": "specforge:projectDetected"
+        },
+        {
+          "command": "specforge.addExtension",
+          "when": "specforge:projectDetected"
+        },
+        {
+          "command": "specforge.removeExtension",
+          "when": "specforge:projectDetected"
+        },
+        {
+          "command": "specforge.showStats",
+          "when": "specforge:projectDetected"
+        },
+        {
+          "command": "specforge.model",
+          "when": "specforge:projectDetected"
+        },
+        {
+          "command": "specforge.search",
+          "when": "specforge:projectDetected"
+        },
+        {
+          "command": "specforge.outline",
+          "when": "specforge:projectDetected"
+        }
+      ]
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run build",
+    "build": "node esbuild.mjs --production",
+    "watch": "node esbuild.mjs --watch",
+    "compile": "tsc -p ./tsconfig.json",
+    "check": "tsc -p ./tsconfig.json --noEmit",
+    "lint": "eslint src/",
+    "test": "node ./out/test/runTest.js",
+    "package": "vsce package",
+    "publish": "vsce publish"
+  },
+  "dependencies": {
+    "vscode-languageclient": "^9.0.1"
+  },
+  "devDependencies": {
+    "@types/mocha": "^10.0.10",
+    "@types/node": "^22.0.0",
+    "@types/vscode": "^1.95.0",
+    "@vscode/test-electron": "^2.4.0",
+    "@vscode/vsce": "^3.2.0",
+    "esbuild": "^0.24.0",
+    "mocha": "^10.8.0",
+    "typescript": "^5.7.0"
+  }
+}

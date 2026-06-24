@@ -1,9 +1,9 @@
 use crate::DocumentBuffer;
 use specforge_common::Diagnostic;
 use specforge_graph::Graph;
-use specforge_registry::{populate_registries, EdgeRegistry, FieldRegistry, KindRegistry};
-use specforge_wasm::protocol::{
-    load_protocol_extension, protocol_extension_to_manifest, ProtocolHost,
+use specforge_registry::{
+    validation_engine::ValidationRulePattern,
+    EdgeRegistry, FieldRegistry, KindRegistry,
 };
 use std::collections::HashMap;
 
@@ -15,6 +15,7 @@ pub struct LspState {
     kind_registry: KindRegistry,
     field_registry: FieldRegistry,
     edge_registry: EdgeRegistry,
+    validation_patterns: Vec<ValidationRulePattern>,
     shutdown: bool,
 }
 
@@ -26,18 +27,14 @@ impl Default for LspState {
 
 impl LspState {
     pub fn new() -> Self {
-        // Eagerly load default registries from built-in extensions so that
-        // keyword completion, semantic tokens, and code actions work from
-        // the first request — no hardcoded fallback constants needed.
-        let (kind_registry, field_registry, edge_registry) = load_default_registries();
-
         Self {
             documents: HashMap::new(),
             diagnostics: HashMap::new(),
             graph: Graph::new(),
-            kind_registry,
-            field_registry,
-            edge_registry,
+            kind_registry: KindRegistry::new(),
+            field_registry: FieldRegistry::new(),
+            edge_registry: EdgeRegistry::new(),
+            validation_patterns: Vec::new(),
             shutdown: false,
         }
     }
@@ -117,7 +114,11 @@ impl LspState {
         &self.edge_registry
     }
 
-    /// Replace the registries (called after loading extension manifests).
+    pub fn validation_patterns(&self) -> &[ValidationRulePattern] {
+        &self.validation_patterns
+    }
+
+    /// Replace the registries and validation patterns (called after loading extension manifests).
     pub fn set_registries(
         &mut self,
         kind_reg: KindRegistry,
@@ -129,6 +130,10 @@ impl LspState {
         self.edge_registry = edge_reg;
     }
 
+    pub fn set_validation_patterns(&mut self, patterns: Vec<ValidationRulePattern>) {
+        self.validation_patterns = patterns;
+    }
+
     pub fn shutdown(&mut self) {
         self.shutdown = true;
         self.documents.clear();
@@ -137,6 +142,7 @@ impl LspState {
         self.kind_registry = KindRegistry::new();
         self.field_registry = FieldRegistry::new();
         self.edge_registry = EdgeRegistry::new();
+        self.validation_patterns = Vec::new();
     }
 
     pub fn is_shutdown(&self) -> bool {
@@ -144,27 +150,3 @@ impl LspState {
     }
 }
 
-/// Load default registries from all built-in extensions via the protocol pipeline.
-/// Returns (KindRegistry, FieldRegistry, EdgeRegistry) pre-populated with all
-/// built-in entity kinds, fields, and edge types.
-fn load_default_registries() -> (KindRegistry, FieldRegistry, EdgeRegistry) {
-    let runtime = specforge_emitter::builtins::default_runtime();
-    let host = ProtocolHost::new(&runtime);
-
-    let builtins = [
-        "@specforge/product",
-        "@specforge/software",
-        "@specforge/governance",
-        "@specforge/formal",
-    ];
-
-    let mut manifests = Vec::new();
-    for name in &builtins {
-        if let Ok(proto_ext) = load_protocol_extension(&host, name) {
-            manifests.push(protocol_extension_to_manifest(&proto_ext));
-        }
-    }
-
-    let (kind_reg, field_reg, edge_reg, _diags) = populate_registries(&manifests);
-    (kind_reg, field_reg, edge_reg)
-}

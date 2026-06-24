@@ -17,6 +17,7 @@ impl SoftwareExtension {
                 description: Some(
                     "A testable unit of system functionality with a defined contract".into(),
                 ),
+                inference_guide: Some("Look for public functions in service, handler, or controller layers that represent user-visible operations or business logic. Route handlers (HTTP, gRPC, CLI commands), use-case functions, and domain service methods are strong signals. Map function name to entity ID (snake_case). Extract doc comments or the function's purpose as the contract. If the function validates rules or enforces constraints, those are invariants. If it emits events or messages, those are produces. If it has dedicated test files or test functions, add verify statements. Skip: private helpers, utility functions, test fixtures, generated code, framework boilerplate.".into()),
                 semantic_token: Some("function".into()),
                 lsp_icon: Some("Method".into()),
                 dot_shape: Some("box".into()),
@@ -45,6 +46,7 @@ impl SoftwareExtension {
                 description: Some(
                     "A system-wide constraint that must always hold true".into(),
                 ),
+                inference_guide: Some("Look for assertions, validation logic, and defensive checks that enforce system-wide rules. Signals: assert!() / assert_eq!() statements, guard clauses that panic or return errors, database constraints (UNIQUE, CHECK, NOT NULL), middleware that rejects invalid state, config validation at startup, and comments like 'must always', 'never allow', 'invariant'. The guarantee field should state what must hold (e.g., 'User email must be unique across all accounts'). The risk field describes consequences of violation. Invariants are architectural rules about state; for quantified limits (latency <200ms, max connections), use constraint instead. Skip: local variable checks, input validation that's behavior-specific, temporary debug assertions.".into()),
                 semantic_token: Some("property".into()),
                 lsp_icon: Some("Property".into()),
                 dot_shape: Some("diamond".into()),
@@ -64,6 +66,7 @@ impl SoftwareExtension {
                 description: Some(
                     "A significant occurrence in the system that triggers reactions".into(),
                 ),
+                inference_guide: Some("Look for message types, event classes, pub/sub topics, webhook payloads, and signal/notification patterns. Signals: structs/classes named *Event, *Message, *Notification; message queue topic/channel definitions; emit()/publish()/dispatch()/notify() calls; event handler registrations (on_*, handle_*); webhook payload schemas. Map the event name to entity ID. If it carries structured data, reference the payload type. Identify which behaviors produce and consume each event. Skip: internal method calls, logging statements, framework lifecycle callbacks (unless domain-meaningful).".into()),
                 semantic_token: Some("event".into()),
                 lsp_icon: Some("Event".into()),
                 dot_shape: Some("ellipse".into()),
@@ -84,6 +87,7 @@ impl SoftwareExtension {
                 name: "Type".into(),
                 keyword: Some("type".into()),
                 description: Some("A data structure or domain model definition".into()),
+                inference_guide: Some("Look for domain model structs, data transfer objects, API request/response shapes, database entities, and enum definitions that carry business meaning. Signals: struct/class definitions in models/ or domain/ directories; TypeScript interfaces/types for API contracts; protobuf/GraphQL/JSON Schema type definitions; ORM model classes; enum types with business variants. Use open_fields to list the type's fields. Set kind field to 'struct', 'enum', 'alias', or 'opaque'. Reference composed_types for nested or referenced types. Skip: internal implementation structs, builder patterns, framework-generated types, test fixtures.".into()),
                 semantic_token: Some("type".into()),
                 lsp_icon: Some("Struct".into()),
                 dot_shape: Some("rectangle".into()),
@@ -106,6 +110,7 @@ impl SoftwareExtension {
                 description: Some(
                     "An interface boundary between system components".into(),
                 ),
+                inference_guide: Some("Look for trait definitions, abstract classes, interface declarations, and adapter patterns that define boundaries between system layers. Signals: Rust traits in ports/ or interfaces/ directories; TypeScript/Java interfaces for repositories, gateways, or external services; abstract base classes; dependency injection interfaces; API client contracts. Set direction to 'inbound' (receives requests), 'outbound' (calls external systems), or 'bidirectional'. Use open_fields/methods to list the port's operations. Set category to 'http', 'grpc', 'database', 'queue', 'filesystem', etc. Skip: internal module boundaries, utility traits (Display, Debug), marker traits, framework-imposed interfaces.".into()),
                 semantic_token: Some("interface".into()),
                 lsp_icon: Some("Interface".into()),
                 dot_shape: Some("trapezium".into()),
@@ -399,6 +404,7 @@ fn ekd_defaults() -> EntityKindDescriptor {
         dot_color: None,
         dot_fillcolor: None,
         verify_kinds: vec![],
+        inference_guide: None,
     }
 }
 

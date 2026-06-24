@@ -28,6 +28,7 @@ specforge-resolver = { path = "../specforge-resolver" }
 specforge-emitter = { path = "../specforge-emitter" }
 specforge-validator = { path = "../specforge-validator" }
 specforge-wasm = { workspace = true }
+specforge-extism = { workspace = true }
 specforge-mcp = { workspace = true }
 specforge-registry = { workspace = true }
 

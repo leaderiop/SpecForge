@@ -30,8 +30,8 @@ fn protocol_version_constant() {
 }
 
 #[test]
-fn supported_categories_has_12_entries() {
-    assert_eq!(SUPPORTED_CATEGORIES.len(), 12);
+fn supported_categories_has_13_entries() {
+    assert_eq!(SUPPORTED_CATEGORIES.len(), 13);
     assert!(SUPPORTED_CATEGORIES.contains(&"entities"));
     assert!(SUPPORTED_CATEGORIES.contains(&"feature_flags"));
 }
@@ -54,6 +54,7 @@ fn handshake_response_round_trip() {
             parsers: false,
             grammars: false,
             body_parsers: false,
+            analyzers: false,
         },
         peer_dependencies: vec![PeerDependency {
             name: "@specforge/governance".to_string(),
@@ -100,6 +101,7 @@ fn contribution_flags_default_all_false() {
     assert!(!flags.parsers);
     assert!(!flags.grammars);
     assert!(!flags.body_parsers);
+    assert!(!flags.analyzers);
 }
 
 #[test]
@@ -214,6 +216,7 @@ fn entity_kind_descriptor_full_round_trip() {
         dot_color: Some("#4a90d9".to_string()),
         dot_fillcolor: Some("#e8f0fe".to_string()),
         verify_kinds: vec!["smoke".to_string(), "contract".to_string()],
+        inference_guide: None,
     };
     let json = serde_json::to_string(&entity).unwrap();
     let decoded: EntityKindDescriptor = serde_json::from_str(&json).unwrap();

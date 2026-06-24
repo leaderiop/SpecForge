@@ -413,3 +413,38 @@ pub async fn start_server_with_doc(
         .await;
     (client, uri)
 }
+
+/// Start an LSP server with a project that has `specforge.json` listing the given extensions,
+/// open a spec file, and return the client + URI + temp dir (must be kept alive).
+pub async fn start_server_with_extensions(
+    extensions: &[&str],
+    file_name: &str,
+    text: &str,
+) -> (LspClient, String, tempfile::TempDir) {
+    let dir = tempfile::TempDir::new().unwrap();
+    let config = json!({
+        "name": "test",
+        "version": "0.1.0",
+        "extensions": extensions,
+    });
+    std::fs::write(dir.path().join("specforge.json"), config.to_string()).unwrap();
+    std::fs::write(dir.path().join(file_name), text).unwrap();
+
+    let root = dir.path().to_str().unwrap();
+    let mut client = start_server(Some(root)).await;
+    // Drain the extension-loading log message
+    client.wait_for_notification("window/logMessage", 5000).await;
+    // Drain the indexing log message
+    client.wait_for_notification("window/logMessage", 5000).await;
+
+    let uri = tower_lsp::lsp_types::Url::from_file_path(dir.path().join(file_name))
+        .unwrap()
+        .to_string();
+
+    // Re-open for diagnostic publishing (indexing already parsed it, but we need publishDiagnostics)
+    client.did_open(&uri, "specforge", text).await;
+    client
+        .wait_for_notification("textDocument/publishDiagnostics", 5000)
+        .await;
+    (client, uri, dir)
+}

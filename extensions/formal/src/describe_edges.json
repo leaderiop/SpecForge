@@ -1,0 +1,113 @@
+{
+  "category": "edges",
+  "items": [
+    {
+      "description": "Behavior requires an invariant as precondition",
+      "edge_arrowhead": null,
+      "edge_color": "#1A237E",
+      "edge_style": "solid",
+      "label": "BehaviorRequiresInvariant",
+      "source_kind": "behavior",
+      "target_kind": "invariant"
+    },
+    {
+      "description": "Behavior ensures an invariant as postcondition",
+      "edge_arrowhead": null,
+      "edge_color": "#1A237E",
+      "edge_style": "solid",
+      "label": "BehaviorEnsuresInvariant",
+      "source_kind": "behavior",
+      "target_kind": "invariant"
+    },
+    {
+      "description": "Behavior maintains an invariant as frame invariant throughout execution",
+      "edge_arrowhead": null,
+      "edge_color": "#1A237E",
+      "edge_style": "dashed",
+      "label": "BehaviorMaintainsInvariant",
+      "source_kind": "behavior",
+      "target_kind": "invariant"
+    },
+    {
+      "description": "Axiom assumes an invariant as foundational truth",
+      "edge_arrowhead": null,
+      "edge_color": "#311B92",
+      "edge_style": "dotted",
+      "label": "AxiomAssumesInvariant",
+      "source_kind": "axiom",
+      "target_kind": "invariant"
+    },
+    {
+      "description": "Behavior satisfies a temporal property",
+      "edge_arrowhead": null,
+      "edge_color": "#0D47A1",
+      "edge_style": "solid",
+      "label": "BehaviorSatisfiesProperty",
+      "source_kind": "behavior",
+      "target_kind": "property"
+    },
+    {
+      "description": "Event follows a synchronization protocol",
+      "edge_arrowhead": null,
+      "edge_color": "#004D40",
+      "edge_style": "solid",
+      "label": "EventFollowsProtocol",
+      "source_kind": "event",
+      "target_kind": "protocol"
+    },
+    {
+      "description": "Property depends on an invariant",
+      "edge_arrowhead": null,
+      "edge_color": "#0D47A1",
+      "edge_style": "dashed",
+      "label": "PropertyDependsOnInvariant",
+      "source_kind": "property",
+      "target_kind": "invariant"
+    },
+    {
+      "description": "Refinement maps from this abstract behavior",
+      "edge_arrowhead": null,
+      "edge_color": "#1B5E20",
+      "edge_style": "dashed",
+      "label": "RefinementRefinesAbstract",
+      "source_kind": "refinement",
+      "target_kind": "behavior"
+    },
+    {
+      "description": "Refinement maps to this concrete behavior",
+      "edge_arrowhead": null,
+      "edge_color": "#1B5E20",
+      "edge_style": "solid",
+      "label": "RefinementRefinesConcrete",
+      "source_kind": "refinement",
+      "target_kind": "behavior"
+    },
+    {
+      "description": "Chain of refinements",
+      "edge_arrowhead": null,
+      "edge_color": "#1B5E20",
+      "edge_style": "dashed",
+      "label": "RefinementChainsToRefinement",
+      "source_kind": "refinement",
+      "target_kind": "refinement"
+    },
+    {
+      "description": "Event participates in a process",
+      "edge_arrowhead": null,
+      "edge_color": "#006064",
+      "edge_style": "solid",
+      "label": "EventParticipatesInProcess",
+      "source_kind": "event",
+      "target_kind": "process"
+    },
+    {
+      "description": "Process composes sub-processes",
+      "edge_arrowhead": null,
+      "edge_color": "#006064",
+      "edge_style": "solid",
+      "label": "ProcessComposesProcess",
+      "source_kind": "process",
+      "target_kind": "process"
+    }
+  ]
+}

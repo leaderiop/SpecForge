@@ -16,10 +16,10 @@ pub use registries::{
 
 // --- Manifest types ---
 pub use manifest::types::{
-    validate_manifest, validate_manifest_consistency, BodyParserContribution,
-    CollectorAutoDetect, CollectorContribution, ExtensionContributions, FieldConstraint,
-    FieldEnhancement, GrammarContribution, ManifestEdgeType, ManifestEntityKind, ManifestField,
-    ManifestV2, ManifestValidationRule, PeerDependency, SandboxPolicy,
+    validate_manifest, validate_manifest_consistency, AnalyzerContribution,
+    BodyParserContribution, CollectorAutoDetect, CollectorContribution, ExtensionContributions,
+    FieldConstraint, FieldEnhancement, GrammarContribution, ManifestEdgeType, ManifestEntityKind,
+    ManifestField, ManifestV2, ManifestValidationRule, PeerDependency, SandboxPolicy,
 };
 pub use manifest::surface::{
     register_surface_contributions, CommandArg, CommandArgType, CommandContribution,
@@ -34,6 +34,7 @@ pub use compilation::{
     RegisteredBodyParser, RegisteredGrammar,
     // detection
     detect_mistyped_references, detect_unknown_entity_kinds, detect_unknown_entity_fields,
+    generate_required_field_rules,
     EntityRefInfo,
     // populate
     apply_entity_enhancements, populate_registries,
@@ -54,11 +55,12 @@ pub use compilation::{
 pub use client::{
     authenticate_with_retry, logout_registry, resolve_credential, sanitize_token,
     validate_credentials,
+    CredentialStore, HttpRegistryClient,
     RegistryClient, RegistryError, RegistryResponse, RegistrySearchResult, RetryPolicy,
     find_registry_for_specifier, parse_registries_from_config, AuthMethod, RegistryConfig,
     RegistryCredential, TrustLevel,
     assign_trust_level, publish_to_registry, resolve_from_registry, search_registries,
-    verify_registry_integrity,
+    verify_registry_integrity, resolve_version,
 };
 
 // Backward-compatible module path aliases for external code that uses
@@ -70,7 +72,10 @@ pub use compilation::provider;
 pub use compilation::define;
 pub use compilation::contributions;
 pub use client::auth;
+pub use client::credentials;
+pub use client::http_client;
 pub use client::registry_client;
 pub use client::registry_config;
 pub use client::registry_ops;
+pub use client::resolver;
 pub use manifest::surface;

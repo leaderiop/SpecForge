@@ -28,6 +28,7 @@ use "behaviors/formatting"
 use "invariants/formatting"
 use "invariants/wasm"
 constraint incremental_compilation_latency "Incremental Compilation Latency" {
+  description "Incremental recompilation after a file change must produce diagnostics within 100ms for projects up to 500 spec files."
   category    performance
   priority    critical
 
@@ -44,6 +45,7 @@ constraint incremental_compilation_latency "Incremental Compilation Latency" {
 }
 
 constraint memory_usage "Memory Usage" {
+  description "Peak memory consumption must stay under 50MB for projects with up to 500 spec files and 2000 entities."
   category    performance
   priority    critical
 
@@ -60,6 +62,7 @@ constraint memory_usage "Memory Usage" {
 }
 
 constraint cross_platform_compatibility "Cross-Platform Compatibility" {
+  description "CLI and LSP binaries must build and run on Linux, macOS, and Windows with no platform-specific file path handling."
   category    compatibility
   priority    critical
 
@@ -77,6 +80,7 @@ constraint cross_platform_compatibility "Cross-Platform Compatibility" {
 }
 
 constraint diagnostic_quality "Diagnostic Quality" {
+  description "Every error diagnostic must include file path, line/column numbers, a context snippet, and actionable suggestions when a close match exists."
   category    usability
   priority    critical
 
@@ -94,6 +98,7 @@ constraint diagnostic_quality "Diagnostic Quality" {
 }
 
 constraint zero_runtime_dependencies "Zero Runtime Dependencies" {
+  description "CLI and LSP binaries must be statically linked with zero runtime dependencies beyond the OS, requiring no Node.js, Python, or JVM."
   category    portability
   priority    critical
 
@@ -112,6 +117,7 @@ constraint zero_runtime_dependencies "Zero Runtime Dependencies" {
 }
 
 constraint backward_compatibility "Backward Compatibility" {
+  description "The compiler should parse spec files from the previous format version without errors, with deprecation warnings acceptable."
   category    compatibility
   priority    high
 
@@ -128,6 +134,7 @@ constraint backward_compatibility "Backward Compatibility" {
 }
 
 constraint cli_scaffolding_robustness "CLI Scaffolding Robustness" {
+  description "Init and add commands must produce valid specforge.json and starter spec files without overwriting existing files or diverging between interactive and non-interactive modes."
   category    usability
   priority    high
 
@@ -147,6 +154,7 @@ constraint cli_scaffolding_robustness "CLI Scaffolding Robustness" {
 }
 
 constraint parser_correctness "Parser Correctness" {
+  description "The parser must produce correct ASTs for all valid inputs and recover from all syntax errors without crashing."
   category    reliability
   priority    critical
 
@@ -163,6 +171,7 @@ constraint parser_correctness "Parser Correctness" {
 }
 
 constraint editor_integration_quality "Editor Integration Quality" {
+  description "Tree-sitter query files must load without errors in editors, and extension entities must receive syntax highlighting via the generic entity_block rule."
   category    usability
   priority    high
 
@@ -182,6 +191,7 @@ constraint editor_integration_quality "Editor Integration Quality" {
 }
 
 constraint reference_resolution_correctness "Reference Resolution Correctness" {
+  description "Every valid reference must resolve exactly once and every invalid reference must produce exactly one diagnostic."
   category    reliability
   priority    critical
 
@@ -198,6 +208,7 @@ constraint reference_resolution_correctness "Reference Resolution Correctness" {
 }
 
 constraint validation_pass_correctness "Validation Pass Correctness" {
+  description "Each validation code must fire if and only if its specified condition holds, with zero false positives and zero false negatives."
   category    reliability
   priority    critical
 
@@ -214,6 +225,7 @@ constraint validation_pass_correctness "Validation Pass Correctness" {
 }
 
 constraint extension_validation_correctness "Extension Validation Correctness" {
+  description "Extension validation rules must run only when the owning extension is installed, with no false positives when the extension is absent."
   category    reliability
   priority    critical
 
@@ -233,6 +245,7 @@ constraint extension_validation_correctness "Extension Validation Correctness" {
 }
 
 constraint output_format_correctness "Output Format Correctness" {
+  description "Every emitter must produce syntactically valid output in its target format and produce deterministic results across runs."
   category    reliability
   priority    critical
 
@@ -251,6 +264,7 @@ constraint output_format_correctness "Output Format Correctness" {
 
 
 constraint lsp_responsiveness "LSP Responsiveness" {
+  description "All LSP features including go-to-definition, hover, and completion must respond within 50ms on a 500-file project."
   category    usability
   priority    high
 
@@ -267,6 +281,7 @@ constraint lsp_responsiveness "LSP Responsiveness" {
 }
 
 constraint traceability_completeness "Traceability Completeness" {
+  description "Traceability analysis must detect all broken links in the chain with zero false negatives, including missing tests, non-existent paths, and absent report results."
   category    reliability
   priority    critical
 
@@ -285,6 +300,7 @@ constraint traceability_completeness "Traceability Completeness" {
 }
 
 constraint extension_system_integrity "Extension System Integrity" {
+  description "Extension install and remove operations must never corrupt specforge.json, and the Wasm sandbox must contain all extension execution with traps producing diagnostics rather than crashes."
   category    reliability
   priority    critical
 
@@ -306,6 +322,7 @@ constraint extension_system_integrity "Extension System Integrity" {
 
 
 constraint wasm_cold_start_budget "Wasm Cold Start Budget" {
+  description "Each Wasm extension must load in under 50ms with AOT cache, and first-load AOT compilation must complete in under 500ms for typical extensions."
   category    performance
   priority    critical
 
@@ -324,6 +341,7 @@ constraint wasm_cold_start_budget "Wasm Cold Start Budget" {
 }
 
 constraint wasm_memory_limit "Wasm Memory Limit" {
+  description "Each Wasm extension instance must be limited to 64MB of linear memory, with a 256MB total cap across all loaded extensions."
   category    performance
   priority    critical
 
@@ -342,6 +360,7 @@ constraint wasm_memory_limit "Wasm Memory Limit" {
 }
 
 constraint wasm_sandbox_enforcement "Wasm Sandbox Enforcement" {
+  description "Extensions must not access host filesystem, network, environment variables, or process control outside of designated host functions, with zero sandbox escapes in adversarial testing."
   category    security
   priority    critical
 
@@ -361,6 +380,7 @@ constraint wasm_sandbox_enforcement "Wasm Sandbox Enforcement" {
 }
 
 constraint wasm_binary_size_limit "Wasm Binary Size Limit" {
+  description "Extension Wasm binaries should be under 5MB, with a warning diagnostic for binaries exceeding 10MB to ensure reasonable download and compilation times."
   category    portability
   priority    high
 
@@ -379,6 +399,7 @@ constraint wasm_binary_size_limit "Wasm Binary Size Limit" {
 }
 
 constraint extension_count_limit "Extension Count Limit" {
+  description "The system should support up to 20 extensions without degradation, warn at 21-50, and refuse more than 50 with a hard error."
   category    performance
   priority    high
 
@@ -398,6 +419,7 @@ constraint extension_count_limit "Extension Count Limit" {
 }
 
 constraint aot_cache_size_limit "AOT Cache Size Limit" {
+  description "The AOT cache directory must stay under 500MB, with LRU eviction removing least recently used entries when the limit is exceeded."
   category    portability
   priority    high
 
@@ -417,6 +439,7 @@ constraint aot_cache_size_limit "AOT Cache Size Limit" {
 }
 
 constraint formatting_correctness "Formatting Correctness" {
+  description "Formatter output must be idempotent, preserve all comments, produce an identical compiler graph, and complete within 50ms per file."
   category    reliability
   priority    critical
 
@@ -435,6 +458,7 @@ constraint formatting_correctness "Formatting Correctness" {
 }
 
 constraint schema_publication_accessibility "Schema Publication Accessibility" {
+  description "The Graph Protocol JSON Schema must be publicly accessible without authentication at a URL that remains stable across patch versions."
   category    interoperability
   priority    critical
 

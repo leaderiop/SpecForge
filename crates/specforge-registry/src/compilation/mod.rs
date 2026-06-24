@@ -13,7 +13,8 @@ pub use contributions::{
 };
 pub use detection::{
     check_graceful_degradation, detect_mistyped_references, detect_unknown_entity_fields,
-    detect_unknown_entity_kinds, detect_unknown_verify_kinds, handle_all_extensions_failed,
+    detect_unknown_entity_kinds, detect_unknown_verify_kinds, generate_required_field_rules,
+    handle_all_extensions_failed,
     lsp_keywords_with_registry, EntityRefInfo, KeywordExtensionIndex,
 };
 pub use keyword_index::generate_keyword_extension_index;

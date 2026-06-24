@@ -1,3 +1,4 @@
+use crate::validation_engine::{ValidationPatternKind, ValidationRulePattern};
 use crate::{FieldRegistry, KindRegistry};
 use specforge_common::{Diagnostic, Severity, SourceSpan};
 use std::collections::HashMap;
@@ -286,6 +287,35 @@ pub fn lsp_keywords_with_registry(kind_reg: &KindRegistry) -> Vec<String> {
     keywords.sort();
     keywords.dedup();
     keywords
+}
+
+/// Auto-generate E006 validation rules for every field marked `required: true`
+/// in the FieldRegistry. Each rule fires at Error severity when the field is
+/// absent on an entity of the corresponding kind.
+pub fn generate_required_field_rules(
+    field_registry: &FieldRegistry,
+) -> Vec<ValidationRulePattern> {
+    let mut rules: Vec<ValidationRulePattern> = field_registry
+        .iter()
+        .filter(|(_, _, entry)| entry.required)
+        .map(|(kind, field, _)| ValidationRulePattern {
+            code: "E006".to_string(),
+            severity: Severity::Error,
+            message_template: format!("{kind} '{{id}}' is missing required field '{field}'"),
+            check: ValidationPatternKind::MissingRequiredField,
+            target_kind: Some(kind.to_string()),
+            edge_type: None,
+            field: Some(field.to_string()),
+            constraint: None,
+            wasm_function: None,
+        })
+        .collect();
+    rules.sort_by(|a, b| {
+        a.target_kind
+            .cmp(&b.target_kind)
+            .then_with(|| a.field.cmp(&b.field))
+    });
+    rules
 }
 
 #[cfg(test)]
@@ -1285,5 +1315,69 @@ mod tests {
 
         let diags = detect_unknown_verify_kinds(&entities, &registered_kinds, &kind_reg);
         assert!(diags.is_empty(), "should skip verify kind check for unregistered entity kind");
+    }
+
+    // -- B:generate_required_field_rules --
+
+    #[test]
+    fn test_generate_required_field_rules_from_registry() {
+        use crate::registries::{FieldRegistryEntry, ManifestFieldType};
+        let mut reg = FieldRegistry::new();
+        reg.register(FieldRegistryEntry {
+            kind_name: "behavior".into(),
+            field_name: "contract".into(),
+            description: None,
+            field_type: ManifestFieldType::String,
+            source_extension: "@specforge/software".into(),
+            edge: None,
+            target_kind: None,
+            file_reference: false,
+            required: true,
+            inverse_of: None,
+        });
+        reg.register(FieldRegistryEntry {
+            kind_name: "behavior".into(),
+            field_name: "category".into(),
+            description: None,
+            field_type: ManifestFieldType::String,
+            source_extension: "@specforge/software".into(),
+            edge: None,
+            target_kind: None,
+            file_reference: false,
+            required: false,
+            inverse_of: None,
+        });
+        reg.register(FieldRegistryEntry {
+            kind_name: "invariant".into(),
+            field_name: "guarantee".into(),
+            description: None,
+            field_type: ManifestFieldType::String,
+            source_extension: "@specforge/software".into(),
+            edge: None,
+            target_kind: None,
+            file_reference: false,
+            required: true,
+            inverse_of: None,
+        });
+
+        let rules = generate_required_field_rules(&reg);
+        assert_eq!(rules.len(), 2, "only required fields produce rules");
+        assert!(rules.iter().all(|r| r.code == "E006"));
+        assert!(rules.iter().all(|r| r.severity == Severity::Error));
+        assert!(rules.iter().all(|r| r.check == ValidationPatternKind::MissingRequiredField));
+
+        let targets: Vec<(&str, &str)> = rules
+            .iter()
+            .map(|r| (r.target_kind.as_deref().unwrap(), r.field.as_deref().unwrap()))
+            .collect();
+        assert!(targets.contains(&("behavior", "contract")));
+        assert!(targets.contains(&("invariant", "guarantee")));
+    }
+
+    #[test]
+    fn test_generate_required_field_rules_empty_registry() {
+        let reg = FieldRegistry::new();
+        let rules = generate_required_field_rules(&reg);
+        assert!(rules.is_empty());
     }
 }

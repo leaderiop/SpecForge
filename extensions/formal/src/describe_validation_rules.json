@@ -1,0 +1,101 @@
+{
+  "category": "validation_rules",
+  "items": [
+    {
+      "check": "field_value_constraint",
+      "code": "W059",
+      "constraint": {
+        "kind": "one_of",
+        "pattern": null,
+        "values": [
+          "safety",
+          "liveness",
+          "fairness"
+        ]
+      },
+      "edge_type": null,
+      "field": "property_type",
+      "message_template": "property '{id}' has invalid property_type '{value}' — expected one of: safety, liveness, fairness",
+      "severity": "warning",
+      "target_kind": "property",
+      "wasm_function": null
+    },
+    {
+      "check": "no_incoming_edges",
+      "code": "W060",
+      "constraint": null,
+      "edge_type": null,
+      "field": null,
+      "message_template": "property '{id}' is not referenced by any behavior — it may be unused",
+      "severity": "warning",
+      "target_kind": "property",
+      "wasm_function": null
+    },
+    {
+      "check": "no_incoming_edges",
+      "code": "W061",
+      "constraint": null,
+      "edge_type": null,
+      "field": null,
+      "message_template": "axiom '{id}' is not referenced by any entity — it may be unused",
+      "severity": "warning",
+      "target_kind": "axiom",
+      "wasm_function": null
+    },
+    {
+      "check": "no_incoming_edges",
+      "code": "W062",
+      "constraint": null,
+      "edge_type": null,
+      "field": null,
+      "message_template": "protocol '{id}' is not referenced by any event — it may be unused",
+      "severity": "warning",
+      "target_kind": "protocol",
+      "wasm_function": null
+    },
+    {
+      "check": "no_incoming_edges",
+      "code": "W063",
+      "constraint": null,
+      "edge_type": null,
+      "field": null,
+      "message_template": "refinement '{id}' is not referenced — it may be orphaned",
+      "severity": "warning",
+      "target_kind": "refinement",
+      "wasm_function": null
+    },
+    {
+      "check": "no_incoming_edges",
+      "code": "W064",
+      "constraint": null,
+      "edge_type": null,
+      "field": null,
+      "message_template": "process '{id}' is not referenced by any entity — it may be unused",
+      "severity": "warning",
+      "target_kind": "process",
+      "wasm_function": null
+    },
+    {
+      "check": "cycle_detection",
+      "code": "W065",
+      "constraint": null,
+      "edge_type": "RefinementChainsToRefinement",
+      "field": null,
+      "message_template": "refinement chain cycle detected involving '{id}'",
+      "severity": "warning",
+      "target_kind": "refinement",
+      "wasm_function": null
+    },
+    {
+      "check": "cycle_detection",
+      "code": "W066",
+      "constraint": null,
+      "edge_type": "ProcessComposesProcess",
+      "field": null,
+      "message_template": "process composition cycle detected involving '{id}'",
+      "severity": "warning",
+      "target_kind": "process",
+      "wasm_function": null
+    }
+  ]
+}

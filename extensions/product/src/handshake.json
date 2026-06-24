@@ -1,0 +1,18 @@
+{
+  "contribution_flags": {
+    "body_parsers": false,
+    "collectors": false,
+    "entities": true,
+    "grammars": false,
+    "parsers": false,
+    "prompts": false,
+    "providers": false,
+    "renderers": false,
+    "validators": true
+  },
+  "name": "@specforge/product",
+  "peer_dependencies": [],
+  "protocol_version": "1.0.0",
+  "sandbox_policy": null,
+  "version": "1.0.0"
+}

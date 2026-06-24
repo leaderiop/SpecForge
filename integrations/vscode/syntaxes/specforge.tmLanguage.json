@@ -1,0 +1,382 @@
+{
+  "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+  "name": "SpecForge",
+  "scopeName": "source.specforge",
+  "fileTypes": ["spec"],
+  "patterns": [
+    { "include": "#comment" },
+    { "include": "#pub-use-import" },
+    { "include": "#use-import" },
+    { "include": "#spec-block" },
+    { "include": "#ref-block" },
+    { "include": "#ref-inline" },
+    { "include": "#define-block" },
+    { "include": "#union-block" },
+    { "include": "#entity-block" }
+  ],
+  "repository": {
+    "comment": {
+      "match": "//.*$",
+      "name": "comment.line.double-slash.specforge"
+    },
+
+    "triple-quoted-string": {
+      "begin": "\"\"\"",
+      "end": "\"\"\"",
+      "name": "string.quoted.triple.specforge"
+    },
+
+    "string": {
+      "begin": "\"",
+      "end": "\"",
+      "name": "string.quoted.double.specforge",
+      "patterns": [
+        {
+          "match": "\\\\.",
+          "name": "constant.character.escape.specforge"
+        }
+      ]
+    },
+
+    "number": {
+      "match": "(?<![a-zA-Z_])-?\\b[0-9]+(?:\\.[0-9]+)?\\b",
+      "name": "constant.numeric.specforge"
+    },
+
+    "date-literal": {
+      "match": "\\b[0-9]{4}-[0-9]{2}-[0-9]{2}\\b",
+      "name": "constant.numeric.date.specforge"
+    },
+
+    "boolean": {
+      "match": "\\b(true|false)\\b",
+      "name": "constant.language.boolean.specforge"
+    },
+
+    "annotation": {
+      "patterns": [
+        {
+          "match": "(@[a-zA-Z_][a-zA-Z0-9_]*)\\s+(\"[^\"]*\")",
+          "captures": {
+            "1": { "name": "entity.other.attribute-name.specforge" },
+            "2": { "name": "string.quoted.double.specforge" }
+          }
+        },
+        {
+          "match": "@[a-zA-Z_][a-zA-Z0-9_]*",
+          "name": "entity.other.attribute-name.specforge"
+        }
+      ]
+    },
+
+    "reference-list": {
+      "begin": "\\[",
+      "beginCaptures": {
+        "0": { "name": "punctuation.definition.list.begin.specforge" }
+      },
+      "end": "\\]",
+      "endCaptures": {
+        "0": { "name": "punctuation.definition.list.end.specforge" }
+      },
+      "name": "meta.reference-list.specforge",
+      "patterns": [
+        { "include": "#comment" },
+        { "include": "#string" },
+        {
+          "match": "[a-zA-Z_][a-zA-Z0-9_]*\\.[a-zA-Z_][a-zA-Z0-9_]*:[^\\s\"{}()\\[\\],]+",
+          "name": "variable.other.scheme-ref.specforge"
+        },
+        { "include": "#number" },
+        {
+          "match": "\\b[a-zA-Z_][a-zA-Z0-9_]*\\b",
+          "name": "variable.other.reference.specforge"
+        },
+        {
+          "match": ",",
+          "name": "punctuation.separator.comma.specforge"
+        }
+      ]
+    },
+
+    "nested-block": {
+      "begin": "\\{",
+      "beginCaptures": {
+        "0": { "name": "punctuation.definition.block.begin.specforge" }
+      },
+      "end": "\\}",
+      "endCaptures": {
+        "0": { "name": "punctuation.definition.block.end.specforge" }
+      },
+      "name": "meta.nested-block.specforge",
+      "patterns": [
+        { "include": "#block-body" }
+      ]
+    },
+
+    "array-type": {
+      "match": "\\b([a-zA-Z_][a-zA-Z0-9_]*)(\\[\\])",
+      "captures": {
+        "1": { "name": "support.type.specforge" },
+        "2": { "name": "punctuation.definition.array.specforge" }
+      }
+    },
+
+    "field-value": {
+      "patterns": [
+        { "include": "#triple-quoted-string" },
+        { "include": "#string" },
+        { "include": "#date-literal" },
+        { "include": "#boolean" },
+        { "include": "#number" },
+        { "include": "#reference-list" },
+        { "include": "#nested-block" },
+        { "include": "#array-type" },
+        {
+          "match": "\\b[a-zA-Z_][a-zA-Z0-9_]*\\b",
+          "name": "variable.other.value.specforge"
+        }
+      ]
+    },
+
+    "verify-statement": {
+      "match": "^\\s*(verify)(?:\\s+([a-zA-Z_][a-zA-Z0-9_]*))?\\s+(\"[^\"]*\")",
+      "captures": {
+        "1": { "name": "keyword.control.verify.specforge" },
+        "2": { "name": "variable.other.enummember.specforge" },
+        "3": { "name": "string.quoted.double.specforge" }
+      }
+    },
+
+    "field": {
+      "begin": "^(\\s+)([a-zA-Z_][a-zA-Z0-9_]*)(?=\\s)",
+      "beginCaptures": {
+        "2": { "name": "variable.other.property.specforge" }
+      },
+      "end": "$",
+      "patterns": [
+        { "include": "#annotation" },
+        { "include": "#field-value" },
+        { "include": "#comment" }
+      ]
+    },
+
+    "block-body": {
+      "patterns": [
+        { "include": "#comment" },
+        { "include": "#verify-statement" },
+        { "include": "#field" }
+      ]
+    },
+
+    "use-import": {
+      "patterns": [
+        {
+          "comment": "use * as alias from \"path\"",
+          "match": "^\\s*(use)\\s+(\\*)\\s+(as)\\s+([a-zA-Z_][a-zA-Z0-9_]*)\\s+(from)\\s+(\"[^\"]*\")",
+          "captures": {
+            "1": { "name": "keyword.control.import.specforge" },
+            "2": { "name": "keyword.operator.wildcard.specforge" },
+            "3": { "name": "keyword.control.as.specforge" },
+            "4": { "name": "entity.name.namespace.specforge" },
+            "5": { "name": "keyword.control.from.specforge" },
+            "6": { "name": "string.quoted.double.specforge" }
+          }
+        },
+        {
+          "comment": "use { A, B } from \"path\" (single line)",
+          "begin": "^\\s*(use)\\s*\\{",
+          "beginCaptures": {
+            "1": { "name": "keyword.control.import.specforge" }
+          },
+          "end": "\\}\\s*(from)\\s+(\"[^\"]*\")",
+          "endCaptures": {
+            "1": { "name": "keyword.control.from.specforge" },
+            "2": { "name": "string.quoted.double.specforge" }
+          },
+          "patterns": [
+            {
+              "match": "\\b(as)\\b",
+              "name": "keyword.control.as.specforge"
+            },
+            {
+              "match": "\\b[a-zA-Z_][a-zA-Z0-9_]*\\b",
+              "name": "entity.name.function.import.specforge"
+            },
+            {
+              "match": ",",
+              "name": "punctuation.separator.comma.specforge"
+            }
+          ]
+        },
+        {
+          "comment": "use \"path\"",
+          "match": "^\\s*(use)\\s+(\"[^\"]*\")",
+          "captures": {
+            "1": { "name": "keyword.control.import.specforge" },
+            "2": { "name": "string.quoted.double.specforge" }
+          }
+        }
+      ]
+    },
+
+    "pub-use-import": {
+      "patterns": [
+        {
+          "comment": "pub use * as alias from \"path\"",
+          "match": "^\\s*(pub)\\s+(use)\\s+(\\*)\\s+(as)\\s+([a-zA-Z_][a-zA-Z0-9_]*)\\s+(from)\\s+(\"[^\"]*\")",
+          "captures": {
+            "1": { "name": "keyword.control.pub.specforge" },
+            "2": { "name": "keyword.control.import.specforge" },
+            "3": { "name": "keyword.operator.wildcard.specforge" },
+            "4": { "name": "keyword.control.as.specforge" },
+            "5": { "name": "entity.name.namespace.specforge" },
+            "6": { "name": "keyword.control.from.specforge" },
+            "7": { "name": "string.quoted.double.specforge" }
+          }
+        },
+        {
+          "comment": "pub use { A, B } from \"path\" (single line)",
+          "begin": "^\\s*(pub)\\s+(use)\\s*\\{",
+          "beginCaptures": {
+            "1": { "name": "keyword.control.pub.specforge" },
+            "2": { "name": "keyword.control.import.specforge" }
+          },
+          "end": "\\}\\s*(from)\\s+(\"[^\"]*\")",
+          "endCaptures": {
+            "1": { "name": "keyword.control.from.specforge" },
+            "2": { "name": "string.quoted.double.specforge" }
+          },
+          "patterns": [
+            {
+              "match": "\\b(as)\\b",
+              "name": "keyword.control.as.specforge"
+            },
+            {
+              "match": "\\b[a-zA-Z_][a-zA-Z0-9_]*\\b",
+              "name": "entity.name.function.import.specforge"
+            },
+            {
+              "match": ",",
+              "name": "punctuation.separator.comma.specforge"
+            }
+          ]
+        },
+        {
+          "comment": "pub use \"path\"",
+          "match": "^\\s*(pub)\\s+(use)\\s+(\"[^\"]*\")",
+          "captures": {
+            "1": { "name": "keyword.control.pub.specforge" },
+            "2": { "name": "keyword.control.import.specforge" },
+            "3": { "name": "string.quoted.double.specforge" }
+          }
+        }
+      ]
+    },
+
+    "spec-block": {
+      "begin": "^\\s*(spec)\\s+(\"[^\"]*\")\\s*(\\{)",
+      "beginCaptures": {
+        "1": { "name": "keyword.control.spec.specforge" },
+        "2": { "name": "string.quoted.double.specforge" },
+        "3": { "name": "punctuation.definition.block.begin.specforge" }
+      },
+      "end": "^\\s*(\\})",
+      "endCaptures": {
+        "1": { "name": "punctuation.definition.block.end.specforge" }
+      },
+      "name": "meta.block.spec.specforge",
+      "patterns": [
+        { "include": "#block-body" }
+      ]
+    },
+
+    "ref-inline": {
+      "match": "^\\s*(ref)\\s+([a-zA-Z_][a-zA-Z0-9_]*\\.[a-zA-Z_][a-zA-Z0-9_]*:[^\\s\"{}()\\[\\],]+)\\s+(\"[^\"]*\")\\s*$",
+      "captures": {
+        "1": { "name": "keyword.control.ref.specforge" },
+        "2": { "name": "constant.other.scheme-ref-id.specforge" },
+        "3": { "name": "string.quoted.double.specforge" }
+      }
+    },
+
+    "ref-block": {
+      "begin": "^\\s*(ref)\\s+([a-zA-Z_][a-zA-Z0-9_]*\\.[a-zA-Z_][a-zA-Z0-9_]*:[^\\s\"{}()\\[\\],]+)\\s+(\"[^\"]*\")\\s*(\\{)",
+      "beginCaptures": {
+        "1": { "name": "keyword.control.ref.specforge" },
+        "2": { "name": "constant.other.scheme-ref-id.specforge" },
+        "3": { "name": "string.quoted.double.specforge" },
+        "4": { "name": "punctuation.definition.block.begin.specforge" }
+      },
+      "end": "^\\s*(\\})",
+      "endCaptures": {
+        "1": { "name": "punctuation.definition.block.end.specforge" }
+      },
+      "name": "meta.block.ref.specforge",
+      "patterns": [
+        { "include": "#block-body" }
+      ]
+    },
+
+    "define-block": {
+      "begin": "^\\s*(define)\\s+([a-zA-Z_][a-zA-Z0-9_]*)\\s*(\\{)",
+      "beginCaptures": {
+        "1": { "name": "keyword.control.define.specforge" },
+        "2": { "name": "entity.name.type.define.specforge" },
+        "3": { "name": "punctuation.definition.block.begin.specforge" }
+      },
+      "end": "^\\s*(\\})",
+      "endCaptures": {
+        "1": { "name": "punctuation.definition.block.end.specforge" }
+      },
+      "name": "meta.block.define.specforge",
+      "patterns": [
+        { "include": "#block-body" }
+      ]
+    },
+
+    "union-block": {
+      "match": "^\\s*([a-zA-Z_][a-zA-Z0-9_]*)\\s+([a-zA-Z_][a-zA-Z0-9_]*)\\s*(=)\\s*(.+)$",
+      "captures": {
+        "1": { "name": "keyword.other.entity-kind.specforge" },
+        "2": { "name": "entity.name.type.union.specforge" },
+        "3": { "name": "keyword.operator.assignment.specforge" },
+        "4": {
+          "patterns": [
+            { "include": "#string" },
+            { "include": "#number" },
+            {
+              "match": "\\|",
+              "name": "keyword.operator.union.specforge"
+            },
+            {
+              "match": "-[0-9]+",
+              "name": "constant.numeric.specforge"
+            },
+            {
+              "match": "\\b[a-zA-Z_][a-zA-Z0-9_]*\\b",
+              "name": "support.type.variant.specforge"
+            }
+          ]
+        }
+      }
+    },
+
+    "entity-block": {
+      "begin": "^\\s*([a-zA-Z_][a-zA-Z0-9_]*)\\s+([a-zA-Z_][a-zA-Z0-9_]*)(?:\\s+(\"[^\"]*\"))?\\s*(\\{)",
+      "beginCaptures": {
+        "1": { "name": "keyword.other.entity-kind.specforge" },
+        "2": { "name": "entity.name.function.specforge" },
+        "3": { "name": "string.quoted.double.title.specforge" },
+        "4": { "name": "punctuation.definition.block.begin.specforge" }
+      },
+      "end": "^\\s*(\\})",
+      "endCaptures": {
+        "1": { "name": "punctuation.definition.block.end.specforge" }
+      },
+      "name": "meta.block.entity.specforge",
+      "patterns": [
+        { "include": "#block-body" }
+      ]
+    }
+  }
+}

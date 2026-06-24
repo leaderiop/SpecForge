@@ -1,0 +1,277 @@
+{
+  "Spec Block": {
+    "prefix": ["spec"],
+    "body": [
+      "spec \"${1:${TM_FILENAME_BASE}}\" {",
+      "  version \"${2:0.1.0}\"",
+      "}"
+    ],
+    "description": "Spec root block"
+  },
+  "Use Import": {
+    "prefix": ["use"],
+    "body": "use \"${1:path/to/module}\"",
+    "description": "Import another spec file"
+  },
+  "Use Selective Import": {
+    "prefix": ["usefrom", "use from"],
+    "body": "use { ${1:entity_id} } from \"${2:path/to/module}\"",
+    "description": "Selective import from another spec file"
+  },
+  "Verify Statement": {
+    "prefix": ["vfy", "verify"],
+    "body": "verify ${1|unit,integration,property,acceptance,smoke,contract|} \"${2:description}\"",
+    "description": "Add verify statement"
+  },
+  "Behavior": {
+    "prefix": ["bhv", "behavior"],
+    "body": [
+      "behavior ${1:entity_id} \"${2:Title}\" {",
+      "  status   ${3|draft,approved,implemented,deprecated|}",
+      "  contract \"${4:Given X, when Y, then Z}\"",
+      "  types    [${5}]",
+      "",
+      "  verify ${6|unit,integration,property|} \"${7:Test description}\"",
+      "}"
+    ],
+    "description": "New behavior entity (@specforge/software)"
+  },
+  "Invariant": {
+    "prefix": ["inv", "invariant"],
+    "body": [
+      "invariant ${1:entity_id} \"${2:Title}\" {",
+      "  status ${3|draft,approved,implemented,deprecated|}",
+      "  scope  ${4|global,module,entity|}",
+      "}"
+    ],
+    "description": "New invariant entity (@specforge/software)"
+  },
+  "Event": {
+    "prefix": ["evt", "event"],
+    "body": [
+      "event ${1:entity_id} \"${2:Title}\" {",
+      "  status  ${3|draft,approved,implemented,deprecated|}",
+      "  payload ${4:PayloadType}",
+      "  source  ${5|system,user,external|}",
+      "}"
+    ],
+    "description": "New event entity (@specforge/software)"
+  },
+  "Type": {
+    "prefix": ["typ", "type"],
+    "body": [
+      "type ${1:TypeName} \"${2:Title}\" {",
+      "  status ${3|draft,approved,implemented,deprecated|}",
+      "}"
+    ],
+    "description": "New type entity (@specforge/software)"
+  },
+  "Port": {
+    "prefix": ["prt", "port"],
+    "body": [
+      "port ${1:entity_id} \"${2:Title}\" {",
+      "  status    ${3|draft,approved,implemented,deprecated|}",
+      "  direction ${4|inbound,outbound,bidirectional|}",
+      "  protocol  ${5|http,grpc,graphql,ws,queue,custom|}",
+      "}"
+    ],
+    "description": "New port entity (@specforge/software)"
+  },
+  "Feature": {
+    "prefix": ["feat", "feature"],
+    "body": [
+      "feature ${1:feature_id} \"${2:Feature Title}\" {",
+      "  status   ${3|proposed,approved,in_progress,done,deprecated|}",
+      "  priority ${4|critical,high,medium,low|}",
+      "  problem  \"${5:The problem this feature solves}\"",
+      "}"
+    ],
+    "description": "New feature entity (@specforge/product)"
+  },
+  "Journey": {
+    "prefix": ["jrn", "journey"],
+    "body": [
+      "journey ${1:journey_id} \"${2:Journey Title}\" {",
+      "  persona  ${3:persona_id}",
+      "  channels [${4:channel_id}]",
+      "  features [${5:feature_id}]",
+      "}"
+    ],
+    "description": "New journey entity (@specforge/product)"
+  },
+  "Deliverable": {
+    "prefix": ["dlv", "deliverable"],
+    "body": [
+      "deliverable ${1:deliverable_id} \"${2:Deliverable Title}\" {",
+      "  status        ${3|draft,planned,in_progress,delivered|}",
+      "  artifact_type ${4|cli,api,library,service,web,mobile|}",
+      "  journeys      [${5}]",
+      "  modules       [${6}]",
+      "  milestones    [${7}]",
+      "}"
+    ],
+    "description": "New deliverable entity (@specforge/product)"
+  },
+  "Milestone": {
+    "prefix": ["mst", "milestone"],
+    "body": [
+      "milestone ${1:milestone_id} \"${2:Milestone Title}\" {",
+      "  status        ${3|planned,in_progress,completed,cancelled|}",
+      "  features      [${4}]",
+      "  modules       [${5}]",
+      "  exit_criteria [\"${6:Criteria}\"]",
+      "}"
+    ],
+    "description": "New milestone entity (@specforge/product)"
+  },
+  "Module": {
+    "prefix": ["mod", "module"],
+    "body": [
+      "module ${1:module_id} \"${2:Module Title}\" {",
+      "  features [${3}]",
+      "}"
+    ],
+    "description": "New module entity (@specforge/product)"
+  },
+  "Term": {
+    "prefix": ["trm", "term"],
+    "body": [
+      "term ${1:term_id} \"${2:Term Title}\" {",
+      "  definition \"${3:The canonical definition of this term}\"",
+      "  see_also   [${4}]",
+      "}"
+    ],
+    "description": "New term entity (@specforge/product)"
+  },
+  "Persona": {
+    "prefix": ["prs", "persona"],
+    "body": [
+      "persona ${1:persona_id} \"${2:Persona Title}\" {",
+      "  technical_level ${3|novice,intermediate,expert|}",
+      "  status          ${4|active,inactive|}",
+      "}"
+    ],
+    "description": "New persona entity (@specforge/product)"
+  },
+  "Channel": {
+    "prefix": ["chn", "channel"],
+    "body": [
+      "channel ${1:channel_id} \"${2:Channel Title}\" {",
+      "  status ${3|active,inactive,planned|}",
+      "}"
+    ],
+    "description": "New channel entity (@specforge/product)"
+  },
+  "Release": {
+    "prefix": ["rel", "release"],
+    "body": [
+      "release ${1:release_id} \"${2:Release Title}\" {",
+      "  version      \"${3:1.0.0}\"",
+      "  status       ${4|planned,in_progress,released,cancelled|}",
+      "  deliverables [${5}]",
+      "  milestones   [${6}]",
+      "}"
+    ],
+    "description": "New release entity (@specforge/product)"
+  },
+  "Decision": {
+    "prefix": ["dec", "decision"],
+    "body": [
+      "decision ${1:decision_id} \"${2:Decision Title}\" {",
+      "  status    ${3|proposed,accepted,deprecated,superseded|}",
+      "  rationale \"${4:Why this decision was made}\"",
+      "}"
+    ],
+    "description": "New decision entity (@specforge/governance)"
+  },
+  "Constraint": {
+    "prefix": ["cst", "constraint"],
+    "body": [
+      "constraint ${1:constraint_id} \"${2:Constraint Title}\" {",
+      "  status     ${3|draft,approved,implemented,deprecated|}",
+      "  constrains [${4}]",
+      "}"
+    ],
+    "description": "New constraint entity (@specforge/governance)"
+  },
+  "Failure Mode": {
+    "prefix": ["fm", "failure_mode"],
+    "body": [
+      "failure_mode ${1:fm_id} \"${2:Failure Mode Title}\" {",
+      "  status   ${3|identified,mitigated,accepted,resolved|}",
+      "  severity ${4|critical,high,medium,low|}",
+      "  affects  [${5}]",
+      "}"
+    ],
+    "description": "New failure_mode entity (@specforge/governance)"
+  },
+  "Property": {
+    "prefix": ["prop", "property"],
+    "body": [
+      "property ${1:property_id} \"${2:Property Title}\" {",
+      "  status        ${3|draft,approved,verified|}",
+      "  property_type ${4|safety,liveness,fairness|}",
+      "}"
+    ],
+    "description": "New property entity (@specforge/formal)"
+  },
+  "Axiom": {
+    "prefix": ["axm", "axiom"],
+    "body": [
+      "axiom ${1:axiom_id} \"${2:Axiom Title}\" {",
+      "  status    ${3|draft,approved|}",
+      "  statement \"${4:Formal statement of this axiom}\"",
+      "}"
+    ],
+    "description": "New axiom entity (@specforge/formal)"
+  },
+  "Protocol": {
+    "prefix": ["proto", "protocol"],
+    "body": [
+      "protocol ${1:protocol_id} \"${2:Protocol Title}\" {",
+      "  status      ${3|draft,approved,verified|}",
+      "  alphabet    [${4}]",
+      "}"
+    ],
+    "description": "New protocol entity (@specforge/formal)"
+  },
+  "Refinement": {
+    "prefix": ["rfn", "refinement"],
+    "body": [
+      "refinement ${1:refinement_id} \"${2:Refinement Title}\" {",
+      "  status   ${3|draft,approved,verified|}",
+      "  abstract ${4:abstract_behavior_id}",
+      "  concrete ${5:concrete_behavior_id}",
+      "}"
+    ],
+    "description": "New refinement entity (@specforge/formal)"
+  },
+  "Process": {
+    "prefix": ["proc", "process"],
+    "body": [
+      "process ${1:process_id} \"${2:Process Title}\" {",
+      "  status   ${3|draft,approved,verified|}",
+      "  alphabet [${4}]",
+      "}"
+    ],
+    "description": "New process entity (@specforge/formal)"
+  },
+  "Define Block": {
+    "prefix": ["def", "define"],
+    "body": [
+      "define ${1:type_name} \"${2:Title}\" {",
+      "  ${3:field_name} ${4:field_type}",
+      "}"
+    ],
+    "description": "User-defined type block"
+  },
+  "Ref Block": {
+    "prefix": ["ref"],
+    "body": [
+      "ref ${1:ref_id} \"${2:External Reference}\" {",
+      "  url \"${3:https://example.com}\"",
+      "}"
+    ],
+    "description": "External reference block"
+  }
+}

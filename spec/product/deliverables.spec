@@ -3,6 +3,7 @@
 use "product/journeys"
 
 deliverable specforge_cli_deliverable "specforge-cli" {
+  artifact_type cli
   description "The primary CLI binary for SpecForge. Parses, validates, exports, formats, and manages spec files."
   journeys [
     initialize_a_new_spec_project,
@@ -36,6 +37,7 @@ deliverable specforge_cli_deliverable "specforge-cli" {
 }
 
 deliverable specforge_lsp_deliverable "specforge-lsp" {
+  artifact_type service
   description "The LSP server binary for IDE integration. Provides diagnostics, navigation, completions, and formatting."
   journeys [
     see_live_errors_while_typing,
@@ -51,6 +53,7 @@ deliverable specforge_lsp_deliverable "specforge-lsp" {
 }
 
 deliverable specforge_mcp_deliverable "specforge-mcp" {
+  artifact_type service
   description "The MCP server for AI agent integration. Exposes graph queries, tools, resources, and prompts via JSON-RPC over stdio."
   journeys [
     consume_graph_via_mcp,
@@ -65,10 +68,12 @@ deliverable specforge_mcp_deliverable "specforge-mcp" {
 }
 
 deliverable specforge_core "specforge/core" {
+  artifact_type library
   description "Core compiler libraries: parser, resolver, graph, validator, emitter, watch."
 }
 
 deliverable specforge_product "specforge/product" {
+  artifact_type extension
   description "The @specforge/product Wasm extension package providing 9 product entity kinds."
   journeys [
     review_deliverable_scope,
@@ -78,22 +83,27 @@ deliverable specforge_product "specforge/product" {
 }
 
 deliverable specforge_governance "specforge/governance" {
+  artifact_type extension
   description "The @specforge/governance Wasm extension package providing decision, constraint, and failure_mode kinds."
 }
 
 deliverable specforge_software "specforge/software" {
+  artifact_type extension
   description "The @specforge/software Wasm extension package providing behavior, invariant, event, type, and port kinds."
 }
 
 deliverable specforge_formal "specforge/formal" {
+  artifact_type extension
   description "The @specforge/formal Wasm extension package providing property, axiom, protocol, refinement, and process kinds."
 }
 
 deliverable specforge_gh "specforge/gh" {
+  artifact_type extension
   description "The @specforge/gh provider extension for GitHub reference validation."
 }
 
 deliverable specforge_rust_traceability_deliverable "specforge/rust-traceability" {
+  artifact_type library
   description "Rust test traceability toolkit: proc macro, test guard, JUnit XML collector."
   journeys [
     j_collect_rust_test_results,
@@ -102,6 +112,7 @@ deliverable specforge_rust_traceability_deliverable "specforge/rust-traceability
 }
 
 deliverable specforge_wasm_runtime_deliverable "specforge-wasm" {
+  artifact_type library
   description "The Wasm extension runtime: loading, sandboxing, host functions, and AOT caching."
   journeys [
     author_a_domain_extension,
@@ -115,5 +126,6 @@ deliverable specforge_wasm_runtime_deliverable "specforge-wasm" {
 }
 
 deliverable tree_sitter_specforge_deliverable "tree-sitter-specforge" {
+  artifact_type library
   description "Tree-sitter grammar for .spec files with editor query files."
 }

@@ -1,8 +1,11 @@
+mod credentials;
+mod http_client;
 mod keyword_index;
 mod provider;
 mod registry_client;
 mod registry_config;
 mod registry_ops;
+mod resolver;
 mod surface;
 mod zero_entity_registries;
 mod zero_entity_validation;

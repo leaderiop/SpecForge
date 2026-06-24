@@ -136,6 +136,10 @@ impl<'a> ProtocolHost<'a> {
             descs.collectors = self.describe_typed(extension_name, "collectors")?;
         }
 
+        if flags.analyzers {
+            descs.analyzers = self.describe_typed(extension_name, "analyzers")?;
+        }
+
         // Always request surfaces, passes, and feature_flags if extension declares any
         if flags.entities || flags.validators || flags.collectors {
             if let Ok(surfaces_vec) = self.describe_typed::<SurfaceDescriptor>(extension_name, "surfaces") {
@@ -204,6 +208,7 @@ pub struct ExtensionDescriptions {
     pub collectors: Vec<CollectorDescriptor>,
     pub passes: Vec<CompilerPassDescriptor>,
     pub feature_flags: Vec<FeatureFlagDescriptor>,
+    pub analyzers: Vec<AnalyzerDescriptor>,
 }
 
 /// A fully loaded protocol extension: handshake metadata + all descriptions.

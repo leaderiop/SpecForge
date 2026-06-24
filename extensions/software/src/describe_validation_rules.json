@@ -1,0 +1,146 @@
+{
+  "category": "validation_rules",
+  "items": [
+    {
+      "check": "no_outgoing_edges",
+      "code": "W001",
+      "constraint": null,
+      "edge_type": "BehaviorImplementsFeature",
+      "field": null,
+      "message_template": "behavior '{id}' does not implement any feature",
+      "severity": "warning",
+      "target_kind": "behavior",
+      "wasm_function": null
+    },
+    {
+      "check": "no_incoming_edges",
+      "code": "W002",
+      "constraint": null,
+      "edge_type": null,
+      "field": null,
+      "message_template": "type '{id}' is not referenced by any behavior, port, or type",
+      "severity": "warning",
+      "target_kind": "type",
+      "wasm_function": null
+    },
+    {
+      "check": "no_incoming_edges",
+      "code": "W003",
+      "constraint": null,
+      "edge_type": null,
+      "field": null,
+      "message_template": "invariant '{id}' is not enforced by any behavior",
+      "severity": "warning",
+      "target_kind": "invariant",
+      "wasm_function": null
+    },
+    {
+      "check": "no_incoming_edges",
+      "code": "W005",
+      "constraint": null,
+      "edge_type": null,
+      "field": null,
+      "message_template": "port '{id}' is not referenced by any behavior",
+      "severity": "warning",
+      "target_kind": "port",
+      "wasm_function": null
+    },
+    {
+      "check": "missing_field_when_flag_set",
+      "code": "W006",
+      "constraint": null,
+      "edge_type": null,
+      "field": "category",
+      "message_template": "behavior '{id}' has no category — agents use category for task routing",
+      "severity": "warning",
+      "target_kind": "behavior",
+      "wasm_function": null
+    },
+    {
+      "check": "no_incoming_edges",
+      "code": "W007",
+      "constraint": null,
+      "edge_type": null,
+      "field": null,
+      "message_template": "event '{id}' is not produced by any behavior",
+      "severity": "warning",
+      "target_kind": "event",
+      "wasm_function": null
+    },
+    {
+      "check": "no_incoming_edges",
+      "code": "W008",
+      "constraint": null,
+      "edge_type": "BehaviorImplementsFeature",
+      "field": null,
+      "message_template": "feature '{id}' is not implemented by any behavior",
+      "severity": "warning",
+      "target_kind": "feature",
+      "wasm_function": null
+    },
+    {
+      "check": "custom",
+      "code": "W010",
+      "constraint": null,
+      "edge_type": null,
+      "field": null,
+      "message_template": "type '{id}' field '{field}' has unknown annotation '{value}'",
+      "severity": "warning",
+      "target_kind": "type",
+      "wasm_function": "validate__type_field_annotations"
+    },
+    {
+      "check": "custom",
+      "code": "E004",
+      "constraint": null,
+      "edge_type": null,
+      "field": null,
+      "message_template": "port '{id}' method '{field}' references unknown type '{value}'",
+      "severity": "error",
+      "target_kind": "port",
+      "wasm_function": "validate__port_methods"
+    },
+    {
+      "check": "custom",
+      "code": "E006",
+      "constraint": null,
+      "edge_type": null,
+      "field": null,
+      "message_template": "event '{id}' trigger must reference a behavior, found {kind} '{value}'",
+      "severity": "error",
+      "target_kind": "event",
+      "wasm_function": "validate__event_triggers"
+    },
+    {
+      "check": "custom",
+      "code": "E010",
+      "constraint": null,
+      "edge_type": null,
+      "field": null,
+      "message_template": "milestone '{id}' behaviors range is invalid: {reason}",
+      "severity": "error",
+      "target_kind": "milestone",
+      "wasm_function": "validate__milestone_behavior_ranges"
+    },
+    {
+      "check": "field_value_constraint",
+      "code": "W011",
+      "constraint": {
+        "kind": "one_of",
+        "pattern": null,
+        "values": [
+          "struct",
+          "enum",
+          "alias",
+          "opaque"
+        ]
+      },
+      "edge_type": null,
+      "field": "kind",
+      "message_template": "type '{id}' has invalid kind '{value}' — expected one of: struct, enum, alias, opaque",
+      "severity": "warning",
+      "target_kind": "type",
+      "wasm_function": null
+    }
+  ]
+}

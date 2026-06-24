@@ -270,10 +270,10 @@ behavior also_good "Also Good" { status done }
     assert!(!spec.errors.is_empty(), "parser should report errors for malformed input");
 
     let (_graph, diagnostics) = build_graph(&[spec]);
-    let parse_diags: Vec<_> = diagnostics.iter().filter(|d| d.code == "W062").collect();
+    let parse_diags: Vec<_> = diagnostics.iter().filter(|d| d.code == "E001").collect();
     assert!(
         !parse_diags.is_empty(),
-        "build_graph should surface parse errors as W062 diagnostics, got: {:?}",
+        "build_graph should surface parse errors as E001 diagnostics, got: {:?}",
         diagnostics
     );
 }

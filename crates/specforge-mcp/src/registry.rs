@@ -469,6 +469,97 @@ fn default_tools() -> Vec<McpToolDescriptor> {
             }),
             category: Some("management".into()),
         },
+        McpToolDescriptor {
+            name: "specforge.infer_progress".into(),
+            description: "Check inference progress: summary of analyzed vs unanalyzed source files, stale entries, and entity counts".into(),
+            input_schema: json!({
+                "type": "object",
+                "properties": {}
+            }),
+            category: Some("inference".into()),
+        },
+        McpToolDescriptor {
+            name: "specforge.infer_gaps".into(),
+            description: "Analyze inference gaps: public Rust items not yet covered by spec entities (approximate)".into(),
+            input_schema: json!({
+                "type": "object",
+                "properties": {}
+            }),
+            category: Some("inference".into()),
+        },
+        McpToolDescriptor {
+            name: "specforge.infer_session".into(),
+            description: "Manage inference sessions: start a new session, mark files as analyzed, or end a session".into(),
+            input_schema: json!({
+                "type": "object",
+                "properties": {
+                    "action": {
+                        "type": "string",
+                        "enum": ["start", "mark_analyzed", "end"],
+                        "description": "Session action to perform"
+                    },
+                    "agent": {
+                        "type": "string",
+                        "description": "Agent identifier (for start)"
+                    },
+                    "source_roots": {
+                        "type": "array",
+                        "items": { "type": "string" },
+                        "description": "Source directories to scan (for start)"
+                    },
+                    "source_file": {
+                        "type": "string",
+                        "description": "Relative path to analyzed file (for mark_analyzed)"
+                    },
+                    "entities_produced": {
+                        "type": "array",
+                        "items": { "type": "string" },
+                        "description": "Entity IDs produced from the file (for mark_analyzed)"
+                    },
+                    "session_id": {
+                        "type": "string",
+                        "description": "Session ID to end (for end)"
+                    },
+                    "status": {
+                        "type": "string",
+                        "enum": ["completed", "paused"],
+                        "description": "Final status (for end, default: completed)"
+                    }
+                },
+                "required": ["action"]
+            }),
+            category: Some("inference".into()),
+        },
+        McpToolDescriptor {
+            name: "specforge.find_implementation".into(),
+            description: "Find source code locations that implement a specforge entity".into(),
+            input_schema: json!({
+                "type": "object",
+                "properties": {
+                    "entity_id": {
+                        "type": "string",
+                        "description": "Entity ID to find implementations for"
+                    }
+                },
+                "required": ["entity_id"]
+            }),
+            category: Some("navigation".into()),
+        },
+        McpToolDescriptor {
+            name: "specforge.find_spec_for_source".into(),
+            description: "Find specforge entities anchored to a source file".into(),
+            input_schema: json!({
+                "type": "object",
+                "properties": {
+                    "file_path": {
+                        "type": "string",
+                        "description": "Relative path to source file"
+                    }
+                },
+                "required": ["file_path"]
+            }),
+            category: Some("navigation".into()),
+        },
     ]
 }
 
@@ -524,6 +615,17 @@ fn default_prompts() -> Vec<McpPromptDescriptor> {
                 McpPromptArgument {
                     name: "kind".into(),
                     description: "Filter by entity kind".into(),
+                    required: false,
+                },
+            ]),
+        },
+        McpPromptDescriptor {
+            name: "specforge://prompts/infer".into(),
+            description: "Get inference guidance for discovering spec entities from code".into(),
+            arguments: Some(vec![
+                McpPromptArgument {
+                    name: "scope".into(),
+                    description: "Scope: omit for overview, 'kind:{name}' for focused guide, 'file:{path}' for file deduplication".into(),
                     required: false,
                 },
             ]),

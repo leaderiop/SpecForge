@@ -1,0 +1,7 @@
+{
+  "$schema": "https://specforge.dev/schema/specforge.json",
+  "name": "test-project",
+  "version": "0.1.0",
+  "spec_root": "spec",
+  "extensions": ["@specforge/software"]
+}

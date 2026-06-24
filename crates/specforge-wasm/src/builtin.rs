@@ -12,6 +12,9 @@ use crate::runtime::{WasmCallResult, WasmRuntime, WasmTrapInfo};
 pub trait BuiltinExtension: Send + Sync {
     fn handshake(&self) -> HandshakeResponse;
     fn describe(&self, category: &str) -> Option<DescribeResponse>;
+    fn call_analyzer(&self, _export_name: &str, _input: &[u8]) -> Option<Vec<u8>> {
+        None
+    }
 }
 
 /// A `WasmRuntime` backed by native Rust extension implementations.
@@ -99,11 +102,16 @@ impl WasmRuntime for BuiltinRuntime {
                     }),
                 }
             }
-            _ => WasmCallResult::Trap(WasmTrapInfo {
-                kind: "unknown_export".to_string(),
-                message: format!("unknown export '{}'", export_name),
-                export_name: export_name.to_string(),
-            }),
+            _ => {
+                if let Some(result) = ext.call_analyzer(export_name, input) {
+                    return WasmCallResult::Ok(result);
+                }
+                WasmCallResult::Trap(WasmTrapInfo {
+                    kind: "unknown_export".to_string(),
+                    message: format!("unknown export '{}'", export_name),
+                    export_name: export_name.to_string(),
+                })
+            }
         }
     }
 
@@ -192,6 +200,7 @@ mod tests {
                 dot_color: None,
                 dot_fillcolor: None,
                 verify_kinds: vec![],
+                inference_guide: None,
             }
         }
     }

@@ -111,11 +111,12 @@ fn autocomplete_entity_ids_contract() {
 fn complete_field_names_contract() {
     // Requires: entity kind name + populated FieldRegistry
     // Ensures: field names appropriate for that kind returned
-    let runtime = specforge_emitter::builtins::default_runtime();
+    let ext_names: Vec<String> = ["@specforge/software", "@specforge/product", "@specforge/governance", "@specforge/formal"]
+        .iter().map(|s| s.to_string()).collect();
+    let runtime = specforge_emitter::builtins::runtime_for_extensions(&ext_names);
     let host = specforge_wasm::protocol::ProtocolHost::new(&runtime);
-    let builtins = ["@specforge/software", "@specforge/product", "@specforge/governance", "@specforge/formal"];
     let mut manifests = Vec::new();
-    for name in &builtins {
+    for name in &ext_names {
         if let Ok(ext) = specforge_wasm::protocol::load_protocol_extension(&host, name) {
             manifests.push(specforge_wasm::protocol::protocol_extension_to_manifest(&ext));
         }

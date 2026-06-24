@@ -1,0 +1,32 @@
+{
+  "contribution_flags": {
+    "body_parsers": false,
+    "collectors": false,
+    "entities": true,
+    "grammars": false,
+    "parsers": false,
+    "prompts": false,
+    "providers": false,
+    "renderers": false,
+    "validators": true
+  },
+  "name": "@specforge/software",
+  "peer_dependencies": [
+    {
+      "name": "@specforge/product",
+      "optional": false,
+      "version": "^1.0"
+    }
+  ],
+  "protocol_version": "1.0.0",
+  "sandbox_policy": {
+    "allowed_domains": [],
+    "allowed_output_extensions": [],
+    "allowed_paths": [],
+    "file_system_access": false,
+    "max_execution_ms": 5000,
+    "max_memory_mb": 256,
+    "network_access": false
+  },
+  "version": "1.0.0"
+}

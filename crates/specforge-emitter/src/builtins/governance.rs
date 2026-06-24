@@ -15,15 +15,16 @@ impl GovernanceExtension {
                 name: "Decision".into(),
                 keyword: Some("decision".into()),
                 description: Some("An architectural or design decision with rationale and status".into()),
+                inference_guide: Some("Look for Architecture Decision Records (ADRs), design documents, RFC files, and significant comments explaining WHY something was built a certain way. Signals: docs/adr/ or docs/decisions/ directories; files named ADR-*, DECISION-*, RFC-*; PR descriptions with 'decided to', 'chosen approach', 'trade-off'; comments starting with 'Decision:', 'Rationale:', 'Why:'. Extract status (proposed/accepted/deprecated), context (what prompted it), decision (what was chosen), and consequences (trade-offs). Link to invariants the decision protects and constraints it imposes. Skip: trivial implementation choices, style preferences, auto-generated config.".into()),
                 semantic_token: Some("string".into()),
                 lsp_icon: Some("Text".into()),
                 dot_shape: Some("note".into()),
                 dot_color: Some("#6A1B9A".into()),
                 dot_fillcolor: Some("#F3E5F5".into()),
                 fields: vec![
-                    fd("status", "string", false, Some("Current lifecycle status of the decision (e.g. proposed, accepted, deprecated)"), None, None),
-                    fd("context", "string", false, Some("Background and circumstances that motivated this decision"), None, None),
-                    fd("statement", "string", false, Some("The decision statement itself"), None, None),
+                    fd("status", "string", true, Some("Current lifecycle status of the decision (e.g. proposed, accepted, deprecated)"), None, None),
+                    fd("context", "string", true, Some("Background and circumstances that motivated this decision"), None, None),
+                    fd("decision", "string", true, Some("The decision statement itself"), None, None),
                     fd("consequences", "string_list", false, Some("Expected outcomes and trade-offs resulting from this decision"), None, None),
                     fd_ref("superseded_by", "reference", "DecisionSupersedesDecision", "decision", Some("Reference to a newer decision that replaces this one")),
                     fd_ref("invariants", "reference_list", "DecisionProtectsInvariant", "invariant", Some("Invariants that this decision protects")),
@@ -44,6 +45,7 @@ impl GovernanceExtension {
                 name: "Constraint".into(),
                 keyword: Some("constraint".into()),
                 description: Some("A technical or business constraint that limits design choices".into()),
+                inference_guide: Some("Look for non-functional requirements, SLAs, performance budgets, regulatory mandates, and technical limitations. Signals: performance benchmarks or thresholds in code/config; rate limiting configuration; compliance annotations (@HIPAA, @PCI-DSS); resource limits (max connections, memory caps, timeout values); security policies; dependency version constraints; platform limitations documented in README or config. Set category (performance, security, regulatory, compatibility). Include metric and threshold when quantifiable (e.g., metric='p99 latency', threshold='<200ms'). Link enforced_by to behaviors that enforce this constraint at runtime. Constraints are quantified limits with measurable thresholds; for architectural rules about state validity, use invariant instead. Skip: soft preferences, guidelines that aren't enforced.".into()),
                 semantic_token: Some("property".into()),
                 lsp_icon: Some("Property".into()),
                 dot_shape: Some("octagon".into()),
@@ -56,7 +58,7 @@ impl GovernanceExtension {
                     fd("priority", "string", false, Some("Relative importance of this constraint"), None, None),
                     fd("metric", "string", false, Some("Measurable quantity used to evaluate compliance"), None, None),
                     fd("threshold", "string", false, Some("Acceptable limit or target value for the metric"), None, None),
-                    fd("description", "string", false, Some("Free-form description of the constraint"), None, None),
+                    fd("description", "string", true, Some("Free-form description of the constraint"), None, None),
                     fd("refs", "string_list", false, Some("External references (URLs, documents, issue links)"), None, None),
                     fd_ref_inv("enforced_by", "reference_list", "ConstraintEnforcedByBehavior", "behavior", "invariants", Some("Behaviors that enforce this constraint at runtime")),
                     fd("scope", "string", false, Some("Applicability scope (e.g. system-wide, per-module, per-request)"), None, None),
@@ -70,17 +72,18 @@ impl GovernanceExtension {
                 name: "FailureMode".into(),
                 keyword: Some("failure_mode".into()),
                 description: Some("A potential failure scenario with severity and mitigation".into()),
+                inference_guide: Some("Look for error handling paths, retry logic, circuit breakers, fallback mechanisms, and comments describing what can go wrong. Signals: catch/rescue blocks handling specific failure scenarios; circuit breaker configurations; retry policies with backoff; fallback implementations; chaos engineering tests; error types/classes representing failure categories; timeout handling; dead letter queues. Extract cause (what triggers it), effect (what breaks), and mitigation (how the system recovers). Rate severity/occurrence/detection. Link to the invariant that gets violated and behaviors affected. Skip: generic error handling, validation errors for user input, expected business rule rejections.".into()),
                 semantic_token: Some("variable".into()),
                 lsp_icon: Some("Variable".into()),
                 dot_shape: Some("triangle".into()),
                 dot_color: Some("#D32F2F".into()),
                 dot_fillcolor: Some("#FFCDD2".into()),
                 fields: vec![
-                    fd("severity", "string", false, Some("Impact severity rating before mitigation (e.g. critical, high, medium, low)"), None, None),
+                    fd("severity", "string", true, Some("Impact severity rating before mitigation (e.g. critical, high, medium, low)"), None, None),
                     fd("occurrence", "string", false, Some("Likelihood of this failure occurring before mitigation"), None, None),
                     fd("detection", "string", false, Some("Likelihood of detecting this failure before it causes harm"), None, None),
-                    fd("cause", "string", false, Some("Root cause or trigger of the failure"), None, None),
-                    fd("effect", "string", false, Some("Consequence or impact when the failure occurs"), None, None),
+                    fd("cause", "string", true, Some("Root cause or trigger of the failure"), None, None),
+                    fd("effect", "string", true, Some("Consequence or impact when the failure occurs"), None, None),
                     fd("mitigation", "string", false, Some("Strategy or action to reduce risk of the failure"), None, None),
                     fd("post_severity", "string", false, Some("Impact severity rating after mitigation is applied"), None, None),
                     fd("post_occurrence", "string", false, Some("Likelihood of occurrence after mitigation is applied"), None, None),
@@ -146,11 +149,18 @@ impl BuiltinExtension for GovernanceExtension {
                 validators: true,
                 ..Default::default()
             },
-            peer_dependencies: vec![PeerDependency {
-                name: "@specforge/software".into(),
-                version: "^1.0".into(),
-                optional: false,
-            }],
+            peer_dependencies: vec![
+                PeerDependency {
+                    name: "@specforge/software".into(),
+                    version: "^1.0".into(),
+                    optional: false,
+                },
+                PeerDependency {
+                    name: "@specforge/product".into(),
+                    version: "^1.0".into(),
+                    optional: true,
+                },
+            ],
             sandbox_policy: None,
         }
     }
@@ -232,6 +242,7 @@ fn ekd_defaults() -> EntityKindDescriptor {
         dot_color: None,
         dot_fillcolor: None,
         verify_kinds: vec![],
+        inference_guide: None,
     }
 }
 

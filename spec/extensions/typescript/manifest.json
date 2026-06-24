@@ -1,0 +1,232 @@
+{
+  "name": "@specforge/typescript",
+  "version": "1.0.0",
+  "manifestVersion": 2,
+  "wasmPath": "typescript.wasm",
+  "extShort": "ts",
+
+  "contributes": {
+    "entities": false,
+    "validators": false,
+    "renderers": false,
+    "providers": true,
+    "collectors": true,
+    "prompts": false,
+    "parsers": false,
+    "grammars": false,
+    "bodyParsers": false
+  },
+
+  "peerDependencies": [
+    { "name": "@specforge/software", "version": ">=1.0.0" },
+    { "name": "@specforge/product", "version": ">=1.0.0", "optional": true }
+  ],
+
+  "collectorContributions": [
+    {
+      "name": "jest",
+      "inputFormats": ["jest-json"],
+      "export": "collect__jest",
+      "autoDetect": {
+        "filePatterns": ["**/jest.config.*", "**/jest.config.ts", "**/jest.config.js"],
+        "envVars": ["JEST_WORKER_ID"]
+      }
+    },
+    {
+      "name": "vitest",
+      "inputFormats": ["vitest-json"],
+      "export": "collect__vitest",
+      "autoDetect": {
+        "filePatterns": ["**/vitest.config.*", "**/vitest.config.ts", "**/vite.config.*"],
+        "envVars": ["VITEST"]
+      }
+    },
+    {
+      "name": "playwright",
+      "inputFormats": ["playwright-json"],
+      "export": "collect__playwright",
+      "autoDetect": {
+        "filePatterns": ["**/playwright.config.*", "**/playwright.config.ts"],
+        "envVars": ["PLAYWRIGHT_BROWSERS_PATH"]
+      }
+    },
+    {
+      "name": "cypress",
+      "inputFormats": ["junit-xml", "mochawesome-json"],
+      "export": "collect__cypress",
+      "autoDetect": {
+        "filePatterns": ["**/cypress.config.*", "**/cypress.json", "**/cypress/"],
+        "envVars": ["CYPRESS_CACHE_FOLDER"]
+      }
+    },
+    {
+      "name": "mocha",
+      "inputFormats": ["mocha-json", "junit-xml"],
+      "export": "collect__mocha",
+      "autoDetect": {
+        "filePatterns": ["**/.mocharc.*", "**/.mocharc.yml", "**/.mocharc.json"]
+      }
+    },
+    {
+      "name": "node-test",
+      "inputFormats": ["tap"],
+      "export": "collect__node_test",
+      "autoDetect": {
+        "filePatterns": []
+      }
+    }
+  ],
+
+  "sandboxPolicy": {
+    "maxMemoryMb": 512,
+    "maxExecutionMs": 30000,
+    "allowedPaths": ["**/*.ts", "**/*.tsx", "**/*.js", "**/*.jsx", "**/*.mjs", "**/*.cjs", "**/*.d.ts", "**/package.json", "**/tsconfig*.json", "**/nx.json", "**/turbo.json", "**/lerna.json", "**/rush.json", "**/pnpm-workspace.yaml", "**/.mocharc.*", "**/jest.config.*", "**/vitest.config.*", "**/playwright.config.*", "**/cypress.config.*"],
+    "allowedOutputExtensions": [".json"],
+    "networkAccess": false,
+    "fileSystemAccess": true
+  },
+
+  "surfaces": {
+    "commands": [
+      {
+        "id": "scan",
+        "title": "Scan TypeScript Project",
+        "description": "Walk project directory, extract all exported symbols from TypeScript/JavaScript files, detect frameworks, and output structured TsScanResult.",
+        "category": "source",
+        "export": "cmd__scan",
+        "args": [
+          { "name": "root", "argType": "path", "required": false, "description": "Project root directory (default: cwd)" },
+          { "name": "package", "argType": "string", "required": false, "description": "Scan only this monorepo package" },
+          { "name": "include-declarations", "argType": "bool", "required": false, "description": "Include .d.ts files in scan results" },
+          { "name": "include-members", "argType": "bool", "required": false, "description": "Extract class/interface members" },
+          { "name": "format", "argType": { "values": ["json", "summary", "entity-map"] }, "required": false, "defaultValue": "json", "description": "Output format" }
+        ]
+      },
+      {
+        "id": "anchor",
+        "title": "Find Source Anchor",
+        "description": "Given a specforge entity ID, find its primary source location across .ts/.tsx/.js/.jsx files.",
+        "category": "source",
+        "export": "cmd__anchor",
+        "args": [
+          { "name": "entity-id", "argType": "string", "required": true, "description": "Entity ID to locate" },
+          { "name": "root", "argType": "path", "required": false, "description": "Project root directory (default: cwd)" }
+        ]
+      },
+      {
+        "id": "infer",
+        "title": "Infer Entity Kinds",
+        "description": "Analyze scanned TypeScript symbols and suggest specforge entity kinds based on framework-aware inference signals.",
+        "category": "source",
+        "export": "cmd__infer",
+        "args": [
+          { "name": "root", "argType": "path", "required": false, "description": "Project root directory (default: cwd)" },
+          { "name": "min-confidence", "argType": "string", "required": false, "defaultValue": "0.5", "description": "Minimum confidence threshold for suggestions" },
+          { "name": "format", "argType": { "values": ["json", "table", "spec-draft"] }, "required": false, "defaultValue": "table", "description": "Output format" }
+        ]
+      },
+      {
+        "id": "detect",
+        "title": "Detect Project Structure",
+        "description": "Detect monorepo tool, frameworks, and test runners in a TypeScript/JavaScript project.",
+        "category": "source",
+        "export": "cmd__detect",
+        "args": [
+          { "name": "root", "argType": "path", "required": false, "description": "Project root directory (default: cwd)" }
+        ]
+      }
+    ],
+    "mcpTools": [
+      {
+        "name": "typescript_scan",
+        "description": "Scan TypeScript project and return structured source items for all exported symbols.",
+        "category": "source",
+        "export": "mcp__typescript_scan",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "root": { "type": "string", "description": "Project root path" },
+            "package": { "type": "string", "description": "Monorepo package name filter" },
+            "includeMembers": { "type": "boolean", "default": false },
+            "includeReactInfo": { "type": "boolean", "default": true },
+            "maxItems": { "type": "integer", "default": 500, "description": "Maximum items to return (for token budget)" }
+          },
+          "required": ["root"]
+        }
+      },
+      {
+        "name": "typescript_anchor",
+        "description": "Find source location for a specforge entity ID in TypeScript/JavaScript files.",
+        "category": "source",
+        "export": "mcp__typescript_anchor",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "entityId": { "type": "string" },
+            "root": { "type": "string" }
+          },
+          "required": ["entityId", "root"]
+        }
+      },
+      {
+        "name": "typescript_infer",
+        "description": "Return inference signals for TypeScript symbols suggesting specforge entity kinds.",
+        "category": "source",
+        "export": "mcp__typescript_infer",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "root": { "type": "string" },
+            "minConfidence": { "type": "number", "default": 0.5 },
+            "entityKind": { "type": "string", "description": "Filter to suggestions for this entity kind" }
+          },
+          "required": ["root"]
+        }
+      }
+    ],
+    "mcpResources": [
+      {
+        "uriTemplate": "specforge://ts/scan/{root}",
+        "name": "typescript_scan_result",
+        "description": "Cached scan result for a TypeScript project root.",
+        "export": "mcp__typescript_scan_result",
+        "mimeType": "application/json"
+      },
+      {
+        "uriTemplate": "specforge://ts/anchor/{entityId}",
+        "name": "typescript_source_anchor",
+        "description": "Source location for a specforge entity ID.",
+        "export": "mcp__typescript_source_anchor",
+        "mimeType": "application/json"
+      },
+      {
+        "uriTemplate": "specforge://ts/frameworks",
+        "name": "typescript_frameworks",
+        "description": "Detected frameworks and their versions in the current project.",
+        "export": "mcp__typescript_frameworks",
+        "mimeType": "application/json"
+      },
+      {
+        "uriTemplate": "specforge://ts/monorepo",
+        "name": "typescript_monorepo",
+        "description": "Monorepo structure: packages, dependencies, workspace config.",
+        "export": "mcp__typescript_monorepo",
+        "mimeType": "application/json"
+      }
+    ]
+  },
+
+  "starterTemplate": "typescript-starter.spec",
+  "hostApiVersion": "1.0.0",
+  "queryScope": "all",
+
+  "entityEnhancements": [],
+  "entityKinds": [],
+  "edgeTypes": [],
+  "validationRules": [],
+  "verifyKinds": [],
+  "fields": [],
+  "reservedKeywords": [],
+  "grammarContributions": [],
+  "bodyParserContributions": []
+}

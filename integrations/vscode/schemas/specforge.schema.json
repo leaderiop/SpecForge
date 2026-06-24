@@ -1,0 +1,205 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://specforge.dev/schema/specforge.json",
+  "title": "SpecForge Configuration",
+  "description": "Configuration file for a SpecForge project. Like tsconfig.json for TypeScript, this file defines project identity, extensions, providers, and coverage thresholds.",
+  "type": "object",
+  "required": ["name", "version"],
+  "properties": {
+    "$schema": {
+      "type": "string",
+      "description": "JSON Schema reference for IDE autocomplete and validation."
+    },
+    "name": {
+      "type": "string",
+      "description": "Project name. Used in output headers and reports.",
+      "minLength": 1
+    },
+    "version": {
+      "type": "string",
+      "description": "Format version of .spec files. The compiler checks compatibility.",
+      "pattern": "^\\d+\\.\\d+$",
+      "default": "1.0"
+    },
+    "spec_root": {
+      "type": "string",
+      "description": "Path to .spec files relative to the project root directory.",
+      "default": "."
+    },
+    "strict": {
+      "type": "boolean",
+      "description": "When true, warnings are treated as errors.",
+      "default": false
+    },
+    "namespace": {
+      "type": "string",
+      "description": "Optional namespace for cross-project references (e.g., \"@auth-service\")."
+    },
+    "display_prefix": {
+      "type": "string",
+      "description": "Optional display prefix for reports (e.g., \"HP\"). Does not affect entity IDs."
+    },
+    "extensions": {
+      "type": "array",
+      "description": "Installed extension packages that extend the entity model.",
+      "items": {
+        "type": "string"
+      },
+      "uniqueItems": true,
+      "default": []
+    },
+    "enhancement_policy": {
+      "type": "string",
+      "description": "How to resolve conflicts when two extensions enhance the same field on the same entity kind.",
+      "enum": ["error", "priority", "namespace"],
+      "default": "error"
+    },
+    "enhancement_overrides": {
+      "type": "object",
+      "description": "Explicit conflict resolution for enhancement conflicts. Keys are 'entity.field' (e.g., 'behavior.layer'), values are the winning extension package name.",
+      "additionalProperties": {
+        "type": "string"
+      }
+    },
+    "entity_kind_policy": {
+      "type": "string",
+      "description": "How to resolve conflicts when two extensions register the same entity kind name.",
+      "enum": ["error", "priority", "namespace"],
+      "default": "error"
+    },
+    "grammar_policy": {
+      "type": "string",
+      "description": "How to resolve conflicts when two extensions contribute grammars for the same entity kind.",
+      "enum": ["error", "priority", "namespace"],
+      "default": "error"
+    },
+    "entity_kinds": {
+      "type": "object",
+      "description": "Explicit conflict resolution for entity kind conflicts. Keys are kind names, values are the winning extension package name.",
+      "additionalProperties": {
+        "type": "string"
+      }
+    },
+    "providers": {
+      "type": "object",
+      "description": "Provider configurations for external reference validation (GitHub, Jira, Figma, etc.).",
+      "additionalProperties": {
+        "$ref": "#/$defs/provider"
+      }
+    },
+    "personas": {
+      "type": "object",
+      "description": "Persona definitions for capability validation. Keys are persona IDs.",
+      "additionalProperties": {
+        "$ref": "#/$defs/persona"
+      }
+    },
+    "surfaces": {
+      "type": "object",
+      "description": "Surface definitions for capability validation. Keys are surface IDs.",
+      "additionalProperties": {
+        "$ref": "#/$defs/surface"
+      }
+    },
+    "test_dirs": {
+      "type": "array",
+      "description": "Glob patterns for test directories used in traceability analysis.",
+      "items": {
+        "type": "string"
+      },
+      "default": []
+    },
+    "coverage": {
+      "$ref": "#/$defs/coverage",
+      "description": "Test coverage configuration."
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "provider": {
+      "type": "object",
+      "description": "Configuration for a single provider instance.",
+      "required": ["package"],
+      "properties": {
+        "package": {
+          "type": "string",
+          "description": "Provider package name (e.g., \"@specforge/gh\")."
+        },
+        "repo": {
+          "type": "string",
+          "description": "Repository identifier (provider-specific, e.g., \"org/repo\" for GitHub)."
+        },
+        "kinds": {
+          "type": "array",
+          "description": "Valid reference kinds for this provider (e.g., [\"issue\", \"pr\"]).",
+          "items": {
+            "type": "string"
+          }
+        },
+        "id_patterns": {
+          "type": "object",
+          "description": "Regex patterns for validating reference identifiers per kind.",
+          "additionalProperties": {
+            "type": "string"
+          }
+        }
+      },
+      "additionalProperties": true
+    },
+    "persona": {
+      "type": "object",
+      "description": "Configuration for a single persona.",
+      "required": ["display_name"],
+      "properties": {
+        "display_name": {
+          "type": "string",
+          "description": "Human-readable name for this persona."
+        },
+        "description": {
+          "type": "string",
+          "description": "Optional description of the persona."
+        }
+      },
+      "additionalProperties": false
+    },
+    "surface": {
+      "type": "object",
+      "description": "Configuration for a single surface.",
+      "required": ["display_name"],
+      "properties": {
+        "display_name": {
+          "type": "string",
+          "description": "Human-readable name for this surface."
+        },
+        "surface_type": {
+          "type": "string",
+          "description": "Optional type classification for this surface."
+        }
+      },
+      "additionalProperties": false
+    },
+    "coverage": {
+      "type": "object",
+      "description": "Test coverage thresholds and reporting configuration.",
+      "properties": {
+        "threshold": {
+          "type": "integer",
+          "description": "Minimum spec coverage percentage (0-100).",
+          "minimum": 0,
+          "maximum": 100
+        },
+        "require_violation_tests": {
+          "type": "boolean",
+          "description": "Require tests for invariant violation paths.",
+          "default": false
+        },
+        "fail_on_unknown_ids": {
+          "type": "boolean",
+          "description": "Fail if test report contains entity IDs not in the spec.",
+          "default": false
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}

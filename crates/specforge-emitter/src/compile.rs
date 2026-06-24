@@ -3,6 +3,7 @@ use specforge_graph::{build_graph, build_graph_with_config, Graph, GraphConfig};
 use specforge_registry::{
     populate_registries, validate_manifest, validate_manifest_consistency,
     compilation::{detect_mistyped_references, detect_unknown_entity_kinds, detect_unknown_entity_fields},
+    generate_required_field_rules,
     EdgeRegistry, FieldRegistry, KindRegistry, ManifestV2,
     register_surface_contributions, SurfaceContributions, SurfaceRegistryEntry,
     validation_engine::{
@@ -40,10 +41,10 @@ pub struct CompilationContext {
 /// This is the single source of truth for compilation. All consumers
 /// (CLI, MCP, LSP) should call this to get consistent results.
 ///
-/// Extensions are loaded from the built-in runtime (native Rust implementations
-/// of `@specforge/product`, `@specforge/software`, `@specforge/governance`, `@specforge/formal`).
+/// Only extensions listed in `specforge.json` are loaded — no implicit builtins.
 pub fn compile(path: &Path) -> CompilationContext {
-    let runtime = crate::builtins::default_runtime();
+    let config = load_project_config(path);
+    let runtime = crate::builtins::runtime_for_extensions(&config.extensions);
     compile_with_runtime(path, Some(&runtime))
 }
 
@@ -72,8 +73,12 @@ pub fn compile_with_runtime(path: &Path, runtime: Option<&dyn WasmRuntime>) -> C
         .iter()
         .map(|m| (m.name.clone(), m.validation_rules.clone()))
         .collect();
-    let (patterns, rule_diags) = parse_all_rule_patterns(&rule_inputs);
+    let (mut patterns, rule_diags) = parse_all_rule_patterns(&rule_inputs);
     diagnostics.extend(rule_diags);
+
+    // 4a. Auto-generate E006 rules for fields marked required: true
+    let required_field_rules = generate_required_field_rules(&field_reg);
+    patterns.extend(required_field_rules);
 
     // 5. Build keyword->extension index for I004 messages
     let known_extension_keywords: HashMap<String, String> = manifests
@@ -340,16 +345,10 @@ fn load_extensions(
 }
 
 
-fn run_extension_validation(
-    patterns: &[ValidationRulePattern],
-    graph: &Graph,
-    edge_label_to_field: &HashMap<String, String>,
-) -> Vec<Diagnostic> {
-    if patterns.is_empty() {
-        return Vec::new();
-    }
-
-    let entities: Vec<ValidationEntity> = graph
+/// Convert all graph nodes into `ValidationEntity` structs for the validation engine.
+/// Shared by CLI (`compile.rs`) and LSP (`backend.rs`).
+pub fn build_validation_entities(graph: &Graph) -> Vec<ValidationEntity> {
+    graph
         .nodes()
         .into_iter()
         .map(|node| {
@@ -382,7 +381,8 @@ fn run_extension_validation(
                     }
                     specforge_parser::FieldValue::VerifyList(stmts) => {
                         if !stmts.is_empty() {
-                            let descriptions: Vec<&str> = stmts.iter().map(|s| s.description.as_str()).collect();
+                            let descriptions: Vec<&str> =
+                                stmts.iter().map(|s| s.description.as_str()).collect();
                             fields.insert(entry.key.to_string(), descriptions.join("; "));
                         }
                     }
@@ -404,7 +404,19 @@ fn run_extension_validation(
                 span: node.source_span.clone(),
             }
         })
-        .collect();
+        .collect()
+}
+
+fn run_extension_validation(
+    patterns: &[ValidationRulePattern],
+    graph: &Graph,
+    edge_label_to_field: &HashMap<String, String>,
+) -> Vec<Diagnostic> {
+    if patterns.is_empty() {
+        return Vec::new();
+    }
+
+    let entities = build_validation_entities(graph);
 
     let mut diagnostics = Vec::new();
     for pattern in patterns {

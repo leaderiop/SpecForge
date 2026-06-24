@@ -8,6 +8,7 @@ use "extensions/rust/invariants"
 use "extensions/rust/behaviors"
 use "extensions/coverage/behaviors"
 constraint test_coverage_accuracy "Test Coverage Accuracy" {
+  description "Ensures coverage percentages are accurate and merge operations produce correct deduplicated results."
   category    reliability
   priority    critical
 
@@ -24,6 +25,7 @@ constraint test_coverage_accuracy "Test Coverage Accuracy" {
 }
 
 constraint rust_collection_accuracy "Rust Collection Accuracy" {
+  description "Ensures entity mapping has zero false positives and generated reports conform to the SpecforgeReport schema."
   category    reliability
   priority    critical
 

@@ -48,6 +48,7 @@ fn convert_minimal_entity_kind() {
             dot_color: None,
             dot_fillcolor: None,
             verify_kinds: vec!["smoke".to_string()],
+            inference_guide: None,
         }],
     );
 
@@ -90,6 +91,7 @@ fn convert_entity_kind_with_keyword_override() {
             dot_color: Some("blue".to_string()),
             dot_fillcolor: Some("lightblue".to_string()),
             verify_kinds: vec![],
+            inference_guide: None,
         }],
     );
 
@@ -154,6 +156,7 @@ fn convert_entity_kind_fields_to_manifest_fields() {
             dot_color: None,
             dot_fillcolor: None,
             verify_kinds: vec![],
+            inference_guide: None,
         }],
     );
 
@@ -208,6 +211,7 @@ fn populate_from_protocol_registers_kind_and_fields() {
             dot_color: None,
             dot_fillcolor: None,
             verify_kinds: vec![],
+            inference_guide: None,
         }],
     );
 
@@ -287,6 +291,7 @@ fn populate_from_protocol_registers_edges() {
             dot_color: None,
             dot_fillcolor: None,
             verify_kinds: vec![],
+            inference_guide: None,
         }],
     );
     ext.descriptions.edge_types = vec![EdgeTypeDescriptor {
@@ -441,6 +446,7 @@ fn populate_from_protocol_applies_enhancements_across_extensions() {
             dot_color: None,
             dot_fillcolor: None,
             verify_kinds: vec![],
+            inference_guide: None,
         }],
     );
 
@@ -524,6 +530,7 @@ fn convert_metadata_peer_deps_sandbox_flags() {
                 providers: false,
                 prompts: false,
                 parsers: false,
+                analyzers: false,
             },
             peer_dependencies: vec![
                 PeerDependency {
@@ -763,6 +770,7 @@ fn parity_protocol_vs_manifest_registries() {
             incremental: None,
             has_body_parser: false,
             open_fields: false,
+            inference_guide: None,
         }],
         edge_types: vec![specforge_registry::ManifestEdgeType {
             label: "enforces".to_string(),
@@ -789,6 +797,7 @@ fn parity_protocol_vs_manifest_registries() {
         ext_short: None,
         query_scope: None,
         collector_contributions: vec![],
+        analyzer_contributions: vec![],
         surfaces: None,
     };
     let (m_kind_reg, m_field_reg, m_edge_reg, m_diags) =
@@ -853,6 +862,7 @@ fn parity_protocol_vs_manifest_registries() {
                 dot_color: None,
                 dot_fillcolor: None,
                 verify_kinds: vec!["smoke".to_string()],
+            inference_guide: None,
             }],
             edge_types: vec![EdgeTypeDescriptor {
                 label: "enforces".to_string(),

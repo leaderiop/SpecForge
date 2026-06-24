@@ -14,6 +14,7 @@ mod model;
 mod outline;
 mod plan;
 mod query;
+mod scanner_dispatch;
 mod schema;
 mod scope;
 mod stats;

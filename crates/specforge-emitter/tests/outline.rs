@@ -618,7 +618,7 @@ fn product_is_standalone_root_with_zero_deps() {
 }
 
 #[test]
-fn governance_has_only_software_as_direct_dep() {
+fn governance_has_two_direct_deps() {
     let manifests = load_all_manifests();
     let outline = OutlineIntermediate_from_manifests(&manifests);
 
@@ -627,13 +627,15 @@ fn governance_has_only_software_as_direct_dep() {
         .iter()
         .filter(|d| d.from == "@specforge/governance" && d.kind == DependencyKind::Direct)
         .collect();
-    assert_eq!(gov_direct.len(), 1, "governance should have exactly one direct dep");
-    assert_eq!(gov_direct[0].to, "@specforge/software");
-    assert!(!gov_direct[0].optional, "governance→software should be required");
+    assert_eq!(gov_direct.len(), 2, "governance should have two direct deps (software required, product optional)");
+    let sw = gov_direct.iter().find(|d| d.to == "@specforge/software").unwrap();
+    assert!(!sw.optional, "governance→software should be required");
+    let prod = gov_direct.iter().find(|d| d.to == "@specforge/product").unwrap();
+    assert!(prod.optional, "governance→product should be optional");
 }
 
 #[test]
-fn transitive_governance_to_product_computed() {
+fn governance_to_product_is_direct_optional() {
     let manifests = load_all_manifests();
     let outline = OutlineIntermediate_from_manifests(&manifests);
 
@@ -643,17 +645,17 @@ fn transitive_governance_to_product_computed() {
         .find(|d| d.from == "@specforge/governance" && d.to == "@specforge/product");
     assert!(
         gov_to_prod.is_some(),
-        "governance → product should exist as transitive dep"
+        "governance → product should exist as direct dep"
     );
-    assert_ne!(
+    assert_eq!(
         gov_to_prod.unwrap().kind,
         DependencyKind::Direct,
-        "governance → product should be transitive, not direct"
+        "governance → product should be direct (optional peer dep)"
     );
 }
 
 #[test]
-fn governance_product_transitive_is_effective() {
+fn governance_product_direct_is_optional() {
     let manifests = load_all_manifests();
     let outline = OutlineIntermediate_from_manifests(&manifests);
 
@@ -661,11 +663,15 @@ fn governance_product_transitive_is_effective() {
         .dependencies
         .iter()
         .find(|d| d.from == "@specforge/governance" && d.to == "@specforge/product")
-        .expect("governance → product transitive dep should exist");
+        .expect("governance → product dep should exist");
     assert_eq!(
         gov_to_prod.kind,
-        DependencyKind::Effective,
-        "governance references product's 'feature' kind via cross-extension edges"
+        DependencyKind::Direct,
+        "governance → product is a direct optional peer dependency"
+    );
+    assert!(
+        gov_to_prod.optional,
+        "governance → product should be optional"
     );
 }
 
@@ -717,12 +723,12 @@ fn deps_direct_filters_out_transitive() {
         filtered.iter().all(|d| d.kind == DependencyKind::Direct),
         "direct mode should only contain direct deps"
     );
-    // governance → product should NOT appear in direct mode
+    // governance → product SHOULD appear in direct mode (it's an optional direct dep now)
     assert!(
-        !filtered
+        filtered
             .iter()
             .any(|d| d.from == "@specforge/governance" && d.to == "@specforge/product"),
-        "transitive governance→product should be filtered out in direct mode"
+        "direct governance→product should appear in direct mode"
     );
 }
 
@@ -802,18 +808,18 @@ fn mermaid_renders_required_dep_as_solid_arrow() {
 }
 
 #[test]
-fn all_current_dependencies_are_required() {
+fn only_governance_product_is_optional() {
     let manifests = load_all_manifests();
     let outline = OutlineIntermediate_from_manifests(&manifests);
 
-    // All deps in the strict one-way DAG are required (no optional reverse deps)
-    for dep in &outline.dependencies {
-        assert!(
-            !dep.optional,
-            "dep {} → {} should be required, not optional",
-            dep.from, dep.to
-        );
-    }
+    let optional_deps: Vec<_> = outline
+        .dependencies
+        .iter()
+        .filter(|d| d.optional)
+        .collect();
+    assert_eq!(optional_deps.len(), 1, "exactly one optional dep expected");
+    assert_eq!(optional_deps[0].from, "@specforge/governance");
+    assert_eq!(optional_deps[0].to, "@specforge/product");
 }
 
 #[test]
@@ -828,11 +834,10 @@ fn json_dependencies_include_optional_field() {
     let output = render(&outline, &opts);
     let parsed: serde_json::Value = serde_json::from_str(&output).expect("JSON should be valid");
     let deps = parsed["dependencies"].as_array().unwrap();
-    // All deps should have optional=false (strict one-way DAG, all required)
-    assert!(
-        deps.iter().all(|d| d["optional"] == false),
-        "all deps should be required in the strict DAG"
-    );
+    let optional_deps: Vec<_> = deps.iter().filter(|d| d["optional"] == true).collect();
+    assert_eq!(optional_deps.len(), 1, "exactly one optional dep in JSON output");
+    assert_eq!(optional_deps[0]["from"], "@specforge/governance");
+    assert_eq!(optional_deps[0]["to"], "@specforge/product");
 }
 
 #[test]

@@ -219,6 +219,7 @@ mod tests {
             allowed_verify_kinds: vec![], semantic_token: None, lsp_icon: None,
             dot_shape: None, dot_color: None, dot_fillcolor: None,
             fields: vec![], incremental: None, has_body_parser: false, open_fields: false,
+            inference_guide: None,
         }];
 
         let mut m2 = default_manifest();
@@ -231,6 +232,7 @@ mod tests {
             allowed_verify_kinds: vec![], semantic_token: None, lsp_icon: None,
             dot_shape: None, dot_color: None, dot_fillcolor: None,
             fields: vec![], incremental: None, has_body_parser: false, open_fields: false,
+            inference_guide: None,
         }];
 
         let diags = detect_entity_kind_collision(&[m1, m2]);
@@ -252,6 +254,7 @@ mod tests {
             allowed_verify_kinds: vec![], semantic_token: None, lsp_icon: None,
             dot_shape: None, dot_color: None, dot_fillcolor: None,
             fields: vec![], incremental: None, has_body_parser: false, open_fields: false,
+            inference_guide: None,
         }];
 
         let diags = detect_entity_kind_collision(&[m]);
@@ -273,6 +276,7 @@ mod tests {
             allowed_verify_kinds: vec![], semantic_token: None, lsp_icon: None,
             dot_shape: None, dot_color: None, dot_fillcolor: None,
             fields: vec![], incremental: None, has_body_parser: false, open_fields: false,
+            inference_guide: None,
         }];
 
         let mut m2 = default_manifest();
@@ -285,6 +289,7 @@ mod tests {
             allowed_verify_kinds: vec![], semantic_token: None, lsp_icon: None,
             dot_shape: None, dot_color: None, dot_fillcolor: None,
             fields: vec![], incremental: None, has_body_parser: false, open_fields: false,
+            inference_guide: None,
         }];
 
         let diags = detect_entity_kind_collision(&[m1, m2]);
@@ -308,6 +313,7 @@ mod tests {
             allowed_verify_kinds: vec![], semantic_token: None, lsp_icon: None,
             dot_shape: None, dot_color: None, dot_fillcolor: None,
             fields: vec![], incremental: None, has_body_parser: false, open_fields: false,
+            inference_guide: None,
         }];
         assert!(detect_entity_kind_collision(&[m.clone()]).is_empty());
 
@@ -322,6 +328,7 @@ mod tests {
             allowed_verify_kinds: vec![], semantic_token: None, lsp_icon: None,
             dot_shape: None, dot_color: None, dot_fillcolor: None,
             fields: vec![], incremental: None, has_body_parser: false, open_fields: false,
+            inference_guide: None,
         }];
         let diags = detect_entity_kind_collision(&[bad]);
         assert!(diags.iter().any(|d| d.code == "E023"));

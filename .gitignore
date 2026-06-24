@@ -1,6 +1,11 @@
 # Rust
 /target/
+**/target/
 **/*.rs.bk
+
+# Node
+node_modules/
+*.vsix
 
 # IDE
 .idea/

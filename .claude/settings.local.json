@@ -578,7 +578,30 @@
       "Bash(git -C /Users/u1070457/Projects/Perso/specforge show 7716bb5:spec/extensions/product/manifest.spec)",
       "Bash(git -C /Users/u1070457/Projects/Perso/specforge log --all --oneline -- spec/extensions/product/)",
       "Bash(git -C /Users/u1070457/Projects/Perso/specforge show 7716bb5:spec/extensions/product/)",
-      "Bash(specforge list:*)"
+      "Bash(specforge list:*)",
+      "Bash(rustup target:*)",
+      "Bash(rustfmt --check crates/specforge-emitter/src/builtins/software.rs)",
+      "Bash(git status *)",
+      "Bash(npm run *)",
+      "Bash(npx tsc *)",
+      "Bash(agent-browser navigate *)",
+      "Bash(agent-browser screenshot *)",
+      "Bash(node *)",
+      "Bash(lsof -ti:5183)",
+      "Skill(agent-browser)",
+      "Bash(npx vite *)"
     ]
-  }
+  },
+  "mcpServers": {
+    "specforge": {
+      "command": "/Users/u1070457/Projects/Perso/specforge/target/release/specforge",
+      "args": [
+        "mcp"
+      ],
+      "env": {}
+    }
+  },
+  "enabledMcpjsonServers": [
+    "specforge"
+  ]
 }

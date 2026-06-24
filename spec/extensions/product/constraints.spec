@@ -13,6 +13,7 @@ use "extensions/product/surfaces-shared"
 use "extensions/product/invariants"
 
 constraint product_validation_latency "Product Validation Latency" {
+  description "All product validation rules must complete within 50ms for projects with up to 500 entities across all 9 kinds."
   category   performance
   priority   critical
   metric     """
@@ -95,6 +96,7 @@ constraint product_validation_latency "Product Validation Latency" {
 }
 
 constraint product_cycle_detection_correctness "Product Cycle Detection Correctness" {
+  description "Cycle detection for modules, milestones, features, and deliverables must have zero false negatives and zero false positives."
   category   reliability
   priority   critical
   metric     """
@@ -117,6 +119,7 @@ constraint product_cycle_detection_correctness "Product Cycle Detection Correctn
 }
 
 constraint product_orphan_detection_correctness "Product Orphan Detection Correctness" {
+  description "Orphan detection must fire if and only if an entity has zero incoming edges of the expected type."
   category   reliability
   priority   critical
   metric     """
@@ -140,6 +143,7 @@ constraint product_orphan_detection_correctness "Product Orphan Detection Correc
 }
 
 constraint product_query_correctness "Product Query Correctness" {
+  description "All product graph queries must return correct results for all graph topologies, including transitive traversals and reverse queries."
   category   reliability
   priority   critical
   metric     """
@@ -194,6 +198,7 @@ constraint product_query_correctness "Product Query Correctness" {
 }
 
 constraint product_standalone_operation "Product Standalone Operation" {
+  description "All product queries must operate purely on product entity kinds and edge types without requiring peer extensions."
   category   reliability
   priority   critical
   metric     """
@@ -212,6 +217,7 @@ constraint product_standalone_operation "Product Standalone Operation" {
 }
 
 constraint product_entity_registration_determinism "Product Entity Registration Determinism" {
+  description "Registration of entity kinds, edge types, and field definitions must be deterministic regardless of registration order."
   category   reliability
   priority   critical
   metric     """
@@ -232,6 +238,7 @@ constraint product_entity_registration_determinism "Product Entity Registration 
 }
 
 constraint product_surface_correctness "Product Surface Contribution Correctness" {
+  description "All CLI commands must resolve to valid Wasm exports, MCP tools must have valid JSON schemas, and MCP resources must have valid URIs."
   category   reliability
   priority   critical
   metric     """
@@ -251,6 +258,7 @@ constraint product_surface_correctness "Product Surface Contribution Correctness
 }
 
 constraint product_diagnostic_severity_correctness "Product Diagnostic Severity Correctness" {
+  description "All product diagnostics must fire at their declared severity level matching their E/W/I code prefix."
   category   reliability
   priority   critical
   metric     """
@@ -269,6 +277,7 @@ constraint product_diagnostic_severity_correctness "Product Diagnostic Severity 
 }
 
 constraint product_tag_detection_correctness "Product Tag Detection Correctness" {
+  description "Singleton tag detection and tag format validation must fire correctly without false positives, completing under 10ms for 1000 tags."
   category   reliability
   priority   high
   metric     """
@@ -291,6 +300,7 @@ constraint product_tag_detection_correctness "Product Tag Detection Correctness"
 }
 
 constraint product_large_scale_validation "Product Large-Scale Validation" {
+  description "Validation rules must complete under 500ms for 5000 entities and under 2s beyond that, with O(V+E) cycle and orphan detection."
   category   performance
   priority   high
   metric     """
@@ -321,6 +331,7 @@ constraint product_large_scale_validation "Product Large-Scale Validation" {
 }
 
 constraint product_large_scale_query "Product Large-Scale Query Latency" {
+  description "All product graph queries must complete under 1s for 5000 entities, with feature ordering under 2s."
   category   performance
   priority   high
   metric     """
@@ -362,6 +373,7 @@ constraint product_large_scale_query "Product Large-Scale Query Latency" {
 }
 
 constraint product_deliverable_lifecycle_correctness "Product Deliverable Lifecycle Correctness" {
+  description "Deliverable status, shipped-incomplete-milestone, and deprecated-without-reason validation must fire precisely per their diagnostic rules."
   category   reliability
   priority   critical
   metric     """
@@ -385,6 +397,7 @@ constraint product_deliverable_lifecycle_correctness "Product Deliverable Lifecy
 }
 
 constraint product_surface_schema_completeness "Product Surface Schema Completeness" {
+  description "Every CLI command and MCP resource must have typed input and output schemas with no untyped JSON allowed."
   category   reliability
   priority   critical
   metric     """
@@ -444,6 +457,7 @@ constraint product_surface_schema_completeness "Product Surface Schema Completen
 }
 
 constraint product_surface_error_correctness "Product Surface Error Correctness" {
+  description "All surfaces must use exactly three error codes and must never panic on any input including null, empty, or malformed JSON."
   category   reliability
   priority   critical
   metric     """
@@ -464,6 +478,7 @@ constraint product_surface_error_correctness "Product Surface Error Correctness"
 }
 
 constraint product_list_pagination_correctness "Product List Pagination Correctness" {
+  description "All 8 list commands must return correct pagination with proper total counts, has_more flags, and input validation."
   category   reliability
   priority   critical
   metric     """
@@ -494,6 +509,7 @@ constraint product_list_pagination_correctness "Product List Pagination Correctn
 }
 
 constraint product_surface_latency "Product Surface Latency" {
+  description "CLI commands must complete under 200ms and MCP resources under 100ms for 500 entities, with surface overhead under 50ms."
   category   performance
   priority   high
   metric     """
@@ -518,6 +534,7 @@ constraint product_surface_latency "Product Surface Latency" {
 }
 
 constraint product_query_latency "Product Query Latency" {
+  description "All 19 product graph queries must complete under 100ms for projects with up to 500 entities."
   category   performance
   priority   high
   metric     """
@@ -555,6 +572,7 @@ constraint product_query_latency "Product Query Latency" {
 }
 
 constraint product_mcp_payload_size "Product MCP Payload Size" {
+  description "MCP resource responses must not exceed 64KB, with large payloads bounded by configurable limits or truncation flags."
   category   performance
   priority   high
   metric     """
@@ -581,6 +599,7 @@ constraint product_mcp_payload_size "Product MCP Payload Size" {
 }
 
 constraint product_persona_channel_lifecycle_correctness "Product Persona/Channel Lifecycle Correctness" {
+  description "Deprecated persona and channel reason detection must fire only when reason is empty or missing, and suppress otherwise."
   category   reliability
   priority   critical
   metric     """
@@ -602,6 +621,7 @@ constraint product_persona_channel_lifecycle_correctness "Product Persona/Channe
 }
 
 constraint product_impact_query_correctness "Product Impact Query Correctness" {
+  description "Feature impact and persona feature queries must return complete transitive closures with order-independent results."
   category   reliability
   priority   critical
   metric     """
@@ -622,6 +642,7 @@ constraint product_impact_query_correctness "Product Impact Query Correctness" {
 }
 
 constraint product_term_alias_validation_correctness "Product Term Alias Validation Correctness" {
+  description "Term alias conflict detection must fire for case-insensitive duplicate aliases with zero false positives or negatives."
   category   reliability
   priority   critical
   metric     """
@@ -640,6 +661,7 @@ constraint product_term_alias_validation_correctness "Product Term Alias Validat
 }
 
 constraint product_deliverable_persona_correctness "Product Deliverable-Persona Query Correctness" {
+  description "Deliverable persona traversal must return deduplicated personas via journey edges with deterministic results."
   category   reliability
   priority   critical
   metric     """
@@ -656,6 +678,7 @@ constraint product_deliverable_persona_correctness "Product Deliverable-Persona 
 }
 
 constraint product_pagination_sort_stability "Pagination Sort Stability" {
+  description "Paginated list queries must produce stable, deterministic sort order with entity ID as tie-breaker."
   category   reliability
   priority   critical
   metric     """
@@ -676,6 +699,7 @@ constraint product_pagination_sort_stability "Pagination Sort Stability" {
 }
 
 constraint product_cross_extension_integration_correctness "Cross-Extension Integration Correctness" {
+  description "Product queries must return identical results with or without peer extensions, enforced by the 16-edge-type allowlist."
   category   reliability
   priority   critical
   metric     """
@@ -696,6 +720,7 @@ constraint product_cross_extension_integration_correctness "Cross-Extension Inte
 }
 
 constraint product_status_transition_correctness "Product Status Transition Correctness" {
+  description "Status transition validation must catch all invalid transitions and suppress when no build cache exists."
   category   reliability
   priority   critical
   metric     """
@@ -721,6 +746,7 @@ constraint product_status_transition_correctness "Product Status Transition Corr
 }
 
 constraint product_new_query_correctness "Product New Query Correctness" {
+  description "Unscheduled features, feature overlap, coverage matrix, and critical path queries must return correct results for all topologies."
   category   reliability
   priority   critical
   metric     """
@@ -745,6 +771,7 @@ constraint product_new_query_correctness "Product New Query Correctness" {
 }
 
 constraint product_new_query_latency "Product New Query Latency" {
+  description "New query methods must complete under 100ms for 500 entities, with critical path under 200ms and coverage matrix under 500ms at 5000 entities."
   category   performance
   priority   high
   metric     """
@@ -768,6 +795,7 @@ constraint product_new_query_latency "Product New Query Latency" {
 }
 
 constraint product_chain_validation_correctness "Product Chain Validation Correctness" {
+  description "Chain gap, multi-milestone, priority escalation, and implicit ordering diagnostics must fire precisely per their trigger conditions."
   category   reliability
   priority   high
   metric     """
@@ -794,6 +822,7 @@ constraint product_chain_validation_correctness "Product Chain Validation Correc
 }
 
 constraint product_transitive_deprecated_correctness "Product Transitive Deprecated Reference Correctness" {
+  description "Transitive deprecated persona and channel detection must fire on deliverables referencing journeys with deprecated entities."
   category   reliability
   priority   high
   metric     """
@@ -817,6 +846,7 @@ constraint product_transitive_deprecated_correctness "Product Transitive Depreca
 // ---------------------------------------------------------------------------
 
 constraint product_release_validation_latency "Release Validation Latency" {
+  description "Release entity validation including cycle detection and version format checks must complete under 50ms for 500 entities."
   category    performance
   priority    high
   metric      """
@@ -829,6 +859,7 @@ constraint product_release_validation_latency "Release Validation Latency" {
 }
 
 constraint product_owner_query_latency "Owner Workload Query Latency" {
+  description "The owner workload query scanning features, milestones, deliverables, and releases must complete under 100ms for 500 entities."
   category    performance
   priority    high
   metric      """
@@ -841,6 +872,7 @@ constraint product_owner_query_latency "Owner Workload Query Latency" {
 }
 
 constraint product_weighted_completion_latency "Weighted Completion Query Latency" {
+  description "The weighted milestone completion query must complete under 100ms for milestones with up to 200 features."
   category    performance
   priority    high
   metric      """
@@ -853,6 +885,7 @@ constraint product_weighted_completion_latency "Weighted Completion Query Latenc
 }
 
 constraint product_release_query_latency "Release Query Latency" {
+  description "Release queries for deliverables, milestones, and completion must each complete under 100ms for 500 entities."
   category    performance
   priority    high
   metric      """
@@ -865,6 +898,7 @@ constraint product_release_query_latency "Release Query Latency" {
 }
 
 constraint product_release_cycle_detection_correctness "Release Cycle Detection Correctness" {
+  description "Release dependency cycle detection must have zero false negatives and zero false positives using Tarjan's algorithm."
   category    reliability
   priority    critical
   metric      """
@@ -879,6 +913,7 @@ constraint product_release_cycle_detection_correctness "Release Cycle Detection 
 }
 
 constraint product_ownership_field_consistency "Ownership Field Consistency" {
+  description "Missing owner detection must fire only for ownable entity kinds and never for journeys, modules, terms, personas, or channels."
   category    reliability
   priority    high
   metric      """
@@ -894,6 +929,7 @@ constraint product_ownership_field_consistency "Ownership Field Consistency" {
 }
 
 constraint product_effort_weight_correctness "Effort Weight Correctness" {
+  description "Weighted milestone completion must use configured Fibonacci effort weights with features defaulting to medium when unspecified."
   category    reliability
   priority    critical
   metric      """
@@ -912,6 +948,7 @@ constraint product_effort_weight_correctness "Effort Weight Correctness" {
 
 // ---------------------------------------------------------------------------
 constraint product_query_complexity "Product Query Complexity Bounds" {
+  description "Multi-hop traversal queries must complete under 500ms for 5000 entities, bounded by max_hops to prevent unbounded traversal."
   category   performance
   priority   high
   metric     """
@@ -933,6 +970,7 @@ constraint product_query_complexity "Product Query Complexity Bounds" {
 // ---------------------------------------------------------------------------
 
 constraint product_scalability_tiers "Product Scalability Tiers" {
+  description "Product operations must degrade gracefully across three entity-count tiers with no superlinear degradation beyond 10000 entities."
   category   performance
   priority   high
   metric     """
@@ -970,6 +1008,7 @@ constraint product_scalability_tiers "Product Scalability Tiers" {
 }
 
 constraint product_query_pagination_required "Query Pagination for Large Result Sets" {
+  description "Matrix and analytics queries must support optional cursor-based pagination to enable incremental consumption by AI agents."
   category   usability
   priority   high
   metric     """

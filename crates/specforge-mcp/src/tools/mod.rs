@@ -14,6 +14,11 @@ mod outline_extensions;
 mod suggest_fixes;
 mod list;
 mod model;
+mod find_implementation;
+mod find_spec_for_source;
+mod infer_gaps;
+mod infer_progress;
+mod infer_session;
 
 use serde_json::{json, Value};
 use specforge_registry::SurfaceType;
@@ -38,6 +43,7 @@ pub fn handle_tool_call(state: &mut McpState, params: Value, id: Option<Value>) 
     let is_mutation = matches!(name,
         "specforge.format" | "specforge.rename" | "specforge.init"
         | "specforge.add_extension" | "specforge.remove_extension" | "specforge.migrate"
+        | "specforge.infer_session"
     );
 
     let response = match name {
@@ -59,6 +65,13 @@ pub fn handle_tool_call(state: &mut McpState, params: Value, id: Option<Value>) 
         "specforge.outline" => outline::call(state, arguments, id),
         "specforge.outline_extensions" => outline_extensions::call(state, arguments, id),
         "specforge.suggest_fixes" => suggest_fixes::call(state, arguments, id),
+        // Inference tools
+        "specforge.infer_progress" => infer_progress::call(state, arguments, id),
+        "specforge.infer_session" => infer_session::call(state, arguments, id),
+        "specforge.infer_gaps" => infer_gaps::call(state, arguments, id),
+        // Source anchoring tools
+        "specforge.find_implementation" => find_implementation::call(state, arguments, id),
+        "specforge.find_spec_for_source" => find_spec_for_source::call(state, arguments, id),
         // Operations
         "specforge.format" | "specforge.rename" | "specforge.init"
         | "specforge.add_extension" | "specforge.remove_extension" | "specforge.migrate"

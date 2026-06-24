@@ -38,6 +38,7 @@ mod tests {
             ext_short: None,
             query_scope: None,
             collector_contributions: vec![],
+            analyzer_contributions: vec![],
             surfaces: None,
         }
     }
@@ -60,6 +61,7 @@ mod tests {
             incremental: None,
             has_body_parser: false,
             open_fields: false,
+            inference_guide: None,
         }
     }
 

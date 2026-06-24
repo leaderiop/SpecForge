@@ -1,6 +1,8 @@
 use serde_json::Value;
 use std::path::PathBuf;
 
+use specforge_common::load_project_config;
+
 use crate::compile::compile_project;
 use crate::protocol::{JsonRpcResponse, error_codes};
 use crate::registry::{register_defaults, register_extension_surfaces};
@@ -43,6 +45,9 @@ pub fn handle_initialize(state: &mut McpState, params: Value, id: Option<Value>)
             register_extension_surfaces(state, &result.manifest_surfaces);
         }
 
+    if let Some(root) = &project_root {
+        state.project_config = load_project_config(root);
+    }
     state.project_root = project_root;
     state.phase = ServerPhase::Initialized;
 

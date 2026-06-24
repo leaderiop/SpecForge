@@ -44,9 +44,6 @@ fn main() {
     let spec_files = collect_spec_files(&spec_dir);
     let mut entities = Vec::new();
 
-    // Testable entity kinds (behavior, invariant, event)
-    let testable_kinds = ["behavior", "invariant", "event"];
-
     for path in &spec_files {
         let source = match std::fs::read_to_string(path) {
             Ok(s) => s,
@@ -55,7 +52,6 @@ fn main() {
         let result = parse(&source, path.to_str().unwrap_or("unknown.spec"));
 
         for entity in &result.entities {
-            let testable = testable_kinds.contains(&entity.kind.raw.as_str());
             let verify = match entity.fields.get("verify") {
                 Some(FieldValue::VerifyList(stmts)) => stmts
                     .iter()
@@ -68,6 +64,7 @@ fn main() {
                 _ => vec![],
             };
 
+            let testable = !verify.is_empty();
             entities.push(ExportedEntity {
                 id: entity.id.raw.to_string(),
                 kind: entity.kind.raw.to_string(),

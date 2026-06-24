@@ -131,10 +131,7 @@ pub struct ParseError {
 
 impl From<&ParseError> for specforge_common::Diagnostic {
     fn from(err: &ParseError) -> Self {
-        // Parse errors are warnings, not errors: tree-sitter recovers partial ASTs,
-        // so entities from files with syntax issues are still usable. The grammar
-        // is intentionally permissive and doesn't cover all valid spec syntax.
-        specforge_common::Diagnostic::warning("W062", &err.message)
+        specforge_common::Diagnostic::error("E001", &err.message)
             .with_span(err.span.clone())
     }
 }

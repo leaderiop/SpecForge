@@ -201,7 +201,11 @@ async fn e2e_did_open_publishes_empty_diagnostics() {
     let mut client = start_server(None).await;
     let uri = "file:///test/clean.spec";
     client
-        .did_open(uri, "specforge", "behavior foo \"Foo\" {}\n")
+        .did_open(
+            uri,
+            "specforge",
+            "behavior foo \"Foo\" {\n  contract \"Does something\"\n  category \"core\"\n  features [some_feature]\n}\nfeature some_feature \"SF\" {\n  problem \"Needs solving\"\n}\n",
+        )
         .await;
     let notif = client
         .wait_for_notification("textDocument/publishDiagnostics", 5000)

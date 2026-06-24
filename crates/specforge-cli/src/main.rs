@@ -7,7 +7,9 @@ mod export;
 mod extension_authoring;
 mod extensions;
 mod format;
+mod infer_status;
 mod init;
+mod login;
 mod mcp;
 mod migrate;
 mod model;
@@ -15,10 +17,13 @@ mod outline;
 mod pipeline;
 mod product;
 mod providers;
+mod publish;
 mod query;
 mod remove;
+mod search;
 mod stats;
 mod trace;
+mod update;
 
 use clap::{CommandFactory, Parser, Subcommand};
 use clap_complete::Shell;
@@ -64,6 +69,10 @@ enum Commands {
         /// Output format: human or json
         #[arg(long, default_value = "human")]
         format: String,
+
+        /// Enable additional lint profiles (e.g., pedantic, inferred)
+        #[arg(long, value_delimiter = ',')]
+        lint: Vec<String>,
     },
     /// Export spec graph to stdout in various formats
     Export {
@@ -251,6 +260,70 @@ enum Commands {
         #[arg(long, default_value = "human")]
         format: String,
     },
+    /// Publish an extension to the registry
+    Publish {
+        /// Path to the extension project
+        #[arg(long, default_value = ".")]
+        path: PathBuf,
+
+        /// Output format: human or json
+        #[arg(long, default_value = "human")]
+        format: String,
+    },
+    /// Search for extensions in registries
+    Search {
+        /// Search query
+        query: String,
+
+        /// Path to the project root (for registry config)
+        #[arg(long, default_value = ".")]
+        path: PathBuf,
+
+        /// Output format: human or json
+        #[arg(long, default_value = "human")]
+        format: String,
+    },
+    /// Update installed extensions to latest compatible versions
+    Update {
+        /// Extension name (updates all if omitted)
+        name: Option<String>,
+
+        /// Path to the project root
+        #[arg(long, default_value = ".")]
+        path: PathBuf,
+
+        /// Output format: human or json
+        #[arg(long, default_value = "human")]
+        format: String,
+    },
+    /// Authenticate with a registry
+    Login {
+        /// Registry alias (defaults to "default")
+        #[arg(long)]
+        registry: Option<String>,
+
+        /// Authentication token
+        #[arg(long)]
+        token: Option<String>,
+
+        /// Path to the project root (for registry config)
+        #[arg(long, default_value = ".")]
+        path: PathBuf,
+
+        /// Output format: human or json
+        #[arg(long, default_value = "human")]
+        format: String,
+    },
+    /// Remove registry credentials
+    Logout {
+        /// Registry alias (defaults to "default")
+        #[arg(long)]
+        registry: Option<String>,
+
+        /// Output format: human or json
+        #[arg(long, default_value = "human")]
+        format: String,
+    },
     /// List configured providers
     Providers {
         /// Path to the project root
@@ -327,6 +400,28 @@ enum Commands {
     Explain {
         /// Diagnostic code (e.g., E001, W010)
         code: String,
+    },
+    /// Show inference progress (analyzed files, gaps, stale entries)
+    InferStatus {
+        /// Path to the project root
+        #[arg(long, default_value = ".")]
+        path: PathBuf,
+
+        /// Output format: human or json
+        #[arg(long, default_value = "human")]
+        format: String,
+
+        /// Show unanalyzed files grouped by directory
+        #[arg(long)]
+        gaps: bool,
+
+        /// Show stale and deleted files
+        #[arg(long)]
+        stale: bool,
+
+        /// Show detailed gap analysis (pub Rust items without spec entities)
+        #[arg(long)]
+        gaps_detail: bool,
     },
     /// Extension authoring commands
     Extension {
@@ -546,8 +641,8 @@ fn main() {
             let exit_code = init::run(&path, name.as_deref(), version.as_deref(), &extensions, &format);
             std::process::exit(exit_code);
         }
-        Commands::Check { path, strict, format } => {
-            let exit_code = check::run(&path, strict, &format);
+        Commands::Check { path, strict, format, lint } => {
+            let exit_code = check::run(&path, strict, &format, &lint);
             std::process::exit(exit_code);
         }
         Commands::Export { path, format, scope, no_schema, schema_version } => {
@@ -597,6 +692,26 @@ fn main() {
             let exit_code = extensions::run(&path, &format);
             std::process::exit(exit_code);
         }
+        Commands::Publish { path, format } => {
+            let exit_code = publish::run(&path, &format);
+            std::process::exit(exit_code);
+        }
+        Commands::Search { query, path, format } => {
+            let exit_code = search::run(&query, &path, &format);
+            std::process::exit(exit_code);
+        }
+        Commands::Update { name, path, format } => {
+            let exit_code = update::run(name.as_deref(), &path, &format);
+            std::process::exit(exit_code);
+        }
+        Commands::Login { registry, token, path, format } => {
+            let exit_code = login::run(registry.as_deref(), token.as_deref(), &path, &format);
+            std::process::exit(exit_code);
+        }
+        Commands::Logout { registry, format } => {
+            let exit_code = login::run_logout(registry.as_deref(), &format);
+            std::process::exit(exit_code);
+        }
         Commands::Providers { path, format } => {
             let exit_code = providers::run(&path, &format);
             std::process::exit(exit_code);
@@ -624,6 +739,10 @@ fn main() {
         }
         Commands::Migrate { path, dry_run, no_backup, rollback, target_version, format } => {
             let exit_code = migrate::run(&path, dry_run, no_backup, rollback, target_version.as_deref(), &format);
+            std::process::exit(exit_code);
+        }
+        Commands::InferStatus { path, format, gaps, stale, gaps_detail } => {
+            let exit_code = infer_status::run(&path, &format, gaps, stale, gaps_detail);
             std::process::exit(exit_code);
         }
         Commands::Product { action } => {

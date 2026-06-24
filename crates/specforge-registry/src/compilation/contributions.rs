@@ -248,6 +248,7 @@ mod tests {
             ext_short: None,
             query_scope: None,
             collector_contributions: vec![],
+            analyzer_contributions: vec![],
             surfaces: None,
         }
     }

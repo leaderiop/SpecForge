@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
 /// Locate the project root by walking from `start` upward to the filesystem root.
@@ -27,7 +28,16 @@ pub struct ProjectConfig {
     pub version: Option<String>,
     pub spec_root: Option<String>,
     pub extensions: Vec<String>,
+    pub inference: InferenceConfig,
     pub raw: Option<serde_json::Value>,
+}
+
+/// Project-level inference hints that override/append to extension defaults.
+#[derive(Debug, Clone, Default)]
+pub struct InferenceConfig {
+    pub global: Option<String>,
+    pub kinds: HashMap<String, String>,
+    pub density_threshold: Option<f64>,
 }
 
 /// Load project configuration from specforge.json in the given directory.
@@ -56,11 +66,36 @@ pub fn load_project_config(project_root: &Path) -> ProjectConfig {
         })
         .unwrap_or_default();
 
+    let inference = parse_inference_config(&value);
+
     ProjectConfig {
         name,
         version,
         spec_root,
         extensions,
+        inference,
         raw: Some(value),
     }
+}
+
+fn parse_inference_config(value: &serde_json::Value) -> InferenceConfig {
+    let obj = match value.get("inference").and_then(|v| v.as_object()) {
+        Some(o) => o,
+        None => return InferenceConfig::default(),
+    };
+
+    let global = obj.get("global").and_then(|v| v.as_str()).map(|s| s.to_string());
+    let mut kinds = HashMap::new();
+    for (key, val) in obj {
+        if key == "global" {
+            continue;
+        }
+        if let Some(s) = val.as_str() {
+            kinds.insert(key.clone(), s.to_string());
+        }
+    }
+
+    let density_threshold = obj.get("density_threshold").and_then(|v| v.as_f64());
+
+    InferenceConfig { global, kinds, density_threshold }
 }

@@ -42,7 +42,10 @@ async fn e2e_completion_entity_with_title() {
 #[tokio::test]
 async fn e2e_completion_keywords_at_top_level() {
     let text = "behavior foo \"Foo\" {}\n";
-    let (mut client, uri) = start_server_with_doc(None, "test.spec", text).await;
+    let (mut client, uri, _dir) = start_server_with_extensions(
+        &["@specforge/software"],
+        "test.spec", text,
+    ).await;
     // Completion at column 0 (top level, line start)
     let resp = client.completion(&uri, 1, 0).await;
     let result = &resp["result"];

@@ -136,7 +136,7 @@ impl Backend {
             return 0;
         }
 
-        let runtime = specforge_emitter::builtins::default_runtime();
+        let runtime = specforge_emitter::builtins::runtime_for_extensions(&extensions);
         let host = ProtocolHost::new(&runtime);
         let mut manifests = Vec::new();
 
@@ -159,8 +159,23 @@ impl Backend {
         let count = manifests.len();
         if !manifests.is_empty() {
             let (kind_reg, field_reg, edge_reg, _diags) = populate_registries(&manifests);
+
+            // Parse extension-declared validation rules
+            let rule_inputs: Vec<(String, Vec<_>)> = manifests
+                .iter()
+                .map(|m| (m.name.clone(), m.validation_rules.clone()))
+                .collect();
+            let (mut patterns, _rule_diags) =
+                specforge_registry::validation_engine::parse_all_rule_patterns(&rule_inputs);
+
+            // Auto-generate E006 rules for required fields
+            let required_rules =
+                specforge_registry::generate_required_field_rules(&field_reg);
+            patterns.extend(required_rules);
+
             let mut state = self.state.write().await;
             state.set_registries(kind_reg, field_reg, edge_reg);
+            state.set_validation_patterns(patterns);
         }
 
         count
@@ -373,6 +388,32 @@ impl Backend {
                     .collect();
                 let w020_diags = detect_unknown_entity_fields(&entity_fields, kind_reg, field_reg);
                 for d in &w020_diags {
+                    let diag_uri = d
+                        .span
+                        .as_ref()
+                        .map(|s| file_path_to_uri(s.file.as_str()))
+                        .unwrap_or_else(|| uri.clone());
+                    diags_by_file
+                        .entry(diag_uri)
+                        .or_default()
+                        .push(diagnostic_to_lsp(d));
+                }
+            }
+        }
+
+        // Extension validation rules (E006 missing required fields, W001-W011, etc.)
+        let validation_patterns = state.validation_patterns();
+        if !validation_patterns.is_empty() {
+            let entities = specforge_emitter::build_validation_entities(state.graph());
+            for pattern in validation_patterns {
+                if pattern.check
+                    == specforge_registry::validation_engine::ValidationPatternKind::CycleDetection
+                {
+                    continue;
+                }
+                let rule_diags =
+                    specforge_registry::validation_engine::execute_pattern(pattern, &entities, None);
+                for d in &rule_diags {
                     let diag_uri = d
                         .span
                         .as_ref()

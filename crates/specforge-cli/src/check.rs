@@ -1,14 +1,29 @@
 use specforge_common::Severity;
+use specforge_common::inference;
 use specforge_validator::{render_diagnostics, diagnostic_summary_detailed};
 use std::collections::HashMap;
 use std::path::Path;
 
 use crate::pipeline;
 
-pub fn run(path: &Path, strict: bool, format: &str) -> i32 {
+const DEFAULT_DENSITY_THRESHOLD: f64 = 0.05;
+
+pub fn run(path: &Path, strict: bool, format: &str, lint_profiles: &[String]) -> i32 {
     let ctx = pipeline::compile(path);
 
     let mut all_diagnostics = ctx.diagnostics;
+
+    if lint_profiles.iter().any(|p| p == "inferred")
+        && let Ok(manifest) = inference::load_inference_manifest(path)
+    {
+        let config = specforge_common::load_project_config(path);
+        let density_threshold = config.inference.density_threshold
+            .unwrap_or(DEFAULT_DENSITY_THRESHOLD);
+        let infer_diags = inference::compute_inference_diagnostics(
+            path, &manifest, density_threshold,
+        );
+        all_diagnostics.extend(infer_diags);
+    }
 
     // Apply --strict: promote warnings to errors
     if strict {

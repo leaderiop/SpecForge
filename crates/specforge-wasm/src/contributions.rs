@@ -18,6 +18,7 @@ pub fn dispatch_contribution_exports(
         CallSite::Provider => format!("{}_provide", extension_name.replace('/', "__")),
         CallSite::Parser => format!("{}_parse", extension_name.replace('/', "__")),
         CallSite::Collector => format!("{}_collect", extension_name.replace('/', "__")),
+        CallSite::Analyzer => format!("{}_analyze", extension_name.replace('/', "__")),
     };
 
     match runtime.call_export(extension_name, &export_name, input) {

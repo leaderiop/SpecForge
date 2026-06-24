@@ -10,6 +10,7 @@ pub enum CallSite {
     Provider,
     Parser,
     Collector,
+    Analyzer,
 }
 
 /// Scope of graph queries an extension is allowed to perform.
@@ -69,9 +70,8 @@ pub fn host_read_file_check(
     call_site: CallSite,
     policy: &SandboxPolicy,
 ) -> Result<(), Diagnostic> {
-    // Call-site restriction: only validators, providers, and parsers can read files
     match call_site {
-        CallSite::Validator | CallSite::Provider | CallSite::Parser => {}
+        CallSite::Validator | CallSite::Provider | CallSite::Parser | CallSite::Analyzer => {}
         other => {
             return Err(Diagnostic {
                 code: "E031".to_string(),
@@ -441,7 +441,7 @@ pub fn is_host_function_allowed(call_site: CallSite, function_name: &str) -> boo
         "host_emit_diagnostic" => true, // all call sites
         "host_read_file" => matches!(
             call_site,
-            CallSite::Validator | CallSite::Provider | CallSite::Parser
+            CallSite::Validator | CallSite::Provider | CallSite::Parser | CallSite::Analyzer
         ),
         "host_emit_file" => matches!(call_site, CallSite::Renderer | CallSite::Collector),
         "host_http_get" => matches!(call_site, CallSite::Provider),
@@ -852,6 +852,17 @@ mod tests {
         assert!(!is_host_function_allowed(CallSite::Parser, "host_http_get"));
     }
 
+    #[test]
+    fn test_analyzer_permissions() {
+        assert!(is_host_function_allowed(CallSite::Analyzer, "host_emit_diagnostic"));
+        assert!(is_host_function_allowed(CallSite::Analyzer, "host_read_file"));
+        assert!(is_host_function_allowed(CallSite::Analyzer, "host_query_graph"));
+        assert!(!is_host_function_allowed(CallSite::Analyzer, "host_emit_file"));
+        assert!(!is_host_function_allowed(CallSite::Analyzer, "host_http_get"));
+        assert!(!is_host_function_allowed(CallSite::Analyzer, "host_add_graph_node"));
+        assert!(!is_host_function_allowed(CallSite::Analyzer, "host_add_graph_edge"));
+    }
+
     // B:enforce_per_call_site_permissions — verify unit "unauthorized host function call is rejected"
     #[test]
     fn test_unknown_function_rejected_for_all_sites() {
@@ -861,6 +872,7 @@ mod tests {
             CallSite::Provider,
             CallSite::Parser,
             CallSite::Collector,
+            CallSite::Analyzer,
         ];
         for site in &sites {
             assert!(

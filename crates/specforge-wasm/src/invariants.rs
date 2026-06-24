@@ -254,6 +254,7 @@ mod tests {
             incremental: None,
             has_body_parser: false,
             open_fields: false,
+            inference_guide: None,
         }];
         let mut m2 = make_manifest("ext2", &[]);
         m2.entity_kinds = vec![ManifestEntityKind {
@@ -273,6 +274,7 @@ mod tests {
             incremental: None,
             has_body_parser: false,
             open_fields: false,
+            inference_guide: None,
         }];
 
         let detected = specforge_registry::detect_duplicate_entity_kinds(&[m1, m2]);

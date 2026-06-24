@@ -1,0 +1,465 @@
+/* SpecForge Graph Panel Styles */
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html, body {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: var(--vscode-editor-background);
+  color: var(--vscode-editor-foreground);
+  font-family: var(--vscode-font-family, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif);
+  font-size: var(--vscode-font-size, 13px);
+  display: flex;
+  flex-direction: column;
+}
+
+/* ===== Toolbar ===== */
+
+#toolbar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 6px 12px;
+  background: var(--vscode-editorWidget-background, var(--vscode-sideBar-background));
+  border-bottom: 1px solid var(--vscode-editorWidget-border, var(--vscode-panel-border));
+  height: 36px;
+  flex-shrink: 0;
+  z-index: 10;
+}
+
+.toolbar-group {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.toolbar-info {
+  font-size: 11px;
+  opacity: 0.6;
+  margin-left: auto;
+  white-space: nowrap;
+}
+
+.toolbar-buttons button {
+  background: var(--vscode-button-secondaryBackground, var(--vscode-input-background));
+  color: var(--vscode-button-secondaryForeground, var(--vscode-editor-foreground));
+  border: 1px solid var(--vscode-input-border, transparent);
+  border-radius: 3px;
+  padding: 2px 8px;
+  font-size: 12px;
+  cursor: pointer;
+  min-width: 28px;
+  height: 24px;
+  line-height: 1;
+}
+
+.toolbar-buttons button:hover {
+  background: var(--vscode-button-secondaryHoverBackground, var(--vscode-list-hoverBackground));
+}
+
+.toolbar-buttons button:active {
+  opacity: 0.8;
+}
+
+#loading-indicator {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  opacity: 0.8;
+}
+
+.spinner {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  border: 2px solid var(--vscode-editor-foreground);
+  border-top-color: transparent;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* ===== Filter Bar ===== */
+
+#filter-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 12px;
+  background: var(--vscode-editorWidget-background, var(--vscode-sideBar-background));
+  border-bottom: 1px solid var(--vscode-editorWidget-border, var(--vscode-panel-border));
+  flex-shrink: 0;
+}
+
+.filter-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 1px 8px;
+  border-radius: 10px;
+  font-size: 10px;
+  font-weight: 500;
+  cursor: pointer;
+  border: 1px solid var(--chip-color, #888);
+  background: color-mix(in srgb, var(--chip-color, #888) 18%, transparent);
+  color: var(--chip-color, #888);
+  line-height: 18px;
+  white-space: nowrap;
+  transition: opacity 0.12s, background 0.12s;
+}
+
+.filter-chip:hover {
+  background: color-mix(in srgb, var(--chip-color, #888) 30%, transparent);
+}
+
+.filter-chip-off {
+  opacity: 0.35;
+  background: transparent;
+  text-decoration: line-through;
+}
+
+.filter-chip-off:hover {
+  opacity: 0.6;
+  background: transparent;
+}
+
+/* ===== Graph Container ===== */
+
+#graph-container {
+  position: relative;
+  width: 100%;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+#graph-svg {
+  width: 100%;
+  height: 100%;
+  cursor: grab;
+  user-select: none;
+}
+
+#graph-svg:active {
+  cursor: grabbing;
+}
+
+/* ===== Edges ===== */
+
+.edge {
+  fill: none;
+  stroke: var(--vscode-editor-foreground);
+  stroke-width: 1.2;
+  opacity: 0.22;
+  pointer-events: none;
+}
+
+.edge-group {
+  fill: none;
+  stroke: var(--vscode-editor-foreground);
+  opacity: 0.30;
+  stroke-dasharray: 8, 4;
+  pointer-events: none;
+}
+
+.edge-hover {
+  opacity: 0.85 !important;
+  stroke-width: 2.5 !important;
+}
+
+.edge-hit {
+  fill: none;
+  stroke: transparent;
+  stroke-width: 16;
+  cursor: pointer;
+  pointer-events: stroke;
+}
+
+.edge-count {
+  fill: var(--vscode-editor-foreground);
+  font-size: 9px;
+  opacity: 0.55;
+  pointer-events: none;
+}
+
+.edge-label {
+  fill: var(--vscode-editor-foreground);
+  font-size: 8px;
+  opacity: 0.45;
+  pointer-events: none;
+}
+
+/* ===== Dimming for focus mode ===== */
+
+.dimmed {
+  opacity: 0.12 !important;
+  pointer-events: none;
+}
+
+.highlighted-edge {
+  opacity: 0.75 !important;
+  stroke-width: 2 !important;
+}
+
+/* ===== Group Nodes ===== */
+
+.group-node {
+  cursor: pointer;
+}
+
+.group-node rect {
+  transition: stroke-width 0.15s, filter 0.15s;
+}
+
+.group-node:hover rect {
+  filter: brightness(1.15);
+  stroke-width: 2.5 !important;
+}
+
+.group-node rect.selected {
+  stroke: var(--vscode-focusBorder, #007fd4) !important;
+  stroke-width: 3 !important;
+}
+
+.group-text {
+  font-size: 13px;
+  font-weight: 600;
+  pointer-events: none;
+}
+
+.group-count {
+  fill: var(--vscode-editor-foreground);
+  font-size: 10px;
+  opacity: 0.55;
+  pointer-events: none;
+  text-anchor: middle;
+}
+
+.group-kind-abbr {
+  font-size: 10px;
+  font-weight: 700;
+  opacity: 0.45;
+  pointer-events: none;
+  text-anchor: start;
+}
+
+.group-toggle {
+  font-size: 11px;
+  pointer-events: none;
+  opacity: 0.6;
+}
+
+/* ===== Entity Nodes ===== */
+
+.entity-node {
+  cursor: pointer;
+}
+
+.entity-circle {
+  stroke: var(--vscode-editor-foreground);
+  stroke-width: 1.5;
+  stroke-opacity: 0.25;
+  transition: opacity 0.12s, stroke-opacity 0.12s, stroke-width 0.12s;
+}
+
+.entity-circle:hover {
+  stroke-opacity: 0.7;
+  stroke-width: 2.5;
+}
+
+.entity-circle.selected {
+  stroke: var(--vscode-focusBorder, #007fd4);
+  stroke-width: 3;
+  stroke-opacity: 1;
+  opacity: 1 !important;
+}
+
+.entity-label {
+  fill: var(--vscode-editor-foreground);
+  font-size: 9px;
+  text-anchor: middle;
+  pointer-events: none;
+  opacity: 0.8;
+}
+
+.entity-kind-abbr {
+  fill: #ffffff;
+  font-size: 8px;
+  font-weight: 700;
+  text-anchor: middle;
+  pointer-events: none;
+  letter-spacing: 0.3px;
+}
+
+/* ===== Group Boundary (expanded) ===== */
+
+.group-boundary {
+  fill: none;
+  stroke-dasharray: 6, 4;
+  stroke-width: 1;
+  opacity: 0.15;
+  pointer-events: none;
+}
+
+/* ===== Badge Nodes ===== */
+
+.badge-node {
+  cursor: pointer;
+}
+
+.badge-text {
+  font-size: 10px;
+  font-weight: 600;
+  pointer-events: none;
+}
+
+/* ===== Edge toggle button ===== */
+
+.edge-toggle {
+  cursor: pointer;
+}
+
+.edge-toggle rect {
+  transition: fill 0.12s;
+}
+
+.edge-toggle:hover rect {
+  filter: brightness(1.2);
+}
+
+.edge-toggle text {
+  font-size: 9px;
+  fill: var(--vscode-editor-foreground);
+  pointer-events: none;
+  text-anchor: middle;
+  dominant-baseline: central;
+}
+
+/* ===== Tooltip ===== */
+
+#tooltip {
+  position: fixed;
+  background: var(--vscode-editorHoverWidget-background, var(--vscode-editorWidget-background));
+  color: var(--vscode-editorHoverWidget-foreground, var(--vscode-editor-foreground));
+  border: 1px solid var(--vscode-editorHoverWidget-border, var(--vscode-editorWidget-border));
+  border-radius: 4px;
+  padding: 6px 10px;
+  font-size: 11px;
+  white-space: pre-line;
+  pointer-events: none;
+  z-index: 100;
+  max-width: 340px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+}
+
+/* ===== Empty/Error States ===== */
+
+#empty-state,
+#error-state {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  text-align: center;
+  opacity: 0.7;
+}
+
+#empty-state p,
+#error-state p {
+  margin: 8px 0;
+}
+
+#empty-state code {
+  background: var(--vscode-textCodeBlock-background, rgba(128, 128, 128, 0.15));
+  padding: 2px 6px;
+  border-radius: 3px;
+  font-family: var(--vscode-editor-font-family, monospace);
+  font-size: 12px;
+}
+
+#error-state {
+  color: var(--vscode-errorForeground, #f44336);
+}
+
+/* ===== Ego Card Nodes ===== */
+
+.ego-card {
+  cursor: pointer;
+}
+
+.ego-card rect.ego-card-bg {
+  fill: var(--vscode-editor-background, #1e1e1e);
+  stroke-width: 1.5;
+  transition: stroke-width 0.12s, filter 0.12s;
+}
+
+.ego-card:hover rect.ego-card-bg {
+  filter: brightness(1.12);
+  stroke-width: 2.5;
+}
+
+.ego-card rect.ego-card-bg.expanded {
+  stroke-width: 2.5;
+  stroke-dasharray: 6, 3;
+}
+
+.ego-card--center rect.ego-card-bg {
+  stroke-width: 2;
+}
+
+.ego-card--center:hover rect.ego-card-bg {
+  stroke-width: 3;
+}
+
+.ego-card .ego-card-header {
+  pointer-events: none;
+}
+
+.ego-card .ego-card-kind {
+  fill: #ffffff;
+  font-size: 9px;
+  font-weight: 700;
+  pointer-events: none;
+  letter-spacing: 0.3px;
+}
+
+.ego-card .ego-card-id {
+  fill: var(--vscode-editor-foreground);
+  font-size: 10px;
+  font-weight: 600;
+  pointer-events: none;
+}
+
+.ego-card--center .ego-card-id {
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.ego-card .ego-card-title {
+  fill: var(--vscode-editor-foreground);
+  font-size: 9px;
+  pointer-events: none;
+  opacity: 0.7;
+}
+
+.ego-card .ego-card-meta {
+  fill: var(--vscode-editor-foreground);
+  font-size: 8px;
+  pointer-events: none;
+  opacity: 0.5;
+}
+
+/* ===== Utility ===== */
+
+.hidden {
+  display: none !important;
+}

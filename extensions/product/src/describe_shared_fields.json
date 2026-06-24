@@ -1,0 +1,16 @@
+{
+  "category": "shared_fields",
+  "items": [
+    {
+      "default_value": null,
+      "description": "Freeform labels for filtering and categorization",
+      "edge": null,
+      "field_type": "string_list",
+      "file_reference": false,
+      "inverse_of": null,
+      "name": "tags",
+      "required": false,
+      "target_kind": null
+    }
+  ]
+}

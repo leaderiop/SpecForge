@@ -1,4 +1,5 @@
 use specforge_graph::Graph;
+use specforge_parser::FieldValue;
 use specforge_registry::{FieldRegistry, KindRegistry};
 use std::collections::BTreeMap;
 
@@ -9,7 +10,7 @@ use std::collections::BTreeMap;
 /// - Extension source (from KindRegistry, if available)
 /// - **References** (outgoing edges): grouped by field label, listing target IDs
 /// - **Referenced by** (incoming edges): grouped by "source_kind via label", listing source IDs
-/// - **Fields** (from FieldRegistry, if available): field names with types
+/// - **Fields**: actual field values from the entity
 pub fn hover_info(graph: &Graph, entity_id: &str) -> Option<String> {
     hover_info_with_registries(graph, entity_id, None, None)
 }
@@ -19,7 +20,7 @@ pub fn hover_info_with_registries(
     graph: &Graph,
     entity_id: &str,
     kind_registry: Option<&KindRegistry>,
-    field_registry: Option<&FieldRegistry>,
+    _field_registry: Option<&FieldRegistry>,
 ) -> Option<String> {
     let node = graph.node(entity_id)?;
 
@@ -29,36 +30,53 @@ pub fn hover_info_with_registries(
         .map(|t| format!(" — {t}"))
         .unwrap_or_default();
 
-    let mut parts = vec![format!("**{}** `{}`{}", node.kind.raw, node.id.raw, title)];
+    // Section 1: Header + description + extension badges
+    let mut header_section = format!("**{}** `{}`{}", node.kind.raw, node.id.raw, title);
 
-    // Description and extension source from KindRegistry
     if let Some(kind_reg) = kind_registry
-        && let Some(entry) = kind_reg.get(node.kind.raw.as_str()) {
-            if let Some(ref desc) = entry.description {
-                parts.push(desc.clone());
-            }
-            parts.push(format!("*from {}*", entry.source_extension));
+        && let Some(entry) = kind_reg.get(node.kind.raw.as_str())
+    {
+        if let Some(ref desc) = entry.description {
+            header_section.push_str(&format!("\n\n{}", desc));
+        }
+
+        let mut ext_line = format!("*{}*", entry.source_extension);
+        if entry.testable {
+            ext_line.push_str(" · `testable`");
+        }
+        if entry.supports_verify {
+            ext_line.push_str(" · `verify`");
+        }
+        if entry.singleton {
+            ext_line.push_str(" · `singleton`");
+        }
+        header_section.push_str(&format!("\n{}", ext_line));
     }
 
-    // Outgoing edges: what this entity references, grouped by label
+    let mut sections: Vec<String> = vec![header_section];
+
+    // Section 2: Outgoing edges (References)
     let outgoing = graph.edges_from(entity_id);
     if !outgoing.is_empty() {
         let mut by_label: BTreeMap<&str, Vec<&str>> = BTreeMap::new();
         for edge in &outgoing {
-            by_label.entry(edge.label.as_str()).or_default().push(edge.target.as_str());
+            by_label
+                .entry(edge.label.as_str())
+                .or_default()
+                .push(edge.target.as_str());
         }
-        let mut section = String::from("\n**References:**");
+        let total_count = outgoing.len();
+        let mut section = format!("**References** *({})*", total_count);
         for (label, targets) in &by_label {
             let ids: Vec<&str> = targets.to_vec();
-            section.push_str(&format!("\n- {}: {}", label, ids.join(", ")));
+            section.push_str(&format!("\n- `{}` → {}", label, ids.join(", ")));
         }
-        parts.push(section);
+        sections.push(section);
     }
 
-    // Incoming edges: what references this entity, grouped by source kind + label
+    // Section 3: Incoming edges (Referenced by)
     let incoming = graph.edges_to(entity_id);
     if !incoming.is_empty() {
-        // Group by (source_kind, label) for clear display
         let mut by_kind_label: BTreeMap<(String, &str), Vec<&str>> = BTreeMap::new();
         for edge in &incoming {
             let source_kind = graph
@@ -70,29 +88,34 @@ pub fn hover_info_with_registries(
                 .or_default()
                 .push(edge.source.as_str());
         }
-        let mut section = String::from("\n**Referenced by:**");
+        let total_count = incoming.len();
+        let mut section = format!("**Referenced by** *({})*", total_count);
         for ((kind, label), sources) in &by_kind_label {
             let ids: Vec<&str> = sources.to_vec();
-            section.push_str(&format!("\n- {} ({}): {}", kind, label, ids.join(", ")));
+            section.push_str(&format!("\n- {} via `{}`: {}", kind, label, ids.join(", ")));
         }
-        parts.push(section);
+        sections.push(section);
     }
 
-    // Fields from FieldRegistry
-    if let Some(field_reg) = field_registry {
-        let fields = field_reg.fields_for_kind(node.kind.raw.as_str());
-        if !fields.is_empty() {
-            let mut sorted: Vec<_> = fields.iter().map(|f| (&f.field_name, &f.field_type)).collect();
-            sorted.sort_by_key(|(name, _)| *name);
-            let mut section = String::from("\n**Fields:**");
-            for (name, ftype) in &sorted {
-                section.push_str(&format!("\n- `{}`: {}", name, format_field_type(ftype)));
+    // Section 4: Fields
+    let field_entries = node.fields.entries();
+    if !field_entries.is_empty() {
+        let mut has_fields = false;
+        let mut section = String::from("**Fields**");
+        for entry in field_entries {
+            let key = entry.key.as_str();
+            if key == "title" {
+                continue;
             }
-            parts.push(section);
+            has_fields = true;
+            section.push_str(&format!("\n- `{}` = {}", key, format_field_value(&entry.value)));
+        }
+        if has_fields {
+            sections.push(section);
         }
     }
 
-    Some(parts.join("\n"))
+    Some(sections.join("\n\n---\n\n"))
 }
 
 /// Returns markdown-formatted hover content for a field name within an entity block.
@@ -104,27 +127,80 @@ pub fn hover_field_info(
     let entry = field_registry.get(entity_kind, field_name)?;
 
     let type_str = format_field_type(&entry.field_type);
-    let mut parts = vec![format!("**`{}`** : {}", field_name, type_str)];
+
+    // First line: field name + type, with optional target kind on same line
+    let first_line = if let Some(ref target) = entry.target_kind {
+        format!("**`{}`** : {} → **{}**", field_name, type_str, target)
+    } else {
+        format!("**`{}`** : {}", field_name, type_str)
+    };
+
+    let mut parts = vec![first_line];
 
     if let Some(ref desc) = entry.description {
         parts.push(desc.clone());
     }
 
-    if let Some(ref target) = entry.target_kind {
-        parts.push(format!("→ **{}**", target));
+    // Edge and required on same line
+    match (&entry.edge, entry.required) {
+        (Some(edge_name), true) => {
+            parts.push(format!("Edge `{}` · *required*", edge_name));
+        }
+        (Some(edge_name), false) => {
+            parts.push(format!("Edge `{}`", edge_name));
+        }
+        (None, true) => {
+            parts.push("*required*".to_string());
+        }
+        (None, false) => {}
     }
 
-    if let Some(ref edge) = entry.edge {
-        parts.push(format!("Edge: `{}`", edge));
-    }
-
-    if entry.required {
-        parts.push("*required*".to_string());
-    }
-
-    parts.push(format!("*from {}*", entry.source_extension));
+    parts.push(format!("*{}*", entry.source_extension));
 
     Some(parts.join("  \n"))
+}
+
+fn format_field_value(fv: &FieldValue) -> String {
+    match fv {
+        FieldValue::String(s) => {
+            let truncated = if s.len() > 120 {
+                format!("{}…", &s[..120])
+            } else {
+                s.clone()
+            };
+            format!("\"{}\"", truncated)
+        }
+        FieldValue::Identifier(s) => format!("`{}`", s),
+        FieldValue::Integer(n) => n.to_string(),
+        FieldValue::Boolean(b) => b.to_string(),
+        FieldValue::Date(d) => d.clone(),
+        FieldValue::ReferenceList(refs) => format!("[{}]", refs.join(", ")),
+        FieldValue::StringList(items) => {
+            if items.len() <= 5 {
+                format!("[{}]", items.iter().map(|s| format!("\"{}\"", s)).collect::<Vec<_>>().join(", "))
+            } else {
+                let shown: Vec<_> = items[..5].iter().map(|s| format!("\"{}\"", s)).collect();
+                format!("[{}, … +{}]", shown.join(", "), items.len() - 5)
+            }
+        }
+        FieldValue::VariantList(variants) => format!("[{}]", variants.join(" | ")),
+        FieldValue::MixedList(items) => {
+            let formatted: Vec<_> = items.iter().map(format_field_value).collect();
+            format!("[{}]", formatted.join(", "))
+        }
+        FieldValue::Block(map) => {
+            let count = map.entries().len();
+            format!("{{…}} ({} fields)", count)
+        }
+        FieldValue::VerifyList(stmts) => {
+            let items: Vec<_> = stmts.iter().map(|v| format!("{}: {}", v.kind, v.description)).collect();
+            if items.len() <= 3 {
+                items.join("; ")
+            } else {
+                format!("{}; … +{}", items[..3].join("; "), items.len() - 3)
+            }
+        }
+    }
 }
 
 fn format_field_type(ft: &specforge_registry::ManifestFieldType) -> &'static str {

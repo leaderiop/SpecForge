@@ -1,0 +1,163 @@
+{
+  "category": "enhancements",
+  "items": [
+    {
+      "edge_types": [
+        {
+          "description": "Behavior requires an invariant as precondition",
+          "edge_arrowhead": null,
+          "edge_color": "#1A237E",
+          "edge_style": "solid",
+          "label": "BehaviorRequiresInvariant",
+          "source_kind": "behavior",
+          "target_kind": "invariant"
+        },
+        {
+          "description": "Behavior ensures an invariant as postcondition",
+          "edge_arrowhead": null,
+          "edge_color": "#1A237E",
+          "edge_style": "solid",
+          "label": "BehaviorEnsuresInvariant",
+          "source_kind": "behavior",
+          "target_kind": "invariant"
+        },
+        {
+          "description": "Behavior maintains an invariant as frame invariant throughout execution",
+          "edge_arrowhead": null,
+          "edge_color": "#1A237E",
+          "edge_style": "dashed",
+          "label": "BehaviorMaintainsInvariant",
+          "source_kind": "behavior",
+          "target_kind": "invariant"
+        },
+        {
+          "description": "Behavior satisfies a temporal property",
+          "edge_arrowhead": null,
+          "edge_color": "#0D47A1",
+          "edge_style": "solid",
+          "label": "BehaviorSatisfiesProperty",
+          "source_kind": "behavior",
+          "target_kind": "property"
+        }
+      ],
+      "fields": [
+        {
+          "default_value": null,
+          "description": "Invariants that must hold as preconditions before execution",
+          "edge": "BehaviorRequiresInvariant",
+          "field_type": "reference_list",
+          "file_reference": false,
+          "inverse_of": null,
+          "name": "requires",
+          "required": false,
+          "target_kind": "invariant"
+        },
+        {
+          "default_value": null,
+          "description": "Invariants guaranteed as postconditions after successful execution",
+          "edge": "BehaviorEnsuresInvariant",
+          "field_type": "reference_list",
+          "file_reference": false,
+          "inverse_of": null,
+          "name": "ensures",
+          "required": false,
+          "target_kind": "invariant"
+        },
+        {
+          "default_value": null,
+          "description": "Invariants preserved throughout execution",
+          "edge": "BehaviorMaintainsInvariant",
+          "field_type": "reference_list",
+          "file_reference": false,
+          "inverse_of": null,
+          "name": "maintains",
+          "required": false,
+          "target_kind": "invariant"
+        },
+        {
+          "default_value": null,
+          "description": "Temporal properties this behavior satisfies",
+          "edge": "BehaviorSatisfiesProperty",
+          "field_type": "reference_list",
+          "file_reference": false,
+          "inverse_of": null,
+          "name": "satisfies",
+          "required": false,
+          "target_kind": "property"
+        },
+        {
+          "default_value": null,
+          "description": "Synchronization constraints for execution",
+          "edge": null,
+          "field_type": "string_list",
+          "file_reference": false,
+          "inverse_of": null,
+          "name": "sync",
+          "required": false,
+          "target_kind": null
+        }
+      ],
+      "source_extension": "@specforge/formal",
+      "target_kind": "behavior"
+    },
+    {
+      "edge_types": [
+        {
+          "description": "Event follows a synchronization protocol",
+          "edge_arrowhead": null,
+          "edge_color": "#004D40",
+          "edge_style": "solid",
+          "label": "EventFollowsProtocol",
+          "source_kind": "event",
+          "target_kind": "protocol"
+        },
+        {
+          "description": "Event participates in a process",
+          "edge_arrowhead": null,
+          "edge_color": "#006064",
+          "edge_style": "solid",
+          "label": "EventParticipatesInProcess",
+          "source_kind": "event",
+          "target_kind": "process"
+        }
+      ],
+      "fields": [
+        {
+          "default_value": null,
+          "description": "Synchronization protocol this event follows",
+          "edge": "EventFollowsProtocol",
+          "field_type": "reference_list",
+          "file_reference": false,
+          "inverse_of": null,
+          "name": "follows_protocol",
+          "required": false,
+          "target_kind": "protocol"
+        },
+        {
+          "default_value": null,
+          "description": "Processes this event participates in",
+          "edge": "EventParticipatesInProcess",
+          "field_type": "reference_list",
+          "file_reference": false,
+          "inverse_of": null,
+          "name": "participates_in",
+          "required": false,
+          "target_kind": "process"
+        },
+        {
+          "default_value": null,
+          "description": "Synchronization constraints for event processing",
+          "edge": null,
+          "field_type": "string_list",
+          "file_reference": false,
+          "inverse_of": null,
+          "name": "sync",
+          "required": false,
+          "target_kind": null
+        }
+      ],
+      "source_extension": "@specforge/formal",
+      "target_kind": "event"
+    }
+  ]
+}
