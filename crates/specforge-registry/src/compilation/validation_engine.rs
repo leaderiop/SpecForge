@@ -221,7 +221,13 @@ pub fn execute_pattern(
                             "one_of" => !constraint.values.contains(value),
                             "matches" => {
                                 if let Some(ref pat) = constraint.pattern {
-                                    !value.contains(pat)
+                                    // The value violates the constraint when it fails to
+                                    // match the regex. A malformed pattern is treated as
+                                    // "no violation" rather than blocking on a bad rule.
+                                    match regex::Regex::new(pat) {
+                                        Ok(re) => !re.is_match(value),
+                                        Err(_) => false,
+                                    }
                                 } else {
                                     false
                                 }
@@ -564,6 +570,94 @@ mod tests {
         let diags = execute_pattern(&pattern, &[e1, e2], None);
         assert_eq!(diags.len(), 1);
         assert!(diags[0].message.contains("b1"));
+    }
+
+    // B:execute_validation_pattern — verify unit "matches constraint accepts a value satisfying the regex"
+    #[test]
+    fn test_matches_constraint_accepts_valid_semver() {
+        let rule = ManifestValidationRule {
+            code: "W093".to_string(),
+            severity: "warning".to_string(),
+            message_template: "{kind} '{id}' has invalid {field}".to_string(),
+            check: "field_value_constraint".to_string(),
+            target_kind: Some("release".to_string()),
+            edge_type: None,
+            field: Some("version".to_string()),
+            constraint: Some(crate::FieldConstraint {
+                kind: "matches".to_string(),
+                pattern: Some(r"^\d+\.\d+\.\d+(-[a-zA-Z0-9.]+)?(\+[a-zA-Z0-9.]+)?$".to_string()),
+                values: vec![],
+            }),
+            wasm_function: None,
+        };
+        let pattern = parse_rule_pattern(&rule, "@test").unwrap();
+
+        let mut e1 = make_entity("r1", "release", 1, 0);
+        e1.fields.insert("version".to_string(), "1.0.0".to_string());
+
+        let diags = execute_pattern(&pattern, &[e1], None);
+        assert!(
+            diags.is_empty(),
+            "a valid semver value must satisfy the matches constraint, got: {:?}",
+            diags
+        );
+    }
+
+    // B:execute_validation_pattern — verify unit "matches constraint flags a value violating the regex"
+    #[test]
+    fn test_matches_constraint_flags_invalid_semver() {
+        let rule = ManifestValidationRule {
+            code: "W093".to_string(),
+            severity: "warning".to_string(),
+            message_template: "{kind} '{id}' has invalid {field}".to_string(),
+            check: "field_value_constraint".to_string(),
+            target_kind: Some("release".to_string()),
+            edge_type: None,
+            field: Some("version".to_string()),
+            constraint: Some(crate::FieldConstraint {
+                kind: "matches".to_string(),
+                pattern: Some(r"^\d+\.\d+\.\d+(-[a-zA-Z0-9.]+)?(\+[a-zA-Z0-9.]+)?$".to_string()),
+                values: vec![],
+            }),
+            wasm_function: None,
+        };
+        let pattern = parse_rule_pattern(&rule, "@test").unwrap();
+
+        let mut e1 = make_entity("r1", "release", 1, 0);
+        e1.fields.insert("version".to_string(), "v1.2".to_string());
+
+        let diags = execute_pattern(&pattern, &[e1], None);
+        assert_eq!(diags.len(), 1, "a non-semver value must be flagged");
+        assert!(diags[0].message.contains("r1"));
+    }
+
+    // B:execute_validation_pattern — verify unit "matches constraint anchors the full value (not a substring)"
+    #[test]
+    fn test_matches_constraint_anchors_full_value() {
+        let rule = ManifestValidationRule {
+            code: "W093".to_string(),
+            severity: "warning".to_string(),
+            message_template: "{kind} '{id}' has invalid {field}".to_string(),
+            check: "field_value_constraint".to_string(),
+            target_kind: Some("release".to_string()),
+            edge_type: None,
+            field: Some("version".to_string()),
+            constraint: Some(crate::FieldConstraint {
+                kind: "matches".to_string(),
+                pattern: Some(r"^\d+\.\d+\.\d+(-[a-zA-Z0-9.]+)?(\+[a-zA-Z0-9.]+)?$".to_string()),
+                values: vec![],
+            }),
+            wasm_function: None,
+        };
+        let pattern = parse_rule_pattern(&rule, "@test").unwrap();
+
+        // Contains a valid semver as a substring but has trailing junk — the old
+        // substring check would have wrongly accepted this.
+        let mut e1 = make_entity("r1", "release", 1, 0);
+        e1.fields.insert("version".to_string(), "1.0.0-not valid".to_string());
+
+        let diags = execute_pattern(&pattern, &[e1], None);
+        assert_eq!(diags.len(), 1, "anchored regex must reject trailing junk");
     }
 
     // B:execute_validation_pattern — verify unit "cycle_detection finds cycles in edge type"

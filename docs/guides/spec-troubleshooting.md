@@ -62,12 +62,8 @@ These don't block compilation, but most indicate a missing edge or coverage gap.
 | **W078** | `<entity> 'X' has invalid priority` | Priority outside the enum. | Use critical / high / medium / low. |
 | **W080** | `deliverable 'X' has invalid artifact_type` | Unknown artifact type. | Use one of: cli, service, library, web_app, mobile_app, api, extension, documentation, package. |
 | **W083 / W084** | `<persona/channel> 'X' has invalid status` | Status outside the enum. | Use active / deprecated. |
+| **W093** | `release 'X' has invalid version format` | `version` is not valid semver. | Use a semver string like `1.0.0`, `2.1.0-rc.1`, or `1.0.0+build.5`. |
 | **W095** | `feature 'X' has invalid effort` | Effort outside the enum. | Use xs / s / m / l / xl. |
-
-> ⚠️ **Known issue (W093, release version).** At the time of writing, the `release.version`
-> semver check (`W093`) mis-fires on valid versions like `1.0.0` due to a substring-vs-regex
-> bug in the validation engine. If you see `W093` on a version you believe is valid semver,
-> it's a false positive — track it rather than mangling your version string.
 
 ---
 
