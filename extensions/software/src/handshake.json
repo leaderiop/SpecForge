@@ -1,5 +1,6 @@
 {
   "contribution_flags": {
+    "analyzers": false,
     "body_parsers": false,
     "collectors": false,
     "entities": true,

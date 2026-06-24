@@ -3,6 +3,7 @@ mod contracts;
 mod determinism;
 mod dual_mode;
 mod e2e_pipeline;
+mod extension_json_sync;
 mod diagnostics;
 mod emit_brief;
 mod emit_context;
