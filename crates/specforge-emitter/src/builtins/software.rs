@@ -94,6 +94,11 @@ impl SoftwareExtension {
                 dot_color: Some("#2E7D32".into()),
                 dot_fillcolor: Some("#E8F5E9".into()),
                 open_fields: true,
+                // Type bodies may carry extension-owned field syntax the core
+                // grammar does not parse — notably inline union field types
+                // (`field string | string[]`). Declaring a body parser tells the
+                // pipeline to suppress the resulting core parse errors.
+                has_body_parser: true,
                 fields: vec![
                     fd("kind", "string", false, Some("The type category (e.g. struct, enum, alias, opaque)"), None, None),
                     fd("fields", "block", false, Some("Structured field definitions for this type"), None, None),

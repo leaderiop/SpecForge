@@ -82,6 +82,34 @@ port TaskRepository "Repo" {
     );
 }
 
+// B:compile_pipeline — verify unit "type inline-union field syntax does not surface parse errors"
+#[test]
+#[specforge_test(behavior = "compile_pipeline", verify = "extension-owned body syntax (type inline unions) does not surface E001")]
+fn type_inline_union_field_does_not_surface_parse_errors() {
+    let ctx = compile_with_builtins(
+        &["@specforge/software"],
+        &[(
+            "main.spec",
+            r#"spec "t" { version "0.1.0" }
+type Manifest "M" {
+  name        string
+  query_scope string | string[]  @optional
+}
+"#,
+        )],
+    );
+
+    // Inline union field types (`string | string[]`) are extension-owned body
+    // syntax the core grammar does not parse, but they must NOT surface as E001
+    // parse errors — the `type` entity itself still resolves its other fields.
+    let e001: Vec<_> = ctx.diagnostics.iter().filter(|d| d.code == "E001").collect();
+    assert!(
+        e001.is_empty(),
+        "type inline-union field must not produce E001 parse errors, got: {:?}",
+        e001
+    );
+}
+
 // B:compile_pipeline — verify unit "single entity roundtrip: parse→graph→json"
 #[test]
 #[specforge_test(behavior = "compile_pipeline", verify = "single entity roundtrip produces valid graph")]

@@ -4,9 +4,9 @@
   "version": "0.1.0",
   "spec_root": "spec",
   "extensions": [
-    "./extensions/product",
-    "./extensions/software",
-    "./extensions/governance",
-    "./extensions/formal"
+    "@specforge/product",
+    "@specforge/software",
+    "@specforge/governance",
+    "@specforge/formal"
   ]
 }

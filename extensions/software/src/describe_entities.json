@@ -398,7 +398,7 @@
           "target_kind": null
         }
       ],
-      "has_body_parser": false,
+      "has_body_parser": true,
       "incremental": null,
       "inference_guide": "Look for domain model structs, data transfer objects, API request/response shapes, database entities, and enum definitions that carry business meaning. Signals: struct/class definitions in models/ or domain/ directories; TypeScript interfaces/types for API contracts; protobuf/GraphQL/JSON Schema type definitions; ORM model classes; enum types with business variants. Use open_fields to list the type's fields. Set kind field to 'struct', 'enum', 'alias', or 'opaque'. Reference composed_types for nested or referenced types. Skip: internal implementation structs, builder patterns, framework-generated types, test fixtures.",
       "keyword": "type",
