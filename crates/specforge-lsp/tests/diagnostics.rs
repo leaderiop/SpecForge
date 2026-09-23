@@ -3,7 +3,10 @@ use specforge_test_macros::test as spec;
 
 // -- live_diagnostics ---------------------------------------------------------
 
-#[spec(behavior = "live_diagnostics", verify = "diagnostics update after file change")]
+#[spec(
+    behavior = "live_diagnostics",
+    verify = "diagnostics update after file change"
+)]
 #[test]
 fn diagnostics_update_after_change() {
     let mut state = specforge_lsp::LspState::new();
@@ -24,27 +27,36 @@ fn diagnostics_update_after_change() {
     assert!(current[0].message.contains("E003"));
 }
 
-#[spec(behavior = "live_diagnostics", verify = "only changed file diagnostics are refreshed")]
+#[spec(
+    behavior = "live_diagnostics",
+    verify = "only changed file diagnostics are refreshed"
+)]
 #[test]
 fn only_changed_file_diagnostics_refreshed() {
     let mut state = specforge_lsp::LspState::new();
     state.open_document("file:///a.spec", "a");
     state.open_document("file:///b.spec", "b");
 
-    state.set_diagnostics("file:///a.spec", vec![Diagnostic {
-        code: String::new(),
-        suggestion: None,
-        message: "error in a".into(),
-        severity: Severity::Error,
-        span: None,
-    }]);
-    state.set_diagnostics("file:///b.spec", vec![Diagnostic {
-        code: String::new(),
-        suggestion: None,
-        message: "error in b".into(),
-        severity: Severity::Error,
-        span: None,
-    }]);
+    state.set_diagnostics(
+        "file:///a.spec",
+        vec![Diagnostic {
+            code: String::new(),
+            suggestion: None,
+            message: "error in a".into(),
+            severity: Severity::Error,
+            span: None,
+        }],
+    );
+    state.set_diagnostics(
+        "file:///b.spec",
+        vec![Diagnostic {
+            code: String::new(),
+            suggestion: None,
+            message: "error in b".into(),
+            severity: Severity::Error,
+            span: None,
+        }],
+    );
 
     // Update only a.spec diagnostics
     state.set_diagnostics("file:///a.spec", vec![]);
@@ -53,29 +65,41 @@ fn only_changed_file_diagnostics_refreshed() {
     assert_eq!(state.diagnostics("file:///b.spec").len(), 1);
 }
 
-#[spec(behavior = "live_diagnostics", verify = "diagnostics appear within 100ms")]
+#[spec(
+    behavior = "live_diagnostics",
+    verify = "diagnostics appear within 100ms"
+)]
 #[test]
 fn diagnostics_appear_within_latency_budget() {
     use std::time::Instant;
 
     let mut state = specforge_lsp::LspState::new();
-    state.open_document("file:///a.spec", "behavior a \"A\" {\n  deps [nonexistent]\n}\n");
+    state.open_document(
+        "file:///a.spec",
+        "behavior a \"A\" {\n  deps [nonexistent]\n}\n",
+    );
 
     let start = Instant::now();
 
     // Simulate the diagnostic pipeline: apply change + set diagnostics
     state.apply_change("file:///a.spec", 1, 7, 1, 18, "also_missing");
-    state.set_diagnostics("file:///a.spec", vec![Diagnostic {
-        code: "E003".into(),
-        suggestion: None,
-        message: "unresolved reference 'also_missing'".into(),
-        severity: Severity::Error,
-        span: None,
-    }]);
+    state.set_diagnostics(
+        "file:///a.spec",
+        vec![Diagnostic {
+            code: "E003".into(),
+            suggestion: None,
+            message: "unresolved reference 'also_missing'".into(),
+            severity: Severity::Error,
+            span: None,
+        }],
+    );
 
     let elapsed = start.elapsed();
 
-    assert!(!state.diagnostics("file:///a.spec").is_empty(), "diagnostics must be available");
+    assert!(
+        !state.diagnostics("file:///a.spec").is_empty(),
+        "diagnostics must be available"
+    );
     // The in-memory pipeline (without I/O) must complete well under 100ms
     assert!(
         elapsed.as_millis() < 100,

@@ -1,24 +1,34 @@
+mod brief;
+mod context;
+mod diagnostics;
+mod entities_by_kind;
+mod entity;
 mod graph;
 mod schema;
-mod context;
-mod brief;
-mod diagnostics;
-mod entity;
-mod entities_by_kind;
 
 use serde_json::Value;
 
 use crate::protocol::{JsonRpcResponse, error_codes};
 use crate::state::McpState;
 
-pub fn handle_resource_read(state: &mut McpState, params: Value, id: Option<Value>) -> JsonRpcResponse {
+pub fn handle_resource_read(
+    state: &mut McpState,
+    params: Value,
+    id: Option<Value>,
+) -> JsonRpcResponse {
     if !state.is_initialized() {
         return JsonRpcResponse::error(id, error_codes::INVALID_REQUEST, "Server not initialized");
     }
 
     let uri = match params.get("uri").and_then(|v| v.as_str()) {
         Some(u) => u.to_string(),
-        None => return JsonRpcResponse::error(id, error_codes::INVALID_PARAMS, "Missing required parameter: uri"),
+        None => {
+            return JsonRpcResponse::error(
+                id,
+                error_codes::INVALID_PARAMS,
+                "Missing required parameter: uri",
+            );
+        }
     };
 
     state.push_event("mcp_resource_read", serde_json::json!({"uri": uri}));
@@ -37,6 +47,10 @@ pub fn handle_resource_read(state: &mut McpState, params: Value, id: Option<Valu
             let kind = &uri["specforge://entities/".len()..];
             entities_by_kind::read(state, kind, id)
         }
-        _ => JsonRpcResponse::error(id, error_codes::INVALID_PARAMS, format!("Unknown resource URI: {}", uri)),
+        _ => JsonRpcResponse::error(
+            id,
+            error_codes::INVALID_PARAMS,
+            format!("Unknown resource URI: {}", uri),
+        ),
     }
 }

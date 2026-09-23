@@ -8,11 +8,7 @@ type Span = (String, Range<usize>);
 pub fn render_diagnostics(diagnostics: &[Diagnostic], sources: &HashMap<String, String>) -> String {
     let mut buf = Vec::new();
 
-    let mut cache = ariadne::sources(
-        sources
-            .iter()
-            .map(|(k, v)| (k.clone(), v.clone())),
-    );
+    let mut cache = ariadne::sources(sources.iter().map(|(k, v)| (k.clone(), v.clone())));
 
     for diag in diagnostics {
         let kind = match diag.severity {
@@ -23,7 +19,10 @@ pub fn render_diagnostics(diagnostics: &[Diagnostic], sources: &HashMap<String, 
 
         let (file, offset) = if let Some(span) = &diag.span {
             let byte_range = line_col_to_byte_range(
-                sources.get(span.file.as_str()).map(|s| s.as_str()).unwrap_or(""),
+                sources
+                    .get(span.file.as_str())
+                    .map(|s| s.as_str())
+                    .unwrap_or(""),
                 span.start_line,
                 span.start_col,
                 span.end_line,
@@ -40,9 +39,7 @@ pub fn render_diagnostics(diagnostics: &[Diagnostic], sources: &HashMap<String, 
         let mut builder = ariadne::Report::<Span>::build(kind, span.clone())
             .with_code(diag.code.clone())
             .with_message(diag.message.clone())
-            .with_label(
-                ariadne::Label::new(span).with_message(diag.message.clone()),
-            );
+            .with_label(ariadne::Label::new(span).with_message(diag.message.clone()));
 
         if let Some(suggestion) = &diag.suggestion {
             builder = builder.with_help(suggestion.clone());

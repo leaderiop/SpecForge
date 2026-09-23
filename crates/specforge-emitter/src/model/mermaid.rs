@@ -19,7 +19,12 @@ pub fn render_mermaid(model: &ModelIntermediate, options: &ModelOptions) -> Stri
         writeln!(out).unwrap();
         for rel in &model.relationships {
             let notation = cardinality_notation(rel.cardinality);
-            writeln!(out, "    {} {} {} : \"{}\"", rel.source, notation, rel.target, rel.name).unwrap();
+            writeln!(
+                out,
+                "    {} {} {} : \"{}\"",
+                rel.source, notation, rel.target, rel.name
+            )
+            .unwrap();
         }
     }
 
@@ -28,7 +33,11 @@ pub fn render_mermaid(model: &ModelIntermediate, options: &ModelOptions) -> Stri
 
 fn render_grouped(model: &ModelIntermediate, out: &mut String) {
     for ext in &model.extensions {
-        let entities: Vec<_> = model.entities.iter().filter(|e| e.extension == ext.name).collect();
+        let entities: Vec<_> = model
+            .entities
+            .iter()
+            .filter(|e| e.extension == ext.name)
+            .collect();
         if entities.is_empty() {
             continue;
         }
@@ -98,7 +107,12 @@ fn render_entity(entity: &super::ModelEntity, out: &mut String) {
                 format!(" \"{}\"", desc_parts.join(" | "))
             };
 
-            writeln!(out, "        {} {}{}{}", type_str, field.name, marker_str, desc_str).unwrap();
+            writeln!(
+                out,
+                "        {} {}{}{}",
+                type_str, field.name, marker_str, desc_str
+            )
+            .unwrap();
         }
         writeln!(out, "    }}").unwrap();
     }

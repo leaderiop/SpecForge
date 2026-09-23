@@ -2,7 +2,7 @@ use std::path::Path;
 use std::sync::{Arc, Mutex};
 
 use specforge_common::load_project_config;
-use specforge_extism::{builtins, ExtismRuntime, HostContext};
+use specforge_extism::{ExtismRuntime, HostContext, builtins};
 
 pub use specforge_emitter::compile::CompilationContext;
 
@@ -14,8 +14,7 @@ pub use specforge_emitter::compile::CompilationContext;
 pub fn compile(path: &Path) -> CompilationContext {
     let config = load_project_config(path);
 
-    let ctx = HostContext::new(Arc::new(Mutex::new(Vec::new())))
-        .with_spec_root(path.to_path_buf());
+    let ctx = HostContext::new(Arc::new(Mutex::new(Vec::new()))).with_spec_root(path.to_path_buf());
     let runtime = ExtismRuntime::with_host_context(ctx);
 
     builtins::load_builtins_for(&runtime, &config.extensions)

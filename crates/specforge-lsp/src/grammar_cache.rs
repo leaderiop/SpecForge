@@ -29,8 +29,7 @@ impl GrammarCache {
     }
 
     pub fn mark_failed(&mut self, kind: &str, error: &str) {
-        self.failures
-            .insert(kind.to_string(), error.to_string());
+        self.failures.insert(kind.to_string(), error.to_string());
     }
 
     pub fn failure(&self, kind: &str) -> Option<&str> {

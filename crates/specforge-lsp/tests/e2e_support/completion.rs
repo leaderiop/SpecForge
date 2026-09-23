@@ -14,10 +14,7 @@ async fn e2e_completion_entity_ids() {
     let result = &resp["result"];
     assert!(!result.is_null(), "Expected completion result");
     let items = result.as_array().unwrap();
-    let ids: Vec<&str> = items
-        .iter()
-        .filter_map(|i| i["label"].as_str())
-        .collect();
+    let ids: Vec<&str> = items.iter().filter_map(|i| i["label"].as_str()).collect();
     assert!(
         ids.contains(&"token"),
         "Expected 'token' in completions, got: {ids:?}"
@@ -42,19 +39,14 @@ async fn e2e_completion_entity_with_title() {
 #[tokio::test]
 async fn e2e_completion_keywords_at_top_level() {
     let text = "behavior foo \"Foo\" {}\n";
-    let (mut client, uri, _dir) = start_server_with_extensions(
-        &["@specforge/software"],
-        "test.spec", text,
-    ).await;
+    let (mut client, uri, _dir) =
+        start_server_with_extensions(&["@specforge/software"], "test.spec", text).await;
     // Completion at column 0 (top level, line start)
     let resp = client.completion(&uri, 1, 0).await;
     let result = &resp["result"];
     assert!(!result.is_null());
     let items = result.as_array().unwrap();
-    let labels: Vec<&str> = items
-        .iter()
-        .filter_map(|i| i["label"].as_str())
-        .collect();
+    let labels: Vec<&str> = items.iter().filter_map(|i| i["label"].as_str()).collect();
     assert!(
         labels.contains(&"behavior"),
         "Expected 'behavior' keyword, got: {labels:?}"

@@ -3,8 +3,8 @@
 //! to emitted output, verifying roundtrip integrity.
 
 use specforge_test::prelude::*;
-use tempfile::TempDir;
 use std::fs;
+use tempfile::TempDir;
 
 /// Helper: write spec files to a temp dir and run the simple compilation pipeline.
 fn compile_specs(files: &[(&str, &str)]) -> specforge_emitter::compile::CompilationContext {
@@ -52,7 +52,10 @@ fn compile_with_builtins(
 
 // B:compile_pipeline — verify unit "port method body syntax does not surface parse errors"
 #[test]
-#[specforge_test(behavior = "compile_pipeline", verify = "extension-owned body syntax (port methods) does not surface E001")]
+#[specforge_test(
+    behavior = "compile_pipeline",
+    verify = "extension-owned body syntax (port methods) does not surface E001"
+)]
 fn port_method_body_does_not_surface_parse_errors() {
     let ctx = compile_with_builtins(
         &["@specforge/software"],
@@ -74,7 +77,11 @@ port TaskRepository "Repo" {
     // Port method signatures are extension-owned body syntax. The core grammar
     // cannot parse them, but they must NOT surface as E001 parse errors to the
     // user — the `port` entity itself parses fine (direction, category, verify).
-    let e001: Vec<_> = ctx.diagnostics.iter().filter(|d| d.code == "E001").collect();
+    let e001: Vec<_> = ctx
+        .diagnostics
+        .iter()
+        .filter(|d| d.code == "E001")
+        .collect();
     assert!(
         e001.is_empty(),
         "port method body must not produce E001 parse errors, got: {:?}",
@@ -84,7 +91,10 @@ port TaskRepository "Repo" {
 
 // B:compile_pipeline — verify unit "type inline-union field syntax does not surface parse errors"
 #[test]
-#[specforge_test(behavior = "compile_pipeline", verify = "extension-owned body syntax (type inline unions) does not surface E001")]
+#[specforge_test(
+    behavior = "compile_pipeline",
+    verify = "extension-owned body syntax (type inline unions) does not surface E001"
+)]
 fn type_inline_union_field_does_not_surface_parse_errors() {
     let ctx = compile_with_builtins(
         &["@specforge/software"],
@@ -102,7 +112,11 @@ type Manifest "M" {
     // Inline union field types (`string | string[]`) are extension-owned body
     // syntax the core grammar does not parse, but they must NOT surface as E001
     // parse errors — the `type` entity itself still resolves its other fields.
-    let e001: Vec<_> = ctx.diagnostics.iter().filter(|d| d.code == "E001").collect();
+    let e001: Vec<_> = ctx
+        .diagnostics
+        .iter()
+        .filter(|d| d.code == "E001")
+        .collect();
     assert!(
         e001.is_empty(),
         "type inline-union field must not produce E001 parse errors, got: {:?}",
@@ -112,7 +126,10 @@ type Manifest "M" {
 
 // B:compile_pipeline — verify unit "a domain field named `kind` on a type is not flagged as an invalid meta-kind"
 #[test]
-#[specforge_test(behavior = "compile_pipeline", verify = "type with a domain field named kind does not produce W011")]
+#[specforge_test(
+    behavior = "compile_pipeline",
+    verify = "type with a domain field named kind does not produce W011"
+)]
 fn type_domain_kind_field_does_not_produce_w011() {
     let ctx = compile_with_builtins(
         &["@specforge/software"],
@@ -130,7 +147,11 @@ type CodeAction "Code Action" {
 
     // `kind` here is an ordinary struct field (of type CodeActionKind), not the
     // struct meta-attribute. It must NOT trip the type-kind enum constraint.
-    let w011: Vec<_> = ctx.diagnostics.iter().filter(|d| d.code == "W011").collect();
+    let w011: Vec<_> = ctx
+        .diagnostics
+        .iter()
+        .filter(|d| d.code == "W011")
+        .collect();
     assert!(
         w011.is_empty(),
         "a domain field named `kind` must not produce W011, got: {:?}",
@@ -140,7 +161,10 @@ type CodeAction "Code Action" {
 
 // B:compile_pipeline — verify unit "single entity roundtrip: parse→graph→json"
 #[test]
-#[specforge_test(behavior = "compile_pipeline", verify = "single entity roundtrip produces valid graph")]
+#[specforge_test(
+    behavior = "compile_pipeline",
+    verify = "single entity roundtrip produces valid graph"
+)]
 fn single_entity_roundtrip() {
     let ctx = compile_specs(&[(
         "core.spec",
@@ -152,7 +176,12 @@ fn single_entity_roundtrip() {
     )]);
 
     // Graph should contain exactly one node
-    assert_eq!(ctx.graph.nodes().len(), 1, "expected 1 node, got {}", ctx.graph.nodes().len());
+    assert_eq!(
+        ctx.graph.nodes().len(),
+        1,
+        "expected 1 node, got {}",
+        ctx.graph.nodes().len()
+    );
     let node = &ctx.graph.nodes()[0];
     assert_eq!(node.id.raw.as_str(), "login");
     assert_eq!(node.kind.raw.as_str(), "behavior");
@@ -160,7 +189,8 @@ fn single_entity_roundtrip() {
 
     // Emit as JSON — should produce valid JSON
     let json = specforge_emitter::emit_json(&ctx.graph);
-    let parsed: serde_json::Value = serde_json::from_str(&json).expect("emitted JSON must be valid");
+    let parsed: serde_json::Value =
+        serde_json::from_str(&json).expect("emitted JSON must be valid");
     let nodes = parsed["nodes"].as_array().expect("must have nodes array");
     assert_eq!(nodes.len(), 1);
     assert_eq!(nodes[0]["id"].as_str().unwrap(), "login");
@@ -168,32 +198,52 @@ fn single_entity_roundtrip() {
 
 // B:compile_pipeline — verify unit "multi-file resolution with imports"
 #[test]
-#[specforge_test(behavior = "compile_pipeline", verify = "multi-file resolution with imports")]
+#[specforge_test(
+    behavior = "compile_pipeline",
+    verify = "multi-file resolution with imports"
+)]
 fn multi_file_with_imports() {
     let ctx = compile_specs(&[
-        ("types.spec", r#"type user_id "User ID" {
+        (
+            "types.spec",
+            r#"type user_id "User ID" {
     format "UUID"
 }
-"#),
-        ("behaviors.spec", r#"use "types"
+"#,
+        ),
+        (
+            "behaviors.spec",
+            r#"use "types"
 
 behavior login "User Login" {
     status planned
     types [user_id]
 }
-"#),
+"#,
+        ),
     ]);
 
     // Should have 2 nodes
     assert_eq!(ctx.graph.nodes().len(), 2, "expected 2 nodes");
     // Should have resolved the import (no E025 file-not-found errors)
-    let file_errors: Vec<_> = ctx.diagnostics.iter().filter(|d| d.code == "E025").collect();
-    assert!(file_errors.is_empty(), "should not have file errors: {:?}", file_errors);
+    let file_errors: Vec<_> = ctx
+        .diagnostics
+        .iter()
+        .filter(|d| d.code == "E025")
+        .collect();
+    assert!(
+        file_errors.is_empty(),
+        "should not have file errors: {:?}",
+        file_errors
+    );
 }
 
 // B:compile_pipeline — verify unit "cross-entity references produce edges"
 #[test]
-#[specforge_test(behavior = "compile_pipeline", verify = "cross-entity references produce edges")]
+#[specforge_test(
+    behavior = "compile_pipeline",
+    verify = "cross-entity references produce edges"
+)]
 fn cross_entity_references_produce_edges() {
     let ctx = compile_specs(&[(
         "core.spec",
@@ -209,7 +259,10 @@ behavior save_record "Save Record" {
     )]);
 
     assert_eq!(ctx.graph.nodes().len(), 2);
-    assert!(!ctx.graph.edges().is_empty(), "should have at least one edge from behavior to invariant");
+    assert!(
+        !ctx.graph.edges().is_empty(),
+        "should have at least one edge from behavior to invariant"
+    );
 
     // Check edge connects the right nodes
     let edge = &ctx.graph.edges()[0];
@@ -219,7 +272,10 @@ behavior save_record "Save Record" {
 
 // B:compile_pipeline — verify unit "validation diagnostics surface through pipeline"
 #[test]
-#[specforge_test(behavior = "compile_pipeline", verify = "validation diagnostics surface through pipeline")]
+#[specforge_test(
+    behavior = "compile_pipeline",
+    verify = "validation diagnostics surface through pipeline"
+)]
 fn validation_diagnostics_surface() {
     let ctx = compile_specs(&[(
         "core.spec",
@@ -231,21 +287,35 @@ fn validation_diagnostics_surface() {
     )]);
 
     // Should have a diagnostic about the unresolved reference
-    let has_ref_diag = ctx.diagnostics.iter().any(|d| {
-        d.message.contains("nonexistent_invariant") || d.code.starts_with("W")
-    });
-    assert!(has_ref_diag, "expected diagnostic about unresolved reference, got: {:?}", ctx.diagnostics);
+    let has_ref_diag = ctx
+        .diagnostics
+        .iter()
+        .any(|d| d.message.contains("nonexistent_invariant") || d.code.starts_with("W"));
+    assert!(
+        has_ref_diag,
+        "expected diagnostic about unresolved reference, got: {:?}",
+        ctx.diagnostics
+    );
 }
 
 // B:compile_pipeline — verify unit "empty project produces empty graph"
 #[test]
-#[specforge_test(behavior = "compile_pipeline", verify = "empty project produces empty graph")]
+#[specforge_test(
+    behavior = "compile_pipeline",
+    verify = "empty project produces empty graph"
+)]
 fn empty_project_produces_empty_graph() {
     let dir = TempDir::new().unwrap();
     let ctx = specforge_emitter::compile_simple(dir.path());
 
-    assert!(ctx.graph.nodes().is_empty(), "empty project should have no nodes");
-    assert!(ctx.graph.edges().is_empty(), "empty project should have no edges");
+    assert!(
+        ctx.graph.nodes().is_empty(),
+        "empty project should have no nodes"
+    );
+    assert!(
+        ctx.graph.edges().is_empty(),
+        "empty project should have no edges"
+    );
 }
 
 // (Removed: surfaces_flow_through_compilation_context — tested manifest.json surface loading
@@ -253,7 +323,10 @@ fn empty_project_produces_empty_graph() {
 
 // B:compile_pipeline — verify unit "all emit formats work on pipeline output"
 #[test]
-#[specforge_test(behavior = "compile_pipeline", verify = "all emit formats work on pipeline output")]
+#[specforge_test(
+    behavior = "compile_pipeline",
+    verify = "all emit formats work on pipeline output"
+)]
 fn all_emit_formats_work() {
     let ctx = compile_specs(&[(
         "core.spec",
@@ -272,7 +345,10 @@ invariant security "Security Invariant" {
 
     // JSON format
     let json = specforge_emitter::emit_json(&ctx.graph);
-    assert!(serde_json::from_str::<serde_json::Value>(&json).is_ok(), "JSON must be valid");
+    assert!(
+        serde_json::from_str::<serde_json::Value>(&json).is_ok(),
+        "JSON must be valid"
+    );
 
     // Brief format
     let brief = specforge_emitter::emit_brief(&ctx.graph);

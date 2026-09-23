@@ -27,10 +27,7 @@ pub fn code_actions_missing_verify(
             n.fields.get("verify").is_none()
         })
         .map(|n| {
-            let stub = format!(
-                "  verify unit \"{} — TODO\"",
-                n.id.raw
-            );
+            let stub = format!("  verify unit \"{} — TODO\"", n.id.raw);
             CodeAction {
                 entity_id: n.id.raw.to_string(),
                 file: n.source_span.file.to_string(),
@@ -87,9 +84,7 @@ pub fn code_action_create_stub(
 ) -> Option<CodeAction> {
     let kind = target_kind?;
 
-    let stub = format!(
-        "{kind} {entity_id} \"{entity_id}\" {{\n  // TODO: fill in fields\n}}"
-    );
+    let stub = format!("{kind} {entity_id} \"{entity_id}\" {{\n  // TODO: fill in fields\n}}");
 
     Some(CodeAction {
         entity_id: entity_id.to_string(),

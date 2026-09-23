@@ -3,7 +3,10 @@ use specforge_wasm::protocol::*;
 
 // ── Helper: build a minimal ProtocolExtension ──
 
-fn minimal_protocol_extension(name: &str, entity_kinds: Vec<EntityKindDescriptor>) -> ProtocolExtension {
+fn minimal_protocol_extension(
+    name: &str,
+    entity_kinds: Vec<EntityKindDescriptor>,
+) -> ProtocolExtension {
     ProtocolExtension {
         name: name.to_string(),
         version: "1.0.0".to_string(),
@@ -167,7 +170,10 @@ fn convert_entity_kind_fields_to_manifest_fields() {
     let contract = &kind.fields[0];
     assert_eq!(contract.name, "contract");
     assert_eq!(contract.field_type, "block");
-    assert_eq!(contract.description.as_deref(), Some("The behavioral contract"));
+    assert_eq!(
+        contract.description.as_deref(),
+        Some("The behavioral contract")
+    );
     assert!(contract.edge.is_none());
 
     let invariants = &kind.fields[1];
@@ -185,20 +191,18 @@ fn populate_from_protocol_registers_kind_and_fields() {
             name: "behavior".to_string(),
             keyword: None,
             description: None,
-            fields: vec![
-                FieldDescriptor {
-                    name: "contract".to_string(),
-                    field_type: "block".to_string(),
-                    required: false,
-                    description: None,
-                    edge: None,
-                    target_kind: None,
-                    file_reference: false,
-                    default_value: None,
-                    enum_values: vec![],
-                    inverse_of: None,
-                },
-            ],
+            fields: vec![FieldDescriptor {
+                name: "contract".to_string(),
+                field_type: "block".to_string(),
+                required: false,
+                description: None,
+                edge: None,
+                target_kind: None,
+                file_reference: false,
+                default_value: None,
+                enum_values: vec![],
+                inverse_of: None,
+            }],
             testable: true,
             singleton: false,
             supports_verify: false,
@@ -258,7 +262,10 @@ fn convert_edge_types_to_manifest() {
 
     let enforces = &manifest.edge_types[0];
     assert_eq!(enforces.label, "enforces");
-    assert_eq!(enforces.description.as_deref(), Some("Behavior enforces an invariant"));
+    assert_eq!(
+        enforces.description.as_deref(),
+        Some("Behavior enforces an invariant")
+    );
     assert_eq!(enforces.source_kind.as_deref(), Some("behavior"));
     assert_eq!(enforces.target_kind.as_deref(), Some("invariant"));
     assert_eq!(enforces.edge_style.as_deref(), Some("dashed"));
@@ -862,7 +869,7 @@ fn parity_protocol_vs_manifest_registries() {
                 dot_color: None,
                 dot_fillcolor: None,
                 verify_kinds: vec!["smoke".to_string()],
-            inference_guide: None,
+                inference_guide: None,
             }],
             edge_types: vec![EdgeTypeDescriptor {
                 label: "enforces".to_string(),
@@ -876,12 +883,16 @@ fn parity_protocol_vs_manifest_registries() {
             ..Default::default()
         },
     };
-    let (p_kind_reg, p_field_reg, p_edge_reg, p_diags) =
-        populate_from_protocol(&[protocol_ext]);
+    let (p_kind_reg, p_field_reg, p_edge_reg, p_diags) = populate_from_protocol(&[protocol_ext]);
 
     // Verify parity: both paths produce same diagnostics count
-    assert_eq!(m_diags.len(), p_diags.len(),
-        "diagnostic count mismatch: manifest={:?}, protocol={:?}", m_diags, p_diags);
+    assert_eq!(
+        m_diags.len(),
+        p_diags.len(),
+        "diagnostic count mismatch: manifest={:?}, protocol={:?}",
+        m_diags,
+        p_diags
+    );
 
     // Same kind registry
     assert_eq!(m_kind_reg.len(), p_kind_reg.len());

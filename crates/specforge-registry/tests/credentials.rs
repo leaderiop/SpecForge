@@ -1,5 +1,5 @@
 use specforge_registry::client::credentials::{
-    read_credentials, write_credentials, CredentialStore,
+    CredentialStore, read_credentials, write_credentials,
 };
 use tempfile::TempDir;
 

@@ -52,13 +52,11 @@ pub fn unified_diff(file_path: &str, original: &str, formatted: &str) -> FormatD
             }
             // Advance the longer side, or both
             if i < orig_lines.len()
-                && (j >= fmt_lines.len()
-                    || !fmt_lines[j..].contains(&orig_lines[i]))
+                && (j >= fmt_lines.len() || !fmt_lines[j..].contains(&orig_lines[i]))
             {
                 i += 1;
             } else if j < fmt_lines.len()
-                && (i >= orig_lines.len()
-                    || !orig_lines[i..].iter().any(|l| *l == fmt_lines[j]))
+                && (i >= orig_lines.len() || !orig_lines[i..].iter().any(|l| *l == fmt_lines[j]))
             {
                 j += 1;
             } else {
@@ -152,7 +150,10 @@ struct DiffHunk {
 mod tests {
     use super::*;
 
-    #[specforge_test_macros::test(behavior = "show_formatting_diff", verify = "diff output uses unified format")]
+    #[specforge_test_macros::test(
+        behavior = "show_formatting_diff",
+        verify = "diff output uses unified format"
+    )]
     #[test]
     fn test_unified_diff_format() {
         let diff = unified_diff(
@@ -165,7 +166,10 @@ mod tests {
         assert!(diff.diff_text.contains("@@"));
     }
 
-    #[specforge_test_macros::test(behavior = "show_formatting_diff", verify = "unchanged files produce no diff output")]
+    #[specforge_test_macros::test(
+        behavior = "show_formatting_diff",
+        verify = "unchanged files produce no diff output"
+    )]
     #[test]
     fn test_diff_unchanged_files_empty() {
         let diff = unified_diff("test.spec", "hello\n", "hello\n");
@@ -174,14 +178,13 @@ mod tests {
         assert_eq!(diff.deletions, 0);
     }
 
-    #[specforge_test_macros::test(behavior = "show_formatting_diff", verify = "diff output uses unified format")]
+    #[specforge_test_macros::test(
+        behavior = "show_formatting_diff",
+        verify = "diff output uses unified format"
+    )]
     #[test]
     fn test_diff_counts_insertions_deletions() {
-        let diff = unified_diff(
-            "test.spec",
-            "  line1\n  line2\n",
-            "line1\nline2\n",
-        );
+        let diff = unified_diff("test.spec", "  line1\n  line2\n", "line1\nline2\n");
         assert!(diff.insertions > 0 || diff.deletions > 0);
     }
 }

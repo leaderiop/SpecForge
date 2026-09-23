@@ -1,9 +1,9 @@
 use specforge_common::{Diagnostic, Severity, SourceSpan, Sym};
-use specforge_watch::{
-    compute_diagnostics_delta, notify_delta_subscribers, DeltaSubscriber, DiagnosticsDelta,
-    GraphDelta,
-};
 use specforge_test_macros::test as spec;
+use specforge_watch::{
+    DeltaSubscriber, DiagnosticsDelta, GraphDelta, compute_diagnostics_delta,
+    notify_delta_subscribers,
+};
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
 
@@ -46,7 +46,12 @@ struct CountingSubscriber {
 }
 
 impl DeltaSubscriber for CountingSubscriber {
-    fn on_delta(&self, _delta: &GraphDelta, _diag_delta: &DiagnosticsDelta, _affected_files: &[String]) {
+    fn on_delta(
+        &self,
+        _delta: &GraphDelta,
+        _diag_delta: &DiagnosticsDelta,
+        _affected_files: &[String],
+    ) {
         self.call_count.fetch_add(1, Ordering::SeqCst);
     }
 }
@@ -56,7 +61,12 @@ struct SlowSubscriber {
 }
 
 impl DeltaSubscriber for SlowSubscriber {
-    fn on_delta(&self, _delta: &GraphDelta, _diag_delta: &DiagnosticsDelta, _affected_files: &[String]) {
+    fn on_delta(
+        &self,
+        _delta: &GraphDelta,
+        _diag_delta: &DiagnosticsDelta,
+        _affected_files: &[String],
+    ) {
         std::thread::sleep(std::time::Duration::from_millis(100));
         self.done.fetch_add(1, Ordering::SeqCst);
     }
@@ -67,7 +77,12 @@ struct AffectedFilesRecorder {
 }
 
 impl DeltaSubscriber for AffectedFilesRecorder {
-    fn on_delta(&self, _delta: &GraphDelta, _diag_delta: &DiagnosticsDelta, affected_files: &[String]) {
+    fn on_delta(
+        &self,
+        _delta: &GraphDelta,
+        _diag_delta: &DiagnosticsDelta,
+        affected_files: &[String],
+    ) {
         let mut f = self.files.lock().unwrap();
         f.extend(affected_files.iter().cloned());
     }
@@ -116,7 +131,10 @@ fn multiple_subscribers_all_notified() {
 
 // ── slow subscriber does not block pipeline ───────────────────
 
-#[spec(behavior = "notify_delta_subscribers", verify = "slow subscriber does not block pipeline")]
+#[spec(
+    behavior = "notify_delta_subscribers",
+    verify = "slow subscriber does not block pipeline"
+)]
 #[test]
 fn slow_subscriber_does_not_block_other_subscribers() {
     let fast_count = Arc::new(AtomicUsize::new(0));
@@ -142,7 +160,10 @@ fn slow_subscriber_does_not_block_other_subscribers() {
 
 // ── LSP receives semantic token updates for affected files ────
 
-#[spec(behavior = "notify_delta_subscribers", verify = "LSP receives semantic token updates for affected files")]
+#[spec(
+    behavior = "notify_delta_subscribers",
+    verify = "LSP receives semantic token updates for affected files"
+)]
 #[test]
 fn lsp_subscriber_receives_affected_files() {
     let files = Arc::new(Mutex::new(Vec::new()));
@@ -170,7 +191,10 @@ fn lsp_subscriber_receives_affected_files() {
 
 // ── diagnostics delta includes added and removed ──────────────
 
-#[spec(behavior = "notify_delta_subscribers", verify = "diagnostics delta includes added and removed")]
+#[spec(
+    behavior = "notify_delta_subscribers",
+    verify = "diagnostics delta includes added and removed"
+)]
 #[test]
 fn diagnostics_delta_includes_added_and_removed() {
     let old_diags = vec![
@@ -179,7 +203,7 @@ fn diagnostics_delta_includes_added_and_removed() {
     ];
 
     let new_diags = vec![
-        make_diag("E001", "a.spec", 1), // same — not in delta
+        make_diag("E001", "a.spec", 1),  // same — not in delta
         make_diag("E003", "b.spec", 10), // new — added
     ];
 

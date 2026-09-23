@@ -57,7 +57,12 @@ impl JsonRpcResponse {
         }
     }
 
-    pub fn error_with_data(id: Option<Value>, code: i64, message: impl Into<String>, data: Value) -> Self {
+    pub fn error_with_data(
+        id: Option<Value>,
+        code: i64,
+        message: impl Into<String>,
+        data: Value,
+    ) -> Self {
         Self {
             jsonrpc: "2.0",
             id,
@@ -72,23 +77,34 @@ impl JsonRpcResponse {
 }
 
 pub fn parse_request(input: &str) -> Result<JsonRpcRequest, JsonRpcResponse> {
-    let value: Value = serde_json::from_str(input).map_err(|_| {
-        JsonRpcResponse::error(None, error_codes::PARSE_ERROR, "Parse error")
-    })?;
+    let value: Value = serde_json::from_str(input)
+        .map_err(|_| JsonRpcResponse::error(None, error_codes::PARSE_ERROR, "Parse error"))?;
 
     // Validate jsonrpc field
     if value.get("jsonrpc").and_then(|v| v.as_str()) != Some("2.0") {
         let id = value.get("id").cloned();
-        return Err(JsonRpcResponse::error(id, error_codes::INVALID_REQUEST, "Invalid Request: missing or invalid jsonrpc version"));
+        return Err(JsonRpcResponse::error(
+            id,
+            error_codes::INVALID_REQUEST,
+            "Invalid Request: missing or invalid jsonrpc version",
+        ));
     }
 
     // Validate method field
     if value.get("method").and_then(|v| v.as_str()).is_none() {
         let id = value.get("id").cloned();
-        return Err(JsonRpcResponse::error(id, error_codes::INVALID_REQUEST, "Invalid Request: missing method"));
+        return Err(JsonRpcResponse::error(
+            id,
+            error_codes::INVALID_REQUEST,
+            "Invalid Request: missing method",
+        ));
     }
 
     serde_json::from_value(value).map_err(|e| {
-        JsonRpcResponse::error(None, error_codes::INVALID_REQUEST, format!("Invalid Request: {}", e))
+        JsonRpcResponse::error(
+            None,
+            error_codes::INVALID_REQUEST,
+            format!("Invalid Request: {}", e),
+        )
     })
 }

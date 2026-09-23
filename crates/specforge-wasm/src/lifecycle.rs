@@ -23,7 +23,10 @@ pub fn load_wasm_module(
                 wasm_path.display()
             ),
             span: None,
-            suggestion: Some(format!("install the extension with: specforge add {}", extension_name)),
+            suggestion: Some(format!(
+                "install the extension with: specforge add {}",
+                extension_name
+            )),
         });
     }
 
@@ -46,19 +49,20 @@ pub fn load_wasm_module(
     let aot_path = aot_cache_dir.map(|dir| dir.join(format!("{}.aot", wasm_hash)));
     let cache_hit = runtime.has_cached_module(&wasm_hash);
 
-    let load_path = if cache_hit {
-        aot_path.as_deref()
-    } else {
-        None
-    };
+    let load_path = if cache_hit { aot_path.as_deref() } else { None };
 
-    runtime.load_module(wasm_path, load_path).map_err(|e| Diagnostic {
-        code: "E028".to_string(),
-        severity: Severity::Error,
-        message: format!("extension '{}': failed to load Wasm module: {}", extension_name, e),
-        span: None,
-        suggestion: None,
-    })?;
+    runtime
+        .load_module(wasm_path, load_path)
+        .map_err(|e| Diagnostic {
+            code: "E028".to_string(),
+            severity: Severity::Error,
+            message: format!(
+                "extension '{}': failed to load Wasm module: {}",
+                extension_name, e
+            ),
+            span: None,
+            suggestion: None,
+        })?;
 
     Ok(LoadedModule {
         extension_name: extension_name.to_string(),
@@ -382,11 +386,14 @@ mod tests {
     // B:initialize_wasm_extension — verify unit "lifecycle transitions to failed on error"
     #[test]
     fn test_lifecycle_transitions_to_failed_on_error() {
-        let runtime = MockRuntime::new().with_call_trap("initialize", WasmTrapInfo {
-            kind: "unreachable".to_string(),
-            message: "init failed".to_string(),
-            export_name: "initialize".to_string(),
-        });
+        let runtime = MockRuntime::new().with_call_trap(
+            "initialize",
+            WasmTrapInfo {
+                kind: "unreachable".to_string(),
+                message: "init failed".to_string(),
+                export_name: "initialize".to_string(),
+            },
+        );
         let mut module = LoadedModule {
             extension_name: "test-ext".to_string(),
             wasm_hash: "abc".to_string(),
@@ -415,11 +422,14 @@ mod tests {
         assert_eq!(module.state, ExtensionLifecycleState::Initialized);
 
         // ensures: lifecycle to failed on error
-        let runtime_err = MockRuntime::new().with_call_trap("initialize", WasmTrapInfo {
-            kind: "trap".to_string(),
-            message: "boom".to_string(),
-            export_name: "initialize".to_string(),
-        });
+        let runtime_err = MockRuntime::new().with_call_trap(
+            "initialize",
+            WasmTrapInfo {
+                kind: "trap".to_string(),
+                message: "boom".to_string(),
+                export_name: "initialize".to_string(),
+            },
+        );
         let mut module2 = LoadedModule {
             extension_name: "ext2".to_string(),
             wasm_hash: "hash2".to_string(),
@@ -465,7 +475,8 @@ mod tests {
             message: "custom warning".to_string(),
             span: None,
             suggestion: None,
-        }]).unwrap();
+        }])
+        .unwrap();
 
         let runtime = MockRuntime::new().with_call_ok("validate", diag_json);
         let mut modules = vec![LoadedModule {
@@ -482,12 +493,14 @@ mod tests {
     // B:call_extension_validators — verify unit "validation continues to next extension after errors"
     #[test]
     fn test_validation_continues_after_trap() {
-        let runtime = MockRuntime::new()
-            .with_call_trap("validate", WasmTrapInfo {
+        let runtime = MockRuntime::new().with_call_trap(
+            "validate",
+            WasmTrapInfo {
                 kind: "unreachable".to_string(),
                 message: "boom".to_string(),
                 export_name: "validate".to_string(),
-            });
+            },
+        );
 
         let mut modules = vec![
             LoadedModule {
@@ -545,7 +558,11 @@ mod tests {
         let all = vec![software, product.clone()];
 
         let diags = validate_extension_peer_dependencies(&product, &all);
-        assert!(diags.is_empty(), "expected no diagnostics, got: {:?}", diags);
+        assert!(
+            diags.is_empty(),
+            "expected no diagnostics, got: {:?}",
+            diags
+        );
     }
 
     // B:validate_extension_peer_dependencies — verify unit "missing peer → E027"
@@ -610,7 +627,8 @@ mod tests {
     fn test_validate_grammar_missing_export() {
         let bytes = vec![0u8; 100];
         let exports = vec!["other_export".to_string()];
-        let err = validate_grammar_wasm(&bytes, "tree_sitter_specforge", &exports, 14, 14, 1024).unwrap_err();
+        let err = validate_grammar_wasm(&bytes, "tree_sitter_specforge", &exports, 14, 14, 1024)
+            .unwrap_err();
         assert_eq!(err.code, "E036");
         assert!(err.message.contains("missing language export"));
     }
@@ -620,7 +638,8 @@ mod tests {
     fn test_validate_grammar_abi_mismatch() {
         let bytes = vec![0u8; 100];
         let exports = vec!["tree_sitter_specforge".to_string()];
-        let err = validate_grammar_wasm(&bytes, "tree_sitter_specforge", &exports, 13, 14, 1024).unwrap_err();
+        let err = validate_grammar_wasm(&bytes, "tree_sitter_specforge", &exports, 13, 14, 1024)
+            .unwrap_err();
         assert_eq!(err.code, "E037");
         assert!(err.message.contains("13"));
         assert!(err.message.contains("14"));
@@ -631,7 +650,8 @@ mod tests {
     fn test_validate_grammar_oversized() {
         let bytes = vec![0u8; 2000];
         let exports = vec!["tree_sitter_specforge".to_string()];
-        let err = validate_grammar_wasm(&bytes, "tree_sitter_specforge", &exports, 14, 14, 1024).unwrap_err();
+        let err = validate_grammar_wasm(&bytes, "tree_sitter_specforge", &exports, 14, 14, 1024)
+            .unwrap_err();
         assert_eq!(err.code, "E038");
         assert!(err.message.contains("2000"));
         assert!(err.message.contains("1024"));
@@ -654,8 +674,7 @@ mod tests {
     // B:dispatch_body_parser — verify unit "parser output validated against declared schema"
     #[test]
     fn test_dispatch_body_parser_invalid_json_output() {
-        let runtime = MockRuntime::new()
-            .with_call_ok("parse_body", b"not valid json".to_vec());
+        let runtime = MockRuntime::new().with_call_ok("parse_body", b"not valid json".to_vec());
 
         let err = dispatch_body_parser("ext", "parse_body", "body", &runtime).unwrap_err();
         assert_eq!(err.code, "E028");
@@ -665,11 +684,14 @@ mod tests {
     // B:dispatch_body_parser — verify unit "parser crash produces BodyParserError with fallback"
     #[test]
     fn test_dispatch_body_parser_trap() {
-        let runtime = MockRuntime::new().with_call_trap("parse_body", WasmTrapInfo {
-            kind: "unreachable".to_string(),
-            message: "parser panic".to_string(),
-            export_name: "parse_body".to_string(),
-        });
+        let runtime = MockRuntime::new().with_call_trap(
+            "parse_body",
+            WasmTrapInfo {
+                kind: "unreachable".to_string(),
+                message: "parser panic".to_string(),
+                export_name: "parse_body".to_string(),
+            },
+        );
 
         let err = dispatch_body_parser("ext", "parse_body", "body", &runtime).unwrap_err();
         assert_eq!(err.code, "E028");
@@ -680,8 +702,7 @@ mod tests {
     // B:dispatch_body_parser — verify unit "empty body text handled"
     #[test]
     fn test_dispatch_body_parser_empty_body() {
-        let runtime = MockRuntime::new()
-            .with_call_ok("parse_body", b"{}".to_vec());
+        let runtime = MockRuntime::new().with_call_ok("parse_body", b"{}".to_vec());
 
         let result = dispatch_body_parser("ext", "parse_body", "", &runtime);
         assert!(result.is_ok());
@@ -692,24 +713,25 @@ mod tests {
     #[test]
     fn test_dispatch_body_parser_contract() {
         // ensures: valid JSON output returns Ok
-        let runtime_ok = MockRuntime::new()
-            .with_call_ok("parse_body", b"{\"x\":1}".to_vec());
+        let runtime_ok = MockRuntime::new().with_call_ok("parse_body", b"{\"x\":1}".to_vec());
         let result = dispatch_body_parser("ext", "parse_body", "text", &runtime_ok);
         assert!(result.is_ok());
 
         // ensures: trap returns E028
-        let runtime_trap = MockRuntime::new().with_call_trap("parse_body", WasmTrapInfo {
-            kind: "trap".to_string(),
-            message: "boom".to_string(),
-            export_name: "parse_body".to_string(),
-        });
+        let runtime_trap = MockRuntime::new().with_call_trap(
+            "parse_body",
+            WasmTrapInfo {
+                kind: "trap".to_string(),
+                message: "boom".to_string(),
+                export_name: "parse_body".to_string(),
+            },
+        );
         let err = dispatch_body_parser("ext", "parse_body", "text", &runtime_trap).unwrap_err();
         assert_eq!(err.code, "E028");
         assert_eq!(err.severity, Severity::Error);
 
         // ensures: invalid JSON returns E028
-        let runtime_bad = MockRuntime::new()
-            .with_call_ok("parse_body", b"[broken".to_vec());
+        let runtime_bad = MockRuntime::new().with_call_ok("parse_body", b"[broken".to_vec());
         let err = dispatch_body_parser("ext", "parse_body", "text", &runtime_bad).unwrap_err();
         assert_eq!(err.code, "E028");
     }
@@ -722,8 +744,13 @@ mod tests {
         let bytes = vec![0u8; 100];
         let exports = vec!["tree_sitter_specforge".to_string()];
         let result = load_extension_grammar(
-            "/grammars/specforge.wasm", &bytes, "tree_sitter_specforge",
-            &exports, 14, 14, 1024,
+            "/grammars/specforge.wasm",
+            &bytes,
+            "tree_sitter_specforge",
+            &exports,
+            14,
+            14,
+            1024,
         );
         assert!(result.is_ok());
         let r = result.unwrap();
@@ -737,9 +764,15 @@ mod tests {
         let bytes = vec![0u8; 100];
         let exports = vec!["other_export".to_string()]; // missing expected export
         let err = load_extension_grammar(
-            "/grammars/bad.wasm", &bytes, "tree_sitter_specforge",
-            &exports, 14, 14, 1024,
-        ).unwrap_err();
+            "/grammars/bad.wasm",
+            &bytes,
+            "tree_sitter_specforge",
+            &exports,
+            14,
+            14,
+            1024,
+        )
+        .unwrap_err();
         assert_eq!(err.code, "E036");
     }
 
@@ -749,9 +782,15 @@ mod tests {
         let bytes = vec![0u8; 100];
         let exports = vec!["tree_sitter_specforge".to_string()];
         let result = load_extension_grammar(
-            "/grammars/specforge.wasm", &bytes, "tree_sitter_specforge",
-            &exports, 14, 14, 1024,
-        ).unwrap();
+            "/grammars/specforge.wasm",
+            &bytes,
+            "tree_sitter_specforge",
+            &exports,
+            14,
+            14,
+            1024,
+        )
+        .unwrap();
         // content_hash can be used as cache key
         assert!(!result.content_hash.is_empty());
         assert_eq!(result.content_hash.len(), 64); // SHA256 hex
@@ -763,11 +802,25 @@ mod tests {
         let bytes = b"grammar binary content";
         let exports = vec!["tree_sitter_specforge".to_string()];
         let r1 = load_extension_grammar(
-            "/g.wasm", bytes, "tree_sitter_specforge", &exports, 14, 14, 1024,
-        ).unwrap();
+            "/g.wasm",
+            bytes,
+            "tree_sitter_specforge",
+            &exports,
+            14,
+            14,
+            1024,
+        )
+        .unwrap();
         let r2 = load_extension_grammar(
-            "/g.wasm", bytes, "tree_sitter_specforge", &exports, 14, 14, 1024,
-        ).unwrap();
+            "/g.wasm",
+            bytes,
+            "tree_sitter_specforge",
+            &exports,
+            14,
+            14,
+            1024,
+        )
+        .unwrap();
         // Same content = same hash (deterministic)
         assert_eq!(r1.content_hash, r2.content_hash);
     }
@@ -780,29 +833,50 @@ mod tests {
 
         // ensures: valid grammar returns Ok with path, hash, abi
         let r = load_extension_grammar(
-            "/g.wasm", &bytes, "tree_sitter_specforge", &exports, 14, 14, 1024,
-        ).unwrap();
+            "/g.wasm",
+            &bytes,
+            "tree_sitter_specforge",
+            &exports,
+            14,
+            14,
+            1024,
+        )
+        .unwrap();
         assert_eq!(r.grammar_path, "/g.wasm");
         assert_eq!(r.abi_version, 14);
         assert!(!r.content_hash.is_empty());
 
         // ensures: missing export -> E036
-        let err = load_extension_grammar(
-            "/g.wasm", &bytes, "missing_export", &exports, 14, 14, 1024,
-        ).unwrap_err();
+        let err =
+            load_extension_grammar("/g.wasm", &bytes, "missing_export", &exports, 14, 14, 1024)
+                .unwrap_err();
         assert_eq!(err.code, "E036");
 
         // ensures: ABI mismatch -> E037
         let err = load_extension_grammar(
-            "/g.wasm", &bytes, "tree_sitter_specforge", &exports, 13, 14, 1024,
-        ).unwrap_err();
+            "/g.wasm",
+            &bytes,
+            "tree_sitter_specforge",
+            &exports,
+            13,
+            14,
+            1024,
+        )
+        .unwrap_err();
         assert_eq!(err.code, "E037");
 
         // ensures: oversized -> E038
         let big = vec![0u8; 2000];
         let err = load_extension_grammar(
-            "/g.wasm", &big, "tree_sitter_specforge", &exports, 14, 14, 1024,
-        ).unwrap_err();
+            "/g.wasm",
+            &big,
+            "tree_sitter_specforge",
+            &exports,
+            14,
+            14,
+            1024,
+        )
+        .unwrap_err();
         assert_eq!(err.code, "E038");
     }
 }

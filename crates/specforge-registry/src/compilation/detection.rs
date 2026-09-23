@@ -130,7 +130,9 @@ pub fn check_graceful_degradation(
             severity: Severity::Info,
             message: "no extensions installed — operating in structural-only mode".to_string(),
             span: None,
-            suggestion: Some("install extensions with: specforge add @specforge/software".to_string()),
+            suggestion: Some(
+                "install extensions with: specforge add @specforge/software".to_string(),
+            ),
         });
     }
 
@@ -157,7 +159,8 @@ pub fn handle_all_extensions_failed(
         diagnostics.push(Diagnostic {
             code: "I002".to_string(),
             severity: Severity::Info,
-            message: "all extensions failed to load — operating in structural-only mode".to_string(),
+            message: "all extensions failed to load — operating in structural-only mode"
+                .to_string(),
             span: None,
             suggestion: None,
         });
@@ -208,7 +211,10 @@ pub fn detect_unknown_verify_kinds(
                         severity: Severity::Warning,
                         message: format!(
                             "verify kind '{}' not allowed on {} '{}' — allowed kinds: [{}]",
-                            vk, kind, id, allowed_kinds.join(", ")
+                            vk,
+                            kind,
+                            id,
+                            allowed_kinds.join(", ")
                         ),
                         span: Some(span.clone()),
                         suggestion: None,
@@ -292,9 +298,7 @@ pub fn lsp_keywords_with_registry(kind_reg: &KindRegistry) -> Vec<String> {
 /// Auto-generate E006 validation rules for every field marked `required: true`
 /// in the FieldRegistry. Each rule fires at Error severity when the field is
 /// absent on an entity of the corresponding kind.
-pub fn generate_required_field_rules(
-    field_registry: &FieldRegistry,
-) -> Vec<ValidationRulePattern> {
+pub fn generate_required_field_rules(field_registry: &FieldRegistry) -> Vec<ValidationRulePattern> {
     let mut rules: Vec<ValidationRulePattern> = field_registry
         .iter()
         .filter(|(_, _, entry)| entry.required)
@@ -321,7 +325,7 @@ pub fn generate_required_field_rules(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{populate_registries, ManifestV2};
+    use crate::{ManifestV2, populate_registries};
     use specforge_common::Sym;
 
     fn software_manifest() -> ManifestV2 {
@@ -381,7 +385,10 @@ mod tests {
     fn test_no_per_keyword_block_rules_in_grammar() {
         // Multiple arbitrary keywords all parse successfully
         for keyword in &["behavior", "invariant", "xyzzy", "custom_kind", "foobar"] {
-            let source = format!("{} test_id \"Title\" {{\n  contract \"test\"\n}}\n", keyword);
+            let source = format!(
+                "{} test_id \"Title\" {{\n  contract \"test\"\n}}\n",
+                keyword
+            );
             let parsed = specforge_parser::parse(&source, "test.spec");
             assert_eq!(
                 parsed.entities.len(),
@@ -466,7 +473,10 @@ mod tests {
         // Phase 1 is the parser — it should not validate keywords
         let source = "not_a_real_kind my_id \"Title\" {\n  stuff \"things\"\n}\n";
         let parsed = specforge_parser::parse(source, "test.spec");
-        assert!(parsed.errors.is_empty(), "parser should not produce keyword errors");
+        assert!(
+            parsed.errors.is_empty(),
+            "parser should not produce keyword errors"
+        );
         assert_eq!(parsed.entities.len(), 1);
     }
 
@@ -474,8 +484,10 @@ mod tests {
     #[test]
     fn test_all_spec_files_parsed_before_phase_2() {
         // Parse multiple files — all produce entities before any validation
-        let files = [("a.spec", "behavior a \"A\" {\n  contract \"test\"\n}\n"),
-            ("b.spec", "xyzzy b \"B\" {\n  data \"test\"\n}\n")];
+        let files = [
+            ("a.spec", "behavior a \"A\" {\n  contract \"test\"\n}\n"),
+            ("b.spec", "xyzzy b \"B\" {\n  data \"test\"\n}\n"),
+        ];
         let parsed: Vec<_> = files
             .iter()
             .map(|(f, s)| specforge_parser::parse(s, f))
@@ -517,7 +529,11 @@ mod tests {
     #[test]
     fn test_known_keyword_passes_semantic_validation() {
         let (kind_reg, _, _, _) = populate_registries(&[software_manifest()]);
-        let entities = vec![("behavior".to_string(), "my_beh".to_string(), span("test.spec"))];
+        let entities = vec![(
+            "behavior".to_string(),
+            "my_beh".to_string(),
+            span("test.spec"),
+        )];
         let diags = detect_unknown_entity_kinds(&entities, &kind_reg, None);
         assert!(diags.is_empty());
     }
@@ -528,7 +544,11 @@ mod tests {
         let (kind_reg, _, _, _) = populate_registries(&[software_manifest()]);
         let entities = vec![("xyzzy".to_string(), "my_xyz".to_string(), span("test.spec"))];
         let diags = detect_unknown_entity_kinds(&entities, &kind_reg, None);
-        assert!(diags.iter().any(|d| d.code == "E024" && d.message.contains("xyzzy")));
+        assert!(
+            diags
+                .iter()
+                .any(|d| d.code == "E024" && d.message.contains("xyzzy"))
+        );
     }
 
     // B:two_phase_validate_semantic — verify unit "field validation uses FieldRegistry"
@@ -542,7 +562,11 @@ mod tests {
             span("test.spec"),
         )];
         let diags = detect_unknown_entity_fields(&entities, &kind_reg, &field_reg);
-        assert!(diags.iter().any(|d| d.code == "W020" && d.message.contains("unknown_field")));
+        assert!(
+            diags
+                .iter()
+                .any(|d| d.code == "W020" && d.message.contains("unknown_field"))
+        );
         assert!(!diags.iter().any(|d| d.message.contains("contract")));
     }
 
@@ -552,7 +576,11 @@ mod tests {
         // Phase 2 functions require populated registries as parameters.
         // With empty registries, all keywords would be unknown.
         let empty_reg = KindRegistry::new();
-        let entities = vec![("behavior".to_string(), "my_beh".to_string(), span("test.spec"))];
+        let entities = vec![(
+            "behavior".to_string(),
+            "my_beh".to_string(),
+            span("test.spec"),
+        )];
         let diags = detect_unknown_entity_kinds(&entities, &empty_reg, None);
         // "behavior" is unknown because registry is empty
         assert!(diags.iter().any(|d| d.code == "E024"));
@@ -580,10 +608,17 @@ mod tests {
         // Now Phase 2: both extension kinds AND define kinds are known
         let entities = vec![
             ("behavior".to_string(), "b1".to_string(), span("test.spec")),
-            ("user_story".to_string(), "us1".to_string(), span("test.spec")),
+            (
+                "user_story".to_string(),
+                "us1".to_string(),
+                span("test.spec"),
+            ),
         ];
         let diags = detect_unknown_entity_kinds(&entities, &kind_reg, None);
-        assert!(diags.is_empty(), "both extension and define kinds should be known");
+        assert!(
+            diags.is_empty(),
+            "both extension and define kinds should be known"
+        );
     }
 
     // B:two_phase_validate_semantic — verify contract "requires/ensures consistency for semantic validation"
@@ -620,7 +655,13 @@ mod tests {
         let index = KeywordExtensionIndex::from_entries(entries);
         let entities = vec![("behavior".to_string(), "b1".to_string(), span("test.spec"))];
         let diags = detect_unknown_entity_kinds(&entities, &kind_reg, Some(&index));
-        assert!(diags[0].suggestion.as_ref().unwrap().contains("specforge add @specforge/software"));
+        assert!(
+            diags[0]
+                .suggestion
+                .as_ref()
+                .unwrap()
+                .contains("specforge add @specforge/software")
+        );
     }
 
     // B:suggest_missing_extensions — verify unit "E024 for keyword not in index suggests specforge search"
@@ -630,7 +671,13 @@ mod tests {
         let index = KeywordExtensionIndex::new();
         let entities = vec![("xyzzy".to_string(), "x1".to_string(), span("test.spec"))];
         let diags = detect_unknown_entity_kinds(&entities, &kind_reg, Some(&index));
-        assert!(diags[0].suggestion.as_ref().unwrap().contains("specforge outline"));
+        assert!(
+            diags[0]
+                .suggestion
+                .as_ref()
+                .unwrap()
+                .contains("specforge outline")
+        );
     }
 
     // B:suggest_missing_extensions — verify unit "keyword-to-extension index is loaded from bundled data file"
@@ -655,11 +702,23 @@ mod tests {
         // ensures: known keyword gets extension suggestion
         let e1 = vec![("behavior".to_string(), "b1".to_string(), span("test.spec"))];
         let d1 = detect_unknown_entity_kinds(&e1, &kind_reg, Some(&index));
-        assert!(d1[0].suggestion.as_ref().unwrap().contains("@specforge/software"));
+        assert!(
+            d1[0]
+                .suggestion
+                .as_ref()
+                .unwrap()
+                .contains("@specforge/software")
+        );
         // ensures: unknown keyword gets search suggestion
         let e2 = vec![("xyzzy".to_string(), "x1".to_string(), span("test.spec"))];
         let d2 = detect_unknown_entity_kinds(&e2, &kind_reg, Some(&index));
-        assert!(d2[0].suggestion.as_ref().unwrap().contains("specforge outline"));
+        assert!(
+            d2[0]
+                .suggestion
+                .as_ref()
+                .unwrap()
+                .contains("specforge outline")
+        );
     }
 
     // -- B:detect_unknown_entity_kinds --
@@ -668,7 +727,11 @@ mod tests {
     #[test]
     fn test_unregistered_keyword_produces_e024() {
         let (kind_reg, _, _, _) = populate_registries(&[software_manifest()]);
-        let entities = vec![("unknown_thing".to_string(), "u1".to_string(), span("test.spec"))];
+        let entities = vec![(
+            "unknown_thing".to_string(),
+            "u1".to_string(),
+            span("test.spec"),
+        )];
         let diags = detect_unknown_entity_kinds(&entities, &kind_reg, None);
         assert_eq!(diags.len(), 1);
         assert_eq!(diags[0].code, "E024");
@@ -705,7 +768,11 @@ mod tests {
     #[test]
     fn test_define_block_keywords_not_checked() {
         let kind_reg = KindRegistry::new(); // empty
-        let entities = vec![("define".to_string(), "my_define".to_string(), span("test.spec"))];
+        let entities = vec![(
+            "define".to_string(),
+            "my_define".to_string(),
+            span("test.spec"),
+        )];
         let diags = detect_unknown_entity_kinds(&entities, &kind_reg, None);
         // "define" is a structural keyword, should NOT produce E024
         assert!(diags.is_empty());
@@ -738,7 +805,11 @@ mod tests {
             span("test.spec"),
         )];
         let diags = detect_unknown_entity_fields(&entities, &kind_reg, &field_reg);
-        assert!(diags.iter().any(|d| d.code == "W020" && d.message.contains("unknown_field")));
+        assert!(
+            diags
+                .iter()
+                .any(|d| d.code == "W020" && d.message.contains("unknown_field"))
+        );
     }
 
     // B:detect_unknown_entity_fields — verify unit "W020 includes field name, entity kind, and source span"
@@ -804,7 +875,10 @@ mod tests {
             span("test.spec"),
         )];
         let diags = detect_unknown_entity_fields(&entities, &kind_reg, &field_reg);
-        assert!(diags.is_empty(), "unregistered kind should skip field validation");
+        assert!(
+            diags.is_empty(),
+            "unregistered kind should skip field validation"
+        );
     }
 
     // B:detect_unknown_entity_fields — verify contract "requires/ensures consistency for unknown field detection"
@@ -813,21 +887,30 @@ mod tests {
         let (kind_reg, field_reg, _, _) = populate_registries(&[software_manifest()]);
         // ensures: unknown field → W020
         let e1 = vec![(
-            "behavior".to_string(), "b1".to_string(),
-            vec!["bad".to_string()], span("t.spec"),
+            "behavior".to_string(),
+            "b1".to_string(),
+            vec!["bad".to_string()],
+            span("t.spec"),
         )];
-        assert!(detect_unknown_entity_fields(&e1, &kind_reg, &field_reg)
-            .iter().any(|d| d.code == "W020"));
+        assert!(
+            detect_unknown_entity_fields(&e1, &kind_reg, &field_reg)
+                .iter()
+                .any(|d| d.code == "W020")
+        );
         // ensures: registered field → no W020
         let e2 = vec![(
-            "behavior".to_string(), "b1".to_string(),
-            vec!["contract".to_string()], span("t.spec"),
+            "behavior".to_string(),
+            "b1".to_string(),
+            vec!["contract".to_string()],
+            span("t.spec"),
         )];
         assert!(detect_unknown_entity_fields(&e2, &kind_reg, &field_reg).is_empty());
         // ensures: unregistered kind → skipped
         let e3 = vec![(
-            "xyzzy".to_string(), "x1".to_string(),
-            vec!["anything".to_string()], span("t.spec"),
+            "xyzzy".to_string(),
+            "x1".to_string(),
+            vec!["anything".to_string()],
+            span("t.spec"),
         )];
         assert!(detect_unknown_entity_fields(&e3, &kind_reg, &field_reg).is_empty());
     }
@@ -905,7 +988,9 @@ mod tests {
         let v: serde_json::Value = serde_json::from_str(&json).unwrap();
         let edges = v["edges"].as_array().unwrap();
         assert!(
-            edges.iter().any(|e| e["source"] == "a" && e["target"] == "b"),
+            edges
+                .iter()
+                .any(|e| e["source"] == "a" && e["target"] == "b"),
             "expected edge from a to b, got: {:?}",
             edges
         );
@@ -947,8 +1032,14 @@ mod tests {
     #[test]
     fn test_all_extensions_failing_produces_per_extension_errors() {
         let failures = vec![
-            ("@specforge/software".to_string(), "wasm binary not found".to_string()),
-            ("@specforge/product".to_string(), "network timeout".to_string()),
+            (
+                "@specforge/software".to_string(),
+                "wasm binary not found".to_string(),
+            ),
+            (
+                "@specforge/product".to_string(),
+                "network timeout".to_string(),
+            ),
         ];
         let diags = handle_all_extensions_failed(&failures);
         let errors: Vec<_> = diags.iter().filter(|d| d.code == "E028").collect();
@@ -990,9 +1081,17 @@ mod tests {
         let failures = vec![("@ext/a".to_string(), "err".to_string())];
         let diags = handle_all_extensions_failed(&failures);
         // ensures: per-extension errors
-        assert!(diags.iter().any(|d| d.code == "E028" && d.severity == Severity::Error));
+        assert!(
+            diags
+                .iter()
+                .any(|d| d.code == "E028" && d.severity == Severity::Error)
+        );
         // ensures: structural-only mode
-        assert!(diags.iter().any(|d| d.code == "I002" && d.severity == Severity::Info));
+        assert!(
+            diags
+                .iter()
+                .any(|d| d.code == "I002" && d.severity == Severity::Info)
+        );
         // ensures: no crash — we got here without panicking
     }
 
@@ -1066,7 +1165,11 @@ mod tests {
             span("test.spec"),
         )];
         let diags = detect_mistyped_references(&entities, &field_reg, &kind_reg, &node_kind_index);
-        assert!(diags.is_empty(), "correct kind should produce no diagnostic, got: {:?}", diags);
+        assert!(
+            diags.is_empty(),
+            "correct kind should produce no diagnostic, got: {:?}",
+            diags
+        );
     }
 
     // verify unit "reference to wrong kind produces E022"
@@ -1106,7 +1209,10 @@ mod tests {
             span("test.spec"),
         )];
         let diags = detect_mistyped_references(&entities, &field_reg, &kind_reg, &node_kind_index);
-        assert!(diags.is_empty(), "unconstrained field should produce no diagnostic");
+        assert!(
+            diags.is_empty(),
+            "unconstrained field should produce no diagnostic"
+        );
     }
 
     // verify unit "reference to nonexistent entity skipped (E001 handles it)"
@@ -1122,7 +1228,10 @@ mod tests {
             span("test.spec"),
         )];
         let diags = detect_mistyped_references(&entities, &field_reg, &kind_reg, &node_kind_index);
-        assert!(diags.is_empty(), "nonexistent target should be skipped (E001 handles it)");
+        assert!(
+            diags.is_empty(),
+            "nonexistent target should be skipped (E001 handles it)"
+        );
     }
 
     // verify unit "unregistered entity kind skipped"
@@ -1154,7 +1263,10 @@ mod tests {
         let entities = vec![(
             "behavior".to_string(),
             "my_beh".to_string(),
-            vec![("features".to_string(), vec!["b1".to_string(), "b2".to_string()])],
+            vec![(
+                "features".to_string(),
+                vec!["b1".to_string(), "b2".to_string()],
+            )],
             span("test.spec"),
         )];
         let diags = detect_mistyped_references(&entities, &field_reg, &kind_reg, &node_kind_index);
@@ -1314,7 +1426,10 @@ mod tests {
         )];
 
         let diags = detect_unknown_verify_kinds(&entities, &registered_kinds, &kind_reg);
-        assert!(diags.is_empty(), "should skip verify kind check for unregistered entity kind");
+        assert!(
+            diags.is_empty(),
+            "should skip verify kind check for unregistered entity kind"
+        );
     }
 
     // -- B:generate_required_field_rules --
@@ -1364,11 +1479,20 @@ mod tests {
         assert_eq!(rules.len(), 2, "only required fields produce rules");
         assert!(rules.iter().all(|r| r.code == "E006"));
         assert!(rules.iter().all(|r| r.severity == Severity::Error));
-        assert!(rules.iter().all(|r| r.check == ValidationPatternKind::MissingRequiredField));
+        assert!(
+            rules
+                .iter()
+                .all(|r| r.check == ValidationPatternKind::MissingRequiredField)
+        );
 
         let targets: Vec<(&str, &str)> = rules
             .iter()
-            .map(|r| (r.target_kind.as_deref().unwrap(), r.field.as_deref().unwrap()))
+            .map(|r| {
+                (
+                    r.target_kind.as_deref().unwrap(),
+                    r.field.as_deref().unwrap(),
+                )
+            })
             .collect();
         assert!(targets.contains(&("behavior", "contract")));
         assert!(targets.contains(&("invariant", "guarantee")));

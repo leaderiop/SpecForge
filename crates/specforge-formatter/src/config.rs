@@ -75,7 +75,10 @@ pub fn load_config(file_dir: &Path, project_root: &Path) -> (FormatConfig, Vec<D
     (FormatConfig::default(), diagnostics)
 }
 
-fn parse_config_file(path: &Path, diagnostics: &mut Vec<Diagnostic>) -> (FormatConfig, Vec<Diagnostic>) {
+fn parse_config_file(
+    path: &Path,
+    diagnostics: &mut Vec<Diagnostic>,
+) -> (FormatConfig, Vec<Diagnostic>) {
     let content = match std::fs::read_to_string(path) {
         Ok(c) => c,
         Err(e) => {
@@ -200,7 +203,10 @@ mod tests {
         std::fs::write(dir.join(name), content).unwrap();
     }
 
-    #[specforge_test_macros::test(behavior = "load_format_config", verify = "missing config file uses defaults")]
+    #[specforge_test_macros::test(
+        behavior = "load_format_config",
+        verify = "missing config file uses defaults"
+    )]
     #[test]
     fn test_default_config() {
         let config = FormatConfig::default();
@@ -209,13 +215,20 @@ mod tests {
         assert_eq!(config.max_width, 100);
     }
 
-    #[specforge_test_macros::test(behavior = "load_format_config", verify = "config file in project root is loaded")]
+    #[specforge_test_macros::test(
+        behavior = "load_format_config",
+        verify = "config file in project root is loaded"
+    )]
     #[test]
     fn test_config_file_in_project_root_is_loaded() {
         let tmp = TempDir::new().unwrap();
         let root = tmp.path();
         write_file(root, "specforge.json", "{}");
-        write_file(root, ".specforgefmt.toml", "indent_width = 4\nmax_width = 80\n");
+        write_file(
+            root,
+            ".specforgefmt.toml",
+            "indent_width = 4\nmax_width = 80\n",
+        );
 
         let (config, diags) = load_config(root, root);
         assert!(diags.is_empty());
@@ -223,7 +236,10 @@ mod tests {
         assert_eq!(config.max_width, 80);
     }
 
-    #[specforge_test_macros::test(behavior = "load_format_config", verify = "config file in parent directory is discovered")]
+    #[specforge_test_macros::test(
+        behavior = "load_format_config",
+        verify = "config file in parent directory is discovered"
+    )]
     #[test]
     fn test_config_file_in_parent_directory_is_discovered() {
         let tmp = TempDir::new().unwrap();
@@ -239,7 +255,10 @@ mod tests {
         assert_eq!(config.indent_width, 3);
     }
 
-    #[specforge_test_macros::test(behavior = "load_format_config", verify = "config outside project root is not discovered")]
+    #[specforge_test_macros::test(
+        behavior = "load_format_config",
+        verify = "config outside project root is not discovered"
+    )]
     #[test]
     fn test_config_outside_project_root_is_not_discovered() {
         let tmp = TempDir::new().unwrap();
@@ -257,13 +276,20 @@ mod tests {
         assert_eq!(config.indent_width, 2);
     }
 
-    #[specforge_test_macros::test(behavior = "load_format_config", verify = "invalid indent_width produces diagnostic and uses default")]
+    #[specforge_test_macros::test(
+        behavior = "load_format_config",
+        verify = "invalid indent_width produces diagnostic and uses default"
+    )]
     #[test]
     fn test_invalid_indent_width_produces_diagnostic_and_uses_default() {
         let tmp = TempDir::new().unwrap();
         let root = tmp.path();
         write_file(root, "specforge.json", "{}");
-        write_file(root, ".specforgefmt.toml", "indent_width = \"not_a_number\"\n");
+        write_file(
+            root,
+            ".specforgefmt.toml",
+            "indent_width = \"not_a_number\"\n",
+        );
 
         let (config, diags) = load_config(root, root);
         assert_eq!(config.indent_width, 2); // default
@@ -271,7 +297,10 @@ mod tests {
         assert_eq!(diags[0].code, "F003");
     }
 
-    #[specforge_test_macros::test(behavior = "load_format_config", verify = "missing config file uses defaults")]
+    #[specforge_test_macros::test(
+        behavior = "load_format_config",
+        verify = "missing config file uses defaults"
+    )]
     #[test]
     fn test_missing_config_file_uses_defaults() {
         let tmp = TempDir::new().unwrap();
@@ -284,30 +313,51 @@ mod tests {
         assert_eq!(config, FormatConfig::default());
     }
 
-    #[specforge_test_macros::test(behavior = "apply_format_rules", verify = "indentation rules normalize to configured indent style")]
+    #[specforge_test_macros::test(
+        behavior = "apply_format_rules",
+        verify = "indentation rules normalize to configured indent style"
+    )]
     #[test]
     fn test_indent_str_spaces() {
-        let config = FormatConfig { indent_width: 4, use_tabs: false, max_width: 100 };
+        let config = FormatConfig {
+            indent_width: 4,
+            use_tabs: false,
+            max_width: 100,
+        };
         assert_eq!(config.indent_str(), "    ");
     }
 
-    #[specforge_test_macros::test(behavior = "apply_format_rules", verify = "indentation rules normalize to configured indent style")]
+    #[specforge_test_macros::test(
+        behavior = "apply_format_rules",
+        verify = "indentation rules normalize to configured indent style"
+    )]
     #[test]
     fn test_indent_str_tabs() {
-        let config = FormatConfig { indent_width: 4, use_tabs: true, max_width: 100 };
+        let config = FormatConfig {
+            indent_width: 4,
+            use_tabs: true,
+            max_width: 100,
+        };
         assert_eq!(config.indent_str(), "\t");
     }
 
     // --- Contract: load_format_config ---
 
-    #[specforge_test_macros::test(behavior = "load_format_config", verify = "requires/ensures consistency for format config loading")]
+    #[specforge_test_macros::test(
+        behavior = "load_format_config",
+        verify = "requires/ensures consistency for format config loading"
+    )]
     #[test]
     fn test_load_format_config_contract_requires_ensures() {
         let tmp = TempDir::new().unwrap();
         let root = tmp.path();
         // requires: project_root_available
         write_file(root, "specforge.json", "{}");
-        write_file(root, ".specforgefmt.toml", "indent_width = 4\nmax_width = 80\n");
+        write_file(
+            root,
+            ".specforgefmt.toml",
+            "indent_width = 4\nmax_width = 80\n",
+        );
 
         let subdir = root.join("spec").join("behaviors");
         std::fs::create_dir_all(&subdir).unwrap();
@@ -316,7 +366,10 @@ mod tests {
         let (config, diags) = load_config(&subdir, root);
         assert_eq!(config.indent_width, 4, "config should be resolved");
         assert_eq!(config.max_width, 80);
-        assert!(diags.is_empty(), "valid config should produce no diagnostics");
+        assert!(
+            diags.is_empty(),
+            "valid config should produce no diagnostics"
+        );
 
         // ensures: walk_bounded (config outside project root not found)
         let isolated = TempDir::new().unwrap();
@@ -324,7 +377,11 @@ mod tests {
         write_file(iso_root, "specforge.json", "{}");
         // No config file in isolated project
         let (default_config, default_diags) = load_config(iso_root, iso_root);
-        assert_eq!(default_config, FormatConfig::default(), "should use defaults when no config");
+        assert_eq!(
+            default_config,
+            FormatConfig::default(),
+            "should use defaults when no config"
+        );
         assert!(default_diags.is_empty());
 
         // ensures: invalid_values_diagnosed
@@ -333,11 +390,20 @@ mod tests {
         write_file(inv_root, "specforge.json", "{}");
         write_file(inv_root, ".specforgefmt.toml", "indent_width = 999\n");
         let (inv_config, inv_diags) = load_config(inv_root, inv_root);
-        assert_eq!(inv_config.indent_width, 2, "invalid value should fall back to default");
-        assert!(!inv_diags.is_empty(), "invalid value should produce diagnostic");
+        assert_eq!(
+            inv_config.indent_width, 2,
+            "invalid value should fall back to default"
+        );
+        assert!(
+            !inv_diags.is_empty(),
+            "invalid value should produce diagnostic"
+        );
     }
 
-    #[specforge_test_macros::test(behavior = "load_format_config", verify = "config discovery walks from formatted file directory up to specforge.json parent then stops")]
+    #[specforge_test_macros::test(
+        behavior = "load_format_config",
+        verify = "config discovery walks from formatted file directory up to specforge.json parent then stops"
+    )]
     #[test]
     fn test_config_discovery_walks_from_file_dir_up_to_project_root_then_stops() {
         let tmp = TempDir::new().unwrap();

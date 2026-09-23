@@ -7,10 +7,17 @@ use crate::state::McpState;
 pub fn call(state: &McpState, args: Value, id: Option<Value>) -> JsonRpcResponse {
     let query = match args.get("query").and_then(|v| v.as_str()) {
         Some(q) => q,
-        None => return JsonRpcResponse::error(id, error_codes::INVALID_PARAMS, "Missing required parameter: query"),
+        None => {
+            return JsonRpcResponse::error(
+                id,
+                error_codes::INVALID_PARAMS,
+                "Missing required parameter: query",
+            );
+        }
     };
 
-    let kind_filter: Vec<&str> = args.get("kinds")
+    let kind_filter: Vec<&str> = args
+        .get("kinds")
         .and_then(|v| v.as_array())
         .map(|arr| arr.iter().filter_map(|v| v.as_str()).collect())
         .unwrap_or_default();
@@ -23,7 +30,8 @@ pub fn call(state: &McpState, args: Value, id: Option<Value>) -> JsonRpcResponse
     // If references parameter is set, find entities with edges to that target
     if let Some(target) = references_target {
         let refs = state.graph.edges_to(target);
-        let results: Vec<Value> = refs.iter()
+        let results: Vec<Value> = refs
+            .iter()
             .filter_map(|e| state.graph.node(e.source.as_str()))
             .map(|n| {
                 serde_json::json!({
@@ -37,22 +45,33 @@ pub fn call(state: &McpState, args: Value, id: Option<Value>) -> JsonRpcResponse
             })
             .collect();
 
-        return JsonRpcResponse::success(id, serde_json::json!({
-            "content": [{
-                "type": "text",
-                "text": serde_json::to_string_pretty(&results).unwrap()
-            }]
-        }));
+        return JsonRpcResponse::success(
+            id,
+            serde_json::json!({
+                "content": [{
+                    "type": "text",
+                    "text": serde_json::to_string_pretty(&results).unwrap()
+                }]
+            }),
+        );
     }
 
     let query_lower = query.to_lowercase();
 
-    let mut scored: Vec<(f64, &specforge_graph::Node)> = state.graph.nodes().into_iter()
+    let mut scored: Vec<(f64, &specforge_graph::Node)> = state
+        .graph
+        .nodes()
+        .into_iter()
         .filter(|n| kind_filter.is_empty() || kind_filter.contains(&n.kind.raw.as_str()))
         .filter(|n| {
             if let (Some(f), Some(v)) = (field_filter, value_filter) {
-                n.fields.get(f)
-                    .map(|fv| format!("{:?}", fv).to_lowercase().contains(&v.to_lowercase()))
+                n.fields
+                    .get(f)
+                    .map(|fv| {
+                        format!("{:?}", fv)
+                            .to_lowercase()
+                            .contains(&v.to_lowercase())
+                    })
                     .unwrap_or(false)
             } else {
                 true
@@ -60,7 +79,9 @@ pub fn call(state: &McpState, args: Value, id: Option<Value>) -> JsonRpcResponse
         })
         .map(|n| {
             let id_score = jaro_winkler(&query_lower, &n.id.raw.as_str().to_lowercase());
-            let title_score = n.title.as_ref()
+            let title_score = n
+                .title
+                .as_ref()
                 .map(|t| jaro_winkler(&query_lower, &t.to_lowercase()))
                 .unwrap_or(0.0);
             let score = id_score.max(title_score);
@@ -72,21 +93,27 @@ pub fn call(state: &McpState, args: Value, id: Option<Value>) -> JsonRpcResponse
     scored.sort_by(|a, b| b.0.partial_cmp(&a.0).unwrap_or(std::cmp::Ordering::Equal));
     scored.truncate(limit);
 
-    let results: Vec<Value> = scored.iter().map(|(score, n)| {
-        serde_json::json!({
-            "entity_id": n.id.raw,
-            "kind": n.kind.raw,
-            "title": n.title,
-            "file_path": n.source_span.file,
-            "line": n.source_span.start_line,
-            "score": score
+    let results: Vec<Value> = scored
+        .iter()
+        .map(|(score, n)| {
+            serde_json::json!({
+                "entity_id": n.id.raw,
+                "kind": n.kind.raw,
+                "title": n.title,
+                "file_path": n.source_span.file,
+                "line": n.source_span.start_line,
+                "score": score
+            })
         })
-    }).collect();
+        .collect();
 
-    JsonRpcResponse::success(id, serde_json::json!({
-        "content": [{
-            "type": "text",
-            "text": serde_json::to_string_pretty(&results).unwrap()
-        }]
-    }))
+    JsonRpcResponse::success(
+        id,
+        serde_json::json!({
+            "content": [{
+                "type": "text",
+                "text": serde_json::to_string_pretty(&results).unwrap()
+            }]
+        }),
+    )
 }

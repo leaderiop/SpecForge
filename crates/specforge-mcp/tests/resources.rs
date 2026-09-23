@@ -1,12 +1,18 @@
-use specforge_mcp::McpServer;
+use serde_json::{Value, json};
 use specforge_common::SourceSpan;
 use specforge_graph::{Edge, Graph, Node};
+use specforge_mcp::McpServer;
 use specforge_parser::{EntityId, EntityKind, FieldMap, FieldValue, VerifyStatement};
 use specforge_test::prelude::*;
-use serde_json::{json, Value};
 
 fn span() -> SourceSpan {
-    SourceSpan { file: "test.spec".into(), start_line: 1, start_col: 0, end_line: 5, end_col: 0 }
+    SourceSpan {
+        file: "test.spec".into(),
+        start_line: 1,
+        start_col: 0,
+        end_line: 5,
+        end_col: 0,
+    }
 }
 
 fn test_server() -> McpServer {
@@ -21,25 +27,47 @@ fn test_server() -> McpServer {
     let mut graph = Graph::new();
 
     let mut fields_a = FieldMap::new();
-    fields_a.push("contract".into(), FieldValue::String("The system MUST do alpha".into()));
-    let verify_stmts = vec![VerifyStatement { kind: "unit".into(), description: "does alpha correctly".into() }];
+    fields_a.push(
+        "contract".into(),
+        FieldValue::String("The system MUST do alpha".into()),
+    );
+    let verify_stmts = vec![VerifyStatement {
+        kind: "unit".into(),
+        description: "does alpha correctly".into(),
+    }];
     fields_a.push("verify".into(), FieldValue::VerifyList(verify_stmts));
 
     graph.add_node(Node {
-        id: EntityId { raw: "alpha".into() },
-        kind: EntityKind { raw: "behavior".into() },
+        id: EntityId {
+            raw: "alpha".into(),
+        },
+        kind: EntityKind {
+            raw: "behavior".into(),
+        },
         title: Some("Alpha Behavior".into()),
         fields: fields_a,
         source_span: span(),
     });
     graph.add_node(Node {
         id: EntityId { raw: "beta".into() },
-        kind: EntityKind { raw: "feature".into() },
+        kind: EntityKind {
+            raw: "feature".into(),
+        },
         title: Some("Beta Feature".into()),
         fields: FieldMap::new(),
-        source_span: SourceSpan { file: "features.spec".into(), start_line: 10, start_col: 0, end_line: 15, end_col: 0 },
+        source_span: SourceSpan {
+            file: "features.spec".into(),
+            start_line: 10,
+            start_col: 0,
+            end_line: 15,
+            end_col: 0,
+        },
     });
-    graph.add_edge(Edge { source: "beta".into(), target: "alpha".into(), label: "behaviors".into() });
+    graph.add_edge(Edge {
+        source: "beta".into(),
+        target: "alpha".into(),
+        label: "behaviors".into(),
+    });
 
     state.graph = graph;
 
@@ -57,12 +85,18 @@ fn read_resource(server: &mut McpServer, uri: &str) -> Value {
 }
 
 fn resource_text(resp: &Value) -> String {
-    resp["result"]["contents"][0]["text"].as_str().unwrap().to_string()
+    resp["result"]["contents"][0]["text"]
+        .as_str()
+        .unwrap()
+        .to_string()
 }
 
 // B:expose_graph_as_mcp_resource — verify unit "returns full graph as JSON"
 #[test]
-#[specforge_test(behavior = "expose_graph_as_mcp_resource", verify = "specforge://graph resource returns full Graph Protocol JSON")]
+#[specforge_test(
+    behavior = "expose_graph_as_mcp_resource",
+    verify = "specforge://graph resource returns full Graph Protocol JSON"
+)]
 fn graph_resource_returns_json() {
     let mut server = test_server();
     let resp = read_resource(&mut server, "specforge://graph");
@@ -75,16 +109,25 @@ fn graph_resource_returns_json() {
 
 // B:expose_graph_as_mcp_resource — verify unit "graph resource has correct MIME type"
 #[test]
-#[specforge_test(behavior = "expose_graph_as_mcp_resource", verify = "graph resource has correct MIME type")]
+#[specforge_test(
+    behavior = "expose_graph_as_mcp_resource",
+    verify = "graph resource has correct MIME type"
+)]
 fn graph_resource_has_mime_type() {
     let mut server = test_server();
     let resp = read_resource(&mut server, "specforge://graph");
-    assert_eq!(resp["result"]["contents"][0]["mimeType"], "application/json");
+    assert_eq!(
+        resp["result"]["contents"][0]["mimeType"],
+        "application/json"
+    );
 }
 
 // B:expose_schema_as_mcp_resource — verify unit "returns schema with entity kinds derived from graph"
 #[test]
-#[specforge_test(behavior = "expose_schema_as_mcp_resource", verify = "specforge://schema resource returns graph-derived entity kinds")]
+#[specforge_test(
+    behavior = "expose_schema_as_mcp_resource",
+    verify = "specforge://schema resource returns graph-derived entity kinds"
+)]
 fn schema_resource_returns_kinds() {
     let mut server = test_server();
     let resp = read_resource(&mut server, "specforge://schema");
@@ -92,18 +135,37 @@ fn schema_resource_returns_kinds() {
     let parsed: Value = serde_json::from_str(&text).unwrap();
     // Schema resource must derive entity kinds from the graph (not from registries)
     let entity_kinds = &parsed["entity_kinds"];
-    assert!(entity_kinds.is_object(), "entity_kinds should be an object mapping kind->fields, got: {}", entity_kinds);
+    assert!(
+        entity_kinds.is_object(),
+        "entity_kinds should be an object mapping kind->fields, got: {}",
+        entity_kinds
+    );
     // test_server has behavior and feature nodes
     let kinds_obj = entity_kinds.as_object().unwrap();
-    assert!(kinds_obj.contains_key("behavior"), "schema should include 'behavior' kind from graph nodes");
-    assert!(kinds_obj.contains_key("feature"), "schema should include 'feature' kind from graph nodes");
-    assert!(parsed["schema_version"].is_string(), "schema_version should be a string like '0.1.0'");
-    assert!(parsed["edge_labels"].is_array(), "should have edge_labels array");
+    assert!(
+        kinds_obj.contains_key("behavior"),
+        "schema should include 'behavior' kind from graph nodes"
+    );
+    assert!(
+        kinds_obj.contains_key("feature"),
+        "schema should include 'feature' kind from graph nodes"
+    );
+    assert!(
+        parsed["schema_version"].is_string(),
+        "schema_version should be a string like '0.1.0'"
+    );
+    assert!(
+        parsed["edge_labels"].is_array(),
+        "should have edge_labels array"
+    );
 }
 
 // B:expose_context_as_mcp_resource — verify unit "returns context-optimized graph"
 #[test]
-#[specforge_test(behavior = "expose_context_as_mcp_resource", verify = "specforge://context resource returns token-optimized format")]
+#[specforge_test(
+    behavior = "expose_context_as_mcp_resource",
+    verify = "specforge://context resource returns token-optimized format"
+)]
 fn context_resource_returns_context_graph() {
     let mut server = test_server();
     let resp = read_resource(&mut server, "specforge://context");
@@ -111,14 +173,21 @@ fn context_resource_returns_context_graph() {
     let parsed: Value = serde_json::from_str(&text).unwrap();
     assert!(parsed["nodes"].is_array());
     // Context includes contract field
-    let alpha = &parsed["nodes"].as_array().unwrap().iter()
-        .find(|n| n["id"] == "alpha").unwrap();
+    let alpha = &parsed["nodes"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|n| n["id"] == "alpha")
+        .unwrap();
     assert!(alpha["contract"].is_string());
 }
 
 // B:expose_brief_as_mcp_resource — verify unit "returns brief graph"
 #[test]
-#[specforge_test(behavior = "expose_brief_as_mcp_resource", verify = "specforge://brief resource returns minimal IDs and edges format")]
+#[specforge_test(
+    behavior = "expose_brief_as_mcp_resource",
+    verify = "specforge://brief resource returns minimal IDs and edges format"
+)]
 fn brief_resource_returns_brief_graph() {
     let mut server = test_server();
     let resp = read_resource(&mut server, "specforge://brief");
@@ -136,7 +205,10 @@ fn brief_resource_returns_brief_graph() {
 
 // B:expose_diagnostics_as_mcp_resource — verify unit "returns diagnostics array"
 #[test]
-#[specforge_test(behavior = "expose_diagnostics_as_mcp_resource", verify = "specforge://diagnostics resource returns current DiagnosticBag as JSON")]
+#[specforge_test(
+    behavior = "expose_diagnostics_as_mcp_resource",
+    verify = "specforge://diagnostics resource returns current DiagnosticBag as JSON"
+)]
 fn diagnostics_resource_returns_array() {
     let mut server = test_server();
     let resp = read_resource(&mut server, "specforge://diagnostics");
@@ -147,7 +219,10 @@ fn diagnostics_resource_returns_array() {
 
 // B:expose_entity_as_mcp_resource — verify unit "returns entity subgraph"
 #[test]
-#[specforge_test(behavior = "expose_entity_as_mcp_resource", verify = "specforge://graph/{entity_id} returns entity and its neighbors")]
+#[specforge_test(
+    behavior = "expose_entity_as_mcp_resource",
+    verify = "specforge://graph/{entity_id} returns entity and its neighbors"
+)]
 fn entity_resource_returns_subgraph() {
     let mut server = test_server();
     let resp = read_resource(&mut server, "specforge://graph/alpha");
@@ -155,7 +230,10 @@ fn entity_resource_returns_subgraph() {
     let parsed: Value = serde_json::from_str(&text).unwrap();
     assert!(parsed["nodes"].is_array());
     // Subgraph from alpha includes alpha and beta (connected)
-    let ids: Vec<&str> = parsed["nodes"].as_array().unwrap().iter()
+    let ids: Vec<&str> = parsed["nodes"]
+        .as_array()
+        .unwrap()
+        .iter()
         .map(|n| n["id"].as_str().unwrap())
         .collect();
     assert!(ids.contains(&"alpha"));
@@ -163,7 +241,10 @@ fn entity_resource_returns_subgraph() {
 
 // B:expose_entity_as_mcp_resource — verify unit "returns error for unknown entity"
 #[test]
-#[specforge_test(behavior = "expose_entity_as_mcp_resource", verify = "non-existent entity_id returns 404 error")]
+#[specforge_test(
+    behavior = "expose_entity_as_mcp_resource",
+    verify = "non-existent entity_id returns 404 error"
+)]
 fn entity_resource_error_for_unknown() {
     let mut server = test_server();
     let resp = read_resource(&mut server, "specforge://graph/nonexistent");
@@ -172,7 +253,10 @@ fn entity_resource_error_for_unknown() {
 
 // B:expose_entity_as_mcp_resource — verify unit "returns error for empty entity ID"
 #[test]
-#[specforge_test(behavior = "expose_entity_as_mcp_resource", verify = "returns error for empty entity ID")]
+#[specforge_test(
+    behavior = "expose_entity_as_mcp_resource",
+    verify = "returns error for empty entity ID"
+)]
 fn entity_resource_error_for_empty_id() {
     let mut server = test_server();
     let resp = read_resource(&mut server, "specforge://graph/");
@@ -181,7 +265,10 @@ fn entity_resource_error_for_empty_id() {
 
 // Resource read missing URI
 #[test]
-#[specforge_test(behavior = "expose_graph_as_mcp_resource", verify = "returns error for missing URI")]
+#[specforge_test(
+    behavior = "expose_graph_as_mcp_resource",
+    verify = "returns error for missing URI"
+)]
 fn resource_read_missing_uri() {
     let mut server = test_server();
     let resp = call(&mut server, "resources/read", json!({}));
@@ -190,7 +277,10 @@ fn resource_read_missing_uri() {
 
 // Unknown resource URI
 #[test]
-#[specforge_test(behavior = "expose_graph_as_mcp_resource", verify = "returns error for unknown URI")]
+#[specforge_test(
+    behavior = "expose_graph_as_mcp_resource",
+    verify = "returns error for unknown URI"
+)]
 fn resource_read_unknown_uri() {
     let mut server = test_server();
     let resp = read_resource(&mut server, "specforge://unknown");
@@ -199,16 +289,26 @@ fn resource_read_unknown_uri() {
 
 // Resource read when not initialized
 #[test]
-#[specforge_test(behavior = "expose_graph_as_mcp_resource", verify = "returns error when not initialized")]
+#[specforge_test(
+    behavior = "expose_graph_as_mcp_resource",
+    verify = "returns error when not initialized"
+)]
 fn resource_read_not_initialized() {
     let mut server = McpServer::new();
-    let resp = call(&mut server, "resources/read", json!({"uri": "specforge://graph"}));
+    let resp = call(
+        &mut server,
+        "resources/read",
+        json!({"uri": "specforge://graph"}),
+    );
     assert!(resp["error"].is_object());
 }
 
 // B:expose_graph_as_mcp_resource — verify unit "output includes valid JSON with nodes"
 #[test]
-#[specforge_test(behavior = "expose_graph_as_mcp_resource", verify = "output includes embedded schema and schema_version")]
+#[specforge_test(
+    behavior = "expose_graph_as_mcp_resource",
+    verify = "output includes embedded schema and schema_version"
+)]
 fn graph_includes_schema_version() {
     let mut server = test_server();
     let resp = read_resource(&mut server, "specforge://graph");
@@ -220,7 +320,10 @@ fn graph_includes_schema_version() {
 
 // B:expose_graph_as_mcp_resource — verify unit "resource refreshes after recompilation"
 #[test]
-#[specforge_test(behavior = "expose_graph_as_mcp_resource", verify = "resource refreshes after recompilation")]
+#[specforge_test(
+    behavior = "expose_graph_as_mcp_resource",
+    verify = "resource refreshes after recompilation"
+)]
 fn graph_refreshes_after_recompilation() {
     let mut server = test_server();
     let resp1 = read_resource(&mut server, "specforge://graph");
@@ -230,8 +333,12 @@ fn graph_refreshes_after_recompilation() {
 
     // Add a new node to simulate recompilation
     server.state_mut().graph.add_node(Node {
-        id: EntityId { raw: "delta".into() },
-        kind: EntityKind { raw: "behavior".into() },
+        id: EntityId {
+            raw: "delta".into(),
+        },
+        kind: EntityKind {
+            raw: "behavior".into(),
+        },
         title: Some("Delta Behavior".into()),
         fields: FieldMap::new(),
         source_span: span(),
@@ -246,7 +353,10 @@ fn graph_refreshes_after_recompilation() {
 
 // B:expose_schema_as_mcp_resource — verify unit "schema updates when graph changes"
 #[test]
-#[specforge_test(behavior = "expose_schema_as_mcp_resource", verify = "schema updates when graph changes")]
+#[specforge_test(
+    behavior = "expose_schema_as_mcp_resource",
+    verify = "schema updates when graph changes"
+)]
 fn schema_updates_when_graph_changes() {
     let mut server = test_server();
     let resp1 = read_resource(&mut server, "specforge://schema");
@@ -255,12 +365,17 @@ fn schema_updates_when_graph_changes() {
 
     // Schema is derived from graph — should have entity_kinds from current nodes
     let kinds1 = parsed1["entity_kinds"].as_object().unwrap();
-    assert!(!kinds1.contains_key("event"), "initially no event kind in graph");
+    assert!(
+        !kinds1.contains_key("event"),
+        "initially no event kind in graph"
+    );
 
     // Add a new kind to the graph
     server.state_mut().graph.add_node(Node {
         id: EntityId { raw: "evt1".into() },
-        kind: EntityKind { raw: "event".into() },
+        kind: EntityKind {
+            raw: "event".into(),
+        },
         title: Some("Test Event".into()),
         fields: FieldMap::new(),
         source_span: span(),
@@ -270,12 +385,18 @@ fn schema_updates_when_graph_changes() {
     let text2 = resource_text(&resp2);
     let parsed2: Value = serde_json::from_str(&text2).unwrap();
     let kinds2 = parsed2["entity_kinds"].as_object().unwrap();
-    assert!(kinds2.contains_key("event"), "after adding event node, schema should include 'event' kind");
+    assert!(
+        kinds2.contains_key("event"),
+        "after adding event node, schema should include 'event' kind"
+    );
 }
 
 // B:expose_context_as_mcp_resource — verify unit "resource refreshes after recompilation"
 #[test]
-#[specforge_test(behavior = "expose_context_as_mcp_resource", verify = "resource refreshes after recompilation")]
+#[specforge_test(
+    behavior = "expose_context_as_mcp_resource",
+    verify = "resource refreshes after recompilation"
+)]
 fn context_refreshes_after_recompilation() {
     let mut server = test_server();
     let resp1 = read_resource(&mut server, "specforge://context");
@@ -284,8 +405,12 @@ fn context_refreshes_after_recompilation() {
     let count1 = parsed1["nodes"].as_array().unwrap().len();
 
     server.state_mut().graph.add_node(Node {
-        id: EntityId { raw: "delta".into() },
-        kind: EntityKind { raw: "behavior".into() },
+        id: EntityId {
+            raw: "delta".into(),
+        },
+        kind: EntityKind {
+            raw: "behavior".into(),
+        },
         title: Some("Delta Behavior".into()),
         fields: FieldMap::new(),
         source_span: span(),
@@ -300,7 +425,10 @@ fn context_refreshes_after_recompilation() {
 
 // B:expose_brief_as_mcp_resource — verify unit "resource refreshes after recompilation"
 #[test]
-#[specforge_test(behavior = "expose_brief_as_mcp_resource", verify = "resource refreshes after recompilation")]
+#[specforge_test(
+    behavior = "expose_brief_as_mcp_resource",
+    verify = "resource refreshes after recompilation"
+)]
 fn brief_refreshes_after_recompilation() {
     let mut server = test_server();
     let resp1 = read_resource(&mut server, "specforge://brief");
@@ -309,8 +437,12 @@ fn brief_refreshes_after_recompilation() {
     let count1 = parsed1["nodes"].as_array().unwrap().len();
 
     server.state_mut().graph.add_node(Node {
-        id: EntityId { raw: "delta".into() },
-        kind: EntityKind { raw: "behavior".into() },
+        id: EntityId {
+            raw: "delta".into(),
+        },
+        kind: EntityKind {
+            raw: "behavior".into(),
+        },
         title: Some("Delta Behavior".into()),
         fields: FieldMap::new(),
         source_span: span(),
@@ -325,7 +457,10 @@ fn brief_refreshes_after_recompilation() {
 
 // B:expose_diagnostics_as_mcp_resource — verify unit "resource updates after recompilation"
 #[test]
-#[specforge_test(behavior = "expose_diagnostics_as_mcp_resource", verify = "resource updates after recompilation")]
+#[specforge_test(
+    behavior = "expose_diagnostics_as_mcp_resource",
+    verify = "resource updates after recompilation"
+)]
 fn diagnostics_updates_after_recompilation() {
     let mut server = test_server();
     let resp1 = read_resource(&mut server, "specforge://diagnostics");
@@ -334,13 +469,22 @@ fn diagnostics_updates_after_recompilation() {
     let count1 = parsed1.as_array().unwrap().len();
 
     // Add a diagnostic to state
-    server.state_mut().diagnostics.push(specforge_common::Diagnostic {
-        code: "V001".into(),
-        severity: specforge_common::Severity::Error,
-        message: "test diagnostic".into(),
-        span: Some(SourceSpan { file: "test.spec".into(), start_line: 1, start_col: 0, end_line: 1, end_col: 10 }),
-        suggestion: None,
-    });
+    server
+        .state_mut()
+        .diagnostics
+        .push(specforge_common::Diagnostic {
+            code: "V001".into(),
+            severity: specforge_common::Severity::Error,
+            message: "test diagnostic".into(),
+            span: Some(SourceSpan {
+                file: "test.spec".into(),
+                start_line: 1,
+                start_col: 0,
+                end_line: 1,
+                end_col: 10,
+            }),
+            suggestion: None,
+        });
 
     let resp2 = read_resource(&mut server, "specforge://diagnostics");
     let text2 = resource_text(&resp2);
@@ -351,17 +495,29 @@ fn diagnostics_updates_after_recompilation() {
 
 // B:expose_diagnostics_as_mcp_resource — verify unit "each diagnostic includes severity, code, message, file, span"
 #[test]
-#[specforge_test(behavior = "expose_diagnostics_as_mcp_resource", verify = "each diagnostic includes severity, code, message, file, and span")]
+#[specforge_test(
+    behavior = "expose_diagnostics_as_mcp_resource",
+    verify = "each diagnostic includes severity, code, message, file, and span"
+)]
 fn diagnostics_fields_present() {
     let mut server = test_server();
 
-    server.state_mut().diagnostics.push(specforge_common::Diagnostic {
-        code: "V001".into(),
-        severity: specforge_common::Severity::Error,
-        message: "test error".into(),
-        span: Some(SourceSpan { file: "test.spec".into(), start_line: 1, start_col: 0, end_line: 1, end_col: 10 }),
-        suggestion: None,
-    });
+    server
+        .state_mut()
+        .diagnostics
+        .push(specforge_common::Diagnostic {
+            code: "V001".into(),
+            severity: specforge_common::Severity::Error,
+            message: "test error".into(),
+            span: Some(SourceSpan {
+                file: "test.spec".into(),
+                start_line: 1,
+                start_col: 0,
+                end_line: 1,
+                end_col: 10,
+            }),
+            suggestion: None,
+        });
 
     let resp = read_resource(&mut server, "specforge://diagnostics");
     let text = resource_text(&resp);
@@ -379,7 +535,10 @@ fn diagnostics_fields_present() {
 
 // B:expose_entity_as_mcp_resource — verify unit "malformed entity_id returns 400 error"
 #[test]
-#[specforge_test(behavior = "expose_entity_as_mcp_resource", verify = "malformed entity_id returns 400 error")]
+#[specforge_test(
+    behavior = "expose_entity_as_mcp_resource",
+    verify = "malformed entity_id returns 400 error"
+)]
 fn entity_malformed_id_returns_error() {
     let mut server = test_server();
     let resp = read_resource(&mut server, "specforge://graph/!@#$");
@@ -388,20 +547,33 @@ fn entity_malformed_id_returns_error() {
 
 // B:expose_entity_as_mcp_resource — verify unit "resource refreshes after recompilation"
 #[test]
-#[specforge_test(behavior = "expose_entity_as_mcp_resource", verify = "resource refreshes after recompilation")]
+#[specforge_test(
+    behavior = "expose_entity_as_mcp_resource",
+    verify = "resource refreshes after recompilation"
+)]
 fn entity_refreshes_after_recompilation() {
     let mut server = test_server();
     let resp1 = read_resource(&mut server, "specforge://graph/alpha");
     let text1 = resource_text(&resp1);
     let parsed1: Value = serde_json::from_str(&text1).unwrap();
-    let title1 = parsed1["nodes"].as_array().unwrap().iter()
+    let title1 = parsed1["nodes"]
+        .as_array()
+        .unwrap()
+        .iter()
         .find(|n| n["id"] == "alpha")
-        .unwrap()["title"].as_str().unwrap().to_string();
+        .unwrap()["title"]
+        .as_str()
+        .unwrap()
+        .to_string();
 
     // Replace alpha with a new title
     server.state_mut().graph.add_node(Node {
-        id: EntityId { raw: "alpha".into() },
-        kind: EntityKind { raw: "behavior".into() },
+        id: EntityId {
+            raw: "alpha".into(),
+        },
+        kind: EntityKind {
+            raw: "behavior".into(),
+        },
         title: Some("Alpha Revised".into()),
         fields: FieldMap::new(),
         source_span: span(),
@@ -410,16 +582,25 @@ fn entity_refreshes_after_recompilation() {
     let resp2 = read_resource(&mut server, "specforge://graph/alpha");
     let text2 = resource_text(&resp2);
     let parsed2: Value = serde_json::from_str(&text2).unwrap();
-    let title2 = parsed2["nodes"].as_array().unwrap().iter()
+    let title2 = parsed2["nodes"]
+        .as_array()
+        .unwrap()
+        .iter()
         .find(|n| n["id"] == "alpha")
-        .unwrap()["title"].as_str().unwrap().to_string();
+        .unwrap()["title"]
+        .as_str()
+        .unwrap()
+        .to_string();
     assert_ne!(title1, title2);
     assert_eq!(title2, "Alpha Revised");
 }
 
 // B:expose_graph_as_mcp_resource — verify unit "resource has application/json MIME type"
 #[test]
-#[specforge_test(behavior = "expose_graph_as_mcp_resource", verify = "resource has application/json MIME type")]
+#[specforge_test(
+    behavior = "expose_graph_as_mcp_resource",
+    verify = "resource has application/json MIME type"
+)]
 fn graph_resource_returns_json_mime_type() {
     let mut server = test_server();
     let resp = read_resource(&mut server, "specforge://graph");

@@ -3,11 +3,11 @@ use specforge_emitter::builtins::{
 };
 use specforge_emitter::outline::*;
 use specforge_registry::ManifestV2;
+use specforge_wasm::BuiltinRuntime;
 use specforge_wasm::builtin::BuiltinExtension;
 use specforge_wasm::protocol::{
-    load_protocol_extension, protocol_extension_to_manifest, ProtocolHost,
+    ProtocolHost, load_protocol_extension, protocol_extension_to_manifest,
 };
-use specforge_wasm::BuiltinRuntime;
 
 fn load_manifest(name: &str) -> ManifestV2 {
     let (ext_name, ext): (&str, Box<dyn BuiltinExtension>) = match name {
@@ -160,13 +160,24 @@ fn entity_kind_enhanced_by_populated() {
     let outline = OutlineIntermediate_from_manifests(&manifests);
 
     // product's module entity should show enhanced_by software
-    let product_ext = outline.extensions.iter().find(|e| e.name == "@specforge/product").unwrap();
-    let module_kind = product_ext.entity_kinds.iter().find(|k| k.keyword == "module").unwrap();
+    let product_ext = outline
+        .extensions
+        .iter()
+        .find(|e| e.name == "@specforge/product")
+        .unwrap();
+    let module_kind = product_ext
+        .entity_kinds
+        .iter()
+        .find(|k| k.keyword == "module")
+        .unwrap();
     assert!(
         !module_kind.enhanced_by.is_empty(),
         "module should be enhanced by software"
     );
-    assert_eq!(module_kind.enhanced_by[0].source_extension, "@specforge/software");
+    assert_eq!(
+        module_kind.enhanced_by[0].source_extension,
+        "@specforge/software"
+    );
 }
 
 // ==========================================================================
@@ -206,7 +217,10 @@ fn markdown_none_omits_extension_detail() {
     };
     let output = render(&outline, &opts);
     assert!(output.contains("## Overview"));
-    assert!(!output.contains("## Extensions"), "detail=none should omit per-extension sections");
+    assert!(
+        !output.contains("## Extensions"),
+        "detail=none should omit per-extension sections"
+    );
 }
 
 #[test]
@@ -255,9 +269,15 @@ fn mermaid_produces_flowchart_tb_with_subgraphs() {
     );
     assert!(output.contains("subgraph"), "should use subgraph cards");
     assert!(output.contains("end"), "subgraphs should be closed");
-    assert!(output.contains("@specforge/product"), "should show extension names");
+    assert!(
+        output.contains("@specforge/product"),
+        "should show extension names"
+    );
     assert!(output.contains("-->|"), "should have dependency edges");
-    assert!(output.contains("classDef"), "should have classDef color definitions");
+    assert!(
+        output.contains("classDef"),
+        "should have classDef color definitions"
+    );
 }
 
 #[test]
@@ -385,11 +405,20 @@ fn json_keys_includes_validation_rule_codes() {
     let ext = &parsed["extensions"][0];
     // Keys level should now include validation_rules with code+severity+check
     let rules = ext["validation_rules"].as_array();
-    assert!(rules.is_some(), "keys level should include validation_rules array");
+    assert!(
+        rules.is_some(),
+        "keys level should include validation_rules array"
+    );
     let first_rule = &rules.unwrap()[0];
     assert!(first_rule["code"].is_string(), "rule should have code");
-    assert!(first_rule["severity"].is_string(), "rule should have severity");
-    assert!(first_rule["check"].is_string(), "rule should have check category");
+    assert!(
+        first_rule["severity"].is_string(),
+        "rule should have severity"
+    );
+    assert!(
+        first_rule["check"].is_string(),
+        "rule should have check category"
+    );
 }
 
 // --- 8.7: json metadata envelope ---
@@ -454,7 +483,11 @@ fn validation_rule_check_category_populated() {
         "all validation rules should have a check category"
     );
     // Product manifest has rules with different check types
-    let checks: Vec<&str> = ext.validation_rules.iter().map(|r| r.check.as_str()).collect();
+    let checks: Vec<&str> = ext
+        .validation_rules
+        .iter()
+        .map(|r| r.check.as_str())
+        .collect();
     assert!(
         checks.len() >= 2,
         "should have multiple check categories, got: {:?}",
@@ -509,9 +542,10 @@ fn edge_type_description_populated() {
     let outline = OutlineIntermediate_from_manifests(&manifests);
 
     // At least some edge types should have descriptions from the manifest
-    let has_desc = outline.extensions.iter().any(|ext| {
-        ext.edge_types.iter().any(|e| e.description.is_some())
-    });
+    let has_desc = outline
+        .extensions
+        .iter()
+        .any(|ext| ext.edge_types.iter().any(|e| e.description.is_some()));
     assert!(
         has_desc,
         "at least some edge types should have descriptions from manifests"
@@ -590,10 +624,19 @@ fn mermaid_differentiates_required_and_enhancement_edges() {
     };
     let output = render(&outline, &opts);
     // Two distinct edge types rendered (all current deps are required, no optional)
-    assert!(output.contains("-->|"), "should have solid dependency edges");
-    assert!(output.contains("-.->|\"enhances"), "should have dotted enhancement edges");
+    assert!(
+        output.contains("-->|"),
+        "should have solid dependency edges"
+    );
+    assert!(
+        output.contains("-.->|\"enhances"),
+        "should have dotted enhancement edges"
+    );
     // linkStyle for visual differentiation
-    assert!(output.contains("linkStyle"), "should have linkStyle directives");
+    assert!(
+        output.contains("linkStyle"),
+        "should have linkStyle directives"
+    );
 }
 
 // ==========================================================================
@@ -627,10 +670,20 @@ fn governance_has_two_direct_deps() {
         .iter()
         .filter(|d| d.from == "@specforge/governance" && d.kind == DependencyKind::Direct)
         .collect();
-    assert_eq!(gov_direct.len(), 2, "governance should have two direct deps (software required, product optional)");
-    let sw = gov_direct.iter().find(|d| d.to == "@specforge/software").unwrap();
+    assert_eq!(
+        gov_direct.len(),
+        2,
+        "governance should have two direct deps (software required, product optional)"
+    );
+    let sw = gov_direct
+        .iter()
+        .find(|d| d.to == "@specforge/software")
+        .unwrap();
     assert!(!sw.optional, "governance→software should be required");
-    let prod = gov_direct.iter().find(|d| d.to == "@specforge/product").unwrap();
+    let prod = gov_direct
+        .iter()
+        .find(|d| d.to == "@specforge/product")
+        .unwrap();
     assert!(prod.optional, "governance→product should be optional");
 }
 
@@ -786,9 +839,15 @@ fn mermaid_card_has_stats_divider_keywords() {
         "card should have unicode divider"
     );
     // Entity keywords (product has "journey")
-    assert!(output.contains("journey"), "card should contain entity keywords");
+    assert!(
+        output.contains("journey"),
+        "card should contain entity keywords"
+    );
     // Italic extras
-    assert!(output.contains("<i>"), "card should have italic extras section");
+    assert!(
+        output.contains("<i>"),
+        "card should have italic extras section"
+    );
 }
 
 #[test]
@@ -812,11 +871,7 @@ fn only_governance_product_is_optional() {
     let manifests = load_all_manifests();
     let outline = OutlineIntermediate_from_manifests(&manifests);
 
-    let optional_deps: Vec<_> = outline
-        .dependencies
-        .iter()
-        .filter(|d| d.optional)
-        .collect();
+    let optional_deps: Vec<_> = outline.dependencies.iter().filter(|d| d.optional).collect();
     assert_eq!(optional_deps.len(), 1, "exactly one optional dep expected");
     assert_eq!(optional_deps[0].from, "@specforge/governance");
     assert_eq!(optional_deps[0].to, "@specforge/product");
@@ -835,7 +890,11 @@ fn json_dependencies_include_optional_field() {
     let parsed: serde_json::Value = serde_json::from_str(&output).expect("JSON should be valid");
     let deps = parsed["dependencies"].as_array().unwrap();
     let optional_deps: Vec<_> = deps.iter().filter(|d| d["optional"] == true).collect();
-    assert_eq!(optional_deps.len(), 1, "exactly one optional dep in JSON output");
+    assert_eq!(
+        optional_deps.len(),
+        1,
+        "exactly one optional dep in JSON output"
+    );
     assert_eq!(optional_deps[0]["from"], "@specforge/governance");
     assert_eq!(optional_deps[0]["to"], "@specforge/product");
 }

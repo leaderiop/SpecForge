@@ -46,7 +46,11 @@ pub fn compute_graph_delta(old: &Graph, new: &Graph) -> GraphDelta {
     compute_graph_delta_with_config(old, new, &DeltaConfig::default())
 }
 
-pub fn compute_graph_delta_with_config(old: &Graph, new: &Graph, config: &DeltaConfig) -> GraphDelta {
+pub fn compute_graph_delta_with_config(
+    old: &Graph,
+    new: &Graph,
+    config: &DeltaConfig,
+) -> GraphDelta {
     let old_ids: BTreeSet<&str> = old.nodes().iter().map(|n| n.id.raw.as_str()).collect();
     let new_ids: BTreeSet<&str> = new.nodes().iter().map(|n| n.id.raw.as_str()).collect();
 

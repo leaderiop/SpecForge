@@ -1,8 +1,8 @@
-use specforge_wasm::{
-    check_newer_version, install_extension, install_from_local, uninstall_extension,
-    upgrade_extension, LockFile, LockFileEntry,
-};
 use specforge_registry::{ManifestV2, PeerDependency};
+use specforge_wasm::{
+    LockFile, LockFileEntry, check_newer_version, install_extension, install_from_local,
+    uninstall_extension, upgrade_extension,
+};
 use tempfile::TempDir;
 
 fn default_manifest() -> ManifestV2 {
@@ -349,11 +349,7 @@ fn test_upgrade_rejects_breaking_peer_without_force() {
     });
 
     // New manifest declares a peer dep on a non-existent extension
-    let new_manifest = make_manifest(
-        "@test/core",
-        "3.0.0",
-        &[("@test/nonexistent", ">=1.0.0")],
-    );
+    let new_manifest = make_manifest("@test/core", "3.0.0", &[("@test/nonexistent", ">=1.0.0")]);
 
     // Peer manifests only include the new core (nonexistent is missing)
     let peer_manifests = vec![new_manifest.clone()];

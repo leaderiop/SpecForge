@@ -108,7 +108,11 @@ pub fn hover_info_with_registries(
                 continue;
             }
             has_fields = true;
-            section.push_str(&format!("\n- `{}` = {}", key, format_field_value(&entry.value)));
+            section.push_str(&format!(
+                "\n- `{}` = {}",
+                key,
+                format_field_value(&entry.value)
+            ));
         }
         if has_fields {
             sections.push(section);
@@ -177,7 +181,14 @@ fn format_field_value(fv: &FieldValue) -> String {
         FieldValue::ReferenceList(refs) => format!("[{}]", refs.join(", ")),
         FieldValue::StringList(items) => {
             if items.len() <= 5 {
-                format!("[{}]", items.iter().map(|s| format!("\"{}\"", s)).collect::<Vec<_>>().join(", "))
+                format!(
+                    "[{}]",
+                    items
+                        .iter()
+                        .map(|s| format!("\"{}\"", s))
+                        .collect::<Vec<_>>()
+                        .join(", ")
+                )
             } else {
                 let shown: Vec<_> = items[..5].iter().map(|s| format!("\"{}\"", s)).collect();
                 format!("[{}, … +{}]", shown.join(", "), items.len() - 5)
@@ -193,7 +204,10 @@ fn format_field_value(fv: &FieldValue) -> String {
             format!("{{…}} ({} fields)", count)
         }
         FieldValue::VerifyList(stmts) => {
-            let items: Vec<_> = stmts.iter().map(|v| format!("{}: {}", v.kind, v.description)).collect();
+            let items: Vec<_> = stmts
+                .iter()
+                .map(|v| format!("{}: {}", v.kind, v.description))
+                .collect();
             if items.len() <= 3 {
                 items.join("; ")
             } else {

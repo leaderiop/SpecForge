@@ -4,11 +4,14 @@ use specforge_registry::ManifestV2;
 /// Sort extensions in topological order based on peer dependencies.
 /// Extensions with no dependencies come first.
 /// Ties are broken by extension name for determinism.
-pub fn topological_sort_extensions(manifests: &[ManifestV2]) -> Result<Vec<String>, Vec<Diagnostic>> {
+pub fn topological_sort_extensions(
+    manifests: &[ManifestV2],
+) -> Result<Vec<String>, Vec<Diagnostic>> {
     use std::collections::{BTreeSet, HashMap};
 
     // Build adjacency: name -> set of dependencies (peers that are also installed)
-    let installed: std::collections::HashSet<&str> = manifests.iter().map(|m| m.name.as_str()).collect();
+    let installed: std::collections::HashSet<&str> =
+        manifests.iter().map(|m| m.name.as_str()).collect();
     let mut in_degree: HashMap<&str, usize> = HashMap::new();
     let mut dependents: HashMap<&str, Vec<&str>> = HashMap::new();
 
@@ -17,7 +20,10 @@ pub fn topological_sort_extensions(manifests: &[ManifestV2]) -> Result<Vec<Strin
         for peer in &m.peer_dependencies {
             if installed.contains(peer.name.as_str()) {
                 *in_degree.entry(m.name.as_str()).or_insert(0) += 1;
-                dependents.entry(peer.name.as_str()).or_default().push(m.name.as_str());
+                dependents
+                    .entry(peer.name.as_str())
+                    .or_default()
+                    .push(m.name.as_str());
             }
         }
     }
@@ -77,7 +83,10 @@ mod tests {
     #[test]
     fn test_extensions_sorted_in_dependency_order() {
         let manifests = vec![
-            make_manifest("@specforge/governance", &[("@specforge/software", ">=1.0.0")]),
+            make_manifest(
+                "@specforge/governance",
+                &[("@specforge/software", ">=1.0.0")],
+            ),
             make_manifest("@specforge/software", &[]),
         ];
 
@@ -119,7 +128,10 @@ mod tests {
         // requires: manifests_loaded — we have parsed manifests
         let manifests = vec![
             make_manifest("@specforge/product", &[("@specforge/software", ">=1.0.0")]),
-            make_manifest("@specforge/governance", &[("@specforge/software", ">=1.0.0")]),
+            make_manifest(
+                "@specforge/governance",
+                &[("@specforge/software", ">=1.0.0")],
+            ),
             make_manifest("@specforge/software", &[]),
         ];
 

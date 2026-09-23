@@ -1,25 +1,25 @@
+#[path = "e2e_support/code_actions.rs"]
+mod code_actions;
+#[path = "e2e_support/completion.rs"]
+mod completion;
+#[path = "e2e_support/editing.rs"]
+mod editing;
+#[path = "e2e_support/formatting.rs"]
+mod formatting;
+#[path = "e2e_support/hover.rs"]
+mod hover;
+#[path = "e2e_support/integration.rs"]
+mod integration;
 #[path = "e2e_support/lifecycle.rs"]
 mod lifecycle;
 #[path = "e2e_support/navigation.rs"]
 mod navigation;
-#[path = "e2e_support/hover.rs"]
-mod hover;
-#[path = "e2e_support/completion.rs"]
-mod completion;
-#[path = "e2e_support/symbols.rs"]
-mod symbols;
-#[path = "e2e_support/editing.rs"]
-mod editing;
-#[path = "e2e_support/code_actions.rs"]
-mod code_actions;
 #[path = "e2e_support/semantic_tokens.rs"]
 mod semantic_tokens;
-#[path = "e2e_support/formatting.rs"]
-mod formatting;
-#[path = "e2e_support/integration.rs"]
-mod integration;
+#[path = "e2e_support/symbols.rs"]
+mod symbols;
 
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 use std::sync::Arc;
 use tokio::io::{AsyncReadExt, AsyncWriteExt, DuplexStream};
 use tokio::sync::Mutex;
@@ -134,8 +134,7 @@ impl LspClient {
     }
 
     async fn wait_for_notification(&mut self, method: &str, timeout_ms: u64) -> Option<Value> {
-        let deadline =
-            tokio::time::Instant::now() + tokio::time::Duration::from_millis(timeout_ms);
+        let deadline = tokio::time::Instant::now() + tokio::time::Duration::from_millis(timeout_ms);
         loop {
             let remaining = deadline.saturating_duration_since(tokio::time::Instant::now());
             if remaining.is_zero() {
@@ -277,13 +276,7 @@ impl LspClient {
         .await
     }
 
-    pub async fn rename(
-        &mut self,
-        uri: &str,
-        line: u32,
-        character: u32,
-        new_name: &str,
-    ) -> Value {
+    pub async fn rename(&mut self, uri: &str, line: u32, character: u32, new_name: &str) -> Value {
         self.send_request(
             "textDocument/rename",
             json!({
@@ -433,9 +426,13 @@ pub async fn start_server_with_extensions(
     let root = dir.path().to_str().unwrap();
     let mut client = start_server(Some(root)).await;
     // Drain the extension-loading log message
-    client.wait_for_notification("window/logMessage", 5000).await;
+    client
+        .wait_for_notification("window/logMessage", 5000)
+        .await;
     // Drain the indexing log message
-    client.wait_for_notification("window/logMessage", 5000).await;
+    client
+        .wait_for_notification("window/logMessage", 5000)
+        .await;
 
     let uri = tower_lsp::lsp_types::Url::from_file_path(dir.path().join(file_name))
         .unwrap()

@@ -6,9 +6,9 @@
 use specforge_common::{Diagnostic, Severity};
 use specforge_registry::{ManifestV2, SandboxPolicy};
 use specforge_wasm::{
-    compute_extension_query_scope, filter_graph_by_query_scope, host_add_graph_edge_check,
-    host_add_graph_node_check, host_emit_diagnostic, host_emit_file_check, host_http_get_check,
-    host_read_file_check, is_host_function_allowed, CallSite, QueryScope,
+    CallSite, QueryScope, compute_extension_query_scope, filter_graph_by_query_scope,
+    host_add_graph_edge_check, host_add_graph_node_check, host_emit_diagnostic,
+    host_emit_file_check, host_http_get_check, host_read_file_check, is_host_function_allowed,
 };
 use std::collections::HashSet;
 use std::path::Path;
@@ -100,10 +100,7 @@ fn host_read_file_call_site_permissions() {
         CallSite::Provider,
         "host_read_file"
     ));
-    assert!(is_host_function_allowed(
-        CallSite::Parser,
-        "host_read_file"
-    ));
+    assert!(is_host_function_allowed(CallSite::Parser, "host_read_file"));
     assert!(!is_host_function_allowed(
         CallSite::Renderer,
         "host_read_file"
@@ -129,10 +126,7 @@ fn host_http_get_only_provider() {
         CallSite::Renderer,
         "host_http_get"
     ));
-    assert!(!is_host_function_allowed(
-        CallSite::Parser,
-        "host_http_get"
-    ));
+    assert!(!is_host_function_allowed(CallSite::Parser, "host_http_get"));
     assert!(!is_host_function_allowed(
         CallSite::Collector,
         "host_http_get"
@@ -297,8 +291,7 @@ fn add_node_non_parser_e031() {
 #[test]
 fn add_node_undeclared_kind_e031() {
     let kinds = vec!["behavior".to_string()];
-    let err =
-        host_add_graph_node_check("@ext/a", "widget", CallSite::Parser, &kinds).unwrap_err();
+    let err = host_add_graph_node_check("@ext/a", "widget", CallSite::Parser, &kinds).unwrap_err();
     assert_eq!(err.code, "E031");
     assert!(err.message.contains("not declared"));
 }

@@ -1,8 +1,8 @@
 use std::path::Path;
 
 use specforge_emitter::outline::{
-    render, DependencyDepth, OutlineDetail, OutlineFormat, OutlineIntermediate_from_manifests,
-    OutlineOptions,
+    DependencyDepth, OutlineDetail, OutlineFormat, OutlineIntermediate_from_manifests,
+    OutlineOptions, render,
 };
 
 use crate::pipeline;

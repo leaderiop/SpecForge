@@ -29,16 +29,18 @@ fn rich_node() -> Node {
     );
     fields.push(
         Sym::new("verify"),
-        FieldValue::VerifyList(vec![
-            VerifyStatement {
-                kind: "unit".to_string(),
-                description: "it works".to_string(),
-            },
-        ]),
+        FieldValue::VerifyList(vec![VerifyStatement {
+            kind: "unit".to_string(),
+            description: "it works".to_string(),
+        }]),
     );
     Node {
-        id: EntityId { raw: Sym::new("alpha") },
-        kind: EntityKind { raw: Sym::new("behavior") },
+        id: EntityId {
+            raw: Sym::new("alpha"),
+        },
+        kind: EntityKind {
+            raw: Sym::new("behavior"),
+        },
         title: Some("Alpha Behavior".to_string()),
         fields,
         source_span: span(),
@@ -47,7 +49,10 @@ fn rich_node() -> Node {
 
 // B:export_agent_context_format — verify unit "context format includes entity IDs and contracts"
 #[test]
-#[specforge_test(behavior = "export_agent_context_format", verify = "context format includes entity IDs and contracts")]
+#[specforge_test(
+    behavior = "export_agent_context_format",
+    verify = "context format includes entity IDs and contracts"
+)]
 fn context_includes_contracts_and_verify() {
     let mut graph = Graph::new();
     graph.add_node(rich_node());
@@ -71,7 +76,10 @@ fn context_includes_contracts_and_verify() {
 
 // B:export_agent_context_format — verify unit "context format omits verbose prose fields"
 #[test]
-#[specforge_test(behavior = "export_agent_context_format", verify = "context format omits verbose prose fields")]
+#[specforge_test(
+    behavior = "export_agent_context_format",
+    verify = "context format omits verbose prose fields"
+)]
 fn context_omits_verbose_prose_fields() {
     let mut graph = Graph::new();
     graph.add_node(rich_node());
@@ -91,13 +99,20 @@ fn context_omits_verbose_prose_fields() {
 // B:export_agent_context_format — verify unit "output includes schema_version field"
 // B:export_agent_context_format — verify unit "output conforms to Graph Protocol schema"
 #[test]
-#[specforge_test(behavior = "export_agent_context_format", verify = "output includes schema_version field")]
+#[specforge_test(
+    behavior = "export_agent_context_format",
+    verify = "output includes schema_version field"
+)]
 fn context_includes_edges_and_schema_version() {
     let mut graph = Graph::new();
     graph.add_node(rich_node());
     let mut node_b = Node {
-        id: EntityId { raw: Sym::new("beta") },
-        kind: EntityKind { raw: Sym::new("feature") },
+        id: EntityId {
+            raw: Sym::new("beta"),
+        },
+        kind: EntityKind {
+            raw: Sym::new("feature"),
+        },
         title: Some("Beta".to_string()),
         fields: FieldMap::new(),
         source_span: span(),
@@ -122,7 +137,10 @@ fn context_includes_edges_and_schema_version() {
 
 // B:export_agent_context_format — verify unit "output conforms to Graph Protocol schema"
 #[test]
-#[specforge_test(behavior = "export_agent_context_format", verify = "output conforms to Graph Protocol schema")]
+#[specforge_test(
+    behavior = "export_agent_context_format",
+    verify = "output conforms to Graph Protocol schema"
+)]
 fn context_conforms_to_graph_protocol_schema() {
     let mut graph = Graph::new();
     graph.add_node(rich_node());
@@ -131,7 +149,10 @@ fn context_conforms_to_graph_protocol_schema() {
     let parsed: serde_json::Value = serde_json::from_str(&json).expect("valid JSON");
 
     // Graph Protocol requires: schema_version, nodes array, edges array
-    assert!(parsed["schema_version"].is_string(), "must have schema_version");
+    assert!(
+        parsed["schema_version"].is_string(),
+        "must have schema_version"
+    );
     assert!(parsed["nodes"].is_array(), "must have nodes array");
     assert!(parsed["edges"].is_array(), "must have edges array");
 

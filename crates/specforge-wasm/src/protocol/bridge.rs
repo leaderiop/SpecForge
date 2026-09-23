@@ -60,7 +60,11 @@ pub fn protocol_extension_to_manifest(ext: &ProtocolExtension) -> ManifestV2 {
             .iter()
             .map(convert_peer_dependency)
             .collect(),
-        sandbox_policy: ext.handshake.sandbox_policy.as_ref().map(convert_sandbox_policy),
+        sandbox_policy: ext
+            .handshake
+            .sandbox_policy
+            .as_ref()
+            .map(convert_sandbox_policy),
         host_api_version: None,
         entity_enhancements: ext
             .descriptions
@@ -134,9 +138,7 @@ fn convert_contribution_flags(
     }
 }
 
-fn convert_peer_dependency(
-    dep: &PeerDependency,
-) -> specforge_registry::PeerDependency {
+fn convert_peer_dependency(dep: &PeerDependency) -> specforge_registry::PeerDependency {
     specforge_registry::PeerDependency {
         name: dep.name.clone(),
         version: dep.version.clone(),
@@ -144,9 +146,7 @@ fn convert_peer_dependency(
     }
 }
 
-fn convert_sandbox_policy(
-    policy: &SandboxPolicy,
-) -> specforge_registry::SandboxPolicy {
+fn convert_sandbox_policy(policy: &SandboxPolicy) -> specforge_registry::SandboxPolicy {
     specforge_registry::SandboxPolicy {
         max_memory_mb: policy.max_memory_mb,
         max_execution_ms: policy.max_execution_ms,
@@ -210,9 +210,7 @@ fn convert_edge_type(desc: &EdgeTypeDescriptor) -> specforge_registry::ManifestE
 }
 
 /// H5: Map all EntityEnhancementDescriptor fields including edge_types.
-fn convert_enhancement(
-    desc: &EntityEnhancementDescriptor,
-) -> specforge_registry::FieldEnhancement {
+fn convert_enhancement(desc: &EntityEnhancementDescriptor) -> specforge_registry::FieldEnhancement {
     specforge_registry::FieldEnhancement {
         target_kind: desc.target_kind.clone(),
         source_extension: desc.source_extension.clone(),
@@ -272,12 +270,13 @@ fn convert_collector(desc: &CollectorDescriptor) -> specforge_registry::Collecto
         name: desc.name.clone(),
         input_formats: desc.input_formats.clone(),
         export: desc.export.clone(),
-        auto_detect: desc.auto_detect.as_ref().map(|ad| {
-            specforge_registry::CollectorAutoDetect {
+        auto_detect: desc
+            .auto_detect
+            .as_ref()
+            .map(|ad| specforge_registry::CollectorAutoDetect {
                 file_patterns: ad.file_patterns.clone(),
                 env_vars: ad.env_vars.clone(),
-            }
-        }),
+            }),
     }
 }
 
@@ -295,27 +294,33 @@ fn convert_analyzer(desc: &AnalyzerDescriptor) -> specforge_registry::AnalyzerCo
 
 fn convert_surface_descriptor(desc: &SurfaceDescriptor) -> SurfaceContributions {
     SurfaceContributions {
-        commands: desc.commands.iter().map(|c| {
-            specforge_registry::CommandContribution {
+        commands: desc
+            .commands
+            .iter()
+            .map(|c| specforge_registry::CommandContribution {
                 id: c.id.clone(),
                 title: c.title.clone(),
                 description: c.description.clone(),
                 category: c.category.clone(),
                 export: c.export.clone(),
-                args: c.args.iter().map(|a| {
-                    specforge_registry::CommandArg {
+                args: c
+                    .args
+                    .iter()
+                    .map(|a| specforge_registry::CommandArg {
                         name: a.name.clone(),
                         arg_type: convert_command_arg_type(&a.arg_type),
                         required: a.required,
                         default_value: a.default_value.clone(),
                         description: a.description.clone(),
-                    }
-                }).collect(),
+                    })
+                    .collect(),
                 sandbox: c.sandbox.as_ref().map(convert_surface_sandbox),
-            }
-        }).collect(),
-        mcp_tools: desc.mcp_tools.iter().map(|t| {
-            specforge_registry::McpToolContribution {
+            })
+            .collect(),
+        mcp_tools: desc
+            .mcp_tools
+            .iter()
+            .map(|t| specforge_registry::McpToolContribution {
                 name: t.name.clone(),
                 description: t.description.clone(),
                 category: t.category.clone(),
@@ -323,18 +328,20 @@ fn convert_surface_descriptor(desc: &SurfaceDescriptor) -> SurfaceContributions 
                 input_schema: t.input_schema.clone(),
                 output_schema: t.output_schema.clone(),
                 sandbox: t.sandbox.as_ref().map(convert_surface_sandbox),
-            }
-        }).collect(),
-        mcp_resources: desc.mcp_resources.iter().map(|r| {
-            specforge_registry::McpResourceContribution {
+            })
+            .collect(),
+        mcp_resources: desc
+            .mcp_resources
+            .iter()
+            .map(|r| specforge_registry::McpResourceContribution {
                 uri_template: r.uri_template.clone(),
                 name: r.name.clone(),
                 description: r.description.clone(),
                 export: r.export.clone(),
                 mime_type: r.mime_type.clone(),
                 sandbox: r.sandbox.as_ref().map(convert_surface_sandbox),
-            }
-        }).collect(),
+            })
+            .collect(),
     }
 }
 
@@ -344,9 +351,9 @@ fn convert_command_arg_type(t: &CommandArgType) -> specforge_registry::CommandAr
         CommandArgType::Path => specforge_registry::CommandArgType::PathArg,
         CommandArgType::Bool => specforge_registry::CommandArgType::BoolArg,
         CommandArgType::Integer => specforge_registry::CommandArgType::IntegerArg,
-        CommandArgType::Enum { values } => {
-            specforge_registry::CommandArgType::EnumArg { values: values.clone() }
-        }
+        CommandArgType::Enum { values } => specforge_registry::CommandArgType::EnumArg {
+            values: values.clone(),
+        },
     }
 }
 

@@ -116,7 +116,10 @@ fn parse_entity_header(line: &str) -> Option<String> {
     }
     // Skip use/define/verify/requires/ensures/maintains lines
     let first_word = line.split_whitespace().next()?;
-    if matches!(first_word, "use" | "define" | "verify" | "requires" | "ensures" | "maintains" | "//" | "{" | "}") {
+    if matches!(
+        first_word,
+        "use" | "define" | "verify" | "requires" | "ensures" | "maintains" | "//" | "{" | "}"
+    ) {
         return None;
     }
     // The first word is the entity kind, second is the ID

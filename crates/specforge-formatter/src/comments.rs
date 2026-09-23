@@ -64,19 +64,14 @@ pub fn build_comment_map(root: Node, source: &str) -> CommentMap {
 
         // Check if trailing: is there a non-comment node ending on the same line before this comment?
         let is_trailing = non_comments.iter().any(|n| {
-            n.end_position().row == comment_row
-                && n.end_byte() <= comment_node.start_byte()
+            n.end_position().row == comment_row && n.end_byte() <= comment_node.start_byte()
         });
 
         if is_trailing {
             // Attach as trailing to the last non-comment node on same line before this comment
-            if let Some(prev) = non_comments
-                .iter()
-                .rfind(|n| {
-                    n.end_position().row == comment_row
-                        && n.end_byte() <= comment_node.start_byte()
-                })
-            {
+            if let Some(prev) = non_comments.iter().rfind(|n| {
+                n.end_position().row == comment_row && n.end_byte() <= comment_node.start_byte()
+            }) {
                 let ac = AttachedComment {
                     text: text.clone(),
                     start_row: comment_row,
@@ -96,7 +91,10 @@ pub fn build_comment_map(root: Node, source: &str) -> CommentMap {
 
         if let Some(next) = next_node {
             // Check if there's a blank line gap between comment and next node
-            let gap = next.start_position().row.saturating_sub(comment_node.end_position().row);
+            let gap = next
+                .start_position()
+                .row
+                .saturating_sub(comment_node.end_position().row);
 
             // If there's a blank line gap AND a preceding node also with a gap, it's standalone
             let prev_node = non_comments
@@ -198,10 +196,14 @@ mod tests {
         parser.parse(source, None).unwrap()
     }
 
-    #[specforge_test_macros::test(behavior = "preserve_comments", verify = "leading comment attaches to following node")]
+    #[specforge_test_macros::test(
+        behavior = "preserve_comments",
+        verify = "leading comment attaches to following node"
+    )]
     #[test]
     fn test_leading_comment_attaches_to_following_node() {
-        let source = "// This describes foo\nbehavior foo \"Foo\" {\n  contract \"does stuff\"\n}\n";
+        let source =
+            "// This describes foo\nbehavior foo \"Foo\" {\n  contract \"does stuff\"\n}\n";
         let tree = parse_source(source);
         let map = build_comment_map(tree.root_node(), source);
 
@@ -213,7 +215,10 @@ mod tests {
         assert_eq!(leading_comments[0].kind, CommentKind::Leading);
     }
 
-    #[specforge_test_macros::test(behavior = "preserve_comments", verify = "trailing comment attaches to preceding node on same line")]
+    #[specforge_test_macros::test(
+        behavior = "preserve_comments",
+        verify = "trailing comment attaches to preceding node on same line"
+    )]
     #[test]
     fn test_trailing_comment_attaches_to_preceding_node_on_same_line() {
         let source = "behavior foo \"Foo\" { // inline comment\n  contract \"does stuff\"\n}\n";
@@ -221,12 +226,18 @@ mod tests {
         let map = build_comment_map(tree.root_node(), source);
 
         let trailing_comments: Vec<_> = map.trailing.values().flatten().collect();
-        assert!(!trailing_comments.is_empty(), "should have a trailing comment");
+        assert!(
+            !trailing_comments.is_empty(),
+            "should have a trailing comment"
+        );
         assert_eq!(trailing_comments[0].text, "// inline comment");
         assert_eq!(trailing_comments[0].kind, CommentKind::Trailing);
     }
 
-    #[specforge_test_macros::test(behavior = "preserve_comments", verify = "standalone comment block between blocks is preserved")]
+    #[specforge_test_macros::test(
+        behavior = "preserve_comments",
+        verify = "standalone comment block between blocks is preserved"
+    )]
     #[test]
     fn test_standalone_comment_block_between_blocks_is_preserved() {
         let source = concat!(
@@ -239,15 +250,22 @@ mod tests {
         let tree = parse_source(source);
         let map = build_comment_map(tree.root_node(), source);
 
-        assert!(!map.standalone.is_empty(), "should have a standalone comment");
+        assert!(
+            !map.standalone.is_empty(),
+            "should have a standalone comment"
+        );
         assert_eq!(map.standalone[0].text, "// standalone note");
         assert_eq!(map.standalone[0].kind, CommentKind::Standalone);
     }
 
-    #[specforge_test_macros::test(behavior = "preserve_comments", verify = "section header comment attaches to next block group")]
+    #[specforge_test_macros::test(
+        behavior = "preserve_comments",
+        verify = "section header comment attaches to next block group"
+    )]
     #[test]
     fn test_section_header_comment_attaches_to_next_block_group() {
-        let source = "// Section: behaviors\nbehavior foo \"Foo\" {\n  contract \"does stuff\"\n}\n";
+        let source =
+            "// Section: behaviors\nbehavior foo \"Foo\" {\n  contract \"does stuff\"\n}\n";
         let tree = parse_source(source);
         let map = build_comment_map(tree.root_node(), source);
 
@@ -259,7 +277,10 @@ mod tests {
 
     // --- Property: no comments lost after formatting (comment map level) ---
 
-    #[specforge_test_macros::test(behavior = "preserve_comments", verify = "no comments are lost after formatting")]
+    #[specforge_test_macros::test(
+        behavior = "preserve_comments",
+        verify = "no comments are lost after formatting"
+    )]
     #[test]
     fn test_no_comments_lost_in_comment_map() {
         // All comment tokens should be captured by the comment map
@@ -288,24 +309,36 @@ mod tests {
         let total = total_leading + total_trailing + total_standalone;
 
         // Count actual comment tokens in source
-        let comment_count = source.lines().filter(|l| {
-            let t = l.trim();
-            t.starts_with("//")
-        }).count();
+        let comment_count = source
+            .lines()
+            .filter(|l| {
+                let t = l.trim();
+                t.starts_with("//")
+            })
+            .count();
         // Also count inline comments (trailing on same line as code)
-        let inline_count = source.lines().filter(|l| {
-            let t = l.trim();
-            !t.starts_with("//") && t.contains("//")
-        }).count();
+        let inline_count = source
+            .lines()
+            .filter(|l| {
+                let t = l.trim();
+                !t.starts_with("//") && t.contains("//")
+            })
+            .count();
 
-        assert_eq!(total, comment_count + inline_count,
+        assert_eq!(
+            total,
+            comment_count + inline_count,
             "all comments should be captured: got {total} (leading={total_leading}, trailing={total_trailing}, standalone={total_standalone}), expected {}",
-            comment_count + inline_count);
+            comment_count + inline_count
+        );
     }
 
     // --- Contract: preserve_comments ---
 
-    #[specforge_test_macros::test(behavior = "preserve_comments", verify = "requires/ensures consistency for comment preservation")]
+    #[specforge_test_macros::test(
+        behavior = "preserve_comments",
+        verify = "requires/ensures consistency for comment preservation"
+    )]
     #[test]
     fn test_preserve_comments_contract() {
         // requires: cst_available (we parse the source)
@@ -316,12 +349,31 @@ mod tests {
         // ensures: all_comments_attached
         let total_leading: usize = map.leading.values().map(|v| v.len()).sum();
         let total_trailing: usize = map.trailing.values().map(|v| v.len()).sum();
-        assert!(total_leading + total_trailing > 0, "comments should be attached");
+        assert!(
+            total_leading + total_trailing > 0,
+            "comments should be attached"
+        );
 
         // ensures: no_comments_lost
-        let leading_texts: Vec<&str> = map.leading.values().flatten().map(|c| c.text.as_str()).collect();
-        let trailing_texts: Vec<&str> = map.trailing.values().flatten().map(|c| c.text.as_str()).collect();
-        assert!(leading_texts.contains(&"// leading"), "leading comment should be preserved");
-        assert!(trailing_texts.contains(&"// trailing"), "trailing comment should be preserved");
+        let leading_texts: Vec<&str> = map
+            .leading
+            .values()
+            .flatten()
+            .map(|c| c.text.as_str())
+            .collect();
+        let trailing_texts: Vec<&str> = map
+            .trailing
+            .values()
+            .flatten()
+            .map(|c| c.text.as_str())
+            .collect();
+        assert!(
+            leading_texts.contains(&"// leading"),
+            "leading comment should be preserved"
+        );
+        assert!(
+            trailing_texts.contains(&"// trailing"),
+            "trailing comment should be preserved"
+        );
     }
 }

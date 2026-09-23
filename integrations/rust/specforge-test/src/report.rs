@@ -15,7 +15,11 @@ struct BinaryReportRef<'a> {
     entries: &'a [TestRecordEntry],
 }
 
-pub fn write_report(dir: &Path, binary_name: &str, entries: &[TestRecordEntry]) -> std::io::Result<()> {
+pub fn write_report(
+    dir: &Path,
+    binary_name: &str,
+    entries: &[TestRecordEntry],
+) -> std::io::Result<()> {
     if entries.is_empty() {
         return Ok(());
     }
@@ -23,7 +27,11 @@ pub fn write_report(dir: &Path, binary_name: &str, entries: &[TestRecordEntry]) 
     std::fs::create_dir_all(dir)?;
 
     let mut sorted = entries.to_vec();
-    sorted.sort_by(|a, b| a.entity_id.cmp(&b.entity_id).then(a.test_name.cmp(&b.test_name)));
+    sorted.sort_by(|a, b| {
+        a.entity_id
+            .cmp(&b.entity_id)
+            .then(a.test_name.cmp(&b.test_name))
+    });
 
     let report = BinaryReportRef {
         schema_version: "1.0",

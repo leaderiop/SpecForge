@@ -1,9 +1,9 @@
 use assert_cmd::Command;
 use predicates::prelude::*;
 use specforge_common::Sym;
+use specforge_test_macros::test as specforge_test;
 use std::fs;
 use tempfile::TempDir;
-use specforge_test_macros::test as specforge_test;
 
 fn setup_project(dir: &std::path::Path) {
     fs::write(
@@ -36,7 +36,11 @@ fn migrate_exits_zero_on_current_version_project() {
     let root = tmp.path();
     setup_project(root);
     // Files without a version header default to current version → skipped
-    write_spec(root, "test.spec", "behavior foo \"Foo\" {\n  contract \"does stuff\"\n}\n");
+    write_spec(
+        root,
+        "test.spec",
+        "behavior foo \"Foo\" {\n  contract \"does stuff\"\n}\n",
+    );
 
     Command::cargo_bin("specforge")
         .unwrap()
@@ -56,7 +60,11 @@ fn migrate_json_output_contains_summary_fields() {
     let tmp = TempDir::new().unwrap();
     let root = tmp.path();
     setup_project(root);
-    write_spec(root, "test.spec", "behavior foo \"Foo\" {\n  contract \"stuff\"\n}\n");
+    write_spec(
+        root,
+        "test.spec",
+        "behavior foo \"Foo\" {\n  contract \"stuff\"\n}\n",
+    );
 
     let output = Command::cargo_bin("specforge")
         .unwrap()
@@ -68,7 +76,10 @@ fn migrate_json_output_contains_summary_fields() {
     let json: serde_json::Value = serde_json::from_str(&stdout)
         .unwrap_or_else(|e| panic!("failed to parse JSON: {e}\nstdout: {stdout}"));
 
-    assert!(json.get("migrated_count").is_some(), "missing migrated_count");
+    assert!(
+        json.get("migrated_count").is_some(),
+        "missing migrated_count"
+    );
     assert!(json.get("failed_count").is_some(), "missing failed_count");
     assert!(json.get("skipped_count").is_some(), "missing skipped_count");
     assert!(json.get("results").is_some(), "missing results");
@@ -85,11 +96,20 @@ fn migrate_unknown_target_version_produces_error() {
     let tmp = TempDir::new().unwrap();
     let root = tmp.path();
     setup_project(root);
-    write_spec(root, "test.spec", "behavior foo \"Foo\" {\n  contract \"stuff\"\n}\n");
+    write_spec(
+        root,
+        "test.spec",
+        "behavior foo \"Foo\" {\n  contract \"stuff\"\n}\n",
+    );
 
     Command::cargo_bin("specforge")
         .unwrap()
-        .args(["migrate", "--target-version=99.0", "--path", root.to_str().unwrap()])
+        .args([
+            "migrate",
+            "--target-version=99.0",
+            "--path",
+            root.to_str().unwrap(),
+        ])
         .assert()
         .code(1)
         .stderr(predicate::str::contains("E015"));
@@ -134,7 +154,11 @@ fn missing_version_header_defaults_to_current() {
     let tmp = TempDir::new().unwrap();
     let root = tmp.path();
     setup_project(root);
-    write_spec(root, "test.spec", "behavior foo \"Foo\" {\n  contract \"stuff\"\n}\n");
+    write_spec(
+        root,
+        "test.spec",
+        "behavior foo \"Foo\" {\n  contract \"stuff\"\n}\n",
+    );
 
     // No header = current version → skipped
     Command::cargo_bin("specforge")
@@ -144,7 +168,10 @@ fn missing_version_header_defaults_to_current() {
         .map(|o| {
             let stdout = String::from_utf8(o.stdout).unwrap();
             let json: serde_json::Value = serde_json::from_str(&stdout).unwrap();
-            assert_eq!(json["skipped_count"], 1, "file without header should be skipped");
+            assert_eq!(
+                json["skipped_count"], 1,
+                "file without header should be skipped"
+            );
         })
         .unwrap();
 }
@@ -245,7 +272,10 @@ fn backup_created_before_modification() {
     let bak_path = root.join("spec/test.spec.bak");
     assert!(bak_path.exists(), ".spec.bak should exist");
     let bak_content = fs::read_to_string(&bak_path).unwrap();
-    assert_eq!(bak_content, original, "backup should contain original content byte-for-byte");
+    assert_eq!(
+        bak_content, original,
+        "backup should contain original content byte-for-byte"
+    );
 }
 
 // C3: Atomic write via temp+rename — no .spec.tmp remains
@@ -375,8 +405,14 @@ fn diff_uses_posix_prefix_convention() {
         .unwrap();
 
     let stdout = String::from_utf8(output.stdout).unwrap();
-    assert!(stdout.contains("--- a/"), "diff should use a/ prefix: {stdout}");
-    assert!(stdout.contains("+++ b/"), "diff should use b/ prefix: {stdout}");
+    assert!(
+        stdout.contains("--- a/"),
+        "diff should use a/ prefix: {stdout}"
+    );
+    assert!(
+        stdout.contains("+++ b/"),
+        "diff should use b/ prefix: {stdout}"
+    );
 }
 
 // D3: --dry-run --format=json → structured MigrationDiff
@@ -459,10 +495,16 @@ fn rollback_restores_from_bak_files() {
 
     // File should be restored to original
     let restored = fs::read_to_string(root.join("spec/test.spec")).unwrap();
-    assert_eq!(restored, original, "rollback should restore original content");
+    assert_eq!(
+        restored, original,
+        "rollback should restore original content"
+    );
 
     // .bak should still exist (we don't delete it)
-    assert!(root.join("spec/test.spec.bak").exists(), ".bak should still exist");
+    assert!(
+        root.join("spec/test.spec.bak").exists(),
+        ".bak should still exist"
+    );
 }
 
 // E2: Missing .bak → skip
@@ -476,12 +518,22 @@ fn rollback_missing_bak_skips() {
     let root = tmp.path();
     setup_project(root);
 
-    write_spec(root, "test.spec", "behavior foo \"Foo\" {\n  contract \"stuff\"\n}\n");
+    write_spec(
+        root,
+        "test.spec",
+        "behavior foo \"Foo\" {\n  contract \"stuff\"\n}\n",
+    );
 
     // Rollback without any .bak files
     let output = Command::cargo_bin("specforge")
         .unwrap()
-        .args(["migrate", "--rollback", "--format=json", "--path", root.to_str().unwrap()])
+        .args([
+            "migrate",
+            "--rollback",
+            "--format=json",
+            "--path",
+            root.to_str().unwrap(),
+        ])
         .output()
         .unwrap();
 
@@ -520,7 +572,13 @@ fn rollback_failure_isolation() {
     // Rollback — a should be skipped, b should be restored
     let output = Command::cargo_bin("specforge")
         .unwrap()
-        .args(["migrate", "--rollback", "--format=json", "--path", root.to_str().unwrap()])
+        .args([
+            "migrate",
+            "--rollback",
+            "--format=json",
+            "--path",
+            root.to_str().unwrap(),
+        ])
         .output()
         .unwrap();
 
@@ -530,8 +588,14 @@ fn rollback_failure_isolation() {
     // a was skipped (no .bak), b was restored
     let restored = json["restored_count"].as_u64().unwrap_or(0);
     let skipped = json["skipped_count"].as_u64().unwrap_or(0);
-    assert!(restored >= 1, "at least one file should be restored: {stdout}");
-    assert!(skipped >= 1, "at least one file should be skipped: {stdout}");
+    assert!(
+        restored >= 1,
+        "at least one file should be restored: {stdout}"
+    );
+    assert!(
+        skipped >= 1,
+        "at least one file should be skipped: {stdout}"
+    );
 
     // b should be restored to original
     let b_content = fs::read_to_string(root.join("spec/b.spec")).unwrap();
@@ -549,8 +613,8 @@ fn rollback_failure_isolation() {
 )]
 #[test]
 fn capture_pre_migration_snapshot_captures_schema() {
-    use specforge_migrate::{capture_pre_migration_snapshot};
     use specforge_emitter::schema::{GraphProtocolSchema, SchemaEntityKind, SchemaVersion};
+    use specforge_migrate::capture_pre_migration_snapshot;
 
     let schema = GraphProtocolSchema {
         schema_version: SchemaVersion::new(1, 0, 0),
@@ -576,8 +640,8 @@ fn capture_pre_migration_snapshot_captures_schema() {
 )]
 #[test]
 fn format_only_migration_zero_differences() {
-    use specforge_migrate::compare_graphs;
     use specforge_graph::Graph;
+    use specforge_migrate::compare_graphs;
 
     // Two identical graphs → zero differences
     let graph = Graph::new();
@@ -595,13 +659,17 @@ fn format_only_migration_zero_differences() {
 )]
 #[test]
 fn structural_differences_produce_warnings() {
+    use specforge_graph::{EntityId, EntityKind, FieldMap, Graph, Node, SourceSpan};
     use specforge_migrate::compare_graphs;
-    use specforge_graph::{Graph, Node, EntityId, EntityKind, FieldMap, SourceSpan};
 
     let mut pre = Graph::new();
     pre.add_node(Node {
-        id: EntityId { raw: Sym::new("foo") },
-        kind: EntityKind { raw: Sym::new("behavior") },
+        id: EntityId {
+            raw: Sym::new("foo"),
+        },
+        kind: EntityKind {
+            raw: Sym::new("behavior"),
+        },
         title: None,
         source_span: SourceSpan {
             file: Sym::new("test.spec"),
@@ -616,7 +684,10 @@ fn structural_differences_produce_warnings() {
     let post = Graph::new(); // Empty graph — entity "foo" is missing
 
     let diagnostics = compare_graphs(&pre, &post);
-    assert!(!diagnostics.is_empty(), "missing entity should produce diagnostic");
+    assert!(
+        !diagnostics.is_empty(),
+        "missing entity should produce diagnostic"
+    );
     assert!(
         diagnostics.iter().any(|d| d.code == "W054"),
         "should emit W054: {diagnostics:?}"
@@ -630,8 +701,8 @@ fn structural_differences_produce_warnings() {
 )]
 #[test]
 fn breaking_schema_change_produces_w053() {
-    use specforge_migrate::check_schema_compatibility;
     use specforge_emitter::schema::{GraphProtocolSchema, SchemaEntityKind, SchemaVersion};
+    use specforge_migrate::check_schema_compatibility;
 
     let pre = GraphProtocolSchema {
         schema_version: SchemaVersion::new(1, 0, 0),
@@ -667,10 +738,10 @@ fn breaking_schema_change_produces_w053() {
 )]
 #[test]
 fn non_breaking_schema_change_no_w053() {
-    use specforge_migrate::check_schema_compatibility;
     use specforge_emitter::schema::{
         GraphProtocolSchema, SchemaEntityKind, SchemaField, SchemaVersion,
     };
+    use specforge_migrate::check_schema_compatibility;
 
     let pre = GraphProtocolSchema {
         schema_version: SchemaVersion::new(1, 0, 0),
@@ -725,9 +796,7 @@ fn non_breaking_schema_change_no_w053() {
 )]
 #[test]
 fn extension_without_hook_skipped() {
-    use specforge_migrate::{
-        FormatVersion, MigrationHookRunner, NoOpMigrationHookRunner,
-    };
+    use specforge_migrate::{FormatVersion, MigrationHookRunner, NoOpMigrationHookRunner};
 
     let runner = NoOpMigrationHookRunner;
     let result = runner.invoke(
@@ -821,9 +890,18 @@ fn full_pipeline_migration() {
     setup_project(root);
 
     let files = [
-        ("a.spec", "// specforge-format: 0.1\nbehavior a \"A\" {\n  contract \"a\"\n}\n"),
-        ("b.spec", "// specforge-format: 0.1\nbehavior b \"B\" {\n  contract \"b\"\n}\n"),
-        ("c.spec", "// specforge-format: 0.1\nbehavior c \"C\" {\n  contract \"c\"\n}\n"),
+        (
+            "a.spec",
+            "// specforge-format: 0.1\nbehavior a \"A\" {\n  contract \"a\"\n}\n",
+        ),
+        (
+            "b.spec",
+            "// specforge-format: 0.1\nbehavior b \"B\" {\n  contract \"b\"\n}\n",
+        ),
+        (
+            "c.spec",
+            "// specforge-format: 0.1\nbehavior c \"C\" {\n  contract \"c\"\n}\n",
+        ),
     ];
 
     for (name, content) in &files {
@@ -883,7 +961,10 @@ fn double_migrate_is_idempotent() {
         .stderr(predicate::str::contains("0 migrated"));
 
     let after_second = fs::read_to_string(root.join("spec/test.spec")).unwrap();
-    assert_eq!(after_first, after_second, "second migrate should not change files");
+    assert_eq!(
+        after_first, after_second,
+        "second migrate should not change files"
+    );
 }
 
 // H3: Failure in one file does not block others
@@ -956,7 +1037,10 @@ fn json_summary_contains_results_and_backups() {
     assert!(json["results"].is_array(), "results should be an array");
     assert!(json["backups"].is_array(), "backups should be an array");
     assert_eq!(json["migrated_count"], 1);
-    assert!(!json["backups"].as_array().unwrap().is_empty(), "backups should be populated");
+    assert!(
+        !json["backups"].as_array().unwrap().is_empty(),
+        "backups should be populated"
+    );
 }
 
 // ===================================================================
@@ -993,7 +1077,10 @@ fn current_format_version_no_diagnostic() {
     let (version, diags) = detect_format_version(content);
     assert_eq!(version.major, 1);
     assert_eq!(version.minor, 0);
-    assert!(diags.is_empty(), "current version should produce no diagnostic: {diags:?}");
+    assert!(
+        diags.is_empty(),
+        "current version should produce no diagnostic: {diags:?}"
+    );
 }
 
 #[specforge_test(
@@ -1002,11 +1089,14 @@ fn current_format_version_no_diagnostic() {
 )]
 #[test]
 fn missing_format_version_defaults_to_current() {
-    use specforge_migrate::{detect_format_version, CURRENT_FORMAT_VERSION};
+    use specforge_migrate::{CURRENT_FORMAT_VERSION, detect_format_version};
 
     let content = "behavior foo \"Foo\" {\n  contract \"x\"\n}\n";
     let (version, diags) = detect_format_version(content);
-    assert_eq!(version, CURRENT_FORMAT_VERSION, "no header → defaults to current");
+    assert_eq!(
+        version, CURRENT_FORMAT_VERSION,
+        "no header → defaults to current"
+    );
     assert!(diags.is_empty(), "no header → no diagnostic: {diags:?}");
 }
 
@@ -1035,7 +1125,9 @@ fn unsupported_format_version_produces_e015() {
     let content = "// specforge-format: 99.0\nbehavior foo \"Foo\" {\n  contract \"x\"\n}\n";
     let (_version, diags) = detect_format_version(content);
     assert!(
-        diags.iter().any(|d| d.code == "E015" && d.suggestion.is_some()),
+        diags
+            .iter()
+            .any(|d| d.code == "E015" && d.suggestion.is_some()),
         "unsupported version should emit E015 with suggestion: {diags:?}"
     );
 }
@@ -1059,7 +1151,10 @@ fn detect_format_version_contract() {
     // Invalid header → fallback version, error emitted
     let (v, d) = detect_format_version("// specforge-format: abc\n");
     assert!(v.major >= 1, "fallback to min supported");
-    assert!(d.iter().any(|d| d.severity == specforge_common::Severity::Error));
+    assert!(
+        d.iter()
+            .any(|d| d.severity == specforge_common::Severity::Error)
+    );
 
     // No header → current version, no diagnostics
     let (v, d) = detect_format_version("behavior foo \"Foo\" {}\n");
@@ -1185,11 +1280,15 @@ fn diff_format_compatible_with_patch() {
     assert!(stdout.contains("@@"), "missing @@ hunk header");
     // 3. Changed lines start with + or -
     assert!(
-        stdout.lines().any(|l| l.starts_with('-') && !l.starts_with("---")),
+        stdout
+            .lines()
+            .any(|l| l.starts_with('-') && !l.starts_with("---")),
         "missing - removed lines"
     );
     assert!(
-        stdout.lines().any(|l| l.starts_with('+') && !l.starts_with("+++")),
+        stdout
+            .lines()
+            .any(|l| l.starts_with('+') && !l.starts_with("+++")),
         "missing + added lines"
     );
 }
@@ -1264,7 +1363,13 @@ fn migration_diff_contract() {
 
     let output = Command::cargo_bin("specforge")
         .unwrap()
-        .args(["migrate", "--dry-run", "--format=json", "--path", root.to_str().unwrap()])
+        .args([
+            "migrate",
+            "--dry-run",
+            "--format=json",
+            "--path",
+            root.to_str().unwrap(),
+        ])
         .output()
         .unwrap();
 
@@ -1279,7 +1384,10 @@ fn migration_diff_contract() {
     // no_files_modified
     let after = fs::read_to_string(root.join("spec/test.spec")).unwrap();
     assert_eq!(after, original, "dry-run must not modify files");
-    assert!(!root.join("spec/test.spec.bak").exists(), "dry-run must not create backups");
+    assert!(
+        !root.join("spec/test.spec.bak").exists(),
+        "dry-run must not create backups"
+    );
 }
 
 // ===================================================================
@@ -1292,39 +1400,56 @@ fn migration_diff_contract() {
 )]
 #[test]
 fn post_migration_check_runs_automatically() {
-    use specforge_migrate::compare_graphs;
     use specforge_graph::{EntityId, EntityKind, FieldMap, Graph, Node, SourceSpan};
+    use specforge_migrate::compare_graphs;
 
     // The compare_graphs function is the post-migration check.
     // It runs automatically as part of the migration pipeline.
     // Here we verify it catches differences when invoked.
     let mut pre = Graph::new();
     pre.add_node(Node {
-        id: EntityId { raw: Sym::new("alpha") },
-        kind: EntityKind { raw: Sym::new("behavior") },
+        id: EntityId {
+            raw: Sym::new("alpha"),
+        },
+        kind: EntityKind {
+            raw: Sym::new("behavior"),
+        },
         title: Some("Alpha".to_string()),
         source_span: SourceSpan {
             file: Sym::new("test.spec"),
-            start_line: 1, start_col: 0, end_line: 1, end_col: 0,
+            start_line: 1,
+            start_col: 0,
+            end_line: 1,
+            end_col: 0,
         },
         fields: FieldMap::new(),
     });
 
     let mut post = Graph::new();
     post.add_node(Node {
-        id: EntityId { raw: Sym::new("alpha") },
-        kind: EntityKind { raw: Sym::new("behavior") },
+        id: EntityId {
+            raw: Sym::new("alpha"),
+        },
+        kind: EntityKind {
+            raw: Sym::new("behavior"),
+        },
         title: Some("Alpha".to_string()),
         source_span: SourceSpan {
             file: Sym::new("test.spec"),
-            start_line: 5, start_col: 0, end_line: 5, end_col: 0,
+            start_line: 5,
+            start_col: 0,
+            end_line: 5,
+            end_col: 0,
         },
         fields: FieldMap::new(),
     });
 
     // Identical entities (different source spans excluded) → no diagnostics
     let diags = compare_graphs(&pre, &post);
-    assert!(diags.is_empty(), "same entities should produce no diagnostics");
+    assert!(
+        diags.is_empty(),
+        "same entities should produce no diagnostics"
+    );
 }
 
 #[specforge_test(
@@ -1333,26 +1458,35 @@ fn post_migration_check_runs_automatically() {
 )]
 #[test]
 fn new_entities_after_migration_reported() {
-    use specforge_migrate::compare_graphs;
     use specforge_graph::{EntityId, EntityKind, FieldMap, Graph, Node, SourceSpan};
+    use specforge_migrate::compare_graphs;
 
     let pre = Graph::new(); // empty before
 
     let mut post = Graph::new();
     post.add_node(Node {
-        id: EntityId { raw: Sym::new("new_entity") },
-        kind: EntityKind { raw: Sym::new("behavior") },
+        id: EntityId {
+            raw: Sym::new("new_entity"),
+        },
+        kind: EntityKind {
+            raw: Sym::new("behavior"),
+        },
         title: None,
         source_span: SourceSpan {
             file: Sym::new("test.spec"),
-            start_line: 1, start_col: 0, end_line: 1, end_col: 0,
+            start_line: 1,
+            start_col: 0,
+            end_line: 1,
+            end_col: 0,
         },
         fields: FieldMap::new(),
     });
 
     let diags = compare_graphs(&pre, &post);
     assert!(
-        diags.iter().any(|d| d.message.contains("new_entity") && d.message.contains("appeared")),
+        diags
+            .iter()
+            .any(|d| d.message.contains("new_entity") && d.message.contains("appeared")),
         "new entity should be reported: {diags:?}"
     );
 }
@@ -1363,16 +1497,21 @@ fn new_entities_after_migration_reported() {
 )]
 #[test]
 fn post_migration_integrity_contract() {
+    use specforge_graph::{Edge, EntityId, EntityKind, FieldMap, Graph, Node, SourceSpan};
     use specforge_migrate::compare_graphs;
-    use specforge_graph::{EntityId, EntityKind, Edge, FieldMap, Graph, Node, SourceSpan};
 
     let make_node = |id: &str| Node {
         id: EntityId { raw: Sym::new(id) },
-        kind: EntityKind { raw: Sym::new("behavior") },
+        kind: EntityKind {
+            raw: Sym::new("behavior"),
+        },
         title: None,
         source_span: SourceSpan {
             file: Sym::new("t.spec"),
-            start_line: 1, start_col: 0, end_line: 1, end_col: 0,
+            start_line: 1,
+            start_col: 0,
+            end_line: 1,
+            end_col: 0,
         },
         fields: FieldMap::new(),
     };
@@ -1386,7 +1525,10 @@ fn post_migration_integrity_contract() {
     pre.add_node(make_node("x"));
     let post = Graph::new();
     let diags = compare_graphs(&pre, &post);
-    assert!(diags.iter().any(|d| d.code == "W054"), "missing entity → W054");
+    assert!(
+        diags.iter().any(|d| d.code == "W054"),
+        "missing entity → W054"
+    );
 
     // Ensures: edge differences reported
     let mut pre2 = Graph::new();
@@ -1401,8 +1543,12 @@ fn post_migration_integrity_contract() {
     post2.add_node(make_node("a"));
     post2.add_node(make_node("b"));
     let diags2 = compare_graphs(&pre2, &post2);
-    assert!(diags2.iter().any(|d| d.code == "W054" && d.message.contains("edge")),
-        "missing edge → W054: {diags2:?}");
+    assert!(
+        diags2
+            .iter()
+            .any(|d| d.code == "W054" && d.message.contains("edge")),
+        "missing edge → W054: {diags2:?}"
+    );
 }
 
 // ===================================================================
@@ -1415,10 +1561,10 @@ fn post_migration_integrity_contract() {
 )]
 #[test]
 fn snapshot_includes_all_schema_components() {
-    use specforge_migrate::capture_pre_migration_snapshot;
     use specforge_emitter::schema::{
         GraphProtocolSchema, SchemaEdgeType, SchemaEntityKind, SchemaField, SchemaVersion,
     };
+    use specforge_migrate::capture_pre_migration_snapshot;
 
     let schema = GraphProtocolSchema {
         schema_version: SchemaVersion::new(1, 0, 0),
@@ -1468,8 +1614,8 @@ fn snapshot_includes_all_schema_components() {
 )]
 #[test]
 fn snapshot_persists_across_lifecycle() {
-    use specforge_migrate::capture_pre_migration_snapshot;
     use specforge_emitter::schema::{GraphProtocolSchema, SchemaEntityKind, SchemaVersion};
+    use specforge_migrate::capture_pre_migration_snapshot;
 
     let schema = GraphProtocolSchema {
         schema_version: SchemaVersion::new(1, 0, 0),
@@ -1501,8 +1647,8 @@ fn snapshot_persists_across_lifecycle() {
 )]
 #[test]
 fn pre_migration_snapshot_contract() {
-    use specforge_migrate::capture_pre_migration_snapshot;
     use specforge_emitter::schema::{GraphProtocolSchema, SchemaVersion};
+    use specforge_migrate::capture_pre_migration_snapshot;
 
     // Requires: migration_starting fired (we call the function directly)
     // Ensures: snapshot_captured with node kinds, edge types, field defs
@@ -1530,8 +1676,8 @@ fn pre_migration_snapshot_contract() {
 )]
 #[test]
 fn entity_structure_change_triggers_check() {
-    use specforge_migrate::check_schema_compatibility;
     use specforge_emitter::schema::{GraphProtocolSchema, SchemaEntityKind, SchemaVersion};
+    use specforge_migrate::check_schema_compatibility;
 
     let pre = GraphProtocolSchema {
         schema_version: SchemaVersion::new(1, 0, 0),
@@ -1580,8 +1726,8 @@ fn entity_structure_change_triggers_check() {
 )]
 #[test]
 fn formatting_only_change_no_schema_diff() {
-    use specforge_migrate::check_schema_compatibility;
     use specforge_emitter::schema::{GraphProtocolSchema, SchemaEntityKind, SchemaVersion};
+    use specforge_migrate::check_schema_compatibility;
 
     let schema = GraphProtocolSchema {
         schema_version: SchemaVersion::new(1, 0, 0),
@@ -1606,8 +1752,8 @@ fn formatting_only_change_no_schema_diff() {
 )]
 #[test]
 fn removed_node_kind_is_breaking() {
-    use specforge_migrate::check_schema_compatibility;
     use specforge_emitter::schema::{GraphProtocolSchema, SchemaEntityKind, SchemaVersion};
+    use specforge_migrate::check_schema_compatibility;
 
     let pre = GraphProtocolSchema {
         schema_version: SchemaVersion::new(1, 0, 0),
@@ -1641,10 +1787,8 @@ fn removed_node_kind_is_breaking() {
 )]
 #[test]
 fn removed_edge_type_is_breaking() {
+    use specforge_emitter::schema::{GraphProtocolSchema, SchemaEdgeType, SchemaVersion};
     use specforge_migrate::check_schema_compatibility;
-    use specforge_emitter::schema::{
-        GraphProtocolSchema, SchemaEdgeType, SchemaVersion,
-    };
 
     let pre = GraphProtocolSchema {
         schema_version: SchemaVersion::new(1, 0, 0),
@@ -1678,10 +1822,10 @@ fn removed_edge_type_is_breaking() {
 )]
 #[test]
 fn removed_required_field_is_breaking() {
-    use specforge_migrate::check_schema_compatibility;
     use specforge_emitter::schema::{
         GraphProtocolSchema, SchemaEntityKind, SchemaField, SchemaVersion,
     };
+    use specforge_migrate::check_schema_compatibility;
 
     let pre = GraphProtocolSchema {
         schema_version: SchemaVersion::new(1, 0, 0),
@@ -1730,10 +1874,10 @@ fn removed_required_field_is_breaking() {
 )]
 #[test]
 fn changed_field_type_is_breaking() {
-    use specforge_migrate::check_schema_compatibility;
     use specforge_emitter::schema::{
         GraphProtocolSchema, SchemaEntityKind, SchemaField, SchemaVersion,
     };
+    use specforge_migrate::check_schema_compatibility;
 
     let pre = GraphProtocolSchema {
         schema_version: SchemaVersion::new(1, 0, 0),
@@ -1792,10 +1936,10 @@ fn changed_field_type_is_breaking() {
 )]
 #[test]
 fn added_optional_field_not_breaking() {
-    use specforge_migrate::check_schema_compatibility;
     use specforge_emitter::schema::{
         GraphProtocolSchema, SchemaEntityKind, SchemaField, SchemaVersion,
     };
+    use specforge_migrate::check_schema_compatibility;
 
     let pre = GraphProtocolSchema {
         schema_version: SchemaVersion::new(1, 0, 0),
@@ -1844,16 +1988,21 @@ fn added_optional_field_not_breaking() {
 )]
 #[test]
 fn cross_extension_broken_reference_produces_diagnostic() {
-    use specforge_migrate::compare_graphs;
     use specforge_graph::{Edge, EntityId, EntityKind, FieldMap, Graph, Node, SourceSpan};
+    use specforge_migrate::compare_graphs;
 
     let make_node = |id: &str, kind: &str| Node {
         id: EntityId { raw: Sym::new(id) },
-        kind: EntityKind { raw: Sym::new(kind) },
+        kind: EntityKind {
+            raw: Sym::new(kind),
+        },
         title: None,
         source_span: SourceSpan {
             file: Sym::new("t.spec"),
-            start_line: 1, start_col: 0, end_line: 1, end_col: 0,
+            start_line: 1,
+            start_col: 0,
+            end_line: 1,
+            end_col: 0,
         },
         fields: FieldMap::new(),
     };
@@ -1890,10 +2039,8 @@ fn cross_extension_broken_reference_produces_diagnostic() {
 )]
 #[test]
 fn graph_protocol_compatibility_contract() {
+    use specforge_emitter::schema::{GraphProtocolSchema, SchemaEntityKind, SchemaVersion};
     use specforge_migrate::check_schema_compatibility;
-    use specforge_emitter::schema::{
-        GraphProtocolSchema, SchemaEntityKind, SchemaVersion,
-    };
 
     // Requires: pre-migration snapshot available, extension hooks complete
     // Ensures: compatibility verified, breaking changes warned, event emitted
@@ -1993,14 +2140,23 @@ fn rollback_summary_counts() {
     // Rollback — a has .bak, b doesn't
     let output = Command::cargo_bin("specforge")
         .unwrap()
-        .args(["migrate", "--rollback", "--format=json", "--path", root.to_str().unwrap()])
+        .args([
+            "migrate",
+            "--rollback",
+            "--format=json",
+            "--path",
+            root.to_str().unwrap(),
+        ])
         .output()
         .unwrap();
 
     let stdout = String::from_utf8(output.stdout).unwrap();
     let json: serde_json::Value = serde_json::from_str(&stdout).unwrap();
 
-    assert!(json.get("restored_count").is_some(), "missing restored_count");
+    assert!(
+        json.get("restored_count").is_some(),
+        "missing restored_count"
+    );
     assert!(json.get("skipped_count").is_some(), "missing skipped_count");
     assert!(json.get("failed_count").is_some(), "missing failed_count");
 
@@ -2030,12 +2186,21 @@ fn rollback_contract() {
         .assert()
         .success();
 
-    assert!(root.join("spec/test.spec.bak").exists(), "backup must exist before rollback");
+    assert!(
+        root.join("spec/test.spec.bak").exists(),
+        "backup must exist before rollback"
+    );
 
     // Ensures: files restored, event emitted
     let output = Command::cargo_bin("specforge")
         .unwrap()
-        .args(["migrate", "--rollback", "--format=json", "--path", root.to_str().unwrap()])
+        .args([
+            "migrate",
+            "--rollback",
+            "--format=json",
+            "--path",
+            root.to_str().unwrap(),
+        ])
         .output()
         .unwrap();
 
@@ -2051,7 +2216,10 @@ fn rollback_contract() {
     assert_eq!(content, original);
 
     // Maintains: backup_file_preservation
-    assert!(root.join("spec/test.spec.bak").exists(), ".bak preserved after rollback");
+    assert!(
+        root.join("spec/test.spec.bak").exists(),
+        ".bak preserved after rollback"
+    );
 }
 
 // ===================================================================
@@ -2079,13 +2247,18 @@ fn extension_with_hook_gets_invoked() {
             _from: &FormatVersion,
             _to: &FormatVersion,
         ) -> Result<(), String> {
-            self.invocations.lock().unwrap().push(format!("{ext}:{hook}"));
+            self.invocations
+                .lock()
+                .unwrap()
+                .push(format!("{ext}:{hook}"));
             Ok(())
         }
     }
 
     let invocations = Arc::new(Mutex::new(Vec::new()));
-    let runner = TrackingRunner { invocations: invocations.clone() };
+    let runner = TrackingRunner {
+        invocations: invocations.clone(),
+    };
 
     let result = runner.invoke(
         "@specforge/software",
@@ -2147,7 +2320,9 @@ fn hooks_invoked_in_deterministic_order() {
     }
 
     let order = Arc::new(Mutex::new(Vec::new()));
-    let runner = OrderTracker { order: order.clone() };
+    let runner = OrderTracker {
+        order: order.clone(),
+    };
     let from = FormatVersion { major: 0, minor: 1 };
     let to = FormatVersion { major: 1, minor: 0 };
 
@@ -2172,7 +2347,9 @@ fn hooks_invoked_in_deterministic_order() {
     // Run again — same order (deterministic)
     drop(calls);
     let order2 = Arc::new(Mutex::new(Vec::new()));
-    let runner2 = OrderTracker { order: order2.clone() };
+    let runner2 = OrderTracker {
+        order: order2.clone(),
+    };
 
     for ext in &extensions {
         runner2.invoke(ext, "migrate", &from, &to).unwrap();
@@ -2218,10 +2395,18 @@ fn failed_extension_hook_skipped() {
     let to = FormatVersion { major: 1, minor: 0 };
 
     // Failed extension returns error
-    assert!(runner.invoke("@specforge/broken", "migrate", &from, &to).is_err());
+    assert!(
+        runner
+            .invoke("@specforge/broken", "migrate", &from, &to)
+            .is_err()
+    );
 
     // Healthy extension succeeds
-    assert!(runner.invoke("@specforge/software", "migrate", &from, &to).is_ok());
+    assert!(
+        runner
+            .invoke("@specforge/software", "migrate", &from, &to)
+            .is_ok()
+    );
 }
 
 #[specforge_test(
@@ -2230,9 +2415,7 @@ fn failed_extension_hook_skipped() {
 )]
 #[test]
 fn extension_hooks_contract() {
-    use specforge_migrate::{
-        FormatVersion, MigrationHookRunner, NoOpMigrationHookRunner,
-    };
+    use specforge_migrate::{FormatVersion, MigrationHookRunner, NoOpMigrationHookRunner};
 
     // Requires: migration_complete event has fired
     // Ensures: all hooks invoked, event emitted
@@ -2243,18 +2426,35 @@ fn extension_hooks_contract() {
 
     // No-op runner always succeeds → all hooks invoked
     let runner = NoOpMigrationHookRunner;
-    assert!(runner.invoke("@specforge/software", "migrate", &from, &to).is_ok());
-    assert!(runner.invoke("@specforge/product", "migrate", &from, &to).is_ok());
+    assert!(
+        runner
+            .invoke("@specforge/software", "migrate", &from, &to)
+            .is_ok()
+    );
+    assert!(
+        runner
+            .invoke("@specforge/product", "migrate", &from, &to)
+            .is_ok()
+    );
 
     // Failing runner still returns result (doesn't panic)
     struct FailRunner;
     impl MigrationHookRunner for FailRunner {
-        fn invoke(&self, _: &str, _: &str, _: &FormatVersion, _: &FormatVersion) -> Result<(), String> {
+        fn invoke(
+            &self,
+            _: &str,
+            _: &str,
+            _: &FormatVersion,
+            _: &FormatVersion,
+        ) -> Result<(), String> {
             Err("hook crashed".to_string())
         }
     }
     let fail_result = FailRunner.invoke("@specforge/software", "migrate", &from, &to);
-    assert!(fail_result.is_err(), "failing hook returns error, doesn't panic");
+    assert!(
+        fail_result.is_err(),
+        "failing hook returns error, doesn't panic"
+    );
 }
 
 // ===================================================================
@@ -2296,7 +2496,9 @@ fn mismatched_header_and_root_format_version() {
     let (version, diags) = detect_format_version(content);
     assert_eq!(version.major, 1);
     assert!(
-        !diags.iter().any(|d| d.severity == specforge_common::Severity::Error),
+        !diags
+            .iter()
+            .any(|d| d.severity == specforge_common::Severity::Error),
         "consistent version should not produce E-level diagnostic"
     );
 }
@@ -2307,8 +2509,8 @@ fn mismatched_header_and_root_format_version() {
 )]
 #[test]
 fn schema_comparison_runs_once() {
-    use specforge_migrate::check_schema_compatibility;
     use specforge_emitter::schema::{GraphProtocolSchema, SchemaEntityKind, SchemaVersion};
+    use specforge_migrate::check_schema_compatibility;
 
     let pre = GraphProtocolSchema {
         schema_version: SchemaVersion::new(1, 0, 0),
@@ -2326,7 +2528,11 @@ fn schema_comparison_runs_once() {
     // (no accumulated state between runs — single-shot comparison)
     let diags1 = check_schema_compatibility(&pre, &pre);
     let diags2 = check_schema_compatibility(&pre, &pre);
-    assert_eq!(diags1.len(), diags2.len(), "check is stateless, runs once per invocation");
+    assert_eq!(
+        diags1.len(),
+        diags2.len(),
+        "check is stateless, runs once per invocation"
+    );
     assert!(diags1.is_empty());
 }
 
@@ -2361,7 +2567,10 @@ fn hook_trap_collects_wasm_trap_info() {
 
     assert!(result.is_err());
     let err = result.unwrap_err();
-    assert!(err.contains("Wasm trap"), "error should contain trap info: {err}");
+    assert!(
+        err.contains("Wasm trap"),
+        "error should contain trap info: {err}"
+    );
 }
 
 #[specforge_test(
@@ -2370,10 +2579,10 @@ fn hook_trap_collects_wasm_trap_info() {
 )]
 #[test]
 fn validation_runs_after_core_and_hooks() {
-    use specforge_migrate::{
-        check_schema_compatibility, FormatVersion, MigrationHookRunner, NoOpMigrationHookRunner,
-    };
     use specforge_emitter::schema::{GraphProtocolSchema, SchemaVersion};
+    use specforge_migrate::{
+        FormatVersion, MigrationHookRunner, NoOpMigrationHookRunner, check_schema_compatibility,
+    };
 
     // Simulate: core migration runs, then extension hooks run, then validation
     let from = FormatVersion { major: 0, minor: 1 };
@@ -2394,5 +2603,8 @@ fn validation_runs_after_core_and_hooks() {
     // Step 3: Validation runs once after both complete
     let schema_post = schema_pre.clone(); // no changes in this case
     let diags = check_schema_compatibility(&schema_pre, &schema_post);
-    assert!(diags.is_empty(), "validation after hooks complete: no changes → no diags");
+    assert!(
+        diags.is_empty(),
+        "validation after hooks complete: no changes → no diags"
+    );
 }

@@ -7,7 +7,10 @@ use crate::state::McpState;
 pub fn get(state: &McpState, args: Value, id: Option<Value>) -> JsonRpcResponse {
     let entity_filter = args.get("entity_id").and_then(|v| v.as_str());
 
-    let nodes: Vec<_> = state.graph.nodes().into_iter()
+    let nodes: Vec<_> = state
+        .graph
+        .nodes()
+        .into_iter()
         .filter(|n| entity_filter.is_none() || entity_filter == Some(n.id.raw.as_str()))
         .collect();
 
@@ -65,16 +68,19 @@ pub fn get(state: &McpState, args: Value, id: Option<Value>) -> JsonRpcResponse 
         scope
     );
 
-    JsonRpcResponse::success(id, serde_json::json!({
-        "messages": [
-            {
-                "role": "user",
-                "content": { "type": "text", "text": instruction }
-            },
-            {
-                "role": "assistant",
-                "content": { "type": "text", "text": result.to_string() }
-            }
-        ]
-    }))
+    JsonRpcResponse::success(
+        id,
+        serde_json::json!({
+            "messages": [
+                {
+                    "role": "user",
+                    "content": { "type": "text", "text": instruction }
+                },
+                {
+                    "role": "assistant",
+                    "content": { "type": "text", "text": result.to_string() }
+                }
+            ]
+        }),
+    )
 }

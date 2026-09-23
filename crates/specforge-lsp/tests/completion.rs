@@ -5,36 +5,54 @@ use specforge_registry::FieldRegistry;
 use specforge_test_macros::test as spec;
 
 fn default_field_registry() -> FieldRegistry {
-    let ext_names: Vec<String> = ["@specforge/software", "@specforge/product", "@specforge/governance", "@specforge/formal"]
-        .iter().map(|s| s.to_string()).collect();
+    let ext_names: Vec<String> = [
+        "@specforge/software",
+        "@specforge/product",
+        "@specforge/governance",
+        "@specforge/formal",
+    ]
+    .iter()
+    .map(|s| s.to_string())
+    .collect();
     let runtime = specforge_emitter::builtins::runtime_for_extensions(&ext_names);
     let host = specforge_wasm::protocol::ProtocolHost::new(&runtime);
     let mut manifests = Vec::new();
     for name in &ext_names {
         if let Ok(ext) = specforge_wasm::protocol::load_protocol_extension(&host, name) {
-            manifests.push(specforge_wasm::protocol::protocol_extension_to_manifest(&ext));
+            manifests.push(specforge_wasm::protocol::protocol_extension_to_manifest(
+                &ext,
+            ));
         }
     }
-    let (_kind_reg, field_reg, _edge_reg, _diags) = specforge_registry::populate_registries(&manifests);
+    let (_kind_reg, field_reg, _edge_reg, _diags) =
+        specforge_registry::populate_registries(&manifests);
     field_reg
 }
 
 fn node(id: &str, kind: &str, title: Option<&str>) -> Node {
     Node {
         id: EntityId { raw: Sym::new(id) },
-        kind: EntityKind { raw: Sym::new(kind) },
+        kind: EntityKind {
+            raw: Sym::new(kind),
+        },
         title: title.map(|t| t.to_string()),
         fields: FieldMap::new(),
         source_span: SourceSpan {
             file: Sym::new("test.spec"),
-            start_line: 0, start_col: 0, end_line: 0, end_col: 0,
+            start_line: 0,
+            start_col: 0,
+            end_line: 0,
+            end_col: 0,
         },
     }
 }
 
 // -- autocomplete_entity_ids --------------------------------------------------
 
-#[spec(behavior = "autocomplete_entity_ids", verify = "autocomplete suggests matching IDs")]
+#[spec(
+    behavior = "autocomplete_entity_ids",
+    verify = "autocomplete suggests matching IDs"
+)]
 #[test]
 fn autocomplete_suggests_matching_ids() {
     let mut g = Graph::new();
@@ -48,7 +66,10 @@ fn autocomplete_suggests_matching_ids() {
     assert!(items.iter().any(|c| c.id == "user_logout"));
 }
 
-#[spec(behavior = "autocomplete_entity_ids", verify = "suggestions include entity titles and kinds")]
+#[spec(
+    behavior = "autocomplete_entity_ids",
+    verify = "suggestions include entity titles and kinds"
+)]
 #[test]
 fn autocomplete_includes_titles_and_kinds() {
     let mut g = Graph::new();
@@ -60,7 +81,10 @@ fn autocomplete_includes_titles_and_kinds() {
     assert_eq!(items[0].title.as_deref(), Some("User Login"));
 }
 
-#[spec(behavior = "autocomplete_entity_ids", verify = "suggestions filtered by target_kind when FieldRegistry has constraint")]
+#[spec(
+    behavior = "autocomplete_entity_ids",
+    verify = "suggestions filtered by target_kind when FieldRegistry has constraint"
+)]
 #[test]
 fn autocomplete_filters_by_target_kind() {
     let mut g = Graph::new();
@@ -72,7 +96,10 @@ fn autocomplete_filters_by_target_kind() {
     assert_eq!(items[0].id, "auth_token");
 }
 
-#[spec(behavior = "autocomplete_entity_ids", verify = "all IDs suggested when no target_kind constraint exists")]
+#[spec(
+    behavior = "autocomplete_entity_ids",
+    verify = "all IDs suggested when no target_kind constraint exists"
+)]
 #[test]
 fn autocomplete_all_ids_without_filter() {
     let mut g = Graph::new();
@@ -85,7 +112,10 @@ fn autocomplete_all_ids_without_filter() {
 
 // -- complete_field_names -----------------------------------------------------
 
-#[spec(behavior = "complete_field_names", verify = "field name completion uses FieldRegistry for entity kind")]
+#[spec(
+    behavior = "complete_field_names",
+    verify = "field name completion uses FieldRegistry for entity kind"
+)]
 #[test]
 fn complete_field_names_for_kind() {
     let reg = default_field_registry();
@@ -93,7 +123,10 @@ fn complete_field_names_for_kind() {
     assert!(fields.iter().any(|f| f == "contract"));
 }
 
-#[spec(behavior = "complete_field_names", verify = "suggestions are filtered by entity kind")]
+#[spec(
+    behavior = "complete_field_names",
+    verify = "suggestions are filtered by entity kind"
+)]
 #[test]
 fn field_names_differ_by_kind() {
     let reg = default_field_registry();
@@ -102,7 +135,10 @@ fn field_names_differ_by_kind() {
     assert_ne!(behavior_fields, type_fields);
 }
 
-#[spec(behavior = "complete_field_names", verify = "no field name suggestions outside entity blocks")]
+#[spec(
+    behavior = "complete_field_names",
+    verify = "no field name suggestions outside entity blocks"
+)]
 #[test]
 fn no_field_names_for_unknown_kind() {
     let fields = specforge_lsp::complete_field_names("__nonexistent__", None);
@@ -111,7 +147,10 @@ fn no_field_names_for_unknown_kind() {
 
 // -- complete_field_names with FieldRegistry ----------------------------------
 
-#[spec(behavior = "complete_field_names", verify = "field name completion uses FieldRegistry when populated")]
+#[spec(
+    behavior = "complete_field_names",
+    verify = "field name completion uses FieldRegistry when populated"
+)]
 #[test]
 fn complete_field_names_from_registry() {
     use specforge_registry::{FieldRegistry, FieldRegistryEntry, ManifestFieldType};
@@ -146,7 +185,10 @@ fn complete_field_names_from_registry() {
     assert_eq!(fields.len(), 2);
 }
 
-#[spec(behavior = "complete_field_names", verify = "returns empty when registry has no fields for kind")]
+#[spec(
+    behavior = "complete_field_names",
+    verify = "returns empty when registry has no fields for kind"
+)]
 #[test]
 fn complete_field_names_empty_when_registry_has_no_fields() {
     use specforge_registry::FieldRegistry;
@@ -157,7 +199,10 @@ fn complete_field_names_empty_when_registry_has_no_fields() {
 
 // -- complete_keywords --------------------------------------------------------
 
-#[spec(behavior = "complete_keywords", verify = "keyword completion includes all registered kinds")]
+#[spec(
+    behavior = "complete_keywords",
+    verify = "keyword completion includes all registered kinds"
+)]
 #[test]
 fn keyword_completion_includes_registered_kinds() {
     let keywords = specforge_lsp::complete_keywords(&["behavior", "type", "event"]);
@@ -166,7 +211,10 @@ fn keyword_completion_includes_registered_kinds() {
     assert!(keywords.contains(&"event".to_string()));
 }
 
-#[spec(behavior = "complete_keywords", verify = "structural keywords always included")]
+#[spec(
+    behavior = "complete_keywords",
+    verify = "structural keywords always included"
+)]
 #[test]
 fn keyword_completion_includes_structural() {
     let keywords = specforge_lsp::complete_keywords(&[]);
@@ -174,7 +222,10 @@ fn keyword_completion_includes_structural() {
     assert!(keywords.contains(&"define".to_string()));
 }
 
-#[spec(behavior = "complete_keywords", verify = "no keyword suggestions inside entity blocks")]
+#[spec(
+    behavior = "complete_keywords",
+    verify = "no keyword suggestions inside entity blocks"
+)]
 #[test]
 fn keyword_completion_no_duplicates() {
     // Even if "use" is passed as a registered kind, it should appear only once
@@ -183,7 +234,10 @@ fn keyword_completion_no_duplicates() {
     assert_eq!(use_count, 1);
 }
 
-#[spec(behavior = "complete_keywords", verify = "snippet templates based on kind field definitions")]
+#[spec(
+    behavior = "complete_keywords",
+    verify = "snippet templates based on kind field definitions"
+)]
 #[test]
 fn keyword_completion_snippet_template() {
     // Keywords should come with snippet templates
@@ -232,7 +286,10 @@ fn cursor_outside_reference_list() {
 }"#;
     // Cursor at line 2, col 4 — inside a block string, not [...]
     let ctx = specforge_lsp::cursor_context(content, 2, 4);
-    assert!(ctx.is_none(), "should not detect cursor inside reference list");
+    assert!(
+        ctx.is_none(),
+        "should not detect cursor inside reference list"
+    );
 }
 
 #[test]

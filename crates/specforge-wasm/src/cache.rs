@@ -36,10 +36,7 @@ pub fn cache_path_for_hash(cache_dir: &Path, wasm_hash: &str) -> PathBuf {
 /// This is **not** true AOT compilation (Extism does not yet expose a
 /// compile-to-native API); the cached artifact is the original Wasm bytes
 /// stored at a deterministic, content-addressed path for fast lookup.
-pub fn cache_wasm_binary(
-    wasm_path: &Path,
-    cache_dir: &Path,
-) -> Result<CacheEntry, Diagnostic> {
+pub fn cache_wasm_binary(wasm_path: &Path, cache_dir: &Path) -> Result<CacheEntry, Diagnostic> {
     let bytes = std::fs::read(wasm_path).map_err(|e| Diagnostic {
         code: "E028".to_string(),
         severity: Severity::Error,
@@ -167,11 +164,7 @@ pub fn has_cached_grammar(
 ) -> Option<PathBuf> {
     let key = grammar_cache_key(content_hash, abi_version);
     let path = cache_dir.join(format!("{}.grammar", key));
-    if path.exists() {
-        Some(path)
-    } else {
-        None
-    }
+    if path.exists() { Some(path) } else { None }
 }
 
 /// Invalidate a specific cache entry by wasm hash.
@@ -218,7 +211,10 @@ mod tests {
 
         let entry = cache_wasm_binary(&wasm_path, &cache_dir).unwrap();
         assert_eq!(entry.wasm_hash, expected_hash);
-        assert_eq!(entry.cached_path.file_name().unwrap().to_str().unwrap(), format!("{}.aot", expected_hash));
+        assert_eq!(
+            entry.cached_path.file_name().unwrap().to_str().unwrap(),
+            format!("{}.aot", expected_hash)
+        );
     }
 
     // B:aot_compile_wasm_module — verify unit "subsequent load uses cached artifact"
@@ -303,7 +299,13 @@ mod tests {
 
         // ensures: content_addressed
         let entry = cache_wasm_binary(&wasm_path, &cache_dir).unwrap();
-        assert!(entry.cached_path.to_str().unwrap().contains(&entry.wasm_hash));
+        assert!(
+            entry
+                .cached_path
+                .to_str()
+                .unwrap()
+                .contains(&entry.wasm_hash)
+        );
 
         // ensures: corruption_detected + corruption_recovered
         std::fs::write(&entry.cached_path, b"bad").unwrap();

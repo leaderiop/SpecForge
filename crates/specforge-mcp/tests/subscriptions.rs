@@ -1,7 +1,7 @@
+use serde_json::json;
 use specforge_mcp::McpServer;
 use specforge_mcp::subscriptions;
 use specforge_test::prelude::*;
-use serde_json::json;
 
 fn init_server() -> McpServer {
     let mut server = McpServer::new();
@@ -12,7 +12,10 @@ fn init_server() -> McpServer {
 
 // B:mcp_subscription_cleanup — verify unit "subscribe adds subscription"
 #[test]
-#[specforge_test(behavior = "mcp_subscription_cleanup", verify = "subscribe adds subscription")]
+#[specforge_test(
+    behavior = "mcp_subscription_cleanup",
+    verify = "subscribe adds subscription"
+)]
 fn subscribe_adds_subscription() {
     let mut server = init_server();
     let added = subscriptions::subscribe(server.state_mut(), "client1", "specforge/graphChanged");
@@ -24,7 +27,10 @@ fn subscribe_adds_subscription() {
 
 // B:mcp_subscription_cleanup — verify unit "duplicate subscribe returns false"
 #[test]
-#[specforge_test(behavior = "mcp_subscription_cleanup", verify = "duplicate subscribe returns false")]
+#[specforge_test(
+    behavior = "mcp_subscription_cleanup",
+    verify = "duplicate subscribe returns false"
+)]
 fn duplicate_subscribe_returns_false() {
     let mut server = init_server();
     subscriptions::subscribe(server.state_mut(), "client1", "specforge/graphChanged");
@@ -34,11 +40,15 @@ fn duplicate_subscribe_returns_false() {
 
 // B:mcp_subscription_cleanup — verify unit "unsubscribe removes subscription"
 #[test]
-#[specforge_test(behavior = "mcp_subscription_cleanup", verify = "unsubscribe removes subscription")]
+#[specforge_test(
+    behavior = "mcp_subscription_cleanup",
+    verify = "unsubscribe removes subscription"
+)]
 fn unsubscribe_removes_subscription() {
     let mut server = init_server();
     subscriptions::subscribe(server.state_mut(), "client1", "specforge/graphChanged");
-    let removed = subscriptions::unsubscribe(server.state_mut(), "client1", "specforge/graphChanged");
+    let removed =
+        subscriptions::unsubscribe(server.state_mut(), "client1", "specforge/graphChanged");
     assert!(removed);
 
     let subs = subscriptions::subscribers(server.state(), "specforge/graphChanged");
@@ -47,11 +57,18 @@ fn unsubscribe_removes_subscription() {
 
 // B:mcp_subscription_cleanup — verify unit "unsubscribe_all removes all for client"
 #[test]
-#[specforge_test(behavior = "mcp_subscription_cleanup", verify = "client disconnect removes all subscriptions for that client")]
+#[specforge_test(
+    behavior = "mcp_subscription_cleanup",
+    verify = "client disconnect removes all subscriptions for that client"
+)]
 fn unsubscribe_all_removes_all() {
     let mut server = init_server();
     subscriptions::subscribe(server.state_mut(), "client1", "specforge/graphChanged");
-    subscriptions::subscribe(server.state_mut(), "client1", "specforge/diagnosticsChanged");
+    subscriptions::subscribe(
+        server.state_mut(),
+        "client1",
+        "specforge/diagnosticsChanged",
+    );
     subscriptions::unsubscribe_all(server.state_mut(), "client1");
 
     assert!(subscriptions::subscribers(server.state(), "specforge/graphChanged").is_empty());
@@ -60,7 +77,10 @@ fn unsubscribe_all_removes_all() {
 
 // B:mcp_subscription_cleanup — verify unit "shutdown clears all subscriptions"
 #[test]
-#[specforge_test(behavior = "mcp_subscription_cleanup", verify = "shutdown clears all subscriptions")]
+#[specforge_test(
+    behavior = "mcp_subscription_cleanup",
+    verify = "shutdown clears all subscriptions"
+)]
 fn shutdown_clears_subscriptions() {
     let mut server = init_server();
     subscriptions::subscribe(server.state_mut(), "client1", "specforge/graphChanged");
@@ -73,7 +93,10 @@ fn shutdown_clears_subscriptions() {
 
 // B:mcp_subscription_cleanup — verify unit "rapid connect/disconnect cycles leave zero subscriptions"
 #[test]
-#[specforge_test(behavior = "mcp_subscription_cleanup", verify = "rapid connect/disconnect cycles leave zero subscriptions")]
+#[specforge_test(
+    behavior = "mcp_subscription_cleanup",
+    verify = "rapid connect/disconnect cycles leave zero subscriptions"
+)]
 fn rapid_connect_disconnect_zero_subscriptions() {
     let mut server = init_server();
     for i in 0..10 {

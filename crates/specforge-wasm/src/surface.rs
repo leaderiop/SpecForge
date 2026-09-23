@@ -5,9 +5,9 @@ use std::collections::HashSet;
 
 /// Validate that all declared surface exports are present in the Wasm module.
 pub fn validate_surface_exports(
-    commands: &[(&str, &str)],       // (id, export_name)
-    mcp_tools: &[(&str, &str)],      // (name, export_name)
-    mcp_resources: &[(&str, &str)],  // (name, export_name)
+    commands: &[(&str, &str)],      // (id, export_name)
+    mcp_tools: &[(&str, &str)],     // (name, export_name)
+    mcp_resources: &[(&str, &str)], // (name, export_name)
     available_exports: &HashSet<String>,
 ) -> Vec<Diagnostic> {
     let mut diagnostics = Vec::new();
@@ -23,7 +23,10 @@ pub fn validate_surface_exports(
                     id, expected
                 ),
                 span: None,
-                suggestion: Some(format!("add #[export_name = \"{}\"] to the Wasm module", expected)),
+                suggestion: Some(format!(
+                    "add #[export_name = \"{}\"] to the Wasm module",
+                    expected
+                )),
             });
         }
     }
@@ -39,7 +42,10 @@ pub fn validate_surface_exports(
                     name, expected
                 ),
                 span: None,
-                suggestion: Some(format!("add #[export_name = \"{}\"] to the Wasm module", expected)),
+                suggestion: Some(format!(
+                    "add #[export_name = \"{}\"] to the Wasm module",
+                    expected
+                )),
             });
         }
     }
@@ -55,7 +61,10 @@ pub fn validate_surface_exports(
                     name, expected
                 ),
                 span: None,
-                suggestion: Some(format!("add #[export_name = \"{}\"] to the Wasm module", expected)),
+                suggestion: Some(format!(
+                    "add #[export_name = \"{}\"] to the Wasm module",
+                    expected
+                )),
             });
         }
     }
@@ -74,27 +83,22 @@ pub fn validate_mcp_tool_schemas(
             diagnostics.push(Diagnostic {
                 code: "E037".to_string(),
                 severity: Severity::Error,
-                message: format!(
-                    "MCP tool '{}': input_schema must be a JSON object",
-                    name
-                ),
+                message: format!("MCP tool '{}': input_schema must be a JSON object", name),
                 span: None,
                 suggestion: Some("provide a valid JSON Schema object".to_string()),
             });
         }
         if let Some(out) = output_schema
-            && !out.is_object() {
-                diagnostics.push(Diagnostic {
-                    code: "E037".to_string(),
-                    severity: Severity::Error,
-                    message: format!(
-                        "MCP tool '{}': output_schema must be a JSON object",
-                        name
-                    ),
-                    span: None,
-                    suggestion: Some("provide a valid JSON Schema object".to_string()),
-                });
-            }
+            && !out.is_object()
+        {
+            diagnostics.push(Diagnostic {
+                code: "E037".to_string(),
+                severity: Severity::Error,
+                message: format!("MCP tool '{}': output_schema must be a JSON object", name),
+                span: None,
+                suggestion: Some("provide a valid JSON Schema object".to_string()),
+            });
+        }
     }
 
     diagnostics
@@ -113,10 +117,7 @@ pub fn validate_command_arg_types(
                 diagnostics.push(Diagnostic {
                     code: "E038".to_string(),
                     severity: Severity::Error,
-                    message: format!(
-                        "command '{}': unknown argument type '{}'",
-                        id, arg_type
-                    ),
+                    message: format!("command '{}': unknown argument type '{}'", id, arg_type),
                     span: None,
                     suggestion: Some(format!("known types: {}", known_types.join(", "))),
                 });
@@ -256,18 +257,13 @@ pub fn dispatch_surface_mcp_tool(
     runtime: &dyn WasmRuntime,
 ) -> Result<serde_json::Value, Diagnostic> {
     match runtime.call_export(extension_name, export_name, input_json) {
-        WasmCallResult::Ok(output) => {
-            serde_json::from_slice(&output).map_err(|e| Diagnostic {
-                code: "E041".to_string(),
-                severity: Severity::Error,
-                message: format!(
-                    "MCP tool {}() returned invalid JSON: {}",
-                    export_name, e
-                ),
-                span: None,
-                suggestion: None,
-            })
-        }
+        WasmCallResult::Ok(output) => serde_json::from_slice(&output).map_err(|e| Diagnostic {
+            code: "E041".to_string(),
+            severity: Severity::Error,
+            message: format!("MCP tool {}() returned invalid JSON: {}", export_name, e),
+            span: None,
+            suggestion: None,
+        }),
         WasmCallResult::Trap(trap) => Err(Diagnostic {
             code: "E041".to_string(),
             severity: Severity::Error,
@@ -493,7 +489,8 @@ mod tests {
     #[test]
     fn test_validate_valid_output_schema_passes() {
         let input = serde_json::json!({"type": "object"});
-        let output = serde_json::json!({"type": "object", "properties": {"result": {"type": "string"}}});
+        let output =
+            serde_json::json!({"type": "object", "properties": {"result": {"type": "string"}}});
         let tools = [("search", &input, Some(&output))];
         let diags = validate_mcp_tool_schemas(&tools);
         assert!(diags.is_empty());
@@ -539,12 +536,7 @@ mod tests {
         assert!(diags.is_empty());
 
         // ensures: missing → E036 with export name
-        let diags = validate_surface_exports(
-            &[("x", "cmd__x")],
-            &[],
-            &[],
-            &HashSet::new(),
-        );
+        let diags = validate_surface_exports(&[("x", "cmd__x")], &[], &[], &HashSet::new());
         assert!(diags.iter().all(|d| d.code == "E036"));
     }
 
@@ -555,7 +547,8 @@ mod tests {
     fn test_auto_promote_cli_command() {
         let args = vec![("path", "path"), ("verbose", "bool")];
         let commands = [("analyze", args.as_slice())];
-        let (tools, diags) = auto_promote_commands_to_mcp_tools(&commands, &HashSet::new(), "software");
+        let (tools, diags) =
+            auto_promote_commands_to_mcp_tools(&commands, &HashSet::new(), "software");
         assert!(diags.is_empty());
         assert_eq!(tools.len(), 1);
         assert_eq!(tools[0].name, "specforge.software.analyze");
@@ -573,7 +566,13 @@ mod tests {
         let commands = [("report", args.as_slice())];
         let (tools, _) = auto_promote_commands_to_mcp_tools(&commands, &HashSet::new(), "software");
         let props = tools[0].input_schema.get("properties").unwrap();
-        let output_type = props.get("output").unwrap().get("type").unwrap().as_str().unwrap();
+        let output_type = props
+            .get("output")
+            .unwrap()
+            .get("type")
+            .unwrap()
+            .as_str()
+            .unwrap();
         assert_eq!(output_type, "string");
     }
 
@@ -593,7 +592,12 @@ mod tests {
     fn test_auto_promote_no_args_empty_schema() {
         let commands: &[(&str, &[(&str, &str)])] = &[("check", &[])];
         let (tools, _) = auto_promote_commands_to_mcp_tools(commands, &HashSet::new(), "software");
-        let props = tools[0].input_schema.get("properties").unwrap().as_object().unwrap();
+        let props = tools[0]
+            .input_schema
+            .get("properties")
+            .unwrap()
+            .as_object()
+            .unwrap();
         assert!(props.is_empty());
     }
 
@@ -602,7 +606,8 @@ mod tests {
     fn test_auto_promote_contract() {
         // ensures: promoted tools follow specforge.{ext_short}.{cmd_id} naming
         let commands: &[(&str, &[(&str, &str)])] = &[("run", &[("target", "string")])];
-        let (tools, diags) = auto_promote_commands_to_mcp_tools(commands, &HashSet::new(), "coverage");
+        let (tools, diags) =
+            auto_promote_commands_to_mcp_tools(commands, &HashSet::new(), "coverage");
         assert_eq!(tools.len(), 1);
         assert!(tools[0].name.starts_with("specforge.coverage."));
         assert!(diags.is_empty());
@@ -620,8 +625,8 @@ mod tests {
     #[test]
     fn test_dispatch_command_args_serialized() {
         let output = serde_json::json!({"exit_code": 0, "stdout": "ok", "stderr": ""});
-        let runtime = MockRuntime::new()
-            .with_call_ok("cmd__analyze", serde_json::to_vec(&output).unwrap());
+        let runtime =
+            MockRuntime::new().with_call_ok("cmd__analyze", serde_json::to_vec(&output).unwrap());
 
         let result = dispatch_surface_command("@ext/a", "cmd__analyze", b"{}", &runtime);
         assert!(result.is_ok());
@@ -651,8 +656,8 @@ mod tests {
     #[test]
     fn test_dispatch_command_returns_output_fields() {
         let output = serde_json::json!({"exit_code": 42, "stdout": "output", "stderr": "warn"});
-        let runtime = MockRuntime::new()
-            .with_call_ok("cmd__report", serde_json::to_vec(&output).unwrap());
+        let runtime =
+            MockRuntime::new().with_call_ok("cmd__report", serde_json::to_vec(&output).unwrap());
 
         let result = dispatch_surface_command("@ext/a", "cmd__report", b"{}", &runtime).unwrap();
         assert_eq!(result.exit_code, 42);
@@ -666,10 +671,11 @@ mod tests {
     #[test]
     fn test_dispatch_mcp_tool_json_passed() {
         let output = serde_json::json!({"result": "found"});
-        let runtime = MockRuntime::new()
-            .with_call_ok("mcp__search", serde_json::to_vec(&output).unwrap());
+        let runtime =
+            MockRuntime::new().with_call_ok("mcp__search", serde_json::to_vec(&output).unwrap());
 
-        let result = dispatch_surface_mcp_tool("@ext/a", "mcp__search", b"{\"query\":\"x\"}", &runtime);
+        let result =
+            dispatch_surface_mcp_tool("@ext/a", "mcp__search", b"{\"query\":\"x\"}", &runtime);
         assert!(result.is_ok());
         assert_eq!(result.unwrap()["result"], "found");
     }
@@ -695,8 +701,8 @@ mod tests {
     #[test]
     fn test_dispatch_mcp_tool_output_returned() {
         let output = serde_json::json!({"entities": [{"id": "b1"}]});
-        let runtime = MockRuntime::new()
-            .with_call_ok("mcp__graph", serde_json::to_vec(&output).unwrap());
+        let runtime =
+            MockRuntime::new().with_call_ok("mcp__graph", serde_json::to_vec(&output).unwrap());
 
         let val = dispatch_surface_mcp_tool("@ext/a", "mcp__graph", b"{}", &runtime).unwrap();
         assert_eq!(val["entities"][0]["id"], "b1");
@@ -711,7 +717,9 @@ mod tests {
         let runtime = MockRuntime::new()
             .with_call_ok("mcp__spec_graph", serde_json::to_vec(&output).unwrap());
 
-        let (content, mime) = dispatch_surface_mcp_resource("@ext/a", "mcp__spec_graph", "spec://graph", &runtime).unwrap();
+        let (content, mime) =
+            dispatch_surface_mcp_resource("@ext/a", "mcp__spec_graph", "spec://graph", &runtime)
+                .unwrap();
         assert_eq!(content, b"graph data");
         assert_eq!(mime, "application/json");
     }
@@ -728,7 +736,8 @@ mod tests {
             },
         );
 
-        let result = dispatch_surface_mcp_resource("@ext/a", "mcp__graph", "spec://graph", &runtime);
+        let result =
+            dispatch_surface_mcp_resource("@ext/a", "mcp__graph", "spec://graph", &runtime);
         assert!(result.is_err());
         assert_eq!(result.unwrap_err().code, "E041");
     }
@@ -738,23 +747,24 @@ mod tests {
     fn test_dispatch_contracts() {
         // Command dispatch contract
         let output = serde_json::json!({"exit_code": 0, "stdout": "ok", "stderr": ""});
-        let runtime = MockRuntime::new()
-            .with_call_ok("cmd__test", serde_json::to_vec(&output).unwrap());
+        let runtime =
+            MockRuntime::new().with_call_ok("cmd__test", serde_json::to_vec(&output).unwrap());
         let cmd = dispatch_surface_command("@ext/a", "cmd__test", b"{}", &runtime).unwrap();
         assert_eq!(cmd.exit_code, 0);
 
         // MCP tool dispatch contract
         let tool_out = serde_json::json!({"ok": true});
-        let runtime2 = MockRuntime::new()
-            .with_call_ok("mcp__tool", serde_json::to_vec(&tool_out).unwrap());
+        let runtime2 =
+            MockRuntime::new().with_call_ok("mcp__tool", serde_json::to_vec(&tool_out).unwrap());
         let tool_val = dispatch_surface_mcp_tool("@ext/a", "mcp__tool", b"{}", &runtime2).unwrap();
         assert_eq!(tool_val["ok"], true);
 
         // Resource dispatch contract
         let res_out = serde_json::json!({"content": "data", "mime_type": "text/plain"});
-        let runtime3 = MockRuntime::new()
-            .with_call_ok("mcp__res", serde_json::to_vec(&res_out).unwrap());
-        let (content, mime) = dispatch_surface_mcp_resource("@ext/a", "mcp__res", "spec://res", &runtime3).unwrap();
+        let runtime3 =
+            MockRuntime::new().with_call_ok("mcp__res", serde_json::to_vec(&res_out).unwrap());
+        let (content, mime) =
+            dispatch_surface_mcp_resource("@ext/a", "mcp__res", "spec://res", &runtime3).unwrap();
         assert_eq!(content, b"data");
         assert_eq!(mime, "text/plain");
     }
@@ -823,8 +833,16 @@ mod tests {
     #[test]
     fn test_toggle_disabled_command_excluded() {
         let mut entries = vec![
-            SurfaceEntry { name: "analyze".to_string(), surface_type: SurfaceEntryType::Command, enabled: true },
-            SurfaceEntry { name: "report".to_string(), surface_type: SurfaceEntryType::Command, enabled: true },
+            SurfaceEntry {
+                name: "analyze".to_string(),
+                surface_type: SurfaceEntryType::Command,
+                enabled: true,
+            },
+            SurfaceEntry {
+                name: "report".to_string(),
+                surface_type: SurfaceEntryType::Command,
+                enabled: true,
+            },
         ];
         assert!(toggle_surface_contribution(&mut entries, "analyze", false));
         assert!(!entries[0].enabled);
@@ -834,9 +852,11 @@ mod tests {
     // B:toggle_surface_contribution — verify unit "disabled MCP tool excluded"
     #[test]
     fn test_toggle_disabled_mcp_tool_excluded() {
-        let mut entries = vec![
-            SurfaceEntry { name: "search".to_string(), surface_type: SurfaceEntryType::McpTool, enabled: true },
-        ];
+        let mut entries = vec![SurfaceEntry {
+            name: "search".to_string(),
+            surface_type: SurfaceEntryType::McpTool,
+            enabled: true,
+        }];
         assert!(toggle_surface_contribution(&mut entries, "search", false));
         assert!(!entries[0].enabled);
     }
@@ -844,9 +864,11 @@ mod tests {
     // B:toggle_surface_contribution — verify unit "disabled MCP resource excluded"
     #[test]
     fn test_toggle_disabled_mcp_resource_excluded() {
-        let mut entries = vec![
-            SurfaceEntry { name: "graph".to_string(), surface_type: SurfaceEntryType::McpResource, enabled: true },
-        ];
+        let mut entries = vec![SurfaceEntry {
+            name: "graph".to_string(),
+            surface_type: SurfaceEntryType::McpResource,
+            enabled: true,
+        }];
         assert!(toggle_surface_contribution(&mut entries, "graph", false));
         assert!(!entries[0].enabled);
     }
@@ -854,9 +876,11 @@ mod tests {
     // B:toggle_surface_contribution — verify unit "re-enabled contribution restored"
     #[test]
     fn test_toggle_reenabled_contribution_restored() {
-        let mut entries = vec![
-            SurfaceEntry { name: "analyze".to_string(), surface_type: SurfaceEntryType::Command, enabled: false },
-        ];
+        let mut entries = vec![SurfaceEntry {
+            name: "analyze".to_string(),
+            surface_type: SurfaceEntryType::Command,
+            enabled: false,
+        }];
         assert!(toggle_surface_contribution(&mut entries, "analyze", true));
         assert!(entries[0].enabled);
     }
@@ -865,21 +889,38 @@ mod tests {
     #[test]
     fn test_toggle_and_sandbox_contract() {
         // Toggle contract: found returns true, not found returns false
-        let mut entries = vec![
-            SurfaceEntry { name: "x".to_string(), surface_type: SurfaceEntryType::Command, enabled: true },
-        ];
+        let mut entries = vec![SurfaceEntry {
+            name: "x".to_string(),
+            surface_type: SurfaceEntryType::Command,
+            enabled: true,
+        }];
         assert!(toggle_surface_contribution(&mut entries, "x", false));
-        assert!(!toggle_surface_contribution(&mut entries, "nonexistent", false));
+        assert!(!toggle_surface_contribution(
+            &mut entries,
+            "nonexistent",
+            false
+        ));
 
         // Sandbox contract: intersection semantics
-        let override_ = SurfaceSandboxOverrideValues { fs_read: Some(true), fs_write: None, network: Some(false) };
-        let policy = SandboxPolicy { file_system_access: Some(true), network_access: Some(true), ..Default::default() };
+        let override_ = SurfaceSandboxOverrideValues {
+            fs_read: Some(true),
+            fs_write: None,
+            network: Some(false),
+        };
+        let policy = SandboxPolicy {
+            file_system_access: Some(true),
+            network_access: Some(true),
+            ..Default::default()
+        };
         let eff = enforce_surface_sandbox(&override_, &policy);
         assert!(eff.fs_read);
         assert!(!eff.network); // Override restricts
 
         // Resource sandbox: fs_write always denied
-        let eff2 = enforce_resource_sandbox(&SurfaceSandboxOverrideValues::default(), &SandboxPolicy::default());
+        let eff2 = enforce_resource_sandbox(
+            &SurfaceSandboxOverrideValues::default(),
+            &SandboxPolicy::default(),
+        );
         assert!(!eff2.fs_write);
     }
 }

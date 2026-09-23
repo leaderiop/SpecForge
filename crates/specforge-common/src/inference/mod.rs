@@ -85,8 +85,8 @@ pub fn load_inference_manifest(project_root: &Path) -> Result<InferenceManifest,
         return Ok(InferenceManifest::default());
     }
 
-    let content =
-        fs::read_to_string(&path).map_err(|e| format!("failed to read {MANIFEST_FILENAME}: {e}"))?;
+    let content = fs::read_to_string(&path)
+        .map_err(|e| format!("failed to read {MANIFEST_FILENAME}: {e}"))?;
     let manifest: InferenceManifest = serde_json::from_str(&content)
         .map_err(|e| format!("failed to parse {MANIFEST_FILENAME}: {e}"))?;
 
@@ -110,8 +110,8 @@ pub fn save_inference_manifest(
         .map_err(|e| format!("failed to serialize {MANIFEST_FILENAME}: {e}"))?;
 
     let tmp_path = path.with_extension("json.tmp");
-    let mut file = fs::File::create(&tmp_path)
-        .map_err(|e| format!("failed to create temp file: {e}"))?;
+    let mut file =
+        fs::File::create(&tmp_path).map_err(|e| format!("failed to create temp file: {e}"))?;
     file.write_all(json.as_bytes())
         .map_err(|e| format!("failed to write temp file: {e}"))?;
     file.sync_all()
@@ -285,7 +285,10 @@ mod tests {
         assert_eq!(loaded.source_roots, vec!["src/"]);
         assert_eq!(loaded.source_index.len(), 1);
         assert_eq!(loaded.source_index[0].path, "src/main.rs");
-        assert_eq!(loaded.source_index[0].entities_produced, vec!["my_behavior"]);
+        assert_eq!(
+            loaded.source_index[0].entities_produced,
+            vec!["my_behavior"]
+        );
     }
 
     #[test]
@@ -441,8 +444,20 @@ mod tests {
     #[test]
     fn gap_report_identifies_uncovered_items() {
         let items = vec![
-            SourceItem { name: "hello".into(), item_kind: "function".into(), file: "src/lib.rs".into(), line: 1, scanner: Some("rust".into()) },
-            SourceItem { name: "config".into(), item_kind: "struct".into(), file: "src/lib.rs".into(), line: 2, scanner: Some("rust".into()) },
+            SourceItem {
+                name: "hello".into(),
+                item_kind: "function".into(),
+                file: "src/lib.rs".into(),
+                line: 1,
+                scanner: Some("rust".into()),
+            },
+            SourceItem {
+                name: "config".into(),
+                item_kind: "struct".into(),
+                file: "src/lib.rs".into(),
+                line: 2,
+                scanner: Some("rust".into()),
+            },
         ];
         let report = compute_gap_report(items, &["hello"], vec!["rust".into()]);
         assert_eq!(report.total_pub_items, 2);
@@ -455,9 +470,13 @@ mod tests {
 
     #[test]
     fn gap_report_all_covered() {
-        let items = vec![
-            SourceItem { name: "hello".into(), item_kind: "function".into(), file: "src/lib.rs".into(), line: 1, scanner: Some("rust".into()) },
-        ];
+        let items = vec![SourceItem {
+            name: "hello".into(),
+            item_kind: "function".into(),
+            file: "src/lib.rs".into(),
+            line: 1,
+            scanner: Some("rust".into()),
+        }];
         let report = compute_gap_report(items, &["hello"], vec!["rust".into()]);
         assert_eq!(report.gaps.len(), 0);
         assert_eq!(report.covered_items, 1);
@@ -505,7 +524,11 @@ mod tests {
             path: "tiny.rs".to_string(),
             content_hash: hash,
             entities_produced: vec![
-                "e1".into(), "e2".into(), "e3".into(), "e4".into(), "e5".into(),
+                "e1".into(),
+                "e2".into(),
+                "e3".into(),
+                "e4".into(),
+                "e5".into(),
             ],
             analyzed_at: "t".to_string(),
         });
@@ -518,7 +541,9 @@ mod tests {
     fn i202_below_threshold_no_diagnostic() {
         let dir = TempDir::new().unwrap();
         let file = dir.path().join("big.rs");
-        let content = (0..200).map(|i| format!("pub fn func_{i}() {{}}\n")).collect::<String>();
+        let content = (0..200)
+            .map(|i| format!("pub fn func_{i}() {{}}\n"))
+            .collect::<String>();
         fs::write(&file, &content).unwrap();
 
         let hash = compute_content_hash(&file).unwrap();

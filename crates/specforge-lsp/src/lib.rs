@@ -2,9 +2,9 @@ pub mod backend;
 mod capabilities;
 mod code_actions;
 mod completion;
+mod document;
 pub mod formatting;
 mod grammar_cache;
-mod document;
 mod hover;
 mod navigation;
 mod rename;
@@ -12,26 +12,25 @@ mod semantic_tokens;
 mod state;
 mod symbols;
 
-pub use capabilities::{server_capabilities, server_info, ServerCapabilities, ServerInfo};
+pub use capabilities::{ServerCapabilities, ServerInfo, server_capabilities, server_info};
 pub use code_actions::{
-    code_action_add_import, code_action_create_stub, code_actions_missing_verify, CodeAction,
+    CodeAction, code_action_add_import, code_action_create_stub, code_actions_missing_verify,
 };
+pub use completion::enclosing_entity_kind;
 pub use completion::{
-    complete_entity_ids, complete_entity_ids_filtered, complete_field_names, complete_keywords,
-    cursor_context, CompletionItem, CursorContext,
+    CompletionItem, CursorContext, complete_entity_ids, complete_entity_ids_filtered,
+    complete_field_names, complete_keywords, cursor_context,
 };
 pub use document::DocumentBuffer;
 pub use grammar_cache::GrammarCache;
-pub use completion::enclosing_entity_kind;
 pub use hover::{hover_field_info, hover_info, hover_info_with_registries};
 pub use navigation::{find_all_references, go_to_definition, goto_import_definition};
-pub use rename::{compute_rename_edits, prepare_rename, RenameEdit};
+pub use rename::{RenameEdit, compute_rename_edits, prepare_rename};
 pub use semantic_tokens::{
-    classify_tokens, SemanticToken, TOKEN_MODIFIERS, TOKEN_TYPES,
-    MOD_DECLARATION, MOD_REFERENCE,
+    MOD_DECLARATION, MOD_REFERENCE, SemanticToken, TOKEN_MODIFIERS, TOKEN_TYPES, classify_tokens,
 };
 pub use state::LspState;
-pub use symbols::{document_symbols, workspace_symbols, SymbolEntry};
+pub use symbols::{SymbolEntry, document_symbols, workspace_symbols};
 
 /// An LSP-compatible position range (0-based line and column).
 #[derive(Debug, Clone, PartialEq, Eq)]

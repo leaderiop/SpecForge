@@ -4,9 +4,18 @@ use std::collections::BTreeMap;
 /// Produce a summary line like "2 errors, 1 warning, 1 info".
 /// When errors exist, the line is wrapped in red ANSI escape codes.
 pub fn diagnostic_summary(diagnostics: &[Diagnostic]) -> String {
-    let errors = diagnostics.iter().filter(|d| d.severity == Severity::Error).count();
-    let warnings = diagnostics.iter().filter(|d| d.severity == Severity::Warning).count();
-    let infos = diagnostics.iter().filter(|d| d.severity == Severity::Info).count();
+    let errors = diagnostics
+        .iter()
+        .filter(|d| d.severity == Severity::Error)
+        .count();
+    let warnings = diagnostics
+        .iter()
+        .filter(|d| d.severity == Severity::Warning)
+        .count();
+    let infos = diagnostics
+        .iter()
+        .filter(|d| d.severity == Severity::Info)
+        .count();
 
     let plural = |n: usize, word: &str| -> String {
         if n == 1 {
@@ -62,10 +71,16 @@ pub fn diagnostic_summary_detailed(diagnostics: &[Diagnostic]) -> String {
     }
     if entries.len() > 5 {
         let remaining: usize = entries.iter().skip(5).map(|(_, c)| **c).sum();
-        lines.push(format!("  ... and {} more from {} other codes", remaining, entries.len() - 5));
+        lines.push(format!(
+            "  ... and {} more from {} other codes",
+            remaining,
+            entries.len() - 5
+        ));
     }
 
-    lines.push(String::from("\nhint: run `specforge explain <code>` for details on any diagnostic code"));
+    lines.push(String::from(
+        "\nhint: run `specforge explain <code>` for details on any diagnostic code",
+    ));
 
     lines.join("\n")
 }

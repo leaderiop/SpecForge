@@ -116,10 +116,27 @@ pub fn format_coverage_summary(
 
     writeln!(w, "\n── specforge coverage (graph: {timestamp}) ──\n")?;
 
-    let id_width = diffs.iter().map(|d| d.entity_id.len()).max().unwrap_or(10).max(6);
+    let id_width = diffs
+        .iter()
+        .map(|d| d.entity_id.len())
+        .max()
+        .unwrap_or(10)
+        .max(6);
 
-    writeln!(w, "  {:<w$}  {:>8}  Status", "Entity", "Coverage", w = id_width)?;
-    writeln!(w, "  {:<w$}  {:>8}  ──────", "──────", "────────", w = id_width)?;
+    writeln!(
+        w,
+        "  {:<w$}  {:>8}  Status",
+        "Entity",
+        "Coverage",
+        w = id_width
+    )?;
+    writeln!(
+        w,
+        "  {:<w$}  {:>8}  ──────",
+        "──────",
+        "────────",
+        w = id_width
+    )?;
 
     for d in diffs {
         let coverage = format!("{}/{}", d.covered, d.expected);
@@ -130,12 +147,21 @@ pub fn format_coverage_summary(
             CoverageDiffStatus::Uncovered => "✗ uncovered",
             CoverageDiffStatus::NoIntent => "- no verify",
         };
-        writeln!(w, "  {:<w$}  {:>8}  {status}", d.entity_id, coverage, w = id_width)?;
+        writeln!(
+            w,
+            "  {:<w$}  {:>8}  {status}",
+            d.entity_id,
+            coverage,
+            w = id_width
+        )?;
     }
 
     let total_expected: usize = diffs.iter().map(|d| d.expected).sum();
     let total_covered: usize = diffs.iter().map(|d| d.covered).sum();
-    writeln!(w, "\n  Total: {total_covered}/{total_expected} verify statements covered")?;
+    writeln!(
+        w,
+        "\n  Total: {total_covered}/{total_expected} verify statements covered"
+    )?;
 
     Ok(())
 }

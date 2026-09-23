@@ -12,11 +12,31 @@ pub fn render_markdown(model: &ModelIntermediate, options: &ModelOptions) -> Str
     // Preamble
     writeln!(out, "## How to read this model").unwrap();
     writeln!(out).unwrap();
-    writeln!(out, "This document describes the **schema** of a SpecForge project — the entity kinds").unwrap();
-    writeln!(out, "(analogous to database tables), their fields (columns), and the relationships").unwrap();
-    writeln!(out, "(foreign keys) between them. It does NOT show actual entity instances. Entity").unwrap();
-    writeln!(out, "kinds and fields are declared by SpecForge extensions. Relationships have").unwrap();
-    writeln!(out, "cardinality: 1:1 (one-to-one), 1:N (one-to-many), N:1 (many-to-one), or").unwrap();
+    writeln!(
+        out,
+        "This document describes the **schema** of a SpecForge project — the entity kinds"
+    )
+    .unwrap();
+    writeln!(
+        out,
+        "(analogous to database tables), their fields (columns), and the relationships"
+    )
+    .unwrap();
+    writeln!(
+        out,
+        "(foreign keys) between them. It does NOT show actual entity instances. Entity"
+    )
+    .unwrap();
+    writeln!(
+        out,
+        "kinds and fields are declared by SpecForge extensions. Relationships have"
+    )
+    .unwrap();
+    writeln!(
+        out,
+        "cardinality: 1:1 (one-to-one), 1:N (one-to-many), N:1 (many-to-one), or"
+    )
+    .unwrap();
     writeln!(out, "N:M (many-to-many).").unwrap();
     writeln!(out).unwrap();
 
@@ -27,7 +47,12 @@ pub fn render_markdown(model: &ModelIntermediate, options: &ModelOptions) -> Str
         writeln!(out, "| Extension | Version | Entity Kinds | Edge Types |").unwrap();
         writeln!(out, "|-----------|---------|-------------|------------|").unwrap();
         for ext in &model.extensions {
-            writeln!(out, "| {} | {} | {} | {} |", ext.name, ext.version, ext.entity_count, ext.edge_count).unwrap();
+            writeln!(
+                out,
+                "| {} | {} | {} | {} |",
+                ext.name, ext.version, ext.entity_count, ext.edge_count
+            )
+            .unwrap();
         }
         writeln!(out).unwrap();
     }
@@ -42,18 +67,24 @@ pub fn render_markdown(model: &ModelIntermediate, options: &ModelOptions) -> Str
     // rather than relationships.len() which counts expanded source×target pairs
     let total_edges: usize = model.extensions.iter().map(|e| e.edge_count).sum();
     writeln!(
-        out, "{} entity kinds, {} edge types across {} extensions.",
+        out,
+        "{} entity kinds, {} edge types across {} extensions.",
         model.entities.len(),
         total_edges,
         model.extensions.len()
-    ).unwrap();
+    )
+    .unwrap();
 
     out
 }
 
 fn render_grouped(model: &ModelIntermediate, out: &mut String) {
     for ext in &model.extensions {
-        let entities: Vec<_> = model.entities.iter().filter(|e| e.extension == ext.name).collect();
+        let entities: Vec<_> = model
+            .entities
+            .iter()
+            .filter(|e| e.extension == ext.name)
+            .collect();
         if entities.is_empty() {
             continue;
         }
@@ -73,11 +104,7 @@ fn render_flat(model: &ModelIntermediate, out: &mut String) {
     }
 }
 
-fn render_entity(
-    entity: &super::ModelEntity,
-    model: &ModelIntermediate,
-    out: &mut String,
-) {
+fn render_entity(entity: &super::ModelEntity, model: &ModelIntermediate, out: &mut String) {
     writeln!(out, "### {}", entity.name).unwrap();
 
     if !entity.enhanced_by.is_empty() {
@@ -87,8 +114,16 @@ fn render_entity(
 
     // Field table
     if !entity.fields.is_empty() {
-        writeln!(out, "| Field | Type | Required | Contribution | Source | Description |").unwrap();
-        writeln!(out, "|-------|------|----------|--------------|--------|-------------|").unwrap();
+        writeln!(
+            out,
+            "| Field | Type | Required | Contribution | Source | Description |"
+        )
+        .unwrap();
+        writeln!(
+            out,
+            "|-------|------|----------|--------------|--------|-------------|"
+        )
+        .unwrap();
 
         for field in &entity.fields {
             let type_str = if let Some(ref target) = field.references {
@@ -102,13 +137,20 @@ fn render_entity(
             let source = field.contributed_by.as_deref().unwrap_or("");
             let description = field.description.as_deref().unwrap_or("");
 
-            writeln!(out, "| {} | {} | {} | {} | {} | {} |", field.name, type_str, required, contribution, source, description).unwrap();
+            writeln!(
+                out,
+                "| {} | {} | {} | {} | {} | {} |",
+                field.name, type_str, required, contribution, source, description
+            )
+            .unwrap();
         }
         writeln!(out).unwrap();
     }
 
     // Relationships for this entity
-    let rels: Vec<_> = model.relationships.iter()
+    let rels: Vec<_> = model
+        .relationships
+        .iter()
         .filter(|r| r.source == entity.name || r.target == entity.name)
         .collect();
 
@@ -116,9 +158,19 @@ fn render_entity(
         writeln!(out, "**Relationships:**").unwrap();
         for rel in rels {
             if rel.source == entity.name {
-                writeln!(out, "- {} --({})--> {} [{}]", rel.source, rel.name, rel.target, rel.cardinality).unwrap();
+                writeln!(
+                    out,
+                    "- {} --({})--> {} [{}]",
+                    rel.source, rel.name, rel.target, rel.cardinality
+                )
+                .unwrap();
             } else {
-                writeln!(out, "- {} <--({})-- {} [{}]", entity.name, rel.name, rel.source, rel.cardinality).unwrap();
+                writeln!(
+                    out,
+                    "- {} <--({})-- {} [{}]",
+                    entity.name, rel.name, rel.source, rel.cardinality
+                )
+                .unwrap();
             }
         }
         writeln!(out).unwrap();

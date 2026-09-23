@@ -117,10 +117,13 @@ fn export_dot_produces_graphviz() {
 
 #[test]
 fn export_with_errors_still_works() {
-    let dir = setup_project(&[("main.spec", r#"
+    let dir = setup_project(&[(
+        "main.spec",
+        r#"
 behavior alpha "A" { contract "first" }
 feature gamma "G" { behaviors [alpha, nonexistent] }
-"#)]);
+"#,
+    )]);
 
     let output = specforge_cmd()
         .args(["export", "--format=graph"])
@@ -202,9 +205,18 @@ fn export_no_schema_flag_produces_v1() {
     let stdout = String::from_utf8_lossy(&output.stdout);
     let parsed: serde_json::Value = serde_json::from_str(&stdout).unwrap();
 
-    assert!(parsed.get("format_version").is_none(), "V1 format has no format_version");
-    assert!(parsed.get("schema").is_none(), "V1 format has no schema key");
-    assert!(parsed["schema_version"].is_string(), "V1 format has schema_version");
+    assert!(
+        parsed.get("format_version").is_none(),
+        "V1 format has no format_version"
+    );
+    assert!(
+        parsed.get("schema").is_none(),
+        "V1 format has no schema key"
+    );
+    assert!(
+        parsed["schema_version"].is_string(),
+        "V1 format has schema_version"
+    );
 }
 
 // B:embed_schema_in_export — V2 brief with schema
@@ -292,6 +304,9 @@ fn schema_publish_outputs_json_schema() {
     let stdout = String::from_utf8_lossy(&output.stdout);
     let parsed: serde_json::Value = serde_json::from_str(&stdout).unwrap();
 
-    assert_eq!(parsed["$schema"], "https://json-schema.org/draft/2020-12/schema");
+    assert_eq!(
+        parsed["$schema"],
+        "https://json-schema.org/draft/2020-12/schema"
+    );
     assert_eq!(parsed["title"], "SpecForge Graph Protocol");
 }

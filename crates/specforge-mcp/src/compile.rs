@@ -1,6 +1,9 @@
 use specforge_common::Diagnostic;
 use specforge_graph::Graph;
-use specforge_registry::{KindRegistry, FieldRegistry, EdgeRegistry, ManifestV2, SurfaceContributions, SurfaceRegistryEntry};
+use specforge_registry::{
+    EdgeRegistry, FieldRegistry, KindRegistry, ManifestV2, SurfaceContributions,
+    SurfaceRegistryEntry,
+};
 use specforge_wasm::WasmRuntime;
 use std::path::Path;
 
@@ -27,7 +30,10 @@ pub fn compile_project(project_root: &Path) -> CompileResult {
 
 /// Compile a project with a specific runtime (or None for legacy manifest loading).
 /// Used by tests that need to control the extension loading path.
-pub fn compile_project_with_runtime(project_root: &Path, runtime: Option<&dyn WasmRuntime>) -> CompileResult {
+pub fn compile_project_with_runtime(
+    project_root: &Path,
+    runtime: Option<&dyn WasmRuntime>,
+) -> CompileResult {
     let ctx = specforge_emitter::compile_with_runtime(project_root, runtime);
     from_ctx(ctx)
 }

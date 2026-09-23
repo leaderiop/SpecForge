@@ -15,10 +15,7 @@ async fn e2e_hover_returns_markdown() {
         value.contains("user_login"),
         "Hover should mention entity ID"
     );
-    assert!(
-        value.contains("User Login"),
-        "Hover should mention title"
-    );
+    assert!(value.contains("User Login"), "Hover should mention title");
 }
 
 #[tokio::test]
@@ -36,7 +33,9 @@ async fn e2e_hover_includes_reference_count() {
     assert!(!result.is_null());
     let value = result["contents"]["value"].as_str().unwrap();
     assert!(
-        value.contains("References:") || value.contains("references:") || value.contains("Referenced"),
+        value.contains("References:")
+            || value.contains("references:")
+            || value.contains("Referenced"),
         "Expected reference count in hover, got: {value}"
     );
 }

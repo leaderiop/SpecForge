@@ -83,7 +83,11 @@ fn query_with_kind_filter() {
     for node in nodes {
         let kind = node["kind"].as_str().unwrap();
         // Root (gamma=feature) is always included + behavior nodes
-        assert!(kind == "feature" || kind == "behavior", "unexpected kind: {}", kind);
+        assert!(
+            kind == "feature" || kind == "behavior",
+            "unexpected kind: {}",
+            kind
+        );
     }
 }
 

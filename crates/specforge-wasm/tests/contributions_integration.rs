@@ -7,11 +7,10 @@ use specforge_registry::{
     ExtensionContributions, FieldEnhancement, GrammarContribution, ManifestField, ManifestV2,
 };
 use specforge_wasm::{
-    detect_grammar_contribution_conflicts, dispatch_contribution_exports,
-    is_contribution_disabled, register_entity_enhancements, reject_reserved_entity_kind,
-    resolve_enhancement_conflicts, validate_contribution_exports, CallSite, ContributionToggle,
-    EnhancementConflict, EnhancementOverride, EnhancementPolicy, WasmCallResult, WasmRuntime,
-    WasmTrapInfo,
+    CallSite, ContributionToggle, EnhancementConflict, EnhancementOverride, EnhancementPolicy,
+    WasmCallResult, WasmRuntime, WasmTrapInfo, detect_grammar_contribution_conflicts,
+    dispatch_contribution_exports, is_contribution_disabled, register_entity_enhancements,
+    reject_reserved_entity_kind, resolve_enhancement_conflicts, validate_contribution_exports,
 };
 use std::path::Path;
 
@@ -95,8 +94,7 @@ fn default_manifest() -> ManifestV2 {
 // B:dispatch_contribution_exports — verify integration "validator call site routes to _validate export"
 #[test]
 fn dispatch_validator_routes_to_validate_export() {
-    let runtime =
-        MockRuntime::new().with_call_ok("@specforge__software_validate", b"ok".to_vec());
+    let runtime = MockRuntime::new().with_call_ok("@specforge__software_validate", b"ok".to_vec());
     let result = dispatch_contribution_exports(
         "@specforge/software",
         CallSite::Validator,
@@ -515,14 +513,6 @@ fn contribution_enabled_no_matching_toggle() {
         extension_name: "@ext/a".to_string(),
         disabled: ["validators".to_string()].into_iter().collect(),
     }];
-    assert!(!is_contribution_disabled(
-        &toggles,
-        "@ext/a",
-        "renderers"
-    ));
-    assert!(!is_contribution_disabled(
-        &toggles,
-        "@ext/b",
-        "validators"
-    ));
+    assert!(!is_contribution_disabled(&toggles, "@ext/a", "renderers"));
+    assert!(!is_contribution_disabled(&toggles, "@ext/b", "validators"));
 }

@@ -28,9 +28,7 @@ fn main() {
         std::fs::create_dir_all(&out_dir).unwrap();
 
         // Handshake
-        if let WasmCallResult::Ok(b) =
-            runtime.call_export(ext_name, "__handshake", &[])
-        {
+        if let WasmCallResult::Ok(b) = runtime.call_export(ext_name, "__handshake", &[]) {
             let pretty: serde_json::Value = serde_json::from_slice(&b).unwrap();
             let json = serde_json::to_string_pretty(&pretty).unwrap();
             std::fs::write(format!("{}/handshake.json", out_dir), json).unwrap();

@@ -296,29 +296,61 @@ pub fn normalize_triple_string(text: &str, base_indent: &str) -> String {
 mod tests {
     use super::*;
 
-    #[specforge_test_macros::test(behavior = "apply_format_rules", verify = "indentation rules normalize to configured indent style")]
+    #[specforge_test_macros::test(
+        behavior = "apply_format_rules",
+        verify = "indentation rules normalize to configured indent style"
+    )]
     #[test]
     fn test_indent_normalizes_to_configured_width() {
-        let config = FormatConfig { indent_width: 2, use_tabs: false, max_width: 100 };
-        assert_eq!(apply_indent("    contract \"test\"", 1, &config), "  contract \"test\"");
-        assert_eq!(apply_indent("\tcontract \"test\"", 1, &config), "  contract \"test\"");
+        let config = FormatConfig {
+            indent_width: 2,
+            use_tabs: false,
+            max_width: 100,
+        };
+        assert_eq!(
+            apply_indent("    contract \"test\"", 1, &config),
+            "  contract \"test\""
+        );
+        assert_eq!(
+            apply_indent("\tcontract \"test\"", 1, &config),
+            "  contract \"test\""
+        );
     }
 
-    #[specforge_test_macros::test(behavior = "apply_format_rules", verify = "indentation rules normalize to configured indent style")]
+    #[specforge_test_macros::test(
+        behavior = "apply_format_rules",
+        verify = "indentation rules normalize to configured indent style"
+    )]
     #[test]
     fn test_indent_with_tabs() {
-        let config = FormatConfig { indent_width: 4, use_tabs: true, max_width: 100 };
-        assert_eq!(apply_indent("  contract \"test\"", 1, &config), "\tcontract \"test\"");
+        let config = FormatConfig {
+            indent_width: 4,
+            use_tabs: true,
+            max_width: 100,
+        };
+        assert_eq!(
+            apply_indent("  contract \"test\"", 1, &config),
+            "\tcontract \"test\""
+        );
     }
 
-    #[specforge_test_macros::test(behavior = "apply_format_rules", verify = "spacing rules normalize single spaces between tokens")]
+    #[specforge_test_macros::test(
+        behavior = "apply_format_rules",
+        verify = "spacing rules normalize single spaces between tokens"
+    )]
     #[test]
     fn test_normalize_spacing_collapses_multiple_spaces() {
-        assert_eq!(normalize_spacing("  contract   \"test\""), "  contract \"test\"");
+        assert_eq!(
+            normalize_spacing("  contract   \"test\""),
+            "  contract \"test\""
+        );
         assert_eq!(normalize_spacing("  key    value"), "  key value");
     }
 
-    #[specforge_test_macros::test(behavior = "apply_format_rules", verify = "spacing rules normalize single spaces between tokens")]
+    #[specforge_test_macros::test(
+        behavior = "apply_format_rules",
+        verify = "spacing rules normalize single spaces between tokens"
+    )]
     #[test]
     fn test_normalize_spacing_preserves_string_content() {
         assert_eq!(
@@ -327,7 +359,10 @@ mod tests {
         );
     }
 
-    #[specforge_test_macros::test(behavior = "apply_format_rules", verify = "comment rules normalize spacing around inline comments")]
+    #[specforge_test_macros::test(
+        behavior = "apply_format_rules",
+        verify = "comment rules normalize spacing around inline comments"
+    )]
     #[test]
     fn test_normalize_comment_spacing() {
         assert_eq!(normalize_comment("//comment"), "// comment");
@@ -337,7 +372,10 @@ mod tests {
         assert_eq!(normalize_comment("//"), "//");
     }
 
-    #[specforge_test_macros::test(behavior = "apply_format_rules", verify = "import sorting produces alphabetical order")]
+    #[specforge_test_macros::test(
+        behavior = "apply_format_rules",
+        verify = "import sorting produces alphabetical order"
+    )]
     #[test]
     fn test_sort_imports_alphabetical() {
         let lines = vec![
@@ -351,7 +389,10 @@ mod tests {
         assert_eq!(sorted[2], "use \"types/core\"");
     }
 
-    #[specforge_test_macros::test(behavior = "apply_format_rules", verify = "import sorting produces alphabetical order")]
+    #[specforge_test_macros::test(
+        behavior = "apply_format_rules",
+        verify = "import sorting produces alphabetical order"
+    )]
     #[test]
     fn test_sort_imports_preserves_non_import_lines() {
         let lines = vec![
@@ -367,36 +408,62 @@ mod tests {
         assert_eq!(sorted[3], "behavior foo \"Foo\" {");
     }
 
-    #[specforge_test_macros::test(behavior = "apply_format_rules", verify = "alignment rules align field values within blocks")]
+    #[specforge_test_macros::test(
+        behavior = "apply_format_rules",
+        verify = "alignment rules align field values within blocks"
+    )]
     #[test]
     fn test_alignment_column() {
         assert_eq!(alignment_column(&["invariants", "types", "ports"]), 11);
         assert_eq!(alignment_column(&["a", "bb", "ccc"]), 4);
     }
 
-    #[specforge_test_macros::test(behavior = "apply_format_rules", verify = "alignment rules align field values within blocks")]
+    #[specforge_test_macros::test(
+        behavior = "apply_format_rules",
+        verify = "alignment rules align field values within blocks"
+    )]
     #[test]
     fn test_align_field() {
-        assert_eq!(align_field("  invariants [a, b]", 12, "  "), "  invariants  [a, b]");
+        assert_eq!(
+            align_field("  invariants [a, b]", 12, "  "),
+            "  invariants  [a, b]"
+        );
         assert_eq!(align_field("  types [x]", 12, "  "), "  types       [x]");
     }
 
-    #[specforge_test_macros::test(behavior = "apply_format_rules", verify = "wrapping rules break long reference lists to multi-line")]
+    #[specforge_test_macros::test(
+        behavior = "apply_format_rules",
+        verify = "wrapping rules break long reference lists to multi-line"
+    )]
     #[test]
     fn test_should_wrap_list() {
-        let config = FormatConfig { indent_width: 2, use_tabs: false, max_width: 40 };
-        assert!(should_wrap_list(&["very_long_item_a", "very_long_item_b", "very_long_item_c"], 2, &config));
+        let config = FormatConfig {
+            indent_width: 2,
+            use_tabs: false,
+            max_width: 40,
+        };
+        assert!(should_wrap_list(
+            &["very_long_item_a", "very_long_item_b", "very_long_item_c"],
+            2,
+            &config
+        ));
         assert!(!should_wrap_list(&["a", "b"], 2, &config));
     }
 
-    #[specforge_test_macros::test(behavior = "apply_format_rules", verify = "wrapping rules break long reference lists to multi-line")]
+    #[specforge_test_macros::test(
+        behavior = "apply_format_rules",
+        verify = "wrapping rules break long reference lists to multi-line"
+    )]
     #[test]
     fn test_format_list_multiline() {
         let result = format_list_multiline(&["a", "b", "c"], "  ", "    ");
         assert_eq!(result, "[\n    a,\n    b,\n    c,\n  ]");
     }
 
-    #[specforge_test_macros::test(behavior = "apply_format_rules", verify = "string rules normalize multiline string literal indentation")]
+    #[specforge_test_macros::test(
+        behavior = "apply_format_rules",
+        verify = "string rules normalize multiline string literal indentation"
+    )]
     #[test]
     fn test_normalize_triple_string() {
         let input = "\"\"\"\n    First line\n    Second line\n  \"\"\"";

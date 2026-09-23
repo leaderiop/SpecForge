@@ -75,7 +75,10 @@ pub fn read_credentials(path: &Path) -> Result<CredentialStore, Diagnostic> {
         severity: Severity::Error,
         message: format!("invalid credentials file format: {}", e),
         span: None,
-        suggestion: Some(format!("delete '{}' and run `specforge login` again", path.display())),
+        suggestion: Some(format!(
+            "delete '{}' and run `specforge login` again",
+            path.display()
+        )),
     })
 }
 

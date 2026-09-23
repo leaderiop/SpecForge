@@ -193,6 +193,14 @@ fn test_sandbox_code_extensions_rejected() {
     assert_eq!(diags[0].code, "E030");
     assert!(diags[0].message.contains(".rs"));
     // Code extension filtered out
-    assert!(!policy.allowed_output_extensions.contains(&".rs".to_string()));
-    assert!(policy.allowed_output_extensions.contains(&".json".to_string()));
+    assert!(
+        !policy
+            .allowed_output_extensions
+            .contains(&".rs".to_string())
+    );
+    assert!(
+        policy
+            .allowed_output_extensions
+            .contains(&".json".to_string())
+    );
 }

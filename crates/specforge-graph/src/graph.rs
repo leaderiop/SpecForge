@@ -1,4 +1,4 @@
-use specforge_common::{find_close_match, Diagnostic, SourceSpan, Sym};
+use specforge_common::{Diagnostic, SourceSpan, Sym, find_close_match};
 use specforge_parser::{EntityId, EntityKind, FieldMap, FieldValue};
 use std::collections::{HashMap, HashSet, VecDeque};
 
@@ -349,7 +349,14 @@ impl Graph {
         let all_nodes: Vec<(Sym, Sym, FieldMap, SourceSpan)> = self
             .nodes
             .values()
-            .map(|n| (n.id.raw, n.kind.raw, n.fields.clone(), n.source_span.clone()))
+            .map(|n| {
+                (
+                    n.id.raw,
+                    n.kind.raw,
+                    n.fields.clone(),
+                    n.source_span.clone(),
+                )
+            })
             .collect();
 
         let mut diagnostics = Vec::new();
@@ -380,8 +387,7 @@ impl Graph {
                                 )
                                 .with_span(span.clone());
                                 if let Some(s) = suggestion {
-                                    diag = diag
-                                        .with_suggestion(format!("did you mean '{}'?", s));
+                                    diag = diag.with_suggestion(format!("did you mean '{}'?", s));
                                 }
                                 diagnostics.push(diag);
                             }
@@ -446,9 +452,7 @@ impl Graph {
                 let ab_str = lab_ab.as_str();
                 let ba_str = lab_ba.as_str();
                 for (fwd, rev) in &self.bidirectional_pairs {
-                    if (ab_str == fwd && ba_str == rev)
-                        || (ab_str == rev && ba_str == fwd)
-                    {
+                    if (ab_str == fwd && ba_str == rev) || (ab_str == rev && ba_str == fwd) {
                         return true;
                     }
                 }
@@ -472,7 +476,8 @@ impl Graph {
             Black,
         }
 
-        let mut color: HashMap<Sym, Color> = self.nodes.keys().map(|&k| (k, Color::White)).collect();
+        let mut color: HashMap<Sym, Color> =
+            self.nodes.keys().map(|&k| (k, Color::White)).collect();
         let mut path: Vec<Sym> = Vec::new();
         let mut cycles: Vec<Vec<Sym>> = Vec::new();
 
@@ -514,7 +519,14 @@ impl Graph {
         let node_ids: Vec<Sym> = self.nodes.keys().copied().collect();
         for &node in &node_ids {
             if color.get(&node).copied() == Some(Color::White) {
-                dfs(node, &mut color, &mut path, &mut cycles, &self.source_index, &self.edges);
+                dfs(
+                    node,
+                    &mut color,
+                    &mut path,
+                    &mut cycles,
+                    &self.source_index,
+                    &self.edges,
+                );
             }
         }
 

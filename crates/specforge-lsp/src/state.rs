@@ -2,8 +2,7 @@ use crate::DocumentBuffer;
 use specforge_common::Diagnostic;
 use specforge_graph::Graph;
 use specforge_registry::{
-    validation_engine::ValidationRulePattern,
-    EdgeRegistry, FieldRegistry, KindRegistry,
+    EdgeRegistry, FieldRegistry, KindRegistry, validation_engine::ValidationRulePattern,
 };
 use std::collections::HashMap;
 
@@ -91,7 +90,10 @@ impl LspState {
     }
 
     pub fn diagnostics(&self, uri: &str) -> &[Diagnostic] {
-        self.diagnostics.get(uri).map(|v| v.as_slice()).unwrap_or(&[])
+        self.diagnostics
+            .get(uri)
+            .map(|v| v.as_slice())
+            .unwrap_or(&[])
     }
 
     pub fn graph(&self) -> &Graph {
@@ -149,4 +151,3 @@ impl LspState {
         self.shutdown
     }
 }
-

@@ -5,10 +5,10 @@
 
 use specforge_registry::ManifestV2;
 use specforge_wasm::{
-    compose_query_files, discover_extensions, parse_extension_specifier, read_lock_file,
-    refresh_lock_file, run_doctor_check, validate_query_extensions, write_lock_file, DoctorStatus,
-    ExtensionSpecifier, LockFile, LockFileEntry, QueryExtension, QueryFileKind,
-    RawQueryExtension, ResolvedExtension,
+    DoctorStatus, ExtensionSpecifier, LockFile, LockFileEntry, QueryExtension, QueryFileKind,
+    RawQueryExtension, ResolvedExtension, compose_query_files, discover_extensions,
+    parse_extension_specifier, read_lock_file, refresh_lock_file, run_doctor_check,
+    validate_query_extensions, write_lock_file,
 };
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
@@ -233,9 +233,11 @@ fn doctor_missing_binary() {
         }],
     };
     let results = run_doctor_check(&lock, dir.path(), |_| None, &HashMap::new());
-    assert!(results
-        .iter()
-        .any(|r| matches!(r, DoctorStatus::MissingBinary { name } if name == "missing-ext")));
+    assert!(
+        results
+            .iter()
+            .any(|r| matches!(r, DoctorStatus::MissingBinary { name } if name == "missing-ext"))
+    );
 }
 
 // B:run_doctor_check — verify integration "stale hash detected"
@@ -261,9 +263,11 @@ fn doctor_stale_hash() {
         |_| Some("different_hash".to_string()),
         &HashMap::new(),
     );
-    assert!(results
-        .iter()
-        .any(|r| matches!(r, DoctorStatus::StaleHash { .. })));
+    assert!(
+        results
+            .iter()
+            .any(|r| matches!(r, DoctorStatus::StaleHash { .. }))
+    );
 }
 
 // B:run_doctor_check — verify integration "all healthy returns empty"
@@ -283,10 +287,9 @@ fn doctor_all_healthy() {
             wasm_hash: "correct".to_string(),
         }],
     };
-    let installed: HashMap<String, String> =
-        [("good-ext".to_string(), "1.0.0".to_string())]
-            .into_iter()
-            .collect();
+    let installed: HashMap<String, String> = [("good-ext".to_string(), "1.0.0".to_string())]
+        .into_iter()
+        .collect();
     let results = run_doctor_check(
         &lock,
         dir.path(),

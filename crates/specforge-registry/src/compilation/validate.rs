@@ -78,9 +78,7 @@ pub fn detect_duplicate_entity_kinds(manifests: &[ManifestV2]) -> Vec<Diagnostic
 }
 
 /// Validate peer dependencies against installed extensions.
-pub fn validate_peer_dependencies(
-    manifests: &[ManifestV2],
-) -> Vec<Diagnostic> {
+pub fn validate_peer_dependencies(manifests: &[ManifestV2]) -> Vec<Diagnostic> {
     let mut diagnostics = Vec::new();
 
     let installed: std::collections::HashMap<&str, &str> = manifests
@@ -246,7 +244,11 @@ pub fn detect_circular_peer_dependencies(manifests: &[ManifestV2]) -> Vec<Diagno
     let deps: HashMap<&str, Vec<&str>> = manifests
         .iter()
         .map(|m| {
-            let peers: Vec<&str> = m.peer_dependencies.iter().map(|p| p.name.as_str()).collect();
+            let peers: Vec<&str> = m
+                .peer_dependencies
+                .iter()
+                .map(|p| p.name.as_str())
+                .collect();
             (m.name.as_str(), peers)
         })
         .collect();
@@ -276,10 +278,8 @@ pub fn detect_circular_peer_dependencies(manifests: &[ManifestV2]) -> Vec<Diagno
                 if gray.contains(neighbor) {
                     // Found cycle — extract the cycle from path
                     let cycle_start = path.iter().position(|&n| n == neighbor).unwrap();
-                    let cycle: Vec<String> = path[cycle_start..]
-                        .iter()
-                        .map(|s| s.to_string())
-                        .collect();
+                    let cycle: Vec<String> =
+                        path[cycle_start..].iter().map(|s| s.to_string()).collect();
                     cycles.push(cycle);
                 } else if white.contains(neighbor) {
                     dfs(neighbor, deps, white, gray, black, path, cycles);
@@ -297,7 +297,15 @@ pub fn detect_circular_peer_dependencies(manifests: &[ManifestV2]) -> Vec<Diagno
     for node in start_nodes {
         if white.contains(node) {
             let mut path = Vec::new();
-            dfs(node, &deps, &mut white, &mut gray, &mut black, &mut path, &mut cycles);
+            dfs(
+                node,
+                &deps,
+                &mut white,
+                &mut gray,
+                &mut black,
+                &mut path,
+                &mut cycles,
+            );
         }
     }
 
@@ -308,10 +316,7 @@ pub fn detect_circular_peer_dependencies(manifests: &[ManifestV2]) -> Vec<Diagno
         diagnostics.push(Diagnostic {
             code: "W063".to_string(),
             severity: Severity::Warning,
-            message: format!(
-                "circular peer dependency: {}",
-                cycle.join(" -> ")
-            ),
+            message: format!("circular peer dependency: {}", cycle.join(" -> ")),
             span: None,
             suggestion: Some("break the cycle by removing one peer dependency".to_string()),
         });
@@ -411,7 +416,7 @@ pub fn register_validation_rules(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{populate_registries, ManifestV2};
+    use crate::{ManifestV2, populate_registries};
 
     fn software_manifest() -> ManifestV2 {
         serde_json::from_str(
@@ -498,7 +503,9 @@ mod tests {
         let (kind_reg, field_reg, edge_reg, _) = populate_registries(&[manifest]);
         let diags = validate_registered_entity_fields(&field_reg, &kind_reg, &edge_reg);
         assert!(
-            diags.iter().any(|d| d.code == "W022" && d.message.contains("person")),
+            diags
+                .iter()
+                .any(|d| d.code == "W022" && d.message.contains("person")),
             "expected W022 about unresolved target_kind 'person', got: {:?}",
             diags
         );
@@ -528,7 +535,10 @@ mod tests {
         let (kind_reg, field_reg, edge_reg, _) = populate_registries(&[manifest]);
         let _diags = validate_registered_entity_fields(&field_reg, &kind_reg, &edge_reg);
         // "owns" was auto-created as an implicit edge during populate, so it resolves
-        assert!(edge_reg.contains("owns"), "implicit edge 'owns' should have been created");
+        assert!(
+            edge_reg.contains("owns"),
+            "implicit edge 'owns' should have been created"
+        );
     }
 
     // B:validate_registered_entity_fields — verify unit "cross-validation uses no domain-specific logic"
@@ -565,7 +575,11 @@ mod tests {
         let (kind_reg, field_reg, edge_reg, pop_diags) = populate_registries(&[manifest]);
         assert!(pop_diags.is_empty());
         let diags = validate_registered_entity_fields(&field_reg, &kind_reg, &edge_reg);
-        assert!(diags.is_empty(), "custom domain should validate cleanly: {:?}", diags);
+        assert!(
+            diags.is_empty(),
+            "custom domain should validate cleanly: {:?}",
+            diags
+        );
     }
 
     // -- B:detect_duplicate_entity_kinds --
@@ -588,7 +602,9 @@ mod tests {
         .unwrap();
         let diags = detect_duplicate_entity_kinds(&[m1, m2]);
         assert!(
-            diags.iter().any(|d| d.code == "E026" && d.message.contains("behavior")),
+            diags
+                .iter()
+                .any(|d| d.code == "E026" && d.message.contains("behavior")),
             "expected E026 for duplicate 'behavior', got: {:?}",
             diags
         );
@@ -641,7 +657,11 @@ mod tests {
         )
         .unwrap();
         let diags = validate_peer_dependencies(&[m1, m2]);
-        assert!(diags.is_empty(), "expected no diagnostics, got: {:?}", diags);
+        assert!(
+            diags.is_empty(),
+            "expected no diagnostics, got: {:?}",
+            diags
+        );
     }
 
     // B:validate_peer_dependencies — verify unit "missing peer dependency produces hard error"
@@ -661,7 +681,9 @@ mod tests {
         .unwrap();
         let diags = validate_peer_dependencies(&[m]);
         assert!(
-            diags.iter().any(|d| d.code == "E027" && d.message.contains("@specforge/software")),
+            diags
+                .iter()
+                .any(|d| d.code == "E027" && d.message.contains("@specforge/software")),
             "expected E027 for missing peer, got: {:?}",
             diags
         );
@@ -721,7 +743,9 @@ mod tests {
         let (kind_reg, _, _, _) = populate_registries(&[manifest]);
         let diags = validate_extension_testability(&kind_reg);
         assert!(
-            diags.iter().any(|d| d.code == "W017" && d.message.contains("thing")),
+            diags
+                .iter()
+                .any(|d| d.code == "W017" && d.message.contains("thing")),
             "expected W017, got: {:?}",
             diags
         );
@@ -758,7 +782,9 @@ mod tests {
         let (kind_reg, _, _, _) = populate_registries(&[manifest]);
         let diags = validate_extension_testability(&kind_reg);
         assert!(
-            diags.iter().any(|d| d.code == "I006" && d.message.contains("note")),
+            diags
+                .iter()
+                .any(|d| d.code == "I006" && d.message.contains("note")),
             "expected I006, got: {:?}",
             diags
         );
@@ -781,7 +807,11 @@ mod tests {
         .unwrap();
         let (kind_reg, _, _, _) = populate_registries(&[manifest]);
         let diags = validate_extension_testability(&kind_reg);
-        assert!(diags.is_empty(), "expected no diagnostics, got: {:?}", diags);
+        assert!(
+            diags.is_empty(),
+            "expected no diagnostics, got: {:?}",
+            diags
+        );
     }
 
     // -- B:register_verify_kinds_from_manifest --
@@ -810,7 +840,10 @@ mod tests {
     #[test]
     fn test_no_hardcoded_verify_kinds_in_core() {
         let (kinds, _) = register_verify_kinds(&[]);
-        assert!(kinds.is_empty(), "with no manifests, verify kinds should be empty");
+        assert!(
+            kinds.is_empty(),
+            "with no manifests, verify kinds should be empty"
+        );
     }
 
     // -- B:register_validation_rules_from_manifest --
@@ -867,7 +900,10 @@ mod tests {
         )
         .unwrap();
         let (rules, diags) = register_validation_rules(&[manifest]);
-        assert!(diags.is_empty(), "rule registration should not validate target_kind");
+        assert!(
+            diags.is_empty(),
+            "rule registration should not validate target_kind"
+        );
         assert_eq!(rules.len(), 1);
     }
 
@@ -934,7 +970,9 @@ mod tests {
         .unwrap();
         let (_, diags) = register_validation_rules(&[m1, m2]);
         assert!(
-            diags.iter().any(|d| d.code == "W023" && d.message.contains("W100")),
+            diags
+                .iter()
+                .any(|d| d.code == "W023" && d.message.contains("W100")),
             "expected W023 for duplicate code, got: {:?}",
             diags
         );
@@ -954,7 +992,8 @@ mod tests {
                 "entityKinds":[{"name":"A","keyword":"a","fields":[
                     {"name":"f","fieldType":"reference","targetKind":"nonexistent"}
                 ]}]}"#,
-        ).unwrap();
+        )
+        .unwrap();
         let (kr, fr, er, _) = populate_registries(&[bad_manifest]);
         let bad_diags = validate_registered_entity_fields(&fr, &kr, &er);
         assert!(bad_diags.iter().any(|d| d.code == "W022"));
@@ -971,7 +1010,8 @@ mod tests {
         let m2: ManifestV2 = serde_json::from_str(
             r#"{"name":"@other/ext","version":"1.0.0","manifestVersion":2,"wasmPath":"o.wasm",
                 "entityKinds":[{"name":"Behavior","keyword":"behavior"}]}"#,
-        ).unwrap();
+        )
+        .unwrap();
         let dup_diags = detect_duplicate_entity_kinds(&[software_manifest(), m2]);
         assert!(dup_diags.iter().any(|d| d.code == "E026"));
     }
@@ -1049,7 +1089,11 @@ mod tests {
         )
         .unwrap();
         let diags = validate_host_api_versions(&[m]);
-        assert!(diags.is_empty(), "1.0.0 should be compatible, got: {:?}", diags);
+        assert!(
+            diags.is_empty(),
+            "1.0.0 should be compatible, got: {:?}",
+            diags
+        );
     }
 
     // B:validate_host_api_version — verify unit "incompatible major version produces E028"
@@ -1067,7 +1111,9 @@ mod tests {
         .unwrap();
         let diags = validate_host_api_versions(&[m]);
         assert!(
-            diags.iter().any(|d| d.code == "E028" && d.message.contains("2.0.0")),
+            diags
+                .iter()
+                .any(|d| d.code == "E028" && d.message.contains("2.0.0")),
             "2.0.0 should be incompatible with host 1.0.0, got: {:?}",
             diags
         );
@@ -1086,7 +1132,11 @@ mod tests {
         )
         .unwrap();
         let diags = validate_host_api_versions(&[m]);
-        assert!(diags.is_empty(), "no host_api_version should pass, got: {:?}", diags);
+        assert!(
+            diags.is_empty(),
+            "no host_api_version should pass, got: {:?}",
+            diags
+        );
     }
 
     // B:validate_host_api_version — verify unit "semver range in host_api_version works"
@@ -1103,7 +1153,11 @@ mod tests {
         )
         .unwrap();
         let diags = validate_host_api_versions(&[m]);
-        assert!(diags.is_empty(), ">=1.0.0 should match host 1.0.0, got: {:?}", diags);
+        assert!(
+            diags.is_empty(),
+            ">=1.0.0 should match host 1.0.0, got: {:?}",
+            diags
+        );
     }
 
     // -- B:detect_circular_peer_dependencies --
@@ -1239,7 +1293,11 @@ mod tests {
         )
         .unwrap();
         let diags = validate_peer_dependencies(&[m1, m2]);
-        assert!(diags.is_empty(), "^1.0.0 should match 1.2.3, got: {:?}", diags);
+        assert!(
+            diags.is_empty(),
+            "^1.0.0 should match 1.2.3, got: {:?}",
+            diags
+        );
     }
 
     // B:validate_peer_dependencies — verify unit "caret range ^1.0.0 rejects 2.0.0"
@@ -1299,7 +1357,11 @@ mod tests {
         )
         .unwrap();
         let diags = validate_peer_dependencies(&[m1, m2]);
-        assert!(diags.is_empty(), "~1.2.0 should match 1.2.5, got: {:?}", diags);
+        assert!(
+            diags.is_empty(),
+            "~1.2.0 should match 1.2.5, got: {:?}",
+            diags
+        );
     }
 
     // B:validate_peer_dependencies — verify unit "tilde range ~1.2.0 rejects 1.3.0"
@@ -1360,7 +1422,9 @@ mod tests {
         .unwrap();
         let diags = validate_peer_dependencies(&[m1, m2]);
         assert!(
-            diags.iter().any(|d| d.code == "W062" && d.message.contains("not-a-version")),
+            diags
+                .iter()
+                .any(|d| d.code == "W062" && d.message.contains("not-a-version")),
             "expected W062 for malformed version range, got: {:?}",
             diags
         );
@@ -1392,7 +1456,9 @@ mod tests {
         .unwrap();
         let diags = validate_peer_dependencies(&[m1, m2]);
         assert!(
-            diags.iter().any(|d| d.code == "W062" && d.message.contains("bad-version")),
+            diags
+                .iter()
+                .any(|d| d.code == "W062" && d.message.contains("bad-version")),
             "expected W062 for malformed installed version, got: {:?}",
             diags
         );
@@ -1423,7 +1489,11 @@ mod tests {
         )
         .unwrap();
         let diags = validate_peer_dependencies(&[m1, m2]);
-        assert!(diags.is_empty(), "exact 1.0.0 should match 1.0.0, got: {:?}", diags);
+        assert!(
+            diags.is_empty(),
+            "exact 1.0.0 should match 1.0.0, got: {:?}",
+            diags
+        );
     }
 
     // B:register_verify_kinds_from_manifest — verify contract "requires/ensures consistency for verify kind registration"
@@ -1433,7 +1503,8 @@ mod tests {
         let m: ManifestV2 = serde_json::from_str(
             r#"{"name":"@t/e","version":"1.0.0","manifestVersion":2,"wasmPath":"x.wasm",
                 "verifyKinds":["smoke","contract"]}"#,
-        ).unwrap();
+        )
+        .unwrap();
         let (kinds, diags) = register_verify_kinds(&[m]);
         // ensures: kinds registered
         assert_eq!(kinds.len(), 2);

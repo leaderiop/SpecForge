@@ -61,9 +61,7 @@ impl EnginePool {
         // Check memory ceiling
         let total_mem: u32 = instances.iter().map(|i| i.memory_mb).sum();
         let mut current_total = total_mem;
-        while current_total + memory_mb > self.config.max_memory_mb
-            && !instances.is_empty()
-        {
+        while current_total + memory_mb > self.config.max_memory_mb && !instances.is_empty() {
             if let Some(removed) = instances.pop_front() {
                 current_total -= removed.memory_mb;
                 evicted = Some(removed.extension_name);
@@ -148,7 +146,10 @@ mod tests {
     // B:warm_wasm_engine_instance — verify contract "requires/ensures consistency for warm engine instance management"
     #[test]
     fn test_warm_engine_contract() {
-        let pool = EnginePool::new(WarmEngineConfig { max_instances: 2, max_memory_mb: 100 });
+        let pool = EnginePool::new(WarmEngineConfig {
+            max_instances: 2,
+            max_memory_mb: 100,
+        });
 
         // ensures: engine_warmed — instances tracked
         pool.warm("a", 30);
@@ -169,7 +170,10 @@ mod tests {
     // B:evict_warm_engine_instance — verify unit "LRU engine evicted when max instances exceeded"
     #[test]
     fn test_lru_engine_evicted_when_max_instances_exceeded() {
-        let pool = EnginePool::new(WarmEngineConfig { max_instances: 2, max_memory_mb: 512 });
+        let pool = EnginePool::new(WarmEngineConfig {
+            max_instances: 2,
+            max_memory_mb: 512,
+        });
         pool.warm("first", 10);
         pool.warm("second", 10);
 
@@ -184,7 +188,10 @@ mod tests {
     // B:evict_warm_engine_instance — verify unit "memory ceiling triggers eviction of least-recent engine"
     #[test]
     fn test_memory_ceiling_triggers_eviction() {
-        let pool = EnginePool::new(WarmEngineConfig { max_instances: 10, max_memory_mb: 100 });
+        let pool = EnginePool::new(WarmEngineConfig {
+            max_instances: 10,
+            max_memory_mb: 100,
+        });
         pool.warm("a", 40);
         pool.warm("b", 40);
 
@@ -198,7 +205,10 @@ mod tests {
     // B:evict_warm_engine_instance — verify contract "requires/ensures consistency for warm engine eviction"
     #[test]
     fn test_evict_engine_contract() {
-        let pool = EnginePool::new(WarmEngineConfig { max_instances: 2, max_memory_mb: 512 });
+        let pool = EnginePool::new(WarmEngineConfig {
+            max_instances: 2,
+            max_memory_mb: 512,
+        });
         pool.warm("old", 10);
         pool.warm("new", 10);
 

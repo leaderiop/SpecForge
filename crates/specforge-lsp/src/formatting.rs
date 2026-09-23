@@ -86,7 +86,10 @@ mod tests {
     use super::*;
     use tempfile::TempDir;
 
-    #[specforge_test_macros::test(behavior = "lsp_format_document", verify = "formatting request returns TextEdit list")]
+    #[specforge_test_macros::test(
+        behavior = "lsp_format_document",
+        verify = "formatting request returns TextEdit list"
+    )]
     #[test]
     fn test_format_document_returns_textedit_list() {
         let source = "behavior foo \"Foo\" {\n      contract \"does stuff\"\n}\n";
@@ -94,7 +97,10 @@ mod tests {
         assert!(!edits.is_empty(), "should have edits for mis-indented file");
     }
 
-    #[specforge_test_macros::test(behavior = "lsp_format_document", verify = "TextEdit coordinates are 0-indexed lines and columns")]
+    #[specforge_test_macros::test(
+        behavior = "lsp_format_document",
+        verify = "TextEdit coordinates are 0-indexed lines and columns"
+    )]
     #[test]
     fn test_textedit_coordinates_zero_indexed() {
         let source = "behavior foo \"Foo\" {\n      contract \"does stuff\"\n}\n";
@@ -106,7 +112,10 @@ mod tests {
         }
     }
 
-    #[specforge_test_macros::test(behavior = "lsp_format_document", verify = "TextEdit operations in a response do not overlap")]
+    #[specforge_test_macros::test(
+        behavior = "lsp_format_document",
+        verify = "TextEdit operations in a response do not overlap"
+    )]
     #[test]
     fn test_textedits_do_not_overlap() {
         let source = "behavior foo \"Foo\" {\n      contract \"a\"\n      types [x]\n}\n";
@@ -119,7 +128,10 @@ mod tests {
         }
     }
 
-    #[specforge_test_macros::test(behavior = "lsp_respect_editor_config", verify = "editor tab size used when no config file exists")]
+    #[specforge_test_macros::test(
+        behavior = "lsp_respect_editor_config",
+        verify = "editor tab size used when no config file exists"
+    )]
     #[test]
     fn test_editor_tab_size_used_when_no_config() {
         let source = "behavior foo \"Foo\" {\n    contract \"a\"\n}\n";
@@ -129,10 +141,16 @@ mod tests {
         };
         let (edits, _) = format_document(source, None, None, Some(&opts));
         // With tab_size=4, the input is already correctly indented
-        assert!(edits.is_empty(), "should have no edits when indent matches editor config");
+        assert!(
+            edits.is_empty(),
+            "should have no edits when indent matches editor config"
+        );
     }
 
-    #[specforge_test_macros::test(behavior = "lsp_respect_editor_config", verify = "config file takes precedence over editor settings")]
+    #[specforge_test_macros::test(
+        behavior = "lsp_respect_editor_config",
+        verify = "config file takes precedence over editor settings"
+    )]
     #[test]
     fn test_config_file_takes_precedence_over_editor() {
         let tmp = TempDir::new().unwrap();
@@ -149,18 +167,26 @@ mod tests {
         assert_eq!(config.indent_width, 4, "config file should take precedence");
     }
 
-    #[specforge_test_macros::test(behavior = "lsp_format_range", verify = "range is expanded to block boundaries")]
+    #[specforge_test_macros::test(
+        behavior = "lsp_format_range",
+        verify = "range is expanded to block boundaries"
+    )]
     #[test]
     fn test_format_range_expands_to_block_boundaries() {
         let source = "behavior foo \"Foo\" {\n  contract \"a\"\n  types [x]\n}\n\nbehavior bar \"Bar\" {\n      contract \"b\"\n}\n";
         let (edits, _) = format_document_range(source, 6, 6, None, None, None);
         // The range should be expanded to include the full bar block
         // and produce edits for the mis-indented contract
-        assert!(!edits.is_empty() || source.contains("  contract \"b\""),
-            "should handle range formatting");
+        assert!(
+            !edits.is_empty() || source.contains("  contract \"b\""),
+            "should handle range formatting"
+        );
     }
 
-    #[specforge_test_macros::test(behavior = "lsp_format_document", verify = "parse errors in document trigger format_with_parse_errors delegation")]
+    #[specforge_test_macros::test(
+        behavior = "lsp_format_document",
+        verify = "parse errors in document trigger format_with_parse_errors delegation"
+    )]
     #[test]
     fn test_format_document_with_parse_errors() {
         let source = "behavior foo \"Foo\" {\n  contract \"good\"\n}\n\n{{{broken\n\nbehavior bar \"Bar\" {\n      contract \"also good\"\n}\n";
@@ -172,7 +198,10 @@ mod tests {
 
     // --- Behavior: lsp_format_document ---
 
-    #[specforge_test_macros::test(behavior = "lsp_format_document", verify = "LSP format produces same result as CLI format")]
+    #[specforge_test_macros::test(
+        behavior = "lsp_format_document",
+        verify = "LSP format produces same result as CLI format"
+    )]
     #[test]
     fn test_lsp_format_produces_same_result_as_cli_format() {
         let source = "behavior foo \"Foo\" {\n      contract \"stuff\"\n    types [a, b]\n}\n";
@@ -187,10 +216,16 @@ mod tests {
         } else {
             cli_result.formatted.clone()
         };
-        assert_eq!(cli_result.formatted, lsp_result, "LSP and CLI should produce same result");
+        assert_eq!(
+            cli_result.formatted, lsp_result,
+            "LSP and CLI should produce same result"
+        );
     }
 
-    #[specforge_test_macros::test(behavior = "lsp_format_document", verify = "formats document within 50ms for files under 1000 lines")]
+    #[specforge_test_macros::test(
+        behavior = "lsp_format_document",
+        verify = "formats document within 50ms for files under 1000 lines"
+    )]
     #[test]
     fn test_format_document_performance_under_50ms() {
         let mut source = String::from("use types/core\n\n");
@@ -204,13 +239,19 @@ mod tests {
         let (_edits, _diags) = format_document(&source, None, None, None);
         let elapsed = start.elapsed();
 
-        assert!(elapsed.as_millis() < 50,
-            "LSP formatting should complete within 50ms, took {}ms", elapsed.as_millis());
+        assert!(
+            elapsed.as_millis() < 50,
+            "LSP formatting should complete within 50ms, took {}ms",
+            elapsed.as_millis()
+        );
     }
 
     // --- Behavior: lsp_format_range ---
 
-    #[specforge_test_macros::test(behavior = "lsp_format_range", verify = "range formatting matches full formatting for affected blocks")]
+    #[specforge_test_macros::test(
+        behavior = "lsp_format_range",
+        verify = "range formatting matches full formatting for affected blocks"
+    )]
     #[test]
     fn test_range_formatting_matches_full_formatting() {
         let source = "behavior foo \"Foo\" {\n  contract \"a\"\n}\n\nbehavior bar \"Bar\" {\n      contract \"b\"\n}\n";
@@ -220,21 +261,32 @@ mod tests {
 
         // Range edits should be a subset of full edits (for the affected range)
         // Both should produce valid output
-        assert!(!range_edits.is_empty() || !full_edits.is_empty(),
-            "at least one should have edits for the mis-indented bar block");
+        assert!(
+            !range_edits.is_empty() || !full_edits.is_empty(),
+            "at least one should have edits for the mis-indented bar block"
+        );
     }
 
-    #[specforge_test_macros::test(behavior = "lsp_format_range", verify = "parse errors within range are left unchanged per format_with_parse_errors")]
+    #[specforge_test_macros::test(
+        behavior = "lsp_format_range",
+        verify = "parse errors within range are left unchanged per format_with_parse_errors"
+    )]
     #[test]
     fn test_parse_errors_within_range_left_unchanged() {
         let source = "behavior foo \"Foo\" {\n  contract \"good\"\n}\n\n{{{broken\n\nbehavior bar \"Bar\" {\n  contract \"ok\"\n}\n";
         let (edits, diags) = format_document_range(source, 3, 5, None, None, None);
         // Should not crash and should report error
         let has_warning = diags.iter().any(|d| d.code == "F011");
-        assert!(has_warning || edits.is_empty(), "parse errors in range should be handled gracefully");
+        assert!(
+            has_warning || edits.is_empty(),
+            "parse errors in range should be handled gracefully"
+        );
     }
 
-    #[specforge_test_macros::test(behavior = "lsp_format_range", verify = "formats range within 20ms for ranges under 200 lines")]
+    #[specforge_test_macros::test(
+        behavior = "lsp_format_range",
+        verify = "formats range within 20ms for ranges under 200 lines"
+    )]
     #[test]
     fn test_format_range_performance_under_20ms() {
         let mut source = String::from("use types/core\n\n");
@@ -248,13 +300,19 @@ mod tests {
         let (_edits, _diags) = format_document_range(&source, 10, 20, None, None, None);
         let elapsed = start.elapsed();
 
-        assert!(elapsed.as_millis() < 20,
-            "LSP range formatting should complete within 20ms, took {}ms", elapsed.as_millis());
+        assert!(
+            elapsed.as_millis() < 20,
+            "LSP range formatting should complete within 20ms, took {}ms",
+            elapsed.as_millis()
+        );
     }
 
     // --- Contract: lsp_format_document ---
 
-    #[specforge_test_macros::test(behavior = "lsp_format_document", verify = "requires/ensures consistency for LSP document formatting")]
+    #[specforge_test_macros::test(
+        behavior = "lsp_format_document",
+        verify = "requires/ensures consistency for LSP document formatting"
+    )]
     #[test]
     fn test_lsp_format_document_contract() {
         let source = "behavior foo \"Foo\" {\n      contract \"stuff\"\n}\n";
@@ -264,15 +322,24 @@ mod tests {
         assert!(!edits.is_empty(), "should return TextEdit list");
         // ensures: all edits non-overlapping
         for i in 1..edits.len() {
-            assert!(edits[i].start_line >= edits[i - 1].end_line, "edits must not overlap");
+            assert!(
+                edits[i].start_line >= edits[i - 1].end_line,
+                "edits must not overlap"
+            );
         }
         // ensures: no errors
-        assert!(diags.iter().all(|d| d.code != "F010"), "should not have fatal parse errors");
+        assert!(
+            diags.iter().all(|d| d.code != "F010"),
+            "should not have fatal parse errors"
+        );
     }
 
     // --- Contract: lsp_format_range ---
 
-    #[specforge_test_macros::test(behavior = "lsp_format_range", verify = "requires/ensures consistency for LSP range formatting")]
+    #[specforge_test_macros::test(
+        behavior = "lsp_format_range",
+        verify = "requires/ensures consistency for LSP range formatting"
+    )]
     #[test]
     fn test_lsp_format_range_contract() {
         let source = "behavior foo \"Foo\" {\n  contract \"a\"\n}\n\nbehavior bar \"Bar\" {\n      contract \"b\"\n}\n";
@@ -281,19 +348,31 @@ mod tests {
         // ensures: range_expanded to block boundaries (bar block)
         // ensures: textedit_list_returned with non-overlapping edits
         for i in 1..edits.len() {
-            assert!(edits[i].start_line >= edits[i - 1].end_line, "edits must not overlap");
+            assert!(
+                edits[i].start_line >= edits[i - 1].end_line,
+                "edits must not overlap"
+            );
         }
     }
 
     // --- Contract: lsp_respect_editor_config ---
 
-    #[specforge_test_macros::test(behavior = "lsp_respect_editor_config", verify = "requires/ensures consistency for editor config respect")]
+    #[specforge_test_macros::test(
+        behavior = "lsp_respect_editor_config",
+        verify = "requires/ensures consistency for editor config respect"
+    )]
     #[test]
     fn test_lsp_respect_editor_config_contract() {
         // ensures: editor_fallback_applied (no config file)
-        let opts = EditorOptions { tab_size: 4, insert_spaces: true };
+        let opts = EditorOptions {
+            tab_size: 4,
+            insert_spaces: true,
+        };
         let config = resolve_config(None, None, Some(&opts));
-        assert_eq!(config.indent_width, 4, "editor options should be used as fallback");
+        assert_eq!(
+            config.indent_width, 4,
+            "editor options should be used as fallback"
+        );
         assert!(!config.use_tabs);
 
         // ensures: config_precedence_enforced (with config file)
@@ -303,6 +382,9 @@ mod tests {
         std::fs::write(root.join(".specforgefmt.toml"), "indent_width = 2\n").unwrap();
 
         let config_with_file = resolve_config(Some(root), Some(root), Some(&opts));
-        assert_eq!(config_with_file.indent_width, 2, "config file should take precedence over editor");
+        assert_eq!(
+            config_with_file.indent_width, 2,
+            "config file should take precedence over editor"
+        );
     }
 }

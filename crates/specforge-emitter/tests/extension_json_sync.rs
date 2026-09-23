@@ -33,7 +33,8 @@ fn repo_root() -> PathBuf {
 /// Pretty-print a JSON byte payload exactly as the xtask does, so byte
 /// comparison against the committed (pretty-printed) files is meaningful.
 fn pretty(bytes: &[u8]) -> String {
-    let value: serde_json::Value = serde_json::from_slice(bytes).expect("describe output is valid JSON");
+    let value: serde_json::Value =
+        serde_json::from_slice(bytes).expect("describe output is valid JSON");
     serde_json::to_string_pretty(&value).expect("re-serialize JSON")
 }
 

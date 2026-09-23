@@ -1,10 +1,10 @@
 use specforge_common::{Diagnostic, ProjectConfig};
 use specforge_graph::Graph;
-use specforge_registry::{KindRegistry, FieldRegistry, EdgeRegistry, SurfaceRegistryEntry};
+use specforge_registry::{EdgeRegistry, FieldRegistry, KindRegistry, SurfaceRegistryEntry};
 use std::collections::HashMap;
 use std::path::PathBuf;
 
-use crate::types::{McpEvent, McpToolDescriptor, McpResourceDescriptor, McpPromptDescriptor};
+use crate::types::{McpEvent, McpPromptDescriptor, McpResourceDescriptor, McpToolDescriptor};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ServerPhase {

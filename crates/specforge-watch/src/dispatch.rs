@@ -58,9 +58,10 @@ pub fn plan_incremental_dispatch(
         .iter()
         .map(|v| {
             // Check if any of this extension's non-incremental kinds appear in the delta
-            let needs_full_graph = v.kinds.iter().any(|k| {
-                !k.incremental && delta_kinds.contains(k.kind_name.as_str())
-            });
+            let needs_full_graph = v
+                .kinds
+                .iter()
+                .any(|k| !k.incremental && delta_kinds.contains(k.kind_name.as_str()));
 
             // If all kinds are incremental, use delta; otherwise full graph
             let all_incremental = v.kinds.iter().all(|k| k.incremental);

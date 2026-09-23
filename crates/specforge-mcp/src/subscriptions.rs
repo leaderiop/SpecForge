@@ -12,7 +12,10 @@ pub fn subscribe(state: &mut McpState, client_id: &str, channel: &str) -> bool {
         client_id: client_id.to_string(),
         channel: channel.to_string(),
     });
-    state.push_event("mcp_subscription_created", serde_json::json!({"client_id": client_id, "channel": channel}));
+    state.push_event(
+        "mcp_subscription_created",
+        serde_json::json!({"client_id": client_id, "channel": channel}),
+    );
     true
 }
 
@@ -21,7 +24,10 @@ pub fn unsubscribe(state: &mut McpState, client_id: &str, channel: &str) -> bool
         let before = subs.len();
         subs.retain(|s| s.client_id != client_id);
         if subs.len() < before {
-            state.push_event("mcp_subscription_removed", serde_json::json!({"client_id": client_id, "channel": channel}));
+            state.push_event(
+                "mcp_subscription_removed",
+                serde_json::json!({"client_id": client_id, "channel": channel}),
+            );
             return true;
         }
     }
@@ -35,7 +41,9 @@ pub fn unsubscribe_all(state: &mut McpState, client_id: &str) {
 }
 
 pub fn subscribers<'a>(state: &'a McpState, channel: &str) -> Vec<&'a str> {
-    state.subscriptions.get(channel)
+    state
+        .subscriptions
+        .get(channel)
         .map(|subs| subs.iter().map(|s| s.client_id.as_str()).collect())
         .unwrap_or_default()
 }

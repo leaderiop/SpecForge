@@ -41,31 +41,49 @@ pub fn parse_incremental(
     let file_sym = Sym::new(file_path);
     let mut parser = Parser::new();
     if let Err(e) = parser.set_language(&tree_sitter_specforge::LANGUAGE.into()) {
-        return (SpecFile {
-            path: file_sym,
-            imports: Vec::new(),
-            entities: Vec::new(),
-            errors: vec![ParseError {
-                message: format!("failed to load specforge grammar: {e}"),
-                span: SourceSpan { file: file_sym, start_line: 1, start_col: 1, end_line: 1, end_col: 1 },
-                expected: None,
-                found: None,
-            }],
-        }, None);
+        return (
+            SpecFile {
+                path: file_sym,
+                imports: Vec::new(),
+                entities: Vec::new(),
+                errors: vec![ParseError {
+                    message: format!("failed to load specforge grammar: {e}"),
+                    span: SourceSpan {
+                        file: file_sym,
+                        start_line: 1,
+                        start_col: 1,
+                        end_line: 1,
+                        end_col: 1,
+                    },
+                    expected: None,
+                    found: None,
+                }],
+            },
+            None,
+        );
     }
 
     let Some(tree) = parser.parse(source, old_tree) else {
-        return (SpecFile {
-            path: file_sym,
-            imports: Vec::new(),
-            entities: Vec::new(),
-            errors: vec![ParseError {
-                message: "tree-sitter parse failed".to_string(),
-                span: SourceSpan { file: file_sym, start_line: 1, start_col: 1, end_line: 1, end_col: 1 },
-                expected: None,
-                found: None,
-            }],
-        }, None);
+        return (
+            SpecFile {
+                path: file_sym,
+                imports: Vec::new(),
+                entities: Vec::new(),
+                errors: vec![ParseError {
+                    message: "tree-sitter parse failed".to_string(),
+                    span: SourceSpan {
+                        file: file_sym,
+                        start_line: 1,
+                        start_col: 1,
+                        end_line: 1,
+                        end_col: 1,
+                    },
+                    expected: None,
+                    found: None,
+                }],
+            },
+            None,
+        );
     };
     let mut ctx = ParseContext {
         source,
@@ -95,12 +113,15 @@ pub fn parse_incremental(
         }
     }
 
-    (SpecFile {
-        path: file_sym,
-        imports: ctx.imports,
-        entities: ctx.entities,
-        errors: ctx.errors,
-    }, Some(tree))
+    (
+        SpecFile {
+            path: file_sym,
+            imports: ctx.imports,
+            entities: ctx.entities,
+            errors: ctx.errors,
+        },
+        Some(tree),
+    )
 }
 
 struct ParseContext<'a> {
@@ -150,9 +171,7 @@ impl<'a> ParseContext<'a> {
             }
         }
         match (open, close) {
-            (Some(start), Some(end)) if end > start => {
-                Some(self.source[start..end].to_string())
-            }
+            (Some(start), Some(end)) if end > start => Some(self.source[start..end].to_string()),
             (Some(start), Some(end)) if start == end => Some(String::new()),
             _ => None,
         }
@@ -172,7 +191,10 @@ impl<'a> ParseContext<'a> {
         // Provide contextual suggestions for common mistakes
         let (message, expected) = if trimmed.contains('{') && !trimmed.contains('}') {
             (
-                format!("syntax error near '{}': unclosed block — missing closing '}}'", display),
+                format!(
+                    "syntax error near '{}': unclosed block — missing closing '}}'",
+                    display
+                ),
                 Some("a closing '}'".to_string()),
             )
         } else if trimmed.starts_with('}') {
@@ -240,7 +262,9 @@ impl<'a> ParseContext<'a> {
             kind: EntityKind {
                 raw: Sym::new("spec"),
             },
-            id: EntityId { raw: Sym::new(&name) },
+            id: EntityId {
+                raw: Sym::new(&name),
+            },
             title: Some(name),
             fields: field_map,
             raw_body,
@@ -277,7 +301,9 @@ impl<'a> ParseContext<'a> {
             kind: EntityKind {
                 raw: Sym::new("ref"),
             },
-            id: EntityId { raw: Sym::new(id_text) },
+            id: EntityId {
+                raw: Sym::new(id_text),
+            },
             title,
             fields,
             raw_body: None,
@@ -302,9 +328,7 @@ impl<'a> ParseContext<'a> {
                 match child.kind() {
                     "identifier" => variants.push(self.text(child).to_string()),
                     "string" => variants.push(self.unquote(child)),
-                    "integer" | "negative_integer" => {
-                        variants.push(self.text(child).to_string())
-                    }
+                    "integer" | "negative_integer" => variants.push(self.text(child).to_string()),
                     _ => {}
                 }
             }
@@ -484,7 +508,10 @@ impl<'a> ParseContext<'a> {
                     Ok(val) => FieldValue::Integer(val),
                     Err(_) => {
                         self.errors.push(ParseError {
-                            message: format!("integer value '{}' is too large (overflows i64)", text),
+                            message: format!(
+                                "integer value '{}' is too large (overflows i64)",
+                                text
+                            ),
                             span: self.span(node),
                             expected: Some("integer within i64 range".to_string()),
                             found: Some(text.to_string()),
@@ -575,7 +602,8 @@ impl<'a> ParseContext<'a> {
             // Mixed types detected — emit warning and preserve per-item types
             if has_string && has_identifier {
                 self.errors.push(ParseError {
-                    message: "mixed list contains both quoted strings and bare identifiers".to_string(),
+                    message: "mixed list contains both quoted strings and bare identifiers"
+                        .to_string(),
                     span: self.span(node),
                     expected: Some("either all quoted strings or all bare identifiers".to_string()),
                     found: None,
@@ -597,9 +625,10 @@ impl<'a> ParseContext<'a> {
         let mut cursor = node.walk();
         for child in node.children(&mut cursor) {
             if child.kind() == "field"
-                && let Some((key, value, annotations)) = self.parse_field(child) {
-                    fields.push_annotated(key, value, annotations);
-                }
+                && let Some((key, value, annotations)) = self.parse_field(child)
+            {
+                fields.push_annotated(key, value, annotations);
+            }
         }
         FieldValue::Block(fields)
     }

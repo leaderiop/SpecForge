@@ -39,7 +39,15 @@ pub struct CompletenessReport {
 }
 
 const PRODUCT_KINDS: &[&str] = &[
-    "feature", "journey", "deliverable", "milestone", "module", "term", "persona", "channel", "release",
+    "feature",
+    "journey",
+    "deliverable",
+    "milestone",
+    "module",
+    "term",
+    "persona",
+    "channel",
+    "release",
 ];
 
 pub fn project_health(graph: &Graph) -> HealthReport {
@@ -49,9 +57,16 @@ pub fn project_health(graph: &Graph) -> HealthReport {
     let mut total_orphans = 0usize;
 
     for &kind in PRODUCT_KINDS {
-        let nodes: Vec<_> = graph.nodes().into_iter().filter(|n| n.kind.raw == kind).collect();
+        let nodes: Vec<_> = graph
+            .nodes()
+            .into_iter()
+            .filter(|n| n.kind.raw == kind)
+            .collect();
         let count = nodes.len();
-        let orphans = nodes.iter().filter(|n| graph.edges_to(n.id.raw.as_str()).is_empty()).count();
+        let orphans = nodes
+            .iter()
+            .filter(|n| graph.edges_to(n.id.raw.as_str()).is_empty())
+            .count();
 
         entity_counts.push(EntityCount {
             kind: kind.to_string(),
@@ -85,17 +100,27 @@ pub fn project_health(graph: &Graph) -> HealthReport {
     };
 
     // Completeness
-    let features: Vec<_> = graph.nodes().into_iter().filter(|n| n.kind.raw == "feature").collect();
+    let features: Vec<_> = graph
+        .nodes()
+        .into_iter()
+        .filter(|n| n.kind.raw == "feature")
+        .collect();
     let features_total = features.len();
-    let features_with_status = features.iter().filter(|n| {
-        n.fields.entries().iter().any(|e| e.key == "status")
-    }).count();
+    let features_with_status = features
+        .iter()
+        .filter(|n| n.fields.entries().iter().any(|e| e.key == "status"))
+        .count();
 
-    let milestones: Vec<_> = graph.nodes().into_iter().filter(|n| n.kind.raw == "milestone").collect();
+    let milestones: Vec<_> = graph
+        .nodes()
+        .into_iter()
+        .filter(|n| n.kind.raw == "milestone")
+        .collect();
     let milestones_total = milestones.len();
-    let milestones_with_features = milestones.iter().filter(|n| {
-        !graph.edges_from(n.id.raw.as_str()).is_empty()
-    }).count();
+    let milestones_with_features = milestones
+        .iter()
+        .filter(|n| !graph.edges_from(n.id.raw.as_str()).is_empty())
+        .count();
 
     let completeness_score = if features_total + milestones_total > 0 {
         let num = features_with_status + milestones_with_features;

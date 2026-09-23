@@ -77,7 +77,10 @@ mod tests {
         std::fs::write(path, "// test").unwrap();
     }
 
-    #[specforge_test_macros::test(behavior = "discover_format_targets", verify = "no arguments formats all .spec files under spec_root")]
+    #[specforge_test_macros::test(
+        behavior = "discover_format_targets",
+        verify = "no arguments formats all .spec files under spec_root"
+    )]
     #[test]
     fn test_no_arguments_formats_all_spec_files() {
         let tmp = TempDir::new().unwrap();
@@ -90,7 +93,10 @@ mod tests {
         assert_eq!(targets.len(), 3);
     }
 
-    #[specforge_test_macros::test(behavior = "discover_format_targets", verify = "files matching format.exclude globs are excluded")]
+    #[specforge_test_macros::test(
+        behavior = "discover_format_targets",
+        verify = "files matching format.exclude globs are excluded"
+    )]
     #[test]
     fn test_exclude_globs_filter_files() {
         let tmp = TempDir::new().unwrap();
@@ -103,7 +109,10 @@ mod tests {
         assert!(targets[0].ends_with("a.spec"));
     }
 
-    #[specforge_test_macros::test(behavior = "discover_format_targets", verify = "explicit file paths format only those files")]
+    #[specforge_test_macros::test(
+        behavior = "discover_format_targets",
+        verify = "explicit file paths format only those files"
+    )]
     #[test]
     fn test_explicit_paths_format_only_those() {
         let tmp = TempDir::new().unwrap();
@@ -117,7 +126,10 @@ mod tests {
         assert!(targets[0].ends_with("a.spec"));
     }
 
-    #[specforge_test_macros::test(behavior = "discover_format_targets", verify = "directory argument recursively discovers .spec files")]
+    #[specforge_test_macros::test(
+        behavior = "discover_format_targets",
+        verify = "directory argument recursively discovers .spec files"
+    )]
     #[test]
     fn test_directory_argument_recursively_discovers() {
         let tmp = TempDir::new().unwrap();
@@ -130,7 +142,10 @@ mod tests {
         assert_eq!(targets.len(), 2);
     }
 
-    #[specforge_test_macros::test(behavior = "discover_format_targets", verify = "non-.spec files are skipped with no error")]
+    #[specforge_test_macros::test(
+        behavior = "discover_format_targets",
+        verify = "non-.spec files are skipped with no error"
+    )]
     #[test]
     fn test_non_spec_files_are_skipped() {
         let tmp = TempDir::new().unwrap();
@@ -139,11 +154,7 @@ mod tests {
         create_file(root, "b.txt");
         create_file(root, "c.rs");
 
-        let explicit = vec![
-            root.join("a.spec"),
-            root.join("b.txt"),
-            root.join("c.rs"),
-        ];
+        let explicit = vec![root.join("a.spec"), root.join("b.txt"), root.join("c.rs")];
         let targets = discover_targets(root, &explicit, &[]);
         assert_eq!(targets.len(), 1);
         assert!(targets[0].ends_with("a.spec"));
@@ -151,7 +162,10 @@ mod tests {
 
     // --- Invariant: discover_completeness ---
 
-    #[specforge_test_macros::test(behavior = "discover_format_targets", verify = "no arguments formats all .spec files under spec_root")]
+    #[specforge_test_macros::test(
+        behavior = "discover_format_targets",
+        verify = "no arguments formats all .spec files under spec_root"
+    )]
     #[test]
     fn test_all_spec_files_under_spec_root_are_discovered() {
         let tmp = TempDir::new().unwrap();
@@ -165,7 +179,10 @@ mod tests {
         assert_eq!(targets.len(), 4, "all .spec files should be found");
     }
 
-    #[specforge_test_macros::test(behavior = "discover_format_targets", verify = "non-.spec files are skipped with no error")]
+    #[specforge_test_macros::test(
+        behavior = "discover_format_targets",
+        verify = "non-.spec files are skipped with no error"
+    )]
     #[test]
     fn test_no_spec_files_are_silently_skipped() {
         let tmp = TempDir::new().unwrap();
@@ -178,13 +195,22 @@ mod tests {
 
         let targets = discover_targets(root, &[], &[]);
         // All files should be discovered (walkdir follows into directories)
-        assert!(targets.len() >= 2, "at least top.spec and nested files should be found: {targets:?}");
-        assert!(targets.iter().any(|t| t.ends_with("top.spec")), "top.spec should be found");
+        assert!(
+            targets.len() >= 2,
+            "at least top.spec and nested files should be found: {targets:?}"
+        );
+        assert!(
+            targets.iter().any(|t| t.ends_with("top.spec")),
+            "top.spec should be found"
+        );
     }
 
     // --- Contract: discover_format_targets ---
 
-    #[specforge_test_macros::test(behavior = "discover_format_targets", verify = "requires/ensures consistency for format target discovery")]
+    #[specforge_test_macros::test(
+        behavior = "discover_format_targets",
+        verify = "requires/ensures consistency for format target discovery"
+    )]
     #[test]
     fn test_discover_format_targets_contract() {
         let tmp = TempDir::new().unwrap();

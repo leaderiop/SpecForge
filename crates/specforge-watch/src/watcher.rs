@@ -79,17 +79,12 @@ impl SpecWatcher {
 
     fn extract_spec_paths(event: &Event, root: &Path) -> Vec<String> {
         match event.kind {
-            EventKind::Create(_) | EventKind::Modify(_) | EventKind::Remove(_) => {
-                event
-                    .paths
-                    .iter()
-                    .filter(|p| {
-                        p.extension()
-                            .is_some_and(|ext| ext == "spec")
-                    })
-                    .filter_map(|p| Self::relative_path(p, root))
-                    .collect()
-            }
+            EventKind::Create(_) | EventKind::Modify(_) | EventKind::Remove(_) => event
+                .paths
+                .iter()
+                .filter(|p| p.extension().is_some_and(|ext| ext == "spec"))
+                .filter_map(|p| Self::relative_path(p, root))
+                .collect(),
             _ => vec![],
         }
     }

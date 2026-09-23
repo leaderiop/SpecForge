@@ -1,15 +1,15 @@
 /// Semantic token types used in the legend.
 /// The order matters — indices are sent over the wire.
 pub const TOKEN_TYPES: &[&str] = &[
-    "keyword",     // 0: structural keywords (use, define, verify, ref)
-    "type",        // 1: entity kind keywords (behavior, feature, event, ...)
-    "function",    // 2: entity IDs at declaration site
-    "variable",    // 3: identifiers in reference lists
-    "property",    // 4: field names
-    "string",      // 5: string literals
-    "comment",     // 6: comments
-    "number",      // 7: numeric literals
-    "enumMember",  // 8: verify kinds (unit, integration, property, ...)
+    "keyword",    // 0: structural keywords (use, define, verify, ref)
+    "type",       // 1: entity kind keywords (behavior, feature, event, ...)
+    "function",   // 2: entity IDs at declaration site
+    "variable",   // 3: identifiers in reference lists
+    "property",   // 4: field names
+    "string",     // 5: string literals
+    "comment",    // 6: comments
+    "number",     // 7: numeric literals
+    "enumMember", // 8: verify kinds (unit, integration, property, ...)
 ];
 
 /// Semantic token modifiers. Bit positions.
@@ -165,15 +165,16 @@ pub fn classify_tokens(source: &str, entity_kinds: &[&str]) -> Vec<SemanticToken
             });
             // For "use", the rest is a string path
             if first == "use"
-                && let Some(quote_start) = line.find('"') {
-                    let string_part = &line[quote_start..];
-                    tokens.push(SemanticToken {
-                        text: string_part.to_string(),
-                        token_type: "string".into(),
-                        modifiers: 0,
-                        line: line_num,
-                        col: quote_start,
-                    });
+                && let Some(quote_start) = line.find('"')
+            {
+                let string_part = &line[quote_start..];
+                tokens.push(SemanticToken {
+                    text: string_part.to_string(),
+                    token_type: "string".into(),
+                    modifiers: 0,
+                    line: line_num,
+                    col: quote_start,
+                });
             }
             // For "define", the second word is an ID (declaration)
             if first == "define" && words.len() >= 2 {
@@ -213,14 +214,15 @@ pub fn classify_tokens(source: &str, entity_kinds: &[&str]) -> Vec<SemanticToken
             }
             // Title string
             if let Some(quote_start) = line.find('"')
-                && let Some(end) = find_quoted_string(line, quote_start) {
-                    tokens.push(SemanticToken {
-                        text: line[quote_start..=end].to_string(),
-                        token_type: "string".into(),
-                        modifiers: 0,
-                        line: line_num,
-                        col: quote_start,
-                    });
+                && let Some(end) = find_quoted_string(line, quote_start)
+            {
+                tokens.push(SemanticToken {
+                    text: line[quote_start..=end].to_string(),
+                    token_type: "string".into(),
+                    modifiers: 0,
+                    line: line_num,
+                    col: quote_start,
+                });
             }
             if trimmed.ends_with('{') {
                 in_entity_block = true;
@@ -285,14 +287,16 @@ pub fn classify_tokens(source: &str, entity_kinds: &[&str]) -> Vec<SemanticToken
                 // If the value is a number
                 else if words.len() >= 2
                     && let Some(num_word) = words.get(1)
-                    && (num_word.parse::<f64>().is_ok() || num_word.starts_with('-') && num_word[1..].parse::<f64>().is_ok()) {
-                            tokens.push(SemanticToken {
-                                text: num_word.to_string(),
-                                token_type: "number".into(),
-                                modifiers: 0,
-                                line: line_num,
-                                col: find_word_col(line, num_word, first.len()),
-                            });
+                    && (num_word.parse::<f64>().is_ok()
+                        || num_word.starts_with('-') && num_word[1..].parse::<f64>().is_ok())
+                {
+                    tokens.push(SemanticToken {
+                        text: num_word.to_string(),
+                        token_type: "number".into(),
+                        modifiers: 0,
+                        line: line_num,
+                        col: find_word_col(line, num_word, first.len()),
+                    });
                 }
             }
             continue;

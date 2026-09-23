@@ -16,12 +16,7 @@ pub struct UninstallResult {
 pub fn check_dependents(name: &str, installed_manifests: &[ManifestV2]) -> Vec<String> {
     installed_manifests
         .iter()
-        .filter(|m| {
-            m.name != name
-                && m.peer_dependencies
-                    .iter()
-                    .any(|dep| dep.name == name)
-        })
+        .filter(|m| m.name != name && m.peer_dependencies.iter().any(|dep| dep.name == name))
         .map(|m| m.name.clone())
         .collect()
 }
@@ -47,16 +42,14 @@ pub fn uninstall_extension(
                 dependents.join(", ")
             ),
             span: None,
-            suggestion: Some("use --force to uninstall anyway, or remove dependent extensions first".to_string()),
+            suggestion: Some(
+                "use --force to uninstall anyway, or remove dependent extensions first".to_string(),
+            ),
         });
     }
 
     // 2. Find and save entry info before removal (for rollback)
-    let entry = lock
-        .entries
-        .iter()
-        .find(|e| e.name == name)
-        .cloned();
+    let entry = lock.entries.iter().find(|e| e.name == name).cloned();
 
     let version = entry
         .as_ref()

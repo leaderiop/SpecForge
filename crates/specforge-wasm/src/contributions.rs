@@ -50,10 +50,7 @@ pub fn register_entity_enhancements(
             let conflict = existing.iter().any(|(_, existing_enh)| {
                 existing_enh.target_kind == enhancement.target_kind
                     && existing_enh.source_extension != manifest.name
-                    && existing_enh
-                        .fields
-                        .iter()
-                        .any(|ef| ef.name == field.name)
+                    && existing_enh.fields.iter().any(|ef| ef.name == field.name)
             });
 
             if conflict {
@@ -153,9 +150,7 @@ pub struct RegisteredCollector {
 }
 
 /// Register collector contributions from manifests.
-pub fn register_collector_contributions(
-    manifests: &[ManifestV2],
-) -> Vec<RegisteredCollector> {
+pub fn register_collector_contributions(manifests: &[ManifestV2]) -> Vec<RegisteredCollector> {
     let mut collectors = Vec::new();
 
     for manifest in manifests {
@@ -254,7 +249,10 @@ pub fn validate_contribution_exports(
                     manifest.name, export
                 ),
                 span: None,
-                suggestion: Some(format!("add #[export_name = \"{}\"] to the Wasm module", export)),
+                suggestion: Some(format!(
+                    "add #[export_name = \"{}\"] to the Wasm module",
+                    export
+                )),
             });
         }
     }
@@ -275,16 +273,14 @@ pub fn is_contribution_disabled(
     extension_name: &str,
     contribution_type: &str,
 ) -> bool {
-    toggles.iter().any(|t| {
-        t.extension_name == extension_name && t.disabled.contains(contribution_type)
-    })
+    toggles
+        .iter()
+        .any(|t| t.extension_name == extension_name && t.disabled.contains(contribution_type))
 }
 
 /// Detect grammar-level construct conflicts between extensions.
 /// Two extensions contributing grammar for the same entity kind is a conflict.
-pub fn detect_grammar_contribution_conflicts(
-    manifests: &[ManifestV2],
-) -> Vec<Diagnostic> {
+pub fn detect_grammar_contribution_conflicts(manifests: &[ManifestV2]) -> Vec<Diagnostic> {
     let mut diagnostics = Vec::new();
     let mut seen: std::collections::HashMap<String, String> = std::collections::HashMap::new();
 
@@ -326,12 +322,11 @@ pub fn validate_collector_output(
                 diagnostics.push(Diagnostic {
                     code: "W029".to_string(),
                     severity: Severity::Warning,
-                    message: format!(
-                        "collector report references unknown entity ID '{}'",
-                        id
-                    ),
+                    message: format!("collector report references unknown entity ID '{}'", id),
                     span: None,
-                    suggestion: Some("check that the entity ID matches a declared entity".to_string()),
+                    suggestion: Some(
+                        "check that the entity ID matches a declared entity".to_string(),
+                    ),
                 });
             }
         }
@@ -420,7 +415,8 @@ pub fn compose_grammar_injections(
         } else {
             match conflict_policy {
                 GrammarConflictPolicy::Error => {
-                    let ext_names: Vec<&str> = contributors.iter().map(|(_, e)| e.as_str()).collect();
+                    let ext_names: Vec<&str> =
+                        contributors.iter().map(|(_, e)| e.as_str()).collect();
                     errors.push(Diagnostic {
                         code: "E018".to_string(),
                         severity: Severity::Error,
@@ -506,9 +502,9 @@ pub fn resolve_enhancement_conflicts(
         }
 
         // Check if an explicit override resolves this conflict
-        let has_override = overrides.iter().any(|o| {
-            o.entity_kind == conflict.entity_kind && o.field_name == conflict.field_name
-        });
+        let has_override = overrides
+            .iter()
+            .any(|o| o.entity_kind == conflict.entity_kind && o.field_name == conflict.field_name);
 
         if !has_override {
             diagnostics.push(Diagnostic {
@@ -611,8 +607,8 @@ mod tests {
     // B:dispatch_contribution_exports — verify unit "routes to namespaced Wasm export"
     #[test]
     fn test_routes_to_namespaced_export() {
-        let runtime = MockRuntime::new()
-            .with_call_ok("@specforge__software_validate", b"ok".to_vec());
+        let runtime =
+            MockRuntime::new().with_call_ok("@specforge__software_validate", b"ok".to_vec());
 
         let result = dispatch_contribution_exports(
             "@specforge/software",
@@ -698,7 +694,7 @@ mod tests {
             FieldEnhancement {
                 target_kind: "behavior".to_string(),
                 source_extension: "@ext/a".to_string(),
-            edge_types: vec![],
+                edge_types: vec![],
                 fields: vec![ManifestField {
                     name: "priority".to_string(),
                     field_type: "string".to_string(),
@@ -707,9 +703,9 @@ mod tests {
                     target_kind: None,
                     file_reference: false,
                     required: false,
-                default_value: None,
-                enum_values: vec![],
-                inverse_of: None,
+                    default_value: None,
+                    enum_values: vec![],
+                    inverse_of: None,
                 }],
             },
         )];
@@ -748,7 +744,7 @@ mod tests {
             FieldEnhancement {
                 target_kind: "behavior".to_string(),
                 source_extension: "@ext/a".to_string(),
-            edge_types: vec![],
+                edge_types: vec![],
                 fields: vec![ManifestField {
                     name: "priority".to_string(),
                     field_type: "string".to_string(),
@@ -757,9 +753,9 @@ mod tests {
                     target_kind: None,
                     file_reference: false,
                     required: false,
-                default_value: None,
-                enum_values: vec![],
-                inverse_of: None,
+                    default_value: None,
+                    enum_values: vec![],
+                    inverse_of: None,
                 }],
             },
         )];
@@ -914,15 +910,23 @@ mod tests {
 
         let collectors = register_collector_contributions(&[m1, m2, m3]);
         assert_eq!(collectors.len(), 2);
-        assert!(collectors.iter().any(|c| c.extension_name == "@specforge/rust"));
-        assert!(collectors.iter().any(|c| c.extension_name == "@specforge/js"));
+        assert!(
+            collectors
+                .iter()
+                .any(|c| c.extension_name == "@specforge/rust")
+        );
+        assert!(
+            collectors
+                .iter()
+                .any(|c| c.extension_name == "@specforge/js")
+        );
     }
 
     // B:dispatch_collector — verify unit "dispatches collector and validates output"
     #[test]
     fn test_dispatches_collector_valid_output() {
-        let runtime = MockRuntime::new()
-            .with_call_ok("collect__specforge__rust", b"[{\"test\":1}]".to_vec());
+        let runtime =
+            MockRuntime::new().with_call_ok("collect__specforge__rust", b"[{\"test\":1}]".to_vec());
 
         let collector = RegisteredCollector {
             extension_name: "@specforge/rust".to_string(),
@@ -937,8 +941,8 @@ mod tests {
     // B:dispatch_collector — verify unit "rejects invalid JSON output"
     #[test]
     fn test_dispatch_collector_rejects_invalid_json() {
-        let runtime = MockRuntime::new()
-            .with_call_ok("collect__specforge__rust", b"not json {{{".to_vec());
+        let runtime =
+            MockRuntime::new().with_call_ok("collect__specforge__rust", b"not json {{{".to_vec());
 
         let collector = RegisteredCollector {
             extension_name: "@specforge/rust".to_string(),
@@ -979,8 +983,7 @@ mod tests {
     // B:dispatch_collector — verify unit "empty output is accepted"
     #[test]
     fn test_dispatch_collector_empty_output_accepted() {
-        let runtime = MockRuntime::new()
-            .with_call_ok("collect__specforge__rust", vec![]);
+        let runtime = MockRuntime::new().with_call_ok("collect__specforge__rust", vec![]);
 
         let collector = RegisteredCollector {
             extension_name: "@specforge/rust".to_string(),
@@ -1012,7 +1015,11 @@ mod tests {
         ];
 
         let diags = validate_contribution_exports(&manifest, &available);
-        assert!(diags.is_empty(), "expected no diagnostics, got: {:?}", diags);
+        assert!(
+            diags.is_empty(),
+            "expected no diagnostics, got: {:?}",
+            diags
+        );
     }
 
     // B:validate_contribution_exports — verify unit "missing export → E020"
@@ -1092,8 +1099,16 @@ mod tests {
             disabled: HashSet::from(["validators".to_string()]),
         }];
 
-        assert!(is_contribution_disabled(&toggles, "@specforge/software", "validators"));
-        assert!(!is_contribution_disabled(&toggles, "@specforge/software", "renderers"));
+        assert!(is_contribution_disabled(
+            &toggles,
+            "@specforge/software",
+            "validators"
+        ));
+        assert!(!is_contribution_disabled(
+            &toggles,
+            "@specforge/software",
+            "renderers"
+        ));
     }
 
     // B:toggle_extension_contributions — verify unit "still loaded when some disabled"
@@ -1105,10 +1120,22 @@ mod tests {
         }];
 
         // Other contribution types remain active
-        assert!(!is_contribution_disabled(&toggles, "@specforge/software", "renderers"));
-        assert!(!is_contribution_disabled(&toggles, "@specforge/software", "collectors"));
+        assert!(!is_contribution_disabled(
+            &toggles,
+            "@specforge/software",
+            "renderers"
+        ));
+        assert!(!is_contribution_disabled(
+            &toggles,
+            "@specforge/software",
+            "collectors"
+        ));
         // Different extension unaffected
-        assert!(!is_contribution_disabled(&toggles, "@specforge/governance", "validators"));
+        assert!(!is_contribution_disabled(
+            &toggles,
+            "@specforge/governance",
+            "validators"
+        ));
     }
 
     // B:toggle_extension_contributions — verify unit "re-enabled resumes"
@@ -1119,14 +1146,22 @@ mod tests {
             extension_name: "@specforge/software".to_string(),
             disabled: HashSet::from(["validators".to_string()]),
         }];
-        assert!(is_contribution_disabled(&toggles, "@specforge/software", "validators"));
+        assert!(is_contribution_disabled(
+            &toggles,
+            "@specforge/software",
+            "validators"
+        ));
 
         // After re-enabling (empty disabled set)
         let updated_toggles = vec![ContributionToggle {
             extension_name: "@specforge/software".to_string(),
             disabled: HashSet::new(),
         }];
-        assert!(!is_contribution_disabled(&updated_toggles, "@specforge/software", "validators"));
+        assert!(!is_contribution_disabled(
+            &updated_toggles,
+            "@specforge/software",
+            "validators"
+        ));
     }
 
     // -- detect_grammar_contribution_conflicts (enhancement conflicts) --
@@ -1187,27 +1222,37 @@ mod tests {
     #[test]
     fn test_validate_collector_output_valid_passes() {
         let known = HashSet::from(["my_behavior".to_string()]);
-        let report: serde_json::Value = serde_json::from_str(r#"{
+        let report: serde_json::Value = serde_json::from_str(
+            r#"{
             "entity_results": [
                 { "entity_id": "my_behavior", "status": "passed" }
             ],
             "stats": { "total": 1, "passed": 1, "failed": 0, "skipped": 0 }
-        }"#).unwrap();
+        }"#,
+        )
+        .unwrap();
 
         let diags = validate_collector_output(&report, &known);
-        assert!(diags.is_empty(), "expected no diagnostics, got: {:?}", diags);
+        assert!(
+            diags.is_empty(),
+            "expected no diagnostics, got: {:?}",
+            diags
+        );
     }
 
     // B:validate_collector_output — verify unit "unknown entity ID → W029"
     #[test]
     fn test_validate_collector_output_unknown_entity_w029() {
         let known = HashSet::from(["my_behavior".to_string()]);
-        let report: serde_json::Value = serde_json::from_str(r#"{
+        let report: serde_json::Value = serde_json::from_str(
+            r#"{
             "entity_results": [
                 { "entity_id": "unknown_behavior", "status": "passed" }
             ],
             "stats": { "total": 1, "passed": 1, "failed": 0, "skipped": 0 }
-        }"#).unwrap();
+        }"#,
+        )
+        .unwrap();
 
         let diags = validate_collector_output(&report, &known);
         assert_eq!(diags.len(), 1);
@@ -1219,9 +1264,12 @@ mod tests {
     #[test]
     fn test_validate_collector_output_inconsistent_stats_w030() {
         let known = HashSet::new();
-        let report: serde_json::Value = serde_json::from_str(r#"{
+        let report: serde_json::Value = serde_json::from_str(
+            r#"{
             "stats": { "total": 10, "passed": 3, "failed": 2, "skipped": 1 }
-        }"#).unwrap();
+        }"#,
+        )
+        .unwrap();
         // 3 + 2 + 1 = 6 ≠ 10
 
         let diags = validate_collector_output(&report, &known);
@@ -1236,23 +1284,32 @@ mod tests {
         let known = HashSet::from(["b1".to_string()]);
 
         // ensures: valid → empty
-        let good: serde_json::Value = serde_json::from_str(r#"{
+        let good: serde_json::Value = serde_json::from_str(
+            r#"{
             "entity_results": [{ "entity_id": "b1", "status": "passed" }],
             "stats": { "total": 1, "passed": 1, "failed": 0, "skipped": 0 }
-        }"#).unwrap();
+        }"#,
+        )
+        .unwrap();
         assert!(validate_collector_output(&good, &known).is_empty());
 
         // ensures: unknown ID → W029
-        let bad_id: serde_json::Value = serde_json::from_str(r#"{
+        let bad_id: serde_json::Value = serde_json::from_str(
+            r#"{
             "entity_results": [{ "entity_id": "unknown", "status": "passed" }]
-        }"#).unwrap();
+        }"#,
+        )
+        .unwrap();
         let diags = validate_collector_output(&bad_id, &known);
         assert!(diags.iter().any(|d| d.code == "W029"));
 
         // ensures: bad stats → W030
-        let bad_stats: serde_json::Value = serde_json::from_str(r#"{
+        let bad_stats: serde_json::Value = serde_json::from_str(
+            r#"{
             "stats": { "total": 5, "passed": 1, "failed": 1, "skipped": 1 }
-        }"#).unwrap();
+        }"#,
+        )
+        .unwrap();
         let diags = validate_collector_output(&bad_stats, &known);
         assert!(diags.iter().any(|d| d.code == "W030"));
     }
@@ -1262,10 +1319,7 @@ mod tests {
     // B:auto_detect_collector — verify unit "file pattern match selects collector"
     #[test]
     fn test_auto_detect_collector_matches_pattern() {
-        let patterns = &[
-            ("junit", "rust"),
-            ("jest", "javascript"),
-        ];
+        let patterns = &[("junit", "rust"), ("jest", "javascript")];
         let files = vec!["target/junit.xml".to_string()];
 
         let result = auto_detect_collector(patterns, &files);
@@ -1275,10 +1329,7 @@ mod tests {
     // B:auto_detect_collector — verify unit "no match → I013"
     #[test]
     fn test_auto_detect_collector_no_match_i013() {
-        let patterns: &[(&str, &str)] = &[
-            ("junit", "rust"),
-            ("jest", "javascript"),
-        ];
+        let patterns: &[(&str, &str)] = &[("junit", "rust"), ("jest", "javascript")];
         let files = vec!["README.md".to_string()];
 
         let err = auto_detect_collector(patterns, &files).unwrap_err();
@@ -1378,7 +1429,11 @@ mod tests {
             second_extension: "@ext/y".to_string(),
             is_grammar_level: false,
         };
-        let diags = resolve_enhancement_conflicts(std::slice::from_ref(&conflict), EnhancementPolicy::Error, &[]);
+        let diags = resolve_enhancement_conflicts(
+            std::slice::from_ref(&conflict),
+            EnhancementPolicy::Error,
+            &[],
+        );
         assert!(diags.iter().all(|d| d.code == "E017"));
         assert!(diags.iter().all(|d| d.severity == Severity::Error));
 
@@ -1388,7 +1443,10 @@ mod tests {
             field_name: "format".to_string(),
             winning_extension: "@ext/x".to_string(),
         };
-        assert!(resolve_enhancement_conflicts(&[conflict], EnhancementPolicy::Error, &[over]).is_empty());
+        assert!(
+            resolve_enhancement_conflicts(&[conflict], EnhancementPolicy::Error, &[over])
+                .is_empty()
+        );
     }
 
     // B:resolve_enhancement_conflicts — verify unit "grammar-level conflict always errors regardless of policy"
@@ -1438,8 +1496,16 @@ mod tests {
 
         let result = compose_grammar_injections(&manifests, GrammarConflictPolicy::Error).unwrap();
         assert_eq!(result.len(), 2);
-        assert!(result.contains(&("behavior".to_string(), "/grammars/a.wasm".to_string(), "@ext/a".to_string())));
-        assert!(result.contains(&("event".to_string(), "/grammars/b.wasm".to_string(), "@ext/b".to_string())));
+        assert!(result.contains(&(
+            "behavior".to_string(),
+            "/grammars/a.wasm".to_string(),
+            "@ext/a".to_string()
+        )));
+        assert!(result.contains(&(
+            "event".to_string(),
+            "/grammars/b.wasm".to_string(),
+            "@ext/b".to_string()
+        )));
     }
 
     // B:compose_grammar_injections — verify unit "conflict with error policy produces diagnostic"
@@ -1450,7 +1516,8 @@ mod tests {
             manifest_with_grammar("@ext/b", "behavior", "/grammars/b.wasm"),
         ];
 
-        let errors = compose_grammar_injections(&manifests, GrammarConflictPolicy::Error).unwrap_err();
+        let errors =
+            compose_grammar_injections(&manifests, GrammarConflictPolicy::Error).unwrap_err();
         assert_eq!(errors.len(), 1);
         assert_eq!(errors[0].code, "E018");
         assert!(errors[0].message.contains("behavior"));
@@ -1464,7 +1531,8 @@ mod tests {
             manifest_with_grammar("@ext/b", "behavior", "/grammars/b.wasm"),
         ];
 
-        let result = compose_grammar_injections(&manifests, GrammarConflictPolicy::Priority).unwrap();
+        let result =
+            compose_grammar_injections(&manifests, GrammarConflictPolicy::Priority).unwrap();
         assert_eq!(result.len(), 1);
         assert_eq!(result[0].0, "behavior");
         assert_eq!(result[0].2, "@ext/a"); // First wins
@@ -1478,7 +1546,8 @@ mod tests {
             manifest_with_grammar("@ext/b", "behavior", "/grammars/b.wasm"),
         ];
 
-        let result = compose_grammar_injections(&manifests, GrammarConflictPolicy::Namespace).unwrap();
+        let result =
+            compose_grammar_injections(&manifests, GrammarConflictPolicy::Namespace).unwrap();
         assert_eq!(result.len(), 2);
         let ext_names: Vec<&str> = result.iter().map(|(_, _, e)| e.as_str()).collect();
         assert!(ext_names.contains(&"@ext/a"));
@@ -1521,15 +1590,18 @@ mod tests {
             manifest_with_grammar("@ext/a", "behavior", "/a.wasm"),
             manifest_with_grammar("@ext/b", "behavior", "/b.wasm"),
         ];
-        let errors = compose_grammar_injections(&conflicting, GrammarConflictPolicy::Error).unwrap_err();
+        let errors =
+            compose_grammar_injections(&conflicting, GrammarConflictPolicy::Error).unwrap_err();
         assert!(errors.iter().all(|d| d.code == "E018"));
 
         // ensures: Priority policy resolves conflict by selecting first
-        let resolved = compose_grammar_injections(&conflicting, GrammarConflictPolicy::Priority).unwrap();
+        let resolved =
+            compose_grammar_injections(&conflicting, GrammarConflictPolicy::Priority).unwrap();
         assert_eq!(resolved.len(), 1);
 
         // ensures: Namespace policy includes all contributors
-        let all = compose_grammar_injections(&conflicting, GrammarConflictPolicy::Namespace).unwrap();
+        let all =
+            compose_grammar_injections(&conflicting, GrammarConflictPolicy::Namespace).unwrap();
         assert_eq!(all.len(), 2);
 
         // ensures: empty manifests produce empty result
@@ -1589,11 +1661,25 @@ mod tests {
 
         let login_cov = &result.coverage_updates[0];
         assert_eq!(login_cov.0, "login_behavior");
-        assert_eq!(login_cov.1, CoverageMetadata { total: 2, passed: 1, failed: 1 });
+        assert_eq!(
+            login_cov.1,
+            CoverageMetadata {
+                total: 2,
+                passed: 1,
+                failed: 1
+            }
+        );
 
         let signup_cov = &result.coverage_updates[1];
         assert_eq!(signup_cov.0, "signup_behavior");
-        assert_eq!(signup_cov.1, CoverageMetadata { total: 1, passed: 1, failed: 0 });
+        assert_eq!(
+            signup_cov.1,
+            CoverageMetadata {
+                total: 1,
+                passed: 1,
+                failed: 0
+            }
+        );
     }
 
     // B:ingest_collector_report — verify unit "merged report written to specforge-report.json"
@@ -1620,7 +1706,11 @@ mod tests {
         let result = ingest_collector_report(&report, &known_ids());
         assert_eq!(result.unmapped_entries.len(), 1);
         assert_eq!(
-            result.unmapped_entries[0].get("entity_id").unwrap().as_str().unwrap(),
+            result.unmapped_entries[0]
+                .get("entity_id")
+                .unwrap()
+                .as_str()
+                .unwrap(),
             "unknown_entity"
         );
     }

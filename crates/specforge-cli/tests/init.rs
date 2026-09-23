@@ -146,8 +146,8 @@ fn init_creates_valid_specforge_json() {
     assert!(config_path.exists(), "specforge.json should be created");
 
     let content = fs::read_to_string(&config_path).unwrap();
-    let json: serde_json::Value = serde_json::from_str(&content)
-        .expect("specforge.json should be valid JSON");
+    let json: serde_json::Value =
+        serde_json::from_str(&content).expect("specforge.json should be valid JSON");
 
     assert_eq!(json["name"], "my-project");
     assert_eq!(json["version"], "0.1.0");
@@ -237,8 +237,14 @@ fn init_preserves_existing_files() {
         .success();
 
     // Original files should still exist
-    assert_eq!(fs::read_to_string(dir.path().join("README.md")).unwrap(), "# Hello");
-    assert_eq!(fs::read_to_string(dir.path().join("src/main.rs")).unwrap(), "fn main() {}");
+    assert_eq!(
+        fs::read_to_string(dir.path().join("README.md")).unwrap(),
+        "# Hello"
+    );
+    assert_eq!(
+        fs::read_to_string(dir.path().join("src/main.rs")).unwrap(),
+        "fn main() {}"
+    );
     // And specforge.json should also exist
     assert!(dir.path().join("specforge.json").exists());
 }
@@ -262,7 +268,10 @@ fn init_creates_starter_spec_file() {
         .success();
 
     let starter = dir.path().join("spec").join("hello.spec");
-    assert!(starter.exists(), "starter spec file should be created at spec/hello.spec");
+    assert!(
+        starter.exists(),
+        "starter spec file should be created at spec/hello.spec"
+    );
     let content = fs::read_to_string(&starter).unwrap();
     assert!(!content.is_empty(), "starter spec file should not be empty");
 }
@@ -306,9 +315,21 @@ fn init_starter_uses_structural_syntax_only() {
     let content = fs::read_to_string(dir.path().join("spec/hello.spec")).unwrap();
 
     // Should NOT contain domain-specific keywords from any extension
-    let domain_keywords = ["behavior", "invariant", "feature", "event", "port",
-                           "journey", "deliverable", "milestone", "module",
-                           "decision", "constraint", "failure_mode", "term"];
+    let domain_keywords = [
+        "behavior",
+        "invariant",
+        "feature",
+        "event",
+        "port",
+        "journey",
+        "deliverable",
+        "milestone",
+        "module",
+        "decision",
+        "constraint",
+        "failure_mode",
+        "term",
+    ];
     for kw in domain_keywords {
         assert!(
             !content.contains(&format!("{kw} ")),
@@ -337,7 +358,10 @@ fn init_starter_is_deterministic() {
     let content1 = fs::read_to_string(dir1.path().join("spec/hello.spec")).unwrap();
     let content2 = fs::read_to_string(dir2.path().join("spec/hello.spec")).unwrap();
 
-    assert_eq!(content1, content2, "same inputs should produce identical starter files");
+    assert_eq!(
+        content1, content2,
+        "same inputs should produce identical starter files"
+    );
 }
 
 // ═══════════════════════════════════════════════════════════
@@ -429,8 +453,8 @@ fn zero_ext_export_produces_valid_graph() {
 
     assert!(output.status.success(), "export should succeed");
     let stdout = String::from_utf8_lossy(&output.stdout);
-    let graph: serde_json::Value = serde_json::from_str(&stdout)
-        .expect("export should produce valid JSON");
+    let graph: serde_json::Value =
+        serde_json::from_str(&stdout).expect("export should produce valid JSON");
     assert!(graph["nodes"].is_array(), "graph should have nodes array");
     assert!(graph["edges"].is_array(), "graph should have edges array");
 }
@@ -474,7 +498,10 @@ fn non_interactive_no_prompts() {
         .output()
         .unwrap();
 
-    assert!(output.status.success(), "should succeed without interactive input");
+    assert!(
+        output.status.success(),
+        "should succeed without interactive input"
+    );
     assert!(dir.path().join("specforge.json").exists());
 }
 
@@ -487,9 +514,15 @@ fn non_interactive_with_extensions() {
     let dir = TempDir::new().unwrap();
 
     specforge_cmd()
-        .args(["init", "--name", "ext-project",
-               "--extensions", "@specforge/software",
-               "--extensions", "@specforge/product"])
+        .args([
+            "init",
+            "--name",
+            "ext-project",
+            "--extensions",
+            "@specforge/software",
+            "--extensions",
+            "@specforge/product",
+        ])
         .current_dir(dir.path())
         .assert()
         .success();
@@ -518,13 +551,19 @@ fn non_interactive_json_output() {
 
     assert!(output.status.success());
     let stdout = String::from_utf8_lossy(&output.stdout);
-    let json: serde_json::Value = serde_json::from_str(&stdout)
-        .expect("--format=json should produce valid JSON");
+    let json: serde_json::Value =
+        serde_json::from_str(&stdout).expect("--format=json should produce valid JSON");
 
     assert!(json["project_root"].is_string(), "should have project_root");
     assert!(json["config_path"].is_string(), "should have config_path");
-    assert!(json["spec_file_path"].is_string(), "should have spec_file_path");
-    assert!(json["extensions_installed"].is_array(), "should have extensions_installed");
+    assert!(
+        json["spec_file_path"].is_string(),
+        "should have spec_file_path"
+    );
+    assert!(
+        json["extensions_installed"].is_array(),
+        "should have extensions_installed"
+    );
 }
 
 #[specforge_test(
@@ -536,8 +575,15 @@ fn non_interactive_json_all_fields() {
     let dir = TempDir::new().unwrap();
 
     let output = specforge_cmd()
-        .args(["init", "--name", "fields-test", "--format", "json",
-               "--extensions", "@specforge/software"])
+        .args([
+            "init",
+            "--name",
+            "fields-test",
+            "--format",
+            "json",
+            "--extensions",
+            "@specforge/software",
+        ])
         .current_dir(dir.path())
         .output()
         .unwrap();
@@ -723,8 +769,8 @@ fn init_check_export_cycle() {
     assert!(output.status.success(), "export should succeed");
 
     let stdout = String::from_utf8_lossy(&output.stdout);
-    let _graph: serde_json::Value = serde_json::from_str(&stdout)
-        .expect("export should produce valid JSON graph");
+    let _graph: serde_json::Value =
+        serde_json::from_str(&stdout).expect("export should produce valid JSON graph");
 }
 
 #[specforge_test(
@@ -784,9 +830,20 @@ fn init_starter_no_domain_keywords() {
 
     // All 14 domain entity keywords from the 3 standard extensions
     let domain_keywords = [
-        "behavior", "invariant", "feature", "event", "port", "type",
-        "journey", "deliverable", "milestone", "module", "term",
-        "decision", "constraint", "failure_mode",
+        "behavior",
+        "invariant",
+        "feature",
+        "event",
+        "port",
+        "type",
+        "journey",
+        "deliverable",
+        "milestone",
+        "module",
+        "term",
+        "decision",
+        "constraint",
+        "failure_mode",
     ];
     for kw in domain_keywords {
         // Check for keyword used as entity declaration (keyword followed by space + id)
@@ -889,8 +946,13 @@ fn non_interactive_full_cycle_performance() {
     let start = std::time::Instant::now();
 
     specforge_cmd()
-        .args(["init", "--name", "ci-perf",
-               "--extensions", "@specforge/software"])
+        .args([
+            "init",
+            "--name",
+            "ci-perf",
+            "--extensions",
+            "@specforge/software",
+        ])
         .current_dir(dir.path())
         .assert()
         .success();
@@ -925,7 +987,13 @@ fn non_interactive_unknown_extension_rejected() {
 
     // Invalid extension specifier (no @scope/name format)
     specforge_cmd()
-        .args(["init", "--name", "bad-ext", "--extensions", "not-a-valid-ext"])
+        .args([
+            "init",
+            "--name",
+            "bad-ext",
+            "--extensions",
+            "not-a-valid-ext",
+        ])
         .current_dir(dir.path())
         .assert()
         .failure()
@@ -1004,8 +1072,8 @@ fn scaffold_new_project_contract_in_init() {
     assert!(config_path.exists(), "specforge.json must be created");
 
     let content = fs::read_to_string(&config_path).unwrap();
-    let json: serde_json::Value = serde_json::from_str(&content)
-        .expect("specforge.json must be valid JSON");
+    let json: serde_json::Value =
+        serde_json::from_str(&content).expect("specforge.json must be valid JSON");
     assert_eq!(json["name"], "contract-scaffold");
     assert!(json["version"].is_string(), "version must be present");
     assert!(json["$schema"].is_string(), "$schema must be present");
@@ -1033,8 +1101,13 @@ fn starter_uses_extension_templates_when_available() {
 
     // Init with an extension — starter file may include extension-contributed content
     specforge_cmd()
-        .args(["init", "--name", "ext-template",
-               "--extensions", "@specforge/software"])
+        .args([
+            "init",
+            "--name",
+            "ext-template",
+            "--extensions",
+            "@specforge/software",
+        ])
         .current_dir(dir.path())
         .assert()
         .success();
@@ -1058,8 +1131,13 @@ fn extension_starter_passes_check() {
     let dir = TempDir::new().unwrap();
 
     specforge_cmd()
-        .args(["init", "--name", "ext-check",
-               "--extensions", "@specforge/software"])
+        .args([
+            "init",
+            "--name",
+            "ext-check",
+            "--extensions",
+            "@specforge/software",
+        ])
         .current_dir(dir.path())
         .assert()
         .success();
@@ -1124,7 +1202,10 @@ fn non_interactive_init_contract_in_init() {
         .output()
         .unwrap();
 
-    assert!(output.status.success(), "must succeed without interactive input");
+    assert!(
+        output.status.success(),
+        "must succeed without interactive input"
+    );
 
     let config_path = dir.path().join("specforge.json");
     assert!(config_path.exists(), "config must be created");
@@ -1155,8 +1236,11 @@ fn graceful_zero_extension_init_contract_in_init() {
 
     let content = fs::read_to_string(dir.path().join("specforge.json")).unwrap();
     let json: serde_json::Value = serde_json::from_str(&content).unwrap();
-    assert_eq!(json["extensions"], serde_json::json!([]),
-        "extensions must be empty array");
+    assert_eq!(
+        json["extensions"],
+        serde_json::json!([]),
+        "extensions must be empty array"
+    );
 
     // Check passes
     specforge_cmd()
@@ -1173,8 +1257,8 @@ fn graceful_zero_extension_init_contract_in_init() {
         .unwrap();
     assert!(export_output.status.success());
     let stdout = String::from_utf8_lossy(&export_output.stdout);
-    let graph: serde_json::Value = serde_json::from_str(&stdout)
-        .expect("export must produce valid JSON");
+    let graph: serde_json::Value =
+        serde_json::from_str(&stdout).expect("export must produce valid JSON");
     assert!(graph["nodes"].is_array());
     assert!(graph["edges"].is_array());
 }

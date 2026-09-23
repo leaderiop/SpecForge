@@ -68,9 +68,7 @@ impl FieldRegistry {
     }
 
     pub fn register(&mut self, entry: FieldRegistryEntry) {
-        let kind_map = self.entries
-            .entry(entry.kind_name.clone())
-            .or_default();
+        let kind_map = self.entries.entry(entry.kind_name.clone()).or_default();
         if !kind_map.contains_key(&entry.field_name) {
             self.count += 1;
         }
@@ -86,9 +84,9 @@ impl FieldRegistry {
 
     pub fn iter(&self) -> impl Iterator<Item = (&str, &str, &FieldRegistryEntry)> {
         self.entries.iter().flat_map(|(kind, fields)| {
-            fields.iter().map(move |(field, entry)| {
-                (kind.as_str(), field.as_str(), entry)
-            })
+            fields
+                .iter()
+                .map(move |(field, entry)| (kind.as_str(), field.as_str(), entry))
         })
     }
 
@@ -99,7 +97,11 @@ impl FieldRegistry {
             if let Some(ref inverse) = entry.inverse_of {
                 let a = field_name.to_string();
                 let b = inverse.clone();
-                let key = if a < b { (a.clone(), b.clone()) } else { (b.clone(), a.clone()) };
+                let key = if a < b {
+                    (a.clone(), b.clone())
+                } else {
+                    (b.clone(), a.clone())
+                };
                 if seen.insert(key) {
                     pairs.push((a, b));
                 }
@@ -277,7 +279,15 @@ mod tests {
         let items: Vec<_> = registry.iter().collect();
         assert_eq!(items.len(), 2);
         // Each item is (&str, &str, &FieldRegistryEntry)
-        assert!(items.iter().any(|(k, f, _)| *k == "behavior" && *f == "contract"));
-        assert!(items.iter().any(|(k, f, _)| *k == "event" && *f == "payload"));
+        assert!(
+            items
+                .iter()
+                .any(|(k, f, _)| *k == "behavior" && *f == "contract")
+        );
+        assert!(
+            items
+                .iter()
+                .any(|(k, f, _)| *k == "event" && *f == "payload")
+        );
     }
 }

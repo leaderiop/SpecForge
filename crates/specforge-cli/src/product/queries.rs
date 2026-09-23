@@ -91,7 +91,9 @@ pub fn journey_coverage(graph: &Graph, journey_id: &str) -> Option<JourneyCovera
     for fid in &feature_edges {
         // Check if any module references this feature
         let has_module = graph.edges_to(fid.as_str()).iter().any(|e| {
-            graph.node(e.source.as_str()).is_some_and(|n| n.kind.raw == "module")
+            graph
+                .node(e.source.as_str())
+                .is_some_and(|n| n.kind.raw == "module")
         });
         if has_module {
             covered += 1;
@@ -188,7 +190,10 @@ pub fn persona_features(graph: &Graph, persona_id: &str) -> Option<Vec<String>> 
             continue;
         }
         let refs_persona = get_field(journey, "persona").is_some_and(|v| v == persona_id)
-            || graph.edges_from(journey.id.raw.as_str()).iter().any(|e| e.label == "persona" && e.target == persona_id);
+            || graph
+                .edges_from(journey.id.raw.as_str())
+                .iter()
+                .any(|e| e.label == "persona" && e.target == persona_id);
         if refs_persona {
             for fe in graph.edges_from(journey.id.raw.as_str()) {
                 let target_str = fe.target.to_string();
@@ -242,11 +247,19 @@ pub struct StatusCount {
 }
 
 pub fn bulk_status(graph: &Graph) -> Vec<BulkStatus> {
-    let kinds = ["feature", "milestone", "deliverable", "persona", "channel", "release"];
+    let kinds = [
+        "feature",
+        "milestone",
+        "deliverable",
+        "persona",
+        "channel",
+        "release",
+    ];
     let mut results = Vec::new();
 
     for kind in &kinds {
-        let mut status_map: std::collections::BTreeMap<String, usize> = std::collections::BTreeMap::new();
+        let mut status_map: std::collections::BTreeMap<String, usize> =
+            std::collections::BTreeMap::new();
         let mut total = 0;
         for node in graph.nodes() {
             if node.kind.raw == *kind {

@@ -11,9 +11,9 @@
 use specforge_common::{Diagnostic, Severity};
 use specforge_registry::{ManifestV2, PeerDependency};
 use specforge_wasm::{
-    call_extension_validators, initialize_extension, load_wasm_module,
-    topological_sort_extensions, validate_extension_manifest, validate_extension_peer_dependencies,
     ExtensionLifecycleState, LoadedModule, WasmCallResult, WasmRuntime, WasmTrapInfo,
+    call_extension_validators, initialize_extension, load_wasm_module, topological_sort_extensions,
+    validate_extension_manifest, validate_extension_peer_dependencies,
 };
 use std::path::Path;
 use tempfile::TempDir;
@@ -160,8 +160,7 @@ fn test_load_with_aot_cache_hit() {
     let hash = specforge_wasm::hex_sha256(&bytes);
     let runtime = MockRuntime::new().with_cached(&hash);
 
-    let module =
-        load_wasm_module("@test/ext", &wasm_path, Some(dir.path()), &runtime).unwrap();
+    let module = load_wasm_module("@test/ext", &wasm_path, Some(dir.path()), &runtime).unwrap();
     assert_eq!(module.wasm_hash, hash);
     assert_eq!(module.state, ExtensionLifecycleState::Loading);
 }
@@ -372,7 +371,11 @@ fn test_call_validators_contract() {
 #[test]
 fn test_toposort_linear_chain() {
     let manifests = vec![
-        make_manifest("@specforge/governance", "1.0.0", &[("@specforge/software", ">=1.0.0")]),
+        make_manifest(
+            "@specforge/governance",
+            "1.0.0",
+            &[("@specforge/software", ">=1.0.0")],
+        ),
         make_manifest("@specforge/software", "1.0.0", &[]),
     ];
 
@@ -385,12 +388,24 @@ fn test_toposort_linear_chain() {
 fn test_toposort_diamond_dependency() {
     let manifests = vec![
         make_manifest("@specforge/software", "1.0.0", &[]),
-        make_manifest("@specforge/product", "1.0.0", &[("@specforge/software", ">=1.0.0")]),
-        make_manifest("@specforge/governance", "1.0.0", &[("@specforge/software", ">=1.0.0")]),
-        make_manifest("@specforge/dashboard", "1.0.0", &[
-            ("@specforge/product", ">=1.0.0"),
-            ("@specforge/governance", ">=1.0.0"),
-        ]),
+        make_manifest(
+            "@specforge/product",
+            "1.0.0",
+            &[("@specforge/software", ">=1.0.0")],
+        ),
+        make_manifest(
+            "@specforge/governance",
+            "1.0.0",
+            &[("@specforge/software", ">=1.0.0")],
+        ),
+        make_manifest(
+            "@specforge/dashboard",
+            "1.0.0",
+            &[
+                ("@specforge/product", ">=1.0.0"),
+                ("@specforge/governance", ">=1.0.0"),
+            ],
+        ),
     ];
 
     let order = topological_sort_extensions(&manifests).unwrap();
@@ -443,7 +458,11 @@ fn test_validate_valid_manifest_no_diagnostics() {
     let m = make_manifest("@specforge/software", "1.0.0", &[]);
 
     let diags = validate_extension_manifest(&m, std::slice::from_ref(&m));
-    assert!(diags.is_empty(), "expected no diagnostics, got: {:?}", diags);
+    assert!(
+        diags.is_empty(),
+        "expected no diagnostics, got: {:?}",
+        diags
+    );
 }
 
 // B:validate_extension_manifest — verify integration "missing required fields → E025/E030"
@@ -547,7 +566,8 @@ fn test_peer_deps_contract() {
     );
 
     // ensures: satisfied → empty
-    let diags = validate_extension_peer_dependencies(&product, &[software.clone(), product.clone()]);
+    let diags =
+        validate_extension_peer_dependencies(&product, &[software.clone(), product.clone()]);
     assert!(diags.is_empty());
 
     // ensures: missing → E027

@@ -249,9 +249,7 @@ pub fn host_http_get_check(
     }
 
     // Domain must be in allowlist (if allowlist is non-empty)
-    if !policy.allowed_domains.is_empty()
-        && !policy.allowed_domains.iter().any(|d| d == domain)
-    {
+    if !policy.allowed_domains.is_empty() && !policy.allowed_domains.iter().any(|d| d == domain) {
         return Err(Diagnostic {
             code: "E031".to_string(),
             severity: Severity::Error,
@@ -673,7 +671,12 @@ mod tests {
             &policy,
         );
         assert!(result.is_err());
-        assert!(result.unwrap_err().message.contains("not in allowed_output_extensions"));
+        assert!(
+            result
+                .unwrap_err()
+                .message
+                .contains("not in allowed_output_extensions")
+        );
     }
 
     // -- provide_host_function_http_get --
@@ -719,31 +722,70 @@ mod tests {
     // B:enforce_per_call_site_permissions — verify unit "emit_diagnostic allowed from all call sites"
     #[test]
     fn test_emit_diagnostic_allowed_from_all_sites() {
-        assert!(is_host_function_allowed(CallSite::Validator, "host_emit_diagnostic"));
-        assert!(is_host_function_allowed(CallSite::Renderer, "host_emit_diagnostic"));
-        assert!(is_host_function_allowed(CallSite::Provider, "host_emit_diagnostic"));
-        assert!(is_host_function_allowed(CallSite::Parser, "host_emit_diagnostic"));
-        assert!(is_host_function_allowed(CallSite::Collector, "host_emit_diagnostic"));
+        assert!(is_host_function_allowed(
+            CallSite::Validator,
+            "host_emit_diagnostic"
+        ));
+        assert!(is_host_function_allowed(
+            CallSite::Renderer,
+            "host_emit_diagnostic"
+        ));
+        assert!(is_host_function_allowed(
+            CallSite::Provider,
+            "host_emit_diagnostic"
+        ));
+        assert!(is_host_function_allowed(
+            CallSite::Parser,
+            "host_emit_diagnostic"
+        ));
+        assert!(is_host_function_allowed(
+            CallSite::Collector,
+            "host_emit_diagnostic"
+        ));
     }
 
     // B:enforce_per_call_site_permissions — verify unit "read_file restricted to validators, providers, parsers"
     #[test]
     fn test_read_file_call_site_restrictions() {
-        assert!(is_host_function_allowed(CallSite::Validator, "host_read_file"));
-        assert!(is_host_function_allowed(CallSite::Provider, "host_read_file"));
+        assert!(is_host_function_allowed(
+            CallSite::Validator,
+            "host_read_file"
+        ));
+        assert!(is_host_function_allowed(
+            CallSite::Provider,
+            "host_read_file"
+        ));
         assert!(is_host_function_allowed(CallSite::Parser, "host_read_file"));
-        assert!(!is_host_function_allowed(CallSite::Renderer, "host_read_file"));
-        assert!(!is_host_function_allowed(CallSite::Collector, "host_read_file"));
+        assert!(!is_host_function_allowed(
+            CallSite::Renderer,
+            "host_read_file"
+        ));
+        assert!(!is_host_function_allowed(
+            CallSite::Collector,
+            "host_read_file"
+        ));
     }
 
     // B:enforce_per_call_site_permissions — verify unit "http_get restricted to providers only"
     #[test]
     fn test_http_get_call_site_restrictions() {
-        assert!(is_host_function_allowed(CallSite::Provider, "host_http_get"));
-        assert!(!is_host_function_allowed(CallSite::Validator, "host_http_get"));
-        assert!(!is_host_function_allowed(CallSite::Renderer, "host_http_get"));
+        assert!(is_host_function_allowed(
+            CallSite::Provider,
+            "host_http_get"
+        ));
+        assert!(!is_host_function_allowed(
+            CallSite::Validator,
+            "host_http_get"
+        ));
+        assert!(!is_host_function_allowed(
+            CallSite::Renderer,
+            "host_http_get"
+        ));
         assert!(!is_host_function_allowed(CallSite::Parser, "host_http_get"));
-        assert!(!is_host_function_allowed(CallSite::Collector, "host_http_get"));
+        assert!(!is_host_function_allowed(
+            CallSite::Collector,
+            "host_http_get"
+        ));
     }
 
     // -- Wave 2: provide_host_function_emit_file code extension rejections --
@@ -752,7 +794,12 @@ mod tests {
     #[test]
     fn test_emit_file_rejects_py() {
         let policy = SandboxPolicy::default();
-        let result = host_emit_file_check("ext", Path::new("/output/script.py"), Path::new("/output"), &policy);
+        let result = host_emit_file_check(
+            "ext",
+            Path::new("/output/script.py"),
+            Path::new("/output"),
+            &policy,
+        );
         assert!(result.is_err());
         assert!(result.unwrap_err().message.contains(".py"));
     }
@@ -761,7 +808,12 @@ mod tests {
     #[test]
     fn test_emit_file_rejects_go() {
         let policy = SandboxPolicy::default();
-        let result = host_emit_file_check("ext", Path::new("/output/main.go"), Path::new("/output"), &policy);
+        let result = host_emit_file_check(
+            "ext",
+            Path::new("/output/main.go"),
+            Path::new("/output"),
+            &policy,
+        );
         assert!(result.is_err());
         assert!(result.unwrap_err().message.contains(".go"));
     }
@@ -770,7 +822,12 @@ mod tests {
     #[test]
     fn test_emit_file_rejects_js() {
         let policy = SandboxPolicy::default();
-        let result = host_emit_file_check("ext", Path::new("/output/app.js"), Path::new("/output"), &policy);
+        let result = host_emit_file_check(
+            "ext",
+            Path::new("/output/app.js"),
+            Path::new("/output"),
+            &policy,
+        );
         assert!(result.is_err());
         assert!(result.unwrap_err().message.contains(".js"));
     }
@@ -779,7 +836,12 @@ mod tests {
     #[test]
     fn test_emit_file_rejects_ts() {
         let policy = SandboxPolicy::default();
-        let result = host_emit_file_check("ext", Path::new("/output/app.ts"), Path::new("/output"), &policy);
+        let result = host_emit_file_check(
+            "ext",
+            Path::new("/output/app.ts"),
+            Path::new("/output"),
+            &policy,
+        );
         assert!(result.is_err());
         assert!(result.unwrap_err().message.contains(".ts"));
     }
@@ -788,7 +850,12 @@ mod tests {
     #[test]
     fn test_emit_file_rejects_sh() {
         let policy = SandboxPolicy::default();
-        let result = host_emit_file_check("ext", Path::new("/output/run.sh"), Path::new("/output"), &policy);
+        let result = host_emit_file_check(
+            "ext",
+            Path::new("/output/run.sh"),
+            Path::new("/output"),
+            &policy,
+        );
         assert!(result.is_err());
         assert!(result.unwrap_err().message.contains(".sh"));
     }
@@ -797,7 +864,12 @@ mod tests {
     #[test]
     fn test_emit_file_accepts_html() {
         let policy = SandboxPolicy::default();
-        let result = host_emit_file_check("ext", Path::new("/output/report.html"), Path::new("/output"), &policy);
+        let result = host_emit_file_check(
+            "ext",
+            Path::new("/output/report.html"),
+            Path::new("/output"),
+            &policy,
+        );
         assert!(result.is_ok());
     }
 
@@ -805,7 +877,12 @@ mod tests {
     #[test]
     fn test_emit_file_accepts_csv() {
         let policy = SandboxPolicy::default();
-        let result = host_emit_file_check("ext", Path::new("/output/data.csv"), Path::new("/output"), &policy);
+        let result = host_emit_file_check(
+            "ext",
+            Path::new("/output/data.csv"),
+            Path::new("/output"),
+            &policy,
+        );
         assert!(result.is_ok());
     }
 
@@ -814,53 +891,119 @@ mod tests {
     // B:enforce_per_call_site_permissions — verify unit "renderer export additionally allows emit_file"
     #[test]
     fn test_renderer_allows_emit_file() {
-        assert!(is_host_function_allowed(CallSite::Renderer, "host_emit_file"));
+        assert!(is_host_function_allowed(
+            CallSite::Renderer,
+            "host_emit_file"
+        ));
     }
 
     // B:enforce_per_call_site_permissions — verify unit "entity contribution export limited to query_graph, add_graph_node, add_graph_edge"
     #[test]
     fn test_parser_graph_mutation_permissions() {
         // Parser gets graph mutation
-        assert!(is_host_function_allowed(CallSite::Parser, "host_add_graph_node"));
-        assert!(is_host_function_allowed(CallSite::Parser, "host_add_graph_edge"));
+        assert!(is_host_function_allowed(
+            CallSite::Parser,
+            "host_add_graph_node"
+        ));
+        assert!(is_host_function_allowed(
+            CallSite::Parser,
+            "host_add_graph_edge"
+        ));
         // Provider/Collector do NOT get graph mutation
-        assert!(!is_host_function_allowed(CallSite::Provider, "host_add_graph_node"));
-        assert!(!is_host_function_allowed(CallSite::Collector, "host_add_graph_node"));
+        assert!(!is_host_function_allowed(
+            CallSite::Provider,
+            "host_add_graph_node"
+        ));
+        assert!(!is_host_function_allowed(
+            CallSite::Collector,
+            "host_add_graph_node"
+        ));
     }
 
     // B:enforce_per_call_site_permissions — verify unit "collector contribution limited to query_graph and emit_file"
     #[test]
     fn test_collector_permissions() {
-        assert!(is_host_function_allowed(CallSite::Collector, "host_query_graph"));
-        assert!(is_host_function_allowed(CallSite::Collector, "host_emit_file"));
-        assert!(is_host_function_allowed(CallSite::Collector, "host_emit_diagnostic"));
+        assert!(is_host_function_allowed(
+            CallSite::Collector,
+            "host_query_graph"
+        ));
+        assert!(is_host_function_allowed(
+            CallSite::Collector,
+            "host_emit_file"
+        ));
+        assert!(is_host_function_allowed(
+            CallSite::Collector,
+            "host_emit_diagnostic"
+        ));
         // Collector cannot read files, make HTTP requests, or mutate graph
-        assert!(!is_host_function_allowed(CallSite::Collector, "host_read_file"));
-        assert!(!is_host_function_allowed(CallSite::Collector, "host_http_get"));
-        assert!(!is_host_function_allowed(CallSite::Collector, "host_add_graph_node"));
+        assert!(!is_host_function_allowed(
+            CallSite::Collector,
+            "host_read_file"
+        ));
+        assert!(!is_host_function_allowed(
+            CallSite::Collector,
+            "host_http_get"
+        ));
+        assert!(!is_host_function_allowed(
+            CallSite::Collector,
+            "host_add_graph_node"
+        ));
     }
 
     // B:enforce_per_call_site_permissions — verify unit "parser contribution limited to emit_diagnostic, add_graph_node, add_graph_edge, read_file"
     #[test]
     fn test_parser_permissions() {
-        assert!(is_host_function_allowed(CallSite::Parser, "host_emit_diagnostic"));
-        assert!(is_host_function_allowed(CallSite::Parser, "host_add_graph_node"));
-        assert!(is_host_function_allowed(CallSite::Parser, "host_add_graph_edge"));
+        assert!(is_host_function_allowed(
+            CallSite::Parser,
+            "host_emit_diagnostic"
+        ));
+        assert!(is_host_function_allowed(
+            CallSite::Parser,
+            "host_add_graph_node"
+        ));
+        assert!(is_host_function_allowed(
+            CallSite::Parser,
+            "host_add_graph_edge"
+        ));
         assert!(is_host_function_allowed(CallSite::Parser, "host_read_file"));
         // Parser cannot emit files or make HTTP requests
-        assert!(!is_host_function_allowed(CallSite::Parser, "host_emit_file"));
+        assert!(!is_host_function_allowed(
+            CallSite::Parser,
+            "host_emit_file"
+        ));
         assert!(!is_host_function_allowed(CallSite::Parser, "host_http_get"));
     }
 
     #[test]
     fn test_analyzer_permissions() {
-        assert!(is_host_function_allowed(CallSite::Analyzer, "host_emit_diagnostic"));
-        assert!(is_host_function_allowed(CallSite::Analyzer, "host_read_file"));
-        assert!(is_host_function_allowed(CallSite::Analyzer, "host_query_graph"));
-        assert!(!is_host_function_allowed(CallSite::Analyzer, "host_emit_file"));
-        assert!(!is_host_function_allowed(CallSite::Analyzer, "host_http_get"));
-        assert!(!is_host_function_allowed(CallSite::Analyzer, "host_add_graph_node"));
-        assert!(!is_host_function_allowed(CallSite::Analyzer, "host_add_graph_edge"));
+        assert!(is_host_function_allowed(
+            CallSite::Analyzer,
+            "host_emit_diagnostic"
+        ));
+        assert!(is_host_function_allowed(
+            CallSite::Analyzer,
+            "host_read_file"
+        ));
+        assert!(is_host_function_allowed(
+            CallSite::Analyzer,
+            "host_query_graph"
+        ));
+        assert!(!is_host_function_allowed(
+            CallSite::Analyzer,
+            "host_emit_file"
+        ));
+        assert!(!is_host_function_allowed(
+            CallSite::Analyzer,
+            "host_http_get"
+        ));
+        assert!(!is_host_function_allowed(
+            CallSite::Analyzer,
+            "host_add_graph_node"
+        ));
+        assert!(!is_host_function_allowed(
+            CallSite::Analyzer,
+            "host_add_graph_edge"
+        ));
     }
 
     // B:enforce_per_call_site_permissions — verify unit "unauthorized host function call is rejected"
@@ -901,11 +1044,7 @@ mod tests {
 
         // Create symlink: spec_root/link -> ../outside/secret.spec
         #[cfg(unix)]
-        std::os::unix::fs::symlink(
-            outside.join("secret.spec"),
-            spec_root.join("link"),
-        )
-        .unwrap();
+        std::os::unix::fs::symlink(outside.join("secret.spec"), spec_root.join("link")).unwrap();
 
         let policy = SandboxPolicy {
             file_system_access: Some(true),
@@ -921,7 +1060,10 @@ mod tests {
             &policy,
         );
         // After fix: should be denied because canonicalized path is outside spec_root
-        assert!(result.is_err(), "symlink escaping spec_root should be denied");
+        assert!(
+            result.is_err(),
+            "symlink escaping spec_root should be denied"
+        );
         assert!(result.unwrap_err().message.contains("not under spec_root"));
     }
 
@@ -936,11 +1078,7 @@ mod tests {
 
         // Create symlink within spec_root: spec_root/link -> spec_root/subdir/file.spec
         #[cfg(unix)]
-        std::os::unix::fs::symlink(
-            subdir.join("file.spec"),
-            spec_root.join("link"),
-        )
-        .unwrap();
+        std::os::unix::fs::symlink(subdir.join("file.spec"), spec_root.join("link")).unwrap();
 
         let policy = SandboxPolicy {
             file_system_access: Some(true),
@@ -973,7 +1111,10 @@ mod tests {
             CallSite::Validator,
             &policy,
         );
-        assert!(result.is_ok(), "nonexistent path under spec_root should fall back to lexical check");
+        assert!(
+            result.is_ok(),
+            "nonexistent path under spec_root should fall back to lexical check"
+        );
     }
 
     // -- Wave 4: provide_host_function_emit_diagnostic + provide_host_function_http_get gaps --
@@ -1008,7 +1149,12 @@ mod tests {
         };
         let result = host_http_get_check("ext", "evil.example.com", CallSite::Provider, &policy);
         assert!(result.is_err());
-        assert!(result.unwrap_err().message.contains("not in allowed_domains"));
+        assert!(
+            result
+                .unwrap_err()
+                .message
+                .contains("not in allowed_domains")
+        );
     }
 
     // B:provide_host_function_http_get — verify unit "empty domain allowlist allows all domains"
@@ -1019,7 +1165,8 @@ mod tests {
             allowed_domains: vec![], // Empty = allow all
             ..Default::default()
         };
-        let result = host_http_get_check("ext", "any-domain.example.com", CallSite::Provider, &policy);
+        let result =
+            host_http_get_check("ext", "any-domain.example.com", CallSite::Provider, &policy);
         assert!(result.is_ok());
     }
 
@@ -1066,12 +1213,14 @@ mod tests {
         assert!(host_add_graph_node_check("ext", "event", CallSite::Parser, &declared).is_ok());
 
         // ensures: undeclared kind fails with E031
-        let err = host_add_graph_node_check("ext", "unknown", CallSite::Parser, &declared).unwrap_err();
+        let err =
+            host_add_graph_node_check("ext", "unknown", CallSite::Parser, &declared).unwrap_err();
         assert_eq!(err.code, "E031");
         assert_eq!(err.severity, Severity::Error);
 
         // ensures: non-parser call site fails with E031
-        let err = host_add_graph_node_check("ext", "behavior", CallSite::Renderer, &declared).unwrap_err();
+        let err = host_add_graph_node_check("ext", "behavior", CallSite::Renderer, &declared)
+            .unwrap_err();
         assert_eq!(err.code, "E031");
     }
 
@@ -1086,8 +1235,13 @@ mod tests {
         nodes.insert("node_b".to_string());
 
         let result = host_add_graph_edge_check(
-            "ext", "references", "node_a", "node_b",
-            CallSite::Parser, &labels, &nodes,
+            "ext",
+            "references",
+            "node_a",
+            "node_b",
+            CallSite::Parser,
+            &labels,
+            &nodes,
         );
         assert!(result.is_ok());
     }
@@ -1101,8 +1255,13 @@ mod tests {
         nodes.insert("b".to_string());
 
         let result = host_add_graph_edge_check(
-            "ext", "unknown_edge", "a", "b",
-            CallSite::Parser, &labels, &nodes,
+            "ext",
+            "unknown_edge",
+            "a",
+            "b",
+            CallSite::Parser,
+            &labels,
+            &nodes,
         );
         assert!(result.is_err());
         let err = result.unwrap_err();
@@ -1120,16 +1279,26 @@ mod tests {
 
         // Missing target
         let result = host_add_graph_edge_check(
-            "ext", "references", "a", "missing_target",
-            CallSite::Parser, &labels, &nodes,
+            "ext",
+            "references",
+            "a",
+            "missing_target",
+            CallSite::Parser,
+            &labels,
+            &nodes,
         );
         assert!(result.is_err());
         assert!(result.unwrap_err().message.contains("missing_target"));
 
         // Missing source
         let result = host_add_graph_edge_check(
-            "ext", "references", "missing_source", "a",
-            CallSite::Parser, &labels, &nodes,
+            "ext",
+            "references",
+            "missing_source",
+            "a",
+            CallSite::Parser,
+            &labels,
+            &nodes,
         );
         assert!(result.is_err());
         assert!(result.unwrap_err().message.contains("missing_source"));
@@ -1144,19 +1313,50 @@ mod tests {
         nodes.insert("b".to_string());
 
         // ensures: valid edge succeeds
-        assert!(host_add_graph_edge_check("ext", "references", "a", "b", CallSite::Parser, &labels, &nodes).is_ok());
+        assert!(
+            host_add_graph_edge_check(
+                "ext",
+                "references",
+                "a",
+                "b",
+                CallSite::Parser,
+                &labels,
+                &nodes
+            )
+            .is_ok()
+        );
 
         // ensures: non-parser fails with E031
-        let err = host_add_graph_edge_check("ext", "references", "a", "b", CallSite::Collector, &labels, &nodes).unwrap_err();
+        let err = host_add_graph_edge_check(
+            "ext",
+            "references",
+            "a",
+            "b",
+            CallSite::Collector,
+            &labels,
+            &nodes,
+        )
+        .unwrap_err();
         assert_eq!(err.code, "E031");
         assert_eq!(err.severity, Severity::Error);
 
         // ensures: undeclared label fails
-        let err = host_add_graph_edge_check("ext", "nope", "a", "b", CallSite::Parser, &labels, &nodes).unwrap_err();
+        let err =
+            host_add_graph_edge_check("ext", "nope", "a", "b", CallSite::Parser, &labels, &nodes)
+                .unwrap_err();
         assert_eq!(err.code, "E031");
 
         // ensures: missing node fails
-        let err = host_add_graph_edge_check("ext", "references", "a", "ghost", CallSite::Parser, &labels, &nodes).unwrap_err();
+        let err = host_add_graph_edge_check(
+            "ext",
+            "references",
+            "a",
+            "ghost",
+            CallSite::Parser,
+            &labels,
+            &nodes,
+        )
+        .unwrap_err();
         assert_eq!(err.code, "E031");
     }
 
@@ -1224,10 +1424,8 @@ mod tests {
         assert_eq!(all, graph);
 
         // ensures: Explicit scope filters entities and edges
-        let explicit = filter_graph_by_query_scope(
-            &graph,
-            &QueryScope::Explicit(vec!["type".to_string()]),
-        );
+        let explicit =
+            filter_graph_by_query_scope(&graph, &QueryScope::Explicit(vec!["type".to_string()]));
         let entities = explicit.get("entities").unwrap().as_array().unwrap();
         assert_eq!(entities.len(), 1);
         assert_eq!(entities[0].get("kind").unwrap().as_str().unwrap(), "type");

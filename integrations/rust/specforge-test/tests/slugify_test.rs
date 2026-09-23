@@ -34,10 +34,7 @@ fn special_chars_stripped() {
 
 #[test]
 fn consecutive_underscores_collapsed() {
-    assert_eq!(
-        slugify_verify_description("foo   bar"),
-        "foo_bar"
-    );
+    assert_eq!(slugify_verify_description("foo   bar"), "foo_bar");
 }
 
 #[test]

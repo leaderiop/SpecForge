@@ -1,13 +1,15 @@
-use specforge_graph::{Edge, Graph, Node};
 use specforge_common::{SourceSpan, Sym};
+use specforge_graph::{Edge, Graph, Node};
 use specforge_parser::{EntityId, EntityKind, FieldMap, FieldValue};
-use specforge_watch::{compute_graph_delta, GraphDelta};
 use specforge_test_macros::test as spec;
+use specforge_watch::{GraphDelta, compute_graph_delta};
 
 fn make_node(id: &str, kind: &str, file: &str, line: usize) -> Node {
     Node {
         id: EntityId { raw: Sym::new(id) },
-        kind: EntityKind { raw: Sym::new(kind) },
+        kind: EntityKind {
+            raw: Sym::new(kind),
+        },
         title: Some(id.to_string()),
         fields: FieldMap::new(),
         source_span: SourceSpan {
@@ -22,7 +24,10 @@ fn make_node(id: &str, kind: &str, file: &str, line: usize) -> Node {
 
 // ── compute_graph_delta: added nodes ──────────────────────────
 
-#[spec(behavior = "compute_graph_delta", verify = "added nodes appear in delta")]
+#[spec(
+    behavior = "compute_graph_delta",
+    verify = "added nodes appear in delta"
+)]
 #[test]
 fn added_nodes_appear_in_delta() {
     let old = Graph::new();
@@ -40,7 +45,10 @@ fn added_nodes_appear_in_delta() {
 
 // ── compute_graph_delta: removed nodes ────────────────────────
 
-#[spec(behavior = "compute_graph_delta", verify = "removed nodes appear in delta")]
+#[spec(
+    behavior = "compute_graph_delta",
+    verify = "removed nodes appear in delta"
+)]
 #[test]
 fn removed_nodes_appear_in_delta() {
     let mut old = Graph::new();
@@ -57,17 +65,24 @@ fn removed_nodes_appear_in_delta() {
 
 // ── compute_graph_delta: modified nodes ───────────────────────
 
-#[spec(behavior = "compute_graph_delta", verify = "modified nodes list changed fields")]
+#[spec(
+    behavior = "compute_graph_delta",
+    verify = "modified nodes list changed fields"
+)]
 #[test]
 fn modified_nodes_list_changed_fields() {
     let mut old = Graph::new();
     let mut old_node = make_node("baz", "behavior", "c.spec", 1);
-    old_node.fields.push(Sym::new("status"), FieldValue::String("draft".to_string()));
+    old_node
+        .fields
+        .push(Sym::new("status"), FieldValue::String("draft".to_string()));
     old.add_node(old_node);
 
     let mut new = Graph::new();
     let mut new_node = make_node("baz", "behavior", "c.spec", 1);
-    new_node.fields.push(Sym::new("status"), FieldValue::String("done".to_string()));
+    new_node
+        .fields
+        .push(Sym::new("status"), FieldValue::String("done".to_string()));
     new.add_node(new_node);
 
     let delta = compute_graph_delta(&old, &new);
@@ -76,12 +91,19 @@ fn modified_nodes_list_changed_fields() {
     assert_eq!(delta.removed_nodes.len(), 0);
     assert_eq!(delta.modified_nodes.len(), 1);
     assert_eq!(delta.modified_nodes[0].id, "baz");
-    assert!(delta.modified_nodes[0].changed_fields.contains(&"status".to_string()));
+    assert!(
+        delta.modified_nodes[0]
+            .changed_fields
+            .contains(&"status".to_string())
+    );
 }
 
 // ── compute_graph_delta: edges ────────────────────────────────
 
-#[spec(behavior = "compute_graph_delta", verify = "added and removed edges appear in delta")]
+#[spec(
+    behavior = "compute_graph_delta",
+    verify = "added and removed edges appear in delta"
+)]
 #[test]
 fn added_and_removed_edges_appear_in_delta() {
     let mut old = Graph::new();
@@ -116,7 +138,10 @@ fn added_and_removed_edges_appear_in_delta() {
 
 // ── compute_graph_delta: affected files ───────────────────────
 
-#[spec(behavior = "compute_graph_delta", verify = "affected files listed in delta")]
+#[spec(
+    behavior = "compute_graph_delta",
+    verify = "affected files listed in delta"
+)]
 #[test]
 fn affected_files_listed_in_delta() {
     let mut old = Graph::new();
@@ -171,22 +196,31 @@ fn identical_graphs_produce_empty_delta() {
 
 // ── compute_graph_delta: delta_include_values ─────────────────
 
-#[spec(behavior = "compute_graph_delta", verify = "delta_include_values=true populates old_value and new_value")]
+#[spec(
+    behavior = "compute_graph_delta",
+    verify = "delta_include_values=true populates old_value and new_value"
+)]
 #[test]
 fn delta_include_values_populates_old_and_new_value() {
     use specforge_watch::DeltaConfig;
 
     let mut old = Graph::new();
     let mut old_node = make_node("x", "behavior", "a.spec", 1);
-    old_node.fields.push(Sym::new("status"), FieldValue::String("draft".to_string()));
+    old_node
+        .fields
+        .push(Sym::new("status"), FieldValue::String("draft".to_string()));
     old.add_node(old_node);
 
     let mut new = Graph::new();
     let mut new_node = make_node("x", "behavior", "a.spec", 1);
-    new_node.fields.push(Sym::new("status"), FieldValue::String("done".to_string()));
+    new_node
+        .fields
+        .push(Sym::new("status"), FieldValue::String("done".to_string()));
     new.add_node(new_node);
 
-    let config = DeltaConfig { include_values: true };
+    let config = DeltaConfig {
+        include_values: true,
+    };
     let delta = specforge_watch::compute_graph_delta_with_config(&old, &new, &config);
 
     assert_eq!(delta.modified_nodes.len(), 1);
@@ -194,17 +228,24 @@ fn delta_include_values_populates_old_and_new_value() {
     assert!(delta.modified_nodes[0].new_value.is_some());
 }
 
-#[spec(behavior = "compute_graph_delta", verify = "delta_include_values=false omits old_value and new_value")]
+#[spec(
+    behavior = "compute_graph_delta",
+    verify = "delta_include_values=false omits old_value and new_value"
+)]
 #[test]
 fn delta_default_config_omits_values() {
     let mut old = Graph::new();
     let mut old_node = make_node("x", "behavior", "a.spec", 1);
-    old_node.fields.push(Sym::new("status"), FieldValue::String("draft".to_string()));
+    old_node
+        .fields
+        .push(Sym::new("status"), FieldValue::String("draft".to_string()));
     old.add_node(old_node);
 
     let mut new = Graph::new();
     let mut new_node = make_node("x", "behavior", "a.spec", 1);
-    new_node.fields.push(Sym::new("status"), FieldValue::String("done".to_string()));
+    new_node
+        .fields
+        .push(Sym::new("status"), FieldValue::String("done".to_string()));
     new.add_node(new_node);
 
     let delta = compute_graph_delta(&old, &new);
@@ -216,7 +257,10 @@ fn delta_default_config_omits_values() {
 
 // ── validate_delta_correctness ────────────────────────────────
 
-#[spec(behavior = "validate_delta_correctness", verify = "delta applied to old graph equals new graph")]
+#[spec(
+    behavior = "validate_delta_correctness",
+    verify = "delta applied to old graph equals new graph"
+)]
 #[test]
 fn validate_delta_passes_for_correct_delta() {
     use specforge_watch::validate_delta_correctness;
@@ -230,7 +274,10 @@ fn validate_delta_passes_for_correct_delta() {
     assert!(result.is_ok());
 }
 
-#[spec(behavior = "validate_delta_correctness", verify = "successful validation emits delta_validation_passed with node and edge counts")]
+#[spec(
+    behavior = "validate_delta_correctness",
+    verify = "successful validation emits delta_validation_passed with node and edge counts"
+)]
 #[test]
 fn successful_validation_returns_node_and_edge_counts() {
     use specforge_watch::validate_delta_correctness;
@@ -252,10 +299,13 @@ fn successful_validation_returns_node_and_edge_counts() {
     assert_eq!(result.edge_count, 1);
 }
 
-#[spec(behavior = "validate_delta_correctness", verify = "discrepancy triggers debug assertion with descriptive message")]
+#[spec(
+    behavior = "validate_delta_correctness",
+    verify = "discrepancy triggers debug assertion with descriptive message"
+)]
 #[test]
 fn validate_delta_fails_for_wrong_node_count() {
-    use specforge_watch::{validate_delta_correctness, NodeChange};
+    use specforge_watch::{NodeChange, validate_delta_correctness};
 
     let old = Graph::new();
     let mut new = Graph::new();
@@ -280,10 +330,17 @@ fn validate_delta_fails_for_wrong_node_count() {
     let result = validate_delta_correctness(&old, &new, &bad_delta);
     assert!(result.is_err());
     let msg = result.unwrap_err();
-    assert!(msg.contains("node count"), "expected node count mismatch, got: {}", msg);
+    assert!(
+        msg.contains("node count"),
+        "expected node count mismatch, got: {}",
+        msg
+    );
 }
 
-#[spec(behavior = "validate_delta_correctness", verify = "discrepancy triggers debug assertion with descriptive message")]
+#[spec(
+    behavior = "validate_delta_correctness",
+    verify = "discrepancy triggers debug assertion with descriptive message"
+)]
 #[test]
 fn validate_delta_fails_for_wrong_edge_count() {
     use specforge_watch::validate_delta_correctness;
@@ -314,13 +371,20 @@ fn validate_delta_fails_for_wrong_edge_count() {
     let result = validate_delta_correctness(&old, &new, &bad_delta);
     assert!(result.is_err());
     let msg = result.unwrap_err();
-    assert!(msg.contains("edge count"), "expected edge count mismatch, got: {}", msg);
+    assert!(
+        msg.contains("edge count"),
+        "expected edge count mismatch, got: {}",
+        msg
+    );
 }
 
-#[spec(behavior = "validate_delta_correctness", verify = "discrepancy triggers debug assertion with descriptive message")]
+#[spec(
+    behavior = "validate_delta_correctness",
+    verify = "discrepancy triggers debug assertion with descriptive message"
+)]
 #[test]
 fn validate_delta_fails_when_added_node_missing_from_new_graph() {
-    use specforge_watch::{validate_delta_correctness, NodeChange};
+    use specforge_watch::{NodeChange, validate_delta_correctness};
 
     let old = Graph::new();
     let new = Graph::new(); // empty — but delta claims node was added
@@ -349,10 +413,17 @@ fn validate_delta_fails_when_added_node_missing_from_new_graph() {
     let result = validate_delta_correctness(&old, &new, &bad_delta);
     assert!(result.is_err());
     let msg = result.unwrap_err();
-    assert!(msg.contains("phantom"), "expected phantom node error, got: {}", msg);
+    assert!(
+        msg.contains("phantom"),
+        "expected phantom node error, got: {}",
+        msg
+    );
 }
 
-#[spec(behavior = "validate_delta_correctness", verify = "check disabled in release builds")]
+#[spec(
+    behavior = "validate_delta_correctness",
+    verify = "check disabled in release builds"
+)]
 #[test]
 fn validate_delta_disabled_skips_checks() {
     use specforge_watch::validate_delta_correctness_if_enabled;
@@ -374,20 +445,29 @@ fn validate_delta_disabled_skips_checks() {
 
     // Enabled: should detect the mismatch
     let enabled_result = validate_delta_correctness_if_enabled(&old, &new, &bad_delta, true);
-    assert!(enabled_result.is_err(), "validation should fail when enabled");
+    assert!(
+        enabled_result.is_err(),
+        "validation should fail when enabled"
+    );
 
     // Disabled: should skip and return Ok
     let disabled_result = validate_delta_correctness_if_enabled(&old, &new, &bad_delta, false);
-    assert!(disabled_result.is_ok(), "validation should be skipped when disabled");
+    assert!(
+        disabled_result.is_ok(),
+        "validation should be skipped when disabled"
+    );
     let counts = disabled_result.unwrap();
     assert_eq!(counts.node_count, 2);
     assert_eq!(counts.edge_count, 0);
 }
 
-#[spec(behavior = "validate_delta_correctness", verify = "discrepancy triggers debug assertion with descriptive message")]
+#[spec(
+    behavior = "validate_delta_correctness",
+    verify = "discrepancy triggers debug assertion with descriptive message"
+)]
 #[test]
 fn validate_delta_fails_when_removed_node_still_in_new_graph() {
-    use specforge_watch::{validate_delta_correctness, NodeChange};
+    use specforge_watch::{NodeChange, validate_delta_correctness};
 
     let mut old = Graph::new();
     old.add_node(make_node("still_here", "behavior", "a.spec", 1));
@@ -422,5 +502,9 @@ fn validate_delta_fails_when_removed_node_still_in_new_graph() {
     let result = validate_delta_correctness(&old, &new, &bad_delta);
     assert!(result.is_err());
     let msg = result.unwrap_err();
-    assert!(msg.contains("still present"), "expected 'still present' error, got: {}", msg);
+    assert!(
+        msg.contains("still present"),
+        "expected 'still present' error, got: {}",
+        msg
+    );
 }

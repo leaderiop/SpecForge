@@ -1,9 +1,11 @@
 pub mod linker;
 mod resolve;
 
-pub use resolve::{resolve_project, resolve_project_with_config, PathAlias, ResolveConfig};
+pub use resolve::{PathAlias, ResolveConfig, resolve_project, resolve_project_with_config};
 pub use specforge_common::{Diagnostic, Severity, SourceSpan};
-pub use specforge_parser::{Entity, FieldValue, ImportBinding, ImportDeclaration, ImportKind, SpecFile};
+pub use specforge_parser::{
+    Entity, FieldValue, ImportBinding, ImportDeclaration, ImportKind, SpecFile,
+};
 
 use std::collections::{HashMap, HashSet};
 

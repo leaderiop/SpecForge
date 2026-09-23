@@ -11,10 +11,10 @@
 
 use specforge_common::Severity;
 use specforge_registry::{
-    load_extension_manifests, load_provider_configurations, register_extension_entity_types,
-    register_provider_schemes, validate_provider_ref, validate_ref_target_format,
-    validate_provider_kinds, ExtensionContributions, ManifestV2, ProviderConfig,
-    ProviderSchemeRegistry, SchemeRegistryEntry, KindRegistry,
+    ExtensionContributions, KindRegistry, ManifestV2, ProviderConfig, ProviderSchemeRegistry,
+    SchemeRegistryEntry, load_extension_manifests, load_provider_configurations,
+    register_extension_entity_types, register_provider_schemes, validate_provider_kinds,
+    validate_provider_ref, validate_ref_target_format,
 };
 use tempfile::TempDir;
 
@@ -93,10 +93,7 @@ fn test_load_providers_valid_array() {
         providers[0].base_url.as_deref(),
         Some("https://api.github.com")
     );
-    assert_eq!(
-        providers[0].api_key_env.as_deref(),
-        Some("GITHUB_TOKEN")
-    );
+    assert_eq!(providers[0].api_key_env.as_deref(), Some("GITHUB_TOKEN"));
     assert_eq!(providers[1].name, "jira");
     assert_eq!(providers[1].scheme, "jira");
 }
@@ -166,7 +163,10 @@ fn test_register_schemes_from_manifest() {
         api_key_env: None,
     }];
 
-    let manifests = vec![("@specforge/github".to_string(), make_manifest("@specforge/github", true))];
+    let manifests = vec![(
+        "@specforge/github".to_string(),
+        make_manifest("@specforge/github", true),
+    )];
 
     let (registry, diags) = register_provider_schemes(&providers, &manifests);
     assert!(diags.is_empty());
@@ -245,7 +245,8 @@ fn test_register_schemes_contract() {
     assert!(registry.find_by_scheme("gh").is_some());
 
     // ensures: non-contributing extension not matched
-    let manifests_no_provider = vec![("@ext/other".to_string(), make_manifest("@ext/other", false))];
+    let manifests_no_provider =
+        vec![("@ext/other".to_string(), make_manifest("@ext/other", false))];
     let (registry, _) = register_provider_schemes(&providers, &manifests_no_provider);
     assert!(registry.entries.is_empty());
 }
@@ -272,9 +273,7 @@ fn test_validate_provider_ref_known_scheme() {
 // B:validate_provider_refs — verify integration "unknown scheme → E034"
 #[test]
 fn test_validate_provider_ref_unknown_scheme() {
-    let registry = ProviderSchemeRegistry {
-        entries: vec![],
-    };
+    let registry = ProviderSchemeRegistry { entries: vec![] };
 
     let diags = validate_provider_ref("unknown", "42", &registry);
     assert_eq!(diags.len(), 1);
@@ -406,7 +405,11 @@ fn test_load_manifests_valid_directory() {
     .unwrap();
 
     let (manifests, diags) = load_extension_manifests(dir.path());
-    assert!(diags.is_empty(), "expected no diagnostics, got: {:?}", diags);
+    assert!(
+        diags.is_empty(),
+        "expected no diagnostics, got: {:?}",
+        diags
+    );
     assert_eq!(manifests.len(), 2);
 }
 
@@ -587,7 +590,10 @@ fn test_register_entity_types_contract() {
 fn test_provider_scheme_isolation_each_registered_to_owner() {
     // Two extensions, each contributing providers
     let manifests = vec![
-        ("@ext/github".to_string(), make_manifest("@ext/github", true)),
+        (
+            "@ext/github".to_string(),
+            make_manifest("@ext/github", true),
+        ),
         ("@ext/jira".to_string(), make_manifest("@ext/jira", true)),
     ];
 
@@ -617,17 +623,25 @@ fn test_provider_scheme_isolation_each_registered_to_owner() {
     );
 
     // Both schemes registered
-    assert_eq!(registry.entries.len(), 2, "both providers should be registered");
+    assert_eq!(
+        registry.entries.len(),
+        2,
+        "both providers should be registered"
+    );
 
     // "gh" scheme should map to @ext/github (contains "gh")
-    let gh_entry = registry.find_by_scheme("gh").expect("gh scheme should be registered");
+    let gh_entry = registry
+        .find_by_scheme("gh")
+        .expect("gh scheme should be registered");
     assert_eq!(
         gh_entry.extension_name, "@ext/github",
         "gh scheme should be registered to @ext/github, not cross-assigned"
     );
 
     // "jira" scheme should map to @ext/jira (contains "jira")
-    let jira_entry = registry.find_by_scheme("jira").expect("jira scheme should be registered");
+    let jira_entry = registry
+        .find_by_scheme("jira")
+        .expect("jira scheme should be registered");
     assert_eq!(
         jira_entry.extension_name, "@ext/jira",
         "jira scheme should be registered to @ext/jira, not cross-assigned"

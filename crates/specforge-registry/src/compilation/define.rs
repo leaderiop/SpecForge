@@ -105,7 +105,7 @@ pub fn register_define_blocks(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{populate_registries, ManifestV2};
+    use crate::{ManifestV2, populate_registries};
 
     fn software_manifest() -> ManifestV2 {
         serde_json::from_str(
@@ -137,7 +137,8 @@ mod tests {
     fn test_custom_entity_type_registered_in_kind_registry() {
         let mut kind_reg = KindRegistry::new();
         let mut field_reg = crate::FieldRegistry::new();
-        let diags = register_define_blocks(&[make_define("user_story")], &mut kind_reg, &mut field_reg);
+        let diags =
+            register_define_blocks(&[make_define("user_story")], &mut kind_reg, &mut field_reg);
         assert!(diags.is_empty());
         assert!(kind_reg.contains("user_story"));
     }
@@ -185,7 +186,8 @@ mod tests {
         // First populate from extensions, then register defines
         let (mut kind_reg, mut field_reg, _, _) = populate_registries(&[software_manifest()]);
         assert!(kind_reg.contains("behavior")); // extension kind exists
-        let diags = register_define_blocks(&[make_define("user_story")], &mut kind_reg, &mut field_reg);
+        let diags =
+            register_define_blocks(&[make_define("user_story")], &mut kind_reg, &mut field_reg);
         assert!(diags.is_empty());
         // Both extension and define kinds present
         assert!(kind_reg.contains("behavior"));
@@ -246,7 +248,10 @@ mod tests {
         // ensures: custom kind registered
         assert!(kind_reg.contains("user_story"));
         // ensures: source_extension is "<project>"
-        assert_eq!(kind_reg.get("user_story").unwrap().source_extension, "<project>");
+        assert_eq!(
+            kind_reg.get("user_story").unwrap().source_extension,
+            "<project>"
+        );
         // ensures: fields registered
         assert!(field_reg.contains("user_story", "description"));
         assert!(field_reg.contains("user_story", "notes"));
@@ -254,11 +259,8 @@ mod tests {
         // ensures: no diagnostics for clean define
         assert!(diags.is_empty());
         // ensures: collision with extension kind produces E026
-        let bad_diags = register_define_blocks(
-            &[make_define("behavior")],
-            &mut kind_reg,
-            &mut field_reg,
-        );
+        let bad_diags =
+            register_define_blocks(&[make_define("behavior")], &mut kind_reg, &mut field_reg);
         assert!(bad_diags.iter().any(|d| d.code == "E026"));
     }
 }

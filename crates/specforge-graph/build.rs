@@ -1,5 +1,5 @@
 use serde::Serialize;
-use specforge_parser::{parse, FieldValue};
+use specforge_parser::{FieldValue, parse};
 use std::path::{Path, PathBuf};
 
 #[derive(Serialize)]
@@ -148,7 +148,11 @@ fn chrono_lite_now() -> String {
     let mut y = 1970i64;
     let mut remaining = days as i64;
     loop {
-        let year_days = if y % 4 == 0 && (y % 100 != 0 || y % 400 == 0) { 366 } else { 365 };
+        let year_days = if y % 4 == 0 && (y % 100 != 0 || y % 400 == 0) {
+            366
+        } else {
+            365
+        };
         if remaining < year_days {
             break;
         }
@@ -156,7 +160,20 @@ fn chrono_lite_now() -> String {
         y += 1;
     }
     let leap = y % 4 == 0 && (y % 100 != 0 || y % 400 == 0);
-    let month_days = [31, if leap { 29 } else { 28 }, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+    let month_days = [
+        31,
+        if leap { 29 } else { 28 },
+        31,
+        30,
+        31,
+        30,
+        31,
+        31,
+        30,
+        31,
+        30,
+        31,
+    ];
     let mut mo = 0;
     for (i, &md) in month_days.iter().enumerate() {
         if remaining < md as i64 {

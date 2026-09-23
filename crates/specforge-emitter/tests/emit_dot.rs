@@ -16,7 +16,9 @@ fn span() -> SourceSpan {
 fn node(id: &str, kind: &str, title: Option<&str>) -> Node {
     Node {
         id: EntityId { raw: Sym::new(id) },
-        kind: EntityKind { raw: Sym::new(kind) },
+        kind: EntityKind {
+            raw: Sym::new(kind),
+        },
         title: title.map(|s| s.to_string()),
         fields: FieldMap::new(),
         source_span: span(),
@@ -25,7 +27,10 @@ fn node(id: &str, kind: &str, title: Option<&str>) -> Node {
 
 // B:serialize_dot_visualization — verify unit "DOT output is valid Graphviz syntax"
 #[test]
-#[specforge_test(behavior = "serialize_dot_visualization", verify = "DOT output is valid Graphviz syntax")]
+#[specforge_test(
+    behavior = "serialize_dot_visualization",
+    verify = "DOT output is valid Graphviz syntax"
+)]
 fn empty_graph_produces_valid_dot() {
     let graph = Graph::new();
     let dot = specforge_emitter::emit_dot(&graph);
@@ -36,7 +41,10 @@ fn empty_graph_produces_valid_dot() {
 
 // B:serialize_dot_visualization — verify unit "nodes are labeled with IDs"
 #[test]
-#[specforge_test(behavior = "serialize_dot_visualization", verify = "nodes are labeled with IDs")]
+#[specforge_test(
+    behavior = "serialize_dot_visualization",
+    verify = "nodes are labeled with IDs"
+)]
 fn dot_nodes_labeled_with_id_and_title() {
     let mut graph = Graph::new();
     graph.add_node(node("alpha", "behavior", Some("Alpha Behavior")));
@@ -48,7 +56,10 @@ fn dot_nodes_labeled_with_id_and_title() {
 
 // B:serialize_dot_visualization — verify unit "edges are labeled with types"
 #[test]
-#[specforge_test(behavior = "serialize_dot_visualization", verify = "edges are labeled with types")]
+#[specforge_test(
+    behavior = "serialize_dot_visualization",
+    verify = "edges are labeled with types"
+)]
 fn dot_edges_labeled_with_type() {
     let mut graph = Graph::new();
     graph.add_node(node("feat_a", "feature", Some("Feature A")));
@@ -60,13 +71,19 @@ fn dot_edges_labeled_with_type() {
     });
 
     let dot = specforge_emitter::emit_dot(&graph);
-    assert!(dot.contains("feat_a") && dot.contains("beh_b"), "edge endpoints in DOT");
+    assert!(
+        dot.contains("feat_a") && dot.contains("beh_b"),
+        "edge endpoints in DOT"
+    );
     assert!(dot.contains("behaviors"), "edge label in DOT");
 }
 
 // B:serialize_dot_visualization — verify unit "node shapes use extension-defined dot_shape"
 #[test]
-#[specforge_test(behavior = "serialize_dot_visualization", verify = "node shapes use extension-defined dot_shape")]
+#[specforge_test(
+    behavior = "serialize_dot_visualization",
+    verify = "node shapes use extension-defined dot_shape"
+)]
 fn dot_node_default_shape_is_box() {
     let mut graph = Graph::new();
     graph.add_node(node("alpha", "behavior", Some("Alpha")));

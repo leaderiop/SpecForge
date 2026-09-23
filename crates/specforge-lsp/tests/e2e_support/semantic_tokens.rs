@@ -3,27 +3,20 @@ use super::*;
 #[tokio::test]
 async fn e2e_semantic_tokens_non_empty() {
     let text = "behavior foo \"Foo\" {\n  contract \"test\"\n}\n";
-    let (mut client, uri, _dir) = start_server_with_extensions(
-        &["@specforge/software"],
-        "test.spec", text,
-    ).await;
+    let (mut client, uri, _dir) =
+        start_server_with_extensions(&["@specforge/software"], "test.spec", text).await;
     let resp = client.semantic_tokens_full(&uri).await;
     let result = &resp["result"];
     assert!(!result.is_null(), "Expected semantic tokens result");
     let data = result["data"].as_array().unwrap();
-    assert!(
-        !data.is_empty(),
-        "Expected non-empty semantic tokens data"
-    );
+    assert!(!data.is_empty(), "Expected non-empty semantic tokens data");
 }
 
 #[tokio::test]
 async fn e2e_semantic_tokens_delta_encoded() {
     let text = "behavior foo \"Foo\" {\n  contract \"test\"\n}\n";
-    let (mut client, uri, _dir) = start_server_with_extensions(
-        &["@specforge/software"],
-        "test.spec", text,
-    ).await;
+    let (mut client, uri, _dir) =
+        start_server_with_extensions(&["@specforge/software"], "test.spec", text).await;
     let resp = client.semantic_tokens_full(&uri).await;
     let data = resp["result"]["data"].as_array().unwrap();
     // Semantic tokens are encoded as groups of 5 integers:
@@ -34,7 +27,9 @@ async fn e2e_semantic_tokens_delta_encoded() {
     );
     // First token's deltaLine must parse as u64 (non-negative by type)
     if !data.is_empty() {
-        data[0].as_u64().expect("deltaLine should be a non-negative integer");
+        data[0]
+            .as_u64()
+            .expect("deltaLine should be a non-negative integer");
     }
     // All delta values should be non-negative (they're unsigned in the protocol)
     for chunk in data.chunks(5) {
@@ -48,10 +43,8 @@ async fn e2e_semantic_tokens_delta_encoded() {
 #[tokio::test]
 async fn e2e_semantic_tokens_keyword_type() {
     let text = "behavior foo \"Foo\" {}\n";
-    let (mut client, uri, _dir) = start_server_with_extensions(
-        &["@specforge/software"],
-        "test.spec", text,
-    ).await;
+    let (mut client, uri, _dir) =
+        start_server_with_extensions(&["@specforge/software"], "test.spec", text).await;
     let resp = client.semantic_tokens_full(&uri).await;
     let data = resp["result"]["data"].as_array().unwrap();
     // First token should be "behavior" entity kind at line 0, col 0

@@ -45,15 +45,22 @@ pub(crate) fn field_value_to_json(value: &FieldValue) -> Value {
         FieldValue::Integer(n) => Value::Number((*n).into()),
         FieldValue::Boolean(b) => Value::Bool(*b),
         FieldValue::Date(s) => Value::String(s.clone()),
-        FieldValue::ReferenceList(refs) => {
-            Value::Array(refs.iter().map(|r: &String| Value::String(r.clone())).collect())
-        }
-        FieldValue::VariantList(variants) => {
-            Value::Array(variants.iter().map(|v: &String| Value::String(v.clone())).collect())
-        }
-        FieldValue::StringList(list) => {
-            Value::Array(list.iter().map(|s: &String| Value::String(s.clone())).collect())
-        }
+        FieldValue::ReferenceList(refs) => Value::Array(
+            refs.iter()
+                .map(|r: &String| Value::String(r.clone()))
+                .collect(),
+        ),
+        FieldValue::VariantList(variants) => Value::Array(
+            variants
+                .iter()
+                .map(|v: &String| Value::String(v.clone()))
+                .collect(),
+        ),
+        FieldValue::StringList(list) => Value::Array(
+            list.iter()
+                .map(|s: &String| Value::String(s.clone()))
+                .collect(),
+        ),
         FieldValue::VerifyList(stmts) => Value::Array(
             stmts
                 .iter()
@@ -65,9 +72,7 @@ pub(crate) fn field_value_to_json(value: &FieldValue) -> Value {
                 })
                 .collect(),
         ),
-        FieldValue::Block(inner) => {
-            Value::Object(field_map_to_json(inner).into_iter().collect())
-        }
+        FieldValue::Block(inner) => Value::Object(field_map_to_json(inner).into_iter().collect()),
         FieldValue::MixedList(items) => {
             Value::Array(items.iter().map(field_value_to_json).collect())
         }

@@ -26,9 +26,15 @@ async fn concurrent_reads_complete() {
         let state = state.clone();
         handles.push(tokio::spawn(async move {
             let s = state.read().await;
-            assert!(s.is_open("file:///test.spec"), "reader {i} must see open doc");
+            assert!(
+                s.is_open("file:///test.spec"),
+                "reader {i} must see open doc"
+            );
             let doc = s.document("file:///test.spec").unwrap();
-            assert!(doc.content().contains("behavior foo"), "reader {i} content mismatch");
+            assert!(
+                doc.content().contains("behavior foo"),
+                "reader {i} content mismatch"
+            );
             s.open_uris().len()
         }));
     }
@@ -62,7 +68,11 @@ async fn concurrent_reads_see_consistent_state() {
             let s = state.read().await;
             let uris = s.open_uris();
             // Must see all 4 documents (test.spec + a/b/c)
-            assert_eq!(uris.len(), 4, "all readers must see exactly 4 open documents");
+            assert_eq!(
+                uris.len(),
+                4,
+                "all readers must see exactly 4 open documents"
+            );
             assert!(s.is_open("file:///a.spec"));
             assert!(s.is_open("file:///b.spec"));
             assert!(s.is_open("file:///c.spec"));

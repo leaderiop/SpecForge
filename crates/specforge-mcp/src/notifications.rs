@@ -17,8 +17,10 @@ pub struct DiagnosticsDelta {
 }
 
 pub fn compute_graph_delta(old: &Graph, new: &Graph) -> GraphDelta {
-    let old_ids: std::collections::HashSet<String> = old.nodes().iter().map(|n| n.id.raw.to_string()).collect();
-    let new_ids: std::collections::HashSet<String> = new.nodes().iter().map(|n| n.id.raw.to_string()).collect();
+    let old_ids: std::collections::HashSet<String> =
+        old.nodes().iter().map(|n| n.id.raw.to_string()).collect();
+    let new_ids: std::collections::HashSet<String> =
+        new.nodes().iter().map(|n| n.id.raw.to_string()).collect();
 
     GraphDelta {
         added_nodes: new_ids.difference(&old_ids).cloned().collect(),
@@ -29,24 +31,52 @@ pub fn compute_graph_delta(old: &Graph, new: &Graph) -> GraphDelta {
 }
 
 pub fn compute_diagnostics_delta(old: &[Diagnostic], new: &[Diagnostic]) -> DiagnosticsDelta {
-    let old_keys: std::collections::HashSet<String> = old.iter()
-        .map(|d| format!("{}:{}:{}", d.code, d.message, d.span.as_ref().map(|s| s.file.as_str()).unwrap_or("")))
+    let old_keys: std::collections::HashSet<String> = old
+        .iter()
+        .map(|d| {
+            format!(
+                "{}:{}:{}",
+                d.code,
+                d.message,
+                d.span.as_ref().map(|s| s.file.as_str()).unwrap_or("")
+            )
+        })
         .collect();
-    let new_keys: std::collections::HashSet<String> = new.iter()
-        .map(|d| format!("{}:{}:{}", d.code, d.message, d.span.as_ref().map(|s| s.file.as_str()).unwrap_or("")))
+    let new_keys: std::collections::HashSet<String> = new
+        .iter()
+        .map(|d| {
+            format!(
+                "{}:{}:{}",
+                d.code,
+                d.message,
+                d.span.as_ref().map(|s| s.file.as_str()).unwrap_or("")
+            )
+        })
         .collect();
 
-    let added: Vec<Diagnostic> = new.iter()
+    let added: Vec<Diagnostic> = new
+        .iter()
         .filter(|d| {
-            let key = format!("{}:{}:{}", d.code, d.message, d.span.as_ref().map(|s| s.file.as_str()).unwrap_or(""));
+            let key = format!(
+                "{}:{}:{}",
+                d.code,
+                d.message,
+                d.span.as_ref().map(|s| s.file.as_str()).unwrap_or("")
+            );
             !old_keys.contains(&key)
         })
         .cloned()
         .collect();
 
-    let removed: Vec<Diagnostic> = old.iter()
+    let removed: Vec<Diagnostic> = old
+        .iter()
         .filter(|d| {
-            let key = format!("{}:{}:{}", d.code, d.message, d.span.as_ref().map(|s| s.file.as_str()).unwrap_or(""));
+            let key = format!(
+                "{}:{}:{}",
+                d.code,
+                d.message,
+                d.span.as_ref().map(|s| s.file.as_str()).unwrap_or("")
+            );
             !new_keys.contains(&key)
         })
         .cloned()
@@ -69,17 +99,29 @@ pub fn format_graph_notification(delta: &GraphDelta) -> Value {
 }
 
 pub fn format_diagnostics_notification(delta: &DiagnosticsDelta) -> Value {
-    let added: Vec<Value> = delta.added.iter().map(|d| serde_json::json!({
-        "code": d.code,
-        "severity": format!("{:?}", d.severity),
-        "message": d.message
-    })).collect();
+    let added: Vec<Value> = delta
+        .added
+        .iter()
+        .map(|d| {
+            serde_json::json!({
+                "code": d.code,
+                "severity": format!("{:?}", d.severity),
+                "message": d.message
+            })
+        })
+        .collect();
 
-    let removed: Vec<Value> = delta.removed.iter().map(|d| serde_json::json!({
-        "code": d.code,
-        "severity": format!("{:?}", d.severity),
-        "message": d.message
-    })).collect();
+    let removed: Vec<Value> = delta
+        .removed
+        .iter()
+        .map(|d| {
+            serde_json::json!({
+                "code": d.code,
+                "severity": format!("{:?}", d.severity),
+                "message": d.message
+            })
+        })
+        .collect();
 
     serde_json::json!({
         "jsonrpc": "2.0",
@@ -103,7 +145,10 @@ pub fn pending_notifications(state: &mut McpState) -> Vec<Value> {
     let diag_delta = compute_diagnostics_delta(&state.previous_diagnostics, &state.diagnostics);
     if !diag_delta.added.is_empty() || !diag_delta.removed.is_empty() {
         notifications.push(format_diagnostics_notification(&diag_delta));
-        state.push_event("mcp_delta_notified", serde_json::json!({"kind": "diagnostics"}));
+        state.push_event(
+            "mcp_delta_notified",
+            serde_json::json!({"kind": "diagnostics"}),
+        );
     }
 
     notifications

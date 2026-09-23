@@ -4,7 +4,10 @@ use specforge_test_macros::test as specforge_test;
 // --- Trace depth tests ---
 
 #[test]
-#[specforge_test(behavior = "trace_entity_dependencies", verify = "isolated entity has empty upstream and downstream")]
+#[specforge_test(
+    behavior = "trace_entity_dependencies",
+    verify = "isolated entity has empty upstream and downstream"
+)]
 fn trace_isolated_entity_has_empty_upstream_and_downstream() {
     let dir = setup_project(&[("main.spec", ISOLATED_SPEC)]);
 
@@ -24,7 +27,10 @@ fn trace_isolated_entity_has_empty_upstream_and_downstream() {
 }
 
 #[test]
-#[specforge_test(behavior = "trace_entity_dependencies", verify = "linear chain shows correct depths")]
+#[specforge_test(
+    behavior = "trace_entity_dependencies",
+    verify = "linear chain shows correct depths"
+)]
 fn trace_linear_chain_shows_correct_depths() {
     let dir = setup_project(&[("main.spec", DEEP_CHAIN_SPEC)]);
 
@@ -42,7 +48,10 @@ fn trace_linear_chain_shows_correct_depths() {
 
     assert_eq!(parsed["entity_id"], "inv_deep");
     let downstream = parsed["downstream"].as_array().unwrap();
-    assert!(!downstream.is_empty(), "inv_deep should have downstream links via enforced_by");
+    assert!(
+        !downstream.is_empty(),
+        "inv_deep should have downstream links via enforced_by"
+    );
 
     // beh_middle should be at depth 1
     let beh = downstream.iter().find(|l| l["entity_id"] == "beh_middle");
@@ -51,7 +60,10 @@ fn trace_linear_chain_shows_correct_depths() {
 }
 
 #[test]
-#[specforge_test(behavior = "trace_entity_dependencies", verify = "trace includes edge labels")]
+#[specforge_test(
+    behavior = "trace_entity_dependencies",
+    verify = "trace includes edge labels"
+)]
 fn trace_includes_edge_labels() {
     let dir = setup_project(&[("main.spec", DEEP_CHAIN_SPEC)]);
 
@@ -68,12 +80,18 @@ fn trace_includes_edge_labels() {
 
     for link in upstream {
         let label = link["edge_label"].as_str().unwrap();
-        assert!(!label.is_empty(), "every TraceLink must have a non-empty edge_label");
+        assert!(
+            !label.is_empty(),
+            "every TraceLink must have a non-empty edge_label"
+        );
     }
 }
 
 #[test]
-#[specforge_test(behavior = "trace_entity_dependencies", verify = "trace handles cycles without hanging")]
+#[specforge_test(
+    behavior = "trace_entity_dependencies",
+    verify = "trace handles cycles without hanging"
+)]
 fn trace_handles_cycles_without_hanging() {
     let dir = setup_project(&[("main.spec", CYCLE_SPEC)]);
 
@@ -85,13 +103,19 @@ fn trace_handles_cycles_without_hanging() {
         .unwrap();
 
     // Must terminate (not hang) and succeed
-    assert!(output.status.success(), "trace on cyclic graph should terminate successfully");
+    assert!(
+        output.status.success(),
+        "trace on cyclic graph should terminate successfully"
+    );
     let parsed = parse_json_stdout(&output);
     assert_eq!(parsed["entity_id"], "cycle_a");
 }
 
 #[test]
-#[specforge_test(behavior = "trace_entity_dependencies", verify = "cycle visits each node once")]
+#[specforge_test(
+    behavior = "trace_entity_dependencies",
+    verify = "cycle visits each node once"
+)]
 fn trace_cycle_visits_each_node_once() {
     let dir = setup_project(&[("main.spec", CYCLE_SPEC)]);
 
@@ -106,19 +130,40 @@ fn trace_cycle_visits_each_node_once() {
     let parsed = parse_json_stdout(&output);
 
     // Check no duplicates within each direction (upstream and downstream have separate visited sets)
-    let upstream_ids: Vec<&str> = parsed["upstream"].as_array().unwrap()
-        .iter().map(|l| l["entity_id"].as_str().unwrap()).collect();
-    let downstream_ids: Vec<&str> = parsed["downstream"].as_array().unwrap()
-        .iter().map(|l| l["entity_id"].as_str().unwrap()).collect();
+    let upstream_ids: Vec<&str> = parsed["upstream"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|l| l["entity_id"].as_str().unwrap())
+        .collect();
+    let downstream_ids: Vec<&str> = parsed["downstream"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|l| l["entity_id"].as_str().unwrap())
+        .collect();
 
     let unique_up: std::collections::HashSet<&&str> = upstream_ids.iter().collect();
     let unique_down: std::collections::HashSet<&&str> = downstream_ids.iter().collect();
-    assert_eq!(upstream_ids.len(), unique_up.len(), "upstream BFS should not produce duplicates: {:?}", upstream_ids);
-    assert_eq!(downstream_ids.len(), unique_down.len(), "downstream BFS should not produce duplicates: {:?}", downstream_ids);
+    assert_eq!(
+        upstream_ids.len(),
+        unique_up.len(),
+        "upstream BFS should not produce duplicates: {:?}",
+        upstream_ids
+    );
+    assert_eq!(
+        downstream_ids.len(),
+        unique_down.len(),
+        "downstream BFS should not produce duplicates: {:?}",
+        downstream_ids
+    );
 }
 
 #[test]
-#[specforge_test(behavior = "trace_entity_dependencies", verify = "deterministic output")]
+#[specforge_test(
+    behavior = "trace_entity_dependencies",
+    verify = "deterministic output"
+)]
 fn trace_deterministic_output() {
     let dir = setup_project(&[("main.spec", DEEP_CHAIN_SPEC)]);
 
@@ -142,7 +187,10 @@ fn trace_deterministic_output() {
 }
 
 #[test]
-#[specforge_test(behavior = "trace_entity_dependencies", verify = "root entity has no upstream")]
+#[specforge_test(
+    behavior = "trace_entity_dependencies",
+    verify = "root entity has no upstream"
+)]
 fn trace_root_entity_has_no_upstream() {
     let dir = setup_project(&[("main.spec", DEEP_CHAIN_SPEC)]);
 
@@ -157,16 +205,26 @@ fn trace_root_entity_has_no_upstream() {
     assert!(output.status.success());
     let parsed = parse_json_stdout(&output);
     assert_eq!(parsed["entity_id"], "typ_leaf");
-    assert_eq!(parsed["upstream"].as_array().unwrap().len(), 0, "typ_leaf should have no upstream");
+    assert_eq!(
+        parsed["upstream"].as_array().unwrap().len(),
+        0,
+        "typ_leaf should have no upstream"
+    );
 }
 
 #[test]
-#[specforge_test(behavior = "trace_entity_dependencies", verify = "leaf entity has no downstream")]
+#[specforge_test(
+    behavior = "trace_entity_dependencies",
+    verify = "leaf entity has no downstream"
+)]
 fn trace_leaf_entity_has_no_downstream() {
-    let dir = setup_project(&[("main.spec", r#"
+    let dir = setup_project(&[(
+        "main.spec",
+        r#"
 behavior alpha "A" { contract "first" }
 feature beta "B" { problem "p" solution "s" behaviors [alpha] }
-"#)]);
+"#,
+    )]);
 
     // alpha has no outgoing edges (it's a leaf), but beta points to it
     let output = specforge_cmd()
@@ -179,12 +237,22 @@ feature beta "B" { problem "p" solution "s" behaviors [alpha] }
     assert!(output.status.success());
     let parsed = parse_json_stdout(&output);
     assert_eq!(parsed["entity_id"], "alpha");
-    assert_eq!(parsed["downstream"].as_array().unwrap().len(), 0, "alpha should have no downstream");
-    assert!(!parsed["upstream"].as_array().unwrap().is_empty(), "alpha should have upstream (beta)");
+    assert_eq!(
+        parsed["downstream"].as_array().unwrap().len(),
+        0,
+        "alpha should have no downstream"
+    );
+    assert!(
+        !parsed["upstream"].as_array().unwrap().is_empty(),
+        "alpha should have upstream (beta)"
+    );
 }
 
 #[test]
-#[specforge_test(behavior = "trace_entity_dependencies", verify = "multi kind chain preserves entity kind")]
+#[specforge_test(
+    behavior = "trace_entity_dependencies",
+    verify = "multi kind chain preserves entity kind"
+)]
 fn trace_multi_kind_chain_preserves_entity_kind() {
     let dir = setup_project(&[("main.spec", DEEP_CHAIN_SPEC)]);
 
@@ -216,7 +284,10 @@ fn trace_multi_kind_chain_preserves_entity_kind() {
 }
 
 #[test]
-#[specforge_test(behavior = "trace_entity_dependencies", verify = "trace output includes schema version")]
+#[specforge_test(
+    behavior = "trace_entity_dependencies",
+    verify = "trace output includes schema version"
+)]
 fn trace_output_includes_schema_version() {
     let dir = setup_project(&[("main.spec", ISOLATED_SPEC)]);
 

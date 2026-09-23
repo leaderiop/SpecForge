@@ -1,6 +1,6 @@
 use specforge_common::Severity;
 use specforge_common::inference;
-use specforge_validator::{render_diagnostics, diagnostic_summary_detailed};
+use specforge_validator::{diagnostic_summary_detailed, render_diagnostics};
 use std::collections::HashMap;
 use std::path::Path;
 
@@ -17,11 +17,12 @@ pub fn run(path: &Path, strict: bool, format: &str, lint_profiles: &[String]) ->
         && let Ok(manifest) = inference::load_inference_manifest(path)
     {
         let config = specforge_common::load_project_config(path);
-        let density_threshold = config.inference.density_threshold
+        let density_threshold = config
+            .inference
+            .density_threshold
             .unwrap_or(DEFAULT_DENSITY_THRESHOLD);
-        let infer_diags = inference::compute_inference_diagnostics(
-            path, &manifest, density_threshold,
-        );
+        let infer_diags =
+            inference::compute_inference_diagnostics(path, &manifest, density_threshold);
         all_diagnostics.extend(infer_diags);
     }
 
@@ -50,7 +51,9 @@ pub fn run(path: &Path, strict: bool, format: &str, lint_profiles: &[String]) ->
         }
     }
 
-    let has_errors = all_diagnostics.iter().any(|d| d.severity == Severity::Error);
+    let has_errors = all_diagnostics
+        .iter()
+        .any(|d| d.severity == Severity::Error);
     if has_errors { 1 } else { 0 }
 }
 

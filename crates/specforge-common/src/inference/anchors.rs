@@ -51,9 +51,7 @@ impl AnchorManifest {
     pub fn file_to_entities(&self) -> HashMap<&str, Vec<&SourceAnchor>> {
         let mut map: HashMap<&str, Vec<&SourceAnchor>> = HashMap::new();
         for anchor in &self.anchors {
-            map.entry(anchor.file.as_str())
-                .or_default()
-                .push(anchor);
+            map.entry(anchor.file.as_str()).or_default().push(anchor);
         }
         map
     }
@@ -68,9 +66,8 @@ impl AnchorManifest {
         } else {
             self.anchors.push(anchor);
         }
-        self.anchors.sort_by(|a, b| {
-            a.file.cmp(&b.file).then(a.line.cmp(&b.line))
-        });
+        self.anchors
+            .sort_by(|a, b| a.file.cmp(&b.file).then(a.line.cmp(&b.line)));
     }
 }
 
@@ -80,18 +77,15 @@ pub fn load_anchor_manifest(project_root: &Path) -> Result<AnchorManifest, Strin
         return Ok(AnchorManifest::default());
     }
 
-    let content = fs::read_to_string(&path)
-        .map_err(|e| format!("failed to read {ANCHORS_FILENAME}: {e}"))?;
+    let content =
+        fs::read_to_string(&path).map_err(|e| format!("failed to read {ANCHORS_FILENAME}: {e}"))?;
     let manifest: AnchorManifest = serde_json::from_str(&content)
         .map_err(|e| format!("failed to parse {ANCHORS_FILENAME}: {e}"))?;
 
     Ok(manifest)
 }
 
-pub fn save_anchor_manifest(
-    project_root: &Path,
-    manifest: &AnchorManifest,
-) -> Result<(), String> {
+pub fn save_anchor_manifest(project_root: &Path, manifest: &AnchorManifest) -> Result<(), String> {
     let path = project_root.join(ANCHORS_FILENAME);
 
     let json = serde_json::to_string_pretty(manifest)

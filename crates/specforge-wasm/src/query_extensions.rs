@@ -83,10 +83,7 @@ pub fn validate_query_extensions(
 
 /// Compose tree-sitter query files from base queries plus extension contributions.
 /// Base queries come first, followed by each extension's pattern in order.
-pub fn compose_query_files(
-    base_queries: &str,
-    extensions: &[QueryExtension],
-) -> String {
+pub fn compose_query_files(base_queries: &str, extensions: &[QueryExtension]) -> String {
     let mut result = base_queries.to_string();
     for ext in extensions {
         if !result.is_empty() && !result.ends_with('\n') {
@@ -166,10 +163,22 @@ mod tests {
     #[test]
     fn test_query_extensions_file_kind_parsing() {
         let raw = vec![
-            RawQueryExtension { file_kind: "highlights".to_string(), pattern: "a".to_string() },
-            RawQueryExtension { file_kind: "locals".to_string(), pattern: "b".to_string() },
-            RawQueryExtension { file_kind: "injections".to_string(), pattern: "c".to_string() },
-            RawQueryExtension { file_kind: "folds".to_string(), pattern: "d".to_string() },
+            RawQueryExtension {
+                file_kind: "highlights".to_string(),
+                pattern: "a".to_string(),
+            },
+            RawQueryExtension {
+                file_kind: "locals".to_string(),
+                pattern: "b".to_string(),
+            },
+            RawQueryExtension {
+                file_kind: "injections".to_string(),
+                pattern: "c".to_string(),
+            },
+            RawQueryExtension {
+                file_kind: "folds".to_string(),
+                pattern: "d".to_string(),
+            },
         ];
 
         let (valid, warnings) = validate_query_extensions("@ext/test", &raw);
@@ -178,7 +187,10 @@ mod tests {
         assert_eq!(valid[0].file_kind, QueryFileKind::Highlights);
         assert_eq!(valid[1].file_kind, QueryFileKind::Locals);
         assert_eq!(valid[2].file_kind, QueryFileKind::Injections);
-        assert_eq!(valid[3].file_kind, QueryFileKind::Custom("folds".to_string()));
+        assert_eq!(
+            valid[3].file_kind,
+            QueryFileKind::Custom("folds".to_string())
+        );
     }
 
     // -- compose_query_files --

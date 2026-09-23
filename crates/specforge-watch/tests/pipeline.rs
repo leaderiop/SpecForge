@@ -1,7 +1,7 @@
 use specforge_graph::build_graph;
 use specforge_parser::parse;
-use specforge_watch::{ImportDag, IncrementalPipeline, validate_delta_correctness};
 use specforge_test_macros::test as spec;
+use specforge_watch::{ImportDag, IncrementalPipeline, validate_delta_correctness};
 use std::collections::HashMap;
 
 fn cold_build(files: &[(&str, &str)]) -> (IncrementalPipeline, HashMap<String, String>) {
@@ -33,12 +33,14 @@ fn cold_build(files: &[(&str, &str)]) -> (IncrementalPipeline, HashMap<String, S
 
 // ── rebuild_affected_subgraph: stale nodes removed ────────────
 
-#[spec(behavior = "rebuild_affected_subgraph", verify = "stale nodes are removed")]
+#[spec(
+    behavior = "rebuild_affected_subgraph",
+    verify = "stale nodes are removed"
+)]
 #[test]
 fn stale_nodes_are_removed_after_file_edit() {
-    let (mut pipeline, mut sources) = cold_build(&[
-        ("a.spec", r#"behavior foo "Foo" { contract "does stuff" }"#),
-    ]);
+    let (mut pipeline, mut sources) =
+        cold_build(&[("a.spec", r#"behavior foo "Foo" { contract "does stuff" }"#)]);
 
     assert_eq!(pipeline.graph().node_count(), 1);
 
@@ -51,8 +53,14 @@ fn stale_nodes_are_removed_after_file_edit() {
     let result = pipeline.rebuild(&["a.spec".to_string()], |f| sources.get(f).cloned());
 
     assert_eq!(pipeline.graph().node_count(), 1);
-    assert!(pipeline.graph().node("foo").is_none(), "stale node 'foo' should be gone");
-    assert!(pipeline.graph().node("bar").is_some(), "new node 'bar' should exist");
+    assert!(
+        pipeline.graph().node("foo").is_none(),
+        "stale node 'foo' should be gone"
+    );
+    assert!(
+        pipeline.graph().node("bar").is_some(),
+        "new node 'bar' should exist"
+    );
     assert_eq!(result.delta.removed_nodes.len(), 1);
     assert_eq!(result.delta.added_nodes.len(), 1);
 }
@@ -62,9 +70,8 @@ fn stale_nodes_are_removed_after_file_edit() {
 #[spec(behavior = "rebuild_affected_subgraph", verify = "new nodes are added")]
 #[test]
 fn new_nodes_are_added_after_file_creation() {
-    let (mut pipeline, mut sources) = cold_build(&[
-        ("a.spec", r#"behavior foo "Foo" { contract "x" }"#),
-    ]);
+    let (mut pipeline, mut sources) =
+        cold_build(&[("a.spec", r#"behavior foo "Foo" { contract "x" }"#)]);
 
     assert_eq!(pipeline.graph().node_count(), 1);
 
@@ -84,19 +91,29 @@ fn new_nodes_are_added_after_file_creation() {
 
 // ── rebuild_affected_subgraph: deleted file ────────────────────
 
-#[spec(behavior = "invalidate_changed_files", verify = "deleted file entities removed from graph")]
+#[spec(
+    behavior = "invalidate_changed_files",
+    verify = "deleted file entities removed from graph"
+)]
 #[test]
 fn deleted_file_entities_removed_from_graph() {
     let (mut pipeline, sources) = cold_build(&[
         ("a.spec", r#"behavior foo "Foo" { contract "x" }"#),
-        ("b.spec", r#"feature bar "Bar" { problem "p" solution "s" }"#),
+        (
+            "b.spec",
+            r#"feature bar "Bar" { problem "p" solution "s" }"#,
+        ),
     ]);
 
     assert_eq!(pipeline.graph().node_count(), 2);
 
     // Delete b.spec: reader returns None
     let result = pipeline.rebuild(&["b.spec".to_string()], |f| {
-        if f == "b.spec" { None } else { sources.get(f).map(|s| s.to_string()) }
+        if f == "b.spec" {
+            None
+        } else {
+            sources.get(f).map(|s| s.to_string())
+        }
     });
 
     assert_eq!(pipeline.graph().node_count(), 1);
@@ -106,12 +123,18 @@ fn deleted_file_entities_removed_from_graph() {
 
 // ── incremental rebuild equals cold rebuild ───────────────────
 
-#[spec(behavior = "rebuild_affected_subgraph", verify = "incremental rebuild equals cold rebuild")]
+#[spec(
+    behavior = "rebuild_affected_subgraph",
+    verify = "incremental rebuild equals cold rebuild"
+)]
 #[test]
 fn incremental_rebuild_equals_cold_rebuild() {
     let (mut pipeline, mut sources) = cold_build(&[
         ("a.spec", r#"behavior foo "Foo" { contract "x" }"#),
-        ("b.spec", r#"feature bar "Bar" { problem "p" solution "s" behaviors [foo] }"#),
+        (
+            "b.spec",
+            r#"feature bar "Bar" { problem "p" solution "s" behaviors [foo] }"#,
+        ),
     ]);
 
     // Edit a.spec
@@ -125,7 +148,11 @@ fn incremental_rebuild_equals_cold_rebuild() {
 
     // Validate delta correctness
     let validation = validate_delta_correctness(&old_graph, pipeline.graph(), &result.delta);
-    assert!(validation.is_ok(), "delta validation failed: {:?}", validation);
+    assert!(
+        validation.is_ok(),
+        "delta validation failed: {:?}",
+        validation
+    );
 
     // Also do a full cold rebuild and compare
     let all_sources: Vec<(&str, &str)> = sources
@@ -148,12 +175,14 @@ fn incremental_rebuild_equals_cold_rebuild() {
 
 // ── verify-incremental performs cold rebuild comparison ────────
 
-#[spec(behavior = "rebuild_affected_subgraph", verify = "debug --verify-incremental performs cold rebuild comparison")]
+#[spec(
+    behavior = "rebuild_affected_subgraph",
+    verify = "debug --verify-incremental performs cold rebuild comparison"
+)]
 #[test]
 fn verify_incremental_performs_cold_rebuild_comparison() {
-    let (mut pipeline, mut sources) = cold_build(&[
-        ("a.spec", r#"behavior foo "Foo" { contract "x" }"#),
-    ]);
+    let (mut pipeline, mut sources) =
+        cold_build(&[("a.spec", r#"behavior foo "Foo" { contract "x" }"#)]);
 
     pipeline.set_verify_incremental(true);
 
@@ -177,12 +206,14 @@ fn verify_incremental_performs_cold_rebuild_comparison() {
     );
 }
 
-#[spec(behavior = "rebuild_affected_subgraph", verify = "debug --verify-incremental performs cold rebuild comparison")]
+#[spec(
+    behavior = "rebuild_affected_subgraph",
+    verify = "debug --verify-incremental performs cold rebuild comparison"
+)]
 #[test]
 fn verify_incremental_disabled_skips_comparison() {
-    let (mut pipeline, mut sources) = cold_build(&[
-        ("a.spec", r#"behavior foo "Foo" { contract "x" }"#),
-    ]);
+    let (mut pipeline, mut sources) =
+        cold_build(&[("a.spec", r#"behavior foo "Foo" { contract "x" }"#)]);
 
     // verify_incremental is false by default
     sources.insert(
@@ -201,12 +232,16 @@ fn verify_incremental_disabled_skips_comparison() {
 
 // ── diagnostics from changed files are refreshed ──────────────
 
-#[spec(behavior = "emit_incremental_diagnostics", verify = "diagnostics from changed files are refreshed")]
+#[spec(
+    behavior = "emit_incremental_diagnostics",
+    verify = "diagnostics from changed files are refreshed"
+)]
 #[test]
 fn diagnostics_from_changed_files_are_refreshed() {
-    let (mut pipeline, mut sources) = cold_build(&[
-        ("a.spec", r#"behavior foo "Foo" { contract "x" behaviors [nonexistent] }"#),
-    ]);
+    let (mut pipeline, mut sources) = cold_build(&[(
+        "a.spec",
+        r#"behavior foo "Foo" { contract "x" behaviors [nonexistent] }"#,
+    )]);
 
     // Initial build should have an E003 (unresolved reference)
     let initial_diags = pipeline.diagnostics();
@@ -232,11 +267,17 @@ fn diagnostics_from_changed_files_are_refreshed() {
 
 // ── diagnostics from unchanged files are preserved ────────────
 
-#[spec(behavior = "emit_incremental_diagnostics", verify = "diagnostics from unchanged files are preserved")]
+#[spec(
+    behavior = "emit_incremental_diagnostics",
+    verify = "diagnostics from unchanged files are preserved"
+)]
 #[test]
 fn diagnostics_from_unchanged_files_are_preserved() {
     let (mut pipeline, mut sources) = cold_build(&[
-        ("a.spec", r#"behavior foo "Foo" { contract "x" behaviors [missing] }"#),
+        (
+            "a.spec",
+            r#"behavior foo "Foo" { contract "x" behaviors [missing] }"#,
+        ),
         ("b.spec", r#"behavior bar "Bar" { contract "y" }"#),
     ]);
 
@@ -265,7 +306,10 @@ fn diagnostics_from_unchanged_files_are_preserved() {
 
 // ── import DAG updated on re-parse ────────────────────────────
 
-#[spec(behavior = "track_import_dag_incrementally", verify = "added use import creates file dependency edge")]
+#[spec(
+    behavior = "track_import_dag_incrementally",
+    verify = "added use import creates file dependency edge"
+)]
 #[test]
 fn added_use_import_creates_file_dependency_edge() {
     let (mut pipeline, mut sources) = cold_build(&[
@@ -285,21 +329,33 @@ fn added_use_import_creates_file_dependency_edge() {
 
     let imports = pipeline.import_dag().imports_of("b.spec");
     // Import "a" resolves to "a.spec" via set_imports_resolved
-    assert!(imports.contains(&"a.spec"), "b.spec should import 'a.spec' after rebuild");
+    assert!(
+        imports.contains(&"a.spec"),
+        "b.spec should import 'a.spec' after rebuild"
+    );
 }
 
 // ── removed use import deletes file dependency edge ───────────
 
-#[spec(behavior = "track_import_dag_incrementally", verify = "removed use import deletes file dependency edge")]
+#[spec(
+    behavior = "track_import_dag_incrementally",
+    verify = "removed use import deletes file dependency edge"
+)]
 #[test]
 fn removed_use_import_deletes_file_dependency_edge() {
     let (mut pipeline, mut sources) = cold_build(&[
         ("a.spec", r#"behavior foo "Foo" { contract "x" }"#),
-        ("b.spec", "use \"a\"\nbehavior bar \"Bar\" { contract \"y\" }"),
+        (
+            "b.spec",
+            "use \"a\"\nbehavior bar \"Bar\" { contract \"y\" }",
+        ),
     ]);
 
     let imports_before = pipeline.import_dag().imports_of("b.spec");
-    assert!(imports_before.contains(&"a.spec"), "b.spec should initially import 'a.spec'");
+    assert!(
+        imports_before.contains(&"a.spec"),
+        "b.spec should initially import 'a.spec'"
+    );
 
     // Remove the import
     sources.insert(
@@ -310,12 +366,18 @@ fn removed_use_import_deletes_file_dependency_edge() {
     pipeline.rebuild(&["b.spec".to_string()], |f| sources.get(f).cloned());
 
     let imports_after = pipeline.import_dag().imports_of("b.spec");
-    assert!(!imports_after.contains(&"a.spec"), "b.spec should no longer import 'a.spec'");
+    assert!(
+        !imports_after.contains(&"a.spec"),
+        "b.spec should no longer import 'a.spec'"
+    );
 }
 
 // ── incremental import DAG matches full rebuild ───────────────
 
-#[spec(behavior = "track_import_dag_incrementally", verify = "incremental import DAG matches full rebuild import DAG")]
+#[spec(
+    behavior = "track_import_dag_incrementally",
+    verify = "incremental import DAG matches full rebuild import DAG"
+)]
 #[test]
 fn incremental_import_dag_matches_full_rebuild_dag() {
     let (mut pipeline, mut sources) = cold_build(&[
@@ -350,12 +412,18 @@ fn incremental_import_dag_matches_full_rebuild_dag() {
 
 // ── total diagnostic set matches full rebuild ─────────────────
 
-#[spec(behavior = "emit_incremental_diagnostics", verify = "total diagnostic set matches full rebuild")]
+#[spec(
+    behavior = "emit_incremental_diagnostics",
+    verify = "total diagnostic set matches full rebuild"
+)]
 #[test]
 fn total_diagnostic_set_matches_full_rebuild() {
     let (mut pipeline, mut sources) = cold_build(&[
         ("a.spec", r#"behavior foo "Foo" { contract "x" }"#),
-        ("b.spec", r#"behavior bar "Bar" { contract "y" behaviors [nonexistent] }"#),
+        (
+            "b.spec",
+            r#"behavior bar "Bar" { contract "y" behaviors [nonexistent] }"#,
+        ),
     ]);
 
     // Edit a.spec
@@ -374,16 +442,30 @@ fn total_diagnostic_set_matches_full_rebuild() {
     let (cold_pipeline, _) = cold_build(&all_sources);
 
     // Compare diagnostic codes (order-independent)
-    let mut inc_codes: Vec<String> = pipeline.diagnostics().iter().map(|d| d.code.clone()).collect();
-    let mut cold_codes: Vec<String> = cold_pipeline.diagnostics().iter().map(|d| d.code.clone()).collect();
+    let mut inc_codes: Vec<String> = pipeline
+        .diagnostics()
+        .iter()
+        .map(|d| d.code.clone())
+        .collect();
+    let mut cold_codes: Vec<String> = cold_pipeline
+        .diagnostics()
+        .iter()
+        .map(|d| d.code.clone())
+        .collect();
     inc_codes.sort();
     cold_codes.sort();
-    assert_eq!(inc_codes, cold_codes, "incremental diagnostics should match cold rebuild");
+    assert_eq!(
+        inc_codes, cold_codes,
+        "incremental diagnostics should match cold rebuild"
+    );
 }
 
 // ── unrelated files are not re-parsed ─────────────────────────
 
-#[spec(behavior = "invalidate_changed_files", verify = "unrelated files are not re-parsed")]
+#[spec(
+    behavior = "invalidate_changed_files",
+    verify = "unrelated files are not re-parsed"
+)]
 #[test]
 fn unrelated_files_are_not_re_parsed() {
     let (mut pipeline, mut sources) = cold_build(&[
@@ -406,13 +488,22 @@ fn unrelated_files_are_not_re_parsed() {
 
 // ── transitive importer is re-parsed ──────────────────────────
 
-#[spec(behavior = "invalidate_changed_files", verify = "transitive importers are in invalidation set")]
+#[spec(
+    behavior = "invalidate_changed_files",
+    verify = "transitive importers are in invalidation set"
+)]
 #[test]
 fn transitive_importer_is_re_parsed_when_dependency_changes() {
     let (mut pipeline, mut sources) = cold_build(&[
         ("a.spec", r#"behavior foo "Foo" { contract "x" }"#),
-        ("b.spec", "use \"a\"\nbehavior bar \"Bar\" { contract \"y\" }"),
-        ("c.spec", "use \"b\"\nbehavior qux \"Qux\" { contract \"z\" }"),
+        (
+            "b.spec",
+            "use \"a\"\nbehavior bar \"Bar\" { contract \"y\" }",
+        ),
+        (
+            "c.spec",
+            "use \"b\"\nbehavior qux \"Qux\" { contract \"z\" }",
+        ),
     ]);
 
     // Edit a.spec — both b.spec and c.spec import transitively
@@ -435,12 +526,14 @@ fn transitive_importer_is_re_parsed_when_dependency_changes() {
 
 // ── new file entities added to graph ───────────────────────────
 
-#[spec(behavior = "invalidate_changed_files", verify = "new file entities added to graph")]
+#[spec(
+    behavior = "invalidate_changed_files",
+    verify = "new file entities added to graph"
+)]
 #[test]
 fn new_file_entities_added_to_graph() {
-    let (mut pipeline, mut sources) = cold_build(&[
-        ("a.spec", r#"behavior foo "Foo" { contract "x" }"#),
-    ]);
+    let (mut pipeline, mut sources) =
+        cold_build(&[("a.spec", r#"behavior foo "Foo" { contract "x" }"#)]);
 
     assert_eq!(pipeline.graph().node_count(), 1);
 
@@ -454,8 +547,14 @@ fn new_file_entities_added_to_graph() {
 
     // New file's entities should be in the graph
     assert_eq!(pipeline.graph().node_count(), 2);
-    assert!(pipeline.graph().node("bar").is_some(), "new file entity 'bar' should be in graph");
-    assert!(pipeline.graph().node("foo").is_some(), "existing entity 'foo' should still be present");
+    assert!(
+        pipeline.graph().node("bar").is_some(),
+        "new file entity 'bar' should be in graph"
+    );
+    assert!(
+        pipeline.graph().node("foo").is_some(),
+        "existing entity 'foo' should still be present"
+    );
     assert!(result.rebuilt_files.contains(&"b.spec".to_string()));
     assert_eq!(result.delta.added_nodes.len(), 1);
     assert_eq!(result.delta.removed_nodes.len(), 0);
@@ -463,14 +562,20 @@ fn new_file_entities_added_to_graph() {
 
 // ── invalidate_changed_files contract ─────────────────────────
 
-#[spec(behavior = "invalidate_changed_files", verify = "requires/ensures consistency for file invalidation")]
+#[spec(
+    behavior = "invalidate_changed_files",
+    verify = "requires/ensures consistency for file invalidation"
+)]
 #[test]
 fn invalidate_changed_files_contract() {
     // Requires: file_changes_coalesced event has fired, providing a batch of changed files
     // Ensures: invalidation_set_computed, subgraph_invalidated_emitted, unrelated_files_untouched
     let (mut pipeline, mut sources) = cold_build(&[
         ("a.spec", r#"behavior foo "Foo" { contract "x" }"#),
-        ("b.spec", "use \"a\"\nbehavior bar \"Bar\" { contract \"y\" }"),
+        (
+            "b.spec",
+            "use \"a\"\nbehavior bar \"Bar\" { contract \"y\" }",
+        ),
         ("c.spec", r#"behavior qux "Qux" { contract "z" }"#),
     ]);
 
@@ -486,24 +591,46 @@ fn invalidate_changed_files_contract() {
     let result = pipeline.rebuild(&["a.spec".to_string()], |f| sources.get(f).cloned());
 
     // Ensures: invalidation_set_computed — changed file + transitive importers
-    assert!(result.rebuilt_files.contains(&"a.spec".to_string()), "changed file must be rebuilt");
+    assert!(
+        result.rebuilt_files.contains(&"a.spec".to_string()),
+        "changed file must be rebuilt"
+    );
 
     // Ensures: unrelated_files_untouched — c.spec must not be rebuilt
-    assert!(!result.rebuilt_files.contains(&"c.spec".to_string()), "unrelated file must not be rebuilt");
+    assert!(
+        !result.rebuilt_files.contains(&"c.spec".to_string()),
+        "unrelated file must not be rebuilt"
+    );
 
     // Ensures: graph reflects the invalidation correctly
-    assert!(pipeline.graph().node("updated_foo").is_some(), "new entity must be present");
-    assert!(pipeline.graph().node("foo").is_none(), "old entity must be removed");
-    assert!(pipeline.graph().node("qux").is_some(), "unrelated entity must be preserved");
+    assert!(
+        pipeline.graph().node("updated_foo").is_some(),
+        "new entity must be present"
+    );
+    assert!(
+        pipeline.graph().node("foo").is_none(),
+        "old entity must be removed"
+    );
+    assert!(
+        pipeline.graph().node("qux").is_some(),
+        "unrelated entity must be preserved"
+    );
 
     // Delta must be consistent with before/after graphs
     let validation = validate_delta_correctness(&old_graph, pipeline.graph(), &result.delta);
-    assert!(validation.is_ok(), "delta must be consistent: {:?}", validation);
+    assert!(
+        validation.is_ok(),
+        "delta must be consistent: {:?}",
+        validation
+    );
 }
 
 // ── emit_incremental_diagnostics: performance ─────────────────
 
-#[spec(behavior = "emit_incremental_diagnostics", verify = "file change to diagnostics emitted within 100ms")]
+#[spec(
+    behavior = "emit_incremental_diagnostics",
+    verify = "file change to diagnostics emitted within 100ms"
+)]
 #[test]
 fn file_change_to_diagnostics_emitted_within_100ms() {
     use std::time::Instant;
@@ -532,12 +659,18 @@ fn file_change_to_diagnostics_emitted_within_100ms() {
     );
 
     // Verify diagnostics were actually produced (not just fast-but-empty)
-    assert!(!result.diagnostics.is_empty(), "diagnostics should be emitted");
+    assert!(
+        !result.diagnostics.is_empty(),
+        "diagnostics should be emitted"
+    );
 }
 
 // ── emit_incremental_diagnostics contract ─────────────────────
 
-#[spec(behavior = "emit_incremental_diagnostics", verify = "requires/ensures consistency for incremental diagnostics")]
+#[spec(
+    behavior = "emit_incremental_diagnostics",
+    verify = "requires/ensures consistency for incremental diagnostics"
+)]
 #[test]
 fn emit_incremental_diagnostics_contract() {
     // Requires: incremental rebuild has completed, diagnostics from changed files refreshed
@@ -545,12 +678,18 @@ fn emit_incremental_diagnostics_contract() {
     //          and this matches a full cold rebuild
     let (mut pipeline, mut sources) = cold_build(&[
         ("a.spec", r#"behavior foo "Foo" { contract "x" }"#),
-        ("b.spec", r#"behavior bar "Bar" { contract "y" behaviors [missing_ref] }"#),
+        (
+            "b.spec",
+            r#"behavior bar "Bar" { contract "y" behaviors [missing_ref] }"#,
+        ),
     ]);
 
     // b.spec has E003 from unresolved reference
     let initial_diags = pipeline.diagnostics();
-    assert!(initial_diags.iter().any(|d| d.code == "E003"), "precondition: E003 from b.spec");
+    assert!(
+        initial_diags.iter().any(|d| d.code == "E003"),
+        "precondition: E003 from b.spec"
+    );
 
     // Edit a.spec only — b.spec diagnostics should be preserved
     sources.insert(
@@ -565,16 +704,23 @@ fn emit_incremental_diagnostics_contract() {
     assert!(!result.rebuilt_files.contains(&"b.spec".to_string()));
 
     // Ensures: diagnostics from b.spec (unchanged) are preserved
-    let b_diags: Vec<_> = result.diagnostics.iter()
+    let b_diags: Vec<_> = result
+        .diagnostics
+        .iter()
         .filter(|d| d.span.as_ref().is_some_and(|s| s.file == "b.spec"))
         .collect();
     assert!(!b_diags.is_empty(), "b.spec diagnostics must be preserved");
 
     // Ensures: diagnostics from a.spec (changed) are refreshed
-    let a_diags: Vec<_> = result.diagnostics.iter()
+    let a_diags: Vec<_> = result
+        .diagnostics
+        .iter()
         .filter(|d| d.span.as_ref().is_some_and(|s| s.file == "a.spec"))
         .collect();
-    assert!(!a_diags.is_empty(), "a.spec diagnostics must be refreshed with new errors");
+    assert!(
+        !a_diags.is_empty(),
+        "a.spec diagnostics must be refreshed with new errors"
+    );
 
     // Ensures: total set matches cold rebuild
     let all_sources: Vec<(&str, &str)> = sources
@@ -584,22 +730,35 @@ fn emit_incremental_diagnostics_contract() {
     let (cold_pipeline, _) = cold_build(&all_sources);
 
     let mut inc_codes: Vec<String> = result.diagnostics.iter().map(|d| d.code.clone()).collect();
-    let mut cold_codes: Vec<String> = cold_pipeline.diagnostics().iter().map(|d| d.code.clone()).collect();
+    let mut cold_codes: Vec<String> = cold_pipeline
+        .diagnostics()
+        .iter()
+        .map(|d| d.code.clone())
+        .collect();
     inc_codes.sort();
     cold_codes.sort();
-    assert_eq!(inc_codes, cold_codes, "incremental diagnostics must match cold rebuild diagnostics");
+    assert_eq!(
+        inc_codes, cold_codes,
+        "incremental diagnostics must match cold rebuild diagnostics"
+    );
 }
 
 // ── cycle detection re-runs after import DAG update ───────────
 
-#[spec(behavior = "track_import_dag_incrementally", verify = "cycle detection re-runs after import DAG update")]
+#[spec(
+    behavior = "track_import_dag_incrementally",
+    verify = "cycle detection re-runs after import DAG update"
+)]
 #[test]
 fn cycle_detection_reruns_after_import_dag_update() {
     // Use file paths as import targets so the DAG keys are consistent.
     // In production, the resolver normalizes import paths to file paths.
     let (mut pipeline, mut sources) = cold_build(&[
         ("a.spec", r#"behavior foo "Foo" { contract "x" }"#),
-        ("b.spec", "use \"a.spec\"\nbehavior bar \"Bar\" { contract \"y\" }"),
+        (
+            "b.spec",
+            "use \"a.spec\"\nbehavior bar \"Bar\" { contract \"y\" }",
+        ),
     ]);
 
     // No cycles initially
@@ -621,16 +780,29 @@ fn cycle_detection_reruns_after_import_dag_update() {
     assert!(
         result.diagnostics.iter().any(|d| d.code == "W003"),
         "should detect import cycle after DAG update, diags: {:?}",
-        result.diagnostics.iter().map(|d| &d.code).collect::<Vec<_>>()
+        result
+            .diagnostics
+            .iter()
+            .map(|d| &d.code)
+            .collect::<Vec<_>>()
     );
 }
 
-#[spec(behavior = "track_import_dag_incrementally", verify = "cycle detection re-runs after import DAG update")]
+#[spec(
+    behavior = "track_import_dag_incrementally",
+    verify = "cycle detection re-runs after import DAG update"
+)]
 #[test]
 fn cycle_resolved_after_removing_circular_import() {
     let (mut pipeline, mut sources) = cold_build(&[
-        ("a.spec", "use \"b.spec\"\nbehavior foo \"Foo\" { contract \"x\" }"),
-        ("b.spec", "use \"a.spec\"\nbehavior bar \"Bar\" { contract \"y\" }"),
+        (
+            "a.spec",
+            "use \"b.spec\"\nbehavior foo \"Foo\" { contract \"x\" }",
+        ),
+        (
+            "b.spec",
+            "use \"a.spec\"\nbehavior bar \"Bar\" { contract \"y\" }",
+        ),
     ]);
 
     // Cycle should be detected initially
@@ -653,6 +825,10 @@ fn cycle_resolved_after_removing_circular_import() {
     assert!(
         !result.diagnostics.iter().any(|d| d.code == "W003"),
         "cycle warning should be resolved, diags: {:?}",
-        result.diagnostics.iter().map(|d| &d.code).collect::<Vec<_>>()
+        result
+            .diagnostics
+            .iter()
+            .map(|d| &d.code)
+            .collect::<Vec<_>>()
     );
 }

@@ -1,6 +1,6 @@
 use specforge_registry::{
-    register_surface_contributions, CommandArg, CommandArgType, CommandContribution,
-    McpResourceContribution, McpToolContribution, SurfaceContributions, SurfaceType, ManifestV2,
+    CommandArg, CommandArgType, CommandContribution, ManifestV2, McpResourceContribution,
+    McpToolContribution, SurfaceContributions, SurfaceType, register_surface_contributions,
 };
 
 fn make_surfaces(
@@ -67,7 +67,8 @@ fn test_surface_contributions_round_trip_json() {
 // B:surface_contributions_types — verify unit "ManifestV2 with surfaces field parses"
 #[test]
 fn test_manifest_with_surfaces_parses() {
-    let manifest: ManifestV2 = serde_json::from_str(r#"{
+    let manifest: ManifestV2 = serde_json::from_str(
+        r#"{
         "name": "@ext/test",
         "version": "1.0.0",
         "manifestVersion": 2,
@@ -86,7 +87,9 @@ fn test_manifest_with_surfaces_parses() {
                 "inputSchema": {"type": "object"}
             }]
         }
-    }"#).unwrap();
+    }"#,
+    )
+    .unwrap();
 
     let surfaces = manifest.surfaces.unwrap();
     assert_eq!(surfaces.commands.len(), 1);
@@ -98,12 +101,15 @@ fn test_manifest_with_surfaces_parses() {
 // B:surface_contributions_types — verify unit "ManifestV2 without surfaces defaults to None"
 #[test]
 fn test_manifest_without_surfaces_defaults_none() {
-    let manifest: ManifestV2 = serde_json::from_str(r#"{
+    let manifest: ManifestV2 = serde_json::from_str(
+        r#"{
         "name": "@ext/test",
         "version": "1.0.0",
         "manifestVersion": 2,
         "wasmPath": "test.wasm"
-    }"#).unwrap();
+    }"#,
+    )
+    .unwrap();
     assert!(manifest.surfaces.is_none());
 }
 
@@ -140,16 +146,36 @@ fn test_register_surface_contributions_collects_all() {
     assert!(diags.is_empty());
     assert_eq!(entries.len(), 3);
 
-    assert!(entries.iter().any(|e| e.surface_type == SurfaceType::Command && e.contribution_name == "analyze"));
-    assert!(entries.iter().any(|e| e.surface_type == SurfaceType::McpTool && e.contribution_name == "search"));
-    assert!(entries.iter().any(|e| e.surface_type == SurfaceType::McpResource && e.contribution_name == "graph"));
+    assert!(
+        entries
+            .iter()
+            .any(|e| e.surface_type == SurfaceType::Command && e.contribution_name == "analyze")
+    );
+    assert!(
+        entries
+            .iter()
+            .any(|e| e.surface_type == SurfaceType::McpTool && e.contribution_name == "search")
+    );
+    assert!(
+        entries
+            .iter()
+            .any(|e| e.surface_type == SurfaceType::McpResource && e.contribution_name == "graph")
+    );
 }
 
 // B:register_surface_contributions — verify unit "duplicate command ID → E039"
 #[test]
 fn test_register_duplicate_command_id_e039() {
-    let s1 = make_surfaces(vec![make_command("analyze", "cmd__analyze")], vec![], vec![]);
-    let s2 = make_surfaces(vec![make_command("analyze", "cmd__analyze_v2")], vec![], vec![]);
+    let s1 = make_surfaces(
+        vec![make_command("analyze", "cmd__analyze")],
+        vec![],
+        vec![],
+    );
+    let s2 = make_surfaces(
+        vec![make_command("analyze", "cmd__analyze_v2")],
+        vec![],
+        vec![],
+    );
 
     let manifests = vec![
         ("@ext/a".to_string(), Some(s1)),

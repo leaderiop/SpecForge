@@ -9,8 +9,14 @@ pub fn default_sandbox_policy() -> SandboxPolicy {
         allowed_domains: vec![],
         allowed_paths: vec![],
         allowed_output_extensions: vec![
-            ".json".into(), ".html".into(), ".csv".into(), ".svg".into(),
-            ".dot".into(), ".xml".into(), ".txt".into(), ".pdf".into(),
+            ".json".into(),
+            ".html".into(),
+            ".csv".into(),
+            ".svg".into(),
+            ".dot".into(),
+            ".xml".into(),
+            ".txt".into(),
+            ".pdf".into(),
         ],
         network_access: Some(false),
         file_system_access: Some(true),
@@ -39,7 +45,10 @@ pub fn configure_sandbox_policy(
         merged.max_memory_mb = Some(min_opt(defaults.max_memory_mb, mp.max_memory_mb));
         merged.max_execution_ms = Some(min_opt(defaults.max_execution_ms, mp.max_execution_ms));
         merged.network_access = Some(merged_bool(defaults.network_access, mp.network_access));
-        merged.file_system_access = Some(merged_bool(defaults.file_system_access, mp.file_system_access));
+        merged.file_system_access = Some(merged_bool(
+            defaults.file_system_access,
+            mp.file_system_access,
+        ));
         merged.allowed_domains = intersection(&defaults.allowed_domains, &mp.allowed_domains);
         merged.allowed_paths = intersection(&defaults.allowed_paths, &mp.allowed_paths);
 
@@ -61,7 +70,8 @@ pub fn configure_sandbox_policy(
 
         if !mp.allowed_output_extensions.is_empty() {
             // Use manifest's list (only non-code ones)
-            merged.allowed_output_extensions = mp.allowed_output_extensions
+            merged.allowed_output_extensions = mp
+                .allowed_output_extensions
                 .iter()
                 .filter(|e| !CODE_EXTENSIONS.contains(&e.as_str()))
                 .cloned()
@@ -74,7 +84,10 @@ pub fn configure_sandbox_policy(
         merged.max_memory_mb = Some(min_opt(merged.max_memory_mb, co.max_memory_mb));
         merged.max_execution_ms = Some(min_opt(merged.max_execution_ms, co.max_execution_ms));
         merged.network_access = Some(merged_bool(merged.network_access, co.network_access));
-        merged.file_system_access = Some(merged_bool(merged.file_system_access, co.file_system_access));
+        merged.file_system_access = Some(merged_bool(
+            merged.file_system_access,
+            co.file_system_access,
+        ));
         if !co.allowed_domains.is_empty() {
             merged.allowed_domains = intersection(&merged.allowed_domains, &co.allowed_domains);
         }
@@ -128,7 +141,10 @@ pub fn is_path_allowed(path: &str, policy: &SandboxPolicy) -> bool {
     if policy.allowed_paths.is_empty() {
         return true;
     }
-    policy.allowed_paths.iter().any(|allowed| path.starts_with(allowed.as_str()))
+    policy
+        .allowed_paths
+        .iter()
+        .any(|allowed| path.starts_with(allowed.as_str()))
 }
 
 /// Check if a network domain is allowed by the sandbox policy.
@@ -139,7 +155,10 @@ pub fn is_domain_allowed(domain: &str, policy: &SandboxPolicy) -> bool {
     if policy.allowed_domains.is_empty() {
         return true;
     }
-    policy.allowed_domains.iter().any(|allowed| domain == allowed.as_str())
+    policy
+        .allowed_domains
+        .iter()
+        .any(|allowed| domain == allowed.as_str())
 }
 
 /// Check if an output file extension is allowed by the sandbox policy.
@@ -148,11 +167,11 @@ pub fn is_output_extension_allowed(ext: &str, policy: &SandboxPolicy) -> bool {
 }
 
 /// Validate total memory across all extension policies doesn't exceed ceiling.
-pub fn validate_total_memory(policies: &[(&str, &SandboxPolicy)], ceiling_mb: u32) -> Vec<Diagnostic> {
-    let total: u32 = policies
-        .iter()
-        .filter_map(|(_, p)| p.max_memory_mb)
-        .sum();
+pub fn validate_total_memory(
+    policies: &[(&str, &SandboxPolicy)],
+    ceiling_mb: u32,
+) -> Vec<Diagnostic> {
+    let total: u32 = policies.iter().filter_map(|(_, p)| p.max_memory_mb).sum();
     if total > ceiling_mb {
         vec![Diagnostic {
             code: "W028".to_string(),
@@ -195,12 +214,15 @@ mod tests {
     // B:configure_sandbox_policy — verify unit "manifest policy overrides defaults"
     #[test]
     fn test_manifest_policy_overrides_defaults() {
-        let manifest = manifest_with_sandbox("test-ext", SandboxPolicy {
-            max_memory_mb: Some(32),
-            max_execution_ms: Some(10_000),
-            network_access: Some(true),
-            ..Default::default()
-        });
+        let manifest = manifest_with_sandbox(
+            "test-ext",
+            SandboxPolicy {
+                max_memory_mb: Some(32),
+                max_execution_ms: Some(10_000),
+                network_access: Some(true),
+                ..Default::default()
+            },
+        );
 
         let (policy, diags) = configure_sandbox_policy(&manifest, None);
         assert!(diags.is_empty());
@@ -215,10 +237,13 @@ mod tests {
     // B:configure_sandbox_policy — verify unit "specforge.json overrides manifest policy"
     #[test]
     fn test_config_override_overrides_manifest() {
-        let manifest = manifest_with_sandbox("test-ext", SandboxPolicy {
-            max_memory_mb: Some(32),
-            ..Default::default()
-        });
+        let manifest = manifest_with_sandbox(
+            "test-ext",
+            SandboxPolicy {
+                max_memory_mb: Some(32),
+                ..Default::default()
+            },
+        );
 
         let config_override = SandboxPolicy {
             max_memory_mb: Some(16),
@@ -236,10 +261,13 @@ mod tests {
     // Here we test the per-extension policy merge is correct even with large values.
     #[test]
     fn test_large_memory_value_preserved_in_policy() {
-        let manifest = manifest_with_sandbox("test-ext", SandboxPolicy {
-            max_memory_mb: Some(256),
-            ..Default::default()
-        });
+        let manifest = manifest_with_sandbox(
+            "test-ext",
+            SandboxPolicy {
+                max_memory_mb: Some(256),
+                ..Default::default()
+            },
+        );
 
         let (policy, diags) = configure_sandbox_policy(&manifest, None);
         assert!(diags.is_empty());
@@ -250,10 +278,13 @@ mod tests {
     // B:configure_sandbox_policy — verify unit "manifest with code file extension (.rs, .js, .ts) in allowed_output_extensions produces E030"
     #[test]
     fn test_code_file_extension_produces_e030() {
-        let manifest = manifest_with_sandbox("bad-ext", SandboxPolicy {
-            allowed_output_extensions: vec![".json".into(), ".rs".into(), ".js".into()],
-            ..Default::default()
-        });
+        let manifest = manifest_with_sandbox(
+            "bad-ext",
+            SandboxPolicy {
+                allowed_output_extensions: vec![".json".into(), ".rs".into(), ".js".into()],
+                ..Default::default()
+            },
+        );
 
         let (policy, diags) = configure_sandbox_policy(&manifest, None);
         // Two code extensions -> two E030 diagnostics
@@ -262,17 +293,28 @@ mod tests {
         assert!(diags[0].message.contains(".rs"));
         assert!(diags[1].message.contains(".js"));
         // Code extensions filtered out of the result
-        assert!(!policy.allowed_output_extensions.contains(&".rs".to_string()));
-        assert!(policy.allowed_output_extensions.contains(&".json".to_string()));
+        assert!(
+            !policy
+                .allowed_output_extensions
+                .contains(&".rs".to_string())
+        );
+        assert!(
+            policy
+                .allowed_output_extensions
+                .contains(&".json".to_string())
+        );
     }
 
     // B:configure_sandbox_policy — verify unit "manifest with non-code extension (.json, .csv, .md) in allowed_output_extensions passes"
     #[test]
     fn test_non_code_extension_passes() {
-        let manifest = manifest_with_sandbox("good-ext", SandboxPolicy {
-            allowed_output_extensions: vec![".json".into(), ".csv".into(), ".md".into()],
-            ..Default::default()
-        });
+        let manifest = manifest_with_sandbox(
+            "good-ext",
+            SandboxPolicy {
+                allowed_output_extensions: vec![".json".into(), ".csv".into(), ".md".into()],
+                ..Default::default()
+            },
+        );
 
         let (_, diags) = configure_sandbox_policy(&manifest, None);
         assert!(diags.is_empty());
@@ -282,12 +324,15 @@ mod tests {
     #[test]
     fn test_configure_sandbox_policy_contract() {
         // requires: manifest_available, config_available
-        let manifest = manifest_with_sandbox("test-ext", SandboxPolicy {
-            max_memory_mb: Some(48),
-            max_execution_ms: Some(15_000),
-            allowed_output_extensions: vec![".json".into(), ".ts".into()],
-            ..Default::default()
-        });
+        let manifest = manifest_with_sandbox(
+            "test-ext",
+            SandboxPolicy {
+                max_memory_mb: Some(48),
+                max_execution_ms: Some(15_000),
+                allowed_output_extensions: vec![".json".into(), ".ts".into()],
+                ..Default::default()
+            },
+        );
         let config_override = SandboxPolicy {
             max_memory_mb: Some(24),
             ..Default::default()
@@ -312,7 +357,10 @@ mod tests {
     #[test]
     fn test_total_memory_exceeding_ceiling_produces_warning() {
         let p1 = default_sandbox_policy(); // 64MB
-        let p2 = SandboxPolicy { max_memory_mb: Some(200), ..Default::default() };
+        let p2 = SandboxPolicy {
+            max_memory_mb: Some(200),
+            ..Default::default()
+        };
 
         let diags = validate_total_memory(&[("ext1", &p1), ("ext2", &p2)], 256);
         assert_eq!(diags.len(), 1);
@@ -333,7 +381,10 @@ mod tests {
         assert!(!is_path_allowed("/etc/passwd", &policy));
 
         // No filesystem access
-        let no_fs = SandboxPolicy { file_system_access: Some(false), ..Default::default() };
+        let no_fs = SandboxPolicy {
+            file_system_access: Some(false),
+            ..Default::default()
+        };
         assert!(!is_path_allowed("/any/path", &no_fs));
     }
 
@@ -350,7 +401,10 @@ mod tests {
         assert!(!is_domain_allowed("evil.com", &policy));
 
         // No network access
-        let no_net = SandboxPolicy { network_access: Some(false), ..Default::default() };
+        let no_net = SandboxPolicy {
+            network_access: Some(false),
+            ..Default::default()
+        };
         assert!(!is_domain_allowed("api.github.com", &no_net));
     }
 

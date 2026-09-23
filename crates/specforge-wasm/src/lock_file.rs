@@ -68,7 +68,9 @@ pub fn read_lock_file(path: &Path) -> Result<LockFile, Diagnostic> {
         severity: Severity::Error,
         message: format!("corrupt lock file at '{}': {}", path.display(), e),
         span: None,
-        suggestion: Some("delete the lock file and run `specforge install` to regenerate".to_string()),
+        suggestion: Some(
+            "delete the lock file and run `specforge install` to regenerate".to_string(),
+        ),
     })
 }
 
@@ -76,9 +78,19 @@ pub fn read_lock_file(path: &Path) -> Result<LockFile, Diagnostic> {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum DoctorStatus {
     Healthy,
-    MissingBinary { name: String },
-    StaleHash { name: String, expected: String, actual: String },
-    PeerMismatch { name: String, peer: String, required: String },
+    MissingBinary {
+        name: String,
+    },
+    StaleHash {
+        name: String,
+        expected: String,
+        actual: String,
+    },
+    PeerMismatch {
+        name: String,
+        peer: String,
+        required: String,
+    },
 }
 
 /// Run a health check on installed extensions.
@@ -143,7 +155,9 @@ pub fn refresh_lock_file(
     let diagnostics = Vec::new();
 
     for ext in resolved {
-        let wasm_path = ext.manifest_path.parent()
+        let wasm_path = ext
+            .manifest_path
+            .parent()
             .map(|p| p.join(&ext.manifest.wasm_path))
             .unwrap_or_else(|| Path::new(&ext.manifest.wasm_path).to_path_buf());
 
@@ -151,11 +165,17 @@ pub fn refresh_lock_file(
 
         let source = match &ext.source {
             crate::discovery::ExtensionSpecifier::Registry { .. } => "registry".to_string(),
-            crate::discovery::ExtensionSpecifier::Local { path } => format!("local:{}", path.display()),
+            crate::discovery::ExtensionSpecifier::Local { path } => {
+                format!("local:{}", path.display())
+            }
             crate::discovery::ExtensionSpecifier::Git { url, .. } => format!("git:{}", url),
         };
 
-        if let Some(existing) = lock.entries.iter_mut().find(|e| e.name == ext.manifest.name) {
+        if let Some(existing) = lock
+            .entries
+            .iter_mut()
+            .find(|e| e.name == ext.manifest.name)
+        {
             existing.version = ext.manifest.version.clone();
             existing.source = source;
             existing.wasm_hash = hash;
@@ -170,11 +190,10 @@ pub fn refresh_lock_file(
     }
 
     // Remove entries that are no longer in the resolved set
-    let resolved_names: std::collections::HashSet<&str> = resolved
-        .iter()
-        .map(|r| r.manifest.name.as_str())
-        .collect();
-    lock.entries.retain(|e| resolved_names.contains(e.name.as_str()));
+    let resolved_names: std::collections::HashSet<&str> =
+        resolved.iter().map(|r| r.manifest.name.as_str()).collect();
+    lock.entries
+        .retain(|e| resolved_names.contains(e.name.as_str()));
 
     diagnostics
 }
@@ -313,7 +332,11 @@ mod tests {
             |_| Some("actual_different_hash".to_string()),
             &HashMap::new(),
         );
-        assert!(results.iter().any(|r| matches!(r, DoctorStatus::StaleHash { .. })));
+        assert!(
+            results
+                .iter()
+                .any(|r| matches!(r, DoctorStatus::StaleHash { .. }))
+        );
     }
 
     // B:run_doctor_check — verify unit "reports healthy when all checks pass"
@@ -334,10 +357,9 @@ mod tests {
             }],
         };
 
-        let installed: HashMap<String, String> =
-            [("good-ext".to_string(), "1.0.0".to_string())]
-                .into_iter()
-                .collect();
+        let installed: HashMap<String, String> = [("good-ext".to_string(), "1.0.0".to_string())]
+            .into_iter()
+            .collect();
 
         let results = run_doctor_check(
             &lock,

@@ -1,9 +1,14 @@
 use serde_json::Value;
 
-use crate::state::McpState;
 use crate::protocol::{JsonRpcResponse, error_codes};
+use crate::state::McpState;
 
-pub fn route(state: &mut McpState, method: &str, params: Value, id: Option<Value>) -> JsonRpcResponse {
+pub fn route(
+    state: &mut McpState,
+    method: &str,
+    params: Value,
+    id: Option<Value>,
+) -> JsonRpcResponse {
     match method {
         // Lifecycle
         "initialize" => crate::lifecycle::handle_initialize(state, params, id),
@@ -31,6 +36,10 @@ pub fn route(state: &mut McpState, method: &str, params: Value, id: Option<Value
         }
         "$/cancelRequest" => crate::lifecycle::handle_cancel(state, params, id),
 
-        _ => JsonRpcResponse::error(id, error_codes::METHOD_NOT_FOUND, format!("Method not found: {}", method)),
+        _ => JsonRpcResponse::error(
+            id,
+            error_codes::METHOD_NOT_FOUND,
+            format!("Method not found: {}", method),
+        ),
     }
 }

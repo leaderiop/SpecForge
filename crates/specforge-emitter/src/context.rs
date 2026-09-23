@@ -2,7 +2,7 @@ use serde::Serialize;
 use serde_json::Value;
 use specforge_graph::Graph;
 
-use crate::json::{sorted_edges, JsonEdge, SCHEMA_VERSION};
+use crate::json::{JsonEdge, SCHEMA_VERSION, sorted_edges};
 
 #[derive(Serialize)]
 struct ContextGraph {
@@ -39,9 +39,10 @@ pub fn emit_context(graph: &Graph) -> String {
                 specforge_graph::FieldValue::String(s) => Some(s.clone()),
                 _ => None,
             });
-            let verify = n.fields.get("verify").map(|v| {
-                crate::json::field_value_to_json(v)
-            });
+            let verify = n
+                .fields
+                .get("verify")
+                .map(|v| crate::json::field_value_to_json(v));
 
             ContextNode {
                 id: n.id.raw.to_string(),

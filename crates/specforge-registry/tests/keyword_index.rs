@@ -2,9 +2,7 @@
 //
 // Tests B:generate_keyword_extension_index through the public API.
 
-use specforge_registry::{
-    generate_keyword_extension_index, ManifestEntityKind, ManifestV2,
-};
+use specforge_registry::{ManifestEntityKind, ManifestV2, generate_keyword_extension_index};
 
 fn default_manifest() -> ManifestV2 {
     ManifestV2 {

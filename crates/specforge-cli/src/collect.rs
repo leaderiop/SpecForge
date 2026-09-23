@@ -11,7 +11,10 @@ pub fn run(path: &Path, collector: Option<&str>, format: &str) -> i32 {
                     "error": msg,
                     "exit_code": 1,
                 });
-                println!("{}", serde_json::to_string_pretty(&output).expect("serialize JSON output"));
+                println!(
+                    "{}",
+                    serde_json::to_string_pretty(&output).expect("serialize JSON output")
+                );
             } else {
                 eprintln!("error: {}", msg);
             }
@@ -45,7 +48,10 @@ pub fn run(path: &Path, collector: Option<&str>, format: &str) -> i32 {
                             "code": diag.code,
                             "exit_code": 1,
                         });
-                        println!("{}", serde_json::to_string_pretty(&output).expect("serialize JSON output"));
+                        println!(
+                            "{}",
+                            serde_json::to_string_pretty(&output).expect("serialize JSON output")
+                        );
                     } else {
                         eprintln!("{}: {}", diag.code, diag.message);
                         if let Some(suggestion) = &diag.suggestion {
@@ -64,7 +70,10 @@ pub fn run(path: &Path, collector: Option<&str>, format: &str) -> i32 {
             "project_root": project_root.display().to_string(),
             "status": "ready",
         });
-        println!("{}", serde_json::to_string_pretty(&output).expect("serialize JSON output"));
+        println!(
+            "{}",
+            serde_json::to_string_pretty(&output).expect("serialize JSON output")
+        );
     } else {
         println!("collector: {}", collector_name);
         println!("project: {}", project_root.display());

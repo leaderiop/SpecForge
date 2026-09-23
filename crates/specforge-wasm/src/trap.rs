@@ -12,7 +12,9 @@ pub fn handle_wasm_trap(module: &mut LoadedModule, trap: &WasmTrapInfo) -> Diagn
             module.extension_name, trap.export_name, trap.kind, trap.message
         ),
         span: None,
-        suggestion: Some("check the extension for bugs or report to the extension author".to_string()),
+        suggestion: Some(
+            "check the extension for bugs or report to the extension author".to_string(),
+        ),
     }
 }
 

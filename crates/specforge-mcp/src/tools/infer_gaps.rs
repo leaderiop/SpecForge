@@ -1,8 +1,8 @@
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
+use specforge_common::AnalyzerConfig;
 use specforge_common::inference;
 use specforge_common::inference::discovery::SourceDiscoveryConfig;
-use specforge_common::AnalyzerConfig;
 use specforge_emitter::scanner_dispatch;
 
 use crate::protocol::JsonRpcResponse;
@@ -12,30 +12,38 @@ pub fn call(state: &McpState, _args: Value, id: Option<Value>) -> JsonRpcRespons
     let project_root = match &state.project_root {
         Some(p) => p.clone(),
         None => {
-            return JsonRpcResponse::success(id, json!({
-                "content": [{ "type": "text", "text": json!({
-                    "total_pub_items": 0,
-                    "covered_items": 0,
-                    "gaps": [],
-                    "approximate": false,
-                    "message": "No project root available"
-                }).to_string() }]
-            }));
+            return JsonRpcResponse::success(
+                id,
+                json!({
+                    "content": [{ "type": "text", "text": json!({
+                        "total_pub_items": 0,
+                        "covered_items": 0,
+                        "gaps": [],
+                        "approximate": false,
+                        "message": "No project root available"
+                    }).to_string() }]
+                }),
+            );
         }
     };
 
     let manifest = match inference::load_inference_manifest(&project_root) {
         Ok(m) => m,
         Err(e) => {
-            return JsonRpcResponse::success(id, json!({
-                "content": [{ "type": "text", "text": json!({
-                    "error": e,
-                }).to_string() }]
-            }));
+            return JsonRpcResponse::success(
+                id,
+                json!({
+                    "content": [{ "type": "text", "text": json!({
+                        "error": e,
+                    }).to_string() }]
+                }),
+            );
         }
     };
 
-    let analyzer_configs: Vec<AnalyzerConfig> = state.manifests.iter()
+    let analyzer_configs: Vec<AnalyzerConfig> = state
+        .manifests
+        .iter()
         .flat_map(|m| m.analyzer_contributions.iter())
         .map(|ac| AnalyzerConfig {
             language: ac.language.clone(),
@@ -44,7 +52,8 @@ pub fn call(state: &McpState, _args: Value, id: Option<Value>) -> JsonRpcRespons
         })
         .collect();
     let discovery_config = SourceDiscoveryConfig::from_analyzer_configs(&analyzer_configs);
-    let source_files = inference::discover_source_files(&project_root, &manifest.source_roots, &discovery_config);
+    let source_files =
+        inference::discover_source_files(&project_root, &manifest.source_roots, &discovery_config);
 
     let ext_names: Vec<String> = state.manifests.iter().map(|m| m.name.clone()).collect();
     let runtime = specforge_emitter::builtins::runtime_for_extensions(&ext_names);
@@ -55,7 +64,10 @@ pub fn call(state: &McpState, _args: Value, id: Option<Value>) -> JsonRpcRespons
         &source_files,
     );
 
-    let entity_ids: Vec<&str> = state.graph.nodes().into_iter()
+    let entity_ids: Vec<&str> = state
+        .graph
+        .nodes()
+        .into_iter()
         .map(|n| n.id.raw.as_str())
         .collect();
 
@@ -71,18 +83,21 @@ pub fn call(state: &McpState, _args: Value, id: Option<Value>) -> JsonRpcRespons
         by_dir.entry(dir).or_default().push(gap);
     }
 
-    let dir_breakdown: Vec<Value> = by_dir.iter().map(|(dir, gaps)| {
-        json!({
-            "directory": dir,
-            "count": gaps.len(),
-            "items": gaps.iter().map(|g| json!({
-                "name": g.name,
-                "item_kind": g.item_kind,
-                "file": g.file,
-                "line": g.line,
-            })).collect::<Vec<_>>(),
+    let dir_breakdown: Vec<Value> = by_dir
+        .iter()
+        .map(|(dir, gaps)| {
+            json!({
+                "directory": dir,
+                "count": gaps.len(),
+                "items": gaps.iter().map(|g| json!({
+                    "name": g.name,
+                    "item_kind": g.item_kind,
+                    "file": g.file,
+                    "line": g.line,
+                })).collect::<Vec<_>>(),
+            })
         })
-    }).collect();
+        .collect();
 
     let result = json!({
         "total_pub_items": report.total_pub_items,
@@ -93,7 +108,10 @@ pub fn call(state: &McpState, _args: Value, id: Option<Value>) -> JsonRpcRespons
         "by_directory": dir_breakdown,
     });
 
-    JsonRpcResponse::success(id, json!({
-        "content": [{ "type": "text", "text": result.to_string() }]
-    }))
+    JsonRpcResponse::success(
+        id,
+        json!({
+            "content": [{ "type": "text", "text": result.to_string() }]
+        }),
+    )
 }

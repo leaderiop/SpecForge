@@ -23,7 +23,10 @@ pub struct TraceLink {
 
 pub fn trace(graph: &Graph, entity_id: &str) -> Result<TraceChain, EmitterError> {
     let root = graph.node(entity_id).ok_or_else(|| {
-        EmitterError::EntityNotFound(format!("E003: unresolved entity '{}' — not found in graph", entity_id))
+        EmitterError::EntityNotFound(format!(
+            "E003: unresolved entity '{}' — not found in graph",
+            entity_id
+        ))
     })?;
 
     let upstream = directed_bfs(graph, entity_id, Direction::Upstream);
@@ -138,15 +141,16 @@ fn directed_bfs(graph: &Graph, start: &str, direction: Direction) -> Vec<TraceLi
             };
 
             if visited.insert(neighbor.to_string())
-                && let Some(node) = graph.node(neighbor.as_str()) {
-                    links.push(TraceLink {
-                        entity_id: neighbor.to_string(),
-                        entity_kind: node.kind.raw.to_string(),
-                        edge_label: label.to_string(),
-                        depth: depth + 1,
-                    });
-                    queue.push_back((neighbor.to_string(), depth + 1));
-                }
+                && let Some(node) = graph.node(neighbor.as_str())
+            {
+                links.push(TraceLink {
+                    entity_id: neighbor.to_string(),
+                    entity_kind: node.kind.raw.to_string(),
+                    edge_label: label.to_string(),
+                    depth: depth + 1,
+                });
+                queue.push_back((neighbor.to_string(), depth + 1));
+            }
         }
     }
 

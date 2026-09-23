@@ -59,8 +59,8 @@ fn has_fixture() -> bool {
 
 #[test]
 fn protocol_host_loads_builtin_through_composite() {
-    let builtin = BuiltinRuntime::new()
-        .with_extension("@specforge/minimal", Box::new(MinimalBuiltin));
+    let builtin =
+        BuiltinRuntime::new().with_extension("@specforge/minimal", Box::new(MinimalBuiltin));
     let extism = ExtismRuntime::new();
     let runtime = CompositeRuntime::new(builtin, extism);
 
@@ -80,8 +80,8 @@ fn protocol_host_loads_wasm_through_composite() {
         return;
     }
 
-    let builtin = BuiltinRuntime::new()
-        .with_extension("@specforge/minimal", Box::new(MinimalBuiltin));
+    let builtin =
+        BuiltinRuntime::new().with_extension("@specforge/minimal", Box::new(MinimalBuiltin));
     let extism = ExtismRuntime::new();
     let runtime = CompositeRuntime::new(builtin, extism);
 
@@ -114,8 +114,8 @@ fn composite_runtime_merges_registries_from_both_sources() {
 
     use specforge_registry::populate_registries;
 
-    let builtin = BuiltinRuntime::new()
-        .with_extension("@specforge/minimal", Box::new(MinimalBuiltin));
+    let builtin =
+        BuiltinRuntime::new().with_extension("@specforge/minimal", Box::new(MinimalBuiltin));
     let extism = ExtismRuntime::new();
     let runtime = CompositeRuntime::new(builtin, extism);
 
@@ -138,13 +138,23 @@ fn composite_runtime_merges_registries_from_both_sources() {
 
     // No errors in registry population
     assert!(
-        diags.iter().all(|d| d.severity != specforge_common::Severity::Error),
+        diags
+            .iter()
+            .all(|d| d.severity != specforge_common::Severity::Error),
         "Unexpected errors: {:?}",
         diags
     );
 
     // Both entity kinds are registered
     let keywords: Vec<String> = kind_reg.keywords().cloned().collect();
-    assert!(keywords.contains(&"builtin_kind".to_string()), "Missing builtin_kind in {:?}", keywords);
-    assert!(keywords.contains(&"widget".to_string()), "Missing widget in {:?}", keywords);
+    assert!(
+        keywords.contains(&"builtin_kind".to_string()),
+        "Missing builtin_kind in {:?}",
+        keywords
+    );
+    assert!(
+        keywords.contains(&"widget".to_string()),
+        "Missing widget in {:?}",
+        keywords
+    );
 }

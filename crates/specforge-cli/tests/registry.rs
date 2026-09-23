@@ -115,10 +115,7 @@ fn update_without_lockfile_fails() {
 
 #[test]
 fn logout_without_credentials_succeeds() {
-    specforge_cmd()
-        .arg("logout")
-        .assert()
-        .success();
+    specforge_cmd().arg("logout").assert().success();
 }
 
 #[test]

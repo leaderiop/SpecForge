@@ -1,6 +1,6 @@
 use std::fmt::Write;
 
-use super::{GroupBy, ModelIntermediate, ModelOptions, ModelFieldType};
+use super::{GroupBy, ModelFieldType, ModelIntermediate, ModelOptions};
 
 pub fn render_dbml(model: &ModelIntermediate, options: &ModelOptions) -> String {
     let mut out = String::new();
@@ -20,7 +20,12 @@ pub fn render_dbml(model: &ModelIntermediate, options: &ModelOptions) -> String 
         writeln!(out).unwrap();
         for rel in &model.relationships {
             let source_col = rel.source_field.as_deref().unwrap_or("id");
-            writeln!(out, "Ref {}: {}.{} > {}.id", rel.name, rel.source, source_col, rel.target).unwrap();
+            writeln!(
+                out,
+                "Ref {}: {}.{} > {}.id",
+                rel.name, rel.source, source_col, rel.target
+            )
+            .unwrap();
         }
     }
 
@@ -29,7 +34,11 @@ pub fn render_dbml(model: &ModelIntermediate, options: &ModelOptions) -> String 
 
 fn render_grouped(model: &ModelIntermediate, out: &mut String) {
     for ext in &model.extensions {
-        let entities: Vec<_> = model.entities.iter().filter(|e| e.extension == ext.name).collect();
+        let entities: Vec<_> = model
+            .entities
+            .iter()
+            .filter(|e| e.extension == ext.name)
+            .collect();
         if entities.is_empty() {
             continue;
         }
@@ -65,8 +74,8 @@ fn render_flat(model: &ModelIntermediate, out: &mut String) {
 
 fn render_enums(entity: &super::ModelEntity, out: &mut String) {
     for field in &entity.fields {
-        let has_enum_values = field.field_type == ModelFieldType::Enum
-            && field.enum_values.is_some();
+        let has_enum_values =
+            field.field_type == ModelFieldType::Enum && field.enum_values.is_some();
         if has_enum_values {
             writeln!(out).unwrap();
             writeln!(out, "Enum {}_{} {{", entity.name, field.name).unwrap();
@@ -82,7 +91,13 @@ fn render_table(entity: &super::ModelEntity, out: &mut String) {
     if entity.enhanced_by.is_empty() {
         writeln!(out, "Table {} {{", entity.name).unwrap();
     } else {
-        writeln!(out, "Table {} {{ // enhanced by: {}", entity.name, entity.enhanced_by.join(", ")).unwrap();
+        writeln!(
+            out,
+            "Table {} {{ // enhanced by: {}",
+            entity.name,
+            entity.enhanced_by.join(", ")
+        )
+        .unwrap();
     }
 
     for field in &entity.fields {

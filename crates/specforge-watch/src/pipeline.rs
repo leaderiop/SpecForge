@@ -1,8 +1,8 @@
-use crate::delta::{compute_graph_delta_with_config, DeltaConfig, GraphDelta};
+use crate::delta::{DeltaConfig, GraphDelta, compute_graph_delta_with_config};
 use crate::import_dag::ImportDag;
 use specforge_common::{Diagnostic, Severity, SourceSpan, Sym};
-use specforge_graph::{build_graph, Graph};
-use specforge_parser::{parse, SpecFile};
+use specforge_graph::{Graph, build_graph};
+use specforge_parser::{SpecFile, parse};
 use std::collections::HashMap;
 
 /// Result of an incremental rebuild cycle.
@@ -72,10 +72,7 @@ impl IncrementalPipeline {
                 }),
                 suggestion: None,
             };
-            file_diagnostics
-                .entry(file)
-                .or_default()
-                .push(diag);
+            file_diagnostics.entry(file).or_default().push(diag);
         }
 
         Self {
@@ -159,8 +156,7 @@ impl IncrementalPipeline {
         }
 
         // Rebuild full graph from all cached parsed files
-        let all_spec_files: Vec<SpecFile> =
-            self.parsed_files.values().cloned().collect();
+        let all_spec_files: Vec<SpecFile> = self.parsed_files.values().cloned().collect();
         let (new_graph, build_diagnostics) = build_graph(&all_spec_files);
 
         // Compute delta
@@ -200,10 +196,7 @@ impl IncrementalPipeline {
                 }),
                 suggestion: None,
             };
-            self.file_diagnostics
-                .entry(file)
-                .or_default()
-                .push(diag);
+            self.file_diagnostics.entry(file).or_default().push(diag);
         }
 
         self.graph = new_graph;
@@ -214,7 +207,8 @@ impl IncrementalPipeline {
         let verification = if self.verify_incremental {
             let cold_specs: Vec<SpecFile> = self.parsed_files.values().cloned().collect();
             let (cold_graph, _) = build_graph(&cold_specs);
-            let cold_delta = compute_graph_delta_with_config(&old_graph, &cold_graph, &self.delta_config);
+            let cold_delta =
+                compute_graph_delta_with_config(&old_graph, &cold_graph, &self.delta_config);
             if delta.added_nodes.len() != cold_delta.added_nodes.len()
                 || delta.removed_nodes.len() != cold_delta.removed_nodes.len()
                 || self.graph.node_count() != cold_graph.node_count()
@@ -222,10 +216,14 @@ impl IncrementalPipeline {
             {
                 Some(Err(format!(
                     "incremental/cold mismatch: inc nodes={}/{} edges={}/{}, cold nodes={}/{} edges={}/{}",
-                    delta.added_nodes.len(), delta.removed_nodes.len(),
-                    self.graph.node_count(), self.graph.edge_count(),
-                    cold_delta.added_nodes.len(), cold_delta.removed_nodes.len(),
-                    cold_graph.node_count(), cold_graph.edge_count(),
+                    delta.added_nodes.len(),
+                    delta.removed_nodes.len(),
+                    self.graph.node_count(),
+                    self.graph.edge_count(),
+                    cold_delta.added_nodes.len(),
+                    cold_delta.removed_nodes.len(),
+                    cold_graph.node_count(),
+                    cold_graph.edge_count(),
                 )))
             } else {
                 Some(Ok(()))

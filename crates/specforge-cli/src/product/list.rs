@@ -48,16 +48,14 @@ pub fn list_entities(graph: &Graph, filter: &ListFilter) -> ListResult {
                 true
             }
         })
-        .map(|n| {
-            ListEntity {
-                id: n.id.raw.to_string(),
-                title: n.title.clone(),
-                kind: n.kind.raw.to_string(),
-                status: get_field_value(n, "status"),
-                priority: get_field_value(n, "priority"),
-                incoming_edges: graph.edges_to(n.id.raw.as_str()).len(),
-                outgoing_edges: graph.edges_from(n.id.raw.as_str()).len(),
-            }
+        .map(|n| ListEntity {
+            id: n.id.raw.to_string(),
+            title: n.title.clone(),
+            kind: n.kind.raw.to_string(),
+            status: get_field_value(n, "status"),
+            priority: get_field_value(n, "priority"),
+            incoming_edges: graph.edges_to(n.id.raw.as_str()).len(),
+            outgoing_edges: graph.edges_from(n.id.raw.as_str()).len(),
         })
         .collect();
 

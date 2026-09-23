@@ -4,7 +4,10 @@ use crate::error::EmitterError;
 
 fn resolve_scope(graph: &Graph, scope: &str) -> Result<Graph, EmitterError> {
     graph.subgraph(scope).ok_or_else(|| {
-        EmitterError::EntityNotFound(format!("E003: unresolved scope entity '{}' — entity not found in graph", scope))
+        EmitterError::EntityNotFound(format!(
+            "E003: unresolved scope entity '{}' — entity not found in graph",
+            scope
+        ))
     })
 }
 

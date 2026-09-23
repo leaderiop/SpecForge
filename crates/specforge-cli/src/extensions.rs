@@ -1,5 +1,5 @@
 use serde_json::json;
-use specforge_wasm::{read_lock_file, LockFile};
+use specforge_wasm::{LockFile, read_lock_file};
 use std::path::Path;
 
 pub fn run(path: &Path, format: &str) -> i32 {
@@ -28,7 +28,10 @@ pub fn run(path: &Path, format: &str) -> i32 {
                 "extensions": items,
                 "count": items.len(),
             });
-            println!("{}", serde_json::to_string_pretty(&output).expect("serialize JSON output"));
+            println!(
+                "{}",
+                serde_json::to_string_pretty(&output).expect("serialize JSON output")
+            );
         }
         _ => {
             if entries.is_empty() {

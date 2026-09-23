@@ -1,9 +1,8 @@
 use serde_json::json;
 use specforge_registry::{
-    HttpRegistryClient, RegistryConfig,
+    AuthMethod, HttpRegistryClient, RegistryConfig, RegistryCredential,
     client::credentials::{credentials_path, read_credentials, write_credentials},
     parse_registries_from_config, validate_credentials,
-    RegistryCredential, AuthMethod,
 };
 use std::path::Path;
 
@@ -13,7 +12,11 @@ pub fn run(registry_alias: Option<&str>, token: Option<&str>, path: &Path, forma
     let token_value = match token {
         Some(t) => t.to_string(),
         None => {
-            print_error(format, "no token provided. Use --token <TOKEN>", "R-LOGIN-001");
+            print_error(
+                format,
+                "no token provided. Use --token <TOKEN>",
+                "R-LOGIN-001",
+            );
             return 1;
         }
     };

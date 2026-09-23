@@ -2,7 +2,11 @@ use specforge_parser::parse;
 
 fn parse_ok(source: &str, file: &str) -> specforge_parser::SpecFile {
     let result = parse(source, file);
-    assert!(result.errors.is_empty(), "unexpected errors: {:?}", result.errors);
+    assert!(
+        result.errors.is_empty(),
+        "unexpected errors: {:?}",
+        result.errors
+    );
     result
 }
 

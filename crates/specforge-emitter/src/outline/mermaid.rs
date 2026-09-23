@@ -26,7 +26,12 @@ pub fn render_mermaid(outline: &OutlineIntermediate, options: &OutlineOptions) -
         let content = build_card_content(ext, outline, options);
 
         writeln!(out).unwrap();
-        writeln!(out, "    subgraph {}[\"  {} v{}  \"]", id, ext.name, ext.version).unwrap();
+        writeln!(
+            out,
+            "    subgraph {}[\"  {} v{}  \"]",
+            id, ext.name, ext.version
+        )
+        .unwrap();
         writeln!(out, "        {}[\"{}\"]", card_id, content).unwrap();
         writeln!(out, "    end").unwrap();
 
@@ -50,12 +55,7 @@ pub fn render_mermaid(outline: &OutlineIntermediate, options: &OutlineOptions) -
     for dep in visible_deps.iter().filter(|d| !d.optional) {
         let from_id = sanitize_id(&dep.from);
         let to_id = sanitize_id(&dep.to);
-        writeln!(
-            out,
-            "    {} -->|\"depends on\"| {}",
-            from_id, to_id
-        )
-        .unwrap();
+        writeln!(out, "    {} -->|\"depends on\"| {}", from_id, to_id).unwrap();
         edge_count += 1;
     }
 
@@ -63,12 +63,7 @@ pub fn render_mermaid(outline: &OutlineIntermediate, options: &OutlineOptions) -
     for dep in visible_deps.iter().filter(|d| d.optional) {
         let from_id = sanitize_id(&dep.from);
         let to_id = sanitize_id(&dep.to);
-        writeln!(
-            out,
-            "    {} -.->|\"optional dep\"| {}",
-            from_id, to_id
-        )
-        .unwrap();
+        writeln!(out, "    {} -.->|\"optional dep\"| {}", from_id, to_id).unwrap();
         edge_count += 1;
     }
 
@@ -102,7 +97,10 @@ pub fn render_mermaid(outline: &OutlineIntermediate, options: &OutlineOptions) -
         .filter(|e| !connected.contains(&e.name))
         .collect();
     if !orphans.is_empty()
-        && let Some(first_connected) = outline.extensions.iter().find(|e| connected.contains(&e.name))
+        && let Some(first_connected) = outline
+            .extensions
+            .iter()
+            .find(|e| connected.contains(&e.name))
     {
         for orphan in &orphans {
             let orphan_id = sanitize_id(&orphan.name);
@@ -131,7 +129,12 @@ pub fn render_mermaid(outline: &OutlineIntermediate, options: &OutlineOptions) -
     // Required deps
     for dep in visible_deps.iter().filter(|d| !d.optional) {
         let color = extension_stroke(&dep.from, &outline.extensions);
-        writeln!(out, "    linkStyle {} stroke:{},stroke-width:2px", link_idx, color).unwrap();
+        writeln!(
+            out,
+            "    linkStyle {} stroke:{},stroke-width:2px",
+            link_idx, color
+        )
+        .unwrap();
         link_idx += 1;
     }
     // Optional deps
@@ -186,7 +189,11 @@ fn build_card_content(
     }
 
     // Keywords section
-    let keywords: Vec<&str> = ext.entity_kinds.iter().map(|k| k.keyword.as_str()).collect();
+    let keywords: Vec<&str> = ext
+        .entity_kinds
+        .iter()
+        .map(|k| k.keyword.as_str())
+        .collect();
     if !keywords.is_empty() {
         parts.push(divider.clone());
         // Balance keywords into rows of 3
@@ -257,9 +264,6 @@ fn palette(index: usize) -> (&'static str, &'static str, &'static str, &'static 
 }
 
 fn extension_stroke(name: &str, extensions: &[super::OutlineExtension]) -> &'static str {
-    let idx = extensions
-        .iter()
-        .position(|e| e.name == name)
-        .unwrap_or(0);
+    let idx = extensions.iter().position(|e| e.name == name).unwrap_or(0);
     palette(idx).1
 }

@@ -15,16 +15,29 @@ fn span() -> SourceSpan {
 
 // B:export_agent_graph_format — verify unit "graph format includes all fields and metadata"
 #[test]
-#[specforge_test(behavior = "export_agent_graph_format", verify = "graph format includes all fields and metadata")]
+#[specforge_test(
+    behavior = "export_agent_graph_format",
+    verify = "graph format includes all fields and metadata"
+)]
 fn emit_graph_includes_all_fields_and_metadata() {
     let mut fields = FieldMap::new();
-    fields.push(Sym::new("contract"), FieldValue::String("Must do X".to_string()));
-    fields.push(Sym::new("status"), FieldValue::Identifier("done".to_string()));
+    fields.push(
+        Sym::new("contract"),
+        FieldValue::String("Must do X".to_string()),
+    );
+    fields.push(
+        Sym::new("status"),
+        FieldValue::Identifier("done".to_string()),
+    );
 
     let mut graph = Graph::new();
     graph.add_node(Node {
-        id: EntityId { raw: Sym::new("alpha") },
-        kind: EntityKind { raw: Sym::new("behavior") },
+        id: EntityId {
+            raw: Sym::new("alpha"),
+        },
+        kind: EntityKind {
+            raw: Sym::new("behavior"),
+        },
         title: Some("Alpha".to_string()),
         fields,
         source_span: span(),
@@ -45,12 +58,19 @@ fn emit_graph_includes_all_fields_and_metadata() {
 // B:export_agent_graph_format — verify unit "graph format includes all nodes and edges"
 // (graph format is identical to full JSON — validates full fidelity)
 #[test]
-#[specforge_test(behavior = "export_agent_graph_format", verify = "graph format includes all nodes and edges")]
+#[specforge_test(
+    behavior = "export_agent_graph_format",
+    verify = "graph format includes all nodes and edges"
+)]
 fn emit_graph_equals_emit_json() {
     let mut graph = Graph::new();
     graph.add_node(Node {
-        id: EntityId { raw: Sym::new("alpha") },
-        kind: EntityKind { raw: Sym::new("behavior") },
+        id: EntityId {
+            raw: Sym::new("alpha"),
+        },
+        kind: EntityKind {
+            raw: Sym::new("behavior"),
+        },
         title: Some("Alpha".to_string()),
         fields: FieldMap::new(),
         source_span: span(),
@@ -63,19 +83,30 @@ fn emit_graph_equals_emit_json() {
 
 // B:export_agent_graph_format — verify unit "output conforms to Graph Protocol schema"
 #[test]
-#[specforge_test(behavior = "export_agent_graph_format", verify = "output conforms to Graph Protocol schema")]
+#[specforge_test(
+    behavior = "export_agent_graph_format",
+    verify = "output conforms to Graph Protocol schema"
+)]
 fn graph_format_conforms_to_graph_protocol_schema() {
     let mut graph = Graph::new();
     graph.add_node(Node {
-        id: EntityId { raw: Sym::new("alpha") },
-        kind: EntityKind { raw: Sym::new("behavior") },
+        id: EntityId {
+            raw: Sym::new("alpha"),
+        },
+        kind: EntityKind {
+            raw: Sym::new("behavior"),
+        },
         title: Some("Alpha".to_string()),
         fields: FieldMap::new(),
         source_span: span(),
     });
     graph.add_node(Node {
-        id: EntityId { raw: Sym::new("beta") },
-        kind: EntityKind { raw: Sym::new("feature") },
+        id: EntityId {
+            raw: Sym::new("beta"),
+        },
+        kind: EntityKind {
+            raw: Sym::new("feature"),
+        },
         title: Some("Beta".to_string()),
         fields: FieldMap::new(),
         source_span: span(),
@@ -90,7 +121,10 @@ fn graph_format_conforms_to_graph_protocol_schema() {
     let parsed: serde_json::Value = serde_json::from_str(&json).expect("valid JSON");
 
     // Graph Protocol requires: schema_version, nodes array, edges array
-    assert!(parsed["schema_version"].is_string(), "must have schema_version");
+    assert!(
+        parsed["schema_version"].is_string(),
+        "must have schema_version"
+    );
     assert!(parsed["nodes"].is_array(), "must have nodes array");
     assert!(parsed["edges"].is_array(), "must have edges array");
 
@@ -103,12 +137,19 @@ fn graph_format_conforms_to_graph_protocol_schema() {
 
 // B:export_agent_graph_format — verify unit "output includes schema_version field"
 #[test]
-#[specforge_test(behavior = "export_agent_graph_format", verify = "output includes schema_version field")]
+#[specforge_test(
+    behavior = "export_agent_graph_format",
+    verify = "output includes schema_version field"
+)]
 fn graph_format_includes_schema_version() {
     let mut graph = Graph::new();
     graph.add_node(Node {
-        id: EntityId { raw: Sym::new("alpha") },
-        kind: EntityKind { raw: Sym::new("behavior") },
+        id: EntityId {
+            raw: Sym::new("alpha"),
+        },
+        kind: EntityKind {
+            raw: Sym::new("behavior"),
+        },
         title: Some("Alpha".to_string()),
         fields: FieldMap::new(),
         source_span: span(),
@@ -117,45 +158,72 @@ fn graph_format_includes_schema_version() {
     let json = specforge_emitter::emit_graph(&graph);
     let parsed: serde_json::Value = serde_json::from_str(&json).expect("valid JSON");
 
-    let version = parsed["schema_version"].as_str().expect("schema_version must be a string");
+    let version = parsed["schema_version"]
+        .as_str()
+        .expect("schema_version must be a string");
     assert!(!version.is_empty(), "schema_version must not be empty");
 }
 
 // B:export_agent_graph_format — verify unit "non-existent scope entity produces E003 and exit code 1"
 #[test]
-#[specforge_test(behavior = "export_agent_graph_format", verify = "non-existent scope entity produces E003 and exit code 1")]
+#[specforge_test(
+    behavior = "export_agent_graph_format",
+    verify = "non-existent scope entity produces E003 and exit code 1"
+)]
 fn graph_format_scoped_nonexistent_entity_produces_e001() {
     let mut graph = Graph::new();
     graph.add_node(Node {
-        id: EntityId { raw: Sym::new("alpha") },
-        kind: EntityKind { raw: Sym::new("behavior") },
+        id: EntityId {
+            raw: Sym::new("alpha"),
+        },
+        kind: EntityKind {
+            raw: Sym::new("behavior"),
+        },
         title: Some("Alpha".to_string()),
         fields: FieldMap::new(),
         source_span: span(),
     });
 
     let result = specforge_emitter::emit_json_scoped(&graph, "nonexistent");
-    assert!(result.is_err(), "should return error for nonexistent entity");
+    assert!(
+        result.is_err(),
+        "should return error for nonexistent entity"
+    );
     let err = result.unwrap_err();
-    assert!(err.to_string().contains("E003"), "error should contain E003: {}", err);
+    assert!(
+        err.to_string().contains("E003"),
+        "error should contain E003: {}",
+        err
+    );
 }
 
 // B:export_agent_graph_format — verify integration "structural-only graph exports valid JSON with raw keyword strings as entity kinds"
 #[test]
-#[specforge_test(behavior = "export_agent_graph_format", verify = "structural-only graph exports valid JSON with raw keyword strings as entity kinds")]
+#[specforge_test(
+    behavior = "export_agent_graph_format",
+    verify = "structural-only graph exports valid JSON with raw keyword strings as entity kinds"
+)]
 fn structural_only_graph_exports_raw_keywords() {
     let mut graph = Graph::new();
     // Use non-standard keywords (zero-extension structural-only graph)
     graph.add_node(Node {
-        id: EntityId { raw: Sym::new("my_widget") },
-        kind: EntityKind { raw: Sym::new("widget") },
+        id: EntityId {
+            raw: Sym::new("my_widget"),
+        },
+        kind: EntityKind {
+            raw: Sym::new("widget"),
+        },
         title: Some("My Widget".to_string()),
         fields: FieldMap::new(),
         source_span: span(),
     });
     graph.add_node(Node {
-        id: EntityId { raw: Sym::new("my_gadget") },
-        kind: EntityKind { raw: Sym::new("gadget") },
+        id: EntityId {
+            raw: Sym::new("my_gadget"),
+        },
+        kind: EntityKind {
+            raw: Sym::new("gadget"),
+        },
         title: Some("My Gadget".to_string()),
         fields: FieldMap::new(),
         source_span: span(),

@@ -1,24 +1,18 @@
 use std::collections::HashMap;
 
-use crate::schema::{GraphProtocolSchema, SchemaEdgeType, SchemaEntityKind};
-use super::{
-    Cardinality, ModelEntity, ModelExtension, ModelField, ModelFieldType,
-    ModelIntermediate, ModelRelationship,
-};
 use super::cardinality::infer_cardinality;
+use super::{
+    Cardinality, ModelEntity, ModelExtension, ModelField, ModelFieldType, ModelIntermediate,
+    ModelRelationship,
+};
+use crate::schema::{GraphProtocolSchema, SchemaEdgeType, SchemaEntityKind};
 
 #[allow(non_snake_case)]
 pub fn ModelIntermediate_from_schema(schema: &GraphProtocolSchema) -> ModelIntermediate {
-    let entities: Vec<ModelEntity> = schema
-        .entity_kinds
-        .iter()
-        .map(build_entity)
-        .collect();
+    let entities: Vec<ModelEntity> = schema.entity_kinds.iter().map(build_entity).collect();
 
-    let entity_map: HashMap<&str, &ModelEntity> = entities
-        .iter()
-        .map(|e| (e.name.as_str(), e))
-        .collect();
+    let entity_map: HashMap<&str, &ModelEntity> =
+        entities.iter().map(|e| (e.name.as_str(), e)).collect();
 
     let relationships: Vec<ModelRelationship> = schema
         .edge_types
@@ -144,10 +138,7 @@ fn build_relationships(
     relationships
 }
 
-fn build_extensions(
-    schema: &GraphProtocolSchema,
-    entities: &[ModelEntity],
-) -> Vec<ModelExtension> {
+fn build_extensions(schema: &GraphProtocolSchema, entities: &[ModelEntity]) -> Vec<ModelExtension> {
     // Count entities per extension
     let mut entity_counts: HashMap<&str, usize> = HashMap::new();
     for entity in entities {
@@ -157,7 +148,9 @@ fn build_extensions(
     // Count edges per extension (from schema edge_types)
     let mut edge_counts: HashMap<&str, usize> = HashMap::new();
     for edge in &schema.edge_types {
-        *edge_counts.entry(edge.source_extension.as_str()).or_insert(0) += 1;
+        *edge_counts
+            .entry(edge.source_extension.as_str())
+            .or_insert(0) += 1;
     }
 
     schema

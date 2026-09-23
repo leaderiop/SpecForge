@@ -1,7 +1,7 @@
 use std::path::Path;
 
-use specforge_wasm::runtime::{WasmCallResult, WasmRuntime};
 use specforge_wasm::BuiltinRuntime;
+use specforge_wasm::runtime::{WasmCallResult, WasmRuntime};
 
 use crate::ExtismRuntime;
 

@@ -16,7 +16,9 @@ fn span() -> SourceSpan {
 fn node(id: &str, kind: &str) -> Node {
     Node {
         id: EntityId { raw: Sym::new(id) },
-        kind: EntityKind { raw: Sym::new(kind) },
+        kind: EntityKind {
+            raw: Sym::new(kind),
+        },
         title: None,
         fields: FieldMap::new(),
         source_span: span(),
@@ -34,7 +36,9 @@ fn node_with_verify(id: &str, kind: &str) -> Node {
     );
     Node {
         id: EntityId { raw: Sym::new(id) },
-        kind: EntityKind { raw: Sym::new(kind) },
+        kind: EntityKind {
+            raw: Sym::new(kind),
+        },
         title: None,
         fields,
         source_span: span(),
@@ -43,7 +47,10 @@ fn node_with_verify(id: &str, kind: &str) -> Node {
 
 // B:compute_project_statistics — verify unit "stats reports correct entity counts"
 #[test]
-#[specforge_test(behavior = "compute_project_statistics", verify = "stats reports correct entity counts")]
+#[specforge_test(
+    behavior = "compute_project_statistics",
+    verify = "stats reports correct entity counts"
+)]
 fn stats_reports_correct_entity_counts() {
     let mut graph = Graph::new();
     graph.add_node(node("a", "behavior"));
@@ -76,7 +83,10 @@ fn stats_reports_edge_count() {
 
 // B:compute_project_statistics — verify unit "stats reports orphan count"
 #[test]
-#[specforge_test(behavior = "compute_project_statistics", verify = "stats reports orphan count")]
+#[specforge_test(
+    behavior = "compute_project_statistics",
+    verify = "stats reports orphan count"
+)]
 fn stats_reports_orphan_count() {
     let mut graph = Graph::new();
     graph.add_node(node("a", "behavior")); // orphan — no edges
@@ -120,7 +130,10 @@ fn stats_on_empty_graph() {
 
 // B:compute_project_statistics — verify unit "stats reports coverage percentage"
 #[test]
-#[specforge_test(behavior = "compute_project_statistics", verify = "stats reports coverage percentage")]
+#[specforge_test(
+    behavior = "compute_project_statistics",
+    verify = "stats reports coverage percentage"
+)]
 fn stats_coverage_with_testable_kinds() {
     let mut graph = Graph::new();
     graph.add_node(node_with_verify("a", "behavior")); // testable + verified
@@ -137,7 +150,10 @@ fn stats_coverage_with_testable_kinds() {
 
 // B:compute_project_statistics — verify unit "coverage is 0% when testable_entity_count is zero"
 #[test]
-#[specforge_test(behavior = "compute_project_statistics", verify = "coverage is 0% when testable_entity_count is zero")]
+#[specforge_test(
+    behavior = "compute_project_statistics",
+    verify = "coverage is 0% when testable_entity_count is zero"
+)]
 fn stats_coverage_zero_when_no_testable_entities() {
     let mut graph = Graph::new();
     graph.add_node(node("a", "feature")); // not testable
@@ -150,7 +166,10 @@ fn stats_coverage_zero_when_no_testable_entities() {
 
 // B:compute_project_statistics — verify unit "stats reports diagnostic summary"
 #[test]
-#[specforge_test(behavior = "compute_project_statistics", verify = "stats reports diagnostic summary")]
+#[specforge_test(
+    behavior = "compute_project_statistics",
+    verify = "stats reports diagnostic summary"
+)]
 fn stats_includes_diagnostic_summary() {
     let graph = Graph::new();
     let diagnostics = vec![

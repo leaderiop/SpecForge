@@ -11,9 +11,9 @@
 use specforge_common::Severity;
 use specforge_registry::{GrammarContribution, ManifestV2};
 use specforge_wasm::{
-    cache_grammar_artifact, compose_grammar_injections, dispatch_body_parser, has_cached_grammar,
-    hex_sha256, load_extension_grammar, validate_grammar_wasm, verify_wasm_integrity,
-    GrammarConflictPolicy, WasmCallResult, WasmRuntime, WasmTrapInfo,
+    GrammarConflictPolicy, WasmCallResult, WasmRuntime, WasmTrapInfo, cache_grammar_artifact,
+    compose_grammar_injections, dispatch_body_parser, has_cached_grammar, hex_sha256,
+    load_extension_grammar, validate_grammar_wasm, verify_wasm_integrity,
 };
 use std::path::Path;
 use tempfile::{NamedTempFile, TempDir};
@@ -187,17 +187,53 @@ fn test_load_grammar_contract() {
     let exports = vec!["tree_sitter_specforge".to_string()];
 
     // ensures: valid → Ok with deterministic hash
-    let r1 = load_extension_grammar("/g.wasm", &bytes, "tree_sitter_specforge", &exports, 14, 14, 1024).unwrap();
-    let r2 = load_extension_grammar("/g.wasm", &bytes, "tree_sitter_specforge", &exports, 14, 14, 1024).unwrap();
+    let r1 = load_extension_grammar(
+        "/g.wasm",
+        &bytes,
+        "tree_sitter_specforge",
+        &exports,
+        14,
+        14,
+        1024,
+    )
+    .unwrap();
+    let r2 = load_extension_grammar(
+        "/g.wasm",
+        &bytes,
+        "tree_sitter_specforge",
+        &exports,
+        14,
+        14,
+        1024,
+    )
+    .unwrap();
     assert_eq!(r1.content_hash, r2.content_hash);
 
     // ensures: ABI mismatch → E037
-    let err = load_extension_grammar("/g.wasm", &bytes, "tree_sitter_specforge", &exports, 13, 14, 1024).unwrap_err();
+    let err = load_extension_grammar(
+        "/g.wasm",
+        &bytes,
+        "tree_sitter_specforge",
+        &exports,
+        13,
+        14,
+        1024,
+    )
+    .unwrap_err();
     assert_eq!(err.code, "E037");
 
     // ensures: oversized → E038
     let big = vec![0u8; 2000];
-    let err = load_extension_grammar("/g.wasm", &big, "tree_sitter_specforge", &exports, 14, 14, 1024).unwrap_err();
+    let err = load_extension_grammar(
+        "/g.wasm",
+        &big,
+        "tree_sitter_specforge",
+        &exports,
+        14,
+        14,
+        1024,
+    )
+    .unwrap_err();
     assert_eq!(err.code, "E038");
 }
 
@@ -219,7 +255,8 @@ fn test_validate_grammar_valid_passes() {
 fn test_validate_grammar_wrong_abi_produces_e037() {
     let bytes = vec![0u8; 100];
     let exports = vec!["tree_sitter_specforge".to_string()];
-    let err = validate_grammar_wasm(&bytes, "tree_sitter_specforge", &exports, 13, 14, 1024).unwrap_err();
+    let err =
+        validate_grammar_wasm(&bytes, "tree_sitter_specforge", &exports, 13, 14, 1024).unwrap_err();
     assert_eq!(err.code, "E037");
     assert!(err.message.contains("13"));
     assert!(err.message.contains("14"));
@@ -237,7 +274,8 @@ fn test_validate_grammar_contract() {
 
     // ensures: oversized → E038
     let big = vec![0u8; 2000];
-    let err = validate_grammar_wasm(&big, "tree_sitter_specforge", &exports, 14, 14, 1024).unwrap_err();
+    let err =
+        validate_grammar_wasm(&big, "tree_sitter_specforge", &exports, 14, 14, 1024).unwrap_err();
     assert_eq!(err.code, "E038");
 }
 
@@ -355,8 +393,7 @@ fn test_dispatch_body_parser_trap_returns_error() {
 #[test]
 fn test_dispatch_body_parser_contract() {
     // ensures: valid JSON returned as Value
-    let runtime_ok =
-        MockRuntime::new().with_call_ok("parse_body", b"{\"x\":1}".to_vec());
+    let runtime_ok = MockRuntime::new().with_call_ok("parse_body", b"{\"x\":1}".to_vec());
     let result = dispatch_body_parser("ext", "parse_body", "text", &runtime_ok);
     assert!(result.is_ok());
 

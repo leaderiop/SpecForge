@@ -11,7 +11,11 @@ fn macro_injects_guard_that_records_to_registry() {
     annotated_passing_test();
 
     let entries = registry::drain();
-    assert_eq!(entries.len(), 1, "expected 1 entry from macro-annotated function");
+    assert_eq!(
+        entries.len(),
+        1,
+        "expected 1 entry from macro-annotated function"
+    );
     assert_eq!(entries[0].entity_kind, "behavior");
     assert_eq!(entries[0].entity_id, "create_user");
     assert_eq!(entries[0].outcome, TestOutcome::Pass);
@@ -52,7 +56,11 @@ fn multiple_attributes_produce_multiple_guards() {
     annotated_multi_entity();
 
     let entries = registry::drain();
-    assert_eq!(entries.len(), 2, "expected 2 entries from double-annotated function");
+    assert_eq!(
+        entries.len(),
+        2,
+        "expected 2 entries from double-annotated function"
+    );
     let kinds: Vec<&str> = entries.iter().map(|e| e.entity_kind.as_str()).collect();
     assert!(kinds.contains(&"behavior"));
     assert!(kinds.contains(&"invariant"));
@@ -75,21 +83,17 @@ fn panicking_annotated_function_records_fail() {
 
 // Helper functions with the macro attribute (NOT #[test] — called directly)
 #[specforge_test_macros::test(behavior = "create_user")]
-fn annotated_passing_test() {
-}
+fn annotated_passing_test() {}
 
 #[specforge_test_macros::test(invariant = "unique_ids")]
-fn annotated_invariant_test() {
-}
+fn annotated_invariant_test() {}
 
 #[specforge_test_macros::test(constraint = "naming_convention")]
-fn annotated_custom_kind_test() {
-}
+fn annotated_custom_kind_test() {}
 
 #[specforge_test_macros::test(behavior = "create_user")]
 #[specforge_test_macros::test(invariant = "unique_ids")]
-fn annotated_multi_entity() {
-}
+fn annotated_multi_entity() {}
 
 #[specforge_test_macros::test(behavior = "delete_user")]
 fn annotated_panicking() {

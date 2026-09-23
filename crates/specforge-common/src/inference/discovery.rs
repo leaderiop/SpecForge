@@ -24,15 +24,17 @@ impl Default for SourceDiscoveryConfig {
 }
 
 impl SourceDiscoveryConfig {
-    pub fn from_analyzer_configs(
-        analyzers: &[AnalyzerConfig],
-    ) -> Self {
+    pub fn from_analyzer_configs(analyzers: &[AnalyzerConfig]) -> Self {
         let mut source_extensions = Vec::new();
         let mut excluded_dirs = HashSet::new();
 
         for a in analyzers {
             for ext in &a.file_extensions {
-                let ext = if ext.starts_with('.') { ext.clone() } else { format!(".{}", ext) };
+                let ext = if ext.starts_with('.') {
+                    ext.clone()
+                } else {
+                    format!(".{}", ext)
+                };
                 if !source_extensions.contains(&ext) {
                     source_extensions.push(ext);
                 }
@@ -54,8 +56,14 @@ impl SourceDiscoveryConfig {
 
     fn default_excluded_dirs() -> HashSet<String> {
         [
-            "target", "node_modules", "dist", "build", ".git",
-            "__pycache__", ".venv", "vendor",
+            "target",
+            "node_modules",
+            "dist",
+            "build",
+            ".git",
+            "__pycache__",
+            ".venv",
+            "vendor",
         ]
         .iter()
         .map(|s| (*s).to_string())
@@ -63,7 +71,9 @@ impl SourceDiscoveryConfig {
     }
 
     fn is_source_file(&self, name: &str) -> bool {
-        self.source_extensions.iter().any(|ext| name.ends_with(ext.as_str()))
+        self.source_extensions
+            .iter()
+            .any(|ext| name.ends_with(ext.as_str()))
     }
 
     fn is_excluded_dir(&self, name: &str) -> bool {

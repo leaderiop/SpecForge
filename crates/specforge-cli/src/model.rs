@@ -2,8 +2,8 @@ use std::path::Path;
 
 use specforge_emitter::generate_schema;
 use specforge_emitter::model::{
-    filter_entities, filter_fields, render, FieldLevel, GroupBy, ModelFormat,
-    ModelIntermediate_from_schema, ModelOptions,
+    FieldLevel, GroupBy, ModelFormat, ModelIntermediate_from_schema, ModelOptions, filter_entities,
+    filter_fields, render,
 };
 
 use crate::pipeline;

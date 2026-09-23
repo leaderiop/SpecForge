@@ -2,10 +2,10 @@ use specforge_emitter::builtins::{
     FormalExtension, GovernanceExtension, ProductExtension, RustExtension, SoftwareExtension,
     TypeScriptExtension,
 };
-use specforge_registry::{validate_manifest, validate_manifest_consistency, ManifestV2};
+use specforge_registry::{ManifestV2, validate_manifest, validate_manifest_consistency};
 use specforge_wasm::builtin::BuiltinExtension;
 use specforge_wasm::protocol::{
-    load_protocol_extension, protocol_extension_to_manifest, ProtocolHost,
+    ProtocolHost, load_protocol_extension, protocol_extension_to_manifest,
 };
 use specforge_wasm::{BuiltinRuntime, WasmRuntime};
 
@@ -39,13 +39,22 @@ fn product_extension_loads_via_protocol() {
 #[test]
 fn product_w093_semver_pattern_is_not_trivial() {
     let manifest = load_via_protocol("@specforge/product", Box::new(ProductExtension));
-    let w093 = manifest.validation_rules.iter()
+    let w093 = manifest
+        .validation_rules
+        .iter()
         .find(|r| r.code == "W093")
         .expect("W093 rule must exist");
     let pattern = w093.constraint.as_ref().unwrap().pattern.as_ref().unwrap();
-    assert!(pattern.len() > 5, "W093 pattern '{}' is too trivial to validate semver", pattern);
-    assert!(pattern.contains(r"\d") || pattern.contains("[0-9]"),
-        "W093 pattern '{}' must match digits for semver validation", pattern);
+    assert!(
+        pattern.len() > 5,
+        "W093 pattern '{}' is too trivial to validate semver",
+        pattern
+    );
+    assert!(
+        pattern.contains(r"\d") || pattern.contains("[0-9]"),
+        "W093 pattern '{}' must match digits for semver validation",
+        pattern
+    );
 }
 
 #[test]
@@ -56,10 +65,24 @@ fn governance_extension_loads_via_protocol() {
     assert_eq!(manifest.entity_kinds.len(), 3);
     assert_eq!(manifest.edge_types.len(), 11);
     assert_eq!(manifest.validation_rules.len(), 7);
-    assert_eq!(manifest.peer_dependencies.len(), 2, "governance should depend on software AND product");
-    let dep_names: Vec<&str> = manifest.peer_dependencies.iter().map(|p| p.name.as_str()).collect();
-    assert!(dep_names.contains(&"@specforge/software"), "must depend on software");
-    assert!(dep_names.contains(&"@specforge/product"), "must depend on product (declares edges to feature)");
+    assert_eq!(
+        manifest.peer_dependencies.len(),
+        2,
+        "governance should depend on software AND product"
+    );
+    let dep_names: Vec<&str> = manifest
+        .peer_dependencies
+        .iter()
+        .map(|p| p.name.as_str())
+        .collect();
+    assert!(
+        dep_names.contains(&"@specforge/software"),
+        "must depend on software"
+    );
+    assert!(
+        dep_names.contains(&"@specforge/product"),
+        "must depend on product (declares edges to feature)"
+    );
     assert!(manifest.contributes.entities);
     assert!(manifest.contributes.validators);
 
@@ -96,22 +119,58 @@ fn formal_extension_loads_via_protocol() {
     assert_eq!(manifest.version, "1.0.0");
     assert_eq!(manifest.entity_kinds.len(), 5);
     assert_eq!(manifest.edge_types.len(), 12);
-    assert!(manifest.validation_rules.len() >= 6, "formal needs at least 6 validation rules, got {}", manifest.validation_rules.len());
+    assert!(
+        manifest.validation_rules.len() >= 6,
+        "formal needs at least 6 validation rules, got {}",
+        manifest.validation_rules.len()
+    );
     assert_eq!(manifest.entity_enhancements.len(), 2);
     assert_eq!(manifest.peer_dependencies.len(), 1);
     assert!(manifest.contributes.entities);
     assert!(manifest.contributes.validators);
 
-    let property = manifest.entity_kinds.iter().find(|k| k.keyword == "property").unwrap();
-    assert!(property.supports_verify, "property should support verify (model-checkable)");
-    let axiom = manifest.entity_kinds.iter().find(|k| k.keyword == "axiom").unwrap();
-    assert!(axiom.supports_verify, "axiom should support verify (proof-checkable)");
+    let property = manifest
+        .entity_kinds
+        .iter()
+        .find(|k| k.keyword == "property")
+        .unwrap();
+    assert!(
+        property.supports_verify,
+        "property should support verify (model-checkable)"
+    );
+    let axiom = manifest
+        .entity_kinds
+        .iter()
+        .find(|k| k.keyword == "axiom")
+        .unwrap();
+    assert!(
+        axiom.supports_verify,
+        "axiom should support verify (proof-checkable)"
+    );
 
-    let refinement = manifest.entity_kinds.iter().find(|k| k.keyword == "refinement").unwrap();
-    let abstract_f = refinement.fields.iter().find(|f| f.name == "abstract_entity").unwrap();
-    assert!(abstract_f.required, "refinement.abstract_entity should be required");
-    let concrete_f = refinement.fields.iter().find(|f| f.name == "concrete_entity").unwrap();
-    assert!(concrete_f.required, "refinement.concrete_entity should be required");
+    let refinement = manifest
+        .entity_kinds
+        .iter()
+        .find(|k| k.keyword == "refinement")
+        .unwrap();
+    let abstract_f = refinement
+        .fields
+        .iter()
+        .find(|f| f.name == "abstract_entity")
+        .unwrap();
+    assert!(
+        abstract_f.required,
+        "refinement.abstract_entity should be required"
+    );
+    let concrete_f = refinement
+        .fields
+        .iter()
+        .find(|f| f.name == "concrete_entity")
+        .unwrap();
+    assert!(
+        concrete_f.required,
+        "refinement.concrete_entity should be required"
+    );
 
     let diags = validate_manifest(&manifest);
     assert!(diags.is_empty(), "schema validation errors: {:?}", diags);
@@ -152,8 +211,7 @@ fn private() {}
 pub const MAX_SIZE: usize = 100;
 "#;
 
-    let runtime = BuiltinRuntime::new()
-        .with_extension("@specforge/rust", Box::new(RustExtension));
+    let runtime = BuiltinRuntime::new().with_extension("@specforge/rust", Box::new(RustExtension));
     let input = serde_json::to_vec(&ScanRequest {
         file_path: "src/lib.rs".into(),
         content: source.into(),

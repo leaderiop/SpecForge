@@ -1,4 +1,4 @@
-use specforge_emitter::{compute_stats_with_diagnostics, ProjectStats};
+use specforge_emitter::{ProjectStats, compute_stats_with_diagnostics};
 use std::path::Path;
 
 use crate::pipeline;
@@ -25,8 +25,10 @@ fn print_human(stats: &ProjectStats) {
     println!("Orphans:  {}", stats.orphan_count);
     println!("Verified: {}", stats.verified_count);
     if stats.error_count > 0 || stats.warning_count > 0 || stats.info_count > 0 {
-        println!("Diagnostics: {} errors, {} warnings, {} info",
-            stats.error_count, stats.warning_count, stats.info_count);
+        println!(
+            "Diagnostics: {} errors, {} warnings, {} info",
+            stats.error_count, stats.warning_count, stats.info_count
+        );
     }
 }
 
@@ -43,5 +45,8 @@ fn print_json(stats: &ProjectStats) {
         "info_count": stats.info_count,
         "entities_by_kind": stats.entities_by_kind,
     });
-    println!("{}", serde_json::to_string_pretty(&json).expect("serialize JSON output"));
+    println!(
+        "{}",
+        serde_json::to_string_pretty(&json).expect("serialize JSON output")
+    );
 }

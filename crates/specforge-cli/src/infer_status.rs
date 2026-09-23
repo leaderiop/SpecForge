@@ -1,11 +1,17 @@
 use std::path::Path;
 
+use specforge_common::AnalyzerConfig;
 use specforge_common::inference;
 use specforge_common::inference::discovery::SourceDiscoveryConfig;
-use specforge_common::AnalyzerConfig;
 use specforge_emitter::scanner_dispatch;
 
-pub fn run(path: &Path, format: &str, show_gaps: bool, show_stale: bool, show_gaps_detail: bool) -> i32 {
+pub fn run(
+    path: &Path,
+    format: &str,
+    show_gaps: bool,
+    show_stale: bool,
+    show_gaps_detail: bool,
+) -> i32 {
     let manifest = match inference::load_inference_manifest(path) {
         Ok(m) => m,
         Err(e) => {
@@ -15,7 +21,9 @@ pub fn run(path: &Path, format: &str, show_gaps: bool, show_stale: bool, show_ga
     };
 
     let ctx = crate::pipeline::compile(path);
-    let analyzer_configs: Vec<AnalyzerConfig> = ctx.manifests.iter()
+    let analyzer_configs: Vec<AnalyzerConfig> = ctx
+        .manifests
+        .iter()
         .flat_map(|m| m.analyzer_contributions.iter())
         .map(|ac| AnalyzerConfig {
             language: ac.language.clone(),
@@ -24,7 +32,8 @@ pub fn run(path: &Path, format: &str, show_gaps: bool, show_stale: bool, show_ga
         })
         .collect();
     let discovery_config = SourceDiscoveryConfig::from_analyzer_configs(&analyzer_configs);
-    let source_files = inference::discover_source_files(path, &manifest.source_roots, &discovery_config);
+    let source_files =
+        inference::discover_source_files(path, &manifest.source_roots, &discovery_config);
     let index_map = manifest.source_index_map();
 
     let unanalyzed: Vec<&str> = source_files
@@ -48,7 +57,10 @@ pub fn run(path: &Path, format: &str, show_gaps: bool, show_stale: bool, show_ga
                 "stale": stale,
                 "deleted": deleted,
             });
-            println!("{}", serde_json::to_string_pretty(&json).expect("serialize JSON output"));
+            println!(
+                "{}",
+                serde_json::to_string_pretty(&json).expect("serialize JSON output")
+            );
         }
         _ => {
             let pct = if summary.files_total > 0 {
@@ -58,7 +70,10 @@ pub fn run(path: &Path, format: &str, show_gaps: bool, show_stale: bool, show_ga
             };
 
             println!("Inference Progress");
-            println!("  Files:    {}/{} ({:.0}%)", summary.files_analyzed, summary.files_total, pct);
+            println!(
+                "  Files:    {}/{} ({:.0}%)",
+                summary.files_analyzed, summary.files_total, pct
+            );
             println!("  Entities: {}", summary.entities_produced);
 
             if !stale.is_empty() || !deleted.is_empty() {
@@ -69,7 +84,8 @@ pub fn run(path: &Path, format: &str, show_gaps: bool, show_stale: bool, show_ga
             if show_gaps && !unanalyzed.is_empty() {
                 println!();
                 println!("Unanalyzed files:");
-                let mut by_dir: std::collections::BTreeMap<&str, Vec<&str>> = std::collections::BTreeMap::new();
+                let mut by_dir: std::collections::BTreeMap<&str, Vec<&str>> =
+                    std::collections::BTreeMap::new();
                 for f in &unanalyzed {
                     let dir = match f.rfind('/') {
                         Some(i) => &f[..i],
@@ -102,7 +118,10 @@ pub fn run(path: &Path, format: &str, show_gaps: bool, show_stale: bool, show_ga
             }
 
             if show_gaps_detail {
-                let entity_ids: Vec<&str> = ctx.graph.nodes().into_iter()
+                let entity_ids: Vec<&str> = ctx
+                    .graph
+                    .nodes()
+                    .into_iter()
                     .map(|n| n.id.raw.as_str())
                     .collect();
 
@@ -130,8 +149,10 @@ pub fn run(path: &Path, format: &str, show_gaps: bool, show_stale: bool, show_ga
 
                 if !report.gaps.is_empty() {
                     println!();
-                    let mut by_dir: std::collections::BTreeMap<String, Vec<&inference::SourceItem>> =
-                        std::collections::BTreeMap::new();
+                    let mut by_dir: std::collections::BTreeMap<
+                        String,
+                        Vec<&inference::SourceItem>,
+                    > = std::collections::BTreeMap::new();
                     for gap in &report.gaps {
                         let dir = match gap.file.rfind('/') {
                             Some(i) => gap.file[..i].to_string(),

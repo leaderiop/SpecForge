@@ -3,8 +3,8 @@ use std::sync::{Arc, Mutex};
 
 use specforge_common::Diagnostic;
 use specforge_wasm::{
-    default_sandbox_policy, filter_graph_by_query_scope, host_emit_diagnostic,
-    host_read_file_check, CallSite, QueryScope,
+    CallSite, QueryScope, default_sandbox_policy, filter_graph_by_query_scope,
+    host_emit_diagnostic, host_read_file_check,
 };
 
 pub struct HostContext {

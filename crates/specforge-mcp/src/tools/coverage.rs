@@ -8,7 +8,10 @@ pub fn call(state: &McpState, args: Value, id: Option<Value>) -> JsonRpcResponse
     let entity_filter = args.get("entity_id").and_then(|v| v.as_str());
     let kind_filter = args.get("kind").and_then(|v| v.as_str());
 
-    let results: Vec<Value> = state.graph.nodes().into_iter()
+    let results: Vec<Value> = state
+        .graph
+        .nodes()
+        .into_iter()
         .filter(|n| {
             if let Some(eid) = entity_filter {
                 return n.id.raw == eid;
@@ -50,10 +53,13 @@ pub fn call(state: &McpState, args: Value, id: Option<Value>) -> JsonRpcResponse
         })
         .collect();
 
-    JsonRpcResponse::success(id, serde_json::json!({
-        "content": [{
-            "type": "text",
-            "text": serde_json::to_string_pretty(&results).unwrap()
-        }]
-    }))
+    JsonRpcResponse::success(
+        id,
+        serde_json::json!({
+            "content": [{
+                "type": "text",
+                "text": serde_json::to_string_pretty(&results).unwrap()
+            }]
+        }),
+    )
 }

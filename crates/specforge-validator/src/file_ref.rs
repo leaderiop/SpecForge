@@ -1,5 +1,5 @@
 use crate::ValidatorConfig;
-use specforge_common::{find_close_match, Diagnostic};
+use specforge_common::{Diagnostic, find_close_match};
 use specforge_graph::Graph;
 use specforge_parser::FieldValue;
 use std::path::Path;

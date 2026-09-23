@@ -1,13 +1,19 @@
-use crate::pipeline;
 use super::{
-    list_entities, ListFilter,
-    milestone_completion, journey_coverage, feature_impact, feature_dependents,
-    persona_features, channel_features, bulk_status,
-    project_health,
+    ListFilter, bulk_status, channel_features, feature_dependents, feature_impact,
+    journey_coverage, list_entities, milestone_completion, persona_features, project_health,
 };
+use crate::pipeline;
 use std::path::Path;
 
-pub fn run_list(path: &Path, kind: &str, status: Option<&str>, priority: Option<&str>, limit: Option<usize>, offset: Option<usize>, format: &str) -> i32 {
+pub fn run_list(
+    path: &Path,
+    kind: &str,
+    status: Option<&str>,
+    priority: Option<&str>,
+    limit: Option<usize>,
+    offset: Option<usize>,
+    format: &str,
+) -> i32 {
     let ctx = pipeline::compile(path);
 
     let filter = ListFilter {
@@ -26,15 +32,24 @@ pub fn run_list(path: &Path, kind: &str, status: Option<&str>, priority: Option<
             println!("{}", json);
         }
         _ => {
-            println!("{} {} entities (showing {}):", result.total, kind, result.entities.len());
+            println!(
+                "{} {} entities (showing {}):",
+                result.total,
+                kind,
+                result.entities.len()
+            );
             for entity in &result.entities {
                 let status_str = entity.status.as_deref().unwrap_or("-");
                 let priority_str = entity.priority.as_deref().unwrap_or("-");
                 let title = entity.title.as_deref().unwrap_or("");
                 println!(
                     "  {} {} [{}] pri={} in={} out={}",
-                    entity.id, title, status_str, priority_str,
-                    entity.incoming_edges, entity.outgoing_edges
+                    entity.id,
+                    title,
+                    status_str,
+                    priority_str,
+                    entity.incoming_edges,
+                    entity.outgoing_edges
                 );
             }
         }
@@ -53,8 +68,15 @@ pub fn run_milestone_completion(path: &Path, milestone_id: &str, format: &str) -
                     println!("{}", json);
                 }
                 _ => {
-                    println!("Milestone: {} ({})", result.milestone_id, result.status.as_deref().unwrap_or("-"));
-                    println!("Completion: {:.0}% ({}/{} features done)", result.completion_pct, result.done_features, result.total_features);
+                    println!(
+                        "Milestone: {} ({})",
+                        result.milestone_id,
+                        result.status.as_deref().unwrap_or("-")
+                    );
+                    println!(
+                        "Completion: {:.0}% ({}/{} features done)",
+                        result.completion_pct, result.done_features, result.total_features
+                    );
                     for f in &result.features {
                         println!("  {} [{}]", f.id, f.status.as_deref().unwrap_or("-"));
                     }
@@ -80,8 +102,15 @@ pub fn run_journey_coverage(path: &Path, journey_id: &str, format: &str) -> i32 
                     println!("{}", json);
                 }
                 _ => {
-                    println!("Journey: {} (persona: {})", result.journey_id, result.persona.as_deref().unwrap_or("-"));
-                    println!("Coverage: {:.0}% ({}/{} features covered by modules)", result.coverage_pct, result.covered_by_modules, result.total_features);
+                    println!(
+                        "Journey: {} (persona: {})",
+                        result.journey_id,
+                        result.persona.as_deref().unwrap_or("-")
+                    );
+                    println!(
+                        "Coverage: {:.0}% ({}/{} features covered by modules)",
+                        result.coverage_pct, result.covered_by_modules, result.total_features
+                    );
                 }
             }
             0

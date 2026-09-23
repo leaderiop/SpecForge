@@ -70,7 +70,12 @@ fn wasm_plugin_emit_diagnostic_malformed_json_produces_error_diagnostic() {
     );
 
     let diags = diagnostics.lock().unwrap();
-    assert_eq!(diags.len(), 1, "Expected 1 error diagnostic, got {}", diags.len());
+    assert_eq!(
+        diags.len(),
+        1,
+        "Expected 1 error diagnostic, got {}",
+        diags.len()
+    );
     assert_eq!(diags[0].code, "E028");
     assert_eq!(diags[0].severity, Severity::Error);
     assert!(diags[0].message.contains("malformed JSON"));
@@ -88,8 +93,7 @@ fn wasm_plugin_can_read_file_under_spec_root() {
     std::fs::write(spec_root.join("test.spec"), "hello from spec file").unwrap();
 
     let diagnostics: Arc<Mutex<Vec<Diagnostic>>> = Arc::new(Mutex::new(Vec::new()));
-    let ctx = HostContext::new(diagnostics.clone())
-        .with_spec_root(spec_root.clone());
+    let ctx = HostContext::new(diagnostics.clone()).with_spec_root(spec_root.clone());
 
     let runtime = ExtismRuntime::with_host_context(ctx);
     runtime
@@ -132,8 +136,7 @@ fn wasm_plugin_read_file_denied_outside_spec_root() {
     std::fs::write(outside.join("secret.txt"), "sensitive data").unwrap();
 
     let diagnostics: Arc<Mutex<Vec<Diagnostic>>> = Arc::new(Mutex::new(Vec::new()));
-    let ctx = HostContext::new(diagnostics.clone())
-        .with_spec_root(spec_root.clone());
+    let ctx = HostContext::new(diagnostics.clone()).with_spec_root(spec_root.clone());
 
     let runtime = ExtismRuntime::with_host_context(ctx);
     runtime
@@ -185,8 +188,7 @@ fn wasm_plugin_can_query_graph() {
     });
 
     let diagnostics: Arc<Mutex<Vec<Diagnostic>>> = Arc::new(Mutex::new(Vec::new()));
-    let ctx = HostContext::new(diagnostics.clone())
-        .with_graph(graph.clone());
+    let ctx = HostContext::new(diagnostics.clone()).with_graph(graph.clone());
 
     let runtime = ExtismRuntime::with_host_context(ctx);
     runtime

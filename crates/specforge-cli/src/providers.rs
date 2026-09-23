@@ -12,7 +12,10 @@ pub fn run(path: &Path, format: &str) -> i32 {
                 match format {
                     "json" => {
                         let output = json!({ "providers": [], "count": 0 });
-                        println!("{}", serde_json::to_string_pretty(&output).expect("serialize JSON output"));
+                        println!(
+                            "{}",
+                            serde_json::to_string_pretty(&output).expect("serialize JSON output")
+                        );
                     }
                     _ => {
                         eprintln!("warning: specforge.json is not valid JSON");
@@ -26,7 +29,10 @@ pub fn run(path: &Path, format: &str) -> i32 {
             match format {
                 "json" => {
                     let output = json!({ "providers": [], "count": 0 });
-                    println!("{}", serde_json::to_string_pretty(&output).expect("serialize JSON output"));
+                    println!(
+                        "{}",
+                        serde_json::to_string_pretty(&output).expect("serialize JSON output")
+                    );
                 }
                 _ => {
                     println!("No providers configured (no specforge.json found).");
@@ -48,7 +54,10 @@ pub fn run(path: &Path, format: &str) -> i32 {
                 "providers": providers,
                 "count": providers.len(),
             });
-            println!("{}", serde_json::to_string_pretty(&output).expect("serialize JSON output"));
+            println!(
+                "{}",
+                serde_json::to_string_pretty(&output).expect("serialize JSON output")
+            );
         }
         _ => {
             if providers.is_empty() {
@@ -68,11 +77,7 @@ pub fn run(path: &Path, format: &str) -> i32 {
                     let schemes: Vec<&str> = provider
                         .get("schemes")
                         .and_then(|v| v.as_array())
-                        .map(|arr| {
-                            arr.iter()
-                                .filter_map(|s| s.as_str())
-                                .collect()
-                        })
+                        .map(|arr| arr.iter().filter_map(|s| s.as_str()).collect())
                         .unwrap_or_default();
 
                     println!("  {} (extension: {})", alias, extension);

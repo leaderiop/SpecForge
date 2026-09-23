@@ -4,13 +4,12 @@ use crate::protocol::JsonRpcResponse;
 use crate::state::McpState;
 
 pub fn call(state: &McpState, _args: Value, id: Option<Value>) -> JsonRpcResponse {
-    let stats = specforge_emitter::compute_stats_with_diagnostics(
-        &state.graph,
-        &[],
-        &state.diagnostics,
-    );
+    let stats =
+        specforge_emitter::compute_stats_with_diagnostics(&state.graph, &[], &state.diagnostics);
 
-    let entity_counts: Vec<Value> = stats.entities_by_kind.iter()
+    let entity_counts: Vec<Value> = stats
+        .entities_by_kind
+        .iter()
         .map(|(kind, count)| serde_json::json!({ "kind": kind, "count": count }))
         .collect();
 
@@ -26,10 +25,13 @@ pub fn call(state: &McpState, _args: Value, id: Option<Value>) -> JsonRpcRespons
         }
     });
 
-    JsonRpcResponse::success(id, serde_json::json!({
-        "content": [{
-            "type": "text",
-            "text": result.to_string()
-        }]
-    }))
+    JsonRpcResponse::success(
+        id,
+        serde_json::json!({
+            "content": [{
+                "type": "text",
+                "text": result.to_string()
+            }]
+        }),
+    )
 }

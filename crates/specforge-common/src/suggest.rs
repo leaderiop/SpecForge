@@ -1,6 +1,9 @@
 /// Find the closest match for `target` among `candidates` using Jaro-Winkler similarity.
 /// Returns `None` if no candidate scores above the 0.85 threshold.
-pub fn find_close_match<'a>(target: &str, candidates: impl IntoIterator<Item = &'a str>) -> Option<&'a str> {
+pub fn find_close_match<'a>(
+    target: &str,
+    candidates: impl IntoIterator<Item = &'a str>,
+) -> Option<&'a str> {
     candidates
         .into_iter()
         .filter_map(|c| {
@@ -23,7 +26,10 @@ mod tests {
 
     #[test]
     fn close_typo_returns_suggestion() {
-        let result = find_close_match("alpha_parsr", ["alpha_parser", "beta_builder", "gamma_runner"]);
+        let result = find_close_match(
+            "alpha_parsr",
+            ["alpha_parser", "beta_builder", "gamma_runner"],
+        );
         assert_eq!(result, Some("alpha_parser"));
     }
 

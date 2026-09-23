@@ -20,7 +20,10 @@ pub fn filter_entities(model: &ModelIntermediate, options: &ModelOptions) -> Mod
     // Extension filter
     if let Some(ref ext) = options.extension_filter {
         keep.retain(|name| {
-            model.entities.iter().any(|e| e.name == *name && e.extension == *ext)
+            model
+                .entities
+                .iter()
+                .any(|e| e.name == *name && e.extension == *ext)
         });
     }
 
@@ -55,10 +58,8 @@ pub fn filter_entities(model: &ModelIntermediate, options: &ModelOptions) -> Mod
 
     // Filter edge_type_owners to only edges whose declaring extension
     // still has surviving entities
-    let surviving_extensions: HashSet<&str> = entities
-        .iter()
-        .map(|e| e.extension.as_str())
-        .collect();
+    let surviving_extensions: HashSet<&str> =
+        entities.iter().map(|e| e.extension.as_str()).collect();
     let edge_type_owners: Vec<(String, String)> = model
         .edge_type_owners
         .iter()
@@ -78,12 +79,20 @@ pub fn filter_entities(model: &ModelIntermediate, options: &ModelOptions) -> Mod
     }
 }
 
-fn bfs_reachable(root: &str, max_depth: usize, relationships: &[ModelRelationship]) -> HashSet<String> {
+fn bfs_reachable(
+    root: &str,
+    max_depth: usize,
+    relationships: &[ModelRelationship],
+) -> HashSet<String> {
     // Build undirected adjacency at the kind level
     let mut adj: HashMap<&str, Vec<&str>> = HashMap::new();
     for rel in relationships {
-        adj.entry(rel.source.as_str()).or_default().push(rel.target.as_str());
-        adj.entry(rel.target.as_str()).or_default().push(rel.source.as_str());
+        adj.entry(rel.source.as_str())
+            .or_default()
+            .push(rel.target.as_str());
+        adj.entry(rel.target.as_str())
+            .or_default()
+            .push(rel.source.as_str());
     }
 
     let mut visited: HashSet<String> = HashSet::new();

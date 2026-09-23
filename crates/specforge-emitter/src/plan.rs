@@ -13,23 +13,15 @@ pub struct PlanValidationResult {
     pub validated_entries: Vec<String>,
 }
 
-pub fn validate_plan(
-    graph: &Graph,
-    plan: &Value,
-    testable_kinds: &[&str],
-) -> PlanValidationResult {
+pub fn validate_plan(graph: &Graph, plan: &Value, testable_kinds: &[&str]) -> PlanValidationResult {
     let mut errors = Vec::new();
     let mut warnings = Vec::new();
     let mut ordering_violations = Vec::new();
     let mut validated_entries = Vec::new();
 
-    let entries = plan["entries"]
-        .as_array()
-        .cloned()
-        .unwrap_or_default();
+    let entries = plan["entries"].as_array().cloned().unwrap_or_default();
 
     let mut plan_ids: Vec<String> = Vec::new();
-    
 
     // Validate each entry
     for entry in &entries {
@@ -38,7 +30,10 @@ pub fn validate_plan(
             if graph.node(id).is_some() {
                 validated_entries.push(id.to_string());
             } else {
-                errors.push(format!("E003: unresolved entity '{}' in plan — not found in graph", id));
+                errors.push(format!(
+                    "E003: unresolved entity '{}' in plan — not found in graph",
+                    id
+                ));
             }
         }
     }
@@ -75,14 +70,16 @@ pub fn validate_plan(
     for edge in graph.edges() {
         // edge.source -> edge.target means source references target
         // So target should be implemented before source
-        if let (Some(&src_pos), Some(&tgt_pos)) =
-            (position.get(edge.source.as_str()), position.get(edge.target.as_str()))
-            && tgt_pos > src_pos {
-                ordering_violations.push(format!(
-                    "'{}' depends on '{}' (via {}), but '{}' appears later in the plan",
-                    edge.source, edge.target, edge.label, edge.target
-                ));
-            }
+        if let (Some(&src_pos), Some(&tgt_pos)) = (
+            position.get(edge.source.as_str()),
+            position.get(edge.target.as_str()),
+        ) && tgt_pos > src_pos
+        {
+            ordering_violations.push(format!(
+                "'{}' depends on '{}' (via {}), but '{}' appears later in the plan",
+                edge.source, edge.target, edge.label, edge.target
+            ));
+        }
     }
 
     PlanValidationResult {

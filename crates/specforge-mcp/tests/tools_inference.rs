@@ -1,6 +1,6 @@
+use serde_json::{Value, json};
 use specforge_mcp::McpServer;
 use specforge_registry::ManifestV2;
-use serde_json::{json, Value};
 use tempfile::TempDir;
 
 fn init_server(project_dir: &std::path::Path) -> McpServer {
@@ -99,7 +99,10 @@ fn call_tool(server: &mut McpServer, tool_name: &str, args: Value) -> Value {
 }
 
 fn tool_text(resp: &Value) -> String {
-    resp["result"]["content"][0]["text"].as_str().unwrap().to_string()
+    resp["result"]["content"][0]["text"]
+        .as_str()
+        .unwrap()
+        .to_string()
 }
 
 fn setup_project_with_sources(dir: &std::path::Path) {
@@ -139,7 +142,8 @@ fn infer_progress_discovers_source_files() {
     std::fs::write(
         tmp.path().join("specforge-infer.json"),
         serde_json::to_string_pretty(&manifest).unwrap(),
-    ).unwrap();
+    )
+    .unwrap();
 
     let mut server = init_server(tmp.path());
     let resp = call_tool(&mut server, "specforge.infer_progress", json!({}));
@@ -170,7 +174,8 @@ fn infer_progress_shows_analyzed_file() {
     std::fs::write(
         tmp.path().join("specforge-infer.json"),
         serde_json::to_string_pretty(&manifest).unwrap(),
-    ).unwrap();
+    )
+    .unwrap();
 
     let mut server = init_server(tmp.path());
     let resp = call_tool(&mut server, "specforge.infer_progress", json!({}));
@@ -194,13 +199,18 @@ fn infer_session_start_creates_active_session() {
     std::fs::write(
         tmp.path().join("specforge-infer.json"),
         serde_json::to_string_pretty(&manifest).unwrap(),
-    ).unwrap();
+    )
+    .unwrap();
 
     let mut server = init_server(tmp.path());
-    let resp = call_tool(&mut server, "specforge.infer_session", json!({
-        "action": "start",
-        "agent": "claude"
-    }));
+    let resp = call_tool(
+        &mut server,
+        "specforge.infer_session",
+        json!({
+            "action": "start",
+            "agent": "claude"
+        }),
+    );
     let text = tool_text(&resp);
     let parsed: Value = serde_json::from_str(&text).unwrap();
 
@@ -215,26 +225,37 @@ fn infer_session_rejects_second_active() {
     std::fs::write(
         tmp.path().join("specforge-infer.json"),
         serde_json::to_string_pretty(&manifest).unwrap(),
-    ).unwrap();
+    )
+    .unwrap();
 
     let mut server = init_server(tmp.path());
 
     // First session succeeds
-    let resp1 = call_tool(&mut server, "specforge.infer_session", json!({
-        "action": "start",
-        "agent": "claude"
-    }));
+    let resp1 = call_tool(
+        &mut server,
+        "specforge.infer_session",
+        json!({
+            "action": "start",
+            "agent": "claude"
+        }),
+    );
     assert!(resp1.get("error").is_none());
 
     // Second session fails
-    let resp2 = call_tool(&mut server, "specforge.infer_session", json!({
-        "action": "start",
-        "agent": "claude"
-    }));
-    assert!(resp2.get("error").is_some() || {
-        let text = tool_text(&resp2);
-        text.contains("already active")
-    });
+    let resp2 = call_tool(
+        &mut server,
+        "specforge.infer_session",
+        json!({
+            "action": "start",
+            "agent": "claude"
+        }),
+    );
+    assert!(
+        resp2.get("error").is_some() || {
+            let text = tool_text(&resp2);
+            text.contains("already active")
+        }
+    );
 }
 
 #[test]
@@ -248,15 +269,20 @@ fn infer_session_mark_analyzed_records_entry() {
     std::fs::write(
         tmp.path().join("specforge-infer.json"),
         serde_json::to_string_pretty(&manifest).unwrap(),
-    ).unwrap();
+    )
+    .unwrap();
 
     let mut server = init_server(tmp.path());
 
-    let resp = call_tool(&mut server, "specforge.infer_session", json!({
-        "action": "mark_analyzed",
-        "source_file": "src/main.rs",
-        "entities_produced": ["app_main"]
-    }));
+    let resp = call_tool(
+        &mut server,
+        "specforge.infer_session",
+        json!({
+            "action": "mark_analyzed",
+            "source_file": "src/main.rs",
+            "entities_produced": ["app_main"]
+        }),
+    );
     let text = tool_text(&resp);
     let parsed: Value = serde_json::from_str(&text).unwrap();
 
@@ -278,34 +304,47 @@ fn infer_session_end_completes_session() {
     std::fs::write(
         tmp.path().join("specforge-infer.json"),
         serde_json::to_string_pretty(&manifest).unwrap(),
-    ).unwrap();
+    )
+    .unwrap();
 
     let mut server = init_server(tmp.path());
 
     // Start session
-    let start_resp = call_tool(&mut server, "specforge.infer_session", json!({
-        "action": "start",
-        "agent": "claude"
-    }));
+    let start_resp = call_tool(
+        &mut server,
+        "specforge.infer_session",
+        json!({
+            "action": "start",
+            "agent": "claude"
+        }),
+    );
     let start_text = tool_text(&start_resp);
     let start_parsed: Value = serde_json::from_str(&start_text).unwrap();
     let session_id = start_parsed["session_id"].as_str().unwrap().to_string();
 
     // End session
-    let end_resp = call_tool(&mut server, "specforge.infer_session", json!({
-        "action": "end",
-        "session_id": session_id,
-        "status": "completed"
-    }));
+    let end_resp = call_tool(
+        &mut server,
+        "specforge.infer_session",
+        json!({
+            "action": "end",
+            "session_id": session_id,
+            "status": "completed"
+        }),
+    );
     let end_text = tool_text(&end_resp);
     let end_parsed: Value = serde_json::from_str(&end_text).unwrap();
     assert_eq!(end_parsed["status"], "completed");
 
     // Can start a new session now
-    let new_resp = call_tool(&mut server, "specforge.infer_session", json!({
-        "action": "start",
-        "agent": "claude"
-    }));
+    let new_resp = call_tool(
+        &mut server,
+        "specforge.infer_session",
+        json!({
+            "action": "start",
+            "agent": "claude"
+        }),
+    );
     assert!(new_resp.get("error").is_none());
 }
 
@@ -316,14 +355,19 @@ fn infer_session_end_rejects_unknown_session() {
     std::fs::write(
         tmp.path().join("specforge-infer.json"),
         serde_json::to_string_pretty(&manifest).unwrap(),
-    ).unwrap();
+    )
+    .unwrap();
 
     let mut server = init_server(tmp.path());
 
-    let resp = call_tool(&mut server, "specforge.infer_session", json!({
-        "action": "end",
-        "session_id": "sess_nonexistent"
-    }));
+    let resp = call_tool(
+        &mut server,
+        "specforge.infer_session",
+        json!({
+            "action": "end",
+            "session_id": "sess_nonexistent"
+        }),
+    );
     assert!(resp.get("error").is_some());
 }
 
@@ -334,7 +378,8 @@ fn infer_session_missing_action_returns_error() {
     std::fs::write(
         tmp.path().join("specforge-infer.json"),
         serde_json::to_string_pretty(&manifest).unwrap(),
-    ).unwrap();
+    )
+    .unwrap();
 
     let mut server = init_server(tmp.path());
 
@@ -354,7 +399,8 @@ fn infer_session_full_lifecycle() {
     std::fs::write(
         tmp.path().join("specforge-infer.json"),
         serde_json::to_string_pretty(&manifest).unwrap(),
-    ).unwrap();
+    )
+    .unwrap();
 
     let mut server = init_server(tmp.path());
 
@@ -365,20 +411,28 @@ fn infer_session_full_lifecycle() {
     assert_eq!(p0_parsed["summary"]["files_analyzed"], 0);
 
     // Start session
-    let start = call_tool(&mut server, "specforge.infer_session", json!({
-        "action": "start",
-        "agent": "claude",
-        "source_roots": ["src"]
-    }));
+    let start = call_tool(
+        &mut server,
+        "specforge.infer_session",
+        json!({
+            "action": "start",
+            "agent": "claude",
+            "source_roots": ["src"]
+        }),
+    );
     let start_parsed: Value = serde_json::from_str(&tool_text(&start)).unwrap();
     let sid = start_parsed["session_id"].as_str().unwrap().to_string();
 
     // Mark first file
-    call_tool(&mut server, "specforge.infer_session", json!({
-        "action": "mark_analyzed",
-        "source_file": "src/main.rs",
-        "entities_produced": ["app_main"]
-    }));
+    call_tool(
+        &mut server,
+        "specforge.infer_session",
+        json!({
+            "action": "mark_analyzed",
+            "source_file": "src/main.rs",
+            "entities_produced": ["app_main"]
+        }),
+    );
 
     // Check mid-progress
     let p1 = call_tool(&mut server, "specforge.infer_progress", json!({}));
@@ -387,11 +441,15 @@ fn infer_session_full_lifecycle() {
     assert_eq!(p1_parsed["unanalyzed"].as_array().unwrap().len(), 1);
 
     // Mark second file
-    call_tool(&mut server, "specforge.infer_session", json!({
-        "action": "mark_analyzed",
-        "source_file": "src/lib.rs",
-        "entities_produced": ["hello_behavior", "hello_type"]
-    }));
+    call_tool(
+        &mut server,
+        "specforge.infer_session",
+        json!({
+            "action": "mark_analyzed",
+            "source_file": "src/lib.rs",
+            "entities_produced": ["hello_behavior", "hello_type"]
+        }),
+    );
 
     // Check final progress
     let p2 = call_tool(&mut server, "specforge.infer_progress", json!({}));
@@ -402,11 +460,15 @@ fn infer_session_full_lifecycle() {
     assert_eq!(p2_parsed["unanalyzed"].as_array().unwrap().len(), 0);
 
     // End session
-    let end = call_tool(&mut server, "specforge.infer_session", json!({
-        "action": "end",
-        "session_id": sid,
-        "status": "completed"
-    }));
+    let end = call_tool(
+        &mut server,
+        "specforge.infer_session",
+        json!({
+            "action": "end",
+            "session_id": sid,
+            "status": "completed"
+        }),
+    );
     let end_parsed: Value = serde_json::from_str(&tool_text(&end)).unwrap();
     assert_eq!(end_parsed["status"], "completed");
 }
@@ -426,7 +488,8 @@ fn infer_progress_discovers_both_rust_and_typescript() {
     std::fs::write(
         tmp.path().join("specforge-infer.json"),
         serde_json::to_string_pretty(&manifest).unwrap(),
-    ).unwrap();
+    )
+    .unwrap();
 
     let mut server = init_server(tmp.path());
     let resp = call_tool(&mut server, "specforge.infer_progress", json!({}));

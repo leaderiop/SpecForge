@@ -149,7 +149,10 @@ fn entity_fields_mapped_from_schema() {
     assert_eq!(status.name, "status");
     assert_eq!(status.field_type, ModelFieldType::Enum);
     assert!(status.required);
-    assert_eq!(status.enum_values, Some(vec!["draft".to_string(), "approved".to_string()]));
+    assert_eq!(
+        status.enum_values,
+        Some(vec!["draft".to_string(), "approved".to_string()])
+    );
     assert_eq!(status.description, Some("Current status".to_string()));
     assert!(!status.is_primary_key);
 
@@ -275,11 +278,19 @@ fn extension_metadata_counts() {
 
     assert_eq!(model.extensions.len(), 2);
 
-    let sw = model.extensions.iter().find(|e| e.name == "@specforge/software").unwrap();
+    let sw = model
+        .extensions
+        .iter()
+        .find(|e| e.name == "@specforge/software")
+        .unwrap();
     assert_eq!(sw.entity_count, 2);
     assert_eq!(sw.edge_count, 2);
 
-    let prod = model.extensions.iter().find(|e| e.name == "@specforge/product").unwrap();
+    let prod = model
+        .extensions
+        .iter()
+        .find(|e| e.name == "@specforge/product")
+        .unwrap();
     assert_eq!(prod.entity_count, 1);
     assert_eq!(prod.edge_count, 0);
 }
@@ -332,7 +343,10 @@ fn reference_field_infers_many_to_one() {
 
     assert_eq!(model.relationships.len(), 1);
     assert_eq!(model.relationships[0].cardinality, Cardinality::ManyToOne);
-    assert_eq!(model.relationships[0].source_field, Some("parent".to_string()));
+    assert_eq!(
+        model.relationships[0].source_field,
+        Some("parent".to_string())
+    );
 }
 
 // =========================================================================
@@ -352,7 +366,7 @@ fn no_matching_field_defaults_to_many_to_many() {
                 name: "behavior".to_string(),
                 source_extension: "@specforge/software".to_string(),
                 testable: true,
-                fields: vec![],  // no fields at all
+                fields: vec![], // no fields at all
             },
             SchemaEntityKind {
                 name: "event".to_string(),
@@ -455,7 +469,10 @@ fn reference_singular_field_infers_many_to_one_for_term_module() {
     // term entity should have contribution info on the module field
     let term = model.entities.iter().find(|e| e.name == "term").unwrap();
     let module_field = term.fields.iter().find(|f| f.name == "module").unwrap();
-    assert_eq!(module_field.contribution.as_deref(), Some("TermBelongsToModule -> module"));
+    assert_eq!(
+        module_field.contribution.as_deref(),
+        Some("TermBelongsToModule -> module")
+    );
 }
 
 // =========================================================================
@@ -515,19 +532,17 @@ fn multi_extension_schema() -> GraphProtocolSchema {
                 name: "feature".to_string(),
                 source_extension: "@specforge/product".to_string(),
                 testable: false,
-                fields: vec![
-                    SchemaField {
-                        name: "priority".to_string(),
-                        field_type: "enum".to_string(),
-                        required: false,
-                        enum_values: Some(vec!["low".into(), "medium".into(), "high".into()]),
-                        edge: None,
-                        target_kind: None,
-                        description: None,
-                        default_value: None,
-                        source_extension: "@specforge/product".to_string(),
-                    },
-                ],
+                fields: vec![SchemaField {
+                    name: "priority".to_string(),
+                    field_type: "enum".to_string(),
+                    required: false,
+                    enum_values: Some(vec!["low".into(), "medium".into(), "high".into()]),
+                    edge: None,
+                    target_kind: None,
+                    description: None,
+                    default_value: None,
+                    source_extension: "@specforge/product".to_string(),
+                }],
             },
             SchemaEntityKind {
                 name: "journey".to_string(),
@@ -697,7 +712,11 @@ fn filter_fields_none() {
     let filtered = filter_fields(&model, FieldLevel::None);
 
     for entity in &filtered.entities {
-        assert!(entity.fields.is_empty(), "entity {} should have no fields", entity.name);
+        assert!(
+            entity.fields.is_empty(),
+            "entity {} should have no fields",
+            entity.name
+        );
     }
 }
 
@@ -712,12 +731,20 @@ fn filter_fields_keys() {
 
     let filtered = filter_fields(&model, FieldLevel::Keys);
 
-    let behavior = filtered.entities.iter().find(|e| e.name == "behavior").unwrap();
+    let behavior = filtered
+        .entities
+        .iter()
+        .find(|e| e.name == "behavior")
+        .unwrap();
     let field_names: Vec<&str> = behavior.fields.iter().map(|f| f.name.as_str()).collect();
     // id (pk) + contract (required) + features (reference_list)
     assert_eq!(field_names, vec!["id", "contract", "features"]);
 
-    let feature = filtered.entities.iter().find(|e| e.name == "feature").unwrap();
+    let feature = filtered
+        .entities
+        .iter()
+        .find(|e| e.name == "feature")
+        .unwrap();
     let field_names: Vec<&str> = feature.fields.iter().map(|f| f.name.as_str()).collect();
     // id (pk) only — priority is not required and not a reference
     assert_eq!(field_names, vec!["id"]);
@@ -734,10 +761,18 @@ fn filter_fields_all() {
 
     let filtered = filter_fields(&model, FieldLevel::All);
 
-    let behavior = filtered.entities.iter().find(|e| e.name == "behavior").unwrap();
+    let behavior = filtered
+        .entities
+        .iter()
+        .find(|e| e.name == "behavior")
+        .unwrap();
     assert_eq!(behavior.fields.len(), 3); // id + contract + features
 
-    let feature = filtered.entities.iter().find(|e| e.name == "feature").unwrap();
+    let feature = filtered
+        .entities
+        .iter()
+        .find(|e| e.name == "feature")
+        .unwrap();
     assert_eq!(feature.fields.len(), 2); // id + priority
 }
 
@@ -869,7 +904,11 @@ fn render_json_cardinality_strings() {
     let parsed: serde_json::Value = serde_json::from_str(&output).expect("valid JSON");
     for rel in parsed["relationships"].as_array().unwrap() {
         let card = rel["cardinality"].as_str().unwrap();
-        assert!(["1:1", "1:N", "N:1", "N:M"].contains(&card), "unexpected cardinality: {}", card);
+        assert!(
+            ["1:1", "1:N", "N:1", "N:M"].contains(&card),
+            "unexpected cardinality: {}",
+            card
+        );
     }
 }
 

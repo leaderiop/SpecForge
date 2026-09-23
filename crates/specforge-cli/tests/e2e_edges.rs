@@ -4,13 +4,19 @@ use specforge_test_macros::test as specforge_test;
 // --- Phase 1c: Edge types from reference-list fields, DOT labels, multi-hop ---
 
 #[test]
-#[specforge_test(behavior = "emit_graph_protocol_json", verify = "behaviors field creates edges")]
+#[specforge_test(
+    behavior = "emit_graph_protocol_json",
+    verify = "behaviors field creates edges"
+)]
 fn behaviors_field_creates_edges() {
-    let dir = setup_project(&[("main.spec", r#"
+    let dir = setup_project(&[(
+        "main.spec",
+        r#"
 behavior alpha "A" { contract "first" }
 behavior beta "B" { contract "second" }
 feature gamma "G" { behaviors [alpha, beta] }
-"#)]);
+"#,
+    )]);
 
     let output = specforge_cmd()
         .args(["export", "--format=graph"])
@@ -20,25 +26,44 @@ feature gamma "G" { behaviors [alpha, beta] }
 
     let parsed = parse_json_stdout(&output);
     let edges = parsed["edges"].as_array().unwrap();
-    assert_eq!(edges.len(), 2, "behaviors [alpha, beta] should create 2 edges");
+    assert_eq!(
+        edges.len(),
+        2,
+        "behaviors [alpha, beta] should create 2 edges"
+    );
 
-    let sources: Vec<&str> = edges.iter().map(|e| e["source"].as_str().unwrap()).collect();
-    let targets: Vec<&str> = edges.iter().map(|e| e["target"].as_str().unwrap()).collect();
-    assert!(sources.iter().all(|s| *s == "gamma"), "all edges should come from gamma");
+    let sources: Vec<&str> = edges
+        .iter()
+        .map(|e| e["source"].as_str().unwrap())
+        .collect();
+    let targets: Vec<&str> = edges
+        .iter()
+        .map(|e| e["target"].as_str().unwrap())
+        .collect();
+    assert!(
+        sources.iter().all(|s| *s == "gamma"),
+        "all edges should come from gamma"
+    );
     assert!(targets.contains(&"alpha"));
     assert!(targets.contains(&"beta"));
 }
 
 #[test]
-#[specforge_test(behavior = "emit_graph_protocol_json", verify = "features field creates edges")]
+#[specforge_test(
+    behavior = "emit_graph_protocol_json",
+    verify = "features field creates edges"
+)]
 fn features_field_creates_edges() {
-    let dir = setup_project(&[("main.spec", r#"
+    let dir = setup_project(&[(
+        "main.spec",
+        r#"
 feature fast_parsing "F" { problem "p" solution "s" }
 behavior parse_input "P" {
     contract "The system MUST parse"
     features [fast_parsing]
 }
-"#)]);
+"#,
+    )]);
 
     let output = specforge_cmd()
         .args(["export", "--format=graph"])
@@ -54,15 +79,21 @@ behavior parse_input "P" {
 }
 
 #[test]
-#[specforge_test(behavior = "emit_graph_protocol_json", verify = "enforced_by field creates edges")]
+#[specforge_test(
+    behavior = "emit_graph_protocol_json",
+    verify = "enforced_by field creates edges"
+)]
 fn enforced_by_field_creates_edges() {
-    let dir = setup_project(&[("main.spec", r#"
+    let dir = setup_project(&[(
+        "main.spec",
+        r#"
 behavior validate "V" { contract "must validate" }
 invariant refs_resolved "RR" {
     guarantee "All refs MUST resolve"
     enforced_by [validate]
 }
-"#)]);
+"#,
+    )]);
 
     let output = specforge_cmd()
         .args(["export", "--format=graph"])
@@ -72,15 +103,23 @@ invariant refs_resolved "RR" {
 
     let parsed = parse_json_stdout(&output);
     let edges = parsed["edges"].as_array().unwrap();
-    assert!(!edges.is_empty(), "enforced_by [validate] should create an edge");
+    assert!(
+        !edges.is_empty(),
+        "enforced_by [validate] should create an edge"
+    );
     assert_eq!(edges[0]["source"], "refs_resolved");
     assert_eq!(edges[0]["target"], "validate");
 }
 
 #[test]
-#[specforge_test(behavior = "emit_graph_protocol_json", verify = "mitigations field creates edges")]
+#[specforge_test(
+    behavior = "emit_graph_protocol_json",
+    verify = "mitigations field creates edges"
+)]
 fn mitigations_field_creates_edges() {
-    let dir = setup_project(&[("main.spec", r#"
+    let dir = setup_project(&[(
+        "main.spec",
+        r#"
 behavior parse_input "P" { contract "must parse" }
 failure_mode parser_crash "PC" {
     severity 8
@@ -90,7 +129,8 @@ failure_mode parser_crash "PC" {
     effect "Crash"
     mitigations [parse_input]
 }
-"#)]);
+"#,
+    )]);
 
     let output = specforge_cmd()
         .args(["export", "--format=graph"])
@@ -105,12 +145,18 @@ failure_mode parser_crash "PC" {
 }
 
 #[test]
-#[specforge_test(behavior = "emit_graph_protocol_json", verify = "export graph edge labels are field names")]
+#[specforge_test(
+    behavior = "emit_graph_protocol_json",
+    verify = "export graph edge labels are field names"
+)]
 fn export_graph_edge_labels_are_field_names() {
-    let dir = setup_project(&[("main.spec", r#"
+    let dir = setup_project(&[(
+        "main.spec",
+        r#"
 behavior alpha "A" { contract "first" }
 feature gamma "G" { behaviors [alpha] }
-"#)]);
+"#,
+    )]);
 
     let output = specforge_cmd()
         .args(["export", "--format=graph"])
@@ -120,16 +166,22 @@ feature gamma "G" { behaviors [alpha] }
 
     let parsed = parse_json_stdout(&output);
     let edges = parsed["edges"].as_array().unwrap();
-    assert_eq!(edges[0]["label"], "behaviors", "edge label should match field name");
+    assert_eq!(
+        edges[0]["label"], "behaviors",
+        "edge label should match field name"
+    );
 }
 
 #[test]
 #[specforge_test(behavior = "emit_dot_output", verify = "DOT export shows edge labels")]
 fn dot_export_shows_edge_labels() {
-    let dir = setup_project(&[("main.spec", r#"
+    let dir = setup_project(&[(
+        "main.spec",
+        r#"
 behavior alpha "A" { contract "first" }
 feature gamma "G" { behaviors [alpha] }
-"#)]);
+"#,
+    )]);
 
     let output = specforge_cmd()
         .args(["export", "--format=dot"])
@@ -140,11 +192,17 @@ feature gamma "G" { behaviors [alpha] }
     assert!(output.status.success());
     let stdout = String::from_utf8_lossy(&output.stdout);
     assert!(stdout.contains("digraph"), "should be a DOT digraph");
-    assert!(stdout.contains("behaviors"), "DOT should contain edge label 'behaviors'");
+    assert!(
+        stdout.contains("behaviors"),
+        "DOT should contain edge label 'behaviors'"
+    );
 }
 
 #[test]
-#[specforge_test(behavior = "trace_entity_dependencies", verify = "trace follows edges across entity kinds")]
+#[specforge_test(
+    behavior = "trace_entity_dependencies",
+    verify = "trace follows edges across entity kinds"
+)]
 fn trace_follows_edges_across_entity_kinds() {
     let dir = setup_project(&[("main.spec", CROSS_REF_SPEC)]);
 
@@ -161,22 +219,34 @@ fn trace_follows_edges_across_entity_kinds() {
     assert_eq!(parsed["entity_id"], "validate_graph");
     // validate_graph has upstream: graph_validation (via features), refs_resolved (via enforced_by)
     let upstream = parsed["upstream"].as_array().unwrap();
-    let upstream_ids: Vec<&str> = upstream.iter().map(|l| l["entity_id"].as_str().unwrap()).collect();
+    let upstream_ids: Vec<&str> = upstream
+        .iter()
+        .map(|l| l["entity_id"].as_str().unwrap())
+        .collect();
     assert!(
-        upstream_ids.contains(&"graph_validation") || upstream_ids.contains(&"refs_resolved")
-            || upstream_ids.contains(&"validation_complete") || upstream_ids.contains(&"unresolved_ref"),
-        "trace should include cross-kind upstream entities: {:?}", upstream_ids
+        upstream_ids.contains(&"graph_validation")
+            || upstream_ids.contains(&"refs_resolved")
+            || upstream_ids.contains(&"validation_complete")
+            || upstream_ids.contains(&"unresolved_ref"),
+        "trace should include cross-kind upstream entities: {:?}",
+        upstream_ids
     );
 }
 
 #[test]
-#[specforge_test(behavior = "multi_resolution_graph_queries", verify = "query depth 2 traverses multi-hop")]
+#[specforge_test(
+    behavior = "multi_resolution_graph_queries",
+    verify = "query depth 2 traverses multi-hop"
+)]
 fn query_depth_2_traverses_multi_hop() {
-    let dir = setup_project(&[("main.spec", r#"
+    let dir = setup_project(&[(
+        "main.spec",
+        r#"
 behavior alpha "A" { contract "first" features [feat_a] }
 feature feat_a "F" { behaviors [alpha] }
 journey dev_journey "DJ" { description "workflow" }
-"#)]);
+"#,
+    )]);
 
     // Query from feat_a at depth 1 should reach alpha
     let output = specforge_cmd()
@@ -191,17 +261,26 @@ journey dev_journey "DJ" { description "workflow" }
     let nodes = parsed["nodes"].as_array().unwrap();
     let ids: Vec<&str> = nodes.iter().map(|n| n["id"].as_str().unwrap()).collect();
     assert!(ids.contains(&"feat_a"), "root entity should be in results");
-    assert!(ids.contains(&"alpha"), "depth-1 neighbor should be in results");
+    assert!(
+        ids.contains(&"alpha"),
+        "depth-1 neighbor should be in results"
+    );
 }
 
 #[test]
-#[specforge_test(behavior = "emit_graph_protocol_json", verify = "multiple reference fields produce separate edges")]
+#[specforge_test(
+    behavior = "emit_graph_protocol_json",
+    verify = "multiple reference fields produce separate edges"
+)]
 fn multiple_reference_fields_produce_separate_edges() {
-    let dir = setup_project(&[("main.spec", r#"
+    let dir = setup_project(&[(
+        "main.spec",
+        r#"
 behavior validate "V" { contract "must validate" features [feat_a] }
 feature feat_a "F" { behaviors [validate] }
 invariant inv_a "I" { guarantee "always" enforced_by [validate] }
-"#)]);
+"#,
+    )]);
 
     let output = specforge_cmd()
         .args(["export", "--format=graph"])
@@ -212,16 +291,29 @@ invariant inv_a "I" { guarantee "always" enforced_by [validate] }
     let parsed = parse_json_stdout(&output);
     let edges = parsed["edges"].as_array().unwrap();
     // behaviors: feat_a->validate, features: validate->feat_a, enforced_by: inv_a->validate
-    assert!(edges.len() >= 3, "should have edges from multiple reference fields, got {}", edges.len());
+    assert!(
+        edges.len() >= 3,
+        "should have edges from multiple reference fields, got {}",
+        edges.len()
+    );
 
     let labels: Vec<&str> = edges.iter().map(|e| e["label"].as_str().unwrap()).collect();
-    assert!(labels.contains(&"behaviors"), "should have 'behaviors' edges");
+    assert!(
+        labels.contains(&"behaviors"),
+        "should have 'behaviors' edges"
+    );
     assert!(labels.contains(&"features"), "should have 'features' edges");
-    assert!(labels.contains(&"enforced_by"), "should have 'enforced_by' edges");
+    assert!(
+        labels.contains(&"enforced_by"),
+        "should have 'enforced_by' edges"
+    );
 }
 
 #[test]
-#[specforge_test(behavior = "emit_dot_output", verify = "DOT export includes all entity kinds as nodes")]
+#[specforge_test(
+    behavior = "emit_dot_output",
+    verify = "DOT export includes all entity kinds as nodes"
+)]
 fn dot_export_all_entity_kinds_as_nodes() {
     let dir = setup_project(&[("main.spec", MULTI_EXTENSION_SPEC)]);
 
@@ -236,7 +328,12 @@ fn dot_export_all_entity_kinds_as_nodes() {
     assert!(stdout.contains("digraph"));
 
     // Check some entity IDs are present as nodes
-    for id in &["parse_input", "fast_parsing", "use_treesitter", "parser_crash"] {
+    for id in &[
+        "parse_input",
+        "fast_parsing",
+        "use_treesitter",
+        "parser_crash",
+    ] {
         assert!(stdout.contains(id), "DOT should contain node '{}'", id);
     }
 }
@@ -244,11 +341,14 @@ fn dot_export_all_entity_kinds_as_nodes() {
 #[test]
 #[specforge_test(behavior = "emit_dot_output", verify = "DOT export cross-kind edges")]
 fn dot_export_cross_kind_edges() {
-    let dir = setup_project(&[("main.spec", r#"
+    let dir = setup_project(&[(
+        "main.spec",
+        r#"
 behavior alpha "A" { contract "first" }
 feature gamma "G" { behaviors [alpha] }
 failure_mode fm "FM" { severity 1 occurrence 1 detection 1 cause "x" effect "y" mitigations [alpha] }
-"#)]);
+"#,
+    )]);
 
     let output = specforge_cmd()
         .args(["export", "--format=dot"])
@@ -265,7 +365,10 @@ failure_mode fm "FM" { severity 1 occurrence 1 detection 1 cause "x" effect "y" 
 }
 
 #[test]
-#[specforge_test(behavior = "emit_dot_output", verify = "DOT export deterministic output")]
+#[specforge_test(
+    behavior = "emit_dot_output",
+    verify = "DOT export deterministic output"
+)]
 fn dot_export_deterministic_output() {
     let dir = setup_project(&[("main.spec", MULTI_EXTENSION_SPEC)]);
 

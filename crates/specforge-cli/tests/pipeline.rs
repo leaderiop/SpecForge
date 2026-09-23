@@ -42,8 +42,16 @@ fn test_pipeline_with_product_extension_recognizes_feature() {
     let ctx = specforge_emitter::compile::compile(dir.path());
 
     // Should NOT have I004 warnings about unrecognized keyword
-    let i004_diags: Vec<_> = ctx.diagnostics.iter().filter(|d| d.code == "I004").collect();
-    assert!(i004_diags.is_empty(), "expected no I004 for 'feature', got: {:?}", i004_diags);
+    let i004_diags: Vec<_> = ctx
+        .diagnostics
+        .iter()
+        .filter(|d| d.code == "I004")
+        .collect();
+    assert!(
+        i004_diags.is_empty(),
+        "expected no I004 for 'feature', got: {:?}",
+        i004_diags
+    );
 
     // Graph should contain the feature node
     assert!(ctx.graph.node("my_feature").is_some());
@@ -61,8 +69,16 @@ fn test_pipeline_with_product_extension_runs_validation() {
     let ctx = specforge_emitter::compile::compile(dir.path());
 
     // Should have W077 for invalid feature status
-    let w077_diags: Vec<_> = ctx.diagnostics.iter().filter(|d| d.code == "W077").collect();
-    assert!(!w077_diags.is_empty(), "expected W077 for invalid status, diagnostics: {:?}", ctx.diagnostics);
+    let w077_diags: Vec<_> = ctx
+        .diagnostics
+        .iter()
+        .filter(|d| d.code == "W077")
+        .collect();
+    assert!(
+        !w077_diags.is_empty(),
+        "expected W077 for invalid status, diagnostics: {:?}",
+        ctx.diagnostics
+    );
 }
 
 #[test]
@@ -76,8 +92,16 @@ fn test_pipeline_with_product_extension_validates_priority() {
     let ctx = specforge_emitter::compile::compile(dir.path());
 
     // W078 should fire for invalid priority
-    let w078_diags: Vec<_> = ctx.diagnostics.iter().filter(|d| d.code == "W078").collect();
-    assert!(!w078_diags.is_empty(), "expected W078 for invalid priority, diagnostics: {:?}", ctx.diagnostics);
+    let w078_diags: Vec<_> = ctx
+        .diagnostics
+        .iter()
+        .filter(|d| d.code == "W078")
+        .collect();
+    assert!(
+        !w078_diags.is_empty(),
+        "expected W078 for invalid priority, diagnostics: {:?}",
+        ctx.diagnostics
+    );
 }
 
 #[test]
@@ -92,8 +116,16 @@ fn test_pipeline_with_product_extension_detects_orphans() {
     let ctx = specforge_emitter::compile::compile(dir.path());
 
     // W041 should fire for orphan feature (no incoming edges)
-    let w041_diags: Vec<_> = ctx.diagnostics.iter().filter(|d| d.code == "W041").collect();
-    assert!(!w041_diags.is_empty(), "expected W041 for orphan feature, diagnostics: {:?}", ctx.diagnostics);
+    let w041_diags: Vec<_> = ctx
+        .diagnostics
+        .iter()
+        .filter(|d| d.code == "W041")
+        .collect();
+    assert!(
+        !w041_diags.is_empty(),
+        "expected W041 for orphan feature, diagnostics: {:?}",
+        ctx.diagnostics
+    );
 }
 
 #[test]
@@ -107,14 +139,26 @@ fn test_pipeline_without_extension_no_extension_validation() {
     let ctx = specforge_emitter::compile::compile(dir.path());
 
     // No W077/W041 since no extension is loaded to provide those rules
-    let extension_diags: Vec<_> = ctx.diagnostics.iter().filter(|d| {
-        d.code.starts_with("W0") && d.code.len() == 4
-    }).collect();
+    let extension_diags: Vec<_> = ctx
+        .diagnostics
+        .iter()
+        .filter(|d| d.code.starts_with("W0") && d.code.len() == 4)
+        .collect();
     // Extension-specific warnings should not fire without the extension
-    let product_codes: Vec<_> = extension_diags.iter().filter(|d| {
-        matches!(d.code.as_str(), "W041" | "W042" | "W044" | "W077" | "W078" | "W079" | "W080")
-    }).collect();
-    assert!(product_codes.is_empty(), "expected no product extension diagnostics without extension, got: {:?}", product_codes);
+    let product_codes: Vec<_> = extension_diags
+        .iter()
+        .filter(|d| {
+            matches!(
+                d.code.as_str(),
+                "W041" | "W042" | "W044" | "W077" | "W078" | "W079" | "W080"
+            )
+        })
+        .collect();
+    assert!(
+        product_codes.is_empty(),
+        "expected no product extension diagnostics without extension, got: {:?}",
+        product_codes
+    );
 }
 
 #[test]
@@ -148,17 +192,21 @@ module mod1 "Module One" {
     assert!(!edges.is_empty(), "milestone m1 should have edges to f1");
 
     // f1 is referenced by m1 and mod1, so W041 (orphan feature) should NOT fire
-    let w041_diags: Vec<_> = ctx.diagnostics.iter()
+    let w041_diags: Vec<_> = ctx
+        .diagnostics
+        .iter()
         .filter(|d| d.code == "W041" && d.message.contains("f1"))
         .collect();
-    assert!(w041_diags.is_empty(), "f1 is referenced, should not be orphan: {:?}", w041_diags);
+    assert!(
+        w041_diags.is_empty(),
+        "f1 is referenced, should not be orphan: {:?}",
+        w041_diags
+    );
 }
 
 #[test]
 fn test_pipeline_registries_populated() {
-    let dir = setup_project_with_extension(
-        r#"feature f1 "Test" { status proposed }"#,
-    );
+    let dir = setup_project_with_extension(r#"feature f1 "Test" { status proposed }"#);
 
     let ctx = specforge_emitter::compile::compile(dir.path());
 
@@ -231,10 +279,16 @@ term spec "Specification" {
 
     let ctx = specforge_emitter::compile::compile(dir.path());
 
-    let errors: Vec<_> = ctx.diagnostics.iter()
+    let errors: Vec<_> = ctx
+        .diagnostics
+        .iter()
         .filter(|d| d.severity == specforge_common::Severity::Error)
         .collect();
-    assert!(errors.is_empty(), "expected zero errors for valid project, got: {:?}", errors);
+    assert!(
+        errors.is_empty(),
+        "expected zero errors for valid project, got: {:?}",
+        errors
+    );
 }
 
 #[test]
@@ -252,8 +306,16 @@ module mod_b "Module B" {
 
     let ctx = specforge_emitter::compile::compile(dir.path());
 
-    let e007_diags: Vec<_> = ctx.diagnostics.iter().filter(|d| d.code == "E007").collect();
-    assert!(!e007_diags.is_empty(), "expected E007 for module cycle, diagnostics: {:?}", ctx.diagnostics);
+    let e007_diags: Vec<_> = ctx
+        .diagnostics
+        .iter()
+        .filter(|d| d.code == "E007")
+        .collect();
+    assert!(
+        !e007_diags.is_empty(),
+        "expected E007 for module cycle, diagnostics: {:?}",
+        ctx.diagnostics
+    );
 }
 
 #[test]
@@ -273,8 +335,16 @@ module mod_c "Module C" {
 
     let ctx = specforge_emitter::compile::compile(dir.path());
 
-    let cycle_diags: Vec<_> = ctx.diagnostics.iter().filter(|d| d.code == "E007").collect();
-    assert!(cycle_diags.is_empty(), "expected no E007 for linear deps, got: {:?}", cycle_diags);
+    let cycle_diags: Vec<_> = ctx
+        .diagnostics
+        .iter()
+        .filter(|d| d.code == "E007")
+        .collect();
+    assert!(
+        cycle_diags.is_empty(),
+        "expected no E007 for linear deps, got: {:?}",
+        cycle_diags
+    );
 }
 
 #[test]
@@ -296,8 +366,16 @@ feature f2 "Feature 2" {
 
     let ctx = specforge_emitter::compile::compile(dir.path());
 
-    let w045_diags: Vec<_> = ctx.diagnostics.iter().filter(|d| d.code == "W045").collect();
-    assert!(!w045_diags.is_empty(), "expected W045 for feature cycle, diagnostics: {:?}", ctx.diagnostics);
+    let w045_diags: Vec<_> = ctx
+        .diagnostics
+        .iter()
+        .filter(|d| d.code == "W045")
+        .collect();
+    assert!(
+        !w045_diags.is_empty(),
+        "expected W045 for feature cycle, diagnostics: {:?}",
+        ctx.diagnostics
+    );
 }
 
 #[test]
@@ -311,8 +389,16 @@ fn test_pipeline_conditional_deferred_feature_without_reason() {
 
     let ctx = specforge_emitter::compile::compile(dir.path());
 
-    let i059_diags: Vec<_> = ctx.diagnostics.iter().filter(|d| d.code == "I059").collect();
-    assert!(!i059_diags.is_empty(), "expected I059 for deferred feature without reason, diagnostics: {:?}", ctx.diagnostics);
+    let i059_diags: Vec<_> = ctx
+        .diagnostics
+        .iter()
+        .filter(|d| d.code == "I059")
+        .collect();
+    assert!(
+        !i059_diags.is_empty(),
+        "expected I059 for deferred feature without reason, diagnostics: {:?}",
+        ctx.diagnostics
+    );
 }
 
 #[test]
@@ -327,8 +413,16 @@ fn test_pipeline_conditional_deferred_feature_with_reason_no_warning() {
 
     let ctx = specforge_emitter::compile::compile(dir.path());
 
-    let i059_diags: Vec<_> = ctx.diagnostics.iter().filter(|d| d.code == "I059").collect();
-    assert!(i059_diags.is_empty(), "expected no I059 when reason is present, got: {:?}", i059_diags);
+    let i059_diags: Vec<_> = ctx
+        .diagnostics
+        .iter()
+        .filter(|d| d.code == "I059")
+        .collect();
+    assert!(
+        i059_diags.is_empty(),
+        "expected no I059 when reason is present, got: {:?}",
+        i059_diags
+    );
 }
 
 #[test]
@@ -347,8 +441,16 @@ milestone m1 "Done Milestone" {
 
     let ctx = specforge_emitter::compile::compile(dir.path());
 
-    let w057_diags: Vec<_> = ctx.diagnostics.iter().filter(|d| d.code == "W057").collect();
-    assert!(!w057_diags.is_empty(), "expected W057 for completed milestone without exit_criteria, diagnostics: {:?}", ctx.diagnostics);
+    let w057_diags: Vec<_> = ctx
+        .diagnostics
+        .iter()
+        .filter(|d| d.code == "W057")
+        .collect();
+    assert!(
+        !w057_diags.is_empty(),
+        "expected W057 for completed milestone without exit_criteria, diagnostics: {:?}",
+        ctx.diagnostics
+    );
 }
 #[test]
 fn test_pipeline_e006_fires_for_missing_required_fields() {
@@ -366,14 +468,22 @@ journey broken_journey "Missing flow" {
 
     let ctx = specforge_emitter::compile::compile(dir.path());
 
-    let e006_diags: Vec<_> = ctx.diagnostics.iter()
+    let e006_diags: Vec<_> = ctx
+        .diagnostics
+        .iter()
         .filter(|d| d.code == "E006")
         .collect();
 
-    assert!(e006_diags.iter().any(|d| d.message.contains("problem")),
-        "Expected E006 for feature missing 'problem', got: {:?}", e006_diags);
-    assert!(e006_diags.iter().any(|d| d.message.contains("flow")),
-        "Expected E006 for journey missing 'flow', got: {:?}", e006_diags);
+    assert!(
+        e006_diags.iter().any(|d| d.message.contains("problem")),
+        "Expected E006 for feature missing 'problem', got: {:?}",
+        e006_diags
+    );
+    assert!(
+        e006_diags.iter().any(|d| d.message.contains("flow")),
+        "Expected E006 for journey missing 'flow', got: {:?}",
+        e006_diags
+    );
 }
 
 #[test]
@@ -394,8 +504,14 @@ journey j1 "Complete" {
 
     let ctx = specforge_emitter::compile::compile(dir.path());
 
-    let e006_diags: Vec<_> = ctx.diagnostics.iter()
+    let e006_diags: Vec<_> = ctx
+        .diagnostics
+        .iter()
         .filter(|d| d.code == "E006")
         .collect();
-    assert!(e006_diags.is_empty(), "Expected no E006 when required fields present, got: {:?}", e006_diags);
+    assert!(
+        e006_diags.is_empty(),
+        "Expected no E006 when required fields present, got: {:?}",
+        e006_diags
+    );
 }

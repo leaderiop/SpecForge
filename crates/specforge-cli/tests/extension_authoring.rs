@@ -30,8 +30,8 @@ fn extension_init_creates_manifest_json() {
     assert!(manifest_path.exists(), "manifest.json should be created");
 
     let content = fs::read_to_string(&manifest_path).unwrap();
-    let json: serde_json::Value = serde_json::from_str(&content)
-        .expect("manifest.json should be valid JSON");
+    let json: serde_json::Value =
+        serde_json::from_str(&content).expect("manifest.json should be valid JSON");
 
     assert_eq!(json["name"], "@local/test-ext");
     assert_eq!(json["version"], "0.1.0");

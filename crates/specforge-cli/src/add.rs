@@ -1,13 +1,11 @@
 use serde_json::json;
 use specforge_registry::{
-    HttpRegistryClient, RegistryConfig,
-    resolve_from_registry, resolve_version, verify_registry_integrity,
-    parse_registries_from_config,
+    HttpRegistryClient, RegistryConfig, parse_registries_from_config, resolve_from_registry,
+    resolve_version, verify_registry_integrity,
 };
 use specforge_wasm::{
-    install_extension, install_from_local,
-    read_lock_file, write_lock_file,
-    parse_extension_specifier,
+    install_extension, install_from_local, parse_extension_specifier, read_lock_file,
+    write_lock_file,
 };
 use std::path::Path;
 
@@ -65,7 +63,11 @@ fn install_from_registry(name: &str, version: &str, project_path: &Path, format:
         let msg = "no registries configured. Add a \"registries\" section to specforge.json or set a default registry.";
         match format {
             "json" => {
-                println!("{}", serde_json::to_string_pretty(&json!({"error": msg, "code": "R-OPS-001"})).unwrap());
+                println!(
+                    "{}",
+                    serde_json::to_string_pretty(&json!({"error": msg, "code": "R-OPS-001"}))
+                        .unwrap()
+                );
             }
             _ => eprintln!("error: {}", msg),
         }
@@ -75,7 +77,12 @@ fn install_from_registry(name: &str, version: &str, project_path: &Path, format:
     let client = HttpRegistryClient::new();
 
     // Resolve version range to a specific version
-    let resolved_version = if version == "latest" || version.starts_with('^') || version.starts_with('~') || version.starts_with('>') || version == "*" {
+    let resolved_version = if version == "latest"
+        || version.starts_with('^')
+        || version.starts_with('~')
+        || version.starts_with('>')
+        || version == "*"
+    {
         let registry = registries.first().unwrap();
         match resolve_version(name, version, &client, registry) {
             Ok(v) => v,
@@ -165,7 +172,11 @@ fn install_from_registry(name: &str, version: &str, project_path: &Path, format:
 
 fn install_local(local_path: &Path, project_path: &Path, format: &str) -> i32 {
     if !local_path.exists() {
-        print_error(format, &format!("file not found: {}", local_path.display()), "E028");
+        print_error(
+            format,
+            &format!("file not found: {}", local_path.display()),
+            "E028",
+        );
         return 1;
     }
 
@@ -257,16 +268,18 @@ fn update_specforge_json(config_path: &Path, name: &str, version: &str) {
         Err(_) => return,
     };
 
-    let extensions = json
-        .as_object_mut()
-        .and_then(|obj| obj.entry("extensions").or_insert_with(|| json!([])).as_array_mut());
+    let extensions = json.as_object_mut().and_then(|obj| {
+        obj.entry("extensions")
+            .or_insert_with(|| json!([]))
+            .as_array_mut()
+    });
 
     if let Some(exts) = extensions {
         let entry = format!("{}@{}", name, version);
-        if !exts.iter().any(|e| {
-            e.as_str()
-                .is_some_and(|s| s.starts_with(name))
-        }) {
+        if !exts
+            .iter()
+            .any(|e| e.as_str().is_some_and(|s| s.starts_with(name)))
+        {
             exts.push(json!(entry));
         }
     }

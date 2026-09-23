@@ -48,14 +48,12 @@ pub fn install_extension(
     // Clean up any leftover temp dir
     let _ = std::fs::remove_dir_all(&temp_dir);
 
-    std::fs::create_dir_all(&temp_dir).map_err(|e| {
-        Diagnostic {
-            code: "E033".to_string(),
-            severity: Severity::Error,
-            message: format!("failed to create temp directory for '{}': {}", name, e),
-            span: None,
-            suggestion: None,
-        }
+    std::fs::create_dir_all(&temp_dir).map_err(|e| Diagnostic {
+        code: "E033".to_string(),
+        severity: Severity::Error,
+        message: format!("failed to create temp directory for '{}': {}", name, e),
+        span: None,
+        suggestion: None,
     })?;
 
     let temp_wasm_path = temp_dir.join("extension.wasm");
@@ -145,7 +143,16 @@ pub fn install_from_local(
     let hash = hex_sha256(&wasm_bytes);
 
     // Use install_extension with the computed hash as expected (always matches)
-    install_extension(name, version, &wasm_bytes, &hash, extensions_dir, cache_dir, lock, skip_aot)
+    install_extension(
+        name,
+        version,
+        &wasm_bytes,
+        &hash,
+        extensions_dir,
+        cache_dir,
+        lock,
+        skip_aot,
+    )
 }
 
 /// Rollback: remove extension directory if it was partially created.

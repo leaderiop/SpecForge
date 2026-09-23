@@ -1,26 +1,26 @@
-mod query;
-mod validate;
-mod export;
-mod trace;
-mod search;
-mod schema;
 mod coverage;
-mod stats;
-mod inspect;
+mod export;
 mod find_definition;
-mod find_references;
-mod outline;
-mod outline_extensions;
-mod suggest_fixes;
-mod list;
-mod model;
 mod find_implementation;
+mod find_references;
 mod find_spec_for_source;
 mod infer_gaps;
 mod infer_progress;
 mod infer_session;
+mod inspect;
+mod list;
+mod model;
+mod outline;
+mod outline_extensions;
+mod query;
+mod schema;
+mod search;
+mod stats;
+mod suggest_fixes;
+mod trace;
+mod validate;
 
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 use specforge_registry::SurfaceType;
 
 use crate::protocol::{JsonRpcResponse, error_codes};
@@ -33,17 +33,31 @@ pub fn handle_tool_call(state: &mut McpState, params: Value, id: Option<Value>) 
 
     let name = match params.get("name").and_then(|v| v.as_str()) {
         Some(n) => n,
-        None => return JsonRpcResponse::error(id, error_codes::INVALID_PARAMS, "Missing required parameter: name"),
+        None => {
+            return JsonRpcResponse::error(
+                id,
+                error_codes::INVALID_PARAMS,
+                "Missing required parameter: name",
+            );
+        }
     };
 
-    let arguments = params.get("arguments").cloned().unwrap_or(Value::Object(Default::default()));
+    let arguments = params
+        .get("arguments")
+        .cloned()
+        .unwrap_or(Value::Object(Default::default()));
 
     state.push_event("mcp_tool_invoked", serde_json::json!({"tool": name}));
 
-    let is_mutation = matches!(name,
-        "specforge.format" | "specforge.rename" | "specforge.init"
-        | "specforge.add_extension" | "specforge.remove_extension" | "specforge.migrate"
-        | "specforge.infer_session"
+    let is_mutation = matches!(
+        name,
+        "specforge.format"
+            | "specforge.rename"
+            | "specforge.init"
+            | "specforge.add_extension"
+            | "specforge.remove_extension"
+            | "specforge.migrate"
+            | "specforge.infer_session"
     );
 
     let response = match name {
@@ -73,16 +87,22 @@ pub fn handle_tool_call(state: &mut McpState, params: Value, id: Option<Value>) 
         "specforge.find_implementation" => find_implementation::call(state, arguments, id),
         "specforge.find_spec_for_source" => find_spec_for_source::call(state, arguments, id),
         // Operations
-        "specforge.format" | "specforge.rename" | "specforge.init"
-        | "specforge.add_extension" | "specforge.remove_extension" | "specforge.migrate"
-        | "specforge.extensions" | "specforge.providers" | "specforge.doctor"
-        | "specforge.collect" | "specforge.render" => {
-            crate::operations::handle_operation(state, name, arguments, id)
-        }
+        "specforge.format"
+        | "specforge.rename"
+        | "specforge.init"
+        | "specforge.add_extension"
+        | "specforge.remove_extension"
+        | "specforge.migrate"
+        | "specforge.extensions"
+        | "specforge.providers"
+        | "specforge.doctor"
+        | "specforge.collect"
+        | "specforge.render" => crate::operations::handle_operation(state, name, arguments, id),
         _ => {
             // Check if this is a registered extension tool from surface contributions
             let is_extension_tool = state.surface_entries.iter().any(|e| {
-                (e.surface_type == SurfaceType::McpTool || e.surface_type == SurfaceType::AutoPromotedTool)
+                (e.surface_type == SurfaceType::McpTool
+                    || e.surface_type == SurfaceType::AutoPromotedTool)
                     && e.contribution_name == name
                     && e.enabled
             });
@@ -94,12 +114,19 @@ pub fn handle_tool_call(state: &mut McpState, params: Value, id: Option<Value>) 
                      Use specforge.list or specforge.query for graph-based queries instead.",
                     name
                 );
-                JsonRpcResponse::success(id, json!({
-                    "content": [{ "type": "text", "text": msg }],
-                    "isError": true,
-                }))
+                JsonRpcResponse::success(
+                    id,
+                    json!({
+                        "content": [{ "type": "text", "text": msg }],
+                        "isError": true,
+                    }),
+                )
             } else {
-                JsonRpcResponse::error(id, error_codes::METHOD_NOT_FOUND, format!("Unknown tool: {}", name))
+                JsonRpcResponse::error(
+                    id,
+                    error_codes::METHOD_NOT_FOUND,
+                    format!("Unknown tool: {}", name),
+                )
             }
         }
     };

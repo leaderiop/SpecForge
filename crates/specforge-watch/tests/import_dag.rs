@@ -1,5 +1,5 @@
-use specforge_watch::ImportDag;
 use specforge_test_macros::test as spec;
+use specforge_watch::ImportDag;
 
 // ── cycle detection ───────────────────────────────────────────
 
@@ -11,9 +11,15 @@ fn detect_direct_cycle_in_import_dag() {
     dag.set_imports("b.spec", vec!["a.spec".to_string()]);
 
     let cycles = dag.detect_cycles();
-    assert!(!cycles.is_empty(), "should detect cycle between a.spec and b.spec");
+    assert!(
+        !cycles.is_empty(),
+        "should detect cycle between a.spec and b.spec"
+    );
     // Both files should be in cycle participants
-    let flat: Vec<&str> = cycles.iter().flat_map(|c| c.iter().map(|s| s.as_str())).collect();
+    let flat: Vec<&str> = cycles
+        .iter()
+        .flat_map(|c| c.iter().map(|s| s.as_str()))
+        .collect();
     assert!(flat.contains(&"a.spec"));
     assert!(flat.contains(&"b.spec"));
 }
@@ -42,7 +48,10 @@ fn detect_transitive_cycle_in_import_dag() {
     assert!(!cycles.is_empty(), "should detect transitive cycle");
 }
 
-#[spec(behavior = "invalidate_changed_files", verify = "changed file is in invalidation set")]
+#[spec(
+    behavior = "invalidate_changed_files",
+    verify = "changed file is in invalidation set"
+)]
 #[test]
 fn changed_file_is_in_invalidation_set() {
     let mut dag = ImportDag::new();
@@ -52,7 +61,10 @@ fn changed_file_is_in_invalidation_set() {
     assert!(affected.contains("a.spec"));
 }
 
-#[spec(behavior = "invalidate_changed_files", verify = "direct importers are in invalidation set")]
+#[spec(
+    behavior = "invalidate_changed_files",
+    verify = "direct importers are in invalidation set"
+)]
 #[test]
 fn direct_importers_are_in_invalidation_set() {
     let mut dag = ImportDag::new();
@@ -64,7 +76,10 @@ fn direct_importers_are_in_invalidation_set() {
     assert!(affected.contains("b.spec"));
 }
 
-#[spec(behavior = "invalidate_changed_files", verify = "transitive importers are in invalidation set")]
+#[spec(
+    behavior = "invalidate_changed_files",
+    verify = "transitive importers are in invalidation set"
+)]
 #[test]
 fn transitive_importers_are_in_invalidation_set() {
     let mut dag = ImportDag::new();

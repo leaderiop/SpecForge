@@ -2,10 +2,10 @@ use specforge_common::Diagnostic;
 
 use crate::runtime::{WasmCallResult, WasmRuntime};
 
-use super::error::ProtocolError;
-use super::types::*;
 use super::PROTOCOL_VERSION;
 use super::SUPPORTED_CATEGORIES;
+use super::error::ProtocolError;
+use super::types::*;
 
 /// Host-side protocol handler that loads extensions via `__handshake` and `__describe` Wasm exports.
 /// Wraps a `WasmRuntime` and provides typed protocol operations.
@@ -25,10 +25,13 @@ impl<'a> ProtocolHost<'a> {
             host_version: PROTOCOL_VERSION.to_string(),
             supported_categories: SUPPORTED_CATEGORIES.iter().map(|s| s.to_string()).collect(),
         };
-        let request_json =
-            serde_json::to_vec(&request).map_err(|e| ProtocolError::HandshakeFailed(e.to_string()))?;
+        let request_json = serde_json::to_vec(&request)
+            .map_err(|e| ProtocolError::HandshakeFailed(e.to_string()))?;
 
-        match self.runtime.call_export(extension_name, "__handshake", &request_json) {
+        match self
+            .runtime
+            .call_export(extension_name, "__handshake", &request_json)
+        {
             WasmCallResult::Ok(response_bytes) => {
                 let response: HandshakeResponse =
                     serde_json::from_slice(&response_bytes).map_err(ProtocolError::from)?;
@@ -83,13 +86,16 @@ impl<'a> ProtocolHost<'a> {
         let request = DescribeRequest {
             category: category.to_string(),
         };
-        let request_json = serde_json::to_vec(&request)
-            .map_err(|e| ProtocolError::DescribeFailed {
+        let request_json =
+            serde_json::to_vec(&request).map_err(|e| ProtocolError::DescribeFailed {
                 category: category.to_string(),
                 reason: e.to_string(),
             })?;
 
-        match self.runtime.call_export(extension_name, "__describe", &request_json) {
+        match self
+            .runtime
+            .call_export(extension_name, "__describe", &request_json)
+        {
             WasmCallResult::Ok(response_bytes) => {
                 let response: DescribeResponse =
                     serde_json::from_slice(&response_bytes).map_err(ProtocolError::from)?;
@@ -142,7 +148,9 @@ impl<'a> ProtocolHost<'a> {
 
         // Always request surfaces, passes, and feature_flags if extension declares any
         if flags.entities || flags.validators || flags.collectors {
-            if let Ok(surfaces_vec) = self.describe_typed::<SurfaceDescriptor>(extension_name, "surfaces") {
+            if let Ok(surfaces_vec) =
+                self.describe_typed::<SurfaceDescriptor>(extension_name, "surfaces")
+            {
                 descs.surfaces = surfaces_vec.into_iter().next();
             }
             descs.passes = self.describe_typed(extension_name, "passes")?;

@@ -37,7 +37,9 @@ pub fn compute_stats_with_diagnostics(
     let testable_set: HashSet<&str> = testable_kinds.iter().copied().collect();
 
     for node in graph.nodes() {
-        *entities_by_kind.entry(node.kind.raw.to_string()).or_insert(0) += 1;
+        *entities_by_kind
+            .entry(node.kind.raw.to_string())
+            .or_insert(0) += 1;
 
         let is_verified = matches!(
             node.fields.get("verify"),

@@ -27,7 +27,10 @@ pub fn build_graph(spec_files: &[SpecFile]) -> (Graph, Vec<Diagnostic>) {
 }
 
 #[must_use = "diagnostics should be checked for errors"]
-pub fn build_graph_with_config(spec_files: &[SpecFile], config: &GraphConfig) -> (Graph, Vec<Diagnostic>) {
+pub fn build_graph_with_config(
+    spec_files: &[SpecFile],
+    config: &GraphConfig,
+) -> (Graph, Vec<Diagnostic>) {
     let mut graph = Graph::with_bidirectional_pairs(config.bidirectional_pairs.clone());
     let mut diagnostics = Vec::new();
 
@@ -117,9 +120,7 @@ pub fn build_graph_with_config(spec_files: &[SpecFile], config: &GraphConfig) ->
                             ),
                         )
                         .with_span(entity.span.clone())
-                        .with_suggestion(format!(
-                            "install it with: specforge add {}", extension
-                        )),
+                        .with_suggestion(format!("install it with: specforge add {}", extension)),
                     );
                 }
             }

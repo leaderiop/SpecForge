@@ -1,8 +1,8 @@
+use serde_json::{Value, json};
 use specforge_mcp::McpServer;
 use specforge_test::prelude::*;
-use serde_json::{json, Value};
-use tempfile::TempDir;
 use std::fs;
+use tempfile::TempDir;
 
 fn call(server: &mut McpServer, method: &str, params: Value) -> Value {
     let req = json!({"jsonrpc": "2.0", "id": 1, "method": method, "params": params});
@@ -32,34 +32,60 @@ feature greeting "Greeting Feature" {
     behaviors [hello_world]
 }
 "#,
-    ).unwrap();
+    )
+    .unwrap();
 
     let mut server = McpServer::new();
     let project_root = dir.path().to_str().unwrap();
-    call(&mut server, "initialize", json!({"projectRoot": project_root}));
+    call(
+        &mut server,
+        "initialize",
+        json!({"projectRoot": project_root}),
+    );
     (server, dir)
 }
 
 // B:mcp_initialize — verify unit "returns MCP-compliant init response"
 #[test]
-#[specforge_test(behavior = "mcp_initialize", verify = "returns MCP-compliant init response")]
+#[specforge_test(
+    behavior = "mcp_initialize",
+    verify = "returns MCP-compliant init response"
+)]
 fn initialize_returns_capabilities() {
     let mut server = McpServer::new();
     let resp = call(&mut server, "initialize", json!({}));
     let result = &resp["result"];
 
     // MCP-standard fields
-    assert!(result["protocolVersion"].is_string(), "must have protocolVersion");
-    assert!(result["capabilities"].is_object(), "must have capabilities object");
-    assert!(result["serverInfo"].is_object(), "must have serverInfo object");
+    assert!(
+        result["protocolVersion"].is_string(),
+        "must have protocolVersion"
+    );
+    assert!(
+        result["capabilities"].is_object(),
+        "must have capabilities object"
+    );
+    assert!(
+        result["serverInfo"].is_object(),
+        "must have serverInfo object"
+    );
     assert_eq!(result["serverInfo"]["name"], "specforge-mcp");
     assert!(result["serverInfo"]["version"].is_string());
 
     // Capabilities declares supported categories
     let caps = &result["capabilities"];
-    assert!(caps["tools"].is_object(), "capabilities must declare tools support");
-    assert!(caps["resources"].is_object(), "capabilities must declare resources support");
-    assert!(caps["prompts"].is_object(), "capabilities must declare prompts support");
+    assert!(
+        caps["tools"].is_object(),
+        "capabilities must declare tools support"
+    );
+    assert!(
+        caps["resources"].is_object(),
+        "capabilities must declare resources support"
+    );
+    assert!(
+        caps["prompts"].is_object(),
+        "capabilities must declare prompts support"
+    );
 
     // Convenience arrays still present for backwards compat
     assert!(result["tools"].is_array());
@@ -69,7 +95,10 @@ fn initialize_returns_capabilities() {
 
 // B:mcp_initialize — verify unit "registers tools"
 #[test]
-#[specforge_test(behavior = "mcp_initialize", verify = "all core tools registered before accepting requests")]
+#[specforge_test(
+    behavior = "mcp_initialize",
+    verify = "all core tools registered before accepting requests"
+)]
 fn initialize_registers_tools() {
     let mut server = McpServer::new();
     let resp = call(&mut server, "initialize", json!({}));
@@ -86,35 +115,50 @@ fn initialize_registers_tools() {
 
 // B:mcp_initialize — verify unit "registers resources"
 #[test]
-#[specforge_test(behavior = "mcp_initialize", verify = "all core resources registered before accepting requests")]
+#[specforge_test(
+    behavior = "mcp_initialize",
+    verify = "all core resources registered before accepting requests"
+)]
 fn initialize_registers_resources() {
     let mut server = McpServer::new();
     let resp = call(&mut server, "initialize", json!({}));
     let resources = resp["result"]["resources"].as_array().unwrap();
     assert!(!resources.is_empty());
 
-    let uris: Vec<&str> = resources.iter().map(|r| r["uri"].as_str().unwrap()).collect();
+    let uris: Vec<&str> = resources
+        .iter()
+        .map(|r| r["uri"].as_str().unwrap())
+        .collect();
     assert!(uris.contains(&"specforge://graph"));
     assert!(uris.contains(&"specforge://diagnostics"));
 }
 
 // B:mcp_initialize — verify unit "registers prompts"
 #[test]
-#[specforge_test(behavior = "mcp_initialize", verify = "initialization registers all tools from installed extensions")]
+#[specforge_test(
+    behavior = "mcp_initialize",
+    verify = "initialization registers all tools from installed extensions"
+)]
 fn initialize_registers_prompts() {
     let mut server = McpServer::new();
     let resp = call(&mut server, "initialize", json!({}));
     let prompts = resp["result"]["prompts"].as_array().unwrap();
     assert!(!prompts.is_empty());
 
-    let names: Vec<&str> = prompts.iter().map(|p| p["name"].as_str().unwrap()).collect();
+    let names: Vec<&str> = prompts
+        .iter()
+        .map(|p| p["name"].as_str().unwrap())
+        .collect();
     assert!(names.contains(&"specforge://prompts/context"));
     assert!(names.contains(&"specforge://prompts/review"));
 }
 
 // B:mcp_initialize — verify unit "compiles project when projectRoot is provided"
 #[test]
-#[specforge_test(behavior = "mcp_initialize", verify = "compiles project when projectRoot is provided")]
+#[specforge_test(
+    behavior = "mcp_initialize",
+    verify = "compiles project when projectRoot is provided"
+)]
 fn initialize_compiles_project() {
     let (server, _dir) = init_server_with_project();
     assert!(server.state().graph.node_count() > 0);
@@ -122,7 +166,10 @@ fn initialize_compiles_project() {
 
 // B:mcp_shutdown — verify unit "clears state on shutdown"
 #[test]
-#[specforge_test(behavior = "mcp_shutdown", verify = "shutdown unsubscribes all active subscriptions")]
+#[specforge_test(
+    behavior = "mcp_shutdown",
+    verify = "shutdown unsubscribes all active subscriptions"
+)]
 fn shutdown_clears_state() {
     let mut server = init_server();
     let resp = call(&mut server, "shutdown", json!({}));
@@ -132,7 +179,10 @@ fn shutdown_clears_state() {
 
 // B:mcp_shutdown — verify unit "returns success response"
 #[test]
-#[specforge_test(behavior = "mcp_shutdown", verify = "shutdown completes within 5 seconds")]
+#[specforge_test(
+    behavior = "mcp_shutdown",
+    verify = "shutdown completes within 5 seconds"
+)]
 fn shutdown_returns_success() {
     let mut server = init_server();
     let resp = call(&mut server, "shutdown", json!({}));
@@ -142,7 +192,10 @@ fn shutdown_returns_success() {
 
 // B:mcp_shutdown — verify unit "rejects calls after shutdown"
 #[test]
-#[specforge_test(behavior = "mcp_shutdown", verify = "shutdown rejects new tool calls during teardown")]
+#[specforge_test(
+    behavior = "mcp_shutdown",
+    verify = "shutdown rejects new tool calls during teardown"
+)]
 fn rejects_calls_after_shutdown() {
     let mut server = init_server();
     call(&mut server, "shutdown", json!({}));
@@ -152,7 +205,10 @@ fn rejects_calls_after_shutdown() {
 
 // B:mcp_shutdown — verify unit "double shutdown returns error"
 #[test]
-#[specforge_test(behavior = "mcp_shutdown", verify = "shutdown releases Wasm engine instances")]
+#[specforge_test(
+    behavior = "mcp_shutdown",
+    verify = "shutdown releases Wasm engine instances"
+)]
 fn double_shutdown_returns_error() {
     let mut server = init_server();
     call(&mut server, "shutdown", json!({}));
@@ -162,7 +218,10 @@ fn double_shutdown_returns_error() {
 
 // B:guard_mcp_reinitialization — verify unit "duplicate initialize returns -32600"
 #[test]
-#[specforge_test(behavior = "guard_mcp_reinitialization", verify = "second initialize request returns -32600 error")]
+#[specforge_test(
+    behavior = "guard_mcp_reinitialization",
+    verify = "second initialize request returns -32600 error"
+)]
 fn duplicate_initialize_returns_error() {
     let mut server = init_server();
     let resp = call(&mut server, "initialize", json!({}));
@@ -171,7 +230,10 @@ fn duplicate_initialize_returns_error() {
 
 // B:guard_mcp_reinitialization — verify unit "can reinitialize after shutdown"
 #[test]
-#[specforge_test(behavior = "guard_mcp_reinitialization", verify = "can reinitialize after shutdown")]
+#[specforge_test(
+    behavior = "guard_mcp_reinitialization",
+    verify = "can reinitialize after shutdown"
+)]
 fn can_reinitialize_after_shutdown() {
     let mut server = init_server();
     call(&mut server, "shutdown", json!({}));
@@ -186,7 +248,10 @@ fn can_reinitialize_after_shutdown() {
 
 // B:list_mcp_tools — verify unit "returns registered tool descriptors"
 #[test]
-#[specforge_test(behavior = "list_mcp_tools", verify = "returns all registered tool descriptors after extension load")]
+#[specforge_test(
+    behavior = "list_mcp_tools",
+    verify = "returns all registered tool descriptors after extension load"
+)]
 fn list_tools_returns_descriptors() {
     let mut server = init_server();
     let resp = call(&mut server, "tools/list", json!({}));
@@ -208,7 +273,8 @@ fn tools_have_categories() {
     let resp = call(&mut server, "tools/list", json!({}));
     let tools = resp["result"]["tools"].as_array().unwrap();
 
-    let categories: Vec<&str> = tools.iter()
+    let categories: Vec<&str> = tools
+        .iter()
         .filter_map(|t| t["category"].as_str())
         .collect();
     assert!(categories.contains(&"core"));
@@ -219,7 +285,10 @@ fn tools_have_categories() {
 
 // B:list_mcp_tools — verify unit "returns error when not initialized"
 #[test]
-#[specforge_test(behavior = "list_mcp_tools", verify = "returns error when not initialized")]
+#[specforge_test(
+    behavior = "list_mcp_tools",
+    verify = "returns error when not initialized"
+)]
 fn list_tools_error_when_not_initialized() {
     let mut server = McpServer::new();
     let resp = call(&mut server, "tools/list", json!({}));
@@ -228,7 +297,10 @@ fn list_tools_error_when_not_initialized() {
 
 // B:list_mcp_resources — verify unit "returns registered resource descriptors"
 #[test]
-#[specforge_test(behavior = "list_mcp_resources", verify = "returns all registered resource descriptors after extension load")]
+#[specforge_test(
+    behavior = "list_mcp_resources",
+    verify = "returns all registered resource descriptors after extension load"
+)]
 fn list_resources_returns_descriptors() {
     let mut server = init_server();
     let resp = call(&mut server, "resources/list", json!({}));
@@ -243,7 +315,10 @@ fn list_resources_returns_descriptors() {
 
 // B:list_mcp_resources — verify unit "returns error when not initialized"
 #[test]
-#[specforge_test(behavior = "list_mcp_resources", verify = "returns error when not initialized")]
+#[specforge_test(
+    behavior = "list_mcp_resources",
+    verify = "returns error when not initialized"
+)]
 fn list_resources_error_when_not_initialized() {
     let mut server = McpServer::new();
     let resp = call(&mut server, "resources/list", json!({}));
@@ -252,7 +327,10 @@ fn list_resources_error_when_not_initialized() {
 
 // B:list_mcp_prompts — verify unit "returns registered prompt descriptors"
 #[test]
-#[specforge_test(behavior = "list_mcp_prompts", verify = "returns all registered prompt descriptors after extension load")]
+#[specforge_test(
+    behavior = "list_mcp_prompts",
+    verify = "returns all registered prompt descriptors after extension load"
+)]
 fn list_prompts_returns_descriptors() {
     let mut server = init_server();
     let resp = call(&mut server, "prompts/list", json!({}));
@@ -267,7 +345,10 @@ fn list_prompts_returns_descriptors() {
 
 // B:list_mcp_prompts — verify unit "returns error when not initialized"
 #[test]
-#[specforge_test(behavior = "list_mcp_prompts", verify = "returns error when not initialized")]
+#[specforge_test(
+    behavior = "list_mcp_prompts",
+    verify = "returns error when not initialized"
+)]
 fn list_prompts_error_when_not_initialized() {
     let mut server = McpServer::new();
     let resp = call(&mut server, "prompts/list", json!({}));
@@ -276,27 +357,47 @@ fn list_prompts_error_when_not_initialized() {
 
 // B:mcp_initialize — verify unit "initialization rejects tool calls before completion"
 #[test]
-#[specforge_test(behavior = "mcp_initialize", verify = "initialization rejects tool calls before completion")]
+#[specforge_test(
+    behavior = "mcp_initialize",
+    verify = "initialization rejects tool calls before completion"
+)]
 fn initialize_rejects_tool_calls_before_completion() {
     let mut server = McpServer::new();
     // Server is not initialized yet — tool calls should be rejected
-    let resp = call(&mut server, "tools/call", json!({"name": "specforge.query", "arguments": {}}));
+    let resp = call(
+        &mut server,
+        "tools/call",
+        json!({"name": "specforge.query", "arguments": {}}),
+    );
     assert!(resp["error"].is_object());
 }
 
 // B:mcp_shutdown — verify unit "shutdown flushes pending notifications"
 #[test]
-#[specforge_test(behavior = "mcp_shutdown", verify = "shutdown flushes pending notifications")]
+#[specforge_test(
+    behavior = "mcp_shutdown",
+    verify = "shutdown flushes pending notifications"
+)]
 fn shutdown_events_recorded() {
     let mut server = init_server();
     call(&mut server, "shutdown", json!({}));
-    let has_shutdown_event = server.state().events.iter().any(|e| e.name == "mcp_server_shutdown");
-    assert!(has_shutdown_event, "expected mcp_server_shutdown event in events log");
+    let has_shutdown_event = server
+        .state()
+        .events
+        .iter()
+        .any(|e| e.name == "mcp_server_shutdown");
+    assert!(
+        has_shutdown_event,
+        "expected mcp_server_shutdown event in events log"
+    );
 }
 
 // B:guard_mcp_reinitialization — verify unit "existing session continues after rejected reinit"
 #[test]
-#[specforge_test(behavior = "guard_mcp_reinitialization", verify = "existing session continues after rejected reinit")]
+#[specforge_test(
+    behavior = "guard_mcp_reinitialization",
+    verify = "existing session continues after rejected reinit"
+)]
 fn reinit_rejected_session_continues() {
     let (mut server, _dir) = init_server_with_project();
     // Attempt duplicate init — should be rejected
@@ -308,7 +409,10 @@ fn reinit_rejected_session_continues() {
 
 // B:guard_mcp_reinitialization — verify unit "no resources leaked on rejected reinit"
 #[test]
-#[specforge_test(behavior = "guard_mcp_reinitialization", verify = "no resources leaked on rejected reinit")]
+#[specforge_test(
+    behavior = "guard_mcp_reinitialization",
+    verify = "no resources leaked on rejected reinit"
+)]
 fn reinit_rejected_no_resource_leak() {
     let mut server = init_server();
     let tools_before = server.state().tool_registry.len();
@@ -327,7 +431,10 @@ fn reinit_rejected_no_resource_leak() {
 
 // B:list_mcp_tools — verify unit "returns core-provided descriptors when no extensions"
 #[test]
-#[specforge_test(behavior = "list_mcp_tools", verify = "returns core-provided descriptors when no extensions")]
+#[specforge_test(
+    behavior = "list_mcp_tools",
+    verify = "returns core-provided descriptors when no extensions"
+)]
 fn list_tools_core_descriptors_no_extensions() {
     let mut server = init_server();
     let resp = call(&mut server, "tools/list", json!({}));
@@ -346,7 +453,10 @@ fn list_tools_core_descriptors_no_extensions() {
 
 // B:list_mcp_tools — verify unit "reflects tools from newly loaded extension"
 #[test]
-#[specforge_test(behavior = "list_mcp_tools", verify = "reflects tools from newly loaded extension")]
+#[specforge_test(
+    behavior = "list_mcp_tools",
+    verify = "reflects tools from newly loaded extension"
+)]
 fn list_tools_reflects_extension_tools() {
     let mut server = init_server();
     let resp = call(&mut server, "tools/list", json!({}));
@@ -357,12 +467,18 @@ fn list_tools_reflects_extension_tools() {
 
 // B:list_mcp_resources — verify unit "returns core-provided descriptors when no extensions"
 #[test]
-#[specforge_test(behavior = "list_mcp_resources", verify = "returns core-provided descriptors when no extensions")]
+#[specforge_test(
+    behavior = "list_mcp_resources",
+    verify = "returns core-provided descriptors when no extensions"
+)]
 fn list_resources_core_descriptors_no_extensions() {
     let mut server = init_server();
     let resp = call(&mut server, "resources/list", json!({}));
     let resources = resp["result"]["resources"].as_array().unwrap();
-    let uris: Vec<&str> = resources.iter().map(|r| r["uri"].as_str().unwrap()).collect();
+    let uris: Vec<&str> = resources
+        .iter()
+        .map(|r| r["uri"].as_str().unwrap())
+        .collect();
 
     assert!(uris.contains(&"specforge://graph"));
     assert!(uris.contains(&"specforge://diagnostics"));
@@ -370,7 +486,10 @@ fn list_resources_core_descriptors_no_extensions() {
 
 // B:list_mcp_resources — verify unit "reflects resources from newly loaded extension"
 #[test]
-#[specforge_test(behavior = "list_mcp_resources", verify = "reflects resources from newly loaded extension")]
+#[specforge_test(
+    behavior = "list_mcp_resources",
+    verify = "reflects resources from newly loaded extension"
+)]
 fn list_resources_reflects_extension_resources() {
     let mut server = init_server();
     let resp = call(&mut server, "resources/list", json!({}));
@@ -381,12 +500,18 @@ fn list_resources_reflects_extension_resources() {
 
 // B:list_mcp_prompts — verify unit "returns core-provided descriptors when no extensions"
 #[test]
-#[specforge_test(behavior = "list_mcp_prompts", verify = "returns core-provided descriptors when no extensions")]
+#[specforge_test(
+    behavior = "list_mcp_prompts",
+    verify = "returns core-provided descriptors when no extensions"
+)]
 fn list_prompts_core_descriptors_no_extensions() {
     let mut server = init_server();
     let resp = call(&mut server, "prompts/list", json!({}));
     let prompts = resp["result"]["prompts"].as_array().unwrap();
-    let names: Vec<&str> = prompts.iter().map(|p| p["name"].as_str().unwrap()).collect();
+    let names: Vec<&str> = prompts
+        .iter()
+        .map(|p| p["name"].as_str().unwrap())
+        .collect();
 
     assert!(names.contains(&"specforge://prompts/context"));
     assert!(names.contains(&"specforge://prompts/review"));
@@ -396,7 +521,10 @@ fn list_prompts_core_descriptors_no_extensions() {
 
 // B:list_mcp_prompts — verify unit "reflects prompts from newly loaded extension"
 #[test]
-#[specforge_test(behavior = "list_mcp_prompts", verify = "reflects prompts from newly loaded extension")]
+#[specforge_test(
+    behavior = "list_mcp_prompts",
+    verify = "reflects prompts from newly loaded extension"
+)]
 fn list_prompts_reflects_extension_prompts() {
     let mut server = init_server();
     let resp = call(&mut server, "prompts/list", json!({}));
@@ -407,7 +535,10 @@ fn list_prompts_reflects_extension_prompts() {
 
 // B:handle_mcp_request_cancellation — verify unit "server state remains consistent"
 #[test]
-#[specforge_test(behavior = "handle_mcp_request_cancellation", verify = "server state remains consistent")]
+#[specforge_test(
+    behavior = "handle_mcp_request_cancellation",
+    verify = "server state remains consistent"
+)]
 fn cancel_state_consistent() {
     let mut server = init_server();
     // Cancel a non-existent request
@@ -419,7 +550,10 @@ fn cancel_state_consistent() {
 
 // B:handle_mcp_request_cancellation — verify unit "cancel returns acknowledgment for long-running operations"
 #[test]
-#[specforge_test(behavior = "handle_mcp_request_cancellation", verify = "cancel returns acknowledgment for long-running operations")]
+#[specforge_test(
+    behavior = "handle_mcp_request_cancellation",
+    verify = "cancel returns acknowledgment for long-running operations"
+)]
 fn cancel_long_running_acknowledgment() {
     let mut server = init_server();
     // Simulate cancellation of a hypothetical long-running request
@@ -433,7 +567,10 @@ fn cancel_long_running_acknowledgment() {
 
 // B:handle_mcp_request_cancellation — verify unit "cancellation of in-progress request stops operation"
 #[test]
-#[specforge_test(behavior = "handle_mcp_request_cancellation", verify = "cancellation of in-progress request stops operation")]
+#[specforge_test(
+    behavior = "handle_mcp_request_cancellation",
+    verify = "cancellation of in-progress request stops operation"
+)]
 fn cancel_in_progress_best_effort() {
     let mut server = init_server();
     // Best-effort cancel: synchronous server cannot truly cancel in-progress work,
@@ -445,68 +582,110 @@ fn cancel_in_progress_best_effort() {
 
 // B:handle_mcp_request_cancellation — verify unit "server state remains consistent after cancellation"
 #[test]
-#[specforge_test(behavior = "handle_mcp_request_cancellation", verify = "server state remains consistent after cancellation")]
+#[specforge_test(
+    behavior = "handle_mcp_request_cancellation",
+    verify = "server state remains consistent after cancellation"
+)]
 fn cancel_server_state_consistent() {
     let mut server = init_server();
     // Cancel a request
     let _cancel = call(&mut server, "$/cancelRequest", json!({"id": 99}));
     // Server should remain fully functional — tools, resources, prompts all available
     let tools_resp = call(&mut server, "tools/list", json!({}));
-    assert!(tools_resp["result"]["tools"].is_array(), "tools must still be listable after cancel");
+    assert!(
+        tools_resp["result"]["tools"].is_array(),
+        "tools must still be listable after cancel"
+    );
     let resources_resp = call(&mut server, "resources/list", json!({}));
-    assert!(resources_resp["result"]["resources"].is_array(), "resources must still be listable after cancel");
+    assert!(
+        resources_resp["result"]["resources"].is_array(),
+        "resources must still be listable after cancel"
+    );
     let prompts_resp = call(&mut server, "prompts/list", json!({}));
-    assert!(prompts_resp["result"]["prompts"].is_array(), "prompts must still be listable after cancel");
+    assert!(
+        prompts_resp["result"]["prompts"].is_array(),
+        "prompts must still be listable after cancel"
+    );
 }
 
 // B:list_mcp_resources — verify unit "returns core-provided descriptors when no extensions installed"
 #[test]
-#[specforge_test(behavior = "list_mcp_resources", verify = "returns core-provided descriptors when no extensions installed")]
+#[specforge_test(
+    behavior = "list_mcp_resources",
+    verify = "returns core-provided descriptors when no extensions installed"
+)]
 fn list_resources_core_only() {
     let mut server = init_server();
     // No extensions installed — should still return core resources
     let resp = call(&mut server, "resources/list", json!({}));
     let resources = resp["result"]["resources"].as_array().unwrap();
-    assert!(!resources.is_empty(), "core resources must be provided even without extensions");
+    assert!(
+        !resources.is_empty(),
+        "core resources must be provided even without extensions"
+    );
 }
 
 // B:list_mcp_tools — verify unit "returns core-provided descriptors when no extensions installed"
 #[test]
-#[specforge_test(behavior = "list_mcp_tools", verify = "returns core-provided descriptors when no extensions installed")]
+#[specforge_test(
+    behavior = "list_mcp_tools",
+    verify = "returns core-provided descriptors when no extensions installed"
+)]
 fn list_tools_core_only() {
     let mut server = init_server();
     let resp = call(&mut server, "tools/list", json!({}));
     let tools = resp["result"]["tools"].as_array().unwrap();
-    assert!(!tools.is_empty(), "core tools must be provided even without extensions");
+    assert!(
+        !tools.is_empty(),
+        "core tools must be provided even without extensions"
+    );
 }
 
 // B:list_mcp_prompts — verify unit "returns core-provided descriptors when no extensions installed"
 #[test]
-#[specforge_test(behavior = "list_mcp_prompts", verify = "returns core-provided descriptors when no extensions installed")]
+#[specforge_test(
+    behavior = "list_mcp_prompts",
+    verify = "returns core-provided descriptors when no extensions installed"
+)]
 fn list_prompts_core_only() {
     let mut server = init_server();
     let resp = call(&mut server, "prompts/list", json!({}));
     let prompts = resp["result"]["prompts"].as_array().unwrap();
-    assert!(!prompts.is_empty(), "core prompts must be provided even without extensions");
+    assert!(
+        !prompts.is_empty(),
+        "core prompts must be provided even without extensions"
+    );
 }
 
 // B:guard_mcp_reinitialization — verify unit "existing session continues after rejected reinitialization"
 #[test]
-#[specforge_test(behavior = "guard_mcp_reinitialization", verify = "existing session continues after rejected reinitialization")]
+#[specforge_test(
+    behavior = "guard_mcp_reinitialization",
+    verify = "existing session continues after rejected reinitialization"
+)]
 fn reinit_existing_session_continues() {
     let mut server = init_server();
     // Try to initialize again
     let resp2 = call(&mut server, "initialize", json!({}));
     // Should be rejected
-    assert!(resp2["error"].is_object(), "second initialize should be rejected");
+    assert!(
+        resp2["error"].is_object(),
+        "second initialize should be rejected"
+    );
     // But existing session should still work
     let tools_resp = call(&mut server, "tools/list", json!({}));
-    assert!(tools_resp["result"]["tools"].is_array(), "session must continue after rejected reinit");
+    assert!(
+        tools_resp["result"]["tools"].is_array(),
+        "session must continue after rejected reinit"
+    );
 }
 
 // B:guard_mcp_reinitialization — verify unit "no resources leaked on rejected reinitialization"
 #[test]
-#[specforge_test(behavior = "guard_mcp_reinitialization", verify = "no resources leaked on rejected reinitialization")]
+#[specforge_test(
+    behavior = "guard_mcp_reinitialization",
+    verify = "no resources leaked on rejected reinitialization"
+)]
 fn reinit_no_resource_leak() {
     let mut server = init_server();
     // Get initial state
@@ -517,5 +696,8 @@ fn reinit_no_resource_leak() {
     // Verify no resource duplication
     let tools2 = call(&mut server, "tools/list", json!({}));
     let count2 = tools2["result"]["tools"].as_array().unwrap().len();
-    assert_eq!(count1, count2, "tool count must not change after rejected reinit (no leaks)");
+    assert_eq!(
+        count1, count2,
+        "tool count must not change after rejected reinit (no leaks)"
+    );
 }

@@ -65,15 +65,25 @@ impl Default for FieldMap {
 
 impl FieldMap {
     pub fn new() -> Self {
-        Self { entries: Vec::new() }
+        Self {
+            entries: Vec::new(),
+        }
     }
 
     pub fn push(&mut self, key: Sym, value: FieldValue) {
-        self.entries.push(FieldEntry { key, value, annotations: Vec::new() });
+        self.entries.push(FieldEntry {
+            key,
+            value,
+            annotations: Vec::new(),
+        });
     }
 
     pub fn push_annotated(&mut self, key: Sym, value: FieldValue, annotations: Vec<Annotation>) {
-        self.entries.push(FieldEntry { key, value, annotations });
+        self.entries.push(FieldEntry {
+            key,
+            value,
+            annotations,
+        });
     }
 
     pub fn get(&self, key: &str) -> Option<&FieldValue> {
@@ -131,7 +141,6 @@ pub struct ParseError {
 
 impl From<&ParseError> for specforge_common::Diagnostic {
     fn from(err: &ParseError) -> Self {
-        specforge_common::Diagnostic::error("E001", &err.message)
-            .with_span(err.span.clone())
+        specforge_common::Diagnostic::error("E001", &err.message).with_span(err.span.clone())
     }
 }

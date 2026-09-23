@@ -16,7 +16,9 @@ fn span() -> SourceSpan {
 fn node(id: &str, kind: &str) -> Node {
     Node {
         id: EntityId { raw: Sym::new(id) },
-        kind: EntityKind { raw: Sym::new(kind) },
+        kind: EntityKind {
+            raw: Sym::new(kind),
+        },
         title: Some(format!("Title {}", id)),
         fields: FieldMap::new(),
         source_span: span(),
@@ -30,15 +32,30 @@ fn build_linear_graph() -> Graph {
     graph.add_node(node("b", "behavior"));
     graph.add_node(node("c", "invariant"));
     graph.add_node(node("d", "event"));
-    graph.add_edge(Edge { source: "a".into(), target: "b".into(), label: "behaviors".into() });
-    graph.add_edge(Edge { source: "b".into(), target: "c".into(), label: "invariants".into() });
-    graph.add_edge(Edge { source: "c".into(), target: "d".into(), label: "produces".into() });
+    graph.add_edge(Edge {
+        source: "a".into(),
+        target: "b".into(),
+        label: "behaviors".into(),
+    });
+    graph.add_edge(Edge {
+        source: "b".into(),
+        target: "c".into(),
+        label: "invariants".into(),
+    });
+    graph.add_edge(Edge {
+        source: "c".into(),
+        target: "d".into(),
+        label: "produces".into(),
+    });
     graph
 }
 
 // B:query_graph_multi_resolution — verify unit "depth 0 returns only the target entity"
 #[test]
-#[specforge_test(behavior = "query_graph_multi_resolution", verify = "depth 0 returns only the target entity")]
+#[specforge_test(
+    behavior = "query_graph_multi_resolution",
+    verify = "depth 0 returns only the target entity"
+)]
 fn depth_0_returns_only_target_entity() {
     let graph = build_linear_graph();
     let result = specforge_emitter::query(&graph, "b", 0, &[]);
@@ -50,7 +67,10 @@ fn depth_0_returns_only_target_entity() {
 
 // B:query_graph_multi_resolution — verify unit "depth 1 returns direct neighbors"
 #[test]
-#[specforge_test(behavior = "query_graph_multi_resolution", verify = "depth 1 returns direct neighbors")]
+#[specforge_test(
+    behavior = "query_graph_multi_resolution",
+    verify = "depth 1 returns direct neighbors"
+)]
 fn depth_1_returns_direct_neighbors() {
     let graph = build_linear_graph();
     let result = specforge_emitter::query(&graph, "b", 1, &[]);
@@ -66,7 +86,10 @@ fn depth_1_returns_direct_neighbors() {
 
 // B:query_graph_multi_resolution — verify unit "depth N returns all entities within N hops"
 #[test]
-#[specforge_test(behavior = "query_graph_multi_resolution", verify = "depth N returns all entities within N hops")]
+#[specforge_test(
+    behavior = "query_graph_multi_resolution",
+    verify = "depth N returns all entities within N hops"
+)]
 fn depth_n_returns_all_within_n_hops() {
     let graph = build_linear_graph();
     let result = specforge_emitter::query(&graph, "a", 3, &[]);
@@ -77,7 +100,10 @@ fn depth_n_returns_all_within_n_hops() {
 
 // B:query_graph_multi_resolution — verify unit "kind filter restricts results to specified entity kinds"
 #[test]
-#[specforge_test(behavior = "query_graph_multi_resolution", verify = "kind filter restricts results to specified entity kinds")]
+#[specforge_test(
+    behavior = "query_graph_multi_resolution",
+    verify = "kind filter restricts results to specified entity kinds"
+)]
 fn kind_filter_restricts_results() {
     let graph = build_linear_graph();
     let result = specforge_emitter::query(&graph, "b", 2, &["invariant"]);
@@ -89,14 +115,19 @@ fn kind_filter_restricts_results() {
         let kind = node["kind"].as_str().unwrap();
         assert!(
             kind == "behavior" || kind == "invariant",
-            "unexpected kind: {} (node {})", kind, node["id"]
+            "unexpected kind: {} (node {})",
+            kind,
+            node["id"]
         );
     }
 }
 
 // B:query_graph_multi_resolution — verify unit "multiple kind filters combine as union"
 #[test]
-#[specforge_test(behavior = "query_graph_multi_resolution", verify = "multiple kind filters combine as union")]
+#[specforge_test(
+    behavior = "query_graph_multi_resolution",
+    verify = "multiple kind filters combine as union"
+)]
 fn multiple_kind_filters_combine_as_union() {
     let graph = build_linear_graph();
     let result = specforge_emitter::query(&graph, "b", 2, &["feature", "event"]);
@@ -121,14 +152,20 @@ fn query_nonexistent_entity_returns_error() {
 
 // B:query_graph_multi_resolution — verify unit "output conforms to Graph Protocol schema"
 #[test]
-#[specforge_test(behavior = "query_graph_multi_resolution", verify = "output conforms to Graph Protocol schema")]
+#[specforge_test(
+    behavior = "query_graph_multi_resolution",
+    verify = "output conforms to Graph Protocol schema"
+)]
 fn query_conforms_to_graph_protocol_schema() {
     let graph = build_linear_graph();
     let result = specforge_emitter::query(&graph, "b", 1, &[]);
     let parsed: serde_json::Value = serde_json::from_str(&result.unwrap()).unwrap();
 
     // Graph Protocol requires: schema_version, nodes array, edges array
-    assert!(parsed["schema_version"].is_string(), "must have schema_version");
+    assert!(
+        parsed["schema_version"].is_string(),
+        "must have schema_version"
+    );
     assert!(parsed["nodes"].is_array(), "must have nodes array");
     assert!(parsed["edges"].is_array(), "must have edges array");
 
@@ -141,7 +178,10 @@ fn query_conforms_to_graph_protocol_schema() {
 
 // B:query_graph_multi_resolution — verify unit "output includes schema_version field"
 #[test]
-#[specforge_test(behavior = "query_graph_multi_resolution", verify = "output includes schema_version field")]
+#[specforge_test(
+    behavior = "query_graph_multi_resolution",
+    verify = "output includes schema_version field"
+)]
 fn query_includes_schema_version() {
     let graph = build_linear_graph();
     let result = specforge_emitter::query(&graph, "b", 1, &[]);
@@ -151,7 +191,10 @@ fn query_includes_schema_version() {
 
 // B:query_graph_multi_resolution — verify property "querying same entity at same depth produces identical subgraph"
 #[test]
-#[specforge_test(behavior = "query_graph_multi_resolution", verify = "querying same entity at same depth produces identical subgraph")]
+#[specforge_test(
+    behavior = "query_graph_multi_resolution",
+    verify = "querying same entity at same depth produces identical subgraph"
+)]
 fn query_same_entity_same_depth_is_deterministic() {
     let graph = build_linear_graph();
     let r1 = specforge_emitter::query(&graph, "b", 1, &[]).unwrap();

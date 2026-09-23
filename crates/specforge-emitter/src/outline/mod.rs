@@ -199,10 +199,19 @@ pub struct OutlineCrossEdge {
 
 pub use build::OutlineIntermediate_from_manifests;
 
-pub fn filter_dependencies(deps: &[OutlineDependency], depth: DependencyDepth) -> Vec<&OutlineDependency> {
+pub fn filter_dependencies(
+    deps: &[OutlineDependency],
+    depth: DependencyDepth,
+) -> Vec<&OutlineDependency> {
     match depth {
-        DependencyDepth::Direct => deps.iter().filter(|d| d.kind == DependencyKind::Direct).collect(),
-        DependencyDepth::Effective => deps.iter().filter(|d| d.kind != DependencyKind::Transitive).collect(),
+        DependencyDepth::Direct => deps
+            .iter()
+            .filter(|d| d.kind == DependencyKind::Direct)
+            .collect(),
+        DependencyDepth::Effective => deps
+            .iter()
+            .filter(|d| d.kind != DependencyKind::Transitive)
+            .collect(),
         DependencyDepth::Full => deps.iter().collect(),
     }
 }

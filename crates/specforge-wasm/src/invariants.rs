@@ -15,7 +15,8 @@ mod tests {
         let policy = crate::sandbox::configure_sandbox_policy(
             &crate::test_helpers::default_manifest(),
             None,
-        ).0;
+        )
+        .0;
 
         // Default policy: filesystem=true but no allowed_paths restriction
         assert!(crate::sandbox::is_path_allowed("/any/path", &policy));
@@ -108,10 +109,7 @@ mod tests {
     fn test_wrong_version_peer_produces_error() {
         let mut b = make_manifest("B", &[]);
         b.version = "0.5.0".to_string();
-        let manifests = vec![
-            make_manifest("A", &[("B", ">=1.0.0")]),
-            b,
-        ];
+        let manifests = vec![make_manifest("A", &[("B", ">=1.0.0")]), b];
         let diags = specforge_registry::validate_peer_dependencies(&manifests);
         assert!(!diags.is_empty());
         assert_eq!(diags[0].code, "E027");
@@ -167,11 +165,14 @@ mod tests {
             state: ExtensionLifecycleState::Initialized,
         };
 
-        handle_wasm_trap(&mut trapped, &WasmTrapInfo {
-            kind: "trap".to_string(),
-            message: "error".to_string(),
-            export_name: "validate".to_string(),
-        });
+        handle_wasm_trap(
+            &mut trapped,
+            &WasmTrapInfo {
+                kind: "trap".to_string(),
+                message: "error".to_string(),
+                export_name: "validate".to_string(),
+            },
+        );
 
         assert!(should_skip_extension(&trapped));
         assert!(!should_skip_extension(&healthy));
@@ -207,8 +208,7 @@ mod tests {
     #[test]
     fn test_malformed_input_produces_error() {
         // Validate export returning non-JSON is handled gracefully
-        let runtime = MockRuntime::new()
-            .with_call_ok("validate", b"not valid json".to_vec());
+        let runtime = MockRuntime::new().with_call_ok("validate", b"not valid json".to_vec());
         let mut modules = vec![LoadedModule {
             extension_name: "ext".to_string(),
             wasm_hash: "h".to_string(),

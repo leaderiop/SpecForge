@@ -19,7 +19,10 @@ pub fn resolve_version(
         RegistryError::NotFound { .. } => Diagnostic {
             code: "R-RES-001".to_string(),
             severity: Severity::Error,
-            message: format!("package '{}' not found in registry '{}'", name, registry.alias),
+            message: format!(
+                "package '{}' not found in registry '{}'",
+                name, registry.alias
+            ),
             span: None,
             suggestion: Some("check the package name and registry configuration".to_string()),
         },
@@ -56,18 +59,23 @@ pub fn resolve_version(
 
     matching.sort();
 
-    matching.last().map(|v| v.to_string()).ok_or_else(|| Diagnostic {
-        code: "R-RES-004".to_string(),
-        severity: Severity::Error,
-        message: format!(
-            "no version of '{}' satisfies range '{}'. Available: {}",
-            name,
-            range,
-            versions.join(", ")
-        ),
-        span: None,
-        suggestion: Some("try a different version range or check available versions".to_string()),
-    })
+    matching
+        .last()
+        .map(|v| v.to_string())
+        .ok_or_else(|| Diagnostic {
+            code: "R-RES-004".to_string(),
+            severity: Severity::Error,
+            message: format!(
+                "no version of '{}' satisfies range '{}'. Available: {}",
+                name,
+                range,
+                versions.join(", ")
+            ),
+            span: None,
+            suggestion: Some(
+                "try a different version range or check available versions".to_string(),
+            ),
+        })
 }
 
 fn pick_highest(versions: &[String], name: &str) -> Result<String, Diagnostic> {
@@ -78,13 +86,16 @@ fn pick_highest(versions: &[String], name: &str) -> Result<String, Diagnostic> {
 
     parsed.sort();
 
-    parsed.last().map(|v| v.to_string()).ok_or_else(|| Diagnostic {
-        code: "R-RES-002".to_string(),
-        severity: Severity::Error,
-        message: format!("no valid semver versions found for '{}'", name),
-        span: None,
-        suggestion: None,
-    })
+    parsed
+        .last()
+        .map(|v| v.to_string())
+        .ok_or_else(|| Diagnostic {
+            code: "R-RES-002".to_string(),
+            severity: Severity::Error,
+            message: format!("no valid semver versions found for '{}'", name),
+            span: None,
+            suggestion: None,
+        })
 }
 
 #[cfg(test)]

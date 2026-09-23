@@ -24,9 +24,11 @@ pub fn render_dot(model: &ModelIntermediate, options: &ModelOptions) -> String {
     // Edges
     for rel in &model.relationships {
         writeln!(
-            out, "  {} -> {} [label=\"{}\\n[{}]\"];",
+            out,
+            "  {} -> {} [label=\"{}\\n[{}]\"];",
             rel.source, rel.target, rel.name, rel.cardinality
-        ).unwrap();
+        )
+        .unwrap();
     }
 
     writeln!(out, "}}").unwrap();
@@ -36,7 +38,11 @@ pub fn render_dot(model: &ModelIntermediate, options: &ModelOptions) -> String {
 
 fn render_grouped(model: &ModelIntermediate, out: &mut String) {
     for ext in &model.extensions {
-        let entities: Vec<_> = model.entities.iter().filter(|e| e.extension == ext.name).collect();
+        let entities: Vec<_> = model
+            .entities
+            .iter()
+            .filter(|e| e.extension == ext.name)
+            .collect();
         if entities.is_empty() {
             continue;
         }
@@ -68,7 +74,10 @@ fn render_flat(model: &ModelIntermediate, out: &mut String) {
 fn render_entity(entity: &super::ModelEntity, color: &str, out: &mut String) {
     writeln!(out).unwrap();
 
-    let has_contributions = entity.fields.iter().any(|f| f.contributed_by.is_some() || f.contribution.is_some());
+    let has_contributions = entity
+        .fields
+        .iter()
+        .any(|f| f.contributed_by.is_some() || f.contribution.is_some());
     let colspan = if has_contributions { 5 } else { 3 };
 
     let header_label = if entity.enhanced_by.is_empty() {
@@ -79,7 +88,11 @@ fn render_entity(entity: &super::ModelEntity, color: &str, out: &mut String) {
 
     if entity.fields.is_empty() {
         writeln!(out, "    {} [label=<", entity.name).unwrap();
-        writeln!(out, "      <table border=\"1\" cellborder=\"0\" cellspacing=\"0\">").unwrap();
+        writeln!(
+            out,
+            "      <table border=\"1\" cellborder=\"0\" cellspacing=\"0\">"
+        )
+        .unwrap();
         writeln!(
             out, "        <tr><td bgcolor=\"{}\" colspan=\"{}\"><font color=\"white\"><b>{}</b></font></td></tr>",
             color, colspan, header_label
@@ -88,7 +101,11 @@ fn render_entity(entity: &super::ModelEntity, color: &str, out: &mut String) {
         writeln!(out, "    >];").unwrap();
     } else {
         writeln!(out, "    {} [label=<", entity.name).unwrap();
-        writeln!(out, "      <table border=\"1\" cellborder=\"0\" cellspacing=\"0\">").unwrap();
+        writeln!(
+            out,
+            "      <table border=\"1\" cellborder=\"0\" cellspacing=\"0\">"
+        )
+        .unwrap();
         writeln!(
             out, "        <tr><td bgcolor=\"{}\" colspan=\"{}\"><font color=\"white\"><b>{}</b></font></td></tr>",
             color, colspan, header_label
@@ -118,9 +135,11 @@ fn render_entity(entity: &super::ModelEntity, color: &str, out: &mut String) {
                 ).unwrap();
             } else {
                 writeln!(
-                    out, "        <tr><td align=\"left\">{}</td><td>{}</td><td>{}</td></tr>",
+                    out,
+                    "        <tr><td align=\"left\">{}</td><td>{}</td><td>{}</td></tr>",
                     name_str, field.field_type, marker
-                ).unwrap();
+                )
+                .unwrap();
             }
         }
 

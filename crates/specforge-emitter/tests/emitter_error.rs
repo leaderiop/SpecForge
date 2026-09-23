@@ -1,7 +1,7 @@
 use specforge_common::{SourceSpan, Sym};
+use specforge_emitter::EmitterError;
 use specforge_graph::{Edge, Graph, Node};
 use specforge_parser::{EntityId, EntityKind, FieldMap};
-use specforge_emitter::EmitterError;
 
 fn span() -> SourceSpan {
     SourceSpan {
@@ -16,7 +16,9 @@ fn span() -> SourceSpan {
 fn node(id: &str, kind: &str) -> Node {
     Node {
         id: EntityId { raw: Sym::new(id) },
-        kind: EntityKind { raw: Sym::new(kind) },
+        kind: EntityKind {
+            raw: Sym::new(kind),
+        },
         title: Some(format!("Title {}", id)),
         fields: FieldMap::new(),
         source_span: span(),
@@ -48,7 +50,11 @@ fn query_nonexistent_returns_entity_not_found() {
     );
     // Display still includes human-readable message
     let msg = format!("{}", err);
-    assert!(msg.contains("E003"), "error message should contain E003: {}", msg);
+    assert!(
+        msg.contains("E003"),
+        "error message should contain E003: {}",
+        msg
+    );
 }
 
 // M2: trace for non-existent entity returns EmitterError::EntityNotFound
@@ -123,8 +129,8 @@ fn budget_strategy_error_returns_other() {
 // M2: emit_schema_for_kind with unknown kind returns EmitterError::EntityNotFound
 #[test]
 fn schema_for_unknown_kind_returns_entity_not_found() {
-    use specforge_emitter::{generate_schema, emit_schema_for_kind};
-    use specforge_registry::{KindRegistry, EdgeRegistry, FieldRegistry};
+    use specforge_emitter::{emit_schema_for_kind, generate_schema};
+    use specforge_registry::{EdgeRegistry, FieldRegistry, KindRegistry};
 
     let kind_reg = KindRegistry::default();
     let edge_reg = EdgeRegistry::default();

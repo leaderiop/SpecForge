@@ -22,7 +22,10 @@ pub fn read(state: &McpState, id: Option<Value>) -> JsonRpcResponse {
         fields.sort();
     }
 
-    let mut edge_labels: Vec<String> = state.graph.edges().iter()
+    let mut edge_labels: Vec<String> = state
+        .graph
+        .edges()
+        .iter()
         .map(|e| e.label.to_string())
         .collect::<std::collections::BTreeSet<_>>()
         .into_iter()
@@ -37,11 +40,14 @@ pub fn read(state: &McpState, id: Option<Value>) -> JsonRpcResponse {
 
     let schema_json = schema.to_string();
 
-    JsonRpcResponse::success(id, serde_json::json!({
-        "contents": [{
-            "uri": "specforge://schema",
-            "mimeType": "application/json",
-            "text": schema_json
-        }]
-    }))
+    JsonRpcResponse::success(
+        id,
+        serde_json::json!({
+            "contents": [{
+                "uri": "specforge://schema",
+                "mimeType": "application/json",
+                "text": schema_json
+            }]
+        }),
+    )
 }

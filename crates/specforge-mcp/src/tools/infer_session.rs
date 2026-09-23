@@ -1,8 +1,6 @@
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
-use specforge_common::inference::{
-    self, InferenceManifest, SourceFileEntry,
-};
+use specforge_common::inference::{self, InferenceManifest, SourceFileEntry};
 
 use crate::protocol::{JsonRpcResponse, error_codes};
 use crate::state::McpState;
@@ -47,7 +45,10 @@ pub fn call(state: &McpState, args: Value, id: Option<Value>) -> JsonRpcResponse
         _ => JsonRpcResponse::error(
             id,
             error_codes::INVALID_PARAMS,
-            format!("Unknown action: '{}'. Expected: start, mark_analyzed, end", action),
+            format!(
+                "Unknown action: '{}'. Expected: start, mark_analyzed, end",
+                action
+            ),
         ),
     }
 }
@@ -109,12 +110,15 @@ fn handle_start(
         return JsonRpcResponse::error(id, error_codes::INTERNAL_ERROR, e);
     }
 
-    JsonRpcResponse::success(id, json!({
-        "content": [{ "type": "text", "text": json!({
-            "session_id": session_id,
-            "status": "active"
-        }).to_string() }]
-    }))
+    JsonRpcResponse::success(
+        id,
+        json!({
+            "content": [{ "type": "text", "text": json!({
+                "session_id": session_id,
+                "status": "active"
+            }).to_string() }]
+        }),
+    )
 }
 
 fn handle_mark_analyzed(
@@ -167,13 +171,16 @@ fn handle_mark_analyzed(
         return JsonRpcResponse::error(id, error_codes::INTERNAL_ERROR, e);
     }
 
-    JsonRpcResponse::success(id, json!({
-        "content": [{ "type": "text", "text": json!({
-            "source_file": source_file,
-            "entities_produced": entities,
-            "status": "recorded"
-        }).to_string() }]
-    }))
+    JsonRpcResponse::success(
+        id,
+        json!({
+            "content": [{ "type": "text", "text": json!({
+                "source_file": source_file,
+                "entities_produced": entities,
+                "status": "recorded"
+            }).to_string() }]
+        }),
+    )
 }
 
 fn handle_end(
@@ -239,12 +246,15 @@ fn handle_end(
         return JsonRpcResponse::error(id, error_codes::INTERNAL_ERROR, e);
     }
 
-    JsonRpcResponse::success(id, json!({
-        "content": [{ "type": "text", "text": json!({
-            "session_id": session_id,
-            "status": status
-        }).to_string() }]
-    }))
+    JsonRpcResponse::success(
+        id,
+        json!({
+            "content": [{ "type": "text", "text": json!({
+                "session_id": session_id,
+                "status": status
+            }).to_string() }]
+        }),
+    )
 }
 
 fn generate_session_id() -> String {
@@ -301,8 +311,8 @@ fn write_sessions_to_manifest(
             serde_json::to_value(sessions).unwrap_or(json!([])),
         );
     }
-    let json = serde_json::to_string_pretty(&value)
-        .map_err(|e| format!("Failed to serialize: {}", e))?;
+    let json =
+        serde_json::to_string_pretty(&value).map_err(|e| format!("Failed to serialize: {}", e))?;
     let tmp = path.with_extension("json.tmp");
     std::fs::write(&tmp, &json).map_err(|e| format!("Failed to write: {}", e))?;
     std::fs::rename(&tmp, &path).map_err(|e| format!("Failed to rename: {}", e))?;

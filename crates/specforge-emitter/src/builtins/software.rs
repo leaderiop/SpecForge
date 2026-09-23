@@ -1,9 +1,9 @@
 use specforge_wasm::builtin::BuiltinExtension;
 use specforge_wasm::protocol::{
     CompilerPassDescriptor, ContributionFlags, DescribeResponse, EdgeTypeDescriptor,
-    EntityEnhancementDescriptor, EntityKindDescriptor, FeatureFlagDescriptor,
-    FieldDescriptor, HandshakeResponse, PeerDependency, SandboxPolicy,
-    SharedFieldDescriptor, SurfaceDescriptor, ValidationRuleDescriptor, ValidationSeverity,
+    EntityEnhancementDescriptor, EntityKindDescriptor, FeatureFlagDescriptor, FieldDescriptor,
+    HandshakeResponse, PeerDependency, SandboxPolicy, SharedFieldDescriptor, SurfaceDescriptor,
+    ValidationRuleDescriptor, ValidationSeverity,
 };
 
 pub struct SoftwareExtension;
@@ -151,16 +151,72 @@ impl SoftwareExtension {
                 edge_color: None,
                 edge_arrowhead: None,
             },
-            edge_desc("BehaviorImplementsFeature", "behavior", "feature", "solid", "#1565C0", "Behavior implements a feature (cross-extension via peer_dependency @specforge/product)"),
-            edge("BehaviorProducesEvent", "behavior", "event", "solid", "#E65100", None),
-            edge("BehaviorConsumesEvent", "behavior", "event", "dashed", "#E65100", None),
-            edge("BehaviorReferencesType", "behavior", "type", "solid", "#2E7D32", None),
-            edge("EventCarriesPayloadType", "event", "type", "solid", "#2E7D32", None),
+            edge_desc(
+                "BehaviorImplementsFeature",
+                "behavior",
+                "feature",
+                "solid",
+                "#1565C0",
+                "Behavior implements a feature (cross-extension via peer_dependency @specforge/product)",
+            ),
+            edge(
+                "BehaviorProducesEvent",
+                "behavior",
+                "event",
+                "solid",
+                "#E65100",
+                None,
+            ),
+            edge(
+                "BehaviorConsumesEvent",
+                "behavior",
+                "event",
+                "dashed",
+                "#E65100",
+                None,
+            ),
+            edge(
+                "BehaviorReferencesType",
+                "behavior",
+                "type",
+                "solid",
+                "#2E7D32",
+                None,
+            ),
+            edge(
+                "EventCarriesPayloadType",
+                "event",
+                "type",
+                "solid",
+                "#2E7D32",
+                None,
+            ),
             edge("TypeComposesType", "type", "type", "solid", "#2E7D32", None),
-            edge("BehaviorUsesPort", "behavior", "port", "solid", "#00695C", None),
-            edge("BehaviorEnforcesInvariant", "behavior", "invariant", "dashed", "#C62828", None),
+            edge(
+                "BehaviorUsesPort",
+                "behavior",
+                "port",
+                "solid",
+                "#00695C",
+                None,
+            ),
+            edge(
+                "BehaviorEnforcesInvariant",
+                "behavior",
+                "invariant",
+                "dashed",
+                "#C62828",
+                None,
+            ),
             // TypeExtendsType — has edgeArrowhead "empty"
-            edge("TypeExtendsType", "type", "type", "solid", "#2E7D32", Some("empty")),
+            edge(
+                "TypeExtendsType",
+                "type",
+                "type",
+                "solid",
+                "#2E7D32",
+                Some("empty"),
+            ),
             // ExternalRef — no source/target kind constraints
             EdgeTypeDescriptor {
                 label: "ExternalRef".into(),
@@ -171,9 +227,30 @@ impl SoftwareExtension {
                 edge_color: Some("#9E9E9E".into()),
                 edge_arrowhead: None,
             },
-            edge_desc("MilestoneIncludesBehavior", "milestone", "behavior", "solid", "#9C27B0", "Milestone delivers a behavior (cross-extension enhancement edge)"),
-            edge("ModuleConsumesPort", "module", "port", "dashed", "#00695C", None),
-            edge("ModuleDefinesPort", "module", "port", "solid", "#00695C", None),
+            edge_desc(
+                "MilestoneIncludesBehavior",
+                "milestone",
+                "behavior",
+                "solid",
+                "#9C27B0",
+                "Milestone delivers a behavior (cross-extension enhancement edge)",
+            ),
+            edge(
+                "ModuleConsumesPort",
+                "module",
+                "port",
+                "dashed",
+                "#00695C",
+                None,
+            ),
+            edge(
+                "ModuleDefinesPort",
+                "module",
+                "port",
+                "solid",
+                "#00695C",
+                None,
+            ),
         ]
     }
 
@@ -183,17 +260,34 @@ impl SoftwareExtension {
                 target_kind: "module".into(),
                 source_extension: "@specforge/product".into(),
                 fields: vec![
-                    fd_ref("ports", "reference_list", "ModuleConsumesPort", "port", Some("Port interfaces this module consumes")),
-                    fd_ref("ports_defined", "reference_list", "ModuleDefinesPort", "port", Some("Port interfaces this module defines")),
+                    fd_ref(
+                        "ports",
+                        "reference_list",
+                        "ModuleConsumesPort",
+                        "port",
+                        Some("Port interfaces this module consumes"),
+                    ),
+                    fd_ref(
+                        "ports_defined",
+                        "reference_list",
+                        "ModuleDefinesPort",
+                        "port",
+                        Some("Port interfaces this module defines"),
+                    ),
                 ],
                 edge_types: vec![],
             },
             EntityEnhancementDescriptor {
                 target_kind: "milestone".into(),
                 source_extension: "@specforge/product".into(),
-                fields: vec![
-                    fd_ref_inv("behaviors", "reference_list", "MilestoneIncludesBehavior", "behavior", "features", Some("Behaviors this milestone includes in its delivery scope")),
-                ],
+                fields: vec![fd_ref_inv(
+                    "behaviors",
+                    "reference_list",
+                    "MilestoneIncludesBehavior",
+                    "behavior",
+                    "features",
+                    Some("Behaviors this milestone includes in its delivery scope"),
+                )],
                 edge_types: vec![],
             },
         ]
@@ -212,23 +306,41 @@ impl SoftwareExtension {
                 ..vrd_defaults()
             },
             // W002: type has no incoming edges
-            no_incoming("W002", "type", "type '{id}' is not referenced by any behavior, port, or type"),
+            no_incoming(
+                "W002",
+                "type",
+                "type '{id}' is not referenced by any behavior, port, or type",
+            ),
             // W003: invariant has no incoming edges
-            no_incoming("W003", "invariant", "invariant '{id}' is not enforced by any behavior"),
+            no_incoming(
+                "W003",
+                "invariant",
+                "invariant '{id}' is not enforced by any behavior",
+            ),
             // W005: port has no incoming edges
-            no_incoming("W005", "port", "port '{id}' is not referenced by any behavior"),
+            no_incoming(
+                "W005",
+                "port",
+                "port '{id}' is not referenced by any behavior",
+            ),
             // W006: behavior missing category field
             ValidationRuleDescriptor {
                 code: "W006".into(),
                 severity: ValidationSeverity::Warning,
-                message_template: "behavior '{id}' has no category \u{2014} agents use category for task routing".into(),
+                message_template:
+                    "behavior '{id}' has no category \u{2014} agents use category for task routing"
+                        .into(),
                 check: "missing_field_when_flag_set".into(),
                 target_kind: Some("behavior".into()),
                 field: Some("category".into()),
                 ..vrd_defaults()
             },
             // W007: event has no incoming edges
-            no_incoming("W007", "event", "event '{id}' is not produced by any behavior"),
+            no_incoming(
+                "W007",
+                "event",
+                "event '{id}' is not produced by any behavior",
+            ),
             // W008: feature has no incoming BehaviorImplementsFeature edges
             ValidationRuleDescriptor {
                 code: "W008".into(),
@@ -243,7 +355,8 @@ impl SoftwareExtension {
             ValidationRuleDescriptor {
                 code: "W010".into(),
                 severity: ValidationSeverity::Warning,
-                message_template: "type '{id}' field '{field}' has unknown annotation '{value}'".into(),
+                message_template: "type '{id}' field '{field}' has unknown annotation '{value}'"
+                    .into(),
                 check: "custom".into(),
                 target_kind: Some("type".into()),
                 wasm_function: Some("validate__type_field_annotations".into()),
@@ -253,7 +366,8 @@ impl SoftwareExtension {
             ValidationRuleDescriptor {
                 code: "E004".into(),
                 severity: ValidationSeverity::Error,
-                message_template: "port '{id}' method '{field}' references unknown type '{value}'".into(),
+                message_template: "port '{id}' method '{field}' references unknown type '{value}'"
+                    .into(),
                 check: "custom".into(),
                 target_kind: Some("port".into()),
                 wasm_function: Some("validate__port_methods".into()),
@@ -263,7 +377,8 @@ impl SoftwareExtension {
             ValidationRuleDescriptor {
                 code: "E006".into(),
                 severity: ValidationSeverity::Error,
-                message_template: "event '{id}' trigger must reference a behavior, found {kind} '{value}'".into(),
+                message_template:
+                    "event '{id}' trigger must reference a behavior, found {kind} '{value}'".into(),
                 check: "custom".into(),
                 target_kind: Some("event".into()),
                 wasm_function: Some("validate__event_triggers".into()),
@@ -372,13 +487,7 @@ fn fd(
     }
 }
 
-fn fd_ref(
-    name: &str,
-    ft: &str,
-    edge: &str,
-    target: &str,
-    desc: Option<&str>,
-) -> FieldDescriptor {
+fn fd_ref(name: &str, ft: &str, edge: &str, target: &str, desc: Option<&str>) -> FieldDescriptor {
     fd(name, ft, false, desc, Some(edge), Some(target))
 }
 

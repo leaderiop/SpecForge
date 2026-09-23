@@ -32,12 +32,24 @@ pub fn runtime_for_extensions(names: &[String]) -> BuiltinRuntime {
     let mut runtime = BuiltinRuntime::new();
     for name in names {
         match name.as_str() {
-            "@specforge/product" => { runtime = runtime.with_extension(name, Box::new(ProductExtension)); }
-            "@specforge/software" => { runtime = runtime.with_extension(name, Box::new(SoftwareExtension)); }
-            "@specforge/governance" => { runtime = runtime.with_extension(name, Box::new(GovernanceExtension)); }
-            "@specforge/formal" => { runtime = runtime.with_extension(name, Box::new(FormalExtension)); }
-            "@specforge/rust" => { runtime = runtime.with_extension(name, Box::new(RustExtension)); }
-            "@specforge/typescript" => { runtime = runtime.with_extension(name, Box::new(TypeScriptExtension)); }
+            "@specforge/product" => {
+                runtime = runtime.with_extension(name, Box::new(ProductExtension));
+            }
+            "@specforge/software" => {
+                runtime = runtime.with_extension(name, Box::new(SoftwareExtension));
+            }
+            "@specforge/governance" => {
+                runtime = runtime.with_extension(name, Box::new(GovernanceExtension));
+            }
+            "@specforge/formal" => {
+                runtime = runtime.with_extension(name, Box::new(FormalExtension));
+            }
+            "@specforge/rust" => {
+                runtime = runtime.with_extension(name, Box::new(RustExtension));
+            }
+            "@specforge/typescript" => {
+                runtime = runtime.with_extension(name, Box::new(TypeScriptExtension));
+            }
             _ => {}
         }
     }

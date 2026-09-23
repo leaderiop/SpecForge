@@ -260,7 +260,8 @@ pub fn mcp_request(id: u64, method: &str, params: serde_json::Value) -> String {
         "id": id,
         "method": method,
         "params": params
-    }).to_string()
+    })
+    .to_string()
 }
 
 /// Send requests to MCP, collect all response lines.
@@ -301,7 +302,8 @@ pub fn find_response(responses: &[serde_json::Value], id: u64) -> Option<&serde_
 
 /// Parse the `content[0].text` from an MCP tool result as JSON.
 pub fn parse_tool_content(response: &serde_json::Value) -> serde_json::Value {
-    let text = response["result"]["content"][0]["text"].as_str()
+    let text = response["result"]["content"][0]["text"]
+        .as_str()
         .unwrap_or_else(|| panic!("no content[0].text in response: {}", response));
     serde_json::from_str(text)
         .unwrap_or_else(|e| panic!("content text is not valid JSON: {}\ntext: {}", e, text))

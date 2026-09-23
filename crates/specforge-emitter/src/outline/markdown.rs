@@ -58,7 +58,12 @@ pub fn render_markdown(outline: &OutlineIntermediate, options: &OutlineOptions) 
             } else if dep.kind == super::DependencyKind::Transitive {
                 suffix.push_str(", transitive, unused");
             }
-            writeln!(out, "- {} \u{2192} {} ({}{})", dep.from, dep.to, dep.version, suffix).unwrap();
+            writeln!(
+                out,
+                "- {} \u{2192} {} ({}{})",
+                dep.from, dep.to, dep.version, suffix
+            )
+            .unwrap();
         }
         writeln!(out).unwrap();
     }
@@ -125,7 +130,11 @@ pub fn render_markdown(outline: &OutlineIntermediate, options: &OutlineOptions) 
 
         // Entity kinds
         if !ext.entity_kinds.is_empty() {
-            let keywords: Vec<&str> = ext.entity_kinds.iter().map(|k| k.keyword.as_str()).collect();
+            let keywords: Vec<&str> = ext
+                .entity_kinds
+                .iter()
+                .map(|k| k.keyword.as_str())
+                .collect();
             writeln!(out, "**Entity kinds**: {}", keywords.join(", ")).unwrap();
             writeln!(out).unwrap();
         }
@@ -145,10 +154,26 @@ pub fn render_markdown(outline: &OutlineIntermediate, options: &OutlineOptions) 
 
         // Validation rules with codes
         if !ext.validation_rules.is_empty() {
-            let codes: Vec<&str> = ext.validation_rules.iter().map(|r| r.code.as_str()).collect();
-            let errors = ext.validation_rules.iter().filter(|r| r.severity == "error").count();
-            let warnings = ext.validation_rules.iter().filter(|r| r.severity == "warning").count();
-            let infos = ext.validation_rules.iter().filter(|r| r.severity == "info").count();
+            let codes: Vec<&str> = ext
+                .validation_rules
+                .iter()
+                .map(|r| r.code.as_str())
+                .collect();
+            let errors = ext
+                .validation_rules
+                .iter()
+                .filter(|r| r.severity == "error")
+                .count();
+            let warnings = ext
+                .validation_rules
+                .iter()
+                .filter(|r| r.severity == "warning")
+                .count();
+            let infos = ext
+                .validation_rules
+                .iter()
+                .filter(|r| r.severity == "info")
+                .count();
             let mut breakdown = Vec::new();
             if errors > 0 {
                 breakdown.push(format!("{} errors", errors));
@@ -270,9 +295,17 @@ pub fn render_markdown(outline: &OutlineIntermediate, options: &OutlineOptions) 
 }
 
 fn render_summary(out: &mut String, outline: &OutlineIntermediate) {
-    let total_entities: usize = outline.extensions.iter().map(|e| e.entity_kinds.len()).sum();
+    let total_entities: usize = outline
+        .extensions
+        .iter()
+        .map(|e| e.entity_kinds.len())
+        .sum();
     let total_edges: usize = outline.extensions.iter().map(|e| e.edge_types.len()).sum();
-    let total_rules: usize = outline.extensions.iter().map(|e| e.validation_rules.len()).sum();
+    let total_rules: usize = outline
+        .extensions
+        .iter()
+        .map(|e| e.validation_rules.len())
+        .sum();
 
     writeln!(out, "## Summary").unwrap();
     writeln!(out).unwrap();

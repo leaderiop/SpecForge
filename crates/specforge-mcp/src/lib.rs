@@ -11,8 +11,8 @@ pub mod subscriptions;
 pub mod tools;
 pub mod types;
 
-use protocol::{parse_request, JsonRpcResponse};
 use protocol::router::route;
+use protocol::{JsonRpcResponse, parse_request};
 use state::McpState;
 
 pub struct McpServer {
@@ -36,7 +36,10 @@ impl McpServer {
         let request = match parse_request(input) {
             Ok(req) => req,
             Err(err_response) => {
-                self.state.push_event("mcp_protocol_error_handled", serde_json::json!({"phase": "parse"}));
+                self.state.push_event(
+                    "mcp_protocol_error_handled",
+                    serde_json::json!({"phase": "parse"}),
+                );
                 return Some(serialize_response(&err_response));
             }
         };

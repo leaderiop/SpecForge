@@ -1,15 +1,19 @@
+mod auth;
 mod db;
 mod handlers;
-mod storage;
-mod auth;
 mod state;
+mod storage;
 
 use clap::{Parser, Subcommand};
 use std::path::PathBuf;
 use std::sync::Arc;
 
 #[derive(Parser)]
-#[command(name = "specforge-registry", version, about = "SpecForge extension registry server")]
+#[command(
+    name = "specforge-registry",
+    version,
+    about = "SpecForge extension registry server"
+)]
 struct Cli {
     #[command(subcommand)]
     command: Commands,
@@ -75,21 +79,31 @@ enum TokenAction {
 async fn main() {
     tracing_subscriber::fmt()
         .with_env_filter(
-            tracing_subscriber::EnvFilter::try_from_default_env()
-                .unwrap_or_else(|_| "specforge_registry_server=info,tower_http=info".parse().unwrap()),
+            tracing_subscriber::EnvFilter::try_from_default_env().unwrap_or_else(|_| {
+                "specforge_registry_server=info,tower_http=info"
+                    .parse()
+                    .unwrap()
+            }),
         )
         .init();
 
     let cli = Cli::parse();
 
     match cli.command {
-        Commands::Serve { port, host, data_dir } => {
+        Commands::Serve {
+            port,
+            host,
+            data_dir,
+        } => {
             std::fs::create_dir_all(&data_dir).expect("failed to create data directory");
 
-            let database = db::Database::open(&data_dir.join("registry.db"))
-                .expect("failed to open database");
+            let database =
+                db::Database::open(&data_dir.join("registry.db")).expect("failed to open database");
             let store = storage::LocalStorage::new(data_dir.join("packages"));
-            let app_state = Arc::new(state::AppState { database, storage: store });
+            let app_state = Arc::new(state::AppState {
+                database,
+                storage: store,
+            });
 
             let app = handlers::router(app_state);
 
@@ -100,12 +114,14 @@ async fn main() {
 
             tracing::info!("registry server listening on http://{}", addr);
 
-            axum::serve(listener, app)
-                .await
-                .expect("server error");
+            axum::serve(listener, app).await.expect("server error");
         }
         Commands::Token { action } => match action {
-            TokenAction::Create { scope, label, data_dir } => {
+            TokenAction::Create {
+                scope,
+                label,
+                data_dir,
+            } => {
                 std::fs::create_dir_all(&data_dir).expect("failed to create data directory");
                 let database = db::Database::open(&data_dir.join("registry.db"))
                     .expect("failed to open database");
@@ -126,7 +142,8 @@ async fn main() {
                 } else {
                     println!("{:<12} {:<20} {:<16} CREATED", "PREFIX", "LABEL", "SCOPE");
                     for t in &tokens {
-                        println!("{:<12} {:<20} {:<16} {}",
+                        println!(
+                            "{:<12} {:<20} {:<16} {}",
                             &t.token_hash[..8],
                             t.label,
                             t.scope.as_deref().unwrap_or("(all)"),

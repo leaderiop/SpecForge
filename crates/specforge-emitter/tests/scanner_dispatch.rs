@@ -1,6 +1,6 @@
 use specforge_emitter::builtins::{self, RustExtension};
 use specforge_emitter::scanner_dispatch;
-use specforge_registry::{AnalyzerContribution, ManifestV2, ExtensionContributions};
+use specforge_registry::{AnalyzerContribution, ExtensionContributions, ManifestV2};
 use specforge_wasm::builtin::BuiltinRuntime;
 use tempfile::TempDir;
 
@@ -57,12 +57,8 @@ fn scan_only_matching_extensions() {
     let manifests = vec![rust_manifest()];
     let source_files = vec!["lib.rs".into(), "readme.md".into(), "app.txt".into()];
 
-    let (items, scanners) = scanner_dispatch::scan_source_files(
-        &runtime,
-        &manifests,
-        dir.path(),
-        &source_files,
-    );
+    let (items, scanners) =
+        scanner_dispatch::scan_source_files(&runtime, &manifests, dir.path(), &source_files);
 
     assert_eq!(items.len(), 1);
     assert_eq!(items[0].name, "hello");
@@ -78,12 +74,8 @@ fn scan_empty_source_list() {
     let runtime = rust_only_runtime();
     let manifests = vec![rust_manifest()];
 
-    let (items, scanners) = scanner_dispatch::scan_source_files(
-        &runtime,
-        &manifests,
-        dir.path(),
-        &[],
-    );
+    let (items, scanners) =
+        scanner_dispatch::scan_source_files(&runtime, &manifests, dir.path(), &[]);
 
     assert!(items.is_empty());
     assert!(scanners.is_empty());
@@ -97,12 +89,8 @@ fn scan_no_manifests_skips_all_files() {
     let runtime = rust_only_runtime();
     let source_files = vec!["lib.rs".into()];
 
-    let (items, scanners) = scanner_dispatch::scan_source_files(
-        &runtime,
-        &[],
-        dir.path(),
-        &source_files,
-    );
+    let (items, scanners) =
+        scanner_dispatch::scan_source_files(&runtime, &[], dir.path(), &source_files);
 
     assert!(items.is_empty());
     assert!(scanners.is_empty());
@@ -116,12 +104,8 @@ fn scan_missing_file_skipped_gracefully() {
     let manifests = vec![rust_manifest()];
     let source_files = vec!["nonexistent.rs".into()];
 
-    let (items, scanners) = scanner_dispatch::scan_source_files(
-        &runtime,
-        &manifests,
-        dir.path(),
-        &source_files,
-    );
+    let (items, scanners) =
+        scanner_dispatch::scan_source_files(&runtime, &manifests, dir.path(), &source_files);
 
     assert!(items.is_empty());
     assert!(scanners.is_empty());
@@ -133,18 +117,15 @@ fn default_runtime_scans_rust_files() {
     std::fs::write(
         dir.path().join("main.rs"),
         "pub fn process_order() {}\npub struct Config {}",
-    ).unwrap();
+    )
+    .unwrap();
 
     let runtime = builtins::runtime_for_extensions(&["@specforge/rust".into()]);
     let manifests = vec![rust_manifest()];
     let source_files = vec!["main.rs".into()];
 
-    let (items, scanners) = scanner_dispatch::scan_source_files(
-        &runtime,
-        &manifests,
-        dir.path(),
-        &source_files,
-    );
+    let (items, scanners) =
+        scanner_dispatch::scan_source_files(&runtime, &manifests, dir.path(), &source_files);
 
     assert_eq!(items.len(), 2);
     assert_eq!(items[0].name, "process_order");
@@ -194,8 +175,16 @@ fn typescript_manifest() -> ManifestV2 {
 fn multi_scanner_mixed_project() {
     let dir = TempDir::new().unwrap();
     std::fs::write(dir.path().join("lib.rs"), "pub fn hello() {}").unwrap();
-    std::fs::write(dir.path().join("app.ts"), "export function handleRequest() {}\nexport class UserService {}").unwrap();
-    std::fs::write(dir.path().join("component.tsx"), "export function render() {}").unwrap();
+    std::fs::write(
+        dir.path().join("app.ts"),
+        "export function handleRequest() {}\nexport class UserService {}",
+    )
+    .unwrap();
+    std::fs::write(
+        dir.path().join("component.tsx"),
+        "export function render() {}",
+    )
+    .unwrap();
     std::fs::write(dir.path().join("utils.js"), "export const MAX = 10;").unwrap();
     std::fs::write(dir.path().join("readme.md"), "# Hello").unwrap();
 
@@ -212,20 +201,22 @@ fn multi_scanner_mixed_project() {
         "readme.md".into(),
     ];
 
-    let (items, scanners) = scanner_dispatch::scan_source_files(
-        &runtime,
-        &manifests,
-        dir.path(),
-        &source_files,
-    );
+    let (items, scanners) =
+        scanner_dispatch::scan_source_files(&runtime, &manifests, dir.path(), &source_files);
 
     assert_eq!(items.len(), 5);
 
-    let rust_items: Vec<_> = items.iter().filter(|i| i.scanner.as_deref() == Some("@specforge/rust")).collect();
+    let rust_items: Vec<_> = items
+        .iter()
+        .filter(|i| i.scanner.as_deref() == Some("@specforge/rust"))
+        .collect();
     assert_eq!(rust_items.len(), 1);
     assert_eq!(rust_items[0].name, "hello");
 
-    let ts_items: Vec<_> = items.iter().filter(|i| i.scanner.as_deref() == Some("@specforge/typescript")).collect();
+    let ts_items: Vec<_> = items
+        .iter()
+        .filter(|i| i.scanner.as_deref() == Some("@specforge/typescript"))
+        .collect();
     assert_eq!(ts_items.len(), 4);
     assert!(ts_items.iter().any(|i| i.name == "handleRequest"));
     assert!(ts_items.iter().any(|i| i.name == "UserService"));

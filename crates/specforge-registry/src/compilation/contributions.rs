@@ -223,7 +223,11 @@ mod tests {
         }
     }
 
-    fn make_manifest(name: &str, grammar: Vec<GrammarContribution>, body_parsers: Vec<BodyParserContribution>) -> ManifestV2 {
+    fn make_manifest(
+        name: &str,
+        grammar: Vec<GrammarContribution>,
+        body_parsers: Vec<BodyParserContribution>,
+    ) -> ManifestV2 {
         ManifestV2 {
             name: name.to_string(),
             version: "1.0.0".to_string(),
@@ -459,11 +463,8 @@ mod tests {
             }],
         );
 
-        let (parsers, diags) = register_body_parser_contributions(
-            &[manifest],
-            &kind_reg,
-            &|_, _| true,
-        );
+        let (parsers, diags) =
+            register_body_parser_contributions(&[manifest], &kind_reg, &|_, _| true);
 
         assert_eq!(parsers.len(), 1);
         assert_eq!(parsers[0].entity_kind, "behavior");
@@ -485,11 +486,8 @@ mod tests {
             }],
         );
 
-        let (parsers, diags) = register_body_parser_contributions(
-            &[manifest],
-            &kind_reg,
-            &|_, _| true,
-        );
+        let (parsers, diags) =
+            register_body_parser_contributions(&[manifest], &kind_reg, &|_, _| true);
 
         assert_eq!(parsers.len(), 0);
         assert_eq!(diags.len(), 1);
@@ -519,11 +517,8 @@ mod tests {
             }],
         );
 
-        let (parsers, diags) = register_body_parser_contributions(
-            &[m1, m2],
-            &kind_reg,
-            &|_, _| true,
-        );
+        let (parsers, diags) =
+            register_body_parser_contributions(&[m1, m2], &kind_reg, &|_, _| true);
 
         assert_eq!(parsers.len(), 1); // first wins
         assert_eq!(parsers[0].source_extension, "@ext/a");
@@ -547,11 +542,10 @@ mod tests {
             }],
         );
 
-        let (parsers, diags) = register_body_parser_contributions(
-            &[manifest],
-            &kind_reg,
-            &|_, export| export != "missing_export",
-        );
+        let (parsers, diags) =
+            register_body_parser_contributions(&[manifest], &kind_reg, &|_, export| {
+                export != "missing_export"
+            });
 
         assert_eq!(parsers.len(), 0);
         assert_eq!(diags.len(), 1);
@@ -582,11 +576,8 @@ mod tests {
             ],
         );
 
-        let (parsers, diags) = register_body_parser_contributions(
-            &[manifest],
-            &kind_reg,
-            &|_, _| true,
-        );
+        let (parsers, diags) =
+            register_body_parser_contributions(&[manifest], &kind_reg, &|_, _| true);
 
         // ensures: body_parsers_registered — valid ones stored
         assert_eq!(parsers.len(), 1);

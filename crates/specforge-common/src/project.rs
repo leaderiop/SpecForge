@@ -53,9 +53,18 @@ pub fn load_project_config(project_root: &Path) -> ProjectConfig {
         Err(_) => return ProjectConfig::default(),
     };
 
-    let name = value.get("name").and_then(|v| v.as_str()).map(|s| s.to_string());
-    let version = value.get("version").and_then(|v| v.as_str()).map(|s| s.to_string());
-    let spec_root = value.get("spec_root").and_then(|v| v.as_str()).map(|s| s.to_string());
+    let name = value
+        .get("name")
+        .and_then(|v| v.as_str())
+        .map(|s| s.to_string());
+    let version = value
+        .get("version")
+        .and_then(|v| v.as_str())
+        .map(|s| s.to_string());
+    let spec_root = value
+        .get("spec_root")
+        .and_then(|v| v.as_str())
+        .map(|s| s.to_string());
     let extensions = value
         .get("extensions")
         .and_then(|v| v.as_array())
@@ -84,7 +93,10 @@ fn parse_inference_config(value: &serde_json::Value) -> InferenceConfig {
         None => return InferenceConfig::default(),
     };
 
-    let global = obj.get("global").and_then(|v| v.as_str()).map(|s| s.to_string());
+    let global = obj
+        .get("global")
+        .and_then(|v| v.as_str())
+        .map(|s| s.to_string());
     let mut kinds = HashMap::new();
     for (key, val) in obj {
         if key == "global" {
@@ -97,5 +109,9 @@ fn parse_inference_config(value: &serde_json::Value) -> InferenceConfig {
 
     let density_threshold = obj.get("density_threshold").and_then(|v| v.as_f64());
 
-    InferenceConfig { global, kinds, density_threshold }
+    InferenceConfig {
+        global,
+        kinds,
+        density_threshold,
+    }
 }

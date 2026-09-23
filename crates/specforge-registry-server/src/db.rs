@@ -28,13 +28,14 @@ pub struct TokenRecord {
 
 impl Database {
     pub fn open(path: &Path) -> Result<Self, String> {
-        let conn = Connection::open(path)
-            .map_err(|e| format!("failed to open database: {}", e))?;
+        let conn = Connection::open(path).map_err(|e| format!("failed to open database: {}", e))?;
 
         conn.execute_batch("PRAGMA journal_mode=WAL; PRAGMA foreign_keys=ON;")
             .map_err(|e| format!("failed to set pragmas: {}", e))?;
 
-        let db = Self { conn: Mutex::new(conn) };
+        let db = Self {
+            conn: Mutex::new(conn),
+        };
         db.migrate()?;
         Ok(db)
     }
@@ -123,7 +124,9 @@ impl Database {
     pub fn get_package_versions(&self, name: &str) -> Vec<String> {
         let conn = self.conn.lock().unwrap();
         let mut stmt = conn
-            .prepare("SELECT version FROM packages WHERE name = ?1 AND yanked = 0 ORDER BY published_at")
+            .prepare(
+                "SELECT version FROM packages WHERE name = ?1 AND yanked = 0 ORDER BY published_at",
+            )
             .unwrap();
         stmt.query_map(params![name], |row| row.get(0))
             .unwrap()
@@ -175,7 +178,12 @@ impl Database {
 
     // --- Token management ---
 
-    pub fn insert_token(&self, token_hash: &str, scope: Option<&str>, label: &str) -> Result<(), String> {
+    pub fn insert_token(
+        &self,
+        token_hash: &str,
+        scope: Option<&str>,
+        label: &str,
+    ) -> Result<(), String> {
         let conn = self.conn.lock().unwrap();
         conn.execute(
             "INSERT INTO tokens (token_hash, scope, label) VALUES (?1, ?2, ?3)",

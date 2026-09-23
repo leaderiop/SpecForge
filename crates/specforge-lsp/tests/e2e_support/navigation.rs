@@ -29,11 +29,7 @@ async fn e2e_goto_definition_cross_file() {
     let file_a = dir.path().join("a.spec");
     let file_b = dir.path().join("b.spec");
     std::fs::write(&file_b, "type token \"Token\" {}\n").unwrap();
-    std::fs::write(
-        &file_a,
-        "behavior login \"Login\" {\n  types [token]\n}\n",
-    )
-    .unwrap();
+    std::fs::write(&file_a, "behavior login \"Login\" {\n  types [token]\n}\n").unwrap();
 
     let root = dir.path().to_str().unwrap();
     let mut client = start_server(Some(root)).await;
@@ -90,10 +86,7 @@ async fn e2e_goto_definition_on_use_line() {
     // Cursor on the import path (line 0, col 6 = inside "types/core")
     let resp = client.goto_definition(&main_uri, 0, 7).await;
     let result = &resp["result"];
-    assert!(
-        !result.is_null(),
-        "Expected definition for use import"
-    );
+    assert!(!result.is_null(), "Expected definition for use import");
     let target_uri = result["uri"].as_str().unwrap();
     assert!(
         target_uri.contains("core.spec"),

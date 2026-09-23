@@ -1,9 +1,7 @@
 use serde::Serialize;
 use sha2::{Digest, Sha256};
 use specforge_common::{Diagnostic, Severity, find_project_root};
-use specforge_emitter::schema::{
-    GraphProtocolSchema, SchemaMigration, diff_schemas,
-};
+use specforge_emitter::schema::{GraphProtocolSchema, SchemaMigration, diff_schemas};
 use specforge_formatter::{discover_targets, unified_diff};
 use std::fmt;
 use std::path::Path;
@@ -134,9 +132,7 @@ pub fn detect_format_version(content: &str) -> (FormatVersion, Vec<Diagnostic>) 
 
     let first_line = content.lines().find(|l| !l.trim().is_empty());
 
-    if let Some(version_str) = first_line
-        .and_then(|line| line.strip_prefix(FORMAT_HEADER_PREFIX))
-    {
+    if let Some(version_str) = first_line.and_then(|line| line.strip_prefix(FORMAT_HEADER_PREFIX)) {
         let version_str = version_str.trim();
         match FormatVersion::from_str(version_str) {
             Ok(v) => {
@@ -195,7 +191,11 @@ pub fn detect_format_version(content: &str) -> (FormatVersion, Vec<Diagnostic>) 
 fn set_format_version_header(content: &str, version: &FormatVersion) -> String {
     let new_header = format!("{FORMAT_HEADER_PREFIX}{version}");
 
-    if let Some(line) = content.lines().next().filter(|l| l.starts_with(FORMAT_HEADER_PREFIX)) {
+    if let Some(line) = content
+        .lines()
+        .next()
+        .filter(|l| l.starts_with(FORMAT_HEADER_PREFIX))
+    {
         let rest = &content[line.len()..];
         return format!("{new_header}{rest}");
     }
@@ -253,7 +253,9 @@ pub fn check_schema_compatibility(
                 severity: Severity::Warning,
                 message: format!("breaking schema change after migration: {change:?}"),
                 span: None,
-                suggestion: Some("Review the migration to ensure backward compatibility.".to_string()),
+                suggestion: Some(
+                    "Review the migration to ensure backward compatibility.".to_string(),
+                ),
             });
         }
     }
@@ -369,7 +371,11 @@ pub fn migrate_file(
     target_version: &FormatVersion,
     dry_run: bool,
     no_backup: bool,
-) -> (MigrationResult, Option<MigrationBackup>, Option<MigrationDiff>) {
+) -> (
+    MigrationResult,
+    Option<MigrationBackup>,
+    Option<MigrationDiff>,
+) {
     let path_str = path.display().to_string();
 
     // Read file
@@ -413,17 +419,12 @@ pub fn migrate_file(
 
     // Build diff
     let diff = if content != transformed {
-        let diff_text = unified_diff(
-            &format!("a/{path_str}"),
-            &content,
-            &transformed,
-        );
+        let diff_text = unified_diff(&format!("a/{path_str}"), &content, &transformed);
         // unified_diff uses the same path for both --- and +++.
         // We need +++ to use b/ prefix per POSIX convention.
-        let unified_text = diff_text.diff_text.replace(
-            &format!("+++ a/{path_str}"),
-            &format!("+++ b/{path_str}"),
-        );
+        let unified_text = diff_text
+            .diff_text
+            .replace(&format!("+++ a/{path_str}"), &format!("+++ b/{path_str}"));
         Some(MigrationDiff {
             file_path: path_str.clone(),
             before_hash: sha256_hash(&content),
@@ -521,7 +522,11 @@ pub fn migrate_file(
 pub fn run_rollback(path: &Path) -> RollbackSummary {
     let project_root = find_project_root(path).unwrap_or_else(|| path.to_path_buf());
     let spec_root = project_root.join("spec");
-    let search_root = if spec_root.exists() { &spec_root } else { &project_root };
+    let search_root = if spec_root.exists() {
+        &spec_root
+    } else {
+        &project_root
+    };
 
     // Discover .spec files, then check for .bak counterparts
     let targets = discover_targets(search_root, &[], &[]);
@@ -616,7 +621,11 @@ pub fn migrate_project(
 ) -> MigrationSummary {
     let project_root = find_project_root(path).unwrap_or_else(|| path.to_path_buf());
     let spec_root = project_root.join("spec");
-    let search_root = if spec_root.exists() { &spec_root } else { &project_root };
+    let search_root = if spec_root.exists() {
+        &spec_root
+    } else {
+        &project_root
+    };
     let targets = discover_targets(search_root, &[], &[]);
 
     let mut results = Vec::new();

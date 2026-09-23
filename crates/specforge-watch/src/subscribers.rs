@@ -16,7 +16,11 @@ pub fn compute_diagnostics_delta(
 ) -> DiagnosticsDelta {
     // Use (code, file, start_line) as a rough identity for diagnostics
     fn diag_key(d: &Diagnostic) -> (String, String, usize) {
-        let file = d.span.as_ref().map(|s| s.file.to_string()).unwrap_or_default();
+        let file = d
+            .span
+            .as_ref()
+            .map(|s| s.file.to_string())
+            .unwrap_or_default();
         let line = d.span.as_ref().map(|s| s.start_line).unwrap_or(0);
         (d.code.clone(), file, line)
     }
@@ -41,7 +45,12 @@ pub fn compute_diagnostics_delta(
 
 /// Subscriber that receives delta notifications after incremental rebuilds.
 pub trait DeltaSubscriber: Send + Sync {
-    fn on_delta(&self, delta: &GraphDelta, diagnostics_delta: &DiagnosticsDelta, affected_files: &[String]);
+    fn on_delta(
+        &self,
+        delta: &GraphDelta,
+        diagnostics_delta: &DiagnosticsDelta,
+        affected_files: &[String],
+    );
 }
 
 /// Dispatch delta to all subscribers. Non-blocking: a slow subscriber

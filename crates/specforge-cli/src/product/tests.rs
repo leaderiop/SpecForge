@@ -1,16 +1,17 @@
+use super::{
+    ListFilter, bulk_status, channel_features, feature_dependents, feature_impact,
+    journey_coverage, list_entities, milestone_completion, persona_features, project_health,
+};
 use specforge_common::{SourceSpan, Sym};
 use specforge_graph::{Edge, Graph, Node};
 use specforge_parser::{EntityId, EntityKind, FieldMap, FieldValue};
-use super::{
-    bulk_status, feature_dependents, feature_impact, journey_coverage, list_entities,
-    milestone_completion, persona_features, channel_features, project_health,
-    ListFilter,
-};
 
 fn make_node(id: &str, kind: &str) -> Node {
     Node {
         id: EntityId { raw: Sym::new(id) },
-        kind: EntityKind { raw: Sym::new(kind) },
+        kind: EntityKind {
+            raw: Sym::new(kind),
+        },
         title: Some(id.to_string()),
         fields: FieldMap::new(),
         source_span: SourceSpan {
@@ -30,7 +31,9 @@ fn make_node_with_fields(id: &str, kind: &str, fields: &[(&str, &str)]) -> Node 
     }
     Node {
         id: EntityId { raw: Sym::new(id) },
-        kind: EntityKind { raw: Sym::new(kind) },
+        kind: EntityKind {
+            raw: Sym::new(kind),
+        },
         title: Some(id.to_string()),
         fields: fm,
         source_span: SourceSpan {
@@ -61,7 +64,13 @@ fn list_entities_filters_by_kind() {
     g.add_node(make_node("f1", "feature"));
     g.add_node(make_node("b1", "behavior"));
 
-    let result = list_entities(&g, &ListFilter { kind: "feature".into(), ..Default::default() });
+    let result = list_entities(
+        &g,
+        &ListFilter {
+            kind: "feature".into(),
+            ..Default::default()
+        },
+    );
     assert_eq!(result.total, 1);
     assert_eq!(result.entities[0].id, "f1");
 }
@@ -69,14 +78,25 @@ fn list_entities_filters_by_kind() {
 #[test]
 fn list_entities_filters_by_status() {
     let mut g = Graph::new();
-    g.add_node(make_node_with_fields("f1", "feature", &[("status", "done")]));
-    g.add_node(make_node_with_fields("f2", "feature", &[("status", "draft")]));
+    g.add_node(make_node_with_fields(
+        "f1",
+        "feature",
+        &[("status", "done")],
+    ));
+    g.add_node(make_node_with_fields(
+        "f2",
+        "feature",
+        &[("status", "draft")],
+    ));
 
-    let result = list_entities(&g, &ListFilter {
-        kind: "feature".into(),
-        status: Some("done".into()),
-        ..Default::default()
-    });
+    let result = list_entities(
+        &g,
+        &ListFilter {
+            kind: "feature".into(),
+            status: Some("done".into()),
+            ..Default::default()
+        },
+    );
     assert_eq!(result.total, 1);
     assert_eq!(result.entities[0].id, "f1");
 }
@@ -84,14 +104,25 @@ fn list_entities_filters_by_status() {
 #[test]
 fn list_entities_filters_by_priority() {
     let mut g = Graph::new();
-    g.add_node(make_node_with_fields("f1", "feature", &[("priority", "high")]));
-    g.add_node(make_node_with_fields("f2", "feature", &[("priority", "low")]));
+    g.add_node(make_node_with_fields(
+        "f1",
+        "feature",
+        &[("priority", "high")],
+    ));
+    g.add_node(make_node_with_fields(
+        "f2",
+        "feature",
+        &[("priority", "low")],
+    ));
 
-    let result = list_entities(&g, &ListFilter {
-        kind: "feature".into(),
-        priority: Some("high".into()),
-        ..Default::default()
-    });
+    let result = list_entities(
+        &g,
+        &ListFilter {
+            kind: "feature".into(),
+            priority: Some("high".into()),
+            ..Default::default()
+        },
+    );
     assert_eq!(result.total, 1);
     assert_eq!(result.entities[0].id, "f1");
 }
@@ -103,12 +134,15 @@ fn list_entities_pagination() {
         g.add_node(make_node(&format!("f{i}"), "feature"));
     }
 
-    let result = list_entities(&g, &ListFilter {
-        kind: "feature".into(),
-        offset: Some(1),
-        limit: Some(2),
-        ..Default::default()
-    });
+    let result = list_entities(
+        &g,
+        &ListFilter {
+            kind: "feature".into(),
+            offset: Some(1),
+            limit: Some(2),
+            ..Default::default()
+        },
+    );
     assert_eq!(result.total, 5);
     assert_eq!(result.entities.len(), 2);
     assert_eq!(result.entities[0].id, "f1");
@@ -121,7 +155,13 @@ fn list_entities_sorted_by_id() {
     g.add_node(make_node("z_feature", "feature"));
     g.add_node(make_node("a_feature", "feature"));
 
-    let result = list_entities(&g, &ListFilter { kind: "feature".into(), ..Default::default() });
+    let result = list_entities(
+        &g,
+        &ListFilter {
+            kind: "feature".into(),
+            ..Default::default()
+        },
+    );
     assert_eq!(result.entities[0].id, "a_feature");
     assert_eq!(result.entities[1].id, "z_feature");
 }
@@ -129,7 +169,13 @@ fn list_entities_sorted_by_id() {
 #[test]
 fn list_entities_empty_graph() {
     let g = Graph::new();
-    let result = list_entities(&g, &ListFilter { kind: "feature".into(), ..Default::default() });
+    let result = list_entities(
+        &g,
+        &ListFilter {
+            kind: "feature".into(),
+            ..Default::default()
+        },
+    );
     assert_eq!(result.total, 0);
     assert!(result.entities.is_empty());
 }
@@ -141,7 +187,13 @@ fn list_entities_includes_edge_counts() {
     g.add_node(make_node("m1", "milestone"));
     g.add_edge(make_edge("m1", "f1", "features"));
 
-    let result = list_entities(&g, &ListFilter { kind: "feature".into(), ..Default::default() });
+    let result = list_entities(
+        &g,
+        &ListFilter {
+            kind: "feature".into(),
+            ..Default::default()
+        },
+    );
     assert_eq!(result.entities[0].incoming_edges, 1);
     assert_eq!(result.entities[0].outgoing_edges, 0);
 }
@@ -153,9 +205,21 @@ fn list_entities_includes_edge_counts() {
 #[test]
 fn milestone_completion_basic() {
     let mut g = Graph::new();
-    g.add_node(make_node_with_fields("ms1", "milestone", &[("status", "active")]));
-    g.add_node(make_node_with_fields("f1", "feature", &[("status", "done")]));
-    g.add_node(make_node_with_fields("f2", "feature", &[("status", "draft")]));
+    g.add_node(make_node_with_fields(
+        "ms1",
+        "milestone",
+        &[("status", "active")],
+    ));
+    g.add_node(make_node_with_fields(
+        "f1",
+        "feature",
+        &[("status", "done")],
+    ));
+    g.add_node(make_node_with_fields(
+        "f2",
+        "feature",
+        &[("status", "draft")],
+    ));
     g.add_edge(make_edge("ms1", "f1", "features"));
     g.add_edge(make_edge("ms1", "f2", "features"));
 
@@ -196,7 +260,11 @@ fn milestone_completion_no_features() {
 #[test]
 fn journey_coverage_basic() {
     let mut g = Graph::new();
-    g.add_node(make_node_with_fields("j1", "journey", &[("persona", "dev")]));
+    g.add_node(make_node_with_fields(
+        "j1",
+        "journey",
+        &[("persona", "dev")],
+    ));
     g.add_node(make_node("f1", "feature"));
     g.add_node(make_node("f2", "feature"));
     g.add_node(make_node("mod1", "module"));
@@ -392,10 +460,26 @@ fn channel_features_deduplicates() {
 #[test]
 fn bulk_status_aggregates_by_kind() {
     let mut g = Graph::new();
-    g.add_node(make_node_with_fields("f1", "feature", &[("status", "done")]));
-    g.add_node(make_node_with_fields("f2", "feature", &[("status", "done")]));
-    g.add_node(make_node_with_fields("f3", "feature", &[("status", "draft")]));
-    g.add_node(make_node_with_fields("ms1", "milestone", &[("status", "active")]));
+    g.add_node(make_node_with_fields(
+        "f1",
+        "feature",
+        &[("status", "done")],
+    ));
+    g.add_node(make_node_with_fields(
+        "f2",
+        "feature",
+        &[("status", "done")],
+    ));
+    g.add_node(make_node_with_fields(
+        "f3",
+        "feature",
+        &[("status", "draft")],
+    ));
+    g.add_node(make_node_with_fields(
+        "ms1",
+        "milestone",
+        &[("status", "active")],
+    ));
 
     let results = bulk_status(&g);
     let feat = results.iter().find(|r| r.kind == "feature").unwrap();
@@ -443,9 +527,17 @@ fn project_health_counts_entities() {
     g.add_node(make_node("j1", "journey"));
 
     let report = project_health(&g);
-    let feat_count = report.entity_counts.iter().find(|c| c.kind == "feature").unwrap();
+    let feat_count = report
+        .entity_counts
+        .iter()
+        .find(|c| c.kind == "feature")
+        .unwrap();
     assert_eq!(feat_count.count, 2);
-    let journey_count = report.entity_counts.iter().find(|c| c.kind == "journey").unwrap();
+    let journey_count = report
+        .entity_counts
+        .iter()
+        .find(|c| c.kind == "journey")
+        .unwrap();
     assert_eq!(journey_count.count, 1);
 }
 
@@ -458,7 +550,11 @@ fn project_health_detects_orphans() {
     g.add_edge(make_edge("j1", "f1", "features"));
 
     let report = project_health(&g);
-    let feat_orphans = report.orphan_counts.iter().find(|c| c.kind == "feature").unwrap();
+    let feat_orphans = report
+        .orphan_counts
+        .iter()
+        .find(|c| c.kind == "feature")
+        .unwrap();
     assert_eq!(feat_orphans.orphans, 1);
     assert_eq!(feat_orphans.total, 2);
 }
@@ -466,7 +562,11 @@ fn project_health_detects_orphans() {
 #[test]
 fn project_health_completeness_tracks_status() {
     let mut g = Graph::new();
-    g.add_node(make_node_with_fields("f1", "feature", &[("status", "done")]));
+    g.add_node(make_node_with_fields(
+        "f1",
+        "feature",
+        &[("status", "done")],
+    ));
     g.add_node(make_node("f2", "feature"));
 
     let report = project_health(&g);

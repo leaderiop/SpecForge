@@ -305,10 +305,7 @@ pub fn validate_manifest(manifest: &ManifestV2) -> Vec<Diagnostic> {
         diagnostics.push(Diagnostic {
             code: "E030".to_string(),
             severity: Severity::Error,
-            message: format!(
-                "extension '{}': 'version' field is required",
-                manifest.name
-            ),
+            message: format!("extension '{}': 'version' field is required", manifest.name),
             span: None,
             suggestion: None,
         });
@@ -521,7 +518,11 @@ mod tests {
     fn test_valid_v2_manifest_passes_schema_validation() {
         let manifest = minimal_valid_manifest();
         let diags = validate_manifest(&manifest);
-        assert!(diags.is_empty(), "expected no diagnostics, got: {:?}", diags);
+        assert!(
+            diags.is_empty(),
+            "expected no diagnostics, got: {:?}",
+            diags
+        );
     }
 
     // B:validate_manifest_v2_schema — verify unit "missing required field produces hard error"
@@ -537,7 +538,11 @@ mod tests {
         )
         .unwrap();
         let diags = validate_manifest(&manifest);
-        assert!(diags.iter().any(|d| d.code == "E030" && d.message.contains("'name'")));
+        assert!(
+            diags
+                .iter()
+                .any(|d| d.code == "E030" && d.message.contains("'name'"))
+        );
 
         let manifest2: ManifestV2 = serde_json::from_str(
             r#"{
@@ -549,7 +554,11 @@ mod tests {
         )
         .unwrap();
         let diags2 = validate_manifest(&manifest2);
-        assert!(diags2.iter().any(|d| d.code == "E030" && d.message.contains("wasmPath")));
+        assert!(
+            diags2
+                .iter()
+                .any(|d| d.code == "E030" && d.message.contains("wasmPath"))
+        );
     }
 
     // B:validate_manifest_v2_schema — verify unit "manifestVersion != 2 produces hard error"
@@ -565,9 +574,11 @@ mod tests {
         )
         .unwrap();
         let diags = validate_manifest(&manifest);
-        assert!(diags
-            .iter()
-            .any(|d| d.code == "E030" && d.message.contains("manifestVersion must be 2")));
+        assert!(
+            diags
+                .iter()
+                .any(|d| d.code == "E030" && d.message.contains("manifestVersion must be 2"))
+        );
     }
 
     // B:validate_manifest_v2_schema — verify unit "unknown top-level field produces warning"
@@ -585,7 +596,10 @@ mod tests {
                 "unknownField": true
             }"#,
         );
-        assert!(result.is_ok(), "unknown fields should not cause parse failure");
+        assert!(
+            result.is_ok(),
+            "unknown fields should not cause parse failure"
+        );
     }
 
     // B:validate_manifest_v2_schema — serde round-trip for full manifest with entity kinds
@@ -657,7 +671,11 @@ mod tests {
         )
         .unwrap();
         let diags = validate_manifest_consistency(&manifest);
-        assert!(diags.is_empty(), "expected no diagnostics, got: {:?}", diags);
+        assert!(
+            diags.is_empty(),
+            "expected no diagnostics, got: {:?}",
+            diags
+        );
     }
 
     // B:validate_extension_manifest_consistency — verify unit "self-contradictory target_kind produces E-level error"
@@ -733,7 +751,11 @@ mod tests {
         let diags = validate_manifest_consistency(&manifest);
         // With peer deps declared, we can't fully resolve cross-extension refs,
         // so we don't warn about target_kind not in own kinds
-        assert!(diags.is_empty(), "expected no diagnostics with peer deps, got: {:?}", diags);
+        assert!(
+            diags.is_empty(),
+            "expected no diagnostics with peer deps, got: {:?}",
+            diags
+        );
     }
 
     // B:validate_extension_manifest_consistency — verify unit "target_kind referencing non-peer extension kind produces W-level warning"
@@ -756,7 +778,9 @@ mod tests {
         // No peer dependencies — referencing 'behavior' which is not an own kind
         let diags = validate_manifest_consistency(&manifest);
         assert!(
-            diags.iter().any(|d| d.message.contains("behavior") && d.message.contains("target_kind")),
+            diags
+                .iter()
+                .any(|d| d.message.contains("behavior") && d.message.contains("target_kind")),
             "expected warning about non-peer target_kind 'behavior', got: {:?}",
             diags
         );
@@ -771,10 +795,9 @@ mod tests {
         // ensures: schema_validated — valid manifest produces zero diagnostics
         assert!(diags.is_empty());
         // ensures: malformed_diagnosed — missing fields produce E030
-        let bad: ManifestV2 = serde_json::from_str(
-            r#"{"name":"","version":"","manifestVersion":1,"wasmPath":""}"#,
-        )
-        .unwrap();
+        let bad: ManifestV2 =
+            serde_json::from_str(r#"{"name":"","version":"","manifestVersion":1,"wasmPath":""}"#)
+                .unwrap();
         let bad_diags = validate_manifest(&bad);
         assert!(bad_diags.len() >= 3, "expected multiple E030 diagnostics");
         assert!(bad_diags.iter().all(|d| d.code == "E030"));
@@ -808,7 +831,11 @@ mod tests {
             }"#,
         ).unwrap();
         let bad_diags = validate_manifest_consistency(&bad);
-        assert!(bad_diags.len() >= 2, "expected warnings for target_kind + edge: {:?}", bad_diags);
+        assert!(
+            bad_diags.len() >= 2,
+            "expected warnings for target_kind + edge: {:?}",
+            bad_diags
+        );
         assert!(bad_diags.iter().all(|d| d.code == "W021"));
     }
 
@@ -945,7 +972,11 @@ mod tests {
         )
         .unwrap();
         let diags = validate_manifest(&manifest);
-        assert!(diags.iter().any(|d| d.code == "E030" && d.message.contains("empty language")));
+        assert!(
+            diags
+                .iter()
+                .any(|d| d.code == "E030" && d.message.contains("empty language"))
+        );
     }
 
     #[test]
@@ -969,7 +1000,11 @@ mod tests {
         )
         .unwrap();
         let diags = validate_manifest(&manifest);
-        assert!(diags.iter().any(|d| d.code == "E030" && d.message.contains("empty export")));
+        assert!(
+            diags
+                .iter()
+                .any(|d| d.code == "E030" && d.message.contains("empty export"))
+        );
     }
 
     // -- H6: ManifestField with default_value and enum_values --
@@ -1009,10 +1044,8 @@ mod tests {
     fn test_manifest_field_without_default_value_and_enum_values_defaults() {
         let _manifest = minimal_valid_manifest();
         // Fields from JSON deserialization without these fields should get defaults
-        let field: ManifestField = serde_json::from_str(
-            r#"{ "name": "contract", "fieldType": "block" }"#,
-        )
-        .unwrap();
+        let field: ManifestField =
+            serde_json::from_str(r#"{ "name": "contract", "fieldType": "block" }"#).unwrap();
         assert!(field.default_value.is_none());
         assert!(field.enum_values.is_empty());
     }

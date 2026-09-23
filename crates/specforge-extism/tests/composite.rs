@@ -3,7 +3,7 @@ use std::path::PathBuf;
 
 use specforge_extism::{CompositeRuntime, ExtismRuntime};
 use specforge_wasm::builtin::{BuiltinExtension, BuiltinRuntime};
-use specforge_wasm::protocol::{DescribeResponse, HandshakeResponse, ContributionFlags};
+use specforge_wasm::protocol::{ContributionFlags, DescribeResponse, HandshakeResponse};
 use specforge_wasm::runtime::{WasmCallResult, WasmRuntime};
 
 struct TestBuiltinExtension;
@@ -58,8 +58,8 @@ fn has_fixture() -> bool {
 
 #[test]
 fn composite_dispatches_to_builtin_for_registered_name() {
-    let builtin = BuiltinRuntime::new()
-        .with_extension("@test/builtin", Box::new(TestBuiltinExtension));
+    let builtin =
+        BuiltinRuntime::new().with_extension("@test/builtin", Box::new(TestBuiltinExtension));
     let extism = ExtismRuntime::new();
     let runtime = CompositeRuntime::new(builtin, extism);
 
@@ -89,8 +89,8 @@ fn composite_dispatches_to_extism_for_wasm_extension() {
         return;
     }
 
-    let builtin = BuiltinRuntime::new()
-        .with_extension("@test/builtin", Box::new(TestBuiltinExtension));
+    let builtin =
+        BuiltinRuntime::new().with_extension("@test/builtin", Box::new(TestBuiltinExtension));
     let extism = ExtismRuntime::new();
     let runtime = CompositeRuntime::new(builtin, extism);
 

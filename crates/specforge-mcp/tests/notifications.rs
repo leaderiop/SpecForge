@@ -1,17 +1,28 @@
-use specforge_mcp::notifications::{compute_graph_delta, compute_diagnostics_delta, format_graph_notification, format_diagnostics_notification};
 use specforge_common::{Diagnostic, Severity, SourceSpan};
 use specforge_graph::{Graph, Node};
+use specforge_mcp::notifications::{
+    compute_diagnostics_delta, compute_graph_delta, format_diagnostics_notification,
+    format_graph_notification,
+};
 use specforge_parser::{EntityId, EntityKind, FieldMap};
 use specforge_test::prelude::*;
 
 fn span() -> SourceSpan {
-    SourceSpan { file: "test.spec".into(), start_line: 1, start_col: 0, end_line: 5, end_col: 0 }
+    SourceSpan {
+        file: "test.spec".into(),
+        start_line: 1,
+        start_col: 0,
+        end_line: 5,
+        end_col: 0,
+    }
 }
 
 fn node(id: &str) -> Node {
     Node {
         id: EntityId { raw: id.into() },
-        kind: EntityKind { raw: "behavior".into() },
+        kind: EntityKind {
+            raw: "behavior".into(),
+        },
         title: None,
         fields: FieldMap::new(),
         source_span: span(),
@@ -20,7 +31,10 @@ fn node(id: &str) -> Node {
 
 // B:notify_graph_delta_via_mcp — verify unit "detects added nodes"
 #[test]
-#[specforge_test(behavior = "notify_graph_delta_via_mcp", verify = "graph_changed notification sent after incremental rebuild")]
+#[specforge_test(
+    behavior = "notify_graph_delta_via_mcp",
+    verify = "graph_changed notification sent after incremental rebuild"
+)]
 fn graph_delta_detects_added_nodes() {
     let old = Graph::new();
     let mut new = Graph::new();
@@ -34,7 +48,10 @@ fn graph_delta_detects_added_nodes() {
 
 // B:notify_graph_delta_via_mcp — verify unit "detects removed nodes"
 #[test]
-#[specforge_test(behavior = "notify_graph_delta_via_mcp", verify = "notification includes GraphDelta payload")]
+#[specforge_test(
+    behavior = "notify_graph_delta_via_mcp",
+    verify = "notification includes GraphDelta payload"
+)]
 fn graph_delta_detects_removed_nodes() {
     let mut old = Graph::new();
     old.add_node(node("alpha"));
@@ -47,7 +64,10 @@ fn graph_delta_detects_removed_nodes() {
 
 // B:notify_graph_delta_via_mcp — verify unit "formats notification as JSON-RPC"
 #[test]
-#[specforge_test(behavior = "notify_graph_delta_via_mcp", verify = "formats notification as JSON-RPC")]
+#[specforge_test(
+    behavior = "notify_graph_delta_via_mcp",
+    verify = "formats notification as JSON-RPC"
+)]
 fn graph_notification_format() {
     let old = Graph::new();
     let mut new = Graph::new();
@@ -62,7 +82,10 @@ fn graph_notification_format() {
 
 // B:notify_diagnostics_delta_via_mcp — verify unit "detects added diagnostics"
 #[test]
-#[specforge_test(behavior = "notify_diagnostics_delta_via_mcp", verify = "diagnostics_changed notification sent after validation")]
+#[specforge_test(
+    behavior = "notify_diagnostics_delta_via_mcp",
+    verify = "diagnostics_changed notification sent after validation"
+)]
 fn diagnostics_delta_detects_added() {
     let old: Vec<Diagnostic> = vec![];
     let new = vec![Diagnostic {
@@ -80,7 +103,10 @@ fn diagnostics_delta_detects_added() {
 
 // B:notify_diagnostics_delta_via_mcp — verify unit "detects removed diagnostics"
 #[test]
-#[specforge_test(behavior = "notify_diagnostics_delta_via_mcp", verify = "payload includes added and removed diagnostics")]
+#[specforge_test(
+    behavior = "notify_diagnostics_delta_via_mcp",
+    verify = "payload includes added and removed diagnostics"
+)]
 fn diagnostics_delta_detects_removed() {
     let old = vec![Diagnostic {
         code: "E001".into(),
@@ -98,7 +124,10 @@ fn diagnostics_delta_detects_removed() {
 
 // B:notify_diagnostics_delta_via_mcp — verify unit "formats notification as JSON-RPC"
 #[test]
-#[specforge_test(behavior = "notify_diagnostics_delta_via_mcp", verify = "formats notification as JSON-RPC")]
+#[specforge_test(
+    behavior = "notify_diagnostics_delta_via_mcp",
+    verify = "formats notification as JSON-RPC"
+)]
 fn diagnostics_notification_format() {
     let old: Vec<Diagnostic> = vec![];
     let new = vec![Diagnostic {
@@ -118,7 +147,10 @@ fn diagnostics_notification_format() {
 
 // B:notify_graph_delta_via_mcp — verify unit "no notification when no clients subscribed"
 #[test]
-#[specforge_test(behavior = "notify_graph_delta_via_mcp", verify = "no notification when no clients subscribed")]
+#[specforge_test(
+    behavior = "notify_graph_delta_via_mcp",
+    verify = "no notification when no clients subscribed"
+)]
 fn no_notification_when_no_subscribers() {
     let mut g1 = Graph::new();
     g1.add_node(node("alpha"));
@@ -132,7 +164,10 @@ fn no_notification_when_no_subscribers() {
 
 // B:notify_graph_delta_via_mcp — verify unit "unsubscribed clients do not receive notifications"
 #[test]
-#[specforge_test(behavior = "notify_graph_delta_via_mcp", verify = "unsubscribed clients do not receive notifications")]
+#[specforge_test(
+    behavior = "notify_graph_delta_via_mcp",
+    verify = "unsubscribed clients do not receive notifications"
+)]
 fn no_notification_when_graph_unchanged() {
     let mut graph = Graph::new();
     graph.add_node(node("alpha"));
@@ -144,7 +179,10 @@ fn no_notification_when_graph_unchanged() {
 
 // B:notify_diagnostics_delta_via_mcp — verify unit "no notification when diagnostics are unchanged"
 #[test]
-#[specforge_test(behavior = "notify_diagnostics_delta_via_mcp", verify = "no notification when diagnostics are unchanged")]
+#[specforge_test(
+    behavior = "notify_diagnostics_delta_via_mcp",
+    verify = "no notification when diagnostics are unchanged"
+)]
 fn diagnostics_no_notification_when_unchanged() {
     let diags = vec![Diagnostic {
         code: "E001".into(),
@@ -161,7 +199,10 @@ fn diagnostics_no_notification_when_unchanged() {
 
 // B:notify_diagnostics_delta_via_mcp — verify unit "unsubscribed clients do not receive notifications"
 #[test]
-#[specforge_test(behavior = "notify_diagnostics_delta_via_mcp", verify = "unsubscribed clients do not receive notifications")]
+#[specforge_test(
+    behavior = "notify_diagnostics_delta_via_mcp",
+    verify = "unsubscribed clients do not receive notifications"
+)]
 fn diagnostics_unsubscribed_no_notification() {
     let empty: Vec<Diagnostic> = vec![];
 

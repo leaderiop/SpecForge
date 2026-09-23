@@ -50,9 +50,21 @@ fn fully_covered_entity() {
     )]);
 
     let entries = vec![
-        make_entry("build_graph", Some("graph contains one node per entity"), TestOutcome::Pass),
-        make_entry("build_graph", Some("graph contains one edge per resolved reference"), TestOutcome::Pass),
-        make_entry("build_graph", Some("edge types match relationship semantics"), TestOutcome::Pass),
+        make_entry(
+            "build_graph",
+            Some("graph contains one node per entity"),
+            TestOutcome::Pass,
+        ),
+        make_entry(
+            "build_graph",
+            Some("graph contains one edge per resolved reference"),
+            TestOutcome::Pass,
+        ),
+        make_entry(
+            "build_graph",
+            Some("edge types match relationship semantics"),
+            TestOutcome::Pass,
+        ),
     ];
 
     let diffs = compute_coverage_diff(&graph, &entries);
@@ -77,9 +89,11 @@ fn partially_covered_entity() {
         true,
     )]);
 
-    let entries = vec![
-        make_entry("parse_imports", Some("parse full use import"), TestOutcome::Pass),
-    ];
+    let entries = vec![make_entry(
+        "parse_imports",
+        Some("parse full use import"),
+        TestOutcome::Pass,
+    )];
 
     let diffs = compute_coverage_diff(&graph, &entries);
     assert_eq!(diffs.len(), 1);
@@ -137,7 +151,11 @@ fn non_testable_entities_excluded() {
         make_entity("feature_one", "feature", vec![], false),
     ]);
 
-    let entries = vec![make_entry("testable_one", Some("a test"), TestOutcome::Pass)];
+    let entries = vec![make_entry(
+        "testable_one",
+        Some("a test"),
+        TestOutcome::Pass,
+    )];
     let diffs = compute_coverage_diff(&graph, &entries);
 
     assert_eq!(diffs.len(), 1, "non-testable entity should be excluded");
@@ -157,8 +175,16 @@ fn covered_with_failures() {
     )]);
 
     let entries = vec![
-        make_entry("auth_login", Some("valid credentials succeed"), TestOutcome::Pass),
-        make_entry("auth_login", Some("invalid password rejected"), TestOutcome::Fail),
+        make_entry(
+            "auth_login",
+            Some("valid credentials succeed"),
+            TestOutcome::Pass,
+        ),
+        make_entry(
+            "auth_login",
+            Some("invalid password rejected"),
+            TestOutcome::Fail,
+        ),
     ];
 
     let diffs = compute_coverage_diff(&graph, &entries);
@@ -264,7 +290,10 @@ fn summary_includes_all_testable_entities() {
 
     assert!(output.contains("alpha"), "should list alpha: {output}");
     assert!(output.contains("beta"), "should list beta: {output}");
-    assert!(output.contains("3/3"), "should show 3/3 for alpha: {output}");
+    assert!(
+        output.contains("3/3"),
+        "should show 3/3 for alpha: {output}"
+    );
     assert!(output.contains("1/2"), "should show 1/2 for beta: {output}");
 }
 
@@ -283,7 +312,10 @@ fn summary_includes_timestamp() {
     format_coverage_summary(&mut buf, &diffs, "2026-03-08T12:34:56Z").unwrap();
     let output = String::from_utf8(buf).unwrap();
 
-    assert!(output.contains("2026-03-08T12:34:56Z"), "should contain timestamp: {output}");
+    assert!(
+        output.contains("2026-03-08T12:34:56Z"),
+        "should contain timestamp: {output}"
+    );
 }
 
 #[test]
@@ -308,5 +340,8 @@ fn summary_shows_failing_status() {
     format_coverage_summary(&mut buf, &diffs, "2026-03-08T00:00:00Z").unwrap();
     let output = String::from_utf8(buf).unwrap();
 
-    assert!(output.contains("! failing"), "should show failing status: {output}");
+    assert!(
+        output.contains("! failing"),
+        "should show failing status: {output}"
+    );
 }

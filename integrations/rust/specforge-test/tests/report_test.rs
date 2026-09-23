@@ -26,7 +26,8 @@ fn writes_report_json() {
     let path = dir.path().join("my_binary.json");
     assert!(path.exists());
 
-    let content: serde_json::Value = serde_json::from_str(&fs::read_to_string(&path).unwrap()).unwrap();
+    let content: serde_json::Value =
+        serde_json::from_str(&fs::read_to_string(&path).unwrap()).unwrap();
     assert_eq!(content["schema_version"], "1.0");
     assert_eq!(content["binary_name"], "my_binary");
     assert_eq!(content["entries"].as_array().unwrap().len(), 2);
@@ -60,7 +61,8 @@ fn entries_are_sorted_in_report() {
     report::write_report(dir.path(), "sorted_binary", &entries).unwrap();
 
     let path = dir.path().join("sorted_binary.json");
-    let content: serde_json::Value = serde_json::from_str(&fs::read_to_string(&path).unwrap()).unwrap();
+    let content: serde_json::Value =
+        serde_json::from_str(&fs::read_to_string(&path).unwrap()).unwrap();
     let ids: Vec<&str> = content["entries"]
         .as_array()
         .unwrap()

@@ -1,9 +1,12 @@
 use specforge_common::Sym;
-use specforge_parser::{parse, Annotation, EntityKind, EntityId, FieldValue};
+use specforge_parser::{Annotation, EntityId, EntityKind, FieldValue, parse};
 use specforge_test_macros::test as specforge_test;
 use std::path::PathBuf;
 
-#[specforge_test(behavior = "parse_all_block_types", verify = "parse any keyword as generic entity_block")]
+#[specforge_test(
+    behavior = "parse_all_block_types",
+    verify = "parse any keyword as generic entity_block"
+)]
 #[test]
 fn parse_basic_entity_block() {
     let source = r#"
@@ -13,12 +16,26 @@ behavior parse_spec_file "Parse Spec File" {
 "#;
     let result = parse(source, "test.spec");
 
-    assert!(result.errors.is_empty(), "unexpected errors: {:?}", result.errors);
+    assert!(
+        result.errors.is_empty(),
+        "unexpected errors: {:?}",
+        result.errors
+    );
     assert_eq!(result.entities.len(), 1);
 
     let entity = &result.entities[0];
-    assert_eq!(entity.kind, EntityKind { raw: Sym::new("behavior") });
-    assert_eq!(entity.id, EntityId { raw: Sym::new("parse_spec_file") });
+    assert_eq!(
+        entity.kind,
+        EntityKind {
+            raw: Sym::new("behavior")
+        }
+    );
+    assert_eq!(
+        entity.id,
+        EntityId {
+            raw: Sym::new("parse_spec_file")
+        }
+    );
     assert_eq!(entity.title.as_deref(), Some("Parse Spec File"));
 
     let status = entity.fields.get("status").expect("missing 'status' field");
@@ -31,24 +48,41 @@ fn parse_use_import() {
     let source = "use \"behaviors/parsing\"\n";
     let result = parse(source, "test.spec");
 
-    assert!(result.errors.is_empty(), "unexpected errors: {:?}", result.errors);
+    assert!(
+        result.errors.is_empty(),
+        "unexpected errors: {:?}",
+        result.errors
+    );
     assert_eq!(result.imports.len(), 1);
     assert_eq!(result.imports[0].path, "behaviors/parsing");
     assert_eq!(result.imports[0].kind, specforge_parser::ImportKind::Full);
     assert!(result.imports[0].bindings.is_none());
 }
 
-#[specforge_test(behavior = "parse_use_imports", verify = "parse selective use import with braces")]
+#[specforge_test(
+    behavior = "parse_use_imports",
+    verify = "parse selective use import with braces"
+)]
 #[test]
 fn parse_selective_import() {
     let source = "use { SpecFile, ParseError } from \"types/core\"\n";
     let result = parse(source, "test.spec");
 
-    assert!(result.errors.is_empty(), "unexpected errors: {:?}", result.errors);
+    assert!(
+        result.errors.is_empty(),
+        "unexpected errors: {:?}",
+        result.errors
+    );
     assert_eq!(result.imports.len(), 1);
     assert_eq!(result.imports[0].path, "types/core");
-    assert_eq!(result.imports[0].kind, specforge_parser::ImportKind::Selective);
-    let bindings = result.imports[0].bindings.as_ref().expect("expected selective import");
+    assert_eq!(
+        result.imports[0].kind,
+        specforge_parser::ImportKind::Selective
+    );
+    let bindings = result.imports[0]
+        .bindings
+        .as_ref()
+        .expect("expected selective import");
     assert_eq!(bindings.len(), 2);
     assert_eq!(bindings[0].name, "SpecFile");
     assert!(bindings[0].alias.is_none());
@@ -56,7 +90,10 @@ fn parse_selective_import() {
     assert!(bindings[1].alias.is_none());
 }
 
-#[specforge_test(behavior = "parse_verify_statements", verify = "parse verify statement in any entity block")]
+#[specforge_test(
+    behavior = "parse_verify_statements",
+    verify = "parse verify statement in any entity block"
+)]
 #[test]
 fn parse_verify_statements() {
     let source = r#"
@@ -68,7 +105,11 @@ behavior validate_input "Validate Input" {
 "#;
     let result = parse(source, "test.spec");
 
-    assert!(result.errors.is_empty(), "unexpected errors: {:?}", result.errors);
+    assert!(
+        result.errors.is_empty(),
+        "unexpected errors: {:?}",
+        result.errors
+    );
     let entity = &result.entities[0];
     let verify = entity.fields.get("verify").expect("missing verify field");
     match verify {
@@ -83,7 +124,10 @@ behavior validate_input "Validate Input" {
     }
 }
 
-#[specforge_test(behavior = "parse_all_block_types", verify = "spec block uses dedicated grammar rule")]
+#[specforge_test(
+    behavior = "parse_all_block_types",
+    verify = "spec block uses dedicated grammar rule"
+)]
 #[test]
 fn parse_spec_block() {
     let source = r#"
@@ -93,11 +137,20 @@ spec "SpecForge" {
 "#;
     let result = parse(source, "test.spec");
 
-    assert!(result.errors.is_empty(), "unexpected errors: {:?}", result.errors);
+    assert!(
+        result.errors.is_empty(),
+        "unexpected errors: {:?}",
+        result.errors
+    );
     assert_eq!(result.entities.len(), 1);
 
     let entity = &result.entities[0];
-    assert_eq!(entity.kind, EntityKind { raw: Sym::new("spec") });
+    assert_eq!(
+        entity.kind,
+        EntityKind {
+            raw: Sym::new("spec")
+        }
+    );
     assert_eq!(entity.title.as_deref(), Some("SpecForge"));
 
     let version = entity.fields.get("version").expect("missing version");
@@ -110,11 +163,20 @@ fn parse_ref_inline() {
     let source = r#"ref gh.issue:42 "Support Wasm extensions""#;
     let result = parse(source, "test.spec");
 
-    assert!(result.errors.is_empty(), "unexpected errors: {:?}", result.errors);
+    assert!(
+        result.errors.is_empty(),
+        "unexpected errors: {:?}",
+        result.errors
+    );
     assert_eq!(result.entities.len(), 1);
 
     let entity = &result.entities[0];
-    assert_eq!(entity.kind, EntityKind { raw: Sym::new("ref") });
+    assert_eq!(
+        entity.kind,
+        EntityKind {
+            raw: Sym::new("ref")
+        }
+    );
     assert_eq!(entity.id.raw, "gh.issue:42");
     assert_eq!(entity.title.as_deref(), Some("Support Wasm extensions"));
 
@@ -124,7 +186,10 @@ fn parse_ref_inline() {
     assert!(matches!(entity.fields.get("identifier"), Some(FieldValue::String(s)) if s == "42"));
 }
 
-#[specforge_test(behavior = "parse_ref_blocks", verify = "ref block supports optional title and body fields")]
+#[specforge_test(
+    behavior = "parse_ref_blocks",
+    verify = "ref block supports optional title and body fields"
+)]
 #[test]
 fn parse_ref_full_block() {
     let source = r#"
@@ -134,14 +199,26 @@ ref gh.issue:99 "Performance tracking" {
 "#;
     let result = parse(source, "test.spec");
 
-    assert!(result.errors.is_empty(), "unexpected errors: {:?}", result.errors);
+    assert!(
+        result.errors.is_empty(),
+        "unexpected errors: {:?}",
+        result.errors
+    );
     let entity = &result.entities[0];
-    assert_eq!(entity.kind, EntityKind { raw: Sym::new("ref") });
+    assert_eq!(
+        entity.kind,
+        EntityKind {
+            raw: Sym::new("ref")
+        }
+    );
     assert_eq!(entity.title.as_deref(), Some("Performance tracking"));
     assert!(matches!(entity.fields.get("priority"), Some(FieldValue::String(s)) if s == "high"));
 }
 
-#[specforge_test(behavior = "parse_define_blocks", verify = "parse define block with name and body")]
+#[specforge_test(
+    behavior = "parse_define_blocks",
+    verify = "parse define block with name and body"
+)]
 #[test]
 fn parse_define_block() {
     let source = r#"
@@ -152,18 +229,30 @@ define my_custom_type {
 "#;
     let result = parse(source, "test.spec");
 
-    assert!(result.errors.is_empty(), "unexpected errors: {:?}", result.errors);
+    assert!(
+        result.errors.is_empty(),
+        "unexpected errors: {:?}",
+        result.errors
+    );
     assert_eq!(result.entities.len(), 1);
 
     let entity = &result.entities[0];
-    assert_eq!(entity.kind, EntityKind { raw: Sym::new("define") });
+    assert_eq!(
+        entity.kind,
+        EntityKind {
+            raw: Sym::new("define")
+        }
+    );
     assert_eq!(entity.id.raw, "my_custom_type");
     assert!(entity.title.is_none());
     assert!(matches!(entity.fields.get("base_kind"), Some(FieldValue::String(s)) if s == "entity"));
     assert!(entity.fields.get("verify").is_some());
 }
 
-#[specforge_test(behavior = "parse_all_block_types", verify = "generic block preserves kind, name, title, and fields")]
+#[specforge_test(
+    behavior = "parse_all_block_types",
+    verify = "generic block preserves kind, name, title, and fields"
+)]
 #[test]
 fn parse_all_field_value_types() {
     let source = r#"
@@ -184,13 +273,26 @@ behavior test_values "Test Values" {
 "#;
     let result = parse(source, "test.spec");
 
-    assert!(result.errors.is_empty(), "unexpected errors: {:?}", result.errors);
+    assert!(
+        result.errors.is_empty(),
+        "unexpected errors: {:?}",
+        result.errors
+    );
     let e = &result.entities[0];
 
     assert!(matches!(e.fields.get("name"), Some(FieldValue::String(s)) if s == "a string"));
-    assert!(matches!(e.fields.get("count"), Some(FieldValue::Integer(42))));
-    assert!(matches!(e.fields.get("enabled"), Some(FieldValue::Boolean(true))));
-    assert!(matches!(e.fields.get("disabled"), Some(FieldValue::Boolean(false))));
+    assert!(matches!(
+        e.fields.get("count"),
+        Some(FieldValue::Integer(42))
+    ));
+    assert!(matches!(
+        e.fields.get("enabled"),
+        Some(FieldValue::Boolean(true))
+    ));
+    assert!(matches!(
+        e.fields.get("disabled"),
+        Some(FieldValue::Boolean(false))
+    ));
     assert!(matches!(e.fields.get("created"), Some(FieldValue::Date(d)) if d == "2024-01-15"));
     assert!(matches!(e.fields.get("status"), Some(FieldValue::Identifier(id)) if id == "planned"));
 
@@ -220,13 +322,20 @@ behavior test_values "Test Values" {
     }
 }
 
-#[specforge_test(behavior = "parse_triple_quoted_strings", verify = "common leading whitespace is stripped")]
+#[specforge_test(
+    behavior = "parse_triple_quoted_strings",
+    verify = "common leading whitespace is stripped"
+)]
 #[test]
 fn parse_triple_quoted_string() {
     let source = "behavior doc_test \"Doc Test\" {\n    contract \"\"\"\n        Given a valid input\n        When processed\n        Then output is correct\n    \"\"\"\n}\n";
     let result = parse(source, "test.spec");
 
-    assert!(result.errors.is_empty(), "unexpected errors: {:?}", result.errors);
+    assert!(
+        result.errors.is_empty(),
+        "unexpected errors: {:?}",
+        result.errors
+    );
     let e = &result.entities[0];
     let contract = e.fields.get("contract").expect("missing contract");
     match contract {
@@ -242,7 +351,10 @@ fn parse_triple_quoted_string() {
     }
 }
 
-#[specforge_test(behavior = "recover_from_syntax_errors", verify = "valid blocks after syntax error are still parsed")]
+#[specforge_test(
+    behavior = "recover_from_syntax_errors",
+    verify = "valid blocks after syntax error are still parsed"
+)]
 #[test]
 fn multi_error_recovery() {
     let source = r#"
@@ -274,11 +386,18 @@ behavior good_after "After" {
         good_entities.len(),
         2,
         "expected both valid entities to be parsed despite error; got entities: {:?}",
-        result.entities.iter().map(|e| &e.id.raw).collect::<Vec<_>>()
+        result
+            .entities
+            .iter()
+            .map(|e| &e.id.raw)
+            .collect::<Vec<_>>()
     );
 }
 
-#[specforge_test(behavior = "recover_from_syntax_errors", verify = "parser collects multiple errors from one file")]
+#[specforge_test(
+    behavior = "recover_from_syntax_errors",
+    verify = "parser collects multiple errors from one file"
+)]
 #[test]
 fn multiple_errors_produce_multiple_diagnostics() {
     let source = r#"
@@ -305,7 +424,10 @@ behavior valid "Valid" {
     assert_eq!(result.entities[0].id.raw, "valid");
 }
 
-#[specforge_test(behavior = "parse_all_block_types", verify = "unknown keyword parsed without error")]
+#[specforge_test(
+    behavior = "parse_all_block_types",
+    verify = "unknown keyword parsed without error"
+)]
 #[test]
 fn unknown_keyword_parsed_without_error() {
     // Use a completely made-up keyword — the parser must accept it generically
@@ -316,7 +438,11 @@ zygomorphic my_entity "Made Up Kind" {
 "#;
     let result = parse(source, "test.spec");
 
-    assert!(result.errors.is_empty(), "unknown keyword should not produce errors: {:?}", result.errors);
+    assert!(
+        result.errors.is_empty(),
+        "unknown keyword should not produce errors: {:?}",
+        result.errors
+    );
     assert_eq!(result.entities.len(), 1);
     assert_eq!(result.entities[0].kind.raw, "zygomorphic");
     assert_eq!(result.entities[0].id.raw, "my_entity");
@@ -338,13 +464,20 @@ behavior example "Example" {
 "#;
     let result = parse(source, "test.spec");
 
-    assert!(result.errors.is_empty(), "unexpected errors: {:?}", result.errors);
+    assert!(
+        result.errors.is_empty(),
+        "unexpected errors: {:?}",
+        result.errors
+    );
     assert_eq!(result.imports.len(), 1);
     assert_eq!(result.entities.len(), 1);
     assert_eq!(result.entities[0].id.raw, "example");
 }
 
-#[specforge_test(behavior = "parse_all_block_types", verify = "any keyword produces generic entity_block AST node")]
+#[specforge_test(
+    behavior = "parse_all_block_types",
+    verify = "any keyword produces generic entity_block AST node"
+)]
 #[test]
 fn parse_entity_without_title() {
     let source = r#"
@@ -355,14 +488,21 @@ invariant no_orphans {
 "#;
     let result = parse(source, "test.spec");
 
-    assert!(result.errors.is_empty(), "unexpected errors: {:?}", result.errors);
+    assert!(
+        result.errors.is_empty(),
+        "unexpected errors: {:?}",
+        result.errors
+    );
     let e = &result.entities[0];
     assert_eq!(e.kind.raw, "invariant");
     assert_eq!(e.id.raw, "no_orphans");
     assert!(e.title.is_none());
 }
 
-#[specforge_test(behavior = "parse_spec_file_to_ast", verify = "parse valid file produces complete AST")]
+#[specforge_test(
+    behavior = "parse_spec_file_to_ast",
+    verify = "parse valid file produces complete AST"
+)]
 #[test]
 fn parse_multiple_entities_in_one_file() {
     let source = r#"
@@ -382,7 +522,11 @@ invariant third {
 "#;
     let result = parse(source, "test.spec");
 
-    assert!(result.errors.is_empty(), "unexpected errors: {:?}", result.errors);
+    assert!(
+        result.errors.is_empty(),
+        "unexpected errors: {:?}",
+        result.errors
+    );
     assert_eq!(result.imports.len(), 1);
     assert_eq!(result.entities.len(), 3);
     assert_eq!(result.entities[0].id.raw, "first");
@@ -390,7 +534,10 @@ invariant third {
     assert_eq!(result.entities[2].id.raw, "third");
 }
 
-#[specforge_test(behavior = "parse_all_block_types", verify = "parse string field values correctly")]
+#[specforge_test(
+    behavior = "parse_all_block_types",
+    verify = "parse string field values correctly"
+)]
 #[test]
 fn parse_list_with_trailing_comma() {
     let source = r#"
@@ -400,7 +547,11 @@ behavior trailing "Trailing Comma" {
 "#;
     let result = parse(source, "test.spec");
 
-    assert!(result.errors.is_empty(), "unexpected errors: {:?}", result.errors);
+    assert!(
+        result.errors.is_empty(),
+        "unexpected errors: {:?}",
+        result.errors
+    );
     match result.entities[0].fields.get("tags").expect("missing tags") {
         FieldValue::ReferenceList(items) => {
             assert_eq!(items, &["alpha", "beta", "gamma"]);
@@ -409,7 +560,10 @@ behavior trailing "Trailing Comma" {
     }
 }
 
-#[specforge_test(behavior = "parse_ref_blocks", verify = "ref block extracts scheme, kind, and identifier components")]
+#[specforge_test(
+    behavior = "parse_ref_blocks",
+    verify = "ref block extracts scheme, kind, and identifier components"
+)]
 #[test]
 fn parse_mixed_list_with_scheme_refs() {
     let source = r#"
@@ -419,7 +573,11 @@ behavior with_refs "Refs" {
 "#;
     let result = parse(source, "test.spec");
 
-    assert!(result.errors.is_empty(), "unexpected errors: {:?}", result.errors);
+    assert!(
+        result.errors.is_empty(),
+        "unexpected errors: {:?}",
+        result.errors
+    );
     match result.entities[0].fields.get("refs").expect("missing refs") {
         FieldValue::ReferenceList(items) => {
             assert_eq!(items.len(), 2);
@@ -441,7 +599,11 @@ use "features/output"
 "#;
     let result = parse(source, "test.spec");
 
-    assert!(result.errors.is_empty(), "unexpected errors: {:?}", result.errors);
+    assert!(
+        result.errors.is_empty(),
+        "unexpected errors: {:?}",
+        result.errors
+    );
     assert_eq!(result.imports.len(), 4);
     assert_eq!(result.imports[0].path, "behaviors/parsing");
     assert_eq!(result.imports[1].path, "types/core");
@@ -449,13 +611,20 @@ use "features/output"
     assert_eq!(result.imports[3].path, "features/output");
 }
 
-#[specforge_test(behavior = "parse_spec_file_to_ast", verify = "AST source spans match original token positions")]
+#[specforge_test(
+    behavior = "parse_spec_file_to_ast",
+    verify = "AST source spans match original token positions"
+)]
 #[test]
 fn source_spans_are_accurate() {
     let source = "behavior first \"First\" {\n    status planned\n}\n";
     let result = parse(source, "test.spec");
 
-    assert!(result.errors.is_empty(), "unexpected errors: {:?}", result.errors);
+    assert!(
+        result.errors.is_empty(),
+        "unexpected errors: {:?}",
+        result.errors
+    );
     let span = &result.entities[0].span;
     assert_eq!(span.file, "test.spec");
     assert_eq!(span.start_line, 1);
@@ -463,7 +632,10 @@ fn source_spans_are_accurate() {
     assert_eq!(span.end_line, 3);
 }
 
-#[specforge_test(behavior = "parse_spec_file_to_ast", verify = "parse valid file produces complete AST")]
+#[specforge_test(
+    behavior = "parse_spec_file_to_ast",
+    verify = "parse valid file produces complete AST"
+)]
 #[test]
 fn parse_empty_file() {
     let result = parse("", "empty.spec");
@@ -472,19 +644,29 @@ fn parse_empty_file() {
     assert!(result.imports.is_empty());
 }
 
-#[specforge_test(behavior = "parse_all_block_types", verify = "any keyword produces generic entity_block AST node")]
+#[specforge_test(
+    behavior = "parse_all_block_types",
+    verify = "any keyword produces generic entity_block AST node"
+)]
 #[test]
 fn parse_empty_block() {
     let source = "behavior empty_block \"Empty\" {\n}\n";
     let result = parse(source, "test.spec");
 
-    assert!(result.errors.is_empty(), "unexpected errors: {:?}", result.errors);
+    assert!(
+        result.errors.is_empty(),
+        "unexpected errors: {:?}",
+        result.errors
+    );
     assert_eq!(result.entities.len(), 1);
     assert_eq!(result.entities[0].id.raw, "empty_block");
     assert_eq!(result.entities[0].fields.entries().len(), 0);
 }
 
-#[specforge_test(behavior = "parse_spec_file_to_ast", verify = "parse valid file produces complete AST")]
+#[specforge_test(
+    behavior = "parse_spec_file_to_ast",
+    verify = "parse valid file produces complete AST"
+)]
 #[test]
 fn parse_real_world_spec_file() {
     // A realistic .spec file exercising many constructs at once
@@ -556,7 +738,10 @@ behavior recover_from_syntax_errors "Recover from Syntax Errors" {
     assert_eq!(b2.id.raw, "recover_from_syntax_errors");
 }
 
-#[specforge_test(behavior = "parse_all_block_types", verify = "generic block preserves kind, name, title, and fields")]
+#[specforge_test(
+    behavior = "parse_all_block_types",
+    verify = "generic block preserves kind, name, title, and fields"
+)]
 #[test]
 fn parse_deeply_nested_dbc_blocks() {
     let source = r#"
@@ -575,7 +760,11 @@ behavior complex "Complex" {
 "#;
     let result = parse(source, "test.spec");
 
-    assert!(result.errors.is_empty(), "unexpected errors: {:?}", result.errors);
+    assert!(
+        result.errors.is_empty(),
+        "unexpected errors: {:?}",
+        result.errors
+    );
     let e = &result.entities[0];
 
     // requires, ensures, maintains are nested blocks
@@ -601,7 +790,10 @@ behavior complex "Complex" {
     }
 }
 
-#[specforge_test(behavior = "parse_spec_file_to_ast", verify = "parse valid file produces complete AST")]
+#[specforge_test(
+    behavior = "parse_spec_file_to_ast",
+    verify = "parse valid file produces complete AST"
+)]
 #[test]
 fn parse_actual_spec_files_from_project() {
     // Find the project root (crates/specforge-parser -> project root)
@@ -632,7 +824,10 @@ fn parse_actual_spec_files_from_project() {
     // Phase 1.5. The key assertion is no panics on any real content.
 }
 
-#[specforge_test(behavior = "parse_all_block_types", verify = "any keyword produces generic entity_block AST node")]
+#[specforge_test(
+    behavior = "parse_all_block_types",
+    verify = "any keyword produces generic entity_block AST node"
+)]
 #[test]
 fn parse_type_struct_with_annotations() {
     let source = r#"
@@ -659,7 +854,10 @@ type SpecFile {
     assert!(entity.fields.get("path").is_some(), "missing 'path' field");
 }
 
-#[specforge_test(behavior = "parse_all_block_types", verify = "any keyword produces generic entity_block AST node")]
+#[specforge_test(
+    behavior = "parse_all_block_types",
+    verify = "any keyword produces generic entity_block AST node"
+)]
 #[test]
 fn parse_union_type() {
     let source = r#"
@@ -679,7 +877,10 @@ type FieldValue = StringValue | ReferenceList | StringList | Block | VerifyList
     assert_eq!(entity.id.raw, "FieldValue");
 }
 
-#[specforge_test(behavior = "parse_all_block_types", verify = "any keyword produces generic entity_block AST node")]
+#[specforge_test(
+    behavior = "parse_all_block_types",
+    verify = "any keyword produces generic entity_block AST node"
+)]
 #[test]
 fn parse_string_union_type() {
     let source = r#"
@@ -699,7 +900,10 @@ type McpErrorCode = "invalid_input" | "compilation_failed" | "entity_not_found"
     assert_eq!(entity.id.raw, "McpErrorCode");
 }
 
-#[specforge_test(behavior = "parse_all_block_types", verify = "any keyword produces generic entity_block AST node")]
+#[specforge_test(
+    behavior = "parse_all_block_types",
+    verify = "any keyword produces generic entity_block AST node"
+)]
 #[test]
 fn parse_multiline_union_type() {
     // Multi-line union with continuation via leading |
@@ -718,7 +922,10 @@ type ExportFormat = "json" | "dot" | "context"
     assert_eq!(result.entities[0].id.raw, "ExportFormat");
 }
 
-#[specforge_test(behavior = "parse_all_block_types", verify = "any keyword produces generic entity_block AST node")]
+#[specforge_test(
+    behavior = "parse_all_block_types",
+    verify = "any keyword produces generic entity_block AST node"
+)]
 #[test]
 fn parse_integer_union_type() {
     let source = r#"
@@ -735,7 +942,10 @@ type JsonRpcErrorCode = -32700 | -32600 | -32601
     assert_eq!(result.entities[0].id.raw, "JsonRpcErrorCode");
 }
 
-#[specforge_test(behavior = "parse_use_imports", verify = "reject use import with .spec extension")]
+#[specforge_test(
+    behavior = "parse_use_imports",
+    verify = "reject use import with .spec extension"
+)]
 #[test]
 fn reject_use_import_with_spec_extension() {
     let source = "use \"behaviors/parsing.spec\"\n";
@@ -747,7 +957,10 @@ fn reject_use_import_with_spec_extension() {
     assert_eq!(result.imports[0].path, "behaviors/parsing.spec");
 }
 
-#[specforge_test(behavior = "parse_verify_statements", verify = "verify parsed in spec block")]
+#[specforge_test(
+    behavior = "parse_verify_statements",
+    verify = "verify parsed in spec block"
+)]
 #[test]
 fn verify_statements_in_spec_block() {
     let source = r#"
@@ -759,11 +972,23 @@ spec "MyProject" {
 "#;
     let result = parse(source, "test.spec");
 
-    assert!(result.errors.is_empty(), "unexpected errors: {:?}", result.errors);
+    assert!(
+        result.errors.is_empty(),
+        "unexpected errors: {:?}",
+        result.errors
+    );
     let entity = &result.entities[0];
-    assert_eq!(entity.kind, EntityKind { raw: Sym::new("spec") });
+    assert_eq!(
+        entity.kind,
+        EntityKind {
+            raw: Sym::new("spec")
+        }
+    );
 
-    let verify = entity.fields.get("verify").expect("missing verify in spec block");
+    let verify = entity
+        .fields
+        .get("verify")
+        .expect("missing verify in spec block");
     match verify {
         FieldValue::VerifyList(stmts) => {
             assert_eq!(stmts.len(), 2);
@@ -776,7 +1001,10 @@ spec "MyProject" {
     }
 }
 
-#[specforge_test(behavior = "parse_verify_statements", verify = "verify parsed in define block")]
+#[specforge_test(
+    behavior = "parse_verify_statements",
+    verify = "verify parsed in define block"
+)]
 #[test]
 fn verify_statements_in_define_block() {
     let source = r#"
@@ -789,11 +1017,23 @@ define my_custom_kind {
 "#;
     let result = parse(source, "test.spec");
 
-    assert!(result.errors.is_empty(), "unexpected errors: {:?}", result.errors);
+    assert!(
+        result.errors.is_empty(),
+        "unexpected errors: {:?}",
+        result.errors
+    );
     let entity = &result.entities[0];
-    assert_eq!(entity.kind, EntityKind { raw: Sym::new("define") });
+    assert_eq!(
+        entity.kind,
+        EntityKind {
+            raw: Sym::new("define")
+        }
+    );
 
-    let verify = entity.fields.get("verify").expect("missing verify in define block");
+    let verify = entity
+        .fields
+        .get("verify")
+        .expect("missing verify in define block");
     match verify {
         FieldValue::VerifyList(stmts) => {
             assert_eq!(stmts.len(), 2);
@@ -804,7 +1044,10 @@ define my_custom_kind {
     }
 }
 
-#[specforge_test(behavior = "parse_triple_quoted_strings", verify = "recover from unclosed triple-quoted string with diagnostic")]
+#[specforge_test(
+    behavior = "parse_triple_quoted_strings",
+    verify = "recover from unclosed triple-quoted string with diagnostic"
+)]
 #[test]
 fn unclosed_triple_quoted_string_produces_error() {
     let source = r#"
@@ -826,7 +1069,10 @@ behavior after "After" {
     );
 }
 
-#[specforge_test(behavior = "recover_from_syntax_errors", verify = "valid blocks after syntax error are still parsed")]
+#[specforge_test(
+    behavior = "recover_from_syntax_errors",
+    verify = "valid blocks after syntax error are still parsed"
+)]
 #[test]
 fn unclosed_regular_string_recovers_next_block() {
     let source = "behavior broken \"Broken {\n    status planned\n}\n\nbehavior after \"After\" {\n    status done\n}\n";
@@ -842,7 +1088,10 @@ fn unclosed_regular_string_recovers_next_block() {
     // the key invariant is that the parser doesn't panic
 }
 
-#[specforge_test(behavior = "parse_ref_blocks", verify = "reject ref block with missing scheme or identifier")]
+#[specforge_test(
+    behavior = "parse_ref_blocks",
+    verify = "reject ref block with missing scheme or identifier"
+)]
 #[test]
 fn malformed_ref_missing_scheme_produces_error() {
     // ref without proper scheme.kind:identifier should produce a parse error
@@ -858,11 +1107,18 @@ fn malformed_ref_missing_scheme_produces_error() {
         has_error || not_a_ref,
         "malformed ref should produce an error or not be parsed as ref; errors: {:?}, entities: {:?}",
         result.errors,
-        result.entities.iter().map(|e| (&e.kind.raw, &e.id.raw)).collect::<Vec<_>>()
+        result
+            .entities
+            .iter()
+            .map(|e| (&e.kind.raw, &e.id.raw))
+            .collect::<Vec<_>>()
     );
 }
 
-#[specforge_test(behavior = "parse_all_block_types", verify = "generic block preserves kind, name, title, and fields")]
+#[specforge_test(
+    behavior = "parse_all_block_types",
+    verify = "generic block preserves kind, name, title, and fields"
+)]
 #[test]
 fn entity_preserves_raw_body() {
     let source = r#"
@@ -874,29 +1130,55 @@ behavior parse_things "Parse Things" {
 "#;
     let result = parse(source, "test.spec");
 
-    assert!(result.errors.is_empty(), "unexpected errors: {:?}", result.errors);
+    assert!(
+        result.errors.is_empty(),
+        "unexpected errors: {:?}",
+        result.errors
+    );
     let entity = &result.entities[0];
 
     // raw_body should contain the verbatim text between the braces
     let raw = entity.raw_body.as_ref().expect("missing raw_body");
-    assert!(raw.contains("status planned"), "raw_body should contain field text, got: {raw:?}");
-    assert!(raw.contains("tags [alpha, beta]"), "raw_body should contain list, got: {raw:?}");
-    assert!(raw.contains("verify unit"), "raw_body should contain verify, got: {raw:?}");
+    assert!(
+        raw.contains("status planned"),
+        "raw_body should contain field text, got: {raw:?}"
+    );
+    assert!(
+        raw.contains("tags [alpha, beta]"),
+        "raw_body should contain list, got: {raw:?}"
+    );
+    assert!(
+        raw.contains("verify unit"),
+        "raw_body should contain verify, got: {raw:?}"
+    );
 }
 
-#[specforge_test(behavior = "parse_all_block_types", verify = "generic block preserves kind, name, title, and fields")]
+#[specforge_test(
+    behavior = "parse_all_block_types",
+    verify = "generic block preserves kind, name, title, and fields"
+)]
 #[test]
 fn empty_block_has_empty_raw_body() {
     let source = "behavior empty \"Empty\" {\n}\n";
     let result = parse(source, "test.spec");
 
-    assert!(result.errors.is_empty(), "unexpected errors: {:?}", result.errors);
+    assert!(
+        result.errors.is_empty(),
+        "unexpected errors: {:?}",
+        result.errors
+    );
     let entity = &result.entities[0];
     let raw = entity.raw_body.as_ref().expect("missing raw_body");
-    assert!(raw.trim().is_empty(), "expected empty raw_body, got: {raw:?}");
+    assert!(
+        raw.trim().is_empty(),
+        "expected empty raw_body, got: {raw:?}"
+    );
 }
 
-#[specforge_test(behavior = "parse_spec_file_to_ast", verify = "parse valid file produces complete AST")]
+#[specforge_test(
+    behavior = "parse_spec_file_to_ast",
+    verify = "parse valid file produces complete AST"
+)]
 #[test]
 fn spec_files_without_extension_syntax_parse_cleanly() {
     // Files that use ONLY standard field syntax (no port method signatures,
@@ -923,7 +1205,12 @@ fn spec_files_without_extension_syntax_parse_cleanly() {
 
     let mut failures = Vec::new();
     for entry in walkdir(spec_dir.clone()) {
-        let rel = entry.strip_prefix(&spec_dir).unwrap().to_str().unwrap().to_string();
+        let rel = entry
+            .strip_prefix(&spec_dir)
+            .unwrap()
+            .to_str()
+            .unwrap()
+            .to_string();
 
         // Skip files with known extension-specific syntax
         if extension_syntax_files.iter().any(|&f| rel == f) {
@@ -937,9 +1224,20 @@ fn spec_files_without_extension_syntax_parse_cleanly() {
         let source = std::fs::read_to_string(&entry).unwrap();
         let result = parse(&source, entry.to_str().unwrap());
         if !result.errors.is_empty() {
-            failures.push((rel, result.errors.len(), result.errors.iter().map(|e| {
-                format!("  L{}:{}: {}", e.span.start_line, e.span.start_col, e.message)
-            }).collect::<Vec<_>>()));
+            failures.push((
+                rel,
+                result.errors.len(),
+                result
+                    .errors
+                    .iter()
+                    .map(|e| {
+                        format!(
+                            "  L{}:{}: {}",
+                            e.span.start_line, e.span.start_col, e.message
+                        )
+                    })
+                    .collect::<Vec<_>>(),
+            ));
         }
     }
 
@@ -955,7 +1253,10 @@ fn spec_files_without_extension_syntax_parse_cleanly() {
     }
 }
 
-#[specforge_test(behavior = "parse_all_block_types", verify = "parse string field values correctly")]
+#[specforge_test(
+    behavior = "parse_all_block_types",
+    verify = "parse string field values correctly"
+)]
 #[test]
 fn annotation_with_string_value() {
     let source = r#"
@@ -965,12 +1266,22 @@ type WasmConfig {
 "#;
     let result = parse(source, "test.spec");
 
-    assert!(result.errors.is_empty(), "annotation with string value should not produce errors: {:?}", result.errors);
+    assert!(
+        result.errors.is_empty(),
+        "annotation with string value should not produce errors: {:?}",
+        result.errors
+    );
     let entity = &result.entities[0];
-    assert!(entity.fields.get("max_memory_pages").is_some(), "field should be parsed");
+    assert!(
+        entity.fields.get("max_memory_pages").is_some(),
+        "field should be parsed"
+    );
 }
 
-#[specforge_test(behavior = "parse_verify_statements", verify = "verify kind and description extracted correctly")]
+#[specforge_test(
+    behavior = "parse_verify_statements",
+    verify = "verify kind and description extracted correctly"
+)]
 #[test]
 fn verify_statement_without_kind() {
     let source = r#"
@@ -980,21 +1291,35 @@ event manifests_loaded "Manifests Loaded" {
 "#;
     let result = parse(source, "test.spec");
 
-    assert!(result.errors.is_empty(), "verify without kind should not produce errors: {:?}", result.errors);
+    assert!(
+        result.errors.is_empty(),
+        "verify without kind should not produce errors: {:?}",
+        result.errors
+    );
     let entity = &result.entities[0];
     let verify = entity.fields.get("verify").expect("missing verify field");
     match verify {
         FieldValue::VerifyList(stmts) => {
             assert_eq!(stmts.len(), 1);
             // When kind is omitted, it should default to empty string or a sentinel
-            assert!(stmts[0].kind.is_empty(), "kind should be empty when omitted, got: {:?}", stmts[0].kind);
-            assert_eq!(stmts[0].description, "Extension manifests MUST be loaded before populating the kind registry");
+            assert!(
+                stmts[0].kind.is_empty(),
+                "kind should be empty when omitted, got: {:?}",
+                stmts[0].kind
+            );
+            assert_eq!(
+                stmts[0].description,
+                "Extension manifests MUST be loaded before populating the kind registry"
+            );
         }
         other => panic!("expected VerifyList, got {:?}", other),
     }
 }
 
-#[specforge_test(behavior = "parse_all_block_types", verify = "parse string field values correctly")]
+#[specforge_test(
+    behavior = "parse_all_block_types",
+    verify = "parse string field values correctly"
+)]
 #[test]
 fn string_field_values_distinct_from_identifiers() {
     let source = r#"
@@ -1008,7 +1333,11 @@ behavior example "Example" {
 "#;
     let result = parse(source, "test.spec");
 
-    assert!(result.errors.is_empty(), "unexpected errors: {:?}", result.errors);
+    assert!(
+        result.errors.is_empty(),
+        "unexpected errors: {:?}",
+        result.errors
+    );
     let e = &result.entities[0];
 
     // Bare word -> Identifier
@@ -1047,14 +1376,24 @@ behavior example "Example" {
     );
 }
 
-#[specforge_test(behavior = "parse_triple_quoted_strings", verify = "relative indentation is preserved")]
+#[specforge_test(
+    behavior = "parse_triple_quoted_strings",
+    verify = "relative indentation is preserved"
+)]
 #[test]
 fn triple_quoted_relative_indentation_preserved() {
     let source = "behavior b \"B\" {\n    contract \"\"\"\n        line one\n            indented deeper\n        back to base\n    \"\"\"\n}\n";
     let result = parse(source, "test.spec");
 
-    assert!(result.errors.is_empty(), "unexpected errors: {:?}", result.errors);
-    let contract = result.entities[0].fields.get("contract").expect("missing contract");
+    assert!(
+        result.errors.is_empty(),
+        "unexpected errors: {:?}",
+        result.errors
+    );
+    let contract = result.entities[0]
+        .fields
+        .get("contract")
+        .expect("missing contract");
     match contract {
         FieldValue::String(s) => {
             let lines: Vec<&str> = s.lines().collect();
@@ -1067,7 +1406,10 @@ fn triple_quoted_relative_indentation_preserved() {
     }
 }
 
-#[specforge_test(behavior = "parse_all_block_types", verify = "parse string field values correctly")]
+#[specforge_test(
+    behavior = "parse_all_block_types",
+    verify = "parse string field values correctly"
+)]
 #[test]
 fn parse_empty_reference_list() {
     let source = r#"
@@ -1077,7 +1419,11 @@ behavior foo "T" {
 "#;
     let result = parse(source, "test.spec");
 
-    assert!(result.errors.is_empty(), "unexpected errors: {:?}", result.errors);
+    assert!(
+        result.errors.is_empty(),
+        "unexpected errors: {:?}",
+        result.errors
+    );
     match result.entities[0].fields.get("tags").expect("missing tags") {
         FieldValue::ReferenceList(items) => {
             assert!(items.is_empty(), "expected empty list, got: {items:?}");
@@ -1086,7 +1432,10 @@ behavior foo "T" {
     }
 }
 
-#[specforge_test(behavior = "parse_all_block_types", verify = "generic block preserves kind, name, title, and fields")]
+#[specforge_test(
+    behavior = "parse_all_block_types",
+    verify = "generic block preserves kind, name, title, and fields"
+)]
 #[test]
 fn parse_empty_nested_block() {
     let source = r#"
@@ -1096,16 +1445,31 @@ behavior foo "T" {
 "#;
     let result = parse(source, "test.spec");
 
-    assert!(result.errors.is_empty(), "unexpected errors: {:?}", result.errors);
-    match result.entities[0].fields.get("requires").expect("missing requires") {
+    assert!(
+        result.errors.is_empty(),
+        "unexpected errors: {:?}",
+        result.errors
+    );
+    match result.entities[0]
+        .fields
+        .get("requires")
+        .expect("missing requires")
+    {
         FieldValue::Block(map) => {
-            assert!(map.entries().is_empty(), "expected empty block, got {} entries", map.entries().len());
+            assert!(
+                map.entries().is_empty(),
+                "expected empty block, got {} entries",
+                map.entries().len()
+            );
         }
         other => panic!("expected Block, got {:?}", other),
     }
 }
 
-#[specforge_test(behavior = "parse_all_block_types", verify = "spec block uses dedicated grammar rule")]
+#[specforge_test(
+    behavior = "parse_all_block_types",
+    verify = "spec block uses dedicated grammar rule"
+)]
 #[test]
 fn spec_block_preserves_raw_body() {
     let source = r#"
@@ -1115,12 +1479,25 @@ spec "MyProject" {
 "#;
     let result = parse(source, "test.spec");
 
-    assert!(result.errors.is_empty(), "unexpected errors: {:?}", result.errors);
-    let raw = result.entities[0].raw_body.as_ref().expect("missing raw_body on spec block");
-    assert!(raw.contains("version"), "spec block raw_body should contain fields, got: {raw:?}");
+    assert!(
+        result.errors.is_empty(),
+        "unexpected errors: {:?}",
+        result.errors
+    );
+    let raw = result.entities[0]
+        .raw_body
+        .as_ref()
+        .expect("missing raw_body on spec block");
+    assert!(
+        raw.contains("version"),
+        "spec block raw_body should contain fields, got: {raw:?}"
+    );
 }
 
-#[specforge_test(behavior = "parse_define_blocks", verify = "define block supports standard field syntax")]
+#[specforge_test(
+    behavior = "parse_define_blocks",
+    verify = "define block supports standard field syntax"
+)]
 #[test]
 fn define_block_preserves_raw_body() {
     let source = r#"
@@ -1130,22 +1507,43 @@ define my_kind {
 "#;
     let result = parse(source, "test.spec");
 
-    assert!(result.errors.is_empty(), "unexpected errors: {:?}", result.errors);
-    let raw = result.entities[0].raw_body.as_ref().expect("missing raw_body on define block");
-    assert!(raw.contains("testable"), "define block raw_body should contain fields, got: {raw:?}");
+    assert!(
+        result.errors.is_empty(),
+        "unexpected errors: {:?}",
+        result.errors
+    );
+    let raw = result.entities[0]
+        .raw_body
+        .as_ref()
+        .expect("missing raw_body on define block");
+    assert!(
+        raw.contains("testable"),
+        "define block raw_body should contain fields, got: {raw:?}"
+    );
 }
 
-#[specforge_test(behavior = "parse_all_block_types", verify = "any keyword produces generic entity_block AST node")]
+#[specforge_test(
+    behavior = "parse_all_block_types",
+    verify = "any keyword produces generic entity_block AST node"
+)]
 #[test]
 fn parse_single_variant_union() {
     let source = "type Singleton = OnlyOne\n";
     let result = parse(source, "test.spec");
 
-    assert!(result.errors.is_empty(), "unexpected errors: {:?}", result.errors);
+    assert!(
+        result.errors.is_empty(),
+        "unexpected errors: {:?}",
+        result.errors
+    );
     assert_eq!(result.entities.len(), 1);
     assert_eq!(result.entities[0].id.raw, "Singleton");
 
-    match result.entities[0].fields.get("variants").expect("missing variants") {
+    match result.entities[0]
+        .fields
+        .get("variants")
+        .expect("missing variants")
+    {
         FieldValue::VariantList(variants) => {
             assert_eq!(variants.len(), 1, "expected 1 variant, got: {variants:?}");
             assert_eq!(variants[0], "OnlyOne");
@@ -1154,18 +1552,39 @@ fn parse_single_variant_union() {
     }
 }
 
-#[specforge_test(behavior = "parse_all_block_types", verify = "any keyword produces generic entity_block AST node")]
+#[specforge_test(
+    behavior = "parse_all_block_types",
+    verify = "any keyword produces generic entity_block AST node"
+)]
 #[test]
 fn parse_union_type_variants_extracted() {
-    let source = "type FieldValue = StringValue | ReferenceList | StringList | Block | VerifyList\n";
+    let source =
+        "type FieldValue = StringValue | ReferenceList | StringList | Block | VerifyList\n";
     let result = parse(source, "test.spec");
 
-    assert!(result.errors.is_empty(), "unexpected errors: {:?}", result.errors);
+    assert!(
+        result.errors.is_empty(),
+        "unexpected errors: {:?}",
+        result.errors
+    );
     assert_eq!(result.entities[0].id.raw, "FieldValue");
 
-    match result.entities[0].fields.get("variants").expect("missing variants") {
+    match result.entities[0]
+        .fields
+        .get("variants")
+        .expect("missing variants")
+    {
         FieldValue::VariantList(variants) => {
-            assert_eq!(variants, &["StringValue", "ReferenceList", "StringList", "Block", "VerifyList"]);
+            assert_eq!(
+                variants,
+                &[
+                    "StringValue",
+                    "ReferenceList",
+                    "StringList",
+                    "Block",
+                    "VerifyList"
+                ]
+            );
         }
         other => panic!("expected VariantList for variants, got {:?}", other),
     }
@@ -1175,7 +1594,10 @@ fn parse_union_type_variants_extracted() {
 // NEW TESTS: Fill coverage gaps for uncovered verify statements
 // ---------------------------------------------------------------------------
 
-#[specforge_test(behavior = "parse_all_block_types", verify = "ref block uses dedicated grammar rule")]
+#[specforge_test(
+    behavior = "parse_all_block_types",
+    verify = "ref block uses dedicated grammar rule"
+)]
 #[test]
 fn ref_block_uses_dedicated_grammar_rule() {
     // Ref blocks have unique syntax: ref scheme.kind:identifier [title] { fields }
@@ -1187,7 +1609,11 @@ ref gh.pr:100 "Ref grammar rule" {
 "#;
     let result = parse(source, "test.spec");
 
-    assert!(result.errors.is_empty(), "ref block should parse without errors: {:?}", result.errors);
+    assert!(
+        result.errors.is_empty(),
+        "ref block should parse without errors: {:?}",
+        result.errors
+    );
     assert_eq!(result.entities.len(), 1);
 
     let entity = &result.entities[0];
@@ -1202,7 +1628,10 @@ ref gh.pr:100 "Ref grammar rule" {
     assert!(matches!(entity.fields.get("status"), Some(FieldValue::String(s)) if s == "open"));
 }
 
-#[specforge_test(behavior = "parse_all_block_types", verify = "define block uses dedicated grammar rule")]
+#[specforge_test(
+    behavior = "parse_all_block_types",
+    verify = "define block uses dedicated grammar rule"
+)]
 #[test]
 fn define_block_uses_dedicated_grammar_rule() {
     // Define blocks have unique syntax: define <name> { fields }
@@ -1216,32 +1645,59 @@ define custom_entity {
 "#;
     let result = parse(source, "test.spec");
 
-    assert!(result.errors.is_empty(), "define block should parse without errors: {:?}", result.errors);
+    assert!(
+        result.errors.is_empty(),
+        "define block should parse without errors: {:?}",
+        result.errors
+    );
     assert_eq!(result.entities.len(), 1);
 
     let entity = &result.entities[0];
     assert_eq!(entity.kind.raw, "define");
     assert_eq!(entity.id.raw, "custom_entity");
     // Define blocks have no title — this distinguishes from generic entity_block
-    assert!(entity.title.is_none(), "define blocks must not have a title");
+    assert!(
+        entity.title.is_none(),
+        "define blocks must not have a title"
+    );
     assert!(matches!(entity.fields.get("base_kind"), Some(FieldValue::String(s)) if s == "entity"));
-    assert!(matches!(entity.fields.get("testable"), Some(FieldValue::Boolean(true))));
-    assert!(matches!(entity.fields.get("singleton"), Some(FieldValue::Boolean(false))));
+    assert!(matches!(
+        entity.fields.get("testable"),
+        Some(FieldValue::Boolean(true))
+    ));
+    assert!(matches!(
+        entity.fields.get("singleton"),
+        Some(FieldValue::Boolean(false))
+    ));
 }
 
-#[specforge_test(behavior = "parse_triple_quoted_strings", verify = "triple-quoted string preserves newlines")]
+#[specforge_test(
+    behavior = "parse_triple_quoted_strings",
+    verify = "triple-quoted string preserves newlines"
+)]
 #[test]
 fn triple_quoted_string_preserves_newlines() {
     // Verify that internal newlines are preserved in triple-quoted strings
     let source = "behavior b \"B\" {\n    contract \"\"\"\n        First line\n        Second line\n        Third line\n    \"\"\"\n}\n";
     let result = parse(source, "test.spec");
 
-    assert!(result.errors.is_empty(), "unexpected errors: {:?}", result.errors);
-    let contract = result.entities[0].fields.get("contract").expect("missing contract");
+    assert!(
+        result.errors.is_empty(),
+        "unexpected errors: {:?}",
+        result.errors
+    );
+    let contract = result.entities[0]
+        .fields
+        .get("contract")
+        .expect("missing contract");
     match contract {
         FieldValue::String(s) => {
             let lines: Vec<&str> = s.lines().collect();
-            assert_eq!(lines.len(), 3, "expected 3 lines (newlines preserved), got: {lines:?}");
+            assert_eq!(
+                lines.len(),
+                3,
+                "expected 3 lines (newlines preserved), got: {lines:?}"
+            );
             assert_eq!(lines[0], "First line");
             assert_eq!(lines[1], "Second line");
             assert_eq!(lines[2], "Third line");
@@ -1250,7 +1706,10 @@ fn triple_quoted_string_preserves_newlines() {
     }
 }
 
-#[specforge_test(behavior = "parse_verify_statements", verify = "parse multiple verify statements in same entity")]
+#[specforge_test(
+    behavior = "parse_verify_statements",
+    verify = "parse multiple verify statements in same entity"
+)]
 #[test]
 fn parse_multiple_verify_statements_in_same_entity() {
     let source = r#"
@@ -1264,12 +1723,20 @@ behavior multi_verify "Multi Verify" {
 "#;
     let result = parse(source, "test.spec");
 
-    assert!(result.errors.is_empty(), "unexpected errors: {:?}", result.errors);
+    assert!(
+        result.errors.is_empty(),
+        "unexpected errors: {:?}",
+        result.errors
+    );
     let entity = &result.entities[0];
     let verify = entity.fields.get("verify").expect("missing verify field");
     match verify {
         FieldValue::VerifyList(stmts) => {
-            assert_eq!(stmts.len(), 4, "expected 4 verify statements in same entity");
+            assert_eq!(
+                stmts.len(),
+                4,
+                "expected 4 verify statements in same entity"
+            );
             assert_eq!(stmts[0].kind, "unit");
             assert_eq!(stmts[0].description, "first unit test");
             assert_eq!(stmts[1].kind, "unit");
@@ -1283,14 +1750,21 @@ behavior multi_verify "Multi Verify" {
     }
 }
 
-#[specforge_test(behavior = "parse_ref_blocks", verify = "parse ref block with scheme.kind:identifier format")]
+#[specforge_test(
+    behavior = "parse_ref_blocks",
+    verify = "parse ref block with scheme.kind:identifier format"
+)]
 #[test]
 fn parse_ref_block_with_scheme_kind_identifier_format() {
     // Verify the full ref block syntax with scheme.kind:identifier is parsed
     let source = r#"ref jira.epic:PROJ-42 "Epic tracking""#;
     let result = parse(source, "test.spec");
 
-    assert!(result.errors.is_empty(), "unexpected errors: {:?}", result.errors);
+    assert!(
+        result.errors.is_empty(),
+        "unexpected errors: {:?}",
+        result.errors
+    );
     assert_eq!(result.entities.len(), 1);
 
     let entity = &result.entities[0];
@@ -1301,10 +1775,15 @@ fn parse_ref_block_with_scheme_kind_identifier_format() {
     // scheme.kind:identifier components must be decomposed
     assert!(matches!(entity.fields.get("scheme"), Some(FieldValue::String(s)) if s == "jira"));
     assert!(matches!(entity.fields.get("ref_kind"), Some(FieldValue::String(s)) if s == "epic"));
-    assert!(matches!(entity.fields.get("identifier"), Some(FieldValue::String(s)) if s == "PROJ-42"));
+    assert!(
+        matches!(entity.fields.get("identifier"), Some(FieldValue::String(s)) if s == "PROJ-42")
+    );
 }
 
-#[specforge_test(behavior = "parse_define_blocks", verify = "define block parsed without extension knowledge")]
+#[specforge_test(
+    behavior = "parse_define_blocks",
+    verify = "define block parsed without extension knowledge"
+)]
 #[test]
 fn define_block_parsed_without_extension_knowledge() {
     // Define blocks are core grammar constructs — they must parse even when
@@ -1321,7 +1800,11 @@ define exotic_kind {
 "#;
     let result = parse(source, "test.spec");
 
-    assert!(result.errors.is_empty(), "define block must parse without any extension knowledge: {:?}", result.errors);
+    assert!(
+        result.errors.is_empty(),
+        "define block must parse without any extension knowledge: {:?}",
+        result.errors
+    );
     assert_eq!(result.entities.len(), 1);
 
     let entity = &result.entities[0];
@@ -1329,10 +1812,22 @@ define exotic_kind {
     assert_eq!(entity.id.raw, "exotic_kind");
     // All standard field types must work inside define blocks
     assert!(matches!(entity.fields.get("base_kind"), Some(FieldValue::String(s)) if s == "entity"));
-    assert!(matches!(entity.fields.get("testable"), Some(FieldValue::Boolean(true))));
-    assert!(matches!(entity.fields.get("singleton"), Some(FieldValue::Boolean(false))));
-    assert!(matches!(entity.fields.get("supports_verify"), Some(FieldValue::Boolean(true))));
-    assert!(matches!(entity.fields.get("incremental"), Some(FieldValue::Boolean(false))));
+    assert!(matches!(
+        entity.fields.get("testable"),
+        Some(FieldValue::Boolean(true))
+    ));
+    assert!(matches!(
+        entity.fields.get("singleton"),
+        Some(FieldValue::Boolean(false))
+    ));
+    assert!(matches!(
+        entity.fields.get("supports_verify"),
+        Some(FieldValue::Boolean(true))
+    ));
+    assert!(matches!(
+        entity.fields.get("incremental"),
+        Some(FieldValue::Boolean(false))
+    ));
 }
 
 // --- pub use import tests ---
@@ -1343,7 +1838,11 @@ fn parse_pub_use_import() {
     let source = "pub use \"./foo\"\n";
     let result = parse(source, "test.spec");
 
-    assert!(result.errors.is_empty(), "unexpected errors: {:?}", result.errors);
+    assert!(
+        result.errors.is_empty(),
+        "unexpected errors: {:?}",
+        result.errors
+    );
     assert_eq!(result.imports.len(), 1);
     assert_eq!(result.imports[0].path, "./foo");
     assert!(result.imports[0].is_pub, "pub use should set is_pub = true");
@@ -1351,23 +1850,39 @@ fn parse_pub_use_import() {
     assert!(result.imports[0].bindings.is_none());
 }
 
-#[specforge_test(behavior = "parse_use_imports", verify = "parse pub use selective import")]
+#[specforge_test(
+    behavior = "parse_use_imports",
+    verify = "parse pub use selective import"
+)]
 #[test]
 fn parse_pub_use_selective() {
     let source = "pub use { Bar, Baz } from \"./foo\"\n";
     let result = parse(source, "test.spec");
 
-    assert!(result.errors.is_empty(), "unexpected errors: {:?}", result.errors);
+    assert!(
+        result.errors.is_empty(),
+        "unexpected errors: {:?}",
+        result.errors
+    );
     assert_eq!(result.imports.len(), 1);
     assert!(result.imports[0].is_pub, "pub use should set is_pub = true");
-    assert_eq!(result.imports[0].kind, specforge_parser::ImportKind::Selective);
-    let bindings = result.imports[0].bindings.as_ref().expect("expected selective bindings");
+    assert_eq!(
+        result.imports[0].kind,
+        specforge_parser::ImportKind::Selective
+    );
+    let bindings = result.imports[0]
+        .bindings
+        .as_ref()
+        .expect("expected selective bindings");
     assert_eq!(bindings.len(), 2);
     assert_eq!(bindings[0].name, "Bar");
     assert_eq!(bindings[1].name, "Baz");
 }
 
-#[specforge_test(behavior = "parse_use_imports", verify = "parse mixed use and pub use imports")]
+#[specforge_test(
+    behavior = "parse_use_imports",
+    verify = "parse mixed use and pub use imports"
+)]
 #[test]
 fn parse_mixed_use_and_pub_use() {
     let source = r#"
@@ -1378,19 +1893,32 @@ pub use { Foo } from "./another_public"
 "#;
     let result = parse(source, "test.spec");
 
-    assert!(result.errors.is_empty(), "unexpected errors: {:?}", result.errors);
+    assert!(
+        result.errors.is_empty(),
+        "unexpected errors: {:?}",
+        result.errors
+    );
     assert_eq!(result.imports.len(), 4);
     assert!(!result.imports[0].is_pub, "use should set is_pub = false");
     assert!(result.imports[1].is_pub, "pub use should set is_pub = true");
     assert!(!result.imports[2].is_pub, "use should set is_pub = false");
     assert!(result.imports[3].is_pub, "pub use should set is_pub = true");
-    assert_eq!(result.imports[3].kind, specforge_parser::ImportKind::Selective);
-    let bindings = result.imports[3].bindings.as_ref().expect("expected selective bindings");
+    assert_eq!(
+        result.imports[3].kind,
+        specforge_parser::ImportKind::Selective
+    );
+    let bindings = result.imports[3]
+        .bindings
+        .as_ref()
+        .expect("expected selective bindings");
     assert_eq!(bindings.len(), 1);
     assert_eq!(bindings[0].name, "Foo");
 }
 
-#[specforge_test(behavior = "parse_all_block_types", verify = "negative integer parsed as field value")]
+#[specforge_test(
+    behavior = "parse_all_block_types",
+    verify = "negative integer parsed as field value"
+)]
 #[test]
 fn parse_negative_integer_as_field_value() {
     let source = r#"
@@ -1400,7 +1928,11 @@ behavior test "Test" {
 "#;
     let result = parse(source, "test.spec");
 
-    assert!(result.errors.is_empty(), "unexpected errors: {:?}", result.errors);
+    assert!(
+        result.errors.is_empty(),
+        "unexpected errors: {:?}",
+        result.errors
+    );
     assert_eq!(result.entities.len(), 1);
 
     let entity = &result.entities[0];
@@ -1410,7 +1942,10 @@ behavior test "Test" {
     }
 }
 
-#[specforge_test(behavior = "parse_all_block_types", verify = "negative integer parsed as field value with larger magnitude")]
+#[specforge_test(
+    behavior = "parse_all_block_types",
+    verify = "negative integer parsed as field value with larger magnitude"
+)]
 #[test]
 fn parse_negative_integer_larger_magnitude() {
     let source = r#"
@@ -1420,7 +1955,11 @@ behavior test "Test" {
 "#;
     let result = parse(source, "test.spec");
 
-    assert!(result.errors.is_empty(), "unexpected errors: {:?}", result.errors);
+    assert!(
+        result.errors.is_empty(),
+        "unexpected errors: {:?}",
+        result.errors
+    );
     let entity = &result.entities[0];
     match entity.fields.get("offset") {
         Some(FieldValue::Integer(val)) => assert_eq!(*val, -42, "expected -42, got {val}"),
@@ -1465,7 +2004,10 @@ behavior test "Test" {
 
     eprintln!("Entities: {}", result.entities.len());
     for (i, ent) in result.entities.iter().enumerate() {
-        eprintln!("  [{}] kind={}, id={}, line={}", i, ent.kind.raw, ent.id.raw, ent.span.start_line);
+        eprintln!(
+            "  [{}] kind={}, id={}, line={}",
+            i, ent.kind.raw, ent.id.raw, ent.span.start_line
+        );
     }
 
     eprintln!("Errors: {}", result.errors.len());
@@ -1476,7 +2018,6 @@ behavior test "Test" {
 
 #[test]
 fn debug_treesitter_ast() {
-    
     use tree_sitter::Parser;
 
     let source = r#"use invariants/core
@@ -1486,7 +2027,9 @@ behavior test "Test" {
 }"#;
 
     let mut parser = Parser::new();
-    parser.set_language(&tree_sitter_specforge::LANGUAGE.into()).unwrap();
+    parser
+        .set_language(&tree_sitter_specforge::LANGUAGE.into())
+        .unwrap();
     let tree = parser.parse(source, None).unwrap();
 
     fn print_node(node: tree_sitter::Node, source: &str, indent: usize) {
@@ -1497,7 +2040,13 @@ behavior test "Test" {
         } else {
             text.to_string()
         };
-        eprintln!("{}kind={}, line={}, text={:?}", indent_str, node.kind(), node.start_position().row + 1, text_display);
+        eprintln!(
+            "{}kind={}, line={}, text={:?}",
+            indent_str,
+            node.kind(),
+            node.start_position().row + 1,
+            text_display
+        );
 
         let mut cursor = node.walk();
         for child in node.children(&mut cursor) {
@@ -1512,7 +2061,10 @@ behavior test "Test" {
 // === Phase 6: Parser Robustness ===
 
 // B:parse_all_block_types — verify unit "integer overflow produces parse error instead of silent 0"
-#[specforge_test(behavior = "parse_all_block_types", verify = "integer overflow produces parse error instead of silent 0")]
+#[specforge_test(
+    behavior = "parse_all_block_types",
+    verify = "integer overflow produces parse error instead of silent 0"
+)]
 #[test]
 fn integer_overflow_produces_parse_error() {
     let source = r#"
@@ -1523,48 +2075,80 @@ behavior overflowed "Overflow" {
     let result = parse(source, "test.spec");
 
     // Should report an error about integer overflow
-    let has_overflow_error = result.errors.iter().any(|e| {
-        e.message.contains("integer") && e.message.contains("too large")
-    });
-    assert!(has_overflow_error, "expected parse error for integer overflow, got errors: {:?}", result.errors);
+    let has_overflow_error = result
+        .errors
+        .iter()
+        .any(|e| e.message.contains("integer") && e.message.contains("too large"));
+    assert!(
+        has_overflow_error,
+        "expected parse error for integer overflow, got errors: {:?}",
+        result.errors
+    );
 
     // Entity is still created (error recovery), but the error is surfaced
-    assert!(!result.errors.is_empty(), "overflow must be reported as an error");
+    assert!(
+        !result.errors.is_empty(),
+        "overflow must be reported as an error"
+    );
     // Verify the error has useful span and expected/found info
-    let err = result.errors.iter().find(|e| e.message.contains("too large")).unwrap();
+    let err = result
+        .errors
+        .iter()
+        .find(|e| e.message.contains("too large"))
+        .unwrap();
     assert!(err.expected.is_some(), "error should have 'expected' field");
     assert!(err.found.is_some(), "error should have 'found' field");
 }
 
 // B:parse_all_block_types — verify unit "missing opening brace produces helpful error"
-#[specforge_test(behavior = "parse_all_block_types", verify = "missing opening brace produces helpful error")]
+#[specforge_test(
+    behavior = "parse_all_block_types",
+    verify = "missing opening brace produces helpful error"
+)]
 #[test]
 fn missing_opening_brace_produces_error() {
     let source = "behavior no_brace \"No Brace\"\n    status planned\n}\n";
     let result = parse(source, "test.spec");
 
     // Should produce some error — tree-sitter should flag this
-    assert!(!result.errors.is_empty() || result.entities.is_empty(),
-        "missing brace should produce an error or no entity");
+    assert!(
+        !result.errors.is_empty() || result.entities.is_empty(),
+        "missing brace should produce an error or no entity"
+    );
 }
 
 // B:parse_all_block_types — verify unit "completely invalid syntax produces error with location"
-#[specforge_test(behavior = "parse_all_block_types", verify = "completely invalid syntax produces error with location")]
+#[specforge_test(
+    behavior = "parse_all_block_types",
+    verify = "completely invalid syntax produces error with location"
+)]
 #[test]
 fn completely_invalid_syntax_produces_error_with_location() {
     let source = "@@@ invalid !!! garbage\n";
     let result = parse(source, "test.spec");
 
-    assert!(!result.errors.is_empty(), "invalid syntax should produce errors, got none");
+    assert!(
+        !result.errors.is_empty(),
+        "invalid syntax should produce errors, got none"
+    );
     // Error should have a meaningful span
     let err = &result.errors[0];
-    assert!(err.span.start_line >= 1, "error span should have valid line number");
+    assert!(
+        err.span.start_line >= 1,
+        "error span should have valid line number"
+    );
     // Error should have expected field with guidance
-    assert!(err.expected.is_some(), "error should suggest what was expected");
+    assert!(
+        err.expected.is_some(),
+        "error should suggest what was expected"
+    );
 }
 
 // B:parse_all_block_types — verify unit "valid integer parses correctly"
-#[specforge_test(behavior = "parse_all_block_types", verify = "valid integer parses correctly")]
+#[specforge_test(
+    behavior = "parse_all_block_types",
+    verify = "valid integer parses correctly"
+)]
 #[test]
 fn valid_integer_parses_correctly() {
     let source = r#"
@@ -1574,7 +2158,11 @@ behavior normal "Normal" {
 "#;
     let result = parse(source, "test.spec");
 
-    assert!(result.errors.is_empty(), "unexpected errors: {:?}", result.errors);
+    assert!(
+        result.errors.is_empty(),
+        "unexpected errors: {:?}",
+        result.errors
+    );
     let entity = &result.entities[0];
     match entity.fields.get("priority") {
         Some(FieldValue::Integer(val)) => assert_eq!(*val, 42),
@@ -1582,12 +2170,19 @@ behavior normal "Normal" {
     }
 }
 
-#[specforge_test(behavior = "parse_all_block_types", verify = "escaped quotes in strings are unescaped")]
+#[specforge_test(
+    behavior = "parse_all_block_types",
+    verify = "escaped quotes in strings are unescaped"
+)]
 #[test]
 fn unquote_processes_escaped_quotes() {
     let source = r#"behavior test "Test" { contract "hello \"world\"" }"#;
     let result = parse(source, "test.spec");
-    assert!(result.errors.is_empty(), "unexpected errors: {:?}", result.errors);
+    assert!(
+        result.errors.is_empty(),
+        "unexpected errors: {:?}",
+        result.errors
+    );
     let entity = &result.entities[0];
     match entity.fields.get("contract") {
         Some(FieldValue::String(val)) => assert_eq!(val, r#"hello "world""#),
@@ -1595,22 +2190,35 @@ fn unquote_processes_escaped_quotes() {
     }
 }
 
-#[specforge_test(behavior = "parse_all_block_types", verify = "escaped backslashes in strings are unescaped")]
+#[specforge_test(
+    behavior = "parse_all_block_types",
+    verify = "escaped backslashes in strings are unescaped"
+)]
 #[test]
 fn unquote_processes_escaped_backslashes() {
     let source = r#"behavior test "Test" { contract "back\\slash" }"#;
     let result = parse(source, "test.spec");
-    assert!(result.errors.is_empty(), "unexpected errors: {:?}", result.errors);
+    assert!(
+        result.errors.is_empty(),
+        "unexpected errors: {:?}",
+        result.errors
+    );
     let entity = &result.entities[0];
     match entity.fields.get("contract") {
         Some(FieldValue::String(val)) => assert_eq!(val, r#"back\slash"#),
-        other => panic!(r#"expected String with unescaped backslash, got {:?}"#, other),
+        other => panic!(
+            r#"expected String with unescaped backslash, got {:?}"#,
+            other
+        ),
     }
 }
 
 // === H8: Annotations on fields ===
 
-#[specforge_test(behavior = "parse_all_block_types", verify = "field annotations are extracted into FieldEntry")]
+#[specforge_test(
+    behavior = "parse_all_block_types",
+    verify = "field annotations are extracted into FieldEntry"
+)]
 #[test]
 fn parse_field_annotation_deprecated() {
     // A single @deprecated annotation on a field should be extracted
@@ -1621,14 +2229,37 @@ behavior annotated "Annotated" {
 "#;
     let result = parse(source, "test.spec");
 
-    assert!(result.errors.is_empty(), "unexpected errors: {:?}", result.errors);
+    assert!(
+        result.errors.is_empty(),
+        "unexpected errors: {:?}",
+        result.errors
+    );
     let entity = &result.entities[0];
-    let entry = entity.fields.entries().iter().find(|e| e.key == "status").expect("missing 'status' field");
-    assert_eq!(entry.annotations.len(), 1, "expected 1 annotation, got: {:?}", entry.annotations);
-    assert_eq!(entry.annotations[0], Annotation { name: "deprecated".to_string(), value: None });
+    let entry = entity
+        .fields
+        .entries()
+        .iter()
+        .find(|e| e.key == "status")
+        .expect("missing 'status' field");
+    assert_eq!(
+        entry.annotations.len(),
+        1,
+        "expected 1 annotation, got: {:?}",
+        entry.annotations
+    );
+    assert_eq!(
+        entry.annotations[0],
+        Annotation {
+            name: "deprecated".to_string(),
+            value: None
+        }
+    );
 }
 
-#[specforge_test(behavior = "parse_all_block_types", verify = "multiple annotations on a single field are all extracted")]
+#[specforge_test(
+    behavior = "parse_all_block_types",
+    verify = "multiple annotations on a single field are all extracted"
+)]
 #[test]
 fn parse_field_multiple_annotations() {
     // Two annotations: @optional (no value) and @doc with a string value
@@ -1639,19 +2270,48 @@ type Config {
 "#;
     let result = parse(source, "test.spec");
 
-    assert!(result.errors.is_empty(), "unexpected errors: {:?}", result.errors);
+    assert!(
+        result.errors.is_empty(),
+        "unexpected errors: {:?}",
+        result.errors
+    );
     let entity = &result.entities[0];
-    let entry = entity.fields.entries().iter().find(|e| e.key == "limit").expect("missing 'limit' field");
-    assert_eq!(entry.annotations.len(), 2, "expected 2 annotations, got: {:?}", entry.annotations);
-    assert_eq!(entry.annotations[0], Annotation { name: "optional".to_string(), value: None });
-    assert_eq!(entry.annotations[1], Annotation { name: "doc".to_string(), value: Some("Default: 16".to_string()) });
+    let entry = entity
+        .fields
+        .entries()
+        .iter()
+        .find(|e| e.key == "limit")
+        .expect("missing 'limit' field");
+    assert_eq!(
+        entry.annotations.len(),
+        2,
+        "expected 2 annotations, got: {:?}",
+        entry.annotations
+    );
+    assert_eq!(
+        entry.annotations[0],
+        Annotation {
+            name: "optional".to_string(),
+            value: None
+        }
+    );
+    assert_eq!(
+        entry.annotations[1],
+        Annotation {
+            name: "doc".to_string(),
+            value: Some("Default: 16".to_string())
+        }
+    );
 }
 
 // ============================================================================
 // Mixed-type list parsing (L4)
 // ============================================================================
 
-#[specforge_test(behavior = "parse_all_block_types", verify = "mixed-type list preserves per-item types")]
+#[specforge_test(
+    behavior = "parse_all_block_types",
+    verify = "mixed-type list preserves per-item types"
+)]
 #[test]
 fn parse_mixed_list_preserves_item_types() {
     let source = r#"
@@ -1669,22 +2329,28 @@ behavior mixed_test "Mixed Test" {
             assert_eq!(values.len(), 3, "expected 3 items in mixed list");
             assert!(
                 matches!(&values[0], FieldValue::String(s) if s == "hello"),
-                "first item should be String(\"hello\"), got: {:?}", values[0]
+                "first item should be String(\"hello\"), got: {:?}",
+                values[0]
             );
             assert!(
                 matches!(&values[1], FieldValue::Integer(42)),
-                "second item should be Integer(42), got: {:?}", values[1]
+                "second item should be Integer(42), got: {:?}",
+                values[1]
             );
             assert!(
                 matches!(&values[2], FieldValue::Boolean(true)),
-                "third item should be Boolean(true), got: {:?}", values[2]
+                "third item should be Boolean(true), got: {:?}",
+                values[2]
             );
         }
         other => panic!("expected MixedList, got: {:?}", other),
     }
 }
 
-#[specforge_test(behavior = "parse_all_block_types", verify = "homogeneous string list is not MixedList")]
+#[specforge_test(
+    behavior = "parse_all_block_types",
+    verify = "homogeneous string list is not MixedList"
+)]
 #[test]
 fn parse_homogeneous_string_list_remains_string_list() {
     let source = r#"
@@ -1693,13 +2359,24 @@ behavior homo_test "Homo Test" {
 }
 "#;
     let result = parse(source, "test.spec");
-    assert!(result.errors.is_empty(), "unexpected errors: {:?}", result.errors);
+    assert!(
+        result.errors.is_empty(),
+        "unexpected errors: {:?}",
+        result.errors
+    );
     let entity = &result.entities[0];
     let tags = entity.fields.get("tags").expect("missing 'tags' field");
-    assert!(matches!(tags, FieldValue::StringList(_)), "expected StringList, got: {:?}", tags);
+    assert!(
+        matches!(tags, FieldValue::StringList(_)),
+        "expected StringList, got: {:?}",
+        tags
+    );
 }
 
-#[specforge_test(behavior = "parse_all_block_types", verify = "homogeneous reference list is not MixedList")]
+#[specforge_test(
+    behavior = "parse_all_block_types",
+    verify = "homogeneous reference list is not MixedList"
+)]
 #[test]
 fn parse_homogeneous_ref_list_remains_ref_list() {
     let source = r#"
@@ -1708,13 +2385,27 @@ behavior ref_test "Ref Test" {
 }
 "#;
     let result = parse(source, "test.spec");
-    assert!(result.errors.is_empty(), "unexpected errors: {:?}", result.errors);
+    assert!(
+        result.errors.is_empty(),
+        "unexpected errors: {:?}",
+        result.errors
+    );
     let entity = &result.entities[0];
-    let features = entity.fields.get("features").expect("missing 'features' field");
-    assert!(matches!(features, FieldValue::ReferenceList(_)), "expected ReferenceList, got: {:?}", features);
+    let features = entity
+        .fields
+        .get("features")
+        .expect("missing 'features' field");
+    assert!(
+        matches!(features, FieldValue::ReferenceList(_)),
+        "expected ReferenceList, got: {:?}",
+        features
+    );
 }
 
-#[specforge_test(behavior = "parse_all_block_types", verify = "mixed list with strings and integers preserves both")]
+#[specforge_test(
+    behavior = "parse_all_block_types",
+    verify = "mixed list with strings and integers preserves both"
+)]
 #[test]
 fn parse_mixed_list_strings_and_integers() {
     let source = r#"

@@ -82,16 +82,16 @@ pub fn parse_extension_specifier(input: &str) -> Result<ExtensionSpecifier, Diag
         severity: Severity::Error,
         message: format!("invalid extension specifier: '{}'", input),
         span: None,
-        suggestion: Some("use format: 'name@version', './local/path', or 'git+https://...'".to_string()),
+        suggestion: Some(
+            "use format: 'name@version', './local/path', or 'git+https://...'".to_string(),
+        ),
     })
 }
 
 /// Discover extensions by walking an extensions directory.
 /// Finds manifest.json files and attempts to parse them.
 /// Invalid manifests are reported as diagnostics but don't prevent discovery.
-pub fn discover_extensions(
-    extensions_dir: &Path,
-) -> (Vec<ResolvedExtension>, Vec<Diagnostic>) {
+pub fn discover_extensions(extensions_dir: &Path) -> (Vec<ResolvedExtension>, Vec<Diagnostic>) {
     let mut resolved = Vec::new();
     let mut diagnostics = Vec::new();
 
@@ -128,9 +128,7 @@ pub fn discover_extensions(
             Ok(content) => match serde_json::from_str::<ManifestV2>(&content) {
                 Ok(manifest) => {
                     resolved.push(ResolvedExtension {
-                        source: ExtensionSpecifier::Local {
-                            path: path.clone(),
-                        },
+                        source: ExtensionSpecifier::Local { path: path.clone() },
                         manifest,
                         manifest_path,
                     });
@@ -221,8 +219,7 @@ mod tests {
             }
         );
 
-        let with_rev =
-            parse_extension_specifier("git+https://github.com/org/ext#v1.0.0").unwrap();
+        let with_rev = parse_extension_specifier("git+https://github.com/org/ext#v1.0.0").unwrap();
         assert_eq!(
             with_rev,
             ExtensionSpecifier::Git {

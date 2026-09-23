@@ -63,9 +63,7 @@ pub fn parse_registries_from_config(config_json: &str) -> (Vec<RegistryConfig>, 
                 severity: Severity::Info,
                 message: "No registries configured and no default registry set.".to_string(),
                 span: None,
-                suggestion: Some(
-                    "Add a \"registries\" array to your configuration.".to_string(),
-                ),
+                suggestion: Some("Add a \"registries\" array to your configuration.".to_string()),
             });
             return (Vec::new(), diagnostics);
         }
@@ -146,11 +144,10 @@ pub fn find_registry_for_specifier<'a>(
     if let Some(slash_pos) = specifier.find('/') {
         let scope = &specifier[..slash_pos];
         // Look for a registry with a matching scope_filter
-        if let Some(reg) = registries.iter().find(|r| {
-            r.scope_filter
-                .as_deref()
-                .is_some_and(|sf| sf == scope)
-        }) {
+        if let Some(reg) = registries
+            .iter()
+            .find(|r| r.scope_filter.as_deref().is_some_and(|sf| sf == scope))
+        {
             return Some(reg);
         }
     }

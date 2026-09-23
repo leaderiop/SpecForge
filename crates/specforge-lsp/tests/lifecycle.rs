@@ -2,7 +2,10 @@ use specforge_test_macros::test as spec;
 
 // -- lsp_initialize -----------------------------------------------------------
 
-#[spec(behavior = "lsp_initialize", verify = "initialize response includes semantic token legend")]
+#[spec(
+    behavior = "lsp_initialize",
+    verify = "initialize response includes semantic token legend"
+)]
 #[test]
 fn init_includes_semantic_legend() {
     let caps = specforge_lsp::server_capabilities(&["behavior", "type", "event"]);
@@ -10,7 +13,10 @@ fn init_includes_semantic_legend() {
     assert!(caps.semantic_token_types.contains(&"keyword".to_string()));
 }
 
-#[spec(behavior = "lsp_initialize", verify = "semantic token legend includes extension-defined token types")]
+#[spec(
+    behavior = "lsp_initialize",
+    verify = "semantic token legend includes extension-defined token types"
+)]
 #[test]
 fn init_legend_includes_extension_types() {
     let caps = specforge_lsp::server_capabilities(&["behavior", "type"]);
@@ -20,21 +26,30 @@ fn init_legend_includes_extension_types() {
     assert!(caps.semantic_token_types.contains(&"property".to_string()));
 }
 
-#[spec(behavior = "lsp_initialize", verify = "initialize response advertises incremental sync")]
+#[spec(
+    behavior = "lsp_initialize",
+    verify = "initialize response advertises incremental sync"
+)]
 #[test]
 fn init_advertises_incremental_sync() {
     let caps = specforge_lsp::server_capabilities(&[]);
     assert!(caps.incremental_sync);
 }
 
-#[spec(behavior = "lsp_initialize", verify = "initialize response includes completion trigger characters")]
+#[spec(
+    behavior = "lsp_initialize",
+    verify = "initialize response includes completion trigger characters"
+)]
 #[test]
 fn init_includes_completion_triggers() {
     let caps = specforge_lsp::server_capabilities(&[]);
     assert!(!caps.completion_trigger_characters.is_empty());
 }
 
-#[spec(behavior = "lsp_initialize", verify = "initialize response includes server_info with name and version")]
+#[spec(
+    behavior = "lsp_initialize",
+    verify = "initialize response includes server_info with name and version"
+)]
 #[test]
 fn init_includes_server_info() {
     let info = specforge_lsp::server_info();
@@ -42,7 +57,10 @@ fn init_includes_server_info() {
     assert!(!info.version.is_empty(), "version must be non-empty");
 }
 
-#[spec(behavior = "lsp_initialize", verify = "zero extensions produces structural-only capabilities")]
+#[spec(
+    behavior = "lsp_initialize",
+    verify = "zero extensions produces structural-only capabilities"
+)]
 #[test]
 fn init_zero_extensions() {
     let caps = specforge_lsp::server_capabilities(&[]);
@@ -54,7 +72,10 @@ fn init_zero_extensions() {
 
 // -- lsp_shutdown -------------------------------------------------------------
 
-#[spec(behavior = "lsp_shutdown", verify = "shutdown releases in-memory graph")]
+#[spec(
+    behavior = "lsp_shutdown",
+    verify = "shutdown releases in-memory graph"
+)]
 #[test]
 fn shutdown_clears_state() {
     let mut state = specforge_lsp::LspState::new();
@@ -72,7 +93,10 @@ fn shutdown_sets_flag() {
     assert!(state.is_shutdown());
 }
 
-#[spec(behavior = "lsp_shutdown", verify = "requests after shutdown return InvalidRequest")]
+#[spec(
+    behavior = "lsp_shutdown",
+    verify = "requests after shutdown return InvalidRequest"
+)]
 #[test]
 fn requests_after_shutdown_rejected() {
     let mut state = specforge_lsp::LspState::new();
@@ -84,7 +108,10 @@ fn requests_after_shutdown_rejected() {
 
 // -- shared_incremental_pipeline ----------------------------------------------
 
-#[spec(behavior = "shared_incremental_pipeline", verify = "LSP and watch share the same graph")]
+#[spec(
+    behavior = "shared_incremental_pipeline",
+    verify = "LSP and watch share the same graph"
+)]
 #[test]
 fn lsp_state_holds_graph() {
     let mut state = specforge_lsp::LspState::new();
@@ -96,18 +123,26 @@ fn lsp_state_holds_graph() {
     use specforge_parser::{EntityId, EntityKind, FieldMap};
     state.graph_mut().add_node(Node {
         id: EntityId { raw: "a".into() },
-        kind: EntityKind { raw: "behavior".into() },
+        kind: EntityKind {
+            raw: "behavior".into(),
+        },
         title: None,
         fields: FieldMap::new(),
         source_span: SourceSpan {
             file: "a.spec".into(),
-            start_line: 0, start_col: 0, end_line: 0, end_col: 0,
+            start_line: 0,
+            start_col: 0,
+            end_line: 0,
+            end_col: 0,
         },
     });
     assert_eq!(state.graph().node_count(), 1);
 }
 
-#[spec(behavior = "shared_incremental_pipeline", verify = "graph update serves all LSP features")]
+#[spec(
+    behavior = "shared_incremental_pipeline",
+    verify = "graph update serves all LSP features"
+)]
 #[test]
 fn graph_update_serves_all_features() {
     use specforge_common::SourceSpan;
@@ -118,27 +153,41 @@ fn graph_update_serves_all_features() {
 
     // Build a graph through the shared state
     state.graph_mut().add_node(Node {
-        id: EntityId { raw: "login".into() },
-        kind: EntityKind { raw: "behavior".into() },
+        id: EntityId {
+            raw: "login".into(),
+        },
+        kind: EntityKind {
+            raw: "behavior".into(),
+        },
         title: Some("User Login".into()),
         fields: FieldMap::new(),
         source_span: SourceSpan {
             file: "auth.spec".into(),
-            start_line: 0, start_col: 0, end_line: 3, end_col: 1,
+            start_line: 0,
+            start_col: 0,
+            end_line: 3,
+            end_col: 1,
         },
     });
     state.graph_mut().add_node(Node {
-        id: EntityId { raw: "token".into() },
+        id: EntityId {
+            raw: "token".into(),
+        },
         kind: EntityKind { raw: "type".into() },
         title: Some("Auth Token".into()),
         fields: FieldMap::new(),
         source_span: SourceSpan {
             file: "types.spec".into(),
-            start_line: 5, start_col: 0, end_line: 8, end_col: 1,
+            start_line: 5,
+            start_col: 0,
+            end_line: 8,
+            end_col: 1,
         },
     });
     state.graph_mut().add_edge(Edge {
-        source: "login".into(), target: "token".into(), label: "types".into(),
+        source: "login".into(),
+        target: "token".into(),
+        label: "types".into(),
     });
 
     // The same graph serves go-to-definition
@@ -147,7 +196,10 @@ fn graph_update_serves_all_features() {
 
     // The same graph serves find-all-references
     let refs = specforge_lsp::find_all_references(state.graph(), "token");
-    assert!(!refs.is_empty(), "find-all-references must use shared graph");
+    assert!(
+        !refs.is_empty(),
+        "find-all-references must use shared graph"
+    );
 
     // The same graph serves hover
     let hover = specforge_lsp::hover_info(state.graph(), "login");
@@ -162,25 +214,40 @@ fn graph_update_serves_all_features() {
     assert!(!completions.is_empty(), "completions must use shared graph");
 }
 
-#[spec(behavior = "shared_incremental_pipeline", verify = "CLI and LSP share identical debounce window")]
+#[spec(
+    behavior = "shared_incremental_pipeline",
+    verify = "CLI and LSP share identical debounce window"
+)]
 #[test]
 fn cli_and_lsp_share_debounce_window() {
     // The debounce window is a constant shared between CLI watch and LSP.
     // Both must use the same value to ensure pipeline parity.
     let lsp_debounce = specforge_lsp::DEBOUNCE_MS;
     assert!(lsp_debounce > 0, "debounce window must be positive");
-    assert!(lsp_debounce <= 200, "debounce window must be reasonable (<=200ms)");
+    assert!(
+        lsp_debounce <= 200,
+        "debounce window must be reasonable (<=200ms)"
+    );
 }
 
-#[spec(behavior = "shared_incremental_pipeline", verify = "CLI and LSP share identical validator dispatch order")]
+#[spec(
+    behavior = "shared_incremental_pipeline",
+    verify = "CLI and LSP share identical validator dispatch order"
+)]
 #[test]
 fn cli_and_lsp_share_validator_dispatch_order() {
     // The validator dispatch order is a shared constant/function between CLI and LSP.
     // Both must produce the same ordering to ensure deterministic diagnostics.
     let order = specforge_lsp::validator_dispatch_order();
-    assert!(!order.is_empty(), "validator dispatch order must be non-empty");
+    assert!(
+        !order.is_empty(),
+        "validator dispatch order must be non-empty"
+    );
 
     // Order must be deterministic — calling twice yields the same result
     let order2 = specforge_lsp::validator_dispatch_order();
-    assert_eq!(order, order2, "validator dispatch order must be deterministic");
+    assert_eq!(
+        order, order2,
+        "validator dispatch order must be deterministic"
+    );
 }

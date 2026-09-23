@@ -1,5 +1,5 @@
-use specforge_watch::SpecWatcher;
 use specforge_test_macros::test as spec;
+use specforge_watch::SpecWatcher;
 use std::fs;
 use std::sync::mpsc;
 use std::time::{Duration, Instant};
@@ -11,7 +11,10 @@ fn wait_for_event(rx: &mpsc::Receiver<Vec<String>>, timeout: Duration) -> Option
 
 // ── file modification triggers recompilation ──────────────────
 
-#[spec(behavior = "watch_file_system_for_changes", verify = "file modification triggers recompilation")]
+#[spec(
+    behavior = "watch_file_system_for_changes",
+    verify = "file modification triggers recompilation"
+)]
 #[test]
 fn file_modification_triggers_recompilation() {
     let dir = TempDir::new().unwrap();
@@ -28,7 +31,10 @@ fn file_modification_triggers_recompilation() {
     fs::write(&spec_path, r#"behavior bar "Bar" { contract "y" }"#).unwrap();
 
     let event = wait_for_event(&rx, Duration::from_secs(2));
-    assert!(event.is_some(), "should receive change event after file modification");
+    assert!(
+        event.is_some(),
+        "should receive change event after file modification"
+    );
     let files = event.unwrap();
     assert!(
         files.iter().any(|f| f.ends_with("a.spec")),
@@ -39,7 +45,10 @@ fn file_modification_triggers_recompilation() {
 
 // ── file creation triggers recompilation ──────────────────────
 
-#[spec(behavior = "watch_file_system_for_changes", verify = "file creation triggers recompilation")]
+#[spec(
+    behavior = "watch_file_system_for_changes",
+    verify = "file creation triggers recompilation"
+)]
 #[test]
 fn file_creation_triggers_recompilation() {
     let dir = TempDir::new().unwrap();
@@ -54,7 +63,10 @@ fn file_creation_triggers_recompilation() {
     fs::write(&new_path, r#"behavior new_thing "New" { contract "z" }"#).unwrap();
 
     let event = wait_for_event(&rx, Duration::from_secs(2));
-    assert!(event.is_some(), "should receive change event after file creation");
+    assert!(
+        event.is_some(),
+        "should receive change event after file creation"
+    );
     let files = event.unwrap();
     assert!(
         files.iter().any(|f| f.ends_with("new.spec")),
@@ -65,7 +77,10 @@ fn file_creation_triggers_recompilation() {
 
 // ── file deletion triggers recompilation ──────────────────────
 
-#[spec(behavior = "watch_file_system_for_changes", verify = "file deletion triggers recompilation")]
+#[spec(
+    behavior = "watch_file_system_for_changes",
+    verify = "file deletion triggers recompilation"
+)]
 #[test]
 fn file_deletion_triggers_recompilation() {
     let dir = TempDir::new().unwrap();
@@ -81,7 +96,10 @@ fn file_deletion_triggers_recompilation() {
     fs::remove_file(&spec_path).unwrap();
 
     let event = wait_for_event(&rx, Duration::from_secs(2));
-    assert!(event.is_some(), "should receive change event after file deletion");
+    assert!(
+        event.is_some(),
+        "should receive change event after file deletion"
+    );
     let files = event.unwrap();
     assert!(
         files.iter().any(|f| f.ends_with("doomed.spec")),
@@ -92,7 +110,10 @@ fn file_deletion_triggers_recompilation() {
 
 // ── latency integration test ──────────────────────────────────
 
-#[spec(behavior = "watch_file_system_for_changes", verify = "watch detects changes within 100ms")]
+#[spec(
+    behavior = "watch_file_system_for_changes",
+    verify = "watch detects changes within 100ms"
+)]
 #[test]
 fn watch_detects_changes_within_latency_target() {
     let dir = TempDir::new().unwrap();
@@ -121,7 +142,10 @@ fn watch_detects_changes_within_latency_target() {
 
 // ── contract test ─────────────────────────────────────────────
 
-#[spec(behavior = "watch_file_system_for_changes", verify = "requires/ensures consistency for file system watching")]
+#[spec(
+    behavior = "watch_file_system_for_changes",
+    verify = "requires/ensures consistency for file system watching"
+)]
 #[test]
 fn watch_contract_consistency() {
     let dir = TempDir::new().unwrap();

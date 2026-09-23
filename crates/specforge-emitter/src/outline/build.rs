@@ -209,9 +209,11 @@ fn compute_transitive_deps(
     // Build adjacency: extension → [(target, optional, version)]
     let mut adj: HashMap<String, Vec<(String, bool, String)>> = HashMap::new();
     for dep in direct_deps {
-        adj.entry(dep.from.clone())
-            .or_default()
-            .push((dep.to.clone(), dep.optional, dep.version.clone()));
+        adj.entry(dep.from.clone()).or_default().push((
+            dep.to.clone(),
+            dep.optional,
+            dep.version.clone(),
+        ));
     }
 
     // Existing direct pairs (to avoid duplicates)

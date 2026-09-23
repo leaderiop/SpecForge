@@ -43,5 +43,10 @@ fn bench_parse_large(c: &mut Criterion) {
     });
 }
 
-criterion_group!(benches, bench_parse_small, bench_parse_medium, bench_parse_large);
+criterion_group!(
+    benches,
+    bench_parse_small,
+    bench_parse_medium,
+    bench_parse_large
+);
 criterion_main!(benches);

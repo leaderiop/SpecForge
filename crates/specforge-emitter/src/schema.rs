@@ -9,13 +9,11 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use sha2::{Digest, Sha256};
 use specforge_graph::Graph;
-use specforge_registry::{
-    EdgeRegistry, FieldRegistry, KindRegistry, ManifestFieldType,
-};
+use specforge_registry::{EdgeRegistry, FieldRegistry, KindRegistry, ManifestFieldType};
 
 use crate::error::EmitterError;
 
-use crate::json::{field_map_to_json, sorted_edges, JsonEdge};
+use crate::json::{JsonEdge, field_map_to_json, sorted_edges};
 
 // ---------------------------------------------------------------------------
 // Slice 1: Schema Types
@@ -32,7 +30,12 @@ pub struct SchemaVersion {
 
 impl SchemaVersion {
     pub fn new(major: u32, minor: u32, patch: u32) -> Self {
-        Self { major, minor, patch, label: None }
+        Self {
+            major,
+            minor,
+            patch,
+            label: None,
+        }
     }
 }
 
@@ -61,17 +64,29 @@ impl FromStr for SchemaVersion {
             return Err(format!("expected MAJOR.MINOR.PATCH, got '{}'", s));
         }
 
-        let major = parts[0].parse::<u32>().map_err(|e| format!("invalid major: {}", e))?;
-        let minor = parts[1].parse::<u32>().map_err(|e| format!("invalid minor: {}", e))?;
-        let patch = parts[2].parse::<u32>().map_err(|e| format!("invalid patch: {}", e))?;
+        let major = parts[0]
+            .parse::<u32>()
+            .map_err(|e| format!("invalid major: {}", e))?;
+        let minor = parts[1]
+            .parse::<u32>()
+            .map_err(|e| format!("invalid minor: {}", e))?;
+        let patch = parts[2]
+            .parse::<u32>()
+            .map_err(|e| format!("invalid patch: {}", e))?;
 
-        Ok(SchemaVersion { major, minor, patch, label })
+        Ok(SchemaVersion {
+            major,
+            minor,
+            patch,
+            label,
+        })
     }
 }
 
 impl Ord for SchemaVersion {
     fn cmp(&self, other: &Self) -> Ordering {
-        self.major.cmp(&other.major)
+        self.major
+            .cmp(&other.major)
             .then(self.minor.cmp(&other.minor))
             .then(self.patch.cmp(&other.patch))
     }
@@ -152,9 +167,21 @@ pub enum SchemaMigrationChange {
     KindRemoved(String),
     EdgeAdded(String),
     EdgeRemoved(String),
-    FieldAdded { kind: String, field: String, required: bool },
-    FieldRemoved { kind: String, field: String },
-    FieldTypeChanged { kind: String, field: String, old_type: String, new_type: String },
+    FieldAdded {
+        kind: String,
+        field: String,
+        required: bool,
+    },
+    FieldRemoved {
+        kind: String,
+        field: String,
+    },
+    FieldTypeChanged {
+        kind: String,
+        field: String,
+        old_type: String,
+        new_type: String,
+    },
 }
 
 impl SchemaMigrationChange {
@@ -181,12 +208,14 @@ impl SchemaMigration {
     }
 
     pub fn has_additions(&self) -> bool {
-        self.changes.iter().any(|c| matches!(
-            c,
-            SchemaMigrationChange::KindAdded(_)
-                | SchemaMigrationChange::EdgeAdded(_)
-                | SchemaMigrationChange::FieldAdded { .. }
-        ))
+        self.changes.iter().any(|c| {
+            matches!(
+                c,
+                SchemaMigrationChange::KindAdded(_)
+                    | SchemaMigrationChange::EdgeAdded(_)
+                    | SchemaMigrationChange::FieldAdded { .. }
+            )
+        })
     }
 
     pub fn is_empty(&self) -> bool {
@@ -315,7 +344,11 @@ pub fn generate_schema(
                     if !sources.contains(&kind_entry.kind_name) {
                         sources.push(kind_entry.kind_name.clone());
                     }
-                    if let Some(tk) = field.target_kind.as_ref().filter(|tk| !targets.contains(tk)) {
+                    if let Some(tk) = field
+                        .target_kind
+                        .as_ref()
+                        .filter(|tk| !targets.contains(tk))
+                    {
                         targets.push(tk.clone());
                     }
                 }
@@ -428,9 +461,10 @@ pub fn emit_context_with_schema(graph: &Graph, schema: &GraphProtocolSchema) -> 
                 specforge_graph::FieldValue::String(s) => Some(s.clone()),
                 _ => None,
             });
-            let verify = n.fields.get("verify").map(|v| {
-                crate::json::field_value_to_json(v)
-            });
+            let verify = n
+                .fields
+                .get("verify")
+                .map(|v| crate::json::field_value_to_json(v));
 
             ContextNodeV2 {
                 id: n.id.raw.to_string(),
@@ -501,10 +535,16 @@ pub fn diff_schemas(old: &GraphProtocolSchema, new: &GraphProtocolSchema) -> Sch
     let mut changes = Vec::new();
 
     // Entity kinds
-    let old_kinds: BTreeMap<&str, &SchemaEntityKind> =
-        old.entity_kinds.iter().map(|k| (k.name.as_str(), k)).collect();
-    let new_kinds: BTreeMap<&str, &SchemaEntityKind> =
-        new.entity_kinds.iter().map(|k| (k.name.as_str(), k)).collect();
+    let old_kinds: BTreeMap<&str, &SchemaEntityKind> = old
+        .entity_kinds
+        .iter()
+        .map(|k| (k.name.as_str(), k))
+        .collect();
+    let new_kinds: BTreeMap<&str, &SchemaEntityKind> = new
+        .entity_kinds
+        .iter()
+        .map(|k| (k.name.as_str(), k))
+        .collect();
 
     for name in old_kinds.keys() {
         if !new_kinds.contains_key(name) {
@@ -518,10 +558,16 @@ pub fn diff_schemas(old: &GraphProtocolSchema, new: &GraphProtocolSchema) -> Sch
     }
 
     // Edge types
-    let old_edges: BTreeMap<&str, &SchemaEdgeType> =
-        old.edge_types.iter().map(|e| (e.label.as_str(), e)).collect();
-    let new_edges: BTreeMap<&str, &SchemaEdgeType> =
-        new.edge_types.iter().map(|e| (e.label.as_str(), e)).collect();
+    let old_edges: BTreeMap<&str, &SchemaEdgeType> = old
+        .edge_types
+        .iter()
+        .map(|e| (e.label.as_str(), e))
+        .collect();
+    let new_edges: BTreeMap<&str, &SchemaEdgeType> = new
+        .edge_types
+        .iter()
+        .map(|e| (e.label.as_str(), e))
+        .collect();
 
     for label in old_edges.keys() {
         if !new_edges.contains_key(label) {
@@ -537,10 +583,16 @@ pub fn diff_schemas(old: &GraphProtocolSchema, new: &GraphProtocolSchema) -> Sch
     // Fields per shared kind
     for (name, new_kind) in &new_kinds {
         if let Some(old_kind) = old_kinds.get(name) {
-            let old_fields: BTreeMap<&str, &SchemaField> =
-                old_kind.fields.iter().map(|f| (f.name.as_str(), f)).collect();
-            let new_fields: BTreeMap<&str, &SchemaField> =
-                new_kind.fields.iter().map(|f| (f.name.as_str(), f)).collect();
+            let old_fields: BTreeMap<&str, &SchemaField> = old_kind
+                .fields
+                .iter()
+                .map(|f| (f.name.as_str(), f))
+                .collect();
+            let new_fields: BTreeMap<&str, &SchemaField> = new_kind
+                .fields
+                .iter()
+                .map(|f| (f.name.as_str(), f))
+                .collect();
 
             for field_name in old_fields.keys() {
                 if !new_fields.contains_key(field_name) {
@@ -681,8 +733,7 @@ pub fn persist_schema_cache(schema: &GraphProtocolSchema, cache_dir: &Path) -> i
         schema: schema.clone(),
     };
 
-    let json = serde_json::to_string_pretty(&entry)
-        .map_err(io::Error::other)?;
+    let json = serde_json::to_string_pretty(&entry).map_err(io::Error::other)?;
 
     // Atomic write: temp file then rename
     let target = cache_dir.join(CACHE_FILE);
@@ -730,7 +781,9 @@ pub fn detect_breaking_with_diagnostics(
                               Prior exports exist but .specforge/schema-cache.json is missing."
                         .to_string(),
                     span: None,
-                    suggestion: Some("Run a full compilation to regenerate the schema cache.".to_string()),
+                    suggestion: Some(
+                        "Run a full compilation to regenerate the schema cache.".to_string(),
+                    ),
                 });
             }
             None
@@ -771,7 +824,10 @@ pub fn emit_json_scoped_with_schema(
     schema: &GraphProtocolSchema,
 ) -> Result<String, EmitterError> {
     let sub = graph.subgraph(scope).ok_or_else(|| {
-        EmitterError::EntityNotFound(format!("E003: unresolved scope entity '{}' — entity not found in graph", scope))
+        EmitterError::EntityNotFound(format!(
+            "E003: unresolved scope entity '{}' — entity not found in graph",
+            scope
+        ))
     })?;
     Ok(emit_json_with_schema(&sub, schema))
 }
@@ -782,7 +838,10 @@ pub fn emit_context_scoped_with_schema(
     schema: &GraphProtocolSchema,
 ) -> Result<String, EmitterError> {
     let sub = graph.subgraph(scope).ok_or_else(|| {
-        EmitterError::EntityNotFound(format!("E003: unresolved scope entity '{}' — entity not found in graph", scope))
+        EmitterError::EntityNotFound(format!(
+            "E003: unresolved scope entity '{}' — entity not found in graph",
+            scope
+        ))
     })?;
     Ok(emit_context_with_schema(&sub, schema))
 }
@@ -793,7 +852,10 @@ pub fn emit_brief_scoped_with_schema(
     schema: &GraphProtocolSchema,
 ) -> Result<String, EmitterError> {
     let sub = graph.subgraph(scope).ok_or_else(|| {
-        EmitterError::EntityNotFound(format!("E003: unresolved scope entity '{}' — entity not found in graph", scope))
+        EmitterError::EntityNotFound(format!(
+            "E003: unresolved scope entity '{}' — entity not found in graph",
+            scope
+        ))
     })?;
     Ok(emit_brief_with_schema(&sub, schema))
 }

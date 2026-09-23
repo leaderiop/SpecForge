@@ -1,7 +1,4 @@
-use specforge_wasm::{
-    protocol::*,
-    WasmCallResult, WasmRuntime, WasmTrapInfo,
-};
+use specforge_wasm::{WasmCallResult, WasmRuntime, WasmTrapInfo, protocol::*};
 use std::path::Path;
 
 // ── Mock Runtime for protocol tests ──
@@ -36,15 +33,21 @@ impl WasmRuntime for MockRuntime {
         Ok(())
     }
 
-    fn call_export(&self, _extension_name: &str, export_name: &str, input: &[u8]) -> WasmCallResult {
+    fn call_export(
+        &self,
+        _extension_name: &str,
+        export_name: &str,
+        input: &[u8],
+    ) -> WasmCallResult {
         // For __describe, extract category from the input JSON to build a compound key
         if export_name == "__describe"
-            && let Ok(req) = serde_json::from_slice::<DescribeRequest>(input) {
-                let compound_key = format!("__describe::{}", req.category);
-                if let Some(result) = self.call_results.get(&compound_key) {
-                    return result.clone();
-                }
+            && let Ok(req) = serde_json::from_slice::<DescribeRequest>(input)
+        {
+            let compound_key = format!("__describe::{}", req.category);
+            if let Some(result) = self.call_results.get(&compound_key) {
+                return result.clone();
             }
+        }
         // Fallback: look up by export name alone
         self.call_results
             .get(export_name)
@@ -129,10 +132,7 @@ fn handshake_trap_returns_error() {
 
 #[test]
 fn handshake_invalid_json_returns_deserialization_error() {
-    let runtime = MockRuntime::new().with_call_ok(
-        "__handshake",
-        b"not valid json at all".to_vec(),
-    );
+    let runtime = MockRuntime::new().with_call_ok("__handshake", b"not valid json at all".to_vec());
     let host = ProtocolHost::new(&runtime);
     let err = host.handshake("@test/ext").unwrap_err();
     match err {
@@ -365,10 +365,7 @@ fn load_protocol_extension_full_flow() {
             "__handshake",
             handshake_response_json("@specforge/governance", true, true),
         )
-        .with_call_ok(
-            "__describe",
-            describe_response_json("entities", "[]"),
-        );
+        .with_call_ok("__describe", describe_response_json("entities", "[]"));
 
     let host = ProtocolHost::new(&runtime);
     let ext = load_protocol_extension(&host, "@specforge/governance").unwrap();
@@ -489,10 +486,8 @@ fn load_protocol_extension_version_mismatch_propagated() {
     };
     // Patch protocol_version to something incompatible
     resp.protocol_version = "99.0".to_string();
-    let runtime = MockRuntime::new().with_call_ok(
-        "__handshake",
-        serde_json::to_vec(&resp).unwrap(),
-    );
+    let runtime =
+        MockRuntime::new().with_call_ok("__handshake", serde_json::to_vec(&resp).unwrap());
     let host = ProtocolHost::new(&runtime);
     let err = load_protocol_extension(&host, "@test/ext").unwrap_err();
     match err {

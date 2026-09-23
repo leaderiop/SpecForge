@@ -467,8 +467,9 @@ mod tests {
     fn scan_finds_const_and_let() {
         let req = ScanRequest {
             file_path: "src/config.ts".into(),
-            content: "export const MAX_SIZE = 100;\nexport let counter = 0;\nexport var legacy = true;"
-                .into(),
+            content:
+                "export const MAX_SIZE = 100;\nexport let counter = 0;\nexport var legacy = true;"
+                    .into(),
         };
         let resp = scan_typescript(&req);
         assert_eq!(resp.items.len(), 3);
@@ -508,7 +509,10 @@ mod tests {
             }],
         };
         let resp = classify_typescript(&req);
-        assert_eq!(resp.items[0].suggested_entity_kind.as_deref(), Some("behavior"));
+        assert_eq!(
+            resp.items[0].suggested_entity_kind.as_deref(),
+            Some("behavior")
+        );
         assert!(resp.items[0].confidence >= 0.8);
     }
 
@@ -607,7 +611,10 @@ mod tests {
             }],
         };
         let resp = classify_typescript(&req);
-        assert_eq!(resp.items[0].suggested_entity_kind.as_deref(), Some("event"));
+        assert_eq!(
+            resp.items[0].suggested_entity_kind.as_deref(),
+            Some("event")
+        );
     }
 
     // --- Map tests ---

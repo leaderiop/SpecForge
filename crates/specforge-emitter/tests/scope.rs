@@ -16,7 +16,9 @@ fn span() -> SourceSpan {
 fn node(id: &str, kind: &str) -> Node {
     Node {
         id: EntityId { raw: Sym::new(id) },
-        kind: EntityKind { raw: Sym::new(kind) },
+        kind: EntityKind {
+            raw: Sym::new(kind),
+        },
         title: Some(format!("Title {}", id)),
         fields: FieldMap::new(),
         source_span: span(),
@@ -45,7 +47,10 @@ fn build_chain_graph() -> Graph {
 
 // B:export_agent_graph_format — verify unit "scoped export returns only reachable subgraph"
 #[test]
-#[specforge_test(behavior = "export_agent_graph_format", verify = "scoped export returns only reachable subgraph")]
+#[specforge_test(
+    behavior = "export_agent_graph_format",
+    verify = "scoped export returns only reachable subgraph"
+)]
 fn scoped_json_returns_only_reachable_subgraph() {
     let graph = build_chain_graph();
     let json = specforge_emitter::emit_json_scoped(&graph, "b").unwrap();
@@ -63,7 +68,10 @@ fn scoped_json_returns_only_reachable_subgraph() {
 
 // B:export_agent_context_format — verify unit "scoped export returns only reachable subgraph"
 #[test]
-#[specforge_test(behavior = "export_agent_context_format", verify = "scoped export returns only reachable subgraph")]
+#[specforge_test(
+    behavior = "export_agent_context_format",
+    verify = "scoped export returns only reachable subgraph"
+)]
 fn scoped_context_returns_only_reachable_subgraph() {
     let graph = build_chain_graph();
     let json = specforge_emitter::emit_context_scoped(&graph, "a").unwrap();
@@ -82,26 +90,40 @@ fn scoped_context_returns_only_reachable_subgraph() {
 // B:export_agent_context_format — verify unit "non-existent scope entity produces E003 and exit code 1"
 // B:export_agent_graph_format — verify unit "non-existent scope entity produces E003 and exit code 1"
 #[test]
-#[specforge_test(behavior = "export_agent_context_format", verify = "non-existent scope entity produces E003 and exit code 1")]
+#[specforge_test(
+    behavior = "export_agent_context_format",
+    verify = "non-existent scope entity produces E003 and exit code 1"
+)]
 fn scoped_export_on_nonexistent_entity_returns_error() {
     let graph = build_chain_graph();
     let result = specforge_emitter::emit_json_scoped(&graph, "nonexistent");
     assert!(result.is_err());
 
     let err = result.unwrap_err();
-    assert!(err.to_string().contains("E003"), "error should contain E003: {}", err);
+    assert!(
+        err.to_string().contains("E003"),
+        "error should contain E003: {}",
+        err
+    );
 }
 
 // B:export_agent_graph_format — verify unit "non-existent scope entity produces E003 and exit code 1"
 #[test]
-#[specforge_test(behavior = "export_agent_graph_format", verify = "non-existent scope entity produces E003 and exit code 1")]
+#[specforge_test(
+    behavior = "export_agent_graph_format",
+    verify = "non-existent scope entity produces E003 and exit code 1"
+)]
 fn graph_scoped_export_on_nonexistent_entity_returns_e001() {
     let graph = build_chain_graph();
     let result = specforge_emitter::emit_json_scoped(&graph, "nonexistent");
     assert!(result.is_err());
 
     let err = result.unwrap_err();
-    assert!(err.to_string().contains("E003"), "error should contain E003: {}", err);
+    assert!(
+        err.to_string().contains("E003"),
+        "error should contain E003: {}",
+        err
+    );
 }
 
 // B:export_agent_graph_format — verify unit "scoped export returns only reachable subgraph"

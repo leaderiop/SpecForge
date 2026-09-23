@@ -13,14 +13,14 @@
 
 use specforge_common::{Severity, SourceSpan, Sym};
 use specforge_registry::validation_engine::{
+    ValidationEntity, ValidationPatternKind, ValidationRulePattern, WasmValidationRuntime,
     execute_pattern, interpolate_template, parse_all_rule_patterns, parse_rule_pattern,
-    register_custom_patterns, ValidationEntity, ValidationPatternKind, ValidationRulePattern,
-    WasmValidationRuntime,
+    register_custom_patterns,
 };
 use specforge_registry::{
-    detect_duplicate_entity_kinds, populate_registries, register_validation_rules,
-    validate_extension_testability, validate_peer_dependencies, FieldConstraint,
-    ManifestV2, ManifestValidationRule,
+    FieldConstraint, ManifestV2, ManifestValidationRule, detect_duplicate_entity_kinds,
+    populate_registries, register_validation_rules, validate_extension_testability,
+    validate_peer_dependencies,
 };
 use specforge_test_macros::test as specforge_test;
 
@@ -100,7 +100,10 @@ fn software_manifest() -> ManifestV2 {
 // B:parse_validation_rule_pattern (5 verifies)
 // ============================================================================
 
-#[specforge_test(behavior = "parse_validation_rule_pattern", verify = "parses no_incoming_edges pattern from manifest")]
+#[specforge_test(
+    behavior = "parse_validation_rule_pattern",
+    verify = "parses no_incoming_edges pattern from manifest"
+)]
 #[test]
 fn parses_no_incoming_edges_pattern_from_manifest() {
     let rule = make_rule("W100", "no_incoming_edges");
@@ -109,17 +112,26 @@ fn parses_no_incoming_edges_pattern_from_manifest() {
     assert_eq!(pattern.code, "W100");
 }
 
-#[specforge_test(behavior = "parse_validation_rule_pattern", verify = "parses missing_field_when_flag_set pattern from manifest")]
+#[specforge_test(
+    behavior = "parse_validation_rule_pattern",
+    verify = "parses missing_field_when_flag_set pattern from manifest"
+)]
 #[test]
 fn parses_missing_field_when_flag_set_pattern_from_manifest() {
     let mut rule = make_rule("W101", "missing_field_when_flag_set");
     rule.field = Some("contract".to_string());
     let pattern = parse_rule_pattern(&rule, "@test/ext").unwrap();
-    assert_eq!(pattern.check, ValidationPatternKind::MissingFieldWhenFlagSet);
+    assert_eq!(
+        pattern.check,
+        ValidationPatternKind::MissingFieldWhenFlagSet
+    );
     assert_eq!(pattern.field.as_deref(), Some("contract"));
 }
 
-#[specforge_test(behavior = "parse_validation_rule_pattern", verify = "unrecognized pattern kind produces warning")]
+#[specforge_test(
+    behavior = "parse_validation_rule_pattern",
+    verify = "unrecognized pattern kind produces warning"
+)]
 #[test]
 fn unrecognized_pattern_kind_produces_warning() {
     let rule = make_rule("W102", "invalid_check_kind");
@@ -131,7 +143,10 @@ fn unrecognized_pattern_kind_produces_warning() {
     assert!(diag.message.contains("@test/ext"));
 }
 
-#[specforge_test(behavior = "parse_validation_rule_pattern", verify = "all required fields validated on each rule")]
+#[specforge_test(
+    behavior = "parse_validation_rule_pattern",
+    verify = "all required fields validated on each rule"
+)]
 #[test]
 fn all_required_fields_validated_on_each_rule() {
     let rule = ManifestValidationRule {
@@ -152,13 +167,22 @@ fn all_required_fields_validated_on_each_rule() {
     assert_eq!(pattern.check, ValidationPatternKind::NoIncomingEdges);
 }
 
-#[specforge_test(behavior = "parse_validation_rule_pattern", verify = "requires/ensures consistency for validation rule parsing")]
+#[specforge_test(
+    behavior = "parse_validation_rule_pattern",
+    verify = "requires/ensures consistency for validation rule parsing"
+)]
 #[test]
 fn parse_validation_rule_pattern_contract() {
     // requires: manifest rules available
     let rules = vec![
-        ("@ext/a".to_string(), vec![make_rule("W100", "no_incoming_edges")]),
-        ("@ext/b".to_string(), vec![make_rule("W200", "invalid_kind")]),
+        (
+            "@ext/a".to_string(),
+            vec![make_rule("W100", "no_incoming_edges")],
+        ),
+        (
+            "@ext/b".to_string(),
+            vec![make_rule("W200", "invalid_kind")],
+        ),
     ];
     let (patterns, diags) = parse_all_rule_patterns(&rules);
     // ensures: valid patterns parsed
@@ -172,7 +196,10 @@ fn parse_validation_rule_pattern_contract() {
 // B:execute_validation_pattern (9 verifies)
 // ============================================================================
 
-#[specforge_test(behavior = "execute_validation_pattern", verify = "no_incoming_edges detects orphan entities")]
+#[specforge_test(
+    behavior = "execute_validation_pattern",
+    verify = "no_incoming_edges detects orphan entities"
+)]
 #[test]
 fn no_incoming_edges_detects_orphan_entities() {
     let pattern = parse_rule_pattern(&make_rule("W100", "no_incoming_edges"), "@test").unwrap();
@@ -185,7 +212,10 @@ fn no_incoming_edges_detects_orphan_entities() {
     assert!(diags[0].message.contains("b1"));
 }
 
-#[specforge_test(behavior = "execute_validation_pattern", verify = "no_outgoing_edges detects entities with zero outgoing edges")]
+#[specforge_test(
+    behavior = "execute_validation_pattern",
+    verify = "no_outgoing_edges detects entities with zero outgoing edges"
+)]
 #[test]
 fn no_outgoing_edges_detects_entities_with_zero_outgoing_edges() {
     let mut rule = make_rule("W101", "no_outgoing_edges");
@@ -200,7 +230,10 @@ fn no_outgoing_edges_detects_entities_with_zero_outgoing_edges() {
     assert!(diags[0].message.contains("b1"));
 }
 
-#[specforge_test(behavior = "execute_validation_pattern", verify = "missing_field_when_flag_set detects missing specified field on flagged entity")]
+#[specforge_test(
+    behavior = "execute_validation_pattern",
+    verify = "missing_field_when_flag_set detects missing specified field on flagged entity"
+)]
 #[test]
 fn missing_field_when_flag_set_detects_missing_field() {
     let mut rule = make_rule("W102", "missing_field_when_flag_set");
@@ -210,14 +243,18 @@ fn missing_field_when_flag_set_detects_missing_field() {
 
     let e1 = make_entity("b1", "behavior", 1, 0); // no contract field
     let mut e2 = make_entity("b2", "behavior", 1, 0);
-    e2.fields.insert("contract".to_string(), "some text".to_string());
+    e2.fields
+        .insert("contract".to_string(), "some text".to_string());
 
     let diags = execute_pattern(&pattern, &[e1, e2], None);
     assert_eq!(diags.len(), 1);
     assert!(diags[0].message.contains("b1"));
 }
 
-#[specforge_test(behavior = "execute_validation_pattern", verify = "field_value_constraint rejects invalid field value")]
+#[specforge_test(
+    behavior = "execute_validation_pattern",
+    verify = "field_value_constraint rejects invalid field value"
+)]
 #[test]
 fn field_value_constraint_rejects_invalid_field_value() {
     let rule = ManifestValidationRule {
@@ -231,14 +268,19 @@ fn field_value_constraint_rejects_invalid_field_value() {
         constraint: Some(FieldConstraint {
             kind: "one_of".to_string(),
             pattern: None,
-            values: vec!["draft".to_string(), "active".to_string(), "deprecated".to_string()],
+            values: vec![
+                "draft".to_string(),
+                "active".to_string(),
+                "deprecated".to_string(),
+            ],
         }),
         wasm_function: None,
     };
     let pattern = parse_rule_pattern(&rule, "@test").unwrap();
 
     let mut e1 = make_entity("b1", "behavior", 1, 0);
-    e1.fields.insert("status".to_string(), "invalid_status".to_string());
+    e1.fields
+        .insert("status".to_string(), "invalid_status".to_string());
     let mut e2 = make_entity("b2", "behavior", 1, 0);
     e2.fields.insert("status".to_string(), "active".to_string());
 
@@ -247,7 +289,10 @@ fn field_value_constraint_rejects_invalid_field_value() {
     assert!(diags[0].message.contains("b1"));
 }
 
-#[specforge_test(behavior = "execute_validation_pattern", verify = "cycle_detection finds cycles in edge type")]
+#[specforge_test(
+    behavior = "execute_validation_pattern",
+    verify = "cycle_detection finds cycles in edge type"
+)]
 #[test]
 fn cycle_detection_finds_cycles_in_edge_type() {
     // Cycle detection requires full graph — current implementation defers to caller.
@@ -256,10 +301,16 @@ fn cycle_detection_finds_cycles_in_edge_type() {
     let pattern = parse_rule_pattern(&rule, "@test").unwrap();
     assert_eq!(pattern.check, ValidationPatternKind::CycleDetection);
     let diags = execute_pattern(&pattern, &[make_entity("b1", "behavior", 1, 1)], None);
-    assert!(diags.is_empty(), "cycle detection deferred to graph-aware caller");
+    assert!(
+        diags.is_empty(),
+        "cycle detection deferred to graph-aware caller"
+    );
 }
 
-#[specforge_test(behavior = "execute_validation_pattern", verify = "file_exists reports missing file-reference field targets")]
+#[specforge_test(
+    behavior = "execute_validation_pattern",
+    verify = "file_exists reports missing file-reference field targets"
+)]
 #[test]
 fn file_exists_reports_missing_file_reference_field_targets() {
     let rule = ManifestValidationRule {
@@ -276,26 +327,25 @@ fn file_exists_reports_missing_file_reference_field_targets() {
     let pattern = parse_rule_pattern(&rule, "@test").unwrap();
 
     let mut entity = make_entity("b1", "behavior", 1, 0);
-    entity
-        .fields
-        .insert("gherkin".to_string(), "/nonexistent/file.feature".to_string());
+    entity.fields.insert(
+        "gherkin".to_string(),
+        "/nonexistent/file.feature".to_string(),
+    );
 
     let diags = execute_pattern(&pattern, &[entity], None);
     assert_eq!(diags.len(), 1);
     assert_eq!(diags[0].code, "E101");
 }
 
-#[specforge_test(behavior = "execute_validation_pattern", verify = "custom pattern dispatches to registered Wasm function")]
+#[specforge_test(
+    behavior = "execute_validation_pattern",
+    verify = "custom pattern dispatches to registered Wasm function"
+)]
 #[test]
 fn custom_pattern_dispatches_to_registered_wasm_function() {
     struct MockRuntime;
     impl WasmValidationRuntime for MockRuntime {
-        fn call_custom_validator(
-            &self,
-            func: &str,
-            id: &str,
-            _kind: &str,
-        ) -> Result<bool, String> {
+        fn call_custom_validator(&self, func: &str, id: &str, _kind: &str) -> Result<bool, String> {
             if func == "validate_naming" && id == "bad_name" {
                 Ok(false) // fails
             } else {
@@ -326,7 +376,10 @@ fn custom_pattern_dispatches_to_registered_wasm_function() {
     assert!(diags[0].message.contains("bad_name"));
 }
 
-#[specforge_test(behavior = "execute_validation_pattern", verify = "pattern violation produces diagnostic with configured code and severity")]
+#[specforge_test(
+    behavior = "execute_validation_pattern",
+    verify = "pattern violation produces diagnostic with configured code and severity"
+)]
 #[test]
 fn pattern_violation_produces_diagnostic_with_configured_code_and_severity() {
     let rule = ManifestValidationRule {
@@ -347,7 +400,10 @@ fn pattern_violation_produces_diagnostic_with_configured_code_and_severity() {
     assert_eq!(diags[0].severity, Severity::Error);
 }
 
-#[specforge_test(behavior = "execute_validation_pattern", verify = "requires/ensures consistency for declarative validation")]
+#[specforge_test(
+    behavior = "execute_validation_pattern",
+    verify = "requires/ensures consistency for declarative validation"
+)]
 #[test]
 fn execute_validation_pattern_contract() {
     let rule = make_rule("W100", "no_incoming_edges");
@@ -368,14 +424,20 @@ fn execute_validation_pattern_contract() {
 // B:emit_diagnostic_from_pattern (5 verifies)
 // ============================================================================
 
-#[specforge_test(behavior = "emit_diagnostic_from_pattern", verify = "message template interpolates {id} and {kind}")]
+#[specforge_test(
+    behavior = "emit_diagnostic_from_pattern",
+    verify = "message template interpolates {id} and {kind}"
+)]
 #[test]
 fn message_template_interpolates_id_and_kind() {
     let result = interpolate_template("orphan {kind} '{id}'", "my_beh", "behavior", None, None);
     assert_eq!(result, "orphan behavior 'my_beh'");
 }
 
-#[specforge_test(behavior = "emit_diagnostic_from_pattern", verify = "message template interpolates {field} and {value}")]
+#[specforge_test(
+    behavior = "emit_diagnostic_from_pattern",
+    verify = "message template interpolates {field} and {value}"
+)]
 #[test]
 fn message_template_interpolates_field_and_value() {
     let result = interpolate_template(
@@ -388,7 +450,10 @@ fn message_template_interpolates_field_and_value() {
     assert_eq!(result, "behavior 'b1' has status='invalid'");
 }
 
-#[specforge_test(behavior = "emit_diagnostic_from_pattern", verify = "diagnostic code matches pattern code")]
+#[specforge_test(
+    behavior = "emit_diagnostic_from_pattern",
+    verify = "diagnostic code matches pattern code"
+)]
 #[test]
 fn diagnostic_code_matches_pattern_code() {
     let rule = ManifestValidationRule {
@@ -407,7 +472,10 @@ fn diagnostic_code_matches_pattern_code() {
     assert_eq!(diags[0].code, "E999");
 }
 
-#[specforge_test(behavior = "emit_diagnostic_from_pattern", verify = "diagnostic severity matches pattern severity")]
+#[specforge_test(
+    behavior = "emit_diagnostic_from_pattern",
+    verify = "diagnostic severity matches pattern severity"
+)]
 #[test]
 fn diagnostic_severity_matches_pattern_severity() {
     for (sev_str, expected) in &[
@@ -428,11 +496,18 @@ fn diagnostic_severity_matches_pattern_severity() {
         };
         let pattern = parse_rule_pattern(&rule, "@test").unwrap();
         let diags = execute_pattern(&pattern, &[make_entity("b1", "behavior", 0, 0)], None);
-        assert_eq!(diags[0].severity, *expected, "severity mismatch for {}", sev_str);
+        assert_eq!(
+            diags[0].severity, *expected,
+            "severity mismatch for {}",
+            sev_str
+        );
     }
 }
 
-#[specforge_test(behavior = "emit_diagnostic_from_pattern", verify = "requires/ensures consistency for pattern diagnostic emission")]
+#[specforge_test(
+    behavior = "emit_diagnostic_from_pattern",
+    verify = "requires/ensures consistency for pattern diagnostic emission"
+)]
 #[test]
 fn emit_diagnostic_from_pattern_contract() {
     // requires: violation detected, pattern configured
@@ -451,7 +526,10 @@ fn emit_diagnostic_from_pattern_contract() {
 // B:register_extension_validation_rules (4 verifies)
 // ============================================================================
 
-#[specforge_test(behavior = "register_extension_validation_rules", verify = "rules from multiple extensions are collected")]
+#[specforge_test(
+    behavior = "register_extension_validation_rules",
+    verify = "rules from multiple extensions are collected"
+)]
 #[test]
 fn rules_from_multiple_extensions_are_collected() {
     let m1: ManifestV2 = serde_json::from_str(
@@ -483,7 +561,10 @@ fn rules_from_multiple_extensions_are_collected() {
     assert_eq!(rules.len(), 2);
 }
 
-#[specforge_test(behavior = "register_extension_validation_rules", verify = "duplicate codes across extensions produce warning")]
+#[specforge_test(
+    behavior = "register_extension_validation_rules",
+    verify = "duplicate codes across extensions produce warning"
+)]
 #[test]
 fn duplicate_codes_across_extensions_produce_warning() {
     let m1: ManifestV2 = serde_json::from_str(
@@ -512,13 +593,18 @@ fn duplicate_codes_across_extensions_produce_warning() {
     .unwrap();
     let (_, diags) = register_validation_rules(&[m1, m2]);
     assert!(
-        diags.iter().any(|d| d.code == "W023" && d.message.contains("W100")),
+        diags
+            .iter()
+            .any(|d| d.code == "W023" && d.message.contains("W100")),
         "expected W023 for duplicate code, got: {:?}",
         diags
     );
 }
 
-#[specforge_test(behavior = "register_extension_validation_rules", verify = "rules sorted by code for deterministic order")]
+#[specforge_test(
+    behavior = "register_extension_validation_rules",
+    verify = "rules sorted by code for deterministic order"
+)]
 #[test]
 fn rules_sorted_by_code_for_deterministic_order() {
     let m1: ManifestV2 = serde_json::from_str(
@@ -551,7 +637,10 @@ fn rules_sorted_by_code_for_deterministic_order() {
     assert_eq!(codes, vec!["W100", "W200", "W300"]);
 }
 
-#[specforge_test(behavior = "register_extension_validation_rules", verify = "requires/ensures consistency for cross-extension rule aggregation")]
+#[specforge_test(
+    behavior = "register_extension_validation_rules",
+    verify = "requires/ensures consistency for cross-extension rule aggregation"
+)]
 #[test]
 fn register_extension_validation_rules_contract() {
     // requires: manifests parsed
@@ -579,7 +668,10 @@ fn register_extension_validation_rules_contract() {
 // B:register_custom_validation_patterns (5 verifies)
 // ============================================================================
 
-#[specforge_test(behavior = "register_custom_validation_patterns", verify = "custom pattern registered with wasm_function reference")]
+#[specforge_test(
+    behavior = "register_custom_validation_patterns",
+    verify = "custom pattern registered with wasm_function reference"
+)]
 #[test]
 fn custom_pattern_registered_with_wasm_function_reference() {
     let rule = ManifestValidationRule {
@@ -598,7 +690,10 @@ fn custom_pattern_registered_with_wasm_function_reference() {
     assert_eq!(pattern.wasm_function.as_deref(), Some("validate_custom"));
 }
 
-#[specforge_test(behavior = "register_custom_validation_patterns", verify = "unresolvable wasm_function produces warning")]
+#[specforge_test(
+    behavior = "register_custom_validation_patterns",
+    verify = "unresolvable wasm_function produces warning"
+)]
 #[test]
 fn unresolvable_wasm_function_produces_warning() {
     let pattern = ValidationRulePattern {
@@ -614,12 +709,19 @@ fn unresolvable_wasm_function_produces_warning() {
     };
     // No Wasm runtime → warning
     let (registered, diags) = register_custom_patterns(&[pattern], None);
-    assert!(diags.iter().any(|d| d.code == "W025" && d.message.contains("missing_func")));
+    assert!(
+        diags
+            .iter()
+            .any(|d| d.code == "W025" && d.message.contains("missing_func"))
+    );
     // Still registered for later (will be skipped during execution)
     assert_eq!(registered.len(), 1);
 }
 
-#[specforge_test(behavior = "register_custom_validation_patterns", verify = "custom pattern dispatched to Wasm runtime during validation")]
+#[specforge_test(
+    behavior = "register_custom_validation_patterns",
+    verify = "custom pattern dispatched to Wasm runtime during validation"
+)]
 #[test]
 fn custom_pattern_dispatched_to_wasm_runtime_during_validation() {
     struct FailRuntime;
@@ -653,7 +755,10 @@ fn custom_pattern_dispatched_to_wasm_runtime_during_validation() {
     assert!(diags[0].message.contains("bad"));
 }
 
-#[specforge_test(behavior = "register_custom_validation_patterns", verify = "custom pattern failure emits configured diagnostic")]
+#[specforge_test(
+    behavior = "register_custom_validation_patterns",
+    verify = "custom pattern failure emits configured diagnostic"
+)]
 #[test]
 fn custom_pattern_failure_emits_configured_diagnostic() {
     struct AlwaysFail;
@@ -687,7 +792,10 @@ fn custom_pattern_failure_emits_configured_diagnostic() {
     assert_eq!(diags[0].severity, Severity::Error);
 }
 
-#[specforge_test(behavior = "register_custom_validation_patterns", verify = "requires/ensures consistency for custom validation pattern registration")]
+#[specforge_test(
+    behavior = "register_custom_validation_patterns",
+    verify = "requires/ensures consistency for custom validation pattern registration"
+)]
 #[test]
 fn register_custom_validation_patterns_contract() {
     let custom = ValidationRulePattern {
@@ -723,7 +831,10 @@ fn register_custom_validation_patterns_contract() {
 // B:detect_unknown_entity_fields (6 verifies)
 // ============================================================================
 
-#[specforge_test(behavior = "detect_unknown_entity_fields", verify = "unregistered field name produces W020")]
+#[specforge_test(
+    behavior = "detect_unknown_entity_fields",
+    verify = "unregistered field name produces W020"
+)]
 #[test]
 fn unregistered_field_name_produces_w020() {
     let (kind_reg, field_reg, _, _) = populate_registries(&[software_manifest()]);
@@ -733,12 +844,20 @@ fn unregistered_field_name_produces_w020() {
         vec!["unknown_field".to_string()],
         span(),
     )];
-    let diags =
-        specforge_registry::compilation::detect_unknown_entity_fields(&entities, &kind_reg, &field_reg);
-    assert!(diags.iter().any(|d| d.code == "W020" && d.message.contains("unknown_field")));
+    let diags = specforge_registry::compilation::detect_unknown_entity_fields(
+        &entities, &kind_reg, &field_reg,
+    );
+    assert!(
+        diags
+            .iter()
+            .any(|d| d.code == "W020" && d.message.contains("unknown_field"))
+    );
 }
 
-#[specforge_test(behavior = "detect_unknown_entity_fields", verify = "W020 includes field name, entity kind, and source span")]
+#[specforge_test(
+    behavior = "detect_unknown_entity_fields",
+    verify = "W020 includes field name, entity kind, and source span"
+)]
 #[test]
 fn w020_includes_field_name_entity_kind_and_source_span() {
     let (kind_reg, field_reg, _, _) = populate_registries(&[software_manifest()]);
@@ -755,16 +874,26 @@ fn w020_includes_field_name_entity_kind_and_source_span() {
         vec!["bogus_field".to_string()],
         s,
     )];
-    let diags =
-        specforge_registry::compilation::detect_unknown_entity_fields(&entities, &kind_reg, &field_reg);
+    let diags = specforge_registry::compilation::detect_unknown_entity_fields(
+        &entities, &kind_reg, &field_reg,
+    );
     let w020: Vec<_> = diags.iter().filter(|d| d.code == "W020").collect();
     assert_eq!(w020.len(), 1);
-    assert!(w020[0].message.contains("bogus_field"), "should contain field name");
-    assert!(w020[0].message.contains("behavior"), "should contain entity kind");
+    assert!(
+        w020[0].message.contains("bogus_field"),
+        "should contain field name"
+    );
+    assert!(
+        w020[0].message.contains("behavior"),
+        "should contain entity kind"
+    );
     assert!(w020[0].span.is_some(), "should contain source span");
 }
 
-#[specforge_test(behavior = "detect_unknown_entity_fields", verify = "registered field name does not produce W020")]
+#[specforge_test(
+    behavior = "detect_unknown_entity_fields",
+    verify = "registered field name does not produce W020"
+)]
 #[test]
 fn registered_field_name_does_not_produce_w020() {
     let (kind_reg, field_reg, _, _) = populate_registries(&[software_manifest()]);
@@ -774,12 +903,16 @@ fn registered_field_name_does_not_produce_w020() {
         vec!["contract".to_string()],
         span(),
     )];
-    let diags =
-        specforge_registry::compilation::detect_unknown_entity_fields(&entities, &kind_reg, &field_reg);
+    let diags = specforge_registry::compilation::detect_unknown_entity_fields(
+        &entities, &kind_reg, &field_reg,
+    );
     assert!(diags.is_empty(), "registered field should not produce W020");
 }
 
-#[specforge_test(behavior = "detect_unknown_entity_fields", verify = "structural fields (title, verify) not checked against FieldRegistry")]
+#[specforge_test(
+    behavior = "detect_unknown_entity_fields",
+    verify = "structural fields (title, verify) not checked against FieldRegistry"
+)]
 #[test]
 fn structural_fields_not_checked_against_field_registry() {
     let (kind_reg, field_reg, _, _) = populate_registries(&[software_manifest()]);
@@ -789,12 +922,16 @@ fn structural_fields_not_checked_against_field_registry() {
         vec!["title".to_string(), "verify".to_string()],
         span(),
     )];
-    let diags =
-        specforge_registry::compilation::detect_unknown_entity_fields(&entities, &kind_reg, &field_reg);
+    let diags = specforge_registry::compilation::detect_unknown_entity_fields(
+        &entities, &kind_reg, &field_reg,
+    );
     assert!(diags.is_empty(), "structural fields should be skipped");
 }
 
-#[specforge_test(behavior = "detect_unknown_entity_fields", verify = "field validation skipped when entity kind is unregistered")]
+#[specforge_test(
+    behavior = "detect_unknown_entity_fields",
+    verify = "field validation skipped when entity kind is unregistered"
+)]
 #[test]
 fn field_validation_skipped_when_entity_kind_is_unregistered() {
     let (kind_reg, field_reg, _, _) = populate_registries(&[software_manifest()]);
@@ -804,15 +941,19 @@ fn field_validation_skipped_when_entity_kind_is_unregistered() {
         vec!["some_field".to_string()],
         span(),
     )];
-    let diags =
-        specforge_registry::compilation::detect_unknown_entity_fields(&entities, &kind_reg, &field_reg);
+    let diags = specforge_registry::compilation::detect_unknown_entity_fields(
+        &entities, &kind_reg, &field_reg,
+    );
     assert!(
         diags.is_empty(),
         "unregistered kind should skip field validation to avoid cascading diagnostics"
     );
 }
 
-#[specforge_test(behavior = "detect_unknown_entity_fields", verify = "requires/ensures consistency for unknown field detection")]
+#[specforge_test(
+    behavior = "detect_unknown_entity_fields",
+    verify = "requires/ensures consistency for unknown field detection"
+)]
 #[test]
 fn detect_unknown_entity_fields_contract() {
     let (kind_reg, field_reg, _, _) = populate_registries(&[software_manifest()]);
@@ -856,7 +997,10 @@ fn detect_unknown_entity_fields_contract() {
 // B:detect_duplicate_entity_kinds (4 verifies)
 // ============================================================================
 
-#[specforge_test(behavior = "detect_duplicate_entity_kinds", verify = "duplicate kind from two extensions produces E026")]
+#[specforge_test(
+    behavior = "detect_duplicate_entity_kinds",
+    verify = "duplicate kind from two extensions produces E026"
+)]
 #[test]
 fn duplicate_kind_from_two_extensions_produces_e026() {
     let m1 = software_manifest();
@@ -874,13 +1018,18 @@ fn duplicate_kind_from_two_extensions_produces_e026() {
     .unwrap();
     let diags = detect_duplicate_entity_kinds(&[m1, m2]);
     assert!(
-        diags.iter().any(|d| d.code == "E026" && d.message.contains("behavior")),
+        diags
+            .iter()
+            .any(|d| d.code == "E026" && d.message.contains("behavior")),
         "expected E026 for duplicate 'behavior', got: {:?}",
         diags
     );
 }
 
-#[specforge_test(behavior = "detect_duplicate_entity_kinds", verify = "first extension in topological order owns the kind")]
+#[specforge_test(
+    behavior = "detect_duplicate_entity_kinds",
+    verify = "first extension in topological order owns the kind"
+)]
 #[test]
 fn first_extension_in_topological_order_owns_the_kind() {
     let m1 = software_manifest();
@@ -901,14 +1050,20 @@ fn first_extension_in_topological_order_owns_the_kind() {
     assert_eq!(behavior.source_extension, "@specforge/software");
 }
 
-#[specforge_test(behavior = "detect_duplicate_entity_kinds", verify = "single extension registering a kind produces no diagnostic")]
+#[specforge_test(
+    behavior = "detect_duplicate_entity_kinds",
+    verify = "single extension registering a kind produces no diagnostic"
+)]
 #[test]
 fn single_extension_registering_a_kind_produces_no_diagnostic() {
     let diags = detect_duplicate_entity_kinds(&[software_manifest()]);
     assert!(diags.is_empty());
 }
 
-#[specforge_test(behavior = "detect_duplicate_entity_kinds", verify = "requires/ensures consistency for duplicate entity kind detection")]
+#[specforge_test(
+    behavior = "detect_duplicate_entity_kinds",
+    verify = "requires/ensures consistency for duplicate entity kind detection"
+)]
 #[test]
 fn detect_duplicate_entity_kinds_contract() {
     // requires: manifests parsed
@@ -929,7 +1084,10 @@ fn detect_duplicate_entity_kinds_contract() {
 // B:validate_peer_dependencies (4 verifies)
 // ============================================================================
 
-#[specforge_test(behavior = "validate_peer_dependencies", verify = "satisfied peer dependency passes validation")]
+#[specforge_test(
+    behavior = "validate_peer_dependencies",
+    verify = "satisfied peer dependency passes validation"
+)]
 #[test]
 fn satisfied_peer_dependency_passes_validation() {
     let m1 = software_manifest();
@@ -946,10 +1104,17 @@ fn satisfied_peer_dependency_passes_validation() {
     )
     .unwrap();
     let diags = validate_peer_dependencies(&[m1, m2]);
-    assert!(diags.is_empty(), "expected no diagnostics, got: {:?}", diags);
+    assert!(
+        diags.is_empty(),
+        "expected no diagnostics, got: {:?}",
+        diags
+    );
 }
 
-#[specforge_test(behavior = "validate_peer_dependencies", verify = "missing peer dependency produces hard error")]
+#[specforge_test(
+    behavior = "validate_peer_dependencies",
+    verify = "missing peer dependency produces hard error"
+)]
 #[test]
 fn missing_peer_dependency_produces_hard_error() {
     let m: ManifestV2 = serde_json::from_str(
@@ -974,7 +1139,10 @@ fn missing_peer_dependency_produces_hard_error() {
     );
 }
 
-#[specforge_test(behavior = "validate_peer_dependencies", verify = "incompatible version produces hard error with required range")]
+#[specforge_test(
+    behavior = "validate_peer_dependencies",
+    verify = "incompatible version produces hard error with required range"
+)]
 #[test]
 fn incompatible_version_produces_hard_error_with_required_range() {
     let m1: ManifestV2 = serde_json::from_str(
@@ -1008,7 +1176,10 @@ fn incompatible_version_produces_hard_error_with_required_range() {
     );
 }
 
-#[specforge_test(behavior = "validate_peer_dependencies", verify = "requires/ensures consistency for peer dependency validation")]
+#[specforge_test(
+    behavior = "validate_peer_dependencies",
+    verify = "requires/ensures consistency for peer dependency validation"
+)]
 #[test]
 fn validate_peer_dependencies_contract() {
     // requires: manifests loaded
@@ -1034,7 +1205,10 @@ fn validate_peer_dependencies_contract() {
 // B:validate_extension_testability (5 verifies)
 // ============================================================================
 
-#[specforge_test(behavior = "validate_extension_testability", verify = "testable kind without supportsVerify produces W017")]
+#[specforge_test(
+    behavior = "validate_extension_testability",
+    verify = "testable kind without supportsVerify produces W017"
+)]
 #[test]
 fn testable_kind_without_supports_verify_produces_w017() {
     let manifest: ManifestV2 = serde_json::from_str(
@@ -1052,13 +1226,18 @@ fn testable_kind_without_supports_verify_produces_w017() {
     let (kind_reg, _, _, _) = populate_registries(&[manifest]);
     let diags = validate_extension_testability(&kind_reg);
     assert!(
-        diags.iter().any(|d| d.code == "W017" && d.message.contains("thing")),
+        diags
+            .iter()
+            .any(|d| d.code == "W017" && d.message.contains("thing")),
         "expected W017, got: {:?}",
         diags
     );
 }
 
-#[specforge_test(behavior = "validate_extension_testability", verify = "testable kind with supportsVerify=true passes")]
+#[specforge_test(
+    behavior = "validate_extension_testability",
+    verify = "testable kind with supportsVerify=true passes"
+)]
 #[test]
 fn testable_kind_with_supports_verify_true_passes() {
     let (kind_reg, _, _, _) = populate_registries(&[software_manifest()]);
@@ -1070,7 +1249,10 @@ fn testable_kind_with_supports_verify_true_passes() {
     );
 }
 
-#[specforge_test(behavior = "validate_extension_testability", verify = "kind with supportsVerify but not testable produces I006")]
+#[specforge_test(
+    behavior = "validate_extension_testability",
+    verify = "kind with supportsVerify but not testable produces I006"
+)]
 #[test]
 fn kind_with_supports_verify_but_not_testable_produces_i006() {
     let manifest: ManifestV2 = serde_json::from_str(
@@ -1088,13 +1270,18 @@ fn kind_with_supports_verify_but_not_testable_produces_i006() {
     let (kind_reg, _, _, _) = populate_registries(&[manifest]);
     let diags = validate_extension_testability(&kind_reg);
     assert!(
-        diags.iter().any(|d| d.code == "I006" && d.message.contains("note")),
+        diags
+            .iter()
+            .any(|d| d.code == "I006" && d.message.contains("note")),
         "expected I006, got: {:?}",
         diags
     );
 }
 
-#[specforge_test(behavior = "validate_extension_testability", verify = "consistent testable and supportsVerify flags produce no diagnostic")]
+#[specforge_test(
+    behavior = "validate_extension_testability",
+    verify = "consistent testable and supportsVerify flags produce no diagnostic"
+)]
 #[test]
 fn consistent_testable_and_supports_verify_flags_produce_no_diagnostic() {
     let manifest: ManifestV2 = serde_json::from_str(
@@ -1111,10 +1298,17 @@ fn consistent_testable_and_supports_verify_flags_produce_no_diagnostic() {
     .unwrap();
     let (kind_reg, _, _, _) = populate_registries(&[manifest]);
     let diags = validate_extension_testability(&kind_reg);
-    assert!(diags.is_empty(), "expected no diagnostics, got: {:?}", diags);
+    assert!(
+        diags.is_empty(),
+        "expected no diagnostics, got: {:?}",
+        diags
+    );
 }
 
-#[specforge_test(behavior = "validate_extension_testability", verify = "requires/ensures consistency for extension testability validation")]
+#[specforge_test(
+    behavior = "validate_extension_testability",
+    verify = "requires/ensures consistency for extension testability validation"
+)]
 #[test]
 fn validate_extension_testability_contract() {
     // requires: KindRegistry populated

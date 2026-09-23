@@ -14,7 +14,11 @@ pub fn render_dot(outline: &OutlineIntermediate, options: &OutlineOptions) -> St
 
     writeln!(out, "digraph extensions {{").unwrap();
     writeln!(out, "    rankdir=TB;").unwrap();
-    writeln!(out, "    node [shape=record, style=filled, fontname=\"Helvetica\"];").unwrap();
+    writeln!(
+        out,
+        "    node [shape=record, style=filled, fontname=\"Helvetica\"];"
+    )
+    .unwrap();
     writeln!(out, "    edge [fontname=\"Helvetica\", fontsize=10];").unwrap();
     writeln!(out).unwrap();
 
@@ -23,7 +27,11 @@ pub fn render_dot(outline: &OutlineIntermediate, options: &OutlineOptions) -> St
         let id = sanitize_id(&ext.name);
         let color = extension_color(&ext.name);
         let label = if options.detail == OutlineDetail::All {
-            let kinds: Vec<&str> = ext.entity_kinds.iter().map(|k| k.keyword.as_str()).collect();
+            let kinds: Vec<&str> = ext
+                .entity_kinds
+                .iter()
+                .map(|k| k.keyword.as_str())
+                .collect();
             format!(
                 "{{ {} | {} | {} entities, {} edges | {} }}",
                 ext.name,

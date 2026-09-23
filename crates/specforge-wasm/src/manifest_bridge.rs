@@ -1,5 +1,7 @@
 use specforge_common::{Diagnostic, Severity};
-use specforge_registry::{detect_duplicate_entity_kinds, validate_manifest, validate_peer_dependencies, ManifestV2};
+use specforge_registry::{
+    ManifestV2, detect_duplicate_entity_kinds, validate_manifest, validate_peer_dependencies,
+};
 use std::path::Path;
 
 /// Validate an extension manifest — the single entry point for Phase 10.
@@ -32,7 +34,11 @@ pub fn load_extension_manifest_from_path(path: &Path) -> Result<ManifestV2, Diag
     let content = std::fs::read_to_string(path).map_err(|e| Diagnostic {
         code: "E030".to_string(),
         severity: Severity::Error,
-        message: format!("failed to read extension manifest at '{}': {}", path.display(), e),
+        message: format!(
+            "failed to read extension manifest at '{}': {}",
+            path.display(),
+            e
+        ),
         span: None,
         suggestion: None,
     })?;
@@ -40,7 +46,11 @@ pub fn load_extension_manifest_from_path(path: &Path) -> Result<ManifestV2, Diag
     serde_json::from_str::<ManifestV2>(&content).map_err(|e| Diagnostic {
         code: "E030".to_string(),
         severity: Severity::Error,
-        message: format!("malformed extension manifest at '{}': {}", path.display(), e),
+        message: format!(
+            "malformed extension manifest at '{}': {}",
+            path.display(),
+            e
+        ),
         span: None,
         suggestion: Some("check the manifest JSON syntax".to_string()),
     })
@@ -105,7 +115,11 @@ mod tests {
 
         let diags = validate_extension_manifest(&m, &[m.clone()]);
         assert!(!diags.is_empty());
-        assert!(diags.iter().any(|d| d.severity == specforge_common::Severity::Error));
+        assert!(
+            diags
+                .iter()
+                .any(|d| d.severity == specforge_common::Severity::Error)
+        );
     }
 
     // B:validate_extension_manifest — verify unit "unknown manifest_version produces hard error"
@@ -168,12 +182,16 @@ mod tests {
     fn test_load_manifest_from_sidecar_json() {
         let dir = tempfile::TempDir::new().unwrap();
         let path = dir.path().join("manifest.json");
-        std::fs::write(&path, r#"{
+        std::fs::write(
+            &path,
+            r#"{
             "name": "@specforge/software",
             "version": "1.0.0",
             "manifestVersion": 2,
             "wasmPath": "extension.wasm"
-        }"#).unwrap();
+        }"#,
+        )
+        .unwrap();
 
         let manifest = load_extension_manifest_from_path(&path).unwrap();
         assert_eq!(manifest.name, "@specforge/software");
@@ -197,7 +215,8 @@ mod tests {
     // B:load_extension_manifest — verify unit "missing file → error"
     #[test]
     fn test_load_manifest_missing_file_produces_error() {
-        let err = load_extension_manifest_from_path(Path::new("/nonexistent/manifest.json")).unwrap_err();
+        let err =
+            load_extension_manifest_from_path(Path::new("/nonexistent/manifest.json")).unwrap_err();
         assert_eq!(err.code, "E030");
         assert!(err.message.contains("failed to read"));
     }
@@ -215,10 +234,19 @@ mod tests {
             name: "Behavior".to_string(),
             description: None,
             keyword: "behavior".to_string(),
-            testable: false, singleton: false, supports_verify: false,
-            allowed_verify_kinds: vec![], semantic_token: None, lsp_icon: None,
-            dot_shape: None, dot_color: None, dot_fillcolor: None,
-            fields: vec![], incremental: None, has_body_parser: false, open_fields: false,
+            testable: false,
+            singleton: false,
+            supports_verify: false,
+            allowed_verify_kinds: vec![],
+            semantic_token: None,
+            lsp_icon: None,
+            dot_shape: None,
+            dot_color: None,
+            dot_fillcolor: None,
+            fields: vec![],
+            incremental: None,
+            has_body_parser: false,
+            open_fields: false,
             inference_guide: None,
         }];
 
@@ -228,15 +256,28 @@ mod tests {
             name: "Behavior".to_string(),
             description: None,
             keyword: "behavior".to_string(),
-            testable: false, singleton: false, supports_verify: false,
-            allowed_verify_kinds: vec![], semantic_token: None, lsp_icon: None,
-            dot_shape: None, dot_color: None, dot_fillcolor: None,
-            fields: vec![], incremental: None, has_body_parser: false, open_fields: false,
+            testable: false,
+            singleton: false,
+            supports_verify: false,
+            allowed_verify_kinds: vec![],
+            semantic_token: None,
+            lsp_icon: None,
+            dot_shape: None,
+            dot_color: None,
+            dot_fillcolor: None,
+            fields: vec![],
+            incremental: None,
+            has_body_parser: false,
+            open_fields: false,
             inference_guide: None,
         }];
 
         let diags = detect_entity_kind_collision(&[m1, m2]);
-        assert!(diags.iter().any(|d| d.code == "E026" && d.message.contains("behavior")));
+        assert!(
+            diags
+                .iter()
+                .any(|d| d.code == "E026" && d.message.contains("behavior"))
+        );
     }
 
     // B:detect_entity_kind_collision — verify unit "collision with structural keyword → E023"
@@ -250,15 +291,28 @@ mod tests {
             name: "Spec".to_string(),
             description: None,
             keyword: "spec".to_string(),
-            testable: false, singleton: false, supports_verify: false,
-            allowed_verify_kinds: vec![], semantic_token: None, lsp_icon: None,
-            dot_shape: None, dot_color: None, dot_fillcolor: None,
-            fields: vec![], incremental: None, has_body_parser: false, open_fields: false,
+            testable: false,
+            singleton: false,
+            supports_verify: false,
+            allowed_verify_kinds: vec![],
+            semantic_token: None,
+            lsp_icon: None,
+            dot_shape: None,
+            dot_color: None,
+            dot_fillcolor: None,
+            fields: vec![],
+            incremental: None,
+            has_body_parser: false,
+            open_fields: false,
             inference_guide: None,
         }];
 
         let diags = detect_entity_kind_collision(&[m]);
-        assert!(diags.iter().any(|d| d.code == "E023" && d.message.contains("spec")));
+        assert!(
+            diags
+                .iter()
+                .any(|d| d.code == "E023" && d.message.contains("spec"))
+        );
     }
 
     // B:detect_entity_kind_collision — verify unit "no false positives"
@@ -272,10 +326,19 @@ mod tests {
             name: "Behavior".to_string(),
             description: None,
             keyword: "behavior".to_string(),
-            testable: false, singleton: false, supports_verify: false,
-            allowed_verify_kinds: vec![], semantic_token: None, lsp_icon: None,
-            dot_shape: None, dot_color: None, dot_fillcolor: None,
-            fields: vec![], incremental: None, has_body_parser: false, open_fields: false,
+            testable: false,
+            singleton: false,
+            supports_verify: false,
+            allowed_verify_kinds: vec![],
+            semantic_token: None,
+            lsp_icon: None,
+            dot_shape: None,
+            dot_color: None,
+            dot_fillcolor: None,
+            fields: vec![],
+            incremental: None,
+            has_body_parser: false,
+            open_fields: false,
             inference_guide: None,
         }];
 
@@ -285,10 +348,19 @@ mod tests {
             name: "Feature".to_string(),
             description: None,
             keyword: "feature".to_string(),
-            testable: false, singleton: false, supports_verify: false,
-            allowed_verify_kinds: vec![], semantic_token: None, lsp_icon: None,
-            dot_shape: None, dot_color: None, dot_fillcolor: None,
-            fields: vec![], incremental: None, has_body_parser: false, open_fields: false,
+            testable: false,
+            singleton: false,
+            supports_verify: false,
+            allowed_verify_kinds: vec![],
+            semantic_token: None,
+            lsp_icon: None,
+            dot_shape: None,
+            dot_color: None,
+            dot_fillcolor: None,
+            fields: vec![],
+            incremental: None,
+            has_body_parser: false,
+            open_fields: false,
             inference_guide: None,
         }];
 
@@ -309,10 +381,19 @@ mod tests {
             name: "Task".to_string(),
             description: None,
             keyword: "task".to_string(),
-            testable: false, singleton: false, supports_verify: false,
-            allowed_verify_kinds: vec![], semantic_token: None, lsp_icon: None,
-            dot_shape: None, dot_color: None, dot_fillcolor: None,
-            fields: vec![], incremental: None, has_body_parser: false, open_fields: false,
+            testable: false,
+            singleton: false,
+            supports_verify: false,
+            allowed_verify_kinds: vec![],
+            semantic_token: None,
+            lsp_icon: None,
+            dot_shape: None,
+            dot_color: None,
+            dot_fillcolor: None,
+            fields: vec![],
+            incremental: None,
+            has_body_parser: false,
+            open_fields: false,
             inference_guide: None,
         }];
         assert!(detect_entity_kind_collision(&[m.clone()]).is_empty());
@@ -324,17 +405,29 @@ mod tests {
             name: "Use".to_string(),
             description: None,
             keyword: "use".to_string(),
-            testable: false, singleton: false, supports_verify: false,
-            allowed_verify_kinds: vec![], semantic_token: None, lsp_icon: None,
-            dot_shape: None, dot_color: None, dot_fillcolor: None,
-            fields: vec![], incremental: None, has_body_parser: false, open_fields: false,
+            testable: false,
+            singleton: false,
+            supports_verify: false,
+            allowed_verify_kinds: vec![],
+            semantic_token: None,
+            lsp_icon: None,
+            dot_shape: None,
+            dot_color: None,
+            dot_fillcolor: None,
+            fields: vec![],
+            incremental: None,
+            has_body_parser: false,
+            open_fields: false,
             inference_guide: None,
         }];
         let diags = detect_entity_kind_collision(&[bad]);
         assert!(diags.iter().any(|d| d.code == "E023"));
 
         // ensures: cross-extension duplicate → E026
-        let dup = ManifestV2 { name: "@ext/dup".to_string(), ..m.clone() };
+        let dup = ManifestV2 {
+            name: "@ext/dup".to_string(),
+            ..m.clone()
+        };
         let diags = detect_entity_kind_collision(&[m, dup]);
         assert!(diags.iter().any(|d| d.code == "E026"));
     }

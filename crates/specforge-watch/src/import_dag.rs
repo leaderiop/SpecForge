@@ -17,7 +17,8 @@ impl ImportDag {
     /// Import paths are stored as-is. Use `set_imports_resolved` to resolve
     /// import paths against known file keys before storing.
     pub fn set_imports(&mut self, file: &str, imports: Vec<String>) {
-        self.deps.insert(file.to_string(), imports.into_iter().collect());
+        self.deps
+            .insert(file.to_string(), imports.into_iter().collect());
     }
 
     /// Set imports for a file, resolving each import path against known file keys.
@@ -157,8 +158,15 @@ impl ImportDag {
             result: Vec::new(),
         };
 
-        let all_nodes: BTreeSet<&str> = self.deps.keys().map(|s| s.as_str())
-            .chain(self.deps.values().flat_map(|v| v.iter().map(|s| s.as_str())))
+        let all_nodes: BTreeSet<&str> = self
+            .deps
+            .keys()
+            .map(|s| s.as_str())
+            .chain(
+                self.deps
+                    .values()
+                    .flat_map(|v| v.iter().map(|s| s.as_str())),
+            )
             .collect();
 
         for node in &all_nodes {

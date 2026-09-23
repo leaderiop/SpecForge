@@ -117,18 +117,102 @@ impl FormalExtension {
 
     fn edge_types(&self) -> Vec<EdgeTypeDescriptor> {
         vec![
-            edge_desc("BehaviorRequiresInvariant", "behavior", "invariant", "solid", "#1A237E", "Behavior requires an invariant as precondition"),
-            edge_desc("BehaviorEnsuresInvariant", "behavior", "invariant", "solid", "#1A237E", "Behavior ensures an invariant as postcondition"),
-            edge_desc("BehaviorMaintainsInvariant", "behavior", "invariant", "dashed", "#1A237E", "Behavior maintains an invariant as frame invariant throughout execution"),
-            edge_desc("AxiomAssumesInvariant", "axiom", "invariant", "dotted", "#311B92", "Axiom assumes an invariant as foundational truth"),
-            edge_desc("BehaviorSatisfiesProperty", "behavior", "property", "solid", "#0D47A1", "Behavior satisfies a temporal property"),
-            edge_desc("EventFollowsProtocol", "event", "protocol", "solid", "#004D40", "Event follows a synchronization protocol"),
-            edge_desc("PropertyDependsOnInvariant", "property", "invariant", "dashed", "#0D47A1", "Property depends on an invariant"),
-            edge_desc("RefinementRefinesAbstract", "refinement", "behavior", "dashed", "#1B5E20", "Refinement maps from this abstract behavior"),
-            edge_desc("RefinementRefinesConcrete", "refinement", "behavior", "solid", "#1B5E20", "Refinement maps to this concrete behavior"),
-            edge_desc("RefinementChainsToRefinement", "refinement", "refinement", "dashed", "#1B5E20", "Chain of refinements"),
-            edge_desc("EventParticipatesInProcess", "event", "process", "solid", "#006064", "Event participates in a process"),
-            edge_desc("ProcessComposesProcess", "process", "process", "solid", "#006064", "Process composes sub-processes"),
+            edge_desc(
+                "BehaviorRequiresInvariant",
+                "behavior",
+                "invariant",
+                "solid",
+                "#1A237E",
+                "Behavior requires an invariant as precondition",
+            ),
+            edge_desc(
+                "BehaviorEnsuresInvariant",
+                "behavior",
+                "invariant",
+                "solid",
+                "#1A237E",
+                "Behavior ensures an invariant as postcondition",
+            ),
+            edge_desc(
+                "BehaviorMaintainsInvariant",
+                "behavior",
+                "invariant",
+                "dashed",
+                "#1A237E",
+                "Behavior maintains an invariant as frame invariant throughout execution",
+            ),
+            edge_desc(
+                "AxiomAssumesInvariant",
+                "axiom",
+                "invariant",
+                "dotted",
+                "#311B92",
+                "Axiom assumes an invariant as foundational truth",
+            ),
+            edge_desc(
+                "BehaviorSatisfiesProperty",
+                "behavior",
+                "property",
+                "solid",
+                "#0D47A1",
+                "Behavior satisfies a temporal property",
+            ),
+            edge_desc(
+                "EventFollowsProtocol",
+                "event",
+                "protocol",
+                "solid",
+                "#004D40",
+                "Event follows a synchronization protocol",
+            ),
+            edge_desc(
+                "PropertyDependsOnInvariant",
+                "property",
+                "invariant",
+                "dashed",
+                "#0D47A1",
+                "Property depends on an invariant",
+            ),
+            edge_desc(
+                "RefinementRefinesAbstract",
+                "refinement",
+                "behavior",
+                "dashed",
+                "#1B5E20",
+                "Refinement maps from this abstract behavior",
+            ),
+            edge_desc(
+                "RefinementRefinesConcrete",
+                "refinement",
+                "behavior",
+                "solid",
+                "#1B5E20",
+                "Refinement maps to this concrete behavior",
+            ),
+            edge_desc(
+                "RefinementChainsToRefinement",
+                "refinement",
+                "refinement",
+                "dashed",
+                "#1B5E20",
+                "Chain of refinements",
+            ),
+            edge_desc(
+                "EventParticipatesInProcess",
+                "event",
+                "process",
+                "solid",
+                "#006064",
+                "Event participates in a process",
+            ),
+            edge_desc(
+                "ProcessComposesProcess",
+                "process",
+                "process",
+                "solid",
+                "#006064",
+                "Process composes sub-processes",
+            ),
         ]
     }
 
@@ -217,17 +301,50 @@ impl FormalExtension {
 
     fn validation_rules(&self) -> Vec<ValidationRuleDescriptor> {
         vec![
-            fvc("W059", "property", "property_type", &["safety", "liveness", "fairness"],
-                "property '{id}' has invalid property_type '{value}' — expected one of: safety, liveness, fairness"),
-            no_incoming("W060", "property", "property '{id}' is not referenced by any behavior — it may be unused"),
-            no_incoming("W061", "axiom", "axiom '{id}' is not referenced by any entity — it may be unused"),
-            no_incoming("W062", "protocol", "protocol '{id}' is not referenced by any event — it may be unused"),
-            no_incoming("W063", "refinement", "refinement '{id}' is not referenced — it may be orphaned"),
-            no_incoming("W064", "process", "process '{id}' is not referenced by any entity — it may be unused"),
-            cycle("W065", "refinement", "RefinementChainsToRefinement",
-                "refinement chain cycle detected involving '{id}'"),
-            cycle("W066", "process", "ProcessComposesProcess",
-                "process composition cycle detected involving '{id}'"),
+            fvc(
+                "W059",
+                "property",
+                "property_type",
+                &["safety", "liveness", "fairness"],
+                "property '{id}' has invalid property_type '{value}' — expected one of: safety, liveness, fairness",
+            ),
+            no_incoming(
+                "W060",
+                "property",
+                "property '{id}' is not referenced by any behavior — it may be unused",
+            ),
+            no_incoming(
+                "W061",
+                "axiom",
+                "axiom '{id}' is not referenced by any entity — it may be unused",
+            ),
+            no_incoming(
+                "W062",
+                "protocol",
+                "protocol '{id}' is not referenced by any event — it may be unused",
+            ),
+            no_incoming(
+                "W063",
+                "refinement",
+                "refinement '{id}' is not referenced — it may be orphaned",
+            ),
+            no_incoming(
+                "W064",
+                "process",
+                "process '{id}' is not referenced by any entity — it may be unused",
+            ),
+            cycle(
+                "W065",
+                "refinement",
+                "RefinementChainsToRefinement",
+                "refinement chain cycle detected involving '{id}'",
+            ),
+            cycle(
+                "W066",
+                "process",
+                "ProcessComposesProcess",
+                "process composition cycle detected involving '{id}'",
+            ),
         ]
     }
 }
@@ -289,7 +406,14 @@ fn fd_defaults() -> FieldDescriptor {
     }
 }
 
-fn fd(name: &str, ft: &str, required: bool, desc: Option<&str>, edge: Option<&str>, target: Option<&str>) -> FieldDescriptor {
+fn fd(
+    name: &str,
+    ft: &str,
+    required: bool,
+    desc: Option<&str>,
+    edge: Option<&str>,
+    target: Option<&str>,
+) -> FieldDescriptor {
     FieldDescriptor {
         name: name.into(),
         field_type: ft.into(),
@@ -305,7 +429,13 @@ fn fd_ref(name: &str, ft: &str, edge: &str, target: &str, desc: Option<&str>) ->
     fd(name, ft, false, desc, Some(edge), Some(target))
 }
 
-fn fd_ref_req(name: &str, ft: &str, edge: &str, target: &str, desc: Option<&str>) -> FieldDescriptor {
+fn fd_ref_req(
+    name: &str,
+    ft: &str,
+    edge: &str,
+    target: &str,
+    desc: Option<&str>,
+) -> FieldDescriptor {
     fd(name, ft, true, desc, Some(edge), Some(target))
 }
 
@@ -331,7 +461,14 @@ fn ekd_defaults() -> EntityKindDescriptor {
     }
 }
 
-fn edge_desc(label: &str, src: &str, tgt: &str, style: &str, color: &str, desc: &str) -> EdgeTypeDescriptor {
+fn edge_desc(
+    label: &str,
+    src: &str,
+    tgt: &str,
+    style: &str,
+    color: &str,
+    desc: &str,
+) -> EdgeTypeDescriptor {
     EdgeTypeDescriptor {
         label: label.into(),
         description: Some(desc.into()),
@@ -369,7 +506,11 @@ fn no_incoming(code: &str, target: &str, msg: &str) -> ValidationRuleDescriptor 
 }
 
 fn cycle(code: &str, target: &str, edge_type: &str, msg: &str) -> ValidationRuleDescriptor {
-    let severity = if code.starts_with('E') { ValidationSeverity::Error } else { ValidationSeverity::Warning };
+    let severity = if code.starts_with('E') {
+        ValidationSeverity::Error
+    } else {
+        ValidationSeverity::Warning
+    };
     ValidationRuleDescriptor {
         code: code.into(),
         severity,
@@ -381,7 +522,13 @@ fn cycle(code: &str, target: &str, edge_type: &str, msg: &str) -> ValidationRule
     }
 }
 
-fn fvc(code: &str, target: &str, field: &str, values: &[&str], msg: &str) -> ValidationRuleDescriptor {
+fn fvc(
+    code: &str,
+    target: &str,
+    field: &str,
+    values: &[&str],
+    msg: &str,
+) -> ValidationRuleDescriptor {
     ValidationRuleDescriptor {
         code: code.into(),
         severity: ValidationSeverity::Warning,

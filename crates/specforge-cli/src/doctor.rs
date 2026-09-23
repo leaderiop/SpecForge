@@ -1,5 +1,5 @@
 use serde_json::json;
-use specforge_wasm::{read_lock_file, run_doctor_check, DoctorStatus, LockFile};
+use specforge_wasm::{DoctorStatus, LockFile, read_lock_file, run_doctor_check};
 use std::collections::HashMap;
 use std::path::Path;
 
@@ -18,7 +18,10 @@ pub fn run(path: &Path, format: &str) -> i32 {
                         "issues": [],
                         "message": "no lock file found — no extensions to check",
                     });
-                    println!("{}", serde_json::to_string_pretty(&output).expect("serialize JSON output"));
+                    println!(
+                        "{}",
+                        serde_json::to_string_pretty(&output).expect("serialize JSON output")
+                    );
                 }
                 _ => {
                     println!("No lock file found — no extensions to check.");
@@ -36,7 +39,10 @@ pub fn run(path: &Path, format: &str) -> i32 {
                     "issues": [],
                     "message": "no extensions installed",
                 });
-                println!("{}", serde_json::to_string_pretty(&output).expect("serialize JSON output"));
+                println!(
+                    "{}",
+                    serde_json::to_string_pretty(&output).expect("serialize JSON output")
+                );
             }
             _ => {
                 println!("No extensions installed — nothing to check.");
@@ -78,13 +84,21 @@ pub fn run(path: &Path, format: &str) -> i32 {
                         "status": "missing_binary",
                         "name": name,
                     }),
-                    DoctorStatus::StaleHash { name, expected, actual } => json!({
+                    DoctorStatus::StaleHash {
+                        name,
+                        expected,
+                        actual,
+                    } => json!({
                         "status": "stale_hash",
                         "name": name,
                         "expected": expected,
                         "actual": actual,
                     }),
-                    DoctorStatus::PeerMismatch { name, peer, required } => json!({
+                    DoctorStatus::PeerMismatch {
+                        name,
+                        peer,
+                        required,
+                    } => json!({
                         "status": "peer_mismatch",
                         "name": name,
                         "peer": peer,
@@ -98,10 +112,16 @@ pub fn run(path: &Path, format: &str) -> i32 {
                 "extensions_checked": lock.entries.len(),
                 "issues": issue_items,
             });
-            println!("{}", serde_json::to_string_pretty(&output).expect("serialize JSON output"));
+            println!(
+                "{}",
+                serde_json::to_string_pretty(&output).expect("serialize JSON output")
+            );
         }
         _ => {
-            println!("Extension health check ({} extension(s)):", lock.entries.len());
+            println!(
+                "Extension health check ({} extension(s)):",
+                lock.entries.len()
+            );
             println!();
 
             if all_healthy {
@@ -113,7 +133,11 @@ pub fn run(path: &Path, format: &str) -> i32 {
                         DoctorStatus::MissingBinary { name } => {
                             println!("  [MISSING] {} — .wasm binary not found", name);
                         }
-                        DoctorStatus::StaleHash { name, expected, actual } => {
+                        DoctorStatus::StaleHash {
+                            name,
+                            expected,
+                            actual,
+                        } => {
                             println!(
                                 "  [STALE] {} — hash mismatch (expected {}, got {})",
                                 name,
@@ -121,11 +145,12 @@ pub fn run(path: &Path, format: &str) -> i32 {
                                 &actual[..8.min(actual.len())]
                             );
                         }
-                        DoctorStatus::PeerMismatch { name, peer, required } => {
-                            println!(
-                                "  [PEER] {} — requires {} v{}",
-                                name, peer, required
-                            );
+                        DoctorStatus::PeerMismatch {
+                            name,
+                            peer,
+                            required,
+                        } => {
+                            println!("  [PEER] {} — requires {} v{}", name, peer, required);
                         }
                     }
                 }

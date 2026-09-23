@@ -18,11 +18,7 @@ pub fn prepare_rename(graph: &Graph, entity_id: &str) -> Option<SourceSpan> {
 
 /// Compute all text edits needed to rename an entity across the graph.
 /// Returns None if `old_id` doesn't exist or `new_id` already exists (duplicate).
-pub fn compute_rename_edits(
-    graph: &Graph,
-    old_id: &str,
-    new_id: &str,
-) -> Option<Vec<RenameEdit>> {
+pub fn compute_rename_edits(graph: &Graph, old_id: &str, new_id: &str) -> Option<Vec<RenameEdit>> {
     // Reject if old doesn't exist
     graph.node(old_id)?;
 

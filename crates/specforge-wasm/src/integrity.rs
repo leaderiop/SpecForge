@@ -8,7 +8,11 @@ pub fn verify_wasm_integrity(wasm_path: &Path, expected_hash: &str) -> Result<()
     let bytes = std::fs::read(wasm_path).map_err(|e| Diagnostic {
         code: "E028".to_string(),
         severity: Severity::Error,
-        message: format!("cannot read .wasm binary at '{}': {}", wasm_path.display(), e),
+        message: format!(
+            "cannot read .wasm binary at '{}': {}",
+            wasm_path.display(),
+            e
+        ),
         span: None,
         suggestion: None,
     })?;
@@ -21,7 +25,9 @@ pub fn verify_wasm_integrity(wasm_path: &Path, expected_hash: &str) -> Result<()
             severity: Severity::Error,
             message: format!(
                 "integrity check failed for '{}': expected {}, got {}. Possible tampering.",
-                wasm_path.display(), expected_hash, actual_hash
+                wasm_path.display(),
+                expected_hash,
+                actual_hash
             ),
             span: None,
             suggestion: Some("re-install the extension or verify the source".to_string()),
@@ -45,16 +51,19 @@ pub fn verify_wasm_integrity_or_skip(
     skip_verify: bool,
 ) -> (bool, Vec<Diagnostic>) {
     if skip_verify {
-        return (true, vec![Diagnostic {
-            code: "W027".to_string(),
-            severity: Severity::Warning,
-            message: format!(
-                "integrity check skipped for '{}' due to --skip-verify flag",
-                wasm_path.display()
-            ),
-            span: None,
-            suggestion: None,
-        }]);
+        return (
+            true,
+            vec![Diagnostic {
+                code: "W027".to_string(),
+                severity: Severity::Warning,
+                message: format!(
+                    "integrity check skipped for '{}' due to --skip-verify flag",
+                    wasm_path.display()
+                ),
+                span: None,
+                suggestion: None,
+            }],
+        );
     }
 
     match verify_wasm_integrity(wasm_path, expected_hash) {
@@ -66,8 +75,8 @@ pub fn verify_wasm_integrity_or_skip(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use tempfile::NamedTempFile;
     use std::io::Write;
+    use tempfile::NamedTempFile;
 
     fn write_temp_wasm(content: &[u8]) -> (NamedTempFile, String) {
         let mut f = NamedTempFile::new().unwrap();

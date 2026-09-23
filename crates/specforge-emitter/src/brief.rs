@@ -1,7 +1,7 @@
 use serde::Serialize;
 use specforge_graph::Graph;
 
-use crate::json::{sorted_edges, JsonEdge, SCHEMA_VERSION};
+use crate::json::{JsonEdge, SCHEMA_VERSION, sorted_edges};
 
 #[derive(Serialize)]
 struct BriefGraph {

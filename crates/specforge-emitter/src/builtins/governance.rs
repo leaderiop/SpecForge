@@ -104,36 +104,148 @@ impl GovernanceExtension {
 
     fn edge_types(&self) -> Vec<EdgeTypeDescriptor> {
         vec![
-            edge_desc("DecisionProtectsInvariant", "decision", "invariant", "dashed", "#6A1B9A", "Decision protects an invariant"),
-            edge_desc("ConstraintEnforcedByBehavior", "constraint", "behavior", "solid", "#BF360C", "Constraint is enforced by a behavior"),
-            edge_desc("DecisionSupersedesDecision", "decision", "decision", "dotted", "#6A1B9A", "Decision supersedes a previous decision"),
-            edge_desc("ConstraintConstrainsBehavior", "constraint", "behavior", "dashed", "#BF360C", "Constraint constrains a behavior"),
-            edge_desc("ConstraintProtectsInvariant", "constraint", "invariant", "dashed", "#BF360C", "Constraint protects an invariant"),
-            edge_desc("FailureModeTargetsInvariant", "failure_mode", "invariant", "dashed", "#D32F2F", "Failure mode targets an invariant"),
-            edge_desc("ConstraintGovernsFeature", "constraint", "feature", "dashed", "#CC6600", "Constraint governs a product feature"),
-            edge_desc("DecisionAffectsFeature", "decision", "feature", "dashed", "#CC6600", "Decision affects a product feature"),
-            edge_desc("FailureModeThreatensFeature", "failure_mode", "feature", "dashed", "#CC0000", "Failure mode threatens a product feature"),
-            edge_desc("DecisionImposesConstraint", "decision", "constraint", "solid", "#6A1B9A", "Decision imposes a constraint on the system"),
-            edge_desc("FailureModeAffectsBehavior", "failure_mode", "behavior", "dashed", "#D32F2F", "Failure mode identifies a behavior as a failure vector"),
+            edge_desc(
+                "DecisionProtectsInvariant",
+                "decision",
+                "invariant",
+                "dashed",
+                "#6A1B9A",
+                "Decision protects an invariant",
+            ),
+            edge_desc(
+                "ConstraintEnforcedByBehavior",
+                "constraint",
+                "behavior",
+                "solid",
+                "#BF360C",
+                "Constraint is enforced by a behavior",
+            ),
+            edge_desc(
+                "DecisionSupersedesDecision",
+                "decision",
+                "decision",
+                "dotted",
+                "#6A1B9A",
+                "Decision supersedes a previous decision",
+            ),
+            edge_desc(
+                "ConstraintConstrainsBehavior",
+                "constraint",
+                "behavior",
+                "dashed",
+                "#BF360C",
+                "Constraint constrains a behavior",
+            ),
+            edge_desc(
+                "ConstraintProtectsInvariant",
+                "constraint",
+                "invariant",
+                "dashed",
+                "#BF360C",
+                "Constraint protects an invariant",
+            ),
+            edge_desc(
+                "FailureModeTargetsInvariant",
+                "failure_mode",
+                "invariant",
+                "dashed",
+                "#D32F2F",
+                "Failure mode targets an invariant",
+            ),
+            edge_desc(
+                "ConstraintGovernsFeature",
+                "constraint",
+                "feature",
+                "dashed",
+                "#CC6600",
+                "Constraint governs a product feature",
+            ),
+            edge_desc(
+                "DecisionAffectsFeature",
+                "decision",
+                "feature",
+                "dashed",
+                "#CC6600",
+                "Decision affects a product feature",
+            ),
+            edge_desc(
+                "FailureModeThreatensFeature",
+                "failure_mode",
+                "feature",
+                "dashed",
+                "#CC0000",
+                "Failure mode threatens a product feature",
+            ),
+            edge_desc(
+                "DecisionImposesConstraint",
+                "decision",
+                "constraint",
+                "solid",
+                "#6A1B9A",
+                "Decision imposes a constraint on the system",
+            ),
+            edge_desc(
+                "FailureModeAffectsBehavior",
+                "failure_mode",
+                "behavior",
+                "dashed",
+                "#D32F2F",
+                "Failure mode identifies a behavior as a failure vector",
+            ),
         ]
     }
 
     fn validation_rules(&self) -> Vec<ValidationRuleDescriptor> {
         vec![
-            fvc("W050", "decision", "status", &["proposed", "accepted", "deprecated", "superseded"],
-                "decision '{id}' has invalid status '{value}' — expected one of: proposed, accepted, deprecated, superseded"),
-            fvc("W051", "failure_mode", "severity", &["critical", "high", "medium", "low"],
-                "failure_mode '{id}' has invalid severity '{value}' — expected one of: critical, high, medium, low"),
-            fvc("W051", "failure_mode", "post_severity", &["critical", "high", "medium", "low"],
-                "failure_mode '{id}' has invalid post_severity '{value}' — expected one of: critical, high, medium, low"),
-            fvc("W052", "failure_mode", "occurrence", &["certain", "likely", "occasional", "unlikely", "rare"],
-                "failure_mode '{id}' has invalid occurrence '{value}' — expected one of: certain, likely, occasional, unlikely, rare"),
-            fvc("W052", "failure_mode", "post_occurrence", &["certain", "likely", "occasional", "unlikely", "rare"],
-                "failure_mode '{id}' has invalid post_occurrence '{value}' — expected one of: certain, likely, occasional, unlikely, rare"),
-            fvc("W053", "failure_mode", "detection", &["certain", "likely", "moderate", "unlikely", "undetectable"],
-                "failure_mode '{id}' has invalid detection '{value}' — expected one of: certain, likely, moderate, unlikely, undetectable"),
-            fvc("W053", "failure_mode", "post_detection", &["certain", "likely", "moderate", "unlikely", "undetectable"],
-                "failure_mode '{id}' has invalid post_detection '{value}' — expected one of: certain, likely, moderate, unlikely, undetectable"),
+            fvc(
+                "W050",
+                "decision",
+                "status",
+                &["proposed", "accepted", "deprecated", "superseded"],
+                "decision '{id}' has invalid status '{value}' — expected one of: proposed, accepted, deprecated, superseded",
+            ),
+            fvc(
+                "W051",
+                "failure_mode",
+                "severity",
+                &["critical", "high", "medium", "low"],
+                "failure_mode '{id}' has invalid severity '{value}' — expected one of: critical, high, medium, low",
+            ),
+            fvc(
+                "W051",
+                "failure_mode",
+                "post_severity",
+                &["critical", "high", "medium", "low"],
+                "failure_mode '{id}' has invalid post_severity '{value}' — expected one of: critical, high, medium, low",
+            ),
+            fvc(
+                "W052",
+                "failure_mode",
+                "occurrence",
+                &["certain", "likely", "occasional", "unlikely", "rare"],
+                "failure_mode '{id}' has invalid occurrence '{value}' — expected one of: certain, likely, occasional, unlikely, rare",
+            ),
+            fvc(
+                "W052",
+                "failure_mode",
+                "post_occurrence",
+                &["certain", "likely", "occasional", "unlikely", "rare"],
+                "failure_mode '{id}' has invalid post_occurrence '{value}' — expected one of: certain, likely, occasional, unlikely, rare",
+            ),
+            fvc(
+                "W053",
+                "failure_mode",
+                "detection",
+                &["certain", "likely", "moderate", "unlikely", "undetectable"],
+                "failure_mode '{id}' has invalid detection '{value}' — expected one of: certain, likely, moderate, unlikely, undetectable",
+            ),
+            fvc(
+                "W053",
+                "failure_mode",
+                "post_detection",
+                &["certain", "likely", "moderate", "unlikely", "undetectable"],
+                "failure_mode '{id}' has invalid post_detection '{value}' — expected one of: certain, likely, moderate, unlikely, undetectable",
+            ),
         ]
     }
 }
@@ -171,7 +283,9 @@ impl BuiltinExtension for GovernanceExtension {
             "edges" => serde_json::to_value(self.edge_types()).unwrap(),
             "fields" => serde_json::to_value(Vec::<FieldDescriptor>::new()).unwrap(),
             "shared_fields" => serde_json::to_value(Vec::<SharedFieldDescriptor>::new()).unwrap(),
-            "enhancements" => serde_json::to_value(Vec::<EntityEnhancementDescriptor>::new()).unwrap(),
+            "enhancements" => {
+                serde_json::to_value(Vec::<EntityEnhancementDescriptor>::new()).unwrap()
+            }
             "validation_rules" => serde_json::to_value(self.validation_rules()).unwrap(),
             "surfaces" => serde_json::to_value(Vec::<SurfaceDescriptor>::new()).unwrap(),
             "passes" => serde_json::to_value(Vec::<CompilerPassDescriptor>::new()).unwrap(),
@@ -202,7 +316,14 @@ fn fd_defaults() -> FieldDescriptor {
     }
 }
 
-fn fd(name: &str, ft: &str, required: bool, desc: Option<&str>, edge: Option<&str>, target: Option<&str>) -> FieldDescriptor {
+fn fd(
+    name: &str,
+    ft: &str,
+    required: bool,
+    desc: Option<&str>,
+    edge: Option<&str>,
+    target: Option<&str>,
+) -> FieldDescriptor {
     FieldDescriptor {
         name: name.into(),
         field_type: ft.into(),
@@ -218,7 +339,14 @@ fn fd_ref(name: &str, ft: &str, edge: &str, target: &str, desc: Option<&str>) ->
     fd(name, ft, false, desc, Some(edge), Some(target))
 }
 
-fn fd_ref_inv(name: &str, ft: &str, edge: &str, target: &str, inverse: &str, desc: Option<&str>) -> FieldDescriptor {
+fn fd_ref_inv(
+    name: &str,
+    ft: &str,
+    edge: &str,
+    target: &str,
+    inverse: &str,
+    desc: Option<&str>,
+) -> FieldDescriptor {
     let mut f = fd(name, ft, false, desc, Some(edge), Some(target));
     f.inverse_of = Some(inverse.into());
     f
@@ -246,7 +374,14 @@ fn ekd_defaults() -> EntityKindDescriptor {
     }
 }
 
-fn edge_desc(label: &str, src: &str, tgt: &str, style: &str, color: &str, desc: &str) -> EdgeTypeDescriptor {
+fn edge_desc(
+    label: &str,
+    src: &str,
+    tgt: &str,
+    style: &str,
+    color: &str,
+    desc: &str,
+) -> EdgeTypeDescriptor {
     EdgeTypeDescriptor {
         label: label.into(),
         description: Some(desc.into()),
@@ -272,7 +407,13 @@ fn vrd_defaults() -> ValidationRuleDescriptor {
     }
 }
 
-fn fvc(code: &str, target: &str, field: &str, values: &[&str], msg: &str) -> ValidationRuleDescriptor {
+fn fvc(
+    code: &str,
+    target: &str,
+    field: &str,
+    values: &[&str],
+    msg: &str,
+) -> ValidationRuleDescriptor {
     ValidationRuleDescriptor {
         code: code.into(),
         severity: ValidationSeverity::Warning,

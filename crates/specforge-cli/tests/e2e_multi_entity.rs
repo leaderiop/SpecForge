@@ -4,7 +4,10 @@ use specforge_test_macros::test as specforge_test;
 // --- Phase 1b: All entity kinds through check/export/query/trace/stats ---
 
 #[test]
-#[specforge_test(behavior = "check_mode_for_ci", verify = "check mode produces no output files")]
+#[specforge_test(
+    behavior = "check_mode_for_ci",
+    verify = "check mode produces no output files"
+)]
 fn check_accepts_all_software_entity_kinds() {
     let dir = setup_project(&[("main.spec", SOFTWARE_SPEC)]);
 
@@ -16,7 +19,10 @@ fn check_accepts_all_software_entity_kinds() {
 }
 
 #[test]
-#[specforge_test(behavior = "check_mode_for_ci", verify = "check mode prints diagnostics to stderr")]
+#[specforge_test(
+    behavior = "check_mode_for_ci",
+    verify = "check mode prints diagnostics to stderr"
+)]
 fn check_accepts_all_product_entity_kinds() {
     // Product spec references parse_input from software, include it
     let combined = format!("{}\n{}", SOFTWARE_SPEC, PRODUCT_SPEC);
@@ -30,7 +36,10 @@ fn check_accepts_all_product_entity_kinds() {
 }
 
 #[test]
-#[specforge_test(behavior = "check_mode_for_ci", verify = "check mode works in CI environment")]
+#[specforge_test(
+    behavior = "check_mode_for_ci",
+    verify = "check mode works in CI environment"
+)]
 fn check_accepts_all_governance_entity_kinds() {
     // Governance references parse_input via mitigations
     let combined = format!("{}\n{}", SOFTWARE_SPEC, GOVERNANCE_SPEC);
@@ -44,7 +53,10 @@ fn check_accepts_all_governance_entity_kinds() {
 }
 
 #[test]
-#[specforge_test(behavior = "check_mode_for_ci", verify = "requires/ensures consistency for CI check mode")]
+#[specforge_test(
+    behavior = "check_mode_for_ci",
+    verify = "requires/ensures consistency for CI check mode"
+)]
 fn check_full_multi_extension_project_exits_zero() {
     let dir = setup_project(&[("main.spec", MULTI_EXTENSION_SPEC)]);
 
@@ -56,7 +68,10 @@ fn check_full_multi_extension_project_exits_zero() {
 }
 
 #[test]
-#[specforge_test(behavior = "serialize_json_graph", verify = "JSON output contains all nodes")]
+#[specforge_test(
+    behavior = "serialize_json_graph",
+    verify = "JSON output contains all nodes"
+)]
 fn export_graph_includes_all_entity_kinds() {
     let dir = setup_project(&[("main.spec", MULTI_EXTENSION_SPEC)]);
 
@@ -72,20 +87,35 @@ fn export_graph_includes_all_entity_kinds() {
 
     let kinds: Vec<&str> = nodes.iter().map(|n| n["kind"].as_str().unwrap()).collect();
     for expected_kind in &[
-        "behavior", "invariant", "event", "type", "port",
-        "feature", "journey", "deliverable", "milestone", "module", "term",
-        "decision", "constraint", "failure_mode",
+        "behavior",
+        "invariant",
+        "event",
+        "type",
+        "port",
+        "feature",
+        "journey",
+        "deliverable",
+        "milestone",
+        "module",
+        "term",
+        "decision",
+        "constraint",
+        "failure_mode",
     ] {
         assert!(
             kinds.contains(expected_kind),
             "missing kind '{}' in graph export. found: {:?}",
-            expected_kind, kinds,
+            expected_kind,
+            kinds,
         );
     }
 }
 
 #[test]
-#[specforge_test(behavior = "export_agent_brief_format", verify = "brief format includes only IDs, kinds, titles, and edges")]
+#[specforge_test(
+    behavior = "export_agent_brief_format",
+    verify = "brief format includes only IDs, kinds, titles, and edges"
+)]
 fn export_brief_includes_all_entity_kinds() {
     let dir = setup_project(&[("main.spec", MULTI_EXTENSION_SPEC)]);
 
@@ -101,12 +131,19 @@ fn export_brief_includes_all_entity_kinds() {
 
     let kinds: Vec<&str> = nodes.iter().map(|n| n["kind"].as_str().unwrap()).collect();
     for expected_kind in &["behavior", "feature", "decision", "constraint"] {
-        assert!(kinds.contains(expected_kind), "missing kind '{}' in brief", expected_kind);
+        assert!(
+            kinds.contains(expected_kind),
+            "missing kind '{}' in brief",
+            expected_kind
+        );
     }
 }
 
 #[test]
-#[specforge_test(behavior = "export_agent_context_format", verify = "context format includes entity IDs and contracts")]
+#[specforge_test(
+    behavior = "export_agent_context_format",
+    verify = "context format includes entity IDs and contracts"
+)]
 fn export_context_shows_contracts_for_all_kinds() {
     let dir = setup_project(&[("main.spec", MULTI_EXTENSION_SPEC)]);
 
@@ -129,7 +166,10 @@ fn export_context_shows_contracts_for_all_kinds() {
 }
 
 #[test]
-#[specforge_test(behavior = "query_graph_multi_resolution", verify = "output conforms to Graph Protocol schema")]
+#[specforge_test(
+    behavior = "query_graph_multi_resolution",
+    verify = "output conforms to Graph Protocol schema"
+)]
 fn query_by_kind_filter_product_entities() {
     let dir = setup_project(&[("main.spec", MULTI_EXTENSION_SPEC)]);
 
@@ -148,7 +188,10 @@ fn query_by_kind_filter_product_entities() {
 }
 
 #[test]
-#[specforge_test(behavior = "query_graph_multi_resolution", verify = "querying same entity at same depth produces identical subgraph")]
+#[specforge_test(
+    behavior = "query_graph_multi_resolution",
+    verify = "querying same entity at same depth produces identical subgraph"
+)]
 fn query_by_kind_filter_governance_entities() {
     let dir = setup_project(&[("main.spec", MULTI_EXTENSION_SPEC)]);
 
@@ -167,7 +210,10 @@ fn query_by_kind_filter_governance_entities() {
 }
 
 #[test]
-#[specforge_test(behavior = "compute_project_statistics", verify = "stats reports correct entity counts")]
+#[specforge_test(
+    behavior = "compute_project_statistics",
+    verify = "stats reports correct entity counts"
+)]
 fn stats_entities_by_kind_counts_all_kinds() {
     let dir = setup_project(&[("main.spec", MULTI_EXTENSION_SPEC)]);
 
@@ -185,14 +231,26 @@ fn stats_entities_by_kind_counts_all_kinds() {
     assert_eq!(total, 15, "expected 15 entities, got {}", total);
 
     let by_kind = parsed["entities_by_kind"].as_object().unwrap();
-    assert!(by_kind.contains_key("behavior"), "missing behavior in entities_by_kind");
-    assert!(by_kind.contains_key("feature"), "missing feature in entities_by_kind");
-    assert!(by_kind.contains_key("decision"), "missing decision in entities_by_kind");
+    assert!(
+        by_kind.contains_key("behavior"),
+        "missing behavior in entities_by_kind"
+    );
+    assert!(
+        by_kind.contains_key("feature"),
+        "missing feature in entities_by_kind"
+    );
+    assert!(
+        by_kind.contains_key("decision"),
+        "missing decision in entities_by_kind"
+    );
     assert_eq!(by_kind["behavior"], 2, "expected 2 behaviors");
 }
 
 #[test]
-#[specforge_test(behavior = "compute_project_statistics", verify = "stats reports coverage percentage")]
+#[specforge_test(
+    behavior = "compute_project_statistics",
+    verify = "stats reports coverage percentage"
+)]
 fn stats_human_format_lists_all_kinds() {
     let dir = setup_project(&[("main.spec", MULTI_EXTENSION_SPEC)]);
 
@@ -205,24 +263,43 @@ fn stats_human_format_lists_all_kinds() {
     assert!(output.status.success());
     let stdout = String::from_utf8_lossy(&output.stdout);
 
-    for kind in &["behavior", "feature", "decision", "constraint", "failure_mode"] {
-        assert!(stdout.contains(kind), "human stats missing kind '{}': {}", kind, stdout);
+    for kind in &[
+        "behavior",
+        "feature",
+        "decision",
+        "constraint",
+        "failure_mode",
+    ] {
+        assert!(
+            stdout.contains(kind),
+            "human stats missing kind '{}': {}",
+            kind,
+            stdout
+        );
     }
 }
 
 #[test]
-#[specforge_test(behavior = "check_mode_for_ci", verify = "check mode produces no output files")]
+#[specforge_test(
+    behavior = "check_mode_for_ci",
+    verify = "check mode produces no output files"
+)]
 fn multi_file_project_with_use_imports() {
     let dir = setup_project(&[
-        ("behaviors.spec", r#"
+        (
+            "behaviors.spec",
+            r#"
 behavior parse_input "Parse Input" {
     contract "The system MUST parse all valid input"
 }
 behavior emit_output "Emit Output" {
     contract "The system MUST emit structured output"
 }
-"#),
-        ("features.spec", r#"
+"#,
+        ),
+        (
+            "features.spec",
+            r#"
 use "behaviors"
 
 feature fast_parsing "Fast Parsing" {
@@ -230,7 +307,8 @@ feature fast_parsing "Fast Parsing" {
     solution "Incremental parsing"
     behaviors [parse_input]
 }
-"#),
+"#,
+        ),
     ]);
 
     // Check succeeds with cross-file references

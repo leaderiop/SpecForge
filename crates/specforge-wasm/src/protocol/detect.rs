@@ -51,14 +51,20 @@ mod tests {
     fn detect_manifest_when_manifest_json_exists() {
         let dir = TempDir::new().unwrap();
         std::fs::write(dir.path().join("manifest.json"), "{}").unwrap();
-        assert_eq!(detect_extension_mode(dir.path()), Some(ExtensionMode::Manifest));
+        assert_eq!(
+            detect_extension_mode(dir.path()),
+            Some(ExtensionMode::Manifest)
+        );
     }
 
     #[test]
     fn detect_protocol_when_wasm_file_exists() {
         let dir = TempDir::new().unwrap();
         std::fs::write(dir.path().join("extension.wasm"), [0x00, 0x61, 0x73, 0x6d]).unwrap();
-        assert_eq!(detect_extension_mode(dir.path()), Some(ExtensionMode::Protocol));
+        assert_eq!(
+            detect_extension_mode(dir.path()),
+            Some(ExtensionMode::Protocol)
+        );
     }
 
     #[test]
@@ -72,7 +78,10 @@ mod tests {
         let dir = TempDir::new().unwrap();
         std::fs::write(dir.path().join("manifest.json"), "{}").unwrap();
         std::fs::write(dir.path().join("extension.wasm"), [0x00]).unwrap();
-        assert_eq!(detect_extension_mode(dir.path()), Some(ExtensionMode::Manifest));
+        assert_eq!(
+            detect_extension_mode(dir.path()),
+            Some(ExtensionMode::Manifest)
+        );
     }
 
     #[test]

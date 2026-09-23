@@ -162,10 +162,7 @@ async fn e2e_rename_updates_all_references() {
     // Rename "token" at line 0, col 6
     let resp = client.rename(&uri, 0, 6, "jwt_token").await;
     let result = &resp["result"];
-    assert!(
-        !result.is_null(),
-        "Expected workspace edit for rename"
-    );
+    assert!(!result.is_null(), "Expected workspace edit for rename");
     let changes = &result["changes"];
     assert!(!changes.is_null(), "Expected changes in workspace edit");
     // Collect all edits across all files

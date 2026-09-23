@@ -4,7 +4,7 @@ use specforge_graph::Graph;
 use std::collections::HashMap;
 
 use crate::error::EmitterError;
-use crate::json::{field_map_to_json, sorted_edges, JsonEdge, SCHEMA_VERSION};
+use crate::json::{JsonEdge, SCHEMA_VERSION, field_map_to_json, sorted_edges};
 
 #[derive(Serialize)]
 struct BudgetedGraph {
@@ -109,7 +109,9 @@ pub fn emit_json_with_budget(graph: &Graph, max_tokens: usize) -> String {
 
         let edges: Vec<JsonEdge> = sorted_edges(graph)
             .into_iter()
-            .filter(|e| kept_ids.contains(e.source.as_str()) && kept_ids.contains(e.target.as_str()))
+            .filter(|e| {
+                kept_ids.contains(e.source.as_str()) && kept_ids.contains(e.target.as_str())
+            })
             .collect();
 
         let output = BudgetedGraph {

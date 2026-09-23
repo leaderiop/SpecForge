@@ -20,11 +20,14 @@ fn specforge_cmd() -> Command {
 
 #[test]
 fn stats_reports_entity_and_edge_counts() {
-    let dir = setup_project(&[("main.spec", r#"
+    let dir = setup_project(&[(
+        "main.spec",
+        r#"
 behavior alpha "A" { contract "first" }
 behavior beta "B" { contract "second" }
 feature gamma "G" { behaviors [alpha, beta] }
-"#)]);
+"#,
+    )]);
 
     let output = specforge_cmd()
         .arg("stats")
@@ -55,10 +58,13 @@ fn stats_on_empty_project() {
 
 #[test]
 fn stats_json_format() {
-    let dir = setup_project(&[("main.spec", r#"
+    let dir = setup_project(&[(
+        "main.spec",
+        r#"
 behavior alpha "A" { contract "first" }
 feature gamma "G" { behaviors [alpha] }
-"#)]);
+"#,
+    )]);
 
     let output = specforge_cmd()
         .args(["stats", "--format=json"])

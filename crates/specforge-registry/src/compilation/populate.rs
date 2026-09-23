@@ -130,23 +130,11 @@ fn register_fields(
     for kind in &manifest.entity_kinds {
         // Extension-level shared fields first
         for field in &manifest.fields {
-            register_single_field(
-                registry,
-                &kind.keyword,
-                field,
-                &manifest.name,
-                diagnostics,
-            );
+            register_single_field(registry, &kind.keyword, field, &manifest.name, diagnostics);
         }
         // Kind-level fields override extension-level
         for field in &kind.fields {
-            register_single_field(
-                registry,
-                &kind.keyword,
-                field,
-                &manifest.name,
-                diagnostics,
-            );
+            register_single_field(registry, &kind.keyword, field, &manifest.name, diagnostics);
         }
     }
 }
@@ -417,8 +405,7 @@ mod tests {
     #[test]
     fn test_extensions_iterated_in_topological_order() {
         // First manifest's kinds should be registered first
-        let (kind_reg, _, _, _) =
-            populate_registries(&[software_manifest(), product_manifest()]);
+        let (kind_reg, _, _, _) = populate_registries(&[software_manifest(), product_manifest()]);
         // Both should be present
         assert!(kind_reg.contains("behavior"));
         assert!(kind_reg.contains("invariant"));
@@ -437,8 +424,7 @@ mod tests {
     // B:populate_kind_registry_from_extensions — verify unit "registered keywords available to parser"
     #[test]
     fn test_registered_keywords_available_to_parser() {
-        let (kind_reg, _, _, _) =
-            populate_registries(&[software_manifest(), product_manifest()]);
+        let (kind_reg, _, _, _) = populate_registries(&[software_manifest(), product_manifest()]);
         let keywords: Vec<String> = kind_reg.keywords().cloned().collect();
         assert!(keywords.contains(&"behavior".to_string()));
         assert!(keywords.contains(&"invariant".to_string()));
@@ -450,8 +436,7 @@ mod tests {
     fn test_population_completes_before_validation() {
         // populate_registries returns all three registries fully populated.
         // Validation is a separate step that consumes these registries.
-        let (kind_reg, field_reg, edge_reg, _) =
-            populate_registries(&[software_manifest()]);
+        let (kind_reg, field_reg, edge_reg, _) = populate_registries(&[software_manifest()]);
         assert!(!kind_reg.is_empty());
         assert!(!field_reg.is_empty());
         assert!(!edge_reg.is_empty());
@@ -510,7 +495,9 @@ mod tests {
         });
         let (_, _, _, diags) = populate_registries(&[m1, m2]);
         assert!(
-            diags.iter().any(|d| d.code == "W018" && d.message.contains("enforces")),
+            diags
+                .iter()
+                .any(|d| d.code == "W018" && d.message.contains("enforces")),
             "expected W018 for duplicate edge, got: {:?}",
             diags
         );
@@ -591,7 +578,9 @@ mod tests {
         .unwrap();
         let (_, field_reg, _, diags) = populate_registries(&[manifest]);
         assert!(
-            diags.iter().any(|d| d.code == "W019" && d.message.contains("unknown_type_xyz")),
+            diags
+                .iter()
+                .any(|d| d.code == "W019" && d.message.contains("unknown_type_xyz")),
             "expected W019 for unknown field type, got: {:?}",
             diags
         );
@@ -662,7 +651,11 @@ mod tests {
             edge_arrowhead: None,
         });
         let (_, _, _, diags) = populate_registries(&[m1, m2]);
-        assert!(diags.iter().any(|d| d.code == "W018" && d.message.contains("links_to")));
+        assert!(
+            diags
+                .iter()
+                .any(|d| d.code == "W018" && d.message.contains("links_to"))
+        );
     }
 
     // -- Description propagation tests --
@@ -749,7 +742,10 @@ mod tests {
         assert!(kind_reg.contains("behavior"));
         assert!(kind_reg.contains("invariant"));
         // ensures: source extension recorded
-        assert_eq!(kind_reg.get("behavior").unwrap().source_extension, "@specforge/software");
+        assert_eq!(
+            kind_reg.get("behavior").unwrap().source_extension,
+            "@specforge/software"
+        );
         // ensures: testable flag preserved
         assert!(kind_reg.get("behavior").unwrap().testable);
         // ensures: no errors on clean manifest
@@ -824,7 +820,10 @@ mod tests {
     #[test]
     fn test_parse_field_type_enum_returns_enum_variant() {
         let result = parse_field_type("enum");
-        assert!(result.is_some(), "parse_field_type(\"enum\") should return Some");
+        assert!(
+            result.is_some(),
+            "parse_field_type(\"enum\") should return Some"
+        );
         assert!(
             matches!(result, Some(ManifestFieldType::Enum(_))),
             "parse_field_type(\"enum\") should return Enum variant, got: {:?}",
@@ -835,7 +834,10 @@ mod tests {
     #[test]
     fn test_parse_field_type_enum_type_returns_enum_variant() {
         let result = parse_field_type("enum_type");
-        assert!(result.is_some(), "parse_field_type(\"enum_type\") should return Some");
+        assert!(
+            result.is_some(),
+            "parse_field_type(\"enum_type\") should return Some"
+        );
         assert!(
             matches!(result, Some(ManifestFieldType::Enum(_))),
             "parse_field_type(\"enum_type\") should return Enum variant, got: {:?}",
@@ -847,7 +849,10 @@ mod tests {
     fn test_parse_field_type_enum_returns_empty_values() {
         // Enum values come from ManifestField.enum_values, not the type string
         if let Some(ManifestFieldType::Enum(values)) = parse_field_type("enum") {
-            assert!(values.is_empty(), "parse_field_type(\"enum\") should return empty enum values");
+            assert!(
+                values.is_empty(),
+                "parse_field_type(\"enum\") should return empty enum values"
+            );
         } else {
             panic!("expected Some(Enum(..))");
         }
@@ -856,14 +861,22 @@ mod tests {
     #[test]
     fn test_parse_field_type_all_known_types_return_some() {
         let known_types = [
-            "string", "string_type",
-            "integer", "integer_type",
-            "bool", "bool_type",
-            "enum", "enum_type",
-            "string_list", "string_list_type",
-            "reference", "reference_type",
-            "reference_list", "reference_list_type",
-            "block", "block_type",
+            "string",
+            "string_type",
+            "integer",
+            "integer_type",
+            "bool",
+            "bool_type",
+            "enum",
+            "enum_type",
+            "string_list",
+            "string_list_type",
+            "reference",
+            "reference_type",
+            "reference_list",
+            "reference_list_type",
+            "block",
+            "block_type",
         ];
         for t in &known_types {
             assert!(
@@ -963,7 +976,11 @@ mod tests {
             },
         )];
         let diags = apply_entity_enhancements(&enhancements, &kind_reg, &mut field_reg);
-        assert!(diags.is_empty(), "expected no diagnostics, got: {:?}", diags);
+        assert!(
+            diags.is_empty(),
+            "expected no diagnostics, got: {:?}",
+            diags
+        );
         assert!(field_reg.contains("behavior", "coverage_threshold"));
     }
 
@@ -1092,12 +1109,17 @@ mod tests {
         let (_kind_reg, field_reg, _, diags) = populate_registries(&manifests);
 
         // ensures: enhancements applied during populate_registries
-        assert!(field_reg.contains("behavior", "coverage_threshold"),
-            "enhancement field should be merged via populate_registries");
+        assert!(
+            field_reg.contains("behavior", "coverage_threshold"),
+            "enhancement field should be merged via populate_registries"
+        );
 
         // ensures: no diagnostics for valid enhancement
-        assert!(!diags.iter().any(|d| d.code == "I004"),
-            "no I004 expected for known kind, got: {:?}", diags);
+        assert!(
+            !diags.iter().any(|d| d.code == "I004"),
+            "no I004 expected for known kind, got: {:?}",
+            diags
+        );
 
         // ensures: original fields preserved
         assert!(field_reg.contains("behavior", "contract"));

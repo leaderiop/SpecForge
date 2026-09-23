@@ -6,12 +6,17 @@ use specforge_test_macros::test as spec;
 fn node(id: &str, kind: &str, title: Option<&str>) -> Node {
     Node {
         id: EntityId { raw: Sym::new(id) },
-        kind: EntityKind { raw: Sym::new(kind) },
+        kind: EntityKind {
+            raw: Sym::new(kind),
+        },
         title: title.map(|t| t.to_string()),
         fields: FieldMap::new(),
         source_span: SourceSpan {
             file: Sym::new("test.spec"),
-            start_line: 0, start_col: 0, end_line: 0, end_col: 0,
+            start_line: 0,
+            start_col: 0,
+            end_line: 0,
+            end_col: 0,
         },
     }
 }
@@ -24,7 +29,10 @@ fn edge(source: &str, target: &str, label: &str) -> Edge {
     }
 }
 
-#[spec(behavior = "hover_information", verify = "hover delegates to provide_extension_entity_hover")]
+#[spec(
+    behavior = "hover_information",
+    verify = "hover delegates to provide_extension_entity_hover"
+)]
 #[test]
 fn hover_returns_entity_info() {
     let mut g = Graph::new();
@@ -39,7 +47,10 @@ fn hover_returns_entity_info() {
     assert!(text.contains("User Login"));
 }
 
-#[spec(behavior = "hover_information", verify = "hover returns markdown-formatted content")]
+#[spec(
+    behavior = "hover_information",
+    verify = "hover returns markdown-formatted content"
+)]
 #[test]
 fn hover_returns_markdown() {
     let mut g = Graph::new();
@@ -60,9 +71,18 @@ fn hover_shows_outgoing_edges() {
     g.add_edge(edge("create_user", "user_type", "types"));
 
     let text = specforge_lsp::hover_info(&g, "create_user").unwrap();
-    assert!(text.contains("**References** *(2)*"), "should have References section:\n{text}");
-    assert!(text.contains("`features` → user_management"), "should list feature ref:\n{text}");
-    assert!(text.contains("`types` → user_type"), "should list type ref:\n{text}");
+    assert!(
+        text.contains("**References** *(2)*"),
+        "should have References section:\n{text}"
+    );
+    assert!(
+        text.contains("`features` → user_management"),
+        "should list feature ref:\n{text}"
+    );
+    assert!(
+        text.contains("`types` → user_type"),
+        "should list type ref:\n{text}"
+    );
 }
 
 #[test]
@@ -75,10 +95,22 @@ fn hover_shows_incoming_edges() {
     g.add_edge(edge("delete_user", "user_management", "features"));
 
     let text = specforge_lsp::hover_info(&g, "user_management").unwrap();
-    assert!(text.contains("**Referenced by** *(2)*"), "should have Referenced by section:\n{text}");
-    assert!(text.contains("behavior via `features`:"), "should group by kind+label:\n{text}");
-    assert!(text.contains("create_user"), "should list source ID:\n{text}");
-    assert!(text.contains("delete_user"), "should list source ID:\n{text}");
+    assert!(
+        text.contains("**Referenced by** *(2)*"),
+        "should have Referenced by section:\n{text}"
+    );
+    assert!(
+        text.contains("behavior via `features`:"),
+        "should group by kind+label:\n{text}"
+    );
+    assert!(
+        text.contains("create_user"),
+        "should list source ID:\n{text}"
+    );
+    assert!(
+        text.contains("delete_user"),
+        "should list source ID:\n{text}"
+    );
 }
 
 #[test]
@@ -93,8 +125,14 @@ fn hover_shows_both_directions() {
     g.add_edge(edge("data_integrity", "create_user", "enforced_by"));
 
     let text = specforge_lsp::hover_info(&g, "create_user").unwrap();
-    assert!(text.contains("**References** *(1)*"), "should have outgoing:\n{text}");
-    assert!(text.contains("**Referenced by** *(1)*"), "should have incoming:\n{text}");
+    assert!(
+        text.contains("**References** *(1)*"),
+        "should have outgoing:\n{text}"
+    );
+    assert!(
+        text.contains("**Referenced by** *(1)*"),
+        "should have incoming:\n{text}"
+    );
     assert!(text.contains("`features` → user_management"));
     assert!(text.contains("invariant via `enforced_by`: data_integrity"));
 }
@@ -106,7 +144,10 @@ fn hover_no_edges_shows_no_sections() {
 
     let text = specforge_lsp::hover_info(&g, "orphan").unwrap();
     assert!(!text.contains("References"), "no outgoing section:\n{text}");
-    assert!(!text.contains("Referenced by"), "no incoming section:\n{text}");
+    assert!(
+        !text.contains("Referenced by"),
+        "no incoming section:\n{text}"
+    );
     assert!(text.contains("**type** `orphan` — Orphan Type"));
 }
 
@@ -123,8 +164,14 @@ fn hover_groups_multiple_incoming_by_kind() {
 
     let text = specforge_lsp::hover_info(&g, "auth_feature").unwrap();
     // Should have two groups: behavior via `features` and milestone via `features`
-    assert!(text.contains("behavior via `features`:"), "should group behaviors:\n{text}");
-    assert!(text.contains("milestone via `features`:"), "should group milestones:\n{text}");
+    assert!(
+        text.contains("behavior via `features`:"),
+        "should group behaviors:\n{text}"
+    );
+    assert!(
+        text.contains("milestone via `features`:"),
+        "should group milestones:\n{text}"
+    );
 }
 
 #[test]
@@ -158,10 +205,16 @@ fn hover_shows_extension_source() {
         open_fields: false,
     });
 
-    let text = specforge_lsp::hover_info_with_registries(&g, "login", Some(&kind_reg), None)
-        .unwrap();
-    assert!(text.contains("@specforge/software"), "should show extension source:\n{text}");
-    assert!(text.contains("**behavior** `login`"), "should still show basic info:\n{text}");
+    let text =
+        specforge_lsp::hover_info_with_registries(&g, "login", Some(&kind_reg), None).unwrap();
+    assert!(
+        text.contains("@specforge/software"),
+        "should show extension source:\n{text}"
+    );
+    assert!(
+        text.contains("**behavior** `login`"),
+        "should still show basic info:\n{text}"
+    );
 }
 
 #[test]
@@ -175,23 +228,45 @@ fn hover_shows_actual_field_values() {
         Sym::new("invariants"),
         FieldValue::ReferenceList(vec!["data_integrity".into(), "auth_required".into()]),
     );
-    fields.push(Sym::new("contract"), FieldValue::String("Given valid credentials, the user is authenticated".into()));
+    fields.push(
+        Sym::new("contract"),
+        FieldValue::String("Given valid credentials, the user is authenticated".into()),
+    );
     g.add_node(Node {
-        id: EntityId { raw: Sym::new("login") },
-        kind: EntityKind { raw: Sym::new("behavior") },
+        id: EntityId {
+            raw: Sym::new("login"),
+        },
+        kind: EntityKind {
+            raw: Sym::new("behavior"),
+        },
         title: Some("Login".into()),
         fields,
         source_span: SourceSpan {
             file: Sym::new("test.spec"),
-            start_line: 0, start_col: 0, end_line: 0, end_col: 0,
+            start_line: 0,
+            start_col: 0,
+            end_line: 0,
+            end_col: 0,
         },
     });
 
     let text = specforge_lsp::hover_info(&g, "login").unwrap();
-    assert!(text.contains("**Fields**"), "should have Fields section:\n{text}");
-    assert!(text.contains("`status` = `draft`"), "should show status value:\n{text}");
-    assert!(text.contains("`invariants` = [data_integrity, auth_required]"), "should show ref list:\n{text}");
-    assert!(text.contains("`contract` = \"Given valid credentials"), "should show contract string:\n{text}");
+    assert!(
+        text.contains("**Fields**"),
+        "should have Fields section:\n{text}"
+    );
+    assert!(
+        text.contains("`status` = `draft`"),
+        "should show status value:\n{text}"
+    );
+    assert!(
+        text.contains("`invariants` = [data_integrity, auth_required]"),
+        "should show ref list:\n{text}"
+    );
+    assert!(
+        text.contains("`contract` = \"Given valid credentials"),
+        "should show contract string:\n{text}"
+    );
 }
 
 #[test]
@@ -200,7 +275,10 @@ fn hover_no_fields_section_when_entity_has_no_fields() {
     g.add_node(node("login", "behavior", Some("Login")));
 
     let text = specforge_lsp::hover_info(&g, "login").unwrap();
-    assert!(!text.contains("Fields"), "should not show Fields when entity has none:\n{text}");
+    assert!(
+        !text.contains("Fields"),
+        "should not show Fields when entity has none:\n{text}"
+    );
 }
 
 #[test]
@@ -226,8 +304,8 @@ fn hover_shows_entity_kind_description() {
         open_fields: false,
     });
 
-    let text = specforge_lsp::hover_info_with_registries(&g, "login", Some(&kind_reg), None)
-        .unwrap();
+    let text =
+        specforge_lsp::hover_info_with_registries(&g, "login", Some(&kind_reg), None).unwrap();
     assert!(
         text.contains("A testable unit of system functionality"),
         "should show entity kind description:\n{text}"
@@ -264,7 +342,10 @@ fn hover_no_extension_source_without_registry() {
     g.add_node(node("login", "behavior", Some("Login")));
 
     let text = specforge_lsp::hover_info(&g, "login").unwrap();
-    assert!(!text.contains("@specforge"), "should not show extension source without registry:\n{text}");
+    assert!(
+        !text.contains("@specforge"),
+        "should not show extension source without registry:\n{text}"
+    );
 }
 
 // -- hover_field_info --------------------------------------------------------
@@ -303,17 +384,29 @@ fn make_field_registry() -> specforge_registry::FieldRegistry {
 fn field_hover_shows_type_and_extension() {
     let reg = make_field_registry();
     let text = specforge_lsp::hover_field_info("contract", "behavior", &reg).unwrap();
-    assert!(text.contains("`contract`"), "should show field name:\n{text}");
+    assert!(
+        text.contains("`contract`"),
+        "should show field name:\n{text}"
+    );
     assert!(text.contains("string"), "should show type:\n{text}");
-    assert!(text.contains("*@specforge/software*"), "should show extension:\n{text}");
+    assert!(
+        text.contains("*@specforge/software*"),
+        "should show extension:\n{text}"
+    );
 }
 
 #[test]
 fn field_hover_shows_target_kind_and_edge() {
     let reg = make_field_registry();
     let text = specforge_lsp::hover_field_info("features", "behavior", &reg).unwrap();
-    assert!(text.contains("→ **feature**"), "should show target kind:\n{text}");
-    assert!(text.contains("Edge `BehaviorImplementsFeature`"), "should show edge type:\n{text}");
+    assert!(
+        text.contains("→ **feature**"),
+        "should show target kind:\n{text}"
+    );
+    assert!(
+        text.contains("Edge `BehaviorImplementsFeature`"),
+        "should show edge type:\n{text}"
+    );
     assert!(text.contains("*required*"), "should show required:\n{text}");
 }
 

@@ -1,4 +1,4 @@
-use specforge_extism::{builtins, ExtismRuntime};
+use specforge_extism::{ExtismRuntime, builtins};
 use specforge_wasm::runtime::{WasmCallResult, WasmRuntime};
 
 #[test]

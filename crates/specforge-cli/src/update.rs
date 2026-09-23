@@ -1,12 +1,9 @@
 use serde_json::json;
 use specforge_registry::{
-    HttpRegistryClient, RegistryConfig,
-    resolve_version, resolve_from_registry, verify_registry_integrity,
-    parse_registries_from_config,
+    HttpRegistryClient, RegistryConfig, parse_registries_from_config, resolve_from_registry,
+    resolve_version, verify_registry_integrity,
 };
-use specforge_wasm::{
-    install_extension, read_lock_file, write_lock_file,
-};
+use specforge_wasm::{install_extension, read_lock_file, write_lock_file};
 use std::path::Path;
 
 pub fn run(name: Option<&str>, path: &Path, format: &str) -> i32 {
@@ -14,7 +11,11 @@ pub fn run(name: Option<&str>, path: &Path, format: &str) -> i32 {
     let mut lock = match read_lock_file(&lock_path) {
         Ok(l) => l,
         Err(_) => {
-            print_error(format, "no lock file found. Run `specforge add` first.", "E-UPD-001");
+            print_error(
+                format,
+                "no lock file found. Run `specforge add` first.",
+                "E-UPD-001",
+            );
             return 1;
         }
     };
@@ -24,14 +25,21 @@ pub fn run(name: Option<&str>, path: &Path, format: &str) -> i32 {
     let client = HttpRegistryClient::new();
 
     let entries_to_update: Vec<_> = if let Some(n) = name {
-        lock.entries.iter().filter(|e| e.name == n).cloned().collect()
+        lock.entries
+            .iter()
+            .filter(|e| e.name == n)
+            .cloned()
+            .collect()
     } else {
         lock.entries.clone()
     };
 
     if entries_to_update.is_empty() {
         match format {
-            "json" => println!("{}", serde_json::to_string_pretty(&json!({"updated": []})).unwrap()),
+            "json" => println!(
+                "{}",
+                serde_json::to_string_pretty(&json!({"updated": []})).unwrap()
+            ),
             _ => println!("no extensions to update"),
         }
         return 0;
@@ -66,7 +74,10 @@ pub fn run(name: Option<&str>, path: &Path, format: &str) -> i32 {
         let response = match resolve_from_registry(&specifier, &registries, &client) {
             Ok(r) => r,
             Err(diag) => {
-                eprintln!("warning: failed to resolve {}: {}", entry.name, diag.message);
+                eprintln!(
+                    "warning: failed to resolve {}: {}",
+                    entry.name, diag.message
+                );
                 continue;
             }
         };
@@ -74,13 +85,20 @@ pub fn run(name: Option<&str>, path: &Path, format: &str) -> i32 {
         let wasm_bytes = match client.download_wasm(&response.wasm_url) {
             Ok(b) => b,
             Err(e) => {
-                eprintln!("warning: failed to download {}: {}", entry.name, e.to_diagnostic().message);
+                eprintln!(
+                    "warning: failed to download {}: {}",
+                    entry.name,
+                    e.to_diagnostic().message
+                );
                 continue;
             }
         };
 
         if verify_registry_integrity(&wasm_bytes, &response.sha256).is_err() {
-            eprintln!("warning: integrity check failed for {}, skipping", entry.name);
+            eprintln!(
+                "warning: integrity check failed for {}, skipping",
+                entry.name
+            );
             continue;
         }
 
@@ -102,7 +120,10 @@ pub fn run(name: Option<&str>, path: &Path, format: &str) -> i32 {
                 }));
             }
             Err(diag) => {
-                eprintln!("warning: failed to install {}: {}", entry.name, diag.message);
+                eprintln!(
+                    "warning: failed to install {}: {}",
+                    entry.name, diag.message
+                );
             }
         }
     }
@@ -123,7 +144,12 @@ pub fn run(name: Option<&str>, path: &Path, format: &str) -> i32 {
             } else {
                 println!("updated {} extension(s):", updated.len());
                 for u in &updated {
-                    println!("  {} {} -> {}", u["name"].as_str().unwrap_or(""), u["from"].as_str().unwrap_or(""), u["to"].as_str().unwrap_or(""));
+                    println!(
+                        "  {} {} -> {}",
+                        u["name"].as_str().unwrap_or(""),
+                        u["from"].as_str().unwrap_or(""),
+                        u["to"].as_str().unwrap_or("")
+                    );
                 }
             }
         }

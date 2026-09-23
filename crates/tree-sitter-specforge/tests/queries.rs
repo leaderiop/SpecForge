@@ -43,9 +43,19 @@ fn highlights_captures_entity_kind_as_keyword() {
         }
     }
 
-    assert!(capture_names.contains(&"keyword"), "entity kind should be captured as @keyword, got: {:?}", capture_names);
-    assert!(capture_names.contains(&"constant"), "entity name should be captured as @constant");
-    assert!(capture_names.contains(&"string"), "strings should be captured as @string");
+    assert!(
+        capture_names.contains(&"keyword"),
+        "entity kind should be captured as @keyword, got: {:?}",
+        capture_names
+    );
+    assert!(
+        capture_names.contains(&"constant"),
+        "entity name should be captured as @constant"
+    );
+    assert!(
+        capture_names.contains(&"string"),
+        "strings should be captured as @string"
+    );
 }
 
 /// Helper: run highlights.scm against source and return all (capture_name, matched_text) pairs.
@@ -123,12 +133,36 @@ define my_kind {
         .map(|(_, kind)| kind.as_str())
         .collect();
 
-    assert!(fold_kinds.contains(&"entity_block"), "entity_block should be @fold, got: {:?}", fold_kinds);
-    assert!(fold_kinds.contains(&"spec_block"), "spec_block should be @fold, got: {:?}", fold_kinds);
-    assert!(fold_kinds.contains(&"ref_full"), "ref_full should be @fold, got: {:?}", fold_kinds);
-    assert!(fold_kinds.contains(&"define_block"), "define_block should be @fold, got: {:?}", fold_kinds);
-    assert!(fold_kinds.contains(&"nested_block"), "nested_block should be @fold, got: {:?}", fold_kinds);
-    assert!(fold_kinds.contains(&"list"), "list should be @fold, got: {:?}", fold_kinds);
+    assert!(
+        fold_kinds.contains(&"entity_block"),
+        "entity_block should be @fold, got: {:?}",
+        fold_kinds
+    );
+    assert!(
+        fold_kinds.contains(&"spec_block"),
+        "spec_block should be @fold, got: {:?}",
+        fold_kinds
+    );
+    assert!(
+        fold_kinds.contains(&"ref_full"),
+        "ref_full should be @fold, got: {:?}",
+        fold_kinds
+    );
+    assert!(
+        fold_kinds.contains(&"define_block"),
+        "define_block should be @fold, got: {:?}",
+        fold_kinds
+    );
+    assert!(
+        fold_kinds.contains(&"nested_block"),
+        "nested_block should be @fold, got: {:?}",
+        fold_kinds
+    );
+    assert!(
+        fold_kinds.contains(&"list"),
+        "list should be @fold, got: {:?}",
+        fold_kinds
+    );
 }
 
 #[test]
@@ -145,11 +179,27 @@ fn indents_triggers_on_braces_and_brackets() {
         .collect();
 
     // Opening brace and bracket → @indent
-    assert!(capture_pairs.contains(&("indent", "{")), "opening brace should be @indent, got: {:?}", capture_pairs);
-    assert!(capture_pairs.contains(&("indent", "[")), "opening bracket should be @indent, got: {:?}", capture_pairs);
+    assert!(
+        capture_pairs.contains(&("indent", "{")),
+        "opening brace should be @indent, got: {:?}",
+        capture_pairs
+    );
+    assert!(
+        capture_pairs.contains(&("indent", "[")),
+        "opening bracket should be @indent, got: {:?}",
+        capture_pairs
+    );
     // Closing brace and bracket → @dedent
-    assert!(capture_pairs.contains(&("dedent", "}")), "closing brace should be @dedent, got: {:?}", capture_pairs);
-    assert!(capture_pairs.contains(&("dedent", "]")), "closing bracket should be @dedent, got: {:?}", capture_pairs);
+    assert!(
+        capture_pairs.contains(&("dedent", "}")),
+        "closing brace should be @dedent, got: {:?}",
+        capture_pairs
+    );
+    assert!(
+        capture_pairs.contains(&("dedent", "]")),
+        "closing bracket should be @dedent, got: {:?}",
+        capture_pairs
+    );
 }
 
 #[test]
@@ -157,24 +207,42 @@ fn highlights_union_block_captures() {
     let source = "type FieldValue = StringValue | ReferenceList | Block\n";
     let captures = highlight_captures(source);
 
-    let keywords: Vec<&str> = captures.iter()
+    let keywords: Vec<&str> = captures
+        .iter()
         .filter(|(n, _)| n == "keyword")
         .map(|(_, t)| t.as_str())
         .collect();
-    let constants: Vec<&str> = captures.iter()
+    let constants: Vec<&str> = captures
+        .iter()
         .filter(|(n, _)| n == "constant")
         .map(|(_, t)| t.as_str())
         .collect();
-    let types: Vec<&str> = captures.iter()
+    let types: Vec<&str> = captures
+        .iter()
         .filter(|(n, _)| n == "type")
         .map(|(_, t)| t.as_str())
         .collect();
 
-    assert!(keywords.contains(&"type"), "union kind 'type' should be @keyword, got: {keywords:?}");
-    assert!(constants.contains(&"FieldValue"), "union name should be @constant, got: {constants:?}");
-    assert!(types.contains(&"StringValue"), "variant should be @type, got: {types:?}");
-    assert!(types.contains(&"ReferenceList"), "variant should be @type, got: {types:?}");
-    assert!(types.contains(&"Block"), "variant should be @type, got: {types:?}");
+    assert!(
+        keywords.contains(&"type"),
+        "union kind 'type' should be @keyword, got: {keywords:?}"
+    );
+    assert!(
+        constants.contains(&"FieldValue"),
+        "union name should be @constant, got: {constants:?}"
+    );
+    assert!(
+        types.contains(&"StringValue"),
+        "variant should be @type, got: {types:?}"
+    );
+    assert!(
+        types.contains(&"ReferenceList"),
+        "variant should be @type, got: {types:?}"
+    );
+    assert!(
+        types.contains(&"Block"),
+        "variant should be @type, got: {types:?}"
+    );
 }
 
 #[test]
@@ -196,9 +264,15 @@ ref gh.issue:2 "Full ref" {
         .collect();
 
     // ref_full should be foldable
-    assert!(fold_kinds.contains(&"ref_full"), "ref_full should be @fold, got: {fold_kinds:?}");
+    assert!(
+        fold_kinds.contains(&"ref_full"),
+        "ref_full should be @fold, got: {fold_kinds:?}"
+    );
     // ref_inline has no braces — should NOT appear as foldable
-    assert!(!fold_kinds.contains(&"ref_inline"), "ref_inline should NOT be @fold (no braces), got: {fold_kinds:?}");
+    assert!(
+        !fold_kinds.contains(&"ref_inline"),
+        "ref_inline should NOT be @fold (no braces), got: {fold_kinds:?}"
+    );
 }
 
 #[test]
@@ -211,9 +285,19 @@ fn highlights_captures_import_path_as_string() {
         .map(|(_, text)| text.as_str())
         .collect();
 
-    assert_eq!(strings.len(), 2, "expected 2 import paths as @string, got: {strings:?}");
-    assert!(strings.contains(&"\"behaviors/parsing\""), "missing behaviors/parsing, got: {strings:?}");
-    assert!(strings.contains(&"\"types/core\""), "missing types/core, got: {strings:?}");
+    assert_eq!(
+        strings.len(),
+        2,
+        "expected 2 import paths as @string, got: {strings:?}"
+    );
+    assert!(
+        strings.contains(&"\"behaviors/parsing\""),
+        "missing behaviors/parsing, got: {strings:?}"
+    );
+    assert!(
+        strings.contains(&"\"types/core\""),
+        "missing types/core, got: {strings:?}"
+    );
 }
 
 #[test]
@@ -226,8 +310,14 @@ fn highlights_captures_from_and_as_keywords() {
         .map(|(_, text)| text.as_str())
         .collect();
 
-    assert!(keywords.contains(&"from"), "from should be @keyword, got: {keywords:?}");
-    assert!(keywords.contains(&"as"), "as should be @keyword, got: {keywords:?}");
+    assert!(
+        keywords.contains(&"from"),
+        "from should be @keyword, got: {keywords:?}"
+    );
+    assert!(
+        keywords.contains(&"as"),
+        "as should be @keyword, got: {keywords:?}"
+    );
 }
 
 #[test]
@@ -245,10 +335,23 @@ type MyType {
         .map(|(_, text)| text.as_str())
         .collect();
 
-    assert!(attributes.iter().any(|a| a.starts_with("@readonly")), "expected @readonly as @attribute, got: {attributes:?}");
-    assert!(attributes.iter().any(|a| a.starts_with("@optional")), "expected @optional as @attribute, got: {attributes:?}");
-    assert!(attributes.iter().any(|a| a.starts_with("@doc")), "expected @doc as @attribute, got: {attributes:?}");
-    assert_eq!(attributes.len(), 3, "expected 3 annotations, got: {attributes:?}");
+    assert!(
+        attributes.iter().any(|a| a.starts_with("@readonly")),
+        "expected @readonly as @attribute, got: {attributes:?}"
+    );
+    assert!(
+        attributes.iter().any(|a| a.starts_with("@optional")),
+        "expected @optional as @attribute, got: {attributes:?}"
+    );
+    assert!(
+        attributes.iter().any(|a| a.starts_with("@doc")),
+        "expected @doc as @attribute, got: {attributes:?}"
+    );
+    assert_eq!(
+        attributes.len(),
+        3,
+        "expected 3 annotations, got: {attributes:?}"
+    );
 }
 
 #[test]
@@ -275,11 +378,26 @@ define my_kind {
         .map(|(_, text)| text.as_str())
         .collect();
 
-    assert!(keywords.contains(&"use"), "use should be @keyword, keywords: {keywords:?}");
-    assert!(keywords.contains(&"spec"), "spec should be @keyword, keywords: {keywords:?}");
-    assert!(keywords.contains(&"ref"), "ref should be @keyword, keywords: {keywords:?}");
-    assert!(keywords.contains(&"define"), "define should be @keyword, keywords: {keywords:?}");
-    assert!(keywords.contains(&"verify"), "verify should be @keyword, keywords: {keywords:?}");
+    assert!(
+        keywords.contains(&"use"),
+        "use should be @keyword, keywords: {keywords:?}"
+    );
+    assert!(
+        keywords.contains(&"spec"),
+        "spec should be @keyword, keywords: {keywords:?}"
+    );
+    assert!(
+        keywords.contains(&"ref"),
+        "ref should be @keyword, keywords: {keywords:?}"
+    );
+    assert!(
+        keywords.contains(&"define"),
+        "define should be @keyword, keywords: {keywords:?}"
+    );
+    assert!(
+        keywords.contains(&"verify"),
+        "verify should be @keyword, keywords: {keywords:?}"
+    );
 }
 
 #[test]
@@ -326,8 +444,12 @@ fn highlights_captures_triple_quoted_string() {
     let source = "behavior foo \"T\" {\n  contract \"\"\"\n    hello\n  \"\"\"\n}";
     let captures = highlight_captures(source);
 
-    let has_triple_string = captures.iter().any(|(name, text)| {
-        name == "string" && text.contains("hello")
-    });
-    assert!(has_triple_string, "triple-quoted string should be captured as @string, got: {:?}", captures);
+    let has_triple_string = captures
+        .iter()
+        .any(|(name, text)| name == "string" && text.contains("hello"));
+    assert!(
+        has_triple_string,
+        "triple-quoted string should be captured as @string, got: {:?}",
+        captures
+    );
 }

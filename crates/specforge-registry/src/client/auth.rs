@@ -20,27 +20,27 @@ pub fn resolve_credential(credential: &RegistryCredential) -> Result<String, Dia
                 var_name, credential.alias
             ),
             span: None,
-            suggestion: Some(format!("Set the environment variable: export {var_name}=<token>")),
+            suggestion: Some(format!(
+                "Set the environment variable: export {var_name}=<token>"
+            )),
         }),
-        AuthMethod::TokenFile(path) => {
-            std::fs::read_to_string(path)
-                .map(|s| s.trim().to_string())
-                .map_err(|e| Diagnostic {
-                    code: "R011".to_string(),
-                    severity: Severity::Error,
-                    message: format!(
-                        "Cannot read token file '{}' for registry '{}': {}",
-                        path.display(),
-                        credential.alias,
-                        e
-                    ),
-                    span: None,
-                    suggestion: Some(format!(
-                        "Ensure the file exists and is readable: {}",
-                        path.display()
-                    )),
-                })
-        }
+        AuthMethod::TokenFile(path) => std::fs::read_to_string(path)
+            .map(|s| s.trim().to_string())
+            .map_err(|e| Diagnostic {
+                code: "R011".to_string(),
+                severity: Severity::Error,
+                message: format!(
+                    "Cannot read token file '{}' for registry '{}': {}",
+                    path.display(),
+                    credential.alias,
+                    e
+                ),
+                span: None,
+                suggestion: Some(format!(
+                    "Ensure the file exists and is readable: {}",
+                    path.display()
+                )),
+            }),
         AuthMethod::Bearer(token) => Ok(token.clone()),
     }
 }
@@ -66,7 +66,6 @@ pub fn validate_credentials(
     credential: &RegistryCredential,
 ) -> Result<(), Diagnostic> {
     client.authenticate(registry, credential).map_err(|e| {
-        
         // Ensure the diagnostic never contains the raw token.
         // The RegistryError variants already produce safe messages,
         // but we wrap for consistency.

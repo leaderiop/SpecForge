@@ -1,17 +1,19 @@
-use specforge_common::{load_project_config, Diagnostic, Severity};
-use specforge_graph::{build_graph, build_graph_with_config, Graph, GraphConfig};
+use specforge_common::{Diagnostic, Severity, load_project_config};
+use specforge_graph::{Graph, GraphConfig, build_graph, build_graph_with_config};
 use specforge_registry::{
-    populate_registries, validate_manifest, validate_manifest_consistency,
-    compilation::{detect_mistyped_references, detect_unknown_entity_kinds, detect_unknown_entity_fields},
-    generate_required_field_rules,
-    EdgeRegistry, FieldRegistry, KindRegistry, ManifestV2,
-    register_surface_contributions, SurfaceContributions, SurfaceRegistryEntry,
+    EdgeRegistry, FieldRegistry, KindRegistry, ManifestV2, SurfaceContributions,
+    SurfaceRegistryEntry,
+    compilation::{
+        detect_mistyped_references, detect_unknown_entity_fields, detect_unknown_entity_kinds,
+    },
+    generate_required_field_rules, populate_registries, register_surface_contributions,
+    validate_manifest, validate_manifest_consistency,
     validation_engine::{
-        execute_pattern, parse_all_rule_patterns, ValidationEntity, ValidationRulePattern,
+        ValidationEntity, ValidationRulePattern, execute_pattern, parse_all_rule_patterns,
     },
 };
-use specforge_resolver::{resolve_project, ResolvedProject};
-use specforge_validator::{validate_with_config, ValidatorConfig};
+use specforge_resolver::{ResolvedProject, resolve_project};
+use specforge_validator::{ValidatorConfig, validate_with_config};
 use specforge_wasm::WasmRuntime;
 use std::collections::{HashMap, HashSet};
 use std::path::Path;
@@ -160,7 +162,9 @@ pub fn compile_with_runtime(path: &Path, runtime: Option<&dyn WasmRuntime>) -> C
     if !field_reg.is_empty() {
         let single_ref_fields: HashSet<(String, String)> = field_reg
             .iter()
-            .filter(|(_, _, entry)| entry.field_type == specforge_registry::ManifestFieldType::Reference)
+            .filter(|(_, _, entry)| {
+                entry.field_type == specforge_registry::ManifestFieldType::Reference
+            })
             .map(|(kind, field, _)| (kind.to_string(), field.to_string()))
             .collect();
         if !single_ref_fields.is_empty() {
@@ -193,7 +197,13 @@ pub fn compile_with_runtime(path: &Path, runtime: Option<&dyn WasmRuntime>) -> C
         let entity_kind_info: Vec<_> = graph
             .nodes()
             .iter()
-            .map(|n| (n.kind.raw.to_string(), n.id.raw.to_string(), n.source_span.clone()))
+            .map(|n| {
+                (
+                    n.kind.raw.to_string(),
+                    n.id.raw.to_string(),
+                    n.source_span.clone(),
+                )
+            })
             .collect();
         let kind_diags = detect_unknown_entity_kinds(&entity_kind_info, &kind_reg, None);
         diagnostics.extend(kind_diags);
@@ -202,8 +212,18 @@ pub fn compile_with_runtime(path: &Path, runtime: Option<&dyn WasmRuntime>) -> C
             .nodes()
             .iter()
             .map(|n| {
-                let field_names: Vec<String> = n.fields.entries().iter().map(|e| e.key.to_string()).collect();
-                (n.kind.raw.to_string(), n.id.raw.to_string(), field_names, n.source_span.clone())
+                let field_names: Vec<String> = n
+                    .fields
+                    .entries()
+                    .iter()
+                    .map(|e| e.key.to_string())
+                    .collect();
+                (
+                    n.kind.raw.to_string(),
+                    n.id.raw.to_string(),
+                    field_names,
+                    n.source_span.clone(),
+                )
             })
             .collect();
         let field_diags = detect_unknown_entity_fields(&entity_field_info, &kind_reg, &field_reg);
@@ -231,10 +251,16 @@ pub fn compile_with_runtime(path: &Path, runtime: Option<&dyn WasmRuntime>) -> C
                         }
                     })
                     .collect();
-                (n.kind.raw.to_string(), n.id.raw.to_string(), ref_fields, n.source_span.clone())
+                (
+                    n.kind.raw.to_string(),
+                    n.id.raw.to_string(),
+                    ref_fields,
+                    n.source_span.clone(),
+                )
             })
             .collect();
-        let ref_diags = detect_mistyped_references(&entity_ref_info, &field_reg, &kind_reg, &node_kind_index);
+        let ref_diags =
+            detect_mistyped_references(&entity_ref_info, &field_reg, &kind_reg, &node_kind_index);
         diagnostics.extend(ref_diags);
     }
 
@@ -270,9 +296,7 @@ pub fn compile_with_runtime(path: &Path, runtime: Option<&dyn WasmRuntime>) -> C
     // Collect raw manifest surfaces for MCP descriptor generation
     let manifest_surfaces: Vec<(String, SurfaceContributions)> = manifests
         .iter()
-        .filter_map(|m| {
-            m.surfaces.as_ref().map(|s| (m.name.clone(), s.clone()))
-        })
+        .filter_map(|m| m.surfaces.as_ref().map(|s| (m.name.clone(), s.clone())))
         .collect();
 
     CompilationContext {
@@ -349,8 +373,7 @@ fn load_extensions(
     diagnostics: &mut Vec<Diagnostic>,
 ) -> Vec<ManifestV2> {
     use specforge_wasm::protocol::{
-        protocol_extension_to_manifest, ProtocolHost,
-        load_protocol_extension as proto_load,
+        ProtocolHost, load_protocol_extension as proto_load, protocol_extension_to_manifest,
     };
 
     let host = ProtocolHost::new(runtime);
@@ -371,10 +394,7 @@ fn load_extensions(
                 diagnostics.push(Diagnostic {
                     code: "E031".to_string(),
                     severity: Severity::Error,
-                    message: format!(
-                        "extension '{}': protocol loading failed: {}",
-                        ext_name, e
-                    ),
+                    message: format!("extension '{}': protocol loading failed: {}", ext_name, e),
                     span: None,
                     suggestion: None,
                 });
@@ -384,7 +404,6 @@ fn load_extensions(
 
     manifests
 }
-
 
 /// Convert all graph nodes into `ValidationEntity` structs for the validation engine.
 /// Shared by CLI (`compile.rs`) and LSP (`backend.rs`).
@@ -427,9 +446,7 @@ pub fn build_validation_entities(graph: &Graph) -> Vec<ValidationEntity> {
                             fields.insert(entry.key.to_string(), descriptions.join("; "));
                         }
                     }
-                    specforge_parser::FieldValue::VariantList(variants)
-                        if !variants.is_empty() =>
-                    {
+                    specforge_parser::FieldValue::VariantList(variants) if !variants.is_empty() => {
                         fields.insert(entry.key.to_string(), variants.join(" | "));
                     }
                     _ => {}
@@ -461,7 +478,9 @@ fn run_extension_validation(
 
     let mut diagnostics = Vec::new();
     for pattern in patterns {
-        if pattern.check == specforge_registry::validation_engine::ValidationPatternKind::CycleDetection {
+        if pattern.check
+            == specforge_registry::validation_engine::ValidationPatternKind::CycleDetection
+        {
             let diags = detect_cycles(pattern, graph, edge_label_to_field);
             diagnostics.extend(diags);
         } else {
@@ -490,7 +509,9 @@ fn detect_cycles(
         None => return Vec::new(),
     };
 
-    let nodes: Vec<&specforge_graph::Node> = graph.nodes().into_iter()
+    let nodes: Vec<&specforge_graph::Node> = graph
+        .nodes()
+        .into_iter()
         .filter(|n| n.kind.raw == target_kind)
         .collect();
 
@@ -501,13 +522,22 @@ fn detect_cycles(
     let node_ids: HashSet<&str> = nodes.iter().map(|n| n.id.raw.as_str()).collect();
     let mut adj: HashMap<&str, Vec<&str>> = HashMap::new();
     for edge in graph.edges() {
-        if edge.label == edge_label && node_ids.contains(edge.source.as_str()) && node_ids.contains(edge.target.as_str()) {
-            adj.entry(edge.source.as_str()).or_default().push(edge.target.as_str());
+        if edge.label == edge_label
+            && node_ids.contains(edge.source.as_str())
+            && node_ids.contains(edge.target.as_str())
+        {
+            adj.entry(edge.source.as_str())
+                .or_default()
+                .push(edge.target.as_str());
         }
     }
 
     #[derive(Clone, Copy, PartialEq)]
-    enum Color { White, Gray, Black }
+    enum Color {
+        White,
+        Gray,
+        Black,
+    }
 
     let mut color: HashMap<&str, Color> = node_ids.iter().map(|id| (*id, Color::White)).collect();
     let mut cycle_members: HashSet<&str> = HashSet::new();

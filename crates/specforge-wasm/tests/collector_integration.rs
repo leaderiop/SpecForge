@@ -5,10 +5,9 @@
 
 use specforge_registry::{ExtensionContributions, ManifestV2};
 use specforge_wasm::{
-    auto_detect_collector, dispatch_collector, ingest_collector_report,
-    is_contribution_disabled, register_collector_contributions, validate_collector_output,
     ContributionToggle, CoverageMetadata, RegisteredCollector, WasmCallResult, WasmRuntime,
-    WasmTrapInfo,
+    WasmTrapInfo, auto_detect_collector, dispatch_collector, ingest_collector_report,
+    is_contribution_disabled, register_collector_contributions, validate_collector_output,
 };
 use std::collections::HashSet;
 use std::path::Path;
@@ -139,8 +138,8 @@ fn register_collectors_multiple() {
 #[test]
 fn dispatch_collector_valid_json() {
     let report = serde_json::json!({"entity_results": []});
-    let runtime = MockRuntime::new()
-        .with_call_ok("collect__ext__test", serde_json::to_vec(&report).unwrap());
+    let runtime =
+        MockRuntime::new().with_call_ok("collect__ext__test", serde_json::to_vec(&report).unwrap());
 
     let collector = RegisteredCollector {
         extension_name: "@ext/test".to_string(),
@@ -372,9 +371,5 @@ fn contribution_disabled_matching() {
 #[test]
 fn contribution_not_disabled() {
     let toggles: Vec<ContributionToggle> = vec![];
-    assert!(!is_contribution_disabled(
-        &toggles,
-        "@ext/a",
-        "collectors"
-    ));
+    assert!(!is_contribution_disabled(&toggles, "@ext/a", "collectors"));
 }

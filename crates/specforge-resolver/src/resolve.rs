@@ -1,6 +1,6 @@
 use crate::{FileScope, ReexportDeclaration, ResolvedFile, ResolvedProject};
-use specforge_common::{find_close_match, Diagnostic, Severity};
-use specforge_parser::{parse, SpecFile};
+use specforge_common::{Diagnostic, Severity, find_close_match};
+use specforge_parser::{SpecFile, parse};
 use std::collections::{HashMap, HashSet, VecDeque};
 use std::path::{Component, Path, PathBuf};
 
@@ -359,7 +359,14 @@ fn detect_cycles(graph: &HashMap<PathBuf, Vec<PathBuf>>) -> Vec<Vec<PathBuf>> {
 
     for node in graph.keys() {
         if !visited.contains(node) {
-            dfs_cycle(node, graph, &mut visited, &mut on_stack, &mut stack, &mut cycles);
+            dfs_cycle(
+                node,
+                graph,
+                &mut visited,
+                &mut on_stack,
+                &mut stack,
+                &mut cycles,
+            );
         }
     }
     cycles
@@ -437,12 +444,13 @@ fn topological_sort(
                 continue;
             }
             if deps.contains(node)
-                && let Some(deg) = in_deg.get_mut(other) {
-                    *deg = deg.saturating_sub(1);
-                    if *deg == 0 {
-                        queue.push_back(other);
-                    }
+                && let Some(deg) = in_deg.get_mut(other)
+            {
+                *deg = deg.saturating_sub(1);
+                if *deg == 0 {
+                    queue.push_back(other);
                 }
+            }
         }
     }
 

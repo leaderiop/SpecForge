@@ -27,10 +27,7 @@ async fn e2e_full_workflow_open_edit_hover_rename() {
     // 3. Hover reflects the change
     let resp = client.hover(&uri, 0, 12).await;
     let md = resp["result"]["contents"]["value"].as_str().unwrap();
-    assert!(
-        md.contains("auth_flow"),
-        "Hover should reflect edit"
-    );
+    assert!(md.contains("auth_flow"), "Hover should reflect edit");
 
     // 4. Rename
     let resp = client.rename(&uri, 0, 12, "login_flow").await;
@@ -61,10 +58,7 @@ async fn e2e_graph_serves_all_features() {
 
     // Goto definition
     let resp = client.goto_definition(&uri, 2, 10).await;
-    assert!(
-        !resp["result"].is_null(),
-        "Goto definition should work"
-    );
+    assert!(!resp["result"].is_null(), "Goto definition should work");
 
     // References
     let resp = client.references(&uri, 0, 6).await;
@@ -76,10 +70,7 @@ async fn e2e_graph_serves_all_features() {
 
     // Document symbols
     let resp = client.document_symbol(&uri).await;
-    assert!(
-        !resp["result"].is_null(),
-        "Document symbols should work"
-    );
+    assert!(!resp["result"].is_null(), "Document symbols should work");
 }
 
 #[tokio::test]
@@ -144,10 +135,7 @@ async fn e2e_multiple_files_cross_reference() {
     // Goto definition from A -> B
     let resp = client.goto_definition(&uri_a, 1, 10).await;
     let result = &resp["result"];
-    assert!(
-        !result.is_null(),
-        "Expected cross-file definition"
-    );
+    assert!(!result.is_null(), "Expected cross-file definition");
     let target = result["uri"].as_str().unwrap();
     assert!(
         target.contains("b.spec"),
@@ -162,10 +150,7 @@ async fn e2e_multiple_files_cross_reference() {
     let has_file_a = refs
         .iter()
         .any(|r| r["uri"].as_str().is_some_and(|u| u.contains("a.spec")));
-    assert!(
-        has_file_a,
-        "References should include file A"
-    );
+    assert!(has_file_a, "References should include file A");
 }
 
 /// Verify that cross-file references work immediately after workspace indexing,
@@ -177,11 +162,7 @@ async fn e2e_workspace_index_builds_edges_immediately() {
     let file_a = dir.path().join("a.spec");
     let file_b = dir.path().join("b.spec");
     std::fs::write(&file_b, "type token \"Token\" {}\n").unwrap();
-    std::fs::write(
-        &file_a,
-        "behavior login \"Login\" {\n  types [token]\n}\n",
-    )
-    .unwrap();
+    std::fs::write(&file_a, "behavior login \"Login\" {\n  types [token]\n}\n").unwrap();
 
     let root = dir.path().to_str().unwrap();
     let mut client = start_server(Some(root)).await;
@@ -270,9 +251,7 @@ async fn e2e_delete_file_publishes_broken_reference_diagnostics() {
             let notif_uri = notif["params"]["uri"].as_str().unwrap_or("");
             let diags = notif["params"]["diagnostics"].as_array().unwrap();
             if notif_uri.contains("a.spec")
-                && diags
-                    .iter()
-                    .any(|d| d["code"].as_str() == Some("E003"))
+                && diags.iter().any(|d| d["code"].as_str() == Some("E003"))
             {
                 found_a_e003 = true;
                 break;
@@ -331,11 +310,7 @@ async fn e2e_cross_file_diagnostic_on_correct_uri() {
 
     // Delete the type from file B — now consumer's reference is broken
     client
-        .did_change(
-            &uri_b,
-            2,
-            vec![json!({ "text": "// empty\n" })],
-        )
+        .did_change(&uri_b, 2, vec![json!({ "text": "// empty\n" })])
         .await;
 
     // Collect ALL publishDiagnostics notifications (there should be multiple:
@@ -356,10 +331,7 @@ async fn e2e_cross_file_diagnostic_on_correct_uri() {
     let a_has_e001 = diag_notifications.iter().any(|notif| {
         let notif_uri = notif["params"]["uri"].as_str().unwrap_or("");
         let diags = notif["params"]["diagnostics"].as_array().unwrap();
-        notif_uri.contains("a.spec")
-            && diags
-                .iter()
-                .any(|d| d["code"].as_str() == Some("E003"))
+        notif_uri.contains("a.spec") && diags.iter().any(|d| d["code"].as_str() == Some("E003"))
     });
     assert!(
         a_has_e001,
@@ -371,14 +343,12 @@ async fn e2e_cross_file_diagnostic_on_correct_uri() {
         let notif_uri = notif["params"]["uri"].as_str().unwrap_or("");
         let diags = notif["params"]["diagnostics"].as_array().unwrap();
         notif_uri.contains("b.spec")
-            && diags
-                .iter()
-                .any(|d| {
-                    d["code"].as_str() == Some("E003")
-                        && d["message"]
-                            .as_str()
-                            .is_some_and(|m| m.contains("unresolved"))
-                })
+            && diags.iter().any(|d| {
+                d["code"].as_str() == Some("E003")
+                    && d["message"]
+                        .as_str()
+                        .is_some_and(|m| m.contains("unresolved"))
+            })
     });
     assert!(
         !b_has_e001,

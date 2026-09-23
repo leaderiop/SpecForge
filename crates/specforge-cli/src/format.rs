@@ -10,13 +10,7 @@ use std::path::Path;
 /// Returns the process exit code:
 /// - 0: all files already formatted (or successfully formatted)
 /// - 1: in `--check` mode, some files would change
-pub fn run(
-    path: &Path,
-    check: bool,
-    diff: bool,
-    stdin: bool,
-    explicit_paths: &[String],
-) -> i32 {
+pub fn run(path: &Path, check: bool, diff: bool, stdin: bool, explicit_paths: &[String]) -> i32 {
     // Find project root
     let project_root = find_project_root(path).unwrap_or_else(|| path.to_path_buf());
 
@@ -33,7 +27,11 @@ pub fn run(
     // Discover targets
     let explicit: Vec<std::path::PathBuf> = explicit_paths.iter().map(Into::into).collect();
     let spec_root = project_root.join("spec");
-    let search_root = if spec_root.exists() { &spec_root } else { &project_root };
+    let search_root = if spec_root.exists() {
+        &spec_root
+    } else {
+        &project_root
+    };
     let targets = discover_targets(search_root, &explicit, &[]);
 
     if targets.is_empty() {
@@ -89,11 +87,7 @@ pub fn run(
         );
     }
 
-    if check && files_changed > 0 {
-        1
-    } else {
-        0
-    }
+    if check && files_changed > 0 { 1 } else { 0 }
 }
 
 /// Format from stdin, write to stdout.

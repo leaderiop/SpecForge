@@ -43,7 +43,11 @@ pub fn load_provider_configurations(
     };
 
     for (i, entry) in arr.iter().enumerate() {
-        let name = match entry.get("alias").or_else(|| entry.get("name")).and_then(|v| v.as_str()) {
+        let name = match entry
+            .get("alias")
+            .or_else(|| entry.get("name"))
+            .and_then(|v| v.as_str())
+        {
             Some(n) => n.to_string(),
             None => {
                 diagnostics.push(Diagnostic {
@@ -51,9 +55,7 @@ pub fn load_provider_configurations(
                     severity: Severity::Warning,
                     message: format!("providers[{}]: missing 'alias' or 'name' field", i),
                     span: None,
-                    suggestion: Some(
-                        "add an 'alias' field to the provider entry".to_string(),
-                    ),
+                    suggestion: Some("add an 'alias' field to the provider entry".to_string()),
                 });
                 continue;
             }
@@ -71,9 +73,7 @@ pub fn load_provider_configurations(
                 severity: Severity::Warning,
                 message: format!("providers[{}] '{}': missing 'scheme' field", i, name),
                 span: None,
-                suggestion: Some(
-                    "add a 'scheme' field (e.g., \"gh\", \"jira\")".to_string(),
-                ),
+                suggestion: Some("add a 'scheme' field (e.g., \"gh\", \"jira\")".to_string()),
             });
             continue;
         }
@@ -147,9 +147,7 @@ pub fn register_provider_schemes(
                     provider.scheme, ext_name, existing_ext
                 ),
                 span: None,
-                suggestion: Some(
-                    "use distinct schemes for each provider extension".to_string(),
-                ),
+                suggestion: Some("use distinct schemes for each provider extension".to_string()),
             });
             continue;
         }
@@ -164,9 +162,7 @@ pub fn register_provider_schemes(
 
     // Warn about providers without matching manifests
     if !providers.is_empty() {
-        let has_contributor = manifests
-            .iter()
-            .any(|(_, m)| m.contributes.providers);
+        let has_contributor = manifests.iter().any(|(_, m)| m.contributes.providers);
         if !has_contributor {
             diagnostics.push(Diagnostic {
                 code: "W033".to_string(),
@@ -176,9 +172,7 @@ pub fn register_provider_schemes(
                     providers[0].name
                 ),
                 span: None,
-                suggestion: Some(
-                    "install an extension that contributes providers".to_string(),
-                ),
+                suggestion: Some("install an extension that contributes providers".to_string()),
             });
         }
     }
@@ -198,7 +192,10 @@ pub fn validate_provider_ref(
         diagnostics.push(Diagnostic {
             code: "E034".to_string(),
             severity: Severity::Error,
-            message: format!("unknown provider scheme '{}' in ref '{}:{}'", scheme, scheme, target),
+            message: format!(
+                "unknown provider scheme '{}' in ref '{}:{}'",
+                scheme, scheme, target
+            ),
             span: None,
             suggestion: Some(format!(
                 "configure a provider for scheme '{}' in specforge.json",
@@ -220,7 +217,9 @@ pub fn validate_ref_target_format(target: &str) -> Vec<Diagnostic> {
             severity: Severity::Warning,
             message: "ref target is empty".to_string(),
             span: None,
-            suggestion: Some("provide a non-empty ref target (e.g., \"42\", \"PROJ-123\")".to_string()),
+            suggestion: Some(
+                "provide a non-empty ref target (e.g., \"42\", \"PROJ-123\")".to_string(),
+            ),
         });
         return diagnostics;
     }
@@ -255,9 +254,7 @@ pub fn validate_provider_kinds(
 
 /// Load extension manifests from a directory.
 /// Each .json file in the directory is parsed as a ManifestV2.
-pub fn load_extension_manifests(
-    dir: &std::path::Path,
-) -> (Vec<ManifestV2>, Vec<Diagnostic>) {
+pub fn load_extension_manifests(dir: &std::path::Path) -> (Vec<ManifestV2>, Vec<Diagnostic>) {
     let mut manifests = Vec::new();
     let mut diagnostics = Vec::new();
 
@@ -276,15 +273,9 @@ pub fn load_extension_manifests(
                         diagnostics.push(Diagnostic {
                             code: "E030".to_string(),
                             severity: Severity::Error,
-                            message: format!(
-                                "malformed manifest at '{}': {}",
-                                path.display(),
-                                e
-                            ),
+                            message: format!("malformed manifest at '{}': {}", path.display(), e),
                             span: None,
-                            suggestion: Some(
-                                "check the manifest JSON syntax".to_string(),
-                            ),
+                            suggestion: Some("check the manifest JSON syntax".to_string()),
                         });
                     }
                 },
@@ -292,11 +283,7 @@ pub fn load_extension_manifests(
                     diagnostics.push(Diagnostic {
                         code: "E030".to_string(),
                         severity: Severity::Error,
-                        message: format!(
-                            "cannot read manifest at '{}': {}",
-                            path.display(),
-                            e
-                        ),
+                        message: format!("cannot read manifest at '{}': {}", path.display(), e),
                         span: None,
                         suggestion: None,
                     });

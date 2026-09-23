@@ -5,7 +5,10 @@ use specforge_validator::{Diagnostic, Severity, SourceSpan};
 
 // === detect_orphan_refs ===
 
-#[specforge_test(behavior = "detect_orphan_refs", verify = "unreferenced ref produces W012")]
+#[specforge_test(
+    behavior = "detect_orphan_refs",
+    verify = "unreferenced ref produces W012"
+)]
 #[test]
 fn unreferenced_ref_produces_w012() {
     let source = r#"
@@ -23,7 +26,10 @@ ref gh.issue:42 "Support Wasm extensions"
     assert_eq!(warnings[0].severity, Severity::Warning);
 }
 
-#[specforge_test(behavior = "detect_orphan_refs", verify = "referenced ref suppresses W012")]
+#[specforge_test(
+    behavior = "detect_orphan_refs",
+    verify = "referenced ref suppresses W012"
+)]
 #[test]
 fn referenced_ref_suppresses_w012() {
     let source = r#"
@@ -39,10 +45,16 @@ ref gh.issue:42 "Support Wasm extensions"
     let diagnostics = specforge_validator::validate(&graph);
 
     let warnings: Vec<_> = diagnostics.iter().filter(|d| d.code == "W012").collect();
-    assert!(warnings.is_empty(), "referenced ref should not produce W012");
+    assert!(
+        warnings.is_empty(),
+        "referenced ref should not produce W012"
+    );
 }
 
-#[specforge_test(behavior = "detect_orphan_refs", verify = "spec block is a root container and does not produce W012")]
+#[specforge_test(
+    behavior = "detect_orphan_refs",
+    verify = "spec block is a root container and does not produce W012"
+)]
 #[test]
 fn spec_block_does_not_produce_w012() {
     // spec blocks are project root containers — they naturally have no
@@ -59,10 +71,17 @@ behavior alpha "A" { contract "first" }
     let diagnostics = specforge_validator::validate(&graph);
 
     let warnings: Vec<_> = diagnostics.iter().filter(|d| d.code == "W012").collect();
-    assert!(warnings.is_empty(), "spec block should not produce W012, got: {:?}", warnings);
+    assert!(
+        warnings.is_empty(),
+        "spec block should not produce W012, got: {:?}",
+        warnings
+    );
 }
 
-#[specforge_test(behavior = "detect_orphan_refs", verify = "structural node with at least one incoming edge suppresses W012")]
+#[specforge_test(
+    behavior = "detect_orphan_refs",
+    verify = "structural node with at least one incoming edge suppresses W012"
+)]
 #[test]
 fn non_structural_kind_does_not_produce_w012() {
     // Extension-defined kinds (behavior, feature) are NOT structural —
@@ -76,12 +95,18 @@ behavior alpha "A" { contract "first" }
     let diagnostics = specforge_validator::validate(&graph);
 
     let warnings: Vec<_> = diagnostics.iter().filter(|d| d.code == "W012").collect();
-    assert!(warnings.is_empty(), "non-structural kinds should not trigger W012");
+    assert!(
+        warnings.is_empty(),
+        "non-structural kinds should not trigger W012"
+    );
 }
 
 // === validate_file_reference_paths ===
 
-#[specforge_test(behavior = "validate_file_reference_paths", verify = "non-existent file reference produces E016")]
+#[specforge_test(
+    behavior = "validate_file_reference_paths",
+    verify = "non-existent file reference produces E016"
+)]
 #[test]
 fn missing_file_reference_produces_e016() {
     use specforge_validator::ValidatorConfig;
@@ -107,7 +132,10 @@ behavior alpha "A" {
     assert!(errors[0].message.contains("alpha.feature"));
 }
 
-#[specforge_test(behavior = "validate_file_reference_paths", verify = "existing file reference passes silently")]
+#[specforge_test(
+    behavior = "validate_file_reference_paths",
+    verify = "existing file reference passes silently"
+)]
 #[test]
 fn existing_file_reference_passes() {
     use specforge_validator::ValidatorConfig;
@@ -136,7 +164,10 @@ behavior alpha "A" {
     assert!(errors.is_empty(), "existing file should not produce E016");
 }
 
-#[specforge_test(behavior = "validate_file_reference_paths", verify = "multiple file references in same entity each validated independently")]
+#[specforge_test(
+    behavior = "validate_file_reference_paths",
+    verify = "multiple file references in same entity each validated independently"
+)]
 #[test]
 fn multiple_file_refs_validated_independently() {
     use specforge_validator::ValidatorConfig;
@@ -169,7 +200,10 @@ behavior alpha "A" {
 
 // === provide_did_you_mean_suggestions (file references) ===
 
-#[specforge_test(behavior = "provide_did_you_mean_suggestions", verify = "close match produces suggestion")]
+#[specforge_test(
+    behavior = "provide_did_you_mean_suggestions",
+    verify = "close match produces suggestion"
+)]
 #[test]
 fn e016_suggests_similar_filename() {
     use specforge_validator::ValidatorConfig;
@@ -198,13 +232,19 @@ behavior alpha "A" {
     let errors: Vec<_> = diagnostics.iter().filter(|d| d.code == "E016").collect();
     assert_eq!(errors.len(), 1);
     assert!(
-        errors[0].suggestion.as_ref().is_some_and(|s| s.contains("alpha.feature")),
+        errors[0]
+            .suggestion
+            .as_ref()
+            .is_some_and(|s| s.contains("alpha.feature")),
         "E016 should suggest 'alpha.feature', got: {:?}",
         errors[0].suggestion
     );
 }
 
-#[specforge_test(behavior = "provide_did_you_mean_suggestions", verify = "distant match produces no suggestion")]
+#[specforge_test(
+    behavior = "provide_did_you_mean_suggestions",
+    verify = "distant match produces no suggestion"
+)]
 #[test]
 fn e016_no_suggestion_when_no_similar_file() {
     use specforge_validator::ValidatorConfig;
@@ -241,7 +281,10 @@ behavior alpha "A" {
 
 // === format_diagnostics_with_source_context ===
 
-#[specforge_test(behavior = "format_diagnostics_with_source_context", verify = "diagnostic shows file:line:col")]
+#[specforge_test(
+    behavior = "format_diagnostics_with_source_context",
+    verify = "diagnostic shows file:line:col"
+)]
 #[test]
 fn diagnostic_shows_file_line_col() {
     use specforge_validator::render_diagnostics;
@@ -253,19 +296,27 @@ feature gamma "G" { behaviors [alpha, nonexistent] }
     let spec_file = parse(source, "main.spec");
     let (_, diagnostics) = build_graph(&[spec_file]);
 
-    let sources: HashMap<String, String> =
-        vec![("main.spec".to_string(), source.to_string())]
-            .into_iter()
-            .collect();
+    let sources: HashMap<String, String> = vec![("main.spec".to_string(), source.to_string())]
+        .into_iter()
+        .collect();
     let output = render_diagnostics(&diagnostics, &sources);
 
-    assert!(output.contains("main.spec"), "output should contain filename");
+    assert!(
+        output.contains("main.spec"),
+        "output should contain filename"
+    );
     // ariadne renders line numbers — check the output has location info
     assert!(output.contains("E003"), "output should contain error code");
-    assert!(output.contains("nonexistent"), "output should contain the unresolved reference");
+    assert!(
+        output.contains("nonexistent"),
+        "output should contain the unresolved reference"
+    );
 }
 
-#[specforge_test(behavior = "format_diagnostics_with_source_context", verify = "context snippet highlights offending token")]
+#[specforge_test(
+    behavior = "format_diagnostics_with_source_context",
+    verify = "context snippet highlights offending token"
+)]
 #[test]
 fn diagnostic_shows_source_context() {
     use specforge_validator::render_diagnostics;
@@ -277,10 +328,9 @@ feature gamma "G" { behaviors [alpha, nonexistent] }
     let spec_file = parse(source, "main.spec");
     let (_, diagnostics) = build_graph(&[spec_file]);
 
-    let sources: HashMap<String, String> =
-        vec![("main.spec".to_string(), source.to_string())]
-            .into_iter()
-            .collect();
+    let sources: HashMap<String, String> = vec![("main.spec".to_string(), source.to_string())]
+        .into_iter()
+        .collect();
     let output = render_diagnostics(&diagnostics, &sources);
 
     // ariadne renders the offending source line
@@ -291,7 +341,10 @@ feature gamma "G" { behaviors [alpha, nonexistent] }
     );
 }
 
-#[specforge_test(behavior = "format_diagnostics_with_source_context", verify = "multi-line span shows full range")]
+#[specforge_test(
+    behavior = "format_diagnostics_with_source_context",
+    verify = "multi-line span shows full range"
+)]
 #[test]
 fn diagnostic_renders_multiline_span() {
     use specforge_validator::render_diagnostics;
@@ -312,20 +365,25 @@ fn diagnostic_renders_multiline_span() {
     };
 
     let source = "line 1\nbehavior alpha \"A\" {\n  contract \"first\"\n}\nline 5\n";
-    let sources: HashMap<String, String> =
-        vec![("test.spec".to_string(), source.to_string())]
-            .into_iter()
-            .collect();
+    let sources: HashMap<String, String> = vec![("test.spec".to_string(), source.to_string())]
+        .into_iter()
+        .collect();
     let output = render_diagnostics(&[diag], &sources);
 
     assert!(output.contains("E099"), "should contain error code");
     assert!(output.contains("test.spec"), "should contain filename");
-    assert!(output.contains("behavior alpha"), "should contain start line of span");
+    assert!(
+        output.contains("behavior alpha"),
+        "should contain start line of span"
+    );
 }
 
 // === aggregate_diagnostic_summary ===
 
-#[specforge_test(behavior = "aggregate_diagnostic_summary", verify = "summary shows correct counts")]
+#[specforge_test(
+    behavior = "aggregate_diagnostic_summary",
+    verify = "summary shows correct counts"
+)]
 #[test]
 fn summary_shows_correct_counts() {
     use specforge_validator::diagnostic_summary;
@@ -363,21 +421,43 @@ fn summary_shows_correct_counts() {
 
     let summary = diagnostic_summary(&diagnostics);
 
-    assert!(summary.contains("2 error"), "should show 2 errors: got '{}'", summary);
-    assert!(summary.contains("1 warning"), "should show 1 warning: got '{}'", summary);
-    assert!(summary.contains("1 info"), "should show 1 info: got '{}'", summary);
+    assert!(
+        summary.contains("2 error"),
+        "should show 2 errors: got '{}'",
+        summary
+    );
+    assert!(
+        summary.contains("1 warning"),
+        "should show 1 warning: got '{}'",
+        summary
+    );
+    assert!(
+        summary.contains("1 info"),
+        "should show 1 info: got '{}'",
+        summary
+    );
 }
 
-#[specforge_test(behavior = "aggregate_diagnostic_summary", verify = "summary matches actual diagnostics")]
+#[specforge_test(
+    behavior = "aggregate_diagnostic_summary",
+    verify = "summary matches actual diagnostics"
+)]
 #[test]
 fn summary_clean_project() {
     use specforge_validator::diagnostic_summary;
 
     let summary = diagnostic_summary(&[]);
-    assert!(summary.contains("0 error"), "clean project: got '{}'", summary);
+    assert!(
+        summary.contains("0 error"),
+        "clean project: got '{}'",
+        summary
+    );
 }
 
-#[specforge_test(behavior = "aggregate_diagnostic_summary", verify = "summary is red when errors exist")]
+#[specforge_test(
+    behavior = "aggregate_diagnostic_summary",
+    verify = "summary is red when errors exist"
+)]
 #[test]
 fn summary_red_when_errors_exist() {
     use specforge_validator::diagnostic_summary;
@@ -401,7 +481,10 @@ fn summary_red_when_errors_exist() {
 
 // === validate_file_reference_paths: relative path ===
 
-#[specforge_test(behavior = "validate_file_reference_paths", verify = "relative path resolved from spec file directory")]
+#[specforge_test(
+    behavior = "validate_file_reference_paths",
+    verify = "relative path resolved from spec file directory"
+)]
 #[test]
 fn relative_path_resolved_from_spec_root() {
     use specforge_validator::ValidatorConfig;
@@ -437,7 +520,10 @@ behavior alpha "A" {
 
 // === Contract tests ===
 
-#[specforge_test(behavior = "detect_orphan_refs", verify = "requires/ensures consistency for orphan structural node detection")]
+#[specforge_test(
+    behavior = "detect_orphan_refs",
+    verify = "requires/ensures consistency for orphan structural node detection"
+)]
 #[test]
 fn orphan_refs_contract_consistency() {
     // Requires: graph_built event has fired (graph is fully constructed)
@@ -464,10 +550,16 @@ ref gh.issue:42 "Linked ref"
     let (graph, _) = build_graph(&[spec_file]);
     let diagnostics = specforge_validator::validate(&graph);
     let w012: Vec<_> = diagnostics.iter().filter(|d| d.code == "W012").collect();
-    assert!(w012.is_empty(), "referenced structural node must not produce W012");
+    assert!(
+        w012.is_empty(),
+        "referenced structural node must not produce W012"
+    );
 }
 
-#[specforge_test(behavior = "validate_file_reference_paths", verify = "requires/ensures consistency for file reference validation")]
+#[specforge_test(
+    behavior = "validate_file_reference_paths",
+    verify = "requires/ensures consistency for file reference validation"
+)]
 #[test]
 fn file_ref_contract_consistency() {
     use specforge_validator::ValidatorConfig;
@@ -499,7 +591,10 @@ behavior alpha "A" {
     assert!(errors[0].message.contains("missing.feature"));
 }
 
-#[specforge_test(behavior = "format_diagnostics_with_source_context", verify = "requires/ensures consistency for diagnostic source context formatting")]
+#[specforge_test(
+    behavior = "format_diagnostics_with_source_context",
+    verify = "requires/ensures consistency for diagnostic source context formatting"
+)]
 #[test]
 fn diagnostic_format_contract_consistency() {
     use specforge_validator::render_diagnostics;
@@ -522,18 +617,23 @@ fn diagnostic_format_contract_consistency() {
     };
 
     let source = "line 1\nfeature gamma \"G\" { behaviors [nonexistent] }\nline 3\n";
-    let sources: HashMap<String, String> =
-        vec![("test.spec".to_string(), source.to_string())]
-            .into_iter()
-            .collect();
+    let sources: HashMap<String, String> = vec![("test.spec".to_string(), source.to_string())]
+        .into_iter()
+        .collect();
     let output = render_diagnostics(&[diag], &sources);
 
     assert!(output.contains("test.spec"), "must include file path");
     assert!(output.contains("E001"), "must include error code");
-    assert!(output.contains("behaviors"), "must include source context snippet");
+    assert!(
+        output.contains("behaviors"),
+        "must include source context snippet"
+    );
 }
 
-#[specforge_test(behavior = "aggregate_diagnostic_summary", verify = "requires/ensures consistency for diagnostic summary aggregation")]
+#[specforge_test(
+    behavior = "aggregate_diagnostic_summary",
+    verify = "requires/ensures consistency for diagnostic summary aggregation"
+)]
 #[test]
 fn summary_contract_consistency() {
     use specforge_validator::diagnostic_summary;
@@ -541,19 +641,58 @@ fn summary_contract_consistency() {
     // Requires: validation has completed
     // Ensures: counts match actual diagnostics exactly
     let diagnostics = vec![
-        Diagnostic { code: "E001".to_string(), severity: Severity::Error, message: "e".to_string(), span: None, suggestion: None },
-        Diagnostic { code: "E002".to_string(), severity: Severity::Error, message: "e".to_string(), span: None, suggestion: None },
-        Diagnostic { code: "E003".to_string(), severity: Severity::Error, message: "e".to_string(), span: None, suggestion: None },
-        Diagnostic { code: "W012".to_string(), severity: Severity::Warning, message: "w".to_string(), span: None, suggestion: None },
+        Diagnostic {
+            code: "E001".to_string(),
+            severity: Severity::Error,
+            message: "e".to_string(),
+            span: None,
+            suggestion: None,
+        },
+        Diagnostic {
+            code: "E002".to_string(),
+            severity: Severity::Error,
+            message: "e".to_string(),
+            span: None,
+            suggestion: None,
+        },
+        Diagnostic {
+            code: "E003".to_string(),
+            severity: Severity::Error,
+            message: "e".to_string(),
+            span: None,
+            suggestion: None,
+        },
+        Diagnostic {
+            code: "W012".to_string(),
+            severity: Severity::Warning,
+            message: "w".to_string(),
+            span: None,
+            suggestion: None,
+        },
     ];
     let summary = diagnostic_summary(&diagnostics);
 
-    assert!(summary.contains("3 error"), "must report exact error count: got '{}'", summary);
-    assert!(summary.contains("1 warning"), "must report exact warning count: got '{}'", summary);
-    assert!(summary.contains("0 info"), "must report exact info count: got '{}'", summary);
+    assert!(
+        summary.contains("3 error"),
+        "must report exact error count: got '{}'",
+        summary
+    );
+    assert!(
+        summary.contains("1 warning"),
+        "must report exact warning count: got '{}'",
+        summary
+    );
+    assert!(
+        summary.contains("0 info"),
+        "must report exact info count: got '{}'",
+        summary
+    );
 }
 
-#[specforge_test(behavior = "provide_did_you_mean_suggestions", verify = "requires/ensures consistency for did-you-mean suggestions")]
+#[specforge_test(
+    behavior = "provide_did_you_mean_suggestions",
+    verify = "requires/ensures consistency for did-you-mean suggestions"
+)]
 #[test]
 fn did_you_mean_contract_consistency() {
     // Requires: unresolved reference available, entity IDs populated
@@ -568,7 +707,10 @@ feature gamma "G" { behaviors [alpha_parsr] }
     let (_, diagnostics) = build_graph(&[spec_file]);
     let errors: Vec<_> = diagnostics.iter().filter(|d| d.code == "E003").collect();
     assert_eq!(errors.len(), 1);
-    assert!(errors[0].suggestion.is_some(), "close match must produce suggestion");
+    assert!(
+        errors[0].suggestion.is_some(),
+        "close match must produce suggestion"
+    );
 
     // Distant match → no suggestion
     let source_far = r#"
@@ -579,10 +721,16 @@ feature gamma "G" { behaviors [zzzzz_completely_different] }
     let (_, diagnostics) = build_graph(&[spec_file]);
     let errors: Vec<_> = diagnostics.iter().filter(|d| d.code == "E003").collect();
     assert_eq!(errors.len(), 1);
-    assert!(errors[0].suggestion.is_none(), "distant match must not produce suggestion");
+    assert!(
+        errors[0].suggestion.is_none(),
+        "distant match must not produce suggestion"
+    );
 }
 
-#[specforge_test(behavior = "provide_did_you_mean_suggestions", verify = "suggestion appears in help text")]
+#[specforge_test(
+    behavior = "provide_did_you_mean_suggestions",
+    verify = "suggestion appears in help text"
+)]
 #[test]
 fn suggestion_appears_in_help_text_for_file_refs() {
     use specforge_validator::ValidatorConfig;
@@ -610,14 +758,19 @@ behavior login_flow "Login" {
 
     let e016 = diagnostics.iter().find(|d| d.code == "E016").unwrap();
     assert!(
-        e016.suggestion.as_ref().is_some_and(|s| s.contains("login.feature")),
+        e016.suggestion
+            .as_ref()
+            .is_some_and(|s| s.contains("login.feature")),
         "suggestion must appear in diagnostic help text"
     );
 }
 
 // === detect_dangling_references ===
 
-#[specforge_test(behavior = "detect_dangling_references", verify = "reference without corresponding graph edge indicates resolver bug")]
+#[specforge_test(
+    behavior = "detect_dangling_references",
+    verify = "reference without corresponding graph edge indicates resolver bug"
+)]
 #[test]
 fn dangling_ref_without_edge_indicates_resolver_bug() {
     // A reference list entry that resolves (target exists) should always
@@ -644,7 +797,10 @@ behavior alpha "A" {
     );
 }
 
-#[specforge_test(behavior = "detect_dangling_references", verify = "reference with corresponding graph edge passes")]
+#[specforge_test(
+    behavior = "detect_dangling_references",
+    verify = "reference with corresponding graph edge passes"
+)]
 #[test]
 fn resolved_ref_has_corresponding_edge() {
     let source = r#"
@@ -661,7 +817,10 @@ invariant inv_one "Invariant One" {
 
     // No E003 — reference resolves cleanly
     let e001: Vec<_> = diagnostics.iter().filter(|d| d.code == "E003").collect();
-    assert!(e001.is_empty(), "resolved reference should not produce E003");
+    assert!(
+        e001.is_empty(),
+        "resolved reference should not produce E003"
+    );
 
     // Edge must exist from alpha to inv_one
     let edges = graph.edges_from("alpha");
@@ -671,7 +830,10 @@ invariant inv_one "Invariant One" {
     );
 }
 
-#[specforge_test(behavior = "detect_dangling_references", verify = "empty graph with zero edges produces no dangling reference diagnostic")]
+#[specforge_test(
+    behavior = "detect_dangling_references",
+    verify = "empty graph with zero edges produces no dangling reference diagnostic"
+)]
 #[test]
 fn empty_graph_no_dangling_diagnostics() {
     let source = r#"
@@ -683,10 +845,16 @@ behavior alpha "A" { contract "first" }
     // No reference lists → zero edges → no E003
     assert_eq!(graph.edge_count(), 0, "graph should have zero edges");
     let e001: Vec<_> = diagnostics.iter().filter(|d| d.code == "E003").collect();
-    assert!(e001.is_empty(), "empty graph should produce no dangling reference diagnostic");
+    assert!(
+        e001.is_empty(),
+        "empty graph should produce no dangling reference diagnostic"
+    );
 }
 
-#[specforge_test(behavior = "detect_dangling_references", verify = "requires/ensures consistency for dangling reference detection")]
+#[specforge_test(
+    behavior = "detect_dangling_references",
+    verify = "requires/ensures consistency for dangling reference detection"
+)]
 #[test]
 fn dangling_ref_contract_consistency() {
     // Requires: graph_built event has fired (graph is fully constructed)
@@ -703,7 +871,10 @@ invariant inv_one "I" { contract "must hold" }
     let e001: Vec<_> = diagnostics.iter().filter(|d| d.code == "E003").collect();
     assert!(e001.is_empty(), "resolved ref must not produce E003");
     assert!(
-        graph.edges_from("alpha").iter().any(|e| e.target == "inv_one"),
+        graph
+            .edges_from("alpha")
+            .iter()
+            .any(|e| e.target == "inv_one"),
         "resolved ref must have corresponding edge"
     );
 
@@ -714,7 +885,11 @@ behavior beta "B" { contract "second" invariants [missing] }
     let spec_file = parse(source_bad, "main.spec");
     let (graph, diagnostics) = build_graph(&[spec_file]);
     let e001: Vec<_> = diagnostics.iter().filter(|d| d.code == "E003").collect();
-    assert_eq!(e001.len(), 1, "unresolved ref must produce exactly one E003");
+    assert_eq!(
+        e001.len(),
+        1,
+        "unresolved ref must produce exactly one E003"
+    );
     assert!(
         graph.edges_from("beta").is_empty(),
         "unresolved ref must not create edge"
@@ -723,7 +898,10 @@ behavior beta "B" { contract "second" invariants [missing] }
 
 // === detect_duplicate_entity_ids ===
 
-#[specforge_test(behavior = "detect_duplicate_entity_ids", verify = "duplicate ID in same file produces E002")]
+#[specforge_test(
+    behavior = "detect_duplicate_entity_ids",
+    verify = "duplicate ID in same file produces E002"
+)]
 #[test]
 fn duplicate_id_same_file_produces_e002() {
     let source = r#"
@@ -734,11 +912,21 @@ behavior alpha "Second Alpha" { contract "second" }
     let (_, diagnostics) = build_graph(&[spec_file]);
 
     let e002: Vec<_> = diagnostics.iter().filter(|d| d.code == "E002").collect();
-    assert_eq!(e002.len(), 1, "duplicate ID in same file should produce E002");
-    assert!(e002[0].message.contains("alpha"), "E002 message should name the duplicate ID");
+    assert_eq!(
+        e002.len(),
+        1,
+        "duplicate ID in same file should produce E002"
+    );
+    assert!(
+        e002[0].message.contains("alpha"),
+        "E002 message should name the duplicate ID"
+    );
 }
 
-#[specforge_test(behavior = "detect_duplicate_entity_ids", verify = "duplicate ID across files produces E002")]
+#[specforge_test(
+    behavior = "detect_duplicate_entity_ids",
+    verify = "duplicate ID across files produces E002"
+)]
 #[test]
 fn duplicate_id_across_files_produces_e002() {
     let source_a = r#"
@@ -752,11 +940,21 @@ behavior alpha "Alpha in file B" { contract "second" }
     let (_, diagnostics) = build_graph(&[spec_file_a, spec_file_b]);
 
     let e002: Vec<_> = diagnostics.iter().filter(|d| d.code == "E002").collect();
-    assert_eq!(e002.len(), 1, "duplicate ID across files should produce E002");
-    assert!(e002[0].message.contains("alpha"), "E002 message should name the duplicate ID");
+    assert_eq!(
+        e002.len(),
+        1,
+        "duplicate ID across files should produce E002"
+    );
+    assert!(
+        e002[0].message.contains("alpha"),
+        "E002 message should name the duplicate ID"
+    );
 }
 
-#[specforge_test(behavior = "detect_duplicate_entity_ids", verify = "E002 includes both source locations")]
+#[specforge_test(
+    behavior = "detect_duplicate_entity_ids",
+    verify = "E002 includes both source locations"
+)]
 #[test]
 fn e002_includes_both_source_locations() {
     let source_a = r#"
@@ -789,7 +987,10 @@ behavior alpha "Alpha in file B" { contract "second" }
     );
 }
 
-#[specforge_test(behavior = "detect_duplicate_entity_ids", verify = "requires/ensures consistency for duplicate entity ID detection")]
+#[specforge_test(
+    behavior = "detect_duplicate_entity_ids",
+    verify = "requires/ensures consistency for duplicate entity ID detection"
+)]
 #[test]
 fn duplicate_id_contract_consistency() {
     // Requires: all_files_parsed (all .spec files parsed, entity IDs collected)
@@ -817,7 +1018,10 @@ behavior gamma "Gamma B" { contract "second" }
     let (_, diagnostics) = build_graph(&[spec_file_a, spec_file_b]);
     let e002: Vec<_> = diagnostics.iter().filter(|d| d.code == "E002").collect();
     assert_eq!(e002.len(), 1, "duplicate IDs must produce exactly one E002");
-    assert!(e002[0].message.contains("gamma"), "E002 must name the duplicate ID");
+    assert!(
+        e002[0].message.contains("gamma"),
+        "E002 must name the duplicate ID"
+    );
     assert!(
         e002[0].span.is_some(),
         "E002 must include source span identifying a declaration site"

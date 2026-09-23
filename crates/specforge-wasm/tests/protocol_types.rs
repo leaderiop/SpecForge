@@ -20,8 +20,14 @@ fn handshake_request_json_field_names() {
         supported_categories: vec!["entities".to_string()],
     };
     let json = serde_json::to_string(&req).unwrap();
-    assert!(json.contains("host_version"), "expected snake_case field name");
-    assert!(json.contains("supported_categories"), "expected snake_case field name");
+    assert!(
+        json.contains("host_version"),
+        "expected snake_case field name"
+    );
+    assert!(
+        json.contains("supported_categories"),
+        "expected snake_case field name"
+    );
 }
 
 #[test]
@@ -269,7 +275,11 @@ fn field_descriptor_with_enum_values() {
         target_kind: None,
         file_reference: false,
         default_value: Some("draft".to_string()),
-        enum_values: vec!["draft".to_string(), "active".to_string(), "done".to_string()],
+        enum_values: vec![
+            "draft".to_string(),
+            "active".to_string(),
+            "done".to_string(),
+        ],
         inverse_of: None,
     };
     let json = serde_json::to_string(&field).unwrap();
@@ -293,7 +303,10 @@ fn field_descriptor_enum_values_skipped_when_empty() {
         inverse_of: None,
     };
     let json = serde_json::to_string(&field).unwrap();
-    assert!(!json.contains("enum_values"), "empty enum_values should be skipped");
+    assert!(
+        !json.contains("enum_values"),
+        "empty enum_values should be skipped"
+    );
 }
 
 // ── Step 6: EdgeTypeDescriptor ──
@@ -411,7 +424,13 @@ fn validation_rule_descriptor_with_constraint() {
         constraint: Some(FieldConstraintDescriptor {
             kind: "enum".to_string(),
             pattern: None,
-            values: vec!["xs".to_string(), "s".to_string(), "m".to_string(), "l".to_string(), "xl".to_string()],
+            values: vec![
+                "xs".to_string(),
+                "s".to_string(),
+                "m".to_string(),
+                "l".to_string(),
+                "xl".to_string(),
+            ],
         }),
         wasm_function: None,
     };
@@ -434,7 +453,10 @@ fn validation_rule_descriptor_custom_wasm() {
         wasm_function: Some("validate__custom_check".to_string()),
     };
     let json = serde_json::to_string(&rule).unwrap();
-    assert!(json.contains("\"error\""), "severity should serialize as lowercase");
+    assert!(
+        json.contains("\"error\""),
+        "severity should serialize as lowercase"
+    );
     let decoded: ValidationRuleDescriptor = serde_json::from_str(&json).unwrap();
     assert_eq!(rule, decoded);
 }

@@ -67,7 +67,11 @@ fn remove_delegates_to_uninstall() {
     write_lock_file(dir.path(), &[("@specforge/software", "1.0.0", "registry")]);
 
     // Create the extension directory so uninstall can remove it
-    let ext_dir = dir.path().join(".specforge").join("extensions").join("@specforge/software");
+    let ext_dir = dir
+        .path()
+        .join(".specforge")
+        .join("extensions")
+        .join("@specforge/software");
     fs::create_dir_all(&ext_dir).unwrap();
     fs::write(ext_dir.join("extension.wasm"), b"fake wasm").unwrap();
 
@@ -138,7 +142,11 @@ fn remove_does_not_modify_spec_files() {
 
     write_lock_file(dir.path(), &[("@specforge/software", "1.0.0", "registry")]);
 
-    let ext_dir = dir.path().join(".specforge").join("extensions").join("@specforge/software");
+    let ext_dir = dir
+        .path()
+        .join(".specforge")
+        .join("extensions")
+        .join("@specforge/software");
     fs::create_dir_all(&ext_dir).unwrap();
     fs::write(ext_dir.join("extension.wasm"), b"fake").unwrap();
 
@@ -150,7 +158,10 @@ fn remove_does_not_modify_spec_files() {
 
     // Spec file should be unchanged
     let after = fs::read_to_string(spec_dir.join("test.spec")).unwrap();
-    assert_eq!(after, spec_content, ".spec files must not be modified by remove");
+    assert_eq!(
+        after, spec_content,
+        ".spec files must not be modified by remove"
+    );
 }
 
 // ===============================================================
@@ -224,8 +235,8 @@ fn extensions_json_format() {
 
     assert!(output.status.success());
     let stdout = String::from_utf8_lossy(&output.stdout);
-    let json: serde_json::Value = serde_json::from_str(&stdout)
-        .expect("--format json should produce valid JSON");
+    let json: serde_json::Value =
+        serde_json::from_str(&stdout).expect("--format json should produce valid JSON");
 
     assert_eq!(json["count"], 2);
     let extensions = json["extensions"].as_array().unwrap();
@@ -491,7 +502,10 @@ fn providers_contract() {
     assert_eq!(json["count"], 1, "ensures: all_providers_listed");
     // Postcondition: schemes_and_kinds_included
     let p = &json["providers"].as_array().unwrap()[0];
-    assert!(p["schemes"].is_array(), "ensures: schemes_and_kinds_included");
+    assert!(
+        p["schemes"].is_array(),
+        "ensures: schemes_and_kinds_included"
+    );
 }
 
 // ===============================================================
@@ -526,8 +540,8 @@ fn doctor_reports_health_check() {
         .unwrap();
 
     let stdout = String::from_utf8_lossy(&output.stdout);
-    let json: serde_json::Value = serde_json::from_str(&stdout)
-        .expect("doctor --format json should produce valid JSON");
+    let json: serde_json::Value =
+        serde_json::from_str(&stdout).expect("doctor --format json should produce valid JSON");
 
     assert_eq!(json["extensions_checked"], 1);
     // The hash won't match (lock has "hash_test_ext", actual file has a real sha256)
@@ -600,13 +614,13 @@ fn doctor_lists_enhancements() {
 
     // Two extensions with valid wasm files
     for name in &["ext-a", "ext-b"] {
-        let ext_dir = dir
-            .path()
-            .join(".specforge")
-            .join("extensions")
-            .join(name);
+        let ext_dir = dir.path().join(".specforge").join("extensions").join(name);
         fs::create_dir_all(&ext_dir).unwrap();
-        fs::write(ext_dir.join("extension.wasm"), format!("wasm-{}", name).as_bytes()).unwrap();
+        fs::write(
+            ext_dir.join("extension.wasm"),
+            format!("wasm-{}", name).as_bytes(),
+        )
+        .unwrap();
     }
 
     // Lock file entries with correct hashes

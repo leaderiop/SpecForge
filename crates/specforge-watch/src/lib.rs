@@ -8,17 +8,17 @@ mod watcher;
 
 pub use debounce::Debouncer;
 pub use delta::{
+    DeltaConfig, DeltaValidationResult, EdgeChange, GraphDelta, ModifiedNodeChange, NodeChange,
     compute_graph_delta, compute_graph_delta_with_config, validate_delta_correctness,
-    validate_delta_correctness_if_enabled, DeltaConfig, DeltaValidationResult, EdgeChange,
-    GraphDelta, ModifiedNodeChange, NodeChange,
+    validate_delta_correctness_if_enabled,
 };
 pub use dispatch::{
-    plan_incremental_dispatch, DispatchEntry, DispatchPlan, KindDescriptor, ValidatorDescriptor,
-    ValidatorInput,
+    DispatchEntry, DispatchPlan, KindDescriptor, ValidatorDescriptor, ValidatorInput,
+    plan_incremental_dispatch,
 };
 pub use import_dag::ImportDag;
 pub use pipeline::{IncrementalPipeline, IncrementalResult};
-pub use watcher::SpecWatcher;
 pub use subscribers::{
-    compute_diagnostics_delta, notify_delta_subscribers, DeltaSubscriber, DiagnosticsDelta,
+    DeltaSubscriber, DiagnosticsDelta, compute_diagnostics_delta, notify_delta_subscribers,
 };
+pub use watcher::SpecWatcher;

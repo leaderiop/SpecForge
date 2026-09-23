@@ -24,8 +24,7 @@ impl LocalStorage {
             .map_err(|e| format!("failed to create package directory: {}", e))?;
 
         let path = self.wasm_path(name, version);
-        std::fs::write(&path, data)
-            .map_err(|e| format!("failed to write wasm binary: {}", e))?;
+        std::fs::write(&path, data).map_err(|e| format!("failed to write wasm binary: {}", e))?;
 
         Ok(())
     }

@@ -7,15 +7,28 @@ use crate::state::McpState;
 pub fn call(state: &McpState, args: Value, id: Option<Value>) -> JsonRpcResponse {
     let entity_id = match args.get("entity_id").and_then(|v| v.as_str()) {
         Some(e) => e,
-        None => return JsonRpcResponse::error(id, error_codes::INVALID_PARAMS, "Missing required parameter: entity_id"),
+        None => {
+            return JsonRpcResponse::error(
+                id,
+                error_codes::INVALID_PARAMS,
+                "Missing required parameter: entity_id",
+            );
+        }
     };
 
     let node = match state.graph.node(entity_id) {
         Some(n) => n,
-        None => return JsonRpcResponse::error(id, error_codes::INVALID_PARAMS, format!("Entity not found: {}", entity_id)),
+        None => {
+            return JsonRpcResponse::error(
+                id,
+                error_codes::INVALID_PARAMS,
+                format!("Entity not found: {}", entity_id),
+            );
+        }
     };
 
-    let reference_count = state.graph.edges_to(entity_id).len() + state.graph.edges_from(entity_id).len();
+    let reference_count =
+        state.graph.edges_to(entity_id).len() + state.graph.edges_from(entity_id).len();
 
     let contract = node.fields.get("contract").and_then(|v| match v {
         FieldValue::String(s) => Some(s.clone()),
@@ -27,23 +40,42 @@ pub fn call(state: &McpState, args: Value, id: Option<Value>) -> JsonRpcResponse
         Some(FieldValue::VerifyList(stmts)) if !stmts.is_empty()
     );
 
-    let verify_declarations: Option<Vec<String>> = node.fields.get("verify").and_then(|v| match v {
-        FieldValue::VerifyList(stmts) => Some(stmts.iter().map(|s| format!("{} {}", s.kind, s.description)).collect()),
-        _ => None,
-    });
+    let verify_declarations: Option<Vec<String>> =
+        node.fields.get("verify").and_then(|v| match v {
+            FieldValue::VerifyList(stmts) => Some(
+                stmts
+                    .iter()
+                    .map(|s| format!("{} {}", s.kind, s.description))
+                    .collect(),
+            ),
+            _ => None,
+        });
 
-    let references: Vec<String> = state.graph.edges_to(entity_id).iter()
+    let references: Vec<String> = state
+        .graph
+        .edges_to(entity_id)
+        .iter()
         .map(|e| e.source.to_string())
-        .chain(state.graph.edges_from(entity_id).iter().map(|e| e.target.to_string()))
+        .chain(
+            state
+                .graph
+                .edges_from(entity_id)
+                .iter()
+                .map(|e| e.target.to_string()),
+        )
         .collect();
 
-    let entity_diagnostics: Vec<Value> = state.diagnostics.iter()
+    let entity_diagnostics: Vec<Value> = state
+        .diagnostics
+        .iter()
         .filter(|d| d.message.contains(entity_id))
-        .map(|d| serde_json::json!({
-            "code": d.code,
-            "severity": format!("{:?}", d.severity),
-            "message": d.message
-        }))
+        .map(|d| {
+            serde_json::json!({
+                "code": d.code,
+                "severity": format!("{:?}", d.severity),
+                "message": d.message
+            })
+        })
         .collect();
 
     let coverage_status = if has_verify { "partial" } else { "uncovered" };
@@ -68,10 +100,13 @@ pub fn call(state: &McpState, args: Value, id: Option<Value>) -> JsonRpcResponse
         "diagnostics": entity_diagnostics
     });
 
-    JsonRpcResponse::success(id, serde_json::json!({
-        "content": [{
-            "type": "text",
-            "text": result.to_string()
-        }]
-    }))
+    JsonRpcResponse::success(
+        id,
+        serde_json::json!({
+            "content": [{
+                "type": "text",
+                "text": result.to_string()
+            }]
+        }),
+    )
 }

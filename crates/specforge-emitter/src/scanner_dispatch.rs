@@ -27,10 +27,12 @@ pub fn scan_source_files(
                 } else {
                     format!(".{}", ext)
                 };
-                ext_lookup.entry(normalized).or_insert_with(|| ScannerEntry {
-                    extension_name: manifest.name.clone(),
-                    scan_export: ac.scan_export.clone(),
-                });
+                ext_lookup
+                    .entry(normalized)
+                    .or_insert_with(|| ScannerEntry {
+                        extension_name: manifest.name.clone(),
+                        scan_export: ac.scan_export.clone(),
+                    });
             }
         }
     }
@@ -66,20 +68,21 @@ pub fn scan_source_files(
 
         let result = runtime.call_export(&entry.extension_name, &entry.scan_export, &input);
         if let specforge_wasm::runtime::WasmCallResult::Ok(output) = result
-            && let Ok(resp) = serde_json::from_slice::<ScanResponse>(&output) {
-                for item in resp.items {
-                    all_items.push(SourceItem {
-                        name: item.name,
-                        item_kind: item.item_kind,
-                        file: file_path.clone(),
-                        line: item.line,
-                        scanner: Some(entry.extension_name.clone()),
-                    });
-                }
-                if !scanners_used.contains(&entry.extension_name) {
-                    scanners_used.push(entry.extension_name.clone());
-                }
+            && let Ok(resp) = serde_json::from_slice::<ScanResponse>(&output)
+        {
+            for item in resp.items {
+                all_items.push(SourceItem {
+                    name: item.name,
+                    item_kind: item.item_kind,
+                    file: file_path.clone(),
+                    line: item.line,
+                    scanner: Some(entry.extension_name.clone()),
+                });
             }
+            if !scanners_used.contains(&entry.extension_name) {
+                scanners_used.push(entry.extension_name.clone());
+            }
+        }
     }
 
     (all_items, scanners_used)

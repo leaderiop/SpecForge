@@ -6,7 +6,9 @@ use crate::state::McpState;
 pub fn call(state: &McpState, args: Value, id: Option<Value>) -> JsonRpcResponse {
     let entity_filter = args.get("entity_id").and_then(|v| v.as_str());
 
-    let suggestions: Vec<Value> = state.diagnostics.iter()
+    let suggestions: Vec<Value> = state
+        .diagnostics
+        .iter()
         .filter(|d| {
             if let Some(eid) = entity_filter {
                 d.message.contains(eid)
@@ -26,10 +28,13 @@ pub fn call(state: &McpState, args: Value, id: Option<Value>) -> JsonRpcResponse
         })
         .collect();
 
-    JsonRpcResponse::success(id, serde_json::json!({
-        "content": [{
-            "type": "text",
-            "text": serde_json::to_string_pretty(&suggestions).unwrap()
-        }]
-    }))
+    JsonRpcResponse::success(
+        id,
+        serde_json::json!({
+            "content": [{
+                "type": "text",
+                "text": serde_json::to_string_pretty(&suggestions).unwrap()
+            }]
+        }),
+    )
 }

@@ -83,17 +83,20 @@ impl MockRuntime {
     }
 
     pub fn with_load_err(mut self, path: &str, err: &str) -> Self {
-        self.load_results.insert(path.to_string(), Err(err.to_string()));
+        self.load_results
+            .insert(path.to_string(), Err(err.to_string()));
         self
     }
 
     pub fn with_call_ok(mut self, export: &str, output: Vec<u8>) -> Self {
-        self.call_results.insert(export.to_string(), WasmCallResult::Ok(output));
+        self.call_results
+            .insert(export.to_string(), WasmCallResult::Ok(output));
         self
     }
 
     pub fn with_call_trap(mut self, export: &str, trap: WasmTrapInfo) -> Self {
-        self.call_results.insert(export.to_string(), WasmCallResult::Trap(trap));
+        self.call_results
+            .insert(export.to_string(), WasmCallResult::Trap(trap));
         self
     }
 }
@@ -102,13 +105,15 @@ impl MockRuntime {
 impl WasmRuntime for MockRuntime {
     fn load_module(&self, wasm_path: &Path, _aot_cache_path: Option<&Path>) -> Result<(), String> {
         let key = wasm_path.to_string_lossy().to_string();
-        self.load_results
-            .get(&key)
-            .cloned()
-            .unwrap_or(Ok(()))
+        self.load_results.get(&key).cloned().unwrap_or(Ok(()))
     }
 
-    fn call_export(&self, _extension_name: &str, export_name: &str, _input: &[u8]) -> WasmCallResult {
+    fn call_export(
+        &self,
+        _extension_name: &str,
+        export_name: &str,
+        _input: &[u8],
+    ) -> WasmCallResult {
         self.call_results
             .get(export_name)
             .cloned()

@@ -2,13 +2,16 @@ use serde_json::json;
 use specforge_common::find_project_root;
 use std::path::Path;
 
-pub fn run(path: &Path, name: Option<&str>, version: Option<&str>, extensions: &[String], format: &str) -> i32 {
+pub fn run(
+    path: &Path,
+    name: Option<&str>,
+    version: Option<&str>,
+    extensions: &[String],
+    format: &str,
+) -> i32 {
     // Check for existing project
     if let Some(existing) = find_project_root(path) {
-        eprintln!(
-            "error: project already exists at {}",
-            existing.display()
-        );
+        eprintln!("error: project already exists at {}", existing.display());
         return 1;
     }
 
@@ -107,10 +110,17 @@ pub fn run(path: &Path, name: Option<&str>, version: Option<&str>, extensions: &
                 "spec_file_path": starter_path,
                 "extensions_installed": extensions,
             });
-            println!("{}", serde_json::to_string_pretty(&output).expect("serialize JSON output"));
+            println!(
+                "{}",
+                serde_json::to_string_pretty(&output).expect("serialize JSON output")
+            );
         }
         _ => {
-            println!("Initialized project '{}' at {}", project_name, path.display());
+            println!(
+                "Initialized project '{}' at {}",
+                project_name,
+                path.display()
+            );
             println!("  specforge.json");
             println!("  {}/hello.spec", spec_root);
             if extensions.is_empty() {
@@ -143,7 +153,10 @@ fn validate_project_name(name: &str) -> Result<(), &'static str> {
 
 fn validate_extension_specifier(spec: &str) -> Result<(), &'static str> {
     // Extension specifiers must follow @scope/name or @scope/name@version format
-    let base = spec.split('@').filter(|s| !s.is_empty()).collect::<Vec<_>>();
+    let base = spec
+        .split('@')
+        .filter(|s| !s.is_empty())
+        .collect::<Vec<_>>();
     if base.is_empty() {
         return Err("extension specifier must not be empty");
     }
@@ -167,7 +180,13 @@ fn validate_extension_specifier(spec: &str) -> Result<(), &'static str> {
 
 fn sanitize_entity_id(name: &str) -> String {
     name.chars()
-        .map(|c| if c.is_ascii_alphanumeric() || c == '_' { c } else { '_' })
+        .map(|c| {
+            if c.is_ascii_alphanumeric() || c == '_' {
+                c
+            } else {
+                '_'
+            }
+        })
         .collect()
 }
 
@@ -275,4 +294,3 @@ deliverable app "Application" {{
 "#
     )
 }
-

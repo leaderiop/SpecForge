@@ -16,7 +16,9 @@ fn span() -> SourceSpan {
 fn node(id: &str, kind: &str, title: Option<&str>) -> Node {
     Node {
         id: EntityId { raw: Sym::new(id) },
-        kind: EntityKind { raw: Sym::new(kind) },
+        kind: EntityKind {
+            raw: Sym::new(kind),
+        },
         title: title.map(|s| s.to_string()),
         fields: FieldMap::new(),
         source_span: span(),
@@ -25,10 +27,15 @@ fn node(id: &str, kind: &str, title: Option<&str>) -> Node {
 
 fn node_with_contract(id: &str, kind: &str, title: &str, contract: &str) -> Node {
     let mut fields = FieldMap::new();
-    fields.push(Sym::new("contract"), FieldValue::String(contract.to_string()));
+    fields.push(
+        Sym::new("contract"),
+        FieldValue::String(contract.to_string()),
+    );
     Node {
         id: EntityId { raw: Sym::new(id) },
-        kind: EntityKind { raw: Sym::new(kind) },
+        kind: EntityKind {
+            raw: Sym::new(kind),
+        },
         title: Some(title.to_string()),
         fields,
         source_span: span(),
@@ -37,11 +44,16 @@ fn node_with_contract(id: &str, kind: &str, title: &str, contract: &str) -> Node
 
 // B:export_agent_brief_format — verify unit "brief format includes only IDs, kinds, titles, and edges"
 #[test]
-#[specforge_test(behavior = "export_agent_brief_format", verify = "brief format includes only IDs, kinds, titles, and edges")]
+#[specforge_test(
+    behavior = "export_agent_brief_format",
+    verify = "brief format includes only IDs, kinds, titles, and edges"
+)]
 fn brief_includes_only_ids_kinds_titles_and_edges() {
     let mut graph = Graph::new();
     graph.add_node(node_with_contract(
-        "alpha", "behavior", "Alpha",
+        "alpha",
+        "behavior",
+        "Alpha",
         "The system MUST do alpha things with lots of verbose prose.",
     ));
     graph.add_node(node("beta", "feature", Some("Beta")));
@@ -61,8 +73,14 @@ fn brief_includes_only_ids_kinds_titles_and_edges() {
     assert_eq!(nodes[0]["id"], "alpha");
     assert_eq!(nodes[0]["kind"], "behavior");
     assert_eq!(nodes[0]["title"], "Alpha");
-    assert!(nodes[0].get("contract").is_none(), "brief must not include contract");
-    assert!(nodes[0].get("fields").is_none(), "brief must not include fields");
+    assert!(
+        nodes[0].get("contract").is_none(),
+        "brief must not include contract"
+    );
+    assert!(
+        nodes[0].get("fields").is_none(),
+        "brief must not include fields"
+    );
 
     // Has edges
     let edges = parsed["edges"].as_array().unwrap();
@@ -74,25 +92,43 @@ fn brief_includes_only_ids_kinds_titles_and_edges() {
 
 // B:export_agent_brief_format — verify unit "brief format is smaller than context format"
 #[test]
-#[specforge_test(behavior = "export_agent_brief_format", verify = "brief format is smaller than context format")]
+#[specforge_test(
+    behavior = "export_agent_brief_format",
+    verify = "brief format is smaller than context format"
+)]
 fn brief_is_smaller_than_full_json() {
     let mut graph = Graph::new();
     graph.add_node(node_with_contract(
-        "alpha", "behavior", "Alpha",
+        "alpha",
+        "behavior",
+        "Alpha",
         "The system MUST do alpha things with lots of verbose prose that makes the output larger.",
     ));
 
     let brief = specforge_emitter::emit_brief(&graph);
     let full = specforge_emitter::emit_json(&graph);
-    assert!(brief.len() < full.len(), "brief ({}) should be smaller than full ({})", brief.len(), full.len());
+    assert!(
+        brief.len() < full.len(),
+        "brief ({}) should be smaller than full ({})",
+        brief.len(),
+        full.len()
+    );
 }
 
 // B:export_agent_brief_format — verify unit "output conforms to Graph Protocol schema"
 #[test]
-#[specforge_test(behavior = "export_agent_brief_format", verify = "output conforms to Graph Protocol schema")]
+#[specforge_test(
+    behavior = "export_agent_brief_format",
+    verify = "output conforms to Graph Protocol schema"
+)]
 fn brief_conforms_to_graph_protocol_schema() {
     let mut graph = Graph::new();
-    graph.add_node(node_with_contract("alpha", "behavior", "Alpha", "contract text"));
+    graph.add_node(node_with_contract(
+        "alpha",
+        "behavior",
+        "Alpha",
+        "contract text",
+    ));
     graph.add_node(node("beta", "feature", Some("Beta")));
     graph.add_edge(Edge {
         source: Sym::new("beta"),
@@ -117,14 +153,26 @@ fn brief_conforms_to_graph_protocol_schema() {
 
 // B:export_agent_brief_format — verify contract "requires/ensures consistency for agent brief export"
 #[test]
-#[specforge_test(behavior = "export_agent_brief_format", verify = "requires/ensures consistency for agent brief export")]
+#[specforge_test(
+    behavior = "export_agent_brief_format",
+    verify = "requires/ensures consistency for agent brief export"
+)]
 fn brief_export_contract() {
     // Requires: graph is finalized (validation_complete)
     // Ensures: minimal representation (IDs, kinds, titles, edges), schema_version present
     let mut graph = Graph::new();
-    graph.add_node(node_with_contract("a", "behavior", "A", "The system MUST do X"));
+    graph.add_node(node_with_contract(
+        "a",
+        "behavior",
+        "A",
+        "The system MUST do X",
+    ));
     graph.add_node(node("b", "feature", Some("B")));
-    graph.add_edge(Edge { source: "b".into(), target: "a".into(), label: "behaviors".into() });
+    graph.add_edge(Edge {
+        source: "b".into(),
+        target: "a".into(),
+        label: "behaviors".into(),
+    });
 
     let json = specforge_emitter::emit_brief(&graph);
     let parsed: serde_json::Value = serde_json::from_str(&json).unwrap();
@@ -137,8 +185,14 @@ fn brief_export_contract() {
 
     // No fields/contract in brief format
     for node in nodes {
-        assert!(node.get("contract").is_none(), "brief must not include contract");
-        assert!(node.get("fields").is_none(), "brief must not include fields");
+        assert!(
+            node.get("contract").is_none(),
+            "brief must not include contract"
+        );
+        assert!(
+            node.get("fields").is_none(),
+            "brief must not include fields"
+        );
     }
 
     // Schema version present
@@ -147,13 +201,20 @@ fn brief_export_contract() {
 
 // B:export_agent_brief_format — verify unit "output includes schema_version field"
 #[test]
-#[specforge_test(behavior = "export_agent_brief_format", verify = "output includes schema_version field")]
+#[specforge_test(
+    behavior = "export_agent_brief_format",
+    verify = "output includes schema_version field"
+)]
 fn brief_schema_version_matches_graph_format() {
     let mut graph = Graph::new();
     graph.add_node(node("x", "behavior", Some("X")));
 
-    let brief: serde_json::Value = serde_json::from_str(&specforge_emitter::emit_brief(&graph)).unwrap();
-    let full: serde_json::Value = serde_json::from_str(&specforge_emitter::emit_json(&graph)).unwrap();
-    assert_eq!(brief["schema_version"], full["schema_version"],
-        "brief and graph formats must use same schema_version");
+    let brief: serde_json::Value =
+        serde_json::from_str(&specforge_emitter::emit_brief(&graph)).unwrap();
+    let full: serde_json::Value =
+        serde_json::from_str(&specforge_emitter::emit_json(&graph)).unwrap();
+    assert_eq!(
+        brief["schema_version"], full["schema_version"],
+        "brief and graph formats must use same schema_version"
+    );
 }

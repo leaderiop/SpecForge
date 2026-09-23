@@ -1,5 +1,5 @@
 use crate::ResolvedProject;
-use specforge_common::{find_close_match, Diagnostic, Severity, Sym};
+use specforge_common::{Diagnostic, Severity, Sym, find_close_match};
 use specforge_parser::FieldValue;
 use std::collections::HashMap;
 
@@ -72,9 +72,7 @@ pub fn link_references(project: &ResolvedProject) -> (Vec<PendingEdge>, Vec<Diag
                                     target_id, entity.id.raw
                                 ),
                                 span: Some(entity.span.clone()),
-                                suggestion: suggestion.map(|s| {
-                                    format!("did you mean '{}'?", s)
-                                }),
+                                suggestion: suggestion.map(|s| format!("did you mean '{}'?", s)),
                             });
                         }
                     }

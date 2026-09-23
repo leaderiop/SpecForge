@@ -97,7 +97,10 @@ impl WasmRuntime for BuiltinRuntime {
                     },
                     None => WasmCallResult::Trap(WasmTrapInfo {
                         kind: "unsupported_category".to_string(),
-                        message: format!("extension does not support category '{}'", request.category),
+                        message: format!(
+                            "extension does not support category '{}'",
+                            request.category
+                        ),
                         export_name: export_name.to_string(),
                     }),
                 }
@@ -166,8 +169,7 @@ mod tests {
 
     #[test]
     fn handshake_returns_correct_response() {
-        let runtime = BuiltinRuntime::new()
-            .with_extension("@test/ext", Box::new(TestExtension));
+        let runtime = BuiltinRuntime::new().with_extension("@test/ext", Box::new(TestExtension));
 
         let input = serde_json::to_vec(&serde_json::json!({
             "host_version": "1.0",
@@ -191,8 +193,7 @@ mod tests {
 
     #[test]
     fn describe_returns_entities() {
-        let runtime = BuiltinRuntime::new()
-            .with_extension("@test/ext", Box::new(TestExtension));
+        let runtime = BuiltinRuntime::new().with_extension("@test/ext", Box::new(TestExtension));
 
         let input = serde_json::to_vec(&serde_json::json!({ "category": "entities" })).unwrap();
 
@@ -214,8 +215,7 @@ mod tests {
 
     #[test]
     fn describe_unsupported_category_returns_trap() {
-        let runtime = BuiltinRuntime::new()
-            .with_extension("@test/ext", Box::new(TestExtension));
+        let runtime = BuiltinRuntime::new().with_extension("@test/ext", Box::new(TestExtension));
 
         let input = serde_json::to_vec(&serde_json::json!({ "category": "surfaces" })).unwrap();
 
@@ -245,8 +245,7 @@ mod tests {
 
     #[test]
     fn unknown_export_returns_trap() {
-        let runtime = BuiltinRuntime::new()
-            .with_extension("@test/ext", Box::new(TestExtension));
+        let runtime = BuiltinRuntime::new().with_extension("@test/ext", Box::new(TestExtension));
 
         let result = runtime.call_export("@test/ext", "initialize", &[]);
         match result {

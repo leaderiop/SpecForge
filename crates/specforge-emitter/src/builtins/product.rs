@@ -222,26 +222,166 @@ impl ProductExtension {
 
     fn edge_types(&self) -> Vec<EdgeTypeDescriptor> {
         vec![
-            edge("FeatureDependsOn", "feature", "feature", "dashed", "#2196F3", None),
-            edge_desc("FeatureRelatesTo", "feature", "feature", "dotted", "#2196F3", "Feature has a non-dependency relationship to another feature"),
-            edge("JourneyExercisesFeature", "journey", "feature", "solid", "#FF9800", None),
-            edge("JourneyTargetsPersona", "journey", "persona", "solid", "#E91E63", None),
-            edge("JourneyUsesChannel", "journey", "channel", "solid", "#00BCD4", None),
-            edge("DeliverableSupportsJourney", "deliverable", "journey", "solid", "#4CAF50", None),
-            edge("DeliverableContainsModule", "deliverable", "module", "solid", "#607D8B", None),
-            edge("DeliverableTrackedByMilestone", "deliverable", "milestone", "solid", "#9C27B0", None),
-            edge("DeliverableDependsOn", "deliverable", "deliverable", "dashed", "#4CAF50", None),
-            edge("MilestoneDeliversFeature", "milestone", "feature", "solid", "#9C27B0", None),
-            edge("MilestoneScopesModule", "milestone", "module", "solid", "#607D8B", None),
-            edge("MilestoneDependsOn", "milestone", "milestone", "dashed", "#9C27B0", None),
-            edge("ModuleContainsFeature", "module", "feature", "solid", "#607D8B", None),
-            edge("ModuleDependsOn", "module", "module", "dashed", "#607D8B", None),
-            edge("TermReferencesRelatedTerm", "term", "term", "dotted", "#795548", None),
-            edge_desc("TermBelongsToModule", "term", "module", "dotted", "#795548", "Term is defined within a module's bounded context"),
-            edge("ReleaseIncludesDeliverable", "release", "deliverable", "solid", "#FF5722", None),
-            edge("ReleaseCompletesMilestone", "release", "milestone", "solid", "#FF5722", None),
-            edge("ReleaseDependsOn", "release", "release", "dashed", "#FF5722", None),
-            edge_desc("PersonaPrioritizesFeature", "persona", "feature", "solid", "#E91E63", "Persona prioritizes a feature"),
+            edge(
+                "FeatureDependsOn",
+                "feature",
+                "feature",
+                "dashed",
+                "#2196F3",
+                None,
+            ),
+            edge_desc(
+                "FeatureRelatesTo",
+                "feature",
+                "feature",
+                "dotted",
+                "#2196F3",
+                "Feature has a non-dependency relationship to another feature",
+            ),
+            edge(
+                "JourneyExercisesFeature",
+                "journey",
+                "feature",
+                "solid",
+                "#FF9800",
+                None,
+            ),
+            edge(
+                "JourneyTargetsPersona",
+                "journey",
+                "persona",
+                "solid",
+                "#E91E63",
+                None,
+            ),
+            edge(
+                "JourneyUsesChannel",
+                "journey",
+                "channel",
+                "solid",
+                "#00BCD4",
+                None,
+            ),
+            edge(
+                "DeliverableSupportsJourney",
+                "deliverable",
+                "journey",
+                "solid",
+                "#4CAF50",
+                None,
+            ),
+            edge(
+                "DeliverableContainsModule",
+                "deliverable",
+                "module",
+                "solid",
+                "#607D8B",
+                None,
+            ),
+            edge(
+                "DeliverableTrackedByMilestone",
+                "deliverable",
+                "milestone",
+                "solid",
+                "#9C27B0",
+                None,
+            ),
+            edge(
+                "DeliverableDependsOn",
+                "deliverable",
+                "deliverable",
+                "dashed",
+                "#4CAF50",
+                None,
+            ),
+            edge(
+                "MilestoneDeliversFeature",
+                "milestone",
+                "feature",
+                "solid",
+                "#9C27B0",
+                None,
+            ),
+            edge(
+                "MilestoneScopesModule",
+                "milestone",
+                "module",
+                "solid",
+                "#607D8B",
+                None,
+            ),
+            edge(
+                "MilestoneDependsOn",
+                "milestone",
+                "milestone",
+                "dashed",
+                "#9C27B0",
+                None,
+            ),
+            edge(
+                "ModuleContainsFeature",
+                "module",
+                "feature",
+                "solid",
+                "#607D8B",
+                None,
+            ),
+            edge(
+                "ModuleDependsOn",
+                "module",
+                "module",
+                "dashed",
+                "#607D8B",
+                None,
+            ),
+            edge(
+                "TermReferencesRelatedTerm",
+                "term",
+                "term",
+                "dotted",
+                "#795548",
+                None,
+            ),
+            edge_desc(
+                "TermBelongsToModule",
+                "term",
+                "module",
+                "dotted",
+                "#795548",
+                "Term is defined within a module's bounded context",
+            ),
+            edge(
+                "ReleaseIncludesDeliverable",
+                "release",
+                "deliverable",
+                "solid",
+                "#FF5722",
+                None,
+            ),
+            edge(
+                "ReleaseCompletesMilestone",
+                "release",
+                "milestone",
+                "solid",
+                "#FF5722",
+                None,
+            ),
+            edge(
+                "ReleaseDependsOn",
+                "release",
+                "release",
+                "dashed",
+                "#FF5722",
+                None,
+            ),
+            edge_desc(
+                "PersonaPrioritizesFeature",
+                "persona",
+                "feature",
+                "solid",
+                "#E91E63",
+                "Persona prioritizes a feature",
+            ),
         ]
     }
 
@@ -257,32 +397,116 @@ impl ProductExtension {
     fn validation_rules(&self) -> Vec<ValidationRuleDescriptor> {
         vec![
             // Field value constraints
-            fvc("W077", "feature", "status", &["proposed", "accepted", "in_progress", "done", "deferred", "deprecated"],
-                "feature '{id}' has invalid status '{value}' — expected one of: proposed, accepted, in_progress, done, deferred, deprecated"),
-            fvc("W078", "feature", "priority", &["critical", "high", "medium", "low"],
-                "{kind} '{id}' has invalid priority '{value}' — expected one of: critical, high, medium, low"),
-            fvc("W078", "journey", "priority", &["critical", "high", "medium", "low"],
-                "{kind} '{id}' has invalid priority '{value}' — expected one of: critical, high, medium, low"),
-            fvc("W078", "milestone", "priority", &["critical", "high", "medium", "low"],
-                "{kind} '{id}' has invalid priority '{value}' — expected one of: critical, high, medium, low"),
-            fvc("W078", "constraint", "priority", &["critical", "high", "medium", "low"],
-                "{kind} '{id}' has invalid priority '{value}' — expected one of: critical, high, medium, low"),
-            fvc("W079", "milestone", "status", &["planned", "in_progress", "completed", "blocked"],
-                "milestone '{id}' has invalid status '{value}' — expected one of: planned, in_progress, completed, blocked"),
-            fvc("W080", "deliverable", "artifact_type", &["cli", "service", "library", "web_app", "mobile_app", "api", "extension", "documentation", "package"],
-                "deliverable '{id}' has invalid artifact_type '{value}' — expected one of: cli, service, library, web_app, mobile_app, api, extension, documentation, package"),
-            fvc("W083", "persona", "status", &["active", "deprecated"],
-                "persona '{id}' has invalid status '{value}' — expected one of: active, deprecated"),
-            fvc("W084", "channel", "status", &["active", "deprecated"],
-                "channel '{id}' has invalid status '{value}' — expected one of: active, deprecated"),
-            fvc("W085", "deliverable", "status", &["draft", "in_progress", "shipped", "deprecated"],
-                "deliverable '{id}' has invalid status '{value}' — expected one of: draft, in_progress, shipped, deprecated"),
-            fvc("W095", "feature", "effort", &["xs", "s", "m", "l", "xl"],
-                "feature '{id}' has invalid effort '{value}' — expected one of: xs, s, m, l, xl"),
+            fvc(
+                "W077",
+                "feature",
+                "status",
+                &[
+                    "proposed",
+                    "accepted",
+                    "in_progress",
+                    "done",
+                    "deferred",
+                    "deprecated",
+                ],
+                "feature '{id}' has invalid status '{value}' — expected one of: proposed, accepted, in_progress, done, deferred, deprecated",
+            ),
+            fvc(
+                "W078",
+                "feature",
+                "priority",
+                &["critical", "high", "medium", "low"],
+                "{kind} '{id}' has invalid priority '{value}' — expected one of: critical, high, medium, low",
+            ),
+            fvc(
+                "W078",
+                "journey",
+                "priority",
+                &["critical", "high", "medium", "low"],
+                "{kind} '{id}' has invalid priority '{value}' — expected one of: critical, high, medium, low",
+            ),
+            fvc(
+                "W078",
+                "milestone",
+                "priority",
+                &["critical", "high", "medium", "low"],
+                "{kind} '{id}' has invalid priority '{value}' — expected one of: critical, high, medium, low",
+            ),
+            fvc(
+                "W078",
+                "constraint",
+                "priority",
+                &["critical", "high", "medium", "low"],
+                "{kind} '{id}' has invalid priority '{value}' — expected one of: critical, high, medium, low",
+            ),
+            fvc(
+                "W079",
+                "milestone",
+                "status",
+                &["planned", "in_progress", "completed", "blocked"],
+                "milestone '{id}' has invalid status '{value}' — expected one of: planned, in_progress, completed, blocked",
+            ),
+            fvc(
+                "W080",
+                "deliverable",
+                "artifact_type",
+                &[
+                    "cli",
+                    "service",
+                    "library",
+                    "web_app",
+                    "mobile_app",
+                    "api",
+                    "extension",
+                    "documentation",
+                    "package",
+                ],
+                "deliverable '{id}' has invalid artifact_type '{value}' — expected one of: cli, service, library, web_app, mobile_app, api, extension, documentation, package",
+            ),
+            fvc(
+                "W083",
+                "persona",
+                "status",
+                &["active", "deprecated"],
+                "persona '{id}' has invalid status '{value}' — expected one of: active, deprecated",
+            ),
+            fvc(
+                "W084",
+                "channel",
+                "status",
+                &["active", "deprecated"],
+                "channel '{id}' has invalid status '{value}' — expected one of: active, deprecated",
+            ),
+            fvc(
+                "W085",
+                "deliverable",
+                "status",
+                &["draft", "in_progress", "shipped", "deprecated"],
+                "deliverable '{id}' has invalid status '{value}' — expected one of: draft, in_progress, shipped, deprecated",
+            ),
+            fvc(
+                "W095",
+                "feature",
+                "effort",
+                &["xs", "s", "m", "l", "xl"],
+                "feature '{id}' has invalid effort '{value}' — expected one of: xs, s, m, l, xl",
+            ),
             // No-incoming-edges checks
-            no_incoming("W041", "feature", "feature '{id}' has no incoming edges — it may be unreferenced by any journey, milestone, or module"),
-            no_incoming("W042", "journey", "journey '{id}' has no incoming edges — it may be unreferenced by any deliverable"),
-            no_incoming("W044", "module", "module '{id}' has no incoming edges — it may be unreferenced by any deliverable or milestone"),
+            no_incoming(
+                "W041",
+                "feature",
+                "feature '{id}' has no incoming edges — it may be unreferenced by any journey, milestone, or module",
+            ),
+            no_incoming(
+                "W042",
+                "journey",
+                "journey '{id}' has no incoming edges — it may be unreferenced by any deliverable",
+            ),
+            no_incoming(
+                "W044",
+                "module",
+                "module '{id}' has no incoming edges — it may be unreferenced by any deliverable or milestone",
+            ),
             // No-edges (info)
             ValidationRuleDescriptor {
                 code: "I010".into(),
@@ -296,7 +520,9 @@ impl ProductExtension {
             ValidationRuleDescriptor {
                 code: "I046".into(),
                 severity: ValidationSeverity::Info,
-                message_template: "persona '{id}' has no incoming edges — it may be unreferenced by any journey".into(),
+                message_template:
+                    "persona '{id}' has no incoming edges — it may be unreferenced by any journey"
+                        .into(),
                 check: "no_incoming_edges".into(),
                 target_kind: Some("persona".into()),
                 ..vrd_defaults()
@@ -304,22 +530,51 @@ impl ProductExtension {
             ValidationRuleDescriptor {
                 code: "I047".into(),
                 severity: ValidationSeverity::Info,
-                message_template: "channel '{id}' has no incoming edges — it may be unreferenced by any journey".into(),
+                message_template:
+                    "channel '{id}' has no incoming edges — it may be unreferenced by any journey"
+                        .into(),
                 check: "no_incoming_edges".into(),
                 target_kind: Some("channel".into()),
                 ..vrd_defaults()
             },
             // Cycle detection
-            cycle("E007", "module", "ModuleDependsOn", "module dependency cycle detected involving '{id}'"),
-            cycle("E015", "milestone", "MilestoneDependsOn", "milestone dependency cycle detected involving '{id}'"),
-            cycle("E016", "deliverable", "DeliverableDependsOn", "deliverable dependency cycle detected involving '{id}'"),
-            cycle("W045", "feature", "FeatureDependsOn", "feature dependency cycle detected involving '{id}'"),
-            cycle("W092", "release", "ReleaseDependsOn", "release dependency cycle detected involving '{id}'"),
+            cycle(
+                "E007",
+                "module",
+                "ModuleDependsOn",
+                "module dependency cycle detected involving '{id}'",
+            ),
+            cycle(
+                "E015",
+                "milestone",
+                "MilestoneDependsOn",
+                "milestone dependency cycle detected involving '{id}'",
+            ),
+            cycle(
+                "E016",
+                "deliverable",
+                "DeliverableDependsOn",
+                "deliverable dependency cycle detected involving '{id}'",
+            ),
+            cycle(
+                "W045",
+                "feature",
+                "FeatureDependsOn",
+                "feature dependency cycle detected involving '{id}'",
+            ),
+            cycle(
+                "W092",
+                "release",
+                "ReleaseDependsOn",
+                "release dependency cycle detected involving '{id}'",
+            ),
             // Version format
             ValidationRuleDescriptor {
                 code: "W093".into(),
                 severity: ValidationSeverity::Warning,
-                message_template: "release '{id}' has invalid version format — expected semver (e.g., 1.0.0)".into(),
+                message_template:
+                    "release '{id}' has invalid version format — expected semver (e.g., 1.0.0)"
+                        .into(),
                 check: "field_value_constraint".into(),
                 target_kind: Some("release".into()),
                 field: Some("version".into()),
@@ -334,25 +589,68 @@ impl ProductExtension {
             ValidationRuleDescriptor {
                 code: "W049".into(),
                 severity: ValidationSeverity::Warning,
-                message_template: "milestone '{id}' has no features and no modules — it may be empty".into(),
+                message_template:
+                    "milestone '{id}' has no features and no modules — it may be empty".into(),
                 check: "missing_field_when_flag_set".into(),
                 target_kind: Some("milestone".into()),
                 field: Some("features".into()),
                 ..vrd_defaults()
             },
             // Conditional field rules: when status=X, field Y must be present
-            cfr("I059", ValidationSeverity::Info, "feature", "status", "deferred", "reason",
-                "feature '{id}' has status 'deferred' but no reason --- consider adding a reason field"),
-            cfr("W057", ValidationSeverity::Warning, "milestone", "status", "completed", "exit_criteria",
-                "milestone '{id}' has status 'completed' but no exit_criteria"),
-            cfr("I060", ValidationSeverity::Info, "milestone", "status", "blocked", "blockers",
-                "milestone '{id}' has status 'blocked' but no blockers --- consider listing what is blocking"),
-            cfr("I066", ValidationSeverity::Info, "deliverable", "status", "deprecated", "reason",
-                "deliverable '{id}' has status 'deprecated' but no reason"),
-            cfr("I069", ValidationSeverity::Info, "persona", "status", "deprecated", "reason",
-                "persona '{id}' has status 'deprecated' but no reason"),
-            cfr("I070", ValidationSeverity::Info, "channel", "status", "deprecated", "reason",
-                "channel '{id}' has status 'deprecated' but no reason"),
+            cfr(
+                "I059",
+                ValidationSeverity::Info,
+                "feature",
+                "status",
+                "deferred",
+                "reason",
+                "feature '{id}' has status 'deferred' but no reason --- consider adding a reason field",
+            ),
+            cfr(
+                "W057",
+                ValidationSeverity::Warning,
+                "milestone",
+                "status",
+                "completed",
+                "exit_criteria",
+                "milestone '{id}' has status 'completed' but no exit_criteria",
+            ),
+            cfr(
+                "I060",
+                ValidationSeverity::Info,
+                "milestone",
+                "status",
+                "blocked",
+                "blockers",
+                "milestone '{id}' has status 'blocked' but no blockers --- consider listing what is blocking",
+            ),
+            cfr(
+                "I066",
+                ValidationSeverity::Info,
+                "deliverable",
+                "status",
+                "deprecated",
+                "reason",
+                "deliverable '{id}' has status 'deprecated' but no reason",
+            ),
+            cfr(
+                "I069",
+                ValidationSeverity::Info,
+                "persona",
+                "status",
+                "deprecated",
+                "reason",
+                "persona '{id}' has status 'deprecated' but no reason",
+            ),
+            cfr(
+                "I070",
+                ValidationSeverity::Info,
+                "channel",
+                "status",
+                "deprecated",
+                "reason",
+                "channel '{id}' has status 'deprecated' but no reason",
+            ),
         ]
     }
 }
@@ -379,7 +677,9 @@ impl BuiltinExtension for ProductExtension {
             "edges" => serde_json::to_value(self.edge_types()).unwrap(),
             "fields" => serde_json::to_value(Vec::<FieldDescriptor>::new()).unwrap(),
             "shared_fields" => serde_json::to_value(self.shared_fields()).unwrap(),
-            "enhancements" => serde_json::to_value(Vec::<EntityEnhancementDescriptor>::new()).unwrap(),
+            "enhancements" => {
+                serde_json::to_value(Vec::<EntityEnhancementDescriptor>::new()).unwrap()
+            }
             "validation_rules" => serde_json::to_value(self.validation_rules()).unwrap(),
             "surfaces" => serde_json::to_value(Vec::<SurfaceDescriptor>::new()).unwrap(),
             "passes" => serde_json::to_value(Vec::<CompilerPassDescriptor>::new()).unwrap(),
@@ -410,7 +710,14 @@ fn fd_defaults() -> FieldDescriptor {
     }
 }
 
-fn fd(name: &str, ft: &str, required: bool, desc: Option<&str>, edge: Option<&str>, target: Option<&str>) -> FieldDescriptor {
+fn fd(
+    name: &str,
+    ft: &str,
+    required: bool,
+    desc: Option<&str>,
+    edge: Option<&str>,
+    target: Option<&str>,
+) -> FieldDescriptor {
     FieldDescriptor {
         name: name.into(),
         field_type: ft.into(),
@@ -448,7 +755,14 @@ fn ekd_defaults() -> EntityKindDescriptor {
     }
 }
 
-fn edge(label: &str, src: &str, tgt: &str, style: &str, color: &str, arrowhead: Option<&str>) -> EdgeTypeDescriptor {
+fn edge(
+    label: &str,
+    src: &str,
+    tgt: &str,
+    style: &str,
+    color: &str,
+    arrowhead: Option<&str>,
+) -> EdgeTypeDescriptor {
     EdgeTypeDescriptor {
         label: label.into(),
         description: None,
@@ -460,7 +774,14 @@ fn edge(label: &str, src: &str, tgt: &str, style: &str, color: &str, arrowhead: 
     }
 }
 
-fn edge_desc(label: &str, src: &str, tgt: &str, style: &str, color: &str, desc: &str) -> EdgeTypeDescriptor {
+fn edge_desc(
+    label: &str,
+    src: &str,
+    tgt: &str,
+    style: &str,
+    color: &str,
+    desc: &str,
+) -> EdgeTypeDescriptor {
     EdgeTypeDescriptor {
         description: Some(desc.into()),
         ..edge(label, src, tgt, style, color, None)
@@ -481,7 +802,13 @@ fn vrd_defaults() -> ValidationRuleDescriptor {
     }
 }
 
-fn fvc(code: &str, target: &str, field: &str, values: &[&str], msg: &str) -> ValidationRuleDescriptor {
+fn fvc(
+    code: &str,
+    target: &str,
+    field: &str,
+    values: &[&str],
+    msg: &str,
+) -> ValidationRuleDescriptor {
     ValidationRuleDescriptor {
         code: code.into(),
         severity: ValidationSeverity::Warning,

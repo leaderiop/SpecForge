@@ -145,7 +145,8 @@ fn classify_rust(req: &ClassifyRequest) -> ClassifyResponse {
         .items
         .iter()
         .map(|item| {
-            let (suggested, confidence) = classify_item(&item.item_kind, &item.name, &req.file_path);
+            let (suggested, confidence) =
+                classify_item(&item.item_kind, &item.name, &req.file_path);
             ClassifiedItem {
                 name: item.name.clone(),
                 item_kind: item.item_kind.clone(),
@@ -182,7 +183,10 @@ fn classify_item(item_kind: &str, name: &str, file_path: &str) -> (Option<String
         "struct" => {
             if name.ends_with("Error") || name.ends_with("Event") || name.ends_with("Message") {
                 (Some("event".into()), 0.7)
-            } else if name.ends_with("Port") || name.ends_with("Client") || name.ends_with("Service") {
+            } else if name.ends_with("Port")
+                || name.ends_with("Client")
+                || name.ends_with("Service")
+            {
                 (Some("port".into()), 0.7)
             } else {
                 (Some("type".into()), 0.6)
@@ -307,7 +311,10 @@ mod tests {
         };
         let resp = classify_rust(&req);
         assert_eq!(resp.items.len(), 1);
-        assert_eq!(resp.items[0].suggested_entity_kind.as_deref(), Some("behavior"));
+        assert_eq!(
+            resp.items[0].suggested_entity_kind.as_deref(),
+            Some("behavior")
+        );
         assert!(resp.items[0].confidence >= 0.8);
     }
 

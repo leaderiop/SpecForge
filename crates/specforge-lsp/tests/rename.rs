@@ -1,20 +1,24 @@
 use specforge_common::{SourceSpan, Sym};
-use specforge_graph::{Graph, Node, Edge};
+use specforge_graph::{Edge, Graph, Node};
 use specforge_parser::{EntityId, EntityKind, FieldMap};
 use specforge_test_macros::test as spec;
 
 fn span(file: &str, line: usize, col: usize, end_col: usize) -> SourceSpan {
     SourceSpan {
         file: Sym::new(file),
-        start_line: line, start_col: col,
-        end_line: line, end_col,
+        start_line: line,
+        start_col: col,
+        end_line: line,
+        end_col,
     }
 }
 
 fn node_at(id: &str, kind: &str, file: &str, line: usize, col: usize) -> Node {
     Node {
         id: EntityId { raw: Sym::new(id) },
-        kind: EntityKind { raw: Sym::new(kind) },
+        kind: EntityKind {
+            raw: Sym::new(kind),
+        },
         title: None,
         fields: FieldMap::new(),
         source_span: span(file, line, col, col + id.len()),
@@ -26,14 +30,19 @@ fn graph_with_refs() -> Graph {
     g.add_node(node_at("auth_token", "type", "types.spec", 5, 5));
     g.add_node(node_at("user_login", "behavior", "auth.spec", 10, 9));
     g.add_edge(Edge {
-        source: "user_login".into(), target: "auth_token".into(), label: "types".into(),
+        source: "user_login".into(),
+        target: "auth_token".into(),
+        label: "types".into(),
     });
     g
 }
 
 // -- prepare_rename -----------------------------------------------------------
 
-#[spec(behavior = "prepare_rename", verify = "prepare rename on entity ID returns token range")]
+#[spec(
+    behavior = "prepare_rename",
+    verify = "prepare rename on entity ID returns token range"
+)]
 #[test]
 fn prepare_rename_returns_range() {
     let g = graph_with_refs();
@@ -45,7 +54,10 @@ fn prepare_rename_returns_range() {
     assert_eq!(range.end_col, 5 + "auth_token".len());
 }
 
-#[spec(behavior = "prepare_rename", verify = "prepare rename on non-renameable token returns not available")]
+#[spec(
+    behavior = "prepare_rename",
+    verify = "prepare rename on non-renameable token returns not available"
+)]
 #[test]
 fn prepare_rename_returns_none_for_missing() {
     let g = graph_with_refs();
@@ -55,7 +67,10 @@ fn prepare_rename_returns_none_for_missing() {
 
 // -- rename_entity_id ---------------------------------------------------------
 
-#[spec(behavior = "rename_entity_id", verify = "rename updates declaration and all references")]
+#[spec(
+    behavior = "rename_entity_id",
+    verify = "rename updates declaration and all references"
+)]
 #[test]
 fn rename_updates_all_sites() {
     let g = graph_with_refs();
@@ -67,7 +82,10 @@ fn rename_updates_all_sites() {
     assert!(edits.iter().any(|e| e.file == "auth.spec"));
 }
 
-#[spec(behavior = "rename_entity_id", verify = "rename is atomic — all or nothing")]
+#[spec(
+    behavior = "rename_entity_id",
+    verify = "rename is atomic — all or nothing"
+)]
 #[test]
 fn rename_is_atomic() {
     let g = graph_with_refs();
@@ -86,8 +104,16 @@ fn rename_across_files() {
     g.add_node(node_at("tok", "type", "a.spec", 0, 5));
     g.add_node(node_at("b1", "behavior", "b.spec", 0, 9));
     g.add_node(node_at("b2", "behavior", "c.spec", 0, 9));
-    g.add_edge(Edge { source: "b1".into(), target: "tok".into(), label: "types".into() });
-    g.add_edge(Edge { source: "b2".into(), target: "tok".into(), label: "types".into() });
+    g.add_edge(Edge {
+        source: "b1".into(),
+        target: "tok".into(),
+        label: "types".into(),
+    });
+    g.add_edge(Edge {
+        source: "b2".into(),
+        target: "tok".into(),
+        label: "types".into(),
+    });
 
     let edits = specforge_lsp::compute_rename_edits(&g, "tok", "token").unwrap();
     let files: Vec<&str> = edits.iter().map(|e| e.file.as_str()).collect();
@@ -96,7 +122,10 @@ fn rename_across_files() {
     assert!(files.contains(&"c.spec"));
 }
 
-#[spec(behavior = "rename_entity_id", verify = "rename rejects new name that duplicates existing entity ID")]
+#[spec(
+    behavior = "rename_entity_id",
+    verify = "rename rejects new name that duplicates existing entity ID"
+)]
 #[test]
 fn rename_rejects_duplicate() {
     let g = graph_with_refs();

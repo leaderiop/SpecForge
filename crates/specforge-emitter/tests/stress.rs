@@ -3,7 +3,13 @@ use specforge_graph::{Edge, Graph, Node};
 use specforge_parser::{EntityId, EntityKind, FieldMap, FieldValue};
 
 fn span() -> SourceSpan {
-    SourceSpan { file: Sym::new("stress.spec"), start_line: 1, start_col: 0, end_line: 1, end_col: 0 }
+    SourceSpan {
+        file: Sym::new("stress.spec"),
+        start_line: 1,
+        start_col: 0,
+        end_line: 1,
+        end_col: 0,
+    }
 }
 
 fn build_graph(n: usize) -> Graph {
@@ -13,11 +19,16 @@ fn build_graph(n: usize) -> Graph {
         let mut fields = FieldMap::new();
         fields.push(Sym::new("status"), FieldValue::String("draft".to_string()));
         if i > 0 {
-            fields.push(Sym::new("depends_on"), FieldValue::ReferenceList(vec![format!("entity_{}", i - 1)]));
+            fields.push(
+                Sym::new("depends_on"),
+                FieldValue::ReferenceList(vec![format!("entity_{}", i - 1)]),
+            );
         }
         graph.add_node(Node {
             id: EntityId { raw: Sym::new(&id) },
-            kind: EntityKind { raw: Sym::new("behavior") },
+            kind: EntityKind {
+                raw: Sym::new("behavior"),
+            },
             title: Some(format!("Entity {i}")),
             fields,
             source_span: span(),

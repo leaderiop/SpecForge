@@ -13,10 +13,7 @@ async fn e2e_document_symbols_lists_all() {
     assert!(!result.is_null(), "Expected document symbols");
     let symbols = result.as_array().unwrap();
     assert_eq!(symbols.len(), 3, "Expected 3 symbols");
-    let names: Vec<&str> = symbols
-        .iter()
-        .filter_map(|s| s["name"].as_str())
-        .collect();
+    let names: Vec<&str> = symbols.iter().filter_map(|s| s["name"].as_str()).collect();
     assert!(names.contains(&"alpha"));
     assert!(names.contains(&"beta"));
     assert!(names.contains(&"gamma"));
@@ -68,10 +65,7 @@ async fn e2e_workspace_symbol_by_id_prefix() {
     let result = &resp["result"];
     assert!(!result.is_null());
     let symbols = result.as_array().unwrap();
-    let names: Vec<&str> = symbols
-        .iter()
-        .filter_map(|s| s["name"].as_str())
-        .collect();
+    let names: Vec<&str> = symbols.iter().filter_map(|s| s["name"].as_str()).collect();
     assert!(
         names.contains(&"user_login"),
         "Expected 'user_login' in results"
@@ -90,10 +84,7 @@ async fn e2e_workspace_symbol_by_title() {
     let result = &resp["result"];
     assert!(!result.is_null());
     let symbols = result.as_array().unwrap();
-    let names: Vec<&str> = symbols
-        .iter()
-        .filter_map(|s| s["name"].as_str())
-        .collect();
+    let names: Vec<&str> = symbols.iter().filter_map(|s| s["name"].as_str()).collect();
     assert!(
         names.contains(&"user_login"),
         "Expected title match for 'Login'"
@@ -108,8 +99,5 @@ async fn e2e_workspace_symbol_empty_query() {
     let result = &resp["result"];
     assert!(!result.is_null());
     let symbols = result.as_array().unwrap();
-    assert!(
-        symbols.len() >= 2,
-        "Empty query should return all entities"
-    );
+    assert!(symbols.len() >= 2, "Empty query should return all entities");
 }

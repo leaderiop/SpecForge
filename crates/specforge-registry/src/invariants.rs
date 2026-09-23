@@ -119,7 +119,11 @@ mod tests {
         let (rules, _) = register_validation_rules(&[m]);
         for rule in &rules {
             if let Some(tk) = &rule.target_kind {
-                assert!(kind_reg.contains(tk), "Validation rule references kind '{}' not in registry", tk);
+                assert!(
+                    kind_reg.contains(tk),
+                    "Validation rule references kind '{}' not in registry",
+                    tk
+                );
             }
         }
     }
@@ -182,7 +186,10 @@ mod tests {
         let mut baseline: Option<Vec<String>> = None;
         for _ in 0..10 {
             let (_, _, _, diags) = populate_registries(&[m1.clone(), m2.clone()]);
-            let codes: Vec<String> = diags.iter().map(|d| format!("{}:{}", d.code, d.message)).collect();
+            let codes: Vec<String> = diags
+                .iter()
+                .map(|d| format!("{}:{}", d.code, d.message))
+                .collect();
             match &baseline {
                 None => baseline = Some(codes),
                 Some(base) => assert_eq!(&codes, base, "Diagnostic ordering differed across runs"),
@@ -264,7 +271,10 @@ mod tests {
 
         let mut field_reg = FieldRegistry::new();
         let diags = define::register_define_blocks(&[define_config], &mut kind_reg, &mut field_reg);
-        let errors: Vec<_> = diags.iter().filter(|d| d.severity == specforge_common::Severity::Error).collect();
+        let errors: Vec<_> = diags
+            .iter()
+            .filter(|d| d.severity == specforge_common::Severity::Error)
+            .collect();
         assert!(!errors.is_empty());
         assert!(errors[0].message.contains("behavior"));
     }
@@ -285,7 +295,11 @@ mod tests {
         };
 
         let diags = define::register_define_blocks(&[define_config], &mut kind_reg, &mut field_reg);
-        assert!(diags.iter().all(|d| d.severity != specforge_common::Severity::Error));
+        assert!(
+            diags
+                .iter()
+                .all(|d| d.severity != specforge_common::Severity::Error)
+        );
         assert!(kind_reg.contains("custom_metric"));
     }
 

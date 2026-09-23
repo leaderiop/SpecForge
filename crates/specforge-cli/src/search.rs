@@ -1,7 +1,6 @@
 use serde_json::json;
 use specforge_registry::{
-    HttpRegistryClient, RegistryConfig,
-    search_registries, parse_registries_from_config,
+    HttpRegistryClient, RegistryConfig, parse_registries_from_config, search_registries,
 };
 use std::path::Path;
 

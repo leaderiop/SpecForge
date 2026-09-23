@@ -9,7 +9,11 @@ pub fn render_json(outline: &OutlineIntermediate, options: &OutlineOptions) -> S
 }
 
 fn build_metadata(outline: &OutlineIntermediate) -> serde_json::Value {
-    let total_entities: usize = outline.extensions.iter().map(|e| e.entity_kinds.len()).sum();
+    let total_entities: usize = outline
+        .extensions
+        .iter()
+        .map(|e| e.entity_kinds.len())
+        .sum();
     let total_edges: usize = outline.extensions.iter().map(|e| e.edge_types.len()).sum();
     let total_rules: usize = outline
         .extensions

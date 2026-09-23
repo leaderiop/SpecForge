@@ -95,7 +95,10 @@ async fn e2e_initialize_semantic_legend() {
         .collect();
 
     for expected in specforge_lsp::TOKEN_TYPES {
-        assert!(token_types.contains(expected), "missing token type: {expected}");
+        assert!(
+            token_types.contains(expected),
+            "missing token type: {expected}"
+        );
     }
 }
 
@@ -117,9 +120,9 @@ async fn e2e_initialize_registers_file_watchers() {
     );
     let params = &notif.unwrap()["params"];
     let registrations = params["registrations"].as_array().unwrap();
-    let has_file_watcher = registrations.iter().any(|r| {
-        r["method"].as_str() == Some("workspace/didChangeWatchedFiles")
-    });
+    let has_file_watcher = registrations
+        .iter()
+        .any(|r| r["method"].as_str() == Some("workspace/didChangeWatchedFiles"));
     assert!(
         has_file_watcher,
         "Expected didChangeWatchedFiles registration, got: {registrations:?}"
@@ -129,16 +132,8 @@ async fn e2e_initialize_registers_file_watchers() {
 #[tokio::test]
 async fn e2e_workspace_indexing_logs_count() {
     let dir = TempDir::new().unwrap();
-    std::fs::write(
-        dir.path().join("a.spec"),
-        "behavior alpha \"Alpha\" {}\n",
-    )
-    .unwrap();
-    std::fs::write(
-        dir.path().join("b.spec"),
-        "behavior beta \"Beta\" {}\n",
-    )
-    .unwrap();
+    std::fs::write(dir.path().join("a.spec"), "behavior alpha \"Alpha\" {}\n").unwrap();
+    std::fs::write(dir.path().join("b.spec"), "behavior beta \"Beta\" {}\n").unwrap();
 
     let root = dir.path().to_str().unwrap();
     let mut client = start_server(Some(root)).await;
@@ -191,7 +186,10 @@ async fn e2e_did_open_registers_document() {
     // If the document was registered, hover on the entity ID should return info
     let resp = client.hover(&uri, 0, 10).await;
     let result = &resp["result"];
-    assert!(!result.is_null(), "Expected hover result for tracked document");
+    assert!(
+        !result.is_null(),
+        "Expected hover result for tracked document"
+    );
     let md = result["contents"]["value"].as_str().unwrap();
     assert!(md.contains("foo"), "Hover should mention entity ID 'foo'");
 }
@@ -257,9 +255,12 @@ async fn e2e_resolver_diagnostic_e003_unresolved_reference() {
         .unwrap()
         .to_vec();
     // Should have at least one E003 for unresolved reference
-    let has_e003 = diags
-        .iter()
-        .any(|d| d["code"].as_str() == Some("E003") && d["message"].as_str().is_some_and(|m| m.contains("unresolved")));
+    let has_e003 = diags.iter().any(|d| {
+        d["code"].as_str() == Some("E003")
+            && d["message"]
+                .as_str()
+                .is_some_and(|m| m.contains("unresolved"))
+    });
     assert!(
         has_e003,
         "Expected E003 unresolved reference diagnostic, got: {diags:?}"
@@ -296,11 +297,7 @@ async fn e2e_validator_warnings_appear_in_editor() {
 #[tokio::test]
 async fn e2e_external_file_change_triggers_recompilation() {
     let dir = TempDir::new().unwrap();
-    std::fs::write(
-        dir.path().join("a.spec"),
-        "behavior alpha \"Alpha\" {}\n",
-    )
-    .unwrap();
+    std::fs::write(dir.path().join("a.spec"), "behavior alpha \"Alpha\" {}\n").unwrap();
 
     let root = dir.path().to_str().unwrap();
     let mut client = start_server(Some(root)).await;
@@ -354,11 +351,7 @@ async fn e2e_external_file_change_triggers_recompilation() {
 #[tokio::test]
 async fn e2e_new_spec_file_creation_detected() {
     let dir = TempDir::new().unwrap();
-    std::fs::write(
-        dir.path().join("a.spec"),
-        "behavior alpha \"Alpha\" {}\n",
-    )
-    .unwrap();
+    std::fs::write(dir.path().join("a.spec"), "behavior alpha \"Alpha\" {}\n").unwrap();
 
     let root = dir.path().to_str().unwrap();
     let mut client = start_server(Some(root)).await;
@@ -367,11 +360,7 @@ async fn e2e_new_spec_file_creation_detected() {
         .await;
 
     // Create a new .spec file externally
-    std::fs::write(
-        dir.path().join("b.spec"),
-        "behavior gamma \"Gamma\" {}\n",
-    )
-    .unwrap();
+    std::fs::write(dir.path().join("b.spec"), "behavior gamma \"Gamma\" {}\n").unwrap();
 
     let file_uri = tower_lsp::lsp_types::Url::from_file_path(dir.path().join("b.spec"))
         .unwrap()
@@ -403,16 +392,8 @@ async fn e2e_new_spec_file_creation_detected() {
 #[tokio::test]
 async fn e2e_deleted_spec_file_removes_entities() {
     let dir = TempDir::new().unwrap();
-    std::fs::write(
-        dir.path().join("a.spec"),
-        "behavior alpha \"Alpha\" {}\n",
-    )
-    .unwrap();
-    std::fs::write(
-        dir.path().join("b.spec"),
-        "behavior beta \"Beta\" {}\n",
-    )
-    .unwrap();
+    std::fs::write(dir.path().join("a.spec"), "behavior alpha \"Alpha\" {}\n").unwrap();
+    std::fs::write(dir.path().join("b.spec"), "behavior beta \"Beta\" {}\n").unwrap();
 
     let root = dir.path().to_str().unwrap();
     let mut client = start_server(Some(root)).await;
@@ -423,7 +404,11 @@ async fn e2e_deleted_spec_file_removes_entities() {
     // Verify beta exists
     let resp = client.workspace_symbol("beta").await;
     assert!(
-        resp["result"].as_array().unwrap().iter().any(|s| s["name"].as_str() == Some("beta")),
+        resp["result"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|s| s["name"].as_str() == Some("beta")),
         "beta should exist initially"
     );
 
@@ -455,7 +440,10 @@ async fn e2e_deleted_spec_file_removes_entities() {
         || result
             .as_array()
             .is_none_or(|arr| !arr.iter().any(|s| s["name"].as_str() == Some("beta")));
-    assert!(beta_gone, "beta should be removed after file deletion, got: {result:?}");
+    assert!(
+        beta_gone,
+        "beta should be removed after file deletion, got: {result:?}"
+    );
 }
 
 #[tokio::test]
