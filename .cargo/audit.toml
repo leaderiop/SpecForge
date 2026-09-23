@@ -1,0 +1,35 @@
+# cargo-audit ignore list — tracked in issue #7.
+# Each entry is unfixable today; drop it when the underlying bump lands.
+
+[advisories]
+ignore = [
+  # wasmtime 41.0.4 is pinned by extism 1.30 (latest). Fixes require an
+  # extism release on a patched wasmtime line — then bump extism and drop
+  # these 13 entries. (issue #7)
+  "RUSTSEC-2026-0085",
+  "RUSTSEC-2026-0086",
+  "RUSTSEC-2026-0087",
+  "RUSTSEC-2026-0088",
+  "RUSTSEC-2026-0089",
+  "RUSTSEC-2026-0091",
+  "RUSTSEC-2026-0092",
+  "RUSTSEC-2026-0093",
+  "RUSTSEC-2026-0094",
+  "RUSTSEC-2026-0095",
+  "RUSTSEC-2026-0096",
+  "RUSTSEC-2026-0114",
+  "RUSTSEC-2026-0222",
+  # unmaintained transitive crates (im-rc -> sized-chunks -> bitmaps)
+  "RUSTSEC-2026-0247",
+  "RUSTSEC-2026-0250",
+  "RUSTSEC-2026-0251",
+  "RUSTSEC-2026-0255",
+  # anyhow 1.0.104 still flagged; re-check on next release
+  "RUSTSEC-2026-0190",
+  # HIGH (8.8): filesystem sandbox escape with trailing-slash paths.
+  # Fix exists only in wasmtime >=46.0.3; extism 1.30 (latest) still pins
+  # the 41.x line. Practical exposure is low today (no remote extension
+  # loading; local first-party fixtures only) — MUST be cleared before
+  # remote installs ship. Blocking dependency of the registry-trust effort.
+  "RUSTSEC-2026-0269",
+]

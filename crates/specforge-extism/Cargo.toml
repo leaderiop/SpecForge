@@ -12,7 +12,7 @@ path = "tests/main.rs"
 [dependencies]
 specforge-wasm = { workspace = true }
 specforge-common = { workspace = true }
-extism = "1.21.0"
+extism = "1.30"
 serde_json = { workspace = true }
 
 [dev-dependencies]
