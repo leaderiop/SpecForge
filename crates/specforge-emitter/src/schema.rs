@@ -461,10 +461,7 @@ pub fn emit_context_with_schema(graph: &Graph, schema: &GraphProtocolSchema) -> 
                 specforge_graph::FieldValue::String(s) => Some(s.clone()),
                 _ => None,
             });
-            let verify = n
-                .fields
-                .get("verify")
-                .map(crate::json::field_value_to_json);
+            let verify = n.fields.get("verify").map(crate::json::field_value_to_json);
 
             ContextNodeV2 {
                 id: n.id.raw.to_string(),

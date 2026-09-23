@@ -39,10 +39,7 @@ pub fn emit_context(graph: &Graph) -> String {
                 specforge_graph::FieldValue::String(s) => Some(s.clone()),
                 _ => None,
             });
-            let verify = n
-                .fields
-                .get("verify")
-                .map(crate::json::field_value_to_json);
+            let verify = n.fields.get("verify").map(crate::json::field_value_to_json);
 
             ContextNode {
                 id: n.id.raw.to_string(),
