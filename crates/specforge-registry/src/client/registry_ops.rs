@@ -5,8 +5,12 @@ use std::collections::HashSet;
 use sha2::{Digest, Sha256};
 use specforge_common::{Diagnostic, Severity};
 
-use super::registry_client::{RegistryClient, RegistryError, RegistryResponse, RegistrySearchResult};
-use super::registry_config::{find_registry_for_specifier, RegistryConfig, TrustLevel};
+use super::registry_client::{
+    RegistryClient, RegistryError, RegistryResponse, RegistrySearchResult,
+};
+use super::registry_config::{
+    RegistryConfig, RegistryCredential, TrustLevel, find_registry_for_specifier,
+};
 use crate::ManifestV2;
 
 /// Compute the hex-encoded SHA256 digest of the given data.
@@ -41,10 +45,13 @@ pub fn resolve_from_registry(
     client.fetch(specifier, registry).map_err(|e| {
         let mut diag = e.to_diagnostic();
         // Append retry guidance for network errors
-        if matches!(e, RegistryError::NetworkError { .. } | RegistryError::Timeout { .. })
-            && let Some(ref mut s) = diag.suggestion {
-                s.push_str(" You may retry the operation.");
-            }
+        if matches!(
+            e,
+            RegistryError::NetworkError { .. } | RegistryError::Timeout { .. }
+        ) && let Some(ref mut s) = diag.suggestion
+        {
+            s.push_str(" You may retry the operation.");
+        }
         diag
     })
 }
@@ -90,11 +97,13 @@ pub fn search_registries(
 
 /// Publish to a registry. Computes SHA256 of the package and includes it in the upload.
 ///
+/// `credential`, when provided, authenticates the upload.
 /// Rejects duplicate versions unless `force` is true. Returns the registry URL on success.
 pub fn publish_to_registry(
     package: &[u8],
     manifest: &ManifestV2,
     registry: &RegistryConfig,
+    credential: Option<&RegistryCredential>,
     client: &dyn RegistryClient,
     force: bool,
 ) -> Result<String, Diagnostic> {
@@ -120,7 +129,9 @@ pub fn publish_to_registry(
         }
     }
 
-    client.publish(package, manifest, registry).map_err(|e| e.to_diagnostic())
+    client
+        .publish(package, manifest, registry, credential)
+        .map_err(|e| e.to_diagnostic())
 }
 
 /// Verify SHA256 integrity of downloaded bytes against an expected hash.

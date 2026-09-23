@@ -1,8 +1,12 @@
+use std::time::SystemTime;
+
 use reqwest::blocking::Client;
-use reqwest::header::{AUTHORIZATION, CONTENT_TYPE};
+use reqwest::header::{AUTHORIZATION, CONTENT_TYPE, RETRY_AFTER};
 use serde::Deserialize;
 
-use super::registry_client::{RegistryClient, RegistryError, RegistryResponse, RegistrySearchResult};
+use super::registry_client::{
+    RegistryClient, RegistryError, RegistryResponse, RegistrySearchResult,
+};
 use super::registry_config::{AuthMethod, RegistryConfig, RegistryCredential};
 use crate::ManifestV2;
 
@@ -77,11 +81,11 @@ impl HttpRegistryClient {
     fn resolve_token(credential: &RegistryCredential) -> Result<String, RegistryError> {
         match &credential.auth_method {
             AuthMethod::Bearer(token) => Ok(token.clone()),
-            AuthMethod::TokenEnvVar(var) => std::env::var(var).map_err(|_| {
-                RegistryError::Unauthorized {
+            AuthMethod::TokenEnvVar(var) => {
+                std::env::var(var).map_err(|_| RegistryError::Unauthorized {
                     guidance: format!("environment variable '{}' not set", var),
-                }
-            }),
+                })
+            }
             AuthMethod::TokenFile(path) => std::fs::read_to_string(path)
                 .map(|s| s.trim().to_string())
                 .map_err(|_| RegistryError::Unauthorized {
@@ -128,9 +132,7 @@ impl HttpRegistryClient {
             401 => Err(RegistryError::Unauthorized {
                 guidance: "token expired or invalid".to_string(),
             }),
-            429 => Err(RegistryError::RateLimited {
-                retry_after_ms: 5000,
-            }),
+            429 => Err(rate_limited(&resp)),
             _ => {
                 let msg = resp
                     .json::<ErrorResponse>()
@@ -142,10 +144,7 @@ impl HttpRegistryClient {
     }
 
     /// Download the raw Wasm bytes for a specific package version.
-    pub fn download_wasm(
-        &self,
-        wasm_url: &str,
-    ) -> Result<Vec<u8>, RegistryError> {
+    pub fn download_wasm(&self, wasm_url: &str) -> Result<Vec<u8>, RegistryError> {
         let resp = self.client.get(wasm_url).send().map_err(|e| {
             if e.is_timeout() {
                 RegistryError::Timeout {
@@ -159,11 +158,12 @@ impl HttpRegistryClient {
         })?;
 
         match resp.status().as_u16() {
-            200 => resp.bytes().map(|b| b.to_vec()).map_err(|e| {
-                RegistryError::NetworkError {
+            200 => resp
+                .bytes()
+                .map(|b| b.to_vec())
+                .map_err(|e| RegistryError::NetworkError {
                     message: format!("failed to read response bytes: {}", e),
-                }
-            }),
+                }),
             404 => Err(RegistryError::NotFound {
                 specifier: wasm_url.to_string(),
             }),
@@ -223,9 +223,7 @@ impl RegistryClient for HttpRegistryClient {
             403 => Err(RegistryError::Forbidden {
                 guidance: "insufficient permissions".to_string(),
             }),
-            429 => Err(RegistryError::RateLimited {
-                retry_after_ms: 5000,
-            }),
+            429 => Err(rate_limited(&resp)),
             _ => {
                 let msg = resp
                     .json::<ErrorResponse>()
@@ -242,7 +240,7 @@ impl RegistryClient for HttpRegistryClient {
         registry: &RegistryConfig,
     ) -> Result<Vec<RegistrySearchResult>, RegistryError> {
         let base = Self::base_url(registry);
-        let url = format!("{}/search?q={}&limit=50", base, urlencoded(query));
+        let url = format!("{}/search?{}", base, search_query(query));
 
         let resp = self.client.get(&url).send().map_err(|e| {
             if e.is_timeout() {
@@ -270,9 +268,7 @@ impl RegistryClient for HttpRegistryClient {
                     })
                     .collect())
             }
-            429 => Err(RegistryError::RateLimited {
-                retry_after_ms: 5000,
-            }),
+            429 => Err(rate_limited(&resp)),
             _ => {
                 let msg = resp
                     .json::<ErrorResponse>()
@@ -288,14 +284,16 @@ impl RegistryClient for HttpRegistryClient {
         package: &[u8],
         manifest: &ManifestV2,
         registry: &RegistryConfig,
+        credential: Option<&RegistryCredential>,
     ) -> Result<String, RegistryError> {
         let base = Self::base_url(registry);
         let encoded = Self::encode_package_name(&manifest.name);
         let url = format!("{}/packages/{}/{}", base, encoded, manifest.version);
 
-        let metadata = serde_json::to_string(manifest).map_err(|e| RegistryError::NetworkError {
-            message: format!("failed to serialize manifest: {}", e),
-        })?;
+        let metadata =
+            serde_json::to_string(manifest).map_err(|e| RegistryError::NetworkError {
+                message: format!("failed to serialize manifest: {}", e),
+            })?;
 
         let form = reqwest::blocking::multipart::Form::new()
             .text("manifest", metadata)
@@ -307,20 +305,21 @@ impl RegistryClient for HttpRegistryClient {
                     .unwrap(),
             );
 
-        let resp = self
-            .client
-            .put(&url)
-            .multipart(form)
-            .send()
-            .map_err(|e| {
-                if e.is_timeout() {
-                    RegistryError::Timeout { url: url.clone() }
-                } else {
-                    RegistryError::NetworkError {
-                        message: e.to_string(),
-                    }
+        let mut request = self.client.put(&url).multipart(form);
+        if let Some(credential) = credential {
+            let token = Self::resolve_token(credential)?;
+            request = request.header(AUTHORIZATION, format!("Bearer {}", token));
+        }
+
+        let resp = request.send().map_err(|e| {
+            if e.is_timeout() {
+                RegistryError::Timeout { url: url.clone() }
+            } else {
+                RegistryError::NetworkError {
+                    message: e.to_string(),
                 }
-            })?;
+            }
+        })?;
 
         match resp.status().as_u16() {
             200 | 201 => Ok(url),
@@ -401,10 +400,52 @@ pub fn parse_specifier(specifier: &str) -> (String, String) {
     (specifier.to_string(), "latest".to_string())
 }
 
-fn urlencoded(s: &str) -> String {
-    s.replace(' ', "%20")
-        .replace('@', "%40")
-        .replace('/', "%2F")
+/// Build the URL query string for a search request.
+///
+/// Uses `application/x-www-form-urlencoded` encoding so reserved characters
+/// in the query (`&`, `=`, `#`, `%`, ...) cannot change the parameter structure.
+fn search_query(query: &str) -> String {
+    form_urlencoded::Serializer::new(String::new())
+        .append_pair("q", query)
+        .append_pair("limit", "50")
+        .finish()
+}
+
+/// Fallback delay when a 429 response carries no usable `Retry-After`.
+const DEFAULT_RETRY_AFTER_MS: u64 = 5000;
+
+/// Build the `RateLimited` error from a response's `Retry-After` header.
+fn rate_limited(resp: &reqwest::blocking::Response) -> RegistryError {
+    let header = resp
+        .headers()
+        .get(RETRY_AFTER)
+        .and_then(|v| v.to_str().ok());
+    RegistryError::RateLimited {
+        retry_after_ms: parse_retry_after_ms(header, SystemTime::now()),
+    }
+}
+
+/// Parse a `Retry-After` header value into a delay in milliseconds.
+///
+/// Per RFC 9110 the value is either delta-seconds or an HTTP-date. Falls back
+/// to [`DEFAULT_RETRY_AFTER_MS`] when the header is absent or malformed. An
+/// HTTP-date in the past yields `0`.
+fn parse_retry_after_ms(header: Option<&str>, now: SystemTime) -> u64 {
+    let Some(value) = header.map(str::trim) else {
+        return DEFAULT_RETRY_AFTER_MS;
+    };
+
+    if let Ok(seconds) = value.parse::<u64>() {
+        return seconds.saturating_mul(1000);
+    }
+
+    match httpdate::parse_http_date(value) {
+        Ok(retry_at) => match retry_at.duration_since(now) {
+            Ok(wait) => wait.as_millis() as u64,
+            Err(_) => 0,
+        },
+        Err(_) => DEFAULT_RETRY_AFTER_MS,
+    }
 }
 
 #[cfg(test)]
@@ -437,6 +478,64 @@ mod tests {
         assert_eq!(
             HttpRegistryClient::encode_package_name("@specforge/product"),
             "@specforge%2Fproduct"
+        );
+    }
+
+    #[test]
+    fn search_query_encodes_reserved_characters() {
+        assert_eq!(search_query("a&b=c#d e"), "q=a%26b%3Dc%23d+e&limit=50");
+    }
+
+    #[test]
+    fn search_query_preserves_param_structure() {
+        let pairs: Vec<(String, String)> =
+            form_urlencoded::parse(search_query("a&b=c#d e").as_bytes())
+                .map(|(k, v)| (k.into_owned(), v.into_owned()))
+                .collect();
+        assert_eq!(
+            pairs,
+            vec![
+                ("q".to_string(), "a&b=c#d e".to_string()),
+                ("limit".to_string(), "50".to_string()),
+            ]
+        );
+    }
+
+    #[test]
+    fn search_query_plain_text_is_stable() {
+        assert_eq!(search_query("widget"), "q=widget&limit=50");
+    }
+
+    #[test]
+    fn retry_after_delta_seconds() {
+        let now = SystemTime::UNIX_EPOCH + std::time::Duration::from_secs(1_000_000_000);
+        assert_eq!(parse_retry_after_ms(Some("120"), now), 120_000);
+        assert_eq!(parse_retry_after_ms(Some(" 30 "), now), 30_000);
+        assert_eq!(parse_retry_after_ms(Some("0"), now), 0);
+    }
+
+    #[test]
+    fn retry_after_http_date() {
+        let now = SystemTime::UNIX_EPOCH + std::time::Duration::from_secs(1_000_000_000);
+        let future = now + std::time::Duration::from_secs(90);
+        let past = now - std::time::Duration::from_secs(90);
+        assert_eq!(
+            parse_retry_after_ms(Some(&httpdate::fmt_http_date(future)), now),
+            90_000
+        );
+        assert_eq!(
+            parse_retry_after_ms(Some(&httpdate::fmt_http_date(past)), now),
+            0
+        );
+    }
+
+    #[test]
+    fn retry_after_absent_or_malformed_falls_back_to_default() {
+        let now = SystemTime::UNIX_EPOCH;
+        assert_eq!(parse_retry_after_ms(None, now), DEFAULT_RETRY_AFTER_MS);
+        assert_eq!(
+            parse_retry_after_ms(Some("soon"), now),
+            DEFAULT_RETRY_AFTER_MS
         );
     }
 }

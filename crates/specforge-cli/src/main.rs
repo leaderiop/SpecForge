@@ -95,6 +95,10 @@ enum Commands {
         /// Request a specific schema version for the export
         #[arg(long)]
         schema_version: Option<String>,
+
+        /// token budget for JSON export (truncates to the most central entities)
+        #[arg(long)]
+        max_tokens: Option<usize>,
     },
     /// Output the Graph Protocol schema
     Schema {
@@ -636,35 +640,94 @@ fn main() {
     let cli = Cli::parse();
 
     match cli.command {
-        Commands::Init { name, version, extensions, format } => {
+        Commands::Init {
+            name,
+            version,
+            extensions,
+            format,
+        } => {
             let path = std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
-            let exit_code = init::run(&path, name.as_deref(), version.as_deref(), &extensions, &format);
-            std::process::exit(exit_code);
-        }
-        Commands::Check { path, strict, format, lint } => {
-            let exit_code = check::run(&path, strict, &format, &lint);
-            std::process::exit(exit_code);
-        }
-        Commands::Export { path, format, scope, no_schema, schema_version } => {
-            let exit_code = export::run(&path, &format, scope.as_deref(), no_schema, schema_version.as_deref());
-            std::process::exit(exit_code);
-        }
-        Commands::Schema { path, kind, publish } => {
-            let exit_code = export::run_schema(&path, kind.as_deref(), publish);
-            std::process::exit(exit_code);
-        }
-        Commands::Model { path, format, group_by, fields, extension, kinds, root, depth } => {
-            let exit_code = model::run(
-                &path, &format, &group_by, &fields,
-                extension.as_deref(), &kinds, root.as_deref(), depth,
+            let exit_code = init::run(
+                &path,
+                name.as_deref(),
+                version.as_deref(),
+                &extensions,
+                &format,
             );
             std::process::exit(exit_code);
         }
-        Commands::Outline { path, format, fields, deps } => {
+        Commands::Check {
+            path,
+            strict,
+            format,
+            lint,
+        } => {
+            let exit_code = check::run(&path, strict, &format, &lint);
+            std::process::exit(exit_code);
+        }
+        Commands::Export {
+            path,
+            format,
+            scope,
+            no_schema,
+            schema_version,
+            max_tokens,
+        } => {
+            let exit_code = export::run(
+                &path,
+                &format,
+                scope.as_deref(),
+                no_schema,
+                schema_version.as_deref(),
+                max_tokens,
+            );
+            std::process::exit(exit_code);
+        }
+        Commands::Schema {
+            path,
+            kind,
+            publish,
+        } => {
+            let exit_code = export::run_schema(&path, kind.as_deref(), publish);
+            std::process::exit(exit_code);
+        }
+        Commands::Model {
+            path,
+            format,
+            group_by,
+            fields,
+            extension,
+            kinds,
+            root,
+            depth,
+        } => {
+            let exit_code = model::run(
+                &path,
+                &format,
+                &group_by,
+                &fields,
+                extension.as_deref(),
+                &kinds,
+                root.as_deref(),
+                depth,
+            );
+            std::process::exit(exit_code);
+        }
+        Commands::Outline {
+            path,
+            format,
+            fields,
+            deps,
+        } => {
             let exit_code = outline::run(&path, &format, &fields, &deps);
             std::process::exit(exit_code);
         }
-        Commands::Query { entity, path, depth, kind } => {
+        Commands::Query {
+            entity,
+            path,
+            depth,
+            kind,
+        } => {
             let exit_code = query::run(&path, &entity, depth, &kind);
             std::process::exit(exit_code);
         }
@@ -672,7 +735,13 @@ fn main() {
             let exit_code = trace::run(&path, &entity);
             std::process::exit(exit_code);
         }
-        Commands::Format { paths, path, check, diff, stdin } => {
+        Commands::Format {
+            paths,
+            path,
+            check,
+            diff,
+            stdin,
+        } => {
             let exit_code = format::run(&path, check, diff, stdin, &paths);
             std::process::exit(exit_code);
         }
@@ -680,11 +749,20 @@ fn main() {
             let exit_code = stats::run(&path, &format);
             std::process::exit(exit_code);
         }
-        Commands::Add { specifier, path, format } => {
+        Commands::Add {
+            specifier,
+            path,
+            format,
+        } => {
             let exit_code = add::run(&specifier, &path, &format);
             std::process::exit(exit_code);
         }
-        Commands::Remove { name, path, force, format } => {
+        Commands::Remove {
+            name,
+            path,
+            force,
+            format,
+        } => {
             let exit_code = remove::run(&name, &path, force, &format);
             std::process::exit(exit_code);
         }
@@ -696,7 +774,11 @@ fn main() {
             let exit_code = publish::run(&path, &format);
             std::process::exit(exit_code);
         }
-        Commands::Search { query, path, format } => {
+        Commands::Search {
+            query,
+            path,
+            format,
+        } => {
             let exit_code = search::run(&query, &path, &format);
             std::process::exit(exit_code);
         }
@@ -704,7 +786,12 @@ fn main() {
             let exit_code = update::run(name.as_deref(), &path, &format);
             std::process::exit(exit_code);
         }
-        Commands::Login { registry, token, path, format } => {
+        Commands::Login {
+            registry,
+            token,
+            path,
+            format,
+        } => {
             let exit_code = login::run(registry.as_deref(), token.as_deref(), &path, &format);
             std::process::exit(exit_code);
         }
@@ -716,7 +803,11 @@ fn main() {
             let exit_code = providers::run(&path, &format);
             std::process::exit(exit_code);
         }
-        Commands::Collect { path, collector, format } => {
+        Commands::Collect {
+            path,
+            collector,
+            format,
+        } => {
             let exit_code = collect::run(&path, collector.as_deref(), &format);
             std::process::exit(exit_code);
         }
@@ -737,67 +828,153 @@ fn main() {
             let exit_code = explain::run(&code);
             std::process::exit(exit_code);
         }
-        Commands::Migrate { path, dry_run, no_backup, rollback, target_version, format } => {
-            let exit_code = migrate::run(&path, dry_run, no_backup, rollback, target_version.as_deref(), &format);
+        Commands::Migrate {
+            path,
+            dry_run,
+            no_backup,
+            rollback,
+            target_version,
+            format,
+        } => {
+            let exit_code = migrate::run(
+                &path,
+                dry_run,
+                no_backup,
+                rollback,
+                target_version.as_deref(),
+                &format,
+            );
             std::process::exit(exit_code);
         }
-        Commands::InferStatus { path, format, gaps, stale, gaps_detail } => {
+        Commands::InferStatus {
+            path,
+            format,
+            gaps,
+            stale,
+            gaps_detail,
+        } => {
             let exit_code = infer_status::run(&path, &format, gaps, stale, gaps_detail);
             std::process::exit(exit_code);
         }
         Commands::Product { action } => {
             let exit_code = match action {
-                ProductAction::Features { path, status, priority, limit, offset, format } => {
-                    product::run_list(&path, "feature", status.as_deref(), priority.as_deref(), limit, offset, &format)
-                }
-                ProductAction::Journeys { path, limit, format } => {
-                    product::run_list(&path, "journey", None, None, limit, None, &format)
-                }
-                ProductAction::Deliverables { path, status, limit, format } => {
-                    product::run_list(&path, "deliverable", status.as_deref(), None, limit, None, &format)
-                }
-                ProductAction::Milestones { path, status, limit, format } => {
-                    product::run_list(&path, "milestone", status.as_deref(), None, limit, None, &format)
-                }
-                ProductAction::Modules { path, limit, format } => {
-                    product::run_list(&path, "module", None, None, limit, None, &format)
-                }
-                ProductAction::Terms { path, limit, format } => {
-                    product::run_list(&path, "term", None, None, limit, None, &format)
-                }
-                ProductAction::Personas { path, limit, format } => {
-                    product::run_list(&path, "persona", None, None, limit, None, &format)
-                }
-                ProductAction::Channels { path, limit, format } => {
-                    product::run_list(&path, "channel", None, None, limit, None, &format)
-                }
-                ProductAction::Releases { path, status, limit, format } => {
-                    product::run_list(&path, "release", status.as_deref(), None, limit, None, &format)
-                }
-                ProductAction::MilestoneCompletion { milestone, path, format } => {
-                    product::run_milestone_completion(&path, &milestone, &format)
-                }
-                ProductAction::JourneyCoverage { journey, path, format } => {
-                    product::run_journey_coverage(&path, &journey, &format)
-                }
-                ProductAction::FeatureImpact { feature, path, format } => {
-                    product::run_feature_impact(&path, &feature, &format)
-                }
-                ProductAction::FeatureDependents { feature, path, format } => {
-                    product::run_feature_dependents(&path, &feature, &format)
-                }
-                ProductAction::PersonaFeatures { persona, path, format } => {
-                    product::run_persona_features(&path, &persona, &format)
-                }
-                ProductAction::ChannelFeatures { channel, path, format } => {
-                    product::run_channel_features(&path, &channel, &format)
-                }
+                ProductAction::Features {
+                    path,
+                    status,
+                    priority,
+                    limit,
+                    offset,
+                    format,
+                } => product::run_list(
+                    &path,
+                    "feature",
+                    status.as_deref(),
+                    priority.as_deref(),
+                    limit,
+                    offset,
+                    &format,
+                ),
+                ProductAction::Journeys {
+                    path,
+                    limit,
+                    format,
+                } => product::run_list(&path, "journey", None, None, limit, None, &format),
+                ProductAction::Deliverables {
+                    path,
+                    status,
+                    limit,
+                    format,
+                } => product::run_list(
+                    &path,
+                    "deliverable",
+                    status.as_deref(),
+                    None,
+                    limit,
+                    None,
+                    &format,
+                ),
+                ProductAction::Milestones {
+                    path,
+                    status,
+                    limit,
+                    format,
+                } => product::run_list(
+                    &path,
+                    "milestone",
+                    status.as_deref(),
+                    None,
+                    limit,
+                    None,
+                    &format,
+                ),
+                ProductAction::Modules {
+                    path,
+                    limit,
+                    format,
+                } => product::run_list(&path, "module", None, None, limit, None, &format),
+                ProductAction::Terms {
+                    path,
+                    limit,
+                    format,
+                } => product::run_list(&path, "term", None, None, limit, None, &format),
+                ProductAction::Personas {
+                    path,
+                    limit,
+                    format,
+                } => product::run_list(&path, "persona", None, None, limit, None, &format),
+                ProductAction::Channels {
+                    path,
+                    limit,
+                    format,
+                } => product::run_list(&path, "channel", None, None, limit, None, &format),
+                ProductAction::Releases {
+                    path,
+                    status,
+                    limit,
+                    format,
+                } => product::run_list(
+                    &path,
+                    "release",
+                    status.as_deref(),
+                    None,
+                    limit,
+                    None,
+                    &format,
+                ),
+                ProductAction::MilestoneCompletion {
+                    milestone,
+                    path,
+                    format,
+                } => product::run_milestone_completion(&path, &milestone, &format),
+                ProductAction::JourneyCoverage {
+                    journey,
+                    path,
+                    format,
+                } => product::run_journey_coverage(&path, &journey, &format),
+                ProductAction::FeatureImpact {
+                    feature,
+                    path,
+                    format,
+                } => product::run_feature_impact(&path, &feature, &format),
+                ProductAction::FeatureDependents {
+                    feature,
+                    path,
+                    format,
+                } => product::run_feature_dependents(&path, &feature, &format),
+                ProductAction::PersonaFeatures {
+                    persona,
+                    path,
+                    format,
+                } => product::run_persona_features(&path, &persona, &format),
+                ProductAction::ChannelFeatures {
+                    channel,
+                    path,
+                    format,
+                } => product::run_channel_features(&path, &channel, &format),
                 ProductAction::BulkStatus { path, format } => {
                     product::run_bulk_status(&path, &format)
                 }
-                ProductAction::Health { path, format } => {
-                    product::run_health(&path, &format)
-                }
+                ProductAction::Health { path, format } => product::run_health(&path, &format),
             };
             std::process::exit(exit_code);
         }

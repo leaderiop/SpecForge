@@ -1,9 +1,9 @@
 use axum::{
     Router,
-    extract::{Path, Query, State, Multipart},
-    http::{StatusCode, HeaderMap},
+    extract::{DefaultBodyLimit, Multipart, Path, Query, State},
+    http::{HeaderMap, StatusCode},
     response::{IntoResponse, Json},
-    routing::{get, put, post, delete},
+    routing::{delete, get, post, put},
 };
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
@@ -17,9 +17,15 @@ pub fn router(state: Arc<AppState>) -> Router {
     Router::new()
         .route("/v1/packages/{name}", get(get_package_versions))
         .route("/v1/packages/{name}/{version}", get(get_package_version))
-        .route("/v1/packages/{name}/{version}", put(publish_package))
+        .route(
+            "/v1/packages/{name}/{version}",
+            put(publish_package).layer(DefaultBodyLimit::max(64 * 1024 * 1024)),
+        )
         .route("/v1/packages/{name}/{version}", delete(yank_package))
-        .route("/v1/packages/{name}/{version}/download", get(download_package))
+        .route(
+            "/v1/packages/{name}/{version}/download",
+            get(download_package),
+        )
         .route("/v1/search", get(search_packages))
         .route("/v1/auth/verify", post(verify_auth))
         .route("/health", get(health_check))
@@ -97,12 +103,15 @@ async fn get_package_versions(
     if versions.is_empty() {
         return (
             StatusCode::NOT_FOUND,
-            Json(serde_json::to_value(ErrorResponse {
-                error: ErrorBody {
-                    code: "NOT_FOUND".to_string(),
-                    message: format!("package '{}' not found", name),
-                },
-            }).unwrap()),
+            Json(
+                serde_json::to_value(ErrorResponse {
+                    error: ErrorBody {
+                        code: "NOT_FOUND".to_string(),
+                        message: format!("package '{}' not found", name),
+                    },
+                })
+                .unwrap(),
+            ),
         );
     }
 
@@ -123,12 +132,15 @@ async fn get_package_version(
         None => {
             return (
                 StatusCode::NOT_FOUND,
-                Json(serde_json::to_value(ErrorResponse {
-                    error: ErrorBody {
-                        code: "NOT_FOUND".to_string(),
-                        message: format!("{}@{} not found", name, version),
-                    },
-                }).unwrap()),
+                Json(
+                    serde_json::to_value(ErrorResponse {
+                        error: ErrorBody {
+                            code: "NOT_FOUND".to_string(),
+                            message: format!("{}@{} not found", name, version),
+                        },
+                    })
+                    .unwrap(),
+                ),
             );
         }
     };
@@ -137,22 +149,28 @@ async fn get_package_version(
     let keywords: Vec<String> = if pkg.keywords.is_empty() {
         vec![]
     } else {
-        pkg.keywords.split(',').map(|s| s.trim().to_string()).collect()
+        pkg.keywords
+            .split(',')
+            .map(|s| s.trim().to_string())
+            .collect()
     };
 
     (
         StatusCode::OK,
-        Json(serde_json::to_value(PackageMetadataResponse {
-            name: pkg.name,
-            version: pkg.version,
-            sha256: pkg.sha256,
-            size_bytes: pkg.size_bytes,
-            description: pkg.description,
-            keywords,
-            publisher: pkg.publisher,
-            published_at: pkg.published_at,
-            wasm_url,
-        }).unwrap()),
+        Json(
+            serde_json::to_value(PackageMetadataResponse {
+                name: pkg.name,
+                version: pkg.version,
+                sha256: pkg.sha256,
+                size_bytes: pkg.size_bytes,
+                description: pkg.description,
+                keywords,
+                publisher: pkg.publisher,
+                published_at: pkg.published_at,
+                wasm_url,
+            })
+            .unwrap(),
+        ),
     )
 }
 
@@ -162,21 +180,38 @@ async fn download_package(
 ) -> impl IntoResponse {
     let name = decode_name(&name);
 
-    match state.storage.read_wasm(&name, &version) {
+    // Storage reads are blocking file I/O: run them on the blocking pool.
+    let storage_state = Arc::clone(&state);
+    let storage_name = name.clone();
+    let storage_version = version.clone();
+    let data = tokio::task::spawn_blocking(move || {
+        storage_state
+            .storage
+            .read_wasm(&storage_name, &storage_version)
+    })
+    .await
+    .expect("storage read task panicked");
+
+    match data {
         Some(data) => (
             StatusCode::OK,
             [(axum::http::header::CONTENT_TYPE, "application/wasm")],
             data,
-        ).into_response(),
+        )
+            .into_response(),
         None => (
             StatusCode::NOT_FOUND,
-            Json(serde_json::to_value(ErrorResponse {
-                error: ErrorBody {
-                    code: "NOT_FOUND".to_string(),
-                    message: format!("binary not found for {}@{}", name, version),
-                },
-            }).unwrap()),
-        ).into_response(),
+            Json(
+                serde_json::to_value(ErrorResponse {
+                    error: ErrorBody {
+                        code: "NOT_FOUND".to_string(),
+                        message: format!("binary not found for {}@{}", name, version),
+                    },
+                })
+                .unwrap(),
+            ),
+        )
+            .into_response(),
     }
 }
 
@@ -184,7 +219,10 @@ async fn search_packages(
     State(state): State<Arc<AppState>>,
     Query(query): Query<SearchQuery>,
 ) -> impl IntoResponse {
-    let results = state.database.search(&query.q, query.limit);
+    // rusqlite queries are blocking: run the search on the blocking pool.
+    let results = tokio::task::spawn_blocking(move || state.database.search(&query.q, query.limit))
+        .await
+        .expect("search query task panicked");
 
     let hits: Vec<SearchHit> = results
         .into_iter()
@@ -212,12 +250,15 @@ async fn publish_package(
         None => {
             return (
                 StatusCode::UNAUTHORIZED,
-                Json(serde_json::to_value(ErrorResponse {
-                    error: ErrorBody {
-                        code: "UNAUTHORIZED".to_string(),
-                        message: "missing Authorization header".to_string(),
-                    },
-                }).unwrap()),
+                Json(
+                    serde_json::to_value(ErrorResponse {
+                        error: ErrorBody {
+                            code: "UNAUTHORIZED".to_string(),
+                            message: "missing Authorization header".to_string(),
+                        },
+                    })
+                    .unwrap(),
+                ),
             );
         }
     };
@@ -227,12 +268,15 @@ async fn publish_package(
         None => {
             return (
                 StatusCode::UNAUTHORIZED,
-                Json(serde_json::to_value(ErrorResponse {
-                    error: ErrorBody {
-                        code: "UNAUTHORIZED".to_string(),
-                        message: "invalid or revoked token".to_string(),
-                    },
-                }).unwrap()),
+                Json(
+                    serde_json::to_value(ErrorResponse {
+                        error: ErrorBody {
+                            code: "UNAUTHORIZED".to_string(),
+                            message: "invalid or revoked token".to_string(),
+                        },
+                    })
+                    .unwrap(),
+                ),
             );
         }
     };
@@ -240,25 +284,38 @@ async fn publish_package(
     if !auth::token_has_scope(&token_record, &name) {
         return (
             StatusCode::FORBIDDEN,
-            Json(serde_json::to_value(ErrorResponse {
-                error: ErrorBody {
-                    code: "FORBIDDEN".to_string(),
-                    message: format!("token does not have publish permission for scope '{}'", name),
-                },
-            }).unwrap()),
+            Json(
+                serde_json::to_value(ErrorResponse {
+                    error: ErrorBody {
+                        code: "FORBIDDEN".to_string(),
+                        message: format!(
+                            "token does not have publish permission for scope '{}'",
+                            name
+                        ),
+                    },
+                })
+                .unwrap(),
+            ),
         );
     }
 
     // Check if version already exists
-    if state.database.get_package_version(&name, &version).is_some() {
+    if state
+        .database
+        .get_package_version(&name, &version)
+        .is_some()
+    {
         return (
             StatusCode::CONFLICT,
-            Json(serde_json::to_value(ErrorResponse {
-                error: ErrorBody {
-                    code: "DUPLICATE_VERSION".to_string(),
-                    message: format!("version {} already exists for {}", version, name),
-                },
-            }).unwrap()),
+            Json(
+                serde_json::to_value(ErrorResponse {
+                    error: ErrorBody {
+                        code: "DUPLICATE_VERSION".to_string(),
+                        message: format!("version {} already exists for {}", version, name),
+                    },
+                })
+                .unwrap(),
+            ),
         );
     }
 
@@ -284,51 +341,83 @@ async fn publish_package(
         _ => {
             return (
                 StatusCode::BAD_REQUEST,
-                Json(serde_json::to_value(ErrorResponse {
-                    error: ErrorBody {
-                        code: "BAD_REQUEST".to_string(),
-                        message: "missing 'wasm' field in multipart body".to_string(),
-                    },
-                }).unwrap()),
+                Json(
+                    serde_json::to_value(ErrorResponse {
+                        error: ErrorBody {
+                            code: "BAD_REQUEST".to_string(),
+                            message: "missing 'wasm' field in multipart body".to_string(),
+                        },
+                    })
+                    .unwrap(),
+                ),
             );
         }
     };
 
-    // Compute SHA256
-    let mut hasher = Sha256::new();
-    hasher.update(&wasm_data);
-    let sha256 = hex::encode(hasher.finalize());
+    // Compute SHA256 — hashing the payload is CPU-bound: run it on the
+    // blocking pool.
+    let hash_data = wasm_data.clone();
+    let sha256 = tokio::task::spawn_blocking(move || {
+        let mut hasher = Sha256::new();
+        hasher.update(&hash_data);
+        hex::encode(hasher.finalize())
+    })
+    .await
+    .expect("sha256 hashing task panicked");
 
     // Parse description/keywords from manifest
     let (description, keywords) = if let Some(ref json_str) = manifest_json {
         let v: serde_json::Value = serde_json::from_str(json_str).unwrap_or_default();
-        let desc = v.get("description")
+        let desc = v
+            .get("description")
             .and_then(|d| d.as_str())
             .unwrap_or("")
             .to_string();
-        let kw = v.get("keywords")
+        let kw = v
+            .get("keywords")
             .and_then(|k| k.as_array())
-            .map(|arr| arr.iter().filter_map(|v| v.as_str()).collect::<Vec<_>>().join(","))
+            .map(|arr| {
+                arr.iter()
+                    .filter_map(|v| v.as_str())
+                    .collect::<Vec<_>>()
+                    .join(",")
+            })
             .unwrap_or_default();
         (desc, kw)
     } else {
         (String::new(), String::new())
     };
 
-    // Store wasm binary
-    if let Err(e) = state.storage.store_wasm(&name, &version, &wasm_data) {
+    // Store wasm binary — file writes are blocking I/O: run them on the
+    // blocking pool.
+    let store_state = Arc::clone(&state);
+    let store_name = name.clone();
+    let store_version = version.clone();
+    let store_data = wasm_data.clone();
+    if let Err(e) = tokio::task::spawn_blocking(move || {
+        store_state
+            .storage
+            .store_wasm(&store_name, &store_version, &store_data)
+    })
+    .await
+    .expect("storage write task panicked")
+    {
         return (
             StatusCode::INTERNAL_SERVER_ERROR,
-            Json(serde_json::to_value(ErrorResponse {
-                error: ErrorBody {
-                    code: "STORAGE_ERROR".to_string(),
-                    message: e,
-                },
-            }).unwrap()),
+            Json(
+                serde_json::to_value(ErrorResponse {
+                    error: ErrorBody {
+                        code: "STORAGE_ERROR".to_string(),
+                        message: e,
+                    },
+                })
+                .unwrap(),
+            ),
         );
     }
 
-    // Insert into database
+    // Insert into database — rusqlite is blocking: run it on the blocking
+    // pool.
     let pkg = PackageVersion {
         name: name.clone(),
         version: version.clone(),
@@ -340,15 +429,24 @@ async fn publish_package(
         published_at: chrono::Utc::now().to_rfc3339(),
     };
 
-    if let Err(e) = state.database.insert_package(&pkg) {
+    let insert_state = Arc::clone(&state);
+    let insert_pkg = pkg.clone();
+    if let Err(e) =
+        tokio::task::spawn_blocking(move || insert_state.database.insert_package(&insert_pkg))
+            .await
+            .expect("database insert task panicked")
+    {
         return (
             StatusCode::CONFLICT,
-            Json(serde_json::to_value(ErrorResponse {
-                error: ErrorBody {
-                    code: "DUPLICATE_VERSION".to_string(),
-                    message: e,
-                },
-            }).unwrap()),
+            Json(
+                serde_json::to_value(ErrorResponse {
+                    error: ErrorBody {
+                        code: "DUPLICATE_VERSION".to_string(),
+                        message: e,
+                    },
+                })
+                .unwrap(),
+            ),
         );
     }
 
@@ -356,12 +454,15 @@ async fn publish_package(
 
     (
         StatusCode::CREATED,
-        Json(serde_json::to_value(serde_json::json!({
-            "name": name,
-            "version": version,
-            "sha256": pkg.sha256,
-            "size_bytes": pkg.size_bytes,
-        })).unwrap()),
+        Json(
+            serde_json::to_value(serde_json::json!({
+                "name": name,
+                "version": version,
+                "sha256": pkg.sha256,
+                "size_bytes": pkg.size_bytes,
+            }))
+            .unwrap(),
+        ),
     )
 }
 
@@ -375,63 +476,119 @@ async fn yank_package(
     let auth_header = match headers.get("authorization").and_then(|v| v.to_str().ok()) {
         Some(h) => h.to_string(),
         None => {
-            return (StatusCode::UNAUTHORIZED, Json(serde_json::to_value(ErrorResponse {
-                error: ErrorBody { code: "UNAUTHORIZED".to_string(), message: "missing auth".to_string() },
-            }).unwrap()));
+            return (
+                StatusCode::UNAUTHORIZED,
+                Json(
+                    serde_json::to_value(ErrorResponse {
+                        error: ErrorBody {
+                            code: "UNAUTHORIZED".to_string(),
+                            message: "missing auth".to_string(),
+                        },
+                    })
+                    .unwrap(),
+                ),
+            );
         }
     };
 
     let token_record = match auth::validate_bearer(&state.database, &auth_header) {
         Some(r) => r,
         None => {
-            return (StatusCode::UNAUTHORIZED, Json(serde_json::to_value(ErrorResponse {
-                error: ErrorBody { code: "UNAUTHORIZED".to_string(), message: "invalid token".to_string() },
-            }).unwrap()));
+            return (
+                StatusCode::UNAUTHORIZED,
+                Json(
+                    serde_json::to_value(ErrorResponse {
+                        error: ErrorBody {
+                            code: "UNAUTHORIZED".to_string(),
+                            message: "invalid token".to_string(),
+                        },
+                    })
+                    .unwrap(),
+                ),
+            );
         }
     };
 
     if !auth::token_has_scope(&token_record, &name) {
-        return (StatusCode::FORBIDDEN, Json(serde_json::to_value(ErrorResponse {
-            error: ErrorBody { code: "FORBIDDEN".to_string(), message: "insufficient scope".to_string() },
-        }).unwrap()));
+        return (
+            StatusCode::FORBIDDEN,
+            Json(
+                serde_json::to_value(ErrorResponse {
+                    error: ErrorBody {
+                        code: "FORBIDDEN".to_string(),
+                        message: "insufficient scope".to_string(),
+                    },
+                })
+                .unwrap(),
+            ),
+        );
     }
 
     if state.database.yank_version(&name, &version) {
         tracing::info!("yanked {}@{}", name, version);
-        (StatusCode::OK, Json(serde_json::to_value(serde_json::json!({"yanked": true})).unwrap()))
+        (
+            StatusCode::OK,
+            Json(serde_json::to_value(serde_json::json!({"yanked": true})).unwrap()),
+        )
     } else {
-        (StatusCode::NOT_FOUND, Json(serde_json::to_value(ErrorResponse {
-            error: ErrorBody { code: "NOT_FOUND".to_string(), message: format!("{}@{} not found", name, version) },
-        }).unwrap()))
+        (
+            StatusCode::NOT_FOUND,
+            Json(
+                serde_json::to_value(ErrorResponse {
+                    error: ErrorBody {
+                        code: "NOT_FOUND".to_string(),
+                        message: format!("{}@{} not found", name, version),
+                    },
+                })
+                .unwrap(),
+            ),
+        )
     }
 }
 
-async fn verify_auth(
-    State(state): State<Arc<AppState>>,
-    headers: HeaderMap,
-) -> impl IntoResponse {
+async fn verify_auth(State(state): State<Arc<AppState>>, headers: HeaderMap) -> impl IntoResponse {
     let auth_header = match headers.get("authorization").and_then(|v| v.to_str().ok()) {
         Some(h) => h.to_string(),
         None => {
-            return (StatusCode::UNAUTHORIZED, Json(serde_json::to_value(ErrorResponse {
-                error: ErrorBody { code: "UNAUTHORIZED".to_string(), message: "missing auth header".to_string() },
-            }).unwrap()));
+            return (
+                StatusCode::UNAUTHORIZED,
+                Json(
+                    serde_json::to_value(ErrorResponse {
+                        error: ErrorBody {
+                            code: "UNAUTHORIZED".to_string(),
+                            message: "missing auth header".to_string(),
+                        },
+                    })
+                    .unwrap(),
+                ),
+            );
         }
     };
 
     match auth::validate_bearer(&state.database, &auth_header) {
-        Some(record) => {
-            (StatusCode::OK, Json(serde_json::to_value(serde_json::json!({
-                "valid": true,
-                "scope": record.scope,
-                "label": record.label,
-            })).unwrap()))
-        }
-        None => {
-            (StatusCode::UNAUTHORIZED, Json(serde_json::to_value(ErrorResponse {
-                error: ErrorBody { code: "UNAUTHORIZED".to_string(), message: "invalid or revoked token".to_string() },
-            }).unwrap()))
-        }
+        Some(record) => (
+            StatusCode::OK,
+            Json(
+                serde_json::to_value(serde_json::json!({
+                    "valid": true,
+                    "scope": record.scope,
+                    "label": record.label,
+                }))
+                .unwrap(),
+            ),
+        ),
+        None => (
+            StatusCode::UNAUTHORIZED,
+            Json(
+                serde_json::to_value(ErrorResponse {
+                    error: ErrorBody {
+                        code: "UNAUTHORIZED".to_string(),
+                        message: "invalid or revoked token".to_string(),
+                    },
+                })
+                .unwrap(),
+            ),
+        ),
     }
 }
 

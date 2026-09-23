@@ -117,11 +117,15 @@ pub trait RegistryClient: Send + Sync {
     ) -> Result<Vec<RegistrySearchResult>, RegistryError>;
 
     /// Publish an extension package (Wasm binary + manifest) to the registry.
+    ///
+    /// `credential`, when provided, authenticates the upload; implementations
+    /// send the resolved token as an `Authorization: Bearer` header.
     fn publish(
         &self,
         package: &[u8],
         manifest: &ManifestV2,
         registry: &RegistryConfig,
+        credential: Option<&RegistryCredential>,
     ) -> Result<String, RegistryError>;
 
     /// Validate that the given credential authenticates successfully.
@@ -155,7 +159,9 @@ impl RetryPolicy {
     ///
     /// Uses exponential backoff: `base_delay_ms * 2^attempt`, capped at `max_delay_ms`.
     pub fn delay_for_attempt(&self, attempt: u32) -> u64 {
-        let delay = self.base_delay_ms.saturating_mul(2u64.saturating_pow(attempt));
+        let delay = self
+            .base_delay_ms
+            .saturating_mul(2u64.saturating_pow(attempt));
         delay.min(self.max_delay_ms)
     }
 }

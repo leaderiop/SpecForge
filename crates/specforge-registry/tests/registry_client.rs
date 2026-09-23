@@ -6,9 +6,7 @@ use specforge_registry::registry_client::{
     RegistryClient, RegistryError, RegistryResponse, RegistrySearchResult, RetryPolicy,
 };
 use specforge_registry::registry_config::{AuthMethod, RegistryConfig, RegistryCredential};
-use specforge_registry::{
-    auth, ManifestV2,
-};
+use specforge_registry::{ManifestV2, auth};
 
 // ---------------------------------------------------------------------------
 // Mock client
@@ -94,6 +92,7 @@ impl RegistryClient for MockRegistryClient {
         _package: &[u8],
         _manifest: &ManifestV2,
         _registry: &RegistryConfig,
+        _credential: Option<&RegistryCredential>,
     ) -> Result<String, RegistryError> {
         self.publish_result
             .lock()
@@ -180,7 +179,9 @@ fn mock_client_fetch() {
         sha256: "abc123".into(),
     }));
 
-    let resp = client.fetch("@specforge/software@1.0.0", &test_registry()).unwrap();
+    let resp = client
+        .fetch("@specforge/software@1.0.0", &test_registry())
+        .unwrap();
     assert_eq!(resp.name, "@specforge/software");
     assert_eq!(resp.version, "1.0.0");
     assert_eq!(resp.sha256, "abc123");
@@ -207,7 +208,7 @@ fn mock_client_publish() {
         .with_publish(Ok("https://r.specforge.dev/@test/ext/1.0.0".into()));
 
     let url = client
-        .publish(b"wasm-bytes", &minimal_manifest(), &test_registry())
+        .publish(b"wasm-bytes", &minimal_manifest(), &test_registry(), None)
         .unwrap();
     assert!(url.contains("@test/ext"));
 }
@@ -292,20 +293,22 @@ fn auth_double_401_produces_error_diagnostic() {
     let err = auth::authenticate_with_retry(&client, &test_registry(), &cred).unwrap_err();
     assert_eq!(err.severity, Severity::Error);
     assert!(err.message.contains("Authentication failed after retry"));
-    assert!(err
-        .suggestion
-        .as_ref()
-        .unwrap()
-        .contains("specforge registry login"));
+    assert!(
+        err.suggestion
+            .as_ref()
+            .unwrap()
+            .contains("specforge registry login")
+    );
     assert_eq!(client.auth_call_count(), 2);
 }
 
 // B:auth-forbidden — verify unit "403 produces E-level diagnostic with permission guidance"
 #[test]
 fn auth_403_produces_permission_error() {
-    let client = MockRegistryClient::new().with_auth_sequence(vec![Err(RegistryError::Forbidden {
-        guidance: "insufficient scope".into(),
-    })]);
+    let client =
+        MockRegistryClient::new().with_auth_sequence(vec![Err(RegistryError::Forbidden {
+            guidance: "insufficient scope".into(),
+        })]);
 
     let cred = test_credential_bearer("some-token");
     let err = auth::authenticate_with_retry(&client, &test_registry(), &cred).unwrap_err();
@@ -447,11 +450,10 @@ fn auth_failure_does_not_trigger_cache_fallback() {
     let result = auth::authenticate_with_retry(&client_401, &test_registry(), &cred);
     assert!(result.is_err(), "401 must not silently succeed via cache");
 
-    let client_403 = MockRegistryClient::new().with_auth_sequence(vec![Err(
-        RegistryError::Forbidden {
+    let client_403 =
+        MockRegistryClient::new().with_auth_sequence(vec![Err(RegistryError::Forbidden {
             guidance: "no access".into(),
-        },
-    )]);
+        })]);
 
     let result = auth::authenticate_with_retry(&client_403, &test_registry(), &cred);
     assert!(result.is_err(), "403 must not silently succeed via cache");
@@ -467,7 +469,9 @@ fn all_registry_errors_convert_to_diagnostics() {
         RegistryError::Forbidden {
             guidance: "g".into(),
         },
-        RegistryError::RateLimited { retry_after_ms: 5000 },
+        RegistryError::RateLimited {
+            retry_after_ms: 5000,
+        },
         RegistryError::Timeout {
             url: "https://x".into(),
         },

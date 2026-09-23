@@ -84,17 +84,36 @@ impl DocumentBuffer {
             });
         }
 
-        self.content.replace_range(start_offset..end_offset, new_text);
+        self.content
+            .replace_range(start_offset..end_offset, new_text);
     }
 
     fn line_col_to_offset(&self, line: usize, col: usize) -> usize {
         let mut offset = 0;
         for (i, l) in self.content.split('\n').enumerate() {
             if i == line {
-                return offset + col;
+                return offset + utf16_col_to_byte_offset(l, col);
             }
             offset += l.len() + 1; // +1 for '\n'
         }
         self.content.len()
     }
+}
+
+/// Convert a UTF-16 code-unit column (the LSP `character` field) to a byte
+/// offset within `line`. Characters are consumed while they end at or before
+/// `col`; a column landing inside a surrogate pair or past the end of the
+/// line clamps to the nearest char boundary / end of line.
+pub fn utf16_col_to_byte_offset(line: &str, col: usize) -> usize {
+    let mut units = 0usize;
+    let mut byte_offset = 0usize;
+    for ch in line.chars() {
+        let len = ch.len_utf16();
+        if units + len > col {
+            break;
+        }
+        units += len;
+        byte_offset += ch.len_utf8();
+    }
+    byte_offset
 }

@@ -1,8 +1,9 @@
 use serde_json::json;
 use specforge_registry::{
-    HttpRegistryClient, ManifestV2, RegistryConfig,
-    publish_to_registry, parse_registries_from_config,
-    find_registry_for_specifier,
+    AuthMethod, CredentialStore, HttpRegistryClient, ManifestV2, RegistryConfig,
+    RegistryCredential,
+    client::credentials::{credentials_path, read_credentials},
+    find_registry_for_specifier, parse_registries_from_config, publish_to_registry,
 };
 use std::path::Path;
 
@@ -10,14 +11,22 @@ pub fn run(path: &Path, format: &str) -> i32 {
     // Load manifest
     let manifest_path = path.join("manifest.json");
     if !manifest_path.exists() {
-        print_error(format, "no manifest.json found in current directory", "E-PUB-001");
+        print_error(
+            format,
+            "no manifest.json found in current directory",
+            "E-PUB-001",
+        );
         return 1;
     }
 
     let manifest_content = match std::fs::read_to_string(&manifest_path) {
         Ok(c) => c,
         Err(e) => {
-            print_error(format, &format!("failed to read manifest.json: {}", e), "E-PUB-001");
+            print_error(
+                format,
+                &format!("failed to read manifest.json: {}", e),
+                "E-PUB-001",
+            );
             return 1;
         }
     };
@@ -25,7 +34,11 @@ pub fn run(path: &Path, format: &str) -> i32 {
     let manifest: ManifestV2 = match serde_json::from_str(&manifest_content) {
         Ok(m) => m,
         Err(e) => {
-            print_error(format, &format!("invalid manifest.json: {}", e), "E-PUB-002");
+            print_error(
+                format,
+                &format!("invalid manifest.json: {}", e),
+                "E-PUB-002",
+            );
             return 1;
         }
     };
@@ -44,7 +57,11 @@ pub fn run(path: &Path, format: &str) -> i32 {
     let wasm_bytes = match std::fs::read(&wasm_path) {
         Ok(b) => b,
         Err(e) => {
-            print_error(format, &format!("failed to read wasm binary: {}", e), "E-PUB-003");
+            print_error(
+                format,
+                &format!("failed to read wasm binary: {}", e),
+                "E-PUB-003",
+            );
             return 1;
         }
     };
@@ -56,14 +73,27 @@ pub fn run(path: &Path, format: &str) -> i32 {
     let registry = match find_registry_for_specifier(&manifest.name, &registries) {
         Some(r) => r,
         None => {
-            print_error(format, "no registry configured for this package scope", "R-OPS-001");
+            print_error(
+                format,
+                "no registry configured for this package scope",
+                "R-OPS-001",
+            );
             return 1;
         }
     };
+    // Load publish credential: SPECFORGE_REGISTRY_TOKEN overrides stored credentials.
+    let credential = load_credential(registry);
 
     // Publish
     let client = HttpRegistryClient::new();
-    match publish_to_registry(&wasm_bytes, &manifest, registry, &client, false) {
+    match publish_to_registry(
+        &wasm_bytes,
+        &manifest,
+        registry,
+        credential.as_ref(),
+        &client,
+        false,
+    ) {
         Ok(url) => {
             match format {
                 "json" => {
@@ -125,5 +155,84 @@ fn print_error(format: &str, message: &str, code: &str) {
             println!("{}", serde_json::to_string_pretty(&output).unwrap());
         }
         _ => eprintln!("error[{}]: {}", code, message),
+    }
+}
+
+/// Determine the credential for a publish: `SPECFORGE_REGISTRY_TOKEN` wins
+/// when set to a non-blank value, otherwise the stored credential for the
+/// registry alias is used.
+fn select_credential(
+    env_token: Option<String>,
+    store: &CredentialStore,
+    alias: &str,
+) -> Option<RegistryCredential> {
+    if let Some(token) = env_token
+        && !token.trim().is_empty()
+    {
+        return Some(RegistryCredential {
+            alias: alias.to_string(),
+            auth_method: AuthMethod::Bearer(token),
+        });
+    }
+    store.get_credential(alias)
+}
+
+fn load_credential(registry: &RegistryConfig) -> Option<RegistryCredential> {
+    let env_token = std::env::var("SPECFORGE_REGISTRY_TOKEN").ok();
+    let store = match read_credentials(&credentials_path()) {
+        Ok(store) => store,
+        Err(diag) => {
+            eprintln!("warning: ignoring stored credentials: {}", diag.message);
+            CredentialStore::default()
+        }
+    };
+    select_credential(env_token, &store, &registry.alias)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn store_with_token(alias: &str, token: &str) -> CredentialStore {
+        let mut store = CredentialStore::default();
+        store.set_token(alias, token.to_string());
+        store
+    }
+
+    #[test]
+    fn env_token_overrides_stored_credential() {
+        let store = store_with_token("default", "stored-token");
+        let cred = select_credential(Some("env-token".to_string()), &store, "default").unwrap();
+        assert_eq!(cred.alias, "default");
+        assert_eq!(
+            cred.auth_method,
+            AuthMethod::Bearer("env-token".to_string())
+        );
+    }
+
+    #[test]
+    fn blank_env_token_falls_back_to_store() {
+        let store = store_with_token("default", "stored-token");
+        let cred = select_credential(Some("  ".to_string()), &store, "default").unwrap();
+        assert_eq!(
+            cred.auth_method,
+            AuthMethod::Bearer("stored-token".to_string())
+        );
+    }
+
+    #[test]
+    fn stored_credential_used_when_env_unset() {
+        let store = store_with_token("default", "stored-token");
+        let cred = select_credential(None, &store, "default").unwrap();
+        assert_eq!(
+            cred.auth_method,
+            AuthMethod::Bearer("stored-token".to_string())
+        );
+    }
+
+    #[test]
+    fn missing_alias_yields_no_credential() {
+        let store = store_with_token("other", "stored-token");
+        assert!(select_credential(None, &store, "default").is_none());
     }
 }

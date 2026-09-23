@@ -15,11 +15,19 @@ fn span() -> SourceSpan {
 
 fn node_with_fields(id: &str, kind: &str, contract: &str, status: &str) -> Node {
     let mut fields = FieldMap::new();
-    fields.push(Sym::new("contract"), FieldValue::String(contract.to_string()));
-    fields.push(Sym::new("status"), FieldValue::Identifier(status.to_string()));
+    fields.push(
+        Sym::new("contract"),
+        FieldValue::String(contract.to_string()),
+    );
+    fields.push(
+        Sym::new("status"),
+        FieldValue::Identifier(status.to_string()),
+    );
     Node {
         id: EntityId { raw: Sym::new(id) },
-        kind: EntityKind { raw: Sym::new(kind) },
+        kind: EntityKind {
+            raw: Sym::new(kind),
+        },
         title: Some(format!("Title {}", id)),
         fields,
         source_span: span(),
@@ -28,13 +36,22 @@ fn node_with_fields(id: &str, kind: &str, contract: &str, status: &str) -> Node 
 
 fn testable_node(id: &str) -> Node {
     let mut fields = FieldMap::new();
-    fields.push(Sym::new("contract"), FieldValue::String("The system MUST work".to_string()));
-    fields.push(Sym::new("verify"), FieldValue::VerifyList(vec![
-        VerifyStatement { kind: "unit".to_string(), description: "it works".to_string() },
-    ]));
+    fields.push(
+        Sym::new("contract"),
+        FieldValue::String("The system MUST work".to_string()),
+    );
+    fields.push(
+        Sym::new("verify"),
+        FieldValue::VerifyList(vec![VerifyStatement {
+            kind: "unit".to_string(),
+            description: "it works".to_string(),
+        }]),
+    );
     Node {
         id: EntityId { raw: Sym::new(id) },
-        kind: EntityKind { raw: Sym::new("behavior") },
+        kind: EntityKind {
+            raw: Sym::new("behavior"),
+        },
         title: Some(format!("Title {}", id)),
         fields,
         source_span: span(),
@@ -46,8 +63,16 @@ fn build_graph() -> Graph {
     graph.add_node(node_with_fields("a", "feature", "feature A", "planned"));
     graph.add_node(testable_node("b"));
     graph.add_node(testable_node("c"));
-    graph.add_edge(Edge { source: "a".into(), target: "b".into(), label: "behaviors".into() });
-    graph.add_edge(Edge { source: "b".into(), target: "c".into(), label: "depends_on".into() });
+    graph.add_edge(Edge {
+        source: "a".into(),
+        target: "b".into(),
+        label: "behaviors".into(),
+    });
+    graph.add_edge(Edge {
+        source: "b".into(),
+        target: "c".into(),
+        label: "depends_on".into(),
+    });
     graph
 }
 
@@ -55,7 +80,10 @@ fn build_graph() -> Graph {
 
 // B:serialize_json_graph — verify contract "requires/ensures consistency for JSON graph serialization"
 #[test]
-#[specforge_test(behavior = "serialize_json_graph", verify = "requires/ensures consistency for JSON graph serialization")]
+#[specforge_test(
+    behavior = "serialize_json_graph",
+    verify = "requires/ensures consistency for JSON graph serialization"
+)]
 fn json_graph_contract_finalized_graph_produces_valid_output() {
     // Requires: graph is finalized (built with nodes + edges)
     // Ensures: valid JSON with schema_version, all nodes, all edges, source locations
@@ -63,9 +91,20 @@ fn json_graph_contract_finalized_graph_produces_valid_output() {
     let json = specforge_emitter::emit_json(&graph);
     let parsed: serde_json::Value = serde_json::from_str(&json).unwrap();
 
-    assert!(parsed["schema_version"].is_string(), "must include schema_version");
-    assert_eq!(parsed["nodes"].as_array().unwrap().len(), 3, "all nodes present");
-    assert_eq!(parsed["edges"].as_array().unwrap().len(), 2, "all edges present");
+    assert!(
+        parsed["schema_version"].is_string(),
+        "must include schema_version"
+    );
+    assert_eq!(
+        parsed["nodes"].as_array().unwrap().len(),
+        3,
+        "all nodes present"
+    );
+    assert_eq!(
+        parsed["edges"].as_array().unwrap().len(),
+        2,
+        "all edges present"
+    );
 
     for node in parsed["nodes"].as_array().unwrap() {
         assert!(node["file"].is_string(), "must include source file");
@@ -77,7 +116,10 @@ fn json_graph_contract_finalized_graph_produces_valid_output() {
 
 // B:serialize_dot_visualization — verify contract "requires/ensures consistency for DOT visualization"
 #[test]
-#[specforge_test(behavior = "serialize_dot_visualization", verify = "requires/ensures consistency for DOT visualization")]
+#[specforge_test(
+    behavior = "serialize_dot_visualization",
+    verify = "requires/ensures consistency for DOT visualization"
+)]
 fn dot_contract_finalized_graph_produces_valid_dot() {
     // Requires: graph is finalized
     // Ensures: valid Graphviz DOT syntax
@@ -87,14 +129,20 @@ fn dot_contract_finalized_graph_produces_valid_dot() {
     assert!(dot.starts_with("digraph"), "must be a directed graph");
     assert!(dot.contains("rankdir=LR"), "must have LR layout");
     assert!(dot.contains("shape=box"), "nodes must have shape");
-    assert!(dot.ends_with("}\n") || dot.ends_with("}"), "must be properly closed");
+    assert!(
+        dot.ends_with("}\n") || dot.ends_with("}"),
+        "must be properly closed"
+    );
 }
 
 // === compute_traceability_chain contract ===
 
 // B:compute_traceability_chain — verify contract "requires/ensures consistency for traceability chain computation"
 #[test]
-#[specforge_test(behavior = "compute_traceability_chain", verify = "requires/ensures consistency for traceability chain computation")]
+#[specforge_test(
+    behavior = "compute_traceability_chain",
+    verify = "requires/ensures consistency for traceability chain computation"
+)]
 fn trace_contract_entity_in_graph_produces_chain() {
     // Requires: entity exists in graph
     // Ensures: trace chain with upstream + downstream, sorted by depth
@@ -102,15 +150,27 @@ fn trace_contract_entity_in_graph_produces_chain() {
     let trace = specforge_emitter::trace(&graph, "b").unwrap();
 
     assert_eq!(trace.entity_id, "b");
-    assert!(!trace.upstream.is_empty(), "mid-chain entity must have upstream");
-    assert!(!trace.downstream.is_empty(), "mid-chain entity must have downstream");
+    assert!(
+        !trace.upstream.is_empty(),
+        "mid-chain entity must have upstream"
+    );
+    assert!(
+        !trace.downstream.is_empty(),
+        "mid-chain entity must have downstream"
+    );
 
     // Verify depth ordering
     for window in trace.upstream.windows(2) {
-        assert!(window[0].depth <= window[1].depth, "upstream must be sorted by depth");
+        assert!(
+            window[0].depth <= window[1].depth,
+            "upstream must be sorted by depth"
+        );
     }
     for window in trace.downstream.windows(2) {
-        assert!(window[0].depth <= window[1].depth, "downstream must be sorted by depth");
+        assert!(
+            window[0].depth <= window[1].depth,
+            "downstream must be sorted by depth"
+        );
     }
 }
 
@@ -118,7 +178,10 @@ fn trace_contract_entity_in_graph_produces_chain() {
 
 // B:compute_project_statistics — verify contract "requires/ensures consistency for project statistics computation"
 #[test]
-#[specforge_test(behavior = "compute_project_statistics", verify = "requires/ensures consistency for project statistics computation")]
+#[specforge_test(
+    behavior = "compute_project_statistics",
+    verify = "requires/ensures consistency for project statistics computation"
+)]
 fn stats_contract_graph_with_diagnostics_produces_complete_stats() {
     // Requires: graph + diagnostics collected
     // Ensures: all stat fields populated correctly
@@ -140,7 +203,8 @@ fn stats_contract_graph_with_diagnostics_produces_complete_stats() {
         },
     ];
 
-    let stats = specforge_emitter::compute_stats_with_diagnostics(&graph, &["behavior"], &diagnostics);
+    let stats =
+        specforge_emitter::compute_stats_with_diagnostics(&graph, &["behavior"], &diagnostics);
     assert_eq!(stats.total_entities, 3);
     assert_eq!(stats.total_edges, 2);
     assert_eq!(stats.testable_count, 2);
@@ -153,7 +217,10 @@ fn stats_contract_graph_with_diagnostics_produces_complete_stats() {
 
 // B:export_agent_context_format — verify contract "requires/ensures consistency for agent context export"
 #[test]
-#[specforge_test(behavior = "export_agent_context_format", verify = "requires/ensures consistency for agent context export")]
+#[specforge_test(
+    behavior = "export_agent_context_format",
+    verify = "requires/ensures consistency for agent context export"
+)]
 fn context_contract_includes_contracts_and_verify_omits_prose() {
     // Requires: finalized graph
     // Ensures: id, kind, contract, verify, status present; description omitted
@@ -176,7 +243,10 @@ fn context_contract_includes_contracts_and_verify_omits_prose() {
 
 // B:export_agent_graph_format — verify contract "requires/ensures consistency for agent graph export"
 #[test]
-#[specforge_test(behavior = "export_agent_graph_format", verify = "requires/ensures consistency for agent graph export")]
+#[specforge_test(
+    behavior = "export_agent_graph_format",
+    verify = "requires/ensures consistency for agent graph export"
+)]
 fn graph_format_contract_finalized_graph_produces_full_output() {
     // Requires: finalized graph
     // Ensures: all nodes with all fields, all edges, schema_version present
@@ -184,10 +254,17 @@ fn graph_format_contract_finalized_graph_produces_full_output() {
     let json = specforge_emitter::emit_graph(&graph);
     let parsed: serde_json::Value = serde_json::from_str(&json).unwrap();
 
-    assert!(parsed["schema_version"].is_string(), "must include schema_version");
+    assert!(
+        parsed["schema_version"].is_string(),
+        "must include schema_version"
+    );
     let nodes = parsed["nodes"].as_array().unwrap();
     assert_eq!(nodes.len(), 3, "all nodes present");
-    assert_eq!(parsed["edges"].as_array().unwrap().len(), 2, "all edges present");
+    assert_eq!(
+        parsed["edges"].as_array().unwrap().len(),
+        2,
+        "all edges present"
+    );
 
     // Graph format includes all fields (unlike brief/context which strip)
     let b_node = nodes.iter().find(|n| n["id"] == "b").unwrap();
@@ -203,7 +280,10 @@ fn graph_format_contract_finalized_graph_produces_full_output() {
 
 // B:query_graph_multi_resolution — verify contract "requires/ensures consistency for multi-resolution graph query"
 #[test]
-#[specforge_test(behavior = "query_graph_multi_resolution", verify = "requires/ensures consistency for multi-resolution graph query")]
+#[specforge_test(
+    behavior = "query_graph_multi_resolution",
+    verify = "requires/ensures consistency for multi-resolution graph query"
+)]
 fn query_contract_valid_entity_returns_subgraph() {
     // Requires: entity exists in graph, depth >= 0
     // Ensures: root always included, neighbors within depth, schema_version present
@@ -212,8 +292,12 @@ fn query_contract_valid_entity_returns_subgraph() {
     let parsed: serde_json::Value = serde_json::from_str(&result).unwrap();
 
     assert!(parsed["schema_version"].is_string());
-    let ids: Vec<&str> = parsed["nodes"].as_array().unwrap()
-        .iter().map(|n| n["id"].as_str().unwrap()).collect();
+    let ids: Vec<&str> = parsed["nodes"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|n| n["id"].as_str().unwrap())
+        .collect();
     assert!(ids.contains(&"b"), "root must always be included");
 }
 
@@ -221,7 +305,10 @@ fn query_contract_valid_entity_returns_subgraph() {
 
 // B:enforce_token_budget — verify contract "requires/ensures consistency for token budget enforcement"
 #[test]
-#[specforge_test(behavior = "enforce_token_budget", verify = "requires/ensures consistency for token budget enforcement")]
+#[specforge_test(
+    behavior = "enforce_token_budget",
+    verify = "requires/ensures consistency for token budget enforcement"
+)]
 fn budget_contract_within_budget_no_truncation() {
     // Requires: graph + budget
     // Ensures: within budget → all nodes, no token_budget metadata
@@ -237,7 +324,10 @@ fn budget_contract_within_budget_no_truncation() {
 
 // B:validate_agent_plan — verify contract "requires/ensures consistency for agent plan validation"
 #[test]
-#[specforge_test(behavior = "validate_agent_plan", verify = "requires/ensures consistency for agent plan validation")]
+#[specforge_test(
+    behavior = "validate_agent_plan",
+    verify = "requires/ensures consistency for agent plan validation"
+)]
 fn plan_contract_validates_ids_coverage_ordering() {
     // Requires: finalized graph + plan JSON
     // Ensures: unresolvable IDs → errors, missing testable → warnings, wrong order → violations
@@ -250,8 +340,14 @@ fn plan_contract_validates_ids_coverage_ordering() {
     });
 
     let result = specforge_emitter::validate_plan(&graph, &plan, &["behavior"]);
-    assert!(!result.errors.is_empty(), "unresolvable IDs must produce errors");
-    assert!(!result.warnings.is_empty(), "missing testable must produce warnings");
+    assert!(
+        !result.errors.is_empty(),
+        "unresolvable IDs must produce errors"
+    );
+    assert!(
+        !result.warnings.is_empty(),
+        "missing testable must produce warnings"
+    );
 
     let json = specforge_emitter::serialize_plan_result(&result);
     let parsed: serde_json::Value = serde_json::from_str(&json).unwrap();
@@ -262,7 +358,10 @@ fn plan_contract_validates_ids_coverage_ordering() {
 
 // B:deterministic_output — verify contract "requires/ensures consistency for deterministic output"
 #[test]
-#[specforge_test(behavior = "deterministic_output", verify = "requires/ensures consistency for deterministic output")]
+#[specforge_test(
+    behavior = "deterministic_output",
+    verify = "requires/ensures consistency for deterministic output"
+)]
 fn deterministic_contract_same_input_identical_output() {
     // Requires: same graph input
     // Ensures: identical output across all formats
@@ -289,7 +388,10 @@ fn deterministic_contract_same_input_identical_output() {
 
 // B:serialize_traceability_data — verify contract "requires/ensures consistency for traceability data serialization"
 #[test]
-#[specforge_test(behavior = "serialize_traceability_data", verify = "requires/ensures consistency for traceability data serialization")]
+#[specforge_test(
+    behavior = "serialize_traceability_data",
+    verify = "requires/ensures consistency for traceability data serialization"
+)]
 fn trace_data_contract_all_entities_traced() {
     let graph = build_graph();
     let traces = specforge_emitter::trace_all(&graph);
@@ -302,7 +404,10 @@ fn trace_data_contract_all_entities_traced() {
 }
 
 #[test]
-#[specforge_test(behavior = "serialize_traceability_data", verify = "full trace covers all root entities across registered edge types")]
+#[specforge_test(
+    behavior = "serialize_traceability_data",
+    verify = "full trace covers all root entities across registered edge types"
+)]
 fn trace_data_full_trace_covers_all_roots() {
     let graph = build_graph();
     let traces = specforge_emitter::trace_all(&graph);
@@ -313,7 +418,10 @@ fn trace_data_full_trace_covers_all_roots() {
 }
 
 #[test]
-#[specforge_test(behavior = "serialize_traceability_data", verify = "gaps in chain are highlighted")]
+#[specforge_test(
+    behavior = "serialize_traceability_data",
+    verify = "gaps in chain are highlighted"
+)]
 fn trace_data_gaps_highlighted() {
     // A graph with a dangling edge has gaps
     let mut graph = Graph::new();
@@ -328,7 +436,10 @@ fn trace_data_gaps_highlighted() {
 }
 
 #[test]
-#[specforge_test(behavior = "serialize_traceability_data", verify = "output conforms to Graph Protocol schema")]
+#[specforge_test(
+    behavior = "serialize_traceability_data",
+    verify = "output conforms to Graph Protocol schema"
+)]
 fn trace_data_output_conforms_to_schema() {
     let graph = build_graph();
     let traces = specforge_emitter::trace_all(&graph);
@@ -347,23 +458,24 @@ fn trace_data_output_conforms_to_schema() {
 
 // B:export_diagnostics_as_json — verify contract "requires/ensures consistency for JSON diagnostic export"
 #[test]
-#[specforge_test(behavior = "export_diagnostics_as_json", verify = "requires/ensures consistency for JSON diagnostic export")]
+#[specforge_test(
+    behavior = "export_diagnostics_as_json",
+    verify = "requires/ensures consistency for JSON diagnostic export"
+)]
 fn diagnostic_json_contract_complete_fields() {
-    let diags = vec![
-        Diagnostic {
-            code: "E001".into(),
-            severity: Severity::Error,
-            message: "unresolved".into(),
-            span: Some(SourceSpan {
-                file: "test.spec".into(),
-                start_line: 5,
-                start_col: 10,
-                end_line: 5,
-                end_col: 20,
-            }),
-            suggestion: Some("did you mean 'foo'?".into()),
-        },
-    ];
+    let diags = vec![Diagnostic {
+        code: "E001".into(),
+        severity: Severity::Error,
+        message: "unresolved".into(),
+        span: Some(SourceSpan {
+            file: "test.spec".into(),
+            start_line: 5,
+            start_col: 10,
+            end_line: 5,
+            end_col: 20,
+        }),
+        suggestion: Some("did you mean 'foo'?".into()),
+    }];
 
     let json = specforge_emitter::serialize_diagnostics(&diags);
     let parsed: serde_json::Value = serde_json::from_str(&json).unwrap();
@@ -379,11 +491,26 @@ fn diagnostic_json_contract_complete_fields() {
 }
 
 #[test]
-#[specforge_test(behavior = "export_diagnostics_as_json", verify = "diagnostics serialized as JSON array to stdout")]
+#[specforge_test(
+    behavior = "export_diagnostics_as_json",
+    verify = "diagnostics serialized as JSON array to stdout"
+)]
 fn diagnostic_json_array() {
     let diags = vec![
-        Diagnostic { code: "E001".into(), severity: Severity::Error, message: "err".into(), span: None, suggestion: None },
-        Diagnostic { code: "W001".into(), severity: Severity::Warning, message: "warn".into(), span: None, suggestion: None },
+        Diagnostic {
+            code: "E001".into(),
+            severity: Severity::Error,
+            message: "err".into(),
+            span: None,
+            suggestion: None,
+        },
+        Diagnostic {
+            code: "W001".into(),
+            severity: Severity::Warning,
+            message: "warn".into(),
+            span: None,
+            suggestion: None,
+        },
     ];
     let json = specforge_emitter::serialize_diagnostics(&diags);
     let parsed: serde_json::Value = serde_json::from_str(&json).unwrap();
@@ -392,13 +519,22 @@ fn diagnostic_json_array() {
 }
 
 #[test]
-#[specforge_test(behavior = "export_diagnostics_as_json", verify = "each diagnostic includes code, severity, message, file, line, column")]
+#[specforge_test(
+    behavior = "export_diagnostics_as_json",
+    verify = "each diagnostic includes code, severity, message, file, line, column"
+)]
 fn diagnostic_json_all_fields() {
     let diags = vec![Diagnostic {
         code: "E042".into(),
         severity: Severity::Error,
         message: "test msg".into(),
-        span: Some(SourceSpan { file: "a.spec".into(), start_line: 3, start_col: 7, end_line: 3, end_col: 15 }),
+        span: Some(SourceSpan {
+            file: "a.spec".into(),
+            start_line: 3,
+            start_col: 7,
+            end_line: 3,
+            end_col: 15,
+        }),
         suggestion: None,
     }];
     let json = specforge_emitter::serialize_diagnostics(&diags);
@@ -413,22 +549,36 @@ fn diagnostic_json_all_fields() {
 }
 
 #[test]
-#[specforge_test(behavior = "export_diagnostics_as_json", verify = "JSON output is valid and parseable")]
+#[specforge_test(
+    behavior = "export_diagnostics_as_json",
+    verify = "JSON output is valid and parseable"
+)]
 fn diagnostic_json_valid_parseable() {
-    let diags = vec![
-        Diagnostic { code: "E001".into(), severity: Severity::Error, message: "msg with \"quotes\"".into(), span: None, suggestion: None },
-    ];
+    let diags = vec![Diagnostic {
+        code: "E001".into(),
+        severity: Severity::Error,
+        message: "msg with \"quotes\"".into(),
+        span: None,
+        suggestion: None,
+    }];
     let json = specforge_emitter::serialize_diagnostics(&diags);
     let result: Result<serde_json::Value, _> = serde_json::from_str(&json);
     assert!(result.is_ok(), "output must be valid JSON");
 }
 
 #[test]
-#[specforge_test(behavior = "export_diagnostics_as_json", verify = "exit code unaffected by format flag")]
+#[specforge_test(
+    behavior = "export_diagnostics_as_json",
+    verify = "exit code unaffected by format flag"
+)]
 fn diagnostic_exit_code_unaffected_by_format() {
-    let diags = vec![
-        Diagnostic { code: "E001".into(), severity: Severity::Error, message: "err".into(), span: None, suggestion: None },
-    ];
+    let diags = vec![Diagnostic {
+        code: "E001".into(),
+        severity: Severity::Error,
+        message: "err".into(),
+        span: None,
+        suggestion: None,
+    }];
     // Exit code should be based on severity regardless of format
     let exit = specforge_emitter::compute_exit_code(&diags);
     assert_eq!(exit, 1, "errors should produce exit 1 regardless of format");
@@ -438,7 +588,10 @@ fn diagnostic_exit_code_unaffected_by_format() {
 }
 
 #[test]
-#[specforge_test(behavior = "export_diagnostics_as_json", verify = "suggestion field included when available")]
+#[specforge_test(
+    behavior = "export_diagnostics_as_json",
+    verify = "suggestion field included when available"
+)]
 fn diagnostic_suggestion_included() {
     let diags = vec![Diagnostic {
         code: "E001".into(),
@@ -457,7 +610,10 @@ fn diagnostic_suggestion_included() {
 // ============================================================
 
 #[test]
-#[specforge_test(behavior = "serialize_json_graph", verify = "JSON output contains all nodes")]
+#[specforge_test(
+    behavior = "serialize_json_graph",
+    verify = "JSON output contains all nodes"
+)]
 fn json_graph_all_nodes() {
     let graph = build_graph();
     let json = specforge_emitter::emit_json(&graph);
@@ -466,7 +622,10 @@ fn json_graph_all_nodes() {
 }
 
 #[test]
-#[specforge_test(behavior = "serialize_json_graph", verify = "JSON output contains all edges")]
+#[specforge_test(
+    behavior = "serialize_json_graph",
+    verify = "JSON output contains all edges"
+)]
 fn json_graph_all_edges() {
     let graph = build_graph();
     let json = specforge_emitter::emit_json(&graph);
@@ -484,7 +643,10 @@ fn json_graph_valid_json() {
 }
 
 #[test]
-#[specforge_test(behavior = "serialize_json_graph", verify = "output includes schema_version field")]
+#[specforge_test(
+    behavior = "serialize_json_graph",
+    verify = "output includes schema_version field"
+)]
 fn json_graph_schema_version() {
     let graph = build_graph();
     let json = specforge_emitter::emit_json(&graph);
@@ -493,7 +655,10 @@ fn json_graph_schema_version() {
 }
 
 #[test]
-#[specforge_test(behavior = "serialize_json_graph", verify = "empty graph produces valid JSON with empty nodes and edges arrays")]
+#[specforge_test(
+    behavior = "serialize_json_graph",
+    verify = "empty graph produces valid JSON with empty nodes and edges arrays"
+)]
 fn json_graph_empty() {
     let graph = Graph::new();
     let json = specforge_emitter::emit_json(&graph);
@@ -503,23 +668,35 @@ fn json_graph_empty() {
 }
 
 #[test]
-#[specforge_test(behavior = "serialize_json_graph", verify = "schema is included even for empty graph")]
+#[specforge_test(
+    behavior = "serialize_json_graph",
+    verify = "schema is included even for empty graph"
+)]
 fn json_graph_empty_has_schema() {
     let graph = Graph::new();
     let json = specforge_emitter::emit_json(&graph);
     let parsed: serde_json::Value = serde_json::from_str(&json).unwrap();
-    assert!(parsed["schema_version"].is_string(), "empty graph must still have schema_version");
+    assert!(
+        parsed["schema_version"].is_string(),
+        "empty graph must still have schema_version"
+    );
 }
 
 #[test]
-#[specforge_test(behavior = "serialize_json_graph", verify = "structural-only graph (zero extensions) produces valid Graph Protocol JSON with raw keywords in kind field")]
+#[specforge_test(
+    behavior = "serialize_json_graph",
+    verify = "structural-only graph (zero extensions) produces valid Graph Protocol JSON with raw keywords in kind field"
+)]
 fn json_graph_structural_only() {
     let mut graph = Graph::new();
     graph.add_node(node_with_fields("x", "custom_kind", "c", "active"));
     let json = specforge_emitter::emit_json(&graph);
     let parsed: serde_json::Value = serde_json::from_str(&json).unwrap();
     let node = &parsed["nodes"].as_array().unwrap()[0];
-    assert_eq!(node["kind"], "custom_kind", "raw keyword preserved in kind field");
+    assert_eq!(
+        node["kind"], "custom_kind",
+        "raw keyword preserved in kind field"
+    );
 }
 
 // ============================================================
@@ -527,7 +704,10 @@ fn json_graph_structural_only() {
 // ============================================================
 
 #[test]
-#[specforge_test(behavior = "serialize_dot_visualization", verify = "DOT output is valid Graphviz syntax")]
+#[specforge_test(
+    behavior = "serialize_dot_visualization",
+    verify = "DOT output is valid Graphviz syntax"
+)]
 fn dot_valid_syntax() {
     let graph = build_graph();
     let dot = specforge_emitter::emit_dot(&graph);
@@ -537,7 +717,10 @@ fn dot_valid_syntax() {
 }
 
 #[test]
-#[specforge_test(behavior = "serialize_dot_visualization", verify = "nodes are labeled with IDs")]
+#[specforge_test(
+    behavior = "serialize_dot_visualization",
+    verify = "nodes are labeled with IDs"
+)]
 fn dot_nodes_labeled() {
     let graph = build_graph();
     let dot = specforge_emitter::emit_dot(&graph);
@@ -547,16 +730,28 @@ fn dot_nodes_labeled() {
 }
 
 #[test]
-#[specforge_test(behavior = "serialize_dot_visualization", verify = "edges are labeled with types")]
+#[specforge_test(
+    behavior = "serialize_dot_visualization",
+    verify = "edges are labeled with types"
+)]
 fn dot_edges_labeled() {
     let graph = build_graph();
     let dot = specforge_emitter::emit_dot(&graph);
-    assert!(dot.contains("behaviors"), "edge label 'behaviors' must be present");
-    assert!(dot.contains("depends_on"), "edge label 'depends_on' must be present");
+    assert!(
+        dot.contains("behaviors"),
+        "edge label 'behaviors' must be present"
+    );
+    assert!(
+        dot.contains("depends_on"),
+        "edge label 'depends_on' must be present"
+    );
 }
 
 #[test]
-#[specforge_test(behavior = "serialize_dot_visualization", verify = "node shapes use extension-defined dot_shape")]
+#[specforge_test(
+    behavior = "serialize_dot_visualization",
+    verify = "node shapes use extension-defined dot_shape"
+)]
 fn dot_node_shapes() {
     let graph = build_graph();
     let dot = specforge_emitter::emit_dot(&graph);
@@ -568,7 +763,10 @@ fn dot_node_shapes() {
 // ============================================================
 
 #[test]
-#[specforge_test(behavior = "compute_traceability_chain", verify = "trace from entity shows upstream and downstream connections")]
+#[specforge_test(
+    behavior = "compute_traceability_chain",
+    verify = "trace from entity shows upstream and downstream connections"
+)]
 fn trace_upstream_downstream() {
     let graph = build_graph();
     let trace = specforge_emitter::trace(&graph, "b").unwrap();
@@ -577,16 +775,25 @@ fn trace_upstream_downstream() {
 }
 
 #[test]
-#[specforge_test(behavior = "compute_traceability_chain", verify = "trace shows full chain depth")]
+#[specforge_test(
+    behavior = "compute_traceability_chain",
+    verify = "trace shows full chain depth"
+)]
 fn trace_full_depth() {
     let graph = build_graph();
     // Trace from leaf c: upstream should include b and a
     let trace = specforge_emitter::trace(&graph, "c").unwrap();
-    assert!(trace.upstream.len() >= 2, "c should have at least 2 upstream (b, a)");
+    assert!(
+        trace.upstream.len() >= 2,
+        "c should have at least 2 upstream (b, a)"
+    );
 }
 
 #[test]
-#[specforge_test(behavior = "compute_traceability_chain", verify = "missing link in chain is flagged")]
+#[specforge_test(
+    behavior = "compute_traceability_chain",
+    verify = "missing link in chain is flagged"
+)]
 fn trace_missing_link() {
     // Build a graph with a dangling edge — target "missing" has no node
     let mut graph = Graph::new();
@@ -597,7 +804,10 @@ fn trace_missing_link() {
         label: Sym::new("depends_on"),
     });
     let gaps = specforge_emitter::detect_trace_gaps(&graph);
-    assert!(!gaps.is_empty(), "dangling edge target should produce a trace gap");
+    assert!(
+        !gaps.is_empty(),
+        "dangling edge target should produce a trace gap"
+    );
 }
 
 // ============================================================
@@ -605,7 +815,10 @@ fn trace_missing_link() {
 // ============================================================
 
 #[test]
-#[specforge_test(behavior = "compute_project_statistics", verify = "stats reports correct entity counts")]
+#[specforge_test(
+    behavior = "compute_project_statistics",
+    verify = "stats reports correct entity counts"
+)]
 fn stats_entity_counts() {
     let graph = build_graph();
     let stats = specforge_emitter::compute_stats_with_testable(&graph, &["behavior"]);
@@ -613,7 +826,10 @@ fn stats_entity_counts() {
 }
 
 #[test]
-#[specforge_test(behavior = "compute_project_statistics", verify = "stats reports coverage percentage")]
+#[specforge_test(
+    behavior = "compute_project_statistics",
+    verify = "stats reports coverage percentage"
+)]
 fn stats_coverage_pct() {
     let graph = build_graph();
     let stats = specforge_emitter::compute_stats_with_testable(&graph, &["behavior"]);
@@ -621,7 +837,10 @@ fn stats_coverage_pct() {
 }
 
 #[test]
-#[specforge_test(behavior = "compute_project_statistics", verify = "stats reports orphan count")]
+#[specforge_test(
+    behavior = "compute_project_statistics",
+    verify = "stats reports orphan count"
+)]
 fn stats_orphan_count() {
     let mut graph = Graph::new();
     graph.add_node(testable_node("orphan"));
@@ -630,13 +849,34 @@ fn stats_orphan_count() {
 }
 
 #[test]
-#[specforge_test(behavior = "compute_project_statistics", verify = "stats reports diagnostic summary")]
+#[specforge_test(
+    behavior = "compute_project_statistics",
+    verify = "stats reports diagnostic summary"
+)]
 fn stats_diagnostic_summary() {
     let graph = build_graph();
     let diags = vec![
-        Diagnostic { code: "E001".into(), severity: Severity::Error, message: "e".into(), span: None, suggestion: None },
-        Diagnostic { code: "W001".into(), severity: Severity::Warning, message: "w".into(), span: None, suggestion: None },
-        Diagnostic { code: "I001".into(), severity: Severity::Info, message: "i".into(), span: None, suggestion: None },
+        Diagnostic {
+            code: "E001".into(),
+            severity: Severity::Error,
+            message: "e".into(),
+            span: None,
+            suggestion: None,
+        },
+        Diagnostic {
+            code: "W001".into(),
+            severity: Severity::Warning,
+            message: "w".into(),
+            span: None,
+            suggestion: None,
+        },
+        Diagnostic {
+            code: "I001".into(),
+            severity: Severity::Info,
+            message: "i".into(),
+            span: None,
+            suggestion: None,
+        },
     ];
     let stats = specforge_emitter::compute_stats_with_diagnostics(&graph, &["behavior"], &diags);
     assert_eq!(stats.error_count, 1);
@@ -645,14 +885,20 @@ fn stats_diagnostic_summary() {
 }
 
 #[test]
-#[specforge_test(behavior = "compute_project_statistics", verify = "coverage is 0% when testable_entity_count is zero")]
+#[specforge_test(
+    behavior = "compute_project_statistics",
+    verify = "coverage is 0% when testable_entity_count is zero"
+)]
 fn stats_zero_testable() {
     let mut graph = Graph::new();
     graph.add_node(node_with_fields("f", "feature", "a feature", "planned"));
     // No testable kinds declared
     let stats = specforge_emitter::compute_stats(&graph);
     assert_eq!(stats.testable_count, 0);
-    assert!((stats.coverage_pct - 0.0).abs() < f64::EPSILON, "coverage must be 0% with no testable entities");
+    assert!(
+        (stats.coverage_pct - 0.0).abs() < f64::EPSILON,
+        "coverage must be 0% with no testable entities"
+    );
 }
 
 // ============================================================
@@ -660,7 +906,10 @@ fn stats_zero_testable() {
 // ============================================================
 
 #[test]
-#[specforge_test(behavior = "validate_agent_plan", verify = "plan with all valid entity IDs passes validation")]
+#[specforge_test(
+    behavior = "validate_agent_plan",
+    verify = "plan with all valid entity IDs passes validation"
+)]
 fn plan_all_valid_ids() {
     let graph = build_graph();
     let plan = serde_json::json!({
@@ -671,11 +920,17 @@ fn plan_all_valid_ids() {
         ]
     });
     let result = specforge_emitter::validate_plan(&graph, &plan, &["behavior"]);
-    assert!(result.errors.is_empty(), "all valid IDs should produce no errors");
+    assert!(
+        result.errors.is_empty(),
+        "all valid IDs should produce no errors"
+    );
 }
 
 #[test]
-#[specforge_test(behavior = "validate_agent_plan", verify = "plan referencing nonexistent entity ID produces E003")]
+#[specforge_test(
+    behavior = "validate_agent_plan",
+    verify = "plan referencing nonexistent entity ID produces E003"
+)]
 fn plan_nonexistent_id() {
     let graph = build_graph();
     let plan = serde_json::json!({
@@ -683,11 +938,17 @@ fn plan_nonexistent_id() {
     });
     let result = specforge_emitter::validate_plan(&graph, &plan, &["behavior"]);
     assert!(!result.errors.is_empty());
-    assert!(result.errors[0].contains("nonexistent"), "error should mention the missing ID");
+    assert!(
+        result.errors[0].contains("nonexistent"),
+        "error should mention the missing ID"
+    );
 }
 
 #[test]
-#[specforge_test(behavior = "validate_agent_plan", verify = "testable entity missing from plan produces warning")]
+#[specforge_test(
+    behavior = "validate_agent_plan",
+    verify = "testable entity missing from plan produces warning"
+)]
 fn plan_missing_testable() {
     let graph = build_graph();
     // Only plan for 'a' (feature, not testable) — b and c (testable behaviors) are missing
@@ -695,11 +956,17 @@ fn plan_missing_testable() {
         "entries": [{ "entity_id": "a", "action": "implement" }]
     });
     let result = specforge_emitter::validate_plan(&graph, &plan, &["behavior"]);
-    assert!(!result.warnings.is_empty(), "missing testable entities should produce warnings");
+    assert!(
+        !result.warnings.is_empty(),
+        "missing testable entities should produce warnings"
+    );
 }
 
 #[test]
-#[specforge_test(behavior = "validate_agent_plan", verify = "plan dependency order contradicting graph produces diagnostic")]
+#[specforge_test(
+    behavior = "validate_agent_plan",
+    verify = "plan dependency order contradicting graph produces diagnostic"
+)]
 fn plan_wrong_order() {
     let graph = build_graph();
     // Graph has a→b and b→c, meaning b depends on a and c depends on b.
@@ -713,7 +980,10 @@ fn plan_wrong_order() {
         ]
     });
     let result = specforge_emitter::validate_plan(&graph, &plan, &["behavior"]);
-    assert!(!result.ordering_violations.is_empty(), "wrong dependency order should produce violations");
+    assert!(
+        !result.ordering_violations.is_empty(),
+        "wrong dependency order should produce violations"
+    );
 }
 
 #[test]
@@ -736,7 +1006,10 @@ fn plan_structured_json_output() {
 // ============================================================
 
 #[test]
-#[specforge_test(behavior = "deterministic_output", verify = "same input produces identical output across runs")]
+#[specforge_test(
+    behavior = "deterministic_output",
+    verify = "same input produces identical output across runs"
+)]
 fn deterministic_across_runs() {
     let graph = build_graph();
     let out1 = specforge_emitter::emit_json(&graph);
@@ -747,7 +1020,10 @@ fn deterministic_across_runs() {
 }
 
 #[test]
-#[specforge_test(behavior = "deterministic_output", verify = "entity ordering is independent of hashmap iteration")]
+#[specforge_test(
+    behavior = "deterministic_output",
+    verify = "entity ordering is independent of hashmap iteration"
+)]
 fn deterministic_entity_ordering() {
     // Build two graphs with same entities added in different order
     let mut g1 = Graph::new();
@@ -762,11 +1038,17 @@ fn deterministic_entity_ordering() {
 
     let j1 = specforge_emitter::emit_json(&g1);
     let j2 = specforge_emitter::emit_json(&g2);
-    assert_eq!(j1, j2, "entity ordering must be deterministic regardless of insertion order");
+    assert_eq!(
+        j1, j2,
+        "entity ordering must be deterministic regardless of insertion order"
+    );
 }
 
 #[test]
-#[specforge_test(behavior = "deterministic_output", verify = "file emission order is independent of filesystem readdir order")]
+#[specforge_test(
+    behavior = "deterministic_output",
+    verify = "file emission order is independent of filesystem readdir order"
+)]
 fn deterministic_file_order() {
     // Nodes from different files should still produce deterministic output
     let mut graph = Graph::new();
@@ -779,17 +1061,29 @@ fn deterministic_file_order() {
 
     let out1 = specforge_emitter::emit_json(&graph);
     let out2 = specforge_emitter::emit_json(&graph);
-    assert_eq!(out1, out2, "output must be deterministic regardless of file origins");
+    assert_eq!(
+        out1, out2,
+        "output must be deterministic regardless of file origins"
+    );
 }
 
 #[test]
-#[specforge_test(behavior = "deterministic_output", verify = "output contains no timestamps or non-deterministic values")]
+#[specforge_test(
+    behavior = "deterministic_output",
+    verify = "output contains no timestamps or non-deterministic values"
+)]
 fn deterministic_no_timestamps() {
     let graph = build_graph();
     let json = specforge_emitter::emit_json(&graph);
     // Should not contain timestamp-like patterns
-    assert!(!json.contains("timestamp"), "output must not contain timestamps");
-    assert!(!json.contains("2026-"), "output must not contain date strings");
+    assert!(
+        !json.contains("timestamp"),
+        "output must not contain timestamps"
+    );
+    assert!(
+        !json.contains("2026-"),
+        "output must not contain date strings"
+    );
 }
 
 // ============================================================
@@ -797,7 +1091,10 @@ fn deterministic_no_timestamps() {
 // ============================================================
 
 #[test]
-#[specforge_test(behavior = "export_agent_context_format", verify = "context format includes entity IDs and contracts")]
+#[specforge_test(
+    behavior = "export_agent_context_format",
+    verify = "context format includes entity IDs and contracts"
+)]
 fn context_includes_ids_and_contracts() {
     let graph = build_graph();
     let json = specforge_emitter::emit_context(&graph);
@@ -807,43 +1104,68 @@ fn context_includes_ids_and_contracts() {
         assert!(node["id"].is_string(), "context node must have id");
     }
     let b = nodes.iter().find(|n| n["id"] == "b").unwrap();
-    assert!(b["contract"].is_string(), "behavior node must have contract");
+    assert!(
+        b["contract"].is_string(),
+        "behavior node must have contract"
+    );
 }
 
 #[test]
-#[specforge_test(behavior = "export_agent_context_format", verify = "context format omits verbose prose fields")]
+#[specforge_test(
+    behavior = "export_agent_context_format",
+    verify = "context format omits verbose prose fields"
+)]
 fn context_omits_prose() {
     let graph = build_graph();
     let json = specforge_emitter::emit_context(&graph);
     let parsed: serde_json::Value = serde_json::from_str(&json).unwrap();
     for node in parsed["nodes"].as_array().unwrap() {
-        assert!(node.get("description").is_none(), "context must omit description");
+        assert!(
+            node.get("description").is_none(),
+            "context must omit description"
+        );
     }
 }
 
 #[test]
-#[specforge_test(behavior = "export_agent_context_format", verify = "scoped export returns only reachable subgraph")]
+#[specforge_test(
+    behavior = "export_agent_context_format",
+    verify = "scoped export returns only reachable subgraph"
+)]
 fn context_scoped_export() {
     let graph = build_graph();
     let json = specforge_emitter::emit_context_scoped(&graph, "b").unwrap();
     let parsed: serde_json::Value = serde_json::from_str(&json).unwrap();
-    let ids: Vec<&str> = parsed["nodes"].as_array().unwrap()
-        .iter().map(|n| n["id"].as_str().unwrap()).collect();
+    let ids: Vec<&str> = parsed["nodes"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|n| n["id"].as_str().unwrap())
+        .collect();
     assert!(ids.contains(&"b"), "scoped root must be included");
     // Should not contain unreachable nodes from 'b' perspective
 }
 
 #[test]
-#[specforge_test(behavior = "export_agent_context_format", verify = "non-existent scope entity produces E003 and exit code 1")]
+#[specforge_test(
+    behavior = "export_agent_context_format",
+    verify = "non-existent scope entity produces E003 and exit code 1"
+)]
 fn context_nonexistent_scope() {
     let graph = build_graph();
     let result = specforge_emitter::emit_context_scoped(&graph, "nonexistent");
     assert!(result.is_err(), "non-existent scope must return error");
-    assert!(result.unwrap_err().to_string().contains("E003"), "error must contain E003");
+    assert!(
+        result.unwrap_err().to_string().contains("E003"),
+        "error must contain E003"
+    );
 }
 
 #[test]
-#[specforge_test(behavior = "export_agent_context_format", verify = "output conforms to Graph Protocol schema")]
+#[specforge_test(
+    behavior = "export_agent_context_format",
+    verify = "output conforms to Graph Protocol schema"
+)]
 fn context_conforms_to_schema() {
     let graph = build_graph();
     let json = specforge_emitter::emit_context(&graph);
@@ -854,7 +1176,10 @@ fn context_conforms_to_schema() {
 }
 
 #[test]
-#[specforge_test(behavior = "export_agent_context_format", verify = "output includes schema_version field")]
+#[specforge_test(
+    behavior = "export_agent_context_format",
+    verify = "output includes schema_version field"
+)]
 fn context_has_schema_version() {
     let graph = build_graph();
     let json = specforge_emitter::emit_context(&graph);
@@ -867,7 +1192,10 @@ fn context_has_schema_version() {
 // ============================================================
 
 #[test]
-#[specforge_test(behavior = "export_agent_graph_format", verify = "graph format includes all nodes and edges")]
+#[specforge_test(
+    behavior = "export_agent_graph_format",
+    verify = "graph format includes all nodes and edges"
+)]
 fn graph_format_all_nodes_edges() {
     let graph = build_graph();
     let json = specforge_emitter::emit_graph(&graph);
@@ -877,30 +1205,48 @@ fn graph_format_all_nodes_edges() {
 }
 
 #[test]
-#[specforge_test(behavior = "export_agent_graph_format", verify = "graph format includes all fields and metadata")]
+#[specforge_test(
+    behavior = "export_agent_graph_format",
+    verify = "graph format includes all fields and metadata"
+)]
 fn graph_format_all_fields() {
     let graph = build_graph();
     let json = specforge_emitter::emit_graph(&graph);
     let parsed: serde_json::Value = serde_json::from_str(&json).unwrap();
-    let b = parsed["nodes"].as_array().unwrap().iter().find(|n| n["id"] == "b").unwrap();
+    let b = parsed["nodes"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|n| n["id"] == "b")
+        .unwrap();
     assert!(b["kind"].is_string());
     assert!(b["file"].is_string());
     assert!(b["line"].is_number());
 }
 
 #[test]
-#[specforge_test(behavior = "export_agent_graph_format", verify = "scoped export returns only reachable subgraph")]
+#[specforge_test(
+    behavior = "export_agent_graph_format",
+    verify = "scoped export returns only reachable subgraph"
+)]
 fn graph_format_scoped() {
     let graph = build_graph();
     let json = specforge_emitter::emit_json_scoped(&graph, "c").unwrap();
     let parsed: serde_json::Value = serde_json::from_str(&json).unwrap();
-    let ids: Vec<&str> = parsed["nodes"].as_array().unwrap()
-        .iter().map(|n| n["id"].as_str().unwrap()).collect();
+    let ids: Vec<&str> = parsed["nodes"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|n| n["id"].as_str().unwrap())
+        .collect();
     assert!(ids.contains(&"c"), "scoped root must be included");
 }
 
 #[test]
-#[specforge_test(behavior = "export_agent_graph_format", verify = "non-existent scope entity produces E003 and exit code 1")]
+#[specforge_test(
+    behavior = "export_agent_graph_format",
+    verify = "non-existent scope entity produces E003 and exit code 1"
+)]
 fn graph_format_nonexistent_scope() {
     let graph = build_graph();
     let result = specforge_emitter::emit_json_scoped(&graph, "nonexistent");
@@ -909,7 +1255,10 @@ fn graph_format_nonexistent_scope() {
 }
 
 #[test]
-#[specforge_test(behavior = "export_agent_graph_format", verify = "output conforms to Graph Protocol schema")]
+#[specforge_test(
+    behavior = "export_agent_graph_format",
+    verify = "output conforms to Graph Protocol schema"
+)]
 fn graph_format_conforms_to_schema() {
     let graph = build_graph();
     let json = specforge_emitter::emit_graph(&graph);
@@ -920,7 +1269,10 @@ fn graph_format_conforms_to_schema() {
 }
 
 #[test]
-#[specforge_test(behavior = "export_agent_graph_format", verify = "output includes schema_version field")]
+#[specforge_test(
+    behavior = "export_agent_graph_format",
+    verify = "output includes schema_version field"
+)]
 fn graph_format_schema_version() {
     let graph = build_graph();
     let json = specforge_emitter::emit_graph(&graph);
@@ -929,7 +1281,10 @@ fn graph_format_schema_version() {
 }
 
 #[test]
-#[specforge_test(behavior = "export_agent_graph_format", verify = "structural-only graph exports valid JSON with raw keyword strings as entity kinds")]
+#[specforge_test(
+    behavior = "export_agent_graph_format",
+    verify = "structural-only graph exports valid JSON with raw keyword strings as entity kinds"
+)]
 fn graph_format_structural_only() {
     let mut graph = Graph::new();
     graph.add_node(node_with_fields("x", "freeform_kind", "c", "active"));
@@ -943,41 +1298,72 @@ fn graph_format_structural_only() {
 // ============================================================
 
 #[test]
-#[specforge_test(behavior = "query_graph_multi_resolution", verify = "depth 0 returns only the target entity")]
+#[specforge_test(
+    behavior = "query_graph_multi_resolution",
+    verify = "depth 0 returns only the target entity"
+)]
 fn query_depth_0() {
     let graph = build_graph();
     let result = specforge_emitter::query(&graph, "b", 0, &[]).unwrap();
     let parsed: serde_json::Value = serde_json::from_str(&result).unwrap();
-    let ids: Vec<&str> = parsed["nodes"].as_array().unwrap()
-        .iter().map(|n| n["id"].as_str().unwrap()).collect();
+    let ids: Vec<&str> = parsed["nodes"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|n| n["id"].as_str().unwrap())
+        .collect();
     assert_eq!(ids, vec!["b"], "depth 0 should return only target");
 }
 
 #[test]
-#[specforge_test(behavior = "query_graph_multi_resolution", verify = "depth 1 returns direct neighbors")]
+#[specforge_test(
+    behavior = "query_graph_multi_resolution",
+    verify = "depth 1 returns direct neighbors"
+)]
 fn query_depth_1() {
     let graph = build_graph();
     let result = specforge_emitter::query(&graph, "b", 1, &[]).unwrap();
     let parsed: serde_json::Value = serde_json::from_str(&result).unwrap();
-    let ids: Vec<&str> = parsed["nodes"].as_array().unwrap()
-        .iter().map(|n| n["id"].as_str().unwrap()).collect();
+    let ids: Vec<&str> = parsed["nodes"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|n| n["id"].as_str().unwrap())
+        .collect();
     assert!(ids.contains(&"b"), "root must be included");
-    assert!(ids.contains(&"a") || ids.contains(&"c"), "at least one neighbor at depth 1");
+    assert!(
+        ids.contains(&"a") || ids.contains(&"c"),
+        "at least one neighbor at depth 1"
+    );
 }
 
 #[test]
-#[specforge_test(behavior = "query_graph_multi_resolution", verify = "depth N returns all entities within N hops")]
+#[specforge_test(
+    behavior = "query_graph_multi_resolution",
+    verify = "depth N returns all entities within N hops"
+)]
 fn query_depth_n() {
     let graph = build_graph();
     let result = specforge_emitter::query(&graph, "a", 10, &[]).unwrap();
     let parsed: serde_json::Value = serde_json::from_str(&result).unwrap();
-    let ids: Vec<&str> = parsed["nodes"].as_array().unwrap()
-        .iter().map(|n| n["id"].as_str().unwrap()).collect();
-    assert_eq!(ids.len(), 3, "large depth should return all reachable nodes");
+    let ids: Vec<&str> = parsed["nodes"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|n| n["id"].as_str().unwrap())
+        .collect();
+    assert_eq!(
+        ids.len(),
+        3,
+        "large depth should return all reachable nodes"
+    );
 }
 
 #[test]
-#[specforge_test(behavior = "query_graph_multi_resolution", verify = "kind filter restricts results to specified entity kinds")]
+#[specforge_test(
+    behavior = "query_graph_multi_resolution",
+    verify = "kind filter restricts results to specified entity kinds"
+)]
 fn query_kind_filter() {
     let graph = build_graph();
     let result = specforge_emitter::query(&graph, "a", 10, &["behavior"]).unwrap();
@@ -993,17 +1379,27 @@ fn query_kind_filter() {
 }
 
 #[test]
-#[specforge_test(behavior = "query_graph_multi_resolution", verify = "multiple kind filters combine as union")]
+#[specforge_test(
+    behavior = "query_graph_multi_resolution",
+    verify = "multiple kind filters combine as union"
+)]
 fn query_multiple_kinds() {
     let graph = build_graph();
     let result = specforge_emitter::query(&graph, "a", 10, &["feature", "behavior"]).unwrap();
     let parsed: serde_json::Value = serde_json::from_str(&result).unwrap();
     let nodes = parsed["nodes"].as_array().unwrap();
-    assert_eq!(nodes.len(), 3, "union of feature + behavior should include all nodes");
+    assert_eq!(
+        nodes.len(),
+        3,
+        "union of feature + behavior should include all nodes"
+    );
 }
 
 #[test]
-#[specforge_test(behavior = "query_graph_multi_resolution", verify = "output conforms to Graph Protocol schema")]
+#[specforge_test(
+    behavior = "query_graph_multi_resolution",
+    verify = "output conforms to Graph Protocol schema"
+)]
 fn query_conforms_to_schema() {
     let graph = build_graph();
     let result = specforge_emitter::query(&graph, "b", 1, &[]).unwrap();
@@ -1014,7 +1410,10 @@ fn query_conforms_to_schema() {
 }
 
 #[test]
-#[specforge_test(behavior = "query_graph_multi_resolution", verify = "output includes schema_version field")]
+#[specforge_test(
+    behavior = "query_graph_multi_resolution",
+    verify = "output includes schema_version field"
+)]
 fn query_has_schema_version() {
     let graph = build_graph();
     let result = specforge_emitter::query(&graph, "b", 1, &[]).unwrap();
@@ -1023,7 +1422,10 @@ fn query_has_schema_version() {
 }
 
 #[test]
-#[specforge_test(behavior = "query_graph_multi_resolution", verify = "querying same entity at same depth produces identical subgraph")]
+#[specforge_test(
+    behavior = "query_graph_multi_resolution",
+    verify = "querying same entity at same depth produces identical subgraph"
+)]
 fn query_deterministic() {
     let graph = build_graph();
     let r1 = specforge_emitter::query(&graph, "b", 1, &[]).unwrap();
@@ -1036,7 +1438,10 @@ fn query_deterministic() {
 // ============================================================
 
 #[test]
-#[specforge_test(behavior = "enforce_token_budget", verify = "output within budget includes all entities")]
+#[specforge_test(
+    behavior = "enforce_token_budget",
+    verify = "output within budget includes all entities"
+)]
 fn budget_within_includes_all() {
     let graph = build_graph();
     let result = specforge_emitter::emit_json_with_budget(&graph, 100_000);
@@ -1045,50 +1450,74 @@ fn budget_within_includes_all() {
 }
 
 #[test]
-#[specforge_test(behavior = "enforce_token_budget", verify = "output exceeding budget truncates low-priority entities")]
+#[specforge_test(
+    behavior = "enforce_token_budget",
+    verify = "output exceeding budget truncates low-priority entities"
+)]
 fn budget_exceeding_truncates() {
     let graph = build_graph();
     // Very small budget should force truncation
     let result = specforge_emitter::emit_json_with_budget(&graph, 10);
     let parsed: serde_json::Value = serde_json::from_str(&result).unwrap();
     let nodes = parsed["nodes"].as_array().unwrap();
-    assert!(nodes.len() < 3, "small budget should truncate some entities");
+    assert!(
+        nodes.len() < 3,
+        "small budget should truncate some entities"
+    );
 }
 
 #[test]
-#[specforge_test(behavior = "enforce_token_budget", verify = "TokenBudgetResult included in metadata when budget applied")]
+#[specforge_test(
+    behavior = "enforce_token_budget",
+    verify = "TokenBudgetResult included in metadata when budget applied"
+)]
 fn budget_metadata_included() {
     let graph = build_graph();
     let result = specforge_emitter::emit_json_with_budget(&graph, 10);
     let parsed: serde_json::Value = serde_json::from_str(&result).unwrap();
-    assert!(parsed["token_budget"].is_object(), "truncated output must include token_budget metadata");
+    assert!(
+        parsed["token_budget"].is_object(),
+        "truncated output must include token_budget metadata"
+    );
     assert_eq!(parsed["token_budget"]["strategy"], "prioritize");
 }
 
 #[test]
-#[specforge_test(behavior = "enforce_token_budget", verify = "truncated_entities lists omitted entity IDs")]
+#[specforge_test(
+    behavior = "enforce_token_budget",
+    verify = "truncated_entities lists omitted entity IDs"
+)]
 fn budget_truncated_ids() {
     let graph = build_graph();
     let result = specforge_emitter::emit_json_with_budget(&graph, 10);
     let parsed: serde_json::Value = serde_json::from_str(&result).unwrap();
-    let truncated = parsed["token_budget"]["truncated_entities"].as_array()
+    let truncated = parsed["token_budget"]["truncated_entities"]
+        .as_array()
         .expect("truncated_entities should be an array");
     assert!(!truncated.is_empty(), "should list truncated entity IDs");
 }
 
 #[test]
-#[specforge_test(behavior = "enforce_token_budget", verify = "no --max-tokens skips budget enforcement")]
+#[specforge_test(
+    behavior = "enforce_token_budget",
+    verify = "no --max-tokens skips budget enforcement"
+)]
 fn budget_no_max_tokens() {
     let graph = build_graph();
     // Without budget, emit_json should include everything and no token_budget metadata
     let json = specforge_emitter::emit_json(&graph);
     let parsed: serde_json::Value = serde_json::from_str(&json).unwrap();
-    assert!(parsed.get("token_budget").is_none() || parsed["token_budget"].is_null(),
-        "no budget should mean no token_budget metadata");
+    assert!(
+        parsed.get("token_budget").is_none() || parsed["token_budget"].is_null(),
+        "no budget should mean no token_budget metadata"
+    );
 }
 
 #[test]
-#[specforge_test(behavior = "enforce_token_budget", verify = "export with max_tokens produces output within budget and includes metadata")]
+#[specforge_test(
+    behavior = "enforce_token_budget",
+    verify = "export with max_tokens produces output within budget and includes metadata"
+)]
 fn budget_integration() {
     let graph = build_graph();
     let result = specforge_emitter::emit_json_with_budget(&graph, 50);
@@ -1102,10 +1531,77 @@ fn budget_integration() {
 }
 
 #[test]
-#[specforge_test(behavior = "enforce_token_budget", verify = "error strategy rejects export exceeding budget")]
+#[specforge_test(
+    behavior = "enforce_token_budget",
+    verify = "error strategy rejects export exceeding budget"
+)]
 fn budget_error_strategy() {
     let graph = build_graph();
     let result = specforge_emitter::emit_json_with_budget_strategy(&graph, 10, "error");
     assert!(result.is_err(), "error strategy should reject over-budget");
     assert!(result.unwrap_err().to_string().contains("budget exceeded"));
+}
+
+// === emit() token_budget gate (CLI/MCP plumbing) ===
+
+// B:enforce_token_budget — verify unit "emit-level gate passes budget through for Json"
+#[test]
+#[specforge_test(
+    behavior = "enforce_token_budget",
+    verify = "emit with token_budget truncates Json output and includes estimated_tokens metadata"
+)]
+fn emit_token_budget_passes_through_for_json() {
+    let graph = build_graph();
+    let result = specforge_emitter::emit(
+        &graph,
+        &specforge_emitter::EmitOptions {
+            token_budget: Some(10),
+            ..Default::default()
+        },
+    )
+    .unwrap();
+    let parsed: serde_json::Value = serde_json::from_str(&result).unwrap();
+
+    assert!(
+        parsed["token_budget"].is_object(),
+        "emit must honor token_budget for Json output"
+    );
+    assert!(
+        parsed["token_budget"]["estimated_tokens"].is_u64(),
+        "truncated output must report estimated_tokens"
+    );
+    assert!(
+        parsed["nodes"].as_array().unwrap().len() < 3,
+        "tiny budget must truncate the 3-node graph"
+    );
+}
+
+// B:enforce_token_budget — verify unit "emit-level gate drops budget for non-Json formats"
+#[test]
+#[specforge_test(
+    behavior = "enforce_token_budget",
+    verify = "emit with token_budget ignores the budget for Context output"
+)]
+fn emit_token_budget_dropped_for_context() {
+    let graph = build_graph();
+    let result = specforge_emitter::emit(
+        &graph,
+        &specforge_emitter::EmitOptions {
+            format: specforge_emitter::EmitFormat::Context,
+            token_budget: Some(10),
+            ..Default::default()
+        },
+    )
+    .unwrap();
+    let parsed: serde_json::Value = serde_json::from_str(&result).unwrap();
+
+    assert!(
+        parsed.get("token_budget").is_none(),
+        "Context format must ignore the budget"
+    );
+    assert_eq!(
+        parsed["nodes"].as_array().unwrap().len(),
+        3,
+        "no truncation for Context"
+    );
 }

@@ -1,13 +1,13 @@
-use std::sync::Mutex;
+use parking_lot::Mutex;
 
 use specforge_common::Severity;
-use specforge_registry::{
-    ManifestV2, RegistryClient, RegistryConfig, RegistryCredential, RegistryError,
-    RegistryResponse, RegistrySearchResult, TrustLevel,
-};
 use specforge_registry::registry_ops::{
     assign_trust_level, publish_to_registry, resolve_from_registry, search_registries,
     verify_registry_integrity,
+};
+use specforge_registry::{
+    AuthMethod, ManifestV2, RegistryClient, RegistryConfig, RegistryCredential, RegistryError,
+    RegistryResponse, RegistrySearchResult, TrustLevel,
 };
 
 // ---------------------------------------------------------------------------
@@ -19,6 +19,7 @@ struct MockRegistryClient {
     #[allow(clippy::type_complexity)]
     search_results: Mutex<Vec<(String, Result<Vec<RegistrySearchResult>, RegistryError>)>>,
     publish_result: Mutex<Option<Result<String, RegistryError>>>,
+    publish_credentials: Mutex<Vec<Option<RegistryCredential>>>,
 }
 
 impl MockRegistryClient {
@@ -27,12 +28,13 @@ impl MockRegistryClient {
             fetch_results: Mutex::new(Vec::new()),
             search_results: Mutex::new(Vec::new()),
             publish_result: Mutex::new(None),
+            publish_credentials: Mutex::new(Vec::new()),
         }
     }
 
     /// Add a fetch result keyed by registry alias.
     fn with_fetch_for(self, alias: &str, result: Result<RegistryResponse, RegistryError>) -> Self {
-        self.fetch_results.lock().unwrap().push((alias.to_string(), result));
+        self.fetch_results.lock().push((alias.to_string(), result));
         self
     }
 
@@ -42,13 +44,18 @@ impl MockRegistryClient {
         alias: &str,
         result: Result<Vec<RegistrySearchResult>, RegistryError>,
     ) -> Self {
-        self.search_results.lock().unwrap().push((alias.to_string(), result));
+        self.search_results.lock().push((alias.to_string(), result));
         self
     }
 
     fn with_publish(self, result: Result<String, RegistryError>) -> Self {
-        *self.publish_result.lock().unwrap() = Some(result);
+        *self.publish_result.lock() = Some(result);
         self
+    }
+
+    /// Credentials seen by each `publish()` call, in order.
+    fn publish_credentials(&self) -> Vec<Option<RegistryCredential>> {
+        self.publish_credentials.lock().clone()
     }
 }
 
@@ -58,7 +65,7 @@ impl RegistryClient for MockRegistryClient {
         _specifier: &str,
         registry: &RegistryConfig,
     ) -> Result<RegistryResponse, RegistryError> {
-        let results = self.fetch_results.lock().unwrap();
+        let results = self.fetch_results.lock();
         for (alias, result) in results.iter() {
             if alias == &registry.alias {
                 return result.clone();
@@ -74,7 +81,7 @@ impl RegistryClient for MockRegistryClient {
         _query: &str,
         registry: &RegistryConfig,
     ) -> Result<Vec<RegistrySearchResult>, RegistryError> {
-        let results = self.search_results.lock().unwrap();
+        let results = self.search_results.lock();
         for (alias, result) in results.iter() {
             if alias == &registry.alias {
                 return result.clone();
@@ -90,10 +97,11 @@ impl RegistryClient for MockRegistryClient {
         _package: &[u8],
         _manifest: &ManifestV2,
         _registry: &RegistryConfig,
+        credential: Option<&RegistryCredential>,
     ) -> Result<String, RegistryError> {
+        self.publish_credentials.lock().push(credential.cloned());
         self.publish_result
             .lock()
-            .unwrap()
             .clone()
             .unwrap_or(Err(RegistryError::NetworkError {
                 message: "no mock configured".into(),
@@ -167,10 +175,7 @@ fn make_search_result(name: &str, version: &str, desc: &str) -> RegistrySearchRe
 // B:resolve_registry_source — verify unit "scope-prefixed specifier → matching registry"
 #[test]
 fn resolve_scope_prefixed_specifier_matches_registry() {
-    let registries = vec![
-        scoped_registry("private", "@myco"),
-        default_registry(),
-    ];
+    let registries = vec![scoped_registry("private", "@myco"), default_registry()];
     let client = MockRegistryClient::new()
         .with_fetch_for("private", Ok(make_response("@myco/analytics", "2.0.0")));
 
@@ -182,10 +187,7 @@ fn resolve_scope_prefixed_specifier_matches_registry() {
 // B:resolve_registry_source — verify unit "no scope match → default registry fallback"
 #[test]
 fn resolve_falls_back_to_default_registry() {
-    let registries = vec![
-        scoped_registry("private", "@myco"),
-        default_registry(),
-    ];
+    let registries = vec![scoped_registry("private", "@myco"), default_registry()];
     let client = MockRegistryClient::new()
         .with_fetch_for("default", Ok(make_response("@specforge/software", "1.0.0")));
 
@@ -350,7 +352,7 @@ fn publish_computes_sha256() {
         )
         .with_publish(Ok("https://r.specforge.dev/@test/ext/1.0.0".into()));
 
-    let url = publish_to_registry(package, &manifest, &registry, &client, false).unwrap();
+    let url = publish_to_registry(package, &manifest, &registry, None, &client, false).unwrap();
     assert!(url.contains("@test/ext"));
 }
 
@@ -365,7 +367,7 @@ fn publish_rejects_duplicate_version_without_force() {
     let client = MockRegistryClient::new()
         .with_fetch_for("default", Ok(make_response("@test/ext", "1.0.0")));
 
-    let err = publish_to_registry(package, &manifest, &registry, &client, false).unwrap_err();
+    let err = publish_to_registry(package, &manifest, &registry, None, &client, false).unwrap_err();
     assert_eq!(err.severity, Severity::Error);
     assert!(err.message.contains("already exists"));
 }
@@ -381,7 +383,7 @@ fn publish_allows_duplicate_version_with_force() {
         .with_publish(Ok("https://r.specforge.dev/@test/ext/1.0.0".into()));
 
     // force=true skips the existence check entirely
-    let url = publish_to_registry(package, &manifest, &registry, &client, true).unwrap();
+    let url = publish_to_registry(package, &manifest, &registry, None, &client, true).unwrap();
     assert!(url.contains("@test/ext"));
 }
 
@@ -402,8 +404,45 @@ fn publish_returns_registry_url_on_success() {
         )
         .with_publish(Ok(expected_url.to_string()));
 
-    let url = publish_to_registry(package, &manifest, &registry, &client, false).unwrap();
+    let url = publish_to_registry(package, &manifest, &registry, None, &client, false).unwrap();
     assert_eq!(url, expected_url);
+}
+
+// B:publish_to_registry — verify unit "threads credential into client.publish"
+#[test]
+fn publish_threads_credential_to_client() {
+    let registry = default_registry();
+    let manifest = minimal_manifest();
+    let credential = RegistryCredential {
+        alias: registry.alias.clone(),
+        auth_method: AuthMethod::Bearer("token-value".to_string()),
+    };
+
+    let client = MockRegistryClient::new()
+        .with_publish(Ok("https://r.specforge.dev/@test/ext/1.0.0".into()));
+    publish_to_registry(
+        b"fake-wasm-bytes",
+        &manifest,
+        &registry,
+        Some(&credential),
+        &client,
+        true,
+    )
+    .unwrap();
+    assert_eq!(client.publish_credentials(), vec![Some(credential.clone())]);
+
+    let anonymous = MockRegistryClient::new()
+        .with_publish(Ok("https://r.specforge.dev/@test/ext/1.0.0".into()));
+    publish_to_registry(
+        b"fake-wasm-bytes",
+        &manifest,
+        &registry,
+        None,
+        &anonymous,
+        true,
+    )
+    .unwrap();
+    assert_eq!(anonymous.publish_credentials(), vec![None]);
 }
 
 // ---------------------------------------------------------------------------

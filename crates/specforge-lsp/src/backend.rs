@@ -11,22 +11,23 @@ use specforge_common::Sym;
 use specforge_graph::Node;
 use specforge_parser::{EntityId, EntityKind};
 use specforge_registry::{
-    detect_mistyped_references, detect_unknown_entity_fields, detect_unknown_entity_kinds,
-    populate_registries, EntityRefInfo, KindRegistry,
+    EntityRefInfo, KindRegistry, detect_mistyped_references, detect_unknown_entity_fields,
+    detect_unknown_entity_kinds, populate_registries,
 };
 use specforge_wasm::protocol::{
-    load_protocol_extension, protocol_extension_to_manifest, ProtocolHost,
+    ProtocolHost, load_protocol_extension, protocol_extension_to_manifest,
 };
 
-use crate::formatting::{format_document, format_document_range, EditorOptions};
+use crate::formatting::{EditorOptions, format_document, format_document_range};
 use crate::{
-    classify_tokens, code_actions_missing_verify, complete_entity_ids,
+    LspState, classify_tokens, code_actions_missing_verify, complete_entity_ids,
     complete_entity_ids_filtered, complete_keywords, compute_rename_edits, cursor_context,
     document_symbols, find_all_references, go_to_definition, goto_import_definition,
     hover_field_info, hover_info_with_registries, server_capabilities, server_info,
-    source_span_to_lsp_range,
-    workspace_symbols, LspState,
+    source_span_to_lsp_range, workspace_symbols,
 };
+
+use crate::document::utf16_col_to_byte_offset;
 
 /// Debounce delay for `did_change` reparse (milliseconds).
 const DEBOUNCE_MS: u64 = 150;
@@ -59,55 +60,62 @@ impl Backend {
     /// Walk the workspace root for all `.spec` files and parse them into the graph.
     /// Returns the number of files indexed.
     async fn index_workspace(&self, root: &str) -> usize {
-        let mut count = 0;
-        for entry in walkdir::WalkDir::new(root)
-            .into_iter()
-            .filter_entry(|e| {
-                // Skip known build/dependency directories to avoid slow traversals
-                if e.file_type().is_dir()
-                    && let Some(name) = e.file_name().to_str()
-                {
-                    return !Self::SKIP_DIRS.contains(&name);
-                }
-                true
-            })
-            .filter_map(|e| e.ok())
-        {
-            let path = entry.path();
-            if path.extension().is_some_and(|ext| ext == "spec")
-                && let Ok(content) = std::fs::read_to_string(path)
+        // Walking the tree, reading files and parsing them are blocking
+        // operations: run them on the blocking thread pool and take the
+        // state write lock only once to insert every parsed document.
+        let root = root.to_string();
+        let parsed = tokio::task::spawn_blocking(move || {
+            let mut files = Vec::new();
+            for entry in walkdir::WalkDir::new(&root)
+                .into_iter()
+                .filter_entry(|e| {
+                    // Skip known build/dependency directories to avoid slow traversals
+                    if e.file_type().is_dir()
+                        && let Some(name) = e.file_name().to_str()
+                    {
+                        return !Self::SKIP_DIRS.contains(&name);
+                    }
+                    true
+                })
+                .filter_map(|e| e.ok())
             {
-                let file_path = path.to_string_lossy().to_string();
-                let spec_file = specforge_parser::parse(&content, &file_path);
-                let mut state = self.state.write().await;
-                let graph = state.graph_mut();
-                for entity in &spec_file.entities {
-                    graph.add_node(Node {
-                        id: EntityId {
-                            raw: entity.id.raw,
-                        },
-                        kind: EntityKind {
-                            raw: entity.kind.raw,
-                        },
-                        title: entity.title.clone(),
-                        fields: entity.fields.clone(),
-                        source_span: entity.span.clone(),
-                    });
+                let path = entry.path();
+                if path.extension().is_some_and(|ext| ext == "spec")
+                    && let Ok(content) = std::fs::read_to_string(path)
+                {
+                    let file_path = path.to_string_lossy().to_string();
+                    files.push(specforge_parser::parse(&content, &file_path));
                 }
-                count += 1;
+            }
+            files
+        })
+        .await
+        .unwrap_or_default();
+
+        let mut state = self.state.write().await;
+        let graph = state.graph_mut();
+        for spec_file in &parsed {
+            for entity in &spec_file.entities {
+                graph.add_node(Node {
+                    id: EntityId { raw: entity.id.raw },
+                    kind: EntityKind {
+                        raw: entity.kind.raw,
+                    },
+                    title: entity.title.clone(),
+                    fields: entity.fields.clone(),
+                    source_span: entity.span.clone(),
+                });
             }
         }
 
         // Build edges across all indexed files so cross-file references
         // work immediately (before any file is opened in the editor).
-        let mut state = self.state.write().await;
-        let graph = state.graph_mut();
         // Use the shared resolve_references (same as CLI) — this clears
         // edges and rebuilds them from reference lists, discarding the
         // diagnostics since we haven't opened any documents yet.
         let _ = graph.resolve_references();
 
-        count
+        parsed.len()
     }
 
     /// Load extensions via the protocol pipeline and populate registries.
@@ -169,8 +177,7 @@ impl Backend {
                 specforge_registry::validation_engine::parse_all_rule_patterns(&rule_inputs);
 
             // Auto-generate E006 rules for required fields
-            let required_rules =
-                specforge_registry::generate_required_field_rules(&field_reg);
+            let required_rules = specforge_registry::generate_required_field_rules(&field_reg);
             patterns.extend(required_rules);
 
             let mut state = self.state.write().await;
@@ -224,9 +231,7 @@ impl Backend {
         // Add new nodes from parse result
         for entity in &spec_file.entities {
             graph.add_node(Node {
-                id: EntityId {
-                    raw: entity.id.raw,
-                },
+                id: EntityId { raw: entity.id.raw },
                 kind: EntityKind {
                     raw: entity.kind.raw,
                 },
@@ -242,12 +247,15 @@ impl Backend {
         let ref_diags = graph.resolve_references();
 
         // Snapshot node data for registry-based diagnostics below.
-        let all_nodes: Vec<(Sym, specforge_parser::FieldMap, specforge_common::SourceSpan)> =
-            graph
-                .nodes()
-                .iter()
-                .map(|n| (n.id.raw, n.fields.clone(), n.source_span.clone()))
-                .collect();
+        let all_nodes: Vec<(
+            Sym,
+            specforge_parser::FieldMap,
+            specforge_common::SourceSpan,
+        )> = graph
+            .nodes()
+            .iter()
+            .map(|n| (n.id.raw, n.fields.clone(), n.source_span.clone()))
+            .collect();
 
         // Collect all diagnostics grouped by file URI
         let mut diags_by_file: std::collections::HashMap<Url, Vec<Diagnostic>> =
@@ -316,7 +324,8 @@ impl Backend {
                         .entries()
                         .iter()
                         .filter_map(|entry| {
-                            if let specforge_parser::FieldValue::ReferenceList(refs) = &entry.value {
+                            if let specforge_parser::FieldValue::ReferenceList(refs) = &entry.value
+                            {
                                 Some((entry.key.to_string(), refs.clone()))
                             } else {
                                 None
@@ -331,12 +340,8 @@ impl Backend {
                 })
                 .collect();
 
-            let w022_diags = detect_mistyped_references(
-                &entity_refs,
-                field_reg,
-                kind_reg,
-                &node_kind_index,
-            );
+            let w022_diags =
+                detect_mistyped_references(&entity_refs, field_reg, kind_reg, &node_kind_index);
             for d in &w022_diags {
                 let diag_uri = d
                     .span
@@ -359,7 +364,13 @@ impl Backend {
             let entity_kinds: Vec<(String, String, specforge_common::SourceSpan)> = graph
                 .nodes()
                 .iter()
-                .map(|n| (n.kind.raw.to_string(), n.id.raw.to_string(), n.source_span.clone()))
+                .map(|n| {
+                    (
+                        n.kind.raw.to_string(),
+                        n.id.raw.to_string(),
+                        n.source_span.clone(),
+                    )
+                })
                 .collect();
             let e024_diags = detect_unknown_entity_kinds(&entity_kinds, kind_reg, None);
             for d in &e024_diags {
@@ -376,14 +387,27 @@ impl Backend {
 
             // W020: fields not registered for their entity kind
             if !field_reg.is_empty() {
-                let entity_fields: Vec<(String, String, Vec<String>, specforge_common::SourceSpan)> = graph
+                let entity_fields: Vec<(
+                    String,
+                    String,
+                    Vec<String>,
+                    specforge_common::SourceSpan,
+                )> = graph
                     .nodes()
                     .iter()
                     .map(|n| {
-                        let field_names: Vec<String> = n.fields.entries().iter()
+                        let field_names: Vec<String> = n
+                            .fields
+                            .entries()
+                            .iter()
                             .map(|e| e.key.to_string())
                             .collect();
-                        (n.kind.raw.to_string(), n.id.raw.to_string(), field_names, n.source_span.clone())
+                        (
+                            n.kind.raw.to_string(),
+                            n.id.raw.to_string(),
+                            field_names,
+                            n.source_span.clone(),
+                        )
                     })
                     .collect();
                 let w020_diags = detect_unknown_entity_fields(&entity_fields, kind_reg, field_reg);
@@ -411,8 +435,9 @@ impl Backend {
                 {
                     continue;
                 }
-                let rule_diags =
-                    specforge_registry::validation_engine::execute_pattern(pattern, &entities, None);
+                let rule_diags = specforge_registry::validation_engine::execute_pattern(
+                    pattern, &entities, None,
+                );
                 for d in &rule_diags {
                     let diag_uri = d
                         .span
@@ -533,9 +558,12 @@ fn lsp_icon_to_symbol_kind(icon: &str) -> SymbolKind {
 /// Extract the word at a given cursor position from document content.
 pub fn word_at_position(content: &str, line: usize, col: usize) -> Option<String> {
     let target_line = content.lines().nth(line)?;
-    if col > target_line.len() {
+    // `col` arrives as UTF-16 code units (LSP `character`); convert it to a
+    // byte offset within the line before scanning.
+    if col > target_line.chars().map(char::len_utf16).sum::<usize>() {
         return None;
     }
+    let col = utf16_col_to_byte_offset(target_line, col);
     let bytes = target_line.as_bytes();
     let is_id_char = |b: u8| b.is_ascii_alphanumeric() || b == b'_';
     let mut start = col;
@@ -569,11 +597,7 @@ pub fn import_path_on_line(line: &str) -> Option<&str> {
     let before_last = &rest[..last_quote_end];
     let last_quote_start = before_last.rfind('"')?;
     let path = &rest[last_quote_start + 1..last_quote_end];
-    if path.is_empty() {
-        None
-    } else {
-        Some(path)
-    }
+    if path.is_empty() { None } else { Some(path) }
 }
 
 fn publish_format_diags(diags: &[specforge_common::Diagnostic]) -> Vec<Diagnostic> {
@@ -616,18 +640,21 @@ impl LanguageServer for Backend {
                     .map(|p| p.to_string_lossy().to_string())
             });
         // Resolve spec_root from specforge.json (falls back to project root)
-        let resolved_spec_root = root.as_deref().and_then(|r| {
-            let config_path = std::path::Path::new(r).join("specforge.json");
-            let content = std::fs::read_to_string(&config_path).ok()?;
-            let json: serde_json::Value = serde_json::from_str(&content).ok()?;
-            let spec_root_field = json.get("spec_root")?.as_str()?;
-            let resolved = std::path::Path::new(r).join(spec_root_field);
-            if resolved.is_dir() {
-                Some(resolved.to_string_lossy().to_string())
-            } else {
-                None
-            }
-        }).or_else(|| root.clone());
+        let resolved_spec_root = root
+            .as_deref()
+            .and_then(|r| {
+                let config_path = std::path::Path::new(r).join("specforge.json");
+                let content = std::fs::read_to_string(&config_path).ok()?;
+                let json: serde_json::Value = serde_json::from_str(&content).ok()?;
+                let spec_root_field = json.get("spec_root")?.as_str()?;
+                let resolved = std::path::Path::new(r).join(spec_root_field);
+                if resolved.is_dir() {
+                    Some(resolved.to_string_lossy().to_string())
+                } else {
+                    None
+                }
+            })
+            .or_else(|| root.clone());
         *self.spec_root.lock().await = resolved_spec_root;
         *self.root_dir.lock().await = root;
         let state = self.state.read().await;
@@ -682,9 +709,7 @@ impl LanguageServer for Backend {
                         },
                     ),
                 ),
-                document_formatting_provider: Some(OneOf::Left(
-                    caps.supports_document_formatting,
-                )),
+                document_formatting_provider: Some(OneOf::Left(caps.supports_document_formatting)),
                 document_range_formatting_provider: Some(OneOf::Left(
                     caps.supports_document_range_formatting,
                 )),
@@ -758,9 +783,7 @@ impl LanguageServer for Backend {
             for (uri, content) in open_uris {
                 let diags_by_file = self.parse_and_update(&uri, &content).await;
                 for (file_uri, diags) in diags_by_file {
-                    self.client
-                        .publish_diagnostics(file_uri, diags, None)
-                        .await;
+                    self.client.publish_diagnostics(file_uri, diags, None).await;
                 }
             }
         } else {
@@ -779,10 +802,7 @@ impl LanguageServer for Backend {
         let uri = params.text_document.uri;
         let text = params.text_document.text;
 
-        self.state
-            .write()
-            .await
-            .open_document(uri.as_str(), &text);
+        self.state.write().await.open_document(uri.as_str(), &text);
 
         let diags_by_file = self.parse_and_update(&uri, &text).await;
         for (file_uri, diags) in diags_by_file {
@@ -874,7 +894,9 @@ impl LanguageServer for Backend {
                 for entity in &spec_file.entities {
                     graph.add_node(Node {
                         id: EntityId { raw: entity.id.raw },
-                        kind: EntityKind { raw: entity.kind.raw },
+                        kind: EntityKind {
+                            raw: entity.kind.raw,
+                        },
                         title: entity.title.clone(),
                         fields: entity.fields.clone(),
                         source_span: entity.span.clone(),
@@ -884,12 +906,15 @@ impl LanguageServer for Backend {
                 // Resolve references → edges using the shared function (same as CLI)
                 let ref_diags = graph.resolve_references();
 
-                let all_nodes: Vec<(Sym, specforge_parser::FieldMap, specforge_common::SourceSpan)> =
-                    graph
-                        .nodes()
-                        .iter()
-                        .map(|n| (n.id.raw, n.fields.clone(), n.source_span.clone()))
-                        .collect();
+                let all_nodes: Vec<(
+                    Sym,
+                    specforge_parser::FieldMap,
+                    specforge_common::SourceSpan,
+                )> = graph
+                    .nodes()
+                    .iter()
+                    .map(|n| (n.id.raw, n.fields.clone(), n.source_span.clone()))
+                    .collect();
 
                 let mut diags_by_file: std::collections::HashMap<Url, Vec<Diagnostic>> =
                     std::collections::HashMap::new();
@@ -910,10 +935,15 @@ impl LanguageServer for Backend {
 
                 // Resolver diagnostics from shared function
                 for rd in &ref_diags {
-                    let diag_uri = rd.span.as_ref()
+                    let diag_uri = rd
+                        .span
+                        .as_ref()
                         .map(|sp| file_path_to_uri(sp.file.as_str()))
                         .unwrap_or_else(|| uri_clone.clone());
-                    diags_by_file.entry(diag_uri).or_default().push(diagnostic_to_lsp(rd));
+                    diags_by_file
+                        .entry(diag_uri)
+                        .or_default()
+                        .push(diagnostic_to_lsp(rd));
                 }
 
                 // Validator diagnostics
@@ -938,56 +968,110 @@ impl LanguageServer for Backend {
 
                     // E024: unknown entity kinds
                     let entity_kinds: Vec<(String, String, specforge_common::SourceSpan)> = graph
-                        .nodes().iter()
-                        .map(|n| (n.kind.raw.to_string(), n.id.raw.to_string(), n.source_span.clone()))
+                        .nodes()
+                        .iter()
+                        .map(|n| {
+                            (
+                                n.kind.raw.to_string(),
+                                n.id.raw.to_string(),
+                                n.source_span.clone(),
+                            )
+                        })
                         .collect();
                     for d in &detect_unknown_entity_kinds(&entity_kinds, kind_reg, None) {
-                        let diag_uri = d.span.as_ref()
+                        let diag_uri = d
+                            .span
+                            .as_ref()
                             .map(|sp| file_path_to_uri(sp.file.as_str()))
                             .unwrap_or_else(|| uri_clone.clone());
-                        diags_by_file.entry(diag_uri).or_default().push(diagnostic_to_lsp(d));
+                        diags_by_file
+                            .entry(diag_uri)
+                            .or_default()
+                            .push(diagnostic_to_lsp(d));
                     }
 
                     // W020: unknown entity fields
                     if !field_reg.is_empty() {
-                        let entity_fields: Vec<(String, String, Vec<String>, specforge_common::SourceSpan)> = graph
-                            .nodes().iter()
+                        let entity_fields: Vec<(
+                            String,
+                            String,
+                            Vec<String>,
+                            specforge_common::SourceSpan,
+                        )> = graph
+                            .nodes()
+                            .iter()
                             .map(|n| {
-                                let fnames: Vec<String> = n.fields.entries().iter().map(|e| e.key.to_string()).collect();
-                                (n.kind.raw.to_string(), n.id.raw.to_string(), fnames, n.source_span.clone())
+                                let fnames: Vec<String> = n
+                                    .fields
+                                    .entries()
+                                    .iter()
+                                    .map(|e| e.key.to_string())
+                                    .collect();
+                                (
+                                    n.kind.raw.to_string(),
+                                    n.id.raw.to_string(),
+                                    fnames,
+                                    n.source_span.clone(),
+                                )
                             })
                             .collect();
-                        for d in &detect_unknown_entity_fields(&entity_fields, kind_reg, field_reg) {
-                            let diag_uri = d.span.as_ref()
+                        for d in &detect_unknown_entity_fields(&entity_fields, kind_reg, field_reg)
+                        {
+                            let diag_uri = d
+                                .span
+                                .as_ref()
                                 .map(|sp| file_path_to_uri(sp.file.as_str()))
                                 .unwrap_or_else(|| uri_clone.clone());
-                            diags_by_file.entry(diag_uri).or_default().push(diagnostic_to_lsp(d));
+                            diags_by_file
+                                .entry(diag_uri)
+                                .or_default()
+                                .push(diagnostic_to_lsp(d));
                         }
 
                         // E022: mistyped references
                         let node_kind_index: std::collections::HashMap<String, String> = graph
-                            .nodes().iter()
+                            .nodes()
+                            .iter()
                             .map(|n| (n.id.raw.to_string(), n.kind.raw.to_string()))
                             .collect();
-                        let entity_refs: Vec<EntityRefInfo> = all_nodes.iter()
+                        let entity_refs: Vec<EntityRefInfo> = all_nodes
+                            .iter()
                             .map(|(id, fields, span)| {
-                                let ref_fields: Vec<(String, Vec<String>)> = fields.entries().iter()
+                                let ref_fields: Vec<(String, Vec<String>)> = fields
+                                    .entries()
+                                    .iter()
                                     .filter_map(|entry| {
-                                        if let specforge_parser::FieldValue::ReferenceList(refs) = &entry.value {
+                                        if let specforge_parser::FieldValue::ReferenceList(refs) =
+                                            &entry.value
+                                        {
                                             Some((entry.key.to_string(), refs.clone()))
-                                        } else { None }
+                                        } else {
+                                            None
+                                        }
                                     })
                                     .collect();
-                                let entity_kind = graph.node(id.as_str())
-                                    .map(|n| n.kind.raw.to_string()).unwrap_or_default();
+                                let entity_kind = graph
+                                    .node(id.as_str())
+                                    .map(|n| n.kind.raw.to_string())
+                                    .unwrap_or_default();
                                 (entity_kind, id.to_string(), ref_fields, span.clone())
                             })
                             .collect();
-                        for d in &detect_mistyped_references(&entity_refs, field_reg, kind_reg, &node_kind_index) {
-                            let diag_uri = d.span.as_ref()
+                        for d in &detect_mistyped_references(
+                            &entity_refs,
+                            field_reg,
+                            kind_reg,
+                            &node_kind_index,
+                        ) {
+                            let diag_uri = d
+                                .span
+                                .as_ref()
                                 .map(|sp| file_path_to_uri(sp.file.as_str()))
                                 .unwrap_or_else(|| uri_clone.clone());
-                            diags_by_file.entry(diag_uri).or_default().push(diagnostic_to_lsp(d));
+                            diags_by_file
+                                .entry(diag_uri)
+                                .or_default()
+                                .push(diagnostic_to_lsp(d));
                         }
                     }
                 }
@@ -1054,11 +1138,8 @@ impl LanguageServer for Backend {
 
                     // Run validator and publish updated diagnostics for all affected files
                     let validator_diags = specforge_validator::validate(graph);
-                    let known_files: Vec<Sym> = graph
-                        .nodes()
-                        .iter()
-                        .map(|n| n.source_span.file)
-                        .collect();
+                    let known_files: Vec<Sym> =
+                        graph.nodes().iter().map(|n| n.source_span.file).collect();
 
                     // Publish empty diagnostics for the deleted file (clear stale squiggles)
                     self.client
@@ -1092,13 +1173,13 @@ impl LanguageServer for Backend {
                     }
                     // Ensure all known files get an entry (clears stale diagnostics)
                     for file in &known_files {
-                        diags_by_file.entry(file_path_to_uri(file.as_str())).or_default();
+                        diags_by_file
+                            .entry(file_path_to_uri(file.as_str()))
+                            .or_default();
                     }
                     drop(state);
                     for (file_uri, diags) in diags_by_file {
-                        self.client
-                            .publish_diagnostics(file_uri, diags, None)
-                            .await;
+                        self.client.publish_diagnostics(file_uri, diags, None).await;
                     }
                 }
                 _ => {
@@ -1106,9 +1187,7 @@ impl LanguageServer for Backend {
                     if let Ok(content) = std::fs::read_to_string(&file_path) {
                         let diags_by_file = self.parse_and_update(uri, &content).await;
                         for (file_uri, diags) in diags_by_file {
-                            self.client
-                                .publish_diagnostics(file_uri, diags, None)
-                                .await;
+                            self.client.publish_diagnostics(file_uri, diags, None).await;
                         }
                     }
                 }
@@ -1133,15 +1212,21 @@ impl LanguageServer for Backend {
 
         let kind_reg = state.kind_registry();
         let field_reg = state.field_registry();
-        let kr = if kind_reg.is_empty() { None } else { Some(kind_reg) };
-        let fr = if field_reg.is_empty() { None } else { Some(field_reg) };
+        let kr = if kind_reg.is_empty() {
+            None
+        } else {
+            Some(kind_reg)
+        };
+        let fr = if field_reg.is_empty() {
+            None
+        } else {
+            Some(field_reg)
+        };
         let info = hover_info_with_registries(state.graph(), &word, kr, fr).or_else(|| {
             // Fallback: try field hover if word is not an entity ID
             if !field_reg.is_empty() {
-                let entity_kind = crate::completion::enclosing_entity_kind(
-                    &content,
-                    pos.line as usize,
-                )?;
+                let entity_kind =
+                    crate::completion::enclosing_entity_kind(&content, pos.line as usize)?;
                 hover_field_info(&word, &entity_kind, field_reg)
             } else {
                 None
@@ -1347,7 +1432,9 @@ impl LanguageServer for Backend {
         let file_path = uri_to_file_path(&uri);
 
         let state = self.state.read().await;
-        let testable: Vec<String> = state.kind_registry().iter()
+        let testable: Vec<String> = state
+            .kind_registry()
+            .iter()
             .filter(|(_, entry)| entry.supports_verify)
             .map(|(name, _)| name.clone())
             .collect();
@@ -1363,8 +1450,10 @@ impl LanguageServer for Backend {
             .map(|a| {
                 let file_uri = file_path_to_uri(&a.file);
                 let mut changes = std::collections::HashMap::new();
-                changes.entry(file_uri).or_insert_with(Vec::new).push(
-                    TextEdit {
+                changes
+                    .entry(file_uri)
+                    .or_insert_with(Vec::new)
+                    .push(TextEdit {
                         range: Range {
                             start: Position {
                                 line: a.insert_line as u32,
@@ -1376,8 +1465,7 @@ impl LanguageServer for Backend {
                             },
                         },
                         new_text: format!("{}\n", a.edit_text),
-                    },
-                );
+                    });
                 CodeActionOrCommand::CodeAction(tower_lsp::lsp_types::CodeAction {
                     title: a.title,
                     kind: Some(CodeActionKind::QUICKFIX),
@@ -1484,11 +1572,7 @@ impl LanguageServer for Backend {
             let line = tok.line as u32;
             let col = tok.col as u32;
             let delta_line = line - prev_line;
-            let delta_start = if delta_line == 0 {
-                col - prev_col
-            } else {
-                col
-            };
+            let delta_start = if delta_line == 0 { col - prev_col } else { col };
             let length = tok.text.len() as u32;
             let token_type = token_type_index
                 .get(tok.token_type.as_str())
@@ -1513,10 +1597,7 @@ impl LanguageServer for Backend {
         })))
     }
 
-    async fn formatting(
-        &self,
-        params: DocumentFormattingParams,
-    ) -> Result<Option<Vec<TextEdit>>> {
+    async fn formatting(&self, params: DocumentFormattingParams) -> Result<Option<Vec<TextEdit>>> {
         let uri = params.text_document.uri;
 
         let state = self.state.read().await;

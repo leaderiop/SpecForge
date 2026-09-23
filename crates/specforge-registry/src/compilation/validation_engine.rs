@@ -39,6 +39,9 @@ pub struct FieldConstraintPattern {
     pub kind: String,
     pub pattern: Option<String>,
     pub values: Vec<String>,
+    /// Regex compiled once at parse time for `field_value_constraint` rules
+    /// with a `matches` constraint, so execution never recompiles per entity.
+    pub compiled_pattern: Option<regex::Regex>,
 }
 
 /// A stub trait for Wasm validation dispatch. Real implementation in specforge-wasm.
@@ -107,11 +110,42 @@ pub fn parse_rule_pattern(
         _ => Severity::Warning,
     };
 
-    let constraint = rule.constraint.as_ref().map(|c| FieldConstraintPattern {
-        kind: c.kind.clone(),
-        pattern: c.pattern.clone(),
-        values: c.values.clone(),
-    });
+    let constraint = match rule.constraint.as_ref() {
+        Some(c) => {
+            let compiled_pattern = if matches!(check, ValidationPatternKind::FieldValueConstraint)
+                && c.kind == "matches"
+            {
+                match c.pattern.as_deref().map(regex::Regex::new) {
+                    Some(Ok(re)) => Some(re),
+                    Some(Err(err)) => {
+                        return Err(Diagnostic {
+                            code: "W024".to_string(),
+                            severity: Severity::Warning,
+                            message: format!(
+                                "extension '{}': rule '{}': invalid regex pattern '{}': {}",
+                                extension_name,
+                                rule.code,
+                                c.pattern.as_deref().unwrap_or_default(),
+                                err
+                            ),
+                            span: None,
+                            suggestion: None,
+                        });
+                    }
+                    None => None,
+                }
+            } else {
+                None
+            };
+            Some(FieldConstraintPattern {
+                kind: c.kind.clone(),
+                pattern: c.pattern.clone(),
+                values: c.values.clone(),
+                compiled_pattern,
+            })
+        }
+        None => None,
+    };
 
     Ok(ValidationRulePattern {
         code: rule.code.clone(),
@@ -212,24 +246,20 @@ pub fn execute_pattern(
                 }
             }
             ValidationPatternKind::FieldValueConstraint => {
-                if let (Some(field_name), Some(constraint)) =
-                    (&pattern.field, &pattern.constraint)
+                if let (Some(field_name), Some(constraint)) = (&pattern.field, &pattern.constraint)
                 {
                     if let Some(value) = entity.fields.get(field_name) {
                         match constraint.kind.as_str() {
                             "non_empty" => value.is_empty(),
                             "one_of" => !constraint.values.contains(value),
                             "matches" => {
-                                if let Some(ref pat) = constraint.pattern {
-                                    // The value violates the constraint when it fails to
-                                    // match the regex. A malformed pattern is treated as
-                                    // "no violation" rather than blocking on a bad rule.
-                                    match regex::Regex::new(pat) {
-                                        Ok(re) => !re.is_match(value),
-                                        Err(_) => false,
-                                    }
-                                } else {
-                                    false
+                                // The regex was compiled once at parse time; a
+                                // malformed pattern is rejected at load time with
+                                // a W024 diagnostic, so `None` here only means the
+                                // rule never carried a pattern (not a violation).
+                                match &constraint.compiled_pattern {
+                                    Some(re) => !re.is_match(value),
+                                    None => false,
                                 }
                             }
                             _ => false,
@@ -270,7 +300,7 @@ pub fn execute_pattern(
                             if condition_met {
                                 // Condition met — required field must be present and non-empty
                                 match entity.fields.get(required_field) {
-                                    None => true, // field missing => violation
+                                    None => true,            // field missing => violation
                                     Some(v) => v.is_empty(), // empty => violation
                                 }
                             } else {
@@ -311,7 +341,10 @@ pub fn execute_pattern(
                 &entity.id,
                 &entity.kind,
                 pattern.field.as_deref(),
-                entity.fields.get(pattern.field.as_deref().unwrap_or("")).map(|s| s.as_str()),
+                entity
+                    .fields
+                    .get(pattern.field.as_deref().unwrap_or(""))
+                    .map(|s| s.as_str()),
             );
 
             diagnostics.push(Diagnostic {
@@ -438,7 +471,10 @@ mod tests {
         let mut rule = make_rule("W101", "missing_field_when_flag_set");
         rule.field = Some("contract".to_string());
         let pattern = parse_rule_pattern(&rule, "@test/ext").unwrap();
-        assert_eq!(pattern.check, ValidationPatternKind::MissingFieldWhenFlagSet);
+        assert_eq!(
+            pattern.check,
+            ValidationPatternKind::MissingFieldWhenFlagSet
+        );
         assert_eq!(pattern.field.as_deref(), Some("contract"));
     }
 
@@ -478,8 +514,14 @@ mod tests {
     fn test_parse_validation_rule_pattern_contract() {
         // requires: manifest rules available
         let rules = vec![
-            ("@ext/a".to_string(), vec![make_rule("W100", "no_incoming_edges")]),
-            ("@ext/b".to_string(), vec![make_rule("W200", "invalid_kind")]),
+            (
+                "@ext/a".to_string(),
+                vec![make_rule("W100", "no_incoming_edges")],
+            ),
+            (
+                "@ext/b".to_string(),
+                vec![make_rule("W200", "invalid_kind")],
+            ),
         ];
         let (patterns, diags) = parse_all_rule_patterns(&rules);
         // ensures: valid patterns parsed
@@ -494,10 +536,7 @@ mod tests {
     // B:execute_validation_pattern — verify unit "no_incoming_edges detects orphan entities"
     #[test]
     fn test_no_incoming_edges_detects_orphans() {
-        let pattern = parse_rule_pattern(
-            &make_rule("W100", "no_incoming_edges"),
-            "@test",
-        ).unwrap();
+        let pattern = parse_rule_pattern(&make_rule("W100", "no_incoming_edges"), "@test").unwrap();
         let entities = vec![
             make_entity("b1", "behavior", 0, 2), // orphan
             make_entity("b2", "behavior", 1, 0), // not orphan
@@ -534,7 +573,8 @@ mod tests {
         // b1 has no "contract" field → violation
         let mut e2 = make_entity("b2", "behavior", 1, 0);
 
-        e2.fields.insert("contract".to_string(), "some text".to_string());
+        e2.fields
+            .insert("contract".to_string(), "some text".to_string());
         // b2 has "contract" → ok
 
         let diags = execute_pattern(&pattern, &[e1, e2], None);
@@ -556,14 +596,19 @@ mod tests {
             constraint: Some(crate::FieldConstraint {
                 kind: "one_of".to_string(),
                 pattern: None,
-                values: vec!["draft".to_string(), "active".to_string(), "deprecated".to_string()],
+                values: vec![
+                    "draft".to_string(),
+                    "active".to_string(),
+                    "deprecated".to_string(),
+                ],
             }),
             wasm_function: None,
         };
         let pattern = parse_rule_pattern(&rule, "@test").unwrap();
 
         let mut e1 = make_entity("b1", "behavior", 1, 0);
-        e1.fields.insert("status".to_string(), "invalid_status".to_string());
+        e1.fields
+            .insert("status".to_string(), "invalid_status".to_string());
         let mut e2 = make_entity("b2", "behavior", 1, 0);
         e2.fields.insert("status".to_string(), "active".to_string());
 
@@ -631,6 +676,92 @@ mod tests {
         assert!(diags[0].message.contains("r1"));
     }
 
+    // C14: the matches regex compiles once at parse time and applies to every entity.
+    #[test]
+    fn test_matches_constraint_compiles_once_and_checks_all_entities() {
+        let rule = ManifestValidationRule {
+            code: "W094".to_string(),
+            severity: "warning".to_string(),
+            message_template: "{kind} '{id}' has invalid {field}='{value}'".to_string(),
+            check: "field_value_constraint".to_string(),
+            target_kind: Some("release".to_string()),
+            edge_type: None,
+            field: Some("version".to_string()),
+            constraint: Some(crate::FieldConstraint {
+                kind: "matches".to_string(),
+                pattern: Some(r"^v\d+$".to_string()),
+                values: vec![],
+            }),
+            wasm_function: None,
+        };
+        let pattern = parse_rule_pattern(&rule, "@test").unwrap();
+        // The regex is compiled at parse time, not per entity at execution.
+        let constraint = pattern.constraint.as_ref().unwrap();
+        assert!(
+            constraint.compiled_pattern.is_some(),
+            "a matches constraint must carry a compiled regex after parsing"
+        );
+
+        let entities: Vec<ValidationEntity> = (0..50)
+            .map(|i| {
+                let mut e = make_entity(&format!("r{i}"), "release", 1, 0);
+                let version = if i % 2 == 0 { "v1" } else { "bad" };
+                e.fields.insert("version".to_string(), version.to_string());
+                e
+            })
+            .collect();
+
+        let diags = execute_pattern(&pattern, &entities, None);
+        assert_eq!(
+            diags.len(),
+            25,
+            "exactly the non-matching values are flagged"
+        );
+        assert!(diags.iter().all(|d| d.message.contains("version='bad'")));
+    }
+
+    // C14: a malformed regex is rejected at load time with a diagnostic and never executes.
+    #[test]
+    fn test_invalid_regex_pattern_fails_at_load_and_matches_nothing() {
+        let rule = ManifestValidationRule {
+            code: "W095".to_string(),
+            severity: "warning".to_string(),
+            message_template: "{kind} '{id}' has invalid {field}".to_string(),
+            check: "field_value_constraint".to_string(),
+            target_kind: Some("release".to_string()),
+            edge_type: None,
+            field: Some("version".to_string()),
+            constraint: Some(crate::FieldConstraint {
+                kind: "matches".to_string(),
+                pattern: Some(r"(unclosed".to_string()),
+                values: vec![],
+            }),
+            wasm_function: None,
+        };
+
+        let err = parse_rule_pattern(&rule, "@test").unwrap_err();
+        assert_eq!(err.code, "W024");
+        assert!(
+            err.message.contains("W095"),
+            "diagnostic names the rule: {}",
+            err.message
+        );
+        assert!(
+            err.message.contains("(unclosed"),
+            "diagnostic names the bad pattern: {}",
+            err.message
+        );
+
+        let manifests = vec![("@test".to_string(), vec![rule.clone()])];
+        let (patterns, diags) = parse_all_rule_patterns(&manifests);
+        assert!(
+            patterns.is_empty(),
+            "the invalid rule must not reach execution"
+        );
+        assert_eq!(diags.len(), 1);
+        assert_eq!(diags[0].code, "W024");
+    }
+
     // B:execute_validation_pattern — verify unit "matches constraint anchors the full value (not a substring)"
     #[test]
     fn test_matches_constraint_anchors_full_value() {
@@ -654,7 +785,8 @@ mod tests {
         // Contains a valid semver as a substring but has trailing junk — the old
         // substring check would have wrongly accepted this.
         let mut e1 = make_entity("r1", "release", 1, 0);
-        e1.fields.insert("version".to_string(), "1.0.0-not valid".to_string());
+        e1.fields
+            .insert("version".to_string(), "1.0.0-not valid".to_string());
 
         let diags = execute_pattern(&pattern, &[e1], None);
         assert_eq!(diags.len(), 1, "anchored regex must reject trailing junk");
@@ -669,7 +801,10 @@ mod tests {
         let pattern = parse_rule_pattern(&rule, "@test").unwrap();
         assert_eq!(pattern.check, ValidationPatternKind::CycleDetection);
         let diags = execute_pattern(&pattern, &[make_entity("b1", "behavior", 1, 1)], None);
-        assert!(diags.is_empty(), "cycle detection deferred to graph-aware caller");
+        assert!(
+            diags.is_empty(),
+            "cycle detection deferred to graph-aware caller"
+        );
     }
 
     // B:execute_validation_pattern — verify unit "file_exists reports missing file-reference field targets"
@@ -689,7 +824,10 @@ mod tests {
         let pattern = parse_rule_pattern(&rule, "@test").unwrap();
 
         let mut entity = make_entity("b1", "behavior", 1, 0);
-        entity.fields.insert("gherkin".to_string(), "/nonexistent/file.feature".to_string());
+        entity.fields.insert(
+            "gherkin".to_string(),
+            "/nonexistent/file.feature".to_string(),
+        );
 
         let diags = execute_pattern(&pattern, &[entity], None);
         assert_eq!(diags.len(), 1);
@@ -701,7 +839,12 @@ mod tests {
     fn test_custom_pattern_dispatches_to_wasm() {
         struct MockRuntime;
         impl WasmValidationRuntime for MockRuntime {
-            fn call_custom_validator(&self, func: &str, id: &str, _kind: &str) -> Result<bool, String> {
+            fn call_custom_validator(
+                &self,
+                func: &str,
+                id: &str,
+                _kind: &str,
+            ) -> Result<bool, String> {
                 if func == "validate_naming" && id == "bad_name" {
                     Ok(false) // fails
                 } else {
@@ -814,7 +957,11 @@ mod tests {
     // B:emit_diagnostic_from_pattern — verify unit "diagnostic severity matches pattern severity"
     #[test]
     fn test_diagnostic_severity_matches_pattern() {
-        for (sev_str, expected) in &[("error", Severity::Error), ("warning", Severity::Warning), ("info", Severity::Info)] {
+        for (sev_str, expected) in &[
+            ("error", Severity::Error),
+            ("warning", Severity::Warning),
+            ("info", Severity::Info),
+        ] {
             let rule = ManifestValidationRule {
                 code: "X001".to_string(),
                 severity: sev_str.to_string(),
@@ -828,7 +975,11 @@ mod tests {
             };
             let pattern = parse_rule_pattern(&rule, "@test").unwrap();
             let diags = execute_pattern(&pattern, &[make_entity("b1", "behavior", 0, 0)], None);
-            assert_eq!(diags[0].severity, *expected, "severity mismatch for {}", sev_str);
+            assert_eq!(
+                diags[0].severity, *expected,
+                "severity mismatch for {}",
+                sev_str
+            );
         }
     }
 
@@ -854,8 +1005,14 @@ mod tests {
     #[test]
     fn test_rules_from_multiple_extensions_collected() {
         let rules = vec![
-            ("@ext/a".to_string(), vec![make_rule("W100", "no_incoming_edges")]),
-            ("@ext/b".to_string(), vec![make_rule("W200", "no_outgoing_edges")]),
+            (
+                "@ext/a".to_string(),
+                vec![make_rule("W100", "no_incoming_edges")],
+            ),
+            (
+                "@ext/b".to_string(),
+                vec![make_rule("W200", "no_outgoing_edges")],
+            ),
         ];
         let (patterns, diags) = parse_all_rule_patterns(&rules);
         assert!(diags.is_empty());
@@ -871,8 +1028,14 @@ mod tests {
         // not in parse_all_rule_patterns. This is by design — parsing accepts all,
         // deduplication is a separate concern.
         let rules = vec![
-            ("@ext/a".to_string(), vec![make_rule("W100", "no_incoming_edges")]),
-            ("@ext/b".to_string(), vec![make_rule("W100", "no_outgoing_edges")]),
+            (
+                "@ext/a".to_string(),
+                vec![make_rule("W100", "no_incoming_edges")],
+            ),
+            (
+                "@ext/b".to_string(),
+                vec![make_rule("W100", "no_outgoing_edges")],
+            ),
         ];
         let (patterns, _) = parse_all_rule_patterns(&rules);
         // Both are parsed — duplicate detection is in validate.rs
@@ -883,11 +1046,17 @@ mod tests {
     #[test]
     fn test_rules_sorted_by_code() {
         let rules = vec![
-            ("@ext/a".to_string(), vec![
-                make_rule("W300", "no_incoming_edges"),
-                make_rule("W100", "no_incoming_edges"),
-            ]),
-            ("@ext/b".to_string(), vec![make_rule("W200", "no_outgoing_edges")]),
+            (
+                "@ext/a".to_string(),
+                vec![
+                    make_rule("W300", "no_incoming_edges"),
+                    make_rule("W100", "no_incoming_edges"),
+                ],
+            ),
+            (
+                "@ext/b".to_string(),
+                vec![make_rule("W200", "no_outgoing_edges")],
+            ),
         ];
         let (patterns, _) = parse_all_rule_patterns(&rules);
         let codes: Vec<&str> = patterns.iter().map(|p| p.code.as_str()).collect();
@@ -898,8 +1067,14 @@ mod tests {
     #[test]
     fn test_register_extension_validation_rules_contract() {
         let rules = vec![
-            ("@ext/a".to_string(), vec![make_rule("W100", "no_incoming_edges")]),
-            ("@ext/b".to_string(), vec![make_rule("W200", "no_outgoing_edges")]),
+            (
+                "@ext/a".to_string(),
+                vec![make_rule("W100", "no_incoming_edges")],
+            ),
+            (
+                "@ext/b".to_string(),
+                vec![make_rule("W200", "no_outgoing_edges")],
+            ),
         ];
         let (patterns, diags) = parse_all_rule_patterns(&rules);
         // ensures: unified set
@@ -948,7 +1123,11 @@ mod tests {
         };
         // No Wasm runtime → warning
         let (registered, diags) = register_custom_patterns(&[pattern], None);
-        assert!(diags.iter().any(|d| d.code == "W025" && d.message.contains("missing_func")));
+        assert!(
+            diags
+                .iter()
+                .any(|d| d.code == "W025" && d.message.contains("missing_func"))
+        );
         // Still registered for later (will be skipped during execution)
         assert_eq!(registered.len(), 1);
     }
@@ -958,7 +1137,12 @@ mod tests {
     fn test_custom_pattern_dispatched_during_validation() {
         struct FailRuntime;
         impl WasmValidationRuntime for FailRuntime {
-            fn call_custom_validator(&self, _func: &str, id: &str, _kind: &str) -> Result<bool, String> {
+            fn call_custom_validator(
+                &self,
+                _func: &str,
+                id: &str,
+                _kind: &str,
+            ) -> Result<bool, String> {
                 Ok(id != "bad") // "bad" fails
             }
         }
@@ -973,7 +1157,10 @@ mod tests {
             constraint: None,
             wasm_function: Some("check".to_string()),
         };
-        let entities = vec![make_entity("bad", "behavior", 1, 0), make_entity("good", "behavior", 1, 0)];
+        let entities = vec![
+            make_entity("bad", "behavior", 1, 0),
+            make_entity("good", "behavior", 1, 0),
+        ];
         let diags = execute_pattern(&pattern, &entities, Some(&FailRuntime));
         assert_eq!(diags.len(), 1);
         assert!(diags[0].message.contains("bad"));
@@ -984,7 +1171,12 @@ mod tests {
     fn test_custom_pattern_failure_emits_diagnostic() {
         struct AlwaysFail;
         impl WasmValidationRuntime for AlwaysFail {
-            fn call_custom_validator(&self, _func: &str, _id: &str, _kind: &str) -> Result<bool, String> {
+            fn call_custom_validator(
+                &self,
+                _func: &str,
+                _id: &str,
+                _kind: &str,
+            ) -> Result<bool, String> {
                 Ok(false)
             }
         }
@@ -999,7 +1191,11 @@ mod tests {
             constraint: None,
             wasm_function: Some("always_fail".to_string()),
         };
-        let diags = execute_pattern(&pattern, &[make_entity("b1", "behavior", 1, 0)], Some(&AlwaysFail));
+        let diags = execute_pattern(
+            &pattern,
+            &[make_entity("b1", "behavior", 1, 0)],
+            Some(&AlwaysFail),
+        );
         assert_eq!(diags[0].code, "E201");
         assert_eq!(diags[0].severity, Severity::Error);
     }
@@ -1057,11 +1253,23 @@ mod tests {
             wasm_function: None,
         };
         let pattern = parse_rule_pattern(&rule, "@specforge/product").unwrap();
-        assert_eq!(pattern.check, ValidationPatternKind::ConditionalFieldRequired);
+        assert_eq!(
+            pattern.check,
+            ValidationPatternKind::ConditionalFieldRequired
+        );
         assert_eq!(pattern.field.as_deref(), Some("reason"));
-        assert_eq!(pattern.constraint.as_ref().unwrap().kind, "when_field_equals");
-        assert_eq!(pattern.constraint.as_ref().unwrap().pattern.as_deref(), Some("status"));
-        assert_eq!(pattern.constraint.as_ref().unwrap().values, vec!["deferred"]);
+        assert_eq!(
+            pattern.constraint.as_ref().unwrap().kind,
+            "when_field_equals"
+        );
+        assert_eq!(
+            pattern.constraint.as_ref().unwrap().pattern.as_deref(),
+            Some("status")
+        );
+        assert_eq!(
+            pattern.constraint.as_ref().unwrap().values,
+            vec!["deferred"]
+        );
     }
 
     // RED: conditional_field_required fires when condition met and field missing
@@ -1086,7 +1294,9 @@ mod tests {
 
         // Entity has status=deferred but no reason field
         let mut entity = make_entity("my_feature", "feature", 1, 0);
-        entity.fields.insert("status".to_string(), "deferred".to_string());
+        entity
+            .fields
+            .insert("status".to_string(), "deferred".to_string());
 
         let diags = execute_pattern(&pattern, &[entity], None);
         assert_eq!(diags.len(), 1);
@@ -1116,10 +1326,15 @@ mod tests {
 
         // Entity has status=active (not deferred), no reason field
         let mut entity = make_entity("my_feature", "feature", 1, 0);
-        entity.fields.insert("status".to_string(), "active".to_string());
+        entity
+            .fields
+            .insert("status".to_string(), "active".to_string());
 
         let diags = execute_pattern(&pattern, &[entity], None);
-        assert!(diags.is_empty(), "should not fire when condition value doesn't match");
+        assert!(
+            diags.is_empty(),
+            "should not fire when condition value doesn't match"
+        );
     }
 
     // RED: conditional_field_required does NOT fire when required field present
@@ -1144,11 +1359,18 @@ mod tests {
 
         // Entity has status=deferred AND reason field
         let mut entity = make_entity("my_feature", "feature", 1, 0);
-        entity.fields.insert("status".to_string(), "deferred".to_string());
-        entity.fields.insert("reason".to_string(), "Waiting for upstream".to_string());
+        entity
+            .fields
+            .insert("status".to_string(), "deferred".to_string());
+        entity
+            .fields
+            .insert("reason".to_string(), "Waiting for upstream".to_string());
 
         let diags = execute_pattern(&pattern, &[entity], None);
-        assert!(diags.is_empty(), "should not fire when required field is present");
+        assert!(
+            diags.is_empty(),
+            "should not fire when required field is present"
+        );
     }
 
     // RED: conditional_field_required does NOT fire when condition field absent
@@ -1175,7 +1397,10 @@ mod tests {
         let entity = make_entity("my_feature", "feature", 1, 0);
 
         let diags = execute_pattern(&pattern, &[entity], None);
-        assert!(diags.is_empty(), "should not fire when condition field is absent");
+        assert!(
+            diags.is_empty(),
+            "should not fire when condition field is absent"
+        );
     }
 
     // -- B:missing_required_field --
@@ -1218,7 +1443,9 @@ mod tests {
         let pattern = parse_rule_pattern(&rule, "@specforge/software").unwrap();
 
         let mut entity = make_entity("my_beh", "behavior", 1, 0);
-        entity.fields.insert("contract".to_string(), "Handles user login".to_string());
+        entity
+            .fields
+            .insert("contract".to_string(), "Handles user login".to_string());
         let diags = execute_pattern(&pattern, &[entity], None);
         assert!(diags.is_empty());
     }

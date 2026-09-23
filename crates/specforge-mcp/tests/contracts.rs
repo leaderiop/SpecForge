@@ -1,12 +1,18 @@
-use specforge_mcp::McpServer;
+use serde_json::{Value, json};
 use specforge_common::SourceSpan;
 use specforge_graph::{Edge, Graph, Node};
+use specforge_mcp::McpServer;
 use specforge_parser::{EntityId, EntityKind, FieldMap, FieldValue, VerifyStatement};
 use specforge_test::prelude::*;
-use serde_json::{json, Value};
 
 fn span() -> SourceSpan {
-    SourceSpan { file: "test.spec".into(), start_line: 1, start_col: 0, end_line: 5, end_col: 0 }
+    SourceSpan {
+        file: "test.spec".into(),
+        start_line: 1,
+        start_col: 0,
+        end_line: 5,
+        end_col: 0,
+    }
 }
 
 fn test_server() -> McpServer {
@@ -18,25 +24,45 @@ fn test_server() -> McpServer {
     let mut graph = Graph::new();
     let mut fields = FieldMap::new();
     fields.push("contract".into(), FieldValue::String("MUST work".into()));
-    fields.push("verify".into(), FieldValue::VerifyList(vec![
-        VerifyStatement { kind: "unit".into(), description: "works".into() },
-    ]));
+    fields.push(
+        "verify".into(),
+        FieldValue::VerifyList(vec![VerifyStatement {
+            kind: "unit".into(),
+            description: "works".into(),
+        }]),
+    );
 
     graph.add_node(Node {
-        id: EntityId { raw: "alpha".into() },
-        kind: EntityKind { raw: "behavior".into() },
+        id: EntityId {
+            raw: "alpha".into(),
+        },
+        kind: EntityKind {
+            raw: "behavior".into(),
+        },
         title: Some("Alpha".into()),
         fields,
         source_span: span(),
     });
     graph.add_node(Node {
         id: EntityId { raw: "beta".into() },
-        kind: EntityKind { raw: "feature".into() },
+        kind: EntityKind {
+            raw: "feature".into(),
+        },
         title: Some("Beta".into()),
         fields: FieldMap::new(),
-        source_span: SourceSpan { file: "feat.spec".into(), start_line: 1, start_col: 0, end_line: 3, end_col: 0 },
+        source_span: SourceSpan {
+            file: "feat.spec".into(),
+            start_line: 1,
+            start_col: 0,
+            end_line: 3,
+            end_col: 0,
+        },
     });
-    graph.add_edge(Edge { source: "beta".into(), target: "alpha".into(), label: "behaviors".into() });
+    graph.add_edge(Edge {
+        source: "beta".into(),
+        target: "alpha".into(),
+        label: "behaviors".into(),
+    });
     state.graph = graph;
 
     server
@@ -49,11 +75,18 @@ fn call(server: &mut McpServer, method: &str, params: Value) -> Value {
 }
 
 fn call_tool(server: &mut McpServer, name: &str, args: Value) -> Value {
-    call(server, "tools/call", json!({"name": name, "arguments": args}))
+    call(
+        server,
+        "tools/call",
+        json!({"name": name, "arguments": args}),
+    )
 }
 
 #[test]
-#[specforge_test(behavior = "mcp_initialize", verify = "requires/ensures consistency for MCP initialization")]
+#[specforge_test(
+    behavior = "mcp_initialize",
+    verify = "requires/ensures consistency for MCP initialization"
+)]
 fn contract_initialize() {
     let mut server = McpServer::new();
     let resp = call(&mut server, "initialize", json!({}));
@@ -68,7 +101,10 @@ fn contract_initialize() {
 }
 
 #[test]
-#[specforge_test(behavior = "mcp_shutdown", verify = "requires/ensures consistency for MCP shutdown")]
+#[specforge_test(
+    behavior = "mcp_shutdown",
+    verify = "requires/ensures consistency for MCP shutdown"
+)]
 fn contract_shutdown() {
     let mut server = McpServer::new();
     call(&mut server, "initialize", json!({}));
@@ -77,10 +113,17 @@ fn contract_shutdown() {
 }
 
 #[test]
-#[specforge_test(behavior = "provide_mcp_query_tool", verify = "requires/ensures consistency for MCP query tool")]
+#[specforge_test(
+    behavior = "provide_mcp_query_tool",
+    verify = "requires/ensures consistency for MCP query tool"
+)]
 fn contract_query() {
     let mut server = test_server();
-    let resp = call_tool(&mut server, "specforge.query", json!({"entity_id": "alpha"}));
+    let resp = call_tool(
+        &mut server,
+        "specforge.query",
+        json!({"entity_id": "alpha"}),
+    );
     let text = resp["result"]["content"][0]["text"].as_str().unwrap();
     let parsed: Value = serde_json::from_str(text).unwrap();
     assert!(parsed["nodes"].is_array());
@@ -88,22 +131,75 @@ fn contract_query() {
 }
 
 #[test]
-#[specforge_test(behavior = "provide_mcp_export_tool", verify = "requires/ensures consistency for MCP export tool")]
+#[specforge_test(
+    behavior = "provide_mcp_export_tool",
+    verify = "requires/ensures consistency for MCP export tool"
+)]
 fn contract_export() {
     let mut server = test_server();
     for format in &["graph", "context", "brief"] {
         let resp = call_tool(&mut server, "specforge.export", json!({"format": format}));
         let text = resp["result"]["content"][0]["text"].as_str().unwrap();
         let parsed: Value = serde_json::from_str(text).unwrap();
-        assert!(parsed["nodes"].is_array(), "format {} should have nodes", format);
+        assert!(
+            parsed["nodes"].is_array(),
+            "format {} should have nodes",
+            format
+        );
     }
 }
 
 #[test]
-#[specforge_test(behavior = "provide_mcp_trace_tool", verify = "requires/ensures consistency for MCP trace tool")]
+#[specforge_test(
+    behavior = "provide_mcp_export_tool",
+    verify = "export descriptor declares max_tokens and the tool honors it for graph format"
+)]
+fn contract_export_max_tokens() {
+    let mut server = test_server();
+
+    // Descriptor advertises max_tokens
+    let resp = call(&mut server, "tools/list", json!({}));
+    let export_tool = resp["result"]["tools"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|t| t["name"] == "specforge.export")
+        .expect("specforge.export descriptor must be registered");
+    assert!(
+        export_tool["inputSchema"]["properties"]["max_tokens"].is_object(),
+        "export descriptor must declare max_tokens"
+    );
+
+    // Tool truncates graph output when max_tokens is set
+    let resp = call_tool(
+        &mut server,
+        "specforge.export",
+        json!({"format": "graph", "max_tokens": 5}),
+    );
+    let text = resp["result"]["content"][0]["text"].as_str().unwrap();
+    let parsed: Value = serde_json::from_str(text).unwrap();
+    assert!(
+        parsed["token_budget"].is_object(),
+        "graph export with max_tokens must include token_budget metadata"
+    );
+    assert!(
+        parsed["nodes"].as_array().unwrap().len() < 2,
+        "tiny budget must truncate the 2-node graph"
+    );
+}
+
+#[test]
+#[specforge_test(
+    behavior = "provide_mcp_trace_tool",
+    verify = "requires/ensures consistency for MCP trace tool"
+)]
 fn contract_trace() {
     let mut server = test_server();
-    let resp = call_tool(&mut server, "specforge.trace", json!({"entity_id": "alpha"}));
+    let resp = call_tool(
+        &mut server,
+        "specforge.trace",
+        json!({"entity_id": "alpha"}),
+    );
     let text = resp["result"]["content"][0]["text"].as_str().unwrap();
     let parsed: Value = serde_json::from_str(text).unwrap();
     assert!(parsed["entity_id"].is_string());
@@ -112,7 +208,10 @@ fn contract_trace() {
 }
 
 #[test]
-#[specforge_test(behavior = "provide_mcp_search_tool", verify = "requires/ensures consistency for MCP search tool")]
+#[specforge_test(
+    behavior = "provide_mcp_search_tool",
+    verify = "requires/ensures consistency for MCP search tool"
+)]
 fn contract_search() {
     let mut server = test_server();
     let resp = call_tool(&mut server, "specforge.search", json!({"query": "alpha"}));
@@ -122,7 +221,10 @@ fn contract_search() {
 }
 
 #[test]
-#[specforge_test(behavior = "provide_mcp_stats_tool", verify = "requires/ensures consistency for MCP stats tool")]
+#[specforge_test(
+    behavior = "provide_mcp_stats_tool",
+    verify = "requires/ensures consistency for MCP stats tool"
+)]
 fn contract_stats() {
     let mut server = test_server();
     let resp = call_tool(&mut server, "specforge.stats", json!({}));
@@ -133,10 +235,17 @@ fn contract_stats() {
 }
 
 #[test]
-#[specforge_test(behavior = "provide_mcp_inspect_tool", verify = "requires/ensures consistency for MCP inspect tool")]
+#[specforge_test(
+    behavior = "provide_mcp_inspect_tool",
+    verify = "requires/ensures consistency for MCP inspect tool"
+)]
 fn contract_inspect() {
     let mut server = test_server();
-    let resp = call_tool(&mut server, "specforge.inspect", json!({"entity_id": "alpha"}));
+    let resp = call_tool(
+        &mut server,
+        "specforge.inspect",
+        json!({"entity_id": "alpha"}),
+    );
     let text = resp["result"]["content"][0]["text"].as_str().unwrap();
     let parsed: Value = serde_json::from_str(text).unwrap();
     assert!(parsed["entity_id"].is_string());
@@ -145,10 +254,17 @@ fn contract_inspect() {
 }
 
 #[test]
-#[specforge_test(behavior = "provide_mcp_find_definition_tool", verify = "requires/ensures consistency for MCP find definition tool")]
+#[specforge_test(
+    behavior = "provide_mcp_find_definition_tool",
+    verify = "requires/ensures consistency for MCP find definition tool"
+)]
 fn contract_find_definition() {
     let mut server = test_server();
-    let resp = call_tool(&mut server, "specforge.find_definition", json!({"entity_id": "alpha"}));
+    let resp = call_tool(
+        &mut server,
+        "specforge.find_definition",
+        json!({"entity_id": "alpha"}),
+    );
     let text = resp["result"]["content"][0]["text"].as_str().unwrap();
     let parsed: Value = serde_json::from_str(text).unwrap();
     assert!(parsed["file_path"].is_string());
@@ -156,10 +272,17 @@ fn contract_find_definition() {
 }
 
 #[test]
-#[specforge_test(behavior = "provide_mcp_find_references_tool", verify = "requires/ensures consistency for MCP find references tool")]
+#[specforge_test(
+    behavior = "provide_mcp_find_references_tool",
+    verify = "requires/ensures consistency for MCP find references tool"
+)]
 fn contract_find_references() {
     let mut server = test_server();
-    let resp = call_tool(&mut server, "specforge.find_references", json!({"entity_id": "alpha"}));
+    let resp = call_tool(
+        &mut server,
+        "specforge.find_references",
+        json!({"entity_id": "alpha"}),
+    );
     let text = resp["result"]["content"][0]["text"].as_str().unwrap();
     let parsed: Value = serde_json::from_str(text).unwrap();
     assert!(parsed["entity_id"].is_string());
@@ -167,17 +290,27 @@ fn contract_find_references() {
 }
 
 #[test]
-#[specforge_test(behavior = "provide_mcp_outline_tool", verify = "requires/ensures consistency for MCP outline tool")]
+#[specforge_test(
+    behavior = "provide_mcp_outline_tool",
+    verify = "requires/ensures consistency for MCP outline tool"
+)]
 fn contract_outline() {
     let mut server = test_server();
-    let resp = call_tool(&mut server, "specforge.outline", json!({"file": "test.spec"}));
+    let resp = call_tool(
+        &mut server,
+        "specforge.outline",
+        json!({"file": "test.spec"}),
+    );
     let text = resp["result"]["content"][0]["text"].as_str().unwrap();
     let parsed: Value = serde_json::from_str(text).unwrap();
     assert!(parsed.is_array());
 }
 
 #[test]
-#[specforge_test(behavior = "provide_mcp_coverage_tool", verify = "requires/ensures consistency for MCP coverage tool")]
+#[specforge_test(
+    behavior = "provide_mcp_coverage_tool",
+    verify = "requires/ensures consistency for MCP coverage tool"
+)]
 fn contract_coverage() {
     let mut server = test_server();
     let resp = call_tool(&mut server, "specforge.coverage", json!({}));
@@ -187,7 +320,10 @@ fn contract_coverage() {
 }
 
 #[test]
-#[specforge_test(behavior = "provide_mcp_schema_tool", verify = "requires/ensures consistency for MCP schema tool")]
+#[specforge_test(
+    behavior = "provide_mcp_schema_tool",
+    verify = "requires/ensures consistency for MCP schema tool"
+)]
 fn contract_schema() {
     let mut server = test_server();
     let resp = call_tool(&mut server, "specforge.schema", json!({}));
@@ -197,39 +333,70 @@ fn contract_schema() {
 }
 
 #[test]
-#[specforge_test(behavior = "provide_mcp_context_prompt", verify = "requires/ensures consistency for MCP context prompt")]
+#[specforge_test(
+    behavior = "provide_mcp_context_prompt",
+    verify = "requires/ensures consistency for MCP context prompt"
+)]
 fn contract_context_prompt() {
     let mut server = test_server();
-    let resp = call(&mut server, "prompts/get", json!({"name": "specforge://prompts/context", "arguments": {"entity_id": "alpha"}}));
+    let resp = call(
+        &mut server,
+        "prompts/get",
+        json!({"name": "specforge://prompts/context", "arguments": {"entity_id": "alpha"}}),
+    );
     assert!(resp["result"]["messages"].is_array());
 }
 
 #[test]
-#[specforge_test(behavior = "provide_mcp_review_prompt", verify = "requires/ensures consistency for MCP review prompt")]
+#[specforge_test(
+    behavior = "provide_mcp_review_prompt",
+    verify = "requires/ensures consistency for MCP review prompt"
+)]
 fn contract_review_prompt() {
     let mut server = test_server();
-    let resp = call(&mut server, "prompts/get", json!({"name": "specforge://prompts/review", "arguments": {}}));
+    let resp = call(
+        &mut server,
+        "prompts/get",
+        json!({"name": "specforge://prompts/review", "arguments": {}}),
+    );
     assert!(resp["result"]["messages"].is_array());
 }
 
 #[test]
-#[specforge_test(behavior = "provide_mcp_trace_prompt", verify = "requires/ensures consistency for MCP trace prompt")]
+#[specforge_test(
+    behavior = "provide_mcp_trace_prompt",
+    verify = "requires/ensures consistency for MCP trace prompt"
+)]
 fn contract_trace_prompt() {
     let mut server = test_server();
-    let resp = call(&mut server, "prompts/get", json!({"name": "specforge://prompts/trace", "arguments": {"entity_id": "alpha"}}));
+    let resp = call(
+        &mut server,
+        "prompts/get",
+        json!({"name": "specforge://prompts/trace", "arguments": {"entity_id": "alpha"}}),
+    );
     assert!(resp["result"]["messages"].is_array());
 }
 
 #[test]
-#[specforge_test(behavior = "provide_mcp_explore_prompt", verify = "requires/ensures consistency for MCP explore prompt")]
+#[specforge_test(
+    behavior = "provide_mcp_explore_prompt",
+    verify = "requires/ensures consistency for MCP explore prompt"
+)]
 fn contract_explore_prompt() {
     let mut server = test_server();
-    let resp = call(&mut server, "prompts/get", json!({"name": "specforge://prompts/explore", "arguments": {}}));
+    let resp = call(
+        &mut server,
+        "prompts/get",
+        json!({"name": "specforge://prompts/explore", "arguments": {}}),
+    );
     assert!(resp["result"]["messages"].is_array());
 }
 
 #[test]
-#[specforge_test(behavior = "list_mcp_tools", verify = "requires/ensures consistency for listing MCP tools")]
+#[specforge_test(
+    behavior = "list_mcp_tools",
+    verify = "requires/ensures consistency for listing MCP tools"
+)]
 fn contract_list_tools() {
     let mut server = test_server();
     let resp = call(&mut server, "tools/list", json!({}));
@@ -242,7 +409,10 @@ fn contract_list_tools() {
 }
 
 #[test]
-#[specforge_test(behavior = "list_mcp_resources", verify = "requires/ensures consistency for listing MCP resources")]
+#[specforge_test(
+    behavior = "list_mcp_resources",
+    verify = "requires/ensures consistency for listing MCP resources"
+)]
 fn contract_list_resources() {
     let mut server = test_server();
     let resp = call(&mut server, "resources/list", json!({}));
@@ -254,7 +424,10 @@ fn contract_list_resources() {
 }
 
 #[test]
-#[specforge_test(behavior = "list_mcp_prompts", verify = "requires/ensures consistency for listing MCP prompts")]
+#[specforge_test(
+    behavior = "list_mcp_prompts",
+    verify = "requires/ensures consistency for listing MCP prompts"
+)]
 fn contract_list_prompts() {
     let mut server = test_server();
     let resp = call(&mut server, "prompts/list", json!({}));
@@ -266,7 +439,10 @@ fn contract_list_prompts() {
 }
 
 #[test]
-#[specforge_test(behavior = "guard_mcp_reinitialization", verify = "requires/ensures consistency for MCP reinitialization guard")]
+#[specforge_test(
+    behavior = "guard_mcp_reinitialization",
+    verify = "requires/ensures consistency for MCP reinitialization guard"
+)]
 fn contract_guard_reinit() {
     let mut server = test_server();
     let resp = call(&mut server, "initialize", json!({}));
@@ -274,7 +450,10 @@ fn contract_guard_reinit() {
 }
 
 #[test]
-#[specforge_test(behavior = "handle_mcp_request_cancellation", verify = "requires/ensures consistency for MCP request cancellation")]
+#[specforge_test(
+    behavior = "handle_mcp_request_cancellation",
+    verify = "requires/ensures consistency for MCP request cancellation"
+)]
 fn contract_cancel() {
     let mut server = test_server();
     let resp = call(&mut server, "$/cancelRequest", json!({"id": 1}));
@@ -282,7 +461,10 @@ fn contract_cancel() {
 }
 
 #[test]
-#[specforge_test(behavior = "handle_mcp_protocol_error", verify = "requires/ensures consistency for MCP protocol error handling")]
+#[specforge_test(
+    behavior = "handle_mcp_protocol_error",
+    verify = "requires/ensures consistency for MCP protocol error handling"
+)]
 fn contract_protocol_error() {
     let mut server = test_server();
     let resp = call(&mut server, "nonexistent/method", json!({}));
@@ -292,16 +474,24 @@ fn contract_protocol_error() {
 }
 
 #[test]
-#[specforge_test(behavior = "provide_mcp_validate_tool", verify = "requires/ensures consistency for MCP validate tool")]
+#[specforge_test(
+    behavior = "provide_mcp_validate_tool",
+    verify = "requires/ensures consistency for MCP validate tool"
+)]
 fn contract_validate() {
     let mut server = test_server();
     let resp = call_tool(&mut server, "specforge.validate", json!({}));
-    assert!(resp["error"].is_object() || resp["result"]["content"][0]["text"].is_string(),
-        "validate must return error or diagnostics text");
+    assert!(
+        resp["error"].is_object() || resp["result"]["content"][0]["text"].is_string(),
+        "validate must return error or diagnostics text"
+    );
 }
 
 #[test]
-#[specforge_test(behavior = "provide_mcp_suggest_fixes_tool", verify = "requires/ensures consistency for MCP suggest fixes tool")]
+#[specforge_test(
+    behavior = "provide_mcp_suggest_fixes_tool",
+    verify = "requires/ensures consistency for MCP suggest fixes tool"
+)]
 fn contract_suggest_fixes() {
     let mut server = test_server();
     let resp = call_tool(&mut server, "specforge.suggest_fixes", json!({}));
@@ -311,7 +501,10 @@ fn contract_suggest_fixes() {
 }
 
 #[test]
-#[specforge_test(behavior = "provide_mcp_format_tool", verify = "requires/ensures consistency for MCP format tool")]
+#[specforge_test(
+    behavior = "provide_mcp_format_tool",
+    verify = "requires/ensures consistency for MCP format tool"
+)]
 fn contract_format() {
     let mut server = test_server();
     let resp = call_tool(&mut server, "specforge.format", json!({}));
@@ -321,10 +514,17 @@ fn contract_format() {
 }
 
 #[test]
-#[specforge_test(behavior = "provide_mcp_rename_tool", verify = "requires/ensures consistency for MCP rename tool")]
+#[specforge_test(
+    behavior = "provide_mcp_rename_tool",
+    verify = "requires/ensures consistency for MCP rename tool"
+)]
 fn contract_rename() {
     let mut server = test_server();
-    let resp = call_tool(&mut server, "specforge.rename", json!({"entity_id": "alpha", "new_name": "alpha_v2"}));
+    let resp = call_tool(
+        &mut server,
+        "specforge.rename",
+        json!({"entity_id": "alpha", "new_name": "alpha_v2"}),
+    );
     let text = resp["result"]["content"][0]["text"].as_str().unwrap();
     let parsed: Value = serde_json::from_str(text).unwrap();
     assert!(parsed.get("old_name").is_some());
@@ -332,7 +532,10 @@ fn contract_rename() {
 }
 
 #[test]
-#[specforge_test(behavior = "provide_mcp_init_tool", verify = "requires/ensures consistency for MCP init tool")]
+#[specforge_test(
+    behavior = "provide_mcp_init_tool",
+    verify = "requires/ensures consistency for MCP init tool"
+)]
 fn contract_init() {
     let mut server = test_server();
     let resp = call_tool(&mut server, "specforge.init", json!({"path": "/tmp/test"}));
@@ -342,7 +545,10 @@ fn contract_init() {
 }
 
 #[test]
-#[specforge_test(behavior = "provide_mcp_extensions_tool", verify = "requires/ensures consistency for MCP extensions tool")]
+#[specforge_test(
+    behavior = "provide_mcp_extensions_tool",
+    verify = "requires/ensures consistency for MCP extensions tool"
+)]
 fn contract_extensions() {
     let mut server = test_server();
     let resp = call_tool(&mut server, "specforge.extensions", json!({}));
@@ -352,7 +558,10 @@ fn contract_extensions() {
 }
 
 #[test]
-#[specforge_test(behavior = "provide_mcp_doctor_tool", verify = "requires/ensures consistency for MCP doctor tool")]
+#[specforge_test(
+    behavior = "provide_mcp_doctor_tool",
+    verify = "requires/ensures consistency for MCP doctor tool"
+)]
 fn contract_doctor() {
     let mut server = test_server();
     let resp = call_tool(&mut server, "specforge.doctor", json!({}));
@@ -364,62 +573,109 @@ fn contract_doctor() {
 // Additional contracts for remaining behaviors
 
 #[test]
-#[specforge_test(behavior = "expose_graph_as_mcp_resource", verify = "requires/ensures consistency for graph MCP resource")]
+#[specforge_test(
+    behavior = "expose_graph_as_mcp_resource",
+    verify = "requires/ensures consistency for graph MCP resource"
+)]
 fn contract_graph_resource() {
     let mut server = test_server();
-    let resp = call(&mut server, "resources/read", json!({"uri": "specforge://graph"}));
+    let resp = call(
+        &mut server,
+        "resources/read",
+        json!({"uri": "specforge://graph"}),
+    );
     assert!(resp["result"]["contents"].is_array());
 }
 
 #[test]
-#[specforge_test(behavior = "expose_schema_as_mcp_resource", verify = "requires/ensures consistency for schema MCP resource")]
+#[specforge_test(
+    behavior = "expose_schema_as_mcp_resource",
+    verify = "requires/ensures consistency for schema MCP resource"
+)]
 fn contract_schema_resource() {
     let mut server = test_server();
-    let resp = call(&mut server, "resources/read", json!({"uri": "specforge://schema"}));
+    let resp = call(
+        &mut server,
+        "resources/read",
+        json!({"uri": "specforge://schema"}),
+    );
     assert!(resp["result"]["contents"].is_array());
 }
 
 #[test]
-#[specforge_test(behavior = "expose_context_as_mcp_resource", verify = "requires/ensures consistency for context MCP resource")]
+#[specforge_test(
+    behavior = "expose_context_as_mcp_resource",
+    verify = "requires/ensures consistency for context MCP resource"
+)]
 fn contract_context_resource() {
     let mut server = test_server();
-    let resp = call(&mut server, "resources/read", json!({"uri": "specforge://context"}));
+    let resp = call(
+        &mut server,
+        "resources/read",
+        json!({"uri": "specforge://context"}),
+    );
     assert!(resp["result"]["contents"].is_array());
 }
 
 #[test]
-#[specforge_test(behavior = "expose_brief_as_mcp_resource", verify = "requires/ensures consistency for brief MCP resource")]
+#[specforge_test(
+    behavior = "expose_brief_as_mcp_resource",
+    verify = "requires/ensures consistency for brief MCP resource"
+)]
 fn contract_brief_resource() {
     let mut server = test_server();
-    let resp = call(&mut server, "resources/read", json!({"uri": "specforge://brief"}));
+    let resp = call(
+        &mut server,
+        "resources/read",
+        json!({"uri": "specforge://brief"}),
+    );
     assert!(resp["result"]["contents"].is_array());
 }
 
 #[test]
-#[specforge_test(behavior = "expose_diagnostics_as_mcp_resource", verify = "requires/ensures consistency for diagnostics MCP resource")]
+#[specforge_test(
+    behavior = "expose_diagnostics_as_mcp_resource",
+    verify = "requires/ensures consistency for diagnostics MCP resource"
+)]
 fn contract_diagnostics_resource() {
     let mut server = test_server();
-    let resp = call(&mut server, "resources/read", json!({"uri": "specforge://diagnostics"}));
+    let resp = call(
+        &mut server,
+        "resources/read",
+        json!({"uri": "specforge://diagnostics"}),
+    );
     assert!(resp["result"]["contents"].is_array());
 }
 
 #[test]
-#[specforge_test(behavior = "expose_entity_as_mcp_resource", verify = "requires/ensures consistency for per-entity MCP resource")]
+#[specforge_test(
+    behavior = "expose_entity_as_mcp_resource",
+    verify = "requires/ensures consistency for per-entity MCP resource"
+)]
 fn contract_entity_resource() {
     let mut server = test_server();
-    let resp = call(&mut server, "resources/read", json!({"uri": "specforge://graph/alpha"}));
+    let resp = call(
+        &mut server,
+        "resources/read",
+        json!({"uri": "specforge://graph/alpha"}),
+    );
     assert!(resp["result"]["contents"].is_array());
 }
 
 #[test]
-#[specforge_test(behavior = "notify_graph_delta_via_mcp", verify = "requires/ensures consistency for graph delta MCP notification")]
+#[specforge_test(
+    behavior = "notify_graph_delta_via_mcp",
+    verify = "requires/ensures consistency for graph delta MCP notification"
+)]
 fn contract_graph_notification() {
     use specforge_mcp::notifications::*;
     let g1 = specforge_graph::Graph::new();
     let mut g2 = specforge_graph::Graph::new();
     g2.add_node(Node {
         id: EntityId { raw: "x".into() },
-        kind: EntityKind { raw: "behavior".into() },
+        kind: EntityKind {
+            raw: "behavior".into(),
+        },
         title: None,
         fields: FieldMap::new(),
         source_span: span(),
@@ -431,11 +687,20 @@ fn contract_graph_notification() {
 }
 
 #[test]
-#[specforge_test(behavior = "notify_diagnostics_delta_via_mcp", verify = "requires/ensures consistency for diagnostics delta MCP notification")]
+#[specforge_test(
+    behavior = "notify_diagnostics_delta_via_mcp",
+    verify = "requires/ensures consistency for diagnostics delta MCP notification"
+)]
 fn contract_diagnostics_notification() {
-    use specforge_mcp::notifications::*;
     use specforge_common::{Diagnostic, Severity};
-    let d = Diagnostic { code: "V001".into(), severity: Severity::Error, message: "err".into(), span: None, suggestion: None };
+    use specforge_mcp::notifications::*;
+    let d = Diagnostic {
+        code: "V001".into(),
+        severity: Severity::Error,
+        message: "err".into(),
+        span: None,
+        suggestion: None,
+    };
     let delta = compute_diagnostics_delta(&[], &[d]);
     let notif = format_diagnostics_notification(&delta);
     assert_eq!(notif["method"], "specforge/diagnosticsChanged");
@@ -443,27 +708,44 @@ fn contract_diagnostics_notification() {
 }
 
 #[test]
-#[specforge_test(behavior = "provide_mcp_add_extension_tool", verify = "requires/ensures consistency for MCP add extension tool")]
+#[specforge_test(
+    behavior = "provide_mcp_add_extension_tool",
+    verify = "requires/ensures consistency for MCP add extension tool"
+)]
 fn contract_add_extension() {
     let mut server = test_server();
-    let resp = call_tool(&mut server, "specforge.add_extension", json!({"specifier": "@specforge/software"}));
+    let resp = call_tool(
+        &mut server,
+        "specforge.add_extension",
+        json!({"specifier": "@specforge/software"}),
+    );
     let text = resp["result"]["content"][0]["text"].as_str().unwrap();
     let parsed: Value = serde_json::from_str(text).unwrap();
     assert!(parsed.get("installed").is_some());
 }
 
 #[test]
-#[specforge_test(behavior = "provide_mcp_remove_extension_tool", verify = "requires/ensures consistency for MCP remove extension tool")]
+#[specforge_test(
+    behavior = "provide_mcp_remove_extension_tool",
+    verify = "requires/ensures consistency for MCP remove extension tool"
+)]
 fn contract_remove_extension() {
     let mut server = test_server();
-    let resp = call_tool(&mut server, "specforge.remove_extension", json!({"name": "@specforge/software"}));
+    let resp = call_tool(
+        &mut server,
+        "specforge.remove_extension",
+        json!({"name": "@specforge/software"}),
+    );
     let text = resp["result"]["content"][0]["text"].as_str().unwrap();
     let parsed: Value = serde_json::from_str(text).unwrap();
     assert!(parsed.get("success").is_some());
 }
 
 #[test]
-#[specforge_test(behavior = "provide_mcp_migrate_tool", verify = "requires/ensures consistency for MCP migrate tool")]
+#[specforge_test(
+    behavior = "provide_mcp_migrate_tool",
+    verify = "requires/ensures consistency for MCP migrate tool"
+)]
 fn contract_migrate() {
     let mut server = test_server();
     let resp = call_tool(&mut server, "specforge.migrate", json!({}));
@@ -473,7 +755,10 @@ fn contract_migrate() {
 }
 
 #[test]
-#[specforge_test(behavior = "provide_mcp_providers_tool", verify = "requires/ensures consistency for MCP providers tool")]
+#[specforge_test(
+    behavior = "provide_mcp_providers_tool",
+    verify = "requires/ensures consistency for MCP providers tool"
+)]
 fn contract_providers() {
     let mut server = test_server();
     let resp = call_tool(&mut server, "specforge.providers", json!({}));
@@ -483,7 +768,10 @@ fn contract_providers() {
 }
 
 #[test]
-#[specforge_test(behavior = "provide_mcp_collect_tool", verify = "requires/ensures consistency for MCP collect tool")]
+#[specforge_test(
+    behavior = "provide_mcp_collect_tool",
+    verify = "requires/ensures consistency for MCP collect tool"
+)]
 fn contract_collect() {
     let mut server = test_server();
     let resp = call_tool(&mut server, "specforge.collect", json!({}));
@@ -493,7 +781,10 @@ fn contract_collect() {
 }
 
 #[test]
-#[specforge_test(behavior = "provide_mcp_render_tool", verify = "requires/ensures consistency for MCP render tool")]
+#[specforge_test(
+    behavior = "provide_mcp_render_tool",
+    verify = "requires/ensures consistency for MCP render tool"
+)]
 fn contract_render() {
     let mut server = test_server();
     let resp = call_tool(&mut server, "specforge.render", json!({"format": "json"}));

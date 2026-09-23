@@ -1,9 +1,11 @@
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 use specforge_registry::SurfaceContributions;
 
-use crate::state::McpState;
 use crate::protocol::JsonRpcResponse;
-use crate::types::{McpToolDescriptor, McpResourceDescriptor, McpPromptDescriptor, McpPromptArgument};
+use crate::state::McpState;
+use crate::types::{
+    McpPromptArgument, McpPromptDescriptor, McpResourceDescriptor, McpToolDescriptor,
+};
 
 pub fn register_defaults(state: &mut McpState) {
     state.resource_registry = default_resources();
@@ -43,7 +45,9 @@ pub fn handle_list_tools(state: &mut McpState, id: Option<Value>) -> JsonRpcResp
         return JsonRpcResponse::error(id, -32600, "Server not initialized");
     }
     state.push_event("mcp_discovery_invoked", json!({"kind": "tools"}));
-    let tools: Vec<Value> = state.tool_registry.iter()
+    let tools: Vec<Value> = state
+        .tool_registry
+        .iter()
         .map(|t| serde_json::to_value(t).unwrap())
         .collect();
     JsonRpcResponse::success(id, json!({ "tools": tools }))
@@ -54,7 +58,9 @@ pub fn handle_list_resources(state: &mut McpState, id: Option<Value>) -> JsonRpc
         return JsonRpcResponse::error(id, -32600, "Server not initialized");
     }
     state.push_event("mcp_discovery_invoked", json!({"kind": "resources"}));
-    let resources: Vec<Value> = state.resource_registry.iter()
+    let resources: Vec<Value> = state
+        .resource_registry
+        .iter()
         .map(|r| serde_json::to_value(r).unwrap())
         .collect();
     JsonRpcResponse::success(id, json!({ "resources": resources }))
@@ -65,7 +71,9 @@ pub fn handle_list_prompts(state: &mut McpState, id: Option<Value>) -> JsonRpcRe
         return JsonRpcResponse::error(id, -32600, "Server not initialized");
     }
     state.push_event("mcp_discovery_invoked", json!({"kind": "prompts"}));
-    let prompts: Vec<Value> = state.prompt_registry.iter()
+    let prompts: Vec<Value> = state
+        .prompt_registry
+        .iter()
         .map(|p| serde_json::to_value(p).unwrap())
         .collect();
     JsonRpcResponse::success(id, json!({ "prompts": prompts }))
@@ -153,7 +161,8 @@ fn default_tools() -> Vec<McpToolDescriptor> {
                 "type": "object",
                 "properties": {
                     "format": { "type": "string", "enum": ["graph", "context", "brief"], "default": "graph" },
-                    "scope": { "type": "string", "description": "Scope to entity subgraph" }
+                    "scope": { "type": "string", "description": "Scope to entity subgraph" },
+                    "max_tokens": { "type": "integer", "description": "Optional token budget; truncates JSON export to the most central entities (ignored for other formats)" }
                 }
             }),
             category: Some("core".into()),
