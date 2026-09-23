@@ -41,7 +41,7 @@
 ## 4. Already-recorded decisions
 
 - `.scratch/wayfinder/sdk-greet-prototype/README.md:17` — "ticket #5 decision: local paths only in v1" for installs (code has since moved: registry install is implemented — see §1).
-- `.cargo/audit.toml:29-34` — **RUSTSEC-2026-0269** (HIGH 8.8, wasmtime filesystem sandbox escape via trailing-slash paths; fix only in wasmtime ≥46.0.3, extism 1.30 still pins 41.x) ignored with: "no remote extension loading; local first-party fixtures only — MUST be cleared before remote installs ship. Blocking dependency of the registry-trust effort." Backlog tracked in issue #7.
+- `.cargo/audit.toml:29-34` — **RUSTSEC-2026-0269** (HIGH 8.8, wasmtime filesystem sandbox escape via trailing-slash paths; fix only in wasmtime ≥46.0.3; extism 1.30 pins wasmtime 43.0.2 — no patched 43.x exists; upstream fix merged (extism PR #912) but unreleased) ignored with: "no remote extension loading; local first-party fixtures only — MUST be cleared before remote installs ship. Blocking dependency of the registry-trust effort." Backlog tracked in issue #7.
 - `docs/extension-protocol.md:491-517` — Sandbox Policy: defaults network/fs off; **the manifest-declared policy is what the host enforces**.
 - `README.md:96-101` — public CLI surface: `add`, `search`, `publish` against registries.
 - `TrustLevel::{Local,Git,Community,Verified}` (`registry_config.rs:28`) with heuristic `assign_trust_level` (`registry_ops.rs:162-174`: substring "verified" ⇒ Verified).

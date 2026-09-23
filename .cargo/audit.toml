@@ -27,8 +27,9 @@ ignore = [
   # anyhow 1.0.104 still flagged; re-check on next release
   "RUSTSEC-2026-0190",
   # HIGH (8.8): filesystem sandbox escape with trailing-slash paths.
-  # Fix exists only in wasmtime >=46.0.3; extism 1.30 (latest) still pins
-  # the 41.x line. Practical exposure is low today (no remote extension
+  # Fix exists only in wasmtime >=46.0.3; extism 1.30 (latest) pins the
+  # 43.x line (43.0.2) — no patched 43.x exists. Upstream fix is merged
+  # (extism PR #912, wasmtime 48) but unreleased as of 2026-09-24. Practical exposure is low today (no remote extension
   # loading; local first-party fixtures only) — MUST be cleared before
   # remote installs ship. Blocking dependency of the registry-trust effort.
   "RUSTSEC-2026-0269",
