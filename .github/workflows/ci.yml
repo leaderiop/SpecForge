@@ -63,3 +63,9 @@ jobs:
           test -f extensions/software/target/wasm32-unknown-unknown/release/specforge_ext_software.wasm
           test -f extensions/governance/target/wasm32-unknown-unknown/release/specforge_ext_governance.wasm
           test -f extensions/formal/target/wasm32-unknown-unknown/release/specforge_ext_formal.wasm
+
+      - name: Build SDK greet fixture
+        run: cargo build --manifest-path fixtures/greet-extension/Cargo.toml --target wasm32-unknown-unknown --release
+
+      - name: SDK greet protocol proof
+        run: cargo test -p specforge-extism --test tests greet_sdk

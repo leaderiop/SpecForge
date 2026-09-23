@@ -1,0 +1,14 @@
+[package]
+name = "specforge-extension-sdk-macros"
+edition.workspace = true
+version.workspace = true
+license.workspace = true
+description = "Attribute macro for the SpecForge extension SDK"
+
+[lib]
+proc-macro = true
+
+[dependencies]
+syn = "2"
+quote = "1"
+proc-macro2 = "1"

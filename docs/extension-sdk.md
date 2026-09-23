@@ -1,5 +1,7 @@
 # Extension SDK
 
+> **Status: v1 shipped.** The SDK now exists as `crates/specforge-extension-sdk` (+ the `specforge_extension_sdk::extension` attribute macro), with a working example at `fixtures/greet-extension/`. It implements the surface described in this document minus `HostApi` conveniences beyond the three host functions; the target triple is `wasm32-unknown-unknown` (fixed by wayfinder map #1, ticket #3). Everything below remains the design reference.
+
 The `specforge-extension-sdk` crate provides the types, host API bindings, and attribute macros that extension authors use to build SpecForge extensions as Wasm modules.
 
 ## Overview
