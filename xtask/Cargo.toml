@@ -8,6 +8,10 @@ publish = false
 name = "extract-extension-json"
 path = "src/extract_extension_json.rs"
 
+[[bin]]
+name = "build-builtins"
+path = "src/build_builtins.rs"
+
 [dependencies]
 specforge-emitter = { path = "../crates/specforge-emitter" }
 specforge-wasm = { path = "../crates/specforge-wasm" }

@@ -38,3 +38,28 @@ jobs:
 
       - name: Run cargo-audit
         run: cargo install cargo-audit && cargo audit
+
+  bootstrap:
+    name: Fresh-clone bootstrap (builtin wasms)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Rust stable toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+
+      # No rust-cache here on purpose: this job must prove that a cold clone
+      # bootstrap builds the four builtin extension blobs via the
+      # specforge-extism build.rs guard (wayfinder map #1, ticket #4).
+      - name: Build specforge-extism (triggers builtin bootstrap)
+        run: cargo build -p specforge-extism
+
+      - name: Assert all four builtin blobs exist
+        run: |
+          test -f extensions/product/target/wasm32-unknown-unknown/release/specforge_ext_product.wasm
+          test -f extensions/software/target/wasm32-unknown-unknown/release/specforge_ext_software.wasm
+          test -f extensions/governance/target/wasm32-unknown-unknown/release/specforge_ext_governance.wasm
+          test -f extensions/formal/target/wasm32-unknown-unknown/release/specforge_ext_formal.wasm

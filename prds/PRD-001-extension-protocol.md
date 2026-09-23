@@ -68,7 +68,7 @@ As part of this initiative, all testing concerns (`testable`, `supportsVerify`, 
 
 13. As an extension author, I want to test my extension with `cargo test` using native Rust tooling for logic, and with the SDK's `TestExtension::load(wasm_path)` harness for protocol conformance.
 
-14. As an extension author, I want to run `cargo build --target wasm32-wasi --release` and get a single `.wasm` file that the host can load, so that my extension is self-contained with no sidecar JSON files.
+14. As an extension author, I want to run `cargo build --target wasm32-unknown-unknown --release` and get a single `.wasm` file that the host can load, so that my extension is self-contained with no sidecar JSON files.
 
 15. As a SpecForge host developer, I want the host to call `__handshake(host_version)` before anything else, so that I can check protocol version compatibility and reject incompatible extensions early.
 
@@ -130,7 +130,7 @@ Four functions imported by extension Wasm modules: `query(pattern) -> Vec<Entity
 
 **5. Extension migration (4 extensions)**
 
-Convert `@specforge/product`, `@specforge/software`, `@specforge/governance`, and `@specforge/formal` from manifest.json to SDK Rust code. Each becomes a standalone Rust crate in `extensions/*/` that compiles to `wasm32-wasi`. The manifest.json files are deleted after migration.
+Convert `@specforge/product`, `@specforge/software`, `@specforge/governance`, and `@specforge/formal` from manifest.json to SDK Rust code. Each becomes a standalone Rust crate in `extensions/*/` that compiles to `wasm32-unknown-unknown`. The manifest.json files are deleted after migration.
 
 **6. @specforge/software-testing (new extension)**
 
@@ -148,7 +148,7 @@ A test-only extension that exercises every SDK macro and every protocol category
 
 - **Dual-mode host** during transition. The host auto-detects whether an extension uses manifest.json or the protocol. Both paths feed the same registry population pipeline. No flag or config required.
 
-- **Extensions in `extensions/*/`** as standalone Rust crates in a separate Wasm workspace (`wasm32-wasi` target). The main workspace remains `x86_64` (or `aarch64`). Extensions are cross-compiled.
+- **Extensions in `extensions/*/`** as standalone Rust crates in a separate Wasm workspace (`wasm32-unknown-unknown` target). The main workspace remains `x86_64` (or `aarch64`). Extensions are cross-compiled.
 
 - **Protocol version** declared in handshake response. The host rejects extensions whose protocol version it doesn't support. Protocol versions are additive (new categories, new host functions) never breaking.
 
@@ -185,7 +185,7 @@ A test-only extension that exercises every SDK macro and every protocol category
 
 **Phase 4: Golden test extension + end-to-end**
 - Build golden extension using all SDK macros
-- Compile to wasm32-wasi
+- Compile to wasm32-unknown-unknown
 - Run full protocol lifecycle: load -> handshake -> describe -> register -> operate -> disconnect
 - Assert registry population matches expected state
 - Assert host API calls work correctly from inside extension

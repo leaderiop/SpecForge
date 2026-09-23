@@ -427,10 +427,10 @@ pub fn build_validation_entities(graph: &Graph) -> Vec<ValidationEntity> {
                             fields.insert(entry.key.to_string(), descriptions.join("; "));
                         }
                     }
-                    specforge_parser::FieldValue::VariantList(variants) => {
-                        if !variants.is_empty() {
-                            fields.insert(entry.key.to_string(), variants.join(" | "));
-                        }
+                    specforge_parser::FieldValue::VariantList(variants)
+                        if !variants.is_empty() =>
+                    {
+                        fields.insert(entry.key.to_string(), variants.join(" | "));
                     }
                     _ => {}
                 }

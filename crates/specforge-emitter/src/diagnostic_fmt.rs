@@ -81,7 +81,7 @@ pub fn diagnostic_summary(diagnostics: &[Diagnostic]) -> String {
     }
 
     let mut sorted: Vec<_> = counts.into_iter().collect();
-    sorted.sort_by(|a, b| b.1 .0.cmp(&a.1 .0));
+    sorted.sort_by_key(|(_, (count, _))| std::cmp::Reverse(*count));
 
     let errors = diagnostics.iter().filter(|d| d.severity == Severity::Error).count();
     let warnings = diagnostics.iter().filter(|d| d.severity == Severity::Warning).count();

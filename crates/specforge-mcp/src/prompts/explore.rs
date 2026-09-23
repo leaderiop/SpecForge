@@ -25,7 +25,7 @@ pub fn get(state: &McpState, args: Value, id: Option<Value>) -> JsonRpcResponse 
             (n.id.raw.to_string(), count)
         })
         .collect();
-    connectivity.sort_by(|a, b| b.1.cmp(&a.1));
+    connectivity.sort_by_key(|a| std::cmp::Reverse(a.1));
     let high_connectivity: Vec<String> = connectivity.iter()
         .filter(|(_, count)| *count > 0)
         .take(10)
@@ -46,7 +46,7 @@ pub fn get(state: &McpState, args: Value, id: Option<Value>) -> JsonRpcResponse 
             (n.id.raw.to_string(), out - in_)
         })
         .collect();
-    starting_points.sort_by(|a, b| b.1.cmp(&a.1));
+    starting_points.sort_by_key(|a| std::cmp::Reverse(a.1));
     let starting_points: Vec<String> = starting_points.iter().take(5).map(|(id, _)| id.clone()).collect();
 
     let result = serde_json::json!({
