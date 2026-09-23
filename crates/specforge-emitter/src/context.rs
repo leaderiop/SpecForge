@@ -42,7 +42,7 @@ pub fn emit_context(graph: &Graph) -> String {
             let verify = n
                 .fields
                 .get("verify")
-                .map(|v| crate::json::field_value_to_json(v));
+                .map(crate::json::field_value_to_json);
 
             ContextNode {
                 id: n.id.raw.to_string(),

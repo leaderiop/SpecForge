@@ -464,7 +464,7 @@ pub fn emit_context_with_schema(graph: &Graph, schema: &GraphProtocolSchema) -> 
             let verify = n
                 .fields
                 .get("verify")
-                .map(|v| crate::json::field_value_to_json(v));
+                .map(crate::json::field_value_to_json);
 
             ContextNodeV2 {
                 id: n.id.raw.to_string(),
