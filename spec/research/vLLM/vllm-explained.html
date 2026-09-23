@@ -1,0 +1,938 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>vLLM Explained — A Tutorial for Curious Kids · SpecForge</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&family=Nunito:ital,wght@0,400;0,600;0,700;0,800;1,400&family=IBM+Plex+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#FFF8EC; --card:#FFFDF6; --ink:#2B2118; --soft:#6B5D4F;
+    --c1:#2AA8B8; --c2:#E8833A; --c3:#57A65A; --c4:#7C5CBF; --c5:#D4577E;
+    --c6:#E6A817; --c7:#2E8F83; --c8:#D6493F; --c9:#4A5FBF; --c10:#A6791D;
+    --line:#2B2118;
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{background:var(--paper);color:var(--ink);font-family:'Nunito',sans-serif;font-size:17px;line-height:1.65;
+    background-image:radial-gradient(rgba(43,33,24,.06) 1.2px,transparent 1.2px);background-size:24px 24px}
+  ::selection{background:#FFE08A}
+  a{color:inherit}
+  code{font-family:'IBM Plex Mono',monospace;font-size:.85em;background:#F4E8D2;border:1.5px solid var(--ink);border-radius:6px;padding:.05em .35em}
+
+  #progress{position:fixed;top:0;left:0;height:6px;background:repeating-linear-gradient(45deg,#E8833A 0 12px,#57A65A 12px 24px,#2AA8B8 24px 36px,#7C5CBF 36px 48px);width:0%;z-index:99;border-bottom:2px solid var(--ink)}
+
+  /* nav chips */
+  nav{position:sticky;top:0;z-index:50;background:rgba(255,248,236,.94);backdrop-filter:blur(6px);
+    border-bottom:3px solid var(--ink);padding:10px 18px;display:flex;gap:8px;align-items:center;overflow-x:auto}
+  nav .brand{font-family:'Fredoka';font-weight:700;font-size:15px;white-space:nowrap;margin-right:8px}
+  nav .brand .k{color:#E8833A}
+  nav a.chip{font-family:'Fredoka';font-weight:600;font-size:12.5px;text-decoration:none;white-space:nowrap;
+    border:2px solid var(--ink);border-radius:999px;padding:4px 12px;background:var(--card);box-shadow:2px 2px 0 var(--ink);transition:transform .12s}
+  nav a.chip:hover{transform:translate(-1px,-1px);box-shadow:3px 3px 0 var(--ink)}
+
+  .wrap{max-width:980px;margin:0 auto;padding:0 26px}
+
+  /* hero */
+  .hero{padding:56px 0 10px}
+  .hero .badge{display:inline-block;font-family:'Fredoka';font-weight:600;font-size:13px;background:#FFD34D;border:2.5px solid var(--ink);
+    border-radius:999px;padding:6px 16px;box-shadow:3px 3px 0 var(--ink);transform:rotate(-1.5deg)}
+  h1{font-family:'Fredoka';font-weight:700;font-size:clamp(38px,6vw,62px);line-height:1.05;margin:18px 0 12px}
+  h1 .hl{color:#E8833A}
+  .lede{font-size:19px;color:var(--soft);max-width:60ch}
+  .scene{background:var(--card);border:3px solid var(--ink);border-radius:18px;box-shadow:6px 6px 0 var(--ink);margin:34px 0 10px;overflow:hidden}
+  .scene svg{display:block;width:100%;height:auto}
+
+  /* chapters */
+  section.ch{padding:64px 0 12px}
+  .ch-head{display:flex;align-items:center;gap:16px;flex-wrap:wrap;margin-bottom:6px}
+  .ch-num{font-family:'Fredoka';font-weight:700;font-size:15px;color:#fff;border:2.5px solid var(--ink);
+    border-radius:12px;padding:6px 14px;box-shadow:3px 3px 0 var(--ink);transform:rotate(-1deg)}
+  h2{font-family:'Fredoka';font-weight:700;font-size:clamp(27px,3.6vw,38px);line-height:1.15}
+  .onesentence{font-size:18.5px;font-weight:700;background:var(--card);border:2.5px dashed var(--ink);border-radius:14px;
+    padding:14px 18px;margin:16px 0 6px}
+  .onesentence .t{font-family:'Fredoka';font-weight:600;font-size:12px;letter-spacing:.1em;text-transform:uppercase;
+    display:block;margin-bottom:2px;color:var(--soft)}
+  p{margin:13px 0;max-width:72ch}
+  h3{font-family:'Fredoka';font-weight:600;font-size:21px;margin:30px 0 4px}
+
+  /* boxes */
+  .box{border:2.5px solid var(--ink);border-radius:14px;padding:14px 18px;margin:18px 0;box-shadow:4px 4px 0 var(--ink);max-width:78ch}
+  .box .t{font-family:'Fredoka';font-weight:700;font-size:12.5px;letter-spacing:.08em;text-transform:uppercase;margin-bottom:5px}
+  .box p{margin:6px 0;font-size:15.5px}
+  .box.grown{background:#EAF3FA}
+  .box.grown .t{color:#2A6F97}
+  .box.ev{background:#FDF1D7}
+  .box.ev .t{color:#9A6A00}
+  .box.ev a{color:#9A6A00;font-weight:700}
+
+  /* diagrams */
+  figure{background:var(--card);border:3px solid var(--ink);border-radius:18px;box-shadow:6px 6px 0 var(--ink);
+    margin:26px 0;overflow:hidden}
+  figure svg{display:block;width:100%;height:auto}
+  figcaption{border-top:2.5px dashed var(--ink);padding:10px 18px;font-size:14px;color:var(--soft);font-weight:600}
+
+  /* quiz */
+  details.quiz{border:2.5px solid var(--ink);border-radius:14px;background:#EFF7EA;box-shadow:4px 4px 0 var(--ink);
+    margin:22px 0;max-width:78ch;overflow:hidden}
+  details.quiz summary{cursor:pointer;font-family:'Fredoka';font-weight:700;font-size:15px;padding:13px 18px;list-style:none;user-select:none}
+  details.quiz summary::before{content:"?? ";}
+  details.quiz summary::-webkit-details-marker{display:none}
+  details.quiz .qz{border-top:2.5px dashed var(--ink);padding:14px 18px}
+  details.quiz ol{margin:0 0 0 22px}
+  details.quiz li{margin:7px 0;font-weight:600}
+  details.quiz .ans{margin-top:12px;padding-top:10px;border-top:2px dashed rgba(43,33,24,.3);font-weight:400}
+
+  /* tables */
+  table{border-collapse:separate;border-spacing:0;width:100%;font-size:15px;margin:20px 0;border:2.5px solid var(--ink);
+    border-radius:14px;overflow:hidden;box-shadow:4px 4px 0 var(--ink);background:var(--card)}
+  th{font-family:'Fredoka';font-weight:600;font-size:13px;text-align:left;padding:10px 14px;background:#F4E8D2;border-bottom:2.5px solid var(--ink)}
+  td{padding:10px 14px;border-bottom:1.5px dashed rgba(43,33,24,.25);vertical-align:top}
+  tr:last-child td{border-bottom:none}
+  td b{font-weight:800}
+
+  /* prev/next */
+  .pn{display:flex;justify-content:space-between;gap:12px;margin:34px 0 8px;flex-wrap:wrap}
+  .pn a{font-family:'Fredoka';font-weight:600;font-size:14px;text-decoration:none;border:2.5px solid var(--ink);
+    border-radius:999px;padding:8px 18px;background:var(--card);box-shadow:3px 3px 0 var(--ink)}
+  .pn a:hover{transform:translate(-1px,-1px);box-shadow:4px 4px 0 var(--ink)}
+
+  footer{border-top:3px solid var(--ink);margin-top:70px;padding:34px 0 60px;color:var(--soft);font-size:14.5px}
+  .reveal{opacity:0;transform:translateY(16px);transition:opacity .55s ease,transform .55s ease}
+  .reveal.in{opacity:1;transform:none}
+  @media(max-width:700px){.wrap{padding:0 16px}}
+</style>
+</head>
+<body>
+<div id="progress"></div>
+
+<nav>
+  <span class="brand">vLLM <span class="k">for kids</span></span>
+  <a class="chip" href="#ch1" style="background:#DFF3F6">01 What is it</a>
+  <a class="chip" href="#ch2" style="background:#FCE8D8">02 Stuck</a>
+  <a class="chip" href="#ch3" style="background:#E1F0E2">03 Parking lot</a>
+  <a class="chip" href="#ch4" style="background:#EBE4F7">04 No waiting</a>
+  <a class="chip" href="#ch5" style="background:#FAE3EC">05 The speech</a>
+  <a class="chip" href="#ch6" style="background:#FBF0CE">06 Magic pencil</a>
+  <a class="chip" href="#ch7" style="background:#DCEEEB">07 The plug</a>
+  <a class="chip" href="#ch8" style="background:#F9E0DE">08 Money</a>
+  <a class="chip" href="#ch9" style="background:#E1E5F7">09 The race</a>
+  <a class="chip" href="#ch10" style="background:#F3E9CD">10 SpecForge</a>
+</nav>
+
+<!-- ═══════════════ HERO ═══════════════ -->
+<header class="hero wrap">
+  <span class="badge">A TUTORIAL FOR CURIOUS KIDS (AND GROWN-UPS)</span>
+  <h1>vLLM, explained with a <span class="hl">Word Kitchen</span></h1>
+  <p class="lede">There is a famous program called <b>vLLM</b> whose whole job is to let one AI brain answer a whole
+  restaurant of hungry question-askers <b>at the same time</b>. Ten short chapters. One story. Lots of pictures. No scary math.</p>
+
+  <div class="scene">
+    <svg viewBox="0 0 960 380" xmlns="http://www.w3.org/2000/svg" font-family="Fredoka,sans-serif">
+      <!-- wall & floor -->
+      <rect x="0" y="0" width="960" height="380" fill="#FFF3DD"/>
+      <rect x="0" y="290" width="960" height="90" fill="#F3DFBC"/>
+      <line x1="0" y1="290" x2="960" y2="290" stroke="#2B2118" stroke-width="3"/>
+      <!-- title on wall -->
+      <text x="480" y="52" text-anchor="middle" font-size="26" font-weight="700" fill="#2B2118">The Word Kitchen</text>
+      <text x="480" y="76" text-anchor="middle" font-size="14" fill="#6B5D4F">one chef · many customers · every plate handed out hot</text>
+      <!-- chef Ada -->
+      <g stroke="#2B2118" stroke-width="3">
+        <rect x="420" y="180" width="120" height="112" rx="18" fill="#FFFDF6"/>          <!-- body -->
+        <circle cx="480" cy="150" r="34" fill="#FFD9B3"/>                                <!-- head -->
+        <path d="M446 138 h68 v-10 a10 10 0 0 0 -10 -10 h-48 a10 10 0 0 0 -10 10 z" fill="#FFFDF6"/> <!-- chef hat -->
+        <rect x="436" y="176" width="88" height="30" rx="8" fill="#F3DFBC"/>             <!-- apron top -->
+        <circle cx="468" cy="146" r="3.2" fill="#2B2118" stroke="none"/>
+        <circle cx="492" cy="146" r="3.2" fill="#2B2118" stroke="none"/>
+        <path d="M470 158 q10 8 20 0" fill="none"/>                                      <!-- smile -->
+      </g>
+      <text x="480" y="316" text-anchor="middle" font-size="13" font-weight="600" fill="#2B2118">Ada, the AI chef (an "LLM")</text>
+      <!-- counter -->
+      <rect x="60" y="240" width="840" height="50" rx="10" fill="#D9A05B" stroke="#2B2118" stroke-width="3"/>
+      <text x="90" y="272" font-size="14" font-weight="600" fill="#2B2118">the counter = a GPU (a very fast math chip)</text>
+      <!-- customers left -->
+      <g stroke="#2B2118" stroke-width="3">
+        <circle cx="120" cy="120" r="20" fill="#BFE3E8"/>
+        <circle cx="180" cy="112" r="20" fill="#F7C8D8"/>
+        <circle cx="240" cy="122" r="20" fill="#CDE5C0"/>
+      </g>
+      <g font-size="20" font-weight="700" fill="#2B2118">
+        <text x="113" y="127">?</text><text x="174" y="119">?</text><text x="233" y="129">?</text>
+      </g>
+      <text x="180" y="160" text-anchor="middle" font-size="13" font-weight="600" fill="#6B5D4F">hungry question-askers</text>
+      <!-- plates right -->
+      <g stroke="#2B2118" stroke-width="3">
+        <ellipse cx="720" cy="228" rx="34" ry="12" fill="#FFFDF6"/>
+        <ellipse cx="810" cy="228" rx="34" ry="12" fill="#FFFDF6"/>
+        <rect x="688" y="196" width="64" height="20" rx="6" fill="#FFE08A"/>
+        <rect x="778" y="196" width="64" height="20" rx="6" fill="#FFE08A"/>
+      </g>
+      <text x="750" y="176" text-anchor="middle" font-size="13" font-weight="600" fill="#6B5D4F">answers, served word by word</text>
+      <!-- arrow flow -->
+      <path d="M268 122 H 400" stroke="#2B2118" stroke-width="3" stroke-dasharray="7 6" marker-end="url(#ah)" fill="none"/>
+      <path d="M556 214 H 660" stroke="#2B2118" stroke-width="3" stroke-dasharray="7 6" marker-end="url(#ah)" fill="none"/>
+      <defs><marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="#2B2118"/></marker></defs>
+      <text x="336" y="108" text-anchor="middle" font-size="12.5" font-weight="600" fill="#6B5D4F">questions in</text>
+      <text x="606" y="200" text-anchor="middle" font-size="12.5" font-weight="600" fill="#6B5D4F">answers out</text>
+      <!-- vLLM badge -->
+      <rect x="600" y="96" width="180" height="40" rx="12" fill="#FFE08A" stroke="#2B2118" stroke-width="3" transform="rotate(-2 690 116)"/>
+      <text x="690" y="122" text-anchor="middle" font-size="16" font-weight="700" fill="#2B2118" transform="rotate(-2 690 116)">vLLM = the manager</text>
+    </svg>
+  </div>
+
+  <div class="onesentence"><span class="t">The whole tutorial in one sentence</span>
+  vLLM is a set of clever kitchen tricks — smart shelf space, a never-idle chef, a shared speech card, a magic pencil, and a universal plug — that let one expensive AI brain serve a crowd without dropping plates.</div>
+</header>
+
+<!-- ═══════════════ CH 01 ═══════════════ -->
+<section class="ch reveal" id="ch1">
+  <div class="wrap">
+    <div class="ch-head"><span class="ch-num" style="background:var(--c1)">CHAPTER 01</span><h2>What is vLLM?</h2></div>
+    <div class="onesentence"><span class="t">In one sentence</span>vLLM is a free program whose whole job is to let <b>one</b> AI brain answer <b>very many</b> people's questions <b>at the same time</b>, quickly and without wasting memory.</div>
+
+    <h3>Three words you need</h3>
+    <p><b>1. An AI brain (LLM).</b> Imagine a friend named Ada who has read almost everything ever written. Ask her a question and she answers. Strange part: <b>she writes one word at a time.</b> Word... word... word...</p>
+    <p><b>2. A GPU.</b> Answering takes millions of tiny multiplications. A normal chip does a few at a time; a <b>GPU</b> does thousands at once — like swapping one rolling pin for a hundred rolling pins together.</p>
+    <p><b>3. Serving.</b> One Ada, one friend: easy. Two hundred people at once? You need a <b>kitchen manager</b>. That manager is vLLM.</p>
+
+    <figure>
+      <svg viewBox="0 0 960 280" xmlns="http://www.w3.org/2000/svg" font-family="Fredoka,sans-serif">
+        <rect x="0" y="0" width="960" height="280" fill="#E7F4F6"/>
+        <rect x="0" y="0" width="960" height="280" fill="none" stroke="#2B2118" stroke-width="0"/>
+        <!-- question bubble -->
+        <rect x="40" y="60" width="230" height="70" rx="16" fill="#FFFDF6" stroke="#2B2118" stroke-width="3"/>
+        <path d="M120 130 l-8 26 l30 -26 z" fill="#FFFDF6" stroke="#2B2118" stroke-width="3"/>
+        <text x="155" y="102" text-anchor="middle" font-size="17" font-weight="600">"What is 2+2?"</text>
+        <!-- chef -->
+        <circle cx="400" cy="120" r="42" fill="#FFD9B3" stroke="#2B2118" stroke-width="3"/>
+        <path d="M368 106 h64 v-10 a10 10 0 0 0 -10 -10 h-44 a10 10 0 0 0 -10 10 z" fill="#FFFDF6" stroke="#2B2118" stroke-width="3"/>
+        <circle cx="388" cy="118" r="3.5" fill="#2B2118"/><circle cx="412" cy="118" r="3.5" fill="#2B2118"/>
+        <path d="M390 132 q10 8 20 0" fill="none" stroke="#2B2118" stroke-width="3"/>
+        <text x="400" y="190" text-anchor="middle" font-size="13" font-weight="600" fill="#6B5D4F">Ada thinks… then types…</text>
+        <!-- word tiles appearing -->
+        <g stroke="#2B2118" stroke-width="3">
+          <rect x="560" y="70"  width="70" height="52" rx="10" fill="#FFE08A"/>
+          <rect x="646" y="70"  width="70" height="52" rx="10" fill="#FFFDF6"/>
+          <rect x="732" y="70"  width="70" height="52" rx="10" fill="#FFFDF6"/>
+          <rect x="818" y="70"  width="70" height="52" rx="10" fill="#F1E6D2"/>
+        </g>
+        <g font-size="24" font-weight="700" text-anchor="middle">
+          <text x="595" y="104">T</text><text x="681" y="104">w</text><text x="767" y="104">o</text><text x="853" y="104">…</text>
+        </g>
+        <text x="712" y="160" text-anchor="middle" font-size="13" font-weight="600" fill="#6B5D4F">the answer grows ONE piece at a time — each piece is called a "token"</text>
+        <!-- arrow -->
+        <path d="M470 96 H 548" stroke="#2B2118" stroke-width="3" marker-end="url(#a1)" fill="none"/>
+        <defs><marker id="a1" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="#2B2118"/></marker></defs>
+        <!-- fact strip -->
+        <rect x="40" y="204" width="880" height="52" rx="12" fill="#FFE08A" stroke="#2B2118" stroke-width="3"/>
+        <text x="480" y="236" text-anchor="middle" font-size="15.5" font-weight="700">vLLM does not include a brain. You bring the brain (a model file). vLLM runs it brilliantly.</text>
+      </svg>
+      <figcaption>Chapter 01: Ada answers piece by piece. Each piece is a <b>token</b>. vLLM is the manager that keeps this fast for a whole crowd.</figcaption>
+    </figure>
+
+    <div class="box grown"><div class="t">Grown-up word</div>
+    <p>An AI brain = an <b>LLM</b> (Large Language Model) — Llama, Qwen, Mistral, DeepSeek… The fast math chip = a <b>GPU</b>. The kitchen-manager job = <b>serving</b> (or "inference serving"). vLLM is open source and is a PyTorch Foundation project.</p></div>
+    <div class="box ev"><div class="t">Check the evidence</div>
+    <p>Up to <b>24× more answers per hour</b> than the naive method and <b>3.5×</b> vs the previous best kitchen (HuggingFace TGI) — see <a href="../RES-31-vllm-inference-evaluation.html">RES-31</a> Exhibit 02 [E1], independently re-tested by an arXiv study [E18].</p></div>
+
+    <details class="quiz"><summary>Check yourself</summary><div class="qz">
+      <ol>
+        <li>Does vLLM include an AI brain?</li>
+        <li>Why does Ada write one word at a time instead of a whole paragraph?</li>
+        <li>Name the two wasteful things vLLM fixed.</li>
+      </ol>
+      <div class="ans"><b>Answers:</b> 1) No — you bring the model; vLLM manages it. 2) Each next word depends on all the words before it, so the answer grows one token at a time. 3) Wasted shelf space (Ch 03) and the idle chef waiting for full batches (Ch 04).</div>
+    </div></details>
+
+    <div class="pn"><span></span><a href="#ch2">Chapter 02 — Why AI computers get stuck →</a></div>
+  </div>
+</section>
+
+<!-- ═══════════════ CH 02 ═══════════════ -->
+<section class="ch reveal" id="ch2">
+  <div class="wrap">
+    <div class="ch-head"><span class="ch-num" style="background:var(--c2)">CHAPTER 02</span><h2>Why AI computers get stuck</h2></div>
+    <div class="onesentence"><span class="t">In one sentence</span>The chef must keep <b>notes about everything she has read</b>; the notes eat counter space; the old way of saving space for notes wasted most of it.</div>
+
+    <h3>The chef's scratchpad</h3>
+    <p>To write the <b>next</b> word, Ada must remember everything before it. Re-reading the whole conversation for every single word would be thousands of times too slow — so she keeps a <b>scratchpad</b>: after reading each word once she writes super-short notes about it. Next word? One quick glance at the notes.</p>
+    <p>The trouble: the notes <b>grow with every word</b>. A short question, a thin notepad. "Remember these hundred pages" — a notepad the size of a mattress. The counter (GPU memory) is big but not infinite.</p>
+
+    <h3>The old fix that made everything worse</h3>
+    <p>Old kitchen managers said: "Every order gets a locker for its notes. Some orders are huge… so make <b>every locker mattress-sized</b>, just in case." Sounds safe. Look what it does:</p>
+
+    <figure>
+      <svg viewBox="0 0 960 360" xmlns="http://www.w3.org/2000/svg" font-family="Fredoka,sans-serif">
+        <rect x="0" y="0" width="960" height="360" fill="#FBEDE0"/>
+        <!-- locker wall -->
+        <g stroke="#2B2118" stroke-width="3">
+          <rect x="60"  y="60" width="200" height="120" fill="#FFFDF6"/>
+          <rect x="280" y="60" width="200" height="120" fill="#FFFDF6"/>
+          <rect x="500" y="60" width="200" height="120" fill="#FFFDF6"/>
+          <rect x="720" y="60" width="200" height="120" fill="#FFFDF6"/>
+        </g>
+        <!-- tiny used part at bottom of each locker -->
+        <g fill="#57A65A" stroke="none" opacity=".85">
+          <rect x="64"  y="166" width="192" height="10"/>
+          <rect x="284" y="162" width="192" height="14"/>
+          <rect x="504" y="168" width="192" height="8"/>
+          <rect x="724" y="164" width="192" height="12"/>
+        </g>
+        <g font-size="14" font-weight="700" fill="#D6493F">
+          <text x="160" y="90" text-anchor="middle">95% WASTED AIR</text>
+          <text x="380" y="90" text-anchor="middle">90% WASTED AIR</text>
+          <text x="600" y="90" text-anchor="middle">97% WASTED AIR</text>
+          <text x="820" y="90" text-anchor="middle">94% WASTED AIR</text>
+        </g>
+        <text x="490" y="215" text-anchor="middle" font-size="14" font-weight="600" fill="#6B5D4F">every locker is mattress-sized "just in case" — even for tiny questions</text>
+        <!-- FULL sign -->
+        <rect x="60" y="250" width="270" height="60" rx="12" fill="#D6493F" stroke="#2B2118" stroke-width="3" transform="rotate(-2 195 280)"/>
+        <text x="195" y="289" text-anchor="middle" font-size="24" font-weight="700" fill="#fff" transform="rotate(-2 195 280)">COUNTER FULL!</text>
+        <!-- sad queue -->
+        <g stroke="#2B2118" stroke-width="3">
+          <circle cx="420" cy="295" r="22" fill="#F7C8D8"/>
+          <circle cx="480" cy="295" r="22" fill="#BFE3E8"/>
+          <circle cx="540" cy="295" r="22" fill="#CDE5C0"/>
+        </g>
+        <text x="480" y="345" text-anchor="middle" font-size="14" font-weight="600" fill="#6B5D4F">new customers wait outside… because the "full" lockers are mostly air</text>
+        <!-- sleeping chef -->
+        <g stroke="#2B2118" stroke-width="3">
+          <circle cx="760" cy="298" r="26" fill="#FFD9B3"/>
+          <path d="M748 296 h8 M764 296 h8" fill="none"/>
+          <path d="M760 322 v14 M742 336 h36" fill="none"/>
+        </g>
+        <text x="820" y="300" font-size="13" font-weight="600" fill="#6B5D4F">chef: barely busy</text>
+        <text x="820" y="318" font-size="13" font-weight="600" fill="#6B5D4F">counter: "full"</text>
+      </svg>
+      <figcaption>Chapter 02: the counter <b>looks</b> full but is mostly empty lockers — so people queue while the chef idles.</figcaption>
+    </figure>
+
+    <div class="box grown"><div class="t">Grown-up word</div>
+    <p>The scratchpad = the <b>KV cache</b>. The wasted air has two names: <b>internal fragmentation</b> (locker too big for its notes) and <b>reservation waste</b> (space pre-allocated for a maximum-length answer that never gets that long). Old systems pre-allocated fixed maximum lengths per request.</p></div>
+    <div class="box ev"><div class="t">Check the evidence</div>
+    <p>The waste numbers and the fixed-locker model are described in the vLLM project's founding paper/blog [E1] — <a href="../RES-31-vllm-inference-evaluation.html">RES-31</a>, Section 03.</p></div>
+
+    <details class="quiz"><summary>Check yourself</summary><div class="qz">
+      <ol><li>Why doesn't the chef just re-read your question every time?</li><li>What eats the GPU's counter space?</li><li>Why were the old lockers mattress-sized?</li></ol>
+      <div class="ans"><b>Answers:</b> 1) It would be thousands of times slower — the scratchpad turns a full re-read into one small glance. 2) The KV cache — notes that grow with every word of every conversation. 3) Managers reserved the longest-possible conversation for every order, just in case.</div>
+    </div></details>
+
+    <div class="pn"><a href="#ch1">← Chapter 01</a><a href="#ch3">Chapter 03 — The parking-lot trick →</a></div>
+  </div>
+</section>
+
+<!-- ═══════════════ CH 03 ═══════════════ -->
+<section class="ch reveal" id="ch3">
+  <div class="wrap">
+    <div class="ch-head"><span class="ch-num" style="background:var(--c3)">CHAPTER 03</span><h2>PagedAttention: the parking-lot trick</h2></div>
+    <div class="onesentence"><span class="t">In one sentence</span>Instead of one giant fixed locker per order, vLLM cuts note space into <b>tiny numbered slots</b> and hands them out as needed — like small marked parking spaces instead of spaces sized for trucks.</div>
+
+    <figure>
+      <svg viewBox="0 0 960 430" xmlns="http://www.w3.org/2000/svg" font-family="Fredoka,sans-serif">
+        <rect x="0" y="0" width="960" height="430" fill="#EAF3E4"/>
+        <!-- OLD LOT -->
+        <text x="40" y="40" font-size="18" font-weight="700">THE OLD LOT — every space sized for a truck</text>
+        <g stroke="#2B2118" stroke-width="3">
+          <rect x="40"  y="60" width="100" height="56" fill="#FFFDF6"/>
+          <rect x="150" y="60" width="100" height="56" fill="#FFFDF6"/>
+          <rect x="260" y="60" width="100" height="56" fill="#FFFDF6"/>
+          <rect x="370" y="60" width="100" height="56" fill="#FFFDF6"/>
+          <rect x="480" y="60" width="100" height="56" fill="#FFFDF6"/>
+          <rect x="590" y="60" width="100" height="56" fill="#FFFDF6"/>
+        </g>
+        <!-- one bicycle wasting a truck space -->
+        <g stroke="#2B2118" stroke-width="3">
+          <circle cx="80" cy="102" r="10" fill="none"/><circle cx="106" cy="102" r="10" fill="none"/>
+          <path d="M80 102 L93 84 H100 M93 84 L106 102 M100 84 h8" fill="none"/>
+        </g>
+        <text x="93" y="140" text-anchor="middle" font-size="12.5" font-weight="700" fill="#D6493F">bicycle takes a TRUCK space!</text>
+        <rect x="720" y="60" width="180" height="56" rx="10" fill="#D6493F" stroke="#2B2118" stroke-width="3"/>
+        <text x="810" y="95" text-anchor="middle" font-size="18" font-weight="700" fill="#fff">LOT "FULL"</text>
+        <text x="40" y="148" font-size="13" font-weight="600" fill="#6B5D4F">mostly empty air, but no space small enough for the next bicycle</text>
+
+        <line x1="30" y1="180" x2="930" y2="180" stroke="#2B2118" stroke-width="2.5" stroke-dasharray="8 7"/>
+
+        <!-- vLLM LOT -->
+        <text x="40" y="218" font-size="18" font-weight="700">THE vLLM LOT — small numbered slots</text>
+        <g stroke="#2B2118" stroke-width="2.5">
+          <rect x="40"  y="238" width="64" height="40" fill="#FFFDF6"/><rect x="112" y="238" width="64" height="40" fill="#FFE08A"/><rect x="184" y="238" width="64" height="40" fill="#FFFDF6"/><rect x="256" y="238" width="64" height="40" fill="#FFFDF6"/>
+          <rect x="328" y="238" width="64" height="40" fill="#FFFDF6"/><rect x="400" y="238" width="64" height="40" fill="#FFE08A"/><rect x="472" y="238" width="64" height="40" fill="#FFFDF6"/><rect x="544" y="238" width="64" height="40" fill="#FFFDF6"/>
+          <rect x="40"  y="288" width="64" height="40" fill="#FFFDF6"/><rect x="112" y="288" width="64" height="40" fill="#BFE3E8"/><rect x="184" y="288" width="64" height="40" fill="#FFFDF6"/><rect x="256" y="288" width="64" height="40" fill="#FFFDF6"/>
+          <rect x="328" y="288" width="64" height="40" fill="#FFFDF6"/><rect x="400" y="288" width="64" height="40" fill="#FFFDF6"/><rect x="472" y="288" width="64" height="40" fill="#FFFDF6"/><rect x="544" y="288" width="64" height="40" fill="#BFE3E8"/>
+          <rect x="640" y="238" width="64" height="40" fill="#FFFDF6"/><rect x="712" y="238" width="64" height="40" fill="#BFE3E8"/><rect x="784" y="238" width="64" height="40" fill="#FFFDF6"/><rect x="640" y="288" width="64" height="40" fill="#FFFDF6"/><rect x="712" y="288" width="64" height="40" fill="#FFFDF6"/><rect x="784" y="288" width="64" height="40" fill="#BFE3E8"/>
+        </g>
+        <!-- one truck = scattered slots 2,6,10,15,18,21 (yellow/blue) -->
+        <text x="336" y="264" font-size="13" font-weight="700">truck #1</text>
+        <text x="120" y="314" font-size="13" font-weight="700">slots: 2, 6, 10, 15, 18, 21</text>
+        <path d="M160 268 C 240 330, 420 336, 700 300" stroke="#D6493F" stroke-width="2.5" stroke-dasharray="6 5" fill="none"/>
+        <text x="870" y="264" font-size="13" font-weight="700" text-anchor="end">…and bicycles</text>
+        <text x="870" y="282" font-size="13" font-weight="700" text-anchor="end">everywhere else!</text>
+        <rect x="836" y="310" width="100" height="40" rx="10" fill="#57A65A" stroke="#2B2118" stroke-width="3"/>
+        <text x="886" y="336" text-anchor="middle" font-size="15" font-weight="700" fill="#fff">FITS!</text>
+        <text x="40" y="368" font-size="14" font-weight="600" fill="#6B5D4F">the truck's notes live in slots that do NOT have to be neighbors — a list of slot numbers is all it needs</text>
+        <rect x="40" y="386" width="880" height="30" rx="8" fill="#FFE08A" stroke="#2B2118" stroke-width="2.5"/>
+        <text x="480" y="407" text-anchor="middle" font-size="14" font-weight="700">BONUS: two orders with the same opening can POINT AT THE SAME SLOTS for the shared part — zero copying.</text>
+      </svg>
+      <figcaption>Chapter 03: small slots + a slot list per order = almost no waste, room for many more orders, and free sharing of identical openings.</figcaption>
+    </figure>
+
+    <h3>How much more fits?</h3>
+    <p>The vLLM team measured it: <b>~24× more answers per hour</b> than the naive locker system, and <b>~3.5×</b> more than the previous pro manager (TGI). Years later, university researchers re-tested it under heavy crowds — same story. Not a lucky demo; it is how the trick works.</p>
+
+    <div class="box grown"><div class="t">Grown-up word</div>
+    <p>The trick is <b>PagedAttention</b>. Small numbered slots = <b>KV blocks</b>. An order's notes = a <b>list of block numbers</b>, exactly like an operating system manages memory in pages — that is the joke in the name: <i>paging</i> + <i>attention</i>.</p></div>
+    <div class="box ev"><div class="t">Check the evidence</div>
+    <p>Numbers from the vLLM announcement [E1] and the Nov 2025 arXiv re-test [E18] — <a href="../RES-31-vllm-inference-evaluation.html">RES-31</a> Exhibit 02. Honest footnote: this fixes <b>space</b>, not the idle chef — that is Chapter 04.</p></div>
+
+    <details class="quiz"><summary>Check yourself</summary><div class="qz">
+      <ol><li>What do the small numbered slots stand for?</li><li>Can two orders share slots? When?</li><li>PagedAttention fixes space. What does it NOT fix?</li></ol>
+      <div class="ans"><b>Answers:</b> 1) KV blocks — small chunks of the chef's notes. 2) Yes — if their prompts begin with identical text, the shared part points at the same blocks. 3) Idle-chef waiting — that needs Chapter 04.</div>
+    </div></details>
+
+    <div class="pn"><a href="#ch2">← Chapter 02</a><a href="#ch4">Chapter 04 — No waiting →</a></div>
+  </div>
+</section>
+
+<!-- ═══════════════ CH 04 ═══════════════ -->
+<section class="ch reveal" id="ch4">
+  <div class="wrap">
+    <div class="ch-head"><span class="ch-num" style="background:var(--c4)">CHAPTER 04</span><h2>Continuous batching: the chef never waits</h2></div>
+    <div class="onesentence"><span class="t">In one sentence</span>Old kitchens made the chef wait for a whole busload to finish together; vLLM slides the <b>next order in the instant one plate leaves</b> — the chef is always cooking.</div>
+
+    <p><b>The bus problem.</b> Old rule: wait for 30 orders, cook them as one group, wait until the <i>whole group</i> is done. Disaster: one kid asked "2+2?" (one word), another asked for a full essay (a thousand words). The chef — the most expensive thing in the building — sits idle waiting for the essayist.</p>
+
+    <figure>
+      <svg viewBox="0 0 960 400" xmlns="http://www.w3.org/2000/svg" font-family="Fredoka,sans-serif">
+        <rect x="0" y="0" width="960" height="400" fill="#EFEAF8"/>
+        <!-- LEFT: bus -->
+        <text x="40" y="38" font-size="17" font-weight="700">OLD: the bus waits for everyone</text>
+        <rect x="40" y="56" width="330" height="150" rx="18" fill="#FFFDF6" stroke="#2B2118" stroke-width="3"/>
+        <g fill="#F1E6D2" stroke="#2B2118" stroke-width="2">
+          <rect x="60" y="76" width="52" height="34" rx="6"/><rect x="122" y="76" width="52" height="34" rx="6"/><rect x="184" y="76" width="52" height="34" rx="6"/><rect x="246" y="76" width="52" height="34" rx="6"/><rect x="308" y="76" width="42" height="34" rx="6"/>
+          <rect x="60" y="120" width="52" height="34" rx="6"/><rect x="122" y="120" width="52" height="34" rx="6"/><rect x="184" y="120" width="52" height="34" rx="6"/><rect x="246" y="120" width="52" height="34" rx="6"/><rect x="308" y="120" width="42" height="34" rx="6"/>
+        </g>
+        <circle cx="86" cy="93" r="9" fill="#7C5CBF"/><circle cx="148" cy="93" r="9" fill="#7C5CBF"/><circle cx="210" cy="93" r="9" fill="#7C5CBF"/><circle cx="272" cy="93" r="9" fill="#7C5CBF"/><circle cx="329" cy="93" r="9" fill="#7C5CBF"/>
+        <circle cx="86" cy="137" r="9" fill="#7C5CBF"/><circle cx="148" cy="137" r="9" fill="#7C5CBF"/><circle cx="210" cy="137" r="9" fill="#7C5CBF"/><circle cx="272" cy="137" r="9" fill="#7C5CBF"/><circle cx="329" cy="137" r="9" fill="#7C5CBF"/>
+        <text x="205" y="184" text-anchor="middle" font-size="13.5" font-weight="700" fill="#D6493F">29 people done · 1 essayist still writing → EVERYONE waits</text>
+        <circle cx="86" cy="92" r="13" fill="none" stroke="#D6493F" stroke-width="3"/>
+        <text x="205" y="238" font-size="13.5" font-weight="600" fill="#6B5D4F">the circled rider is the essayist</text>
+
+        <!-- RIGHT: sliding counter, 4 ticks -->
+        <text x="470" y="38" font-size="17" font-weight="700">vLLM: the counter refills seat-by-seat</text>
+        <g stroke="#2B2118" stroke-width="2.5">
+          <rect x="470" y="60"  width="100" height="40" rx="8" fill="#7C5CBF"/><rect x="586" y="60"  width="100" height="40" rx="8" fill="#7C5CBF"/><rect x="702" y="60"  width="100" height="40" rx="8" fill="#7C5CBF"/><rect x="818" y="60"  width="100" height="40" rx="8" fill="#7C5CBF"/>
+          <rect x="470" y="130" width="100" height="40" rx="8" fill="#7C5CBF"/><rect x="586" y="130" width="100" height="40" rx="8" fill="#57A65A"/><rect x="702" y="130" width="100" height="40" rx="8" fill="#7C5CBF"/><rect x="818" y="130" width="100" height="40" rx="8" fill="#7C5CBF"/>
+          <rect x="470" y="200" width="100" height="40" rx="8" fill="#7C5CBF"/><rect x="586" y="200" width="100" height="40" rx="8" fill="#FFD34D"/><rect x="702" y="200" width="100" height="40" rx="8" fill="#7C5CBF"/><rect x="818" y="200" width="100" height="40" rx="8" fill="#7C5CBF"/>
+          <rect x="470" y="270" width="100" height="40" rx="8" fill="#57A65A"/><rect x="586" y="270" width="100" height="40" rx="8" fill="#7C5CBF"/><rect x="702" y="270" width="100" height="40" rx="8" fill="#7C5CBF"/><rect x="818" y="270" width="100" height="40" rx="8" fill="#FFD34D"/>
+        </g>
+        <g font-size="14" font-weight="700" text-anchor="middle" fill="#fff">
+          <text x="520" y="85">A</text><text x="636" y="85">B</text><text x="752" y="85">C</text><text x="868" y="85">D</text>
+          <text x="520" y="155">A</text><text x="636" y="155">B✓</text><text x="752" y="155">C</text><text x="868" y="155">D</text>
+          <text x="520" y="225">A</text><text x="636" y="225" fill="#2B2118">NEW E</text><text x="752" y="225">C</text><text x="868" y="225">D</text>
+          <text x="520" y="295">A✓</text><text x="636" y="295">E</text><text x="752" y="295">C</text><text x="868" y="295" fill="#2B2118">NEW F</text>
+        </g>
+        <g font-size="12.5" font-weight="600" fill="#6B5D4F">
+          <text x="450" y="85" text-anchor="end">tick 1</text><text x="450" y="155" text-anchor="end">tick 2</text><text x="450" y="225" text-anchor="end">tick 3</text><text x="450" y="295" text-anchor="end">tick 4</text>
+        </g>
+        <text x="700" y="340" text-anchor="middle" font-size="13.5" font-weight="700">the instant a plate leaves (✓), the next order slides in — no group, no bus</text>
+        <!-- crowd banner -->
+        <rect x="40" y="352" width="880" height="34" rx="9" fill="#FFD34D" stroke="#2B2118" stroke-width="2.5"/>
+        <text x="480" y="375" text-anchor="middle" font-size="14.5" font-weight="700">With a crowd of 100: vLLM waits under 10 seconds and drops ZERO plates. A wobbly kitchen: ~21 s of waiting at just 10 people.</text>
+      </svg>
+      <figcaption>Chapter 04: continuous batching — the kitchen re-decides who is cooking at every word-step.</figcaption>
+    </figure>
+
+    <div class="box grown"><div class="t">Grown-up word</div>
+    <p><b>Continuous batching</b>, a.k.a. <b>iteration-level scheduling</b>. The crowd numbers come from the MDPI 2026 study "Benchmarking Ollama and vLLM for Concurrent LLM Serving" [E8]; Ollama's default of 1 parallel order is in its FAQ [E9]; its fast single-user answer (~45 ms) is from Ginger Labs [E10]. All in <a href="../RES-31-vllm-inference-evaluation.html">RES-31</a> Exhibit 03.</p></div>
+
+    <details class="quiz"><summary>Check yourself</summary><div class="qz">
+      <ol><li>What is wrong with "wait for a full bus" batching?</li><li>When does vLLM start the next order?</li><li>You alone at home, one question at a time — does this trick help you?</li></ol>
+      <div class="ans"><b>Answers:</b> 1) Everyone waits for the slowest order; the expensive chef idles. 2) The instant any single order finishes. 3) Mostly no — crowd tricks need a crowd; a simple home kitchen is fine for one person (Chapter 09).</div>
+    </div></details>
+
+    <div class="pn"><a href="#ch3">← Chapter 03</a><a href="#ch5">Chapter 05 — The shared speech →</a></div>
+  </div>
+</section>
+
+<!-- ═══════════════ CH 05 ═══════════════ -->
+<section class="ch reveal" id="ch5">
+  <div class="wrap">
+    <div class="ch-head"><span class="ch-num" style="background:var(--c5)">CHAPTER 05</span><h2>Prefix caching: write the boring part once</h2></div>
+    <div class="onesentence"><span class="t">In one sentence</span>If every order starts with the <b>same long introduction</b>, vLLM keeps the chef's notes for that introduction <b>on the shelf</b> and reuses them — the reading is paid for once, not hundreds of times.</div>
+
+    <p>Every restaurant makes you sit through the same speech: "Welcome, here are the hours, the allergy chart, how ordering works…" Imagine that speech is <b>six pages</b> and every customer must hear all of it before their real question. For Ada the speech is real work: she reads the pages and writes scratch notes. One hundred customers = one hundred identical speeches. Ugh.</p>
+    <p><b>vLLM's trick:</b> she reads the six pages <b>once</b>, keeps those notes on the shelf, and every new customer skips to the good part — pointing at the same notes (thanks, Chapter 03!). And since 2025, keeping that shelf costs vLLM <b>almost zero effort</b>.</p>
+
+    <figure>
+      <svg viewBox="0 0 960 340" xmlns="http://www.w3.org/2000/svg" font-family="Fredoka,sans-serif">
+        <rect x="0" y="0" width="960" height="340" fill="#FBEBF1"/>
+        <!-- old: 100 copies -->
+        <text x="40" y="38" font-size="16.5" font-weight="700">BEFORE: read the 6-page speech to every customer</text>
+        <g stroke="#2B2118" stroke-width="2.5">
+          <rect x="40"  y="56" width="70" height="90" fill="#FFFDF6"/><rect x="120" y="56" width="70" height="90" fill="#FFFDF6"/><rect x="200" y="56" width="70" height="90" fill="#FFFDF6"/><rect x="280" y="56" width="70" height="90" fill="#FFFDF6"/>
+          <rect x="40"  y="156" width="70" height="90" fill="#FFFDF6"/><rect x="120" y="156" width="70" height="90" fill="#FFFDF6"/><rect x="200" y="156" width="70" height="90" fill="#FFFDF6"/><rect x="280" y="156" width="70" height="90" fill="#FFFDF6"/>
+        </g>
+        <g font-size="11" font-weight="600" fill="#6B5D4F" text-anchor="middle">
+          <text x="75" y="105">speech</text><text x="155" y="105">speech</text><text x="235" y="105">speech</text><text x="315" y="105">speech</text>
+          <text x="75" y="205">speech</text><text x="155" y="205">speech</text><text x="235" y="205">speech</text><text x="315" y="205">speech</text>
+        </g>
+        <text x="196" y="272" text-anchor="middle" font-size="13.5" font-weight="700" fill="#D6493F">…×100 customers = 100 identical readings. Ugh.</text>
+        <!-- arrow -->
+        <path d="M392 150 H 448" stroke="#2B2118" stroke-width="3" marker-end="url(#a5)" fill="none"/>
+        <defs><marker id="a5" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="#2B2118"/></marker></defs>
+        <!-- new: one shelf copy -->
+        <text x="470" y="38" font-size="16.5" font-weight="700">vLLM: read once, keep the notes on a shelf</text>
+        <rect x="470" y="56" width="120" height="120" fill="#FFE08A" stroke="#2B2118" stroke-width="3"/>
+        <text x="530" y="105" text-anchor="middle" font-size="13" font-weight="700">the speech,</text>
+        <text x="530" y="123" text-anchor="middle" font-size="13" font-weight="700">noted ONCE</text>
+        <text x="530" y="145" text-anchor="middle" font-size="12" font-weight="600" fill="#6B5D4F">("the shelf")</text>
+        <g stroke="#2B2118" stroke-width="2.5">
+          <circle cx="700" cy="86" r="18" fill="#BFE3E8"/><circle cx="756" cy="86" r="18" fill="#F7C8D8"/><circle cx="812" cy="86" r="18" fill="#CDE5C0"/><circle cx="868" cy="86" r="18" fill="#E4D3F5"/>
+        </g>
+        <g stroke="#D6493F" stroke-width="2.5" stroke-dasharray="5 4" fill="none">
+          <path d="M690 74 L586 96"/><path d="M748 72 L586 100"/><path d="M806 74 L590 106"/><path d="M862 76 L592 112"/>
+        </g>
+        <text x="784" y="130" text-anchor="middle" font-size="13" font-weight="700" fill="#D6493F">every customer POINTS at the shelf — skips the speech</text>
+        <!-- 20% bar -->
+        <text x="470" y="200" font-size="15" font-weight="700">In SpecForge's real work orders:</text>
+        <rect x="470" y="214" width="98"  height="44" fill="#7CC98F" stroke="#2B2118" stroke-width="3"/>
+        <rect x="568" y="214" width="368" height="44" fill="#FFFDF6" stroke="#2B2118" stroke-width="3"/>
+        <text x="519" y="241" text-anchor="middle" font-size="13" font-weight="700">~20% shared</text>
+        <text x="752" y="241" text-anchor="middle" font-size="13" font-weight="700">your unique part</text>
+        <text x="470" y="290" font-size="13.5" font-weight="600" fill="#6B5D4F">(≈6,000 of ~30,000 words are the same house-rules card every time — skip it every time after the first)</text>
+        <text x="470" y="316" font-size="13.5" font-weight="700" fill="#9A6A00">Honest fine print: if every order starts differently, there is nothing to reuse.</text>
+      </svg>
+      <figcaption>Chapter 05: prefix caching loves repetitive workloads — and SpecForge's batch jobs are exactly that.</figcaption>
+    </figure>
+
+    <div class="box grown"><div class="t">Grown-up word</div>
+    <p>The shared speech = the <b>prompt prefix</b>; the trick = <b>automatic prefix caching</b>, made "near-zero-overhead" in vLLM's rebuilt v1 engine (Jan 2025) [E2]. The 30K/6K numbers are SpecForge's task model [A5] — <a href="../RES-31-vllm-inference-evaluation.html">RES-31</a>, Sections 06–07.</p></div>
+
+    <details class="quiz"><summary>Check yourself</summary><div class="qz">
+      <ol><li>What gets reused — the chef's answer, or her notes?</li><li>Why does Chapter 03 make this trick possible?</li><li>When is prefix caching useless?</li></ol>
+      <div class="ans"><b>Answers:</b> 1) Her notes (the KV cache of the shared opening) — answers are always unique. 2) Identical openings can point at the same small slots instead of being copied. 3) When every request is different from the very first word.</div>
+    </div></details>
+
+    <div class="pn"><a href="#ch4">← Chapter 04</a><a href="#ch6">Chapter 06 — The magic pencil →</a></div>
+  </div>
+</section>
+
+<!-- ═══════════════ CH 06 ═══════════════ -->
+<section class="ch reveal" id="ch6">
+  <div class="wrap">
+    <div class="ch-head"><span class="ch-num" style="background:var(--c6)">CHAPTER 06</span><h2>Structured outputs: the magic pencil</h2></div>
+    <div class="onesentence"><span class="t">In one sentence</span>Hand vLLM a <b>mold</b> — a form, a pattern, or a whole file format — and the robot becomes <b>physically unable</b> to write an answer that breaks it.</div>
+
+    <p>Ada improvises. Ask for "yes or no" and she might write a paragraph. Ask for a data file and she might forget a bracket. Charming… until another computer has to read the answer. vLLM's fix: while Ada types word by word, a teacher stands behind her with a hand on the keyboard and <b>quietly blocks any key that would break the form</b>. Wrong keys never press.</p>
+
+    <figure>
+      <svg viewBox="0 0 960 430" xmlns="http://www.w3.org/2000/svg" font-family="Fredoka,sans-serif">
+        <rect x="0" y="0" width="960" height="430" fill="#FBF3D9"/>
+        <!-- four molds -->
+        <text x="40" y="38" font-size="16.5" font-weight="700">The four molds, weakest → mightiest</text>
+        <g stroke="#2B2118" stroke-width="3">
+          <rect x="40"  y="56" width="205" height="120" rx="12" fill="#FFFDF6"/>
+          <rect x="265" y="56" width="205" height="120" rx="12" fill="#FFFDF6"/>
+          <rect x="490" y="56" width="205" height="120" rx="12" fill="#FFFDF6"/>
+          <rect x="715" y="56" width="205" height="120" rx="12" fill="#FFE08A"/>
+        </g>
+        <g font-size="15.5" font-weight="700">
+          <text x="142" y="86" text-anchor="middle">choice</text>
+          <text x="367" y="86" text-anchor="middle">regex</text>
+          <text x="592" y="86" text-anchor="middle">json</text>
+          <text x="817" y="86" text-anchor="middle">grammar</text>
+        </g>
+        <g font-size="12.5" font-weight="600" fill="#6B5D4F" text-anchor="middle">
+          <text x="142" y="110">pick ONE door.</text><text x="142" y="128">others welded shut</text>
+          <text x="367" y="110">answer must look</text><text x="367" y="128">like a phone number</text>
+          <text x="592" y="110">fill the form exactly.</text><text x="592" y="128">no missing boxes</text>
+          <text x="817" y="110">only sentences of THIS</text><text x="817" y="128">little language. ever.</text>
+        </g>
+        <g font-size="11.5" font-weight="700" fill="#9A6A00" text-anchor="middle">
+          <text x="142" y="158">weakest</text><text x="367" y="158">stronger</text><text x="592" y="158">stronger</text><text x="817" y="158">MIGHTIEST</text>
+        </g>
+        <!-- keyboard -->
+        <text x="40" y="216" font-size="16.5" font-weight="700">The teacher's hand: illegal keys can't be pressed</text>
+        <g stroke="#2B2118" stroke-width="2.5">
+          <rect x="40"  y="234" width="52" height="36" rx="7" fill="#FFFDF6"/><rect x="100" y="234" width="52" height="36" rx="7" fill="#FFFDF6"/><rect x="160" y="234" width="52" height="36" rx="7" fill="#FFFDF6"/>
+          <rect x="220" y="234" width="52" height="36" rx="7" fill="#C9BFAF"/><rect x="280" y="234" width="52" height="36" rx="7" fill="#C9BFAF"/><rect x="340" y="234" width="52" height="36" rx="7" fill="#FFFDF6"/>
+          <rect x="400" y="234" width="52" height="36" rx="7" fill="#C9BFAF"/><rect x="460" y="234" width="52" height="36" rx="7" fill="#FFFDF6"/><rect x="520" y="234" width="52" height="36" rx="7" fill="#FFFDF6"/>
+        </g>
+        <g font-size="15" font-weight="700" text-anchor="middle">
+          <text x="66"  y="258">"</text><text x="126" y="258">a</text><text x="186" y="258">b</text><text x="246" y="258" fill="#8A7B68">?</text><text x="306" y="258" fill="#8A7B68">;</text><text x="366" y="258">c</text><text x="426" y="258" fill="#8A7B68">}</text><text x="486" y="258">d</text><text x="546" y="258">e</text>
+        </g>
+        <text x="620" y="258" font-size="13.5" font-weight="600" fill="#6B5D4F">gray keys = would break the form = blocked</text>
+        <!-- before/after -->
+        <text x="40" y="316" font-size="16.5" font-weight="700">Why SpecForge cares:</text>
+        <g stroke="#2B2118" stroke-width="2.5">
+          <rect x="40"  y="330" width="420" height="72" rx="12" fill="#F9E0DE"/>
+          <rect x="500" y="330" width="420" height="72" rx="12" fill="#E1F0E2"/>
+        </g>
+        <text x="250" y="358" text-anchor="middle" font-size="13.5" font-weight="700" fill="#D6493F">no mold: robot writes → broken file → error → retry → …</text>
+        <text x="250" y="382" text-anchor="middle" font-size="13" font-weight="600" fill="#6B5D4F">(each retry costs time and money)</text>
+        <text x="710" y="358" text-anchor="middle" font-size="13.5" font-weight="700" fill="#2F7D46">with the mold (specforge.gbnf): the recipe file always fits</text>
+        <text x="710" y="382" text-anchor="middle" font-size="13" font-weight="600" fill="#6B5D4F">shape guaranteed — meaning still checked by specforge check</text>
+      </svg>
+      <figcaption>Chapter 06: the mold guarantees <b>shape</b>, never <b>sense</b>. Syntax by the pencil, meaning by SpecForge. Teamwork.</figcaption>
+    </figure>
+
+    <div class="box grown"><div class="t">Grown-up word</div>
+    <p>This is <b>structured output</b> (guided / grammar-constrained decoding): at each step, tokens that would break the target format are <b>masked out</b> before sampling. The default engine is <b>xgrammar</b>; the mightiest mold takes an EBNF/GBNF <b>grammar</b> [E3]. SpecForge's grammar-mold idea is RES-31 Section 07, building on RES-29.</p></div>
+    <div class="box ev"><div class="t">Check the evidence</div>
+    <p>Feature and mold types: official vLLM structured-outputs docs [E3]. Honest caveat: masks can shift word choices inside the legal ones, so RES-31 gates the grammar gift on a measured trial (KPI STR-1: 500 generations, 100% must parse) before "recommended".</p></div>
+
+    <details class="quiz"><summary>Check yourself</summary><div class="qz">
+      <ol><li>How does vLLM stop the robot from breaking the form?</li><li>Which mold is mightiest?</li><li>With a grammar mold, is the robot guaranteed to be right — or just well-formed?</li></ol>
+      <div class="ans"><b>Answers:</b> 1) Illegal next tokens are masked out before picking — wrong keys cannot press. 2) <b>grammar</b> — it can enforce a whole file format. 3) Just well-formed; meaning needs <code>specforge check</code>.</div>
+    </div></details>
+
+    <div class="pn"><a href="#ch5">← Chapter 05</a><a href="#ch7">Chapter 07 — The universal plug →</a></div>
+  </div>
+</section>
+
+<!-- ═══════════════ CH 07 ═══════════════ -->
+<section class="ch reveal" id="ch7">
+  <div class="wrap">
+    <div class="ch-head"><span class="ch-num" style="background:var(--c7)">CHAPTER 07</span><h2>The universal plug — and treasure maps</h2></div>
+    <div class="onesentence"><span class="t">In one sentence</span>vLLM speaks the <b>same request language as almost every AI tool on Earth</b>, so you can swap kitchens by changing one line — and it can also turn sentences into <b>map points</b> that show which meanings are neighbors.</div>
+
+    <figure>
+      <svg viewBox="0 0 960 400" xmlns="http://www.w3.org/2000/svg" font-family="Fredoka,sans-serif">
+        <rect x="0" y="0" width="960" height="400" fill="#E4F0EE"/>
+        <!-- LEFT: universal plug -->
+        <text x="40" y="38" font-size="16.5" font-weight="700">One letter format, every kitchen understands</text>
+        <rect x="40" y="70" width="200" height="90" rx="14" fill="#FFFDF6" stroke="#2B2118" stroke-width="3"/>
+        <text x="140" y="108" text-anchor="middle" font-size="14" font-weight="700">your program's</text>
+        <text x="140" y="128" text-anchor="middle" font-size="14" font-weight="700">question letter</text>
+        <path d="M240 115 H 320" stroke="#2B2118" stroke-width="3" marker-end="url(#a7)" fill="none"/>
+        <defs><marker id="a7" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="#2B2118"/></marker></defs>
+        <g stroke="#2B2118" stroke-width="3">
+          <rect x="330" y="56"  width="150" height="42" rx="10" fill="#FFE08A"/>
+          <rect x="330" y="110" width="150" height="42" rx="10" fill="#BFE3E8"/>
+          <rect x="330" y="164" width="150" height="42" rx="10" fill="#F7C8D8"/>
+          <rect x="330" y="218" width="150" height="42" rx="10" fill="#CDE5C0"/>
+        </g>
+        <g font-size="14.5" font-weight="700" text-anchor="middle">
+          <text x="405" y="83">vLLM</text><text x="405" y="137">SGLang</text><text x="405" y="191">Ollama</text><text x="405" y="245">paid API</text>
+        </g>
+        <text x="40" y="300" font-size="14" font-weight="600" fill="#6B5D4F">swap kitchens = change ONE line (the address). No rewrite. No kidnap.</text>
+        <rect x="40" y="318" width="440" height="34" rx="9" fill="#FFE08A" stroke="#2B2118" stroke-width="2.5"/>
+        <text x="260" y="341" text-anchor="middle" font-size="13.5" font-weight="700">the letters even have room for Chapter 06's molds!</text>
+
+        <!-- RIGHT: treasure map -->
+        <text x="540" y="38" font-size="16.5" font-weight="700">And the mapmaker: meanings as map points</text>
+        <rect x="540" y="56" width="390" height="296" rx="14" fill="#FFFDF6" stroke="#2B2118" stroke-width="3"/>
+        <!-- grid dots -->
+        <g fill="#D8CCB8"><circle cx="580" cy="100" r="2"/><circle cx="640" cy="90" r="2"/><circle cx="700" cy="104" r="2"/><circle cx="760" cy="92" r="2"/><circle cx="850" cy="100" r="2"/><circle cx="600" cy="300" r="2"/><circle cx="680" cy="320" r="2"/><circle cx="760" cy="306" r="2"/><circle cx="860" cy="316" r="2"/></g>
+        <!-- login cluster -->
+        <g stroke="#2B2118" stroke-width="2.5">
+          <circle cx="650" cy="180" r="9" fill="#57A65A"/><circle cx="676" cy="196" r="9" fill="#57A65A"/><circle cx="640" cy="212" r="9" fill="#57A65A"/>
+        </g>
+        <text x="655" y="248" text-anchor="middle" font-size="12" font-weight="700">"how do I log in?"</text>
+        <text x="655" y="266" text-anchor="middle" font-size="12" font-weight="700">"can't access my account"</text>
+        <!-- pancakes far -->
+        <g stroke="#2B2118" stroke-width="2.5">
+          <circle cx="850" cy="150" r="9" fill="#2AA8B8"/><circle cx="872" cy="170" r="9" fill="#2AA8B8"/>
+        </g>
+        <text x="861" y="130" text-anchor="middle" font-size="12" font-weight="700">"pancake recipe"</text>
+        <!-- query star -->
+        <path d="M646 156 l4.5 9 10 1.5 -7 7 1.6 10 -9.1 -4.8 -9.1 4.8 1.6 -10 -7 -7 10 -1.5 z" fill="#E8833A" stroke="#2B2118" stroke-width="2"/>
+        <circle cx="656" cy="196" r="46" fill="none" stroke="#D6493F" stroke-width="2.5" stroke-dasharray="6 5"/>
+        <text x="735" y="150" font-size="12.5" font-weight="700" fill="#D6493F">who is NEAR the question?</text>
+        <text x="735" y="168" font-size="12" font-weight="600" fill="#6B5D4F">search by meaning, not keywords</text>
+        <text x="735" y="352" text-anchor="middle" font-size="12.5" font-weight="600" fill="#6B5D4F">one vLLM kitchen can be chef AND mapmaker — same machine, same bill</text>
+      </svg>
+      <figcaption>Chapter 07: the universal plug keeps you free to swap kitchens; the mapmaker finds things by meaning.</figcaption>
+    </figure>
+
+    <div class="box grown"><div class="t">Grown-up word</div>
+    <p>The letter format = the <b>OpenAI-compatible REST API</b> (<code>/v1/chat/completions</code>, <code>/v1/embeddings</code>) [E3][E16]. Map points = <b>embeddings</b>; "who is nearby" = <b>cosine similarity</b>; vLLM serves embedding models and pair-scoring on the same plug [E15]. SpecForge's <code>EmbeddingProvider</code> socket is defined in <code>spec/extensions/embeddings/ports.spec</code>.</p></div>
+
+    <details class="quiz"><summary>Check yourself</summary><div class="qz">
+      <ol><li>Why did everyone adopt the same letter format?</li><li>Your program talks to vLLM today; you want SGLang tomorrow. How much rewriting?</li><li>Two sentences land near each other on the meaning-map. What does that mean?</li></ol>
+      <div class="ans"><b>Answers:</b> 1) A shared format lets any tool work with any kitchen — the common one became the standard. 2) Change the address — one line. 3) Their meanings are similar — that is semantic search.</div>
+    </div></details>
+
+    <div class="pn"><a href="#ch6">← Chapter 06</a><a href="#ch8">Chapter 08 — Speed and money →</a></div>
+  </div>
+</section>
+
+<!-- ═══════════════ CH 08 ═══════════════ -->
+<section class="ch reveal" id="ch8">
+  <div class="wrap">
+    <div class="ch-head"><span class="ch-num" style="background:var(--c8)">CHAPTER 08</span><h2>Speed and money</h2></div>
+    <div class="onesentence"><span class="t">In one sentence</span>Kitchens are judged by <b>four numbers</b> — plates per hour, wait for the first bite, gap between bites, dropped plates — and one money question: <b>rent the food truck, or pay per burger?</b></div>
+
+    <figure>
+      <svg viewBox="0 0 960 300" xmlns="http://www.w3.org/2000/svg" font-family="Fredoka,sans-serif">
+        <rect x="0" y="0" width="960" height="300" fill="#FBE8E6"/>
+        <text x="40" y="38" font-size="16.5" font-weight="700">The four speed numbers (KPIs)</text>
+        <!-- gauge 1 -->
+        <g><circle cx="140" cy="150" r="62" fill="#FFFDF6" stroke="#2B2118" stroke-width="3"/>
+          <path d="M140 150 L 96 118" stroke="#D6493F" stroke-width="6" stroke-linecap="round"/>
+          <text x="140" y="128" text-anchor="middle" font-size="15" font-weight="700">24×</text>
+          <text x="140" y="196" text-anchor="middle" font-size="12.5" font-weight="600" fill="#6B5D4F">plates / hr</text></g>
+        <!-- gauge 2 -->
+        <g><circle cx="360" cy="150" r="62" fill="#FFFDF6" stroke="#2B2118" stroke-width="3"/>
+          <path d="M360 150 L 396 104" stroke="#E8833A" stroke-width="6" stroke-linecap="round"/>
+          <text x="360" y="128" text-anchor="middle" font-size="15" font-weight="700">first bite</text>
+          <text x="360" y="196" text-anchor="middle" font-size="12.5" font-weight="600" fill="#6B5D4F">first word</text></g>
+        <!-- gauge 3 -->
+        <g><circle cx="580" cy="150" r="62" fill="#FFFDF6" stroke="#2B2118" stroke-width="3"/>
+          <path d="M580 150 L 610 190" stroke="#57A65A" stroke-width="6" stroke-linecap="round"/>
+          <text x="580" y="128" text-anchor="middle" font-size="15" font-weight="700">~0.07 s</text>
+          <text x="580" y="196" text-anchor="middle" font-size="12.5" font-weight="600" fill="#6B5D4F">word gap</text></g>
+        <!-- gauge 4 -->
+        <g><circle cx="800" cy="150" r="62" fill="#FFFDF6" stroke="#2B2118" stroke-width="3"/>
+          <path d="M800 150 L 838 138" stroke="#2AA8B8" stroke-width="6" stroke-linecap="round"/>
+          <text x="800" y="128" text-anchor="middle" font-size="15" font-weight="700">100%</text>
+          <text x="800" y="196" text-anchor="middle" font-size="12.5" font-weight="600" fill="#6B5D4F">no drops</text></g>
+        <rect x="40" y="248" width="880" height="34" rx="9" fill="#FFE08A" stroke="#2B2118" stroke-width="2.5"/>
+        <text x="480" y="271" text-anchor="middle" font-size="13.5" font-weight="700">feel-fast = first bite (TTFT) · real-fast = plates per hour (throughput) · word gaps = TPOT · trustworthy = success rate at a crowd of 100</text>
+      </svg>
+      <figcaption>Chapter 08a: the four KPIs. Every one has a target and a measurement recipe in RES-31 Section 04.</figcaption>
+    </figure>
+
+    <figure>
+      <svg viewBox="0 0 960 360" xmlns="http://www.w3.org/2000/svg" font-family="Fredoka,sans-serif">
+        <rect x="0" y="0" width="960" height="360" fill="#EAF0FA"/>
+        <text x="40" y="36" font-size="16.5" font-weight="700">Burger stands (pay per burger) vs the food truck (rent your own kitchen)</text>
+        <!-- stands -->
+        <g stroke="#2B2118" stroke-width="3">
+          <rect x="40"  y="60" width="180" height="86" rx="12" fill="#FFFDF6"/>
+          <rect x="240" y="60" width="180" height="86" rx="12" fill="#FFFDF6"/>
+          <rect x="40"  y="166" width="180" height="86" rx="12" fill="#FFFDF6"/>
+          <rect x="240" y="166" width="180" height="86" rx="12" fill="#FFFDF6"/>
+        </g>
+        <g font-size="13.5" font-weight="700">
+          <text x="130" y="88" text-anchor="middle">Qwen Flash</text>
+          <text x="330" y="88" text-anchor="middle">DeepSeek V3.2</text>
+          <text x="130" y="194" text-anchor="middle">GPT-4.1</text>
+          <text x="330" y="194" text-anchor="middle">Claude Sonnet</text>
+        </g>
+        <g font-size="12.5" font-weight="600" fill="#6B5D4F" text-anchor="middle">
+          <text x="130" y="110">$0.03 read · $0.13 write</text>
+          <text x="330" y="110">$0.28 read · $0.42 write</text>
+          <text x="130" y="216">$2.00 read · $8.00 write</text>
+          <text x="330" y="216">$3.00 read · $15.00 write</text>
+        </g>
+        <g font-size="11.5" font-weight="700" text-anchor="middle">
+          <text x="130" y="136" fill="#9A6A00">per MILLION words</text>
+          <text x="330" y="136" fill="#9A6A00">per MILLION words</text>
+          <text x="130" y="242" fill="#9A6A00">per MILLION words</text>
+          <text x="330" y="242" fill="#9A6A00">per MILLION words</text>
+        </g>
+        <!-- truck -->
+        <g stroke="#2B2118" stroke-width="3">
+          <rect x="520" y="70" width="240" height="120" rx="12" fill="#FFE08A"/>
+          <rect x="560" y="100" width="120" height="56" rx="8" fill="#FFFDF6"/>
+          <circle cx="570" cy="200" r="18" fill="#2B2118"/><circle cx="700" cy="200" r="18" fill="#2B2118"/>
+        </g>
+        <text x="620" y="92" text-anchor="middle" font-size="14.5" font-weight="700">YOUR OWN vLLM TRUCK</text>
+        <text x="620" y="134" text-anchor="middle" font-size="13" font-weight="600">an H100 counter</text>
+        <text x="620" y="154" text-anchor="middle" font-size="13" font-weight="600">≈ $1.73–4 per hour</text>
+        <text x="930" y="110" text-anchor="end" font-size="13.5" font-weight="700">fixed cost,</text>
+        <text x="930" y="130" text-anchor="end" font-size="13.5" font-weight="700">unlimited burgers,</text>
+        <text x="930" y="150" text-anchor="end" font-size="13.5" font-weight="700" fill="#D6493F">your secrets never leave.</text>
+        <!-- break-even road -->
+        <path d="M40 310 H 920" stroke="#2B2118" stroke-width="3"/>
+        <g stroke="#2B2118" stroke-width="2.5">
+          <line x1="300" y1="296" x2="300" y2="324" stroke="#D6493F"/>
+          <line x1="420" y1="296" x2="420" y2="324" stroke="#E8833A"/>
+          <line x1="660" y1="296" x2="660" y2="324" stroke="#E8833A"/>
+        </g>
+        <g font-size="11.5" font-weight="700">
+          <text x="306" y="286" fill="#D6493F">3.1K/mo → Claude</text>
+          <text x="426" y="286" fill="#E8833A">5K/mo → GPT-4.1</text>
+          <text x="666" y="286" fill="#E8833A">14.8K/mo → GPT-4.1 (24/7)</text>
+        </g>
+        <text x="40" y="344" font-size="13" font-weight="700" fill="#2A6F97">Honest catch: the budget stands (DeepSeek ~1¢, Qwen ~0.1¢ per task) are nearly unbeatable on price — rent the truck for SECRETS, not savings.</text>
+      </svg>
+      <figcaption>Chapter 08b: when does renting win? Around 3,100–5,000 work orders a month vs the big stands — or any time your code is a secret.</figcaption>
+    </figure>
+
+    <p>And the mapmaker's bill (Chapter 07)? Mapping SpecForge's entire recipe book — about 2,000 recipes — costs roughly half a million words, which at a burger stand is <b>one cent</b>. Which is why embeddings alone never justify buying a truck.</p>
+
+    <div class="box grown"><div class="t">Grown-up word</div>
+    <p><b>Throughput, TTFT, TPOT, success rate</b> — the four KPIs of the RES-31 dossier, Section 04, each with a target and a measurement recipe [E4][E5][E8]. Burger prices [E13], truck prices [E11], the task model and break-evens [A1–A4], the one-cent map [A6] — all computed in RES-31 Exhibit 05.</p></div>
+
+    <details class="quiz"><summary>Check yourself</summary><div class="qz">
+      <ol><li>Which number dominates how fast a website <i>feels</i>?</li><li>Roughly when does the truck beat GPT-4.1 burgers?</li><li>What reason beats any price for renting the truck?</li></ol>
+      <div class="ans"><b>Answers:</b> 1) TTFT — the wait for word #1. 2) Around 3,100–5,000 work orders a month (burst schedule). 3) Privacy: self-hosted = zero source code leaves the building.</div>
+    </div></details>
+
+    <div class="pn"><a href="#ch7">← Chapter 07</a><a href="#ch9">Chapter 09 — The great kitchen race →</a></div>
+  </div>
+</section>
+
+<!-- ═══════════════ CH 09 ═══════════════ -->
+<section class="ch reveal" id="ch9">
+  <div class="wrap">
+    <div class="ch-head"><span class="ch-num" style="background:var(--c9)">CHAPTER 09</span><h2>The great kitchen race</h2></div>
+    <div class="onesentence"><span class="t">In one sentence</span>vLLM is <b>not</b> the champion of everything — it is the most <b>balanced all-rounder</b>: near the front in almost every race, and the steadiest pick once you need a crowd, molds, and the universal plug.</div>
+
+    <figure>
+      <svg viewBox="0 0 960 470" xmlns="http://www.w3.org/2000/svg" font-family="Fredoka,sans-serif">
+        <rect x="0" y="0" width="960" height="470" fill="#E9ECF8"/>
+        <!-- lanes -->
+        <text x="40" y="36" font-size="16.5" font-weight="700">Seven racers, seven different favorite races</text>
+        <g stroke="#2B2118" stroke-width="2">
+          <line x1="40" y1="90"  x2="820" y2="90"/><line x1="40" y1="140" x2="820" y2="140"/><line x1="40" y1="190" x2="820" y2="190"/>
+          <line x1="40" y1="240" x2="820" y2="240"/><line x1="40" y1="290" x2="820" y2="290"/><line x1="40" y1="340" x2="820" y2="340"/>
+          <line x1="40" y1="390" x2="820" y2="390"/>
+        </g>
+        <!-- racers: car = rounded rect + wheels -->
+        <g stroke="#2B2118" stroke-width="2.5">
+          <rect x="640" y="62"  width="70" height="26" rx="8" fill="#2AA8B8"/><circle cx="660" cy="90" r="8" fill="#2B2118"/><circle cx="692" cy="90" r="8" fill="#2B2118"/>
+          <rect x="700" y="112" width="70" height="26" rx="8" fill="#57A65A"/><circle cx="720" cy="140" r="8" fill="#2B2118"/><circle cx="752" cy="140" r="8" fill="#2B2118"/>
+          <rect x="560" y="162" width="70" height="26" rx="8" fill="#E6A817"/><circle cx="580" cy="190" r="8" fill="#2B2118"/><circle cx="612" cy="190" r="8" fill="#2B2118"/>
+          <rect x="560" y="212" width="70" height="26" rx="8" fill="#7C5CBF"/><circle cx="580" cy="240" r="8" fill="#2B2118"/><circle cx="612" cy="240" r="8" fill="#2B2118"/>
+          <rect x="700" y="262" width="70" height="26" rx="8" fill="#D4577E"/><circle cx="720" cy="290" r="8" fill="#2B2118"/><circle cx="752" cy="290" r="8" fill="#2B2118"/>
+          <rect x="450" y="312" width="70" height="26" rx="8" fill="#9BA3B8"/><circle cx="470" cy="340" r="8" fill="#2B2118"/><circle cx="502" cy="340" r="8" fill="#2B2118"/>
+          <rect x="300" y="362" width="70" height="26" rx="8" fill="#D6493F"/><circle cx="320" cy="390" r="8" fill="#2B2118"/><circle cx="352" cy="390" r="8" fill="#2B2118"/>
+        </g>
+        <g font-size="13.5" font-weight="700">
+          <text x="40" y="82">Managed API — zero dishes, elastic… your recipes leave the house</text>
+          <text x="40" y="132">vLLM — the balanced all-rounder: crowd + molds + plug + embeddings</text>
+          <text x="40" y="182">llama.cpp — the pocket mechanic (molds built-in, runs anywhere)</text>
+          <text x="40" y="232">SGLang — the speed demon (~30% faster in one 2026 race)</text>
+          <text x="40" y="282">Ollama — the easy home kitchen (wobbles with crowds)</text>
+          <text x="40" y="332">TGI — the veteran</text>
+          <text x="40" y="382">TensorRT-LLM — the tuned race car (NVIDIA-only)</text>
+        </g>
+        <!-- scoreboard -->
+        <text x="40" y="428" font-size="15" font-weight="700">The SpecForge-weighted scoreboard:</text>
+        <text x="480" y="452" text-anchor="middle" font-family="IBM Plex Mono,monospace" font-size="12.5" font-weight="600">API 4.30 · vLLM 4.20 · llama.cpp 3.85 · SGLang/Ollama 3.55 · TRT 2.75</text>
+      </svg>
+      <figcaption>Chapter 09: "best" depends on which race you are running. Full scorecard with per-cell reasoning: RES-31 Section 08.</figcaption>
+    </figure>
+
+    <h3>So who wins WHICH race?</h3>
+    <table>
+      <tr><th>If you are…</th><th>Pick</th><th>Why</th></tr>
+      <tr><td><b>Just me, on my laptop, tonight</b></td><td>Ollama or llama.cpp</td><td>vLLM's superpowers are crowd superpowers; simple kitchens shine alone (45 ms first word!)</td></tr>
+      <tr><td><b>A team serving an app, or a batch job over a codebase</b></td><td>vLLM</td><td>Widest, steadiest; molds and the universal plug built in</td></tr>
+      <tr><td><b>Maximum raw speed, one big NVIDIA counter</b></td><td>SGLang (or TensorRT-LLM)</td><td>~30% faster in the 2026 race; the plug is standard, so swapping is cheap</td></tr>
+      <tr><td><b>Zero servers to care for, data may leave the house</b></td><td>Managed API</td><td>The scoreboard's honest winner for the default path</td></tr>
+      <tr><td><b>Secrets (private code)</b></td><td>Self-host → vLLM</td><td>Zero bytes leave the building — the reason price cannot touch</td></tr>
+    </table>
+
+    <div class="box grown"><div class="t">Grown-up word</div>
+    <p>Scorecard: RES-31 Section 08 [E19]. Race data: SGLang vs vLLM [E4], decode gaps [E5], vLLM vs TensorRT-LLM on B200 [E6], batch jobs [E7], Ollama under load [E8][E9], single-user TTFT [E10].</p></div>
+
+    <details class="quiz"><summary>Check yourself</summary><div class="qz">
+      <ol><li>Who is fastest in the 2026 speed race?</li><li>One curious kid, one laptop — which kitchen?</li><li>Why does managed API top the scoreboard despite the privacy downside?</li></ol>
+      <div class="ans"><b>Answers:</b> 1) SGLang (≈16,200 vs ≈12,500 words/sec in that race). 2) Ollama or llama.cpp. 3) "Zero dishes" beats most needs by default — but not when data is secret. Hence: conditional adopt.</div>
+    </div></details>
+
+    <div class="pn"><a href="#ch8">← Chapter 08</a><a href="#ch10">Chapter 10 — SpecForge →</a></div>
+  </div>
+</section>
+
+<!-- ═══════════════ CH 10 ═══════════════ -->
+<section class="ch reveal" id="ch10">
+  <div class="wrap">
+    <div class="ch-head"><span class="ch-num" style="background:var(--c10)">CHAPTER 10</span><h2>vLLM and SpecForge: two doors and a gift</h2></div>
+    <div class="onesentence"><span class="t">In one sentence</span>SpecForge is a <b>recipe-checker</b>, not a kitchen — so vLLM can only enter through <b>two side doors</b>, and the best move is a <b>gift</b>: publishing SpecForge's grammar as a mold so any vLLM kitchen writes perfect recipes automatically.</div>
+
+    <p>SpecForge turns messy human intentions into <b>.spec recipe files</b> — a strict, checkable format — and hands AI agents a clean, validated <b>map of the project</b> so they stop guessing. The checker itself is deliberately boring: parse, check, export. <b>No AI inside.</b> House Rule 7: "make it an extension, never a built-in." House Rule 8: "value in 60 seconds, zero setup." A GPU kitchen breaks both — so it can never live in the toolbox. But two side doors are wide open:</p>
+
+    <figure>
+      <svg viewBox="0 0 960 400" xmlns="http://www.w3.org/2000/svg" font-family="Fredoka,sans-serif">
+        <rect x="0" y="0" width="960" height="400" fill="#F6EEDA"/>
+        <!-- the house -->
+        <g stroke="#2B2118" stroke-width="3">
+          <rect x="40" y="120" width="240" height="180" fill="#FFFDF6"/>
+          <path d="M30 120 L160 40 L290 120 z" fill="#E8833A"/>
+          <rect x="120" y="220" width="80" height="80" fill="#D9A05B"/>
+        </g>
+        <text x="160" y="182" text-anchor="middle" font-size="14.5" font-weight="700">SPECFORGE</text>
+        <text x="160" y="200" text-anchor="middle" font-size="11.5" font-weight="600" fill="#6B5D4F">the checker: parse · check · export</text>
+        <rect x="52" y="134" width="216" height="26" rx="8" fill="#D6493F"/>
+        <text x="160" y="153" text-anchor="middle" font-size="12" font-weight="700" fill="#fff">NO KITCHEN INSIDE! (Rule 7 &amp; 8)</text>
+        <!-- door 1 -->
+        <g stroke="#2B2118" stroke-width="3">
+          <rect x="360" y="110" width="180" height="130" rx="12" fill="#DCEEEB"/>
+        </g>
+        <text x="450" y="140" text-anchor="middle" font-size="14.5" font-weight="700">DOOR 1 — the mapmaker</text>
+        <text x="450" y="162" text-anchor="middle" font-size="12" font-weight="600" fill="#6B5D4F">a wall socket called</text>
+        <text x="450" y="178" text-anchor="middle" font-size="12" font-weight="600" fill="#6B5D4F">EmbeddingProvider:</text>
+        <text x="450" y="196" text-anchor="middle" font-size="12" font-weight="600" fill="#6B5D4F">"plug ANY meaning-map</text>
+        <text x="450" y="212" text-anchor="middle" font-size="12" font-weight="600" fill="#6B5D4F">maker here"</text>
+        <text x="450" y="234" text-anchor="middle" font-size="12.5" font-weight="700" fill="#2A6F97">for teams with secrets</text>
+        <path d="M290 190 H 356" stroke="#2B2118" stroke-width="3" stroke-dasharray="6 5" marker-end="url(#a10)" fill="none"/>
+        <defs><marker id="a10" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="#2B2118"/></marker></defs>
+        <!-- door 2 -->
+        <g stroke="#2B2118" stroke-width="3">
+          <rect x="580" y="110" width="180" height="130" rx="12" fill="#FBF0CE"/>
+        </g>
+        <text x="670" y="140" text-anchor="middle" font-size="14.5" font-weight="700">DOOR 2 — the big batch</text>
+        <text x="670" y="162" text-anchor="middle" font-size="12" font-weight="600" fill="#6B5D4F">thousands of file-sized</text>
+        <text x="670" y="178" text-anchor="middle" font-size="12" font-weight="600" fill="#6B5D4F">work orders (specforge infer)</text>
+        <text x="670" y="196" text-anchor="middle" font-size="12" font-weight="600" fill="#6B5D4F">run the agent's brain in</text>
+        <text x="670" y="212" text-anchor="middle" font-size="12" font-weight="600" fill="#6B5D4F">YOUR vLLM kitchen</text>
+        <text x="670" y="234" text-anchor="middle" font-size="12.5" font-weight="700" fill="#9A6A00">3.1–5K orders/mo → wins</text>
+        <path d="M290 248 C 420 296, 520 296, 578 232" stroke="#2B2118" stroke-width="3" stroke-dasharray="6 5" marker-end="url(#a10)" fill="none"/>
+        <!-- the gift -->
+        <g stroke="#2B2118" stroke-width="3">
+          <rect x="810" y="120" width="120" height="96" rx="10" fill="#FFE08A"/>
+          <line x1="870" y1="120" x2="870" y2="216"/>
+          <line x1="810" y1="168" x2="930" y2="168"/>
+          <path d="M862 112 q8 -16 16 0 q8 -16 16 0" fill="none"/>
+        </g>
+        <text x="870" y="150" text-anchor="middle" font-size="12" font-weight="700">the GIFT:</text>
+        <text x="870" y="166" text-anchor="middle" font-size="11.5" font-weight="700">specforge.gbnf</text>
+        <text x="870" y="186" text-anchor="middle" font-size="11" font-weight="600" fill="#6B5D4F">the rulebook as a mold</text>
+        <text x="870" y="200" text-anchor="middle" font-size="11" font-weight="600" fill="#6B5D4F">zero GPUs needed</text>
+        <!-- before/after strip -->
+        <rect x="40" y="300" width="880" height="36" rx="9" fill="#F9E0DE" stroke="#2B2118" stroke-width="2.5"/>
+        <text x="480" y="323" text-anchor="middle" font-size="13.5" font-weight="700" fill="#D6493F">BEFORE: robot writes recipe → syntax oops → error → retry → retry… (each round trip costs time + money)</text>
+        <rect x="40" y="348" width="880" height="36" rx="9" fill="#E1F0E2" stroke="#2B2118" stroke-width="2.5"/>
+        <text x="480" y="371" text-anchor="middle" font-size="13.5" font-weight="700" fill="#2F7D46">AFTER: with the mold, every recipe FITS the format, guaranteed → specforge check judges the meaning → done</text>
+      </svg>
+      <figcaption>Chapter 10: the checker stays boring; the mold turns SpecForge from "catches mistakes" into "prevents them" — for every agent on Earth, at the cost of one file.</figcaption>
+    </figure>
+
+    <h3>Why the gift beats the doors</h3>
+    <p>It costs <b>zero GPUs</b>. It helps <b>every agent in the world</b>, not just teams with big machines. It is vendor-neutral (any kitchen that speaks molds — vLLM, SGLang, llama.cpp — can use it). And it follows the house rules: the mold is an <b>artifact the extension ships</b>, not engine code inside the compiler.</p>
+    <p>One honest caveat, so you learn to think like an engineer: the mold guarantees <b>shape</b>, never <b>sense</b> — and mold-writing can slightly shift <i>which</i> legal words the robot picks. So the grown-up dossier gates the gift on a measured trial (500 generations, 100% must parse clean) before calling it "recommended" instead of "experimental". Guessing is not measuring.</p>
+
+    <div class="box grown"><div class="t">Grown-up word</div>
+    <p>Door 1 = an adapter behind the <code>EmbeddingProvider</code> port (<code>spec/extensions/embeddings/ports.spec</code>). Door 2 = a self-hosting guide for <code>specforge infer</code> batches. The gift = the generation-side grammar from <code>crates/tree-sitter-specforge/grammar.js</code> — the mirror of RES-29's parsing grammars. Verdict: <b>conditional adopt</b> — RES-31 Sections 05–09.</p></div>
+
+    <details class="quiz"><summary>Check yourself</summary><div class="qz">
+      <ol><li>Why can vLLM never live <i>inside</i> SpecForge's compiler?</li><li>What are the two doors, and who is each for?</li><li>What does the mold guarantee, and what does it NOT?</li></ol>
+      <div class="ans"><b>Answers:</b> 1) House rules 7 &amp; 8: extensions over built-ins; value in 60 seconds with zero setup — a GPU kitchen breaks both. 2) Door 1: meaning-search for teams with private recipes. Door 2: self-hosted kitchens for big infer batches — privacy, then price. 3) Shape (it always parses), not sense (<code>specforge check</code> judges meaning).</div>
+    </div></details>
+
+    <div class="pn"><a href="#ch9">← Chapter 09</a><a href="#top" onclick="scrollTo({top:0,behavior:'smooth'});return false">Back to the top ↑</a></div>
+  </div>
+</section>
+
+<footer class="wrap">
+  <p><b>vLLM Explained</b> — the kid-friendly companion to the engineering dossier. For the charts, prices,
+  scorecards, assumptions register, and full evidence index, read
+  <a href="../RES-31-vllm-inference-evaluation.html" style="font-weight:700">RES-31 — vLLM Inference Evaluation</a>.
+  Markdown edition: the numbered files next to this one. Part of SpecForge research · 2026-09-23.</p>
+</footer>
+
+<script>
+  const bar = document.getElementById('progress');
+  addEventListener('scroll', () => {
+    const h = document.documentElement;
+    bar.style.width = (h.scrollTop / (h.scrollHeight - h.clientHeight) * 100) + '%';
+  }, {passive: true});
+  // reveal — scroll-checked (observer misses teleport/fast jumps)
+  const reveal = () => {
+    const lim = innerHeight * 0.92;
+    document.querySelectorAll('.reveal:not(.in)').forEach(el => {
+      if (el.getBoundingClientRect().top < lim) el.classList.add('in');
+    });
+  };
+  addEventListener('scroll', reveal, {passive: true});
+  reveal();
+</script>
+</body>
+</html>

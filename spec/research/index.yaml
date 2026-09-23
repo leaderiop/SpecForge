@@ -115,3 +115,15 @@ entries:
     priority: critical
     date: 2026-03-07
     depends_on: [RES-11a, RES-23, RES-26]
+  - id: RES-31
+    file: RES-31-vllm-inference-evaluation.html
+    title: "vLLM Inference Evaluation — Conditional Adoption at Two Integration Surfaces"
+    status: active
+    date: 2026-09-23
+    depends_on: [RES-18, RES-29]
+  - id: RES-31a
+    file: vLLM/README.md
+    title: "vLLM Explained — A Kid-Friendly Tutorial Series (10 chapters)"
+    status: active
+    date: 2026-09-23
+    depends_on: [RES-31]
