@@ -1,0 +1,65 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>103 Michael A. Jackson — SpecForge audit review</title>
+<link rel="stylesheet" href="../css/report.css"><link rel="stylesheet" href="../css/agents.css"></head><body>
+<header class="agent-hero"><div class="brand"><div class="logo">103</div><div>
+<h1>Michael A. Jackson</h1>
+<div class="crumbs">Cluster C12 — Requirements engineering, ubiquitous language &amp; docs-as-code (self-spec corpus) · Problem Frames; JSP — describe the problem before the solution · profile <code>.agents/103-michael-jackson.md</code></div></div></div>
+<div class="links"><a href="../index.html">← Full report</a><a href="../../.agents/103-michael-jackson.md">Profile source</a></div></header>
+<main class="agent-main">
+<nav class="agent-nav"><a href="102.html">← 102</a><a href="104.html">104 →</a></nav>
+<div class="review-panel"><div class="review-text"><h2>Auditor review</h2><p>Jackson would praise the problem-frame separation — features state problems, behaviors state the machine&#x27;s solution, and the spec machine is described in its own language. But he would object that solution prose leaks inventory digits (26 query methods) from the machine into the problem narrative, contaminating the domain description with facts that rot. He would also want the wasm build assumption stated as part of the problem-world context, not left implicit. Otherwise: the frame discipline here is rare and real.</p></div>
+<div class="mini-kpis">
+<div class="mini-kpi"><div class="k">Findings</div><div class="v">1</div></div>
+<div class="mini-kpi good"><div class="k">Critical + high</div><div class="v">0</div></div>
+<div class="mini-kpi"><div class="k">Evidence items</div><div class="v">2</div></div>
+<div class="mini-kpi"><div class="k">Effort mix</div><div class="v" style="font-size:14px">S</div></div>
+</div></div>
+<article class="finding-detail sev-medium" id="f-C12-07">
+<div class="head"><h2>Solution prose leaks machine counts into the problem domain — numbers that will rot silently</h2><span class="chip medium">medium</span><span class="fid">C12-07</span></div>
+<div class="meta-row"><span class="engineer">103 Michael A. Jackson</span><span class="chip neutral">effort S</span><span class="chip neutral">moves: root_extension_declaration_coverage</span></div>
+<div class="evidence"><b>Evidence</b><span class="ev"><code>spec/product/features.spec:14-83</code> — solutions cite &#x27;9 entity kinds, 16 edge types&#x27;, &#x27;26 query methods&#x27;, &#x27;16 CLI commands&#x27;, &#x27;47 declarative validation rules&#x27;, &#x27;55 diagnostic codes&#x27; — counters duplicated from manifests with no linkage</span><span class="ev"><code>spec/governance/decisions.spec:252-289</code> — config_driven_kind_registry ADR explicitly warns kind sets change; the counters contradict that fluidity</span></div>
+<p class="details">The problem/solution prose in spec/product/features.spec hard-codes inventory numbers — &#x27;9 entity kinds, 16 edge types&#x27;, &#x27;26 query methods&#x27;, &#x27;16 CLI commands&#x27;, &#x27;47 declarative validation rules&#x27;, &#x27;55 diagnostic codes&#x27; — duplicated from manifests with zero linkage. ADR config_driven_kind_registry explicitly establishes that kind sets change as extensions load, so every one of these digits is a promise the architecture says will be broken; when the 17th CLI command ships, the prose lies silently and no diagnostic fires. Solution prose should reference the entities (&#x27;the kinds registered by the manifest&#x27;), not quote counters that belong to the registry.</p>
+<div class="snippet before"><span class="cap">before — current code</span><pre><code>  problem   &quot;&quot;&quot;
+    The compiler has no knowledge of product planning concepts until
+    @specforge/product registers its 9 entity kinds, 16 edge types,
+    field definitions, and validation rules.
+  &quot;&quot;&quot;
+  solution  &quot;&quot;&quot;
+    A comprehensive ManifestV2 declaration provides all entity kinds with
+    testability flags, LSP metadata, DOT shapes, typed field definitions
+    with edge mappings, and declarative validation rules. Registration
+    follows the zero-entity core protocol.
+  &quot;&quot;&quot;</code></pre><div class="file">spec/product/features.spec:14-23</div></div>
+<div class="arrow-between">↓ fix ↓</div>
+<div class="snippet after"><span class="cap">after — proposed fix</span><pre><code>  problem   &quot;&quot;&quot;
+    The compiler has no knowledge of product planning concepts until
+    @specforge/product registers its entity kinds, edge types,
+    field definitions, and validation rules.
+  &quot;&quot;&quot;
+  solution  &quot;&quot;&quot;
+    A comprehensive ManifestV2 declaration provides all entity kinds with
+    testability flags, LSP metadata, DOT shapes, typed field definitions
+    with edge mappings, and declarative validation rules. Registration
+    follows the zero-entity core protocol.
+  &quot;&quot;&quot;</code></pre><div class="file">spec/product/features.spec:14-22</div></div>
+<div class="diagram-box"><span class="cap">Digits rot in solution prose</span><div class="mermaid" id="dg-103-C12-07"><pre>flowchart TD
+ A[manifest defines 9 kinds] --&gt; B[prose quotes 9 and 16]
+ A --&gt; C[extension adds a kind]
+ C --&gt; D[manifest now 10]
+ D --&gt; E[prose still says 9]
+ E --&gt; F[silent lie no diagnostic]
+ B --&gt; G[rewrite prose without counts]
+ G --&gt; H[refer to manifest entities]
+ H --&gt; I[prose cannot rot]</pre></div></div><script type="text/plain" class="mermaid-src" data-target="dg-103-C12-07">flowchart TD
+ A[manifest defines 9 kinds] --> B[prose quotes 9 and 16]
+ A --> C[extension adds a kind]
+ C --> D[manifest now 10]
+ D --> E[prose still says 9]
+ E --> F[silent lie no diagnostic]
+ B --> G[rewrite prose without counts]
+ G --> H[refer to manifest entities]
+ H --> I[prose cannot rot]</script>
+<div class="eli10"><span class="tag">Explain like I'm 10</span><p>The &#x27;why we built it&#x27; paragraphs quote exact inventory numbers, like explaining why you bought a shelf by saying it holds exactly 26 books. Buy one more book and the sentence is a lie — and nothing flags it. Say &#x27;the whole collection&#x27;, not &#x27;26 books&#x27;.</p></div>
+<p class="sol" style="margin-top:12px"><b>Proposed solution.</b> Replace literal counts in problem/solution prose with references to the manifest entities (or drop them); a lint that warns on digits in solution prose would catch future rot.</p>
+</article>
+</main><script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.1/dist/mermaid.min.js" onerror="window.__mermaidFailed=true"></script><script src="../js/agent.js"></script></body></html>

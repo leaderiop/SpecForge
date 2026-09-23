@@ -1,0 +1,166 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>014 Patrick Thomson — SpecForge audit review</title>
+<link rel="stylesheet" href="../css/report.css"><link rel="stylesheet" href="../css/agents.css"></head><body>
+<header class="agent-hero"><div class="brand"><div class="logo">014</div><div>
+<h1>Patrick Thomson</h1>
+<div class="crumbs">Cluster C3 — Parsing &amp; grammar infrastructure · stack-graphs creator at GitHub — precise, incremental name resolution · profile <code>.agents/014-patrick-thomson.md</code></div></div></div>
+<div class="links"><a href="../index.html">← Full report</a><a href="../../.agents/014-patrick-thomson.md">Profile source</a></div></header>
+<main class="agent-main">
+<nav class="agent-nav"><a href="013.html">← 013</a><a href="015.html">015 →</a></nav>
+<div class="review-panel"><div class="review-text"><h2>Auditor review</h2><p>Patrick Thomson here: compute_file_scopes builds real per-file declared/exported sets and then link_references ignores them — that&#x27;s a guest list written for every room and a guard who never reads it. Flat global resolution is fine for a prototype, but unimported names linking silently means misspellings pass whenever they collide anywhere in the corpus. I&#x27;d start with the visible-set fix (it&#x27;s mostly mechanical), carry kind through PendingEdge while you&#x27;re in there, and keep stack-graphs in mind as the destination.</p></div>
+<div class="mini-kpis">
+<div class="mini-kpi"><div class="k">Findings</div><div class="v">2</div></div>
+<div class="mini-kpi bad"><div class="k">Critical + high</div><div class="v">1</div></div>
+<div class="mini-kpi"><div class="k">Evidence items</div><div class="v">3</div></div>
+<div class="mini-kpi"><div class="k">Effort mix</div><div class="v" style="font-size:14px">L · M</div></div>
+</div></div>
+<article class="finding-detail sev-high" id="f-C3-06">
+<div class="head"><h2>link_references flat and scope-blind; file_scopes/import model computed then ignored</h2><span class="chip high">high</span><span class="fid">C3-06</span></div>
+<div class="meta-row"><span class="engineer">014 Patrick Thomson</span><span class="chip neutral">effort L</span><span class="chip neutral">moves: Scope-aware resolution</span></div>
+<div class="evidence"><b>Evidence</b><span class="ev"><code>linker.rs:48-100</code> — global entity_ids over all files; file_scopes/import_targets never read; kind-blind</span><span class="ev"><code>resolve.rs:459-531</code> — compute_file_scopes builds declared/exported incl. transitive pub-use; unused downstream</span></div>
+<p class="details">link_references in specforge-resolver/src/linker.rs builds one global entity_ids map across every file in the project and tests membership in it — visibility is ignored entirely. Meanwhile resolve.rs:459-531 compute_file_scopes already builds per-file declared/exported sets including transitive pub-use re-exports, but the linker never reads them, so `use` statements have zero effect on whether a reference resolves. A spec that references an entity defined only in a file it never imports links cleanly, and a genuine misspelling that happens to collide with any name anywhere in the corpus also passes. The fix is to compute a per-file visible set (declared + exported of import targets, selective imports adding only bound names) and emit E003 for names outside it, optionally downgrading out-of-import but globally-defined resolutions to a warning — the natural stepping stone toward stack-graphs semantics.</p>
+<div class="snippet before"><span class="cap">before — current code</span><pre><code>    // Build entity index: id -&gt; (file, kind) for the first occurrence.
+    // Detect cross-file duplicate entity IDs and emit a diagnostic.
+    let mut entity_ids: HashMap&lt;Sym, ()&gt; = HashMap::new();
+    let mut id_first_seen: HashMap&lt;Sym, (&amp;str, Sym)&gt; = HashMap::new();
+    for file in &amp;project.files {
+        for entity in &amp;file.spec_file.entities {
+            if let Some(&amp;(first_file, first_kind)) = id_first_seen.get(&amp;entity.id.raw) {
+                // Same (kind, id) duplicates are caught by build.rs as E002.
+                // Here we detect cross-file same-ID occurrences and warn
+                // only when the first occurrence was in a *different* file,
+                // to avoid double-reporting with the graph builder&#x27;s E002.</code></pre><div class="file">crates/specforge-resolver/src/linker.rs:50-75</div></div>
+<div class="arrow-between">↓ fix ↓</div>
+<div class="snippet after"><span class="cap">after — proposed fix</span><pre><code>pub fn link_references(project: &amp;ResolvedProject) -&gt; (Vec&lt;PendingEdge&gt;, Vec&lt;Diagnostic&gt;) {
+    let mut edges = Vec::new();
+    let mut diagnostics = Vec::new();
+
+    // Global index for close-match suggestions and out-of-import warnings.
+    let mut entity_ids: HashMap&lt;Sym, ()&gt; = HashMap::new();
+    let mut id_first_seen: HashMap&lt;Sym, (&amp;str, Sym)&gt; = HashMap::new();
+    for file in &amp;project.files {
+        for entity in &amp;file.spec_file.entities {
+            // ... W063 duplicate detection unchanged ...
+            entity_ids.insert(entity.id.raw, ());
+        }
+    }
+
+    // Per-file visibility: declared + exported sets of import targets.
+    // compute_file_scopes already builds declared/exported incl. pub-use.
+    let visible: HashMap&lt;&amp;str, HashSet&lt;Sym&gt;&gt; = project
+        .files
+        .iter()
+        .map(|file| {
+            let mut set: HashSet&lt;Sym&gt; = file
+                .spec_file
+                .entities
+                .iter()
+                .map(|e| e.id.raw)
+                .collect();
+            for import in &amp;file.imports {
+                if let Some(scope) = scopes.get(import.path.as_str()) {
+                    set.extend(scope.exported.iter().map(|s| Sym::new(s)));
+                }
+            }
+            (file.path.as_str(), set)
+        })
+        .collect();
+
+    for file in &amp;project.files {
+        let visible = &amp;visible[file.path.as_str()];
+        for entity in &amp;file.spec_file.entities {
+            for entry in entity.fields.entries() {
+                if let FieldValue::ReferenceList(refs) = &amp;entry.value {
+                    for target_id in refs {
+                        let target_sym = Sym::new(target_id);
+                        if visible.contains(&amp;target_sym) {
+                            edges.push(PendingEdge { source: entity.id.raw, target: target_sym, label: entry.key });
+                        } else if entity_ids.contains_key(&amp;target_sym) {
+                            // defined somewhere, but not visible here
+                            diagnostics.push(warn_not_imported(entity, target_id, entry.key));
+                        } else {
+                            diagnostics.push(unresolved_e003(entity, target_id, entry.key, &amp;entity_ids));
+                        }
+                    }
+                }
+            }
+        }
+    }
+    (edges, diagnostics)
+}</code></pre><div class="file">crates/specforge-resolver/src/linker.rs</div></div>
+<div class="diagram-box"><span class="cap">Scope-blind resolution</span><div class="mermaid" id="dg-014-C3-06"><pre>flowchart TD
+ A[reference in file A] --&gt; B{global id map contains target}
+ B -- yes --&gt; C[edge created]
+ C --&gt; D[file A never imported target]
+ D --&gt; E[unimported name silently links]
+ A --&gt; F[fix visible set per file]
+ F --&gt; G{target in declared plus imported exports}
+ G -- yes --&gt; C
+ G -- no and defined elsewhere --&gt; H[W not-imported warning]
+ G -- no --&gt; I[E003 with suggestion]</pre></div></div><script type="text/plain" class="mermaid-src" data-target="dg-014-C3-06">flowchart TD
+ A[reference in file A] --> B{global id map contains target}
+ B -- yes --> C[edge created]
+ C --> D[file A never imported target]
+ D --> E[unimported name silently links]
+ A --> F[fix visible set per file]
+ F --> G{target in declared plus imported exports}
+ G -- yes --> C
+ G -- no and defined elsewhere --> H[W not-imported warning]
+ G -- no --> I[E003 with suggestion]</script>
+<div class="eli10"><span class="tag">Explain like I'm 10</span><p>Guest lists written for every room, then the guard ignores them — unimported names silently resolve and misspellings pass.</p></div>
+<p class="sol" style="margin-top:12px"><b>Proposed solution.</b> Per-file visible set = declared + exported-of-import-targets (selective adds only bound names); E003 outside it, W-level for out-of-import resolutions; step toward stack-graphs semantics.</p>
+</article>
+<article class="finding-detail sev-medium" id="f-C3-07">
+<div class="head"><h2>E003 span is whole entity, kind-blind; W063 only same-kind cross-file</h2><span class="chip medium">medium</span><span class="fid">C3-07</span></div>
+<div class="meta-row"><span class="engineer">014 Patrick Thomson</span><span class="chip neutral">effort M</span><span class="chip neutral">moves: Scope-aware resolution</span></div>
+<div class="evidence"><b>Evidence</b><span class="ev"><code>linker.rs:17-46,60-99</code> — span=entity.span; lexical suggestions; PendingEdge has no kind; cross-kind dup ids silent</span></div>
+<p class="details">Every E003 in linker.rs carries span: entity.span.clone() — the whole entity_block — so an LSP squiggle covers dozens of lines instead of the offending identifier token. PendingEdge and the dup-detection logic are kind-blind: PendingEdge { source, target, label } carries no kind, and id_first_seen only warns (W063) when first_kind == entity.kind.raw, so a `behavior x` in one file and an invariant x in another silently coexist in the index and cross-kind references resolve to whichever entity the graph builder picked. Keeping per-token spans is cheap: the parser already walks reference entries and could retain each identifier node&#x27;s SourceSpan (parse_list builds item spans for other field kinds). Carrying kind on PendingEdge and in the id index would let the linker warn on cross-kind collisions instead of silently merging them.</p>
+<div class="snippet before"><span class="cap">before — current code</span><pre><code>#[derive(Debug, Clone, Copy)]
+pub struct PendingEdge {
+    pub source: Sym,
+    pub target: Sym,
+    pub label: Sym,
+}</code></pre><div class="file">crates/specforge-resolver/src/linker.rs:5-11</div></div>
+<div class="arrow-between">↓ fix ↓</div>
+<div class="snippet after"><span class="cap">after — proposed fix</span><pre><code>#[derive(Debug, Clone, Copy)]
+pub struct PendingEdge {
+    pub source: Sym,
+    pub target: Sym,
+    pub label: Sym,
+    /// Kind of the referencing entity, for kind-aware conflict reporting.
+    pub source_kind: Sym,
+}
+
+// E003 points at the exact reference token, not the whole entity:
+// the parser retains each reference identifier&#x27;s SourceSpan alongside
+// the target id (mirroring how parse_list keeps item spans), so the
+// linker can report:
+diagnostics.push(Diagnostic {
+    code: &quot;E003&quot;.to_string(),
+    severity: Severity::Error,
+    message: format!(
+        &quot;unresolved reference &#x27;{}&#x27; in entity &#x27;{}&#x27;&quot;,
+        target_id, entity.id.raw
+    ),
+    span: Some(ref_span.clone()), // was entity.span.clone()
+    suggestion: suggestion.map(|s| format!(&quot;did you mean &#x27;{}&#x27;?&quot;, s)),
+});</code></pre><div class="file">crates/specforge-resolver/src/linker.rs</div></div>
+<div class="diagram-box"><span class="cap">Span and kind blindness</span><div class="mermaid" id="dg-014-C3-07"><pre>flowchart TD
+ A[unresolved ref inside 40-line entity] --&gt; B[E003 span whole entity]
+ B --&gt; C[squiggle useless for agent]
+ A --&gt; D[cross-kind same id] --&gt; E[index merges silently]
+ E --&gt; F[edge points at wrong entity]
+ A --&gt; G[parser keeps per-ref token span]
+ G --&gt; H[E003 points at exact identifier]
+ D --&gt; I[edge carries kind] --&gt; J[cross-kind collision warns]</pre></div></div><script type="text/plain" class="mermaid-src" data-target="dg-014-C3-07">flowchart TD
+ A[unresolved ref inside 40-line entity] --> B[E003 span whole entity]
+ B --> C[squiggle useless for agent]
+ A --> D[cross-kind same id] --> E[index merges silently]
+ E --> F[edge points at wrong entity]
+ A --> G[parser keeps per-ref token span]
+ G --> H[E003 points at exact identifier]
+ D --> I[edge carries kind] --> J[cross-kind collision warns]</script>
+<div class="eli10"><span class="tag">Explain like I'm 10</span><p>Highlights the whole paragraph, not the wrong word; a behavior ref can link to a same-named form.</p></div>
+<p class="sol" style="margin-top:12px"><b>Proposed solution.</b> Keep item spans in parse_list; point E003 at exact token; carry kind and warn on cross-kind collisions.</p>
+</article>
+</main><script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.1/dist/mermaid.min.js" onerror="window.__mermaidFailed=true"></script><script src="../js/agent.js"></script></body></html>

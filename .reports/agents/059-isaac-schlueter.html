@@ -1,0 +1,111 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>059 Isaac Schlueter — SpecForge audit review</title>
+<link rel="stylesheet" href="../css/report.css"><link rel="stylesheet" href="../css/agents.css"></head><body>
+<header class="agent-hero"><div class="brand"><div class="logo">059</div><div>
+<h1>Isaac Schlueter</h1>
+<div class="crumbs">Cluster C8 — Registries, packaging &amp; supply-chain trust · npm creator — registry UX and lockfile model · profile <code>.agents/059-isaac-schlueter.md</code></div></div></div>
+<div class="links"><a href="../index.html">← Full report</a><a href="../../.agents/059-isaac-schlueter.md">Profile source</a></div></header>
+<main class="agent-main">
+<nav class="agent-nav"><a href="058.html">← 058</a><a href="060.html">060 →</a></nav>
+<div class="review-panel"><div class="review-text"><h2>Auditor review</h2><p>The credentials model looks right on paper — auth methods, clear diagnostics — but it is theater: install resolves against registries.first() instead of the scope-routed registry, and the token file is written 0644. Route through find_registry_for_specifier, chmod 0600 before first write, prefer the env token, and delete or honestly implement the self-comparison peer check.</p></div>
+<div class="mini-kpis">
+<div class="mini-kpi"><div class="k">Findings</div><div class="v">2</div></div>
+<div class="mini-kpi good"><div class="k">Critical + high</div><div class="v">0</div></div>
+<div class="mini-kpi"><div class="k">Evidence items</div><div class="v">0</div></div>
+<div class="mini-kpi"><div class="k">Effort mix</div><div class="v" style="font-size:14px">M · S</div></div>
+</div></div>
+<article class="finding-detail sev-medium" id="f-C8-04">
+<div class="head"><h2>`specforge add` resolves ranges against registries.first() instead of the scope-routed registry; login tokens stored plaintext 0644</h2><span class="chip medium">medium</span><span class="fid">C8-04</span></div>
+<div class="meta-row"><span class="engineer">059 Isaac Schlueter</span><span class="chip neutral">effort S</span><span class="chip neutral">moves: scope_routing_correctness</span></div>
+<p class="details">The install side resolves ranges against registries.first() instead of find_registry_for_specifier, which exists and is already used by publish; and write_credentials uses plain fs::write so bearer tokens land world-readable 0644. Fix routing and file permissions plus env-var preference.</p>
+<div class="snippet before"><span class="cap">before — current code</span><pre><code>    let json = serde_json::to_string_pretty(store).map_err(|e| Diagnostic {
+        code: &quot;R013&quot;.to_string(),
+        severity: Severity::Error,
+        message: format!(&quot;failed to serialize credentials: {}&quot;, e),
+        span: None,
+        suggestion: None,
+    })?;
+
+    std::fs::write(path, json).map_err(|e| Diagnostic {</code></pre><div class="file">crates/specforge-registry/src/client/credentials.rs:89-99</div></div>
+<div class="arrow-between">↓ fix ↓</div>
+<div class="snippet after"><span class="cap">after — proposed fix</span><pre><code>    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        std::fs::set_permissions(path, std::fs::Permissions::from_mode(0o600))
+            .map_err(|e| Diagnostic { code: &quot;R013&quot;.into(), .. })?;
+    }
+    std::fs::write(path, json).map_err(|e| Diagnostic { .. })
+}
+
+// install path: route via find_registry_for_specifier, not registries.first()</code></pre><div class="file">crates/specforge-registry/src/client/credentials.rs</div></div>
+<div class="diagram-box"><span class="cap">Scope routing ignored and tokens world-readable</span><div class="mermaid" id="dg-059-C8-04"><pre>flowchart TD
+ A[add scoped pkg] --&gt; B[uses registries first]
+ B --&gt; C[wrong registry queried]
+ D[credentials.json] --&gt; E[0644 world readable]
+ F[fix] --&gt; G[find_registry_for_specifier]
+ F --&gt; H[mode 0600 and env var preferred]</pre></div></div><script type="text/plain" class="mermaid-src" data-target="dg-059-C8-04">flowchart TD
+ A[add scoped pkg] --> B[uses registries first]
+ B --> C[wrong registry queried]
+ D[credentials.json] --> E[0644 world readable]
+ F[fix] --> G[find_registry_for_specifier]
+ F --> H[mode 0600 and env var preferred]</script>
+<div class="eli10"><span class="tag">Explain like I'm 10</span><p>You told the delivery app that Acme boxes go to the Acme warehouse, but one button just tosses the box at the nearest warehouse. And the warehouse key is taped to the front door in plain sight.</p></div>
+<p class="sol" style="margin-top:12px"><b>Proposed solution.</b> Route range resolution through find_registry_for_specifier; set 0600 on credentials.json (unix) and prefer env-var credentials by default.</p>
+</article>
+<article class="finding-detail sev-medium" id="f-C8-05">
+<div class="head"><h2>Lockfile peer-dependency check is a stub that compares an entry against itself; lockfile records no dependency edges</h2><span class="chip medium">medium</span><span class="fid">C8-05</span></div>
+<div class="meta-row"><span class="engineer">059 Isaac Schlueter</span><span class="chip neutral">effort M</span><span class="chip neutral">moves: lockfile_fidelity</span></div>
+<p class="details">run_doctor_check fills PeerMismatch with peer equal to name and compares the installed-versions map against the lockfile itself, so it can never detect a real cross-package conflict; LockFileEntry records no peer edges. Implement from lockfile-recorded peer ranges or delete the variant and its test.</p>
+<div class="snippet before"><span class="cap">before — current code</span><pre><code>    // Check peer dependencies using semver-like comparison
+    for entry in &amp;lock.entries {
+        // Simple check: look for peer dependency entries referencing other extensions
+        // In a real implementation, this would parse ManifestV2 peer_dependencies
+        // For now, we check if all lock file entries have matching installed versions
+        if let Some(version) = installed_versions.get(&amp;entry.name)
+            &amp;&amp; version != &amp;entry.version
+        {
+            results.push(DoctorStatus::PeerMismatch {
+                name: entry.name.clone(),
+                peer: entry.name.clone(),
+                required: entry.version.clone(),
+            });
+        }
+    }</code></pre><div class="file">crates/specforge-wasm/src/lock_file.rs:120-133</div></div>
+<div class="arrow-between">↓ fix ↓</div>
+<div class="snippet after"><span class="cap">after — proposed fix</span><pre><code>// LockFileEntry gains:
+    #[serde(default, skip_serializing_if = &quot;Vec::is_empty&quot;)]
+    pub resolved_peers: Vec&lt;ResolvedPeer&gt;,
+
+// doctor: real cross-check from lockfile edges
+    for entry in &amp;lock.entries {
+        for peer in &amp;entry.resolved_peers {
+            let ok = lock.entries.iter().find(|e| e.name == peer.name)
+                .and_then(|i| Version::parse(&amp;i.version).ok())
+                .and_then(|v| VersionReq::parse(&amp;peer.required).ok().map(|r| r.matches(&amp;v)))
+                .unwrap_or(false);
+            if !ok {
+                results.push(DoctorStatus::PeerMismatch {
+                    name: entry.name.clone(),
+                    peer: peer.name.clone(),
+                    required: peer.required.clone(),
+                });
+            }
+        }
+    }</code></pre><div class="file">crates/specforge-wasm/src/lock_file.rs</div></div>
+<div class="diagram-box"><span class="cap">Doctor peer check is a self-comparison stub</span><div class="mermaid" id="dg-059-C8-05"><pre>flowchart TD
+ A[doctor peer check] --&gt; B[entry compared to itself]
+ B --&gt; C[peer equals name]
+ C --&gt; D[never flags real conflict]
+ E[fix] --&gt; F[record resolved peers]
+ F --&gt; G[cross-check edges]
+ G --&gt; H[PeerMismatch names actual peer]</pre></div></div><script type="text/plain" class="mermaid-src" data-target="dg-059-C8-05">flowchart TD
+ A[doctor peer check] --> B[entry compared to itself]
+ B --> C[peer equals name]
+ C --> D[never flags real conflict]
+ E[fix] --> F[record resolved peers]
+ F --> G[cross-check edges]
+ G --> H[PeerMismatch names actual peer]</script>
+<div class="eli10"><span class="tag">Explain like I'm 10</span><p>The shopping list says &#x27;we bought bread&#x27; but not why, so the ingredient checker just compares the list to itself and can never catch a missing ingredient. Real checking happens somewhere else, making this check decorative.</p></div>
+<p class="sol" style="margin-top:12px"><b>Proposed solution.</b> Implement doctor peer checks from installed ManifestV2s or delete DoctorStatus::PeerMismatch and its self-comparison test; add resolved peer ranges/URLs to LockFileEntry.</p>
+</article>
+</main><script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.1/dist/mermaid.min.js" onerror="window.__mermaidFailed=true"></script><script src="../js/agent.js"></script></body></html>

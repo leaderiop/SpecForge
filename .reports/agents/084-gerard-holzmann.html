@@ -1,0 +1,70 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>084 Gerard J. Holzmann — SpecForge audit review</title>
+<link rel="stylesheet" href="../css/report.css"><link rel="stylesheet" href="../css/agents.css"></head><body>
+<header class="agent-hero"><div class="brand"><div class="logo">084</div><div>
+<h1>Gerard J. Holzmann</h1>
+<div class="crumbs">Cluster C10 — Formal methods · Spin/Promela; event-graph model checking practice · profile <code>.agents/084-gerard-holzmann.md</code></div></div></div>
+<div class="links"><a href="../index.html">← Full report</a><a href="../../.agents/084-gerard-holzmann.md">Profile source</a></div></header>
+<main class="agent-main">
+<nav class="agent-nav"><a href="083.html">← 083</a><a href="085.html">085 →</a></nav>
+<div class="review-panel"><div class="review-text"><h2>Auditor review</h2><p>Gerard Holzmann would commend the cheap deterministic cycle checks and the discipline of running them on every compile. He would fix the membership over-approximation next — blaming a predecessor road for being part of a traffic loop erodes trust in every warning — and insist the eventual event-graph pass carry a timeout so scale never turns a lint into a hang.</p></div>
+<div class="mini-kpis">
+<div class="mini-kpi"><div class="k">Findings</div><div class="v">1</div></div>
+<div class="mini-kpi good"><div class="k">Critical + high</div><div class="v">0</div></div>
+<div class="mini-kpi"><div class="k">Evidence items</div><div class="v">1</div></div>
+<div class="mini-kpi"><div class="k">Effort mix</div><div class="v" style="font-size:14px">S</div></div>
+</div></div>
+<article class="finding-detail sev-medium" id="f-C10-07">
+<div class="head"><h2>cycle-membership marking over-approximates: predecessors feeding a cycle get flagged</h2><span class="chip medium">medium</span><span class="fid">C10-07</span></div>
+<div class="meta-row"><span class="engineer">084 Gerard J. Holzmann</span><span class="chip neutral">effort S</span><span class="chip neutral">moves: Cycle rule wiring</span></div>
+<div class="evidence"><b>Evidence</b><span class="ev"><code>crates/specforge-emitter/src/compile.rs:478-520</code> — DFS inserts node when cycle_members.contains(next) after recursion - for a-&gt;b with b&lt;-&gt;c, a is marked a cycle member though it only feeds the loop</span></div>
+<p class="details">detect_cycles&#x27; DFS does cycle_members.insert(node) whenever a recursive child ended up in cycle_members — transitively painting all DFS ancestors, not just nodes on the cycle. With a-&gt;b, b&lt;-&gt;c, node a is reported as a W065 cycle member and the message says cycle detected involving a. Users and auto-fixing agents are pointed at an innocent node. Report SCC members only (Tarjan, already specified for E034) or reconstruct the back-edge path, and add a predecessor-into-cycle regression test.</p>
+<div class="snippet before"><span class="cap">before — current code</span><pre><code>        color.insert(node, Color::Gray);
+        if let Some(neighbors) = adj.get(node) {
+            for &amp;next in neighbors {
+                match color.get(next) {
+                    Some(Color::Gray) =&gt; {
+                        cycle_members.insert(next);
+                        cycle_members.insert(node);
+                    }
+                    Some(Color::White) =&gt; {
+                        dfs(next, adj, color, cycle_members);
+                        if cycle_members.contains(next) {
+                            cycle_members.insert(node);
+                        }
+                    }
+                    _ =&gt; {}
+                }
+            }
+        }
+        color.insert(node, Color::Black);</code></pre><div class="file">crates/specforge-emitter/src/compile.rs:511-527</div></div>
+<div class="arrow-between">↓ fix ↓</div>
+<div class="snippet after"><span class="cap">after — proposed fix</span><pre><code>        Some(Color::White) =&gt; {
+            dfs(next, adj, color, stack, cycle_members);
+            // Only propagate membership when node itself lies on the
+            // back-edge path, i.e. next is still on the current DFS
+            // stack. Predecessors that merely feed the cycle are NOT
+            // cycle members.
+            if stack.contains(&amp;next) {
+                cycle_members.insert(node);
+            }
+        }
+        // Report SCC members only: with a-&gt;b, b&lt;-&gt;c, only b and c are
+        // ever flagged by W065/W066.</code></pre><div class="file">crates/specforge-emitter/src/compile.rs</div></div>
+<div class="diagram-box"><span class="cap">predecessor wrongly flagged as cycle member</span><div class="mermaid" id="dg-084-C10-07"><pre>flowchart TD
+ A[graph a to b to c to b] --&gt; B[DFS from a]
+ B --&gt; C[b and c marked as cycle]
+ C --&gt; D[a also marked via contains next]
+ D --&gt; E[W065 blames innocent a]
+ E --&gt; F[fix membership to on stack only]
+ F --&gt; G[only b c reported]</pre></div></div><script type="text/plain" class="mermaid-src" data-target="dg-084-C10-07">flowchart TD
+ A[graph a to b to c to b] --> B[DFS from a]
+ B --> C[b and c marked as cycle]
+ C --> D[a also marked via contains next]
+ D --> E[W065 blames innocent a]
+ E --> F[fix membership to on stack only]
+ F --> G[only b c reported]</script>
+<div class="eli10"><span class="tag">Explain like I'm 10</span><p>It is like flagging a traffic loop and also every road that dead-ends into it as part of the loop. The warning points at a real loop, but the labeled culprit is wrong.</p></div>
+<p class="sol" style="margin-top:12px"><b>Proposed solution.</b> Report SCC members only (Tarjan, already specified) or reconstruct the back-edge path; add a predecessor-into-cycle regression test.</p>
+</article>
+</main><script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.1/dist/mermaid.min.js" onerror="window.__mermaidFailed=true"></script><script src="../js/agent.js"></script></body></html>

@@ -1,0 +1,103 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>040 Kenton Varda — SpecForge audit review</title>
+<link rel="stylesheet" href="../css/report.css"><link rel="stylesheet" href="../css/agents.css"></head><body>
+<header class="agent-hero"><div class="brand"><div class="logo">040</div><div>
+<h1>Kenton Varda</h1>
+<div class="crumbs">Cluster C6 — Schemas, validation &amp; serialization (Graph Protocol) · Protocol Buffers tech lead; Cap&#x27;n Proto creator; zero-copy schema evolution · profile <code>.agents/040-kenton-varda.md</code></div></div></div>
+<div class="links"><a href="../index.html">← Full report</a><a href="../../.agents/040-kenton-varda.md">Profile source</a></div></header>
+<main class="agent-main">
+<nav class="agent-nav"><a href="039.html">← 039</a><a href="041.html">041 →</a></nav>
+<div class="review-panel"><div class="review-text"><h2>Auditor review</h2><p>Kenton Varda (Cap&#x27;n Proto): The protocol layer shows real care — serde(default) descriptors, deterministic field ordering, atomic cache writes. Then write_report does a bare fs::write while persist_schema_cache three crates over does tmp+rename, and every scoped export clones the entire schema inline. Copy the atomic-write idiom and add the schema_ref option; you already have content hashing. Consistency of the good patterns is the whole game.</p></div>
+<div class="mini-kpis">
+<div class="mini-kpi"><div class="k">Findings</div><div class="v">2</div></div>
+<div class="mini-kpi good"><div class="k">Critical + high</div><div class="v">0</div></div>
+<div class="mini-kpi"><div class="k">Evidence items</div><div class="v">3</div></div>
+<div class="mini-kpi"><div class="k">Effort mix</div><div class="v" style="font-size:14px">M · S</div></div>
+</div></div>
+<article class="finding-detail sev-medium" id="f-C6-07">
+<div class="head"><h2>Full schema cloned into every export incl. brief/scoped (schema.rs:317-323, emit_*_scoped_with_schema).</h2><span class="chip medium">medium</span><span class="fid">C6-07</span></div>
+<div class="meta-row"><span class="engineer">040 Kenton Varda</span><span class="chip neutral">effort M</span><span class="chip neutral">moves: payload</span></div>
+<div class="evidence"><b>Evidence</b><span class="ev"><code>schema.rs:317-323</code></span></div>
+<p class="details">JsonGraphV2, ContextGraphV2 and BriefGraphV2 all embed schema: GraphProtocolSchema by clone (schema.rs:355-365 and each emit_* body), and the scoped wrappers emit_*_scoped_with_schema (schema.rs:762-800) pass the full schema along to the subgraph export. For a brief export of one entity, the embedded schema (all kinds, all edges, all fields, plus extension info) can dwarf the payload by orders of magnitude — the whole phone book taped into every letter. SchemaCacheEntry already carries a content_hash (schema.rs:207-210), so a schema_ref: {url, content_hash} option referencing the published schema is cheap to add; embedding should become opt-in for scoped exports.</p>
+<div class="snippet before"><span class="cap">before — current code</span><pre><code>#[derive(Serialize)]
+struct JsonGraphV2 {
+    format_version: &amp;&#x27;static str,
+    schema_version: String,
+    schema: GraphProtocolSchema,
+    nodes: Vec&lt;JsonNodeV2&gt;,
+    edges: Vec&lt;JsonEdge&gt;,
+}</code></pre><div class="file">crates/specforge-emitter/src/schema.rs:355-366</div></div>
+<div class="arrow-between">↓ fix ↓</div>
+<div class="snippet after"><span class="cap">after — proposed fix</span><pre><code>#[derive(Serialize)]
+#[serde(untagged)]
+enum SchemaAttachment {
+    Embedded(Box&lt;GraphProtocolSchema&gt;),
+    Ref {
+        url: String,
+        content_hash: String,
+    },
+}
+
+#[derive(Serialize)]
+struct JsonGraphV2 {
+    format_version: &amp;&#x27;static str,
+    schema_version: String,
+    #[serde(skip_serializing_if = &quot;Option::is_none&quot;)]
+    schema: Option&lt;SchemaAttachment&gt;,
+    nodes: Vec&lt;JsonNodeV2&gt;,
+    edges: Vec&lt;JsonEdge&gt;,
+}
+// Scoped/brief exports default to SchemaAttachment::Ref using the hash
+// already computed for SchemaCacheEntry; embedding stays opt-in.</code></pre><div class="file">crates/specforge-emitter/src/schema.rs</div></div>
+<div class="diagram-box"><span class="cap">Reference instead of embed</span><div class="mermaid" id="dg-040-C6-07"><pre>flowchart TD
+ A[scoped export requested] --&gt; B{attachment policy}
+ B --&gt;|opt-in embed| C[full schema cloned inline]
+ B --&gt;|default ref| D[url plus content hash]
+ D --&gt; E[kilobyte payload]
+ C --&gt; F[megabyte payload]
+ E --&gt; G[consumer fetches schema once caches by hash]
+ F --&gt; H[every letter carries phone book]</pre></div></div><script type="text/plain" class="mermaid-src" data-target="dg-040-C6-07">flowchart TD
+ A[scoped export requested] --> B{attachment policy}
+ B -->|opt-in embed| C[full schema cloned inline]
+ B -->|default ref| D[url plus content hash]
+ D --> E[kilobyte payload]
+ C --> F[megabyte payload]
+ E --> G[consumer fetches schema once caches by hash]
+ F --> H[every letter carries phone book]</script>
+<div class="eli10"><span class="tag">Explain like I'm 10</span><p>the whole phone book taped into every letter.</p></div>
+<p class="sol" style="margin-top:12px"><b>Proposed solution.</b> schema_ref url#content-hash option (SchemaCacheEntry hash machinery exists); embedding opt-in for scoped exports.</p>
+</article>
+<article class="finding-detail sev-low" id="f-C6-08">
+<div class="head"><h2>write_report non-atomic fs::write (report.rs:34-36) vs cache tmp+rename (schema.rs:689-692). FIX: tmp+rename. Effort S. KPI: report durability.</h2><span class="chip low">low</span><span class="fid">C6-08</span></div>
+<div class="meta-row"><span class="engineer">040 Kenton Varda</span><span class="chip neutral">effort S</span><span class="chip neutral">moves: report</span></div>
+<div class="evidence"><b>Evidence</b><span class="ev"><code>report.rs:34-36</code></span><span class="ev"><code>schema.rs:689-692</code></span></div>
+<p class="details">write_report (integrations/rust/specforge-test/src/report.rs:34-36) writes the JSON straight to the final path with std::fs::write, while persist_schema_cache in the same workspace already does the temp-file-plus-rename dance (schema.rs:687-691). A crash or full disk mid-write leaves a truncated or half-old/half-new {binary_name}.json that consumers of the test report will parse as corrupt. The fix is two lines: write to a dotfile sibling and rename over the target, matching the existing project idiom.</p>
+<div class="snippet before"><span class="cap">before — current code</span><pre><code>
+    let path = dir.join(format!(&quot;{binary_name}.json&quot;));
+    let json = serde_json::to_string_pretty(&amp;report)?;
+    std::fs::write(path, json)</code></pre><div class="file">integrations/rust/specforge-test/src/report.rs:33-36</div></div>
+<div class="arrow-between">↓ fix ↓</div>
+<div class="snippet after"><span class="cap">after — proposed fix</span><pre><code>    let path = dir.join(format!(&quot;{binary_name}.json&quot;));
+    let json = serde_json::to_string_pretty(&amp;report)?;
+
+    // Atomic write: temp file then rename, matching persist_schema_cache.
+    let tmp = dir.join(format!(&quot;.{binary_name}.json.tmp&quot;));
+    std::fs::write(&amp;tmp, &amp;json)?;
+    std::fs::rename(&amp;tmp, &amp;path)</code></pre><div class="file">integrations/rust/specforge-test/src/report.rs</div></div>
+<div class="diagram-box"><span class="cap">Report durability</span><div class="mermaid" id="dg-040-C6-08"><pre>flowchart TD
+ A[serialize report] --&gt; B{write strategy}
+ B --&gt;|fs write direct| C[crash mid write]
+ C --&gt; D[truncated json on disk]
+ B --&gt;|tmp then rename| E[write scratch file]
+ E --&gt; F[atomic rename swap]
+ F --&gt; G[readers always see complete report]</pre></div></div><script type="text/plain" class="mermaid-src" data-target="dg-040-C6-08">flowchart TD
+ A[serialize report] --> B{write strategy}
+ B -->|fs write direct| C[crash mid write]
+ C --> D[truncated json on disk]
+ B -->|tmp then rename| E[write scratch file]
+ E --> F[atomic rename swap]
+ F --> G[readers always see complete report]</script>
+<div class="eli10"><span class="tag">Explain like I'm 10</span><p>Saving by writing the new page directly over the old one: trip mid-write and you get a half-old, half-new page. Write on scratch paper first, then swap it in.</p></div>
+<p class="sol" style="margin-top:12px"><b>Proposed solution.</b> tmp+rename.</p>
+</article>
+</main><script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.1/dist/mermaid.min.js" onerror="window.__mermaidFailed=true"></script><script src="../js/agent.js"></script></body></html>

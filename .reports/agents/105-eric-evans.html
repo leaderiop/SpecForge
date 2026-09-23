@@ -1,0 +1,44 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>105 Eric Evans — SpecForge audit review</title>
+<link rel="stylesheet" href="../css/report.css"><link rel="stylesheet" href="../css/agents.css"></head><body>
+<header class="agent-hero"><div class="brand"><div class="logo">105</div><div>
+<h1>Eric Evans</h1>
+<div class="crumbs">Cluster C12 — Requirements engineering, ubiquitous language &amp; docs-as-code (self-spec corpus) · Domain-Driven Design; ubiquitous language · profile <code>.agents/105-eric-evans.md</code></div></div></div>
+<div class="links"><a href="../index.html">← Full report</a><a href="../../.agents/105-eric-evans.md">Profile source</a></div></header>
+<main class="agent-main">
+<nav class="agent-nav"><a href="104.html">← 104</a><a href="106.html">106 →</a></nav>
+<div class="review-panel"><div class="review-text"><h2>Auditor review</h2><p>Evans would commend the ubiquitous-language instinct — glossary terms with aliases, see_also, per-extension ownership headers — and the events file that speaks pure domain (resolve_use_imports is NOT a consumer here). His fix: bounded-context hygiene; formal-extension vocabulary sitting in the project glossary of a project that has not hired the formal department leaks the model. Tag terms with their owning extension or move them. The language otherwise holds together beautifully.</p></div>
+<div class="mini-kpis">
+<div class="mini-kpi"><div class="k">Findings</div><div class="v">1</div></div>
+<div class="mini-kpi good"><div class="k">Critical + high</div><div class="v">0</div></div>
+<div class="mini-kpi"><div class="k">Evidence items</div><div class="v">2</div></div>
+<div class="mini-kpi"><div class="k">Effort mix</div><div class="v" style="font-size:14px">S</div></div>
+</div></div>
+<article class="finding-detail sev-medium" id="f-C12-09">
+<div class="head"><h2>Bounded-context leakage: formal-extension vocabulary lives in the project glossary of a project that does not declare formal</h2><span class="chip medium">medium</span><span class="fid">C12-09</span></div>
+<div class="meta-row"><span class="engineer">105 Eric Evans</span><span class="chip neutral">effort S</span><span class="chip neutral">moves: glossary_bounded_context_integrity</span></div>
+<div class="evidence"><b>Evidence</b><span class="ev"><code>spec/glossary.spec:569-617</code> — t_refinement_chain, t_proof_obligation, t_sync_block, t_progressive_formality, t_rpn — all formal-extension terms</span><span class="ev"><code>spec/specforge.spec:8-12</code> — formal not in extensions list</span></div>
+<p class="details">The project glossary defines formal-extension terms (t_refinement_chain, t_proof_obligation, t_sync_block, t_progressive_formality, t_rpn) while the root never declares @specforge/formal — bounded-context leakage. Tag terms with their owning extension or move them, extending I001 to flag orphaned vocabulary.</p>
+<div class="snippet before"><span class="cap">before — current code</span><pre><code>// ── @specforge/software Formal Methods Terms ──────────────────
+
+term t_refinement_chain &quot;refinement chain&quot; {
+  definition &quot;&quot;&quot;
+    Sequence of behavior refinements from abstract spec</code></pre><div class="file">spec/glossary.spec:573-582</div></div>
+<div class="arrow-between">↓ fix ↓</div>
+<div class="snippet after"><span class="cap">after — proposed fix</span><pre><code>term t_refinement_chain &quot;refinement chain&quot; {
+  extension &quot;@specforge/formal&quot;   // owner tag; I001 fires if owner not declared
+  definition &quot;&quot;&quot;
+    Sequence of behavior refinements from abstract spec</code></pre><div class="file">spec/glossary.spec</div></div>
+<div class="diagram-box"><span class="cap">Owned vocabulary</span><div class="mermaid" id="dg-105-C12-09"><pre>flowchart TD
+ A[glossary defines formal terms] --&gt; B[root does not declare formal]
+ B --&gt; C[orphan vocabulary]
+ A --&gt; D[extension owner tag]
+ D --&gt; E[I001 fires on undeclared owner]</pre></div></div><script type="text/plain" class="mermaid-src" data-target="dg-105-C12-09">flowchart TD
+ A[glossary defines formal terms] --> B[root does not declare formal]
+ B --> C[orphan vocabulary]
+ A --> D[extension owner tag]
+ D --> E[I001 fires on undeclared owner]</script>
+<div class="eli10"><span class="tag">Explain like I'm 10</span><p>The company word list includes surgeon slang, but the company employs no surgeons. New hires read &#x27;RPN&#x27; in the official glossary and assume it matters here; it belongs to a department this office hasn&#x27;t hired. Either hire them (declare the extension) or move the words to that department&#x27;s own list.</p></div>
+<p class="sol" style="margin-top:12px"><b>Proposed solution.</b> Declare @specforge/formal in the root (see Parnas finding), or move formal terms into spec/extensions/formal/glossary content; I001 (unused glossary term) could be extended to flag terms whose owning extension is not installed.</p>
+</article>
+</main><script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.1/dist/mermaid.min.js" onerror="window.__mermaidFailed=true"></script><script src="../js/agent.js"></script></body></html>

@@ -1,0 +1,67 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>082 K. Rustan M. Leino — SpecForge audit review</title>
+<link rel="stylesheet" href="../css/report.css"><link rel="stylesheet" href="../css/agents.css"></head><body>
+<header class="agent-hero"><div class="brand"><div class="logo">082</div><div>
+<h1>K. Rustan M. Leino</h1>
+<div class="crumbs">Cluster C10 — Formal methods · Dafny/Spec#/Boogie; automatic verification-condition generation · profile <code>.agents/082-rustan-leino.md</code></div></div></div>
+<div class="links"><a href="../index.html">← Full report</a><a href="../../.agents/082-rustan-leino.md">Profile source</a></div></header>
+<main class="agent-main">
+<nav class="agent-nav"><a href="081.html">← 081</a><a href="083.html">083 →</a></nav>
+<div class="review-panel"><div class="review-text"><h2>Auditor review</h2><p>Rustan Leino would praise the honest O(V+E) checks and deterministic ordering — verifiable properties, verified. He would point out that analyze --prove and the formality ladder are poster art until the smallest rung ships, and that the fix is modest: compute entity_graph and conditions levels from data the compiler already builds, then mark the rest designed-not-implemented.</p></div>
+<div class="mini-kpis">
+<div class="mini-kpi"><div class="k">Findings</div><div class="v">1</div></div>
+<div class="mini-kpi bad"><div class="k">Critical + high</div><div class="v">1</div></div>
+<div class="mini-kpi"><div class="k">Evidence items</div><div class="v">2</div></div>
+<div class="mini-kpi"><div class="k">Effort mix</div><div class="v" style="font-size:14px">M</div></div>
+</div></div>
+<article class="finding-detail sev-high" id="f-C10-05">
+<div class="head"><h2>analyze --prove and the FormalityLevel ladder are vision-only</h2><span class="chip high">high</span><span class="fid">C10-05</span></div>
+<div class="meta-row"><span class="engineer">082 Rustan Leino</span><span class="chip neutral">effort M</span><span class="chip neutral">moves: CLI commands for formal analysis</span></div>
+<div class="evidence"><b>Evidence</b><span class="ev"><code>crates/specforge-cli/src/main.rs:39-630</code> — no Analyze subcommand; --prove nowhere in workspace</span><span class="ev"><code>spec/extensions/formal/coverage-tracking.spec:147-151</code> — level_computed (prose..proofs) specified; zero Rust references to FormalityLevel</span></div>
+<p class="details">The CLI enum in main.rs has no Analyze subcommand and --prove appears nowhere in the workspace; coverage-tracking.spec&#x27;s fa_detect_specification_depth specifies a prose..proofs ladder (level_computed, I014) with zero Rust references. Agents reading the docs plan integrations around commands that fail with unrecognized subcommand. Shipping the cheapest honest rung — analyze coverage computing entity_graph and conditions levels from graph data the emitter already builds — converts the roadmap from vapor to a testable contract, with RES-25 sections marked designed-not-implemented.</p>
+<div class="snippet before"><span class="cap">before — current code</span><pre><code>    /// Validate .spec files and report diagnostics
+    Check {
+        /// Path to the spec root directory
+        #[arg(default_value = &quot;.&quot;)]
+        path: PathBuf,
+
+        /// Promote warnings to errors
+        #[arg(long)]
+        strict: bool,
+
+        /// Output format: human or json
+        #[arg(long, default_value = &quot;human&quot;)]
+        format: String,</code></pre><div class="file">crates/specforge-cli/src/main.rs:59-70</div></div>
+<div class="arrow-between">↓ fix ↓</div>
+<div class="snippet after"><span class="cap">after — proposed fix</span><pre><code>    /// Run formal analysis passes over the compiled graph
+    Analyze {
+        /// Which pass: coverage levels, layering, conditions
+        action: String,
+
+        /// Path to the spec root directory
+        #[arg(default_value = &quot;.&quot;)]
+        path: PathBuf,
+
+        /// Output format: human or json
+        #[arg(long, default_value = &quot;human&quot;)]
+        format: String,
+
+        /// Any violation exits non-zero
+        #[arg(long)]
+        strict: bool,
+    },</code></pre><div class="file">crates/specforge-cli/src/main.rs</div></div>
+<div class="diagram-box"><span class="cap">analyze ladder first rung</span><div class="mermaid" id="dg-082-C10-05"><pre>flowchart TD
+ A[spec promises prose to proofs ladder] --&gt; B[no analyze command exists]
+ B --&gt; C[ship analyze coverage]
+ C --&gt; D[entity_graph level from edges]
+ D --&gt; E[conditions level from requires ensures]
+ E --&gt; F[I014 honest next rung suggestion]</pre></div></div><script type="text/plain" class="mermaid-src" data-target="dg-082-C10-05">flowchart TD
+ A[spec promises prose to proofs ladder] --> B[no analyze command exists]
+ B --> C[ship analyze coverage]
+ C --> D[entity_graph level from edges]
+ D --> E[conditions level from requires ensures]
+ E --> F[I014 honest next rung suggestion]</script>
+<div class="eli10"><span class="tag">Explain like I'm 10</span><p>The poster shows a ladder from just-words to mathematically-proved, but the building has no staircase - not even the first command exists. Fine for a roadmap if nobody sells elevator rides.</p></div>
+<p class="sol" style="margin-top:12px"><b>Proposed solution.</b> Ship the smallest honest rung: analyze coverage --json computing entity_graph and conditions levels from existing graph data; mark RES-25 sections designed-not-implemented.</p>
+</article>
+</main><script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.1/dist/mermaid.min.js" onerror="window.__mermaidFailed=true"></script><script src="../js/agent.js"></script></body></html>

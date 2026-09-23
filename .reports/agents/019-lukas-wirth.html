@@ -1,0 +1,27 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>019 Lukas Wirth — SpecForge audit review</title>
+<link rel="stylesheet" href="../css/report.css"><link rel="stylesheet" href="../css/agents.css"></head><body>
+<header class="agent-hero"><div class="brand"><div class="logo">019</div><div>
+<h1>Lukas Wirth</h1>
+<div class="crumbs">Cluster C4 — Incremental compilation, LSP &amp; diagnostics · rust-analyzer lead maintainer; salsa co-maintainer · profile <code>.agents/019-lukas-wirth.md</code></div></div></div>
+<div class="links"><a href="../index.html">← Full report</a><a href="../../.agents/019-lukas-wirth.md">Profile source</a></div></header>
+<main class="agent-main">
+<nav class="agent-nav"><a href="018.html">← 018</a><a href="020.html">020 →</a></nav>
+<div class="review-panel"><div class="review-text"><h2>Auditor review</h2><p>He&#x27;d praise the feature completeness but fix version: None on publish_diagnostics first — stale unversioned diagnostics are the classic squiggle bug. Then he&#x27;d ask which of the two invalidation implementations is lying.</p></div>
+<div class="mini-kpis">
+<div class="mini-kpi"><div class="k">Findings</div><div class="v">1</div></div>
+<div class="mini-kpi good"><div class="k">Critical + high</div><div class="v">0</div></div>
+<div class="mini-kpi"><div class="k">Evidence items</div><div class="v">1</div></div>
+<div class="mini-kpi"><div class="k">Effort mix</div><div class="v" style="font-size:14px">S</div></div>
+</div></div>
+<article class="finding-detail sev-info" id="f-C4-14">
+<div class="head"><h2>Praise: the LSP ships the full modern feature matrix, implemented on one shared graph</h2><span class="chip info">info</span><span class="fid">C4-14</span></div>
+<div class="meta-row"><span class="engineer">019 Lukas Wirth</span><span class="chip neutral">effort S</span></div>
+<div class="evidence"><b>Evidence</b><span class="ev"><code>crates/specforge-lsp/src/backend.rs:tower-lsp LanguageServer impl</code> — hover, completion, references, rename, code_action, document_symbol, workspace_symbol, semantic_tokens, formatting all implemented; 17 behavioral test files</span></div>
+<p class="details">The tower_lsp LanguageServer impl ships the full modern feature matrix (hover, completion, references, rename, code actions, symbols, semantic tokens, formatting) on one shared graph, backed by 17 behavior-tagged test files. A genuinely complete LSP, not a demo subset.</p>
+<div class="snippet exemplar"><span class="cap">exemplar — the good pattern</span><pre><code>use crate::{\n    classify_tokens, code_actions_missing_verify, complete_entity_ids,\n    complete_entity_ids_filtered, complete_keywords, compute_rename_edits, cursor_context,\n    document_symbols, find_all_references, go_to_definition, goto_import_definition,\n    hover_field_info, hover_info_with_registries, server_capabilities, server_info,\n    source_span_to_lsp_range,\n    workspace_symbols, LspState,\n};</code></pre><div class="file">crates/specforge-lsp/src/backend.rs:22-27</div></div>
+<div class="keep"><span class="tag">Keep doing this</span><p>Keep the breadth — just consolidate the analysis core behind it (C4-00) so features stay consistent during rapid edits.</p></div>
+<div class="eli10"><span class="tag">Explain like I'm 10</span><p>The helper doesn&#x27;t just answer one kind of question — it can explain, suggest, find, rename, and tidy, and each trick has a test with the promise it keeps written on it.</p></div>
+<p class="sol" style="margin-top:12px"><b>Proposed solution.</b> Keep the breadth; consolidate the analysis core so every feature stays consistent during edits (see Kladov finding).</p>
+</article>
+</main><script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.1/dist/mermaid.min.js" onerror="window.__mermaidFailed=true"></script><script src="../js/agent.js"></script></body></html>

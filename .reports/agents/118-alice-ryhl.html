@@ -1,0 +1,123 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>118 Alice Ryhl — SpecForge audit review</title>
+<link rel="stylesheet" href="../css/report.css"><link rel="stylesheet" href="../css/agents.css"></head><body>
+<header class="agent-hero"><div class="brand"><div class="logo">118</div><div>
+<h1>Alice Ryhl</h1>
+<div class="crumbs">Cluster C14 — Direct-dependency maintainers - dependency/surface hygiene · Tokio core maintainer; async Rust performance &amp; teaching · profile <code>.agents/118-alice-ryhl.md</code></div></div></div>
+<div class="links"><a href="../index.html">← Full report</a><a href="../../.agents/118-alice-ryhl.md">Profile source</a></div></header>
+<main class="agent-main">
+<nav class="agent-nav"><a href="117.html">← 117</a><a href="119.html">119 →</a></nav>
+<div class="review-panel"><div class="review-text"><h2>Auditor review</h2><p>Alice&#x27;s headline would be the LSP and registry-server runtimes: blocking walkdir, rusqlite and SHA-256 inside async fns is the classic self-DoS, and she would demand spawn_blocking plus a DefaultBodyLimit before any public exposure of the publish route. She would note that taking the write lock once per index pass also simplifies the code. She would praise the clean RwLock-based LspState shape itself.</p></div>
+<div class="mini-kpis">
+<div class="mini-kpi"><div class="k">Findings</div><div class="v">2</div></div>
+<div class="mini-kpi bad"><div class="k">Critical + high</div><div class="v">2</div></div>
+<div class="mini-kpi"><div class="k">Evidence items</div><div class="v">2</div></div>
+<div class="mini-kpi"><div class="k">Effort mix</div><div class="v" style="font-size:14px">M</div></div>
+</div></div>
+<article class="finding-detail sev-high" id="f-C14-03">
+<div class="head"><h2>LSP async handlers do blocking walkdir, fs reads and parsing inline; no spawn_blocking</h2><span class="chip high">high</span><span class="fid">C14-03</span></div>
+<div class="meta-row"><span class="engineer">118 Alice Ryhl</span><span class="chip neutral">effort M</span><span class="chip neutral">moves: Blocking work on async executors</span></div>
+<div class="evidence"><b>Evidence</b><span class="ev"><code>crates/specforge-lsp/src/backend.rs:61-108</code> — async fn index_workspace iterates WalkDir, calls fs read_to_string and parser parse synchronously inside the tower-lsp runtime, taking state.write().await per file in the loop; initialize awaits it. Grep confirms zero spawn_blocking in the crate.</span></div>
+<p class="details">Backend::index_workspace in crates/specforge-lsp/src/backend.rs runs WalkDir traversal, std::fs::read_to_string and specforge_parser::parse synchronously inside an async fn, and takes self.state.write().await once per file inside the loop. initialize awaits it, so opening a project with a large (or accidentally huge, pre-SKIP_DIRS-hygiene) workspace blocks the tower-lsp runtime thread - no requests, no cancellation, editor hang. A grep confirms zero spawn_blocking in the crate. Moving the walk/parse loop into tokio::task::spawn_blocking and taking the write lock once afterwards fixes both the blocking and the per-file lock churn.</p>
+<div class="snippet before"><span class="cap">before — current code</span><pre><code>    async fn index_workspace(&amp;self, root: &amp;str) -&gt; usize {
+        let mut count = 0;
+        for entry in walkdir::WalkDir::new(root)
+            .into_iter()
+            .filter_entry(|e| {
+                // Skip known build/dependency directories to avoid slow traversals
+                if e.file_type().is_dir()
+                    &amp;&amp; let Some(name) = e.file_name().to_str()
+                {
+                    return !Self::SKIP_DIRS.contains(&amp;name);
+                }
+                true
+            })
+            .filter_map(|e| e.ok())
+        {
+            let path = entry.path();
+            if path.extension().is_some_and(|ext| ext == &quot;spec&quot;)
+                &amp;&amp; let Ok(content) = std::fs::read_to_string(path)
+            {
+                let file_path = path.to_string_lossy().to_string();
+                let spec_file = specforge_parser::parse(&amp;content, &amp;file_path);
+                let mut state = self.state.write().await;</code></pre><div class="file">crates/specforge-lsp/src/backend.rs:62-88</div></div>
+<div class="arrow-between">↓ fix ↓</div>
+<div class="snippet after"><span class="cap">after — proposed fix</span><pre><code>    async fn index_workspace(&amp;self, root: &amp;str) -&gt; usize {
+        // Walk, read and parse off the async runtime; take the write lock once.
+        let root = root.to_string();
+        let parsed = tokio::task::spawn_blocking(move || {
+            let mut parsed = Vec::new();
+            for entry in walkdir::WalkDir::new(&amp;root)
+                .into_iter()
+                .filter_entry(|e| !Self::skipped_dir(e))
+                .filter_map(|e| e.ok())
+            {
+                let path = entry.path();
+                if path.extension().is_some_and(|ext| ext == &quot;spec&quot;)
+                    &amp;&amp; let Ok(content) = std::fs::read_to_string(path)
+                {
+                    let file_path = path.to_string_lossy().to_string();
+                    parsed.push(specforge_parser::parse(&amp;content, &amp;file_path));
+                }
+            }
+            parsed
+        })
+        .await
+        .unwrap_or_default();
+
+        let mut state = self.state.write().await;
+        let graph = state.graph_mut();
+        for spec_file in &amp;parsed {
+            for entity in &amp;spec_file.entities {
+                graph.add_node(Self::entity_to_node(entity));
+            }
+        }
+        let _ = graph.resolve_references();
+        parsed.len()</code></pre><div class="file">crates/specforge-lsp/src/backend.rs:62-92</div></div>
+<div class="diagram-box"><span class="cap">LSP indexing off the runtime</span><div class="mermaid" id="dg-118-C14-03"><pre>flowchart TD
+ A[initialize awaits index_workspace] --&gt; B[WalkDir and parse run inline on runtime] --&gt; C[Runtime blocked, editor hangs]
+ D[spawn_blocking walks and parses files] --&gt; E[Single write lock after pass] --&gt; F[Runtime stays responsive]
+ B --&gt; D</pre></div></div><script type="text/plain" class="mermaid-src" data-target="dg-118-C14-03">flowchart TD
+ A[initialize awaits index_workspace] --> B[WalkDir and parse run inline on runtime] --> C[Runtime blocked, editor hangs]
+ D[spawn_blocking walks and parses files] --> E[Single write lock after pass] --> F[Runtime stays responsive]
+ B --> D</script>
+<div class="eli10"><span class="tag">Explain like I'm 10</span><p>A restaurant where the waiter personally cooks every dish: while one big order (indexing a large workspace) cooks, no other waiter can take orders - the editor freezes. Hand the cooking to the kitchen staff and only serve the result.</p></div>
+<p class="sol" style="margin-top:12px"><b>Proposed solution.</b> Wrap the walkdir/parse loop in tokio task spawn_blocking collecting parsed files; take the write lock once after the blocking pass (also removes per-file lock churn).</p>
+</article>
+<article class="finding-detail sev-high" id="f-C14-04">
+<div class="head"><h2>Registry-server handlers run rusqlite queries, SHA-256 hashing and unbounded multipart reads inline on the async runtime</h2><span class="chip high">high</span><span class="fid">C14-04</span></div>
+<div class="meta-row"><span class="engineer">118 Alice Ryhl</span><span class="chip neutral">effort M</span><span class="chip neutral">moves: Blocking work on async executors</span></div>
+<div class="evidence"><b>Evidence</b><span class="ev"><code>crates/specforge-registry-server/src/handlers.rs:183-196,201-303</code> — search_packages calls state.database.search (rusqlite, sync) directly in an async fn; publish_package buffers field.bytes().await with no size cap then hashes the full wasm buffer synchronously; download_package does sync file IO via storage.read_wasm. No spawn_blocking in the crate.</span></div>
+<p class="details">In crates/specforge-registry-server/src/handlers.rs, search_packages calls state.database.search (a synchronous rusqlite query) directly inside an async fn; publish_package buffers field.bytes().await for the wasm upload with no size limit and then runs the full SHA-256 synchronously over the buffer; download_package calls the synchronous state.storage.read_wasm. None of these run on the blocking pool, so one slow sqlite query or large upload stalls every other request on that worker. A grep confirms no spawn_blocking in the crate and no DefaultBodyLimit on the router. Wrapping the sqlite/storage calls in spawn_blocking and adding axum DefaultBodyLimit (e.g. 64 MiB) closes both the latency and the memory-exhaustion holes.</p>
+<div class="snippet before"><span class="cap">before — current code</span><pre><code>async fn search_packages(
+    State(state): State&lt;Arc&lt;AppState&gt;&gt;,
+    Query(query): Query&lt;SearchQuery&gt;,
+) -&gt; impl IntoResponse {
+    let results = state.database.search(&amp;query.q, query.limit);</code></pre><div class="file">crates/specforge-registry-server/src/handlers.rs:183-187</div></div>
+<div class="arrow-between">↓ fix ↓</div>
+<div class="snippet after"><span class="cap">after — proposed fix</span><pre><code>async fn search_packages(
+    State(state): State&lt;Arc&lt;AppState&gt;&gt;,
+    Query(query): Query&lt;SearchQuery&gt;,
+) -&gt; Result&lt;impl IntoResponse, ApiError&gt; {
+    // rusqlite is synchronous: run the query on the blocking pool.
+    let db = state.database.clone();
+    let q = query.q.clone();
+    let limit = query.limit;
+    let results = tokio::task::spawn_blocking(move || db.search(&amp;q, limit))
+        .await
+        .map_err(|_| ApiError::internal(&quot;search task panicked&quot;))?;
+
+    // router: .layer(DefaultBodyLimit::max(64 * 1024 * 1024)) on /v1/packages</code></pre><div class="file">crates/specforge-registry-server/src/handlers.rs:183-194</div></div>
+<div class="diagram-box"><span class="cap">Blocking IO on the async runtime</span><div class="mermaid" id="dg-118-C14-04"><pre>flowchart TD
+ A[Async handler calls rusqlite sync] --&gt; B[Worker thread stalled]
+ C[Huge multipart upload no limit] --&gt; D[Buffer fills memory plus sync SHA-256] --&gt; B
+ E[spawn_blocking wraps db and storage] --&gt; F[Runtime threads stay free]
+ G[DefaultBodyLimit 64 MiB] --&gt; H[Uploads capped before buffering] --&gt; F</pre></div></div><script type="text/plain" class="mermaid-src" data-target="dg-118-C14-04">flowchart TD
+ A[Async handler calls rusqlite sync] --> B[Worker thread stalled]
+ C[Huge multipart upload no limit] --> D[Buffer fills memory plus sync SHA-256] --> B
+ E[spawn_blocking wraps db and storage] --> F[Runtime threads stay free]
+ G[DefaultBodyLimit 64 MiB] --> H[Uploads capped before buffering] --> F</script>
+<div class="eli10"><span class="tag">Explain like I'm 10</span><p>Same waiter-cooks-meal problem, but a guest can also order an infinitely large plate: one huge upload ties up the whole kitchen while it is chewed and fingerprinted byte by byte.</p></div>
+<p class="sol" style="margin-top:12px"><b>Proposed solution.</b> Wrap database and storage calls in spawn_blocking (or move to sqlx); enforce axum DefaultBodyLimit (e.g. 64 MiB) on the publish route before buffering.</p>
+</article>
+</main><script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.1/dist/mermaid.min.js" onerror="window.__mermaidFailed=true"></script><script src="../js/agent.js"></script></body></html>

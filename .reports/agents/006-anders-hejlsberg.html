@@ -1,0 +1,80 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>006 Anders Hejlsberg — SpecForge audit review</title>
+<link rel="stylesheet" href="../css/report.css"><link rel="stylesheet" href="../css/agents.css"></head><body>
+<header class="agent-hero"><div class="brand"><div class="logo">006</div><div>
+<h1>Anders Hejlsberg</h1>
+<div class="crumbs">Cluster C2 — DSL &amp; language design · Turbo Pascal/C#/TypeScript creator; LSP-first language design · profile <code>.agents/006-anders-hejlsberg.md</code></div></div></div>
+<div class="links"><a href="../index.html">← Full report</a><a href="../../.agents/006-anders-hejlsberg.md">Profile source</a></div></header>
+<main class="agent-main">
+<nav class="agent-nav"><a href="005.html">← 005</a><a href="007.html">007 →</a></nav>
+<div class="review-panel"><div class="review-text"><h2>Auditor review</h2><p>Hejlsberg&#x27;s praise goes to FieldRegistry: the typed vocabulary of 8 field types with edge and target_kind metadata is the right data, in the right place, ignored by every surface that should consume it. His first fix would be making the type system visible — specforge model tables and LSP hover fed straight from the registry, no re-derivation. He would note that IntelliSense-quality tooling is what turns a DSL from a file format into a language. Document the 8 types once and never let a second source of truth appear.</p></div>
+<div class="mini-kpis">
+<div class="mini-kpi"><div class="k">Findings</div><div class="v">1</div></div>
+<div class="mini-kpi good"><div class="k">Critical + high</div><div class="v">0</div></div>
+<div class="mini-kpi"><div class="k">Evidence items</div><div class="v">3</div></div>
+<div class="mini-kpi"><div class="k">Effort mix</div><div class="v" style="font-size:14px">M</div></div>
+</div></div>
+<article class="finding-detail sev-medium" id="f-C2-08">
+<div class="head"><h2>Field type vocabulary exists in the registry but is not surfaced as author-facing documentation or portable intelligence</h2><span class="chip medium">medium</span><span class="fid">C2-08</span></div>
+<div class="meta-row"><span class="engineer">006 Anders Hejlsberg</span><span class="chip neutral">effort M</span><span class="chip neutral">moves: quick-reference entity coverage</span></div>
+<div class="evidence"><b>Evidence</b><span class="ev"><code>crates/specforge-registry/src/registries/field.rs:5-15</code> — ManifestFieldType::{String,Integer,Bool,Enum(Vec&lt;String&gt;),StringList,Reference,ReferenceList,Block} with edge/target_kind/inverse_of metadata — enough to drive editor completions and signature help</span><span class="ev"><code>docs/quick-reference.md:per-entity tables</code> — field tables show only Required/Optional names; no types, no enum values, no required-vs-reference distinction — the type system is invisible to authors</span><span class="ev"><code>crates/specforge-lsp/src/backend.rs:-</code> — LSP cannot document field types it would have to re-derive; the registry is the natural source and already exists</span></div>
+<p class="details">FieldRegistry already carries a complete typed vocabulary — ManifestFieldType with String, Integer, Bool, Enum(Vec), StringList, Reference, ReferenceList, Block — plus edge/target_kind/inverse_of/required metadata in FieldRegistryEntry (crates/specforge-registry/src/registries/field.rs:3-18), exactly the data needed for editor completions, signature help, and honest docs. But quick-reference.md field tables show only Required/Optional name lists with no types or enum values, and the LSP would have to re-derive types instead of serving them from the registry. The compiler knows each field is a number or a pick-one-from-list and never tells the author. Expose it once: per-kind field-type tables in specforge model output, LSP hover/completion fed from FieldRegistry directly, and the 8 types documented once in entity-model.md.</p>
+<div class="snippet before"><span class="cap">before — current code</span><pre><code>#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum ManifestFieldType {
+    String,
+    Integer,
+    Bool,
+    Enum(Vec&lt;String&gt;),
+    StringList,
+    Reference,
+    ReferenceList,
+    Block,
+}
+
+#[derive(Debug, Clone)]
+pub struct FieldRegistryEntry {
+    pub kind_name: String,
+    pub field_name: String,
+    pub description: Option&lt;String&gt;,
+    pub field_type: ManifestFieldType,
+    pub source_extension: String,
+    pub edge: Option&lt;String&gt;,
+    pub target_kind: Option&lt;String&gt;,</code></pre><div class="file">crates/specforge-registry/src/registries/field.rs:3-18</div></div>
+<div class="arrow-between">↓ fix ↓</div>
+<div class="snippet after"><span class="cap">after — proposed fix</span><pre><code>## Field Types
+
+Every registered field has one of eight types (source of truth: `FieldRegistry`,
+mirrored into `specforge model` output and LSP hover):
+
+| Type | Meaning | Example |
+|------|---------|---------|
+| string | free text | title |
+| integer | whole number | coverage.percent |
+| bool | true/false | file_reference |
+| enum | one of fixed options | status: draft, active, done |
+| string_list | list of strings | tags |
+| reference | edge to one entity of target_kind | invariants (to invariant) |
+| reference_list | edge to many entities | behaviors (to behavior) |
+| block | nested structured block | contract |
+
+`specforge model feature` prints this table per kind; the LSP serves the same
+data for completion and signature help.</code></pre><div class="file">docs/entity-model.md</div></div>
+<div class="diagram-box"><span class="cap">Typed form with unlabeled boxes</span><div class="mermaid" id="dg-006-C2-08"><pre>flowchart TD
+ A[FieldRegistry has 8 typed variants] --&gt; B[docs show names only]
+ A --&gt; C[LSP has no type source]
+ B --&gt; D[author guesses field types]
+ C --&gt; D
+ D --&gt; E[emit type tables in specforge model]
+ E --&gt; F[LSP reads registry]
+ F --&gt; G[types become autocomplete not guesswork]</pre></div></div><script type="text/plain" class="mermaid-src" data-target="dg-006-C2-08">flowchart TD
+ A[FieldRegistry has 8 typed variants] --> B[docs show names only]
+ A --> C[LSP has no type source]
+ B --> D[author guesses field types]
+ C --> D
+ D --> E[emit type tables in specforge model]
+ E --> F[LSP reads registry]
+ F --> G[types become autocomplete not guesswork]</script>
+<div class="eli10"><span class="tag">Explain like I'm 10</span><p>The compiler knows each field is a number, a yes/no, or a pick-one-from-list — but never tells the person typing. It is like a form where the boxes are secretly typed. Publishing the types turns guessing into autocomplete.</p></div>
+<p class="sol" style="margin-top:12px"><b>Proposed solution.</b> Emit a per-kind field-type table (types, enum options, required) into `specforge model` output and feed LSP hover/completion from FieldRegistry directly; document the 8 field types once in entity-model.md.</p>
+</article>
+</main><script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.1/dist/mermaid.min.js" onerror="window.__mermaidFailed=true"></script><script src="../js/agent.js"></script></body></html>

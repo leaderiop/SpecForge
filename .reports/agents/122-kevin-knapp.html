@@ -1,0 +1,107 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>122 Kevin Knapp — SpecForge audit review</title>
+<link rel="stylesheet" href="../css/report.css"><link rel="stylesheet" href="../css/agents.css"></head><body>
+<header class="agent-hero"><div class="brand"><div class="logo">122</div><div>
+<h1>Kevin Knapp</h1>
+<div class="crumbs">Cluster C14 — Direct-dependency maintainers - dependency/surface hygiene · clap creator; CLI argument-parsing UX · profile <code>.agents/122-kevin-knapp.md</code></div></div></div>
+<div class="links"><a href="../index.html">← Full report</a><a href="../../.agents/122-kevin-knapp.md">Profile source</a></div></header>
+<main class="agent-main">
+<nav class="agent-nav"><a href="121.html">← 121</a><a href="123.html">123 →</a></nav>
+<div class="review-panel"><div class="review-text"><h2>Auditor review</h2><p>Kevin Knapp&#x27;s test-infrastructure eye would land on the snapshot story: 22 goldens, no pending debris, insta pinned with json, criterion benches - he would call this the best-tested surface in the repo and merely suggest cargo insta test --unreferenced=reject in CI. He would praise the discipline and hold other crates to this standard.</p></div>
+<div class="mini-kpis">
+<div class="mini-kpi"><div class="k">Findings</div><div class="v">2</div></div>
+<div class="mini-kpi good"><div class="k">Critical + high</div><div class="v">0</div></div>
+<div class="mini-kpi"><div class="k">Evidence items</div><div class="v">2</div></div>
+<div class="mini-kpi"><div class="k">Effort mix</div><div class="v" style="font-size:14px">M · S</div></div>
+</div></div>
+<article class="finding-detail sev-medium" id="f-C14-10">
+<div class="head"><h2>format/fields/group_by flags are free Strings; clap cannot reject typos or offer value completions</h2><span class="chip medium">medium</span><span class="fid">C14-10</span></div>
+<div class="meta-row"><span class="engineer">122 Kevin Knapp</span><span class="chip neutral">effort M</span><span class="chip neutral">moves: CLI flags type-validated (warn to good)</span></div>
+<div class="evidence"><b>Evidence</b><span class="ev"><code>crates/specforge-cli/src/main.rs:46-79</code> — Every format-ish flag (format, fields, group_by, deps, collector) is a free String with default_value, about 30 occurrences. Validation happens later by runtime string match (export.rs parse_format, outline.rs). An invalid value like jsn is a runtime error with no clap blame, and shell completions cannot offer values.</span></div>
+<p class="details">In crates/specforge-cli/src/main.rs roughly thirty format-ish flags (format, fields, group_by, deps, collector, lint) are free Strings with default_value; the real vocabularies (human|json, markdown|mermaid|dot|json|dbml, none|keys|all, direct|effective|full) are enforced later by runtime string matching in export.rs parse_format, model.rs, outline.rs. A typo like --format jsn is a bespoke runtime error with no clap blame pointing at the flag, and clap_complete-generated completions cannot offer values. clap ValueEnum types (OutputFormat, FieldLevel, GroupBy, DepsLevel) make the accepted sets machine-checked at parse time and exhaustively matchable downstream.</p>
+<div class="snippet before"><span class="cap">before — current code</span><pre><code>    /// Render the logical data model (entity kinds, fields, relationships)
+    Model {
+        /// Path to the spec root directory
+        #[arg(default_value = &quot;.&quot;)]
+        path: PathBuf,
+
+        /// Output format: markdown (default), mermaid, dot, json, dbml
+        #[arg(long, default_value = &quot;markdown&quot;)]
+        format: String,
+
+        /// Group entities by: extension (default), none
+        #[arg(long, default_value = &quot;extension&quot;)]
+        group_by: String,
+
+        /// Field detail level: none, keys (default), all
+        #[arg(long, default_value = &quot;keys&quot;)]
+        fields: String,</code></pre><div class="file">crates/specforge-cli/src/main.rs:119-140</div></div>
+<div class="arrow-between">↓ fix ↓</div>
+<div class="snippet after"><span class="cap">after — proposed fix</span><pre><code>use clap::ValueEnum;
+
+#[derive(Clone, ValueEnum)]
+enum OutputFormat { Human, Json, Markdown, Mermaid, Dot, Dbml }
+#[derive(Clone, ValueEnum)]
+enum GroupBy { Extension, None }
+#[derive(Clone, ValueEnum)]
+enum FieldLevel { None, Keys, All }
+
+    /// Render the logical data model (entity kinds, fields, relationships)
+    Model {
+        #[arg(default_value = &quot;.&quot;)]
+        path: PathBuf,
+
+        /// Output format
+        #[arg(long, value_enum, default_value_t = OutputFormat::Markdown)]
+        format: OutputFormat,
+
+        /// Group entities by
+        #[arg(long, value_enum, default_value_t = GroupBy::Extension)]
+        group_by: GroupBy,
+
+        /// Field detail level
+        #[arg(long, value_enum, default_value_t = FieldLevel::Keys)]
+        fields: FieldLevel,</code></pre><div class="file">crates/specforge-cli/src/main.rs:119-142</div></div>
+<div class="diagram-box"><span class="cap">Typed CLI flag values</span><div class="mermaid" id="dg-122-C14-10"><pre>flowchart TD
+ A[format fields group_by free Strings] --&gt; B[Typo jsn passes clap] --&gt; C[Runtime string match errors late]
+ D[clap ValueEnum types] --&gt; E[clap rejects invalid value at parse] --&gt; F[Completions offer real values]
+ B --&gt; D</pre></div></div><script type="text/plain" class="mermaid-src" data-target="dg-122-C14-10">flowchart TD
+ A[format fields group_by free Strings] --> B[Typo jsn passes clap] --> C[Runtime string match errors late]
+ D[clap ValueEnum types] --> E[clap rejects invalid value at parse] --> F[Completions offer real values]
+ B --> D</script>
+<div class="eli10"><span class="tag">Explain like I'm 10</span><p>The vending machine accepts any button press and only complains after you have paid, instead of the keypad having exactly the real buttons. Give the keypad labeled buttons and the machine knows them upfront.</p></div>
+<p class="sol" style="margin-top:12px"><b>Proposed solution.</b> Define clap ValueEnum enums (OutputFormat, FieldLevel, GroupBy, DepsLevel) for shared flags so runtime matches become exhaustive and clap_complete can offer values.</p>
+</article>
+<article class="finding-detail sev-low" id="f-C14-11">
+<div class="head"><h2>main.rs dispatch: 28 match arms each ending in std::process::exit - collapse to one exit</h2><span class="chip low">low</span><span class="fid">C14-11</span></div>
+<div class="meta-row"><span class="engineer">122 Kevin Knapp</span><span class="chip neutral">effort S</span><span class="chip neutral">moves: CLI maintainability</span></div>
+<div class="evidence"><b>Evidence</b><span class="ev"><code>crates/specforge-cli/src/main.rs:633-817</code> — Every arm is: let exit_code = run(...); std::process::exit(exit_code); - 28 copies of the same two-line tail; the Completions arm also exits 0 manually.</span></div>
+<p class="details">All 28 dispatch arms end with the same two-line tail `let exit_code = ...; std::process::exit(exit_code);`, including a manual exit(0) for Completions. Collapsing to a single bound exit removes ~28 copies and one accidental early-exit class.</p>
+<div class="snippet before"><span class="cap">before — current code</span><pre><code>        Commands::Check { path, strict, format, lint } =&gt; {
+            let exit_code = check::run(&amp;path, strict, &amp;format, &amp;lint);
+            std::process::exit(exit_code);
+        }
+        Commands::Export { path, format, scope, no_schema, schema_version } =&gt; {
+            let exit_code = export::run(&amp;path, &amp;format, scope.as_deref(), no_schema, schema_version.as_deref());
+            std::process::exit(exit_code);
+        }</code></pre><div class="file">crates/specforge-cli/src/main.rs:641-650</div></div>
+<div class="arrow-between">↓ fix ↓</div>
+<div class="snippet after"><span class="cap">after — proposed fix</span><pre><code>        // arms return i32 instead of exiting
+        Commands::Check { path, strict, format, lint } =&gt; {
+            check::run(&amp;path, strict, &amp;format, &amp;lint)
+        }
+        Commands::Export { path, format, scope, no_schema, schema_version } =&gt; {
+            export::run(&amp;path, &amp;format, scope.as_deref(), no_schema, schema_version.as_deref())
+        }
+        // ... one exit for the whole match:
+        // let code = match cmd { ... };
+        // std::process::exit(code);</code></pre><div class="file">crates/specforge-cli/src/main.rs</div></div>
+<div class="diagram-box"><span class="cap">One exit door</span><div class="mermaid" id="dg-122-C14-11"><pre>flowchart LR
+ A[28 arms each call exit] --&gt; B[copy paste tails]
+ C[arms return code] --&gt; D[single process exit]</pre></div></div><script type="text/plain" class="mermaid-src" data-target="dg-122-C14-11">flowchart LR
+ A[28 arms each call exit] --> B[copy paste tails]
+ C[arms return code] --> D[single process exit]</script>
+<div class="eli10"><span class="tag">Explain like I'm 10</span><p>Instead of one front door out of the building, every room has its own private exit door with its own handle to maintain. One front door; everyone walks to it.</p></div>
+<p class="sol" style="margin-top:12px"><b>Proposed solution.</b> Bind the match to a single let code where arms return i32, then one process exit. Pure refactor, no behavior change.</p>
+</article>
+</main><script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.1/dist/mermaid.min.js" onerror="window.__mermaidFailed=true"></script><script src="../js/agent.js"></script></body></html>

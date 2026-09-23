@@ -1,0 +1,73 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>097 Christoph Nakazawa — SpecForge audit review</title>
+<link rel="stylesheet" href="../css/report.css"><link rel="stylesheet" href="../css/agents.css"></head><body>
+<header class="agent-hero"><div class="brand"><div class="logo">097</div><div>
+<h1>Christoph Nakazawa</h1>
+<div class="crumbs">Cluster C11 — Testing &amp; BDD (test tracing &amp; report protocol) · Jest creator; Yarn and Metro co-creator · profile <code>.agents/097-christoph-nakazawa.md</code></div></div></div>
+<div class="links"><a href="../index.html">← Full report</a><a href="../../.agents/097-christoph-nakazawa.md">Profile source</a></div></header>
+<main class="agent-main">
+<nav class="agent-nav"><a href="096.html">← 096</a><a href="098.html">098 →</a></nav>
+<div class="review-panel"><div class="review-text"><h2>Auditor review</h2><p>Christoph Nakazawa: your report schema promises skip/error/duration_ms/message and your code can produce none of them - and should_panic tests, the most common Rust test idiom after happy path, get recorded as Fail because the guard equates panicking with failing. The invariant documents the bug and the macro ships anyway; detect should_panic in the expansion and invert the outcome. Until then coverage numbers are wrong for a whole category of tests, and wrong numbers are worse than no numbers.</p></div>
+<div class="mini-kpis">
+<div class="mini-kpi"><div class="k">Findings</div><div class="v">1</div></div>
+<div class="mini-kpi good"><div class="k">Critical + high</div><div class="v">0</div></div>
+<div class="mini-kpi"><div class="k">Evidence items</div><div class="v">2</div></div>
+<div class="mini-kpi"><div class="k">Effort mix</div><div class="v" style="font-size:14px">S</div></div>
+</div></div>
+<article class="finding-detail sev-medium" id="f-C11-04">
+<div class="head"><h2>outcomes: should_panic recorded as Fail (guard.rs:31-40, thread::panicking); invariant should_panic_incompatibility documented in spec/invariants.spec:81 but unfixed; report schema skip/error/duration_ms/message unproducible.</h2><span class="chip medium">medium</span><span class="fid">C11-04</span></div>
+<div class="meta-row"><span class="engineer">097 Christoph Nakazawa</span><span class="chip neutral">effort S</span></div>
+<div class="evidence"><b>Evidence</b><span class="ev"><code>guard.rs:31-40</code></span><span class="ev"><code>spec/invariants.spec:81</code></span></div>
+<p class="details">TestGuard::drop maps thread::panicking() to Fail unconditionally, so #[should_panic] tests - where panic is the success path - record Fail in the registry, report, and coverage diff (only Pass counts toward passing). spec/invariants.spec:81-90 documents should_panic_incompatibility and requires the macro to emit a compile-time warning, but specforge-test-macros/src/lib.rs forwards attrs blindly (#(#attrs)*) and never checks for should_panic. The report schema&#x27;s skip/error/duration_ms/message are unproducible: TestOutcome has only Pass/Fail with no timing or panic-message capture, so expected-panic tests drag entities to CoveredWithFailures and skips look never-run.</p>
+<div class="snippet before"><span class="cap">before — current code</span><pre><code>impl Drop for TestGuard {
+    fn drop(&amp;mut self) {
+        let outcome = if std::thread::panicking() {
+            TestOutcome::Fail
+        } else {
+            TestOutcome::Pass
+        };
+
+        registry::record(TestRecordEntry {</code></pre><div class="file">integrations/rust/specforge-test/src/guard.rs:31-40</div></div>
+<div class="arrow-between">↓ fix ↓</div>
+<div class="snippet after"><span class="cap">after — proposed fix</span><pre><code>impl Drop for TestGuard {
+    fn drop(&amp;mut self) {
+        let expected_panic = self.should_panic &amp;&amp; std::thread::panicking();
+        let outcome = if std::thread::panicking() &amp;&amp; !expected_panic {
+            TestOutcome::Fail
+        } else {
+            TestOutcome::Pass
+        };
+
+        registry::record(TestRecordEntry {
+            entity_kind: self.entity_kind.to_string(),
+            entity_id: self.entity_id.to_string(),
+            test_name: self.test_name.to_string(),
+            file: self.file.to_string(),
+            verify: self.verify.map(|s| s.to_string()),
+            outcome,
+            duration_ms: Some(self.start.elapsed().as_millis() as u64),
+            message: std::thread::panicking().then(|| self.panic_message.clone()),
+        });
+    }
+}</code></pre><div class="file">integrations/rust/specforge-test/src/guard.rs</div></div>
+<div class="diagram-box"><span class="cap">should_panic recorded as fail</span><div class="mermaid" id="dg-097-C11-04"><pre>flowchart TD
+ A[should_panic test runs] --&gt; B[panic raised as expected]
+ B --&gt; C[guard drop sees panicking]
+ C --&gt; D[recorded as Fail]
+ D --&gt; E[entity status covered_with_failures]
+ E --&gt; F[invariant documents bug but unfixed]
+ F --&gt; G[fix macro detects should_panic attr]
+ G --&gt; H[guard inverts outcome]
+ H --&gt; I[recorded as Pass]</pre></div></div><script type="text/plain" class="mermaid-src" data-target="dg-097-C11-04">flowchart TD
+ A[should_panic test runs] --> B[panic raised as expected]
+ B --> C[guard drop sees panicking]
+ C --> D[recorded as Fail]
+ D --> E[entity status covered_with_failures]
+ E --> F[invariant documents bug but unfixed]
+ F --> G[fix macro detects should_panic attr]
+ G --> H[guard inverts outcome]
+ H --> I[recorded as Pass]</script>
+<div class="eli10"><span class="tag">Explain like I'm 10</span><p>a test meant to trip the alarm is logged as failure because the alarm rang; skipped looks like never-written.</p></div>
+<p class="sol" style="margin-top:12px"><b>Proposed solution.</b> detect #[should_panic] in macro and invert; add Skipped; capture duration/panic message.</p>
+</article>
+</main><script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.1/dist/mermaid.min.js" onerror="window.__mermaidFailed=true"></script><script src="../js/agent.js"></script></body></html>

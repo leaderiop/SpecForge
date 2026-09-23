@@ -1,0 +1,172 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>012 Max Brunsfeld — SpecForge audit review</title>
+<link rel="stylesheet" href="../css/report.css"><link rel="stylesheet" href="../css/agents.css"></head><body>
+<header class="agent-hero"><div class="brand"><div class="logo">012</div><div>
+<h1>Max Brunsfeld</h1>
+<div class="crumbs">Cluster C3 — Parsing &amp; grammar infrastructure · created tree-sitter; incremental parsing for programming tools; Zed co-founder · profile <code>.agents/012-max-brunsfeld.md</code></div></div></div>
+<div class="links"><a href="../index.html">← Full report</a><a href="../../.agents/012-max-brunsfeld.md">Profile source</a></div></header>
+<main class="agent-main">
+<nav class="agent-nav"><a href="011.html">← 011</a><a href="013.html">013 →</a></nav>
+<div class="review-panel"><div class="review-text"><h2>Auditor review</h2><p>Max Brunsfeld here: the zero-domain grammar with `word: $.identifier` and empty conflicts is exactly how I&#x27;d build a spec DSL parser — it will never need touching when you add entity kinds. But shipping tree-sitter without a single corpus test is leaving its best feature on the table; error recovery especially is only trustworthy when pinned fixture-by-fixture. And your extractor trusts the tree blindly: check root.has_error() and walk is_missing nodes, or tree-sitter&#x27;s silent repairs flow straight into your typed graph.</p></div>
+<div class="mini-kpis">
+<div class="mini-kpi"><div class="k">Findings</div><div class="v">3</div></div>
+<div class="mini-kpi bad"><div class="k">Critical + high</div><div class="v">1</div></div>
+<div class="mini-kpi"><div class="k">Evidence items</div><div class="v">4</div></div>
+<div class="mini-kpi"><div class="k">Effort mix</div><div class="v" style="font-size:14px">M · S</div></div>
+</div></div>
+<article class="finding-detail sev-high" id="f-C3-00">
+<div class="head"><h2>MISSING nodes/root.has_error() never inspected; some syntax errors emit no E001</h2><span class="chip high">high</span><span class="fid">C3-00</span></div>
+<div class="meta-row"><span class="engineer">012 Max Brunsfeld</span><span class="chip neutral">effort M</span><span class="chip neutral">moves: Missing-node diagnostics</span></div>
+<div class="evidence"><b>Evidence</b><span class="ev"><code>specforge-parser/src/parse.rs:107-133,169-205</code> — only ERROR children handled; no has_error/is_missing check</span><span class="ev"><code>specforge-formatter/src/engine.rs:245-248</code> — correct is_error/is_missing pattern exists here</span></div>
+<p class="details">parse_incremental in specforge-parser/src/parse.rs only surfaces diagnostics when a top-level child has kind ERROR. Tree-sitter also reports failures via root.has_error(), is_missing() nodes, and ERROR nodes nested deeper than the first level (e.g. inside an entity_block); the match arm `_ =&gt; {}` silently swallows all of these. The observable consequence is a syntax error that produces SpecFile.errors == [] while the tree is corrupt, so downstream phases (graph build, validation, LSP publish) run on a partially-extracted AST with no E001 emitted. The formatter already models the correct pattern: specforge-formatter/src/engine.rs collect_errors_recursive checks node.is_error() || node.is_missing() on every node. For a typed-graph compiler consumed by AI agents, a silently-corrupt tree is the worst failure mode: the agent receives plausible but wrong diagnostics instead of a parse error.</p>
+<div class="snippet before"><span class="cap">before — current code</span><pre><code>        let root = tree.root_node();
+        let mut cursor = root.walk();
+        for child in root.children(&amp;mut cursor) {
+            match child.kind() {
+                &quot;entity_block&quot; =&gt; ctx.parse_entity_block(child),
+                &quot;spec_block&quot; =&gt; ctx.parse_spec_block(child),
+                &quot;ref_block&quot; =&gt; ctx.parse_ref_block(child),
+                &quot;define_block&quot; =&gt; ctx.parse_define_block(child),
+                &quot;union_block&quot; =&gt; ctx.parse_union_block(child),
+                &quot;use_import&quot; =&gt; ctx.parse_use_import(child, false),
+                &quot;pub_use_import&quot; =&gt; ctx.parse_use_import(child, true),
+                &quot;comment&quot; =&gt; {}
+                &quot;ERROR&quot; =&gt; ctx.push_error_node(child),
+                _ =&gt; {}
+            }
+        }</code></pre><div class="file">crates/specforge-parser/src/parse.rs:122-140</div></div>
+<div class="arrow-between">↓ fix ↓</div>
+<div class="snippet after"><span class="cap">after — proposed fix</span><pre><code>        let root = tree.root_node();
+        let mut cursor = root.walk();
+        for child in root.children(&amp;mut cursor) {
+            match child.kind() {
+                &quot;entity_block&quot; =&gt; ctx.parse_entity_block(child),
+                &quot;spec_block&quot; =&gt; ctx.parse_spec_block(child),
+                &quot;ref_block&quot; =&gt; ctx.parse_ref_block(child),
+                &quot;define_block&quot; =&gt; ctx.parse_define_block(child),
+                &quot;union_block&quot; =&gt; ctx.parse_union_block(child),
+                &quot;use_import&quot; =&gt; ctx.parse_use_import(child, false),
+                &quot;pub_use_import&quot; =&gt; ctx.parse_use_import(child, true),
+                &quot;comment&quot; =&gt; {}
+                &quot;ERROR&quot; =&gt; ctx.push_error_node(child),
+                _ =&gt; {}
+            }
+        }
+        // MISSING tokens and nested ERROR nodes never surface as top-level
+        // `ERROR` children; walk the whole tree so has_error() implies errors.
+        if root.has_error() &amp;&amp; ctx.errors.is_empty() {
+            ctx.collect_hidden_errors(root);
+        }</code></pre><div class="file">crates/specforge-parser/src/parse.rs</div></div>
+<div class="diagram-box"><span class="cap">Silent MISSING nodes</span><div class="mermaid" id="dg-012-C3-00"><pre>flowchart TD
+ A[Source text] --&gt; B[tree-sitter parse]
+ B --&gt; C{root.has_error}
+ C -- no --&gt; D[errors empty]
+ C -- yes --&gt; E{top-level ERROR child}
+ E -- yes --&gt; F[E001 emitted]
+ E -- no or MISSING --&gt; G[errors empty silently]
+ G --&gt; H[graph built from corrupt tree]
+ F --&gt; I[agent sees real error]
+ H --&gt; J[agent misled]
+ G -. fix walk is_missing and nested ERROR .-&gt; F</pre></div></div><script type="text/plain" class="mermaid-src" data-target="dg-012-C3-00">flowchart TD
+ A[Source text] --> B[tree-sitter parse]
+ B --> C{root.has_error}
+ C -- no --> D[errors empty]
+ C -- yes --> E{top-level ERROR child}
+ E -- yes --> F[E001 emitted]
+ E -- no or MISSING --> G[errors empty silently]
+ G --> H[graph built from corrupt tree]
+ F --> I[agent sees real error]
+ H --> J[agent misled]
+ G -. fix walk is_missing and nested ERROR .-> F</script>
+<div class="eli10"><span class="tag">Explain like I'm 10</span><p>Proofreader flags red marks but never pencil-insertions, so tree-sitter&#x27;s silent MISSING-token repairs sail through unnoticed.</p></div>
+<p class="sol" style="margin-top:12px"><b>Proposed solution.</b> Walk tree for is_missing/is_error not covered by ERROR child; emit precise ParseErrors; invariant-test errors non-empty when root.has_error().</p>
+</article>
+<article class="finding-detail sev-medium" id="f-C3-01">
+<div class="head"><h2>Zero tree-sitter corpus tests</h2><span class="chip medium">medium</span><span class="fid">C3-01</span></div>
+<div class="meta-row"><span class="engineer">012 Max Brunsfeld</span><span class="chip neutral">effort S</span><span class="chip neutral">moves: Corpus coverage</span></div>
+<div class="evidence"><b>Evidence</b><span class="ev"><code>tree-sitter-specforge/tests:dir</code> — only queries.rs; no corpus dir</span></div>
+<p class="details">crates/tree-sitter-specforge/tests contains only queries.rs (highlight/fold query validation); there is no corpus/ directory, so tree-sitter test has zero fixtures to run. Every grammar change is validated only indirectly, through specforge-parser integration tests that assert on the extracted AST, which conflates grammar correctness with extractor correctness. Recovery behavior (the ERROR/MISSING cases from C3-00) is exactly where tree-sitter&#x27;s corpus format shines: expected output trees pin down how partial input reparses. The grammar is 240 lines with dedicated use/spec/ref/define rules plus a generic entity_block — a handful of corpus files per rule would lock all of it in for an afternoon of effort.</p>
+<div class="snippet before"><span class="cap">before — current code</span><pre><code>tests/
+  queries.rs   # 11.7KB — only query validation
+               # (no corpus/ directory; `tree-sitter test` has zero fixtures)</code></pre><div class="file">crates/tree-sitter-specforge/tests:dir listing</div></div>
+<div class="arrow-between">↓ fix ↓</div>
+<div class="snippet after"><span class="cap">after — proposed fix</span><pre><code>==================
+Entity block with fields
+==================
+
+behavior checkout &quot;Checkout flow&quot; {
+  requires cart is not empty
+  ensures order created
+}
+
+---
+
+(source_file
+  (entity_block
+    kind: (identifier)
+    name: (identifier)
+    title: (string)
+    (entity_body)))
+
+==================
+Recovery: unclosed block yields ERROR not source-level garbage
+==================
+
+behavior checkout &quot;Checkout&quot; {
+  requires x
+
+---
+
+(source_file
+  (ERROR
+    (identifier)
+    (identifier)
+    (string)))
+
+# Run via `tree-sitter test` in CI (C3-03 job).</code></pre><div class="file">crates/tree-sitter-specforge/tests/corpus/entity_blocks.txt</div></div>
+<div class="diagram-box"><span class="cap">Corpus test gap</span><div class="mermaid" id="dg-012-C3-01"><pre>flowchart TD
+ A[grammar.js change] --&gt; B{corpus tests exist}
+ B -- no --&gt; C[only end-to-end AST tests notice]
+ C --&gt; D[regression found late]
+ B -- yes --&gt; E[tree-sitter test pins expected trees]
+ E --&gt; F[recovery behavior locked in CI]
+ D --&gt; G[add corpus dir + CI job]
+ G --&gt; E</pre></div></div><script type="text/plain" class="mermaid-src" data-target="dg-012-C3-01">flowchart TD
+ A[grammar.js change] --> B{corpus tests exist}
+ B -- no --> C[only end-to-end AST tests notice]
+ C --> D[regression found late]
+ B -- yes --> E[tree-sitter test pins expected trees]
+ E --> F[recovery behavior locked in CI]
+ D --> G[add corpus dir + CI job]
+ G --> E</script>
+<div class="eli10"><span class="tag">Explain like I'm 10</span><p>No snapshot album of input/expected-tree pairs; grammar changes surface only after the whole machine misbehaves.</p></div>
+<p class="sol" style="margin-top:12px"><b>Proposed solution.</b> Add corpus per rule incl. recovery; run tree-sitter test in CI.</p>
+</article>
+<article class="finding-detail sev-info" id="f-C3-02">
+<div class="head"><h2>Zero-domain grammar, word rule, empty conflicts — right shape</h2><span class="chip info">info</span><span class="fid">C3-02</span></div>
+<div class="meta-row"><span class="engineer">012 Max Brunsfeld</span><span class="chip neutral">effort S</span><span class="chip neutral">moves: Corpus coverage</span></div>
+<div class="evidence"><b>Evidence</b><span class="ev"><code>grammar.js:header/conflicts/word</code> — 4 dedicated constructs; zero-entity guard tests enforce no core keywords</span></div>
+<p class="details">grammar.js opens with an explicit design principle of zero domain knowledge: only use_import, pub_use_import, spec_block/ref_block/define_block plumbing, and the generic entity_block exist as constructs, conflicts is empty, and word is anchored on $.identifier so keyword recognition never tokenizes a closed keyword list. The parser accepts ANY keyword and defers validation to the semantic phase, which is why adding a new entity kind requires zero grammar changes.</p>
+<div class="snippet exemplar"><span class="cap">exemplar — the good pattern</span><pre><code>// Design principle: ZERO domain knowledge in core.
+// Only 4 constructs have dedicated grammar rules:
+//   - use (import syntax)
+//   - spec (singleton project root)
+//   - ref (scheme.kind:identifier compound ID)
+//   - define (user-defined entity types)
+//
+// Everything else is parsed by the generic entity_block rule.
+// The parser accepts ANY keyword — validation happens in the semantic phase.
+
+module.exports = grammar({
+  name: &quot;specforge&quot;,
+
+  extras: ($) =&gt; [/\s/, $.comment],
+
+  word: ($) =&gt; $.identifier,
+
+  conflicts: ($) =&gt; [],</code></pre><div class="file">crates/tree-sitter-specforge/grammar.js:6-25</div></div>
+<div class="keep"><span class="tag">Keep doing this</span><p>Keep the zero-domain grammar with word anchored on identifier, empty conflicts, and keyword validation deferred to the semantic phase — lock it in with corpus tests so future edits cannot quietly reintroduce domain knowledge into the parser.</p></div>
+<div class="eli10"><span class="tag">Explain like I'm 10</span><p>A mail sorter that only knows the address format, not every street name — new blocks arrive without touching it.</p></div>
+<p class="sol" style="margin-top:12px"><b>Proposed solution.</b> Preserve; lock in with corpus tests.</p>
+</article>
+</main><script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.1/dist/mermaid.min.js" onerror="window.__mermaidFailed=true"></script><script src="../js/agent.js"></script></body></html>

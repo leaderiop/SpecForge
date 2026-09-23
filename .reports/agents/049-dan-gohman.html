@@ -1,0 +1,82 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>049 Dan Gohman — SpecForge audit review</title>
+<link rel="stylesheet" href="../css/report.css"><link rel="stylesheet" href="../css/agents.css"></head><body>
+<header class="agent-hero"><div class="brand"><div class="logo">049</div><div>
+<h1>Dan Gohman</h1>
+<div class="crumbs">Cluster C7 — Wasm plugin runtimes &amp; the extension bet · WASI lead — system interfaces &amp; capability-based sandboxing · profile <code>.agents/049-dan-gohman.md</code></div></div></div>
+<div class="links"><a href="../index.html">← Full report</a><a href="../../.agents/049-dan-gohman.md">Profile source</a></div></header>
+<main class="agent-main">
+<nav class="agent-nav"><a href="048.html">← 048</a><a href="050.html">050 →</a></nav>
+<div class="review-panel"><div class="review-text"><h2>Auditor review</h2><p>This sandbox would not pass review: file_system_access defaults to true, an empty allowed_paths means &#x27;everything&#x27;, starts_with has no component boundary, and — most damning — the carefully merged most-restrictive-wins policy is computed and then never handed to instantiate() or host_read_file, which hard-code the defaults. The merge logic in configure_sandbox_policy is genuinely well-designed, which makes it worse that it is decorative. Fix order: empty-equals-deny, component-wise compare, thread merged policy through HostContext and PluginBuilder, then epoch-based enforcement.</p></div>
+<div class="mini-kpis">
+<div class="mini-kpi"><div class="k">Findings</div><div class="v">1</div></div>
+<div class="mini-kpi bad"><div class="k">Critical + high</div><div class="v">1</div></div>
+<div class="mini-kpi"><div class="k">Evidence items</div><div class="v">4</div></div>
+<div class="mini-kpi"><div class="k">Effort mix</div><div class="v" style="font-size:14px">M</div></div>
+</div></div>
+<article class="finding-detail sev-high" id="f-C7-04">
+<div class="head"><h2>Deny-by-default is allow-by-default: default policy file_system_access=true (sandbox.rs:15-25); is_path_allowed empty allowed_paths returns true for ANY path, and starts_with has no component boundary (&#x27;/a&#x27; allows &#x27;/abc&#x27;) (sandbox.rs:219-227); instantiate() never receives merged SandboxPolicy (runtime.rs:86-91); host_read_file enforces default policy not merged policy (host_context.rs:126-128).</h2><span class="chip high">high</span><span class="fid">C7-04</span></div>
+<div class="meta-row"><span class="engineer">049</span><span class="chip neutral">effort M</span><span class="chip neutral">moves: sandbox_enforcement</span></div>
+<div class="evidence"><b>Evidence</b><span class="ev"><code>sandbox.rs:15-25</code></span><span class="ev"><code>sandbox.rs:219-227</code></span><span class="ev"><code>runtime.rs:86-91</code></span><span class="ev"><code>host_context.rs:126-128</code></span></div>
+<p class="details">Deny-by-default exists only on paper. default_sandbox_policy() sets file_system_access=Some(true) with an empty allowed_paths; is_path_allowed then returns true for ANY path when allowed_paths is empty, and even with entries uses a bare str::starts_with so &#x27;/a&#x27; permits &#x27;/abc&#x27; (no component boundary). Meanwhile configure_sandbox_policy computes a merged most-restrictive policy that instantiate() never sees — PluginBuilder is built with no manifest policy at all — and host_context.rs:140 hard-codes `let policy = default_sandbox_policy()` in host_read_file, so a plugin&#x27;s negotiated sandbox_policy is stored but never enforced. A malicious or buggy plugin can read any file the host process can. Fixes: empty means deny, canonicalize and compare path components, thread the merged SandboxPolicy through ExtismRuntime into both PluginBuilder and the host functions, and enforce memory/time at the Wasmtime level.</p>
+<div class="snippet before"><span class="cap">before — current code</span><pre><code>pub fn default_sandbox_policy() -&gt; SandboxPolicy {
+    SandboxPolicy {
+        max_memory_mb: Some(64),
+        max_execution_ms: Some(30_000),
+        allowed_domains: vec![],
+        allowed_paths: vec![],
+        allowed_output_extensions: vec![
+            &quot;.json&quot;.into(), &quot;.html&quot;.into(), &quot;.csv&quot;.into(), &quot;.svg&quot;.into(),
+            &quot;.dot&quot;.into(), &quot;.xml&quot;.into(), &quot;.txt&quot;.into(), &quot;.pdf&quot;.into(),
+        ],
+        network_access: Some(false),
+        file_system_access: Some(true),
+    }
+}</code></pre><div class="file">crates/specforge-wasm/src/sandbox.rs:4-17</div></div>
+<div class="arrow-between">↓ fix ↓</div>
+<div class="snippet after"><span class="cap">after — proposed fix</span><pre><code>/// Check if a filesystem path is allowed by the sandbox policy.
+/// Deny-by-default: file_system_access must be Some(true) AND allowed_paths
+/// must list an ancestor of `path`, compared component-wise.
+pub fn is_path_allowed(path: &amp;str, policy: &amp;SandboxPolicy) -&gt; bool {
+    if policy.file_system_access != Some(true) {
+        return false;
+    }
+    if policy.allowed_paths.is_empty() {
+        return false;
+    }
+    let path = std::path::Path::new(path);
+    policy.allowed_paths.iter().any(|allowed| {
+        let allowed = std::path::Path::new(allowed);
+        path.components().zip(allowed.components()).all(|(a, b)| a == b)
+            &amp;&amp; path.components().count() &gt;= allowed.components().count()
+    })
+}
+
+// In specforge-extism: thread the merged policy through
+// ExtismRuntime::with_sandbox_policy(merged) so both PluginBuilder::with_manifest_policy
+// and host_read_file enforce the negotiated policy instead of default_sandbox_policy().</code></pre><div class="file">crates/specforge-wasm/src/sandbox.rs</div></div>
+<div class="diagram-box"><span class="cap">Deny by default sandbox</span><div class="mermaid" id="dg-049-C7-04"><pre>flowchart TD
+ A[Plugin requests path] --&gt; B{file_system_access true}
+ B --&gt;|no| X[Deny]
+ B --&gt;|yes| C{allowed_paths empty}
+ C --&gt;|yes old| D[Allow any path bug]
+ C --&gt;|yes new| X
+ C --&gt;|no| E[Component-wise prefix compare]
+ E --&gt; F{under allowed root}
+ F --&gt;|yes| G[Read via merged policy]
+ F --&gt;|no| X
+ G --&gt; H[Merged policy also drives PluginBuilder]</pre></div></div><script type="text/plain" class="mermaid-src" data-target="dg-049-C7-04">flowchart TD
+ A[Plugin requests path] --> B{file_system_access true}
+ B -->|no| X[Deny]
+ B -->|yes| C{allowed_paths empty}
+ C -->|yes old| D[Allow any path bug]
+ C -->|yes new| X
+ C -->|no| E[Component-wise prefix compare]
+ E --> F{under allowed root}
+ F -->|yes| G[Read via merged policy]
+ F -->|no| X
+ G --> H[Merged policy also drives PluginBuilder]</script>
+<div class="eli10"><span class="tag">Explain like I'm 10</span><p>checklist says kids stay in the yard, but the gate is open by default and an empty list reads as &#x27;the whole world is the yard&#x27;; the negotiated per-plugin checklist sits in a drawer.</p></div>
+<p class="sol" style="margin-top:12px"><b>Proposed solution.</b> empty=deny, canonical component-wise path compare, thread merged policy into PluginBuilder and host_read_file, enforce memory/time at wasmtime level.</p>
+</article>
+</main><script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.1/dist/mermaid.min.js" onerror="window.__mermaidFailed=true"></script><script src="../js/agent.js"></script></body></html>

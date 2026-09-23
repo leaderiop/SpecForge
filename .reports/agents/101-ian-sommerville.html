@@ -1,0 +1,65 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>101 Ian Sommerville — SpecForge audit review</title>
+<link rel="stylesheet" href="../css/report.css"><link rel="stylesheet" href="../css/agents.css"></head><body>
+<header class="agent-hero"><div class="brand"><div class="logo">101</div><div>
+<h1>Ian Sommerville</h1>
+<div class="crumbs">Cluster C12 — Requirements engineering, ubiquitous language &amp; docs-as-code (self-spec corpus) · Requirements engineering canon · profile <code>.agents/101-ian-sommerville.md</code></div></div></div>
+<div class="links"><a href="../index.html">← Full report</a><a href="../../.agents/101-ian-sommerville.md">Profile source</a></div></header>
+<main class="agent-main">
+<nav class="agent-nav"><a href="100.html">← 100</a><a href="102.html">102 →</a></nav>
+<div class="review-panel"><div class="review-text"><h2>Auditor review</h2><p>Sommerville would admire that the requirements corpus is validated by its own tool — a closed RE validation loop most projects never achieve. His first fix: stop documenting nonexistent providers in the canonical writing flow; specified-but-undeliverable requirements are his canonical realism failure. He would then chase the rotting counts in solution prose, since requirements must survive change without silently becoming false.</p></div>
+<div class="mini-kpis">
+<div class="mini-kpi"><div class="k">Findings</div><div class="v">2</div></div>
+<div class="mini-kpi bad"><div class="k">Critical + high</div><div class="v">1</div></div>
+<div class="mini-kpi"><div class="k">Evidence items</div><div class="v">4</div></div>
+<div class="mini-kpi"><div class="k">Effort mix</div><div class="v" style="font-size:14px">S</div></div>
+</div></div>
+<article class="finding-detail sev-high" id="f-C12-04">
+<div class="head"><h2>Authoring flow instructs providers that don&#x27;t exist — RE canon: don&#x27;t specify what you can&#x27;t deliver</h2><span class="chip high">high</span><span class="fid">C12-04</span></div>
+<div class="meta-row"><span class="engineer">101 Ian Sommerville</span><span class="chip neutral">effort S</span><span class="chip neutral">moves: referenced_extension_existence</span></div>
+<div class="evidence"><b>Evidence</b><span class="ev"><code>docs/spec-writing-flow.md:36-40</code> — step 3: &#x27;Which external providers? (@specforge/gh, @specforge/jira, @specforge/figma)&#x27;</span><span class="ev"><code>spec/product/deliverables.spec:100-103</code> — only @specforge/gh appears as a deliverable; no jira/figma anywhere</span><span class="ev"><code>spec/specforge.spec:14-18</code> — root itself points at the nonexistent @specforge/gh</span></div>
+<p class="details">docs/spec-writing-flow.md step 3 instructs authors to choose external providers from &#x27;@specforge/gh, @specforge/jira, @specforge/figma&#x27;, but only @specforge/gh appears anywhere as a deliverable (spec/product/deliverables.spec:100-103) — no jira or figma extension exists in the corpus, and even @specforge/gh itself is not implemented. A new user following the canonical flow hits a wall at step 3, and agents following the doc will emit provider blocks referencing packages that can never load. RE canon: documentation must only promise what the release contains; planned capabilities belong in a clearly marked roadmap section.</p>
+<div class="snippet before"><span class="cap">before — current code</span><pre><code>3. Which external providers? (`@specforge/gh`, `@specforge/jira`, `@specforge/figma`)</code></pre><div class="file">docs/spec-writing-flow.md:36-36</div></div>
+<div class="arrow-between">↓ fix ↓</div>
+<div class="snippet after"><span class="cap">after — proposed fix</span><pre><code>3. Which external providers? (`@specforge/gh` — **shipped**;
+   `@specforge/jira` and `@specforge/figma` are **roadmap items**,
+   not in this release — omit the `providers` block until the
+   extension exists)
+
+&gt; **Roadmap (not yet shipped):** `@specforge/jira`, `@specforge/figma`.
+&gt; See spec/product/deliverables.spec for what the current release contains.</code></pre><div class="file">docs/spec-writing-flow.md:36-42</div></div>
+<div class="diagram-box"><span class="cap">Docs promise only what ships</span><div class="mermaid" id="dg-101-C12-04"><pre>flowchart TD
+ A[writing flow step 3] --&gt; B[names jira and figma providers]
+ B --&gt; C[user searches deliverables]
+ C --&gt; D[extension does not exist]
+ D --&gt; E[user blocked at step 3]
+ A --&gt; F[split shipped vs roadmap]
+ F --&gt; G[only gh listed as shipped]
+ G --&gt; H[flow completes for real users]</pre></div></div><script type="text/plain" class="mermaid-src" data-target="dg-101-C12-04">flowchart TD
+ A[writing flow step 3] --> B[names jira and figma providers]
+ B --> C[user searches deliverables]
+ C --> D[extension does not exist]
+ D --> E[user blocked at step 3]
+ A --> F[split shipped vs roadmap]
+ F --> G[only gh listed as shipped]
+ G --> H[flow completes for real users]</script>
+<div class="eli10"><span class="tag">Explain like I'm 10</span><p>The getting-started guide tells you to install three plug-ins; the store sells none of them. A new user follows the steps and hits a wall at step 3. Documentation must only promise what the release contains.</p></div>
+<p class="sol" style="margin-top:12px"><b>Proposed solution.</b> Mark @specforge/gh, jira, figma as roadmap items in a distinct &#x27;planned&#x27; section of docs/spec-writing-flow.md, or remove the deliverable entity until an implementation exists; the compiler could flag deliverables whose artifact_type=extension has no corresponding extension spec dir.</p>
+</article>
+<article class="finding-detail sev-info" id="f-C12-05">
+<div class="head"><h2>Praise: the corpus is itself validated by its own tool — RE validation loop closed</h2><span class="chip info">info</span><span class="fid">C12-05</span></div>
+<div class="meta-row"><span class="engineer">101 Ian Sommerville</span><span class="chip neutral">effort S</span><span class="chip neutral">moves: behavior_verify_coverage</span></div>
+<div class="evidence"><b>Evidence</b><span class="ev"><code>spec/:—</code> — 219-file self-hosted corpus compiled by the same validator it specifies; three-layer traceability ADR (spec/governance/decisions.spec:144) links verify -&gt; tests -&gt; report</span></div>
+<p class="details">The 219-file corpus is compiled by the same validator it specifies, and the three-layer traceability ADR links verify to tests to specforge-report.json pass/fail proof. This dogfooding is the strongest quality signal in the repo — every DSL change exercises itself.</p>
+<div class="snippet exemplar"><span class="cap">exemplar — the good pattern</span><pre><code>decision three_layer_traceability_model &quot;Three-Layer Traceability Model&quot; {
+  status   accepted
+  date     2026-03-02
+
+  context &quot;&quot;&quot;
+    Spec coverage based solely on counting verify declarations does not
+    prove that tests exist, run, or pass.</code></pre><div class="file">spec/governance/decisions.spec:167-171</div></div>
+<div class="keep"><span class="tag">Keep doing this</span><p>Keep compiling spec/ itself in CI and publishing its coverage so the self-host loop stays visible and load-bearing.</p></div>
+<div class="eli10"><span class="tag">Explain like I'm 10</span><p>The recipe book is cooked from, tasted, and corrected using the very kitchen it describes. Most projects never eat their own cooking; this one does, and it shows in the consistency of the feature/behavior/invariant chain.</p></div>
+<p class="sol" style="margin-top:12px"><b>Proposed solution.</b> Keep dogfooding; publish coverage of spec/ itself in CI so corpus health is visible.</p>
+</article>
+</main><script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.1/dist/mermaid.min.js" onerror="window.__mermaidFailed=true"></script><script src="../js/agent.js"></script></body></html>

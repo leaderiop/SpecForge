@@ -1,0 +1,64 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>054 Kevin Hoffman — SpecForge audit review</title>
+<link rel="stylesheet" href="../css/report.css"><link rel="stylesheet" href="../css/agents.css"></head><body>
+<header class="agent-hero"><div class="brand"><div class="logo">054</div><div>
+<h1>Kevin Hoffman</h1>
+<div class="crumbs">Cluster C7 — Wasm plugin runtimes &amp; the extension bet · wasmCloud co-creator — capability-based distributed Wasm · profile <code>.agents/054-kevin-hoffman.md</code></div></div></div>
+<div class="links"><a href="../index.html">← Full report</a><a href="../../.agents/054-kevin-hoffman.md">Profile source</a></div></header>
+<main class="agent-main">
+<nav class="agent-nav"><a href="053.html">← 053</a><a href="055.html">055 →</a></nav>
+<div class="review-panel"><div class="review-text"><h2>Auditor review</h2><p>filter_graph_by_query_scope works, compute_extension_query_scope works, and then the only live call site passes QueryScope::All unconditionally — a plugin declaring query_scope own still gets the whole graph. That is a capability-control gap dressed up as a feature, and since one shared HostContext serves all extensions there is nowhere to carry the per-plugin scope. The fix is small: a query_scope field on HostContext set from the manifest at load. I would do it the same day as the sandbox policy threading since it is the same plumbing.</p></div>
+<div class="mini-kpis">
+<div class="mini-kpi"><div class="k">Findings</div><div class="v">1</div></div>
+<div class="mini-kpi bad"><div class="k">Critical + high</div><div class="v">1</div></div>
+<div class="mini-kpi"><div class="k">Evidence items</div><div class="v">3</div></div>
+<div class="mini-kpi"><div class="k">Effort mix</div><div class="v" style="font-size:14px">S</div></div>
+</div></div>
+<article class="finding-detail sev-high" id="f-C7-09">
+<div class="head"><h2>query_scope ignored: make_query_graph_fn always uses QueryScope::All (host_context.rs:168-183) though handshake declares &#x27;all&#x27;|&#x27;own&#x27; (extension-sdk.md:315) and filter_graph_by_query_scope exists unused on the live path (host_functions.rs:48-52).</h2><span class="chip high">high</span><span class="fid">C7-09</span></div>
+<div class="meta-row"><span class="engineer">054</span><span class="chip neutral">effort S</span><span class="chip neutral">moves: sandbox_enforcement</span></div>
+<div class="evidence"><b>Evidence</b><span class="ev"><code>host_context.rs:168-183</code></span><span class="ev"><code>extension-sdk.md:315</code></span><span class="ev"><code>host_functions.rs:48-52</code></span></div>
+<p class="details">Extensions declare query_scope (&#x27;all&#x27; or &#x27;own&#x27;, documented in extension-sdk.md), and the machinery exists: compute_extension_query_scope parses the manifest and filter_graph_by_query_scope correctly filters entities/edges for Own/Explicit scopes. But the live path ignores all of it — make_query_graph_fn in host_context.rs hard-codes `filter_graph_by_query_scope(&amp;graph, &amp;QueryScope::All)`, and since one HostContext is shared by every loaded extension there is no place to carry a per-extension scope anyway. A plugin that declared &#x27;own&#x27; still receives the entire graph, which is both a capability-security violation and a false sense of isolation for plugin authors. Fix: give HostContext a query_scope field (or per-extension contexts) and pass compute_extension_query_scope(manifest) into the host function factory.</p>
+<div class="snippet before"><span class="cap">before — current code</span><pre><code>            let graph = match &amp;ctx.graph_json {
+                Some(g) =&gt; g.clone(),
+                None =&gt; serde_json::json!({&quot;entities&quot;: [], &quot;edges&quot;: []}),
+            };
+
+            let filtered = filter_graph_by_query_scope(&amp;graph, &amp;QueryScope::All);
+            let response = serde_json::to_string(&amp;filtered)
+                .map_err(|e| extism::Error::msg(format!(&quot;failed to serialize graph: {e}&quot;)))?;</code></pre><div class="file">crates/specforge-extism/src/host_context.rs:190-198</div></div>
+<div class="arrow-between">↓ fix ↓</div>
+<div class="snippet after"><span class="cap">after — proposed fix</span><pre><code>pub struct HostContext {
+    pub diagnostics: Arc&lt;Mutex&lt;Vec&lt;Diagnostic&gt;&gt;&gt;,
+    pub spec_root: Option&lt;PathBuf&gt;,
+    pub graph_json: Option&lt;serde_json::Value&gt;,
+    pub sandbox_policy: SandboxPolicy,
+    pub query_scope: QueryScope,
+}
+
+// in make_query_graph_fn:
+            let scope = ctx.query_scope.clone();
+            let filtered = filter_graph_by_query_scope(&amp;graph, &amp;scope);
+
+// at load time:
+let ctx = HostContext::default()
+    .with_sandbox_policy(merged_policy)
+    .with_query_scope(compute_extension_query_scope(&amp;manifest));
+runtime.load_module_with_context(name, &amp;wasm, ctx)?;</code></pre><div class="file">crates/specforge-extism/src/host_context.rs</div></div>
+<div class="diagram-box"><span class="cap">Per extension query scope</span><div class="mermaid" id="dg-054-C7-09"><pre>flowchart TD
+ A[Plugin manifest query_scope own] --&gt; B[Load module]
+ B --&gt; C[compute_extension_query_scope]
+ C --&gt; D[HostContext carries QueryScope Own]
+ D --&gt; E[host_query_graph fires]
+ E --&gt; F[filter_graph_by_query_scope uses declared scope]
+ F --&gt; G[Plugin sees only its own kinds]</pre></div></div><script type="text/plain" class="mermaid-src" data-target="dg-054-C7-09">flowchart TD
+ A[Plugin manifest query_scope own] --> B[Load module]
+ B --> C[compute_extension_query_scope]
+ C --> D[HostContext carries QueryScope Own]
+ D --> E[host_query_graph fires]
+ E --> F[filter_graph_by_query_scope uses declared scope]
+ F --> G[Plugin sees only its own kinds]</script>
+<div class="eli10"><span class="tag">Explain like I'm 10</span><p>plugin signs &#x27;I only need my own folder&#x27; but the librarian hands everyone the entire library; the filtering code exists but is never used at the door.</p></div>
+<p class="sol" style="margin-top:12px"><b>Proposed solution.</b> per-extension HostContext carrying declared QueryScope into the host fn.</p>
+</article>
+</main><script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.1/dist/mermaid.min.js" onerror="window.__mermaidFailed=true"></script><script src="../js/agent.js"></script></body></html>

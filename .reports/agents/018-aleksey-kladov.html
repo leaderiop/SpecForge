@@ -1,0 +1,29 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>018 Aleksey Kladov (matklad) — SpecForge audit review</title>
+<link rel="stylesheet" href="../css/report.css"><link rel="stylesheet" href="../css/agents.css"></head><body>
+<header class="agent-hero"><div class="brand"><div class="logo">018</div><div>
+<h1>Aleksey Kladov (matklad)</h1>
+<div class="crumbs">Cluster C4 — Incremental compilation, LSP &amp; diagnostics · rust-analyzer creator; resilient parsing &amp; shared IDE pipeline · profile <code>.agents/018-aleksey-kladov.md</code></div></div></div>
+<div class="links"><a href="../index.html">← Full report</a><a href="../../.agents/018-aleksey-kladov.md">Profile source</a></div></header>
+<main class="agent-main">
+<nav class="agent-nav"><a href="017.html">← 017</a><a href="019.html">019 →</a></nav>
+<div class="review-panel"><div class="review-text"><h2>Auditor review</h2><p>He&#x27;d praise the shared graph and shared resolve_references with the CLI, but call the duplicated did_change pipeline a divergence bug factory and delete it first in favor of parse_and_update. He&#x27;d also flag the write-lock-held-across-validate — snapshots or bust.</p></div>
+<div class="mini-kpis">
+<div class="mini-kpi"><div class="k">Findings</div><div class="v">1</div></div>
+<div class="mini-kpi bad"><div class="k">Critical + high</div><div class="v">1</div></div>
+<div class="mini-kpi"><div class="k">Evidence items</div><div class="v">3</div></div>
+<div class="mini-kpi"><div class="k">Effort mix</div><div class="v" style="font-size:14px">L</div></div>
+</div></div>
+<article class="finding-detail sev-high" id="f-C4-00">
+<div class="head"><h2>Two parallel invalidation implementations.</h2><span class="chip high">high</span><span class="fid">C4-00</span></div>
+<div class="meta-row"><span class="engineer">018 Aleksey Kladov + 021 Niko Matsakis</span><span class="chip neutral">effort L</span></div>
+<div class="evidence"><b>Evidence</b><span class="ev"><code>backend.rs</code></span><span class="ev"><code>pipeline.rs</code></span><span class="ev"><code>backend.rs:405-411</code></span></div>
+<p class="details">did_change spawns a debounced tokio task that hand-rolls a duplicate of the whole analysis pipeline, diverging from parse_and_update (it omits extension validation-rule/E006 passes); IncrementalPipeline is a third invalidation story. Any pipeline change must be made twice or entry points disagree.</p>
+<div class="snippet before"><span class="cap">before — current code</span><pre><code>        // Spawn a debounced reparse task\n        let state = self.state.clone();\n        let client = self.client.clone();\n        let pending = self.pending_updates.clone();\n        let uri_clone = uri.clone();\n        let handle = tokio::spawn(async move {\n            tokio::time::sleep(std::time::Duration::from_millis(DEBOUNCE_MS)).await;\n            let content = {\n                let s = state.read().await;\n                s.document(uri_clone.as_str()).map(|d| d.content().to_string())\n            };\n            if let Some(content) = content {\n                let mut s = state.write().await;\n                let graph = s.graph_mut();\n                // ... full pipeline duplicated from parse_and_update</code></pre><div class="file">crates/specforge-lsp/src/backend.rs:825-849</div></div>
+<div class="arrow-between">↓ fix ↓</div>
+<div class="snippet after"><span class="cap">after — proposed fix</span><pre><code>        // Debounced reparse delegates to the single analysis core.\n        let backend = self.clone();\n        let uri_clone = uri.clone();\n        let handle = tokio::spawn(async move {\n            tokio::time::sleep(Duration::from_millis(DEBOUNCE_MS)).await;\n            { backend.pending_updates.lock().await.remove(&amp;uri_clone); }\n            let content = backend.state.read().await\n                .document(uri_clone.as_str())\n                .map(|d| d.content().to_string());\n            if let Some(content) = content {\n                let diags = backend.parse_and_update(&amp;uri_clone, &amp;content).await;\n                for (file_uri, ds) in diags {\n                    backend.client.publish_diagnostics(file_uri, ds, None).await;\n                }\n            }\n        });\n        self.pending_updates.lock().await.insert(uri, handle);</code></pre><div class="file">crates/specforge-lsp/src/backend.rs:0-0</div></div>
+<div class="diagram-box"><span class="cap">One analysis core</span><div class="mermaid" id="dg-018-C4-00"><pre>flowchart TD\n did_change --&gt; debounce\n debounce --&gt; core\n did_open --&gt; core\n initialized --&gt; core\n watched_files --&gt; core\n core --&gt; publish</pre></div></div><script type="text/plain" class="mermaid-src" data-target="dg-018-C4-00">flowchart TD\n did_change --> debounce\n debounce --> core\n did_open --> core\n initialized --> core\n watched_files --> core\n core --> publish</script>
+<div class="eli10"><span class="tag">Explain like I'm 10</span><p>Imagine two twins tidying the same notebook with different rules: one notices torn pages (import cycles), the other doesn&#x27;t. Ask one twin and the notebook looks fine; ask the other and it&#x27;s full of problems. We need one twin with one rulebook that both the editor and the watcher use.</p></div>
+<p class="sol" style="margin-top:12px"><b>Proposed solution.</b> one shared analysis core; debounce task calls parse_and_update.</p>
+</article>
+</main><script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.1/dist/mermaid.min.js" onerror="window.__mermaidFailed=true"></script><script src="../js/agent.js"></script></body></html>

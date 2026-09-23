@@ -1,0 +1,102 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>057 Mitchell Hashimoto — SpecForge audit review</title>
+<link rel="stylesheet" href="../css/report.css"><link rel="stylesheet" href="../css/agents.css"></head><body>
+<header class="agent-hero"><div class="brand"><div class="logo">057</div><div>
+<h1>Mitchell Hashimoto</h1>
+<div class="crumbs">Cluster C8 — Registries, packaging &amp; supply-chain trust · Terraform/Vagrant registry &amp; extension model (SpecForge&#x27;s extension design is explicitly Terraform-inspired); Ghostty · profile <code>.agents/057-mitchell-hashimoto.md</code></div></div></div>
+<div class="links"><a href="../index.html">← Full report</a><a href="../../.agents/057-mitchell-hashimoto.md">Profile source</a></div></header>
+<main class="agent-main">
+<nav class="agent-nav"><a href="056.html">← 056</a><a href="058.html">058 →</a></nav>
+<div class="review-panel"><div class="review-text"><h2>Auditor review</h2><p>The registry abstraction is genuinely nice — find_registry_for_specifier routing, typed errors with guidance, a hash-pinning lockfile — but publish never loads the credential login stored, so every publish 401s. Fix the auth wiring first, then make store-then-insert atomic since racers rewrite immutable blobs, and prove it with a mock-registry test asserting 201 on an authorized publish.</p></div>
+<div class="mini-kpis">
+<div class="mini-kpi"><div class="k">Findings</div><div class="v">2</div></div>
+<div class="mini-kpi bad"><div class="k">Critical + high</div><div class="v">2</div></div>
+<div class="mini-kpi"><div class="k">Evidence items</div><div class="v">0</div></div>
+<div class="mini-kpi"><div class="k">Effort mix</div><div class="v" style="font-size:14px">M · S</div></div>
+</div></div>
+<article class="finding-detail sev-high" id="f-C8-00">
+<div class="head"><h2>`specforge publish` can never authenticate: login stores a token that publish never reads or sends</h2><span class="chip high">high</span><span class="fid">C8-00</span></div>
+<div class="meta-row"><span class="engineer">057 Mitchell Hashimoto</span><span class="chip neutral">effort S</span><span class="chip neutral">moves: publish_auth_wiring</span></div>
+<p class="details">specforge login stores a token in CredentialStore, but publish.rs calls publish_to_registry with no credential and HttpRegistryClient::publish sends no AUTHORIZATION header, while the server 401s any publish lacking one. Login and publish were built separately and never wired.</p>
+<div class="snippet before"><span class="cap">before — current code</span><pre><code>    // Publish
+    let client = HttpRegistryClient::new();
+    match publish_to_registry(&amp;wasm_bytes, &amp;manifest, registry, &amp;client, false) {
+        Ok(url) =&gt; {
+            match format {
+                &quot;json&quot; =&gt; {</code></pre><div class="file">crates/specforge-cli/src/publish.rs:60-64</div></div>
+<div class="arrow-between">↓ fix ↓</div>
+<div class="snippet after"><span class="cap">after — proposed fix</span><pre><code>    let store = read_credentials(&amp;credentials_path())?;
+    let credential = std::env::var(&quot;SPECFORGE_REGISTRY_TOKEN&quot;)
+        .ok()
+        .map(|t| AuthMethod::Bearer(t))
+        .or_else(|| store.get_credential(&amp;registry.alias).map(|c| c.auth_method));
+
+    let client = HttpRegistryClient::new();
+    match publish_to_registry(&amp;wasm_bytes, &amp;manifest, registry, &amp;client, credential.as_ref(), false) {
+        Ok(url) =&gt; { /* unchanged output */ }
+        Err(diag) =&gt; { print_error(format, &amp;diag.message, &amp;diag.code); 1 }
+    }</code></pre><div class="file">crates/specforge-cli/src/publish.rs</div></div>
+<div class="diagram-box"><span class="cap">Login token never reaches publish</span><div class="mermaid" id="dg-057-C8-00"><pre>flowchart TD
+ A[login stores token] --&gt; B[publish builds client]
+ B --&gt; C[PUT without auth header]
+ C --&gt; D[server 401]
+ E[fix] --&gt; F[load credential]
+ F --&gt; G[PUT Bearer token]
+ G --&gt; H[201 created]</pre></div></div><script type="text/plain" class="mermaid-src" data-target="dg-057-C8-00">flowchart TD
+ A[login stores token] --> B[publish builds client]
+ B --> C[PUT without auth header]
+ C --> D[server 401]
+ E[fix] --> F[load credential]
+ F --> G[PUT Bearer token]
+ G --> H[201 created]</script>
+<div class="eli10"><span class="tag">Explain like I'm 10</span><p>You made a key that unlocks the door and put it safely in your pocket — but when you deliver the package, you never take the key out. Every publish knocks on a locked door and is turned away. The login and publish features were built separately and never introduced.</p></div>
+<p class="sol" style="margin-top:12px"><b>Proposed solution.</b> Load the CredentialStore for the routed registry in publish.rs/publish_to_registry, resolve the token, and have HttpRegistryClient::publish accept an optional bearer token and set AUTHORIZATION. Integration-test against a mock server (201 on authorized publish).</p>
+</article>
+<article class="finding-detail sev-high" id="f-C8-01">
+<div class="head"><h2>Publish is non-atomic and racy: bytes stored before DB insert; concurrent same-version publishes can overwrite each other&#x27;s blob</h2><span class="chip high">high</span><span class="fid">C8-01</span></div>
+<div class="meta-row"><span class="engineer">057 Mitchell Hashimoto</span><span class="chip neutral">effort M</span><span class="chip neutral">moves: publish_atomicity</span></div>
+<p class="details">handlers.rs stores the blob before insert_package; the get-then-insert check is TOCTOU, so racers overwrite each other&#x27;s blob and a losing INSERT leaves sha256 mismatched with disk or an orphaned blob. Artifacts must be write-once with the DB row arbitrating.</p>
+<div class="snippet before"><span class="cap">before — current code</span><pre><code>    if let Err(e) = state.storage.store_wasm(&amp;name, &amp;version, &amp;wasm_data) {
+        return (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(serde_json::to_value(ErrorResponse {
+                error: ErrorBody {
+                    code: &quot;STORAGE_ERROR&quot;.to_string(),
+                    message: e,
+                },
+            }).unwrap()),
+        );
+    }
+
+    // Insert into database
+    let pkg = PackageVersion {</code></pre><div class="file">crates/specforge-registry-server/src/handlers.rs:335-351</div></div>
+<div class="arrow-between">↓ fix ↓</div>
+<div class="snippet after"><span class="cap">after — proposed fix</span><pre><code>    // DB row first: UNIQUE(name,version) serializes racers
+    if let Err(e) = state.database.insert_package(&amp;pkg) {
+        return (StatusCode::CONFLICT, /* DUPLICATE_VERSION */);
+    }
+
+    if let Err(e) = state.storage.store_wasm_new(&amp;name, &amp;version, &amp;wasm_data) {
+        // create_new semantics; roll back the row on failure
+        let _ = state.database.delete_package(&amp;name, &amp;version);
+        return (StatusCode::INTERNAL_SERVER_ERROR, /* STORAGE_ERROR */);
+    }
+
+    (StatusCode::CREATED, /* payload */);</code></pre><div class="file">crates/specforge-registry-server/src/handlers.rs</div></div>
+<div class="diagram-box"><span class="cap">Publish races overwrite immutable blobs</span><div class="mermaid" id="dg-057-C8-01"><pre>flowchart TD
+ A[store blob first] --&gt; B[insert row]
+ B --&gt; C[UNIQUE conflict leaves orphan blob]
+ D[racer] --&gt; E[fs write truncates blob]
+ E --&gt; F[hash mismatch on disk]
+ G[fix] --&gt; H[insert row first]
+ H --&gt; I[store blob create-new]</pre></div></div><script type="text/plain" class="mermaid-src" data-target="dg-057-C8-01">flowchart TD
+ A[store blob first] --> B[insert row]
+ B --> C[UNIQUE conflict leaves orphan blob]
+ D[racer] --> E[fs write truncates blob]
+ E --> F[hash mismatch on disk]
+ G[fix] --> H[insert row first]
+ H --> I[store blob create-new]</script>
+<div class="eli10"><span class="tag">Explain like I'm 10</span><p>Two librarians glance at the same empty shelf at the same time and both file their copy in the same slot; one silently replaces the other and the label no longer matches the contents. Write the label first, and never rewrite a slot that already has a book.</p></div>
+<p class="sol" style="margin-top:12px"><b>Proposed solution.</b> INSERT first (UNIQUE(name,version) already serializes), then store_wasm, deleting the blob on failure; use create-new semantics so existing artifacts are never overwritten.</p>
+</article>
+</main><script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.1/dist/mermaid.min.js" onerror="window.__mermaidFailed=true"></script><script src="../js/agent.js"></script></body></html>

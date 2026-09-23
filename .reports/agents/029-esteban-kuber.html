@@ -1,0 +1,71 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>029 Esteban Küber — SpecForge audit review</title>
+<link rel="stylesheet" href="../css/report.css"><link rel="stylesheet" href="../css/agents.css"></head><body>
+<header class="agent-hero"><div class="brand"><div class="logo">029</div><div>
+<h1>Esteban Küber</h1>
+<div class="crumbs">Cluster C4 — Incremental compilation, LSP &amp; diagnostics · rustc diagnostics lead · profile <code>.agents/029-esteban-kuber.md</code></div></div></div>
+<div class="links"><a href="../index.html">← Full report</a><a href="../../.agents/029-esteban-kuber.md">Profile source</a></div></header>
+<main class="agent-main">
+<nav class="agent-nav"><a href="028.html">← 028</a><a href="030.html">030 →</a></nav>
+<div class="review-panel"><div class="review-text"><h2>Auditor review</h2><p>He&#x27;d be annoyed that the suggestion data exists and is thrown away at the editor boundary — rustc&#x27;s did-you-mean is half its reputation. Land the one-line passthrough plus data payload first, then the structured quickfix.</p></div>
+<div class="mini-kpis">
+<div class="mini-kpi"><div class="k">Findings</div><div class="v">1</div></div>
+<div class="mini-kpi bad"><div class="k">Critical + high</div><div class="v">1</div></div>
+<div class="mini-kpi"><div class="k">Evidence items</div><div class="v">1</div></div>
+<div class="mini-kpi"><div class="k">Effort mix</div><div class="v" style="font-size:14px">S</div></div>
+</div></div>
+<article class="finding-detail sev-high" id="f-C4-08">
+<div class="head"><h2>diagnostic_to_lsp drops Diagnostic.suggestion — the &#x27;did you mean X?&#x27; hint reaches terminals but never editors.</h2><span class="chip high">high</span><span class="fid">C4-08</span></div>
+<div class="meta-row"><span class="engineer">029 Esteban Küber</span><span class="chip neutral">effort S</span></div>
+<div class="evidence"><b>Evidence</b><span class="ev"><code>render.rs:40-45</code></span></div>
+<p class="details">diagnostic_to_lsp copies code/severity/message but drops Diagnostic.suggestion, so the strsim &#x27;did you mean&#x27; hint that `specforge check` prints never reaches editors as data — clients cannot offer a one-click quickfix. E003 unresolved-reference suggestions are the highest-value case.</p>
+<div class="snippet before"><span class="cap">before — current code</span><pre><code>fn diagnostic_to_lsp(diag: &amp;specforge_common::Diagnostic) -&gt; Diagnostic {
+    Diagnostic {
+        range: diag
+            .span
+            .as_ref()
+            .map(source_span_to_range)
+            .unwrap_or_default(),
+        severity: Some(match diag.severity {
+            specforge_common::Severity::Error =&gt; DiagnosticSeverity::ERROR,
+            specforge_common::Severity::Warning =&gt; DiagnosticSeverity::WARNING,
+            specforge_common::Severity::Info =&gt; DiagnosticSeverity::INFORMATION,
+        }),
+        code: Some(NumberOrString::String(diag.code.clone())),
+        source: Some(&quot;specforge&quot;.into()),
+        message: diag.message.clone(),
+        ..Default::default()
+    }
+}</code></pre><div class="file">crates/specforge-lsp/src/backend.rs:484-506</div></div>
+<div class="arrow-between">↓ fix ↓</div>
+<div class="snippet after"><span class="cap">after — proposed fix</span><pre><code>fn diagnostic_to_lsp(diag: &amp;specforge_common::Diagnostic) -&gt; Diagnostic {
+    let mut d = Diagnostic {
+        range: diag.span.as_ref().map(source_span_to_range).unwrap_or_default(),
+        severity: Some(severity_of(diag.severity)),
+        code: Some(NumberOrString::String(diag.code.clone())),
+        source: Some(&quot;specforge&quot;.into()),
+        message: diag.message.clone(),
+        ..Default::default()
+    };
+    // Surface the resolver&#x27;s did-you-mean as structured data.
+    if let Some(sugg) = &amp;diag.suggestion {
+        d.data = Some(serde_json::json!({ &quot;suggestedName&quot;: sugg }));
+        d.message.push_str(&amp;format!(&quot; Did you mean `{sugg}`?&quot;));
+    }
+    d
+}</code></pre><div class="file">crates/specforge-lsp/src/backend.rs</div></div>
+<div class="diagram-box"><span class="cap">Suggestion reaches the editor</span><div class="mermaid" id="dg-029-C4-08"><pre>flowchart LR
+ A[resolver finds typo] --&gt; B[suggestion field set]
+ B --&gt; C[CLI prints did you mean]
+ B --&gt; D[LSP data payload]
+ D --&gt; E[client quickfix one click]
+ C --&gt; F[terminal only today]</pre></div></div><script type="text/plain" class="mermaid-src" data-target="dg-029-C4-08">flowchart LR
+ A[resolver finds typo] --> B[suggestion field set]
+ B --> C[CLI prints did you mean]
+ B --> D[LSP data payload]
+ D --> E[client quickfix one click]
+ C --> F[terminal only today]</script>
+<div class="eli10"><span class="tag">Explain like I'm 10</span><p>The compiler whispers &#x27;did you mean X?&#x27; in the terminal, but that whisper is thrown away before it reaches the editor. Pass it through so the editor can offer a one-click fix.</p></div>
+<p class="sol" style="margin-top:12px"><b>Proposed solution.</b> map suggestion to relatedInformation/data + dedupe ariadne label.</p>
+</article>
+</main><script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.1/dist/mermaid.min.js" onerror="window.__mermaidFailed=true"></script><script src="../js/agent.js"></script></body></html>

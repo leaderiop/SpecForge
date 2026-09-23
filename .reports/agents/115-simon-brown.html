@@ -1,0 +1,86 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>115 Simon Brown — SpecForge audit review</title>
+<link rel="stylesheet" href="../css/report.css"><link rel="stylesheet" href="../css/agents.css"></head><body>
+<header class="agent-hero"><div class="brand"><div class="logo">115</div><div>
+<h1>Simon Brown</h1>
+<div class="crumbs">Cluster C13 — Diagrams &amp; rendering · C4 model creator; Structurizr; diagrams-as-code with a validated model · profile <code>.agents/115-simon-brown.md</code></div></div></div>
+<div class="links"><a href="../index.html">← Full report</a><a href="../../.agents/115-simon-brown.md">Profile source</a></div></header>
+<main class="agent-main">
+<nav class="agent-nav"><a href="114.html">← 114</a><a href="116.html">116 →</a></nav>
+<div class="review-panel"><div class="review-text"><h2>Auditor review</h2><p>Simon Brown: The filtered-view discipline is exemplary — BFS with depth, endpoint pruning, and recomputed edge counts so summaries stay honest after filtering; most tools just crop and keep stale totals. The DBML exporter is the disappointment: every column becomes string and every relationship the same &gt; against .id, so it is decorative rather than a schema blueprint. Real type mapping and cardinality-matching Ref operators would make it genuinely useful.</p></div>
+<div class="mini-kpis">
+<div class="mini-kpi"><div class="k">Findings</div><div class="v">2</div></div>
+<div class="mini-kpi good"><div class="k">Critical + high</div><div class="v">0</div></div>
+<div class="mini-kpi"><div class="k">Evidence items</div><div class="v">4</div></div>
+<div class="mini-kpi"><div class="k">Effort mix</div><div class="v" style="font-size:14px">M · S</div></div>
+</div></div>
+<article class="finding-detail sev-medium" id="f-C13-10">
+<div class="head"><h2>DBML renderer erases types and cardinality</h2><span class="chip medium">medium</span><span class="fid">C13-10</span></div>
+<div class="meta-row"><span class="engineer">115 Simon Brown</span><span class="chip neutral">effort M</span><span class="chip neutral">moves: n/a</span></div>
+<div class="evidence"><b>Evidence</b><span class="ev"><code>crates/specforge-emitter/src/model/dbml.rs:62-65</code> — all non-enum types emitted as string</span><span class="ev"><code>crates/specforge-emitter/src/model/dbml.rs:22-26</code> — Ref hardcoded &gt; operator and .id target regardless of cardinality or PK name</span></div>
+<p class="details">render_dbml emits every non-enum field as string, hardcodes Ref name: src.col &gt; tgt.id regardless of Cardinality, and assumes the target PK column is literally id even though ModelField carries is_primary_key. Exported .dbml loaded into dbdiagram.io shows all-text columns and uniform one-to-many refs — decorative, not a schema blueprint. Map ModelFieldType to real DBML types, derive the PK column via is_primary_key, and pick the Ref operator from cardinality.</p>
+<div class="snippet before"><span class="cap">before — current code</span><pre><code>        for rel in &amp;model.relationships {
+            let source_col = rel.source_field.as_deref().unwrap_or(&quot;id&quot;);
+            writeln!(out, &quot;Ref {}: {}.{} &gt; {}.id&quot;, rel.name, rel.source, source_col, rel.target).unwrap();
+        }</code></pre><div class="file">crates/specforge-emitter/src/model/dbml.rs:21-26</div></div>
+<div class="arrow-between">↓ fix ↓</div>
+<div class="snippet after"><span class="cap">after — proposed fix</span><pre><code>        for rel in &amp;model.relationships {
+            let source_col = rel.source_field.as_deref().unwrap_or(&quot;id&quot;);
+            let target_col = primary_key_of(&amp;model.entities, &amp;rel.target).unwrap_or(&quot;id&quot;);
+            let op = ref_operator(rel.cardinality);
+            writeln!(
+                out, &quot;Ref {}: {}.{} {} {}.{}&quot;,
+                rel.name, rel.source, source_col, op, rel.target, target_col
+            )
+            .unwrap();
+        }</code></pre><div class="file">crates/specforge-emitter/src/model/dbml.rs:21-33</div></div>
+<div class="diagram-box"><span class="cap">typed DBML export</span><div class="mermaid" id="dg-115-C13-10"><pre>flowchart TD
+ A[ModelField field_type] --&gt; B{enum}
+ B --&gt;|yes| C[Enum table ref]
+ B --&gt;|no| D[dbml_type mapping integer boolean varchar]
+ E[Cardinality] --&gt; F[ref_operator per variant]
+ G[is_primary_key] --&gt; H[real PK column]
+ D --&gt; I[useful dbdiagram schema]
+ F --&gt; I
+ H --&gt; I</pre></div></div><script type="text/plain" class="mermaid-src" data-target="dg-115-C13-10">flowchart TD
+ A[ModelField field_type] --> B{enum}
+ B -->|yes| C[Enum table ref]
+ B -->|no| D[dbml_type mapping integer boolean varchar]
+ E[Cardinality] --> F[ref_operator per variant]
+ G[is_primary_key] --> H[real PK column]
+ D --> I[useful dbdiagram schema]
+ F --> I
+ H --> I</script>
+<div class="eli10"><span class="tag">Explain like I'm 10</span><p>The export tells database tools every column is text and every relationship the same shape — a blueprint where every room says room and every door is the same width.</p></div>
+<p class="sol" style="margin-top:12px"><b>Proposed solution.</b> Map types to real DBML types; derive PK column from is_primary_key; use cardinality-matching Ref operators.</p>
+</article>
+<article class="finding-detail sev-info" id="f-C13-11">
+<div class="head"><h2>Filtered views are properly model-extracted with honest counts</h2><span class="chip info">info</span><span class="fid">C13-11</span></div>
+<div class="meta-row"><span class="engineer">115 Simon Brown</span><span class="chip neutral">effort S</span><span class="chip neutral">moves: n/a</span></div>
+<div class="evidence"><b>Evidence</b><span class="ev"><code>crates/specforge-emitter/src/model/filter.rs:17-138</code> — BFS root/depth, endpoint pruning, edge_type_owners recomputed</span><span class="ev"><code>crates/specforge-emitter/src/model/markdown.rs:56-62</code> — summary uses extension edge_count sums with explanatory comment</span></div>
+<p class="details">filter_entities does a real model-to-model transform: BFS from root honoring depth, prunes relationships whose endpoints were filtered, and re-derives edge_type_owners so extension edge counts reflect surviving edges. markdown.rs then sums extension edge_count from the recomputed data with an explanatory comment, so filtered views report honest totals instead of stale global counts.</p>
+<div class="snippet exemplar"><span class="cap">exemplar — the good pattern</span><pre><code>    // Prune relationships where either endpoint is filtered out
+    let relationships: Vec&lt;ModelRelationship&gt; = model
+        .relationships
+        .iter()
+        .filter(|r| keep.contains(r.source.as_str()) &amp;&amp; keep.contains(r.target.as_str()))
+        .cloned()
+        .collect();
+
+    // Filter edge_type_owners to only edges whose declaring extension
+    // still has surviving entities
+    let surviving_extensions: HashSet&lt;&amp;str&gt; = entities
+        .iter()
+        .map(|e| e.extension.as_str())
+        .collect();
+    let edge_type_owners: Vec&lt;(String, String)&gt; = model
+        .edge_type_owners
+        .iter()
+        .filter(|(_, ext)| surviving_extensions.contains(ext.as_str()))
+        .cloned()
+        .collect();</code></pre><div class="file">crates/specforge-emitter/src/model/filter.rs:42-62</div></div>
+<div class="keep"><span class="tag">Keep doing this</span><p>Keep recomputing derived counts in the filter transform rather than trusting pre-filter totals; apply the same discipline to any new derived stats added to the IR.</p></div>
+<div class="eli10"><span class="tag">Explain like I'm 10</span><p>Asking for one neighborhood does not just crop the picture — the totals are recomputed so they stay honest.</p></div>
+<p class="sol" style="margin-top:12px"><b>Proposed solution.</b> None; reuse the pattern elsewhere.</p>
+</article>
+</main><script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.1/dist/mermaid.min.js" onerror="window.__mermaidFailed=true"></script><script src="../js/agent.js"></script></body></html>

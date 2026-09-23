@@ -1,0 +1,66 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>074 Omar Khattab — SpecForge audit review</title>
+<link rel="stylesheet" href="../css/report.css"><link rel="stylesheet" href="../css/agents.css"></head><body>
+<header class="agent-hero"><div class="brand"><div class="logo">074</div><div>
+<h1>Omar Khattab</h1>
+<div class="crumbs">Cluster C9 — MCP &amp; AI-agent context engineering · DSPy creator; declarative optimization of LM pipelines · profile <code>.agents/074-omar-khattab.md</code></div></div></div>
+<div class="links"><a href="../index.html">← Full report</a><a href="../../.agents/074-omar-khattab.md">Profile source</a></div></header>
+<main class="agent-main">
+<nav class="agent-nav"><a href="073.html">← 073</a><a href="075.html">075 →</a></nav>
+<div class="review-panel"><div class="review-text"><h2>Auditor review</h2><p>Declarations exist, consumers compile them, implementations do not - the contracts name flags and parameters that registry.rs and clap have never been checked against, which is DSPy&#x27;s whole point inverted: you built the declarative layer and skipped the pass that keeps it honest. A conformance test that walks behavior contracts into fixtures and asserts registry schemas and clap definitions satisfy them turns drift into a red CI build. You already have the parse infra; this is one generator plus one test away from the pipeline being real.</p></div>
+<div class="mini-kpis">
+<div class="mini-kpi"><div class="k">Findings</div><div class="v">1</div></div>
+<div class="mini-kpi good"><div class="k">Critical + high</div><div class="v">0</div></div>
+<div class="mini-kpi"><div class="k">Evidence items</div><div class="v">0</div></div>
+<div class="mini-kpi"><div class="k">Effort mix</div><div class="v" style="font-size:14px">M</div></div>
+</div></div>
+<article class="finding-detail sev-medium" id="f-C9-11">
+<div class="head"><h2>Declarative specs are compiled for consumers but never compiled against implementation</h2><span class="chip medium">medium</span><span class="fid">C9-11</span></div>
+<div class="meta-row"><span class="engineer">074 Omar Khattab</span><span class="chip neutral">effort M</span><span class="chip neutral">moves: export self-spec verify statements failing silently</span></div>
+<p class="details">The .spec contracts declare tool parameters and CLI flags as intended behavior, but nothing checks that registry.rs descriptors or the clap command definitions actually honor them - the declarations are compiled for consumers yet never compiled against the implementation, which is the exact gap DSPy&#x27;s declarative model exists to close. The dispatch arms in tools/mod.rs are hand-bound strings; nothing asserts each arm has a registry entry with matching required params. The C9-02 max_tokens drift is one concrete instance; a conformance pass walking behavior contracts into fixtures and asserting against registry + clap turns the whole class into a CI failure under nextest.</p>
+<div class="snippet before"><span class="cap">before — current code</span><pre><code>    let response = match name {
+        // Core tools
+        &quot;specforge.query&quot; =&gt; query::call(state, arguments, id),
+        &quot;specforge.validate&quot; =&gt; validate::call(state, arguments, id),
+        &quot;specforge.export&quot; =&gt; export::call(state, arguments, id),
+        &quot;specforge.trace&quot; =&gt; trace::call(state, arguments, id),
+        &quot;specforge.search&quot; =&gt; search::call(state, arguments, id),
+        &quot;specforge.schema&quot; =&gt; schema::call(state, arguments, id),
+        &quot;specforge.model&quot; =&gt; model::call(state, arguments, id),
+        &quot;specforge.coverage&quot; =&gt; coverage::call(state, arguments, id),
+        &quot;specforge.stats&quot; =&gt; stats::call(state, arguments, id),</code></pre><div class="file">crates/specforge-mcp/src/tools/mod.rs:43-53</div></div>
+<div class="arrow-between">↓ fix ↓</div>
+<div class="snippet after"><span class="cap">after — proposed fix</span><pre><code>// generated fixture from behavior contracts (build step or test helper):
+// { tool: specforge.export, params: [format, scope, max_tokens], flags: [--max-tokens] }
+
+#[test]
+fn tool_contracts_match_registry_and_cli() {
+    for contract in load_contract_fixtures(&quot;spec/&quot;) {
+        let descriptor = find_tool(&amp;registry(), &amp;contract.tool)
+            .unwrap_or_else(|| panic!(&quot;{} missing from MCP registry&quot;, contract.tool));
+        for param in &amp;contract.params {
+            assert!(descriptor_schema_has_param(descriptor, param),
+                &quot;{} schema missing param {}&quot;, contract.tool, param);
+        }
+        for flag in &amp;contract.cli_flags {
+            assert!(clap_command_accepts(flag), &quot;CLI missing flag {}&quot;, flag);
+        }
+    }
+}</code></pre><div class="file">crates/specforge-cli/src/tests/conformance.rs</div></div>
+<div class="diagram-box"><span class="cap">Declarative conformance pass</span><div class="mermaid" id="dg-074-C9-11"><pre>flowchart TD
+ A[Behavior contracts name params and flags] --&gt; B[Hand-written registry and clap defs]
+ B --&gt; C[No conformance pass]
+ C --&gt; D[Drift like max_tokens ships silently]
+ D --&gt; E[Generate fixture from contracts]
+ E --&gt; F[Assert registry schemas and clap accept them]
+ F --&gt; G[CI nextest gate blocks drift]</pre></div></div><script type="text/plain" class="mermaid-src" data-target="dg-074-C9-11">flowchart TD
+ A[Behavior contracts name params and flags] --> B[Hand-written registry and clap defs]
+ B --> C[No conformance pass]
+ C --> D[Drift like max_tokens ships silently]
+ D --> E[Generate fixture from contracts]
+ E --> F[Assert registry schemas and clap accept them]
+ F --> G[CI nextest gate blocks drift]</script>
+<div class="eli10"><span class="tag">Explain like I'm 10</span><p>DSPy&#x27;s lesson is that you declare the program and a compiler keeps the pieces honest against metrics. Here the declarations exist (contracts naming flags and parameters) but there is no compiler pass checking that the program — the CLI and MCP code — satisfies them. The spec is a beautiful, unenforced wishlist.</p></div>
+<p class="sol" style="margin-top:12px"><b>Proposed solution.</b> Add a conformance test generator: parse behavior contracts for tool/flag names into a fixture, and assert registry.rs descriptors + clap command definitions satisfy them; wire into CI nextest run.</p>
+</article>
+</main><script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.1/dist/mermaid.min.js" onerror="window.__mermaidFailed=true"></script><script src="../js/agent.js"></script></body></html>

@@ -1,0 +1,83 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>090 Kent Beck — SpecForge audit review</title>
+<link rel="stylesheet" href="../css/report.css"><link rel="stylesheet" href="../css/agents.css"></head><body>
+<header class="agent-hero"><div class="brand"><div class="logo">090</div><div>
+<h1>Kent Beck</h1>
+<div class="crumbs">Cluster C11 — Testing &amp; BDD (test tracing &amp; report protocol) · xUnit &amp; TDD creator · profile <code>.agents/090-kent-beck.md</code></div></div></div>
+<div class="links"><a href="../index.html">← Full report</a><a href="../../.agents/090-kent-beck.md">Profile source</a></div></header>
+<main class="agent-main">
+<nav class="agent-nav"><a href="089.html">← 089</a><a href="091.html">091 →</a></nav>
+<div class="review-panel"><div class="review-text"><h2>Auditor review</h2><p>Kent Beck here - I love that the whole thing fits in a few hundred lines and that macro_test.rs tests behavior, not gears; that&#x27;s restraint most test frameworks never learn. But requires/ensures consistency for X repeated across every contract test is exactly the ritual that makes a practice die: the description proves nothing, so the trace matrix is theater. Fix the boilerplate verify strings first - make each state the falsifiable guarantee or drop it - before adding any new capture machinery.</p></div>
+<div class="mini-kpis">
+<div class="mini-kpi"><div class="k">Findings</div><div class="v">1</div></div>
+<div class="mini-kpi bad"><div class="k">Critical + high</div><div class="v">1</div></div>
+<div class="mini-kpi"><div class="k">Evidence items</div><div class="v">2</div></div>
+<div class="mini-kpi"><div class="k">Effort mix</div><div class="v" style="font-size:14px">S</div></div>
+</div></div>
+<article class="finding-detail sev-high" id="f-C11-02">
+<div class="head"><h2>matching: exact free-text verify matching; orphaned test records silently ignored, no unmatched-test signal. Evidence: coverage.rs:56-70; spec/decisions.spec:128-131 admits fragility and promises unmatched detection that does not exist.</h2><span class="chip high">high</span><span class="fid">C11-02</span></div>
+<div class="meta-row"><span class="engineer">090 Kent Beck</span><span class="chip neutral">effort S</span></div>
+<div class="evidence"><b>Evidence</b><span class="ev"><code>coverage.rs:56-70</code></span><span class="ev"><code>spec/decisions.spec:128-131</code></span></div>
+<p class="details">compute_coverage_diff joins test records to verifies by exact (entity_id, description) string equality - the exported slug (coverage.rs:26-30) is never used for matching. One reworded spec word silently drops coverage with nothing distinguishing drift from deletion. Entities with zero test records are filtered out of the diff entirely (tested_ids filter), so fully orphaned entities are invisible, and integrations/rust/spec/decisions.spec:128-131 claims Mitigated by specforge trace showing unmatched tests - a capability that exists nowhere. Silent link loss is the most damaging failure mode for a traceability product.</p>
+<div class="snippet before"><span class="cap">before — current code</span><pre><code>    let tested_ids: HashSet&lt;&amp;str&gt; = entries.iter().map(|e| e.entity_id.as_str()).collect();
+
+    graph
+        .entities
+        .iter()
+        .filter(|e| e.testable &amp;&amp; tested_ids.contains(e.id.as_str()))
+        .map(|entity| {
+            let expected = entity.verify.len();
+            let mut covered = 0usize;
+            let mut passing = 0usize;
+
+            for v in &amp;entity.verify {
+                let key = (entity.id.as_str(), v.description.as_str());
+                if let Some(matching) = index.get(&amp;key) {
+                    covered += 1;</code></pre><div class="file">integrations/rust/specforge-test/src/coverage.rs:57-73</div></div>
+<div class="arrow-between">↓ fix ↓</div>
+<div class="snippet after"><span class="cap">after — proposed fix</span><pre><code>    // decisions.spec promises unmatched detection; deliver it.
+    let claimed: HashSet&lt;String&gt; = graph
+        .entities
+        .iter()
+        .flat_map(|e| {
+            e.verify.iter().map(move |v| format!(&quot;{}::{}&quot;, e.id, v.description))
+        })
+        .collect();
+
+    for entry in entries {
+        match &amp;entry.verify {
+            Some(desc) if !claimed.contains(&amp;format!(&quot;{}::{desc}&quot;, entry.entity_id)) =&gt; {
+                eprintln!(&quot;[specforge-test] warning: test record for {} matches no verify statement (desc: {desc:?})&quot;, entry.entity_id);
+            }
+            None =&gt; {
+                eprintln!(&quot;[specforge-test] warning: test {} records no verify link and is invisible to coverage&quot;, entry.test_name);
+            }
+            _ =&gt; {}
+        }
+    }
+
+    // Fallback tier: also try index.get(&amp;(entity_id, slug_of(desc)))
+    // using the exported slug before declaring a record unmatched.
+
+    diffs</code></pre><div class="file">integrations/rust/specforge-test/src/coverage.rs</div></div>
+<div class="diagram-box"><span class="cap">silent exact-text matching</span><div class="mermaid" id="dg-090-C11-02"><pre>flowchart TD
+ A[spec verify reworded] --&gt; B[exact string match fails]
+ B --&gt; C[entry not counted]
+ C --&gt; D[covered drops silently]
+ D --&gt; E[no unmatched warning exists]
+ E --&gt; F[user sees lower coverage no explanation]
+ F --&gt; G[fix warn on orphan entries]
+ G --&gt; H[fix warn on unclaimed verifies]
+ H --&gt; I[optionally match by slug]</pre></div></div><script type="text/plain" class="mermaid-src" data-target="dg-090-C11-02">flowchart TD
+ A[spec verify reworded] --> B[exact string match fails]
+ B --> C[entry not counted]
+ C --> D[covered drops silently]
+ D --> E[no unmatched warning exists]
+ E --> F[user sees lower coverage no explanation]
+ F --> G[fix warn on orphan entries]
+ G --> H[fix warn on unclaimed verifies]
+ H --> I[optionally match by slug]</script>
+<div class="eli10"><span class="tag">Explain like I'm 10</span><p>coverage matches a handwritten note to a spec sentence letter-for-letter; one word changed and the link vanishes silently.</p></div>
+<p class="sol" style="margin-top:12px"><b>Proposed solution.</b> warn on unmatched entries and unclaimed verifies; optionally match on exported slug.</p>
+</article>
+</main><script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.1/dist/mermaid.min.js" onerror="window.__mermaidFailed=true"></script><script src="../js/agent.js"></script></body></html>

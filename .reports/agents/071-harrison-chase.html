@@ -1,0 +1,75 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>071 Harrison Chase — SpecForge audit review</title>
+<link rel="stylesheet" href="../css/report.css"><link rel="stylesheet" href="../css/agents.css"></head><body>
+<header class="agent-hero"><div class="brand"><div class="logo">071</div><div>
+<h1>Harrison Chase</h1>
+<div class="crumbs">Cluster C9 — MCP &amp; AI-agent context engineering · LangChain co-founder/CEO; agent graph orchestration · profile <code>.agents/071-harrison-chase.md</code></div></div></div>
+<div class="links"><a href="../index.html">← Full report</a><a href="../../.agents/071-harrison-chase.md">Profile source</a></div></header>
+<main class="agent-main">
+<nav class="agent-nav"><a href="070.html">← 070</a><a href="072.html">072 →</a></nav>
+<div class="review-panel"><div class="review-text"><h2>Auditor review</h2><p>An ambient agent&#x27;s whole loop is notice-change-re-query, and your MCP server cannot do the first half: one compile at initialize, then a frozen snapshot, while the LSP side already has a live debounced parser you never shared. Dead notification formatters and subscribe:false in capabilities mean subscribers get protocol-honest silence. Share IncrementalPipeline with the server, diff old-vs-new on each recompile, and push graphChanged to actual subscribers - until then the graph is a photo, not a feed.</p></div>
+<div class="mini-kpis">
+<div class="mini-kpi"><div class="k">Findings</div><div class="v">1</div></div>
+<div class="mini-kpi bad"><div class="k">Critical + high</div><div class="v">1</div></div>
+<div class="mini-kpi"><div class="k">Evidence items</div><div class="v">0</div></div>
+<div class="mini-kpi"><div class="k">Effort mix</div><div class="v" style="font-size:14px">L</div></div>
+</div></div>
+<article class="finding-detail sev-high" id="f-C9-07">
+<div class="head"><h2>No watch-to-MCP bridge: agents polling a frozen graph</h2><span class="chip high">high</span><span class="fid">C9-07</span></div>
+<div class="meta-row"><span class="engineer">071 Harrison Chase</span><span class="chip neutral">effort L</span><span class="chip neutral">moves: subscription capability actually servable</span></div>
+<p class="details">The graph is compiled exactly once, inside handle_initialize; nothing - not a file watcher, not the LSP&#x27;s existing debounced parser - ever touches state.graph again, so every resource and tool answer derives from a startup snapshot even as CLI commands and editors rewrite .spec files. specforge-watch already has an IncrementalPipeline and the LSP server already recompiles on change, so the live camera exists on a sibling surface but is not shared with MCP. The notification machinery to announce changes also exists (C9-01) but nothing drives it. Capabilities advertise subscribe:false/list_changed:false, which is honest today only because the feature is absent.</p>
+<div class="snippet before"><span class="cap">before — current code</span><pre><code>    // Compile if project root is provided
+    if let Some(root) = &amp;project_root
+        &amp;&amp; root.exists() {
+            let result = compile_project(root);
+            state.graph = result.graph;
+            state.diagnostics = result.diagnostics;
+            state.kind_registry = result.kind_registry;
+            state.field_registry = result.field_registry;
+            state.edge_registry = result.edge_registry;
+            state.extension_info = result.extension_info;
+            state.surface_entries = result.surface_entries;
+            state.manifests = result.manifests;
+
+            // Register extension MCP tools and resources from manifest surfaces
+            register_extension_surfaces(state, &amp;result.manifest_surfaces);
+        }</code></pre><div class="file">crates/specforge-mcp/src/lifecycle.rs:28-44</div></div>
+<div class="arrow-between">↓ fix ↓</div>
+<div class="snippet after"><span class="cap">after — proposed fix</span><pre><code>// specforge-mcp: reuse specforge-watch&#x27;s IncrementalPipeline
+pub fn start_watcher(state: Arc&lt;Mutex&lt;McpState&gt;&gt;, root: PathBuf, sink: Sender&lt;Value&gt;) {
+    let mut pipeline = IncrementalPipeline::new(root);
+    thread::spawn(move || {
+        for event in pipeline.events() {
+            let mut st = state.lock().unwrap();
+            let old = st.graph.clone();
+            let result = compile_project(st.project_root.as_deref().unwrap());
+            st.apply_compilation(result);
+            st.resource_registry_version += 1;
+            for n in notifications::drain(&amp;mut st, &amp;old) { sink.send(n).ok(); }
+        }
+    });
+}
+// Capabilities become truthful: resources { subscribe: true, list_changed: true }</code></pre><div class="file">crates/specforge-mcp/src/watch_bridge.rs</div></div>
+<div class="diagram-box"><span class="cap">Watch to MCP bridge</span><div class="mermaid" id="dg-071-C9-07"><pre>flowchart TD
+ A[Server starts] --&gt; B[compile_project once]
+ B --&gt; C[Snapshot frozen]
+ D[Editor rewrites spec files] --&gt; E[CLI rewrites spec files]
+ C --&gt; F[Agent queries stale graph]
+ E --&gt; F
+ G[specforge-watch IncrementalPipeline exists] --&gt; H[Not shared with MCP]
+ H --&gt; F
+ F --&gt; I[Share pipeline with MCP server]
+ I --&gt; J[Recompile and notify subscribers]</pre></div></div><script type="text/plain" class="mermaid-src" data-target="dg-071-C9-07">flowchart TD
+ A[Server starts] --> B[compile_project once]
+ B --> C[Snapshot frozen]
+ D[Editor rewrites spec files] --> E[CLI rewrites spec files]
+ C --> F[Agent queries stale graph]
+ E --> F
+ G[specforge-watch IncrementalPipeline exists] --> H[Not shared with MCP]
+ H --> F
+ F --> I[Share pipeline with MCP server]
+ I --> J[Recompile and notify subscribers]</script>
+<div class="eli10"><span class="tag">Explain like I'm 10</span><p>An ambient agent subscribed to &#x27;tell me when the spec changes&#x27; gets silence: the server takes one photo at startup and answers every question from that old photo, even as editors and CLI commands rewrite the specs. Meanwhile the LSP side already has a live camera nobody connected to the MCP server.</p></div>
+<p class="sol" style="margin-top:12px"><b>Proposed solution.</b> Share specforge-watch&#x27;s IncrementalPipeline (or the LSP&#x27;s debounced parser) with the MCP server: recompile on change, serve updated resources, and emit specforge/graphChanged notifications to subscribers; set list_changed/subscribe capabilities truthfully once real.</p>
+</article>
+</main><script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.1/dist/mermaid.min.js" onerror="window.__mermaidFailed=true"></script><script src="../js/agent.js"></script></body></html>

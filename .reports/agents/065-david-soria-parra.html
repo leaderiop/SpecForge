@@ -1,0 +1,83 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>065 David Soria Parra — SpecForge audit review</title>
+<link rel="stylesheet" href="../css/report.css"><link rel="stylesheet" href="../css/agents.css"></head><body>
+<header class="agent-hero"><div class="brand"><div class="logo">065</div><div>
+<h1>David Soria Parra</h1>
+<div class="crumbs">Cluster C9 — MCP &amp; AI-agent context engineering · MCP co-creator; protocol design for agent-tool boundaries · profile <code>.agents/065-david-soria-parra.md</code></div></div></div>
+<div class="links"><a href="../index.html">← Full report</a><a href="../../.agents/065-david-soria-parra.md">Profile source</a></div></header>
+<main class="agent-main">
+<nav class="agent-nav"><a href="064.html">← 064</a><a href="066.html">066 →</a></nav>
+<div class="review-panel"><div class="review-text"><h2>Auditor review</h2><p>The router is refreshingly small - one match, thin handlers, no middleware zoo - which makes the two protocol sins stand out: answering a notification is the one thing JSON-RPC never forgives, and -32600 for pre-init is a lifecycle bug strict clients will catch in CI. Fix route() to return Option&lt;JsonRpcResponse&gt;, add the -32002 gate, and echo the negotiated protocolVersion; that is an afternoon and the server becomes conformance-testable. Capabilities honestly reporting list_changed:false is good discipline - keep telling the truth even after you make it interesting.</p></div>
+<div class="mini-kpis">
+<div class="mini-kpi"><div class="k">Findings</div><div class="v">1</div></div>
+<div class="mini-kpi bad"><div class="k">Critical + high</div><div class="v">1</div></div>
+<div class="mini-kpi"><div class="k">Evidence items</div><div class="v">0</div></div>
+<div class="mini-kpi"><div class="k">Effort mix</div><div class="v" style="font-size:14px">S</div></div>
+</div></div>
+<article class="finding-detail sev-high" id="f-C9-00">
+<div class="head"><h2>Server answers notifications and misuses JSON-RPC error codes</h2><span class="chip high">high</span><span class="fid">C9-00</span></div>
+<div class="meta-row"><span class="engineer">065 David Soria Parra</span><span class="chip neutral">effort S</span><span class="chip neutral">moves: MCP notifications conformance</span></div>
+<p class="details">The router returns a JsonRpcResponse for the notification method notifications/initialized, which per JSON-RPC 2.0 must never produce a reply - a strict MCP client receiving a frame for a notification can treat it as protocol garbage or tear down the connection. There is also no pre-initialize gate: any method other than initialize succeeds before handshake (registry handlers do check is_initialized, but ping/tools/call fall through). When handlers do reject they use -32600 INVALID_REQUEST, whereas the MCP lifecycle spec mandates -32002 for requests received before initialization. Finally, handle_initialize hardcodes protocol_version 2025-03-26 instead of echoing the client&#x27;s requested version when supported.</p>
+<div class="snippet before"><span class="cap">before — current code</span><pre><code>pub fn route(state: &amp;mut McpState, method: &amp;str, params: Value, id: Option&lt;Value&gt;) -&gt; JsonRpcResponse {
+    match method {
+        // Lifecycle
+        &quot;initialize&quot; =&gt; crate::lifecycle::handle_initialize(state, params, id),
+        &quot;shutdown&quot; =&gt; crate::lifecycle::handle_shutdown(state, id),
+        &quot;ping&quot; =&gt; JsonRpcResponse::success(id, serde_json::json!({})),
+
+        // Listing
+        &quot;tools/list&quot; =&gt; crate::registry::handle_list_tools(state, id),
+        &quot;resources/list&quot; =&gt; crate::registry::handle_list_resources(state, id),
+        &quot;prompts/list&quot; =&gt; crate::registry::handle_list_prompts(state, id),
+
+        // Notifications (no response for notifications — id is None)
+        &quot;notifications/initialized&quot; =&gt; {
+            // Client acknowledges initialization, no-op
+            JsonRpcResponse::success(id, serde_json::json!({}))
+        }</code></pre><div class="file">crates/specforge-mcp/src/protocol/router.rs:5-21</div></div>
+<div class="arrow-between">↓ fix ↓</div>
+<div class="snippet after"><span class="cap">after — proposed fix</span><pre><code>pub fn route(state: &amp;mut McpState, method: &amp;str, params: Value, id: Option&lt;Value&gt;) -&gt; Option&lt;JsonRpcResponse&gt; {
+    // Notifications never get a response frame (JSON-RPC 2.0 section 4.1)
+    if method.starts_with(&quot;notifications/&quot;) {
+        return None;
+    }
+
+    if !state.is_initialized() &amp;&amp; method != &quot;initialize&quot; {
+        // MCP lifecycle: -32002 until initialize completes
+        return Some(JsonRpcResponse::error(id, error_codes::SERVER_NOT_INITIALIZED, format!(&quot;Request before initialize: {}&quot;, method)));
+    }
+
+    let resp = match method {
+        &quot;initialize&quot; =&gt; crate::lifecycle::handle_initialize(state, params, id),
+        &quot;shutdown&quot; =&gt; crate::lifecycle::handle_shutdown(state, id),
+        &quot;ping&quot; =&gt; JsonRpcResponse::success(id, serde_json::json!({})),
+        &quot;tools/list&quot; =&gt; crate::registry::handle_list_tools(state, id),
+        &quot;resources/list&quot; =&gt; crate::registry::handle_list_resources(state, id),
+        &quot;prompts/list&quot; =&gt; crate::registry::handle_list_prompts(state, id),
+        &quot;resources/read&quot; =&gt; crate::resources::handle_resource_read(state, params, id),
+        &quot;tools/call&quot; =&gt; crate::tools::handle_tool_call(state, params, id),
+        &quot;prompts/get&quot; =&gt; crate::prompts::handle_prompt_get(state, params, id),
+        &quot;$/cancelRequest&quot; =&gt; crate::lifecycle::handle_cancel(state, params, id),
+        _ =&gt; JsonRpcResponse::error(id, error_codes::METHOD_NOT_FOUND, format!(&quot;Method not found: {}&quot;, method)),
+    };
+    Some(resp)
+}</code></pre><div class="file">crates/specforge-mcp/src/protocol/router.rs</div></div>
+<div class="diagram-box"><span class="cap">Notification reply and pre-init gate fix</span><div class="mermaid" id="dg-065-C9-00"><pre>flowchart TD
+ A[Client sends notification] --&gt; B[Router matches notifications initialized]
+ B --&gt; C[Returns success frame]
+ C --&gt; D[Strict client sees unexpected reply]
+ E[Request before initialize] --&gt; F[No 32002 gate]
+ F --&gt; G[Wrong error code INVALID_REQUEST]
+ D --&gt; H[Route returns None for notifications]
+ G --&gt; I[Add SERVER_NOT_INITIALIZED 32002]</pre></div></div><script type="text/plain" class="mermaid-src" data-target="dg-065-C9-00">flowchart TD
+ A[Client sends notification] --> B[Router matches notifications initialized]
+ B --> C[Returns success frame]
+ C --> D[Strict client sees unexpected reply]
+ E[Request before initialize] --> F[No 32002 gate]
+ F --> G[Wrong error code INVALID_REQUEST]
+ D --> H[Route returns None for notifications]
+ G --> I[Add SERVER_NOT_INITIALIZED 32002]</script>
+<div class="eli10"><span class="tag">Explain like I'm 10</span><p>A notification is like a postcard that says &#x27;no reply needed&#x27; — this server writes back anyway, and strict clients will treat the unexpected reply as garbage or drop the connection. It also shouts &#x27;wrong request&#x27; (a mail-format complaint) when the real problem is &#x27;we have not been introduced yet&#x27; — two different mistakes, one shared label. Well-behaved MCP clients notice these things.</p></div>
+<p class="sol" style="margin-top:12px"><b>Proposed solution.</b> Return None (no frame) for notification methods in route(); add a pre-initialize error path (code -32002 per MCP lifecycle); echo the client&#x27;s requested protocolVersion when supported; move tool/resource/prompt listings behind the standard capabilities (tools.listChanged etc.) or document them as proprietary extensions.</p>
+</article>
+</main><script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.1/dist/mermaid.min.js" onerror="window.__mermaidFailed=true"></script><script src="../js/agent.js"></script></body></html>

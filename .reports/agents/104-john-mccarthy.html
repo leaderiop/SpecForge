@@ -1,0 +1,89 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>104 John McCarthy — SpecForge audit review</title>
+<link rel="stylesheet" href="../css/report.css"><link rel="stylesheet" href="../css/agents.css"></head><body>
+<header class="agent-hero"><div class="brand"><div class="logo">104</div><div>
+<h1>John McCarthy</h1>
+<div class="crumbs">Cluster C12 — Requirements engineering, ubiquitous language &amp; docs-as-code (self-spec corpus) · Formal business communication language (CBCL); shared formal world descriptions · profile <code>.agents/104-john-mccarthy.md</code></div></div></div>
+<div class="links"><a href="../index.html">← Full report</a><a href="../../.agents/104-john-mccarthy.md">Profile source</a></div></header>
+<main class="agent-main">
+<nav class="agent-nav"><a href="103.html">← 103</a><a href="105.html">105 →</a></nav>
+<div class="review-panel"><div class="review-text"><h2>Auditor review</h2><p>McCarthy would call the self-hosting corpus an elegant formalization — the common language is spoken by its own compiler — then hammer the CBCL violation: one concept, two spellings (extension vs package), which is precisely how common-sense formalization dies. Fix the vocabulary split and the counterfactual anthropics/specforge repo address first; a shared-world description naming entities that do not exist is worse than no formalization. He would like the glossary otherwise.</p></div>
+<div class="mini-kpis">
+<div class="mini-kpi"><div class="k">Findings</div><div class="v">2</div></div>
+<div class="mini-kpi bad"><div class="k">Critical + high</div><div class="v">1</div></div>
+<div class="mini-kpi"><div class="k">Evidence items</div><div class="v">5</div></div>
+<div class="mini-kpi"><div class="k">Effort mix</div><div class="v" style="font-size:14px">S</div></div>
+</div></div>
+<article class="finding-detail sev-high" id="f-C12-08">
+<div class="head"><h2>CBCL violation: one concept, two formal spellings — `extension` in the compiled root, `package` in every doc example</h2><span class="chip high">high</span><span class="fid">C12-08</span></div>
+<div class="meta-row"><span class="engineer">104 John McCarthy</span><span class="chip neutral">effort S</span><span class="chip neutral">moves: provider_syntax_drift</span></div>
+<div class="evidence"><b>Evidence</b><span class="ev"><code>spec/specforge.spec:14-18</code> — gh &quot;specforge&quot; { extension &quot;@specforge/gh&quot; repo &quot;anthropics/specforge&quot; }</span><span class="ev"><code>docs/extension-model.md:88-116</code> — gh &quot;work&quot; { package &quot;@specforge/gh&quot; repo ... } — 5 more examples same syntax</span><span class="ev"><code>docs/entities/spec.md:151</code> — field table documents `package` as the provider field name</span></div>
+<p class="details">CBCL violation: the compiled root (spec/specforge.spec:15) writes the provider field as extension &quot;@specforge/gh&quot;, while every documentation example (docs/extension-model.md:88-116, five instances) and the field-table docs (docs/entities/spec.md:151) spell it package &quot;@specforge/gh&quot;. One of the two cannot parse against the real grammar — agents that copy the doc syntax will hit parse errors against the compiled form, and the two spellings break the one-concept-one-name discipline the whole project is built on. The provider example also points at a nonexistent upstream (anthropics/specforge), compounding the counterfactual. Pick the grammar&#x27;s spelling, migrate the loser, and emit a migration diagnostic.</p>
+<div class="snippet before"><span class="cap">before — current code</span><pre><code>    gh &quot;work&quot; {
+      package &quot;@specforge/gh&quot;
+      repo    &quot;myorg/my-service&quot;
+    }</code></pre><div class="file">docs/extension-model.md:88-91</div></div>
+<div class="arrow-between">↓ fix ↓</div>
+<div class="snippet after"><span class="cap">after — proposed fix</span><pre><code>    gh &quot;work&quot; {
+      extension &quot;@specforge/gh&quot;
+      repo      &quot;myorg/my-service&quot;
+    }</code></pre><div class="file">docs/extension-model.md:88-91</div></div>
+<div class="diagram-box"><span class="cap">One concept one spelling</span><div class="mermaid" id="dg-104-C12-08"><pre>flowchart TD
+ A[root spec uses extension field] --&gt; B[docs use package field]
+ B --&gt; C[user copies doc syntax]
+ C --&gt; D[parse error against grammar]
+ D --&gt; E[agent guesses which is right]
+ A --&gt; F[grammar is authority]
+ F --&gt; G[fix all doc examples]
+ G --&gt; H[add migration diagnostic]
+ H --&gt; I[single spelling everywhere]</pre></div></div><script type="text/plain" class="mermaid-src" data-target="dg-104-C12-08">flowchart TD
+ A[root spec uses extension field] --> B[docs use package field]
+ B --> C[user copies doc syntax]
+ C --> D[parse error against grammar]
+ D --> E[agent guesses which is right]
+ A --> F[grammar is authority]
+ F --> G[fix all doc examples]
+ G --> H[add migration diagnostic]
+ H --> I[single spelling everywhere]</script>
+<div class="eli10"><span class="tag">Explain like I'm 10</span><p>Two branches of the same company write the account number on different lines of the form. Machines (and people) following one document fail when they meet the other. A shared formal language wins only if there is exactly one spelling.</p></div>
+<p class="sol" style="margin-top:12px"><b>Proposed solution.</b> Pick one field name (the grammar is the authority — check grammar.js/providers rule), fix docs or DSL, and add a migration diagnostic for the loser; also correct the provider example repo which points at a nonexistent upstream (anthropics/specforge).</p>
+</article>
+<article class="finding-detail sev-medium" id="f-C12-17">
+<div class="head"><h2>Root provider points at a repo that does not exist (anthropics/specforge) — the shared-world description names a counterfactual</h2><span class="chip medium">medium</span><span class="fid">C12-17</span></div>
+<div class="meta-row"><span class="engineer">104 John McCarthy</span><span class="chip neutral">effort S</span><span class="chip neutral">moves: referenced_extension_existence</span></div>
+<div class="evidence"><b>Evidence</b><span class="ev"><code>spec/specforge.spec:16-17</code> — extension &quot;@specforge/gh&quot; repo &quot;anthropics/specforge&quot;</span><span class="ev"><code>spec/research/RES-17-specforge-rust-plugin-design.md:534-538</code> — same imagined path appears only in research prose</span></div>
+<p class="details">The providers block in spec/specforge.spec points at repo &quot;anthropics/specforge&quot; — a repository that does not exist; the same imagined path appears only in research prose (spec/research/RES-17-specforge-rust-plugin-design.md:534-538). The shared-world description names a counterfactual: any provider validation that resolves the repo (exactly @specforge/gh&#x27;s advertised job) will fail, and agents copying the example propagate a dead address. Point the provider at this project&#x27;s actual remote, or remove the providers block until @specforge/gh exists; add a reachability validation rule so configured repos are checked.</p>
+<div class="snippet before"><span class="cap">before — current code</span><pre><code>  providers {
+    gh &quot;specforge&quot; {
+      extension &quot;@specforge/gh&quot;
+      repo    &quot;anthropics/specforge&quot;
+    }
+  }</code></pre><div class="file">spec/specforge.spec:14-19</div></div>
+<div class="arrow-between">↓ fix ↓</div>
+<div class="snippet after"><span class="cap">after — proposed fix</span><pre><code>  providers {
+    gh &quot;specforge&quot; {
+      extension &quot;@specforge/gh&quot;
+      repo    &quot;mohammadalmechkor/SpecForge&quot;
+    }
+  }</code></pre><div class="file">spec/specforge.spec:14-19</div></div>
+<div class="diagram-box"><span class="cap">Point providers at real addresses</span><div class="mermaid" id="dg-104-C12-17"><pre>flowchart TD
+ A[root provider repo field] --&gt; B[names anthropics specforge]
+ B --&gt; C[repo does not exist]
+ C --&gt; D[provider validation fails]
+ D --&gt; E[copied examples propagate dead address]
+ A --&gt; F[use actual project remote]
+ F --&gt; G[or drop block until gh exists]
+ G --&gt; H[reachability rule checks repo]
+ H --&gt; I[shared world names reality]</pre></div></div><script type="text/plain" class="mermaid-src" data-target="dg-104-C12-17">flowchart TD
+ A[root provider repo field] --> B[names anthropics specforge]
+ B --> C[repo does not exist]
+ C --> D[provider validation fails]
+ D --> E[copied examples propagate dead address]
+ A --> F[use actual project remote]
+ F --> G[or drop block until gh exists]
+ G --> H[reachability rule checks repo]
+ H --> I[shared world names reality]</script>
+<div class="eli10"><span class="tag">Explain like I'm 10</span><p>The address book entry says the supplier lives at a factory that was never built. Anyone who mails an order there gets it back. Point the example at a real address, or mark it clearly as a placeholder.</p></div>
+<p class="sol" style="margin-top:12px"><b>Proposed solution.</b> Point the provider repo at this project&#x27;s actual remote (or remove the providers block until @specforge/gh exists); add a ref/provider validation rule that the configured repo is reachable — the @specforge/gh provider&#x27;s own advertised job.</p>
+</article>
+</main><script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.1/dist/mermaid.min.js" onerror="window.__mermaidFailed=true"></script><script src="../js/agent.js"></script></body></html>

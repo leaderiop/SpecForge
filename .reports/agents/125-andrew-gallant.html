@@ -1,0 +1,114 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>125 Andrew Gallant — SpecForge audit review</title>
+<link rel="stylesheet" href="../css/report.css"><link rel="stylesheet" href="../css/agents.css"></head><body>
+<header class="agent-hero"><div class="brand"><div class="logo">125</div><div>
+<h1>Andrew Gallant</h1>
+<div class="crumbs">Cluster C14 — Direct-dependency maintainers - dependency/surface hygiene · regex/ripgrep/walkdir author; automata-based text search · profile <code>.agents/125-andrew-gallant.md</code></div></div></div>
+<div class="links"><a href="../index.html">← Full report</a><a href="../../.agents/125-andrew-gallant.md">Profile source</a></div></header>
+<main class="agent-main">
+<nav class="agent-nav"><a href="124.html">← 124</a><a href="001.html">001 →</a></nav>
+<div class="review-panel"><div class="review-text"><h2>Auditor review</h2><p>Andrew (burntregex) would laser in on Regex::new inside the per-entity loop - for the author of the regex crate this is the exact anti-pattern regex was built to prevent, and compile-once at parse_rule_pattern with a W-code diagnostic is the obviously right shape. He would call the silent Err-to-false branch the worst kind of failure: invisible. He would praise the existing parse-time validation pattern (W024) as the model to extend.</p></div>
+<div class="mini-kpis">
+<div class="mini-kpi"><div class="k">Findings</div><div class="v">2</div></div>
+<div class="mini-kpi good"><div class="k">Critical + high</div><div class="v">0</div></div>
+<div class="mini-kpi"><div class="k">Evidence items</div><div class="v">4</div></div>
+<div class="mini-kpi"><div class="k">Effort mix</div><div class="v" style="font-size:14px">M · S</div></div>
+</div></div>
+<article class="finding-detail sev-medium" id="f-C14-15">
+<div class="head"><h2>Regex compiled per entity per rule in execute_pattern; malformed patterns silently pass with no diagnostic</h2><span class="chip medium">medium</span><span class="fid">C14-15</span></div>
+<div class="meta-row"><span class="engineer">125 Andrew Gallant</span><span class="chip neutral">effort S</span><span class="chip neutral">moves: Regex compile sites in hot path</span></div>
+<div class="evidence"><b>Evidence</b><span class="ev"><code>crates/specforge-registry/src/compilation/validation_engine.rs:224-230</code> — FieldValueConstraint matches calls regex Regex new inside the per-entity loop - a rule over N entities compiles the same pattern N times. On compile error the branch returns false (no violation) with no diagnostic, so a typo&#x27;d extension rule is invisible forever. parse_rule_pattern (line 81+) already validates rule shape and is the natural compile point.</span></div>
+<p class="details">execute_pattern in crates/specforge-registry/src/compilation/validation_engine.rs compiles regex::Regex::new(pat) inside the per-entity loop for matches constraints, so one rule applied to N entities recompiles the identical pattern N times per validation run - wasteful in a hot watch/LSP path. More damaging: a compile error makes the branch return false (no violation) silently, so a typo&#x27;d extension rule never fires and never reports anything - an invisible forever-gap in a system whose whole point is surfacing broken specs. FieldConstraintPattern (line 38) already stores kind/pattern/values and parse_rule_pattern (line 81+) is the natural compile point with an existing W-code diagnostic precedent (W024) for bad rules.</p>
+<div class="snippet before"><span class="cap">before — current code</span><pre><code>                            &quot;matches&quot; =&gt; {
+                                if let Some(ref pat) = constraint.pattern {
+                                    // The value violates the constraint when it fails to
+                                    // match the regex. A malformed pattern is treated as
+                                    // &quot;no violation&quot; rather than blocking on a bad rule.
+                                    match regex::Regex::new(pat) {
+                                        Ok(re) =&gt; !re.is_match(value),
+                                        Err(_) =&gt; false,
+                                    }
+                                } else {
+                                    false
+                                }</code></pre><div class="file">crates/specforge-registry/src/compilation/validation_engine.rs:223-231</div></div>
+<div class="arrow-between">↓ fix ↓</div>
+<div class="snippet after"><span class="cap">after — proposed fix</span><pre><code>#[derive(Debug, Clone)]
+pub struct FieldConstraintPattern {
+    pub kind: String,
+    pub pattern: Option&lt;String&gt;,
+    /// Compiled at parse_rule_pattern time; None only when kind is not
+    /// matches or the pattern failed to compile (diagnostic emitted then).
+    pub compiled: Option&lt;regex::Regex&gt;,
+    pub values: Vec&lt;String&gt;,
+}
+
+// in parse_rule_pattern, when kind == matches:
+let compiled = match constraint.pattern.as_deref().map(regex::Regex::new) {
+    Some(Ok(re)) =&gt; Some(re),
+    Some(Err(e)) =&gt; return Err(Diagnostic {
+        code: &quot;W025&quot;.to_string(),
+        severity: Severity::Warning,
+        message: format!(
+            &quot;extension &#x27;{}&#x27;: invalid regex in rule &#x27;{}&#x27;: {}&quot;,
+            extension_name, rule.code, e),
+        span: None,
+        suggestion: None,
+    }),
+    None =&gt; None,
+};
+
+// execute_pattern then just: constraint.compiled.as_ref().is_some_and(|re| !re.is_match(value))</code></pre><div class="file">crates/specforge-registry/src/compilation/validation_engine.rs:38-58</div></div>
+<div class="diagram-box"><span class="cap">Compile regex once and surface errors</span><div class="mermaid" id="dg-125-C14-15"><pre>flowchart TD
+ A[Rule with matches constraint] --&gt; B[Regex compiled per entity per run] --&gt; C[N redundant compiles]
+ D[Malformed regex] --&gt; E[Err maps to false] --&gt; F[Rule silently never fires]
+ G[parse_rule_pattern compiles once] --&gt; H[Bad pattern emits W025 at load] --&gt; I[Agent sees broken rule immediately]</pre></div></div><script type="text/plain" class="mermaid-src" data-target="dg-125-C14-15">flowchart TD
+ A[Rule with matches constraint] --> B[Regex compiled per entity per run] --> C[N redundant compiles]
+ D[Malformed regex] --> E[Err maps to false] --> F[Rule silently never fires]
+ G[parse_rule_pattern compiles once] --> H[Bad pattern emits W025 at load] --> I[Agent sees broken rule immediately]</script>
+<div class="eli10"><span class="tag">Explain like I'm 10</span><p>Instead of printing one dictionary for the whole class, the teacher reprints the same dictionary for every student, every question. And when a dictionary prints upside-down, the teacher quietly marks everyone correct instead of saying the dictionary is broken.</p></div>
+<p class="sol" style="margin-top:12px"><b>Proposed solution.</b> Store a compiled Regex in FieldConstraintPattern at parse_rule_pattern time, emitting a W-code diagnostic on compile failure (matching the existing W024 pattern) so bad rules surface at load.</p>
+</article>
+<article class="finding-detail sev-medium" id="f-C14-16">
+<div class="head"><h2>Discovery policy inconsistent across walkers: LSP skips build dirs, resolver walks everything with follow_links false, formatter follows symlinks</h2><span class="chip medium">medium</span><span class="fid">C14-16</span></div>
+<div class="meta-row"><span class="engineer">125 Andrew Gallant</span><span class="chip neutral">effort M</span><span class="chip neutral">moves: Cold-start discovery consistency</span></div>
+<div class="evidence"><b>Evidence</b><span class="ev"><code>crates/specforge-lsp/src/backend.rs:57-71</code> — LSP uses filter_entry to skip target, node_modules, .git, .hg, dist, build (SKIP_DIRS).</span><span class="ev"><code>crates/specforge-resolver/src/resolve.rs:219-223</code> — Resolver walk has no SKIP_DIRS filtering - a cold CLI compile in a repo with a vendored target tree traverses it; only follow_links false with a path-traversal comment.</span><span class="ev"><code>crates/specforge-formatter/src/discover.rs:52-55</code> — Formatter uses follow_links true while resolver deliberately uses follow_links false - three crates, three policies, no shared helper.</span></div>
+<p class="details">Three crates walk for .spec files with three different policies: specforge-lsp backend.rs filter_entry-skips target/node_modules/.git/.hg/dist/build; specforge-resolver/src/resolve.rs walks everything with no SKIP_DIRS filtering (a cold CLI compile in a repo with a vendored target tree traverses it); specforge-formatter/src/discover.rs even sets follow_links(true) while the resolver deliberately uses false with a path-traversal comment. Same job, three speeds, three results - and none of them share a constant. A single specforge_common::discover(root) helper (skip SKIP_DIRS, follow_links false, .spec filter) with the formatter layering exclude globs on top makes discovery behavior identical everywhere.</p>
+<div class="snippet before"><span class="cap">before — current code</span><pre><code>        WalkDir::new(root)
+            .follow_links(true)
+            .into_iter()
+            .filter_map(|e| e.ok())</code></pre><div class="file">crates/specforge-formatter/src/discover.rs:52-55</div></div>
+<div class="arrow-between">↓ fix ↓</div>
+<div class="snippet after"><span class="cap">after — proposed fix</span><pre><code>use std::path::Path;
+
+/// Directories never worth traversing for .spec sources.
+pub const SKIP_DIRS: &amp;[&amp;str] = &amp;[&quot;target&quot;, &quot;node_modules&quot;, &quot;.git&quot;, &quot;.hg&quot;, &quot;dist&quot;, &quot;build&quot;];
+
+/// One discovery policy for the whole workspace: skip build/dependency dirs,
+/// do not follow symlinks, yield only .spec files. Consumers (formatter) may
+/// layer exclude globs on top.
+pub fn discover(root: &amp;Path) -&gt; impl Iterator&lt;Item = std::path::PathBuf&gt; {
+    walkdir::WalkDir::new(root)
+        .follow_links(false)
+        .into_iter()
+        .filter_entry(|e| {
+            !e.file_type().is_dir()
+                &amp;&amp; e.file_name().to_str().is_some_and(|n| !SKIP_DIRS.contains(&amp;n))
+        })
+        .filter_map(|e| e.ok())
+        .filter(|e| e.file_type().is_file())
+        .filter(|e| e.path().extension().is_some_and(|x| x == &quot;spec&quot;))
+        .map(|e| e.path().to_path_buf())
+}</code></pre><div class="file">crates/specforge-common/src/discover.rs:1-28</div></div>
+<div class="diagram-box"><span class="cap">Unify file discovery policy</span><div class="mermaid" id="dg-125-C14-16"><pre>flowchart TD
+ A[LSP skips build dirs] --&gt; B[Resolver walks everything] --&gt; C[Formatter follows symlinks]
+ D[Three policies] --&gt; E[Slow cold compiles inconsistent results]
+ F[specforge-common discover helper] --&gt; G[One SKIP_DIRS and follow_links policy] --&gt; H[All crates share behavior]
+ E --&gt; F</pre></div></div><script type="text/plain" class="mermaid-src" data-target="dg-125-C14-16">flowchart TD
+ A[LSP skips build dirs] --> B[Resolver walks everything] --> C[Formatter follows symlinks]
+ D[Three policies] --> E[Slow cold compiles inconsistent results]
+ F[specforge-common discover helper] --> G[One SKIP_DIRS and follow_links policy] --> H[All crates share behavior]
+ E --> F</script>
+<div class="eli10"><span class="tag">Explain like I'm 10</span><p>Three librarians look for the same books but each follows different rules: one skips the storage basement, one searches it shelf by shelf, and one chases a note pointing to another library across town. Same job, three speeds, three results.</p></div>
+<p class="sol" style="margin-top:12px"><b>Proposed solution.</b> Extract a shared specforge-common discover(root) on walkdir with one policy - skip SKIP_DIRS, follow_links false, .spec filter - used by resolver, lsp and formatter (formatter layers exclude globs on top).</p>
+</article>
+</main><script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.1/dist/mermaid.min.js" onerror="window.__mermaidFailed=true"></script><script src="../js/agent.js"></script></body></html>

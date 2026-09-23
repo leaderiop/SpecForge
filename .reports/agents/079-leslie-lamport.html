@@ -1,0 +1,43 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>079 Leslie Lamport — SpecForge audit review</title>
+<link rel="stylesheet" href="../css/report.css"><link rel="stylesheet" href="../css/agents.css"></head><body>
+<header class="agent-hero"><div class="brand"><div class="logo">079</div><div>
+<h1>Leslie Lamport</h1>
+<div class="crumbs">Cluster C10 — Formal methods · TLA+; safety/liveness/fairness property taxonomy · profile <code>.agents/079-leslie-lamport.md</code></div></div></div>
+<div class="links"><a href="../index.html">← Full report</a><a href="../../.agents/079-leslie-lamport.md">Profile source</a></div></header>
+<main class="agent-main">
+<nav class="agent-nav"><a href="078.html">← 078</a><a href="080.html">080 →</a></nav>
+<div class="review-panel"><div class="review-text"><h2>Auditor review</h2><p>Leslie Lamport would applaud per-edge-type subgraph analysis over state-space search — checking the road network, not simulating journeys. He would insist that safety/liveness labels without a semantics are taxonomy, not temporal logic, and demand the not-machine-checked provenance marker before anything else. Specifying before building is right; the spec corpus currently promises more than the checker can ever say.</p></div>
+<div class="mini-kpis">
+<div class="mini-kpi"><div class="k">Findings</div><div class="v">1</div></div>
+<div class="mini-kpi good"><div class="k">Critical + high</div><div class="v">0</div></div>
+<div class="mini-kpi"><div class="k">Evidence items</div><div class="v">2</div></div>
+<div class="mini-kpi"><div class="k">Effort mix</div><div class="v" style="font-size:14px">S</div></div>
+</div></div>
+<article class="finding-detail sev-medium" id="f-C10-01">
+<div class="head"><h2>safety/liveness/fairness is a spell-check, not temporal logic</h2><span class="chip medium">medium</span><span class="fid">C10-01</span></div>
+<div class="meta-row"><span class="engineer">079 Leslie Lamport</span><span class="chip neutral">effort S</span><span class="chip neutral">moves: Formal rules implemented</span></div>
+<div class="evidence"><b>Evidence</b><span class="ev"><code>extensions/formal/src/describe_validation_rules.json</code> — W059 only validates property_type string membership</span><span class="ev"><code>spec/extensions/formal/manifest.spec</code> — liveness/deadlock_free verify kinds declared, no pass consumes them</span></div>
+<p class="details">W059 is a plain field_value_constraint: property_type must be safety/liveness/fairness. manifest.spec promises liveness and deadlock_free verify kinds, yet no Rust pass consumes a Property&#x27;s expression or its BehaviorSatisfiesProperty edges. A nonsense expression with a valid property_type is treated identically to a real temporal claim. Diagnostic exports should carry an explicit not-machine-checked provenance marker so consumers never mistake classification for verification.</p>
+<div class="snippet before"><span class="cap">before — current code</span><pre><code>            fvc(&quot;W059&quot;, &quot;property&quot;, &quot;property_type&quot;, &amp;[&quot;safety&quot;, &quot;liveness&quot;, &quot;fairness&quot;],
+                &quot;property &#x27;{id}&#x27; has invalid property_type &#x27;{value}&#x27; — expected one of: safety, liveness, fairness&quot;),</code></pre><div class="file">crates/specforge-emitter/src/builtins/formal.rs:211-212</div></div>
+<div class="arrow-between">↓ fix ↓</div>
+<div class="snippet after"><span class="cap">after — proposed fix</span><pre><code>            fvc(&quot;W059&quot;, &quot;property&quot;, &quot;property_type&quot;, &amp;[&quot;safety&quot;, &quot;liveness&quot;, &quot;fairness&quot;],
+                &quot;property &#x27;{id}&#x27; has invalid property_type &#x27;{value}&#x27; — expected one of: safety, liveness, fairness&quot;),
+        // Provenance info so consumers never confuse classification with
+        // machine checking of the property expression.
+        provenance(&quot;I059&quot;, &quot;property&quot;, &quot;BehaviorSatisfiesProperty&quot;,
+            &quot;property &#x27;{id}&#x27; claim is structural: property_type validated, expression NOT machine-checked&quot;),</code></pre><div class="file">crates/specforge-emitter/src/builtins/formal.rs</div></div>
+<div class="diagram-box"><span class="cap">label validated claim not checked</span><div class="mermaid" id="dg-079-C10-01"><pre>flowchart TD
+ A[property entity] --&gt; B[W059 checks property_type]
+ B --&gt; C[expression stored unchecked]
+ C --&gt; D[BehaviorSatisfiesProperty edge]
+ D --&gt; E[I059 provenance says not machine checked]</pre></div></div><script type="text/plain" class="mermaid-src" data-target="dg-079-C10-01">flowchart TD
+ A[property entity] --> B[W059 checks property_type]
+ B --> C[expression stored unchecked]
+ C --> D[BehaviorSatisfiesProperty edge]
+ D --> E[I059 provenance says not machine checked]</script>
+<div class="eli10"><span class="tag">Explain like I'm 10</span><p>Promises are sorted into folders labeled always and eventually without checking any promise. The label is validated, the content is not - fine as taxonomy, misleading as verification.</p></div>
+<p class="sol" style="margin-top:12px"><b>Proposed solution.</b> Keep W059 but add an explicit not-machine-checked provenance field to property diagnostics/exports.</p>
+</article>
+</main><script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.1/dist/mermaid.min.js" onerror="window.__mermaidFailed=true"></script><script src="../js/agent.js"></script></body></html>

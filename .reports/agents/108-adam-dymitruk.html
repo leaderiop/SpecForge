@@ -1,0 +1,67 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>108 Adam Dymitruk — SpecForge audit review</title>
+<link rel="stylesheet" href="../css/report.css"><link rel="stylesheet" href="../css/agents.css"></head><body>
+<header class="agent-hero"><div class="brand"><div class="logo">108</div><div>
+<h1>Adam Dymitruk</h1>
+<div class="crumbs">Cluster C12 — Requirements engineering, ubiquitous language &amp; docs-as-code (self-spec corpus) · Event Modeling — visual blueprint from command to read model · profile <code>.agents/108-adam-dymitruk.md</code></div></div></div>
+<div class="links"><a href="../index.html">← Full report</a><a href="../../.agents/108-adam-dymitruk.md">Profile source</a></div></header>
+<main class="agent-main">
+<nav class="agent-nav"><a href="107.html">← 107</a><a href="109.html">109 →</a></nav>
+<div class="review-panel"><div class="review-text"><h2>Auditor review</h2><p>Dymitruk would praise the event side of his equation — commands, events, and consumer ordering all modeled — then point at journeys as the unwired half: numbered prose strings referencing no behavior or event IDs means slices you can read but never execute. He would accept the ADR opacity decision only if the project stops calling journeys traceability. Add the structured steps field and let each step name its behavior; until then the event model&#x27;s value is capped.</p></div>
+<div class="mini-kpis">
+<div class="mini-kpi"><div class="k">Findings</div><div class="v">1</div></div>
+<div class="mini-kpi good"><div class="k">Critical + high</div><div class="v">0</div></div>
+<div class="mini-kpi"><div class="k">Evidence items</div><div class="v">2</div></div>
+<div class="mini-kpi"><div class="k">Effort mix</div><div class="v" style="font-size:14px">L</div></div>
+</div></div>
+<article class="finding-detail sev-medium" id="f-C12-14">
+<div class="head"><h2>Journey slices are prose paragraphs, not modeled slices — the event-modeling grammar (command→event→outcome) is unenforced</h2><span class="chip medium">medium</span><span class="fid">C12-14</span></div>
+<div class="meta-row"><span class="engineer">108 Adam Dymitruk</span><span class="chip neutral">effort L</span><span class="chip neutral">moves: root_extension_declaration_coverage</span></div>
+<div class="evidence"><b>Evidence</b><span class="ev"><code>spec/product/journeys.spec:27-41</code> — flow is a numbered free-form string; steps reference no behavior/event IDs</span><span class="ev"><code>spec/extensions/product/decisions.spec:469-495</code> — ADR pe_journey_flow_opaque accepts this: &#x27;flow steps are free-form string[] with no enforced structure&#x27;</span></div>
+<p class="details">Journey flows in spec/product/journeys.spec are numbered free-form strings (&#x27;1. Developer runs specforge init in an empty directory ...&#x27;), referencing no behavior or event IDs, so journeys cannot be pulled: clicking a step does not light up the behavior and event that carry it, and per-step verify coverage is impossible. ADR pe_journey_flow_opaque (spec/extensions/product/decisions.spec:469-495) accepts this explicitly, which makes it a documented limitation rather than an accident — but the project simultaneously markets journeys as traceability. Either drop the traceability claim or add an optional structured steps field of step plus behavior-or-event references alongside the prose.</p>
+<div class="snippet before"><span class="cap">before — current code</span><pre><code>  flow     &quot;&quot;&quot;
+    1. Developer runs specforge init in an empty directory
+    2. System prompts for project name (version defaults to 0.1.0)
+    3. System offers interactive extension selection
+    4. Developer selects desired extensions (or none — zero extensions is valid)
+    5. System generates specforge.json with configuration
+    6. System creates a starter .spec file using structural syntax (extensions MAY contribute templates, but core generates only generic entity blocks)
+    7. Developer runs specforge check — validates immediately
+    8. Developer runs specforge export — produces Graph Protocol JSON
+    9. Success: project is ready for .spec file authoring in under 60 seconds via three commands (init, check, export)
+  &quot;&quot;&quot;</code></pre><div class="file">spec/product/journeys.spec:27-37</div></div>
+<div class="arrow-between">↓ fix ↓</div>
+<div class="snippet after"><span class="cap">after — proposed fix</span><pre><code>  flow     &quot;&quot;&quot;
+    1. Developer runs specforge init in an empty directory
+    2. System prompts for project name (version defaults to 0.1.0)
+    3. System offers interactive extension selection
+    4. Developer selects desired extensions (or none — zero extensions is valid)
+    5. System generates specforge.json with configuration
+    6. System creates a starter .spec file using structural syntax
+    7. Developer runs specforge check — validates immediately
+    8. Developer runs specforge export — produces Graph Protocol JSON
+  &quot;&quot;&quot;
+  steps [
+    { step 1 behavior cli_init_command }
+    { step 7 behavior validate_spec_project }
+    { step 8 behavior export_graph_protocol }
+  ]</code></pre><div class="file">spec/product/journeys.spec:27-41</div></div>
+<div class="diagram-box"><span class="cap">Journeys from prose to wired slices</span><div class="mermaid" id="dg-108-C12-14"><pre>flowchart TD
+ A[journey flow prose string] --&gt; B[steps reference no IDs]
+ B --&gt; C[cannot trace step to behavior]
+ C --&gt; D[journeys not executable slices]
+ A --&gt; E[add structured steps field]
+ E --&gt; F[each step names behavior or event]
+ F --&gt; G[references validated by resolver]
+ G --&gt; H[per step verify coverage possible]</pre></div></div><script type="text/plain" class="mermaid-src" data-target="dg-108-C12-14">flowchart TD
+ A[journey flow prose string] --> B[steps reference no IDs]
+ B --> C[cannot trace step to behavior]
+ C --> D[journeys not executable slices]
+ A --> E[add structured steps field]
+ E --> F[each step names behavior or event]
+ F --> G[references validated by resolver]
+ G --> H[per step verify coverage possible]</script>
+<div class="eli10"><span class="tag">Explain like I'm 10</span><p>The blueprint drawing shows each user step as a handwritten sentence instead of a wire that plugs into the actual machine parts. You can read the story, but you can&#x27;t pull a thread: clicking a step should light up the behavior and event that carry it. Today the thread isn&#x27;t attached.</p></div>
+<p class="sol" style="margin-top:12px"><b>Proposed solution.</b> Either accept opacity permanently (and stop calling journeys traceability) or add an optional structured steps field: [{step, behavior|event}] alongside the prose, validated as references; journeys then become executable slices with verify coverage per step.</p>
+</article>
+</main><script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.1/dist/mermaid.min.js" onerror="window.__mermaidFailed=true"></script><script src="../js/agent.js"></script></body></html>

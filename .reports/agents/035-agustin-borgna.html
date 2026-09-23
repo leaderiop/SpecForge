@@ -1,0 +1,151 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>035 Agustín Borgna (ABorgna) — SpecForge audit review</title>
+<link rel="stylesheet" href="../css/report.css"><link rel="stylesheet" href="../css/agents.css"></head><body>
+<header class="agent-hero"><div class="brand"><div class="logo">035</div><div>
+<h1>Agustín Borgna (ABorgna)</h1>
+<div class="crumbs">Cluster C5 — Graph engine &amp; algorithms · petgraph maintainer · profile <code>.agents/035-agustin-borgna.md</code></div></div></div>
+<div class="links"><a href="../index.html">← Full report</a><a href="../../.agents/035-agustin-borgna.md">Profile source</a></div></header>
+<main class="agent-main">
+<nav class="agent-nav"><a href="034.html">← 034</a><a href="036.html">036 →</a></nav>
+<div class="review-panel"><div class="review-text"><h2>Auditor review</h2><p>Agustín Borgna (ABorgna): Typed Syms are the right currency, which makes the string-based Vec pairs and 2-hop-only suppression feel like leaving tools on the table; the chained-complementary false positive follows directly. Intern pairs into a HashSet&lt;(Sym, Sym)&gt; and suppress at SCC level. Same at the boundary: add_edge accepting any label while rules filter by label lets typos escape — one whitelist at build_graph_with_config closes it.</p></div>
+<div class="mini-kpis">
+<div class="mini-kpi"><div class="k">Findings</div><div class="v">3</div></div>
+<div class="mini-kpi good"><div class="k">Critical + high</div><div class="v">0</div></div>
+<div class="mini-kpi"><div class="k">Evidence items</div><div class="v">0</div></div>
+<div class="mini-kpi"><div class="k">Effort mix</div><div class="v" style="font-size:14px">M · S</div></div>
+</div></div>
+<article class="finding-detail sev-medium" id="f-C5-08">
+<div class="head"><h2>Bidirectional-pair suppression is string-based, 2-hop only, and blind to longer complementary cycles</h2><span class="chip medium">medium</span><span class="fid">C5-08</span></div>
+<div class="meta-row"><span class="engineer">035 Agustín Borgna (ABorgna)</span><span class="chip neutral">effort M</span><span class="chip neutral">moves: Cycle-detection implementations (merges into shared SCC)</span></div>
+<p class="details">Bidirectional-pair suppression only handles exact 2-hop cycles and compares labels via as_str() against Vec&lt;(String,String)&gt;, so a 3-hop chain of complementary pairs is falsely reported as W061. Intern pairs into HashSet&lt;(Sym,Sym)&gt; and suppress at SCC level: an SCC is a false positive iff removing paired edges breaks its strong connectivity.</p>
+<div class="snippet before"><span class="cap">before — current code</span><pre><code>        // Check if any (ab_label, ba_label) combination matches a known pair
+        for &amp;lab_ab in &amp;labels_ab {
+            for &amp;lab_ba in &amp;labels_ba {
+                let ab_str = lab_ab.as_str();
+                let ba_str = lab_ba.as_str();
+                for (fwd, rev) in &amp;self.bidirectional_pairs {
+                    if (ab_str == fwd &amp;&amp; ba_str == rev)
+                        || (ab_str == rev &amp;&amp; ba_str == fwd)
+                    {
+                        return true;
+                    }</code></pre><div class="file">crates/specforge-graph/src/graph.rs:415-421</div></div>
+<div class="arrow-between">↓ fix ↓</div>
+<div class="snippet after"><span class="cap">after — proposed fix</span><pre><code>    // In Graph struct: interned complementary pairs, both orientations.
+    bidirectional_pairs: HashSet&lt;(Sym, Sym)&gt;,
+
+    /// True iff removing all edges whose labels participate in a
+    /// complementary pair breaks this SCC&#x27;s strong connectivity.
+    fn is_complementary_scc(&amp;self, scc: &amp;[Sym]) -&gt; bool {
+        let member: HashSet&lt;Sym&gt; = scc.iter().copied().collect();
+        // Keep only non-paired edges inside the SCC.
+        let edges_from: HashMap&lt;Sym, Vec&lt;Sym&gt;&gt; = self.edges.iter()
+            .filter(|e| member.contains(&amp;e.source) &amp;&amp; member.contains(&amp;e.target))
+            .filter(|e| !self.paired_labels.contains(&amp;(e.label, e.label)))
+            .fold(HashMap::new(), |mut m, e| {
+                m.entry(e.source).or_default().push(e.target); m
+            });
+        // SCC-level check: iterative forward and backward reachability
+        // from scc[0]; both must cover all members.
+        let reach = |forward: bool| -&gt; usize { /* BFS over edges_from or its reverse */ };
+        reach(true) == scc.len() &amp;&amp; reach(false) == scc.len()
+    }</code></pre><div class="file">crates/specforge-graph/src/graph.rs</div></div>
+<div class="diagram-box"><span class="cap">SCC-level bidirectional suppression</span><div class="mermaid" id="dg-035-C5-08"><pre>flowchart TD
+ A[build SCCs] --&gt; B{remove paired edges}
+ B --&gt; C{still strongly connected}
+ C -- yes --&gt; D[report W061]
+ C -- no --&gt; E[suppress false positive]
+ F[String Vec pairs] --&gt; G[interned HashSet Sym Sym]
+ G --&gt; A</pre></div></div><script type="text/plain" class="mermaid-src" data-target="dg-035-C5-08">flowchart TD
+ A[build SCCs] --> B{remove paired edges}
+ B --> C{still strongly connected}
+ C -- yes --> D[report W061]
+ C -- no --> E[suppress false positive]
+ F[String Vec pairs] --> G[interned HashSet Sym Sym]
+ G --> A</script>
+<div class="eli10"><span class="tag">Explain like I'm 10</span><p>The rule &#x27;asking and answering each other isn&#x27;t a fight&#x27; only works when it&#x27;s exactly one question and one answer. Ask, answer, ask back through a friend — the referee blows the whistle anyway. And the referee reads the names out letter-by-letter instead of recognizing them.</p></div>
+<p class="sol" style="margin-top:12px"><b>Proposed solution.</b> Intern pairs into a HashSet&lt;(Sym, Sym)&gt; (Sym is already the currency of the crate), and run suppression at SCC level: an SCC is a false positive iff every edge in it participates in a complementary pair (i.e., removing paired edges breaks the SCC) — naturally handles chains of any length.</p>
+</article>
+<article class="finding-detail sev-low" id="f-C5-09">
+<div class="head"><h2>Edge labels are typed Syms but unchecked at the graph boundary; add_edge accepts anything, duplicates included</h2><span class="chip low">low</span><span class="fid">C5-09</span></div>
+<div class="meta-row"><span class="engineer">035 Agustín Borgna (ABorgna)</span><span class="chip neutral">effort S</span><span class="chip neutral">moves: none</span></div>
+<p class="details">add_edge accepts any label unchecked, so manifest typos silently create an edge-label namespace that label-keyed checks (CycleDetection filters, bidirectional suppression) miss. Add an optional known_edge_labels whitelist to GraphConfig enforced in build_graph_with_config; keep add_edge unchecked internally.</p>
+<div class="snippet before"><span class="cap">before — current code</span><pre><code>    pub fn add_edge(&amp;mut self, edge: Edge) {
+        let idx = self.edges.len();
+        self.source_index.entry(edge.source).or_default().push(idx);
+        self.target_index.entry(edge.target).or_default().push(idx);
+        self.edges.push(edge);
+    }</code></pre><div class="file">crates/specforge-graph/src/graph.rs:87-93</div></div>
+<div class="arrow-between">↓ fix ↓</div>
+<div class="snippet after"><span class="cap">after — proposed fix</span><pre><code>pub struct GraphConfig {
+    // ... existing fields ...
+    /// Edge labels declared by installed extensions. When non-empty,
+    /// build_graph_with_config warns (W012) on unknown labels.
+    pub known_edge_labels: HashSet&lt;String&gt;,
+}
+
+// In build_graph_with_config, after graph.resolve_references():
+if !config.known_edge_labels.is_empty() {
+    let known: HashSet&lt;Sym&gt; = config.known_edge_labels.iter()
+        .map(|l| Sym::new(l.as_str())).collect();
+    for edge in graph.edges() {
+        if !known.contains(&amp;edge.label) {
+            diagnostics.push(Diagnostic::warning(&quot;W012&quot;, format!(
+                &quot;edge label &#x27;{}&#x27; is not declared by any installed extension edge type&quot;,
+                edge.label.as_str()))
+                .with_suggestion(&quot;check the field&#x27;s `edge = ...` declaration for typos&quot;));
+        }
+    }
+}</code></pre><div class="file">crates/specforge-graph/src/build.rs</div></div>
+<div class="diagram-box"><span class="cap">Edge label whitelist at build boundary</span><div class="mermaid" id="dg-035-C5-09"><pre>flowchart TD
+ A[manifest edge types] --&gt; B[GraphConfig known_edge_labels]
+ C[edges built] --&gt; D{label in whitelist}
+ D -- yes --&gt; E[kept]
+ D -- no --&gt; F[W012 diagnostic]
+ F --&gt; G[typo caught early]</pre></div></div><script type="text/plain" class="mermaid-src" data-target="dg-035-C5-09">flowchart TD
+ A[manifest edge types] --> B[GraphConfig known_edge_labels]
+ C[edges built] --> D{label in whitelist}
+ D -- yes --> E[kept]
+ D -- no --> F[W012 diagnostic]
+ F --> G[typo caught early]</script>
+<div class="eli10"><span class="tag">Explain like I'm 10</span><p>The mailbox has labeled slots, but the mail carrier never checks the label before stuffing a letter in — typos quietly build extra slots. Fine until two people mean the same relationship by slightly different names.</p></div>
+<p class="sol" style="margin-top:12px"><b>Proposed solution.</b> Add an optional edge-label whitelist (from the ManifestEdgeType registry) to GraphConfig, enforced in build_graph_with_config; keep add_edge unchecked for internal callers.</p>
+</article>
+<article class="finding-detail sev-info" id="f-C5-10">
+<div class="head"><h2>Scale verdict at 2.1k nodes: hand-rolled storage adequate; petgraph decision should be made before 10x</h2><span class="chip info">info</span><span class="fid">C5-10</span></div>
+<div class="meta-row"><span class="engineer">035 Agustín Borgna (ABorgna)</span><span class="chip neutral">effort S</span><span class="chip neutral">moves: petgraph adoption</span></div>
+<p class="details">At 2.1k nodes the hand-rolled storage is adequate, but the linear-time claim is unmeasured: no bench or CI gate would catch an O(V^2) regression. Record an ADR with bench thresholds that pre-approve the petgraph migration if tripped.</p>
+<div class="snippet before"><span class="cap">before — current code</span><pre><code>pub struct Graph {
+    nodes: HashMap&lt;Sym, Node&gt;,
+    edges: Vec&lt;Edge&gt;,
+    /// Index: source sym -&gt; indices into `edges`
+    source_index: HashMap&lt;Sym, Vec&lt;usize&gt;&gt;,
+    /// Index: target sym -&gt; indices into `edges`
+    target_index: HashMap&lt;Sym, Vec&lt;usize&gt;&gt;,</code></pre><div class="file">crates/specforge-graph/src/graph.rs:22-27</div></div>
+<div class="arrow-between">↓ fix ↓</div>
+<div class="snippet after"><span class="cap">after — proposed fix</span><pre><code># ADR 0004: Hand-rolled graph storage vs petgraph
+
+## Decision
+Keep hand-rolled storage until a CI criterion bench (graph_scale)
+trips any threshold at 10x corpus (21k entities):
+
+- graph build exceeds 250 ms
+- detect_cycles exceeds 25 ms
+- node/edge removal dominates watch-mode profiles
+
+## Consequences
+- petgraph adoption (StableGraph, toposort, SCC) is pre-approved once
+  a threshold trips; no new ADR required.
+- The linear-time claim stays measured, not assumed.</code></pre><div class="file">docs/adr/0004-graph-storage-strategy.md</div></div>
+<div class="diagram-box"><span class="cap">Measured storage decision</span><div class="mermaid" id="dg-035-C5-10"><pre>flowchart TD
+ A[criterion bench in CI] --&gt; B{threshold tripped}
+ B -- no --&gt; C[keep hand-rolled]
+ B -- yes --&gt; D[adopt petgraph per ADR]
+ E[ADR records assumptions] --&gt; A</pre></div></div><script type="text/plain" class="mermaid-src" data-target="dg-035-C5-10">flowchart TD
+ A[criterion bench in CI] --> B{threshold tripped}
+ B -- no --> C[keep hand-rolled]
+ B -- yes --> D[adopt petgraph per ADR]
+ E[ADR records assumptions] --> A</script>
+<div class="eli10"><span class="tag">Explain like I'm 10</span><p>The homemade bicycle works fine on today&#x27;s hills. It will also work on bigger hills — but before carrying cargo up them, decide whether to keep tuning the homemade bike or buy the factory one, and write the decision down.</p></div>
+<p class="sol" style="margin-top:12px"><b>Proposed solution.</b> Record an ADR on petgraph-vs-hand-rolled (ties into finding 034-1); add a bench threshold or criterion CI gate so the linear-time claim stays measured, not assumed.</p>
+</article>
+</main><script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.1/dist/mermaid.min.js" onerror="window.__mermaidFailed=true"></script><script src="../js/agent.js"></script></body></html>

@@ -1,0 +1,62 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>048 Alex Crichton — SpecForge audit review</title>
+<link rel="stylesheet" href="../css/report.css"><link rel="stylesheet" href="../css/agents.css"></head><body>
+<header class="agent-hero"><div class="brand"><div class="logo">048</div><div>
+<h1>Alex Crichton</h1>
+<div class="crumbs">Cluster C7 — Wasm plugin runtimes &amp; the extension bet · wit-bindgen &amp; Component Model tooling; early Rust/Cargo core · profile <code>.agents/048-alex-crichton.md</code></div></div></div>
+<div class="links"><a href="../index.html">← Full report</a><a href="../../.agents/048-alex-crichton.md">Profile source</a></div></header>
+<main class="agent-main">
+<nav class="agent-nav"><a href="047.html">← 047</a><a href="049.html">049 →</a></nav>
+<div class="review-panel"><div class="review-text"><h2>Auditor review</h2><p>The stringly-typed call_export boundary already bit you: documented resolve_ref versus actual host_query_graph is exactly the drift an IDL prevents, and the failure shows up as a runtime trap in someone else&#x27;s plugin. The wire format is simple enough that a single WIT package with wit-bindgen on host and guest sides is maybe two days of work and deletes a whole class of bug. Strong praise though for keeping the handshake versioned — that is the hardest part of an IDL to retrofit.</p></div>
+<div class="mini-kpis">
+<div class="mini-kpi"><div class="k">Findings</div><div class="v">1</div></div>
+<div class="mini-kpi good"><div class="k">Critical + high</div><div class="v">0</div></div>
+<div class="mini-kpi"><div class="k">Evidence items</div><div class="v">2</div></div>
+<div class="mini-kpi"><div class="k">Effort mix</div><div class="v" style="font-size:14px">L</div></div>
+</div></div>
+<article class="finding-detail sev-medium" id="f-C7-03">
+<div class="head"><h2>No IDL between host and plugins: stringly-typed call_export, ad-hoc JSON; drift already happened (documented resolve_ref never implemented; query renamed host_query_graph).</h2><span class="chip medium">medium</span><span class="fid">C7-03</span></div>
+<div class="meta-row"><span class="engineer">048</span><span class="chip neutral">effort L</span><span class="chip neutral">moves: host_api_doc_vs_impl</span></div>
+<div class="evidence"><b>Evidence</b><span class="ev"><code>specforge-wasm/runtime.rs:40-47</code></span><span class="ev"><code>docs/extension-sdk.md:10</code></span></div>
+<p class="details">The host-plugin boundary is entirely stringly-typed: WasmRuntime::call_export takes an arbitrary export_name: &amp;str and raw bytes, and every payload is ad-hoc serde_json::Value. Drift has already shipped — docs/extension-sdk.md documents a resolve_ref host function that no host implements, while the real export was named host_query_graph without any compile-time check catching the mismatch. A plugin calling the documented name gets a runtime trap instead of a compile error. A WIT package (wit-bindgen) on both sides, or at minimum one shared generated types crate consumed by host and plugins, would make the contract checked at build time and self-documenting for AI agents reading the interface.</p>
+<div class="snippet before"><span class="cap">before — current code</span><pre><code>pub trait WasmRuntime: Send + Sync {
+    /// Load a .wasm binary (or AOT-cached artifact) into the runtime.
+    fn load_module(&amp;self, wasm_path: &amp;Path, aot_cache_path: Option&lt;&amp;Path&gt;) -&gt; Result&lt;(), String&gt;;
+
+    /// Call an export function on a loaded module.
+    fn call_export(&amp;self, extension_name: &amp;str, export_name: &amp;str, input: &amp;[u8]) -&gt; WasmCallResult;</code></pre><div class="file">crates/specforge-wasm/src/runtime.rs:40-46</div></div>
+<div class="arrow-between">↓ fix ↓</div>
+<div class="snippet after"><span class="cap">after — proposed fix</span><pre><code>package specforge:extension@1.0.0;
+
+interface host {
+    emit-diagnostic: func(diag: string) -&gt; string;
+    read-file: func(request: string) -&gt; string;
+    query-graph: func(request: string) -&gt; string;
+}
+
+interface extension {
+    handshake: func(request: string) -&gt; string;
+    describe: func(request: string) -&gt; string;
+}
+
+world extension-world {
+    import host;
+    export extension;
+}</code></pre><div class="file">wit/specforge.wit</div></div>
+<div class="diagram-box"><span class="cap">Stringly typed to WIT contract</span><div class="mermaid" id="dg-048-C7-03"><pre>flowchart TD
+ A[Host calls export by string name] --&gt; B[Plugin calls doc name resolve_ref]
+ B --&gt; C[Runtime trap no such export]
+ A --&gt; D[Introduce WIT package]
+ D --&gt; E[wit-bindgen generates host and guest stubs]
+ E --&gt; F[Rename caught at compile time]
+ F --&gt; G[host_query_graph contract checked]</pre></div></div><script type="text/plain" class="mermaid-src" data-target="dg-048-C7-03">flowchart TD
+ A[Host calls export by string name] --> B[Plugin calls doc name resolve_ref]
+ B --> C[Runtime trap no such export]
+ A --> D[Introduce WIT package]
+ D --> E[wit-bindgen generates host and guest stubs]
+ E --> F[Rename caught at compile time]
+ F --> G[host_query_graph contract checked]</script>
+<div class="eli10"><span class="tag">Explain like I'm 10</span><p>host and plugins shout agreed words across a fence with no written contract, so some words were never assigned to an actor.</p></div>
+<p class="sol" style="margin-top:12px"><b>Proposed solution.</b> WIT package via wit-bindgen or one shared generated types crate; reconcile resolve_ref naming.</p>
+</article>
+</main><script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.1/dist/mermaid.min.js" onerror="window.__mermaidFailed=true"></script><script src="../js/agent.js"></script></body></html>

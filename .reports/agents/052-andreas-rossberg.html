@@ -1,0 +1,60 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>052 Andreas Rossberg — SpecForge audit review</title>
+<link rel="stylesheet" href="../css/report.css"><link rel="stylesheet" href="../css/agents.css"></head><body>
+<header class="agent-hero"><div class="brand"><div class="logo">052</div><div>
+<h1>Andreas Rossberg</h1>
+<div class="crumbs">Cluster C7 — Wasm plugin runtimes &amp; the extension bet · Wasm formal semantics; spec editor (SpecTec) · profile <code>.agents/052-andreas-rossberg.md</code></div></div></div>
+<div class="links"><a href="../index.html">← Full report</a><a href="../../.agents/052-andreas-rossberg.md">Profile source</a></div></header>
+<main class="agent-main">
+<nav class="agent-nav"><a href="051.html">← 051</a><a href="053.html">053 →</a></nav>
+<div class="review-panel"><div class="review-text"><h2>Auditor review</h2><p>serde(default) on handshake fields means a half-written plugin produces a plausible response with all flags false and the host quietly skips describe categories — silent degradation is the worst failure mode for a wire protocol. Combined with four plugins each hand-copying ten JSON blobs with zero schema checks, drift is not a risk but a schedule. I would make contribution_flags required, publish a JSON Schema, and add one conformance test that exercises every builtin&#x27;s handshake against it; the existing smoke tests are a good seed.</p></div>
+<div class="mini-kpis">
+<div class="mini-kpi"><div class="k">Findings</div><div class="v">1</div></div>
+<div class="mini-kpi good"><div class="k">Critical + high</div><div class="v">0</div></div>
+<div class="mini-kpi"><div class="k">Evidence items</div><div class="v">2</div></div>
+<div class="mini-kpi"><div class="k">Effort mix</div><div class="v" style="font-size:14px">M</div></div>
+</div></div>
+<article class="finding-detail sev-medium" id="f-C7-07">
+<div class="head"><h2>HandshakeResponse #[serde(default)] on most fields lets plugins omit critical data (types.rs:16-20); 4 plugins hand-maintain handshake.json+9 describe JSONs with no schema/conformance test tying them to Rust types (only 4 smoke tests).</h2><span class="chip medium">medium</span><span class="fid">C7-07</span></div>
+<div class="meta-row"><span class="engineer">052</span><span class="chip neutral">effort M</span><span class="chip neutral">moves: builtin_sandbox_declarations</span></div>
+<div class="evidence"><b>Evidence</b><span class="ev"><code>types.rs:16-20</code></span><span class="ev"><code>handshake.json</code></span></div>
+<p class="details">HandshakeResponse decorates contribution_flags, peer_dependencies, and sandbox_policy with #[serde(default)], so a broken or truncated plugin handshake deserializes into a plausible-looking response with empty flags — the host then skips describe categories it should have requested, and nobody notices. On top of that, each of the four plugin crates hand-maintains its handshake.json plus nine describe JSON blobs included via include_bytes!, with no schema and no CI check tying those files to the Rust protocol types; only four smoke tests exist. Silent defaults plus unmaintained fixture copies is exactly how wire drift compounds. Fix: make critical fields required (or validate invariants after deserialize), publish a JSON Schema for handshake/describe, and add a conformance test that runs every builtin&#x27;s handshake through the schema and the typed structs.</p>
+<div class="snippet before"><span class="cap">before — current code</span><pre><code>pub struct HandshakeResponse {
+    pub protocol_version: String,
+    pub name: String,
+    pub version: String,
+    #[serde(default)]
+    pub contribution_flags: ContributionFlags,
+    #[serde(default)]
+    pub peer_dependencies: Vec&lt;PeerDependency&gt;,
+    #[serde(default)]
+    pub sandbox_policy: Option&lt;SandboxPolicy&gt;,
+}</code></pre><div class="file">crates/specforge-wasm/src/protocol/types.rs:16-29</div></div>
+<div class="arrow-between">↓ fix ↓</div>
+<div class="snippet after"><span class="cap">after — proposed fix</span><pre><code>pub struct HandshakeResponse {
+    pub protocol_version: String,
+    pub name: String,
+    pub version: String,
+    pub contribution_flags: ContributionFlags,
+    pub peer_dependencies: Vec&lt;PeerDependency&gt;,
+    pub sandbox_policy: Option&lt;SandboxPolicy&gt;,
+}</code></pre><div class="file">crates/specforge-wasm/src/protocol/types.rs</div></div>
+<div class="diagram-box"><span class="cap">Handshake conformance gate</span><div class="mermaid" id="dg-052-C7-07"><pre>flowchart TD
+ A[CI conformance test] --&gt; B[Run each builtin handshake]
+ B --&gt; C{deserializes without defaults}
+ C --&gt;|no| D[Fail build with field name]
+ C --&gt;|yes| E{matches JSON Schema}
+ E --&gt;|no| D
+ E --&gt;|yes| F[Golden fixture updated deliberately]
+ F --&gt; G[Wire format drift caught early]</pre></div></div><script type="text/plain" class="mermaid-src" data-target="dg-052-C7-07">flowchart TD
+ A[CI conformance test] --> B[Run each builtin handshake]
+ B --> C{deserializes without defaults}
+ C -->|no| D[Fail build with field name]
+ C -->|yes| E{matches JSON Schema}
+ E -->|no| D
+ E -->|yes| F[Golden fixture updated deliberately]
+ F --> G[Wire format drift caught early]</script>
+<div class="eli10"><span class="tag">Explain like I'm 10</span><p>both sides politely fill in blanks instead of complaining, and each plugin keeps its own script copy with no rehearsal.</p></div>
+<p class="sol" style="margin-top:12px"><b>Proposed solution.</b> JSON Schema for handshake/describe + CI conformance test for all 4 builtins; make critical fields required.</p>
+</article>
+</main><script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.1/dist/mermaid.min.js" onerror="window.__mermaidFailed=true"></script><script src="../js/agent.js"></script></body></html>

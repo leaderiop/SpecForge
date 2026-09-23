@@ -1,0 +1,127 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>043 Colin McDonnell — SpecForge audit review</title>
+<link rel="stylesheet" href="../css/report.css"><link rel="stylesheet" href="../css/agents.css"></head><body>
+<header class="agent-hero"><div class="brand"><div class="logo">043</div><div>
+<h1>Colin McDonnell</h1>
+<div class="crumbs">Cluster C6 — Schemas, validation &amp; serialization (Graph Protocol) · Zod creator; TypeScript schema validation &amp; developer experience · profile <code>.agents/043-colin-mcdonnell.md</code></div></div></div>
+<div class="links"><a href="../index.html">← Full report</a><a href="../../.agents/043-colin-mcdonnell.md">Profile source</a></div></header>
+<main class="agent-main">
+<nav class="agent-nav"><a href="042.html">← 042</a><a href="044.html">044 →</a></nav>
+<div class="review-panel"><div class="review-text"><h2>Auditor review</h2><p>Colin McDonnell (tRPC): The schema/compiler split on specforge.json is the bug I&#x27;d fix first: additionalProperties:false banning keys the compiler consumes (inference), accepting keys it ignores — both directions broken, plus an unsynced vscode copy with no CI check. And the LSP skipping CycleDetection while the CLI enforces it means agents see clean editors and failing builds. Single-source the config schema from the struct and share detect_cycles through the registry crate.</p></div>
+<div class="mini-kpis">
+<div class="mini-kpi"><div class="k">Findings</div><div class="v">2</div></div>
+<div class="mini-kpi bad"><div class="k">Critical + high</div><div class="v">1</div></div>
+<div class="mini-kpi"><div class="k">Evidence items</div><div class="v">4</div></div>
+<div class="mini-kpi"><div class="k">Effort mix</div><div class="v" style="font-size:14px">M</div></div>
+</div></div>
+<article class="finding-detail sev-high" id="f-C6-13">
+<div class="head"><h2>Config schema/compiler disagree both directions + unsynced duplicate: schema declares additionalProperties:false + ~17 keys, ProjectConfig reads 5 (pr</h2><span class="chip high">high</span><span class="fid">C6-13</span></div>
+<div class="meta-row"><span class="engineer">043 Colin McDonnell</span><span class="chip neutral">effort M</span><span class="chip neutral">moves: config</span></div>
+<div class="evidence"><b>Evidence</b><span class="ev"><code>project.rs:25-89</code></span><span class="ev"><code>package.json:188-190</code></span></div>
+<p class="details">The vscode-published schema (schema/specforge.schema.json) declares additionalProperties:false with ~17 keys (strict, namespace, providers, personas, coverage, ...) while ProjectConfig (crates/specforge-common/src/project.rs:27-34) reads only name, version, spec_root, extensions and inference — and inference is not in the published schema at all, so an editor red-squiggles the exact key the compiler consumes, while compiler-ignored keys like strict validate fine and do nothing. The two hand-maintained artifacts drift in both directions; package.json:188-190 binds the editor to the stale copy with no CI check. Short term: add inference to the schema, mark aspirational keys reserved, and CI-compare the copy; long term derive the schema from serde-serialized ProjectConfig.</p>
+<div class="snippet before"><span class="cap">before — current code</span><pre><code>#[derive(Debug, Clone, Default)]
+pub struct ProjectConfig {
+    pub name: Option&lt;String&gt;,
+    pub version: Option&lt;String&gt;,
+    pub spec_root: Option&lt;String&gt;,
+    pub extensions: Vec&lt;String&gt;,
+    pub inference: InferenceConfig,
+    pub raw: Option&lt;serde_json::Value&gt;,
+}</code></pre><div class="file">crates/specforge-common/src/project.rs:26-34</div></div>
+<div class="arrow-between">↓ fix ↓</div>
+<div class="snippet after"><span class="cap">after — proposed fix</span><pre><code>/// Schema of specforge.json, derived from the parse struct so editor
+/// validation and compiler behavior cannot drift.
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(deny_unknown_fields, default)]
+pub struct ProjectConfig {
+    pub name: Option&lt;String&gt;,
+    pub version: Option&lt;String&gt;,
+    pub spec_root: Option&lt;String&gt;,
+    pub extensions: Vec&lt;String&gt;,
+    pub inference: InferenceConfig,
+    /// Keys recognized but not yet implemented; accepted, reported as I017.
+    #[serde(skip_serializing)]
+    pub reserved: BTreeMap&lt;String, serde_json::Value&gt;,
+}
+
+// schemars::schema_for!(ProjectConfig) (or a test snapshot of the JSON)
+// is asserted equal to schema/specforge.schema.json in CI.</code></pre><div class="file">crates/specforge-common/src/project.rs</div></div>
+<div class="diagram-box"><span class="cap">One source of config truth</span><div class="mermaid" id="dg-043-C6-13"><pre>flowchart TD
+ A[specforge.json] --&gt; B[ProjectConfig parser]
+ A --&gt; C[published json schema]
+ B --&gt; D[reads 5 keys plus inference]
+ C --&gt; E[allows 17 keys bans inference]
+ D --&gt; F[compiler accepts what editor rejects]
+ E --&gt; F
+ F --&gt; G[derive schema from struct]
+ G --&gt; H[CI snapshot equality test]
+ H --&gt; I[editor and compiler agree]</pre></div></div><script type="text/plain" class="mermaid-src" data-target="dg-043-C6-13">flowchart TD
+ A[specforge.json] --> B[ProjectConfig parser]
+ A --> C[published json schema]
+ B --> D[reads 5 keys plus inference]
+ C --> E[allows 17 keys bans inference]
+ D --> F[compiler accepts what editor rejects]
+ E --> F
+ F --> G[derive schema from struct]
+ G --> H[CI snapshot equality test]
+ H --> I[editor and compiler agree]</script>
+<div class="eli10"><span class="tag">Explain like I'm 10</span><p>two hand-copied spell-checkers nobody compares; editor rejects what compiler accepts and vice versa.</p></div>
+<p class="sol" style="margin-top:12px"><b>Proposed solution.</b> add inference to schema, mark aspirational keys reserved, generate or CI-test the copy; long-term derive schema from serde-serialized ProjectConfig.</p>
+</article>
+<article class="finding-detail sev-medium" id="f-C6-14">
+<div class="head"><h2>LSP skips CycleDetection (backend.rs:409-413 `continue`) while CLI enforces via detect_cycles (compile.rs:463-466) - clean editor, failing build.</h2><span class="chip medium">medium</span><span class="fid">C6-14</span></div>
+<div class="meta-row"><span class="engineer">043 Colin McDonnell</span><span class="chip neutral">effort M</span><span class="chip neutral">moves: rule</span></div>
+<div class="evidence"><b>Evidence</b><span class="ev"><code>backend.rs:409-413</code></span><span class="ev"><code>compile.rs:463-466</code></span></div>
+<p class="details">The CLI compile path routes CycleDetection patterns to detect_cycles (compile.rs:463-466) and reports cycle errors, but the LSP diagnostic pass explicitly `continue`s on the same pattern kind (backend.rs:409-413), so an editor shows a clean file while the CLI build fails — the classic &#x27;clean in editor, red in CI&#x27; agent-hostile divergence. The cycle-walking code lives privately in specforge-emitter::compile, so the LSP cannot reuse it. Promoting detect_cycles into specforge-registry (which both sides already depend on for validation_engine) and calling it from the LSP debounced on change makes both surfaces enforce the identical rule.</p>
+<div class="snippet before"><span class="cap">before — current code</span><pre><code>            for pattern in validation_patterns {
+                if pattern.check
+                    == specforge_registry::validation_engine::ValidationPatternKind::CycleDetection
+                {
+                    continue;
+                }
+                let rule_diags =
+                    specforge_registry::validation_engine::execute_pattern(pattern, &amp;entities, None);</code></pre><div class="file">crates/specforge-lsp/src/backend.rs:406-415</div></div>
+<div class="arrow-between">↓ fix ↓</div>
+<div class="snippet after"><span class="cap">after — proposed fix</span><pre><code>            for pattern in validation_patterns {
+                if pattern.check
+                    == specforge_registry::validation_engine::ValidationPatternKind::CycleDetection
+                {
+                    // Same rule as the CLI: detect cycles over the full graph.
+                    let cycle_diags = specforge_registry::validation_engine::detect_cycles(
+                        pattern,
+                        state.graph(),
+                        &amp;state.edge_label_to_field(),
+                    );
+                    for d in &amp;cycle_diags {
+                        let diag_uri = d.span.as_ref()
+                            .map(|s| file_path_to_uri(s.file.as_str()))
+                            .unwrap_or_else(|| uri.clone());
+                        diags_by_file.entry(diag_uri).or_default()
+                            .push(diagnostic_to_lsp(d));
+                    }
+                    continue;
+                }
+                let rule_diags = execute_pattern(pattern, &amp;entities, None);</code></pre><div class="file">crates/specforge-lsp/src/backend.rs</div></div>
+<div class="diagram-box"><span class="cap">Same checklist everywhere</span><div class="mermaid" id="dg-043-C6-14"><pre>flowchart TD
+ A[spec with edge cycle] --&gt; B[CLI compile]
+ A --&gt; C[LSP diagnostics]
+ B --&gt; D[detect_cycles runs]
+ D --&gt; E[build fails]
+ C --&gt; F[continue skips cycles]
+ F --&gt; G[editor shows clean]
+ E --&gt; H[confusing agent loop]
+ A --&gt; I[detect_cycles shared in registry]
+ I --&gt; J[both enforce identical rule]</pre></div></div><script type="text/plain" class="mermaid-src" data-target="dg-043-C6-14">flowchart TD
+ A[spec with edge cycle] --> B[CLI compile]
+ A --> C[LSP diagnostics]
+ B --> D[detect_cycles runs]
+ D --> E[build fails]
+ C --> F[continue skips cycles]
+ F --> G[editor shows clean]
+ E --> H[confusing agent loop]
+ A --> I[detect_cycles shared in registry]
+ I --> J[both enforce identical rule]</script>
+<div class="eli10"><span class="tag">Explain like I'm 10</span><p>The teacher checks the notebook for loops, but the study buddy skips that page — so the notebook looks clean at school and fails at home. Give both the same checklist.</p></div>
+<p class="sol" style="margin-top:12px"><b>Proposed solution.</b> share detect_cycles via specforge-registry; call debounced from LSP.</p>
+</article>
+</main><script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.1/dist/mermaid.min.js" onerror="window.__mermaidFailed=true"></script><script src="../js/agent.js"></script></body></html>

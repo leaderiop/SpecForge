@@ -1,0 +1,61 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>092 Dan North — SpecForge audit review</title>
+<link rel="stylesheet" href="../css/report.css"><link rel="stylesheet" href="../css/agents.css"></head><body>
+<header class="agent-hero"><div class="brand"><div class="logo">092</div><div>
+<h1>Dan North</h1>
+<div class="crumbs">Cluster C11 — Testing &amp; BDD (test tracing &amp; report protocol) · Inventor of BDD; JBehave creator · profile <code>.agents/092-dan-north.md</code></div></div></div>
+<div class="links"><a href="../index.html">← Full report</a><a href="../../.agents/092-dan-north.md">Profile source</a></div></header>
+<main class="agent-main">
+<nav class="agent-nav"><a href="091.html">← 091</a><a href="093.html">093 →</a></nav>
+<div class="review-panel"><div class="review-text"><h2>Auditor review</h2><p>Dan North: the vision doc tells a gorgeous story - five minutes to proof, the gap staring back at them in the terminal - and then coverage matches verify text letter-for-letter and says nothing when a link silently vanishes. That is the moment of truth broken by string equality. Give the user the unmatched-test warning the decisions.spec already promises; the narrative only works if the tool tells the truth about broken links.</p></div>
+<div class="mini-kpis">
+<div class="mini-kpi"><div class="k">Findings</div><div class="v">1</div></div>
+<div class="mini-kpi good"><div class="k">Critical + high</div><div class="v">0</div></div>
+<div class="mini-kpi"><div class="k">Evidence items</div><div class="v">2</div></div>
+<div class="mini-kpi"><div class="k">Effort mix</div><div class="v" style="font-size:14px">S</div></div>
+</div></div>
+<article class="finding-detail sev-low" id="f-C11-09">
+<div class="head"><h2>drift: CoverageDiffStatus has 5 variants incl. covered_with_failures (coverage.rs:29-46) but the contract (spec/behaviors.spec:268-273) lists only 4.</h2><span class="chip low">low</span><span class="fid">C11-09</span></div>
+<div class="meta-row"><span class="engineer">092 Dan North</span><span class="chip neutral">effort S</span></div>
+<div class="evidence"><b>Evidence</b><span class="ev"><code>coverage.rs:29-46</code></span><span class="ev"><code>spec/behaviors.spec:268-273</code></span></div>
+<p class="details">CoverageDiffStatus (coverage.rs:29-38) serializes five variants including covered_with_failures, whose passing field drives the failing row in format_coverage_summary - useful output. But the compute_coverage_diff contract (spec/behaviors.spec:268-273) lists only four statuses and omits the failure variant, so the project&#x27;s own dogfood spec describes an impossible state space; any agent reasoning from behaviors.spec gets it wrong, and schema validation (if C11-10 existed) would flag exactly this. Update the contract and show pass/fail counts.</p>
+<div class="snippet before"><span class="cap">before — current code</span><pre><code>#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = &quot;snake_case&quot;)]
+pub enum CoverageDiffStatus {
+    FullyCovered,
+    CoveredWithFailures,
+    PartiallyCovered,
+    Uncovered,
+    NoIntent,
+}</code></pre><div class="file">integrations/rust/specforge-test/src/coverage.rs:29-38</div></div>
+<div class="arrow-between">↓ fix ↓</div>
+<div class="snippet after"><span class="cap">after — proposed fix</span><pre><code>behavior compute_coverage_diff &quot;Compute Coverage Diff&quot; {
+  category query
+  types      [GraphExport, TestRecordEntry, CoverageDiff, CoverageDiffStatus]
+
+  contract &quot;&quot;&quot;
+    Given a GraphExport and collected TestRecordEntries, the system MUST
+    compute a CoverageDiff per testable entity: expected verify count from
+    the graph, covered count from matching test records, and a status
+    (fully_covered, covered_with_failures, partially_covered, uncovered,
+    no_intent). covered_with_failures is emitted when every verify has a
+    matching test record but at least one records Fail; the diff carries
+    passing counts so the report can show X/Y passing.
+  &quot;&quot;&quot;</code></pre><div class="file">spec/behaviors.spec</div></div>
+<div class="diagram-box"><span class="cap">fifth status missing from contract</span><div class="mermaid" id="dg-092-C11-09"><pre>flowchart TD
+ A[code has 5 status variants] --&gt; B[spec contract lists only 4]
+ B --&gt; C[dogfood spec drifts from code]
+ C --&gt; D[agents reason with wrong state space]
+ D --&gt; E[fix update behaviors contract]
+ E --&gt; F[document covered_with_failures]
+ F --&gt; G[show pass fail counts in summary]</pre></div></div><script type="text/plain" class="mermaid-src" data-target="dg-092-C11-09">flowchart TD
+ A[code has 5 status variants] --> B[spec contract lists only 4]
+ B --> C[dogfood spec drifts from code]
+ C --> D[agents reason with wrong state space]
+ D --> E[fix update behaviors contract]
+ E --> F[document covered_with_failures]
+ F --> G[show pass fail counts in summary]</script>
+<div class="eli10"><span class="tag">Explain like I'm 10</span><p>a fifth rating light the rulebook never mentions.</p></div>
+<p class="sol" style="margin-top:12px"><b>Proposed solution.</b> document it; show pass/fail counts.</p>
+</article>
+</main><script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.1/dist/mermaid.min.js" onerror="window.__mermaidFailed=true"></script><script src="../js/agent.js"></script></body></html>

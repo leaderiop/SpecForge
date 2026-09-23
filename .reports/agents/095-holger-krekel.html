@@ -1,0 +1,162 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>095 Holger Krekel — SpecForge audit review</title>
+<link rel="stylesheet" href="../css/report.css"><link rel="stylesheet" href="../css/agents.css"></head><body>
+<header class="agent-hero"><div class="brand"><div class="logo">095</div><div>
+<h1>Holger Krekel</h1>
+<div class="crumbs">Cluster C11 — Testing &amp; BDD (test tracing &amp; report protocol) · pytest creator · profile <code>.agents/095-holger-krekel.md</code></div></div></div>
+<div class="links"><a href="../index.html">← Full report</a><a href="../../.agents/095-holger-krekel.md">Profile source</a></div></header>
+<main class="agent-main">
+<nav class="agent-nav"><a href="094.html">← 094</a><a href="096.html">096 →</a></nav>
+<div class="review-panel"><div class="review-text"><h2>Auditor review</h2><p>Holger Krekel: the collect command is a mail office that announces the truck and never opens the envelope - ingest_collector_report sits exported in specforge-wasm with no caller, and the documented --from-junit flag is a fiction the vision doc tells CI users. Coming from pytest, capture durability is my other worry: results live in a static queue until libc::atexit, so one CI timeout or panic=abort wipes the whole run. Wire collect first; then append per-test to a jsonl so a crashed run still reports the tests that finished.</p></div>
+<div class="mini-kpis">
+<div class="mini-kpi"><div class="k">Findings</div><div class="v">2</div></div>
+<div class="mini-kpi bad"><div class="k">Critical + high</div><div class="v">1</div></div>
+<div class="mini-kpi"><div class="k">Evidence items</div><div class="v">5</div></div>
+<div class="mini-kpi"><div class="k">Effort mix</div><div class="v" style="font-size:14px">M</div></div>
+</div></div>
+<article class="finding-detail sev-high" id="f-C11-00">
+<div class="head"><h2>CLI collect: specforge collect is a stub - detects a name, prints ready, reads no output. Evidence: collect.rs:34-63; vision/README.md:136 promises --from-junit (absent); ingest_collector_report (wasm lib.rs:36-37) never called.</h2><span class="chip high">high</span><span class="fid">C11-00</span></div>
+<div class="meta-row"><span class="engineer">095 Holger Krekel</span><span class="chip neutral">effort M</span></div>
+<div class="evidence"><b>Evidence</b><span class="ev"><code>collect.rs:34-63</code></span><span class="ev"><code>vision/README.md:136</code></span><span class="ev"><code>lib.rs:36-37</code></span></div>
+<p class="details">collect::run auto-detects a collector via specforge_wasm::auto_detect_collector then prints status=ready and returns 0 - it never opens a junit.xml, never calls ingest_collector_report (exported at specforge-wasm lib.rs:36-37 with no caller), and writes no report. The documented workflow integrations/rust/vision/README.md:136 (specforge collect rust --from-junit target/nextest/ci/junit.xml) cannot work: the Collect variant (main.rs:337) has no --from-junit flag. CI would succeed while ingesting nothing - silently validating the pipeline&#x27;s absence, a core-promise failure for a project whose thesis is the Graph Protocol.</p>
+<div class="snippet before"><span class="cap">before — current code</span><pre><code>    let collector_name = match collector {
+        Some(name) =&gt; name.to_string(),
+        None =&gt; {
+            // Auto-detect collector based on project files
+            let files: Vec&lt;String&gt; = std::fs::read_dir(&amp;project_root)
+                .into_iter()
+                .flatten()
+                .flatten()
+                .filter_map(|e| e.file_name().into_string().ok())
+                .collect();
+
+            let patterns: &amp;[(&amp;str, &amp;str)] = &amp;[
+                (&quot;junit&quot;, &quot;rust&quot;),
+                (&quot;jest&quot;, &quot;javascript&quot;),
+                (&quot;pytest&quot;, &quot;python&quot;),
+            ];
+
+            match specforge_wasm::auto_detect_collector(patterns, &amp;files) {</code></pre><div class="file">crates/specforge-cli/src/collect.rs:34-52</div></div>
+<div class="arrow-between">↓ fix ↓</div>
+<div class="snippet after"><span class="cap">after — proposed fix</span><pre><code>use specforge_wasm::ingest_collector_report;
+
+pub fn run(path: &amp;Path, collector: Option&lt;&amp;str&gt;, format: &amp;str, from_junit: Option&lt;&amp;Path&gt;) -&gt; i32 {
+    let Some(project_root) = find_project_root(path) else {
+        eprintln!(&quot;error: no specforge project found&quot;);
+        return 1;
+    };
+
+    let junit = from_junit.unwrap_or_else(|| Path::new(&quot;target/nextest/ci/junit.xml&quot;));
+    let xml = match std::fs::read_to_string(junit) {
+        Ok(xml) =&gt; xml,
+        Err(e) =&gt; {
+            eprintln!(&quot;error: cannot read junit report {}: {e}&quot;, junit.display());
+            return 1;
+        }
+    };
+
+    match ingest_collector_report(collector.unwrap_or(&quot;rust&quot;), &amp;xml) {
+        Ok(report) =&gt; {
+            let out = project_root.join(&quot;target/specforge/specforge-report.json&quot;);
+            match std::fs::write(&amp;out, serde_json::to_string_pretty(&amp;report).unwrap()) {
+                Ok(()) =&gt; println!(&quot;collected {} results -&gt; {}&quot;, report.entries.len(), out.display()),
+                Err(e) =&gt; eprintln!(&quot;error: write failed: {e}&quot;),
+            }
+            0
+        }
+        Err(diag) =&gt; {
+            eprintln!(&quot;{}: {}&quot;, diag.code, diag.message);
+            1
+        }
+    }
+}</code></pre><div class="file">crates/specforge-cli/src/collect.rs</div></div>
+<div class="diagram-box"><span class="cap">collect stub never ingests</span><div class="mermaid" id="dg-095-C11-00"><pre>flowchart TD
+ A[specforge collect run] --&gt; B[no from-junit flag]
+ B --&gt; C[auto detect collector name]
+ C --&gt; D[print status ready]
+ D --&gt; E[exit 0]
+ E --&gt; F[junit xml never opened]
+ F --&gt; G[ingest_collector_report never called]
+ G --&gt; H[no specforge report produced]
+ H --&gt; I[fix parse junit and ingest]</pre></div></div><script type="text/plain" class="mermaid-src" data-target="dg-095-C11-00">flowchart TD
+ A[specforge collect run] --> B[no from-junit flag]
+ B --> C[auto detect collector name]
+ C --> D[print status ready]
+ D --> E[exit 0]
+ E --> F[junit xml never opened]
+ F --> G[ingest_collector_report never called]
+ G --> H[no specforge report produced]
+ H --> I[fix parse junit and ingest]</script>
+<div class="eli10"><span class="tag">Explain like I'm 10</span><p>a mail office announces which truck your envelope arrived on and declares done without opening it; the sorting room was built but never connected.</p></div>
+<p class="sol" style="margin-top:12px"><b>Proposed solution.</b> wire collect to ingest_collector_report, add --from-junit, validate against schema, integration test with real junit.xml.</p>
+</article>
+<article class="finding-detail sev-medium" id="f-C11-06">
+<div class="head"><h2>capture: results only via unsafe libc::atexit (atexit.rs:12-21) from a static queue (registry.rs:33-46); abort/SIGKILL/panic=abort lose everything.</h2><span class="chip medium">medium</span><span class="fid">C11-06</span></div>
+<div class="meta-row"><span class="engineer">095 Holger Krekel</span><span class="chip neutral">effort M</span></div>
+<div class="evidence"><b>Evidence</b><span class="ev"><code>atexit.rs:12-21</code></span><span class="ev"><code>registry.rs:33-46</code></span></div>
+<p class="details">All results accumulate in a process-global SegQueue&lt;TestRecordEntry&gt; (registry.rs:33) materialized only by an extern C handler installed via unsafe libc::atexit (atexit.rs:12-21). Any abnormal exit - panic=abort, SIGKILL from a CI timeout, nextest killing a hung test, a segfault - skips atexit and every record is lost: a run that crashed midway reports zero results, and nothing can tail progress mid-run. The drop_over_catch_unwind decision is sound but the durability gap is not; appending one JSON line per test to a per-binary jsonl from the guard&#x27;s Drop makes capture crash-safe while atexit merely finalizes.</p>
+<div class="snippet before"><span class="cap">before — current code</span><pre><code>pub fn ensure_registered() {
+    INIT.call_once(|| {
+        // Safety: atexit is POSIX-standard. The function pointer is valid
+        // for the lifetime of the process.
+        unsafe {
+            libc::atexit(on_exit);
+        }
+    });
+}
+
+extern &quot;C&quot; fn on_exit() {
+    let entries = registry::drain();
+    if entries.is_empty() {
+        return;
+    }</code></pre><div class="file">integrations/rust/specforge-test/src/atexit.rs:12-25</div></div>
+<div class="arrow-between">↓ fix ↓</div>
+<div class="snippet after"><span class="cap">after — proposed fix</span><pre><code>impl TestGuard {
+    fn flush(&amp;self, outcome: TestOutcome) {
+        let entry = TestRecordEntry {
+            entity_kind: self.entity_kind.to_string(),
+            entity_id: self.entity_id.to_string(),
+            test_name: self.test_name.to_string(),
+            file: self.file.to_string(),
+            verify: self.verify.map(|s| s.to_string()),
+            outcome,
+        };
+        if let Ok(mut log) = result_log() {
+            // Append immediately: crash-safe even under panic=abort or SIGKILL.
+            let _ = writeln!(log, &quot;{}&quot;, serde_json::to_string(&amp;entry).unwrap_or_default());
+            let _ = log.flush();
+        }
+    }
+}
+
+impl Drop for TestGuard {
+    fn drop(&amp;mut self) {
+        let outcome = if std::thread::panicking() {
+            TestOutcome::Fail
+        } else {
+            TestOutcome::Pass
+        };
+        self.flush(outcome);
+    }
+}</code></pre><div class="file">integrations/rust/specforge-test/src/guard.rs</div></div>
+<div class="diagram-box"><span class="cap">lossy atexit only capture</span><div class="mermaid" id="dg-095-C11-06"><pre>flowchart TD
+ A[test finishes] --&gt; B[record pushed to static queue]
+ B --&gt; C{process exits normally}
+ C --&gt;|yes| D[atexit drains and writes report]
+ C --&gt;|abort or SIGKILL| E[atexit never runs]
+ E --&gt; F[all records lost]
+ F --&gt; G[CI timeout shows zero results]
+ G --&gt; H[fix append jsonl per test on Drop]
+ H --&gt; I[atexit only finalizes]</pre></div></div><script type="text/plain" class="mermaid-src" data-target="dg-095-C11-06">flowchart TD
+ A[test finishes] --> B[record pushed to static queue]
+ B --> C{process exits normally}
+ C -->|yes| D[atexit drains and writes report]
+ C -->|abort or SIGKILL| E[atexit never runs]
+ E --> F[all records lost]
+ F --> G[CI timeout shows zero results]
+ G --> H[fix append jsonl per test on Drop]
+ H --> I[atexit only finalizes]</script>
+<div class="eli10"><span class="tag">Explain like I'm 10</span><p>results live on a whiteboard typed up only at closing time; a fire alarm wipes them.</p></div>
+<p class="sol" style="margin-top:12px"><b>Proposed solution.</b> append per-test to &lt;binary&gt;.jsonl on Drop; atexit only finalizes.</p>
+</article>
+</main><script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.1/dist/mermaid.min.js" onerror="window.__mermaidFailed=true"></script><script src="../js/agent.js"></script></body></html>

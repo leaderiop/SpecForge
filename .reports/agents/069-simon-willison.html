@@ -1,0 +1,40 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>069 Simon Willison — SpecForge audit review</title>
+<link rel="stylesheet" href="../css/report.css"><link rel="stylesheet" href="../css/agents.css"></head><body>
+<header class="agent-hero"><div class="brand"><div class="logo">069</div><div>
+<h1>Simon Willison</h1>
+<div class="crumbs">Cluster C9 — MCP &amp; AI-agent context engineering · LLM-tooling practitioner-critic; CLI tool design · profile <code>.agents/069-simon-willison.md</code></div></div></div>
+<div class="links"><a href="../index.html">← Full report</a><a href="../../.agents/069-simon-willison.md">Profile source</a></div></header>
+<main class="agent-main">
+<nav class="agent-nav"><a href="068.html">← 068</a><a href="070.html">070 →</a></nav>
+<div class="review-panel"><div class="review-text"><h2>Auditor review</h2><p>explain &lt;code&gt; turning every diagnostic into self-documentation, plus a doctor operation, is the kind of agent ergonomics most tool builders never think of - the error message is the docs. One cheap upgrade: have diagnostics print run specforge explain E003 so agents self-serve without being told. The all-or-nothing resources are the flip side; accept entity/depth/max_tokens query params on specforge://context and register the per-entity template, and the RAM-and-paging story becomes true at the resource layer too.</p></div>
+<div class="mini-kpis">
+<div class="mini-kpi"><div class="k">Findings</div><div class="v">1</div></div>
+<div class="mini-kpi good"><div class="k">Critical + high</div><div class="v">0</div></div>
+<div class="mini-kpi"><div class="k">Evidence items</div><div class="v">0</div></div>
+<div class="mini-kpi"><div class="k">Effort mix</div><div class="v" style="font-size:14px">S</div></div>
+</div></div>
+<article class="finding-detail sev-info" id="f-C9-05">
+<div class="head"><h2>explain + doctor are genuinely agent-friendly CLI ergonomics (praise)</h2><span class="chip info">info</span><span class="fid">C9-05</span></div>
+<div class="meta-row"><span class="engineer">069 Simon Willison</span><span class="chip neutral">effort S</span><span class="chip neutral">moves: diagnostic codes documented by explain</span></div>
+<p class="details">The CLI ships specforge explain &lt;code&gt;, a static lookup table covering every E/W/I diagnostic the compiler emits, with plain-English explanations and remediation hints - errors double as documentation. Combined with the specforge.doctor MCP operation (a machine-readable self-check), agents can diagnose the tool&#x27;s own state and decode failures without any human in the loop. The lookup even handles truncation (I999) and edge cases like missing cache files (I097). This is rare, deliberate agent ergonomics worth protecting.</p>
+<div class="snippet exemplar"><span class="cap">exemplar — the good pattern</span><pre><code>pub fn run(code: &amp;str) -&gt; i32 {
+    let normalized = code.to_uppercase();
+    match lookup(&amp;normalized) {
+        Some((title, explanation)) =&gt; {
+            println!(&quot;\x1b[1m{normalized}\x1b[0m: {title}\n&quot;);
+            println!(&quot;{explanation}&quot;);
+            0
+        }
+        None =&gt; {
+            eprintln!(&quot;unknown diagnostic code: {code}&quot;);
+            eprintln!(&quot;hint: codes follow the pattern E### (error), W### (warning), I### (info)&quot;);
+            1
+        }
+    }
+}</code></pre><div class="file">crates/specforge-cli/src/explain.rs:1-13</div></div>
+<div class="keep"><span class="tag">Keep doing this</span><p>Keep the explain table and doctor operation in lockstep with diagnostic codes, and additionally print run specforge explain E### inline in diagnostic output so agents self-serve unprompted.</p></div>
+<div class="eli10"><span class="tag">Explain like I'm 10</span><p>When the tool complains, it also explains itself in plain words, and there&#x27;s a machine-readable health check. That&#x27;s exactly what an agent needs: the error message is the documentation, and the doctor is the self-service kiosk. Rare and worth keeping.</p></div>
+<p class="sol" style="margin-top:12px"><b>Proposed solution.</b> Keep it; advertise `specforge explain &lt;code&gt;` in diagnostic output itself (&#x27;run specforge explain E003 for details&#x27;) so agents self-serve without a prompt.</p>
+</article>
+</main><script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.1/dist/mermaid.min.js" onerror="window.__mermaidFailed=true"></script><script src="../js/agent.js"></script></body></html>

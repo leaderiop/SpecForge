@@ -1,0 +1,83 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>100 Harlan Mills — SpecForge audit review</title>
+<link rel="stylesheet" href="../css/report.css"><link rel="stylesheet" href="../css/agents.css"></head><body>
+<header class="agent-hero"><div class="brand"><div class="logo">100</div><div>
+<h1>Harlan Mills</h1>
+<div class="crumbs">Cluster C12 — Requirements engineering, ubiquitous language &amp; docs-as-code (self-spec corpus) · Cleanroom software engineering; correctness by specification · profile <code>.agents/100-harlan-mills.md</code></div></div></div>
+<div class="links"><a href="../index.html">← Full report</a><a href="../../.agents/100-harlan-mills.md">Profile source</a></div></header>
+<main class="agent-main">
+<nav class="agent-nav"><a href="099.html">← 099</a><a href="101.html">101 →</a></nav>
+<div class="review-panel"><div class="review-text"><h2>Auditor review</h2><p>Mills would celebrate the machine-executable certification intent — verify chains and three-layer traceability are his kind of industrial mathematics — but he would refuse to certify corpus-wide when the contract verifies are title-derived boilerplate with zero discriminating power. Fix that first, he would say: a verification that cannot fail is not a verification. He would also promote the infer features to implemented status, since certification requires the record to match the product.</p></div>
+<div class="mini-kpis">
+<div class="mini-kpi"><div class="k">Findings</div><div class="v">2</div></div>
+<div class="mini-kpi good"><div class="k">Critical + high</div><div class="v">0</div></div>
+<div class="mini-kpi"><div class="k">Evidence items</div><div class="v">4</div></div>
+<div class="mini-kpi"><div class="k">Effort mix</div><div class="v" style="font-size:14px">L · S</div></div>
+</div></div>
+<article class="finding-detail sev-medium" id="f-C12-02">
+<div class="head"><h2>Contract verifies are template boilerplate: every behavior ends with &#x27;requires/ensures consistency for X&#x27; — certification value near zero</h2><span class="chip medium">medium</span><span class="fid">C12-02</span></div>
+<div class="meta-row"><span class="engineer">100 Harlan Mills</span><span class="chip neutral">effort L</span><span class="chip neutral">moves: behavior_verify_coverage</span></div>
+<div class="evidence"><b>Evidence</b><span class="ev"><code>spec/behaviors/formatting.spec:42,73,105,136</code> — verify contract strings are mechanically derived from the behavior title</span><span class="ev"><code>spec/behaviors/parsing.spec:38,71,100,141</code> — same pattern; unit verifies are specific, contract verifies are not</span></div>
+<p class="details">Nearly every behavior in spec/behaviors/ ends with a contract verify of the form verify contract &quot;requires/ensures consistency for X&quot; where X is mechanically derived from the behavior title — e.g. &#x27;requires/ensures consistency for spec file formatting&#x27; (formatting.spec:42) and &#x27;requires/ensures consistency for in-memory graph construction&#x27; (graph.spec:38). Unlike the unit verifies, which name concrete observable outcomes, these strings assert nothing falsifiable and cannot map to any real test. Yet W017-style coverage counting treats them as contract-level coverage, inflating declared coverage with zero-information rows. The DSL already supports real Design-by-Contract requires/ensures blocks (used richly in behaviors/infer.spec), so the ceremonial line is noise wearing a verification badge.</p>
+<div class="snippet before"><span class="cap">before — current code</span><pre><code>  verify unit &quot;files matching the canonical format are not rewritten&quot;
+  verify unit &quot;changed files are printed to stdout&quot;
+  verify unit &quot;summary count reflects actual changes&quot;
+  verify integration &quot;formatting all files in spec/ directory succeeds&quot;
+  verify contract &quot;requires/ensures consistency for spec file formatting&quot;</code></pre><div class="file">spec/behaviors/formatting.spec:38-42</div></div>
+<div class="arrow-between">↓ fix ↓</div>
+<div class="snippet after"><span class="cap">after — proposed fix</span><pre><code>  verify unit &quot;files matching the canonical format are not rewritten&quot;
+  verify unit &quot;changed files are printed to stdout&quot;
+  verify unit &quot;summary count reflects actual changes&quot;
+  verify integration &quot;formatting all files in spec/ directory succeeds&quot;
+
+  requires {
+    parseable_input &quot;every input file parses without syntax errors&quot;
+  }
+  ensures {
+    idempotent &quot;formatting an already-formatted file leaves bytes unchanged&quot;
+  }</code></pre><div class="file">spec/behaviors/formatting.spec:38-44</div></div>
+<div class="diagram-box"><span class="cap">Contract verifies from boilerplate to contracts</span><div class="mermaid" id="dg-100-C12-02"><pre>flowchart TD
+ A[behavior block] --&gt; B[verify contract boilerplate string]
+ B --&gt; C[W017 counts as coverage]
+ C --&gt; D[inflated meaningless coverage]
+ A --&gt; E[replace with requires ensures blocks]
+ E --&gt; F[or drop the ceremonial line]
+ F --&gt; G[coverage reflects real intent]
+ G --&gt; H[certification value restored]</pre></div></div><script type="text/plain" class="mermaid-src" data-target="dg-100-C12-02">flowchart TD
+ A[behavior block] --> B[verify contract boilerplate string]
+ B --> C[W017 counts as coverage]
+ C --> D[inflated meaningless coverage]
+ A --> E[replace with requires ensures blocks]
+ E --> F[or drop the ceremonial line]
+ F --> G[coverage reflects real intent]
+ G --> H[certification value restored]</script>
+<div class="eli10"><span class="tag">Explain like I'm 10</span><p>Every recipe ends with the same sentence: &#x27;tastes like it should.&#x27; It is true of every dish and therefore tells you nothing about any dish. The specific steps above it are good; the universal closing line is noise wearing a verification badge.</p></div>
+<p class="sol" style="margin-top:12px"><b>Proposed solution.</b> Either give contract verifies real requires/ensures pairs (the DSL already supports Design-by-Contract blocks) or drop the ceremonial `verify contract` line; W017-style lint should not count it as coverage.</p>
+</article>
+<article class="finding-detail sev-medium" id="f-C12-03">
+<div class="head"><h2>Implemented features still marked `status proposed` — spec status is a stale mirror of reality</h2><span class="chip medium">medium</span><span class="fid">C12-03</span></div>
+<div class="meta-row"><span class="engineer">100 Harlan Mills</span><span class="chip neutral">effort S</span><span class="chip neutral">moves: behavior_verify_coverage</span></div>
+<div class="evidence"><b>Evidence</b><span class="ev"><code>spec/features/infer.spec:24-26,45-47,67-69,88-90</code> — all 4 infer features carry status proposed</span><span class="ev"><code>spec/behaviors/infer.spec:18-418</code> — 18 implemented behaviors for those features, including shipped diagnostics I200/I202 and MCP tools</span></div>
+<p class="details">All four inference features in spec/features/infer.spec still carry status proposed, while spec/behaviors/infer.spec defines 18 fully specified behaviors — including shipped diagnostics I200/I202, MCP tools, and unit verifies for manifest load/save. The spec status field is therefore a stale mirror of reality: an agent reading feature status alone would infer the inference subsystem is unbuilt and might regenerate it. Status that never updates stops being information, and the compiler has all the data it needs to detect the staleness (behaviors linked via features [...] all carrying passing verifies). The fix is both a data correction and a coverage-driven diagnostic.</p>
+<div class="snippet before"><span class="cap">before — current code</span><pre><code>  status proposed
+  priority high</code></pre><div class="file">spec/features/infer.spec:25-26</div></div>
+<div class="arrow-between">↓ fix ↓</div>
+<div class="snippet after"><span class="cap">after — proposed fix</span><pre><code>  status accepted
+  priority high</code></pre><div class="file">spec/features/infer.spec:25-26</div></div>
+<div class="diagram-box"><span class="cap">Stale feature status detection</span><div class="mermaid" id="dg-100-C12-03"><pre>flowchart TD
+ A[feature status proposed] --&gt; B{linked behaviors implemented}
+ B -- yes --&gt; C[tests passing in report json]
+ C --&gt; D[status contradicts reality]
+ D --&gt; E[emit stale status warning]
+ E --&gt; F[promote feature to accepted]
+ B -- no --&gt; G[status stays proposed]</pre></div></div><script type="text/plain" class="mermaid-src" data-target="dg-100-C12-03">flowchart TD
+ A[feature status proposed] --> B{linked behaviors implemented}
+ B -- yes --> C[tests passing in report json]
+ C --> D[status contradicts reality]
+ D --> E[emit stale status warning]
+ E --> F[promote feature to accepted]
+ B -- no --> G[status stays proposed]</script>
+<div class="eli10"><span class="tag">Explain like I'm 10</span><p>The to-do list still says &#x27;maybe we&#x27;ll build this&#x27; about things that are already built, shipped, and have tests. Nobody reading the list would know the work is done. Status that never updates stops being information.</p></div>
+<p class="sol" style="margin-top:12px"><b>Proposed solution.</b> Promote the infer features to accepted/implemented status, and add a coverage-driven diagnostic: a feature whose behaviors all have passing linked tests but whose status is proposed should emit a warning.</p>
+</article>
+</main><script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.1/dist/mermaid.min.js" onerror="window.__mermaidFailed=true"></script><script src="../js/agent.js"></script></body></html>

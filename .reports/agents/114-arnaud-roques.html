@@ -1,0 +1,115 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>114 Arnaud Roques — SpecForge audit review</title>
+<link rel="stylesheet" href="../css/report.css"><link rel="stylesheet" href="../css/agents.css"></head><body>
+<header class="agent-hero"><div class="brand"><div class="logo">114</div><div>
+<h1>Arnaud Roques</h1>
+<div class="crumbs">Cluster C13 — Diagrams &amp; rendering · PlantUML creator; text-to-UML with swappable layout backends · profile <code>.agents/114-arnaud-roques.md</code></div></div></div>
+<div class="links"><a href="../index.html">← Full report</a><a href="../../.agents/114-arnaud-roques.md">Profile source</a></div></header>
+<main class="agent-main">
+<nav class="agent-nav"><a href="113.html">← 113</a><a href="115.html">115 →</a></nav>
+<div class="review-panel"><div class="review-text"><h2>Auditor review</h2><p>Arnaud Roques: One IR with five pure renderers is the right shape for a diagramming tool — I wish more projects did this. But the docs advertise extension-contributed output formats via gen while the format enum is closed, the capability matrix says renderers false, and no CLI command exists. That is a menu with dishes the kitchen cannot cook; either ship a RendererPort for extension renderers or fix the manual.</p></div>
+<div class="mini-kpis">
+<div class="mini-kpi"><div class="k">Findings</div><div class="v">2</div></div>
+<div class="mini-kpi bad"><div class="k">Critical + high</div><div class="v">1</div></div>
+<div class="mini-kpi"><div class="k">Evidence items</div><div class="v">5</div></div>
+<div class="mini-kpi"><div class="k">Effort mix</div><div class="v" style="font-size:14px">L · S</div></div>
+</div></div>
+<article class="finding-detail sev-high" id="f-C13-08">
+<div class="head"><h2>Docs promise extension-contributed formats; ModelFormat closed and gen missing</h2><span class="chip high">high</span><span class="fid">C13-08</span></div>
+<div class="meta-row"><span class="engineer">114 Arnaud Roques</span><span class="chip neutral">effort L</span><span class="chip neutral">moves: extensible formats</span></div>
+<div class="evidence"><b>Evidence</b><span class="ev"><code>docs/extension-model.md:262-270</code> — Generators extend output formats, gen typescript example</span><span class="ev"><code>crates/specforge-emitter/src/model/mod.rs:29-40</code> — ModelFormat closed 5-variant enum, hardcoded dispatch</span><span class="ev"><code>docs/extension-protocol.md:69-72</code> — capabilities say renderers false</span><span class="ev"><code>crates/specforge-cli/src</code> — grep gen: no CLI command exists</span></div>
+<p class="details">docs/extension-model.md shows a gen typescript block under &#x27;Generators: extend output formats&#x27;, but ModelFormat is a closed 5-variant enum with hardcoded dispatch in model/mod.rs, extension-protocol.md declares renderer capability false, and there is no gen command in the CLI. The documented extension mechanism does not exist — an extension author following the manual hits a dead end. Either implement gen plus a wasm RendererPort trait, or correct the docs to mark generators unimplemented.</p>
+<div class="snippet before"><span class="cap">before — current code</span><pre><code>  // Generators: extend output formats
+  gen typescript {
+    out       &quot;packages/shared/src/generated/&quot;
+    result    &quot;hex-di&quot;
+    readonly  true
+    naming    &quot;camelCase&quot;
+    tests     &quot;@specforge/vitest&quot;
+  }</code></pre><div class="file">docs/extension-model.md:264-271</div></div>
+<div class="arrow-between">↓ fix ↓</div>
+<div class="snippet after"><span class="cap">after — proposed fix</span><pre><code>#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = &quot;lowercase&quot;)]
+pub enum ModelFormat {
+    #[default]
+    Markdown,
+    Mermaid,
+    Dot,
+    Json,
+    Dbml,
+}
+
+/// Port for extension-provided renderers (wasm). Not yet dispatched;
+/// docs/extension-model.md gen section is aspirational until this lands.
+pub trait RendererPort {
+    fn format_name(&amp;self) -&gt; &amp;str;
+    fn render(&amp;self, model: &amp;ModelIntermediate, options: &amp;ModelOptions) -&gt; Result&lt;String, String&gt;;
+}</code></pre><div class="file">crates/specforge-emitter/src/model/mod.rs:29-52</div></div>
+<div class="diagram-box"><span class="cap">docs promise vs engine reality</span><div class="mermaid" id="dg-114-C13-08"><pre>flowchart TD
+ A[docs gen typescript] --&gt; B{CLI gen command}
+ B --&gt;|missing| C[ModelFormat closed enum]
+ C --&gt; D[5 hardcoded formats]
+ D --&gt; E[extension author blocked]
+ A --&gt; F[fix path 1 implement RendererPort]
+ A --&gt; G[fix path 2 correct docs]</pre></div></div><script type="text/plain" class="mermaid-src" data-target="dg-114-C13-08">flowchart TD
+ A[docs gen typescript] --> B{CLI gen command}
+ B -->|missing| C[ModelFormat closed enum]
+ C --> D[5 hardcoded formats]
+ D --> E[extension author blocked]
+ A --> F[fix path 1 implement RendererPort]
+ A --> G[fix path 2 correct docs]</script>
+<div class="eli10"><span class="tag">Explain like I'm 10</span><p>The manual says you can teach the tool new picture formats, but the switch has five fixed positions and the button is missing. A menu with dishes the kitchen cannot cook.</p></div>
+<p class="sol" style="margin-top:12px"><b>Proposed solution.</b> Implement gen plus a wasm Renderer port, or correct the docs to mark generators unimplemented.</p>
+</article>
+<article class="finding-detail sev-low" id="f-C13-09">
+<div class="head"><h2>Unknown field types silently become string</h2><span class="chip low">low</span><span class="fid">C13-09</span></div>
+<div class="meta-row"><span class="engineer">114 Arnaud Roques</span><span class="chip neutral">effort S</span><span class="chip neutral">moves: n/a</span></div>
+<div class="evidence"><b>Evidence</b><span class="ev"><code>crates/specforge-emitter/src/model/mod.rs:103-113</code> — from_schema_str maps unknown types to String, no warning</span></div>
+<p class="details">ModelFieldType::from_schema_str maps every unrecognized type string to Self::String with a safe-fallback comment and no diagnostic. A typo like stirng in a manifest silently renders as string in every diagram — the model lies quietly instead of surfacing the mistake. Since the registry layer already has a Diagnostic pipeline, return a warning alongside the safe fallback.</p>
+<div class="snippet before"><span class="cap">before — current code</span><pre><code>    pub fn from_schema_str(s: &amp;str) -&gt; Self {
+        match s {
+            &quot;string&quot; =&gt; Self::String,
+            &quot;integer&quot; =&gt; Self::Integer,
+            &quot;boolean&quot; =&gt; Self::Boolean,
+            &quot;enum&quot; =&gt; Self::Enum,
+            &quot;string_list&quot; =&gt; Self::StringList,
+            &quot;reference&quot; =&gt; Self::Reference,
+            &quot;reference_list&quot; =&gt; Self::ReferenceList,
+            &quot;block&quot; =&gt; Self::Block,
+            _ =&gt; Self::String, // safe fallback
+        }
+    }</code></pre><div class="file">crates/specforge-emitter/src/model/mod.rs:103-113</div></div>
+<div class="arrow-between">↓ fix ↓</div>
+<div class="snippet after"><span class="cap">after — proposed fix</span><pre><code>    pub fn from_schema_str(s: &amp;str) -&gt; (Self, Option&lt;String&gt;) {
+        match s {
+            &quot;string&quot; =&gt; (Self::String, None),
+            &quot;integer&quot; =&gt; (Self::Integer, None),
+            &quot;boolean&quot; =&gt; (Self::Boolean, None),
+            &quot;enum&quot; =&gt; (Self::Enum, None),
+            &quot;string_list&quot; =&gt; (Self::StringList, None),
+            &quot;reference&quot; =&gt; (Self::Reference, None),
+            &quot;reference_list&quot; =&gt; (Self::ReferenceList, None),
+            &quot;block&quot; =&gt; (Self::Block, None),
+            other =&gt; (
+                Self::String,
+                Some(format!(&quot;unknown field type &#x27;{other}&#x27;, rendered as string&quot;)),
+            ),
+        }
+    }</code></pre><div class="file">crates/specforge-emitter/src/model/mod.rs:103-116</div></div>
+<div class="diagram-box"><span class="cap">silent fallback to warned fallback</span><div class="mermaid" id="dg-114-C13-09"><pre>flowchart LR
+ A[manifest field type] --&gt; B{known}
+ B --&gt;|yes| C[mapped type]
+ B --&gt;|no| D[silent String]
+ D --&gt; E[diagram lies quietly]
+ A --&gt; F[fixed returns warning]
+ F --&gt; G[diagnostic shown fallback still safe]</pre></div></div><script type="text/plain" class="mermaid-src" data-target="dg-114-C13-09">flowchart LR
+ A[manifest field type] --> B{known}
+ B -->|yes| C[mapped type]
+ B -->|no| D[silent String]
+ D --> E[diagram lies quietly]
+ A --> F[fixed returns warning]
+ F --> G[diagnostic shown fallback still safe]</script>
+<div class="eli10"><span class="tag">Explain like I'm 10</span><p>A translator who renders any unknown word as thing: nothing crashes, but the diagram lies quietly.</p></div>
+<p class="sol" style="margin-top:12px"><b>Proposed solution.</b> Warn on unknown types instead of silent fallback.</p>
+</article>
+</main><script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.1/dist/mermaid.min.js" onerror="window.__mermaidFailed=true"></script><script src="../js/agent.js"></script></body></html>

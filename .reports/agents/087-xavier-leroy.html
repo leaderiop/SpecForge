@@ -1,0 +1,74 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>087 Xavier Leroy — SpecForge audit review</title>
+<link rel="stylesheet" href="../css/report.css"><link rel="stylesheet" href="../css/agents.css"></head><body>
+<header class="agent-hero"><div class="brand"><div class="logo">087</div><div>
+<h1>Xavier Leroy</h1>
+<div class="crumbs">Cluster C10 — Formal methods · CompCert; verified-compiler ceiling and TCB discipline · profile <code>.agents/087-xavier-leroy.md</code></div></div></div>
+<div class="links"><a href="../index.html">← Full report</a><a href="../../.agents/087-xavier-leroy.md">Profile source</a></div></header>
+<main class="agent-main">
+<nav class="agent-nav"><a href="086.html">← 086</a><a href="088.html">088 →</a></nav>
+<div class="review-panel"><div class="review-text"><h2>Auditor review</h2><p>Xavier Leroy would praise the typed manifest pipeline and the integrity hash with a real diagnostic. He would go straight for the fail-open Custom validator path: a security control that approves everything when unplugged is worse than none, and the fix — fail loud with E040 plus a loudness test — is an afternoon. Everything else can wait; silent safety failures cannot.</p></div>
+<div class="mini-kpis">
+<div class="mini-kpi"><div class="k">Findings</div><div class="v">1</div></div>
+<div class="mini-kpi bad"><div class="k">Critical + high</div><div class="v">1</div></div>
+<div class="mini-kpi"><div class="k">Evidence items</div><div class="v">2</div></div>
+<div class="mini-kpi"><div class="k">Effort mix</div><div class="v" style="font-size:14px">S</div></div>
+</div></div>
+<article class="finding-detail sev-high" id="f-C10-10">
+<div class="head"><h2>wasm custom-validator path is dead code that fails silent</h2><span class="chip high">high</span><span class="fid">C10-10</span></div>
+<div class="meta-row"><span class="engineer">087 Xavier Leroy</span><span class="chip neutral">effort S</span><span class="chip neutral">moves: Custom wasm validators executable</span></div>
+<div class="evidence"><b>Evidence</b><span class="ev"><code>crates/specforge-registry/src/compilation/validation_engine.rs:56-77</code> — WasmValidationRuntime trait + StubWasmRuntime always erroring</span><span class="ev"><code>crates/specforge-emitter/src/compile.rs:463-470</code> — execute_pattern(pattern, &amp;entities, None) - Custom with no runtime falls through to no-violation</span></div>
+<p class="details">WasmValidationRuntime exists but StubWasmRuntime always errors, and compile.rs:469 calls execute_pattern(pattern, &amp;entities, None) — wasm is None. The Custom arm evaluates to false (no violation) when the function or runtime is missing, so a manifest shipping a Custom validation pattern is silently approved as clean in the native build: the safety check fails open. A Custom pattern with no runtime must be a loud error diagnostic naming the extension, never a pass.</p>
+<div class="snippet before"><span class="cap">before — current code</span><pre><code>            ValidationPatternKind::Custom =&gt; {
+                if let (Some(func), Some(rt)) = (&amp;pattern.wasm_function, wasm) {
+                    match rt.call_custom_validator(func, &amp;entity.id, &amp;entity.kind) {
+                        Ok(passed) =&gt; !passed,
+                        Err(_) =&gt; false,
+                    }
+                } else {
+                    false
+                }
+            }</code></pre><div class="file">crates/specforge-registry/src/compilation/validation_engine.rs:285-293</div></div>
+<div class="arrow-between">↓ fix ↓</div>
+<div class="snippet after"><span class="cap">after — proposed fix</span><pre><code>            ValidationPatternKind::Custom =&gt; {
+                match (&amp;pattern.wasm_function, wasm) {
+                    (Some(func), Some(rt)) =&gt; match rt.call_custom_validator(func, &amp;entity.id, &amp;entity.kind) {
+                        Ok(passed) =&gt; !passed,
+                        Err(e) =&gt; {
+                            diagnostics.push(Diagnostic {
+                                code: &quot;E040&quot;.into(), severity: Severity::Error,
+                                message: format!(&quot;custom validator &#x27;{}&#x27; failed: {}&quot;, func, e),
+                                span: entity.span.clone(), suggestion: None,
+                            });
+                            false
+                        }
+                    },
+                    // Fail LOUD: a declared custom check that cannot run
+                    // must never be reported as no violation.
+                    _ =&gt; {
+                        diagnostics.push(Diagnostic {
+                            code: &quot;E040&quot;.into(), severity: Severity::Error,
+                            message: format!(
+                                &quot;rule &#x27;{}&#x27; declares a custom validator but no wasm runtime is available — check NOT executed&quot;,
+                                pattern.code),
+                            span: entity.span.clone(), suggestion: None,
+                        });
+                        false
+                    }
+                }
+            }</code></pre><div class="file">crates/specforge-registry/src/compilation/validation_engine.rs</div></div>
+<div class="diagram-box"><span class="cap">custom validator fails open today</span><div class="mermaid" id="dg-087-C10-10"><pre>flowchart TD
+ A[manifest declares Custom rule] --&gt; B[execute_pattern with wasm None]
+ B --&gt; C[Custom arm returns false]
+ C --&gt; D[reported as no violation]
+ D --&gt; E[fix fail loud E040]
+ E --&gt; F[missing runtime is an error]</pre></div></div><script type="text/plain" class="mermaid-src" data-target="dg-087-C10-10">flowchart TD
+ A[manifest declares Custom rule] --> B[execute_pattern with wasm None]
+ B --> C[Custom arm returns false]
+ C --> D[reported as no violation]
+ D --> E[fix fail loud E040]
+ E --> F[missing runtime is an error]</script>
+<div class="eli10"><span class="tag">Explain like I'm 10</span><p>The system claims sandboxed custom checks. Socket and plug exist but the wire is not connected, and a disconnected check does not error - it quietly approves everything. A safety switch that passes when unplugged is worse than none.</p></div>
+<p class="sol" style="margin-top:12px"><b>Proposed solution.</b> Fail loud when a Custom pattern parses with no runtime; thread the real CompositeRuntime into run_extension_validation; test that custom-without-runtime is loud.</p>
+</article>
+</main><script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.1/dist/mermaid.min.js" onerror="window.__mermaidFailed=true"></script><script src="../js/agent.js"></script></body></html>

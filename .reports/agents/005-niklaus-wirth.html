@@ -1,0 +1,151 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>005 Niklaus Wirth — SpecForge audit review</title>
+<link rel="stylesheet" href="../css/report.css"><link rel="stylesheet" href="../css/agents.css"></head><body>
+<header class="agent-hero"><div class="brand"><div class="logo">005</div><div>
+<h1>Niklaus Wirth</h1>
+<div class="crumbs">Cluster C2 — DSL &amp; language design · Pascal/Oberon designer; lean-software advocate · profile <code>.agents/005-niklaus-wirth.md</code></div></div></div>
+<div class="links"><a href="../index.html">← Full report</a><a href="../../.agents/005-niklaus-wirth.md">Profile source</a></div></header>
+<main class="agent-main">
+<nav class="agent-nav"><a href="004.html">← 004</a><a href="006.html">006 →</a></nav>
+<div class="review-panel"><div class="review-text"><h2>Auditor review</h2><p>Wirth would applaud the grammar — four rules, zero conflicts, the language core fits on one page — and say guard it with a test before someone helpfully adds a fifth rule. He would then point at the CLI and ask why 17 product subcommands exist that are all the same query wearing different hats: one well-designed query dial beats seventeen buttons. He would also fix the 23-vs-22 count himself; a page that contradicts itself in 20 lines is exactly the noise his discipline exists to remove.</p></div>
+<div class="mini-kpis">
+<div class="mini-kpi"><div class="k">Findings</div><div class="v">2</div></div>
+<div class="mini-kpi good"><div class="k">Critical + high</div><div class="v">0</div></div>
+<div class="mini-kpi"><div class="k">Evidence items</div><div class="v">3</div></div>
+<div class="mini-kpi"><div class="k">Effort mix</div><div class="v" style="font-size:14px">L · S</div></div>
+</div></div>
+<article class="finding-detail sev-medium" id="f-C2-04">
+<div class="head"><h2>CLI surface accretes: 28 top-level commands plus 17 product subcommands duplicate query/stats capability</h2><span class="chip medium">medium</span><span class="fid">C2-04</span></div>
+<div class="meta-row"><span class="engineer">005 Niklaus Wirth</span><span class="chip neutral">effort L</span><span class="chip neutral">moves: CLI command surface</span></div>
+<div class="evidence"><b>Evidence</b><span class="ev"><code>crates/specforge-cli/src/main.rs:39-595</code> — Commands enum: 28 variants; ProductAction alone has 17 narrow list/analysis subcommands (features, journeys, ..., persona-features, channel-features, bulk-status, health)</span><span class="ev"><code>docs/entity-model.md:Extension CLI</code> — docs present a compact 7-command mental model (init/add/remove/plugins...), diverging from actual 48-command surface</span></div>
+<p class="details">crates/specforge-cli/src/main.rs declares 28 top-level Commands variants, and the product surface alone contributes 17 narrow subcommands (features, journeys, persona-features, channel-features, bulk-status, health, …) that are all variations of show-me-product-graph-data. Meanwhile docs/entity-model.md Extension CLI presents a compact 7-command mental model, so documented and actual surfaces have fully diverged. This is classic CLI accretion — every analysis need became a new verb instead of an argument. Collapse the analytics under a single specforge query with domain/kind/op arguments, keeping only the documented 7 as top-level; completions and specforge explain survive. Large breaking change, needs a deprecation cycle.</p>
+<div class="snippet before"><span class="cap">before — current code</span><pre><code>#[derive(Subcommand)]
+enum Commands {
+    /// Initialize a new SpecForge project
+    Init {
+        /// Project name (defaults to directory name)
+        #[arg(long)]
+        name: Option&lt;String&gt;,
+
+        /// Project version (defaults to 0.1.0)
+        #[arg(long)]
+        version: Option&lt;String&gt;,
+
+        /// Extensions to install
+        #[arg(long)]
+        extensions: Vec&lt;String&gt;,
+
+        /// Output format: human or json
+        #[arg(long, default_value = &quot;human&quot;)]
+        format: String,
+    },</code></pre><div class="file">crates/specforge-cli/src/main.rs:39-58</div></div>
+<div class="arrow-between">↓ fix ↓</div>
+<div class="snippet after"><span class="cap">after — proposed fix</span><pre><code>#[derive(Subcommand)]
+enum Commands {
+    /// Initialize a new SpecForge project
+    Init {
+        #[arg(long)]
+        name: Option&lt;String&gt;,
+        #[arg(long)]
+        extensions: Vec&lt;String&gt;,
+        #[arg(long, default_value = &quot;human&quot;)]
+        format: String,
+    },
+    /// Validate .spec files and report diagnostics
+    Check { /* ... */ },
+    /// Query entity data: specforge query product features --status open
+    Query {
+        /// Domain or kind (product, software, governance, formal, or kind name)
+        domain: String,
+        /// Analysis operation: list, count, stats, orphans, health
+        #[arg(default_value = &quot;list&quot;)]
+        op: String,
+        #[arg(long)]
+        filter: Vec&lt;String&gt;,
+        #[arg(long, default_value = &quot;human&quot;)]
+        format: String,
+    },
+    // top level stays: init, add, remove, extensions, check, query, explain
+}</code></pre><div class="file">crates/specforge-cli/src/main.rs</div></div>
+<div class="diagram-box"><span class="cap">48-button remote</span><div class="mermaid" id="dg-005-C2-04"><pre>flowchart TD
+ A[Commands enum 28 variants] --&gt; B[ProductAction 17 subcommands]
+ B --&gt; C[features journeys persona-features bulk-status health]
+ C --&gt; D[48-command surface]
+ D --&gt; E[docs promise 7 commands]
+ E --&gt; F[mental model broken]
+ F --&gt; G[one query verb with domain and op args]
+ G --&gt; H[top level equals documented 7]</pre></div></div><script type="text/plain" class="mermaid-src" data-target="dg-005-C2-04">flowchart TD
+ A[Commands enum 28 variants] --> B[ProductAction 17 subcommands]
+ B --> C[features journeys persona-features bulk-status health]
+ C --> D[48-command surface]
+ D --> E[docs promise 7 commands]
+ E --> F[mental model broken]
+ F --> G[one query verb with domain and op args]
+ G --> H[top level equals documented 7]</script>
+<div class="eli10"><span class="tag">Explain like I'm 10</span><p>The tool promises you can learn it in five minutes, then hands you a remote with 48 buttons where 17 are variations of &#x27;show me product stuff&#x27;. Wirth&#x27;s rule: one well-designed &#x27;query&#x27; dial beats seventeen single-purpose buttons.</p></div>
+<p class="sol" style="margin-top:12px"><b>Proposed solution.</b> Collapse ProductAction analytics under `specforge query --domain product` or `stats --product` with entity-kind arguments; keep only the 7-command documented surface as top-level. Completions and `specforge explain` stay.</p>
+</article>
+<article class="finding-detail sev-info" id="f-C2-09">
+<div class="head"><h2>Lean core is genuinely lean: 4 structural grammar rules, everything else generic — keep it that way</h2><span class="chip info">info</span><span class="fid">C2-09</span></div>
+<div class="meta-row"><span class="engineer">005 Niklaus Wirth</span><span class="chip neutral">effort S</span><span class="chip neutral">moves: format versions supported</span></div>
+<div class="evidence"><b>Evidence</b><span class="ev"><code>crates/tree-sitter-specforge/grammar.js:1-12,68-77</code> — header states the design principle; only use/spec/ref/define have dedicated rules; entity_block parses ANY keyword; conflicts: [] — zero declared conflicts</span></div>
+<p class="details">The grammar keeps its founding promise: exactly four dedicated rules (use, spec, ref, define), everything else flowing through generic entity_block, and conflicts declared as an empty list — zero grammar conflicts in crates/tree-sitter-specforge/grammar.js. Adding a new domain kind requires zero compiler changes, the Project-Oberon-like property that makes the extension model viable at all. This is precisely the architectural invariant that erodes one just-this-once special case at a time, so it deserves a guard test: assert no domain keyword gains a dedicated rule without a recorded ADR. Effort is trivial; the protection is permanent.</p>
+<div class="snippet before"><span class="cap">before — current code</span><pre><code>/// &lt;reference types=&quot;tree-sitter-cli/dsl&quot; /&gt;
+// Tree-sitter grammar for the SpecForge .spec DSL
+//
+// Design principle: ZERO domain knowledge in core.
+// Only 4 constructs have dedicated grammar rules:
+//   - use (import syntax)
+//   - spec (singleton project root)
+//   - ref (scheme.kind:identifier compound ID)
+//   - define (user-defined entity types)
+//
+// Everything else is parsed by the generic entity_block rule.
+// The parser accepts ANY keyword — validation happens in the semantic phase.
+
+module.exports = grammar({
+  name: &quot;specforge&quot;,
+
+  extras: ($) =&gt; [/\s/, $.comment],
+
+  word: ($) =&gt; $.identifier,
+
+  conflicts: ($) =&gt; [],</code></pre><div class="file">crates/tree-sitter-specforge/grammar.js:1-25</div></div>
+<div class="arrow-between">↓ fix ↓</div>
+<div class="snippet after"><span class="cap">after — proposed fix</span><pre><code>// Guard for the zero-domain-core design principle (grammar.js header).
+#[test]
+fn core_grammar_has_no_domain_rules() {
+    let src = std::fs::read_to_string(&quot;grammar.js&quot;).unwrap();
+    let dedicated: Vec&lt;&amp;str&gt; = src
+        .lines()
+        .filter(|l| l.trim_start().starts_with(&quot;//   - &quot;))
+        .map(|l| l.trim().trim_start_matches(&quot;// - &quot;))
+        .collect();
+    // The four structural constructs, per the header ADR:
+    let allowed = [&quot;use&quot;, &quot;spec&quot;, &quot;ref&quot;, &quot;define&quot;];
+    for name in &amp;dedicated {
+        assert!(
+            allowed.contains(name),
+            &quot;dedicated grammar rule for &#x27;{name}&#x27; requires an ADR; \\
+             domain keywords must stay on entity_block&quot;
+        );
+    }
+    assert!(src.contains(&quot;conflicts: ($) =&gt; []&quot;), &quot;conflicts must stay empty&quot;);
+}</code></pre><div class="file">crates/tree-sitter-specforge/tests/lean_core.rs</div></div>
+<div class="diagram-box"><span class="cap">Lean core kept lean by test</span><div class="mermaid" id="dg-005-C2-09"><pre>flowchart TD
+ A[new domain kind proposed] --&gt; B[needs grammar rule]
+ B --&gt;|no| C[manifest only zero compiler change]
+ C --&gt; D[lean core preserved]
+ B --&gt;|someone adds a rule| E[lean_core test fails]
+ E --&gt; F[contributor must write an ADR]
+ F --&gt; D</pre></div></div><script type="text/plain" class="mermaid-src" data-target="dg-005-C2-09">flowchart TD
+ A[new domain kind proposed] --> B[needs grammar rule]
+ B -->|no| C[manifest only zero compiler change]
+ C --> D[lean core preserved]
+ B -->|someone adds a rule| E[lean_core test fails]
+ E --> F[contributor must write an ADR]
+ F --> D</script>
+<div class="eli10"><span class="tag">Explain like I'm 10</span><p>Like Project Oberon: the language core fits on one page. Adding a new domain requires zero compiler changes — the architecture has so far kept its own promise.</p></div>
+<p class="sol" style="margin-top:12px"><b>Proposed solution.</b> Protect with a test that fails if a domain keyword gains a dedicated grammar rule without an ADR.</p>
+</article>
+</main><script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.1/dist/mermaid.min.js" onerror="window.__mermaidFailed=true"></script><script src="../js/agent.js"></script></body></html>

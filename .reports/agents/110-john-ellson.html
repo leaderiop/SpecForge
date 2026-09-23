@@ -1,0 +1,124 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>110 John Ellson — SpecForge audit review</title>
+<link rel="stylesheet" href="../css/report.css"><link rel="stylesheet" href="../css/agents.css"></head><body>
+<header class="agent-hero"><div class="brand"><div class="logo">110</div><div>
+<h1>John Ellson</h1>
+<div class="crumbs">Cluster C13 — Diagrams &amp; rendering · Graphviz/DOT co-creator; tooling, editors, release engineering · profile <code>.agents/110-john-ellson.md</code></div></div></div>
+<div class="links"><a href="../index.html">← Full report</a><a href="../../.agents/110-john-ellson.md">Profile source</a></div></header>
+<main class="agent-main">
+<nav class="agent-nav"><a href="109.html">← 109</a><a href="111.html">111 →</a></nav>
+<div class="review-panel"><div class="review-text"><h2>Auditor review</h2><p>John Ellson: The deterministic edge sort and clean Graph IR are exactly right — this is a codebase that cares about reproducible output. But dot_shape/dot_color declared, registered, and never consumed is a contract violation against every extension author, and it is pinned by a test named for the very feature. Consume the registry in emit_dot first; then add an options struct so the 8000-line flat hairball can be clustered per extension.</p></div>
+<div class="mini-kpis">
+<div class="mini-kpi"><div class="k">Findings</div><div class="v">3</div></div>
+<div class="mini-kpi bad"><div class="k">Critical + high</div><div class="v">1</div></div>
+<div class="mini-kpi"><div class="k">Evidence items</div><div class="v">6</div></div>
+<div class="mini-kpi"><div class="k">Effort mix</div><div class="v" style="font-size:14px">M · S</div></div>
+</div></div>
+<article class="finding-detail sev-high" id="f-C13-00">
+<div class="head"><h2>dot_shape/color/fillcolor declared and registered but never consumed</h2><span class="chip high">high</span><span class="fid">C13-00</span></div>
+<div class="meta-row"><span class="engineer">110 John Ellson</span><span class="chip neutral">effort M</span><span class="chip neutral">moves: dot_* vocabulary consumed</span></div>
+<div class="evidence"><b>Evidence</b><span class="ev"><code>crates/specforge-emitter/src/dot.rs:5-19</code> — emit_dot writes node [shape=box]; no kind attribute lookup</span><span class="ev"><code>crates/specforge-registry/src/compilation/populate.rs:100-103</code> — registry copies dot_* into KindRegistryEntry</span><span class="ev"><code>crates/specforge-emitter/tests/emit_dot.rs:66-77</code> — test named for dot_shape only asserts default box</span></div>
+<p class="details">KindRegistry copies dot_shape/dot_color/dot_fillcolor into KindRegistryEntry (populate.rs ~100-103), but emit_dot in dot.rs hardcodes node [shape=box] and never consults the registry — extension-authored visual vocabulary is dead data. The test emit_dot.rs:66-77 is attributed to behavior &#x27;node shapes use extension-defined dot_shape&#x27; yet only asserts the default &#x27;box&#x27;, so the gap is pinned by a misleading test. Every exported specforge-graph.dot renders all 2000+ nodes identically. Either consume the registry or delete the vocabulary; at minimum rename the test.</p>
+<div class="snippet before"><span class="cap">before — current code</span><pre><code>pub fn emit_dot(graph: &amp;Graph) -&gt; String {
+    let mut out = String::new();
+    writeln!(out, &quot;digraph specforge {{&quot;).unwrap();
+    writeln!(out, &quot;  rankdir=LR;&quot;).unwrap();
+    writeln!(out, &quot;  node [shape=box];&quot;).unwrap();</code></pre><div class="file">crates/specforge-emitter/src/dot.rs:5-9</div></div>
+<div class="arrow-between">↓ fix ↓</div>
+<div class="snippet after"><span class="cap">after — proposed fix</span><pre><code>pub struct DotStyle {
+    pub shape: String,
+    pub color: Option&lt;String&gt;,
+}
+
+pub fn emit_dot_styled(graph: &amp;Graph, styles: &amp;HashMap&lt;String, DotStyle&gt;) -&gt; String {
+    let mut out = String::new();
+    writeln!(out, &quot;digraph specforge {{&quot;).unwrap();
+    writeln!(out, &quot;  rankdir=LR;&quot;).unwrap();
+    writeln!(out, &quot;  node [shape=box];&quot;).unwrap();
+
+    for node in graph.nodes() {
+        let attrs = match styles.get(node.kind.as_str()) {
+            Some(s) =&gt; match &amp;s.color {
+                Some(c) =&gt; format!(&quot;, shape={}, fillcolor=\&quot;{}\&quot;, style=filled&quot;, s.shape, c),
+                None =&gt; format!(&quot;, shape={}&quot;, s.shape),
+            },
+            None =&gt; String::new(),
+        };
+        writeln!(out, &quot;  \&quot;{}\&quot; [label=\&quot;{}\&quot;{}];&quot;, node.id.raw, node.id.raw, attrs).unwrap();
+    }</code></pre><div class="file">crates/specforge-emitter/src/dot.rs:1-18</div></div>
+<div class="diagram-box"><span class="cap">dot vocabulary dead-ends in registry</span><div class="mermaid" id="dg-110-C13-00"><pre>flowchart LR
+ A[Extension manifest] --&gt;|dot_shape dot_color| B[KindRegistryEntry]
+ B --&gt; C[emit_dot]
+ C --&gt;|never asks registry| D[hardcoded shape=box]
+ D --&gt; E[uniform gray graph]
+ B -.-&gt; F[fix styles lookup]
+ F --&gt; G[per-kind shapes]</pre></div></div><script type="text/plain" class="mermaid-src" data-target="dg-110-C13-00">flowchart LR
+ A[Extension manifest] -->|dot_shape dot_color| B[KindRegistryEntry]
+ B --> C[emit_dot]
+ C -->|never asks registry| D[hardcoded shape=box]
+ D --> E[uniform gray graph]
+ B -.-> F[fix styles lookup]
+ F --> G[per-kind shapes]</script>
+<div class="eli10"><span class="tag">Explain like I'm 10</span><p>Extensions pick shapes and colors, the toolbox stores the choice, but the painter never asks for it — everything comes out a gray box, like a restaurant taking detailed orders then serving everyone plain rice.</p></div>
+<p class="sol" style="margin-top:12px"><b>Proposed solution.</b> Consume the registry in emit_dot or delete the vocabulary; rename the mis-titled test.</p>
+</article>
+<article class="finding-detail sev-medium" id="f-C13-01">
+<div class="head"><h2>specforge-graph.dot flat hairball, no grouping or filters</h2><span class="chip medium">medium</span><span class="fid">C13-01</span></div>
+<div class="meta-row"><span class="engineer">110 John Ellson</span><span class="chip neutral">effort M</span><span class="chip neutral">moves: clustering</span></div>
+<div class="evidence"><b>Evidence</b><span class="ev"><code>specforge-graph.dot:1-8216</code> — 2115 nodes, 6097 edges, zero clusters, uniform shape=box</span><span class="ev"><code>crates/specforge-emitter/src/dot.rs:4-30</code> — emit_dot takes no options struct</span></div>
+<p class="details">specforge-graph.dot is 8215 lines: 2115 nodes, 6097 edges, zero clusters, uniform shape=box, alphabetically flat. emit_dot takes only &amp;Graph — no options struct for filtering, label toggles, or grouping — so consumers get an unreadable hairball. The model renderer (model/dot.rs) already demonstrates clusters work well. Add a DotOptions struct with per-extension subgraph clusters and a label toggle.</p>
+<div class="snippet before"><span class="cap">before — current code</span><pre><code>digraph specforge {
+  rankdir=LR;
+  node [shape=box];
+  &quot;AgentExportConfig&quot; [label=&quot;AgentExportConfig&quot;];
+  &quot;AgentPlan&quot; [label=&quot;AgentPlan&quot;];
+  &quot;AgentPlanEntry&quot; [label=&quot;AgentPlanEntry&quot;];</code></pre><div class="file">specforge-graph.dot:1-6</div></div>
+<div class="arrow-between">↓ fix ↓</div>
+<div class="snippet after"><span class="cap">after — proposed fix</span><pre><code>#[derive(Debug, Clone, Default)]
+pub struct DotOptions {
+    pub cluster_by_extension: bool,
+    pub show_labels: bool,
+    pub extension_filter: Option&lt;String&gt;,
+}
+
+pub fn emit_dot_with(graph: &amp;Graph, options: &amp;DotOptions) -&gt; String {
+    let mut out = String::new();
+    writeln!(out, &quot;digraph specforge {{&quot;).unwrap();
+    writeln!(out, &quot;  rankdir=LR;&quot;).unwrap();
+    if options.cluster_by_extension {
+        for (ext, nodes) in group_by_extension(graph) {
+            let id = sanitize_cluster_id(&amp;ext);
+            writeln!(out, &quot;  subgraph cluster_{id} {{&quot;).unwrap();
+            writeln!(out, &quot;    label={id}; style=dashed;&quot;).unwrap();
+            for n in nodes { emit_node(&amp;mut out, n, options); }
+            writeln!(out, &quot;  }}&quot;).unwrap();
+        }
+    }</code></pre><div class="file">crates/specforge-emitter/src/dot.rs:1-18</div></div>
+<div class="diagram-box"><span class="cap">flat hairball to clustered view</span><div class="mermaid" id="dg-110-C13-01"><pre>flowchart TD
+ A[Graph 2115 nodes] --&gt; B[emit_dot no options]
+ B --&gt; C[one flat digraph]
+ C --&gt; D[unreadable hairball]
+ A --&gt; E[DotOptions]
+ E --&gt; F[cluster_by_extension]
+ F --&gt; G[subgraph per extension filtered readable]</pre></div></div><script type="text/plain" class="mermaid-src" data-target="dg-110-C13-01">flowchart TD
+ A[Graph 2115 nodes] --> B[emit_dot no options]
+ B --> C[one flat digraph]
+ C --> D[unreadable hairball]
+ A --> E[DotOptions]
+ E --> F[cluster_by_extension]
+ F --> G[subgraph per extension filtered readable]</script>
+<div class="eli10"><span class="tag">Explain like I'm 10</span><p>Like a phone book with 2,000 names in one unsorted block: complete but unusable.</p></div>
+<p class="sol" style="margin-top:12px"><b>Proposed solution.</b> Add emit options (filters, label toggle) and per-extension subgraph clusters.</p>
+</article>
+<article class="finding-detail sev-info" id="f-C13-02">
+<div class="head"><h2>emit_dot sorts edges for deterministic output</h2><span class="chip info">info</span><span class="fid">C13-02</span></div>
+<div class="meta-row"><span class="engineer">110 John Ellson</span><span class="chip neutral">effort S</span><span class="chip neutral">moves: n/a</span></div>
+<div class="evidence"><b>Evidence</b><span class="ev"><code>crates/specforge-emitter/src/dot.rs:12-14</code> — edges.sort_by before emission</span></div>
+<p class="details">emit_dot sorts edges by (source, target, label) before emission, so identical graph inputs always produce byte-identical DOT. This makes diffs reviewable: the one box that changed is the one line that changed.</p>
+<div class="snippet exemplar"><span class="cap">exemplar — the good pattern</span><pre><code>    let mut edges: Vec&lt;_&gt; = graph.edges().to_vec();
+    edges.sort_by(|a, b| (&amp;a.source, &amp;a.target, &amp;a.label).cmp(&amp;(&amp;b.source, &amp;b.target, &amp;b.label)));</code></pre><div class="file">crates/specforge-emitter/src/dot.rs:12-14</div></div>
+<div class="keep"><span class="tag">Keep doing this</span><p>Keep the deterministic sort; extend the same treatment to nodes, which are currently emitted in graph insertion order.</p></div>
+<div class="eli10"><span class="tag">Explain like I'm 10</span><p>The map is drawn in the same order every time, so you spot the one box that changed.</p></div>
+<p class="sol" style="margin-top:12px"><b>Proposed solution.</b> Keep; also sort nodes.</p>
+</article>
+</main><script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.1/dist/mermaid.min.js" onerror="window.__mermaidFailed=true"></script><script src="../js/agent.js"></script></body></html>

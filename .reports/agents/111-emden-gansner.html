@@ -1,0 +1,66 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>111 Emden Gansner — SpecForge audit review</title>
+<link rel="stylesheet" href="../css/report.css"><link rel="stylesheet" href="../css/agents.css"></head><body>
+<header class="agent-hero"><div class="brand"><div class="logo">111</div><div>
+<h1>Emden Gansner</h1>
+<div class="crumbs">Cluster C13 — Diagrams &amp; rendering · Graphviz layout algorithms (dot ranking, neato/sfdp stress models) · profile <code>.agents/111-emden-gansner.md</code></div></div></div>
+<div class="links"><a href="../index.html">← Full report</a><a href="../../.agents/111-emden-gansner.md">Profile source</a></div></header>
+<main class="agent-main">
+<nav class="agent-nav"><a href="110.html">← 110</a><a href="112.html">112 →</a></nav>
+<div class="review-panel"><div class="review-text"><h2>Auditor review</h2><p>Emden Gansner: I appreciate that the model dot renderer already uses clusters and record labels — the instincts are sound. The gap is scale: the instance export has no grouping at all, and the palette is matched by extension name substring, which will miscolor any extension whose name happens to contain a keyword. Make color resolution exact and registry-driven, and bring the cluster machinery to the big graph.</p></div>
+<div class="mini-kpis">
+<div class="mini-kpi"><div class="k">Findings</div><div class="v">1</div></div>
+<div class="mini-kpi good"><div class="k">Critical + high</div><div class="v">0</div></div>
+<div class="mini-kpi"><div class="k">Evidence items</div><div class="v">2</div></div>
+<div class="mini-kpi"><div class="k">Effort mix</div><div class="v" style="font-size:14px">S</div></div>
+</div></div>
+<article class="finding-detail sev-medium" id="f-C13-03">
+<div class="head"><h2>Model DOT hardcodes palette instead of declared per-kind colors</h2><span class="chip medium">medium</span><span class="fid">C13-03</span></div>
+<div class="meta-row"><span class="engineer">111 Emden Gansner</span><span class="chip neutral">effort S</span><span class="chip neutral">moves: dot_* vocabulary consumed</span></div>
+<div class="evidence"><b>Evidence</b><span class="ev"><code>crates/specforge-emitter/src/model/dot.rs:7-13</code> — COLOR_* matched by extension name; per-kind dot_color ignored</span><span class="ev"><code>crates/specforge-emitter/src/outline/dot.rs:57-62</code> — color via substring contains match</span></div>
+<p class="details">model/dot.rs maps extension NAME to a hardcoded 5-color palette (COLOR_SOFTWARE etc.), ignoring per-kind dot_color stored in the registry; outline/dot.rs is worse — extension_color does a substring name.contains(key) match, so an extension named &#x27;governance-tools-plus&#x27; gets the governance color. One color per extension means the map legend colors the whole country one shade. Fix: resolve per-kind color from the registry with extension as fallback, exact match not substring.</p>
+<div class="snippet before"><span class="cap">before — current code</span><pre><code>fn extension_color(name: &amp;str) -&gt; &amp;str {
+    match name {
+        &quot;@specforge/software&quot; =&gt; COLOR_SOFTWARE,
+        &quot;@specforge/product&quot; =&gt; COLOR_PRODUCT,
+        &quot;@specforge/governance&quot; =&gt; COLOR_GOVERNANCE,
+        &quot;@specforge/formal&quot; =&gt; COLOR_FORMAL,
+        _ =&gt; COLOR_FALLBACK,
+    }
+}</code></pre><div class="file">crates/specforge-emitter/src/model/dot.rs:56-63</div></div>
+<div class="arrow-between">↓ fix ↓</div>
+<div class="snippet after"><span class="cap">after — proposed fix</span><pre><code>fn kind_color(kind: &amp;str, registry: &amp;KindRegistry, extension: &amp;str) -&gt; String {
+    if let Some(entry) = registry.get(kind) {
+        if let Some(color) = &amp;entry.dot_color {
+            return color.clone();
+        }
+    }
+    extension_color(extension).to_string()
+}
+
+fn extension_color(name: &amp;str) -&gt; &amp;str {
+    match name {
+        &quot;@specforge/software&quot; =&gt; COLOR_SOFTWARE,
+        &quot;@specforge/product&quot; =&gt; COLOR_PRODUCT,
+        &quot;@specforge/governance&quot; =&gt; COLOR_GOVERNANCE,
+        &quot;@specforge/formal&quot; =&gt; COLOR_FORMAL,
+        _ =&gt; COLOR_FALLBACK,
+    }
+}</code></pre><div class="file">crates/specforge-emitter/src/model/dot.rs:56-70</div></div>
+<div class="diagram-box"><span class="cap">color resolution order</span><div class="mermaid" id="dg-111-C13-03"><pre>flowchart TD
+ A[Entity kind] --&gt; B{registry has dot_color}
+ B --&gt;|yes| C[use declared color]
+ B --&gt;|no| D{known extension}
+ D --&gt;|yes| E[palette color]
+ D --&gt;|no| F[fallback gray]
+ G[old substring contains] -.-&gt;|replaced| D</pre></div></div><script type="text/plain" class="mermaid-src" data-target="dg-111-C13-03">flowchart TD
+ A[Entity kind] --> B{registry has dot_color}
+ B -->|yes| C[use declared color]
+ B -->|no| D{known extension}
+ D -->|yes| E[palette color]
+ D -->|no| F[fallback gray]
+ G[old substring contains] -.->|replaced| D</script>
+<div class="eli10"><span class="tag">Explain like I'm 10</span><p>The spec gives each kind its own color, but the picture paints one color per extension — a map legend coloring the whole country one shade.</p></div>
+<p class="sol" style="margin-top:12px"><b>Proposed solution.</b> Resolve per-kind color from registry, extension as fallback; exact match not substring.</p>
+</article>
+</main><script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.1/dist/mermaid.min.js" onerror="window.__mermaidFailed=true"></script><script src="../js/agent.js"></script></body></html>

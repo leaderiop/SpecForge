@@ -1,0 +1,64 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>075 Shreya Rajpal — SpecForge audit review</title>
+<link rel="stylesheet" href="../css/report.css"><link rel="stylesheet" href="../css/agents.css"></head><body>
+<header class="agent-hero"><div class="brand"><div class="logo">075</div><div>
+<h1>Shreya Rajpal</h1>
+<div class="crumbs">Cluster C9 — MCP &amp; AI-agent context engineering · Guardrails AI co-founder/CEO; LLM output validation · profile <code>.agents/075-shreya-rajpal.md</code></div></div></div>
+<div class="links"><a href="../index.html">← Full report</a><a href="../../.agents/075-shreya-rajpal.md">Profile source</a></div></header>
+<main class="agent-main">
+<nav class="agent-nav"><a href="074.html">← 074</a><a href="076.html">076 →</a></nav>
+<div class="review-panel"><div class="review-text"><h2>Auditor review</h2><p>Guardrail loops live on precise, machine-readable failure signals, and your server flattens unknown-format-valid-values-are-graph-context-brief into the same -32602 as a malformed frame, with no data payload - the model must guess instead of correct-and-retry. You already ship the enum values in registry descriptors, so error_with_data carrying valid_values is nearly free. Add an app error range in the -32000s, route domain failures through it, and your re-ask loop gets the signal it needs.</p></div>
+<div class="mini-kpis">
+<div class="mini-kpi"><div class="k">Findings</div><div class="v">1</div></div>
+<div class="mini-kpi good"><div class="k">Critical + high</div><div class="v">0</div></div>
+<div class="mini-kpi"><div class="k">Evidence items</div><div class="v">0</div></div>
+<div class="mini-kpi"><div class="k">Effort mix</div><div class="v" style="font-size:14px">S</div></div>
+</div></div>
+<article class="finding-detail sev-medium" id="f-C9-12">
+<div class="head"><h2>Domain failures masquerade as -32602, starving the re-ask loop</h2><span class="chip medium">medium</span><span class="fid">C9-12</span></div>
+<div class="meta-row"><span class="engineer">075 Shreya Rajpal</span><span class="chip neutral">effort S</span><span class="chip neutral">moves: MCP notifications conformance</span></div>
+<p class="details">error_codes.rs defines only the five JSON-RPC standard codes, so every domain failure - unknown export format in export.rs, unknown kind in prompts/infer.rs, unknown entity in query/find_definition - is stamped -32602 INVALID_PARAMS, the code reserved for structurally malformed requests. The same stamp is even reused for server-not-initialized (-32600) in registry.rs and tools/mod.rs. A guardrail/re-ask loop depends on distinguishing your-argument-value-was-wrong from your-frame-was-malformed, and without a dedicated app-error range plus machine-readable data the agent can only guess. registry.rs descriptors already carry enum lists for formats and kinds, so the valid-values payload costs nothing to produce.</p>
+<div class="snippet before"><span class="cap">before — current code</span><pre><code>/// JSON-RPC 2.0 standard error codes.
+pub const PARSE_ERROR: i64 = -32700;
+pub const INVALID_REQUEST: i64 = -32600;
+pub const METHOD_NOT_FOUND: i64 = -32601;
+pub const INVALID_PARAMS: i64 = -32602;
+pub const INTERNAL_ERROR: i64 = -32603;</code></pre><div class="file">crates/specforge-mcp/src/protocol/error_codes.rs:1-6</div></div>
+<div class="arrow-between">↓ fix ↓</div>
+<div class="snippet after"><span class="cap">after — proposed fix</span><pre><code>// error_codes.rs
+pub const SERVER_NOT_INITIALIZED: i64 = -32002;
+pub const DOMAIN_ERROR: i64 = -32000; // app range: unknown_kind, unknown_format, ...
+
+// shared helper, used by export/query/etc.
+pub fn domain_error(id: Option&lt;Value&gt;, kind: &amp;str, message: String, valid: &amp;[&amp;str]) -&gt; JsonRpcResponse {
+    JsonRpcResponse::error_with_data(id, DOMAIN_ERROR, message, serde_json::json!({
+        &quot;error_kind&quot;: kind,
+        &quot;valid_values&quot;: valid,
+    }))
+}
+
+// tools/export.rs
+_ =&gt; return error_codes::domain_error(id, &quot;unknown_format&quot;,
+    format!(&quot;Unknown format: {}&quot;, format),
+    &amp;[&quot;graph&quot;, &quot;context&quot;, &quot;brief&quot;]),</code></pre><div class="file">crates/specforge-mcp/src/protocol/error_codes.rs</div></div>
+<div class="diagram-box"><span class="cap">Domain error taxonomy</span><div class="mermaid" id="dg-075-C9-12"><pre>flowchart TD
+ A[Agent passes unknown format] --&gt; B[Server returns 32602]
+ B --&gt; C[No valid-values data attached]
+ C --&gt; D[Agent cannot re-ask smartly]
+ E[Malformed frame also maps to 32602] --&gt; F[Same stamp two meanings]
+ F --&gt; D
+ D --&gt; G[Add 32000 app error range]
+ G --&gt; H[Attach valid enum values in error data]
+ H --&gt; I[Guardrail loop retries with correction]</pre></div></div><script type="text/plain" class="mermaid-src" data-target="dg-075-C9-12">flowchart TD
+ A[Agent passes unknown format] --> B[Server returns 32602]
+ B --> C[No valid-values data attached]
+ C --> D[Agent cannot re-ask smartly]
+ E[Malformed frame also maps to 32602] --> F[Same stamp two meanings]
+ F --> D
+ D --> G[Add 32000 app error range]
+ G --> H[Attach valid enum values in error data]
+ H --> I[Guardrail loop retries with correction]</script>
+<div class="eli10"><span class="tag">Explain like I'm 10</span><p>A guardrail loop works by the validator telling the model precisely which rule it broke so it can fix and retry. Here &#x27;you passed an enum value we don&#x27;t offer&#x27; and &#x27;your request was malformed garbage&#x27; get the same error stamp, with no machine-readable hint of valid values. The agent must guess instead of re-asking smartly.</p></div>
+<p class="sol" style="margin-top:12px"><b>Proposed solution.</b> Define an app error-code range (-32000s) for domain failures (unknown_kind, unknown_format, unknown_entity), always attach data with valid enum values (the descriptor enums are already in registry.rs), and route through error_with_data.</p>
+</article>
+</main><script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.1/dist/mermaid.min.js" onerror="window.__mermaidFailed=true"></script><script src="../js/agent.js"></script></body></html>

@@ -1,0 +1,79 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>011 Sven Efftinge — SpecForge audit review</title>
+<link rel="stylesheet" href="../css/report.css"><link rel="stylesheet" href="../css/agents.css"></head><body>
+<header class="agent-hero"><div class="brand"><div class="logo">011</div><div>
+<h1>Sven Efftinge</h1>
+<div class="crumbs">Cluster C2 — DSL &amp; language design · Xtext creator; Langium lead — textual DSL + IDE integration · profile <code>.agents/011-sven-efftinge.md</code></div></div></div>
+<div class="links"><a href="../index.html">← Full report</a><a href="../../.agents/011-sven-efftinge.md">Profile source</a></div></header>
+<main class="agent-main">
+<nav class="agent-nav"><a href="010.html">← 010</a><a href="012.html">012 →</a></nav>
+<div class="review-panel"><div class="review-text"><h2>Auditor review</h2><p>Efftinge would see spec-writing-flow.md as the highest-leverage defect in the cluster: it is the first file an author or an agent reads, and it teaches infix, plugins, and DLV-{infix}-{n} — none of which exist. His rule: a tutorial that cannot be executed is not a tutorial. Run every snippet through specforge check in CI before it ships. He would then celebrate the lean grammar and the LSP-ready FieldRegistry as the raw material of a first-class authoring experience that the docs are currently squandering.</p></div>
+<div class="mini-kpis">
+<div class="mini-kpi"><div class="k">Findings</div><div class="v">1</div></div>
+<div class="mini-kpi bad"><div class="k">Critical + high</div><div class="v">1</div></div>
+<div class="mini-kpi"><div class="k">Evidence items</div><div class="v">3</div></div>
+<div class="mini-kpi"><div class="k">Effort mix</div><div class="v" style="font-size:14px">M</div></div>
+</div></div>
+<article class="finding-detail sev-high" id="f-C2-01">
+<div class="head"><h2>spec-writing-flow.md onboards authors onto nonexistent syntax</h2><span class="chip high">high</span><span class="fid">C2-01</span></div>
+<div class="meta-row"><span class="engineer">011 Sven Efftinge</span><span class="chip neutral">effort M</span><span class="chip neutral">moves: quick-reference entity coverage</span></div>
+<div class="evidence"><b>Evidence</b><span class="ev"><code>docs/spec-writing-flow.md:33-56,66-70</code> — Phase 0 asks &#x27;What is the project name and ID infix?&#x27;, lists `plugins` field and providers &#x27;@specforge/gh/jira/figma&#x27;; Phase 1 uses &#x27;DLV-{infix}-{n}&#x27;</span><span class="ev"><code>crates/specforge-cli/src/main.rs:42-58</code> — init/check surface has no infix concept; entity-model documents &#x27;plugins&#x27; only in quick-reference spec row while entity-model says &#x27;extensions&#x27;</span><span class="ev"><code>docs/entity-model.md:Extension CLI section</code> — canonical commands are `specforge add @specforge/software` etc., not `plugins`</span></div>
+<p class="details">Phase 0 of the canonical authoring walkthrough asks for an ID infix, invents a plugins spec field, and lists providers @specforge/gh/jira/figma as if installed; Phase 1 writes deliverable IDs as DLV-{infix}-{n}. The real binary has no infix concept (Init takes --extensions in crates/specforge-cli/src/main.rs), the field is extensions, and only registered ref schemes resolve. A newcomer executing the tutorial command-by-command hits failures the manual itself manufactured. The doc should be executable: every snippet runs through specforge check in CI, infix/DLV prefixes dropped, unregistered providers marked roadmap.</p>
+<div class="snippet before"><span class="cap">before — current code</span><pre><code>### Key questions
+1. What is the project name and ID infix?
+2. Which plugins do we need? (`@specforge/product`, `@specforge/governance`)
+3. Which external providers? (`@specforge/gh`, `@specforge/jira`, `@specforge/figma`)
+4. Who are the personas? (e.g., `developer`, `admin`, `end-user`)
+5. What surfaces do they interact with? (e.g., `web`, `cli`, `api`, `mobile`)
+6. What are the core domain terms the team must agree on?
+
+### Checkpoint
+- [ ] `spec` block compiles with name, infix, version, plugins
+- [ ] Term entities cover every domain term the team uses differently than plain English
+- [ ] Personas and surfaces are declared — journeys will reference them
+
+---
+
+## Phase 1 — What We Ship
+
+### Entity
+- **`deliverable`** (`DLV-{infix}-{n}`) — apps, services, CLIs, browser extensions, libraries</code></pre><div class="file">docs/spec-writing-flow.md:36-56</div></div>
+<div class="arrow-between">↓ fix ↓</div>
+<div class="snippet after"><span class="cap">after — proposed fix</span><pre><code>### Key questions
+1. What is the project name and version?
+2. Which extensions do we need? Install with `specforge add @specforge/product`.
+3. Which external providers? (`@specforge/gh` is roadmap — only registered
+   schemes resolve today.)
+
+### Checkpoint
+- [ ] `spec` block compiles with name, version, extensions (`specforge check`)
+- [ ] Term entities cover every domain term the team uses differently than plain English
+- [ ] Personas and surfaces are declared — journeys will reference them
+
+---
+
+## Phase 1 — What We Ship
+
+### Entity
+- **`deliverable`** (flat identifier, e.g. `cli`) — apps, services, CLIs, libraries</code></pre><div class="file">docs/spec-writing-flow.md</div></div>
+<div class="diagram-box"><span class="cap">Tutorial teaches phantom syntax</span><div class="mermaid" id="dg-011-C2-01"><pre>flowchart TD
+ A[new author reads spec-writing-flow] --&gt; B[Phase 0 asks for infix]
+ B --&gt; C[writes plugins field]
+ C --&gt; D[specforge check]
+ D --&gt; E[unknown field error]
+ E --&gt; F[author blames the tool]
+ F --&gt; G[fix doc to extensions]
+ G --&gt; H[CI runs every snippet via check]
+ H --&gt; I[tutorial can no longer drift]</pre></div></div><script type="text/plain" class="mermaid-src" data-target="dg-011-C2-01">flowchart TD
+ A[new author reads spec-writing-flow] --> B[Phase 0 asks for infix]
+ B --> C[writes plugins field]
+ C --> D[specforge check]
+ D --> E[unknown field error]
+ E --> F[author blames the tool]
+ F --> G[fix doc to extensions]
+ G --> H[CI runs every snippet via check]
+ H --> I[tutorial can no longer drift]</script>
+<div class="eli10"><span class="tag">Explain like I'm 10</span><p>The tutorial is teaching the old model of the product — like a driving manual that still explains hand-crank starting. New users copy the tutorial verbatim and get errors for things the manual invented. The walkthrough must be executed command-by-command against the real binary before it ships.</p></div>
+<p class="sol" style="margin-top:12px"><b>Proposed solution.</b> Rewrite spec-writing-flow.md executing every snippet via `specforge check` in CI (docs-as-tests, TRPL model). Drop infix/DLV prefixes; rename plugins→extensions; point providers at actually registered schemes or mark @specforge/gh as roadmap.</p>
+</article>
+</main><script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.1/dist/mermaid.min.js" onerror="window.__mermaidFailed=true"></script><script src="../js/agent.js"></script></body></html>

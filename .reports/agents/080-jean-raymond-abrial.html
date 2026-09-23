@@ -1,0 +1,68 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>080 Jean-Raymond Abrial — SpecForge audit review</title>
+<link rel="stylesheet" href="../css/report.css"><link rel="stylesheet" href="../css/agents.css"></head><body>
+<header class="agent-hero"><div class="brand"><div class="logo">080</div><div>
+<h1>Jean-Raymond Abrial</h1>
+<div class="crumbs">Cluster C10 — Formal methods · Z &amp; B-Method / Event-B; refinement-driven specification · profile <code>.agents/080-jean-raymond-abrial.md</code></div></div></div>
+<div class="links"><a href="../index.html">← Full report</a><a href="../../.agents/080-jean-raymond-abrial.md">Profile source</a></div></header>
+<main class="agent-main">
+<nav class="agent-nav"><a href="079.html">← 079</a><a href="081.html">081 →</a></nav>
+<div class="review-panel"><div class="review-text"><h2>Auditor review</h2><p>Jean-Raymond Abrial would recognize the refinement machinery as his B-method layers and be pleased the edges and chain DAG exist. He would fix the missing obligation first: E031 set inclusion is a set difference over names, no solver needed, so shipping it is weeks not months. Edges without obligations are paperwork linking a renovation to a blueprint nobody compares.</p></div>
+<div class="mini-kpis">
+<div class="mini-kpi"><div class="k">Findings</div><div class="v">1</div></div>
+<div class="mini-kpi bad"><div class="k">Critical + high</div><div class="v">1</div></div>
+<div class="mini-kpi"><div class="k">Evidence items</div><div class="v">2</div></div>
+<div class="mini-kpi"><div class="k">Effort mix</div><div class="v" style="font-size:14px">M</div></div>
+</div></div>
+<article class="finding-detail sev-high" id="f-C10-02">
+<div class="head"><h2>refinement is edges without obligation: layering_verify is paper-only</h2><span class="chip high">high</span><span class="fid">C10-02</span></div>
+<div class="meta-row"><span class="engineer">080 Jean-Raymond Abrial</span><span class="chip neutral">effort M</span><span class="chip neutral">moves: Analyze passes implemented</span></div>
+<div class="evidence"><b>Evidence</b><span class="ev"><code>spec/extensions/formal/pattern-catalog.spec</code> — E031 abstract-ensures-superset check fully specified; no Rust implementation of ensures comparison</span><span class="ev"><code>crates/specforge-emitter/src/builtins/formal.rs:210-231</code> — refinement ships only W063 orphan and W065 cycle</span></div>
+<p class="details">pattern-catalog.spec fully specifies E031 (fa_pattern_e031_set_inclusion): on each RefinementRefinesAbstract edge, the concrete ensures names must be a superset of the abstract&#x27;s, via set difference. No Rust implements any of it — refinements only get W063 orphan and W065 cycle checks. build_validation_entities already maps reference lists into fields, so a no-solver set-inclusion pass is reachable with existing data. Until it ships, refinements are approved on linkage and acyclicity alone.</p>
+<div class="snippet before"><span class="cap">before — current code</span><pre><code>            no_incoming(&quot;W063&quot;, &quot;refinement&quot;, &quot;refinement &#x27;{id}&#x27; is not referenced — it may be orphaned&quot;),
+            no_incoming(&quot;W064&quot;, &quot;process&quot;, &quot;process &#x27;{id}&#x27; is not referenced by any entity — it may be unused&quot;),
+            cycle(&quot;W065&quot;, &quot;refinement&quot;, &quot;RefinementChainsToRefinement&quot;,
+                &quot;refinement chain cycle detected involving &#x27;{id}&#x27;&quot;),
+            cycle(&quot;W066&quot;, &quot;process&quot;, &quot;ProcessComposesProcess&quot;,
+                &quot;process composition cycle detected involving &#x27;{id}&#x27;&quot;),</code></pre><div class="file">crates/specforge-emitter/src/builtins/formal.rs:216-222</div></div>
+<div class="arrow-between">↓ fix ↓</div>
+<div class="snippet after"><span class="cap">after — proposed fix</span><pre><code>/// E031-formal: ensures set inclusion on RefinementRefinesAbstract edges.
+/// Named-condition set difference only — no solver, per pattern-catalog.spec.
+fn check_ensures_superset(
+    graph: &amp;Graph,
+    edge_label_to_field: &amp;HashMap&lt;String, String&gt;,
+) -&gt; Vec&lt;Diagnostic&gt; {
+    let label = edge_label_to_field.get(&quot;RefinementRefinesAbstract&quot;)
+        .map(String::as_str).unwrap_or(&quot;RefinementRefinesAbstract&quot;);
+    let mut diags = Vec::new();
+    for edge in graph.edges().iter().filter(|e| e.label == label) {
+        let (Some(abs), Some(con)) =
+            (graph.node(&amp;edge.source), graph.node(&amp;edge.target)) else { continue };
+        let missing: Vec&lt;_&gt; = ensures_names(abs)
+            .filter(|c| !ensures_names(con).contains(c))
+            .collect();
+        if !missing.is_empty() {
+            diags.push(Diagnostic {
+                code: &quot;F031&quot;.into(), severity: Severity::Error,
+                message: format!(&quot;refinement &#x27;{}&#x27;: concrete ensures missing {}&quot;, con.id.raw, missing.join(&quot;, &quot;)),
+                span: Some(con.source_span.clone()), suggestion: None,
+            });
+        }
+    }
+    diags
+}</code></pre><div class="file">crates/specforge-emitter/src/builtins/formal.rs</div></div>
+<div class="diagram-box"><span class="cap">refinement obligation check flow</span><div class="mermaid" id="dg-080-C10-02"><pre>flowchart TD
+ A[RefinementRefinesAbstract edge] --&gt; B[collect abstract ensures names]
+ B --&gt; C[collect concrete ensures names]
+ C --&gt; D{difference empty}
+ D -- no --&gt; E[F031 lists missing names]
+ D -- yes --&gt; F[layering compliant]</pre></div></div><script type="text/plain" class="mermaid-src" data-target="dg-080-C10-02">flowchart TD
+ A[RefinementRefinesAbstract edge] --> B[collect abstract ensures names]
+ B --> C[collect concrete ensures names]
+ C --> D{difference empty}
+ D -- no --> E[F031 lists missing names]
+ D -- yes --> F[layering compliant]</script>
+<div class="eli10"><span class="tag">Explain like I'm 10</span><p>A refinement promises the concrete plan keeps every abstract guarantee. The tool checks the plans are linked and not circular but never compares guarantee lists - like approving a renovation because paperwork links it to the blueprint.</p></div>
+<p class="sol" style="margin-top:12px"><b>Proposed solution.</b> Implement E031 as a graph pass comparing structured ensures names on RefinementRefinesAbstract edges; set inclusion, no solver needed.</p>
+</article>
+</main><script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.1/dist/mermaid.min.js" onerror="window.__mermaidFailed=true"></script><script src="../js/agent.js"></script></body></html>

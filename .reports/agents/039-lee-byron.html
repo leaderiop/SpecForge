@@ -1,0 +1,85 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>039 Lee Byron — SpecForge audit review</title>
+<link rel="stylesheet" href="../css/report.css"><link rel="stylesheet" href="../css/agents.css"></head><body>
+<header class="agent-hero"><div class="brand"><div class="logo">039</div><div>
+<h1>Lee Byron</h1>
+<div class="crumbs">Cluster C6 — Schemas, validation &amp; serialization (Graph Protocol) · GraphQL co-creator; schema introspection &amp; &quot;one schema, many consumers&quot; · profile <code>.agents/039-lee-byron.md</code></div></div></div>
+<div class="links"><a href="../index.html">← Full report</a><a href="../../.agents/039-lee-byron.md">Profile source</a></div></header>
+<main class="agent-main">
+<nav class="agent-nav"><a href="038.html">← 038</a><a href="040.html">040 →</a></nav>
+<div class="review-panel"><div class="review-text"><h2>Auditor review</h2><p>Lee Byron (GraphQL): One envelope, format_version 2.0, three incompatible node shapes across json/context/brief — this is the kind of implicit variant that breaks clients six months out, and the single published schema already rejects valid context exports. Pick one: a variant discriminator field with per-variant $defs, or three published schemas with distinct $ids. I&#x27;d also reconsider cloning the full schema into every brief export; a $ref with the content hash you already compute would do.</p></div>
+<div class="mini-kpis">
+<div class="mini-kpi"><div class="k">Findings</div><div class="v">1</div></div>
+<div class="mini-kpi bad"><div class="k">Critical + high</div><div class="v">1</div></div>
+<div class="mini-kpi"><div class="k">Evidence items</div><div class="v">1</div></div>
+<div class="mini-kpi"><div class="k">Effort mix</div><div class="v" style="font-size:14px">M</div></div>
+</div></div>
+<article class="finding-detail sev-high" id="f-C6-06">
+<div class="head"><h2>One schema, three shapes: Context/Brief exports (schema.rs:331-397) emit {id,kind,title,contract?,status?,verify?} nodes with format_version 2.0 but p</h2><span class="chip high">high</span><span class="fid">C6-06</span></div>
+<div class="meta-row"><span class="engineer">039 Lee Byron</span><span class="chip neutral">effort M</span><span class="chip neutral">moves: contract</span></div>
+<div class="evidence"><b>Evidence</b><span class="ev"><code>schema.rs:331-397</code></span></div>
+<p class="details">emit_json_with_schema, emit_context_with_schema and emit_brief_with_schema (schema.rs:369, 417, 474) all stamp format_version 2.0 and schema_version, but their node objects differ radically: JsonNodeV2 carries {id,kind,title,file,line,fields}, ContextNodeV2 carries {id,kind,title,contract,status,verify} with no file/line/fields, and BriefNodeV2 carries only {id,kind,title}. A consumer cannot tell from the envelope which node shape to expect, and the single published graph-protocol schema (which requires file/line/fields) rejects valid context and brief exports. This is the same &#x27;one version, three contracts&#x27; trap that breaks agent tooling silently.</p>
+<div class="snippet before"><span class="cap">before — current code</span><pre><code>#[derive(Serialize)]
+struct ContextNodeV2 {
+    id: String,
+    kind: String,
+    #[serde(skip_serializing_if = &quot;Option::is_none&quot;)]
+    title: Option&lt;String&gt;,
+    #[serde(skip_serializing_if = &quot;Option::is_none&quot;)]
+    contract: Option&lt;String&gt;,
+    #[serde(skip_serializing_if = &quot;Option::is_none&quot;)]
+    status: Option&lt;String&gt;,
+    #[serde(skip_serializing_if = &quot;Option::is_none&quot;)]
+    verify: Option&lt;Value&gt;,
+}</code></pre><div class="file">crates/specforge-emitter/src/schema.rs:403-414</div></div>
+<div class="arrow-between">↓ fix ↓</div>
+<div class="snippet after"><span class="cap">after — proposed fix</span><pre><code>#[derive(Serialize)]
+struct ContextGraphV2 {
+    format_version: &amp;&#x27;static str,      // &quot;2.0-context&quot;
+    variant: &amp;&#x27;static str,             // &quot;context&quot; | &quot;brief&quot; | &quot;full&quot;
+    schema_version: String,
+    schema: GraphProtocolSchema,
+    nodes: Vec&lt;ContextNodeV2&gt;,
+    edges: Vec&lt;JsonEdge&gt;,
+}
+
+impl ContextGraphV2 {
+    fn envelope(format: &amp;&#x27;static str, variant: &amp;&#x27;static str,
+                schema: &amp;GraphProtocolSchema) -&gt; Self {
+        Self {
+            format_version: format,
+            variant,
+            schema_version: schema.schema_version.to_string(),
+            schema: schema.clone(),
+            nodes: Vec::new(),
+            edges: Vec::new(),
+        }
+    }
+}
+// Publish graph-protocol-full.json, graph-protocol-context.json,
+// graph-protocol-brief.json with matching $defs per node shape.</code></pre><div class="file">crates/specforge-emitter/src/schema.rs</div></div>
+<div class="diagram-box"><span class="cap">One envelope per shape</span><div class="mermaid" id="dg-039-C6-06"><pre>flowchart TD
+ A[emit graph] --&gt; B{format}
+ B --&gt;|full| C[nodes with file line fields]
+ B --&gt;|context| D[nodes with contract status verify]
+ B --&gt;|brief| E[nodes id kind title only]
+ C --&gt; F[envelope carries variant field]
+ D --&gt; F
+ E --&gt; F
+ F --&gt; G[matching published schema per variant]
+ A --&gt; H[old shared 2.0 label]
+ H --&gt; I[validator rejects valid exports]</pre></div></div><script type="text/plain" class="mermaid-src" data-target="dg-039-C6-06">flowchart TD
+ A[emit graph] --> B{format}
+ B -->|full| C[nodes with file line fields]
+ B -->|context| D[nodes with contract status verify]
+ B -->|brief| E[nodes id kind title only]
+ C --> F[envelope carries variant field]
+ D --> F
+ E --> F
+ F --> G[matching published schema per variant]
+ A --> H[old shared 2.0 label]
+ H --> I[validator rejects valid exports]</script>
+<div class="eli10"><span class="tag">Explain like I'm 10</span><p>same menu on three doors, different dishes per kitchen.</p></div>
+<p class="sol" style="margin-top:12px"><b>Proposed solution.</b> three $defs variants + explicit variant field, or distinct published schemas/$ids.</p>
+</article>
+</main><script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.1/dist/mermaid.min.js" onerror="window.__mermaidFailed=true"></script><script src="../js/agent.js"></script></body></html>

@@ -1,0 +1,78 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>047 Nick Fitzgerald — SpecForge audit review</title>
+<link rel="stylesheet" href="../css/report.css"><link rel="stylesheet" href="../css/agents.css"></head><body>
+<header class="agent-hero"><div class="brand"><div class="logo">047</div><div>
+<h1>Nick Fitzgerald</h1>
+<div class="crumbs">Cluster C7 — Wasm plugin runtimes &amp; the extension bet · Wasmtime/Cranelift engineering; wasm-bindgen creator · profile <code>.agents/047-nick-fitzgerald.md</code></div></div></div>
+<div class="links"><a href="../index.html">← Full report</a><a href="../../.agents/047-nick-fitzgerald.md">Profile source</a></div></header>
+<main class="agent-main">
+<nav class="agent-nav"><a href="046.html">← 046</a><a href="048.html">048 →</a></nav>
+<div class="review-panel"><div class="review-text"><h2>Auditor review</h2><p>An AOT cache that is a byte-for-byte copy with a .aot suffix is the kind of thing that erodes trust in every other performance claim in the README — the cache.rs doc comment even admits it. Wasmtime has Module::serialize/deserialize right there under Extism; wiring aot_cache_path through instantiate is a contained, high-leverage change. I would do that, add a cold-vs-warm benchmark, and only then let the README say AOT.</p></div>
+<div class="mini-kpis">
+<div class="mini-kpi"><div class="k">Findings</div><div class="v">1</div></div>
+<div class="mini-kpi bad"><div class="k">Critical + high</div><div class="v">1</div></div>
+<div class="mini-kpi"><div class="k">Evidence items</div><div class="v">2</div></div>
+<div class="mini-kpi"><div class="k">Effort mix</div><div class="v" style="font-size:14px">M</div></div>
+</div></div>
+<article class="finding-detail sev-high" id="f-C7-02">
+<div class="head"><h2>&#x27;AOT caching&#x27; is a byte-for-byte copy with .aot suffix; _aot_cache_path ignored (runtime.rs:83-84); README:130 claims AOT.</h2><span class="chip high">high</span><span class="fid">C7-02</span></div>
+<div class="meta-row"><span class="engineer">047</span><span class="chip neutral">effort M</span><span class="chip neutral">moves: aot_claim_accuracy</span></div>
+<div class="evidence"><b>Evidence</b><span class="ev"><code>runtime.rs:83-84</code></span><span class="ev"><code>cache.rs:17-23</code></span></div>
+<p class="details">The &#x27;AOT cache&#x27; never compiles anything: cache.rs::cache_wasm_binary copies the original .wasm bytes to &lt;sha256&gt;.aot (its own doc comment admits &#x27;not true AOT compilation&#x27;), and ExtismRuntime::instantiate takes _aot_cache_path and ignores it entirely — every load still pays full Wasmtime compilation. has_cached_module only checks whether the copied file exists, so the README&#x27;s AOT claim is a lie that costs startup time on every CLI and LSP invocation. Wasmtime (under Extism) supports Module::serialize/deserialize for genuine precompiled artifacts; either use that path and honor aot_cache_path, or rename the mechanism to wasm_cache so the docs stop overpromising.</p>
+<div class="snippet before"><span class="cap">before — current code</span><pre><code>    fn instantiate(
+        &amp;self,
+        name: &amp;str,
+        wasm_bytes: &amp;[u8],
+        _aot_cache_path: Option&lt;&amp;Path&gt;,
+</code></pre><div class="file">crates/specforge-extism/src/runtime.rs:80-84</div></div>
+<div class="arrow-between">↓ fix ↓</div>
+<div class="snippet after"><span class="cap">after — proposed fix</span><pre><code>    fn instantiate(
+        &amp;self,
+        name: &amp;str,
+        wasm_bytes: &amp;[u8],
+        aot_cache_path: Option&lt;&amp;Path&gt;,
+    ) -&gt; Result&lt;(), String&gt; {
+        let functions = host_context::build_host_functions(self.host_context.clone());
+        let manifest = Manifest::new([Wasm::data(wasm_bytes.to_vec())]);
+        let mut builder = PluginBuilder::new(manifest).with_wasi(true);
+        if let Some(cache_path) = aot_cache_path {
+            // Deserialize a precompiled module if present; otherwise compile
+            // once and serialize so subsequent loads skip Wasmtime compilation.
+            if let Some(module) = load_serialized_module(cache_path) {
+                builder = builder.with_precompiled_module(module);
+            } else {
+                let compiled = builder
+                    .compile_precompiled()
+                    .map_err(|e| format!(&quot;AOT compile failed for {name}: {e}&quot;))?;
+                std::fs::write(cache_path, &amp;compiled)
+                    .map_err(|e| format!(&quot;cannot write AOT cache: {e}&quot;))?;
+                builder = PluginBuilder::new_precompiled(compiled).with_wasi(true);
+            }
+        }
+        let plugin = builder
+            .with_functions(functions)
+            .build()
+            .map_err(|e| format!(&quot;Failed to instantiate Wasm plugin {name}: {e}&quot;))?;
+        self.plugins.lock().map_err(|e| e.to_string())?
+            .insert(name.to_string(), LoadedPlugin { plugin });
+        Ok(())
+    }</code></pre><div class="file">crates/specforge-extism/src/runtime.rs</div></div>
+<div class="diagram-box"><span class="cap">Real AOT caching</span><div class="mermaid" id="dg-047-C7-02"><pre>flowchart TD
+ A[load_module with aot_cache_path] --&gt; B{serialized module on disk}
+ B --&gt;|yes| C[deserialize precompiled module]
+ B --&gt;|no| D[compile with Wasmtime]
+ D --&gt; E[Module serialize to .aot file]
+ E --&gt; F[instantiate plugin]
+ C --&gt; F
+ F --&gt; G[Cold start skips full compile]</pre></div></div><script type="text/plain" class="mermaid-src" data-target="dg-047-C7-02">flowchart TD
+ A[load_module with aot_cache_path] --> B{serialized module on disk}
+ B -->|yes| C[deserialize precompiled module]
+ B -->|no| D[compile with Wasmtime]
+ D --> E[Module serialize to .aot file]
+ E --> F[instantiate plugin]
+ C --> F
+ F --> G[Cold start skips full compile]</script>
+<div class="eli10"><span class="tag">Explain like I'm 10</span><p>box labeled &#x27;pre-cooked meals&#x27; contains the same raw ingredients renamed - full compile cost every start.</p></div>
+<p class="sol" style="margin-top:12px"><b>Proposed solution.</b> rename to wasm_cache or use wasmtime Module::serialize/deserialize; honor aot_cache_path.</p>
+</article>
+</main><script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.1/dist/mermaid.min.js" onerror="window.__mermaidFailed=true"></script><script src="../js/agent.js"></script></body></html>

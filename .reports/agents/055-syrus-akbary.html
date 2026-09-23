@@ -1,0 +1,85 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>055 Syrus Akbary — SpecForge audit review</title>
+<link rel="stylesheet" href="../css/report.css"><link rel="stylesheet" href="../css/agents.css"></head><body>
+<header class="agent-hero"><div class="brand"><div class="logo">055</div><div>
+<h1>Syrus Akbary</h1>
+<div class="crumbs">Cluster C7 — Wasm plugin runtimes &amp; the extension bet · Wasmer founder — competitive runtime landscape · profile <code>.agents/055-syrus-akbary.md</code></div></div></div>
+<div class="links"><a href="../index.html">← Full report</a><a href="../../.agents/055-syrus-akbary.md">Profile source</a></div></header>
+<main class="agent-main">
+<nav class="agent-nav"><a href="054.html">← 054</a><a href="056.html">056 →</a></nav>
+<div class="review-panel"><div class="review-text"><h2>Auditor review</h2><p>max_execution_ms 30 seconds is a speed limit with no police, and the single plugins.lock() held across plugin.call means one slow extension stalls every other one — in an LSP process that is a frozen IDE. The lock-free refactor (per-extension Arc&lt;Mutex&lt;LoadedPlugin&gt;&gt;) is easy; the epoch-interruption wiring needs a bit of wasmtime care but Extism exposes the engine. Together they turn &#x27;extensions cannot hang your compiler&#x27; from aspiration to property, and the epoch trap gives you a proper typed error to report.</p></div>
+<div class="mini-kpis">
+<div class="mini-kpi"><div class="k">Findings</div><div class="v">1</div></div>
+<div class="mini-kpi good"><div class="k">Critical + high</div><div class="v">0</div></div>
+<div class="mini-kpi"><div class="k">Evidence items</div><div class="v">2</div></div>
+<div class="mini-kpi"><div class="k">Effort mix</div><div class="v" style="font-size:14px">M</div></div>
+</div></div>
+<article class="finding-detail sev-medium" id="f-C7-10">
+<div class="head"><h2>max_execution_ms=30_000 default never read at runtime (sandbox.rs:17); call_export holds one global plugins.lock() for the whole plugin.call so all extensions serialize with no timeout (runtime.rs:117-140).</h2><span class="chip medium">medium</span><span class="fid">C7-10</span></div>
+<div class="meta-row"><span class="engineer">055</span><span class="chip neutral">effort M</span><span class="chip neutral">moves: sandbox_enforcement</span></div>
+<div class="evidence"><b>Evidence</b><span class="ev"><code>sandbox.rs:17</code></span><span class="ev"><code>runtime.rs:117-140</code></span></div>
+<p class="details">max_execution_ms defaults to 30_000 in default_sandbox_policy but is never read at runtime, and call_export holds the single plugins Mutex across the whole plugin.call so one slow plugin serializes every extension indefinitely. Fix: enforce the limit with wasmtime epoch interruption and switch to per-extension locks so extensions run concurrently.</p>
+<div class="snippet before"><span class="cap">before — current code</span><pre><code>    fn call_export(&amp;self, extension_name: &amp;str, export_name: &amp;str, input: &amp;[u8]) -&gt; WasmCallResult {
+        let mut plugins = match self.plugins.lock() {
+            Ok(p) =&gt; p,
+            Err(e) =&gt; {
+                return WasmCallResult::Trap(WasmTrapInfo {
+                    kind: &quot;lock_poisoned&quot;.to_string(),
+                    message: e.to_string(),
+                    export_name: export_name.to_string(),
+                });
+            }
+        };
+
+        let loaded = match plugins.get_mut(extension_name) {
+            Some(p) =&gt; p,
+            None =&gt; {
+                return WasmCallResult::Trap(WasmTrapInfo {
+                    kind: &quot;extension_not_found&quot;.to_string(),
+                    message: format!(&quot;Extension &#x27;{}&#x27; not loaded&quot;, extension_name),
+                    export_name: export_name.to_string(),
+                });
+            }
+        };
+</code></pre><div class="file">crates/specforge-extism/src/runtime.rs:117-128</div></div>
+<div class="arrow-between">↓ fix ↓</div>
+<div class="snippet after"><span class="cap">after — proposed fix</span><pre><code>    fn call_export(&amp;self, extension_name: &amp;str, export_name: &amp;str, input: &amp;[u8]) -&gt; WasmCallResult {
+        // Per-extension lock: one slow plugin no longer serializes the others.
+        let entry = self.plugins.lock().ok()?.get(extension_name).cloned()?;
+        let _guard = entry.lock().ok()?;
+
+        // Enforce max_execution_ms via wasmtime epoch interruption.
+        let ms = self.policy.max_execution_ms.unwrap_or(30_000) as u64;
+        let epoch = self.engine.epoch_deadline(ms);
+        let result = entry.plugin.call::&lt;&amp;[u8], Vec&lt;u8&gt;&gt;(export_name, input);
+        drop(epoch);
+        match result {
+            Ok(output) =&gt; WasmCallResult::Ok(output),
+            Err(e) =&gt; WasmCallResult::Trap(WasmTrapInfo {
+                kind: &quot;execution_timeout&quot;.into(),
+                message: format!(&quot;extension &#x27;{extension_name}&#x27; exceeded max_execution_ms: {e}&quot;),
+                export_name: export_name.into(),
+            }),
+        }
+    }</code></pre><div class="file">crates/specforge-extism/src/runtime.rs</div></div>
+<div class="diagram-box"><span class="cap">Timeout and concurrency</span><div class="mermaid" id="dg-055-C7-10"><pre>flowchart TD
+ A[call_export] --&gt; B[Take per extension lock]
+ B --&gt; C[Read max_execution_ms]
+ C --&gt; D[wasmtime epoch deadline armed]
+ D --&gt; E{returns in time}
+ E --&gt;|yes| F[Result returned]
+ E --&gt;|no| G[Epoch trap timeout]
+ F --&gt; H[Other extensions ran concurrently]
+ G --&gt; H</pre></div></div><script type="text/plain" class="mermaid-src" data-target="dg-055-C7-10">flowchart TD
+ A[call_export] --> B[Take per extension lock]
+ B --> C[Read max_execution_ms]
+ C --> D[wasmtime epoch deadline armed]
+ D --> E{returns in time}
+ E -->|yes| F[Result returned]
+ E -->|no| G[Epoch trap timeout]
+ F --> H[Other extensions ran concurrently]
+ G --> H</script>
+<div class="eli10"><span class="tag">Explain like I'm 10</span><p>a 30-second speed limit with no police car, and a single checkout lane for all shoppers.</p></div>
+<p class="sol" style="margin-top:12px"><b>Proposed solution.</b> wasmtime epoch interruption/fuel meter wired to the limit; per-extension locks or async for concurrency.</p>
+</article>
+</main><script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.1/dist/mermaid.min.js" onerror="window.__mermaidFailed=true"></script><script src="../js/agent.js"></script></body></html>

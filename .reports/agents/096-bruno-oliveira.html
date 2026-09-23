@@ -1,0 +1,126 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>096 Bruno Oliveira — SpecForge audit review</title>
+<link rel="stylesheet" href="../css/report.css"><link rel="stylesheet" href="../css/agents.css"></head><body>
+<header class="agent-hero"><div class="brand"><div class="logo">096</div><div>
+<h1>Bruno Oliveira</h1>
+<div class="crumbs">Cluster C11 — Testing &amp; BDD (test tracing &amp; report protocol) · pytest lead maintainer; plugin ecosystem steward · profile <code>.agents/096-bruno-oliveira.md</code></div></div></div>
+<div class="links"><a href="../index.html">← Full report</a><a href="../../.agents/096-bruno-oliveira.md">Profile source</a></div></header>
+<main class="agent-main">
+<nav class="agent-nav"><a href="095.html">← 095</a><a href="097.html">097 →</a></nav>
+<div class="review-panel"><div class="review-text"><h2>Auditor review</h2><p>Bruno Oliveira: two things I would fix first. The atexit-only capture loses everything on abort - nextest kills hung tests all the time, so this will bite real users; per-test Drop-time appends fix it cheaply. And verify kind is exported to graph.json but dropped from TestRecordEntry, so a unit test silently standing in for an e2e verify is invisible - pytest markers exist precisely for this. Also add schema conformance to a test: a report schema with additionalProperties:false will break consumers silently on the next field addition. The parser snapshot suite, though, is exemplary.</p></div>
+<div class="mini-kpis">
+<div class="mini-kpi"><div class="k">Findings</div><div class="v">2</div></div>
+<div class="mini-kpi good"><div class="k">Critical + high</div><div class="v">0</div></div>
+<div class="mini-kpi"><div class="k">Evidence items</div><div class="v">3</div></div>
+<div class="mini-kpi"><div class="k">Effort mix</div><div class="v" style="font-size:14px">M · S</div></div>
+</div></div>
+<article class="finding-detail sev-medium" id="f-C11-07">
+<div class="head"><h2>protocol: verify kind exported to graph.json (build.rs:27-42) but absent from TestRecordEntry (registry.rs:9-22) and report schema - kind-level (unit vs e2e) traceability unwired though W026 treats kinds as first-class.</h2><span class="chip medium">medium</span><span class="fid">C11-07</span></div>
+<div class="meta-row"><span class="engineer">096 Bruno Oliveira</span><span class="chip neutral">effort M</span></div>
+<div class="evidence"><b>Evidence</b><span class="ev"><code>graph.json</code></span><span class="ev"><code>build.rs:27-42</code></span><span class="ev"><code>registry.rs:9-22</code></span></div>
+<p class="details">build.rs exports each verify with its kind (ExportedVerify { kind, description, slug }, build.rs:23-28), so graph.json distinguishes verify unit from verify e2e - but TestRecordEntry (registry.rs:9-19) carries only the description, so BinaryReport cannot express kind-level information. W026 treats kinds as first-class (allowedVerifyKinds, kind-specific semantics), yet the report answers only is-it-tested, never is-the-e2e-verify-proven-by-an-e2e-test - a unit test standing in for an e2e obligation is invisible. Adding verify_kind to entries and the schemas closes the loop with a one-line join and surfaces a per-kind breakdown.</p>
+<div class="snippet before"><span class="cap">before — current code</span><pre><code>#[derive(Debug, Clone, Serialize, PartialEq)]
+pub struct TestRecordEntry {
+    pub entity_kind: String,
+    pub entity_id: String,
+    pub test_name: String,
+    pub file: String,
+    #[serde(skip_serializing_if = &quot;Option::is_none&quot;)]
+    pub verify: Option&lt;String&gt;,
+    #[serde(rename = &quot;status&quot;)]
+    pub outcome: TestOutcome,
+}</code></pre><div class="file">integrations/rust/specforge-test/src/registry.rs:9-19</div></div>
+<div class="arrow-between">↓ fix ↓</div>
+<div class="snippet after"><span class="cap">after — proposed fix</span><pre><code>#[derive(Debug, Clone, Serialize, PartialEq)]
+pub struct TestRecordEntry {
+    pub entity_kind: String,
+    pub entity_id: String,
+    pub test_name: String,
+    pub file: String,
+    #[serde(skip_serializing_if = &quot;Option::is_none&quot;)]
+    pub verify: Option&lt;String&gt;,
+    /// Which verify statement kind this test proves (unit, integration,
+    /// property, e2e). Joined from the graph export at match time so the
+    /// report can break coverage down per kind, per W026.
+    #[serde(skip_serializing_if = &quot;Option::is_none&quot;)]
+    pub verify_kind: Option&lt;String&gt;,
+    #[serde(rename = &quot;status&quot;)]
+    pub outcome: TestOutcome,
+}</code></pre><div class="file">integrations/rust/specforge-test/src/registry.rs</div></div>
+<div class="diagram-box"><span class="cap">verify kind dropped from report</span><div class="mermaid" id="dg-096-C11-07"><pre>flowchart TD
+ A[spec declares verify e2e] --&gt; B[build.rs exports kind to graph.json]
+ B --&gt; C[test records entry]
+ C --&gt; D[TestRecordEntry has no kind field]
+ D --&gt; E[report says tested without kind]
+ E --&gt; F[unit test silently stands in for e2e]
+ F --&gt; G[fix add verify_kind to entry]
+ G --&gt; H[report shows per kind breakdown]</pre></div></div><script type="text/plain" class="mermaid-src" data-target="dg-096-C11-07">flowchart TD
+ A[spec declares verify e2e] --> B[build.rs exports kind to graph.json]
+ B --> C[test records entry]
+ C --> D[TestRecordEntry has no kind field]
+ D --> E[report says tested without kind]
+ E --> F[unit test silently stands in for e2e]
+ F --> G[fix add verify_kind to entry]
+ G --> H[report shows per kind breakdown]</script>
+<div class="eli10"><span class="tag">Explain like I'm 10</span><p>the report says &#x27;tested&#x27; but not &#x27;proven by quick unit test vs slow e2e test&#x27;.</p></div>
+<p class="sol" style="margin-top:12px"><b>Proposed solution.</b> add verify_kind to entries and schemas; surface breakdown.</p>
+</article>
+<article class="finding-detail sev-medium" id="f-C11-10">
+<div class="head"><h2>schemas: no validator/test/CI consumes either schema (zero grep hits, no jsonschema dep); today&#x27;s conformance hand-verified, additionalProperties:false makes drift silent and breaking.</h2><span class="chip medium">medium</span><span class="fid">C11-10</span></div>
+<div class="meta-row"><span class="engineer">096 Bruno Oliveira</span><span class="chip neutral">effort S</span></div>
+<p class="details">The repo publishes report schemas (the vision calls the Graph Protocol schema the product) but nothing validates against them: no test reads the schema files, no JSON Schema validator dependency exists, and nothing consumes the written per-binary json. With additionalProperties:false, adding a field to TestRecordEntry (as C11-07 proposes) makes all previously-valid reports invalid and no test would notice - conformance is a human eyeballing JSON. For an ecosystem play, the producer being unvalidated removes the reference-implementation guarantee; one test serializing a real BinaryReport and validating it turns drift into a red CI run.</p>
+<div class="snippet before"><span class="cap">before — current code</span><pre><code>    let report = BinaryReportRef {
+        schema_version: &quot;1.0&quot;,
+        binary_name,
+        entries: &amp;sorted,
+    };
+
+    let path = dir.join(format!(&quot;{binary_name}.json&quot;));
+    let json = serde_json::to_string_pretty(&amp;report)?;
+    std::fs::write(path, json)
+}</code></pre><div class="file">integrations/rust/specforge-test/src/report.rs:21-33</div></div>
+<div class="arrow-between">↓ fix ↓</div>
+<div class="snippet after"><span class="cap">after — proposed fix</span><pre><code>#[test]
+fn serialized_report_conforms_to_binary_report_schema() {
+    let entries = vec![TestRecordEntry {
+        entity_kind: &quot;behavior&quot;.into(),
+        entity_id: &quot;create_user&quot;.into(),
+        test_name: &quot;create_user_contract&quot;.into(),
+        file: &quot;tests/contracts.rs&quot;.into(),
+        verify: Some(&quot;creates a user with valid input&quot;.into()),
+        verify_kind: Some(&quot;unit&quot;.into()),
+        outcome: TestOutcome::Pass,
+    }];
+    let json = serde_json::to_string(&amp;report::build_ref(&quot;1.0&quot;, &quot;contracts&quot;, &amp;entries)).unwrap();
+
+    let schema: serde_json::Value =
+        serde_json::from_str(include_str!(&quot;../../../schemas/binary-report.schema.json&quot;)).unwrap();
+    let validator = jsonschema::validator_for(&amp;schema).unwrap();
+
+    // additionalProperties: false means any struct/schema drift fails HERE,
+    // in CI, not silently in a user&#x27;s pipeline.
+    let value = serde_json::from_str(&amp;json).unwrap();
+    assert!(
+        validator.is_valid(&amp;value),
+        &quot;BinaryReport serialization drifted from schema: {json}&quot;
+    );
+}</code></pre><div class="file">integrations/rust/specforge-test/tests/schema_conformance.rs</div></div>
+<div class="diagram-box"><span class="cap">schemas validated by nobody</span><div class="mermaid" id="dg-096-C11-10"><pre>flowchart TD
+ A[schemas published on wall] --&gt; B[no validator in repo]
+ B --&gt; C[no test consumes schema]
+ C --&gt; D[conformance hand verified]
+ D --&gt; E[struct change adds field]
+ E --&gt; F[all old reports invalid silently]
+ F --&gt; G[fix validate real report in test]
+ G --&gt; H[drift becomes red CI run]</pre></div></div><script type="text/plain" class="mermaid-src" data-target="dg-096-C11-10">flowchart TD
+ A[schemas published on wall] --> B[no validator in repo]
+ B --> C[no test consumes schema]
+ C --> D[conformance hand verified]
+ D --> E[struct change adds field]
+ E --> F[all old reports invalid silently]
+ F --> G[fix validate real report in test]
+ G --> H[drift becomes red CI run]</script>
+<div class="eli10"><span class="tag">Explain like I'm 10</span><p>a precise form pinned on the wall that nobody checks filled pages against.</p></div>
+<p class="sol" style="margin-top:12px"><b>Proposed solution.</b> validate a real serialized BinaryReport against the schemas in a test.</p>
+</article>
+</main><script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.1/dist/mermaid.min.js" onerror="window.__mermaidFailed=true"></script><script src="../js/agent.js"></script></body></html>

@@ -1,0 +1,124 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>042 Samuel Colvin — SpecForge audit review</title>
+<link rel="stylesheet" href="../css/report.css"><link rel="stylesheet" href="../css/agents.css"></head><body>
+<header class="agent-hero"><div class="brand"><div class="logo">042</div><div>
+<h1>Samuel Colvin</h1>
+<div class="crumbs">Cluster C6 — Schemas, validation &amp; serialization (Graph Protocol) · Pydantic creator; Rust-core validation architecture · profile <code>.agents/042-samuel-colvin.md</code></div></div></div>
+<div class="links"><a href="../index.html">← Full report</a><a href="../../.agents/042-samuel-colvin.md">Profile source</a></div></header>
+<main class="agent-main">
+<nav class="agent-nav"><a href="041.html">← 041</a><a href="043.html">043 →</a></nav>
+<div class="review-panel"><div class="review-text"><h2>Auditor review</h2><p>Samuel Colvin (pydantic): Validation that fails open is my biggest pet peeve, and this engine fails open three ways: malformed regex means no violation, register_custom_patterns registers patterns whose probe traps, and both call-sites pass None for the Wasm runtime so custom validators can literally never fire. Wire CompositeRuntime in, compile regexes and check values at parse time, emit W-codes for misconfiguration. A rule that silently never runs is worse than no rule.</p></div>
+<div class="mini-kpis">
+<div class="mini-kpi"><div class="k">Findings</div><div class="v">2</div></div>
+<div class="mini-kpi bad"><div class="k">Critical + high</div><div class="v">1</div></div>
+<div class="mini-kpi"><div class="k">Evidence items</div><div class="v">4</div></div>
+<div class="mini-kpi"><div class="k">Effort mix</div><div class="v" style="font-size:14px">M</div></div>
+</div></div>
+<article class="finding-detail sev-high" id="f-C6-11">
+<div class="head"><h2>Custom Wasm rules can never fire: execute_pattern wasm param is None at both production callers (compile.rs:468, backend.rs:415); StubWasmRuntime alwa</h2><span class="chip high">high</span><span class="fid">C6-11</span></div>
+<div class="meta-row"><span class="engineer">042 Samuel Colvin</span><span class="chip neutral">effort M</span><span class="chip neutral">moves: wasm</span></div>
+<div class="evidence"><b>Evidence</b><span class="ev"><code>compile.rs:468</code></span><span class="ev"><code>backend.rs:415</code></span><span class="ev"><code>validation_engine.rs:180-320</code></span></div>
+<p class="details">ValidationPatternKind::Custom rules execute through an Option&lt;&amp;dyn WasmValidationRuntime&gt;, but both production call-sites pass None: crates/specforge-emitter/src/compile.rs:468 and crates/specforge-lsp/src/backend.rs:415. In execute_pattern the Custom arm with wasm=None silently yields violated=false (validation_engine.rs:296-304), so every Wasm validator an extension ships can never fire — the inspector slot exists, badges print, but nobody is let through the door and the empty slot counts as a pass. specforge-extism already ships CompositeRuntime (builtin + ExtismRuntime) implementing the runtime trait family; wiring it into the compile pipeline and adapting it to WasmValidationRuntime turns these into real checks with W-code diagnostics when a runtime is genuinely unavailable.</p>
+<div class="snippet before"><span class="cap">before — current code</span><pre><code>        if pattern.check == specforge_registry::validation_engine::ValidationPatternKind::CycleDetection {
+            let diags = detect_cycles(pattern, graph, edge_label_to_field);
+            diagnostics.extend(diags);
+        } else {
+            let diags = execute_pattern(pattern, &amp;entities, None);
+            diagnostics.extend(diags);
+        }</code></pre><div class="file">crates/specforge-emitter/src/compile.rs:463-470</div></div>
+<div class="arrow-between">↓ fix ↓</div>
+<div class="snippet after"><span class="cap">after — proposed fix</span><pre><code>    let mut diagnostics = Vec::new();
+    let runtime = wasm_runtime(); // Option&lt;CompositeRuntime&gt;: Some when extism feature on
+    let adapter = runtime.as_ref().map(WasmValidationAdapter);
+
+    for pattern in patterns {
+        if pattern.check == ValidationPatternKind::CycleDetection {
+            diagnostics.extend(detect_cycles(pattern, graph, edge_label_to_field));
+        } else {
+            let diags = execute_pattern(pattern, &amp;entities, adapter.as_deref());
+            diagnostics.extend(diags);
+        }
+    }
+    // Custom rules with wasm_function but no runtime emit W026 once per rule,
+    // not a silent pass per entity.</code></pre><div class="file">crates/specforge-emitter/src/compile.rs</div></div>
+<div class="diagram-box"><span class="cap">Letting validators through the door</span><div class="mermaid" id="dg-042-C6-11"><pre>flowchart TD
+ A[custom rule with wasm fn] --&gt; B{runtime wired}
+ B --&gt;|today None| C[violated false]
+ C --&gt; D[silent pass every entity]
+ B --&gt;|CompositeRuntime| E[call validator]
+ E --&gt; F{result}
+ F --&gt;|fail| G[diagnostic with rule code]
+ F --&gt;|error| H[W-code runtime diagnostic]
+ B --&gt;|feature off| I[one W026 per rule not per entity]</pre></div></div><script type="text/plain" class="mermaid-src" data-target="dg-042-C6-11">flowchart TD
+ A[custom rule with wasm fn] --> B{runtime wired}
+ B -->|today None| C[violated false]
+ C --> D[silent pass every entity]
+ B -->|CompositeRuntime| E[call validator]
+ E --> F{result}
+ F -->|fail| G[diagnostic with rule code]
+ F -->|error| H[W-code runtime diagnostic]
+ B -->|feature off| I[one W026 per rule not per entity]</script>
+<div class="eli10"><span class="tag">Explain like I'm 10</span><p>inspector slot installed, badges printed, nobody let through the door - empty slot counts as pass.</p></div>
+<p class="sol" style="margin-top:12px"><b>Proposed solution.</b> wire CompositeRuntime; errors become W-code diagnostics; integration test with failing wasm validator.</p>
+</article>
+<article class="finding-detail sev-medium" id="f-C6-12">
+<div class="head"><h2>Misconfigured rules fail silent: malformed regex -&gt; no violation (validation_engine.rs:218-235); register_custom_patterns accepts Ok OR Err (326-358);</h2><span class="chip medium">medium</span><span class="fid">C6-12</span></div>
+<div class="meta-row"><span class="engineer">042 Samuel Colvin</span><span class="chip neutral">effort M</span><span class="chip neutral">moves: wasm</span></div>
+<div class="evidence"><b>Evidence</b><span class="ev"><code>validation_engine.rs:218-235</code></span></div>
+<p class="details">Misconfigured rules fail open everywhere: a malformed regex in a matches constraint compiles per entity and Err(_) =&gt; false treats the bad pattern as no-violation (validation_engine.rs:227-230); register_custom_patterns (validation_engine.rs:331-358) matches Ok(_) | Err(_) and registers the pattern either way, so a wasm function that traps on the __probe__ call is indistinguishable from a healthy one; one_of with an empty values list never matches anything, and missing field/constraint combos silently return false. A rule that can never fire is worse than no rule — it gives authors false confidence, like a smoke detector with a dead battery. Parse-time validation in parse_rule_pattern (compile the regex once, check field names against the field registry, require non-empty values for one_of) would surface W-code diagnostics at authoring time instead.</p>
+<div class="snippet before"><span class="cap">before — current code</span><pre><code>                                if let Some(ref pat) = constraint.pattern {
+                                    // The value violates the constraint when it fails to
+                                    // match the regex. A malformed pattern is treated as
+                                    // &quot;no violation&quot; rather than blocking on a bad rule.
+                                    match regex::Regex::new(pat) {
+                                        Ok(re) =&gt; !re.is_match(value),
+                                        Err(_) =&gt; false,
+                                    }
+                                } else {
+                                    false
+                                }</code></pre><div class="file">crates/specforge-registry/src/compilation/validation_engine.rs:224-231</div></div>
+<div class="arrow-between">↓ fix ↓</div>
+<div class="snippet after"><span class="cap">after — proposed fix</span><pre><code>pub enum CompiledConstraint {
+    NonEmpty,
+    OneOf(Vec&lt;String&gt;),
+    Matches(regex::Regex),
+}
+
+// In parse_rule_pattern, after building `constraint`:
+let compiled = match constraint.kind.as_str() {
+    &quot;non_empty&quot; =&gt; CompiledConstraint::NonEmpty,
+    &quot;one_of&quot; if constraint.values.is_empty() =&gt; return Err(Diagnostic {
+        code: &quot;W027&quot;.into(), severity: Severity::Warning,
+        message: format!(&quot;extension &#x27;{}&#x27;: rule &#x27;{}&#x27; uses one_of with empty values — rule can never match&quot;, extension_name, rule.code),
+        span: None, suggestion: Some(&quot;List at least one allowed value.&quot;.into()),
+    }),
+    &quot;matches&quot; =&gt; CompiledConstraint::Matches(regex::Regex::new(
+        constraint.pattern.as_deref().unwrap_or_default()
+    ).map_err(|e| bad_rule_diag(extension_name, &amp;rule.code, &amp;e.to_string()))?),
+    other =&gt; return Err(bad_rule_diag(extension_name, &amp;rule.code, other)),
+};
+// execute_pattern then matches on the pre-compiled constraint —
+// no per-entity Regex::new, no silent Err path.</code></pre><div class="file">crates/specforge-registry/src/compilation/validation_engine.rs</div></div>
+<div class="diagram-box"><span class="cap">Fail loud at parse time</span><div class="mermaid" id="dg-042-C6-12"><pre>flowchart TD
+ A[manifest rule declared] --&gt; B[parse_rule_pattern]
+ B --&gt; C[compile regex once]
+ C --&gt; D{valid}
+ D --&gt;|no| E[W-code diagnostic at parse]
+ D --&gt;|yes| F[store compiled constraint]
+ F --&gt; G[execute uses compiled form]
+ A --&gt; H[today per-entity retry]
+ H --&gt; I[Err treated as no violation]
+ I --&gt; J[silent pass forever]</pre></div></div><script type="text/plain" class="mermaid-src" data-target="dg-042-C6-12">flowchart TD
+ A[manifest rule declared] --> B[parse_rule_pattern]
+ B --> C[compile regex once]
+ C --> D{valid}
+ D -->|no| E[W-code diagnostic at parse]
+ D -->|yes| F[store compiled constraint]
+ F --> G[execute uses compiled form]
+ A --> H[today per-entity retry]
+ H --> I[Err treated as no violation]
+ I --> J[silent pass forever]</script>
+<div class="eli10"><span class="tag">Explain like I'm 10</span><p>smoke detector with dead battery just stays quiet.</p></div>
+<p class="sol" style="margin-top:12px"><b>Proposed solution.</b> parse-time validation (regex compile, field-name check, values non-empty) with W-codes.</p>
+</article>
+</main><script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.1/dist/mermaid.min.js" onerror="window.__mermaidFailed=true"></script><script src="../js/agent.js"></script></body></html>

@@ -1,0 +1,72 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>077 Walden Yan — SpecForge audit review</title>
+<link rel="stylesheet" href="../css/report.css"><link rel="stylesheet" href="../css/agents.css"></head><body>
+<header class="agent-hero"><div class="brand"><div class="logo">077</div><div>
+<h1>Walden Yan</h1>
+<div class="crumbs">Cluster C9 — MCP &amp; AI-agent context engineering · Cognition co-founder (Devin); &#x27;context engineering&#x27; essayist · profile <code>.agents/077-walden-yan.md</code></div></div></div>
+<div class="links"><a href="../index.html">← Full report</a><a href="../../.agents/077-walden-yan.md">Profile source</a></div></header>
+<main class="agent-main">
+<nav class="agent-nav"><a href="076.html">← 076</a><a href="078.html">078 →</a></nav>
+<div class="review-panel"><div class="review-text"><h2>Auditor review</h2><p>Every prompt here hands the model a script where the assistant turn contains data the model never said - kind guides, entity lists, the entire unanalyzed file dump - and hosts trim or reinterpret assistant turns, so your reference material sits in the least stable slot while the user turn carries one sentence. Swap the roles so instruction plus payload ride the user message, or emit the payload as an embedded resource referenced from the prompt; you already register specforge://context, so the resource path is a small change. Context engineering is mostly about putting things where readers look, and this puts them where compaction eats them.</p></div>
+<div class="mini-kpis">
+<div class="mini-kpi"><div class="k">Findings</div><div class="v">1</div></div>
+<div class="mini-kpi good"><div class="k">Critical + high</div><div class="v">0</div></div>
+<div class="mini-kpi"><div class="k">Evidence items</div><div class="v">3</div></div>
+<div class="mini-kpi"><div class="k">Effort mix</div><div class="v" style="font-size:14px">S</div></div>
+</div></div>
+<article class="finding-detail sev-medium" id="f-C9-14">
+<div class="head"><h2>Infer prompts smuggle payloads through the assistant turn</h2><span class="chip medium">medium</span><span class="fid">C9-14</span></div>
+<div class="meta-row"><span class="engineer">077 Walden Yan</span><span class="chip neutral">effort S</span><span class="chip neutral">moves: n/a (prompt reliability)</span></div>
+<div class="evidence"><b>Evidence</b><span class="ev"><code>crates/specforge-mcp/src/prompts/infer.rs</code></span><span class="ev"><code>crates/specforge-mcp/src/tools/query.rs</code></span><span class="ev"><code>crates/specforge-emitter/src/context.rs; brief.rs</code></span></div>
+<p class="details">Every prompt in infer.rs (get_overview, get_kind_scoped, get_file_scoped, get_plan, get_workflow) puts the reference payload - kind guides, existing entity IDs, unanalyzed file lists - into an assistant-role message, so the model is handed data-it-already-said that it never said. Hosts commonly trim, summarize, or reinterpret assistant turns, and models treat assistant content as prior commitments, so instructions smuggled this way can lose authority mid-session or be silently dropped by context compaction. The user turn carries only a one-line instruction while the payload - the material that must not vanish - sits in the least stable slot. Swapping roles or emitting the payload as an embedded resource (specforge://context is already a registered resource URI) fixes this with a shape change only.</p>
+<div class="snippet before"><span class="cap">before — current code</span><pre><code>    JsonRpcResponse::success(id, serde_json::json!({
+        &quot;messages&quot;: [
+            {
+                &quot;role&quot;: &quot;user&quot;,
+                &quot;content&quot;: { &quot;type&quot;: &quot;text&quot;, &quot;text&quot;: instruction }
+            },
+            {
+                &quot;role&quot;: &quot;assistant&quot;,
+                &quot;content&quot;: { &quot;type&quot;: &quot;text&quot;, &quot;text&quot;: result.to_string() }
+            }
+        ]
+    }))</code></pre><div class="file">crates/specforge-mcp/src/prompts/infer.rs:119-131</div></div>
+<div class="arrow-between">↓ fix ↓</div>
+<div class="snippet after"><span class="cap">after — proposed fix</span><pre><code>JsonRpcResponse::success(id, serde_json::json!({
+    &quot;messages&quot;: [
+        {
+            &quot;role&quot;: &quot;user&quot;,
+            &quot;content&quot;: { &quot;type&quot;: &quot;text&quot;, &quot;text&quot;: format!(
+                &quot;{}\n\nReference data:\n{}&quot;,
+                instruction,
+                result
+            ) }
+        },
+        {
+            &quot;role&quot;: &quot;assistant&quot;,
+            &quot;content&quot;: { &quot;type&quot;: &quot;text&quot;, &quot;text&quot;: &quot;&quot; }
+        }
+    ]
+}))
+// Or attach the payload as an embedded resource:
+// { type: resource, resource: { uri: specforge://context, text: result } }
+// referenced from the user message, keeping the assistant turn empty.</code></pre><div class="file">crates/specforge-mcp/src/prompts/infer.rs</div></div>
+<div class="diagram-box"><span class="cap">Prompt role swap</span><div class="mermaid" id="dg-077-C9-14"><pre>flowchart TD
+ A[Prompt returned] --&gt; B[Payload in assistant turn]
+ B --&gt; C[Host trims or reinterprets assistant turns]
+ C --&gt; D[Reference data lost mid-session]
+ D --&gt; E[Model treats payload as own prior claim]
+ E --&gt; F[Move instruction plus payload to user turn]
+ F --&gt; G[Or attach as embedded resource]
+ G --&gt; H[Assistant turn left empty]</pre></div></div><script type="text/plain" class="mermaid-src" data-target="dg-077-C9-14">flowchart TD
+ A[Prompt returned] --> B[Payload in assistant turn]
+ B --> C[Host trims or reinterprets assistant turns]
+ C --> D[Reference data lost mid-session]
+ D --> E[Model treats payload as own prior claim]
+ E --> F[Move instruction plus payload to user turn]
+ F --> G[Or attach as embedded resource]
+ G --> H[Assistant turn left empty]</script>
+<div class="eli10"><span class="tag">Explain like I'm 10</span><p>The prompt hands the model a script that says &#x27;and here is what you already said...&#x27; — putting the reference material in the model&#x27;s own mouth. Some hosts trim or reinterpret assistant turns (and treat them as commitments the model made), so instructions delivered this way can lose authority or vanish mid-session. Put the reference material where readers look: user side or an attached resource.</p></div>
+<p class="sol" style="margin-top:12px"><b>Proposed solution.</b> Swap roles (user message carries instruction + payload), or return the payload as an embedded resource (specforge://context scoped to kind) referenced from the prompt, keeping the assistant turn empty.</p>
+</article>
+</main><script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.1/dist/mermaid.min.js" onerror="window.__mermaidFailed=true"></script><script src="../js/agent.js"></script></body></html>

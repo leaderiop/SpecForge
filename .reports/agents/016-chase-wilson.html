@@ -1,0 +1,159 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>016 Chase Wilson (Kixiron) — SpecForge audit review</title>
+<link rel="stylesheet" href="../css/report.css"><link rel="stylesheet" href="../css/agents.css"></head><body>
+<header class="agent-hero"><div class="brand"><div class="logo">016</div><div>
+<h1>Chase Wilson (Kixiron)</h1>
+<div class="crumbs">Cluster C3 — Parsing &amp; grammar infrastructure · lasso string-interner creator; compiler-infrastructure tooling in Rust · profile <code>.agents/016-chase-wilson.md</code></div></div></div>
+<div class="links"><a href="../index.html">← Full report</a><a href="../../.agents/016-chase-wilson.md">Profile source</a></div></header>
+<main class="agent-main">
+<nav class="agent-nav"><a href="015.html">← 015</a><a href="017.html">017 →</a></nav>
+<div class="review-panel"><div class="review-text"><h2>Auditor review</h2><p>Kixiron here: lasso + LazyLock + a Copy Spur wrapper is exactly the interner I&#x27;d write, and the seven tests cover the important invariants — but you&#x27;re paying interning tolls while still doing string compares: FieldValue is Strings all the way down and FieldMap::get resolves every key to &amp;str per lookup. Intern reference targets at parse time and cache the parser&#x27;s pseudo-field keys as LazyLock constants; those two moves kill the hot-loop re-interning. And document the rodeo leak contract plus the empty-string Default sentinel — right now two nameless entities share one identity and nobody knows why.</p></div>
+<div class="mini-kpis">
+<div class="mini-kpi"><div class="k">Findings</div><div class="v">2</div></div>
+<div class="mini-kpi good"><div class="k">Critical + high</div><div class="v">0</div></div>
+<div class="mini-kpi"><div class="k">Evidence items</div><div class="v">4</div></div>
+<div class="mini-kpi"><div class="k">Effort mix</div><div class="v" style="font-size:14px">M · S</div></div>
+</div></div>
+<article class="finding-detail sev-medium" id="f-C3-10">
+<div class="head"><h2>Interner quarter-adopted; values stay String; FieldMap.get linear string-compare</h2><span class="chip medium">medium</span><span class="fid">C3-10</span></div>
+<div class="meta-row"><span class="engineer">016 Chase Wilson (Kixiron)</span><span class="chip neutral">effort M</span><span class="chip neutral">moves: Interner breadth</span></div>
+<div class="evidence"><b>Evidence</b><span class="ev"><code>ast.rs:33-108</code> — FieldValue all String variants; linear find with string resolution per entry</span><span class="ev"><code>interner.rs:5-46</code> — Sym solid (Copy, O(1), 7 tests) but constants re-interned per entity; linker re-interns String targets</span></div>
+<p class="details">Sym is a solid interned key — Copy, O(1) eq/hash via Spur, seven focused tests — but the interner stops at names. FieldValue in specforge-parser/src/ast.rs holds String everywhere (String, ReferenceList(Vec&lt;String&gt;), StringList...), so every equality check and lookup on values goes through full string compares. FieldMap::get does a linear scan resolving each key Sym to &amp;str for comparison per call — O(n) per lookup with the toll paid repeatedly across graph building and validation. Meanwhile link_references re-interns every reference target (Sym::new(target_id)) inside the hot loop, and parser constants like Sym::new(&quot;verify&quot;) are re-interned per entity. Caching the repeated keys as constants, interning reference targets once at parse time, and moving reference targets to Vec&lt;Sym&gt; would quarter-adopt into a real win; a Sym-keyed index inside FieldMap is worth it only if profiling justifies it.</p>
+<div class="snippet before"><span class="cap">before — current code</span><pre><code>    pub fn push(&amp;mut self, key: Sym, value: FieldValue) {
+        self.entries.push(FieldEntry { key, value, annotations: Vec::new() });
+    }
+
+    pub fn push_annotated(&amp;mut self, key: Sym, value: FieldValue, annotations: Vec&lt;Annotation&gt;) {
+        self.entries.push(FieldEntry { key, value, annotations });
+    }
+
+    pub fn get(&amp;self, key: &amp;str) -&gt; Option&lt;&amp;FieldValue&gt; {
+        self.entries.iter().find(|e| e.key == key).map(|e| &amp;e.value)
+    }
+
+    pub fn entries(&amp;self) -&gt; &amp;[FieldEntry] {
+        &amp;self.entries
+    }</code></pre><div class="file">crates/specforge-parser/src/ast.rs:87-101</div></div>
+<div class="arrow-between">↓ fix ↓</div>
+<div class="snippet after"><span class="cap">after — proposed fix</span><pre><code>// Cached keys for parser-inserted pseudo-fields (interned once).
+pub mod keys {
+    use super::Sym;
+    use std::sync::LazyLock;
+    pub static VERIFY: LazyLock&lt;Sym&gt; = LazyLock::new(|| Sym::new(&quot;verify&quot;));
+    pub static SCHEME: LazyLock&lt;Sym&gt; = LazyLock::new(|| Sym::new(&quot;scheme&quot;));
+}
+
+impl FieldMap {
+    /// O(n) but compares interned u32 keys — no per-entry string resolve.
+    pub fn get(&amp;self, key: &amp;str) -&gt; Option&lt;&amp;FieldValue&gt; {
+        let probe = Sym::new(key); // one intern (hash hit) per lookup
+        self.entries.iter().find(|e| e.key == probe).map(|e| &amp;e.value)
+    }
+
+    /// Sym-keyed lookup when the caller already holds a Sym.
+    pub fn get_sym(&amp;self, key: Sym) -&gt; Option&lt;&amp;FieldValue&gt; {
+        self.entries.iter().find(|e| e.key == key).map(|e| &amp;e.value)
+    }
+}
+
+// Reference targets interned at parse time, so the linker stops
+// re-interning in its hot loop:
+//   ReferenceList(Vec&lt;Sym&gt;)  — was Vec&lt;String&gt;</code></pre><div class="file">crates/specforge-parser/src/ast.rs</div></div>
+<div class="diagram-box"><span class="cap">Interner quarter adoption</span><div class="mermaid" id="dg-016-C3-10"><pre>flowchart TD
+ A[Sym interned for names] --&gt; B[values still String]
+ B --&gt; C[FieldMap get resolves str per entry]
+ C --&gt; D[linear string compares]
+ E[linker loop] --&gt; F[Sym new target each ref]
+ F --&gt; D
+ B --&gt; G[intern targets at parse time]
+ G --&gt; H[ReferenceList Vec Sym]
+ H --&gt; I[O1 compares]
+ C --&gt; J[compare interned keys]
+ J --&gt; I</pre></div></div><script type="text/plain" class="mermaid-src" data-target="dg-016-C3-10">flowchart TD
+ A[Sym interned for names] --> B[values still String]
+ B --> C[FieldMap get resolves str per entry]
+ C --> D[linear string compares]
+ E[linker loop] --> F[Sym new target each ref]
+ F --> D
+ B --> G[intern targets at parse time]
+ G --> H[ReferenceList Vec Sym]
+ H --> I[O1 compares]
+ C --> J[compare interned keys]
+ J --> I</script>
+<div class="eli10"><span class="tag">Explain like I'm 10</span><p>Nickname dictionary used only for names while facts are written longhand and compared letter by letter — works, but pays tolls every trip.</p></div>
+<p class="sol" style="margin-top:12px"><b>Proposed solution.</b> Cache repeated keys; intern reference targets at parse time; Sym-keyed FieldMap index if profiling justifies.</p>
+</article>
+<article class="finding-detail sev-info" id="f-C3-11">
+<div class="head"><h2>ThreadedRodeo trade-offs undocumented: single RwLock, leak-by-design static resolve, empty-string Default sentinel</h2><span class="chip info">info</span><span class="fid">C3-11</span></div>
+<div class="meta-row"><span class="engineer">016 Chase Wilson (Kixiron)</span><span class="chip neutral">effort S</span><span class="chip neutral">moves: Interner breadth</span></div>
+<div class="evidence"><b>Evidence</b><span class="ev"><code>interner.rs:5,20-22,75-78</code> — as_str static only because rodeo leaks forever; Sym::default() interns empty string</span><span class="ev"><code>parse.rs:128-131,173-175</code> — missing kind/name fall back to empty-string Sym — nameless entities share identity</span></div>
+<p class="details">Sym::as_str returns &amp;&#x27;static str only because the static ThreadedRodeo leaks every interned string forever — a load-bearing invariant documented nowhere in interner.rs. Interner access is a single LazyLock&lt;ThreadedRodeo&gt; whose get_or_intern takes the rodeo&#x27;s internal writer lock, so parse-heavy multithreaded phases serialize on interning, another unstated cost. And Default for Sym interns the empty string, which combine with parse.rs&#x27;s unwrap_or_else(|| Sym::new(&quot;&quot;)) fallbacks for missing kind/name fields: two nameless entities share one identity, and any downstream HashMap keyed by id collapses them together. A documented leak contract, a dedicated MISSING sentinel (distinct from empty-string), and a note on writer serialization would make these trade-offs explicit instead of archaeological.</p>
+<div class="snippet before"><span class="cap">before — current code</span><pre><code>static INTERNER: LazyLock&lt;ThreadedRodeo&gt; = LazyLock::new(ThreadedRodeo::default);
+
+/// An interned string symbol. Wraps `lasso::Spur` (a `u32` index).
+/// `Copy`, `Eq`, and `Hash` are all O(1). Resolves back to `&amp;&#x27;static str`.
+#[derive(Clone, Copy, Eq)]
+pub struct Sym(Spur);
+
+impl Sym {
+    /// Intern a string and return its symbol.
+    pub fn new(s: &amp;str) -&gt; Self {
+        Self(INTERNER.get_or_intern(s))
+    }
+
+    /// Resolve the symbol back to its string.
+    pub fn as_str(self) -&gt; &amp;&#x27;static str {
+        INTERNER.resolve(&amp;self.0)
+    }</code></pre><div class="file">crates/specforge-common/src/interner.rs:5-24</div></div>
+<div class="arrow-between">↓ fix ↓</div>
+<div class="snippet after"><span class="cap">after — proposed fix</span><pre><code>static INTERNER: LazyLock&lt;ThreadedRodeo&gt; = LazyLock::new(ThreadedRodeo::default);
+
+/// An interned string symbol. Wraps `lasso::Spur` (a `u32` index).
+/// `Copy`, `Eq`, and `Hash` are all O(1).
+///
+/// # Contracts
+/// - as_str returns `&amp;&#x27;static str` because the rodeo **leaks strings for
+///   the process lifetime by design** — never intern unbounded input.
+/// - get_or_intern serializes on the rodeo&#x27;s writer lock; resolve is
+///   lock-free. Hot loops should reuse Syms, not re-intern.
+/// - Sym::default() is the MISSING sentinel (interned empty string),
+///   distinct from any user identifier; `is_missing()` checks it.
+#[derive(Clone, Copy, Eq)]
+pub struct Sym(Spur);
+
+impl Sym {
+    /// Intern a string and return its symbol.
+    pub fn new(s: &amp;str) -&gt; Self {
+        Self(INTERNER.get_or_intern(s))
+    }
+
+    /// True when this is the MISSING sentinel (interned empty string).
+    pub fn is_missing(self) -&gt; bool {
+        self.0 == Self::default().0
+    }
+
+    /// Resolve the symbol back to its string.
+    pub fn as_str(self) -&gt; &amp;&#x27;static str {
+        INTERNER.resolve(&amp;self.0)
+    }</code></pre><div class="file">crates/specforge-common/src/interner.rs</div></div>
+<div class="diagram-box"><span class="cap">Undocumented interner contracts</span><div class="mermaid" id="dg-016-C3-11"><pre>flowchart TD
+ A[Sym default interns empty string] --&gt; B[parser falls back to empty Sym]
+ B --&gt; C[two nameless entities share identity]
+ C --&gt; D[hash map collapses them]
+ E[static rodeo leaks strings] --&gt; F[as_str static but undocumented]
+ G[single writer lock] --&gt; H[interning serializes threads]
+ B --&gt; I[add MISSING sentinel and is_missing]
+ F --&gt; J[document leak contract]
+ H --&gt; K[document writer serialization]</pre></div></div><script type="text/plain" class="mermaid-src" data-target="dg-016-C3-11">flowchart TD
+ A[Sym default interns empty string] --> B[parser falls back to empty Sym]
+ B --> C[two nameless entities share identity]
+ C --> D[hash map collapses them]
+ E[static rodeo leaks strings] --> F[as_str static but undocumented]
+ G[single writer lock] --> H[interning serializes threads]
+ B --> I[add MISSING sentinel and is_missing]
+ F --> J[document leak contract]
+ H --> K[document writer serialization]</script>
+<div class="eli10"><span class="tag">Explain like I'm 10</span><p>One shared notebook, writers take turns; and all unnamed things share the empty nickname, so two nameless blocks become one person in the records.</p></div>
+<p class="sol" style="margin-top:12px"><b>Proposed solution.</b> Document leak contract; add MISSING sentinel; note writer serialization.</p>
+</article>
+</main><script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.1/dist/mermaid.min.js" onerror="window.__mermaidFailed=true"></script><script src="../js/agent.js"></script></body></html>

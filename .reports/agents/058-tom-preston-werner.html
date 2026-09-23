@@ -1,0 +1,113 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>058 Tom Preston-Werner — SpecForge audit review</title>
+<link rel="stylesheet" href="../css/report.css"><link rel="stylesheet" href="../css/agents.css"></head><body>
+<header class="agent-hero"><div class="brand"><div class="logo">058</div><div>
+<h1>Tom Preston-Werner</h1>
+<div class="crumbs">Cluster C8 — Registries, packaging &amp; supply-chain trust · Semantic Versioning spec author; version-compatibility policy · profile <code>.agents/058-tom-preston-werner.md</code></div></div></div>
+<div class="links"><a href="../index.html">← Full report</a><a href="../../.agents/058-tom-preston-werner.md">Profile source</a></div></header>
+<main class="agent-main">
+<nav class="agent-nav"><a href="057.html">← 057</a><a href="059.html">059 →</a></nav>
+<div class="review-panel"><div class="review-text"><h2>Auditor review</h2><p>SemVer is respected in the handshake and the client&#x27;s pick_highest but violated in SQL: HAVING version = MAX(version) is lexicographic, crowning 9.0.0 over 10.0.0 — sort numerically or compute max in Rust like the client does. Validate versions with semver at the publish boundary so banana never enters the catalog, and turn those unwraps into 500s while you are there.</p></div>
+<div class="mini-kpis">
+<div class="mini-kpi"><div class="k">Findings</div><div class="v">3</div></div>
+<div class="mini-kpi bad"><div class="k">Critical + high</div><div class="v">1</div></div>
+<div class="mini-kpi"><div class="k">Evidence items</div><div class="v">0</div></div>
+<div class="mini-kpi"><div class="k">Effort mix</div><div class="v" style="font-size:14px">S</div></div>
+</div></div>
+<article class="finding-detail sev-high" id="f-C8-02">
+<div class="head"><h2>Server-side search picks &#x27;latest&#x27; via SQL string MAX, so 9.0.0 outranks 10.0.0</h2><span class="chip high">high</span><span class="fid">C8-02</span></div>
+<div class="meta-row"><span class="engineer">058 Tom Preston-Werner</span><span class="chip neutral">effort S</span><span class="chip neutral">moves: latest_version_correctness</span></div>
+<p class="details">db.rs search uses GROUP BY name HAVING version = MAX(version); SQLite TEXT MAX is lexicographic so 9.0.0 outranks 10.0.0, and the client&#x27;s pick_highest already parses semver correctly. Unwraps in the same method panic into connection resets instead of 500s.</p>
+<div class="snippet before"><span class="cap">before — current code</span><pre><code>        let mut stmt = conn
+            .prepare(
+                &quot;SELECT name, version, sha256, size_bytes, description, keywords, publisher, published_at
+                 FROM packages
+                 WHERE yanked = 0 AND (name LIKE ?1 OR description LIKE ?1 OR keywords LIKE ?1)
+                 GROUP BY name
+                 HAVING version = MAX(version)
+                 ORDER BY name
+                 LIMIT ?2&quot;,
+            )
+            .unwrap();</code></pre><div class="file">crates/specforge-registry-server/src/db.rs:129-138</div></div>
+<div class="arrow-between">↓ fix ↓</div>
+<div class="snippet after"><span class="cap">after — proposed fix</span><pre><code>    // fetch rows, then compute latest with parsed semver
+    let mut latest: HashMap&lt;String, PackageVersion&gt; = HashMap::new();
+    while let Some(p) = rows.next().transpose().map_err(|e| e.to_string())? {
+        let entry = latest.entry(p.name.clone()).or_insert(p);
+        if let (Ok(c), Ok(n)) = (Version::parse(&amp;entry.version), Version::parse(&amp;p.version))
+            &amp;&amp; n &gt; c {
+            *entry = p;
+        }
+    }
+    Ok(latest.into_values().take(limit as usize).collect())</code></pre><div class="file">crates/specforge-registry-server/src/db.rs</div></div>
+<div class="diagram-box"><span class="cap">Lexicographic MAX crowns 9.0.0 over 10.0.0</span><div class="mermaid" id="dg-058-C8-02"><pre>flowchart TD
+ A[SQL MAX on TEXT] --&gt; B[9.0.0 beats 10.0.0]
+ B --&gt; C[search shows stale latest]
+ D[fix] --&gt; E[fetch rows in Rust]
+ E --&gt; F[semver parse compare]
+ F --&gt; G[10.0.0 wins]</pre></div></div><script type="text/plain" class="mermaid-src" data-target="dg-058-C8-02">flowchart TD
+ A[SQL MAX on TEXT] --> B[9.0.0 beats 10.0.0]
+ B --> C[search shows stale latest]
+ D[fix] --> E[fetch rows in Rust]
+ E --> F[semver parse compare]
+ F --> G[10.0.0 wins]</script>
+<div class="eli10"><span class="tag">Explain like I'm 10</span><p>The computer compares version numbers like words in a dictionary, so &#x27;9&#x27; comes after &#x27;10&#x27; the way &#x27;zebra&#x27; comes after &#x27;apple&#x27; — your search page recommends the ancient 9.0.0 over the shiny 10.0.0. Sort by numbers, not spelling.</p></div>
+<p class="sol" style="margin-top:12px"><b>Proposed solution.</b> Store a normalized semver sort key column (or compute MAX in Rust over parsed semver::Version like the client&#x27;s pick_highest). Convert unwraps to map_err -&gt; 500.</p>
+</article>
+<article class="finding-detail sev-medium" id="f-C8-03">
+<div class="head"><h2>Publish endpoint accepts any string as a version; non-semver versions poison the resolver which silently filters them</h2><span class="chip medium">medium</span><span class="fid">C8-03</span></div>
+<div class="meta-row"><span class="engineer">058 Tom Preston-Werner</span><span class="chip neutral">effort S</span><span class="chip neutral">moves: version_validity</span></div>
+<p class="details">publish_package never validates the version path segment, so non-semver versions enter the catalog and are then silently dropped by resolver filter_map, surfacing only as no-compatible-versions errors far from the cause. Validate at the write boundary.</p>
+<div class="snippet before"><span class="cap">before — current code</span><pre><code>fn pick_highest(versions: &amp;[String], name: &amp;str) -&gt; Result&lt;String, Diagnostic&gt; {
+    let mut parsed: Vec&lt;Version&gt; = versions
+        .iter()
+        .filter_map(|v| Version::parse(v).ok())
+        .collect();
+    parsed.sort();
+    if let Some(highest) = parsed.pop() {</code></pre><div class="file">crates/specforge-registry/src/client/resolver.rs:73-78</div></div>
+<div class="arrow-between">↓ fix ↓</div>
+<div class="snippet after"><span class="cap">after — proposed fix</span><pre><code>    // publish_package, after auth checks:
+    if semver::Version::parse(&amp;version).is_err() {
+        return (
+            StatusCode::UNPROCESSABLE_ENTITY,
+            Json(/* INVALID_VERSION: not valid SemVer 2.0.0 */),
+        );
+    }
+
+    // resolver: log instead of silent drop
+    Err(e) =&gt; tracing::warn!(version = v, %e, &quot;non-semver version excluded&quot;),</code></pre><div class="file">crates/specforge-registry-server/src/handlers.rs</div></div>
+<div class="diagram-box"><span class="cap">Non-semver versions poison resolution</span><div class="mermaid" id="dg-058-C8-03"><pre>flowchart TD
+ A[publish version banana] --&gt; B[server accepts string]
+ B --&gt; C[resolver parse fails]
+ C --&gt; D[candidate silently filtered]
+ E[fix] --&gt; F[parse version at publish]
+ F --&gt; G[422 on invalid]</pre></div></div><script type="text/plain" class="mermaid-src" data-target="dg-058-C8-03">flowchart TD
+ A[publish version banana] --> B[server accepts string]
+ B --> C[resolver parse fails]
+ C --> D[candidate silently filtered]
+ E[fix] --> F[parse version at publish]
+ F --> G[422 on invalid]</script>
+<div class="eli10"><span class="tag">Explain like I'm 10</span><p>The registry accepts &#x27;banana&#x27; as a version and it sits in the catalog forever; later, tools that order versions by number choke on it or quietly ignore it. Ask for three dot-separated numbers before accepting a package.</p></div>
+<p class="sol" style="margin-top:12px"><b>Proposed solution.</b> Reject non-semver versions at publish with 422 (semver::Version::parse); emit a visible W diagnostic in the resolver instead of silent filtering.</p>
+</article>
+<article class="finding-detail sev-info" id="f-C8-12">
+<div class="head"><h2>Praise: protocol versioning follows SemVer 2.0 correctly with an explicit, tested same-major rule</h2><span class="chip info">info</span><span class="fid">C8-12</span></div>
+<div class="meta-row"><span class="engineer">058 Tom Preston-Werner</span><span class="chip neutral">effort S</span><span class="chip neutral">moves: protocol_compat</span></div>
+<p class="details">PROTOCOL_VERSION is declared once with a documented same-major rule, enforced in validate_protocol_version via parsed semver with fail-closed handling of unparseable versions, and pinned by integration tests accepting 1.0.1 and 1.1.0 against host 1.0.0 while rejecting major bumps. Exactly the compat contract to enforce at handshake.</p>
+<div class="snippet exemplar"><span class="cap">exemplar — the good pattern</span><pre><code>    /// Validate that the extension&#x27;s protocol version is compatible with the host.
+    /// Uses semver major-version compatibility: same major version = compatible.
+    pub fn validate_protocol_version(
+        &amp;self,
+        response: &amp;HandshakeResponse,
+    ) -&gt; Result&lt;(), ProtocolError&gt; {
+        let host_ver = semver::Version::parse(PROTOCOL_VERSION).map_err(|e| {
+            ProtocolError::HandshakeFailed(format!(
+                &quot;invalid host protocol version &#x27;{}&#x27;: {}&quot;,
+                PROTOCOL_VERSION, e
+            ))
+        })?;</code></pre><div class="file">crates/specforge-wasm/src/protocol/host.rs:44-53</div></div>
+<div class="keep"><span class="tag">Keep doing this</span><p>Keep the single PROTOCOL_VERSION constant, the fail-closed parse, and the tested same-major rule intact into any future 2.0 protocol.</p></div>
+<div class="eli10"><span class="tag">Explain like I'm 10</span><p>The rule &#x27;same big number means they speak the same language&#x27; is written down, tested, and enforced at the door — like voltage labels that actually match the outlets.</p></div>
+<p class="sol" style="margin-top:12px"><b>Proposed solution.</b> None; keep this discipline when the protocol reaches 2.0.</p>
+</article>
+</main><script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.1/dist/mermaid.min.js" onerror="window.__mermaidFailed=true"></script><script src="../js/agent.js"></script></body></html>

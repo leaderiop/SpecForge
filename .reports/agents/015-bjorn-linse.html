@@ -1,0 +1,189 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>015 Björn Linse (bfredl) — SpecForge audit review</title>
+<link rel="stylesheet" href="../css/report.css"><link rel="stylesheet" href="../css/agents.css"></head><body>
+<header class="agent-hero"><div class="brand"><div class="logo">015</div><div>
+<h1>Björn Linse (bfredl)</h1>
+<div class="crumbs">Cluster C3 — Parsing &amp; grammar infrastructure · Neovim core; designed its tree-sitter integration and incremental reparse pipeline · profile <code>.agents/015-bjorn-linse.md</code></div></div></div>
+<div class="links"><a href="../index.html">← Full report</a><a href="../../.agents/015-bjorn-linse.md">Profile source</a></div></header>
+<main class="agent-main">
+<nav class="agent-nav"><a href="014.html">← 014</a><a href="016.html">016 →</a></nav>
+<div class="review-panel"><div class="review-text"><h2>Auditor review</h2><p>Björn Linse here: you built parse_incremental and then the watch daemon never calls it — storing one previous Tree per file and feeding it back is the whole fix, and it&#x27;s sitting right there in document.rs. The LSP side has a nastier bug: UTF-16 columns treated as byte offsets means one emoji on a line misaligns every subsequent InputEdit, and tree-sitter will quietly reuse stale nodes on a tree edited with wrong positions. Convert columns by walking chars with len_utf16, and add a multibyte regression test before you trust incremental mode again.</p></div>
+<div class="mini-kpis">
+<div class="mini-kpi"><div class="k">Findings</div><div class="v">2</div></div>
+<div class="mini-kpi bad"><div class="k">Critical + high</div><div class="v">1</div></div>
+<div class="mini-kpi"><div class="k">Evidence items</div><div class="v">3</div></div>
+<div class="mini-kpi"><div class="k">Effort mix</div><div class="v" style="font-size:14px">M</div></div>
+</div></div>
+<article class="finding-detail sev-medium" id="f-C3-08">
+<div class="head"><h2>watch never calls parse_incremental; rebuilds whole graph from cloned ASTs each cycle</h2><span class="chip medium">medium</span><span class="fid">C3-08</span></div>
+<div class="meta-row"><span class="engineer">015 Björn Linse (bfredl)</span><span class="chip neutral">effort M</span><span class="chip neutral">moves: Adoption</span></div>
+<div class="evidence"><b>Evidence</b><span class="ev"><code>watch/pipeline.rs:137-164</code> — full parse no old tree; values().cloned() of all SpecFiles; build_graph whole corpus; backend.rs sites are the only incremental callers</span></div>
+<p class="details">specforge-watch/src/pipeline.rs rebuild() calls parse(&amp;content, file) — the non-incremental wrapper that passes None as the old tree — for every invalidated file, then clones every cached SpecFile out of parsed_files via values().cloned() and reruns build_graph over the entire corpus on every cycle. The incremental machinery exists and is exercised: parse_incremental takes Option&lt;&amp;Tree&gt; and the LSP backend stores/returns previous_tree per document. The daemon never wired it up: no previous Tree is retained per file, and the SpecFile clone loop means O(corpus) work per keystroke-scale event even when the import-DAG invalidation correctly shrank the re-parse set. Storing Tree alongside SpecFile per file and splicing only changed entities (the deltas are already computed via compute_graph_delta_with_config) would make watch O(changed) end to end.</p>
+<div class="snippet before"><span class="cap">before — current code</span><pre><code>        // Process each invalidated file
+        for file in &amp;invalidation_set {
+            match read_file(file) {
+                Some(content) =&gt; {
+                    // Re-parse the file
+                    let spec_file = parse(&amp;content, file);
+
+                    // Update import DAG
+                    let imports: Vec&lt;String&gt; = spec_file
+                        .imports
+                        .iter()
+                        .map(|i| i.path.to_string())
+                        .collect();
+                    self.import_dag.set_imports_resolved(file, imports);
+
+                    self.parsed_files.insert(file.clone(), spec_file);
+                    rebuilt_files.push(file.clone());
+                }
+                None =&gt; {
+                    // File was deleted
+                    self.parsed_files.remove(file);
+                    self.import_dag.remove_file(file);
+                    rebuilt_files.push(file.clone());
+                }
+            }
+        }
+
+        // Rebuild full graph from all cached parsed files
+        let all_spec_files: Vec&lt;SpecFile&gt; =
+            self.parsed_files.values().cloned().collect();
+        let (new_graph, build_diagnostics) = build_graph(&amp;all_spec_files);</code></pre><div class="file">crates/specforge-watch/src/pipeline.rs:135-163</div></div>
+<div class="arrow-between">↓ fix ↓</div>
+<div class="snippet after"><span class="cap">after — proposed fix</span><pre><code>struct ParsedFile {
+    spec_file: SpecFile,
+    /// Previous tree, fed back into parse_incremental on the next edit.
+    tree: Option&lt;tree_sitter::Tree&gt;,
+}
+
+impl WatchPipeline {
+    pub fn rebuild&lt;F&gt;(&amp;mut self, changed_files: &amp;[String], read_file: F) -&gt; IncrementalResult
+    where F: Fn(&amp;str) -&gt; Option&lt;String&gt;,
+    {
+        let old_graph = self.graph.clone();
+        let invalidation_set = self.import_dag.invalidation_set(changed_files);
+
+        for file in &amp;invalidation_set {
+            match read_file(file) {
+                Some(content) =&gt; {
+                    let old_tree =
+                        self.parsed_files.get(file).and_then(|p| p.tree.as_ref());
+                    let (spec_file, tree) =
+                        specforge_parser::parse_incremental(&amp;content, file, old_tree);
+                    let imports: Vec&lt;String&gt; = spec_file
+                        .imports
+                        .iter()
+                        .map(|i| i.path.to_string())
+                        .collect();
+                    self.import_dag.set_imports_resolved(file, imports);
+                    self.parsed_files.insert(
+                        file.clone(),
+                        ParsedFile { spec_file, tree },
+                    );
+                    rebuilt_files.push(file.clone());
+                }
+                None =&gt; {
+                    self.parsed_files.remove(file);
+                    self.import_dag.remove_file(file);
+                    rebuilt_files.push(file.clone());
+                }
+            }
+        }
+        // ... splice rebuilt files into self.graph instead of cloning the
+        // whole corpus through build_graph; fall back to full rebuild only
+        // when import edges changed.
+    }
+}</code></pre><div class="file">crates/specforge-watch/src/pipeline.rs</div></div>
+<div class="diagram-box"><span class="cap">Watch ignores incremental parsing</span><div class="mermaid" id="dg-015-C3-08"><pre>flowchart TD
+ A[file change event] --&gt; B[invalidation set computed]
+ B --&gt; C[parse with no old tree]
+ C --&gt; D[full reparse each file]
+ D --&gt; E[clone all SpecFiles]
+ E --&gt; F[build_graph whole corpus]
+ A --&gt; G[store previous Tree per file]
+ G --&gt; H[parse_incremental]
+ H --&gt; I[splice changed entities]
+ I --&gt; J[O changed work per cycle]</pre></div></div><script type="text/plain" class="mermaid-src" data-target="dg-015-C3-08">flowchart TD
+ A[file change event] --> B[invalidation set computed]
+ B --> C[parse with no old tree]
+ C --> D[full reparse each file]
+ D --> E[clone all SpecFiles]
+ E --> F[build_graph whole corpus]
+ A --> G[store previous Tree per file]
+ G --> H[parse_incremental]
+ H --> I[splice changed entities]
+ I --> J[O changed work per cycle]</script>
+<div class="eli10"><span class="tag">Explain like I'm 10</span><p>Saving one page makes it photocopy the whole book; the one-page tool exists but the daemon never picked it up.</p></div>
+<p class="sol" style="margin-top:12px"><b>Proposed solution.</b> Store previous Tree per file, pass to parse_incremental; splice changed nodes using deltas already computed.</p>
+</article>
+<article class="finding-detail sev-high" id="f-C3-09">
+<div class="head"><h2>LSP InputEdit treats UTF-16 columns as raw offsets — corrupts on non-ASCII</h2><span class="chip high">high</span><span class="fid">C3-09</span></div>
+<div class="meta-row"><span class="engineer">015 Björn Linse (bfredl)</span><span class="chip neutral">effort M</span><span class="chip neutral">moves: Adoption</span></div>
+<div class="evidence"><b>Evidence</b><span class="ev"><code>lsp/document.rs:40-88</code> — byte offset = line start + raw column, but LSP columns are UTF-16; multibyte chars misalign tree.edit vs replace_range</span><span class="ev"><code>lsp/backend.rs:845-853</code> — debounced path reuses mis-edited tree — silent wrong node reuse</span></div>
+<p class="details">DocumentBuffer::apply_change treats LSP positions as raw byte/char offsets: line_col_to_offset returns line_start_offset + col, but the LSP protocol specifies UTF-16 code units. After any character above U+FFFF (emoji, CJK extension) — or any astral-plane char earlier on the line — start_offset lands mid-character or past the intended column, so content.replace_range panics on a char boundary or silently edits the wrong span. Worse, the tree.edit InputEdit uses the same bogus positions with Point.column equal to the UTF-16 column, so the cached tree and the mutated text disagree; the debounced path in backend.rs then calls parse_incremental with that mis-edited tree and tree-sitter happily reuses stale nodes, producing a parse that succeeds but is quietly wrong. The fix is to convert UTF-16 columns to byte offsets by walking the line&#x27;s chars (1 unit for BMP, 2 for astral), plus a regression test editing after an emoji.</p>
+<div class="snippet before"><span class="cap">before — current code</span><pre><code>    fn line_col_to_offset(&amp;self, line: usize, col: usize) -&gt; usize {
+        let mut offset = 0;
+        for (i, l) in self.content.split(&#x27;
+&#x27;).enumerate() {
+            if i == line {
+                return offset + col;
+            }
+            offset += l.len() + 1; // +1 for &#x27;
+&#x27;
+        }
+        self.content.len()
+    }</code></pre><div class="file">crates/specforge-lsp/src/document.rs:69-88</div></div>
+<div class="arrow-between">↓ fix ↓</div>
+<div class="snippet after"><span class="cap">after — proposed fix</span><pre><code>    /// Convert an LSP (line, utf16 col) pair to a byte offset.
+    /// LSP positions are UTF-16 code units; naive `offset + col`
+    /// misaligns after any astral-plane character (emoji, CJK ext).
+    fn line_col_to_offset(&amp;self, line: usize, col: usize) -&gt; usize {
+        let mut offset = 0;
+        for (i, l) in self.content.split(&#x27;
+&#x27;).enumerate() {
+            if i == line {
+                let mut units = 0usize;
+                for (byte_off, ch) in l.char_indices() {
+                    if units &gt;= col {
+                        return offset + byte_off;
+                    }
+                    units += ch.len_utf16();
+                }
+                return offset + l.len(); // end of line
+            }
+            offset += l.len() + 1; // +1 for &#x27;
+&#x27;
+        }
+        self.content.len()
+    }
+
+    // Also derive tree_sitter::Point columns from char_indices counted in
+    // UTF-16 units, so tree.edit positions match the re-encoded text.
+    // Regression test: insert ASCII after &quot;\u{1f600}&quot; on the same line and
+    // assert the reparsed tree&#x27;s node text matches the buffer.</code></pre><div class="file">crates/specforge-lsp/src/document.rs</div></div>
+<div class="diagram-box"><span class="cap">UTF-16 column corruption</span><div class="mermaid" id="dg-015-C3-09"><pre>flowchart TD
+ A[LSP edit at line 3 col 5] --&gt; B[client counts UTF-16 units]
+ B --&gt; C[server adds col to byte offset]
+ C --&gt; D{emoji earlier on line}
+ D -- yes --&gt; E[offset lands mid char]
+ E --&gt; F[replace_range panics or wrong span]
+ E --&gt; G[tree.edit uses wrong Point]
+ G --&gt; H[parse_incremental reuses stale nodes]
+ H --&gt; I[silent wrong parse]
+ D -- no --&gt; J[correct]
+ F --&gt; K[fix utf16 to byte conversion]</pre></div></div><script type="text/plain" class="mermaid-src" data-target="dg-015-C3-09">flowchart TD
+ A[LSP edit at line 3 col 5] --> B[client counts UTF-16 units]
+ B --> C[server adds col to byte offset]
+ C --> D{emoji earlier on line}
+ D -- yes --> E[offset lands mid char]
+ E --> F[replace_range panics or wrong span]
+ E --> G[tree.edit uses wrong Point]
+ G --> H[parse_incremental reuses stale nodes]
+ H --> I[silent wrong parse]
+ D -- no --> J[correct]
+ F --> K[fix utf16 to byte conversion]</script>
+<div class="eli10"><span class="tag">Explain like I'm 10</span><p>Editor counts characters one way, code another; one emoji and every later position on the line is off — parse succeeds but quietly reuses stale pieces.</p></div>
+<p class="sol" style="margin-top:12px"><b>Proposed solution.</b> Convert UTF-16 columns to byte offsets by scanning line chars (1 vs 2 units), or rope with UTF-16; regression test with multibyte edits.</p>
+</article>
+</main><script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.1/dist/mermaid.min.js" onerror="window.__mermaidFailed=true"></script><script src="../js/agent.js"></script></body></html>

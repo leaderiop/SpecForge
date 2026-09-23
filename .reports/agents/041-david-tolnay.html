@@ -1,0 +1,89 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>041 David Tolnay — SpecForge audit review</title>
+<link rel="stylesheet" href="../css/report.css"><link rel="stylesheet" href="../css/agents.css"></head><body>
+<header class="agent-hero"><div class="brand"><div class="logo">041</div><div>
+<h1>David Tolnay</h1>
+<div class="crumbs">Cluster C6 — Schemas, validation &amp; serialization (Graph Protocol) · serde lead maintainer; thiserror/anyhow; Rust library ergonomics · profile <code>.agents/041-david-tolnay.md</code></div></div></div>
+<div class="links"><a href="../index.html">← Full report</a><a href="../../.agents/041-david-tolnay.md">Profile source</a></div></header>
+<main class="agent-main">
+<nav class="agent-nav"><a href="040.html">← 040</a><a href="042.html">042 →</a></nav>
+<div class="review-panel"><div class="review-text"><h2>Auditor review</h2><p>David Tolnay (serde): Serde usage is exemplary — skip_serializing_if, BTreeMap for stable output, serde(default) on every optional protocol field. The rough edge is error handling: four pub fns .expect() on serialization while sibling functions return EmitterError. A library should never have a panic path its own module already knows how to report; make them Result and the scoped wrappers stop double-wrapping.</p></div>
+<div class="mini-kpis">
+<div class="mini-kpi"><div class="k">Findings</div><div class="v">2</div></div>
+<div class="mini-kpi good"><div class="k">Critical + high</div><div class="v">0</div></div>
+<div class="mini-kpi"><div class="k">Evidence items</div><div class="v">4</div></div>
+<div class="mini-kpi"><div class="k">Effort mix</div><div class="v" style="font-size:14px">S</div></div>
+</div></div>
+<article class="finding-detail sev-info" id="f-C6-09">
+<div class="head"><h2>Serde discipline: skip_serializing_if (schema.rs:86-118), BTreeMap stable order (schema.rs:317), serde(default) protocol descriptors (protocol/types.rs:30-67), rename_all lowercase enums.</h2><span class="chip info">info</span><span class="fid">C6-09</span></div>
+<div class="meta-row"><span class="engineer">041 David Tolnay</span><span class="chip neutral">effort S</span><span class="chip neutral">moves: wire</span></div>
+<div class="evidence"><b>Evidence</b><span class="ev"><code>schema.rs:86-118</code></span><span class="ev"><code>schema.rs:317</code></span><span class="ev"><code>protocol/types.rs:30-67</code></span></div>
+<p class="details">Serialization output across the emitter and wasm protocol is disciplined and deterministic: optional fields use skip_serializing_if so absent options disappear instead of serializing as null (SchemaField, schema.rs:86-118), exported entities use BTreeMap&lt;String, Value&gt; for stable alphabetical field order (JsonNodeV2.fields, schema.rs:317 area), protocol descriptors like HandshakeResponse use serde(default) on every optional contribution (protocol/types.rs:19-67), and severity enums rename to lowercase. Parsing generated output never surprises.</p>
+<div class="snippet exemplar"><span class="cap">exemplar — the good pattern</span><pre><code>#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
+pub struct ContributionFlags {
+    #[serde(default)]
+    pub entities: bool,
+    #[serde(default)]
+    pub validators: bool,
+    #[serde(default)]
+    pub renderers: bool,
+    #[serde(default)]
+    pub providers: bool,
+    #[serde(default)]
+    pub collectors: bool,
+    #[serde(default)]
+    pub prompts: bool,</code></pre><div class="file">crates/specforge-wasm/src/protocol/types.rs:18-32</div></div>
+<div class="keep"><span class="tag">Keep doing this</span><p>Keep skip_serializing_if, BTreeMap ordering, and serde(default) as the default idiom for every new serializable type.</p></div>
+<div class="eli10"><span class="tag">Explain like I'm 10</span><p>Praise: fragile items are marked, boxes are sorted alphabetically, and empty flaps are folded away — unpacking (parsing the output) never surprises you.</p></div>
+</article>
+<article class="finding-detail sev-low" id="f-C6-10">
+<div class="head"><h2>.expect on serialization in library API (schema.rs:344-345, 897-899) while scoped variants return EmitterError.</h2><span class="chip low">low</span><span class="fid">C6-10</span></div>
+<div class="meta-row"><span class="engineer">041 David Tolnay</span><span class="chip neutral">effort S</span><span class="chip neutral">moves: wire</span></div>
+<div class="evidence"><b>Evidence</b><span class="ev"><code>schema.rs:344-345</code></span></div>
+<p class="details">emit_json_with_schema, emit_context_with_schema, emit_brief_with_schema and emit_schema all end in serde_json::to_string_pretty(&amp;output).expect(...) (schema.rs:391, 454, 493, plus emit_schema/emit_schema_for_kind) while the scoped wrappers in the same module return Result&lt;String, EmitterError&gt;. Serialization of a schema containing non-string map keys or NaN-like values can panic, and a library consumer (the LSP does call into these) gets a process abort instead of a diagnostic. The pub API should be uniformly fallible like emit_schema_for_kind already is.</p>
+<div class="snippet before"><span class="cap">before — current code</span><pre><code>    let output = JsonGraphV2 {
+        format_version: &quot;2.0&quot;,
+        schema_version: schema.schema_version.to_string(),
+        schema: schema.clone(),
+        nodes,
+        edges: sorted_edges(graph),
+    };
+
+    serde_json::to_string_pretty(&amp;output).expect(&quot;graph serialization cannot fail&quot;)
+}</code></pre><div class="file">crates/specforge-emitter/src/schema.rs:388-392</div></div>
+<div class="arrow-between">↓ fix ↓</div>
+<div class="snippet after"><span class="cap">after — proposed fix</span><pre><code>pub fn emit_json_with_schema(
+    graph: &amp;Graph,
+    schema: &amp;GraphProtocolSchema,
+) -&gt; Result&lt;String, EmitterError&gt; {
+    // ... build output as today ...
+    serde_json::to_string_pretty(&amp;output)
+        .map_err(|e| EmitterError::Serialization(format!(
+            &quot;E028: failed to serialize graph export: {}&quot;, e
+        )))
+}
+
+// Scoped wrappers stop double-wrapping:
+pub fn emit_json_scoped_with_schema(
+    graph: &amp;Graph, schema_ref: &amp;GraphProtocolSchema, scope: &amp;str,
+) -&gt; Result&lt;String, EmitterError&gt; {
+    let sub = graph.subgraph(scope).ok_or_else(|| /* E003 */)?;
+    emit_json_with_schema(&amp;sub, schema_ref)
+}</code></pre><div class="file">crates/specforge-emitter/src/schema.rs</div></div>
+<div class="diagram-box"><span class="cap">Errors not panics</span><div class="mermaid" id="dg-041-C6-10"><pre>flowchart TD
+ A[library caller emits export] --&gt; B{API shape}
+ B --&gt;|expect| C[serde failure]
+ C --&gt; D[process panic in host]
+ B --&gt;|Result| E[serde failure]
+ E --&gt; F[EmitterError E028]
+ F --&gt; G[diagnostic shown to user]</pre></div></div><script type="text/plain" class="mermaid-src" data-target="dg-041-C6-10">flowchart TD
+ A[library caller emits export] --> B{API shape}
+ B -->|expect| C[serde failure]
+ C --> D[process panic in host]
+ B -->|Result| E[serde failure]
+ E --> F[EmitterError E028]
+ F --> G[diagnostic shown to user]</script>
+<div class="eli10"><span class="tag">Explain like I'm 10</span><p>Some doors panic and slam shut instead of politely saying &#x27;no&#x27;. Make them return a polite error like the other doors do.</p></div>
+<p class="sol" style="margin-top:12px"><b>Proposed solution.</b> Result&lt;String, EmitterError&gt;.</p>
+</article>
+</main><script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.1/dist/mermaid.min.js" onerror="window.__mermaidFailed=true"></script><script src="../js/agent.js"></script></body></html>

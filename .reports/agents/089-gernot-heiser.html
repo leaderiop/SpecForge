@@ -1,0 +1,91 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>089 Gernot Heiser — SpecForge audit review</title>
+<link rel="stylesheet" href="../css/report.css"><link rel="stylesheet" href="../css/agents.css"></head><body>
+<header class="agent-hero"><div class="brand"><div class="logo">089</div><div>
+<h1>Gernot Heiser</h1>
+<div class="crumbs">Cluster C10 — Formal methods · seL4 verified kernel; shipping formal verification in production · profile <code>.agents/089-gernot-heiser.md</code></div></div></div>
+<div class="links"><a href="../index.html">← Full report</a><a href="../../.agents/089-gernot-heiser.md">Profile source</a></div></header>
+<main class="agent-main">
+<nav class="agent-nav"><a href="088.html">← 088</a><a href="090.html">090 →</a></nav>
+<div class="review-panel"><div class="review-text"><h2>Auditor review</h2><p>Gernot Heiser would applaud the host-function defense in depth — every door locked, signed, and handle-tested — as textbook seL4-style discipline. He would then attack the dual hand-synced rule manifests: duplicated sources of truth always drift, and the broken wasm formal build proves the second binder is already unmaintained. One source, generated or parity-tested, before any new host function is added.</p></div>
+<div class="mini-kpis">
+<div class="mini-kpi"><div class="k">Findings</div><div class="v">2</div></div>
+<div class="mini-kpi good"><div class="k">Critical + high</div><div class="v">0</div></div>
+<div class="mini-kpi"><div class="k">Evidence items</div><div class="v">4</div></div>
+<div class="mini-kpi"><div class="k">Effort mix</div><div class="v" style="font-size:14px">S</div></div>
+</div></div>
+<article class="finding-detail sev-medium" id="f-C10-12">
+<div class="head"><h2>rule manifests live in two hand-synced copies (wasm JSON + native Rust)</h2><span class="chip medium">medium</span><span class="fid">C10-12</span></div>
+<div class="meta-row"><span class="engineer">089 Gernot Heiser</span><span class="chip neutral">effort S</span><span class="chip neutral">moves: Formal rules implemented</span></div>
+<div class="evidence"><b>Evidence</b><span class="ev"><code>extensions/formal/src/describe_validation_rules.json</code> — 8 rules embedded via include_bytes!</span><span class="ev"><code>crates/specforge-emitter/src/builtins/formal.rs:210-231</code> — same 8 rules hand-written in Rust; drift silent; wasm formal build already broken on fresh clones</span></div>
+<p class="details">The same eight rules W059-W066 exist twice: JSON in describe_validation_rules.json embedded via include_bytes! and hand-transcribed into formal.rs validation_rules(). Nothing asserts the copies match; an edit to one silently diverges wasm-described rules from natively executed ones. The wasm formal build is already broken on fresh clones, so one binder sits in a room nobody can enter. Add a parity test deserializing the JSON and asserting equality, or generate native descriptors from the JSON via serde.</p>
+<div class="snippet before"><span class="cap">before — current code</span><pre><code>    {
+      &quot;check&quot;: &quot;field_value_constraint&quot;,
+      &quot;code&quot;: &quot;W059&quot;,
+      &quot;constraint&quot;: {
+        &quot;kind&quot;: &quot;one_of&quot;,
+        &quot;pattern&quot;: null,
+        &quot;values&quot;: [&quot;safety&quot;, &quot;liveness&quot;, &quot;fairness&quot;]
+      },
+      &quot;edge_type&quot;: null,
+      &quot;field&quot;: &quot;property_type&quot;,
+      &quot;message_template&quot;: &quot;property &#x27;{id}&#x27; has invalid property_type &#x27;{value}&#x27; — expected one of: safety, liveness, fairness&quot;,
+      &quot;severity&quot;: &quot;warning&quot;,
+      &quot;target_kind&quot;: &quot;property&quot;,
+      &quot;wasm_function&quot;: null
+    },</code></pre><div class="file">extensions/formal/src/describe_validation_rules.json:4-23</div></div>
+<div class="arrow-between">↓ fix ↓</div>
+<div class="snippet after"><span class="cap">after — proposed fix</span><pre><code>#[cfg(test)]
+mod dual_source_parity {
+    use super::*;
+
+    const RULES_JSON: &amp;[u8] = include_bytes!(
+        &quot;../../../../extensions/formal/src/describe_validation_rules.json&quot;);
+
+    /// The wasm describe payload and the native rule table MUST agree.
+    /// Guards the hand-synced dual copy from silent drift.
+    #[test]
+    fn native_rules_match_embedded_json() {
+        let json_rules: Vec&lt;ValidationRuleDescriptor&gt; = serde_json::from_slice(
+            &amp;serde_json::from_slice::&lt;serde_json::Value&gt;(RULES_JSON)
+                .unwrap()[&quot;items&quot;].to_string().into_bytes())
+            .unwrap();
+        let native = FormalExtension.validation_rules();
+        assert_eq!(native, json_rules, &quot;formal rule drift between JSON and Rust&quot;);
+    }
+}</code></pre><div class="file">crates/specforge-emitter/src/builtins/formal.rs</div></div>
+<div class="diagram-box"><span class="cap">one checklist two binders</span><div class="mermaid" id="dg-089-C10-12"><pre>flowchart TD
+ A[rules in JSON via include bytes] --&gt; C{do copies match}
+ B[rules hand written in Rust] --&gt; C
+ C -- today yes --&gt; D[tomorrow someone edits one]
+ D --&gt; E[consumers see different rules]
+ C --&gt; F[parity test or serde generation]
+ F --&gt; G[drift becomes a failure]</pre></div></div><script type="text/plain" class="mermaid-src" data-target="dg-089-C10-12">flowchart TD
+ A[rules in JSON via include bytes] --> C{do copies match}
+ B[rules hand written in Rust] --> C
+ C -- today yes --> D[tomorrow someone edits one]
+ D --> E[consumers see different rules]
+ C --> F[parity test or serde generation]
+ F --> G[drift becomes a failure]</script>
+<div class="eli10"><span class="tag">Explain like I'm 10</span><p>The same checklist is typed into two binders. Today they match; tomorrow someone edits one, and readers get different rules depending on the binder - and one binder sits in a room a fresh clone cannot enter.</p></div>
+<p class="sol" style="margin-top:12px"><b>Proposed solution.</b> Generate native descriptors from the same JSON via serde, or add a test asserting equality; fix or retire the wasm formal build.</p>
+</article>
+<article class="finding-detail sev-info" id="f-C10-13">
+<div class="head"><h2>praise: sandbox deny-list and integrity checks are production-grade defense in depth</h2><span class="chip info">info</span><span class="fid">C10-13</span></div>
+<div class="meta-row"><span class="engineer">089 Gernot Heiser</span><span class="chip neutral">effort S</span></div>
+<div class="evidence"><b>Evidence</b><span class="ev"><code>crates/specforge-wasm/src/host_functions.rs:76-370</code> — each host fn enforces call-site, capability flag, traversal, spec-root containment, allow-lists, declared kind/label - each with a dedicated E031 test</span><span class="ev"><code>crates/specforge-wasm/src/integrity.rs:19-23</code> — sha256 tamper check with explicit diagnostic and tests</span></div>
+<p class="details">The wasm host boundary enforces, per host function: call-site authorization, capability flags, path traversal rejection, spec-root containment, allow-lists, and declared kind/label validation — each with a dedicated test, and the permission matrix is tested per CallSite (host_functions.rs:856-863). integrity.rs pairs sha256 tamper detection with an explicit diagnostic, a remediation suggestion, and tests. Layered, boring, well-tested defense in depth — exactly the template the future WasmValidationRuntime call path should follow.</p>
+<div class="snippet exemplar"><span class="cap">exemplar — the good pattern</span><pre><code>    if actual_hash != expected_hash {
+        return Err(Diagnostic {
+            code: &quot;E032&quot;.to_string(),
+            severity: Severity::Error,
+            message: format!(
+                &quot;integrity check failed for &#x27;{}&#x27;: expected {}, got {}. Possible tampering.&quot;,
+                wasm_path.display(), expected_hash, actual_hash
+            ),
+            span: None,</code></pre><div class="file">crates/specforge-wasm/src/integrity.rs:19-27</div></div>
+<div class="keep"><span class="tag">Keep doing this</span><p>Preserve the per-host-function lock-and-test discipline as the mandatory template for every new host entry point, starting with the validation runtime call path.</p></div>
+<div class="eli10"><span class="tag">Explain like I'm 10</span><p>Every door a plugin can open has its own lock, its own sign explaining why it is locked, and a test that jiggles the handle. Boring, layered defense done right.</p></div>
+<p class="sol" style="margin-top:12px"><b>Proposed solution.</b> Use as template for future host functions such as the validation runtime call path.</p>
+</article>
+</main><script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.1/dist/mermaid.min.js" onerror="window.__mermaidFailed=true"></script><script src="../js/agent.js"></script></body></html>

@@ -1,0 +1,105 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>068 Paul Gauthier — SpecForge audit review</title>
+<link rel="stylesheet" href="../css/report.css"><link rel="stylesheet" href="../css/agents.css"></head><body>
+<header class="agent-hero"><div class="brand"><div class="logo">068</div><div>
+<h1>Paul Gauthier</h1>
+<div class="crumbs">Cluster C9 — MCP &amp; AI-agent context engineering · aider creator; token-budgeted repo maps · profile <code>.agents/068-paul-gauthier.md</code></div></div></div>
+<div class="links"><a href="../index.html">← Full report</a><a href="../../.agents/068-paul-gauthier.md">Profile source</a></div></header>
+<main class="agent-main">
+<nav class="agent-nav"><a href="067.html">← 067</a><a href="069.html">069 →</a></nav>
+<div class="review-panel"><div class="review-text"><h2>Auditor review</h2><p>budget.rs is genuinely good engineering - degree-centrality truncation, honest truncated_entities accounting, an error strategy for strict callers - and it is wired to nothing while context and brief, the formats agents actually consume, bypass it entirely. Default machine formats to compact serialization (to_string_pretty in brief.rs and budget.rs pays real tokens for whitespace, and budget.rs re-serializes pretty on every loop iteration, inflating its own estimates). Fix the gate to cover all three JSON formats, surface --max-tokens on CLI and MCP, and put a paging hint in the budget metadata.</p></div>
+<div class="mini-kpis">
+<div class="mini-kpi"><div class="k">Findings</div><div class="v">2</div></div>
+<div class="mini-kpi bad"><div class="k">Critical + high</div><div class="v">1</div></div>
+<div class="mini-kpi"><div class="k">Evidence items</div><div class="v">0</div></div>
+<div class="mini-kpi"><div class="k">Effort mix</div><div class="v" style="font-size:14px">M · S</div></div>
+</div></div>
+<article class="finding-detail sev-high" id="f-C9-03">
+<div class="head"><h2>Token budget is Json-only and wired to nothing — context/brief are unbudgeted</h2><span class="chip high">high</span><span class="fid">C9-03</span></div>
+<div class="meta-row"><span class="engineer">068 Paul Gauthier</span><span class="chip neutral">effort M</span><span class="chip neutral">moves: formats honoring token_budget in emitter</span></div>
+<p class="details">budget.rs implements a real degree-centrality truncation algorithm with a TokenBudgetResult listing truncated_entities, but emit.rs applies it only when format == EmitFormat::Json - the agent-optimized Context and Brief formats are emitted at unlimited size regardless of token_budget. No caller ever sets token_budget anyway: CLI export.rs passes token_budget: None unconditionally, and the MCP export/query tools never read a max_tokens argument, so the feature is unreachable from every surface. Additionally the truncation metadata is only embedded in JSON output, so even a hypothetical Context export could not tell an agent what was dropped or how to fetch it. The result is a tested token-budget engine wired to nothing.</p>
+<div class="snippet before"><span class="cap">before — current code</span><pre><code>// Handle token budget (only for Json format without schema)
+if let Some(budget) = options.token_budget
+    &amp;&amp; options.format == EmitFormat::Json
+    &amp;&amp; options.schema.is_none()
+{
+    return Ok(crate::budget::emit_json_with_budget(g, budget));
+}</code></pre><div class="file">crates/specforge-emitter/src/emit.rs:79-85</div></div>
+<div class="arrow-between">↓ fix ↓</div>
+<div class="snippet after"><span class="cap">after — proposed fix</span><pre><code>// emit.rs - budget applies to every JSON-family format
+if let Some(budget) = options.token_budget
+    &amp;&amp; matches!(options.format, EmitFormat::Json | EmitFormat::Context | EmitFormat::Brief)
+    &amp;&amp; options.schema.is_none()
+{
+    return Ok(crate::budget::emit_with_budget(g, options.format, budget));
+}
+
+// budget.rs payload includes a paging cursor agents can hand to specforge.query:
+Some(TokenBudgetResult {
+    strategy: &quot;prioritize&quot;.to_string(),
+    budget_tokens: max_tokens,
+    estimated_tokens: est,
+    truncated_entities: truncated_ids,
+    continuation: ContinuationHint { query_entity_ids: truncated_ids_head, suggested_depth: 1 },
+})
+// CLI: export --max-tokens N; MCP: specforge.export max_tokens param.</code></pre><div class="file">crates/specforge-emitter/src/emit.rs</div></div>
+<div class="diagram-box"><span class="cap">Budget gate coverage</span><div class="mermaid" id="dg-068-C9-03"><pre>flowchart TD
+ A[Agent sets max_tokens] --&gt; B[Emitter checks format]
+ B --&gt; C{Format is Json}
+ C --&gt;|yes| D[Budget applied]
+ C --&gt;|context or brief| E[Budget silently ignored]
+ F[CLI and MCP never pass max_tokens] --&gt; G[Feature unreachable]
+ D --&gt; H[Extend gate to Context and Brief]
+ H --&gt; I[Expose max_tokens on CLI and MCP]
+ I --&gt; J[Embed truncated_entities for paging]</pre></div></div><script type="text/plain" class="mermaid-src" data-target="dg-068-C9-03">flowchart TD
+ A[Agent sets max_tokens] --> B[Emitter checks format]
+ B --> C{Format is Json}
+ C -->|yes| D[Budget applied]
+ C -->|context or brief| E[Budget silently ignored]
+ F[CLI and MCP never pass max_tokens] --> G[Feature unreachable]
+ D --> H[Extend gate to Context and Brief]
+ H --> I[Expose max_tokens on CLI and MCP]
+ I --> J[Embed truncated_entities for paging]</script>
+<div class="eli10"><span class="tag">Explain like I'm 10</span><p>Someone built a very good suitcase that shrinks to fit the overhead-bin limit — tested, with a label listing what got left out. But no door of the airport actually lets you carry it: the check-in desk (CLI) and the gate (MCP tool) never hand it to you. Meanwhile the &#x27;context-optimized&#x27; bags are packed without any size limit at all.</p></div>
+<p class="sol" style="margin-top:12px"><b>Proposed solution.</b> Extend the budget gate to Context and Brief in emit.rs, add --max-tokens to CLI export and max_tokens to the MCP export tool, and make the budget metadata (truncated_entities) part of context/brief payloads so agents can page in the remainder via query.</p>
+</article>
+<article class="finding-detail sev-medium" id="f-C9-04">
+<div class="head"><h2>Machine formats are pretty-printed, burning tokens on whitespace</h2><span class="chip medium">medium</span><span class="fid">C9-04</span></div>
+<div class="meta-row"><span class="engineer">068 Paul Gauthier</span><span class="chip neutral">effort S</span><span class="chip neutral">moves: formats honoring token_budget in emitter</span></div>
+<p class="details">emit_brief ends with serde_json::to_string_pretty, so the minimal id/kind/title format - whose entire purpose is minimizing tokens - is indented across multiple lines per entity, roughly doubling token cost on nested JSON where every newline and indent is billed. The same pattern holds in budget.rs, which also serializes pretty on every truncation-loop iteration, inflating its own token estimates. For a product whose pitch is token efficiency, machine formats should be compact by default with an explicit human opt-in. The fix is one method name plus a --pretty flag on the export surfaces.</p>
+<div class="snippet before"><span class="cap">before — current code</span><pre><code>let output = BriefGraph {
+    schema_version: SCHEMA_VERSION,
+    nodes,
+    edges: sorted_edges(graph),
+};
+
+serde_json::to_string_pretty(&amp;output).expect(&quot;graph serialization cannot fail&quot;)</code></pre><div class="file">crates/specforge-emitter/src/brief.rs:34-39</div></div>
+<div class="arrow-between">↓ fix ↓</div>
+<div class="snippet after"><span class="cap">after — proposed fix</span><pre><code>pub fn emit_brief(graph: &amp;Graph) -&gt; String {
+    // ... build BriefGraph ...
+    // Machine formats default to compact; --pretty opts into to_string_pretty.
+    serde_json::to_string(&amp;output).expect(&quot;graph serialization cannot fail&quot;)
+}
+
+// EmitOptions gains `pub pretty: bool` (default false); json.rs, context.rs,
+// budget.rs serialize compact too. Snapshot test:
+#[test]
+fn brief_is_compact() {
+    let brief = emit(&amp;graph, &amp;EmitOptions { format: EmitFormat::Brief, ..Default::default() }).unwrap();
+    assert!(!brief.contains(&quot;\n  &quot;), &quot;brief must not pretty-print&quot;);
+}</code></pre><div class="file">crates/specforge-emitter/src/brief.rs</div></div>
+<div class="diagram-box"><span class="cap">Compact machine output</span><div class="mermaid" id="dg-068-C9-04"><pre>flowchart TD
+ A[Brief emitter serializes] --&gt; B[to_string_pretty]
+ B --&gt; C[Indentation and newlines billed as tokens]
+ C --&gt; D[Roughly double token cost]
+ D --&gt; E[Default to compact to_string]
+ E --&gt; F[Add --pretty flag for humans]</pre></div></div><script type="text/plain" class="mermaid-src" data-target="dg-068-C9-04">flowchart TD
+ A[Brief emitter serializes] --> B[to_string_pretty]
+ B --> C[Indentation and newlines billed as tokens]
+ C --> D[Roughly double token cost]
+ D --> E[Default to compact to_string]
+ E --> F[Add --pretty flag for humans]</script>
+<div class="eli10"><span class="tag">Explain like I'm 10</span><p>Brief is the &#x27;smallest possible summary&#x27; format, yet it&#x27;s printed like a document for humans — every line indented, every brace on its own line. For a model, all that indentation is paid-for tokens that carry zero meaning, roughly doubling the bill on deeply nested JSON.</p></div>
+<p class="sol" style="margin-top:12px"><b>Proposed solution.</b> Default json/context/brief to compact serialization (to_string), keep a --pretty flag for humans; add a snapshot test asserting brief output per entity shrinks vs compact-context.</p>
+</article>
+</main><script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.1/dist/mermaid.min.js" onerror="window.__mermaidFailed=true"></script><script src="../js/agent.js"></script></body></html>

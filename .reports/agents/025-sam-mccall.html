@@ -1,0 +1,59 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>025 Sam McCall — SpecForge audit review</title>
+<link rel="stylesheet" href="../css/report.css"><link rel="stylesheet" href="../css/agents.css"></head><body>
+<header class="agent-hero"><div class="brand"><div class="logo">025</div><div>
+<h1>Sam McCall</h1>
+<div class="crumbs">Cluster C4 — Incremental compilation, LSP &amp; diagnostics · clangd creator &amp; maintainer; LSP at C-scale performance · profile <code>.agents/025-sam-mccall.md</code></div></div></div>
+<div class="links"><a href="../index.html">← Full report</a><a href="../../.agents/025-sam-mccall.md">Profile source</a></div></header>
+<main class="agent-main">
+<nav class="agent-nav"><a href="024.html">← 024</a><a href="026.html">026 →</a></nav>
+<div class="review-panel"><div class="review-text"><h2>Auditor review</h2><p>He&#x27;d praise the 17 behavior-tagged test files, then add the tiered fast path: same-file parse errors immediately, graph-wide passes coalesced, instrumented so did_change-to-publish latency is a number.</p></div>
+<div class="mini-kpis">
+<div class="mini-kpi"><div class="k">Findings</div><div class="v">1</div></div>
+<div class="mini-kpi good"><div class="k">Critical + high</div><div class="v">0</div></div>
+<div class="mini-kpi"><div class="k">Evidence items</div><div class="v">0</div></div>
+<div class="mini-kpi"><div class="k">Effort mix</div><div class="v" style="font-size:14px">M</div></div>
+</div></div>
+<article class="finding-detail sev-medium" id="f-C4-07">
+<div class="head"><h2>No syntax-only fast path: every debounced edit runs resolve_references + validator + registry checks over the whole corpus; no latency instrumentation anywhere.</h2><span class="chip medium">medium</span><span class="fid">C4-07</span></div>
+<div class="meta-row"><span class="engineer">025 Sam McCall</span><span class="chip neutral">effort M</span></div>
+<p class="details">Every debounced edit runs resolve_references, the validator and extension rules over the whole corpus, and there is no instrumentation of did_change-to-publish latency. A syntax-only fast path (immediate per-file parse diagnostics, coalesced graph-wide passes) plus a latency benchmark would keep large workspaces responsive.</p>
+<div class="snippet before"><span class="cap">before — current code</span><pre><code>                // Resolve references → edges using the shared function (same as CLI)
+                // ... whole pipeline under this write lock
+
+                // Re-validate the entire graph
+                // (validator + registry rules over all files)
+
+                // The debounced task re-runs this for every keystroke
+                // regardless of whether the edit could change cross-file
+                // references, and nothing measures the delay from
+                // did_change to publish_diagnostics.</code></pre><div class="file">crates/specforge-lsp/src/backend.rs:863-880</div></div>
+<div class="arrow-between">↓ fix ↓</div>
+<div class="snippet after"><span class="cap">after — proposed fix</span><pre><code>    // Tier 1: instant, same-file only.
+    let parse_diags = specforge_parser::parse(&amp;content, &amp;path).1;
+    self.client.publish_diagnostics(uri.clone(), to_lsp(parse_diags), Some(version)).await;
+
+    // Tier 2: coalesced graph-wide pass, only when imports/entities changed.
+    if self.signature_changed(&amp;uri, &amp;content) {
+        self.schedule_graph_analysis(Duration::from_millis(300)).await;
+    }
+
+    // Benchmark: did_change -&gt; publish p95 in tests/latency.rs
+    self.latency.record(uri, start.elapsed());</code></pre><div class="file">crates/specforge-lsp/src/backend.rs</div></div>
+<div class="diagram-box"><span class="cap">Tiered analysis</span><div class="mermaid" id="dg-025-C4-07"><pre>flowchart TD
+ A[keystroke] --&gt; B[tier 1 parse only]
+ B --&gt; C[instant same file diagnostics]
+ A --&gt; D{structure changed}
+ D --&gt;|yes| E[tier 2 coalesced graph pass]
+ D --&gt;|no| F[skip]
+ E --&gt; G[publish full diagnostics]</pre></div></div><script type="text/plain" class="mermaid-src" data-target="dg-025-C4-07">flowchart TD
+ A[keystroke] --> B[tier 1 parse only]
+ B --> C[instant same file diagnostics]
+ A --> D{structure changed}
+ D -->|yes| E[tier 2 coalesced graph pass]
+ D -->|no| F[skip]
+ E --> G[publish full diagnostics]</script>
+<div class="eli10"><span class="tag">Explain like I'm 10</span><p>Every tiny scribble triggers a full house inspection. Check the scribble itself instantly; run the whole-house inspection a moment later, or only when it can actually change the result.</p></div>
+<p class="sol" style="margin-top:12px"><b>Proposed solution.</b> tier work (same-file parse diagnostics immediately, graph-wide passes coalesced); add did_change→publish latency bench over spec/.</p>
+</article>
+</main><script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.1/dist/mermaid.min.js" onerror="window.__mermaidFailed=true"></script><script src="../js/agent.js"></script></body></html>

@@ -1,0 +1,81 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>066 Justin Spahr-Summers — SpecForge audit review</title>
+<link rel="stylesheet" href="../css/report.css"><link rel="stylesheet" href="../css/agents.css"></head><body>
+<header class="agent-hero"><div class="brand"><div class="logo">066</div><div>
+<h1>Justin Spahr-Summers</h1>
+<div class="crumbs">Cluster C9 — MCP &amp; AI-agent context engineering · Anthropic engineer who co-built MCP (now independent); API-design pedigree (ReactiveCocoa, Carthage) · profile <code>.agents/066-justin-spahr-summers.md</code></div></div></div>
+<div class="links"><a href="../index.html">← Full report</a><a href="../../.agents/066-justin-spahr-summers.md">Profile source</a></div></header>
+<main class="agent-main">
+<nav class="agent-nav"><a href="065.html">← 065</a><a href="067.html">067 →</a></nav>
+<div class="review-panel"><div class="review-text"><h2>Auditor review</h2><p>You built the whole change-event apparatus - delta computation, two notification formatters, a diff keying scheme - and then diffed against Graph::new() and never called it. Strict clients read subscribe:false and correctly assume silence, but future maintainers will assume the pipeline works. Either wire pending_notifications into a real recompile driven by specforge-watch and flip the capability bits, or delete the module until the watcher exists - half-shipped notification systems are worse than absent ones because they are discovered in production.</p></div>
+<div class="mini-kpis">
+<div class="mini-kpi"><div class="k">Findings</div><div class="v">1</div></div>
+<div class="mini-kpi bad"><div class="k">Critical + high</div><div class="v">1</div></div>
+<div class="mini-kpi"><div class="k">Evidence items</div><div class="v">0</div></div>
+<div class="mini-kpi"><div class="k">Effort mix</div><div class="v" style="font-size:14px">M</div></div>
+</div></div>
+<article class="finding-detail sev-high" id="f-C9-01">
+<div class="head"><h2>Subscription and notification machinery is dead scaffolding</h2><span class="chip high">high</span><span class="fid">C9-01</span></div>
+<div class="meta-row"><span class="engineer">066 Justin Spahr-Summers</span><span class="chip neutral">effort M</span><span class="chip neutral">moves: subscription capability actually servable</span></div>
+<p class="details">notifications.rs ships a full delta/notify stack: compute_graph_delta, compute_diagnostics_delta, and formatters for specforge/graphChanged and specforge/diagnosticsChanged. But pending_notifications diffs the live graph against a freshly constructed empty Graph::new(), so every startup reports the entire graph as added, and nothing ever calls this function on recompile - there is no watcher thread, and lifecycle.rs compiles exactly once during initialize. Subscriptions (resources/subscribe) have no handler in protocol/router.rs, and McpCapabilities advertises subscribe:false, list_changed:false. For a server pitched as an agent&#x27;s live view of the spec, change events are the core loop and they are entirely inert.</p>
+<div class="snippet before"><span class="cap">before — current code</span><pre><code>pub fn pending_notifications(state: &amp;mut McpState) -&gt; Vec&lt;Value&gt; {
+    let mut notifications = Vec::new();
+
+    let graph_delta = compute_graph_delta(&amp;Graph::new(), &amp;state.graph);
+    if !graph_delta.added_nodes.is_empty() || !graph_delta.removed_nodes.is_empty() {
+        notifications.push(format_graph_notification(&amp;graph_delta));
+        state.push_event(&quot;mcp_delta_notified&quot;, serde_json::json!({&quot;kind&quot;: &quot;graph&quot;}));
+    }
+
+    let diag_delta = compute_diagnostics_delta(&amp;state.previous_diagnostics, &amp;state.diagnostics);
+    if !diag_delta.added.is_empty() || !diag_delta.removed.is_empty() {
+        notifications.push(format_diagnostics_notification(&amp;diag_delta));
+        state.push_event(&quot;mcp_delta_notified&quot;, serde_json::json!({&quot;kind&quot;: &quot;diagnostics&quot;}));
+    }
+
+    notifications
+}</code></pre><div class="file">crates/specforge-mcp/src/notifications.rs:76-96</div></div>
+<div class="arrow-between">↓ fix ↓</div>
+<div class="snippet after"><span class="cap">after — proposed fix</span><pre><code>// Driven by specforge-watch&#x27;s IncrementalPipeline on every recompile
+pub fn drain_notifications(state: &amp;mut McpState, old: &amp;Graph, old_diags: &amp;[Diagnostic]) -&gt; Vec&lt;Value&gt; {
+    let mut notifications = Vec::new();
+
+    let graph_delta = compute_graph_delta(old, &amp;state.graph);
+    if !graph_delta.is_empty() {
+        notifications.push(format_graph_notification(&amp;graph_delta));
+        notify_subscribers(state, &quot;specforge/graphChanged&quot;, &amp;graph_delta);
+    }
+
+    let diag_delta = compute_diagnostics_delta(old_diags, &amp;state.diagnostics);
+    if !diag_delta.is_empty() {
+        notifications.push(format_diagnostics_notification(&amp;diag_delta));
+        notify_subscribers(state, &quot;specforge/diagnosticsChanged&quot;, &amp;diag_delta);
+    }
+    notifications
+}
+
+fn notify_subscribers(state: &amp;mut McpState, method: &amp;str, params: &amp;impl Serialize) {
+    // state.subscriptions: uri -&gt; subscribers, filled by resources/subscribe
+    for subscriber in state.subscribers_for(method) {
+        state.enqueue_frame(format_notification(subscriber, method, params));
+    }
+}</code></pre><div class="file">crates/specforge-mcp/src/notifications.rs</div></div>
+<div class="diagram-box"><span class="cap">Dead notification scaffolding</span><div class="mermaid" id="dg-066-C9-01"><pre>flowchart TD
+ A[File changes on disk] --&gt; B[No watcher in MCP server]
+ C[pending_notifications called never] --&gt; D[Diffs against empty Graph]
+ D --&gt; E[Everything flagged as added]
+ F[Subscriber waits] --&gt; G[Silence forever]
+ B --&gt; H[Wire IncrementalPipeline to recompile]
+ H --&gt; I[Diff old vs new graph]
+ I --&gt; J[Push notifications to subscribers]</pre></div></div><script type="text/plain" class="mermaid-src" data-target="dg-066-C9-01">flowchart TD
+ A[File changes on disk] --> B[No watcher in MCP server]
+ C[pending_notifications called never] --> D[Diffs against empty Graph]
+ D --> E[Everything flagged as added]
+ F[Subscriber waits] --> G[Silence forever]
+ B --> H[Wire IncrementalPipeline to recompile]
+ H --> I[Diff old vs new graph]
+ I --> J[Push notifications to subscribers]</script>
+<div class="eli10"><span class="tag">Explain like I'm 10</span><p>The team built a mailing list — people can sign up, and there are pre-written newsletters (graphChanged, diagnosticsChanged) — but the mailman was never hired, and the one draft newsletter compares against an empty folder so it always says &#x27;everything is new&#x27;. Nothing bad happens, but nothing good happens either; it just looks finished.</p></div>
+<p class="sol" style="margin-top:12px"><b>Proposed solution.</b> Either wire it or cut it: implement resources/subscribe + resources/list_changed, hook pending_notifications into a real old-vs-new compile comparison driven by specforge-watch, and push formatted notifications to subscribers; or delete subscriptions.rs/notifications.rs until a watcher exists.</p>
+</article>
+</main><script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.1/dist/mermaid.min.js" onerror="window.__mermaidFailed=true"></script><script src="../js/agent.js"></script></body></html>

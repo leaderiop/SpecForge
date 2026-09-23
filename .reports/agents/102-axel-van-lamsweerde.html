@@ -1,0 +1,53 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>102 Axel van Lamsweerde — SpecForge audit review</title>
+<link rel="stylesheet" href="../css/report.css"><link rel="stylesheet" href="../css/agents.css"></head><body>
+<header class="agent-hero"><div class="brand"><div class="logo">102</div><div>
+<h1>Axel van Lamsweerde</h1>
+<div class="crumbs">Cluster C12 — Requirements engineering, ubiquitous language &amp; docs-as-code (self-spec corpus) · KAOS goal-oriented requirements engineering · profile <code>.agents/102-axel-van-lamsweerde.md</code></div></div></div>
+<div class="links"><a href="../index.html">← Full report</a><a href="../../.agents/102-axel-van-lamsweerde.md">Profile source</a></div></header>
+<main class="agent-main">
+<nav class="agent-nav"><a href="101.html">← 101</a><a href="103.html">103 →</a></nav>
+<div class="review-panel"><div class="review-text"><h2>Auditor review</h2><p>Van Lamsweerde would recognize his KAOS graph fully mechanized — refinement edges preserved as invariants lists, goals traceable to behaviors — and would consider the corpus the best realization of goal-oriented RE he has seen compiled. His single complaint: obstacle analysis is orphaned from the goal graph; FMEA entries link invariants but never features, so the operational version of which risks endanger this goal returns nothing. Add the obstructs edge and the goal model is complete.</p></div>
+<div class="mini-kpis">
+<div class="mini-kpi"><div class="k">Findings</div><div class="v">1</div></div>
+<div class="mini-kpi good"><div class="k">Critical + high</div><div class="v">0</div></div>
+<div class="mini-kpi"><div class="k">Evidence items</div><div class="v">2</div></div>
+<div class="mini-kpi"><div class="k">Effort mix</div><div class="v" style="font-size:14px">M</div></div>
+</div></div>
+<article class="finding-detail sev-low" id="f-C12-06">
+<div class="head"><h2>Goal refinement graph is mechanically enforced — KAOS realized — but obstacle analysis (failure modes) is not linked back to goals</h2><span class="chip low">low</span><span class="fid">C12-06</span></div>
+<div class="meta-row"><span class="engineer">102 Axel van Lamsweerde</span><span class="chip neutral">effort M</span><span class="chip neutral">moves: behavior_verify_coverage</span></div>
+<div class="evidence"><b>Evidence</b><span class="ev"><code>spec/behaviors/extensions.spec:21-24</code> — behaviors carry invariants lists (refinement edges preserved)</span><span class="ev"><code>spec/governance/failure-modes.spec:—</code> — FMEA entries exist but carry no reference to the feature/invariant they obstruct</span></div>
+<p class="details">Behaviors carry invariants lists, so the KAOS refinement graph is enforced — but FMEA failure modes link only invariants (invariant field), never the feature they obstruct. Adding a typed obstructs/features edge makes risk-to-goal queries answerable.</p>
+<div class="snippet before"><span class="cap">before — current code</span><pre><code>failure_mode incremental_divergence &quot;Incremental Divergence&quot; {
+  invariant  incremental_correctness
+  severity   high
+  occurrence occasional
+  detection  unlikely
+  rpn        84</code></pre><div class="file">spec/governance/failure-modes.spec:7-13</div></div>
+<div class="arrow-between">↓ fix ↓</div>
+<div class="snippet after"><span class="cap">after — proposed fix</span><pre><code>failure_mode incremental_divergence &quot;Incremental Divergence&quot; {
+  invariant  incremental_correctness
+  obstructs  [incremental_correctness, watch_mode_latency]
+  features   [incremental_rebuild]
+  severity   high
+  occurrence occasional
+  detection  unlikely
+  rpn        84</code></pre><div class="file">spec/governance/failure-modes.spec:7-14</div></div>
+<div class="diagram-box"><span class="cap">Linking risks back to goals</span><div class="mermaid" id="dg-102-C12-06"><pre>flowchart TD
+ A[feature goal] --&gt; B[invariant maintains goal]
+ C[failure mode FMEA] --&gt; D[invariant edge only]
+ D --&gt; E[no path to feature]
+ E --&gt; F[risk to goal query fails]
+ C --&gt; G[add obstructs edge]
+ G --&gt; H[query works]</pre></div></div><script type="text/plain" class="mermaid-src" data-target="dg-102-C12-06">flowchart TD
+ A[feature goal] --> B[invariant maintains goal]
+ C[failure mode FMEA] --> D[invariant edge only]
+ D --> E[no path to feature]
+ E --> F[risk to goal query fails]
+ C --> G[add obstructs edge]
+ G --> H[query works]</script>
+<div class="eli10"><span class="tag">Explain like I'm 10</span><p>Every goal neatly breaks into sub-goals, and every sub-goal names the rule that keeps it true. But the &#x27;what could go wrong&#x27; notebook lives on a different shelf and never points back at the goal it threatens. You cannot ask &#x27;which risks endanger this goal?&#x27; and get an answer.</p></div>
+<p class="sol" style="margin-top:12px"><b>Proposed solution.</b> Add an obstructs/threatens edge from failure_mode to feature or invariant (the schema already supports typed edges), and surface it in specforge trace so risk-to-goal queries work.</p>
+</article>
+</main><script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.1/dist/mermaid.min.js" onerror="window.__mermaidFailed=true"></script><script src="../js/agent.js"></script></body></html>

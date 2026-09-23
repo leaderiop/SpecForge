@@ -1,0 +1,28 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>030 Evan Czaplicki — SpecForge audit review</title>
+<link rel="stylesheet" href="../css/report.css"><link rel="stylesheet" href="../css/agents.css"></head><body>
+<header class="agent-hero"><div class="brand"><div class="logo">030</div><div>
+<h1>Evan Czaplicki</h1>
+<div class="crumbs">Cluster C4 — Incremental compilation, LSP &amp; diagnostics · Elm creator; compiler-error UX gold standard · profile <code>.agents/030-evan-czaplicki.md</code></div></div></div>
+<div class="links"><a href="../index.html">← Full report</a><a href="../../.agents/030-evan-czaplicki.md">Profile source</a></div></header>
+<main class="agent-main">
+<nav class="agent-nav"><a href="029.html">← 029</a><a href="031.html">031 →</a></nav>
+<div class="review-panel"><div class="review-text"><h2>Auditor review</h2><p>He&#x27;d praise per-URI diagnostic keying as correct dataflow, then fix the suggestion-to-quickfix gap — Elm sells the language on replace-X-with-Y hints and E003/E025 already have the strsim answer. Also link error codes to real docs.</p></div>
+<div class="mini-kpis">
+<div class="mini-kpi"><div class="k">Findings</div><div class="v">1</div></div>
+<div class="mini-kpi good"><div class="k">Critical + high</div><div class="v">0</div></div>
+<div class="mini-kpi"><div class="k">Evidence items</div><div class="v">0</div></div>
+<div class="mini-kpi"><div class="k">Effort mix</div><div class="v" style="font-size:14px">M</div></div>
+</div></div>
+<article class="finding-detail sev-medium" id="f-C4-09">
+<div class="head"><h2>Quickfix coverage is a single scenario (code_actions_missing_verify); E003/E025 with an available strsim suggestion offers no one-click rename.</h2><span class="chip medium">medium</span><span class="fid">C4-09</span></div>
+<div class="meta-row"><span class="engineer">030 Evan Czaplicki</span><span class="chip neutral">effort M</span></div>
+<p class="details">Quickfix coverage is a single scenario: code_actions_missing_verify is the only generator wired into code_action. E003/E025 diagnostics already carry strsim suggestions, so rename quickfixes are mechanical once C4-08 lands the data payload.</p>
+<div class="snippet before"><span class="cap">before — current code</span><pre><code>        let testable_refs: Vec&lt;&amp;str&gt; = testable.iter().map(|s| s.as_str()).collect();\n        let actions = code_actions_missing_verify(state.graph(), &amp;file_path, &amp;testable_refs);\n\n        if actions.is_empty() {\n            return Ok(None);\n        }\n\n        let lsp_actions: Vec&lt;CodeActionOrCommand&gt; = actions</code></pre><div class="file">crates/specforge-lsp/src/backend.rs:1350-1358</div></div>
+<div class="arrow-between">↓ fix ↓</div>
+<div class="snippet after"><span class="cap">after — proposed fix</span><pre><code>        let mut lsp_actions: Vec&lt;CodeActionOrCommand&gt; = actions\n            .into_iter()\n            .map(|a| CodeActionOrCommand::CodeAction(a.into()))\n            .collect();\n\n        // Quickfix: rename misspelled references to the suggested target.\n        if let Some(doc) = state.document(uri.as_str()) {\n            let content = doc.content().to_string();\n            for diag in state.diagnostics(uri.as_str()) {\n                let Some(sugg) = suggestion_of(&amp;diag) else { continue };\n                if let Some(action) = rename_quickfix(&amp;content, &amp;diag, &amp;sugg) {\n                    lsp_actions.push(CodeActionOrCommand::CodeAction(action));\n                }\n            }\n        }\n        if lsp_actions.is_empty() { return Ok(None); }</code></pre><div class="file">crates/specforge-lsp/src/backend.rs:0-0</div></div>
+<div class="diagram-box"><span class="cap">Suggestion to quickfix</span><div class="mermaid" id="dg-030-C4-09"><pre>flowchart TD\n code_action_request --&gt; collect_diags\n collect_diags --&gt; has_suggestion\n has_suggestion --&gt; rename_quickfix\n rename_quickfix --&gt; respond</pre></div></div><script type="text/plain" class="mermaid-src" data-target="dg-030-C4-09">flowchart TD\n code_action_request --> collect_diags\n collect_diags --> has_suggestion\n has_suggestion --> rename_quickfix\n rename_quickfix --> respond</script>
+<div class="eli10"><span class="tag">Explain like I'm 10</span><p>Only one kind of mistake comes with a &#x27;fix it for me&#x27; button. The same trick works for the other common mistakes — add the button for those too.</p></div>
+<p class="sol" style="margin-top:12px"><b>Proposed solution.</b> synthesize CodeAction from structured suggestion data.</p>
+</article>
+</main><script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.1/dist/mermaid.min.js" onerror="window.__mermaidFailed=true"></script><script src="../js/agent.js"></script></body></html>

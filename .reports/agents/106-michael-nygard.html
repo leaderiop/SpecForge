@@ -1,0 +1,62 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>106 Michael Nygard — SpecForge audit review</title>
+<link rel="stylesheet" href="../css/report.css"><link rel="stylesheet" href="../css/agents.css"></head><body>
+<header class="agent-hero"><div class="brand"><div class="logo">106</div><div>
+<h1>Michael Nygard</h1>
+<div class="crumbs">Cluster C12 — Requirements engineering, ubiquitous language &amp; docs-as-code (self-spec corpus) · Architecture Decision Records; production-stability patterns · profile <code>.agents/106-michael-nygard.md</code></div></div></div>
+<div class="links"><a href="../index.html">← Full report</a><a href="../../.agents/106-michael-nygard.md">Profile source</a></div></header>
+<main class="agent-main">
+<nav class="agent-nav"><a href="105.html">← 105</a><a href="107.html">107 →</a></nav>
+<div class="review-panel"><div class="review-text"><h2>Auditor review</h2><p>Nygard would rate the ADR practice top-decile: superseded decisions preserved with reversal narratives, consequences as enumerable lists, invariants cross-linked. His nit — and he would insist it matters — is the two undated decisions, sitting precisely on the supersede chain where chronology is the whole value of the slip drawer. Backfill dates, make date required at the manifest level, and the drawer is complete. Keep the supersedes-as-prose convention or promote it to an edge.</p></div>
+<div class="mini-kpis">
+<div class="mini-kpi"><div class="k">Findings</div><div class="v">2</div></div>
+<div class="mini-kpi good"><div class="k">Critical + high</div><div class="v">0</div></div>
+<div class="mini-kpi"><div class="k">Evidence items</div><div class="v">4</div></div>
+<div class="mini-kpi"><div class="k">Effort mix</div><div class="v" style="font-size:14px">S</div></div>
+</div></div>
+<article class="finding-detail sev-low" id="f-C12-10">
+<div class="head"><h2>ADR discipline is exemplary; two decisions missing the date field break the format</h2><span class="chip low">low</span><span class="fid">C12-10</span></div>
+<div class="meta-row"><span class="engineer">106 Michael Nygard</span><span class="chip neutral">effort S</span><span class="chip neutral">moves: adr_date_field_presence</span></div>
+<div class="evidence"><b>Evidence</b><span class="ev"><code>spec/governance/decisions.spec:598-660</code> — verify_gherkin_as_core_grammar (superseded) and gherkin_as_extension_field (accepted) have status but no date; the other 18 core decisions all carry date</span><span class="ev"><code>spec/extensions/federation/decisions.spec:4-41</code> — superseded -&gt; accepted chain correctly retained with dates</span></div>
+<p class="details">Two decisions (verify_gherkin_as_core_grammar superseded, gherkin_as_extension_field accepted) lack the date field every other ADR carries, so age-based rules (like I001 stale-proposal) cannot apply and the supersession chain has no ordering evidence.</p>
+<div class="snippet before"><span class="cap">before — current code</span><pre><code>decision verify_gherkin_as_core_grammar &quot;Verify/Gherkin as Core Grammar&quot; {
+  status superseded
+
+  context &quot;&quot;&quot;</code></pre><div class="file">spec/governance/decisions.spec:598-601</div></div>
+<div class="arrow-between">↓ fix ↓</div>
+<div class="snippet after"><span class="cap">after — proposed fix</span><pre><code>decision verify_gherkin_as_core_grammar &quot;Verify/Gherkin as Core Grammar&quot; {
+  status superseded
+  date     2026-02-20
+
+  context &quot;&quot;&quot;</code></pre><div class="file">spec/governance/decisions.spec</div></div>
+<div class="diagram-box"><span class="cap">dated decisions</span><div class="mermaid" id="dg-106-C12-10"><pre>flowchart LR
+ A[ADR without date] --&gt; B[no ordering evidence]
+ B --&gt; C[stale rules cannot fire]
+ A --&gt; D[add date]
+ D --&gt; E[supersession chain ordered]</pre></div></div><script type="text/plain" class="mermaid-src" data-target="dg-106-C12-10">flowchart LR
+ A[ADR without date] --> B[no ordering evidence]
+ B --> C[stale rules cannot fire]
+ A --> D[add date]
+ D --> E[supersession chain ordered]</script>
+<div class="eli10"><span class="tag">Explain like I'm 10</span><p>Almost every decision slip is dated; two slips in the drawer have no date, so in five years nobody will know which came first when they seem to disagree. Dating every slip is the whole point of the drawer.</p></div>
+<p class="sol" style="margin-top:12px"><b>Proposed solution.</b> Add dates to both decisions; make `date` a required field for kind decision in the manifest so E-level validation catches it.</p>
+</article>
+<article class="finding-detail sev-info" id="f-C12-11">
+<div class="head"><h2>Praise: superseded decisions are preserved, never deleted — the Nygard rule followed to the letter</h2><span class="chip info">info</span><span class="fid">C12-11</span></div>
+<div class="meta-row"><span class="engineer">106 Michael Nygard</span><span class="chip neutral">effort S</span><span class="chip neutral">moves: adr_status_field_presence</span></div>
+<div class="evidence"><b>Evidence</b><span class="ev"><code>spec/governance/decisions.spec:598-631</code> — superseded gherkin-in-core ADR kept inline next to its accepted replacement</span><span class="ev"><code>spec/extensions/product/decisions.spec:323-353</code> — pe_i058_query_time_only superseded with narrative of the reversal</span></div>
+<p class="details">Superseded decisions are retained with full context (verify_gherkin_as_core_grammar → gherkin_as_extension_field; federation_in_core → federation_as_extension), matching the Nygard rule that ADRs are immutable history.</p>
+<div class="snippet exemplar"><span class="cap">exemplar — the good pattern</span><pre><code>decision verify_gherkin_as_core_grammar &quot;...&quot; {
+  status superseded
+  ...
+}
+
+decision gherkin_as_extension_field &quot;...&quot; {
+  status accepted
+  ...
+}</code></pre><div class="file">spec/governance/decisions.spec:598-631</div></div>
+<div class="keep"><span class="tag">Keep doing this</span><p>Keep preserving superseded ADRs; consider a typed supersedes edge so the chain is queryable in the graph.</p></div>
+<div class="eli10"><span class="tag">Explain like I'm 10</span><p>When the team changes its mind, the old memo stays in the binder with &#x27;cancelled&#x27; stamped on it, next to the new memo. Future readers can see not just what was decided but what it replaced and why.</p></div>
+<p class="sol" style="margin-top:12px"><b>Proposed solution.</b> None — maintain this; consider a `supersedes` reference edge so the chain is a graph edge rather than prose convention.</p>
+</article>
+</main><script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.1/dist/mermaid.min.js" onerror="window.__mermaidFailed=true"></script><script src="../js/agent.js"></script></body></html>

@@ -1,0 +1,68 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>051 Till Schneidereit — SpecForge audit review</title>
+<link rel="stylesheet" href="../css/report.css"><link rel="stylesheet" href="../css/agents.css"></head><body>
+<header class="agent-hero"><div class="brand"><div class="logo">051</div><div>
+<h1>Till Schneidereit</h1>
+<div class="crumbs">Cluster C7 — Wasm plugin runtimes &amp; the extension bet · Bytecode Alliance co-founder; runtime ecosystem positioning · profile <code>.agents/051-till-schneidereit.md</code></div></div></div>
+<div class="links"><a href="../index.html">← Full report</a><a href="../../.agents/051-till-schneidereit.md">Profile source</a></div></header>
+<main class="agent-main">
+<nav class="agent-nav"><a href="050.html">← 050</a><a href="052.html">052 →</a></nav>
+<div class="review-panel"><div class="review-text"><h2>Auditor review</h2><p>&#x27;Wasm is the only extension runtime&#x27; is a claim the code refutes three times over — native BuiltinExtension, native emitter builtins with six names, and a CompositeRuntime that silently lets builtins shadow user Wasm of the same name. Silent shadowing is the dangerous part: someone&#x27;s custom product extension simply never runs and nothing tells them. Either commit to the embedded-Wasm-only path (my preference — it deletes the trait and the emitter list) or at minimum raise an E-code on collision.</p></div>
+<div class="mini-kpis">
+<div class="mini-kpi"><div class="k">Findings</div><div class="v">1</div></div>
+<div class="mini-kpi bad"><div class="k">Critical + high</div><div class="v">1</div></div>
+<div class="mini-kpi"><div class="k">Evidence items</div><div class="v">3</div></div>
+<div class="mini-kpi"><div class="k">Effort mix</div><div class="v" style="font-size:14px">L</div></div>
+</div></div>
+<article class="finding-detail sev-high" id="f-C7-06">
+<div class="head"><h2>&#x27;Wasm is the only extension runtime&#x27; false three ways: native BuiltinRuntime (builtin.rs:22-26, has_cached_module always true), native Rust builtins in emitter (emitter/builtins/mod.rs:31-35), and CompositeRuntime builtin-first silently shadows same-named user Wasm (composite.rs:34-41).</h2><span class="chip high">high</span><span class="fid">C7-06</span></div>
+<div class="meta-row"><span class="engineer">051</span><span class="chip neutral">effort L</span><span class="chip neutral">moves: wasm_only_claim_accuracy</span></div>
+<div class="evidence"><b>Evidence</b><span class="ev"><code>builtin.rs:22-26</code></span><span class="ev"><code>emitter/builtins/mod.rs:31-35</code></span><span class="ev"><code>composite.rs:34-41</code></span></div>
+<p class="details">&#x27;Wasm is the only extension runtime&#x27; fails three ways. BuiltinExtension (builtin.rs) implements native Rust extensions behind a BuiltinRuntime whose has_cached_module is trivially true; specforge-emitter has its own KNOWN_BUILTINS list with six names including native RustExtension/TypeScriptExtension never shipped as Wasm; and CompositeRuntime::call_export tries the builtin map FIRST and only falls through to Extism on kind == &quot;not_found&quot; — so a user Wasm extension named @specforge/product is silently shadowed by the native one with no diagnostic. Users believe they are running the embedded Wasm modules while actually executing in-process Rust. Either make builtins genuinely single-path (always the embedded .wasm) or document the tiers honestly, and emit an E-code error on name collision instead of a silent win.</p>
+<div class="snippet before"><span class="cap">before — current code</span><pre><code>    fn call_export(&amp;self, extension_name: &amp;str, export_name: &amp;str, input: &amp;[u8]) -&gt; WasmCallResult {
+        // Try builtin first
+        let result = self.builtin.call_export(extension_name, export_name, input);
+        if matches!(&amp;result, WasmCallResult::Trap(t) if t.kind == &quot;not_found&quot;) {
+            // Not a builtin — try Extism
+            return self.extism.call_export(extension_name, export_name, input);
+        }
+        result
+    }</code></pre><div class="file">crates/specforge-extism/src/composite.rs:36-44</div></div>
+<div class="arrow-between">↓ fix ↓</div>
+<div class="snippet after"><span class="cap">after — proposed fix</span><pre><code>    pub fn load_wasm_extension(&amp;self, name: &amp;str, wasm_path: &amp;Path) -&gt; Result&lt;(), String&gt; {
+        if self.builtin.has_extension(name) {
+            return Err(format!(
+                &quot;E032: extension &#x27;{name}&#x27; collides with a built-in extension; \
+                 choose a different name or disable the builtin&quot;
+            ));
+        }
+        self.extism.load_module_as(name, wasm_path, None)
+    }
+
+    fn call_export(&amp;self, extension_name: &amp;str, export_name: &amp;str, input: &amp;[u8]) -&gt; WasmCallResult {
+        // Explicit precedence, never silent: Wasm modules registered by the user
+        // take priority; builtins answer only unregistered names.
+        if self.extism.is_loaded(extension_name) {
+            return self.extism.call_export(extension_name, export_name, input);
+        }
+        self.builtin.call_export(extension_name, export_name, input)
+    }</code></pre><div class="file">crates/specforge-extism/src/composite.rs</div></div>
+<div class="diagram-box"><span class="cap">Name collision shadowing</span><div class="mermaid" id="dg-051-C7-06"><pre>flowchart TD
+ A[User loads Wasm named product] --&gt; B[CompositeRuntime call_export]
+ B --&gt; C{builtin map has name}
+ C --&gt;|yes old| D[Native builtin answers silently]
+ C --&gt;|fix| E[E032 collision error at load]
+ E --&gt; F[User picks new name]
+ F --&gt; G[User Wasm executes as intended]
+ D --&gt; H[User code never runs]</pre></div></div><script type="text/plain" class="mermaid-src" data-target="dg-051-C7-06">flowchart TD
+ A[User loads Wasm named product] --> B[CompositeRuntime call_export]
+ B --> C{builtin map has name}
+ C -->|yes old| D[Native builtin answers silently]
+ C -->|fix| E[E032 collision error at load]
+ E --> F[User picks new name]
+ F --> G[User Wasm executes as intended]
+ D --> H[User code never runs]</script>
+<div class="eli10"><span class="tag">Explain like I'm 10</span><p>sign says everything fresh-baked on site but half arrives frozen, and a customer bread with the same label loses silently.</p></div>
+<p class="sol" style="margin-top:12px"><b>Proposed solution.</b> single embedded-Wasm path for builtins or honest tiered docs; E-code error on name collision.</p>
+</article>
+</main><script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.1/dist/mermaid.min.js" onerror="window.__mermaidFailed=true"></script><script src="../js/agent.js"></script></body></html>

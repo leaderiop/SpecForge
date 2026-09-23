@@ -1,0 +1,53 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>050 Luke Wagner — SpecForge audit review</title>
+<link rel="stylesheet" href="../css/report.css"><link rel="stylesheet" href="../css/agents.css"></head><body>
+<header class="agent-hero"><div class="brand"><div class="logo">050</div><div>
+<h1>Luke Wagner</h1>
+<div class="crumbs">Cluster C7 — Wasm plugin runtimes &amp; the extension bet · Wasm co-designer; Component Model architect · profile <code>.agents/050-luke-wagner.md</code></div></div></div>
+<div class="links"><a href="../index.html">← Full report</a><a href="../../.agents/050-luke-wagner.md">Profile source</a></div></header>
+<main class="agent-main">
+<nav class="agent-nav"><a href="049.html">← 049</a><a href="051.html">051 →</a></nav>
+<div class="review-panel"><div class="review-text"><h2>Auditor review</h2><p>Genuinely good protocol work: one PROTOCOL_VERSION const, typed semver-major incompatibility errors carrying both versions, and a deterministic host-driven handshake-validate-describe sequence that the plugin side mirrors exactly across nine describe categories. This is the spine the rest of the extension system should be rebuilt around. My one ask: lock it with golden conformance fixtures in CI so the JSON files the four plugins ship cannot drift from these Rust types.</p></div>
+<div class="mini-kpis">
+<div class="mini-kpi"><div class="k">Findings</div><div class="v">1</div></div>
+<div class="mini-kpi good"><div class="k">Critical + high</div><div class="v">0</div></div>
+<div class="mini-kpi"><div class="k">Evidence items</div><div class="v">4</div></div>
+<div class="mini-kpi"><div class="k">Effort mix</div><div class="v" style="font-size:14px">S</div></div>
+</div></div>
+<article class="finding-detail sev-info" id="f-C7-05">
+<div class="head"><h2>Handshake/describe protocol is genuinely sound: semver-major compatibility check with typed error (protocol/host.rs:44-69), PROTOCOL_VERSION const (mod.rs:13-15), host-driven handshake-validate-describe order (host.rs:228-230), plugin side mirrors it exactly with 9 categories (extensions/product/src/lib.rs:24-50).</h2><span class="chip info">info</span><span class="fid">C7-05</span></div>
+<div class="meta-row"><span class="engineer">050</span><span class="chip neutral">effort S</span><span class="chip neutral">moves: protocol_version_compat</span></div>
+<div class="evidence"><b>Evidence</b><span class="ev"><code>protocol/host.rs:44-69</code></span><span class="ev"><code>mod.rs:13-15</code></span><span class="ev"><code>host.rs:228-230</code></span><span class="ev"><code>extensions/product/src/lib.rs:24-50</code></span></div>
+<p class="details">The handshake/describe protocol is the strongest part of the extension system: PROTOCOL_VERSION is a single const, validate_protocol_version does a proper semver major-version comparison returning a typed ProtocolError::IncompatibleVersion with both versions, and the host drives a fixed handshake-validate-describe order in protocol/host.rs. The plugin side mirrors it exactly — extensions/product answers __handshake from an embedded JSON and dispatches __describe across nine categories with a clean match. This is a genuinely versioned, typed contract between two independently compiled binaries.</p>
+<div class="snippet exemplar"><span class="cap">exemplar — the good pattern</span><pre><code>    /// Validate that the extension&#x27;s protocol version is compatible with the host.
+    /// Uses semver major-version compatibility: same major version = compatible.
+    pub fn validate_protocol_version(
+        &amp;self,
+        response: &amp;HandshakeResponse,
+    ) -&gt; Result&lt;(), ProtocolError&gt; {
+        let host_ver = semver::Version::parse(PROTOCOL_VERSION).map_err(|e| {
+            ProtocolError::HandshakeFailed(format!(
+                &quot;invalid host protocol version &#x27;{}&#x27;: {}&quot;,
+                PROTOCOL_VERSION, e
+            ))
+        })?;
+        let ext_ver = semver::Version::parse(&amp;response.protocol_version).map_err(|_| {
+            ProtocolError::IncompatibleVersion {
+                host_version: PROTOCOL_VERSION.to_string(),
+                extension_version: response.protocol_version.clone(),
+            }
+        })?;
+
+        if host_ver.major != ext_ver.major {
+            return Err(ProtocolError::IncompatibleVersion {
+                host_version: PROTOCOL_VERSION.to_string(),
+                extension_version: response.protocol_version.clone(),
+            });
+        }
+        Ok(())
+    }</code></pre><div class="file">crates/specforge-wasm/src/protocol/host.rs:45-71</div></div>
+<div class="keep"><span class="tag">Keep doing this</span><p>Preserve the single PROTOCOL_VERSION const, the typed semver-major incompatibility error, and the host-driven handshake-validate-describe sequence; lock them with golden conformance fixtures so future changes cannot silently drift the wire format.</p></div>
+<div class="eli10"><span class="tag">Explain like I'm 10</span><p>a good doorbell protocol - host rings first, both agree on version, no surprises.</p></div>
+<p class="sol" style="margin-top:12px"><b>Proposed solution.</b> lock with golden conformance fixtures.</p>
+</article>
+</main><script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.1/dist/mermaid.min.js" onerror="window.__mermaidFailed=true"></script><script src="../js/agent.js"></script></body></html>

@@ -1,0 +1,56 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>063 Justin Cappos — SpecForge audit review</title>
+<link rel="stylesheet" href="../css/report.css"><link rel="stylesheet" href="../css/agents.css"></head><body>
+<header class="agent-hero"><div class="brand"><div class="logo">063</div><div>
+<h1>Justin Cappos</h1>
+<div class="crumbs">Cluster C8 — Registries, packaging &amp; supply-chain trust · TUF/in-toto creator — update integrity frameworks · profile <code>.agents/063-justin-cappos.md</code></div></div></div>
+<div class="links"><a href="../index.html">← Full report</a><a href="../../.agents/063-justin-cappos.md">Profile source</a></div></header>
+<main class="agent-main">
+<nav class="agent-nav"><a href="062.html">← 062</a><a href="064.html">064 →</a></nav>
+<div class="review-panel"><div class="review-text"><h2>Auditor review</h2><p>This is the classic same-channel integrity trap: the hash comes from the server that served the bytes, so it catches bit-rot and nothing else, and with no metadata expiry rollback is free. The good news is LockFileEntry already pins wasm_hash — exactly the offline anchor a TUF-style design needs. Add publisher-signed targets with expiry, verify at add and upgrade, and the lockfile becomes the trust root the registry cannot rewrite.</p></div>
+<div class="mini-kpis">
+<div class="mini-kpi"><div class="k">Findings</div><div class="v">1</div></div>
+<div class="mini-kpi bad"><div class="k">Critical + high</div><div class="v">1</div></div>
+<div class="mini-kpi"><div class="k">Evidence items</div><div class="v">0</div></div>
+<div class="mini-kpi"><div class="k">Effort mix</div><div class="v" style="font-size:14px">L</div></div>
+</div></div>
+<article class="finding-detail sev-high" id="f-C8-09">
+<div class="head"><h2>Integrity verified against a SHA-256 fetched from the same channel as the artifact — a compromised registry defeats it; no freshness, no rollback protection</h2><span class="chip high">high</span><span class="fid">C8-09</span></div>
+<div class="meta-row"><span class="engineer">063 Justin Cappos</span><span class="chip neutral">effort L</span><span class="chip neutral">moves: out_of_band_trust</span></div>
+<p class="details">verify_registry_integrity checks downloaded bytes against a SHA-256 the same registry supplied, so a compromised registry recomputes the hash and wins; there is no metadata expiry, so rollback to stale versions is free. LockFileEntry already pins wasm_hash — extend it with publisher-signed targets and expiry.</p>
+<div class="snippet before"><span class="cap">before — current code</span><pre><code>/// Verify SHA256 integrity of downloaded bytes against an expected hash.
+pub fn verify_registry_integrity(data: &amp;[u8], expected_sha256: &amp;str) -&gt; Result&lt;(), Diagnostic&gt; {
+    let actual = hex_sha256(data);
+    if actual == expected_sha256 {
+        Ok(())
+    } else {</code></pre><div class="file">crates/specforge-registry/src/client/registry_ops.rs:77-82</div></div>
+<div class="arrow-between">↓ fix ↓</div>
+<div class="snippet after"><span class="cap">after — proposed fix</span><pre><code>pub struct SignedTargets { pub key_id: String, pub expires: String, pub signature: String }
+
+pub fn verify_signed_targets(entry: &amp;LockFileEntry, root: &amp;RootMetadata, wasm: &amp;[u8])
+    -&gt; Result&lt;(), Diagnostic&gt;
+{
+    let st = entry.signed_targets.as_ref().ok_or_else(|| missing_targets_diag())?;
+    check_not_expired(&amp;st.expires)?;
+    let key = root.keys.get(&amp;st.key_id).ok_or_else(|| unknown_key_diag(&amp;st.key_id))?;
+    let digest = hex_sha256(wasm);
+    verify_ed25519(key, &amp;format!(&quot;{}|{}|{}&quot;, entry.name, entry.version, digest), &amp;st.signature)
+        .map_err(|_| bad_signature_diag())
+}</code></pre><div class="file">crates/specforge-registry/src/client/integrity.rs</div></div>
+<div class="diagram-box"><span class="cap">Same-channel hash check defeats nothing serious</span><div class="mermaid" id="dg-063-C8-09"><pre>flowchart TD
+ A[download wasm] --&gt; B[sha256 from same registry]
+ C[compromised registry] --&gt; D[swap bytes recompute hash]
+ D --&gt; E[check passes]
+ F[fix] --&gt; G[publisher signs target digest]
+ G --&gt; H[verify vs pinned root plus expiry]
+ I[lockfile pins digest] --&gt; J[offline anchor]</pre></div></div><script type="text/plain" class="mermaid-src" data-target="dg-063-C8-09">flowchart TD
+ A[download wasm] --> B[sha256 from same registry]
+ C[compromised registry] --> D[swap bytes recompute hash]
+ D --> E[check passes]
+ F[fix] --> G[publisher signs target digest]
+ G --> H[verify vs pinned root plus expiry]
+ I[lockfile pins digest] --> J[offline anchor]</script>
+<div class="eli10"><span class="tag">Explain like I'm 10</span><p>Checking the food&#x27;s seal against the label on the same box catches a crushed box in transit, but is useless if the whole box was swapped — the forger prints a matching label too. Real safety needs a dated label from someone else you trust, pinned where the registry can&#x27;t touch it.</p></div>
+<p class="sol" style="margin-top:12px"><b>Proposed solution.</b> TUF-style signed root/targets metadata per registry: publisher-signed target digests verified in add/upgrade, metadata expiry for freshness, digests recorded in the lockfile as the offline anchor. A minimal publisher-signed-manifest step closes the same-channel hole.</p>
+</article>
+</main><script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.1/dist/mermaid.min.js" onerror="window.__mermaidFailed=true"></script><script src="../js/agent.js"></script></body></html>

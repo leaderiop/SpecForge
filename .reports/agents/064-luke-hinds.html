@@ -1,0 +1,96 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>064 Luke Hinds — SpecForge audit review</title>
+<link rel="stylesheet" href="../css/report.css"><link rel="stylesheet" href="../css/agents.css"></head><body>
+<header class="agent-hero"><div class="brand"><div class="logo">064</div><div>
+<h1>Luke Hinds</h1>
+<div class="crumbs">Cluster C8 — Registries, packaging &amp; supply-chain trust · Sigstore co-founder — keyless artifact signing · profile <code>.agents/064-luke-hinds.md</code></div></div></div>
+<div class="links"><a href="../index.html">← Full report</a><a href="../../.agents/064-luke-hinds.md">Profile source</a></div></header>
+<main class="agent-main">
+<nav class="agent-nav"><a href="063.html">← 063</a><a href="065.html">065 →</a></nav>
+<div class="review-panel"><div class="review-text"><h2>Auditor review</h2><p>Two fixes stand between this registry and multi-tenant disaster. First, token_has_scope is a raw starts_with — a badge for org/soft opens the org/software door; make the boundary exact up to a slash and unit-test the sibling prefix. Second, there is zero artifact signing anywhere and publisher is just a token label, so the operator is the entire root of trust — an ed25519 detached signature over the digest at publish, verified at install, is the minimal MVP that survives a registry compromise.</p></div>
+<div class="mini-kpis">
+<div class="mini-kpi"><div class="k">Findings</div><div class="v">2</div></div>
+<div class="mini-kpi bad"><div class="k">Critical + high</div><div class="v">2</div></div>
+<div class="mini-kpi"><div class="k">Evidence items</div><div class="v">0</div></div>
+<div class="mini-kpi"><div class="k">Effort mix</div><div class="v" style="font-size:14px">L · S</div></div>
+</div></div>
+<article class="finding-detail sev-high" id="f-C8-10">
+<div class="head"><h2>Token scope check is a raw prefix match: a token scoped to &#x27;@org/soft&#x27; can publish &#x27;@org/software&#x27;</h2><span class="chip high">high</span><span class="fid">C8-10</span></div>
+<div class="meta-row"><span class="engineer">064 Luke Hinds</span><span class="chip neutral">effort S</span><span class="chip neutral">moves: token_scope_isolation</span></div>
+<p class="details">token_has_scope uses a raw starts_with, so a token scoped to @org/soft can publish @org/software; this is the sole authz gate for publish and yank. Match to an exact slash boundary and test the sibling-prefix case.</p>
+<div class="snippet before"><span class="cap">before — current code</span><pre><code>pub fn token_has_scope(record: &amp;TokenRecord, package_name: &amp;str) -&gt; bool {
+    match &amp;record.scope {
+        None =&gt; true,
+        Some(scope) =&gt; package_name.starts_with(scope),
+    }
+}</code></pre><div class="file">crates/specforge-registry-server/src/auth.rs:28-33</div></div>
+<div class="arrow-between">↓ fix ↓</div>
+<div class="snippet after"><span class="cap">after — proposed fix</span><pre><code>pub fn token_has_scope(record: &amp;TokenRecord, package_name: &amp;str) -&gt; bool {
+    match &amp;record.scope {
+        None =&gt; true,
+        Some(scope) =&gt; {
+            package_name == scope
+                || package_name
+                    .strip_prefix(scope.as_str())
+                    .is_some_and(|rest| rest.starts_with(&#x27;/&#x27;))
+        }
+    }
+}
+
+// test: scope @org/soft accepts @org/soft/kit, rejects @org/software and @org/softish</code></pre><div class="file">crates/specforge-registry-server/src/auth.rs</div></div>
+<div class="diagram-box"><span class="cap">Prefix scope check leaks sibling namespaces</span><div class="mermaid" id="dg-064-C8-10"><pre>flowchart TD
+ A[scope org soft] --&gt; B[starts_with match]
+ B --&gt; C[org software passes]
+ C --&gt; D[cross namespace publish]
+ E[fix] --&gt; F[exact slash boundary]
+ F --&gt; G[sibling rejected 403]</pre></div></div><script type="text/plain" class="mermaid-src" data-target="dg-064-C8-10">flowchart TD
+ A[scope org soft] --> B[starts_with match]
+ B --> C[org software passes]
+ C --> D[cross namespace publish]
+ E[fix] --> F[exact slash boundary]
+ F --> G[sibling rejected 403]</script>
+<div class="eli10"><span class="tag">Explain like I'm 10</span><p>The guard checks whether your badge starts with the right letters, not whether it names your actual building — a badge for &#x27;Acme Sout&#x27; opens the &#x27;Acme Southeast&#x27; door. One line fixes it: match up to a slash, exactly.</p></div>
+<p class="sol" style="margin-top:12px"><b>Proposed solution.</b> Compare name == scope || name.starts_with(&quot;{scope}/&quot;); unit-test the sibling-prefix case; longer term compare the parsed namespace component.</p>
+</article>
+<article class="finding-detail sev-high" id="f-C8-11">
+<div class="head"><h2>Zero artifact signing in the codebase: no signature field, key, or transparency log — provenance rests entirely on the registry</h2><span class="chip high">high</span><span class="fid">C8-11</span></div>
+<div class="meta-row"><span class="engineer">064 Luke Hinds</span><span class="chip neutral">effort L</span><span class="chip neutral">moves: signed_artifacts</span></div>
+<p class="details">No signature field, key, or transparency log exists anywhere in client, server, or CLI; publisher is just the token label, so provenance rests entirely on the registry operator. A minimal ed25519 detached signature over the wasm digest, persisted and verified at install, survives registry compromise.</p>
+<div class="snippet before"><span class="cap">before — current code</span><pre><code>    // Compute SHA256
+    let mut hasher = Sha256::new();
+    hasher.update(&amp;wasm_data);
+    let sha256 = hex::encode(hasher.finalize());</code></pre><div class="file">crates/specforge-registry-server/src/handlers.rs:332-335</div></div>
+<div class="arrow-between">↓ fix ↓</div>
+<div class="snippet after"><span class="cap">after — proposed fix</span><pre><code>#[derive(Serialize, Deserialize, Clone)]
+pub struct ArtifactSignature { pub key_id: String, pub algorithm: String, pub signature: String }
+
+// ManifestV2 gains:
+    #[serde(default, skip_serializing_if = &quot;Option::is_none&quot;)]
+    pub signature: Option&lt;ArtifactSignature&gt;,
+
+pub fn verify_artifact(data: &amp;[u8], manifest: &amp;ManifestV2, keys: &amp;HashMap&lt;String, Ed25519PublicKey&gt;)
+    -&gt; Result&lt;(), Diagnostic&gt; {
+    verify_registry_integrity(data, &amp;hex_sha256(data))?;
+    if let Some(sig) = &amp;manifest.signature {
+        keys.get(&amp;sig.key_id).ok_or_else(|| unknown_key_diag(&amp;sig.key_id))?
+            .verify(data, &amp;sig.signature).map_err(|_| bad_signature_diag())?;
+    }
+    Ok(())
+}</code></pre><div class="file">crates/specforge-registry/src/manifest.rs</div></div>
+<div class="diagram-box"><span class="cap">No signing means provenance equals registry trust</span><div class="mermaid" id="dg-064-C8-11"><pre>flowchart TD
+ A[publish today] --&gt; B[no signature stored]
+ B --&gt; C[registry is single root of trust]
+ C --&gt; D[compromise forges artifacts]
+ E[fix] --&gt; F[client signs digest at publish]
+ F --&gt; G[verify signature on install]
+ G --&gt; H[provenance survives compromise]</pre></div></div><script type="text/plain" class="mermaid-src" data-target="dg-064-C8-11">flowchart TD
+ A[publish today] --> B[no signature stored]
+ B --> C[registry is single root of trust]
+ C --> D[compromise forges artifacts]
+ E[fix] --> F[client signs digest at publish]
+ F --> G[verify signature on install]
+ G --> H[provenance survives compromise]</script>
+<div class="eli10"><span class="tag">Explain like I'm 10</span><p>Anyone who knows the mailroom password can send packages that look like they came from you — no wax seal, no verifiable return address. A &#x27;seal it with a click&#x27; system (sign with your login, verify on install) proves packages really came from the publisher even if the mailroom is robbed.</p></div>
+<p class="sol" style="margin-top:12px"><b>Proposed solution.</b> Optional signature on publish (client signs wasm digest with an OIDC-issued or local key), persisted in the packages table; extend integrity.rs to verify digest-then-signature when present. Sigstore/cosign blob signing is the reference UX; an ed25519 detached-signature MVP beats nothing.</p>
+</article>
+</main><script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.1/dist/mermaid.min.js" onerror="window.__mermaidFailed=true"></script><script src="../js/agent.js"></script></body></html>

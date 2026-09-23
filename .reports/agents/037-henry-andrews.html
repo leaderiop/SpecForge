@@ -1,0 +1,139 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>037 Henry Andrews — SpecForge audit review</title>
+<link rel="stylesheet" href="../css/report.css"><link rel="stylesheet" href="../css/agents.css"></head><body>
+<header class="agent-hero"><div class="brand"><div class="logo">037</div><div>
+<h1>Henry Andrews</h1>
+<div class="crumbs">Cluster C6 — Schemas, validation &amp; serialization (Graph Protocol) · JSON Schema 2019-09 spec lead; vocabulary &amp; modularity design · profile <code>.agents/037-henry-andrews.md</code></div></div></div>
+<div class="links"><a href="../index.html">← Full report</a><a href="../../.agents/037-henry-andrews.md">Profile source</a></div></header>
+<main class="agent-main">
+<nav class="agent-nav"><a href="036.html">← 036</a><a href="038.html">038 →</a></nav>
+<div class="review-panel"><div class="review-text"><h2>Auditor review</h2><p>Henry Andrews (API evolution): You built a complete semver machinery — diff, breaking-change detection, bump, cache, negotiation — and then never connected it: generate_schema hardcodes 1.0.0 and export.rs negotiates min=max against itself. That is dead weight masquerading as versioning. Wire the cache-diff-bump loop into the compile pipeline, and while you are there, make SchemaVersion&#x27;s Ord actually read the prerelease label; Eq and Ord disagreeing is a latent sorted-container bug.</p></div>
+<div class="mini-kpis">
+<div class="mini-kpi"><div class="k">Findings</div><div class="v">2</div></div>
+<div class="mini-kpi bad"><div class="k">Critical + high</div><div class="v">1</div></div>
+<div class="mini-kpi"><div class="k">Evidence items</div><div class="v">5</div></div>
+<div class="mini-kpi"><div class="k">Effort mix</div><div class="v" style="font-size:14px">M · S</div></div>
+</div></div>
+<article class="finding-detail sev-high" id="f-C6-02">
+<div class="head"><h2>Version negotiation is theater: export.rs:46-53 min=max=1.0.0 (generate_schema hardcodes 1.0.0 at schema.rs:363); export.rs:53 relabels output with no</h2><span class="chip high">high</span><span class="fid">C6-02</span></div>
+<div class="meta-row"><span class="engineer">037 Henry Andrews</span><span class="chip neutral">effort M</span><span class="chip neutral">moves: negotiation</span></div>
+<div class="evidence"><b>Evidence</b><span class="ev"><code>export.rs:46-53</code></span><span class="ev"><code>schema.rs:363</code></span><span class="ev"><code>export.rs:53</code></span><span class="ev"><code>schema.rs:600-743</code></span></div>
+<p class="details">The --schema-version flag in crates/specforge-cli/src/export.rs:43-55 negotiates against min=max=&amp;schema.schema_version, and that version is hardcoded to SchemaVersion::new(1, 0, 0) in generate_schema (schema.rs:338). So negotiation can only ever succeed by requesting exactly 1.0.0; any other value fails with E027 out-of-range, and on success the code simply relabels the output (schema.schema_version = requested) without changing content. The diff/cache/bump machinery that exists in the same file — diff_schemas, compute_schema_version, persist_schema_cache, detect_breaking_with_diagnostics (schema.rs:496-743) — is never invoked from the compile pipeline, so every export forever claims 1.0.0. The fix is to load the cached schema, diff it against the freshly generated one, bump via compute_schema_version, and negotiate over the (cached, current) pair.</p>
+<div class="snippet before"><span class="cap">before — current code</span><pre><code>                Ok(requested) =&gt; {
+                    let min = &amp;schema.schema_version;
+                    let max = &amp;schema.schema_version;
+                    if let Err(e) = specforge_emitter::negotiate_version(&amp;requested, min, max) {
+                        eprintln!(&quot;{}&quot;, e);
+                        return 1;
+                    }
+                    schema.schema_version = requested;
+                }
+                Err(e) =&gt; {
+                    eprintln!(&quot;invalid --schema-version: {}&quot;, e);
+                    return 1;
+                }</code></pre><div class="file">crates/specforge-cli/src/export.rs:43-55</div></div>
+<div class="arrow-between">↓ fix ↓</div>
+<div class="snippet after"><span class="cap">after — proposed fix</span><pre><code>        let mut schema = build_schema(&amp;ctx);
+
+        // Diff against the persisted cache and bump before negotiating.
+        let (migration, diags) = specforge_emitter::detect_breaking_with_diagnostics(
+            &amp;cache_dir, &amp;schema, true
+        );
+        for d in &amp;diags { eprintln!(&quot;{}&quot;, d); }
+        schema.schema_version = specforge_emitter::compute_schema_version(
+            &amp;migration, Some(&amp;cached_version)
+        );
+        specforge_emitter::persist_schema_cache(&amp;schema, &amp;cache_dir)?;
+
+        if let Some(ver_str) = schema_version {
+            let requested: SchemaVersion = ver_str.parse()?;
+            let min = SchemaVersion::new(1, 0, 0);
+            specforge_emitter::negotiate_version(&amp;requested, &amp;min, &amp;schema.schema_version)?;
+        }</code></pre><div class="file">crates/specforge-cli/src/export.rs</div></div>
+<div class="diagram-box"><span class="cap">Real version negotiation</span><div class="mermaid" id="dg-037-C6-02"><pre>flowchart TD
+ A[compile project] --&gt; B[generate current schema]
+ B --&gt; C[load schema cache]
+ C --&gt; D[diff cached vs current]
+ D --&gt; E{breaking changes}
+ E --&gt;|yes| F[major bump]
+ E --&gt;|no additions| G[minor bump]
+ E --&gt;|no change| H[keep previous]
+ F --&gt; I[persist new cache]
+ G --&gt; I
+ H --&gt; I
+ I --&gt; J[negotiate over cached current]
+ J --&gt; K[emit labeled export]</pre></div></div><script type="text/plain" class="mermaid-src" data-target="dg-037-C6-02">flowchart TD
+ A[compile project] --> B[generate current schema]
+ B --> C[load schema cache]
+ C --> D[diff cached vs current]
+ D --> E{breaking changes}
+ E -->|yes| F[major bump]
+ E -->|no additions| G[minor bump]
+ E -->|no change| H[keep previous]
+ F --> I[persist new cache]
+ G --> I
+ H --> I
+ I --> J[negotiate over cached current]
+ J --> K[emit labeled export]</script>
+<div class="eli10"><span class="tag">Explain like I'm 10</span><p>thermostat, calendar and maintenance log built but never connected; every export claims 1.0.0 forever.</p></div>
+<p class="sol" style="margin-top:12px"><b>Proposed solution.</b> wire cache/diff/bump into compile pipeline; negotiate over (cached, current).</p>
+</article>
+<article class="finding-detail sev-medium" id="f-C6-03">
+<div class="head"><h2>SchemaVersion Ord (schema.rs:72-83) ignores label: 1.0.0-beta == 1.0.0 ordering while Eq differs; semver says beta &lt; release.</h2><span class="chip medium">medium</span><span class="fid">C6-03</span></div>
+<div class="meta-row"><span class="engineer">037 Henry Andrews</span><span class="chip neutral">effort S</span><span class="chip neutral">moves: negotiation</span></div>
+<div class="evidence"><b>Evidence</b><span class="ev"><code>schema.rs:72-83</code></span></div>
+<p class="details">SchemaVersion derives PartialEq/Eq over all fields including label, but the manual Ord impl (schema.rs:72-79) compares only major/minor/patch. Per semver, 1.0.0-beta must sort strictly below 1.0.0; here cmp returns Ordering::Equal for the pair while Eq says they differ, violating the Ord/PartialEq consistency contract that sorted containers (BTreeMap, sort) rely on. In a schema cache keyed or deduped by version, two distinct versions can collide in ordering, making &#x27;latest&#x27; resolution ambiguous. The fix is to make label participate: None (release) sorts above Some(_), and two labels compare lexically.</p>
+<div class="snippet before"><span class="cap">before — current code</span><pre><code>impl Ord for SchemaVersion {
+    fn cmp(&amp;self, other: &amp;Self) -&gt; Ordering {
+        self.major.cmp(&amp;other.major)
+            .then(self.minor.cmp(&amp;other.minor))
+            .then(self.patch.cmp(&amp;other.patch))
+    }
+}</code></pre><div class="file">crates/specforge-emitter/src/schema.rs:72-79</div></div>
+<div class="arrow-between">↓ fix ↓</div>
+<div class="snippet after"><span class="cap">after — proposed fix</span><pre><code>impl Ord for SchemaVersion {
+    fn cmp(&amp;self, other: &amp;Self) -&gt; Ordering {
+        self.major.cmp(&amp;other.major)
+            .then(self.minor.cmp(&amp;other.minor))
+            .then(self.patch.cmp(&amp;other.patch))
+            // semver: a pre-release sorts BELOW the release;
+            // release (None) &gt; pre-release (Some), labels compare lexically.
+            .then(match (&amp;self.label, &amp;other.label) {
+                (None, None) =&gt; Ordering::Equal,
+                (None, Some(_)) =&gt; Ordering::Greater,
+                (Some(_), None) =&gt; Ordering::Less,
+                (Some(a), Some(b)) =&gt; a.cmp(b),
+            })
+    }
+}
+
+#[test]
+fn pre_release_sorts_below_release() {
+    let rel = SchemaVersion::new(1, 0, 0);
+    let mut beta = rel.clone();
+    beta.label = Some(&quot;beta&quot;.to_string());
+    assert!(beta &lt; rel);
+}</code></pre><div class="file">crates/specforge-emitter/src/schema.rs</div></div>
+<div class="diagram-box"><span class="cap">Ordering reads the whole sticker</span><div class="mermaid" id="dg-037-C6-03"><pre>flowchart TD
+ A[compare major minor patch] --&gt; B{equal}
+ B --&gt;|no| Z[return ordering]
+ B --&gt;|yes| C{label pair}
+ C --&gt; D[release vs prerelease]
+ D --&gt; E[release sorts higher]
+ C --&gt; F[two prereleases]
+ F --&gt; G[lexical compare]
+ E --&gt; H[Ord matches Eq]
+ G --&gt; H</pre></div></div><script type="text/plain" class="mermaid-src" data-target="dg-037-C6-03">flowchart TD
+ A[compare major minor patch] --> B{equal}
+ B -->|no| Z[return ordering]
+ B -->|yes| C{label pair}
+ C --> D[release vs prerelease]
+ D --> E[release sorts higher]
+ C --> F[two prereleases]
+ F --> G[lexical compare]
+ E --> H[Ord matches Eq]
+ G --> H</script>
+<div class="eli10"><span class="tag">Explain like I'm 10</span><p>Sorting version stickers while ignoring the word &#x27;beta&#x27;: two different boxes land on the same shelf spot, so sometimes you grab the wrong one. Make the sorting read the whole sticker.</p></div>
+<p class="sol" style="margin-top:12px"><b>Proposed solution.</b> compare label (None &gt; Some) or document exclusion + test.</p>
+</article>
+</main><script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.1/dist/mermaid.min.js" onerror="window.__mermaidFailed=true"></script><script src="../js/agent.js"></script></body></html>

@@ -1,0 +1,69 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>070 Andrej Karpathy — SpecForge audit review</title>
+<link rel="stylesheet" href="../css/report.css"><link rel="stylesheet" href="../css/agents.css"></head><body>
+<header class="agent-hero"><div class="brand"><div class="logo">070</div><div>
+<h1>Andrej Karpathy</h1>
+<div class="crumbs">Cluster C9 — MCP &amp; AI-agent context engineering · &#x27;LLM OS&#x27; thesis; structured context for models · profile <code>.agents/070-andrej-karpathy.md</code></div></div></div>
+<div class="links"><a href="../index.html">← Full report</a><a href="../../.agents/070-andrej-karpathy.md">Profile source</a></div></header>
+<main class="agent-main">
+<nav class="agent-nav"><a href="069.html">← 069</a><a href="071.html">071 →</a></nav>
+<div class="review-panel"><div class="review-text"><h2>Auditor review</h2><p>The primitives are right: query --depth is a real zoom control, and find_definition/find_references give agents the navigation they use on code, applied to specs. But three of the four memory slots are a single giant page - context/graph/brief resources emit the whole corpus, which on your own ~1,245-entity spec means every resources/read is an L3 dump. The compaction ladder exists one layer down; lift it into resource URI templates and the abstraction is complete instead of aspirational.</p></div>
+<div class="mini-kpis">
+<div class="mini-kpi"><div class="k">Findings</div><div class="v">1</div></div>
+<div class="mini-kpi good"><div class="k">Critical + high</div><div class="v">0</div></div>
+<div class="mini-kpi"><div class="k">Evidence items</div><div class="v">0</div></div>
+<div class="mini-kpi"><div class="k">Effort mix</div><div class="v" style="font-size:14px">M</div></div>
+</div></div>
+<article class="finding-detail sev-medium" id="f-C9-06">
+<div class="head"><h2>graph/context/brief resources page in the whole corpus with no memory hierarchy</h2><span class="chip medium">medium</span><span class="fid">C9-06</span></div>
+<div class="meta-row"><span class="engineer">070 Andrej Karpathy</span><span class="chip neutral">effort M</span><span class="chip neutral">moves: token_budget reachable from surfaces</span></div>
+<p class="details">The context resource handler emits the entire graph with no scope, depth, kind filter, or token budget - the signature is read(state, id) with no params, so even a client that wants 2% of the graph must pull ~1,245 entities into its window on this repo alone. brief.rs and graph.rs resources mirror this all-or-nothing shape, and there is no specforge://context/{entity_id} template, so the L1/L2/L3 paging ladder the README advertises exists at tool level (specforge.query --depth) but not at resource level. MCP resource URI templates support query components, so entity/depth/kinds/max_tokens params are protocol-legal. Until then, an agent that prefers resources over tools has no memory hierarchy at all.</p>
+<div class="snippet before"><span class="cap">before — current code</span><pre><code>pub fn read(state: &amp;McpState, id: Option&lt;Value&gt;) -&gt; JsonRpcResponse {
+    let options = EmitOptions { format: EmitFormat::Context, ..EmitOptions::default() };
+    let json_str = emit(&amp;state.graph, &amp;options).expect(&quot;full graph emit cannot fail&quot;);
+    JsonRpcResponse::success(id, serde_json::json!({
+        &quot;contents&quot;: [{
+            &quot;uri&quot;: &quot;specforge://context&quot;,
+            &quot;mimeType&quot;: &quot;application/json&quot;,
+            &quot;text&quot;: json_str
+        }]
+    }))
+}</code></pre><div class="file">crates/specforge-mcp/src/resources/context.rs:7-17</div></div>
+<div class="arrow-between">↓ fix ↓</div>
+<div class="snippet after"><span class="cap">after — proposed fix</span><pre><code>// resources/context.rs - query params per MCP URI templates
+pub fn read(state: &amp;McpState, uri: &amp;str, id: Option&lt;Value&gt;) -&gt; JsonRpcResponse {
+    let (base, query) = split_uri_query(uri);
+    let mut options = EmitOptions { format: EmitFormat::Context, ..Default::default() };
+    if let Some(root) = query.get(&quot;entity&quot;) {
+        options.scope = Some(root);
+        options.depth = query.get(&quot;depth&quot;).and_then(|v| v.parse().ok());
+        options.token_budget = query.get(&quot;max_tokens&quot;).and_then(|v| v.parse().ok());
+    }
+    let json_str = emit(&amp;state.graph, &amp;options).expect(&quot;scoped emit cannot fail&quot;);
+    JsonRpcResponse::success(id, serde_json::json!({
+        &quot;contents&quot;: [{ &quot;uri&quot;: uri, &quot;mimeType&quot;: &quot;application/json&quot;, &quot;text&quot;: json_str }]
+    }))
+}
+// registry: add specforge://context/{entity_id} descriptor so agents page
+// L1 entity -&gt; L2 subgraph -&gt; L3 full context at resource level.</code></pre><div class="file">crates/specforge-mcp/src/resources/context.rs</div></div>
+<div class="diagram-box"><span class="cap">Resource-level paging ladder</span><div class="mermaid" id="dg-070-C9-06"><pre>flowchart TD
+ A[Agent reads specforge context resource] --&gt; B[Handler emits full graph]
+ B --&gt; C[Whole corpus in context window]
+ D[No entity or depth params accepted] --&gt; B
+ E[Query tool has depth paging] --&gt; F[Resource layer lacks it]
+ F --&gt; C
+ C --&gt; G[Accept entity depth kinds max_tokens]
+ G --&gt; H[Register context entity_id template]
+ H --&gt; I[L1 L2 L3 ladder at resource level]</pre></div></div><script type="text/plain" class="mermaid-src" data-target="dg-070-C9-06">flowchart TD
+ A[Agent reads specforge context resource] --> B[Handler emits full graph]
+ B --> C[Whole corpus in context window]
+ D[No entity or depth params accepted] --> B
+ E[Query tool has depth paging] --> F[Resource layer lacks it]
+ F --> C
+ C --> G[Accept entity depth kinds max_tokens]
+ G --> H[Register context entity_id template]
+ H --> I[L1 L2 L3 ladder at resource level]</script>
+<div class="eli10"><span class="tag">Explain like I'm 10</span><p>The README sells RAM-and-paging for agents, but three of the &#x27;memory&#x27; slots are a single giant page: on this repo&#x27;s own spec (~1,245 entities), one resources/read loads everything into the model&#x27;s window whether it needs 2% or 100%. There&#x27;s no L1 (entity), L2 (subgraph), L3 (brief) handoff at the resource layer — even though query --depth already implements it one layer down.</p></div>
+<p class="sol" style="margin-top:12px"><b>Proposed solution.</b> Accept optional query params on specforge://context|brief (root entity, depth, kinds, max_tokens) per MCP resource URI templates, and register specforge://context/{entity_id} so the multi-resolution ladder exists at resource level, not just tool level.</p>
+</article>
+</main><script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.1/dist/mermaid.min.js" onerror="window.__mermaidFailed=true"></script><script src="../js/agent.js"></script></body></html>

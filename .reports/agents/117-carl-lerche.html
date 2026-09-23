@@ -1,0 +1,51 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>117 Carl Lerche — SpecForge audit review</title>
+<link rel="stylesheet" href="../css/report.css"><link rel="stylesheet" href="../css/agents.css"></head><body>
+<header class="agent-hero"><div class="brand"><div class="logo">117</div><div>
+<h1>Carl Lerche</h1>
+<div class="crumbs">Cluster C14 — Direct-dependency maintainers - dependency/surface hygiene · Tokio creator; async runtime architecture · profile <code>.agents/117-carl-lerche.md</code></div></div></div>
+<div class="links"><a href="../index.html">← Full report</a><a href="../../.agents/117-carl-lerche.md">Profile source</a></div></header>
+<main class="agent-main">
+<nav class="agent-nav"><a href="116.html">← 116</a><a href="118.html">118 →</a></nav>
+<div class="review-panel"><div class="review-text"><h2>Auditor review</h2><p>Carl&#x27;s first look would be the Cargo surface: tokio declared for a purely blocking client is exactly the kind of ghost dependency that inflates every cold build, and an unused workspace petgraph contradicting the README is documentation debt masquerading as an architecture decision. He would push for cargo-udeps-style hygiene in CI. He would praise how small and boring the dependency matrices are otherwise.</p></div>
+<div class="mini-kpis">
+<div class="mini-kpi"><div class="k">Findings</div><div class="v">1</div></div>
+<div class="mini-kpi good"><div class="k">Critical + high</div><div class="v">0</div></div>
+<div class="mini-kpi"><div class="k">Evidence items</div><div class="v">2</div></div>
+<div class="mini-kpi"><div class="k">Effort mix</div><div class="v" style="font-size:14px">S</div></div>
+</div></div>
+<article class="finding-detail sev-medium" id="f-C14-02">
+<div class="head"><h2>specforge-registry declares tokio but never uses it; petgraph sits in workspace deps with zero consumers despite README claiming petgraph-backed graphs</h2><span class="chip medium">medium</span><span class="fid">C14-02</span></div>
+<div class="meta-row"><span class="engineer">117 Carl Lerche</span><span class="chip neutral">effort S</span><span class="chip neutral">moves: Unused workspace dependencies (bad to good)</span></div>
+<div class="evidence"><b>Evidence</b><span class="ev"><code>crates/specforge-registry/Cargo.toml:20</code> — tokio = workspace true declared; grep for tokio in crates/specforge-registry/src returns no matches.</span><span class="ev"><code>Cargo.toml:workspace.dependencies</code> — petgraph = 0.8.3 declared; no member crate references petgraph (grep across crates/ and integrations/ finds only this declaration), while README advertises a petgraph-backed graph.</span></div>
+<p class="details">crates/specforge-registry/Cargo.toml line 20 declares tokio = { workspace = true } but a grep of crates/specforge-registry/src finds zero tokio references - the HTTP client is reqwest::blocking, so tokio (and its feature-forest of futures, macros, rt) is compiled for nothing on every build. Similarly, the workspace Cargo.toml pins petgraph = &quot;0.8.3&quot; with no member crate referencing it, while README.md line 129 claims a petgraph-backed graph - specforge-graph is hand-rolled, not petgraph-backed. Dead declared deps mislead contributors about the real architecture and slow cold builds.</p>
+<div class="snippet before"><span class="cap">before — current code</span><pre><code>[dependencies]
+specforge-common = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+semver = { workspace = true }
+regex = { workspace = true }
+sha2 = { workspace = true }
+reqwest = { workspace = true }
+tokio = { workspace = true }</code></pre><div class="file">crates/specforge-registry/Cargo.toml:16-20</div></div>
+<div class="arrow-between">↓ fix ↓</div>
+<div class="snippet after"><span class="cap">after — proposed fix</span><pre><code>[dependencies]
+specforge-common = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+semver = { workspace = true }
+regex = { workspace = true }
+sha2 = { workspace = true }
+reqwest = { workspace = true }
+# tokio removed: the client is reqwest::blocking and never touches async</code></pre><div class="file">crates/specforge-registry/Cargo.toml:16-19</div></div>
+<div class="diagram-box"><span class="cap">Dead dependency removal</span><div class="mermaid" id="dg-117-C14-02"><pre>flowchart TD
+ A[tokio declared in registry Cargo.toml] --&gt; B[Zero tokio calls in src] --&gt; C[Compiled on every build unused]
+ D[petgraph in workspace deps] --&gt; E[No consumer crate] --&gt; F[README claims petgraph graph] --&gt; G[Docs contradict reality]
+ H[Delete both declarations] --&gt; I[Fix README wording] --&gt; J[Smaller dep tree honest docs]</pre></div></div><script type="text/plain" class="mermaid-src" data-target="dg-117-C14-02">flowchart TD
+ A[tokio declared in registry Cargo.toml] --> B[Zero tokio calls in src] --> C[Compiled on every build unused]
+ D[petgraph in workspace deps] --> E[No consumer crate] --> F[README claims petgraph graph] --> G[Docs contradict reality]
+ H[Delete both declarations] --> I[Fix README wording] --> J[Smaller dep tree honest docs]</script>
+<div class="eli10"><span class="tag">Explain like I'm 10</span><p>The shopping list has two items nobody cooks with. One sits in the cart on every trip making every checkout (every fresh build) slower, while the store sign promises a dish the kitchen never makes.</p></div>
+<p class="sol" style="margin-top:12px"><b>Proposed solution.</b> Delete tokio from specforge-registry Cargo.toml and petgraph from workspace.dependencies; fix the README claim or actually adopt petgraph in specforge-graph (design decision, not cleanup).</p>
+</article>
+</main><script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.1/dist/mermaid.min.js" onerror="window.__mermaidFailed=true"></script><script src="../js/agent.js"></script></body></html>

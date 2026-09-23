@@ -1,0 +1,62 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>056 Matt Klein — SpecForge audit review</title>
+<link rel="stylesheet" href="../css/report.css"><link rel="stylesheet" href="../css/agents.css"></head><body>
+<header class="agent-hero"><div class="brand"><div class="logo">056</div><div>
+<h1>Matt Klein</h1>
+<div class="crumbs">Cluster C7 — Wasm plugin runtimes &amp; the extension bet · Envoy creator — filter/extension architecture at scale · profile <code>.agents/056-matt-klein.md</code></div></div></div>
+<div class="links"><a href="../index.html">← Full report</a><a href="../../.agents/056-matt-klein.md">Profile source</a></div></header>
+<main class="agent-main">
+<nav class="agent-nav"><a href="055.html">← 055</a><a href="057.html">057 →</a></nav>
+<div class="review-panel"><div class="review-text"><h2>Auditor review</h2><p>Three implementations of one concept, already disagreeing about how many extensions exist (6 vs 5 vs 4) — this is the architectural debt that makes every other finding three times more expensive to fix. The embedded-Wasm path is the only one that exercises the real protocol, sandbox, and versioning machinery, so collapse everything onto it and delete the native trait and the emitter builtin list. Generate extension-inventory.md from the registry so the doc can never drift again. Painful for a day, pays off permanently.</p></div>
+<div class="mini-kpis">
+<div class="mini-kpi"><div class="k">Findings</div><div class="v">1</div></div>
+<div class="mini-kpi bad"><div class="k">Critical + high</div><div class="v">1</div></div>
+<div class="mini-kpi"><div class="k">Evidence items</div><div class="v">4</div></div>
+<div class="mini-kpi"><div class="k">Effort mix</div><div class="v" style="font-size:14px">L</div></div>
+</div></div>
+<article class="finding-detail sev-high" id="f-C7-11">
+<div class="head"><h2>Three parallel implementations of the same extension concept (native BuiltinExtension trait, embedded Wasm builtins, native Rust emitter builtins) already drifting (inventory doc says 5 extensions vs 4 shipped).</h2><span class="chip high">high</span><span class="fid">C7-11</span></div>
+<div class="meta-row"><span class="engineer">056</span><span class="chip neutral">effort L</span><span class="chip neutral">moves: wasm_only_claim_accuracy</span></div>
+<div class="evidence"><b>Evidence</b><span class="ev"><code>emitter/builtins/mod.rs:31-35</code></span><span class="ev"><code>extism/builtins.rs:8-13</code></span><span class="ev"><code>builtin.rs:22-26</code></span><span class="ev"><code>docs/extension-inventory.md</code></span></div>
+<p class="details">The same &#x27;extension&#x27; concept has three parallel implementations: the native BuiltinExtension trait (specforge-wasm/builtin.rs), the four embedded Wasm blobs loaded via extism builtins.rs, and a third native-Rust set in specforge-emitter&#x27;s builtins/mod.rs (RustExtension, TypeScriptExtension — names absent from the shipped Wasm four). They are already drifting: emitter KNOWN_BUILTINS lists six names while docs/extension-inventory.md describes five extensions and only four .wasm modules ship, and CompositeRuntime&#x27;s builtin-first dispatch (C7-06) decides which implementation actually serves a request with no diagnostic. Every protocol fix must now be applied in three places and verified three ways. Collapse to one execution path — builtins are exactly the four embedded .wasm modules speaking the Wasm protocol — and generate the inventory doc from the live registry so drift becomes impossible.</p>
+<div class="snippet before"><span class="cap">before — current code</span><pre><code>pub const KNOWN_BUILTINS: &amp;[&amp;str] = &amp;[
+    &quot;@specforge/product&quot;,
+    &quot;@specforge/software&quot;,
+    &quot;@specforge/governance&quot;,
+    &quot;@specforge/formal&quot;,
+    &quot;@specforge/rust&quot;,
+    &quot;@specforge/typescript&quot;,
+];</code></pre><div class="file">crates/specforge-emitter/src/builtins/mod.rs:20-21</div></div>
+<div class="arrow-between">↓ fix ↓</div>
+<div class="snippet after"><span class="cap">after — proposed fix</span><pre><code>/// The single source of truth for builtin extensions: exactly the embedded
+/// Wasm modules in specforge-extism. Native Rust and emitter builtin lists
+/// are deleted; every extension speaks the Wasm handshake/describe protocol.
+pub fn builtin_registry() -&gt; &amp;&#x27;static [(&amp;&#x27;static str, &amp;&#x27;static [u8])] {
+    specforge_extism::builtins::BUILTIN_EXTENSIONS
+}
+
+/// Inventory doc is generated: `cargo xtask gen-inventory &gt; docs/extension-inventory.md`
+/// keeps the documented count identical to the registry at all times.</code></pre><div class="file">crates/specforge-wasm/src/builtin.rs</div></div>
+<div class="diagram-box"><span class="cap">One execution path</span><div class="mermaid" id="dg-056-C7-11"><pre>flowchart TD
+ A[Today three impls] --&gt; B[Native BuiltinExtension trait]
+ A --&gt; C[Embedded Wasm builtins]
+ A --&gt; D[Emitter native builtins]
+ B --&gt; E[Silent drift six vs five vs four names]
+ C --&gt; E
+ D --&gt; E
+ E --&gt; F[Collapse to embedded Wasm only]
+ F --&gt; G[Registry generates inventory doc]
+ G --&gt; H[Single protocol to test and evolve]</pre></div></div><script type="text/plain" class="mermaid-src" data-target="dg-056-C7-11">flowchart TD
+ A[Today three impls] --> B[Native BuiltinExtension trait]
+ A --> C[Embedded Wasm builtins]
+ A --> D[Emitter native builtins]
+ B --> E[Silent drift six vs five vs four names]
+ C --> E
+ D --> E
+ E --> F[Collapse to embedded Wasm only]
+ F --> G[Registry generates inventory doc]
+ G --> H[Single protocol to test and evolve]</script>
+<div class="eli10"><span class="tag">Explain like I'm 10</span><p>the same recipe in three cookbooks - tomorrow the kitchen serves three different dishes depending on which book the cook grabbed.</p></div>
+<p class="sol" style="margin-top:12px"><b>Proposed solution.</b> collapse to one execution path (Wasm protocol only; builtins = 4 embedded .wasm); generate inventory from the registry.</p>
+</article>
+</main><script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.1/dist/mermaid.min.js" onerror="window.__mermaidFailed=true"></script><script src="../js/agent.js"></script></body></html>

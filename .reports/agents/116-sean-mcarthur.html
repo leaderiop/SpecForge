@@ -1,0 +1,94 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>116 Sean McArthur — SpecForge audit review</title>
+<link rel="stylesheet" href="../css/report.css"><link rel="stylesheet" href="../css/agents.css"></head><body>
+<header class="agent-hero"><div class="brand"><div class="logo">116</div><div>
+<h1>Sean McArthur</h1>
+<div class="crumbs">Cluster C14 — Direct-dependency maintainers - dependency/surface hygiene · hyper &amp; reqwest creator; Rust HTTP client infrastructure · profile <code>.agents/116-sean-mcarthur.md</code></div></div></div>
+<div class="links"><a href="../index.html">← Full report</a><a href="../../.agents/116-sean-mcarthur.md">Profile source</a></div></header>
+<main class="agent-main">
+<nav class="agent-nav"><a href="115.html">← 115</a><a href="117.html">117 →</a></nav>
+<div class="review-panel"><div class="review-text"><h2>Auditor review</h2><p>Sean would nod at the reqwest usage but wince hard at urlencoded() - a client author seeing a hand-rolled encoder that ignores &amp; and # would call it a production bug, not a nit; fix it with form_urlencoded today. He would also flag the hardcoded 5000ms retry as disrespecting the server&#x27;s own back-pressure contract; a header read is five lines. He would praise the single reused blocking Client and the deliberate default-features-off posture.</p></div>
+<div class="mini-kpis">
+<div class="mini-kpi"><div class="k">Findings</div><div class="v">2</div></div>
+<div class="mini-kpi bad"><div class="k">Critical + high</div><div class="v">1</div></div>
+<div class="mini-kpi"><div class="k">Evidence items</div><div class="v">2</div></div>
+<div class="mini-kpi"><div class="k">Effort mix</div><div class="v" style="font-size:14px">S</div></div>
+</div></div>
+<article class="finding-detail sev-high" id="f-C14-00">
+<div class="head"><h2>Hand-rolled urlencoded() leaves ampersand, question mark, hash, percent unescaped - search queries can corrupt or inject URL params</h2><span class="chip high">high</span><span class="fid">C14-00</span></div>
+<div class="meta-row"><span class="engineer">116 Sean McArthur</span><span class="chip neutral">effort S</span><span class="chip neutral">moves: HTTP client correctness</span></div>
+<div class="evidence"><b>Evidence</b><span class="ev"><code>crates/specforge-registry/src/client/http_client.rs:371,404-407</code> — search builds the URL by hand; urlencoded() only replaces space, @ and slash. A query containing ampersand or hash truncates or reroutes the query string; percent yields an invalid escape.</span></div>
+<p class="details">HttpRegistryClient::search (crates/specforge-registry/src/client/http_client.rs) builds the query URL with format!(&quot;{}/search?q={}&amp;limit=50&quot;, base, urlencoded(query)) and urlencoded() only replaces space, @ and slash. A query containing &amp; silently becomes an extra parameter (or truncates the q value), ? and # truncate the query string entirely, and a bare % produces an invalid percent-escape the server may reject. Because this is the client AI agents call for extension discovery, any free-form search term can corrupt the request. The fix is form_urlencoded/url::Url query_pairs_mut, which percent-encodes every reserved byte.</p>
+<div class="snippet before"><span class="cap">before — current code</span><pre><code>fn urlencoded(s: &amp;str) -&gt; String {
+    s.replace(&#x27; &#x27;, &quot;%20&quot;)
+        .replace(&#x27;@&#x27;, &quot;%40&quot;)
+        .replace(&#x27;/&#x27;, &quot;%2F&quot;)
+}</code></pre><div class="file">crates/specforge-registry/src/client/http_client.rs:402-407</div></div>
+<div class="arrow-between">↓ fix ↓</div>
+<div class="snippet after"><span class="cap">after — proposed fix</span><pre><code>use form_urlencoded::Serializer;
+
+fn search_url(base: &amp;str, query: &amp;str) -&gt; String {
+    Serializer::new(String::from(&quot;/search&quot;))
+        .append_pair(&quot;q&quot;, query)
+        .append_pair(&quot;limit&quot;, &quot;50&quot;)
+        .finish()
+}
+
+// In search():
+// let url = format!(&quot;{}/search?q={}&amp;limit=50&quot;, base, urlencoded(query));
+// becomes:
+// let url = format!(&quot;{}{}&quot;, base, search_url(base, query));
+
+#[test]
+fn urlencoded_escapes_reserved_chars() {
+    assert_eq!(search_url(&quot;&quot;, &quot;a&amp;b=c#d e&quot;), &quot;/search?q=a%26b%3Dc%23d+e&amp;limit=50&quot;);
+}</code></pre><div class="file">crates/specforge-registry/src/client/http_client.rs:402-412</div></div>
+<div class="diagram-box"><span class="cap">Search query corruption and fix</span><div class="mermaid" id="dg-116-C14-00"><pre>flowchart TD
+ A[User query contains ampersand] --&gt; B[Hand rolled urlencoded skips it] --&gt; C[URL gains fake limit param] --&gt; D[Server sees wrong query]
+ E[Use form_urlencoded serializer] --&gt; F[Every reserved byte percent encoded] --&gt; G[Server receives exact query]</pre></div></div><script type="text/plain" class="mermaid-src" data-target="dg-116-C14-00">flowchart TD
+ A[User query contains ampersand] --> B[Hand rolled urlencoded skips it] --> C[URL gains fake limit param] --> D[Server sees wrong query]
+ E[Use form_urlencoded serializer] --> F[Every reserved byte percent encoded] --> G[Server receives exact query]</script>
+<div class="eli10"><span class="tag">Explain like I'm 10</span><p>Like addressing a letter but only fixing three kinds of typos. If your search words contain an ampersand, the post office reads half the address and delivers the letter somewhere else. Use a real URL-encoding helper.</p></div>
+<p class="sol" style="margin-top:12px"><b>Proposed solution.</b> Replace urlencoded() with url::Url query_pairs_mut or form_urlencoded so every reserved char is percent-encoded; add tests for queries containing ampersand, hash, percent.</p>
+</article>
+<article class="finding-detail sev-medium" id="f-C14-01">
+<div class="head"><h2>RateLimited retry_after_ms hardcoded to 5000; Retry-After header ignored</h2><span class="chip medium">medium</span><span class="fid">C14-01</span></div>
+<div class="meta-row"><span class="engineer">116 Sean McArthur</span><span class="chip neutral">effort S</span><span class="chip neutral">moves: Hardcoded retry sites (4 to 0)</span></div>
+<div class="evidence"><b>Evidence</b><span class="ev"><code>crates/specforge-registry/src/client/http_client.rs:110-112,168-170,262-264</code> — All 429 arms construct RateLimited with retry_after_ms 5000; resp.headers() is never consulted, so server-provided Retry-After is discarded.</span></div>
+<p class="details">All three 429 arms in http_client.rs (fetch_versions ~line 110, fetch ~line 168, search ~line 262) construct RegistryError::RateLimited { retry_after_ms: 5000 } with the same hardcoded constant, and resp.headers() is never consulted. A registry that returns Retry-After: 120 is therefore retried every 5 seconds by watch-mode or batch resolvers, guaranteeing a hammering loop until the window expires. A single helper reading Retry-After (delta-seconds or HTTP-date) with a 5000 ms fallback removes the duplication across the arms and respects the server contract.</p>
+<div class="snippet before"><span class="cap">before — current code</span><pre><code>            401 =&gt; Err(RegistryError::Unauthorized {
+                guidance: &quot;token expired or invalid&quot;.to_string(),
+            }),
+            429 =&gt; Err(RegistryError::RateLimited {
+                retry_after_ms: 5000,
+            }),</code></pre><div class="file">crates/specforge-registry/src/client/http_client.rs:108-112</div></div>
+<div class="arrow-between">↓ fix ↓</div>
+<div class="snippet after"><span class="cap">after — proposed fix</span><pre><code>            401 =&gt; Err(RegistryError::Unauthorized {
+                guidance: &quot;token expired or invalid&quot;.to_string(),
+            }),
+            429 =&gt; Err(RegistryError::RateLimited {
+                retry_after_ms: retry_after_ms(&amp;resp),
+            }),
+
+/// Honor the server-provided Retry-After (delta-seconds or HTTP-date);
+/// fall back to 5s when the header is absent or unparseable.
+fn retry_after_ms(resp: &amp;reqwest::blocking::Response) -&gt; u64 {
+    resp.headers()
+        .get(reqwest::header::RETRY_AFTER)
+        .and_then(|v| v.to_str().ok())
+        .and_then(|s| s.trim().parse::&lt;u64&gt;().ok())
+        .map_or(5_000, |secs| secs.saturating_mul(1_000))
+}</code></pre><div class="file">crates/specforge-registry/src/client/http_client.rs:108-118</div></div>
+<div class="diagram-box"><span class="cap">Rate limit retry timing</span><div class="mermaid" id="dg-116-C14-01"><pre>flowchart TD
+ A[Registry returns 429] --&gt; B{Retry-After header present}
+ B -- yes --&gt; C[Parse seconds to ms] --&gt; E[Back off for server window]
+ B -- no --&gt; D[Default 5000 ms] --&gt; E
+ F[Before: header ignored, always 5000 ms] --&gt; G[Client hammers server]</pre></div></div><script type="text/plain" class="mermaid-src" data-target="dg-116-C14-01">flowchart TD
+ A[Registry returns 429] --> B{Retry-After header present}
+ B -- yes --> C[Parse seconds to ms] --> E[Back off for server window]
+ B -- no --> D[Default 5000 ms] --> E
+ F[Before: header ignored, always 5000 ms] --> G[Client hammers server]</script>
+<div class="eli10"><span class="tag">Explain like I'm 10</span><p>The server says try again in 2 minutes on the envelope, but the app throws the envelope away and always guesses 5 seconds. You hammer the server and keep getting rejected.</p></div>
+<p class="sol" style="margin-top:12px"><b>Proposed solution.</b> Read the Retry-After header (seconds or HTTP-date), fall back to 5000ms; parse once in a helper shared by the arms.</p>
+</article>
+</main><script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.1/dist/mermaid.min.js" onerror="window.__mermaidFailed=true"></script><script src="../js/agent.js"></script></body></html>

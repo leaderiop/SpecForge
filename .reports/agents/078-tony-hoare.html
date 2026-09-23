@@ -1,0 +1,57 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>078 C. A. R. Hoare — SpecForge audit review</title>
+<link rel="stylesheet" href="../css/report.css"><link rel="stylesheet" href="../css/agents.css"></head><body>
+<header class="agent-hero"><div class="brand"><div class="logo">078</div><div>
+<h1>C. A. R. Hoare</h1>
+<div class="crumbs">Cluster C10 — Formal methods · CSP (process/sync entities); verifying-compiler grand challenge · profile <code>.agents/078-tony-hoare.md</code></div></div></div>
+<div class="links"><a href="../index.html">← Full report</a><a href="../../.agents/078-tony-hoare.md">Profile source</a></div></header>
+<main class="agent-main">
+<nav class="agent-nav"><a href="077.html">← 077</a><a href="079.html">079 →</a></nav>
+<div class="review-panel"><div class="review-text"><h2>Auditor review</h2><p>Tony Hoare would praise the declarative, data-independent validation rules and deterministic code-sorted execution — no clever machinery. He would be blunt that a Process entity advertising initial_state and composition no check ever reads is the unverified assertion his career argued against. Fix the machine semantics first: initial_state membership is a cheap set check, not research. Until then, mark the kind experimental.</p></div>
+<div class="mini-kpis">
+<div class="mini-kpi"><div class="k">Findings</div><div class="v">1</div></div>
+<div class="mini-kpi bad"><div class="k">Critical + high</div><div class="v">1</div></div>
+<div class="mini-kpi"><div class="k">Evidence items</div><div class="v">2</div></div>
+<div class="mini-kpi"><div class="k">Effort mix</div><div class="v" style="font-size:14px">M</div></div>
+</div></div>
+<article class="finding-detail sev-high" id="f-C10-00">
+<div class="head"><h2>process entities are uninterpreted decoration</h2><span class="chip high">high</span><span class="fid">C10-00</span></div>
+<div class="meta-row"><span class="engineer">078 Tony Hoare</span><span class="chip neutral">effort M</span><span class="chip neutral">moves: Analyze passes implemented</span></div>
+<div class="evidence"><b>Evidence</b><span class="ev"><code>crates/specforge-emitter/src/builtins/formal.rs:100-140</code> — alphabet/states/initial_state/composition are plain strings; nothing reads initial_state or composition</span><span class="ev"><code>crates/specforge-emitter/src/builtins/formal.rs:210-231</code> — only W064 orphan and W066 composition cycle touch process</span></div>
+<p class="details">The Process entity descriptor in crates/specforge-emitter/src/builtins/formal.rs declares a rich CSP-style model — alphabet, states, initial_state, composition, sub_processes — but validation_rules() only ships W064 (orphan) and W066 (composition cycle). Nothing reads initial_state against states or checks transitions against the alphabet. A spec declaring initial_state &#x27;closed&#x27; while states=[&#x27;open&#x27;] compiles with zero diagnostics. For a tool selling machine-checked structure to AI agents, an uninterpreted state machine is decorative metadata agents wrongly trust.</p>
+<div class="snippet before"><span class="cap">before — current code</span><pre><code>                fields: vec![
+                    fd(&quot;alphabet&quot;, &quot;string_list&quot;, true, Some(&quot;Set of events that this process can communicate&quot;), None, None),
+                    fd(&quot;states&quot;, &quot;string_list&quot;, false, Some(&quot;Possible states in the process state machine&quot;), None, None),
+                    fd(&quot;initial_state&quot;, &quot;string&quot;, true, Some(&quot;Starting state of the process&quot;), None, None),
+                    fd(&quot;composition&quot;, &quot;string&quot;, false, Some(&quot;Composition operator and sub-processes (e.g. parallel, sequential, choice)&quot;), None, None),
+                    fd_ref(&quot;sub_processes&quot;, &quot;reference_list&quot;, &quot;ProcessComposesProcess&quot;, &quot;process&quot;, Some(&quot;Sub-processes composed by this process&quot;)),
+                    fd(&quot;description&quot;, &quot;string&quot;, false, Some(&quot;Free-form description of the process&quot;), None, None),
+                    fd(&quot;refs&quot;, &quot;string_list&quot;, false, Some(&quot;External references (URLs, documents, issue links)&quot;), None, None),
+                ],</code></pre><div class="file">crates/specforge-emitter/src/builtins/formal.rs:114-121</div></div>
+<div class="arrow-between">↓ fix ↓</div>
+<div class="snippet after"><span class="cap">after — proposed fix</span><pre><code>        // Declarative process-machine checks, parsed like every other rule.
+        // W067: initial_state must be a member of states.
+        cond_req(&quot;W067&quot;, &quot;process&quot;, &quot;initial_state&quot;, &quot;states&quot;,
+            &quot;process &#x27;{id}&#x27; has initial_state &#x27;{value}&#x27; not present in states&quot;),
+        // W068: every transition endpoint must be a declared state.
+        transitions_in_states(&quot;W068&quot;, &quot;process&quot;,
+            &quot;process &#x27;{id}&#x27; transition references state outside states&quot;),
+        // keep W064 orphan + W066 composition cycle as-is
+        no_incoming(&quot;W064&quot;, &quot;process&quot;, &quot;process &#x27;{id}&#x27; is not referenced by any entity — it may be unused&quot;),
+        cycle(&quot;W066&quot;, &quot;process&quot;, &quot;ProcessComposesProcess&quot;,
+            &quot;process composition cycle detected involving &#x27;{id}&#x27;&quot;),</code></pre><div class="file">crates/specforge-emitter/src/builtins/formal.rs</div></div>
+<div class="diagram-box"><span class="cap">process fields go from decorative to checked</span><div class="mermaid" id="dg-078-C10-00"><pre>flowchart TD
+ A[Process entity declared] --&gt; B{initial_state in states}
+ B -- no --&gt; C[W067 diagnostic]
+ B -- yes --&gt; D{transitions use alphabet}
+ D -- no --&gt; E[W068 diagnostic]
+ D -- yes --&gt; F[graph clean]</pre></div></div><script type="text/plain" class="mermaid-src" data-target="dg-078-C10-00">flowchart TD
+ A[Process entity declared] --> B{initial_state in states}
+ B -- no --> C[W067 diagnostic]
+ B -- yes --> D{transitions use alphabet}
+ D -- no --> E[W068 diagnostic]
+ D -- yes --> F[graph clean]</script>
+<div class="eli10"><span class="tag">Explain like I'm 10</span><p>The spec lets you draw machine diagrams - boxes, arrows, a start button - but the program never looks inside them. It only checks boxes are not lonely and arrows do not loop forever, like filing an org chart nobody checks against real employees.</p></div>
+<p class="sol" style="margin-top:12px"><b>Proposed solution.</b> Add declarative checks (initial_state in states; participating events present in alphabet) or mark the kind experimental until event_graph_analyze exists.</p>
+</article>
+</main><script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.1/dist/mermaid.min.js" onerror="window.__mermaidFailed=true"></script><script src="../js/agent.js"></script></body></html>

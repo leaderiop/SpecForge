@@ -1,0 +1,129 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>008 Steve Klabnik — SpecForge audit review</title>
+<link rel="stylesheet" href="../css/report.css"><link rel="stylesheet" href="../css/agents.css"></head><body>
+<header class="agent-hero"><div class="brand"><div class="logo">008</div><div>
+<h1>Steve Klabnik</h1>
+<div class="crumbs">Cluster C2 — DSL &amp; language design · Rust documentation culture; TRPL co-author · profile <code>.agents/008-steve-klabnik.md</code></div></div></div>
+<div class="links"><a href="../index.html">← Full report</a><a href="../../.agents/008-steve-klabnik.md">Profile source</a></div></header>
+<main class="agent-main">
+<nav class="agent-nav"><a href="007.html">← 007</a><a href="009.html">009 →</a></nav>
+<div class="review-panel"><div class="review-text"><h2>Auditor review</h2><p>Klabnik would love that docs are treated as the product&#x27;s front door, and be horrified that the front door lists 16 entities when the house has 24 rooms, with IDs like INV-{infix}-{n} that no code has ever generated. His fix: stop hand-maintaining the reference — regenerate quick-reference and entity-model tables from the KindRegistry/FieldRegistry manifests and snapshot-test them in CI, TRPL-style. Docs-as-tests is the only way a compiler project&#x27;s prose keeps pace with its grammar. The 23-vs-22 self-contradiction is the same disease; one generator cures both.</p></div>
+<div class="mini-kpis">
+<div class="mini-kpi"><div class="k">Findings</div><div class="v">2</div></div>
+<div class="mini-kpi bad"><div class="k">Critical + high</div><div class="v">1</div></div>
+<div class="mini-kpi"><div class="k">Evidence items</div><div class="v">4</div></div>
+<div class="mini-kpi"><div class="k">Effort mix</div><div class="v" style="font-size:14px">M · S</div></div>
+</div></div>
+<article class="finding-detail sev-high" id="f-C2-00">
+<div class="head"><h2>quick-reference.md teaches a removed ID system (prefix/infix) and 16-entity world</h2><span class="chip high">high</span><span class="fid">C2-00</span></div>
+<div class="meta-row"><span class="engineer">008 Steve Klabnik</span><span class="chip neutral">effort M</span><span class="chip neutral">moves: quick-reference entity coverage</span></div>
+<div class="evidence"><b>Evidence</b><span class="ev"><code>docs/quick-reference.md:1-40</code> — header claims &#x27;16 entities&#x27;; invariant ID &#x27;INV-{infix}-{n}&#x27;, behavior &#x27;BEH-{infix}-{n}&#x27;, spec field list includes &#x27;infix&#x27;</span><span class="ev"><code>docs/entity-model.md:Naming Conventions</code> — &#x27;Any valid identifier is accepted... no enforced case convention&#x27;; ID Pattern = &#x27;identifier&#x27; for all entities</span><span class="ev"><code>crates/:-</code> — grep &#x27;infix&#x27; in crates/ = 0 hits: the infix/prefix machinery does not exist in code</span></div>
+<p class="details">The quick-reference header promises 16 entities while the builtins manifests register 24 kinds, and nearly every ID column still teaches the removed prefix/infix system (INV-{infix}-{n}, BEH-{infix}-{n}, DLV-{infix}-{n}). It documents a spec.infix required field and a plugins field that do not exist (the CLI takes --extensions; grep infix crates/ has zero hits). It also teaches the wrong I004 meaning — the code means keyword-provided-by-uninstalled-extension (crates/specforge-graph/src/build.rs:97-120). Because this is the DSL entry-point card, drift here poisons every downstream tutorial.</p>
+<div class="snippet before"><span class="cap">before — current code</span><pre><code># Quick Reference
+
+Single-page lookup for all 16 SpecForge entities, 20 edge types, and 27 validation codes. For full details, see the [entity model](entity-model.md) or individual [entity docs](entities/).
+
+---
+
+## Entities
+
+### spec
+&gt; Module: core | ID: singleton | &quot;What project is this?&quot;
+
+| Required | Optional |
+|----------|----------|
+| name, infix, version | plugins, providers, test_dirs, persona, surface, define, coverage, gen |
+
+No graph edges. Root configuration that scopes all entity IDs via the `infix` field.
+
+---
+
+### invariant
+&gt; Module: core | ID: `INV-{infix}-{n}` | &quot;What must ALWAYS be true?&quot;</code></pre><div class="file">docs/quick-reference.md:1-21</div></div>
+<div class="arrow-between">↓ fix ↓</div>
+<div class="snippet after"><span class="cap">after — proposed fix</span><pre><code># Quick Reference
+
+Single-page lookup for all 24 SpecForge entity kinds, 20 edge types, and 31 validation
+codes. For full details, see the [entity model](entity-model.md).
+
+&gt; Numbers and ID shapes in this file are generated from the KindRegistry/FieldRegistry
+&gt; builtins manifests (`cargo test -p specforge-docs` regenerates; CI fails on drift).
+
+---
+
+## Entities
+
+### spec
+&gt; Module: core | ID: singleton | &quot;What project is this?&quot;
+
+| Required | Optional |
+|----------|----------|
+| name, version | extensions, providers, test_dirs, persona, surface, define, coverage, gen |
+
+No graph edges. Root configuration. Entity IDs are flat identifiers (e.g. `INV-user-auth-1`);
+the spec does not scope or prefix them.</code></pre><div class="file">docs/quick-reference.md</div></div>
+<div class="diagram-box"><span class="cap">Stale quick-reference vs registry truth</span><div class="mermaid" id="dg-008-C2-00"><pre>flowchart TD
+ A[quick-reference.md] --&gt; B[teaches 16 entities]
+ A --&gt; C[teaches INV-infix-n IDs]
+ B --&gt; D[code registers 24 kinds]
+ C --&gt; E[grep infix in crates = 0 hits]
+ D --&gt; F[new author types INV-APP-1]
+ E --&gt; F
+ F --&gt; G[compiler sees odd flat identifier]
+ G --&gt; H[regenerate doc from KindRegistry]
+ H --&gt; I[CI snapshot test blocks drift]</pre></div></div><script type="text/plain" class="mermaid-src" data-target="dg-008-C2-00">flowchart TD
+ A[quick-reference.md] --> B[teaches 16 entities]
+ A --> C[teaches INV-infix-n IDs]
+ B --> D[code registers 24 kinds]
+ C --> E[grep infix in crates = 0 hits]
+ D --> F[new author types INV-APP-1]
+ E --> F
+ F --> G[compiler sees odd flat identifier]
+ G --> H[regenerate doc from KindRegistry]
+ H --> I[CI snapshot test blocks drift]</script>
+<div class="eli10"><span class="tag">Explain like I'm 10</span><p>Imagine the quick-start card in a board game still describes old money tokens the game no longer includes. A new player follows the card, types INV-APP-1, and the compiler just sees a weird name. The card must be rewritten to match the game actually in the box.</p></div>
+<p class="sol" style="margin-top:12px"><b>Proposed solution.</b> Regenerate quick-reference.md from the KindRegistry/FieldRegistry (a small emitter or test that snapshots doc tables from the builtins manifests), covering all 24 kinds, flat IDs, and the correct I004 meaning (&#x27;keyword provided by uninstalled extension&#x27;, per graph/build.rs:97-120). Add a CI check that fails when doc entity counts drift from registry output.</p>
+</article>
+<article class="finding-detail sev-medium" id="f-C2-06">
+<div class="head"><h2>entity-model.md contradicts itself on the entity count within its first 20 lines</h2><span class="chip medium">medium</span><span class="fid">C2-06</span></div>
+<div class="meta-row"><span class="engineer">008 Steve Klabnik</span><span class="chip neutral">effort S</span><span class="chip neutral">moves: quick-reference entity coverage</span></div>
+<div class="evidence"><b>Evidence</b><span class="ev"><code>docs/entity-model.md:5,19</code> — line 5: &#x27;domain entity kinds (currently 23)&#x27;; line 19: &#x27;Total: 2 structural + 22 domain = 24&#x27;; the four extensions sum to 5+9+3+5=22</span></div>
+<p class="details">Within the first 20 lines of the flagship entity-model doc, line 5 says the extensions supply currently-23 domain kinds while line 13 correctly totals 2-structural-plus-22-domain-equals-24 — and the per-extension counts (5+9+3+5) sum to 22. A reader cannot tell which number to trust, and for a compiler project that sells precision the trust cost is disproportionate to the fix. The count will drift again with every extension change, so derive it in CI from the builtins manifests (same snapshot test as the quick-reference fix).</p>
+<div class="snippet before"><span class="cap">before — current code</span><pre><code>SpecForge uses a **zero-entity core** architecture: the compiler is a pure typed-graph engine with zero domain knowledge. Two **structural kinds** (`spec` and `ref`) are parsed by the core grammar. All domain entity kinds (currently 23) come from **extensions** via ManifestV2 declarations.
+
+Four official extensions provide the domain vocabulary:
+- **@specforge/software** (5 kinds): behavior, invariant, event, type, port
+- **@specforge/product** (9 kinds): journey, deliverable, milestone, module, term, feature, persona, channel, release
+- **@specforge/governance** (3 kinds): decision, constraint, failure_mode
+- **@specforge/formal** (5 kinds): property, axiom, protocol, refinement, process — plus structured conditions (inline requires/ensures/maintains fields), specification layering, event graph linting, coverage tracking via entity_enhancements on @specforge/software entities
+
+Total: 2 structural + 22 domain = 24 entity kinds (no budget cap).</code></pre><div class="file">docs/entity-model.md:5-13</div></div>
+<div class="arrow-between">↓ fix ↓</div>
+<div class="snippet after"><span class="cap">after — proposed fix</span><pre><code>SpecForge uses a **zero-entity core** architecture: the compiler is a pure typed-graph engine with zero domain knowledge. Two **structural kinds** (`spec` and `ref`) are parsed by the core grammar. All domain entity kinds (currently 22) come from **extensions** via ManifestV2 declarations.
+
+Four official extensions provide the domain vocabulary:
+- **@specforge/software** (5 kinds): behavior, invariant, event, type, port
+- **@specforge/product** (9 kinds): journey, deliverable, milestone, module, term, feature, persona, channel, release
+- **@specforge/governance** (3 kinds): decision, constraint, failure_mode
+- **@specforge/formal** (5 kinds): property, axiom, protocol, refinement, process
+
+Total: 2 structural + 22 domain = 24 entity kinds (no budget cap).
+
+&lt;!-- entity-count: derived from builtins manifests; cargo test -p specforge-docs verifies --&gt;</code></pre><div class="file">docs/entity-model.md</div></div>
+<div class="diagram-box"><span class="cap">23 vs 22 in one page</span><div class="mermaid" id="dg-008-C2-06"><pre>flowchart TD
+ A[line 5 says 23 domain kinds] --&gt; B[line 13 says 22 domain 24 total]
+ A --&gt; C[reader cannot tell which is true]
+ B --&gt; C
+ C --&gt; D[fix line 5 to 22]
+ D --&gt; E[CI derives count from manifests]
+ E --&gt; F[count cannot drift silently]</pre></div></div><script type="text/plain" class="mermaid-src" data-target="dg-008-C2-06">flowchart TD
+ A[line 5 says 23 domain kinds] --> B[line 13 says 22 domain 24 total]
+ A --> C[reader cannot tell which is true]
+ B --> C
+ C --> D[fix line 5 to 22]
+ D --> E[CI derives count from manifests]
+ E --> F[count cannot drift silently]</script>
+<div class="eli10"><span class="tag">Explain like I'm 10</span><p>The page says 23 spoons at the top and 22 spoons two paragraphs later. One of them is wrong, and a reader cannot tell which — small inconsistency, big trust cost.</p></div>
+<p class="sol" style="margin-top:12px"><b>Proposed solution.</b> Fix to 22/24; derive the number in CI from the builtins manifests so it cannot drift (same test as the quick-reference fix).</p>
+</article>
+</main><script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.1/dist/mermaid.min.js" onerror="window.__mermaidFailed=true"></script><script src="../js/agent.js"></script></body></html>

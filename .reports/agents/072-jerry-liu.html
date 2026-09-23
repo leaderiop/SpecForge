@@ -1,0 +1,69 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>072 Jerry Liu — SpecForge audit review</title>
+<link rel="stylesheet" href="../css/report.css"><link rel="stylesheet" href="../css/agents.css"></head><body>
+<header class="agent-hero"><div class="brand"><div class="logo">072</div><div>
+<h1>Jerry Liu</h1>
+<div class="crumbs">Cluster C9 — MCP &amp; AI-agent context engineering · LlamaIndex co-founder/CEO; retrieval and context budgets · profile <code>.agents/072-jerry-liu.md</code></div></div></div>
+<div class="links"><a href="../index.html">← Full report</a><a href="../../.agents/072-jerry-liu.md">Profile source</a></div></header>
+<main class="agent-main">
+<nav class="agent-nav"><a href="071.html">← 071</a><a href="073.html">073 →</a></nav>
+<div class="review-panel"><div class="review-text"><h2>Auditor review</h2><p>query --depth respecting a budget is exactly right; the infer plan prompt forgot the lesson - it dumps every unanalyzed path into the model&#x27;s window so the model can pick ten, which is linear cost for constant information. Cap to a top-N with an and-K-more marker plus a cursor through infer_progress, and stale_files too. Also note the file-scoped prompt&#x27;s contains() matching: for anchoring, near-misses like todo_list matching todo_list_widget are worse than misses because they teach the model false coverage.</p></div>
+<div class="mini-kpis">
+<div class="mini-kpi"><div class="k">Findings</div><div class="v">1</div></div>
+<div class="mini-kpi good"><div class="k">Critical + high</div><div class="v">0</div></div>
+<div class="mini-kpi"><div class="k">Evidence items</div><div class="v">0</div></div>
+<div class="mini-kpi"><div class="k">Effort mix</div><div class="v" style="font-size:14px">S</div></div>
+</div></div>
+<article class="finding-detail sev-medium" id="f-C9-08">
+<div class="head"><h2>Infer plan prompt returns the entire unanalyzed file list with no budget (praise for query --depth)</h2><span class="chip medium">medium</span><span class="fid">C9-08</span></div>
+<div class="meta-row"><span class="engineer">072 Jerry Liu</span><span class="chip neutral">effort S</span><span class="chip neutral">moves: token_budget reachable from surfaces</span></div>
+<p class="details">get_plan puts the full unanalyzed_files path list straight into the prompt payload with no cap, so on a 2,000-file repo the model&#x27;s window absorbs ~2,000 paths just so it can pick the first ten to process - prompt size grows linearly with repo size instead of staying bounded. stale_files has the same problem. The instruction even tells the model to process files with the most entity signals first, which requires ranking the model could do far more cheaply from a capped top-N plus a count. infer_session/infer_progress already track per-file progress, so a cursor for paging the remainder is a natural fit.</p>
+<div class="snippet before"><span class="cap">before — current code</span><pre><code>    let result = serde_json::json!({
+        &quot;plan&quot;: {
+            &quot;target_spec_directory&quot;: target_spec_directory,
+            &quot;progress&quot;: {
+                &quot;files_total&quot;: summary.files_total,
+                &quot;files_analyzed&quot;: summary.files_analyzed,
+                &quot;entities_produced&quot;: summary.entities_produced,
+            },
+            &quot;unanalyzed_files&quot;: unanalyzed,
+            &quot;stale_files&quot;: stale,
+            &quot;kind_priorities&quot;: kind_priorities,
+        }
+    });</code></pre><div class="file">crates/specforge-mcp/src/prompts/infer.rs:215-226</div></div>
+<div class="arrow-between">↓ fix ↓</div>
+<div class="snippet after"><span class="cap">after — proposed fix</span><pre><code>const MAX_UNANALYZED: usize = 50;
+
+let (unanalyzed, more): (Vec&lt;String&gt;, usize) = {
+    let mut files = unanalyzed;
+    let more = files.len().saturating_sub(MAX_UNANALYZED);
+    files.truncate(MAX_UNANALYZED);
+    (files, more)
+};
+
+let result = serde_json::json!({
+    &quot;plan&quot;: {
+        // ...
+        &quot;unanalyzed_files&quot;: unanalyzed,
+        &quot;unanalyzed_files_more&quot;: more,
+        &quot;unanalyzed_files_cursor&quot;: specforge_common::inference::InferCursor::new(&amp;unanalyzed_all).encoded(),
+    }
+});
+// Instruction gains: call specforge.infer_progress next_page cursor to fetch more.</code></pre><div class="file">crates/specforge-mcp/src/prompts/infer.rs</div></div>
+<div class="diagram-box"><span class="cap">Bounded plan prompt</span><div class="mermaid" id="dg-072-C9-08"><pre>flowchart TD
+ A[Plan prompt built] --&gt; B[unanalyzed_files unbounded]
+ B --&gt; C[2000 paths in model window]
+ C --&gt; D[Constant-size prompt violated]
+ D --&gt; E[Cap to top N by priority]
+ E --&gt; F[Add and K more marker plus cursor]
+ F --&gt; G[infer_progress pages remainder]</pre></div></div><script type="text/plain" class="mermaid-src" data-target="dg-072-C9-08">flowchart TD
+ A[Plan prompt built] --> B[unanalyzed_files unbounded]
+ B --> C[2000 paths in model window]
+ C --> D[Constant-size prompt violated]
+ D --> E[Cap to top N by priority]
+ E --> F[Add and K more marker plus cursor]
+ F --> G[infer_progress pages remainder]</script>
+<div class="eli10"><span class="tag">Explain like I'm 10</span><p>Asking for a study plan and getting a phone book: on a 2,000-file repo the plan prompt would dump all 2,000 paths into the model&#x27;s window just so it can pick the first ten. The query tool already knows how to zoom; the plan prompt forgot to.</p></div>
+<p class="sol" style="margin-top:12px"><b>Proposed solution.</b> Cap unanalyzed_files to the top N by kind priority/size with a &#x27;...and K more&#x27; marker plus a follow-up cursor (infer_progress already tracks files), so the plan prompt stays roughly constant-size.</p>
+</article>
+</main><script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.1/dist/mermaid.min.js" onerror="window.__mermaidFailed=true"></script><script src="../js/agent.js"></script></body></html>

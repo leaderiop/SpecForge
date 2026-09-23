@@ -1,0 +1,28 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>120 Joseph Birr-Pixton — SpecForge audit review</title>
+<link rel="stylesheet" href="../css/report.css"><link rel="stylesheet" href="../css/agents.css"></head><body>
+<header class="agent-hero"><div class="brand"><div class="logo">120</div><div>
+<h1>Joseph Birr-Pixton</h1>
+<div class="crumbs">Cluster C14 — Direct-dependency maintainers - dependency/surface hygiene · rustls lead maintainer; pure-Rust TLS · profile <code>.agents/120-joseph-birr-pixton.md</code></div></div></div>
+<div class="links"><a href="../index.html">← Full report</a><a href="../../.agents/120-joseph-birr-pixton.md">Profile source</a></div></header>
+<main class="agent-main">
+<nav class="agent-nav"><a href="119.html">← 119</a><a href="121.html">121 →</a></nav>
+<div class="review-panel"><div class="review-text"><h2>Auditor review</h2><p>Kevin&#x27;s lens is the CLI contract: free-String flags that fail at runtime with no completions are exactly what clap ValueEnum solves, and he would frame the ~30 flag sites as an afternoon of mechanical typing that permanently upgrades the agent-facing surface. The 28 process::exit tails he would accept but tidy in the same pass. He would praise that every subcommand&#x27;s shape is consistent and documented inline.</p></div>
+<div class="mini-kpis">
+<div class="mini-kpi"><div class="k">Findings</div><div class="v">1</div></div>
+<div class="mini-kpi good"><div class="k">Critical + high</div><div class="v">0</div></div>
+<div class="mini-kpi"><div class="k">Evidence items</div><div class="v">1</div></div>
+<div class="mini-kpi"><div class="k">Effort mix</div><div class="v" style="font-size:14px">S</div></div>
+</div></div>
+<article class="finding-detail sev-info" id="f-C14-07">
+<div class="head"><h2>TLS supply-chain posture is exemplary: rustls-only, no default features, client built once and reused</h2><span class="chip info">info</span><span class="fid">C14-07</span></div>
+<div class="meta-row"><span class="engineer">120 Joseph Birr-Pixton</span><span class="chip neutral">effort S</span><span class="chip neutral">moves: TLS posture (good, sustained)</span></div>
+<div class="evidence"><b>Evidence</b><span class="ev"><code>Cargo.toml:reqwest entry</code> — reqwest 0.12.15 with default-features false and features rustls-tls, json, blocking, multipart - native-tls and default-tls compiled out. HttpRegistryClient builds one Client reused across calls, preserving pooling.</span></div>
+<p class="details">The workspace opts reqwest 0.12.15 out of all default features and selects only rustls-tls, json, blocking and multipart, so neither native-tls nor default-tls is ever compiled - the TLS stack is the pure-Rust rustls by explicit choice rather than by platform accident. HttpRegistryClient builds a single reqwest::blocking::Client in new() (with a builder-set 30s timeout) and reuses it across every call in fetch_versions, fetch, search, download_wasm and publish, preserving connection pooling and consistent timeout behavior.</p>
+<div class="snippet exemplar"><span class="cap">exemplar — the good pattern</span><pre><code># HTTP
+reqwest = { version = &quot;0.12.15&quot;, default-features = false, features = [&quot;rustls-tls&quot;, &quot;json&quot;, &quot;blocking&quot;, &quot;multipart&quot;] }</code></pre><div class="file">Cargo.toml:69-70</div></div>
+<div class="keep"><span class="tag">Keep doing this</span><p>Preserve the default-features = false + rustls-tls opt-in and the build-once reusable Client; optionally record the chosen rustls crypto-provider in docs so the supply-chain decision survives refactors.</p></div>
+<div class="eli10"><span class="tag">Explain like I'm 10</span><p>The lock on the shipping container is the well-reviewed pure-Rust one, not a bolt-on from whatever the OS happens to have lying around - and it was chosen deliberately by turning off the defaults.</p></div>
+<p class="sol" style="margin-top:12px"><b>Proposed solution.</b> None required. Optional: document the rustls crypto-provider choice so it is recorded.</p>
+</article>
+</main><script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.1/dist/mermaid.min.js" onerror="window.__mermaidFailed=true"></script><script src="../js/agent.js"></script></body></html>

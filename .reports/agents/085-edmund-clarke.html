@@ -1,0 +1,29 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>085 Edmund M. Clarke — SpecForge audit review</title>
+<link rel="stylesheet" href="../css/report.css"><link rel="stylesheet" href="../css/agents.css"></head><body>
+<header class="agent-hero"><div class="brand"><div class="logo">085</div><div>
+<h1>Edmund M. Clarke</h1>
+<div class="crumbs">Cluster C10 — Formal methods · Model checking (Turing Award 2007); symbolic &amp; bounded techniques · profile <code>.agents/085-edmund-clarke.md</code></div></div></div>
+<div class="links"><a href="../index.html">← Full report</a><a href="../../.agents/085-edmund-clarke.md">Profile source</a></div></header>
+<main class="agent-main">
+<nav class="agent-nav"><a href="084.html">← 084</a><a href="086.html">086 →</a></nav>
+<div class="review-panel"><div class="review-text"><h2>Auditor review</h2><p>Edmund Clarke would celebrate avoiding state explosion by construction: graph structure over reachable-state enumeration is exactly the right approximation level for a spec linter. He would add that the future SCC-based event-graph analysis should inherit the same partitioning and keep diagnostics deterministic, since model-checking instincts without cost discipline become a different product.</p></div>
+<div class="mini-kpis">
+<div class="mini-kpi"><div class="k">Findings</div><div class="v">1</div></div>
+<div class="mini-kpi good"><div class="k">Critical + high</div><div class="v">0</div></div>
+<div class="mini-kpi"><div class="k">Evidence items</div><div class="v">2</div></div>
+<div class="mini-kpi"><div class="k">Effort mix</div><div class="v" style="font-size:14px">S</div></div>
+</div></div>
+<article class="finding-detail sev-info" id="f-C10-08">
+<div class="head"><h2>praise: structural graph checks avoid state explosion by design</h2><span class="chip info">info</span><span class="fid">C10-08</span></div>
+<div class="meta-row"><span class="engineer">085 Edmund M. Clarke</span><span class="chip neutral">effort S</span><span class="chip neutral">moves: Cycle rule wiring</span></div>
+<div class="evidence"><b>Evidence</b><span class="ev"><code>crates/specforge-emitter/src/compile.rs:453-540</code> — cycle checks are O(V+E) DFS over per-edge-type subgraphs, not state-space search</span><span class="ev"><code>crates/specforge-registry/src/compilation/validation_engine.rs:100-130</code> — rules sorted by code for deterministic order</span></div>
+<p class="details">The formal checks avoid state explosion by design: W065/W066 run O(V+E) DFS over per-edge-type subgraphs rather than exploring a state space, and parse_all_rule_patterns sorts patterns by code so diagnostic order is deterministic across runs and platforms — both verified in source, not aspirations. Determinism matters doubly because AI agents consume diagnostics programmatically and flaky ordering breaks diff-based workflows.</p>
+<div class="snippet exemplar"><span class="cap">exemplar — the good pattern</span><pre><code>    // Sort by code for deterministic execution order
+    patterns.sort_by(|a, b| a.code.cmp(&amp;b.code));
+    (patterns, diagnostics)</code></pre><div class="file">crates/specforge-registry/src/compilation/validation_engine.rs:145-147</div></div>
+<div class="keep"><span class="tag">Keep doing this</span><p>Preserve the O(V+E) per-edge-type partitioning and deterministic code-sorted rule execution as the mandatory template for the future event_graph_analyze pass, along with the specified timeout guard.</p></div>
+<div class="eli10"><span class="tag">Explain like I'm 10</span><p>The team wisely checks the road network instead of simulating every journey - that is how you avoid the combinatorial swamp. Deterministic and cheap; keep that discipline when the event-graph pass lands.</p></div>
+<p class="sol" style="margin-top:12px"><b>Proposed solution.</b> Inherit per-edge-type partitioning and add the specified --timeout when event_graph_analyze is built.</p>
+</article>
+</main><script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.1/dist/mermaid.min.js" onerror="window.__mermaidFailed=true"></script><script src="../js/agent.js"></script></body></html>

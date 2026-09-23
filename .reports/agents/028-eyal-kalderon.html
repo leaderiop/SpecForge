@@ -1,0 +1,68 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>028 Eyal Kalderon — SpecForge audit review</title>
+<link rel="stylesheet" href="../css/report.css"><link rel="stylesheet" href="../css/agents.css"></head><body>
+<header class="agent-hero"><div class="brand"><div class="logo">028</div><div>
+<h1>Eyal Kalderon</h1>
+<div class="crumbs">Cluster C4 — Incremental compilation, LSP &amp; diagnostics · tower-lsp creator · profile <code>.agents/028-eyal-kalderon.md</code></div></div></div>
+<div class="links"><a href="../index.html">← Full report</a><a href="../../.agents/028-eyal-kalderon.md">Profile source</a></div></header>
+<main class="agent-main">
+<nav class="agent-nav"><a href="027.html">← 027</a><a href="029.html">029 →</a></nav>
+<div class="review-panel"><div class="review-text"><h2>Auditor review</h2><p>He&#x27;d like the debounced did_change shape but flag per-keystroke tasks holding the write lock across whole-graph validation and blocking std::fs on the runtime. Latest-wins worker plus spawn_blocking, measured with tokio-console.</p></div>
+<div class="mini-kpis">
+<div class="mini-kpi"><div class="k">Findings</div><div class="v">1</div></div>
+<div class="mini-kpi good"><div class="k">Critical + high</div><div class="v">0</div></div>
+<div class="mini-kpi"><div class="k">Evidence items</div><div class="v">0</div></div>
+<div class="mini-kpi"><div class="k">Effort mix</div><div class="v" style="font-size:14px">M</div></div>
+</div></div>
+<article class="finding-detail sev-medium" id="f-C4-03">
+<div class="head"><h2>did_change spawns an unmanaged tokio task per keystroke holding the state write lock across whole-graph validator+registry work; index_workspace and did_change_watched_files do blocking std::fs on the async runtime.</h2><span class="chip medium">medium</span><span class="fid">C4-03</span></div>
+<div class="meta-row"><span class="engineer">028 Eyal Kalderon</span><span class="chip neutral">effort M</span></div>
+<p class="details">Every keystroke spawns an unmanaged tokio task holding the state write lock across the whole graph-wide pipeline, and index_workspace/did_change_watched_files do blocking std::fs on the async runtime. A serialized latest-wins worker plus spawn_blocking removes both hazards.</p>
+<div class="snippet before"><span class="cap">before — current code</span><pre><code>            if let Some(content) = content {
+                let file_path = uri_to_file_path(&amp;uri_clone);
+                let old_tree = {
+                    let s = state.read().await;
+                    s.document(uri_clone.as_str())
+                        .and_then(|d| d.previous_tree().cloned())
+                };
+                let (spec_file, new_tree) =
+                    specforge_parser::parse_incremental(&amp;content, &amp;file_path, old_tree.as_ref());
+                let mut s = state.write().await;
+                if let Some(doc) = s.document_mut(uri_clone.as_str()) {
+                    doc.set_previous_tree(new_tree);
+                }
+                let graph = s.graph_mut();
+                // ... whole pipeline under this write lock</code></pre><div class="file">crates/specforge-lsp/src/backend.rs:843-862</div></div>
+<div class="arrow-between">↓ fix ↓</div>
+<div class="snippet after"><span class="cap">after — proposed fix</span><pre><code>    /// Serialized latest-wins analysis worker.
+    async fn enqueue_analysis(&amp;self, uri: Url) {
+        let this = self.clone();
+        tokio::spawn(async move {
+            tokio::time::sleep(Duration::from_millis(DEBOUNCE_MS)).await;
+            let content = this.state.read().await
+                .document(uri.as_str()).map(|d| d.content().to_string());
+            let Some(content) = content else { return };
+            // Parse off the runtime; write lock only to commit.
+            let result = tokio::task::spawn_blocking(move || {
+                this.analyze_snapshot(&amp;uri, &amp;content)
+            }).await.expect(&quot;analysis worker panicked&quot;);
+            this.commit_analysis(&amp;uri, result).await;
+        });
+    }</code></pre><div class="file">crates/specforge-lsp/src/backend.rs</div></div>
+<div class="diagram-box"><span class="cap">Latest-wins worker</span><div class="mermaid" id="dg-028-C4-03"><pre>flowchart TD
+ keystroke --&gt; queue
+ queue --&gt; worker
+ worker --&gt; spawn_blocking
+ spawn_blocking --&gt; short_write_lock
+ short_write_lock --&gt; publish
+ new_keystroke --&gt; queue</pre></div></div><script type="text/plain" class="mermaid-src" data-target="dg-028-C4-03">flowchart TD
+ keystroke --> queue
+ queue --> worker
+ worker --> spawn_blocking
+ spawn_blocking --> short_write_lock
+ short_write_lock --> publish
+ new_keystroke --> queue</script>
+<div class="eli10"><span class="tag">Explain like I'm 10</span><p>Every keystroke hires a new helper who grabs the only pencil and starts a huge pile of work, so nobody else can write. Better: one helper who always switches to the newest request and holds the pencil only briefly.</p></div>
+<p class="sol" style="margin-top:12px"><b>Proposed solution.</b> serialized latest-wins worker + spawn_blocking.</p>
+</article>
+</main><script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.1/dist/mermaid.min.js" onerror="window.__mermaidFailed=true"></script><script src="../js/agent.js"></script></body></html>

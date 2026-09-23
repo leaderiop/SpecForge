@@ -1,0 +1,57 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>094 Gojko Adzic — SpecForge audit review</title>
+<link rel="stylesheet" href="../css/report.css"><link rel="stylesheet" href="../css/agents.css"></head><body>
+<header class="agent-hero"><div class="brand"><div class="logo">094</div><div>
+<h1>Gojko Adzic</h1>
+<div class="crumbs">Cluster C11 — Testing &amp; BDD (test tracing &amp; report protocol) · Specification by Example; living documentation · profile <code>.agents/094-gojko-adzic.md</code></div></div></div>
+<div class="links"><a href="../index.html">← Full report</a><a href="../../.agents/094-gojko-adzic.md">Profile source</a></div></header>
+<main class="agent-main">
+<nav class="agent-nav"><a href="093.html">← 093</a><a href="095.html">095 →</a></nav>
+<div class="review-panel"><div class="review-text"><h2>Auditor review</h2><p>Gojko Adzic: the traceability matrix is the product and today it is built on handwriting-matching - exact free-text verify descriptions, one-word spec edits silently orphaning tests, zero unmatched-test signal, while decisions.spec claims mitigation that does not exist. The good news: ExportedVerify already carries a slug; use it for matching and add the orphan warnings. Specification-by-example lives or dies on the honesty of that linkage.</p></div>
+<div class="mini-kpis">
+<div class="mini-kpi"><div class="k">Findings</div><div class="v">1</div></div>
+<div class="mini-kpi good"><div class="k">Critical + high</div><div class="v">0</div></div>
+<div class="mini-kpi"><div class="k">Evidence items</div><div class="v">2</div></div>
+<div class="mini-kpi"><div class="k">Effort mix</div><div class="v" style="font-size:14px">S</div></div>
+</div></div>
+<article class="finding-detail sev-medium" id="f-C11-05">
+<div class="head"><h2>corpus: boilerplate pseudo-verifies - all contracts.rs tests plus cli.rs:347,371,451 use &#x27;requires/ensures consistency for X&#x27;.</h2><span class="chip medium">medium</span><span class="fid">C11-05</span></div>
+<div class="meta-row"><span class="engineer">094 Gojko Adzic</span><span class="chip neutral">effort S</span></div>
+<div class="evidence"><b>Evidence</b><span class="ev"><code>contracts.rs</code></span><span class="ev"><code>cli.rs:347</code></span></div>
+<p class="details">Verify descriptions across the corpus are copy-pasted boilerplate: every contract test in crates/specforge-cli/tests/contracts.rs and specforge-emitter/tests/contracts.rs, plus cli.rs:347,371,451, reads requires/ensures consistency for X. Exact-description matching (C11-02) makes them all pass, but they are unfalsifiable: no failure would show requires/ensures consistency for project root discovery violated specifically. The traceability matrix is theater - dozens of verify statements proven by descriptions carrying zero information. Fix with concrete falsifiable descriptions or drop the attribute (the macro already supports None) so entities honestly report as unverified.</p>
+<div class="snippet before"><span class="cap">before — current code</span><pre><code>#[specforge_test(behavior = &quot;exit_code_reflects_diagnostic_severity&quot;, verify = &quot;requires/ensures consistency for exit code severity mapping&quot;)]
+#[test]
+fn exit_code_contract_consistency() {</code></pre><div class="file">crates/specforge-cli/tests/cli.rs:347-349</div></div>
+<div class="arrow-between">↓ fix ↓</div>
+<div class="snippet after"><span class="cap">after — proposed fix</span><pre><code>// B:find_project_root - verify contract: project root found when specforge.json exists in cwd, parents, or absent with clear error
+#[test]
+#[specforge_test(behavior = &quot;find_project_root&quot;, verify = &quot;project root discovery returns specforge.json location or actionable error&quot;)]
+fn find_project_root_contract() {
+    use specforge_common::find_project_root;
+
+    let dir = tempdir().unwrap();
+    std::fs::write(dir.path().join(&quot;specforge.json&quot;), &quot;{\&quot;format_version\&quot;:\&quot;1.0\&quot;}&quot;).unwrap();
+
+    assert_eq!(find_project_root(dir.path()), Some(dir.path().to_path_buf()));
+    assert_eq!(find_project_root(dir.path().join(&quot;nested&quot;)), Some(dir.path().to_path_buf()));
+    assert_eq!(find_project_root(tempdir().unwrap().path()), None);
+}</code></pre><div class="file">crates/specforge-cli/tests/contracts.rs</div></div>
+<div class="diagram-box"><span class="cap">boilerplate pseudo verifies</span><div class="mermaid" id="dg-094-C11-05"><pre>flowchart TD
+ A[contract test written] --&gt; B[verify uses template phrase]
+ B --&gt; C[exact match against graph]
+ C --&gt; D[coverage counts it]
+ D --&gt; E[description proves nothing falsifiable]
+ E --&gt; F[trace matrix filled with boilerplate]
+ F --&gt; G[fix concrete falsifiable descriptions]
+ G --&gt; H[or drop attribute for honest NoIntent]</pre></div></div><script type="text/plain" class="mermaid-src" data-target="dg-094-C11-05">flowchart TD
+ A[contract test written] --> B[verify uses template phrase]
+ B --> C[exact match against graph]
+ C --> D[coverage counts it]
+ D --> E[description proves nothing falsifiable]
+ E --> F[trace matrix filled with boilerplate]
+ F --> G[fix concrete falsifiable descriptions]
+ G --> H[or drop attribute for honest NoIntent]</script>
+<div class="eli10"><span class="tag">Explain like I'm 10</span><p>a checklist where every line says &#x27;checked that I checked it&#x27;.</p></div>
+<p class="sol" style="margin-top:12px"><b>Proposed solution.</b> concrete falsifiable examples or drop attribute; lint the template.</p>
+</article>
+</main><script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.1/dist/mermaid.min.js" onerror="window.__mermaidFailed=true"></script><script src="../js/agent.js"></script></body></html>

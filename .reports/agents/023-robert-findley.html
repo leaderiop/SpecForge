@@ -1,0 +1,76 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>023 Robert Findley — SpecForge audit review</title>
+<link rel="stylesheet" href="../css/report.css"><link rel="stylesheet" href="../css/agents.css"></head><body>
+<header class="agent-hero"><div class="brand"><div class="logo">023</div><div>
+<h1>Robert Findley</h1>
+<div class="crumbs">Cluster C4 — Incremental compilation, LSP &amp; diagnostics · gopls co-lead at Google; Go tooling &amp; telemetry · profile <code>.agents/023-robert-findley.md</code></div></div></div>
+<div class="links"><a href="../index.html">← Full report</a><a href="../../.agents/023-robert-findley.md">Profile source</a></div></header>
+<main class="agent-main">
+<nav class="agent-nav"><a href="022.html">← 022</a><a href="024.html">024 →</a></nav>
+<div class="review-panel"><div class="review-text"><h2>Auditor review</h2><p>He&#x27;d appreciate the watcher registration and open-docs re-diagnose, but be sharp about synchronous indexing with no progress and only the first workspace folder — multi-root users get a broken experience. Progress tokens and a background index first.</p></div>
+<div class="mini-kpis">
+<div class="mini-kpi"><div class="k">Findings</div><div class="v">2</div></div>
+<div class="mini-kpi good"><div class="k">Critical + high</div><div class="v">0</div></div>
+<div class="mini-kpi"><div class="k">Evidence items</div><div class="v">3</div></div>
+<div class="mini-kpi"><div class="k">Effort mix</div><div class="v" style="font-size:14px">M</div></div>
+</div></div>
+<article class="finding-detail sev-medium" id="f-C4-04">
+<div class="head"><h2>Workspace indexing synchronous inside `initialized` with no workDone progress; only first workspace folder honored; hardcoded SKIP_DIRS ignores .gitignore/specforge.json excludes.</h2><span class="chip medium">medium</span><span class="fid">C4-04</span></div>
+<div class="meta-row"><span class="engineer">023 Robert Findley</span><span class="chip neutral">effort M</span></div>
+<div class="evidence"><b>Evidence</b><span class="ev"><code>gitignore/specforge.json</code></span></div>
+<p class="details">initialized runs the full walkdir + std::fs indexing synchronously with no workDone progress, initialize honors only the first workspace folder, and hardcoded SKIP_DIRS ignores .gitignore/specforge.json excludes. Move indexing to a background task with progress over all folders.</p>
+<div class="snippet before"><span class="cap">before — current code</span><pre><code>    const SKIP_DIRS: &amp;[&amp;str] = &amp;[&quot;target&quot;, &quot;node_modules&quot;, &quot;.git&quot;, &quot;.hg&quot;, &quot;dist&quot;, &quot;build&quot;];
+
+    async fn index_workspace(&amp;self, root: &amp;str) -&gt; usize {
+        let mut count = 0;
+        for entry in walkdir::WalkDir::new(root)
+            .into_iter()
+            .filter_entry(|e| {
+                if e.file_type().is_dir()
+                    &amp;&amp; let Some(name) = e.file_name().to_str()
+                {
+                    return !Self::SKIP_DIRS.contains(&amp;name);
+                }
+                true
+            })
+            .filter_map(|e| e.ok())</code></pre><div class="file">crates/specforge-lsp/src/backend.rs:55-78</div></div>
+<div class="arrow-between">↓ fix ↓</div>
+<div class="snippet after"><span class="cap">after — proposed fix</span><pre><code>    async fn initialized(&amp;self, _: InitializedParams) {
+        let roots: Vec&lt;String&gt; = self.root_dir.lock().await.clone().into_iter().collect();
+        let this = Arc::new(self.clone());
+        tokio::spawn(async move {
+            for root in roots {
+                this.client.send_notification::&lt;WorkDoneProgressBegin&gt;(
+                    WorkDoneProgressBegin { title: &quot;Indexing SpecForge files&quot;.into(), ..Default::default() });
+                let count = tokio::task::spawn_blocking(move || {
+                    this.index_workspace_blocking(&amp;root)
+                }).await.unwrap_or(0);
+                this.client.log_message(MessageType::INFO,
+                    format!(&quot;indexed {count} files from {root}&quot;)).await;
+            }
+        });
+    }</code></pre><div class="file">crates/specforge-lsp/src/backend.rs</div></div>
+<div class="diagram-box"><span class="cap">Background indexing with progress</span><div class="mermaid" id="dg-023-C4-04"><pre>flowchart TD
+ A[initialized] --&gt; B[spawn background]
+ B --&gt; C[progress tokens]
+ B --&gt; D[spawn_blocking walkdir]
+ D --&gt; E[commit once]
+ C --&gt; F[editor stays responsive]</pre></div></div><script type="text/plain" class="mermaid-src" data-target="dg-023-C4-04">flowchart TD
+ A[initialized] --> B[spawn background]
+ B --> C[progress tokens]
+ B --> D[spawn_blocking walkdir]
+ D --> E[commit once]
+ C --> F[editor stays responsive]</script>
+<div class="eli10"><span class="tag">Explain like I'm 10</span><p>When you open the door, the librarian insists on reading every book before saying hello — and only reads the first shelf. Say hello first, keep reading in the background, and read all the shelves.</p></div>
+<p class="sol" style="margin-top:12px"><b>Proposed solution.</b> background index + progress + all folders.</p>
+</article>
+<article class="finding-detail sev-info" id="f-C4-13">
+<div class="head"><h2>lsp-client.ts 4-tier binary resolution (setting → platform-bundled → cargo target walk-up → PATH) with clear failure messaging, plus hover enrichment as client middleware keeping the server editor-agnostic.</h2><span class="chip info">info</span><span class="fid">C4-13</span></div>
+<div class="meta-row"><span class="engineer">023 Robert Findley</span></div>
+<div class="evidence"><b>Evidence</b><span class="ev"><code>lsp-client.ts</code></span><span class="ev"><code>backend.rs</code></span></div>
+<p class="details">resolveBinaryPath resolves the server through a 4-tier ladder (setting, platform-bundled, cargo target walk-up, PATH) with clear failure messaging, and hover enrichment is client middleware keeping the server editor-agnostic.</p>
+<div class="snippet exemplar"><span class="cap">exemplar — the good pattern</span><pre><code>function resolveBinaryPath(): string | undefined {\n  // 1. User setting\n  const configPath = getLspPath();\n  if (configPath &amp;&amp; fs.existsSync(configPath)) {\n    return configPath;\n  }\n  // 2. Bundled platform-specific binary</code></pre><div class="file">integrations/vscode/src/lsp-client.ts:72-76</div></div>
+<div class="keep"><span class="tag">Keep doing this</span><p>The four-tier binary resolution with actionable failure messaging is exactly how extension servers should bootstrap.</p></div>
+<div class="eli10"><span class="tag">Explain like I'm 10</span><p>Praise: finding the right server binary is a neat four-step treasure hunt — ask the settings, look next door, follow the build trail, then the treasure chest. Users never have to hunt themselves.</p></div>
+</article>
+</main><script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.1/dist/mermaid.min.js" onerror="window.__mermaidFailed=true"></script><script src="../js/agent.js"></script></body></html>

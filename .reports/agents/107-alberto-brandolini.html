@@ -1,0 +1,54 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>107 Alberto Brandolini — SpecForge audit review</title>
+<link rel="stylesheet" href="../css/report.css"><link rel="stylesheet" href="../css/agents.css"></head><body>
+<header class="agent-hero"><div class="brand"><div class="logo">107</div><div>
+<h1>Alberto Brandolini</h1>
+<div class="crumbs">Cluster C12 — Requirements engineering, ubiquitous language &amp; docs-as-code (self-spec corpus) · Event Storming — collective discovery through domain events · profile <code>.agents/107-alberto-brandolini.md</code></div></div></div>
+<div class="links"><a href="../index.html">← Full report</a><a href="../../.agents/107-alberto-brandolini.md">Profile source</a></div></header>
+<main class="agent-main">
+<nav class="agent-nav"><a href="106.html">← 106</a><a href="108.html">108 →</a></nav>
+<div class="review-panel"><div class="review-text"><h2>Auditor review</h2><p>Brandolini would be delighted: the event storm survived as typed data, channels named, payloads typed, and — his favorite tell of maturity — deliberate non-consumers written down with reasons. He would gently push on the hot spot: passive behaviors declaring no produces only in margin comments, invisible to any event-graph lint. Promote the absence to a field so the computer can ask which behaviors send nothing. Otherwise, this is event modeling done right.</p></div>
+<div class="mini-kpis">
+<div class="mini-kpi"><div class="k">Findings</div><div class="v">2</div></div>
+<div class="mini-kpi good"><div class="k">Critical + high</div><div class="v">0</div></div>
+<div class="mini-kpi"><div class="k">Evidence items</div><div class="v">3</div></div>
+<div class="mini-kpi"><div class="k">Effort mix</div><div class="v" style="font-size:14px">M · S</div></div>
+</div></div>
+<article class="finding-detail sev-info" id="f-C12-12">
+<div class="head"><h2>Praise: event model is a living storming artifact — typed payloads, channels, consumer-ordering rationale</h2><span class="chip info">info</span><span class="fid">C12-12</span></div>
+<div class="meta-row"><span class="engineer">107 Alberto Brandolini</span><span class="chip neutral">effort S</span><span class="chip neutral">moves: behavior_verify_coverage</span></div>
+<div class="evidence"><b>Evidence</b><span class="ev"><code>spec/events/compilation.spec:23-41,62-84</code> — events carry channel names, typed payload blocks, and comments explaining consumer ordering and why something is NOT a consumer (e.g. &#x27;resolve_use_imports is NOT a consumer here&#x27;)</span></div>
+<p class="details">The event model in spec/events/compilation.spec is what event storming should become: events carry channel names, typed payload blocks, and comments explaining consumer ordering — including the rarest and most valuable note, who deliberately does NOT consume (&#x27;resolve_use_imports is NOT a consumer here — it runs in Phase 2 after registries_populated&#x27;) and why co-consumers are independent. This turns workshop sticky notes into computer-auditable data.</p>
+<div class="snippet exemplar"><span class="cap">exemplar — the good pattern</span><pre><code>  // Phase 1 -&gt; Extension Loader: registries must be populated before resolution.
+  // resolve_use_imports is NOT a consumer here — it runs in Phase 2 after
+  // registries_populated.
+  // Co-consumer ordering: detect_duplicate_entity_ids runs on raw IDs (no registry
+  // needed); load_extension_manifests loads extensions; read_lock_file reads
+  // specforge.lock for integrity verification. All three are independent.
+  // Lock verification feeds into load_wasm_module via wasm_integrity_verified.</code></pre><div class="file">spec/events/compilation.spec:29-34</div></div>
+<div class="keep"><span class="tag">Keep doing this</span><p>Keep typed payloads, channels, and explicit non-consumer rationale as the house style for every new event; consider promoting the ordering comments into structured sync/ordering fields so they become lintable.</p></div>
+<div class="eli10"><span class="tag">Explain like I'm 10</span><p>The orange sticky notes survived the workshop and became a checklist the computer can audit: each event says what happened, on which channel, who reacts, and who deliberately does not. That last part — writing down who does NOT react — is the rarest and most valuable note of all.</p></div>
+<p class="sol" style="margin-top:12px"><b>Proposed solution.</b> None — this is the corpus at its best.</p>
+</article>
+<article class="finding-detail sev-low" id="f-C12-13">
+<div class="head"><h2>Hot spot unresolved in prose: some behaviors declare &#x27;no event produced&#x27; only in comments, not as data</h2><span class="chip low">low</span><span class="fid">C12-13</span></div>
+<div class="meta-row"><span class="engineer">107 Alberto Brandolini</span><span class="chip neutral">effort M</span><span class="chip neutral">moves: behavior_verify_coverage</span></div>
+<div class="evidence"><b>Evidence</b><span class="ev"><code>spec/behaviors/graph.spec:40</code> — &#x27;// No produces — passive API behavior&#x27; — convention exists only as comments</span><span class="ev"><code>spec/behaviors/lsp.spec:351</code> — same pattern (&#x27;No produces — delegates to ...&#x27;)</span></div>
+<p class="details">Some behaviors declare the deliberate absence of events only in comments (`// No produces — passive API behavior`, graph.spec:40; lsp.spec:351). Comments are invisible to the event-graph lint, so a future produces added elsewhere cannot be checked against the intent. Declare the absence (empty produces list or a sidecar annotation) so the lint has something to enforce.</p>
+<div class="snippet before"><span class="cap">before — current code</span><pre><code>// No produces — passive API behavior, graph mutations are observed via rebuild events
+behavior maintain_mutable_graph &quot;Maintain Mutable Graph&quot; {</code></pre><div class="file">spec/behaviors/graph.spec:40-41</div></div>
+<div class="arrow-between">↓ fix ↓</div>
+<div class="snippet after"><span class="cap">after — proposed fix</span><pre><code>behavior maintain_mutable_graph &quot;Maintain Mutable Graph&quot; {
+  produces   []  // deliberate: passive API, mutations observed via rebuild events
+  invariants [incremental_correctness, graph_traversal_integrity]</code></pre><div class="file">spec/behaviors/graph.spec</div></div>
+<div class="diagram-box"><span class="cap">Declared absence is lintable</span><div class="mermaid" id="dg-107-C12-13"><pre>flowchart TD
+ A[comment only no produces] --&gt; B[invisible to event lint]
+ C[declared empty produces] --&gt; D[lint enforces intent]
+ E[new produces added later] --&gt; D</pre></div></div><script type="text/plain" class="mermaid-src" data-target="dg-107-C12-13">flowchart TD
+ A[comment only no produces] --> B[invisible to event lint]
+ C[declared empty produces] --> D[lint enforces intent]
+ E[new produces added later] --> D</script>
+<div class="eli10"><span class="tag">Explain like I'm 10</span><p>Sometimes the margin note says &#x27;nobody gets a letter from this office.&#x27; Useful — but it&#x27;s handwriting in the margin, not a field on the form. You can&#x27;t ask the computer which behaviors send nothing; you have to read every page yourself.</p></div>
+<p class="sol" style="margin-top:12px"><b>Proposed solution.</b> Promote produces/consumes (and their deliberate absence) into declared fields or a sidecar list so event-graph lints (spec/extensions/formal/event-graph-linting.spec exists) can check every command behavior either produces or is marked passive.</p>
+</article>
+</main><script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.1/dist/mermaid.min.js" onerror="window.__mermaidFailed=true"></script><script src="../js/agent.js"></script></body></html>

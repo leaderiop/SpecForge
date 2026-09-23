@@ -1,0 +1,75 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>045 Steve Manuel — SpecForge audit review</title>
+<link rel="stylesheet" href="../css/report.css"><link rel="stylesheet" href="../css/agents.css"></head><body>
+<header class="agent-hero"><div class="brand"><div class="logo">045</div><div>
+<h1>Steve Manuel</h1>
+<div class="crumbs">Cluster C7 — Wasm plugin runtimes &amp; the extension bet · Extism creator — plugin-system ergonomics · profile <code>.agents/045-steve-manuel.md</code></div></div></div>
+<div class="links"><a href="../index.html">← Full report</a><a href="../../.agents/045-steve-manuel.md">Profile source</a></div></header>
+<main class="agent-main">
+<nav class="agent-nav"><a href="044.html">← 044</a><a href="046.html">046 →</a></nav>
+<div class="review-panel"><div class="review-text"><h2>Auditor review</h2><p>The four include_bytes! wasm paths are a build-system landmine — I appreciate the ambition of embedding real Wasm builtins rather than stubbing them, but a repo where a fresh clone cannot run cargo build fails the first thing any contributor or AI agent tries. First fix: a build.rs guard in specforge-extism that cross-compiles the four extension crates (with a crisp rustup-target error if wasm32-unknown-unknown is missing) and a CI job that builds from a clean checkout. Until then the embedded-Wasm story is unshippable.</p></div>
+<div class="mini-kpis">
+<div class="mini-kpi"><div class="k">Findings</div><div class="v">1</div></div>
+<div class="mini-kpi bad"><div class="k">Critical + high</div><div class="v">1</div></div>
+<div class="mini-kpi"><div class="k">Evidence items</div><div class="v">1</div></div>
+<div class="mini-kpi"><div class="k">Effort mix</div><div class="v" style="font-size:14px">M</div></div>
+</div></div>
+<article class="finding-detail sev-critical" id="f-C7-00">
+<div class="head"><h2>Fresh clone cannot build: 4 include_bytes!&#x27;d .wasm blobs absent.</h2><span class="chip critical">critical</span><span class="fid">C7-00</span></div>
+<div class="meta-row"><span class="engineer">045</span><span class="chip neutral">effort M</span><span class="chip neutral">moves: fresh_clone_build</span></div>
+<div class="evidence"><b>Evidence</b><span class="ev"><code>builtins.rs:3-6</code></span></div>
+<p class="details">crates/specforge-extism/src/builtins.rs hard-codes four include_bytes! paths into extensions/*/target/wasm32-unknown-unknown/release/*.wasm — artifacts that only exist after each extension crate has been cross-compiled. Nothing in the workspace builds them: a fresh clone fails to compile specforge-extism at the macro expansion with a &#x27;couldn&#x27;t read ...: No such file or directory&#x27; error, before any cargo guidance can help. A build.rs guard that either builds the four crates or fails with precise instructions, plus a CI clean-checkout build, turns this into a self-healing bootstrap.</p>
+<div class="snippet before"><span class="cap">before — current code</span><pre><code>static PRODUCT_WASM: &amp;[u8] = include_bytes!(&quot;../../../extensions/product/target/wasm32-unknown-unknown/release/specforge_ext_product.wasm&quot;);
+static SOFTWARE_WASM: &amp;[u8] = include_bytes!(&quot;../../../extensions/software/target/wasm32-unknown-unknown/release/specforge_ext_software.wasm&quot;);
+static GOVERNANCE_WASM: &amp;[u8] = include_bytes!(&quot;../../../extensions/governance/target/wasm32-unknown-unknown/release/specforge_ext_governance.wasm&quot;);
+static FORMAL_WASM: &amp;[u8] = include_bytes!(&quot;../../../extensions/formal/target/wasm32-unknown-unknown/release/specforge_ext_formal.wasm&quot;);</code></pre><div class="file">crates/specforge-extism/src/builtins.rs:1-4</div></div>
+<div class="arrow-between">↓ fix ↓</div>
+<div class="snippet after"><span class="cap">after — proposed fix</span><pre><code>use std::env;
+use std::path::Path;
+use std::process::Command;
+
+const EXTENSIONS: &amp;[(&amp;str, &amp;str)] = &amp;[
+    (&quot;product&quot;, &quot;specforge_ext_product.wasm&quot;),
+    (&quot;software&quot;, &quot;specforge_ext_software.wasm&quot;),
+    (&quot;governance&quot;, &quot;specforge_ext_governance.wasm&quot;),
+    (&quot;formal&quot;, &quot;specforge_ext_formal.wasm&quot;),
+];
+
+fn main() {
+    let manifest_dir = env::var(&quot;CARGO_MANIFEST_DIR&quot;).unwrap();
+    let workspace = Path::new(&amp;manifest_dir).join(&quot;../..&quot;);
+    for (name, artifact) in EXTENSIONS {
+        let wasm = workspace.join(format!(&quot;extensions/{name}/target/wasm32-unknown-unknown/release/{artifact}&quot;));
+        if wasm.exists() { continue; }
+        println!(&quot;cargo::rerun-if-changed=extensions/{name}/src&quot;);
+        let status = Command::new(&quot;cargo&quot;)
+            .args([&quot;build&quot;, &quot;--release&quot;, &quot;--target&quot;, &quot;wasm32-unknown-unknown&quot;])
+            .current_dir(workspace.join(format!(&quot;extensions/{name}&quot;)))
+            .status()
+            .expect(&quot;failed to spawn cargo for extension build&quot;);
+        assert!(status.success(), &quot;failed to build builtin extension &#x27;{name}&#x27;; run: rustup target add wasm32-unknown-unknown&quot;);
+    }
+}</code></pre><div class="file">crates/specforge-extism/build.rs</div></div>
+<div class="diagram-box"><span class="cap">Fresh clone bootstrap</span><div class="mermaid" id="dg-045-C7-00"><pre>flowchart TD
+ A[Fresh clone] --&gt; B[cargo build specforge-extism]
+ B --&gt; C{wasm blobs exist}
+ C --&gt;|no| D[build.rs guard runs]
+ D --&gt; E[cargo build wasm32 per extension]
+ E --&gt; F{build ok}
+ F --&gt;|no| G[Error with rustup target hint]
+ F --&gt;|yes| H[include_bytes resolves]
+ C --&gt;|yes| H
+ H --&gt; I[Host binary compiles]</pre></div></div><script type="text/plain" class="mermaid-src" data-target="dg-045-C7-00">flowchart TD
+ A[Fresh clone] --> B[cargo build specforge-extism]
+ B --> C{wasm blobs exist}
+ C -->|no| D[build.rs guard runs]
+ D --> E[cargo build wasm32 per extension]
+ E --> F{build ok}
+ F -->|no| G[Error with rustup target hint]
+ F -->|yes| H[include_bytes resolves]
+ C -->|yes| H
+ H --> I[Host binary compiles]</script>
+<div class="eli10"><span class="tag">Explain like I'm 10</span><p>recipe demands four pre-baked cakes that only exist after you bake them, and never says how - a new machine cannot even compile the project.</p></div>
+<p class="sol" style="margin-top:12px"><b>Proposed solution.</b> xtask/build.rs bootstrap building the 4 extension crates to wasm32-unknown-unknown before specforge-extism compiles, or commit artifacts; CI proves clean-checkout build.</p>
+</article>
+</main><script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.1/dist/mermaid.min.js" onerror="window.__mermaidFailed=true"></script><script src="../js/agent.js"></script></body></html>

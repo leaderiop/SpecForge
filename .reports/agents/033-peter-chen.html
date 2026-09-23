@@ -1,0 +1,106 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>033 Peter Chen — SpecForge audit review</title>
+<link rel="stylesheet" href="../css/report.css"><link rel="stylesheet" href="../css/agents.css"></head><body>
+<header class="agent-hero"><div class="brand"><div class="logo">033</div><div>
+<h1>Peter Chen</h1>
+<div class="crumbs">Cluster C5 — Graph engine &amp; algorithms · the Entity-Relationship model (1976) · profile <code>.agents/033-peter-chen.md</code></div></div></div>
+<div class="links"><a href="../index.html">← Full report</a><a href="../../.agents/033-peter-chen.md">Profile source</a></div></header>
+<main class="agent-main">
+<nav class="agent-nav"><a href="032.html">← 032</a><a href="034.html">034 →</a></nav>
+<div class="review-panel"><div class="review-text"><h2>Auditor review</h2><p>Peter Chen: An ER model should say what it means — cardinality belongs to the relationship, not to field-type side effects. Today every relationship the kind-product can enumerate is drawn and defaults to many-to-many, so 1:1 and 1:N are unrepresentable. The data exists: honor infer_cardinality&#x27;s None by not emitting, let SchemaEdgeType declare cardinality, and fix the doc naming a field that does not exist.</p></div>
+<div class="mini-kpis">
+<div class="mini-kpi"><div class="k">Findings</div><div class="v">2</div></div>
+<div class="mini-kpi good"><div class="k">Critical + high</div><div class="v">0</div></div>
+<div class="mini-kpi"><div class="k">Evidence items</div><div class="v">0</div></div>
+<div class="mini-kpi"><div class="k">Effort mix</div><div class="v" style="font-size:14px">M · S</div></div>
+</div></div>
+<article class="finding-detail sev-medium" id="f-C5-06">
+<div class="head"><h2>Cardinality inference can never produce 1:1 or 1:N, and relationships are emitted as a blind cartesian product</h2><span class="chip medium">medium</span><span class="fid">C5-06</span></div>
+<div class="meta-row"><span class="engineer">033 Peter Chen</span><span class="chip neutral">effort M</span><span class="chip neutral">moves: ERD cardinality vocabulary used 2/4 → 4/4 with fewer phantom rows</span></div>
+<p class="details">build_relationships emits one ModelRelationship per source×target kind pair and infer_cardinality defaults to ManyToMany when no field matches, so phantom relationships flood the ERD and 1:1/1:N are unreachable. Skip rows with source_field None and add a declared_cardinality attribute on SchemaEdgeType.</p>
+<div class="snippet before"><span class="cap">before — current code</span><pre><code>    for source_name in source_kinds {
+        for target_name in target_kinds {
+            let (cardinality, source_field) = match entity_map.get(source_name.as_str()) {
+                Some(entity) =&gt; infer_cardinality(&amp;edge.label, entity),
+                None =&gt; (Cardinality::ManyToMany, None),
+            };
+
+            relationships.push(ModelRelationship {
+                name: edge.label.clone(),
+                source: source_name.clone(),
+                target: target_name.clone(),
+                cardinality,
+                source_field,
+                description: None,
+            });
+        }
+    }</code></pre><div class="file">crates/specforge-emitter/src/model/build.rs:126-144</div></div>
+<div class="arrow-between">↓ fix ↓</div>
+<div class="snippet after"><span class="cap">after — proposed fix</span><pre><code>    for source_name in source_kinds {
+        for target_name in target_kinds {
+            let Some(entity) = entity_map.get(source_name.as_str()) else { continue };
+            let (cardinality, source_field) = infer_cardinality(&amp;edge.label, entity);
+            // Only a concrete field carrying this edge_label is a real
+            // relationship; the kind product is the search space, not the result.
+            let Some(source_field) = source_field else { continue };
+            let cardinality = edge.declared_cardinality.unwrap_or(cardinality);
+            relationships.push(ModelRelationship {
+                name: edge.label.clone(),
+                source: source_name.clone(),
+                target: target_name.clone(),
+                cardinality,
+                source_field: Some(source_field),
+                description: None,
+            });
+        }
+    }
+// SchemaEdgeType gains: pub declared_cardinality: Option&lt;Cardinality&gt;</code></pre><div class="file">crates/specforge-emitter/src/model/build.rs</div></div>
+<div class="diagram-box"><span class="cap">Relationships from fields not kind products</span><div class="mermaid" id="dg-033-C5-06"><pre>flowchart TD
+ A[SchemaEdgeType kinds] --&gt; B{source has field with edge label}
+ B -- no --&gt; C[skip phantom]
+ B -- yes --&gt; D{field type}
+ D -- reference --&gt; E[ManyToOne unless declared]
+ D -- reference_list --&gt; F[ManyToMany]
+ E --&gt; G[emit with source_field]
+ F --&gt; G</pre></div></div><script type="text/plain" class="mermaid-src" data-target="dg-033-C5-06">flowchart TD
+ A[SchemaEdgeType kinds] --> B{source has field with edge label}
+ B -- no --> C[skip phantom]
+ B -- yes --> D{field type}
+ D -- reference --> E[ManyToOne unless declared]
+ D -- reference_list --> F[ManyToMany]
+ E --> G[emit with source_field]
+ F --> G</script>
+<div class="eli10"><span class="tag">Explain like I'm 10</span><p>It&#x27;s like declaring every friendship is &#x27;many-to-many&#x27; by default: two best friends get drawn as a whole crowd. And every possible pairing of boxes gets a line, even between boxes nobody actually connected.</p></div>
+<p class="sol" style="margin-top:12px"><b>Proposed solution.</b> Emit a relationship only when a concrete field with that edge_label exists (build.rs already computes source_field via infer_cardinality — skip rows where source_field is None), and consider introducing a declared-cardinality attribute on SchemaEdgeType so extensions can state 1:1/1:N.</p>
+</article>
+<article class="finding-detail sev-low" id="f-C5-07">
+<div class="head"><h2>cardinality.rs doc comments contradict the code</h2><span class="chip low">low</span><span class="fid">C5-07</span></div>
+<div class="meta-row"><span class="engineer">033 Peter Chen</span><span class="chip neutral">effort S</span><span class="chip neutral">moves: none</span></div>
+<p class="details">The doc claims lookup via field.edge, a field that does not exist; the real mechanism is field.edge_label (line 42), and lines 15-35 are fossilized design musings. Replace with a 3-line accurate contract.</p>
+<div class="snippet before"><span class="cap">before — current code</span><pre><code>/// Infer cardinality for an edge by examining source entity fields.
+///
+/// Looks for a field on the source entity where `field.edge == Some(edge_label)`.
+/// - `reference` field type -&gt; ManyToOne
+/// - `reference_list` field type -&gt; ManyToMany
+/// - No matching field -&gt; ManyToMany (safe default)
+///
+/// Returns (cardinality, source_field_name).</code></pre><div class="file">crates/specforge-emitter/src/model/cardinality.rs:4-10</div></div>
+<div class="arrow-between">↓ fix ↓</div>
+<div class="snippet after"><span class="cap">after — proposed fix</span><pre><code>/// A relationship&#x27;s cardinality is read from the source entity field
+/// carrying `edge_label` (ModelField::edge_label, populated from
+/// SchemaField::edge during model construction): reference -&gt; ManyToOne,
+/// reference_list -&gt; ManyToMany. No matching field -&gt; (ManyToMany, None);
+/// callers treat None as no concrete relationship existing.
+pub fn infer_cardinality(
+    edge_label: &amp;str,
+    source_entity: &amp;ModelEntity,
+) -&gt; (Cardinality, Option&lt;String&gt;) {</code></pre><div class="file">crates/specforge-emitter/src/model/cardinality.rs</div></div>
+<div class="diagram-box"><span class="cap">Doc matches mechanism</span><div class="mermaid" id="dg-033-C5-07"><pre>flowchart TD
+ A[old doc mentions field.edge] --&gt; B[hunts nonexistent field]
+ C[new short doc] --&gt; D[names edge_label and None contract]</pre></div></div><script type="text/plain" class="mermaid-src" data-target="dg-033-C5-07">flowchart TD
+ A[old doc mentions field.edge] --> B[hunts nonexistent field]
+ C[new short doc] --> D[names edge_label and None contract]</script>
+<div class="eli10"><span class="tag">Explain like I'm 10</span><p>The sign on the door says &#x27;no keys here&#x27;, but the key is hanging right inside. Anyone reading the sign wastes time hunting for a door that works.</p></div>
+<p class="sol" style="margin-top:12px"><b>Proposed solution.</b> Replace lines 8-38 with a 3-line doc comment: &#x27;A relationship&#x27;s cardinality is read from the source entity field carrying edge_label; reference→N:1, reference_list→N:M.&#x27;</p>
+</article>
+</main><script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.1/dist/mermaid.min.js" onerror="window.__mermaidFailed=true"></script><script src="../js/agent.js"></script></body></html>

@@ -1,0 +1,57 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>061 Yehuda Katz — SpecForge audit review</title>
+<link rel="stylesheet" href="../css/report.css"><link rel="stylesheet" href="../css/agents.css"></head><body>
+<header class="agent-hero"><div class="brand"><div class="logo">061</div><div>
+<h1>Yehuda Katz</h1>
+<div class="crumbs">Cluster C8 — Registries, packaging &amp; supply-chain trust · Bundler creator; Cargo dependency-resolution design · profile <code>.agents/061-yehuda-katz.md</code></div></div></div>
+<div class="links"><a href="../index.html">← Full report</a><a href="../../.agents/061-yehuda-katz.md">Profile source</a></div></header>
+<main class="agent-main">
+<nav class="agent-nav"><a href="060.html">← 060</a><a href="062.html">062 →</a></nav>
+<div class="review-panel"><div class="review-text"><h2>Auditor review</h2><p>Resolution is honest single-package greedy with real semver parsing and structured E027 validation, but everyone picks their own song: no joint peer-DAG pass, no backtracking, so diamonds surface only at compile time. Add a resolution-time unification pass and replace message-contains diagnostic filtering with structured (extension, diagnostic) pairs — substring attribution hides real errors on rename.</p></div>
+<div class="mini-kpis">
+<div class="mini-kpi"><div class="k">Findings</div><div class="v">1</div></div>
+<div class="mini-kpi good"><div class="k">Critical + high</div><div class="v">0</div></div>
+<div class="mini-kpi"><div class="k">Evidence items</div><div class="v">0</div></div>
+<div class="mini-kpi"><div class="k">Effort mix</div><div class="v" style="font-size:14px">L</div></div>
+</div></div>
+<article class="finding-detail sev-medium" id="f-C8-07">
+<div class="head"><h2>Version selection is per-package highest-match with no diamond unification or backtracking; peer conflicts surface only post-install; peer-diag filtering by message substring</h2><span class="chip medium">medium</span><span class="fid">C8-07</span></div>
+<div class="meta-row"><span class="engineer">061 Yehuda Katz</span><span class="chip neutral">effort L</span><span class="chip neutral">moves: resolution_determinism</span></div>
+<p class="details">Resolution picks the highest matching version per package with no joint peer-DAG pass or backtracking, so diamond conflicts surface only as post-install E027; diagnostics are attributed by d.message.contains(name) substring filtering, which mis-attributes on rename. Add a resolution-time unification pass and structured attribution.</p>
+<div class="snippet before"><span class="cap">before — current code</span><pre><code>    // Peer dependency validation (delegates to specforge-registry)
+    let peer_diags = validate_peer_dependencies(all_manifests);
+    // Filter to only this manifest&#x27;s peer dep errors
+    let relevant: Vec&lt;_&gt; = peer_diags
+        .into_iter()
+        .filter(|d| d.message.contains(&amp;manifest.name))
+        .collect();</code></pre><div class="file">crates/specforge-wasm/src/manifest_bridge.rs:17-22</div></div>
+<div class="arrow-between">↓ fix ↓</div>
+<div class="snippet after"><span class="cap">after — proposed fix</span><pre><code>pub fn resolve_set(root: &amp;str, registries: &amp;[RegistryConfig], client: &amp;dyn RegistryClient)
+    -&gt; Result&lt;Vec&lt;ResolvedExtension&gt;, Diagnostic&gt;
+{
+    let mut chosen = resolve_transitive(root, registries, client)?;
+    loop {
+        let manifests: Vec&lt;ManifestV2&gt; = chosen.iter().map(|e| e.manifest.clone()).collect();
+        match validate_peer_dependencies(&amp;manifests).into_iter().next() {
+            None =&gt; return Ok(chosen),
+            Some(diag) =&gt; backtrack_or_report(&amp;mut chosen, diag, registries, client)?,
+        }
+    }
+}
+
+pub struct ExtensionPeerDiagnostic { pub extension: String, pub diagnostic: Diagnostic }</code></pre><div class="file">crates/specforge-registry/src/client/resolver.rs</div></div>
+<div class="diagram-box"><span class="cap">Per-package picks conflict only at compile time</span><div class="mermaid" id="dg-061-C8-07"><pre>flowchart TD
+ A[highest match per package] --&gt; B[install all]
+ B --&gt; C[compile time E027 conflict]
+ D[fix] --&gt; E[build peer DAG]
+ E --&gt; F[joint selection with backtrack]
+ F --&gt; G[install verified set]</pre></div></div><script type="text/plain" class="mermaid-src" data-target="dg-061-C8-07">flowchart TD
+ A[highest match per package] --> B[install all]
+ B --> C[compile time E027 conflict]
+ D[fix] --> E[build peer DAG]
+ E --> F[joint selection with backtrack]
+ F --> G[install verified set]</script>
+<div class="eli10"><span class="tag">Explain like I'm 10</span><p>Every band member picking their own song is fine individually, a mess together — and today the band only finds out at rehearsal (compile-time E027). A bandleader should pick versions together before the concert. Checking who a complaint is about by searching their name in the sentence is as fragile as it sounds.</p></div>
+<p class="sol" style="margin-top:12px"><b>Proposed solution.</b> Add a resolution pass over the peer-DAG (greedy highest-match with peer re-validation, backtracking on E027) before install, with structured conflict reporting; replace substring diagnostic filtering with (name, diagnostic) pairs.</p>
+</article>
+</main><script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.1/dist/mermaid.min.js" onerror="window.__mermaidFailed=true"></script><script src="../js/agent.js"></script></body></html>

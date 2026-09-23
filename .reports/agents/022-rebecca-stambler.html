@@ -1,0 +1,28 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>022 Rebecca Stambler — SpecForge audit review</title>
+<link rel="stylesheet" href="../css/report.css"><link rel="stylesheet" href="../css/agents.css"></head><body>
+<header class="agent-hero"><div class="brand"><div class="logo">022</div><div>
+<h1>Rebecca Stambler</h1>
+<div class="crumbs">Cluster C4 — Incremental compilation, LSP &amp; diagnostics · gopls lead; unified Go language-server workspace · profile <code>.agents/022-rebecca-stambler.md</code></div></div></div>
+<div class="links"><a href="../index.html">← Full report</a><a href="../../.agents/022-rebecca-stambler.md">Profile source</a></div></header>
+<main class="agent-main">
+<nav class="agent-nav"><a href="021.html">← 021</a><a href="023.html">023 →</a></nav>
+<div class="review-panel"><div class="review-text"><h2>Auditor review</h2><p>She&#x27;d praise per-URI diagnostic keying, then fix the shared mutable graph and version-less publishes with Arc snapshots and stamped publications. She&#x27;d also flag index_workspace touching the write lock during the walk.</p></div>
+<div class="mini-kpis">
+<div class="mini-kpi"><div class="k">Findings</div><div class="v">1</div></div>
+<div class="mini-kpi good"><div class="k">Critical + high</div><div class="v">0</div></div>
+<div class="mini-kpi"><div class="k">Evidence items</div><div class="v">0</div></div>
+<div class="mini-kpi"><div class="k">Effort mix</div><div class="v" style="font-size:14px">M</div></div>
+</div></div>
+<article class="finding-detail sev-medium" id="f-C4-05">
+<div class="head"><h2>No snapshot model: one mutable graph shared by reads and the debounced write; publish_diagnostics always version None so clients cannot drop stale deliveries.</h2><span class="chip medium">medium</span><span class="fid">C4-05</span></div>
+<div class="meta-row"><span class="engineer">022 Rebecca Stambler</span><span class="chip neutral">effort M</span></div>
+<p class="details">One mutable graph is shared by debounced writes and all readers with no snapshot model, and every publish_diagnostics passes version None so clients cannot drop stale deliveries. Arc snapshots per pass plus version-stamped publishes fix both.</p>
+<div class="snippet before"><span class="cap">before — current code</span><pre><code>        let diags_by_file = self.parse_and_update(&amp;uri, &amp;text).await;\n        for (file_uri, diags) in diags_by_file {\n            self.client.publish_diagnostics(file_uri, diags, None).await;\n        }\n    }</code></pre><div class="file">crates/specforge-lsp/src/backend.rs:786-790</div></div>
+<div class="arrow-between">↓ fix ↓</div>
+<div class="snippet after"><span class="cap">after — proposed fix</span><pre><code>    /// Publish with the document version diagnostics were computed from.\n    async fn publish_analyzed(&amp;self, uri: &amp;Url, version: Option&lt;i32&gt;,\n        diags_by_file: HashMap&lt;Url, Vec&lt;Diagnostic&gt;&gt;) {\n        for (file_uri, diags) in diags_by_file {\n            let v = if &amp;file_uri == uri { version } else { None };\n            self.client.publish_diagnostics(file_uri, diags, v).await;\n        }\n    }\n\n    /// Stable snapshot for analysis passes.\n    fn snapshot(&amp;self) -&gt; Arc&lt;AnalysisSnapshot&gt; {\n        self.current_snapshot.read().clone()\n    }</code></pre><div class="file">crates/specforge-lsp/src/backend.rs:0-0</div></div>
+<div class="diagram-box"><span class="cap">Versioned snapshots</span><div class="mermaid" id="dg-022-C4-05"><pre>flowchart TD\n did_change --&gt; build_snapshot\n build_snapshot --&gt; swap_arc\n swap_arc --&gt; readers\n swap_arc --&gt; publish_versioned</pre></div></div><script type="text/plain" class="mermaid-src" data-target="dg-022-C4-05">flowchart TD\n did_change --> build_snapshot\n build_snapshot --> swap_arc\n swap_arc --> readers\n swap_arc --> publish_versioned</script>
+<div class="eli10"><span class="tag">Explain like I'm 10</span><p>Everyone shares one whiteboard while someone erases and rewrites it, and the notes have no page numbers so stale notes can&#x27;t be spotted. Give each reader a numbered photocopy; hand out a fresh copy after each change.</p></div>
+<p class="sol" style="margin-top:12px"><b>Proposed solution.</b> version-stamp diagnostics, Arc snapshot per analysis pass.</p>
+</article>
+</main><script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.1/dist/mermaid.min.js" onerror="window.__mermaidFailed=true"></script><script src="../js/agent.js"></script></body></html>

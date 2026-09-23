@@ -1,0 +1,96 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>091 Erich Gamma — SpecForge audit review</title>
+<link rel="stylesheet" href="../css/report.css"><link rel="stylesheet" href="../css/agents.css"></head><body>
+<header class="agent-hero"><div class="brand"><div class="logo">091</div><div>
+<h1>Erich Gamma</h1>
+<div class="crumbs">Cluster C11 — Testing &amp; BDD (test tracing &amp; report protocol) · JUnit co-creator; Eclipse JDT and VS Code lead · profile <code>.agents/091-erich-gamma.md</code></div></div></div>
+<div class="links"><a href="../index.html">← Full report</a><a href="../../.agents/091-erich-gamma.md">Profile source</a></div></header>
+<main class="agent-main">
+<nav class="agent-nav"><a href="090.html">← 090</a><a href="092.html">092 →</a></nav>
+<div class="review-panel"><div class="review-text"><h2>Auditor review</h2><p>Erich Gamma: the ports.rs/RealFs seam shows the right instinct, and then atexit.rs walks right past it and calls std::fs directly while coverage::load_graph reimplements the adapter - half a framework is worse than none. The macro-&gt;guard-&gt;registry pipeline itself is beautifully small and tested through observable records. My first fix: route the exit path through the ports (or delete them), so the report path becomes as testable as the pipeline it feeds.</p></div>
+<div class="mini-kpis">
+<div class="mini-kpi"><div class="k">Findings</div><div class="v">2</div></div>
+<div class="mini-kpi good"><div class="k">Critical + high</div><div class="v">0</div></div>
+<div class="mini-kpi"><div class="k">Evidence items</div><div class="v">3</div></div>
+<div class="mini-kpi"><div class="k">Effort mix</div><div class="v" style="font-size:14px">S</div></div>
+</div></div>
+<article class="finding-detail sev-low" id="f-C11-08">
+<div class="head"><h2>ports: ReportWriter/GraphReader traits (ports.rs:1-29) bypassed by atexit.rs:38,42; coverage::load_graph duplicates RealFs::read_graph.</h2><span class="chip low">low</span><span class="fid">C11-08</span></div>
+<div class="meta-row"><span class="engineer">091 Erich Gamma</span><span class="chip neutral">effort S</span></div>
+<div class="evidence"><b>Evidence</b><span class="ev"><code>ports.rs:1-29</code></span><span class="ev"><code>atexit.rs:38</code></span></div>
+<p class="details">ports.rs defines ReportWriter and GraphReader with a RealFs adapter - a textbook hexagonal seam for exactly this I/O - but atexit.rs calls report::write_report (its own std::fs) and coverage::load_graph, which duplicates RealFs::read_graph line-for-line (read_to_string + from_str + ok). Two parse failure policies exist for the same file and no test injects a fake because no production path accepts one; the exit path is untestable without real fixtures. Route the exit path through the ports (hermetic tests) or delete ports.rs - the half-state is the worst option.</p>
+<div class="snippet before"><span class="cap">before — current code</span><pre><code>    if let Err(e) = report::write_report(&amp;dir, &amp;binary_name, &amp;entries) {
+        eprintln!(&quot;[specforge-test] failed to write report: {e}&quot;);
+    }
+
+    // Coverage summary: load graph, compute diff, print
+    let graph_path = dir.join(&quot;graph.json&quot;);
+    if let Some(graph) = coverage::load_graph(&amp;graph_path) {</code></pre><div class="file">integrations/rust/specforge-test/src/atexit.rs:38-44</div></div>
+<div class="arrow-between">↓ fix ↓</div>
+<div class="snippet after"><span class="cap">after — proposed fix</span><pre><code>pub(crate) fn on_exit() {
+    let entries = registry::drain();
+    if entries.is_empty() {
+        return;
+    }
+
+    let fs = ports::RealFs;
+    let binary_name = binary_name();
+    let dir = report_dir();
+
+    let json = serde_json::to_string_pretty(&amp;report::build_ref(&quot;1.0&quot;, &amp;binary_name, &amp;entries))
+        .expect(&quot;serialize report&quot;);
+    if let Err(e) = ports::ReportWriter::write_report(&amp;fs, &amp;dir.join(format!(&quot;{binary_name}.json&quot;)), &amp;json) {
+        eprintln!(&quot;[specforge-test] failed to write report: {e}&quot;);
+    }
+
+    // Coverage summary goes through GraphReader, so tests can inject a fake graph.
+    let graph_path = dir.join(&quot;graph.json&quot;);
+    if let Some(graph) = ports::GraphReader::read_graph(&amp;fs, &amp;graph_path) {
+        let diffs = coverage::compute_coverage_diff(&amp;graph, &amp;entries);
+        let _ = coverage::format_coverage_summary(&amp;mut std::io::stderr(), &amp;diffs, &amp;graph.timestamp);
+    }
+}</code></pre><div class="file">integrations/rust/specforge-test/src/atexit.rs</div></div>
+<div class="diagram-box"><span class="cap">ports bypassed and duplicated</span><div class="mermaid" id="dg-091-C11-08"><pre>flowchart TD
+ A[ports.rs defines traits] --&gt; B[atexit.rs ignores them]
+ B --&gt; C[calls std fs directly]
+ C --&gt; D[coverage load_graph duplicates read_graph]
+ D --&gt; E[dual parse failure policies]
+ E --&gt; F[ports untestable dead weight]
+ F --&gt; G[fix route exit through ports]
+ G --&gt; H[tests inject fake fs]
+ H --&gt; I[or delete ports entirely]</pre></div></div><script type="text/plain" class="mermaid-src" data-target="dg-091-C11-08">flowchart TD
+ A[ports.rs defines traits] --> B[atexit.rs ignores them]
+ B --> C[calls std fs directly]
+ C --> D[coverage load_graph duplicates read_graph]
+ D --> E[dual parse failure policies]
+ E --> F[ports untestable dead weight]
+ F --> G[fix route exit through ports]
+ G --> H[tests inject fake fs]
+ H --> I[or delete ports entirely]</script>
+<div class="eli10"><span class="tag">Explain like I'm 10</span><p>wall sockets built, machine taped to the wall instead.</p></div>
+<p class="sol" style="margin-top:12px"><b>Proposed solution.</b> route atexit through ports or delete ports.rs.</p>
+</article>
+<article class="finding-detail sev-info" id="f-C11-11">
+<div class="head"><h2>praise: layered macro-&gt;guard-&gt;registry-&gt;atexit pipeline is small and behaviorally tested via observable records (macro_test.rs), macro surface cleanly hidden behind __private.</h2><span class="chip info">info</span><span class="fid">C11-11</span></div>
+<div class="meta-row"><span class="engineer">091 Erich Gamma</span></div>
+<div class="evidence"><b>Evidence</b><span class="ev"><code>macro_test.rs</code></span></div>
+<p class="details">macro_test.rs tests the pipeline through observable output - drain the registry and assert on recorded entries (kind, id, outcome) - not expansion internals, exactly the behavior-not-implementation discipline the project preaches. The serial Mutex handles the process-global static queue honestly, helper functions show the macro composing with plain calls, and the macro surface is confined to __private (lib.rs).</p>
+<div class="snippet exemplar"><span class="cap">exemplar — the good pattern</span><pre><code>#[test]
+fn panicking_annotated_function_records_fail() {
+    let _lock = SERIAL.lock().unwrap_or_else(|e| e.into_inner());
+    registry::drain();
+
+    let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        annotated_panicking();
+    }));
+
+    assert!(result.is_err());
+    let entries = registry::drain();
+    assert_eq!(entries.len(), 1);
+    assert_eq!(entries[0].outcome, TestOutcome::Fail);
+}</code></pre><div class="file">integrations/rust/specforge-test/tests/macro_test.rs:54-68</div></div>
+<div class="keep"><span class="tag">Keep doing this</span><p>Preserve the test-through-observable-records pattern and the single __private expansion surface; extend TestOutcome in place rather than adding a second recording path as skip/error/duration are added.</p></div>
+<div class="eli10"><span class="tag">Explain like I'm 10</span><p>the toy machine stamps each test with its promise; its tests check the output, not the gears.</p></div>
+<p class="sol" style="margin-top:12px"><b>Proposed solution.</b> keep shape; extend TestOutcome rather than adding a second path.</p>
+</article>
+</main><script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.1/dist/mermaid.min.js" onerror="window.__mermaidFailed=true"></script><script src="../js/agent.js"></script></body></html>

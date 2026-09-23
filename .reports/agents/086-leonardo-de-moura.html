@@ -1,0 +1,52 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>086 Leonardo de Moura — SpecForge audit review</title>
+<link rel="stylesheet" href="../css/report.css"><link rel="stylesheet" href="../css/agents.css"></head><body>
+<header class="agent-hero"><div class="brand"><div class="logo">086</div><div>
+<h1>Leonardo de Moura</h1>
+<div class="crumbs">Cluster C10 — Formal methods · Z3 co-creator; Lean 4 creator · profile <code>.agents/086-leonardo-de-moura.md</code></div></div></div>
+<div class="links"><a href="../index.html">← Full report</a><a href="../../.agents/086-leonardo-de-moura.md">Profile source</a></div></header>
+<main class="agent-main">
+<nav class="agent-nav"><a href="085.html">← 085</a><a href="087.html">087 →</a></nav>
+<div class="review-panel"><div class="review-text"><h2>Auditor review</h2><p>Leonardo de Moura would note that satisfiability claims without a solver are not weakened proofs but no proofs, and he would refuse to fake them. He would reword analyze-commands.spec to structural claims immediately, keep the name-based contradiction lint as a legitimate cheap approximation clearly labeled as such, and leave the solver door open via wasm rather than pretending regex is logic.</p></div>
+<div class="mini-kpis">
+<div class="mini-kpi"><div class="k">Findings</div><div class="v">1</div></div>
+<div class="mini-kpi good"><div class="k">Critical + high</div><div class="v">0</div></div>
+<div class="mini-kpi"><div class="k">Evidence items</div><div class="v">2</div></div>
+<div class="mini-kpi"><div class="k">Effort mix</div><div class="v" style="font-size:14px">M</div></div>
+</div></div>
+<article class="finding-detail sev-medium" id="f-C10-09">
+<div class="head"><h2>spec promises precondition satisfiability with no solver or approximation</h2><span class="chip medium">medium</span><span class="fid">C10-09</span></div>
+<div class="meta-row"><span class="engineer">086 Leonardo de Moura</span><span class="chip neutral">effort M</span><span class="chip neutral">moves: Analyze passes implemented</span></div>
+<div class="evidence"><b>Evidence</b><span class="ev"><code>spec/extensions/formal/analyze-commands.spec:11-34</code> — contract requires precondition satisfiability and postcondition reachability results</span><span class="ev"><code>Cargo.lock</code> — no SMT dependency (no z3); wasmtime/reqwest/axum stack</span></div>
+<p class="details">fa_analyze_conditions&#x27; contract mandates output include precondition satisfiability results and postcondition reachability results — semantic claims needing an SMT solver or a semantic approximation. Cargo.lock shows no solver dependency, and even the cheap name-based heuristic is unimplemented (C10-03). Any implementation would either lie or never ship. Rewording to structural-analysis claims keeps the spec truthful; solver integration can revisit later via wasm.</p>
+<div class="snippet before"><span class="cap">before — current code</span><pre><code>  contract &quot;&quot;&quot;
+    The specforge analyze conditions command MUST run the condition_check
+    pass in isolation and report results. Output MUST include: count
+    of behaviors with conditions, precondition satisfiability results,
+    postcondition reachability results, layering compliance results.
+  &quot;&quot;&quot;</code></pre><div class="file">spec/extensions/formal/analyze-commands.spec:12-19</div></div>
+<div class="arrow-between">↓ fix ↓</div>
+<div class="snippet after"><span class="cap">after — proposed fix</span><pre><code>  contract &quot;&quot;&quot;
+    The specforge analyze conditions command MUST run the condition_check
+    pass in isolation and report results. Output MUST include: count
+    of behaviors with conditions, structural contradiction findings
+    (X/not_X name pairs, tautological-false phrases), name-level
+    requires/ensures consistency results, layering compliance results.
+    These are structural checks; satisfiability of conditions is
+    explicitly out of scope until a solver backend exists.
+  &quot;&quot;&quot;</code></pre><div class="file">spec/extensions/formal/analyze-commands.spec</div></div>
+<div class="diagram-box"><span class="cap">contract overpromises solver results</span><div class="mermaid" id="dg-086-C10-09"><pre>flowchart TD
+ A[spec promises satisfiability results] --&gt; B[no solver in Cargo lock]
+ B --&gt; C[implementation would have to lie]
+ C --&gt; D[reword to structural claims]
+ D --&gt; E[contradiction lint honest and shippable]
+ E --&gt; F[solver later via wasm]</pre></div></div><script type="text/plain" class="mermaid-src" data-target="dg-086-C10-09">flowchart TD
+ A[spec promises satisfiability results] --> B[no solver in Cargo lock]
+ B --> C[implementation would have to lie]
+ C --> D[reword to structural claims]
+ D --> E[contradiction lint honest and shippable]
+ E --> F[solver later via wasm]</script>
+<div class="eli10"><span class="tag">Explain like I'm 10</span><p>The spec promises to check whether two contracts fine print can both be true at once, which needs a math engine that is not in the toolbox - and even the cheap string heuristic is not built. An IOU with no bank behind it.</p></div>
+<p class="sol" style="margin-top:12px"><b>Proposed solution.</b> Reword contracts to structural-analysis claims or implement the heuristic first; revisit solver integration later via wasm.</p>
+</article>
+</main><script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.1/dist/mermaid.min.js" onerror="window.__mermaidFailed=true"></script><script src="../js/agent.js"></script></body></html>

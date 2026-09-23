@@ -1,0 +1,71 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>036 Austin Wright — SpecForge audit review</title>
+<link rel="stylesheet" href="../css/report.css"><link rel="stylesheet" href="../css/agents.css"></head><body>
+<header class="agent-hero"><div class="brand"><div class="logo">036</div><div>
+<h1>Austin Wright</h1>
+<div class="crumbs">Cluster C6 — Schemas, validation &amp; serialization (Graph Protocol) · Original-generation JSON Schema author; revival-era spec editor (drafts 05–07) · profile <code>.agents/036-austin-wright.md</code></div></div></div>
+<div class="links"><a href="../index.html">← Full report</a><a href="../../.agents/036-austin-wright.md">Profile source</a></div></header>
+<main class="agent-main">
+<nav class="agent-nav"><a href="035.html">← 035</a><a href="037.html">037 →</a></nav>
+<div class="review-panel"><div class="review-text"><h2>Auditor review</h2><p>Austin Wright (JSON Schema spec editor): The three shipped schemas are genuinely clean — correct 2020-12 dialect, real $ids, closed objects; that is rarer than it should be. What stings is the generated graph-protocol schema breaking the family&#x27;s own rule: no $id and an unconstrained embedded schema block. Fix publish_json_schema first — it is your public contract for every AI consumer — and add a snapshot test so the artifact is citable.</p></div>
+<div class="mini-kpis">
+<div class="mini-kpi"><div class="k">Findings</div><div class="v">2</div></div>
+<div class="mini-kpi good"><div class="k">Critical + high</div><div class="v">0</div></div>
+<div class="mini-kpi"><div class="k">Evidence items</div><div class="v">2</div></div>
+<div class="mini-kpi"><div class="k">Effort mix</div><div class="v" style="font-size:14px">S</div></div>
+</div></div>
+<article class="finding-detail sev-medium" id="f-C6-00">
+<div class="head"><h2>`schema --publish` has no $id: publish_json_schema (schema.rs:825-902) emits draft 2020-12 + title but no $id, unlike schema/*.json (lines 1-3).</h2><span class="chip medium">medium</span><span class="fid">C6-00</span></div>
+<div class="meta-row"><span class="engineer">036 Austin Wright</span><span class="chip neutral">effort S</span><span class="chip neutral">moves: published</span></div>
+<div class="evidence"><b>Evidence</b><span class="ev"><code>schema.rs:825-902</code></span><span class="ev"><code>specforge.dev/schema/graph-protocol.json</code></span></div>
+<p class="details">publish_json_schema (crates/specforge-emitter/src/schema.rs:825-902) emits only $schema (draft 2020-12), title and description — no $id. Every hand-written schema in schema/ carries a stable $id like https://specforge.dev/schema/specforge.json, so the published Graph Protocol schema is the only one that cannot be referenced by URI, cached by validators, or cited as the dialect a consumer validated against. Because the function output changes with the compiled registries, downstream consumers also cannot pin a revision. Adding a canonical $id (optionally versioned) plus a snapshot test makes the artifact addressable and drift-detectable.</p>
+<div class="snippet before"><span class="cap">before — current code</span><pre><code>    let json_schema = serde_json::json!({
+        &quot;$schema&quot;: &quot;https://json-schema.org/draft/2020-12/schema&quot;,
+        &quot;title&quot;: &quot;SpecForge Graph Protocol&quot;,
+        &quot;description&quot;: format!(
+            &quot;Graph Protocol schema v{} — auto-generated from extension registries&quot;,
+            schema.schema_version
+        ),
+        &quot;type&quot;: &quot;object&quot;,</code></pre><div class="file">crates/specforge-emitter/src/schema.rs:850-858</div></div>
+<div class="arrow-between">↓ fix ↓</div>
+<div class="snippet after"><span class="cap">after — proposed fix</span><pre><code>    let json_schema = serde_json::json!({
+        &quot;$schema&quot;: &quot;https://json-schema.org/draft/2020-12/schema&quot;,
+        &quot;$id&quot;: format!(
+            &quot;https://specforge.dev/schema/graph-protocol.json#versions/{}&quot;,
+            schema.schema_version
+        ),
+        &quot;title&quot;: &quot;SpecForge Graph Protocol&quot;,
+        &quot;description&quot;: format!(
+            &quot;Graph Protocol schema v{} — auto-generated from extension registries&quot;,
+            schema.schema_version
+        ),
+        &quot;type&quot;: &quot;object&quot;,</code></pre><div class="file">crates/specforge-emitter/src/schema.rs</div></div>
+<div class="diagram-box"><span class="cap">Publish with identity</span><div class="mermaid" id="dg-036-C6-00"><pre>flowchart TD
+ A[generate_schema from registries] --&gt; B[publish_json_schema]
+ B --&gt; C{emit id field}
+ C --&gt;|before| D[no id unaddressable output]
+ C --&gt;|after| E[stable id graph-protocol.json]
+ E --&gt; F[snapshot test pins output]
+ F --&gt; G[consumers cite exact dialect]</pre></div></div><script type="text/plain" class="mermaid-src" data-target="dg-036-C6-00">flowchart TD
+ A[generate_schema from registries] --> B[publish_json_schema]
+ B --> C{emit id field}
+ C -->|before| D[no id unaddressable output]
+ C -->|after| E[stable id graph-protocol.json]
+ E --> F[snapshot test pins output]
+ F --> G[consumers cite exact dialect]</script>
+<div class="eli10"><span class="tag">Explain like I'm 10</span><p>a book with no ISBN - nobody can cite which edition they validated against.</p></div>
+<p class="sol" style="margin-top:12px"><b>Proposed solution.</b> stable $id https://specforge.dev/schema/graph-protocol.json + snapshot test.</p>
+</article>
+<article class="finding-detail sev-info" id="f-C6-01">
+<div class="head"><h2>All three shipped schemas uniformly draft 2020-12, $id&#x27;d, additionalProperties:false. Keep the bar. Effort S. KPI: dialect consistency.</h2><span class="chip info">info</span><span class="fid">C6-01</span></div>
+<div class="meta-row"><span class="engineer">036 Austin Wright</span><span class="chip neutral">effort S</span><span class="chip neutral">moves: dialect</span></div>
+<p class="details">All three shipped schemas (schema/specforge.schema.json, schema/specforge-report.schema.json, schema/specforge-binary-report.schema.json) declare draft 2020-12, carry an $id, and close their top-level objects with additionalProperties:false. This uniformity means any 2020-12-capable validator behaves identically across the family, and the vscode jsonValidation wiring (integrations/vscode/package.json:188-190) works without special cases.</p>
+<div class="snippet exemplar"><span class="cap">exemplar — the good pattern</span><pre><code>{
+  &quot;$schema&quot;: &quot;https://json-schema.org/draft/2020-12/schema&quot;,
+  &quot;$id&quot;: &quot;https://specforge.dev/schema/specforge.json&quot;,
+  &quot;title&quot;: &quot;SpecForge Configuration&quot;,
+  &quot;description&quot;: &quot;Configuration file for a SpecForge project. Like tsconfig.json for TypeScript, this file defines project identity, extensions, providers, and coverage thresholds.&quot;,</code></pre><div class="file">schema/specforge.schema.json:1-5</div></div>
+<div class="keep"><span class="tag">Keep doing this</span><p>Keep the draft-2020-12 + $id + additionalProperties:false standard across every published schema, including future ones.</p></div>
+<div class="eli10"><span class="tag">Explain like I'm 10</span><p>Praise: the shelf labels follow the exact same standard the whole industry uses, every box has its ID, and nothing extra is allowed inside. Boring in the best way.</p></div>
+</article>
+</main><script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.1/dist/mermaid.min.js" onerror="window.__mermaidFailed=true"></script><script src="../js/agent.js"></script></body></html>

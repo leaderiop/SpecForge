@@ -1,0 +1,89 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>010 Terence Parr — SpecForge audit review</title>
+<link rel="stylesheet" href="../css/report.css"><link rel="stylesheet" href="../css/agents.css"></head><body>
+<header class="agent-hero"><div class="brand"><div class="logo">010</div><div>
+<h1>Terence Parr</h1>
+<div class="crumbs">Cluster C2 — DSL &amp; language design · ANTLR creator; parser patterns &amp; error recovery · profile <code>.agents/010-terence-parr.md</code></div></div></div>
+<div class="links"><a href="../index.html">← Full report</a><a href="../../.agents/010-terence-parr.md">Profile source</a></div></header>
+<main class="agent-main">
+<nav class="agent-nav"><a href="009.html">← 009</a><a href="011.html">011 →</a></nav>
+<div class="review-panel"><div class="review-text"><h2>Auditor review</h2><p>Parr would grade the error-recovery story A: error regions preserved verbatim, idempotency tested, F011 telling users exactly which lines were left alone — textbook ANTLR recovery, worth documenting loudly. His one fix is diagnostic hygiene: three W010s with three meanings make explain a random-answer machine; every code gets exactly one owner from a single ValidationRuleDescriptor registry plus a uniqueness test. The grammar-doc identifier mismatch is the same lesson — grammar and manual must be generated from one truth.</p></div>
+<div class="mini-kpis">
+<div class="mini-kpi"><div class="k">Findings</div><div class="v">2</div></div>
+<div class="mini-kpi good"><div class="k">Critical + high</div><div class="v">0</div></div>
+<div class="mini-kpi"><div class="k">Evidence items</div><div class="v">4</div></div>
+<div class="mini-kpi"><div class="k">Effort mix</div><div class="v" style="font-size:14px">S</div></div>
+</div></div>
+<article class="finding-detail sev-medium" id="f-C2-07">
+<div class="head"><h2>Grammar/doc identifier contract mismatch: EBNF says 2-60 chars, grammar.js accepts 1+ unbounded</h2><span class="chip medium">medium</span><span class="fid">C2-07</span></div>
+<div class="meta-row"><span class="engineer">010 Terence Parr</span><span class="chip neutral">effort S</span><span class="chip neutral">moves: documented-but-unimplemented error codes</span></div>
+<div class="evidence"><b>Evidence</b><span class="ev"><code>docs/entity-model.md:Naming Conventions</code> — EBNF: identifier = letter {letter|digit|&#x27;_&#x27;}, annotated &#x27;(* 2-60 chars *)&#x27;</span><span class="ev"><code>crates/tree-sitter-specforge/grammar.js:Terminals</code> — identifier: /[a-zA-Z_][a-zA-Z0-9_]*/ — single-char and &gt;60-char identifiers parse fine; no length validation found downstream</span></div>
+<p class="details">The EBNF in entity-model.md Naming Conventions annotates the identifier rule with 2-60 chars, but the actual terminal in crates/tree-sitter-specforge/grammar.js:214 is /[a-zA-Z_][a-zA-Z0-9_]*/ — a single-character identifier parses fine, a 500-character one parses fine, and no downstream pass enforces any length. The sign says 2-60 letters; the door has no bouncer. Enforcing is preferable to amending the doc: add a cheap length check in graph build emitting the already-documented E014 with a span, keeping the EBNF as an honest enforced contract.</p>
+<div class="snippet before"><span class="cap">before — current code</span><pre><code>Any valid identifier is accepted for all entity kinds. There is no enforced case convention.
+
+```ebnf
+identifier = letter , { letter | digit | &quot;_&quot; } ;   (* 2-60 chars *)
+```</code></pre><div class="file">docs/entity-model.md:270-274</div></div>
+<div class="arrow-between">↓ fix ↓</div>
+<div class="snippet after"><span class="cap">after — proposed fix</span><pre><code>## Naming Conventions
+
+Any valid identifier is accepted for all entity kinds. There is no enforced case convention.
+
+```ebnf
+identifier = ( letter | &quot;_&quot; ) , { letter | digit | &quot;_&quot; } ;   (* 1-60 chars, E014 *)
+```
+
+Identifiers must be 1-60 characters. The graph-build pass enforces the range
+and emits `E014` with the offending span:
+
+```rust
+// crates/specforge-graph/src/build.rs
+const MAX_IDENT: usize = 60;
+if raw.is_empty() || raw.len() &gt; MAX_IDENT {
+    diags.push(Diagnostic::error(&quot;E014&quot;, format!(
+        &quot;identifier &#x27;{raw}&#x27; must be 1-{MAX_IDENT} characters (got {})&quot; , raw.len()
+    )).with_span(span));
+}
+```</code></pre><div class="file">docs/entity-model.md</div></div>
+<div class="diagram-box"><span class="cap">Sign says 2-60 door has no bouncer</span><div class="mermaid" id="dg-010-C2-07"><pre>flowchart TD
+ A[EBNF says 2-60 chars] --&gt; B[grammar.js regex accepts 1 to unbounded]
+ B --&gt; C[one-letter entity x parses]
+ C --&gt; D[doc contract is a lie]
+ D --&gt; E[add length check in graph build]
+ E --&gt; F[E014 with span on violation]
+ F --&gt; G[EBNF and enforcement agree]</pre></div></div><script type="text/plain" class="mermaid-src" data-target="dg-010-C2-07">flowchart TD
+ A[EBNF says 2-60 chars] --> B[grammar.js regex accepts 1 to unbounded]
+ B --> C[one-letter entity x parses]
+ C --> D[doc contract is a lie]
+ D --> E[add length check in graph build]
+ E --> F[E014 with span on violation]
+ F --> G[EBNF and enforcement agree]</script>
+<div class="eli10"><span class="tag">Explain like I'm 10</span><p>The sign says names must be 2 to 60 letters; the door has no bouncer. Someone registers a one-letter entity &#x27;x&#x27; and every doc example is a lie. Either enforce the range or correct the sign.</p></div>
+<p class="sol" style="margin-top:12px"><b>Proposed solution.</b> Pick one: add a length check in graph build (E-code with span) and keep the EBNF, or amend the doc to match the regex. Prefer enforcing with a clear suggestion.</p>
+</article>
+<article class="finding-detail sev-info" id="f-C2-10">
+<div class="head"><h2>Parser-side error recovery is exemplary: formatter preserves error regions verbatim and keeps compiling</h2><span class="chip info">info</span><span class="fid">C2-10</span></div>
+<div class="meta-row"><span class="engineer">010 Terence Parr</span><span class="chip neutral">effort S</span><span class="chip neutral">moves: -</span></div>
+<div class="evidence"><b>Evidence</b><span class="ev"><code>crates/specforge-formatter/src/engine.rs:58-64,1143-1292</code> — format_with_parse_errors tests: &#x27;error regions are preserved verbatim&#x27;, whitespace preserved byte-for-byte; idempotency invariant tested</span><span class="ev"><code>crates/specforge-parser/src:-</code> — parse_incremental exists alongside parse; triple-quoted strings preserve newlines/indentation (parse_test.rs:1050-1245)</span></div>
+<p class="details">The formatter&#x27;s recovery is textbook ANTLR-style: when the parse fails, format_with_parse_errors (crates/specforge-formatter/src/engine.rs:1143-1292) identifies each error region and copies it verbatim into the output — whitespace preserved byte-for-byte — while reflowing surrounding well-formed code, and the idempotency invariant is explicitly tested. It emits F011 warnings naming the preserved line ranges so users can find their mistakes. Additionally, parse_incremental exists alongside parse, and triple-quoted strings preserve newlines and indentation (parse_test.rs:1050-1245). Users can trust specforge format on broken files, which few formatters can honestly claim; the only gap is that this behavior is undocumented.</p>
+<div class="snippet exemplar"><span class="cap">exemplar — the good pattern</span><pre><code>    let mut diagnostics = Vec::new();
+    if has_errors {
+        for (start_row, end_row) in &amp;error_regions {
+            diagnostics.push(Diagnostic {
+                code: &quot;F011&quot;.into(),
+                severity: specforge_common::Severity::Warning,
+                message: format!(
+                    &quot;Parse error at lines {}-{}, error region preserved verbatim&quot;,
+                    start_row + 1,
+                    end_row + 1,
+                ),
+                span: None,
+                suggestion: None,
+            });
+        }
+    }</code></pre><div class="file">crates/specforge-formatter/src/engine.rs:55-69</div></div>
+<div class="keep"><span class="tag">Keep doing this</span><p>Preserve the byte-exact verbatim preservation of parse-error regions with F011 range reporting and the idempotency test — this contract is what makes formatting-on-broken-files trustworthy and must never regress.</p></div>
+<div class="eli10"><span class="tag">Explain like I'm 10</span><p>When you misspell a word, the tool fixes everything around it and leaves your broken line exactly as you typed it, so you can find it. That is textbook ANTLR-style recovery done right.</p></div>
+<p class="sol" style="margin-top:12px"><b>Proposed solution.</b> None — document this behavior in troubleshooting docs so users trust `specforge format` on broken files.</p>
+</article>
+</main><script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.1/dist/mermaid.min.js" onerror="window.__mermaidFailed=true"></script><script src="../js/agent.js"></script></body></html>

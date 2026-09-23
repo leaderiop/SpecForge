@@ -1,0 +1,40 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>017 Dirk Bäumer — SpecForge audit review</title>
+<link rel="stylesheet" href="../css/report.css"><link rel="stylesheet" href="../css/agents.css"></head><body>
+<header class="agent-hero"><div class="brand"><div class="logo">017</div><div>
+<h1>Dirk Bäumer</h1>
+<div class="crumbs">Cluster C4 — Incremental compilation, LSP &amp; diagnostics · Microsoft LSP spec lead · profile <code>.agents/017-dirk-baeumer.md</code></div></div></div>
+<div class="links"><a href="../index.html">← Full report</a><a href="../../.agents/017-dirk-baeumer.md">Profile source</a></div></header>
+<main class="agent-main">
+<nav class="agent-nav"><a href="016.html">← 016</a><a href="018.html">018 →</a></nav>
+<div class="review-panel"><div class="review-text"><h2>Auditor review</h2><p>Brought their lens to this cluster&#x27;s findings; see the attributed items below for the concrete audit outcomes.</p></div>
+<div class="mini-kpis">
+<div class="mini-kpi"><div class="k">Findings</div><div class="v">2</div></div>
+<div class="mini-kpi bad"><div class="k">Critical + high</div><div class="v">1</div></div>
+<div class="mini-kpi"><div class="k">Evidence items</div><div class="v">2</div></div>
+<div class="mini-kpi"><div class="k">Effort mix</div><div class="v" style="font-size:14px">M</div></div>
+</div></div>
+<article class="finding-detail sev-high" id="f-C4-02">
+<div class="head"><h2>LSP positions treated as byte offsets.</h2><span class="chip high">high</span><span class="fid">C4-02</span></div>
+<div class="meta-row"><span class="engineer">017 Dirk Bäumer</span><span class="chip neutral">effort M</span></div>
+<div class="evidence"><b>Evidence</b><span class="ev"><code>document.rs:90-97</code></span></div>
+<p class="details">DocumentBuffer::line_col_to_offset treats LSP character as a byte offset while clients send UTF-16 units, so non-ASCII text earlier on the line misplaces did_change ranges, hover/completion positions, and tree-sitter InputEdit points. One position codec (or utf-8 negotiation) plus a non-ASCII regression test fixes the class.</p>
+<div class="snippet before"><span class="cap">before — current code</span><pre><code>    fn line_col_to_offset(&amp;self, line: usize, col: usize) -&gt; usize {\n        let mut offset = 0;\n        for (i, l) in self.content.split(&#x27;\n&#x27;).enumerate() {\n            if i == line {\n                return offset + col;\n            }\n            offset += l.len() + 1;\n        }\n        self.content.len()\n    }</code></pre><div class="file">crates/specforge-lsp/src/document.rs:88-97</div></div>
+<div class="arrow-between">↓ fix ↓</div>
+<div class="snippet after"><span class="cap">after — proposed fix</span><pre><code>    /// LSP position (line, UTF-16 character) -&gt; byte offset.\n    fn line_col_to_offset(&amp;self, line: usize, col_utf16: usize) -&gt; usize {\n        let mut offset = 0;\n        for (i, l) in self.content.split(&#x27;\n&#x27;).enumerate() {\n            if i == line {\n                let mut units = 0;\n                for (byte_idx, ch) in l.char_indices() {\n                    if units &gt;= col_utf16 { return offset + byte_idx; }\n                    units += ch.len_utf16();\n                }\n                return offset + l.len();\n            }\n            offset += l.len() + 1;\n        }\n        self.content.len()\n    }</code></pre><div class="file">crates/specforge-lsp/src/document.rs:0-0</div></div>
+<div class="diagram-box"><span class="cap">UTF-16 codec</span><div class="mermaid" id="dg-017-C4-02"><pre>flowchart TD\n client_utf16 --&gt; codec\n codec --&gt; byte_offset\n byte_offset --&gt; apply_change\n byte_offset --&gt; word_at_position\n spans --&gt; codec</pre></div></div><script type="text/plain" class="mermaid-src" data-target="dg-017-C4-02">flowchart TD\n client_utf16 --> codec\n codec --> byte_offset\n byte_offset --> apply_change\n byte_offset --> word_at_position\n spans --> codec</script>
+<div class="eli10"><span class="tag">Explain like I'm 10</span><p>The editor counts letters one way (a smiley counts as 2) and the server counts another way (as 1). After you type a smiley, the server points at the wrong word. Both must agree on one counting rule.</p></div>
+<p class="sol" style="margin-top:12px"><b>Proposed solution.</b> one position codec on DocumentBuffer or negotiate utf-8 encoding; add non-ASCII regression test.</p>
+</article>
+<article class="finding-detail sev-info" id="f-C4-12">
+<div class="head"><h2>17 behavioral LSP test files each tagging the spec behavior verified; diagnostics correctly re-keyed by owning file URI and open docs re-diagnosed aft</h2><span class="chip info">info</span><span class="fid">C4-12</span></div>
+<div class="meta-row"><span class="engineer">017 Dirk Bäumer</span></div>
+<div class="evidence"><b>Evidence</b><span class="ev"><code>backend.rs</code></span></div>
+<p class="details">The LSP test suite ties every test to the spec behavior it verifies — the traceability loop the product sells, practiced in its own codebase. Diagnostics, hover, completion and rename paths each have behavioral coverage that fails when the promise breaks.</p>
+<div class="snippet exemplar"><span class="cap">exemplar — the good pattern</span><pre><code>// 17 behavioral test files; each test names the spec behavior it verifies,
+// e.g. diagnostics.rs, hover.rs, completion.rs, rename.rs — so a failing
+// test points at the exact .spec promise that regressed.</code></pre><div class="file">crates/specforge-lsp/tests:1</div></div>
+<div class="keep"><span class="tag">Keep doing this</span><p>Keep tagging tests with the spec behavior they verify; wire the same tags into specforge-report.json so editor coverage lands in the traceability report too.</p></div>
+<div class="eli10"><span class="tag">Explain like I'm 10</span><p>Praise: the editor&#x27;s tests are labeled with the exact promise (spec behavior) each one checks, so when something breaks you know which promise broke. Keep this habit.</p></div>
+</article>
+</main><script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.1/dist/mermaid.min.js" onerror="window.__mermaidFailed=true"></script><script src="../js/agent.js"></script></body></html>

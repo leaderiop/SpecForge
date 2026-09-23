@@ -1,0 +1,77 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>112 Stephen North — SpecForge audit review</title>
+<link rel="stylesheet" href="../css/report.css"><link rel="stylesheet" href="../css/agents.css"></head><body>
+<header class="agent-hero"><div class="brand"><div class="logo">112</div><div>
+<h1>Stephen North</h1>
+<div class="crumbs">Cluster C13 — Diagrams &amp; rendering · Graphviz project lead; graph data model (cgraph) and large-graph applications · profile <code>.agents/112-stephen-north.md</code></div></div></div>
+<div class="links"><a href="../index.html">← Full report</a><a href="../../.agents/112-stephen-north.md">Profile source</a></div></header>
+<main class="agent-main">
+<nav class="agent-nav"><a href="111.html">← 111</a><a href="113.html">113 →</a></nav>
+<div class="review-panel"><div class="review-text"><h2>Auditor review</h2><p>Stephen North: The renderer separation is clean and the IR design is genuinely good. But not one emitter escapes its strings — a quote in a description kills the whole DOT file, and HTML-like labels accept raw angle brackets. This is the kind of bug that surfaces in production on the first user with punctuation in their manifest. escape_dot_string and escape_dot_html helpers plus round-trip tests, before anything else.</p></div>
+<div class="mini-kpis">
+<div class="mini-kpi"><div class="k">Findings</div><div class="v">2</div></div>
+<div class="mini-kpi bad"><div class="k">Critical + high</div><div class="v">1</div></div>
+<div class="mini-kpi"><div class="k">Evidence items</div><div class="v">4</div></div>
+<div class="mini-kpi"><div class="k">Effort mix</div><div class="v" style="font-size:14px">M · S</div></div>
+</div></div>
+<article class="finding-detail sev-high" id="f-C13-04">
+<div class="head"><h2>No escaping of user-controlled strings in DOT output</h2><span class="chip high">high</span><span class="fid">C13-04</span></div>
+<div class="meta-row"><span class="engineer">112 Stephen North</span><span class="chip neutral">effort M</span><span class="chip neutral">moves: escaping</span></div>
+<div class="evidence"><b>Evidence</b><span class="ev"><code>crates/specforge-emitter/src/dot.rs:17-19</code> — title raw into label string; quote or backslash invalidates DOT</span><span class="ev"><code>crates/specforge-emitter/src/model/dot.rs:82-97</code> — names/descriptions raw into HTML-like labels</span><span class="ev"><code>crates/specforge-emitter/src/outline/dot.rs:36-49</code> — names/keywords raw into quoted labels</span></div>
+<p class="details">No DOT escaping exists anywhere: dot.rs interpolates node titles raw into quoted labels (a quote or backslash produces invalid DOT), model/dot.rs puts names/descriptions raw into HTML-like labels, outline/dot.rs interpolates raw names into quoted labels. One user-authored description with punctuation makes the entire exported graph unrenderable by Graphviz.</p>
+<div class="snippet before"><span class="cap">before — current code</span><pre><code>    for node in graph.nodes() {
+        let label = match &amp;node.title {
+            Some(title) =&gt; format!(&quot;{}\\n{}&quot;, node.id.raw, title),
+            None =&gt; node.id.raw.to_string(),
+        };
+        writeln!(out, &quot;  \&quot;{}\&quot; [label=\&quot;{}\&quot;];&quot;, node.id.raw, label).unwrap();
+    }</code></pre><div class="file">crates/specforge-emitter/src/dot.rs:11-19</div></div>
+<div class="arrow-between">↓ fix ↓</div>
+<div class="snippet after"><span class="cap">after — proposed fix</span><pre><code>pub fn escape_dot_string(s: &amp;str) -&gt; String {
+    let mut out = String::with_capacity(s.len());
+    for c in s.chars() {
+        match c {
+            &#x27;&quot;&#x27; =&gt; out.push_str(&quot;\\\&quot;&quot;),
+            &#x27;\\&#x27; =&gt; out.push_str(&quot;\\\\&quot;),
+            _ =&gt; out.push(c),
+        }
+    }
+    out
+}
+
+pub fn escape_dot_html(s: &amp;str) -&gt; String {
+    s.replace(&#x27;&amp;&#x27;, &quot;&amp;amp;&quot;).replace(&#x27;&lt;&#x27;, &quot;&amp;lt;&quot;).replace(&#x27;&gt;&#x27;, &quot;&amp;gt;&quot;)
+}</code></pre><div class="file">crates/specforge-emitter/src/escape.rs:1-12</div></div>
+<div class="diagram-box"><span class="cap">escaping pipeline</span><div class="mermaid" id="dg-112-C13-04"><pre>flowchart LR
+ A[user title with quote] --&gt; B[raw interpolation]
+ B --&gt; C[invalid DOT output]
+ A --&gt; D[escape_dot_string]
+ D --&gt; E[valid graphviz render]
+ G[HTML label] --&gt; H[escape_dot_html]</pre></div></div><script type="text/plain" class="mermaid-src" data-target="dg-112-C13-04">flowchart LR
+ A[user title with quote] --> B[raw interpolation]
+ B --> C[invalid DOT output]
+ A --> D[escape_dot_string]
+ D --> E[valid graphviz render]
+ G[HTML label] --> H[escape_dot_html]</script>
+<div class="eli10"><span class="tag">Explain like I'm 10</span><p>DOT strings are envelopes with the address inside quotes — a name containing its own quote tears the envelope. One odd character makes the whole diagram unrenderable.</p></div>
+<p class="sol" style="margin-top:12px"><b>Proposed solution.</b> Add escape_dot_string and escape_dot_html helpers; apply everywhere; round-trip tests.</p>
+</article>
+<article class="finding-detail sev-info" id="f-C13-05">
+<div class="head"><h2>IR plus render dispatch cleanly separates model from views</h2><span class="chip info">info</span><span class="fid">C13-05</span></div>
+<div class="meta-row"><span class="engineer">112 Stephen North</span><span class="chip neutral">effort S</span><span class="chip neutral">moves: n/a</span></div>
+<div class="evidence"><b>Evidence</b><span class="ev"><code>crates/specforge-emitter/src/model/mod.rs:139-173</code> — one IR, five pure renderers, separate filtering</span></div>
+<p class="details">model/mod.rs defines one serializable ModelIntermediate IR and render() dispatches to five pure renderers that each read the same model — markdown, mermaid, dot, json, dbml can never disagree. Filtering (filter_entities) is a separate model-to-model transform, so renderers stay trivially pure.</p>
+<div class="snippet exemplar"><span class="cap">exemplar — the good pattern</span><pre><code>pub fn render(model: &amp;ModelIntermediate, options: &amp;ModelOptions) -&gt; String {
+    match options.format {
+        ModelFormat::Markdown =&gt; markdown::render_markdown(model, options),
+        ModelFormat::Mermaid =&gt; mermaid::render_mermaid(model, options),
+        ModelFormat::Dot =&gt; dot::render_dot(model, options),
+        ModelFormat::Json =&gt; json::render_json(model),
+        ModelFormat::Dbml =&gt; dbml::render_dbml(model, options),
+    }
+}</code></pre><div class="file">crates/specforge-emitter/src/model/mod.rs:167-174</div></div>
+<div class="keep"><span class="tag">Keep doing this</span><p>Keep renderers pure functions of the IR; any new format or the future wasm Renderer port should slot into the same one-IR-many-views dispatch.</p></div>
+<div class="eli10"><span class="tag">Explain like I'm 10</span><p>One faithful model, five cameras — every picture reads the same model so they cannot disagree.</p></div>
+<p class="sol" style="margin-top:12px"><b>Proposed solution.</b> Keep new renderers pure.</p>
+</article>
+</main><script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.1/dist/mermaid.min.js" onerror="window.__mermaidFailed=true"></script><script src="../js/agent.js"></script></body></html>

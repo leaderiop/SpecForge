@@ -1,0 +1,69 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>046 Benjamin Eckel — SpecForge audit review</title>
+<link rel="stylesheet" href="../css/report.css"><link rel="stylesheet" href="../css/agents.css"></head><body>
+<header class="agent-hero"><div class="brand"><div class="logo">046</div><div>
+<h1>Benjamin Eckel</h1>
+<div class="crumbs">Cluster C7 — Wasm plugin runtimes &amp; the extension bet · Extism co-author — PDKs, manifests &amp; typed data conversion · profile <code>.agents/046-benjamin-eckel.md</code></div></div></div>
+<div class="links"><a href="../index.html">← Full report</a><a href="../../.agents/046-benjamin-eckel.md">Profile source</a></div></header>
+<main class="agent-main">
+<nav class="agent-nav"><a href="045.html">← 045</a><a href="047.html">047 →</a></nav>
+<div class="review-panel"><div class="review-text"><h2>Auditor review</h2><p>The docs sell an SDK that does not exist and a target triple the host cannot load — as someone who reads manuals before code, that combination is worse than no docs. The upside is the raw extism_pdk path actually works and is small enough to document honestly in an afternoon. I would rewrite extension-sdk.md to describe the real #[host_fn]/include_bytes contract, fix the phantom resolve_ref, and standardize on wasm32-unknown-unknown everywhere before writing one line of the future proc-macro SDK.</p></div>
+<div class="mini-kpis">
+<div class="mini-kpi"><div class="k">Findings</div><div class="v">1</div></div>
+<div class="mini-kpi bad"><div class="k">Critical + high</div><div class="v">1</div></div>
+<div class="mini-kpi"><div class="k">Evidence items</div><div class="v">3</div></div>
+<div class="mini-kpi"><div class="k">Effort mix</div><div class="v" style="font-size:14px">L</div></div>
+</div></div>
+<article class="finding-detail sev-high" id="f-C7-01">
+<div class="head"><h2>Documented specforge-extension-sdk crate does not exist (glob confirms no such crate); plugins use raw extism_pdk + include_bytes JSON; docs say wasm32-wasi, host loads wasm32-unknown-unknown.</h2><span class="chip high">high</span><span class="fid">C7-01</span></div>
+<div class="meta-row"><span class="engineer">046</span><span class="chip neutral">effort L</span><span class="chip neutral">moves: host_api_doc_vs_impl</span></div>
+<div class="evidence"><b>Evidence</b><span class="ev"><code>docs/extension-sdk.md:7</code></span><span class="ev"><code>extensions/product/src/lib.rs:1-8</code></span><span class="ev"><code>builtins.rs:3-6</code></span></div>
+<p class="details">docs/extension-sdk.md opens by promising a specforge-extension-sdk crate with typed host-API bindings and attribute macros, and states extensions target wasm32-wasi — but no such crate exists in the workspace (glob over crates/ finds nothing), the real plugins hand-roll extism_pdk bindings with include_bytes!&#x27;d JSON blobs, and the host embeds wasm32-unknown-unknown artifacts (builtins.rs). A developer following the manual immediately imports a nonexistent dependency and compiles for a target triple the host cannot even load. Worse, the doc lists a resolve_ref host function that was never implemented (the real export is host_query_graph), so even the existing bindings are misdocumented. For a project whose pitch is machine-trustworthy specs, the extension authoring story must either be implemented (PRD-001 phase-5 proc-macros) or the docs rewritten to match the raw extism_pdk reality, with one canonical target triple.</p>
+<div class="snippet before"><span class="cap">before — current code</span><pre><code>use extism_pdk::*;
+use serde::Deserialize;
+
+#[host_fn]
+extern &quot;ExtismHost&quot; {
+    fn host_emit_diagnostic(input: Vec&lt;u8&gt;) -&gt; Vec&lt;u8&gt;;
+    fn host_read_file(input: Vec&lt;u8&gt;) -&gt; Vec&lt;u8&gt;;
+    fn host_query_graph(input: Vec&lt;u8&gt;) -&gt; Vec&lt;u8&gt;;
+}</code></pre><div class="file">extensions/product/src/lib.rs:1-8</div></div>
+<div class="arrow-between">↓ fix ↓</div>
+<div class="snippet after"><span class="cap">after — proposed fix</span><pre><code># Extension SDK
+
+Extensions are standalone Rust crates that compile to `wasm32-unknown-unknown`
+(the only target the host loads) and depend on `extism-pdk`.
+
+## Current SDK surface
+
+There is no `specforge-extension-sdk` crate yet. Today an extension:
+
+- declares host imports manually with `#[host_fn] extern &quot;ExtismHost&quot;`
+  (`host_emit_diagnostic`, `host_read_file`, `host_query_graph` — there is no
+  `resolve_ref`);
+- embeds its `handshake.json` and nine `describe_*.json` files with
+  `include_bytes!`;
+- exposes `#[plugin_fn] __handshake` and `#[plugin_fn] __describe`.
+
+A `specforge-extension-sdk` crate with typed protocol structs and attribute
+macros is planned (PRD-001, phase 5); until then this document describes the
+raw contract exactly as the host consumes it.</code></pre><div class="file">docs/extension-sdk.md</div></div>
+<div class="diagram-box"><span class="cap">SDK promise vs reality</span><div class="mermaid" id="dg-046-C7-01"><pre>flowchart TD
+ A[docs promise specforge-extension-sdk] --&gt; B{crate exists}
+ B --&gt;|no| C[New author cargo add fails]
+ B --&gt;|yes promised| D[Typed macros and WIT]
+ C --&gt; E[Docs rewritten to extism_pdk reality]
+ E --&gt; F[One target triple wasm32-unknown-unknown]
+ F --&gt; G[Plugin builds and host loads it]
+ D --&gt; G</pre></div></div><script type="text/plain" class="mermaid-src" data-target="dg-046-C7-01">flowchart TD
+ A[docs promise specforge-extension-sdk] --> B{crate exists}
+ B -->|no| C[New author cargo add fails]
+ B -->|yes promised| D[Typed macros and WIT]
+ C --> E[Docs rewritten to extism_pdk reality]
+ E --> F[One target triple wasm32-unknown-unknown]
+ F --> G[Plugin builds and host loads it]
+ D --> G</script>
+<div class="eli10"><span class="tag">Explain like I'm 10</span><p>the manual sells an official LEGO kit that was never manufactured; the real toys are hand-glued loose bricks and the manual even names the wrong glue.</p></div>
+<p class="sol" style="margin-top:12px"><b>Proposed solution.</b> implement the SDK (PRD-001 phase-5 proc-macros) or rewrite docs to match reality; pick one target triple.</p>
+</article>
+</main><script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.1/dist/mermaid.min.js" onerror="window.__mermaidFailed=true"></script><script src="../js/agent.js"></script></body></html>

@@ -1,0 +1,69 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>088 Ralf Jung — SpecForge audit review</title>
+<link rel="stylesheet" href="../css/report.css"><link rel="stylesheet" href="../css/agents.css"></head><body>
+<header class="agent-hero"><div class="brand"><div class="logo">088</div><div>
+<h1>Ralf Jung</h1>
+<div class="crumbs">Cluster C10 — Formal methods · RustBelt/Miri; semantic soundness and testing-as-oracle · profile <code>.agents/088-ralf-jung.md</code></div></div></div>
+<div class="links"><a href="../index.html">← Full report</a><a href="../../.agents/088-ralf-jung.md">Profile source</a></div></header>
+<main class="agent-main">
+<nav class="agent-nav"><a href="087.html">← 087</a><a href="089.html">089 →</a></nav>
+<div class="review-panel"><div class="review-text"><h2>Auditor review</h2><p>Ralf Jung would admire that the validation engine&#x27;s behavior is mostly pinned by tests. He would point at test_cycle_detection_placeholder as the anti-pattern: a test that cements a no-op as the contract, for the one detector whose job is finding cycles. Write the 2-cycle, self-loop, and predecessor cases plus the DAG property test, and soundness stops being a hope.</p></div>
+<div class="mini-kpis">
+<div class="mini-kpi"><div class="k">Findings</div><div class="v">1</div></div>
+<div class="mini-kpi good"><div class="k">Critical + high</div><div class="v">0</div></div>
+<div class="mini-kpi"><div class="k">Evidence items</div><div class="v">2</div></div>
+<div class="mini-kpi"><div class="k">Effort mix</div><div class="v" style="font-size:14px">M</div></div>
+</div></div>
+<article class="finding-detail sev-medium" id="f-C10-11">
+<div class="head"><h2>cycle detector soundness untested: placeholder test only</h2><span class="chip medium">medium</span><span class="fid">C10-11</span></div>
+<div class="meta-row"><span class="engineer">088 Ralf Jung</span><span class="chip neutral">effort M</span><span class="chip neutral">moves: Cycle rule wiring</span></div>
+<div class="evidence"><b>Evidence</b><span class="ev"><code>crates/specforge-registry/src/compilation/validation_engine.rs:663-673</code> — test_cycle_detection_placeholder asserts engine returns nothing for cycles</span><span class="ev"><code>crates/specforge-emitter</code> — no test exercises detect_cycles; failure-modes.spec:15-17 proposes property-based tests that do not exist</span></div>
+<p class="details">test_cycle_detection_placeholder asserts exactly the wrong contract: it locks in that execute_pattern returns no diagnostics for cycle rules. The real graph-aware detect_cycles has zero test coverage — no 2-cycle, self-loop, or predecessor-into-cycle case — while failure-modes.spec:15-17 proposes property-based tests that do not exist. The one detector whose job is finding loops has never been handed a loop. detect_cycles is private to compile.rs, so integration tests should drive it via the public pipeline or a test-only export.</p>
+<div class="snippet before"><span class="cap">before — current code</span><pre><code>    #[test]
+    fn test_cycle_detection_placeholder() {
+        // Cycle detection requires full graph — current implementation defers to caller.
+        // The pattern parses but execution returns no violations (graph needed).
+        let rule = make_rule(&quot;E100&quot;, &quot;cycle_detection&quot;);
+        let pattern = parse_rule_pattern(&amp;rule, &quot;@test&quot;).unwrap();
+        assert_eq!(pattern.check, ValidationPatternKind::CycleDetection);
+        let diags = execute_pattern(&amp;pattern, &amp;[make_entity(&quot;b1&quot;, &quot;behavior&quot;, 1, 1)], None);
+        assert!(diags.is_empty(), &quot;cycle detection deferred to graph-aware caller&quot;);
+    }</code></pre><div class="file">crates/specforge-registry/src/compilation/validation_engine.rs:663-673</div></div>
+<div class="arrow-between">↓ fix ↓</div>
+<div class="snippet after"><span class="cap">after — proposed fix</span><pre><code>use specforge_emitter::detect_cycles_for_test;
+
+fn graph_with(edges: &amp;[(&amp;str, &amp;str)]) -&gt; specforge_graph::Graph { /* build nodes and edges */ }
+
+#[test]
+fn two_cycle_is_detected() {
+    let g = graph_with(&amp;[(&quot;r1&quot;, &quot;r2&quot;), (&quot;r2&quot;, &quot;r1&quot;)]);
+    let diags = detect_cycles_for_test(&amp;refinement_cycle_rule(), &amp;g);
+    assert_eq!(diags.len(), 2, &quot;both members of the 2-cycle are reported&quot;);
+}
+
+#[test]
+fn predecessor_into_cycle_is_not_a_member() {
+    // a -&gt; b -&gt; c -&gt; b : only b and c are the loop
+    let g = graph_with(&amp;[(&quot;a&quot;, &quot;b&quot;), (&quot;b&quot;, &quot;c&quot;), (&quot;c&quot;, &quot;b&quot;)]);
+    let diags = detect_cycles_for_test(&amp;refinement_cycle_rule(), &amp;g);
+    let blamed: Vec&lt;&amp;str&gt; = diags.iter().map(|d| d.blamed_id()).collect();
+    assert!(!blamed.contains(&amp;&quot;a&quot;), &quot;feed-in predecessor must not be flagged&quot;);
+}
+
+#[test]
+fn random_dag_yields_no_cycles() { /* property test: DAG implies empty */ }</code></pre><div class="file">crates/specforge-emitter/tests/cycle_detection.rs</div></div>
+<div class="diagram-box"><span class="cap">cycle detector never handed a loop</span><div class="mermaid" id="dg-088-C10-11"><pre>flowchart TD
+ A[placeholder test asserts empty result] --&gt; B[detect_cycles untested]
+ B --&gt; C[soundness unknown]
+ C --&gt; D[add integration tests]
+ D --&gt; E[2 cycle self loop predecessor cases]
+ E --&gt; F[property test DAG zero cycles]</pre></div></div><script type="text/plain" class="mermaid-src" data-target="dg-088-C10-11">flowchart TD
+ A[placeholder test asserts empty result] --> B[detect_cycles untested]
+ B --> C[soundness unknown]
+ C --> D[add integration tests]
+ D --> E[2 cycle self loop predecessor cases]
+ E --> F[property test DAG zero cycles]</script>
+<div class="eli10"><span class="tag">Explain like I'm 10</span><p>The one inspector whose job is finding loops has never been handed a loop, and the risk register promises a fuzzer that does not exist. You do not trust a smoke detector you never held near smoke.</p></div>
+<p class="sol" style="margin-top:12px"><b>Proposed solution.</b> Add integration tests (2-cycles, self-loops, predecessor-into-cycle) and a property test: random DAGs yield zero W065/W066, cyclic graphs yield at least one diagnostic.</p>
+</article>
+</main><script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.1/dist/mermaid.min.js" onerror="window.__mermaidFailed=true"></script><script src="../js/agent.js"></script></body></html>

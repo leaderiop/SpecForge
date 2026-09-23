@@ -1,0 +1,77 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>009 Martin Fowler — SpecForge audit review</title>
+<link rel="stylesheet" href="../css/report.css"><link rel="stylesheet" href="../css/agents.css"></head><body>
+<header class="agent-hero"><div class="brand"><div class="logo">009</div><div>
+<h1>Martin Fowler</h1>
+<div class="crumbs">Cluster C2 — DSL &amp; language design · &#x27;Domain-Specific Languages&#x27; author; evolutionary-design thinker · profile <code>.agents/009-martin-fowler.md</code></div></div></div>
+<div class="links"><a href="../index.html">← Full report</a><a href="../../.agents/009-martin-fowler.md">Profile source</a></div></header>
+<main class="agent-main">
+<nav class="agent-nav"><a href="008.html">← 008</a><a href="010.html">010 →</a></nav>
+<div class="review-panel"><div class="review-text"><h2>Auditor review</h2><p>Fowler would credit the versioning scaffolding — ordered FormatVersion, hooks, timeout traps — as properly built evolutionary architecture. But he would point out the v1.0 stamp is read by nothing outside migrate: the wire the house forgot to connect. Wire detect_format_version into graph build so E015 and I007 fire where users live, and write the per-version changelog now, while MIN=CUR=MAX makes it cheap, so the first breaking change meets a paved road instead of a cliff.</p></div>
+<div class="mini-kpis">
+<div class="mini-kpi"><div class="k">Findings</div><div class="v">1</div></div>
+<div class="mini-kpi good"><div class="k">Critical + high</div><div class="v">0</div></div>
+<div class="mini-kpi"><div class="k">Evidence items</div><div class="v">2</div></div>
+<div class="mini-kpi"><div class="k">Effort mix</div><div class="v" style="font-size:14px">M</div></div>
+</div></div>
+<article class="finding-detail sev-medium" id="f-C2-05">
+<div class="head"><h2>Format versioning scaffolding is solid but inert: the format header is consumed by nothing outside `migrate`</h2><span class="chip medium">medium</span><span class="fid">C2-05</span></div>
+<div class="meta-row"><span class="engineer">009 Martin Fowler</span><span class="chip neutral">effort M</span><span class="chip neutral">moves: format versions supported</span></div>
+<div class="evidence"><b>Evidence</b><span class="ev"><code>crates/specforge-migrate/src/lib.rs:23-29,176-186</code> — MIN=CUR=MAX=1.0; transform_content only rewrites the header; migration hooks exist (MigrationHookRunner, timeout/trap handling)</span><span class="ev"><code>crates/:-</code> — detect_format_version is referenced only by specforge-migrate itself and cli/migrate.rs — the compile pipeline (emitter/compile.rs) never checks a file&#x27;s declared version, so E015 &#x27;unsupported format version&#x27; can never fire during specforge check</span></div>
+<p class="details">specforge-migrate has genuinely good scaffolding: ordered FormatVersion, MIN=CUR=MAX 1.0 constants, detect_format_version emitting E015 on unparseable headers, and MigrationHookRunner machinery with timeout handling. But detect_format_version is referenced only inside specforge-migrate and cli/migrate.rs — the normal compile pipeline never inspects a declared version, so a file stamped specforge-format 99.0 compiles without complaint under specforge check and E015 can only fire when the user runs migrate. Wire the version check into graph build so E015 and I007 surface alongside parse diagnostics, and add a per-version changelog table so v1.1 has a defined migration path before the first breaking change.</p>
+<div class="snippet before"><span class="cap">before — current code</span><pre><code>/// Current format version. All new spec files are at this version.
+pub const CURRENT_FORMAT_VERSION: FormatVersion = FormatVersion { major: 1, minor: 0 };
+
+/// Minimum supported format version for migration.
+pub const MIN_SUPPORTED_VERSION: FormatVersion = FormatVersion { major: 1, minor: 0 };
+
+/// Maximum supported target version.
+pub const MAX_SUPPORTED_VERSION: FormatVersion = FormatVersion { major: 1, minor: 0 };</code></pre><div class="file">crates/specforge-migrate/src/lib.rs:22-30</div></div>
+<div class="arrow-between">↓ fix ↓</div>
+<div class="snippet after"><span class="cap">after — proposed fix</span><pre><code>// Wire the format stamp into the normal compile pipeline.
+use specforge_migrate::{detect_format_version, CURRENT_FORMAT_VERSION, MAX_SUPPORTED_VERSION};
+
+fn check_format_headers(spec_files: &amp;[SpecFile], diags: &amp;mut Vec&lt;Diagnostic&gt;) {
+    for file in spec_files {
+        let (version, mut d) = detect_format_version(&amp;file.raw_content);
+        diags.append(&amp;mut d);
+        if version &gt; MAX_SUPPORTED_VERSION {
+            diags.push(
+                Diagnostic::error(&quot;E015&quot;, format!(
+                    &quot;file &#x27;{}&#x27; declares format {} newer than supported {}&quot;,
+                    file.path, version, MAX_SUPPORTED_VERSION,
+                ))
+                .with_span(file.header_span.clone())
+                .with_suggestion(format!(
+                    &quot;downgrade with: specforge migrate --to {CURRENT_FORMAT_VERSION}&quot;
+                )),
+            );
+        } else if version &lt; CURRENT_FORMAT_VERSION {
+            diags.push(Diagnostic::info(&quot;I007&quot;, format!(
+                &quot;file &#x27;{}&#x27; uses older format {}; run `specforge migrate`&quot;,
+                file.path, version,
+            )));
+        }
+    }
+}</code></pre><div class="file">crates/specforge-graph/src/build.rs</div></div>
+<div class="diagram-box"><span class="cap">Version stamp consumed by no one</span><div class="mermaid" id="dg-009-C2-05"><pre>flowchart TD
+ A[spec file stamped 99.0] --&gt; B[specforge check]
+ B --&gt; C[compile pipeline ignores header]
+ C --&gt; D[compiles successfully]
+ D --&gt; E[future syntax hazards hidden]
+ F[specforge migrate] --&gt; G[detect_format_version reads stamp]
+ G --&gt; H[E015 fires only here]
+ C --&gt; I[call detect_format_version in graph build]
+ I --&gt; J[E015 and I007 in check output]</pre></div></div><script type="text/plain" class="mermaid-src" data-target="dg-009-C2-05">flowchart TD
+ A[spec file stamped 99.0] --> B[specforge check]
+ B --> C[compile pipeline ignores header]
+ C --> D[compiles successfully]
+ D --> E[future syntax hazards hidden]
+ F[specforge migrate] --> G[detect_format_version reads stamp]
+ G --> H[E015 fires only here]
+ C --> I[call detect_format_version in graph build]
+ I --> J[E015 and I007 in check output]</script>
+<div class="eli10"><span class="tag">Explain like I'm 10</span><p>The house has a beautiful doorbell system, but it is not wired to the front door: a file stamped with a future version 2.0 walks straight into the compiler unchallenged, and only the moving crew (migrate) ever reads the stamp. Wire the stamp check into the normal compile so old/new files are detected where users actually work.</p></div>
+<p class="sol" style="margin-top:12px"><b>Proposed solution.</b> Have the compile pipeline call detect_format_version per file and surface E015/I007 alongside parse diagnostics; add a changelog-per-version table (Fowler&#x27;s migration guidance) so v1.1 has a defined path before the first breaking change lands.</p>
+</article>
+</main><script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.1/dist/mermaid.min.js" onerror="window.__mermaidFailed=true"></script><script src="../js/agent.js"></script></body></html>

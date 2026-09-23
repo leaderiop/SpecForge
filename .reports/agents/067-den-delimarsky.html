@@ -1,0 +1,72 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>067 Den Delimarsky — SpecForge audit review</title>
+<link rel="stylesheet" href="../css/report.css"><link rel="stylesheet" href="../css/agents.css"></head><body>
+<header class="agent-hero"><div class="brand"><div class="logo">067</div><div>
+<h1>Den Delimarsky</h1>
+<div class="crumbs">Cluster C9 — MCP &amp; AI-agent context engineering · GitHub Spec Kit creator; spec-driven development advocate · profile <code>.agents/067-den-delimarsky.md</code></div></div></div>
+<div class="links"><a href="../index.html">← Full report</a><a href="../../.agents/067-den-delimarsky.md">Profile source</a></div></header>
+<main class="agent-main">
+<nav class="agent-nav"><a href="066.html">← 066</a><a href="068.html">068 →</a></nav>
+<div class="review-panel"><div class="review-text"><h2>Auditor review</h2><p>Your own PRD says export takes a token limit; your export tool and CLI take no such parameter, and no gate in CI would have told you. For a company selling spec-driven development, the spec/build gap living inside your own repo is the finding an auditor writes up first. Ship max_tokens end to end, then make specforge.trace/validate against spec/behaviors a CI test that walks contracts naming flags and params - dogfood the conformance loop you are selling, because right now the method is not applied to the product.</p></div>
+<div class="mini-kpis">
+<div class="mini-kpi"><div class="k">Findings</div><div class="v">1</div></div>
+<div class="mini-kpi bad"><div class="k">Critical + high</div><div class="v">1</div></div>
+<div class="mini-kpi"><div class="k">Evidence items</div><div class="v">0</div></div>
+<div class="mini-kpi"><div class="k">Effort mix</div><div class="v" style="font-size:14px">M</div></div>
+</div></div>
+<article class="finding-detail sev-high" id="f-C9-02">
+<div class="head"><h2>SpecForge fails its own written spec: export max_tokens contract unimplemented and undetected</h2><span class="chip high">high</span><span class="fid">C9-02</span></div>
+<div class="meta-row"><span class="engineer">067 Den Delimarsky</span><span class="chip neutral">effort M</span><span class="chip neutral">moves: token_budget reachable from surfaces</span></div>
+<p class="details">PRD-007&#x27;s token-budget contract says export must accept a size limit, but the specforge.export MCP descriptor exposes only format and scope - no max_tokens - and tools/export.rs builds EmitOptions via ..EmitOptions::default(), leaving token_budget None even though EmitOptions and budget.rs fully implement truncation. The CLI export.rs run() likewise hardcodes token_budget: None and takes no --max-tokens flag. So the project&#x27;s own spec is violated by its own binary, and nothing detects it: there is no CI gate that walks behavior contracts naming tool params/CLI flags and asserts they exist. This is the SDD dogfooding failure an auditor of an SDD vendor should flag first.</p>
+<div class="snippet before"><span class="cap">before — current code</span><pre><code>McpToolDescriptor {
+    name: &quot;specforge.export&quot;.into(),
+    description: &quot;Export the graph in various formats&quot;.into(),
+    input_schema: json!({
+        &quot;type&quot;: &quot;object&quot;,
+        &quot;properties&quot;: {
+            &quot;format&quot;: { &quot;type&quot;: &quot;string&quot;, &quot;enum&quot;: [&quot;graph&quot;, &quot;context&quot;, &quot;brief&quot;], &quot;default&quot;: &quot;graph&quot; },
+            &quot;scope&quot;: { &quot;type&quot;: &quot;string&quot;, &quot;description&quot;: &quot;Scope to entity subgraph&quot; }
+        }
+    }),
+    category: Some(&quot;core&quot;.into()),
+},</code></pre><div class="file">crates/specforge-mcp/src/registry.rs:122-133</div></div>
+<div class="arrow-between">↓ fix ↓</div>
+<div class="snippet after"><span class="cap">after — proposed fix</span><pre><code>McpToolDescriptor {
+    name: &quot;specforge.export&quot;.into(),
+    description: &quot;Export the graph in various formats&quot;.into(),
+    input_schema: json!({
+        &quot;type&quot;: &quot;object&quot;,
+        &quot;properties&quot;: {
+            &quot;format&quot;: { &quot;type&quot;: &quot;string&quot;, &quot;enum&quot;: [&quot;graph&quot;, &quot;context&quot;, &quot;brief&quot;], &quot;default&quot;: &quot;graph&quot; },
+            &quot;scope&quot;: { &quot;type&quot;: &quot;string&quot;, &quot;description&quot;: &quot;Scope to entity subgraph&quot; },
+            &quot;max_tokens&quot;: { &quot;type&quot;: &quot;integer&quot;, &quot;minimum&quot;: 1,
+                &quot;description&quot;: &quot;Token budget; output is truncated by degree-centrality priority when exceeded&quot; }
+        }
+    }),
+    category: Some(&quot;core&quot;.into()),
+}
+
+// tools/export.rs - honor it:
+let max_tokens = args.get(&quot;max_tokens&quot;).and_then(|v| v.as_u64()).map(|v| v as usize);
+let options = EmitOptions { format: fmt, scope, token_budget: max_tokens, ..EmitOptions::default() };
+// CLI mirrors it as specforge export --max-tokens N; a CI test walks behavior
+// contracts naming flags/params and asserts each exists in registry + clap defs.</code></pre><div class="file">crates/specforge-mcp/src/registry.rs</div></div>
+<div class="diagram-box"><span class="cap">Self-spec conformance gate</span><div class="mermaid" id="dg-067-C9-02"><pre>flowchart TD
+ A[PRD-007 contract names max_tokens] --&gt; B[Tool schema omits max_tokens]
+ B --&gt; C[EmitOptions token_budget None]
+ C --&gt; D[Unbounded export output]
+ E[No contract conformance gate in CI] --&gt; F[Drift undetected]
+ F --&gt; A
+ A --&gt; G[Add param to schema and CLI flag]
+ G --&gt; H[CI test walks contracts vs registry and clap]</pre></div></div><script type="text/plain" class="mermaid-src" data-target="dg-067-C9-02">flowchart TD
+ A[PRD-007 contract names max_tokens] --> B[Tool schema omits max_tokens]
+ B --> C[EmitOptions token_budget None]
+ C --> D[Unbounded export output]
+ E[No contract conformance gate in CI] --> F[Drift undetected]
+ F --> A
+ A --> G[Add param to schema and CLI flag]
+ G --> H[CI test walks contracts vs registry and clap]</script>
+<div class="eli10"><span class="tag">Explain like I'm 10</span><p>The company wrote its own rulebook saying &#x27;our export button must have a size dial&#x27; — and the button has no dial. The whole pitch of spec-driven development is that the spec catches drift between what you wrote and what you built; here the project&#x27;s own spec is being violated and no alarm rings. For an SDD competitor&#x27;s auditor, that&#x27;s the finding: the method wasn&#x27;t applied to the product.</p></div>
+<p class="sol" style="margin-top:12px"><b>Proposed solution.</b> Add max_tokens to the MCP export schema + args and a --max-tokens CLI flag, then run the PRD-007 loop on the project itself: specforge.trace/validate against spec/behaviors should be a CI gate (e.g., a test that walks behavior contracts naming CLI flags/tool params and asserts they exist).</p>
+</article>
+</main><script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.1/dist/mermaid.min.js" onerror="window.__mermaidFailed=true"></script><script src="../js/agent.js"></script></body></html>

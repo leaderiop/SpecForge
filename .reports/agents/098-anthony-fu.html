@@ -1,0 +1,113 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>098 Anthony Fu — SpecForge audit review</title>
+<link rel="stylesheet" href="../css/report.css"><link rel="stylesheet" href="../css/agents.css"></head><body>
+<header class="agent-hero"><div class="brand"><div class="logo">098</div><div>
+<h1>Anthony Fu</h1>
+<div class="crumbs">Cluster C11 — Testing &amp; BDD (test tracing &amp; report protocol) · Vitest creator; Vite/Vue/Nuxt core team · profile <code>.agents/098-anthony-fu.md</code></div></div></div>
+<div class="links"><a href="../index.html">← Full report</a><a href="../../.agents/098-anthony-fu.md">Profile source</a></div></header>
+<main class="agent-main">
+<nav class="agent-nav"><a href="097.html">← 097</a><a href="099.html">099 →</a></nav>
+<div class="review-panel"><div class="review-text"><h2>Auditor review</h2><p>Anthony Fu: the DX story is strong - one attribute, zero config, pipeline tested through observable records - but the developer journey in the vision doc hits a wall the moment they run it: collect prints ready and does nothing, and specforge coverage --min does not exist, so the Day-30 CI gate from the README cannot fail regardless of coverage. Ship the two missing commands reusing what is already built (compute_coverage_diff is done and correct modulo matching); that is the smallest change that makes the five-minute story true.</p></div>
+<div class="mini-kpis">
+<div class="mini-kpi"><div class="k">Findings</div><div class="v">2</div></div>
+<div class="mini-kpi bad"><div class="k">Critical + high</div><div class="v">1</div></div>
+<div class="mini-kpi"><div class="k">Evidence items</div><div class="v">4</div></div>
+<div class="mini-kpi"><div class="k">Effort mix</div><div class="v" style="font-size:14px">M</div></div>
+</div></div>
+<article class="finding-detail sev-high" id="f-C11-01">
+<div class="head"><h2>coverage gate: specforge coverage --min does not exist; coverage is a stderr print at test exit. Evidence: main.rs Commands lacks Coverage; coverage.rs:107-140 has no threshold/exit code.</h2><span class="chip high">high</span><span class="fid">C11-01</span></div>
+<div class="meta-row"><span class="engineer">098 Anthony Fu</span><span class="chip neutral">effort M</span></div>
+<div class="evidence"><b>Evidence</b><span class="ev"><code>main.rs</code></span><span class="ev"><code>coverage.rs:107-140</code></span></div>
+<p class="details">The four-level coverage contract (spec/behaviors.spec:268-273) and the RES-17 CI gate (specforge coverage --min 80) presume a coverage command; the Commands enum in main.rs has no Coverage variant, so the gate cannot be expressed. What exists is coverage::format_coverage_summary, invoked only from the atexit handler (atexit.rs:33-37): it prints a stderr total and returns Ok - no threshold, no exit code, and libtest owns the exit code anyway. Coverage is purely cosmetic today; a CI pipeline per the vision docs passes unconditionally.</p>
+<div class="snippet before"><span class="cap">before — current code</span><pre><code>    let total_expected: usize = diffs.iter().map(|d| d.expected).sum();
+    let total_covered: usize = diffs.iter().map(|d| d.covered).sum();
+    writeln!(w, &quot;\n  Total: {total_covered}/{total_expected} verify statements covered&quot;)?;
+
+    Ok(())
+}
+
+pub fn load_graph(path: &amp;Path) -&gt; Option&lt;GraphExport&gt; {</code></pre><div class="file">integrations/rust/specforge-test/src/coverage.rs:134-140</div></div>
+<div class="arrow-between">↓ fix ↓</div>
+<div class="snippet after"><span class="cap">after — proposed fix</span><pre><code>pub struct CoverageArgs {
+    /// Minimum fraction of verify statements that must be covered (0.0-1.0)
+    #[arg(long)]
+    min: f64,
+
+    /// Path to the specforge report directory
+    #[arg(long, default_value = &quot;target/specforge&quot;)]
+    dir: PathBuf,
+}
+
+pub fn run(args: &amp;CoverageArgs) -&gt; i32 {
+    let Some(graph) = coverage::load_graph(&amp;args.dir.join(&quot;graph.json&quot;)) else {
+        eprintln!(&quot;error: graph.json not found; run cargo build first&quot;);
+        return 2;
+    };
+    let entries = load_entries(&amp;args.dir);
+    let diffs = coverage::compute_coverage_diff(&amp;graph, &amp;entries);
+    coverage::format_coverage_summary(&amp;mut std::io::stderr(), &amp;diffs, &amp;graph.timestamp).ok();
+
+    let covered: usize = diffs.iter().map(|d| d.covered).sum();
+    let expected: usize = diffs.iter().map(|d| d.expected).sum();
+    let ratio = covered as f64 / expected.max(1) as f64;
+
+    if ratio &lt; args.min {
+        eprintln!(&quot;coverage gate failed: {ratio:.2} &lt; {:.2}&quot;, args.min);
+        1
+    } else {
+        0
+    }
+}</code></pre><div class="file">crates/specforge-cli/src/coverage.rs</div></div>
+<div class="diagram-box"><span class="cap">coverage has no gate</span><div class="mermaid" id="dg-098-C11-01"><pre>flowchart TD
+ A[test binary exits] --&gt; B[atexit handler]
+ B --&gt; C[compute coverage diff]
+ C --&gt; D[print summary to stderr]
+ D --&gt; E[no threshold check]
+ E --&gt; F[CI always passes]
+ F --&gt; G[fix add coverage CLI command]
+ G --&gt; H[compare ratio to min]
+ H --&gt; I{below threshold}
+ I --&gt;|yes| J[exit 1]
+ I --&gt;|no| K[exit 0]</pre></div></div><script type="text/plain" class="mermaid-src" data-target="dg-098-C11-01">flowchart TD
+ A[test binary exits] --> B[atexit handler]
+ B --> C[compute coverage diff]
+ C --> D[print summary to stderr]
+ D --> E[no threshold check]
+ E --> F[CI always passes]
+ F --> G[fix add coverage CLI command]
+ G --> H[compare ratio to min]
+ H --> I{below threshold}
+ I -->|yes| J[exit 1]
+ I -->|no| K[exit 0]</script>
+<div class="eli10"><span class="tag">Explain like I'm 10</span><p>a minimum-speed sign painted with no camera; the build always passes.</p></div>
+<p class="sol" style="margin-top:12px"><b>Proposed solution.</b> CLI coverage command reusing compute_coverage_diff with --min, non-zero exit below threshold (four-level model per extensions/coverage/behaviors.spec).</p>
+</article>
+<article class="finding-detail sev-info" id="f-C11-12">
+<div class="head"><h2>praise: parser snapshot suite pins the public AST JSON contract (snapshot_tests.rs:8-117) incl. error recovery; parse_test.rs asserts parsed fields - behavior, not grammar text.</h2><span class="chip info">info</span><span class="fid">C11-12</span></div>
+<div class="meta-row"><span class="engineer">098 Anthony Fu</span></div>
+<div class="evidence"><b>Evidence</b><span class="ev"><code>snapshot_tests.rs:8-117</code></span><span class="ev"><code>parse_test.rs</code></span></div>
+<p class="details">snapshot_tests.rs pins the parser&#x27;s public AST JSON via insta snapshots across field value types, verify statements, and critically error recovery: snap_multi_error_recovery asserts a broken entity between valid ones yields both recovered entities and exact diagnostics; parse_test.rs asserts parsed field values (behavior, not grammar text). Since AST JSON is the contract downstream consumers depend on, snapshotting the serialized shape is the right fidelity: any contract change surfaces as a reviewable diff.</p>
+<div class="snippet exemplar"><span class="cap">exemplar — the good pattern</span><pre><code>#[test]
+fn snap_multi_error_recovery() {
+    let source = r#&quot;
+behavior good_before &quot;Before&quot; {
+    status planned
+}
+
+behavior ??? {
+    this is broken
+}
+
+behavior good_after &quot;After&quot; {
+    status done
+}
+&quot;#;
+    let result = parse(source, &quot;test.spec&quot;);
+    insta::assert_json_snapshot!(&quot;multi_error_entities&quot;, result.entities);
+    insta::assert_json_snapshot!(&quot;multi_error_diagnostics&quot;, result.errors);
+}</code></pre><div class="file">crates/specforge-parser/tests/snapshot_tests.rs:48-64</div></div>
+<div class="keep"><span class="tag">Keep doing this</span><p>Keep snapshotting the serialized AST JSON (including error recovery) as the public contract gate; any grammar change must consciously update snapshots rather than leaking internal shape changes downstream.</p></div>
+<div class="eli10"><span class="tag">Explain like I'm 10</span><p>photos of the finished LEGO model, not the hands assembling it.</p></div>
+<p class="sol" style="margin-top:12px"><b>Proposed solution.</b> none needed.</p>
+</article>
+</main><script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.1/dist/mermaid.min.js" onerror="window.__mermaidFailed=true"></script><script src="../js/agent.js"></script></body></html>

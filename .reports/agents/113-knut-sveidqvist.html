@@ -1,0 +1,73 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>113 Knut Sveidqvist — SpecForge audit review</title>
+<link rel="stylesheet" href="../css/report.css"><link rel="stylesheet" href="../css/agents.css"></head><body>
+<header class="agent-hero"><div class="brand"><div class="logo">113</div><div>
+<h1>Knut Sveidqvist</h1>
+<div class="crumbs">Cluster C13 — Diagrams &amp; rendering · Mermaid creator; diagrams-as-code in Markdown-native tooling · profile <code>.agents/113-knut-sveidqvist.md</code></div></div></div>
+<div class="links"><a href="../index.html">← Full report</a><a href="../../.agents/113-knut-sveidqvist.md">Profile source</a></div></header>
+<main class="agent-main">
+<nav class="agent-nav"><a href="112.html">← 112</a><a href="114.html">114 →</a></nav>
+<div class="review-panel"><div class="review-text"><h2>Auditor review</h2><p>Knut Sveidqvist: The mermaid erDiagram crow-foot mapping is complete and correct including the N:1 direction people always flip — that renders reliably. The weak spot is unescaped description text inside quoted mermaid attribute strings and raw pipes in the markdown tables; both are one odd character away from a broken diagram. A small shared sanitizer fixes mermaid and markdown together.</p></div>
+<div class="mini-kpis">
+<div class="mini-kpi"><div class="k">Findings</div><div class="v">2</div></div>
+<div class="mini-kpi good"><div class="k">Critical + high</div><div class="v">0</div></div>
+<div class="mini-kpi"><div class="k">Evidence items</div><div class="v">3</div></div>
+<div class="mini-kpi"><div class="k">Effort mix</div><div class="v" style="font-size:14px">S</div></div>
+</div></div>
+<article class="finding-detail sev-info" id="f-C13-06">
+<div class="head"><h2>Mermaid cardinality mapping complete and correct</h2><span class="chip info">info</span><span class="fid">C13-06</span></div>
+<div class="meta-row"><span class="engineer">113 Knut Sveidqvist</span><span class="chip neutral">effort S</span><span class="chip neutral">moves: mermaid notation</span></div>
+<div class="evidence"><b>Evidence</b><span class="ev"><code>crates/specforge-emitter/src/model/mermaid.rs:136-142</code> — all four notations valid incl N:1 crow-foot</span></div>
+<p class="details">cardinality_notation covers all four Cardinality variants with valid mermaid erDiagram crow-foot strings, including the easy-to-flip N:1 direction (}o--||). Every relationship emitted by render_mermaid renders correctly in mermaid live.</p>
+<div class="snippet exemplar"><span class="cap">exemplar — the good pattern</span><pre><code>fn cardinality_notation(c: Cardinality) -&gt; &amp;&#x27;static str {
+    match c {
+        Cardinality::OneToOne =&gt; &quot;||--||&quot;,
+        Cardinality::OneToMany =&gt; &quot;||--o{&quot;,
+        Cardinality::ManyToOne =&gt; &quot;}o--||&quot;,
+        Cardinality::ManyToMany =&gt; &quot;}o--o{&quot;,
+    }
+}</code></pre><div class="file">crates/specforge-emitter/src/model/mermaid.rs:136-142</div></div>
+<div class="keep"><span class="tag">Keep doing this</span><p>Keep the exhaustive match over Cardinality — the compiler enforces coverage if a new variant is added; optionally assert these strings against a mermaid grammar fixture in CI.</p></div>
+<div class="eli10"><span class="tag">Explain like I'm 10</span><p>The crow-feet are drawn exactly as mermaid expects — the difference between a rendered diagram and a syntax error.</p></div>
+<p class="sol" style="margin-top:12px"><b>Proposed solution.</b> None; optionally add a CI grammar check.</p>
+</article>
+<article class="finding-detail sev-medium" id="f-C13-07">
+<div class="head"><h2>Unescaped descriptions break mermaid and markdown output</h2><span class="chip medium">medium</span><span class="fid">C13-07</span></div>
+<div class="meta-row"><span class="engineer">113 Knut Sveidqvist</span><span class="chip neutral">effort S</span><span class="chip neutral">moves: escaping</span></div>
+<div class="evidence"><b>Evidence</b><span class="ev"><code>crates/specforge-emitter/src/model/mermaid.rs:44-70</code> — comment text raw inside quotes; quote or newline invalidates mermaid</span><span class="ev"><code>crates/specforge-emitter/src/model/markdown.rs:73-83</code> — raw description in cell; pipe shifts columns</span></div>
+<p class="details">render_entity in mermaid.rs formats descriptions inside quoted mermaid strings with no escaping — a quote or newline invalidates the erDiagram. render_markdown interpolates descriptions raw into pipe-table cells, so a pipe shifts every subsequent column.</p>
+<div class="snippet before"><span class="cap">before — current code</span><pre><code>            let desc_str = if desc_parts.is_empty() {
+                String::new()
+            } else {
+                format!(&quot; \&quot;{}\&quot;&quot;, desc_parts.join(&quot; | &quot;))
+            };</code></pre><div class="file">crates/specforge-emitter/src/model/mermaid.rs:66-69</div></div>
+<div class="arrow-between">↓ fix ↓</div>
+<div class="snippet after"><span class="cap">after — proposed fix</span><pre><code>pub fn sanitize_mermaid_text(s: &amp;str) -&gt; String {
+    s.replace(&#x27;&quot;&#x27;, &quot;&#x27;&quot;)
+        .replace(&#x27;\n&#x27;, &quot; &quot;)
+        .replace(&#x27;\r&#x27;, &quot;&quot;)
+}
+
+pub fn escape_md_cell(s: &amp;str) -&gt; String {
+    s.replace(&#x27;|&#x27;, &quot;\\|&quot;).replace(&#x27;\n&#x27;, &quot; &quot;)
+}
+
+#[test]
+fn quotes_never_break() {
+    assert_eq!(sanitize_mermaid_text(&quot;say \&quot;hi\&quot;&quot;), &quot;say &#x27;hi&#x27;&quot;);
+}</code></pre><div class="file">crates/specforge-emitter/src/model/sanitize.rs:1-12</div></div>
+<div class="diagram-box"><span class="cap">unsafe description to safe output</span><div class="mermaid" id="dg-113-C13-07"><pre>flowchart TD
+ A[description with quote or pipe] --&gt; B[raw into mermaid comment]
+ B --&gt; C[diagram fails to render]
+ A --&gt; D[sanitize_mermaid_text]
+ D --&gt; E[valid erDiagram]
+ F[escape_md_cell] --&gt; G[table columns intact]</pre></div></div><script type="text/plain" class="mermaid-src" data-target="dg-113-C13-07">flowchart TD
+ A[description with quote or pipe] --> B[raw into mermaid comment]
+ B --> C[diagram fails to render]
+ A --> D[sanitize_mermaid_text]
+ D --> E[valid erDiagram]
+ F[escape_md_cell] --> G[table columns intact]</script>
+<div class="eli10"><span class="tag">Explain like I'm 10</span><p>Descriptions pasted between quotes unprotected: one quote breaks the diagram, one pipe scrambles the table.</p></div>
+<p class="sol" style="margin-top:12px"><b>Proposed solution.</b> Shared sanitize for mermaid comments; escape pipes in markdown cells.</p>
+</article>
+</main><script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.1/dist/mermaid.min.js" onerror="window.__mermaidFailed=true"></script><script src="../js/agent.js"></script></body></html>

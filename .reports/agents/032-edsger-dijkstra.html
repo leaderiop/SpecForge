@@ -1,0 +1,113 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>032 Edsger W. Dijkstra — SpecForge audit review</title>
+<link rel="stylesheet" href="../css/report.css"><link rel="stylesheet" href="../css/agents.css"></head><body>
+<header class="agent-hero"><div class="brand"><div class="logo">032</div><div>
+<h1>Edsger W. Dijkstra</h1>
+<div class="crumbs">Cluster C5 — Graph engine &amp; algorithms · shortest paths, weakest preconditions, &#x27;On the role of scientific thought&#x27; · profile <code>.agents/032-edsger-dijkstra.md</code></div></div></div>
+<div class="links"><a href="../index.html">← Full report</a><a href="../../.agents/032-edsger-dijkstra.md">Profile source</a></div></header>
+<main class="agent-main">
+<nav class="agent-nav"><a href="031.html">← 031</a><a href="033.html">033 →</a></nav>
+<div class="review-panel"><div class="review-text"><h2>Auditor review</h2><p>Edsger W. Dijkstra: The layering instinct is real — a zero-domain graph core with vocabulary injected via GraphConfig is precisely the discipline I demand, and tests guard it. But Graph::invalidation_set is a second recipe for soup the watch crate already cooks, kept alive by an as_pairs shim; and a build script stamping wall-clock time into an otherwise deterministic artifact, with a hand-rolled calendar no less, is needless non-determinism. Delete both.</p></div>
+<div class="mini-kpis">
+<div class="mini-kpi"><div class="k">Findings</div><div class="v">3</div></div>
+<div class="mini-kpi good"><div class="k">Critical + high</div><div class="v">0</div></div>
+<div class="mini-kpi"><div class="k">Evidence items</div><div class="v">0</div></div>
+<div class="mini-kpi"><div class="k">Effort mix</div><div class="v" style="font-size:14px">S</div></div>
+</div></div>
+<article class="finding-detail sev-medium" id="f-C5-03">
+<div class="head"><h2>Graph::invalidation_set is a dead duplicate of ImportDag::invalidation_set</h2><span class="chip medium">medium</span><span class="fid">C5-03</span></div>
+<div class="meta-row"><span class="engineer">032 Edsger W. Dijkstra</span><span class="chip neutral">effort S</span><span class="chip neutral">moves: Duplicated invalidation-set logic 2→1</span></div>
+<p class="details">Graph::invalidation_set (graph.rs:285) duplicates ImportDag::invalidation_set in weaker form and forces the as_pairs() bridge to exist. Delete it and its tests; invalidation belongs to the watch crate.</p>
+<div class="snippet before"><span class="cap">before — current code</span><pre><code>    /// Compute the set of files that need rebuilding when `changed_file` changes.
+    /// `import_dag` maps each file to the files it imports (dependencies).
+    /// Returns the changed file plus all transitive reverse-dependents.
+    pub fn invalidation_set(
+        &amp;self,
+        changed_file: &amp;str,
+        import_dag: &amp;[(String, Vec&lt;String&gt;)],
+    ) -&gt; HashSet&lt;String&gt; {
+        // Build reverse dependency map: file -&gt; files that import it
+        let mut reverse_deps: HashMap&lt;&amp;str, Vec&lt;&amp;str&gt;&gt; = HashMap::new();
+        for (file, deps) in import_dag {
+            for dep in deps {
+                reverse_deps
+                    .entry(dep.as_str())
+                    .or_default()
+                    .push(file.as_str());
+            }
+        }</code></pre><div class="file">crates/specforge-graph/src/graph.rs:281-302</div></div>
+<div class="arrow-between">↓ fix ↓</div>
+<div class="snippet after"><span class="cap">after — proposed fix</span><pre><code>// Graph::invalidation_set and ImportDag::as_pairs are deleted.
+// Invalidation belongs to the watch crate:
+//   let affected = dag.invalidation_set(&amp;[changed_file.to_string()]);
+// Graph keeps only entity/edge/cycle concerns; no file-watch types
+// (String paths, import pair slices) appear in its public API.</code></pre><div class="file">crates/specforge-graph/src/graph.rs</div></div>
+<div class="diagram-box"><span class="cap">Delete duplicate invalidation logic</span><div class="mermaid" id="dg-032-C5-03"><pre>flowchart TD
+ A[Graph invalidation_set] --&gt; B[duplicate of ImportDag]
+ C[ImportDag invalidation_set] --&gt; D[watcher uses this]
+ B --&gt; E[delete Graph copy and as_pairs]
+ E --&gt; D</pre></div></div><script type="text/plain" class="mermaid-src" data-target="dg-032-C5-03">flowchart TD
+ A[Graph invalidation_set] --> B[duplicate of ImportDag]
+ C[ImportDag invalidation_set] --> D[watcher uses this]
+ B --> E[delete Graph copy and as_pairs]
+ E --> D</script>
+<div class="eli10"><span class="tag">Explain like I'm 10</span><p>Two recipes for the same soup, but only one kitchen ever cooks it. The other recipe just sits in a drawer waiting to go stale — delete it and keep one recipe.</p></div>
+<p class="sol" style="margin-top:12px"><b>Proposed solution.</b> Delete Graph::invalidation_set and its tests; invalidation belongs to the watch crate&#x27;s ImportDag (it already has as_pairs() bridging if ever needed).</p>
+</article>
+<article class="finding-detail sev-info" id="f-C5-04">
+<div class="head"><h2>Zero-domain-knowledge core genuinely holds in the graph engine</h2><span class="chip info">info</span><span class="fid">C5-04</span></div>
+<div class="meta-row"><span class="engineer">032 Edsger W. Dijkstra</span><span class="chip neutral">effort S</span><span class="chip neutral">moves: none (guard)</span></div>
+<p class="details">The graph core genuinely carries no domain vocabulary: every keyword, edge type, and bidirectional pair is injected via GraphConfig from extension manifests. This discipline lets one compiler serve all extensions.</p>
+<div class="snippet exemplar"><span class="cap">exemplar — the good pattern</span><pre><code>pub struct GraphConfig {
+    /// Provider schemes that are installed (e.g., &quot;gh&quot;, &quot;jira&quot;).
+    pub known_provider_schemes: HashSet&lt;String&gt;,
+    /// Entity keywords registered by installed extensions (e.g., &quot;behavior&quot;, &quot;feature&quot;).
+    pub installed_keywords: HashSet&lt;String&gt;,
+    /// Mapping of entity keywords to the extension that provides them (full catalog).
+    pub known_extension_keywords: HashMap&lt;String, String&gt;,
+    /// Bidirectional edge pairs from extensions. Each pair (forward_label, reverse_label)
+    /// represents a complementary relationship that should not be flagged as a cycle.
+    pub bidirectional_pairs: Vec&lt;(String, String)&gt;,
+}</code></pre><div class="file">crates/specforge-graph/src/build.rs:13-30</div></div>
+<div class="keep"><span class="tag">Keep doing this</span><p>Preserve the zero-domain core and keep the zero_entity_core tests in specforge-registry/tests as the guardrail against hardcoded vocabulary.</p></div>
+<div class="eli10"><span class="tag">Explain like I'm 10</span><p>The engine is like a blank notebook: it doesn&#x27;t care what language you write in, the vocabulary always comes from outside. That rule is actually kept, which is rare and worth applauding.</p></div>
+<p class="sol" style="margin-top:12px"><b>Proposed solution.</b> Keep as-is; guard it with the existing zero_entity_core tests (already present under specforge-registry/tests).</p>
+</article>
+<article class="finding-detail sev-low" id="f-C5-05">
+<div class="head"><h2>Build-script graph.json embeds wall-clock timestamp, defeating incremental reuse</h2><span class="chip low">low</span><span class="fid">C5-05</span></div>
+<div class="meta-row"><span class="engineer">032 Edsger W. Dijkstra</span><span class="chip neutral">effort S</span><span class="chip neutral">moves: none</span></div>
+<p class="details">build.rs stamps chrono_lite_now() into target/specforge/graph.json, so identical inputs produce different bytes, defeating hash/diff-based incremental reuse the emitter tests elsewhere enforce. Drop the field (or derive from newest spec mtime) and skip the write when unchanged.</p>
+<div class="snippet before"><span class="cap">before — current code</span><pre><code>    let export = GraphExport {
+        entities,
+        timestamp: chrono_lite_now(),
+    };</code></pre><div class="file">crates/specforge-graph/build.rs:76-80</div></div>
+<div class="arrow-between">↓ fix ↓</div>
+<div class="snippet after"><span class="cap">after — proposed fix</span><pre><code>#[derive(Serialize, PartialEq)]
+struct GraphExport {
+    entities: Vec&lt;ExportedEntity&gt;,
+    // timestamp removed: identical spec inputs now produce byte-identical
+    // graph.json so consumers can hash/diff for incremental reuse.
+}
+
+// in main(), after serializing:
+    let out_path = specforge_dir.join(&quot;graph.json&quot;);
+    if std::fs::read(&amp;out_path).is_ok_and(|prev| prev == json.as_bytes()) {
+        return;
+    }
+    if let Err(e) = std::fs::write(&amp;out_path, json) {
+        println!(&quot;cargo::warning=specforge: failed to write graph.json: {e}&quot;);
+    }
+// chrono_lite_now() deleted.</code></pre><div class="file">crates/specforge-graph/build.rs</div></div>
+<div class="diagram-box"><span class="cap">Byte-stable graph.json</span><div class="mermaid" id="dg-032-C5-05"><pre>flowchart TD
+ A[build.rs run] --&gt; B{output equals existing file}
+ B -- yes --&gt; C[skip write]
+ B -- no --&gt; D[write graph.json]
+ E[old wall-clock timestamp] --&gt; F[every run differs]</pre></div></div><script type="text/plain" class="mermaid-src" data-target="dg-032-C5-05">flowchart TD
+ A[build.rs run] --> B{output equals existing file}
+ B -- yes --> C[skip write]
+ B -- no --> D[write graph.json]
+ E[old wall-clock timestamp] --> F[every run differs]</script>
+<div class="eli10"><span class="tag">Explain like I'm 10</span><p>Stamping every printout with the current time means two identical printouts never look identical — and the calendar was hand-drawn to do it. Drop the stamp, use a real date library or none.</p></div>
+<p class="sol" style="margin-top:12px"><b>Proposed solution.</b> Remove the timestamp (or derive it from the newest spec file mtime) so graph.json is byte-stable; delete chrono_lite_now.</p>
+</article>
+</main><script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.1/dist/mermaid.min.js" onerror="window.__mermaidFailed=true"></script><script src="../js/agent.js"></script></body></html>

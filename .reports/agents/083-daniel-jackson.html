@@ -1,0 +1,68 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>083 Daniel Jackson — SpecForge audit review</title>
+<link rel="stylesheet" href="../css/report.css"><link rel="stylesheet" href="../css/agents.css"></head><body>
+<header class="agent-hero"><div class="brand"><div class="logo">083</div><div>
+<h1>Daniel Jackson</h1>
+<div class="crumbs">Cluster C10 — Formal methods · Alloy; &#x27;Software Abstractions&#x27;; &#x27;impossible by construction&#x27; · profile <code>.agents/083-daniel-jackson.md</code></div></div></div>
+<div class="links"><a href="../index.html">← Full report</a><a href="../../.agents/083-daniel-jackson.md">Profile source</a></div></header>
+<main class="agent-main">
+<nav class="agent-nav"><a href="082.html">← 082</a><a href="084.html">084 →</a></nav>
+<div class="review-panel"><div class="review-text"><h2>Auditor review</h2><p>Daniel Jackson would appreciate the small, composable entity model and that W059 checks exactly one thing well. He would flag describe_passes.json&#x27;s blank chapter as a trust bug: an introspection surface that advertises a concept and returns nothing teaches agents to distrust the filled chapters. Populate with planned descriptors or delete the category — either is small, both are honest.</p></div>
+<div class="mini-kpis">
+<div class="mini-kpi"><div class="k">Findings</div><div class="v">1</div></div>
+<div class="mini-kpi good"><div class="k">Critical + high</div><div class="v">0</div></div>
+<div class="mini-kpi"><div class="k">Evidence items</div><div class="v">2</div></div>
+<div class="mini-kpi"><div class="k">Effort mix</div><div class="v" style="font-size:14px">S</div></div>
+</div></div>
+<article class="finding-detail sev-medium" id="f-C10-06">
+<div class="head"><h2>describe_passes.json advertises a passes concept and ships zero</h2><span class="chip medium">medium</span><span class="fid">C10-06</span></div>
+<div class="meta-row"><span class="engineer">083 Daniel Jackson</span><span class="chip neutral">effort S</span><span class="chip neutral">moves: Analyze passes implemented</span></div>
+<div class="evidence"><b>Evidence</b><span class="ev"><code>extensions/formal/src/describe_passes.json</code> — items: [] - empty describe category</span><span class="ev"><code>spec/extensions/formal/manifest.spec:59-95</code> — four passes with dependency ordering and three feature flags specified</span></div>
+<p class="details">describe_passes.json is literally an empty items array under category passes, and formal.rs describe() maps passes to Vec::&lt;CompilerPassDescriptor&gt;::new(), while manifest.spec:59-95 specifies four passes with dependency ordering and three feature flags. Introspecting agents get a silent empty list and cannot distinguish no-passes from passes-planned. Populate with status:planned descriptors or drop the category until a pass exists.</p>
+<div class="snippet before"><span class="cap">before — current code</span><pre><code>{
+  &quot;category&quot;: &quot;passes&quot;,
+  &quot;items&quot;: []
+}</code></pre><div class="file">extensions/formal/src/describe_passes.json:1-3</div></div>
+<div class="arrow-between">↓ fix ↓</div>
+<div class="snippet after"><span class="cap">after — proposed fix</span><pre><code>{
+  &quot;category&quot;: &quot;passes&quot;,
+  &quot;items&quot;: [
+    {
+      &quot;name&quot;: &quot;condition_check&quot;,
+      &quot;status&quot;: &quot;planned&quot;,
+      &quot;depends_on&quot;: [],
+      &quot;description&quot;: &quot;Contradiction lint over requires/ensures condition names&quot;
+    },
+    {
+      &quot;name&quot;: &quot;layering_verify&quot;,
+      &quot;status&quot;: &quot;planned&quot;,
+      &quot;depends_on&quot;: [&quot;condition_check&quot;],
+      &quot;description&quot;: &quot;Ensures set inclusion on RefinementRefinesAbstract edges&quot;
+    },
+    {
+      &quot;name&quot;: &quot;event_graph_analyze&quot;,
+      &quot;status&quot;: &quot;planned&quot;,
+      &quot;depends_on&quot;: [&quot;layering_verify&quot;],
+      &quot;description&quot;: &quot;SCC analysis with mitigation awareness on the event graph&quot;
+    },
+    {
+      &quot;name&quot;: &quot;coverage_tracking&quot;,
+      &quot;status&quot;: &quot;planned&quot;,
+      &quot;depends_on&quot;: [&quot;event_graph_analyze&quot;],
+      &quot;description&quot;: &quot;Specification depth levels prose through proofs&quot;
+    }
+  ]
+}</code></pre><div class="file">extensions/formal/src/describe_passes.json</div></div>
+<div class="diagram-box"><span class="cap">empty passes catalog made honest</span><div class="mermaid" id="dg-083-C10-06"><pre>flowchart TD
+ A[agent calls describe passes] --&gt; B[items empty]
+ B --&gt; C[agent assumes no passes]
+ C --&gt; D[add status planned descriptors]
+ D --&gt; E[agent sees roadmap accurately]</pre></div></div><script type="text/plain" class="mermaid-src" data-target="dg-083-C10-06">flowchart TD
+ A[agent calls describe passes] --> B[items empty]
+ B --> C[agent assumes no passes]
+ C --> D[add status planned descriptors]
+ D --> E[agent sees roadmap accurately]</script>
+<div class="eli10"><span class="tag">Explain like I'm 10</span><p>The catalog has a chapter titled Checks We Run and the chapter is blank. Introspecting agents get an empty promise - honest, but the surrounding text promises four checks, and blank chapters erode trust in the filled ones.</p></div>
+<p class="sol" style="margin-top:12px"><b>Proposed solution.</b> Populate describe_passes with status:planned descriptors or drop the category until a pass exists.</p>
+</article>
+</main><script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.1/dist/mermaid.min.js" onerror="window.__mermaidFailed=true"></script><script src="../js/agent.js"></script></body></html>

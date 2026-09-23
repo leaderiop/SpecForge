@@ -1,0 +1,49 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>026 Mads Hartmann — SpecForge audit review</title>
+<link rel="stylesheet" href="../css/report.css"><link rel="stylesheet" href="../css/agents.css"></head><body>
+<header class="agent-hero"><div class="brand"><div class="logo">026</div><div>
+<h1>Mads Hartmann</h1>
+<div class="crumbs">Cluster C4 — Incremental compilation, LSP &amp; diagnostics · bash-language-server creator; LSP for config-like DSLs · profile <code>.agents/026-mads-hartmann.md</code></div></div></div>
+<div class="links"><a href="../index.html">← Full report</a><a href="../../.agents/026-mads-hartmann.md">Profile source</a></div></header>
+<main class="agent-main">
+<nav class="agent-nav"><a href="025.html">← 025</a><a href="027.html">027 →</a></nav>
+<div class="review-panel"><div class="review-text"><h2>Auditor review</h2><p>He&#x27;d commend the clean capability separation but flag byte-offset positions as the classic non-English breakage — one emoji and every later range is wrong. UTF-16 codec plus a non-ASCII regression test before any user hits it.</p></div>
+<div class="mini-kpis">
+<div class="mini-kpi"><div class="k">Findings</div><div class="v">1</div></div>
+<div class="mini-kpi good"><div class="k">Critical + high</div><div class="v">0</div></div>
+<div class="mini-kpi"><div class="k">Evidence items</div><div class="v">0</div></div>
+<div class="mini-kpi"><div class="k">Effort mix</div><div class="v" style="font-size:14px">S</div></div>
+</div></div>
+<article class="finding-detail sev-low" id="f-C4-10">
+<div class="head"><h2>LSP diagnostics carry a bare code string; no codeDescription.href, data, or tags; no E/W code explanation pages wired to squiggles (contrast rustc error index).</h2><span class="chip low">low</span><span class="fid">C4-10</span></div>
+<div class="meta-row"><span class="engineer">026 Mads Hartmann</span><span class="chip neutral">effort S</span></div>
+<p class="details">Diagnostics expose a bare code string — no codeDescription.href linking to the code catalog, no tags, no data contract — so editor UIs cannot show the explanation that `specforge explain E003` prints. Publishing a static docs page per code and linking it is a small change with large DX payoff.</p>
+<div class="snippet before"><span class="cap">before — current code</span><pre><code>        code: Some(NumberOrString::String(diag.code.clone())),
+        source: Some(&quot;specforge&quot;.into()),
+        message: diag.message.clone(),
+        ..Default::default()
+    }
+}</code></pre><div class="file">crates/specforge-lsp/src/backend.rs:499-504</div></div>
+<div class="arrow-between">↓ fix ↓</div>
+<div class="snippet after"><span class="cap">after — proposed fix</span><pre><code>        code: Some(NumberOrString::String(diag.code.clone())),
+        code_description: Some(CodeDescription {
+            href: Url::parse(&amp;format!(
+                &quot;https://specforge.dev/diagnostics/{}&quot;,
+                diag.code
+            )).unwrap(),
+        }),
+        source: Some(&quot;specforge&quot;.into()),
+        message: diag.message.clone(),
+        ..Default::default()</code></pre><div class="file">crates/specforge-lsp/src/backend.rs</div></div>
+<div class="diagram-box"><span class="cap">Explain codes in the editor</span><div class="mermaid" id="dg-026-C4-10"><pre>flowchart LR
+ A[diagnostic code E003] --&gt; B[bare string today]
+ B --&gt; C[user greps docs manually]
+ A --&gt; D[codeDescription link]
+ D --&gt; E[click opens explanation]</pre></div></div><script type="text/plain" class="mermaid-src" data-target="dg-026-C4-10">flowchart LR
+ A[diagnostic code E003] --> B[bare string today]
+ B --> C[user greps docs manually]
+ A --> D[codeDescription link]
+ D --> E[click opens explanation]</script>
+<div class="eli10"><span class="tag">Explain like I'm 10</span><p>Errors show as mystery numbers with no link to the manual. Attach the manual link and a short explanation so a click explains the code.</p></div>
+</article>
+</main><script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.1/dist/mermaid.min.js" onerror="window.__mermaidFailed=true"></script><script src="../js/agent.js"></script></body></html>

@@ -1,0 +1,102 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>099 David L. Parnas — SpecForge audit review</title>
+<link rel="stylesheet" href="../css/report.css"><link rel="stylesheet" href="../css/agents.css"></head><body>
+<header class="agent-hero"><div class="brand"><div class="logo">099</div><div>
+<h1>David L. Parnas</h1>
+<div class="crumbs">Cluster C12 — Requirements engineering, ubiquitous language &amp; docs-as-code (self-spec corpus) · Information hiding; requirements as mathematical tables · profile <code>.agents/099-david-parnas.md</code></div></div></div>
+<div class="links"><a href="../index.html">← Full report</a><a href="../../.agents/099-david-parnas.md">Profile source</a></div></header>
+<main class="agent-main">
+<nav class="agent-nav"><a href="098.html">← 098</a><a href="100.html">100 →</a></nav>
+<div class="review-panel"><div class="review-text"><h2>Auditor review</h2><p>Parnas would praise the module-hiding discipline of the extension manifest model itself — kind registries hidden behind ManifestV2 — while flagging immediately that the root spec falsifies the module structure by omitting @specforge/formal. He would fix that first, then demand the wasm build assumption be recorded as an interface fact, since secrets that callers must know but the module hides are exactly inverted information hiding. The corpus&#x27;s layered directories suggest he would otherwise find the decomposition genuinely good.</p></div>
+<div class="mini-kpis">
+<div class="mini-kpi"><div class="k">Findings</div><div class="v">2</div></div>
+<div class="mini-kpi bad"><div class="k">Critical + high</div><div class="v">1</div></div>
+<div class="mini-kpi"><div class="k">Evidence items</div><div class="v">5</div></div>
+<div class="mini-kpi"><div class="k">Effort mix</div><div class="v" style="font-size:14px">M · S</div></div>
+</div></div>
+<article class="finding-detail sev-high" id="f-C12-00">
+<div class="head"><h2>Root manifest hides a falsified assumption: declares 3 of 4 extensions while the corpus ships and uses the fourth</h2><span class="chip high">high</span><span class="fid">C12-00</span></div>
+<div class="meta-row"><span class="engineer">099 David L. Parnas</span><span class="chip neutral">effort S</span><span class="chip neutral">moves: root_extension_declaration_coverage</span></div>
+<div class="evidence"><b>Evidence</b><span class="ev"><code>spec/specforge.spec:8-18</code> — extensions list = software, product, governance only; formal absent</span><span class="ev"><code>spec/extensions/formal/decisions.spec:3-139</code> — 4 accepted formal-extension ADRs and full feature/behavior/invariant/manifest specs exist for @specforge/formal</span><span class="ev"><code>spec/glossary.spec:579-607</code> — glossary defines formal terms (t_proof_obligation, t_sync_block, t_progressive_formality, t_rpn)</span></div>
+<p class="details">The root manifest spec/specforge.spec declares only three extensions (@specforge/software, @specforge/product, @specforge/governance), yet the corpus ships and heavily uses a fourth: spec/extensions/formal/ contains 4 accepted ADRs (formal_extension_split etc.), feature/behavior/invariant/manifest specs for @specforge/formal, and the glossary defines its vocabulary (t_proof_obligation, t_sync_block, t_progressive_formality). Any agent compiling the graph trusts the extensions list as the authoritative module set, so @specforge/formal entities are invisible to dependency/coverage reasoning from the root alone. Nothing cross-checks the extensions/ directory against the declared list, so the discrepancy persists silently. For a project whose pitch is a machine-checkable context standard, the root config falsifying the corpus is exactly the class of drift the tool should catch.</p>
+<div class="snippet before"><span class="cap">before — current code</span><pre><code>  extensions [
+    &quot;@specforge/software&quot;,
+    &quot;@specforge/product&quot;,
+    &quot;@specforge/governance&quot;,
+  ]
+
+  providers {
+    gh &quot;specforge&quot; {
+      extension &quot;@specforge/gh&quot;
+      repo    &quot;anthropics/specforge&quot;
+    }
+  }</code></pre><div class="file">spec/specforge.spec:8-19</div></div>
+<div class="arrow-between">↓ fix ↓</div>
+<div class="snippet after"><span class="cap">after — proposed fix</span><pre><code>  extensions [
+    &quot;@specforge/software&quot;,
+    &quot;@specforge/product&quot;,
+    &quot;@specforge/governance&quot;,
+    &quot;@specforge/formal&quot;,
+  ]</code></pre><div class="file">spec/specforge.spec:8-14</div></div>
+<div class="diagram-box"><span class="cap">Declared extensions vs shipped corpus</span><div class="mermaid" id="dg-099-C12-00"><pre>flowchart TD
+ A[spec root extensions list] --&gt; B{lists 3 extensions}
+ B --&gt; C[extensions formal directory exists]
+ C --&gt; D[graph omits formal entities]
+ D --&gt; E[agents trust wrong module set]
+ B --&gt; F[add validator rule]
+ F --&gt; G[warn undeclared manifest specs]
+ G --&gt; H[declare formal in root]
+ H --&gt; I[graph matches corpus]</pre></div></div><script type="text/plain" class="mermaid-src" data-target="dg-099-C12-00">flowchart TD
+ A[spec root extensions list] --> B{lists 3 extensions}
+ B --> C[extensions formal directory exists]
+ C --> D[graph omits formal entities]
+ D --> E[agents trust wrong module set]
+ B --> F[add validator rule]
+ F --> G[warn undeclared manifest specs]
+ G --> H[declare formal in root]
+ H --> I[graph matches corpus]</script>
+<div class="eli10"><span class="tag">Explain like I'm 10</span><p>The cover page of the manual lists three authors, but the book has four chapters and chapter four is signed. Anyone trusting the cover page gets the wrong idea about what the project actually is. The machine-checked config says one thing; the machine-checked content says another — and nothing catches it.</p></div>
+<p class="sol" style="margin-top:12px"><b>Proposed solution.</b> Add @specforge/formal to specforge.spec extensions (or explicitly document why the self-host corpus excludes it, as a decision entity). Better: add a validator rule W-level &#x27;extensions/ directory contains manifest specs for extensions not declared in the spec root&#x27;.</p>
+</article>
+<article class="finding-detail sev-medium" id="f-C12-01">
+<div class="head"><h2>&#x27;Faked rational process&#x27; is real but one-sided: the corpus documents the design, not the deviations (wasi vs unknown-unknown build assumption undocumented in spec)</h2><span class="chip medium">medium</span><span class="fid">C12-01</span></div>
+<div class="meta-row"><span class="engineer">099 David L. Parnas</span><span class="chip neutral">effort M</span><span class="chip neutral">moves: referenced_extension_existence</span></div>
+<div class="evidence"><b>Evidence</b><span class="ev"><code>spec/governance/decisions.spec:171-211</code> — wasm_extism_extension_runtime ADR asserts &#x27;Universal .wasm binaries&#x27; and sandbox guarantees but nowhere records which wasm target the builtins are built for</span><span class="ev"><code>spec/glossary.spec:475-484</code> — t_aot_compilation documents cache behavior as fact</span></div>
+<p class="details">ADR wasm_extism_extension_runtime asserts &#x27;Universal .wasm binaries&#x27; and AOT caching as fact, but records neither the wasm32 build target nor the bootstrap requirement for embedded builtins on a fresh clone. Recording it as a constraint in spec/governance/ carries the operational truth.</p>
+<div class="snippet before"><span class="cap">before — current code</span><pre><code>    Renderers use specforge.emit_file(path, content) instead of raw
+    filesystem access, with the host validating paths and enforcing
+    sandboxing. Providers use specforge.http_get for external
+    service validation. Universal .wasm binaries are distributed via npm,
+    GitHub Releases, or OCI registries. AOT compilation caches .wasm modules
+    for CLI cold start; LSP and MCP keep warm engine instances in-process.</code></pre><div class="file">spec/governance/decisions.spec:198-203</div></div>
+<div class="arrow-between">↓ fix ↓</div>
+<div class="snippet after"><span class="cap">after — proposed fix</span><pre><code>constraint wasm_builtin_bootstrap &quot;Wasm builtin bootstrap requirement&quot; {
+  category reliability
+  priority must
+  date    2026-03-03
+
+  statement &quot;&quot;&quot;
+    Embedded builtin extensions MUST be compiled for wasm32-wasip1 and
+    MUST be bootstrapped (cargo-component toolchain) before CLI AOT
+    caching can succeed on a fresh clone. The compiler MUST emit an
+    E-level diagnostic naming the bootstrap command when a builtin
+    module is absent.
+  &quot;&quot;&quot;
+}</code></pre><div class="file">spec/governance/constraints.spec:1-12</div></div>
+<div class="diagram-box"><span class="cap">Record the build assumption</span><div class="mermaid" id="dg-099-C12-01"><pre>flowchart TD
+ A[ADR claims universal wasm binaries] --&gt; B[fresh clone builds CLI]
+ B --&gt; C{builtins prebuilt}
+ C -- no --&gt; D[AOT cache fails silently]
+ A --&gt; E[add constraint]
+ E --&gt; F[record target and bootstrap step]
+ F --&gt; G[build truth lives in spec]</pre></div></div><script type="text/plain" class="mermaid-src" data-target="dg-099-C12-01">flowchart TD
+ A[ADR claims universal wasm binaries] --> B[fresh clone builds CLI]
+ B --> C{builtins prebuilt}
+ C -- no --> D[AOT cache fails silently]
+ A --> E[add constraint]
+ E --> F[record target and bootstrap step]
+ F --> G[build truth lives in spec]</script>
+<div class="eli10"><span class="tag">Explain like I'm 10</span><p>The manual says &#x27;batteries included&#x27;, but nobody wrote down what kind of batteries or that the battery compartment is empty until you assemble it yourself. A spec should record the assumptions someone must satisfy to build from a fresh clone, not just the happy design.</p></div>
+<p class="sol" style="margin-top:12px"><b>Proposed solution.</b> Record the build assumption (wasm32 target, bootstrap requirement for embedded builtins) as either a constraint or a failure_mode in spec/governance/, so the compiled spec carries the operational truth docs/ and CI forget.</p>
+</article>
+</main><script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.1/dist/mermaid.min.js" onerror="window.__mermaidFailed=true"></script><script src="../js/agent.js"></script></body></html>

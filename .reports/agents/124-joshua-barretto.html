@@ -1,0 +1,94 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>124 Joshua Barretto — SpecForge audit review</title>
+<link rel="stylesheet" href="../css/report.css"><link rel="stylesheet" href="../css/agents.css"></head><body>
+<header class="agent-hero"><div class="brand"><div class="logo">124</div><div>
+<h1>Joshua Barretto</h1>
+<div class="crumbs">Cluster C14 — Direct-dependency maintainers - dependency/surface hygiene · ariadne &amp; chumsky creator; compiler diagnostics rendering · profile <code>.agents/124-joshua-barretto.md</code></div></div></div>
+<div class="links"><a href="../index.html">← Full report</a><a href="../../.agents/124-joshua-barretto.md">Profile source</a></div></header>
+<main class="agent-main">
+<nav class="agent-nav"><a href="123.html">← 123</a><a href="125.html">125 →</a></nav>
+<div class="review-panel"><div class="review-text"><h2>Auditor review</h2><p>Joshua would read render.rs the way an allocator author reads arithmetic: the CRLF handling with exact-range tests would earn genuine respect, and the past-EOF clamp plus missing UTF-8 boundary guard would earn immediate bug reports. He would demand property-style tests feeding multibyte spans. He would praise that the tricky math is at least photographed by four tests.</p></div>
+<div class="mini-kpis">
+<div class="mini-kpi"><div class="k">Findings</div><div class="v">2</div></div>
+<div class="mini-kpi good"><div class="k">Critical + high</div><div class="v">0</div></div>
+<div class="mini-kpi"><div class="k">Evidence items</div><div class="v">2</div></div>
+<div class="mini-kpi"><div class="k">Effort mix</div><div class="v" style="font-size:14px">M · S</div></div>
+</div></div>
+<article class="finding-detail sev-medium" id="f-C14-13">
+<div class="head"><h2>Spanless diagnostics anchor to a nondeterministic HashMap key and can clamp to a range past EOF</h2><span class="chip medium">medium</span><span class="fid">C14-13</span></div>
+<div class="meta-row"><span class="engineer">124 Joshua Barretto</span><span class="chip neutral">effort M</span><span class="chip neutral">moves: Diagnostic determinism</span></div>
+<div class="evidence"><b>Evidence</b><span class="ev"><code>crates/specforge-validator/src/render.rs:25-28,82-86</code> — Without a span the report anchors to sources.keys().next() - HashMap iteration order, so the anchor file and output vary between runs. In line_col_to_byte_range, when start_line exceeds EOF, start = source.len() and end = min(len).max(start+1) yields a range one byte past the buffer, which ariadne source slicing can panic on. Columns are byte offsets with no UTF-8 boundary guard.</span></div>
+<p class="details">In crates/specforge-validator/src/render.rs, a diagnostic without a span anchors to sources.keys().next() - HashMap iteration order - so the anchor file and rendered output differ run to run, breaking snapshot determinism for an AI-agent surface that diffs reports. Worse, line_col_to_byte_range clamps with start.min(len) then end.min(len).max(start + 1): when start_line exceeds EOF, start becomes source.len() and end is forced one byte past the buffer, a range ariadne can panic on when slicing. Columns are byte offsets with no UTF-8 boundary check, so a column landing mid-character also produces an invalid slice. Anchor spanless reports deterministically (sorted keys or a synthetic unknown source) and clamp end to len with start = end.saturating_sub(1).</p>
+<div class="snippet before"><span class="cap">before — current code</span><pre><code>        let (file, offset) = if let Some(span) = &amp;diag.span {
+            let byte_range = line_col_to_byte_range(
+                sources.get(span.file.as_str()).map(|s| s.as_str()).unwrap_or(&quot;&quot;),
+                span.start_line,
+                span.start_col,
+                span.end_line,
+                span.end_col,
+            );
+            (span.file.to_string(), byte_range)
+        } else {
+            let file = sources.keys().next().cloned().unwrap_or_default();
+            (file, 0..1)
+        };</code></pre><div class="file">crates/specforge-validator/src/render.rs:50-56</div></div>
+<div class="arrow-between">↓ fix ↓</div>
+<div class="snippet after"><span class="cap">after — proposed fix</span><pre><code>        let (file, offset) = if let Some(span) = &amp;diag.span {
+            let byte_range = line_col_to_byte_range(
+                sources.get(span.file.as_str()).map(|s| s.as_str()).unwrap_or(&quot;&quot;),
+                span.start_line,
+                span.start_col,
+                span.end_line,
+                span.end_col,
+            );
+            (span.file.to_string(), byte_range)
+        } else {
+            // Deterministic anchor: lexicographically first source, never
+            // dependent on HashMap iteration order.
+            let file = sources.keys().min().cloned().unwrap_or_default();
+            (file, 0..1)
+        };
+
+// line_col_to_byte_range tail:
+//     let start = start.min(source.len());
+//     let end = end.min(source.len());
+//     let end = end.max(start + 1).min(source.len().max(start + 1));
+//     start..end</code></pre><div class="file">crates/specforge-validator/src/render.rs:50-62</div></div>
+<div class="diagram-box"><span class="cap">Deterministic safe spans</span><div class="mermaid" id="dg-124-C14-13"><pre>flowchart TD
+ A[Diagnostic without span] --&gt; B[keys.next HashMap order] --&gt; C[Output varies per run]
+ D[Span past EOF] --&gt; E[end forced to len plus one] --&gt; F[ariadne slice may panic]
+ G[Anchor to min key] --&gt; H[Stable rendering]
+ I[Clamp end to len] --&gt; J[Safe slicing]
+ B --&gt; G
+ E --&gt; I</pre></div></div><script type="text/plain" class="mermaid-src" data-target="dg-124-C14-13">flowchart TD
+ A[Diagnostic without span] --> B[keys.next HashMap order] --> C[Output varies per run]
+ D[Span past EOF] --> E[end forced to len plus one] --> F[ariadne slice may panic]
+ G[Anchor to min key] --> H[Stable rendering]
+ I[Clamp end to len] --> J[Safe slicing]
+ B --> G
+ E --> I</script>
+<div class="eli10"><span class="tag">Explain like I'm 10</span><p>When a complaint has no address, the mailman delivers it to whichever house he happens to see first - a different one every day. And if the address is past the end of the street, he writes a number higher than any real house, which can crash the mail room.</p></div>
+<p class="sol" style="margin-top:12px"><b>Proposed solution.</b> Anchor spanless diagnostics deterministically (sorted keys or a synthetic unknown source); clamp end to source.len() and start to end.saturating_sub(1); add past-EOF and multibyte-span tests.</p>
+</article>
+<article class="finding-detail sev-info" id="f-C14-14">
+<div class="head"><h2>line/col-to-byte mapping handles CRLF and mixed endings correctly, with exact-range tests</h2><span class="chip info">info</span><span class="fid">C14-14</span></div>
+<div class="meta-row"><span class="engineer">124 Joshua Barretto</span><span class="chip neutral">effort S</span><span class="chip neutral">moves: Diagnostic rendering robustness</span></div>
+<div class="evidence"><b>Evidence</b><span class="ev"><code>crates/specforge-validator/src/render.rs:58-114</code> — The walker detects CRLF vs LF per line rather than assuming one ending; four unit tests (unix, CRLF, CRLF-multiline, mixed) assert exact byte ranges and sliced content.</span></div>
+<p class="details">line_col_to_byte_range inspects the actual bytes after each line - b&#x27;r&#x27; followed by b&#x27;n&#x27; consumes two, otherwise one - instead of assuming a single newline convention. Four unit tests assert exact byte ranges and even sliced substrings for unix, CRLF, CRLF-multiline accumulation, and mixed-endings files. This is a genuinely tricky mapping that most renderers get subtly wrong, and it is pinned down with photographic precision.</p>
+<div class="snippet exemplar"><span class="cap">exemplar — the good pattern</span><pre><code>        byte_offset += line.len();
+        // Detect actual line ending: 
+ adds 2, 
+ adds 1
+        if src_bytes.get(byte_offset) == Some(&amp;b&#x27;&#x27;)
+            &amp;&amp; src_bytes.get(byte_offset + 1) == Some(&amp;b&#x27;
+&#x27;)
+        {
+            byte_offset += 2;
+        } else if byte_offset &lt; source.len() {
+            byte_offset += 1;
+        }</code></pre><div class="file">crates/specforge-validator/src/render.rs:105-113</div></div>
+<div class="keep"><span class="tag">Keep doing this</span><p>Preserve the per-line CRLF/LF byte detection and the four exact-range tests; carry them over unchanged when fixing the C14-13 clamping issue in the same function.</p></div>
+<div class="eli10"><span class="tag">Explain like I'm 10</span><p>The ruler knows some notebooks use wide margins (Windows line endings) and some narrow ones, and measures each page by what it actually is - with photos proving it.</p></div>
+<p class="sol" style="margin-top:12px"><b>Proposed solution.</b> None - this tricky part is done right; keep the tests when refactoring per the finding above.</p>
+</article>
+</main><script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.1/dist/mermaid.min.js" onerror="window.__mermaidFailed=true"></script><script src="../js/agent.js"></script></body></html>

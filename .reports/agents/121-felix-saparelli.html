@@ -1,0 +1,128 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>121 Félix Saparelli — SpecForge audit review</title>
+<link rel="stylesheet" href="../css/report.css"><link rel="stylesheet" href="../css/agents.css"></head><body>
+<header class="agent-hero"><div class="brand"><div class="logo">121</div><div>
+<h1>Félix Saparelli</h1>
+<div class="crumbs">Cluster C14 — Direct-dependency maintainers - dependency/surface hygiene · notify maintainer; cross-platform file-watching · profile <code>.agents/121-felix-saparelli.md</code></div></div></div>
+<div class="links"><a href="../index.html">← Full report</a><a href="../../.agents/121-felix-saparelli.md">Profile source</a></div></header>
+<main class="agent-main">
+<nav class="agent-nav"><a href="120.html">← 120</a><a href="122.html">122 →</a></nav>
+<div class="review-panel"><div class="review-text"><h2>Auditor review</h2><p>Felix would spot the dead-but-tested Debouncer immediately and call the second hand-rolled debounce_loop a process failure: the tests pass while protecting nothing. The relative_path absolute fallback he would fix with Option semantics before it silently drops events. He would praise the simple mpsc architecture of the watcher overall.</p></div>
+<div class="mini-kpis">
+<div class="mini-kpi"><div class="k">Findings</div><div class="v">2</div></div>
+<div class="mini-kpi good"><div class="k">Critical + high</div><div class="v">0</div></div>
+<div class="mini-kpi"><div class="k">Evidence items</div><div class="v">2</div></div>
+<div class="mini-kpi"><div class="k">Effort mix</div><div class="v" style="font-size:14px">S</div></div>
+</div></div>
+<article class="finding-detail sev-medium" id="f-C14-08">
+<div class="head"><h2>SpecWatcher relative_path silently falls back to absolute paths, producing mixed path forms in one batch</h2><span class="chip medium">medium</span><span class="fid">C14-08</span></div>
+<div class="meta-row"><span class="engineer">121 Felix Saparelli</span><span class="chip neutral">effort S</span><span class="chip neutral">moves: Watch correctness</span></div>
+<div class="evidence"><b>Evidence</b><span class="ev"><code>crates/specforge-watch/src/watcher.rs:100-108</code> — relative_path falls back to the absolute path string when strip_prefix to root fails - event paths outside root (rename coalescing, atomic-save temp files) yield absolute strings mixed into batches; downstream incremental invalidation keyed on relative paths misses them.</span></div>
+<p class="details">SpecWatcher::relative_path in crates/specforge-watch/src/watcher.rs (lines 100-108) strip_prefixes each event path against the watch root but or_else-falls-back to the raw absolute path string. Events rooted outside root (rename coalescing from another watched dir, editor atomic-save temp files) therefore surface as absolute strings mixed into the same Vec&lt;String&gt; batch. Downstream incremental invalidation keys on root-relative paths, so those entries match nothing and the change is silently never re-validated. Returning Option and dropping (or logging) out-of-root paths keeps every batch uniform.</p>
+<div class="snippet before"><span class="cap">before — current code</span><pre><code>    fn relative_path(path: &amp;Path, root: &amp;Path) -&gt; Option&lt;String&gt; {
+        path.strip_prefix(root)
+            .ok()
+            .map(|p| p.to_string_lossy().to_string())
+            .or_else(|| Some(path.to_string_lossy().to_string()))
+    }</code></pre><div class="file">crates/specforge-watch/src/watcher.rs:100-108</div></div>
+<div class="arrow-between">↓ fix ↓</div>
+<div class="snippet after"><span class="cap">after — proposed fix</span><pre><code>    /// Root-relative path, or None for events outside the watched root
+    /// (atomic-save temp files, cross-directory renames). Dropping them keeps
+    /// batches uniformly relative so incremental invalidation never misses.
+    fn relative_path(path: &amp;Path, root: &amp;Path) -&gt; Option&lt;String&gt; {
+        path.strip_prefix(root)
+            .ok()
+            .map(|p| p.to_string_lossy().into_owned())
+    }
+
+    #[test]
+    fn drops_out_of_root_paths() {
+        assert_eq!(SpecWatcher::relative_path(Path::new(&quot;/tmp/x.spec&quot;), Path::new(&quot;/proj&quot;)), None);
+    }</code></pre><div class="file">crates/specforge-watch/src/watcher.rs:100-107</div></div>
+<div class="diagram-box"><span class="cap">Out of root event handling</span><div class="mermaid" id="dg-121-C14-08"><pre>flowchart TD
+ A[notify event path] --&gt; B{strip_prefix root succeeds}
+ B -- yes --&gt; C[Emit root relative path]
+ B -- no --&gt; D[Before: emit absolute string mixed in batch] --&gt; E[Invalidation misses it]
+ D --&gt; F[After: drop or log event]
+ C --&gt; G[Uniform batch reliable revalidation]</pre></div></div><script type="text/plain" class="mermaid-src" data-target="dg-121-C14-08">flowchart TD
+ A[notify event path] --> B{strip_prefix root succeeds}
+ B -- yes --> C[Emit root relative path]
+ B -- no --> D[Before: emit absolute string mixed in batch] --> E[Invalidation misses it]
+ D --> F[After: drop or log event]
+ C --> G[Uniform batch reliable revalidation]</script>
+<div class="eli10"><span class="tag">Explain like I'm 10</span><p>Your to-do list normally says kitchen fix tap, but sometimes it says 17 Maple Road kitchen fix tap. The fixer looks for kitchen entries and skips the full-address ones, so some leaks never get fixed.</p></div>
+<p class="sol" style="margin-top:12px"><b>Proposed solution.</b> Return Option and drop or log events that cannot be strip_prefixed to root; remove the fallback. Add a test feeding an out-of-root path.</p>
+</article>
+<article class="finding-detail sev-medium" id="f-C14-09">
+<div class="head"><h2>Two parallel debounce implementations - the tested Debouncer is dead in production</h2><span class="chip medium">medium</span><span class="fid">C14-09</span></div>
+<div class="meta-row"><span class="engineer">121 Felix Saparelli</span><span class="chip neutral">effort S</span><span class="chip neutral">moves: Debounce duplication (2 to 1)</span></div>
+<div class="evidence"><b>Evidence</b><span class="ev"><code>crates/specforge-watch/src/debounce.rs:5-32</code> — Debouncer::coalesce is exercised by tests/contracts.rs:92-111 and tests/debounce.rs, but the live path is SpecWatcher::debounce_loop (watcher.rs:48-90), a second hand-rolled copy using Vec sort+dedup and its own hardcoded 50ms window. Zero prod references to Debouncer.</span></div>
+<p class="details">crates/specforge-watch has two debounce implementations: Debouncer::coalesce in debounce.rs (BTreeSet-based, configurable window, covered by tests/contracts.rs and tests/debounce.rs) and the live SpecWatcher::debounce_loop in watcher.rs (hand-rolled Vec sort+dedup, hardcoded 50ms window, duplicated recv_timeout drain). Zero production references to Debouncer exist, so the tested code is dead and any bug fix or window tuning in Debouncer changes nothing at runtime. Making SpecWatcher map notify events to paths and then delegate to Debouncer, with the window as a constructor argument, collapses the duplication.</p>
+<div class="snippet before"><span class="cap">before — current code</span><pre><code>    fn debounce_loop(
+        rx: mpsc::Receiver&lt;notify::Result&lt;Event&gt;&gt;,
+        sender: mpsc::Sender&lt;Vec&lt;String&gt;&gt;,
+        root: &amp;Path,
+    ) {
+        let debounce_window = Duration::from_millis(50);
+
+        loop {
+            // Wait for first event
+            let first = match rx.recv() {
+                Ok(Ok(event)) =&gt; event,
+                Ok(Err(_)) =&gt; continue,
+                Err(_) =&gt; return, // channel closed
+            };
+
+            let mut changed = Self::extract_spec_paths(&amp;first, root);
+
+            // Drain additional events within the debounce window
+            loop {
+                match rx.recv_timeout(debounce_window) {
+                    Ok(Ok(event)) =&gt; {
+                        changed.extend(Self::extract_spec_paths(&amp;event, root));
+                    }
+                    Ok(Err(_)) =&gt; continue,
+                    Err(mpsc::RecvTimeoutError::Timeout) =&gt; break,
+                    Err(mpsc::RecvTimeoutError::Disconnected) =&gt; return,
+                }
+            }</code></pre><div class="file">crates/specforge-watch/src/watcher.rs:40-72</div></div>
+<div class="arrow-between">↓ fix ↓</div>
+<div class="snippet after"><span class="cap">after — proposed fix</span><pre><code>    fn debounce_loop(
+        rx: mpsc::Receiver&lt;notify::Result&lt;Event&gt;&gt;,
+        sender: mpsc::Sender&lt;Vec&lt;String&gt;&gt;,
+        root: &amp;Path,
+        window: Duration,
+    ) {
+        // A single channel of root-relative paths feeds the one tested Debouncer.
+        let (path_tx, path_rx) = mpsc::channel::&lt;String&gt;();
+        std::thread::spawn(move || {
+            for res in rx {
+                if let Ok(event) = res {
+                    for p in Self::extract_spec_paths(&amp;event, root) {
+                        let _ = path_tx.send(p);
+                    }
+                }
+            }
+        });
+
+        let debouncer = Debouncer::new(window);
+        while let Some(mut batch) = debouncer.coalesce(&amp;path_rx) {
+            if sender.send(std::mem::take(&amp;mut batch)).is_err() {
+                return; // receiver dropped
+            }
+        }</code></pre><div class="file">crates/specforge-watch/src/watcher.rs:40-60</div></div>
+<div class="diagram-box"><span class="cap">Unify debounce implementations</span><div class="mermaid" id="dg-121-C14-09"><pre>flowchart TD
+ A[notify events] --&gt; B[Map to root relative paths]
+ B --&gt; C[Debouncer coalesce tested]
+ C --&gt; D[Send batch to consumer]
+ E[Before: debounce_loop second copy hardcoded 50ms] --&gt; F[Debouncer dead in production]
+ B --&gt; C</pre></div></div><script type="text/plain" class="mermaid-src" data-target="dg-121-C14-09">flowchart TD
+ A[notify events] --> B[Map to root relative paths]
+ B --> C[Debouncer coalesce tested]
+ C --> D[Send batch to consumer]
+ E[Before: debounce_loop second copy hardcoded 50ms] --> F[Debouncer dead in production]
+ B --> C</script>
+<div class="eli10"><span class="tag">Explain like I'm 10</span><p>There are two identical alarm clocks; the one covered in testing stickers is unplugged, and the real bedside clock was built from memory. Fix a bug in the tested one and nothing changes, because a different clock does the job.</p></div>
+<p class="sol" style="margin-top:12px"><b>Proposed solution.</b> Make SpecWatcher use Debouncer (map notify events to paths then coalesce), delete debounce_loop, make the window a constructor arg instead of two hardcoded 50ms constants.</p>
+</article>
+</main><script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.1/dist/mermaid.min.js" onerror="window.__mermaidFailed=true"></script><script src="../js/agent.js"></script></body></html>

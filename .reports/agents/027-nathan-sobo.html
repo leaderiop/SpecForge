@@ -1,0 +1,54 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>027 Nathan Sobo — SpecForge audit review</title>
+<link rel="stylesheet" href="../css/report.css"><link rel="stylesheet" href="../css/agents.css"></head><body>
+<header class="agent-hero"><div class="brand"><div class="logo">027</div><div>
+<h1>Nathan Sobo</h1>
+<div class="crumbs">Cluster C4 — Incremental compilation, LSP &amp; diagnostics · Atom creator; Zed co-founder; Wasm extension runtimes in editors · profile <code>.agents/027-nathan-sobo.md</code></div></div></div>
+<div class="links"><a href="../index.html">← Full report</a><a href="../../.agents/027-nathan-sobo.md">Profile source</a></div></header>
+<main class="agent-main">
+<nav class="agent-nav"><a href="026.html">← 026</a><a href="028.html">028 →</a></nav>
+<div class="review-panel"><div class="review-text"><h2>Auditor review</h2><p>He&#x27;d appreciate middleware-based hover enrichment keeping the server transport-clean, then fix the shared-mutable-graph-with-no-snapshot design — collaboration assumes immutable snapshots. And serve the icon map, do not hardcode it.</p></div>
+<div class="mini-kpis">
+<div class="mini-kpi"><div class="k">Findings</div><div class="v">1</div></div>
+<div class="mini-kpi good"><div class="k">Critical + high</div><div class="v">0</div></div>
+<div class="mini-kpi"><div class="k">Evidence items</div><div class="v">1</div></div>
+<div class="mini-kpi"><div class="k">Effort mix</div><div class="v" style="font-size:14px">S</div></div>
+</div></div>
+<article class="finding-detail sev-low" id="f-C4-11">
+<div class="head"><h2>lsp-client.ts hardcodes a 23-kind icon map while the server already exposes kind_registry lsp_icon per kind (used by symbol_kind_from_entity) — extension-defined kinds get no hover icon.</h2><span class="chip low">low</span><span class="fid">C4-11</span></div>
+<div class="meta-row"><span class="engineer">027 Nathan Sobo</span><span class="chip neutral">effort S</span></div>
+<div class="evidence"><b>Evidence</b><span class="ev"><code>lsp-client.ts</code></span></div>
+<p class="details">lsp-client.ts carries a hand-maintained kindIcons table; the server already exposes the kind registry (kind_registry lsp information), so any new extension kind shows a generic icon until the TS map is edited. Deriving icons from the registry (or a kind-&gt;icon contribution from extensions) removes the drift class.</p>
+<div class="snippet before"><span class="cap">before — current code</span><pre><code>  failure_mode: &quot;$(warning)&quot;,
+  persona: &quot;$(person)&quot;,
+  channel: &quot;$(broadcast)&quot;,
+  release: &quot;$(tag)&quot;,
+  property: &quot;$(beaker)&quot;,
+  axiom: &quot;$(verified)&quot;,
+  protocol: &quot;$(git-merge)&quot;,
+  refinement: &quot;$(layers)&quot;,
+  process: &quot;$(server-process)&quot;,
+};</code></pre><div class="file">integrations/vscode/src/lsp-client.ts:28-36</div></div>
+<div class="arrow-between">↓ fix ↓</div>
+<div class="snippet after"><span class="cap">after — proposed fix</span><pre><code>  // Ask the server for kind metadata instead of hardcoding:
+  const kinds: Array&lt;{ name: string; icon?: string }&gt; =
+    (await client.sendRequest(&quot;specforge/kindRegistry&quot;) as any).kinds;
+
+  const kindIcons = Object.fromEntries(
+    kinds.map(k =&gt; [k.name, k.icon ?? defaultIconFor(k.name)])
+  );
+  // Extensions may contribute icons via describe_entities.json,
+  // so third-party kinds get real icons with zero client edits.</code></pre><div class="file">integrations/vscode/src/lsp-client.ts</div></div>
+<div class="diagram-box"><span class="cap">Icons from the registry</span><div class="mermaid" id="dg-027-C4-11"><pre>flowchart LR
+ A[server kind registry] --&gt; B[client requests kinds]
+ B --&gt; C[icon per kind]
+ D[hardcoded map today] --&gt; E[drift on new kinds]
+ C --&gt; F[new extension kinds styled for free]</pre></div></div><script type="text/plain" class="mermaid-src" data-target="dg-027-C4-11">flowchart LR
+ A[server kind registry] --> B[client requests kinds]
+ B --> C[icon per kind]
+ D[hardcoded map today] --> E[drift on new kinds]
+ C --> F[new extension kinds styled for free]</script>
+<div class="eli10"><span class="tag">Explain like I'm 10</span><p>The editor draws its own chart of 23 stickers instead of asking the server, which already knows the right sticker for each kind. Ask the server — one chart, and they can never disagree.</p></div>
+<p class="sol" style="margin-top:12px"><b>Proposed solution.</b> expose icon map server-side.</p>
+</article>
+</main><script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.1/dist/mermaid.min.js" onerror="window.__mermaidFailed=true"></script><script src="../js/agent.js"></script></body></html>

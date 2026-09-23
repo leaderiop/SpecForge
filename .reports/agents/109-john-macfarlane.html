@@ -1,0 +1,100 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>109 John MacFarlane — SpecForge audit review</title>
+<link rel="stylesheet" href="../css/report.css"><link rel="stylesheet" href="../css/agents.css"></head><body>
+<header class="agent-hero"><div class="brand"><div class="logo">109</div><div>
+<h1>John MacFarlane</h1>
+<div class="crumbs">Cluster C12 — Requirements engineering, ubiquitous language &amp; docs-as-code (self-spec corpus) · CommonMark lead; pandoc — markup semantics and boundaries between prose and structure · profile <code>.agents/109-john-macfarlane.md</code></div></div></div>
+<div class="links"><a href="../index.html">← Full report</a><a href="../../.agents/109-john-macfarlane.md">Profile source</a></div></header>
+<main class="agent-main">
+<nav class="agent-nav"><a href="108.html">← 108</a><a href="110.html">110 →</a></nav>
+<div class="review-panel"><div class="review-text"><h2>Auditor review</h2><p>MacFarlane, the language lawyer, would first note the good news: the prose/DSL boundary is drawn consciously, with an ADR accepting free-form acceptance criteria. Then the two syntax complaints: bare verify contradicting the glossary&#x27;s own t_verify_statement definition, and acceptance promises that are machine-checkable but stored as strings. One parse per construct, he would say, is the entire value of a formal language — fix the bare form and tag the checkable subset.</p></div>
+<div class="mini-kpis">
+<div class="mini-kpi"><div class="k">Findings</div><div class="v">2</div></div>
+<div class="mini-kpi good"><div class="k">Critical + high</div><div class="v">0</div></div>
+<div class="mini-kpi"><div class="k">Evidence items</div><div class="v">5</div></div>
+<div class="mini-kpi"><div class="k">Effort mix</div><div class="v" style="font-size:14px">M · S</div></div>
+</div></div>
+<article class="finding-detail sev-medium" id="f-C12-15">
+<div class="head"><h2>One construct, two parses: bare `verify &quot;...&quot;` vs `verify &lt;kind&gt; &quot;...&quot;` coexist in the corpus</h2><span class="chip medium">medium</span><span class="fid">C12-15</span></div>
+<div class="meta-row"><span class="engineer">109 John MacFarlane</span><span class="chip neutral">effort S</span><span class="chip neutral">moves: provider_syntax_drift</span></div>
+<div class="evidence"><b>Evidence</b><span class="ev"><code>spec/events/compilation.spec:80-81</code> — event extension_manifests_loaded uses `verify &quot;Extension manifests MUST be loaded...&quot;` with no kind</span><span class="ev"><code>spec/events/compilation.spec:36-37,51-53</code> — sibling events use `verify integration &quot;...&quot;`</span><span class="ev"><code>spec/glossary.spec:701-712</code> — t_verify_statement defines the syntax as `verify &lt;kind&gt; &quot;description&quot;` — the bare form contradicts the project&#x27;s own glossary</span></div>
+<p class="details">Two verify syntaxes coexist in the corpus: the dominant verify kind string form (e.g. verify integration in spec/events/compilation.spec:36-37,51-53) and a bare verify string at compilation.spec:80-81 (event extension_manifests_loaded). The project&#x27;s own glossary entry t_verify_statement (spec/glossary.spec:701-712) defines the syntax as verify kind description, so the bare form contradicts the documented grammar and leaves readers and tools guessing what kind the declaration has. Either make the kind optional with defined default semantics in the glossary, or emit a diagnostic on the bare form and fix the occurrence — glossary and grammar must agree.</p>
+<div class="snippet before"><span class="cap">before — current code</span><pre><code>event extension_manifests_loaded {
+  channel internal
+
+  payload {
+    extensionCount  integer
+    manifestPaths   string[]
+    timestamp       timestamp
+  }
+
+
+  verify &quot;Extension manifests MUST be loaded before populating the kind registry&quot;
+}</code></pre><div class="file">spec/events/compilation.spec:75-84</div></div>
+<div class="arrow-between">↓ fix ↓</div>
+<div class="snippet after"><span class="cap">after — proposed fix</span><pre><code>event extension_manifests_loaded {
+  channel internal
+
+  payload {
+    extensionCount  integer
+    manifestPaths   string[]
+    timestamp       timestamp
+  }
+
+
+  verify integration &quot;Extension manifests MUST be loaded before populating the kind registry&quot;
+}</code></pre><div class="file">spec/events/compilation.spec:75-84</div></div>
+<div class="diagram-box"><span class="cap">One verify syntax one meaning</span><div class="mermaid" id="dg-109-C12-15"><pre>flowchart TD
+ A[glossary defines verify kind string] --&gt; B[one event uses bare verify]
+ B --&gt; C[form filed with kind blank]
+ C --&gt; D[readers and tools guess meaning]
+ A --&gt; E[emit diagnostic on bare form]
+ E --&gt; F[add kind to occurrence]
+ F --&gt; G[glossary and grammar agree]</pre></div></div><script type="text/plain" class="mermaid-src" data-target="dg-109-C12-15">flowchart TD
+ A[glossary defines verify kind string] --> B[one event uses bare verify]
+ B --> C[form filed with kind blank]
+ C --> D[readers and tools guess meaning]
+ A --> E[emit diagnostic on bare form]
+ E --> F[add kind to occurrence]
+ F --> G[glossary and grammar agree]</script>
+<div class="eli10"><span class="tag">Explain like I'm 10</span><p>The form has a line for &#x27;type of check&#x27;, but some forms are filed with that line blank and still accepted. Now every reader (and program) has to guess what an unchecked box means. One syntax, one meaning — that is the whole game.</p></div>
+<p class="sol" style="margin-top:12px"><b>Proposed solution.</b> Either make the kind optional with defined default semantics (and document it in t_verify_statement) or emit a diagnostic on the bare form and fix the occurrence; the glossary and grammar must agree.</p>
+</article>
+<article class="finding-detail sev-low" id="f-C12-16">
+<div class="head"><h2>Prose/DSL boundary mostly right, but acceptance criteria and flows are unchecked prose inside typed entities</h2><span class="chip low">low</span><span class="fid">C12-16</span></div>
+<div class="meta-row"><span class="engineer">109 John MacFarlane</span><span class="chip neutral">effort M</span><span class="chip neutral">moves: glossary_bounded_context_integrity</span></div>
+<div class="evidence"><b>Evidence</b><span class="ev"><code>spec/product/features.spec:18-23,52-56</code> — acceptance [ &quot;...&quot; ] is free strings (ADR pe_acceptance_free_form:148 accepted this deliberately)</span><span class="ev"><code>spec/product/journeys.spec:34-41</code> — flow prose likewise</span></div>
+<p class="details">The prose/DSL boundary is mostly right — typed fields for facts, free-text boxes for stories — but acceptance [ ... ] in spec/product/features.spec and the flow prose in journeys hold checkable promises (&#x27;All 9 entity kinds registered in KindRegistry after manifest load&#x27;, &#x27;All 16 CLI commands respond to --help&#x27;) as pure strings. ADR pe_acceptance_free_form accepted this deliberately, but unchecked promises are wishes with formatting: nothing distinguishes a narrative criterion from one a verify block could prove. Tag a subset of acceptance strings with references to behavior verify blocks (e.g. acceptance_verify) so at least the checkable slice becomes compiled and covered, and document the deliberate boundary in docs/entities/spec.md.</p>
+<div class="snippet before"><span class="cap">before — current code</span><pre><code>  acceptance [
+    &quot;All 9 entity kinds registered in KindRegistry after manifest load&quot;,
+    &quot;Each kind has correct testable, singleton, and supports_verify flags&quot;,
+    &quot;All 16 edge types registered with correct source/target kind constraints&quot;,
+    &quot;Field definitions include type, optionality, and edge mappings&quot;,
+  ]</code></pre><div class="file">spec/product/features.spec:18-23</div></div>
+<div class="arrow-between">↓ fix ↓</div>
+<div class="snippet after"><span class="cap">after — proposed fix</span><pre><code>  acceptance [
+    &quot;Each kind has correct testable, singleton, and supports_verify flags&quot;,
+    &quot;Field definitions include type, optionality, and edge mappings&quot;,
+  ]
+  acceptance_verify [
+    { text &quot;All entity kinds registered in KindRegistry&quot; verify kind_registry_population_complete }
+  ]</code></pre><div class="file">spec/product/features.spec:18-24</div></div>
+<div class="diagram-box"><span class="cap">Checkable promises become compiled</span><div class="mermaid" id="dg-109-C12-16"><pre>flowchart TD
+ A[acceptance free strings] --&gt; B[promises unchecked]
+ B --&gt; C[wishes with formatting]
+ A --&gt; D[add acceptance_verify list]
+ D --&gt; E[promises reference verify blocks]
+ E --&gt; F[compiler validates references]
+ F --&gt; G[checkable subset gains coverage]
+ C --&gt; H[narrative prose stays prose]</pre></div></div><script type="text/plain" class="mermaid-src" data-target="dg-109-C12-16">flowchart TD
+ A[acceptance free strings] --> B[promises unchecked]
+ B --> C[wishes with formatting]
+ A --> D[add acceptance_verify list]
+ D --> E[promises reference verify blocks]
+ E --> F[compiler validates references]
+ F --> G[checkable subset gains coverage]
+ C --> H[narrative prose stays prose]</script>
+<div class="eli10"><span class="tag">Explain like I'm 10</span><p>The form has typed boxes for facts and free-text boxes for stories — a good split. But the free-text boxes quietly hold promises (&#x27;all 16 commands respond to --help&#x27;) that someone will want to check later, and unchecked promises are just wishes with formatting.</p></div>
+<p class="sol" style="margin-top:12px"><b>Proposed solution.</b> Keep prose where it belongs, but tag checkable acceptance strings (e.g. acceptance_verify referencing behavior verify blocks) so at least a subset is compiled; document the deliberate prose boundary in docs/entities/spec.md.</p>
+</article>
+</main><script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.1/dist/mermaid.min.js" onerror="window.__mermaidFailed=true"></script><script src="../js/agent.js"></script></body></html>

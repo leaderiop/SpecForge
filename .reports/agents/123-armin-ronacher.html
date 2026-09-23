@@ -1,0 +1,27 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>123 Armin Ronacher — SpecForge audit review</title>
+<link rel="stylesheet" href="../css/report.css"><link rel="stylesheet" href="../css/agents.css"></head><body>
+<header class="agent-hero"><div class="brand"><div class="logo">123</div><div>
+<h1>Armin Ronacher</h1>
+<div class="crumbs">Cluster C14 — Direct-dependency maintainers - dependency/surface hygiene · insta creator; Flask/rye author; AI-era developer-experience voice · profile <code>.agents/123-armin-ronacher.md</code></div></div></div>
+<div class="links"><a href="../index.html">← Full report</a><a href="../../.agents/123-armin-ronacher.md">Profile source</a></div></header>
+<main class="agent-main">
+<nav class="agent-nav"><a href="122.html">← 122</a><a href="124.html">124 →</a></nav>
+<div class="review-panel"><div class="review-text"><h2>Auditor review</h2><p>Armin would appreciate the ariadne rendering ambition but insist that spanless diagnostics keyed to HashMap order is nondeterminism shipped to users, and a range one past EOF that can panic is a crash waiting for a weird spec. Both fixes are three lines; the deterministic anchor would be his first PR. He would praise the CRLF-aware offset walker as the kind of detail most renderers never get right.</p></div>
+<div class="mini-kpis">
+<div class="mini-kpi"><div class="k">Findings</div><div class="v">1</div></div>
+<div class="mini-kpi good"><div class="k">Critical + high</div><div class="v">0</div></div>
+<div class="mini-kpi"><div class="k">Evidence items</div><div class="v">1</div></div>
+<div class="mini-kpi"><div class="k">Effort mix</div><div class="v" style="font-size:14px">S</div></div>
+</div></div>
+<article class="finding-detail sev-info" id="f-C14-12">
+<div class="head"><h2>Snapshot hygiene is clean: 22 insta goldens, zero pending .snap.new, json pipeline, plus criterion benches</h2><span class="chip info">info</span><span class="fid">C14-12</span></div>
+<div class="meta-row"><span class="engineer">123 Armin Ronacher</span><span class="chip neutral">effort S</span><span class="chip neutral">moves: Pending insta snapshots (good)</span></div>
+<div class="evidence"><b>Evidence</b><span class="ev"><code>crates/specforge-parser/tests/snapshots/:n/a</code> — glob shows 22 committed .snap files covering parser ASTs and all 5 model renderer by field-level combinations, no .snap.new debris; insta 1.46 with json feature pinned in workspace; criterion benches exist for parse, graph build and emit.</span></div>
+<p class="details">crates/specforge-parser/tests/snapshots/ holds 22 committed .snap goldens covering parser ASTs and all five model-renderer by-field-level combinations, with zero pending .snap.new debris. insta 1.46 is pinned with the json feature at the workspace level, and criterion benches exist for parse, graph build and emit, so both correctness snapshots and performance baselines are anchored. This is textbook golden-file hygiene.</p>
+<div class="snippet exemplar"><span class="cap">exemplar — the good pattern</span><pre><code>22 committed .snap files (parser ASTs + all 5 model renderer by-field-level combinations), zero .snap.new pending files. Workspace pins insta = 1.46 with json feature. Criterion benches present for parse, graph build and emit.</code></pre><div class="file">crates/specforge-parser/tests/snapshots/:n/a</div></div>
+<div class="keep"><span class="tag">Keep doing this</span><p>Keep the committed golden set and json insta pipeline intact; consider CI running cargo insta test --unreferenced=reject so removed code paths cannot leave orphaned goldens.</p></div>
+<div class="eli10"><span class="tag">Explain like I'm 10</span><p>The photo album of expected outputs is complete and up to date, and nobody left half-developed photos (pending snapshots) lying around. The snapshot-testing equivalent of a tidy desk.</p></div>
+<p class="sol" style="margin-top:12px"><b>Proposed solution.</b> None - keep it. Consider CI running cargo insta test --unreferenced=reject to prevent golden drift.</p>
+</article>
+</main><script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.1/dist/mermaid.min.js" onerror="window.__mermaidFailed=true"></script><script src="../js/agent.js"></script></body></html>

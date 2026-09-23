@@ -1,0 +1,133 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>003 Peter Naur — SpecForge audit review</title>
+<link rel="stylesheet" href="../css/report.css"><link rel="stylesheet" href="../css/agents.css"></head><body>
+<header class="agent-hero"><div class="brand"><div class="logo">003</div><div>
+<h1>Peter Naur</h1>
+<div class="crumbs">Cluster C1 — Foundations of intent capture &amp; specification — product thesis coherence · ALGOL 60 report editor (BNF co-creator); theory-building theory of software · profile <code>.agents/003-peter-naur.md</code></div></div></div>
+<div class="links"><a href="../index.html">← Full report</a><a href="../../.agents/003-peter-naur.md">Profile source</a></div></header>
+<main class="agent-main">
+<nav class="agent-nav"><a href="002.html">← 002</a><a href="004.html">004 →</a></nav>
+<div class="review-panel"><div class="review-text"><h2>Auditor review</h2><p>A theory lives in how its concepts are used, and this repo&#x27;s central concept — results feeding back into the graph (principles.md line 51) — is never used anywhere: the flagship examples/todo-app has 12 unlinked verify statements, no tests, no specforge-report.json, and its Try-it block stops at export. Worse, the one number the whole north star hangs on (30% to 70-85%) has no compass installed: no eval harness, no baseline runbook, nothing that could move or fail to move. I&#x27;d build the todo-app Proof layer first — it&#x27;s the example everyone copies, so the loop demonstrated there propagates. What I&#x27;d praise: spec/ is genuine externalized theory — the team&#x27;s own ~219 files of decisions compiled as entities is the theory made tangible.</p></div>
+<div class="mini-kpis">
+<div class="mini-kpi"><div class="k">Findings</div><div class="v">3</div></div>
+<div class="mini-kpi bad"><div class="k">Critical + high</div><div class="v">1</div></div>
+<div class="mini-kpi"><div class="k">Evidence items</div><div class="v">7</div></div>
+<div class="mini-kpi"><div class="k">Effort mix</div><div class="v" style="font-size:14px">L · M · S</div></div>
+</div></div>
+<article class="finding-detail sev-high" id="f-C1-06">
+<div class="head"><h2>Principle 5 traceability feedback loop undemonstrated: flagship example has zero test results feeding back</h2><span class="chip high">high</span><span class="fid">C1-06</span></div>
+<div class="meta-row"><span class="engineer">003 Peter Naur</span><span class="chip neutral">effort M</span><span class="chip neutral">moves: Traceability feedback-loop demonstration</span></div>
+<div class="evidence"><b>Evidence</b><span class="ev"><code>vision/principles.md:5</code> — Specs link to tests. Tests produce results. Results feed back into the graph</span><span class="ev"><code>examples/todo-app</code> — 12 verify statements are unlinked prose; no tests dir, no specforge-report.json, no collect step</span><span class="ev"><code>examples/todo-app/README.md</code> — Try-it omits collect - the Proof layer of RES-18 Intent-Linkage-Proof chain absent from the example everyone copies</span></div>
+<p class="details">vision/principles.md line 51 declares the loop — Specs link to tests. Tests produce results. Results feed back into the graph — as the mechanism that makes AI agents self-correcting, and RES-18 names the three layers: Intent (verify blocks), Linkage (tests field), Proof (specforge-report.json). The flagship example demonstrates only Intent: examples/todo-app has 12 unlinked verify statements, no tests/ directory, no specforge collect step, and no specforge-report.json; its Try-it block (check, trace, query, export, stats) omits collect entirely. So the example everyone copies stops one layer short of the property the whole vision hangs on. Closing the loop in todo-app (tiny test suite, tests fields per verify, documented collect) makes Intent-Linkage-Proof visible in one command sequence.</p>
+<div class="snippet before"><span class="cap">before — current code</span><pre><code>## Try it
+
+```bash
+cd examples/todo-app
+specforge check                         # 0 errors, 0 warnings
+specforge trace task_management         # traceability chain for the feature
+specforge query create_task --depth 1   # neighborhood of a behavior
+specforge export --format=context       # what an agent consumes
+specforge stats                         # entity/edge counts
+```</code></pre><div class="file">examples/todo-app/README.md:7-16</div></div>
+<div class="arrow-between">↓ fix ↓</div>
+<div class="snippet after"><span class="cap">after — proposed fix</span><pre><code>## Try it
+
+```bash
+cd examples/todo-app
+specforge check                         # 0 errors, 0 warnings
+specforge trace task_management         # traceability chain for the feature
+specforge query create_task --depth 1   # neighborhood of a behavior
+specforge export --format=context       # what an agent consumes
+
+cargo test -p todo_app_tests            # run the linked test suite
+specforge collect                       # merge test results into specforge-report.json
+specforge trace create_task             # now shows Intent -&gt; Linkage -&gt; Proof
+specforge stats                         # entity/edge counts
+```
+
+Every `verify` block in `spec/behaviors/task.spec` carries a `tests` field pointing at
+`tests/task_test.rs`. After `specforge collect`, `specforge-report.json` holds per-verify
+pass/fail evidence, completing the three-layer chain described in Principle 5.</code></pre><div class="file">examples/todo-app/README.md:7-20</div></div>
+<div class="diagram-box"><span class="cap">Closing the Proof loop</span><div class="mermaid" id="dg-003-C1-06"><pre>flowchart TD
+ A[Principle 5 promises results feed back] --&gt; B{Check todo-app}
+ B --&gt; C[12 verify statements unlinked]
+ B --&gt; D[No tests no report no collect]
+ C --&gt; E[Add tests field to each verify]
+ D --&gt; F[Add tiny test suite]
+ E --&gt; G[specforge collect writes specforge-report.json]
+ F --&gt; G
+ G --&gt; H[trace shows Intent Linkage Proof]</pre></div></div><script type="text/plain" class="mermaid-src" data-target="dg-003-C1-06">flowchart TD
+ A[Principle 5 promises results feed back] --> B{Check todo-app}
+ B --> C[12 verify statements unlinked]
+ B --> D[No tests no report no collect]
+ C --> E[Add tests field to each verify]
+ D --> F[Add tiny test suite]
+ E --> G[specforge collect writes specforge-report.json]
+ F --> G
+ G --> H[trace shows Intent Linkage Proof]</script>
+<div class="eli10"><span class="tag">Explain like I'm 10</span><p>A gym installed a fancy progress app but never plugged in a scale. The loop that makes the system smarter has no data going around it - in the showroom meant to prove it.</p></div>
+<p class="sol" style="margin-top:12px"><b>Proposed solution.</b> Close the loop in todo-app: tiny test suite, documented specforge collect producing specforge-report.json, linkage fields per verify - then trace shows Intent-Linkage-Proof.</p>
+</article>
+<article class="finding-detail sev-medium" id="f-C1-07">
+<div class="head"><h2>The success metric (30 to 70-85 percent first-attempt accuracy) has no measurement apparatus</h2><span class="chip medium">medium</span><span class="fid">C1-07</span></div>
+<div class="meta-row"><span class="engineer">003 Peter Naur</span><span class="chip neutral">effort L</span><span class="chip neutral">moves: underpins accuracy KPIs</span></div>
+<div class="evidence"><b>Evidence</b><span class="ev"><code>vision/north-star.md</code> — One metric captures everything... if that number has not moved, we have failed</span><span class="ev"><code>spec/research/RES-18-ai-agent-token-economics.md</code> — we believe that number reaches 70-85 percent, citing third-party benchmarks; no in-repo eval harness or baseline runbook</span></div>
+<p class="details">vision/north-star.md line 73 stakes everything on one number — first-attempt accuracy rising from 30% to 70-85% with a validated spec graph — and RES-18 echoes we believe that number reaches 70-85 percent, citing third-party benchmarks (Ambig-SWE, SWT-Bench). No apparatus exists to measure it: no eval harness, no corpus of agent tasks, no runbook comparing with-graph vs without-graph runs, no scoring script. A north-star metric that cannot be measured cannot falsify the thesis — for a pre-product project that is the difference between a plan and a belief. Even a minimal N=10 protocol (ten fixed tasks, two arms, token counts and first-attempt success logged) makes the number falsifiable.</p>
+<div class="snippet before"><span class="cap">before — current code</span><pre><code>
+With a validated spec graph, we believe that number reaches 70-85%. The agent knows the entities, their relationships, the constraints, the test status, and the traceability links. It does not need to discover anything. It reads the graph and acts.
+
+This metric applies to all agent types, all domains, all task complexities. Coding tasks. Compliance audits. Status reports. Documentation. Security reviews. The graph improves all of them because the problem is always the same: agents need structured context, not prose.</code></pre><div class="file">vision/north-star.md:72-75</div></div>
+<div class="arrow-between">↓ fix ↓</div>
+<div class="snippet after"><span class="cap">after — proposed fix</span><pre><code># First-Attempt Accuracy Eval
+
+The north-star metric (30% baseline -&gt; 70-85% target) measured, not believed.
+
+## Protocol
+
+1. `eval/tasks/` holds N=10 fixed agent tasks against `examples/todo-app`, each with a
+   rubric and a reference test in `eval/tasks/expected/`.
+2. Arm A (control): the agent gets the repo without the compiled graph.
+3. Arm B (treatment): the agent gets `specforge export --format=context` output plus the
+   same repo, and may run `specforge query &lt;id&gt; --depth 2`.
+4. `eval/run.sh --arm a|b` executes each task in a fresh worktree, logs tokens,
+   turns, and first-attempt pass/fail into `eval/results/&lt;date&gt;-&lt;arm&gt;.json`.
+5. `eval/score.py` aggregates both arms and prints first-attempt accuracy,
+   mean tokens per task, and the delta.
+
+Run after every release; append the row to `eval/RESULTS.md`. If the delta does not
+hold, the north star is failing and we say so.</code></pre><div class="file">eval/README.md:1-20</div></div>
+<div class="diagram-box"><span class="cap">Installing the compass</span><div class="mermaid" id="dg-003-C1-07"><pre>flowchart TD
+ A[North star metric 70 to 85 percent] --&gt; B{Can we measure it}
+ B --&gt;|no harness no baseline| C[Unfalsifiable belief]
+ C --&gt; D[eval tasks corpus N=10]
+ D --&gt; E[run.sh two arms with and without graph]
+ E --&gt; F[score.py accuracy and tokens]
+ F --&gt; G[Metric becomes experiment]</pre></div></div><script type="text/plain" class="mermaid-src" data-target="dg-003-C1-07">flowchart TD
+ A[North star metric 70 to 85 percent] --> B{Can we measure it}
+ B -->|no harness no baseline| C[Unfalsifiable belief]
+ C --> D[eval tasks corpus N=10]
+ D --> E[run.sh two arms with and without graph]
+ E --> F[score.py accuracy and tokens]
+ F --> G[Metric becomes experiment]</script>
+<div class="eli10"><span class="tag">Explain like I'm 10</span><p>The captain declared heading the only thing that matters, but nobody installed a compass.</p></div>
+<p class="sol" style="margin-top:12px"><b>Proposed solution.</b> Add a minimal reproducible eval: N agent tasks, runbook with and without graph, scoring script. Even N=10 makes the number falsifiable.</p>
+</article>
+<article class="finding-detail sev-info" id="f-C1-08">
+<div class="head"><h2>Self-hosting corpus as externalized theory - praise</h2><span class="chip info">info</span><span class="fid">C1-08</span></div>
+<div class="meta-row"><span class="engineer">003 Peter Naur</span><span class="chip neutral">effort S</span><span class="chip neutral">moves: none</span></div>
+<div class="evidence"><b>Evidence</b><span class="ev"><code>spec/</code> — ~219 files / ~1,245 entities: the team&#x27;s own decisions and composition patterns are compiled .spec entities</span><span class="ev"><code>vision/README.md</code> — north-star it-reads-the-graph answered by the repo eating its own cooking</span></div>
+<p class="details">The repo eats its own cooking: spec/ contains ~219 files / ~1,245 entities where the team&#x27;s own decisions, behaviors, invariants, and composition patterns are compiled as .spec entities (spec/specforge.spec is titled Meta-specification: SpecForge specifying itself). This is the strongest possible answer to vision/README.md&#x27;s it-reads-the-graph claim — the graph that must satisfy the compiler is the one describing the compiler&#x27;s own project. It also functions as Naur-style externalized theory: the project&#x27;s theory of itself is a queryable artifact, not tribal memory. The only gap is presentation — the README never mentions it.</p>
+<div class="snippet exemplar"><span class="cap">exemplar — the good pattern</span><pre><code>// SpecForge — Meta-specification: SpecForge specifying itself
+// The structured context standard for AI agents.
+// The compiled entity graph is consumed by any agent for any task.
+
+spec &quot;specforge&quot; {
+  version &quot;1.0&quot;
+
+  extensions [
+    &quot;@specforge/software&quot;,</code></pre><div class="file">spec/specforge.spec:1-9</div></div>
+<div class="keep"><span class="tag">Keep doing this</span><p>Preserve the self-hosting corpus as a first-class artifact, and feature it in the README (SpecForge specifies itself — browse spec/) since it is the most concrete demonstration of the thesis.</p></div>
+<div class="eli10"><span class="tag">Explain like I'm 10</span><p>The bakers wrote their recipe book in the same format as the bread labels - claim and practice are one artifact.</p></div>
+<p class="sol" style="margin-top:12px"><b>Proposed solution.</b> Feature in README: SpecForge specifies itself, browse spec/.</p>
+</article>
+</main><script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.1/dist/mermaid.min.js" onerror="window.__mermaidFailed=true"></script><script src="../js/agent.js"></script></body></html>

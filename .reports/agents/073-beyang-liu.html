@@ -1,0 +1,91 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>073 Beyang Liu — SpecForge audit review</title>
+<link rel="stylesheet" href="../css/report.css"><link rel="stylesheet" href="../css/agents.css"></head><body>
+<header class="agent-hero"><div class="brand"><div class="logo">073</div><div>
+<h1>Beyang Liu</h1>
+<div class="crumbs">Cluster C9 — MCP &amp; AI-agent context engineering · Sourcegraph co-founder (ex-CTO), now Amp co-founder; code context for AI · profile <code>.agents/073-beyang-liu.md</code></div></div></div>
+<div class="links"><a href="../index.html">← Full report</a><a href="../../.agents/073-beyang-liu.md">Profile source</a></div></header>
+<main class="agent-main">
+<nav class="agent-nav"><a href="072.html">← 072</a><a href="074.html">074 →</a></nav>
+<div class="review-panel"><div class="review-text"><h2>Auditor review</h2><p>find_spec_for_source completing the code-intel trio is the right substrate bet and it actually ships - agents get jump-to-definition on specs, not a description of it. But get_file_scoped anchors with substring contains(), so e.rs matches the whole repo and todo_list claims todo_list_widget; match on path components (exact, then directory prefix) and return the match mode so agents know how loose the anchor is. Precision here is trust: a wrong already-covered answer causes skipped work that no error ever surfaces.</p></div>
+<div class="mini-kpis">
+<div class="mini-kpi"><div class="k">Findings</div><div class="v">2</div></div>
+<div class="mini-kpi good"><div class="k">Critical + high</div><div class="v">0</div></div>
+<div class="mini-kpi"><div class="k">Evidence items</div><div class="v">0</div></div>
+<div class="mini-kpi"><div class="k">Effort mix</div><div class="v" style="font-size:14px">S</div></div>
+</div></div>
+<article class="finding-detail sev-medium" id="f-C9-09">
+<div class="head"><h2>Source-anchored file matching is substring-based</h2><span class="chip medium">medium</span><span class="fid">C9-09</span></div>
+<div class="meta-row"><span class="engineer">073 Beyang Liu</span><span class="chip neutral">effort S</span><span class="chip neutral">moves: n/a (correctness)</span></div>
+<p class="details">get_file_scoped filters entities with span_file.contains(file_path), a raw substring test: a query for todo_list also matches todo_list_widget.rs and src/auth/todo_history.rs, telling the agent that entities already cover files they have never seen. Worse, the query e.rs would match essentially every file in the project. For spec-to-code anchoring, false positives are actively harmful - the agent concludes coverage exists and skips inference work. Match on path components and report the match looseness to the caller.</p>
+<div class="snippet before"><span class="cap">before — current code</span><pre><code>    let referencing_entities: Vec&lt;String&gt; = state.graph.nodes().into_iter()
+        .filter(|n| {
+            let span_file: &amp;str = n.source_span.file.as_str();
+            span_file.contains(file_path)
+        })
+        .map(|n| format!(&quot;{} ({})&quot;, n.id.raw, n.kind.raw))
+        .collect();</code></pre><div class="file">crates/specforge-mcp/src/prompts/infer.rs:146-152</div></div>
+<div class="arrow-between">↓ fix ↓</div>
+<div class="snippet after"><span class="cap">after — proposed fix</span><pre><code>fn matches_anchor(span_file: &amp;str, query: &amp;str) -&gt; Option&lt;&amp;&#x27;static str&gt; {
+    let span = std::path::Path::new(span_file);
+    let q = std::path::Path::new(query);
+    if span == q {
+        return Some(&quot;exact&quot;);
+    }
+    // Directory-prefix match on whole path components only
+    if span.starts_with(q) {
+        return Some(&quot;directory_prefix&quot;);
+    }
+    None
+}
+
+let referencing_entities: Vec&lt;Value&gt; = state.graph.nodes().into_iter()
+    .filter_map(|n| {
+        matches_anchor(n.source_span.file.as_str(), file_path)
+            .map(|mode| serde_json::json!({&quot;id&quot;: n.id.raw, &quot;kind&quot;: n.kind.raw, &quot;match&quot;: mode}))
+    })
+    .collect();</code></pre><div class="file">crates/specforge-mcp/src/prompts/infer.rs</div></div>
+<div class="diagram-box"><span class="cap">Component-based file anchoring</span><div class="mermaid" id="dg-073-C9-09"><pre>flowchart TD
+ A[Agent scopes inference to file] --&gt; B[Substring contains test]
+ B --&gt; C[todo_list matches todo_list_widget]
+ C --&gt; D[Agent believes coverage exists]
+ D --&gt; E[Skips needed inference work]
+ E --&gt; F[Match on path components]
+ F --&gt; G[Exact match then directory prefix]
+ G --&gt; H[Return match mode in payload]</pre></div></div><script type="text/plain" class="mermaid-src" data-target="dg-073-C9-09">flowchart TD
+ A[Agent scopes inference to file] --> B[Substring contains test]
+ B --> C[todo_list matches todo_list_widget]
+ C --> D[Agent believes coverage exists]
+ D --> E[Skips needed inference work]
+ E --> F[Match on path components]
+ F --> G[Exact match then directory prefix]
+ G --> H[Return match mode in payload]</script>
+<div class="eli10"><span class="tag">Explain like I'm 10</span><p>This is a file matcher that works like Ctrl+F on paths: searching for &#x27;task&#x27; also hands you every file with &#x27;task&#x27; anywhere in its name. For anchoring specs to code, near-misses are worse than misses — the agent is told which entities already cover a file and may skip work because &#x27;todo_list&#x27; matched &#x27;todo_list_widget&#x27;.</p></div>
+<p class="sol" style="margin-top:12px"><b>Proposed solution.</b> Match on path components: exact file match first, else prefix-directory match on canonicalized relative paths; return the match mode in the payload so agents know how loose the anchor is.</p>
+</article>
+<article class="finding-detail sev-info" id="f-C9-10">
+<div class="head"><h2>Code-intel primitives for specs: find_definition/references/implementation trio (praise)</h2><span class="chip info">info</span><span class="fid">C9-10</span></div>
+<div class="meta-row"><span class="engineer">073 Beyang Liu</span><span class="chip neutral">effort S</span><span class="chip neutral">moves: MCP tools exposed</span></div>
+<p class="details">The MCP surface gives agents a code-intel-style navigation trio on the spec graph itself: find_definition resolves an entity to its exact source span (file, line, column), find_references walks inbound edges, and find_implementation follows refinement edges - plus find_spec_for_source to anchor in the opposite direction. Each tool is small, typed, and returns compact JSON via content blocks, exactly the substrate models navigate code with. Shipping all four rather than describing them is what makes the specs-are-first-class-code-objects pitch real.</p>
+<div class="snippet exemplar"><span class="cap">exemplar — the good pattern</span><pre><code>pub fn call(state: &amp;McpState, args: Value, id: Option&lt;Value&gt;) -&gt; JsonRpcResponse {
+    let entity_id = match args.get(&quot;entity_id&quot;).and_then(|v| v.as_str()) {
+        Some(e) =&gt; e,
+        None =&gt; return JsonRpcResponse::error(id, error_codes::INVALID_PARAMS, &quot;Missing required parameter: entity_id&quot;),
+    };
+
+    let node = match state.graph.node(entity_id) {
+        Some(n) =&gt; n,
+        None =&gt; return JsonRpcResponse::error(id, error_codes::INVALID_PARAMS, format!(&quot;Entity not found: {}&quot;, entity_id)),
+    };
+
+    let result = serde_json::json!({
+        &quot;entity_id&quot;: node.id.raw,
+        &quot;file_path&quot;: node.source_span.file,
+        &quot;line&quot;: node.source_span.start_line,
+        &quot;column&quot;: node.source_span.start_col
+    });</code></pre><div class="file">crates/specforge-mcp/src/tools/find_definition.rs:6-22</div></div>
+<div class="keep"><span class="tag">Keep doing this</span><p>Keep the four navigation tools as the single anchoring substrate, and extend the same story into LSP hover with a find_spec_for_source counterpart so editor and agent surfaces share one implementation.</p></div>
+<div class="eli10"><span class="tag">Explain like I'm 10</span><p>The server gives agents the same jump-to-definition and find-references superpowers on specs that code intelligence gives on source. That&#x27;s the right substrate bet, and it&#x27;s actually shipped, not just described.</p></div>
+<p class="sol" style="margin-top:12px"><b>Proposed solution.</b> Expose a find_spec_for_source counterpart for code in LSP hover so both surfaces share one anchoring story.</p>
+</article>
+</main><script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.1/dist/mermaid.min.js" onerror="window.__mermaidFailed=true"></script><script src="../js/agent.js"></script></body></html>

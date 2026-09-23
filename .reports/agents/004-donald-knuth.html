@@ -1,0 +1,149 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>004 Donald Knuth — SpecForge audit review</title>
+<link rel="stylesheet" href="../css/report.css"><link rel="stylesheet" href="../css/agents.css"></head><body>
+<header class="agent-hero"><div class="brand"><div class="logo">004</div><div>
+<h1>Donald Knuth</h1>
+<div class="crumbs">Cluster C1 — Foundations of intent capture &amp; specification — product thesis coherence · Literate programming (WEB/TeX); The Art of Computer Programming; Stanford GraphBase · profile <code>.agents/004-donald-knuth.md</code></div></div></div>
+<div class="links"><a href="../index.html">← Full report</a><a href="../../.agents/004-donald-knuth.md">Profile source</a></div></header>
+<main class="agent-main">
+<nav class="agent-nav"><a href="003.html">← 003</a><a href="005.html">005 →</a></nav>
+<div class="review-panel"><div class="review-text"><h2>Auditor review</h2><p>A guarantee in prose is a wish; a guarantee enforced by a program is a fact. docs/guides/authoring-spec-files.md states Every code block in this guide compiles over 781 lines of snippets with zero snippet-extraction in CI — I&#x27;d extend the existing xtask to parse fenced spec blocks and run parser+checker on each. The RES-18 numbers (75-86% savings, 1k-7k context) are presented as findings but are extrapolations, and the token_budget mechanism silently ignores Context format (emit.rs line 109 requires Json and no schema) while emit_context pretty-prints everything unbounded — measure first, then claim. Praise: extension-declared DOT styling in describe_entities.json consumed by the core serializer is precisely the manifest-driven design I&#x27;d sign off, and spec/specforge-graph.dot publishing the repo&#x27;s own ~2,100-node portrait is honest self-documentation.</p></div>
+<div class="mini-kpis">
+<div class="mini-kpi"><div class="k">Findings</div><div class="v">3</div></div>
+<div class="mini-kpi bad"><div class="k">Critical + high</div><div class="v">1</div></div>
+<div class="mini-kpi"><div class="k">Evidence items</div><div class="v">7</div></div>
+<div class="mini-kpi"><div class="k">Effort mix</div><div class="v" style="font-size:14px">M · S</div></div>
+</div></div>
+<article class="finding-detail sev-medium" id="f-C1-09">
+<div class="head"><h2>Every code block in this guide compiles asserted but enforced by nothing</h2><span class="chip medium">medium</span><span class="fid">C1-09</span></div>
+<div class="meta-row"><span class="engineer">004 Donald Knuth</span><span class="chip neutral">effort M</span><span class="chip neutral">moves: Guide/tutorial integrity</span></div>
+<div class="evidence"><b>Evidence</b><span class="ev"><code>docs/guides/authoring-spec-files.md:20</code> — claim of every code block compiling - 781 lines of embedded snippets</span><span class="ev"><code>crates</code> — no snippet-extraction or compile test; CI (fmt, clippy, nextest, audit) does not cover docs</span></div>
+<p class="details">docs/guides/authoring-spec-files.md line 15 asserts Every code block in this guide compiles — a promise covering 781 lines of embedded .spec snippets — but nothing enforces it: no crate extracts fenced blocks, and CI (fmt, clippy, nextest, audit) never touches markdown. Any edit to the guide (new syntax, renamed field, changed validation rule) can silently invalidate a snippet, and readers who hit the drift blame the tool, not the doc. The repo already has the right hook point: an xtask crate exists for repo automation. Adding a snippet-extraction test there turns the guarantee from prose into a program, matching the project&#x27;s own ethos that claims should be compiler-checked.</p>
+<div class="snippet before"><span class="cap">before — current code</span><pre><code>
+&gt; 💡 **Every code block in this guide compiles.** The worked example lives at
+&gt; [`examples/todo-app/`](../../examples/todo-app/) — clone it and run `specforge check`.
+
+---</code></pre><div class="file">docs/guides/authoring-spec-files.md:14-17</div></div>
+<div class="arrow-between">↓ fix ↓</div>
+<div class="snippet after"><span class="cap">after — proposed fix</span><pre><code>/// Enforce the guide&#x27;s guarantee: every fenced ```spec block in
+/// docs/guides parses and validates. Run as `cargo xtask check-doc-snippets`,
+/// wired into CI next to fmt and clippy.
+fn check_doc_snippets() -&gt; anyhow::Result&lt;()&gt; {
+    let mut checked = 0usize;
+    for guide in [&quot;docs/guides/authoring-spec-files.md&quot;, &quot;docs/guides/spec-cookbook.md&quot;] {
+        let text = std::fs::read_to_string(guide)?;
+        for (n, block) in extract_fenced_blocks(&amp;text, &quot;spec&quot;).enumerate() {
+            let tmp = std::env::temp_dir().join(format!(&quot;sf_snippet_{n}.spec&quot;));
+            std::fs::write(&amp;tmp, &amp;block)?;
+            let ok = Command::new(env!(&quot;CARGO_BIN_EXE_specforge&quot;))
+                .args([&quot;check&quot;, &quot;--file&quot;])
+                .arg(&amp;tmp)
+                .status()?
+                .success();
+            anyhow::ensure!(
+                ok,
+                &quot;{guide}: fenced spec block #{n} does not compile\n{block}&quot;
+            );
+            checked += 1;
+        }
+    }
+    println!(&quot;{checked} doc snippets compile&quot;);
+    Ok(())
+}</code></pre><div class="file">crates/xtask/src/main.rs:60-88</div></div>
+<div class="diagram-box"><span class="cap">Unenforced doc guarantee</span><div class="mermaid" id="dg-004-C1-09"><pre>flowchart TD
+ A[Guide claims every block compiles] --&gt; B{CI checks docs}
+ B --&gt;|no snippet test| C[Claim enforced by nothing]
+ C --&gt; D[Guide edits can silently break snippets]
+ D --&gt; E[xtask extracts fenced spec blocks]
+ E --&gt; F[Run parser plus checker per block]
+ F --&gt; G[Guarantee becomes program]</pre></div></div><script type="text/plain" class="mermaid-src" data-target="dg-004-C1-09">flowchart TD
+ A[Guide claims every block compiles] --> B{CI checks docs}
+ B -->|no snippet test| C[Claim enforced by nothing]
+ C --> D[Guide edits can silently break snippets]
+ D --> E[xtask extracts fenced spec blocks]
+ E --> F[Run parser plus checker per block]
+ F --> G[Guarantee becomes program]</script>
+<div class="eli10"><span class="tag">Explain like I'm 10</span><p>A cookbook guarantees every recipe works, but no chef re-cooks the pages after an edit.</p></div>
+<p class="sol" style="margin-top:12px"><b>Proposed solution.</b> Extend xtask to extract fenced spec blocks from guides and run parser plus checker in a unit test.</p>
+</article>
+<article class="finding-detail sev-high" id="f-C1-10">
+<div class="head"><h2>RES-18 sells 75-86 percent savings as findings, but the flagship token-efficient context export has no budget mechanism</h2><span class="chip high">high</span><span class="fid">C1-10</span></div>
+<div class="meta-row"><span class="engineer">004 Donald Knuth</span><span class="chip neutral">effort M</span><span class="chip neutral">moves: Context-format token budget support</span></div>
+<div class="evidence"><b>Evidence</b><span class="ev"><code>spec/research/RES-18-ai-agent-token-economics.md</code> — 75-86 percent and ~90 percent dollar savings presented as findings; modeled extrapolations, no measured run</span><span class="ev"><code>crates/specforge-emitter/src/emit.rs</code> — token_budget only when format==Json and schema.is_none(); format=context ignores it</span><span class="ev"><code>crates/specforge-emitter/src/context.rs</code> — emit_context serializes every node full contract/status/verify pretty-printed; no size bound</span></div>
+<p class="details">RES-18&#x27;s headline — 75-86% per-task savings and ~90% cost reduction — is presented under Key findings but is a spreadsheet extrapolation from third-party benchmarks, never measured on this compiler. The mechanism that would realize even the modest 1k-7k context claim is incomplete: crates/specforge-emitter/src/emit.rs:108-112 applies token_budget only when format==Json and schema.is_none(), so specforge export --format=context — the exact what-an-agent-consumes path the docs sell — ignores the budget entirely, and crates/specforge-emitter/src/context.rs serializes every node&#x27;s full contract/status/verify pretty-printed with no size bound. A marketing story built on portion control cannot ship without the portion-control mechanism and a measured benchmark. Fix: honor the budget in Context and Brief formats, add a token benchmark over todo-app and spec/, and relabel unmeasured savings as projections.</p>
+<div class="snippet before"><span class="cap">before — current code</span><pre><code>    // Handle token budget (only for Json format without schema)
+    if let Some(budget) = options.token_budget
+        &amp;&amp; options.format == EmitFormat::Json
+        &amp;&amp; options.schema.is_none()
+    {
+        ...
+    }
+
+    match (options.format, options.schema) {
+        (EmitFormat::Json, None) =&gt; crate::json::emit_json(g),
+        (EmitFormat::Context, Some(schema)) =&gt; crate::schema::emit_context_with_schema(g, schema),
+        (EmitFormat::Context, None) =&gt; crate::context::emit_context(g),
+        (EmitFormat::Brief, Some(schema)) =&gt; crate::schema::emit_brief_with_schema(g, schema),
+        (EmitFormat::Brief, None) =&gt; crate::brief::emit_brief(g),
+        (EmitFormat::Dot, _) =&gt; crate::dot::emit_dot(g),</code></pre><div class="file">crates/specforge-emitter/src/emit.rs:108-124</div></div>
+<div class="arrow-between">↓ fix ↓</div>
+<div class="snippet after"><span class="cap">after — proposed fix</span><pre><code>    // Handle token budget for every agent-facing format (Json, Context, Brief).
+    // Dot output is for humans; the budget does not apply there.
+    if let Some(budget) = options.token_budget
+        &amp;&amp; options.format != EmitFormat::Dot
+    {
+        let text = match (options.format, options.schema) {
+            (EmitFormat::Json, Some(schema)) =&gt; crate::schema::emit_json_with_schema(g, schema),
+            (EmitFormat::Json, None) =&gt; crate::json::emit_json(g),
+            (EmitFormat::Context, Some(schema)) =&gt; crate::schema::emit_context_with_schema(g, schema),
+            (EmitFormat::Context, None) =&gt; crate::context::emit_context(g),
+            (EmitFormat::Brief, Some(schema)) =&gt; crate::schema::emit_brief_with_schema(g, schema),
+            (EmitFormat::Brief, None) =&gt; crate::brief::emit_brief(g),
+            (EmitFormat::Dot, _) =&gt; unreachable!(&quot;excluded above&quot;),
+        };
+        return crate::budget::fit_budget(&amp;text, budget)
+            .map_or_else(|| Err(EmitterError::BudgetExceeded(budget)), Ok);
+    }
+
+    match (options.format, options.schema) {
+        (EmitFormat::Json, None) =&gt; crate::json::emit_json(g),
+        (EmitFormat::Context, Some(schema)) =&gt; crate::schema::emit_context_with_schema(g, schema),
+        (EmitFormat::Context, None) =&gt; crate::context::emit_context(g),
+        (EmitFormat::Brief, Some(schema)) =&gt; crate::schema::emit_brief_with_schema(g, schema),
+        (EmitFormat::Brief, None) =&gt; crate::brief::emit_brief(g),
+        (EmitFormat::Dot, _) =&gt; crate::dot::emit_dot(g),</code></pre><div class="file">crates/specforge-emitter/src/emit.rs:105-127</div></div>
+<div class="diagram-box"><span class="cap">Budget bypass for agent context</span><div class="mermaid" id="dg-004-C1-10"><pre>flowchart TD
+ A[RES-18 sells 75 to 86 percent savings] --&gt; B{token_budget honored}
+ B --&gt;|only Json no schema| C[context format ignores budget]
+ C --&gt; D[emit_context serializes all nodes unbounded]
+ D --&gt; E[Agent portion control never built]
+ E --&gt; F[Extend budget to Context and Brief]
+ F --&gt; G[Measured benchmark on todo-app and spec]
+ G --&gt; H[Savings claim backed by runs]</pre></div></div><script type="text/plain" class="mermaid-src" data-target="dg-004-C1-10">flowchart TD
+ A[RES-18 sells 75 to 86 percent savings] --> B{token_budget honored}
+ B -->|only Json no schema| C[context format ignores budget]
+ C --> D[emit_context serializes all nodes unbounded]
+ D --> E[Agent portion control never built]
+ E --> F[Extend budget to Context and Brief]
+ F --> G[Measured benchmark on todo-app and spec]
+ G --> H[Savings claim backed by runs]</script>
+<div class="eli10"><span class="tag">Explain like I'm 10</span><p>The brochure promises a snack menu, but the snack option always serves the whole platter - the cost story depends on portion control never built.</p></div>
+<p class="sol" style="margin-top:12px"><b>Proposed solution.</b> Extend budget to Context and Brief; add a measured token benchmark on todo-app and spec/ to back the 1k-7k claim; reframe unmeasured savings as projections.</p>
+</article>
+<article class="finding-detail sev-info" id="f-C1-11">
+<div class="head"><h2>Graph-as-published-artifact executed well: extension-declared DOT styling and honest self-portrait - praise</h2><span class="chip info">info</span><span class="fid">C1-11</span></div>
+<div class="meta-row"><span class="engineer">004 Donald Knuth</span><span class="chip neutral">effort S</span><span class="chip neutral">moves: none</span></div>
+<div class="evidence"><b>Evidence</b><span class="ev"><code>extensions/formal/src/describe_entities.json:5-9</code> — extensions declare dot_shape/dot_color per kind; core DOT serializer consumes them - zero compiler changes per domain</span><span class="ev"><code>spec/specforge-graph.dot</code> — repo publishes its own ~2,100-node portrait - graphs as first-class published artifacts</span></div>
+<p class="details">Graph-as-published-artifact is executed with exactly the right extension point: extensions/formal/src/describe_entities.json declares per-kind dot_color, dot_fillcolor, and dot_shape (e.g. lines 6-8: hexagon for property, parallelogram for refinement), and the core DOT serializer consumes those manifest fields — adding a domain&#x27;s visual identity requires zero compiler changes. The repo then hangs its own map on the wall: spec/specforge-graph.dot publishes a ~2,100-node self-portrait of the project&#x27;s own graph. Together these demonstrate that graphs are first-class published artifacts, not internal debug output, and that the manifest-driven pattern scales to new domains without core edits.</p>
+<div class="snippet exemplar"><span class="cap">exemplar — the good pattern</span><pre><code>    {
+      &quot;name&quot;: &quot;property&quot;,
+      &quot;description&quot;: &quot;A temporal property assertion (safety, liveness, fairness)&quot;,
+      &quot;dot_color&quot;: &quot;#0D47A1&quot;,
+      &quot;dot_fillcolor&quot;: &quot;#E3F2FD&quot;,
+      &quot;dot_shape&quot;: &quot;hexagon&quot;,
+      &quot;fields&quot;: [</code></pre><div class="file">extensions/formal/src/describe_entities.json:3-9</div></div>
+<div class="keep"><span class="tag">Keep doing this</span><p>Preserve manifest-driven DOT styling and the published self-portrait; a small specforge export --format=dot --self convenience flag would make regenerating spec/specforge-graph.dot one command.</p></div>
+<div class="eli10"><span class="tag">Explain like I'm 10</span><p>Every map uses the shop&#x27;s own legend, so a new neighborhood just picks colors and the atlas absorbs it - and the shop hangs its own map on the wall.</p></div>
+<p class="sol" style="margin-top:12px"><b>Proposed solution.</b> Keep manifest-driven styling; consider export dot self option.</p>
+</article>
+</main><script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.1/dist/mermaid.min.js" onerror="window.__mermaidFailed=true"></script><script src="../js/agent.js"></script></body></html>

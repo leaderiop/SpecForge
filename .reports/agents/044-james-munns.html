@@ -1,0 +1,67 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>044 James Munns — SpecForge audit review</title>
+<link rel="stylesheet" href="../css/report.css"><link rel="stylesheet" href="../css/agents.css"></head><body>
+<header class="agent-hero"><div class="brand"><div class="logo">044</div><div>
+<h1>James Munns</h1>
+<div class="crumbs">Cluster C6 — Schemas, validation &amp; serialization (Graph Protocol) · postcard format author; embedded Rust &amp; resource-frugal serialization · profile <code>.agents/044-james-munns.md</code></div></div></div>
+<div class="links"><a href="../index.html">← Full report</a><a href="../../.agents/044-james-munns.md">Profile source</a></div></header>
+<main class="agent-main">
+<nav class="agent-nav"><a href="043.html">← 043</a><a href="045.html">045 →</a></nav>
+<div class="review-panel"><div class="review-text"><h2>Auditor review</h2><p>James Munns (embedded Rust): Durability and honesty issues, both small: write_report is non-atomic where the cache writer already does tmp+rename, and the &#x27;binary&#x27; report is pretty-printed JSON with postcard nowhere in the tree — rmp-serde comes from extism-convert, not a choice anyone made. Make the report write atomic and write it compact via to_writer; if you ever want real binary, do it deliberately behind a format version, not by implication.</p></div>
+<div class="mini-kpis">
+<div class="mini-kpi"><div class="k">Findings</div><div class="v">1</div></div>
+<div class="mini-kpi good"><div class="k">Critical + high</div><div class="v">0</div></div>
+<div class="mini-kpi"><div class="k">Evidence items</div><div class="v">2</div></div>
+<div class="mini-kpi"><div class="k">Effort mix</div><div class="v" style="font-size:14px">S</div></div>
+</div></div>
+<article class="finding-detail sev-medium" id="f-C6-15">
+<div class="head"><h2>No binary format exists: report is pretty JSON (report.rs:29-36); extism-convert uses rmp-serde (Cargo.lock:969) not postcard; postcard 1.1.3 only tra</h2><span class="chip medium">medium</span><span class="fid">C6-15</span></div>
+<div class="meta-row"><span class="engineer">044 James Munns</span><span class="chip neutral">effort S</span><span class="chip neutral">moves: wire</span></div>
+<div class="evidence"><b>Evidence</b><span class="ev"><code>report.rs:29-36</code></span><span class="ev"><code>protocol/host.rs:28-36</code></span></div>
+<p class="details">The specforge-test report is plain pretty-printed JSON (serde_json::to_string_pretty, report.rs:35) — there is no binary format anywhere in the workspace: the wasm protocol bridge serializes JSON over the wire (protocol/host.rs:19-44), and Cargo.lock pulls rmp-serde via extism-convert, not postcard, so postcard is at best a transitive trace. Naming or implying a compact/binary report where a printed letter sits in the &#x27;compact parts&#x27; box misleads consumers about size and parse cost. Either write honestly compact JSON via serde_json::to_writer into a BufWriter (no intermediate String), or actually adopt postcard behind the existing schema_version const.</p>
+<div class="snippet before"><span class="cap">before — current code</span><pre><code>    std::fs::create_dir_all(dir)?;
+
+    let mut sorted = entries.to_vec();
+    sorted.sort_by(|a, b| a.entity_id.cmp(&amp;b.entity_id).then(a.test_name.cmp(&amp;b.test_name)));
+
+    let report = BinaryReportRef {
+        schema_version: &quot;1.0&quot;,
+        binary_name,
+        entries: &amp;sorted,
+    };
+
+    let path = dir.join(format!(&quot;{binary_name}.json&quot;));
+    let json = serde_json::to_string_pretty(&amp;report)?;
+    std::fs::write(path, json)</code></pre><div class="file">integrations/rust/specforge-test/src/report.rs:29-36</div></div>
+<div class="arrow-between">↓ fix ↓</div>
+<div class="snippet after"><span class="cap">after — proposed fix</span><pre><code>    let path = dir.join(format!(&quot;{binary_name}.json&quot;));
+    let file = std::fs::File::create(&amp;path)?;
+    let mut writer = std::io::BufWriter::new(file);
+
+    // Compact JSON straight to disk: no pretty-print buffer,
+    // no intermediate String allocation.
+    serde_json::to_writer(&amp;mut writer, &amp;report)?;
+    writer.flush()?;
+
+    // NOTE: format is compact JSON, not binary. If a true binary
+    // format is wanted, adopt postcard behind REPORT_FORMAT_VERSION
+    // and change the extension to .bin deliberately.</code></pre><div class="file">integrations/rust/specforge-test/src/report.rs</div></div>
+<div class="diagram-box"><span class="cap">Honest compact output</span><div class="mermaid" id="dg-044-C6-15"><pre>flowchart TD
+ A[report entries] --&gt; B{serialization}
+ B --&gt;|today pretty string| C[whitespace bloat plus copy]
+ B --&gt;|to_writer compact| D[bytes straight to file]
+ D --&gt; E[smaller reports faster writes]
+ A --&gt; F[if binary needed]
+ F --&gt; G[postcard behind version const]
+ G --&gt; H[explicit new extension]</pre></div></div><script type="text/plain" class="mermaid-src" data-target="dg-044-C6-15">flowchart TD
+ A[report entries] --> B{serialization}
+ B -->|today pretty string| C[whitespace bloat plus copy]
+ B -->|to_writer compact| D[bytes straight to file]
+ D --> E[smaller reports faster writes]
+ A --> F[if binary needed]
+ F --> G[postcard behind version const]
+ G --> H[explicit new extension]</script>
+<div class="eli10"><span class="tag">Explain like I'm 10</span><p>box labeled &#x27;compact parts&#x27; contains a printed letter; the famous screws are packing material.</p></div>
+<p class="sol" style="margin-top:12px"><b>Proposed solution.</b> rename honestly + write compact JSON via to_writer, or truly adopt postcard behind the version const.</p>
+</article>
+</main><script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.1/dist/mermaid.min.js" onerror="window.__mermaidFailed=true"></script><script src="../js/agent.js"></script></body></html>

@@ -1,0 +1,61 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>076 Jason Liu — SpecForge audit review</title>
+<link rel="stylesheet" href="../css/report.css"><link rel="stylesheet" href="../css/agents.css"></head><body>
+<header class="agent-hero"><div class="brand"><div class="logo">076</div><div>
+<h1>Jason Liu</h1>
+<div class="crumbs">Cluster C9 — MCP &amp; AI-agent context engineering · Instructor creator; structured outputs and typed LLM interfaces · profile <code>.agents/076-jason-liu.md</code></div></div></div>
+<div class="links"><a href="../index.html">← Full report</a><a href="../../.agents/076-jason-liu.md">Profile source</a></div></header>
+<main class="agent-main">
+<nav class="agent-nav"><a href="075.html">← 075</a><a href="077.html">077 →</a></nav>
+<div class="review-panel"><div class="review-text"><h2>Auditor review</h2><p>Typed contracts are your pitch, and the one surface where it is violated is the agent-facing menu: specforge.query&#x27;s handler reads include_coverage and format that its hand-written input_schema never mentions, so agents order from a stale menu and undocumented capability is invisible capability. Derive schemas from typed arg structs so descriptor and handler cannot diverge - the deserializer and the schema should come from the same struct - and add a parity test over dispatch arms. Hand-written json!() schemas in a typed-graph project is the inconsistency to fix first.</p></div>
+<div class="mini-kpis">
+<div class="mini-kpi"><div class="k">Findings</div><div class="v">1</div></div>
+<div class="mini-kpi bad"><div class="k">Critical + high</div><div class="v">1</div></div>
+<div class="mini-kpi"><div class="k">Evidence items</div><div class="v">0</div></div>
+<div class="mini-kpi"><div class="k">Effort mix</div><div class="v" style="font-size:14px">M</div></div>
+</div></div>
+<article class="finding-detail sev-high" id="f-C9-13">
+<div class="head"><h2>Advertised tool schemas drift from implementations</h2><span class="chip high">high</span><span class="fid">C9-13</span></div>
+<div class="meta-row"><span class="engineer">076 Jason Liu</span><span class="chip neutral">effort M</span><span class="chip neutral">moves: export self-spec verify statements failing silently</span></div>
+<p class="details">The specforge.query handler reads format and include_coverage from arguments, but the registry descriptor&#x27;s input_schema lists only entity_id, depth, and kinds - the menu omits dishes the kitchen makes, so an agent reading tools/list can never discover them. Hand-written json!() schemas sit beside hand-written argument parsing with no compile-time link, so every new parameter risks silent drift in either direction (C9-02&#x27;s missing max_tokens is the same bug class). For a typed-graph project whose selling point is the type system keeping artifacts honest, the tool contracts are the one surface still maintained by hand. Deriving schemas from typed arg structs and testing dispatch-arm/descriptor parity closes the class, not the instance.</p>
+<div class="snippet before"><span class="cap">before — current code</span><pre><code>    let depth = args.get(&quot;depth&quot;).and_then(|v| v.as_u64()).unwrap_or(1) as usize;
+    let format = args.get(&quot;format&quot;).and_then(|v| v.as_str()).unwrap_or(&quot;graph&quot;);
+    let include_coverage = args.get(&quot;include_coverage&quot;).and_then(|v| v.as_bool()).unwrap_or(false);</code></pre><div class="file">crates/specforge-mcp/src/tools/query.rs:13-15</div></div>
+<div class="arrow-between">↓ fix ↓</div>
+<div class="snippet after"><span class="cap">after — proposed fix</span><pre><code>// tools/schema.rs - derive the input schema from the handler&#x27;s arg struct
+#[derive(Deserialize, JsonSchema)]
+pub struct QueryArgs {
+    pub entity_id: String,
+    #[serde(default = &quot;default_depth&quot;)]
+    pub depth: usize,
+    #[serde(default)]
+    pub include_coverage: bool,
+    #[serde(default)]
+    pub kinds: Vec&lt;String&gt;,
+}
+
+pub fn query_input_schema() -&gt; Value {
+    serde_json::to_value(schemar::schema_for!(QueryArgs)).unwrap()
+}
+// registry builds descriptors from this; dispatch deserializes QueryArgs so a
+// schema/handler mismatch cannot compile. Test asserts each dispatch arm&#x27;s
+// required params match the handler&#x27;s first-failure behavior.</code></pre><div class="file">crates/specforge-mcp/src/tools/schema.rs</div></div>
+<div class="diagram-box"><span class="cap">Typed tool contracts</span><div class="mermaid" id="dg-076-C9-13"><pre>flowchart TD
+ A[Handler reads include_coverage] --&gt; B[Descriptor schema omits it]
+ B --&gt; C[Agent never discovers capability]
+ D[Hand-written json schema beside hand-written parsing] --&gt; E[Drift in both directions]
+ E --&gt; C
+ C --&gt; F[Derive schema from typed arg structs]
+ F --&gt; G[Dispatch deserializes same struct]
+ G --&gt; H[Parity test over dispatch arms]</pre></div></div><script type="text/plain" class="mermaid-src" data-target="dg-076-C9-13">flowchart TD
+ A[Handler reads include_coverage] --> B[Descriptor schema omits it]
+ B --> C[Agent never discovers capability]
+ D[Hand-written json schema beside hand-written parsing] --> E[Drift in both directions]
+ E --> C
+ C --> F[Derive schema from typed arg structs]
+ F --> G[Dispatch deserializes same struct]
+ G --> H[Parity test over dispatch arms]</script>
+<div class="eli10"><span class="tag">Explain like I'm 10</span><p>The menu and the kitchen disagree: the menu (tool schema the agent reads) omits dishes the kitchen actually makes (format, include_coverage) and lists none of the size options. A typed-contract shop can&#x27;t afford hand-written menus that rot — agents order from the menu, so undocumented capability is invisible capability, and undocumented drift is worse.</p></div>
+<p class="sol" style="margin-top:12px"><b>Proposed solution.</b> Derive input schemas from a single typed Rust description (serde-schemars or a small macro over handler arg structs) so descriptor and handler cannot diverge; add a test that every dispatch arm in tools/mod.rs has a registry entry whose required params match the handler&#x27;s first-failure behavior.</p>
+</article>
+</main><script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.1/dist/mermaid.min.js" onerror="window.__mermaidFailed=true"></script><script src="../js/agent.js"></script></body></html>

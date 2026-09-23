@@ -1,0 +1,129 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>034 bluss (Ulrik Sverdrup) — SpecForge audit review</title>
+<link rel="stylesheet" href="../css/report.css"><link rel="stylesheet" href="../css/agents.css"></head><body>
+<header class="agent-hero"><div class="brand"><div class="logo">034</div><div>
+<h1>bluss (Ulrik Sverdrup)</h1>
+<div class="crumbs">Cluster C5 — Graph engine &amp; algorithms · petgraph author; index-based graph data structures in Rust · profile <code>.agents/034-blake-sweeney.md</code></div></div></div>
+<div class="links"><a href="../index.html">← Full report</a><a href="../../.agents/034-blake-sweeney.md">Profile source</a></div></header>
+<main class="agent-main">
+<nav class="agent-nav"><a href="033.html">← 033</a><a href="035.html">035 →</a></nav>
+<div class="review-panel"><div class="review-text"><h2>Auditor review</h2><p>bluss (Ulrik Sverdrup): The tests are the best part — contracts at every level over stable diagnostic codes; I refactor under less cover than this. But declaring petgraph while hand-rolling the graph, and having the README advertise the unused dependency, is exactly the small untruth that rots. HashMap-plus-sort-on-every-read is a phone book you alphabetize each lookup; IndexMap makes determinism structural. Keep the edge-vec removal at this scale — but measure it.</p></div>
+<div class="mini-kpis">
+<div class="mini-kpi"><div class="k">Findings</div><div class="v">3</div></div>
+<div class="mini-kpi bad"><div class="k">Critical + high</div><div class="v">1</div></div>
+<div class="mini-kpi"><div class="k">Evidence items</div><div class="v">8</div></div>
+<div class="mini-kpi"><div class="k">Effort mix</div><div class="v" style="font-size:14px">M · S</div></div>
+</div></div>
+<article class="finding-detail sev-high" id="f-C5-11">
+<div class="head"><h2>petgraph 0.8.3 declared, never consumed, while README claims &#x27;petgraph-backed&#x27;</h2><span class="chip high">high</span><span class="fid">C5-11</span></div>
+<div class="meta-row"><span class="engineer">034 bluss (Ulrik Sverdrup)</span><span class="chip neutral">effort M</span><span class="chip neutral">moves: petgraph adoption decision</span></div>
+<div class="evidence"><b>Evidence</b><span class="ev"><code>Cargo.toml</code></span><span class="ev"><code>README.md</code></span><span class="ev"><code>README.md:129</code></span><span class="ev"><code>crates/specforge-graph/src/graph.rs</code></span></div>
+<p class="details">Cargo.toml declares petgraph 0.8.3 but no crate imports it, while README.md:129 claims the graph is petgraph-backed — a dead dependency plus a false doc claim. Either adopt petgraph deliberately (its SCC also settles C5-00) or remove the dep and fix the README.</p>
+<div class="snippet before"><span class="cap">before — current code</span><pre><code>tree-sitter-language = &quot;0.1.7&quot;
+petgraph = &quot;0.8.3&quot;
+lasso = { version = &quot;0.7.3&quot;, features = [&quot;multi-threaded&quot;] }</code></pre><div class="file">Cargo.toml:44-46</div></div>
+<div class="arrow-between">↓ fix ↓</div>
+<div class="snippet after"><span class="cap">after — proposed fix</span><pre><code>[workspace.dependencies]
+tree-sitter-language = &quot;0.1.7&quot;
+# petgraph removed: the graph engine is hand-rolled (see ADR 0004).
+# Reintroduce only if a bench threshold in ADR 0004 trips.
+lasso = { version = &quot;0.7.3&quot;, features = [&quot;multi-threaded&quot;] }
+
+# README.md line 129 corrected to:
+# - **Graph** — mutable typed graph (entities, edges, cycles) built
+#   incrementally to support watch mode and the LSP.</code></pre><div class="file">Cargo.toml</div></div>
+<div class="diagram-box"><span class="cap">Dependency truth</span><div class="mermaid" id="dg-034-C5-11"><pre>flowchart TD
+ A[petgraph declared] --&gt; B[never imported]
+ C[README claims petgraph-backed] --&gt; B
+ B --&gt; D{decision}
+ D -- adopt --&gt; E[StableGraph plus SCC]
+ D -- remove --&gt; F[drop dep fix README]
+ E --&gt; G[honest single engine]
+ F --&gt; G</pre></div></div><script type="text/plain" class="mermaid-src" data-target="dg-034-C5-11">flowchart TD
+ A[petgraph declared] --> B[never imported]
+ C[README claims petgraph-backed] --> B
+ B --> D{decision}
+ D -- adopt --> E[StableGraph plus SCC]
+ D -- remove --> F[drop dep fix README]
+ E --> G[honest single engine]
+ F --> G</script>
+<div class="eli10"><span class="tag">Explain like I'm 10</span><p>The toolbox has a shiny factory-made wrench (petgraph), but the mechanic hand-forged his own and the store sign advertises the factory wrench anyway. Either use the real wrench or stop advertising it.</p></div>
+<p class="sol" style="margin-top:12px"><b>Proposed solution.</b> Decide: adopt petgraph (its Graph/StableGraph + toposort/SCC would replace the hand-rolled indexes and DFS trio) or remove the dep and correct README.md:129. Current state is the worst of both.</p>
+</article>
+<article class="finding-detail sev-medium" id="f-C5-12">
+<div class="head"><h2>HashMap storage patched with sort-at-every-read for determinism; removal is O(V+E) rebuild</h2><span class="chip medium">medium</span><span class="fid">C5-12</span></div>
+<div class="meta-row"><span class="engineer">034 bluss (Ulrik Sverdrup)</span><span class="chip neutral">effort M</span><span class="chip neutral">moves: petgraph adoption decision</span></div>
+<div class="evidence"><b>Evidence</b><span class="ev"><code>crates/specforge-graph/src/graph.rs</code></span><span class="ev"><code>crates/specforge-graph/tests/graph.rs</code></span></div>
+<p class="details">Nodes live in HashMap so every ordered accessor sorts at read time (O(V log V) churn per call), remove_node rebuilds all indexes O(V+E), and neighbors allocate a fresh Vec per call. Switch to IndexMap for structural determinism and have neighbors borrow the index instead of copying.</p>
+<div class="snippet before"><span class="cap">before — current code</span><pre><code>impl Graph {
+    pub fn new() -&gt; Self {
+        Self {
+            nodes: HashMap::new(),
+            edges: Vec::new(),
+            source_index: HashMap::new(),
+            target_index: HashMap::new(),
+            bidirectional_pairs: Vec::new(),
+        }
+    }</code></pre><div class="file">crates/specforge-graph/src/graph.rs:41-50</div></div>
+<div class="arrow-between">↓ fix ↓</div>
+<div class="snippet after"><span class="cap">after — proposed fix</span><pre><code>use indexmap::IndexMap;
+
+impl Graph {
+    pub fn new() -&gt; Self {
+        Self {
+            // Insertion-ordered: iteration is deterministic without the
+            // sort_by_key on every read that HashMap forced.
+            nodes: IndexMap::new(),
+            edges: Vec::new(),
+            source_index: HashMap::new(),
+            target_index: HashMap::new(),
+            bidirectional_pairs: HashSet::new(),
+        }
+    }
+
+    pub fn nodes(&amp;self) -&gt; Vec&lt;&amp;Node&gt; {
+        self.nodes.values().collect() // O(V) borrow, no sort
+    }
+
+    /// Neighbors borrow the index instead of copying a Vec per call.
+    fn neighbors(&amp;self, id: Sym) -&gt; impl Iterator&lt;Item = Sym&gt; + &#x27;_ {
+        self.source_index.get(&amp;id).into_iter().flatten()
+            .map(|&amp;i| self.edges[i].target)
+            .chain(self.target_index.get(&amp;id).into_iter().flatten()
+                .map(|&amp;i| self.edges[i].source))
+    }</code></pre><div class="file">crates/specforge-graph/src/graph.rs</div></div>
+<div class="diagram-box"><span class="cap">Order-preserving node storage</span><div class="mermaid" id="dg-034-C5-12"><pre>flowchart TD
+ A[HashMap nodes] --&gt; B[sort on every read]
+ A --&gt; C[O V+E rebuild on remove]
+ D[IndexMap nodes] --&gt; E[deterministic no sort]
+ D --&gt; F[neighbors borrow not copy]
+ G[CI bench from ADR] --&gt; D</pre></div></div><script type="text/plain" class="mermaid-src" data-target="dg-034-C5-12">flowchart TD
+ A[HashMap nodes] --> B[sort on every read]
+ A --> C[O V+E rebuild on remove]
+ D[IndexMap nodes] --> E[deterministic no sort]
+ D --> F[neighbors borrow not copy]
+ G[CI bench from ADR] --> D</script>
+<div class="eli10"><span class="tag">Explain like I'm 10</span><p>Imagine a phone book whose pages shuffle every time you open it, so you alphabetize the whole book before each lookup. An order-preserving book (indexmap-style) makes the sorting unnecessary, and neighbors could lend slices instead of copying lists.</p></div>
+<p class="sol" style="margin-top:12px"><b>Proposed solution.</b> Switch nodes to indexmap::IndexMap (deterministic order, O(1) reads without sort) and have neighbors yield an iterator/borrowed slice; acceptable to keep edge-vec rebuild for removal at current scale, or adopt petgraph::StableGraph per the petgraph decision.</p>
+</article>
+<article class="finding-detail sev-info" id="f-C5-13">
+<div class="head"><h2>Solid, well-tested core primitives with contract tests at every level</h2><span class="chip info">info</span><span class="fid">C5-13</span></div>
+<div class="meta-row"><span class="engineer">034 bluss (Ulrik Sverdrup)</span><span class="chip neutral">effort S</span><span class="chip neutral">moves: petgraph adoption decision</span></div>
+<div class="evidence"><b>Evidence</b><span class="ev"><code>crates/specforge-graph/tests/graph.rs</code></span><span class="ev"><code>crates/specforge-graph/src/graph.rs</code></span></div>
+<p class="details">The core is unusually well-tested: contract-level tests in crates/specforge-graph/tests/graph.rs cover W011 checked edges, cycle detection with/without suppression, subgraph reachability, and invalidation BFS; emitter contract tests pin output determinism. Diagnostics carry stable codes with fuzzy-match suggestions through one shared entry point.</p>
+<div class="snippet exemplar"><span class="cap">exemplar — the good pattern</span><pre><code>        if !source_exists || !target_exists {
+            let missing: Vec&lt;&amp;str&gt; = [
+                (!source_exists).then_some(edge.source.as_str()),
+                (!target_exists).then_some(edge.target.as_str()),
+            ]
+            .into_iter()
+            .flatten()
+            .collect();
+
+            return Some(Diagnostic::warning(
+                &quot;W011&quot;,</code></pre><div class="file">crates/specforge-graph/src/graph.rs:98-102</div></div>
+<div class="keep"><span class="tag">Keep doing this</span><p>Preserve the contract-test discipline over stable diagnostic codes and the single build_graph_with_config entry point; any refactor (SCC primitive, IndexMap, petgraph) should keep these tests green untouched.</p></div>
+<div class="eli10"><span class="tag">Explain like I'm 10</span><p>The toolbox may be homemade, but every tool was tested on real bolts before being put in the drawer, and there&#x27;s only one screwdriver everyone shares.</p></div>
+<p class="sol" style="margin-top:12px"><b>Proposed solution.</b> None.</p>
+</article>
+</main><script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.1/dist/mermaid.min.js" onerror="window.__mermaidFailed=true"></script><script src="../js/agent.js"></script></body></html>

@@ -1,0 +1,137 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>002 John Backus — SpecForge audit review</title>
+<link rel="stylesheet" href="../css/report.css"><link rel="stylesheet" href="../css/agents.css"></head><body>
+<header class="agent-hero"><div class="brand"><div class="logo">002</div><div>
+<h1>John Backus</h1>
+<div class="crumbs">Cluster C1 — Foundations of intent capture &amp; specification — product thesis coherence · FORTRAN team lead; BNF; 1977 Turing lecture on liberation from von Neumann style · profile <code>.agents/002-john-backus.md</code></div></div></div>
+<div class="links"><a href="../index.html">← Full report</a><a href="../../.agents/002-john-backus.md">Profile source</a></div></header>
+<main class="agent-main">
+<nav class="agent-nav"><a href="001.html">← 001</a><a href="003.html">003 →</a></nav>
+<div class="review-panel"><div class="review-text"><h2>Auditor review</h2><p>Counting is my whole method, and the counts disagree: docs/extension-inventory.md says five official extensions, extensions/ holds four, and the inventory&#x27;s own dependency graph draws a software-testing node with 0 kinds that exists nowhere on disk — plus spec/specforge.spec declares a nonexistent @specforge/gh provider. My fix: generate the inventory from handshake.json and describe files via xtask so the book cannot drift from the box. Praise where due: the inventory&#x27;s arithmetic (22 kinds, 58 edges) is otherwise internally consistent, and the grammar-exactness story — one generic keyword-block grammar with multi-diagnostic recovery — is exactly the kind of small, checkable design I&#x27;d defend.</p></div>
+<div class="mini-kpis">
+<div class="mini-kpi"><div class="k">Findings</div><div class="v">3</div></div>
+<div class="mini-kpi bad"><div class="k">Critical + high</div><div class="v">1</div></div>
+<div class="mini-kpi"><div class="k">Evidence items</div><div class="v">8</div></div>
+<div class="mini-kpi"><div class="k">Effort mix</div><div class="v" style="font-size:14px">M · S</div></div>
+</div></div>
+<article class="finding-detail sev-high" id="f-C1-03">
+<div class="head"><h2>Extension inventory says five official extensions (incl. nonexistent software-testing) vs 4 on disk</h2><span class="chip high">high</span><span class="fid">C1-03</span></div>
+<div class="meta-row"><span class="engineer">002 John Backus</span><span class="chip neutral">effort M</span><span class="chip neutral">moves: Docs internal consistency</span></div>
+<div class="evidence"><b>Evidence</b><span class="ev"><code>docs/extension-inventory.md:3</code> — five official SpecForge extensions; dependency graph lists software-testing (0 kinds, 1 edge)</span><span class="ev"><code>extensions/</code> — only 4 dirs: formal, governance, product, software</span><span class="ev"><code>spec/specforge.spec</code> — declares only 3 of 4 builtins plus nonexistent @specforge/gh provider pointing at anthropics/specforge</span></div>
+<p class="details">docs/extension-inventory.md line 3 catalogs the five official SpecForge extensions and its dependency graph (lines 27-35) draws @specforge/software-testing as a node (0 kinds, 1 edge, 13 enhancements), with load-order prose and a summary-table row — but extensions/ contains only four directories (formal, governance, product, software) and no software-testing anywhere. Meanwhile spec/specforge.spec declares only three of the four real builtins (omitting @specforge/formal) and references a nonexistent @specforge/gh provider pointing at repo anthropics/specforge. A newcomer cross-checking book against box concludes they lost an extension or the docs are stale — both corrode trust in a project whose pitch is machine-validated truth. Root cause: the inventory is hand-written; fix by generating it from manifests (handshake.json + describe_entities.json) via xtask and correcting the meta-spec.</p>
+<div class="snippet before"><span class="cap">before — current code</span><pre><code># Extension Inventory
+
+This document catalogs the five official SpecForge extensions after the entity audit and testability extraction. Together they provide 22 entity kinds, 58 edge types, and cross-extension enhancements through the Extension Protocol.
+
+## Dependency Graph
+
+Extensions declare peer dependencies that control load order and enable cross-extension references. The graph reads left-to-right: an arrow means &quot;depends on.&quot;</code></pre><div class="file">docs/extension-inventory.md:1-5</div></div>
+<div class="arrow-between">↓ fix ↓</div>
+<div class="snippet after"><span class="cap">after — proposed fix</span><pre><code>/// Regenerate docs/extension-inventory.md from the actual extension
+/// manifests, so the document can never describe a nonexistent extension.
+fn gen_extension_inventory() -&gt; anyhow::Result&lt;()&gt; {
+    let mut rows = Vec::new();
+    for entry in std::fs::read_dir(&quot;extensions&quot;)? {
+        let dir = entry?.path();
+        let manifest: serde_json::Value = serde_json::from_str(&amp;std::fs::read_to_string(
+            dir.join(&quot;handshake.json&quot;),
+        )?)?;
+        let name = manifest[&quot;name&quot;].as_str().unwrap_or_default();
+        let kinds = manifest[&quot;kinds&quot;].as_array().map_or(0, |k| k.len());
+        let edges = manifest[&quot;edges&quot;].as_array().map_or(0, |e| e.len());
+        let deps: Vec&lt;&amp;str&gt; = manifest[&quot;depends_on&quot;]
+            .as_array()
+            .map(|d| d.iter().filter_map(|v| v.as_str()).collect())
+            .unwrap_or_default();
+        rows.push(format!(&quot;| {name} | {kinds} | {edges} | {} |&quot;, deps.join(&quot;, &quot;)));
+    }
+    rows.sort();
+    let doc = format!(
+        &quot;# Extension Inventory\n\nGenerated by `cargo xtask gen-extension-inventory`. Do not edit by hand.\n\n| Extension | Kinds | Edges | Depends on |\n|---|---|---|---|\n{}\n&quot;,
+        rows.join(&quot;\n&quot;)
+    );
+    std::fs::write(&quot;docs/extension-inventory.md&quot;, doc)?;
+    Ok(())
+}</code></pre><div class="file">crates/xtask/src/main.rs:32-60</div></div>
+<div class="diagram-box"><span class="cap">Inventory drift</span><div class="mermaid" id="dg-002-C1-03"><pre>flowchart TD
+ A[Inventory says five] --&gt; B{Count extensions dir}
+ B --&gt;|four dirs| C[software-testing is phantom]
+ D[specforge spec lists 3 of 4 plus fake gh provider] --&gt; E[Meta-spec also stale]
+ C --&gt; F[Generate inventory from handshake.json via xtask]
+ E --&gt; F
+ F --&gt; G[Book always matches box]</pre></div></div><script type="text/plain" class="mermaid-src" data-target="dg-002-C1-03">flowchart TD
+ A[Inventory says five] --> B{Count extensions dir}
+ B -->|four dirs| C[software-testing is phantom]
+ D[specforge spec lists 3 of 4 plus fake gh provider] --> E[Meta-spec also stale]
+ C --> F[Generate inventory from handshake.json via xtask]
+ E --> F
+ F --> G[Book always matches box]</script>
+<div class="eli10"><span class="tag">Explain like I'm 10</span><p>The encyclopedia says five pieces, the box holds four, the lid shows four. Newcomers conclude they lost one - or that the book is stale.</p></div>
+<p class="sol" style="margin-top:12px"><b>Proposed solution.</b> Generate the inventory from manifests (xtask reading handshake.json and describe files), drop or ship software-testing, fix spec/specforge.spec.</p>
+</article>
+<article class="finding-detail sev-medium" id="f-C1-04">
+<div class="head"><h2>Vision presents six-plus nonexistent extensions in installable present tense</h2><span class="chip medium">medium</span><span class="fid">C1-04</span></div>
+<div class="meta-row"><span class="engineer">002 John Backus</span><span class="chip neutral">effort S</span><span class="chip neutral">moves: Vision-to-implementation extension gap</span></div>
+<div class="evidence"><b>Evidence</b><span class="ev"><code>vision/README.md</code> — A compliance team installs @specforge/compliance and gets... - same for atomic-design, data-pipeline, api-design, business-model</span><span class="ev"><code>business/08-investment-thesis.md:227-232</code> — same extensions are roadmap items with market sizing</span><span class="ev"><code>extensions/</code> — zero non-software extensions exist</span></div>
+<p class="details">vision/README.md lines 97-101 narrate five teams installing extensions that do not exist: @specforge/compliance, @specforge/atomic-design, @specforge/data-pipeline, @specforge/api-design, and @specforge/business-model, each with a concrete kind list. The line diagram at 122-127 repeats them as if loadable. business/08-investment-thesis.md:227-232 correctly treats the same extensions as roadmap items, so the two documents contradict each other — the vision doc converts roadmap fiction into present-tense install instructions. Since vision/README.md is described in the project README as the source of truth for every product decision, present-tense fabrication is especially costly. Fix: future tense per mention plus a ships-today callout listing the four real builtins.</p>
+<div class="snippet before"><span class="cap">before — current code</span><pre><code>
+- A software team installs `@specforge/software` and gets behavior, invariant, feature, event, type, port.
+- A compliance team installs `@specforge/compliance` and gets regulation, control, evidence, audit.
+- A design systems team installs `@specforge/atomic-design` and gets atom, molecule, organism, template, page.
+- A data team installs `@specforge/data-pipeline` and gets source, transform, sink, schedule.
+- An API team installs `@specforge/api-design` and gets endpoint, schema, operation.
+- A business strategy team installs `@specforge/business-model` and gets value_proposition, customer_segment, channel.
+
+You combine extensions freely. A regulated fintech team might use `@specforge/software` + `@specforge/compliance` + `@specforge/api-design`. A product design team might use `@specforge/product` + `@specforge/atomic-design`. Each combination shapes the graph that agents consume.</code></pre><div class="file">vision/README.md:95-103</div></div>
+<div class="arrow-between">↓ fix ↓</div>
+<div class="snippet after"><span class="cap">after — proposed fix</span><pre><code>
+**Ships today** — four official extensions, installable right now:
+`@specforge/software`, `@specforge/product`, `@specforge/governance`, `@specforge/formal`.
+
+**On the roadmap** — the same extension mechanism will carry every domain:
+
+- A compliance team will install `@specforge/compliance` and get regulation, control, evidence, audit.
+- A design systems team will install `@specforge/atomic-design` and get atom, molecule, organism, template, page.
+- A data team will install `@specforge/data-pipeline` and get source, transform, sink, schedule.
+- An API team will install `@specforge/api-design` and get endpoint, schema, operation.
+- A business strategy team will install `@specforge/business-model` and get value_proposition, customer_segment, channel.
+
+Teams will combine extensions freely. A regulated fintech team might use `@specforge/software` + `@specforge/compliance` + `@specforge/api-design`. Each combination shapes the graph that agents consume.</code></pre><div class="file">vision/README.md:95-105</div></div>
+<div class="diagram-box"><span class="cap">Roadmap in present tense</span><div class="mermaid" id="dg-002-C1-04"><pre>flowchart TD
+ A[vision README installs nonexistent extensions] --&gt; B[Investment thesis lists them as roadmap]
+ B --&gt; C[Two documents contradict]
+ C --&gt; D[Ship-today callout with 4 real builtins]
+ D --&gt; E[Future tense per roadmap mention]
+ E --&gt; F[Vision honest and inspiring]</pre></div></div><script type="text/plain" class="mermaid-src" data-target="dg-002-C1-04">flowchart TD
+ A[vision README installs nonexistent extensions] --> B[Investment thesis lists them as roadmap]
+ B --> C[Two documents contradict]
+ C --> D[Ship-today callout with 4 real builtins]
+ D --> E[Future tense per roadmap mention]
+ E --> F[Vision honest and inspiring]</script>
+<div class="eli10"><span class="tag">Explain like I'm 10</span><p>The brochure says families install our pool kit, but the store only sells the ladder. Installs instead of will-install turns a roadmap into a false shelf.</p></div>
+<p class="sol" style="margin-top:12px"><b>Proposed solution.</b> Future tense per mention plus a ships-today callout (4 builtins) in vision/README.md.</p>
+</article>
+<article class="finding-detail sev-info" id="f-C1-05">
+<div class="head"><h2>Grammar-exactness discipline is real: generic keyword-block grammar with error recovery - praise</h2><span class="chip info">info</span><span class="fid">C1-05</span></div>
+<div class="meta-row"><span class="engineer">002 John Backus</span><span class="chip neutral">effort S</span><span class="chip neutral">moves: none</span></div>
+<div class="evidence"><b>Evidence</b><span class="ev"><code>README.md:128</code> — generic parse plus multi-diagnostic error recovery, consistent with zero-domain core</span><span class="ev"><code>crates/specforge-graph/src/graph.rs:475-487</code> — small hand-rolled DFS cycle detection, exact and inspectable</span></div>
+<p class="details">The grammar-exactness story holds up under inspection. The tree-sitter-specforge grammar parses any keyword name block generically with multi-diagnostic error recovery (never failing fast), matching README line 128 — no domain vocabulary in the grammar itself. Downstream, specforge-graph implements cycle detection as a small hand-rolled three-color DFS (graph.rs:475-493) over the explicit source_index rather than importing an algorithm crate: exact, inspectable, and consistent with the zero-dependency philosophy flagged in C1-00. Keeping the grammar tiny is precisely what lets independent Graph Protocol producers converge on identical graphs, which is the whole standardization bet.</p>
+<div class="snippet exemplar"><span class="cap">exemplar — the good pattern</span><pre><code>        fn dfs(
+            node: Sym,
+            color: &amp;mut HashMap&lt;Sym, Color&gt;,
+            path: &amp;mut Vec&lt;Sym&gt;,
+            cycles: &amp;mut Vec&lt;Vec&lt;Sym&gt;&gt;,
+            source_index: &amp;HashMap&lt;Sym, Vec&lt;usize&gt;&gt;,
+            edges: &amp;[Edge],
+        ) {
+            color.insert(node, Color::Gray);
+            path.push(node);
+
+            if let Some(indices) = source_index.get(&amp;node) {
+                for &amp;idx in indices {
+                    let target = edges[idx].target;</code></pre><div class="file">crates/specforge-graph/src/graph.rs:475-487</div></div>
+<div class="keep"><span class="tag">Keep doing this</span><p>Keep the grammar generic and tiny, and go further: publish the exact block grammar inside the Graph Protocol spec so independent producers can match the compiler parse bit-for-bit.</p></div>
+<div class="eli10"><span class="tag">Explain like I'm 10</span><p>A dictionary that defines words only by their shape - tiny, precise, checkable by anyone. Smallness is what lets many tools agree.</p></div>
+<p class="sol" style="margin-top:12px"><b>Proposed solution.</b> Keep the grammar tiny; publish the exact grammar inside the Graph Protocol spec so independent producers match bit-for-bit.</p>
+</article>
+</main><script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.1/dist/mermaid.min.js" onerror="window.__mermaidFailed=true"></script><script src="../js/agent.js"></script></body></html>

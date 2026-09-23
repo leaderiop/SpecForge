@@ -1,0 +1,151 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>001 Grace Hopper — SpecForge audit review</title>
+<link rel="stylesheet" href="../css/report.css"><link rel="stylesheet" href="../css/agents.css"></head><body>
+<header class="agent-hero"><div class="brand"><div class="logo">001</div><div>
+<h1>Grace Hopper</h1>
+<div class="crumbs">Cluster C1 — Foundations of intent capture &amp; specification — product thesis coherence · First compilers (A-0, FLOW-MATIC); machine-independent programming · profile <code>.agents/001-grace-hopper.md</code></div></div></div>
+<div class="links"><a href="../index.html">← Full report</a><a href="../../.agents/001-grace-hopper.md">Profile source</a></div></header>
+<main class="agent-main">
+<nav class="agent-nav"><a href="125.html">← 125</a><a href="002.html">002 →</a></nav>
+<div class="review-panel"><div class="review-text"><h2>Auditor review</h2><p>The zero-domain discipline is the best thing here — a CI script (scripts/check-zero-entity-core.sh) that greps core crates for hardcoded kind names is a tripwire, not a promise; I&#x27;d hold that up first in any review. What I&#x27;d fix first: README.md architecture bullets make two claims with no referent — a petgraph-backed graph (petgraph sits unused in the workspace Cargo.toml; graph.rs is a HashMap&lt;Sym, Node&gt; plus Vec&lt;Edge&gt; with hand-rolled indexes) and Wasm (Extism) is the only extension runtime, while pipeline.rs loads builtins through a separate embedded-builtin path. Docs that describe a machine that doesn&#x27;t exist break every downstream decision an engineer makes from them.</p></div>
+<div class="mini-kpis">
+<div class="mini-kpi"><div class="k">Findings</div><div class="v">3</div></div>
+<div class="mini-kpi bad"><div class="k">Critical + high</div><div class="v">2</div></div>
+<div class="mini-kpi"><div class="k">Evidence items</div><div class="v">8</div></div>
+<div class="mini-kpi"><div class="k">Effort mix</div><div class="v" style="font-size:14px">M · S</div></div>
+</div></div>
+<article class="finding-detail sev-high" id="f-C1-00">
+<div class="head"><h2>README claims a petgraph-backed graph; petgraph is consumed by no crate</h2><span class="chip high">high</span><span class="fid">C1-00</span></div>
+<div class="meta-row"><span class="engineer">001 Grace Hopper</span><span class="chip neutral">effort S</span><span class="chip neutral">moves: README architecture-claim accuracy</span></div>
+<div class="evidence"><b>Evidence</b><span class="ev"><code>README.md:129</code> — petgraph-backed mutable graph, built incrementally</span><span class="ev"><code>crates/specforge-graph/src/graph.rs:22-28</code> — custom HashMap Sym-&gt;Node plus Vec&lt;Edge&gt; plus indexes, no petgraph</span><span class="ev"><code>crates</code> — grep petgraph = zero matches in code</span></div>
+<p class="details">README.md line 130 promises a petgraph-backed mutable graph built incrementally, but petgraph appears only as an unused workspace dependency (Cargo.toml line 46, zero matches in crates/) — specforge-graph is a custom Graph with HashMap&lt;Sym, Node&gt;, Vec&lt;Edge&gt;, and hand-built source/target indexes (graph.rs:22-38). The built-incrementally claim is also unsupported: no incremental-rebuild API exists in specforge-graph; the LSP does its own debounced reparse. For a project whose pitch is the graph is the product, the architecture section misdescribing the central data structure undermines every downstream claim. Fix: delete the dead dependency and describe the real design (symbol-interned nodes, flat edge vector, index maps).</p>
+<div class="snippet before"><span class="cap">before — current code</span><pre><code>## Architecture
+
+- **Parser** — Tree-sitter grammar that parses any `keyword name { ... }` block generically, with error recovery (collects multiple diagnostics, never fails fast).
+- **Graph** — petgraph-backed mutable graph, built incrementally to support watch mode and the LSP.
+- **Plugin runtime** — Wasm (Extism) is the only extension runtime, with AOT caching for the CLI and warm engines for the LSP/MCP servers.
+- **Surfaces** — CLI (`specforge-cli`), LSP (`specforge-lsp`), and MCP (`specforge-mcp`) all consume the same graph.</code></pre><div class="file">README.md:127-133</div></div>
+<div class="arrow-between">↓ fix ↓</div>
+<div class="snippet after"><span class="cap">after — proposed fix</span><pre><code>## Architecture
+
+- **Parser** — Tree-sitter grammar that parses any `keyword name { ... }` block generically, with error recovery (collects multiple diagnostics, never fails fast).
+- **Graph** — a purpose-built, dependency-free graph (`specforge-graph`): symbol-interned nodes in a `HashMap&lt;Sym, Node&gt;`, a flat `Vec&lt;Edge&gt;`, and `Sym`-keyed source/target index maps for O(1) traversal — rebuilt wholesale per parse; watch mode and the LSP debounce reparses above it.
+- **Plugin runtime** — Wasm (Extism) extensions with AOT caching for the CLI and warm engines for the LSP/MCP servers; the four `@specforge/*` builtins ship as embedded Wasm binaries.
+- **Surfaces** — CLI (`specforge-cli`), LSP (`specforge-lsp`), and MCP (`specforge-mcp`) all consume the same graph.</code></pre><div class="file">README.md:127-133</div></div>
+<div class="diagram-box"><span class="cap">README claim vs real graph</span><div class="mermaid" id="dg-001-C1-00"><pre>flowchart TD
+ A[README claims petgraph] --&gt; B{grep crates for petgraph}
+ B --&gt;|zero matches| C[Claim is false]
+ C --&gt; D[Delete petgraph from Cargo.toml]
+ D --&gt; E[Describe custom Sym keyed graph]
+ E --&gt; F[README matches code]</pre></div></div><script type="text/plain" class="mermaid-src" data-target="dg-001-C1-00">flowchart TD
+ A[README claims petgraph] --> B{grep crates for petgraph}
+ B -->|zero matches| C[Claim is false]
+ C --> D[Delete petgraph from Cargo.toml]
+ D --> E[Describe custom Sym keyed graph]
+ E --> F[README matches code]</script>
+<div class="eli10"><span class="tag">Explain like I'm 10</span><p>The menu says the stew has beef, but the kitchen never bought beef. The promise and the kitchen disagree, so nobody can trust the menu.</p></div>
+<p class="sol" style="margin-top:12px"><b>Proposed solution.</b> Delete the petgraph-backed claim and the unused Cargo.toml entry; describe the custom graph accurately. Built-incrementally is also unsupported: no incremental API in specforge-graph (the LSP does its own debounced parse).</p>
+</article>
+<article class="finding-detail sev-high" id="f-C1-01">
+<div class="head"><h2>Wasm (Extism) is the only extension runtime claim contradicted by a parallel native builtin path and missing wasm bootstrap</h2><span class="chip high">high</span><span class="fid">C1-01</span></div>
+<div class="meta-row"><span class="engineer">001 Grace Hopper</span><span class="chip neutral">effort M</span><span class="chip neutral">moves: README architecture-claim accuracy</span></div>
+<div class="evidence"><b>Evidence</b><span class="ev"><code>README.md:130</code> — Wasm (Extism) is the only extension runtime</span><span class="ev"><code>crates/specforge-cli/src/pipeline.rs:5-22</code> — ExtismRuntime plus builtins::load_builtins_for; a native BuiltinExtensions path and CompositeRuntime (builtin-first) also exist</span><span class="ev"><code>extensions/</code> — 4 wasm trees whose .wasm are include_bytes from target/ dirs a fresh clone lacks; no bootstrap script</span></div>
+<p class="details">README.md line 131 states Wasm (Extism) is the only extension runtime, yet crates/specforge-cli/src/pipeline.rs composes builtins::load_builtins_for with ExtismRuntime, and the codebase also contains a native BuiltinExtensions path and a CompositeRuntime that prefers builtins — two runtimes, not one. Simultaneously the wasm story breaks on fresh clones: crates/specforge-extism/src/builtins.rs:3-6 include_bytes four .wasm binaries from extensions/*/target/wasm32-unknown-unknown/release/, directories no script or CI step produces, so a clean checkout fails to build the CLI. Reconcile by picking one narrative: document a bootstrap (xtask building extensions for wasm32-unknown-unknown, wired into CI and specforge doctor) with accurate dual-runtime wording, or collapse to one runtime; state the target-triple choice once in the Extension Protocol doc.</p>
+<div class="snippet before"><span class="cap">before — current code</span><pre><code>use std::path::Path;
+use std::sync::{Arc, Mutex};
+
+use specforge_common::load_project_config;
+use specforge_extism::{builtins, ExtismRuntime, HostContext};
+
+pub use specforge_emitter::compile::CompilationContext;
+
+/// Compile a project using the Extism Wasm runtime.
+///
+/// Only extensions listed in `specforge.json` are loaded — no implicit builtins.
+/// Builtin extensions are loaded from embedded Wasm binaries when their name
+/// matches a `@specforge/*` builtin. Custom `.wasm` paths are loaded from disk.
+pub fn compile(path: &amp;Path) -&gt; CompilationContext {
+    let config = load_project_config(path);
+
+    let ctx = HostContext::new(Arc::new(Mutex::new(Vec::new())))
+        .with_spec_root(path.to_path_buf());
+    let runtime = ExtismRuntime::with_host_context(ctx);</code></pre><div class="file">crates/specforge-cli/src/pipeline.rs:1-17</div></div>
+<div class="arrow-between">↓ fix ↓</div>
+<div class="snippet after"><span class="cap">after — proposed fix</span><pre><code>//! xtask: repo automation, including the Wasm extension bootstrap.
+
+use std::process::Command;
+
+const EXTENSIONS: &amp;[&amp;str] = &amp;[&quot;product&quot;, &quot;software&quot;, &quot;governance&quot;, &quot;formal&quot;];
+const TARGET: &amp;str = &quot;wasm32-unknown-unknown&quot;;
+
+/// Build every builtin extension so `include_bytes!` in
+/// specforge-extism/src/builtins.rs resolves on a fresh clone.
+/// Wired into CI and invoked by `specforge doctor --fix`.
+fn bootstrap_extensions() -&gt; anyhow::Result&lt;()&gt; {
+    for ext in EXTENSIONS {
+        let status = Command::new(&quot;cargo&quot;)
+            .args([
+                &quot;build&quot;, &quot;--release&quot;, &quot;--target&quot;, TARGET,
+                &quot;--manifest-path&quot;, &amp;format!(&quot;extensions/{ext}/Cargo.toml&quot;),
+            ])
+            .status()?;
+        if !status.success() {
+            anyhow::bail!(&quot;failed to build extension {ext} for {TARGET}&quot;);
+        }
+    }
+    Ok(())
+}
+
+fn main() -&gt; anyhow::Result&lt;()&gt; {
+    match std::env::args().nth(1).as_deref() {
+        Some(&quot;bootstrap-extensions&quot;) =&gt; bootstrap_extensions(),
+        _ =&gt; eprintln!(&quot;usage: xtask bootstrap-extensions&quot;),
+    }
+    Ok(())
+}</code></pre><div class="file">crates/xtask/src/main.rs:1-30</div></div>
+<div class="diagram-box"><span class="cap">Wasm runtime story</span><div class="mermaid" id="dg-001-C1-01"><pre>flowchart TD
+ A[README says wasm only] --&gt; B{Check code}
+ B --&gt; C[native builtin path exists]
+ B --&gt; D[include_bytes needs target wasm]
+ D --&gt; E[fresh clone lacks wasm files]
+ C --&gt; F[Fix docs to dual runtime]
+ E --&gt; G[xtask bootstrap-extensions target]
+ F --&gt; H[Docs match machine]
+ G --&gt; H</pre></div></div><script type="text/plain" class="mermaid-src" data-target="dg-001-C1-01">flowchart TD
+ A[README says wasm only] --> B{Check code}
+ B --> C[native builtin path exists]
+ B --> D[include_bytes needs target wasm]
+ D --> E[fresh clone lacks wasm files]
+ C --> F[Fix docs to dual runtime]
+ E --> G[xtask bootstrap-extensions target]
+ F --> H[Docs match machine]
+ G --> H</script>
+<div class="eli10"><span class="tag">Explain like I'm 10</span><p>The sign says one kind of coin only, but the slot secretly takes a second kind - and the coins for the first kind are not in the box for a new customer.</p></div>
+<p class="sol" style="margin-top:12px"><b>Proposed solution.</b> Pick one story: ship a documented bootstrap (xtask builds extensions for wasm32-unknown-unknown, wired into CI and doctor), or correct the docs to the dual runtime. Reconcile wasm32-wasi vs wasm32-unknown-unknown.</p>
+</article>
+<article class="finding-detail sev-info" id="f-C1-02">
+<div class="head"><h2>Zero-domain-knowledge core genuinely honored - praise</h2><span class="chip info">info</span><span class="fid">C1-02</span></div>
+<div class="meta-row"><span class="engineer">001 Grace Hopper</span><span class="chip neutral">effort S</span><span class="chip neutral">moves: none</span></div>
+<div class="evidence"><b>Evidence</b><span class="ev"><code>crates/specforge-registry/tests</code> — zero_entity regression tests enforce no domain kinds in core</span><span class="ev"><code>scripts/check-zero-entity-core.sh</code> — CI guard script</span></div>
+<p class="details">The zero-domain-knowledge thesis is not merely asserted — it is enforced. crates/specforge-registry/tests/zero_entity_registries.rs and zero_entity_validation.rs carry regression tests (e.g. boot_kind_registry_zero_entries at line 126) asserting KindRegistry::new(), FieldRegistry::new(), and EdgeRegistry::new() boot with zero entries, wired to spec entities via #[spec(behavior = ..., verify = ...)] attributes. On top, scripts/check-zero-entity-core.sh greps eight core crate source dirs for 19 hardcoded entity-kind names (excluding builtins/ and marked exemptions) and fails CI on any hit. This is the strongest evidence in the repo that the Terraform-style core/extensibility claim is architectural, not aspirational.</p>
+<div class="snippet exemplar"><span class="cap">exemplar — the good pattern</span><pre><code>#!/usr/bin/env bash
+set -euo pipefail
+
+# Verify that core crate source directories contain no hardcoded entity kind names.
+# Extension code (builtins/) is excluded — it SHOULD reference domain vocabulary.
+# Test files, doc comments, and lines marked exempt are excluded.
+#
+# &quot;type&quot;, &quot;property&quot;, &quot;channel&quot;, &quot;event&quot; are excluded because they collide
+# with JSON Schema keywords, LSP protocol terms, and MCP event contexts.
+
+ENTITY_PATTERN=&#x27;&quot;behavior&quot;|&quot;feature&quot;|&quot;invariant&quot;|&quot;port&quot;|&quot;decision&quot;|&quot;constraint&quot;|&quot;failure_mode&quot;|&quot;journey&quot;|&quot;deliverable&quot;|&quot;milestone&quot;|&quot;module&quot;|&quot;term&quot;|&quot;persona&quot;|&quot;release&quot;|&quot;condition&quot;|&quot;axiom&quot;|&quot;refinement&quot;|&quot;process&quot;&#x27;
+
+CORE_DIRS=(
+  crates/specforge-parser/src
+  crates/specforge-resolver/src
+  crates/specforge-validator/src</code></pre><div class="file">scripts/check-zero-entity-core.sh:1-16</div></div>
+<div class="keep"><span class="tag">Keep doing this</span><p>Preserve the zero-entity CI tripwire and regression tests exactly as they are, and surface them in the README architecture section as proof the zero-domain core is enforced, not promised.</p></div>
+<div class="eli10"><span class="tag">Explain like I'm 10</span><p>They promised the toaster would never know your bread - and built a tripwire that beeps if anyone teaches it. The promise is guarded, not just written.</p></div>
+<p class="sol" style="margin-top:12px"><b>Proposed solution.</b> Keep it; surface in README architecture as the strongest evidence the thesis is real.</p>
+</article>
+</main><script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.1/dist/mermaid.min.js" onerror="window.__mermaidFailed=true"></script><script src="../js/agent.js"></script></body></html>

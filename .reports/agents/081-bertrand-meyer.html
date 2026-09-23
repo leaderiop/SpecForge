@@ -1,0 +1,120 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>081 Bertrand Meyer — SpecForge audit review</title>
+<link rel="stylesheet" href="../css/report.css"><link rel="stylesheet" href="../css/agents.css"></head><body>
+<header class="agent-hero"><div class="brand"><div class="logo">081</div><div>
+<h1>Bertrand Meyer</h1>
+<div class="crumbs">Cluster C10 — Formal methods · Design by Contract; client/supplier obligations · profile <code>.agents/081-bertrand-meyer.md</code></div></div></div>
+<div class="links"><a href="../index.html">← Full report</a><a href="../../.agents/081-bertrand-meyer.md">Profile source</a></div></header>
+<main class="agent-main">
+<nav class="agent-nav"><a href="080.html">← 080</a><a href="082.html">082 →</a></nav>
+<div class="review-panel"><div class="review-text"><h2>Auditor review</h2><p>Bertrand Meyer would love that DbC-style requires/ensures fields exist and that pattern-catalog.spec specifies three concrete contradiction detectors with verify units. He would be furious those detectors were never implemented while the E030 code got spent on malformed manifests — a rule living only in the binder protects no one. First fix: implement the lint or rename the spec codes so the contract and the compiler agree.</p></div>
+<div class="mini-kpis">
+<div class="mini-kpi"><div class="k">Findings</div><div class="v">2</div></div>
+<div class="mini-kpi bad"><div class="k">Critical + high</div><div class="v">2</div></div>
+<div class="mini-kpi"><div class="k">Evidence items</div><div class="v">5</div></div>
+<div class="mini-kpi"><div class="k">Effort mix</div><div class="v" style="font-size:14px">M · S</div></div>
+</div></div>
+<article class="finding-detail sev-high" id="f-C10-03">
+<div class="head"><h2>E030 X/not_X contradiction detection specified but never implemented</h2><span class="chip high">high</span><span class="fid">C10-03</span></div>
+<div class="meta-row"><span class="engineer">081 Bertrand Meyer</span><span class="chip neutral">effort M</span><span class="chip neutral">moves: Formal rules implemented</span></div>
+<div class="evidence"><b>Evidence</b><span class="ev"><code>spec/extensions/formal/pattern-catalog.spec</code> — fa_pattern_e030_contradiction specifies 3 patterns with verify units</span><span class="ev"><code>crates</code> — no not_/contradiction logic anywhere in Rust; E030 in code means malformed manifest</span></div>
+<p class="details">fa_pattern_e030_contradiction specifies three concrete detectors — X/not_X name pairs via not_ prefix/suffix matching, tautological-false phrases, empty domain intersection — each with verify units. Workspace-wide grep finds no not_/contradiction logic in Rust; the only E030 emitted is provider.rs&#x27;s malformed-manifest code. Contradictory requires blocks like data_valid + data_not_valid compile silently, and the spec&#x27;s verify units are untestable because no code path exists.</p>
+<div class="snippet before"><span class="cap">before — current code</span><pre><code>    E030 fires when a requires block contains structurally contradictory
+    conditions. Three concrete patterns are detected:
+
+    1. X/not_X: Two conditions where one name is the negation of the
+       other (e.g., &quot;data_valid&quot; and &quot;data_not_valid&quot;, or &quot;connected&quot;
+       and &quot;not_connected&quot;). Detection: name prefix/suffix matching
+       with &quot;not_&quot; and &quot;_not_&quot; variants.
+
+    2. Tautological false: A condition whose description contains
+       explicit impossibility language (e.g., &quot;always false&quot;, &quot;never
+       true&quot;, &quot;impossible&quot;). Detection: keyword matching against a
+       closed list of impossibility phrases.</code></pre><div class="file">spec/extensions/formal/pattern-catalog.spec:17-29</div></div>
+<div class="arrow-between">↓ fix ↓</div>
+<div class="snippet after"><span class="cap">after — proposed fix</span><pre><code>/// F030-formal: X/not_X contradiction lint over requires names,
+/// per fa_pattern_e030_contradiction pattern 1.
+fn check_contradictory_requires(behavior: &amp;Node) -&gt; Vec&lt;Diagnostic&gt; {
+    let mut diags = Vec::new();
+    let names: Vec&lt;&amp;str&gt; = requires_names(behavior).collect();
+    for (i, a) in names.iter().enumerate() {
+        for b in &amp;names[i + 1..] {
+            let negated =
+                a.strip_prefix(&quot;not_&quot;).is_some_and(|r| r == *b)
+                    || b.strip_prefix(&quot;not_&quot;).is_some_and(|r| r == *a);
+            if negated {
+                diags.push(Diagnostic {
+                    code: &quot;F030&quot;.into(), severity: Severity::Error,
+                    message: format!(&quot;behavior &#x27;{}&#x27;: contradictory requires &#x27;{a}&#x27; vs &#x27;{b}&#x27;&quot;,
+                        behavior.id.raw),
+                    span: Some(behavior.source_span.clone()), suggestion: None,
+                });
+            }
+        }
+    }
+    diags
+}</code></pre><div class="file">crates/specforge-emitter/src/builtins/formal.rs</div></div>
+<div class="diagram-box"><span class="cap">contradiction lint implemented at last</span><div class="mermaid" id="dg-081-C10-03"><pre>flowchart TD
+ A[behavior requires names] --&gt; B[pairwise X vs not_X]
+ B -- match --&gt; C[F030 contradiction error]
+ B -- none --&gt; D[tautology keyword scan]
+ D -- hit --&gt; C
+ D -- clean --&gt; E[pass]</pre></div></div><script type="text/plain" class="mermaid-src" data-target="dg-081-C10-03">flowchart TD
+ A[behavior requires names] --> B[pairwise X vs not_X]
+ B -- match --> C[F030 contradiction error]
+ B -- none --> D[tautology keyword scan]
+ D -- hit --> C
+ D -- clean --> E[pass]</script>
+<div class="eli10"><span class="tag">Explain like I'm 10</span><p>The rulebook says: if one rule demands door-open and another door-not-open, shout. The program never shouts about doors - its E030 is spent on extension files. A rule living only in the binder protects no one.</p></div>
+<p class="sol" style="margin-top:12px"><b>Proposed solution.</b> Implement condition_check as a name-based contradiction lint or rename the spec codes so they match code.</p>
+</article>
+<article class="finding-detail sev-high" id="f-C10-04">
+<div class="head"><h2>diagnostic code-space collision: E030-E034 mean different things in spec vs code</h2><span class="chip high">high</span><span class="fid">C10-04</span></div>
+<div class="meta-row"><span class="engineer">081 Bertrand Meyer</span><span class="chip neutral">effort S</span><span class="chip neutral">moves: Formal rules implemented</span></div>
+<div class="evidence"><b>Evidence</b><span class="ev"><code>crates/specforge-registry/src/compilation/provider.rs:276-296</code> — code E030 = malformed manifest; E034 = unknown provider scheme</span><span class="ev"><code>spec/extensions/formal/invariants.spec</code> — spec E030 = contradiction; E032 = layering DAG cycle; E034 = event-graph cycle</span><span class="ev"><code>crates/specforge-emitter/src/compile.rs:371-376</code> — code E031 = protocol load failed vs spec E031 = layering loss</span></div>
+<p class="details">The E030-E034 block is double-booked. In code: E030 = malformed manifest (provider.rs:277,293), E031 = protocol load failed (compile.rs:371-376), E033/E034 = provider scheme errors (provider.rs:143,199). In the formal spec corpus: E030 = contradiction, E031 = layering loss, E032 = layering cycle, E034 = event-graph cycle — and integrity.rs reuses E032 for sha256 tamper. specforge explain E031 recites the wrong crime depending on which corpus a reader trusts. An owned F0xx block for formal diagnostics resolves this without touching existing compiler codes.</p>
+<div class="snippet before"><span class="cap">before — current code</span><pre><code>                        diagnostics.push(Diagnostic {
+                            code: &quot;E030&quot;.to_string(),
+                            severity: Severity::Error,
+                            message: format!(
+                                &quot;malformed manifest at &#x27;{}&#x27;: {}&quot;,</code></pre><div class="file">crates/specforge-registry/src/compilation/provider.rs:276-281</div></div>
+<div class="arrow-between">↓ fix ↓</div>
+<div class="snippet after"><span class="cap">after — proposed fix</span><pre><code>//! Owned diagnostic code registry.
+//! E0xx: compiler codes (unchanged). W0xx: warnings.
+//! F0xx: formal-analysis codes owned by @specforge/formal.
+
+pub const F030_CONTRADICTION: &amp;str = &quot;F030&quot;;
+pub const F031_LAYERING_LOSS: &amp;str = &quot;F031&quot;;
+pub const F032_LAYERING_CYCLE: &amp;str = &quot;F032&quot;;
+pub const F033_EVENT_GRAPH_CYCLE: &amp;str = &quot;F033&quot;;
+pub const F034_INTEGRITY: &amp;str = &quot;F034&quot;;
+
+/// Single lookup behind specforge explain so meanings can never
+/// diverge between spec prose and emitted diagnostics again.
+pub fn explain(code: &amp;str) -&gt; Option&lt;&amp;&#x27;static str&gt; {
+    match code {
+        F030_CONTRADICTION =&gt; Some(&quot;Structured condition contradiction&quot;),
+        F031_LAYERING_LOSS =&gt; Some(&quot;Refinement weakened an abstract ensures&quot;),
+        F032_LAYERING_CYCLE =&gt; Some(&quot;Refinement chain cycle&quot;),
+        F033_EVENT_GRAPH_CYCLE =&gt; Some(&quot;Unmitigated event-graph cycle&quot;),
+        F034_INTEGRITY =&gt; Some(&quot;Wasm module integrity check failed&quot;),
+        _ =&gt; None,
+    }
+}</code></pre><div class="file">crates/specforge-registry/src/compilation/codes.rs</div></div>
+<div class="diagram-box"><span class="cap">diagnostic codes double booked</span><div class="mermaid" id="dg-081-C10-04"><pre>flowchart TD
+ A[E030 in code malformed manifest] --&gt; Z[explain recites wrong crime]
+ B[E030 in spec contradiction] --&gt; Z
+ C[E031 code vs spec] --&gt; Z
+ Z --&gt; D[allocate F0xx block]
+ D --&gt; E[codes registry single source]
+ E --&gt; F[explain unambiguous]</pre></div></div><script type="text/plain" class="mermaid-src" data-target="dg-081-C10-04">flowchart TD
+ A[E030 in code malformed manifest] --> Z[explain recites wrong crime]
+ B[E030 in spec contradiction] --> Z
+ C[E031 code vs spec] --> Z
+ Z --> D[allocate F0xx block]
+ D --> E[codes registry single source]
+ E --> F[explain unambiguous]</script>
+<div class="eli10"><span class="tag">Explain like I'm 10</span><p>Two departments assigned the same error numbers to different problems, so specforge explain recites the wrong crime - like two hospitals sharing one patient-ID scheme for different people.</p></div>
+<p class="sol" style="margin-top:12px"><b>Proposed solution.</b> Create an owned code registry; allocate a fresh F0xx block for formal diagnostics and align the spec corpus before any formal pass ships.</p>
+</article>
+</main><script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.1/dist/mermaid.min.js" onerror="window.__mermaidFailed=true"></script><script src="../js/agent.js"></script></body></html>

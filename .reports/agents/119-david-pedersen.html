@@ -1,0 +1,132 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>119 David Pedersen — SpecForge audit review</title>
+<link rel="stylesheet" href="../css/report.css"><link rel="stylesheet" href="../css/agents.css"></head><body>
+<header class="agent-hero"><div class="brand"><div class="logo">119</div><div>
+<h1>David Pedersen</h1>
+<div class="crumbs">Cluster C14 — Direct-dependency maintainers - dependency/surface hygiene · axum creator; macro-free extractor-based HTTP handler design · profile <code>.agents/119-david-pedersen.md</code></div></div></div>
+<div class="links"><a href="../index.html">← Full report</a><a href="../../.agents/119-david-pedersen.md">Profile source</a></div></header>
+<main class="agent-main">
+<nav class="agent-nav"><a href="118.html">← 118</a><a href="120.html">120 →</a></nav>
+<div class="review-panel"><div class="review-text"><h2>Auditor review</h2><p>David would smile at handlers that read like axum tutorials but frown at the auth logic copy-pasted into three of them - from_request_parts extractors exist precisely for this, and the serde_json::to_value().unwrap() pattern is a latent panic he would ban outright. The starts_with scope check he would call a real security bug, trivially fixed with a slash-boundary match. He would praise the tidy router() composition.</p></div>
+<div class="mini-kpis">
+<div class="mini-kpi"><div class="k">Findings</div><div class="v">2</div></div>
+<div class="mini-kpi good"><div class="k">Critical + high</div><div class="v">0</div></div>
+<div class="mini-kpi"><div class="k">Evidence items</div><div class="v">2</div></div>
+<div class="mini-kpi"><div class="k">Effort mix</div><div class="v" style="font-size:14px">M · S</div></div>
+</div></div>
+<article class="finding-detail sev-medium" id="f-C14-05">
+<div class="head"><h2>Auth is copy-pasted into each mutating handler instead of a tower layer or extractor</h2><span class="chip medium">medium</span><span class="fid">C14-05</span></div>
+<div class="meta-row"><span class="engineer">119 David Pedersen</span><span class="chip neutral">effort M</span><span class="chip neutral">moves: Server hygiene</span></div>
+<div class="evidence"><b>Evidence</b><span class="ev"><code>crates/specforge-registry-server/src/handlers.rs:201-240,368-407,409-443</code> — publish_package, yank_package and verify_auth each hand-roll the same Authorization extraction plus validate_bearer plus token_has_scope sequence with duplicated UNAUTHORIZED/FORBIDDEN response construction; every error body is built via serde_json to_value then unwrap (panic path).</span></div>
+<p class="details">publish_package, yank_package and verify_auth in handlers.rs each repeat the identical sequence: extract the authorization HeaderMap entry, call auth::validate_bearer, then auth::token_has_scope, each branch hand-building (StatusCode, Json(serde_json::to_value(ErrorResponse{..}).unwrap())) tuples. Beyond the copy-paste drift risk (a future handler may forget the scope check), every response construction calls serde_json::to_value(...).unwrap() - a panic path if any field ever becomes non-serializable. A FromRequestParts extractor (AuthToken with required scopes) plus a small ApiError IntoResponse type centralizes the policy and removes the unwraps.</p>
+<div class="snippet before"><span class="cap">before — current code</span><pre><code>    // Auth check
+    let auth_header = match headers.get(&quot;authorization&quot;).and_then(|v| v.to_str().ok()) {
+        Some(h) =&gt; h.to_string(),
+        None =&gt; {
+            return (
+                StatusCode::UNAUTHORIZED,
+                Json(serde_json::to_value(ErrorResponse {
+                    error: ErrorBody {
+                        code: &quot;UNAUTHORIZED&quot;.to_string(),
+                        message: &quot;missing Authorization header&quot;.to_string(),
+                    },
+                }).unwrap()),
+            );
+        }
+    };
+
+    let token_record = match auth::validate_bearer(&amp;state.database, &amp;auth_header) {
+        Some(r) =&gt; r,
+        None =&gt; {
+            return (
+                StatusCode::UNAUTHORIZED,
+                Json(serde_json::to_value(ErrorResponse {
+                    error: ErrorBody {
+                        code: &quot;UNAUTHORIZED&quot;.to_string(),
+                        message: &quot;invalid or revoked token&quot;.to_string(),
+                    },
+                }).unwrap()),
+            );
+        }
+    };</code></pre><div class="file">crates/specforge-registry-server/src/handlers.rs:208-240</div></div>
+<div class="arrow-between">↓ fix ↓</div>
+<div class="snippet after"><span class="cap">after — proposed fix</span><pre><code>use axum::{
+    extract::FromRequestParts,
+    http::request::Parts,
+};
+
+impl FromRequestParts&lt;Arc&lt;AppState&gt;&gt; for AuthToken {
+    type Rejection = ApiError;
+
+    async fn from_request_parts(
+        parts: &amp;mut Parts,
+        state: &amp;Arc&lt;AppState&gt;,
+    ) -&gt; Result&lt;Self, Self::Rejection&gt; {
+        let header = parts
+            .headers
+            .get(&quot;authorization&quot;)
+            .and_then(|v| v.to_str().ok())
+            .ok_or(ApiError::unauthorized(&quot;missing Authorization header&quot;))?;
+        let record = validate_bearer(&amp;state.database, header)
+            .ok_or(ApiError::unauthorized(&quot;invalid or revoked token&quot;))?;
+        Ok(AuthToken(record))
+    }
+}
+
+// Handler becomes: async fn publish_package(
+//     State(state), Path((name, version)), token: AuthToken, ...
+// ) with one scope check via require_scope(&amp;token, &amp;name).</code></pre><div class="file">crates/specforge-registry-server/src/auth.rs:40-72</div></div>
+<div class="diagram-box"><span class="cap">Auth extraction centralization</span><div class="mermaid" id="dg-119-C14-05"><pre>flowchart TD
+ A[Three mutating handlers] --&gt; B[Each copies bearer check and JSON unwrap] --&gt; C[Drift risk and panic path]
+ D[AuthToken FromRequestParts extractor] --&gt; E[One rejection type ApiError] --&gt; F[Handlers validate scope only]</pre></div></div><script type="text/plain" class="mermaid-src" data-target="dg-119-C14-05">flowchart TD
+ A[Three mutating handlers] --> B[Each copies bearer check and JSON unwrap] --> C[Drift risk and panic path]
+ D[AuthToken FromRequestParts extractor] --> E[One rejection type ApiError] --> F[Handlers validate scope only]</script>
+<div class="eli10"><span class="tag">Explain like I'm 10</span><p>Every door in the building has its own private security guard who memorized the rules separately. Change the rules at one door and the others still follow the old ones. One guard at the front door checks everyone the same way.</p></div>
+<p class="sol" style="margin-top:12px"><b>Proposed solution.</b> Implement a FromRequestParts AuthToken extractor or middleware from_fn_with_state validating bearer and scope once and injecting TokenRecord; replace unwrap JSON building with a small ApiError IntoResponse type.</p>
+</article>
+<article class="finding-detail sev-medium" id="f-C14-06">
+<div class="head"><h2>token_has_scope uses bare starts_with - scope prefix matches unrelated package names</h2><span class="chip medium">medium</span><span class="fid">C14-06</span></div>
+<div class="meta-row"><span class="engineer">119 David Pedersen</span><span class="chip neutral">effort S</span><span class="chip neutral">moves: Server hygiene</span></div>
+<div class="evidence"><b>Evidence</b><span class="ev"><code>crates/specforge-registry-server/src/auth.rs:32-40</code> — token_has_scope returns package_name.starts_with(scope); a token scoped to web authorizes webui and web-framework etc. No delimiter or boundary check.</span></div>
+<p class="details">token_has_scope in crates/specforge-registry-server/src/auth.rs (lines 32-40) authorizes with package_name.starts_with(scope), so a token scoped to web is accepted for webui, web-framework and even website-admin. For a registry that AI agents hit with publish credentials, a leaked narrowly-scoped token grants a far larger blast radius than the user granted. npm-style semantics - exact match, or package starts with scope followed by a / boundary - closes it, and the near-miss case deserves a unit test.</p>
+<div class="snippet before"><span class="cap">before — current code</span><pre><code>pub fn token_has_scope(record: &amp;TokenRecord, package_name: &amp;str) -&gt; bool {
+    match &amp;record.scope {
+        None =&gt; true,
+        Some(scope) =&gt; package_name.starts_with(scope),
+    }
+}</code></pre><div class="file">crates/specforge-registry-server/src/auth.rs:32-36</div></div>
+<div class="arrow-between">↓ fix ↓</div>
+<div class="snippet after"><span class="cap">after — proposed fix</span><pre><code>pub fn token_has_scope(record: &amp;TokenRecord, package_name: &amp;str) -&gt; bool {
+    match &amp;record.scope {
+        None =&gt; true,
+        Some(scope) =&gt; scope_matches(scope, package_name),
+    }
+}
+
+/// npm-style boundary match: the scope is the whole name, or a
+/// namespace prefix followed by a path separator.
+fn scope_matches(scope: &amp;str, package_name: &amp;str) -&gt; bool {
+    package_name == scope
+        || package_name
+            .strip_prefix(scope)
+            .is_some_and(|rest| rest.starts_with(&#x27;/&#x27;))
+}
+
+#[test]
+fn scope_respects_name_boundary() {
+    assert!(scope_matches(&quot;web&quot;, &quot;web&quot;));
+    assert!(scope_matches(&quot;web&quot;, &quot;web/dep&quot;));
+    assert!(!scope_matches(&quot;web&quot;, &quot;webui&quot;));
+    assert!(!scope_matches(&quot;web&quot;, &quot;web-framework&quot;));
+}</code></pre><div class="file">crates/specforge-registry-server/src/auth.rs:32-46</div></div>
+<div class="diagram-box"><span class="cap">Scope prefix overreach</span><div class="mermaid" id="dg-119-C14-06"><pre>flowchart TD
+ A[Token scoped to web] --&gt; B[starts_with check] --&gt; C[webui and web-framework authorized]
+ D[Boundary match exact or slash] --&gt; E[webui rejected] --&gt; F[Least privilege restored]
+ B --&gt; D</pre></div></div><script type="text/plain" class="mermaid-src" data-target="dg-119-C14-06">flowchart TD
+ A[Token scoped to web] --> B[starts_with check] --> C[webui and web-framework authorized]
+ D[Boundary match exact or slash] --> E[webui rejected] --> F[Least privilege restored]
+ B --> D</script>
+<div class="eli10"><span class="tag">Explain like I'm 10</span><p>A parking pass for Oak Street also opens Oak Street Gardens and Oakstone Drive because the names just start the same way. The pass should match only the exact street or a clear continuation like Oak Street 5.</p></div>
+<p class="sol" style="margin-top:12px"><b>Proposed solution.</b> Require scope to match a package-name boundary: equal, or package starts with scope followed by slash (npm-style semantics); unit-test the near-miss case.</p>
+</article>
+</main><script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.1/dist/mermaid.min.js" onerror="window.__mermaidFailed=true"></script><script src="../js/agent.js"></script></body></html>

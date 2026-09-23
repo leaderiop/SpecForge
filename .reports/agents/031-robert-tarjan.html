@@ -1,0 +1,196 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>031 Robert Tarjan — SpecForge audit review</title>
+<link rel="stylesheet" href="../css/report.css"><link rel="stylesheet" href="../css/agents.css"></head><body>
+<header class="agent-hero"><div class="brand"><div class="logo">031</div><div>
+<h1>Robert Tarjan</h1>
+<div class="crumbs">Cluster C5 — Graph engine &amp; algorithms · SCC/cycle algorithms, graph data structures · profile <code>.agents/031-robert-tarjan.md</code></div></div></div>
+<div class="links"><a href="../index.html">← Full report</a><a href="../../.agents/031-robert-tarjan.md">Profile source</a></div></header>
+<main class="agent-main">
+<nav class="agent-nav"><a href="030.html">← 030</a><a href="032.html">032 →</a></nav>
+<div class="review-panel"><div class="review-text"><h2>Auditor review</h2><p>Robert Tarjan: The import_dag Tarjan is correct — indices/lowlink/on_stack exactly right, and sorting SCCs for determinism is the touch most forget. But writing one Tarjan and leaving three recursive DFS detectors in graph.rs, resolve.rs, and compile.rs is the real failure; the compile.rs ancestor-propagation bug is what unbounded DFS always produces. One SCC primitive consumed everywhere deletes the whole bug class — make it iterative.</p></div>
+<div class="mini-kpis">
+<div class="mini-kpi"><div class="k">Findings</div><div class="v">3</div></div>
+<div class="mini-kpi bad"><div class="k">Critical + high</div><div class="v">2</div></div>
+<div class="mini-kpi"><div class="k">Evidence items</div><div class="v">0</div></div>
+<div class="mini-kpi"><div class="k">Effort mix</div><div class="v" style="font-size:14px">M · S</div></div>
+</div></div>
+<article class="finding-detail sev-high" id="f-C5-00">
+<div class="head"><h2>Four divergent cycle detectors; one per-rule DFS over-reports cycle membership</h2><span class="chip high">high</span><span class="fid">C5-00</span></div>
+<div class="meta-row"><span class="engineer">031 Robert Tarjan</span><span class="chip neutral">effort M</span><span class="chip neutral">moves: Cycle-detection implementations 4→1</span></div>
+<p class="details">Four independent cycle detectors exist (graph.rs DFS, resolver dfs_cycle, watch Tarjan, emitter per-rule DFS) and they disagree; the emitter&#x27;s dfs propagates cycle_members up the recursion stack so every ancestor on the DFS path into a cycle is flagged, not just SCC members. Promote the Tarjan SCC already written in import_dag.rs into specforge-graph and have all four consumers use it.</p>
+<div class="snippet before"><span class="cap">before — current code</span><pre><code>    fn dfs&lt;&#x27;a&gt;(
+        node: &amp;&#x27;a str,
+        adj: &amp;HashMap&lt;&amp;&#x27;a str, Vec&lt;&amp;&#x27;a str&gt;&gt;,
+        color: &amp;mut HashMap&lt;&amp;&#x27;a str, Color&gt;,
+        cycle_members: &amp;mut HashSet&lt;&amp;&#x27;a str&gt;,
+    ) {
+        color.insert(node, Color::Gray);
+        if let Some(neighbors) = adj.get(node) {
+            for &amp;next in neighbors {
+                match color.get(next) {
+                    Some(Color::Gray) =&gt; {
+                        cycle_members.insert(next);
+                        cycle_members.insert(node);
+                    }
+                    Some(Color::White) =&gt; {
+                        dfs(next, adj, color, cycle_members);
+                        if cycle_members.contains(next) {
+                            cycle_members.insert(node);
+                        }
+                    }</code></pre><div class="file">crates/specforge-emitter/src/compile.rs:521-545</div></div>
+<div class="arrow-between">↓ fix ↓</div>
+<div class="snippet after"><span class="cap">after — proposed fix</span><pre><code>/// Single cycle primitive: Tarjan SCC. Only multi-member SCCs (or
+/// self-loops) are returned; W061, W003, LSP and emitter rules consume this.
+pub fn strongly_connected_components(&amp;self) -&gt; Vec&lt;Vec&lt;Sym&gt;&gt; {
+    let edges_from: HashMap&lt;Sym, Vec&lt;Sym&gt;&gt; = self.edges.iter().fold(HashMap::new(), |mut m, e| {
+        m.entry(e.source).or_default().push(e.target); m
+    });
+    let mut idx = 0usize; let mut indices = HashMap::new();
+    let mut low = HashMap::new(); let mut stack = Vec::new();
+    let mut on_stack = HashSet::new(); let mut out = Vec::new();
+    fn sc(v: Sym, ef: &amp;HashMap&lt;Sym, Vec&lt;Sym&gt;&gt;, idx: &amp;mut usize,
+          ind: &amp;mut HashMap&lt;Sym, usize&gt;, low: &amp;mut HashMap&lt;Sym, usize&gt;,
+          st: &amp;mut Vec&lt;Sym&gt;, on: &amp;mut HashSet&lt;Sym&gt;, out: &amp;mut Vec&lt;Vec&lt;Sym&gt;&gt;) {
+        ind.insert(v, *idx); low.insert(v, *idx); *idx += 1;
+        st.push(v); on.insert(v);
+        if let Some(ss) = ef.get(&amp;v) { for &amp;w in ss {
+            if !ind.contains_key(&amp;w) { sc(w, ef, idx, ind, low, st, on, out);
+                low.insert(v, low[&amp;v].min(low[&amp;w])); }
+            else if on.contains(&amp;w) { low.insert(v, low[&amp;v].min(ind[&amp;w])); }
+        }}
+        if low[&amp;v] == ind[&amp;v] { let mut s = Vec::new();
+            while let Some(w) = st.pop() { on.remove(&amp;w); s.push(w); if w == v { break; } }
+            if s.len() &gt; 1 || ef.get(&amp;v).is_some_and(|x| x.contains(&amp;v)) { s.sort(); out.push(s); } }
+    }
+    let mut all: Vec&lt;Sym&gt; = self.nodes.keys().copied().collect(); all.sort();
+    for v in all { if !indices.contains_key(&amp;v) { sc(v, &amp;edges_from, &amp;mut idx, &amp;mut indices, &amp;mut low, &amp;mut stack, &amp;mut on_stack, &amp;mut out); } }
+    out
+}</code></pre><div class="file">crates/specforge-graph/src/graph.rs</div></div>
+<div class="diagram-box"><span class="cap">Unify four cycle detectors</span><div class="mermaid" id="dg-031-C5-00"><pre>flowchart TD
+ A[graph.rs DFS] --&gt; Z[shared SCC primitive]
+ B[resolver dfs_cycle] --&gt; Z
+ C[import_dag Tarjan] --&gt; Z
+ D[compile.rs per-rule DFS] --&gt; Z
+ Z --&gt; E[full SCC membership for all diagnostics]
+ D --&gt; F[ancestor over-marking fixed]</pre></div></div><script type="text/plain" class="mermaid-src" data-target="dg-031-C5-00">flowchart TD
+ A[graph.rs DFS] --> Z[shared SCC primitive]
+ B[resolver dfs_cycle] --> Z
+ C[import_dag Tarjan] --> Z
+ D[compile.rs per-rule DFS] --> Z
+ Z --> E[full SCC membership for all diagnostics]
+ D --> F[ancestor over-marking fixed]</script>
+<div class="eli10"><span class="tag">Explain like I'm 10</span><p>Four people each wrote their own smoke detector for the same house, and they disagree: one cries wolf about innocent rooms on the way to the fire. It&#x27;s like four printers each re-drawing the same map slightly differently — pick one good map and share it.</p></div>
+<p class="sol" style="margin-top:12px"><b>Proposed solution.</b> Move a single Tarjan SCC + condensation (already written in import_dag.rs) into specforge-graph as the one cycle primitive; have graph.rs W061, resolver W003, and compile.rs per-rule checks consume full SCC membership from it. Deletes ~150 LOC of triplicated DFS and fixes the compile.rs ancestor over-marking.</p>
+</article>
+<article class="finding-detail sev-high" id="f-C5-01">
+<div class="head"><h2>LSP never surfaces any cycle diagnostic</h2><span class="chip high">high</span><span class="fid">C5-01</span></div>
+<div class="meta-row"><span class="engineer">031 Robert Tarjan</span><span class="chip neutral">effort M</span><span class="chip neutral">moves: Cycle rules surfaced in LSP 0/8 → 8/8</span></div>
+<p class="details">backend.rs line 412 skips CycleDetection patterns with a bare continue, so cycles the CLI reports are invisible in the editor, even though state.graph() is already available. Once the shared SCC primitive exists, call it here and project members onto source_spans like the CLI does.</p>
+<div class="snippet before"><span class="cap">before — current code</span><pre><code>            for pattern in validation_patterns {
+                if pattern.check
+                    == specforge_registry::validation_engine::ValidationPatternKind::CycleDetection
+                {
+                    continue;
+                }
+                let rule_diags =</code></pre><div class="file">crates/specforge-lsp/src/backend.rs:408-413</div></div>
+<div class="arrow-between">↓ fix ↓</div>
+<div class="snippet after"><span class="cap">after — proposed fix</span><pre><code>            for pattern in validation_patterns {
+                if pattern.check
+                    == specforge_registry::validation_engine::ValidationPatternKind::CycleDetection
+                {
+                    // Same cycle detection as the CLI: shared SCC primitive.
+                    let edge_label = pattern.edge_type.as_deref().unwrap_or_default();
+                    for cycle in state.graph().cycles_for_edge_label(edge_label) {
+                        for id in &amp;cycle {
+                            if let Some(node) = state.graph().node(id.as_str()) {
+                                push_diagnostic(&amp;mut diagnostics,
+                                    Diagnostic::warning(&amp;pattern.code,
+                                        specforge_registry::validation_engine::interpolate_template(
+                                            &amp;pattern.message_template, id.as_str(),
+                                            pattern.target_kind.as_deref().unwrap_or(&quot;entity&quot;), None, None))
+                                    .with_span(node.source_span.clone()), uri);
+                            }
+                        }
+                    }
+                    continue;
+                }</code></pre><div class="file">crates/specforge-lsp/src/backend.rs</div></div>
+<div class="diagram-box"><span class="cap">LSP cycle diagnostic gap</span><div class="mermaid" id="dg-031-C5-01"><pre>flowchart TD
+ G[shared Graph in LSP state] --&gt; P{CycleDetection pattern}
+ P -- before continue --&gt; X[diagnostic dropped]
+ P -- after SCC call --&gt; D[cycle diagnostic with span]
+ D --&gt; E[editor matches CLI]</pre></div></div><script type="text/plain" class="mermaid-src" data-target="dg-031-C5-01">flowchart TD
+ G[shared Graph in LSP state] --> P{CycleDetection pattern}
+ P -- before continue --> X[diagnostic dropped]
+ P -- after SCC call --> D[cycle diagnostic with span]
+ D --> E[editor matches CLI]</script>
+<div class="eli10"><span class="tag">Explain like I'm 10</span><p>The teacher (CLI) marks the circular argument in red, but the student&#x27;s pencil (LSP) refuses to mark it — so you only find out after handing in the homework.</p></div>
+<p class="sol" style="margin-top:12px"><b>Proposed solution.</b> Once the shared SCC primitive exists (finding 1), pass the graph into the LSP validation pass like compile.rs does and drop the `continue`.</p>
+</article>
+<article class="finding-detail sev-medium" id="f-C5-02">
+<div class="head"><h2>Recursive DFS in all cycle detectors; graph.rs reports duplicate cycles for parallel edges</h2><span class="chip medium">medium</span><span class="fid">C5-02</span></div>
+<div class="meta-row"><span class="engineer">031 Robert Tarjan</span><span class="chip neutral">effort S</span><span class="chip neutral">moves: Cycle-detection implementations</span></div>
+<p class="details">Graph::detect_cycles recurses per successor with no depth bound (stack-overflow risk on deep chains) and pushes one cycle per gray-target hit, so parallel edges duplicate the same loop in W061. The Tarjan primitive reports each SCC once with canonical sorted membership; derive one lexically-smallest rotation per SCC for messages.</p>
+<div class="snippet before"><span class="cap">before — current code</span><pre><code>        fn dfs(
+            node: Sym,
+            color: &amp;mut HashMap&lt;Sym, Color&gt;,
+            path: &amp;mut Vec&lt;Sym&gt;,
+            cycles: &amp;mut Vec&lt;Vec&lt;Sym&gt;&gt;,
+            source_index: &amp;HashMap&lt;Sym, Vec&lt;usize&gt;&gt;,
+            edges: &amp;[Edge],
+        ) {
+            color.insert(node, Color::Gray);
+            path.push(node);
+
+            if let Some(indices) = source_index.get(&amp;node) {
+                for &amp;idx in indices {
+                    let target = edges[idx].target;
+                    match color.get(&amp;target).copied().unwrap_or(Color::White) {
+                        Color::Gray =&gt; {
+                            if let Some(pos) = path.iter().position(|&amp;n| n == target) {
+                                let mut cycle: Vec&lt;Sym&gt; = path[pos..].to_vec();
+                                cycle.push(target); // close the loop
+                                cycles.push(cycle);
+                            }
+                        }</code></pre><div class="file">crates/specforge-graph/src/graph.rs:479-499</div></div>
+<div class="arrow-between">↓ fix ↓</div>
+<div class="snippet after"><span class="cap">after — proposed fix</span><pre><code>/// Canonical, deduplicated cycle paths derived from SCC membership:
+/// one lexically-smallest rotation per SCC, so parallel edges and
+/// different DFS entry points cannot duplicate a cycle.
+pub fn detect_cycles(&amp;self) -&gt; Vec&lt;Vec&lt;Sym&gt;&gt; {
+    let mut cycles: Vec&lt;Vec&lt;Sym&gt;&gt; = Vec::new();
+    for scc in self.strongly_connected_components() {
+        if scc.len() == 1 {
+            cycles.push(vec![scc[0], scc[0]]); // self-loop
+            continue;
+        }
+        let member: HashSet&lt;Sym&gt; = scc.iter().copied().collect();
+        let mut cycle = vec![scc[0]];
+        let mut cur = scc[0];
+        while cycle.len() &lt; scc.len() {
+            let next = self.edges_from(cur.as_str()).iter()
+                .map(|e| e.target)
+                .filter(|t| member.contains(t))
+                .min()
+                .expect(&quot;SCC member has an in-SCC successor&quot;);
+            cycle.push(next);
+            cur = next;
+        }
+        cycles.push(cycle);
+    }
+    cycles
+}</code></pre><div class="file">crates/specforge-graph/src/graph.rs</div></div>
+<div class="diagram-box"><span class="cap">Recursive DFS to deduplicated SCC</span><div class="mermaid" id="dg-031-C5-02"><pre>flowchart TD
+ A[recursive DFS per edge] --&gt; B[stack overflow on deep chain]
+ A --&gt; C[parallel edge duplicates]
+ D[shared SCC primitive] --&gt; E[one canonical cycle per SCC]
+ B --&gt; D
+ C --&gt; D</pre></div></div><script type="text/plain" class="mermaid-src" data-target="dg-031-C5-02">flowchart TD
+ A[recursive DFS per edge] --> B[stack overflow on deep chain]
+ A --> C[parallel edge duplicates]
+ D[shared SCC primitive] --> E[one canonical cycle per SCC]
+ B --> D
+ C --> D</script>
+<div class="eli10"><span class="tag">Explain like I'm 10</span><p>Recursion is folding a map a thousand times — fold too deep and it tears (stack overflow). And when two roads do the same loop, the detector shouts once per road instead of once.</p></div>
+<p class="sol" style="margin-top:12px"><b>Proposed solution.</b> Iterative worklist + dedupe reported cycles by canonical rotation (or emit SCC membership once), which the shared Tarjan primitive from finding 1 gives for free.</p>
+</article>
+</main><script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.1/dist/mermaid.min.js" onerror="window.__mermaidFailed=true"></script><script src="../js/agent.js"></script></body></html>

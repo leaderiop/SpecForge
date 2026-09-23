@@ -1,0 +1,75 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>093 Aslak Hellesøy — SpecForge audit review</title>
+<link rel="stylesheet" href="../css/report.css"><link rel="stylesheet" href="../css/agents.css"></head><body>
+<header class="agent-hero"><div class="brand"><div class="logo">093</div><div>
+<h1>Aslak Hellesøy</h1>
+<div class="crumbs">Cluster C11 — Testing &amp; BDD (test tracing &amp; report protocol) · Cucumber &amp; Gherkin creator · profile <code>.agents/093-aslak-hellesoy.md</code></div></div></div>
+<div class="links"><a href="../index.html">← Full report</a><a href="../../.agents/093-aslak-hellesoy.md">Profile source</a></div></header>
+<main class="agent-main">
+<nav class="agent-nav"><a href="092.html">← 092</a><a href="094.html">094 →</a></nav>
+<div class="review-panel"><div class="review-text"><h2>Auditor review</h2><p>Aslak Hellesoy: I split Gherkin from Cucumber so feature files could be first-class, tool-neutral evidence - and build.rs reduces test intent to has-a-verify-list, so my gherkin-linked behaviors never reach the coverage diff at all. W004 itself says verify OR gherkin; the graph exporter only reads half the rule. Export gherkin-referencing entities and bind Cucumber results via entity_id tags - then BDD teams get the same traceability matrix everyone else does.</p></div>
+<div class="mini-kpis">
+<div class="mini-kpi"><div class="k">Findings</div><div class="v">1</div></div>
+<div class="mini-kpi good"><div class="k">Critical + high</div><div class="v">0</div></div>
+<div class="mini-kpi"><div class="k">Evidence items</div><div class="v">3</div></div>
+<div class="mini-kpi"><div class="k">Effort mix</div><div class="v" style="font-size:14px">M</div></div>
+</div></div>
+<article class="finding-detail sev-medium" id="f-C11-03">
+<div class="head"><h2>gherkin: build.rs testable = has-verify; gherkin-only behaviors never enter the coverage diff, contradicting W004 (validation-rules.spec:84-97: verify OR gherkin) and the gherkin-bridge ADR (decisions.spec:19-28).</h2><span class="chip medium">medium</span><span class="fid">C11-03</span></div>
+<div class="meta-row"><span class="engineer">093 Hellesoy</span><span class="chip neutral">effort M</span></div>
+<div class="evidence"><b>Evidence</b><span class="ev"><code>build.rs</code></span><span class="ev"><code>validation-rules.spec:84-97</code></span><span class="ev"><code>decisions.spec:19-28</code></span></div>
+<p class="details">build.rs sets testable = !verify.is_empty(), so a behavior declaring BDD intent via gherkin [features/x.feature] - accepted by W004 (spec/extensions/software/validation-rules.spec:79-101: no verify and no gherkin field value produces W004) - exports testable=false with an empty verify vec and is filtered out of compute_coverage_diff. This contradicts both W004&#x27;s dual-intent model and the gherkin-bridge decision (integrations/rust/spec/decisions.spec:19-28). A pure-Cucumber team sees every behavior as NoIntent/absent and concludes coverage is broken; the gherkin field is file-reference validated, so the intent is declared but never reaches the diff.</p>
+<div class="snippet before"><span class="cap">before — current code</span><pre><code>            let verify = match entity.fields.get(&quot;verify&quot;) {
+                Some(FieldValue::VerifyList(stmts)) =&gt; stmts
+                    .iter()
+                    .map(|v| ExportedVerify {
+                        kind: v.kind.clone(),
+                        description: v.description.clone(),
+                        slug: slugify(&amp;v.description),
+                    })
+                    .collect(),
+                _ =&gt; vec![],
+            };
+
+            let testable = !verify.is_empty();</code></pre><div class="file">crates/specforge-graph/build.rs:56-67</div></div>
+<div class="arrow-between">↓ fix ↓</div>
+<div class="snippet after"><span class="cap">after — proposed fix</span><pre><code>            // W004 accepts verify OR gherkin as test intent; export both so
+            // Cucumber results (tagged @specforge:entity_id) can close the loop.
+            let gherkin = entity
+                .fields
+                .get(&quot;gherkin&quot;)
+                .and_then(|v| match v {
+                    FieldValue::StringList(files) if !files.is_empty() =&gt; Some(files.clone()),
+                    _ =&gt; None,
+                })
+                .unwrap_or_default();
+
+            let testable = !verify.is_empty() || !gherkin.is_empty();
+            entities.push(ExportedEntity {
+                id: entity.id.raw.to_string(),
+                kind: entity.kind.raw.to_string(),
+                verify,
+                gherkin,
+                testable,
+            });</code></pre><div class="file">crates/specforge-graph/build.rs</div></div>
+<div class="diagram-box"><span class="cap">gherkin-only behaviors excluded</span><div class="mermaid" id="dg-093-C11-03"><pre>flowchart TD
+ A[behavior with gherkin field only] --&gt; B[build.rs exports graph]
+ B --&gt; C{has verify list}
+ C --&gt;|empty| D[testable false]
+ D --&gt; E[filtered out of coverage diff]
+ E --&gt; F[BDD work invisible to coverage]
+ F --&gt; G[conflicts with W004 verify or gherkin]
+ G --&gt; H[fix export gherkin entities]
+ H --&gt; I[bind cucumber via entity_id tags]</pre></div></div><script type="text/plain" class="mermaid-src" data-target="dg-093-C11-03">flowchart TD
+ A[behavior with gherkin field only] --> B[build.rs exports graph]
+ B --> C{has verify list}
+ C -->|empty| D[testable false]
+ D --> E[filtered out of coverage diff]
+ E --> F[BDD work invisible to coverage]
+ F --> G[conflicts with W004 verify or gherkin]
+ G --> H[fix export gherkin entities]
+ H --> I[bind cucumber via entity_id tags]</script>
+<div class="eli10"><span class="tag">Explain like I'm 10</span><p>the rulebook accepts cucumber scripts as test intent, but the scorekeeper reads only the notes column.</p></div>
+<p class="sol" style="margin-top:12px"><b>Proposed solution.</b> include gherkin-referencing entities in GraphExport; bind Cucumber results via @specforge:entity_id tags.</p>
+</article>
+</main><script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.1/dist/mermaid.min.js" onerror="window.__mermaidFailed=true"></script><script src="../js/agent.js"></script></body></html>

@@ -1,0 +1,57 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>062 D. Richard Hipp — SpecForge audit review</title>
+<link rel="stylesheet" href="../css/report.css"><link rel="stylesheet" href="../css/agents.css"></head><body>
+<header class="agent-hero"><div class="brand"><div class="logo">062</div><div>
+<h1>D. Richard Hipp</h1>
+<div class="crumbs">Cluster C8 — Registries, packaging &amp; supply-chain trust · SQLite creator — embedded storage engine · profile <code>.agents/062-richard-hipp.md</code></div></div></div>
+<div class="links"><a href="../index.html">← Full report</a><a href="../../.agents/062-richard-hipp.md">Profile source</a></div></header>
+<main class="agent-main">
+<nav class="agent-nav"><a href="061.html">← 061</a><a href="063.html">063 →</a></nav>
+<div class="review-panel"><div class="review-text"><h2>Auditor review</h2><p>The schema is refreshingly boring in the right way: WAL, foreign keys, a UNIQUE arbiter ready for races, hashed tokens, yank as a flag. What worries me is one Mutex&lt;Connection&gt; hammered from async handlers with unwraps in prepare and query_map — one panic poisons the lock and every later request dies. Give me busy_timeout beside WAL, spawn_blocking or a pool, Result propagation, and a crash-reopen test.</p></div>
+<div class="mini-kpis">
+<div class="mini-kpi"><div class="k">Findings</div><div class="v">1</div></div>
+<div class="mini-kpi good"><div class="k">Critical + high</div><div class="v">0</div></div>
+<div class="mini-kpi"><div class="k">Evidence items</div><div class="v">0</div></div>
+<div class="mini-kpi"><div class="k">Effort mix</div><div class="v" style="font-size:14px">M</div></div>
+</div></div>
+<article class="finding-detail sev-medium" id="f-C8-08">
+<div class="head"><h2>Sync rusqlite behind a single Mutex called from async handlers blocks the Tokio runtime; several query paths .unwrap() into panics</h2><span class="chip medium">medium</span><span class="fid">C8-08</span></div>
+<div class="meta-row"><span class="engineer">062 D. Richard Hipp</span><span class="chip neutral">effort M</span><span class="chip neutral">moves: server_concurrency_safety</span></div>
+<p class="details">Database wraps one rusqlite Connection in a std Mutex with lock-unwrap in every method, called from async axum handlers: sync I/O stalls Tokio workers, a panic poisons the lock, and prepare/query_map unwraps turn I/O errors into connection resets; WAL is set without busy_timeout and there is no crash-reopen test. Move to spawn_blocking or a pool and propagate Results.</p>
+<div class="snippet before"><span class="cap">before — current code</span><pre><code>pub struct Database {
+    conn: Mutex&lt;Connection&gt;,
+}</code></pre><div class="file">crates/specforge-registry-server/src/db.rs:5-7</div></div>
+<div class="arrow-between">↓ fix ↓</div>
+<div class="snippet after"><span class="cap">after — proposed fix</span><pre><code>    pub fn open(path: &amp;Path) -&gt; Result&lt;Self, String&gt; {
+        let conn = Connection::open(path).map_err(|e| e.to_string())?;
+        conn.busy_timeout(Duration::from_millis(500)).map_err(|e| e.to_string())?;
+        conn.execute_batch(&quot;PRAGMA journal_mode=WAL; PRAGMA foreign_keys=ON;&quot;)
+            .map_err(|e| e.to_string())?;
+        Ok(Self { conn: Arc::new(Mutex::new(conn)) })
+    }
+
+    pub async fn with_conn&lt;T, F&gt;(&amp;self, f: F) -&gt; Result&lt;T, String&gt;
+    where F: FnOnce(&amp;Connection) -&gt; Result&lt;T, rusqlite::Error&gt; + Send + &#x27;static, T: Send + &#x27;static {
+        let conn = Arc::clone(&amp;self.conn);
+        tokio::task::spawn_blocking(move || {
+            let conn = conn.lock().map_err(|_| &quot;lock poisoned&quot;.to_string())?;
+            f(&amp;conn).map_err(|e| e.to_string())
+        }).await.map_err(|e| e.to_string())?
+    }</code></pre><div class="file">crates/specforge-registry-server/src/db.rs</div></div>
+<div class="diagram-box"><span class="cap">Sync SQLite Mutex blocks the async runtime</span><div class="mermaid" id="dg-062-C8-08"><pre>flowchart TD
+ A[async handler] --&gt; B[lock shared Mutex]
+ B --&gt; C[sync I O on runtime thread]
+ C --&gt; D[workers stall under load]
+ E[panic poisons lock] --&gt; F[cascading failures]
+ G[fix] --&gt; H[spawn_blocking or pool]
+ H --&gt; I[busy timeout and 500s]</pre></div></div><script type="text/plain" class="mermaid-src" data-target="dg-062-C8-08">flowchart TD
+ A[async handler] --> B[lock shared Mutex]
+ B --> C[sync I O on runtime thread]
+ C --> D[workers stall under load]
+ E[panic poisons lock] --> F[cascading failures]
+ G[fix] --> H[spawn_blocking or pool]
+ H --> I[busy timeout and 500s]</script>
+<div class="eli10"><span class="tag">Explain like I'm 10</span><p>One kitchen key shared by every waiter means orders pile up while they wait; and a couple of recipes say &#x27;assume the pantry is fine&#x27; — one missing ingredient explodes the whole kitchen instead of serving a sorry-we&#x27;re-out dish.</p></div>
+<p class="sol" style="margin-top:12px"><b>Proposed solution.</b> Connection pool or spawn_blocking, busy_timeout alongside WAL, propagate rusqlite errors as Result-&gt;500; add a crash/reopen WAL test.</p>
+</article>
+</main><script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.1/dist/mermaid.min.js" onerror="window.__mermaidFailed=true"></script><script src="../js/agent.js"></script></body></html>

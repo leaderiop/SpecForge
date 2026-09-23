@@ -1,0 +1,133 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>007 Graydon Hoare — SpecForge audit review</title>
+<link rel="stylesheet" href="../css/report.css"><link rel="stylesheet" href="../css/agents.css"></head><body>
+<header class="agent-hero"><div class="brand"><div class="logo">007</div><div>
+<h1>Graydon Hoare</h1>
+<div class="crumbs">Cluster C2 — DSL &amp; language design · Rust creator; systems-language discipline &amp; diagnostics culture · profile <code>.agents/007-graydon-hoare.md</code></div></div></div>
+<div class="links"><a href="../index.html">← Full report</a><a href="../../.agents/007-graydon-hoare.md">Profile source</a></div></header>
+<main class="agent-main">
+<nav class="agent-nav"><a href="006.html">← 006</a><a href="008.html">008 →</a></nav>
+<div class="review-panel"><div class="review-text"><h2>Auditor review</h2><p>Graydon would call the E013 situation the cardinal sin: a rule documented in the reference but implemented nowhere means the docs lie, and lying docs are worse than missing docs — implement the reserved-word pass with a did-you-mean suggestion or delete the section today. He would also fix the E014 verify-strings that contradict their own E015 assertions in migrate.rs; an annotation that misstates what its test proves is noise for the next reader. He would praise the invariant that parse accepts anything and semantics judge everything — keep that trust boundary crisp.</p></div>
+<div class="mini-kpis">
+<div class="mini-kpi"><div class="k">Findings</div><div class="v">2</div></div>
+<div class="mini-kpi bad"><div class="k">Critical + high</div><div class="v">2</div></div>
+<div class="mini-kpi"><div class="k">Evidence items</div><div class="v">6</div></div>
+<div class="mini-kpi"><div class="k">Effort mix</div><div class="v" style="font-size:14px">M · S</div></div>
+</div></div>
+<article class="finding-detail sev-high" id="f-C2-02">
+<div class="head"><h2>E013 (reserved words) documented as a rule but implemented nowhere; E014 cited by tests that assert E015</h2><span class="chip high">high</span><span class="fid">C2-02</span></div>
+<div class="meta-row"><span class="engineer">007 Graydon Hoare</span><span class="chip neutral">effort M</span><span class="chip neutral">moves: documented-but-unimplemented error codes</span></div>
+<div class="evidence"><b>Evidence</b><span class="ev"><code>docs/entity-model.md:Reserved Words</code> — &#x27;Using a reserved word as an entity name produces E013&#x27;</span><span class="ev"><code>crates/:-</code> — grep for E013 across crates/ returns zero matches — no parser, resolver, graph, or validator emits it; an entity named `behavior` currently collides silently or with unrelated diagnostics</span><span class="ev"><code>crates/specforge-cli/tests/migrate.rs:81,155,1028-1032</code> — two tests&#x27; verify attributes say &#x27;produces E014&#x27; while the actual test at 1031 is named unsupported_format_version_produces_e015 and lib.rs emits E015</span></div>
+<p class="details">entity-model.md Reserved Words promises E013 for reserved-word entity names, but grep E013 crates/ returns zero matches — no pass emits it, so an entity named behavior sails through. Meanwhile the format-version diagnostic that does exist is E015 (specforge_migrate::detect_format_version, lib.rs:186), yet three verify annotations in crates/specforge-cli/tests/migrate.rs (lines 81, 155, 1029) say E014 while the tests assert E015. A documented-but-unimplemented diagnostic is worse than none: authors and AI agents treat the doc as contract. Either implement E013 as a graph-build pass with a did-you-mean suggestion, or delete the section; fix the E014 strings to E015 either way.</p>
+<div class="snippet before"><span class="cap">before — current code</span><pre><code>### Reserved Words
+
+All entity keywords from installed extensions are reserved identifiers. Using a reserved word as an entity name produces `E013`. The structural keywords `spec` and `ref` are always reserved. Extension-declared keywords (`behavior`, `invariant`, etc.) are reserved when the extension is installed.</code></pre><div class="file">docs/entity-model.md:296-298</div></div>
+<div class="arrow-between">↓ fix ↓</div>
+<div class="snippet after"><span class="cap">after — proposed fix</span><pre><code>//! Reserved-word validation pass (E013, per docs/entity-model.md).
+use specforge_common::{Diagnostic, Severity};
+use crate::KeywordIndex;
+
+const ALWAYS_RESERVED: &amp;[&amp;str] = &amp;[&quot;spec&quot;, &quot;ref&quot;, &quot;use&quot;, &quot;define&quot;];
+
+pub fn check_reserved_words(
+    entities: &amp;[Entity],
+    keywords: &amp;KeywordIndex,
+    diags: &amp;mut Vec&lt;Diagnostic&gt;,
+) {
+    for entity in entities {
+        let kind = entity.kind.raw.as_str();
+        if !(ALWAYS_RESERVED.contains(&amp;kind) || keywords.installed().any(|k| k == kind)) {
+            continue;
+        }
+        let name = &amp;entity.name;
+        let suggestion = keywords
+            .all()
+            .min_by_key(|k| edit_distance(k, name))
+            .map(|k| format!(&quot;`{k}` is a reserved entity keyword; rename this entity&quot;));
+        diags.push(Diagnostic {
+            code: &quot;E013&quot;.into(),
+            severity: Severity::Error,
+            message: format!(&quot;entity name &#x27;{name}&#x27; collides with reserved keyword &#x27;{kind}&#x27;&quot;),
+            span: Some(entity.span.clone()),
+            suggestion,
+        });
+    }
+}</code></pre><div class="file">crates/specforge-graph/src/reserved.rs</div></div>
+<div class="diagram-box"><span class="cap">E013 documented but never emitted</span><div class="mermaid" id="dg-007-C2-02"><pre>flowchart TD
+ A[entity named behavior] --&gt; B[graph build runs]
+ B --&gt; C[E013 pass exists]
+ C --&gt;|no| D[silent pass-through]
+ C --&gt;|yes| E[emit E013 with suggestion]
+ F[migrate tests cite E014] --&gt; G[test asserts E015]
+ G --&gt; H[fix verify strings to E015]
+ E --&gt; I[doc contract holds]</pre></div></div><script type="text/plain" class="mermaid-src" data-target="dg-007-C2-02">flowchart TD
+ A[entity named behavior] --> B[graph build runs]
+ B --> C[E013 pass exists]
+ C -->|no| D[silent pass-through]
+ C -->|yes| E[emit E013 with suggestion]
+ F[migrate tests cite E014] --> G[test asserts E015]
+ G --> H[fix verify strings to E015]
+ E --> I[doc contract holds]</script>
+<div class="eli10"><span class="tag">Explain like I'm 10</span><p>The rulebook says naming your dog &#x27;Sit&#x27; is a foul with a specific whistle (E013), but the referee never learned that whistle. Meanwhile two training notes call the offside whistle by the wrong number. Either implement the rule or tear the page out — a rule that exists only on paper is worse than no rule, because authors rely on it.</p></div>
+<p class="sol" style="margin-top:12px"><b>Proposed solution.</b> Either (a) implement the reserved-word check: when an entity&#x27;s name token equals a keyword in KeywordExtensionIndex or spec/ref/define, emit E013 with a did-you-mean suggestion (rustc style), or (b) delete the E013 section from entity-model.md until implemented. Fix the E014 verify-strings in migrate.rs tests to E015.</p>
+</article>
+<article class="finding-detail sev-high" id="f-C2-03">
+<div class="head"><h2>Diagnostic code W010 has three conflicting meanings across docs, explain, and builtins</h2><span class="chip high">high</span><span class="fid">C2-03</span></div>
+<div class="meta-row"><span class="engineer">007 Graydon Hoare</span><span class="chip neutral">effort S</span><span class="chip neutral">moves: W010 semantic overloading</span></div>
+<div class="evidence"><b>Evidence</b><span class="ev"><code>docs/quick-reference.md:Warnings table</code> — W010 = &#x27;Deprecated feature — using a deprecated format feature&#x27; (Module: product)</span><span class="ev"><code>crates/specforge-cli/src/explain.rs:70-72</code> — W010 = &#x27;Ambiguous reference&#x27;</span><span class="ev"><code>crates/specforge-emitter/src/builtins/software.rs:243-247</code> — W010 = &#x27;type field has unknown annotation&#x27;</span></div>
+<p class="details">W010 has three unrelated owners: docs/quick-reference.md:175 lists it as Deprecated feature (Module product), crates/specforge-cli/src/explain.rs:70 maps it to Ambiguous reference, and crates/specforge-emitter/src/builtins/software.rs:243-247 registers it for type-field-unknown-annotation (entity-model.md:454 echoes the third). A user who runs specforge explain W010 gets an answer unrelated to what fired; for AI-agent consumers, mis-resolved lookups silently corrupt reasoning. Give the annotation rule a fresh code, drop the fictional deprecated-feature row (no deprecation rule exists), and add a uniqueness test over all ValidationRuleDescriptor codes.</p>
+<div class="snippet before"><span class="cap">before — current code</span><pre><code>            // W010: custom — type field annotations
+            ValidationRuleDescriptor {
+                code: &quot;W010&quot;.into(),
+                severity: ValidationSeverity::Warning,
+                message_template: &quot;type &#x27;{id}&#x27; field &#x27;{field}&#x27; has unknown annotation &#x27;{value}&#x27;&quot;.into(),
+                check: &quot;custom&quot;.into(),
+                target_kind: Some(&quot;type&quot;.into()),
+                wasm_function: Some(&quot;validate__type_field_annotations&quot;.into()),
+                ..vrd_defaults()
+            },</code></pre><div class="file">crates/specforge-emitter/src/builtins/software.rs:242-250</div></div>
+<div class="arrow-between">↓ fix ↓</div>
+<div class="snippet after"><span class="cap">after — proposed fix</span><pre><code>            // fresh code: unique owner for the type-annotation rule
+            ValidationRuleDescriptor {
+                code: &quot;W084&quot;.into(),
+                severity: ValidationSeverity::Warning,
+                message_template: &quot;type &#x27;{id}&#x27; field &#x27;{field}&#x27; has unknown annotation &#x27;{value}&#x27;&quot;.into(),
+                check: &quot;custom&quot;.into(),
+                target_kind: Some(&quot;type&quot;.into()),
+                wasm_function: Some(&quot;validate__type_field_annotations&quot;.into()),
+                ..vrd_defaults()
+            },
+
+            // crates/specforge-emitter/tests/code_uniqueness.rs
+            // #[test]
+            // fn diagnostic_codes_are_unique_across_registries() {
+            //     let codes = specforge_emitter::all_rule_descriptors() // core + builtins
+            //         .map(|d| d.code).collect::&lt;Vec&lt;_&gt;&gt;();
+            //     let mut sorted = codes.clone();
+            //     sorted.sort();
+            //     sorted.dedup();
+            //     assert_eq!(codes.len(), sorted.len(), &quot;duplicate diagnostic code&quot;);
+            // }</code></pre><div class="file">crates/specforge-emitter/src/builtins/software.rs</div></div>
+<div class="diagram-box"><span class="cap">W010 triple collision</span><div class="mermaid" id="dg-007-C2-03"><pre>flowchart TD
+ A[code W010] --&gt; B[quick-reference says deprecated feature]
+ A --&gt; C[explain.rs says ambiguous ref]
+ A --&gt; D[software.rs annotation rule]
+ B --&gt; E[user runs specforge explain]
+ C --&gt; E
+ E --&gt; F[explanation matches none of the firings]
+ F --&gt; G[assign fresh code W084]
+ G --&gt; H[uniqueness test over registries]
+ H --&gt; I[one code one meaning]</pre></div></div><script type="text/plain" class="mermaid-src" data-target="dg-007-C2-03">flowchart TD
+ A[code W010] --> B[quick-reference says deprecated feature]
+ A --> C[explain.rs says ambiguous ref]
+ A --> D[software.rs annotation rule]
+ B --> E[user runs specforge explain]
+ C --> E
+ E --> F[explanation matches none of the firings]
+ F --> G[assign fresh code W084]
+ G --> H[uniqueness test over registries]
+ H --> I[one code one meaning]</script>
+<div class="eli10"><span class="tag">Explain like I'm 10</span><p>Three different error messages share one license plate. When a user looks up W010, they get a random answer depending on which list they check. Each diagnostic needs exactly one owner and one meaning.</p></div>
+<p class="sol" style="margin-top:12px"><b>Proposed solution.</b> Assign the unknown-annotation rule a fresh code (or reuse W010 consistently there), update explain.rs and quick-reference from a single source of truth (the ValidationRuleDescriptor registry), and add a uniqueness test over all emitted codes.</p>
+</article>
+</main><script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.1/dist/mermaid.min.js" onerror="window.__mermaidFailed=true"></script><script src="../js/agent.js"></script></body></html>

@@ -1,0 +1,86 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>038 Ben Hutton — SpecForge audit review</title>
+<link rel="stylesheet" href="../css/report.css"><link rel="stylesheet" href="../css/agents.css"></head><body>
+<header class="agent-hero"><div class="brand"><div class="logo">038</div><div>
+<h1>Ben Hutton</h1>
+<div class="crumbs">Cluster C6 — Schemas, validation &amp; serialization (Graph Protocol) · JSON Schema 2020-12 spec lead; open-standard stewardship &amp; validator compliance · profile <code>.agents/038-ben-hutton.md</code></div></div></div>
+<div class="links"><a href="../index.html">← Full report</a><a href="../../.agents/038-ben-hutton.md">Profile source</a></div></header>
+<main class="agent-main">
+<nav class="agent-nav"><a href="037.html">← 037</a><a href="039.html">039 →</a></nav>
+<div class="review-panel"><div class="review-text"><h2>Auditor review</h2><p>Ben Hutton (JSON Schema): The config schema is exactly how I&#x27;d teach 2020-12 bundling — $defs appendix, $ref pointers, closed objects. But your generator output would not pass my own review: fields: {type: object}, an embedded schema described as &#x27;an object&#x27;, no additionalProperties anywhere. You already hold per-kind field metadata in the registries; emitting $defs per kind with oneOf on the discriminator is mostly mechanical. Do it and the published schema stops being decorative.</p></div>
+<div class="mini-kpis">
+<div class="mini-kpi"><div class="k">Findings</div><div class="v">2</div></div>
+<div class="mini-kpi good"><div class="k">Critical + high</div><div class="v">0</div></div>
+<div class="mini-kpi"><div class="k">Evidence items</div><div class="v">2</div></div>
+<div class="mini-kpi"><div class="k">Effort mix</div><div class="v" style="font-size:14px">M · S</div></div>
+</div></div>
+<article class="finding-detail sev-medium" id="f-C6-04">
+<div class="head"><h2>Published Graph Protocol schema under-constrains (schema.rs:862-899): fields = {type:object}, embedded schema unconstrained, no additionalProperties.</h2><span class="chip medium">medium</span><span class="fid">C6-04</span></div>
+<div class="meta-row"><span class="engineer">038 Ben Hutton</span><span class="chip neutral">effort M</span><span class="chip neutral">moves: published</span></div>
+<div class="evidence"><b>Evidence</b><span class="ev"><code>schema.rs:862-899</code></span></div>
+<p class="details">Inside publish_json_schema, the embedded schema property is described only as {type: object, description: ...} (schema.rs:877-880) and node.fields is just {type: object}; nothing sets additionalProperties:false anywhere in the generated document. Every other SpecForge schema constrains tightly, so the published Graph Protocol schema accepts arbitrary garbage in the schema block and arbitrary fields on nodes — an LLM consumer validating a graph against it gets almost no guarantees beyond kind/label enums. Since generate_schema already has per-kind field lists (name, field_type, required, enum_values), per-kind subschemas in $defs selected via a kind discriminator are directly derivable.</p>
+<div class="snippet before"><span class="cap">before — current code</span><pre><code>            &quot;schema&quot;: {
+                &quot;type&quot;: &quot;object&quot;,
+                &quot;description&quot;: &quot;Embedded Graph Protocol schema&quot;
+            },
+            &quot;nodes&quot;: {
+                &quot;type&quot;: &quot;array&quot;,</code></pre><div class="file">crates/specforge-emitter/src/schema.rs:877-882</div></div>
+<div class="arrow-between">↓ fix ↓</div>
+<div class="snippet after"><span class="cap">after — proposed fix</span><pre><code>    // Per-kind node subschemas derived from the registry field lists.
+    let mut kind_defs = serde_json::Map::new();
+    for k in &amp;schema.entity_kinds {
+        let mut props = serde_json::Map::new();
+        let mut required = Vec::new();
+        for f in &amp;k.fields {
+            props.insert(f.name.clone(), json_type_schema(&amp;f.field_type, f));
+            if f.required { required.push(Value::String(f.name.clone())); }
+        }
+        kind_defs.insert(k.name.clone(), serde_json::json!({
+            &quot;type&quot;: &quot;object&quot;,
+            &quot;properties&quot;: props,
+            &quot;required&quot;: required,
+            &quot;additionalProperties&quot;: false
+        }));
+    }
+    // nodes.items then becomes:
+    // { oneOf: kind_names.map(n =&gt; ({ $ref: #/$defs/fields_&lt;n&gt; })) }
+    // and the embedded schema block gains additionalProperties: false.</code></pre><div class="file">crates/specforge-emitter/src/schema.rs</div></div>
+<div class="diagram-box"><span class="cap">Tightening the published schema</span><div class="mermaid" id="dg-038-C6-04"><pre>flowchart TD
+ A[generate schema] --&gt; B[publish_json_schema]
+ B --&gt; C[build per-kind defs from fields]
+ C --&gt; D[nodes items oneOf refs]
+ D --&gt; E[additionalProperties false]
+ E --&gt; F[validators catch bad fields]
+ A --&gt; G[old lax output]
+ G --&gt; H[anything validates]
+ H --&gt; I[silent garbage accepted]</pre></div></div><script type="text/plain" class="mermaid-src" data-target="dg-038-C6-04">flowchart TD
+ A[generate schema] --> B[publish_json_schema]
+ B --> C[build per-kind defs from fields]
+ C --> D[nodes items oneOf refs]
+ D --> E[additionalProperties false]
+ E --> F[validators catch bad fields]
+ A --> G[old lax output]
+ G --> H[anything validates]
+ H --> I[silent garbage accepted]</script>
+<div class="eli10"><span class="tag">Explain like I'm 10</span><p>checklist that says &#x27;door exists&#x27; without checking the lock.</p></div>
+<p class="sol" style="margin-top:12px"><b>Proposed solution.</b> per-kind field subschemas in $defs keyed on node.kind.</p>
+</article>
+<article class="finding-detail sev-info" id="f-C6-05">
+<div class="head"><h2>Config schema models textbook 2020-12 bundling ($defs at schema/specforge.schema.json:117-205). Reuse as template. Effort S. KPI: dialect consistency.</h2><span class="chip info">info</span><span class="fid">C6-05</span></div>
+<div class="meta-row"><span class="engineer">038 Ben Hutton</span><span class="chip neutral">effort S</span><span class="chip neutral">moves: dialect</span></div>
+<div class="evidence"><b>Evidence</b><span class="ev"><code>schema/specforge.schema.json:117-205</code></span></div>
+<p class="details">schema/specforge.schema.json:117-205 is a textbook draft-2020-12 bundling layout: a closed top-level object whose recurring structures (provider, persona, surface, coverage) live in a single $defs appendix and are referenced with $ref: #/$defs/.... It is the exact pattern the generated graph-protocol schema should imitate when per-kind subschemas land (C6-04).</p>
+<div class="snippet exemplar"><span class="cap">exemplar — the good pattern</span><pre><code>  &quot;$defs&quot;: {
+    &quot;provider&quot;: {
+      &quot;type&quot;: &quot;object&quot;,
+      &quot;description&quot;: &quot;Configuration for a single provider instance.&quot;,
+      &quot;required&quot;: [&quot;package&quot;],
+      &quot;properties&quot;: {
+        &quot;package&quot;: {
+          &quot;type&quot;: &quot;string&quot;,
+          &quot;description&quot;: &quot;Provider package name (e.g., \&quot;@specforge/gh\&quot;).&quot;
+        },</code></pre><div class="file">schema/specforge.schema.json:118-128</div></div>
+<div class="keep"><span class="tag">Keep doing this</span><p>Keep $defs-at-the-bottom bundling with $ref pointers as the house style for every schema this project publishes.</p></div>
+<div class="eli10"><span class="tag">Explain like I'm 10</span><p>Praise: the rulebook uses the standard&#x27;s fancy new bundling style with all definitions in one tidy appendix — exactly how the standards body says to do it.</p></div>
+</article>
+</main><script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.1/dist/mermaid.min.js" onerror="window.__mermaidFailed=true"></script><script src="../js/agent.js"></script></body></html>

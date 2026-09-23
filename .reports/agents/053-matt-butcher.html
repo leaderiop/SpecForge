@@ -1,0 +1,67 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>053 Matt Butcher — SpecForge audit review</title>
+<link rel="stylesheet" href="../css/report.css"><link rel="stylesheet" href="../css/agents.css"></head><body>
+<header class="agent-hero"><div class="brand"><div class="logo">053</div><div>
+<h1>Matt Butcher</h1>
+<div class="crumbs">Cluster C7 — Wasm plugin runtimes &amp; the extension bet · Fermyon Spin creator — Wasm app ergonomics &amp; warm scheduling · profile <code>.agents/053-matt-butcher.md</code></div></div></div>
+<div class="links"><a href="../index.html">← Full report</a><a href="../../.agents/053-matt-butcher.md">Profile source</a></div></header>
+<main class="agent-main">
+<nav class="agent-nav"><a href="052.html">← 052</a><a href="054.html">054 →</a></nav>
+<div class="review-panel"><div class="review-text"><h2>Auditor review</h2><p>EnginePool is well-tested bookkeeping for engines that do not exist — every call still pays a fresh Wasmtime compile inside instantiate. The LRU/eviction/memory-ceiling logic is correct and thread-safe, so this is less a rewrite than a promotion: store real instantiated plugin handles instead of {name, memory_mb} structs. For an LSP/MCP story (which is the whole pitch for warm engines), measure cold vs warm handshake+describe before and after so the README number is real.</p></div>
+<div class="mini-kpis">
+<div class="mini-kpi"><div class="k">Findings</div><div class="v">1</div></div>
+<div class="mini-kpi bad"><div class="k">Critical + high</div><div class="v">1</div></div>
+<div class="mini-kpi"><div class="k">Evidence items</div><div class="v">2</div></div>
+<div class="mini-kpi"><div class="k">Effort mix</div><div class="v" style="font-size:14px">L</div></div>
+</div></div>
+<article class="finding-detail sev-high" id="f-C7-08">
+<div class="head"><h2>Warm-engine story is vaporware: README:130 promises warm engines for LSP/MCP; pool is a ledger (engine_pool.rs:24-33) and each load builds a fresh Plugin (runtime.rs:83-98).</h2><span class="chip high">high</span><span class="fid">C7-08</span></div>
+<div class="meta-row"><span class="engineer">053</span><span class="chip neutral">effort L</span><span class="chip neutral">moves: aot_claim_accuracy</span></div>
+<div class="evidence"><b>Evidence</b><span class="ev"><code>engine_pool.rs:24-33</code></span><span class="ev"><code>runtime.rs:83-98</code></span></div>
+<p class="details">README promises warm engines for LSP/MCP latency, but EnginePool is bookkeeping only: WarmInstance is a {name, memory_mb} struct pushed into a VecDeque — no Plugin, no Module, no engine. Every actual call goes through ExtismRuntime::instantiate, which builds a fresh Plugin from raw bytes (full Wasmtime compile + instantiate) before each handshake/describe exchange, so LSP completions pay cold-start cost every time. The pool&#x27;s eviction logic and memory ceiling are carefully tested against entries that correspond to nothing in memory. Fix: make the pool hold real instantiated Plugins (or serialized Modules) per extension, hand them out to the runtime, and measure cold vs warm handshake+describe so the README claim is backed by numbers.</p>
+<div class="snippet before"><span class="cap">before — current code</span><pre><code>/// A warm engine instance entry.
+#[derive(Debug, Clone)]
+pub struct WarmInstance {
+    pub extension_name: String,
+    pub memory_mb: u32,
+}</code></pre><div class="file">crates/specforge-wasm/src/engine_pool.rs:10-14</div></div>
+<div class="arrow-between">↓ fix ↓</div>
+<div class="snippet after"><span class="cap">after — proposed fix</span><pre><code>use std::sync::Arc;
+
+/// A warm engine entry backed by a real instantiated plugin handle.
+pub struct WarmInstance {
+    pub extension_name: String,
+    pub memory_mb: u32,
+    pub plugin: Arc&lt;wasmtime::Instance&gt;,
+}
+
+impl EnginePool {
+    /// Take a warm instance for immediate use; the caller returns it via
+    /// `restore` so LRU recency reflects real usage, not bookkeeping.
+    pub fn checkout(&amp;self, extension_name: &amp;str) -&gt; Option&lt;Arc&lt;wasmtime::Instance&gt;&gt; {
+        let mut instances = self.instances.lock().expect(&quot;EnginePool lock poisoned&quot;);
+        let idx = instances.iter().position(|i| i.extension_name == extension_name)?;
+        let entry = instances.remove(idx)?;
+        instances.push_back(entry); // refresh LRU position
+        Some(Arc::clone(&amp;instances.back().unwrap().plugin))
+    }
+}</code></pre><div class="file">crates/specforge-wasm/src/engine_pool.rs</div></div>
+<div class="diagram-box"><span class="cap">Warm engines for LSP</span><div class="mermaid" id="dg-053-C7-08"><pre>flowchart TD
+ A[LSP request arrives] --&gt; B{pool has warm instance}
+ B --&gt;|yes| C[checkout instantiated plugin]
+ C --&gt; D[call export directly]
+ D --&gt; E[restore to pool refreshes LRU]
+ B --&gt;|no| F[cold compile and instantiate]
+ F --&gt; G[insert real instance into pool]
+ G --&gt; E</pre></div></div><script type="text/plain" class="mermaid-src" data-target="dg-053-C7-08">flowchart TD
+ A[LSP request arrives] --> B{pool has warm instance}
+ B -->|yes| C[checkout instantiated plugin]
+ C --> D[call export directly]
+ D --> E[restore to pool refreshes LRU]
+ B -->|no| F[cold compile and instantiate]
+ F --> G[insert real instance into pool]
+ G --> E</script>
+<div class="eli10"><span class="tag">Explain like I'm 10</span><p>coffee shop advertising &#x27;your order waiting hot&#x27; but keeping only a sticky note with your name.</p></div>
+<p class="sol" style="margin-top:12px"><b>Proposed solution.</b> pool real instantiated Plugins/Modules per extension for LSP/MCP; measure cold vs warm handshake+describe.</p>
+</article>
+</main><script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.1/dist/mermaid.min.js" onerror="window.__mermaidFailed=true"></script><script src="../js/agent.js"></script></body></html>

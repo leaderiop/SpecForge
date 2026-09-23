@@ -1,0 +1,116 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>013 Tim Clem — SpecForge audit review</title>
+<link rel="stylesheet" href="../css/report.css"><link rel="stylesheet" href="../css/agents.css"></head><body>
+<header class="agent-hero"><div class="brand"><div class="logo">013</div><div>
+<h1>Tim Clem</h1>
+<div class="crumbs">Cluster C3 — Parsing &amp; grammar infrastructure · tree-sitter at GitHub scale; code navigation &amp; code-search engineering · profile <code>.agents/013-tim-clem.md</code></div></div></div>
+<div class="links"><a href="../index.html">← Full report</a><a href="../../.agents/013-tim-clem.md">Profile source</a></div></header>
+<main class="agent-main">
+<nav class="agent-nav"><a href="012.html">← 012</a><a href="014.html">014 →</a></nav>
+<div class="review-panel"><div class="review-text"><h2>Auditor review</h2><p>Tim Clem here: the checked-in parser.c pattern is right for fast builds, but you&#x27;ve got a recipe and a cake and nothing verifying the cake came from the current recipe — one `tree-sitter generate &amp;&amp; git diff --exit-code` in CI closes that. What I&#x27;d genuinely applaud is the single resolve_references shared by CLI and LSP; that&#x27;s the discipline that keeps editor and CI honest. The import cascade with index fallback and traversal guards is production-quality path plumbing — protect it with tests as it grows.</p></div>
+<div class="mini-kpis">
+<div class="mini-kpi"><div class="k">Findings</div><div class="v">3</div></div>
+<div class="mini-kpi good"><div class="k">Critical + high</div><div class="v">0</div></div>
+<div class="mini-kpi"><div class="k">Evidence items</div><div class="v">4</div></div>
+<div class="mini-kpi"><div class="k">Effort mix</div><div class="v" style="font-size:14px">S</div></div>
+</div></div>
+<article class="finding-detail sev-medium" id="f-C3-03">
+<div class="head"><h2>Checked-in generated parser.c with no staleness check</h2><span class="chip medium">medium</span><span class="fid">C3-03</span></div>
+<div class="meta-row"><span class="engineer">013 Tim Clem</span><span class="chip neutral">effort S</span><span class="chip neutral">moves: Corpus coverage</span></div>
+<div class="evidence"><b>Evidence</b><span class="ev"><code>tree-sitter-specforge/build.rs:349B</code> — 69KB parser.c, grammar.json, node-types.json committed; nothing verifies freshness vs grammar.js</span><span class="ev"><code>spec/research/RES-30-tree-sitter-wasm-feasibility.md:present</code> — runtime-grammar study exists</span></div>
+<p class="details">crates/tree-sitter-specforge/src/parser.c (69KB), grammar.json (22KB), and node-types.json (11.7KB) are committed, but build.rs only compiles parser.c with cc — it never runs tree-sitter generate nor compares artifacts against grammar.js. If someone edits grammar.js without regenerating, cargo still builds the stale parser successfully, so a grammar change appears to be a no-op (or worse, tests pass against stale tables). The tree-sitter.json metadata confirms this is a generated-package layout, but nothing enforces the invariant. A one-line CI step (tree-sitter generate &amp;&amp; git diff --exit-code) or a build.rs cfg-based generation restores the guarantee.</p>
+<div class="snippet before"><span class="cap">before — current code</span><pre><code>fn main() {
+    let src_dir = std::path::Path::new(&quot;src&quot;);
+
+    let mut c_config = cc::Build::new();
+    c_config.std(&quot;c11&quot;).include(src_dir);
+
+    let parser_path = src_dir.join(&quot;parser.c&quot;);
+    c_config.file(&amp;parser_path);
+    println!(&quot;cargo:rerun-if-changed={}&quot;, parser_path.to_str().unwrap());
+
+    c_config.compile(&quot;tree-sitter-specforge&quot;);
+}</code></pre><div class="file">crates/tree-sitter-specforge/build.rs:1-11</div></div>
+<div class="arrow-between">↓ fix ↓</div>
+<div class="snippet after"><span class="cap">after — proposed fix</span><pre><code>fn main() {
+    let src_dir = std::path::Path::new(&quot;src&quot;);
+
+    // Fail the build when src/parser.c is stale relative to grammar.js.
+    // CI additionally runs `tree-sitter generate &amp;&amp; git diff --exit-code`.
+    let grammar = Path::new(&quot;../tree-sitter-specforge/grammar.js&quot;);
+    let parser = src_dir.join(&quot;parser.c&quot;);
+    let stale = mtime_of(grammar) &gt; mtime_of(&amp;parser);
+    assert!(
+        !stale,
+        &quot;src/parser.c is older than grammar.js — run `tree-sitter generate`&quot;
+    );
+
+    let mut c_config = cc::Build::new();
+    c_config.std(&quot;c11&quot;).include(src_dir);
+    c_config.file(&amp;parser);
+    println!(&quot;cargo:rerun-if-changed={}&quot;, parser.to_str().unwrap());
+    println!(&quot;cargo:rerun-if-changed=grammar.js&quot;);
+    c_config.compile(&quot;tree-sitter-specforge&quot;);
+}</code></pre><div class="file">crates/tree-sitter-specforge/build.rs</div></div>
+<div class="diagram-box"><span class="cap">Stale generated parser</span><div class="mermaid" id="dg-013-C3-03"><pre>flowchart TD
+ A[edit grammar.js] --&gt; B[forget tree-sitter generate]
+ B --&gt; C[cargo builds old parser.c]
+ C --&gt; D[grammar change silently absent]
+ A --&gt; E[build.rs freshness check]
+ E --&gt; F{parser.c older}
+ F -- yes --&gt; G[build fails with regenerate hint]
+ F -- no --&gt; H[compile proceeds]
+ G --&gt; I[regenerate then commit]</pre></div></div><script type="text/plain" class="mermaid-src" data-target="dg-013-C3-03">flowchart TD
+ A[edit grammar.js] --> B[forget tree-sitter generate]
+ B --> C[cargo builds old parser.c]
+ C --> D[grammar change silently absent]
+ A --> E[build.rs freshness check]
+ E --> F{parser.c older}
+ F -- yes --> G[build fails with regenerate hint]
+ F -- no --> H[compile proceeds]
+ G --> I[regenerate then commit]</script>
+<div class="eli10"><span class="tag">Explain like I'm 10</span><p>Recipe and cake both stored, but nothing checks the cake came from the current recipe.</p></div>
+<p class="sol" style="margin-top:12px"><b>Proposed solution.</b> CI: tree-sitter generate then fail on diff, or generate in build.rs.</p>
+</article>
+<article class="finding-detail sev-info" id="f-C3-04">
+<div class="head"><h2>One parse tree/resolver shared CLI+LSP — E003 parity</h2><span class="chip info">info</span><span class="fid">C3-04</span></div>
+<div class="meta-row"><span class="engineer">013 Tim Clem</span><span class="chip neutral">effort S</span><span class="chip neutral">moves: Adoption</span></div>
+<div class="evidence"><b>Evidence</b><span class="ev"><code>backend.rs:220-230</code> — single source of truth for E003; both call graph.resolve_references()</span></div>
+<p class="details">E003 diagnostics come from a single implementation, Graph::resolve_references in specforge-graph/src/graph.rs:334, invoked identically by the CLI build path (specforge-graph/src/build.rs:153) and by every LSP rebuild site (specforge-lsp/src/backend.rs:105,242,885,1053), with comments at each site stating the parity intent. CLI and editor therefore report byte-identical unresolved-reference errors — no drift, no editor-only special cases.</p>
+<div class="snippet exemplar"><span class="cap">exemplar — the good pattern</span><pre><code>        let graph = state.graph_mut();
+        // Use the shared resolve_references (same as CLI) — this clears
+        // edges and rebuilds them from reference lists, discarding the
+        // diagnostics since we haven&#x27;t opened any documents yet.
+        let _ = graph.resolve_references();</code></pre><div class="file">crates/specforge-lsp/src/backend.rs:103-110</div></div>
+<div class="keep"><span class="tag">Keep doing this</span><p>Keep resolve_references as the single source of truth for E003 shared by CLI build.rs and every LSP rebuild site; any new diagnostic must follow the same one-implementation pattern.</p></div>
+<div class="eli10"><span class="tag">Explain like I'm 10</span><p>Shelf label and register price from one database — no editor-vs-CI surprises.</p></div>
+<p class="sol" style="margin-top:12px"><b>Proposed solution.</b> None.</p>
+</article>
+<article class="finding-detail sev-info" id="f-C3-05">
+<div class="head"><h2>Import cascade defensive and well-tested</h2><span class="chip info">info</span><span class="fid">C3-05</span></div>
+<div class="meta-row"><span class="engineer">013 Tim Clem</span><span class="chip neutral">effort S</span><span class="chip neutral">moves: Cascade</span></div>
+<div class="evidence"><b>Evidence</b><span class="ev"><code>resolve.rs:225-345</code> — traversal guard, index fallback, aliases/stubs; resolution.rs 27.5KB covers barrels, W027</span></div>
+<p class="details">resolve.rs implements the 5-step import cascade (relative, @-aliases, extension stubs, bare-from-spec_root) with a shared index-fallback rule (path.spec beats path/index.spec), plus a normalized-path containment check that rejects ../ traversal outside spec_root. resolution.rs tests (27.5KB) cover barrels, selective re-export misses (W027), and alias edge cases; linker tests pin W063 and E003 suggestion behavior. The traversal guard in try_resolve_relative is exactly the defensive touch this kind of path plumbing needs.</p>
+<div class="snippet exemplar"><span class="cap">exemplar — the good pattern</span><pre><code>    // Step 1: Relative paths
+    if import_path.starts_with(&quot;./&quot;) || import_path.starts_with(&quot;../&quot;) {
+        return try_resolve_relative(spec_root, importing_file, import_path);
+    }
+
+    // Step 2: @-prefixed paths (aliases or extension stubs)
+    if let Some(rest) = import_path.strip_prefix(&#x27;@&#x27;) {
+        // Try alias first
+        if let Some(result) = try_resolve_alias(spec_root, rest, config) {
+            return result;
+        }
+        // Fall through to extension stub
+        return try_resolve_extension(rest);
+    }
+
+    // Step 3: Bare paths — resolve from spec_root
+    try_resolve_bare(spec_root, import_path)
+}</code></pre><div class="file">crates/specforge-resolver/src/resolve.rs:249-278</div></div>
+<div class="keep"><span class="tag">Keep doing this</span><p>Keep the 5-step cascade with its index-fallback rule and the spec_root containment guard in try_resolve_relative, and keep resolution.rs&#x27;s barrel/W027/alias coverage growing alongside new resolution steps.</p></div>
+<div class="eli10"><span class="tag">Explain like I'm 10</span><p>A well-latched door, tested shut against sneaky cases.</p></div>
+<p class="sol" style="margin-top:12px"><b>Proposed solution.</b> None.</p>
+</article>
+</main><script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.1/dist/mermaid.min.js" onerror="window.__mermaidFailed=true"></script><script src="../js/agent.js"></script></body></html>

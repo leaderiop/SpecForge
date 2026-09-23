@@ -1,0 +1,83 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>060 Carol Nichols — SpecForge audit review</title>
+<link rel="stylesheet" href="../css/report.css"><link rel="stylesheet" href="../css/agents.css"></head><body>
+<header class="agent-hero"><div class="brand"><div class="logo">060</div><div>
+<h1>Carol Nichols</h1>
+<div class="crumbs">Cluster C8 — Registries, packaging &amp; supply-chain trust · crates.io co-builder — registry storage/index design at scale · profile <code>.agents/060-carol-nichols.md</code></div></div></div>
+<div class="links"><a href="../index.html">← Full report</a><a href="../../.agents/060-carol-nichols.md">Profile source</a></div></header>
+<main class="agent-main">
+<nav class="agent-nav"><a href="059.html">← 059</a><a href="061.html">061 →</a></nav>
+<div class="review-panel"><div class="review-text"><h2>Auditor review</h2><p>Yank is the best decision in this subsystem — flag in the index, blob kept on disk, clean split — the right skeleton for unyank and ownership. The write path needs the same care: racers overwrite blobs, failed inserts orphan files, and slash-to-underscore flattening collides distinct packages. Hash-namespace the dirs, write once, verify sha256 at download.</p></div>
+<div class="mini-kpis">
+<div class="mini-kpi"><div class="k">Findings</div><div class="v">2</div></div>
+<div class="mini-kpi bad"><div class="k">Critical + high</div><div class="v">1</div></div>
+<div class="mini-kpi"><div class="k">Evidence items</div><div class="v">0</div></div>
+<div class="mini-kpi"><div class="k">Effort mix</div><div class="v" style="font-size:14px">M · S</div></div>
+</div></div>
+<article class="finding-detail sev-high" id="f-C8-06">
+<div class="head"><h2>Failed/racing publishes leave orphaned or overwritten &#x27;immutable&#x27; blobs; package-dir flattening can collide</h2><span class="chip high">high</span><span class="fid">C8-06</span></div>
+<div class="meta-row"><span class="engineer">060 Carol Nichols</span><span class="chip neutral">effort M</span><span class="chip neutral">moves: publish_atomicity</span></div>
+<p class="details">package_dir maps names via replace slash with underscore so @org/tools and @org_tools collide; store_wasm truncates, and download never re-verifies sha256, so corrupted blobs are served forever. Namespace by hash, write once, verify on download.</p>
+<div class="snippet before"><span class="cap">before — current code</span><pre><code>    fn package_dir(&amp;self, name: &amp;str) -&gt; PathBuf {
+        self.base_dir.join(name.replace(&#x27;/&#x27;, &quot;_&quot;))
+    }
+
+    fn wasm_path(&amp;self, name: &amp;str, version: &amp;str) -&gt; PathBuf {
+        self.package_dir(name).join(format!(&quot;{}.wasm&quot;, version))
+    }
+
+    pub fn store_wasm(&amp;self, name: &amp;str, version: &amp;str, data: &amp;[u8]) -&gt; Result&lt;(), String&gt; {
+        let dir = self.package_dir(name);
+        std::fs::create_dir_all(&amp;dir)
+            .map_err(|e| format!(&quot;failed to create package directory: {}&quot;, e))?;
+
+        let path = self.wasm_path(name, version);
+        std::fs::write(&amp;path, data)
+            .map_err(|e| format!(&quot;failed to write wasm binary: {}&quot;, e))?;
+
+        Ok(())
+    }</code></pre><div class="file">crates/specforge-registry-server/src/storage.rs:11-26</div></div>
+<div class="arrow-between">↓ fix ↓</div>
+<div class="snippet after"><span class="cap">after — proposed fix</span><pre><code>    fn package_dir(&amp;self, name: &amp;str) -&gt; PathBuf {
+        let mut h = DefaultHasher::new();
+        name.hash(&amp;mut h);
+        self.base_dir.join(format!(&quot;{:016x}&quot;, h.finish()))
+    }
+
+    pub fn store_wasm_new(&amp;self, name: &amp;str, version: &amp;str, data: &amp;[u8]) -&gt; Result&lt;(), String&gt; {
+        std::fs::create_dir_all(self.package_dir(name)).map_err(|e| e.to_string())?;
+        let path = self.wasm_path(name, version);
+        match std::fs::OpenOptions::new().write(true).create_new(true).open(&amp;path) {
+            Ok(mut f) =&gt; f.write_all(data).map_err(|e| e.to_string()),
+            Err(e) if e.kind() == std::io::ErrorKind::AlreadyExists =&gt; Err(&quot;artifact immutable&quot;.into()),
+            Err(e) =&gt; Err(e.to_string()),
+        }
+    }</code></pre><div class="file">crates/specforge-registry-server/src/storage.rs</div></div>
+<div class="diagram-box"><span class="cap">Flat storage collides and overwrites immutable blobs</span><div class="mermaid" id="dg-060-C8-06"><pre>flowchart TD
+ A[names differ by slash] --&gt; B[same flattened dir]
+ C[failed insert] --&gt; D[truncating write orphans blob]
+ E[fix] --&gt; F[hash-namespaced dirs]
+ E --&gt; G[create_new write once]
+ E --&gt; H[verify sha256 on download]</pre></div></div><script type="text/plain" class="mermaid-src" data-target="dg-060-C8-06">flowchart TD
+ A[names differ by slash] --> B[same flattened dir]
+ C[failed insert] --> D[truncating write orphans blob]
+ E[fix] --> F[hash-namespaced dirs]
+ E --> G[create_new write once]
+ E --> H[verify sha256 on download]</script>
+<div class="eli10"><span class="tag">Explain like I'm 10</span><p>Two packages whose names differ only by slash-vs-underscore get the same folder, and a failed labeling leaves an unlabeled box forever. The recall path does the right thing — hide from catalog, keep the box — like the big registries; tighten the write path.</p></div>
+<p class="sol" style="margin-top:12px"><b>Proposed solution.</b> Delete blob on insert failure; create-new semantics for wasm files; namespace storage by hashed id or real subdirectories; verify sha256 on download.</p>
+</article>
+<article class="finding-detail sev-info" id="f-C8-13">
+<div class="head"><h2>Praise: yank semantics match crates.io — hide from index, never delete from disk — and the index/storage split is clean</h2><span class="chip info">info</span><span class="fid">C8-13</span></div>
+<div class="meta-row"><span class="engineer">060 Carol Nichols</span><span class="chip neutral">effort S</span><span class="chip neutral">moves: yank_semantics</span></div>
+<p class="details">yank_package only flips the yanked flag while LocalStorage keeps the bytes on disk — crates.io semantics: old lockfile anchors stay valid and nothing is destroyed — and Database vs LocalStorage cleanly separates index from blob storage with uniform yanked=0 filtering in every query. The right skeleton to grow on.</p>
+<div class="snippet exemplar"><span class="cap">exemplar — the good pattern</span><pre><code>    if state.database.yank_version(&amp;name, &amp;version) {
+        tracing::info!(&quot;yanked {}@{}&quot;, name, version);
+        (StatusCode::OK, Json(serde_json::to_value(serde_json::json!({&quot;yanked&quot;: true})).unwrap()))
+    } else {
+        (StatusCode::NOT_FOUND, Json(serde_json::to_value(ErrorResponse {</code></pre><div class="file">crates/specforge-registry-server/src/handlers.rs:405-409</div></div>
+<div class="keep"><span class="tag">Keep doing this</span><p>Preserve yank-as-flag never-delete semantics and the index-vs-blob split; add unyank and per-publisher ownership before multi-tenant use.</p></div>
+<div class="eli10"><span class="tag">Explain like I'm 10</span><p>A recalled package is removed from the catalog but kept in the back room — old receipts still work, nothing destroyed — and the catalog is a slim card file, not a warehouse. The right skeleton to grow on.</p></div>
+<p class="sol" style="margin-top:12px"><b>Proposed solution.</b> Keep the shape; add unyank and per-publisher ownership before multi-tenant use.</p>
+</article>
+</main><script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.1/dist/mermaid.min.js" onerror="window.__mermaidFailed=true"></script><script src="../js/agent.js"></script></body></html>
