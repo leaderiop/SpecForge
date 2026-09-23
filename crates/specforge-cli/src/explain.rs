@@ -67,9 +67,10 @@ fn lookup(code: &str) -> Option<(&'static str, &'static str)> {
         "W003" => ("Missing contract field",
             "A behavior entity has no contract field.\n\
              Contracts define the expected input/output behavior."),
-        "W010" => ("Ambiguous reference",
-            "A reference could match entities of different kinds.\n\
-             Consider using more specific field names or entity IDs."),
+        "W010" => ("Unknown annotation on a type field",
+            "A `type` field carries an annotation the compiler does not recognize.\n\
+             Check the spelling against the supported annotations, or remove the\n\
+             annotation if it is obsolete."),
 
         // === Product extension warnings ===
         "W041" => ("Orphan feature",

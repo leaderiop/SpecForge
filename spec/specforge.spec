@@ -9,14 +9,8 @@ spec "specforge" {
     "@specforge/software",
     "@specforge/product",
     "@specforge/governance",
+    "@specforge/formal",
   ]
-
-  providers {
-    gh "specforge" {
-      extension "@specforge/gh"
-      repo    "anthropics/specforge"
-    }
-  }
 
   // Personas, channels, and coverage are defined in their respective files:
   // product/personas.spec, product/channels.spec

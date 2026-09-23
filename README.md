@@ -126,8 +126,8 @@ Projects are configured via **`specforge.json`** (like `tsconfig.json`):
 ## Architecture
 
 - **Parser** — Tree-sitter grammar that parses any `keyword name { ... }` block generically, with error recovery (collects multiple diagnostics, never fails fast).
-- **Graph** — petgraph-backed mutable graph, built incrementally to support watch mode and the LSP.
-- **Plugin runtime** — Wasm (Extism) is the only extension runtime, with AOT caching for the CLI and warm engines for the LSP/MCP servers.
+- **Graph** — typed entity graph over interned symbols (custom node/edge indexes), with cycle detection and subgraph queries. Reference resolution is one shared code path used by the CLI, LSP, and watch mode.
+- **Plugin runtime** — extensions are Wasm modules loaded via Extism/Wasmtime; the four builtins also ship as native Rust, with a composite runtime dispatching builtin-first. Compiled blobs are cached by content hash, and the build bootstraps missing builtin blobs automatically.
 - **Surfaces** — CLI (`specforge-cli`), LSP (`specforge-lsp`), and MCP (`specforge-mcp`) all consume the same graph.
 
 The implementation is a Rust workspace (edition 2024) under [`crates/`](crates/).

@@ -1,6 +1,6 @@
 # Extension Inventory
 
-This document catalogs the five official SpecForge extensions after the entity audit and testability extraction. Together they provide 22 entity kinds, 58 edge types, and cross-extension enhancements through the Extension Protocol.
+This document catalogs the four official (shipped) SpecForge extensions after the entity audit and testability extraction. Together they provide 22 entity kinds, 57 edge types, and cross-extension enhancements through the Extension Protocol. A fifth extension, @specforge/software-testing, is designed but not yet shipped (see its section).
 
 ## Dependency Graph
 
@@ -222,7 +222,7 @@ Load order: `product` first (no dependencies), then `software` (depends on produ
 - Structured conditions are inline blocks (requires/ensures/maintains) within behavior bodies. Conditions are not standalone entities; shared constraints are modeled as invariant entities.
 - Cycle detection on refinement chains (E041) and process composition (E042) prevents infinite layering.
 
-## @specforge/software-testing
+## @specforge/software-testing (planned — not yet shipped)
 
 **Depends on: @specforge/software, @specforge/product.** Enhancement-only extension that adds the `gherkin` field and test result collectors to entity kinds across multiple extensions.
 
@@ -301,8 +301,8 @@ The entity audit identified four redundant entity kinds and one DSL construct th
 | @specforge/software | 5 | 14 | module, milestone | product |
 | @specforge/governance | 3 | 11 | -- | software |
 | @specforge/formal | 5 | 12 | behavior, event | software |
-| @specforge/software-testing | 0 | 1 | 13 entity kinds | software, product |
-| **Total** | **22** | **58** | -- | -- |
+| @specforge/software-testing | 0 | 1 | 13 entity kinds | software, product — **planned, not shipped** |
+| **Total (shipped)** | **22** | **57** | -- | -- |
 
 ## Related Documentation
 
