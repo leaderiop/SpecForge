@@ -10,6 +10,10 @@ pub struct RegistryResponse {
     pub version: String,
     pub wasm_url: String,
     pub sha256: String,
+    /// Wire signature object (JSON with sig/keyId/pubkey), empty when unsigned.
+    pub signature: String,
+    /// Short publisher key id, empty when unsigned.
+    pub key_id: String,
 }
 
 /// A single search result from a registry query.
@@ -118,12 +122,17 @@ pub trait RegistryClient: Send + Sync {
 
     /// Publish an extension package (Wasm binary + manifest) to the registry.
     ///
-    /// `credential`, when provided, authenticates the upload; implementations
-    /// send the resolved token as an `Authorization: Bearer` header.
+    /// `manifest_json` is the exact serialization uploaded as the `manifest`
+    /// multipart field — the signature (when present) covers its SHA256.
+    /// `signature`, when provided, is the wire signature object JSON from
+    /// [`crate::signing::PackageSignature`]. `credential`, when provided,
+    /// authenticates the upload as an `Authorization: Bearer` header.
     fn publish(
         &self,
         package: &[u8],
         manifest: &ManifestV2,
+        manifest_json: &str,
+        signature: Option<&str>,
         registry: &RegistryConfig,
         credential: Option<&RegistryCredential>,
     ) -> Result<String, RegistryError>;

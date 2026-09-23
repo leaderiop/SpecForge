@@ -3,6 +3,7 @@ pub mod client;
 pub mod compilation;
 mod manifest;
 mod registries;
+pub mod signing;
 
 #[cfg(test)]
 mod invariants;
@@ -66,6 +67,9 @@ pub use compilation::{
     validate_provider_ref,
     validate_ref_target_format,
     validate_registered_entity_fields,
+};
+pub use signing::{
+    PackageSignature, SigningKey, load_or_create_signing_key, signing_key_path, verify_signature,
 };
 
 // --- Registry client ---

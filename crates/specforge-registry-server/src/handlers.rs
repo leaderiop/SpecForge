@@ -51,8 +51,17 @@ struct PackageMetadataResponse {
     publisher: String,
     published_at: String,
     wasm_url: String,
+    /// Wire signature object (JSON with sig/keyId/pubkey/signedAt); empty when unsigned.
+    #[serde(skip_serializing_if = "String::is_empty")]
+    signature: String,
+    /// Short publisher key id; empty when unsigned.
+    #[serde(skip_serializing_if = "String::is_empty")]
+    key_id: String,
+    /// Exact manifest JSON uploaded with the package, for offline
+    /// verification of manifest_sha256; empty when not stored.
+    #[serde(skip_serializing_if = "String::is_empty")]
+    manifest: String,
 }
-
 #[derive(Serialize)]
 struct SearchResponse {
     results: Vec<SearchHit>,
@@ -168,6 +177,9 @@ async fn get_package_version(
                 publisher: pkg.publisher,
                 published_at: pkg.published_at,
                 wasm_url,
+                signature: pkg.signature,
+                key_id: pkg.key_id,
+                manifest: pkg.manifest,
             })
             .unwrap(),
         ),
@@ -322,6 +334,7 @@ async fn publish_package(
     // Parse multipart form
     let mut wasm_bytes: Option<Vec<u8>> = None;
     let mut manifest_json: Option<String> = None;
+    let mut signature_json: Option<String> = None;
 
     while let Ok(Some(field)) = multipart.next_field().await {
         let field_name = field.name().unwrap_or("").to_string();
@@ -331,6 +344,9 @@ async fn publish_package(
             }
             "manifest" => {
                 manifest_json = field.text().await.ok();
+            }
+            "signature" => {
+                signature_json = field.text().await.ok();
             }
             _ => {}
         }
@@ -364,9 +380,8 @@ async fn publish_package(
     })
     .await
     .expect("sha256 hashing task panicked");
-
     // Parse description/keywords from manifest
-    let (description, keywords) = if let Some(ref json_str) = manifest_json {
+    let (description, keywords) = if let Some(json_str) = &manifest_json {
         let v: serde_json::Value = serde_json::from_str(json_str).unwrap_or_default();
         let desc = v
             .get("description")
@@ -416,6 +431,15 @@ async fn publish_package(
         );
     }
 
+    // Extract the short key id from the signature wire object for display
+    // and indexing. The full signature object is stored verbatim so clients
+    // can verify offline (spec #21: the registry is not the trust anchor).
+    let key_id = signature_json
+        .as_deref()
+        .and_then(|s| serde_json::from_str::<serde_json::Value>(s).ok())
+        .and_then(|v| v.get("keyId").and_then(|k| k.as_str()).map(str::to_string))
+        .unwrap_or_default();
+
     // Insert into database — rusqlite is blocking: run it on the blocking
     // pool.
     let pkg = PackageVersion {
@@ -427,6 +451,9 @@ async fn publish_package(
         keywords,
         publisher: token_record.label.clone(),
         published_at: chrono::Utc::now().to_rfc3339(),
+        signature: signature_json.unwrap_or_default(),
+        key_id: key_id.clone(),
+        manifest: manifest_json.unwrap_or_default(),
     };
 
     let insert_state = Arc::clone(&state);
@@ -460,6 +487,7 @@ async fn publish_package(
                 "version": version,
                 "sha256": pkg.sha256,
                 "size_bytes": pkg.size_bytes,
+                "key_id": pkg.key_id,
             }))
             .unwrap(),
         ),

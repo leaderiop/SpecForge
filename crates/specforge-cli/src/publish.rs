@@ -3,7 +3,8 @@ use specforge_registry::{
     AuthMethod, CredentialStore, HttpRegistryClient, ManifestV2, RegistryConfig,
     RegistryCredential,
     client::credentials::{credentials_path, read_credentials},
-    find_registry_for_specifier, parse_registries_from_config, publish_to_registry,
+    find_registry_for_specifier, load_or_create_signing_key, parse_registries_from_config,
+    publish_to_registry,
 };
 use std::path::Path;
 
@@ -84,6 +85,15 @@ pub fn run(path: &Path, format: &str) -> i32 {
     // Load publish credential: SPECFORGE_REGISTRY_TOKEN overrides stored credentials.
     let credential = load_credential(registry);
 
+    // Load (or first-run generate) the publisher signing key.
+    let (signing_key, key_created) = match load_or_create_signing_key() {
+        Ok(pair) => pair,
+        Err(message) => {
+            print_error(format, &message, "SIGNING_KEY_ERROR");
+            return 1;
+        }
+    };
+
     // Publish
     let client = HttpRegistryClient::new();
     match publish_to_registry(
@@ -93,8 +103,10 @@ pub fn run(path: &Path, format: &str) -> i32 {
         credential.as_ref(),
         &client,
         false,
+        Some(&signing_key),
     ) {
         Ok(url) => {
+            let key_id = signing_key.key_id();
             match format {
                 "json" => {
                     let output = json!({
@@ -103,13 +115,20 @@ pub fn run(path: &Path, format: &str) -> i32 {
                         "version": manifest.version,
                         "url": url,
                         "size_bytes": wasm_bytes.len(),
+                        "key_id": key_id,
+                        "signed": true,
+                        "key_created": key_created,
                     });
                     println!("{}", serde_json::to_string_pretty(&output).unwrap());
                 }
                 _ => {
+                    if key_created {
+                        println!("generated publisher signing key {}", key_id);
+                    }
                     println!("published {} v{}", manifest.name, manifest.version);
                     println!("  url: {}", url);
                     println!("  size: {} bytes", wasm_bytes.len());
+                    println!("  signed by key: {}", key_id);
                 }
             }
             0

@@ -1,0 +1,883 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Should SpecForge build on LLVM? — Engineering Feasibility Report</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300..900;1,9..144,300..900&family=Newsreader:ital,opsz,wght@0,6..72,400..700;1,6..72,400..700&family=Archivo:wght@400..800&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#F6F3EC; --paper-2:#EFEBE1; --card:#FBF9F4;
+    --ink:#17150F; --ink-2:#4A463C; --ink-3:#7C7666;
+    --line:#D9D3C5; --line-2:#E7E2D5;
+    --green:#0E6B4F; --green-deep:#0A4A37; --green-soft:#DFECE3; --green-ink:#0B5038;
+    --red:#B3401E; --red-deep:#8C3115; --red-soft:#F4E1D7;
+    --amber:#96690C; --amber-soft:#F1E7CB;
+    --blue:#2B4C77; --blue-soft:#DEE7F0;
+    --serif:"Newsreader", Georgia, serif;
+    --display:"Fraunces", Georgia, serif;
+    --mono:"IBM Plex Mono", ui-monospace, monospace;
+    --sans:"Archivo", system-ui, sans-serif;
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{background:var(--paper);color:var(--ink);font-family:var(--serif);font-size:17px;line-height:1.65;
+       background-image:radial-gradient(rgba(23,21,15,.028) 1px, transparent 1px); background-size:22px 22px;}
+  ::selection{background:var(--green);color:var(--paper)}
+
+  /* ---------- header ---------- */
+  header.masthead{background:var(--ink);color:var(--paper);padding:56px 40px 48px;position:relative;overflow:hidden}
+  header.masthead::after{content:"";position:absolute;inset:0;
+    background:radial-gradient(ellipse 80% 60% at 85% -10%, rgba(14,107,79,.35), transparent 60%);}
+  .mast-wrap{max-width:1160px;margin:0 auto;position:relative;z-index:1}
+  .eyebrow{font-family:var(--sans);font-weight:700;font-size:11.5px;letter-spacing:.22em;text-transform:uppercase;color:#A8B8AC}
+  .eyebrow .sep{color:#5C6B60;margin:0 10px}
+  h1{font-family:var(--display);font-optical-sizing:auto;font-weight:560;font-size:clamp(40px,5.4vw,68px);
+     line-height:1.04;letter-spacing:-.015em;margin:18px 0 10px;max-width:20ch}
+  h1 em{font-style:italic;color:#7FC8A9;font-weight:480}
+  .standfirst{font-size:19.5px;color:#C9C4B6;max-width:66ch;line-height:1.55;font-style:italic}
+  .verdict-row{display:flex;gap:14px;flex-wrap:wrap;margin-top:30px}
+  .verdict{border:1px solid rgba(246,243,236,.28);border-radius:2px;padding:14px 18px;min-width:230px;background:rgba(246,243,236,.05)}
+  .verdict .v-k{font-family:var(--sans);font-size:10.5px;font-weight:700;letter-spacing:.18em;text-transform:uppercase;color:#9BA69D}
+  .verdict .v-word{font-family:var(--display);font-size:27px;font-weight:620;margin:4px 0 2px;letter-spacing:-.01em}
+  .verdict .v-why{font-size:13.5px;color:#BDB8AA;line-height:1.45;font-style:italic}
+  .v-no .v-word{color:#F0917A}.v-go .v-word{color:#7FC8A9}.v-mid .v-word{color:#E4C368}
+  .meta-line{margin-top:34px;font-family:var(--mono);font-size:12px;color:#8D8878;display:flex;gap:26px;flex-wrap:wrap}
+
+  /* ---------- layout ---------- */
+  .shell{max-width:1160px;margin:0 auto;padding:54px 40px 90px;display:grid;grid-template-columns:218px minmax(0,1fr);gap:56px}
+  nav.toc{position:sticky;top:28px;align-self:start;font-family:var(--sans)}
+  nav.toc .toc-title{font-size:10.5px;font-weight:700;letter-spacing:.2em;text-transform:uppercase;color:var(--ink-3);margin-bottom:14px}
+  nav.toc a{display:block;color:var(--ink-2);text-decoration:none;font-size:12.8px;line-height:1.4;padding:5.5px 0 5.5px 12px;
+            border-left:2px solid var(--line);transition:all .15s}
+  nav.toc a:hover{color:var(--ink);border-left-color:var(--ink-2)}
+  nav.toc a.active{color:var(--green-deep);border-left-color:var(--green);font-weight:600}
+  nav.toc .toc-ev{margin-top:22px;padding-top:16px;border-top:1px solid var(--line-2)}
+  main{min-width:0}
+
+  /* ---------- sections ---------- */
+  section{margin-bottom:84px;scroll-margin-top:24px}
+  .sec-head{display:flex;align-items:baseline;gap:16px;border-bottom:2px solid var(--ink);padding-bottom:10px;margin-bottom:26px}
+  .sec-no{font-family:var(--mono);font-size:13px;font-weight:600;color:var(--green-deep);white-space:nowrap}
+  h2{font-family:var(--display);font-weight:580;font-size:31px;letter-spacing:-.01em;line-height:1.12}
+  h3{font-family:var(--sans);font-weight:700;font-size:14px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-2);margin:34px 0 14px}
+  p{margin-bottom:15px;max-width:76ch}
+  p.lede{font-size:19px;line-height:1.6;max-width:70ch}
+  strong{font-weight:650}
+  a{color:var(--green-deep);text-underline-offset:3px}
+  code{font-family:var(--mono);font-size:.86em;background:var(--paper-2);border:1px solid var(--line-2);border-radius:3px;padding:1px 5px;white-space:nowrap}
+  .ev{font-family:var(--mono);font-size:11px;font-weight:600;color:var(--green-deep);text-decoration:none;vertical-align:super;letter-spacing:.02em}
+  .ev:hover{color:var(--red)}
+
+  /* ---------- badges & chips ---------- */
+  .badge{display:inline-block;font-family:var(--sans);font-size:9.5px;font-weight:700;letter-spacing:.14em;
+         padding:2.5px 7px 2px;border-radius:2px;vertical-align:2px;margin-left:6px;white-space:nowrap}
+  .b-repo{background:var(--green-soft);color:var(--green-ink);border:1px solid #B8CFC0}
+  .b-web{background:var(--blue-soft);color:var(--blue);border:1px solid #B9C9DA}
+  .b-paper{background:#EBE3F2;color:#5B3E82;border:1px solid #CEBEDF}
+  .b-derived{background:var(--amber-soft);color:var(--amber);border:1px solid #DECf9F}
+  .chip{display:inline-flex;align-items:center;gap:7px;font-family:var(--sans);font-size:11.5px;font-weight:700;
+        letter-spacing:.08em;padding:5px 12px;border-radius:99px;border:1.5px solid}
+  .chip.no{color:var(--red-deep);border-color:#DCB39F;background:var(--red-soft)}
+  .chip.yes{color:var(--green-ink);border-color:#A9C8B6;background:var(--green-soft)}
+  .chip.mid{color:var(--amber);border-color:#DECf9F;background:var(--amber-soft)}
+  .chip .dot{width:7px;height:7px;border-radius:50%}
+  .chip.no .dot{background:var(--red)}.chip.yes .dot{background:var(--green)}.chip.mid .dot{background:var(--amber)}
+
+  /* ---------- figures ---------- */
+  figure{margin:30px 0 34px;background:var(--card);border:1px solid var(--line);border-radius:4px;padding:26px 26px 20px;
+         box-shadow:0 1px 0 rgba(23,21,15,.05)}
+  figure svg{width:100%;height:auto;display:block}
+  figcaption{font-family:var(--sans);font-size:12.5px;color:var(--ink-2);margin-top:16px;padding-top:12px;border-top:1px dashed var(--line);
+             display:flex;gap:10px;align-items:baseline}
+  figcaption .fig-no{font-family:var(--mono);font-weight:600;font-size:11.5px;color:var(--green-deep);white-space:nowrap}
+  .svg-label{font-family:var(--sans);font-weight:600}
+  .svg-mono{font-family:var(--mono)}
+
+  /* ---------- tables ---------- */
+  table{width:100%;border-collapse:collapse;margin:22px 0 30px;font-size:14.5px;background:var(--card);border:1px solid var(--line)}
+  th{font-family:var(--sans);font-size:11px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-2);
+     text-align:left;padding:11px 14px;border-bottom:2px solid var(--ink);background:var(--paper-2)}
+  td{padding:11px 14px;border-bottom:1px solid var(--line-2);vertical-align:top}
+  tr:last-child td{border-bottom:none}
+  td.num,th.num{text-align:right;font-family:var(--mono);font-size:13px}
+  td.ctr,th.ctr{text-align:center}
+  .t-pos{color:var(--green-ink);font-weight:700}.t-neg{color:var(--red-deep);font-weight:700}.t-mid{color:var(--amber);font-weight:700}
+  td code{white-space:nowrap}
+  .rowhl td{background:var(--green-soft)}
+
+  /* ---------- KPI cards ---------- */
+  .kpi-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin:26px 0}
+  .kpi{background:var(--card);border:1px solid var(--line);border-top:3px solid var(--green);border-radius:3px;padding:20px 20px 16px;position:relative}
+  .kpi.warn{border-top-color:var(--red)}
+  .kpi.mid{border-top-color:var(--amber)}
+  .kpi .k-val{font-family:var(--display);font-weight:600;font-size:34px;letter-spacing:-.02em;line-height:1;color:var(--ink)}
+  .kpi.warn .k-val{color:var(--red-deep)}.kpi.mid .k-val{color:var(--amber)}
+  .kpi .k-unit{font-size:16px;color:var(--ink-3);font-weight:480}
+  .kpi .k-label{font-family:var(--sans);font-size:12px;font-weight:600;color:var(--ink-2);margin-top:9px;line-height:1.45}
+  .kpi .k-src{font-family:var(--mono);font-size:10.5px;color:var(--ink-3);margin-top:10px;padding-top:8px;border-top:1px dashed var(--line-2)}
+
+  /* ---------- option cards ---------- */
+  .opt-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:24px 0}
+  .opt{background:var(--card);border:1px solid var(--line);border-radius:4px;padding:22px}
+  .opt-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:10px}
+  .opt-id{font-family:var(--mono);font-size:11px;font-weight:600;color:var(--ink-3)}
+  .opt h4{font-family:var(--display);font-size:21px;font-weight:600;letter-spacing:-.01em}
+  .opt p{font-size:14.5px;margin-bottom:10px;color:var(--ink-2)}
+  .opt ul{margin:0 0 8px 18px;font-size:14px;color:var(--ink-2)}
+  .opt li{margin-bottom:5px}
+  .opt .verdict-line{margin-top:12px;padding-top:12px;border-top:1px dashed var(--line)}
+
+  /* ---------- matrix bars ---------- */
+  .bar-row{display:grid;grid-template-columns:220px 1fr 58px;align-items:center;gap:12px;margin-bottom:10px;font-size:14px}
+  .bar-name{font-family:var(--sans);font-weight:600;font-size:13px;text-align:right;color:var(--ink-2)}
+  .bar-track{background:var(--paper-2);border:1px solid var(--line-2);height:22px;border-radius:2px;overflow:hidden}
+  .bar-fill{height:100%;background:linear-gradient(90deg,var(--green-deep),var(--green));border-radius:1px}
+  .bar-fill.r{background:linear-gradient(90deg,var(--red-deep),var(--red))}
+  .bar-fill.a{background:linear-gradient(90deg,#7A560B,var(--amber))}
+  .bar-score{font-family:var(--mono);font-weight:600;font-size:13px}
+
+  /* ---------- callouts ---------- */
+  .callout{border-left:4px solid var(--green);background:var(--green-soft);padding:18px 22px;border-radius:0 3px 3px 0;margin:24px 0;max-width:80ch}
+  .callout.red{border-left-color:var(--red);background:var(--red-soft)}
+  .callout.amber{border-left-color:var(--amber);background:var(--amber-soft)}
+  .callout .c-k{font-family:var(--sans);font-size:10.5px;font-weight:800;letter-spacing:.16em;text-transform:uppercase;margin-bottom:6px}
+  .callout .c-k{color:var(--green-ink)}.callout.red .c-k{color:var(--red-deep)}.callout.amber .c-k{color:var(--amber)}
+  .callout p{margin-bottom:8px;font-size:15px}.callout p:last-child{margin-bottom:0}
+
+  /* ---------- evidence register ---------- */
+  .ev-list{counter-reset:ev;margin-top:8px}
+  .ev-item{display:grid;grid-template-columns:64px 74px 1fr;gap:14px;padding:13px 0;border-bottom:1px solid var(--line-2);font-size:14px}
+  .ev-item:last-child{border-bottom:none}
+  .ev-id{font-family:var(--mono);font-size:12px;font-weight:600;color:var(--green-deep);padding-top:2px}
+  .ev-item .e-claim{color:var(--ink-2);line-height:1.5}
+  .ev-item .e-src{font-family:var(--mono);font-size:12px;margin-top:3px;word-break:break-all}
+  .ev-item .e-src a{color:var(--blue)}
+
+  footer{background:var(--ink);color:#9A9587;padding:34px 40px;font-family:var(--mono);font-size:12px}
+  footer .f-wrap{max-width:1160px;margin:0 auto;display:flex;justify-content:space-between;gap:20px;flex-wrap:wrap}
+
+  @media (max-width:980px){
+    .shell{grid-template-columns:1fr;padding:40px 22px 70px}
+    nav.toc{position:static;columns:2;column-gap:30px;margin-bottom:40px}
+    nav.toc .toc-title,nav.toc .toc-ev{column-span:all}
+    .kpi-grid{grid-template-columns:1fr 1fr}
+    .opt-grid{grid-template-columns:1fr}
+  }
+  @media (max-width:620px){.kpi-grid{grid-template-columns:1fr}}
+  @media print{
+    nav.toc{display:none}.shell{grid-template-columns:1fr;max-width:none;padding:0}
+    body{background:none;font-size:11pt}header.masthead{background:#fff;color:#000}
+    header.masthead .standfirst,.meta-line{color:#444}h1{color:#000}
+    figure,table,.kpi,.opt{break-inside:avoid}section{break-before:page}
+  }
+</style>
+</head>
+<body>
+
+<header class="masthead">
+  <div class="mast-wrap">
+    <div class="eyebrow">SpecForge · Engineering Feasibility Report <span class="sep">/</span> D-2026-09-23 <span class="sep">/</span> Decision window: pre-RES-25 phase&nbsp;1</div>
+    <h1>Should SpecForge build on <em>LLVM</em>?</h1>
+    <p class="standfirst">A full evaluation of LLVM — and of MLIR, Cranelift, KLEE, and Z3 — against what SpecForge actually compiles: a typed entity graph, not machine code. Every claim is anchored to the repository or to a cited source.</p>
+    <div class="verdict-row">
+      <div class="verdict v-no"><div class="v-k">Core compiler pipeline</div><div class="v-word">No</div><div class="v-why">Zero machine-code outputs; LLVM&rsquo;s phases have no customer here <a class="ev" href="#ev-e1" style="color:#F0917A">E1</a></div></div>
+      <div class="verdict v-no"><div class="v-k">Prover path (analyze --prove)</div><div class="v-word">No</div><div class="v-why">Conditions are predicates, not programs — lower to SMT-LIB/Z3 directly <a class="ev" href="#ev-e22" style="color:#F0917A">E22</a></div></div>
+      <div class="verdict v-go"><div class="v-k">If native codegen is ever needed</div><div class="v-word">Cranelift</div><div class="v-why">Already in the tree via wasmtime; 40% faster codegen than LLVM <a class="ev" href="#ev-e5" style="color:#7FC8A9">E5</a></div></div>
+      <div class="verdict v-mid"><div class="v-k">Multi-level IR story</div><div class="v-word">MLIR: overkill</div><div class="v-why">The typed graph + Graph Protocol JSON already is the IR <a class="ev" href="#ev-e4" style="color:#E4C368">E4</a></div></div>
+    </div>
+    <div class="meta-line">
+      <span>SCOPE&nbsp;&nbsp;17 crates · 102,593 LOC Rust</span>
+      <span>METHOD&nbsp;&nbsp;repo audit + primary-source research</span>
+      <span>EVIDENCE&nbsp;&nbsp;26 items · REPO / WEB / PAPER / DERIVED</span>
+      <span>DATE&nbsp;&nbsp;2026-09-23</span>
+    </div>
+  </div>
+</header>
+
+<div class="shell">
+
+<nav class="toc" aria-label="Contents">
+  <div class="toc-title">Contents</div>
+  <a href="#s1">§1 · What SpecForge compiles</a>
+  <a href="#s2">§2 · What LLVM is for</a>
+  <a href="#s3">§3 · The fit gap</a>
+  <a href="#s4">§4 · The option space</a>
+  <a href="#s5">§5 · KPI dashboard</a>
+  <a href="#s6">§6 · Decision matrices</a>
+  <a href="#s7">§7 · Prover deep-dive</a>
+  <a href="#s8">§8 · Cost ledger</a>
+  <a href="#s9">§9 · Recommendation &amp; spikes</a>
+  <div class="toc-ev">
+    <div class="toc-title">Evidence</div>
+    <a href="#evidence">§10 · Evidence register</a>
+  </div>
+</nav>
+
+<main>
+
+<!-- ==================== §1 ==================== -->
+<section id="s1">
+  <div class="sec-head"><span class="sec-no">§1</span><h2>What SpecForge actually compiles</h2></div>
+  <p class="lede">The project&rsquo;s own README states the thesis that decides this entire question: <strong>&ldquo;SpecForge is <em>not</em> a code generator and <em>not</em> a test runner.&rdquo;</strong><a class="ev" href="#ev-e1">[E1]</a> &ldquo;The graph is the product.&rdquo;<a class="ev" href="#ev-e2">[E2]</a> Every output the compiler produces is <em>data consumed by agents and tools</em> — JSON, DOT, Mermaid, DBML, markdown. Nothing is executed.</p>
+
+  <figure>
+    <svg viewBox="0 0 960 348" role="img" aria-label="SpecForge compile pipeline">
+      <defs>
+        <marker id="arw" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+          <path d="M0,0 L10,5 L0,10 z" fill="#17150F"/>
+        </marker>
+        <marker id="arwg" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+          <path d="M0,0 L10,5 L0,10 z" fill="#0E6B4F"/>
+        </marker>
+      </defs>
+      <style>
+        .st{font:600 12.5px Archivo,sans-serif;fill:#17150F}
+        .sb{font:500 10.5px "IBM Plex Mono",monospace;fill:#7C7666}
+        .bx{fill:#FBF9F4;stroke:#17150F;stroke-width:1.4}
+        .bxr{fill:#F4E1D7;stroke:#B3401E;stroke-width:1.4;stroke-dasharray:5 3}
+        .bxg{fill:#DFECE3;stroke:#0E6B4F;stroke-width:1.4}
+        .fl{stroke:#17150F;stroke-width:1.3;fill:none;marker-end:url(#arw)}
+        .flg{stroke:#0E6B4F;stroke-width:1.3;fill:none;marker-end:url(#arwg)}
+        .sec-t{font:700 10px Archivo,sans-serif;letter-spacing:.18em;fill:#B3401E}
+        .sec-tg{font:700 10px Archivo,sans-serif;letter-spacing:.18em;fill:#0E6B4F}
+      </style>
+
+      <text class="sec-tg" x="24" y="30">SOURCE → DATA PIPELINE (all of it — nothing lowers to machine code)</text>
+
+      <!-- stage boxes -->
+      <g>
+        <rect class="bx" x="24" y="46" width="118" height="58" rx="3"/>
+        <text class="st" x="83" y="71" text-anchor="middle">.spec files</text>
+        <text class="sb" x="83" y="89" text-anchor="middle">generic blocks</text>
+
+        <rect class="bx" x="176" y="46" width="128" height="58" rx="3"/>
+        <text class="st" x="240" y="65" text-anchor="middle">Parse</text>
+        <text class="sb" x="240" y="81" text-anchor="middle">tree-sitter 0.26.6</text>
+        <text class="sb" x="240" y="94" text-anchor="middle">error recovery</text>
+
+        <rect class="bx" x="338" y="46" width="118" height="58" rx="3"/>
+        <text class="st" x="397" y="65" text-anchor="middle">Resolve</text>
+        <text class="sb" x="397" y="81" text-anchor="middle">refs, link_</text>
+        <text class="sb" x="397" y="94" text-anchor="middle">references</text>
+
+        <rect class="bx" x="490" y="46" width="118" height="58" rx="3"/>
+        <text class="st" x="549" y="65" text-anchor="middle">Graph build</text>
+        <text class="sb" x="549" y="81" text-anchor="middle">Node/Edge maps,</text>
+        <text class="sb" x="549" y="94" text-anchor="middle">indexes (hand-rolled)</text>
+
+        <rect class="bx" x="642" y="46" width="122" height="58" rx="3"/>
+        <text class="st" x="703" y="65" text-anchor="middle">Validate</text>
+        <text class="sb" x="703" y="81" text-anchor="middle">orphan/cycle rules,</text>
+        <text class="sb" x="703" y="94" text-anchor="middle">extension rules</text>
+
+        <rect class="bxg" x="798" y="46" width="128" height="58" rx="3"/>
+        <text class="st" x="862" y="65" text-anchor="middle" fill="#0B5038">Emit (data)</text>
+        <text class="sb" x="862" y="81" text-anchor="middle">serde → JSON,</text>
+        <text class="sb" x="862" y="94" text-anchor="middle">dot, mermaid…</text>
+
+        <line class="fl" x1="142" y1="75" x2="174" y2="75"/>
+        <line class="fl" x1="304" y1="75" x2="336" y2="75"/>
+        <line class="fl" x1="456" y1="75" x2="488" y2="75"/>
+        <line class="fl" x1="608" y1="75" x2="640" y2="75"/>
+        <line class="fl" x1="764" y1="75" x2="796" y2="75"/>
+      </g>
+
+      <!-- fan out -->
+      <g>
+        <text class="sec-tg" x="24" y="148">EMITTED FORMATS (7 DISTINCT) — 0 CONTAIN MACHINE CODE</text>
+        <line class="flg" x1="862" y1="104" x2="862" y2="156"/>
+        <line class="flg" x1="862" y1="156" x2="403" y2="156"/>
+        <line class="flg" x1="403" y1="156" x2="403" y2="172"/>
+        <g font="600 11px 'IBM Plex Mono',monospace" fill="#0B5038">
+          <g><rect x="24" y="174" width="150" height="30" rx="15" fill="#DFECE3" stroke="#A9C8B6"/><text x="99" y="193" text-anchor="middle">Graph Protocol JSON</text></g>
+          <g><rect x="188" y="174" width="118" height="30" rx="15" fill="#DFECE3" stroke="#A9C8B6"/><text x="247" y="193" text-anchor="middle">context / brief</text></g>
+          <g><rect x="320" y="174" width="96" height="30" rx="15" fill="#DFECE3" stroke="#A9C8B6"/><text x="368" y="193" text-anchor="middle">Graphviz DOT</text></g>
+          <g><rect x="430" y="174" width="86" height="30" rx="15" fill="#DFECE3" stroke="#A9C8B6"/><text x="473" y="193" text-anchor="middle">Mermaid</text></g>
+          <g><rect x="530" y="174" width="60" height="30" rx="15" fill="#DFECE3" stroke="#A9C8B6"/><text x="560" y="193" text-anchor="middle">DBML</text></g>
+          <g><rect x="604" y="174" width="88" height="30" rx="15" fill="#DFECE3" stroke="#A9C8B6"/><text x="648" y="193" text-anchor="middle">markdown</text></g>
+          <g><rect x="706" y="174" width="76" height="30" rx="15" fill="#DFECE3" stroke="#A9C8B6"/><text x="744" y="193" text-anchor="middle">JSON Schema</text></g>
+        </g>
+      </g>
+
+      <!-- surfaces -->
+      <g>
+        <text class="st" x="24" y="248">Consumed by:</text>
+        <g font="600 11.5px Archivo,sans-serif" fill="#4A463C">
+          <rect x="130" y="230" width="52" height="28" rx="3" fill="#EFEBE1" stroke="#D9D3C5"/><text x="156" y="248" text-anchor="middle">CLI</text>
+          <rect x="194" y="230" width="52" height="28" rx="3" fill="#EFEBE1" stroke="#D9D3C5"/><text x="220" y="248" text-anchor="middle">LSP</text>
+          <rect x="258" y="230" width="52" height="28" rx="3" fill="#EFEBE1" stroke="#D9D3C5"/><text x="284" y="248" text-anchor="middle">MCP</text>
+          <text x="326" y="248">→ AI agents over token-budgeted exports</text>
+        </g>
+      </g>
+
+      <!-- extension band -->
+      <g>
+        <rect x="24" y="282" width="912" height="52" rx="3" fill="#EFEBE1" stroke="#D9D3C5"/>
+        <text class="sec-tg" x="40" y="304">EXTENSION RUNTIME — already Wasm: Extism 1.21 → wasmtime 41.0.4 → Cranelift 0.128.4 in Cargo.lock today</text>
+        <text class="sb" x="40" y="322">@specforge/{software,product,governance,formal} contribute kinds · fields · edges · validation rules via the WasmRuntime trait</text>
+      </g>
+    </svg>
+    <figcaption><span class="fig-no">FIG. 1</span><span>SpecForge&rsquo;s real pipeline, anchored to <code>crates/specforge-emitter/src/compile.rs:55-163</code> (steps 1–8a) and <code>crates/specforge-emitter/src/emit.rs:8-20</code> (<code>EmitFormat</code>). The extension band reflects <code>Cargo.lock</code> (wasmtime 41.0.4, cranelift 0.128.4) <a class="ev" href="#ev-e5">[E5]</a>.</span></figcaption>
+  </figure>
+
+  <p>Scale, measured: <strong>102,593 lines of Rust</strong> across 17 crates + integrations (largest: emitter 16,460 · cli 15,960 · wasm 15,866 · registry 14,987).<a class="ev" href="#ev-e3">[E3]</a> The graph engine is a deliberate hand-rolled <code>HashMap&lt;Node&gt; + Vec&lt;Edge&gt;</code> with source/target indexes — petgraph 0.8.3 sits declared in <code>Cargo.toml:46</code> with <strong>zero usages</strong> in <code>crates/</code>.<a class="ev" href="#ev-e4">[E4]</a> That is the project&rsquo;s dependency culture in one fact: even a mature, pure-Rust graph library was set aside to keep the core exactly as big as the mission (<code>RES-26</code>, zero-entity core<a class="ev" href="#ev-e6">[E6]</a>).</p>
+</section>
+
+<!-- ==================== §2 ==================== -->
+<section id="s2">
+  <div class="sec-head"><span class="sec-no">§2</span><h2>What LLVM is for</h2></div>
+  <p class="lede">LLVM is a <strong>machine-code factory</strong>. Its entire value concentrates in phases SpecForge does not have: instruction selection, register allocation, instruction scheduling, ABI handling, target descriptions. Its cost concentrates in everything else.</p>
+
+  <figure>
+    <svg viewBox="0 0 960 268" role="img" aria-label="LLVM three-phase architecture">
+      <defs>
+        <marker id="arw2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+          <path d="M0,0 L10,5 L0,10 z" fill="#17150F"/>
+        </marker>
+      </defs>
+      <style>
+        .lt{font:600 12.5px Archivo,sans-serif;fill:#17150F}
+        .lb{font:500 10.5px "IBM Plex Mono",monospace;fill:#7C7666}
+        .lbox{fill:#FBF9F4;stroke:#17150F;stroke-width:1.4}
+        .larrow{stroke:#17150F;stroke-width:1.3;fill:none;marker-end:url(#arw2)}
+      </style>
+      <rect x="16" y="16" width="928" height="236" fill="none" stroke="#D9D3C5" stroke-dasharray="5 3"/>
+      <text font="700 10px Archivo,sans-serif" letter-spacing=".18em" fill="#B3401E">
+        <tspan x="32" y="38">LLVM&rsquo;s CONTRACT: SOURCE → IR → OPTIMIZED MACHINE CODE</tspan>
+      </text>
+
+      <rect class="lbox" x="32" y="66" width="150" height="66" rx="3"/>
+      <text class="lt" x="107" y="90" text-anchor="middle">Frontends</text>
+      <text class="lb" x="107" y="106" text-anchor="middle">clang · rustc · swift</text>
+      <text class="lb" x="107" y="120" text-anchor="middle">julia · mojo · zig</text>
+
+      <rect class="lbox" x="216" y="66" width="104" height="66" rx="3"/>
+      <text class="lt" x="268" y="90" text-anchor="middle">LLVM IR</text>
+      <text class="lb" x="268" y="106" text-anchor="middle">SSA, typed,</text>
+      <text class="lb" x="268" y="120" text-anchor="middle">target-agnostic</text>
+
+      <rect x="354" y="52" width="264" height="94" rx="4" fill="#DFECE3" stroke="#0E6B4F" stroke-width="1.6"/>
+      <text class="lt" x="486" y="76" text-anchor="middle" fill="#0B5038">Optimizer passes</text>
+      <text class="lb" x="486" y="93" text-anchor="middle">inlining · vectorization · IPA</text>
+      <text class="lb" x="486" y="107" text-anchor="middle">loop transforms · LTO</text>
+      <text font="600 10px Archivo,sans-serif" fill="#0B5038" x="486" y="132" text-anchor="middle">← WHERE LLVM&rsquo;S VALUE LIVES</text>
+
+      <rect x="652" y="52" width="136" height="94" rx="4" fill="#DFECE3" stroke="#0E6B4F" stroke-width="1.6"/>
+      <text class="lt" x="720" y="76" text-anchor="middle" fill="#0B5038">Codegen backend</text>
+      <text class="lb" x="720" y="93" text-anchor="middle">ISel · regalloc ·</text>
+      <text class="lb" x="720" y="107" text-anchor="middle">scheduling · MC</text>
+      <text font="600 10px Archivo,sans-serif" fill="#0B5038" x="720" y="132" text-anchor="middle">← AND HERE</text>
+
+      <rect class="lbox" x="822" y="66" width="106" height="66" rx="3"/>
+      <text class="lt" x="875" y="90" text-anchor="middle">Targets</text>
+      <text class="lb" x="875" y="106" text-anchor="middle">x86 · arm · riscv</text>
+      <text class="lb" x="875" y="120" text-anchor="middle">amdgpu · wasm</text>
+
+      <line class="larrow" x1="182" y1="99" x2="214" y2="99"/>
+      <line class="larrow" x1="320" y1="99" x2="352" y2="99"/>
+      <line class="larrow" x1="618" y1="99" x2="650" y2="99"/>
+      <line class="larrow" x1="788" y1="99" x2="820" y2="99"/>
+
+      <!-- SpecForge row -->
+      <text font="700 10px Archivo,sans-serif" letter-spacing=".18em" fill="#4A463C" x="32" y="192">SPECFORGE&rsquo;S NEEDS OVERLAID:</text>
+      <g font="600 11px 'IBM Plex Mono',monospace">
+        <rect x="330" y="176" width="458" height="0" fill="none"/>
+        <text fill="#7C7666" x="268" y="238" text-anchor="end">needs →</text>
+        <text fill="#B3401E" x="290" y="238">parse ✓ (tree-sitter)   resolve ✓   graph ✓ (hand-rolled)   validate ✓   emit ✓ (serde)   sandbox ✓ (wasm)</text>
+        <text fill="#B3401E" x="290" y="256">machine code … nowhere. No phase to buy. The green boxes have no customer.</text>
+      </g>
+    </svg>
+    <figcaption><span class="fig-no">FIG. 2</span><span>LLVM&rsquo;s three-phase design. Its two green value boxes — optimization and codegen — exist to produce <em>executable</em> artifacts. SpecForge&rsquo;s deliverable set contains zero executable artifacts<a class="ev" href="#ev-e1">[E1]</a>.</span></figcaption>
+  </figure>
+
+  <h3>The bill that comes with those green boxes</h3>
+  <table>
+    <thead><tr><th>Dimension</th><th class="num">Figure</th><th>Evidence</th></tr></thead>
+    <tbody>
+      <tr><td>LLVM core (C++)</td><td class="num">&gt; 2.5M LOC</td><td><a class="ev" href="#ev-e15">E15</a></td></tr>
+      <tr><td>LLVM monorepo (incl. clang, lld, polly…)</td><td class="num">35.56M LOC</td><td><a class="ev" href="#ev-e14">E14</a></td></tr>
+      <tr><td>Disk to build LLVM alone</td><td class="num">1–3 GB</td><td><a class="ev" href="#ev-e13">E13</a></td></tr>
+      <tr><td>Disk to build LLVM + Clang</td><td class="num">15–20 GB</td><td><a class="ev" href="#ev-e13">E13</a></td></tr>
+      <tr><td>Rust binding granularity</td><td class="num">one crate per LLVM release</td><td><a class="ev" href="#ev-e20">E20</a></td></tr>
+      <tr><td>Binding provisioning</td><td>system LLVM path config per platform</td><td><a class="ev" href="#ev-e25">E25</a></td></tr>
+    </tbody>
+  </table>
+  <p>Against SpecForge&rsquo;s <strong>102,593 LOC</strong>, LLVM&rsquo;s core alone is a <strong>24&times;</strong> larger codebase than everything SpecForge ships; the monorepo is <strong>346&times;</strong>.<span style="white-space:nowrap"><span class="badge b-derived">DERIVED</span></span> This is not a dependency; it is an adoption of a second compiler project.</p>
+</section>
+
+<!-- ==================== §3 ==================== -->
+<section id="s3">
+  <div class="sec-head"><span class="sec-no">§3</span><h2>The fit gap, capability by capability</h2></div>
+  <p class="lede">Each LLVM capability is checked against each SpecForge pipeline need. The pattern is uniform: <strong>the need already has an owner; LLVM would be a second implementation of something already solved.</strong></p>
+  <table>
+    <thead><tr><th style="width:22%">LLVM provides</th><th style="width:30%">What it does</th><th class="ctr" style="width:12%">Needed?</th><th>SpecForge&rsquo;s existing answer</th></tr></thead>
+    <tbody>
+      <tr><td>Instruction selection</td><td>IR → target machine instructions</td><td class="ctr t-neg">✗</td><td>Nothing to select instructions <em>for</em> — outputs are data<a class="ev" href="#ev-e1">[E1]</a></td></tr>
+      <tr><td>Register allocation</td><td>Map values to physical registers</td><td class="ctr t-neg">✗</td><td>No registers exist in a JSON graph</td></tr>
+      <tr><td>Optimization passes</td><td>Inlining, vectorization, LTO</td><td class="ctr t-neg">✗</td><td>Emission is a serialization problem, not a code-quality problem</td></tr>
+      <tr><td>Target triples / ABIs</td><td>Per-architecture calling conventions</td><td class="ctr t-neg">✗</td><td>One &ldquo;target&rdquo;: JSON Schema draft 2020-12<a class="ev" href="#ev-e3">[E3]</a></td></tr>
+      <tr><td>Wasm codegen</td><td>Compile LLVM IR → Wasm</td><td class="ctr t-neg">✗</td><td>Extensions are <em>authored</em> as Wasm and run on wasmtime<a class="ev" href="#ev-e5">[E5]</a> — no compilation of SpecForge IR is involved</td></tr>
+      <tr><td>JIT (ORC)</td><td>Runtime machine-code execution</td><td class="ctr t-neg">✗</td><td><code>specforge collect</code> ingests results, never runs code<a class="ev" href="#ev-e1">[E1]</a></td></tr>
+      <tr><td>Debug info / DWARF</td><td>Source-level debugging of binaries</td><td class="ctr t-neg">✗</td><td>Diagnostics are ariadne spans over .spec text<a class="ev" href="#ev-e12">[E12]</a></td></tr>
+      <tr><td>Parsing?</td><td>— LLVM has no parser component</td><td class="ctr t-neg">✗</td><td>tree-sitter grammar with error recovery<a class="ev" href="#ev-e4">[E4]</a></td></tr>
+      <tr><td>Symbolic execution (via KLEE)</td><td>Prove properties of <em>compiled programs</em></td><td class="ctr t-mid">~</td><td>Conditions are predicates over a graph — §7: SMT-LIB → Z3 directly<a class="ev" href="#ev-e22">[E22]</a></td></tr>
+    </tbody>
+  </table>
+  <div class="callout red">
+    <div class="c-k">The one-line fit test</div>
+    <p>LLVM answers: <em>&ldquo;how do I turn an intermediate representation into fast machine code?&rdquo;</em> SpecForge&rsquo;s question is: <em>&ldquo;how do I turn prose into a validated, typed graph that agents can query in a few KB?&rdquo;</em><a class="ev" href="#ev-e2">[E2]</a> Different problem, disjoint solution space.</p>
+  </div>
+</section>
+
+<!-- ==================== §4 ==================== -->
+<section id="s4">
+  <div class="sec-head"><span class="sec-no">§4</span><h2>The option space</h2></div>
+  <p class="lede">&ldquo;LLVM&rdquo; is really four different decisions bundled together. Separating them changes the answer for each.</p>
+
+  <figure>
+    <svg viewBox="0 0 860 430" role="img" aria-label="Option space: deliverable fit versus integration cost">
+      <style>
+        .ax{font:600 11px Archivo,sans-serif;fill:#4A463C}
+        .pt-l{font:700 12px "IBM Plex Mono",monospace;fill:#17150F}
+        .pt-d{font:500 10.5px Archivo,sans-serif;fill:#4A463C}
+      </style>
+      <!-- axes -->
+      <line x1="70" y1="370" x2="820" y2="370" stroke="#17150F" stroke-width="1.5"/>
+      <line x1="70" y1="370" x2="70" y2="30" stroke="#17150F" stroke-width="1.5"/>
+      <text class="ax" x="820" y="396" text-anchor="end">integration cost →</text>
+      <text class="ax" x="40" y="40" transform="rotate(-90 40 40)" text-anchor="end">deliverable fit →</text>
+      <!-- gridlines -->
+      <g stroke="#E7E2D5" stroke-width="1">
+        <line x1="70" y1="290" x2="820" y2="290"/><line x1="70" y1="210" x2="820" y2="210"/>
+        <line x1="70" y1="130" x2="820" y2="130"/><line x1="70" y1="50" x2="820" y2="50"/>
+      </g>
+
+      <!-- points: x = cost 70..820, y = fit 370..30 -->
+      <g>
+        <!-- status quo: cost 1, fit 10 -->
+        <circle cx="131" cy="42" r="9" fill="#0E6B4F"/>
+        <text class="pt-l" x="148" y="40" fill="#0B5038">A · status quo (emit data)</text>
+        <text class="pt-d" x="148" y="55" fill="#4A463C">fit 10/10 · already ships</text>
+
+        <!-- Z3: cost 4.5, fit 8.5 -->
+        <circle cx="390" cy="82" r="9" fill="#0E6B4F"/>
+        <text class="pt-l" x="407" y="80" fill="#0B5038">F · Z3 via SMT-LIB (prover)</text>
+        <text class="pt-d" x="407" y="95" fill="#4A463C">verification chain of record: Dafny/Boogie<a style="fill:#2B4C77" href="#ev-e22">[E22]</a></text>
+
+        <!-- Boogie: cost 6, fit 8 -->
+        <circle cx="512" cy="110" r="7" fill="#5B8F76"/>
+        <text class="pt-l" x="527" y="108">E · Boogie-style VCgen → Z3</text>
+        <text class="pt-d" x="527" y="123">stronger, later — only if SMT-LIB stalls</text>
+
+        <!-- FDR4: cost 6.5, fit 6 -->
+        <circle cx="551" cy="170" r="7" fill="#9A8A3F"/>
+        <text class="pt-l" x="566" y="168" fill="#96690C">G · FDR4 (CSP slice only)</text>
+
+        <!-- Cranelift: cost 3.5, fit 3.5 -->
+        <circle cx="326" cy="242" r="7" fill="#96690C"/>
+        <text class="pt-l" x="341" y="240" fill="#96690C">D · Cranelift native JIT (hypothetical)</text>
+        <text class="pt-d" x="341" y="255">already in tree via wasmtime<a style="fill:#2B4C77" href="#ev-e5">[E5]</a></text>
+
+        <!-- MLIR: cost 8, fit 3 -->
+        <circle cx="680" cy="282" r="7" fill="#B3401E"/>
+        <text class="pt-l" x="664" y="278" text-anchor="end" fill="#8C3115">C · MLIR multi-level lowering</text>
+
+        <!-- LLVM: cost 9.3, fit 2 -->
+        <circle cx="761" cy="306" r="9" fill="#B3401E"/>
+        <text class="pt-l" x="744" y="336" text-anchor="end" fill="#8C3115">B · LLVM full integration</text>
+
+        <!-- KLEE: cost 9, fit 2.5 -->
+        <circle cx="722" cy="296" r="7" fill="#B3401E"/>
+        <text class="pt-l" x="704" y="318" text-anchor="end" fill="#8C3115">H · KLEE on synthesized LLVM IR</text>
+      </g>
+    </svg>
+    <figcaption><span class="fig-no">FIG. 3</span><span>Eight options on the only two axes that matter here. Green = adopt; amber = conditional; red = reject for now. Point placement follows §6&rsquo;s scoring.</span></figcaption>
+  </figure>
+
+  <div class="opt-grid">
+    <div class="opt">
+      <div class="opt-head"><div><span class="opt-id">OPTION A</span><h4>Status quo — emit data</h4></div><span class="chip yes"><span class="dot"></span>KEEP</span></div>
+      <p>The pipeline already parses, resolves, validates, and emits 7 formats<a class="ev" href="#ev-e3">[E3]</a>. Adding LLVM would add 0 capabilities and 1 toolchain.</p>
+      <ul><li>Deliverable fit: 10/10 — every stated feature maps to data emission</li><li>Marginal LLVM value: none identified across all 9 capability rows of §3</li></ul>
+      <div class="verdict-line"><span class="chip yes"><span class="dot"></span>NO ACTION</span></div>
+    </div>
+    <div class="opt">
+      <div class="opt-head"><div><span class="opt-id">OPTION B</span><h4>LLVM full integration</h4></div><span class="chip no"><span class="dot"></span>REJECT</span></div>
+      <p><code>llvm-sys</code>/<code>inkwell</code> behind the emitter: version-locked per LLVM release<a class="ev" href="#ev-e20">[E20]</a>, system-LLVM provisioning per platform<a class="ev" href="#ev-e25">[E25]</a>, GB-scale build artifacts<a class="ev" href="#ev-e13">[E13]</a> — to produce machine code nothing can run.</p>
+      <ul><li>Contradicts the dependency grain: petgraph was already declined<a class="ev" href="#ev-e4">[E4]</a></li><li>Contradicts roadmap targets: CLI &lt;50ms extension load via Cranelift AOT<a class="ev" href="#ev-e10">[E10]</a></li></ul>
+      <div class="verdict-line"><span class="chip no"><span class="dot"></span>AVOID</span></div>
+    </div>
+    <div class="opt">
+      <div class="opt-head"><div><span class="opt-id">OPTION C</span><h4>MLIR as the IR story</h4></div><span class="chip mid"><span class="dot"></span>PREMATURE</span></div>
+      <p>MLIR&rsquo;s dialect-and-progressive-lowering model<a class="ev" href="#ev-e24">[E24]</a> pays off when a compiler needs <em>multiple semantics-bearing levels</em>. SpecForge has one IR — the typed graph — and one serialization target. A C++ toolchain for a Rust workspace buys a second IR to keep in sync with the first.</p>
+      <div class="verdict-line"><span class="chip mid"><span class="dot"></span>REVISIT ONLY IF executable model semantics ever exist</span></div>
+    </div>
+    <div class="opt">
+      <div class="opt-head"><div><span class="opt-id">OPTION D</span><h4>Cranelift native codegen</h4></div><span class="chip mid"><span class="dot"></span>DORMANT</span></div>
+      <p>If validation rules ever become a hot loop worth compiling (the Pydantic-v2 move<a class="ev" href="#ev-e9">[E9]</a>), Cranelift is the tool: it is <em>already</em> in <code>Cargo.lock</code> (0.128.4 via wasmtime)<a class="ev" href="#ev-e5">[E5]</a>, compiles ~40% faster than LLVM<a class="ev" href="#ev-e16">[E16]</a>, and trades only peak throughput<a class="ev" href="#ev-e19">[E19]</a> — which validators do not need.</p>
+      <div class="verdict-line"><span class="chip mid"><span class="dot"></span>KEEP AS CONTINGENCY — NO WORK NOW</span></div>
+    </div>
+    <div class="opt">
+      <div class="opt-head"><div><span class="opt-id">OPTION F</span><h4>Z3 via SMT-LIB (the prover)</h4></div><span class="chip yes"><span class="dot"></span>ADOPT — FOR RES-25 ONLY</span></div>
+      <p>The correct &ldquo;heavy tool&rdquo; for <code>analyze --prove</code><a class="ev" href="#ev-e7">[E7]</a>. Predicates over a graph lower cleanly to SMT-LIB; Z3 is the field&rsquo;s standard engine (13,345+ citations)<a class="ev" href="#ev-e23">[E23]</a> and Dafny ships exactly this chain<a class="ev" href="#ev-e22">[E22]</a>. Pure-Rust sibling: the <code>z3-sys</code>/SMT-LIB-text route avoids C++ build complexity in CI.</p>
+      <div class="verdict-line"><span class="chip yes"><span class="dot"></span>SPIKE §9-A BEFORE RES-25 PHASE 1</span></div>
+    </div>
+    <div class="opt">
+      <div class="opt-head"><div><span class="opt-id">OPTION H</span><h4>KLEE on LLVM IR (the prover, LLVM edition)</h4></div><span class="chip no"><span class="dot"></span>REJECT</span></div>
+      <p>KLEE symbolically executes <strong>LLVM bitcode of compiled programs</strong><a class="ev" href="#ev-e21">[E21]</a>. SpecForge conditions have no program semantics — you would have to <em>invent</em> semantics, synthesize a harness, compile it, then let KLEE discharge constraints with&hellip; an SMT solver<a class="ev" href="#ev-e21">[E21]</a>. Two lossy hops to arrive where Option F starts. Full analysis in §7.</p>
+      <div class="verdict-line"><span class="chip no"><span class="dot"></span>AVOID</span></div>
+    </div>
+  </div>
+</section>
+
+<!-- ==================== §5 ==================== -->
+<section id="s5">
+  <div class="sec-head"><span class="sec-no">§5</span><h2>KPI dashboard</h2></div>
+  <p class="lede">Ten indicators, each traceable to the repository, a primary source, or a clearly-flagged derivation.</p>
+
+  <h3>Fit indicators</h3>
+  <div class="kpi-grid">
+    <div class="kpi">
+      <div class="k-val">0 <span class="k-unit">/ 7</span></div>
+      <div class="k-label">emitted formats containing machine code — every output is JSON, DOT, Mermaid, DBML, markdown, context or brief text</div>
+      <div class="k-src">REPO · emit.rs:8-20 <a class="ev" href="#ev-e3">E3</a></div>
+    </div>
+    <div class="kpi">
+      <div class="k-val">9 <span class="k-unit">/ 9</span></div>
+      <div class="k-label">LLVM capability rows already owned by an existing SpecForge component (§3 table)</div>
+      <div class="k-src">REPO · pipeline audit <a class="ev" href="#ev-e4">E4</a></div>
+    </div>
+    <div class="kpi">
+      <div class="k-val">0 <span class="k-unit">exec</span></div>
+      <div class="k-label">artifacts the CLI is allowed to run — <code>collect</code> ingests traces, never executes</div>
+      <div class="k-src">REPO · README.md:7,107 <a class="ev" href="#ev-e1">E1</a></div>
+    </div>
+  </div>
+
+  <h3>Cost indicators (what LLVM adds)</h3>
+  <div class="kpi-grid">
+    <div class="kpi warn">
+      <div class="k-val">24&times; / 346&times;</div>
+      <div class="k-label">LLVM core (2.5M LOC) / monorepo (35.56M LOC) relative to SpecForge&rsquo;s 102,593 LOC</div>
+      <div class="k-src">DERIVED · <a class="ev" href="#ev-e14">E14</a>, <a class="ev" href="#ev-e15">E15</a></div>
+    </div>
+    <div class="kpi warn">
+      <div class="k-val">1–3 <span class="k-unit">GB</span></div>
+      <div class="k-label">disk to build LLVM alone; 15–20 GB with Clang — new CI class for a pure-Rust workspace</div>
+      <div class="k-src">WEB · llvm.org <a class="ev" href="#ev-e13">E13</a></div>
+    </div>
+    <div class="kpi warn">
+      <div class="k-val">1 <span class="k-unit">crate/release</span></div>
+      <div class="k-label">llvm-sys ships a distinct crate per LLVM version (version × 10 scheme) — forces org-wide LLVM pinning</div>
+      <div class="k-src">WEB · crates.io <a class="ev" href="#ev-e20">E20</a></div>
+    </div>
+  </div>
+
+  <h3>Alternative-cost indicators (why Cranelift/Z3 dominate)</h3>
+  <div class="kpi-grid">
+    <div class="kpi">
+      <div class="k-val">−40<span class="k-unit">%</span></div>
+      <div class="k-label">codegen CPU vs LLVM on identical input (125 vs 211 CPU-s); self-build 29.6s vs 37.5s (−21%)</div>
+      <div class="k-src">WEB · LWN 2024 <a class="ev" href="#ev-e16">E16</a></div>
+    </div>
+    <div class="kpi">
+      <div class="k-val">0.128.4</div>
+      <div class="k-label">cranelift version already resolved in Cargo.lock via wasmtime 41.0.4 — the &ldquo;if ever&rdquo; path costs ~zero new dependencies</div>
+      <div class="k-src">REPO · Cargo.lock <a class="ev" href="#ev-e5">E5</a></div>
+    </div>
+    <div class="kpi">
+      <div class="k-val">13,345+</div>
+      <div class="k-label">citations of the Z3 paper — the verification chain of record for spec predicates (Dafny → Boogie → Z3)</div>
+      <div class="k-src">PAPER · de Moura &amp; Bjørner 2008 <a class="ev" href="#ev-e23">E23</a></div>
+    </div>
+  </div>
+
+  <h3>Payoff indicators (what the prover path buys, LLVM or not)</h3>
+  <div class="kpi-grid">
+    <div class="kpi mid">
+      <div class="k-val">95<span class="k-unit">%</span></div>
+      <div class="k-label">proof obligations auto-discharged by the B-Method on Paris Métro Line 14 (27,800 POs, zero signaling incidents since 1998) — proof the obligation-discharge model scales</div>
+      <div class="k-src">REPO · RES-25:154-163 <a class="ev" href="#ev-e9">E9</a></div>
+    </div>
+    <div class="kpi mid">
+      <div class="k-val">90–95<span class="k-unit">%</span></div>
+      <div class="k-label">token-cost reduction target with formal specs, vs 75% for the plain graph — the ROI the prover serves</div>
+      <div class="k-src">REPO · RES-25:564-568 <a class="ev" href="#ev-e8">E8</a></div>
+    </div>
+    <div class="kpi mid">
+      <div class="k-val">0 <span class="k-unit">lines</span></div>
+      <div class="k-label">of analyzer or solver code existing today — no <code>Analyze</code> command in the 45-variant CLI enum; the decision is fully open</div>
+      <div class="k-src">REPO · main.rs Commands <a class="ev" href="#ev-e11">E11</a></div>
+    </div>
+  </div>
+</section>
+
+<!-- ==================== §6 ==================== -->
+<section id="s6">
+  <div class="sec-head"><span class="sec-no">§6</span><h2>Weighted decision matrices</h2></div>
+  <p class="lede">Scores are 0–10 per criterion; totals are weight-adjusted. Scoring rationale is DERIVED from the evidence in §§1–5; the weights encode this project&rsquo;s stated priorities (zero-entity core<a class="ev" href="#ev-e6">[E6]</a>, token economics<a class="ev" href="#ev-e8">[E8]</a>, roadmap latency targets<a class="ev" href="#ev-e10">[E10]</a>).</p>
+
+  <h3>D1 · What sits behind the core pipeline?</h3>
+  <table>
+    <thead><tr><th>Option</th><th class="num">Deliverable fit<br>×0.35</th><th class="num">Dependency cost<br>×0.20</th><th class="num">Build/CI<br>×0.15</th><th class="num">Maintenance<br>×0.15</th><th class="num">Ecosystem fit<br>×0.15</th><th class="num">Total</th></tr></thead>
+    <tbody>
+      <tr class="rowhl"><td><strong>A · Status quo</strong> — emit data</td><td class="num">10</td><td class="num">10</td><td class="num">10</td><td class="num">10</td><td class="num">10</td><td class="num t-pos">10.0</td></tr>
+      <tr><td>D · Cranelift native (if codegen ever needed)</td><td class="num">2</td><td class="num">7</td><td class="num">8</td><td class="num">8</td><td class="num">8</td><td class="num t-mid">5.7</td></tr>
+      <tr><td>C · MLIR</td><td class="num">3</td><td class="num">3</td><td class="num">3</td><td class="num">3</td><td class="num">6</td><td class="num t-neg">3.5</td></tr>
+      <tr><td>B · LLVM</td><td class="num">2</td><td class="num">2</td><td class="num">2</td><td class="num">3</td><td class="num">5</td><td class="num t-neg">2.6</td></tr>
+    </tbody>
+  </table>
+
+  <div style="margin:6px 0 34px">
+    <div class="bar-row"><span class="bar-name">A · status quo</span><div class="bar-track"><div class="bar-fill" style="width:100%"></div></div><span class="bar-score t-pos">10.0</span></div>
+    <div class="bar-row"><span class="bar-name">D · Cranelift (dormant)</span><div class="bar-track"><div class="bar-fill a" style="width:57%"></div></div><span class="bar-score t-mid">5.7</span></div>
+    <div class="bar-row"><span class="bar-name">C · MLIR</span><div class="bar-track"><div class="bar-fill r" style="width:35%"></div></div><span class="bar-score t-neg">3.5</span></div>
+    <div class="bar-row"><span class="bar-name">B · LLVM</span><div class="bar-track"><div class="bar-fill r" style="width:26%"></div></div><span class="bar-score t-neg">2.6</span></div>
+  </div>
+
+  <h3>D2 · What discharges proof obligations in <code>analyze --prove</code>?</h3>
+  <table>
+    <thead><tr><th>Option</th><th class="num">Verification power<br>×0.30</th><th class="num">Spec-native fit<br>×0.25</th><th class="num">Integration cost<br>×0.20</th><th class="num">CI determinism<br>×0.15</th><th class="num">Precedent<br>×0.10</th><th class="num">Total</th></tr></thead>
+    <tbody>
+      <tr class="rowhl"><td><strong>F · SMT-LIB → Z3</strong> (direct lowering)</td><td class="num">8</td><td class="num">9</td><td class="num">7</td><td class="num">9</td><td class="num">10</td><td class="num t-pos">8.4</td></tr>
+      <tr><td>E · Boogie-style VCgen → Z3</td><td class="num">9</td><td class="num">8</td><td class="num">5</td><td class="num">8</td><td class="num">9</td><td class="num t-pos">7.8</td></tr>
+      <tr><td>Lint-only (today&rsquo;s state)</td><td class="num">2</td><td class="num">8</td><td class="num">10</td><td class="num">10</td><td class="num">10</td><td class="num t-mid">7.1</td></tr>
+      <tr><td>G · FDR4 (CSP processes slice)</td><td class="num">9</td><td class="num">6</td><td class="num">4</td><td class="num">6</td><td class="num">8</td><td class="num t-mid">6.7</td></tr>
+      <tr><td>H · KLEE on synthesized LLVM IR</td><td class="num">7</td><td class="num">2</td><td class="num">2</td><td class="num">3</td><td class="num">4</td><td class="num t-neg">3.9</td></tr>
+    </tbody>
+  </table>
+
+  <div style="margin:6px 0 10px">
+    <div class="bar-row"><span class="bar-name">F · SMT-LIB → Z3</span><div class="bar-track"><div class="bar-fill" style="width:84%"></div></div><span class="bar-score t-pos">8.4</span></div>
+    <div class="bar-row"><span class="bar-name">E · Boogie VCgen → Z3</span><div class="bar-track"><div class="bar-fill" style="width:78%"></div></div><span class="bar-score t-pos">7.8</span></div>
+    <div class="bar-row"><span class="bar-name">Lint-only (status quo)</span><div class="bar-track"><div class="bar-fill a" style="width:71%"></div></div><span class="bar-score t-mid">7.1</span></div>
+    <div class="bar-row"><span class="bar-name">G · FDR4 (slice)</span><div class="bar-track"><div class="bar-fill a" style="width:67%"></div></div><span class="bar-score t-mid">6.7</span></div>
+    <div class="bar-row"><span class="bar-name">H · KLEE/LLVM IR</span><div class="bar-track"><div class="bar-fill r" style="width:39%"></div></div><span class="bar-score t-neg">3.9</span></div>
+  </div>
+
+  <div class="callout">
+    <div class="c-k">How to read D2</div>
+    <p>Even <em>doing nothing</em> (lint-only) outscores the LLVM-symbolic-execution route by 3.2 weighted points. LLVM does not merely lose on cost here — it loses on the product dimension itself: a predicate over a typed graph is closer to SMT-LIB than to x86.</p>
+  </div>
+</section>
+
+<!-- ==================== §7 ==================== -->
+<section id="s7">
+  <div class="sec-head"><span class="sec-no">§7</span><h2>Prover deep-dive: where LLVM nearly — but doesn&rsquo;t — belong</h2></div>
+  <p class="lede">This is the honest steelman. If LLVM enters SpecForge anywhere, it enters through <code>specforge analyze --prove</code><a class="ev" href="#ev-e7">[E7]</a> via KLEE. Here is why that path is structurally worse than the direct one, with the evidence.</p>
+
+  <figure>
+    <svg viewBox="0 0 960 340" role="img" aria-label="Two prover paths compared">
+      <defs>
+        <marker id="arw3" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+          <path d="M0,0 L10,5 L0,10 z" fill="#0E6B4F"/>
+        </marker>
+        <marker id="arw4" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+          <path d="M0,0 L10,5 L0,10 z" fill="#B3401E"/>
+        </marker>
+      </defs>
+      <style>
+        .pl{font:600 12px Archivo,sans-serif;fill:#17150F}
+        .pb{font:500 10.5px "IBM Plex Mono",monospace;fill:#4A463C}
+        .lane-t{font:700 10.5px Archivo,sans-serif;letter-spacing:.16em}
+      </style>
+
+      <!-- Lane A -->
+      <text class="lane-t" x="24" y="30" fill="#0E6B4F">LANE A — DIRECT LOWERING (adopt)</text>
+      <g>
+        <rect x="24" y="44" width="170" height="54" rx="3" fill="#FBF9F4" stroke="#17150F" stroke-width="1.4"/>
+        <text class="pl" x="109" y="67" text-anchor="middle">requires / ensures</text>
+        <text class="pb" x="109" y="84" text-anchor="middle">predicates over nodes</text>
+
+        <rect x="242" y="44" width="170" height="54" rx="3" fill="#DFECE3" stroke="#0E6B4F" stroke-width="1.4"/>
+        <text class="pl" x="327" y="67" text-anchor="middle" fill="#0B5038">Lowerer (new, in-Rust)</text>
+        <text class="pb" x="327" y="84" text-anchor="middle">graph context → SMT terms</text>
+
+        <rect x="460" y="44" width="130" height="54" rx="3" fill="#DFECE3" stroke="#0E6B4F" stroke-width="1.4"/>
+        <text class="pb" x="525" y="84" text-anchor="middle">standard text format</text>
+
+        <rect x="638" y="44" width="120" height="54" rx="3" fill="#DFECE3" stroke="#0E6B4F" stroke-width="1.4"/>
+        <text class="pl" x="698" y="67" text-anchor="middle" fill="#0B5038">Z3</text>
+        <text class="pb" x="698" y="84" text-anchor="middle">sat / unsat / unknown</text>
+
+        <rect x="806" y="44" width="130" height="54" rx="3" fill="#FBF9F4" stroke="#17150F" stroke-width="1.4"/>
+        <text class="pl" x="871" y="67" text-anchor="middle">Verdicts + spans</text>
+        <text class="pb" x="871" y="84" text-anchor="middle">UNPROVED → VERIFIED</text>
+
+        <line x1="194" y1="71" x2="240" y2="71" stroke="#0E6B4F" stroke-width="1.3" marker-end="url(#arw3)"/>
+        <line x1="412" y1="71" x2="458" y2="71" stroke="#0E6B4F" stroke-width="1.3" marker-end="url(#arw3)"/>
+        <line x1="590" y1="71" x2="636" y2="71" stroke="#0E6B4F" stroke-width="1.3" marker-end="url(#arw3)"/>
+        <line x1="758" y1="71" x2="804" y2="71" stroke="#0E6B4F" stroke-width="1.3" marker-end="url(#arw3)"/>
+      </g>
+      <text class="pb" x="24" y="118">4 hops · 1 new component (the lowerer) · precedent: Dafny verifies via SMT/Z3 with Boogie as its interface<a href="#ev-e22" style="fill:#2B4C77">[E22]</a></text>
+      <text class="pb" x="24" y="134">B-Method discharges 80–95% of proof obligations automatically at industrial scale (Paris Métro)<a href="#ev-e9" style="fill:#2B4C77">[E9]</a></text>
+
+      <!-- divider -->
+      <line x1="24" y1="152" x2="936" y2="152" stroke="#D9D3C5" stroke-dasharray="4 4"/>
+
+      <!-- Lane B -->
+      <text class="lane-t" x="24" y="176" fill="#B3401E">LANE B — VIA LLVM IR / KLEE (reject)</text>
+      <g>
+        <rect x="24" y="190" width="150" height="54" rx="3" fill="#FBF9F4" stroke="#17150F" stroke-width="1.4"/>
+        <text class="pb" x="99" y="230" text-anchor="middle">predicates over nodes</text>
+        <text class="pl" x="99" y="213" text-anchor="middle">requires / ensures</text>
+        <rect x="216" y="190" width="164" height="54" rx="3" fill="#F4E1D7" stroke="#B3401E" stroke-width="1.4" stroke-dasharray="5 3"/>
+        <text class="pl" x="298" y="213" text-anchor="middle" fill="#8C3115">INVENT semantics</text>
+        <text class="pb" x="298" y="230" text-anchor="middle">specs have none natively</text>
+        <rect x="422" y="190" width="140" height="54" rx="3" fill="#F4E1D7" stroke="#B3401E" stroke-width="1.4" stroke-dasharray="5 3"/>
+        <text class="pl" x="492" y="213" text-anchor="middle" fill="#8C3115">Synthesize harness</text>
+        <text class="pb" x="492" y="230" text-anchor="middle">symbolic C harness</text>
+
+        <rect x="604" y="190" width="118" height="54" rx="3" fill="#F4E1D7" stroke="#B3401E" stroke-width="1.4"/>
+        <text class="pl" x="663" y="213" text-anchor="middle" fill="#8C3115">LLVM bitcode</text>
+        <text class="pb" x="663" y="230" text-anchor="middle">clang/rustc + LLVM</text>
+
+        <rect x="764" y="190" width="172" height="54" rx="3" fill="#F4E1D7" stroke="#B3401E" stroke-width="1.4"/>
+        <text class="pl" x="850" y="213" text-anchor="middle" fill="#8C3115">KLEE symbolic execution</text>
+        <text class="pb" x="850" y="230" text-anchor="middle">executes bitcode only</text>
+
+        <rect x="764" y="264" width="172" height="44" rx="3" fill="#FBF9F4" stroke="#17150F" stroke-width="1.4"/>
+        <text class="pl" x="850" y="283" text-anchor="middle">SMT solver (inside KLEE)</text>
+        <text class="pb" x="850" y="299" text-anchor="middle">path constraints → verdicts</text>
+
+        <line x1="174" y1="217" x2="214" y2="217" stroke="#B3401E" stroke-width="1.3" marker-end="url(#arw4)"/>
+        <line x1="380" y1="217" x2="420" y2="217" stroke="#B3401E" stroke-width="1.3" marker-end="url(#arw4)"/>
+        <line x1="562" y1="217" x2="602" y2="217" stroke="#B3401E" stroke-width="1.3" marker-end="url(#arw4)"/>
+        <line x1="722" y1="217" x2="762" y2="217" stroke="#B3401E" stroke-width="1.3" marker-end="url(#arw4)"/>
+        <line x1="850" y1="244" x2="850" y2="262" stroke="#B3401E" stroke-width="1.3" marker-end="url(#arw4)"/>
+      </g>
+      <text class="pb" x="24" y="330">6+ hops · 3 invented components · path-explosion risk · and its final engine is the same class of tool Lane A calls directly<a href="#ev-e21" style="fill:#2B4C77">[E21]</a></text>
+    </svg>
+    <figcaption><span class="fig-no">FIG. 4</span><span>The two candidate architectures for <code>analyze --prove</code>. Lane B subsumes Lane A&rsquo;s solver step behind a program pipeline that exists to answer questions SpecForge does not ask (&ldquo;which inputs reach this branch of <em>compiled code</em>?&rdquo;).</span></figcaption>
+  </figure>
+
+  <h3>The three decisive facts</h3>
+  <p><strong>1 · KLEE&rsquo;s input contract excludes SpecForge&rsquo;s artifacts.</strong> KLEE symbolically executes LLVM bitcode — it requires a compiled program with a C-compatible ABI<a class="ev" href="#ev-e21">[E21]</a>. A <code>behavior.requires</code> clause is a predicate over graph nodes; there is no bitcode of it and no honest way to manufacture one without first deciding its executable semantics — which is precisely the thing SpecForge deliberately does not have (it is a spec language, not a programming language<a class="ev" href="#ev-e1">[E1]</a>).</p>
+  <p><strong>2 · Symbolic execution bottoms out in SMT anyway.</strong> KLEE&rsquo;s engine discharges accumulated path constraints with an SMT solver<a class="ev" href="#ev-e21">[E21]</a>. For closed, quantifier-light predicates — exactly what <code>requires</code>/<code>ensures</code> over typed fields are — direct SMT-LIB lowering reaches the same solver with fewer lossy translations. The field&rsquo;s reference verifiers (Dafny/Boogie<a class="ev" href="#ev-e22">[E22]</a>, the B-Method&rsquo;s provers<a class="ev" href="#ev-e9">[E9]</a>) confirm the pattern at industrial scale.</p>
+  <p><strong>3 · The architecture already reserves the right hook point.</strong> The extension protocol declares compiler passes with descriptors (<code>condition_check</code>, phase <em>analysis</em>)<a class="ev" href="#ev-e6">[E6]</a>, and RES-25 routes all formal analysis through <code>@specforge/software</code> Wasm validators, not core passes<a class="ev" href="#ev-e8">[E8]</a>. A Z3-backed pass slots into the designed seam; an LLVM toolchain does not — it would sit under the <em>host</em>, not in the extension model, changing deployment for every user who never asked for a prover.</p>
+
+  <div class="callout amber">
+    <div class="c-k">Where LLVM-based checking IS the right tool — and why it is out of boundary</div>
+    <p>Verifying the <em>implementations agents write from specs</em> (the consuming side) would legitimately use KLEE/LLVM on that generated code. But SpecForge&rsquo;s contract with implementations is the trace protocol: <code>verify</code> kinds, <code>specforge collect</code>, testing-as-oracle<a class="ev" href="#ev-e1">[E1]</a>. Checking binaries is the consumer&rsquo;s CI problem, not the spec compiler&rsquo;s.</p>
+  </div>
+</section>
+
+<!-- ==================== §8 ==================== -->
+<section id="s8">
+  <div class="sec-head"><span class="sec-no">§8</span><h2>Cost ledger: adding <code>llvm-sys</code> to this workspace</h2></div>
+  <table>
+    <thead><tr><th style="width:20%">Ledger line</th><th>Today</th><th>With LLVM</th><th class="num">Delta</th><th style="width:14%">Type</th></tr></thead>
+    <tbody>
+      <tr><td>Toolchain inputs</td><td>cargo + system C compiler (for tree-sitter grammar via <code>cc</code>)</td><td>+ provisioned LLVM matching <code>llvm-sys</code> release, per platform, per CI runner</td><td class="num">+1 org-wide version pin</td><td><span class="badge b-web">WEB<a class="ev" href="#ev-e20" style="color:inherit">E20</a></span></td></tr>
+      <tr><td>CI disk / cache</td><td>Rust target dirs</td><td>+ 1–3 GB LLVM build space (or prebuilt LLVM in every cache)</td><td class="num">+GB order</td><td><span class="badge b-web">WEB<a class="ev" href="#ev-e13" style="color:inherit">E13</a></span></td></tr>
+      <tr><td>Release binary</td><td>pure-Rust + C grammar + wasmtime</td><td>+ statically linked LLVM-core scale object code</td><td class="num">tens of MB</td><td><span class="badge b-derived">DERIVED</span></td></tr>
+      <tr><td>Cold-start latency</td><td>target: &lt;50 ms extension load, Cranelift AOT cache<a class="ev" href="#ev-e10">[E10]</a></td><td>+ LLVM lib init in-process if used at runtime (JIT scenarios)</td><td class="num">vs a stated ≤50 ms budget</td><td><span class="badge b-repo">REPO</span></td></tr>
+      <tr><td>Upgrade cadence</td><td>cargo-only; wasmtime/extism move together</td><td>every LLVM release forces a coordinated <code>llvm-sys</code> bump (features per version)<a class="ev" href="#ev-e25">[E25]</a></td><td class="num">quarterly-class churn</td><td><span class="badge b-web">WEB</span></td></tr>
+      <tr><td>Capabilities gained</td><td colspan="2">—</td><td class="num t-neg">0</td><td><span class="badge b-repo">REPO<a class="ev" href="#ev-e3" style="color:inherit">E3</a></span></td></tr>
+    </tbody>
+  </table>
+  <p>The last line is the ledger&rsquo;s bottom line: every cost row buys the empty capability set established in §3.</p>
+</section>
+
+<!-- ==================== §9 ==================== -->
+<section id="s9">
+  <div class="sec-head"><span class="sec-no">§9</span><h2>Recommendation and the spikes that prove it</h2></div>
+
+  <div class="callout">
+    <div class="c-k">Recommendation</div>
+    <p><strong>1 · Do not adopt LLVM anywhere in the core.</strong> The pipeline emits data; LLVM manufactures machine code<a class="ev" href="#ev-e1">[E1]</a>. Rejected on fit (§3), cost (§8), and culture (§1 — petgraph precedent<a class="ev" href="#ev-e4">[E4]</a>).</p>
+    <p><strong>2 · For <code>analyze --prove</code>, lower to SMT-LIB and call Z3</strong> through the extension-pass seam that already exists<a class="ev" href="#ev-e6">[E6]</a>. Keep Boogie-style VC generation as the escalation path if naive lowering stalls.</p>
+    <p><strong>3 · Record Cranelift as the designated native-codegen contingency.</strong> It is already in the dependency tree<a class="ev" href="#ev-e5">[E5]</a>; any future &ldquo;compile the validators&rdquo; idea benchmarks it first, not LLVM<a class="ev" href="#ev-e16">[E16]</a>.</p>
+    <p><strong>4 · Archive this decision</strong> as a governance <code>decision</code> entity so the question stays answered<a class="ev" href="#ev-e6">[E6]</a>.</p>
+  </div>
+
+  <h3>Spike plan — falsifiable gates, ~3 days total</h3>
+  <table>
+    <thead><tr><th style="width:16%">Spike</th><th>Construction</th><th>Measured KPIs</th><th class="num" style="width:20%">Go gate</th></tr></thead>
+    <tbody>
+      <tr>
+        <td><strong>S-A</strong><br>SMT viability<br><span class="badge b-derived">~2 days</span></td>
+        <td>Hand-lower 20 <code>requires</code>/<code>ensures</code> conditions from <code>examples/todo-app</code> to SMT-LIB 2; run Z3; script verdict collection</td>
+        <td>auto-discharge % · time/check · <em>unknown</em> rate · lowerer LOC estimate extrapolated from sample</td>
+        <td class="num">≥ 80% auto-discharge, all others <em>unknown</em> (no false verdicts)</td>
+      </tr>
+      <tr>
+        <td><strong>S-B</strong><br>LLVM counterfactual<br><span class="badge b-derived">~3 days</span></td>
+        <td>Same 20 conditions as a generated C harness; clang → bitcode; KLEE. Run only to price the alternative</td>
+        <td>setup hours · wall-clock · bitcode size · verdict agreement with S-A · harness correctness bugs encountered</td>
+        <td class="num">expected result: strictly dominated on every KPI — documents the &ldquo;no&rdquo;</td>
+      </tr>
+      <tr>
+        <td><strong>S-C</strong><br>Cranelift contingency<br><span class="badge b-derived">optional</span></td>
+        <td>Compile the 5 hottest validation-rule evaluators via Cranelift vs the regex/interpreter path</td>
+        <td>p99 rule-eval time · added build time</td>
+        <td class="num">only if profiling ever shows rule eval &gt; 5% of <code>check</code> latency — no trigger today</td>
+      </tr>
+    </tbody>
+  </table>
+  <p style="font-size:14.5px;color:var(--ink-2)">S-A and S-B together are the concept proof the report&rsquo;s verdicts rest on: if S-A clears its gate and S-B confirms dominance, decision D2=F is evidence-backed; if S-A fails its gate, the fallback ordering (E → lint-only) is already scored in §6 — LLVM remains last in every ordering because §3&rsquo;s fit rows do not move.</p>
+</section>
+
+<!-- ==================== §10 ==================== -->
+<section id="evidence">
+  <div class="sec-head"><span class="sec-no">§10</span><h2>Evidence register</h2></div>
+  <p>Every anchor used in this report. Types: <span class="badge b-repo">REPO</span> audited in-workspace · <span class="badge b-web">WEB</span> primary web source (retrieved 2026-09-23) · <span class="badge b-paper">PAPER</span> peer-reviewed · <span class="badge b-derived">DERIVED</span> computed from other evidence.</p>
+  <div class="ev-list">
+
+    <div class="ev-item" id="ev-e1"><span class="ev-id">E1</span><span><span class="badge b-repo">REPO</span></span><span><div class="e-claim">&ldquo;SpecForge is <em>not</em> a code generator and <em>not</em> a test runner&hellip; it traces tests rather than executing them.&rdquo; Also <code>specforge collect # ingest test results (traces, never runs)</code>.</div><div class="e-src">README.md:7 · README.md:105</div></span></div>
+    <div class="ev-item" id="ev-e2"><span class="ev-id">E2</span><span><span class="badge b-repo">REPO</span></span><span><div class="e-claim">&ldquo;The graph is the product.&rdquo; Compiler intent: validated typed entity graph consumed by AI agents.</div><div class="e-src">README.md:3-7</div></span></div>
+    <div class="ev-item" id="ev-e3"><span class="ev-id">E3</span><span><span class="badge b-repo">REPO</span></span><span><div class="e-claim">Output surface: <code>EmitFormat = Json | Context | Brief | Dot</code>; model renderers (json, markdown, mermaid, dot, dbml); outline renderers (json, markdown, mermaid, dot); JSON Schema draft 2020-12 emitter. Zero executable outputs.</div><div class="e-src">crates/specforge-emitter/src/emit.rs:8-20 · src/model/* · src/outline/* · src/schema.rs</div></span></div>
+    <div class="ev-item" id="ev-e4"><span class="ev-id">E4</span><span><span class="badge b-repo">REPO</span></span><span><div class="e-claim">Hand-rolled graph engine (<code>HashMap&lt;Node&gt;+Vec&lt;Edge&gt;</code> + indexes); petgraph 0.8.3 declared at Cargo.toml:46 with zero usages in crates/ — the project&rsquo;s minimal-dependency precedent.</div><div class="e-src">crates/specforge-graph/src/graph.rs · Cargo.toml:46</div></span></div>
+    <div class="ev-item" id="ev-e5"><span class="ev-id">E5</span><span><span class="badge b-repo">REPO</span></span><span><div class="e-claim">Cranelift is already in the tree: extism 1.21.0 → wasmtime 41.0.4 → cranelift-* 0.128.4 in Cargo.lock. Wasm is the only extension runtime; AOT cache + warm engine pool exist for CLI/LSP/MCP.</div><div class="e-src">Cargo.lock · crates/specforge-extism/Cargo.toml:15 · crates/specforge-wasm/src/{cache.rs,engine_pool.rs}</div></span></div>
+    <div class="ev-item" id="ev-e6"><span class="ev-id">E6</span><span><span class="badge b-repo">REPO</span></span><span><div class="e-claim">Zero-entity core (RES-26, ACCEPTED); extension-declared compiler passes exist in the protocol — e.g. <code>CompilerPassDescriptor{name:'condition_check', phase:'analysis'}</code>; governance <code>decision</code> entity kind for ADRs.</div><div class="e-src">spec/research/RES-26-zero-entity-core-architecture.md · crates/specforge-wasm/tests/protocol_types.rs:609 · README extension table</div></span></div>
+    <div class="ev-item" id="ev-e7"><span class="ev-id">E7</span><span><span class="badge b-repo">REPO</span></span><span><div class="e-claim">Planned analyzer surface: <code>specforge analyze contracts|refinement|concurrency|coverage|interfaces|all [--strict|--json]</code> — graph analyses plus condition satisfiability.</div><div class="e-src">spec/research/RES-25-formal-methods-integration.md:484-491</div></span></div>
+    <div class="ev-item" id="ev-e8"><span class="ev-id">E8</span><span><span class="badge b-repo">REPO</span></span><span><div class="e-claim">Verdict ladder UNPROVED→PARTIAL→PROVED→STRONG→VERIFIED; formal validation as @specforge/software Wasm validators (not core passes); token economics: 75% (graph) → 90–95% (+formal).</div><div class="e-src">RES-25:552 · :556 · :564-568</div></span></div>
+    <div class="ev-item" id="ev-e9"><span class="ev-id">E9</span><span><span class="badge b-repo">REPO</span></span><span><div class="e-claim">Paris Métro Line 14 (B-Method): 115k LOC of B, 27,800 proof obligations, ~95% auto-proved, zero signaling incidents since 1998. Typical B auto-proof rate 80–95%.</div><div class="e-src">RES-25:154-163 (case study); :154 (rate)</div></span></div>
+    <div class="ev-item" id="ev-e10"><span class="ev-id">E10</span><span><span class="badge b-repo">REPO</span></span><span><div class="e-claim">Technical roadmap: &ldquo;AOT compilation via Cranelift&rdquo; for CLI cold start; perf targets incl. &lt;50 ms extension load for CLI, &lt;5 ms for LSP/MCP.</div><div class="e-src">business/04-technical-roadmap.md:136,239</div></span></div>
+    <div class="ev-item" id="ev-e11"><span class="ev-id">E11</span><span><span class="badge b-repo">REPO</span></span><span><div class="e-claim">CLI: ~45 clap command variants; <strong>no</strong> <code>Analyze</code> variant, no <code>--prove</code> flag anywhere — the prover decision is fully open.</div><div class="e-src">crates/specforge-cli/src/main.rs:41-627</div></span></div>
+    <div class="ev-item" id="ev-e12"><span class="ev-id">E12</span><span><span class="badge b-repo">REPO</span></span><span><div class="e-claim">Workspace deps contain no llvm/z3/mlir/inkwell; parse layer is tree-sitter 0.26.6; diagnostics ariadne 0.6.0; measured totals: 102,593 LOC (emitter 16,460 · cli 15,960 · wasm 15,866 · registry 14,987 · mcp 9,817 · lsp 8,493 …).</div><div class="e-src">Cargo.toml:31-84 · LOC audit 2026-09-23</div></span></div>
+
+    <div class="ev-item" id="ev-e13"><span class="ev-id">E13</span><span><span class="badge b-web">WEB</span></span><span><div class="e-claim">&ldquo;An LLVM-only build will need about 1–3 GB of space. A full build of LLVM and Clang will need around 15–20 GB.&rdquo;</div><div class="e-src"><a href="https://llvm.org/docs/GettingStarted.html">llvm.org/docs/GettingStarted.html</a></div></span></div>
+    <div class="ev-item" id="ev-e14"><span class="ev-id">E14</span><span><span class="badge b-web">WEB</span></span><span><div class="e-claim">LLVM ended 2024 at 35.56 million lines of code across the monorepo (37.4k commits in the year).</div><div class="e-src"><a href="https://www.phoronix.com/news/LLVM-2024-Commits-Stats">phoronix.com/news/LLVM-2024-Commits-Stats</a></div></span></div>
+    <div class="ev-item" id="ev-e15"><span class="ev-id">E15</span><span><span class="badge b-web">WEB</span></span><span><div class="e-claim">&ldquo;LLVM itself is &gt;2.5 million lines of C++ and the entire monorepo is something like 9 million.&rdquo; (Nikita Popov, LLVM reviewer)</div><div class="e-src"><a href="https://www.npopov.com/blog/LLVM-the-bad-parts.html">npopov.com — LLVM: The bad parts (2026)</a></div></span></div>
+    <div class="ev-item" id="ev-e16"><span class="ev-id">E16</span><span><span class="badge b-web">WEB</span></span><span><div class="e-claim">Cranelift vs LLVM codegen CPU on identical input: 125 vs 211 CPU-seconds (−40%); full debug build of Cranelift itself: 29.6s vs 37.5s with LLVM (−21%).</div><div class="e-src"><a href="https://lwn.net/Articles/965507/">lwn.net — Cranelift code generation comes to Rust (Mar 2024)</a></div></span></div>
+    <div class="ev-item" id="ev-e17"><span class="ev-id">E17</span><span><span class="badge b-web">WEB</span></span><span><div class="e-claim">rust-lang officially documented Cranelift as a debug-build codegen backend — the sanctioned &ldquo;compile fast, run a bit slower&rdquo; tier.</div><div class="e-src"><a href="https://blog.rust-lang.org/2020/11/15/rustc-cranelift.html">blog.rust-lang.org (Nov 2020)</a></div></span></div>
+    <div class="ev-item" id="ev-e18"><span class="ev-id">E18</span><span><span class="badge b-web">WEB</span></span><span><div class="e-claim">&ldquo;Wasmtime currently uses Cranelift by default&rdquo; — Cranelift is the production Wasm baseline compiler.</div><div class="e-src"><a href="https://github.com/bytecodealliance/wasmtime/blob/main/rfcs/accepted/wasmtime-baseline-compilation.md">wasmtime RFC · wasmtime-baseline-compilation.md</a></div></span></div>
+    <div class="ev-item" id="ev-e19"><span class="ev-id">E19</span><span><span class="badge b-web">WEB</span></span><span><div class="e-claim">Wasm runtime benchmark: LLVM = slowest compilation, highest peak performance; Cranelift = best compile-speed/peak-performance balance. (LLVM&rsquo;s edge exists exactly where SpecForge has no workloads.)</div><div class="e-src"><a href="https://wasmer.io/posts/benchmarking-wasm-runtimes-2019">wasmer.io — Benchmarking Wasm Runtimes (2019)</a></div></span></div>
+    <div class="ev-item" id="ev-e20"><span class="ev-id">E20</span><span><span class="badge b-web">WEB</span></span><span><div class="e-claim">llvm-sys releases are per-LLVM-version crates (crate version = LLVM version × 10) — every LLVM release is a breaking dependency event for consumers.</div><div class="e-src"><a href="https://crates.io/crates/llvm-sys">crates.io/crates/llvm-sys</a></div></span></div>
+    <div class="ev-item" id="ev-e21"><span class="ev-id">E21</span><span><span class="badge b-paper">PAPER</span></span><span><div class="e-claim">KLEE symbolically executes LLVM bitcode (requires compiled programs, POSIX/Linux); discharges path constraints via SMT constraint solving. Origin paper cited 5,283+ times.</div><div class="e-src"><a href="https://klee.github.io/">klee.github.io</a> · <a href="https://www.usenix.org/legacy/event/osdi08/tech/full_papers/cadar/cadar.pdf">Cadar, Dunbar, Engler — OSDI 2008</a></div></span></div>
+    <div class="ev-item" id="ev-e22"><span class="ev-id">E22</span><span><span class="badge b-web">WEB</span></span><span><div class="e-claim">&ldquo;Dafny verifies your program using a type of theorem prover known as SMT&hellip; it uses the Z3 solver.&rdquo; Boogie is Dafny&rsquo;s verification-condition interface — the chain of record for spec predicates.</div><div class="e-src"><a href="https://dafny.org/">dafny.org — Verification Optimization</a></div></span></div>
+    <div class="ev-item" id="ev-e23"><span class="ev-id">E23</span><span><span class="badge b-paper">PAPER</span></span><span><div class="e-claim">de Moura &amp; Bjørner, &ldquo;Z3: An Efficient SMT Solver&rdquo; (TACAS 2008) — 13,345+ citations; the standard engine for program-verification lowering.</div><div class="e-src"><a href="https://www.microsoft.com/en-us/research/publication/z3-an-efficient-smt-solver/">microsoft.com research</a></div></span></div>
+    <div class="ev-item" id="ev-e24"><span class="ev-id">E24</span><span><span class="badge b-web">WEB</span></span><span><div class="e-claim">MLIR&rsquo;s value: custom dialects + progressive lowering across multiple semantics levels (its consumers — Mojo, Triton, IREE — all lower to executable targets). Rust-native MLIR-like framework exists (pliron, NVIDIA) but targets the same multi-level niche.</div><div class="e-src"><a href="https://discourse.llvm.org/t/llvm-mc-dialects-mlir-all-the-way-down-compilation/499">llvm.discourse</a> · <a href="https://nvlabs.github.io/cuda-oxide/pliron/">nvlabs.github.io — pliron</a></div></span></div>
+    <div class="ev-item" id="ev-e25"><span class="ev-id">E25</span><span><span class="badge b-web">WEB</span></span><span><div class="e-claim">Rust LLVM bindings require per-platform system-LLVM provisioning and exact version-matched feature flags (inkwell feature per LLVM version; LLVM_SYS_*_PREFIX env configuration).</div><div class="e-src"><a href="https://thedan64.github.io/inkwell/">inkwell docs</a> · <a href="https://createlang.rs/01_llvm/01_basic_example.html">createlang.rs</a></div></span></div>
+    <div class="ev-item" id="ev-e26"><span class="ev-id">E26</span><span><span class="badge b-web">WEB</span></span><span><div class="e-claim">Rust Performance Book: Cranelift backend &ldquo;may reduce compile times at the cost of lower quality generated code&rdquo; — canonical statement of the tradeoff that makes Cranelift, not LLVM, the fit for speed-sensitive hosting.</div><div class="e-src"><a href="https://nnethercote.github.io/perf-book/build-configuration.html">nnethercote.github.io/perf-book</a></div></span></div>
+  </div>
+</section>
+
+</main>
+</div>
+
+<footer>
+  <div class="f-wrap">
+    <span>SpecForge · LLVM Feasibility Report · 2026-09-23</span>
+    <span>Evidence: 12 REPO · 12 WEB · 2 PAPER · figures DERIVED from those anchors</span>
+  </div>
+</footer>
+
+<script>
+  (function(){
+    const links=[...document.querySelectorAll('nav.toc a[href^="#s"],nav.toc a[href="#evidence"]')];
+    const secs=links.map(a=>document.querySelector(a.getAttribute('href'))).filter(Boolean);
+    const io=new IntersectionObserver(es=>{
+      es.forEach(e=>{ if(e.isIntersecting){
+        links.forEach(l=>l.classList.toggle('active',l.getAttribute('href')==='#'+e.target.id));
+      }});
+    },{rootMargin:'-12% 0px -75% 0px'});
+    secs.forEach(s=>io.observe(s));
+  })();
+</script>
+</body>
+</html>

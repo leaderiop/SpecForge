@@ -7,7 +7,7 @@ use specforge_registry::registry_ops::{
 };
 use specforge_registry::{
     AuthMethod, ManifestV2, RegistryClient, RegistryConfig, RegistryCredential, RegistryError,
-    RegistryResponse, RegistrySearchResult, TrustLevel,
+    RegistryResponse, RegistrySearchResult, SigningKey, TrustLevel,
 };
 
 // ---------------------------------------------------------------------------
@@ -20,6 +20,7 @@ struct MockRegistryClient {
     search_results: Mutex<Vec<(String, Result<Vec<RegistrySearchResult>, RegistryError>)>>,
     publish_result: Mutex<Option<Result<String, RegistryError>>>,
     publish_credentials: Mutex<Vec<Option<RegistryCredential>>>,
+    publish_signatures: Mutex<Vec<Option<String>>>,
 }
 
 impl MockRegistryClient {
@@ -29,6 +30,7 @@ impl MockRegistryClient {
             search_results: Mutex::new(Vec::new()),
             publish_result: Mutex::new(None),
             publish_credentials: Mutex::new(Vec::new()),
+            publish_signatures: Mutex::new(Vec::new()),
         }
     }
 
@@ -56,6 +58,11 @@ impl MockRegistryClient {
     /// Credentials seen by each `publish()` call, in order.
     fn publish_credentials(&self) -> Vec<Option<RegistryCredential>> {
         self.publish_credentials.lock().clone()
+    }
+
+    /// Signature strings seen by each `publish()` call, in order.
+    fn publish_signatures(&self) -> Vec<Option<String>> {
+        self.publish_signatures.lock().clone()
     }
 }
 
@@ -96,10 +103,15 @@ impl RegistryClient for MockRegistryClient {
         &self,
         _package: &[u8],
         _manifest: &ManifestV2,
+        _manifest_json: &str,
+        signature: Option<&str>,
         _registry: &RegistryConfig,
         credential: Option<&RegistryCredential>,
     ) -> Result<String, RegistryError> {
         self.publish_credentials.lock().push(credential.cloned());
+        self.publish_signatures
+            .lock()
+            .push(signature.map(str::to_string));
         self.publish_result
             .lock()
             .clone()
@@ -157,6 +169,8 @@ fn make_response(name: &str, version: &str) -> RegistryResponse {
         version: version.to_string(),
         wasm_url: format!("https://r.specforge.dev/{name}-{version}.wasm"),
         sha256: "abc123".to_string(),
+        signature: String::new(),
+        key_id: String::new(),
     }
 }
 
@@ -352,7 +366,8 @@ fn publish_computes_sha256() {
         )
         .with_publish(Ok("https://r.specforge.dev/@test/ext/1.0.0".into()));
 
-    let url = publish_to_registry(package, &manifest, &registry, None, &client, false).unwrap();
+    let url =
+        publish_to_registry(package, &manifest, &registry, None, &client, false, None).unwrap();
     assert!(url.contains("@test/ext"));
 }
 
@@ -367,7 +382,8 @@ fn publish_rejects_duplicate_version_without_force() {
     let client = MockRegistryClient::new()
         .with_fetch_for("default", Ok(make_response("@test/ext", "1.0.0")));
 
-    let err = publish_to_registry(package, &manifest, &registry, None, &client, false).unwrap_err();
+    let err =
+        publish_to_registry(package, &manifest, &registry, None, &client, false, None).unwrap_err();
     assert_eq!(err.severity, Severity::Error);
     assert!(err.message.contains("already exists"));
 }
@@ -383,7 +399,8 @@ fn publish_allows_duplicate_version_with_force() {
         .with_publish(Ok("https://r.specforge.dev/@test/ext/1.0.0".into()));
 
     // force=true skips the existence check entirely
-    let url = publish_to_registry(package, &manifest, &registry, None, &client, true).unwrap();
+    let url =
+        publish_to_registry(package, &manifest, &registry, None, &client, true, None).unwrap();
     assert!(url.contains("@test/ext"));
 }
 
@@ -404,7 +421,8 @@ fn publish_returns_registry_url_on_success() {
         )
         .with_publish(Ok(expected_url.to_string()));
 
-    let url = publish_to_registry(package, &manifest, &registry, None, &client, false).unwrap();
+    let url =
+        publish_to_registry(package, &manifest, &registry, None, &client, false, None).unwrap();
     assert_eq!(url, expected_url);
 }
 
@@ -427,6 +445,7 @@ fn publish_threads_credential_to_client() {
         Some(&credential),
         &client,
         true,
+        None,
     )
     .unwrap();
     assert_eq!(client.publish_credentials(), vec![Some(credential.clone())]);
@@ -440,6 +459,7 @@ fn publish_threads_credential_to_client() {
         None,
         &anonymous,
         true,
+        None,
     )
     .unwrap();
     assert_eq!(anonymous.publish_credentials(), vec![None]);
@@ -544,4 +564,67 @@ fn error_messages_do_not_leak_auth_details() {
     let sanitized = specforge_registry::sanitize_token(raw_token);
     assert!(!sanitized.contains("super_secret"));
     assert!(sanitized.ends_with("****"));
+}
+
+// B:publish_to_registry — verify unit "signed publish carries verifiable signature"
+#[test]
+fn publish_signs_package_when_key_provided() {
+    let registry = default_registry();
+    let manifest = minimal_manifest();
+    let key = SigningKey::generate();
+
+    let client = MockRegistryClient::new()
+        .with_fetch_for(
+            "default",
+            Err(RegistryError::NotFound {
+                specifier: format!("{}@{}", manifest.name, manifest.version),
+            }),
+        )
+        .with_publish(Ok("https://r.specforge.dev/@test/ext/1.0.0".into()));
+
+    publish_to_registry(
+        b"wasm-bytes",
+        &manifest,
+        &registry,
+        None,
+        &client,
+        false,
+        Some(&key),
+    )
+    .unwrap();
+
+    let sigs = client.publish_signatures();
+    assert_eq!(sigs.len(), 1);
+    let sig: specforge_registry::PackageSignature =
+        serde_json::from_str(sigs[0].as_deref().expect("signature present")).unwrap();
+    assert_eq!(sig.key_id, key.key_id());
+    assert_eq!(sig.public_key, key.public_key_hex());
+}
+
+// B:publish_to_registry — verify unit "unsigned publish sends no signature"
+#[test]
+fn publish_without_key_sends_no_signature() {
+    let registry = default_registry();
+    let manifest = minimal_manifest();
+
+    let client = MockRegistryClient::new()
+        .with_fetch_for(
+            "default",
+            Err(RegistryError::NotFound {
+                specifier: format!("{}@{}", manifest.name, manifest.version),
+            }),
+        )
+        .with_publish(Ok("https://r.specforge.dev/@test/ext/1.0.0".into()));
+
+    publish_to_registry(
+        b"wasm-bytes",
+        &manifest,
+        &registry,
+        None,
+        &client,
+        false,
+        None,
+    )
+    .unwrap();
+    assert_eq!(client.publish_signatures(), vec![None]);
 }

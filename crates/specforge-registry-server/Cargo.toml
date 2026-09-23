@@ -26,3 +26,4 @@ hex = "0.4.3"
 [dev-dependencies]
 reqwest = { workspace = true }
 tempfile = { workspace = true }
+specforge-registry = { path = "../specforge-registry" }

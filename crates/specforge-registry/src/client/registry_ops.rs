@@ -95,8 +95,12 @@ pub fn search_registries(
     (all_results, diagnostics)
 }
 
-/// Publish to a registry. Computes SHA256 of the package and includes it in the upload.
+/// Publish to a registry, optionally signing the package.
 ///
+/// Serializes the manifest once — the uploaded bytes, the `manifest_sha256`
+/// inside the signature payload, and the stored manifest are byte-identical.
+/// When `signing` is provided, the upload carries a [`PackageSignature`] over
+/// `{name, version, wasm_sha256, manifest_sha256, signed_at}`.
 /// `credential`, when provided, authenticates the upload.
 /// Rejects duplicate versions unless `force` is true. Returns the registry URL on success.
 pub fn publish_to_registry(
@@ -106,8 +110,28 @@ pub fn publish_to_registry(
     credential: Option<&RegistryCredential>,
     client: &dyn RegistryClient,
     force: bool,
+    signing: Option<&crate::SigningKey>,
 ) -> Result<String, Diagnostic> {
-    let _sha256 = hex_sha256(package);
+    let manifest_json = serde_json::to_string(manifest).map_err(|e| Diagnostic {
+        code: "R-OPS-003".to_string(),
+        severity: specforge_common::Severity::Error,
+        message: format!("failed to serialize manifest: {}", e),
+        span: None,
+        suggestion: None,
+    })?;
+
+    // Sign when a key is provided: the payload binds the exact uploaded
+    // manifest bytes and the wasm hash to the publisher key.
+    let signature = signing.map(|key| {
+        let signature = key.sign_package(
+            &manifest.name,
+            &manifest.version,
+            &hex_sha256(package),
+            &hex_sha256(manifest_json.as_bytes()),
+            &chrono::Utc::now().to_rfc3339(),
+        );
+        serde_json::to_string(&signature).expect("signature serialization cannot fail")
+    });
 
     // First, check if the version already exists by trying to fetch it
     if !force {
@@ -130,7 +154,14 @@ pub fn publish_to_registry(
     }
 
     client
-        .publish(package, manifest, registry, credential)
+        .publish(
+            package,
+            manifest,
+            &manifest_json,
+            signature.as_deref(),
+            registry,
+            credential,
+        )
         .map_err(|e| e.to_diagnostic())
 }
 

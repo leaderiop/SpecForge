@@ -16,6 +16,10 @@ struct PackageVersionResponse {
     version: String,
     sha256: String,
     wasm_url: String,
+    #[serde(default)]
+    signature: String,
+    #[serde(default)]
+    key_id: String,
 }
 
 #[derive(Deserialize)]
@@ -212,6 +216,8 @@ impl RegistryClient for HttpRegistryClient {
                     version: body.version,
                     wasm_url: body.wasm_url,
                     sha256: body.sha256,
+                    signature: body.signature,
+                    key_id: body.key_id,
                 })
             }
             404 => Err(RegistryError::NotFound {
@@ -283,6 +289,8 @@ impl RegistryClient for HttpRegistryClient {
         &self,
         package: &[u8],
         manifest: &ManifestV2,
+        manifest_json: &str,
+        signature: Option<&str>,
         registry: &RegistryConfig,
         credential: Option<&RegistryCredential>,
     ) -> Result<String, RegistryError> {
@@ -290,13 +298,8 @@ impl RegistryClient for HttpRegistryClient {
         let encoded = Self::encode_package_name(&manifest.name);
         let url = format!("{}/packages/{}/{}", base, encoded, manifest.version);
 
-        let metadata =
-            serde_json::to_string(manifest).map_err(|e| RegistryError::NetworkError {
-                message: format!("failed to serialize manifest: {}", e),
-            })?;
-
-        let form = reqwest::blocking::multipart::Form::new()
-            .text("manifest", metadata)
+        let mut form = reqwest::blocking::multipart::Form::new()
+            .text("manifest", manifest_json.to_string())
             .part(
                 "wasm",
                 reqwest::blocking::multipart::Part::bytes(package.to_vec())
@@ -304,6 +307,9 @@ impl RegistryClient for HttpRegistryClient {
                     .mime_str("application/wasm")
                     .unwrap(),
             );
+        if let Some(sig) = signature {
+            form = form.text("signature", sig.to_string());
+        }
 
         let mut request = self.client.put(&url).multipart(form);
         if let Some(credential) = credential {
@@ -333,11 +339,11 @@ impl RegistryClient for HttpRegistryClient {
                 name: manifest.name.clone(),
                 version: manifest.version.clone(),
             }),
-            _ => {
+            status => {
                 let msg = resp
                     .json::<ErrorResponse>()
                     .map(|e| e.error.message)
-                    .unwrap_or_else(|_| "publish failed".to_string());
+                    .unwrap_or_else(|_| format!("publish failed with status {status}"));
                 Err(RegistryError::NetworkError { message: msg })
             }
         }

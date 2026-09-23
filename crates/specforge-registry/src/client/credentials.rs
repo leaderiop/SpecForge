@@ -110,7 +110,7 @@ pub fn write_credentials(path: &Path, store: &CredentialStore) -> Result<(), Dia
     })
 }
 
-fn dirs_home() -> PathBuf {
+pub(crate) fn dirs_home() -> PathBuf {
     std::env::var("HOME")
         .or_else(|_| std::env::var("USERPROFILE"))
         .map(PathBuf::from)

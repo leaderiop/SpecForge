@@ -16,6 +16,13 @@ pub struct PackageVersion {
     pub keywords: String,
     pub publisher: String,
     pub published_at: String,
+    /// Wire signature object (JSON with sig/keyId/pubkey/signedAt); empty when unsigned.
+    pub signature: String,
+    /// Short publisher key id; empty when unsigned.
+    pub key_id: String,
+    /// Exact manifest JSON uploaded with the package; served so clients can
+    /// verify manifest_sha256 offline.
+    pub manifest: String,
 }
 
 #[derive(Debug, Clone)]
@@ -72,14 +79,46 @@ impl Database {
             CREATE INDEX IF NOT EXISTS idx_tokens_hash ON tokens(token_hash);",
         )
         .map_err(|e| format!("migration failed: {}", e))?;
+
+        // Signature columns arrived after the initial schema: add them to
+        // databases created before signed publishing existed.
+        for (column, ddl) in [
+            (
+                "signature",
+                "ALTER TABLE packages ADD COLUMN signature TEXT NOT NULL DEFAULT ''",
+            ),
+            (
+                "key_id",
+                "ALTER TABLE packages ADD COLUMN key_id TEXT NOT NULL DEFAULT ''",
+            ),
+            (
+                "manifest",
+                "ALTER TABLE packages ADD COLUMN manifest TEXT NOT NULL DEFAULT ''",
+            ),
+        ] {
+            let present: bool = conn
+                .query_row(
+                    &format!(
+                        "SELECT COUNT(*) FROM pragma_table_info('packages') WHERE name = '{column}'"
+                    ),
+                    [],
+                    |row| row.get::<_, i64>(0),
+                )
+                .map(|n| n > 0)
+                .unwrap_or(false);
+            if !present {
+                conn.execute_batch(ddl)
+                    .map_err(|e| format!("migration failed ({column}): {}", e))?;
+            }
+        }
         Ok(())
     }
 
     pub fn insert_package(&self, pkg: &PackageVersion) -> Result<(), String> {
         let conn = self.conn.lock().unwrap();
         conn.execute(
-            "INSERT INTO packages (name, version, sha256, size_bytes, description, keywords, publisher, published_at)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
+            "INSERT INTO packages (name, version, sha256, size_bytes, description, keywords, publisher, published_at, signature, key_id, manifest)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)",
             params![
                 pkg.name,
                 pkg.version,
@@ -89,6 +128,9 @@ impl Database {
                 pkg.keywords,
                 pkg.publisher,
                 pkg.published_at,
+                pkg.signature,
+                pkg.key_id,
+                pkg.manifest,
             ],
         ).map_err(|e| {
             if e.to_string().contains("UNIQUE constraint") {
@@ -103,7 +145,7 @@ impl Database {
     pub fn get_package_version(&self, name: &str, version: &str) -> Option<PackageVersion> {
         let conn = self.conn.lock().unwrap();
         conn.query_row(
-            "SELECT name, version, sha256, size_bytes, description, keywords, publisher, published_at
+            "SELECT name, version, sha256, size_bytes, description, keywords, publisher, published_at, signature, key_id, manifest
              FROM packages WHERE name = ?1 AND version = ?2 AND yanked = 0",
             params![name, version],
             |row| {
@@ -116,9 +158,13 @@ impl Database {
                     keywords: row.get(5)?,
                     publisher: row.get(6)?,
                     published_at: row.get(7)?,
+                    signature: row.get(8)?,
+                    key_id: row.get(9)?,
+                    manifest: row.get(10)?,
                 })
             },
-        ).ok()
+        )
+        .ok()
     }
 
     pub fn get_package_versions(&self, name: &str) -> Vec<String> {
@@ -158,6 +204,9 @@ impl Database {
                 keywords: row.get(5)?,
                 publisher: row.get(6)?,
                 published_at: row.get(7)?,
+                signature: String::new(),
+                key_id: String::new(),
+                manifest: String::new(),
             })
         })
         .unwrap()

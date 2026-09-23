@@ -1,8 +1,4 @@
-mod auth;
-mod db;
-mod handlers;
-mod state;
-mod storage;
+use specforge_registry_server::{auth, db::Database, handlers, state::AppState};
 
 use clap::{Parser, Subcommand};
 use std::path::PathBuf;
@@ -98,9 +94,10 @@ async fn main() {
             std::fs::create_dir_all(&data_dir).expect("failed to create data directory");
 
             let database =
-                db::Database::open(&data_dir.join("registry.db")).expect("failed to open database");
-            let store = storage::LocalStorage::new(data_dir.join("packages"));
-            let app_state = Arc::new(state::AppState {
+                Database::open(&data_dir.join("registry.db")).expect("failed to open database");
+            let store =
+                specforge_registry_server::storage::LocalStorage::new(data_dir.join("packages"));
+            let app_state = Arc::new(AppState {
                 database,
                 storage: store,
             });
@@ -123,8 +120,8 @@ async fn main() {
                 data_dir,
             } => {
                 std::fs::create_dir_all(&data_dir).expect("failed to create data directory");
-                let database = db::Database::open(&data_dir.join("registry.db"))
-                    .expect("failed to open database");
+                let database =
+                    Database::open(&data_dir.join("registry.db")).expect("failed to open database");
 
                 let token = auth::create_token(&database, scope.as_deref(), &label);
                 println!("Token created successfully.\n");
@@ -134,8 +131,8 @@ async fn main() {
                 println!("\nStore this token securely — it cannot be retrieved later.");
             }
             TokenAction::List { data_dir } => {
-                let database = db::Database::open(&data_dir.join("registry.db"))
-                    .expect("failed to open database");
+                let database =
+                    Database::open(&data_dir.join("registry.db")).expect("failed to open database");
                 let tokens = auth::list_tokens(&database);
                 if tokens.is_empty() {
                     println!("No tokens found.");
@@ -153,8 +150,8 @@ async fn main() {
                 }
             }
             TokenAction::Revoke { prefix, data_dir } => {
-                let database = db::Database::open(&data_dir.join("registry.db"))
-                    .expect("failed to open database");
+                let database =
+                    Database::open(&data_dir.join("registry.db")).expect("failed to open database");
                 if auth::revoke_token(&database, &prefix) {
                     println!("Token revoked.");
                 } else {

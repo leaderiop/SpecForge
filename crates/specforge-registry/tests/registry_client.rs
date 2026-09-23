@@ -91,6 +91,8 @@ impl RegistryClient for MockRegistryClient {
         &self,
         _package: &[u8],
         _manifest: &ManifestV2,
+        _manifest_json: &str,
+        _signature: Option<&str>,
         _registry: &RegistryConfig,
         _credential: Option<&RegistryCredential>,
     ) -> Result<String, RegistryError> {
@@ -177,6 +179,8 @@ fn mock_client_fetch() {
         version: "1.0.0".into(),
         wasm_url: "https://r.specforge.dev/software-1.0.0.wasm".into(),
         sha256: "abc123".into(),
+        signature: String::new(),
+        key_id: String::new(),
     }));
 
     let resp = client
@@ -208,7 +212,14 @@ fn mock_client_publish() {
         .with_publish(Ok("https://r.specforge.dev/@test/ext/1.0.0".into()));
 
     let url = client
-        .publish(b"wasm-bytes", &minimal_manifest(), &test_registry(), None)
+        .publish(
+            b"wasm-bytes",
+            &minimal_manifest(),
+            "{\"name\":\"@test/ext\"}",
+            None,
+            &test_registry(),
+            None,
+        )
         .unwrap();
     assert!(url.contains("@test/ext"));
 }
