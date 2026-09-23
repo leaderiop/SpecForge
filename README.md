@@ -132,6 +132,8 @@ Projects are configured via **`specforge.json`** (like `tsconfig.json`):
 
 The implementation is a Rust workspace (edition 2024) under [`crates/`](crates/).
 
+> Building from source requires the `wasm32-unknown-unknown` target (`rustup target add wasm32-unknown-unknown`). The build bootstraps the four builtin extension blobs automatically — no manual step.
+
 ## Documentation
 
 - **[Authoring Tutorial](docs/guides/authoring-spec-files.md)** — zero-to-hero guide to writing `.spec` files, with a complete [worked example](examples/todo-app/). Companions: [cookbook](docs/guides/spec-cookbook.md), [best practices](docs/guides/spec-best-practices.md), [troubleshooting](docs/guides/spec-troubleshooting.md).
