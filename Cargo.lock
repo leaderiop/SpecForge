@@ -3158,6 +3158,7 @@ dependencies = [
  "specforge-mcp",
  "specforge-migrate",
  "specforge-parser",
+ "specforge-protocol-types",
  "specforge-registry",
  "specforge-resolver",
  "specforge-test",

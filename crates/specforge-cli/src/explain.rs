@@ -154,6 +154,10 @@ fn lookup(code: &str) -> Option<(&'static str, &'static str)> {
             "A list field contains both string literals and identifier references.\n\
              Use a consistent type: all strings or all identifiers.",
         ),
+        "W096" => (
+            "Behavior requires without ensuring",
+            "A behavior declares a requires clause but no ensures clause: it obligates callers without providing a guarantee (Design by Contract obligations/benefits symmetry). Add an ensures clause or drop the requirement. Reported by the @specforge/formal condition_check compiler pass via specforge analyze.",
+        ),
         "W087" => (
             "Invalid feature status transition",
             "A feature's status changed to a state not reachable from its previous state.\n\

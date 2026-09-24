@@ -420,6 +420,16 @@ pub fn build_validation_entities(graph: &Graph) -> Vec<ValidationEntity> {
                     specforge_parser::FieldValue::VariantList(variants) if !variants.is_empty() => {
                         fields.insert(entry.key.to_string(), variants.join(" | "));
                     }
+                    specforge_parser::FieldValue::Block(block) => {
+                        // Contract blocks (requires/ensures/maintains): surface
+                        // the clause item names so extension passes can see the
+                        // block's presence and contents.
+                        let items: Vec<String> =
+                            block.entries().iter().map(|e| e.key.to_string()).collect();
+                        if !items.is_empty() {
+                            fields.insert(entry.key.to_string(), items.join(", "));
+                        }
+                    }
                     _ => {}
                 }
             }

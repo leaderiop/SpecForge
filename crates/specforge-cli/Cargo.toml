@@ -24,6 +24,7 @@ specforge-common = { workspace = true }
 specforge-migrate = { workspace = true }
 specforge-formatter = { workspace = true }
 specforge-graph = { path = "../specforge-graph" }
+specforge-protocol-types = { path = "../specforge-protocol-types" }
 specforge-watch = { path = "../specforge-watch" }
 specforge-parser = { workspace = true }
 specforge-resolver = { path = "../specforge-resolver" }

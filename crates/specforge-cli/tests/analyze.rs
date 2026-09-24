@@ -309,3 +309,48 @@ fn analyze_discharge_layers_intent_linkage_proof() {
     let funnel = &doc["passes"][0]["summary"]["discharge_funnel"];
     assert_eq!(funnel["entities_proven"], 1);
 }
+
+#[test]
+fn analyze_dispatches_extension_compiler_pass() {
+    let dir = TempDir::new().unwrap();
+    fs::write(
+        dir.path().join("specforge.json"),
+        r#"{"extensions": ["@specforge/formal"]}"#,
+    )
+    .unwrap();
+    fs::write(
+        dir.path().join("main.spec"),
+        concat!(
+            "behavior obligated \"Obligated\" {\n",
+            "  title \"Obligated\"\n",
+            "  requires {\n",
+            "    auth_ready \"auth is configured\"\n",
+            "  }\n",
+            "  verify unit \"runs\"\n",
+            "}\n",
+        ),
+    )
+    .unwrap();
+
+    let output = specforge_cmd()
+        .args(["analyze", "--path", dir.path().to_str().unwrap(), "--json"])
+        .output()
+        .unwrap();
+    let doc: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
+
+    let pass = doc["passes"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|p| p["pass"] == "@specforge/formal:condition_check")
+        .expect("formal condition_check pass must be dispatched");
+    let a = pass["findings"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter(|f| f["code"] == "W096")
+        .count();
+    assert_eq!(a, 1, "requires-without-ensures must surface W075");
+    assert_eq!(pass["summary"]["entities_analyzed"], 1);
+    assert_eq!(pass["summary"]["extension"], "@specforge/formal");
+}

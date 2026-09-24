@@ -11,7 +11,9 @@ pub use specforge_emitter::compile::CompilationContext;
 /// Only extensions listed in `specforge.json` are loaded — no implicit builtins.
 /// Builtin extensions are loaded from embedded Wasm binaries when their name
 /// matches a `@specforge/*` builtin. Custom `.wasm` paths are loaded from disk.
-pub fn compile(path: &Path) -> CompilationContext {
+/// Build the Wasm runtime for a project: embedded builtin blobs for
+/// `@specforge/*` names plus any `.wasm` module paths from specforge.json.
+pub fn build_runtime(path: &Path) -> ExtismRuntime {
     let config = load_project_config(path);
 
     let ctx = HostContext::new(Arc::new(Mutex::new(Vec::new()))).with_spec_root(path.to_path_buf());
@@ -43,5 +45,10 @@ pub fn compile(path: &Path) -> CompilationContext {
         }
     }
 
+    runtime
+}
+
+pub fn compile(path: &Path) -> CompilationContext {
+    let runtime = build_runtime(path);
     specforge_emitter::compile::compile_with_runtime(path, Some(&runtime))
 }

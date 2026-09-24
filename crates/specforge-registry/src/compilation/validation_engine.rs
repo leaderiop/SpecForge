@@ -200,7 +200,10 @@ pub fn interpolate_template(
 }
 
 /// A simple entity representation for validation.
-#[derive(Debug, Clone)]
+///
+/// Serialized as the input payload of extension-owned compiler passes
+/// (`__pass_<name>` wasm exports).
+#[derive(Debug, Clone, serde::Serialize)]
 pub struct ValidationEntity {
     pub id: String,
     pub kind: String,

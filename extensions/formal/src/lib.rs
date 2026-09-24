@@ -16,7 +16,6 @@ static DESCRIBE_SHARED_FIELDS: &[u8] = include_bytes!("describe_shared_fields.js
 static DESCRIBE_ENHANCEMENTS: &[u8] = include_bytes!("describe_enhancements.json");
 static DESCRIBE_VALIDATION_RULES: &[u8] = include_bytes!("describe_validation_rules.json");
 static DESCRIBE_SURFACES: &[u8] = include_bytes!("describe_surfaces.json");
-static DESCRIBE_PASSES: &[u8] = include_bytes!("describe_passes.json");
 static DESCRIBE_FEATURE_FLAGS: &[u8] = include_bytes!("describe_feature_flags.json");
 
 #[specforge_extension_sdk::extension(
@@ -33,6 +32,10 @@ impl Contributions for Formal {
             optional: false,
         });
 
+        c.pass("condition_check", |p| {
+            p.after("resolve");
+        });
+
         for (category, bytes) in [
             ("entities", DESCRIBE_ENTITIES),
             ("edges", DESCRIBE_EDGES),
@@ -41,7 +44,6 @@ impl Contributions for Formal {
             ("enhancements", DESCRIBE_ENHANCEMENTS),
             ("validation_rules", DESCRIBE_VALIDATION_RULES),
             ("surfaces", DESCRIBE_SURFACES),
-            ("passes", DESCRIBE_PASSES),
             ("feature_flags", DESCRIBE_FEATURE_FLAGS),
         ] {
             let envelope: serde_json::Value = serde_json::from_slice(bytes).unwrap_or_else(|e| {
@@ -50,4 +52,53 @@ impl Contributions for Formal {
             c.raw_category(category, envelope["items"].clone());
         }
     }
+}
+
+// ── Extension-owned compiler passes ────────────────────────────────────────
+// Wire ABI (v1): `__pass_<name>` receives { "entities": [...] } (the host's
+// ValidationEntity shape) and returns an array of host Diagnostic objects.
+
+#[derive(serde::Deserialize)]
+struct PassInput {
+    entities: Vec<PassEntity>,
+}
+
+#[derive(serde::Deserialize)]
+struct PassEntity {
+    id: String,
+    kind: String,
+    #[serde(default)]
+    fields: std::collections::BTreeMap<String, String>,
+}
+
+fn non_empty(entity: &PassEntity, field: &str) -> bool {
+    entity
+        .fields
+        .get(field)
+        .is_some_and(|v| !v.trim().is_empty())
+}
+
+/// condition_check (Meyer's Design by Contract, RES-25 part I): a behavior
+/// that obligates its callers (requires) must provide a benefit (ensures).
+#[::extism_pdk::plugin_fn]
+pub fn __pass_condition_check(input: Vec<u8>) -> ::extism_pdk::FnResult<Vec<u8>> {
+    let request: PassInput = serde_json::from_slice(&input)?;
+    let mut findings = Vec::new();
+    for entity in &request.entities {
+        if entity.kind != "behavior" {
+            continue;
+        }
+        if non_empty(entity, "requires") && !non_empty(entity, "ensures") {
+            findings.push(serde_json::json!({
+                "code": "W096",
+                "severity": "Warning",
+                "message": format!(
+                    "behavior '{}' declares requires but no ensures",
+                    entity.id
+                ),
+                "suggestion": "add an ensures clause: a caller's obligation must buy a guarantee",
+            }));
+        }
+    }
+    Ok(serde_json::to_vec(&findings)?)
 }
