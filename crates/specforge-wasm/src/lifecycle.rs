@@ -6,11 +6,17 @@ use std::path::Path;
 
 /// Load a Wasm module from the manifest's wasm_path.
 /// Checks AOT cache first; falls back to loading the raw .wasm binary.
+///
+/// `expected_hash` enforces the lockfile pin (spec #21, T4): when it carries
+/// a hash (from `specforge.lock`), the on-disk binary must match it — a
+/// mismatch refuses the load with a remediation hint. `None` or an empty
+/// string (legacy lockfile entries from before hash pinning) load unchanged.
 pub fn load_wasm_module(
     extension_name: &str,
     wasm_path: &Path,
     aot_cache_dir: Option<&Path>,
     runtime: &dyn WasmRuntime,
+    expected_hash: Option<&str>,
 ) -> Result<LoadedModule, Diagnostic> {
     // Check if the .wasm binary exists
     if !wasm_path.exists() {
@@ -44,6 +50,26 @@ pub fn load_wasm_module(
         suggestion: None,
     })?;
     let wasm_hash = hex_sha256(&bytes);
+
+    // Lockfile pin enforcement (spec #21, T4): a recorded hash that no
+    // longer matches the on-disk binary means the installed extension was
+    // tampered with or corrupted after install. Refuse before touching the
+    // runtime (this also denies a tampered binary a cache-hit load path).
+    if let Some(expected) = expected_hash.filter(|h| !h.is_empty() && h != &wasm_hash) {
+        return Err(Diagnostic {
+            code: "E035".to_string(),
+            severity: Severity::Error,
+            message: format!(
+                "integrity mismatch for '{}': lockfile records hash {} but the installed binary is {}",
+                extension_name, expected, wasm_hash
+            ),
+            span: None,
+            suggestion: Some(format!(
+                "the installed binary changed after install — re-install it: specforge remove \"{0}\" && specforge add \"{0}\"",
+                extension_name
+            )),
+        });
+    }
 
     // Check AOT cache
     let aot_path = aot_cache_dir.map(|dir| dir.join(format!("{}.aot", wasm_hash)));
@@ -306,7 +332,7 @@ mod tests {
         let wasm_path = create_fake_wasm(&dir, "ext.wasm");
         let runtime = MockRuntime::new();
 
-        let module = load_wasm_module("test-ext", &wasm_path, None, &runtime).unwrap();
+        let module = load_wasm_module("test-ext", &wasm_path, None, &runtime, None).unwrap();
         assert_eq!(module.extension_name, "test-ext");
         assert_eq!(module.state, ExtensionLifecycleState::Loading);
         assert!(!module.wasm_hash.is_empty());
@@ -320,7 +346,8 @@ mod tests {
         let wasm_hash = hex_sha256(&std::fs::read(&wasm_path).unwrap());
         let runtime = MockRuntime::new().with_cached(&wasm_hash);
 
-        let module = load_wasm_module("test-ext", &wasm_path, Some(dir.path()), &runtime).unwrap();
+        let module =
+            load_wasm_module("test-ext", &wasm_path, Some(dir.path()), &runtime, None).unwrap();
         assert_eq!(module.wasm_hash, wasm_hash);
     }
 
@@ -330,7 +357,7 @@ mod tests {
         let runtime = MockRuntime::new();
         let missing = Path::new("/nonexistent/ext.wasm");
 
-        let err = load_wasm_module("test-ext", missing, None, &runtime).unwrap_err();
+        let err = load_wasm_module("test-ext", missing, None, &runtime, None).unwrap_err();
         assert_eq!(err.code, "E028");
         assert!(err.message.contains("not found"));
     }
@@ -343,12 +370,12 @@ mod tests {
         let runtime = MockRuntime::new();
 
         // ensures: extension_loaded on success
-        let module = load_wasm_module("test-ext", &wasm_path, None, &runtime).unwrap();
+        let module = load_wasm_module("test-ext", &wasm_path, None, &runtime, None).unwrap();
         assert_eq!(module.state, ExtensionLifecycleState::Loading);
 
         // ensures: missing_binary_diagnosed
         let missing = Path::new("/nonexistent.wasm");
-        let err = load_wasm_module("missing", missing, None, &runtime).unwrap_err();
+        let err = load_wasm_module("missing", missing, None, &runtime, None).unwrap_err();
         assert_eq!(err.code, "E028");
         assert_eq!(err.severity, Severity::Error);
     }

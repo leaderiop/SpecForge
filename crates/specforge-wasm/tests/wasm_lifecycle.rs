@@ -11,7 +11,7 @@
 use specforge_common::{Diagnostic, Severity};
 use specforge_registry::{ManifestV2, PeerDependency};
 use specforge_wasm::{
-    ExtensionLifecycleState, LoadedModule, WasmCallResult, WasmRuntime, WasmTrapInfo,
+    ExtensionLifecycleState, LoadedModule, LockFile, WasmCallResult, WasmRuntime, WasmTrapInfo,
     call_extension_validators, initialize_extension, load_wasm_module, topological_sort_extensions,
     validate_extension_manifest, validate_extension_peer_dependencies,
 };
@@ -132,7 +132,7 @@ fn test_load_valid_module_returns_loaded_module() {
     let wasm_path = create_fake_wasm(&dir, "ext.wasm");
     let runtime = MockRuntime::new();
 
-    let module = load_wasm_module("@test/ext", &wasm_path, None, &runtime).unwrap();
+    let module = load_wasm_module("@test/ext", &wasm_path, None, &runtime, None).unwrap();
     assert_eq!(module.extension_name, "@test/ext");
     assert_eq!(module.state, ExtensionLifecycleState::Loading);
     assert!(!module.wasm_hash.is_empty());
@@ -145,7 +145,7 @@ fn test_load_missing_wasm_returns_e028() {
     let runtime = MockRuntime::new();
     let missing = Path::new("/nonexistent/path/ext.wasm");
 
-    let err = load_wasm_module("@test/missing", missing, None, &runtime).unwrap_err();
+    let err = load_wasm_module("@test/missing", missing, None, &runtime, None).unwrap_err();
     assert_eq!(err.code, "E028");
     assert_eq!(err.severity, Severity::Error);
     assert!(err.message.contains("not found"));
@@ -160,7 +160,8 @@ fn test_load_with_aot_cache_hit() {
     let hash = specforge_wasm::hex_sha256(&bytes);
     let runtime = MockRuntime::new().with_cached(&hash);
 
-    let module = load_wasm_module("@test/ext", &wasm_path, Some(dir.path()), &runtime).unwrap();
+    let module =
+        load_wasm_module("@test/ext", &wasm_path, Some(dir.path()), &runtime, None).unwrap();
     assert_eq!(module.wasm_hash, hash);
     assert_eq!(module.state, ExtensionLifecycleState::Loading);
 }
@@ -173,11 +174,12 @@ fn test_load_wasm_module_contract() {
     let runtime = MockRuntime::new();
 
     // ensures: success path returns LoadedModule
-    let module = load_wasm_module("@test/ext", &wasm_path, None, &runtime).unwrap();
+    let module = load_wasm_module("@test/ext", &wasm_path, None, &runtime, None).unwrap();
     assert_eq!(module.state, ExtensionLifecycleState::Loading);
 
     // ensures: failure path returns E028 diagnostic
-    let err = load_wasm_module("bad", Path::new("/no/such.wasm"), None, &runtime).unwrap_err();
+    let err =
+        load_wasm_module("bad", Path::new("/no/such.wasm"), None, &runtime, None).unwrap_err();
     assert_eq!(err.code, "E028");
     assert_eq!(err.severity, Severity::Error);
 }
@@ -574,4 +576,77 @@ fn test_peer_deps_contract() {
     let diags = validate_extension_peer_dependencies(&product, std::slice::from_ref(&product));
     assert!(diags.iter().any(|d| d.code == "E027"));
     assert!(diags.iter().all(|d| d.severity == Severity::Error));
+}
+
+// B:load_wasm_module — verify unit "lockfile hash pin refuses tampered binary"
+#[test]
+fn load_refuses_binary_that_differs_from_lockfile_hash() {
+    use specforge_wasm::install_extension;
+
+    let dir = TempDir::new().unwrap();
+    let extensions_dir = dir.path().join("extensions");
+    let cache_dir = dir.path().join("cache");
+    std::fs::create_dir_all(&extensions_dir).unwrap();
+
+    let wasm_bytes = b"\0asm-original";
+    let mut lock = LockFile::new();
+    install_extension(
+        "@test/ext",
+        "1.0.0",
+        wasm_bytes,
+        &specforge_wasm::hex_sha256(wasm_bytes),
+        &extensions_dir,
+        &cache_dir,
+        &mut lock,
+        false,
+        None,
+    )
+    .unwrap();
+
+    let wasm_path = extensions_dir.join("@test/ext").join("extension.wasm");
+
+    // Load with the recorded hash: succeeds.
+    let runtime = MockRuntime::new();
+    let module = load_wasm_module(
+        "@test/ext",
+        &wasm_path,
+        None,
+        &runtime,
+        Some(lock.entries[0].wasm_hash.as_str()),
+    )
+    .unwrap();
+    assert_eq!(module.wasm_hash, lock.entries[0].wasm_hash);
+
+    // Tamper with the installed binary, then load: refused with E035.
+    std::fs::write(&wasm_path, b"\0asm-swapped-after-install").unwrap();
+    let err = load_wasm_module(
+        "@test/ext",
+        &wasm_path,
+        None,
+        &runtime,
+        Some(lock.entries[0].wasm_hash.as_str()),
+    )
+    .unwrap_err();
+    assert_eq!(err.code, "E035");
+    assert!(err.message.contains("integrity mismatch"));
+    assert!(err.suggestion.unwrap_or_default().contains("re-install"));
+}
+
+// B:load_wasm_module — verify unit "legacy entries without hash load unchanged"
+#[test]
+fn load_with_empty_or_absent_hash_does_not_fail() {
+    let dir = TempDir::new().unwrap();
+    let wasm_path = dir.path().join("extension.wasm");
+    std::fs::write(&wasm_path, b"\0asm-legacy").unwrap();
+    let runtime = MockRuntime::new();
+
+    // Legacy lockfile entry: empty hash string — warn-and-load, not fail.
+    let module = load_wasm_module("@test/legacy", &wasm_path, None, &runtime, Some("")).unwrap();
+    assert_eq!(
+        module.wasm_hash,
+        specforge_wasm::hex_sha256(b"\0asm-legacy")
+    );
+
+    // No hash context at all (local dev load): unchanged behavior.
+    load_wasm_module("@test/local", &wasm_path, None, &runtime, None).unwrap();
 }
