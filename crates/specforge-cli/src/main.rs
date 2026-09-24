@@ -1,4 +1,5 @@
 mod add;
+mod analyze;
 mod check;
 mod collect;
 mod doctor;
@@ -297,6 +298,23 @@ enum Commands {
         /// Output format: human or json
         #[arg(long, default_value = "human")]
         format: String,
+    },
+    /// Run static analysis passes over the compiled project
+    Analyze {
+        /// Analysis pass to run (all, coverage, contracts)
+        pass: Option<String>,
+
+        /// Project directory (defaults to current directory)
+        #[arg(long)]
+        path: Option<String>,
+
+        /// Machine-readable output
+        #[arg(long, default_value_t = false)]
+        json: bool,
+
+        /// Fail (exit 1) on warnings as well as errors
+        #[arg(long, default_value_t = false)]
+        strict: bool,
     },
     /// Watch a project and rebuild incrementally on changes
     Watch {
@@ -803,6 +821,18 @@ fn main() {
             yes,
         } => {
             let exit_code = add::run(&specifier, &path, &format, allow_unsigned, yes);
+            std::process::exit(exit_code);
+        }
+        Commands::Analyze {
+            pass,
+            path,
+            json,
+            strict,
+        } => {
+            let project = path
+                .map(PathBuf::from)
+                .unwrap_or_else(|| PathBuf::from("."));
+            let exit_code = analyze::run(&project, pass, json, strict);
             std::process::exit(exit_code);
         }
         Commands::Watch { path, json } => {

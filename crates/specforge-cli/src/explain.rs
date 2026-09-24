@@ -216,6 +216,18 @@ fn lookup(code: &str) -> Option<(&'static str, &'static str)> {
             "An extension requires a host API version that this build of SpecForge \n\
              does not support. Upgrade SpecForge or use a compatible extension version.",
         ),
+        "A001" => (
+            "Testable entity without verify obligations",
+            "An entity of a testable kind declares no `verify` statements, so it has no proof obligations to discharge. Add `verify unit \"...\"` or `verify property \"...\"`. Reported by `specforge analyze coverage`.",
+        ),
+        "A002" => (
+            "Invariant without verify obligations",
+            "An `invariant` entity declares no `verify` statements, so nothing checks whether the guarantee holds. Add `verify property` (formal obligation) or `verify unit` (test-linked obligation). High-risk invariants report this as an error. Reported by `specforge analyze coverage`.",
+        ),
+        "A010" => (
+            "Entity without contract obligations",
+            "The entity's kind registers contract reference fields (e.g. requires/ensures targeting invariants or properties), but this entity uses none of them. Consider declaring contract references. Reported by `specforge analyze contracts`.",
+        ),
         "I999" => (
             "Diagnostic output truncated",
             "More than 100 diagnostics were generated. Only the first 100 are shown.\n\

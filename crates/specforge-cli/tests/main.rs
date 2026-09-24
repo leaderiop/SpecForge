@@ -1,6 +1,7 @@
 #[allow(dead_code)]
 mod e2e_fixtures;
 
+mod analyze;
 mod cli;
 mod collect;
 mod contracts;

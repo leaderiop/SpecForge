@@ -57,7 +57,7 @@ pub fn run(path: &Path, strict: bool, format: &str, lint_profiles: &[String]) ->
     if has_errors { 1 } else { 0 }
 }
 
-fn build_source_map(
+pub(crate) fn build_source_map(
     spec_root: &Path,
     files: &[specforge_resolver::ResolvedFile],
 ) -> HashMap<String, String> {
