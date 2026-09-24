@@ -677,6 +677,10 @@ pub struct PassEntity {
     pub outgoing_edge_count: usize,
     #[serde(default)]
     pub span: Option<PassSpan>,
+    /// Whether the entity's kind supports verify obligations (the host
+    /// derives this from its kind registry).
+    #[serde(default)]
+    pub testable: bool,
 }
 
 /// One resolved reference in the snapshot (label = edge label, e.g.

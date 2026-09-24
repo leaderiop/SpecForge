@@ -35,6 +35,9 @@ impl Contributions for Formal {
         c.pass("event_graph_analyze", |p| {
             p.after("layering_verify");
         });
+        c.pass("coverage_tracking", |p| {
+            p.after("event_graph_analyze");
+        });
         c.pass("condition_check", |p| {
             p.after("resolve");
         });
@@ -88,6 +91,45 @@ fn pass_condition_check(input: &PassInput) -> Vec<PassDiagnostic> {
         }
     }
     findings
+}
+
+/// coverage_tracking (RES-25 part I, W035): one aggregated warning per run
+/// listing the coverage items (invariants and testable entities) that carry
+/// no `tests` linkage - the undischarged set of the discharge funnel.
+#[specforge_extension_sdk::compiler_pass(name = "coverage_tracking", after = "event_graph_analyze")]
+fn pass_coverage_tracking(input: &PassInput) -> Vec<PassDiagnostic> {
+    let undischarged: Vec<&str> = input
+        .entities
+        .iter()
+        .filter(|e| {
+            let is_item = e.kind == "invariant" || e.testable;
+            let linked = e
+                .fields
+                .iter()
+                .any(|(k, v)| k == "tests" && !v.trim().is_empty());
+            is_item && !linked
+        })
+        .map(|e| e.id.as_str())
+        .collect();
+
+    if undischarged.is_empty() {
+        return Vec::new();
+    }
+
+    const PREVIEW: usize = 10;
+    let listed: Vec<&str> = undischarged.iter().take(PREVIEW).copied().collect();
+    let rest = undischarged.len().saturating_sub(PREVIEW);
+    let mut message = format!(
+        "{} coverage item(s) are not covered by a test linkage",
+        undischarged.len()
+    );
+    message.push_str(&format!(": {}", listed.join(", ")));
+    if rest > 0 {
+        message.push_str(&format!(" … and {rest} more"));
+    }
+
+    vec![PassDiagnostic::warning("W035", message)
+        .with_suggestion("add a `tests [...]` field pointing at the executable tests")]
 }
 
 fn non_empty(entity: &PassEntity, field: &str) -> bool {
@@ -370,5 +412,66 @@ mod pass_tests {
             !findings[0].message.contains("done"),
             "consumed event spared"
         );
+    }
+}
+
+#[cfg(test)]
+mod coverage_tracking_tests {
+    use super::*;
+    use specforge_extension_sdk::PassSeverity;
+
+    fn entity(id: &str, kind: &str, testable: bool, tests: bool) -> PassEntity {
+        let mut fields = std::collections::BTreeMap::new();
+        if tests {
+            fields.insert("tests".to_string(), "tests/x.rs".to_string());
+        }
+        PassEntity {
+            id: id.to_string(),
+            kind: kind.to_string(),
+            fields,
+            incoming_edge_count: 0,
+            outgoing_edge_count: 0,
+            span: None,
+            testable,
+        }
+    }
+
+    #[test]
+    fn coverage_tracking_aggregates_undischarged_items() {
+        let input = PassInput {
+            entities: vec![
+                entity("inv1", "invariant", false, false),
+                entity("feat1", "feature", true, true),
+                entity("t1", "type", false, false),
+            ],
+            edges: vec![],
+        };
+        let findings = pass_coverage_tracking(&input);
+        assert_eq!(findings.len(), 1, "one aggregated W035");
+        assert!(matches!(findings[0].severity, PassSeverity::Warning));
+        assert!(
+            findings[0].message.contains("inv1"),
+            "{:?}",
+            findings[0].message
+        );
+        assert!(
+            !findings[0].message.contains("feat1"),
+            "linked item is discharged: {:?}",
+            findings[0].message
+        );
+        assert!(
+            !findings[0].message.contains("t1"),
+            "non-testable kinds are not coverage items: {:?}",
+            findings[0].message
+        );
+    }
+
+    #[test]
+    fn coverage_tracking_silent_when_all_linked() {
+        let input = PassInput {
+            entities: vec![entity("inv1", "invariant", false, true)],
+            edges: vec![],
+        };
+        assert!(pass_coverage_tracking(&input).is_empty());
     }
 }

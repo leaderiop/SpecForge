@@ -244,6 +244,10 @@ fn lookup(code: &str) -> Option<(&'static str, &'static str)> {
             "Linked test failed",
             "A test linked to this entity (and recorded in the test-results report supplied via --test-results) failed, so its proof obligation is not discharged. Reported by `specforge analyze coverage`.",
         ),
+        "W035" => (
+            "Undischarged coverage items",
+            "One or more coverage items (invariants and testable entities) have no `tests [...]` linkage, so nothing connects their intent to an executable test. Add tests fields or drop the items. Reported by the @specforge/formal coverage_tracking compiler pass via specforge analyze.",
+        ),
         "A011" => (
             "Orphan guarantee: nothing references this invariant",
             "No behavior, contract field (requires/ensures/maintains), or invariants list references this invariant, so nothing upholds it. Reference it from the behaviors that maintain it, or remove the invariant. Reported by `specforge analyze coverage`.",

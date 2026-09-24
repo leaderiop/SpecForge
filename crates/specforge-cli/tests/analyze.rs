@@ -428,7 +428,12 @@ fn analyze_orders_extension_passes_by_constraints() {
         .collect();
     assert_eq!(
         formal,
-        vec!["condition_check", "layering_verify", "event_graph_analyze"],
+        vec![
+            "condition_check",
+            "layering_verify",
+            "event_graph_analyze",
+            "coverage_tracking"
+        ],
         "constraint order must beat declaration order: {formal:?}"
     );
 }

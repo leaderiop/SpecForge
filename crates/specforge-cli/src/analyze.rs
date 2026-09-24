@@ -123,7 +123,25 @@ fn run_extension_passes(
 
     let runtime = crate::pipeline::build_runtime(project_root);
     let host = ProtocolHost::new(&runtime);
-    let entities = specforge_emitter::compile::build_validation_entities(ctx_graph);
+    let raw_entities = specforge_emitter::compile::build_validation_entities(ctx_graph);
+    let entities: Vec<serde_json::Value> = raw_entities
+        .iter()
+        .map(|e| {
+            let testable = input
+                .kind_registry
+                .get(e.kind.as_str())
+                .is_some_and(|entry| entry.supports_verify);
+            serde_json::json!({
+                "id": e.id,
+                "kind": e.kind,
+                "fields": e.fields,
+                "incoming_edge_count": e.incoming_edge_count,
+                "outgoing_edge_count": e.outgoing_edge_count,
+                "span": e.span,
+                "testable": testable,
+            })
+        })
+        .collect();
     let edges: Vec<serde_json::Value> = ctx_graph
         .edges()
         .iter()
