@@ -3164,6 +3164,7 @@ dependencies = [
  "specforge-test-macros",
  "specforge-validator",
  "specforge-wasm",
+ "specforge-watch",
  "tempfile",
 ]
 
@@ -3472,6 +3473,7 @@ dependencies = [
  "specforge-test",
  "specforge-test-macros",
  "tempfile",
+ "tree-sitter",
 ]
 
 [[package]]

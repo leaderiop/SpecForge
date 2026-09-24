@@ -26,3 +26,4 @@ mod query;
 mod registry;
 mod stats;
 mod trace;
+mod watch;

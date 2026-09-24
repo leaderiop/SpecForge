@@ -1,5 +1,5 @@
 use specforge_common::{SourceSpan, Sym};
-use specforge_graph::{Edge, Graph, Node, build_graph};
+use specforge_graph::{Edge, Graph, GraphConfig, Node, build_graph};
 use specforge_parser::{EntityId, EntityKind, FieldMap, FieldValue, parse};
 use specforge_test_macros::test as specforge_test;
 use specforge_watch::{
@@ -51,7 +51,13 @@ fn cold_build(files: &[(&str, &str)]) -> (IncrementalPipeline, HashMap<String, S
         dag.set_imports_resolved(path, imports);
     }
 
-    let pipeline = IncrementalPipeline::from_cold_build(spec_files, graph, dag, diagnostics);
+    let pipeline = IncrementalPipeline::from_cold_build(
+        spec_files,
+        graph,
+        dag,
+        diagnostics,
+        GraphConfig::default(),
+    );
     (pipeline, sources)
 }
 

@@ -19,6 +19,15 @@ pub struct GraphConfig {
     /// Example: `("invariants", "enforced_by")` means an invariants/enforced_by 2-hop
     /// cycle is a known bidirectional relationship, not a real circular dependency.
     pub bidirectional_pairs: Vec<(String, String)>,
+    /// (file, start_line, end_line) ranges whose E001 parse errors are
+    /// suppressed: entity kinds that declare a body parser carry
+    /// extension-owned syntax the core grammar deliberately does not parse.
+    pub suppressed_parse_error_ranges: Vec<(String, usize, usize)>,
+    /// (kind, field) pairs registered as single Reference fields. When
+    /// non-empty, references are re-resolved with single-reference awareness
+    /// (replacing the initial E003 diagnostics), creating edges for fields
+    /// like `journey.persona -> persona`.
+    pub single_reference_fields: std::collections::HashSet<(String, String)>,
 }
 
 #[must_use = "diagnostics should be checked for errors"]
@@ -165,6 +174,33 @@ pub fn build_graph_with_config(
             )
             .with_suggestion("break the cycle by removing or inverting one reference"),
         );
+    }
+
+    // Suppress E001 parse errors inside body-parser entity ranges.
+    if !config.suppressed_parse_error_ranges.is_empty() {
+        diagnostics.retain(|d| {
+            if d.code != "E001" {
+                return true;
+            }
+            let Some(span) = &d.span else { return true };
+            let file = span.file.as_str();
+            // Keep the parse error unless it lies within a suppressed range.
+            !config
+                .suppressed_parse_error_ranges
+                .iter()
+                .any(|(f, start, end)| {
+                    f == file && span.start_line >= *start && span.start_line <= *end
+                })
+        });
+    }
+
+    // Re-resolve references with single-reference field awareness. Replaces
+    // the initial E003s with ones that also account for single Reference
+    // fields (e.g., journey.persona -> persona).
+    if !config.single_reference_fields.is_empty() {
+        let singles_diags = graph.resolve_references_with_singles(&config.single_reference_fields);
+        diagnostics.retain(|d| d.code != "E003");
+        diagnostics.extend(singles_diags);
     }
 
     (graph, diagnostics)

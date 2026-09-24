@@ -1,4 +1,4 @@
-use specforge_graph::build_graph;
+use specforge_graph::{GraphConfig, build_graph};
 use specforge_parser::parse;
 use specforge_test_macros::test as spec;
 use specforge_watch::{ImportDag, IncrementalPipeline, validate_delta_correctness};
@@ -27,7 +27,13 @@ fn cold_build(files: &[(&str, &str)]) -> (IncrementalPipeline, HashMap<String, S
         dag.set_imports_resolved(path, imports);
     }
 
-    let pipeline = IncrementalPipeline::from_cold_build(spec_files, graph, dag, diagnostics);
+    let pipeline = IncrementalPipeline::from_cold_build(
+        spec_files,
+        graph,
+        dag,
+        diagnostics,
+        GraphConfig::default(),
+    );
     (pipeline, sources)
 }
 
@@ -831,4 +837,137 @@ fn cycle_resolved_after_removing_circular_import() {
             .map(|d| &d.code)
             .collect::<Vec<_>>()
     );
+}
+
+// --- tree reuse + update_open_file (shared watch/LSP core) ---
+
+fn cold_with_sources(files: &[(&str, &str)]) -> (IncrementalPipeline, HashMap<String, String>) {
+    let mut sources: HashMap<String, String> = HashMap::new();
+    let mut spec_files = Vec::new();
+    let mut graph_inputs = Vec::new();
+    for (path, content) in files {
+        sources.insert((*path).to_string(), (*content).to_string());
+        let sf = specforge_parser::parse(content, path);
+        spec_files.push(((*path).to_string(), sf.clone()));
+        graph_inputs.push(sf);
+    }
+    let (graph, diags) = build_graph(&graph_inputs);
+    let mut dag = ImportDag::new();
+    for (path, content) in files {
+        let sf = specforge_parser::parse(content, path);
+        let imports: Vec<String> = sf.imports.iter().map(|i| i.path.to_string()).collect();
+        dag.set_imports_resolved(path, imports);
+    }
+    (
+        IncrementalPipeline::from_cold_build(
+            spec_files,
+            graph,
+            dag,
+            diags,
+            specforge_graph::GraphConfig::default(),
+        ),
+        sources,
+    )
+}
+
+/// A whole-file replacement that SHRINKS the file must keep the retained
+/// tree's node bounds within the new source (regression: un-edited trees
+/// produced out-of-bounds node ranges on reparse).
+#[test]
+fn tree_reuse_survives_shrinking_replacement() {
+    let (mut pipeline, mut sources) = cold_with_sources(&[(
+        "a.spec",
+        "entity one { title \"One\" }\nentity two { title \"Two\" }\nentity three { title \"Three\" }\n",
+    )]);
+    // The cold build parses externally (no trees); the first rebuild
+    // populates the tree + source caches.
+    let initial = "entity one { title \"One\" }\nentity two { title \"Two\" }\nentity three { title \"Three\" }\n";
+    let _ = pipeline.rebuild(&["a.spec".to_string()], |f| {
+        if f == "a.spec" {
+            Some(initial.to_string())
+        } else {
+            None
+        }
+    });
+    assert!(
+        pipeline.tree("a.spec").is_some(),
+        "rebuild should retain a tree"
+    );
+
+    let short = "entity one { title \"One\" }\n";
+    sources.insert("a.spec".to_string(), short.to_string());
+    let result = pipeline.rebuild(&["a.spec".to_string()], |f| sources.get(f).cloned());
+
+    assert_eq!(result.rebuilt_files, vec!["a.spec"]);
+    assert_eq!(
+        pipeline.graph().node_count(),
+        1,
+        "only `one` survives the shrink"
+    );
+    // A second rebuild must parse cleanly from the retained tree.
+    let grown = "entity one { title \"One\" }\nentity four { title \"Four\" }\n";
+    sources.insert("a.spec".to_string(), grown.to_string());
+    let result = pipeline.rebuild(&["a.spec".to_string()], |f| sources.get(f).cloned());
+    assert_ne!(result.verification, Some(Err("mismatch".to_string())));
+    assert_eq!(pipeline.graph().node_count(), 2);
+}
+
+/// update_open_file: the buffer content wins for the edited file, while
+/// transitively invalidated importers come from disk.
+#[test]
+fn update_open_file_prefers_buffer_for_edited_file() {
+    let (mut pipeline, sources) = cold_with_sources(&[
+        ("lib.spec", "entity shared { title \"Shared\" }\n"),
+        (
+            "app.spec",
+            "use lib.spec\nentity app { title \"App\"\n  uses [shared]\n}\n",
+        ),
+    ]);
+    // Simulate an unsaved buffer edit renaming the entity in lib.spec.
+    let buffer = "entity renamed { title \"Shared\" }\n";
+    let disk_sources = sources.clone();
+    let result =
+        pipeline.update_open_file("lib.spec", Some(buffer), |f| disk_sources.get(f).cloned());
+
+    let ids: Vec<String> = pipeline
+        .graph()
+        .nodes()
+        .iter()
+        .map(|n| n.id.raw.to_string())
+        .collect();
+    assert!(
+        ids.contains(&"renamed".to_string()),
+        "buffer edit applied: {:?}",
+        ids
+    );
+    assert!(
+        ids.contains(&"app".to_string()),
+        "importer app.spec survived"
+    );
+    // The edited file's diagnostics changed (unresolved reference in app.spec).
+    assert!(
+        result
+            .changed_diagnostic_files
+            .iter()
+            .any(|f| f == "app.spec"),
+        "app.spec must gain an unresolved-reference diagnostic: {:?}",
+        result.changed_diagnostic_files
+    );
+    assert!(
+        pipeline
+            .file_diagnostics("app.spec")
+            .iter()
+            .any(|d| d.code == "E003")
+    );
+}
+
+/// update_open_file(None) deletes the file's nodes, sources, and tree.
+#[test]
+fn update_open_file_none_deletes() {
+    let (mut pipeline, sources) =
+        cold_with_sources(&[("solo.spec", "entity gone { title \"Gone\" }\n")]);
+    let disk_sources = sources.clone();
+    let _ = pipeline.update_open_file("solo.spec", None, |f| disk_sources.get(f).cloned());
+    assert_eq!(pipeline.graph().node_count(), 0);
+    assert_eq!(pipeline.file_diagnostics("solo.spec"), &[]);
 }

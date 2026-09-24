@@ -7,7 +7,7 @@ pub enum Severity {
     Info,
 }
 
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct Diagnostic {
     pub code: String,
     pub severity: Severity,

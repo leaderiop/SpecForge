@@ -26,6 +26,7 @@ mod stats;
 mod trace;
 mod trust_flow;
 mod update;
+mod watch;
 
 use clap::{CommandFactory, Parser, Subcommand};
 use clap_complete::Shell;
@@ -296,6 +297,16 @@ enum Commands {
         /// Output format: human or json
         #[arg(long, default_value = "human")]
         format: String,
+    },
+    /// Watch a project and rebuild incrementally on changes
+    Watch {
+        /// Project directory (defaults to current directory)
+        #[arg(long)]
+        path: Option<String>,
+
+        /// Emit one JSON object per rebuild cycle
+        #[arg(long, default_value_t = false)]
+        json: bool,
     },
     /// Scaffold a new extension project
     New {
@@ -792,6 +803,13 @@ fn main() {
             yes,
         } => {
             let exit_code = add::run(&specifier, &path, &format, allow_unsigned, yes);
+            std::process::exit(exit_code);
+        }
+        Commands::Watch { path, json } => {
+            let project = path
+                .map(PathBuf::from)
+                .unwrap_or_else(|| PathBuf::from("."));
+            let exit_code = watch::run(&project, json);
             std::process::exit(exit_code);
         }
         Commands::New {

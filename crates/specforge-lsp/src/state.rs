@@ -4,13 +4,16 @@ use specforge_graph::Graph;
 use specforge_registry::{
     EdgeRegistry, FieldRegistry, KindRegistry, validation_engine::ValidationRulePattern,
 };
+use specforge_watch::IncrementalPipeline;
 use std::collections::HashMap;
 
-/// Shared LSP server state: open documents, in-memory graph, registries, and diagnostics.
+/// Shared LSP server state: open documents, the shared incremental pipeline
+/// (graph + per-file parses + diagnostics), registries, and the published
+/// per-URI diagnostics.
 pub struct LspState {
     documents: HashMap<String, DocumentBuffer>,
     diagnostics: HashMap<String, Vec<Diagnostic>>,
-    graph: Graph,
+    pipeline: IncrementalPipeline,
     kind_registry: KindRegistry,
     field_registry: FieldRegistry,
     edge_registry: EdgeRegistry,
@@ -29,7 +32,7 @@ impl LspState {
         Self {
             documents: HashMap::new(),
             diagnostics: HashMap::new(),
-            graph: Graph::new(),
+            pipeline: IncrementalPipeline::empty(),
             kind_registry: KindRegistry::new(),
             field_registry: FieldRegistry::new(),
             edge_registry: EdgeRegistry::new(),
@@ -97,11 +100,19 @@ impl LspState {
     }
 
     pub fn graph(&self) -> &Graph {
-        &self.graph
+        self.pipeline.graph()
     }
 
     pub fn graph_mut(&mut self) -> &mut Graph {
-        &mut self.graph
+        self.pipeline.graph_mut()
+    }
+
+    pub fn pipeline(&self) -> &IncrementalPipeline {
+        &self.pipeline
+    }
+
+    pub fn pipeline_mut(&mut self) -> &mut IncrementalPipeline {
+        &mut self.pipeline
     }
 
     pub fn kind_registry(&self) -> &KindRegistry {
@@ -140,7 +151,7 @@ impl LspState {
         self.shutdown = true;
         self.documents.clear();
         self.diagnostics.clear();
-        self.graph = Graph::new();
+        self.pipeline = IncrementalPipeline::empty();
         self.kind_registry = KindRegistry::new();
         self.field_registry = FieldRegistry::new();
         self.edge_registry = EdgeRegistry::new();

@@ -8,8 +8,7 @@ use tower_lsp::lsp_types::*;
 use tower_lsp::{Client, LanguageServer};
 
 use specforge_common::Sym;
-use specforge_graph::Node;
-use specforge_parser::{EntityId, EntityKind};
+use specforge_graph::{GraphConfig, build_graph_with_config};
 use specforge_registry::{
     EntityRefInfo, KindRegistry, detect_mistyped_references, detect_unknown_entity_fields,
     detect_unknown_entity_kinds, populate_registries,
@@ -17,8 +16,8 @@ use specforge_registry::{
 use specforge_wasm::protocol::{
     ProtocolHost, load_protocol_extension, protocol_extension_to_manifest,
 };
+use specforge_watch::{ImportDag, IncrementalPipeline};
 
-use crate::formatting::{EditorOptions, format_document, format_document_range};
 use crate::{
     LspState, classify_tokens, code_actions_missing_verify, complete_entity_ids,
     complete_entity_ids_filtered, complete_keywords, compute_rename_edits, cursor_context,
@@ -26,6 +25,8 @@ use crate::{
     hover_field_info, hover_info_with_registries, server_capabilities, server_info,
     source_span_to_lsp_range, workspace_symbols,
 };
+
+use crate::formatting::{EditorOptions, format_document, format_document_range};
 
 use crate::document::utf16_col_to_byte_offset;
 
@@ -60,62 +61,82 @@ impl Backend {
     /// Walk the workspace root for all `.spec` files and parse them into the graph.
     /// Returns the number of files indexed.
     async fn index_workspace(&self, root: &str) -> usize {
-        // Walking the tree, reading files and parsing them are blocking
-        // operations: run them on the blocking thread pool and take the
-        // state write lock only once to insert every parsed document.
-        let root = root.to_string();
-        let parsed = tokio::task::spawn_blocking(move || {
-            let mut files = Vec::new();
-            for entry in walkdir::WalkDir::new(&root)
-                .into_iter()
-                .filter_entry(|e| {
-                    // Skip known build/dependency directories to avoid slow traversals
-                    if e.file_type().is_dir()
-                        && let Some(name) = e.file_name().to_str()
-                    {
-                        return !Self::SKIP_DIRS.contains(&name);
-                    }
-                    true
-                })
-                .filter_map(|e| e.ok())
-            {
-                let path = entry.path();
-                if path.extension().is_some_and(|ext| ext == "spec")
-                    && let Ok(content) = std::fs::read_to_string(path)
+        let root_path = root.to_string();
+        let parsed: Vec<(String, specforge_parser::SpecFile)> =
+            tokio::task::spawn_blocking(move || {
+                let mut files = Vec::new();
+                for entry in walkdir::WalkDir::new(&root_path)
+                    .into_iter()
+                    .filter_entry(|e| {
+                        if e.file_type().is_dir()
+                            && let Some(name) = e.file_name().to_str()
+                        {
+                            return !Self::SKIP_DIRS.contains(&name);
+                        }
+                        true
+                    })
+                    .filter_map(|e| e.ok())
                 {
-                    let file_path = path.to_string_lossy().to_string();
-                    files.push(specforge_parser::parse(&content, &file_path));
+                    let path = entry.path();
+                    if path.extension().is_some_and(|ext| ext == "spec")
+                        && let Ok(content) = std::fs::read_to_string(path)
+                    {
+                        let file_path = path.to_string_lossy().to_string();
+                        files.push((
+                            file_path,
+                            specforge_parser::parse(&content, &path.to_string_lossy()),
+                        ));
+                    }
                 }
-            }
-            files
-        })
-        .await
-        .unwrap_or_default();
+                files
+            })
+            .await
+            .unwrap_or_default();
 
-        let mut state = self.state.write().await;
-        let graph = state.graph_mut();
-        for spec_file in &parsed {
-            for entity in &spec_file.entities {
-                graph.add_node(Node {
-                    id: EntityId { raw: entity.id.raw },
-                    kind: EntityKind {
-                        raw: entity.kind.raw,
-                    },
-                    title: entity.title.clone(),
-                    fields: entity.fields.clone(),
-                    source_span: entity.span.clone(),
-                });
-            }
+        // Build the import DAG so later edits invalidate importers.
+        let mut dag = ImportDag::new();
+        for (path, spec_file) in &parsed {
+            let imports: Vec<String> = spec_file
+                .imports
+                .iter()
+                .map(|i| i.path.to_string())
+                .collect();
+            dag.set_imports_resolved(path, imports);
         }
 
-        // Build edges across all indexed files so cross-file references
-        // work immediately (before any file is opened in the editor).
-        // Use the shared resolve_references (same as CLI) — this clears
-        // edges and rebuilds them from reference lists, discarding the
-        // diagnostics since we haven't opened any documents yet.
-        let _ = graph.resolve_references();
+        // Build the graph through the same build_graph_with_config the CLI
+        // uses, seeded from the loaded extension registries — so LSP
+        // diagnostics (duplicates, unresolved references, cycles) match.
+        let count = parsed.len();
+        let mut state = self.state.write().await;
+        let single_reference_fields: std::collections::HashSet<(String, String)> = state
+            .field_registry()
+            .iter()
+            .filter(|(_, _, entry)| {
+                entry.field_type == specforge_registry::ManifestFieldType::Reference
+            })
+            .map(|(kind, field, _)| (kind.to_string(), field.to_string()))
+            .collect();
+        let graph_config = GraphConfig {
+            installed_keywords: state.kind_registry().keywords().cloned().collect(),
+            known_provider_schemes: std::collections::HashSet::new(),
+            known_extension_keywords: HashMap::new(),
+            bidirectional_pairs: state.field_registry().bidirectional_pairs(),
+            suppressed_parse_error_ranges: Vec::new(),
+            single_reference_fields,
+        };
+        let spec_files: Vec<specforge_parser::SpecFile> =
+            parsed.iter().map(|(_, sf)| sf.clone()).collect();
+        let (graph, build_diagnostics) = build_graph_with_config(&spec_files, &graph_config);
+        *state.pipeline_mut() = IncrementalPipeline::from_cold_build(
+            parsed,
+            graph,
+            dag,
+            build_diagnostics,
+            graph_config,
+        );
 
-        parsed.len()
+        count
     }
 
     /// Load extensions via the protocol pipeline and populate registries.
@@ -192,93 +213,50 @@ impl Backend {
     /// Diagnostics are keyed by URI so callers can publish each file's diagnostics
     /// under the correct URI (not all under the triggering file).
     async fn parse_and_update(
-        &self,
+        state: &RwLock<LspState>,
         uri: &Url,
         content: &str,
     ) -> std::collections::HashMap<Url, Vec<Diagnostic>> {
         let file_path = uri_to_file_path(uri);
 
-        // Get the old tree for incremental parsing
-        let old_tree = {
-            let state = self.state.read().await;
-            state
-                .document(uri.as_str())
-                .and_then(|d| d.previous_tree().cloned())
+        // Drive the shared incremental pipeline (the same core `specforge
+        // watch` uses): the open buffer is authoritative for this file, while
+        // transitively invalidated files (importers) are re-read from disk.
+        // The pipeline retains tree-sitter trees and re-parses incrementally.
+        let result = {
+            let mut st = state.write().await;
+            st.pipeline_mut()
+                .update_open_file(&file_path, Some(content), |f: &str| {
+                    std::fs::read_to_string(f).ok()
+                })
         };
 
-        let (spec_file, new_tree) =
-            specforge_parser::parse_incremental(content, &file_path, old_tree.as_ref());
-
-        let mut state = self.state.write().await;
-
-        // Store the new tree for future incremental parses
-        if let Some(doc) = state.document_mut(uri.as_str()) {
-            doc.set_previous_tree(new_tree);
-        }
-
-        let graph = state.graph_mut();
-
-        // Remove old nodes from this file
-        let old_ids: Vec<Sym> = graph
-            .nodes_in_file(&file_path)
-            .iter()
-            .map(|n| n.id.raw)
-            .collect();
-        for id in old_ids {
-            graph.remove_node(id.as_str());
-        }
-
-        // Add new nodes from parse result
-        for entity in &spec_file.entities {
-            graph.add_node(Node {
-                id: EntityId { raw: entity.id.raw },
-                kind: EntityKind {
-                    raw: entity.kind.raw,
-                },
-                title: entity.title.clone(),
-                fields: entity.fields.clone(),
-                source_span: entity.span.clone(),
-            });
-        }
-
-        // Resolve references → edges using the shared function (same as CLI).
-        // This is the single source of truth for E003 unresolved-reference
-        // diagnostics, ensuring LSP and CLI report identical errors.
-        let ref_diags = graph.resolve_references();
+        let mut state = state.write().await;
 
         // Snapshot node data for registry-based diagnostics below.
         let all_nodes: Vec<(
             Sym,
             specforge_parser::FieldMap,
             specforge_common::SourceSpan,
-        )> = graph
-            .nodes()
-            .iter()
-            .map(|n| (n.id.raw, n.fields.clone(), n.source_span.clone()))
-            .collect();
+        )> = {
+            let graph = state.graph();
+            graph
+                .nodes()
+                .iter()
+                .map(|n| (n.id.raw, n.fields.clone(), n.source_span.clone()))
+                .collect()
+        };
 
         // Collect all diagnostics grouped by file URI
         let mut diags_by_file: std::collections::HashMap<Url, Vec<Diagnostic>> =
             std::collections::HashMap::new();
 
-        // Parse errors belong to the triggering file
-        for e in &spec_file.errors {
-            diags_by_file
-                .entry(uri.clone())
-                .or_default()
-                .push(Diagnostic {
-                    range: source_span_to_range(&e.span),
-                    severity: Some(DiagnosticSeverity::ERROR),
-                    code: Some(NumberOrString::String("E001".into())),
-                    source: Some("specforge".into()),
-                    message: e.message.clone(),
-                    ..Default::default()
-                });
-        }
-
-        // Resolver diagnostics: unresolved references, grouped by file
-        for rd in &ref_diags {
-            let diag_uri = rd
+        // Pipeline diagnostics — parse errors (E001), duplicate detection,
+        // unresolved references (E003), and W061 reference cycles — grouped
+        // by each diagnostic's own file. This is the same build_graph output
+        // the CLI reports, so LSP and CLI agree byte for byte.
+        for pd in &result.diagnostics {
+            let diag_uri = pd
                 .span
                 .as_ref()
                 .map(|s| file_path_to_uri(s.file.as_str()))
@@ -286,11 +264,8 @@ impl Backend {
             diags_by_file
                 .entry(diag_uri)
                 .or_default()
-                .push(diagnostic_to_lsp(rd));
+                .push(diagnostic_to_lsp(pd));
         }
-
-        // Release the mutable graph borrow so we can access state immutably below
-        let _ = graph;
 
         // Validator diagnostics, grouped by each diagnostic's own file
         let validator_diags = specforge_validator::validate(state.graph_mut());
@@ -781,7 +756,7 @@ impl LanguageServer for Backend {
                     .collect()
             };
             for (uri, content) in open_uris {
-                let diags_by_file = self.parse_and_update(&uri, &content).await;
+                let diags_by_file = Self::parse_and_update(&self.state, &uri, &content).await;
                 for (file_uri, diags) in diags_by_file {
                     self.client.publish_diagnostics(file_uri, diags, None).await;
                 }
@@ -804,7 +779,7 @@ impl LanguageServer for Backend {
 
         self.state.write().await.open_document(uri.as_str(), &text);
 
-        let diags_by_file = self.parse_and_update(&uri, &text).await;
+        let diags_by_file = Self::parse_and_update(&self.state, &uri, &text).await;
         for (file_uri, diags) in diags_by_file {
             self.client.publish_diagnostics(file_uri, diags, None).await;
         }
@@ -862,236 +837,9 @@ impl LanguageServer for Backend {
                     .map(|d| d.content().to_string())
             };
             if let Some(content) = content {
-                let file_path = uri_to_file_path(&uri_clone);
-                let old_tree = {
-                    let s = state.read().await;
-                    s.document(uri_clone.as_str())
-                        .and_then(|d| d.previous_tree().cloned())
-                };
-                let (spec_file, new_tree) =
-                    specforge_parser::parse_incremental(&content, &file_path, old_tree.as_ref());
-
-                let mut s = state.write().await;
-
-                // Store the new tree
-                if let Some(doc) = s.document_mut(uri_clone.as_str()) {
-                    doc.set_previous_tree(new_tree);
-                }
-
-                let graph = s.graph_mut();
-
-                // Remove old nodes from this file
-                let old_ids: Vec<Sym> = graph
-                    .nodes_in_file(&file_path)
-                    .iter()
-                    .map(|n| n.id.raw)
-                    .collect();
-                for id in old_ids {
-                    graph.remove_node(id.as_str());
-                }
-
-                // Add new nodes
-                for entity in &spec_file.entities {
-                    graph.add_node(Node {
-                        id: EntityId { raw: entity.id.raw },
-                        kind: EntityKind {
-                            raw: entity.kind.raw,
-                        },
-                        title: entity.title.clone(),
-                        fields: entity.fields.clone(),
-                        source_span: entity.span.clone(),
-                    });
-                }
-
-                // Resolve references → edges using the shared function (same as CLI)
-                let ref_diags = graph.resolve_references();
-
-                let all_nodes: Vec<(
-                    Sym,
-                    specforge_parser::FieldMap,
-                    specforge_common::SourceSpan,
-                )> = graph
-                    .nodes()
-                    .iter()
-                    .map(|n| (n.id.raw, n.fields.clone(), n.source_span.clone()))
-                    .collect();
-
-                let mut diags_by_file: std::collections::HashMap<Url, Vec<Diagnostic>> =
-                    std::collections::HashMap::new();
-
-                for e in &spec_file.errors {
-                    diags_by_file
-                        .entry(uri_clone.clone())
-                        .or_default()
-                        .push(Diagnostic {
-                            range: source_span_to_range(&e.span),
-                            severity: Some(DiagnosticSeverity::ERROR),
-                            code: Some(NumberOrString::String("E001".into())),
-                            source: Some("specforge".into()),
-                            message: e.message.clone(),
-                            ..Default::default()
-                        });
-                }
-
-                // Resolver diagnostics from shared function
-                for rd in &ref_diags {
-                    let diag_uri = rd
-                        .span
-                        .as_ref()
-                        .map(|sp| file_path_to_uri(sp.file.as_str()))
-                        .unwrap_or_else(|| uri_clone.clone());
-                    diags_by_file
-                        .entry(diag_uri)
-                        .or_default()
-                        .push(diagnostic_to_lsp(rd));
-                }
-
-                // Validator diagnostics
-                let validator_diags = specforge_validator::validate(s.graph_mut());
-                for vd in &validator_diags {
-                    let diag_uri = vd
-                        .span
-                        .as_ref()
-                        .map(|sp| file_path_to_uri(sp.file.as_str()))
-                        .unwrap_or_else(|| uri_clone.clone());
-                    diags_by_file
-                        .entry(diag_uri)
-                        .or_default()
-                        .push(diagnostic_to_lsp(vd));
-                }
-
-                // E024/W020/E022: Registry-based diagnostics
-                let kind_reg = s.kind_registry();
-                let field_reg = s.field_registry();
-                if !kind_reg.is_empty() {
-                    let graph = s.graph();
-
-                    // E024: unknown entity kinds
-                    let entity_kinds: Vec<(String, String, specforge_common::SourceSpan)> = graph
-                        .nodes()
-                        .iter()
-                        .map(|n| {
-                            (
-                                n.kind.raw.to_string(),
-                                n.id.raw.to_string(),
-                                n.source_span.clone(),
-                            )
-                        })
-                        .collect();
-                    for d in &detect_unknown_entity_kinds(&entity_kinds, kind_reg, None) {
-                        let diag_uri = d
-                            .span
-                            .as_ref()
-                            .map(|sp| file_path_to_uri(sp.file.as_str()))
-                            .unwrap_or_else(|| uri_clone.clone());
-                        diags_by_file
-                            .entry(diag_uri)
-                            .or_default()
-                            .push(diagnostic_to_lsp(d));
-                    }
-
-                    // W020: unknown entity fields
-                    if !field_reg.is_empty() {
-                        let entity_fields: Vec<(
-                            String,
-                            String,
-                            Vec<String>,
-                            specforge_common::SourceSpan,
-                        )> = graph
-                            .nodes()
-                            .iter()
-                            .map(|n| {
-                                let fnames: Vec<String> = n
-                                    .fields
-                                    .entries()
-                                    .iter()
-                                    .map(|e| e.key.to_string())
-                                    .collect();
-                                (
-                                    n.kind.raw.to_string(),
-                                    n.id.raw.to_string(),
-                                    fnames,
-                                    n.source_span.clone(),
-                                )
-                            })
-                            .collect();
-                        for d in &detect_unknown_entity_fields(&entity_fields, kind_reg, field_reg)
-                        {
-                            let diag_uri = d
-                                .span
-                                .as_ref()
-                                .map(|sp| file_path_to_uri(sp.file.as_str()))
-                                .unwrap_or_else(|| uri_clone.clone());
-                            diags_by_file
-                                .entry(diag_uri)
-                                .or_default()
-                                .push(diagnostic_to_lsp(d));
-                        }
-
-                        // E022: mistyped references
-                        let node_kind_index: std::collections::HashMap<String, String> = graph
-                            .nodes()
-                            .iter()
-                            .map(|n| (n.id.raw.to_string(), n.kind.raw.to_string()))
-                            .collect();
-                        let entity_refs: Vec<EntityRefInfo> = all_nodes
-                            .iter()
-                            .map(|(id, fields, span)| {
-                                let ref_fields: Vec<(String, Vec<String>)> = fields
-                                    .entries()
-                                    .iter()
-                                    .filter_map(|entry| {
-                                        if let specforge_parser::FieldValue::ReferenceList(refs) =
-                                            &entry.value
-                                        {
-                                            Some((entry.key.to_string(), refs.clone()))
-                                        } else {
-                                            None
-                                        }
-                                    })
-                                    .collect();
-                                let entity_kind = graph
-                                    .node(id.as_str())
-                                    .map(|n| n.kind.raw.to_string())
-                                    .unwrap_or_default();
-                                (entity_kind, id.to_string(), ref_fields, span.clone())
-                            })
-                            .collect();
-                        for d in &detect_mistyped_references(
-                            &entity_refs,
-                            field_reg,
-                            kind_reg,
-                            &node_kind_index,
-                        ) {
-                            let diag_uri = d
-                                .span
-                                .as_ref()
-                                .map(|sp| file_path_to_uri(sp.file.as_str()))
-                                .unwrap_or_else(|| uri_clone.clone());
-                            diags_by_file
-                                .entry(diag_uri)
-                                .or_default()
-                                .push(diagnostic_to_lsp(d));
-                        }
-                    }
-                }
-
-                diags_by_file.entry(uri_clone.clone()).or_default();
-
-                let known_files: Vec<Sym> = s
-                    .graph()
-                    .nodes()
-                    .iter()
-                    .map(|n| n.source_span.file)
-                    .collect();
-                for file in &known_files {
-                    let file_uri = file_path_to_uri(file.as_str());
-                    diags_by_file.entry(file_uri).or_default();
-                }
-
-                // Drop write lock before publishing
-                drop(s);
-
+                // Single shared recompute path (same as did_open): drives the
+                // incremental pipeline and assembles every diagnostic layer.
+                let diags_by_file = Self::parse_and_update(&state, &uri_clone, &content).await;
                 for (file_uri, diags) in diags_by_file {
                     client.publish_diagnostics(file_uri, diags, None).await;
                 }
@@ -1122,56 +870,58 @@ impl LanguageServer for Backend {
 
             match change.typ {
                 FileChangeType::DELETED => {
-                    // Remove all entities from this file and rebuild edges
+                    // Remove the file through the shared pipeline (nodes,
+                    // edges, cached parse, and import-DAG entries), then
+                    // republish diagnostics for everything affected.
                     let mut state = self.state.write().await;
-                    let graph = state.graph_mut();
-                    let old_ids: Vec<Sym> = graph
-                        .nodes_in_file(&file_path)
-                        .iter()
-                        .map(|n| n.id.raw)
-                        .collect();
-                    for id in &old_ids {
-                        graph.remove_node(id.as_str());
-                    }
-                    // Resolve references using the shared function (same as CLI)
-                    let ref_diags = graph.resolve_references();
+                    let result =
+                        state
+                            .pipeline_mut()
+                            .update_open_file(&file_path, None, |f: &str| {
+                                std::fs::read_to_string(f).ok()
+                            });
 
-                    // Run validator and publish updated diagnostics for all affected files
-                    let validator_diags = specforge_validator::validate(graph);
-                    let known_files: Vec<Sym> =
-                        graph.nodes().iter().map(|n| n.source_span.file).collect();
-
-                    // Publish empty diagnostics for the deleted file (clear stale squiggles)
-                    self.client
-                        .publish_diagnostics(uri.clone(), vec![], None)
-                        .await;
-
-                    // Publish updated diagnostics for remaining files
                     let mut diags_by_file: std::collections::HashMap<Url, Vec<Diagnostic>> =
                         std::collections::HashMap::new();
-                    for rd in &ref_diags {
-                        let diag_uri = rd
-                            .span
-                            .as_ref()
-                            .map(|s| file_path_to_uri(s.file.as_str()))
-                            .unwrap_or_else(|| uri.clone());
-                        diags_by_file
-                            .entry(diag_uri)
-                            .or_default()
-                            .push(diagnostic_to_lsp(rd));
+
+                    // Publish empty diagnostics for the deleted file (clears stale squiggles)
+                    diags_by_file.insert(uri.clone(), vec![]);
+
+                    // Pipeline diagnostics for surviving files
+                    for file in &result.changed_diagnostic_files {
+                        let file_uri = file_path_to_uri(file);
+                        diags_by_file.insert(
+                            file_uri,
+                            state
+                                .pipeline()
+                                .file_diagnostics(file)
+                                .iter()
+                                .map(diagnostic_to_lsp)
+                                .collect(),
+                        );
                     }
+
+                    // Validator diagnostics over the post-deletion graph
+                    let validator_diags = specforge_validator::validate(state.graph_mut());
                     for vd in &validator_diags {
                         let diag_uri = vd
                             .span
                             .as_ref()
-                            .map(|s| file_path_to_uri(s.file.as_str()))
+                            .map(|sp| file_path_to_uri(sp.file.as_str()))
                             .unwrap_or_else(|| uri.clone());
                         diags_by_file
                             .entry(diag_uri)
                             .or_default()
                             .push(diagnostic_to_lsp(vd));
                     }
+
                     // Ensure all known files get an entry (clears stale diagnostics)
+                    let known_files: Vec<Sym> = state
+                        .graph()
+                        .nodes()
+                        .iter()
+                        .map(|n| n.source_span.file)
+                        .collect();
                     for file in &known_files {
                         diags_by_file
                             .entry(file_path_to_uri(file.as_str()))
@@ -1185,7 +935,8 @@ impl LanguageServer for Backend {
                 _ => {
                     // Created or Changed — re-read from disk and update graph
                     if let Ok(content) = std::fs::read_to_string(&file_path) {
-                        let diags_by_file = self.parse_and_update(uri, &content).await;
+                        let diags_by_file =
+                            Self::parse_and_update(&self.state, uri, &content).await;
                         for (file_uri, diags) in diags_by_file {
                             self.client.publish_diagnostics(file_uri, diags, None).await;
                         }
@@ -1346,7 +1097,6 @@ impl LanguageServer for Backend {
             Some(doc) => doc.content().to_string(),
             None => return Ok(None),
         };
-
         let word = match word_at_position(&content, pos.line as usize, pos.character as usize) {
             Some(w) => w,
             None => return Ok(None),
