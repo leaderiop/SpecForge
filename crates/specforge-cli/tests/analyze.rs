@@ -119,3 +119,51 @@ fn analyze_single_pass_selection() {
     assert_eq!(passes.len(), 1, "only the requested pass runs");
     assert_eq!(passes[0]["pass"], "coverage");
 }
+
+#[test]
+fn analyze_enforcement_maps_invariant_references() {
+    // invariant referenced by a behavior via `invariants [...]` -> enforced;
+    // an unreferenced invariant is an orphan guarantee (A011 warning).
+    let spec = r#"
+invariant held "Held" {
+  guarantee "g"
+  risk low
+  verify property "holds"
+}
+
+invariant orphan "Orphan" {
+  guarantee "nothing points here"
+  risk low
+  verify property "holds too"
+}
+
+behavior keeper "Keeper" {
+  title "Keeper"
+  invariants [held]
+  verify unit "keeps held"
+}
+"#;
+    let dir = project(spec.trim_start());
+    let (doc, code) = json_body(&dir, &[]);
+    assert_eq!(code, 0, "warnings must not fail: {doc}");
+
+    let coverage = &doc["passes"][0];
+    assert_eq!(coverage["summary"]["invariant_enforced"], 1);
+    assert_eq!(coverage["summary"]["invariant_orphans"], 1);
+
+    let a011: Vec<&serde_json::Value> = coverage["findings"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter(|f| f["code"] == "A011")
+        .collect();
+    assert_eq!(a011.len(), 1, "exactly one orphan: {a011:?}");
+    assert!(
+        a011[0]["message"].as_str().unwrap().contains("orphan"),
+        "A011 message: {a011:?}"
+    );
+
+    // --strict promotes the orphan warning to a failure.
+    let (_, code) = json_body(&dir, &["--strict"]);
+    assert_eq!(code, 1, "--strict must fail on the orphan warning");
+}

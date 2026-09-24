@@ -228,6 +228,10 @@ fn lookup(code: &str) -> Option<(&'static str, &'static str)> {
             "Entity without contract obligations",
             "The entity's kind registers contract reference fields (e.g. requires/ensures targeting invariants or properties), but this entity uses none of them. Consider declaring contract references. Reported by `specforge analyze contracts`.",
         ),
+        "A011" => (
+            "Orphan guarantee: nothing references this invariant",
+            "No behavior, contract field (requires/ensures/maintains), or invariants list references this invariant, so nothing upholds it. Reference it from the behaviors that maintain it, or remove the invariant. Reported by `specforge analyze coverage`.",
+        ),
         "I999" => (
             "Diagnostic output truncated",
             "More than 100 diagnostics were generated. Only the first 100 are shown.\n\

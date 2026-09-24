@@ -64,11 +64,24 @@ impl AnalyzePass for CoveragePass {
             .collect();
 
         let mut findings = Vec::new();
+        let mut invariant_orphans = 0usize;
         let mut obligation_kinds: HashMap<String, usize> = HashMap::new();
         let mut testable_total = 0usize;
         let mut testable_verified = 0usize;
         // risk -> (total invariants, invariants without any obligation)
         let mut invariants: HashMap<String, (usize, usize)> = HashMap::new();
+        // Incoming edge count per invariant id: the enforcement mapping.
+        // Anything referencing an invariant (behaviors' `invariants [...]`,
+        // requires/ensures/maintains contract fields) creates an edge.
+        let mut invariant_refs: HashMap<&str, usize> = HashMap::new();
+
+        for edge in ctx.graph.edges() {
+            if let Some(node) = ctx.graph.node(edge.target.as_str())
+                && node.kind.raw.as_str() == "invariant"
+            {
+                *invariant_refs.entry(edge.target.as_str()).or_default() += 1;
+            }
+        }
 
         for node in ctx.graph.nodes() {
             let stmts = verify_statements(node);
@@ -100,6 +113,27 @@ impl AnalyzePass for CoveragePass {
                 let risk = risk_of(node);
                 let entry = invariants.entry(risk.clone()).or_insert((0, 0));
                 entry.0 += 1;
+                if invariant_refs
+                    .get(node.id.raw.as_str())
+                    .copied()
+                    .unwrap_or(0)
+                    == 0
+                {
+                    invariant_orphans += 1;
+                    findings.push(
+                        Diagnostic::warning(
+                            "A011",
+                            format!(
+                                "invariant '{}' is an orphan guarantee: nothing references it",
+                                node.id.raw
+                            ),
+                        )
+                        .with_span(node.source_span.clone())
+                        .with_suggestion(
+                            "reference it from a behavior (invariants list, requires, ensures, or maintains) or drop the invariant",
+                        ),
+                    );
+                }
                 if stmts.is_empty() {
                     entry.1 += 1;
                     findings.push(
@@ -125,11 +159,14 @@ impl AnalyzePass for CoveragePass {
         }
 
         let obligations: usize = obligation_kinds.values().sum();
+        let invariant_total: usize = invariants.values().map(|(t, _)| t).sum();
         let summary = serde_json::json!({
             "testable_total": testable_total,
             "testable_verified": testable_verified,
             "obligations": obligations,
             "obligation_kinds": obligation_kinds,
+            "invariant_enforced": invariant_total - invariant_orphans,
+            "invariant_orphans": invariant_orphans,
             "invariants": invariants
                 .iter()
                 .map(|(risk, (total, unverified))| serde_json::json!({
