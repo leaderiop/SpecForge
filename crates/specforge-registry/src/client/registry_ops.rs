@@ -8,9 +8,7 @@ use specforge_common::{Diagnostic, Severity};
 use super::registry_client::{
     RegistryClient, RegistryError, RegistryResponse, RegistrySearchResult,
 };
-use super::registry_config::{
-    RegistryConfig, RegistryCredential, TrustLevel, find_registry_for_specifier,
-};
+use super::registry_config::{RegistryConfig, RegistryCredential, find_registry_for_specifier};
 use crate::ManifestV2;
 
 /// Compute the hex-encoded SHA256 digest of the given data.
@@ -183,24 +181,6 @@ pub fn verify_registry_integrity(data: &[u8], expected_sha256: &str) -> Result<(
                     .to_string(),
             ),
         })
-    }
-}
-
-/// Assign a trust level deterministically based on the source string.
-///
-/// - Paths starting with "/" or "./" are `Local`.
-/// - Sources starting with "git+" are `Git`.
-/// - Sources containing "verified" are `Verified`.
-/// - Everything else is `Community`.
-pub fn assign_trust_level(source: &str) -> TrustLevel {
-    if source.starts_with('/') || source.starts_with("./") {
-        TrustLevel::Local
-    } else if source.starts_with("git+") {
-        TrustLevel::Git
-    } else if source.contains("verified") {
-        TrustLevel::Verified
-    } else {
-        TrustLevel::Community
     }
 }
 

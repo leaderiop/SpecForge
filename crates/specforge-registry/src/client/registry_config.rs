@@ -25,14 +25,6 @@ pub enum AuthMethod {
     Bearer(String),
 }
 
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord)]
-pub enum TrustLevel {
-    Local,
-    Git,
-    Community,
-    Verified,
-}
-
 /// Parses the `"registries"` array from a JSON config string.
 ///
 /// Returns a tuple of (parsed registries, diagnostics).

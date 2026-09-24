@@ -58,6 +58,20 @@ All publisher key state lives in `~/.specforge/known-keys.json`:
 `specforge.lock` records the key id beside the wasm hash for every signed
 registry install, so pins are auditable per project.
 
+## Namespace ownership
+
+- **First claim wins**: the first publish into a scope (`@acme/...`) registers
+  that scope to the publishing token's publisher identity.
+- **Only the owner publishes** into a claimed scope; anyone else gets
+  `SCOPE_OWNED`. Tokens scoped by the registry admin (`@web`-style) are
+  additionally limited to their own scope and cannot claim others.
+- **Publisher identity**: the registry assigns an account id
+  (`acct_...`) at first claim; `publisher` metadata is that id — never a
+  self-chosen label. There are no Verified/Community badges; the signature
+  key id is the trust signal.
+- Scope reassignment (recovery after losing a token) is a registry-admin
+  operation in v1.
+
 ## Residual risks (stated plainly)
 
 - **Registry-controlled version lists**: `specforge update` resolves "latest"

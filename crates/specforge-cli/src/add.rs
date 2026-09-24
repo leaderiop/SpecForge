@@ -185,11 +185,16 @@ fn install_from_registry(
                         "version": result.version,
                         "sha256": result.wasm_hash,
                         "cached": result.cached,
+                        "key_id": trust.key_id,
                     });
                     println!("{}", serde_json::to_string_pretty(&output).unwrap());
                 }
                 _ => {
                     println!("installed {} v{}", result.name, result.version);
+                    match &trust.key_id {
+                        Some(key_id) => println!("  signed by key: {}", key_id),
+                        None => println!("  unsigned"),
+                    }
                 }
             }
             0

@@ -82,7 +82,14 @@ impl Database {
                 admin INTEGER NOT NULL DEFAULT 0
             );
 
-            CREATE INDEX IF NOT EXISTS idx_tokens_hash ON tokens(token_hash);",
+            CREATE INDEX IF NOT EXISTS idx_tokens_hash ON tokens(token_hash);
+
+            CREATE TABLE IF NOT EXISTS scopes (
+                scope TEXT PRIMARY KEY,
+                owner_token_hash TEXT NOT NULL,
+                account_id TEXT NOT NULL,
+                claimed_at TEXT NOT NULL DEFAULT (datetime('now'))
+            );",
         )
         .map_err(|e| format!("migration failed: {}", e))?;
 
@@ -218,6 +225,36 @@ impl Database {
         .unwrap()
         .filter_map(|r| r.ok())
         .collect()
+    }
+
+    /// Claim a namespace scope on first publish. Returns `true` when this
+    /// call claimed it, `false` when it was already owned (by anyone).
+    pub fn claim_scope(
+        &self,
+        scope: &str,
+        owner_token_hash: &str,
+        account_id: &str,
+    ) -> Result<bool, String> {
+        let conn = self.conn.lock().unwrap();
+        let rows = conn
+            .execute(
+                "INSERT OR IGNORE INTO scopes (scope, owner_token_hash, account_id) VALUES (?1, ?2, ?3)",
+                params![scope, owner_token_hash, account_id],
+            )
+            .map_err(|e| format!("failed to claim scope: {}", e))?;
+        Ok(rows > 0)
+    }
+
+    /// The owner (token hash) and registry-assigned account id of a claimed
+    /// scope, if it has been claimed.
+    pub fn get_scope_owner(&self, scope: &str) -> Option<(String, String)> {
+        let conn = self.conn.lock().unwrap();
+        conn.query_row(
+            "SELECT owner_token_hash, account_id FROM scopes WHERE scope = ?1",
+            params![scope],
+            |row| Ok((row.get(0)?, row.get(1)?)),
+        )
+        .ok()
     }
 
     pub fn yank_version(&self, name: &str, version: &str) -> bool {

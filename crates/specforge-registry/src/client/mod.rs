@@ -18,11 +18,11 @@ pub use registry_client::{
     RegistryClient, RegistryError, RegistryResponse, RegistrySearchResult, RetryPolicy,
 };
 pub use registry_config::{
-    AuthMethod, RegistryConfig, RegistryCredential, TrustLevel, find_registry_for_specifier,
+    AuthMethod, RegistryConfig, RegistryCredential, find_registry_for_specifier,
     parse_registries_from_config,
 };
 pub use registry_ops::{
-    TrustCheck, assign_trust_level, publish_to_registry, resolve_from_registry, search_registries,
+    TrustCheck, publish_to_registry, resolve_from_registry, search_registries,
     verify_package_signature, verify_registry_integrity,
 };
 pub use resolver::resolve_version;

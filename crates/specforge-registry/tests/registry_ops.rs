@@ -2,12 +2,11 @@ use parking_lot::Mutex;
 
 use specforge_common::Severity;
 use specforge_registry::registry_ops::{
-    assign_trust_level, publish_to_registry, resolve_from_registry, search_registries,
-    verify_registry_integrity,
+    publish_to_registry, resolve_from_registry, search_registries, verify_registry_integrity,
 };
 use specforge_registry::{
     AuthMethod, ManifestV2, RegistryClient, RegistryConfig, RegistryCredential, RegistryError,
-    RegistryResponse, RegistrySearchResult, SigningKey, TrustLevel,
+    RegistryResponse, RegistrySearchResult, SigningKey,
 };
 
 // ---------------------------------------------------------------------------
@@ -492,40 +491,6 @@ fn verify_integrity_mismatched_sha256_is_error() {
     assert_eq!(err.code, "R-OPS-002");
     assert!(err.message.contains("integrity check failed"));
     assert!(err.message.contains(wrong_hash));
-}
-
-// ---------------------------------------------------------------------------
-// Tests: assign_trust_level
-// ---------------------------------------------------------------------------
-
-// B:support_private_registries — verify unit "trust level assigned deterministically"
-#[test]
-fn trust_level_assigned_deterministically() {
-    // Local paths
-    assert_eq!(assign_trust_level("/home/user/ext.wasm"), TrustLevel::Local);
-    assert_eq!(assign_trust_level("./extensions/my-ext"), TrustLevel::Local);
-
-    // Git sources
-    assert_eq!(
-        assign_trust_level("git+https://github.com/org/ext.git"),
-        TrustLevel::Git
-    );
-
-    // Verified sources
-    assert_eq!(
-        assign_trust_level("https://verified.specforge.dev/ext"),
-        TrustLevel::Verified
-    );
-
-    // Community (default)
-    assert_eq!(
-        assign_trust_level("https://registry.specforge.dev/@community/ext"),
-        TrustLevel::Community
-    );
-
-    // Deterministic: same input always gives same output
-    let source = "git+https://github.com/org/ext.git";
-    assert_eq!(assign_trust_level(source), assign_trust_level(source));
 }
 
 // B:support_private_registries — verify unit "error messages don't leak auth details"

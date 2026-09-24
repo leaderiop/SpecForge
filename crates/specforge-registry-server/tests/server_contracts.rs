@@ -377,3 +377,124 @@ async fn admin_api_requires_admin_token_and_manages_lifecycle() {
         .unwrap();
     assert_eq!(verify.status(), StatusCode::UNAUTHORIZED);
 }
+
+// ---------------------------------------------------------------------------
+// Namespace ownership (T6)
+// ---------------------------------------------------------------------------
+
+mod ownership {
+    use super::*;
+
+    fn signed_for(name: &str, version: &str) -> axum::body::Body {
+        let manifest = format!(
+            r#"{{"name":"{name}","version":"{version}","manifestVersion":2,"wasmPath":"ext.wasm"}}"#
+        );
+        multipart_body(
+            &manifest,
+            WASM,
+            Some(r#"{"sig":"aa","keyId":"bb","pubkey":"cc","signedAt":"now"}"#),
+        )
+    }
+
+    #[tokio::test]
+    async fn first_publish_claims_scope_and_blocks_other_tokens() {
+        let dir = tempfile::tempdir().unwrap();
+        let state = app_state(dir.path(), 10_000);
+        let router = app_clone(&state);
+
+        let token_a = auth::create_token(&state.database, None, "pub-a", Some(90), false);
+        let token_b = auth::create_token(&state.database, None, "pub-b", Some(90), false);
+
+        // Publisher A claims @acme with @acme/utils.
+        let response = router
+            .clone()
+            .oneshot(put_request(
+                &token_a,
+                "@acme%2Futils",
+                "1.0.0",
+                signed_for("@acme/utils", "1.0.0"),
+            ))
+            .await
+            .unwrap();
+        assert_eq!(response.status(), StatusCode::CREATED);
+
+        // Publisher B is locked out of @acme — even for a different name.
+        let response = router
+            .clone()
+            .oneshot(put_request(
+                &token_b,
+                "@acme%2Fother",
+                "1.0.0",
+                signed_for("@acme/other", "1.0.0"),
+            ))
+            .await
+            .unwrap();
+        assert_eq!(response.status(), StatusCode::FORBIDDEN);
+        let body: serde_json::Value = serde_json::from_slice(
+            &axum::body::to_bytes(response.into_body(), 1_000_000)
+                .await
+                .unwrap(),
+        )
+        .unwrap();
+        assert_eq!(body["error"]["code"], "SCOPE_OWNED");
+
+        // Publisher A keeps publishing into @acme.
+        let response = router
+            .clone()
+            .oneshot(put_request(
+                &token_a,
+                "@acme%2Fother",
+                "1.0.0",
+                signed_for("@acme/other", "1.0.0"),
+            ))
+            .await
+            .unwrap();
+        assert_eq!(response.status(), StatusCode::CREATED);
+
+        // Metadata carries the registry-assigned publisher account id.
+        let response = router
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method("GET")
+                    .uri("/v1/packages/%40acme%2Futils/1.0.0")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        let body: serde_json::Value = serde_json::from_slice(
+            &axum::body::to_bytes(response.into_body(), 1_000_000)
+                .await
+                .unwrap(),
+        )
+        .unwrap();
+        let publisher = body["publisher"].as_str().unwrap();
+        assert!(
+            publisher.starts_with("acct_"),
+            "publisher was {}",
+            publisher
+        );
+    }
+
+    #[tokio::test]
+    async fn scoped_token_cannot_publish_outside_its_scope() {
+        let dir = tempfile::tempdir().unwrap();
+        let state = app_state(dir.path(), 10_000);
+        let router = app_clone(&state);
+
+        // @web-scoped token.
+        let scoped = auth::create_token(&state.database, Some("@web"), "web-pub", Some(90), false);
+
+        let response = router
+            .oneshot(put_request(
+                &scoped,
+                "@other%2Ftool",
+                "1.0.0",
+                signed_for("@other/tool", "1.0.0"),
+            ))
+            .await
+            .unwrap();
+        assert_eq!(response.status(), StatusCode::FORBIDDEN);
+    }
+}

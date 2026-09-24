@@ -377,6 +377,56 @@ async fn publish_package(
         }
     }
 
+    // --- Namespace ownership (spec #21, T6): first claim wins ---
+    let scope = package_scope(&name);
+    let account_id = account_id_for(&token_record.token_hash);
+    let claimed_now =
+        match state
+            .database
+            .claim_scope(&scope, &token_record.token_hash, &account_id)
+        {
+            Ok(claimed) => claimed,
+            Err(e) => {
+                return (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    Json(
+                        serde_json::to_value(ErrorResponse {
+                            error: ErrorBody {
+                                code: "STORAGE_ERROR".to_string(),
+                                message: e,
+                            },
+                        })
+                        .unwrap(),
+                    ),
+                );
+            }
+        };
+    if !claimed_now
+        && let Some((owner_hash, owner_account)) = state.database.get_scope_owner(&scope)
+        && owner_hash != token_record.token_hash
+    {
+        return (
+            StatusCode::FORBIDDEN,
+            Json(
+                serde_json::to_value(ErrorResponse {
+                    error: ErrorBody {
+                        code: "SCOPE_OWNED".to_string(),
+                        message: format!(
+                            "scope '{}' is owned by publisher '{}' — only the owning publisher may publish into it",
+                            scope, owner_account
+                        ),
+                    },
+                })
+                .unwrap(),
+            ),
+        );
+    }
+    let publisher_account = state
+        .database
+        .get_scope_owner(&scope)
+        .map(|(_, account)| account)
+        .unwrap_or_else(|| account_id.clone());
+
     // --- Publish validation contract (spec #21, T3) ---
     // 1. Signed packages only: the signature field must be present.
     let signature_json = match signature_json {
@@ -535,7 +585,7 @@ async fn publish_package(
         size_bytes: wasm_data.len() as u64,
         description,
         keywords,
-        publisher: token_record.label.clone(),
+        publisher: publisher_account,
         published_at: chrono::Utc::now().to_rfc3339(),
         signature: signature_json,
         key_id: key_id.clone(),
@@ -857,6 +907,26 @@ async fn admin_revoke_token(
         StatusCode::OK,
         Json(serde_json::json!({ "revoked": revoked })),
     )
+}
+
+/// The namespace a package name publishes into: `@scope/name` claims
+/// `@scope`; unscoped names claim their full name.
+fn package_scope(name: &str) -> String {
+    if let Some(rest) = name.strip_prefix('@') {
+        match rest.split_once('/') {
+            Some((scope, _)) => format!("@{}", scope),
+            None => name.to_string(),
+        }
+    } else {
+        name.to_string()
+    }
+}
+
+/// Registry-assigned publisher identity: deterministic per issuing token.
+fn account_id_for(token_hash: &str) -> String {
+    let mut hasher = Sha256::new();
+    hasher.update(token_hash.as_bytes());
+    format!("acct_{}", &hex::encode(hasher.finalize())[..8])
 }
 
 fn decode_name(encoded: &str) -> String {
