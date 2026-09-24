@@ -19,10 +19,7 @@ static DESCRIBE_VALIDATION_RULES: &[u8] = include_bytes!("describe_validation_ru
 static DESCRIBE_SURFACES: &[u8] = include_bytes!("describe_surfaces.json");
 static DESCRIBE_FEATURE_FLAGS: &[u8] = include_bytes!("describe_feature_flags.json");
 
-#[specforge_extension_sdk::extension(
-    name = "@specforge/formal",
-    version = "1.0.0",
-)]
+#[specforge_extension_sdk::extension(name = "@specforge/formal", version = "1.0.0")]
 struct Formal;
 
 impl Contributions for Formal {
@@ -53,9 +50,8 @@ impl Contributions for Formal {
             ("surfaces", DESCRIBE_SURFACES),
             ("feature_flags", DESCRIBE_FEATURE_FLAGS),
         ] {
-            let envelope: serde_json::Value = serde_json::from_slice(bytes).unwrap_or_else(|e| {
-                panic!("formal describe '{category}' is not valid JSON: {e}")
-            });
+            let envelope: serde_json::Value = serde_json::from_slice(bytes)
+                .unwrap_or_else(|e| panic!("formal describe '{category}' is not valid JSON: {e}"));
             c.raw_category(category, envelope["items"].clone());
         }
     }
@@ -108,11 +104,8 @@ const MAX_LAYERING_DEPTH: usize = 4;
 fn pass_layering_verify(input: &PassInput) -> Vec<PassDiagnostic> {
     use std::collections::HashMap;
 
-    let by_id: HashMap<&str, &PassEntity> = input
-        .entities
-        .iter()
-        .map(|e| (e.id.as_str(), e))
-        .collect();
+    let by_id: HashMap<&str, &PassEntity> =
+        input.entities.iter().map(|e| (e.id.as_str(), e)).collect();
     // refinement -> entities it refines (via refinement-labeled edges)
     let mut refines: HashMap<&str, Vec<&str>> = HashMap::new();
     for edge in &input.edges {
@@ -219,11 +212,8 @@ fn pass_layering_verify(input: &PassInput) -> Vec<PassDiagnostic> {
 fn pass_event_graph_analyze(input: &PassInput) -> Vec<PassDiagnostic> {
     use std::collections::HashMap;
 
-    let by_id: HashMap<&str, &PassEntity> = input
-        .entities
-        .iter()
-        .map(|e| (e.id.as_str(), e))
-        .collect();
+    let by_id: HashMap<&str, &PassEntity> =
+        input.entities.iter().map(|e| (e.id.as_str(), e)).collect();
     let mut produced: HashMap<&str, usize> = HashMap::new();
     let mut consumed: HashMap<&str, usize> = HashMap::new();
     for edge in &input.edges {
@@ -264,7 +254,9 @@ fn pass_event_graph_analyze(input: &PassInput) -> Vec<PassDiagnostic> {
                 end_line: entity.span.as_ref().map(|s| s.end_line).unwrap_or(0),
                 end_col: entity.span.as_ref().map(|s| s.end_col).unwrap_or(0),
             })
-            .with_suggestion("add a behavior that consumes the event, or drop the produces reference"),
+            .with_suggestion(
+                "add a behavior that consumes the event, or drop the produces reference",
+            ),
         );
     }
     findings
@@ -336,7 +328,12 @@ mod pass_tests {
         }
         let input = PassInput { entities, edges };
         let findings = pass_layering_verify(&input);
-        assert_eq!(codes(&findings), vec!["W031"], "depth-5 chain: {:?}", findings);
+        assert_eq!(
+            codes(&findings),
+            vec!["W031"],
+            "depth-5 chain: {:?}",
+            findings
+        );
         assert!(matches!(findings[0].severity, PassSeverity::Warning));
     }
 
@@ -367,6 +364,9 @@ mod pass_tests {
         let findings = pass_event_graph_analyze(&input);
         assert_eq!(codes(&findings), vec!["W029"]);
         assert!(findings[0].message.contains("tick"));
-        assert!(!findings[0].message.contains("done"), "consumed event spared");
+        assert!(
+            !findings[0].message.contains("done"),
+            "consumed event spared"
+        );
     }
 }
