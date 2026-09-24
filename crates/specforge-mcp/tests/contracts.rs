@@ -792,3 +792,19 @@ fn contract_render() {
     let parsed: Value = serde_json::from_str(text).unwrap();
     assert!(parsed.get("format").is_some());
 }
+
+#[test]
+#[specforge_test(
+    behavior = "provide_mcp_analyze_tool",
+    verify = "requires/ensures consistency for MCP analyze tool"
+)]
+fn contract_analyze() {
+    let mut server = test_server();
+    let resp = call_tool(&mut server, "specforge.analyze", json!({}));
+    let text = resp["result"]["content"][0]["text"].as_str().unwrap();
+    let parsed: Value = serde_json::from_str(text).unwrap();
+    assert!(parsed["ok"].is_boolean(), "analyze must return ok flag");
+    let passes = parsed["passes"].as_array().unwrap();
+    assert!(!passes.is_empty(), "all-pass run must include passes");
+    assert!(passes.iter().any(|p| p["pass"] == "coverage"));
+}

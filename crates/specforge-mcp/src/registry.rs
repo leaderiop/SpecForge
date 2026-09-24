@@ -155,6 +155,20 @@ fn default_tools() -> Vec<McpToolDescriptor> {
             category: Some("core".into()),
         },
         McpToolDescriptor {
+            name: "specforge.analyze".into(),
+            description: "Run analysis passes (coverage: proof obligations and discharge funnel; contracts: clause symmetry) over the compiled project".into(),
+            input_schema: json!({
+                "type": "object",
+                "properties": {
+                    "pass": { "type": "string", "description": "Analysis pass to run (all, coverage, contracts)" },
+                    "strict": { "type": "boolean", "description": "Promote warnings to errors" },
+                    "test_results": { "type": "string", "description": "Path to a specforge-report.json for proof-level verdicts" },
+                    "path": { "type": "string", "description": "Project root path (uses initialized root if omitted)" }
+                }
+            }),
+            category: Some("core".into()),
+        },
+        McpToolDescriptor {
             name: "specforge.export".into(),
             description: "Export the graph in various formats".into(),
             input_schema: json!({

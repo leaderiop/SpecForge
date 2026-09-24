@@ -1,3 +1,4 @@
+pub mod analyze;
 mod brief;
 mod budget;
 pub mod builtins;

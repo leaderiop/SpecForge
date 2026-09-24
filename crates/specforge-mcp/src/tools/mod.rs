@@ -1,3 +1,4 @@
+mod analyze;
 mod coverage;
 mod export;
 mod find_definition;
@@ -70,6 +71,7 @@ pub fn handle_tool_call(state: &mut McpState, params: Value, id: Option<Value>) 
         "specforge.schema" => schema::call(state, arguments, id),
         "specforge.model" => model::call(state, arguments, id),
         "specforge.coverage" => coverage::call(state, arguments, id),
+        "specforge.analyze" => analyze::call(state, arguments, id),
         "specforge.stats" => stats::call(state, arguments, id),
         // Navigation tools
         "specforge.list" => list::call(state, arguments, id),
