@@ -8,6 +8,7 @@
 //! SDK from the extension metadata — contribution flags included.
 
 use specforge_extension_sdk::prelude::*;
+use specforge_extension_sdk::{PassDiagnostic, PassEntity};
 
 static DESCRIBE_ENTITIES: &[u8] = include_bytes!("describe_entities.json");
 static DESCRIBE_EDGES: &[u8] = include_bytes!("describe_edges.json");
@@ -57,18 +58,32 @@ impl Contributions for Formal {
 // ── Extension-owned compiler passes ────────────────────────────────────────
 // Wire ABI (v1): `__pass_<name>` receives { "entities": [...] } (the host's
 // ValidationEntity shape) and returns an array of host Diagnostic objects.
+// The SDK's #[compiler_pass] attribute generates the export.
 
-#[derive(serde::Deserialize)]
-struct PassInput {
-    entities: Vec<PassEntity>,
-}
-
-#[derive(serde::Deserialize)]
-struct PassEntity {
-    id: String,
-    kind: String,
-    #[serde(default)]
-    fields: std::collections::BTreeMap<String, String>,
+/// condition_check (Meyer's Design by Contract, RES-25 part I): a behavior
+/// that obligates its callers (requires) must provide a benefit (ensures).
+#[specforge_extension_sdk::compiler_pass(name = "condition_check", after = "resolve")]
+fn pass_condition_check(entities: &[PassEntity]) -> Vec<PassDiagnostic> {
+    let mut findings = Vec::new();
+    for entity in entities {
+        if entity.kind != "behavior" {
+            continue;
+        }
+        let has_requires = non_empty(entity, "requires");
+        let has_ensures = non_empty(entity, "ensures");
+        if has_requires && !has_ensures {
+            findings.push(
+                PassDiagnostic::warning(
+                    "W096",
+                    format!("behavior '{}' declares requires but no ensures", entity.id),
+                )
+                .with_suggestion(
+                    "add an ensures clause: a caller's obligation must buy a guarantee",
+                ),
+            );
+        }
+    }
+    findings
 }
 
 fn non_empty(entity: &PassEntity, field: &str) -> bool {
@@ -76,29 +91,4 @@ fn non_empty(entity: &PassEntity, field: &str) -> bool {
         .fields
         .get(field)
         .is_some_and(|v| !v.trim().is_empty())
-}
-
-/// condition_check (Meyer's Design by Contract, RES-25 part I): a behavior
-/// that obligates its callers (requires) must provide a benefit (ensures).
-#[::extism_pdk::plugin_fn]
-pub fn __pass_condition_check(input: Vec<u8>) -> ::extism_pdk::FnResult<Vec<u8>> {
-    let request: PassInput = serde_json::from_slice(&input)?;
-    let mut findings = Vec::new();
-    for entity in &request.entities {
-        if entity.kind != "behavior" {
-            continue;
-        }
-        if non_empty(entity, "requires") && !non_empty(entity, "ensures") {
-            findings.push(serde_json::json!({
-                "code": "W096",
-                "severity": "Warning",
-                "message": format!(
-                    "behavior '{}' declares requires but no ensures",
-                    entity.id
-                ),
-                "suggestion": "add an ensures clause: a caller's obligation must buy a guarantee",
-            }));
-        }
-    }
-    Ok(serde_json::to_vec(&findings)?)
 }

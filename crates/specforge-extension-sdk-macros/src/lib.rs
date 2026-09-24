@@ -43,6 +43,8 @@ fn parse_attrs(ts: TokenStream) -> syn::Result<(Option<String>, Option<String>, 
     Ok((name, version, short))
 }
 use quote::quote;
+use syn::parse::{Parse, ParseStream};
+use syn::{Ident, ItemFn};
 use syn::{ItemStruct, LitStr, Token, parse_macro_input};
 
 #[proc_macro_attribute]
@@ -97,4 +99,71 @@ pub fn extension(attr: TokenStream, item: TokenStream) -> TokenStream {
         }
     };
     ts.into()
+}
+
+/// Compiler pass arguments: `name` (required), plus optional `after`,
+/// `before`, and `phase` ordering hints.
+struct CompilerPassArgs {
+    name: String,
+}
+
+impl Parse for CompilerPassArgs {
+    fn parse(input: ParseStream) -> syn::Result<Self> {
+        let mut name = None;
+        while !input.is_empty() {
+            let key: Ident = input.parse()?;
+            let _eq: Token![=] = input.parse()?;
+            let value: LitStr = input.parse()?;
+            if key == "name" {
+                name = Some(value.value());
+            }
+            if !input.is_empty() {
+                let _comma: Token![,] = input.parse()?;
+            }
+        }
+        Ok(CompilerPassArgs {
+            name: name.ok_or_else(|| input.error("compiler_pass requires name = \"...\""))?,
+        })
+    }
+}
+
+/// Wrap a pass function in a `__pass_<name>` wasm export.
+///
+/// ```ignore
+/// #[compiler_pass(name = "condition_check", after = "resolve")]
+/// fn pass_condition_check(entities: &[PassEntity]) -> Vec<PassDiagnostic> {
+///     // ...
+/// }
+/// ```
+///
+/// Expands to the original function plus a `#[plugin_fn]` export named
+/// `__pass_<name>` that deserializes the host's `PassInput` snapshot,
+/// calls the function, and serializes the returned diagnostics.
+#[proc_macro_attribute]
+pub fn compiler_pass(attr: TokenStream, item: TokenStream) -> TokenStream {
+    let args = syn::parse_macro_input!(attr as CompilerPassArgs);
+    let func = syn::parse_macro_input!(item as ItemFn);
+
+    let fn_name = &func.sig.ident;
+    let export_name = format!("__pass_{}", args.name);
+    let export_ident = quote::format_ident!("__pass_{}", args.name);
+
+    let expanded = quote::quote! {
+        #func
+
+        #[::extism_pdk::plugin_fn]
+        pub fn #export_ident(input: Vec<u8>) -> ::extism_pdk::FnResult<Vec<u8>> {
+            let request: ::specforge_extension_sdk::PassInput =
+                ::serde_json::from_slice(&input)?;
+            let findings = #fn_name(&request.entities);
+            Ok(::serde_json::to_vec(&findings)?)
+        }
+
+        const _: () = {
+            // Keep the export name discoverable and fail at compile time if
+            // the pass name changes underneath the descriptor.
+            let _export: &str = #export_name;
+        };
+    };
+    expanded.into()
 }

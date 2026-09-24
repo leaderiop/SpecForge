@@ -612,13 +612,15 @@ pub fn describe_dispatch(
 }
 
 /// Everything an extension needs, behind one `use`.
+pub use specforge_extension_sdk_macros::compiler_pass;
+
 pub mod prelude {
     pub use crate::{
         CheckKind, Contributions, ContributionsBuilder, EdgeBuilder, EnhancementBuilder,
         ExtensionMeta, FieldBuilder, FieldConstraintBuilder, FieldType, HostApi, KindBuilder,
-        PassBuilder, RuleBuilder,
+        PassBuilder, PassDiagnostic, PassEntity, PassInput, PassSeverity, PassSpan, RuleBuilder,
     };
-    pub use specforge_extension_sdk_macros::extension;
+    pub use specforge_extension_sdk_macros::{compiler_pass, extension};
 
     pub use specforge_protocol_types::{PeerDependency, SandboxPolicy, ValidationSeverity};
 }
@@ -650,5 +652,98 @@ mod raw_category_flag_tests {
             "raw validation_rules must raise validators flag"
         );
         assert_eq!(flags["grammars"], serde_json::json!(false));
+    }
+}
+
+// ── Compiler pass ABI (v1) ─────────────────────────────────────────────────
+// A compiler pass is a `__pass_<name>` wasm export that receives a snapshot
+// of the compiled project's entities and returns host Diagnostics. The
+// `#[compiler_pass]` attribute (specforge-extension-sdk-macros) wraps a
+// plain function with that export; these types are its parameter and return
+// vocabulary.
+
+/// One entity in the snapshot handed to a compiler pass. Mirrors the host's
+/// `ValidationEntity` (id, kind, stringified fields, edge counts).
+#[derive(Debug, Clone, serde::Deserialize)]
+pub struct PassEntity {
+    pub id: String,
+    pub kind: String,
+    #[serde(default)]
+    pub fields: std::collections::BTreeMap<String, String>,
+    #[serde(default)]
+    pub incoming_edge_count: usize,
+    #[serde(default)]
+    pub outgoing_edge_count: usize,
+}
+
+/// The `__pass_<name>` export input.
+#[derive(Debug, Clone, serde::Deserialize)]
+pub struct PassInput {
+    pub entities: Vec<PassEntity>,
+}
+
+/// Severity mirror of the host diagnostic enum. Serializes to the same wire
+/// strings ("Error" / "Warning" / "Info").
+#[derive(Debug, Clone, Copy, serde::Serialize)]
+pub enum PassSeverity {
+    Error,
+    Warning,
+    Info,
+}
+
+/// Source location attached to a pass diagnostic. Field names mirror the
+/// host's `SourceSpan`.
+#[derive(Debug, Clone, serde::Serialize)]
+pub struct PassSpan {
+    pub file: String,
+    pub start_line: usize,
+    pub start_col: usize,
+    pub end_line: usize,
+    pub end_col: usize,
+}
+
+/// A diagnostic returned by a compiler pass. Serializes into the host's
+/// `Diagnostic` wire shape.
+#[derive(Debug, Clone, serde::Serialize)]
+pub struct PassDiagnostic {
+    pub code: String,
+    pub severity: PassSeverity,
+    pub message: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub span: Option<PassSpan>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub suggestion: Option<String>,
+}
+
+impl PassDiagnostic {
+    /// A diagnostic with a code, severity, and message; attach a span or
+    /// suggestion with [`Self::with_span`] / [`Self::with_suggestion`].
+    pub fn new(
+        code: impl Into<String>,
+        severity: PassSeverity,
+        message: impl Into<String>,
+    ) -> Self {
+        Self {
+            code: code.into(),
+            severity,
+            message: message.into(),
+            span: None,
+            suggestion: None,
+        }
+    }
+
+    /// Convenience constructor for warnings (the common pass finding).
+    pub fn warning(code: impl Into<String>, message: impl Into<String>) -> Self {
+        Self::new(code, PassSeverity::Warning, message)
+    }
+
+    pub fn with_span(mut self, span: PassSpan) -> Self {
+        self.span = Some(span);
+        self
+    }
+
+    pub fn with_suggestion(mut self, suggestion: impl Into<String>) -> Self {
+        self.suggestion = Some(suggestion.into());
+        self
     }
 }

@@ -283,13 +283,22 @@ mod software {
     // ── Compiler Passes ───────────────────────────────────────────
 
     // Compiler passes run after the built-in resolve phase. The `after`
-    // attribute declares ordering constraints. Passes receive the full
-    // graph and return diagnostics.
+    // attribute declares ordering constraints (advisory in the v1 host:
+    // passes run in declaration order during `specforge analyze`). The
+    // attribute generates a `__pass_<name>` wasm export that receives an
+    // entity snapshot (the host's ValidationEntity shape) and returns
+    // host Diagnostics. Direct graph access and the host-query functions
+    // arrive with the v2 pass ABI.
 
     #[compiler_pass(name = "condition_check", after = "resolve")]
-    fn pass_condition_check(graph: &Graph, host: &HostApi) -> Vec<Diagnostic> {
-        // Validate structured condition consistency...
-        diagnostics
+    fn pass_condition_check(entities: &[PassEntity]) -> Vec<PassDiagnostic> {
+        PassDiagnostic::warning(
+            "W096",
+            "behavior 'x' declares requires but no ensures",
+        )
+        .with_suggestion("add an ensures clause")
+        .into_iter()
+        .collect()
     }
 
     // ── Feature Flags ─────────────────────────────────────────────
