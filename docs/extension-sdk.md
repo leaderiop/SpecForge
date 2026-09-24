@@ -691,3 +691,6 @@ mod software_testing {
 - [Extension Inventory](extension-inventory.md) -- the five official extensions
 - [Extension Model](extension-model.md) -- the broader extension architecture (extensions, providers, renderers)
 - [Entity Model](entity-model.md) -- entity kinds, edge types, and validation rules
+
+> 📖 New to extension authoring? Follow the step-by-step tutorial:
+> **[Extending SpecForge — Zero to Production](guides/extending-specforge.md)**.
