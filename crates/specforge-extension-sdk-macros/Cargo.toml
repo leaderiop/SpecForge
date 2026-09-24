@@ -3,7 +3,11 @@ name = "specforge-extension-sdk-macros"
 edition.workspace = true
 version.workspace = true
 license.workspace = true
-description = "Attribute macro for the SpecForge extension SDK"
+description = "Attribute macro for the SpecForge extension SDK: generates the __handshake/__describe Wasm exports from a Contributions impl"
+readme = "../specforge-extension-sdk/README.md"
+repository = "https://github.com/leaderiop/SpecForge"
+keywords = ["specforge", "wasm", "extism", "macros"]
+categories = ["development-tools"]
 
 [lib]
 proc-macro = true

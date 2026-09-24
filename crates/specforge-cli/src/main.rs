@@ -13,6 +13,7 @@ mod login;
 mod mcp;
 mod migrate;
 mod model;
+mod new;
 mod outline;
 mod pipeline;
 mod product;
@@ -289,6 +290,23 @@ enum Commands {
         query: String,
 
         /// Path to the project root (for registry config)
+        #[arg(long, default_value = ".")]
+        path: PathBuf,
+
+        /// Output format: human or json
+        #[arg(long, default_value = "human")]
+        format: String,
+    },
+    /// Scaffold a new extension project
+    New {
+        /// Extension name (e.g. @you/my-ext)
+        name: String,
+
+        /// Scaffold an extension project (SDK-authored wasm)
+        #[arg(long, default_value_t = false)]
+        extension: bool,
+
+        /// Directory to scaffold into
         #[arg(long, default_value = ".")]
         path: PathBuf,
 
@@ -774,6 +792,15 @@ fn main() {
             yes,
         } => {
             let exit_code = add::run(&specifier, &path, &format, allow_unsigned, yes);
+            std::process::exit(exit_code);
+        }
+        Commands::New {
+            name,
+            extension,
+            path,
+            format,
+        } => {
+            let exit_code = new::run(&name, extension, &path, &format);
             std::process::exit(exit_code);
         }
         Commands::Remove {

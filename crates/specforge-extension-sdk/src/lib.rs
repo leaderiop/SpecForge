@@ -218,12 +218,21 @@ impl ContributionsBuilder {
     fn flags(&self) -> ContributionFlags {
         let mut f = ContributionFlags::default();
         let has = |cat: &str| self.raw.get(cat).is_some_and(|v| !v.is_null());
-        f.entities = !self.entity_kinds.is_empty()
+        // Raw categories count toward their flags too — an extension serving
+        // `entities` via raw_category contributes entities exactly as much as
+        // one that used the typed builders (formal's migration proved this
+        // gap: its describes are static data, not builder calls).
+        f.entities = has("entities")
+            || has("edges")
+            || has("fields")
+            || has("shared_fields")
+            || has("enhancements")
+            || !self.entity_kinds.is_empty()
             || !self.edge_types.is_empty()
             || !self.fields.is_empty()
             || !self.shared_fields.is_empty()
             || !self.enhancements.is_empty();
-        f.validators = !self.validation_rules.is_empty();
+        f.validators = has("validation_rules") || !self.validation_rules.is_empty();
         f.renderers = has("renderers");
         f.prompts = has("prompts");
         f.parsers = has("parsers");
@@ -612,4 +621,34 @@ pub mod prelude {
     pub use specforge_extension_sdk_macros::extension;
 
     pub use specforge_protocol_types::{PeerDependency, SandboxPolicy, ValidationSeverity};
+}
+
+#[cfg(test)]
+mod raw_category_flag_tests {
+    use super::*;
+
+    /// Formal's migration exposed this: an extension serving describes via
+    /// `raw_category` (static data) must still raise the corresponding
+    /// contribution flags, or the host never requests those categories.
+    #[test]
+    fn raw_categories_raise_their_flags() {
+        let mut b = ContributionsBuilder::new(ExtensionMeta::new("@acme/formal", "1.0.0"));
+        b.raw_category("entities", serde_json::json!([{ "name": "Property" }]));
+        b.raw_category("validation_rules", serde_json::json!([{ "code": "F100" }]));
+
+        let handshake = b.handshake_json();
+        let value: serde_json::Value = serde_json::from_str(&handshake).unwrap();
+        let flags = &value["contribution_flags"];
+        assert_eq!(
+            flags["entities"],
+            serde_json::json!(true),
+            "raw entities must raise entities flag"
+        );
+        assert_eq!(
+            flags["validators"],
+            serde_json::json!(true),
+            "raw validation_rules must raise validators flag"
+        );
+        assert_eq!(flags["grammars"], serde_json::json!(false));
+    }
 }

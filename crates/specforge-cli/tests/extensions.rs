@@ -948,3 +948,55 @@ fn remove_nonexistent_extension() {
         .failure()
         .stderr(predicates::str::contains("not installed"));
 }
+
+// ---------------------------------------------------------------------------
+// specforge new --extension (SDK adoption scaffolder)
+// ---------------------------------------------------------------------------
+
+#[test]
+fn new_extension_scaffolds_sdk_project() {
+    let dir = TempDir::new().unwrap();
+    let out = dir.path().join("out");
+
+    let assert = specforge_cmd()
+        .args([
+            "new",
+            "--extension",
+            "@you/my-ext",
+            "--path",
+            out.to_str().unwrap(),
+        ])
+        .output()
+        .unwrap();
+    assert!(assert.status.success());
+
+    let project = out.join("my-ext");
+    let cargo = fs::read_to_string(project.join("Cargo.toml")).unwrap();
+    assert!(cargo.contains(r#"name = "my-ext""#));
+    assert!(cargo.contains("specforge-extension-sdk"));
+    assert!(cargo.contains("extism-pdk"));
+
+    let config = fs::read_to_string(project.join(".cargo/config.toml")).unwrap();
+    assert!(config.contains("wasm32-unknown-unknown"));
+
+    let lib = fs::read_to_string(project.join("src/lib.rs")).unwrap();
+    assert!(lib.contains(r#"name = "@you/my-ext""#));
+    assert!(lib.contains("impl Contributions for Extension"));
+}
+
+#[test]
+fn new_extension_refuses_existing_directory() {
+    let dir = TempDir::new().unwrap();
+    let out = dir.path().join("out");
+    let project = out.join("dup");
+    fs::create_dir_all(&project).unwrap();
+
+    let assert = specforge_cmd()
+        .args(["new", "--extension", "dup", "--path", out.to_str().unwrap()])
+        .output()
+        .unwrap();
+    assert!(!assert.status.success());
+
+    let stderr = String::from_utf8_lossy(&assert.stderr);
+    assert!(stderr.contains("already exists"), "{}", stderr);
+}

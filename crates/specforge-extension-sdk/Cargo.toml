@@ -3,7 +3,11 @@ name = "specforge-extension-sdk"
 edition.workspace = true
 version.workspace = true
 license.workspace = true
-description = "Plugin-side SDK for authoring SpecForge extensions (handshake/describe protocol v1.0.0)"
+description = "Author SpecForge extensions in Rust: typed contributions, handshake/describe protocol v1.0.0, and host-function bindings compiled to Wasm"
+readme = "README.md"
+repository = "https://github.com/leaderiop/SpecForge"
+keywords = ["specforge", "wasm", "extism", "extensions", "ai-agents"]
+categories = ["development-tools"]
 
 [dependencies]
 specforge-protocol-types = { path = "../specforge-protocol-types" }
