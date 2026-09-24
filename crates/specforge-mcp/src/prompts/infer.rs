@@ -82,7 +82,7 @@ fn get_overview(state: &McpState, id: Option<Value>) -> JsonRpcResponse {
         "kinds": kinds_info,
         "project_conventions": global_conventions,
         "output_format": "Write .spec files in the spec/ directory. Use `keyword entity_id \"Title\" { fields }` syntax. Entity IDs are snake_case identifiers (letters, digits, underscores, 2-60 chars).",
-        "validation": "After writing .spec files, call specforge_validate to check for errors. Fix any errors before proceeding.",
+        "validation": "After writing .spec files, call specforge_validate to check for errors (and specforge_analyze for coverage/contract findings). Fix any errors before proceeding.",
     });
 
     let instruction = "You are inferring spec entities from this codebase. \
@@ -158,7 +158,7 @@ fn get_kind_scoped(state: &McpState, kind_name: &str, id: Option<Value>) -> Json
         "fields": fields,
         "inference_guide": guide,
         "example": example,
-        "validation": "After writing .spec files, call specforge_validate to check for errors. Fix any errors before proceeding.",
+        "validation": "After writing .spec files, call specforge_validate to check for errors (and specforge_analyze for coverage/contract findings). Fix any errors before proceeding.",
     });
 
     let instruction = format!(
@@ -220,7 +220,7 @@ fn get_file_scoped(state: &McpState, file_path: &str, id: Option<Value>) -> Json
         "existing_entities_referencing_file": referencing_entities,
         "kinds": kinds_info,
         "project_conventions": global_conventions,
-        "validation": "After writing .spec files, call specforge_validate to check for errors. Fix any errors before proceeding.",
+        "validation": "After writing .spec files, call specforge_validate to check for errors (and specforge_analyze for coverage/contract findings). Fix any errors before proceeding.",
     });
 
     let instruction = format!(

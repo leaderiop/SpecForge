@@ -82,7 +82,16 @@ pub fn compile_with_runtime(path: &Path, runtime: Option<&dyn WasmRuntime>) -> C
     let required_field_rules = generate_required_field_rules(&field_reg);
     patterns.extend(required_field_rules);
 
-    // 5. Build keyword->extension index for I004 messages
+    // 5. Build keyword->extension index for I004 messages.
+    //
+    // KNOWN GAP: build_graph_with_config only emits I004 for keywords that
+    // are NOT installed but ARE present in this map. Deriving the map from
+    // the installed manifests makes the two sets identical, so I004 can
+    // never fire. The intended source is the registry catalog (every
+    // extension the client knows about, installed or not) - that requires
+    // an offline catalog cache written by `specforge update`/`search`.
+    // Until that cache exists, keep the map in sync with the manifests so
+    // the structure is correct once the catalog lands.
     let known_extension_keywords: HashMap<String, String> = manifests
         .iter()
         .flat_map(|m| {

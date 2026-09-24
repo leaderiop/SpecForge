@@ -42,7 +42,13 @@ jobs:
         uses: taiki-e/install-action@nextest
 
       - name: Run tests
-        run: cargo nextest run --workspace --profile ci
+        run: |
+          cargo nextest run --workspace --profile ci
+          # Extension crates live outside the workspace; run their native
+          # tests too (e.g. the formal extension's pass unit tests).
+          for ext in extensions/*/Cargo.toml; do
+            cargo test --manifest-path "$ext"
+          done
 
       - name: Run cargo-audit
         run: cargo install cargo-audit && cargo audit
