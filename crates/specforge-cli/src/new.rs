@@ -54,7 +54,11 @@ pub fn run(name: &str, extension: bool, path: &Path, format: &str) -> i32 {
             println!("next steps:");
             println!("  cd {}", dir.display());
             println!("  cargo build --release --target wasm32-unknown-unknown");
-            println!("  specforge add ./ --force   # local-path install once built");
+            let wasm = format!(
+                "./target/wasm32-unknown-unknown/release/{}.wasm",
+                crate_name(name).replace('-', "_")
+            );
+            println!("  specforge add {wasm}   # local-path install once built");
         }
     }
     0
