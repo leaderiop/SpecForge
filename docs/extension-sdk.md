@@ -291,7 +291,7 @@ mod software {
     // arrive with the v2 pass ABI.
 
     #[compiler_pass(name = "condition_check", after = "resolve")]
-    fn pass_condition_check(entities: &[PassEntity]) -> Vec<PassDiagnostic> {
+    fn pass_condition_check(input: &PassInput) -> Vec<PassDiagnostic> {
         PassDiagnostic::warning(
             "W096",
             "behavior 'x' declares requires but no ensures",

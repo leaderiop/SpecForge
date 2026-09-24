@@ -618,7 +618,8 @@ pub mod prelude {
     pub use crate::{
         CheckKind, Contributions, ContributionsBuilder, EdgeBuilder, EnhancementBuilder,
         ExtensionMeta, FieldBuilder, FieldConstraintBuilder, FieldType, HostApi, KindBuilder,
-        PassBuilder, PassDiagnostic, PassEntity, PassInput, PassSeverity, PassSpan, RuleBuilder,
+        PassBuilder, PassDiagnostic, PassEdge, PassEntity, PassInput, PassSeverity, PassSpan,
+        RuleBuilder,
     };
     pub use specforge_extension_sdk_macros::{compiler_pass, extension};
 
@@ -674,12 +675,27 @@ pub struct PassEntity {
     pub incoming_edge_count: usize,
     #[serde(default)]
     pub outgoing_edge_count: usize,
+    #[serde(default)]
+    pub span: Option<PassSpan>,
+}
+
+/// One resolved reference in the snapshot (label = edge label, e.g.
+/// "produces", "consumes", "BehaviorRequiresInvariant").
+#[derive(Debug, Clone, serde::Deserialize)]
+pub struct PassEdge {
+    pub source: String,
+    pub target: String,
+    pub label: String,
 }
 
 /// The `__pass_<name>` export input.
 #[derive(Debug, Clone, serde::Deserialize)]
 pub struct PassInput {
     pub entities: Vec<PassEntity>,
+    /// Resolved references between snapshot entities. Serde default keeps
+    /// passes written against the entities-only ABI compatible.
+    #[serde(default)]
+    pub edges: Vec<PassEdge>,
 }
 
 /// Severity mirror of the host diagnostic enum. Serializes to the same wire
@@ -693,7 +709,7 @@ pub enum PassSeverity {
 
 /// Source location attached to a pass diagnostic. Field names mirror the
 /// host's `SourceSpan`.
-#[derive(Debug, Clone, serde::Serialize)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct PassSpan {
     pub file: String,
     pub start_line: usize,

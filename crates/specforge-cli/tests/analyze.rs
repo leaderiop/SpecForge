@@ -354,3 +354,48 @@ fn analyze_dispatches_extension_compiler_pass() {
     assert_eq!(pass["summary"]["entities_analyzed"], 1);
     assert_eq!(pass["summary"]["extension"], "@specforge/formal");
 }
+
+#[test]
+fn analyze_event_graph_flags_unconsumed_events() {
+    let dir = TempDir::new().unwrap();
+    fs::write(
+        dir.path().join("specforge.json"),
+        r#"{"extensions": ["@specforge/formal", "@specforge/software"]}"#,
+    )
+    .unwrap();
+    fs::write(
+        dir.path().join("main.spec"),
+        concat!(
+            "event tick \"Tick\" {\n",
+            "  title \"Tick\"\n",
+            "  channel \"sys.tick\"\n",
+            "}\n",
+            "\n",
+            "behavior ticker \"Ticker\" {\n",
+            "  title \"Ticker\"\n",
+            "  produces [tick]\n",
+            "  verify unit \"emits tick\"\n",
+            "}\n",
+        ),
+    )
+    .unwrap();
+
+    let output = specforge_cmd()
+        .args(["analyze", "--path", dir.path().to_str().unwrap(), "--json"])
+        .output()
+        .unwrap();
+    let doc: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
+    let report = doc["passes"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|p| p["pass"] == "@specforge/formal:event_graph_analyze")
+        .expect("event_graph_analyze pass must be dispatched");
+    let w029: Vec<&serde_json::Value> = report["findings"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter(|f| f["code"] == "W029")
+        .collect();
+    assert_eq!(w029.len(), 1, "unconsumed producer must surface W029");
+}

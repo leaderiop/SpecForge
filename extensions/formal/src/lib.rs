@@ -8,7 +8,7 @@
 //! SDK from the extension metadata — contribution flags included.
 
 use specforge_extension_sdk::prelude::*;
-use specforge_extension_sdk::{PassDiagnostic, PassEntity};
+use specforge_extension_sdk::{PassDiagnostic, PassEntity, PassInput};
 
 static DESCRIBE_ENTITIES: &[u8] = include_bytes!("describe_entities.json");
 static DESCRIBE_EDGES: &[u8] = include_bytes!("describe_edges.json");
@@ -35,6 +35,12 @@ impl Contributions for Formal {
 
         c.pass("condition_check", |p| {
             p.after("resolve");
+        });
+        c.pass("layering_verify", |p| {
+            p.after("condition_check");
+        });
+        c.pass("event_graph_analyze", |p| {
+            p.after("layering_verify");
         });
 
         for (category, bytes) in [
@@ -63,9 +69,9 @@ impl Contributions for Formal {
 /// condition_check (Meyer's Design by Contract, RES-25 part I): a behavior
 /// that obligates its callers (requires) must provide a benefit (ensures).
 #[specforge_extension_sdk::compiler_pass(name = "condition_check", after = "resolve")]
-fn pass_condition_check(entities: &[PassEntity]) -> Vec<PassDiagnostic> {
+fn pass_condition_check(input: &PassInput) -> Vec<PassDiagnostic> {
     let mut findings = Vec::new();
-    for entity in entities {
+    for entity in &input.entities {
         if entity.kind != "behavior" {
             continue;
         }
@@ -91,4 +97,276 @@ fn non_empty(entity: &PassEntity, field: &str) -> bool {
         .fields
         .get(field)
         .is_some_and(|v| !v.trim().is_empty())
+}
+
+/// layering_verify (RES-25 part I): refinement chains must stay acyclic
+/// (E041) and shallow (W031 beyond depth 4).
+const REFINEMENT_EDGE_MARKERS: &[&str] = &["RefinesTo", "RefinementChainLink", "refines"];
+const MAX_LAYERING_DEPTH: usize = 4;
+
+#[specforge_extension_sdk::compiler_pass(name = "layering_verify", after = "condition_check")]
+fn pass_layering_verify(input: &PassInput) -> Vec<PassDiagnostic> {
+    use std::collections::HashMap;
+
+    let by_id: HashMap<&str, &PassEntity> = input
+        .entities
+        .iter()
+        .map(|e| (e.id.as_str(), e))
+        .collect();
+    // refinement -> entities it refines (via refinement-labeled edges)
+    let mut refines: HashMap<&str, Vec<&str>> = HashMap::new();
+    for edge in &input.edges {
+        if REFINEMENT_EDGE_MARKERS
+            .iter()
+            .any(|m| edge.label.contains(m))
+            && by_id.contains_key(edge.source.as_str())
+            && by_id.contains_key(edge.target.as_str())
+        {
+            refines
+                .entry(edge.source.as_str())
+                .or_default()
+                .push(edge.target.as_str());
+        }
+    }
+
+    let mut findings = Vec::new();
+    // Cycle detection over the refinement DAG (E041).
+    let mut state: HashMap<&str, u8> = HashMap::new(); // 0 = visiting, 1 = done
+    fn visit<'a>(
+        id: &'a str,
+        refines: &HashMap<&'a str, Vec<&'a str>>,
+        state: &mut HashMap<&'a str, u8>,
+        findings: &mut Vec<PassDiagnostic>,
+    ) {
+        match state.get(id) {
+            Some(1) => return,
+            Some(0) => {
+                findings.push(PassDiagnostic::new(
+                    "E041",
+                    PassSeverity::Error,
+                    format!("refinement chain cycle through '{}'", id),
+                ));
+                return;
+            }
+            _ => {}
+        }
+        state.insert(id, 0);
+        if let Some(targets) = refines.get(id) {
+            for target in targets.clone() {
+                visit(target, refines, state, findings);
+            }
+        }
+        state.insert(id, 1);
+    }
+    for id in refines.keys().copied().collect::<Vec<_>>() {
+        visit(id, &refines, &mut state, &mut findings);
+    }
+
+    // Depth accounting (W031): chain depth beyond MAX_LAYERING_DEPTH. Walks
+    // that revisit a node are cycles — already reported as E041, so they are
+    // skipped here rather than double-reported as depth violations.
+    let mut depth: HashMap<&str, usize> = HashMap::new();
+    for id in refines.keys() {
+        let mut current = *id;
+        let mut steps = 0usize;
+        let mut walked: HashMap<&str, ()> = HashMap::new();
+        let mut cyclic = false;
+        loop {
+            if walked.insert(current, ()).is_some() {
+                cyclic = true;
+                break;
+            }
+            match refines.get(current).and_then(|t| t.first()) {
+                Some(&next) if !depth.contains_key(&next) => {
+                    current = next;
+                    steps += 1;
+                    if steps > MAX_LAYERING_DEPTH {
+                        break;
+                    }
+                }
+                Some(&next) => {
+                    steps += depth[&next] + 1;
+                    break;
+                }
+                None => break,
+            }
+        }
+        if !cyclic {
+            depth.insert(id, steps);
+        }
+    }
+    for (id, d) in &depth {
+        if *d > MAX_LAYERING_DEPTH {
+            let message = if let Some(e) = by_id.get(id) {
+                format!(
+                    "refinement '{}' sits in a chain {} layers deep (max {})",
+                    e.id, d, MAX_LAYERING_DEPTH
+                )
+            } else {
+                continue;
+            };
+            findings.push(PassDiagnostic::warning("W031", message).with_suggestion(
+                "split the refinement chain or collapse intermediate abstractions",
+            ));
+        }
+    }
+    findings
+}
+
+/// event_graph_analyze (RES-25 part I): every produced event should have a
+/// consumer (W029).
+#[specforge_extension_sdk::compiler_pass(name = "event_graph_analyze", after = "layering_verify")]
+fn pass_event_graph_analyze(input: &PassInput) -> Vec<PassDiagnostic> {
+    use std::collections::HashMap;
+
+    let by_id: HashMap<&str, &PassEntity> = input
+        .entities
+        .iter()
+        .map(|e| (e.id.as_str(), e))
+        .collect();
+    let mut produced: HashMap<&str, usize> = HashMap::new();
+    let mut consumed: HashMap<&str, usize> = HashMap::new();
+    for edge in &input.edges {
+        match edge.label.as_str() {
+            "produces" => *produced.entry(edge.target.as_str()).or_default() += 1,
+            "consumes" => *consumed.entry(edge.target.as_str()).or_default() += 1,
+            _ => {}
+        }
+    }
+
+    let mut findings = Vec::new();
+    for (id, producers) in &produced {
+        if consumed.contains_key(id) {
+            continue;
+        }
+        let Some(entity) = by_id.get(id) else {
+            continue;
+        };
+        if entity.kind != "event" {
+            continue;
+        }
+        findings.push(
+            PassDiagnostic::warning(
+                "W029",
+                format!(
+                    "event '{}' is produced ({}x) but never consumed",
+                    id, producers
+                ),
+            )
+            .with_span(PassSpan {
+                file: entity
+                    .span
+                    .as_ref()
+                    .map(|s| s.file.clone())
+                    .unwrap_or_default(),
+                start_line: entity.span.as_ref().map(|s| s.start_line).unwrap_or(0),
+                start_col: entity.span.as_ref().map(|s| s.start_col).unwrap_or(0),
+                end_line: entity.span.as_ref().map(|s| s.end_line).unwrap_or(0),
+                end_col: entity.span.as_ref().map(|s| s.end_col).unwrap_or(0),
+            })
+            .with_suggestion("add a behavior that consumes the event, or drop the produces reference"),
+        );
+    }
+    findings
+}
+
+#[cfg(test)]
+mod pass_tests {
+    use super::*;
+    use specforge_extension_sdk::{PassEdge, PassSeverity};
+
+    fn entity(id: &str, kind: &str) -> PassEntity {
+        PassEntity {
+            id: id.to_string(),
+            kind: kind.to_string(),
+            fields: std::collections::BTreeMap::new(),
+            incoming_edge_count: 0,
+            outgoing_edge_count: 0,
+            span: None,
+        }
+    }
+
+    fn edge(source: &str, target: &str, label: &str) -> PassEdge {
+        PassEdge {
+            source: source.to_string(),
+            target: target.to_string(),
+            label: label.to_string(),
+        }
+    }
+
+    fn codes(findings: &[PassDiagnostic]) -> Vec<&str> {
+        findings.iter().map(|f| f.code.as_str()).collect()
+    }
+
+    #[test]
+    fn layering_detects_refinement_cycles() {
+        let input = PassInput {
+            entities: vec![
+                entity("a", "refinement"),
+                entity("b", "refinement"),
+                entity("c", "refinement"),
+            ],
+            edges: vec![
+                edge("a", "b", "RefinesTo"),
+                edge("b", "c", "RefinesTo"),
+                edge("c", "a", "RefinesTo"),
+            ],
+        };
+        let findings = pass_layering_verify(&input);
+        assert_eq!(codes(&findings), vec!["E041"]);
+        assert!(matches!(findings[0].severity, PassSeverity::Error));
+    }
+
+    #[test]
+    fn layering_flags_deep_chains() {
+        let mut entities = vec![
+            entity("l0", "refinement"),
+            entity("l1", "refinement"),
+            entity("l2", "refinement"),
+            entity("l3", "refinement"),
+            entity("l4", "refinement"),
+            entity("l5", "refinement"),
+        ];
+        for e in &mut entities {
+            e.kind = "refinement".to_string();
+        }
+        let mut edges = Vec::new();
+        for w in 0..5 {
+            edges.push(edge(&format!("l{w}"), &format!("l{}", w + 1), "RefinesTo"));
+        }
+        let input = PassInput { entities, edges };
+        let findings = pass_layering_verify(&input);
+        assert_eq!(codes(&findings), vec!["W031"], "depth-5 chain: {:?}", findings);
+        assert!(matches!(findings[0].severity, PassSeverity::Warning));
+    }
+
+    #[test]
+    fn layering_accepts_shallow_acyclic_chains() {
+        let input = PassInput {
+            entities: vec![entity("a", "refinement"), entity("b", "refinement")],
+            edges: vec![edge("a", "b", "RefinesTo")],
+        };
+        assert!(pass_layering_verify(&input).is_empty());
+    }
+
+    #[test]
+    fn event_graph_flags_only_unconsumed_producers() {
+        let input = PassInput {
+            entities: vec![
+                entity("tick", "event"),
+                entity("done", "event"),
+                entity("ticker", "behavior"),
+                entity("finisher", "behavior"),
+            ],
+            edges: vec![
+                edge("ticker", "tick", "produces"),
+                edge("finisher", "done", "produces"),
+                edge("handler", "done", "consumes"),
+            ],
+        };
+        let findings = pass_event_graph_analyze(&input);
+        assert_eq!(codes(&findings), vec!["W029"]);
+        assert!(findings[0].message.contains("tick"));
+        assert!(!findings[0].message.contains("done"), "consumed event spared");
+    }
 }

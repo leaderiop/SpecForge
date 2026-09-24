@@ -513,7 +513,19 @@ fn run_extension_passes(input: &AnalyzeInput, requested: &str) -> Vec<Report> {
     let runtime = crate::pipeline::build_runtime(input.project_root);
     let host = ProtocolHost::new(&runtime);
     let entities = specforge_emitter::compile::build_validation_entities(&ctx.graph);
-    let payload = serde_json::json!({ "entities": entities });
+    let edges: Vec<serde_json::Value> = ctx
+        .graph
+        .edges()
+        .iter()
+        .map(|e| {
+            serde_json::json!({
+                "source": e.source.as_str(),
+                "target": e.target.as_str(),
+                "label": e.label.as_str(),
+            })
+        })
+        .collect();
+    let payload = serde_json::json!({ "entities": entities, "edges": edges });
     let payload_bytes = match serde_json::to_vec(&payload) {
         Ok(b) => b,
         Err(e) => {

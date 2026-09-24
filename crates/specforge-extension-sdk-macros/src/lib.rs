@@ -155,7 +155,7 @@ pub fn compiler_pass(attr: TokenStream, item: TokenStream) -> TokenStream {
         pub fn #export_ident(input: Vec<u8>) -> ::extism_pdk::FnResult<Vec<u8>> {
             let request: ::specforge_extension_sdk::PassInput =
                 ::serde_json::from_slice(&input)?;
-            let findings = #fn_name(&request.entities);
+            let findings = #fn_name(&request);
             Ok(::serde_json::to_vec(&findings)?)
         }
 
