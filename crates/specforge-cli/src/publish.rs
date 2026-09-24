@@ -1,4 +1,5 @@
 use serde_json::json;
+use specforge_common::Diagnostic;
 use specforge_registry::{
     AuthMethod, CredentialStore, HttpRegistryClient, ManifestV2, RegistryConfig,
     RegistryCredential,
@@ -83,7 +84,13 @@ pub fn run(path: &Path, format: &str) -> i32 {
         }
     };
     // Load publish credential: SPECFORGE_REGISTRY_TOKEN overrides stored credentials.
-    let credential = load_credential(registry);
+    let credential = match load_credential(registry) {
+        Ok(credential) => credential,
+        Err(diag) => {
+            print_error(format, &diag.message, &diag.code);
+            return 1;
+        }
+    };
 
     // Load (or first-run generate) the publisher signing key.
     let (signing_key, key_created) = match load_or_create_signing_key() {
@@ -184,19 +191,20 @@ fn select_credential(
     env_token: Option<String>,
     store: &CredentialStore,
     alias: &str,
-) -> Option<RegistryCredential> {
+) -> Result<Option<RegistryCredential>, Diagnostic> {
     if let Some(token) = env_token
         && !token.trim().is_empty()
     {
-        return Some(RegistryCredential {
+        return Ok(Some(RegistryCredential {
             alias: alias.to_string(),
             auth_method: AuthMethod::Bearer(token),
-        });
+        }));
     }
-    store.get_credential(alias)
+    // Keyring-backed secrets and expired tokens surface clear diagnostics.
+    store.get_credential_detail(alias)
 }
 
-fn load_credential(registry: &RegistryConfig) -> Option<RegistryCredential> {
+fn load_credential(registry: &RegistryConfig) -> Result<Option<RegistryCredential>, Diagnostic> {
     let env_token = std::env::var("SPECFORGE_REGISTRY_TOKEN").ok();
     let store = match read_credentials(&credentials_path()) {
         Ok(store) => store,
@@ -214,14 +222,24 @@ mod tests {
 
     fn store_with_token(alias: &str, token: &str) -> CredentialStore {
         let mut store = CredentialStore::default();
-        store.set_token(alias, token.to_string());
+        // Legacy plaintext form (what a pre-keyring credentials.json holds).
+        store.registries.insert(
+            alias.to_string(),
+            specforge_registry::client::credentials::CredentialEntry::Token {
+                token: token.to_string(),
+                expires_at: None,
+                in_keyring: false,
+            },
+        );
         store
     }
 
     #[test]
     fn env_token_overrides_stored_credential() {
         let store = store_with_token("default", "stored-token");
-        let cred = select_credential(Some("env-token".to_string()), &store, "default").unwrap();
+        let cred = select_credential(Some("env-token".to_string()), &store, "default")
+            .unwrap()
+            .unwrap();
         assert_eq!(cred.alias, "default");
         assert_eq!(
             cred.auth_method,
@@ -232,7 +250,9 @@ mod tests {
     #[test]
     fn blank_env_token_falls_back_to_store() {
         let store = store_with_token("default", "stored-token");
-        let cred = select_credential(Some("  ".to_string()), &store, "default").unwrap();
+        let cred = select_credential(Some("  ".to_string()), &store, "default")
+            .unwrap()
+            .unwrap();
         assert_eq!(
             cred.auth_method,
             AuthMethod::Bearer("stored-token".to_string())
@@ -242,7 +262,7 @@ mod tests {
     #[test]
     fn stored_credential_used_when_env_unset() {
         let store = store_with_token("default", "stored-token");
-        let cred = select_credential(None, &store, "default").unwrap();
+        let cred = select_credential(None, &store, "default").unwrap().unwrap();
         assert_eq!(
             cred.auth_method,
             AuthMethod::Bearer("stored-token".to_string())
@@ -252,6 +272,10 @@ mod tests {
     #[test]
     fn missing_alias_yields_no_credential() {
         let store = store_with_token("other", "stored-token");
-        assert!(select_credential(None, &store, "default").is_none());
+        assert!(
+            select_credential(None, &store, "default")
+                .unwrap()
+                .is_none()
+        );
     }
 }

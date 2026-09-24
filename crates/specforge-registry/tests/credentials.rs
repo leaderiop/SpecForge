@@ -1,5 +1,5 @@
 use specforge_registry::client::credentials::{
-    CredentialStore, read_credentials, write_credentials,
+    CredentialEntry, CredentialStore, read_credentials, write_credentials,
 };
 use tempfile::TempDir;
 
@@ -9,8 +9,22 @@ fn roundtrip_credentials() {
     let path = dir.path().join("credentials.json");
 
     let mut store = CredentialStore::default();
-    store.set_token("default", "sfr_test_token_123".to_string());
-    store.set_token("private", "priv_token_456".to_string());
+    store.registries.insert(
+        "default".to_string(),
+        CredentialEntry::Token {
+            token: "sfr_test_token_123".to_string(),
+            expires_at: None,
+            in_keyring: false,
+        },
+    );
+    store.registries.insert(
+        "private".to_string(),
+        CredentialEntry::Token {
+            token: "priv_token_456".to_string(),
+            expires_at: None,
+            in_keyring: false,
+        },
+    );
 
     write_credentials(&path, &store).unwrap();
     let loaded = read_credentials(&path).unwrap();
@@ -31,7 +45,14 @@ fn read_nonexistent_returns_empty() {
 #[test]
 fn get_credential_returns_bearer() {
     let mut store = CredentialStore::default();
-    store.set_token("myregistry", "my_token".to_string());
+    store.registries.insert(
+        "myregistry".to_string(),
+        CredentialEntry::Token {
+            token: "my_token".to_string(),
+            expires_at: None,
+            in_keyring: false,
+        },
+    );
 
     let cred = store.get_credential("myregistry").unwrap();
     assert_eq!(cred.alias, "myregistry");
@@ -44,7 +65,14 @@ fn get_credential_returns_bearer() {
 #[test]
 fn remove_credential() {
     let mut store = CredentialStore::default();
-    store.set_token("temp", "token".to_string());
+    store.registries.insert(
+        "temp".to_string(),
+        CredentialEntry::Token {
+            token: "token".to_string(),
+            expires_at: None,
+            in_keyring: false,
+        },
+    );
     assert!(store.remove("temp"));
     assert!(!store.remove("temp"));
     assert!(store.registries.is_empty());

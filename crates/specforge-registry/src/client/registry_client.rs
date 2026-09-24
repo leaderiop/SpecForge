@@ -140,11 +140,12 @@ pub trait RegistryClient: Send + Sync {
     ) -> Result<String, RegistryError>;
 
     /// Validate that the given credential authenticates successfully.
+    /// Returns the server-reported expiry (RFC3339), when the registry tracks one.
     fn authenticate(
         &self,
         registry: &RegistryConfig,
         credential: &RegistryCredential,
-    ) -> Result<(), RegistryError>;
+    ) -> Result<Option<String>, RegistryError>;
 }
 
 /// Retry policy for registry operations using exponential backoff.

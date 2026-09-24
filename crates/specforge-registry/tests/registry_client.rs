@@ -17,7 +17,7 @@ struct MockRegistryClient {
     fetch_result: Mutex<Option<Result<RegistryResponse, RegistryError>>>,
     search_result: Mutex<Option<Result<Vec<RegistrySearchResult>, RegistryError>>>,
     publish_result: Mutex<Option<Result<String, RegistryError>>>,
-    auth_results: Mutex<Vec<Result<(), RegistryError>>>,
+    auth_results: Mutex<Vec<Result<Option<String>, RegistryError>>>,
     auth_call_count: Mutex<u32>,
 }
 
@@ -48,7 +48,7 @@ impl MockRegistryClient {
     }
 
     /// Push auth results in order; each `authenticate()` call pops the next one.
-    fn with_auth_sequence(self, results: Vec<Result<(), RegistryError>>) -> Self {
+    fn with_auth_sequence(self, results: Vec<Result<Option<String>, RegistryError>>) -> Self {
         *self.auth_results.lock().unwrap() = results;
         self
     }
@@ -109,12 +109,12 @@ impl RegistryClient for MockRegistryClient {
         &self,
         _registry: &RegistryConfig,
         _credential: &RegistryCredential,
-    ) -> Result<(), RegistryError> {
+    ) -> Result<Option<String>, RegistryError> {
         let mut count = self.auth_call_count.lock().unwrap();
         *count += 1;
         let mut results = self.auth_results.lock().unwrap();
         if results.is_empty() {
-            Ok(())
+            Ok(None)
         } else {
             results.remove(0)
         }
@@ -228,7 +228,7 @@ fn mock_client_publish() {
 // B:registry-client — verify unit "mock authenticate succeeds"
 #[test]
 fn mock_client_authenticate() {
-    let client = MockRegistryClient::new().with_auth_sequence(vec![Ok(())]);
+    let client = MockRegistryClient::new().with_auth_sequence(vec![Ok(None)]);
     let cred = test_credential_bearer("test-token");
     let result = client.authenticate(&test_registry(), &cred);
     assert!(result.is_ok());
@@ -280,7 +280,7 @@ fn auth_retry_on_first_401() {
         Err(RegistryError::Unauthorized {
             guidance: "token expired".into(),
         }),
-        Ok(()),
+        Ok(None),
     ]);
 
     let cred = test_credential_bearer("some-token");
@@ -399,7 +399,7 @@ fn timeout_error_produces_diagnostic() {
 // B:validate-credentials — verify unit "valid credentials pass validation"
 #[test]
 fn validate_credentials_success() {
-    let client = MockRegistryClient::new().with_auth_sequence(vec![Ok(())]);
+    let client = MockRegistryClient::new().with_auth_sequence(vec![Ok(None)]);
     let cred = test_credential_bearer("valid-token");
     let result = auth::validate_credentials(&client, &test_registry(), &cred);
     assert!(result.is_ok());

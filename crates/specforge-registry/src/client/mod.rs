@@ -5,6 +5,7 @@ pub mod registry_client;
 pub mod registry_config;
 pub mod registry_ops;
 pub mod resolver;
+pub mod secrets;
 pub mod trust;
 
 pub use auth::{

@@ -356,7 +356,7 @@ impl RegistryClient for HttpRegistryClient {
         &self,
         registry: &RegistryConfig,
         credential: &RegistryCredential,
-    ) -> Result<(), RegistryError> {
+    ) -> Result<Option<String>, RegistryError> {
         let token = Self::resolve_token(credential)?;
         let base = Self::base_url(registry);
         let url = format!("{}/auth/verify", base);
@@ -379,7 +379,16 @@ impl RegistryClient for HttpRegistryClient {
             })?;
 
         match resp.status().as_u16() {
-            200 => Ok(()),
+            200 => {
+                let body: serde_json::Value =
+                    resp.json().map_err(|e| RegistryError::NetworkError {
+                        message: format!("invalid auth response: {}", e),
+                    })?;
+                Ok(body
+                    .get("expires_at")
+                    .and_then(|v| v.as_str())
+                    .map(str::to_string))
+            }
             401 => Err(RegistryError::Unauthorized {
                 guidance: "token is invalid or expired".to_string(),
             }),

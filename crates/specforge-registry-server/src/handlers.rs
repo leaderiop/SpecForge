@@ -707,6 +707,7 @@ async fn verify_auth(State(state): State<Arc<AppState>>, headers: HeaderMap) -> 
                     "valid": true,
                     "scope": record.scope,
                     "label": record.label,
+                    "expires_at": record.expires_at,
                 }))
                 .unwrap(),
             ),

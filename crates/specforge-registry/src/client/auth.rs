@@ -64,7 +64,7 @@ pub fn validate_credentials(
     client: &dyn RegistryClient,
     registry: &RegistryConfig,
     credential: &RegistryCredential,
-) -> Result<(), Diagnostic> {
+) -> Result<Option<String>, Diagnostic> {
     client.authenticate(registry, credential).map_err(|e| {
         // Ensure the diagnostic never contains the raw token.
         // The RegistryError variants already produce safe messages,
@@ -94,12 +94,12 @@ pub fn authenticate_with_retry(
     credential: &RegistryCredential,
 ) -> Result<(), Diagnostic> {
     match client.authenticate(registry, credential) {
-        Ok(()) => Ok(()),
+        Ok(_) => Ok(()),
         Err(RegistryError::Unauthorized { .. }) => {
             // Re-resolve credential and retry once
             let _token = resolve_credential(credential)?;
             match client.authenticate(registry, credential) {
-                Ok(()) => Ok(()),
+                Ok(_) => Ok(()),
                 Err(RegistryError::Unauthorized { guidance }) => Err(Diagnostic {
                     code: "R001".to_string(),
                     severity: Severity::Error,

@@ -124,8 +124,8 @@ impl RegistryClient for MockRegistryClient {
         &self,
         _registry: &RegistryConfig,
         _credential: &RegistryCredential,
-    ) -> Result<(), RegistryError> {
-        Ok(())
+    ) -> Result<Option<String>, RegistryError> {
+        Ok(None)
     }
 }
 

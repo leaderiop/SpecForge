@@ -38,15 +38,23 @@ pub fn run(registry_alias: Option<&str>, token: Option<&str>, path: &Path, forma
     };
 
     let client = HttpRegistryClient::new();
-    if let Err(diag) = validate_credentials(&client, &registry, &credential) {
-        print_error(format, &diag.message, &diag.code);
-        return 1;
-    }
+    let expires_at = match validate_credentials(&client, &registry, &credential) {
+        Ok(expires_at) => expires_at,
+        Err(diag) => {
+            print_error(format, &diag.message, &diag.code);
+            return 1;
+        }
+    };
 
-    // Store credentials
+    // Store credentials: secret into the OS keyring (0600-file fallback),
+    // file keeps only metadata. Any legacy plaintext entry for this alias
+    // is migrated by this write.
     let cred_path = credentials_path();
     let mut store = read_credentials(&cred_path).unwrap_or_default();
-    store.set_token(alias, token_value);
+    if let Err(message) = store.set_token(alias, token_value, expires_at) {
+        print_error(format, &message, "R-LOGIN-002");
+        return 1;
+    }
 
     if let Err(diag) = write_credentials(&cred_path, &store) {
         print_error(format, &diag.message, &diag.code);
@@ -76,6 +84,7 @@ pub fn run_logout(registry_alias: Option<&str>, format: &str) -> i32 {
 
     let mut store = read_credentials(&cred_path).unwrap_or_default();
     let removed = store.remove(alias);
+    specforge_registry::client::secrets::delete_secret(alias);
 
     if !removed {
         match format {
