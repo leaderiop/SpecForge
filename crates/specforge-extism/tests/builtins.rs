@@ -61,3 +61,26 @@ fn formal_describe_edges() {
     let value: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
     assert_eq!(value["category"], "edges");
 }
+
+// SDK adoption: the formal wasm twin is authored with the extension SDK —
+// its handshake must still report the extracted builtin contract.
+#[test]
+fn formal_handshake_from_sdk_authored_twin() {
+    let runtime = ExtismRuntime::new();
+    builtins::load_builtins(&runtime).unwrap();
+
+    let result = runtime.call_export("@specforge/formal", "__handshake", &[]);
+    let WasmCallResult::Ok(bytes) = result else {
+        panic!("handshake failed: {:?}", result);
+    };
+    let value: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
+    assert_eq!(value["name"], "@specforge/formal");
+    assert_eq!(value["version"], "1.0.0");
+    assert_eq!(value["contribution_flags"]["entities"], true);
+    assert_eq!(value["contribution_flags"]["validators"], true);
+    let peers = value["peer_dependencies"].as_array().unwrap();
+    assert!(
+        peers.iter().any(|p| p["name"] == "@specforge/software"),
+        "peer dependency on @specforge/software must survive the migration"
+    );
+}

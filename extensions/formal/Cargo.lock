@@ -316,6 +316,36 @@ dependencies = [
  "extism-pdk",
  "serde",
  "serde_json",
+ "specforge-extension-sdk",
+]
+
+[[package]]
+name = "specforge-extension-sdk"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "extism-pdk",
+ "serde",
+ "serde_json",
+ "specforge-extension-sdk-macros",
+ "specforge-protocol-types",
+]
+
+[[package]]
+name = "specforge-extension-sdk-macros"
+version = "0.1.0"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
+]
+
+[[package]]
+name = "specforge-protocol-types"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
 ]
 
 [[package]]
