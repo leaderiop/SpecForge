@@ -494,6 +494,79 @@ struct Report {
     summary: serde_json::Value,
 }
 
+/// Order an extension's passes by their declared constraints: `after` /
+/// `before` names become edges, and ties resolve by declaration order
+/// (stable Kahn). Constraints referencing unknown passes — host phases like
+/// "resolve", or other extensions' passes — are ignored; a constraint cycle
+/// falls back to declaration order with a warning.
+fn order_passes(passes: &[CompilerPassDescriptor]) -> Vec<CompilerPassDescriptor> {
+    use std::collections::{HashMap, VecDeque};
+
+    let index: HashMap<&str, usize> = passes
+        .iter()
+        .enumerate()
+        .map(|(i, p)| (p.name.as_str(), i))
+        .collect();
+    let mut successors: Vec<Vec<usize>> = vec![Vec::new(); passes.len()];
+    let mut indegree = vec![0usize; passes.len()];
+    let mut cyclic_constraint = false;
+
+    for (i, pass) in passes.iter().enumerate() {
+        // (dependency name, dependency_runs_first): `after: X` means X runs
+        // first; `before: X` means this pass runs first.
+        let mut deps: Vec<(&str, bool)> = Vec::new();
+        if let Some(after) = &pass.after {
+            deps.push((after, true));
+        }
+        if let Some(before) = &pass.before {
+            deps.push((before, false));
+        }
+        for (dep, dep_first) in deps {
+            let Some(&dep_idx) = index.get(dep) else {
+                continue; // unknown name: host phase or cross-extension
+            };
+            if dep == pass.name.as_str() {
+                continue; // self-referential constraint: ignore
+            }
+            let (from, to) = if dep_first {
+                (dep_idx, i)
+            } else {
+                (i, dep_idx)
+            };
+            if successors[from].contains(&to) {
+                continue;
+            }
+            successors[from].push(to);
+            indegree[to] += 1;
+        }
+    }
+
+    let mut ready: VecDeque<usize> = (0..passes.len()).filter(|&i| indegree[i] == 0).collect();
+    let mut order = Vec::with_capacity(passes.len());
+    while let Some(i) = ready.pop_front() {
+        order.push(i);
+        for &to in &successors[i] {
+            indegree[to] -= 1;
+            if indegree[to] == 0 {
+                ready.push_back(to);
+            }
+        }
+    }
+    if order.len() != passes.len() {
+        cyclic_constraint = true;
+    }
+
+    let mut result: Vec<CompilerPassDescriptor> =
+        order.into_iter().map(|i| passes[i].clone()).collect();
+    if cyclic_constraint {
+        eprintln!(
+            "warning: extension pass constraints form a cycle; falling back to declaration order"
+        );
+        result = passes.to_vec();
+    }
+    result
+}
+
 /// Dispatch extension-declared compiler passes through the wasm runtime.
 ///
 /// Each extension's describe payload lists `CompilerPassDescriptor`s; the
@@ -543,7 +616,7 @@ fn run_extension_passes(input: &AnalyzeInput, requested: &str) -> Vec<Report> {
             Ok(p) => p,
             Err(_) => continue,
         };
-        for pass in passes {
+        for pass in order_passes(&passes) {
             let report_name = format!("{}:{}", manifest.name, pass.name);
             if !wants(&report_name) {
                 continue;
@@ -700,4 +773,64 @@ pub fn run(
     }
 
     if has_errors { 1 } else { 0 }
+}
+
+#[cfg(test)]
+mod order_tests {
+    use super::*;
+    use specforge_protocol_types::CompilerPassDescriptor;
+
+    fn pass(name: &str, after: Option<&str>, before: Option<&str>) -> CompilerPassDescriptor {
+        CompilerPassDescriptor {
+            name: name.to_string(),
+            after: after.map(str::to_string),
+            before: before.map(str::to_string),
+            phase: None,
+        }
+    }
+
+    fn names(passes: &[CompilerPassDescriptor]) -> Vec<&str> {
+        passes.iter().map(|p| p.name.as_str()).collect()
+    }
+
+    #[test]
+    fn after_constraints_order_dependencies_first() {
+        let passes = vec![
+            pass("layering_verify", Some("condition_check"), None),
+            pass("condition_check", Some("resolve"), None),
+            pass("event_graph_analyze", Some("layering_verify"), None),
+        ];
+        assert_eq!(
+            names(&order_passes(&passes)),
+            vec!["condition_check", "layering_verify", "event_graph_analyze"]
+        );
+    }
+
+    #[test]
+    fn before_constraints_run_this_pass_first() {
+        // `before: "first"` means this pass runs BEFORE "first".
+        let passes = vec![
+            pass("second", None, Some("first")),
+            pass("first", None, None),
+        ];
+        assert_eq!(names(&order_passes(&passes)), vec!["second", "first"]);
+    }
+
+    #[test]
+    fn ties_resolve_in_declaration_order() {
+        let passes = vec![pass("b", None, None), pass("a", None, None)];
+        assert_eq!(names(&order_passes(&passes)), vec!["b", "a"]);
+    }
+
+    #[test]
+    fn unknown_constraint_names_are_ignored() {
+        let passes = vec![pass("solo", Some("resolve"), None)];
+        assert_eq!(names(&order_passes(&passes)), vec!["solo"]);
+    }
+
+    #[test]
+    fn constraint_cycles_fall_back_to_declaration_order() {
+        let passes = vec![pass("a", Some("b"), None), pass("b", Some("a"), None)];
+        assert_eq!(names(&order_passes(&passes)), vec!["a", "b"]);
+    }
 }

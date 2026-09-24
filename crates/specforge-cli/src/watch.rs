@@ -100,6 +100,17 @@ pub fn run(path: &Path, json: bool) -> i32 {
         graph_config,
     );
 
+    // Start watching before announcing readiness: a client that writes on
+    // seeing "ready" must never race a watcher that does not exist yet.
+    let (tx, rx) = mpsc::channel::<Vec<String>>();
+    let watcher = match SpecWatcher::new(&spec_root, tx) {
+        Ok(w) => w,
+        Err(e) => {
+            eprintln!("error: {e}");
+            return 1;
+        }
+    };
+
     let file_count = ctx.resolved.files.len();
     let diags = pipeline.diagnostics();
     let errors = diags
@@ -139,15 +150,6 @@ pub fn run(path: &Path, json: bool) -> i32 {
     // 4. Watch loop: debounced batches from the watcher drive incremental
     //    rebuilds. Tree-sitter trees are retained across rebuilds, so
     //    unchanged subtrees are not re-parsed.
-    let (tx, rx) = mpsc::channel::<Vec<String>>();
-    let watcher = match SpecWatcher::new(&spec_root, tx) {
-        Ok(w) => w,
-        Err(e) => {
-            eprintln!("error: {e}");
-            return 1;
-        }
-    };
-
     for batch in rx {
         let result = pipeline.rebuild(&batch, |f: &str| {
             std::fs::read_to_string(spec_root.join(f)).ok()

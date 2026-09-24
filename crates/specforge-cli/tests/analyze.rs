@@ -399,3 +399,36 @@ fn analyze_event_graph_flags_unconsumed_events() {
         .collect();
     assert_eq!(w029.len(), 1, "unconsumed producer must surface W029");
 }
+
+#[test]
+fn analyze_orders_extension_passes_by_constraints() {
+    // The formal extension declares its passes shuffled (event_graph_analyze
+    // first); the host must order them by the after-constraints:
+    // condition_check -> layering_verify -> event_graph_analyze.
+    let dir = TempDir::new().unwrap();
+    fs::write(
+        dir.path().join("specforge.json"),
+        r#"{"extensions": ["@specforge/formal"]}"#,
+    )
+    .unwrap();
+    fs::write(dir.path().join("main.spec"), "").unwrap();
+
+    let output = specforge_cmd()
+        .args(["analyze", "--path", dir.path().to_str().unwrap(), "--json"])
+        .output()
+        .unwrap();
+    let doc: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
+    let formal: Vec<&str> = doc["passes"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter_map(|p| p["pass"].as_str())
+        .filter(|n| n.starts_with("@specforge/formal:"))
+        .map(|n| n.trim_start_matches("@specforge/formal:"))
+        .collect();
+    assert_eq!(
+        formal,
+        vec!["condition_check", "layering_verify", "event_graph_analyze"],
+        "constraint order must beat declaration order: {formal:?}"
+    );
+}

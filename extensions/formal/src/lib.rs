@@ -30,14 +30,16 @@ impl Contributions for Formal {
             optional: false,
         });
 
+        // Declaration order is deliberately shuffled; the host must order
+        // passes by the declared after-constraints, not by declaration.
+        c.pass("event_graph_analyze", |p| {
+            p.after("layering_verify");
+        });
         c.pass("condition_check", |p| {
             p.after("resolve");
         });
         c.pass("layering_verify", |p| {
             p.after("condition_check");
-        });
-        c.pass("event_graph_analyze", |p| {
-            p.after("layering_verify");
         });
 
         for (category, bytes) in [
