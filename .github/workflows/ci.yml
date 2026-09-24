@@ -29,7 +29,14 @@ jobs:
         run: cargo fmt --all -- --check
 
       - name: Run clippy
-        run: cargo clippy --workspace -- -D warnings
+        run: |
+          cargo clippy --workspace --all-targets -- -D warnings
+          # Extension crates live outside the workspace; their code compiles
+          # to wasm via the specforge-extism build script and needs its own
+          # clippy pass to be gated.
+          for ext in extensions/*/Cargo.toml; do
+            cargo clippy --manifest-path "$ext" --target wasm32-unknown-unknown -- -D warnings
+          done
 
       - name: Install nextest
         uses: taiki-e/install-action@nextest
