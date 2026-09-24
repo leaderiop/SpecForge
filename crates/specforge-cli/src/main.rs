@@ -23,6 +23,7 @@ mod remove;
 mod search;
 mod stats;
 mod trace;
+mod trust_flow;
 mod update;
 
 use clap::{CommandFactory, Parser, Subcommand};
@@ -236,6 +237,14 @@ enum Commands {
         /// Output format: human or json
         #[arg(long, default_value = "human")]
         format: String,
+
+        /// Accept unsigned packages (publisher verification skipped)
+        #[arg(long, default_value_t = false)]
+        allow_unsigned: bool,
+
+        /// Accept key changes non-interactively (for CI)
+        #[arg(long, default_value_t = false)]
+        yes: bool,
     },
     /// Remove an installed extension
     Remove {
@@ -299,6 +308,14 @@ enum Commands {
         /// Output format: human or json
         #[arg(long, default_value = "human")]
         format: String,
+
+        /// Accept unsigned packages (publisher verification skipped)
+        #[arg(long, default_value_t = false)]
+        allow_unsigned: bool,
+
+        /// Accept key changes non-interactively (for CI)
+        #[arg(long, default_value_t = false)]
+        yes: bool,
     },
     /// Authenticate with a registry
     Login {
@@ -753,8 +770,10 @@ fn main() {
             specifier,
             path,
             format,
+            allow_unsigned,
+            yes,
         } => {
-            let exit_code = add::run(&specifier, &path, &format);
+            let exit_code = add::run(&specifier, &path, &format, allow_unsigned, yes);
             std::process::exit(exit_code);
         }
         Commands::Remove {
@@ -782,8 +801,14 @@ fn main() {
             let exit_code = search::run(&query, &path, &format);
             std::process::exit(exit_code);
         }
-        Commands::Update { name, path, format } => {
-            let exit_code = update::run(name.as_deref(), &path, &format);
+        Commands::Update {
+            name,
+            path,
+            format,
+            allow_unsigned,
+            yes,
+        } => {
+            let exit_code = update::run(name.as_deref(), &path, &format, allow_unsigned, yes);
             std::process::exit(exit_code);
         }
         Commands::Login {

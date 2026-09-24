@@ -17,6 +17,11 @@ pub struct LockFileEntry {
     pub version: String,
     pub source: String,
     pub wasm_hash: String,
+    /// Publisher key id recorded at install from a signed registry package.
+    /// `None` for local installs and for lock files written before signed
+    /// publishing existed (field defaults on deserialize for compatibility).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub key_id: Option<String>,
 }
 
 impl Default for LockFile {
@@ -185,6 +190,7 @@ pub fn refresh_lock_file(
                 version: ext.manifest.version.clone(),
                 source,
                 wasm_hash: hash,
+                key_id: None,
             });
         }
     }
@@ -221,6 +227,7 @@ mod tests {
                 version: "1.0.0".to_string(),
                 source: "registry".to_string(),
                 wasm_hash: "abc123".to_string(),
+                key_id: None,
             }],
         };
 
@@ -246,12 +253,14 @@ mod tests {
                     version: "1.0.0".to_string(),
                     source: "registry".to_string(),
                     wasm_hash: "abc123".to_string(),
+                    key_id: None,
                 },
                 LockFileEntry {
                     name: "@specforge/governance".to_string(),
                     version: "1.0.0".to_string(),
                     source: "local".to_string(),
                     wasm_hash: "def456".to_string(),
+                    key_id: None,
                 },
             ],
         };
@@ -295,6 +304,7 @@ mod tests {
                 version: "1.0.0".to_string(),
                 source: "registry".to_string(),
                 wasm_hash: "abc".to_string(),
+                key_id: None,
             }],
         };
 
@@ -323,6 +333,7 @@ mod tests {
                 version: "1.0.0".to_string(),
                 source: "registry".to_string(),
                 wasm_hash: "expected_hash".to_string(),
+                key_id: None,
             }],
         };
 
@@ -354,6 +365,7 @@ mod tests {
                 version: "1.0.0".to_string(),
                 source: "registry".to_string(),
                 wasm_hash: "correct_hash".to_string(),
+                key_id: None,
             }],
         };
 
@@ -409,6 +421,7 @@ mod tests {
                 version: "1.0.0".to_string(),
                 source: "registry".to_string(),
                 wasm_hash: "old_hash".to_string(),
+                key_id: None,
             }],
         };
 

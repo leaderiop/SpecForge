@@ -171,6 +171,7 @@ fn make_response(name: &str, version: &str) -> RegistryResponse {
         sha256: "abc123".to_string(),
         signature: String::new(),
         key_id: String::new(),
+        manifest: String::new(),
     }
 }
 

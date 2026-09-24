@@ -6,7 +6,13 @@ use specforge_registry::{
 use specforge_wasm::{install_extension, read_lock_file, write_lock_file};
 use std::path::Path;
 
-pub fn run(name: Option<&str>, path: &Path, format: &str) -> i32 {
+pub fn run(
+    name: Option<&str>,
+    path: &Path,
+    format: &str,
+    allow_unsigned: bool,
+    assume_yes: bool,
+) -> i32 {
     let lock_path = path.join("specforge.lock");
     let mut lock = match read_lock_file(&lock_path) {
         Ok(l) => l,
@@ -102,6 +108,26 @@ pub fn run(name: Option<&str>, path: &Path, format: &str) -> i32 {
             continue;
         }
 
+        // Publisher signature + TOFU: a refused package skips the update.
+        let trust = match crate::trust_flow::check_and_pin(
+            &response.name,
+            &response,
+            &wasm_bytes,
+            allow_unsigned,
+            assume_yes,
+            format,
+            None,
+        ) {
+            Ok(t) => t,
+            Err(diag) => {
+                eprintln!(
+                    "warning: trust check failed for {}: {} (code {}), skipping",
+                    response.name, diag.message, diag.code
+                );
+                continue;
+            }
+        };
+
         match install_extension(
             &response.name,
             &response.version,
@@ -111,6 +137,7 @@ pub fn run(name: Option<&str>, path: &Path, format: &str) -> i32 {
             &cache_dir,
             &mut lock,
             false,
+            trust.key_id.as_deref(),
         ) {
             Ok(result) => {
                 updated.push(json!({

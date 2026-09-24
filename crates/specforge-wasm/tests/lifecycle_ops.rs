@@ -87,6 +87,7 @@ fn test_install_verify_sha256_and_place_binary() {
         &cache_dir,
         &mut lock,
         true,
+        None,
     )
     .unwrap();
 
@@ -158,6 +159,7 @@ fn test_install_aot_compiles_after_placement() {
         &cache_dir,
         &mut lock,
         false, // do NOT skip AOT
+        None,
     )
     .unwrap();
 
@@ -189,6 +191,7 @@ fn test_install_updates_lock_file() {
         &cache_dir,
         &mut lock,
         true,
+        None,
     )
     .unwrap();
 
@@ -220,6 +223,7 @@ fn test_install_rolls_back_on_integrity_failure() {
         &cache_dir,
         &mut lock,
         true,
+        None,
     )
     .unwrap_err();
 
@@ -255,6 +259,7 @@ fn test_install_defers_aot_when_skip_aot() {
         &cache_dir,
         &mut lock,
         true, // skip AOT
+        None,
     )
     .unwrap();
 
@@ -303,6 +308,7 @@ fn test_upgrade_validates_peer_compat() {
         version: "1.0.0".to_string(),
         source: "registry".to_string(),
         wasm_hash: "old_hash".to_string(),
+        key_id: None,
     });
 
     // Peer manifests: ext-b depends on ext-a >=1.0.0
@@ -346,6 +352,7 @@ fn test_upgrade_rejects_breaking_peer_without_force() {
         version: "1.0.0".to_string(),
         source: "registry".to_string(),
         wasm_hash: "old_hash".to_string(),
+        key_id: None,
     });
 
     // New manifest declares a peer dep on a non-existent extension
@@ -393,6 +400,7 @@ fn test_upgrade_invalidates_old_aot_and_recompiles() {
         version: "1.0.0".to_string(),
         source: "registry".to_string(),
         wasm_hash: old_hash.to_string(),
+        key_id: None,
     });
 
     let wasm_bytes = fake_wasm_bytes();
@@ -450,6 +458,7 @@ fn test_uninstall_removes_from_lock_file() {
         version: "1.0.0".to_string(),
         source: "registry".to_string(),
         wasm_hash: "abc123".to_string(),
+        key_id: None,
     });
 
     uninstall_extension(
@@ -483,6 +492,7 @@ fn test_uninstall_deletes_wasm_binary() {
         version: "1.0.0".to_string(),
         source: "registry".to_string(),
         wasm_hash: "hash".to_string(),
+        key_id: None,
     });
 
     uninstall_extension(
@@ -522,6 +532,7 @@ fn test_uninstall_invalidates_aot_cache() {
         version: "1.0.0".to_string(),
         source: "registry".to_string(),
         wasm_hash: wasm_hash.to_string(),
+        key_id: None,
     });
 
     let result = uninstall_extension(
@@ -556,6 +567,7 @@ fn test_uninstall_rejects_when_dependents_exist() {
         version: "1.0.0".to_string(),
         source: "registry".to_string(),
         wasm_hash: "hash".to_string(),
+        key_id: None,
     });
 
     let err = uninstall_extension(
@@ -598,6 +610,7 @@ fn test_uninstall_with_force_bypasses_dependent_check() {
         version: "1.0.0".to_string(),
         source: "registry".to_string(),
         wasm_hash: "hash".to_string(),
+        key_id: None,
     });
 
     // With force=true, should succeed even with dependents

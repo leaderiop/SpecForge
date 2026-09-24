@@ -19,6 +19,7 @@ clap_complete = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 sha2 = { workspace = true }
+hex = "0.4.3"
 specforge-common = { workspace = true }
 specforge-migrate = { workspace = true }
 specforge-formatter = { workspace = true }

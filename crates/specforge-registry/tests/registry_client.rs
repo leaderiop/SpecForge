@@ -181,6 +181,7 @@ fn mock_client_fetch() {
         sha256: "abc123".into(),
         signature: String::new(),
         key_id: String::new(),
+        manifest: String::new(),
     }));
 
     let resp = client

@@ -204,6 +204,86 @@ pub fn assign_trust_level(source: &str) -> TrustLevel {
     }
 }
 
+/// Outcome of checking a registry package's publisher signature.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum TrustCheck {
+    /// Signature present and valid; carries the verified key id.
+    Verified { key_id: String },
+    /// No signature on the package (caller decides whether that is allowed).
+    Unsigned,
+}
+
+/// Verify a downloaded package's publisher signature against served metadata.
+///
+/// Uses only data the client holds or the registry serves: the downloaded wasm
+/// bytes, the served manifest JSON, and the signature wire object — the
+/// registry is not the trust anchor (spec #21). Fails on: tampered wasm,
+/// tampered manifest, wrong key, or metadata inconsistency between the
+/// server-extracted key id and the signature object.
+pub fn verify_package_signature(
+    response: &RegistryResponse,
+    wasm_bytes: &[u8],
+) -> Result<TrustCheck, Diagnostic> {
+    if response.signature.is_empty() {
+        return Ok(TrustCheck::Unsigned);
+    }
+
+    let code = "R-TRUST-002";
+    let signature: crate::PackageSignature =
+        serde_json::from_str(&response.signature).map_err(|e| Diagnostic {
+            code: code.to_string(),
+            severity: Severity::Error,
+            message: format!(
+                "unparseable package signature for '{}': {}",
+                response.name, e
+            ),
+            span: None,
+            suggestion: Some("refuse this package; the registry response is malformed".to_string()),
+        })?;
+
+    // Cross-check the server-extracted key id against the signature object:
+    // a mismatch means registry metadata was edited independently of the
+    // signature (or is stale).
+    if !response.key_id.is_empty() && response.key_id != signature.key_id {
+        return Err(Diagnostic {
+            code: "R-TRUST-004".to_string(),
+            severity: Severity::Error,
+            message: format!(
+                "metadata inconsistency for '{}': registry says key '{}' but signature carries '{}'",
+                response.name, response.key_id, signature.key_id
+            ),
+            span: None,
+            suggestion: Some("refuse this package and verify the registry".to_string()),
+        });
+    }
+
+    let manifest_sha256 = hex_sha256(response.manifest.as_bytes());
+    let wasm_sha256 = hex_sha256(wasm_bytes);
+    crate::verify_signature(
+        &response.name,
+        &response.version,
+        &wasm_sha256,
+        &manifest_sha256,
+        &signature,
+    )
+    .map_err(|message| Diagnostic {
+        code: code.to_string(),
+        severity: Severity::Error,
+        message: format!(
+            "signature verification failed for '{}': {}",
+            response.name, message
+        ),
+        span: None,
+        suggestion: Some(
+            "the package does not match its publisher signature; do not install it".to_string(),
+        ),
+    })?;
+
+    Ok(TrustCheck::Verified {
+        key_id: signature.key_id,
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

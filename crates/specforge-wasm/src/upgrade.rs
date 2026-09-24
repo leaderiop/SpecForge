@@ -102,7 +102,12 @@ pub fn upgrade_extension(
         invalidate_entry(cache_dir, &old_hash);
     }
 
-    // 4. Install new version
+    // 4. Install new version (preserve the recorded publisher key, if any)
+    let prior_key_id = lock
+        .entries
+        .iter()
+        .find(|e| e.name == name)
+        .and_then(|e| e.key_id.clone());
     let install_result = install_extension(
         name,
         new_version,
@@ -112,6 +117,7 @@ pub fn upgrade_extension(
         cache_dir,
         lock,
         false, // always cache on upgrade
+        prior_key_id.as_deref(),
     )?;
 
     Ok(UpgradeResult {

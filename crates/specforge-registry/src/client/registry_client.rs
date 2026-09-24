@@ -10,10 +10,12 @@ pub struct RegistryResponse {
     pub version: String,
     pub wasm_url: String,
     pub sha256: String,
-    /// Wire signature object (JSON with sig/keyId/pubkey), empty when unsigned.
+    /// Wire signature object (JSON with sig/keyId/pubkey/signedAt), empty when unsigned.
     pub signature: String,
     /// Short publisher key id, empty when unsigned.
     pub key_id: String,
+    /// Exact manifest JSON as published; empty when the registry does not serve it.
+    pub manifest: String,
 }
 
 /// A single search result from a registry query.

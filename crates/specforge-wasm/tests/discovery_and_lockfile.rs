@@ -181,12 +181,14 @@ fn lock_file_roundtrip() {
                 version: "1.0.0".to_string(),
                 source: "registry".to_string(),
                 wasm_hash: "abc123".to_string(),
+                key_id: None,
             },
             LockFileEntry {
                 name: "@specforge/governance".to_string(),
                 version: "2.0.0".to_string(),
                 source: "local:./ext".to_string(),
                 wasm_hash: "def456".to_string(),
+                key_id: None,
             },
         ],
     };
@@ -230,6 +232,7 @@ fn doctor_missing_binary() {
             version: "1.0.0".to_string(),
             source: "registry".to_string(),
             wasm_hash: "abc".to_string(),
+            key_id: None,
         }],
     };
     let results = run_doctor_check(&lock, dir.path(), |_| None, &HashMap::new());
@@ -255,6 +258,7 @@ fn doctor_stale_hash() {
             version: "1.0.0".to_string(),
             source: "registry".to_string(),
             wasm_hash: "expected_hash".to_string(),
+            key_id: None,
         }],
     };
     let results = run_doctor_check(
@@ -285,6 +289,7 @@ fn doctor_all_healthy() {
             version: "1.0.0".to_string(),
             source: "registry".to_string(),
             wasm_hash: "correct".to_string(),
+            key_id: None,
         }],
     };
     let installed: HashMap<String, String> = [("good-ext".to_string(), "1.0.0".to_string())]
@@ -337,6 +342,7 @@ fn refresh_updates_existing() {
             version: "1.0.0".to_string(),
             source: "registry".to_string(),
             wasm_hash: "old".to_string(),
+            key_id: None,
         }],
     };
 
@@ -371,12 +377,14 @@ fn refresh_prunes_removed() {
                 version: "1.0.0".to_string(),
                 source: "registry".to_string(),
                 wasm_hash: "h1".to_string(),
+                key_id: None,
             },
             LockFileEntry {
                 name: "@ext/remove".to_string(),
                 version: "1.0.0".to_string(),
                 source: "registry".to_string(),
                 wasm_hash: "h2".to_string(),
+                key_id: None,
             },
         ],
     };

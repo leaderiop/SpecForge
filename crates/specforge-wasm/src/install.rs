@@ -25,6 +25,7 @@ pub fn install_extension(
     cache_dir: &Path,
     lock: &mut LockFile,
     skip_aot: bool,
+    key_id: Option<&str>,
 ) -> Result<InstallResult, Diagnostic> {
     // 1. Verify SHA256
     let actual_hash = hex_sha256(wasm_bytes);
@@ -101,12 +102,14 @@ pub fn install_extension(
         existing.version = version.to_string();
         existing.wasm_hash = actual_hash.clone();
         existing.source = "registry".to_string();
+        existing.key_id = key_id.map(str::to_string);
     } else {
         lock.entries.push(LockFileEntry {
             name: name.to_string(),
             version: version.to_string(),
             source: "registry".to_string(),
             wasm_hash: actual_hash.clone(),
+            key_id: key_id.map(str::to_string),
         });
     }
 
@@ -152,6 +155,7 @@ pub fn install_from_local(
         cache_dir,
         lock,
         skip_aot,
+        None, // local installs are unsigned
     )
 }
 

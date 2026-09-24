@@ -9,7 +9,13 @@ use specforge_wasm::{
 };
 use std::path::Path;
 
-pub fn run(specifier: &str, path: &Path, format: &str) -> i32 {
+pub fn run(
+    specifier: &str,
+    path: &Path,
+    format: &str,
+    allow_unsigned: bool,
+    assume_yes: bool,
+) -> i32 {
     let parsed = match parse_extension_specifier(specifier) {
         Ok(p) => p,
         Err(diag) => {
@@ -37,7 +43,7 @@ pub fn run(specifier: &str, path: &Path, format: &str) -> i32 {
             install_local(local_path, path, format)
         }
         specforge_wasm::ExtensionSpecifier::Registry { name, version } => {
-            install_from_registry(name, version, path, format)
+            install_from_registry(name, version, path, format, allow_unsigned, assume_yes)
         }
         specforge_wasm::ExtensionSpecifier::Git { url, .. } => {
             match format {
@@ -55,7 +61,14 @@ pub fn run(specifier: &str, path: &Path, format: &str) -> i32 {
     }
 }
 
-fn install_from_registry(name: &str, version: &str, project_path: &Path, format: &str) -> i32 {
+fn install_from_registry(
+    name: &str,
+    version: &str,
+    project_path: &Path,
+    format: &str,
+    allow_unsigned: bool,
+    assume_yes: bool,
+) -> i32 {
     let config_path = project_path.join("specforge.json");
     let registries = load_registries(&config_path);
 
@@ -121,6 +134,23 @@ fn install_from_registry(name: &str, version: &str, project_path: &Path, format:
         return 1;
     }
 
+    // Verify publisher signature and apply the TOFU pin policy
+    let trust = match crate::trust_flow::check_and_pin(
+        &response.name,
+        &response,
+        &wasm_bytes,
+        allow_unsigned,
+        assume_yes,
+        format,
+        None,
+    ) {
+        Ok(t) => t,
+        Err(diag) => {
+            print_error(format, &diag.message, &diag.code);
+            return 1;
+        }
+    };
+
     // Install
     let extensions_dir = project_path.join(".specforge").join("extensions");
     let cache_dir = project_path.join(".specforge").join("cache");
@@ -137,6 +167,7 @@ fn install_from_registry(name: &str, version: &str, project_path: &Path, format:
         &cache_dir,
         &mut lock,
         false,
+        trust.key_id.as_deref(),
     ) {
         Ok(result) => {
             if let Err(diag) = write_lock_file(&lock, &lock_path) {

@@ -20,6 +20,8 @@ struct PackageVersionResponse {
     signature: String,
     #[serde(default)]
     key_id: String,
+    #[serde(default)]
+    manifest: String,
 }
 
 #[derive(Deserialize)]
@@ -218,6 +220,7 @@ impl RegistryClient for HttpRegistryClient {
                     sha256: body.sha256,
                     signature: body.signature,
                     key_id: body.key_id,
+                    manifest: body.manifest,
                 })
             }
             404 => Err(RegistryError::NotFound {
