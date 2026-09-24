@@ -117,12 +117,29 @@ impl Backend {
             })
             .map(|(kind, field, _)| (kind.to_string(), field.to_string()))
             .collect();
+        // Body-parser kinds own syntax the core grammar does not parse;
+        // their E001s are suppressed exactly as the CLI suppresses them.
+        let body_parser_kinds: std::collections::HashSet<String> = state
+            .kind_registry()
+            .iter()
+            .filter(|(_, e)| e.has_body_parser)
+            .map(|(k, _)| k.clone())
+            .collect();
+        let suppressed_parse_error_ranges: Vec<(String, usize, usize)> = parsed
+            .iter()
+            .flat_map(|(path, sf)| {
+                sf.entities
+                    .iter()
+                    .filter(|e| body_parser_kinds.contains(e.kind.raw.as_str()))
+                    .map(move |e| (path.clone(), e.span.start_line, e.span.end_line))
+            })
+            .collect();
         let graph_config = GraphConfig {
             installed_keywords: state.kind_registry().keywords().cloned().collect(),
             known_provider_schemes: std::collections::HashSet::new(),
             known_extension_keywords: HashMap::new(),
             bidirectional_pairs: state.field_registry().bidirectional_pairs(),
-            suppressed_parse_error_ranges: Vec::new(),
+            suppressed_parse_error_ranges,
             single_reference_fields,
         };
         let spec_files: Vec<specforge_parser::SpecFile> =

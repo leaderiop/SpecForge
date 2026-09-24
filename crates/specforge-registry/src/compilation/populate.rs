@@ -96,6 +96,7 @@ fn register_entity_kinds(
             singleton: kind.singleton,
             supports_verify: kind.supports_verify,
             allowed_verify_kinds: kind.allowed_verify_kinds.clone(),
+            has_body_parser: kind.has_body_parser,
             semantic_token: kind.semantic_token.clone(),
             lsp_icon: kind.lsp_icon.clone(),
             dot_shape: kind.dot_shape.clone(),

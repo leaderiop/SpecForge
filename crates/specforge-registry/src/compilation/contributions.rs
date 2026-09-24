@@ -214,6 +214,7 @@ mod tests {
             singleton: false,
             supports_verify: false,
             allowed_verify_kinds: vec![],
+            has_body_parser: false,
             semantic_token: None,
             lsp_icon: None,
             dot_shape: None,

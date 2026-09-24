@@ -47,6 +47,7 @@ fn make_kind_entry(name: &str, ext: &str, testable: bool) -> KindRegistryEntry {
         singleton: false,
         supports_verify: testable,
         allowed_verify_kinds: vec![],
+        has_body_parser: false,
         semantic_token: None,
         lsp_icon: None,
         dot_shape: None,

@@ -9,6 +9,9 @@ pub struct KindRegistryEntry {
     pub singleton: bool,
     pub supports_verify: bool,
     pub allowed_verify_kinds: Vec<String>,
+    /// The kind's body carries extension-owned syntax the core grammar does
+    /// not parse; host surfaces suppress E001s inside such entities.
+    pub has_body_parser: bool,
     pub semantic_token: Option<String>,
     pub lsp_icon: Option<String>,
     pub dot_shape: Option<String>,

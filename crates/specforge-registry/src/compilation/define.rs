@@ -35,6 +35,7 @@ pub fn register_define_blocks(
             dot_color: None,
             dot_fillcolor: None,
             open_fields: false,
+            has_body_parser: false,
         };
 
         if kind_reg.contains(&define.keyword) {
