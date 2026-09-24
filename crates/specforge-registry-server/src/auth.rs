@@ -2,12 +2,27 @@ use sha2::{Digest, Sha256};
 
 use crate::db::{Database, TokenRecord};
 
-pub fn create_token(db: &Database, scope: Option<&str>, label: &str) -> String {
+/// Create a token. `expires_in_days` = `Some(0)` expires immediately;
+/// `None` never expires (the `--no-expiry` escape). Default policy is 90 days.
+pub fn create_token(
+    db: &Database,
+    scope: Option<&str>,
+    label: &str,
+    expires_in_days: Option<u64>,
+    admin: bool,
+) -> String {
     let raw_token = generate_raw_token();
     let hash = hash_token(&raw_token);
-    db.insert_token(&hash, scope, label)
+    let expires_at = expires_in_days
+        .map(|days| (chrono::Utc::now() + chrono::Duration::days(days as i64)).to_rfc3339());
+    db.insert_token(&hash, scope, label, expires_at.as_deref(), admin)
         .expect("failed to store token");
     raw_token
+}
+
+/// Whether the record grants admin (token administration) rights.
+pub fn is_admin(record: &TokenRecord) -> bool {
+    record.admin
 }
 
 pub fn list_tokens(db: &Database) -> Vec<TokenRecord> {
@@ -21,7 +36,15 @@ pub fn revoke_token(db: &Database, prefix: &str) -> bool {
 pub fn validate_bearer(db: &Database, auth_header: &str) -> Option<TokenRecord> {
     let token = auth_header.strip_prefix("Bearer ")?;
     let hash = hash_token(token);
-    db.validate_token(&hash)
+    let record = db.validate_token(&hash)?;
+    // Expired tokens are invalid: the caller sees a plain 401.
+    if let Some(expires_at) = &record.expires_at {
+        let deadline = chrono::DateTime::parse_from_rfc3339(expires_at).ok()?;
+        if chrono::Utc::now() > deadline {
+            return None;
+        }
+    }
+    Some(record)
 }
 
 pub fn token_has_scope(record: &TokenRecord, package_name: &str) -> bool {
@@ -36,7 +59,7 @@ pub fn token_has_scope(record: &TokenRecord, package_name: &str) -> bool {
     }
 }
 
-fn hash_token(token: &str) -> String {
+pub(crate) fn hash_token(token: &str) -> String {
     let mut hasher = Sha256::new();
     hasher.update(token.as_bytes());
     hex::encode(hasher.finalize())
@@ -59,7 +82,40 @@ mod tests {
             scope: scope.map(str::to_string),
             label: "test".to_string(),
             created_at: "2026-01-01".to_string(),
+            expires_at: None,
+            admin: false,
         }
+    }
+
+    #[test]
+    fn expired_token_fails_validation() {
+        let dir = tempfile::tempdir().unwrap();
+        let db = Database::open(&dir.path().join("t.db")).unwrap();
+        // expires_in_days = Some(0) expires immediately
+        let raw = create_token(&db, None, "short-lived", Some(0), false);
+        let header = format!("Bearer {}", raw);
+        assert!(
+            validate_bearer(&db, &header).is_none(),
+            "expired token must not validate"
+        );
+    }
+
+    #[test]
+    fn unexpired_token_validates() {
+        let dir = tempfile::tempdir().unwrap();
+        let db = Database::open(&dir.path().join("t.db")).unwrap();
+        let raw = create_token(&db, None, "normal", Some(90), false);
+        let header = format!("Bearer {}", raw);
+        assert!(validate_bearer(&db, &header).is_some());
+    }
+
+    #[test]
+    fn admin_flag_round_trips() {
+        let dir = tempfile::tempdir().unwrap();
+        let db = Database::open(&dir.path().join("t.db")).unwrap();
+        let raw = create_token(&db, None, "root", Some(90), true);
+        let record = validate_bearer(&db, &format!("Bearer {}", raw)).unwrap();
+        assert!(is_admin(&record));
     }
 
     #[test]

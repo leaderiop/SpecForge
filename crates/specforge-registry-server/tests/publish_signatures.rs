@@ -33,6 +33,9 @@ fn spawn_server(data_dir: &std::path::Path) -> (String, tokio::task::JoinHandle<
     let state = Arc::new(AppState {
         database,
         storage: store,
+        rate_limiter: specforge_registry_server::rate::RateLimiter::new(60),
+        publish_limit_per_token: 100,
+        publish_limit_per_ip: 100,
     });
     let app = handlers::router(state);
     let listener = std::net::TcpListener::bind("127.0.0.1:0").expect("bind ephemeral port");
@@ -61,7 +64,7 @@ async fn signed_publish_round_trips_through_http_boundary() {
     let raw_token = {
         let db_path = dir.path().join("registry.db");
         let database = Database::open(&db_path).expect("open db");
-        auth::create_token(&database, None, "test-publisher")
+        auth::create_token(&database, None, "test-publisher", Some(1), false)
     };
 
     let manifest = minimal_manifest();

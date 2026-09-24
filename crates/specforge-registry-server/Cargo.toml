@@ -9,6 +9,7 @@ name = "specforge-registry"
 path = "src/main.rs"
 
 [dependencies]
+specforge-registry = { path = "../specforge-registry" }
 axum = { version = "0.8.4", features = ["multipart"] }
 tokio = { workspace = true }
 serde = { workspace = true }
@@ -22,8 +23,10 @@ clap = { workspace = true }
 chrono = { version = "0.4.41", features = ["serde"] }
 rand = "0.9.1"
 hex = "0.4.3"
+parking_lot = "0.12"
 
 [dev-dependencies]
+tower = { version = "0.5", features = ["util"] }
 reqwest = { workspace = true }
 tempfile = { workspace = true }
 specforge-registry = { path = "../specforge-registry" }

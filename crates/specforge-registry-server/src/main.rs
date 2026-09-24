@@ -50,6 +50,18 @@ enum TokenAction {
         #[arg(long, default_value = "default")]
         label: String,
 
+        /// Days until the token expires (default policy: 90)
+        #[arg(long, default_value_t = 90)]
+        expires_in_days: u64,
+
+        /// Token never expires
+        #[arg(long, default_value_t = false)]
+        no_expiry: bool,
+
+        /// Grant token-administration rights (required to use the admin API)
+        #[arg(long, default_value_t = false)]
+        admin: bool,
+
         /// Data directory (must match the server's)
         #[arg(long, default_value = "./registry-data")]
         data_dir: PathBuf,
@@ -100,6 +112,9 @@ async fn main() {
             let app_state = Arc::new(AppState {
                 database,
                 storage: store,
+                rate_limiter: specforge_registry_server::rate::RateLimiter::new(60),
+                publish_limit_per_token: 30,
+                publish_limit_per_ip: 60,
             });
 
             let app = handlers::router(app_state);
@@ -117,17 +132,34 @@ async fn main() {
             TokenAction::Create {
                 scope,
                 label,
+                expires_in_days,
+                no_expiry,
+                admin,
                 data_dir,
             } => {
                 std::fs::create_dir_all(&data_dir).expect("failed to create data directory");
                 let database =
                     Database::open(&data_dir.join("registry.db")).expect("failed to open database");
 
-                let token = auth::create_token(&database, scope.as_deref(), &label);
+                let expires_in_days = if no_expiry {
+                    None
+                } else {
+                    Some(expires_in_days)
+                };
+                let token =
+                    auth::create_token(&database, scope.as_deref(), &label, expires_in_days, admin);
                 println!("Token created successfully.\n");
                 println!("  token: {}", token);
                 println!("  scope: {}", scope.as_deref().unwrap_or("(full access)"));
                 println!("  label: {}", label);
+                println!(
+                    "  expires: {}",
+                    match expires_in_days {
+                        Some(days) => format!("in {} days", days),
+                        None => "never".to_string(),
+                    }
+                );
+                println!("  admin: {}", if admin { "yes" } else { "no" });
                 println!("\nStore this token securely — it cannot be retrieved later.");
             }
             TokenAction::List { data_dir } => {

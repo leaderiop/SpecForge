@@ -31,6 +31,10 @@ pub struct TokenRecord {
     pub scope: Option<String>,
     pub label: String,
     pub created_at: String,
+    /// RFC3339 expiry instant; `None` = never expires (--no-expiry escape).
+    pub expires_at: Option<String>,
+    /// Admin tokens may create/list/revoke other tokens via the admin API.
+    pub admin: bool,
 }
 
 impl Database {
@@ -73,7 +77,9 @@ impl Database {
                 scope TEXT,
                 label TEXT NOT NULL DEFAULT 'default',
                 created_at TEXT NOT NULL DEFAULT (datetime('now')),
-                revoked INTEGER NOT NULL DEFAULT 0
+                revoked INTEGER NOT NULL DEFAULT 0,
+                expires_at TEXT,
+                admin INTEGER NOT NULL DEFAULT 0
             );
 
             CREATE INDEX IF NOT EXISTS idx_tokens_hash ON tokens(token_hash);",
@@ -227,16 +233,19 @@ impl Database {
 
     // --- Token management ---
 
+    #[allow(clippy::too_many_arguments)]
     pub fn insert_token(
         &self,
         token_hash: &str,
         scope: Option<&str>,
         label: &str,
+        expires_at: Option<&str>,
+        admin: bool,
     ) -> Result<(), String> {
         let conn = self.conn.lock().unwrap();
         conn.execute(
-            "INSERT INTO tokens (token_hash, scope, label) VALUES (?1, ?2, ?3)",
-            params![token_hash, scope, label],
+            "INSERT INTO tokens (token_hash, scope, label, expires_at, admin) VALUES (?1, ?2, ?3, ?4, ?5)",
+            params![token_hash, scope, label, expires_at, admin as i64],
         )
         .map_err(|e| format!("failed to insert token: {}", e))?;
         Ok(())
@@ -245,7 +254,7 @@ impl Database {
     pub fn validate_token(&self, token_hash: &str) -> Option<TokenRecord> {
         let conn = self.conn.lock().unwrap();
         conn.query_row(
-            "SELECT token_hash, scope, label, created_at FROM tokens WHERE token_hash = ?1 AND revoked = 0",
+            "SELECT token_hash, scope, label, created_at, expires_at, admin FROM tokens WHERE token_hash = ?1 AND revoked = 0",
             params![token_hash],
             |row| {
                 Ok(TokenRecord {
@@ -253,15 +262,18 @@ impl Database {
                     scope: row.get(1)?,
                     label: row.get(2)?,
                     created_at: row.get(3)?,
+                    expires_at: row.get(4)?,
+                    admin: row.get::<_, i64>(5)? != 0,
                 })
             },
-        ).ok()
+        )
+        .ok()
     }
 
     pub fn list_tokens(&self) -> Vec<TokenRecord> {
         let conn = self.conn.lock().unwrap();
         let mut stmt = conn
-            .prepare("SELECT token_hash, scope, label, created_at FROM tokens WHERE revoked = 0 ORDER BY created_at")
+            .prepare("SELECT token_hash, scope, label, created_at, expires_at, admin FROM tokens WHERE revoked = 0 ORDER BY created_at")
             .unwrap();
         stmt.query_map([], |row| {
             Ok(TokenRecord {
@@ -269,6 +281,8 @@ impl Database {
                 scope: row.get(1)?,
                 label: row.get(2)?,
                 created_at: row.get(3)?,
+                expires_at: row.get(4)?,
+                admin: row.get::<_, i64>(5)? != 0,
             })
         })
         .unwrap()

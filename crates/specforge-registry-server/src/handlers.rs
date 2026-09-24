@@ -28,6 +28,11 @@ pub fn router(state: Arc<AppState>) -> Router {
         )
         .route("/v1/search", get(search_packages))
         .route("/v1/auth/verify", post(verify_auth))
+        .route(
+            "/v1/admin/tokens",
+            post(admin_create_token).get(admin_list_tokens),
+        )
+        .route("/v1/admin/tokens/{prefix}", delete(admin_revoke_token))
         .route("/health", get(health_check))
         .with_state(state)
 }
@@ -293,6 +298,26 @@ async fn publish_package(
         }
     };
 
+    // Rate limit: per token and per client IP (fixed window). The
+    // Retry-After header rides on the JSON response for clients that honor it.
+    if let Err(limited) = check_publish_rate(&state, &token_record, &headers) {
+        return (
+            StatusCode::TOO_MANY_REQUESTS,
+            Json(
+                serde_json::to_value(ErrorResponse {
+                    error: ErrorBody {
+                        code: "RATE_LIMITED".to_string(),
+                        message: format!(
+                            "too many publish requests; retry after {} seconds",
+                            limited.retry_after.as_secs()
+                        ),
+                    },
+                })
+                .unwrap(),
+            ),
+        );
+    }
+
     if !auth::token_has_scope(&token_record, &name) {
         return (
             StatusCode::FORBIDDEN,
@@ -352,23 +377,85 @@ async fn publish_package(
         }
     }
 
-    let wasm_data = match wasm_bytes {
-        Some(d) if !d.is_empty() => d,
+    // --- Publish validation contract (spec #21, T3) ---
+    // 1. Signed packages only: the signature field must be present.
+    let signature_json = match signature_json {
+        Some(sig) if !sig.trim().is_empty() => sig,
         _ => {
-            return (
-                StatusCode::BAD_REQUEST,
-                Json(
-                    serde_json::to_value(ErrorResponse {
-                        error: ErrorBody {
-                            code: "BAD_REQUEST".to_string(),
-                            message: "missing 'wasm' field in multipart body".to_string(),
-                        },
-                    })
-                    .unwrap(),
-                ),
+            return bad_request(
+                "UNSIGNED_PACKAGE",
+                "packages must be signed: run `specforge publish` (which signs) instead of uploading raw artifacts",
             );
         }
     };
+
+    // 2. wasm magic bytes: reject non-wasm payloads.
+    let wasm_data = match wasm_bytes {
+        Some(d) if !d.is_empty() => d,
+        _ => {
+            return bad_request("BAD_REQUEST", "missing 'wasm' field in multipart body");
+        }
+    };
+    if !wasm_data.starts_with(b"\0asm") {
+        return bad_request(
+            "INVALID_WASM",
+            "the uploaded 'wasm' field does not look like a Wasm binary (missing magic bytes)",
+        );
+    }
+
+    // 3. Manifest must parse and validate against the v2 schema.
+    if manifest_json.as_deref().is_none_or(|m| m.trim().is_empty()) {
+        return bad_request(
+            "INVALID_MANIFEST",
+            "missing 'manifest' field in multipart body",
+        );
+    }
+    let manifest: specforge_registry::ManifestV2 =
+        match serde_json::from_str(manifest_json.as_deref().unwrap_or("")) {
+            Ok(m) => m,
+            Err(e) => {
+                return bad_request(
+                    "INVALID_MANIFEST",
+                    &format!("manifest is not valid JSON for ManifestV2: {}", e),
+                );
+            }
+        };
+    let schema_issues = specforge_registry::validate_manifest(&manifest);
+    if !schema_issues.is_empty() {
+        let first = &schema_issues[0];
+        return bad_request(
+            "INVALID_MANIFEST",
+            &format!(
+                "manifest failed schema validation ({}): {}",
+                first.code, first.message
+            ),
+        );
+    }
+
+    // 4. Manifest identity must match the upload URL.
+    if manifest.name != name || manifest.version != version {
+        return bad_request(
+            "NAME_MISMATCH",
+            &format!(
+                "manifest identifies {}@{} but the upload path is {}@{}",
+                manifest.name, manifest.version, name, version
+            ),
+        );
+    }
+
+    // 5. v1 registry bar: no network-needing extensions.
+    if manifest
+        .sandbox_policy
+        .as_ref()
+        .and_then(|p| p.network_access)
+        == Some(true)
+    {
+        return bad_request(
+            "SANDBOX_POLICY_REJECTED",
+            "sandbox_policy.network_access = true is not accepted on this registry (v1 policy)",
+        );
+    }
+    // --- end validation contract ---
 
     // Compute SHA256 — hashing the payload is CPU-bound: run it on the
     // blocking pool.
@@ -434,9 +521,8 @@ async fn publish_package(
     // Extract the short key id from the signature wire object for display
     // and indexing. The full signature object is stored verbatim so clients
     // can verify offline (spec #21: the registry is not the trust anchor).
-    let key_id = signature_json
-        .as_deref()
-        .and_then(|s| serde_json::from_str::<serde_json::Value>(s).ok())
+    let key_id = serde_json::from_str::<serde_json::Value>(&signature_json)
+        .ok()
         .and_then(|v| v.get("keyId").and_then(|k| k.as_str()).map(str::to_string))
         .unwrap_or_default();
 
@@ -451,7 +537,7 @@ async fn publish_package(
         keywords,
         publisher: token_record.label.clone(),
         published_at: chrono::Utc::now().to_rfc3339(),
-        signature: signature_json.unwrap_or_default(),
+        signature: signature_json,
         key_id: key_id.clone(),
         manifest: manifest_json.unwrap_or_default(),
     };
@@ -537,6 +623,26 @@ async fn yank_package(
         }
     };
 
+    // Rate limit: per token and per client IP (fixed window). The
+    // Retry-After header rides on the JSON response for clients that honor it.
+    if let Err(limited) = check_publish_rate(&state, &token_record, &headers) {
+        return (
+            StatusCode::TOO_MANY_REQUESTS,
+            Json(
+                serde_json::to_value(ErrorResponse {
+                    error: ErrorBody {
+                        code: "RATE_LIMITED".to_string(),
+                        message: format!(
+                            "too many publish requests; retry after {} seconds",
+                            limited.retry_after.as_secs()
+                        ),
+                    },
+                })
+                .unwrap(),
+            ),
+        );
+    }
+
     if !auth::token_has_scope(&token_record, &name) {
         return (
             StatusCode::FORBIDDEN,
@@ -620,10 +726,179 @@ async fn verify_auth(State(state): State<Arc<AppState>>, headers: HeaderMap) -> 
     }
 }
 
+// --- Admin API (spec #21, T3): token lifecycle behind an admin-scoped bearer ---
+
+#[derive(Deserialize)]
+struct AdminTokenCreate {
+    #[serde(default)]
+    scope: Option<String>,
+    #[serde(default)]
+    label: Option<String>,
+    /// Days until expiry; `None` = 90 (the default policy). `0` = immediately expired.
+    #[serde(default)]
+    expires_in_days: Option<u64>,
+}
+
+fn require_admin(
+    state: &AppState,
+    headers: &HeaderMap,
+) -> Result<crate::db::TokenRecord, (StatusCode, Json<serde_json::Value>)> {
+    let auth_header = headers
+        .get("authorization")
+        .and_then(|v| v.to_str().ok())
+        .ok_or_else(|| unauthorized("missing Authorization header"))?;
+    let record = auth::validate_bearer(&state.database, auth_header)
+        .ok_or_else(|| unauthorized("invalid, revoked, or expired token"))?;
+    if !auth::is_admin(&record) {
+        return Err((
+            StatusCode::FORBIDDEN,
+            Json(
+                serde_json::to_value(ErrorResponse {
+                    error: ErrorBody {
+                        code: "ADMIN_REQUIRED".to_string(),
+                        message: "this endpoint requires an admin token".to_string(),
+                    },
+                })
+                .unwrap(),
+            ),
+        ));
+    }
+    Ok(record)
+}
+
+fn unauthorized(message: &str) -> (StatusCode, Json<serde_json::Value>) {
+    (
+        StatusCode::UNAUTHORIZED,
+        Json(
+            serde_json::to_value(ErrorResponse {
+                error: ErrorBody {
+                    code: "UNAUTHORIZED".to_string(),
+                    message: message.to_string(),
+                },
+            })
+            .unwrap(),
+        ),
+    )
+}
+
+async fn admin_create_token(
+    State(state): State<Arc<AppState>>,
+    headers: HeaderMap,
+    body: Option<Json<AdminTokenCreate>>,
+) -> impl IntoResponse {
+    if let Err(resp) = require_admin(&state, &headers) {
+        return resp;
+    }
+    let Json(req) = body.unwrap_or(Json(AdminTokenCreate {
+        scope: None,
+        label: None,
+        expires_in_days: None,
+    }));
+    let raw = auth::create_token(
+        &state.database,
+        req.scope.as_deref(),
+        req.label.as_deref().unwrap_or("default"),
+        Some(req.expires_in_days.unwrap_or(90)),
+        false,
+    );
+    // The revocable identifier is the hash prefix (tokens are stored hashed).
+    let prefix: String = {
+        let mut hasher = Sha256::new();
+        hasher.update(raw.as_bytes());
+        hex::encode(hasher.finalize())[..8].to_string()
+    };
+    (
+        StatusCode::CREATED,
+        Json(serde_json::json!({
+            "token": raw,
+            "prefix": prefix,
+            "expires_in_days": req.expires_in_days.unwrap_or(90),
+        })),
+    )
+}
+
+async fn admin_list_tokens(
+    State(state): State<Arc<AppState>>,
+    headers: HeaderMap,
+) -> impl IntoResponse {
+    if let Err(resp) = require_admin(&state, &headers) {
+        return resp;
+    }
+    let tokens: Vec<serde_json::Value> = auth::list_tokens(&state.database)
+        .into_iter()
+        .map(|t| {
+            serde_json::json!({
+                "prefix": &t.token_hash[..8.min(t.token_hash.len())],
+                "scope": t.scope,
+                "label": t.label,
+                "created_at": t.created_at,
+                "expires_at": t.expires_at,
+                "admin": t.admin,
+            })
+        })
+        .collect();
+    (
+        StatusCode::OK,
+        Json(serde_json::json!({ "tokens": tokens })),
+    )
+}
+
+async fn admin_revoke_token(
+    State(state): State<Arc<AppState>>,
+    headers: HeaderMap,
+    Path(prefix): Path<String>,
+) -> impl IntoResponse {
+    if let Err(resp) = require_admin(&state, &headers) {
+        return resp;
+    }
+    let revoked = auth::revoke_token(&state.database, &prefix);
+    (
+        StatusCode::OK,
+        Json(serde_json::json!({ "revoked": revoked })),
+    )
+}
+
 fn decode_name(encoded: &str) -> String {
     encoded.replace("%2F", "/").replace("%2f", "/")
 }
 
 fn encode_name(name: &str) -> String {
     name.replace('/', "%2F")
+}
+
+fn bad_request(code: &str, message: &str) -> (StatusCode, Json<serde_json::Value>) {
+    (
+        StatusCode::BAD_REQUEST,
+        Json(
+            serde_json::to_value(ErrorResponse {
+                error: ErrorBody {
+                    code: code.to_string(),
+                    message: message.to_string(),
+                },
+            })
+            .unwrap(),
+        ),
+    )
+}
+
+/// Fixed-window publish rate limit, keyed per token and per client IP.
+fn check_publish_rate(
+    state: &AppState,
+    token_record: &crate::db::TokenRecord,
+    headers: &HeaderMap,
+) -> Result<(), crate::rate::Limited> {
+    let token_key = format!(
+        "publish:token:{}",
+        &token_record.token_hash[..token_record.token_hash.len().min(12)]
+    );
+    state
+        .rate_limiter
+        .check(&token_key, state.publish_limit_per_token)?;
+    if let Some(ip) = headers.get("x-forwarded-for").and_then(|v| v.to_str().ok()) {
+        let ip_key = format!("publish:ip:{}", ip.split(',').next().unwrap_or("").trim());
+        state
+            .rate_limiter
+            .check(&ip_key, state.publish_limit_per_ip)?;
+    }
+    Ok(())
 }
