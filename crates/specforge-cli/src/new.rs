@@ -68,10 +68,7 @@ fn validate_name(name: &str) -> Result<(), String> {
     if let Some(rest) = name.strip_prefix('@')
         && (!rest.contains('/') || rest.starts_with('/') || rest.ends_with('/'))
     {
-        return Err(format!(
-            "scoped name '{}' must look like @scope/name",
-            name
-        ));
+        return Err(format!("scoped name '{}' must look like @scope/name", name));
     }
     Ok(())
 }
