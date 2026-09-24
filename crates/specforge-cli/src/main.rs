@@ -31,7 +31,7 @@ mod watch;
 
 use clap::{CommandFactory, Parser, Subcommand};
 use clap_complete::Shell;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 #[derive(Parser)]
 #[command(name = "specforge", version, about = "SpecForge compiler")]
@@ -315,6 +315,10 @@ enum Commands {
         /// Fail (exit 1) on warnings as well as errors
         #[arg(long, default_value_t = false)]
         strict: bool,
+
+        /// Test-results report (RES-15 specforge-report.json) for proof-level verdicts
+        #[arg(long)]
+        test_results: Option<String>,
     },
     /// Watch a project and rebuild incrementally on changes
     Watch {
@@ -828,11 +832,18 @@ fn main() {
             path,
             json,
             strict,
+            test_results,
         } => {
             let project = path
                 .map(PathBuf::from)
                 .unwrap_or_else(|| PathBuf::from("."));
-            let exit_code = analyze::run(&project, pass, json, strict);
+            let exit_code = analyze::run(
+                &project,
+                pass,
+                json,
+                strict,
+                test_results.as_deref().map(Path::new),
+            );
             std::process::exit(exit_code);
         }
         Commands::Watch { path, json } => {

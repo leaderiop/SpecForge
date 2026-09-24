@@ -4,10 +4,16 @@
 //! and reports findings as standard diagnostics with `A`-codes. Passes are
 //! pure functions of the compilation context, so the same shape can later
 //! host extension-owned passes dispatched through the wasm protocol.
+//!
+//! The coverage pass implements the RES-15 three-layer traceability model:
+//! intent (`verify` statements), linkage (`tests` fields pointing at
+//! executable test files), and proof (test-runner results consumed from a
+//! `specforge-report.json` via `--test-results`).
 
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 use std::path::Path;
 
+use serde::Deserialize;
 use specforge_common::{Diagnostic, Severity};
 use specforge_emitter::compile::CompilationContext;
 use specforge_parser::FieldValue;
@@ -17,11 +23,21 @@ use specforge_validator::{diagnostic_summary_detailed, render_diagnostics};
 use crate::check::build_source_map;
 use crate::pipeline;
 
+/// Everything a pass may inspect. Built once per `analyze` invocation.
+pub struct AnalyzeInput<'a> {
+    ctx: &'a CompilationContext,
+    /// Project root as given on the command line; `tests [...]` paths
+    /// resolve against this (RES-15 paths are project-root-relative).
+    project_root: &'a Path,
+    /// Parsed `--test-results` report, when provided.
+    test_results: Option<&'a TestReport>,
+}
+
 /// One analysis pass over the compiled project.
 trait AnalyzePass {
     fn name(&self) -> &'static str;
     fn description(&self) -> &'static str;
-    fn run(&self, ctx: &CompilationContext) -> (Vec<Diagnostic>, serde_json::Value);
+    fn run(&self, input: &AnalyzeInput) -> (Vec<Diagnostic>, serde_json::Value);
 }
 
 /// Extract verify statements from a node's `verify` field, if any.
@@ -40,11 +56,75 @@ fn risk_of(node: &specforge_graph::Node) -> String {
     }
 }
 
-/// `coverage` — proof-obligation inventory (RES-25 coverage model).
+/// The `tests [...]` field as raw path strings (RES-15 Layer 2 linkage).
+fn test_links(node: &specforge_graph::Node) -> Vec<String> {
+    match node.fields.get("tests") {
+        Some(FieldValue::StringList(items)) => items.clone(),
+        Some(FieldValue::ReferenceList(items)) => items.clone(),
+        _ => Vec::new(),
+    }
+}
+
+/// Strip the runner-specific suffixes RES-15 allows on test links:
+/// `tests/x.go::TestCreateUser` and `tests/x.ts:45` both point at
+/// `tests/x.go` / `tests/x.ts` on disk.
+fn test_link_file_path(link: &str) -> String {
+    if let Some((file, _name)) = link.split_once("::") {
+        file.to_string()
+    } else if let Some((file, _line)) = link.rsplit_once(':')
+        && file.contains('.')
+        && !_line.is_empty()
+        && _line.chars().all(|c| c.is_ascii_digit())
+    {
+        file.to_string()
+    } else {
+        link.to_string()
+    }
+}
+
+// ── Layer 3: proof (specforge-report.json, RES-15) ─────────────────────────
+
+#[derive(Debug, Deserialize)]
+pub struct TestReport {
+    #[allow(dead_code)]
+    #[serde(default)]
+    pub specforge: Option<String>,
+    #[serde(default)]
+    pub runner: Option<String>,
+    #[serde(default)]
+    pub results: BTreeMap<String, ReportedEntity>,
+}
+
+#[derive(Debug, Deserialize)]
+#[allow(dead_code)] // round-trip fields from the RES-15 report shape
+pub struct ReportedEntity {
+    #[serde(default)]
+    pub file: Option<String>,
+    #[serde(default)]
+    pub tests: Vec<ReportedTest>,
+}
+
+#[derive(Debug, Deserialize)]
+#[allow(dead_code)] // round-trip fields from the RES-15 report shape
+pub struct ReportedTest {
+    #[serde(default)]
+    pub name: Option<String>,
+    pub status: String,
+    #[serde(default)]
+    pub duration_ms: Option<f64>,
+}
+
+// ── passes ──────────────────────────────────────────────────────────────────
+
+/// `coverage` — proof obligations + discharge tracking (RES-25 / RES-15).
 ///
-/// Every `verify` statement is a proof obligation. Reports entities of
-/// testable kinds and invariants that declare none, plus a risk-weighted
-/// invariant table.
+/// Findings:
+/// - A001: testable kind with no verify obligations (no intent)
+/// - A002: invariant with no verify obligations (error when high-risk)
+/// - A011: invariant that nothing references (orphan guarantee)
+/// - A012: obligations declared but no `tests` linkage (unlinked intent, info)
+/// - A013: `tests` linkage points at a file that does not exist
+/// - A014: a linked test failed in the supplied test-results report
 struct CoveragePass;
 
 impl AnalyzePass for CoveragePass {
@@ -53,10 +133,11 @@ impl AnalyzePass for CoveragePass {
     }
 
     fn description(&self) -> &'static str {
-        "proof obligations per entity; unverified testable kinds and invariants"
+        "proof obligations, discharge linkage, and enforcement per entity"
     }
 
-    fn run(&self, ctx: &CompilationContext) -> (Vec<Diagnostic>, serde_json::Value) {
+    fn run(&self, input: &AnalyzeInput) -> (Vec<Diagnostic>, serde_json::Value) {
+        let ctx = input.ctx;
         let testable: HashMap<&str, bool> = ctx
             .kind_registry
             .iter()
@@ -74,6 +155,12 @@ impl AnalyzePass for CoveragePass {
         // Anything referencing an invariant (behaviors' `invariants [...]`,
         // requires/ensures/maintains contract fields) creates an edge.
         let mut invariant_refs: HashMap<&str, usize> = HashMap::new();
+        // Discharge funnel (RES-15 layers): intent -> linkage -> proof.
+        let mut entities_with_obligations = 0usize;
+        let mut entities_with_test_links = 0usize;
+        let mut broken_test_links = 0usize;
+        let mut entities_proven = 0usize;
+        let mut report_failures = 0usize;
 
         for edge in ctx.graph.edges() {
             if let Some(node) = ctx.graph.node(edge.target.as_str())
@@ -90,18 +177,100 @@ impl AnalyzePass for CoveragePass {
             }
 
             let kind = node.kind.raw.as_str();
+            let span = node.source_span.clone();
+            let id = node.id.raw.to_string();
+
+            // Layer 2: linkage — `tests [...]` paths must exist on disk.
+            let links = test_links(node);
+            if !links.is_empty() {
+                entities_with_test_links += 1;
+                let missing: Vec<String> = links
+                    .iter()
+                    .filter(|link| {
+                        let rel = test_link_file_path(link);
+                        !input.project_root.join(&rel).exists()
+                    })
+                    .cloned()
+                    .collect();
+                if !missing.is_empty() {
+                    broken_test_links += missing.len();
+                    findings.push(
+                        Diagnostic::warning(
+                            "A013",
+                            format!(
+                                "{} '{}' links tests that do not exist: {}",
+                                kind,
+                                id,
+                                missing.join(", ")
+                            ),
+                        )
+                        .with_span(span.clone())
+                        .with_suggestion(
+                            "fix the paths in the tests field (they resolve from the project root)",
+                        ),
+                    );
+                }
+            } else if !stmts.is_empty() {
+                // Obligations declared but no implementation connected
+                // (RES-15: unlinked intent). Info until adoption matures.
+                findings.push(
+                    Diagnostic::info(
+                        "A012",
+                        format!(
+                            "{} '{}' declares {} verify obligation(s) but no tests linkage",
+                            kind,
+                            id,
+                            stmts.len()
+                        ),
+                    )
+                    .with_span(span.clone())
+                    .with_suggestion("add a `tests [...]` field pointing at the executable tests"),
+                );
+            }
+
+            // Layer 3: proof — compare against the test-results report.
+            if let Some(report) = input.test_results
+                && let Some(entity) = report.results.get(id.as_str())
+            {
+                let failed: Vec<&str> = entity
+                    .tests
+                    .iter()
+                    .filter(|t| t.status != "pass")
+                    .map(|t| t.name.as_deref().unwrap_or("<unnamed>"))
+                    .collect();
+                if entity.tests.is_empty() {
+                    // Present in the report but with no recorded tests.
+                } else if failed.is_empty() {
+                    entities_proven += 1;
+                } else {
+                    report_failures += failed.len();
+                    findings.push(
+                        Diagnostic::error(
+                            "A014",
+                            format!(
+                                "{} '{}' has {} failing test(s) in the test results: {}",
+                                kind,
+                                id,
+                                failed.len(),
+                                failed.join(", ")
+                            ),
+                        )
+                        .with_span(span.clone()),
+                    );
+                    continue;
+                }
+            }
+
+            let stmts_len = stmts.len();
             if testable.get(kind).copied().unwrap_or(false) {
                 testable_total += 1;
                 if stmts.is_empty() {
                     findings.push(
                         Diagnostic::warning(
                             "A001",
-                            format!(
-                                "{} '{}' declares no verify obligations",
-                                node.kind.raw, node.id.raw
-                            ),
+                            format!("{} '{}' declares no verify obligations", kind, id),
                         )
-                        .with_span(node.source_span.clone())
+                        .with_span(span.clone())
                         .with_suggestion("add a `verify unit` or `verify property` statement"),
                     );
                 } else {
@@ -125,10 +294,10 @@ impl AnalyzePass for CoveragePass {
                             "A011",
                             format!(
                                 "invariant '{}' is an orphan guarantee: nothing references it",
-                                node.id.raw
+                                id
                             ),
                         )
-                        .with_span(node.source_span.clone())
+                        .with_span(span.clone())
                         .with_suggestion(
                             "reference it from a behavior (invariants list, requires, ensures, or maintains) or drop the invariant",
                         ),
@@ -139,9 +308,9 @@ impl AnalyzePass for CoveragePass {
                     findings.push(
                         Diagnostic::warning(
                             "A002",
-                            format!("invariant '{}' declares no verify obligations", node.id.raw),
+                            format!("invariant '{}' declares no verify obligations", id),
                         )
-                        .with_span(node.source_span.clone())
+                        .with_span(span.clone())
                         .with_suggestion(match risk.as_str() {
                             "high" => {
                                 "high-risk invariant: add at least one `verify property` obligation"
@@ -156,10 +325,33 @@ impl AnalyzePass for CoveragePass {
                     }
                 }
             }
+
+            if stmts_len > 0 {
+                entities_with_obligations += 1;
+            }
         }
 
         let obligations: usize = obligation_kinds.values().sum();
         let invariant_total: usize = invariants.values().map(|(t, _)| t).sum();
+        let report_summary = match input.test_results {
+            Some(report) => {
+                let recorded: usize = report.results.values().map(|e| e.tests.len()).sum();
+                let failed: usize = report
+                    .results
+                    .values()
+                    .flat_map(|e| e.tests.iter())
+                    .filter(|t| t.status != "pass")
+                    .count();
+                serde_json::json!({
+                    "runner": report.runner,
+                    "entities_recorded": report.results.len(),
+                    "tests_recorded": recorded,
+                    "tests_failed": failed,
+                    "entities_proven": entities_proven,
+                })
+            }
+            None => serde_json::json!(null),
+        };
         let summary = serde_json::json!({
             "testable_total": testable_total,
             "testable_verified": testable_verified,
@@ -167,6 +359,14 @@ impl AnalyzePass for CoveragePass {
             "obligation_kinds": obligation_kinds,
             "invariant_enforced": invariant_total - invariant_orphans,
             "invariant_orphans": invariant_orphans,
+            "discharge_funnel": {
+                "entities_with_obligations": entities_with_obligations,
+                "entities_with_test_links": entities_with_test_links,
+                "broken_test_links": broken_test_links,
+                "entities_proven": entities_proven,
+                "report_failures": report_failures,
+            },
+            "test_results": report_summary,
             "invariants": invariants
                 .iter()
                 .map(|(risk, (total, unverified))| serde_json::json!({
@@ -236,7 +436,8 @@ impl AnalyzePass for ContractsPass {
         "entities of contract-bearing kinds without requires/ensures/maintains obligations"
     }
 
-    fn run(&self, ctx: &CompilationContext) -> (Vec<Diagnostic>, serde_json::Value) {
+    fn run(&self, input: &AnalyzeInput) -> (Vec<Diagnostic>, serde_json::Value) {
+        let ctx = input.ctx;
         let contract_fields = Self::contract_fields(ctx);
         let mut findings = Vec::new();
         let mut contract_entities = 0usize;
@@ -282,9 +483,35 @@ impl AnalyzePass for ContractsPass {
 
 const PASSES: &[&str] = &["all", "coverage", "contracts"];
 
-pub fn run(path: &Path, pass: Option<String>, json: bool, strict: bool) -> i32 {
+pub fn run(
+    path: &Path,
+    pass: Option<String>,
+    json: bool,
+    strict: bool,
+    test_results: Option<&Path>,
+) -> i32 {
     let ctx = pipeline::compile(path);
 
+    let parsed_report = test_results.map(|report_path| {
+        let raw = std::fs::read_to_string(report_path).unwrap_or_else(|e| {
+            eprintln!("error: cannot read test results {}: {}", report_path.display(), e);
+            std::process::exit(2);
+        });
+        serde_json::from_str::<TestReport>(&raw).unwrap_or_else(|e| {
+            eprintln!(
+                "error: invalid test results {}: {} (expected the RES-15 specforge-report.json shape)",
+                report_path.display(),
+                e
+            );
+            std::process::exit(2);
+        })
+    });
+
+    let input = AnalyzeInput {
+        ctx: &ctx,
+        project_root: path,
+        test_results: parsed_report.as_ref(),
+    };
     let coverage = CoveragePass;
     let contracts = ContractsPass;
     let requested = pass.unwrap_or_else(|| "all".to_string());
@@ -317,7 +544,7 @@ pub fn run(path: &Path, pass: Option<String>, json: bool, strict: bool) -> i32 {
     let mut reports: Vec<Report> = Vec::new();
     let mut has_errors = false;
     for pass in &selected {
-        let (mut findings, summary) = pass.run(&ctx);
+        let (mut findings, summary) = pass.run(&input);
         if strict {
             for d in &mut findings {
                 if d.severity == Severity::Warning {

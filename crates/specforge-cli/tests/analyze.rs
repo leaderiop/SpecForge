@@ -167,3 +167,145 @@ behavior keeper "Keeper" {
     let (_, code) = json_body(&dir, &["--strict"]);
     assert_eq!(code, 1, "--strict must fail on the orphan warning");
 }
+
+#[test]
+fn analyze_discharge_layers_intent_linkage_proof() {
+    let dir = TempDir::new().unwrap();
+    fs::write(
+        dir.path().join("specforge.json"),
+        r#"{"extensions": ["@specforge/formal"]}"#,
+    )
+    .unwrap();
+    fs::write(
+        dir.path().join("main.spec"),
+        concat!(
+            "invariant held \"Held\" {\n",
+            "  guarantee \"g\"\n",
+            "  risk low\n",
+            "  verify property \"holds\"\n",
+            "  tests [\"tests/held.rs\"]\n",
+            "}\n",
+            "\n",
+            "invariant unlinked \"Unlinked\" {\n",
+            "  guarantee \"g\"\n",
+            "  risk low\n",
+            "  verify property \"holds\"\n",
+            "}\n",
+        ),
+    )
+    .unwrap();
+    let tests_dir = dir.path().join("tests");
+    fs::create_dir_all(&tests_dir).unwrap();
+    fs::write(tests_dir.join("held.rs"), "// test").unwrap();
+
+    // Layer 2: the existing link is accepted, the unlinked intent is info-only.
+    let (doc, code) = json_body(&dir, &[]);
+    assert_eq!(code, 0);
+    let coverage = &doc["passes"][0];
+    let funnel = &coverage["summary"]["discharge_funnel"];
+    assert_eq!(funnel["entities_with_obligations"], 2);
+    assert_eq!(funnel["entities_with_test_links"], 1);
+    assert_eq!(funnel["broken_test_links"], 0);
+    let codes: Vec<&str> = coverage["findings"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter_map(|f| f["code"].as_str())
+        .collect();
+    assert!(
+        codes.contains(&"A012"),
+        "unlinked intent reported: {codes:?}"
+    );
+
+    // Layer 2 broken: point `tests` at a file that does not exist.
+    fs::write(
+        dir.path().join("main.spec"),
+        concat!(
+            "invariant held \"Held\" {\n",
+            "  guarantee \"g\"\n",
+            "  risk low\n",
+            "  verify property \"holds\"\n",
+            "  tests [\"tests/missing.rs\"]\n",
+            "}\n",
+        ),
+    )
+    .unwrap();
+    let (doc, code) = json_body(&dir, &[]);
+    assert_eq!(code, 0, "A013 is a warning, not an error");
+    let a013: Vec<&serde_json::Value> = doc["passes"][0]["findings"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter(|f| f["code"] == "A013")
+        .collect();
+    assert_eq!(a013.len(), 1, "broken linkage reported: {a013:?}");
+
+    // Layer 3: a failing test in the report is an error and fails the run.
+    let report = serde_json::json!({
+        "specforge": "1.0",
+        "runner": "manual",
+        "results": {
+            "held": {
+                "file": "tests/missing.rs",
+                "tests": [{"name": "holds", "status": "fail"}]
+            }
+        }
+    });
+    fs::write(dir.path().join("report.json"), report.to_string()).unwrap();
+    let output = specforge_cmd()
+        .args([
+            "analyze",
+            "coverage",
+            "--path",
+            dir.path().to_str().unwrap(),
+            "--json",
+            "--test-results",
+            dir.path().join("report.json").to_str().unwrap(),
+        ])
+        .output()
+        .unwrap();
+    assert_eq!(
+        output.status.code(),
+        Some(1),
+        "failing proof must exit 1: {}",
+        String::from_utf8_lossy(&output.stdout)
+    );
+    let doc: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
+    assert_eq!(doc["ok"], false);
+    let a014: Vec<&serde_json::Value> = doc["passes"][0]["findings"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter(|f| f["code"] == "A014")
+        .collect();
+    assert_eq!(a014.len(), 1, "A014 reported: {a014:?}");
+
+    // Proven path: all tests passing -> entity counted as proven, exit 0.
+    let report = serde_json::json!({
+        "specforge": "1.0",
+        "runner": "manual",
+        "results": {
+            "held": {
+                "file": "tests/missing.rs",
+                "tests": [{"name": "holds", "status": "pass"}]
+            }
+        }
+    });
+    fs::write(dir.path().join("report.json"), report.to_string()).unwrap();
+    let output = specforge_cmd()
+        .args([
+            "analyze",
+            "coverage",
+            "--path",
+            dir.path().to_str().unwrap(),
+            "--json",
+            "--test-results",
+            dir.path().join("report.json").to_str().unwrap(),
+        ])
+        .output()
+        .unwrap();
+    assert_eq!(output.status.code(), Some(0));
+    let doc: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
+    let funnel = &doc["passes"][0]["summary"]["discharge_funnel"];
+    assert_eq!(funnel["entities_proven"], 1);
+}

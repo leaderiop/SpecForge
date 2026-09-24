@@ -228,6 +228,18 @@ fn lookup(code: &str) -> Option<(&'static str, &'static str)> {
             "Entity without contract obligations",
             "The entity's kind registers contract reference fields (e.g. requires/ensures targeting invariants or properties), but this entity uses none of them. Consider declaring contract references. Reported by `specforge analyze contracts`.",
         ),
+        "A012" => (
+            "Obligations declared but no tests linkage",
+            "The entity declares `verify` obligations but has no `tests [...]` field, so intent is not connected to an implementation. Add a tests field pointing at the executable test files. Reported by `specforge analyze coverage`.",
+        ),
+        "A013" => (
+            "Tests linkage points at a missing file",
+            "A `tests [...]` entry resolves to a file that does not exist in the project. Fix the path (paths resolve from the project root; `::test_name` and `:line` suffixes are allowed). Reported by `specforge analyze coverage`.",
+        ),
+        "A014" => (
+            "Linked test failed",
+            "A test linked to this entity (and recorded in the test-results report supplied via --test-results) failed, so its proof obligation is not discharged. Reported by `specforge analyze coverage`.",
+        ),
         "A011" => (
             "Orphan guarantee: nothing references this invariant",
             "No behavior, contract field (requires/ensures/maintains), or invariants list references this invariant, so nothing upholds it. Reference it from the behaviors that maintain it, or remove the invariant. Reported by `specforge analyze coverage`.",
