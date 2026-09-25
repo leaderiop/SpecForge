@@ -48,6 +48,7 @@ behavior compute_extension_query_scope "Compute Extension Query Scope" {
   verify unit "computed scope cached per extension per compilation"
   verify contract "requires/ensures consistency for extension query scope computation"
 
+  tests ["crates/specforge-extism/tests/composite.rs"]
 }
 
 behavior provide_host_function_query_graph "Provide Host Function: query_graph" {
@@ -80,6 +81,7 @@ behavior provide_host_function_query_graph "Provide Host Function: query_graph" 
   verify unit "restricted scope returns filtered subgraph"
   verify contract "requires/ensures consistency for query_graph host function"
 
+  tests ["crates/specforge-extism/tests/host_functions.rs"]
 }
 
 behavior provide_host_function_emit_diagnostic "Provide Host Function: emit_diagnostic" {
@@ -112,6 +114,7 @@ behavior provide_host_function_emit_diagnostic "Provide Host Function: emit_diag
   verify unit "diagnostic severity validated against allowed values"
   verify contract "requires/ensures consistency for emit_diagnostic host function"
 
+  tests ["crates/specforge-extism/tests/host_functions.rs"]
 }
 
 // NOTE: Entity kinds and edge types are registered DECLARATIVELY from
@@ -155,6 +158,7 @@ behavior provide_host_function_add_graph_node "Provide Host Function: add_graph_
   verify unit "validates field values against kind schema"
   verify contract "requires/ensures consistency for add_graph_node host function"
 
+  tests ["crates/specforge-extism/tests/host_functions.rs"]
 }
 
 behavior provide_host_function_add_graph_edge "Provide Host Function: add_graph_edge" {
@@ -191,6 +195,7 @@ behavior provide_host_function_add_graph_edge "Provide Host Function: add_graph_
   verify unit "rejects edge when source or target node missing"
   verify contract "requires/ensures consistency for add_graph_edge host function"
 
+  tests ["crates/specforge-extism/tests/host_functions.rs"]
 }
 
 behavior provide_host_function_read_file "Provide Host Function: read_file" {
@@ -239,6 +244,7 @@ behavior provide_host_function_read_file "Provide Host Function: read_file" {
   verify unit "read_file from renderer contribution returns permission error"
   verify contract "requires/ensures consistency for read_file host function"
 
+  tests ["crates/specforge-extism/tests/host_functions.rs"]
 }
 
 behavior provide_host_function_emit_file "Provide Host Function: emit_file" {
@@ -294,6 +300,7 @@ behavior provide_host_function_emit_file "Provide Host Function: emit_file" {
   verify unit "emit_file rejects .sh extension"
   verify contract "requires/ensures consistency for emit_file host function"
 
+  tests ["crates/specforge-extism/tests/host_functions.rs"]
 }
 
 behavior provide_host_function_http_get "Provide Host Function: http_get" {
@@ -337,4 +344,5 @@ behavior provide_host_function_http_get "Provide Host Function: http_get" {
   verify unit "http_get from validator contribution returns permission error"
   verify contract "requires/ensures consistency for http_get host function"
 
+  tests ["crates/specforge-extism/tests/host_functions.rs"]
 }

@@ -42,6 +42,7 @@ behavior parse_validation_rule_pattern "Parse Validation Rule Pattern" {
   verify unit "all required fields validated on each rule"
   verify contract "requires/ensures consistency for validation rule parsing"
 
+  tests ["crates/specforge-registry/tests/zero_entity_validation.rs"]
 }
 
 behavior execute_validation_pattern "Execute Validation Pattern" {
@@ -91,6 +92,7 @@ behavior execute_validation_pattern "Execute Validation Pattern" {
   verify unit "pattern violation produces diagnostic with configured code and severity"
   verify contract "requires/ensures consistency for declarative validation"
 
+  tests ["crates/specforge-registry/tests/zero_entity_validation.rs"]
 }
 
 behavior emit_diagnostic_from_pattern "Emit Diagnostic From Pattern" {
@@ -123,6 +125,7 @@ behavior emit_diagnostic_from_pattern "Emit Diagnostic From Pattern" {
   verify unit "diagnostic severity matches pattern severity"
   verify contract "requires/ensures consistency for pattern diagnostic emission"
 
+  tests ["crates/specforge-registry/tests/zero_entity_validation.rs"]
 }
 
 behavior register_extension_validation_rules "Register Extension Validation Rules" {
@@ -158,6 +161,7 @@ behavior register_extension_validation_rules "Register Extension Validation Rule
   verify unit "rules sorted by code for deterministic order"
   verify contract "requires/ensures consistency for cross-extension rule aggregation"
 
+  tests ["crates/specforge-registry/tests/zero_entity_validation.rs"]
 }
 
 behavior register_custom_validation_patterns "Register Custom Validation Patterns" {
@@ -199,6 +203,7 @@ behavior register_custom_validation_patterns "Register Custom Validation Pattern
   verify unit "custom pattern failure emits configured diagnostic"
   verify contract "requires/ensures consistency for custom validation pattern registration"
 
+  tests ["crates/specforge-registry/tests/zero_entity_validation.rs"]
 }
 
 // -- Field Validation --------------------------------------------------------
@@ -240,6 +245,7 @@ behavior detect_unknown_entity_fields "Detect Unknown Entity Fields" {
   verify unit "field validation skipped when entity kind is unregistered"
   verify contract "requires/ensures consistency for unknown field detection"
 
+  tests ["crates/specforge-registry/tests/zero_entity_validation.rs"]
 }
 
 // Registry-level collision detection during manifest loading. Called by
@@ -274,6 +280,7 @@ behavior detect_duplicate_entity_kinds "Detect Duplicate Entity Kinds" {
   verify unit "single extension registering a kind produces no diagnostic"
   verify contract "requires/ensures consistency for duplicate entity kind detection"
 
+  tests ["crates/specforge-registry/tests/zero_entity_validation.rs"]
 }
 
 behavior validate_peer_dependencies "Validate Peer Dependencies" {
@@ -307,6 +314,7 @@ behavior validate_peer_dependencies "Validate Peer Dependencies" {
   verify unit "incompatible version produces hard error with required range"
   verify contract "requires/ensures consistency for peer dependency validation"
 
+  tests ["crates/specforge-registry/tests/zero_entity_validation.rs"]
 }
 
 // Moved from behaviors/validation.spec — belongs with zero-entity core validation
@@ -354,4 +362,5 @@ behavior validate_extension_testability "Validate Extension Testability" {
   verify unit "consistent testable and supportsVerify flags produce no diagnostic"
   verify contract "requires/ensures consistency for extension testability validation"
 
+  tests ["crates/specforge-registry/tests/zero_entity_validation.rs"]
 }

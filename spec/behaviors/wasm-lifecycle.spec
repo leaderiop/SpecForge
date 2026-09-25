@@ -44,6 +44,7 @@ behavior load_wasm_module "Load Wasm Module" {
   verify unit "missing .wasm produces ExtensionError"
   verify contract "requires/ensures consistency for Wasm module loading"
 
+  tests ["crates/specforge-wasm/tests/wasm_lifecycle.rs"]
 }
 
 behavior initialize_wasm_extension "Initialize Wasm Extension" {
@@ -93,6 +94,7 @@ behavior initialize_wasm_extension "Initialize Wasm Extension" {
   verify unit "lifecycle transitions to failed on error"
   verify contract "requires/ensures consistency for Wasm extension initialization"
 
+  tests ["crates/specforge-wasm/tests/wasm_lifecycle.rs"]
 }
 
 behavior call_extension_validators "Call Extension Validators" {
@@ -128,6 +130,7 @@ behavior call_extension_validators "Call Extension Validators" {
   verify unit "validation continues to next extension after errors"
   verify contract "requires/ensures consistency for extension validator dispatch"
 
+  tests ["crates/specforge-extism/tests/composite.rs"]
 }
 
 // -- Dependencies -----
@@ -161,6 +164,7 @@ behavior validate_extension_peer_dependencies "Validate Extension Peer Dependenc
   verify unit "version mismatch produces hard error"
   verify contract "requires/ensures consistency for peer dependency validation"
 
+  tests ["crates/specforge-cli/tests/registry.rs"]
 }
 
 behavior topological_sort_extensions "Topological Sort Extensions" {
@@ -193,6 +197,7 @@ behavior topological_sort_extensions "Topological Sort Extensions" {
   verify unit "deterministic ordering on ties"
   verify contract "requires/ensures consistency for topological extension sorting"
 
+  tests ["crates/specforge-registry/tests/zero_entity_registries.rs"]
 }
 
 // -- Extension Lifecycle -----
@@ -240,6 +245,7 @@ behavior install_wasm_extension "Install Wasm Extension" {
   verify unit "defers AOT compilation when time budget is insufficient"
   verify contract "requires/ensures consistency for Wasm extension installation"
 
+  tests ["crates/specforge-wasm/tests/wasm_lifecycle.rs"]
 }
 
 behavior upgrade_wasm_extension "Upgrade Wasm Extension" {
@@ -277,6 +283,7 @@ behavior upgrade_wasm_extension "Upgrade Wasm Extension" {
   verify unit "rejects breaking peer change without --force"
   verify contract "requires/ensures consistency for Wasm extension upgrade"
 
+  tests ["crates/specforge-wasm/tests/wasm_lifecycle.rs"]
 }
 
 // uninstall_wasm_extension is the Wasm lifecycle implementation for extension
@@ -322,6 +329,7 @@ behavior uninstall_wasm_extension "Uninstall Wasm Extension" {
   verify unit "unloads warm engine instance"
   verify unit "rolls back on failure"
   verify contract "requires/ensures consistency for Wasm extension uninstall"
+  tests ["crates/specforge-wasm/tests/wasm_lifecycle.rs"]
 }
 
 // -- Manifest Validation -----
@@ -363,6 +371,7 @@ behavior validate_extension_manifest "Validate Extension Manifest" {
   verify unit "unknown manifest_version produces hard error"
   verify contract "requires/ensures consistency for extension manifest validation"
 
+  tests ["crates/specforge-wasm/tests/wasm_lifecycle.rs"]
 }
 
 behavior verify_wasm_integrity "Verify Wasm Integrity" {
@@ -397,6 +406,7 @@ behavior verify_wasm_integrity "Verify Wasm Integrity" {
   verify unit "--skip-verify bypasses check with warning"
   verify contract "requires/ensures consistency for Wasm integrity verification"
 
+  tests ["crates/specforge-wasm/tests/wasm_lifecycle.rs"]
 }
 
 // -- Extension-Defined Grammar Loading ----------------------------------------
@@ -435,6 +445,7 @@ behavior load_extension_grammar "Load Extension Grammar" {
   verify integration "grammar loading completes within performance budget"
   verify contract "requires/ensures consistency for extension grammar loading"
 
+  tests ["crates/specforge-lsp/tests/grammar_loading.rs"]
 }
 
 behavior validate_grammar_wasm "Validate Grammar Wasm" {
@@ -468,6 +479,7 @@ behavior validate_grammar_wasm "Validate Grammar Wasm" {
   verify unit "oversized grammar binary is rejected"
   verify contract "requires/ensures consistency for grammar Wasm validation"
 
+  tests ["crates/specforge-lsp/tests/grammar_loading.rs"]
 }
 
 behavior compose_grammar_injections "Compose Grammar Injections" {
@@ -506,6 +518,7 @@ behavior compose_grammar_injections "Compose Grammar Injections" {
   verify property "same extensions + same policy = same composition"
   verify contract "requires/ensures consistency for grammar injection composition"
 
+  tests ["crates/specforge-lsp/tests/grammar_loading.rs"]
 }
 
 behavior dispatch_body_parser "Dispatch Body Parser" {
@@ -585,4 +598,5 @@ behavior cache_grammar_artifacts "Cache Grammar Artifacts" {
   verify unit "ABI version change invalidates cache"
   verify contract "requires/ensures consistency for grammar artifact caching"
 
+  tests ["crates/specforge-lsp/tests/grammar_loading.rs"]
 }

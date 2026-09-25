@@ -50,6 +50,7 @@ behavior provide_extension_query_extensions "Provide Extension Query Extensions"
   verify unit "query extensions extracted from manifest"
   verify contract "requires/ensures consistency for extension query extension loading"
 
+  tests ["crates/specforge-cli/tests/extensions.rs"]
 }
 
 behavior compose_query_files_from_extensions "Compose Query Files From Extensions" {
@@ -135,6 +136,7 @@ behavior reject_reserved_entity_kind "Reject Reserved Entity Kind" {
   verify unit "extension reserving 'scenario' prevents other extensions from using it as a kind"
   verify contract "requires/ensures consistency for reserved entity kind rejection"
 
+  tests ["crates/specforge-registry/tests/zero_entity_registries.rs"]
 }
 
 // User-facing conflict resolution layer. Distinct from detect_duplicate_entity_kinds
@@ -174,6 +176,7 @@ behavior detect_entity_kind_collision "Detect Entity Kind Collision" {
   verify unit "no false positive for different kind names"
   verify contract "requires/ensures consistency for entity kind collision detection"
 
+  tests ["crates/specforge-registry/tests/zero_entity_registries.rs"]
 }
 
 
@@ -228,6 +231,7 @@ behavior load_extension_manifest "Load Extension Manifest" {
   verify unit "initialization follows documented 7-step sequence"
   verify contract "requires/ensures consistency for extension manifest loading"
 
+  tests ["crates/specforge-wasm/tests/wasm_lifecycle.rs"]
 }
 
 behavior register_entity_enhancements "Register Entity Enhancements" {
@@ -263,6 +267,7 @@ behavior register_entity_enhancements "Register Entity Enhancements" {
   verify unit "registration order follows extensions array"
   verify contract "requires/ensures consistency for entity enhancement registration"
 
+  tests ["crates/specforge-registry/tests/zero_entity_registries.rs"]
 }
 
 behavior detect_enhancement_conflicts "Detect Enhancement Conflicts" {
@@ -298,6 +303,7 @@ behavior detect_enhancement_conflicts "Detect Enhancement Conflicts" {
   verify unit "no false positives for same field on different entities"
   verify contract "requires/ensures consistency for enhancement conflict detection"
 
+  tests ["crates/specforge-registry/tests/zero_entity_registries.rs"]
 }
 
 behavior resolve_enhancement_conflicts "Resolve Enhancement Conflicts" {
@@ -331,6 +337,7 @@ behavior resolve_enhancement_conflicts "Resolve Enhancement Conflicts" {
   verify unit "explicit override takes precedence over policy"
   verify contract "requires/ensures consistency for enhancement conflict resolution"
 
+  tests ["crates/specforge-registry/tests/zero_entity_registries.rs"]
 }
 
 // -- Contribution Model -----
@@ -396,6 +403,7 @@ behavior dispatch_contribution_exports "Dispatch Contribution Exports" {
   verify unit "renderer contributions re-dispatched after collector_report_ingested"
   verify contract "requires/ensures consistency for contribution export dispatch"
 
+  tests ["crates/specforge-wasm/tests/wasm_lifecycle.rs"]
 }
 
 behavior enforce_per_call_site_permissions "Enforce Per-Call-Site Permissions" {
@@ -480,6 +488,7 @@ behavior validate_contribution_exports "Validate Contribution Exports" {
   verify unit "extra exports beyond contributions are ignored"
   verify contract "requires/ensures consistency for contribution export validation"
 
+  tests ["crates/specforge-wasm/tests/wasm_lifecycle.rs"]
 }
 
 behavior toggle_extension_contributions "Toggle Extension Contributions" {
@@ -516,6 +525,7 @@ behavior toggle_extension_contributions "Toggle Extension Contributions" {
   verify unit "disabling only entity provider for a kind produces W028"
   verify contract "requires/ensures consistency for extension contribution toggling"
 
+  tests ["crates/specforge-cli/tests/extensions.rs"]
 }
 
 // -- Collector Contribution Behaviors -----
@@ -560,6 +570,7 @@ behavior register_collector_contributions "Register Collector Contributions" {
   verify unit "duplicate collector name produces E029"
   verify contract "requires/ensures consistency for collector contribution registration"
 
+  tests ["crates/specforge-cli/tests/collect.rs"]
 }
 
 // NOTE: auto_detect_collector does not produce an event because dispatch is
@@ -605,6 +616,7 @@ behavior auto_detect_collector "Auto-Detect Collector" {
   verify unit "no match emits I013 with available collectors"
   verify contract "requires/ensures consistency for collector auto-detection"
 
+  tests ["crates/specforge-cli/tests/collect.rs"]
 }
 
 behavior dispatch_collector "Dispatch Collector" {
@@ -644,6 +656,7 @@ behavior dispatch_collector "Dispatch Collector" {
   verify unit "collector dispatch spawns no external processes"
   verify contract "requires/ensures consistency for collector dispatch"
 
+  tests ["crates/specforge-cli/tests/collect.rs"]
 }
 
 behavior validate_collector_output "Validate Collector Output" {
@@ -680,6 +693,7 @@ behavior validate_collector_output "Validate Collector Output" {
   verify unit "missing schema field produces hard error"
   verify contract "requires/ensures consistency for collector output validation"
 
+  tests ["crates/specforge-cli/tests/collect.rs"]
 }
 
 behavior ingest_collector_report "Ingest Collector Report" {
@@ -719,6 +733,7 @@ behavior ingest_collector_report "Ingest Collector Report" {
   verify unit "unknown entity entries in unmapped_tests"
   verify contract "requires/ensures consistency for collector report ingestion"
 
+  tests ["crates/specforge-cli/tests/collect.rs"]
 }
 
 // -- Discovery & Configuration -----
@@ -760,6 +775,7 @@ behavior discover_extensions "Discover Extensions" {
   verify unit "network failure produces warning without aborting"
   verify contract "requires/ensures consistency for extension discovery"
 
+  tests ["crates/specforge-cli/tests/extensions.rs"]
 }
 
 behavior run_doctor_check "Run Doctor Check" {
@@ -835,6 +851,7 @@ behavior parse_extension_specifier "Parse Extension Specifier" {
   verify unit "invalid specifier produces ExtensionError"
   verify contract "requires/ensures consistency for extension specifier parsing"
 
+  tests ["crates/specforge-cli/tests/registry.rs"]
 }
 
 behavior resolve_extension_source "Resolve Extension Source" {
@@ -870,6 +887,7 @@ behavior resolve_extension_source "Resolve Extension Source" {
   verify unit "resolution failure produces ExtensionError"
   verify contract "requires/ensures consistency for extension source resolution"
 
+  tests ["crates/specforge-cli/tests/registry.rs"]
 }
 
 // -- Lock File Management -----
@@ -907,6 +925,7 @@ behavior write_lock_file "Write Lock File" {
   verify unit "lock file written atomically"
   verify contract "requires/ensures consistency for lock file writing"
 
+  tests ["crates/specforge-cli/tests/registry.rs"]
 }
 
 behavior read_lock_file "Read Lock File" {
@@ -941,6 +960,7 @@ behavior read_lock_file "Read Lock File" {
   verify unit "malformed lock file produces warning and falls back"
   verify contract "requires/ensures consistency for lock file reading"
 
+  tests ["crates/specforge-cli/tests/registry.rs"]
 }
 
 // ── Extension Update ──────────────────────────────────────────
@@ -986,6 +1006,7 @@ behavior update_all_extensions "Update All Extensions" {
   verify unit "failed upgrade rolls back all changes"
   verify contract "requires/ensures consistency for batch extension update"
 
+  tests ["crates/specforge-cli/tests/registry.rs"]
 }
 
 behavior refresh_lock_file "Refresh Lock File" {
@@ -1022,4 +1043,5 @@ behavior refresh_lock_file "Refresh Lock File" {
   verify unit "lock file regenerated with current metadata"
   verify contract "requires/ensures consistency for lock file refresh"
 
+  tests ["crates/specforge-cli/tests/registry.rs"]
 }

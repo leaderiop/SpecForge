@@ -47,6 +47,7 @@ behavior validate_manifest_v2_schema "Validate Manifest V2 Schema" {
   verify unit "unknown top-level field produces warning"
   verify contract "requires/ensures consistency for manifest v2 schema validation"
 
+  tests ["crates/specforge-registry/tests/zero_entity_registries.rs"]
 }
 
 behavior register_entity_kinds_from_manifest "Register Entity Kinds From Manifest" {
@@ -83,6 +84,7 @@ behavior register_entity_kinds_from_manifest "Register Entity Kinds From Manifes
   verify unit "no default testability assumed by core"
   verify contract "requires/ensures consistency for entity kind registration"
 
+  tests ["crates/specforge-registry/tests/zero_entity_registries.rs"]
 }
 
 behavior register_edge_types_from_manifest "Register Edge Types From Manifest" {
@@ -124,6 +126,7 @@ behavior register_edge_types_from_manifest "Register Edge Types From Manifest" {
   verify unit "field-to-edge mapping creates edge type"
   verify contract "requires/ensures consistency for edge type registration"
 
+  tests ["crates/specforge-registry/tests/zero_entity_registries.rs"]
 }
 
 behavior register_validation_rules_from_manifest "Register Validation Rules From Manifest" {
@@ -169,6 +172,7 @@ behavior register_validation_rules_from_manifest "Register Validation Rules From
   verify unit "invalid reference produces warning not error"
   verify contract "requires/ensures consistency for validation rule registration"
 
+  tests ["crates/specforge-registry/tests/zero_entity_registries.rs"]
 }
 
 behavior register_verify_kinds_from_manifest "Register Verify Kinds From Manifest" {
@@ -200,6 +204,7 @@ behavior register_verify_kinds_from_manifest "Register Verify Kinds From Manifes
   verify unit "unknown verify kind in .spec produces W-level diagnostic in Phase 2"
   verify contract "requires/ensures consistency for verify kind registration"
 
+  tests ["crates/specforge-registry/tests/zero_entity_registries.rs"]
 }
 
 // -- Dynamic Entity Registration ---------------------------------------------
@@ -233,6 +238,7 @@ behavior boot_empty_kind_registry "Boot Empty Kind Registry" {
   verify unit "parser recognizes define keyword without extensions"
   verify contract "requires/ensures consistency for empty kind registry boot"
 
+  tests ["crates/specforge-registry/tests/zero_entity_registries.rs"]
 }
 
 behavior boot_empty_field_registry "Boot Empty Field Registry" {
@@ -264,6 +270,7 @@ behavior boot_empty_field_registry "Boot Empty Field Registry" {
   verify unit "entity title parsed by grammar, not FieldRegistry"
   verify contract "requires/ensures consistency for empty field registry boot"
 
+  tests ["crates/specforge-registry/tests/zero_entity_registries.rs"]
 }
 
 behavior boot_empty_edge_registry "Boot Empty Edge Registry" {
@@ -292,6 +299,7 @@ behavior boot_empty_edge_registry "Boot Empty Edge Registry" {
   verify unit "no edge labels recognized before extension loading"
   verify contract "requires/ensures consistency for empty edge registry boot"
 
+  tests ["crates/specforge-registry/tests/zero_entity_registries.rs"]
 }
 
 behavior custom_entity_types_via_define "Custom Entity Types via Define" {
@@ -342,6 +350,7 @@ behavior custom_entity_types_via_define "Custom Entity Types via Define" {
   verify unit "custom_entity_type_defined event emitted per define block"
   verify contract "requires/ensures consistency for custom entity type registration"
 
+  tests ["crates/specforge-registry/tests/zero_entity_registries.rs"]
 }
 
 behavior populate_kind_registry_from_extensions "Populate Kind Registry From Extensions" {
@@ -380,6 +389,7 @@ behavior populate_kind_registry_from_extensions "Populate Kind Registry From Ext
   verify integration "two extensions register kinds without collision"
   verify contract "requires/ensures consistency for registry population"
 
+  tests ["crates/specforge-registry/tests/zero_entity_registries.rs"]
 }
 
 behavior populate_field_registry_from_extensions "Populate Field Registry From Extensions" {
@@ -416,6 +426,7 @@ behavior populate_field_registry_from_extensions "Populate Field Registry From E
   verify unit "invalid field type produces warning"
   verify contract "requires/ensures consistency for field registry population"
 
+  tests ["crates/specforge-registry/tests/zero_entity_registries.rs"]
 }
 
 behavior populate_edge_registry_from_extensions "Populate Edge Registry From Extensions" {
@@ -448,6 +459,7 @@ behavior populate_edge_registry_from_extensions "Populate Edge Registry From Ext
   verify unit "duplicate edge labels produce warning"
   verify contract "requires/ensures consistency for edge registry population"
 
+  tests ["crates/specforge-registry/tests/zero_entity_registries.rs"]
 }
 
 behavior validate_registered_entity_fields "Validate Registered Entity Fields" {
@@ -488,6 +500,7 @@ behavior validate_registered_entity_fields "Validate Registered Entity Fields" {
   verify unit "cross-validation uses no domain-specific logic"
   verify contract "requires/ensures consistency for field cross-validation"
 
+  tests ["crates/specforge-registry/tests/zero_entity_registries.rs"]
 }
 
 // -- Grammar Consolidation ---------------------------------------------------
@@ -526,6 +539,7 @@ behavior collapse_grammar_to_generic_entity_block "Collapse Grammar to Generic E
   verify unit "define_block remains as separate grammar rule"
   verify contract "requires/ensures consistency for grammar collapse"
 
+  tests ["crates/specforge-registry/tests/zero_entity_registries.rs"]
 }
 
 // -- Zero-Entity Bootstrap ---------------------------------------------------
@@ -564,6 +578,7 @@ behavior two_phase_parse_structural "Two-Phase Parse: Structural" {
   verify unit "parse errors collected without aborting"
   verify contract "requires/ensures consistency for structural parsing"
 
+  tests ["crates/specforge-registry/tests/zero_entity_registries.rs"]
 }
 
 behavior two_phase_validate_semantic "Two-Phase Validate: Semantic" {
@@ -605,6 +620,7 @@ behavior two_phase_validate_semantic "Two-Phase Validate: Semantic" {
   verify integration "Phase 2 waits for both registries_populated AND define_blocks_registered"
   verify contract "requires/ensures consistency for semantic validation"
 
+  tests ["crates/specforge-registry/tests/zero_entity_registries.rs"]
 }
 
 // The KeywordExtensionIndex is a static JSON file mapping known entity keywords
@@ -655,6 +671,7 @@ behavior suggest_missing_extensions "Suggest Missing Extensions" {
   verify unit "keyword-to-extension index is loaded from bundled data file"
   verify contract "requires/ensures consistency for missing extension suggestions"
 
+  tests ["crates/specforge-registry/tests/zero_entity_registries.rs"]
 }
 
 // detect_unknown_entity_kinds and suggest_missing_extensions live in the
@@ -691,6 +708,7 @@ behavior detect_unknown_entity_kinds "Detect Unknown Entity Kinds" {
   verify unit "define-block keywords not checked against KindRegistry"
   verify contract "requires/ensures consistency for unknown entity kind detection"
 
+  tests ["crates/specforge-registry/tests/zero_entity_registries.rs"]
 }
 
 behavior graceful_degradation_without_extensions "Graceful Degradation Without Extensions" {
@@ -736,6 +754,7 @@ behavior graceful_degradation_without_extensions "Graceful Degradation Without E
   verify integration "specforge check with zero extensions exits cleanly with I002"
   verify contract "requires/ensures consistency for graceful degradation"
 
+  tests ["crates/specforge-registry/tests/zero_entity_registries.rs"]
 }
 
 behavior handle_all_extensions_failed_to_load "Handle All Extensions Failed to Load" {
@@ -767,6 +786,7 @@ behavior handle_all_extensions_failed_to_load "Handle All Extensions Failed to L
   verify unit "system transitions to structural-only mode after all failures"
   verify integration "specforge check with all extensions unavailable exits cleanly"
   verify contract "requires/ensures consistency for all-extensions-failed handling"
+  tests ["crates/specforge-registry/tests/zero_entity_registries.rs"]
 }
 
 // -- Extension-Driven Visualization ------------------------------------------
@@ -809,6 +829,7 @@ behavior render_extension_defined_dot_shapes "Render Extension-Defined DOT Shape
   verify integration "multi-extension graph renders each kind with its declared shape"
   verify contract "requires/ensures consistency for DOT shape rendering"
 
+  tests ["crates/specforge-registry/tests/zero_entity_registries.rs"]
 }
 
 behavior render_extension_defined_edge_styles "Render Extension-Defined Edge Styles" {
@@ -846,6 +867,7 @@ behavior render_extension_defined_edge_styles "Render Extension-Defined Edge Sty
   verify integration "multi-extension graph renders each edge type with its declared style"
   verify contract "requires/ensures consistency for DOT edge style rendering"
 
+  tests ["crates/specforge-registry/tests/zero_entity_registries.rs"]
 }
 
 // -- Grammar and Body Parser Registration ------------------------------------
@@ -885,6 +907,7 @@ behavior register_grammar_contributions "Register Grammar Contributions" {
   verify unit "grammar .wasm path validated as accessible"
   verify contract "requires/ensures consistency for grammar contribution registration"
 
+  tests ["crates/specforge-registry/tests/zero_entity_registries.rs"]
 }
 
 behavior register_body_parser_contributions "Register Body Parser Contributions" {
@@ -921,6 +944,7 @@ behavior register_body_parser_contributions "Register Body Parser Contributions"
   verify unit "export_name verified against Wasm binary"
   verify contract "requires/ensures consistency for body parser contribution registration"
 
+  tests ["crates/specforge-registry/tests/zero_entity_registries.rs"]
 }
 
 // -- Extension Manifest Consistency ------------------------------------------
@@ -965,4 +989,5 @@ behavior validate_extension_manifest_consistency "Validate Extension Manifest Co
   verify unit "self-contradictory edge label produces E-level error"
   verify contract "requires/ensures consistency for manifest self-consistency validation"
 
+  tests ["crates/specforge-registry/tests/zero_entity_registries.rs"]
 }

@@ -35,6 +35,7 @@ behavior complete_extension_defined_keywords "Complete Extension-Defined Keyword
   verify unit "completion detail shows source extension"
   verify contract "requires/ensures consistency for extension keyword completion"
 
+  tests ["crates/specforge-lsp/tests/completion.rs"]
 }
 
 behavior provide_extension_entity_semantic_tokens "Provide Extension Entity Semantic Tokens" {
@@ -68,6 +69,7 @@ behavior provide_extension_entity_semantic_tokens "Provide Extension Entity Sema
   verify unit "custom token types included in legend"
   verify contract "requires/ensures consistency for extension semantic tokens"
 
+  tests ["crates/specforge-lsp/tests/semantic_tokens.rs"]
 }
 
 behavior provide_extension_entity_hover "Provide Extension Entity Hover" {
@@ -107,6 +109,7 @@ behavior provide_extension_entity_hover "Provide Extension Entity Hover" {
   verify unit "hover shows reference count from graph"
   verify contract "requires/ensures consistency for extension entity hover"
 
+  tests ["crates/specforge-lsp/tests/hover.rs"]
 }
 
 behavior provide_extension_defined_lsp_icons "Provide Extension-Defined LSP Icons" {
@@ -136,4 +139,5 @@ behavior provide_extension_defined_lsp_icons "Provide Extension-Defined LSP Icon
   verify unit "extension icons appear in outline view"
   verify contract "requires/ensures consistency for extension LSP icons"
 
+  tests ["crates/specforge-lsp/tests/semantic_tokens.rs"]
 }

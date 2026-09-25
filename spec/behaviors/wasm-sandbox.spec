@@ -40,6 +40,7 @@ behavior enforce_wasm_sandbox "Enforce Wasm Sandbox" {
   verify unit "network restriction enforced"
   verify contract "requires/ensures consistency for Wasm sandbox enforcement"
 
+  tests ["crates/specforge-extism/tests/runtime.rs"]
 }
 
 behavior aot_compile_wasm_module "AOT Compile Wasm Module" {
@@ -74,6 +75,7 @@ behavior aot_compile_wasm_module "AOT Compile Wasm Module" {
   verify unit "subsequent load uses cached artifact"
   verify contract "requires/ensures consistency for AOT Wasm compilation"
 
+  tests ["crates/specforge-extism/tests/runtime.rs"]
 }
 
 behavior cache_aot_artifacts "Cache AOT Artifacts" {
@@ -105,6 +107,7 @@ behavior cache_aot_artifacts "Cache AOT Artifacts" {
   verify unit "corrupted cache entry is evicted and recompiled"
   verify contract "requires/ensures consistency for AOT artifact caching"
 
+  tests ["crates/specforge-extism/tests/runtime.rs"]
 }
 
 behavior warm_wasm_engine_instance "Warm Wasm Engine Instance" {
@@ -138,6 +141,7 @@ behavior warm_wasm_engine_instance "Warm Wasm Engine Instance" {
   verify unit "instance unloaded on extension removal"
   verify contract "requires/ensures consistency for warm engine instance management"
 
+  tests ["crates/specforge-extism/tests/runtime.rs"]
 }
 
 behavior evict_warm_engine_instance "Evict Warm Engine Instance" {
@@ -171,6 +175,7 @@ behavior evict_warm_engine_instance "Evict Warm Engine Instance" {
   verify unit "memory ceiling triggers eviction of least-recent engine"
   verify contract "requires/ensures consistency for warm engine eviction"
 
+  tests ["crates/specforge-extism/tests/runtime.rs"]
 }
 
 // -- Error Recovery -----
@@ -210,6 +215,7 @@ behavior handle_wasm_trap "Handle Wasm Trap" {
   verify unit "remaining extensions continue after trap"
   verify contract "requires/ensures consistency for Wasm trap handling"
 
+  tests ["crates/specforge-extism/tests/runtime.rs"]
 }
 
 // -- Cache Management -----
@@ -246,6 +252,7 @@ behavior invalidate_aot_cache "Invalidate AOT Cache" {
   verify unit "removes stale AOT artifacts"
   verify contract "requires/ensures consistency for AOT cache invalidation"
 
+  tests ["crates/specforge-extism/tests/runtime.rs"]
 }
 
 // V2: .yaml/.yml removed from the default filesystem allowlist. Extensions
@@ -298,4 +305,5 @@ behavior configure_sandbox_policy "Configure Sandbox Policy" {
   verify unit "manifest with non-code extension (.json, .csv, .md) in allowed_output_extensions passes"
   verify contract "requires/ensures consistency for sandbox policy configuration"
 
+  tests ["crates/specforge-wasm/tests/wasm_lifecycle.rs"]
 }
