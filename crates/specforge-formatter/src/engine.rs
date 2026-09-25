@@ -583,8 +583,8 @@ fn format_entity_block(node: Node, source: &str, config: &FormatConfig, lines: &
     };
     lines.push(header);
 
-    // Collect and format fields + verify statements
-    let (field_lines, verify_lines) = collect_block_children(node, source, config);
+    // Collect and format fields + methods + verify statements
+    let (field_lines, method_lines, verify_lines) = collect_block_children(node, source, config);
 
     // Calculate alignment for fields
     let field_keys: Vec<&str> = field_lines.iter().map(|(key, _, _)| key.as_str()).collect();
@@ -640,12 +640,15 @@ fn format_entity_block(node: Node, source: &str, config: &FormatConfig, lines: &
         lines.push(field_text);
     }
 
-    // Blank line before verify statements (if there are fields before them)
-    if !field_lines.is_empty() && !verify_lines.is_empty() {
+    if !field_lines.is_empty() && !method_lines.is_empty() {
         lines.push(String::new());
     }
 
-    // Emit verify statements
+    // Emit method statements
+    for method in &method_lines {
+        lines.push(format!("{indent}{method}"));
+    }
+
     for verify in &verify_lines {
         lines.push(format!("{indent}{verify}"));
     }
@@ -681,7 +684,7 @@ fn format_spec_block(node: Node, source: &str, config: &FormatConfig, lines: &mu
 
     lines.push(format!("spec {name} {{"));
 
-    let (field_lines, verify_lines) = collect_block_children(node, source, config);
+    let (field_lines, method_lines, verify_lines) = collect_block_children(node, source, config);
 
     let field_keys: Vec<&str> = field_lines.iter().map(|(key, _, _)| key.as_str()).collect();
     let align_col = if field_keys.len() > 1 {
@@ -710,6 +713,12 @@ fn format_spec_block(node: Node, source: &str, config: &FormatConfig, lines: &mu
         }
     }
 
+    if !field_lines.is_empty() && !method_lines.is_empty() {
+        lines.push(String::new());
+    }
+    for method in &method_lines {
+        lines.push(format!("{indent}{method}"));
+    }
     for verify in &verify_lines {
         lines.push(format!("{indent}{verify}"));
     }
@@ -729,7 +738,7 @@ fn format_ref_full(node: Node, source: &str, config: &FormatConfig, lines: &mut 
     let title = get_child_field_text(node, "title", source).unwrap_or_default();
     lines.push(format!("ref {id} {title} {{"));
 
-    let (field_lines, _) = collect_block_children(node, source, config);
+    let (field_lines, _, _) = collect_block_children(node, source, config);
     for (key, value, annotations) in &field_lines {
         let ann_str = if annotations.is_empty() {
             String::new()
@@ -747,7 +756,7 @@ fn format_define_block(node: Node, source: &str, config: &FormatConfig, lines: &
     let name = get_child_text(node, "name", source);
     lines.push(format!("define {name} {{"));
 
-    let (field_lines, verify_lines) = collect_block_children(node, source, config);
+    let (field_lines, method_lines, verify_lines) = collect_block_children(node, source, config);
 
     let field_keys: Vec<&str> = field_lines.iter().map(|(key, _, _)| key.as_str()).collect();
     let align_col = if field_keys.len() > 1 {
@@ -770,6 +779,12 @@ fn format_define_block(node: Node, source: &str, config: &FormatConfig, lines: &
         lines.push(format!("{indent}{key}{padding}{value}{ann_str}"));
     }
 
+    if !field_lines.is_empty() && !method_lines.is_empty() {
+        lines.push(String::new());
+    }
+    for method in &method_lines {
+        lines.push(format!("{indent}{method}"));
+    }
     for verify in &verify_lines {
         lines.push(format!("{indent}{verify}"));
     }
@@ -843,14 +858,16 @@ fn format_nested_field(
 /// A parsed field: (key, value, annotations).
 type FieldEntry = (String, String, Vec<String>);
 
-/// Collect fields and verify statements from a block node's children.
+/// Collect fields, methods, and verify statements from a block node's
+/// children.
 fn collect_block_children(
     node: Node,
     source: &str,
     config: &FormatConfig,
-) -> (Vec<FieldEntry>, Vec<String>) {
+) -> (Vec<FieldEntry>, Vec<String>, Vec<String>) {
     let mut fields = Vec::new();
     let mut verifies = Vec::new();
+    let mut methods = Vec::new();
 
     let mut cursor = node.walk();
     if cursor.goto_first_child() {
@@ -904,6 +921,68 @@ fn collect_block_children(
                     };
                     verifies.push(stmt);
                 }
+                "method_statement" => {
+                    // Rebuild the normalized one-line form from parts.
+                    let name = child
+                        .child_by_field_name("name")
+                        .map(|n| n.utf8_text(source.as_bytes()).unwrap_or("").to_string())
+                        .unwrap_or_default();
+
+                    let mut params: Vec<String> = Vec::new();
+                    let mut returns: Option<String> = None;
+                    let mut inner = child.walk();
+                    if inner.goto_first_child() {
+                        loop {
+                            let part = inner.node();
+                            match part.kind() {
+                                "parameter" => {
+                                    let pname = part
+                                        .child_by_field_name("name")
+                                        .map(|n| {
+                                            n.utf8_text(source.as_bytes()).unwrap_or("").to_string()
+                                        })
+                                        .unwrap_or_default();
+                                    let pty = part
+                                        .child_by_field_name("type")
+                                        .map(|n| {
+                                            n.utf8_text(source.as_bytes()).unwrap_or("").to_string()
+                                        })
+                                        .unwrap_or_default();
+                                    params.push(format!("{pname}: {pty}"));
+                                }
+                                _ => {
+                                    if inner.goto_first_child() {
+                                        // anonymous tokens: capture "->" returns type
+                                    }
+                                }
+                            }
+                            if !inner.goto_next_sibling() {
+                                break;
+                            }
+                        }
+                    }
+                    let _ = &mut returns;
+                    let _ = config;
+                    let param_text = params.join(", ");
+                    let mut stmt = if params.is_empty() {
+                        format!("method {name}()")
+                    } else {
+                        format!("method {name}({param_text})")
+                    };
+                    // Returns: the type_generic/array_type/identifier child
+                    // after "->"; recover from the raw text tail.
+                    let raw = child.utf8_text(source.as_bytes()).unwrap_or("");
+                    if let Some(idx) = raw.find("->") {
+                        let ret = raw[idx + 2..].trim();
+                        if !ret.is_empty() {
+                            returns = Some(ret.to_string());
+                        }
+                    }
+                    if let Some(r) = returns {
+                        stmt.push_str(&format!(" -> {r}"));
+                    }
+                    methods.push(stmt);
+                }
                 _ => {}
             }
             if !cursor.goto_next_sibling() {
@@ -913,7 +992,7 @@ fn collect_block_children(
         cursor.goto_parent();
     }
 
-    (fields, verifies)
+    (fields, methods, verifies)
 }
 
 /// Format a value node, handling nested blocks, lists, etc.
@@ -990,6 +1069,46 @@ fn get_child_field_text(node: Node, field_name: &str, source: &str) -> Option<St
 /// Get the text of the first child with a specific field name.
 fn get_child_text(node: Node, field_name: &str, source: &str) -> String {
     get_child_field_text(node, field_name, source).unwrap_or_default()
+}
+
+#[cfg(test)]
+mod methods_tests {
+    use super::*;
+
+    #[test]
+    fn method_statements_survive_formatting_idempotently() {
+        let source = concat!(
+            "port FileSystem {\n",
+            "  direction outbound\n",
+            "  method readFile(path: string) -> Result<string, EmitterError>\n",
+            "  method flush()\n",
+            "}\n",
+        );
+        let config = FormatConfig::default();
+        let once = format_source(source, &config);
+        assert!(
+            once.diagnostics.is_empty(),
+            "format diagnostics: {:?}",
+            once.diagnostics
+        );
+        assert_eq!(
+            once.formatted.matches("method readFile").count(),
+            1,
+            "method must be emitted exactly once: {:?}",
+            once.formatted
+        );
+        assert!(
+            once.formatted
+                .contains("method readFile(path: string) -> Result<string, EmitterError>"),
+            "method line lost or mangled: {:?}",
+            once.formatted
+        );
+        let twice = format_source(&once.formatted, &config);
+        assert_eq!(
+            twice.formatted, once.formatted,
+            "formatting must be idempotent"
+        );
+    }
 }
 
 #[cfg(test)]

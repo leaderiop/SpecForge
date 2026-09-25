@@ -230,7 +230,7 @@ impl<'a> ParseContext<'a> {
         let title = node.child_by_field_name("title").map(|n| self.unquote(n));
 
         let raw_body = self.extract_brace_body(node);
-        let (fields, verify) = self.parse_block_body(node);
+        let (fields, verify, methods) = self.parse_block_body(node);
         let mut field_map = fields;
         if !verify.is_empty() {
             field_map.push(Sym::new("verify"), FieldValue::VerifyList(verify));
@@ -243,6 +243,7 @@ impl<'a> ParseContext<'a> {
             fields: field_map,
             raw_body,
             span: self.span(node),
+            methods,
         });
     }
 
@@ -253,7 +254,7 @@ impl<'a> ParseContext<'a> {
             .unwrap_or_default();
 
         let raw_body = self.extract_brace_body(node);
-        let (fields, verify) = self.parse_block_body(node);
+        let (fields, verify, methods) = self.parse_block_body(node);
         let mut field_map = fields;
         if !verify.is_empty() {
             field_map.push(Sym::new("verify"), FieldValue::VerifyList(verify));
@@ -270,6 +271,7 @@ impl<'a> ParseContext<'a> {
             fields: field_map,
             raw_body,
             span: self.span(node),
+            methods,
         });
     }
 
@@ -292,7 +294,7 @@ impl<'a> ParseContext<'a> {
         }
 
         if inner.kind() == "ref_full" {
-            let (body_fields, _) = self.parse_block_body(inner);
+            let (body_fields, _, _) = self.parse_block_body(inner);
             for entry in body_fields.entries() {
                 fields.push_annotated(entry.key, entry.value.clone(), entry.annotations.clone());
             }
@@ -309,6 +311,7 @@ impl<'a> ParseContext<'a> {
             fields,
             raw_body: None,
             span: self.span(node),
+            methods: Vec::new(),
         });
     }
 
@@ -345,6 +348,7 @@ impl<'a> ParseContext<'a> {
             fields,
             raw_body: None,
             span: self.span(node),
+            methods: Vec::new(),
         });
     }
 
@@ -355,7 +359,7 @@ impl<'a> ParseContext<'a> {
             .unwrap_or_else(|| Sym::new(""));
 
         let raw_body = self.extract_brace_body(node);
-        let (fields, verify) = self.parse_block_body(node);
+        let (fields, verify, methods) = self.parse_block_body(node);
         let mut field_map = fields;
         if !verify.is_empty() {
             field_map.push(Sym::new("verify"), FieldValue::VerifyList(verify));
@@ -370,6 +374,7 @@ impl<'a> ParseContext<'a> {
             fields: field_map,
             raw_body,
             span: self.span(node),
+            methods,
         });
     }
 
@@ -416,10 +421,14 @@ impl<'a> ParseContext<'a> {
         });
     }
 
-    fn parse_block_body(&mut self, node: Node) -> (FieldMap, Vec<VerifyStatement>) {
+    fn parse_block_body(
+        &mut self,
+        node: Node,
+    ) -> (FieldMap, Vec<VerifyStatement>, Vec<MethodDecl>) {
         let mut fields = FieldMap::new();
         let mut verify = Vec::new();
 
+        let mut methods: Vec<MethodDecl> = Vec::new();
         let mut cursor = node.walk();
         for child in node.children(&mut cursor) {
             match child.kind() {
@@ -433,12 +442,13 @@ impl<'a> ParseContext<'a> {
                         verify.push(stmt);
                     }
                 }
+                "method_statement" => methods.push(self.parse_method_statement(child)),
                 "ERROR" => self.push_error_node(child),
                 _ => {}
             }
         }
 
-        (fields, verify)
+        (fields, verify, methods)
     }
 
     fn parse_field(&mut self, node: Node) -> Option<(Sym, FieldValue, Vec<Annotation>)> {
@@ -644,6 +654,41 @@ impl<'a> ParseContext<'a> {
             }
         }
         FieldValue::Block(fields)
+    }
+
+    fn parse_method_statement(&self, node: Node) -> MethodDecl {
+        let name = node
+            .child_by_field_name("name")
+            .map(|n| self.text(n).to_string())
+            .unwrap_or_default();
+        let returns = node
+            .child_by_field_name("returns")
+            .map(|n| self.text(n).trim().to_string());
+        let mut params = Vec::new();
+        let mut cursor = node.walk();
+        for child in node.children(&mut cursor) {
+            if child.kind() != "parameter" {
+                continue;
+            }
+            let pname = child
+                .child_by_field_name("name")
+                .map(|n| self.text(n).to_string())
+                .unwrap_or_default();
+            let pty = child
+                .child_by_field_name("type")
+                .map(|n| self.text(n).trim().to_string())
+                .unwrap_or_default();
+            params.push(Parameter {
+                name: pname,
+                ty: pty,
+            });
+        }
+        MethodDecl {
+            name,
+            params,
+            returns,
+            span: self.span(node),
+        }
     }
 
     fn parse_verify_statement(&self, node: Node) -> Option<VerifyStatement> {

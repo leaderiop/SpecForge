@@ -125,6 +125,7 @@ expression: "parse_ok(source, \"test.spec\").entities"
       "start_col": 1,
       "end_line": 17,
       "end_col": 2
-    }
+    },
+    "methods": []
   }
 ]

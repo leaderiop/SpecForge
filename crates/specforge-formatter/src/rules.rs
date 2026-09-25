@@ -145,7 +145,7 @@ pub fn depth_for_node(kind: &str, parent_kind: Option<&str>) -> usize {
         "source_file" => 0,
         "entity_block" | "spec_block" | "ref_full" | "ref_inline" | "define_block"
         | "union_block" | "use_import" | "pub_use_import" => 0,
-        "field" | "verify_statement" => {
+        "field" | "verify_statement" | "method_statement" => {
             match parent_kind {
                 Some("nested_block") => 2, // nested blocks get extra indent
                 _ => 1,

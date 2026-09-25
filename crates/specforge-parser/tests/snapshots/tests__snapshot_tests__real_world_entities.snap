@@ -100,7 +100,8 @@ expression: result.entities
       "start_col": 1,
       "end_line": 25,
       "end_col": 2
-    }
+    },
+    "methods": []
   },
   {
     "kind": {
@@ -142,7 +143,8 @@ expression: result.entities
       "start_col": 1,
       "end_line": 27,
       "end_col": 32
-    }
+    },
+    "methods": []
   },
   {
     "kind": {
@@ -200,6 +202,7 @@ expression: result.entities
       "start_col": 1,
       "end_line": 34,
       "end_col": 2
-    }
+    },
+    "methods": []
   }
 ]

@@ -113,10 +113,7 @@ fn corpus_error_set_matches_documented_baseline() {
     let manifest_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
     let root = manifest_dir.join("../../spec");
     let baseline: std::collections::HashSet<&str> = [
-        "ports.spec",            // method m(x: T) -> R signatures
-        "inbound.spec",          // method signatures
-        "outbound.spec",         // method signatures
-        "zero-entity-core.spec", // union-typed field: string | string[]
+        "zero-entity-core.spec", // union-typed field declaration: string | string[]
     ]
     .into_iter()
     .collect();

@@ -59,6 +59,10 @@
           "named": true
         },
         {
+          "type": "method_statement",
+          "named": true
+        },
+        {
           "type": "verify_statement",
           "named": true
         }
@@ -106,6 +110,10 @@
       "types": [
         {
           "type": "field",
+          "named": true
+        },
+        {
+          "type": "method_statement",
           "named": true
         },
         {
@@ -450,6 +458,50 @@
     }
   },
   {
+    "type": "method_statement",
+    "named": true,
+    "fields": {
+      "name": {
+        "multiple": false,
+        "required": true,
+        "types": [
+          {
+            "type": "identifier",
+            "named": true
+          }
+        ]
+      },
+      "returns": {
+        "multiple": false,
+        "required": false,
+        "types": [
+          {
+            "type": "array_type",
+            "named": true
+          },
+          {
+            "type": "identifier",
+            "named": true
+          },
+          {
+            "type": "type_generic",
+            "named": true
+          }
+        ]
+      }
+    },
+    "children": {
+      "multiple": true,
+      "required": false,
+      "types": [
+        {
+          "type": "parameter",
+          "named": true
+        }
+      ]
+    }
+  },
+  {
     "type": "namespace_import",
     "named": true,
     "fields": {
@@ -478,6 +530,40 @@
           "named": true
         }
       ]
+    }
+  },
+  {
+    "type": "parameter",
+    "named": true,
+    "fields": {
+      "name": {
+        "multiple": false,
+        "required": true,
+        "types": [
+          {
+            "type": "identifier",
+            "named": true
+          }
+        ]
+      },
+      "type": {
+        "multiple": false,
+        "required": true,
+        "types": [
+          {
+            "type": "array_type",
+            "named": true
+          },
+          {
+            "type": "identifier",
+            "named": true
+          },
+          {
+            "type": "type_generic",
+            "named": true
+          }
+        ]
+      }
     }
   },
   {
@@ -661,7 +747,45 @@
           "named": true
         },
         {
+          "type": "method_statement",
+          "named": true
+        },
+        {
           "type": "verify_statement",
+          "named": true
+        }
+      ]
+    }
+  },
+  {
+    "type": "type_generic",
+    "named": true,
+    "fields": {
+      "base": {
+        "multiple": false,
+        "required": true,
+        "types": [
+          {
+            "type": "identifier",
+            "named": true
+          }
+        ]
+      }
+    },
+    "children": {
+      "multiple": true,
+      "required": true,
+      "types": [
+        {
+          "type": "array_type",
+          "named": true
+        },
+        {
+          "type": "identifier",
+          "named": true
+        },
+        {
+          "type": "type_generic",
           "named": true
         }
       ]
@@ -821,6 +945,14 @@
     "named": false
   },
   {
+    "type": "->",
+    "named": false
+  },
+  {
+    "type": ":",
+    "named": false
+  },
+  {
     "type": "<",
     "named": false
   },
@@ -896,6 +1028,10 @@
   {
     "type": "integer",
     "named": true
+  },
+  {
+    "type": "method",
+    "named": false
   },
   {
     "type": "negative_integer",

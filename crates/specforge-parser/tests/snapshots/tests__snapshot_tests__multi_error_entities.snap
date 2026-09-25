@@ -29,7 +29,8 @@ expression: result.entities
       "start_col": 1,
       "end_line": 4,
       "end_col": 2
-    }
+    },
+    "methods": []
   },
   {
     "kind": {
@@ -57,6 +58,7 @@ expression: result.entities
       "start_col": 1,
       "end_line": 12,
       "end_col": 2
-    }
+    },
+    "methods": []
   }
 ]

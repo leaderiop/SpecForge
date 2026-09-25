@@ -42,6 +42,25 @@ pub struct Entity {
     pub fields: FieldMap,
     pub raw_body: Option<String>,
     pub span: SourceSpan,
+    /// `method name(param: Type) -> Ret` members (ports define their
+    /// interfaces this way). Empty for kinds that never declare methods.
+    pub methods: Vec<MethodDecl>,
+}
+
+/// One `method` member of an entity body.
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct MethodDecl {
+    pub name: String,
+    pub params: Vec<Parameter>,
+    pub returns: Option<String>,
+    pub span: SourceSpan,
+}
+
+/// One parameter of a [`MethodDecl`].
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct Parameter {
+    pub name: String,
+    pub ty: String,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize)]

@@ -41,7 +41,8 @@ expression: "parse_ok(source, \"test.spec\").entities"
       "start_col": 1,
       "end_line": 5,
       "end_col": 2
-    }
+    },
+    "methods": []
   },
   {
     "kind": {
@@ -83,7 +84,8 @@ expression: "parse_ok(source, \"test.spec\").entities"
       "start_col": 1,
       "end_line": 7,
       "end_col": 42
-    }
+    },
+    "methods": []
   },
   {
     "kind": {
@@ -132,7 +134,8 @@ expression: "parse_ok(source, \"test.spec\").entities"
       "start_col": 1,
       "end_line": 11,
       "end_col": 2
-    }
+    },
+    "methods": []
   },
   {
     "kind": {
@@ -179,6 +182,7 @@ expression: "parse_ok(source, \"test.spec\").entities"
       "start_col": 1,
       "end_line": 17,
       "end_col": 2
-    }
+    },
+    "methods": []
   }
 ]

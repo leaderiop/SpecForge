@@ -81,7 +81,7 @@ module.exports = grammar({
         field("name", $.identifier),
         optional(field("title", $.string)),
         "{",
-        repeat(choice($.field, $.verify_statement)),
+        repeat(choice($.field, $.verify_statement, $.method_statement)),
         "}",
       ),
 
@@ -91,7 +91,7 @@ module.exports = grammar({
         "spec",
         field("name", $.string),
         "{",
-        repeat(choice($.field, $.verify_statement)),
+        repeat(choice($.field, $.verify_statement, $.method_statement)),
         "}",
       ),
 
@@ -131,7 +131,7 @@ module.exports = grammar({
         "define",
         field("name", $.identifier),
         "{",
-        repeat(choice($.field, $.verify_statement)),
+        repeat(choice($.field, $.verify_statement, $.method_statement)),
         "}",
       ),
 
@@ -182,6 +182,34 @@ module.exports = grammar({
     // Type[] — array type suffix (e.g., ImportDeclaration[])
     array_type: ($) =>
       seq(field("element", $.identifier), token.immediate("[]")),
+
+    // method name(param: Type, ...) -> ReturnType
+    // A generic block member (ports define their interfaces this way);
+    // `method` is word-reserved like `verify`. Types nest: generics and
+    // array suffixes compose (Result<string[], EmitterError>).
+    method_statement: ($) =>
+      seq(
+        "method",
+        field("name", $.identifier),
+        "(",
+        optional(commaSep1($.parameter)),
+        ")",
+        optional(seq("->", field("returns", $._type_ref))),
+      ),
+
+    parameter: ($) =>
+      seq(field("name", $.identifier), ":", field("type", $._type_ref)),
+
+    _type_ref: ($) =>
+      choice($.type_generic, $.array_type, $.identifier),
+
+    type_generic: ($) =>
+      seq(
+        field("base", $.identifier),
+        "<",
+        commaSep1($._type_ref),
+        ">",
+      ),
 
     // verify [kind] "description"
     verify_statement: ($) =>
