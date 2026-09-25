@@ -26,6 +26,7 @@ specforge-formatter = { workspace = true }
 specforge-graph = { path = "../specforge-graph" }
 specforge-protocol-types = { path = "../specforge-protocol-types" }
 specforge-watch = { path = "../specforge-watch" }
+chrono = "0.4.41"
 specforge-parser = { workspace = true }
 specforge-resolver = { path = "../specforge-resolver" }
 specforge-emitter = { path = "../specforge-emitter" }
