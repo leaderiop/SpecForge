@@ -437,3 +437,113 @@ fn analyze_orders_extension_passes_by_constraints() {
         "constraint order must beat declaration order: {formal:?}"
     );
 }
+
+#[test]
+fn analyze_prove_flags_unsatisfiable_constraint() {
+    if std::process::Command::new("z3")
+        .arg("--version")
+        .output()
+        .is_err()
+    {
+        eprintln!("z3 not installed — skipping prove e2e");
+        return;
+    }
+
+    let dir = TempDir::new().unwrap();
+    fs::write(
+        dir.path().join("specforge.json"),
+        r#"{"extensions": ["@specforge/governance"]}"#,
+    )
+    .unwrap();
+    fs::write(
+        dir.path().join("main.spec"),
+        concat!(
+            "constraint impossible \"Impossible Bounds\" {\n",
+            "  description \"Bounds that can never both hold\"\n",
+            "  category performance\n",
+            "  priority critical\n",
+            "  metric \"\"\"\n",
+            "    latency < 100ms\n",
+            "    latency > 500ms\n",
+            "  \"\"\"\n",
+            "}\n",
+        ),
+    )
+    .unwrap();
+
+    let output = specforge_cmd()
+        .args([
+            "analyze",
+            "--prove",
+            "--path",
+            dir.path().to_str().unwrap(),
+            "--json",
+        ])
+        .output()
+        .unwrap();
+    assert_eq!(output.status.code(), Some(1), "unsatisfiable must exit 1");
+    let doc: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
+    assert_eq!(doc["ok"], false);
+    let prove = doc["passes"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|p| p["pass"] == "prove")
+        .expect("prove pass must be dispatched");
+    assert!(
+        prove["findings"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|f| f["code"] == "E046"),
+        "E046 must surface: {prove}"
+    );
+    assert_eq!(prove["summary"]["unsatisfiable"], 1);
+}
+
+#[test]
+fn analyze_prove_satisfiable_constraint_exits_zero() {
+    let dir = TempDir::new().unwrap();
+    fs::write(
+        dir.path().join("specforge.json"),
+        r#"{"extensions": ["@specforge/governance"]}"#,
+    )
+    .unwrap();
+    fs::write(
+        dir.path().join("main.spec"),
+        concat!(
+            "constraint tight \"Tight But Possible\" {\n",
+            "  description \"Bounds that can both hold\"\n",
+            "  category performance\n",
+            "  priority critical\n",
+            "  metric \"\"\"\n",
+            "    latency < 100ms\n",
+            "    latency > 10ms\n",
+            "  \"\"\"\n",
+            "}\n",
+        ),
+    )
+    .unwrap();
+
+    let output = specforge_cmd()
+        .args([
+            "analyze",
+            "--prove",
+            "--path",
+            dir.path().to_str().unwrap(),
+            "--json",
+        ])
+        .output()
+        .unwrap();
+    assert_eq!(output.status.code(), Some(0));
+    let doc: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
+    assert_eq!(doc["ok"], true);
+    let prove = doc["passes"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|p| p["pass"] == "prove")
+        .expect("prove pass must be dispatched");
+    assert_eq!(prove["summary"]["satisfiable"], 1);
+    assert_eq!(prove["summary"]["unsatisfiable"], 0);
+}

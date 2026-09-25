@@ -215,6 +215,7 @@ pub fn run(
     json: bool,
     strict: bool,
     test_results: Option<&Path>,
+    prove: bool,
 ) -> i32 {
     let ctx = pipeline::compile(path);
 
@@ -257,27 +258,15 @@ pub fn run(
 
     let sources = build_source_map(&ctx.spec_root, &ctx.resolved.files);
     let mut reports: Vec<Report> = Vec::new();
-    let mut has_errors = false;
     for name in selected {
         let Some(report) = specforge_emitter::analyze::run_pass(&input, name) else {
             continue;
         };
-        let (mut findings, summary) = (report.findings, report.summary);
-        if strict {
-            for d in &mut findings {
-                if d.severity == Severity::Warning {
-                    d.severity = Severity::Error;
-                }
-            }
-        }
-        if findings.iter().any(|d| d.severity == Severity::Error) {
-            has_errors = true;
-        }
         reports.push(Report {
             name: report.name.to_string(),
             description: report.description.to_string(),
-            findings,
-            summary,
+            findings: report.findings,
+            summary: report.summary,
         });
     }
 
@@ -289,6 +278,37 @@ pub fn run(
         path,
         &requested,
     ));
+
+    // SMT proof pass: verify numeric constraint bounds with z3.
+    if prove || requested == "prove" {
+        let report = crate::prove::run_prove(&input);
+        reports.push(Report {
+            name: "prove".to_string(),
+            description: "numeric constraint bounds verified with an SMT solver".to_string(),
+            findings: report.findings,
+            summary: report.summary,
+        });
+    }
+
+    // Apply strictness and compute the error state uniformly across every
+    // report source (built-in passes, extension passes, prove).
+    let mut has_errors = false;
+    for report in &mut reports {
+        if strict {
+            for d in &mut report.findings {
+                if d.severity == Severity::Warning {
+                    d.severity = Severity::Error;
+                }
+            }
+        }
+        if report
+            .findings
+            .iter()
+            .any(|d| d.severity == Severity::Error)
+        {
+            has_errors = true;
+        }
+    }
 
     if json {
         let doc = serde_json::json!({

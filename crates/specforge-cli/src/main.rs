@@ -18,6 +18,7 @@ mod new;
 mod outline;
 mod pipeline;
 mod product;
+mod prove;
 mod providers;
 mod publish;
 mod query;
@@ -319,6 +320,10 @@ enum Commands {
         /// Test-results report (RES-15 specforge-report.json) for proof-level verdicts
         #[arg(long)]
         test_results: Option<String>,
+
+        /// Verify constraint metric bounds with an SMT solver (z3)
+        #[arg(long, default_value_t = false)]
+        prove: bool,
     },
     /// Watch a project and rebuild incrementally on changes
     Watch {
@@ -833,6 +838,7 @@ fn main() {
             json,
             strict,
             test_results,
+            prove,
         } => {
             let project = path
                 .map(PathBuf::from)
@@ -843,6 +849,7 @@ fn main() {
                 json,
                 strict,
                 test_results.as_deref().map(Path::new),
+                prove,
             );
             std::process::exit(exit_code);
         }

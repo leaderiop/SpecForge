@@ -464,6 +464,7 @@ The compiler enforces structural invariants. Each rule belongs to the extension 
 | E035 | **Payload type mismatch** — producer/consumer disagree on event payload type |
 | E041 | **Refinement chain cycle** — cycle in RefinementChainLink DAG |
 | E042 | **Process composition cycle** — cycle in ProcessComposition DAG |
+| E046 | **Constraint bounds unsatisfiable** — the metric bounds contradict each other (SMT-verified) |
 
 ### @specforge/formal Warnings (requires warning_level=strict)
 
