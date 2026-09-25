@@ -498,7 +498,7 @@ fn analyze_prove_flags_unsatisfiable_constraint() {
             .any(|f| f["code"] == "E046"),
         "E046 must surface: {prove}"
     );
-    assert_eq!(prove["summary"]["unsatisfiable_groups"], 1);
+    assert_eq!(prove["summary"]["unsatisfiable"], true);
 }
 
 #[test]
@@ -544,6 +544,6 @@ fn analyze_prove_satisfiable_constraint_exits_zero() {
         .iter()
         .find(|p| p["pass"] == "prove")
         .expect("prove pass must be dispatched");
-    assert_eq!(prove["summary"]["satisfiable_groups"], 1);
-    assert_eq!(prove["summary"]["unsatisfiable_groups"], 0);
+    assert_eq!(prove["summary"]["satisfiable"], true);
+    assert_eq!(prove["summary"]["unsatisfiable"], false);
 }
