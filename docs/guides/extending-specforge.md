@@ -289,17 +289,6 @@ The scaffold's `.cargo/config.toml` already pins the target, so plain
 `cargo build --release` works too. The artifact lands in
 `target/wasm32-unknown-unknown/release/<your_ext>.wasm`.
 
-> 💡 The scaffold resolves `specforge-extension-sdk` from crates.io. If that
-> dependency cannot be found, the SDK has not been published yet — add a
-> patch section pointing at a local SpecForge checkout:
->
-> ```toml
-> [patch.crates-io]
-> specforge-extension-sdk = { path = "../SpecForge/crates/specforge-extension-sdk" }
-> specforge-extension-sdk-macros = { path = "../SpecForge/crates/specforge-extension-sdk-macros" }
-> specforge-protocol-types = { path = "../SpecForge/crates/specforge-protocol-types" }
-> ```
-
 ## Install into a project
 
 ```console
