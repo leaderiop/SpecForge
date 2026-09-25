@@ -234,14 +234,37 @@ pub fn run(
         })
     });
 
-    let input = specforge_emitter::analyze::AnalysisContext {
+    let requested = pass.unwrap_or_else(|| "all".to_string());
+    let base_input = specforge_emitter::analyze::AnalysisContext {
         graph: &ctx.graph,
         kind_registry: &ctx.kind_registry,
         field_registry: &ctx.field_registry,
         project_root: Some(path),
         test_results: parsed_report.as_ref(),
+        proved_claims: None,
     };
-    let requested = pass.unwrap_or_else(|| "all".to_string());
+
+    // Run the SMT proof pass FIRST when requested: its entailment verdicts
+    // feed the coverage discharge funnel (a proved formal claim discharges
+    // `verify property` obligations without executable tests).
+    let prove_report = if prove || requested == "prove" {
+        Some(crate::prove::run_prove(&base_input))
+    } else {
+        None
+    };
+    let proved_claims: std::collections::HashSet<String> = prove_report
+        .as_ref()
+        .map(|r| r.proved_claim_ids.iter().cloned().collect())
+        .unwrap_or_default();
+
+    let input = specforge_emitter::analyze::AnalysisContext {
+        proved_claims: if prove_report.is_some() {
+            Some(&proved_claims)
+        } else {
+            None
+        },
+        ..base_input
+    };
     let mut selected: Vec<&str> = Vec::new();
     if requested == "all" {
         selected.extend(specforge_emitter::analyze::PASS_NAMES);
@@ -279,9 +302,10 @@ pub fn run(
         &requested,
     ));
 
-    // SMT proof pass: verify numeric constraint bounds with z3.
-    if prove || requested == "prove" {
-        let report = crate::prove::run_prove(&input);
+    // SMT proof pass report (computed before the built-ins so coverage can
+    // thread formal discharge verdicts): verify numeric constraint bounds
+    // with z3.
+    if let Some(report) = prove_report {
         reports.push(Report {
             name: "prove".to_string(),
             description: "numeric constraint bounds verified with an SMT solver".to_string(),

@@ -50,8 +50,8 @@ constraint memory_usage "Memory Usage" {
   priority    critical
 
   metric """
-    peak_memory < 50MB for a project with 500 .spec files
-    and approximately 2000 entities
+    peak_memory < 50MB
+    for a project with 500 .spec files and approximately 2000 entities
   """
 
   constrains [build_in_memory_graph, maintain_mutable_graph]

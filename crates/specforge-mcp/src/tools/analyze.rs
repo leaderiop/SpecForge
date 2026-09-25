@@ -70,7 +70,9 @@ pub fn call(state: &mut McpState, args: Value, id: Option<Value>) -> JsonRpcResp
         None => None,
     };
 
+    let proved_claims: std::collections::HashSet<String> = std::collections::HashSet::new();
     let context = AnalysisContext {
+        proved_claims: Some(&proved_claims),
         graph: &state.graph,
         kind_registry: &state.kind_registry,
         field_registry: &state.field_registry,

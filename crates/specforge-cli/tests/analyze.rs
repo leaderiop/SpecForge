@@ -547,3 +547,86 @@ fn analyze_prove_satisfiable_constraint_exits_zero() {
     assert_eq!(prove["summary"]["satisfiable"], true);
     assert_eq!(prove["summary"]["unsatisfiable"], false);
 }
+
+#[test]
+fn analyze_proved_claims_discharge_verify_property_obligations() {
+    if std::process::Command::new("z3")
+        .arg("--version")
+        .output()
+        .is_err()
+    {
+        eprintln!("z3 not installed — skipping prove e2e");
+        return;
+    }
+
+    let dir = TempDir::new().unwrap();
+    fs::write(
+        dir.path().join("specforge.json"),
+        r#"{"extensions": ["@specforge/governance"]}"#,
+    )
+    .unwrap();
+    fs::create_dir(dir.path().join("spec")).unwrap();
+    fs::write(
+        dir.path().join("spec/main.spec"),
+        r#"
+constraint budget "Latency Budget" {
+    description "Budget"
+    metric expr {
+        latency < 100ms
+    }
+}
+
+invariant responsive "System Stays Responsive" {
+    description "Follows from the declared budget"
+    expression expr {
+        latency < 250ms
+    }
+    verify property "latency bound entails responsiveness"
+}
+"#,
+    )
+    .unwrap();
+
+    let output = specforge_cmd()
+        .args([
+            "analyze",
+            "--prove",
+            "--path",
+            dir.path().to_str().unwrap(),
+            "--json",
+        ])
+        .output()
+        .unwrap();
+    assert_eq!(output.status.code(), Some(0));
+    let doc: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
+
+    let prove = doc["passes"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|p| p["pass"] == "prove")
+        .expect("prove pass must be dispatched");
+    assert_eq!(prove["summary"]["claims"], 1);
+    assert_eq!(prove["summary"]["claims_proved"], 1);
+
+    let coverage = doc["passes"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|p| p["pass"] == "coverage")
+        .expect("coverage pass must be dispatched");
+    assert_eq!(
+        coverage["summary"]["discharge_funnel"]["formally_discharged"], 1,
+        "the proved claim must discharge the verify property obligation"
+    );
+    let a012: Vec<&serde_json::Value> = coverage["findings"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter(|f| f["code"] == "A012")
+        .collect();
+    assert!(
+        a012.is_empty(),
+        "formally discharged entity must not be flagged as unlinked: {a012:?}"
+    );
+}

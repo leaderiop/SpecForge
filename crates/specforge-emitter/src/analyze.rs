@@ -22,6 +22,11 @@ pub struct AnalysisContext<'a> {
     pub project_root: Option<&'a Path>,
     /// Parsed `--test-results` report, when provided (RES-15 layer 3).
     pub test_results: Option<&'a TestReport>,
+    /// Entity ids whose formal claims the prove pass ENTAILED from the
+    /// declared bounds (RES-25). `None` when the prove pass did not run;
+    /// a proved claim discharges `verify property` obligations without
+    /// executable tests.
+    pub proved_claims: Option<&'a std::collections::HashSet<String>>,
 }
 
 /// A diagnostic returned by an analysis pass, ready for host rendering.
@@ -140,6 +145,7 @@ pub fn pass_coverage(ctx: &AnalysisContext) -> (Vec<Finding>, serde_json::Value)
     let mut broken_test_links = 0usize;
     let mut entities_proven = 0usize;
     let mut report_failures = 0usize;
+    let mut formally_discharged_entities = 0usize;
 
     for edge in ctx.graph.edges() {
         if let Some(node) = ctx.graph.node(edge.target.as_str())
@@ -188,9 +194,11 @@ pub fn pass_coverage(ctx: &AnalysisContext) -> (Vec<Finding>, serde_json::Value)
                     );
                 }
             }
-        } else if !stmts.is_empty() {
+        } else if !stmts.is_empty() && !formally_discharged(ctx, &id, stmts) {
             // Obligations declared but no implementation connected
             // (RES-15: unlinked intent). Info until adoption matures.
+            // A proved formal claim discharges `verify property` duties,
+            // so the linkage hint does not apply to it.
             findings.push(
                 Diagnostic::info(
                     "A012",
@@ -235,6 +243,10 @@ pub fn pass_coverage(ctx: &AnalysisContext) -> (Vec<Finding>, serde_json::Value)
                     .with_span(span.clone()),
                 );
             }
+        }
+
+        if formally_discharged(ctx, &id, stmts) {
+            formally_discharged_entities += 1;
         }
 
         if testable.get(kind).copied().unwrap_or(false) {
@@ -340,6 +352,7 @@ pub fn pass_coverage(ctx: &AnalysisContext) -> (Vec<Finding>, serde_json::Value)
             "broken_test_links": broken_test_links,
             "entities_proven": entities_proven,
             "report_failures": report_failures,
+            "formally_discharged": formally_discharged_entities,
         },
         "test_results": report_summary,
         "invariants": invariants
@@ -435,6 +448,17 @@ pub fn pass_contracts(ctx: &AnalysisContext) -> (Vec<Finding>, serde_json::Value
 }
 
 /// Run one named pass. Returns `None` for unknown pass names.
+/// True when the entity declares `verify property` obligations and the
+/// prove pass entailed its formal claim from the declared bounds.
+///
+/// `stmts` are the entity's verify statements.
+fn formally_discharged(ctx: &AnalysisContext, id: &str, stmts: &[VerifyStatement]) -> bool {
+    let Some(proved) = ctx.proved_claims else {
+        return false;
+    };
+    stmts.iter().any(|s| s.kind == "property") && proved.contains(id)
+}
+
 pub fn run_pass(ctx: &AnalysisContext, pass: &str) -> Option<PassReport> {
     let (name, description, findings, summary) = match pass {
         "coverage" => {

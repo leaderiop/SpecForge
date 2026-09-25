@@ -31,6 +31,9 @@ use specforge_parser::{Expr, SpannedExpr, parse_expression};
 pub struct ProveReport {
     pub findings: Vec<Diagnostic>,
     pub summary: serde_json::Value,
+    /// Ids of entities whose formal claims were ENTAILED from the declared
+    /// bounds; consumed by the coverage pass discharge funnel.
+    pub proved_claim_ids: Vec<String>,
 }
 
 // ── SMT-LIB2 encoding over the shared AST ───────────────────────────────────
@@ -311,6 +314,7 @@ pub fn run_prove(ctx: &AnalysisContext) -> ProveReport {
     let mut unsat = false;
     let mut claims_proved = 0usize;
     let mut claims_unproved = 0usize;
+    let mut proved_claim_ids: Vec<String> = Vec::new();
 
     if solver_available {
         // ── consistency: all bounds together must be satisfiable ────────
@@ -393,7 +397,10 @@ pub fn run_prove(ctx: &AnalysisContext) -> ProveReport {
             if let Some(stdout) = run_z3(&script) {
                 match first_result_line(&stdout) {
                     // bounds ∧ ¬claim unsat ⇒ bounds entail the claim
-                    "unsat" => claims_proved += 1,
+                    "unsat" => {
+                        claims_proved += 1;
+                        proved_claim_ids.push(claim.id.clone());
+                    }
                     "sat" => {
                         claims_unproved += 1;
                         let model = parse_model(&stdout);
@@ -443,7 +450,11 @@ pub fn run_prove(ctx: &AnalysisContext) -> ProveReport {
         "claims_proved": claims_proved,
         "claims_unproved": claims_unproved,
     });
-    ProveReport { findings, summary }
+    ProveReport {
+        findings,
+        summary,
+        proved_claim_ids,
+    }
 }
 
 #[cfg(test)]
@@ -496,12 +507,14 @@ mod tests {
     fn prove(graph: &Graph) -> ProveReport {
         let kind_registry = KindRegistry::default();
         let field_registry = FieldRegistry::default();
+        let empty_proved = std::collections::HashSet::new();
         let ctx = AnalysisContext {
             graph,
             kind_registry: &kind_registry,
             field_registry: &field_registry,
             project_root: Some(Path::new(".")),
             test_results: None,
+            proved_claims: Some(&empty_proved),
         };
         run_prove(&ctx)
     }
@@ -531,6 +544,7 @@ mod tests {
         assert_eq!(report.summary["claims"].as_u64(), Some(1));
         assert_eq!(report.summary["claims_proved"].as_u64(), Some(1));
         assert_eq!(report.summary["claims_unproved"].as_u64(), Some(0));
+        assert_eq!(report.proved_claim_ids, vec!["inv".to_string()]);
         assert!(report.findings.iter().all(|f| f.code != "E047"));
     }
 
