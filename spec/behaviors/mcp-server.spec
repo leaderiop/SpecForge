@@ -52,6 +52,7 @@ behavior mcp_initialize "MCP Initialize" {
   verify unit "all core tools registered before accepting requests"
   verify unit "all core resources registered before accepting requests"
   verify contract "requires/ensures consistency for MCP initialization"
+  tests ["crates/specforge-mcp/tests/lifecycle.rs"]
 }
 
 behavior mcp_shutdown "MCP Shutdown" {
@@ -84,6 +85,7 @@ behavior mcp_shutdown "MCP Shutdown" {
   verify unit "shutdown rejects new tool calls during teardown"
   verify integration "shutdown completes within 5 seconds"
   verify contract "requires/ensures consistency for MCP shutdown"
+  tests ["crates/specforge-mcp/tests/lifecycle.rs"]
 }
 
 behavior list_mcp_resources "List MCP Resources" {
@@ -116,6 +118,7 @@ behavior list_mcp_resources "List MCP Resources" {
   verify unit "returns core-provided descriptors when no extensions installed"
   verify unit "reflects resources from newly loaded extension"
   verify contract "requires/ensures consistency for listing MCP resources"
+  tests ["crates/specforge-mcp/tests/resources.rs"]
 }
 
 behavior list_mcp_tools "List MCP Tools" {
@@ -148,6 +151,7 @@ behavior list_mcp_tools "List MCP Tools" {
   verify unit "returns core-provided descriptors when no extensions installed"
   verify unit "reflects tools from newly loaded extension"
   verify contract "requires/ensures consistency for listing MCP tools"
+  tests ["crates/specforge-mcp/tests/tools_core.rs"]
 }
 
 behavior list_mcp_prompts "List MCP Prompts" {
@@ -176,6 +180,7 @@ behavior list_mcp_prompts "List MCP Prompts" {
   verify unit "returns core-provided descriptors when no extensions installed"
   verify unit "reflects prompts from newly loaded extension"
   verify contract "requires/ensures consistency for listing MCP prompts"
+  tests ["crates/specforge-mcp/tests/prompts.rs"]
 }
 
 // ---------------------------------------------------------------------------
@@ -214,6 +219,7 @@ behavior expose_graph_as_mcp_resource "Expose Graph as MCP Resource" {
   verify unit "output includes embedded schema and schema_version"
   verify contract "requires/ensures consistency for graph MCP resource"
 
+  tests ["crates/specforge-mcp/tests/resources.rs"]
 }
 
 behavior expose_schema_as_mcp_resource "Expose Schema as MCP Resource" {
@@ -246,6 +252,7 @@ behavior expose_schema_as_mcp_resource "Expose Schema as MCP Resource" {
   verify unit "schema updates when extensions change"
   verify contract "requires/ensures consistency for schema MCP resource"
 
+  tests ["crates/specforge-mcp/tests/resources.rs"]
 }
 
 behavior expose_context_as_mcp_resource "Expose Context as MCP Resource" {
@@ -277,6 +284,7 @@ behavior expose_context_as_mcp_resource "Expose Context as MCP Resource" {
   verify unit "resource refreshes after recompilation"
   verify contract "requires/ensures consistency for context MCP resource"
 
+  tests ["crates/specforge-mcp/tests/resources.rs"]
 }
 
 behavior expose_brief_as_mcp_resource "Expose Brief as MCP Resource" {
@@ -308,6 +316,7 @@ behavior expose_brief_as_mcp_resource "Expose Brief as MCP Resource" {
   verify unit "resource refreshes after recompilation"
   verify contract "requires/ensures consistency for brief MCP resource"
 
+  tests ["crates/specforge-mcp/tests/resources.rs"]
 }
 
 behavior expose_diagnostics_as_mcp_resource "Expose Diagnostics as MCP Resource" {
@@ -340,6 +349,7 @@ behavior expose_diagnostics_as_mcp_resource "Expose Diagnostics as MCP Resource"
   verify unit "each diagnostic includes severity, code, message, file, and span"
   verify contract "requires/ensures consistency for diagnostics MCP resource"
 
+  tests ["crates/specforge-mcp/tests/resources.rs"]
 }
 
 behavior expose_entity_as_mcp_resource "Expose Per-Entity MCP Resource" {
@@ -373,6 +383,7 @@ behavior expose_entity_as_mcp_resource "Expose Per-Entity MCP Resource" {
   verify unit "resource refreshes after recompilation"
   verify contract "requires/ensures consistency for per-entity MCP resource"
 
+  tests ["crates/specforge-mcp/tests/resources.rs"]
 }
 
 // ---------------------------------------------------------------------------
@@ -415,6 +426,7 @@ behavior notify_graph_delta_via_mcp "Notify Graph Delta via MCP" {
   verify unit "no notification when no clients subscribed"
   verify contract "requires/ensures consistency for graph delta MCP notification"
 
+  tests ["crates/specforge-mcp/tests/subscriptions.rs"]
 }
 
 behavior notify_diagnostics_delta_via_mcp "Notify Diagnostics Delta via MCP" {
@@ -450,6 +462,7 @@ behavior notify_diagnostics_delta_via_mcp "Notify Diagnostics Delta via MCP" {
   verify unit "no notification when diagnostics are unchanged"
   verify contract "requires/ensures consistency for diagnostics delta MCP notification"
 
+  tests ["crates/specforge-mcp/tests/notifications.rs"]
 }
 
 // ---------------------------------------------------------------------------
@@ -493,6 +506,7 @@ behavior handle_mcp_protocol_error "Handle MCP Protocol Error" {
   verify unit "returns -32603 for internal error"
   verify contract "requires/ensures consistency for MCP protocol error handling"
 
+  tests ["crates/specforge-mcp/tests/protocol.rs"]
 }
 
 behavior handle_mcp_request_cancellation "Handle MCP Request Cancellation" {
@@ -527,6 +541,7 @@ behavior handle_mcp_request_cancellation "Handle MCP Request Cancellation" {
   verify integration "cancelled long-running export returns partial result or acknowledgment"
   verify contract "requires/ensures consistency for MCP request cancellation"
 
+  tests ["crates/specforge-mcp/tests/protocol.rs"]
 }
 
 behavior guard_mcp_reinitialization "Guard MCP Reinitialization" {
@@ -559,4 +574,5 @@ behavior guard_mcp_reinitialization "Guard MCP Reinitialization" {
   verify unit "no resources leaked on rejected reinitialization"
   verify contract "requires/ensures consistency for MCP reinitialization guard"
 
+  tests ["crates/specforge-mcp/tests/lifecycle.rs"]
 }

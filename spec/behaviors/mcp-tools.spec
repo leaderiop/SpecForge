@@ -57,6 +57,7 @@ behavior provide_mcp_query_tool "Provide MCP Query Tool" {
   verify unit "include_coverage parameter includes coverage status in response"
   verify contract "requires/ensures consistency for MCP query tool"
 
+  tests ["crates/specforge-mcp/tests/tools_core.rs"]
 }
 
 // Idempotency here means result equivalence: the same input always produces
@@ -106,6 +107,7 @@ behavior provide_mcp_validate_tool "Provide MCP Validate Tool" {
   verify unit "validate with use_cached=true returns existing diagnostics without recompilation"
   verify contract "requires/ensures consistency for MCP validate tool"
 
+  tests ["crates/specforge-mcp/tests/tools_core.rs"]
 }
 
 behavior provide_mcp_export_tool "Provide MCP Export Tool" {
@@ -141,6 +143,7 @@ behavior provide_mcp_export_tool "Provide MCP Export Tool" {
   verify unit "all three formats (context, brief, graph) supported"
   verify contract "requires/ensures consistency for MCP export tool"
 
+  tests ["crates/specforge-mcp/tests/tools_core.rs"]
 }
 
 behavior provide_mcp_trace_tool "Provide MCP Trace Tool" {
@@ -178,6 +181,7 @@ behavior provide_mcp_trace_tool "Provide MCP Trace Tool" {
   verify unit "missing links flagged in trace output"
   verify contract "requires/ensures consistency for MCP trace tool"
 
+  tests ["crates/specforge-mcp/tests/tools_core.rs"]
 }
 
 behavior provide_mcp_search_tool "Provide MCP Search Tool" {
@@ -218,6 +222,7 @@ behavior provide_mcp_search_tool "Provide MCP Search Tool" {
   verify unit "references filter returns entities referencing target"
   verify contract "requires/ensures consistency for MCP search tool"
 
+  tests ["crates/specforge-mcp/tests/tools_core.rs"]
 }
 
 behavior provide_mcp_schema_tool "Provide MCP Schema Tool" {
@@ -252,6 +257,7 @@ behavior provide_mcp_schema_tool "Provide MCP Schema Tool" {
   verify unit "include_validation_rules true includes validation rules"
   verify contract "requires/ensures consistency for MCP schema tool"
 
+  tests ["crates/specforge-mcp/tests/tools_core.rs"]
 }
 
 behavior provide_mcp_coverage_tool "Provide MCP Coverage Tool" {
@@ -289,6 +295,7 @@ behavior provide_mcp_coverage_tool "Provide MCP Coverage Tool" {
   verify unit "status_filter restricts to matching coverage status"
   verify contract "requires/ensures consistency for MCP coverage tool"
 
+  tests ["crates/specforge-mcp/tests/tools_core.rs"]
 }
 
 behavior provide_mcp_stats_tool "Provide MCP Stats Tool" {
@@ -322,6 +329,7 @@ behavior provide_mcp_stats_tool "Provide MCP Stats Tool" {
   verify unit "response includes diagnostic summary by severity"
   verify contract "requires/ensures consistency for MCP stats tool"
 
+  tests ["crates/specforge-mcp/tests/tools_core.rs"]
 }
 
 // ---------------------------------------------------------------------------
@@ -359,6 +367,7 @@ behavior provide_mcp_inspect_tool "Provide MCP Inspect Tool" {
   verify unit "non-existent entity returns error response"
   verify contract "requires/ensures consistency for MCP inspect tool"
 
+  tests ["crates/specforge-mcp/tests/tools_core.rs"]
 }
 
 behavior provide_mcp_find_definition_tool "Provide MCP Find Definition Tool" {
@@ -391,6 +400,7 @@ behavior provide_mcp_find_definition_tool "Provide MCP Find Definition Tool" {
   verify unit "non-existent entity returns error response"
   verify contract "requires/ensures consistency for MCP find definition tool"
 
+  tests ["crates/specforge-mcp/tests/tools_navigation.rs"]
 }
 
 behavior provide_mcp_find_references_tool "Provide MCP Find References Tool" {
@@ -425,6 +435,7 @@ behavior provide_mcp_find_references_tool "Provide MCP Find References Tool" {
   verify unit "non-existent entity returns error response"
   verify contract "requires/ensures consistency for MCP find references tool"
 
+  tests ["crates/specforge-mcp/tests/tools_navigation.rs"]
 }
 
 behavior provide_mcp_outline_tool "Provide MCP Outline Tool" {
@@ -458,6 +469,7 @@ behavior provide_mcp_outline_tool "Provide MCP Outline Tool" {
   verify unit "non-existent file returns error response"
   verify contract "requires/ensures consistency for MCP outline tool"
 
+  tests ["crates/specforge-mcp/tests/tools_navigation.rs"]
 }
 
 behavior provide_mcp_suggest_fixes_tool "Provide MCP Suggest Fixes Tool" {
@@ -495,4 +507,5 @@ behavior provide_mcp_suggest_fixes_tool "Provide MCP Suggest Fixes Tool" {
   verify unit "diagnostic_code filter restricts to matching diagnostics"
   verify contract "requires/ensures consistency for MCP suggest fixes tool"
 
+  tests ["crates/specforge-mcp/tests/tools_core.rs"]
 }

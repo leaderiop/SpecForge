@@ -53,6 +53,7 @@ behavior lsp_initialize "LSP Initialize" {
   verify unit "zero extensions produces structural-only capabilities"
   verify contract "requires/ensures consistency for LSP initialization"
 
+  tests ["crates/specforge-lsp/tests/lifecycle.rs"]
 }
 
 behavior lsp_shutdown "LSP Shutdown" {
@@ -86,6 +87,7 @@ behavior lsp_shutdown "LSP Shutdown" {
   verify unit "requests after shutdown return InvalidRequest"
   verify contract "requires/ensures consistency for LSP shutdown"
 
+  tests ["crates/specforge-lsp/tests/lifecycle.rs"]
 }
 
 behavior document_open_close "Document Open/Close" {
@@ -120,6 +122,7 @@ behavior document_open_close "Document Open/Close" {
   verify unit "only open documents participate in incremental compilation"
   verify contract "requires/ensures consistency for document open/close"
 
+  tests ["crates/specforge-lsp/tests/document.rs"]
 }
 
 // Event consumer chain: didChange -> file_changed -> debounce window ->
@@ -151,6 +154,7 @@ behavior handle_text_document_change "Handle Text Document Change" {
   verify unit "didChange applies incremental edits to buffer"
   verify unit "didChange triggers incremental recompile"
   verify contract "requires/ensures consistency for text document change"
+  tests ["crates/specforge-lsp/tests/document.rs"]
 }
 
 behavior go_to_definition "Go-to-Definition" {
@@ -179,6 +183,7 @@ behavior go_to_definition "Go-to-Definition" {
   verify integration "go-to-def works across files"
   verify contract "requires/ensures consistency for go-to-definition"
 
+  tests ["crates/specforge-lsp/tests/navigation.rs"]
 }
 
 behavior find_all_references "Find All References" {
@@ -207,6 +212,7 @@ behavior find_all_references "Find All References" {
   verify unit "find-refs across multiple files"
   verify contract "requires/ensures consistency for find all references"
 
+  tests ["crates/specforge-lsp/tests/navigation.rs"]
 }
 
 behavior hover_information "Hover Information" {
@@ -243,6 +249,7 @@ behavior hover_information "Hover Information" {
   verify unit "hover returns markdown-formatted content"
   verify contract "requires/ensures consistency for hover information"
 
+  tests ["crates/specforge-lsp/tests/hover.rs"]
 }
 
 // Completion behaviors (autocomplete_entity_ids, complete_field_names, complete_keywords)
@@ -283,6 +290,7 @@ behavior autocomplete_entity_ids "Autocomplete Entity IDs" {
   verify unit "all IDs suggested when no target_kind constraint exists"
   verify contract "requires/ensures consistency for entity ID autocomplete"
 
+  tests ["crates/specforge-lsp/tests/completion.rs"]
 }
 
 behavior prepare_rename "Prepare Rename" {
@@ -313,6 +321,7 @@ behavior prepare_rename "Prepare Rename" {
   verify unit "prepare rename on non-renameable token returns not available"
   verify contract "requires/ensures consistency for prepare rename"
 
+  tests ["crates/specforge-lsp/tests/rename.rs"]
 }
 
 behavior rename_entity_id "Rename Entity ID" {
@@ -346,6 +355,7 @@ behavior rename_entity_id "Rename Entity ID" {
   verify unit "rename rejects new name that duplicates existing entity ID"
   verify contract "requires/ensures consistency for entity rename"
 
+  tests ["crates/specforge-lsp/tests/rename.rs"]
 }
 
 // No produces — delegates to shared_incremental_pipeline which produces incremental_diagnostics_complete
@@ -377,6 +387,7 @@ behavior emit_live_diagnostics "Live Diagnostics" {
   verify integration "diagnostics appear within 100ms"
   verify contract "requires/ensures consistency for live diagnostics"
 
+  tests ["crates/specforge-lsp/tests/diagnostics.rs"]
 }
 
 behavior code_actions_for_missing_verify "Code Actions for Missing Verify" {
@@ -422,6 +433,7 @@ behavior code_actions_for_missing_verify "Code Actions for Missing Verify" {
   verify unit "no test source files or application code generated"
   verify contract "requires/ensures consistency for missing verify code actions"
 
+  tests ["crates/specforge-lsp/tests/code_actions.rs"]
 }
 
 behavior outline_view "Outline View" {
@@ -455,6 +467,7 @@ behavior outline_view "Outline View" {
   verify unit "outline uses extension-defined SymbolKind from KindRegistry lsp_icon"
   verify contract "requires/ensures consistency for outline view"
 
+  tests ["crates/specforge-lsp/tests/symbols.rs"]
 }
 
 behavior workspace_symbol_search "Workspace Symbol Search" {
@@ -485,6 +498,7 @@ behavior workspace_symbol_search "Workspace Symbol Search" {
   verify unit "search results use extension-defined SymbolKind"
   verify contract "requires/ensures consistency for workspace symbol search"
 
+  tests ["crates/specforge-lsp/tests/symbols.rs"]
 }
 
 // Delegates to behaviors/incremental.spec pipeline: watch_file_system_for_changes ->
@@ -525,6 +539,7 @@ behavior shared_incremental_pipeline "Shared Incremental Pipeline" {
   verify property "CLI and LSP share identical validator dispatch order"
   verify contract "requires/ensures consistency for shared incremental pipeline"
 
+  tests ["crates/specforge-lsp/tests/contracts.rs"]
 }
 
 behavior provide_semantic_tokens "Provide Semantic Tokens" {
@@ -567,6 +582,7 @@ behavior provide_semantic_tokens "Provide Semantic Tokens" {
   verify unit "enhanced fields are classified as property"
   verify contract "requires/ensures consistency for semantic tokens"
 
+  tests ["crates/specforge-lsp/tests/semantic_tokens.rs"]
 }
 
 behavior complete_field_names "Complete Field Names" {
@@ -599,6 +615,7 @@ behavior complete_field_names "Complete Field Names" {
   verify unit "no field name suggestions outside entity blocks"
   verify contract "requires/ensures consistency for field name completion"
 
+  tests ["crates/specforge-lsp/tests/completion.rs"]
 }
 
 behavior complete_keywords "Complete Keywords" {
@@ -634,6 +651,7 @@ behavior complete_keywords "Complete Keywords" {
   verify unit "snippet templates based on kind field definitions"
   verify contract "requires/ensures consistency for keyword completion"
 
+  tests ["crates/specforge-lsp/tests/completion.rs"]
 }
 
 behavior goto_import_definition "Go-to-Definition on Imports" {
@@ -660,6 +678,7 @@ behavior goto_import_definition "Go-to-Definition on Imports" {
   verify unit "go-to-def on non-existent use path returns no result"
   verify contract "requires/ensures consistency for import go-to-definition"
 
+  tests ["crates/specforge-lsp/tests/navigation.rs"]
 }
 
 behavior code_action_add_missing_import "Code Action: Add Missing Import" {
@@ -690,6 +709,7 @@ behavior code_action_add_missing_import "Code Action: Add Missing Import" {
   verify unit "no code action when entity does not exist anywhere"
   verify contract "requires/ensures consistency for add missing import"
 
+  tests ["crates/specforge-lsp/tests/code_actions.rs"]
 }
 
 behavior code_action_create_entity_stub "Code Action: Create Entity Stub" {
@@ -734,6 +754,7 @@ behavior code_action_create_entity_stub "Code Action: Create Entity Stub" {
   verify unit "generated stub contains no application code or test files"
   verify contract "requires/ensures consistency for create entity stub"
 
+  tests ["crates/specforge-lsp/tests/code_actions.rs"]
 }
 
 behavior incremental_document_sync "Incremental Document Sync" {
@@ -765,6 +786,7 @@ behavior incremental_document_sync "Incremental Document Sync" {
   verify integration "incremental sync reduces transfer size vs full sync"
   verify contract "requires/ensures consistency for incremental document sync"
 
+  tests ["crates/specforge-lsp/tests/document.rs"]
 }
 
 // -- Extension Grammar Highlighting -------------------------------------------
@@ -802,4 +824,5 @@ behavior load_extension_grammars_for_highlighting "Load Extension Grammars for H
   verify unit "grammar loading failure does not affect other kinds"
   verify contract "requires/ensures consistency for extension grammar loading"
 
+  tests ["crates/specforge-lsp/tests/grammar_loading.rs"]
 }

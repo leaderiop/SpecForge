@@ -58,6 +58,7 @@ behavior provide_mcp_format_tool "Provide MCP Format Tool" {
   verify unit "paths filter restricts to specified files"
   verify contract "requires/ensures consistency for MCP format tool"
 
+  tests ["crates/specforge-mcp/tests/operations_mutation.rs"]
 }
 
 behavior provide_mcp_rename_tool "Provide MCP Rename Tool" {
@@ -99,6 +100,7 @@ behavior provide_mcp_rename_tool "Provide MCP Rename Tool" {
   verify unit "dry_run returns rename plan without applying changes"
   verify contract "requires/ensures consistency for MCP rename tool"
 
+  tests ["crates/specforge-mcp/tests/operations_mutation.rs"]
 }
 
 // MCP init creates a project at a specified path, not the current project.
@@ -151,6 +153,7 @@ behavior provide_mcp_init_tool "Provide MCP Init Tool" {
   verify integration "MCP init followed by check produces zero errors"
   verify contract "requires/ensures consistency for MCP init tool"
 
+  tests ["crates/specforge-mcp/tests/operations_mutation.rs"]
 }
 
 behavior provide_mcp_add_extension_tool "Provide MCP Add Extension Tool" {
@@ -193,6 +196,7 @@ behavior provide_mcp_add_extension_tool "Provide MCP Add Extension Tool" {
   verify unit "dry_run returns preview without modifying files"
   verify contract "requires/ensures consistency for MCP add extension tool"
 
+  tests ["crates/specforge-mcp/tests/operations_mutation.rs"]
 }
 
 behavior provide_mcp_remove_extension_tool "Provide MCP Remove Extension Tool" {
@@ -234,6 +238,7 @@ behavior provide_mcp_remove_extension_tool "Provide MCP Remove Extension Tool" {
   verify unit "dry_run returns preview without modifying files"
   verify contract "requires/ensures consistency for MCP remove extension tool"
 
+  tests ["crates/specforge-mcp/tests/operations_mutation.rs"]
 }
 
 behavior provide_mcp_migrate_tool "Provide MCP Migrate Tool" {
@@ -269,6 +274,7 @@ behavior provide_mcp_migrate_tool "Provide MCP Migrate Tool" {
   verify unit "post-migration validation reports errors"
   verify contract "requires/ensures consistency for MCP migrate tool"
 
+  tests ["crates/specforge-mcp/tests/operations_mutation.rs"]
 }
 
 // ---------------------------------------------------------------------------
@@ -303,6 +309,7 @@ behavior provide_mcp_extensions_tool "Provide MCP Extensions Tool" {
   verify unit "each entry includes name, version, entity kinds, and status"
   verify contract "requires/ensures consistency for MCP extensions tool"
 
+  tests ["crates/specforge-mcp/tests/operations_mgmt.rs"]
 }
 
 behavior provide_mcp_providers_tool "Provide MCP Providers Tool" {
@@ -332,6 +339,7 @@ behavior provide_mcp_providers_tool "Provide MCP Providers Tool" {
   verify unit "each entry includes scheme, alias, extension, and status"
   verify contract "requires/ensures consistency for MCP providers tool"
 
+  tests ["crates/specforge-mcp/tests/operations_mgmt.rs"]
 }
 
 behavior provide_mcp_doctor_tool "Provide MCP Doctor Tool" {
@@ -364,6 +372,7 @@ behavior provide_mcp_doctor_tool "Provide MCP Doctor Tool" {
   verify unit "response provides deterministic resolution steps"
   verify contract "requires/ensures consistency for MCP doctor tool"
 
+  tests ["crates/specforge-mcp/tests/operations_mgmt.rs"]
 }
 
 behavior provide_mcp_collect_tool "Provide MCP Collect Tool" {
@@ -413,6 +422,7 @@ behavior provide_mcp_collect_tool "Provide MCP Collect Tool" {
   verify unit "unknown extension returns error"
   verify contract "requires/ensures consistency for MCP collect tool"
 
+  tests ["crates/specforge-mcp/tests/operations_mgmt.rs"]
 }
 
 behavior provide_mcp_render_tool "Provide MCP Render Tool" {
@@ -455,4 +465,5 @@ behavior provide_mcp_render_tool "Provide MCP Render Tool" {
   verify unit "unrecognized format returns error listing available renderers"
   verify contract "requires/ensures consistency for MCP render tool"
 
+  tests ["crates/specforge-mcp/tests/operations_mgmt.rs"]
 }

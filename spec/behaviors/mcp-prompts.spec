@@ -49,6 +49,7 @@ behavior provide_mcp_context_prompt "Provide MCP Context Prompt" {
   verify unit "context prompt works with zero extensions installed"
   verify contract "requires/ensures consistency for MCP context prompt"
 
+  tests ["crates/specforge-mcp/tests/prompts.rs"]
 }
 
 behavior provide_mcp_review_prompt "Provide MCP Review Prompt" {
@@ -82,6 +83,7 @@ behavior provide_mcp_review_prompt "Provide MCP Review Prompt" {
   verify unit "review prompt returns empty findings when no testable entities exist"
   verify contract "requires/ensures consistency for MCP review prompt"
 
+  tests ["crates/specforge-mcp/tests/prompts.rs"]
 }
 
 behavior provide_mcp_trace_prompt "Provide MCP Trace Prompt" {
@@ -118,6 +120,7 @@ behavior provide_mcp_trace_prompt "Provide MCP Trace Prompt" {
   verify unit "malformed plan JSON returns validation error"
   verify contract "requires/ensures consistency for MCP trace prompt"
 
+  tests ["crates/specforge-mcp/tests/prompts.rs"]
 }
 
 behavior provide_mcp_explore_prompt "Provide MCP Explore Prompt" {
@@ -154,4 +157,5 @@ behavior provide_mcp_explore_prompt "Provide MCP Explore Prompt" {
   verify unit "orphan_nodes field lists entities with zero incoming and outgoing edges"
   verify contract "requires/ensures consistency for MCP explore prompt"
 
+  tests ["crates/specforge-mcp/tests/prompts.rs"]
 }
