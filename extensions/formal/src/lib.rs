@@ -319,6 +319,7 @@ mod pass_tests {
             incoming_edge_count: 0,
             outgoing_edge_count: 0,
             span: None,
+            testable: false,
         }
     }
 
