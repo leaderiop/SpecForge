@@ -248,9 +248,13 @@ fn lookup(code: &str) -> Option<(&'static str, &'static str)> {
             "Undischarged coverage items",
             "One or more coverage items (invariants and testable entities) have no `tests [...]` linkage, so nothing connects their intent to an executable test. Add tests fields or drop the items. Reported by the @specforge/formal coverage_tracking compiler pass via specforge analyze.",
         ),
+        "I098" => (
+            "Solver could not decide bound group",
+            "The SMT solver returned unknown for a metric bound group, so the constraints could not be verified or refuted. Simplify the bounds or rerun with a newer solver. Reported by `specforge analyze --prove`.",
+        ),
         "E046" => (
             "Constraint is unsatisfiable",
-            "The constraint's metric bounds contradict each other - no value can satisfy them simultaneously, so the constraint can never be met. Relax or correct one of the bounds in the metric block. Reported by `specforge analyze --prove`.",
+            "The constraint's metric bounds contradict each other - no value can satisfy them simultaneously, so the constraint can never be met. Bounds are checked per variable across the whole corpus: two constraints bounding the same variable incompatibly are reported together. Relax or correct one of the bounds. Reported by `specforge analyze --prove`.",
         ),
         "A011" => (
             "Orphan guarantee: nothing references this invariant",

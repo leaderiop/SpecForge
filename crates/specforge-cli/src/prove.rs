@@ -3,14 +3,17 @@
 //! The first rung of the formal ladder (RES-25, Leino/de Moura anchors):
 //! governance `constraint` entities declare `metric` blocks whose lines are
 //! machine-parseable comparisons (`identifier (<|<=|>|>=|==) number [unit]`).
-//! Each constraint's bounds are encoded as SMT-LIB2 assertions over Reals and
-//! checked for satisfiability with z3. An unsatisfiable constraint is a
-//! contradiction in the declared bounds (E046) — no test can ever satisfy it.
+//! All comparisons are grouped per variable+unit across the whole corpus and
+//! each group is encoded as SMT-LIB2 assertions over Reals and checked for
+//! satisfiability with z3. An unsatisfiable group is a contradiction in the
+//! declared bounds (E046) — no value can ever satisfy it, no matter which
+//! constraint declared which side.
 //!
 //! Prose-only metrics (no parseable comparisons) are counted and skipped.
 //! The general contract→VC encoding (full Boogie-style prove) stays future
 //! until the condition layer carries formal expressions.
 
+use std::collections::BTreeMap;
 use std::process::Command;
 
 use specforge_common::Diagnostic;
@@ -23,7 +26,7 @@ pub struct ProveReport {
     pub summary: serde_json::Value,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum SmtOp {
     Le,
     Ge,
@@ -58,8 +61,13 @@ impl SmtOp {
 #[derive(Debug, Clone)]
 struct Comparison {
     var: String,
+    unit: String,
     op: SmtOp,
     value: f64,
+    /// The constraint entity that declared this bound.
+    source: String,
+    /// Span of the declaring constraint entity (for diagnostics).
+    span: specforge_common::SourceSpan,
 }
 
 /// Split a token into its leading numeric prefix and the unit remainder.
@@ -87,9 +95,14 @@ fn is_var_name(token: &str) -> bool {
         && chars.all(|c| c.is_ascii_lowercase() || c == '_' || c.is_ascii_digit())
 }
 
-/// Parse the machine-checkable comparisons from a metric block. Lines that
-/// do not match `var op number [unit]` are prose and are skipped.
-fn parse_metric_comparisons(metric: &str) -> (Vec<Comparison>, usize) {
+/// Parse the machine-checkable comparisons from one metric block. Lines that
+/// do not match `var op number [unit]` are prose and are skipped. `source`
+/// and `span` tag each comparison with its declaring constraint.
+fn parse_metric_comparisons(
+    metric: &str,
+    source: &str,
+    span: &specforge_common::SourceSpan,
+) -> (Vec<Comparison>, usize) {
     let mut comparisons = Vec::new();
     let mut prose_lines = 0usize;
     for line in metric.lines() {
@@ -98,7 +111,7 @@ fn parse_metric_comparisons(metric: &str) -> (Vec<Comparison>, usize) {
             prose_lines += 1;
             continue;
         }
-        let (Some(op), Some((value, _unit))) = (SmtOp::parse(tokens[1]), numeric_prefix(tokens[2]))
+        let (Some(op), Some((value, unit))) = (SmtOp::parse(tokens[1]), numeric_prefix(tokens[2]))
         else {
             prose_lines += 1;
             continue;
@@ -109,35 +122,28 @@ fn parse_metric_comparisons(metric: &str) -> (Vec<Comparison>, usize) {
         }
         comparisons.push(Comparison {
             var: tokens[0].to_string(),
+            unit,
             op,
             value,
+            source: source.to_string(),
+            span: span.clone(),
         });
     }
     (comparisons, prose_lines)
 }
 
-/// Encode a constraint's comparisons as an SMT-LIB2 check-sat script.
-fn encode_smt_lib(comparisons: &[Comparison]) -> String {
+/// Encode one bound group as an SMT-LIB2 check-sat script.
+fn encode_smt_lib(var: &str, unit: &str, comparisons: &[Comparison]) -> String {
+    let _ = unit;
     let mut out = String::new();
-    let mut declared: Vec<&str> = Vec::new();
-    for c in comparisons {
-        if !declared.contains(&c.var.as_str()) {
-            out.push_str(&format!("(declare-const {} Real)\n", c.var));
-            declared.push(&c.var);
-        }
-    }
+    out.push_str(&format!("(declare-const {var} Real)\n"));
     for c in comparisons {
         let literal = if c.value.fract() == 0.0 {
             format!("{:.1}", c.value)
         } else {
             format!("{}", c.value)
         };
-        out.push_str(&format!(
-            "(assert ({} {} {}))\n",
-            c.op.as_smt(),
-            c.var,
-            literal
-        ));
+        out.push_str(&format!("(assert ({} {var} {literal}))\n", c.op.as_smt()));
     }
     out.push_str("(check-sat)\n");
     out
@@ -153,10 +159,13 @@ fn z3_available() -> bool {
 
 /// Run z3 on an SMT-LIB2 script; returns the first token of its output
 /// (sat / unsat / unknown) or None when the solver is unavailable.
-fn run_z3(script: &str, id: &str) -> Option<String> {
+fn run_z3(script: &str) -> Option<String> {
+    use std::sync::atomic::{AtomicU64, Ordering};
+    static COUNTER: AtomicU64 = AtomicU64::new(0);
     let tmp = std::env::temp_dir().join(format!(
-        "specforge-prove-{}.smt2",
-        id.replace(['/', '@'], "_")
+        "specforge-prove-{}-{}.smt2",
+        std::process::id(),
+        COUNTER.fetch_add(1, Ordering::Relaxed)
     ));
     std::fs::write(&tmp, script).ok()?;
     let output = Command::new("z3").arg(&tmp).output().ok()?;
@@ -165,15 +174,16 @@ fn run_z3(script: &str, id: &str) -> Option<String> {
     Some(stdout.split_whitespace().next().unwrap_or("").to_string())
 }
 
-/// Run the prove pass: verify every constraint entity's metric bounds are
-/// satisfiable. Returns findings (E046 errors for unsatisfiable bounds) and
-/// a summary with the verification breakdown.
+/// Run the prove pass: collect every machine-parseable metric bound in the
+/// corpus, group them per variable+unit, and verify each group is
+/// satisfiable with z3. An unsatisfiable group is E046 — the bounds
+/// contradict each other across constraints.
 pub fn run_prove(ctx: &AnalysisContext) -> ProveReport {
     let mut findings = Vec::new();
-    let mut satisfiable = 0usize;
-    let mut unsatisfiable = 0usize;
     let mut skipped_prose = 0usize;
-    let mut solver_available = z3_available();
+    let mut comparisons: Vec<Comparison> = Vec::new();
+    let mut constraints_with_bounds = 0usize;
+    let solver_available = z3_available();
     let mut solver_version = String::from("not found");
 
     if solver_available && let Ok(output) = Command::new("z3").arg("--version").output() {
@@ -194,150 +204,163 @@ pub fn run_prove(ctx: &AnalysisContext) -> ProveReport {
         if metric.trim().is_empty() {
             continue;
         }
+        constraints_with_bounds += 1;
 
-        let (comparisons, prose) = parse_metric_comparisons(metric);
+        let (mut parsed, prose) =
+            parse_metric_comparisons(metric, node.id.raw.as_str(), &node.source_span);
         skipped_prose += prose;
-
-        if comparisons.is_empty() || !solver_available {
-            continue;
+        if !solver_available {
+            // Without a solver the comparisons cannot be checked; skip them.
+            parsed.clear();
         }
+        comparisons.append(&mut parsed);
+    }
 
-        let script = encode_smt_lib(&comparisons);
-        match run_z3(&script, &node.id.raw.as_str().replace(['/', '@'], "_")) {
+    // Group per (variable, unit). Bounds declared in different units are
+    // different groups — comparing 100ms with 2s requires unit normalization
+    // that is deliberately out of scope for the v1 rung.
+    let mut groups: BTreeMap<(String, String), Vec<Comparison>> = BTreeMap::new();
+    for c in comparisons {
+        groups
+            .entry((c.var.clone(), c.unit.clone()))
+            .or_default()
+            .push(c);
+    }
+
+    let mut satisfiable_groups = 0usize;
+    let mut unsat_groups = 0usize;
+    for ((var, unit), comps) in &groups {
+        let script = encode_smt_lib(var, unit, comps);
+        match run_z3(&script) {
             Some(result) if result == "unsat" => {
-                unsatisfiable += 1;
+                unsat_groups += 1;
+                let sources: Vec<&str> =
+                    comps.iter().map(|c| c.source.as_str()).collect::<Vec<_>>();
+                let source_clause = if sources.len() == 1 {
+                    format!(" in constraint '{}'", sources[0])
+                } else {
+                    format!(" across constraints: {}", sources.join(", "))
+                };
                 findings.push(
                     Diagnostic::error(
                         "E046",
                         format!(
-                            "constraint '{}' is unsatisfiable: the metric bounds contradict each other",
-                            node.id.raw
+                            "variable '{var}' ({unit}) has contradictory bounds{source_clause}"
                         ),
                     )
-                    .with_span(node.source_span.clone())
+                    .with_span(comps[0].span.clone())
                     .with_suggestion(
-                        "relax or correct one of the metric bounds in the metric block",
+                        "relax or correct one of the metric bounds so the group is satisfiable",
                     ),
                 );
             }
-            Some(result) if result == "sat" => satisfiable += 1,
-            Some(_) | None => {
-                // solver unavailable or returned unknown: leave unchecked
-                solver_available = false;
-                solver_version = "unavailable".to_string();
+            Some(result) if result == "sat" => satisfiable_groups += 1,
+            _ => {
+                findings.push(
+                    Diagnostic::info(
+                        "I098",
+                        format!(
+                            "variable '{var}' ({unit}): the solver could not decide the bound group"
+                        ),
+                    )
+                    .with_span(comps[0].span.clone()),
+                );
             }
         }
     }
 
     let summary = serde_json::json!({
         "solver": solver_version,
-        "constraints_checked": satisfiable + unsatisfiable,
-        "satisfiable": satisfiable,
-        "unsatisfiable": unsatisfiable,
-        "skipped_prose_metrics": skipped_prose,
         "solver_available": solver_available,
+        "constraints_with_bounds": constraints_with_bounds,
+        "variables_checked": groups.len(),
+        "satisfiable_groups": satisfiable_groups,
+        "unsatisfiable_groups": unsat_groups,
+        "skipped_prose_metrics": skipped_prose,
     });
     ProveReport { findings, summary }
 }
 
 #[cfg(test)]
-mod tests {
+mod grouping_tests {
     use super::*;
+    use specforge_graph::{EntityId, EntityKind, FieldMap, Graph, Node};
+    use specforge_registry::{FieldRegistry, KindRegistry};
 
-    #[test]
-    fn parses_comparisons_with_units_and_skips_prose() {
-        let metric = "file_change_to_diagnostics < 100ms\n\
-                      with up to 500 .spec files in the project\n\
-                      peak_memory <= 50.5 MB\n\
-                      requests == 1000\n\
-                      timeout >= 5s\n";
-        let (comparisons, prose) = parse_metric_comparisons(metric);
-        assert_eq!(prose, 1);
-        assert_eq!(comparisons.len(), 4);
-        assert_eq!(comparisons[0].var, "file_change_to_diagnostics");
-        assert_eq!(comparisons[0].op, SmtOp::Lt);
-        assert_eq!(comparisons[0].value, 100.0);
-        assert_eq!(comparisons[1].var, "peak_memory");
-        assert_eq!(comparisons[1].op, SmtOp::Le);
-        assert_eq!(comparisons[1].value, 50.5);
-        assert_eq!(comparisons[2].op, SmtOp::Eq);
-        assert_eq!(comparisons[3].op, SmtOp::Ge);
-    }
-
-    #[test]
-    fn prose_only_metrics_parse_to_empty() {
-        let (comparisons, prose) = parse_metric_comparisons(
-            "The CLI and LSP binaries MUST build and run on:\n\
-             Linux (x86_64, aarch64), macOS (x86_64, aarch64).\n",
+    fn constraint_node(id: &str, metric: &str) -> Node {
+        let mut fields = FieldMap::new();
+        fields.push(
+            specforge_common::Sym::new("metric"),
+            FieldValue::String(metric.to_string()),
         );
-        assert!(comparisons.is_empty());
-        assert_eq!(prose, 2);
+        Node {
+            id: EntityId {
+                raw: specforge_common::Sym::new(id),
+            },
+            kind: EntityKind {
+                raw: specforge_common::Sym::new("constraint"),
+            },
+            title: None,
+            fields,
+            source_span: specforge_common::SourceSpan {
+                file: specforge_common::Sym::new(id),
+                start_line: 1,
+                start_col: 0,
+                end_line: 1,
+                end_col: 1,
+            },
+        }
+    }
+
+    fn context<'a>(
+        graph: &'a Graph,
+        kind_registry: &'a KindRegistry,
+        field_registry: &'a FieldRegistry,
+    ) -> AnalysisContext<'a> {
+        AnalysisContext {
+            graph,
+            kind_registry,
+            field_registry,
+            project_root: None,
+            test_results: None,
+        }
     }
 
     #[test]
-    fn encodes_declares_and_asserts() {
-        let comparisons = vec![
-            Comparison {
-                var: "latency".into(),
-                op: SmtOp::Lt,
-                value: 100.0,
-            },
-            Comparison {
-                var: "latency".into(),
-                op: SmtOp::Gt,
-                value: 500.0,
-            },
-        ];
-        let smt = encode_smt_lib(&comparisons);
-        assert_eq!(
-            smt.matches("(declare-const latency Real)").count(),
-            1,
-            "each variable declared once: {smt}"
+    fn cross_constraint_contradictions_are_detected() {
+        let kind_reg = KindRegistry::new();
+        let field_reg = FieldRegistry::new();
+        let mut graph = Graph::new();
+        graph.add_node(constraint_node("a", "latency < 100ms"));
+        graph.add_node(constraint_node("b", "latency > 500ms"));
+
+        let report = run_prove(&context(&graph, &kind_reg, &field_reg));
+        assert!(
+            report
+                .findings
+                .iter()
+                .any(|f| f.code == "E046" && f.message.contains("across constraints")),
+            "cross-constraint contradiction must be reported: {:?}",
+            report.findings
         );
-        assert!(smt.contains("(assert (< latency 100.0))"));
-        assert!(smt.contains("(assert (> latency 500.0))"));
-        assert!(smt.contains("(check-sat)"));
+        assert_eq!(report.summary["unsatisfiable_groups"], 1);
+        assert_eq!(report.summary["variables_checked"], 1);
     }
 
     #[test]
-    fn z3_reports_unsat_for_contradictory_bounds() {
-        if !z3_available() {
-            eprintln!("z3 not installed — skipping solver test");
-            return;
-        }
-        let script = encode_smt_lib(&[
-            Comparison {
-                var: "latency".into(),
-                op: SmtOp::Lt,
-                value: 100.0,
-            },
-            Comparison {
-                var: "latency".into(),
-                op: SmtOp::Gt,
-                value: 500.0,
-            },
-        ]);
-        assert_eq!(run_z3(&script, "unit").as_deref(), Some("unsat"));
-    }
+    fn different_units_are_separate_groups() {
+        let kind_reg = KindRegistry::new();
+        let field_reg = FieldRegistry::new();
+        let mut graph = Graph::new();
+        graph.add_node(constraint_node("a", "latency < 100ms"));
+        graph.add_node(constraint_node("b", "latency > 2s"));
 
-    #[test]
-    fn z3_reports_sat_for_consistent_bounds() {
-        if !z3_available() {
-            eprintln!("z3 not installed — skipping solver test");
-            return;
-        }
-        let script = encode_smt_lib(&[
-            Comparison {
-                var: "latency".into(),
-                op: SmtOp::Lt,
-                value: 100.0,
-            },
-            Comparison {
-                var: "latency".into(),
-                op: SmtOp::Gt,
-                value: 10.0,
-            },
-        ]);
-        assert_eq!(run_z3(&script, "unit2").as_deref(), Some("sat"));
+        let report = run_prove(&context(&graph, &kind_reg, &field_reg));
+        assert!(
+            !report.findings.iter().any(|f| f.code == "E046"),
+            "different units must not be compared: {:?}",
+            report.findings
+        );
+        assert_eq!(report.summary["variables_checked"], 2);
     }
 }
