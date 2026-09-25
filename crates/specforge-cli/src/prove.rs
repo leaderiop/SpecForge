@@ -176,9 +176,7 @@ pub fn run_prove(ctx: &AnalysisContext) -> ProveReport {
     let mut solver_available = z3_available();
     let mut solver_version = String::from("not found");
 
-    if solver_available
-        && let Ok(output) = Command::new("z3").arg("--version").output()
-    {
+    if solver_available && let Ok(output) = Command::new("z3").arg("--version").output() {
         solver_version = String::from_utf8_lossy(&output.stdout)
             .lines()
             .next()
