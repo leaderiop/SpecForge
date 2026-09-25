@@ -18,8 +18,10 @@
 //! loop consumes.
 //!
 //! Prose lines that do not parse as expressions are skipped and counted.
-//! Unit suffixes (`ms`, `MB`) are carried but compared as raw numbers —
-//! unit normalization is future work.
+//! Unit suffixes are normalized to their dimension base before encoding
+//! (time → milliseconds, data → bytes; unknown units compare raw), so
+//! `100ms` vs `1s` compares correctly and counterexample models render
+//! in the declared unit.
 
 use std::process::Command;
 
@@ -37,6 +39,63 @@ pub struct ProveReport {
 }
 
 // ── SMT-LIB2 encoding over the shared AST ───────────────────────────────────
+
+/// Scale factor to the unit's canonical dimension base: time →
+/// milliseconds, data → bytes, everything else (including unknown units)
+/// compares raw. Bounds declared with different units of the same
+/// dimension therefore compare correctly (`100ms` vs `1s`).
+fn unit_scale(unit: &str) -> f64 {
+    match unit {
+        "" | "%" => 1.0,
+        // time → milliseconds
+        "ms" => 1.0,
+        "s" | "sec" | "secs" => 1000.0,
+        "us" | "µs" => 0.001,
+        "ns" => 1.0e-6,
+        // data → bytes
+        "b" | "B" => 1.0,
+        "kb" | "KB" | "Kb" => 1.0e3,
+        "mb" | "MB" | "Mb" => 1.0e6,
+        "gb" | "GB" | "Gb" => 1.0e9,
+        "kib" | "KiB" => 1024.0,
+        "mib" | "MiB" => 1024.0 * 1024.0,
+        "gib" | "GiB" => 1024.0 * 1024.0 * 1024.0,
+        // unknown dimension: no normalization
+        _ => 1.0,
+    }
+}
+
+/// Per-variable display unit: the first unit declared alongside the
+/// variable in any comparison (`latency < 100ms` pins `latency` to ms).
+/// Counterexample models render in the declared unit.
+fn note_display_unit(expr: &SpannedExpr, units: &mut std::collections::HashMap<String, String>) {
+    match &expr.expr {
+        Expr::Cmp(_, l, r) => {
+            note_display_unit(l, units);
+            note_display_unit(r, units);
+            let var_of = |e: &SpannedExpr| matches!(&e.expr, Expr::Var(_));
+            let unit_of = |e: &SpannedExpr| match &e.expr {
+                Expr::Num(_, unit) => Some(unit.clone()),
+                _ => None,
+            };
+            for (var, other) in [(l, r), (r, l)] {
+                if var_of(var)
+                    && let (Expr::Var(name), Some(unit)) = (&var.expr, unit_of(other))
+                    && !unit.is_empty()
+                    && !units.contains_key(name)
+                {
+                    units.insert(name.clone(), unit);
+                }
+            }
+        }
+        Expr::And(l, r) | Expr::Or(l, r) | Expr::Add(l, r) | Expr::Sub(l, r) => {
+            note_display_unit(l, units);
+            note_display_unit(r, units);
+        }
+        Expr::Neg(e) | Expr::Not(e) => note_display_unit(e, units),
+        Expr::Num(_, _) | Expr::Var(_) => {}
+    }
+}
 
 fn collect_vars(expr: &SpannedExpr, vars: &mut Vec<String>) {
     match &expr.expr {
@@ -60,11 +119,12 @@ fn collect_vars(expr: &SpannedExpr, vars: &mut Vec<String>) {
 
 fn encode_expr(expr: &SpannedExpr) -> String {
     match &expr.expr {
-        Expr::Num(v, _unit) => {
-            if v.fract() == 0.0 {
-                format!("{v:.1}")
+        Expr::Num(v, unit) => {
+            let scaled = v * unit_scale(unit);
+            if scaled.fract() == 0.0 {
+                format!("{scaled:.1}")
             } else {
-                format!("{v}")
+                format!("{scaled}")
             }
         }
         Expr::Var(name) => name.clone(),
@@ -180,11 +240,29 @@ fn parse_model(stdout: &str) -> Vec<(String, String)> {
     out
 }
 
-fn render_counterexample(model: &[(String, String)]) -> String {
+fn render_counterexample(
+    model: &[(String, String)],
+    display_units: &std::collections::HashMap<String, String>,
+) -> String {
     model
         .iter()
         .take(4)
-        .map(|(name, value)| format!("{name} = {value}"))
+        .map(|(name, value)| {
+            let unit = display_units.get(name).map(String::as_str).unwrap_or("");
+            let scale = unit_scale(unit);
+            match value.parse::<f64>() {
+                Ok(v) if scale != 1.0 && !unit.is_empty() => {
+                    format!("{name} = {}{unit}", v / scale)
+                }
+                _ => {
+                    if unit.is_empty() {
+                        format!("{name} = {value}")
+                    } else {
+                        format!("{name} = {value}{unit}")
+                    }
+                }
+            }
+        })
         .collect::<Vec<_>>()
         .join(", ")
 }
@@ -310,6 +388,15 @@ pub fn run_prove(ctx: &AnalysisContext) -> ProveReport {
         }
     }
 
+    let mut display_units: std::collections::HashMap<String, String> =
+        std::collections::HashMap::new();
+    for conj in &axioms {
+        note_display_unit(&conj.expr, &mut display_units);
+    }
+    for claim in &claims {
+        note_display_unit(&claim.expr, &mut display_units);
+    }
+
     let mut satisfiable = false;
     let mut unsat = false;
     let mut claims_proved = 0usize;
@@ -407,7 +494,10 @@ pub fn run_prove(ctx: &AnalysisContext) -> ProveReport {
                         let evidence = if model.is_empty() {
                             "a satisfying assignment exists".to_string()
                         } else {
-                            format!("counterexample: {}", render_counterexample(&model))
+                            format!(
+                                "counterexample: {}",
+                                render_counterexample(&model, &display_units)
+                            )
                         };
                         findings.push(
                             Diagnostic::warning(
@@ -610,6 +700,79 @@ mod tests {
         assert_eq!(report.summary["axioms"].as_u64(), Some(1));
         assert_eq!(report.summary["skipped_prose_lines"].as_u64(), Some(1));
         assert!(report.summary["satisfiable"].as_bool().unwrap());
+    }
+
+    #[test]
+    fn cross_unit_consistency_no_false_positive() {
+        // 5s = 5000ms > 200ms: consistent, must NOT be flagged
+        let mut g = Graph::new();
+        g.add_node(constraint_node("lo", "timeout > 200ms"));
+        g.add_node(constraint_node("hi", "timeout < 5s"));
+        let report = prove(&g);
+        assert!(
+            report.summary["satisfiable"].as_bool().unwrap(),
+            "cross-unit consistent bounds must be satisfiable"
+        );
+        assert!(report.findings.iter().all(|f| f.code != "E046"));
+    }
+
+    #[test]
+    fn cross_unit_contradiction_detected() {
+        // 1s = 1000ms > 100ms: a real contradiction raw comparison misses
+        let mut g = Graph::new();
+        g.add_node(constraint_node("budget", "latency < 100ms"));
+        g.add_node(constraint_node("floor", "latency > 1s"));
+        let report = prove(&g);
+        assert!(report.summary["unsatisfiable"].as_bool().unwrap());
+        assert!(report.findings.iter().any(|f| f.code == "E046"));
+    }
+
+    #[test]
+    fn data_units_normalize_to_bytes() {
+        // 2KiB = 2048B < 1MB: consistent
+        let mut g = Graph::new();
+        g.add_node(constraint_node("floor", "cache_size > 2KiB"));
+        g.add_node(constraint_node("budget", "cache_size < 1MB"));
+        let report = prove(&g);
+        assert!(report.summary["satisfiable"].as_bool().unwrap());
+
+        // 3GB = 3e9 B > 1MB: contradiction
+        let mut g2 = Graph::new();
+        g2.add_node(constraint_node("budget", "cache_size < 1MB"));
+        g2.add_node(constraint_node("floor", "cache_size > 3GB"));
+        let report2 = prove(&g2);
+        assert!(report2.summary["unsatisfiable"].as_bool().unwrap());
+    }
+
+    #[test]
+    fn counterexample_renders_declared_units() {
+        let mut g = Graph::new();
+        g.add_node(constraint_node("budget", "latency < 100ms"));
+        g.add_node(claim_node("inv", "latency > 500ms"));
+        let report = prove(&g);
+        let e047 = report
+            .findings
+            .iter()
+            .find(|f| f.code == "E047")
+            .expect("E047 expected");
+        assert!(
+            e047.message.contains("latency = ") && e047.message.contains("ms"),
+            "counterexample must render in the declared unit: {}",
+            e047.message
+        );
+        // the model value must lie in the consistent band (0..=100 ms),
+        // proving the conversion happened (raw would be >= 500)
+        let value: f64 = e047
+            .message
+            .split("latency = ")
+            .nth(1)
+            .and_then(|rest| rest.split("ms").next())
+            .and_then(|v| v.trim().parse().ok())
+            .expect("parse counterexample value");
+        assert!(
+            (0.0..=100.0).contains(&value),
+            "model must be rendered in ms, got {value}"
+        );
     }
 
     #[test]
