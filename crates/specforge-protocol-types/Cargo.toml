@@ -3,6 +3,9 @@ name = "specforge-protocol-types"
 edition.workspace = true
 version.workspace = true
 license.workspace = true
+description = "Wire types for the SpecForge extension protocol: handshake, describe payloads, and shared descriptors"
+repository = "https://github.com/leaderiop/SpecForge"
+readme = "../docs/extension-protocol.md"
 
 [dependencies]
 serde = { workspace = true }
