@@ -15,6 +15,7 @@ mod model;
 mod outline;
 mod plan;
 mod query;
+mod registry_fields;
 mod scanner_dispatch;
 mod schema;
 mod scope;

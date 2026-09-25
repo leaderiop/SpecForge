@@ -13,6 +13,7 @@ invariant migration_idempotency "Migration Idempotency" {
   verify property "running migrate twice produces identical files"
   verify unit "file already at target version is unchanged"
 
+  tests ["crates/specforge-cli/tests/migrate.rs"]
 }
 
 invariant migration_backup_safety "Migration Backup Safety" {
@@ -29,6 +30,7 @@ invariant migration_backup_safety "Migration Backup Safety" {
   verify unit "backup is byte-for-byte copy of original"
   verify unit "failed backup aborts migration for that file"
 
+  tests ["crates/specforge-cli/tests/migrate.rs"]
 }
 
 invariant migration_atomicity "Migration Atomicity" {
@@ -46,6 +48,7 @@ invariant migration_atomicity "Migration Atomicity" {
   verify unit "interrupted write leaves original file intact"
   verify unit "failed rename does not corrupt original file"
 
+  tests ["crates/specforge-cli/tests/migrate.rs"]
 }
 
 invariant migration_event_ordering "Migration Event Ordering" {
@@ -64,6 +67,7 @@ invariant migration_event_ordering "Migration Event Ordering" {
   verify property "migration_complete always precedes extension_migration_hooks_complete"
   verify unit "no event emitted before its predecessor completes"
 
+  tests ["crates/specforge-cli/tests/migrate.rs"]
 }
 
 invariant migration_semantic_preservation "Migration Semantic Preservation" {
@@ -81,6 +85,7 @@ invariant migration_semantic_preservation "Migration Semantic Preservation" {
   verify property "pre-migration and post-migration entity graphs are structurally identical"
   verify unit "migration that only changes formatting preserves graph structure"
 
+  tests ["crates/specforge-cli/tests/migrate.rs"]
 }
 
 invariant migration_cross_extension_stability "Migration Cross-Extension Reference Stability" {

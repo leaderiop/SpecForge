@@ -149,6 +149,160 @@
           "name": "diagnostic",
           "required": false,
           "target_kind": null
+        },
+        {
+          "default_value": null,
+          "description": "Executable test files that verify this behavior, relative to the project root (RES-15 linkage)",
+          "edge": null,
+          "field_type": "string_list",
+          "file_reference": false,
+          "inverse_of": null,
+          "name": "tests",
+          "required": false,
+          "target_kind": null
+        },
+        {
+          "default_value": null,
+          "description": "The behavioral contract this behavior guarantees",
+          "edge": null,
+          "field_type": "string",
+          "file_reference": false,
+          "inverse_of": null,
+          "name": "contract",
+          "required": true,
+          "target_kind": null
+        },
+        {
+          "default_value": null,
+          "description": "Invariants this behavior enforces",
+          "edge": "BehaviorEnforcesInvariant",
+          "field_type": "reference_list",
+          "file_reference": false,
+          "inverse_of": "enforced_by",
+          "name": "invariants",
+          "required": false,
+          "target_kind": "invariant"
+        },
+        {
+          "default_value": null,
+          "description": "Type definitions used by this behavior",
+          "edge": "BehaviorReferencesType",
+          "field_type": "reference_list",
+          "file_reference": false,
+          "inverse_of": null,
+          "name": "types",
+          "required": false,
+          "target_kind": "type"
+        },
+        {
+          "default_value": null,
+          "description": "Port interfaces this behavior interacts with",
+          "edge": "BehaviorUsesPort",
+          "field_type": "reference_list",
+          "file_reference": false,
+          "inverse_of": null,
+          "name": "ports",
+          "required": false,
+          "target_kind": "port"
+        },
+        {
+          "default_value": null,
+          "description": "Events produced as a result of this behavior",
+          "edge": "BehaviorProducesEvent",
+          "field_type": "reference_list",
+          "file_reference": false,
+          "inverse_of": null,
+          "name": "produces",
+          "required": false,
+          "target_kind": "event"
+        },
+        {
+          "default_value": null,
+          "description": "Events this behavior reacts to",
+          "edge": "BehaviorConsumesEvent",
+          "field_type": "reference_list",
+          "file_reference": false,
+          "inverse_of": null,
+          "name": "consumes",
+          "required": false,
+          "target_kind": "event"
+        },
+        {
+          "default_value": null,
+          "description": "Classification tag for agent task routing",
+          "edge": null,
+          "field_type": "string",
+          "file_reference": false,
+          "inverse_of": null,
+          "name": "category",
+          "required": false,
+          "target_kind": null
+        },
+        {
+          "default_value": null,
+          "description": "Product features this behavior implements",
+          "edge": "BehaviorImplementsFeature",
+          "field_type": "reference_list",
+          "file_reference": false,
+          "inverse_of": "behaviors",
+          "name": "features",
+          "required": false,
+          "target_kind": "feature"
+        },
+        {
+          "default_value": null,
+          "description": "Human-readable summary of this behavior",
+          "edge": null,
+          "field_type": "string",
+          "file_reference": false,
+          "inverse_of": null,
+          "name": "description",
+          "required": false,
+          "target_kind": null
+        },
+        {
+          "default_value": null,
+          "description": "Current lifecycle status of this behavior",
+          "edge": null,
+          "field_type": "string",
+          "file_reference": false,
+          "inverse_of": null,
+          "name": "status",
+          "required": false,
+          "target_kind": null
+        },
+        {
+          "default_value": null,
+          "description": "External references such as issue or document URIs",
+          "edge": null,
+          "field_type": "string_list",
+          "file_reference": false,
+          "inverse_of": null,
+          "name": "refs",
+          "required": false,
+          "target_kind": null
+        },
+        {
+          "default_value": null,
+          "description": "Impact level if this behavior fails",
+          "edge": null,
+          "field_type": "string",
+          "file_reference": false,
+          "inverse_of": null,
+          "name": "severity",
+          "required": false,
+          "target_kind": null
+        },
+        {
+          "default_value": null,
+          "description": "Diagnostic message for validation tooling",
+          "edge": null,
+          "field_type": "string",
+          "file_reference": false,
+          "inverse_of": null,
+          "name": "diagnostic",
+          "required": false,
+          "target_kind": null
         }
       ],
       "has_body_parser": false,
@@ -170,6 +324,61 @@
       "dot_fillcolor": "#FFEBEE",
       "dot_shape": "diamond",
       "fields": [
+        {
+          "default_value": null,
+          "description": "The constraint this invariant guarantees holds at all times",
+          "edge": null,
+          "field_type": "string",
+          "file_reference": false,
+          "inverse_of": null,
+          "name": "guarantee",
+          "required": true,
+          "target_kind": null
+        },
+        {
+          "default_value": null,
+          "description": "Consequence or impact if this invariant is violated",
+          "edge": null,
+          "field_type": "string",
+          "file_reference": false,
+          "inverse_of": null,
+          "name": "risk",
+          "required": false,
+          "target_kind": null
+        },
+        {
+          "default_value": null,
+          "description": "Human-readable summary of this invariant",
+          "edge": null,
+          "field_type": "string",
+          "file_reference": false,
+          "inverse_of": null,
+          "name": "description",
+          "required": false,
+          "target_kind": null
+        },
+        {
+          "default_value": null,
+          "description": "External references such as issue or document URIs",
+          "edge": null,
+          "field_type": "string_list",
+          "file_reference": false,
+          "inverse_of": null,
+          "name": "refs",
+          "required": false,
+          "target_kind": null
+        },
+        {
+          "default_value": null,
+          "description": "Executable test files that verify this invariant, relative to the project root (RES-15 linkage)",
+          "edge": null,
+          "field_type": "string_list",
+          "file_reference": false,
+          "inverse_of": null,
+          "name": "tests",
+          "required": false,
+          "target_kind": null
+        },
         {
           "default_value": null,
           "description": "The constraint this invariant guarantees holds at all times",

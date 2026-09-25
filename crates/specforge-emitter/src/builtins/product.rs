@@ -34,6 +34,19 @@ impl ProductExtension {
                     fd("reason", "string", false, Some("Justification for the current status or a status change"), None, None),
                     fd("owner", "string", false, Some("Person or team responsible for this feature"), None, None),
                     fd("contributors", "string_list", false, Some("Additional people or teams contributing to this feature"), None, None),
+                    fd("effort", "string", false, Some("T-shirt size estimate: xs, s, m, l, or xl"), None, None),                    fd("tests", "string_list", false, Some("Executable test files that verify this feature, relative to the project root (RES-15 linkage)"), None, None),
+                    fd("description", "string", false, Some("Human-readable summary of the feature"), None, None),
+                    fd("problem", "string", true, Some("The user problem this feature addresses"), None, None),
+                    fd("solution", "string", false, Some("How this feature solves the stated problem"), None, None),
+                    fd("priority", "string", false, Some("Importance level: critical, high, medium, or low"), None, None),
+                    fd("status", "string", false, Some("Lifecycle state: proposed, accepted, in_progress, done, deferred, or deprecated"), None, None),
+                    fd("acceptance", "string_list", false, Some("Criteria that must be met for the feature to be considered complete"), None, None),
+                    fd_ref("depends_on", "reference_list", "FeatureDependsOn", "feature", Some("Other features that must be completed before this one")),
+                    fd_ref("features", "reference_list", "FeatureRelatesTo", "feature", Some("Related features referenced by this feature")),
+                    fd("refs", "string_list", false, Some("External references such as issues, URLs, or documents"), None, None),
+                    fd("reason", "string", false, Some("Justification for the current status or a status change"), None, None),
+                    fd("owner", "string", false, Some("Person or team responsible for this feature"), None, None),
+                    fd("contributors", "string_list", false, Some("Additional people or teams contributing to this feature"), None, None),
                     fd("effort", "string", false, Some("T-shirt size estimate: xs, s, m, l, or xl"), None, None),
                 ],
                 ..ekd_defaults()
@@ -675,7 +688,13 @@ impl BuiltinExtension for ProductExtension {
         let items = match category {
             "entities" => serde_json::to_value(self.entity_kinds()).unwrap(),
             "edges" => serde_json::to_value(self.edge_types()).unwrap(),
-            "fields" => serde_json::to_value(Vec::<FieldDescriptor>::new()).unwrap(),
+            "fields" => serde_json::to_value(
+                self.entity_kinds()
+                    .iter()
+                    .flat_map(|k| k.fields.clone())
+                    .collect::<Vec<FieldDescriptor>>(),
+            )
+            .unwrap(),
             "shared_fields" => serde_json::to_value(self.shared_fields()).unwrap(),
             "enhancements" => {
                 serde_json::to_value(Vec::<EntityEnhancementDescriptor>::new()).unwrap()

@@ -373,7 +373,13 @@ impl BuiltinExtension for FormalExtension {
         let items = match category {
             "entities" => serde_json::to_value(self.entity_kinds()).unwrap(),
             "edges" => serde_json::to_value(self.edge_types()).unwrap(),
-            "fields" => serde_json::to_value(Vec::<FieldDescriptor>::new()).unwrap(),
+            "fields" => serde_json::to_value(
+                self.entity_kinds()
+                    .iter()
+                    .flat_map(|k| k.fields.clone())
+                    .collect::<Vec<FieldDescriptor>>(),
+            )
+            .unwrap(),
             "shared_fields" => serde_json::to_value(Vec::<SharedFieldDescriptor>::new()).unwrap(),
             "enhancements" => serde_json::to_value(self.enhancements()).unwrap(),
             "validation_rules" => serde_json::to_value(self.validation_rules()).unwrap(),

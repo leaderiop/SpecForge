@@ -34,6 +34,7 @@ invariant rename_atomicity "Rename Atomicity" {
   risk high
 
   verify property "Rename Atomicity guarantee holds"
+  tests ["crates/specforge-lsp/tests/rename.rs"]
 }
 
 invariant lsp_text_edit_non_overlapping "LSP TextEdit Non-Overlapping" {
@@ -45,4 +46,5 @@ invariant lsp_text_edit_non_overlapping "LSP TextEdit Non-Overlapping" {
   risk high
   verify property "no LSP response contains overlapping TextEdit ranges"
   verify unit "formatting response TextEdits are sorted and non-overlapping"
+  tests ["crates/specforge-lsp/tests/rename.rs"]
 }

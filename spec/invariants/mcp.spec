@@ -13,6 +13,7 @@ invariant mcp_structured_error_responses "MCP Structured Error Responses" {
   verify unit "error response includes entity_id when applicable"
   verify unit "no MCP endpoint returns a plain string error"
 
+  tests ["crates/specforge-mcp/tests/contracts.rs"]
 }
 
 invariant mcp_subscription_cleanup "MCP Subscription Cleanup" {
@@ -27,6 +28,7 @@ invariant mcp_subscription_cleanup "MCP Subscription Cleanup" {
   verify unit "no orphan subscriptions remain after disconnect"
   verify integration "rapid connect/disconnect cycles leave zero subscriptions"
 
+  tests ["crates/specforge-mcp/tests/invariants.rs"]
 }
 
 invariant mcp_tool_idempotency "MCP Tool Idempotency" {
@@ -42,6 +44,7 @@ invariant mcp_tool_idempotency "MCP Tool Idempotency" {
   verify property "repeated calls with same params return identical results when graph unchanged"
   verify unit "read-only tools return equivalent results for identical inputs"
 
+  tests ["crates/specforge-mcp/tests/invariants.rs"]
 }
 
 invariant mcp_type_schema_versioning "MCP Type Schema Versioning" {
@@ -52,4 +55,5 @@ invariant mcp_type_schema_versioning "MCP Type Schema Versioning" {
   """
   risk high
   verify unit "adding required field to MCP type triggers major version bump"
+  tests ["crates/specforge-mcp/tests/invariants.rs"]
 }

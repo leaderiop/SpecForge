@@ -14,6 +14,7 @@ invariant offline_first_extension_resolution "Offline-First Extension Resolution
 
   verify property "installed extensions load without network access"
   verify property "unreachable registry falls back to cached manifest"
+  tests ["crates/specforge-cli/tests/extensions.rs"]
 }
 
 invariant registry_api_openness "Registry API Openness" {
@@ -27,6 +28,7 @@ invariant registry_api_openness "Registry API Openness" {
   verify property "registry API schema is published as open specification"
   verify unit "third-party registry implementing the API schema is accepted"
 
+  tests ["crates/specforge-cli/tests/registry.rs"]
 }
 
 invariant authentication_never_gates_core_use "Authentication Never Gates Core Use" {
@@ -42,4 +44,5 @@ invariant authentication_never_gates_core_use "Authentication Never Gates Core U
   verify unit "specforge check succeeds without credentials"
   verify unit "default public registry accessible without authentication"
   verify integration "full init-check-export cycle completes without credentials"
+  tests ["crates/specforge-cli/tests/cli.rs"]
 }

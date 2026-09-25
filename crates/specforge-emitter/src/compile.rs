@@ -347,7 +347,7 @@ fn normalize_extension_name(ext_spec: &str) -> String {
 
 /// Load extensions via the protocol path only (no manifest.json).
 /// Each extension name is resolved through the runtime's __handshake/__describe exports.
-fn load_extensions(
+pub fn load_extensions(
     extensions: &[String],
     runtime: &dyn WasmRuntime,
     diagnostics: &mut Vec<Diagnostic>,

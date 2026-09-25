@@ -36,6 +36,19 @@ impl SoftwareExtension {
                     fd("status", "string", false, Some("Current lifecycle status of this behavior"), None, None),
                     fd("refs", "string_list", false, Some("External references such as issue or document URIs"), None, None),
                     fd("severity", "string", false, Some("Impact level if this behavior fails"), None, None),
+                    fd("diagnostic", "string", false, Some("Diagnostic message for validation tooling"), None, None),                    fd("tests", "string_list", false, Some("Executable test files that verify this behavior, relative to the project root (RES-15 linkage)"), None, None),
+                    fd("contract", "string", true, Some("The behavioral contract this behavior guarantees"), None, None),
+                    fd_ref_inv("invariants", "reference_list", "BehaviorEnforcesInvariant", "invariant", "enforced_by", Some("Invariants this behavior enforces")),
+                    fd_ref("types", "reference_list", "BehaviorReferencesType", "type", Some("Type definitions used by this behavior")),
+                    fd_ref("ports", "reference_list", "BehaviorUsesPort", "port", Some("Port interfaces this behavior interacts with")),
+                    fd_ref("produces", "reference_list", "BehaviorProducesEvent", "event", Some("Events produced as a result of this behavior")),
+                    fd_ref("consumes", "reference_list", "BehaviorConsumesEvent", "event", Some("Events this behavior reacts to")),
+                    fd("category", "string", false, Some("Classification tag for agent task routing"), None, None),
+                    fd_ref_inv("features", "reference_list", "BehaviorImplementsFeature", "feature", "behaviors", Some("Product features this behavior implements")),
+                    fd("description", "string", false, Some("Human-readable summary of this behavior"), None, None),
+                    fd("status", "string", false, Some("Current lifecycle status of this behavior"), None, None),
+                    fd("refs", "string_list", false, Some("External references such as issue or document URIs"), None, None),
+                    fd("severity", "string", false, Some("Impact level if this behavior fails"), None, None),
                     fd("diagnostic", "string", false, Some("Diagnostic message for validation tooling"), None, None),
                 ],
                 ..ekd_defaults()
@@ -53,6 +66,10 @@ impl SoftwareExtension {
                 dot_color: Some("#C62828".into()),
                 dot_fillcolor: Some("#FFEBEE".into()),
                 fields: vec![
+                    fd("guarantee", "string", true, Some("The constraint this invariant guarantees holds at all times"), None, None),
+                    fd("risk", "string", false, Some("Consequence or impact if this invariant is violated"), None, None),
+                    fd("description", "string", false, Some("Human-readable summary of this invariant"), None, None),
+                    fd("refs", "string_list", false, Some("External references such as issue or document URIs"), None, None),                    fd("tests", "string_list", false, Some("Executable test files that verify this invariant, relative to the project root (RES-15 linkage)"), None, None),
                     fd("guarantee", "string", true, Some("The constraint this invariant guarantees holds at all times"), None, None),
                     fd("risk", "string", false, Some("Consequence or impact if this invariant is violated"), None, None),
                     fd("description", "string", false, Some("Human-readable summary of this invariant"), None, None),
@@ -435,7 +452,13 @@ impl BuiltinExtension for SoftwareExtension {
         let items = match category {
             "entities" => serde_json::to_value(self.entity_kinds()).unwrap(),
             "edges" => serde_json::to_value(self.edge_types()).unwrap(),
-            "fields" => serde_json::to_value(Vec::<FieldDescriptor>::new()).unwrap(),
+            "fields" => serde_json::to_value(
+                self.entity_kinds()
+                    .iter()
+                    .flat_map(|k| k.fields.clone())
+                    .collect::<Vec<FieldDescriptor>>(),
+            )
+            .unwrap(),
             "shared_fields" => serde_json::to_value(Vec::<SharedFieldDescriptor>::new()).unwrap(),
             "enhancements" => serde_json::to_value(self.enhancements()).unwrap(),
             "validation_rules" => serde_json::to_value(self.validation_rules()).unwrap(),

@@ -27,6 +27,7 @@ invariant init_config_validity "Init Config Validity" {
   verify property "specforge init output is always valid SpecForgeJsonConfig JSON"
   verify unit "specforge init followed by specforge check produces zero config errors"
 
+  tests ["crates/specforge-cli/tests/init.rs"]
 }
 
 invariant multi_error_collection "Multi-Error Collection" {
@@ -70,6 +71,7 @@ invariant import_dag "Import DAG" {
   verify property "an acyclic import graph is accepted without diagnostics"
   verify unit "a circular import produces E003 naming the cycle participants"
 
+  tests ["crates/specforge-watch/tests/import_dag.rs"]
 }
 
 invariant entity_id_uniqueness "Entity ID Uniqueness" {
@@ -84,6 +86,7 @@ invariant entity_id_uniqueness "Entity ID Uniqueness" {
   verify property "all unique entity IDs across files are accepted"
   verify unit "a duplicate entity ID produces E002 naming both declaration sites"
 
+  tests ["crates/specforge-graph/tests/graph.rs"]
 }
 
 invariant graph_traversal_integrity "Graph Traversal Integrity" {
@@ -112,6 +115,7 @@ invariant incremental_correctness "Incremental Correctness" {
   verify property "incremental recompilation produces the same graph as a full rebuild"
   verify unit "no stale nodes or edges remain after incremental recompilation"
 
+  tests ["crates/specforge-watch/tests/pipeline.rs"]
 }
 
 invariant graph_delta_determinism "Graph Delta Determinism" {
@@ -127,6 +131,7 @@ invariant graph_delta_determinism "Graph Delta Determinism" {
 
   verify property "identical graph pairs produce identical GraphDelta across 100 runs"
   verify unit "GraphDelta arrays are sorted by EntityId.raw"
+  tests ["crates/specforge-watch/tests/delta.rs"]
 }
 
 invariant graph_schema_completeness "Graph Schema Completeness" {
@@ -142,6 +147,7 @@ invariant graph_schema_completeness "Graph Schema Completeness" {
   verify property "schema contains every registered kind and edge type"
   verify unit "newly registered extension kind appears in schema"
 
+  tests ["crates/specforge-cli/tests/e2e_schema.rs"]
 }
 
 invariant schema_version_backward_compatibility "Schema Version Backward Compatibility" {
@@ -168,6 +174,7 @@ invariant watch_mode_response_latency "Watch Mode Response Latency" {
 
   verify performance "single-file change produces diagnostics within 100ms"
 
+  tests ["crates/specforge-cli/tests/watch.rs"]
 }
 
 invariant token_budget_subgraph_consistency "Token Budget Subgraph Consistency" {
