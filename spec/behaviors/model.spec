@@ -47,6 +47,7 @@ behavior build_model_intermediate "Build Model Intermediate Representation" {
   verify unit "extension metadata has correct entity and edge counts"
   verify unit "empty schema produces empty ModelIntermediate"
   verify contract "requires/ensures consistency for model IR construction"
+  tests ["crates/specforge-emitter/tests/model.rs"]
 }
 
 behavior render_model_markdown "Render Model as Markdown" {
@@ -89,6 +90,7 @@ behavior render_model_markdown "Render Model as Markdown" {
   verify unit "fields=all shows every field"
   verify unit "empty model produces valid Markdown with zero-entity message"
   verify contract "requires/ensures consistency for Markdown rendering"
+  tests ["crates/specforge-emitter/tests/model.rs"]
 }
 
 behavior render_model_mermaid "Render Model as Mermaid erDiagram" {
@@ -127,6 +129,7 @@ behavior render_model_mermaid "Render Model as Mermaid erDiagram" {
   verify unit "extension grouping uses comment headers"
   verify unit "empty model produces valid erDiagram with no entities"
   verify contract "requires/ensures consistency for Mermaid rendering"
+  tests ["crates/specforge-emitter/tests/model.rs"]
 }
 
 behavior render_model_dot "Render Model as DOT" {
@@ -169,6 +172,7 @@ behavior render_model_dot "Render Model as DOT" {
   verify unit "fields=none produces header-only nodes"
   verify unit "empty model produces valid DOT with no nodes"
   verify contract "requires/ensures consistency for DOT rendering"
+  tests ["crates/specforge-emitter/tests/model.rs"]
 }
 
 behavior render_model_json "Render Model as ERD JSON" {
@@ -205,6 +209,7 @@ behavior render_model_json "Render Model as ERD JSON" {
   verify unit "fields level filters the field array"
   verify unit "empty model produces valid JSON with empty arrays"
   verify contract "requires/ensures consistency for ERD JSON rendering"
+  tests ["crates/specforge-emitter/tests/model.rs"]
 }
 
 behavior render_model_dbml "Render Model as DBML" {
@@ -248,6 +253,7 @@ behavior render_model_dbml "Render Model as DBML" {
   verify unit "field descriptions use [note: '...']"
   verify unit "empty model produces valid DBML with no tables"
   verify contract "requires/ensures consistency for DBML rendering"
+  tests ["crates/specforge-emitter/tests/model.rs"]
 }
 
 behavior filter_model "Filter Model by Extension, Kind, or Depth" {
@@ -289,6 +295,7 @@ behavior filter_model "Filter Model by Extension, Kind, or Depth" {
   verify unit "unknown extension name produces empty model"
   verify unit "unknown kind name is silently ignored"
   verify contract "requires/ensures consistency for model filtering"
+  tests ["crates/specforge-emitter/tests/model.rs"]
 }
 
 behavior expose_model_mcp_tool "Expose Model as MCP Tool" {
@@ -323,4 +330,5 @@ behavior expose_model_mcp_tool "Expose Model as MCP Tool" {
   verify unit "filter parameters are passed through to model options"
   verify integration "MCP tool produces same output as CLI command"
   verify contract "requires/ensures consistency for MCP model tool"
+  tests ["crates/specforge-mcp/tests/tools_core.rs"]
 }

@@ -39,6 +39,7 @@ behavior resolve_use_imports "Resolve Use Imports" {
   verify integration "imports across nested directories resolve correctly"
   verify contract "requires/ensures consistency for use import resolution"
 
+  tests ["crates/specforge-resolver/tests/resolution.rs"]
 }
 
 // No consumes — called inline during use import resolution
@@ -69,6 +70,7 @@ behavior detect_import_cycles "Detect Import Cycles" {
   verify unit "non-cyclic files still process when a cycle exists"
   verify contract "requires/ensures consistency for import cycle detection"
 
+  tests ["crates/specforge-resolver/tests/resolution.rs"]
 }
 
 behavior link_entity_references "Link Entity References" {
@@ -101,6 +103,7 @@ behavior link_entity_references "Link Entity References" {
   verify unit "close match triggers did-you-mean suggestion"
   verify contract "requires/ensures consistency for entity reference linking"
 
+  tests ["crates/specforge-resolver/tests/resolution.rs"]
 }
 
 behavior resolve_soft_cross_extension_references "Resolve Soft Cross-Extension References" {
@@ -138,6 +141,7 @@ behavior resolve_soft_cross_extension_references "Resolve Soft Cross-Extension R
   verify unit "installed extension with imported file but missing entity emits E001"
   verify contract "requires/ensures consistency for soft cross-extension resolution"
 
+  tests ["crates/specforge-resolver/tests/resolution.rs"]
 }
 
 // No consumes — called inline during reference resolution
@@ -171,4 +175,5 @@ behavior resolve_external_ref_declarations "Resolve External Ref Declarations" {
   verify unit "ref node is added to graph with scheme metadata"
   verify contract "requires/ensures consistency for external ref resolution"
 
+  tests ["crates/specforge-resolver/tests/resolution.rs"]
 }

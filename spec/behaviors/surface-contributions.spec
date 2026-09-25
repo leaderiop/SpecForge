@@ -55,6 +55,7 @@ behavior register_surface_contributions "Register Surface Contributions" {
   verify unit "registration succeeds with no duplicates"
   verify contract "requires/ensures consistency for surface contribution registration"
 
+  tests ["crates/specforge-registry/tests/surface.rs"]
 }
 
 behavior validate_surface_exports "Validate Surface Exports" {
@@ -94,6 +95,7 @@ behavior validate_surface_exports "Validate Surface Exports" {
   verify unit "extra exports beyond surfaces are ignored"
   verify contract "requires/ensures consistency for surface export validation"
 
+  tests ["crates/specforge-registry/tests/surface.rs"]
 }
 
 behavior validate_mcp_tool_schemas "Validate MCP Tool Schemas" {
@@ -127,6 +129,7 @@ behavior validate_mcp_tool_schemas "Validate MCP Tool Schemas" {
   verify unit "MCP tool without description produces W056"
   verify contract "requires/ensures consistency for MCP tool schema validation"
 
+  tests ["crates/specforge-registry/tests/surface.rs"]
 }
 
 behavior validate_command_arg_types "Validate Command Arg Types" {
@@ -159,6 +162,7 @@ behavior validate_command_arg_types "Validate Command Arg Types" {
   verify unit "command with no args produces W057"
   verify contract "requires/ensures consistency for command arg type validation"
 
+  tests ["crates/specforge-registry/tests/surface.rs"]
 }
 
 // ── Auto-Promotion ──────────────────────────────────────────
@@ -197,6 +201,7 @@ behavior auto_promote_commands_to_mcp_tools "Auto-Promote Commands to MCP Tools"
   verify unit "explicit MCP tool wins over auto-promoted tool with I017"
   verify contract "requires/ensures consistency for command-to-MCP-tool auto-promotion"
 
+  tests ["crates/specforge-registry/tests/surface.rs"]
 }
 
 // ── Dispatch ────────────────────────────────────────────────
@@ -244,6 +249,7 @@ behavior dispatch_surface_command "Dispatch Surface Command" {
   verify unit "exit code, stdout, stderr returned to CLI"
   verify contract "requires/ensures consistency for surface command dispatch"
 
+  tests ["crates/specforge-mcp/tests/surface_wiring.rs"]
 }
 
 behavior dispatch_surface_mcp_tool "Dispatch Surface MCP Tool" {
@@ -291,6 +297,7 @@ behavior dispatch_surface_mcp_tool "Dispatch Surface MCP Tool" {
   verify unit "tool output returned as MCP tool result"
   verify contract "requires/ensures consistency for surface MCP tool dispatch"
 
+  tests ["crates/specforge-mcp/tests/surface_wiring.rs"]
 }
 
 behavior dispatch_surface_mcp_resource "Dispatch Surface MCP Resource" {
@@ -335,6 +342,7 @@ behavior dispatch_surface_mcp_resource "Dispatch Surface MCP Resource" {
   verify unit "resource content and mime_type returned to client"
   verify contract "requires/ensures consistency for surface MCP resource dispatch"
 
+  tests ["crates/specforge-mcp/tests/surface_wiring.rs"]
 }
 
 // ── Sandbox Enforcement ─────────────────────────────────────
@@ -374,6 +382,7 @@ behavior enforce_surface_sandbox "Enforce Surface Sandbox" {
   verify unit "permission denial produces surface_permission_denied event"
   verify contract "requires/ensures consistency for surface sandbox enforcement"
 
+  tests ["crates/specforge-mcp/tests/surface_wiring.rs"]
 }
 
 // ── Configuration ───────────────────────────────────────────
@@ -412,4 +421,5 @@ behavior toggle_surface_contributions "Toggle Surface Contributions" {
   verify unit "re-enabled contribution restored without restart"
   verify contract "requires/ensures consistency for surface contribution toggling"
 
+  tests ["crates/specforge-registry/tests/surface.rs"]
 }

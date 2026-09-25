@@ -66,6 +66,7 @@ behavior load_extension_manifests "Load Extension Manifests" {
   verify integration "two extensions loaded and registries populated without collision"
   verify contract "requires/ensures consistency for extension manifest loading"
 
+  tests ["crates/specforge-cli/tests/extensions.rs"]
 }
 
 // register_extension_entity_types is a thin delegation wrapper that calls
@@ -114,6 +115,7 @@ behavior register_extension_entity_types "Register Extension Entity Types" {
   verify unit "I004 message includes unresolved kind name and suggested extension"
   verify contract "requires/ensures consistency for extension entity type registration"
 
+  tests ["crates/specforge-cli/tests/extensions.rs"]
 }
 
 behavior load_provider_configurations "Load Provider Configurations" {
@@ -151,6 +153,7 @@ behavior load_provider_configurations "Load Provider Configurations" {
   verify unit "no hardcoded provider schemes exist in core"
   verify contract "requires/ensures consistency for provider configuration loading"
 
+  tests ["crates/specforge-registry/tests/provider.rs"]
 }
 
 behavior register_provider_schemes "Register Provider Schemes" {
@@ -195,6 +198,7 @@ behavior register_provider_schemes "Register Provider Schemes" {
   verify integration "Wasm-based provider scheme registered and validates ref"
   verify contract "requires/ensures consistency for provider scheme registration"
 
+  tests ["crates/specforge-registry/tests/provider.rs"]
 }
 
 behavior validate_provider_refs "Validate Provider Refs" {
@@ -229,6 +233,7 @@ behavior validate_provider_refs "Validate Provider Refs" {
   verify unit "no built-in ref validation logic exists in core"
   verify contract "requires/ensures consistency for provider ref validation"
 
+  tests ["crates/specforge-registry/tests/provider.rs"]
 }
 
 // remove_extension is the user-facing CLI entry point for extension removal.
@@ -275,6 +280,7 @@ behavior remove_extension "Remove Extension" {
   verify unit ".spec files are not modified by removal"
   verify contract "requires/ensures consistency for extension removal"
 
+  tests ["crates/specforge-cli/tests/extensions.rs"]
 }
 
 // Read-only query — no event produced.
@@ -305,6 +311,7 @@ behavior list_installed_extensions "List Installed Extensions" {
   verify unit "output order is deterministic"
   verify contract "requires/ensures consistency for extension listing"
 
+  tests ["crates/specforge-cli/tests/extensions.rs"]
 }
 
 // Read-only query — no event produced.
@@ -338,6 +345,7 @@ behavior list_configured_providers "List Configured Providers" {
   verify unit "output order is deterministic"
   verify contract "requires/ensures consistency for provider listing"
 
+  tests ["crates/specforge-registry/tests/provider.rs"]
 }
 
 // Called imperatively by validate_provider_refs (which consumes provider_schemes_registered).
@@ -370,6 +378,7 @@ behavior validate_ref_target_format "Validate Ref Target Format" {
   verify unit "no built-in format patterns exist in core"
   verify contract "requires/ensures consistency for ref target format validation"
 
+  tests ["crates/specforge-cli/tests/registry.rs"]
 }
 
 // Called imperatively by validate_provider_refs (which consumes provider_schemes_registered).
@@ -401,6 +410,7 @@ behavior validate_provider_kinds "Validate Provider Kinds" {
   verify unit "no built-in kind registrations exist in core"
   verify contract "requires/ensures consistency for provider kind validation"
 
+  tests ["crates/specforge-registry/tests/provider.rs"]
 }
 
 // -- Registry Behaviors -----
@@ -444,6 +454,7 @@ behavior resolve_registry_source "Resolve Registry Source" {
   verify integration "unreachable scope-specific registry falls back to next scope"
   verify contract "requires/ensures consistency for registry source resolution"
 
+  tests ["crates/specforge-cli/tests/registry.rs"]
 }
 
 behavior search_registry "Search Registry" {
@@ -487,6 +498,7 @@ behavior search_registry "Search Registry" {
   verify unit "error from one registry does not abort search of others"
   verify contract "requires/ensures consistency for registry search"
 
+  tests ["crates/specforge-cli/tests/registry.rs"]
 }
 
 // CLI entry point: `specforge publish`. Delegates Wasm binary packaging
@@ -528,6 +540,7 @@ behavior publish_to_registry "Publish to Registry" {
   verify unit "unauthenticated publish produces ExtensionError"
   verify contract "requires/ensures consistency for registry publishing"
 
+  tests ["crates/specforge-cli/tests/registry.rs"]
 }
 
 behavior verify_registry_integrity "Verify Registry Integrity" {
@@ -571,6 +584,7 @@ behavior verify_registry_integrity "Verify Registry Integrity" {
   verify unit "verified registry source assigned verified trust level"
   verify contract "requires/ensures consistency for registry integrity verification"
 
+  tests ["crates/specforge-cli/tests/registry.rs"]
 }
 
 behavior configure_registries "Configure Registries" {
@@ -624,6 +638,7 @@ behavior configure_registries "Configure Registries" {
   verify unit "default public registry is accessible without credentials"
   verify contract "requires/ensures consistency for registry configuration"
 
+  tests ["crates/specforge-cli/tests/registry.rs"]
 }
 
 // ── Registry Authentication ──────────────────────────────────
@@ -687,6 +702,7 @@ behavior authenticate_registry_request "Authenticate Registry Request" {
   verify unit "authentication failure (401/403) does not trigger cache fallback"
   verify contract "requires/ensures consistency for registry authentication"
 
+  tests ["crates/specforge-cli/tests/registry.rs"]
 }
 
 behavior retry_registry_request "Retry Registry Request" {
@@ -722,6 +738,7 @@ behavior retry_registry_request "Retry Registry Request" {
   verify unit "max retries exceeded produces final error"
   verify contract "requires/ensures consistency for registry request retry"
 
+  tests ["crates/specforge-cli/tests/registry.rs"]
 }
 
 behavior validate_registry_credentials "Validate Registry Credentials" {
@@ -758,6 +775,7 @@ behavior validate_registry_credentials "Validate Registry Credentials" {
   verify unit "success message includes registry alias and scope"
   verify contract "requires/ensures consistency for registry credential validation"
 
+  tests ["crates/specforge-cli/tests/registry.rs"]
 }
 
 behavior logout_registry "Logout Registry" {
@@ -796,6 +814,7 @@ behavior logout_registry "Logout Registry" {
   verify unit "no network requests made during logout"
   verify contract "requires/ensures consistency for registry logout"
 
+  tests ["crates/specforge-cli/tests/registry.rs"]
 }
 
 behavior generate_keyword_extension_index "Generate Keyword Extension Index" {
@@ -845,6 +864,7 @@ behavior generate_keyword_extension_index "Generate Keyword Extension Index" {
   verify property "index generation accepts configurable registry list"
   verify contract "requires/ensures consistency for keyword extension index generation"
 
+  tests ["crates/specforge-registry/tests/keyword_index.rs"]
 }
 
 behavior support_private_registries "Support Private Registries" {
@@ -884,4 +904,5 @@ behavior support_private_registries "Support Private Registries" {
   // to authenticate_registry_request and retry_registry_request for auth and
   // retry details. This behavior owns the scope_filter and trust_level logic.
 
+  tests ["crates/specforge-cli/tests/registry.rs"]
 }

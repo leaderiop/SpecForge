@@ -35,6 +35,7 @@ behavior format_diagnostics_with_source_context "Format Diagnostics with Source 
   verify unit "multi-line span shows full range"
   verify contract "requires/ensures consistency for diagnostic source context formatting"
 
+  tests ["crates/specforge-emitter/tests/diagnostics.rs"]
 }
 
 behavior provide_did_you_mean_suggestions "Provide Did-You-Mean Suggestions" {
@@ -66,6 +67,7 @@ behavior provide_did_you_mean_suggestions "Provide Did-You-Mean Suggestions" {
   verify unit "suggestion appears in help text"
   verify contract "requires/ensures consistency for did-you-mean suggestions"
 
+  tests ["crates/specforge-emitter/tests/diagnostics.rs"]
 }
 
 behavior aggregate_diagnostic_summary "Aggregate Diagnostic Summary" {
@@ -94,4 +96,5 @@ behavior aggregate_diagnostic_summary "Aggregate Diagnostic Summary" {
   verify unit "summary matches actual diagnostics"
   verify contract "requires/ensures consistency for diagnostic summary aggregation"
 
+  tests ["crates/specforge-emitter/tests/diagnostics.rs"]
 }

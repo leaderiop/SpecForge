@@ -42,6 +42,7 @@ behavior detect_dangling_references "Detect Dangling References" {
   verify unit "empty graph with zero edges produces no dangling reference diagnostic"
   verify contract "requires/ensures consistency for dangling reference detection"
 
+  tests ["crates/specforge-validator/tests/validation.rs"]
 }
 
 behavior detect_duplicate_entity_ids "Detect Duplicate Entity IDs" {
@@ -71,6 +72,7 @@ behavior detect_duplicate_entity_ids "Detect Duplicate Entity IDs" {
   verify unit "E002 includes both source locations"
   verify contract "requires/ensures consistency for duplicate entity ID detection"
 
+  tests ["crates/specforge-validator/tests/validation.rs"]
 }
 
 
@@ -153,6 +155,7 @@ behavior detect_orphan_refs "Detect Orphan Structural Nodes" {
   verify unit "structural node with at least one incoming edge suppresses W012"
   verify contract "requires/ensures consistency for orphan structural node detection"
 
+  tests ["crates/specforge-validator/tests/validation.rs"]
 }
 
 // Core structural validation: checks file existence for ANY field declared as
@@ -213,6 +216,7 @@ behavior validate_file_reference_paths "Validate File Reference Paths" {
   verify unit "relative path resolved from spec file directory"
   verify contract "requires/ensures consistency for file reference validation"
 
+  tests ["crates/specforge-validator/tests/validation.rs"]
 }
 
 // validate_extension_testability moved to behaviors/zero-entity-validation.spec

@@ -224,6 +224,7 @@ behavior provide_mcp_infer_progress_tool "Provide MCP Infer Progress Tool" {
   verify unit "returns summary with unanalyzed files"
   verify unit "detects stale files by content hash"
   verify unit "graceful handling when specforge-infer.json is missing"
+  tests ["crates/specforge-mcp/tests/tools_inference.rs"]
 }
 
 behavior provide_mcp_infer_session_tool "Provide MCP Infer Session Tool" {
@@ -252,6 +253,7 @@ behavior provide_mcp_infer_session_tool "Provide MCP Infer Session Tool" {
   verify unit "mark_analyzed action records file entry"
   verify unit "end action completes session"
   verify unit "creates manifest on first write"
+  tests ["crates/specforge-mcp/tests/tools_inference.rs"]
 }
 
 behavior provide_mcp_infer_gaps_tool "Provide MCP Infer Gaps Tool" {
@@ -281,6 +283,7 @@ behavior provide_mcp_infer_gaps_tool "Provide MCP Infer Gaps Tool" {
   verify unit "excludes test files and build scripts"
   verify unit "returns structured InferenceGap items with file and line"
   verify unit "marks output as approximate"
+  tests ["crates/specforge-mcp/tests/tools_inference.rs"]
 }
 
 // ---------------------------------------------------------------------------
