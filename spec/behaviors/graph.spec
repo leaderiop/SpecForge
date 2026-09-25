@@ -35,6 +35,7 @@ behavior build_in_memory_graph "Build In-Memory Graph" {
   verify unit "edge types match relationship semantics"
   verify contract "requires/ensures consistency for in-memory graph construction"
 
+  tests ["crates/specforge-graph/tests/graph.rs", "crates/specforge-graph/tests/contracts.rs"]
 }
 
 // No produces — passive API behavior, graph mutations are observed via rebuild events
@@ -68,6 +69,7 @@ behavior maintain_mutable_graph "Maintain Mutable Graph" {
   verify unit "graph consistency after batch mutations"
   verify contract "requires/ensures consistency for mutable graph maintenance"
 
+  tests ["crates/specforge-graph/tests/graph.rs", "crates/specforge-graph/tests/contracts.rs"]
 }
 
 behavior compute_subgraph_for_invalidation "Compute Subgraph for Invalidation" {
@@ -103,4 +105,5 @@ behavior compute_subgraph_for_invalidation "Compute Subgraph for Invalidation" {
   verify integration "subgraph rebuild matches full rebuild result"
   verify contract "requires/ensures consistency for subgraph invalidation"
 
+  tests ["crates/specforge-graph/tests/graph.rs", "crates/specforge-graph/tests/contracts.rs"]
 }

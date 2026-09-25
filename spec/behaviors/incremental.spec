@@ -39,6 +39,7 @@ behavior watch_file_system_for_changes "Watch File System for Changes" {
   verify integration "watch detects changes within 100ms"
   verify contract    "requires/ensures consistency for file system watching"
 
+  tests ["crates/specforge-watch/tests/pipeline.rs", "crates/specforge-watch/tests/delta.rs", "crates/specforge-watch/tests/watcher.rs", "crates/specforge-watch/tests/debounce.rs"]
 }
 
 behavior invalidate_changed_files "Invalidate Changed Files" {
@@ -80,6 +81,7 @@ behavior invalidate_changed_files "Invalidate Changed Files" {
   verify unit "new file entities added to graph"
   verify contract "requires/ensures consistency for file invalidation"
 
+  tests ["crates/specforge-watch/tests/pipeline.rs", "crates/specforge-watch/tests/delta.rs", "crates/specforge-watch/tests/watcher.rs", "crates/specforge-watch/tests/debounce.rs"]
 }
 
 behavior rebuild_affected_subgraph "Rebuild Affected Subgraph" {
@@ -132,6 +134,7 @@ behavior rebuild_affected_subgraph "Rebuild Affected Subgraph" {
   verify unit        "debug --verify-incremental performs cold rebuild comparison"
   verify contract "requires/ensures consistency for affected subgraph rebuild"
 
+  tests ["crates/specforge-watch/tests/pipeline.rs", "crates/specforge-watch/tests/delta.rs", "crates/specforge-watch/tests/watcher.rs", "crates/specforge-watch/tests/debounce.rs"]
 }
 
 behavior emit_incremental_diagnostics "Emit Incremental Diagnostics" {
@@ -186,6 +189,7 @@ behavior emit_incremental_diagnostics "Emit Incremental Diagnostics" {
   verify performance "file change to diagnostics emitted within 100ms"
   verify contract    "requires/ensures consistency for incremental diagnostics"
 
+  tests ["crates/specforge-watch/tests/pipeline.rs", "crates/specforge-watch/tests/delta.rs", "crates/specforge-watch/tests/watcher.rs", "crates/specforge-watch/tests/debounce.rs"]
 }
 
 behavior debounce_file_changes "Debounce File Changes" {
@@ -220,6 +224,7 @@ behavior debounce_file_changes "Debounce File Changes" {
   verify unit "single isolated change triggers after debounce window"
   verify contract "requires/ensures consistency for file change debouncing"
 
+  tests ["crates/specforge-watch/tests/pipeline.rs", "crates/specforge-watch/tests/delta.rs", "crates/specforge-watch/tests/watcher.rs", "crates/specforge-watch/tests/debounce.rs"]
 }
 
 behavior track_import_dag_incrementally "Track Import DAG Incrementally" {
@@ -258,6 +263,7 @@ behavior track_import_dag_incrementally "Track Import DAG Incrementally" {
   verify property "incremental import DAG matches full rebuild import DAG"
   verify contract "requires/ensures consistency for incremental import DAG tracking"
 
+  tests ["crates/specforge-watch/tests/pipeline.rs", "crates/specforge-watch/tests/delta.rs", "crates/specforge-watch/tests/watcher.rs", "crates/specforge-watch/tests/debounce.rs"]
 }
 
 // ── Incremental Graph Delta ───────────────────────────────────
@@ -307,6 +313,7 @@ behavior compute_graph_delta "Compute Graph Delta" {
   verify unit "delta_include_values=false omits old_value and new_value"
   verify contract "requires/ensures consistency for graph delta computation"
 
+  tests ["crates/specforge-watch/tests/pipeline.rs", "crates/specforge-watch/tests/delta.rs", "crates/specforge-watch/tests/watcher.rs", "crates/specforge-watch/tests/debounce.rs"]
 }
 
 behavior dispatch_incremental_validators "Dispatch Incremental Validators" {
@@ -350,6 +357,7 @@ behavior dispatch_incremental_validators "Dispatch Incremental Validators" {
   verify unit "mixed incremental and non-incremental kinds dispatch separately"
   verify contract "requires/ensures consistency for incremental dispatch"
 
+  tests ["crates/specforge-watch/tests/pipeline.rs", "crates/specforge-watch/tests/delta.rs", "crates/specforge-watch/tests/watcher.rs", "crates/specforge-watch/tests/debounce.rs"]
 }
 
 behavior notify_delta_subscribers "Notify Delta Subscribers" {
@@ -388,6 +396,7 @@ behavior notify_delta_subscribers "Notify Delta Subscribers" {
   verify unit "slow subscriber does not block pipeline"
   verify contract "requires/ensures consistency for delta subscriber notification"
 
+  tests ["crates/specforge-watch/tests/pipeline.rs", "crates/specforge-watch/tests/delta.rs", "crates/specforge-watch/tests/watcher.rs", "crates/specforge-watch/tests/debounce.rs"]
 }
 
 behavior validate_delta_correctness "Validate Delta Correctness" {
@@ -428,4 +437,5 @@ behavior validate_delta_correctness "Validate Delta Correctness" {
   verify unit "successful validation emits delta_validation_passed with node and edge counts"
   verify contract "requires/ensures consistency for delta correctness validation"
 
+  tests ["crates/specforge-watch/tests/pipeline.rs", "crates/specforge-watch/tests/delta.rs", "crates/specforge-watch/tests/watcher.rs", "crates/specforge-watch/tests/debounce.rs"]
 }

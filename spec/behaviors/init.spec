@@ -55,6 +55,7 @@ behavior scaffold_new_project "Scaffold New Project" {
   verify integration "scaffolded project passes init-check-export cycle"
   verify contract "requires/ensures consistency for new project scaffolding"
 
+  tests ["crates/specforge-cli/tests/init.rs"]
 }
 
 // Sub-step of scaffold_new_project — not an independent entry point
@@ -101,6 +102,7 @@ behavior scaffold_starter_spec_file "Scaffold Starter Spec File" {
   verify integration "extension-contributed starter file passes specforge check with zero errors"
   verify contract "requires/ensures consistency for starter spec file scaffolding"
 
+  tests ["crates/specforge-cli/tests/init.rs"]
 }
 
 // Sub-step of scaffold_new_project — does not produce an independent event.
@@ -151,6 +153,7 @@ behavior interactive_extension_selection "Interactive Extension Selection" {
   verify unit "missing registry and bundled index proceeds with zero extensions and info diagnostic"
   verify contract "requires/ensures consistency for interactive extension selection"
 
+  tests ["crates/specforge-cli/tests/init.rs"]
 }
 
 behavior non_interactive_init "Non-Interactive Init" {
@@ -202,6 +205,7 @@ behavior non_interactive_init "Non-Interactive Init" {
   verify integration "non_interactive_init completes full init-check-export cycle in under 60 seconds"
   verify contract "requires/ensures consistency for non-interactive init"
 
+  tests ["crates/specforge-cli/tests/init.rs"]
 }
 
 // L7: Lock file interaction (download, integrity checks, version pinning) is
@@ -256,6 +260,7 @@ behavior add_extension_to_existing_project "Add Extension to Existing Project" {
   verify integration "add extension preserves all other config fields"
   verify contract "requires/ensures consistency for adding extension to existing project"
 
+  tests ["crates/specforge-cli/tests/init.rs"]
 }
 
 behavior graceful_zero_extension_init "Graceful Zero-Extension Init" {
@@ -298,6 +303,7 @@ behavior graceful_zero_extension_init "Graceful Zero-Extension Init" {
   verify unit "zero-extension config produces empty extensions array []"
   verify contract "requires/ensures consistency for zero-extension init"
 
+  tests ["crates/specforge-cli/tests/init.rs"]
 }
 
 behavior find_project_root "Find Project Root" {
@@ -342,4 +348,5 @@ behavior find_project_root "Find Project Root" {
   verify unit "no config found returns None"
   verify performance "directory traversal completes in under 100ms for 20-level deep hierarchy"
   verify contract "requires/ensures consistency for project root discovery"
+  tests ["crates/specforge-cli/tests/init.rs"]
 }

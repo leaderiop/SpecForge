@@ -61,6 +61,7 @@ behavior detect_format_version_mismatch "Detect Format Version Mismatch" {
   verify unit "unsupported format version produces E015 with upgrade guidance"
   verify contract "requires/ensures consistency for format version detection"
 
+  tests ["crates/specforge-cli/tests/migrate.rs"]
 }
 
 // Transform chaining strategy: when migrating across multiple format versions
@@ -132,6 +133,7 @@ behavior migrate_spec_files_in_place "Migrate Spec Files In Place" {
   verify unit "pre-migration snapshot captured before migration_starting event"
   verify unit "files already at target version are skipped with skippedCount incremented"
 
+  tests ["crates/specforge-cli/tests/migrate.rs"]
 }
 
 behavior generate_migration_diff "Generate Migration Diff" {
@@ -174,6 +176,7 @@ behavior generate_migration_diff "Generate Migration Diff" {
   verify unit "json format diff produces structured output with file-level entries"
   verify contract "requires/ensures consistency for migration diff generation"
 
+  tests ["crates/specforge-cli/tests/migrate.rs"]
 }
 
 behavior validate_post_migration_integrity "Validate Post-Migration Integrity" {
@@ -216,6 +219,7 @@ behavior validate_post_migration_integrity "Validate Post-Migration Integrity" {
   verify unit "new diagnostics from migration reported"
   verify contract "requires/ensures consistency for post-migration integrity validation"
 
+  tests ["crates/specforge-cli/tests/migrate.rs"]
 }
 
 behavior capture_pre_migration_schema_snapshot "Capture Pre-Migration Schema Snapshot" {
@@ -251,6 +255,7 @@ behavior capture_pre_migration_schema_snapshot "Capture Pre-Migration Schema Sna
   verify unit "snapshot persists in memory across migration_starting to extension_migration_hooks_complete"
   verify contract "requires/ensures consistency for pre-migration schema capture"
 
+  tests ["crates/specforge-cli/tests/migrate.rs"]
 }
 
 behavior verify_graph_protocol_compatibility_after_migration "Verify Graph Protocol Compatibility After Migration" {
@@ -322,6 +327,7 @@ behavior verify_graph_protocol_compatibility_after_migration "Verify Graph Proto
   verify unit "cross-extension reference broken by migration produces diagnostic"
   verify contract "requires/ensures consistency for graph protocol compatibility verification"
 
+  tests ["crates/specforge-cli/tests/migrate.rs"]
 }
 
 behavior rollback_failed_migration "Rollback Failed Migration" {
@@ -372,6 +378,7 @@ behavior rollback_failed_migration "Rollback Failed Migration" {
   verify unit "summary reports restored, skipped, and failed counts"
   verify contract "requires/ensures consistency for migration rollback"
 
+  tests ["crates/specforge-cli/tests/migrate.rs"]
 }
 
 behavior invoke_extension_migration_hooks "Invoke Extension Migration Hooks" {
@@ -452,4 +459,5 @@ behavior invoke_extension_migration_hooks "Invoke Extension Migration Hooks" {
   verify unit "validation runs once after both core and extension hooks complete"
   verify contract "requires/ensures consistency for extension migration hooks"
 
+  tests ["crates/specforge-cli/tests/migrate.rs"]
 }

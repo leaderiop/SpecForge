@@ -41,6 +41,7 @@ behavior format_spec_files "Format Spec Files" {
   verify integration "formatting all files in spec/ directory succeeds"
   verify contract "requires/ensures consistency for spec file formatting"
 
+  tests ["crates/specforge-cli/tests/format.rs"]
 }
 
 behavior preserve_comments "Preserve Comments During Formatting" {
@@ -72,6 +73,7 @@ behavior preserve_comments "Preserve Comments During Formatting" {
   verify property "no comments are lost after formatting"
   verify contract "requires/ensures consistency for comment preservation"
 
+  tests ["crates/specforge-cli/tests/format.rs"]
 }
 
 behavior check_formatting "Check Formatting Without Modifying Files" {
@@ -104,6 +106,7 @@ behavior check_formatting "Check Formatting Without Modifying Files" {
   verify unit "check mode writes no files to disk"
   verify contract "requires/ensures consistency for formatting check"
 
+  tests ["crates/specforge-cli/tests/format.rs"]
 }
 
 behavior show_formatting_diff "Show Formatting Diff" {
@@ -135,6 +138,7 @@ behavior show_formatting_diff "Show Formatting Diff" {
   verify unit "unchanged files produce no diff output"
   verify contract "requires/ensures consistency for formatting diff"
 
+  tests ["crates/specforge-cli/tests/format.rs"]
 }
 
 behavior format_from_stdin "Format from Standard Input" {
@@ -171,6 +175,7 @@ behavior format_from_stdin "Format from Standard Input" {
   verify property "stdin formatting converges to canonical form"
   verify contract "requires/ensures consistency for stdin formatting"
 
+  tests ["crates/specforge-cli/tests/format.rs"]
 }
 
 behavior load_format_config "Load Format Configuration" {
@@ -209,6 +214,7 @@ behavior load_format_config "Load Format Configuration" {
   verify unit "missing config file uses defaults"
   verify contract "requires/ensures consistency for format config loading"
 
+  tests ["crates/specforge-cli/tests/format.rs"]
 }
 
 behavior apply_format_rules "Apply Format Rules" {
@@ -257,6 +263,7 @@ behavior apply_format_rules "Apply Format Rules" {
   verify property "two files differing only in whitespace produce identical output after formatting"
   verify contract "requires/ensures consistency for format rule application"
 
+  tests ["crates/specforge-cli/tests/format.rs"]
 }
 
 behavior maintain_format_idempotency "Maintain Format Idempotency" {
@@ -286,6 +293,7 @@ behavior maintain_format_idempotency "Maintain Format Idempotency" {
   verify unit "wrapping decisions are stable across runs"
   verify contract "requires/ensures consistency for format idempotency"
 
+  tests ["crates/specforge-cli/tests/format.rs"]
 }
 
 behavior lsp_format_document "LSP Format Document" {
@@ -326,6 +334,7 @@ behavior lsp_format_document "LSP Format Document" {
   verify performance "formats document within 50ms for files under 1000 lines"
   verify contract "requires/ensures consistency for LSP document formatting"
 
+  tests ["crates/specforge-cli/tests/format.rs"]
 }
 
 behavior lsp_format_range "LSP Format Range" {
@@ -364,6 +373,7 @@ behavior lsp_format_range "LSP Format Range" {
   verify performance "formats range within 20ms for ranges under 200 lines"
   verify contract "requires/ensures consistency for LSP range formatting"
 
+  tests ["crates/specforge-cli/tests/format.rs"]
 }
 
 behavior lsp_respect_editor_config "LSP Respect Editor Config" {
@@ -391,6 +401,7 @@ behavior lsp_respect_editor_config "LSP Respect Editor Config" {
   verify unit "config file takes precedence over editor settings"
   verify contract "requires/ensures consistency for editor config respect"
 
+  tests ["crates/specforge-cli/tests/format.rs"]
 }
 
 behavior format_with_parse_errors "Format Files with Parse Errors" {
@@ -434,6 +445,7 @@ behavior format_with_parse_errors "Format Files with Parse Errors" {
   verify unit "diagnostic lists files with parse errors and error line ranges"
   verify contract "requires/ensures consistency for formatting with parse errors"
 
+  tests ["crates/specforge-cli/tests/format.rs"]
 }
 
 behavior discover_format_targets "Discover Format Targets" {
@@ -470,4 +482,5 @@ behavior discover_format_targets "Discover Format Targets" {
   verify unit "non-.spec files are skipped with no error"
   verify contract "requires/ensures consistency for format target discovery"
 
+  tests ["crates/specforge-cli/tests/format.rs"]
 }

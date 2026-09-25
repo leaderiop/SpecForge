@@ -37,6 +37,7 @@ behavior parse_spec_file_to_ast "Parse Spec File to AST" {
   verify unit "AST source spans match original token positions"
   verify contract "requires/ensures consistency for spec file parsing"
 
+  tests ["crates/specforge-parser/tests/parse_test.rs", "crates/specforge-parser/tests/snapshot_tests.rs", "crates/specforge-parser/tests/contracts.rs"]
 }
 
 // The following behaviors execute as part of parse_spec_file_to_ast
@@ -70,6 +71,7 @@ behavior recover_from_syntax_errors "Recover From Syntax Errors" {
   verify unit "valid blocks after syntax error are still parsed"
   verify contract "requires/ensures consistency for syntax error recovery"
 
+  tests ["crates/specforge-parser/tests/parse_test.rs", "crates/specforge-parser/tests/snapshot_tests.rs", "crates/specforge-parser/tests/contracts.rs"]
 }
 
 behavior parse_use_imports "Parse Use Imports" {
@@ -99,6 +101,7 @@ behavior parse_use_imports "Parse Use Imports" {
   verify unit "reject use import with .spec extension"
   verify contract "requires/ensures consistency for use import parsing"
 
+  tests ["crates/specforge-parser/tests/parse_test.rs", "crates/specforge-parser/tests/snapshot_tests.rs", "crates/specforge-parser/tests/contracts.rs"]
 }
 
 behavior parse_all_block_types "Parse All Block Types" {
@@ -140,6 +143,7 @@ behavior parse_all_block_types "Parse All Block Types" {
   verify unit "parse string field values correctly"
   verify contract "requires/ensures consistency for block type parsing"
 
+  tests ["crates/specforge-parser/tests/parse_test.rs", "crates/specforge-parser/tests/snapshot_tests.rs", "crates/specforge-parser/tests/contracts.rs"]
 }
 
 behavior parse_triple_quoted_strings "Parse Triple-Quoted Strings" {
@@ -171,6 +175,7 @@ behavior parse_triple_quoted_strings "Parse Triple-Quoted Strings" {
   verify unit "recover from unclosed triple-quoted string with diagnostic"
   verify contract "requires/ensures consistency for triple-quoted string parsing"
 
+  tests ["crates/specforge-parser/tests/parse_test.rs", "crates/specforge-parser/tests/snapshot_tests.rs", "crates/specforge-parser/tests/contracts.rs"]
 }
 
 behavior provide_syntax_highlighting_queries "Provide Syntax Highlighting Queries" {
@@ -194,6 +199,7 @@ behavior provide_syntax_highlighting_queries "Provide Syntax Highlighting Querie
   verify unit "highlights.scm captures generic_entity_block kind as @keyword"
   verify integration "highlights.scm loads in Tree-sitter runtime and matches expected captures"
 
+  tests ["crates/specforge-parser/tests/parse_test.rs", "crates/specforge-parser/tests/snapshot_tests.rs", "crates/specforge-parser/tests/contracts.rs"]
 }
 
 behavior provide_code_folding_queries "Provide Code Folding Queries" {
@@ -214,6 +220,7 @@ behavior provide_code_folding_queries "Provide Code Folding Queries" {
   verify unit "folds.scm marks ref blocks as collapsible regions"
   verify integration "folds.scm loads in Tree-sitter runtime and produces expected fold regions"
 
+  tests ["crates/specforge-parser/tests/parse_test.rs", "crates/specforge-parser/tests/snapshot_tests.rs", "crates/specforge-parser/tests/contracts.rs"]
 }
 
 // Phase 1 (parsing) treats all field values as raw strings; Phase 2 (semantic
@@ -255,6 +262,7 @@ behavior parse_verify_statements "Parse Verify Statements" {
   verify unit "verify kind and description extracted correctly"
   verify contract "requires/ensures consistency for verify statement parsing"
 
+  tests ["crates/specforge-parser/tests/parse_test.rs", "crates/specforge-parser/tests/snapshot_tests.rs", "crates/specforge-parser/tests/contracts.rs"]
 }
 
 behavior parse_ref_blocks "Parse Ref Blocks" {
@@ -290,6 +298,7 @@ behavior parse_ref_blocks "Parse Ref Blocks" {
   verify unit "reject ref block with missing scheme or identifier"
   verify contract "requires/ensures consistency for ref block parsing"
 
+  tests ["crates/specforge-parser/tests/parse_test.rs", "crates/specforge-parser/tests/snapshot_tests.rs", "crates/specforge-parser/tests/contracts.rs"]
 }
 
 behavior parse_define_blocks "Parse Define Blocks" {
@@ -322,6 +331,7 @@ behavior parse_define_blocks "Parse Define Blocks" {
   verify unit "define block parsed without extension knowledge"
   verify contract "requires/ensures consistency for define block parsing"
 
+  tests ["crates/specforge-parser/tests/parse_test.rs", "crates/specforge-parser/tests/snapshot_tests.rs", "crates/specforge-parser/tests/contracts.rs"]
 }
 
 behavior provide_indentation_queries "Provide Indentation Queries" {
@@ -341,6 +351,7 @@ behavior provide_indentation_queries "Provide Indentation Queries" {
   verify unit "indents.scm dedents on closing bracket"
   verify integration "indents.scm loads in Tree-sitter runtime and produces expected indent/dedent"
 
+  tests ["crates/specforge-parser/tests/parse_test.rs", "crates/specforge-parser/tests/snapshot_tests.rs", "crates/specforge-parser/tests/contracts.rs"]
 }
 
 // -- Extension Body Parsing ---------------------------------------------------
@@ -380,4 +391,5 @@ behavior delegate_body_parsing_to_extension "Delegate Body Parsing to Extension"
   verify unit "structured fields replace raw body in FieldMap"
   verify contract "requires/ensures consistency for body parsing delegation"
 
+  tests ["crates/specforge-parser/tests/parse_test.rs", "crates/specforge-parser/tests/snapshot_tests.rs", "crates/specforge-parser/tests/contracts.rs"]
 }

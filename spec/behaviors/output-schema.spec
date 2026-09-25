@@ -51,6 +51,7 @@ behavior generate_schema_from_registries "Generate Schema From Registries" {
   verify unit "zero extensions produces valid empty schema"
   verify contract "requires/ensures consistency for schema generation from registries"
 
+  tests ["crates/specforge-cli/tests/e2e_schema.rs"]
 }
 
 behavior embed_schema_in_export "Embed Schema in Export" {
@@ -90,6 +91,7 @@ behavior embed_schema_in_export "Embed Schema in Export" {
   verify unit "--no-schema suppresses schema and keeps format_version 1.0"
   verify contract "requires/ensures consistency for schema embedding in export"
 
+  tests ["crates/specforge-cli/tests/e2e_schema.rs"]
 }
 
 behavior persist_schema_cache "Persist Schema Cache" {
@@ -125,6 +127,7 @@ behavior persist_schema_cache "Persist Schema Cache" {
   verify unit "cache updated even when no JSON export is performed"
   verify contract "requires/ensures consistency for schema cache persistence"
 
+  tests ["crates/specforge-cli/tests/e2e_schema.rs"]
 }
 
 behavior serve_schema_resource "Serve Schema Resource" {
@@ -159,6 +162,7 @@ behavior serve_schema_resource "Serve Schema Resource" {
   verify unit "schema reflects current compilation state"
   verify contract "requires/ensures consistency for schema resource serving"
 
+  tests ["crates/specforge-cli/tests/e2e_schema.rs"]
 }
 
 // ── MCP Graph Resources (Principle 3: agents are first-class consumers) ──
@@ -220,6 +224,7 @@ behavior serve_graph_resource "Serve Graph Resource via MCP" {
   verify unit "compilation failure returns error resource with diagnostic summary"
   verify contract "requires/ensures consistency for MCP graph resource serving"
 
+  tests ["crates/specforge-cli/tests/e2e_schema.rs"]
 }
 
 // ── Graph Protocol Versioning ─────────────────────────────────────
@@ -263,6 +268,7 @@ behavior negotiate_schema_version "Negotiate Schema Version" {
   verify unit "schema_version MCP query parameter selects requested version"
   verify contract "requires/ensures consistency for schema version negotiation"
 
+  tests ["crates/specforge-cli/tests/e2e_schema.rs"]
 }
 
 behavior detect_breaking_schema_changes "Detect Breaking Schema Changes" {
@@ -315,6 +321,7 @@ behavior detect_breaking_schema_changes "Detect Breaking Schema Changes" {
   verify unit "missing cache with prior exports emits I016 info diagnostic"
   verify contract "requires/ensures consistency for breaking schema change detection"
 
+  tests ["crates/specforge-cli/tests/e2e_schema.rs"]
 }
 
 behavior compute_schema_version "Compute Schema Version" {
@@ -354,6 +361,7 @@ behavior compute_schema_version "Compute Schema Version" {
   verify unit "field metadata change triggers patch version bump"
   verify contract "requires/ensures consistency for schema version computation"
 
+  tests ["crates/specforge-cli/tests/e2e_schema.rs"]
 }
 
 behavior publish_schema_specification "Publish Schema Specification" {
@@ -394,6 +402,7 @@ behavior publish_schema_specification "Publish Schema Specification" {
   verify unit "published schema validates known-good export"
   verify contract "requires/ensures consistency for schema specification publication"
 
+  tests ["crates/specforge-cli/tests/e2e_schema.rs"]
 }
 
 // Entity embeddings moved to spec/extensions/embeddings/behaviors.spec

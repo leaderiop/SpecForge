@@ -52,6 +52,7 @@ behavior serialize_json_graph "Serialize JSON Graph" {
   verify integration "structural-only graph (zero extensions) produces valid Graph Protocol JSON with raw keywords in kind field"
   verify contract "requires/ensures consistency for JSON graph serialization"
 
+  tests ["crates/specforge-cli/tests/export.rs"]
 }
 
 // P7 Justification: DOT serialization is domain-agnostic graph visualization.
@@ -94,6 +95,7 @@ behavior serialize_dot_visualization "Serialize DOT Visualization" {
   verify unit "node shapes use extension-defined dot_shape"
   verify contract "requires/ensures consistency for DOT visualization"
 
+  tests ["crates/specforge-cli/tests/export.rs"]
 }
 
 behavior compute_traceability_chain "Compute Traceability Chain" {
@@ -131,6 +133,7 @@ behavior compute_traceability_chain "Compute Traceability Chain" {
   verify unit "missing link in chain is flagged"
   verify contract "requires/ensures consistency for traceability chain computation"
 
+  tests ["crates/specforge-cli/tests/export.rs"]
 }
 
 // CLI query command (specforge stats) — no event produced. Output is terminal,
@@ -171,6 +174,7 @@ behavior compute_project_statistics "Compute Project Statistics" {
   verify unit "coverage is 0% when testable_entity_count is zero"
   verify contract "requires/ensures consistency for project statistics computation"
 
+  tests ["crates/specforge-cli/tests/export.rs"]
 }
 
 behavior print_diagnostics_structured "Print Diagnostics Structured" {
@@ -201,6 +205,7 @@ behavior print_diagnostics_structured "Print Diagnostics Structured" {
   verify unit "suggestion is displayed when available"
   verify contract "requires/ensures consistency for structured diagnostic printing"
 
+  tests ["crates/specforge-cli/tests/export.rs"]
 }
 
 behavior exit_code_reflects_diagnostic_severity "Exit Code Reflects Diagnostic Severity" {
@@ -231,6 +236,7 @@ behavior exit_code_reflects_diagnostic_severity "Exit Code Reflects Diagnostic S
   verify unit "exit 1 with warnings in strict mode"
   verify contract "requires/ensures consistency for exit code severity mapping"
 
+  tests ["crates/specforge-cli/tests/export.rs"]
 }
 
 behavior serialize_traceability_data "Serialize Traceability Data" {
@@ -265,6 +271,7 @@ behavior serialize_traceability_data "Serialize Traceability Data" {
   verify unit "output conforms to Graph Protocol schema"
   verify contract "requires/ensures consistency for traceability data serialization"
 
+  tests ["crates/specforge-cli/tests/export.rs"]
 }
 
 behavior validate_agent_plan "Validate Agent Implementation Plan" {
@@ -307,6 +314,7 @@ behavior validate_agent_plan "Validate Agent Implementation Plan" {
   verify unit "output is structured JSON"
   verify contract "requires/ensures consistency for agent plan validation"
 
+  tests ["crates/specforge-cli/tests/export.rs"]
 }
 
 // render_index_files and selective_render_by_entity_type moved to
@@ -341,6 +349,7 @@ behavior deterministic_output "Deterministic Output" {
   verify unit "output contains no timestamps or non-deterministic values"
   verify contract "requires/ensures consistency for deterministic output"
 
+  tests ["crates/specforge-cli/tests/export.rs"]
 }
 
 behavior check_mode_for_ci "Check Mode for CI" {
@@ -372,6 +381,7 @@ behavior check_mode_for_ci "Check Mode for CI" {
   verify integration "check mode works in CI environment"
   verify contract "requires/ensures consistency for CI check mode"
 
+  tests ["crates/specforge-cli/tests/export.rs"]
 }
 
 behavior export_diagnostics_as_json "Export Diagnostics as JSON" {
@@ -409,6 +419,7 @@ behavior export_diagnostics_as_json "Export Diagnostics as JSON" {
   verify unit "suggestion field included when available"
   verify contract "requires/ensures consistency for JSON diagnostic export"
 
+  tests ["crates/specforge-cli/tests/export.rs"]
 }
 
 // ── Agent-Optimized Export (Principle 3: agents are first-class consumers) ──
@@ -458,6 +469,7 @@ behavior export_agent_context_format "Export Agent Context Format" {
   verify unit "output includes schema_version field"
   verify contract "requires/ensures consistency for agent context export"
 
+  tests ["crates/specforge-cli/tests/export.rs"]
 }
 
 behavior export_agent_brief_format "Export Agent Brief Format" {
@@ -493,6 +505,7 @@ behavior export_agent_brief_format "Export Agent Brief Format" {
   verify unit "output includes schema_version field"
   verify contract "requires/ensures consistency for agent brief export"
 
+  tests ["crates/specforge-cli/tests/export.rs"]
 }
 
 behavior export_agent_graph_format "Export Agent Graph Format" {
@@ -535,6 +548,7 @@ behavior export_agent_graph_format "Export Agent Graph Format" {
   verify unit "output includes schema_version field"
   verify integration "structural-only graph exports valid JSON with raw keyword strings as entity kinds"
   verify contract "requires/ensures consistency for agent graph export"
+  tests ["crates/specforge-cli/tests/export.rs"]
 }
 
 behavior query_graph_multi_resolution "Query Graph at Multiple Resolutions" {
@@ -580,6 +594,7 @@ behavior query_graph_multi_resolution "Query Graph at Multiple Resolutions" {
   verify property "querying same entity at same depth produces identical subgraph"
   verify contract "requires/ensures consistency for multi-resolution graph query"
 
+  tests ["crates/specforge-cli/tests/export.rs"]
 }
 
 // ── Token Economics (Principle 3: agents are first-class consumers) ────
@@ -631,4 +646,5 @@ behavior enforce_token_budget "Enforce Token Budget" {
   verify unit "error strategy rejects export exceeding budget"
   verify contract "requires/ensures consistency for token budget enforcement"
 
+  tests ["crates/specforge-cli/tests/export.rs"]
 }
