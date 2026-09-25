@@ -76,6 +76,7 @@ pub enum Expr {
     Add(Box<SpannedExpr>, Box<SpannedExpr>),
     Sub(Box<SpannedExpr>, Box<SpannedExpr>),
     Neg(Box<SpannedExpr>),
+    Not(Box<SpannedExpr>),
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize)]
@@ -98,6 +99,83 @@ impl std::fmt::Display for ExprError {
 }
 
 impl std::error::Error for ExprError {}
+
+impl SpannedExpr {
+    /// Binding strength for parenthesization when rendering.
+    fn precedence(&self) -> u8 {
+        match &self.expr {
+            Expr::Or(_, _) => 1,
+            Expr::And(_, _) => 2,
+            Expr::Cmp(_, _, _) => 3,
+            Expr::Add(_, _) | Expr::Sub(_, _) => 4,
+            Expr::Neg(_) | Expr::Not(_) => 5,
+            Expr::Num(_, _) | Expr::Var(_) => 6,
+        }
+    }
+
+    fn render(&self, parent: u8, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        if self.precedence() < parent {
+            write!(f, "(")?;
+            self.render_inner(f)?;
+            write!(f, ")")
+        } else {
+            self.render_inner(f)
+        }
+    }
+
+    fn render_inner(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match &self.expr {
+            Expr::Num(v, unit) => {
+                if v.fract() == 0.0 {
+                    write!(f, "{}", *v as i64)?;
+                } else {
+                    write!(f, "{v}")?;
+                }
+                write!(f, "{unit}")
+            }
+            Expr::Var(name) => write!(f, "{name}"),
+            Expr::Cmp(op, l, r) => {
+                l.render(4, f)?;
+                write!(f, " {} ", op.as_str())?;
+                r.render(4, f)
+            }
+            Expr::And(l, r) => {
+                l.render(2, f)?;
+                write!(f, " and ")?;
+                r.render(3, f)
+            }
+            Expr::Or(l, r) => {
+                l.render(1, f)?;
+                write!(f, " or ")?;
+                r.render(2, f)
+            }
+            Expr::Add(l, r) => {
+                l.render(4, f)?;
+                write!(f, " + ")?;
+                r.render(5, f)
+            }
+            Expr::Sub(l, r) => {
+                l.render(4, f)?;
+                write!(f, " - ")?;
+                r.render(5, f)
+            }
+            Expr::Neg(e) => {
+                write!(f, "-")?;
+                e.render(5, f)
+            }
+            Expr::Not(e) => {
+                write!(f, "not ")?;
+                e.render(5, f)
+            }
+        }
+    }
+}
+
+impl std::fmt::Display for SpannedExpr {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        self.render(0, f)
+    }
+}
 
 impl SpannedExpr {
     /// Best-effort mapping to a file span, given the origin (1-based line,
@@ -547,6 +625,24 @@ impl Parser {
                 })
             }
             Some(SpannedTok {
+                tok: Tok::Not,
+                start_line,
+                start_col,
+                ..
+            }) => {
+                let inner = self.parse_primary()?;
+                let span = ExprSpan {
+                    start_line,
+                    start_col,
+                    end_line: inner.span.end_line,
+                    end_col: inner.span.end_col,
+                };
+                Ok(SpannedExpr {
+                    expr: Expr::Not(Box::new(inner)),
+                    span,
+                })
+            }
+            Some(SpannedTok {
                 tok: Tok::LParen,
                 start_line,
                 start_col,
@@ -737,6 +833,25 @@ mod tests {
 
         let err = parse_expression("a < 10.5.5").unwrap_err();
         assert!(err.message.starts_with("unexpected character"));
+    }
+
+    #[test]
+    fn not_takes_primary() {
+        let e = parse_ok("not (a or b)");
+        assert!(matches!(e.expr, Expr::Not(_)));
+    }
+
+    #[test]
+    fn display_renders_minimal_parens() {
+        assert_eq!(parse_ok("a < 10 and b > 5").to_string(), "a < 10 and b > 5");
+        assert_eq!(parse_ok("(a or b) and c").to_string(), "(a or b) and c");
+        assert_eq!(parse_ok("a or b and c").to_string(), "a or b and c");
+        assert_eq!(parse_ok("not (a or b)").to_string(), "not (a or b)");
+        assert_eq!(parse_ok("100ms").to_string(), "100ms");
+        assert_eq!(
+            parse_ok("peak + cache <= 64MB").to_string(),
+            "peak + cache <= 64MB"
+        );
     }
 
     #[test]

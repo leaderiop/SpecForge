@@ -175,6 +175,13 @@ fn format_field_value(fv: &FieldValue) -> String {
             format!("\"{}\"", truncated)
         }
         FieldValue::Identifier(s) => format!("`{}`", s),
+        FieldValue::Expression(exprs) => {
+            if exprs.len() == 1 {
+                format!("expr {{ {} }}", exprs[0])
+            } else {
+                format!("expr {{ {} bounds }}", exprs.len())
+            }
+        }
         FieldValue::Integer(n) => n.to_string(),
         FieldValue::Boolean(b) => b.to_string(),
         FieldValue::Date(d) => d.clone(),

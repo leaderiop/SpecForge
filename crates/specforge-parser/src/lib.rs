@@ -1,5 +1,5 @@
-mod ast;
-mod expr;
+pub mod ast;
+pub mod expr;
 mod parse;
 
 pub use ast::{

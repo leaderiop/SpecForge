@@ -246,11 +246,7 @@ journey j1 "Dev Flow" {
     channels [cli]
     features [f1]
     description "Developer uses CLI"
-    flow [
-        "Open CLI"
-        "Run command"
-        "See output"
-    ]
+    flow ["Open CLI", "Run command", "See output"]
 }
 
 module mod1 "Core Module" {

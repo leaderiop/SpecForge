@@ -1,6 +1,8 @@
 use serde::Serialize;
 use specforge_common::{SourceSpan, Sym};
 
+use crate::expr::SpannedExpr;
+
 #[derive(Debug, Clone, Serialize)]
 pub struct SpecFile {
     pub path: Sym,
@@ -119,6 +121,9 @@ pub enum FieldValue {
     MixedList(Vec<FieldValue>),
     Block(FieldMap),
     VerifyList(Vec<VerifyStatement>),
+    /// First-class formal expressions: `metric expr { a < 10ms, b > 5 }`.
+    /// Spans are absolute file positions.
+    Expression(Vec<SpannedExpr>),
     Integer(i64),
     Boolean(bool),
     Date(String),

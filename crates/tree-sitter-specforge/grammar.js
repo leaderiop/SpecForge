@@ -18,8 +18,6 @@ module.exports = grammar({
 
   word: ($) => $.identifier,
 
-  conflicts: ($) => [],
-
   rules: {
     source_file: ($) =>
       repeat(choice($.use_import, $.pub_use_import, $._block)),
@@ -179,8 +177,8 @@ module.exports = grammar({
         $.nested_block,
         $.array_type,
         $.identifier,
+        $.expr_group,
       ),
-
     // Type[] — array type suffix (e.g., ImportDeclaration[])
     array_type: ($) =>
       seq(field("element", $.identifier), token.immediate("[]")),
@@ -208,8 +206,61 @@ module.exports = grammar({
     // Nested block: { key value ... }
     nested_block: ($) =>
       seq("{", repeat($.field), "}"),
+    // Formal expression group: expr { a < 10ms and b > 5 }
+    // A generic value form — no domain knowledge; validation is semantic.
+    expr_group: ($) =>
+      seq(
+        "expr",
+        "{",
+        $._expression,
+        repeat(seq(optional(","), $._expression)),
+        optional(","),
+        "}",
+      ),
 
-    // --- Terminals ---------------------------------------------------
+    _expression: ($) => $.expr_or,
+
+    // Precedence (loosest to tightest): or, and, comparison, additive
+    expr_or: ($) =>
+      prec.left(
+        1,
+        seq(field("lhs", $.expr_and), repeat(seq("or", field("rhs", $.expr_and)))),
+      ),
+
+    expr_and: ($) =>
+      prec.left(
+        2,
+        seq(field("lhs", $.expr_cmp), repeat(seq("and", field("rhs", $.expr_cmp)))),
+      ),
+
+    expr_cmp: ($) =>
+      seq(
+        field("lhs", $.expr_add),
+        optional(
+          seq(
+            field("op", choice("<", "<=", ">", ">=", "==", "!=")),
+            field("rhs", $.expr_add),
+          ),
+        ),
+      ),
+
+    expr_add: ($) =>
+      prec.left(
+        3,
+        seq(
+          field("lhs", $.expr_atom),
+          repeat(seq(field("op", choice("+", "-")), field("rhs", $.expr_atom))),
+        ),
+      ),
+
+    expr_atom: ($) =>
+      choice(
+        $.number_with_unit,
+        $.identifier,
+        seq("(", $._expression, ")"),
+        prec(4, seq("-", $.expr_atom)),
+        prec(4, seq("not", $.expr_atom)),
+      ),
 
     identifier: (_) => /[a-zA-Z_][a-zA-Z0-9_]*/,
 
@@ -230,8 +281,11 @@ module.exports = grammar({
     date_literal: (_) => token(seq(/[0-9]{4}/, "-", /[0-9]{2}/, "-", /[0-9]{2}/)),
 
     integer: (_) => /[0-9]+/,
-
     boolean: (_) => choice("true", "false"),
+
+    // Numeric literal with optional unit suffix: 100, 100ms, 1.5s
+    number_with_unit: (_) =>
+      token(seq(/[0-9]+/, optional(seq(".", /[0-9]+/)), /[a-zA-Z]*/)),
   },
 });
 

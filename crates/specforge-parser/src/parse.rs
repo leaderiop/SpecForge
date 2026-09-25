@@ -1,4 +1,5 @@
 use crate::ast::*;
+use crate::expr::{CmpOp, Expr, ExprSpan, SpannedExpr};
 use specforge_common::{SourceSpan, Sym};
 use tree_sitter::{Node, Parser};
 
@@ -443,6 +444,17 @@ impl<'a> ParseContext<'a> {
     fn parse_field(&mut self, node: Node) -> Option<(Sym, FieldValue, Vec<Annotation>)> {
         let key = node.child_by_field_name("key")?;
         let value = node.child_by_field_name("value")?;
+        // Tree-sitter may recover from a syntax error deep inside a value
+        // (e.g. a dangling operator in an expression group); surface it.
+        if let Some(broken) = find_error_descendant(value) {
+            let span = self.span(broken);
+            self.errors.push(ParseError {
+                message: "syntax error in field value".to_string(),
+                span,
+                expected: None,
+                found: Some(self.text(broken).chars().take(40).collect()),
+            });
+        }
         let key_sym = Sym::new(self.text(key));
         let mut field_value = self.parse_value(value);
         // A field named "values" contains enum tags, not entity references
@@ -524,6 +536,7 @@ impl<'a> ParseContext<'a> {
             "date_literal" => FieldValue::Date(self.text(node).to_string()),
             "identifier" => FieldValue::Identifier(self.text(node).to_string()),
             "array_type" => FieldValue::Identifier(self.text(node).to_string()),
+            "expr_group" => FieldValue::Expression(self.parse_expr_group(node)),
             "list" => self.parse_list(node),
             "nested_block" => self.parse_nested_block(node),
             _ => FieldValue::String(self.text(node).to_string()),
@@ -644,6 +657,179 @@ impl<'a> ParseContext<'a> {
             description: self.unquote(desc),
         })
     }
+    // --- Formal expressions (`metric expr { ... }`) ---------------------
+
+    fn parse_expr_group(&self, node: Node<'a>) -> Vec<SpannedExpr> {
+        let mut cursor = node.walk();
+        node.children(&mut cursor)
+            .filter(|c| c.kind() == "expr_or")
+            .map(|c| self.convert_expr(c))
+            .collect()
+    }
+
+    fn expr_span(&self, node: Node<'a>) -> ExprSpan {
+        let start = node.start_position();
+        let end = node.end_position();
+        ExprSpan {
+            start_line: start.row + 1,
+            start_col: start.column + 1,
+            end_line: end.row + 1,
+            end_col: end.column + 1,
+        }
+    }
+
+    /// Map an expression CST node onto the typed [`SpannedExpr`] AST.
+    /// The grammar guarantees node shapes, so degenerate arms only occur
+    /// under ERROR recovery and yield neutral placeholders.
+    fn convert_expr(&self, node: Node<'a>) -> SpannedExpr {
+        let span = self.expr_span(node);
+        match node.kind() {
+            "expr_or" | "expr_and" => {
+                let is_or = node.kind() == "expr_or";
+                let mut cursor = node.walk();
+                let mut parts = node
+                    .children(&mut cursor)
+                    .filter(|c| c.is_named())
+                    .map(|c| self.convert_expr(c));
+                let mut acc = parts.next().unwrap_or_else(|| fallback_var(span));
+                for rhs in parts {
+                    let joined = join_span(&acc.span, &rhs.span);
+                    let expr = if is_or {
+                        Expr::Or(Box::new(acc), Box::new(rhs))
+                    } else {
+                        Expr::And(Box::new(acc), Box::new(rhs))
+                    };
+                    acc = SpannedExpr { expr, span: joined };
+                }
+                acc
+            }
+            "expr_cmp" => {
+                let mut lhs: Option<SpannedExpr> = None;
+                let mut op: Option<CmpOp> = None;
+                let mut rhs: Option<SpannedExpr> = None;
+                let mut cursor = node.walk();
+                for child in node.children(&mut cursor) {
+                    match child.kind() {
+                        "expr_add" => {
+                            if lhs.is_none() {
+                                lhs = Some(self.convert_expr(child));
+                            } else {
+                                rhs = Some(self.convert_expr(child));
+                            }
+                        }
+                        "<" => op = Some(CmpOp::Lt),
+                        "<=" => op = Some(CmpOp::Le),
+                        ">" => op = Some(CmpOp::Gt),
+                        ">=" => op = Some(CmpOp::Ge),
+                        "==" => op = Some(CmpOp::Eq),
+                        "!=" => op = Some(CmpOp::Ne),
+                        _ => {}
+                    }
+                }
+                match (lhs, op, rhs) {
+                    (Some(l), Some(op), Some(r)) => SpannedExpr {
+                        expr: Expr::Cmp(op, Box::new(l), Box::new(r)),
+                        span,
+                    },
+                    (Some(l), _, _) => l,
+                    _ => fallback_var(span),
+                }
+            }
+            "expr_add" => {
+                let mut acc: Option<SpannedExpr> = None;
+                let mut pending_sub = false;
+                let mut cursor = node.walk();
+                for child in node.children(&mut cursor) {
+                    match child.kind() {
+                        "expr_atom" => {
+                            let operand = self.convert_expr(child);
+                            match acc.take() {
+                                None => acc = Some(operand),
+                                Some(lhs) => {
+                                    let joined = join_span(&lhs.span, &operand.span);
+                                    let expr = if pending_sub {
+                                        Expr::Sub(Box::new(lhs), Box::new(operand))
+                                    } else {
+                                        Expr::Add(Box::new(lhs), Box::new(operand))
+                                    };
+                                    acc = Some(SpannedExpr { expr, span: joined });
+                                }
+                            }
+                        }
+                        "-" => pending_sub = true,
+                        "+" => pending_sub = false,
+                        _ => {}
+                    }
+                }
+                acc.unwrap_or_else(|| fallback_var(span))
+            }
+            "expr_atom" => {
+                let mut cursor = node.walk();
+                let children: Vec<Node<'a>> = node.children(&mut cursor).collect();
+                let prefix = children.iter().find_map(|c| match c.kind() {
+                    "-" | "not" => Some(c.kind()),
+                    _ => None,
+                });
+                let operand = children.iter().find(|c| {
+                    matches!(
+                        c.kind(),
+                        "number_with_unit" | "identifier" | "expr_or" | "expr_atom"
+                    )
+                });
+                let inner = match operand {
+                    Some(c) if c.kind() == "number_with_unit" => {
+                        let text = self.text(*c);
+                        let unit_start = text.trim_end_matches(char::is_alphabetic).len();
+                        let value = text[..unit_start].parse::<f64>().unwrap_or(0.0);
+                        SpannedExpr {
+                            expr: Expr::Num(value, text[unit_start..].to_string()),
+                            span,
+                        }
+                    }
+                    Some(c) if c.kind() == "identifier" => SpannedExpr {
+                        expr: Expr::Var(self.text(*c).to_string()),
+                        span,
+                    },
+                    // parenthesized group: keep the group's value, span covers parens
+                    Some(c) => {
+                        let converted = self.convert_expr(*c);
+                        SpannedExpr {
+                            expr: converted.expr,
+                            span,
+                        }
+                    }
+                    None => fallback_var(span),
+                };
+                match prefix {
+                    Some("not") => SpannedExpr {
+                        expr: Expr::Not(Box::new(inner)),
+                        span,
+                    },
+                    Some(_) => SpannedExpr {
+                        expr: Expr::Neg(Box::new(inner)),
+                        span,
+                    },
+                    None => inner,
+                }
+            }
+            _ => fallback_var(span),
+        }
+    }
+}
+fn join_span(a: &ExprSpan, b: &ExprSpan) -> ExprSpan {
+    ExprSpan {
+        start_line: a.start_line.min(b.start_line),
+        start_col: a.start_col.min(b.start_col),
+        end_line: a.end_line.max(b.end_line),
+        end_col: a.end_col.max(b.end_col),
+    }
+}
+
+fn fallback_var(span: ExprSpan) -> SpannedExpr {
+    SpannedExpr {
+        expr: Expr::Var(String::new()),
+        span,
+    }
 }
 
 fn parse_ref_id(id: &str) -> Option<(String, String, String)> {
@@ -690,4 +876,19 @@ fn dedent(text: &str) -> String {
     }
 
     result.join("\n")
+}
+
+/// Depth-first search for an ERROR or MISSING node produced by the
+/// parser's recovery inside a value subtree.
+fn find_error_descendant<'a>(node: Node<'a>) -> Option<Node<'a>> {
+    if node.is_error() || node.is_missing() {
+        return Some(node);
+    }
+    let mut cursor = node.walk();
+    for child in node.children(&mut cursor) {
+        if let Some(found) = find_error_descendant(child) {
+            return Some(found);
+        }
+    }
+    None
 }

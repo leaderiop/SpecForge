@@ -42,6 +42,12 @@ pub(crate) fn field_value_to_json(value: &FieldValue) -> Value {
     match value {
         FieldValue::String(s) => Value::String(s.clone()),
         FieldValue::Identifier(s) => Value::String(s.clone()),
+        FieldValue::Expression(exprs) => Value::Array(
+            exprs
+                .iter()
+                .map(|e| serde_json::to_value(e).unwrap_or(Value::String(e.to_string())))
+                .collect(),
+        ),
         FieldValue::Integer(n) => Value::Number((*n).into()),
         FieldValue::Boolean(b) => Value::Bool(*b),
         FieldValue::Date(s) => Value::String(s.clone()),

@@ -49,7 +49,7 @@ fn collect_vars(expr: &SpannedExpr, vars: &mut Vec<String>) {
             collect_vars(l, vars);
             collect_vars(r, vars);
         }
-        Expr::Neg(e) => collect_vars(e, vars),
+        Expr::Neg(e) | Expr::Not(e) => collect_vars(e, vars),
     }
 }
 
@@ -64,11 +64,12 @@ fn encode_expr(expr: &SpannedExpr) -> String {
         }
         Expr::Var(name) => name.clone(),
         Expr::Cmp(op, l, r) => format!("({} {} {})", op.as_smt(), encode_expr(l), encode_expr(r)),
+        Expr::Neg(e) => format!("(- {})", encode_expr(e)),
+        Expr::Not(e) => format!("(not {})", encode_expr(e)),
         Expr::And(l, r) => format!("(and {} {})", encode_expr(l), encode_expr(r)),
         Expr::Or(l, r) => format!("(or {} {})", encode_expr(l), encode_expr(r)),
         Expr::Add(l, r) => format!("(+ {} {})", encode_expr(l), encode_expr(r)),
         Expr::Sub(l, r) => format!("(- {} {})", encode_expr(l), encode_expr(r)),
-        Expr::Neg(e) => format!("(- {})", encode_expr(e)),
     }
 }
 
@@ -114,12 +115,13 @@ fn run_z3(script: &str) -> Option<(String, Vec<String>)> {
 
 // ── the pass ────────────────────────────────────────────────────────────────
 
-/// One parseable metric line, with provenance for diagnostics.
+/// One parseable metric bound, with provenance for diagnostics.
 struct Conjunct {
     expr: SpannedExpr,
     text: String,
-    /// 1-based line within the metric content.
-    rel_line: usize,
+    /// Human location: metric-relative line (string form) or file line
+    /// (first-class `expr { }` form).
+    loc: String,
 }
 
 struct ConstraintFormulas {
@@ -153,28 +155,38 @@ pub fn run_prove(ctx: &AnalysisContext) -> ProveReport {
         if node.kind.raw.as_str() != "constraint" {
             continue;
         }
-        let Some(specforge_graph::FieldValue::String(metric)) = node.fields.get("metric") else {
-            continue;
+        let conjuncts: Vec<Conjunct> = match node.fields.get("metric") {
+            Some(specforge_graph::FieldValue::String(metric)) => {
+                if metric.trim().is_empty() {
+                    continue;
+                }
+                let mut out = Vec::new();
+                for (i, line) in metric.lines().enumerate() {
+                    if line.trim().is_empty() {
+                        continue;
+                    }
+                    match parse_expression(line) {
+                        Ok(expr) => out.push(Conjunct {
+                            expr,
+                            text: line.trim().to_string(),
+                            loc: format!("metric line {}", i + 1),
+                        }),
+                        Err(_) => skipped_prose_lines += 1,
+                    }
+                }
+                out
+            }
+            Some(specforge_graph::FieldValue::Expression(exprs)) => exprs
+                .iter()
+                .map(|e| Conjunct {
+                    expr: e.clone(),
+                    text: e.to_string(),
+                    loc: format!("line {}", e.span.start_line),
+                })
+                .collect(),
+            _ => continue,
         };
-        if metric.trim().is_empty() {
-            continue;
-        }
         constraints_with_metrics += 1;
-
-        let mut conjuncts: Vec<Conjunct> = Vec::new();
-        for (i, line) in metric.lines().enumerate() {
-            if line.trim().is_empty() {
-                continue;
-            }
-            match parse_expression(line) {
-                Ok(expr) => conjuncts.push(Conjunct {
-                    expr,
-                    text: line.trim().to_string(),
-                    rel_line: i + 1,
-                }),
-                Err(_) => skipped_prose_lines += 1,
-            }
-        }
         if !conjuncts.is_empty() {
             conjunct_count += conjuncts.len();
             constraints.push(ConstraintFormulas {
@@ -225,10 +237,7 @@ pub fn run_prove(ctx: &AnalysisContext) -> ProveReport {
                         names.get(name).map(|(ci, ji)| {
                             let c = &constraints[*ci];
                             let conj = &c.conjuncts[*ji];
-                            format!(
-                                "`{}` in constraint {} (metric line {})",
-                                conj.text, c.id, conj.rel_line
-                            )
+                            format!("`{}` in constraint {} ({})", conj.text, c.id, conj.loc)
                         })
                     })
                     .collect();
