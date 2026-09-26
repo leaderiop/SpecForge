@@ -289,6 +289,18 @@ impl Database {
         .ok()
     }
 
+    /// Compensating delete for a publish whose blob commit failed after
+    /// the row landed. Returns true when a row was removed.
+    pub fn delete_package(&self, name: &str, version: &str) -> bool {
+        let conn = self.conn.lock().unwrap();
+        conn.execute(
+            "DELETE FROM packages WHERE name = ?1 AND version = ?2",
+            params![name, version],
+        )
+        .map(|n| n > 0)
+        .unwrap_or(false)
+    }
+
     pub fn yank_version(&self, name: &str, version: &str) -> bool {
         let conn = self.conn.lock().unwrap();
         let rows = conn

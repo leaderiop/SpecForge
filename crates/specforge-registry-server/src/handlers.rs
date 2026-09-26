@@ -7,11 +7,13 @@ use axum::{
 };
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
+use std::path::PathBuf;
 use std::sync::Arc;
 
 use crate::auth;
 use crate::db::PackageVersion;
 use crate::state::AppState;
+use crate::storage::LocalStorage;
 
 pub fn router(state: Arc<AppState>) -> Router {
     Router::new()
@@ -211,6 +213,37 @@ async fn download_package(
     .await
     .expect("storage read task panicked");
 
+    // C8-09 hardening: serve only blobs whose bytes hash to the DB's
+    // recorded sha256 — torn or corrupted files are never handed out.
+    if let Some(data) = &data {
+        let expected = state
+            .database
+            .get_package_version(&name, &version)
+            .map(|row| row.sha256)
+            .unwrap_or_default();
+        let actual = {
+            use sha2::{Digest, Sha256};
+            let mut hasher = Sha256::new();
+            hasher.update(data);
+            hex::encode(hasher.finalize())
+        };
+        if !expected.is_empty() && actual != expected {
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(
+                    serde_json::to_value(ErrorResponse {
+                        error: ErrorBody {
+                            code: "INTEGRITY_VIOLATION".to_string(),
+                            message: "stored blob does not match its recorded digest".to_string(),
+                        },
+                    })
+                    .unwrap(),
+                ),
+            )
+                .into_response();
+        }
+    }
+
     match data {
         Some(data) => (
             StatusCode::OK,
@@ -262,6 +295,20 @@ async fn publish_package(
     mut multipart: Multipart,
 ) -> impl IntoResponse {
     let name = decode_name(&name);
+
+    // Package names must be scoped (`@scope/name`) with exactly one `/`
+    // and no percent-signs: the storage layout percent-encodes the name,
+    // so unencoded `%` or missing scope could collide with other packages.
+    let name_ok = name.starts_with('@')
+        && name.matches('/').count() == 1
+        && !name.contains('%')
+        && !name[1..].split('/').any(|seg| seg.is_empty());
+    if !name_ok {
+        return bad_request(
+            "INVALID_NAME",
+            &format!("'{name}' is not a valid scoped package name (expected @scope/name)"),
+        );
+    }
 
     // C8-03: non-semver versions poison search ordering and resolver
     // matching downstream — reject them at the door.
@@ -551,33 +598,39 @@ async fn publish_package(
         (String::new(), String::new())
     };
 
-    // Store wasm binary — file writes are blocking I/O: run them on the
-    // blocking pool.
+    // C8-06 atomic publish: (1) write the blob to a fsynced temp file,
+    // (2) let the database's UNIQUE(name, version) arbitrate concurrent
+    // publishes, (3) atomically rename the temp blob into place. Any
+    // failure before step 3 leaves at most a collectable temp file —
+    // never a torn or orphaned final blob.
     let store_state = Arc::clone(&state);
     let store_name = name.clone();
     let store_version = version.clone();
     let store_data = wasm_data.clone();
-    if let Err(e) = tokio::task::spawn_blocking(move || {
+    let temp_path = match tokio::task::spawn_blocking(move || {
         store_state
             .storage
-            .store_wasm(&store_name, &store_version, &store_data)
+            .store_wasm_temp(&store_name, &store_version, &store_data)
     })
     .await
     .expect("storage write task panicked")
     {
-        return (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            Json(
-                serde_json::to_value(ErrorResponse {
-                    error: ErrorBody {
-                        code: "STORAGE_ERROR".to_string(),
-                        message: e,
-                    },
-                })
-                .unwrap(),
-            ),
-        );
-    }
+        Ok(temp) => temp,
+        Err(e) => {
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(
+                    serde_json::to_value(ErrorResponse {
+                        error: ErrorBody {
+                            code: "STORAGE_ERROR".to_string(),
+                            message: e,
+                        },
+                    })
+                    .unwrap(),
+                ),
+            );
+        }
+    };
 
     // Extract the short key id from the signature wire object for display
     // and indexing. The full signature object is stored verbatim so clients
@@ -603,19 +656,67 @@ async fn publish_package(
         manifest: manifest_json.unwrap_or_default(),
     };
 
+    // Run the insert on the blocking pool, but keep the temp path
+    // available so a lost race (UNIQUE violation) can discard its blob.
     let insert_state = Arc::clone(&state);
     let insert_pkg = pkg.clone();
-    if let Err(e) =
-        tokio::task::spawn_blocking(move || insert_state.database.insert_package(&insert_pkg))
-            .await
-            .expect("database insert task panicked")
-    {
+    let discard_temp = |p: &PathBuf| LocalStorage::discard_temp(p);
+    let insert_result = {
+        let temp = temp_path.clone();
+        tokio::task::spawn_blocking(move || {
+            let result = insert_state.database.insert_package(&insert_pkg);
+            if result.is_err() {
+                discard_temp(&temp);
+            }
+            result
+        })
+        .await
+        .expect("database insert task panicked")
+    };
+    if let Err(e) = insert_result {
         return (
             StatusCode::CONFLICT,
             Json(
                 serde_json::to_value(ErrorResponse {
                     error: ErrorBody {
                         code: "DUPLICATE_VERSION".to_string(),
+                        message: e,
+                    },
+                })
+                .unwrap(),
+            ),
+        );
+    }
+
+    // 3. Atomic rename — the moment the blob becomes visible.
+    let commit_state = Arc::clone(&state);
+    let commit_name = name.clone();
+    let commit_version = version.clone();
+    let commit_temp = temp_path.clone();
+    let committed = tokio::task::spawn_blocking(move || {
+        commit_state
+            .storage
+            .commit_wasm(&commit_name, &commit_version, &commit_temp)
+    })
+    .await
+    .expect("blob commit task panicked");
+    if let Err(e) = committed {
+        // Compensate: the DB row must not outlive a missing blob.
+        let rollback_state = Arc::clone(&state);
+        let rollback_name = name.clone();
+        let rollback_version = version.clone();
+        let _ = tokio::task::spawn_blocking(move || {
+            rollback_state
+                .database
+                .delete_package(&rollback_name, &rollback_version)
+        })
+        .await;
+        return (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(
+                serde_json::to_value(ErrorResponse {
+                    error: ErrorBody {
+                        code: "STORAGE_ERROR".to_string(),
                         message: e,
                     },
                 })

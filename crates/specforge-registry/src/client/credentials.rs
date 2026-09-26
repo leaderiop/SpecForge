@@ -260,9 +260,19 @@ mod tests {
         });
     }
 
+    /// The in-memory keyring mock is process-global: tests that exercise
+    /// multi-step set/read sequences on the same alias must hold this lock
+    /// or they interleave and observe each other's tokens.
+    static MOCK_KEYRING_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
+    fn lock_mock_keyring() -> std::sync::MutexGuard<'static, ()> {
+        MOCK_KEYRING_LOCK.lock().unwrap_or_else(|e| e.into_inner())
+    }
+
     #[test]
     fn set_token_keeps_secret_out_of_the_file() {
         install_mock_keyring();
+        let _keyring_guard = lock_mock_keyring();
         let dir = tempfile::tempdir().unwrap();
         let path = dir.path().join("credentials.json");
 
@@ -296,6 +306,7 @@ mod tests {
     #[test]
     fn expired_token_is_refused_with_relogin_hint() {
         install_mock_keyring();
+        let _keyring_guard = lock_mock_keyring();
         let mut store = CredentialStore::default();
         store
             .set_token(
