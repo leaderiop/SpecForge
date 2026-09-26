@@ -396,6 +396,7 @@ pub fn build_validation_entities(graph: &Graph) -> Vec<ValidationEntity> {
             let outgoing = graph.edges_from(node.id.raw.as_str()).len();
 
             let mut fields = HashMap::new();
+            let mut verify_kinds: Vec<String> = Vec::new();
             for entry in node.fields.entries() {
                 match &entry.value {
                     specforge_parser::FieldValue::String(s) => {
@@ -424,6 +425,7 @@ pub fn build_validation_entities(graph: &Graph) -> Vec<ValidationEntity> {
                             let descriptions: Vec<&str> =
                                 stmts.iter().map(|s| s.description.as_str()).collect();
                             fields.insert(entry.key.to_string(), descriptions.join("; "));
+                            verify_kinds = stmts.iter().map(|s| s.kind.clone()).collect();
                         }
                     }
                     specforge_parser::FieldValue::VariantList(variants) if !variants.is_empty() => {
@@ -450,9 +452,134 @@ pub fn build_validation_entities(graph: &Graph) -> Vec<ValidationEntity> {
                 incoming_edge_count: incoming,
                 outgoing_edge_count: outgoing,
                 span: node.source_span.clone(),
+                verify_kinds,
             }
         })
         .collect()
+}
+
+/// Native dispatch for builtin extensions' `check: "custom"` rules. The
+/// wasm-function names are the manifest's contracts; builtin extensions run
+/// natively, so the functions execute here against the graph.
+struct NativeCustomRules<'a> {
+    graph: &'a Graph,
+}
+
+/// Type names accepted by E004 without a declared `type` entity.
+/// Unused until `Node.methods` reaches the validation engine (E004 remainder).
+#[allow(dead_code)]
+const PRIMITIVE_TYPES: &[&str] = &[
+    "string", "void", "bool", "i8", "i16", "i32", "i64", "u8", "u16", "u32", "u64", "f32", "f64",
+    "usize", "isize", "any",
+];
+
+#[allow(dead_code)]
+fn base_type_names(ty: &str) -> Vec<String> {
+    // Result<A, B> -> A, B ; string[] -> string ; trim whitespace
+    ty.replace(['<', '>', '[', ']', ','], " ")
+        .split_whitespace()
+        .map(str::to_string)
+        .collect()
+}
+
+impl<'a> specforge_registry::validation_engine::WasmValidationRuntime for NativeCustomRules<'a> {
+    fn call_custom_validator(
+        &self,
+        wasm_function: &str,
+        entity_id: &str,
+        _entity_kind: &str,
+    ) -> Result<bool, String> {
+        // Detailed verdicts carry the information; the bool form is unused.
+        let _ = wasm_function;
+        let _ = entity_id;
+        Err("use call_custom_validator_detailed".to_string())
+    }
+
+    fn call_custom_validator_detailed(
+        &self,
+        wasm_function: &str,
+        entity_id: &str,
+        _entity_kind: &str,
+    ) -> Result<specforge_registry::validation_engine::CustomVerdict, String> {
+        use specforge_registry::validation_engine::CustomVerdict;
+        let node = self
+            .graph
+            .node(entity_id)
+            .ok_or_else(|| format!("unknown entity '{entity_id}'"))?;
+
+        match wasm_function {
+            // E006: every event trigger must reference a behavior
+            "validate__event_triggers" => {
+                for entry in node.fields.entries() {
+                    if entry.key.as_str() != "triggers" {
+                        continue;
+                    }
+                    if let specforge_parser::FieldValue::ReferenceList(refs) = &entry.value {
+                        for r in refs {
+                            match self.graph.node(r) {
+                                None => {
+                                    return Ok(CustomVerdict::Fail {
+                                        field: Some("triggers".into()),
+                                        value: Some(r.clone()),
+                                    });
+                                }
+                                Some(target) if target.kind.raw.as_str() != "behavior" => {
+                                    return Ok(CustomVerdict::Fail {
+                                        field: Some("triggers".into()),
+                                        value: Some(r.clone()),
+                                    });
+                                }
+                                _ => {}
+                            }
+                        }
+                    }
+                }
+                Ok(CustomVerdict::Pass)
+            }
+            // E010: milestone behavior references must exist
+            "validate__milestone_behavior_ranges" => {
+                for entry in node.fields.entries() {
+                    if entry.key.as_str() != "behaviors" {
+                        continue;
+                    }
+                    if let specforge_parser::FieldValue::ReferenceList(refs) = &entry.value {
+                        for r in refs {
+                            if self.graph.node(r).is_none() {
+                                return Ok(CustomVerdict::Fail {
+                                    field: Some("behaviors".into()),
+                                    value: Some(r.clone()),
+                                });
+                            }
+                        }
+                    }
+                }
+                Ok(CustomVerdict::Pass)
+            }
+            // W010: type fields may only carry known annotations
+            "validate__type_field_annotations" => {
+                const KNOWN: &[&str] = &["readonly", "unique", "optional", "literal"];
+                for entry in node.fields.entries() {
+                    for ann in &entry.annotations {
+                        let name = ann.name.as_str();
+                        if !KNOWN.contains(&name) {
+                            return Ok(CustomVerdict::Fail {
+                                field: Some(entry.key.to_string()),
+                                value: Some(format!("@{name}")),
+                            });
+                        }
+                    }
+                }
+                Ok(CustomVerdict::Pass)
+            }
+            // E004: port method type references must resolve. Requires port
+            // `method` members to reach the graph — not plumbed yet; the rule
+            // stays declared but inert until Node carries methods.
+            "validate__port_methods" => {
+                Err("port methods are not available to the validation engine yet".to_string())
+            }
+            other => Err(format!("unknown custom validator '{other}'")),
+        }
+    }
 }
 
 fn run_extension_validation(
@@ -465,8 +592,20 @@ fn run_extension_validation(
     }
 
     let entities = build_validation_entities(graph);
+    let native = NativeCustomRules { graph };
 
-    let mut diagnostics = Vec::new();
+    if std::env::var("SPECFORGE_DEBUG_RULES").is_ok() {
+        for p in patterns {
+            eprintln!(
+                "RULE {} check={:?} target={:?} values={:?}",
+                p.code,
+                p.check,
+                p.target_kind,
+                p.constraint.as_ref().map(|c| c.values.clone())
+            );
+        }
+    }
+    let mut diagnostics: Vec<specforge_common::Diagnostic> = Vec::new();
     for pattern in patterns {
         if pattern.check
             == specforge_registry::validation_engine::ValidationPatternKind::CycleDetection
@@ -474,7 +613,7 @@ fn run_extension_validation(
             let diags = detect_cycles(pattern, graph, edge_label_to_field);
             diagnostics.extend(diags);
         } else {
-            let diags = execute_pattern(pattern, &entities, None);
+            let diags = execute_pattern(pattern, &entities, Some(&native));
             diagnostics.extend(diags);
         }
     }
@@ -574,6 +713,7 @@ fn detect_cycles(
                 &pattern.message_template,
                 id,
                 target_kind,
+                None,
                 None,
                 None,
             );

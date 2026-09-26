@@ -106,10 +106,163 @@
       "constraint": null,
       "edge_type": null,
       "field": null,
-      "message_template": "event '{id}' trigger must reference a behavior, found {kind} '{value}'",
+      "message_template": "event '{id}' trigger must reference a behavior, found '{value}'",
       "severity": "error",
       "target_kind": "event",
       "wasm_function": "validate__event_triggers"
+    },
+    {
+      "check": "no_verify_statements",
+      "code": "W004",
+      "constraint": null,
+      "edge_type": null,
+      "field": null,
+      "message_template": "{kind} '{id}' is testable but declares no verify obligations and no gherkin scenario",
+      "severity": "warning",
+      "target_kind": "behavior",
+      "wasm_function": null
+    },
+    {
+      "check": "no_verify_statements",
+      "code": "W004",
+      "constraint": null,
+      "edge_type": null,
+      "field": null,
+      "message_template": "{kind} '{id}' is testable but declares no verify obligations and no gherkin scenario",
+      "severity": "warning",
+      "target_kind": "invariant",
+      "wasm_function": null
+    },
+    {
+      "check": "no_verify_statements",
+      "code": "W004",
+      "constraint": null,
+      "edge_type": null,
+      "field": null,
+      "message_template": "{kind} '{id}' is testable but declares no verify obligations and no gherkin scenario",
+      "severity": "warning",
+      "target_kind": "event",
+      "wasm_function": null
+    },
+    {
+      "check": "no_verify_statements",
+      "code": "W004",
+      "constraint": null,
+      "edge_type": null,
+      "field": null,
+      "message_template": "{kind} '{id}' is testable but declares no verify obligations and no gherkin scenario",
+      "severity": "warning",
+      "target_kind": "type",
+      "wasm_function": null
+    },
+    {
+      "check": "no_verify_statements",
+      "code": "W004",
+      "constraint": null,
+      "edge_type": null,
+      "field": null,
+      "message_template": "{kind} '{id}' is testable but declares no verify obligations and no gherkin scenario",
+      "severity": "warning",
+      "target_kind": "port",
+      "wasm_function": null
+    },
+    {
+      "check": "verify_kind_allowlist",
+      "code": "W009",
+      "constraint": {
+        "kind": "one_of",
+        "pattern": null,
+        "values": [
+          "unit",
+          "contract",
+          "integration",
+          "property",
+          "performance"
+        ]
+      },
+      "edge_type": null,
+      "field": null,
+      "message_template": "entity '{id}' has verify kind '{value}' not in allowed set {allowed}",
+      "severity": "warning",
+      "target_kind": "behavior",
+      "wasm_function": null
+    },
+    {
+      "check": "verify_kind_allowlist",
+      "code": "W009",
+      "constraint": {
+        "kind": "one_of",
+        "pattern": null,
+        "values": [
+          "unit",
+          "integration",
+          "property",
+          "performance",
+          "mutation"
+        ]
+      },
+      "edge_type": null,
+      "field": null,
+      "message_template": "entity '{id}' has verify kind '{value}' not in allowed set {allowed}",
+      "severity": "warning",
+      "target_kind": "invariant",
+      "wasm_function": null
+    },
+    {
+      "check": "verify_kind_allowlist",
+      "code": "W009",
+      "constraint": {
+        "kind": "one_of",
+        "pattern": null,
+        "values": [
+          "integration",
+          "unit",
+          "deadlock_free",
+          "liveness"
+        ]
+      },
+      "edge_type": null,
+      "field": null,
+      "message_template": "entity '{id}' has verify kind '{value}' not in allowed set {allowed}",
+      "severity": "warning",
+      "target_kind": "event",
+      "wasm_function": null
+    },
+    {
+      "check": "verify_kind_allowlist",
+      "code": "W009",
+      "constraint": {
+        "kind": "one_of",
+        "pattern": null,
+        "values": [
+          "unit",
+          "property"
+        ]
+      },
+      "edge_type": null,
+      "field": null,
+      "message_template": "entity '{id}' has verify kind '{value}' not in allowed set {allowed}",
+      "severity": "warning",
+      "target_kind": "type",
+      "wasm_function": null
+    },
+    {
+      "check": "verify_kind_allowlist",
+      "code": "W009",
+      "constraint": {
+        "kind": "one_of",
+        "pattern": null,
+        "values": [
+          "integration",
+          "unit"
+        ]
+      },
+      "edge_type": null,
+      "field": null,
+      "message_template": "entity '{id}' has verify kind '{value}' not in allowed set {allowed}",
+      "severity": "warning",
+      "target_kind": "port",
+      "wasm_function": null
     },
     {
       "check": "custom",

@@ -316,7 +316,11 @@
       "singleton": false,
       "supports_verify": true,
       "testable": true,
-      "verify_kinds": []
+      "verify_kinds": [
+        "unit",
+        "integration",
+        "load"
+      ]
     },
     {
       "description": "A system-wide constraint that must always hold true",
@@ -435,7 +439,11 @@
       "singleton": false,
       "supports_verify": true,
       "testable": true,
-      "verify_kinds": []
+      "verify_kinds": [
+        "property",
+        "unit",
+        "mutation"
+      ]
     },
     {
       "description": "A significant occurrence in the system that triggers reactions",
@@ -532,7 +540,9 @@
       "singleton": false,
       "supports_verify": true,
       "testable": true,
-      "verify_kinds": []
+      "verify_kinds": [
+        "unit"
+      ]
     },
     {
       "description": "A data structure or domain model definition",
@@ -618,7 +628,9 @@
       "singleton": false,
       "supports_verify": true,
       "testable": true,
-      "verify_kinds": []
+      "verify_kinds": [
+        "unit"
+      ]
     },
     {
       "description": "An interface boundary between system components",
@@ -693,7 +705,9 @@
       "singleton": false,
       "supports_verify": true,
       "testable": true,
-      "verify_kinds": []
+      "verify_kinds": [
+        "integration"
+      ]
     }
   ]
 }

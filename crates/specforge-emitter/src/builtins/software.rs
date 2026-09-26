@@ -1,9 +1,9 @@
 use specforge_wasm::builtin::BuiltinExtension;
 use specforge_wasm::protocol::{
     CompilerPassDescriptor, ContributionFlags, DescribeResponse, EdgeTypeDescriptor,
-    EntityEnhancementDescriptor, EntityKindDescriptor, FeatureFlagDescriptor, FieldDescriptor,
-    HandshakeResponse, PeerDependency, SandboxPolicy, SharedFieldDescriptor, SurfaceDescriptor,
-    ValidationRuleDescriptor, ValidationSeverity,
+    EntityEnhancementDescriptor, EntityKindDescriptor, FeatureFlagDescriptor,
+    FieldConstraintDescriptor, FieldDescriptor, HandshakeResponse, PeerDependency, SandboxPolicy,
+    SharedFieldDescriptor, SurfaceDescriptor, ValidationRuleDescriptor, ValidationSeverity,
 };
 
 pub struct SoftwareExtension;
@@ -14,6 +14,7 @@ impl SoftwareExtension {
             EntityKindDescriptor {
                 name: "Behavior".into(),
                 keyword: Some("behavior".into()),
+                verify_kinds: vec!["unit".into(), "integration".into(), "load".into()],
                 description: Some(
                     "A testable unit of system functionality with a defined contract".into(),
                 ),
@@ -56,6 +57,7 @@ impl SoftwareExtension {
             EntityKindDescriptor {
                 name: "Invariant".into(),
                 keyword: Some("invariant".into()),
+                verify_kinds: vec!["property".into(), "unit".into(), "mutation".into()],
                 description: Some(
                     "A system-wide constraint that must always hold true".into(),
                 ),
@@ -80,6 +82,7 @@ impl SoftwareExtension {
             EntityKindDescriptor {
                 name: "Event".into(),
                 keyword: Some("event".into()),
+                verify_kinds: vec!["unit".into()],
                 description: Some(
                     "A significant occurrence in the system that triggers reactions".into(),
                 ),
@@ -103,6 +106,7 @@ impl SoftwareExtension {
             EntityKindDescriptor {
                 name: "Type".into(),
                 keyword: Some("type".into()),
+                verify_kinds: vec!["unit".into()],
                 description: Some("A data structure or domain model definition".into()),
                 inference_guide: Some("Look for domain model structs, data transfer objects, API request/response shapes, database entities, and enum definitions that carry business meaning. Signals: struct/class definitions in models/ or domain/ directories; TypeScript interfaces/types for API contracts; protobuf/GraphQL/JSON Schema type definitions; ORM model classes; enum types with business variants. Use open_fields to list the type's fields. Set kind field to 'struct', 'enum', 'alias', or 'opaque'. Reference composed_types for nested or referenced types. Skip: internal implementation structs, builder patterns, framework-generated types, test fixtures.".into()),
                 semantic_token: Some("type".into()),
@@ -129,6 +133,7 @@ impl SoftwareExtension {
             EntityKindDescriptor {
                 name: "Port".into(),
                 keyword: Some("port".into()),
+                verify_kinds: vec!["integration".into()],
                 description: Some(
                     "An interface boundary between system components".into(),
                 ),
@@ -394,13 +399,38 @@ impl SoftwareExtension {
             ValidationRuleDescriptor {
                 code: "E006".into(),
                 severity: ValidationSeverity::Error,
-                message_template:
-                    "event '{id}' trigger must reference a behavior, found {kind} '{value}'".into(),
+                message_template: "event '{id}' trigger must reference a behavior, found '{value}'"
+                    .into(),
                 check: "custom".into(),
                 target_kind: Some("event".into()),
                 wasm_function: Some("validate__event_triggers".into()),
                 ..vrd_defaults()
             },
+            // W004: testable entity declares neither verify obligations nor
+            // a gherkin scenario (one rule per testable kind)
+            no_verify("W004", "behavior"),
+            no_verify("W004", "invariant"),
+            no_verify("W004", "event"),
+            no_verify("W004", "type"),
+            no_verify("W004", "port"),
+            // W009: verify kind not in the kind's allowlist
+            verify_allowlist(
+                "W009",
+                "behavior",
+                &["unit", "contract", "integration", "property", "performance"],
+            ),
+            verify_allowlist(
+                "W009",
+                "invariant",
+                &["unit", "integration", "property", "performance", "mutation"],
+            ),
+            verify_allowlist(
+                "W009",
+                "event",
+                &["integration", "unit", "deadlock_free", "liveness"],
+            ),
+            verify_allowlist("W009", "type", &["unit", "property"]),
+            verify_allowlist("W009", "port", &["integration", "unit"]),
             // E010: custom — milestone behavior ranges
             ValidationRuleDescriptor {
                 code: "E010".into(),
@@ -593,6 +623,36 @@ fn vrd_defaults() -> ValidationRuleDescriptor {
         field: None,
         constraint: None,
         wasm_function: None,
+    }
+}
+
+fn no_verify(code: &str, kind: &str) -> ValidationRuleDescriptor {
+    ValidationRuleDescriptor {
+        code: code.into(),
+        severity: ValidationSeverity::Warning,
+        message_template:
+            "{kind} '{id}' is testable but declares no verify obligations and no gherkin scenario"
+                .into(),
+        check: "no_verify_statements".into(),
+        target_kind: Some(kind.into()),
+        ..vrd_defaults()
+    }
+}
+
+fn verify_allowlist(code: &str, kind: &str, allowed: &[&str]) -> ValidationRuleDescriptor {
+    ValidationRuleDescriptor {
+        code: code.into(),
+        severity: ValidationSeverity::Warning,
+        message_template: "entity '{id}' has verify kind '{value}' not in allowed set {allowed}"
+            .into(),
+        check: "verify_kind_allowlist".into(),
+        target_kind: Some(kind.into()),
+        constraint: Some(FieldConstraintDescriptor {
+            kind: "one_of".into(),
+            pattern: None,
+            values: allowed.iter().map(|s| s.to_string()).collect(),
+        }),
+        ..vrd_defaults()
     }
 }
 

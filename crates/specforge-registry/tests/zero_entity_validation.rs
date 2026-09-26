@@ -60,6 +60,7 @@ fn make_entity(id: &str, kind: &str, incoming: usize, outgoing: usize) -> Valida
         incoming_edge_count: incoming,
         outgoing_edge_count: outgoing,
         span: span(),
+        verify_kinds: Vec::new(),
     }
 }
 
@@ -430,7 +431,14 @@ fn execute_validation_pattern_contract() {
 )]
 #[test]
 fn message_template_interpolates_id_and_kind() {
-    let result = interpolate_template("orphan {kind} '{id}'", "my_beh", "behavior", None, None);
+    let result = interpolate_template(
+        "orphan {kind} '{id}'",
+        "my_beh",
+        "behavior",
+        None,
+        None,
+        None,
+    );
     assert_eq!(result, "orphan behavior 'my_beh'");
 }
 
@@ -446,6 +454,7 @@ fn message_template_interpolates_field_and_value() {
         "behavior",
         Some("status"),
         Some("invalid"),
+        None,
     );
     assert_eq!(result, "behavior 'b1' has status='invalid'");
 }
@@ -511,7 +520,7 @@ fn diagnostic_severity_matches_pattern_severity() {
 #[test]
 fn emit_diagnostic_from_pattern_contract() {
     // requires: violation detected, pattern configured
-    let result = interpolate_template("{kind} '{id}' orphan", "b1", "behavior", None, None);
+    let result = interpolate_template("{kind} '{id}' orphan", "b1", "behavior", None, None, None);
     // ensures: template interpolated
     assert_eq!(result, "behavior 'b1' orphan");
     // ensures: code and severity match

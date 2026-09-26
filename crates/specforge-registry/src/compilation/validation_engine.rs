@@ -32,6 +32,12 @@ pub enum ValidationPatternKind {
     /// A field declared `required: true` must be present on every entity of its kind.
     /// Produces E006 at Error severity.
     MissingRequiredField,
+    /// Verify statement kinds must be within the rule's `values` allowlist
+    /// (mirrors the kind descriptor's `verify_kinds`).
+    VerifyKindAllowlist,
+    /// A testable entity declares neither verify obligations nor a gherkin
+    /// scenario.
+    NoVerifyStatements,
 }
 
 #[derive(Debug, Clone)]
@@ -44,6 +50,17 @@ pub struct FieldConstraintPattern {
     pub compiled_pattern: Option<regex::Regex>,
 }
 
+/// Verdict of a detailed custom validation call: pass, or fail with the
+/// offending field/value so message templates can interpolate them.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum CustomVerdict {
+    Pass,
+    Fail {
+        field: Option<String>,
+        value: Option<String>,
+    },
+}
+
 /// A stub trait for Wasm validation dispatch. Real implementation in specforge-wasm.
 pub trait WasmValidationRuntime {
     fn call_custom_validator(
@@ -52,6 +69,25 @@ pub trait WasmValidationRuntime {
         entity_id: &str,
         entity_kind: &str,
     ) -> Result<bool, String>;
+
+    /// Rich verdict variant: implementations that can localize the
+    /// violation override this; the default delegates to the bool form.
+    fn call_custom_validator_detailed(
+        &self,
+        wasm_function: &str,
+        entity_id: &str,
+        entity_kind: &str,
+    ) -> Result<CustomVerdict, String> {
+        Ok(
+            match self.call_custom_validator(wasm_function, entity_id, entity_kind)? {
+                true => CustomVerdict::Pass,
+                false => CustomVerdict::Fail {
+                    field: None,
+                    value: None,
+                },
+            },
+        )
+    }
 }
 
 /// No-op Wasm runtime stub for when Wasm is not available.
@@ -87,6 +123,8 @@ pub fn parse_rule_pattern(
         "cycle_detection" => ValidationPatternKind::CycleDetection,
         "file_exists" => ValidationPatternKind::FileExists,
         "custom" => ValidationPatternKind::Custom,
+        "verify_kind_allowlist" => ValidationPatternKind::VerifyKindAllowlist,
+        "no_verify_statements" => ValidationPatternKind::NoVerifyStatements,
         "conditional_field_required" => ValidationPatternKind::ConditionalFieldRequired,
         "missing_required_field" => ValidationPatternKind::MissingRequiredField,
         other => {
@@ -188,6 +226,7 @@ pub fn interpolate_template(
     kind: &str,
     field: Option<&str>,
     value: Option<&str>,
+    allowed: Option<&str>,
 ) -> String {
     let mut result = template.replace("{id}", id).replace("{kind}", kind);
     if let Some(f) = field {
@@ -195,6 +234,9 @@ pub fn interpolate_template(
     }
     if let Some(v) = value {
         result = result.replace("{value}", v);
+    }
+    if let Some(a) = allowed {
+        result = result.replace("{allowed}", a);
     }
     result
 }
@@ -211,6 +253,10 @@ pub struct ValidationEntity {
     pub incoming_edge_count: usize,
     pub outgoing_edge_count: usize,
     pub span: specforge_common::SourceSpan,
+    /// Kinds of the entity's verify statements (unit/integration/property/...),
+    /// used by [`ValidationPatternKind::VerifyKindAllowlist`].
+    #[serde(default)]
+    pub verify_kinds: Vec<String>,
 }
 
 /// Execute a single validation pattern against a set of entities.
@@ -228,6 +274,8 @@ pub fn execute_pattern(
     };
 
     for entity in applicable {
+        let mut violation_field: Option<String> = None;
+        let mut violation_value: Option<String> = None;
         let violated = match pattern.check {
             ValidationPatternKind::NoIncomingEdges => entity.incoming_edge_count == 0,
             ValidationPatternKind::NoOutgoingEdges => entity.outgoing_edge_count == 0,
@@ -326,10 +374,38 @@ pub fn execute_pattern(
                     false
                 }
             }
+            ValidationPatternKind::VerifyKindAllowlist => {
+                let allowlist: Vec<String> = pattern
+                    .constraint
+                    .as_ref()
+                    .map(|c| c.values.clone())
+                    .unwrap_or_default();
+                let offender = entity
+                    .verify_kinds
+                    .iter()
+                    .filter(|k| !k.is_empty()) // bare `verify "..."` has no kind
+                    .find(|k| !allowlist.contains(k))
+                    .cloned();
+                match offender {
+                    Some(kind) => {
+                        violation_value = Some(kind);
+                        true
+                    }
+                    None => false,
+                }
+            }
+            ValidationPatternKind::NoVerifyStatements => {
+                !entity.fields.contains_key("verify") && !entity.fields.contains_key("gherkin")
+            }
             ValidationPatternKind::Custom => {
                 if let (Some(func), Some(rt)) = (&pattern.wasm_function, wasm) {
-                    match rt.call_custom_validator(func, &entity.id, &entity.kind) {
-                        Ok(passed) => !passed,
+                    match rt.call_custom_validator_detailed(func, &entity.id, &entity.kind) {
+                        Ok(CustomVerdict::Pass) => false,
+                        Ok(CustomVerdict::Fail { field, value }) => {
+                            violation_field = field;
+                            violation_value = value;
+                            true
+                        }
                         Err(_) => false,
                     }
                 } else {
@@ -339,15 +415,35 @@ pub fn execute_pattern(
         };
 
         if violated {
+            let default_field = pattern.field.as_deref();
+            let default_value = entity
+                .fields
+                .get(pattern.field.as_deref().unwrap_or(""))
+                .map(|s| s.as_str());
+            let (field, value) = match (&violation_field, &violation_value) {
+                (Some(f), Some(v)) => (Some(f.as_str()), Some(v.as_str())),
+                (Some(f), None) => (Some(f.as_str()), default_value),
+                (None, Some(v)) => (default_field, Some(v.as_str())),
+                _ => (default_field, default_value),
+            };
+            let allowed = if pattern.check == ValidationPatternKind::VerifyKindAllowlist {
+                Some(
+                    pattern
+                        .constraint
+                        .as_ref()
+                        .map(|c| c.values.join(", "))
+                        .unwrap_or_default(),
+                )
+            } else {
+                None
+            };
             let message = interpolate_template(
                 &pattern.message_template,
                 &entity.id,
                 &entity.kind,
-                pattern.field.as_deref(),
-                entity
-                    .fields
-                    .get(pattern.field.as_deref().unwrap_or(""))
-                    .map(|s| s.as_str()),
+                field,
+                value,
+                allowed.as_deref(),
             );
 
             diagnostics.push(Diagnostic {
@@ -454,7 +550,91 @@ mod tests {
             incoming_edge_count: incoming,
             outgoing_edge_count: outgoing,
             span: span(),
+            verify_kinds: Vec::new(),
         }
+    }
+
+    fn allowlist_rule(code: &str, target: &str, allowed: &[&str]) -> ValidationRulePattern {
+        ValidationRulePattern {
+            code: code.to_string(),
+            severity: Severity::Warning,
+            message_template:
+                "entity '{id}' has verify kind '{value}' not in allowed set {allowed}".to_string(),
+            check: ValidationPatternKind::VerifyKindAllowlist,
+            target_kind: Some(target.to_string()),
+            edge_type: None,
+            field: None,
+            constraint: Some(FieldConstraintPattern {
+                kind: "one_of".to_string(),
+                pattern: None,
+                values: allowed.iter().map(|s| s.to_string()).collect(),
+                compiled_pattern: None,
+            }),
+            wasm_function: None,
+        }
+    }
+
+    fn entity_with_verify_kinds(id: &str, kind: &str, kinds: &[&str]) -> ValidationEntity {
+        let mut e = make_entity(id, kind, 1, 1);
+        e.verify_kinds = kinds.iter().map(|s| s.to_string()).collect();
+        e
+    }
+
+    #[test]
+    fn verify_kind_allowlist_flags_offending_kind() {
+        let rule = allowlist_rule("W009", "invariant", &["property", "unit"]);
+        let e = entity_with_verify_kinds("inv", "invariant", &["load"]);
+        let diags = execute_pattern(&rule, &[e], None);
+        assert_eq!(diags.len(), 1);
+        assert!(diags[0].message.contains("load"), "{}", diags[0].message);
+        assert!(
+            diags[0].message.contains("property, unit"),
+            "{}",
+            diags[0].message
+        );
+    }
+
+    #[test]
+    fn verify_kind_allowlist_passes_allowed_and_exempt() {
+        let rule = allowlist_rule("W009", "invariant", &["property", "unit", "mutation"]);
+        // every kind allowed
+        let ok = entity_with_verify_kinds("inv", "invariant", &["unit", "mutation"]);
+        assert!(execute_pattern(&rule, &[ok], None).is_empty());
+        // a bare `verify "..."` (empty kind) is exempt
+        let bare = entity_with_verify_kinds("inv2", "invariant", &[""]);
+        assert!(execute_pattern(&rule, &[bare], None).is_empty());
+    }
+
+    #[test]
+    fn no_verify_statements_respects_gherkin_exemption() {
+        let rule = ValidationRulePattern {
+            code: "W004".to_string(),
+            severity: Severity::Warning,
+            message_template: "{kind} '{id}' has no verify".to_string(),
+            check: ValidationPatternKind::NoVerifyStatements,
+            target_kind: Some("behavior".to_string()),
+            edge_type: None,
+            field: None,
+            constraint: None,
+            wasm_function: None,
+        };
+        let mut unverified = make_entity("b1", "behavior", 1, 1);
+        let diags = execute_pattern(&rule, &[unverified.clone()], None);
+        assert_eq!(diags.len(), 1, "no verify => W004");
+
+        unverified
+            .fields
+            .insert("verify".to_string(), "something".to_string());
+        assert!(execute_pattern(&rule, &[unverified], None).is_empty());
+
+        let mut gherkin = make_entity("b2", "behavior", 1, 1);
+        gherkin
+            .fields
+            .insert("gherkin".to_string(), "scenario".to_string());
+        assert!(
+            execute_pattern(&rule, &[gherkin], None).is_empty(),
+            "gherkin exempts"
+        );
     }
 
     // -- B:parse_validation_rule_pattern --
@@ -921,7 +1101,14 @@ mod tests {
     // B:emit_diagnostic_from_pattern — verify unit "message template interpolates {id} and {kind}"
     #[test]
     fn test_template_interpolates_id_and_kind() {
-        let result = interpolate_template("orphan {kind} '{id}'", "my_beh", "behavior", None, None);
+        let result = interpolate_template(
+            "orphan {kind} '{id}'",
+            "my_beh",
+            "behavior",
+            None,
+            None,
+            None,
+        );
         assert_eq!(result, "orphan behavior 'my_beh'");
     }
 
@@ -934,6 +1121,7 @@ mod tests {
             "behavior",
             Some("status"),
             Some("invalid"),
+            None,
         );
         assert_eq!(result, "behavior 'b1' has status='invalid'");
     }
@@ -990,7 +1178,8 @@ mod tests {
     #[test]
     fn test_emit_diagnostic_from_pattern_contract() {
         // requires: violation detected, pattern configured
-        let result = interpolate_template("{kind} '{id}' orphan", "b1", "behavior", None, None);
+        let result =
+            interpolate_template("{kind} '{id}' orphan", "b1", "behavior", None, None, None);
         // ensures: template interpolated
         assert_eq!(result, "behavior 'b1' orphan");
         // ensures: code and severity match pattern
