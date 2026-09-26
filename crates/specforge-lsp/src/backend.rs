@@ -512,7 +512,13 @@ fn diagnostic_to_lsp(diag: &specforge_common::Diagnostic) -> Diagnostic {
         }),
         code: Some(NumberOrString::String(diag.code.clone())),
         source: Some("specforge".into()),
-        message: diag.message.clone(),
+        // C4-08: the suggestion is the actionable half of the diagnostic
+        // ("did you mean X / do Y") — surface it in the editor instead of
+        // dropping it at the LSP boundary.
+        message: match &diag.suggestion {
+            Some(suggestion) => format!("{}\n\nsuggestion: {suggestion}", diag.message),
+            None => diag.message.clone(),
+        },
         ..Default::default()
     }
 }
