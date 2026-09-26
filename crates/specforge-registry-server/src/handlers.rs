@@ -159,7 +159,9 @@ async fn get_package_version(
         }
     };
 
-    let wasm_url = format!("/v1/packages/{}/{}/download", encode_name(&name), version);
+    // Relative to the API base: clients compose this with their configured
+    // registry URL, which already carries the /v1 prefix.
+    let wasm_url = format!("/packages/{}/{}/download", encode_name(&name), version);
     let keywords: Vec<String> = if pkg.keywords.is_empty() {
         vec![]
     } else {

@@ -65,7 +65,7 @@ fn secret_file_path(alias: &str) -> PathBuf {
     secrets_dir().join(format!("{}.json", alias.replace('/', "_")))
 }
 
-fn store_secret_file(alias: &str, secret: &str) -> Result<(), String> {
+pub(crate) fn store_secret_file(alias: &str, secret: &str) -> Result<SecretBackend, String> {
     #[derive(serde::Serialize)]
     struct StoredSecret<'a> {
         secret: &'a str,
@@ -80,7 +80,7 @@ fn store_secret_file(alias: &str, secret: &str) -> Result<(), String> {
     std::fs::write(&path, json)
         .map_err(|e| format!("failed to write {}: {}", path.display(), e))?;
     restrict_permissions(&path);
-    Ok(())
+    Ok(SecretBackend::File)
 }
 
 fn load_secret_file(alias: &str) -> Result<Option<String>, String> {

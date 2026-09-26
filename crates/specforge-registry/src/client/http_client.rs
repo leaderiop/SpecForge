@@ -213,10 +213,17 @@ impl RegistryClient for HttpRegistryClient {
                     resp.json().map_err(|e| RegistryError::NetworkError {
                         message: format!("invalid response body: {}", e),
                     })?;
+                let wasm_url = if body.wasm_url.starts_with('/') {
+                    // the server may return a root-relative download path;
+                    // resolve it against the configured registry base
+                    format!("{base}{}", body.wasm_url)
+                } else {
+                    body.wasm_url
+                };
                 Ok(RegistryResponse {
                     name: body.name,
                     version: body.version,
-                    wasm_url: body.wasm_url,
+                    wasm_url,
                     sha256: body.sha256,
                     signature: body.signature,
                     key_id: body.key_id,
@@ -301,20 +308,49 @@ impl RegistryClient for HttpRegistryClient {
         let encoded = Self::encode_package_name(&manifest.name);
         let url = format!("{}/packages/{}/{}", base, encoded, manifest.version);
 
-        let mut form = reqwest::blocking::multipart::Form::new()
-            .text("manifest", manifest_json.to_string())
-            .part(
-                "wasm",
-                reqwest::blocking::multipart::Part::bytes(package.to_vec())
-                    .file_name("extension.wasm")
-                    .mime_str("application/wasm")
-                    .unwrap(),
-            );
+        // Build the multipart body manually: reqwest's blocking multipart
+        // wrapper can fail with a body error on large wasm parts, while an
+        // explicit body is deterministic and length-known.
+        let boundary = format!(
+            "specforge-{}",
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .map(|d| d.as_nanos())
+                .unwrap_or(0)
+        );
+        let mut body: Vec<u8> = Vec::new();
+        body.extend_from_slice(
+            format!(
+                "--{boundary}\r\nContent-Disposition: form-data; name=\"manifest\"\r\nContent-Type: application/json\r\n\r\n{manifest_json}\r\n"
+            )
+            .as_bytes(),
+        );
+        body.extend_from_slice(
+            format!(
+                "--{boundary}\r\nContent-Disposition: form-data; name=\"wasm\"; filename=\"extension.wasm\"\r\nContent-Type: application/wasm\r\n\r\n"
+            )
+            .as_bytes(),
+        );
+        body.extend_from_slice(package);
+        body.extend_from_slice(b"\r\n");
         if let Some(sig) = signature {
-            form = form.text("signature", sig.to_string());
+            body.extend_from_slice(
+                format!(
+                    "--{boundary}\r\nContent-Disposition: form-data; name=\"signature\"\r\n\r\n{sig}\r\n"
+                )
+                .as_bytes(),
+            );
         }
+        body.extend_from_slice(format!("--{boundary}--\r\n").as_bytes());
 
-        let mut request = self.client.put(&url).multipart(form);
+        let mut request = self
+            .client
+            .put(&url)
+            .header(
+                reqwest::header::CONTENT_TYPE,
+                format!("multipart/form-data; boundary={boundary}"),
+            )
+            .body(body);
         if let Some(credential) = credential {
             let token = Self::resolve_token(credential)?;
             request = request.header(AUTHORIZATION, format!("Bearer {}", token));

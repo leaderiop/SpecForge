@@ -105,7 +105,16 @@ impl CredentialStore {
                         }
                     }
                 } else {
-                    token.clone()
+                    // Either a legacy plaintext entry, or the file fallback
+                    // written when the keyring round-trip failed at login.
+                    if !token.is_empty() {
+                        token.clone()
+                    } else {
+                        match super::secrets::load_secret(alias) {
+                            Ok(Some(secret)) if !secret.is_empty() => secret,
+                            _ => token.clone(),
+                        }
+                    }
                 };
                 AuthMethod::Bearer(secret)
             }
@@ -126,7 +135,24 @@ impl CredentialStore {
         token: String,
         expires_at: Option<String>,
     ) -> Result<(), String> {
-        let backend = super::secrets::store_secret(alias, &token)?;
+        let mut backend = super::secrets::store_secret(alias, &token)?;
+        // Self-verify the round trip. Some platform keychain domains accept a
+        // write but subsequent reads return NoEntry (observed on macOS with
+        // keyring-rs v3's data-protection domain), which would lock the user
+        // out on the next command. When the keyring claims success but the
+        // read-back fails, force the file backend.
+        if backend == super::secrets::SecretBackend::Keyring {
+            let readable = super::secrets::load_secret(alias)
+                .ok()
+                .flatten()
+                .is_some_and(|s| s == token);
+            if !readable {
+                // drop the orphaned keyring item (best-effort) and use the
+                // file backend instead
+                super::secrets::delete_secret(alias);
+                backend = super::secrets::store_secret_file(alias, &token)?;
+            }
+        }
         self.registries.insert(
             alias.to_string(),
             CredentialEntry::Token {
