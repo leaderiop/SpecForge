@@ -547,6 +547,7 @@ impl<'a> ParseContext<'a> {
             "identifier" => FieldValue::Identifier(self.text(node).to_string()),
             "array_type" => FieldValue::Identifier(self.text(node).to_string()),
             "expr_group" => FieldValue::Expression(self.parse_expr_group(node)),
+            "type_union" => FieldValue::TypeUnion(self.parse_type_union(node)),
             "list" => self.parse_list(node),
             "nested_block" => self.parse_nested_block(node),
             _ => FieldValue::String(self.text(node).to_string()),
@@ -710,6 +711,21 @@ impl<'a> ParseContext<'a> {
             .filter(|c| c.kind() == "expr_or")
             .map(|c| self.convert_expr(c))
             .collect()
+    }
+
+    /// Collect the declared types of a union-typed field value.
+    fn parse_type_union(&self, node: Node<'a>) -> Vec<String> {
+        let mut types = Vec::new();
+        let mut cursor = node.walk();
+        for child in node.children(&mut cursor) {
+            match child.kind() {
+                "identifier" | "array_type" | "type_generic" => {
+                    types.push(self.text(child).trim().to_string());
+                }
+                _ => {}
+            }
+        }
+        types
     }
 
     fn expr_span(&self, node: Node<'a>) -> ExprSpan {

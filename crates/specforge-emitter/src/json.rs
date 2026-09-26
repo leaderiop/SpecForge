@@ -42,6 +42,7 @@ pub(crate) fn field_value_to_json(value: &FieldValue) -> Value {
     match value {
         FieldValue::String(s) => Value::String(s.clone()),
         FieldValue::Identifier(s) => Value::String(s.clone()),
+        FieldValue::TypeUnion(types) => Value::String(types.join(" | ")),
         FieldValue::Expression(exprs) => Value::Array(
             exprs
                 .iter()

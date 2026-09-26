@@ -177,6 +177,7 @@ module.exports = grammar({
         $.nested_block,
         $.array_type,
         $.identifier,
+        $.type_union,
         $.expr_group,
       ),
     // Type[] — array type suffix (e.g., ImportDeclaration[])
@@ -209,6 +210,14 @@ module.exports = grammar({
         "<",
         commaSep1($._type_ref),
         ">",
+      ),
+
+    // Union-typed field declaration: query_scope string | string[]
+    // Engages only when `|` follows a type; bare identifiers stay plain
+    // values. (RES-20 direction: declared field types.)
+    type_union: ($) =>
+      prec.right(
+        seq($._type_ref, repeat1(seq("|", $._type_ref))),
       ),
 
     // verify [kind] "description"

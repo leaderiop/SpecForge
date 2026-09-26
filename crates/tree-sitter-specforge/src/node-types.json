@@ -374,6 +374,10 @@
           {
             "type": "triple_quoted_string",
             "named": true
+          },
+          {
+            "type": "type_union",
+            "named": true
           }
         ]
       }
@@ -772,6 +776,29 @@
         ]
       }
     },
+    "children": {
+      "multiple": true,
+      "required": true,
+      "types": [
+        {
+          "type": "array_type",
+          "named": true
+        },
+        {
+          "type": "identifier",
+          "named": true
+        },
+        {
+          "type": "type_generic",
+          "named": true
+        }
+      ]
+    }
+  },
+  {
+    "type": "type_union",
+    "named": true,
+    "fields": {},
     "children": {
       "multiple": true,
       "required": true,

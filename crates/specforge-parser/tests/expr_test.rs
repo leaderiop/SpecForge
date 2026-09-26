@@ -105,18 +105,13 @@ constraint c "C" {
 }
 
 #[test]
-fn corpus_error_set_matches_documented_baseline() {
-    // Grammar regression net: the set of corpus files with parse errors must
-    // stay within this documented baseline — files using syntax the generic
-    // grammar has never supported (port `method` signatures, union-typed
-    // fields with `|`). Any NEW file erroring is a regression.
+fn corpus_parses_clean_end_to_end() {
+    // Grammar regression net: EVERY corpus file must parse with zero
+    // errors. The historical baselines (port `method` signatures, union
+    // types with `|`) are fully supported since the method and type_union
+    // grammar slices - the tolerated-error era is over.
     let manifest_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
     let root = manifest_dir.join("../../spec");
-    let baseline: std::collections::HashSet<&str> = [
-        "zero-entity-core.spec", // union-typed field declaration: string | string[]
-    ]
-    .into_iter()
-    .collect();
 
     let mut files = Vec::new();
     let mut stack = vec![root];
@@ -143,8 +138,8 @@ fn corpus_error_set_matches_documented_baseline() {
         if result.errors.is_empty() {
             continue;
         }
-        let name = path.file_name().unwrap().to_string_lossy();
-        if !baseline.contains(name.as_ref()) {
+        if !result.errors.is_empty() {
+            let name = path.file_name().unwrap().to_string_lossy();
             unexpected.push(format!("{}: {:?}", name, result.errors.first()));
         }
     }

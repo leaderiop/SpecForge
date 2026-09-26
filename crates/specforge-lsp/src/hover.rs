@@ -175,6 +175,7 @@ fn format_field_value(fv: &FieldValue) -> String {
             format!("\"{}\"", truncated)
         }
         FieldValue::Identifier(s) => format!("`{}`", s),
+        FieldValue::TypeUnion(types) => types.join(" | "),
         FieldValue::Expression(exprs) => {
             if exprs.len() == 1 {
                 format!("expr {{ {} }}", exprs[0])

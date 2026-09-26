@@ -143,6 +143,9 @@ pub enum FieldValue {
     /// First-class formal expressions: `metric expr { a < 10ms, b > 5 }`.
     /// Spans are absolute file positions.
     Expression(Vec<SpannedExpr>),
+    /// Union-typed field declaration value: `query_scope string | string[]`.
+    /// Each element is the declared type's source text. (RES-20 direction.)
+    TypeUnion(Vec<String>),
     Integer(i64),
     Boolean(bool),
     Date(String),

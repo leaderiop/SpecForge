@@ -60,3 +60,28 @@ port P {
         Some(FieldValue::VerifyList(_))
     ));
 }
+
+#[test]
+fn union_typed_field_declarations_parse() {
+    let source = r#"
+entity_kind EK "Example" {
+    query_scope string | string[] @optional
+    tags [alpha]
+    status planned
+}
+"#;
+    let result = parse(source, "union.spec");
+    assert!(result.errors.is_empty(), "errors: {:?}", result.errors);
+    let entity = result.entities.first().unwrap();
+    match entity.fields.get("query_scope") {
+        Some(FieldValue::TypeUnion(types)) => {
+            assert_eq!(types, &vec!["string".to_string(), "string[]".to_string()]);
+        }
+        other => panic!("expected TypeUnion, got {other:?}"),
+    }
+    // plain values are untouched
+    assert!(matches!(
+        entity.fields.get("status"),
+        Some(FieldValue::Identifier(_))
+    ));
+}
