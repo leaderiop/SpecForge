@@ -1,3 +1,4 @@
+mod builtin_blob_sync;
 mod builtins;
 mod composite;
 mod greet_sdk;
