@@ -368,7 +368,9 @@ fn infer_session_end_rejects_unknown_session() {
             "session_id": "sess_nonexistent"
         }),
     );
-    assert!(resp.get("error").is_some());
+    // unknown session is a tool execution error (isError result), not a
+    // protocol error
+    assert!(resp["result"]["isError"] == true);
 }
 
 #[test]

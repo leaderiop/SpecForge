@@ -234,11 +234,7 @@ fn handle_end(
             );
         }
         None => {
-            return JsonRpcResponse::error(
-                id,
-                error_codes::INVALID_PARAMS,
-                format!("Unknown session_id: '{}'", session_id),
-            );
+            return super::tool_error(id, format!("Unknown session_id: '{}'", session_id));
         }
     }
 

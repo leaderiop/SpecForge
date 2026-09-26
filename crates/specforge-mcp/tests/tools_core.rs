@@ -1067,3 +1067,64 @@ fn stats_includes_diagnostic_summary() {
         "stats response should include diagnostic summary"
     );
 }
+
+// --- C9-02/C9-03: token budget enforcement ---
+
+// B:provide_mcp_export_tool — verify unit "max_tokens truncates output within budget with metadata"
+#[test]
+fn export_with_max_tokens_truncates_and_reports_budget() {
+    let mut server = test_server();
+    let resp = call_tool(
+        &mut server,
+        "specforge.export",
+        json!({"format": "graph", "max_tokens": 120}),
+    );
+    let text = tool_text(&resp);
+    let parsed: Value = serde_json::from_str(&text).unwrap();
+
+    // metadata: the budget result rides in the payload
+    assert!(
+        parsed["token_budget"].is_object(),
+        "budget metadata must be present: {}",
+        text.len()
+    );
+    assert_eq!(parsed["token_budget"]["budget_tokens"], 120);
+
+    // the estimate must honor the budget
+    let estimated = parsed["token_budget"]["estimated_tokens"].as_u64().unwrap();
+    assert!(
+        estimated <= 120,
+        "estimated tokens {estimated} exceed the 120-token budget"
+    );
+
+    // and truncation happened (a full-graph export is much larger)
+    assert!(
+        !parsed["token_budget"]["truncated_entities"]
+            .as_array()
+            .unwrap()
+            .is_empty(),
+        "entities must have been dropped to fit the budget"
+    );
+}
+
+// B:mcp_resource_reads — verify unit "context resource honors ?max_tokens budget"
+#[test]
+fn context_resource_honors_max_tokens_budget() {
+    let mut server = test_server();
+    let req = json!({
+        "jsonrpc": "2.0", "id": 7,
+        "method": "resources/read",
+        "params": { "uri": "specforge://context?max_tokens=150" }
+    });
+    let resp: Value =
+        serde_json::from_str(&server.handle_message(&req.to_string()).unwrap()).unwrap();
+    let text = resp["result"]["contents"][0]["text"].as_str().unwrap_or("");
+    assert!(!text.is_empty(), "context payload must be present");
+
+    // rough token estimate (words + structural chars) must fit the budget
+    let words = text.split_whitespace().count();
+    assert!(
+        words <= 150,
+        "budgeted context must be trimmed to ~150 tokens, got ~{words} words"
+    );
+}

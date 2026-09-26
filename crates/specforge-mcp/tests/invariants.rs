@@ -233,9 +233,15 @@ fn error_includes_entity_id_when_applicable() {
         "specforge.inspect",
         json!({"entity_id": "unknown_entity"}),
     );
-    assert!(resp["error"].is_object());
-    let err_msg = resp["error"]["message"].as_str().unwrap_or("");
-    assert!(err_msg.contains("unknown_entity") || resp["error"]["data"]["entity_id"].is_string());
+    assert!(
+        resp["result"]["isError"] == true,
+        "entity-not-found is a tool execution error, not a protocol error"
+    );
+    let content_text = resp["result"]["content"][0]["text"].as_str().unwrap_or("");
+    assert!(
+        content_text.contains("unknown_entity"),
+        "tool error result must carry the offending entity id: {content_text}"
+    );
 }
 
 // I:mcp_structured_error_responses — verify property "no MCP endpoint returns a plain string error"

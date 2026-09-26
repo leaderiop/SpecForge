@@ -146,7 +146,13 @@ fn inspect_unknown_entity() {
         "specforge.inspect",
         json!({"entity_id": "nonexistent"}),
     );
-    assert!(resp["error"].is_object());
+    // C9-00/C9-12: entity-not-found is a tool execution error — the tool ran
+    // and the domain state did not match — so it surfaces as an isError
+    // result, not a -32602 protocol error.
+    assert!(
+        resp["result"]["isError"] == true,
+        "domain failure must be an isError tool result"
+    );
 }
 
 // --- specforge.find_definition ---
@@ -184,7 +190,13 @@ fn find_definition_unknown_entity() {
         "specforge.find_definition",
         json!({"entity_id": "nonexistent"}),
     );
-    assert!(resp["error"].is_object());
+    // C9-00/C9-12: entity-not-found is a tool execution error — the tool ran
+    // and the domain state did not match — so it surfaces as an isError
+    // result, not a -32602 protocol error.
+    assert!(
+        resp["result"]["isError"] == true,
+        "domain failure must be an isError tool result"
+    );
 }
 
 // --- specforge.find_references ---
@@ -223,7 +235,13 @@ fn find_references_unknown_entity() {
         "specforge.find_references",
         json!({"entity_id": "nonexistent"}),
     );
-    assert!(resp["error"].is_object());
+    // C9-00/C9-12: entity-not-found is a tool execution error — the tool ran
+    // and the domain state did not match — so it surfaces as an isError
+    // result, not a -32602 protocol error.
+    assert!(
+        resp["result"]["isError"] == true,
+        "domain failure must be an isError tool result"
+    );
 }
 
 // --- specforge.outline ---

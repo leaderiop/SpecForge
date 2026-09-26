@@ -452,8 +452,8 @@ fn mcp_tool_unknown_returns_error() {
         "should be error for unknown tool"
     );
     assert_eq!(
-        resp["error"]["code"], -32601,
-        "should be METHOD_NOT_FOUND for unknown tool"
+        resp["error"]["code"], -32602,
+        "unknown tool is an Invalid params protocol error (MCP spec example)"
     );
 }
 
@@ -783,11 +783,12 @@ fn mcp_tool_inspect_missing_entity_returns_error() {
     );
 
     let resp = find_response(&responses, 1).expect("should get response for id 1");
+    // C9-00/C9-12: missing entity is a tool execution error (isError
+    // result), not a -32602 protocol error.
     assert!(
-        resp["error"].is_object(),
-        "should be error for missing entity"
+        resp["result"]["isError"] == true,
+        "missing entity must be an isError tool result"
     );
-    assert_eq!(resp["error"]["code"], -32602, "should be INVALID_PARAMS");
 }
 
 #[test]

@@ -19,11 +19,7 @@ pub fn call(state: &McpState, args: Value, id: Option<Value>) -> JsonRpcResponse
     let node = match state.graph.node(entity_id) {
         Some(n) => n,
         None => {
-            return JsonRpcResponse::error(
-                id,
-                error_codes::INVALID_PARAMS,
-                format!("Entity not found: {}", entity_id),
-            );
+            return super::tool_error(id, format!("Entity not found: {}", entity_id));
         }
     };
 

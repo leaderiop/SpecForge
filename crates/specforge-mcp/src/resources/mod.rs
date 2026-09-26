@@ -36,8 +36,13 @@ pub fn handle_resource_read(
     match uri.as_str() {
         "specforge://graph" => graph::read(state, id),
         "specforge://schema" => schema::read(state, id),
-        "specforge://context" => context::read(state, id),
-        "specforge://brief" => brief::read(state, id),
+        // query strings (?max_tokens=N) ride on the resource URIs
+        u if u == "specforge://context" || u.starts_with("specforge://context?") => {
+            context::read(state, u, id)
+        }
+        u if u == "specforge://brief" || u.starts_with("specforge://brief?") => {
+            brief::read(state, u, id)
+        }
         "specforge://diagnostics" => diagnostics::read(state, id),
         _ if uri.starts_with("specforge://graph/") => {
             let entity_id = &uri["specforge://graph/".len()..];

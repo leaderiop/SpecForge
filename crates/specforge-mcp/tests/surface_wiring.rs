@@ -363,7 +363,7 @@ fn extension_tool_dispatches() {
     let error_code = resp["error"]["code"].as_i64();
     assert_ne!(
         error_code,
-        Some(-32601),
+        Some(-32602),
         "extension tool must not return METHOD_NOT_FOUND, got: {:?}",
         resp
     );
@@ -373,12 +373,12 @@ fn extension_tool_dispatches() {
 #[test]
 #[specforge_test(
     behavior = "extension_tool_dispatch",
-    verify = "truly unknown tool returns METHOD_NOT_FOUND"
+    verify = "truly unknown tool returns -32602 Invalid params (MCP spec example)"
 )]
-fn unknown_tool_returns_method_not_found() {
+fn unknown_tool_returns_invalid_params() {
     let (mut server, _dir) = init_server_with_surfaces();
     let resp = call_tool(&mut server, "totally.unknown.tool", json!({}));
-    assert_eq!(resp["error"]["code"].as_i64(), Some(-32601));
+    assert_eq!(resp["error"]["code"].as_i64(), Some(-32602));
 }
 
 // B:extension_tool_dispatch — verify unit "re-compilation preserves core tools"

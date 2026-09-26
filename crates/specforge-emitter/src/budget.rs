@@ -1,6 +1,6 @@
 use serde::Serialize;
 use serde_json::Value;
-use specforge_graph::Graph;
+use specforge_graph::{Graph, Node};
 use std::collections::HashMap;
 
 use crate::error::EmitterError;
@@ -156,6 +156,60 @@ pub fn emit_json_with_budget(graph: &Graph, max_tokens: usize) -> String {
         // Remove the least-connected node
         let removed = kept.remove(0);
         truncated_ids.push(removed.id.raw.to_string());
+    }
+}
+
+/// Build the sub-graph that fits `max_tokens` when rendered by `render`,
+/// dropping least-connected nodes first (same prioritize strategy as
+/// [`emit_json_with_budget`]). Returns the filtered graph.
+pub fn filter_graph_within_budget<F>(graph: &Graph, max_tokens: usize, render: F) -> Graph
+where
+    F: Fn(&Graph) -> String,
+{
+    let full = render(graph);
+    if estimate_tokens(&full) <= max_tokens {
+        return graph.clone();
+    }
+
+    let degrees = degree_centrality(graph);
+    let mut nodes_by_priority: Vec<_> = graph.nodes().into_iter().collect();
+    nodes_by_priority.sort_by(|a, b| {
+        let da = degrees.get(a.id.raw.as_str()).copied().unwrap_or(0);
+        let db = degrees.get(b.id.raw.as_str()).copied().unwrap_or(0);
+        da.cmp(&db).then(a.id.raw.cmp(&b.id.raw))
+    });
+
+    let mut kept: Vec<_> = nodes_by_priority;
+    loop {
+        let kept_ids: std::collections::HashSet<&str> =
+            kept.iter().map(|n| n.id.raw.as_str()).collect();
+
+        let mut filtered = Graph::new();
+        for n in &kept {
+            filtered.add_node(Node {
+                id: n.id,
+                kind: n.kind,
+                title: n.title.clone(),
+                fields: n.fields.clone(),
+                source_span: n.source_span.clone(),
+                methods: n.methods.clone(),
+            });
+        }
+        for e in graph.edges() {
+            if kept_ids.contains(e.source.as_str()) && kept_ids.contains(e.target.as_str()) {
+                filtered.add_edge(specforge_graph::Edge {
+                    source: e.source,
+                    target: e.target,
+                    label: e.label,
+                });
+            }
+        }
+
+        let rendered = render(&filtered);
+        if estimate_tokens(&rendered) <= max_tokens || kept.len() <= 1 {
+            return filtered;
+        }
+        kept.remove(0);
     }
 }
 

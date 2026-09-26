@@ -27,6 +27,19 @@ use specforge_registry::SurfaceType;
 use crate::protocol::{JsonRpcResponse, error_codes};
 use crate::state::McpState;
 
+/// Tool-execution failure result: the tool ran but the domain state did
+/// not match (C9-00/C9-12 — execution errors are results with isError,
+/// not protocol-level -32602).
+pub(crate) fn tool_error(id: Option<Value>, message: String) -> JsonRpcResponse {
+    JsonRpcResponse::success(
+        id,
+        serde_json::json!({
+            "content": [{ "type": "text", "text": message.clone() }],
+            "isError": true,
+        }),
+    )
+}
+
 pub fn handle_tool_call(state: &mut McpState, params: Value, id: Option<Value>) -> JsonRpcResponse {
     if !state.is_initialized() {
         return JsonRpcResponse::error(id, error_codes::INVALID_REQUEST, "Server not initialized");
@@ -124,9 +137,12 @@ pub fn handle_tool_call(state: &mut McpState, params: Value, id: Option<Value>) 
                     }),
                 )
             } else {
+                // MCP spec (tools/call): an unrecognized tool is an Invalid
+                // params protocol error — see the "Unknown tool" example in
+                // docs/mcp-specification-summary.md.
                 JsonRpcResponse::error(
                     id,
-                    error_codes::METHOD_NOT_FOUND,
+                    error_codes::INVALID_PARAMS,
                     format!("Unknown tool: {}", name),
                 )
             }
