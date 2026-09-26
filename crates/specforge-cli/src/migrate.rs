@@ -1,6 +1,6 @@
 use specforge_migrate::{
     CURRENT_FORMAT_VERSION, FormatVersion, MAX_SUPPORTED_VERSION, MigrationStatus,
-    MigrationSummary, RollbackSummary, migrate_project, run_rollback,
+    MigrationSummary, RollbackSummary, compare_graphs, migrate_project, run_rollback,
 };
 use std::path::Path;
 use std::str::FromStr;
@@ -19,6 +19,15 @@ pub fn run(
         print_rollback(&summary, format);
         return if summary.failed_count > 0 { 1 } else { 0 };
     }
+
+    // Criterion 3 (pre-side): capture the compiled graph before any file is
+    // touched, so post-migration validation can confirm structural
+    // equivalence.
+    let pre_graph = if !dry_run {
+        Some(crate::pipeline::compile(path).graph)
+    } else {
+        None
+    };
 
     // Parse and validate target version
     let target = match target_version {
@@ -43,7 +52,77 @@ pub fn run(
     let summary = migrate_project(path, &target, dry_run, no_backup);
     print_migration(&summary, format, dry_run);
 
-    if summary.failed_count > 0 { 1 } else { 0 }
+    if summary.failed_count > 0 {
+        return 1;
+    }
+
+    // Criterion 5: invoke declared extension migration hooks in
+    // topological (dependency) order. Extensions without a hook are
+    // skipped silently.
+    if !dry_run && let Err(e) = invoke_migration_hooks(path) {
+        eprintln!("migration hook failure: {e}");
+        run_rollback(path);
+        eprintln!("files restored from backups");
+        return 1;
+    }
+
+    // Criterion 3: post-migration validation - the graph must be
+    // structurally equivalent to the pre-migration graph.
+    if let Some(pre) = pre_graph {
+        let post = crate::pipeline::compile(path);
+        let structural = compare_graphs(&pre, &post.graph);
+        if !structural.is_empty() {
+            run_rollback(path);
+            for d in &structural {
+                eprintln!("{}: {}", d.code, d.message);
+            }
+            eprintln!("migration changed the graph structure; files restored from backups");
+            return 1;
+        }
+    }
+
+    0
+}
+
+/// Invoke every installed extension's declared migration hook, in
+/// topological dependency order. Extensions without a `migration_hook`
+/// are skipped.
+fn invoke_migration_hooks(path: &Path) -> Result<Vec<String>, String> {
+    use specforge_wasm::WasmRuntime;
+    use specforge_wasm::runtime::WasmCallResult;
+
+    let config = specforge_common::load_project_config(path);
+    let runtime = crate::pipeline::build_runtime(path);
+    let mut load_diags = Vec::new();
+    let manifests =
+        specforge_emitter::compile::load_extensions(&config.extensions, &runtime, &mut load_diags);
+    let order = specforge_wasm::topological_sort_extensions(&manifests).map_err(|ds| {
+        ds.first()
+            .map(|d| d.message.clone())
+            .unwrap_or_else(|| "dependency cycle".to_string())
+    })?;
+
+    let mut invoked = Vec::new();
+    for name in &order {
+        let Some(manifest) = manifests.iter().find(|m| &m.name == name) else {
+            continue;
+        };
+        let Some(hook) = &manifest.migration_hook else {
+            continue;
+        };
+        let payload = serde_json::to_vec(&serde_json::json!({}))
+            .map_err(|e| format!("hook payload serialization failed: {e}"))?;
+        match runtime.call_export(name, hook, &payload) {
+            WasmCallResult::Ok(_) => invoked.push(format!("{name}:{hook}")),
+            WasmCallResult::Trap(trap) => {
+                return Err(format!(
+                    "migration hook '{hook}' of {name} did not execute: {}: {}",
+                    trap.kind, trap.message
+                ));
+            }
+        }
+    }
+    Ok(invoked)
 }
 
 fn print_rollback(summary: &RollbackSummary, format: &str) {
