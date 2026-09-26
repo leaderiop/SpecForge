@@ -37,6 +37,23 @@ pub struct TokenRecord {
     pub admin: bool,
 }
 
+/// Sort key for a version string: SemVer when parseable (pre-release
+/// ordering included), lexicographic fallback for legacy rows.
+fn semver_key(version: &str) -> (u64, u64, u64, u8, String) {
+    match semver::Version::parse(version) {
+        // the empty pre-release flag ranks a release above its own
+        // pre-releases; identifiers otherwise compare as strings (v1)
+        Ok(v) => (
+            v.major,
+            v.minor,
+            v.patch,
+            u8::from(v.pre.is_empty()),
+            v.pre.to_string(),
+        ),
+        Err(_) => (0, 0, 0, 1, version.to_string()),
+    }
+}
+
 impl Database {
     pub fn open(path: &Path) -> Result<Self, String> {
         let conn = Connection::open(path).map_err(|e| format!("failed to open database: {}", e))?;
@@ -194,37 +211,52 @@ impl Database {
     }
 
     pub fn search(&self, query: &str, limit: u32) -> Vec<PackageVersion> {
+        use std::collections::HashMap;
+
         let conn = self.conn.lock().unwrap();
         let pattern = format!("%{}%", query);
         let mut stmt = conn
             .prepare(
                 "SELECT name, version, sha256, size_bytes, description, keywords, publisher, published_at
                  FROM packages
-                 WHERE yanked = 0 AND (name LIKE ?1 OR description LIKE ?1 OR keywords LIKE ?1)
-                 GROUP BY name
-                 HAVING version = MAX(version)
-                 ORDER BY name
-                 LIMIT ?2",
+                 WHERE yanked = 0 AND (name LIKE ?1 OR description LIKE ?1 OR keywords LIKE ?1)",
             )
             .unwrap();
-        stmt.query_map(params![pattern, limit], |row| {
-            Ok(PackageVersion {
-                name: row.get(0)?,
-                version: row.get(1)?,
-                sha256: row.get(2)?,
-                size_bytes: row.get(3)?,
-                description: row.get(4)?,
-                keywords: row.get(5)?,
-                publisher: row.get(6)?,
-                published_at: row.get(7)?,
-                signature: String::new(),
-                key_id: String::new(),
-                manifest: String::new(),
+        let rows: Vec<PackageVersion> = stmt
+            .query_map(params![pattern], |row| {
+                Ok(PackageVersion {
+                    name: row.get(0)?,
+                    version: row.get(1)?,
+                    sha256: row.get(2)?,
+                    size_bytes: row.get(3)?,
+                    description: row.get(4)?,
+                    keywords: row.get(5)?,
+                    publisher: row.get(6)?,
+                    published_at: row.get(7)?,
+                    signature: String::new(),
+                    key_id: String::new(),
+                    manifest: String::new(),
+                })
             })
-        })
-        .unwrap()
-        .filter_map(|r| r.ok())
-        .collect()
+            .unwrap()
+            .filter_map(|r| r.ok())
+            .collect();
+
+        // Latest per name by SemVer order — SQL MAX(version) is
+        // lexicographic and would rank 9.0.0 above 10.0.0.
+        let mut latest: HashMap<String, PackageVersion> = HashMap::new();
+        for p in rows {
+            match latest.get(&p.name) {
+                Some(current) if semver_key(&current.version) >= semver_key(&p.version) => {}
+                _ => {
+                    latest.insert(p.name.clone(), p);
+                }
+            }
+        }
+        let mut out: Vec<PackageVersion> = latest.into_values().collect();
+        out.sort_by(|a, b| a.name.cmp(&b.name));
+        out.truncate(limit as usize);
+        out
     }
 
     /// Claim a namespace scope on first publish. Returns `true` when this
@@ -337,5 +369,54 @@ impl Database {
             )
             .unwrap_or(0);
         rows > 0
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn pv(name: &str, version: &str) -> PackageVersion {
+        PackageVersion {
+            name: name.to_string(),
+            version: version.to_string(),
+            sha256: "hash".to_string(),
+            size_bytes: 1,
+            description: format!("{} package", name),
+            keywords: String::new(),
+            publisher: "tester".to_string(),
+            published_at: "2026-01-01".to_string(),
+            signature: String::new(),
+            key_id: String::new(),
+            manifest: String::new(),
+        }
+    }
+
+    #[test]
+    fn search_prefers_semver_latest_over_lexicographic() {
+        let dir = tempfile::tempdir().unwrap();
+        let db = Database::open(&dir.path().join("t.db")).unwrap();
+        db.insert_package(&pv("pkg", "9.0.0")).unwrap();
+        db.insert_package(&pv("pkg", "10.0.0")).unwrap();
+        let hits = db.search("pkg", 10);
+        assert_eq!(hits.len(), 1, "one row per package name");
+        assert_eq!(hits[0].version, "10.0.0", "10.0.0 must outrank 9.0.0");
+    }
+
+    #[test]
+    fn search_orders_by_semver_including_prerelease() {
+        // SemVer: 2.0.0-beta.1 > 1.9.0 (major compare first; pre-release
+        // only breaks ties within the same version triple).
+        let dir = tempfile::tempdir().unwrap();
+        let db = Database::open(&dir.path().join("t.db")).unwrap();
+        db.insert_package(&pv("pkg", "2.0.0-beta.1")).unwrap();
+        db.insert_package(&pv("pkg", "1.9.0")).unwrap();
+        let hits = db.search("pkg", 10);
+        assert_eq!(hits[0].version, "2.0.0-beta.1");
+
+        // ...but a pre-release never outranks its own release triple.
+        db.insert_package(&pv("pkg", "2.0.0")).unwrap();
+        let hits = db.search("pkg", 10);
+        assert_eq!(hits[0].version, "2.0.0");
     }
 }

@@ -263,6 +263,15 @@ async fn publish_package(
 ) -> impl IntoResponse {
     let name = decode_name(&name);
 
+    // C8-03: non-semver versions poison search ordering and resolver
+    // matching downstream — reject them at the door.
+    if semver::Version::parse(&version).is_err() {
+        return bad_request(
+            "INVALID_VERSION",
+            &format!("'{version}' is not a valid SemVer version (MAJOR.MINOR.PATCH)"),
+        );
+    }
+
     // Auth check
     let auth_header = match headers.get("authorization").and_then(|v| v.to_str().ok()) {
         Some(h) => h.to_string(),

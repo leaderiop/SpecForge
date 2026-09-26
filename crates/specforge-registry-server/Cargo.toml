@@ -9,6 +9,7 @@ name = "specforge-registry"
 path = "src/main.rs"
 
 [dependencies]
+semver = { workspace = true }
 specforge-registry = { path = "../specforge-registry" }
 axum = { version = "0.8.4", features = ["multipart"] }
 tokio = { workspace = true }

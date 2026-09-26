@@ -152,3 +152,41 @@ mod tests {
         assert!(!token_has_scope(&token(Some("@web")), "@webui/x"));
     }
 }
+
+#[cfg(test)]
+mod scope_tests {
+    use super::*;
+
+    fn token(scope: Option<&str>) -> TokenRecord {
+        TokenRecord {
+            token_hash: "hash".to_string(),
+            scope: scope.map(str::to_string),
+            label: "test".to_string(),
+            created_at: "2026-01-01".to_string(),
+            expires_at: None,
+            admin: false,
+        }
+    }
+
+    #[test]
+    fn scope_prefix_does_not_leak_into_longer_names() {
+        // C8-10/C14-06: a token scoped to '@org/soft' must NOT authorize
+        // '@org/software' — the boundary is the '/', not the prefix.
+        let t = token(Some("@org/soft"));
+        assert!(token_has_scope(&t, "@org/soft"));
+        assert!(!token_has_scope(&t, "@org/software"));
+    }
+
+    #[test]
+    fn namespace_scope_covers_exactly_its_namespace() {
+        let t = token(Some("@org"));
+        assert!(token_has_scope(&t, "@org/software"));
+        assert!(token_has_scope(&t, "@org"));
+        assert!(!token_has_scope(&t, "@other/software"));
+    }
+
+    #[test]
+    fn unscoped_token_has_full_access() {
+        assert!(token_has_scope(&token(None), "@anything/here"));
+    }
+}
