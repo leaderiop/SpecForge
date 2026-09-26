@@ -422,7 +422,7 @@ milestone mcp_server "Phase 13: MCP Server" {
 
 milestone migration "Phase 14: Migration" {
   description "Spec file migration with dry-run preview, backup, post-migration validation, rollback, and extension migration hook invocation."
-  status      planned
+  status      completed
   start_date  "2026-05-01"
   target_date "2026-06-30"
   owner       "specforge-team"
