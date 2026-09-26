@@ -102,6 +102,7 @@ pub fn build_graph_with_config(
                 title: entity.title.clone(),
                 fields: entity.fields.clone(),
                 source_span: entity.span.clone(),
+                methods: entity.methods.clone(),
             };
             graph.add_node(node);
         }

@@ -22,6 +22,7 @@ fn node(id: &str, kind: &str) -> Node {
         title: Some(format!("Title {}", id)),
         fields: FieldMap::new(),
         source_span: span(),
+        methods: Vec::new(),
     }
 }
 

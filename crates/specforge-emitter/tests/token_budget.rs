@@ -27,6 +27,7 @@ fn node_with_contract(id: &str, kind: &str, contract: &str) -> Node {
         title: Some(format!("Title {}", id)),
         fields,
         source_span: span(),
+        methods: Vec::new(),
     }
 }
 

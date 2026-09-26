@@ -28,6 +28,7 @@ fn test_server() -> McpServer {
             end_line: 5,
             end_col: 0,
         },
+        methods: Vec::new(),
     });
     state.graph = graph;
     server

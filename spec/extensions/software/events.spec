@@ -8,6 +8,7 @@ event se_contract_check_complete "Contract Check Complete" {
 
   verify integration "event emitted after contract check pass completes"
   verify integration "payload contains violation count and proof obligation list"
+    tests ["crates/specforge-wasm/tests/protocol_types.rs", "crates/specforge-emitter/tests/builtins.rs"]
 
 }
 
@@ -17,6 +18,7 @@ event se_refinement_check_complete "Refinement Check Complete" {
 
   verify integration "event emitted after refinement verify pass completes"
   verify integration "payload contains chain count and cycle violations"
+    tests ["crates/specforge-wasm/tests/protocol_types.rs", "crates/specforge-emitter/tests/builtins.rs"]
 
 }
 
@@ -32,6 +34,7 @@ event se_concurrency_analysis_complete "Concurrency Analysis Complete" {
   verify integration "event emitted after process analyze pass completes"
   verify integration "payload contains deadlock count and livelock risks"
   verify deadlock_free "no circular dependency between concurrency sub-analyses"
+    tests ["crates/specforge-wasm/tests/protocol_types.rs", "crates/specforge-emitter/tests/builtins.rs"]
 
 }
 
@@ -42,5 +45,6 @@ event se_proof_obligations_generated "Proof Obligations Generated" {
   verify integration "event emitted after proof obligation pass completes"
   verify integration "payload contains obligation breakdown by category"
   verify liveness "proof obligation generation eventually completes for all entities"
+    tests ["crates/specforge-wasm/tests/protocol_types.rs", "crates/specforge-emitter/tests/builtins.rs"]
 
 }

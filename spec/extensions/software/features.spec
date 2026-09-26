@@ -28,6 +28,7 @@ feature se_core_entity_kinds "Core Entity Kind Registration" {
     The @specforge/software extension must register 6 entity kinds with
     full metadata, 9 edge types, field definitions, validation rules,
     verify kinds, and LSP metadata. Without this registration, the
+    tests ["crates/specforge-emitter/tests/builtins.rs"]
     compiler has zero knowledge of software engineering domain concepts.
   """
 
@@ -98,6 +99,7 @@ feature se_formal_refinement "B-Method Refinement" {
     behaviors. Abstract behaviors serve as specification-only entries.
     Concrete behaviors declare refines to build a DAG. The refinement
     verify pass checks completeness (every abstract has a concrete),
+    tests ["crates/specforge-emitter/tests/builtins.rs"]
     correctness (refined preserves abstract's guarantees), and DAG
     structure (no cycles). This models B-Method stepwise refinement.
   """

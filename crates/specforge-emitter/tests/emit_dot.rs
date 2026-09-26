@@ -22,6 +22,7 @@ fn node(id: &str, kind: &str, title: Option<&str>) -> Node {
         title: title.map(|s| s.to_string()),
         fields: FieldMap::new(),
         source_span: span(),
+        methods: Vec::new(),
     }
 }
 

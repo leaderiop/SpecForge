@@ -18,6 +18,7 @@ fn make_node(id: &str, kind: &str) -> Node {
             end_line: 1,
             end_col: 1,
         },
+        methods: Vec::new(),
     }
 }
 

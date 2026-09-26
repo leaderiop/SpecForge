@@ -35,6 +35,7 @@ fn node(id: &str, kind: &str, title: Option<&str>) -> Node {
         title: title.map(|s| s.to_string()),
         fields: FieldMap::new(),
         source_span: span(),
+        methods: Vec::new(),
     }
 }
 
@@ -1249,6 +1250,7 @@ fn emit_json_with_schema_nodes_have_fields() {
         title: Some("Alpha".to_string()),
         fields,
         source_span: span(),
+        methods: Vec::new(),
     });
 
     let schema = GraphProtocolSchema::empty();

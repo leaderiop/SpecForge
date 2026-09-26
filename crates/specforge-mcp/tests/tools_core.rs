@@ -44,6 +44,7 @@ fn test_server() -> McpServer {
         title: Some("Alpha Behavior".into()),
         fields: fields_a,
         source_span: span(),
+        methods: Vec::new(),
     });
 
     let mut fields_b = FieldMap::new();
@@ -67,6 +68,7 @@ fn test_server() -> McpServer {
             end_line: 15,
             end_col: 0,
         },
+        methods: Vec::new(),
     });
 
     graph.add_node(Node {
@@ -85,6 +87,7 @@ fn test_server() -> McpServer {
             end_line: 3,
             end_col: 0,
         },
+        methods: Vec::new(),
     });
 
     graph.add_edge(Edge {

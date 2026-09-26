@@ -24,6 +24,7 @@ failure_mode formatting_idempotency_violation "Formatting Idempotency Violation"
     rpn        7
   }
   verify unit "Formatting Idempotency Violation failure mode is handled"
+    tests ["crates/specforge-emitter/tests/builtins.rs"]
 }
 
 failure_mode comment_loss_during_formatting "Comment Loss During Formatting" {
@@ -44,6 +45,7 @@ failure_mode comment_loss_during_formatting "Comment Loss During Formatting" {
     rpn        16
   }
   verify unit "Comment Loss During Formatting failure mode is handled"
+    tests ["crates/specforge-emitter/tests/builtins.rs"]
 }
 
 failure_mode traceability_gap_undetected "Traceability Gap Undetected" {
@@ -64,6 +66,7 @@ failure_mode traceability_gap_undetected "Traceability Gap Undetected" {
     rpn        14
   }
   verify unit "Traceability Gap Undetected failure mode is handled"
+    tests ["crates/specforge-emitter/tests/builtins.rs"]
 }
 
 // ── Formal Analysis Failure Modes ─────────────────────────────
@@ -86,6 +89,7 @@ failure_mode false_positive_liskov_violation "False Positive Liskov Violation" {
     rpn        12
   }
   verify unit "False Positive Liskov Violation failure mode is handled"
+    tests ["crates/specforge-emitter/tests/builtins.rs"]
 }
 
 failure_mode proof_obligation_leak "Proof Obligation Leak" {
@@ -106,6 +110,7 @@ failure_mode proof_obligation_leak "Proof Obligation Leak" {
     rpn        14
   }
   verify unit "Proof Obligation Leak failure mode is handled"
+    tests ["crates/specforge-emitter/tests/builtins.rs"]
 }
 
 failure_mode concurrency_analysis_timeout "Concurrency Analysis Timeout" {
@@ -126,4 +131,5 @@ failure_mode concurrency_analysis_timeout "Concurrency Analysis Timeout" {
     rpn        5
   }
   verify unit "Concurrency Analysis Timeout failure mode is handled"
+    tests ["crates/specforge-emitter/tests/builtins.rs"]
 }

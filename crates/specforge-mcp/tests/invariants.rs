@@ -42,6 +42,7 @@ fn test_server() -> McpServer {
         title: Some("Alpha".into()),
         fields,
         source_span: span(),
+        methods: Vec::new(),
     });
     graph.add_node(Node {
         id: EntityId { raw: "beta".into() },
@@ -51,6 +52,7 @@ fn test_server() -> McpServer {
         title: Some("Beta".into()),
         fields: FieldMap::new(),
         source_span: span(),
+        methods: Vec::new(),
     });
     graph.add_edge(Edge {
         source: "beta".into(),

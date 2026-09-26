@@ -41,6 +41,7 @@ fn emit_graph_includes_all_fields_and_metadata() {
         title: Some("Alpha".to_string()),
         fields,
         source_span: span(),
+        methods: Vec::new(),
     });
 
     let json = specforge_emitter::emit_graph(&graph);
@@ -74,6 +75,7 @@ fn emit_graph_equals_emit_json() {
         title: Some("Alpha".to_string()),
         fields: FieldMap::new(),
         source_span: span(),
+        methods: Vec::new(),
     });
 
     let json_output = specforge_emitter::emit_json(&graph);
@@ -99,6 +101,7 @@ fn graph_format_conforms_to_graph_protocol_schema() {
         title: Some("Alpha".to_string()),
         fields: FieldMap::new(),
         source_span: span(),
+        methods: Vec::new(),
     });
     graph.add_node(Node {
         id: EntityId {
@@ -110,6 +113,7 @@ fn graph_format_conforms_to_graph_protocol_schema() {
         title: Some("Beta".to_string()),
         fields: FieldMap::new(),
         source_span: span(),
+        methods: Vec::new(),
     });
     graph.add_edge(Edge {
         source: Sym::new("beta"),
@@ -153,6 +157,7 @@ fn graph_format_includes_schema_version() {
         title: Some("Alpha".to_string()),
         fields: FieldMap::new(),
         source_span: span(),
+        methods: Vec::new(),
     });
 
     let json = specforge_emitter::emit_graph(&graph);
@@ -182,6 +187,7 @@ fn graph_format_scoped_nonexistent_entity_produces_e001() {
         title: Some("Alpha".to_string()),
         fields: FieldMap::new(),
         source_span: span(),
+        methods: Vec::new(),
     });
 
     let result = specforge_emitter::emit_json_scoped(&graph, "nonexistent");
@@ -216,6 +222,7 @@ fn structural_only_graph_exports_raw_keywords() {
         title: Some("My Widget".to_string()),
         fields: FieldMap::new(),
         source_span: span(),
+        methods: Vec::new(),
     });
     graph.add_node(Node {
         id: EntityId {
@@ -227,6 +234,7 @@ fn structural_only_graph_exports_raw_keywords() {
         title: Some("My Gadget".to_string()),
         fields: FieldMap::new(),
         source_span: span(),
+        methods: Vec::new(),
     });
 
     let json = specforge_emitter::emit_graph(&graph);

@@ -22,6 +22,7 @@ fn node(id: &str, kind: &str, title: Option<&str>) -> Node {
         title: title.map(|s| s.to_string()),
         fields: FieldMap::new(),
         source_span: span(),
+        methods: Vec::new(),
     }
 }
 
@@ -137,6 +138,7 @@ fn json_includes_fields() {
         title: Some("Alpha".to_string()),
         fields,
         source_span: span(),
+        methods: Vec::new(),
     });
 
     let json = specforge_emitter::emit_json(&graph);
@@ -231,6 +233,7 @@ fn json_includes_source_location() {
             end_line: 25,
             end_col: 1,
         },
+        methods: Vec::new(),
     });
 
     let json = specforge_emitter::emit_json(&graph);

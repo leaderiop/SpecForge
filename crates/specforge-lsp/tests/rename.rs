@@ -22,6 +22,7 @@ fn node_at(id: &str, kind: &str, file: &str, line: usize, col: usize) -> Node {
         title: None,
         fields: FieldMap::new(),
         source_span: span(file, line, col, col + id.len()),
+        methods: Vec::new(),
     }
 }
 

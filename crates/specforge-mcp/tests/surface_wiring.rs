@@ -67,6 +67,7 @@ fn init_server_with_kinds() -> McpServer {
             title: Some(title.into()),
             fields,
             source_span: span(),
+            methods: Vec::new(),
         });
     }
 
@@ -83,6 +84,7 @@ fn init_server_with_kinds() -> McpServer {
         title: Some("Login".into()),
         fields,
         source_span: span(),
+        methods: Vec::new(),
     });
 
     state.graph = graph;

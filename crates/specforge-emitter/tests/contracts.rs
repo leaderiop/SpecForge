@@ -31,6 +31,7 @@ fn node_with_fields(id: &str, kind: &str, contract: &str, status: &str) -> Node 
         title: Some(format!("Title {}", id)),
         fields,
         source_span: span(),
+        methods: Vec::new(),
     }
 }
 
@@ -55,6 +56,7 @@ fn testable_node(id: &str) -> Node {
         title: Some(format!("Title {}", id)),
         fields,
         source_span: span(),
+        methods: Vec::new(),
     }
 }
 

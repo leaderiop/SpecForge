@@ -33,6 +33,7 @@ behavior se_analyze_contracts "Analyze Contracts Command" {
   verify unit "analyze contracts reports all behaviors with requires/ensures"
   verify unit "analyze contracts --json produces JSON output"
   verify unit "analyze contracts --strict exits non-zero on violation"
+    tests ["crates/specforge-cli/tests/analyze.rs"]
 
 }
 
@@ -53,6 +54,7 @@ behavior se_analyze_refinement "Analyze Refinement Command" {
 
   verify unit "analyze refinement reports all abstract/concrete chains"
   verify unit "analyze refinement --json produces JSON output"
+    tests ["crates/specforge-cli/tests/analyze.rs"]
 
 }
 
@@ -73,6 +75,7 @@ behavior se_analyze_concurrency "Analyze Concurrency Command" {
 
   verify unit "analyze concurrency reports deadlocks and livelocks"
   verify unit "analyze concurrency --json produces JSON output"
+    tests ["crates/specforge-cli/tests/analyze.rs"]
 
 }
 
@@ -99,5 +102,6 @@ behavior se_analyze_all "Analyze All Command" {
   verify unit "analyze all runs all three passes in pipeline order"
   verify unit "analyze all --strict exits non-zero on any violation"
   verify unit "analyze all --json produces unified JSON report"
+    tests ["crates/specforge-cli/tests/analyze.rs"]
 
 }

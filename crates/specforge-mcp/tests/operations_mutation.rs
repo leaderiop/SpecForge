@@ -28,6 +28,7 @@ fn test_server() -> McpServer {
             end_line: 5,
             end_col: 0,
         },
+        methods: Vec::new(),
     });
     graph.add_node(Node {
         id: EntityId { raw: "beta".into() },
@@ -43,6 +44,7 @@ fn test_server() -> McpServer {
             end_line: 15,
             end_col: 0,
         },
+        methods: Vec::new(),
     });
     graph.add_edge(Edge {
         source: "beta".into(),

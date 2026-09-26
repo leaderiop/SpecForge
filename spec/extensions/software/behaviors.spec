@@ -34,6 +34,7 @@ behavior se_register_entity_kinds "Register Software Entity Kinds" {
   verify unit "event registered with semanticToken=event"
   verify unit "type registered with dotShape=rectangle"
   verify unit "port registered with lspIcon=Interface"
+    tests ["crates/specforge-emitter/tests/builtins.rs", "crates/specforge-wasm/tests/protocol_bridge.rs"]
 
 }
 
@@ -68,6 +69,7 @@ behavior se_register_edge_types "Register Software Edge Types" {
   verify unit "Implements edge has sourceKind=feature and targetKind=behavior"
   verify unit "Produces edge has sourceKind=behavior and targetKind=event"
   verify unit "Enforces edge has sourceKind=invariant and targetKind=behavior"
+    tests ["crates/specforge-emitter/tests/builtins.rs", "crates/specforge-wasm/tests/protocol_bridge.rs"]
 
 }
 
@@ -97,6 +99,7 @@ behavior se_register_field_definitions "Register Software Field Definitions" {
   verify unit "behavior invariants field registered with Enforces edge"
   verify unit "feature behaviors field registered with Implements edge"
   verify unit "event trigger field registered with Produces edge"
+    tests ["crates/specforge-emitter/tests/builtins.rs", "crates/specforge-wasm/tests/protocol_bridge.rs"]
 
 }
 
@@ -121,6 +124,7 @@ behavior se_register_validation_rules "Register Software Validation Rules" {
   verify unit "validation rules registered from manifest"
   verify unit "rules include W001-W005, W007-W010, E006, and E004"
   verify unit "rules sorted by diagnostic code"
+    tests ["crates/specforge-emitter/tests/builtins.rs", "crates/specforge-wasm/tests/protocol_bridge.rs"]
 
 }
 
@@ -148,6 +152,7 @@ behavior se_register_verify_kinds "Register Software Verify Kinds" {
   verify unit "invariant allows property, unit, mutation"
   verify unit "event allows integration, deadlock_free, liveness"
   verify unit "unknown verify kind on behavior produces warning"
+    tests ["crates/specforge-emitter/tests/builtins.rs", "crates/specforge-wasm/tests/protocol_bridge.rs"]
 
 }
 
@@ -167,6 +172,7 @@ behavior se_register_lsp_metadata "Register Software LSP Metadata" {
 
   verify unit "semantic tokens registered for all 6 entity kinds"
   verify unit "LSP icons registered for all 6 entity kinds"
+    tests ["crates/specforge-emitter/tests/builtins.rs", "crates/specforge-wasm/tests/protocol_bridge.rs"]
 
 }
 
@@ -194,6 +200,7 @@ behavior se_validate_entity_fields "Validate Software Entity Fields" {
   verify unit "reference field resolving to correct kind passes"
   verify unit "reference field resolving to wrong kind produces error"
   verify unit "missing required field produces diagnostic"
+    tests ["crates/specforge-emitter/tests/builtins.rs", "crates/specforge-wasm/tests/protocol_bridge.rs"]
 
 }
 
@@ -215,6 +222,7 @@ behavior se_parse_gherkin_statements "Register Gherkin Field" {
   verify unit "gherkin field registered with type string_list"
   verify unit "gherkin field has file_reference=true"
   verify unit "gherkin values parsed as standard StringList"
+    tests ["crates/specforge-emitter/tests/builtins.rs", "crates/specforge-wasm/tests/protocol_bridge.rs"]
 
 }
 
@@ -240,5 +248,6 @@ behavior se_validate_entity_references "Validate Software Entity References" {
   verify unit "reference to existing entity of correct kind passes"
   verify unit "reference to non-existent entity produces error"
   verify unit "reference to entity from uninstalled extension produces I004"
+    tests ["crates/specforge-emitter/tests/builtins.rs", "crates/specforge-wasm/tests/protocol_bridge.rs"]
 
 }

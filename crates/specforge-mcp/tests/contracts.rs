@@ -42,6 +42,7 @@ fn test_server() -> McpServer {
         title: Some("Alpha".into()),
         fields,
         source_span: span(),
+        methods: Vec::new(),
     });
     graph.add_node(Node {
         id: EntityId { raw: "beta".into() },
@@ -57,6 +58,7 @@ fn test_server() -> McpServer {
             end_line: 3,
             end_col: 0,
         },
+        methods: Vec::new(),
     });
     graph.add_edge(Edge {
         source: "beta".into(),
@@ -679,6 +681,7 @@ fn contract_graph_notification() {
         title: None,
         fields: FieldMap::new(),
         source_span: span(),
+        methods: Vec::new(),
     });
     let delta = compute_graph_delta(&g1, &g2);
     let notif = format_graph_notification(&delta);

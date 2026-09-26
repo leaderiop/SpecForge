@@ -44,6 +44,7 @@ fn node(id: &str, kind: &str, title: Option<&str>) -> Node {
             end_line: 0,
             end_col: 0,
         },
+        methods: Vec::new(),
     }
 }
 

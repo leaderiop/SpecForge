@@ -22,6 +22,7 @@ fn node(id: &str, kind: &str) -> Node {
         title: None,
         fields: FieldMap::new(),
         source_span: span(),
+        methods: Vec::new(),
     }
 }
 
@@ -42,6 +43,7 @@ fn node_with_verify(id: &str, kind: &str) -> Node {
         title: None,
         fields,
         source_span: span(),
+        methods: Vec::new(),
     }
 }
 

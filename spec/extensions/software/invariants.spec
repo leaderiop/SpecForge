@@ -13,6 +13,7 @@ invariant se_behavior_testability "Behavior Testability" {
 
   verify property "behavior kind has testable=true in manifest"
   verify unit "behavior accepts all 9 standard verify kinds"
+    tests ["crates/specforge-emitter/tests/builtins.rs"]
 
 }
 
@@ -27,6 +28,7 @@ invariant se_invariant_testability "Invariant Testability" {
 
   verify property "invariant kind has testable=true in manifest"
   verify unit "invariant accepts property, unit, and mutation verify kinds"
+    tests ["crates/specforge-emitter/tests/builtins.rs"]
 
 }
 
@@ -41,6 +43,7 @@ invariant se_event_testability "Event Testability" {
 
   verify property "event kind has testable=true in manifest"
   verify unit "event accepts integration, deadlock_free, liveness verify kinds"
+    tests ["crates/specforge-emitter/tests/builtins.rs"]
 
 }
 
@@ -56,6 +59,7 @@ invariant se_feature_non_testable "Feature, Type, Port Non-Testable" {
   verify property "feature kind has testable=false"
   verify property "type kind has testable=false"
   verify property "port kind has testable=false"
+    tests ["crates/specforge-emitter/tests/builtins.rs"]
 
 }
 
@@ -70,6 +74,7 @@ invariant se_edge_consistency "Edge-Field Mapping Consistency" {
 
   verify property "every field edge mapping has a corresponding edgeType"
   verify unit "orphan edge mapping detected and reported"
+    tests ["crates/specforge-emitter/tests/builtins.rs"]
 
 }
 
@@ -84,6 +89,7 @@ invariant se_refinement_dag "Refinement DAG" {
 
   verify property "refines edges form a DAG with no cycles"
   verify unit "cycle in refinement chain produces E032"
+    tests ["crates/specforge-emitter/tests/builtins.rs"]
 
 }
 
@@ -98,6 +104,7 @@ invariant se_formal_contract_consistency "Formal Contract Consistency" {
 
   verify unit "ensures referencing unknown identifier detected"
   verify unit "ensures referencing requires identifier passes"
+    tests ["crates/specforge-emitter/tests/builtins.rs"]
 
 }
 
@@ -112,6 +119,7 @@ invariant se_event_trigger_validity "Event Trigger Validity" {
 
   verify unit "event trigger referencing behavior passes"
   verify unit "event trigger referencing non-behavior produces E006"
+    tests ["crates/specforge-emitter/tests/builtins.rs"]
 
 }
 
@@ -127,5 +135,6 @@ invariant se_port_direction_constraint "Port Direction Constraint" {
   verify unit "port with direction inbound passes"
   verify unit "port with direction outbound passes"
   verify unit "port with invalid direction produces error"
+    tests ["crates/specforge-emitter/tests/builtins.rs"]
 
 }

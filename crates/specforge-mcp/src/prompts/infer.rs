@@ -571,6 +571,7 @@ mod tests {
                 end_line: 0,
                 end_col: 0,
             },
+            methods: Vec::new(),
         }
     }
 

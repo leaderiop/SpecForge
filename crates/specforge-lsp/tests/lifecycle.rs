@@ -135,6 +135,7 @@ fn lsp_state_holds_graph() {
             end_line: 0,
             end_col: 0,
         },
+        methods: Vec::new(),
     });
     assert_eq!(state.graph().node_count(), 1);
 }
@@ -168,6 +169,7 @@ fn graph_update_serves_all_features() {
             end_line: 3,
             end_col: 1,
         },
+        methods: Vec::new(),
     });
     state.graph_mut().add_node(Node {
         id: EntityId {
@@ -183,6 +185,7 @@ fn graph_update_serves_all_features() {
             end_line: 8,
             end_col: 1,
         },
+        methods: Vec::new(),
     });
     state.graph_mut().add_edge(Edge {
         source: "login".into(),

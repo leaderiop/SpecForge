@@ -18,6 +18,7 @@ fn node(id: &str, kind: &str, title: Option<&str>) -> Node {
             end_line: 3,
             end_col: 1,
         },
+        methods: Vec::new(),
     }
 }
 
@@ -36,6 +37,7 @@ fn node_at(id: &str, kind: &str, file: &str, line: usize, col: usize) -> Node {
             end_line: line + 3,
             end_col: col + id.len(),
         },
+        methods: Vec::new(),
     }
 }
 
@@ -662,6 +664,7 @@ fn shared_incremental_pipeline_contract() {
             end_line: 0,
             end_col: 0,
         },
+        methods: Vec::new(),
     });
 
     // Graph is shared: navigation works on the same graph instance

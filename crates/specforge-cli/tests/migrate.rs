@@ -679,6 +679,7 @@ fn structural_differences_produce_warnings() {
             end_col: 0,
         },
         fields: FieldMap::new(),
+        methods: Vec::new(),
     });
 
     let post = Graph::new(); // Empty graph — entity "foo" is missing
@@ -1423,6 +1424,7 @@ fn post_migration_check_runs_automatically() {
             end_col: 0,
         },
         fields: FieldMap::new(),
+        methods: Vec::new(),
     });
 
     let mut post = Graph::new();
@@ -1442,6 +1444,7 @@ fn post_migration_check_runs_automatically() {
             end_col: 0,
         },
         fields: FieldMap::new(),
+        methods: Vec::new(),
     });
 
     // Identical entities (different source spans excluded) → no diagnostics
@@ -1480,6 +1483,7 @@ fn new_entities_after_migration_reported() {
             end_col: 0,
         },
         fields: FieldMap::new(),
+        methods: Vec::new(),
     });
 
     let diags = compare_graphs(&pre, &post);
@@ -1514,6 +1518,7 @@ fn post_migration_integrity_contract() {
             end_col: 0,
         },
         fields: FieldMap::new(),
+        methods: Vec::new(),
     };
 
     // Ensures: structural_equivalence_checked — identical graphs yield empty
@@ -2005,6 +2010,7 @@ fn cross_extension_broken_reference_produces_diagnostic() {
             end_col: 0,
         },
         fields: FieldMap::new(),
+        methods: Vec::new(),
     };
 
     // Pre: behavior→feature cross-extension edge exists

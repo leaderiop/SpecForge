@@ -42,6 +42,7 @@ fn test_server() -> McpServer {
             end_line: 5,
             end_col: 0,
         },
+        methods: Vec::new(),
     });
     graph.add_node(Node {
         id: EntityId { raw: "beta".into() },
@@ -57,6 +58,7 @@ fn test_server() -> McpServer {
             end_line: 15,
             end_col: 0,
         },
+        methods: Vec::new(),
     });
     graph.add_node(Node {
         id: EntityId {
@@ -74,6 +76,7 @@ fn test_server() -> McpServer {
             end_line: 3,
             end_col: 0,
         },
+        methods: Vec::new(),
     });
     graph.add_edge(Edge {
         source: "beta".into(),
@@ -418,6 +421,7 @@ fn context_zero_extensions() {
         title: Some("Minimal".into()),
         fields: FieldMap::new(),
         source_span: span(),
+        methods: Vec::new(),
     });
     state.graph = graph;
 
@@ -469,6 +473,7 @@ fn review_empty_findings_no_testable() {
         title: Some("Some Feature".into()),
         fields: FieldMap::new(),
         source_span: span(),
+        methods: Vec::new(),
     });
     state.graph = graph;
 
@@ -631,6 +636,7 @@ fn review_empty_findings_no_testable_entities() {
             end_line: 3,
             end_col: 0,
         },
+        methods: Vec::new(),
     });
     state.graph = graph;
 

@@ -36,6 +36,7 @@ behavior se_declare_manifest "Declare @specforge/software Manifest" {
   verify unit "manifest version is 2"
   verify unit "contributes declares entities and validators"
   verify unit "peer_dependencies is empty"
+    tests ["crates/specforge-emitter/tests/builtins.rs"]
 
 }
 
@@ -49,6 +50,7 @@ invariant se_manifest_six_entity_kinds "Six Entity Kinds" {
   risk high
 
   verify property "manifest entityKinds array has exactly 6 entries"
+    tests ["crates/specforge-emitter/tests/builtins.rs"]
 
 }
 
@@ -62,5 +64,6 @@ invariant se_manifest_nine_edge_types "Nine Edge Types" {
   risk medium
 
   verify property "manifest edgeTypes array has exactly 9 entries"
+    tests ["crates/specforge-emitter/tests/builtins.rs"]
 
 }

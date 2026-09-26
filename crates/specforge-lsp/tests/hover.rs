@@ -18,6 +18,7 @@ fn node(id: &str, kind: &str, title: Option<&str>) -> Node {
             end_line: 0,
             end_col: 0,
         },
+        methods: Vec::new(),
     }
 }
 
@@ -249,6 +250,7 @@ fn hover_shows_actual_field_values() {
             end_line: 0,
             end_col: 0,
         },
+        methods: Vec::new(),
     });
 
     let text = specforge_lsp::hover_info(&g, "login").unwrap();

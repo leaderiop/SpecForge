@@ -31,6 +31,7 @@ fn build_chain_graph(n: usize) -> Graph {
             title: Some(format!("Entity {i}")),
             fields,
             source_span: span(),
+            methods: Vec::new(),
         });
         if i > 0 {
             graph.add_edge(Edge {

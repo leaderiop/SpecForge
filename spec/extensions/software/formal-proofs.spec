@@ -31,6 +31,7 @@ behavior se_proof_obligation_pass "Proof Obligation Compiler Pass" {
   verify unit "invariant_preservation obligations generated"
   verify unit "refinement_correctness obligations generated"
   verify unit "obligations emitted as structured JSON"
+    tests ["crates/specforge-cli/tests/analyze.rs"]
 
 }
 
@@ -64,6 +65,7 @@ behavior se_track_proof_discharge "Track Proof Obligation Discharge" {
   verify unit "enforced invariant with matching maintains auto-discharges"
   verify unit "concrete ensures superset of abstract ensures auto-discharges"
   verify unit "non-trivial obligation remains pending without test"
+    tests ["crates/specforge-cli/tests/analyze.rs"]
 
 }
 
@@ -84,6 +86,7 @@ behavior se_emit_proof_verified_info "I008: Proof Obligation Verified by Test" {
   }
 
   verify unit "proof obligation verified by test produces I008"
+    tests ["crates/specforge-cli/tests/analyze.rs"]
 
 }
 
@@ -101,6 +104,7 @@ behavior se_emit_deadlock_freedom_info "I009: Deadlock Freedom Verified" {
   }
 
   verify unit "deadlock-free event graph produces I009"
+    tests ["crates/specforge-cli/tests/analyze.rs"]
 
 }
 
@@ -120,6 +124,7 @@ behavior se_emit_formal_analysis_available "I015: Formal Analysis Available" {
   }
 
   verify unit "behaviors with requires/ensures trigger I015 info"
+    tests ["crates/specforge-cli/tests/analyze.rs"]
 
 }
 
@@ -152,5 +157,6 @@ behavior se_detect_formality_level "I014: Progressive Formality Level" {
   verify unit "entity with all obligations discharged computes as Level 4 (proofs)"
   verify unit "entity at Level 2+ emits I014"
   verify unit "entity at Level 0 emits no formality diagnostic"
+    tests ["crates/specforge-cli/tests/analyze.rs"]
 
 }

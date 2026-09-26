@@ -466,11 +466,12 @@ struct NativeCustomRules<'a> {
 }
 
 /// Type names accepted by E004 without a declared `type` entity.
-/// Unused until `Node.methods` reaches the validation engine (E004 remainder).
-#[allow(dead_code)]
 const PRIMITIVE_TYPES: &[&str] = &[
     "string", "void", "bool", "i8", "i16", "i32", "i64", "u8", "u16", "u32", "u64", "f32", "f64",
     "usize", "isize", "any",
+    // stdlib containers: their type arguments are checked recursively
+    "Result", "Option", "Vec", "Box", "Arc", "Rc", "HashMap", "HashSet", "BTreeMap", "BTreeSet",
+    "String",
 ];
 
 #[allow(dead_code)]
@@ -502,6 +503,9 @@ impl<'a> specforge_registry::validation_engine::WasmValidationRuntime for Native
         _entity_kind: &str,
     ) -> Result<specforge_registry::validation_engine::CustomVerdict, String> {
         use specforge_registry::validation_engine::CustomVerdict;
+        if std::env::var("SPECFORGE_DEBUG_RULES").is_ok() {
+            eprintln!("DETAILED fn={wasm_function} entity={entity_id}");
+        }
         let node = self
             .graph
             .node(entity_id)
@@ -571,11 +575,33 @@ impl<'a> specforge_registry::validation_engine::WasmValidationRuntime for Native
                 }
                 Ok(CustomVerdict::Pass)
             }
-            // E004: port method type references must resolve. Requires port
-            // `method` members to reach the graph — not plumbed yet; the rule
-            // stays declared but inert until Node carries methods.
             "validate__port_methods" => {
-                Err("port methods are not available to the validation engine yet".to_string())
+                let known_type = |name: &str| -> bool {
+                    PRIMITIVE_TYPES.contains(&name)
+                        || self
+                            .graph
+                            .nodes()
+                            .iter()
+                            .any(|n| n.kind.raw.as_str() == "type" && n.id.raw.as_str() == name)
+                };
+                for method in &node.methods {
+                    let mut type_refs: Vec<String> = Vec::new();
+                    for p in &method.params {
+                        type_refs.extend(base_type_names(&p.ty));
+                    }
+                    if let Some(ret) = &method.returns {
+                        type_refs.extend(base_type_names(ret));
+                    }
+                    for t in type_refs {
+                        if !known_type(&t) {
+                            return Ok(CustomVerdict::Fail {
+                                field: Some(method.name.clone()),
+                                value: Some(t),
+                            });
+                        }
+                    }
+                }
+                Ok(CustomVerdict::Pass)
             }
             other => Err(format!("unknown custom validator '{other}'")),
         }

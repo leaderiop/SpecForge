@@ -347,7 +347,7 @@ milestone extension_ecosystem "Phase 11: Extension Ecosystem" {
 
 milestone software_extension_v1 "Phase 11a: @specforge/software Extension v1" {
   description "First-party domain extension implementing behavior, invariant, event, type, and port entity kinds for software engineering specifications."
-  status      in_progress
+  status      completed
   start_date  "2026-03-01"
   target_date "2026-04-15"
   owner       "specforge-team"
@@ -358,7 +358,7 @@ milestone software_extension_v1 "Phase 11a: @specforge/software Extension v1" {
   tags        ["h2", "extension"]
   exit_criteria [
     "manifest.json declares 5 entity kinds with all fields, testability, and LSP metadata",
-    "manifest.json declares 11 edge types with source/target constraints",
+    "manifest.json declares 14 edge types with source/target constraints",
     "Validation rules W001-W010, E004, E006, E010, E016 fire correctly",
     "Entity enhancements add ports and behaviors fields to product entities",
     "specforge check with @specforge/software loaded produces zero false positives on own .spec files",

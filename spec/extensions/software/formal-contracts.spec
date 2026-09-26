@@ -29,6 +29,7 @@ behavior se_parse_requires_block "Parse Requires Block" {
   verify unit "requires block with named conditions parsed"
   verify unit "empty requires block produces empty ContractCondition list"
   verify unit "requires block on non-behavior entity produces warning"
+    tests ["crates/specforge-cli/tests/analyze.rs"]
 
 }
 
@@ -56,6 +57,7 @@ behavior se_parse_ensures_block "Parse Ensures Block" {
   verify unit "ensures block with named conditions parsed"
   verify unit "empty ensures block produces empty ContractCondition list"
   verify unit "ensures without requires produces info diagnostic"
+    tests ["crates/specforge-cli/tests/analyze.rs"]
 
 }
 
@@ -79,6 +81,7 @@ behavior se_parse_maintains_block "Parse Maintains Block" {
   verify unit "maintains block on behavior parsed"
   verify unit "maintains block on invariant parsed"
   verify unit "maintains block on feature produces warning"
+    tests ["crates/specforge-cli/tests/analyze.rs"]
 
 }
 
@@ -107,6 +110,7 @@ behavior se_validate_contract_consistency "Validate Contract Consistency" {
   verify unit "ensures referencing undefined state produces warning"
   verify unit "maintains consistent with requires and ensures passes"
   verify unit "ensures without requires produces I011 info"
+    tests ["crates/specforge-cli/tests/analyze.rs"]
 
 }
 
@@ -141,6 +145,7 @@ behavior se_contract_check_pass "Contract Check Compiler Pass" {
   verify unit "precondition strengthening in refinement produces E031"
   verify unit "postcondition weakening in refinement produces E031"
   verify unit "pass runs after graph construction"
+    tests ["crates/specforge-cli/tests/analyze.rs"]
 
 }
 
@@ -162,6 +167,7 @@ behavior se_detect_unverifiable_condition "W037: Unverifiable Contract Condition
 
   verify unit "condition referencing unknown state produces W037"
   verify unit "condition with clear predicate passes"
+    tests ["crates/specforge-cli/tests/analyze.rs"]
 
 }
 
@@ -183,6 +189,7 @@ behavior se_detect_unreachable_postcondition "W038: Unreachable Postcondition" {
 
   verify unit "contradictory postcondition produces W038"
   verify unit "consistent postcondition passes"
+    tests ["crates/specforge-cli/tests/analyze.rs"]
 
 }
 
@@ -203,6 +210,7 @@ behavior se_detect_redundant_precondition "W039: Redundant Precondition" {
 
   verify unit "precondition implied by sibling produces W039"
   verify unit "independent precondition passes"
+    tests ["crates/specforge-cli/tests/analyze.rs"]
 
 }
 
@@ -224,6 +232,7 @@ behavior se_detect_invariant_without_property "W040: Invariant Without Formal Pr
 
   verify unit "invariant with prose-only guarantee produces W040"
   verify unit "invariant with maintains block passes"
+    tests ["crates/specforge-cli/tests/analyze.rs"]
 
 }
 
@@ -246,6 +255,7 @@ behavior se_parse_port_operation_contracts "Parse Port Operation Contracts" {
 
   verify unit "port operation with requires/ensures parsed"
   verify unit "port operation contracts validated for consistency"
+    tests ["crates/specforge-cli/tests/analyze.rs"]
 
 }
 
@@ -273,6 +283,7 @@ behavior se_validate_port_behavior_compatibility "W036: Port-Behavior Contract C
   verify unit "compatible port and behavior contracts pass"
   verify unit "stricter port precondition produces W036"
   verify unit "weaker port postcondition produces W036"
+    tests ["crates/specforge-cli/tests/analyze.rs"]
 
 }
 
@@ -303,5 +314,6 @@ behavior se_validate_contracts_without_verify "W028: Contracts Without Formal Ve
   verify unit "behavior with contracts and contract verify passes"
   verify unit "behavior with contracts and property verify passes"
   verify unit "behavior without contracts never produces W028"
+    tests ["crates/specforge-cli/tests/analyze.rs"]
 
 }

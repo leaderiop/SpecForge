@@ -579,6 +579,7 @@ mod tests {
             title: None,
             fields,
             source_span: span("spec/main.spec"),
+            methods: Vec::new(),
         }
     }
 

@@ -157,6 +157,7 @@ fn event_mcp_prompt_invoked() {
             end_line: 3,
             end_col: 0,
         },
+        methods: Vec::new(),
     });
     state.graph = graph;
 
@@ -195,6 +196,7 @@ fn event_mcp_delta_notified() {
             end_line: 3,
             end_col: 0,
         },
+        methods: Vec::new(),
     });
     state.graph = graph;
 

@@ -47,6 +47,7 @@ fn test_server() -> McpServer {
         title: Some("Alpha Behavior".into()),
         fields: fields_a,
         source_span: span(),
+        methods: Vec::new(),
     });
     graph.add_node(Node {
         id: EntityId { raw: "beta".into() },
@@ -62,6 +63,7 @@ fn test_server() -> McpServer {
             end_line: 15,
             end_col: 0,
         },
+        methods: Vec::new(),
     });
     graph.add_edge(Edge {
         source: "beta".into(),
@@ -342,6 +344,7 @@ fn graph_refreshes_after_recompilation() {
         title: Some("Delta Behavior".into()),
         fields: FieldMap::new(),
         source_span: span(),
+        methods: Vec::new(),
     });
 
     let resp2 = read_resource(&mut server, "specforge://graph");
@@ -379,6 +382,7 @@ fn schema_updates_when_graph_changes() {
         title: Some("Test Event".into()),
         fields: FieldMap::new(),
         source_span: span(),
+        methods: Vec::new(),
     });
 
     let resp2 = read_resource(&mut server, "specforge://schema");
@@ -414,6 +418,7 @@ fn context_refreshes_after_recompilation() {
         title: Some("Delta Behavior".into()),
         fields: FieldMap::new(),
         source_span: span(),
+        methods: Vec::new(),
     });
 
     let resp2 = read_resource(&mut server, "specforge://context");
@@ -446,6 +451,7 @@ fn brief_refreshes_after_recompilation() {
         title: Some("Delta Behavior".into()),
         fields: FieldMap::new(),
         source_span: span(),
+        methods: Vec::new(),
     });
 
     let resp2 = read_resource(&mut server, "specforge://brief");
@@ -577,6 +583,7 @@ fn entity_refreshes_after_recompilation() {
         title: Some("Alpha Revised".into()),
         fields: FieldMap::new(),
         source_span: span(),
+        methods: Vec::new(),
     });
 
     let resp2 = read_resource(&mut server, "specforge://graph/alpha");

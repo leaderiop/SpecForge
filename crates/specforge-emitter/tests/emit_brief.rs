@@ -22,6 +22,7 @@ fn node(id: &str, kind: &str, title: Option<&str>) -> Node {
         title: title.map(|s| s.to_string()),
         fields: FieldMap::new(),
         source_span: span(),
+        methods: Vec::new(),
     }
 }
 
@@ -39,6 +40,7 @@ fn node_with_contract(id: &str, kind: &str, title: &str, contract: &str) -> Node
         title: Some(title.to_string()),
         fields,
         source_span: span(),
+        methods: Vec::new(),
     }
 }
 

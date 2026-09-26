@@ -21,6 +21,7 @@ fn make_node(id: &str, kind: &str) -> Node {
             end_line: 1,
             end_col: 1,
         },
+        methods: Vec::new(),
     }
 }
 
@@ -43,6 +44,7 @@ fn make_node_with_fields(id: &str, kind: &str, fields: &[(&str, &str)]) -> Node 
             end_line: 1,
             end_col: 1,
         },
+        methods: Vec::new(),
     }
 }
 

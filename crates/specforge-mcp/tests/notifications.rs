@@ -26,6 +26,7 @@ fn node(id: &str) -> Node {
         title: None,
         fields: FieldMap::new(),
         source_span: span(),
+        methods: Vec::new(),
     }
 }
 

@@ -24,6 +24,7 @@ behavior se_parse_sync_block "Parse Sync Block" {
   verify unit "sync block with barrier parsed"
   verify unit "sync block with timeout parsed"
   verify unit "sync block on non-event produces warning"
+    tests ["crates/specforge-cli/tests/analyze.rs"]
 
 }
 
@@ -57,6 +58,7 @@ behavior se_build_event_bipartite_graph "Build Event-Behavior Bipartite Graph" {
   verify unit "barrier references create synchronization edges"
   verify property "bipartite graph has no orphan nodes"
   verify property "all producers and consumers are included"
+    tests ["crates/specforge-cli/tests/analyze.rs"]
 
 }
 
@@ -83,6 +85,7 @@ behavior se_detect_event_deadlocks "E034: Detect Event Deadlocks" {
   verify unit "circular event dependency detected as E034"
   verify unit "non-circular event dependency passes"
   verify unit "E034 includes full cycle path in diagnostic"
+    tests ["crates/specforge-cli/tests/analyze.rs"]
 
 }
 
@@ -106,6 +109,7 @@ behavior se_detect_channel_type_mismatch "E035: Channel Type Mismatch" {
 
   verify unit "matching producer/consumer payload types pass"
   verify unit "mismatching payload types produce E035"
+    tests ["crates/specforge-cli/tests/analyze.rs"]
 
 }
 
@@ -127,6 +131,7 @@ behavior se_detect_unmatched_producers "W029: Unmatched Producers" {
 
   verify unit "event with producers and consumers passes"
   verify unit "event with no consumers produces W029"
+    tests ["crates/specforge-cli/tests/analyze.rs"]
 
 }
 
@@ -147,6 +152,7 @@ behavior se_detect_unbounded_channel "W034: Unbounded Channel Buffer" {
 
   verify unit "event channel with no sync timeout produces W034"
   verify unit "event channel with sync timeout passes"
+    tests ["crates/specforge-cli/tests/analyze.rs"]
 
 }
 
@@ -167,6 +173,7 @@ behavior se_detect_starvation_risk "W033: Starvation Risk" {
 
   verify unit "port with unfair access pattern produces W033"
   verify unit "port with single consumer passes"
+    tests ["crates/specforge-cli/tests/analyze.rs"]
 
 }
 
@@ -187,6 +194,7 @@ behavior se_detect_livelock_risk "W032: Livelock Risk" {
 
   verify unit "re-triggering without backoff detected as W032"
   verify unit "re-triggering with timeout/backoff passes"
+    tests ["crates/specforge-cli/tests/analyze.rs"]
 
 }
 
@@ -224,5 +232,6 @@ behavior se_process_analyze_pass "Process Analyze Compiler Pass" {
   verify unit "pass runs after refinement_verify"
   verify unit "barrier timeout sets timed_out=true and emits warning"
   verify unit "partial results included on timeout"
+    tests ["crates/specforge-cli/tests/analyze.rs"]
 
 }

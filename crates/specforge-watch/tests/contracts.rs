@@ -26,6 +26,7 @@ fn make_node(id: &str, kind: &str, file: &str, line: usize) -> Node {
             end_line: line,
             end_col: 0,
         },
+        methods: Vec::new(),
     }
 }
 

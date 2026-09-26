@@ -46,6 +46,7 @@ fn test_server() -> McpServer {
         title: Some("Alpha Behavior".into()),
         fields: fields_a,
         source_span: span(),
+        methods: Vec::new(),
     });
     graph.add_node(Node {
         id: EntityId { raw: "beta".into() },
@@ -61,6 +62,7 @@ fn test_server() -> McpServer {
             end_line: 15,
             end_col: 0,
         },
+        methods: Vec::new(),
     });
     graph.add_edge(Edge {
         source: "beta".into(),
@@ -364,6 +366,7 @@ fn find_references_empty_list() {
             end_line: 3,
             end_col: 0,
         },
+        methods: Vec::new(),
     });
     let resp = call_tool(
         &mut server,

@@ -44,6 +44,7 @@ fn rich_node() -> Node {
         title: Some("Alpha Behavior".to_string()),
         fields,
         source_span: span(),
+        methods: Vec::new(),
     }
 }
 
@@ -116,6 +117,7 @@ fn context_includes_edges_and_schema_version() {
         title: Some("Beta".to_string()),
         fields: FieldMap::new(),
         source_span: span(),
+        methods: Vec::new(),
     };
     node_b.fields.push(
         Sym::new("contract"),

@@ -9,6 +9,9 @@ pub struct Node {
     pub title: Option<String>,
     pub fields: FieldMap,
     pub source_span: SourceSpan,
+    /// `method` members parsed from the entity body (ports define their
+    /// interfaces this way). Empty for kinds that never declare methods.
+    pub methods: Vec<specforge_parser::MethodDecl>,
 }
 
 #[derive(Debug, Clone, Copy)]

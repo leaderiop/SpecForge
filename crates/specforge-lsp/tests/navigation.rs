@@ -23,6 +23,7 @@ fn node(id: &str, kind: &str, file: &str, line: usize) -> Node {
         title: Some(format!("{id} title")),
         fields: FieldMap::new(),
         source_span: span(file, line, 0, line, 10),
+        methods: Vec::new(),
     }
 }
 

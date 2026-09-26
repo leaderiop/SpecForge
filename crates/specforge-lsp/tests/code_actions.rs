@@ -18,6 +18,7 @@ fn node(id: &str, kind: &str, file: &str, line: usize) -> Node {
             end_line: line + 3,
             end_col: 1,
         },
+        methods: Vec::new(),
     }
 }
 

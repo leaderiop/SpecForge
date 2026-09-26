@@ -21,6 +21,7 @@ behavior se_parse_abstract_annotation "Parse Abstract Annotation" {
   verify unit "abstract true on behavior parsed"
   verify unit "abstract behavior with no verify permitted"
   verify unit "abstract on non-behavior produces warning"
+    tests ["crates/specforge-cli/tests/analyze.rs"]
 
 }
 
@@ -43,6 +44,7 @@ behavior se_parse_refines_annotation "Parse Refines Annotation" {
   verify unit "refines creates directed edge in graph"
   verify unit "refines referencing non-abstract produces warning"
   verify unit "multiple behaviors refining same abstract permitted"
+    tests ["crates/specforge-cli/tests/analyze.rs"]
 
 }
 
@@ -72,6 +74,7 @@ behavior se_build_refinement_chain "Build Refinement Chain" {
   verify unit "cycle in refinement produces E032"
   verify unit "chain depth recorded correctly"
   verify unit "chain depth > 4 produces W031"
+    tests ["crates/specforge-cli/tests/analyze.rs"]
 
 }
 
@@ -96,6 +99,7 @@ behavior se_validate_refinement_completeness "Validate Refinement Completeness" 
 
   verify unit "abstract with concrete refinement passes"
   verify unit "abstract with no refinement produces W030"
+    tests ["crates/specforge-cli/tests/analyze.rs"]
 
 }
 
@@ -127,5 +131,6 @@ behavior se_refinement_verify_pass "Refinement Verify Compiler Pass" {
   verify unit "behavior not satisfying feature produces E033"
   verify unit "incomplete chain produces W030"
   verify unit "pass runs after contract_check pass"
+    tests ["crates/specforge-cli/tests/analyze.rs"]
 
 }
