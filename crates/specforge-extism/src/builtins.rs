@@ -1,17 +1,13 @@
 use crate::ExtismRuntime;
 
-static PRODUCT_WASM: &[u8] = include_bytes!(
-    "../../../extensions/product/wasm/specforge_ext_product.wasm"
-);
-static SOFTWARE_WASM: &[u8] = include_bytes!(
-    "../../../extensions/software/wasm/specforge_ext_software.wasm"
-);
-static GOVERNANCE_WASM: &[u8] = include_bytes!(
-    "../../../extensions/governance/wasm/specforge_ext_governance.wasm"
-);
-static FORMAL_WASM: &[u8] = include_bytes!(
-    "../../../extensions/formal/wasm/specforge_ext_formal.wasm"
-);
+static PRODUCT_WASM: &[u8] =
+    include_bytes!("../../../extensions/product/wasm/specforge_ext_product.wasm");
+static SOFTWARE_WASM: &[u8] =
+    include_bytes!("../../../extensions/software/wasm/specforge_ext_software.wasm");
+static GOVERNANCE_WASM: &[u8] =
+    include_bytes!("../../../extensions/governance/wasm/specforge_ext_governance.wasm");
+static FORMAL_WASM: &[u8] =
+    include_bytes!("../../../extensions/formal/wasm/specforge_ext_formal.wasm");
 
 pub const BUILTIN_EXTENSIONS: &[(&str, &[u8])] = &[
     ("@specforge/product", PRODUCT_WASM),

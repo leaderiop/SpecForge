@@ -73,7 +73,10 @@ fn vendored_builtin_blobs_embed_current_manifest_payloads() {
             checked += 1;
         }
     }
-    assert!(checked >= 34, "expected >= 34 payload checks (9 per guest, formal -2), got {checked}");
+    assert!(
+        checked >= 34,
+        "expected >= 34 payload checks (9 per guest, formal -2), got {checked}"
+    );
 }
 
 fn contains_subslice(haystack: &[u8], needle: &[u8]) -> bool {
