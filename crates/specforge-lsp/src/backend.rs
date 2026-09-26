@@ -23,7 +23,7 @@ use crate::{
     complete_entity_ids_filtered, complete_keywords, compute_rename_edits, cursor_context,
     document_symbols, find_all_references, go_to_definition, goto_import_definition,
     hover_field_info, hover_info_with_registries, server_capabilities, server_info,
-    source_span_to_lsp_range, workspace_symbols,
+    source_span_to_lsp_range, source_span_to_lsp_range_with_text, workspace_symbols,
 };
 
 use crate::formatting::{EditorOptions, format_document, format_document_range};
@@ -278,10 +278,13 @@ impl Backend {
                 .as_ref()
                 .map(|s| file_path_to_uri(s.file.as_str()))
                 .unwrap_or_else(|| uri.clone());
-            diags_by_file
-                .entry(diag_uri)
-                .or_default()
-                .push(diagnostic_to_lsp(pd));
+            diags_by_file.entry(diag_uri).or_default().push({
+                let file_text = pd
+                    .span
+                    .as_ref()
+                    .and_then(|s| file_content(&state, s.file.as_str()));
+                diagnostic_to_lsp(pd, file_text.as_deref())
+            });
         }
 
         // Validator diagnostics, grouped by each diagnostic's own file
@@ -292,10 +295,13 @@ impl Backend {
                 .as_ref()
                 .map(|s| file_path_to_uri(s.file.as_str()))
                 .unwrap_or_else(|| uri.clone());
-            diags_by_file
-                .entry(diag_uri)
-                .or_default()
-                .push(diagnostic_to_lsp(vd));
+            diags_by_file.entry(diag_uri).or_default().push({
+                let file_text = vd
+                    .span
+                    .as_ref()
+                    .and_then(|s| file_content(&state, s.file.as_str()));
+                diagnostic_to_lsp(vd, file_text.as_deref())
+            });
         }
 
         // E022: Mistyped reference diagnostics (wrong-kind targets)
@@ -340,10 +346,13 @@ impl Backend {
                     .as_ref()
                     .map(|s| file_path_to_uri(s.file.as_str()))
                     .unwrap_or_else(|| uri.clone());
-                diags_by_file
-                    .entry(diag_uri)
-                    .or_default()
-                    .push(diagnostic_to_lsp(d));
+                diags_by_file.entry(diag_uri).or_default().push({
+                    let file_text = d
+                        .span
+                        .as_ref()
+                        .and_then(|s| file_content(&state, s.file.as_str()));
+                    diagnostic_to_lsp(d, file_text.as_deref())
+                });
             }
         }
 
@@ -371,10 +380,13 @@ impl Backend {
                     .as_ref()
                     .map(|s| file_path_to_uri(s.file.as_str()))
                     .unwrap_or_else(|| uri.clone());
-                diags_by_file
-                    .entry(diag_uri)
-                    .or_default()
-                    .push(diagnostic_to_lsp(d));
+                diags_by_file.entry(diag_uri).or_default().push({
+                    let file_text = d
+                        .span
+                        .as_ref()
+                        .and_then(|s| file_content(&state, s.file.as_str()));
+                    diagnostic_to_lsp(d, file_text.as_deref())
+                });
             }
 
             // W020: fields not registered for their entity kind
@@ -409,10 +421,13 @@ impl Backend {
                         .as_ref()
                         .map(|s| file_path_to_uri(s.file.as_str()))
                         .unwrap_or_else(|| uri.clone());
-                    diags_by_file
-                        .entry(diag_uri)
-                        .or_default()
-                        .push(diagnostic_to_lsp(d));
+                    diags_by_file.entry(diag_uri).or_default().push({
+                        let file_text = d
+                            .span
+                            .as_ref()
+                            .and_then(|s| file_content(&state, s.file.as_str()));
+                        diagnostic_to_lsp(d, file_text.as_deref())
+                    });
                 }
             }
         }
@@ -436,10 +451,13 @@ impl Backend {
                         .as_ref()
                         .map(|s| file_path_to_uri(s.file.as_str()))
                         .unwrap_or_else(|| uri.clone());
-                    diags_by_file
-                        .entry(diag_uri)
-                        .or_default()
-                        .push(diagnostic_to_lsp(d));
+                    diags_by_file.entry(diag_uri).or_default().push({
+                        let file_text = d
+                            .span
+                            .as_ref()
+                            .and_then(|s| file_content(&state, s.file.as_str()));
+                        diagnostic_to_lsp(d, file_text.as_deref())
+                    });
                 }
             }
         }
@@ -486,6 +504,36 @@ pub fn source_span_to_range(span: &specforge_common::SourceSpan) -> Range {
     }
 }
 
+/// Resolve the text of a file: open buffer first, then disk.
+fn file_content(state: &LspState, file: &str) -> Option<String> {
+    let uri = file_path_to_uri(file);
+    if let Some(doc) = state.document(uri.as_str()) {
+        return Some(doc.content().to_string());
+    }
+    std::fs::read_to_string(uri_to_file_path(&uri)).ok()
+}
+
+/// C3-09: text-aware range — byte columns convert to UTF-16 using the
+/// file's own text, so non-ASCII prefixes cannot shift editor ranges.
+fn span_range_for(state: &LspState, span: &specforge_common::SourceSpan) -> Range {
+    match file_content(state, span.file.as_str()) {
+        Some(content) => {
+            let lsp = source_span_to_lsp_range_with_text(span, &content);
+            Range {
+                start: Position {
+                    line: lsp.start_line,
+                    character: lsp.start_col,
+                },
+                end: Position {
+                    line: lsp.end_line,
+                    character: lsp.end_col,
+                },
+            }
+        }
+        None => source_span_to_range(span),
+    }
+}
+
 pub fn file_path_to_uri(path: &str) -> Url {
     Url::from_file_path(path).unwrap_or_else(|_| {
         Url::parse(&format!("file://{path}")).unwrap_or_else(|_| Url::parse("file:///").unwrap())
@@ -498,13 +546,29 @@ pub fn uri_to_file_path(uri: &Url) -> String {
         .unwrap_or_else(|_| uri.to_string())
 }
 
-fn diagnostic_to_lsp(diag: &specforge_common::Diagnostic) -> Diagnostic {
+fn diagnostic_to_lsp(diag: &specforge_common::Diagnostic, content: Option<&str>) -> Diagnostic {
+    let range = diag
+        .span
+        .as_ref()
+        .map(|span| match content {
+            Some(text) => {
+                let lsp = source_span_to_lsp_range_with_text(span, text);
+                Range {
+                    start: Position {
+                        line: lsp.start_line,
+                        character: lsp.start_col,
+                    },
+                    end: Position {
+                        line: lsp.end_line,
+                        character: lsp.end_col,
+                    },
+                }
+            }
+            None => source_span_to_range(span),
+        })
+        .unwrap_or_default();
     Diagnostic {
-        range: diag
-            .span
-            .as_ref()
-            .map(source_span_to_range)
-            .unwrap_or_default(),
+        range,
         severity: Some(match diag.severity {
             specforge_common::Severity::Error => DiagnosticSeverity::ERROR,
             specforge_common::Severity::Warning => DiagnosticSeverity::WARNING,
@@ -599,7 +663,9 @@ pub fn import_path_on_line(line: &str) -> Option<&str> {
 }
 
 fn publish_format_diags(diags: &[specforge_common::Diagnostic]) -> Vec<Diagnostic> {
-    diags.iter().map(diagnostic_to_lsp).collect()
+    // formatter diagnostics arrive with byte-column spans and no file text
+    // in scope — byte passthrough (pre-existing behavior)
+    diags.iter().map(|d| diagnostic_to_lsp(d, None)).collect()
 }
 
 fn formatter_edits_to_lsp(edits: Vec<specforge_formatter::TextEdit>) -> Vec<TextEdit> {
@@ -913,13 +979,14 @@ impl LanguageServer for Backend {
                     // Pipeline diagnostics for surviving files
                     for file in &result.changed_diagnostic_files {
                         let file_uri = file_path_to_uri(file);
+                        let file_text = file_content(&state, file);
                         diags_by_file.insert(
                             file_uri,
                             state
                                 .pipeline()
                                 .file_diagnostics(file)
                                 .iter()
-                                .map(diagnostic_to_lsp)
+                                .map(|d| diagnostic_to_lsp(d, file_text.as_deref()))
                                 .collect(),
                         );
                     }
@@ -932,10 +999,13 @@ impl LanguageServer for Backend {
                             .as_ref()
                             .map(|sp| file_path_to_uri(sp.file.as_str()))
                             .unwrap_or_else(|| uri.clone());
-                        diags_by_file
-                            .entry(diag_uri)
-                            .or_default()
-                            .push(diagnostic_to_lsp(vd));
+                        diags_by_file.entry(diag_uri).or_default().push({
+                            let file_text = vd
+                                .span
+                                .as_ref()
+                                .and_then(|s| file_content(&state, s.file.as_str()));
+                            diagnostic_to_lsp(vd, file_text.as_deref())
+                        });
                     }
 
                     // Ensure all known files get an entry (clears stale diagnostics)
@@ -1096,9 +1166,13 @@ impl LanguageServer for Backend {
             let resolved = self.spec_root.lock().await;
             if let Some(spec_root) = resolved.as_deref() {
                 let span = goto_import_definition(import_path, spec_root);
-                return Ok(
-                    span.map(|s| GotoDefinitionResponse::Scalar(source_span_to_location(&s)))
-                );
+                return Ok(span.map(|s| {
+                    let location = source_span_to_location(&s);
+                    GotoDefinitionResponse::Scalar(Location {
+                        uri: location.uri,
+                        range: span_range_for(&state, &s),
+                    })
+                }));
             }
         }
 
@@ -1108,7 +1182,13 @@ impl LanguageServer for Backend {
         };
 
         let span = go_to_definition(state.graph(), &word);
-        Ok(span.map(|s| GotoDefinitionResponse::Scalar(source_span_to_location(&s))))
+        Ok(span.map(|s| {
+            let location = source_span_to_location(&s);
+            GotoDefinitionResponse::Scalar(Location {
+                uri: location.uri,
+                range: span_range_for(&state, &s),
+            })
+        }))
     }
 
     async fn references(&self, params: ReferenceParams) -> Result<Option<Vec<Location>>> {
@@ -1129,7 +1209,17 @@ impl LanguageServer for Backend {
         if refs.is_empty() {
             return Ok(None);
         }
-        Ok(Some(refs.iter().map(source_span_to_location).collect()))
+        Ok(Some(
+            refs.iter()
+                .map(|s| {
+                    let location = source_span_to_location(s);
+                    Location {
+                        uri: location.uri,
+                        range: span_range_for(&state, s),
+                    }
+                })
+                .collect(),
+        ))
     }
 
     async fn prepare_rename(
@@ -1151,7 +1241,19 @@ impl LanguageServer for Backend {
         };
 
         let span = crate::prepare_rename(state.graph(), &word);
-        Ok(span.map(|s| PrepareRenameResponse::Range(source_span_to_range(&s))))
+        Ok(span.map(|s| {
+            let lsp = source_span_to_lsp_range_with_text(&s, &content);
+            PrepareRenameResponse::Range(Range {
+                start: Position {
+                    line: lsp.start_line,
+                    character: lsp.start_col,
+                },
+                end: Position {
+                    line: lsp.end_line,
+                    character: lsp.end_col,
+                },
+            })
+        }))
     }
 
     async fn rename(&self, params: RenameParams) -> Result<Option<WorkspaceEdit>> {
@@ -1268,6 +1370,10 @@ impl LanguageServer for Backend {
             return Ok(None);
         }
 
+        // C3-09: the file's own text is available — convert span byte
+        // columns to UTF-16 so symbol ranges survive non-ASCII prefixes.
+        let file_text = file_content(&state, &file_path);
+
         let kind_reg = state.kind_registry();
         #[allow(deprecated)]
         let lsp_symbols: Vec<SymbolInformation> = symbols
@@ -1277,7 +1383,25 @@ impl LanguageServer for Backend {
                 kind: symbol_kind_from_entity(&s.kind, kind_reg),
                 tags: None,
                 deprecated: None,
-                location: source_span_to_location(&s.span),
+                location: match &file_text {
+                    Some(content) => {
+                        let lsp = source_span_to_lsp_range_with_text(&s.span, content);
+                        Location {
+                            uri: file_path_to_uri(&file_path),
+                            range: Range {
+                                start: Position {
+                                    line: lsp.start_line,
+                                    character: lsp.start_col,
+                                },
+                                end: Position {
+                                    line: lsp.end_line,
+                                    character: lsp.end_col,
+                                },
+                            },
+                        }
+                    }
+                    None => source_span_to_location(&s.span),
+                },
                 container_name: Some(s.kind),
             })
             .collect();

@@ -44,6 +44,31 @@ pub struct LspRange {
 /// Convert a parser SourceSpan (1-based) to an LSP-compatible range (0-based).
 /// The parser stores 1-based lines and columns for human-readable diagnostics,
 /// but the LSP protocol requires 0-based positions.
+/// Text-aware variant: SourceSpan columns are byte offsets (tree-sitter),
+/// LSP positions are UTF-16 code units — convert per line using the file's
+/// content so non-ASCII text cannot shift ranges (C3-09).
+pub fn source_span_to_lsp_range_with_text(
+    span: &specforge_common::SourceSpan,
+    content: &str,
+) -> LspRange {
+    use crate::document::byte_col_to_utf16_col;
+
+    let lines: Vec<&str> = content.split('\n').collect();
+    let line_text = |n: usize| lines.get(n).copied().unwrap_or("");
+    LspRange {
+        start_line: span.start_line.saturating_sub(1) as u32,
+        start_col: byte_col_to_utf16_col(
+            line_text(span.start_line.saturating_sub(1)),
+            span.start_col.saturating_sub(1),
+        ) as u32,
+        end_line: span.end_line.saturating_sub(1) as u32,
+        end_col: byte_col_to_utf16_col(
+            line_text(span.end_line.saturating_sub(1)),
+            span.end_col.saturating_sub(1),
+        ) as u32,
+    }
+}
+
 pub fn source_span_to_lsp_range(span: &specforge_common::SourceSpan) -> LspRange {
     LspRange {
         start_line: span.start_line.saturating_sub(1) as u32,

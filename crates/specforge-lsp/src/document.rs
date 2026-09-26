@@ -52,6 +52,24 @@ impl DocumentBuffer {
 /// offset within `line`. Characters are consumed while they end at or before
 /// `col`; a column landing inside a surrogate pair or past the end of the
 /// line clamps to the nearest char boundary / end of line.
+/// Convert a byte column within `line` to UTF-16 code units (the LSP
+/// `character` field). tree-sitter emits byte columns; LSP positions are
+/// UTF-16 — passing bytes through unconverted shifts every range on lines
+/// containing non-ASCII characters (C3-09). Bytes past the line end clamp
+/// to the line's full UTF-16 length.
+pub fn byte_col_to_utf16_col(line: &str, byte_col: usize) -> usize {
+    let mut units = 0usize;
+    let mut bytes = 0usize;
+    for ch in line.chars() {
+        if bytes >= byte_col {
+            break;
+        }
+        bytes += ch.len_utf8();
+        units += ch.len_utf16();
+    }
+    units
+}
+
 pub fn utf16_col_to_byte_offset(line: &str, col: usize) -> usize {
     let mut units = 0usize;
     let mut byte_offset = 0usize;
@@ -64,4 +82,42 @@ pub fn utf16_col_to_byte_offset(line: &str, col: usize) -> usize {
         byte_offset += ch.len_utf8();
     }
     byte_offset
+}
+
+#[cfg(test)]
+mod utf16_tests {
+    use super::*;
+
+    #[test]
+    fn ascii_lines_are_identity() {
+        let line = "behavior b1 {";
+        assert_eq!(byte_col_to_utf16_col(line, 5), 5);
+        assert_eq!(utf16_col_to_byte_offset(line, 5), 5);
+    }
+
+    #[test]
+    fn multibyte_characters_shift_utf16_columns() {
+        // "héllo wörld" — é/ö are 2 bytes but 1 UTF-16 unit each
+        let line = "h\u{e9}llo w\u{f6}rld";
+        // Position 8 = after "w" (7 bytes) = 7 UTF-16 units (accents are
+        // 2 bytes but 1 UTF-16 unit each). Position 10 = after "ö" = 8 units.
+        assert_eq!(byte_col_to_utf16_col(line, 8), 7);
+        assert_eq!(byte_col_to_utf16_col(line, 10), 8);
+    }
+
+    #[test]
+    fn surrogate_pairs_count_as_two_units() {
+        // emoji: 4 bytes, 2 UTF-16 units
+        let line = "\u{1F600} behavior";
+        let byte_col = 4; // past the emoji
+        assert_eq!(byte_col_to_utf16_col(line, byte_col), 2);
+        assert_eq!(utf16_col_to_byte_offset(line, 2), 4);
+    }
+
+    #[test]
+    fn columns_past_line_end_clamp() {
+        let line = "abc";
+        assert_eq!(byte_col_to_utf16_col(line, 100), 3);
+        assert_eq!(utf16_col_to_byte_offset(line, 100), 3);
+    }
 }
