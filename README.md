@@ -139,6 +139,7 @@ The implementation is a Rust workspace (edition 2024) under [`crates/`](crates/)
 - **[Authoring Tutorial](docs/guides/authoring-spec-files.md)** — zero-to-hero guide to writing `.spec` files, with a complete [worked example](examples/todo-app/). Companions: [cookbook](docs/guides/spec-cookbook.md), [best practices](docs/guides/spec-best-practices.md), [troubleshooting](docs/guides/spec-troubleshooting.md).
 - **[Vision](vision/README.md)** — the manifesto, [principles](vision/principles.md), and [north star](vision/north-star.md). The source of truth for every product decision.
 - **[Documentation Hub](docs/README.md)** — entity reference tables, traceability chain, validation codes.
+- **[Formal Verification](docs/guides/formal-verification.md)** — SMT-proven specs: declare machine-checkable bounds and claims, get contradictions and counterexamples with exact locations.
 - **[Entity Model](docs/entity-model.md)** — full architecture: core engine, extensions, edges, validation rules.
 - **[Quick Reference](docs/quick-reference.md)** — single-page cheat sheet.
 - **[Extension Protocol](docs/extension-protocol.md)** — how to author and publish your own extension.

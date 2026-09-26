@@ -106,6 +106,7 @@ Learn to write `.spec` files:
 - **[Troubleshooting](guides/spec-troubleshooting.md)** — diagnostic codes and how to fix them.
 - **[Product Getting Started](guides/product-getting-started.md)** — `@specforge/product` walkthrough.
 - **[Extending SpecForge](guides/extending-specforge.md)** — the extension-authoring tutorial: scaffold a Wasm extension, contribute kinds/fields/rules, write compiler passes, build and install.
+- **[Formal Verification](guides/formal-verification.md)** — machine-checkable bounds and claims: the expression language, `metric expr { }`, SMT-proven consistency and entailment, counterexamples, discharge linkage.
 - **[Worked Example: todo-app](../examples/todo-app/)** — a complete, validated reference project.
 
 ## Quick Reference

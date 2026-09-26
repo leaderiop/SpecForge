@@ -249,12 +249,16 @@ fn lookup(code: &str) -> Option<(&'static str, &'static str)> {
             "One or more coverage items (invariants and testable entities) have no `tests [...]` linkage, so nothing connects their intent to an executable test. Add tests fields or drop the items. Reported by the @specforge/formal coverage_tracking compiler pass via specforge analyze.",
         ),
         "I098" => (
-            "Solver could not decide bound group",
+            "Solver could not decide metric bounds",
             "The SMT solver returned unknown for a metric bound group, so the constraints could not be verified or refuted. Simplify the bounds or rerun with a newer solver. Reported by `specforge analyze --prove`.",
         ),
         "E046" => (
-            "Constraint is unsatisfiable",
-            "The constraint's metric bounds contradict each other - no value can satisfy them simultaneously, so the constraint can never be met. Bounds are checked per variable across the whole corpus: two constraints bounding the same variable incompatibly are reported together. Relax or correct one of the bounds. Reported by `specforge analyze --prove`.",
+            "Metric bounds are contradictory",
+            "Two or more declared metric bounds cannot hold simultaneously - no value satisfies them all, so at least one bound is wrong. Bounds are checked corpus-wide with an SMT solver: the error names the minimal set of bounds (across files) that contradict each other, with the exact metric line for each. Unit suffixes are normalized (100ms vs 1s compare correctly). Relax or correct one of the bounds. Reported by `specforge analyze --prove`.",
+        ),
+        "E047" => (
+            "Formal claim is not entailed by declared bounds",
+            "An entity declares a formal `expression` claim, but the prove pass found a counterexample: concrete values that satisfy every declared constraint bound while violating the claim. The claim is not WRONG - the declared bounds simply do not guarantee it yet. Strengthen the constraint bounds or weaken the claim. The counterexample values are rendered in the claim's declared unit. Reported by `specforge analyze --prove`.",
         ),
         "A011" => (
             "Orphan guarantee: nothing references this invariant",
