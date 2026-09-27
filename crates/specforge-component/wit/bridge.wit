@@ -1,0 +1,10 @@
+package specforge:bridge@0.1.0;
+
+/// Legacy-call bridge world: one typed entry point dispatching the JSON
+/// wire protocol by export name. Bridges the current JSON protocol onto the
+/// component model while typed per-surface exports (validate / pass /
+/// analyzer) roll out per the hardening plan.
+world bridge {
+    export call: func(name: string, export-name: string, input: list<u8>) ->
+        result<list<u8>, string>;
+}

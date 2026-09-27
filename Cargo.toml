@@ -3,6 +3,7 @@ resolver = "3"
 exclude = ["fixtures/test-extension", "fixtures/greet-extension", "extensions/product", "extensions/software", "extensions/governance", "extensions/formal", "extensions/rust", "extensions/typescript"]
 members = [
     "crates/specforge-common",
+    "crates/specforge-component",
     "crates/specforge-protocol-types",
     "crates/specforge-extension-sdk",
     "crates/specforge-extension-sdk-macros",

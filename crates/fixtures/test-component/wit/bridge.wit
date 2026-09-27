@@ -1,0 +1,6 @@
+package specforge:bridge@0.1.0;
+
+world bridge {
+    export call: func(name: string, export-name: string, input: list<u8>) ->
+        result<list<u8>, string>;
+}

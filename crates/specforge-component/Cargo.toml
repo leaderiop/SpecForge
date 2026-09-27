@@ -1,0 +1,15 @@
+[package]
+name = "specforge-component"
+edition.workspace = true
+version.workspace = true
+license.workspace = true
+
+[dependencies]
+specforge-wasm = { path = "../specforge-wasm" }
+specforge-common = { workspace = true }
+wasmtime = { version = "49", features = ["component-model", "cache"] }
+wasmtime-wasi = "49"
+wit-bindgen = "0.30"
+
+[dev-dependencies]
+tempfile = { workspace = true }
