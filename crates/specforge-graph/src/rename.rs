@@ -1,5 +1,5 @@
+use crate::Graph;
 use specforge_common::SourceSpan;
-use specforge_graph::Graph;
 
 /// A text edit for a rename operation.
 #[derive(Debug, Clone)]

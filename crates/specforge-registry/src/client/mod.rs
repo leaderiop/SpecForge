@@ -7,6 +7,7 @@ pub mod registry_ops;
 pub mod resolver;
 pub mod secrets;
 pub mod trust;
+pub mod trust_flow;
 
 pub use auth::{
     authenticate_with_retry, logout_registry, resolve_credential, sanitize_token,

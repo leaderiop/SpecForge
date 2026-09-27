@@ -1,0 +1,2 @@
+spec MyProject "Project specification" {
+}

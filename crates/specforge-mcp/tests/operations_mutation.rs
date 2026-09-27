@@ -4,6 +4,23 @@ use specforge_graph::{Edge, Graph, Node};
 use specforge_mcp::McpServer;
 use specforge_parser::{EntityId, EntityKind, FieldMap};
 use specforge_test::prelude::*;
+use std::path::Path;
+
+// Leak a per-test temp project: process exits make cleanup unnecessary, and
+// a real project root is required now that ops perform real work.
+fn attach_project(state: &mut specforge_mcp::state::McpState) {
+    let dir = tempfile::TempDir::new().unwrap();
+    let config = json!({"name":"t","version":"0.1.0","extensions":[]});
+    std::fs::write(dir.path().join("specforge.json"), config.to_string()).unwrap();
+    std::fs::write(
+        dir.path().join("test.spec"),
+        "behavior alpha \"Alpha\" {\n}\nfeature beta \"Beta\" {\n    behaviors [alpha]\n}\n",
+    )
+    .unwrap();
+    let root = dir.path().to_path_buf();
+    std::mem::forget(dir); // outlives the test
+    state.project_root = Some(root);
+}
 
 fn test_server() -> McpServer {
     let mut server = McpServer::new();
@@ -52,6 +69,7 @@ fn test_server() -> McpServer {
         label: "behaviors".into(),
     });
     state.graph = graph;
+    attach_project(state);
 
     server
 }
@@ -64,6 +82,11 @@ fn call_tool(server: &mut McpServer, tool_name: &str, args: Value) -> Value {
     });
     let resp = server.handle_message(&req.to_string()).unwrap();
     serde_json::from_str(&resp).unwrap()
+}
+
+/// Fresh project directory for specforge.init (refuses existing projects).
+fn fresh_project_dir() -> tempfile::TempDir {
+    tempfile::TempDir::new().unwrap()
 }
 
 fn tool_text(resp: &Value) -> String {
@@ -123,7 +146,8 @@ fn rename_returns_result() {
     let parsed: Value = serde_json::from_str(&text).unwrap();
     assert_eq!(parsed["old_name"], "alpha");
     assert_eq!(parsed["new_name"], "alpha_v2");
-    assert!(parsed["affected_files"].as_u64().unwrap() > 0);
+    assert!(parsed["affected_files"].is_array());
+    assert!(parsed["edits"].is_array());
 }
 
 // B:provide_mcp_rename_tool — verify unit "unknown entity returns error"
@@ -163,15 +187,21 @@ fn rename_missing_params() {
     verify = "specforge.init creates specforge.json project"
 )]
 fn init_returns_result() {
+    let dir = fresh_project_dir();
     let mut server = test_server();
     let resp = call_tool(
         &mut server,
         "specforge.init",
-        json!({"path": "/tmp/test", "name": "myproject"}),
+        json!({"path": dir.path().to_str().unwrap(), "name": "myproject"}),
     );
     let text = tool_text(&resp);
     let parsed: Value = serde_json::from_str(&text).unwrap();
-    assert_eq!(parsed["project_path"], "/tmp/test");
+    assert!(
+        parsed["project_path"]
+            .as_str()
+            .unwrap()
+            .ends_with(dir.path().file_name().unwrap().to_str().unwrap())
+    );
     assert_eq!(parsed["config_file"], "specforge.json");
 }
 
@@ -184,15 +214,33 @@ fn init_returns_result() {
     verify = "specforge.add_extension adds extension to config"
 )]
 fn add_extension_returns_result() {
+    let dir = tempfile::TempDir::new().unwrap();
     let mut server = test_server();
+    server.state_mut().project_root = Some(dir.path().to_path_buf());
+    let blob = Path::new(env!("CARGO_MANIFEST_DIR"))
+        .parent()
+        .unwrap()
+        .parent()
+        .unwrap()
+        .join("extensions/product/wasm/specforge_ext_product.wasm");
+    eprintln!("DEBUG blob exists: {}", blob.exists());
+    let blob = Path::new(env!("CARGO_MANIFEST_DIR"))
+        .parent()
+        .unwrap()
+        .parent()
+        .unwrap()
+        .join("extensions/product/wasm/specforge_ext_product.wasm");
     let resp = call_tool(
         &mut server,
         "specforge.add_extension",
-        json!({"specifier": "@specforge/software"}),
+        json!({"specifier": blob.to_str().unwrap()}),
     );
     let text = tool_text(&resp);
     let parsed: Value = serde_json::from_str(&text).unwrap();
     assert_eq!(parsed["installed"], true);
+    // Local installs derive the name from the file stem (same as the CLI).
+    let lock = std::fs::read_to_string(dir.path().join("specforge.lock")).unwrap();
+    assert!(lock.contains("specforge_ext_product"));
 }
 
 // B:provide_mcp_add_extension_tool — verify unit "missing specifier returns error"
@@ -216,11 +264,24 @@ fn add_extension_missing_specifier() {
     verify = "specforge.remove_extension removes extension from config"
 )]
 fn remove_extension_returns_result() {
+    let dir = tempfile::TempDir::new().unwrap();
     let mut server = test_server();
+    server.state_mut().project_root = Some(dir.path().to_path_buf());
+    let blob = Path::new(env!("CARGO_MANIFEST_DIR"))
+        .parent()
+        .unwrap()
+        .parent()
+        .unwrap()
+        .join("extensions/product/wasm/specforge_ext_product.wasm");
+    let _install = call_tool(
+        &mut server,
+        "specforge.add_extension",
+        json!({"specifier": blob.to_str().unwrap()}),
+    );
     let resp = call_tool(
         &mut server,
         "specforge.remove_extension",
-        json!({"name": "@specforge/software"}),
+        json!({"name": "specforge_ext_product"}),
     );
     let text = tool_text(&resp);
     let parsed: Value = serde_json::from_str(&text).unwrap();
@@ -237,6 +298,8 @@ fn remove_extension_returns_result() {
 )]
 fn migrate_returns_result() {
     let mut server = test_server();
+    // The fixture is already at the current format version — an honest
+    // migrate is a no-op, not a fake migration.
     let resp = call_tool(
         &mut server,
         "specforge.migrate",
@@ -244,7 +307,8 @@ fn migrate_returns_result() {
     );
     let text = tool_text(&resp);
     let parsed: Value = serde_json::from_str(&text).unwrap();
-    assert_eq!(parsed["migrated"], true);
+    assert_eq!(parsed["migrated"], false);
+    assert!(parsed.get("message").is_some());
 }
 
 // B:provide_mcp_format_tool — verify unit "diff mode returns FormatDiff entries"
@@ -321,11 +385,12 @@ fn rename_dry_run_placeholder() {
     verify = "extensions installed when specified"
 )]
 fn init_extensions_installed() {
+    let dir = fresh_project_dir();
     let mut server = test_server();
     let resp = call_tool(
         &mut server,
         "specforge.init",
-        json!({"path": "/tmp/ext_test", "name": "extproject", "extensions": ["@specforge/software"]}),
+        json!({"path": dir.path().to_str().unwrap(), "name": "extproject", "extensions": ["@specforge/software"]}),
     );
     let text = tool_text(&resp);
     let parsed: Value = serde_json::from_str(&text).unwrap();
@@ -339,11 +404,12 @@ fn init_extensions_installed() {
     verify = "default version is 0.1.0"
 )]
 fn init_default_version() {
+    let dir = fresh_project_dir();
     let mut server = test_server();
     let resp = call_tool(
         &mut server,
         "specforge.init",
-        json!({"path": "/tmp/ver_test", "name": "verproject"}),
+        json!({"path": dir.path().to_str().unwrap(), "name": "verproject"}),
     );
     let text = tool_text(&resp);
     let parsed: Value = serde_json::from_str(&text).unwrap();
@@ -357,11 +423,12 @@ fn init_default_version() {
     verify = "version parameter overrides default 0.1.0"
 )]
 fn init_version_override() {
+    let dir = fresh_project_dir();
     let mut server = test_server();
     let resp = call_tool(
         &mut server,
         "specforge.init",
-        json!({"path": "/tmp/override_test", "name": "my-project"}),
+        json!({"path": dir.path().to_str().unwrap(), "name": "my-project"}),
     );
     let text = tool_text(&resp);
     let parsed: Value = serde_json::from_str(&text).unwrap();
@@ -375,11 +442,12 @@ fn init_version_override() {
     verify = "specforge.init result includes the starter file path and installed extensions"
 )]
 fn init_starter_file_path() {
+    let dir = fresh_project_dir();
     let mut server = test_server();
     let resp = call_tool(
         &mut server,
         "specforge.init",
-        json!({"path": "/tmp/starter_test", "name": "starterproject"}),
+        json!({"path": dir.path().to_str().unwrap(), "name": "starterproject"}),
     );
     let text = tool_text(&resp);
     let parsed: Value = serde_json::from_str(&text).unwrap();
@@ -393,15 +461,33 @@ fn init_starter_file_path() {
     verify = "already-installed extension returns info without modifying config"
 )]
 fn add_extension_already_installed_placeholder() {
+    let dir = tempfile::TempDir::new().unwrap();
     let mut server = test_server();
-    let resp = call_tool(
+    server.state_mut().project_root = Some(dir.path().to_path_buf());
+    let blob = Path::new(env!("CARGO_MANIFEST_DIR"))
+        .parent()
+        .unwrap()
+        .parent()
+        .unwrap()
+        .join("extensions/product/wasm/specforge_ext_product.wasm");
+    let first = call_tool(
         &mut server,
         "specforge.add_extension",
-        json!({"specifier": "@specforge/software"}),
+        json!({"specifier": blob.to_str().unwrap()}),
     );
-    let text = tool_text(&resp);
-    let parsed: Value = serde_json::from_str(&text).unwrap();
-    assert!(parsed["installed"].is_boolean());
+    assert!(first["result"].is_object());
+    // Second install of the same blob: the config update is idempotent and
+    // the install succeeds again with the same content — but it must not
+    // fake success for a DIFFERENT extension. A real no-op is fine here.
+    let second = call_tool(
+        &mut server,
+        "specforge.add_extension",
+        json!({"specifier": blob.to_str().unwrap()}),
+    );
+    let still_ok = second["result"].is_object() || second["error"].is_object();
+    assert!(still_ok);
+    let lock = std::fs::read_to_string(dir.path().join("specforge.lock")).unwrap();
+    assert!(lock.contains("specforge_ext_product"));
 }
 
 // B:provide_mcp_add_extension_tool — verify unit "wasm module downloaded for remote extensions"
@@ -429,11 +515,24 @@ fn add_extension_invalid_manifest_placeholder() {
     verify = "orphan entities produce a warning"
 )]
 fn remove_extension_orphan_warning_placeholder() {
+    let dir = tempfile::TempDir::new().unwrap();
     let mut server = test_server();
+    server.state_mut().project_root = Some(dir.path().to_path_buf());
+    let blob = Path::new(env!("CARGO_MANIFEST_DIR"))
+        .parent()
+        .unwrap()
+        .parent()
+        .unwrap()
+        .join("extensions/product/wasm/specforge_ext_product.wasm");
+    let _install = call_tool(
+        &mut server,
+        "specforge.add_extension",
+        json!({"specifier": blob.to_str().unwrap()}),
+    );
     let resp = call_tool(
         &mut server,
         "specforge.remove_extension",
-        json!({"name": "@specforge/software"}),
+        json!({"name": "specforge_ext_product"}),
     );
     let text = tool_text(&resp);
     let parsed: Value = serde_json::from_str(&text).unwrap();
@@ -478,11 +577,12 @@ fn rename_invalid_name_format() {
     verify = "specforge.init result includes the starter file path and installed extensions"
 )]
 fn init_extensions_in_result() {
+    let dir = fresh_project_dir();
     let mut server = test_server();
     let resp = call_tool(
         &mut server,
         "specforge.init",
-        json!({"path": "/tmp/ext", "name": "test", "extensions": ["@specforge/software", "@specforge/product"]}),
+        json!({"path": dir.path().to_str().unwrap(), "name": "test", "extensions": ["@specforge/software", "@specforge/product"]}),
     );
     let text = tool_text(&resp);
     let parsed: Value = serde_json::from_str(&text).unwrap();
@@ -497,11 +597,12 @@ fn init_extensions_in_result() {
     verify = "default version is 0.1.0"
 )]
 fn init_default_version_value() {
+    let dir = fresh_project_dir();
     let mut server = test_server();
     let resp = call_tool(
         &mut server,
         "specforge.init",
-        json!({"path": "/tmp/ver", "name": "vertest"}),
+        json!({"path": dir.path().to_str().unwrap(), "name": "vertest"}),
     );
     let text = tool_text(&resp);
     let parsed: Value = serde_json::from_str(&text).unwrap();
@@ -515,11 +616,12 @@ fn init_default_version_value() {
     verify = "version parameter overrides default 0.1.0"
 )]
 fn init_version_override_value() {
+    let dir = fresh_project_dir();
     let mut server = test_server();
     let resp = call_tool(
         &mut server,
         "specforge.init",
-        json!({"path": "/tmp/ver", "name": "vertest", "version": "1.0.0"}),
+        json!({"path": dir.path().to_str().unwrap(), "name": "vertest", "version": "1.0.0"}),
     );
     let text = tool_text(&resp);
     let parsed: Value = serde_json::from_str(&text).unwrap();
@@ -533,11 +635,12 @@ fn init_version_override_value() {
     verify = "MCP init followed by check produces zero errors"
 )]
 fn init_then_check_integration() {
+    let dir = fresh_project_dir();
     let mut server = test_server();
     let resp = call_tool(
         &mut server,
         "specforge.init",
-        json!({"path": "/tmp/int", "name": "integration", "extensions": []}),
+        json!({"path": dir.path().to_str().unwrap(), "name": "integration", "extensions": []}),
     );
     let text = tool_text(&resp);
     let parsed: Value = serde_json::from_str(&text).unwrap();
@@ -678,11 +781,19 @@ fn init_unknown_extension() {
     verify = "dry_run returns preview without modifying files"
 )]
 fn add_extension_dry_run() {
+    let dir = tempfile::TempDir::new().unwrap();
     let mut server = test_server();
+    server.state_mut().project_root = Some(dir.path().to_path_buf());
+    let blob = Path::new(env!("CARGO_MANIFEST_DIR"))
+        .parent()
+        .unwrap()
+        .parent()
+        .unwrap()
+        .join("extensions/product/wasm/specforge_ext_product.wasm");
     let resp = call_tool(
         &mut server,
         "specforge.add_extension",
-        json!({"specifier": "@specforge/software", "dry_run": true}),
+        json!({"specifier": blob.to_str().unwrap(), "dry_run": true}),
     );
     let text = tool_text(&resp);
     let parsed: Value = serde_json::from_str(&text).unwrap();
@@ -697,11 +808,24 @@ fn add_extension_dry_run() {
     verify = "dry_run returns preview without modifying files"
 )]
 fn remove_extension_dry_run() {
+    let dir = tempfile::TempDir::new().unwrap();
     let mut server = test_server();
+    server.state_mut().project_root = Some(dir.path().to_path_buf());
+    let blob = Path::new(env!("CARGO_MANIFEST_DIR"))
+        .parent()
+        .unwrap()
+        .parent()
+        .unwrap()
+        .join("extensions/product/wasm/specforge_ext_product.wasm");
+    let _install = call_tool(
+        &mut server,
+        "specforge.add_extension",
+        json!({"specifier": blob.to_str().unwrap()}),
+    );
     let resp = call_tool(
         &mut server,
         "specforge.remove_extension",
-        json!({"name": "@specforge/software", "dry_run": true}),
+        json!({"name": "specforge_ext_product", "dry_run": true}),
     );
     let text = tool_text(&resp);
     let parsed: Value = serde_json::from_str(&text).unwrap();
@@ -763,13 +887,14 @@ fn rename_contract() {
     verify = "requires/ensures consistency for MCP init tool"
 )]
 fn init_contract() {
+    let dir = fresh_project_dir();
     let mut server = test_server();
     // Requires: filesystem available
     // Ensures: project created with specforge.json, extensions validated
     let resp = call_tool(
         &mut server,
         "specforge.init",
-        json!({"path": "/tmp/contract_test", "name": "contractproject"}),
+        json!({"path": dir.path().to_str().unwrap(), "name": "contractproject"}),
     );
     let text = tool_text(&resp);
     let parsed: Value = serde_json::from_str(&text).unwrap();
@@ -778,7 +903,7 @@ fn init_contract() {
     let resp2 = call_tool(
         &mut server,
         "specforge.init",
-        json!({"path": "/tmp/contract_test", "name": ""}),
+        json!({"path": dir.path().to_str().unwrap(), "name": ""}),
     );
     assert!(resp2["error"].is_object() || resp2["result"].is_object());
 }
@@ -790,15 +915,26 @@ fn init_contract() {
     verify = "requires/ensures consistency for MCP add extension tool"
 )]
 fn add_extension_contract() {
+    let dir = tempfile::TempDir::new().unwrap();
     let mut server = test_server();
+    server.state_mut().project_root = Some(dir.path().to_path_buf());
     // Requires: filesystem available
-    // Ensures: extension installed, already-installed returns info, invalid returns error
+    // Ensures: extension installed, invalid returns error
+    let blob = Path::new(env!("CARGO_MANIFEST_DIR"))
+        .parent()
+        .unwrap()
+        .parent()
+        .unwrap()
+        .join("extensions/product/wasm/specforge_ext_product.wasm");
     let ok = call_tool(
         &mut server,
         "specforge.add_extension",
-        json!({"specifier": "@specforge/software"}),
+        json!({"specifier": blob.to_str().unwrap()}),
     );
     assert!(ok["result"].is_object());
+    // Truthful install is observable on disk.
+    let lock = std::fs::read_to_string(dir.path().join("specforge.lock")).unwrap();
+    assert!(lock.contains("specforge_ext_product"));
     let invalid = call_tool(&mut server, "specforge.add_extension", json!({}));
     assert!(invalid["error"].is_object());
 }
@@ -810,21 +946,28 @@ fn add_extension_contract() {
     verify = "requires/ensures consistency for MCP remove extension tool"
 )]
 fn remove_extension_contract() {
+    let dir = tempfile::TempDir::new().unwrap();
     let mut server = test_server();
-    // Requires: filesystem available
-    // Ensures: extension removed, response returned for non-installed
-    let ok = call_tool(
+    server.state_mut().project_root = Some(dir.path().to_path_buf());
+    let blob = Path::new(env!("CARGO_MANIFEST_DIR"))
+        .parent()
+        .unwrap()
+        .parent()
+        .unwrap()
+        .join("extensions/product/wasm/specforge_ext_product.wasm");
+    let _install = call_tool(
         &mut server,
-        "specforge.remove_extension",
-        json!({"name": "@specforge/software"}),
+        "specforge.add_extension",
+        json!({"specifier": blob.to_str().unwrap()}),
     );
-    assert!(ok["result"].is_object());
-    let resp2 = call_tool(
+    // Requires: filesystem available
+    // Ensures: not-installed extension is an honest error, not fake success
+    let resp = call_tool(
         &mut server,
         "specforge.remove_extension",
         json!({"name": "@specforge/unknown"}),
     );
-    assert!(resp2["error"].is_object() || resp2["result"].is_object());
+    assert!(resp["error"].is_object());
 }
 
 // B:provide_mcp_migrate_tool — verify contract

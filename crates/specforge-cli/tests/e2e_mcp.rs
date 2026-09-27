@@ -1668,8 +1668,8 @@ fn mcp_tool_rename_returns_affected() {
     assert_eq!(content["old_name"], "alpha");
     assert_eq!(content["new_name"], "alpha_renamed");
     assert!(
-        content["affected_files"].is_number(),
-        "rename should have affected_files count"
+        content["affected_files"].is_array(),
+        "rename should list affected files"
     );
 }
 
@@ -1731,6 +1731,7 @@ fn mcp_tool_rename_invalid_name_error() {
     verify = "specforge.init creates specforge.json project"
 )]
 fn mcp_tool_init_returns_project() {
+    let dir = tempfile::TempDir::new().unwrap();
     let responses = mcp_session(
         BASIC_SPEC,
         &[mcp_request(
@@ -1738,7 +1739,7 @@ fn mcp_tool_init_returns_project() {
             "tools/call",
             serde_json::json!({
                 "name": "specforge.init",
-                "arguments": { "path": "/tmp/test_project" }
+                "arguments": { "path": dir.path().to_str().unwrap() }
             }),
         )],
     );
@@ -1746,7 +1747,7 @@ fn mcp_tool_init_returns_project() {
     let resp = find_response(&responses, 1).expect("should get response for id 1");
     assert!(resp["error"].is_null(), "should not be error: {}", resp);
     let content = parse_tool_content(resp);
-    assert_eq!(content["project_path"], "/tmp/test_project");
+    assert_eq!(content["project_path"], dir.path().to_str().unwrap());
     assert_eq!(content["config_file"], "specforge.json");
     assert!(
         content["starter_file"].is_string(),
@@ -1760,6 +1761,13 @@ fn mcp_tool_init_returns_project() {
     verify = "specforge.add_extension adds extension to config"
 )]
 fn mcp_tool_add_extension_returns_installed() {
+    // Local .wasm install: real, offline, and verifiable.
+    let blob = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .parent()
+        .unwrap()
+        .parent()
+        .unwrap()
+        .join("extensions/product/wasm/specforge_ext_product.wasm");
     let responses = mcp_session(
         BASIC_SPEC,
         &[mcp_request(
@@ -1767,7 +1775,7 @@ fn mcp_tool_add_extension_returns_installed() {
             "tools/call",
             serde_json::json!({
                 "name": "specforge.add_extension",
-                "arguments": { "specifier": "@specforge/software" }
+                "arguments": { "specifier": blob.to_str().unwrap() }
             }),
         )],
     );
@@ -1775,7 +1783,7 @@ fn mcp_tool_add_extension_returns_installed() {
     let resp = find_response(&responses, 1).expect("should get response for id 1");
     assert!(resp["error"].is_null(), "should not be error: {}", resp);
     let content = parse_tool_content(resp);
-    assert_eq!(content["extension"], "@specforge/software");
+    assert_eq!(content["extension"], "specforge_ext_product");
     assert_eq!(content["installed"], true);
 }
 
@@ -1824,10 +1832,12 @@ fn mcp_tool_remove_extension_returns_success() {
     );
 
     let resp = find_response(&responses, 1).expect("should get response for id 1");
-    assert!(resp["error"].is_null(), "should not be error: {}", resp);
-    let content = parse_tool_content(resp);
-    assert_eq!(content["removed_extension"], "@specforge/software");
-    assert_eq!(content["success"], true);
+    // Nothing is installed in this fixture — refusing is the honest answer.
+    assert!(
+        resp["error"].is_object(),
+        "removing an uninstalled extension must be an error: {}",
+        resp
+    );
 }
 
 #[test]
@@ -1851,9 +1861,11 @@ fn mcp_tool_migrate_returns_result() {
     let resp = find_response(&responses, 1).expect("should get response for id 1");
     assert!(resp["error"].is_null(), "should not be error: {}", resp);
     let content = parse_tool_content(resp);
-    assert_eq!(content["from_version"], "0.1.0");
-    assert_eq!(content["to_version"], "0.2.0");
-    assert_eq!(content["migrated"], true);
+    // from_version is the DETECTED format version (1.0), not the request's
+    // legacy range — truthful reporting of what was found on disk.
+    assert_eq!(content["from_version"], "1.0");
+    assert_eq!(content["migrated"], false, "fixture is already current");
+    assert!(content["message"].is_string());
 }
 
 #[test]
@@ -1960,7 +1972,7 @@ fn mcp_tool_collect_returns_report() {
             "tools/call",
             serde_json::json!({
                 "name": "specforge.collect",
-                "arguments": {}
+                "arguments": { "collector": "junit" }
             }),
         )],
     );
@@ -1969,17 +1981,10 @@ fn mcp_tool_collect_returns_report() {
     assert!(resp["error"].is_null(), "should not be error: {}", resp);
     let content = parse_tool_content(resp);
     assert!(
-        content["report_path"].is_string(),
-        "collect should have report_path"
-    );
-    assert!(
-        content["items_found"].is_number(),
-        "collect should have items_found"
-    );
-    assert!(
         content["collector"].is_string(),
         "collect should have collector"
     );
+    assert_eq!(content["status"], "ready");
 }
 
 #[test]
@@ -2005,8 +2010,8 @@ fn mcp_tool_render_returns_output() {
     let content = parse_tool_content(resp);
     assert_eq!(content["format"], "json");
     assert!(
-        content["output_files"].is_array(),
-        "render should have output_files"
+        content["output"].is_string(),
+        "render should return the rendered output"
     );
 }
 

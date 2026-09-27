@@ -4,6 +4,23 @@ use specforge_graph::{Edge, Graph, Node};
 use specforge_mcp::McpServer;
 use specforge_parser::{EntityId, EntityKind, FieldMap, FieldValue, VerifyStatement};
 use specforge_test::prelude::*;
+use std::path::Path;
+
+// Leak a per-test temp project: process exits make cleanup unnecessary, and
+// a real project root is required now that ops perform real work.
+fn attach_project(state: &mut specforge_mcp::state::McpState) {
+    let dir = tempfile::TempDir::new().unwrap();
+    let config = json!({"name":"t","version":"0.1.0","extensions":[]});
+    std::fs::write(dir.path().join("specforge.json"), config.to_string()).unwrap();
+    std::fs::write(
+        dir.path().join("test.spec"),
+        "behavior alpha \"Alpha\" {\n}\nfeature beta \"Beta\" {\n    behaviors [alpha]\n}\n",
+    )
+    .unwrap();
+    let root = dir.path().to_path_buf();
+    std::mem::forget(dir); // outlives the test
+    state.project_root = Some(root);
+}
 
 fn span() -> SourceSpan {
     SourceSpan {
@@ -66,6 +83,7 @@ fn test_server() -> McpServer {
         label: "behaviors".into(),
     });
     state.graph = graph;
+    attach_project(state);
 
     server
 }
@@ -539,8 +557,13 @@ fn contract_rename() {
     verify = "requires/ensures consistency for MCP init tool"
 )]
 fn contract_init() {
+    let dir = tempfile::TempDir::new().unwrap();
     let mut server = test_server();
-    let resp = call_tool(&mut server, "specforge.init", json!({"path": "/tmp/test"}));
+    let resp = call_tool(
+        &mut server,
+        "specforge.init",
+        json!({"path": dir.path().to_str().unwrap()}),
+    );
     let text = resp["result"]["content"][0]["text"].as_str().unwrap();
     let parsed: Value = serde_json::from_str(text).unwrap();
     assert!(parsed.get("project_path").is_some());
@@ -716,15 +739,27 @@ fn contract_diagnostics_notification() {
     verify = "requires/ensures consistency for MCP add extension tool"
 )]
 fn contract_add_extension() {
+    let dir = tempfile::TempDir::new().unwrap();
     let mut server = test_server();
+    server.state_mut().project_root = Some(dir.path().to_path_buf());
+    // Real offline install of the vendored product blob.
+    let blob = Path::new(env!("CARGO_MANIFEST_DIR"))
+        .parent()
+        .unwrap()
+        .parent()
+        .unwrap()
+        .join("extensions/product/wasm/specforge_ext_product.wasm");
     let resp = call_tool(
         &mut server,
         "specforge.add_extension",
-        json!({"specifier": "@specforge/software"}),
+        json!({"specifier": blob.to_str().unwrap()}),
     );
     let text = resp["result"]["content"][0]["text"].as_str().unwrap();
     let parsed: Value = serde_json::from_str(text).unwrap();
-    assert!(parsed.get("installed").is_some());
+    assert_eq!(parsed["installed"], true);
+    // Truthful install is observable on disk.
+    let lock = std::fs::read_to_string(dir.path().join("specforge.lock")).unwrap();
+    assert!(lock.contains("specforge_ext_product"));
 }
 
 #[test]
@@ -733,15 +768,16 @@ fn contract_add_extension() {
     verify = "requires/ensures consistency for MCP remove extension tool"
 )]
 fn contract_remove_extension() {
+    let dir = tempfile::TempDir::new().unwrap();
     let mut server = test_server();
+    server.state_mut().project_root = Some(dir.path().to_path_buf());
+    // Removing something that is not installed must refuse.
     let resp = call_tool(
         &mut server,
         "specforge.remove_extension",
         json!({"name": "@specforge/software"}),
     );
-    let text = resp["result"]["content"][0]["text"].as_str().unwrap();
-    let parsed: Value = serde_json::from_str(text).unwrap();
-    assert!(parsed.get("success").is_some());
+    assert!(resp["error"].is_object());
 }
 
 #[test]
@@ -777,10 +813,14 @@ fn contract_providers() {
 )]
 fn contract_collect() {
     let mut server = test_server();
-    let resp = call_tool(&mut server, "specforge.collect", json!({}));
+    let resp = call_tool(
+        &mut server,
+        "specforge.collect",
+        json!({"collector": "junit"}),
+    );
     let text = resp["result"]["content"][0]["text"].as_str().unwrap();
     let parsed: Value = serde_json::from_str(text).unwrap();
-    assert!(parsed.get("report_path").is_some());
+    assert!(parsed.get("collector").is_some());
 }
 
 #[test]

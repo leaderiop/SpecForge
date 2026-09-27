@@ -7,6 +7,22 @@ use specforge_mcp::subscriptions;
 use specforge_parser::{EntityId, EntityKind, FieldMap};
 use specforge_test::prelude::*;
 
+// Leak a per-test temp project: process exits make cleanup unnecessary, and
+// a real project root is required now that ops perform real work.
+fn attach_project(state: &mut specforge_mcp::state::McpState) {
+    let dir = tempfile::TempDir::new().unwrap();
+    let config = json!({"name":"t","version":"0.1.0","extensions":[]});
+    std::fs::write(dir.path().join("specforge.json"), config.to_string()).unwrap();
+    std::fs::write(
+        dir.path().join("test.spec"),
+        "behavior alpha \"Alpha\" {\n}\nfeature beta \"Beta\" {\n    behaviors [alpha]\n}\n",
+    )
+    .unwrap();
+    let root = dir.path().to_path_buf();
+    std::mem::forget(dir); // outlives the test
+    state.project_root = Some(root);
+}
+
 fn call(server: &mut McpServer, method: &str, params: Value) -> Value {
     let req = json!({"jsonrpc": "2.0", "id": 1, "method": method, "params": params});
     let resp = server.handle_message(&req.to_string()).unwrap();
@@ -28,6 +44,7 @@ fn has_event(server: &McpServer, event_name: &str) -> bool {
 fn init_server() -> McpServer {
     let mut server = McpServer::new();
     call(&mut server, "initialize", json!({}));
+    attach_project(server.state_mut());
     server
 }
 
@@ -160,6 +177,7 @@ fn event_mcp_prompt_invoked() {
         methods: Vec::new(),
     });
     state.graph = graph;
+    attach_project(state);
 
     call(
         &mut server,
@@ -199,6 +217,7 @@ fn event_mcp_delta_notified() {
         methods: Vec::new(),
     });
     state.graph = graph;
+    attach_project(state);
 
     pending_notifications(server.state_mut());
     assert!(has_event(&server, "mcp_delta_notified"));
