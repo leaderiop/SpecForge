@@ -97,6 +97,34 @@ impl ExtismRuntime {
         self
     }
 
+    /// Hot-reload an already-loaded extension with new module bytes
+    /// (hardening-plan H1 / R-5): swaps the plugin entry atomically under the
+    /// plugins mutex. The old instance is dropped after in-flight calls
+    /// complete (the mutex serializes calls).
+    pub fn reload_module_bytes(&self, name: &str, wasm_bytes: &[u8]) -> Result<(), String> {
+        self.load_module_bytes(name, wasm_bytes)
+    }
+
+    /// Unload an extension. Returns true when it was loaded.
+    pub fn unload(&self, name: &str) -> bool {
+        match self.plugins.lock() {
+            Ok(mut plugins) => plugins.remove(name).is_some(),
+            Err(_) => false,
+        }
+    }
+
+    /// Names of the currently loaded extensions, sorted.
+    pub fn loaded_names(&self) -> Vec<String> {
+        match self.plugins.lock() {
+            Ok(plugins) => {
+                let mut names: Vec<String> = plugins.keys().cloned().collect();
+                names.sort();
+                names
+            }
+            Err(_) => Vec::new(),
+        }
+    }
+
     /// Load a Wasm module under an explicit extension name (instead of deriving from filename).
     pub fn load_module_as(
         &self,

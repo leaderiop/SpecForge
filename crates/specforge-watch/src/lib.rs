@@ -21,4 +21,4 @@ pub use pipeline::{IncrementalPipeline, IncrementalResult};
 pub use subscribers::{
     DeltaSubscriber, DiagnosticsDelta, compute_diagnostics_delta, notify_delta_subscribers,
 };
-pub use watcher::SpecWatcher;
+pub use watcher::{SpecWatcher, WatchEvent, WatchEventKind};

@@ -825,10 +825,20 @@ impl LanguageServer for Backend {
                 method: "workspace/didChangeWatchedFiles".into(),
                 register_options: Some(
                     serde_json::to_value(DidChangeWatchedFilesRegistrationOptions {
-                        watchers: vec![FileSystemWatcher {
-                            glob_pattern: GlobPattern::String("**/*.spec".into()),
-                            kind: Some(WatchKind::all()),
-                        }],
+                        watchers: vec![
+                            FileSystemWatcher {
+                                glob_pattern: GlobPattern::String("**/*.spec".into()),
+                                kind: Some(WatchKind::all()),
+                            },
+                            FileSystemWatcher {
+                                glob_pattern: GlobPattern::String("**/specforge.json".into()),
+                                kind: Some(WatchKind::all()),
+                            },
+                            FileSystemWatcher {
+                                glob_pattern: GlobPattern::String("**/*.wasm".into()),
+                                kind: Some(WatchKind::all()),
+                            },
+                        ],
                     })
                     .unwrap(),
                 ),
@@ -985,6 +995,27 @@ impl LanguageServer for Backend {
         for change in &params.changes {
             let uri = &change.uri;
             let file_path = uri_to_file_path(uri);
+
+            // Extension configuration or plugin artifact changed: reload the
+            // runtime + registries, reindex, and republish (hardening-plan
+            // H4 / R-5).
+            if file_path.ends_with("specforge.json") || file_path.ends_with(".wasm") {
+                let root_dir = self.root_dir.lock().await.clone();
+                if let Some(root) = root_dir {
+                    let ext_count = self.load_registries(&root).await;
+                    self.client
+                        .log_message(
+                            MessageType::INFO,
+                            format!(
+                                "specforge-lsp: extension environment changed, reloaded {ext_count} extension(s)"
+                            ),
+                        )
+                        .await;
+                    let files = self.index_workspace(&root).await;
+                    let _ = files;
+                }
+                continue;
+            }
 
             // Only handle .spec files
             if !file_path.ends_with(".spec") {

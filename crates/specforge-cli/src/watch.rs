@@ -15,95 +15,33 @@ use specforge_watch::{ImportDag, IncrementalPipeline, SpecWatcher};
 
 pub fn run(path: &Path, json: bool) -> i32 {
     // 1. Cold build via the standard compile pipeline (extensions, registries).
-    let ctx = crate::pipeline::compile(path);
+    let (ctx, mut pipeline) = cold_build(path);
     let spec_root: PathBuf =
         std::fs::canonicalize(&ctx.spec_root).unwrap_or_else(|_| ctx.spec_root.clone());
 
-    // 2. GraphConfig mirroring the emitter's cold build so incremental
-    //    rebuilds agree with `specforge check` (I004 keyword hints,
-    //    bidirectional edge pairs for cycle detection, installed kinds).
-    let known_extension_keywords: HashMap<String, String> = ctx
-        .manifests
-        .iter()
-        .flat_map(|m| {
-            m.entity_kinds
-                .iter()
-                .map(move |k| (k.keyword.clone(), m.name.clone()))
-        })
-        .collect();
-    // Body-parser entity ranges: their E001s are suppressed (extension-owned
-    // syntax), matching the emitter's cold build.
-    let body_parser_kinds: HashSet<String> = ctx
-        .manifests
-        .iter()
-        .flat_map(|m| m.entity_kinds.iter())
-        .filter(|k| k.has_body_parser)
-        .map(|k| k.keyword.clone())
-        .collect();
-    let suppressed_parse_error_ranges: Vec<(String, usize, usize)> = ctx
-        .resolved
-        .files
-        .iter()
-        .flat_map(|f| f.spec_file.entities.iter())
-        .filter(|e| body_parser_kinds.contains(e.kind.raw.as_str()))
-        .map(|e| {
-            (
-                e.span.file.as_str().to_string(),
-                e.span.start_line,
-                e.span.end_line,
-            )
-        })
-        .collect();
-    let single_reference_fields: std::collections::HashSet<(String, String)> = ctx
-        .field_registry
-        .iter()
-        .filter(|(_, _, entry)| {
-            entry.field_type == specforge_registry::ManifestFieldType::Reference
-        })
-        .map(|(kind, field, _)| (kind.to_string(), field.to_string()))
-        .collect();
-    let graph_config = GraphConfig {
-        installed_keywords: ctx.kind_registry.keywords().cloned().collect(),
-        known_provider_schemes: HashSet::new(),
-        known_extension_keywords,
-        bidirectional_pairs: ctx.field_registry.bidirectional_pairs(),
-        suppressed_parse_error_ranges,
-        single_reference_fields,
-    };
-
-    // 3. Seed the pipeline: import DAG from resolved files, graph rebuilt
-    //    through build_graph_with_config (same config as future rebuilds).
-    let mut dag = ImportDag::new();
-    for f in &ctx.resolved.files {
-        let imports: Vec<String> = f
-            .spec_file
-            .imports
-            .iter()
-            .map(|i| i.path.to_string())
-            .collect();
-        dag.set_imports_resolved(&f.path, imports);
-    }
-    let spec_files: Vec<(String, specforge_parser::SpecFile)> = ctx
-        .resolved
-        .files
-        .iter()
-        .map(|f| (f.path.clone(), f.spec_file.clone()))
-        .collect();
-    let all_specs: Vec<specforge_parser::SpecFile> =
-        spec_files.iter().map(|(_, sf)| sf.clone()).collect();
-    let (graph, build_diagnostics) = build_graph_with_config(&all_specs, &graph_config);
-    let mut pipeline = IncrementalPipeline::from_cold_build(
-        spec_files,
-        graph,
-        dag,
-        build_diagnostics,
-        graph_config,
-    );
-
     // Start watching before announcing readiness: a client that writes on
     // seeing "ready" must never race a watcher that does not exist yet.
-    let (tx, rx) = mpsc::channel::<Vec<String>>();
+    let (tx, rx) = mpsc::channel::<Vec<specforge_watch::WatchEvent>>();
     let watcher = match SpecWatcher::new(&spec_root, tx) {
+        Ok(w) => w,
+        Err(e) => {
+            eprintln!("error: {e}");
+            return 1;
+        }
+    };
+    // Spec-root watch cannot see specforge.json (it lives in the project
+    // root), so extension config/plugin artifacts get their own watcher
+    // scoped to those kinds (hardening-plan H3 / R-5).
+    let (env_tx, env_rx) = mpsc::channel::<Vec<specforge_watch::WatchEvent>>();
+    let env_root: PathBuf = std::fs::canonicalize(path).unwrap_or_else(|_| path.to_path_buf());
+    let env_watcher = match SpecWatcher::new_filtered(
+        &env_root,
+        env_tx,
+        &[
+            specforge_watch::WatchEventKind::Config,
+            specforge_watch::WatchEventKind::Plugin,
+        ],
+    ) {
         Ok(w) => w,
         Err(e) => {
             eprintln!("error: {e}");
@@ -150,8 +88,83 @@ pub fn run(path: &Path, json: bool) -> i32 {
     // 4. Watch loop: debounced batches from the watcher drive incremental
     //    rebuilds. Tree-sitter trees are retained across rebuilds, so
     //    unchanged subtrees are not re-parsed.
-    for batch in rx {
-        let result = pipeline.rebuild(&batch, |f: &str| {
+    // Merge both channels: spec-only batches take the incremental path,
+    // config/plugin batches force a cold rebuild.
+    let debug = std::env::var("SPECFORGE_WATCH_DEBUG").is_ok();
+    let (merge_tx, rx2) = mpsc::channel::<Vec<specforge_watch::WatchEvent>>();
+    {
+        let tx_spec = merge_tx.clone();
+        std::thread::spawn(move || {
+            for batch in rx {
+                if debug {
+                    eprintln!("[spec-watcher] forwarding {} events", batch.len());
+                }
+                if tx_spec.send(batch).is_err() {
+                    break;
+                }
+            }
+            if debug {
+                eprintln!("[spec-watcher] channel closed");
+            }
+        });
+        std::thread::spawn(move || {
+            for batch in env_rx {
+                if debug {
+                    eprintln!("[env-watcher] forwarding {} events", batch.len());
+                }
+                if merge_tx.send(batch).is_err() {
+                    break;
+                }
+            }
+            if debug {
+                eprintln!("[env-watcher] channel closed");
+            }
+        });
+    }
+
+    for batch in rx2 {
+        // Extension environment changed: full cold rebuild with a fresh
+        // runtime (new/replaced/uninstalled plugins and config). Spec-only
+        // batches stay on the incremental path.
+        let config_or_plugin = batch
+            .iter()
+            .any(|e| !matches!(e.kind, specforge_watch::WatchEventKind::Spec));
+        if config_or_plugin {
+            if debug {
+                eprintln!("[watch] reload branch entered");
+            }
+            let (new_ctx, new_pipeline) = cold_build(path);
+            if debug {
+                eprintln!("[watch] reload cold_build done");
+            }
+            pipeline = new_pipeline;
+            if json {
+                println!(
+                    "{}",
+                    serde_json::json!({
+                        "event": "extensions_reloaded",
+                        "extensions": new_ctx.manifests.iter().map(|m| m.name.clone()).collect::<Vec<_>>(),
+                        "files": new_ctx.resolved.files.len(),
+                        "nodes": new_ctx.graph.node_count(),
+                        "errors": new_ctx.diagnostics.iter().filter(|d| d.severity == Severity::Error).count(),
+                    })
+                );
+            } else {
+                println!(
+                    "[reload] extension environment changed: {} extension(s), {} file(s)",
+                    new_ctx.manifests.len(),
+                    new_ctx.resolved.files.len()
+                );
+            }
+            continue;
+        }
+
+        let specs: Vec<String> = batch
+            .iter()
+            .filter(|e| matches!(e.kind, specforge_watch::WatchEventKind::Spec))
+            .map(|e| e.path.clone())
+            .collect();
+        let result = pipeline.rebuild(&specs, |f: &str| {
             std::fs::read_to_string(spec_root.join(f)).ok()
         });
 
@@ -171,7 +184,7 @@ pub fn run(path: &Path, json: bool) -> i32 {
                 "{}",
                 serde_json::json!({
                     "event": "rebuilt",
-                    "changed": batch,
+                    "changed": batch.iter().map(|e| e.path.clone()).collect::<Vec<_>>(),
                     "rebuilt_files": result.rebuilt_files,
                     "added_nodes": result.delta.added_nodes.len(),
                     "removed_nodes": result.delta.removed_nodes.len(),
@@ -204,8 +217,88 @@ pub fn run(path: &Path, json: bool) -> i32 {
                 eprintln!("verification FAILED: {msg}");
             }
         }
-        let _ = &watcher; // keep the watcher alive for the loop's lifetime
+        let _ = (&watcher, &env_watcher); // keep both watchers alive
     }
 
     0
+}
+
+/// Cold-build the project: full compile pipeline + seeded incremental
+/// pipeline. Used at startup AND whenever the extension environment changes
+/// (specforge.json / .wasm edits) — hardening-plan H3 / R-5.
+fn cold_build(path: &Path) -> (crate::pipeline::CompilationContext, IncrementalPipeline) {
+    let ctx = crate::pipeline::compile(path);
+    let known_extension_keywords: HashMap<String, String> = ctx
+        .manifests
+        .iter()
+        .flat_map(|m| {
+            m.entity_kinds
+                .iter()
+                .map(move |k| (k.keyword.clone(), m.name.clone()))
+        })
+        .collect();
+    let body_parser_kinds: HashSet<String> = ctx
+        .manifests
+        .iter()
+        .flat_map(|m| m.entity_kinds.iter())
+        .filter(|k| k.has_body_parser)
+        .map(|k| k.keyword.clone())
+        .collect();
+    let suppressed_parse_error_ranges: Vec<(String, usize, usize)> = ctx
+        .resolved
+        .files
+        .iter()
+        .flat_map(|f| f.spec_file.entities.iter())
+        .filter(|e| body_parser_kinds.contains(e.kind.raw.as_str()))
+        .map(|e| {
+            (
+                e.span.file.as_str().to_string(),
+                e.span.start_line,
+                e.span.end_line,
+            )
+        })
+        .collect();
+    let single_reference_fields: std::collections::HashSet<(String, String)> = ctx
+        .field_registry
+        .iter()
+        .filter(|(_, _, entry)| {
+            entry.field_type == specforge_registry::ManifestFieldType::Reference
+        })
+        .map(|(kind, field, _)| (kind.to_string(), field.to_string()))
+        .collect();
+    let graph_config = GraphConfig {
+        installed_keywords: ctx.kind_registry.keywords().cloned().collect(),
+        known_provider_schemes: HashSet::new(),
+        known_extension_keywords,
+        bidirectional_pairs: ctx.field_registry.bidirectional_pairs(),
+        suppressed_parse_error_ranges,
+        single_reference_fields,
+    };
+    let mut dag = ImportDag::new();
+    for f in &ctx.resolved.files {
+        let imports: Vec<String> = f
+            .spec_file
+            .imports
+            .iter()
+            .map(|i| i.path.to_string())
+            .collect();
+        dag.set_imports_resolved(&f.path, imports);
+    }
+    let spec_files: Vec<(String, specforge_parser::SpecFile)> = ctx
+        .resolved
+        .files
+        .iter()
+        .map(|f| (f.path.clone(), f.spec_file.clone()))
+        .collect();
+    let all_specs: Vec<specforge_parser::SpecFile> =
+        spec_files.iter().map(|(_, sf)| sf.clone()).collect();
+    let (graph, build_diagnostics) = build_graph_with_config(&all_specs, &graph_config);
+    let pipeline = IncrementalPipeline::from_cold_build(
+        spec_files,
+        graph,
+        dag,
+        build_diagnostics,
+        graph_config,
+    );
+    (ctx, pipeline)
 }

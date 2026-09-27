@@ -29,3 +29,4 @@ mod registry;
 mod stats;
 mod trace;
 mod watch;
+mod watch_reload;

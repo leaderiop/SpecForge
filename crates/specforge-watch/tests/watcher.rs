@@ -1,11 +1,14 @@
 use specforge_test_macros::test as spec;
-use specforge_watch::SpecWatcher;
+use specforge_watch::{SpecWatcher, WatchEvent, WatchEventKind};
 use std::fs;
 use std::sync::mpsc;
 use std::time::{Duration, Instant};
 use tempfile::TempDir;
 
-fn wait_for_event(rx: &mpsc::Receiver<Vec<String>>, timeout: Duration) -> Option<Vec<String>> {
+fn wait_for_event(
+    rx: &mpsc::Receiver<Vec<WatchEvent>>,
+    timeout: Duration,
+) -> Option<Vec<WatchEvent>> {
     rx.recv_timeout(timeout).ok()
 }
 
@@ -35,11 +38,11 @@ fn file_modification_triggers_recompilation() {
         event.is_some(),
         "should receive change event after file modification"
     );
-    let files = event.unwrap();
+    let events = event.unwrap();
     assert!(
-        files.iter().any(|f| f.ends_with("a.spec")),
+        events.iter().any(|f| f.path.ends_with("a.spec")),
         "changed files should include a.spec, got: {:?}",
-        files
+        events
     );
 }
 
@@ -67,11 +70,11 @@ fn file_creation_triggers_recompilation() {
         event.is_some(),
         "should receive change event after file creation"
     );
-    let files = event.unwrap();
+    let events = event.unwrap();
     assert!(
-        files.iter().any(|f| f.ends_with("new.spec")),
+        events.iter().any(|f| f.path.ends_with("new.spec")),
         "changed files should include new.spec, got: {:?}",
-        files
+        events
     );
 }
 
@@ -100,11 +103,11 @@ fn file_deletion_triggers_recompilation() {
         event.is_some(),
         "should receive change event after file deletion"
     );
-    let files = event.unwrap();
+    let events = event.unwrap();
     assert!(
-        files.iter().any(|f| f.ends_with("doomed.spec")),
+        events.iter().any(|f| f.path.ends_with("doomed.spec")),
         "changed files should include doomed.spec, got: {:?}",
-        files
+        events
     );
 }
 
@@ -171,4 +174,51 @@ fn watch_contract_consistency() {
     fs::write(&txt_path, "not a spec").unwrap();
     let event = wait_for_event(&rx, Duration::from_millis(500));
     assert!(event.is_none(), "non-.spec files must not trigger events");
+}
+
+// ── config + plugin artifacts classify (hardening-plan H2 / R-5) ──
+#[spec(
+    behavior = "watch_file_system_for_changes",
+    verify = "specforge.json and .wasm changes classify as config/plugin"
+)]
+#[test]
+fn config_and_plugin_changes_classify() {
+    let dir = TempDir::new().unwrap();
+    fs::write(
+        dir.path().join("specforge.json"),
+        r#"{"name":"t","version":"0.1.0"}"#,
+    )
+    .unwrap();
+
+    let (tx, rx) = mpsc::channel();
+    let _watcher = SpecWatcher::new(dir.path(), tx).unwrap();
+    std::thread::sleep(Duration::from_millis(100));
+
+    // Config change
+    fs::write(
+        dir.path().join("specforge.json"),
+        r#"{"name":"t2","version":"0.1.0"}"#,
+    )
+    .unwrap();
+    let batch = wait_for_event(&rx, Duration::from_secs(2));
+    let batch = batch.expect("config change should produce an event");
+    assert!(
+        batch
+            .iter()
+            .any(|e| e.kind == WatchEventKind::Config && e.path.ends_with("specforge.json")),
+        "expected Config event, got: {:?}",
+        batch
+    );
+
+    // Plugin change
+    fs::write(dir.path().join("patch.wasm"), b"\x00asm\x01\x00\x00\x00").unwrap();
+    let batch = wait_for_event(&rx, Duration::from_secs(2));
+    let batch = batch.expect("plugin change should produce an event");
+    assert!(
+        batch
+            .iter()
+            .any(|e| e.kind == WatchEventKind::Plugin && e.path.ends_with("patch.wasm")),
+        "expected Plugin event, got: {:?}",
+        batch
+    );
 }
