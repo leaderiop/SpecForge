@@ -188,7 +188,7 @@ fn parse_validation_rule_pattern_contract() {
     let (patterns, diags) = parse_all_rule_patterns(&rules);
     // ensures: valid patterns parsed
     assert_eq!(patterns.len(), 1);
-    assert_eq!(patterns[0].code, "W100");
+    assert_eq!(patterns[0].0.code, "W100");
     // ensures: unrecognized warned
     assert!(diags.iter().any(|d| d.code == "W024"));
 }

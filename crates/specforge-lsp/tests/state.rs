@@ -71,7 +71,10 @@ fn did_change_applies_edits() {
 
 fn load_patterns_for(
     ext_names: &[&str],
-) -> Vec<specforge_registry::validation_engine::ValidationRulePattern> {
+) -> Vec<(
+    specforge_registry::validation_engine::ValidationRulePattern,
+    String,
+)> {
     let names: Vec<String> = ext_names.iter().map(|s| s.to_string()).collect();
     let runtime = wasm_runtime_for(&names);
     let host = specforge_wasm::protocol::ProtocolHost::new(&runtime);
@@ -91,9 +94,11 @@ fn load_patterns_for(
         .collect();
     let (mut patterns, _) =
         specforge_registry::validation_engine::parse_all_rule_patterns(&rule_inputs);
-    patterns.extend(specforge_registry::generate_required_field_rules(
-        &field_reg,
-    ));
+    patterns.extend(
+        specforge_registry::generate_required_field_rules(&field_reg)
+            .into_iter()
+            .map(|p| (p, String::new())),
+    );
     patterns
 }
 
@@ -124,7 +129,7 @@ fn extensions_produce_e006_rules() {
         !patterns.is_empty(),
         "extensions should produce validation patterns"
     );
-    let e006_count = patterns.iter().filter(|p| p.code == "E006").count();
+    let e006_count = patterns.iter().filter(|p| p.0.code == "E006").count();
     assert!(
         e006_count > 0,
         "E006 rules should be auto-generated from required fields"
@@ -146,8 +151,8 @@ fn e006_covers_all_required_fields() {
 
     let e006_targets: Vec<(&str, &str)> = patterns
         .iter()
-        .filter(|p| p.code == "E006")
-        .filter_map(|p| Some((p.target_kind.as_deref()?, p.field.as_deref()?)))
+        .filter(|p| p.0.code == "E006")
+        .filter_map(|p| Some((p.0.target_kind.as_deref()?, p.0.field.as_deref()?)))
         .collect();
 
     // software

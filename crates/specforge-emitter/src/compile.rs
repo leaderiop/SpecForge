@@ -75,9 +75,10 @@ pub fn compile_with_runtime(path: &Path, runtime: Option<&dyn WasmRuntime>) -> C
     let (mut patterns, rule_diags) = parse_all_rule_patterns(&rule_inputs);
     diagnostics.extend(rule_diags);
 
-    // 4a. Auto-generate E006 rules for fields marked required: true
+    // 4a. Auto-generated E006 rules for fields marked required: true.
+    // Originless (host-generated, declarative — no custom-rule dispatch).
     let required_field_rules = generate_required_field_rules(&field_reg);
-    patterns.extend(required_field_rules);
+    patterns.extend(required_field_rules.into_iter().map(|p| (p, String::new())));
 
     // 5. Build keyword->extension index for I004 messages.
     //
@@ -249,8 +250,9 @@ pub fn compile_with_runtime(path: &Path, runtime: Option<&dyn WasmRuntime>) -> C
         .filter_map(|f| f.edge.as_ref().map(|e| (e.clone(), f.name.clone())))
         .collect();
 
-    // 12. Run extension validation rules (declarative patterns)
-    let extension_diags = run_extension_validation(&patterns, &graph, &edge_label_to_field);
+    // 12. Run extension validation rules (declarative + custom via wasm)
+    let extension_diags =
+        run_extension_validation(&patterns, &graph, runtime, &edge_label_to_field);
     diagnostics.extend(extension_diags);
 
     // 13. (Conditional field validation now handled by extension validation rules
@@ -283,7 +285,7 @@ pub fn compile_with_runtime(path: &Path, runtime: Option<&dyn WasmRuntime>) -> C
         edge_registry: edge_reg,
         diagnostics,
         resolved,
-        validation_patterns: patterns,
+        validation_patterns: patterns.into_iter().map(|(p, _)| p).collect(),
         extension_info,
         surface_entries,
         manifest_surfaces,
@@ -455,14 +457,24 @@ pub fn build_validation_entities(graph: &Graph) -> Vec<ValidationEntity> {
         .collect()
 }
 
-/// Native dispatch for builtin extensions' `check: "custom"` rules. The
-/// wasm-function names are the manifest's contracts; builtin extensions run
-/// natively, so the functions execute here against the graph.
-struct NativeCustomRules<'a> {
-    graph: &'a Graph,
+/// Wasm dispatch for extensions' `check: "custom"` rules.
+///
+/// The `wasm_function` names in manifests are contracts: each names an
+/// export on THAT extension's module. Per call the host builds a
+/// [`ValidatorContext`] snapshot (entity + resolved reference targets +
+/// declared type ids + primitive list) and hands it to the guest, which
+/// answers with a [`ValidatorVerdict`] — the wasm mirror of the host's
+/// `CustomVerdict` (WASM-only migration, Phase 5; closes C10).
+pub struct WasmCustomRules<'a> {
+    pub runtime: &'a dyn WasmRuntime,
+    /// Extension whose module owns the `wasm_function` export.
+    pub extension: &'a str,
+    pub graph: &'a Graph,
 }
 
-/// Type names accepted by E004 without a declared `type` entity.
+/// Type names accepted by E004 without a declared `type` entity. Sent to
+/// the guest as `context.primitives`; the guest may also carry its own
+/// embedded copy.
 const PRIMITIVE_TYPES: &[&str] = &[
     "string", "void", "bool", "i8", "i16", "i32", "i64", "u8", "u16", "u32", "u64", "f32", "f64",
     "usize", "isize", "any",
@@ -471,16 +483,113 @@ const PRIMITIVE_TYPES: &[&str] = &[
     "String",
 ];
 
-#[allow(dead_code)]
-fn base_type_names(ty: &str) -> Vec<String> {
-    // Result<A, B> -> A, B ; string[] -> string ; trim whitespace
-    ty.replace(['<', '>', '[', ']', ','], " ")
-        .split_whitespace()
-        .map(str::to_string)
-        .collect()
+/// Stringify a field value the way [`build_validation_entities`] does:
+/// scalars as strings, reference lists as the declared IDs (comma-joined).
+fn stringify_field_value(value: &specforge_parser::FieldValue) -> serde_json::Value {
+    use specforge_parser::FieldValue;
+    match value {
+        FieldValue::String(s) => serde_json::Value::String(s.clone()),
+        FieldValue::Identifier(s) => serde_json::Value::String(s.clone()),
+        FieldValue::StringList(list) => serde_json::Value::String(list.join(", ")),
+        FieldValue::ReferenceList(refs) => serde_json::Value::String(refs.join(", ")),
+        FieldValue::Integer(n) => serde_json::Value::String(n.to_string()),
+        FieldValue::Boolean(b) => serde_json::Value::String(b.to_string()),
+        FieldValue::Date(d) => serde_json::Value::String(d.clone()),
+        FieldValue::VerifyList(stmts) => {
+            let descriptions: Vec<&str> = stmts.iter().map(|s| s.description.as_str()).collect();
+            serde_json::Value::String(descriptions.join("; "))
+        }
+        FieldValue::Block(block) => {
+            // Contract blocks: surface the clause item names (same as
+            // build_validation_entities).
+            let items: Vec<String> = block.entries().iter().map(|e| e.key.to_string()).collect();
+            serde_json::Value::String(items.join(", "))
+        }
+        _ => serde_json::Value::Null,
+    }
 }
 
-impl<'a> specforge_registry::validation_engine::WasmValidationRuntime for NativeCustomRules<'a> {
+impl<'a> WasmCustomRules<'a> {
+    /// Build the per-call context snapshot for one entity.
+    fn build_context(
+        &self,
+        entity_id: &str,
+    ) -> Result<specforge_protocol_types::ValidatorContext, String> {
+        use specforge_protocol_types::{
+            ValidatorContext, ValidatorEntity, ValidatorField, ValidatorMethod, ValidatorRef,
+        };
+
+        let node = self
+            .graph
+            .node(entity_id)
+            .ok_or_else(|| format!("unknown entity '{entity_id}'"))?;
+
+        let mut referenced: Vec<ValidatorRef> = Vec::new();
+        let mut seen_refs: std::collections::HashSet<String> = std::collections::HashSet::new();
+        for entry in node.fields.entries() {
+            if let specforge_parser::FieldValue::ReferenceList(refs) = &entry.value {
+                for r in refs {
+                    if seen_refs.insert(r.clone()) {
+                        referenced.push(ValidatorRef {
+                            id: r.clone(),
+                            kind: self.graph.node(r).map(|target| target.kind.raw.to_string()),
+                        });
+                    }
+                }
+            }
+        }
+
+        let declared_types: Vec<String> = self
+            .graph
+            .nodes()
+            .iter()
+            .filter(|n| n.kind.raw.as_str() == "type")
+            .map(|n| n.id.raw.to_string())
+            .collect();
+
+        Ok(ValidatorContext {
+            entity: ValidatorEntity {
+                id: node.id.raw.to_string(),
+                kind: node.kind.raw.to_string(),
+                fields: node
+                    .fields
+                    .entries()
+                    .iter()
+                    .map(|entry| ValidatorField {
+                        key: entry.key.to_string(),
+                        value: stringify_field_value(&entry.value),
+                        annotations: entry
+                            .annotations
+                            .iter()
+                            .map(|a| a.name.to_string())
+                            .collect(),
+                    })
+                    .collect(),
+                methods: node
+                    .methods
+                    .iter()
+                    .map(|m| ValidatorMethod {
+                        name: m.name.clone(),
+                        params: m
+                            .params
+                            .iter()
+                            .map(|p| specforge_protocol_types::ValidatorParam {
+                                name: p.name.clone(),
+                                ty: p.ty.clone(),
+                            })
+                            .collect(),
+                        returns: m.returns.clone(),
+                    })
+                    .collect(),
+            },
+            referenced,
+            declared_types,
+            primitives: PRIMITIVE_TYPES.iter().map(|s| s.to_string()).collect(),
+        })
+    }
+}
+
+impl<'a> specforge_registry::validation_engine::WasmValidationRuntime for WasmCustomRules<'a> {
     fn call_custom_validator(
         &self,
         wasm_function: &str,
@@ -500,114 +609,49 @@ impl<'a> specforge_registry::validation_engine::WasmValidationRuntime for Native
         _entity_kind: &str,
     ) -> Result<specforge_registry::validation_engine::CustomVerdict, String> {
         use specforge_registry::validation_engine::CustomVerdict;
-        if std::env::var("SPECFORGE_DEBUG_RULES").is_ok() {
-            eprintln!("DETAILED fn={wasm_function} entity={entity_id}");
-        }
-        let node = self
-            .graph
-            .node(entity_id)
-            .ok_or_else(|| format!("unknown entity '{entity_id}'"))?;
+        use specforge_wasm::runtime::WasmCallResult;
 
-        match wasm_function {
-            // E006: every event trigger must reference a behavior
-            "validate__event_triggers" => {
-                for entry in node.fields.entries() {
-                    if entry.key.as_str() != "triggers" {
-                        continue;
+        if std::env::var("SPECFORGE_DEBUG_RULES").is_ok() {
+            eprintln!(
+                "DETAILED fn={wasm_function} entity={entity_id} ext={} tier=wasm",
+                self.extension
+            );
+        }
+
+        let context = self.build_context(entity_id)?;
+        let input = serde_json::to_vec(&context)
+            .map_err(|e| format!("cannot serialize validator context: {e}"))?;
+
+        match self
+            .runtime
+            .call_export(self.extension, wasm_function, &input)
+        {
+            WasmCallResult::Ok(output) => {
+                let verdict: specforge_protocol_types::ValidatorVerdict =
+                    serde_json::from_slice(&output).map_err(|e| {
+                        format!(
+                            "custom validator '{wasm_function}' returned malformed verdict: {e}"
+                        )
+                    })?;
+                Ok(match verdict {
+                    specforge_protocol_types::ValidatorVerdict::Pass => CustomVerdict::Pass,
+                    specforge_protocol_types::ValidatorVerdict::Fail { field, value } => {
+                        CustomVerdict::Fail { field, value }
                     }
-                    if let specforge_parser::FieldValue::ReferenceList(refs) = &entry.value {
-                        for r in refs {
-                            match self.graph.node(r) {
-                                None => {
-                                    return Ok(CustomVerdict::Fail {
-                                        field: Some("triggers".into()),
-                                        value: Some(r.clone()),
-                                    });
-                                }
-                                Some(target) if target.kind.raw.as_str() != "behavior" => {
-                                    return Ok(CustomVerdict::Fail {
-                                        field: Some("triggers".into()),
-                                        value: Some(r.clone()),
-                                    });
-                                }
-                                _ => {}
-                            }
-                        }
-                    }
-                }
-                Ok(CustomVerdict::Pass)
+                })
             }
-            // E010: milestone behavior references must exist
-            "validate__milestone_behavior_ranges" => {
-                for entry in node.fields.entries() {
-                    if entry.key.as_str() != "behaviors" {
-                        continue;
-                    }
-                    if let specforge_parser::FieldValue::ReferenceList(refs) = &entry.value {
-                        for r in refs {
-                            if self.graph.node(r).is_none() {
-                                return Ok(CustomVerdict::Fail {
-                                    field: Some("behaviors".into()),
-                                    value: Some(r.clone()),
-                                });
-                            }
-                        }
-                    }
-                }
-                Ok(CustomVerdict::Pass)
-            }
-            // W010: type fields may only carry known annotations
-            "validate__type_field_annotations" => {
-                const KNOWN: &[&str] = &["readonly", "unique", "optional", "literal"];
-                for entry in node.fields.entries() {
-                    for ann in &entry.annotations {
-                        let name = ann.name.as_str();
-                        if !KNOWN.contains(&name) {
-                            return Ok(CustomVerdict::Fail {
-                                field: Some(entry.key.to_string()),
-                                value: Some(format!("@{name}")),
-                            });
-                        }
-                    }
-                }
-                Ok(CustomVerdict::Pass)
-            }
-            "validate__port_methods" => {
-                let known_type = |name: &str| -> bool {
-                    PRIMITIVE_TYPES.contains(&name)
-                        || self
-                            .graph
-                            .nodes()
-                            .iter()
-                            .any(|n| n.kind.raw.as_str() == "type" && n.id.raw.as_str() == name)
-                };
-                for method in &node.methods {
-                    let mut type_refs: Vec<String> = Vec::new();
-                    for p in &method.params {
-                        type_refs.extend(base_type_names(&p.ty));
-                    }
-                    if let Some(ret) = &method.returns {
-                        type_refs.extend(base_type_names(ret));
-                    }
-                    for t in type_refs {
-                        if !known_type(&t) {
-                            return Ok(CustomVerdict::Fail {
-                                field: Some(method.name.clone()),
-                                value: Some(t),
-                            });
-                        }
-                    }
-                }
-                Ok(CustomVerdict::Pass)
-            }
-            other => Err(format!("unknown custom validator '{other}'")),
+            WasmCallResult::Trap(trap) => Err(format!(
+                "custom validator '{}' did not execute: {} — {}",
+                wasm_function, trap.kind, trap.message
+            )),
         }
     }
 }
 
 fn run_extension_validation(
-    patterns: &[ValidationRulePattern],
+    patterns: &[(ValidationRulePattern, String)],
     graph: &Graph,
+    runtime: Option<&dyn WasmRuntime>,
     edge_label_to_field: &HashMap<String, String>,
 ) -> Vec<Diagnostic> {
     if patterns.is_empty() {
@@ -615,13 +659,13 @@ fn run_extension_validation(
     }
 
     let entities = build_validation_entities(graph);
-    let native = NativeCustomRules { graph };
 
     if std::env::var("SPECFORGE_DEBUG_RULES").is_ok() {
-        for p in patterns {
+        for (p, ext) in patterns {
             eprintln!(
-                "RULE {} check={:?} target={:?} values={:?}",
+                "RULE {} ext={} check={:?} target={:?} values={:?}",
                 p.code,
+                ext,
                 p.check,
                 p.target_kind,
                 p.constraint.as_ref().map(|c| c.values.clone())
@@ -629,14 +673,19 @@ fn run_extension_validation(
         }
     }
     let mut diagnostics: Vec<specforge_common::Diagnostic> = Vec::new();
-    for pattern in patterns {
+    for (pattern, extension) in patterns {
         if pattern.check
             == specforge_registry::validation_engine::ValidationPatternKind::CycleDetection
         {
             let diags = detect_cycles(pattern, graph, edge_label_to_field);
             diagnostics.extend(diags);
         } else {
-            let diags = execute_pattern(pattern, &entities, Some(&native));
+            let verdicts = WasmCustomRules {
+                runtime: runtime.expect("custom rules require a Wasm runtime"),
+                extension,
+                graph,
+            };
+            let diags = execute_pattern(pattern, &entities, Some(&verdicts));
             diagnostics.extend(diags);
         }
     }

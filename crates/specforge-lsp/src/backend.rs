@@ -215,9 +215,10 @@ impl Backend {
             let (mut patterns, _rule_diags) =
                 specforge_registry::validation_engine::parse_all_rule_patterns(&rule_inputs);
 
-            // Auto-generate E006 rules for required fields
+            // Auto-generate E006 rules for required fields (originless,
+            // host-generated, declarative)
             let required_rules = specforge_registry::generate_required_field_rules(&field_reg);
-            patterns.extend(required_rules);
+            patterns.extend(required_rules.into_iter().map(|p| (p, String::new())));
 
             // Keyword -> extension index for I004 hints (same derivation as
             // the CLI pipeline: emitter compile.rs known_extension_keywords).
@@ -229,11 +230,11 @@ impl Backend {
                         .map(move |k| (k.keyword.clone(), m.name.clone()))
                 })
                 .collect();
-
             let mut state = self.state.write().await;
             state.set_registries(kind_reg, field_reg, edge_reg);
             state.set_validation_patterns(patterns);
             state.set_known_extension_keywords(known_extension_keywords);
+            state.set_runtime(runtime);
         }
 
         count
@@ -449,15 +450,35 @@ impl Backend {
         let validation_patterns = state.validation_patterns();
         if !validation_patterns.is_empty() {
             let entities = specforge_emitter::build_validation_entities(state.graph());
-            for pattern in validation_patterns {
+            for (pattern, extension) in validation_patterns {
                 if pattern.check
                     == specforge_registry::validation_engine::ValidationPatternKind::CycleDetection
                 {
                     continue;
                 }
-                let rule_diags = specforge_registry::validation_engine::execute_pattern(
-                    pattern, &entities, None,
-                );
+                // Custom rules dispatch through the owning extension's Wasm
+                // module; declarative patterns evaluate host-side (Phase 5).
+                let rule_diags = if pattern.check
+                    == specforge_registry::validation_engine::ValidationPatternKind::Custom
+                {
+                    match state.runtime() {
+                        Some(runtime) if !extension.is_empty() => {
+                            let wasm_rules = specforge_emitter::compile::WasmCustomRules {
+                                runtime: runtime.as_ref(),
+                                extension,
+                                graph: state.graph(),
+                            };
+                            specforge_registry::validation_engine::execute_pattern(
+                                pattern,
+                                &entities,
+                                Some(&wasm_rules),
+                            )
+                        }
+                        _ => Vec::new(),
+                    }
+                } else {
+                    specforge_registry::validation_engine::execute_pattern(pattern, &entities, None)
+                };
                 for d in &rule_diags {
                     let diag_uri = d
                         .span

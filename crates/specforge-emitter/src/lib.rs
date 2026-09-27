@@ -23,7 +23,8 @@ mod trace;
 
 // --- Primary API (use these) ---
 pub use compile::{
-    CompilationContext, build_validation_entities, compile_simple, compile_with_runtime,
+    CompilationContext, WasmCustomRules, build_validation_entities, compile_simple,
+    compile_with_runtime,
 };
 pub use diagnostic_fmt::{
     MAX_DIAGNOSTICS, diagnostic_summary, format_diagnostic, serialize_diagnostics,

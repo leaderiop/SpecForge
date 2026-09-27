@@ -198,24 +198,29 @@ pub fn parse_rule_pattern(
     })
 }
 
-/// Parse all rules from manifests into validated patterns.
+/// Parse all rules from manifests into validated patterns, paired with the
+/// extension that declared each one.
+///
+/// The origin is required to dispatch `check: "custom"` rules: the
+/// `wasm_function` is an export of THAT extension's module, so the host must
+/// know which runtime entry to call (WASM-only migration, Phase 5).
 pub fn parse_all_rule_patterns(
     manifests: &[(String, Vec<ManifestValidationRule>)], // (ext_name, rules)
-) -> (Vec<ValidationRulePattern>, Vec<Diagnostic>) {
-    let mut patterns = Vec::new();
+) -> (Vec<(ValidationRulePattern, String)>, Vec<Diagnostic>) {
+    let mut patterns: Vec<(ValidationRulePattern, String)> = Vec::new();
     let mut diagnostics = Vec::new();
 
     for (ext_name, rules) in manifests {
         for rule in rules {
             match parse_rule_pattern(rule, ext_name) {
-                Ok(pattern) => patterns.push(pattern),
+                Ok(pattern) => patterns.push((pattern, ext_name.clone())),
                 Err(diag) => diagnostics.push(diag),
             }
         }
     }
 
     // Sort by code for deterministic execution order
-    patterns.sort_by(|a, b| a.code.cmp(&b.code));
+    patterns.sort_by(|a, b| a.0.code.cmp(&b.0.code));
     (patterns, diagnostics)
 }
 
@@ -709,7 +714,7 @@ mod tests {
         let (patterns, diags) = parse_all_rule_patterns(&rules);
         // ensures: valid patterns parsed
         assert_eq!(patterns.len(), 1);
-        assert_eq!(patterns[0].code, "W100");
+        assert_eq!(patterns[0].0.code, "W100");
         // ensures: unrecognized warned
         assert!(diags.iter().any(|d| d.code == "W024"));
     }
@@ -1251,7 +1256,7 @@ mod tests {
             ),
         ];
         let (patterns, _) = parse_all_rule_patterns(&rules);
-        let codes: Vec<&str> = patterns.iter().map(|p| p.code.as_str()).collect();
+        let codes: Vec<&str> = patterns.iter().map(|p| p.0.code.as_str()).collect();
         assert_eq!(codes, vec!["W100", "W200", "W300"]);
     }
 
@@ -1272,8 +1277,8 @@ mod tests {
         // ensures: unified set
         assert_eq!(patterns.len(), 2);
         // ensures: deterministic order
-        assert_eq!(patterns[0].code, "W100");
-        assert_eq!(patterns[1].code, "W200");
+        assert_eq!(patterns[0].0.code, "W100");
+        assert_eq!(patterns[1].0.code, "W200");
         // ensures: no warnings for valid rules
         assert!(diags.is_empty());
     }

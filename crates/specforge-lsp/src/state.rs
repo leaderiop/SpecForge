@@ -17,11 +17,16 @@ pub struct LspState {
     kind_registry: KindRegistry,
     field_registry: FieldRegistry,
     edge_registry: EdgeRegistry,
-    validation_patterns: Vec<ValidationRulePattern>,
+    /// Patterns paired with their originating extension ("" for
+    /// host-generated rules); the origin names the module that owns a
+    /// custom rule's `wasm_function` export.
+    validation_patterns: Vec<(ValidationRulePattern, String)>,
     /// Entity keyword -> extension name, derived from the loaded manifests.
     /// Mirrors the CLI's `known_extension_keywords` so I004 hints agree
     /// across surfaces (WASM-only migration, Phase 4).
     known_extension_keywords: HashMap<String, String>,
+    /// The session's Wasm runtime, for custom-rule dispatch.
+    runtime: Option<std::sync::Arc<specforge_extism::ExtismRuntime>>,
     shutdown: bool,
 }
 
@@ -42,6 +47,7 @@ impl LspState {
             edge_registry: EdgeRegistry::new(),
             validation_patterns: Vec::new(),
             known_extension_keywords: HashMap::new(),
+            runtime: None,
             shutdown: false,
         }
     }
@@ -132,8 +138,16 @@ impl LspState {
         &self.edge_registry
     }
 
-    pub fn validation_patterns(&self) -> &[ValidationRulePattern] {
+    pub fn validation_patterns(&self) -> &[(ValidationRulePattern, String)] {
         &self.validation_patterns
+    }
+
+    pub fn runtime(&self) -> Option<&std::sync::Arc<specforge_extism::ExtismRuntime>> {
+        self.runtime.as_ref()
+    }
+
+    pub fn set_runtime(&mut self, runtime: specforge_extism::ExtismRuntime) {
+        self.runtime = Some(std::sync::Arc::new(runtime));
     }
 
     /// Replace the registries and validation patterns (called after loading extension manifests).
@@ -156,7 +170,7 @@ impl LspState {
         self.known_extension_keywords = map;
     }
 
-    pub fn set_validation_patterns(&mut self, patterns: Vec<ValidationRulePattern>) {
+    pub fn set_validation_patterns(&mut self, patterns: Vec<(ValidationRulePattern, String)>) {
         self.validation_patterns = patterns;
     }
 
