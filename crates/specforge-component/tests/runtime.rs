@@ -15,7 +15,7 @@ fn loaded() -> ComponentRuntime {
     let runtime = ComponentRuntime::new();
     let bytes = std::fs::read(component_path()).expect("fixture component blob");
     runtime
-        .load_component_bytes("@test/component", &bytes)
+        .load_module_bytes("@test/component", &bytes)
         .expect("fixture component instantiates");
     runtime
 }
@@ -75,7 +75,7 @@ fn reload_swaps_and_unload_drops() {
 
     let bytes = std::fs::read(component_path()).unwrap();
     runtime
-        .load_component_bytes("@test/component", &bytes)
+        .load_module_bytes("@test/component", &bytes)
         .expect("reload succeeds");
     let result = runtime.call_export("@test/component", "__handshake", b"");
     assert!(matches!(result, WasmCallResult::Ok(_)));

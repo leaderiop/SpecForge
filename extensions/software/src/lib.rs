@@ -207,23 +207,36 @@ fn validate_port_methods(context: &ValidatorContext) -> ValidatorVerdict {
     ValidatorVerdict::Pass
 }
 
-macro_rules! validator_export {
-    ($export:ident, $impl:ident) => {
-        #[extism_pdk::plugin_fn]
-        pub fn $export(input: Vec<u8>) -> extism_pdk::FnResult<Vec<u8>> {
-            let context: ValidatorContext = ::serde_json::from_slice(&input)?;
-            Ok(::serde_json::to_vec(&$impl(&context))?)
-        }
-    };
+fn parse_req<T: serde::de::DeserializeOwned>(input: &[u8]) -> Result<T, String> {
+    serde_json::from_slice(input).map_err(|e| format!("invalid request: {e}"))
 }
 
-validator_export!(validate__event_triggers, validate_event_triggers);
-validator_export!(
-    validate__milestone_behavior_ranges,
-    validate_milestone_behavior_ranges
+fn to_json<T: serde::Serialize>(value: &T) -> Result<Vec<u8>, String> {
+    serde_json::to_vec(value).map_err(|e| format!("serialization failed: {e}"))
+}
+
+fn dispatch(export: &str, input: &[u8]) -> Option<Result<Vec<u8>, String>> {
+    match export {
+        "validate__event_triggers" => {
+            Some(parse_req(input).and_then(|c| to_json(&validate_event_triggers(&c))))
+        }
+        "validate__milestone_behavior_ranges" => Some(
+            parse_req(input).and_then(|c| to_json(&validate_milestone_behavior_ranges(&c))),
+        ),
+        "validate__type_field_annotations" => {
+            Some(parse_req(input).and_then(|c| to_json(&validate_type_field_annotations(&c))))
+        }
+        "validate__port_methods" => {
+            Some(parse_req(input).and_then(|c| to_json(&validate_port_methods(&c))))
+        }
+        _ => None,
+    }
+}
+
+specforge_extension_sdk::component_guest!(
+    build = specforge_extension_build,
+    handler = dispatch
 );
-validator_export!(validate__type_field_annotations, validate_type_field_annotations);
-validator_export!(validate__port_methods, validate_port_methods);
 
 #[cfg(test)]
 mod validator_tests {

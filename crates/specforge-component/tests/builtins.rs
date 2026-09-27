@@ -1,15 +1,15 @@
-use specforge_extism::{ExtismRuntime, builtins};
+use specforge_component::{ComponentRuntime, builtins};
 use specforge_wasm::runtime::{WasmCallResult, WasmRuntime};
 
 #[test]
 fn load_all_builtins() {
-    let runtime = ExtismRuntime::new();
+    let runtime = ComponentRuntime::new();
     builtins::load_builtins(&runtime).expect("failed to load builtins");
 }
 
 #[test]
 fn product_handshake() {
-    let runtime = ExtismRuntime::new();
+    let runtime = ComponentRuntime::new();
     builtins::load_builtins(&runtime).unwrap();
 
     let result = runtime.call_export("@specforge/product", "__handshake", &[]);
@@ -22,7 +22,7 @@ fn product_handshake() {
 
 #[test]
 fn software_describe_entities() {
-    let runtime = ExtismRuntime::new();
+    let runtime = ComponentRuntime::new();
     builtins::load_builtins(&runtime).unwrap();
 
     let input = br#"{"category":"entities"}"#;
@@ -37,7 +37,7 @@ fn software_describe_entities() {
 
 #[test]
 fn governance_handshake() {
-    let runtime = ExtismRuntime::new();
+    let runtime = ComponentRuntime::new();
     builtins::load_builtins(&runtime).unwrap();
 
     let result = runtime.call_export("@specforge/governance", "__handshake", &[]);
@@ -50,7 +50,7 @@ fn governance_handshake() {
 
 #[test]
 fn formal_describe_edges() {
-    let runtime = ExtismRuntime::new();
+    let runtime = ComponentRuntime::new();
     builtins::load_builtins(&runtime).unwrap();
 
     let input = br#"{"category":"edges"}"#;
@@ -66,7 +66,7 @@ fn formal_describe_edges() {
 // its handshake must still report the extracted builtin contract.
 #[test]
 fn formal_handshake_from_sdk_authored_twin() {
-    let runtime = ExtismRuntime::new();
+    let runtime = ComponentRuntime::new();
     builtins::load_builtins(&runtime).unwrap();
 
     let result = runtime.call_export("@specforge/formal", "__handshake", &[]);
@@ -89,7 +89,7 @@ fn formal_handshake_from_sdk_authored_twin() {
 // contract (peer dependencies, sandbox policy, contribution flags).
 #[test]
 fn builtin_handshakes_survive_sdk_migration() {
-    let runtime = ExtismRuntime::new();
+    let runtime = ComponentRuntime::new();
     builtins::load_builtins(&runtime).unwrap();
 
     let expectations = [

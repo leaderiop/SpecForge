@@ -974,10 +974,13 @@ fn new_extension_scaffolds_sdk_project() {
     let cargo = fs::read_to_string(project.join("Cargo.toml")).unwrap();
     assert!(cargo.contains(r#"name = "my-ext""#));
     assert!(cargo.contains("specforge-extension-sdk"));
-    assert!(cargo.contains("extism-pdk"));
+    assert!(cargo.contains("wit-bindgen"));
 
     let config = fs::read_to_string(project.join(".cargo/config.toml")).unwrap();
-    assert!(config.contains("wasm32-unknown-unknown"));
+    assert!(config.contains("wasm32-wasip2"));
+
+    let lib = fs::read_to_string(project.join("src/lib.rs")).unwrap();
+    assert!(lib.contains("component_guest!"));
 
     let lib = fs::read_to_string(project.join("src/lib.rs")).unwrap();
     assert!(lib.contains(r#"name = "@you/my-ext""#));

@@ -25,6 +25,11 @@ wasmtime::component::bindgen!({
     world: "bridge",
 });
 
+pub mod builtins;
+pub mod project;
+
+pub use project::project_runtime;
+
 /// Per-process WASI context for guest components. Builtins are pure-compute,
 /// but wasip2 targets import `wasi:io/poll` from std, so the linker always
 /// provides it.
@@ -93,17 +98,37 @@ impl ComponentRuntime {
 
     /// Compile a component from bytes and register it under `name`,
     /// atomically replacing any existing plugin (hot reload / H1).
-    pub fn load_component_bytes(&self, name: &str, wasm_bytes: &[u8]) -> Result<(), String> {
+    pub fn load_module_bytes(&self, name: &str, wasm_bytes: &[u8]) -> Result<(), String> {
+        self.load_module_bytes_with_limits(name, wasm_bytes, self.fuel)
+    }
+
+    /// Compile a component from bytes with an explicit fuel budget.
+    pub fn load_module_bytes_with_limits(
+        &self,
+        name: &str,
+        wasm_bytes: &[u8],
+        fuel: u64,
+    ) -> Result<(), String> {
         let component = Component::from_binary(&self.engine, wasm_bytes)
+            .map_err(|e| format!("failed to compile component {name}: {e}"))?;
+        self.instantiate_with_fuel(name, component, fuel)
+    }
+
+    /// Compile a component from a file and register it under `name`.
+    pub fn load_module_as(
+        &self,
+        name: &str,
+        wasm_path: &Path,
+        _aot_cache_path: Option<&Path>,
+    ) -> Result<(), String> {
+        let component = Component::from_file(&self.engine, wasm_path)
             .map_err(|e| format!("failed to compile component {name}: {e}"))?;
         self.instantiate(name, component)
     }
 
-    /// Compile a component from a file and register it under `name`.
-    pub fn load_component(&self, name: &str, wasm_path: &Path) -> Result<(), String> {
-        let component = Component::from_file(&self.engine, wasm_path)
-            .map_err(|e| format!("failed to compile component {name}: {e}"))?;
-        self.instantiate(name, component)
+    /// Atomically replace a loaded extension's component (hot reload / H1).
+    pub fn reload_module_bytes(&self, name: &str, wasm_bytes: &[u8]) -> Result<(), String> {
+        self.load_module_bytes(name, wasm_bytes)
     }
 
     /// Unload an extension. Returns true when it was loaded.
@@ -125,8 +150,16 @@ impl ComponentRuntime {
             Err(_) => Vec::new(),
         }
     }
-
     fn instantiate(&self, name: &str, component: Component) -> Result<(), String> {
+        self.instantiate_with_fuel(name, component, self.fuel)
+    }
+
+    fn instantiate_with_fuel(
+        &self,
+        name: &str,
+        component: Component,
+        fuel: u64,
+    ) -> Result<(), String> {
         let mut linker: Linker<HostState> = Linker::new(&self.engine);
         wasmtime_wasi::p2::add_to_linker_sync(&mut linker)
             .map_err(|e| format!("failed to add WASI to linker: {e}"))?;
@@ -135,7 +168,7 @@ impl ComponentRuntime {
         let wasi = wasmtime_wasi::WasiCtx::builder().build();
         let mut store = Store::new(&self.engine, HostState { table, wasi });
         store
-            .set_fuel(self.fuel)
+            .set_fuel(fuel)
             .map_err(|e| format!("failed to set fuel for {name}: {e}"))?;
 
         let bindings = Bridge::instantiate(&mut store, &component, &linker)
@@ -196,7 +229,7 @@ impl WasmRuntime for ComponentRuntime {
             .and_then(|s| s.to_str())
             .unwrap_or("unknown")
             .to_string();
-        self.load_component_bytes(&name, &bytes)
+        self.load_module_bytes(&name, &bytes)
     }
 
     fn call_export(&self, extension_name: &str, export_name: &str, input: &[u8]) -> WasmCallResult {

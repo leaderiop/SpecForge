@@ -129,7 +129,7 @@ pub fn call(state: &mut McpState, args: Value, id: Option<Value>) -> JsonRpcResp
     // (RES-25 ordering: declared `after` constraints are advisory here too).
     if !state.manifests.is_empty() && state.project_root.is_some() {
         let root = state.project_root.clone().unwrap();
-        let runtime = specforge_extism::project_runtime(&root);
+        let runtime = specforge_component::project_runtime(&root);
         let extension_reports = specforge_emitter::analyze::run_extension_passes(
             &state.manifests,
             &context,

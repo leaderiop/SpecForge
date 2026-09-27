@@ -25,7 +25,7 @@ pub struct CompileResult {
 /// shared `project_runtime` (real Wasm blobs) so MCP gets identical
 /// results to `specforge check` and `specforge export`.
 pub fn compile_project(project_root: &Path) -> CompileResult {
-    let runtime = specforge_extism::project_runtime(project_root);
+    let runtime = specforge_component::project_runtime(project_root);
     let ctx = specforge_emitter::compile::compile_with_runtime(project_root, Some(&runtime));
     from_ctx(ctx)
 }

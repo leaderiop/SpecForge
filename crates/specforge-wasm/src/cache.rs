@@ -16,7 +16,7 @@ pub enum InvalidationReason {
 /// Despite the field name `cached_path`, the cached artifact is currently a
 /// byte-for-byte copy of the original `.wasm` binary stored under a
 /// content-addressed filename. True AOT (compile-to-native) support is
-/// deferred until the Extism runtime exposes an AOT compilation API.
+/// deferred until the runtime exposes an AOT compilation API.
 #[derive(Debug, Clone)]
 pub struct CacheEntry {
     pub wasm_hash: String,
@@ -33,7 +33,7 @@ pub fn cache_path_for_hash(cache_dir: &Path, wasm_hash: &str) -> PathBuf {
 ///
 /// Stores the binary in `cache_dir` under a SHA-256-derived filename so that
 /// subsequent loads can skip re-reading and re-hashing the original file.
-/// This is **not** true AOT compilation (Extism does not yet expose a
+/// This is **not** true AOT compilation (the runtime does not yet expose a
 /// compile-to-native API); the cached artifact is the original Wasm bytes
 /// stored at a deterministic, content-addressed path for fast lookup.
 pub fn cache_wasm_binary(wasm_path: &Path, cache_dir: &Path) -> Result<CacheEntry, Diagnostic> {

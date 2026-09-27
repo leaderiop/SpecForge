@@ -4,7 +4,7 @@ use tempfile::TempDir;
 /// Compile through the real Wasm runtime (post-migration equivalent of the
 /// removed `specforge_emitter::compile` convenience).
 fn compile(dir: &TempDir) -> specforge_emitter::CompilationContext {
-    let runtime = specforge_extism::project_runtime(dir.path());
+    let runtime = specforge_component::project_runtime(dir.path());
     specforge_emitter::compile::compile_with_runtime(dir.path(), Some(&runtime))
 }
 fn setup_project_with_extension(spec_content: &str) -> TempDir {

@@ -1,12 +1,12 @@
+use specforge_component::ComponentRuntime;
 use specforge_emitter::scanner_dispatch;
-use specforge_extism::ExtismRuntime;
 use specforge_registry::{AnalyzerContribution, ExtensionContributions, ManifestV2};
 use tempfile::TempDir;
 
 /// Build a Wasm runtime for a temp project listing `ext_names` — the only
 /// way extensions exist now (WASM-only migration, Phase 7: the native
 /// mirror tier is gone).
-fn wasm_runtime_for(ext_names: &[&str]) -> specforge_extism::ExtismRuntime {
+fn wasm_runtime_for(ext_names: &[&str]) -> specforge_component::ComponentRuntime {
     let dir = tempfile::TempDir::new().unwrap();
     let config = serde_json::json!({
         "name": "test-project",
@@ -14,10 +14,10 @@ fn wasm_runtime_for(ext_names: &[&str]) -> specforge_extism::ExtismRuntime {
         "extensions": ext_names,
     });
     std::fs::write(dir.path().join("specforge.json"), config.to_string()).unwrap();
-    specforge_extism::project_runtime(dir.path())
+    specforge_component::project_runtime(dir.path())
 }
 
-fn rust_only_runtime() -> ExtismRuntime {
+fn rust_only_runtime() -> ComponentRuntime {
     wasm_runtime_for(&["@specforge/rust"])
 }
 

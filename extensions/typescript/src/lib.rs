@@ -37,23 +37,34 @@ impl Contributions for TypeScriptAnalyzer {
 // ── Analyzer exports ───────────────────────────────────────────────────────
 // Same JSON wire format as the native builtin's `call_analyzer` dispatch.
 
-#[extism_pdk::plugin_fn]
-pub fn scan__typescript(input: Vec<u8>) -> extism_pdk::FnResult<Vec<u8>> {
-    let req: ScanRequest = serde_json::from_slice(&input)?;
-    Ok(serde_json::to_vec(&scan_typescript(&req))?)
+
+fn parse_req<T: serde::de::DeserializeOwned>(input: &[u8]) -> Result<T, String> {
+    serde_json::from_slice(input).map_err(|e| format!("invalid request: {e}"))
 }
 
-#[extism_pdk::plugin_fn]
-pub fn classify__typescript(input: Vec<u8>) -> extism_pdk::FnResult<Vec<u8>> {
-    let req: ClassifyRequest = serde_json::from_slice(&input)?;
-    Ok(serde_json::to_vec(&classify_typescript(&req))?)
+fn to_json<T: serde::Serialize>(value: &T) -> Result<Vec<u8>, String> {
+    serde_json::to_vec(value).map_err(|e| format!("serialization failed: {e}"))
 }
 
-#[extism_pdk::plugin_fn]
-pub fn map__typescript(input: Vec<u8>) -> extism_pdk::FnResult<Vec<u8>> {
-    let req: MapSymbolRequest = serde_json::from_slice(&input)?;
-    Ok(serde_json::to_vec(&map_typescript(&req))?)
+fn dispatch(export: &str, input: &[u8]) -> Option<Result<Vec<u8>, String>> {
+    match export {
+        "scan__typescript" => {
+            Some(parse_req(input).and_then(|req| to_json(&scan_typescript(&req))))
+        }
+        "classify__typescript" => {
+            Some(parse_req(input).and_then(|req| to_json(&classify_typescript(&req))))
+        }
+        "map__typescript" => {
+            Some(parse_req(input).and_then(|req| to_json(&map_typescript(&req))))
+        }
+        _ => None,
+    }
 }
+
+specforge_extension_sdk::component_guest!(
+    build = specforge_extension_build,
+    handler = dispatch
+);
 
 // ── Analyzer logic (ported verbatim from the native builtin) ───────────────
 

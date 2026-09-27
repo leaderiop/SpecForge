@@ -482,3 +482,19 @@ mod coverage_tracking_tests {
         assert!(pass_coverage_tracking(&input).is_empty());
     }
 }
+
+
+fn dispatch(export: &str, input: &[u8]) -> Option<Result<Vec<u8>, String>> {
+    match export {
+        "__pass_condition_check" => Some(specforge_dispatch_pass_condition_check(input)),
+        "__pass_layering_verify" => Some(specforge_dispatch_pass_layering_verify(input)),
+        "__pass_event_graph_analyze" => Some(specforge_dispatch_pass_event_graph_analyze(input)),
+        "__pass_coverage_tracking" => Some(specforge_dispatch_pass_coverage_tracking(input)),
+        _ => None,
+    }
+}
+
+specforge_extension_sdk::component_guest!(
+    build = specforge_extension_build,
+    handler = dispatch
+);

@@ -9,7 +9,7 @@
 //! re-vendored, the committed blob goes stale and this test fails.
 //!
 //! Refresh flow: `cd extensions/<name> && cargo build --release --target
-//! wasm32-unknown-unknown` then copy the artifact over `wasm/<blob>.wasm`.
+//! wasm32-wasip2` then copy the artifact over `wasm/<blob>.wasm`.
 
 use std::path::PathBuf;
 
@@ -71,7 +71,7 @@ fn vendored_builtin_blobs_embed_current_manifest_payloads() {
                 contains_subslice(&blob, &payload),
                 "{}: vendored blob is stale — it does not embed the current {}. \
                  Rebuild the guest and re-vendor: cd extensions/{ext} && cargo build \
-                 --release --target wasm32-unknown-unknown, then copy the artifact to \
+                 --release --target wasm32-wasip2, then copy the artifact to \
                  wasm/specforge_ext_{ext}.wasm",
                 blob_path.display(),
                 json_path.display(),

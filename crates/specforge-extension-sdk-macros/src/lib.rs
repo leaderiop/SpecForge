@@ -13,8 +13,9 @@
 //! }
 //! ```
 //!
-//! Expands to the struct plus `__handshake` / `__describe` exports wired to
-//! the author's [`specforge_extension_sdk::Contributions`] impl. `version`
+//! Generates a `specforge_extension_build()` function serving the author's
+//! [`specforge_extension_sdk::Contributions`] impl; pair it with the SDK's
+//! `component_guest!` macro for the wasip2 component exports. `version`
 //! defaults to the crate's `CARGO_PKG_VERSION`; `short` is optional.
 
 use proc_macro::TokenStream;
@@ -87,16 +88,6 @@ pub fn extension(attr: TokenStream, item: TokenStream) -> TokenStream {
             <#ident as ::specforge_extension_sdk::Contributions>::contribute(&mut b);
             b
         }
-
-        #[::extism_pdk::plugin_fn]
-        pub fn __handshake(_input: Vec<u8>) -> ::extism_pdk::FnResult<Vec<u8>> {
-            Ok(::specforge_extension_sdk::handshake_json(&specforge_extension_build()).into_bytes())
-        }
-
-        #[::extism_pdk::plugin_fn]
-        pub fn __describe(input: Vec<u8>) -> ::extism_pdk::FnResult<Vec<u8>> {
-            ::specforge_extension_sdk::describe_dispatch(&specforge_extension_build(), &input)
-        }
     };
     ts.into()
 }
@@ -127,7 +118,7 @@ impl Parse for CompilerPassArgs {
     }
 }
 
-/// Wrap a pass function in a `__pass_<name>` wasm export.
+/// Wrap a pass function for the component bridge.
 ///
 /// ```ignore
 /// #[compiler_pass(name = "condition_check", after = "resolve")]
@@ -136,34 +127,28 @@ impl Parse for CompilerPassArgs {
 /// }
 /// ```
 ///
-/// Expands to the original function plus a `#[plugin_fn]` export named
-/// `__pass_<name>` that deserializes the host's `PassInput` snapshot,
-/// calls the function, and serializes the returned diagnostics.
 #[proc_macro_attribute]
 pub fn compiler_pass(attr: TokenStream, item: TokenStream) -> TokenStream {
     let args = syn::parse_macro_input!(attr as CompilerPassArgs);
     let func = syn::parse_macro_input!(item as ItemFn);
 
     let fn_name = &func.sig.ident;
-    let export_name = format!("__pass_{}", args.name);
-    let export_ident = quote::format_ident!("__pass_{}", args.name);
+    let dispatch_ident = quote::format_ident!("specforge_dispatch_pass_{}", args.name);
 
     let expanded = quote::quote! {
         #func
 
-        #[::extism_pdk::plugin_fn]
-        pub fn #export_ident(input: Vec<u8>) -> ::extism_pdk::FnResult<Vec<u8>> {
+        /// Wire helper: deserializes the host's `PassInput` snapshot, calls
+        /// the pass function, and serializes the returned diagnostics. The
+        /// guest's `component_guest!` handler routes `__pass_<name>` here.
+        pub fn #dispatch_ident(input: &[u8]) -> Result<Vec<u8>, String> {
             let request: ::specforge_extension_sdk::PassInput =
-                ::serde_json::from_slice(&input)?;
+                ::serde_json::from_slice(input)
+                    .map_err(|e| format!("invalid pass request: {e}"))?;
             let findings = #fn_name(&request);
-            Ok(::serde_json::to_vec(&findings)?)
+            ::serde_json::to_vec(&findings)
+                .map_err(|e| format!("pass serialization failed: {e}"))
         }
-
-        const _: () = {
-            // Keep the export name discoverable and fail at compile time if
-            // the pass name changes underneath the descriptor.
-            let _export: &str = #export_name;
-        };
     };
     expanded.into()
 }

@@ -37,7 +37,7 @@ fn software_tests_field_is_registered() {
 }
 
 /// Build a Wasm runtime for a temp project listing `ext_names`.
-fn wasm_runtime_for(ext_names: &[String]) -> specforge_extism::ExtismRuntime {
+fn wasm_runtime_for(ext_names: &[String]) -> specforge_component::ComponentRuntime {
     let dir = tempfile::TempDir::new().unwrap();
     let config = serde_json::json!({
         "name": "test-project",
@@ -45,5 +45,5 @@ fn wasm_runtime_for(ext_names: &[String]) -> specforge_extism::ExtismRuntime {
         "extensions": ext_names,
     });
     std::fs::write(dir.path().join("specforge.json"), config.to_string()).unwrap();
-    specforge_extism::project_runtime(dir.path())
+    specforge_component::project_runtime(dir.path())
 }

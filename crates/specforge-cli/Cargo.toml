@@ -32,7 +32,7 @@ specforge-resolver = { path = "../specforge-resolver" }
 specforge-emitter = { path = "../specforge-emitter" }
 specforge-validator = { path = "../specforge-validator" }
 specforge-wasm = { workspace = true }
-specforge-extism = { workspace = true }
+specforge-component = { workspace = true }
 specforge-mcp = { workspace = true }
 specforge-registry = { workspace = true }
 
@@ -43,4 +43,4 @@ tempfile = { workspace = true }
 specforge-test = { workspace = true }
 specforge-test-macros = { workspace = true }
 specforge-migrate = { workspace = true }
-specforge-extism = { path = "../specforge-extism" }
+specforge-component = { path = "../specforge-component" }

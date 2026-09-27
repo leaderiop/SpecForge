@@ -46,7 +46,7 @@ pub struct CompilationContext {
 /// Only extensions listed in `specforge.json` are loaded — no implicit builtins.
 ///
 /// The caller supplies the runtime: CLI/LSP/MCP construct it through
-/// `specforge_extism::project_runtime` so every surface executes extensions
+/// `specforge_component::project_runtime` so every surface executes extensions
 /// through the same Wasm engine (WASM-only migration, Phase 3).
 ///
 /// When `runtime` is `Some`, extensions are loaded via the protocol

@@ -6,10 +6,8 @@
 //! embedded builtin blobs for `@specforge/*` names, and third-party `.wasm`
 //! paths from `specforge.json`, with identical semantics everywhere.
 
+use crate::{ComponentRuntime, builtins};
 use std::path::{Path, PathBuf};
-use std::sync::{Arc, Mutex};
-
-use crate::{ExtismRuntime, HostContext, builtins};
 
 /// Build the Wasm runtime for a project.
 ///
@@ -17,11 +15,10 @@ use crate::{ExtismRuntime, HostContext, builtins};
 /// builtins. Builtin extensions are loaded from embedded Wasm binaries when
 /// their name matches a `@specforge/*` builtin. Custom `.wasm` paths are
 /// loaded from disk (`"name=path.wasm"` or bare `"path.wasm"`).
-pub fn project_runtime(path: &Path) -> ExtismRuntime {
+pub fn project_runtime(path: &Path) -> ComponentRuntime {
     let config = specforge_common::load_project_config(path);
 
-    let ctx = HostContext::new(Arc::new(Mutex::new(Vec::new()))).with_spec_root(path.to_path_buf());
-    let runtime = ExtismRuntime::with_host_context(ctx);
+    let runtime = ComponentRuntime::new();
 
     let runtime = match user_compile_cache_dir() {
         Some(dir) => runtime.with_compile_cache(dir),

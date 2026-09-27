@@ -184,7 +184,7 @@ impl Backend {
 
         // One Wasm runtime per session — the same constructor the CLI and
         // MCP use (WASM-only migration, Phase 4).
-        let runtime = specforge_extism::project_runtime(std::path::Path::new(project_root));
+        let runtime = specforge_component::project_runtime(std::path::Path::new(project_root));
         let host = ProtocolHost::new(&runtime);
         let mut manifests = Vec::new();
 

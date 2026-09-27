@@ -1,7 +1,8 @@
 //! Escape hatch for the fresh-clone bootstrap: builds any missing builtin
-//! extension wasm on demand. The normal `cargo build` already does this via
-//! `crates/specforge-extism/build.rs`; this bin exists so humans (and the
-//! wayfinder decision in map #1 / ticket #4) have a named, explicit command.
+//! extension component blobs on demand (wasm32-wasip2). Blobs are vendored at
+//! `extensions/<name>/wasm/`, so a normal build needs nothing extra; this bin
+//! exists so humans (and the wayfinder decision in map #1 / ticket #4) have a
+//! named, explicit command.
 
 use std::path::{Path, PathBuf};
 use std::process::Command;
@@ -15,7 +16,7 @@ const EXTENSIONS: &[(&str, &str)] = &[
     ("typescript", "specforge_ext_typescript.wasm"),
 ];
 
-const TARGET: &str = "wasm32-unknown-unknown";
+const TARGET: &str = "wasm32-wasip2";
 
 fn main() {
     let force = std::env::args().any(|a| a == "--force");

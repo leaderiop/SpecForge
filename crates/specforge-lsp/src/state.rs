@@ -26,7 +26,7 @@ pub struct LspState {
     /// across surfaces (WASM-only migration, Phase 4).
     known_extension_keywords: HashMap<String, String>,
     /// The session's Wasm runtime, for custom-rule dispatch.
-    runtime: Option<std::sync::Arc<specforge_extism::ExtismRuntime>>,
+    runtime: Option<std::sync::Arc<specforge_component::ComponentRuntime>>,
     shutdown: bool,
 }
 
@@ -142,11 +142,11 @@ impl LspState {
         &self.validation_patterns
     }
 
-    pub fn runtime(&self) -> Option<&std::sync::Arc<specforge_extism::ExtismRuntime>> {
+    pub fn runtime(&self) -> Option<&std::sync::Arc<specforge_component::ComponentRuntime>> {
         self.runtime.as_ref()
     }
 
-    pub fn set_runtime(&mut self, runtime: specforge_extism::ExtismRuntime) {
+    pub fn set_runtime(&mut self, runtime: specforge_component::ComponentRuntime) {
         self.runtime = Some(std::sync::Arc::new(runtime));
     }
 

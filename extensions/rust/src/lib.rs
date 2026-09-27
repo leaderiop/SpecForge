@@ -37,23 +37,28 @@ impl Contributions for RustAnalyzer {
 // ── Analyzer exports ───────────────────────────────────────────────────────
 // Same JSON wire format as the native builtin's `call_analyzer` dispatch.
 
-#[extism_pdk::plugin_fn]
-pub fn scan__rust(input: Vec<u8>) -> extism_pdk::FnResult<Vec<u8>> {
-    let req: ScanRequest = serde_json::from_slice(&input)?;
-    Ok(serde_json::to_vec(&scan_rust(&req))?)
+
+fn parse_req<T: serde::de::DeserializeOwned>(input: &[u8]) -> Result<T, String> {
+    serde_json::from_slice(input).map_err(|e| format!("invalid request: {e}"))
 }
 
-#[extism_pdk::plugin_fn]
-pub fn classify__rust(input: Vec<u8>) -> extism_pdk::FnResult<Vec<u8>> {
-    let req: ClassifyRequest = serde_json::from_slice(&input)?;
-    Ok(serde_json::to_vec(&classify_rust(&req))?)
+fn to_json<T: serde::Serialize>(value: &T) -> Result<Vec<u8>, String> {
+    serde_json::to_vec(value).map_err(|e| format!("serialization failed: {e}"))
 }
 
-#[extism_pdk::plugin_fn]
-pub fn map__rust(input: Vec<u8>) -> extism_pdk::FnResult<Vec<u8>> {
-    let req: MapSymbolRequest = serde_json::from_slice(&input)?;
-    Ok(serde_json::to_vec(&map_rust(&req))?)
+fn dispatch(export: &str, input: &[u8]) -> Option<Result<Vec<u8>, String>> {
+    match export {
+        "scan__rust" => Some(parse_req(input).and_then(|req| to_json(&scan_rust(&req)))),
+        "classify__rust" => Some(parse_req(input).and_then(|req| to_json(&classify_rust(&req)))),
+        "map__rust" => Some(parse_req(input).and_then(|req| to_json(&map_rust(&req)))),
+        _ => None,
+    }
 }
+
+specforge_extension_sdk::component_guest!(
+    build = specforge_extension_build,
+    handler = dispatch
+);
 
 // ── Analyzer logic (ported verbatim from the native builtin) ───────────────
 

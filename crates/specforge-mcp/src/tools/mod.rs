@@ -134,7 +134,7 @@ pub fn handle_tool_call(state: &mut McpState, params: Value, id: Option<Value>) 
                         ),
                     );
                 };
-                let runtime = specforge_extism::project_runtime(&root);
+                let runtime = specforge_component::project_runtime(&root);
                 let input = serde_json::to_vec(&arguments).unwrap_or_default();
                 match specforge_wasm::dispatch_surface_mcp_tool(
                     &entry.extension_name,

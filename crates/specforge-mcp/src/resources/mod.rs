@@ -73,7 +73,7 @@ pub fn handle_resource_read(
                     "Extension resources need a project root; pass {\"path\": ...} to specforge.analyze first",
                 );
             };
-            let runtime = specforge_extism::project_runtime(&root);
+            let runtime = specforge_component::project_runtime(&root);
             match specforge_wasm::dispatch_surface_mcp_resource(
                 &entry.extension_name,
                 &entry.export_name,

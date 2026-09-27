@@ -1,4 +1,4 @@
-use crate::ExtismRuntime;
+use crate::ComponentRuntime;
 
 static PRODUCT_WASM: &[u8] =
     include_bytes!("../../../extensions/product/wasm/specforge_ext_product.wasm");
@@ -24,7 +24,7 @@ pub const BUILTIN_EXTENSIONS: &[(&str, &[u8])] = &[
 /// Load only the builtin Wasm extensions whose names appear in `requested`.
 ///
 /// Non-builtin names (e.g. custom `.wasm` paths) are silently skipped.
-pub fn load_builtins_for(runtime: &ExtismRuntime, requested: &[String]) -> Result<(), String> {
+pub fn load_builtins_for(runtime: &ComponentRuntime, requested: &[String]) -> Result<(), String> {
     for (name, wasm_bytes) in BUILTIN_EXTENSIONS {
         if requested.iter().any(|r| r == *name) {
             runtime.load_module_bytes(name, wasm_bytes)?;
@@ -34,7 +34,7 @@ pub fn load_builtins_for(runtime: &ExtismRuntime, requested: &[String]) -> Resul
 }
 
 /// Load all builtin Wasm extensions. Used by tests only.
-pub fn load_builtins(runtime: &ExtismRuntime) -> Result<(), String> {
+pub fn load_builtins(runtime: &ComponentRuntime) -> Result<(), String> {
     for (name, wasm_bytes) in BUILTIN_EXTENSIONS {
         runtime.load_module_bytes(name, wasm_bytes)?;
     }

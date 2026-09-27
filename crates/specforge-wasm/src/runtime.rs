@@ -35,7 +35,7 @@ pub struct LoadedModule {
     pub state: ExtensionLifecycleState,
 }
 
-/// Testable abstraction over a Wasm runtime (Extism in production).
+/// Testable abstraction over a Wasm runtime (wasmtime component engine).
 pub trait WasmRuntime: Send + Sync {
     /// Load a .wasm binary (or AOT-cached artifact) into the runtime.
     fn load_module(&self, wasm_path: &Path, aot_cache_path: Option<&Path>) -> Result<(), String>;

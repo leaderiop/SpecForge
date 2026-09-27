@@ -120,7 +120,7 @@ crate-type = ["cdylib"]
 
 [dependencies]
 specforge-extension-sdk = "0.1"
-extism-pdk = "1.4.1"
+wit-bindgen = "0.30"
 "#
     );
     std::fs::write(dir.join("Cargo.toml"), cargo_toml)
@@ -128,14 +128,14 @@ extism-pdk = "1.4.1"
 
     std::fs::write(
         dir.join(".cargo").join("config.toml"),
-        "[build]\ntarget = \"wasm32-unknown-unknown\"\n",
+        "[build]\ntarget = \"wasm32-wasip2\"\n",
     )
     .map_err(|e| format!("failed to write .cargo/config.toml: {}", e))?;
 
     let lib_rs = format!(
         r#"//! {name} — a SpecForge extension authored with the extension SDK.
 //!
-//! Build:  cargo build --release --target wasm32-unknown-unknown
+//! Build:  cargo build --release --target wasm32-wasip2
 //! Install: specforge add ./path/to/this/dir
 
 use specforge_extension_sdk::prelude::*;
@@ -168,6 +168,15 @@ impl Contributions for Extension {{
         }});
     }}
 }}
+
+fn dispatch(_export: &str, _input: &[u8]) -> Option<Result<Vec<u8>, String>> {{
+    None
+}}
+
+specforge_extension_sdk::component_guest!(
+    build = specforge_extension_build,
+    handler = dispatch
+);
 "#
     );
     std::fs::write(src.join("lib.rs"), lib_rs)
@@ -221,11 +230,12 @@ mod tests {
         assert!(cargo.contains("specforge-extension-sdk"));
 
         let config = std::fs::read_to_string(project.join(".cargo/config.toml")).unwrap();
-        assert!(config.contains("wasm32-unknown-unknown"));
+        assert!(config.contains("wasm32-wasip2"));
 
         let lib = std::fs::read_to_string(project.join("src/lib.rs")).unwrap();
         assert!(lib.contains("name = \"@you/my-ext\""));
         assert!(lib.contains("#[specforge_extension_sdk::extension("));
         assert!(lib.contains("impl Contributions for Extension"));
+        assert!(lib.contains("component_guest!"));
     }
 }
