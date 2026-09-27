@@ -136,7 +136,10 @@ pub fn pass_coverage(ctx: &AnalysisContext) -> (Vec<Finding>, serde_json::Value)
     let mut testable_total = 0usize;
     let mut testable_verified = 0usize;
     // risk -> (total invariants, invariants without any obligation)
-    let mut invariants: HashMap<String, (usize, usize)> = HashMap::new();
+    // BTreeMap: the summary array renders in risk order, which must be
+    // stable (R-6 / hardening-plan D4).
+    let mut invariants: std::collections::BTreeMap<String, (usize, usize)> =
+        std::collections::BTreeMap::new();
     // Incoming edge count per invariant id: the enforcement mapping.
     let mut invariant_refs: HashMap<&str, usize> = HashMap::new();
     // Discharge funnel (RES-15 layers): intent -> linkage -> proof.
@@ -155,7 +158,10 @@ pub fn pass_coverage(ctx: &AnalysisContext) -> (Vec<Finding>, serde_json::Value)
         }
     }
 
-    for node in ctx.graph.nodes() {
+    // Sorted node order: findings must not depend on HashMap seeding (R-6).
+    let mut nodes: Vec<_> = ctx.graph.nodes();
+    nodes.sort_by_key(|n| n.id.raw);
+    for node in nodes {
         let stmts = verify_statements(node);
         for stmt in stmts {
             *obligation_kinds.entry(stmt.kind.clone()).or_default() += 1;
@@ -397,13 +403,21 @@ pub fn pass_contracts(ctx: &AnalysisContext) -> (Vec<Finding>, serde_json::Value
             contract_fields.entry(kind).or_default().push(field);
         }
     }
+    for fields in contract_fields.values_mut() {
+        // Suggestions render this list — keep it registry-order-independent
+        // (hardening-plan D4 / R-6).
+        fields.sort_unstable();
+    }
 
     let mut findings = Vec::new();
     let mut contract_entities = 0usize;
     let mut unconstrained = 0usize;
     let mut obligation_refs = 0usize;
 
-    for node in ctx.graph.nodes() {
+    // Sorted node order: findings must not depend on HashMap seeding (R-6).
+    let mut nodes: Vec<_> = ctx.graph.nodes();
+    nodes.sort_by_key(|n| n.id.raw);
+    for node in nodes {
         let Some(fields) = contract_fields.get(node.kind.raw.as_str()) else {
             continue;
         };
@@ -657,15 +671,35 @@ pub fn run_extension_passes(
             match runtime.call_export(&manifest.name, &export, &payload_bytes) {
                 WasmCallResult::Ok(bytes) => {
                     match serde_json::from_slice::<Vec<Diagnostic>>(&bytes) {
-                        Ok(findings) => reports.push(ExtensionPassReport {
-                            name: report_name,
-                            findings,
-                            summary: serde_json::json!({
-                                "extension": manifest.name,
-                                "pass": pass.name,
-                                "entities_analyzed": entities.len(),
-                            }),
-                        }),
+                        Ok(mut findings) => {
+                            // Canonical order for ALL extension passes
+                            // (hardening-plan D4 / R-6): guests that iterate
+                            // HashMaps would otherwise leak per-run order.
+                            findings.sort_by(|a, b| {
+                                a.code
+                                    .cmp(&b.code)
+                                    .then_with(|| {
+                                        a.span
+                                            .as_ref()
+                                            .map(|s| (s.file.as_str(), s.start_line))
+                                            .cmp(
+                                                &b.span
+                                                    .as_ref()
+                                                    .map(|s| (s.file.as_str(), s.start_line)),
+                                            )
+                                    })
+                                    .then_with(|| a.message.cmp(&b.message))
+                            });
+                            reports.push(ExtensionPassReport {
+                                name: report_name,
+                                findings,
+                                summary: serde_json::json!({
+                                    "extension": manifest.name,
+                                    "pass": pass.name,
+                                    "entities_analyzed": entities.len(),
+                                }),
+                            })
+                        }
                         Err(e) => eprintln!(
                             "warning: extension pass '{report_name}' returned malformed diagnostics: {e}"
                         ),

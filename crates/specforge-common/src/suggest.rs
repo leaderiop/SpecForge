@@ -10,7 +10,10 @@ pub fn find_close_match<'a>(
             let score = strsim::jaro_winkler(target, c);
             if score > 0.85 { Some((c, score)) } else { None }
         })
-        .max_by(|a, b| a.1.partial_cmp(&b.1).unwrap())
+        // Deterministic tie-break: among equal scores pick the
+        // lexicographically smallest candidate, so the suggestion never
+        // depends on the caller's iteration order (R-6 / hardening-plan D1).
+        .max_by(|a, b| a.1.partial_cmp(&b.1).unwrap().then_with(|| b.0.cmp(a.0)))
         .map(|(s, _)| s)
 }
 

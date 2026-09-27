@@ -5,6 +5,7 @@ mod analyze;
 mod cli;
 mod collect;
 mod contracts;
+mod determinism;
 mod e2e_cross_extension;
 mod e2e_edges;
 mod e2e_mcp;

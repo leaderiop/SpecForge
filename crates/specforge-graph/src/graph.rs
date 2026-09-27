@@ -349,7 +349,9 @@ impl Graph {
         let entity_ids: HashSet<Sym> = self.nodes.keys().copied().collect();
 
         // Snapshot node data so we can mutate edges while iterating.
-        let all_nodes: Vec<(Sym, Sym, FieldMap, SourceSpan)> = self
+        // Sorted by id: diagnostic and edge order must not depend on the
+        // per-process HashMap seeding (R-6 / hardening-plan D1 class).
+        let mut all_nodes: Vec<(Sym, Sym, FieldMap, SourceSpan)> = self
             .nodes
             .values()
             .map(|n| {
@@ -361,6 +363,7 @@ impl Graph {
                 )
             })
             .collect();
+        all_nodes.sort_by(|a, b| a.0.as_str().cmp(b.0.as_str()));
 
         let mut diagnostics = Vec::new();
 
@@ -519,7 +522,10 @@ impl Graph {
             color.insert(node, Color::Black);
         }
 
-        let node_ids: Vec<Sym> = self.nodes.keys().copied().collect();
+        // Sorted seeds: which node a cycle is reported from (and thus its
+        // rendered rotation) must not depend on HashMap seeding (R-6).
+        let mut node_ids: Vec<Sym> = self.nodes.keys().copied().collect();
+        node_ids.sort_by(|a, b| a.as_str().cmp(b.as_str()));
         for &node in &node_ids {
             if color.get(&node).copied() == Some(Color::White) {
                 dfs(

@@ -247,6 +247,9 @@ fn pass_layering_verify(input: &PassInput) -> Vec<PassDiagnostic> {
             ));
         }
     }
+    // Deterministic order: DFS seeds came from a HashMap, so sort by
+    // (entity, code) before returning (hardening-plan D4 / R-6).
+    findings.sort_by(|a, b| a.code.cmp(&b.code).then_with(|| a.message.cmp(&b.message)));
     findings
 }
 
@@ -303,6 +306,9 @@ fn pass_event_graph_analyze(input: &PassInput) -> Vec<PassDiagnostic> {
             ),
         );
     }
+    // Deterministic order: produced-events came from a HashMap (hardening-plan
+    // D4 / R-6).
+    findings.sort_by(|a, b| a.code.cmp(&b.code).then_with(|| a.message.cmp(&b.message)));
     findings
 }
 

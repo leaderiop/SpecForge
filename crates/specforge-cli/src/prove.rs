@@ -402,6 +402,20 @@ pub fn run_prove(ctx: &AnalysisContext) -> ProveReport {
     let mut claims_proved = 0usize;
     let mut claims_unproved = 0usize;
     let mut proved_claim_ids: Vec<String> = Vec::new();
+    // Loud, deterministic behavior when the solver is missing or fails
+    // mid-run (hardening-plan D3): analysis output must never silently
+    // depend on machine state.
+    let mut solver_runtime_failure = false;
+    if !solver_available {
+        findings.push(
+            Diagnostic::warning(
+                "W098",
+                "SMT solver 'z3' not found on PATH; formal entailment and consistency checks were skipped"
+                    .to_string(),
+            )
+            .with_suggestion("install z3 (https://github.com/Z3Prover/z3) to enable `--prove`"),
+        );
+    }
 
     if solver_available {
         // ── consistency: all bounds together must be satisfiable ────────
@@ -426,8 +440,8 @@ pub fn run_prove(ctx: &AnalysisContext) -> ProveReport {
             }
             script.push_str("(check-sat)\n(get-unsat-core)\n");
 
-            if let Some(stdout) = run_z3(&script) {
-                match first_result_line(&stdout) {
+            match run_z3(&script) {
+                Some(stdout) => match first_result_line(&stdout) {
                     "unsat" => {
                         unsat = true;
                         let cited: Vec<String> = parse_unsat_core(&stdout)
@@ -457,7 +471,8 @@ pub fn run_prove(ctx: &AnalysisContext) -> ProveReport {
                             "the solver could not decide the combined metric bounds".to_string(),
                         ));
                     }
-                }
+                },
+                None => solver_runtime_failure = true,
             }
         }
 
@@ -481,7 +496,11 @@ pub fn run_prove(ctx: &AnalysisContext) -> ProveReport {
             script.push_str(&format!("(assert (not {}))\n", encode_expr(&claim.expr)));
             script.push_str("(check-sat)\n(get-model)\n");
 
-            if let Some(stdout) = run_z3(&script) {
+            let Some(stdout) = run_z3(&script) else {
+                solver_runtime_failure = true;
+                continue;
+            };
+            {
                 match first_result_line(&stdout) {
                     // bounds ∧ ¬claim unsat ⇒ bounds entail the claim
                     "unsat" => {
@@ -527,9 +546,20 @@ pub fn run_prove(ctx: &AnalysisContext) -> ProveReport {
         }
     }
 
+    if solver_runtime_failure {
+        findings.push(
+            Diagnostic::warning(
+                "W098",
+                "the SMT solver could not be executed; some formal checks were skipped".to_string(),
+            )
+            .with_suggestion("verify the z3 installation is executable"),
+        );
+    }
+
     let summary = serde_json::json!({
         "solver": solver_version,
         "solver_available": solver_available,
+        "solver_runtime_failure": solver_runtime_failure,
         "constraints_with_metrics": constraints_with_metrics,
         "axioms": axioms.len(),
         "conjuncts": conjunct_count,

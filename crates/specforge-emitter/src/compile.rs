@@ -155,12 +155,14 @@ pub fn compile_with_runtime(path: &Path, runtime: Option<&dyn WasmRuntime>) -> C
     let (graph, build_diags) = build_graph_with_config(&spec_files, &graph_config);
     diagnostics.extend(build_diags);
 
-    // 9. Run core validation (with file reference fields from registries)
+    // 9. Run core validation (with file reference fields from registries).
+    // BTreeSet: the field list must be ordered, not HashSet-random (R-6 /
+    // hardening-plan D2).
     let file_ref_fields: Vec<String> = field_reg
         .iter()
         .filter(|(_, _, entry)| entry.file_reference)
         .map(|(_, field_name, _)| field_name.to_string())
-        .collect::<std::collections::HashSet<_>>()
+        .collect::<std::collections::BTreeSet<_>>()
         .into_iter()
         .collect();
     let validator_config = ValidatorConfig {
@@ -387,8 +389,11 @@ pub fn load_extensions(
 /// Convert all graph nodes into `ValidationEntity` structs for the validation engine.
 /// Shared by CLI (`compile.rs`) and LSP (`backend.rs`).
 pub fn build_validation_entities(graph: &Graph) -> Vec<ValidationEntity> {
-    graph
-        .nodes()
+    // Sorted by id: rule diagnostics must emit in a stable order
+    // (R-6 / hardening-plan D1 class).
+    let mut nodes: Vec<_> = graph.nodes();
+    nodes.sort_by_key(|n| n.id.raw);
+    nodes
         .into_iter()
         .map(|node| {
             let incoming = graph.edges_to(node.id.raw.as_str()).len();
@@ -710,11 +715,14 @@ fn detect_cycles(
         None => return Vec::new(),
     };
 
-    let nodes: Vec<&specforge_graph::Node> = graph
+    // Deterministic node order: seed and traversal order must not depend on
+    // HashMap iteration (per-process RandomState) — R-6.
+    let mut nodes: Vec<&specforge_graph::Node> = graph
         .nodes()
         .into_iter()
         .filter(|n| n.kind.raw == target_kind)
         .collect();
+    nodes.sort_by_key(|n| n.id.raw);
 
     if nodes.is_empty() {
         return Vec::new();
@@ -732,6 +740,9 @@ fn detect_cycles(
                 .push(edge.target.as_str());
         }
     }
+    for neighbors in adj.values_mut() {
+        neighbors.sort_unstable();
+    }
 
     #[derive(Clone, Copy, PartialEq)]
     enum Color {
@@ -742,37 +753,48 @@ fn detect_cycles(
 
     let mut color: HashMap<&str, Color> = node_ids.iter().map(|id| (*id, Color::White)).collect();
     let mut cycle_members: HashSet<&str> = HashSet::new();
+    // Current DFS path, for exact cycle-segment membership.
+    let mut path: Vec<&str> = Vec::new();
 
     fn dfs<'a>(
         node: &'a str,
         adj: &HashMap<&'a str, Vec<&'a str>>,
         color: &mut HashMap<&'a str, Color>,
         cycle_members: &mut HashSet<&'a str>,
+        path: &mut Vec<&'a str>,
     ) {
         color.insert(node, Color::Gray);
+        path.push(node);
         if let Some(neighbors) = adj.get(node) {
             for &next in neighbors {
                 match color.get(next) {
                     Some(Color::Gray) => {
-                        cycle_members.insert(next);
-                        cycle_members.insert(node);
+                        // Back edge `node -> next`: mark the exact cycle
+                        // segment on the current path (`next..=node`).
+                        // Nodes that merely lead INTO the cycle are not
+                        // members — flagging them was both wrong and the
+                        // source of order-dependent sets.
+                        if let Some(pos) = path.iter().position(|&n| n == next) {
+                            for &member in &path[pos..] {
+                                cycle_members.insert(member);
+                            }
+                        }
                     }
                     Some(Color::White) => {
-                        dfs(next, adj, color, cycle_members);
-                        if cycle_members.contains(next) {
-                            cycle_members.insert(node);
-                        }
+                        dfs(next, adj, color, cycle_members, path);
                     }
                     _ => {}
                 }
             }
         }
+        path.pop();
         color.insert(node, Color::Black);
     }
 
-    for &id in &node_ids {
+    for node in &nodes {
+        let id = node.id.raw.as_str();
         if color[id] == Color::White {
-            dfs(id, &adj, &mut color, &mut cycle_members);
+            dfs(id, &adj, &mut color, &mut cycle_members, &mut path);
         }
     }
 
