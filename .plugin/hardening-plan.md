@@ -126,6 +126,13 @@ Principle: **wire real, or refuse — never fake.** All backends exist (§2.2); 
 >
 > **W2 EXECUTED** — `crates/specforge-component` (`specforge:bridge@0.1.0` world, wasmtime 49 component engine, deterministic per-instance fuel, opt-in compile cache, wasi:p2 linker, hot-reload parity) with a real wasip2 component fixture and 5 runtime tests (`c5d6d7f`).
 >
+> **W3–W5 EXECUTED (`1f9632e` + `5c7ad53` + `84fc399`)** — the cutover is complete:
+> - SDK drops extism-pdk/anyhow; `component_guest!` macro generates the `specforge:bridge` bindings; `#[extension]` emits only the builder, `#[compiler_pass]` emits wire helpers
+> - All 6 builtin guests build as wasip2 components (`--target wasm32-wasip2`), vendored blobs replaced (layer=1, ~2.1 MB); wire export names unchanged (`scan__rust`, `__pass_condition_check`, `validate__port_methods`, …)
+> - `project_runtime` returns `ComponentRuntime`; CLI/LSP/MCP/emitter re-pointed; **`specforge-extism` crate deleted** — ExtismRuntime, HostContext, extism host functions, and the extism/wasmtime-43 dependency are gone from the tree (Cargo.lock: exactly one wasmtime 49.0.1, zero extism)
+> - Guards moved to `specforge-component/tests`: `builtin_blob_sync`, `native_tier_gate`, the 7-test builtin handshake/describe parity suite, and the greet SDK proof
+> - CI: guest clippy/tests on wasm32-wasip2; fresh-clone bootstrap rebuilds all six component blobs via `xtask build-builtins --force`
+> - **C7-03 closed**: every extension — builtin or third-party — is a WIT-typed component executed through one wasmtime 49 engine.
 > **Cutover constraint (from W2):** the builtin blob format flips from extism core-modules to wasip2 components in ONE coordinated sweep — a component blob cannot load under ExtismRuntime and an extism core module cannot load under ComponentRuntime. W3 (SDK `component_guest!` export glue, extism-free describe helper), W4 (migrate all 6 guests, vendor component blobs, flip `project_runtime`), and W5 (delete `specforge-extism` + extism/wasmtime-43) therefore land as a single atomic series to keep every commit green.
 
 > **W0 GATE RESULT (2026-09-27): GO.** Spike at `spike/w0-component/` — typed WIT component (wasm32-wasip2, wit-bindgen 0.30) hosted by wasmtime 49 `component::bindgen!`: tiny-call floor **0.31 µs**, 1.5 MB batch call **20.4 µs**, vs **1,056 µs** for the extism byte-array handshake (guest JSON through the PDK dominates). Component blob keeps the `\0asm` magic (layer=1) and sha256 addressing, so registry publish/download/integrity gates are unaffected. SDK delta confined to the bindings layer. All gate criteria met with large margin.
