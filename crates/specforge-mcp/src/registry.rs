@@ -126,7 +126,7 @@ fn default_resources() -> Vec<McpResourceDescriptor> {
     ]
 }
 
-fn default_tools() -> Vec<McpToolDescriptor> {
+pub fn default_tools() -> Vec<McpToolDescriptor> {
     vec![
         // Core tools
         McpToolDescriptor {
@@ -137,7 +137,9 @@ fn default_tools() -> Vec<McpToolDescriptor> {
                 "properties": {
                     "entity_id": { "type": "string", "description": "Entity ID to query" },
                     "depth": { "type": "integer", "description": "Number of hops (default 1)", "default": 1 },
-                    "kinds": { "type": "array", "items": { "type": "string" }, "description": "Filter by entity kinds" }
+                    "kinds": { "type": "array", "items": { "type": "string" }, "description": "Filter by entity kinds" },
+                    "format": { "type": "string", "description": "Output detail level (default \"graph\")", "default": "graph" },
+                    "include_coverage": { "type": "boolean", "description": "Include coverage metadata in the response", "default": false }
                 },
                 "required": ["entity_id"]
             }),
@@ -149,7 +151,9 @@ fn default_tools() -> Vec<McpToolDescriptor> {
             input_schema: json!({
                 "type": "object",
                 "properties": {
-                    "path": { "type": "string", "description": "Project root path (uses initialized root if omitted)" }
+                    "path": { "type": "string", "description": "Project root path (uses initialized root if omitted)" },
+                    "severity_filter": { "type": "string", "description": "Only report diagnostics at or above this severity (error, warning, info)" },
+                    "use_cached": { "type": "boolean", "description": "Report cached diagnostics from the last compile instead of recompiling", "default": false }
                 }
             }),
             category: Some("core".into()),
@@ -187,8 +191,7 @@ fn default_tools() -> Vec<McpToolDescriptor> {
             input_schema: json!({
                 "type": "object",
                 "properties": {
-                    "entity_id": { "type": "string", "description": "Entity ID to trace" },
-                    "plan": { "type": "object", "description": "Optional plan JSON for gap detection" }
+                    "entity_id": { "type": "string", "description": "Entity ID to trace" }
                 },
                 "required": ["entity_id"]
             }),
@@ -202,7 +205,10 @@ fn default_tools() -> Vec<McpToolDescriptor> {
                 "properties": {
                     "query": { "type": "string", "description": "Search query" },
                     "kinds": { "type": "array", "items": { "type": "string" }, "description": "Filter by kinds" },
-                    "limit": { "type": "integer", "description": "Max results (default 20)", "default": 20 }
+                    "limit": { "type": "integer", "description": "Max results (default 20)", "default": 20 },
+                    "field": { "type": "string", "description": "Only search a specific field" },
+                    "value": { "type": "string", "description": "Exact field value filter (with field)" },
+                    "references": { "type": "string", "description": "Find entities with edges to this target" }
                 },
                 "required": ["query"]
             }),
@@ -381,8 +387,9 @@ fn default_tools() -> Vec<McpToolDescriptor> {
             input_schema: json!({
                 "type": "object",
                 "properties": {
-                    "paths": { "type": "array", "items": { "type": "string" }, "description": "Files to format" },
-                    "check": { "type": "boolean", "description": "Check only, don't modify", "default": false }
+                    "path": { "type": "string", "description": "Project root path (uses initialized root if omitted)" },
+                    "check": { "type": "boolean", "description": "Check only, don't modify", "default": false },
+                    "write": { "type": "boolean", "description": "Write formatted output (defaults to the opposite of check)", "default": true }
                 }
             }),
             category: Some("mutation".into()),
@@ -394,7 +401,8 @@ fn default_tools() -> Vec<McpToolDescriptor> {
                 "type": "object",
                 "properties": {
                     "entity_id": { "type": "string", "description": "Current entity ID" },
-                    "new_name": { "type": "string", "description": "New entity ID" }
+                    "new_name": { "type": "string", "description": "New entity ID" },
+                    "path": { "type": "string", "description": "Project root path (uses initialized root if omitted)" }
                 },
                 "required": ["entity_id", "new_name"]
             }),
@@ -419,7 +427,8 @@ fn default_tools() -> Vec<McpToolDescriptor> {
             input_schema: json!({
                 "type": "object",
                 "properties": {
-                    "specifier": { "type": "string", "description": "Extension specifier" }
+                    "specifier": { "type": "string", "description": "Extension specifier" },
+                    "path": { "type": "string", "description": "Project root path (uses initialized root if omitted)" }
                 },
                 "required": ["specifier"]
             }),
@@ -432,7 +441,8 @@ fn default_tools() -> Vec<McpToolDescriptor> {
                 "type": "object",
                 "properties": {
                     "name": { "type": "string", "description": "Extension name" },
-                    "force": { "type": "boolean", "description": "Force removal", "default": false }
+                    "force": { "type": "boolean", "description": "Force removal", "default": false },
+                    "path": { "type": "string", "description": "Project root path (uses initialized root if omitted)" }
                 },
                 "required": ["name"]
             }),
@@ -445,7 +455,8 @@ fn default_tools() -> Vec<McpToolDescriptor> {
                 "type": "object",
                 "properties": {
                     "from_version": { "type": "string", "description": "Source version" },
-                    "to_version": { "type": "string", "description": "Target version" }
+                    "to_version": { "type": "string", "description": "Target version" },
+                    "path": { "type": "string", "description": "Project root path (uses initialized root if omitted)" }
                 }
             }),
             category: Some("mutation".into()),
@@ -475,7 +486,8 @@ fn default_tools() -> Vec<McpToolDescriptor> {
             input_schema: json!({
                 "type": "object",
                 "properties": {
-                    "collector": { "type": "string", "description": "Collector name" }
+                    "collector": { "type": "string", "description": "Collector name" },
+                    "path": { "type": "string", "description": "Project root path (uses initialized root if omitted)" }
                 }
             }),
             category: Some("management".into()),

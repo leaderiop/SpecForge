@@ -39,7 +39,7 @@ pub fn call(state: &McpState, args: Value, id: Option<Value>) -> JsonRpcResponse
     edge_labels.sort();
 
     let schema = serde_json::json!({
-        "schema_version": "0.1.0",
+        "schema_version": specforge_emitter::SCHEMA_VERSION,
         "entity_kinds": kinds,
         "edge_labels": edge_labels
     });
