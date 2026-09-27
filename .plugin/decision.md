@@ -38,7 +38,7 @@ LSP and MCP use native BuiltinRuntime mirrors — they never instantiate wasmtim
 
 ## Execution plan (KEEP_WASM) — EXECUTED 2026-09-27
 
-**Detailed, phased migration plan: [`migration-plan.md`](migration-plan.md)** — migrates all extension execution to WASM and deletes the native tier (C7-11). Phases: parity harness → scanner guests → validator exports → shared runtime constructor → LSP/MCP cutover → custom rules through wasm → perf/limits → deletion → verification.
+**Detailed, phased migration plan: [`migration-plan.md`](migration-plan.md)** (executed) · **follow-on hardening plan (determinism / MCP honesty / IDL / hot reload): [`hardening-plan.md`](hardening-plan.md)** — migrates all extension execution to WASM and deletes the native tier (C7-11). Phases: parity harness → scanner guests → validator exports → shared runtime constructor → LSP/MCP cutover → custom rules through wasm → perf/limits → deletion → verification.
 
 > **Status: COMPLETE.** All extension execution — CLI, LSP, MCP — runs through the Extism/Wasmtime runtime. The native mirror tier (BuiltinRuntime, six native impls, NativeCustomRules, CompositeRuntime, EnginePool ledger, fake-AOT cache) is deleted, with a permanent gate test (`native_tier_gate.rs`) preventing reintroduction. Custom rules (E004/E006/E010/W010) dispatch through guest `validate__*` exports; fuel limits are engine-enforced (C7-10); the on-disk Wasmtime compile cache is wired (warm CLI runs save ~0.8 s). Audit C7-02 (honest removal), C7-04/09 (host-fn capability boundary), C7-08, C7-10, C7-11, and C10 are closed.
 
