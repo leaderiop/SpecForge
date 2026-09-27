@@ -32,10 +32,10 @@ jobs:
         run: |
           cargo clippy --workspace --all-targets -- -D warnings
           # Extension crates live outside the workspace; their code compiles
-          # to wasm via the specforge-extism build script and needs its own
-          # clippy pass to be gated.
+          # to wasip2 components and needs its own clippy pass to be gated.
+          # (kept outside the main clippy run; see the loop below)
           for ext in extensions/*/Cargo.toml; do
-            cargo clippy --manifest-path "$ext" --target wasm32-unknown-unknown -- -D warnings
+            cargo clippy --manifest-path "$ext" --target wasm32-wasip2 -- -D warnings
           done
 
       - name: Install nextest
@@ -57,7 +57,7 @@ jobs:
         run: cargo install cargo-audit && cargo audit
 
   bootstrap:
-    name: Fresh-clone bootstrap (builtin wasms)
+    name: Fresh-clone bootstrap (builtin components)
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -66,23 +66,25 @@ jobs:
       - name: Install Rust stable toolchain
         uses: dtolnay/rust-toolchain@stable
         with:
-          targets: wasm32-unknown-unknown
+          targets: wasm32-wasip2
 
       # No rust-cache here on purpose: this job must prove that a cold clone
-      # bootstrap builds the four builtin extension blobs via the
-      # specforge-extism build.rs guard (wayfinder map #1, ticket #4).
-      - name: Build specforge-extism (triggers builtin bootstrap)
-        run: cargo build -p specforge-extism
+      # can rebuild every builtin component blob from source via the xtask
+      # escape hatch (wayfinder map #1, ticket #4).
+      - name: Build all builtin component blobs from source
+        run: cargo run -p xtask --bin build-builtins -- --force
 
-      - name: Assert all four builtin blobs exist
+      - name: Assert all six builtin blobs exist
         run: |
-          test -f extensions/product/target/wasm32-unknown-unknown/release/specforge_ext_product.wasm
-          test -f extensions/software/target/wasm32-unknown-unknown/release/specforge_ext_software.wasm
-          test -f extensions/governance/target/wasm32-unknown-unknown/release/specforge_ext_governance.wasm
-          test -f extensions/formal/target/wasm32-unknown-unknown/release/specforge_ext_formal.wasm
+          test -f extensions/product/target/wasm32-wasip2/release/specforge_ext_product.wasm
+          test -f extensions/software/target/wasm32-wasip2/release/specforge_ext_software.wasm
+          test -f extensions/governance/target/wasm32-wasip2/release/specforge_ext_governance.wasm
+          test -f extensions/formal/target/wasm32-wasip2/release/specforge_ext_formal.wasm
+          test -f extensions/rust/target/wasm32-wasip2/release/specforge_ext_rust.wasm
+          test -f extensions/typescript/target/wasm32-wasip2/release/specforge_ext_typescript.wasm
 
       - name: Build SDK greet fixture
-        run: cargo build --manifest-path fixtures/greet-extension/Cargo.toml --target wasm32-unknown-unknown --release
+        run: cargo build --manifest-path fixtures/greet-extension/Cargo.toml --target wasm32-wasip2 --release
 
       - name: SDK greet protocol proof
-        run: cargo test -p specforge-extism --test tests greet_sdk
+        run: cargo test -p specforge-component --test greet_sdk

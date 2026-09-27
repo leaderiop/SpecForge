@@ -8,4 +8,4 @@ crate-type = ["cdylib"]
 
 [dependencies]
 specforge-extension-sdk = { path = "../../crates/specforge-extension-sdk" }
-extism-pdk = "1.4.1"
+wit-bindgen = "0.30"
