@@ -36,7 +36,7 @@ Find the code or symptom, read the cause, apply the fix. For a guided introducti
 | **E006** | `entity 'X' is missing required field 'F'` | A required field is absent (e.g. `constraint` without `description`, `feature` without `problem`, `persona`/`channel` without `description`, `journey` without `flow`, `term` without `definition`). | Add the required field. |
 | **E022** | `reference 'X' in field 'F' of 'Y' targets a 'A', but this field expects 'B'` | A reference points to the wrong *kind* of entity (e.g. `term.see_also` pointing at a behavior — it only accepts terms). | Point the field at an entity of the expected kind. |
 | **E024** | `unknown entity kind 'K' for entity 'X'` | You used a keyword from an extension that isn't installed. | `specforge add @specforge/<ext>`, or fix the keyword. |
-| **E007 / E015 / E016** | `<module/milestone/deliverable> dependency cycle detected involving 'X'` | A `depends_on` chain forms a cycle. | Break the cycle — `depends_on` must form a DAG. |
+| **W061** | reference cycle | A reference chain forms a cycle (A → B → A). | Break the cycle — references must form a DAG. |
 
 ---
 

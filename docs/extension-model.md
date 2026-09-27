@@ -1,6 +1,6 @@
 # SpecForge Extension Model
 
-SpecForge supports three distinct extension mechanisms — **plugins**, **providers**, and **generators** — each serving a different purpose in the ecosystem. This follows the Terraform model: a small stable core extended by composable, independently installable extensions.
+SpecForge supports three distinct extension mechanisms — **extensions**, **providers**, and **generators** — each serving a different purpose in the ecosystem. This follows the Terraform model: a small stable core extended by composable, independently installable extensions.
 
 ## Architecture
 
@@ -13,17 +13,17 @@ SpecForge supports three distinct extension mechanisms — **plugins**, **provid
 │   PLUGINS (entities) │ PROVIDERS (refs) │ GENERATORS (output)   │
 │  @specforge/product  │  @specforge/gh   │  @specforge/gen-ts    │
 │  @specforge/governance│ @specforge/jira │  @specforge/gen-py    │
-│  community plugins   │  @specforge/figma│  @specforge/gen-go    │
+│  community extensions   │  @specforge/figma│  @specforge/gen-go    │
 │                      │  community provs │  community generators │
 └──────────────────────┴──────────────────┴───────────────────────┘
 ```
 
 ## Comparison
 
-| Aspect | Plugins | Providers | Generators |
+| Aspect | Extensions | Providers | Generators |
 |--------|---------|-----------|------------|
 | **Extends** | Entity model (new block types, edges, validation) | `ref` entity (schemes, kinds, validation, URL resolution) | Output pipeline (new rendering formats) |
-| **Declared in** | `spec` root `plugins` field | `spec` root `providers` block | `spec` root `gen` block |
+| **Declared in** | `spec` root `extensions` field | `spec` root `providers` block | `spec` root `gen` block (planned) |
 | **Aliasing** | No (one instance per plugin) | Yes (multiple instances with aliases) | No (one config per language) |
 | **Multiple instances** | No | Yes (`gh "work"`, `gh "oss"`) | No |
 | **Affects graph** | Yes (adds nodes + edges) | No (only validates ref targets) | No (reads graph, produces files) |
@@ -31,7 +31,7 @@ SpecForge supports three distinct extension mechanisms — **plugins**, **provid
 
 ## Plugins
 
-Plugins extend the **entity model** — they add new block types, new edge types, and new validation rules. The two official plugins are `@specforge/product` (5 entities) and `@specforge/governance` (3 entities).
+Plugins extend the **entity model** — they add new block types, new edge types, and new validation rules. The four official extensions are `@specforge/product`, `@specforge/governance`, `@specforge/software`, and `@specforge/formal`.
 
 For full details on the plugin architecture, see [entity-model.md](entity-model.md).
 
@@ -40,7 +40,7 @@ For full details on the plugin architecture, see [entity-model.md](entity-model.
 - Plugins register entity types and their field-name mappings with the core compiler
 - Cross-plugin references use soft resolution (`I004` if plugin not installed)
 - Each plugin registers its own validation rules (only fire when installed)
-- Plugins are declared in the `spec` root `plugins` field
+- Extensions are declared in the `spec` root `extensions` field
 
 ### Declaration
 
@@ -48,7 +48,7 @@ For full details on the plugin architecture, see [entity-model.md](entity-model.
 spec "my-service" {
   version "1.0"
 
-  plugins [
+  extensions [
     "@specforge/product",
     "@specforge/governance",
   ]
@@ -60,7 +60,7 @@ spec "my-service" {
 ```bash
 specforge add @specforge/product        # install plugin
 specforge remove @specforge/governance  # remove plugin
-specforge plugins                       # list installed plugins
+specforge extensions                    # list installed extensions
 ```
 
 ## Providers
@@ -86,12 +86,12 @@ spec "my-service" {
 
   providers {
     gh "work" {
-      package "@specforge/gh"
+      extension "@specforge/gh"
       repo    "myorg/my-service"
     }
 
     jira "project" {
-      package "@specforge/jira"
+      extension "@specforge/jira"
       project "PROJ"
       server  "https://myorg.atlassian.net"
     }
@@ -101,28 +101,28 @@ spec "my-service" {
 
 ### Multiple Instances
 
-Unlike plugins, providers support multiple instances with different aliases. This is essential for projects that interact with multiple repositories or projects on the same platform:
+Unlike extensions, providers support multiple instances with different aliases. This is essential for projects that interact with multiple repositories or projects on the same platform:
 
 ```spec
 providers {
   gh "main" {
-    package "@specforge/gh"
+    extension "@specforge/gh"
     repo    "myorg/my-service"
   }
 
   gh "shared" {
-    package "@specforge/gh"
+    extension "@specforge/gh"
     repo    "myorg/shared-libs"
   }
 
   jira "backend" {
-    package "@specforge/jira"
+    extension "@specforge/jira"
     project "BACK"
     server  "https://myorg.atlassian.net"
   }
 
   jira "platform" {
-    package "@specforge/jira"
+    extension "@specforge/jira"
     project "PLAT"
     server  "https://myorg.atlassian.net"
   }
@@ -171,7 +171,7 @@ The provider model is directly inspired by Terraform providers:
 
 | Terraform | SpecForge |
 |-----------|-----------|
-| `provider "aws" { region = "us-east-1" }` | `gh "work" { package "@specforge/gh" repo "myorg/repo" }` |
+| `provider "aws" { region = "us-east-1" }` | `gh "work" { extension "@specforge/gh" repo "myorg/repo" }` |
 | Resources: `aws_instance`, `aws_s3_bucket` | Kinds: `gh.issue`, `gh.pr`, `gh.discussion` |
 | Multiple providers with aliases | Multiple providers with aliases |
 | `terraform init` downloads providers | `specforge add` installs providers |
@@ -186,7 +186,12 @@ specforge remove @specforge/figma        # remove provider
 specforge providers                      # list installed providers
 ```
 
-## Generators
+## Generators (planned — not yet implemented)
+
+> **Status:** the `gen` block and generator executables are a design
+> direction; the host compiler does not ship them yet. This section
+> documents the intended model.
+
 
 Generators extend the **output pipeline** — they read the in-memory graph and produce files in a target language or format. Official generators produce TypeScript, Python, and Go code; community generators can produce anything (OpenAPI specs, AsyncAPI docs, Terraform modules, etc.).
 
@@ -240,7 +245,7 @@ spec "healthcare-platform" {
   version "1.0"
 
   // Plugins: extend the entity model
-  plugins [
+  extensions [
     "@specforge/product",
     "@specforge/governance",
   ]
@@ -248,12 +253,12 @@ spec "healthcare-platform" {
   // Providers: extend ref validation
   providers {
     gh "main" {
-      package "@specforge/gh"
+      extension "@specforge/gh"
       repo    "healthorg/platform"
     }
 
     jira "clinical" {
-      package "@specforge/jira"
+      extension "@specforge/jira"
       project "CLIN"
       server  "https://healthorg.atlassian.net"
     }

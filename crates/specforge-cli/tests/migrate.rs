@@ -89,7 +89,7 @@ fn migrate_json_output_contains_summary_fields() {
 // A3: Unknown --target-version produces error
 #[specforge_test(
     behavior = "migrate_spec_files_in_place",
-    verify = "unsupported format version produces E014 with upgrade guidance"
+    verify = "unsupported format version produces E019 with upgrade guidance"
 )]
 #[test]
 fn migrate_unknown_target_version_produces_error() {
@@ -112,7 +112,7 @@ fn migrate_unknown_target_version_produces_error() {
         ])
         .assert()
         .code(1)
-        .stderr(predicate::str::contains("E015"));
+        .stderr(predicate::str::contains("E019"));
 }
 
 // ===================================================================
@@ -176,10 +176,10 @@ fn missing_version_header_defaults_to_current() {
         .unwrap();
 }
 
-// B3: Unsupported version in header → E015
+// B3: Unsupported version in header → E019
 #[specforge_test(
     behavior = "detect_format_version_mismatch",
-    verify = "unsupported format version produces E014 with upgrade guidance"
+    verify = "unsupported format version produces E019 with upgrade guidance"
 )]
 #[test]
 fn unsupported_version_in_header() {
@@ -1117,7 +1117,7 @@ fn header_comment_detected_correctly() {
 
 #[specforge_test(
     behavior = "detect_format_version_mismatch",
-    verify = "unsupported format version produces E014 with upgrade guidance"
+    verify = "unsupported format version produces E019 with upgrade guidance"
 )]
 #[test]
 fn unsupported_format_version_produces_e015() {
@@ -1128,8 +1128,8 @@ fn unsupported_format_version_produces_e015() {
     assert!(
         diags
             .iter()
-            .any(|d| d.code == "E015" && d.suggestion.is_some()),
-        "unsupported version should emit E015 with suggestion: {diags:?}"
+            .any(|d| d.code == "E019" && d.suggestion.is_some()),
+        "unsupported version should emit E019 with suggestion: {diags:?}"
     );
 }
 

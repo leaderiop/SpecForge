@@ -111,7 +111,7 @@ Learn to write `.spec` files:
 
 ## Quick Reference
 
-See **[quick-reference.md](quick-reference.md)** for a single-page cheat sheet covering all 16 entities, 20 edge types, and 27 validation codes.
+See **[quick-reference.md](quick-reference.md)** for a single-page cheat sheet covering every entity kind, edge type, and validation code.
 
 ## AI Agent Token Economics
 

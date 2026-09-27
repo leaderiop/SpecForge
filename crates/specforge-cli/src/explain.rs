@@ -67,15 +67,15 @@ fn lookup(code: &str) -> Option<(&'static str, &'static str)> {
             "Invalid event direction",
             "An event's direction must be 'inbound', 'outbound', or 'internal'.",
         ),
-        "E015" => (
-            "Invalid interaction model",
-            "A channel's interaction_model is not recognized.\n\
-             Valid models are defined by the @specforge/product extension.",
-        ),
         "E016" => (
-            "Invalid technical level",
-            "A persona's technical_level is not recognized.\n\
-             Valid levels are defined by the @specforge/product extension.",
+            "Referenced file does not exist",
+            "A file reference (e.g. `sources`, `test_files`) points to a path that \
+             does not exist in the project. Check the path relative to the spec root.",
+        ),
+        "E019" => (
+            "Unsupported format version",
+            "The `.spec` file declares a format version this compiler does not \
+             understand. Run `specforge migrate` to upgrade the project.",
         ),
         "E022" => (
             "Mistyped reference",

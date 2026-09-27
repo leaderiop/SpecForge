@@ -47,7 +47,7 @@ All fields are optional at the type level. The compiler emits warnings and info 
 | `status` | MilestoneStatus | Current phase status: `planned`, `in_progress`, `completed`, `blocked`. Validated by W080. |
 | `features` | EntityId[] | Features scheduled for this phase. Creates `MilestoneFeature` edges. |
 | `modules` | EntityId[] | Modules included in this phase. Creates `MilestoneModule` edges. |
-| `depends_on` | EntityId[] | Other milestones that must complete before this phase can start. Creates `MilestoneDependsOn` edges. Cycles detected by E015. |
+| `depends_on` | EntityId[] | Other milestones that must complete before this phase can start. Creates `MilestoneDependsOn` edges. Reference cycles are reported as `W061`. |
 | `exit_criteria` | string[] | Exit criteria that must be satisfied before the phase is considered complete. Completed milestones without criteria emit W057. |
 | `target_date` | string | Target completion date in ISO 8601 format (`YYYY-MM-DD`, e.g., `2026-06-30`). Validated by regex `^\d{4}-\d{2}-\d{2}$`. Non-conforming formats emit I053. |
 | `priority` | Priority | Importance level: `critical`, `high`, `medium`, `low`. |
@@ -79,7 +79,6 @@ All fields are optional at the type level. The compiler emits warnings and info 
 
 | Code | Level | Rule |
 |------|-------|------|
-| E015 | error | Circular milestone dependency — `depends_on` edges between milestones form a cycle. |
 | W049 | warning | Empty milestone — no features AND no modules. |
 | W057 | warning | Completed milestone without exit criteria. |
 | W080 | warning | Invalid `status` value (not in MilestoneStatus enum). |

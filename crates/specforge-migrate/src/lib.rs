@@ -138,7 +138,7 @@ pub fn detect_format_version(content: &str) -> (FormatVersion, Vec<Diagnostic>) 
             Ok(v) => {
                 if v > MAX_SUPPORTED_VERSION {
                     diagnostics.push(Diagnostic {
-                        code: "E015".to_string(),
+                        code: "E019".to_string(),
                         severity: Severity::Error,
                         message: format!(
                             "unsupported format version {v} (max supported: {MAX_SUPPORTED_VERSION})"
@@ -163,7 +163,7 @@ pub fn detect_format_version(content: &str) -> (FormatVersion, Vec<Diagnostic>) 
             }
             Err(_) => {
                 diagnostics.push(Diagnostic {
-                    code: "E015".to_string(),
+                    code: "E019".to_string(),
                     severity: Severity::Error,
                     message: format!(
                         "invalid format version header: '{version_str}'"

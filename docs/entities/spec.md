@@ -18,7 +18,7 @@ Singleton — no ID. There is exactly one `spec` block per project.
 spec "my-service" {
   version "1.0"
 
-  plugins [
+  extensions [
     "@specforge/product",
     "@specforge/governance",
   ]
@@ -64,7 +64,7 @@ spec "my-service" {
 |-------|------|-------------|
 | `namespace` | string | Optional namespace for cross-project references (e.g., `"@auth-service"`). |
 | `display_prefix` | string | Optional prefix for human-readable reports (e.g., `"MS"`). Does not affect entity IDs. |
-| `plugins` | string list | Installed plugin packages (e.g., `"@specforge/product"`, `"@specforge/governance"`). |
+| `extensions` | string list | Installed extension packages (e.g., `"@specforge/product"`, `"@specforge/governance"`). |
 | `providers` | block | Provider configurations for external platform integrations. See [extension-model.md](../extension-model.md). |
 | `test_dirs` | string list | Glob patterns for directories containing test files. Used by coverage scanning. |
 | `persona` | sub-block(s) | Persona definitions. Validates that every `persona` in a `journey` block matches a defined persona. |
@@ -104,16 +104,16 @@ Surface definitions validate that every `surface` referenced in a `journey` bloc
 
 ### Define Sub-Block (meta-schema)
 
-The `define` mechanism allows user-defined entity types beyond the 16 core types. User-defined types get attribute validation, reference resolution, orphan detection, and LSP support. They do NOT get custom graph-level validators (those require the plugin API).
+The `define` mechanism allows user-defined entity types beyond the core set. User-defined types get attribute validation, reference resolution, orphan detection, and LSP support. They do NOT get custom graph-level validators (those require the plugin API).
 
 | Field | Type | Description |
 |-------|------|-------------|
 | `name` | identifier | The new entity type name (the keyword after `define`). |
 | `attributes` | block | Attribute definitions with types: `string`, `enum [...]`, `ref? <entity_type>`. |
 
-### Plugins Field
+### Extensions Field
 
-The `plugins` field is a string list of installed plugin packages:
+The `extensions` field is a string list of installed extension packages:
 
 ```spec
 plugins [
@@ -276,7 +276,7 @@ spec "healthcare-platform" {
   namespace      "@healthcare"
   display_prefix "HP"
 
-  plugins [
+  extensions [
     "@specforge/product",
     "@specforge/governance",
   ]

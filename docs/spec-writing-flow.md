@@ -30,19 +30,18 @@ Cross-cutting: `ref` — attach external references at any phase.
 > *"What is this project? What do we call things?"*
 
 ### Entities
-- **`spec`** — project identity, plugins, providers, personas, surfaces
+- **`spec`** — project identity, extensions, providers, personas, surfaces
 - **`term`** — ubiquitous language definitions for the team
 
 ### Key questions
-1. What is the project name and ID infix?
-2. Which plugins do we need? (`@specforge/product`, `@specforge/governance`)
-3. Which external providers? (`@specforge/gh`, `@specforge/jira`, `@specforge/figma`)
+1. What is the project name and version?
+2. Which extensions do we need? (`@specforge/product`, `@specforge/governance`, `@specforge/software`, `@specforge/formal`)
 4. Who are the personas? (e.g., `developer`, `admin`, `end-user`)
 5. What surfaces do they interact with? (e.g., `web`, `cli`, `api`, `mobile`)
 6. What are the core domain terms the team must agree on?
 
 ### Checkpoint
-- [ ] `spec` block compiles with name, infix, version, plugins
+- [ ] `spec` block compiles with name, version, extensions
 - [ ] Term entities cover every domain term the team uses differently than plain English
 - [ ] Personas and surfaces are declared — journeys will reference them
 
@@ -53,7 +52,7 @@ Cross-cutting: `ref` — attach external references at any phase.
 > *"What artifacts leave our hands and reach users?"*
 
 ### Entity
-- **`deliverable`** (`DLV-{infix}-{n}`) — apps, services, CLIs, browser extensions, libraries
+- **`deliverable`** (author-chosen identifier) — apps, services, CLIs, browser extensions, libraries
 
 ### Key questions
 1. What are the distinct shippable artifacts?
@@ -104,7 +103,7 @@ Cross-cutting: `ref` — attach external references at any phase.
 
 ### Entities
 - **`feature`** (`identifier`) — a user-facing value unit composed of behaviors
-- **`behavior`** (`BEH-{infix}-{n}`) — atomic system contract
+- **`behavior`** (author-chosen identifier) — atomic system contract
 - **`type`** — domain data shapes (structs, unions, enums)
 
 ### Key questions — Features
@@ -142,7 +141,7 @@ Cross-cutting: `ref` — attach external references at any phase.
 > *"How do components talk to each other? What events flow through the system?"*
 
 ### Entities
-- **`event`** (`EVT-{infix}-{n}`) — domain events announced by the system
+- **`event`** (author-chosen identifier) — domain events announced by the system
 - **`port`** — interface contracts between components
 
 ### Key questions — Events
@@ -175,7 +174,7 @@ Cross-cutting: `ref` — attach external references at any phase.
 > *"What must ALWAYS be true, no matter what?"*
 
 ### Entity
-- **`invariant`** (`INV-{infix}-{n}`) — runtime guarantees
+- **`invariant`** (author-chosen identifier) — runtime guarantees
 
 ### Key questions
 1. What must never be violated? (data integrity, security, consistency)
@@ -230,8 +229,8 @@ Cross-cutting: `ref` — attach external references at any phase.
 
 ### Entities
 - **`decision`** (`ADR-{n}`) — architectural decision records
-- **`constraint`** (`CON-{infix}-{n}`) — non-functional requirements
-- **`failure_mode`** (`FM-{infix}-{n}`) — FMEA risk analysis
+- **`constraint`** (author-chosen identifier) — non-functional requirements
+- **`failure_mode`** (author-chosen identifier) — FMEA risk analysis
 - **`milestone`** (`identifier`) — delivery timeline phases
 
 ### Key questions — Decisions

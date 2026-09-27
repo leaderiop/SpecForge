@@ -543,7 +543,7 @@ deliverable todo_cli "todo CLI" {
 ```
 
 > 💡 `depends_on` lists on `module`, `milestone`, `deliverable`, and `release` are
-> **DAG-validated** — a cycle is an error (`E007`/`E015`/`E016`).
+> **DAG-validated** — a reference cycle is reported as `W061`.
 
 ### term
 

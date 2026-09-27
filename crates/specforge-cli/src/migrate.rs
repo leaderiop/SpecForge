@@ -35,7 +35,7 @@ pub fn run(
             Ok(ver) => {
                 if ver > MAX_SUPPORTED_VERSION {
                     eprintln!(
-                        "E015: unsupported target version {ver} (max supported: {MAX_SUPPORTED_VERSION})"
+                        "E019: unsupported target version {ver} (max supported: {MAX_SUPPORTED_VERSION})"
                     );
                     return 1;
                 }

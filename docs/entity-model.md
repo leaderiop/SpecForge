@@ -295,7 +295,7 @@ Explicit titles override: `behavior auth_login "Login with Credentials" { ... }`
 
 ### Reserved Words
 
-All entity keywords from installed extensions are reserved identifiers. Using a reserved word as an entity name produces `E013`. The structural keywords `spec` and `ref` are always reserved. Extension-declared keywords (`behavior`, `invariant`, etc.) are reserved when the extension is installed.
+The structural keywords `spec` and `ref` cannot be used as entity names — the parser treats them as block introducers, so an attempt to declare an entity with one of these names fails with a syntax error (`E001`). Reserving extension-declared keywords as identifiers is planned but not yet enforced; no `E013` diagnostic is produced today.
 
 ### Unicode
 
@@ -427,8 +427,6 @@ The compiler enforces structural invariants. Each rule belongs to the extension 
 | E003 | **No dangling references** — every ID in a reference list must resolve to a declared entity (soft for cross-extension references) |
 | E011 | **Invalid ref target format** — provider validates identifier doesn't match expected pattern |
 | E012 | **Unknown provider kind** — ref uses kind not registered by its provider |
-| E013 | **Reserved word used as identifier** — entity name is a reserved keyword |
-| E014 | **Invalid identifier characters** — identifier contains forbidden characters |
 
 ### @specforge/software Errors
 
@@ -453,18 +451,28 @@ The compiler enforces structural invariants. Each rule belongs to the extension 
 | W009 | **Invalid verify kind** — verify kind not in allowed set for entity kind |
 | W010 | **Unknown field annotation** — unknown annotation on type field |
 
+### Extension Host Errors
+
+Emitted by the compiler and extension host while loading and managing
+extensions themselves (not by guest passes).
+
+| Code | Rule |
+|------|------|
+| E030 | **Invalid extension manifest** — manifest JSON is unreadable, fails schema validation, or violates the sandbox policy |
+| E031 | **Extension protocol or dependency error** — extension dependency cycle, or extension protocol loading failed |
+| E032 | **Extension install failed** — an install operation could not complete |
+| E033 | **Lock-file error** — lock file is missing an entry, is inconsistent, or fails verification |
+| E034 | **Provider scheme conflict** — two extensions register the same URI scheme |
+| E019 | **Unsupported format version** — a `.spec` file declares a format version this compiler does not understand (run `specforge migrate`) |
+| E016 | **Referenced file does not exist** — a file reference points to a missing path |
+
 ### @specforge/formal Errors (requires warning_level=strict)
 
 | Code | Rule |
 |------|------|
-| E030 | **Contradictory precondition** — structurally contradictory precondition (X/not_X, tautological false) |
-| E031 | **Layering condition mismatch** — named-condition set violation in layering |
-| E032 | **Layering cycle** — cycle in specification layering DAG |
-| E034 | **Unmitigated cycle** — circular dependency without sync.timeout, @idempotent, or circuit_breaker |
-| E035 | **Payload type mismatch** — producer/consumer disagree on event payload type |
 | E041 | **Refinement chain cycle** — cycle in RefinementChainLink DAG |
-| E042 | **Process composition cycle** — cycle in ProcessComposition DAG |
 | E046 | **Constraint bounds unsatisfiable** — the metric bounds contradict each other (SMT-verified) |
+| E047 | **Formal claim not entailed** — declared bounds do not guarantee the claim (counterexample reported) |
 
 ### @specforge/formal Warnings (requires warning_level=strict)
 
@@ -516,7 +524,6 @@ The compiler enforces structural invariants. Each rule belongs to the extension 
 | E007 | **Circular module dependency** — `depends_on` edges between modules form a cycle |
 | E008 | **Persona not defined** — journey's `persona` doesn't match any persona defined in the project |
 | E009 | **Channel not defined** — journey's `channel` doesn't match any channel defined in the project |
-| E015 | **Circular milestone dependency** — `depends_on` edges between milestones form a cycle |
 
 ### @specforge/product Warnings
 

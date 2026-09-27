@@ -1,6 +1,6 @@
 # Quick Reference
 
-Single-page lookup for all 16 SpecForge entities, 20 edge types, and 27 validation codes. For full details, see the [entity model](entity-model.md) or individual [entity docs](entities/).
+Single-page lookup for every entity kind, edge type, and validation code (provided by the four builtin extensions). For full details, see the [entity model](entity-model.md) or individual [entity docs](entities/).
 
 ---
 
@@ -11,14 +11,14 @@ Single-page lookup for all 16 SpecForge entities, 20 edge types, and 27 validati
 
 | Required | Optional |
 |----------|----------|
-| name, infix, version | plugins, providers, test_dirs, persona, surface, define, coverage, gen |
+| name, version, extensions | providers, test_dirs, persona, surface, define, coverage, gen |
 
-No graph edges. Root configuration that scopes all entity IDs via the `infix` field.
+No graph edges. Root configuration declaring which extensions the project uses.
 
 ---
 
 ### invariant
-> Module: core | ID: `INV-{infix}-{n}` | "What must ALWAYS be true?"
+> Module: core | ID: author-chosen identifier | "What must ALWAYS be true?"
 
 | Required | Optional |
 |----------|----------|
@@ -30,7 +30,7 @@ Incoming: behavior (`references`), decision (`protects`), constraint (`constrain
 ---
 
 ### behavior
-> Module: core | ID: `BEH-{infix}-{n}` | "What exactly does the system do?"
+> Module: core | ID: author-chosen identifier | "What exactly does the system do?"
 
 | Required | Optional |
 |----------|----------|
@@ -42,7 +42,7 @@ Incoming: feature (`implements`), event (`consumes`), constraint (`constrains`)
 ---
 
 ### feature
-> Module: core | ID: `FEAT-{infix}-{n}` | "What value does this deliver?"
+> Module: core | ID: author-chosen identifier | "What value does this deliver?"
 
 | Required | Optional |
 |----------|----------|
@@ -54,7 +54,7 @@ Incoming: capability (`traces_to`), library (`provides`), roadmap (`schedules`)
 ---
 
 ### event
-> Module: core | ID: `EVT-{infix}-{n}` | "What does the system announce?"
+> Module: core | ID: author-chosen identifier | "What does the system announce?"
 
 | Required | Optional |
 |----------|----------|
@@ -114,7 +114,7 @@ Incoming: deliverable (`bundles`)
 ---
 
 ### deliverable
-> Module: @specforge/product | ID: `DLV-{infix}-{n}` | "What ships to users?"
+> Module: @specforge/product | ID: author-chosen identifier | "What ships to users?"
 
 | Required | Optional |
 |----------|----------|
@@ -173,7 +173,7 @@ Incoming: behavior (`shaped_by`)
 ---
 
 ### constraint
-> Module: @specforge/governance | ID: `CON-{infix}-{n}` | "What quality must the system achieve?"
+> Module: @specforge/governance | ID: author-chosen identifier | "What quality must the system achieve?"
 
 | Required | Optional |
 |----------|----------|
@@ -185,7 +185,7 @@ No incoming edges.
 ---
 
 ### failure_mode
-> Module: @specforge/governance | ID: `FM-{infix}-{n}` | "What can go wrong and how bad is it?"
+> Module: @specforge/governance | ID: author-chosen identifier | "What can go wrong and how bad is it?"
 
 | Required | Optional |
 |----------|----------|
