@@ -1,6 +1,6 @@
 # WASM-Only Migration Plan — C7-11 / R-1 Consolidation
 
-**Status:** approved direction (KEEP_WASM, 110/125 personas) · execution plan
+**Status: EXECUTED — complete.** Phases 0–8 implemented on `main` between `4616c4d` and the final verification commit. Verdict in `decision.md` carries the completion note.
 **Created:** 2026-09-27 · tree at `0557cbb`
 **Goal:** every extension executes exclusively through the Wasm runtime (Extism/Wasmtime); the native execution tier is deleted.
 
