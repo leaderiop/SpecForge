@@ -43,3 +43,4 @@ tempfile = { workspace = true }
 specforge-test = { workspace = true }
 specforge-test-macros = { workspace = true }
 specforge-migrate = { workspace = true }
+specforge-extism = { path = "../specforge-extism" }

@@ -3,7 +3,6 @@ use std::path::Path;
 
 use specforge_common::SourceItem;
 use specforge_registry::ManifestV2;
-use specforge_wasm::builtin::BuiltinRuntime;
 use specforge_wasm::protocol::{ScanRequest, ScanResponse};
 use specforge_wasm::runtime::WasmRuntime;
 
@@ -13,7 +12,7 @@ struct ScannerEntry {
 }
 
 pub fn scan_source_files(
-    runtime: &BuiltinRuntime,
+    runtime: &dyn WasmRuntime,
     manifests: &[ManifestV2],
     project_root: &Path,
     source_files: &[String],

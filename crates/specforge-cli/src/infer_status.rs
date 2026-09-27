@@ -20,7 +20,7 @@ pub fn run(
         }
     };
 
-    let ctx = crate::pipeline::compile(path);
+    let (ctx, runtime) = crate::pipeline::compile_with_runtime(path);
     let analyzer_configs: Vec<AnalyzerConfig> = ctx
         .manifests
         .iter()
@@ -125,8 +125,6 @@ pub fn run(
                     .map(|n| n.id.raw.as_str())
                     .collect();
 
-                let ext_names: Vec<String> = ctx.manifests.iter().map(|m| m.name.clone()).collect();
-                let runtime = specforge_emitter::builtins::runtime_for_extensions(&ext_names);
                 let (all_items, scanners_used) = scanner_dispatch::scan_source_files(
                     &runtime,
                     &ctx.manifests,

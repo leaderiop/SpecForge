@@ -44,13 +44,10 @@ pub struct CompilationContext {
 /// (CLI, MCP, LSP) should call this to get consistent results.
 ///
 /// Only extensions listed in `specforge.json` are loaded — no implicit builtins.
-pub fn compile(path: &Path) -> CompilationContext {
-    let config = load_project_config(path);
-    let runtime = crate::builtins::runtime_for_extensions(&config.extensions);
-    compile_with_runtime(path, Some(&runtime))
-}
-
-/// Run the full compilation pipeline with an optional Wasm runtime.
+///
+/// The caller supplies the runtime: CLI/LSP/MCP construct it through
+/// `specforge_extism::project_runtime` so every surface executes extensions
+/// through the same Wasm engine (WASM-only migration, Phase 3).
 ///
 /// When `runtime` is `Some`, extensions are loaded via the protocol
 /// (`__handshake` / `__describe`). When `None`, no extensions are loaded.

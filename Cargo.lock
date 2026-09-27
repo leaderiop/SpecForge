@@ -3303,6 +3303,7 @@ dependencies = [
  "serde_json",
  "specforge-common",
  "specforge-emitter",
+ "specforge-extism",
  "specforge-graph",
  "specforge-parser",
  "specforge-registry",

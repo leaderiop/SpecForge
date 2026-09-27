@@ -1,6 +1,12 @@
 use std::fs;
 use tempfile::TempDir;
 
+/// Compile through the real Wasm runtime (post-migration equivalent of the
+/// removed `specforge_emitter::compile` convenience).
+fn compile(dir: &TempDir) -> specforge_emitter::CompilationContext {
+    let runtime = specforge_extism::project_runtime(dir.path());
+    specforge_emitter::compile::compile_with_runtime(dir.path(), Some(&runtime))
+}
 fn setup_project_with_extension(spec_content: &str) -> TempDir {
     let dir = TempDir::new().unwrap();
 
@@ -39,7 +45,7 @@ fn test_pipeline_with_product_extension_recognizes_feature() {
 }"#,
     );
 
-    let ctx = specforge_emitter::compile::compile(dir.path());
+    let ctx = compile(&dir);
 
     // Should NOT have I004 warnings about unrecognized keyword
     let i004_diags: Vec<_> = ctx
@@ -66,7 +72,7 @@ fn test_pipeline_with_product_extension_runs_validation() {
 }"#,
     );
 
-    let ctx = specforge_emitter::compile::compile(dir.path());
+    let ctx = compile(&dir);
 
     // Should have W077 for invalid feature status
     let w077_diags: Vec<_> = ctx
@@ -89,7 +95,7 @@ fn test_pipeline_with_product_extension_validates_priority() {
 }"#,
     );
 
-    let ctx = specforge_emitter::compile::compile(dir.path());
+    let ctx = compile(&dir);
 
     // W078 should fire for invalid priority
     let w078_diags: Vec<_> = ctx
@@ -113,7 +119,7 @@ fn test_pipeline_with_product_extension_detects_orphans() {
 }"#,
     );
 
-    let ctx = specforge_emitter::compile::compile(dir.path());
+    let ctx = compile(&dir);
 
     // W041 should fire for orphan feature (no incoming edges)
     let w041_diags: Vec<_> = ctx
@@ -136,7 +142,7 @@ fn test_pipeline_without_extension_no_extension_validation() {
 }"#,
     );
 
-    let ctx = specforge_emitter::compile::compile(dir.path());
+    let ctx = compile(&dir);
 
     // No W077/W041 since no extension is loaded to provide those rules
     let extension_diags: Vec<_> = ctx
@@ -180,7 +186,7 @@ module mod1 "Module One" {
 "#,
     );
 
-    let ctx = specforge_emitter::compile::compile(dir.path());
+    let ctx = compile(&dir);
 
     // All 3 entities should be in the graph
     assert!(ctx.graph.node("f1").is_some());
@@ -208,7 +214,7 @@ module mod1 "Module One" {
 fn test_pipeline_registries_populated() {
     let dir = setup_project_with_extension(r#"feature f1 "Test" { status proposed }"#);
 
-    let ctx = specforge_emitter::compile::compile(dir.path());
+    let ctx = compile(&dir);
 
     // Kind registry should have all 9 product entity kinds
     assert!(ctx.kind_registry.contains("feature"));
@@ -273,7 +279,7 @@ term spec "Specification" {
 "#,
     );
 
-    let ctx = specforge_emitter::compile::compile(dir.path());
+    let ctx = compile(&dir);
 
     let errors: Vec<_> = ctx
         .diagnostics
@@ -300,7 +306,7 @@ module mod_b "Module B" {
 "#,
     );
 
-    let ctx = specforge_emitter::compile::compile(dir.path());
+    let ctx = compile(&dir);
 
     let e007_diags: Vec<_> = ctx
         .diagnostics
@@ -329,7 +335,7 @@ module mod_c "Module C" {
 "#,
     );
 
-    let ctx = specforge_emitter::compile::compile(dir.path());
+    let ctx = compile(&dir);
 
     let cycle_diags: Vec<_> = ctx
         .diagnostics
@@ -360,7 +366,7 @@ feature f2 "Feature 2" {
 "#,
     );
 
-    let ctx = specforge_emitter::compile::compile(dir.path());
+    let ctx = compile(&dir);
 
     let w045_diags: Vec<_> = ctx
         .diagnostics
@@ -383,7 +389,7 @@ fn test_pipeline_conditional_deferred_feature_without_reason() {
 }"#,
     );
 
-    let ctx = specforge_emitter::compile::compile(dir.path());
+    let ctx = compile(&dir);
 
     let i059_diags: Vec<_> = ctx
         .diagnostics
@@ -407,7 +413,7 @@ fn test_pipeline_conditional_deferred_feature_with_reason_no_warning() {
 }"#,
     );
 
-    let ctx = specforge_emitter::compile::compile(dir.path());
+    let ctx = compile(&dir);
 
     let i059_diags: Vec<_> = ctx
         .diagnostics
@@ -435,7 +441,7 @@ milestone m1 "Done Milestone" {
 }"#,
     );
 
-    let ctx = specforge_emitter::compile::compile(dir.path());
+    let ctx = compile(&dir);
 
     let w057_diags: Vec<_> = ctx
         .diagnostics
@@ -462,7 +468,7 @@ journey broken_journey "Missing flow" {
 "#,
     );
 
-    let ctx = specforge_emitter::compile::compile(dir.path());
+    let ctx = compile(&dir);
 
     let e006_diags: Vec<_> = ctx
         .diagnostics
@@ -498,7 +504,7 @@ journey j1 "Complete" {
 "#,
     );
 
-    let ctx = specforge_emitter::compile::compile(dir.path());
+    let ctx = compile(&dir);
 
     let e006_diags: Vec<_> = ctx
         .diagnostics

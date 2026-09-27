@@ -74,13 +74,24 @@ impl ExtismRuntime {
         }
         let config_path = dir.join("config.toml");
         let config = format!("[cache]\ndirectory = \"{}\"\n", dir.to_string_lossy());
-        if let Err(e) = std::fs::write(&config_path, config) {
-            eprintln!(
-                "warning: wasm compile cache disabled ({}: {})",
-                config_path.display(),
-                e
-            );
-            return self;
+        // Idempotent + atomic: concurrent processes (e.g. parallel test
+        // binaries) must never observe a partially written config, and
+        // rewriting an unchanged file races with concurrent readers.
+        match std::fs::read_to_string(&config_path) {
+            Ok(existing) if existing == config => {}
+            _ => {
+                let tmp = dir.join("config.toml.tmp");
+                if let Err(e) =
+                    std::fs::write(&tmp, &config).and_then(|()| std::fs::rename(&tmp, &config_path))
+                {
+                    eprintln!(
+                        "warning: wasm compile cache disabled ({}: {})",
+                        config_path.display(),
+                        e
+                    );
+                    return self;
+                }
+            }
         }
         self.compile_cache_dir = Some(config_path);
         self

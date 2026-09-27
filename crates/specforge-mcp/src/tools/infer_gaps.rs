@@ -55,8 +55,7 @@ pub fn call(state: &McpState, _args: Value, id: Option<Value>) -> JsonRpcRespons
     let source_files =
         inference::discover_source_files(&project_root, &manifest.source_roots, &discovery_config);
 
-    let ext_names: Vec<String> = state.manifests.iter().map(|m| m.name.clone()).collect();
-    let runtime = specforge_emitter::builtins::runtime_for_extensions(&ext_names);
+    let runtime = specforge_extism::project_runtime(&project_root);
     let (all_items, scanners_used) = scanner_dispatch::scan_source_files(
         &runtime,
         &state.manifests,

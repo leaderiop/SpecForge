@@ -21,10 +21,12 @@ pub struct CompileResult {
 
 /// Compile a project using the full shared pipeline.
 ///
-/// This delegates to `specforge_emitter::compile()` so MCP gets
-/// identical results to `specforge check` and `specforge export`.
+/// This delegates to `specforge_emitter::compile_with_runtime` over the
+/// shared `project_runtime` (real Wasm blobs) so MCP gets identical
+/// results to `specforge check` and `specforge export`.
 pub fn compile_project(project_root: &Path) -> CompileResult {
-    let ctx = specforge_emitter::compile(project_root);
+    let runtime = specforge_extism::project_runtime(project_root);
+    let ctx = specforge_emitter::compile::compile_with_runtime(project_root, Some(&runtime));
     from_ctx(ctx)
 }
 

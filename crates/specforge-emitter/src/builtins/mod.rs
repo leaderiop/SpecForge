@@ -26,8 +26,12 @@ pub const KNOWN_BUILTINS: &[&str] = &[
 
 /// Create a `BuiltinRuntime` containing only the requested extensions.
 ///
-/// Extension names not recognized as builtins are silently skipped (they may
-/// be external Wasm extensions loaded separately).
+/// MIGRATION ORACLE — `#[doc(hidden)]`, retained solely for the Phase 0
+/// parity harness (`crates/specforge-extism/tests/parity.rs`) until the
+/// native tier is deleted in Phase 7 of `.plugin/migration-plan.md`.
+/// Production code must not call this: all surfaces build runtimes via
+/// `specforge_extism::project_runtime`.
+#[doc(hidden)]
 pub fn runtime_for_extensions(names: &[String]) -> BuiltinRuntime {
     let mut runtime = BuiltinRuntime::new();
     for name in names {
