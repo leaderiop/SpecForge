@@ -5,10 +5,6 @@ version = "0.1.0"
 publish = false
 
 [[bin]]
-name = "extract-extension-json"
-path = "src/extract_extension_json.rs"
-
-[[bin]]
 name = "build-builtins"
 path = "src/build_builtins.rs"
 

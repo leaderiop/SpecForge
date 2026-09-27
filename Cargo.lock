@@ -3192,6 +3192,7 @@ dependencies = [
  "serde_json",
  "sha2",
  "specforge-common",
+ "specforge-extism",
  "specforge-graph",
  "specforge-parser",
  "specforge-protocol-types",

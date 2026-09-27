@@ -569,7 +569,8 @@ pub struct FeatureFlagDescriptor {
 
 /// Context handed to a `validate__*` wasm export for one entity. The host
 /// precomputes everything the native custom-rule walks touch
-/// (`NativeCustomRules`), so a guest validator is a pure function of this
+/// the host-side custom-rule walker it replaced, so a guest validator is a
+/// pure function of this
 /// value: reference resolutions replace graph lookups, declared types and
 /// primitives replace registry access.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]

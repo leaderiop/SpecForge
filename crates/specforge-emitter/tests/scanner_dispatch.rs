@@ -1,11 +1,24 @@
-use specforge_emitter::builtins::{self, RustExtension};
 use specforge_emitter::scanner_dispatch;
+use specforge_extism::ExtismRuntime;
 use specforge_registry::{AnalyzerContribution, ExtensionContributions, ManifestV2};
-use specforge_wasm::builtin::BuiltinRuntime;
 use tempfile::TempDir;
 
-fn rust_only_runtime() -> BuiltinRuntime {
-    BuiltinRuntime::new().with_extension("@specforge/rust", Box::new(RustExtension))
+/// Build a Wasm runtime for a temp project listing `ext_names` — the only
+/// way extensions exist now (WASM-only migration, Phase 7: the native
+/// mirror tier is gone).
+fn wasm_runtime_for(ext_names: &[&str]) -> specforge_extism::ExtismRuntime {
+    let dir = tempfile::TempDir::new().unwrap();
+    let config = serde_json::json!({
+        "name": "test-project",
+        "version": "0.1.0",
+        "extensions": ext_names,
+    });
+    std::fs::write(dir.path().join("specforge.json"), config.to_string()).unwrap();
+    specforge_extism::project_runtime(dir.path())
+}
+
+fn rust_only_runtime() -> ExtismRuntime {
+    wasm_runtime_for(&["@specforge/rust"])
 }
 
 fn rust_manifest() -> ManifestV2 {
@@ -120,7 +133,7 @@ fn default_runtime_scans_rust_files() {
     )
     .unwrap();
 
-    let runtime = builtins::runtime_for_extensions(&["@specforge/rust".into()]);
+    let runtime = wasm_runtime_for(&["@specforge/rust"]);
     let manifests = vec![rust_manifest()];
     let source_files = vec!["main.rs".into()];
 
@@ -188,10 +201,7 @@ fn multi_scanner_mixed_project() {
     std::fs::write(dir.path().join("utils.js"), "export const MAX = 10;").unwrap();
     std::fs::write(dir.path().join("readme.md"), "# Hello").unwrap();
 
-    let runtime = builtins::runtime_for_extensions(&[
-        "@specforge/rust".into(),
-        "@specforge/typescript".into(),
-    ]);
+    let runtime = wasm_runtime_for(&["@specforge/rust", "@specforge/typescript"]);
     let manifests = vec![rust_manifest(), typescript_manifest()];
     let source_files = vec![
         "lib.rs".into(),

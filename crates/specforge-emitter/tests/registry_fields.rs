@@ -1,12 +1,10 @@
-use specforge_emitter::builtins;
-
 #[test]
 fn software_tests_field_is_registered() {
     let exts = vec![
         "@specforge/software".to_string(),
         "@specforge/formal".to_string(),
     ];
-    let runtime = builtins::runtime_for_extensions(&exts);
+    let runtime = wasm_runtime_for(&exts);
     let mut diags = Vec::new();
     let manifests = specforge_emitter::compile::load_extensions(&exts, &runtime, &mut diags);
     let (_kind_reg, field_reg, _edge, _d) = specforge_registry::populate_registries(&manifests);
@@ -36,4 +34,16 @@ fn software_tests_field_is_registered() {
         b.fields.iter().map(|f| f.name.clone()).collect::<Vec<_>>()
     );
     assert!(field_reg.contains("behavior", "tests"));
+}
+
+/// Build a Wasm runtime for a temp project listing `ext_names`.
+fn wasm_runtime_for(ext_names: &[String]) -> specforge_extism::ExtismRuntime {
+    let dir = tempfile::TempDir::new().unwrap();
+    let config = serde_json::json!({
+        "name": "test-project",
+        "version": "0.1.0",
+        "extensions": ext_names,
+    });
+    std::fs::write(dir.path().join("specforge.json"), config.to_string()).unwrap();
+    specforge_extism::project_runtime(dir.path())
 }

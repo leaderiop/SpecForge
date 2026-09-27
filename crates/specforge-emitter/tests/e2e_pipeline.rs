@@ -6,6 +6,18 @@ use specforge_test::prelude::*;
 use std::fs;
 use tempfile::TempDir;
 
+/// Build a Wasm runtime for a temp project listing `ext_names`.
+fn wasm_runtime_for(ext_names: &[&str]) -> specforge_extism::ExtismRuntime {
+    let dir = tempfile::TempDir::new().unwrap();
+    let config = serde_json::json!({
+        "name": "test-project",
+        "version": "0.1.0",
+        "extensions": ext_names,
+    });
+    std::fs::write(dir.path().join("specforge.json"), config.to_string()).unwrap();
+    specforge_extism::project_runtime(dir.path())
+}
+
 /// Helper: write spec files to a temp dir and run the simple compilation pipeline.
 fn compile_specs(files: &[(&str, &str)]) -> specforge_emitter::compile::CompilationContext {
     let dir = TempDir::new().unwrap();
@@ -44,9 +56,7 @@ fn compile_with_builtins(
         }
         fs::write(&path, content).unwrap();
     }
-    let runtime = specforge_emitter::builtins::runtime_for_extensions(
-        &extensions.iter().map(|s| s.to_string()).collect::<Vec<_>>(),
-    );
+    let runtime = wasm_runtime_for(extensions);
     specforge_emitter::compile_with_runtime(dir.path(), Some(&runtime))
 }
 

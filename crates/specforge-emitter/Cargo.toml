@@ -23,6 +23,7 @@ serde_json.workspace = true
 sha2.workspace = true
 
 [dev-dependencies]
+specforge-extism = { path = "../specforge-extism" }
 criterion.workspace = true
 insta.workspace = true
 tempfile.workspace = true

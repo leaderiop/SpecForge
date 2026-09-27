@@ -1,26 +1,33 @@
-use specforge_emitter::builtins::{
-    FormalExtension, GovernanceExtension, ProductExtension, SoftwareExtension,
-};
 use specforge_emitter::outline::*;
 use specforge_registry::ManifestV2;
-use specforge_wasm::BuiltinRuntime;
-use specforge_wasm::builtin::BuiltinExtension;
 use specforge_wasm::protocol::{
     ProtocolHost, load_protocol_extension, protocol_extension_to_manifest,
 };
 
 fn load_manifest(name: &str) -> ManifestV2 {
-    let (ext_name, ext): (&str, Box<dyn BuiltinExtension>) = match name {
-        "product" => ("@specforge/product", Box::new(ProductExtension)),
-        "software" => ("@specforge/software", Box::new(SoftwareExtension)),
-        "governance" => ("@specforge/governance", Box::new(GovernanceExtension)),
-        "formal" => ("@specforge/formal", Box::new(FormalExtension)),
+    let ext_name = match name {
+        "product" => "@specforge/product",
+        "software" => "@specforge/software",
+        "governance" => "@specforge/governance",
+        "formal" => "@specforge/formal",
         _ => panic!("unknown extension: {}", name),
     };
-    let runtime = BuiltinRuntime::new().with_extension(ext_name, ext);
+    let runtime = wasm_runtime_for(&[ext_name]);
     let host = ProtocolHost::new(&runtime);
     let proto_ext = load_protocol_extension(&host, ext_name).unwrap();
     protocol_extension_to_manifest(&proto_ext)
+}
+
+/// Build a Wasm runtime for a temp project listing `ext_names`.
+fn wasm_runtime_for(ext_names: &[&str]) -> specforge_extism::ExtismRuntime {
+    let dir = tempfile::TempDir::new().unwrap();
+    let config = serde_json::json!({
+        "name": "test-project",
+        "version": "0.1.0",
+        "extensions": ext_names,
+    });
+    std::fs::write(dir.path().join("specforge.json"), config.to_string()).unwrap();
+    specforge_extism::project_runtime(dir.path())
 }
 
 fn load_all_manifests() -> Vec<ManifestV2> {

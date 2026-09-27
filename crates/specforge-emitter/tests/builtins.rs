@@ -1,18 +1,28 @@
-use specforge_emitter::builtins::{
-    FormalExtension, GovernanceExtension, ProductExtension, RustExtension, SoftwareExtension,
-    TypeScriptExtension,
-};
 use specforge_registry::{ManifestV2, validate_manifest, validate_manifest_consistency};
-use specforge_wasm::builtin::BuiltinExtension;
+use specforge_wasm::WasmRuntime;
 use specforge_wasm::protocol::{
     ProtocolHost, load_protocol_extension, protocol_extension_to_manifest,
 };
-use specforge_wasm::{BuiltinRuntime, WasmRuntime};
 
-/// Load an extension through the full protocol pipeline:
-/// BuiltinRuntime → ProtocolHost → load_protocol_extension → bridge → ManifestV2
-fn load_via_protocol(ext_name: &str, ext: Box<dyn BuiltinExtension>) -> ManifestV2 {
-    let runtime = BuiltinRuntime::new().with_extension(ext_name, ext);
+/// Build a Wasm runtime for a temp project listing `ext_names` — the only
+/// way extensions exist now (WASM-only migration, Phase 7: the native
+/// mirror tier is gone).
+fn wasm_runtime_for(ext_names: &[&str]) -> specforge_extism::ExtismRuntime {
+    let dir = tempfile::TempDir::new().unwrap();
+    let config = serde_json::json!({
+        "name": "test-project",
+        "version": "0.1.0",
+        "extensions": ext_names,
+    });
+    std::fs::write(dir.path().join("specforge.json"), config.to_string()).unwrap();
+    specforge_extism::project_runtime(dir.path())
+}
+
+/// Load an extension through the full protocol pipeline over its real Wasm
+/// blob: project_runtime → ProtocolHost → load_protocol_extension → bridge
+/// → ManifestV2.
+fn load_via_protocol(ext_name: &str) -> ManifestV2 {
+    let runtime = wasm_runtime_for(&[ext_name]);
     let host = ProtocolHost::new(&runtime);
     let proto_ext = load_protocol_extension(&host, ext_name).unwrap();
     protocol_extension_to_manifest(&proto_ext)
@@ -20,7 +30,7 @@ fn load_via_protocol(ext_name: &str, ext: Box<dyn BuiltinExtension>) -> Manifest
 
 #[test]
 fn product_extension_loads_via_protocol() {
-    let manifest = load_via_protocol("@specforge/product", Box::new(ProductExtension));
+    let manifest = load_via_protocol("@specforge/product");
     assert_eq!(manifest.name, "@specforge/product");
     assert_eq!(manifest.version, "1.0.0");
     assert_eq!(manifest.entity_kinds.len(), 9);
@@ -38,7 +48,7 @@ fn product_extension_loads_via_protocol() {
 
 #[test]
 fn product_w093_semver_pattern_is_not_trivial() {
-    let manifest = load_via_protocol("@specforge/product", Box::new(ProductExtension));
+    let manifest = load_via_protocol("@specforge/product");
     let w093 = manifest
         .validation_rules
         .iter()
@@ -59,7 +69,7 @@ fn product_w093_semver_pattern_is_not_trivial() {
 
 #[test]
 fn governance_extension_loads_via_protocol() {
-    let manifest = load_via_protocol("@specforge/governance", Box::new(GovernanceExtension));
+    let manifest = load_via_protocol("@specforge/governance");
     assert_eq!(manifest.name, "@specforge/governance");
     assert_eq!(manifest.version, "1.0.0");
     assert_eq!(manifest.entity_kinds.len(), 3);
@@ -94,7 +104,7 @@ fn governance_extension_loads_via_protocol() {
 
 #[test]
 fn software_extension_loads_via_protocol() {
-    let manifest = load_via_protocol("@specforge/software", Box::new(SoftwareExtension));
+    let manifest = load_via_protocol("@specforge/software");
     assert_eq!(manifest.name, "@specforge/software");
     assert_eq!(manifest.version, "1.0.0");
     assert_eq!(manifest.entity_kinds.len(), 5);
@@ -114,7 +124,7 @@ fn software_extension_loads_via_protocol() {
 
 #[test]
 fn formal_extension_loads_via_protocol() {
-    let manifest = load_via_protocol("@specforge/formal", Box::new(FormalExtension));
+    let manifest = load_via_protocol("@specforge/formal");
     assert_eq!(manifest.name, "@specforge/formal");
     assert_eq!(manifest.version, "1.0.0");
     assert_eq!(manifest.entity_kinds.len(), 5);
@@ -182,7 +192,7 @@ fn formal_extension_loads_via_protocol() {
 
 #[test]
 fn rust_extension_loads_via_protocol() {
-    let manifest = load_via_protocol("@specforge/rust", Box::new(RustExtension));
+    let manifest = load_via_protocol("@specforge/rust");
     assert_eq!(manifest.name, "@specforge/rust");
     assert_eq!(manifest.version, "1.0.0");
     assert!(manifest.contributes.analyzers);
@@ -211,7 +221,7 @@ fn private() {}
 pub const MAX_SIZE: usize = 100;
 "#;
 
-    let runtime = BuiltinRuntime::new().with_extension("@specforge/rust", Box::new(RustExtension));
+    let runtime = wasm_runtime_for(&["@specforge/rust"]);
     let input = serde_json::to_vec(&ScanRequest {
         file_path: "src/lib.rs".into(),
         content: source.into(),
@@ -244,7 +254,7 @@ pub const MAX_SIZE: usize = 100;
 
 #[test]
 fn typescript_extension_loads_via_protocol() {
-    let manifest = load_via_protocol("@specforge/typescript", Box::new(TypeScriptExtension));
+    let manifest = load_via_protocol("@specforge/typescript");
     assert_eq!(manifest.name, "@specforge/typescript");
     assert_eq!(manifest.version, "1.0.0");
     assert!(manifest.contributes.analyzers);
@@ -279,8 +289,7 @@ export { something } from './other';
 export * from './barrel';
 "#;
 
-    let runtime = BuiltinRuntime::new()
-        .with_extension("@specforge/typescript", Box::new(TypeScriptExtension));
+    let runtime = wasm_runtime_for(&["@specforge/typescript"]);
     let input = serde_json::to_vec(&ScanRequest {
         file_path: "src/app.ts".into(),
         content: source.into(),
