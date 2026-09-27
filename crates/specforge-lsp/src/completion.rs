@@ -37,9 +37,24 @@ pub fn cursor_context(content: &str, line: usize, col: usize) -> Option<CursorCo
     let mut bracket_depth: i32 = 0;
     let mut bracket_line: Option<usize> = None;
 
-    // First check the current line up to cursor position
+    // First check the current line up to cursor position. `col` arrives as an
+    // LSP UTF-16 code-unit offset; the slice needs a byte offset. Convert by
+    // walking the line's chars, clamping past-end.
     let current_line = lines[line];
-    let scan_end = col.min(current_line.len());
+    let mut scan_end = current_line.len();
+    let mut units_left = col;
+    for (idx, ch) in current_line.char_indices() {
+        if units_left == 0 {
+            scan_end = idx;
+            break;
+        }
+        units_left = units_left.saturating_sub(ch.len_utf16());
+        scan_end = idx + ch.len_utf8();
+    }
+    if units_left > 0 {
+        // Cursor past end of line: clamp to the whole line.
+        scan_end = current_line.len();
+    }
     for ch in current_line[..scan_end].chars().rev() {
         match ch {
             ']' => bracket_depth += 1,

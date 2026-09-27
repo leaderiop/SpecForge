@@ -29,6 +29,7 @@ use crate::{
 use crate::formatting::{EditorOptions, format_document, format_document_range};
 
 use crate::document::utf16_col_to_byte_offset;
+use crate::{byte_col_to_utf16, utf16_len};
 
 /// Debounce delay for `did_change` reparse (milliseconds).
 const DEBOUNCE_MS: u64 = 150;
@@ -696,24 +697,63 @@ pub fn import_path_on_line(line: &str) -> Option<&str> {
     if path.is_empty() { None } else { Some(path) }
 }
 
-fn publish_format_diags(diags: &[specforge_common::Diagnostic]) -> Vec<Diagnostic> {
-    // formatter diagnostics arrive with byte-column spans and no file text
-    // in scope — byte passthrough (pre-existing behavior)
-    diags.iter().map(|d| diagnostic_to_lsp(d, None)).collect()
+/// Last 0-indexed line of a node span that begins on `start_line`: nodes span
+/// to the end of their block, but rename occurrences live on the declaration
+/// line for declarations and the reference line for references — scanning a
+/// bounded window (the node's own block) is enough.
+fn edit_line_end(text: &str, start_line: usize) -> usize {
+    // The graph gives us no end line here; scan the rest of the file from the
+    // span start. Occurrence matching is word-boundary exact, so scanning
+    // farther is safe: only real occurrences of the identifier are replaced.
+    text.lines().count().saturating_sub(1).max(start_line)
 }
 
-fn formatter_edits_to_lsp(edits: Vec<specforge_formatter::TextEdit>) -> Vec<TextEdit> {
+/// Whole-word occurrences of `needle` in `line` as (byte start, byte end).
+fn word_occurrences(line: &str, needle: &str) -> Vec<(usize, usize)> {
+    if needle.is_empty() {
+        return Vec::new();
+    }
+    let bytes = line.as_bytes();
+    let is_word = |c: u8| c.is_ascii_alphanumeric() || c == b'_' || c >= 0x80;
+    let mut out = Vec::new();
+    let mut from = 0usize;
+    while let Some(pos) = line[from..].find(needle) {
+        let start = from + pos;
+        let end = start + needle.len();
+        let before_ok = start == 0 || !is_word(bytes[start - 1]);
+        let after_ok = end >= bytes.len() || !is_word(bytes[end]);
+        if before_ok && after_ok {
+            out.push((start, end));
+        }
+        from = end;
+    }
+    out
+}
+
+fn formatter_edits_to_lsp(
+    edits: Vec<specforge_formatter::TextEdit>,
+    source: &str,
+) -> Vec<TextEdit> {
+    // Formatter edit columns are byte offsets into `source`; LSP expects
+    // UTF-16 code units. Convert per line using the formatted document text.
+    let line_texts: Vec<&str> = source.lines().collect();
+    let utf16 = |line: usize, byte_col: usize| -> u32 {
+        line_texts
+            .get(line)
+            .map(|l| byte_col_to_utf16(l, byte_col) as u32)
+            .unwrap_or(0)
+    };
     edits
         .into_iter()
         .map(|e| TextEdit {
             range: Range {
                 start: Position {
                     line: e.start_line as u32,
-                    character: e.start_col as u32,
+                    character: utf16(e.start_line, e.start_col),
                 },
                 end: Position {
                     line: e.end_line as u32,
-                    character: e.end_col as u32,
+                    character: utf16(e.end_line, e.end_col),
                 },
             },
             new_text: e.new_text,
@@ -1342,23 +1382,48 @@ impl LanguageServer for Backend {
             None => return Ok(None),
         };
 
+        // A RenameEdit's span covers the ENTIRE source node (declaration block
+        // or referencing entity), not just the identifier token. Applying it
+        // directly would replace whole entities with the new name. Narrow each
+        // edit to whole-word occurrences of the old identifier within the
+        // span's lines, using the target file's text (open buffer, else disk).
         let mut changes: std::collections::HashMap<Url, Vec<TextEdit>> =
             std::collections::HashMap::new();
         for edit in edits {
             let file_uri = file_path_to_uri(&edit.file);
-            changes.entry(file_uri).or_default().push(TextEdit {
-                range: Range {
-                    start: Position {
-                        line: edit.line.saturating_sub(1) as u32,
-                        character: edit.start_col.saturating_sub(1) as u32,
-                    },
-                    end: Position {
-                        line: edit.line.saturating_sub(1) as u32,
-                        character: edit.end_col.saturating_sub(1) as u32,
-                    },
-                },
-                new_text: edit.new_text,
-            });
+            let file_text = state
+                .document(file_uri.as_str())
+                .map(|doc| doc.content().to_string())
+                .or_else(|| std::fs::read_to_string(&edit.file).ok());
+            let Some(file_text) = file_text else {
+                // No text to narrow against: skip rather than corrupt the file.
+                continue;
+            };
+            let line_texts: Vec<&str> = file_text.lines().collect();
+            let first_line = edit.line.saturating_sub(1); // 1-indexed -> 0-indexed
+            let last_line = edit_line_end(&file_text, first_line);
+            for line_idx in first_line..=last_line.min(file_text.lines().count().saturating_sub(1)) {
+                let Some(line_text) = line_texts.get(line_idx) else {
+                    continue;
+                };
+                for (occ_start, occ_end) in word_occurrences(line_text, &word) {
+                    let start = byte_col_to_utf16(line_text, occ_start) as u32;
+                    let end = byte_col_to_utf16(line_text, occ_end) as u32;
+                    changes.entry(file_uri.clone()).or_default().push(TextEdit {
+                        range: Range {
+                            start: Position {
+                                line: line_idx as u32,
+                                character: start,
+                            },
+                            end: Position {
+                                line: line_idx as u32,
+                                character: end,
+                            },
+                        },
+                        new_text: new_name.clone(),
+                    });
+                }
+            }
         }
 
         Ok(Some(WorkspaceEdit {
@@ -1489,13 +1554,41 @@ impl LanguageServer for Backend {
         #[allow(deprecated)]
         let lsp_symbols: Vec<SymbolInformation> = symbols
             .into_iter()
-            .map(|s| SymbolInformation {
-                name: s.id,
-                kind: symbol_kind_from_entity(&s.kind, kind_reg),
-                tags: None,
-                deprecated: None,
-                location: source_span_to_location(&s.span),
-                container_name: Some(s.kind),
+            .map(|s| {
+                // Convert graph byte columns to UTF-16 against the file text
+                // when the file is readable; byte passthrough otherwise.
+                let file_uri = file_path_to_uri(s.span.file.as_str());
+                let text = state
+                    .document(file_uri.as_str())
+                    .map(|doc| doc.content().to_string())
+                    .or_else(|| std::fs::read_to_string(s.span.file.as_str()).ok());
+                let location = match &text {
+                    Some(content) => {
+                        let lsp = source_span_to_lsp_range_with_text(&s.span, content);
+                        Location {
+                            uri: file_uri,
+                            range: Range {
+                                start: Position {
+                                    line: lsp.start_line,
+                                    character: lsp.start_col,
+                                },
+                                end: Position {
+                                    line: lsp.end_line,
+                                    character: lsp.end_col,
+                                },
+                            },
+                        }
+                    }
+                    None => source_span_to_location(&s.span),
+                };
+                SymbolInformation {
+                    name: s.id,
+                    kind: symbol_kind_from_entity(&s.kind, kind_reg),
+                    tags: None,
+                    deprecated: None,
+                    location,
+                    container_name: Some(s.kind),
+                }
             })
             .collect();
 
@@ -1526,16 +1619,24 @@ impl LanguageServer for Backend {
 
         let tokens = classify_tokens(&content, &kind_refs);
 
+        // Classification works in byte columns; LSP semantic tokens are
+        // UTF-16. Convert per token against its own line, then delta-encode.
+        let line_texts: Vec<&str> = content.lines().collect();
+        let utf16 = |tok: &crate::SemanticToken| -> (u32, u32) {
+            let line_text = line_texts.get(tok.line).copied().unwrap_or("");
+            let start = byte_col_to_utf16(line_text, tok.col) as u32;
+            (start, utf16_len(&tok.text) as u32)
+        };
+
         let mut data = Vec::new();
         let mut prev_line: u32 = 0;
         let mut prev_col: u32 = 0;
 
         for tok in &tokens {
             let line = tok.line as u32;
-            let col = tok.col as u32;
+            let (col, length) = utf16(tok);
             let delta_line = line - prev_line;
             let delta_start = if delta_line == 0 { col - prev_col } else { col };
-            let length = tok.text.len() as u32;
             let token_type = token_type_index
                 .get(tok.token_type.as_str())
                 .copied()
@@ -1575,14 +1676,17 @@ impl LanguageServer for Backend {
 
         let (edits, diags) = format_document(&content, None, None, Some(&editor_opts));
 
-        let lsp_diags = publish_format_diags(&diags);
+        let lsp_diags: Vec<Diagnostic> = diags
+            .iter()
+            .map(|d| diagnostic_to_lsp(d, Some(&content)))
+            .collect();
         if !lsp_diags.is_empty() {
             self.client
                 .publish_diagnostics(uri.clone(), lsp_diags, None)
                 .await;
         }
 
-        Ok(Some(formatter_edits_to_lsp(edits)))
+        Ok(Some(formatter_edits_to_lsp(edits, &content)))
     }
 
     async fn range_formatting(
@@ -1612,13 +1716,16 @@ impl LanguageServer for Backend {
             Some(&editor_opts),
         );
 
-        let lsp_diags = publish_format_diags(&diags);
+        let lsp_diags: Vec<Diagnostic> = diags
+            .iter()
+            .map(|d| diagnostic_to_lsp(d, Some(&content)))
+            .collect();
         if !lsp_diags.is_empty() {
             self.client
                 .publish_diagnostics(uri.clone(), lsp_diags, None)
                 .await;
         }
 
-        Ok(Some(formatter_edits_to_lsp(edits)))
+        Ok(Some(formatter_edits_to_lsp(edits, &content)))
     }
 }

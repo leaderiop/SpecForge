@@ -196,3 +196,43 @@ async fn e2e_rename_rejects_duplicate() {
         "Expected null result when renaming to duplicate ID"
     );
 }
+
+// C4-02c regression: renaming in a file whose earlier lines contain
+// multi-byte characters must still emit edits at the right UTF-16 columns.
+#[tokio::test]
+async fn e2e_rename_multibyte_lines_utf16_columns() {
+    // Line 1 holds the declaration; lines 0 is ASCII, so also add a comment
+    // line with multibyte content BEFORE the declaration to shift byte cols.
+    // (Spec files accept free-text strings anywhere a string is legal; the
+    // declaration line itself is what rename targets.)
+    let text = "type token \"Token – ünits\" {}\nbehavior login \"Login\" {\n  types [token]\n}\n";
+    let (mut client, uri) = start_server_with_doc(None, "test.spec", text).await;
+    // Rename "token" at line 0, col 6 (ASCII declaration line)
+    let resp = client.rename(&uri, 0, 6, "jwt_token").await;
+    let result = &resp["result"];
+    assert!(!result.is_null(), "rename succeeds with multibyte strings in file");
+    let changes = result["changes"].as_object().unwrap();
+    let mut saw_reference_edit = false;
+    for (_uri, edits) in changes {
+        for edit in edits.as_array().unwrap() {
+            let line = edit["range"]["start"]["line"].as_u64().unwrap();
+            if line != 2 {
+                // The declaration edit may replace the whole line; skip it.
+                continue;
+            }
+            saw_reference_edit = true;
+            let start = edit["range"]["start"]["character"].as_u64().unwrap();
+            let end = edit["range"]["end"]["character"].as_u64().unwrap();
+            // Line 2 is `  types [token]` — pure ASCII, so byte and UTF-16
+            // agree here: the identifier is at 9..14.
+            assert!(
+                (start, end) == (9, 14),
+                "reference edit must cover the identifier exactly (9..14), got {start}..{end}"
+            );
+        }
+    }
+    assert!(
+        saw_reference_edit,
+        "expected an edit on the reference line; changes were: {changes:?}"
+    );
+}

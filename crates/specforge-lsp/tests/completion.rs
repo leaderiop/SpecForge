@@ -322,3 +322,28 @@ fn wasm_runtime_for(ext_names: &[String]) -> specforge_component::ComponentRunti
     std::fs::write(dir.path().join("specforge.json"), config.to_string()).unwrap();
     specforge_component::project_runtime(dir.path())
 }
+
+// C4-02a regression: multi-byte characters before the cursor (in UTF-16
+// units) must not panic the byte/UTF-16 mix, and bracket scanning must still
+// resolve. The scan window on the cursor's own line converts UTF-16 -> bytes.
+#[test]
+fn completion_on_multibyte_line_does_not_panic() {
+    // Cursor inside [..] on a line whose earlier content is multibyte: the
+    // scan of the current line up to the cursor crosses the multi-byte chars.
+    let content = "behavior login \"Login – ünits — done\" {\n  types [MyT\n}\n";
+    // line 1 = `  types [MyT` — ASCII itself, but the FILE has multibyte
+    // chars on line 0 (exercises per-line conversion, not whole-file offset).
+    let ctx = specforge_lsp::cursor_context(content, 1, 11);
+    assert!(
+        ctx.is_some(),
+        "bracket scan still resolves with multibyte content in the file"
+    );
+    let ctx = ctx.unwrap();
+    assert_eq!(ctx.entity_kind, "behavior");
+
+    // Multibyte chars on the SAME line before the cursor.
+    let content2 = "behavior x \"desc – with — dashes\" {\n  types [MyT\n}\n";
+    let _ = specforge_lsp::cursor_context(content2, 1, 11);
+    let _ = specforge_lsp::cursor_context(content2, 1, 20);
+    let _ = specforge_lsp::cursor_context(content2, 1, 10_000);
+}

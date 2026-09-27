@@ -28,7 +28,23 @@ pub struct SemanticToken {
     pub token_type: String,
     pub modifiers: u32,
     pub line: usize,
+    /// Byte offset within the line (classification works on bytes; the LSP
+    /// emission site converts to UTF-16 code units per line).
     pub col: usize,
+}
+
+/// Convert a byte offset within `line` to a UTF-16 code-unit offset, clamping
+/// past-end and char-boundary errors (same policy as `document.rs`).
+pub fn byte_col_to_utf16(line: &str, byte_col: usize) -> usize {
+    line.char_indices()
+        .take_while(|(idx, _)| *idx < byte_col)
+        .map(|(_, ch)| ch.len_utf16())
+        .sum()
+}
+
+/// UTF-16 length of a token string.
+pub fn utf16_len(s: &str) -> usize {
+    s.chars().map(char::len_utf16).sum()
 }
 
 /// Classify tokens in source text for semantic highlighting.
