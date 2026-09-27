@@ -19,9 +19,9 @@ feature product_entity_registration "Product Entity Registration" {
     follows the zero-entity core protocol.
   """
   acceptance [
-    "All 9 entity kinds registered in KindRegistry after manifest load",
+    "Every entity kind declared by the loaded manifests is registered in KindRegistry after manifest load",
     "Each kind has correct testable, singleton, and supports_verify flags",
-    "All 16 edge types registered with correct source/target kind constraints",
+    "Every declared edge type is registered with correct source/target kind constraints",
     "Field definitions include type, optionality, and edge mappings",
   ]
   effort       s

@@ -91,11 +91,11 @@ SpecForge's compiler has **zero built-in entity types**. It does not know what "
 
 The compiler is a pure typed-graph engine: it parses blocks, resolves references, builds graphs, validates constraints, and exports results. That is all.
 
-All domain vocabulary comes from **extensions** that you install based on your work:
+All domain vocabulary comes from **extensions** that you install based on your work. Shipping today: `@specforge/product`, `@specforge/governance`, `@specforge/software`, and `@specforge/formal`. The domains below are illustrative of the model:
 
 - A software team installs `@specforge/software` and gets behavior, invariant, feature, event, type, port.
-- A compliance team installs `@specforge/compliance` and gets regulation, control, evidence, audit.
-- A design systems team installs `@specforge/atomic-design` and gets atom, molecule, organism, template, page.
+- A compliance team would install a future `@specforge/compliance` extension to get regulation, control, evidence, audit.
+- A design systems team would install a future `@specforge/atomic-design` extension to get atom, molecule, organism, template, page.
 - A data team installs `@specforge/data-pipeline` and gets source, transform, sink, schedule.
 - An API team installs `@specforge/api-design` and gets endpoint, schema, operation.
 - A business strategy team installs `@specforge/business-model` and gets value_proposition, customer_segment, channel.

@@ -70,6 +70,26 @@ Legend: STALE = construct already deleted; OPEN = verified still present; PARTIA
 | C13-08 | docs promise extension-contributed render formats | emitter model + docs |
 | C8-09 | integrity pinned to same-channel SHA-256 (TOFU) | design decision, not code |
 
+## Docs sweep (second pass, `fix(docs)`)
+
+Verified and fixed beyond Wave 1 — stale-docs findings resolved against the current tree:
+- C1-002: vision/README + business/08-investment-thesis — nonexistent extensions (@specforge/compliance, atomic-design, api-design, data-pipeline, business-model) marked planned; shipped builtins called out
+- C2-008b: entity-model.md count contradiction (23 vs 24) — fixed to 22 domain kinds
+- C2-010: EBNF identifier rule corrected to match grammar (`[a-zA-Z_][a-zA-Z0-9_]*`, 1+ unbounded)
+- C2-010 INFO: formatter error-recovery documented in spec-troubleshooting.md
+- C5-033: cardinality.rs doc comment replaced with the real contract; resolved thinking-out-loud block deleted
+- C12-099b: governance decision `wasm_component_runtime` records the wasip2-component build assumption (replaces the wasi/unknown-unknown era)
+- C12-104b: spec root has no providers block anymore — stale, no action
+- C12-105: root declares @specforge/formal — glossary leakage premise resolved
+- C12-106: both dateless decisions now carry dates (2026-03-08, from git history)
+- C12-103: "All 9 entity kinds / All 16 edge types" prose counts de-numbered in features.spec (real: 22 kinds / 57 edges)
+- C12-109: bare `verify "..."` form documented (grammar: kind optional, empty default)
+- C13-114: gen example in extension-model.md marked planned
+- C14-117: unused tokio dropped from specforge-registry
+- C3-016: interner contract documented (leak-by-design, single writer, empty sentinel)
+- C9-069: verified already present (diagnostic summary prints the explain hint)
+- Post-cutover staleness found proactively: extension-sdk.md status banner + wasm32-wasip2 targets; extending-specforge.md targets + component_guest! wiring example
+
 ## Execution order
 
 Wave 1 (this pass): the nine S-effort OPEN highs above + README:130 rewrite (C1-01/C7-02 residue).

@@ -2,6 +2,11 @@
 
 > **Status:** complete
 > **Date:** 2026-03-03
+>
+> **Measurement note:** the 75–86% savings figures in this research are
+> *projected estimates from analysis*, not measured benchmarks. No
+> measurement apparatus exists yet (see the north-star metric). Treat
+> them as hypotheses to falsify, not findings.
 > **Priority:** CRITICAL
 > **Depends on:** RES-13 (market landscape), RES-15 (traceability model)
 > **Tags:** economics, ai-agents, context-engineering, cost-reduction

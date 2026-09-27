@@ -1,3 +1,15 @@
+//! Process-global string interner (`lasso::ThreadedRodeo` behind a
+//! `LazyLock`). Contract:
+//!
+//! - **Leak by design**: interned strings live for `'static` (`Sym::as_str`
+//!   returns `&'static str`) and are never freed. The interned set grows
+//!   monotonically for the life of the process — fine for a compiler CLI,
+//!   wrong primitive for a long-lived service.
+//! - **Single writer**: `ThreadedRodeo` serializes interns behind one
+//!   `RwLock`; reads (`resolve`) proceed concurrently.
+//! - **Empty-string sentinel**: the empty string interns to a stable `Sym`;
+//!   a default `Sym` resolves to it, so the zeroed symbol is a valid empty
+//!   symbol, not a null.
 use lasso::{Spur, ThreadedRodeo};
 use std::borrow::Borrow;
 use std::fmt;

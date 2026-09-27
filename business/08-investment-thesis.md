@@ -81,8 +81,8 @@ SpecForge is a compiler that produces a standard output (the Graph Protocol), no
 The compiler has **zero built-in entity types**. It does not know what "behavior" means. It does not know what "regulation" means. It does not know what "atom" means in a design system. All domain vocabulary comes from installable Wasm extensions:
 
 - Software teams install `@specforge/software` and get behavior, invariant, feature, event, type, port.
-- Compliance teams install `@specforge/compliance` and get regulation, control, evidence, audit.
-- Design systems teams install `@specforge/atomic-design` and get atom, molecule, organism, template, page.
+- Compliance teams are the target for a planned `@specforge/compliance` extension (regulation, control, evidence, audit) — roadmap, not yet shipped.
+- Design systems teams are the target for a planned `@specforge/atomic-design` extension (atom, molecule, organism, template, page) — roadmap, not yet shipped.
 - Data teams install `@specforge/data-pipeline` and get source, transform, sink, schedule.
 
 This is the architectural decision that makes SpecForge a platform, not a tool. Every new domain extension is an invitation for an entirely new market segment to adopt the Graph Protocol -- without any change to the compiler.
@@ -222,14 +222,14 @@ This is the biggest strategic shift from a "software specification tool" to a "s
 
 | Domain | Extension | Entity Kinds | Market Segment |
 |--------|-----------|-------------|---------------|
-| Software engineering | `@specforge/software` | behavior, invariant, feature, event, type, port | Developer tools ($1.5B) |
-| Product management | `@specforge/product` | journey, deliverable, milestone, module, term | PM tools ($400M) |
-| Technical governance | `@specforge/governance` | decision, constraint, failure_mode | Internal tooling ($200M) |
-| Regulatory compliance | `@specforge/compliance` | regulation, control, evidence, audit | GRC tools ($800M) |
-| Design systems | `@specforge/atomic-design` | atom, molecule, organism, template, page | Design tools ($300M) |
-| API contracts | `@specforge/api-design` | endpoint, schema, operation | API management ($500M) |
-| Data pipelines | `@specforge/data-pipeline` | source, transform, sink, schedule | Data infrastructure ($400M) |
-| Business strategy | `@specforge/business-model` | value_proposition, customer_segment, channel | Strategy tools ($100M) |
+| Software engineering | `@specforge/software` (shipped) | behavior, invariant, feature, event, type, port | Developer tools ($1.5B) |
+| Product management | `@specforge/product` (shipped) | journey, deliverable, milestone, module, term | PM tools ($400M) |
+| Technical governance | `@specforge/governance` (shipped) | decision, constraint, failure_mode | Internal tooling ($200M) |
+| Regulatory compliance | `@specforge/compliance` (planned) | regulation, control, evidence, audit | GRC tools ($800M) |
+| Design systems | `@specforge/atomic-design` (planned) | atom, molecule, organism, template, page | Design tools ($300M) |
+| API contracts | `@specforge/api-design` (planned) | endpoint, schema, operation | API management ($500M) |
+| Data pipelines | `@specforge/data-pipeline` (planned) | source, transform, sink, schedule | Data infrastructure ($400M) |
+| Business strategy | `@specforge/business-model` (planned) | value_proposition, customer_segment, channel | Strategy tools ($100M) |
 
 Each domain extension opens an entirely new market segment without any change to the compiler. This is the Terraform expansion path: AWS provider -> Azure provider -> GCP provider -> Kubernetes provider -> 3000+ community providers. Each provider expanded Terraform's addressable market.
 
@@ -383,7 +383,7 @@ The deepest insight in this thesis is that the Graph Protocol -- the open JSON s
 
 1. **Network effects compound.** Every new agent that learns to read the Graph Protocol makes every existing `.spec` file more valuable. Every new `.spec` file makes the Graph Protocol more worth learning.
 
-2. **Extensions expand the market.** Every new domain extension (`@specforge/compliance`, `@specforge/atomic-design`, `@specforge/data-pipeline`) brings an entirely new user population into the Graph Protocol ecosystem.
+2. **Extensions expand the market.** Every new domain extension (planned: `@specforge/compliance`, `@specforge/atomic-design`, `@specforge/data-pipeline`) brings an entirely new user population into the Graph Protocol ecosystem.
 
 3. **Producers multiply.** The CLI is just one producer. GUI editors, AI generators, Figma plugins, and CI tools can all produce Graph Protocol JSON. Each new producer strengthens the standard.
 

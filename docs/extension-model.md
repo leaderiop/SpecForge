@@ -264,7 +264,7 @@ spec "healthcare-platform" {
     }
   }
 
-  // Generators: extend output formats
+  // Generators (planned - see the Generators section): extend output formats
   gen typescript {
     out       "packages/shared/src/generated/"
     result    "hex-di"

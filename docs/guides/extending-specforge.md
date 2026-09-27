@@ -81,7 +81,7 @@ That scaffolds a ready-to-build project:
 ```text
 my-ext/
 ├── Cargo.toml              # cdylib; depends on specforge-extension-sdk
-├── .cargo/config.toml      # pins wasm32-unknown-unknown
+├── .cargo/config.toml      # pins wasm32-wasip2
 └── src/lib.rs              # a working extension: builds and describes as-is
 ```
 
@@ -125,6 +125,24 @@ impl Contributions for Greet {
     }
 }
 ```
+
+To make it a component, wire the bridge (in the same file):
+
+```rust
+fn dispatch(_export: &str, _input: &[u8]) -> Option<Result<Vec<u8>, String>> {
+    None
+}
+
+specforge_extension_sdk::component_guest!(
+    build = specforge_extension_build,
+    handler = dispatch
+);
+```
+
+The `#[extension]` attribute generates `specforge_extension_build()`;
+`component_guest!` serves the protocol and routes any export name your
+`dispatch` recognizes (analyzer scans, validators, passes). `specforge new
+--extension` scaffolds all of this for you.
 
 Three things happened:
 
@@ -282,17 +300,17 @@ on that — cycles are bugs.
 ## Build to Wasm
 
 ```console
-$ cargo build --release --target wasm32-unknown-unknown
+$ cargo build --release --target wasm32-wasip2
 ```
 
 The scaffold's `.cargo/config.toml` already pins the target, so plain
 `cargo build --release` works too. The artifact lands in
-`target/wasm32-unknown-unknown/release/<your_ext>.wasm`.
+`target/wasm32-wasip2/release/<your_ext>.wasm`.
 
 ## Install into a project
 
 ```console
-$ specforge add ./target/wasm32-unknown-unknown/release/my-ext.wasm
+$ specforge add ./target/wasm32-wasip2/release/my-ext.wasm
 ```
 
 `specforge add` copies the module into the project and registers it in

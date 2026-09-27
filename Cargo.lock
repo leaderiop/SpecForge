@@ -3009,7 +3009,6 @@ dependencies = [
  "specforge-test",
  "specforge-test-macros",
  "tempfile",
- "tokio",
 ]
 
 [[package]]

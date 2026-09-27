@@ -108,3 +108,10 @@ specforge format --check         # verify formatting (exit 1 if unformatted)
 **See also:** [tutorial](authoring-spec-files.md) · [cookbook](spec-cookbook.md) ·
 [best practices](spec-best-practices.md) · [entity-model.md](../entity-model.md) (full
 diagnostic catalog).
+
+## Formatter on broken files
+
+`specforge format` preserves unparsable regions verbatim instead of failing:
+the formatter tracks error regions from the parser's recovery and only
+rewrites text it could parse. You can run it on a file with syntax errors —
+the broken part comes out unchanged, the valid parts come out formatted.

@@ -597,6 +597,7 @@ decision auth_failure_vs_offline_fallback "Auth Failure vs Offline Fallback" {
 
 decision verify_gherkin_as_core_grammar "Verify/Gherkin as Core Grammar" {
   status superseded
+  date     2026-03-08
 
   context """
     Principle 2 (zero domain knowledge in core) prohibits domain-specific
@@ -628,7 +629,8 @@ decision verify_gherkin_as_core_grammar "Verify/Gherkin as Core Grammar" {
 }
 
 decision gherkin_as_extension_field "Gherkin as Extension-Declared Field" {
-  status accepted
+  status   accepted
+  date     2026-03-08
 
   context """
     ADR verify_gherkin_as_core_grammar treated gherkin as a core grammar
@@ -1026,3 +1028,36 @@ decision extension_defined_grammars {
   ]
 }
 
+decision wasm_component_runtime "All Extensions Execute as wasip2 Components" {
+  status accepted
+  date 2026-09-27
+
+  context """
+    The original build assumption compiled extension guests to
+    wasm32-unknown-unknown core modules and loaded them through the Extism
+    runtime, with the four builtin extensions also shipped as native Rust
+    behind a composite runtime. That story drifted: the native tier made
+    "Wasm is the only extension runtime" false, and the host/guest boundary
+    was stringly-typed (ad-hoc JSON over extism calls) with no IDL.
+  """
+
+  decision """
+    Every extension - builtin or third-party - is a WIT-typed wasip2
+    component executed through a single wasmtime component engine
+    (crates/specforge-component). The native tier is deleted; a gate test
+    prevents its reintroduction. The guest boundary is the
+    specforge:bridge world (call: name, export-name, input -> result).
+    Deterministic per-extension fuel limits replace wall-clock budgets.
+    Fresh clones build missing builtin blobs via
+    `cargo run -p xtask --bin build-builtins` (wasm32-wasip2 target).
+  """
+
+  consequences """
+    Positive: one execution path, typed entry point, warm single engine
+    across extensions, sandbox posture unchanged. Negative: guests need
+    the wasm32-wasip2 rustup target and wit-bindgen; the old
+    wasm32-unknown-unknown blobs are gone. Neutral: HostApi host functions
+    were removed with the extism runtime; a typed component host-import
+    surface is future work.
+  """
+}

@@ -1,12 +1,23 @@
 # Extension SDK
 
-> **Status: v1 shipped.** The SDK now exists as `crates/specforge-extension-sdk` (+ the `specforge_extension_sdk::extension` attribute macro), with a working example at `fixtures/greet-extension/`. It implements the surface described in this document minus `HostApi` conveniences beyond the three host functions; the target triple is `wasm32-unknown-unknown` (fixed by wayfinder map #1, ticket #3). Everything below remains the design reference.
+> **Status: component model (v2).** The SDK lives in `crates/specforge-extension-sdk`
+> (+ the `specforge_extension_sdk::extension` attribute macro and the
+> `component_guest!` macro), with a working example at `fixtures/greet-extension/`.
+> Guests are **wasip2 components** (target `wasm32-wasip2`, wit-bindgen 0.30) and
+> export the `specforge:bridge` world: `call(name, export-name, input) ->
+> result<list<u8>, string>` dispatches `__handshake` / `__describe` from the
+> `ContributionsBuilder` and forwards every other export name to the guest's
+> handler. Host functions (the old `HostApi`) were removed with the extism
+> runtime; a typed component host-import surface is future work. The design
+> reference below predates the cutover; where it mentions `wasm32-unknown-unknown`,
+> extism, or `plugin_fn`, read `wasm32-wasip2`, the component engine, and
+> `component_guest!`.
 
 The `specforge-extension-sdk` crate provides the types, host API bindings, and attribute macros that extension authors use to build SpecForge extensions as Wasm modules.
 
 ## Overview
 
-An extension is a standalone Rust crate that compiles to `wasm32-unknown-unknown`. The SDK is the only dependency it needs. The SDK provides:
+An extension is a standalone Rust crate that compiles to `wasm32-wasip2`. The SDK is the only dependency it needs. The SDK provides:
 
 - **Protocol types** -- entity kind descriptors, edge type descriptors, field descriptors, and all other metadata structures the host expects
 - **Host API bindings** -- typed wrappers around the imported host functions (`query`, `emit_diagnostic`, `resolve_ref`, `read_file`)
@@ -65,7 +76,7 @@ specforge-extension-sdk = "1.0.0"
 Extensions compile to `wasm32-unknown-unknown`:
 
 ```bash
-cargo build --target wasm32-unknown-unknown --release
+cargo build --target wasm32-wasip2 --release
 ```
 
 The output `.wasm` file is what the host loads at runtime.
@@ -590,10 +601,10 @@ impl Entity {
 
 ```bash
 cd extensions/software
-cargo build --target wasm32-unknown-unknown --release
+cargo build --target wasm32-wasip2 --release
 ```
 
-The output `.wasm` file is at `target/wasm32-unknown-unknown/release/specforge_ext_software.wasm`.
+The output `.wasm` file is at `target/wasm32-wasip2/release/specforge_ext_software.wasm`.
 
 ### Test
 
@@ -606,7 +617,7 @@ mod tests {
 
     #[test]
     fn handshake_returns_valid_metadata() {
-        let ext = TestExtension::load("target/wasm32-unknown-unknown/release/specforge_ext_software.wasm");
+        let ext = TestExtension::load("target/wasm32-wasip2/release/specforge_ext_software.wasm");
         let metadata = ext.handshake("1.0.0");
         assert_eq!(metadata.name, "@specforge/software");
         assert!(metadata.contribution_flags.entities);
@@ -614,7 +625,7 @@ mod tests {
 
     #[test]
     fn describe_entities_returns_behavior() {
-        let ext = TestExtension::load("target/wasm32-unknown-unknown/release/specforge_ext_software.wasm");
+        let ext = TestExtension::load("target/wasm32-wasip2/release/specforge_ext_software.wasm");
         let entities = ext.describe("entities");
         assert!(entities.iter().any(|e| e.keyword == "behavior"));
     }
@@ -626,7 +637,7 @@ mod tests {
 Copy the `.wasm` file to the extension directory and register it:
 
 ```bash
-specforge add ./extensions/software/target/wasm32-unknown-unknown/release/specforge_ext_software.wasm
+specforge add ./extensions/software/target/wasm32-wasip2/release/specforge_ext_software.wasm
 ```
 
 Or for published extensions:

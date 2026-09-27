@@ -2,7 +2,7 @@
 
 ## Overview
 
-SpecForge uses a **zero-entity core** architecture: the compiler is a pure typed-graph engine with zero domain knowledge. Two **structural kinds** (`spec` and `ref`) are parsed by the core grammar. All domain entity kinds (currently 23) come from **extensions** via ManifestV2 declarations.
+SpecForge uses a **zero-entity core** architecture: the compiler is a pure typed-graph engine with zero domain knowledge. Two **structural kinds** (`spec` and `ref`) are parsed by the core grammar. All domain entity kinds (currently 22, declared by the four builtin extensions) come from **extensions** via ManifestV2 declarations.
 
 Four official extensions provide the domain vocabulary:
 - **@specforge/software** (5 kinds): behavior, invariant, event, type, port
@@ -270,7 +270,7 @@ When the target kind's extension is not installed, the compiler emits `I004` ins
 Any valid identifier is accepted for all entity kinds. There is no enforced case convention.
 
 ```ebnf
-identifier = letter , { letter | digit | "_" } ;   (* 2-60 chars *)
+identifier = ( letter | "_" ) , { letter | digit | "_" } ;   (* 1+ chars, unbounded *)
 ```
 
 | Convention | Used By | Examples |
@@ -292,6 +292,12 @@ The title string after the identifier is optional. If omitted, the compiler auto
 - `UserRepository` → "User Repository"
 
 Explicit titles override: `behavior auth_login "Login with Credentials" { ... }`
+
+### Verify Statements
+
+`verify` takes an optional kind: `verify unit "..."`, `verify contract "..."`, or the bare form
+`verify "..."`. The bare form is accepted by the grammar and parses with an empty kind — the kind
+word is preserved verbatim for downstream consumers (extensions decide which kinds they require).
 
 ### Reserved Words
 
