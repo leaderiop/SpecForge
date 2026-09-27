@@ -12,6 +12,7 @@ path = "tests/main.rs"
 [dependencies]
 specforge-common = { workspace = true }
 specforge-emitter = { path = "../specforge-emitter" }
+specforge-extism = { path = "../specforge-extism" }
 specforge-formatter = { workspace = true }
 specforge-graph = { path = "../specforge-graph" }
 specforge-parser = { workspace = true }

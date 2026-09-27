@@ -9,10 +9,7 @@ use std::path::Path;
 
 use specforge_common::{Diagnostic, Severity};
 use specforge_emitter::truncate_diagnostics;
-use specforge_protocol_types::CompilerPassDescriptor;
 use specforge_validator::{diagnostic_summary_detailed, render_diagnostics};
-use specforge_wasm::WasmRuntime;
-use specforge_wasm::protocol::ProtocolHost;
 
 use crate::check::build_source_map;
 use crate::pipeline;
@@ -25,187 +22,6 @@ struct Report {
     description: String,
     findings: Vec<Diagnostic>,
     summary: serde_json::Value,
-}
-
-/// Order an extension's passes by their declared constraints: `after` /
-/// `before` names become edges, and ties resolve by declaration order
-/// (stable Kahn). Constraints referencing unknown passes — host phases like
-/// "resolve", or other extensions' passes — are ignored; a constraint cycle
-/// falls back to declaration order with a warning.
-fn order_passes(passes: &[CompilerPassDescriptor]) -> Vec<CompilerPassDescriptor> {
-    use std::collections::{HashMap, VecDeque};
-
-    let index: HashMap<&str, usize> = passes
-        .iter()
-        .enumerate()
-        .map(|(i, p)| (p.name.as_str(), i))
-        .collect();
-    let mut successors: Vec<Vec<usize>> = vec![Vec::new(); passes.len()];
-    let mut indegree = vec![0usize; passes.len()];
-    let mut cyclic_constraint = false;
-
-    for (i, pass) in passes.iter().enumerate() {
-        // (dependency name, dependency_runs_first): `after: X` means X runs
-        // first; `before: X` means this pass runs first.
-        let mut deps: Vec<(&str, bool)> = Vec::new();
-        if let Some(after) = &pass.after {
-            deps.push((after, true));
-        }
-        if let Some(before) = &pass.before {
-            deps.push((before, false));
-        }
-        for (dep, dep_first) in deps {
-            let Some(&dep_idx) = index.get(dep) else {
-                continue; // unknown name: host phase or cross-extension
-            };
-            if dep == pass.name.as_str() {
-                continue; // self-referential constraint: ignore
-            }
-            let (from, to) = if dep_first {
-                (dep_idx, i)
-            } else {
-                (i, dep_idx)
-            };
-            if successors[from].contains(&to) {
-                continue;
-            }
-            successors[from].push(to);
-            indegree[to] += 1;
-        }
-    }
-
-    let mut ready: VecDeque<usize> = (0..passes.len()).filter(|&i| indegree[i] == 0).collect();
-    let mut order = Vec::with_capacity(passes.len());
-    while let Some(i) = ready.pop_front() {
-        order.push(i);
-        for &to in &successors[i] {
-            indegree[to] -= 1;
-            if indegree[to] == 0 {
-                ready.push_back(to);
-            }
-        }
-    }
-    if order.len() != passes.len() {
-        cyclic_constraint = true;
-    }
-
-    let mut result: Vec<CompilerPassDescriptor> =
-        order.into_iter().map(|i| passes[i].clone()).collect();
-    if cyclic_constraint {
-        eprintln!(
-            "warning: extension pass constraints form a cycle; falling back to declaration order"
-        );
-        result = passes.to_vec();
-    }
-    result
-}
-
-/// Dispatch extension-declared compiler passes through the wasm runtime.
-///
-/// Each extension's describe payload lists `CompilerPassDescriptor`s; the
-/// pass implementation lives in a `__pass_<name>` export that receives a
-/// ValidationEntity snapshot and returns host Diagnostics. Traps (e.g. an
-/// extension that declares a pass but never implemented the export) are
-/// surfaced as warnings on the report rather than run failures.
-fn run_extension_passes(
-    manifests: &[specforge_registry::ManifestV2],
-    input: &specforge_emitter::analyze::AnalysisContext,
-    runtime: &specforge_extism::ExtismRuntime,
-    requested: &str,
-) -> Vec<Report> {
-    let ctx_graph = input.graph;
-    if manifests.is_empty() {
-        return Vec::new();
-    }
-    // Only the "all" sweep and exact `<extension>:<pass>` selections run
-    // extension passes.
-    let wants = |name: &str| requested == "all" || requested == name;
-
-    let host = ProtocolHost::new(runtime);
-    let raw_entities = specforge_emitter::compile::build_validation_entities(ctx_graph);
-    let entities: Vec<serde_json::Value> = raw_entities
-        .iter()
-        .map(|e| {
-            let testable = input
-                .kind_registry
-                .get(e.kind.as_str())
-                .is_some_and(|entry| entry.supports_verify);
-            serde_json::json!({
-                "id": e.id,
-                "kind": e.kind,
-                "fields": e.fields,
-                "incoming_edge_count": e.incoming_edge_count,
-                "outgoing_edge_count": e.outgoing_edge_count,
-                "span": e.span,
-                "testable": testable,
-            })
-        })
-        .collect();
-    let edges: Vec<serde_json::Value> = ctx_graph
-        .edges()
-        .iter()
-        .map(|e| {
-            serde_json::json!({
-                "source": e.source.as_str(),
-                "target": e.target.as_str(),
-                "label": e.label.as_str(),
-            })
-        })
-        .collect();
-    let payload = serde_json::json!({ "entities": entities, "edges": edges });
-    let payload_bytes = match serde_json::to_vec(&payload) {
-        Ok(b) => b,
-        Err(e) => {
-            eprintln!("warning: cannot serialize entities for extension passes: {e}");
-            return Vec::new();
-        }
-    };
-
-    let mut reports = Vec::new();
-    for manifest in manifests {
-        let Ok(response) = host.describe(&manifest.name, "passes") else {
-            continue;
-        };
-        let passes: Vec<CompilerPassDescriptor> = match serde_json::from_value(response.items) {
-            Ok(p) => p,
-            Err(_) => continue,
-        };
-        for pass in order_passes(&passes) {
-            let report_name = format!("{}:{}", manifest.name, pass.name);
-            if !wants(&report_name) {
-                continue;
-            }
-            let export = format!("__pass_{}", pass.name);
-            use specforge_wasm::runtime::WasmCallResult;
-            match runtime.call_export(&manifest.name, &export, &payload_bytes) {
-                WasmCallResult::Ok(bytes) => {
-                    match serde_json::from_slice::<Vec<Diagnostic>>(&bytes) {
-                        Ok(findings) => reports.push(Report {
-                            name: report_name,
-                            description: "extension compiler pass".to_string(),
-                            findings,
-                            summary: serde_json::json!({
-                                "extension": manifest.name,
-                                "pass": pass.name,
-                                "entities_analyzed": entities.len(),
-                            }),
-                        }),
-                        Err(e) => eprintln!(
-                            "warning: extension pass '{}' returned malformed diagnostics: {e}",
-                            report_name
-                        ),
-                    }
-                }
-                WasmCallResult::Trap(trap) => {
-                    eprintln!(
-                        "warning: extension pass '{}' did not execute: {}: {}",
-                        report_name, trap.kind, trap.message
-                    );
-                }
-            }
-        }
-    }
-    reports
 }
 
 pub fn run(
@@ -293,12 +109,21 @@ pub fn run(
 
     // Extension-owned passes run after the built-ins (see RES-25 ordering:
     // declared `after` constraints are advisory in this first version).
-    reports.extend(run_extension_passes(
-        &ctx.manifests,
-        &input,
-        &runtime,
-        &requested,
-    ));
+    reports.extend(
+        specforge_emitter::analyze::run_extension_passes(
+            &ctx.manifests,
+            &input,
+            &runtime,
+            &requested,
+        )
+        .into_iter()
+        .map(|r| Report {
+            name: r.name,
+            description: "extension compiler pass".to_string(),
+            findings: r.findings,
+            summary: r.summary,
+        }),
+    );
     // SMT proof pass report (computed before the built-ins so coverage can
     // thread formal discharge verdicts): verify numeric constraint bounds
     // with z3.
@@ -382,7 +207,7 @@ pub fn run(
 
 #[cfg(test)]
 mod order_tests {
-    use super::*;
+    use specforge_emitter::analyze::order_passes;
     use specforge_protocol_types::CompilerPassDescriptor;
 
     fn pass(name: &str, after: Option<&str>, before: Option<&str>) -> CompilerPassDescriptor {

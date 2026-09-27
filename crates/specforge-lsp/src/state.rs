@@ -18,6 +18,10 @@ pub struct LspState {
     field_registry: FieldRegistry,
     edge_registry: EdgeRegistry,
     validation_patterns: Vec<ValidationRulePattern>,
+    /// Entity keyword -> extension name, derived from the loaded manifests.
+    /// Mirrors the CLI's `known_extension_keywords` so I004 hints agree
+    /// across surfaces (WASM-only migration, Phase 4).
+    known_extension_keywords: HashMap<String, String>,
     shutdown: bool,
 }
 
@@ -37,6 +41,7 @@ impl LspState {
             field_registry: FieldRegistry::new(),
             edge_registry: EdgeRegistry::new(),
             validation_patterns: Vec::new(),
+            known_extension_keywords: HashMap::new(),
             shutdown: false,
         }
     }
@@ -141,6 +146,14 @@ impl LspState {
         self.kind_registry = kind_reg;
         self.field_registry = field_reg;
         self.edge_registry = edge_reg;
+    }
+
+    pub fn known_extension_keywords(&self) -> &HashMap<String, String> {
+        &self.known_extension_keywords
+    }
+
+    pub fn set_known_extension_keywords(&mut self, map: HashMap<String, String>) {
+        self.known_extension_keywords = map;
     }
 
     pub fn set_validation_patterns(&mut self, patterns: Vec<ValidationRulePattern>) {

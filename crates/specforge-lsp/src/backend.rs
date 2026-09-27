@@ -137,7 +137,7 @@ impl Backend {
         let graph_config = GraphConfig {
             installed_keywords: state.kind_registry().keywords().cloned().collect(),
             known_provider_schemes: std::collections::HashSet::new(),
-            known_extension_keywords: HashMap::new(),
+            known_extension_keywords: state.known_extension_keywords().clone(),
             bidirectional_pairs: state.field_registry().bidirectional_pairs(),
             suppressed_parse_error_ranges,
             single_reference_fields,
@@ -182,7 +182,9 @@ impl Backend {
             return 0;
         }
 
-        let runtime = specforge_emitter::builtins::runtime_for_extensions(&extensions);
+        // One Wasm runtime per session — the same constructor the CLI and
+        // MCP use (WASM-only migration, Phase 4).
+        let runtime = specforge_extism::project_runtime(std::path::Path::new(project_root));
         let host = ProtocolHost::new(&runtime);
         let mut manifests = Vec::new();
 
@@ -201,7 +203,6 @@ impl Backend {
                 manifests.push(protocol_extension_to_manifest(&proto_ext));
             }
         }
-
         let count = manifests.len();
         if !manifests.is_empty() {
             let (kind_reg, field_reg, edge_reg, _diags) = populate_registries(&manifests);
@@ -218,9 +219,21 @@ impl Backend {
             let required_rules = specforge_registry::generate_required_field_rules(&field_reg);
             patterns.extend(required_rules);
 
+            // Keyword -> extension index for I004 hints (same derivation as
+            // the CLI pipeline: emitter compile.rs known_extension_keywords).
+            let known_extension_keywords: HashMap<String, String> = manifests
+                .iter()
+                .flat_map(|m| {
+                    m.entity_kinds
+                        .iter()
+                        .map(move |k| (k.keyword.clone(), m.name.clone()))
+                })
+                .collect();
+
             let mut state = self.state.write().await;
             state.set_registries(kind_reg, field_reg, edge_reg);
             state.set_validation_patterns(patterns);
+            state.set_known_extension_keywords(known_extension_keywords);
         }
 
         count

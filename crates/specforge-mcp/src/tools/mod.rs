@@ -114,28 +114,55 @@ pub fn handle_tool_call(state: &mut McpState, params: Value, id: Option<Value>) 
         | "specforge.collect"
         | "specforge.render" => crate::operations::handle_operation(state, name, arguments, id),
         _ => {
-            // Check if this is a registered extension tool from surface contributions
-            let is_extension_tool = state.surface_entries.iter().any(|e| {
+            // Registered extension tool from surface contributions: execute
+            // through the Wasm runtime (WASM-only migration, Phase 4).
+            let extension_tool = state.surface_entries.iter().find(|e| {
                 (e.surface_type == SurfaceType::McpTool
                     || e.surface_type == SurfaceType::AutoPromotedTool)
                     && e.contribution_name == name
                     && e.enabled
             });
 
-            if is_extension_tool {
-                // Extension tool recognized but requires Wasm runtime for execution
-                let msg = format!(
-                    "Extension tool '{}' is registered but requires a Wasm runtime for execution. \
-                     Use specforge.list or specforge.query for graph-based queries instead.",
-                    name
-                );
-                JsonRpcResponse::success(
-                    id,
-                    json!({
-                        "content": [{ "type": "text", "text": msg }],
-                        "isError": true,
-                    }),
-                )
+            if let Some(entry) = extension_tool {
+                let Some(root) = state.project_root.clone() else {
+                    return JsonRpcResponse::error(
+                        id,
+                        error_codes::INVALID_PARAMS,
+                        format!(
+                            "Extension tool '{}' needs a project root; pass {{\"path\": ...}} to specforge.analyze first",
+                            name
+                        ),
+                    );
+                };
+                let runtime = specforge_extism::project_runtime(&root);
+                let input = serde_json::to_vec(&arguments).unwrap_or_default();
+                match specforge_wasm::dispatch_surface_mcp_tool(
+                    &entry.extension_name,
+                    &entry.export_name,
+                    &input,
+                    &runtime,
+                ) {
+                    Ok(value) => JsonRpcResponse::success(
+                        id,
+                        json!({
+                            "content": [{
+                                "type": "text",
+                                "text": serde_json::to_string_pretty(&value).unwrap_or_default(),
+                            }],
+                            "isError": false,
+                        }),
+                    ),
+                    Err(diag) => JsonRpcResponse::success(
+                        id,
+                        json!({
+                            "content": [{
+                                "type": "text",
+                                "text": format!("{}: {}", diag.code, diag.message),
+                            }],
+                            "isError": true,
+                        }),
+                    ),
+                }
             } else {
                 // MCP spec (tools/call): an unrecognized tool is an Invalid
                 // params protocol error — see the "Unknown tool" example in

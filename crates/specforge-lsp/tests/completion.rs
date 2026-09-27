@@ -14,7 +14,7 @@ fn default_field_registry() -> FieldRegistry {
     .iter()
     .map(|s| s.to_string())
     .collect();
-    let runtime = specforge_emitter::builtins::runtime_for_extensions(&ext_names);
+    let runtime = wasm_runtime_for(&ext_names);
     let host = specforge_wasm::protocol::ProtocolHost::new(&runtime);
     let mut manifests = Vec::new();
     for name in &ext_names {
@@ -309,4 +309,16 @@ fn cursor_after_closed_bracket() {
     // Cursor at line 2, col 10 — after the ] on line 1
     let ctx = specforge_lsp::cursor_context(content, 2, 10);
     assert!(ctx.is_none(), "should not match after closed brackets");
+}
+/// Build a Wasm runtime for a temp project listing `ext_names`, mirroring
+/// how a real session loads extensions from specforge.json.
+fn wasm_runtime_for(ext_names: &[String]) -> specforge_extism::ExtismRuntime {
+    let dir = tempfile::TempDir::new().unwrap();
+    let config = serde_json::json!({
+        "name": "test-project",
+        "version": "0.1.0",
+        "extensions": ext_names,
+    });
+    std::fs::write(dir.path().join("specforge.json"), config.to_string()).unwrap();
+    specforge_extism::project_runtime(dir.path())
 }

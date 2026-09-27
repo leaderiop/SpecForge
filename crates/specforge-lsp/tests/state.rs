@@ -73,7 +73,7 @@ fn load_patterns_for(
     ext_names: &[&str],
 ) -> Vec<specforge_registry::validation_engine::ValidationRulePattern> {
     let names: Vec<String> = ext_names.iter().map(|s| s.to_string()).collect();
-    let runtime = specforge_emitter::builtins::runtime_for_extensions(&names);
+    let runtime = wasm_runtime_for(&names);
     let host = specforge_wasm::protocol::ProtocolHost::new(&runtime);
     let mut manifests = Vec::new();
     for name in &names {
@@ -180,4 +180,16 @@ fn e006_covers_all_required_fields() {
     assert!(e006_targets.contains(&("protocol", "initial_state")));
     assert!(e006_targets.contains(&("process", "alphabet")));
     assert!(e006_targets.contains(&("process", "initial_state")));
+}
+/// Build a Wasm runtime for a temp project listing `ext_names`, mirroring
+/// how a real session loads extensions from specforge.json.
+fn wasm_runtime_for(ext_names: &[String]) -> specforge_extism::ExtismRuntime {
+    let dir = tempfile::TempDir::new().unwrap();
+    let config = serde_json::json!({
+        "name": "test-project",
+        "version": "0.1.0",
+        "extensions": ext_names,
+    });
+    std::fs::write(dir.path().join("specforge.json"), config.to_string()).unwrap();
+    specforge_extism::project_runtime(dir.path())
 }

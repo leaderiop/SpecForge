@@ -7,12 +7,10 @@ use crate::registry::register_extension_surfaces;
 use crate::state::McpState;
 use specforge_emitter::analyze::{AnalysisContext, TestReport, run_pass};
 
-/// `specforge.analyze` — run the built-in analysis passes (coverage,
-/// contracts) over the project and return structured findings.
-///
-/// Extension-owned compiler passes are not dispatched here: they require a
-/// Wasm runtime for execution. Use `specforge analyze` from the CLI for the
-/// full pass set.
+/// `specforge.analyze` — run the analysis passes (coverage, contracts) plus
+/// extension-owned compiler passes over the project and return structured
+/// findings. Extension passes execute through the same Wasm runtime the CLI
+/// uses (WASM-only migration, Phase 4).
 pub fn call(state: &mut McpState, args: Value, id: Option<Value>) -> JsonRpcResponse {
     let path = args
         .get("path")
@@ -125,6 +123,40 @@ pub fn call(state: &mut McpState, args: Value, id: Option<Value>) -> JsonRpcResp
             "findings": report.findings,
             "summary": report.summary,
         }));
+    }
+
+    // Extension-owned passes run through the Wasm runtime, same as the CLI
+    // (RES-25 ordering: declared `after` constraints are advisory here too).
+    if !state.manifests.is_empty() && state.project_root.is_some() {
+        let root = state.project_root.clone().unwrap();
+        let runtime = specforge_extism::project_runtime(&root);
+        let extension_reports = specforge_emitter::analyze::run_extension_passes(
+            &state.manifests,
+            &context,
+            &runtime,
+            &requested,
+        );
+        for mut report in extension_reports {
+            if strict {
+                for d in &mut report.findings {
+                    if d.severity == specforge_common::Severity::Warning {
+                        d.severity = specforge_common::Severity::Error;
+                    }
+                }
+            }
+            if report
+                .findings
+                .iter()
+                .any(|d| d.severity == specforge_common::Severity::Error)
+            {
+                has_errors = true;
+            }
+            passes.push(serde_json::json!({
+                "pass": report.name,
+                "findings": report.findings,
+                "summary": report.summary,
+            }));
+        }
     }
 
     let doc = serde_json::json!({ "ok": !has_errors, "passes": passes });

@@ -165,7 +165,7 @@ fn complete_field_names_contract() {
     .iter()
     .map(|s| s.to_string())
     .collect();
-    let runtime = specforge_emitter::builtins::runtime_for_extensions(&ext_names);
+    let runtime = wasm_runtime_for(&ext_names);
     let host = specforge_wasm::protocol::ProtocolHost::new(&runtime);
     let mut manifests = Vec::new();
     for name in &ext_names {
@@ -723,4 +723,16 @@ fn load_extension_grammars_for_highlighting_contract() {
         "failed grammar must not be available"
     );
     assert!(cache.failure("type").is_some(), "failure must be recorded");
+}
+/// Build a Wasm runtime for a temp project listing `ext_names`, mirroring
+/// how a real session loads extensions from specforge.json.
+fn wasm_runtime_for(ext_names: &[String]) -> specforge_extism::ExtismRuntime {
+    let dir = tempfile::TempDir::new().unwrap();
+    let config = serde_json::json!({
+        "name": "test-project",
+        "version": "0.1.0",
+        "extensions": ext_names,
+    });
+    std::fs::write(dir.path().join("specforge.json"), config.to_string()).unwrap();
+    specforge_extism::project_runtime(dir.path())
 }
