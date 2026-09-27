@@ -38,7 +38,12 @@ LSP and MCP use native BuiltinRuntime mirrors — they never instantiate wasmtim
 
 ## Execution plan (KEEP_WASM)
 
+**Detailed, phased migration plan: [`migration-plan.md`](migration-plan.md)** — migrates all extension execution to WASM and deletes the native tier (C7-11). Phases: parity harness → scanner guests → validator exports → shared runtime constructor → LSP/MCP cutover → custom rules through wasm → perf/limits → deletion → verification.
+
+Audit-item mapping:
+
 1. C7-04: sandbox fs deny-by-default
+
 2. C7-10: wire max_execution_ms via wasmtime fuel/epoch
 3. C7-02: real AOT via `PluginBuilder::compile()` + `with_cache_config`
 4. C7-08: real warm-engine pool (reuse instantiated plugins)
