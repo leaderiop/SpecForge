@@ -1,4 +1,4 @@
-//! Fresh-clone bootstrap for the four embedded builtin extension blobs.
+//! Fresh-clone bootstrap for the six embedded builtin extension blobs.
 //!
 //! `builtins.rs` `include_bytes!`s artifacts from
 //! `extensions/<name>/target/wasm32-unknown-unknown/release/` — paths that only
@@ -21,6 +21,8 @@ const EXTENSIONS: &[(&str, &str)] = &[
     ("software", "specforge_ext_software.wasm"),
     ("governance", "specforge_ext_governance.wasm"),
     ("formal", "specforge_ext_formal.wasm"),
+    ("rust", "specforge_ext_rust.wasm"),
+    ("typescript", "specforge_ext_typescript.wasm"),
 ];
 
 const TARGET: &str = "wasm32-unknown-unknown";

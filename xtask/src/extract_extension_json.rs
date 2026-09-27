@@ -7,6 +7,8 @@ fn main() {
         "@specforge/software",
         "@specforge/governance",
         "@specforge/formal",
+        "@specforge/rust",
+        "@specforge/typescript",
     ];
     let ext_names: Vec<String> = extensions.iter().map(|s| s.to_string()).collect();
     let runtime = runtime_for_extensions(&ext_names);
@@ -20,6 +22,7 @@ fn main() {
         "surfaces",
         "passes",
         "feature_flags",
+        "analyzers",
     ];
 
     for ext_name in &extensions {

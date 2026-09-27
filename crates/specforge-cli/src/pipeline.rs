@@ -6,6 +6,24 @@ use specforge_extism::{ExtismRuntime, HostContext, builtins};
 
 pub use specforge_emitter::compile::CompilationContext;
 
+/// Per-user Wasmtime compilation cache directory.
+///
+/// `$SPECFORGE_WASMTIME_CACHE` overrides; setting it to `off` disables the
+/// cache. Default: `$HOME/.cache/specforge/wasmtime` (falls back to the
+/// system temp dir when `HOME` is unset).
+fn user_compile_cache_dir() -> Option<std::path::PathBuf> {
+    match std::env::var_os("SPECFORGE_WASMTIME_CACHE") {
+        Some(v) if v == "off" => None,
+        Some(v) => Some(std::path::PathBuf::from(v)),
+        None => std::env::var_os("HOME").map(|home| {
+            std::path::PathBuf::from(home)
+                .join(".cache")
+                .join("specforge")
+                .join("wasmtime")
+        }),
+    }
+}
+
 /// Compile a project using the Extism Wasm runtime.
 ///
 /// Only extensions listed in `specforge.json` are loaded — no implicit builtins.
@@ -18,6 +36,11 @@ pub fn build_runtime(path: &Path) -> ExtismRuntime {
 
     let ctx = HostContext::new(Arc::new(Mutex::new(Vec::new()))).with_spec_root(path.to_path_buf());
     let runtime = ExtismRuntime::with_host_context(ctx);
+
+    let runtime = match user_compile_cache_dir() {
+        Some(dir) => runtime.with_compile_cache(dir),
+        None => runtime,
+    };
 
     builtins::load_builtins_for(&runtime, &config.extensions)
         .expect("failed to load builtin extensions");
@@ -46,6 +69,15 @@ pub fn build_runtime(path: &Path) -> ExtismRuntime {
     }
 
     runtime
+}
+
+/// Compile a project and also return the runtime that produced the context,
+/// so later stages (extension passes, source scanning) reuse one engine
+/// instead of rebuilding per stage (audit C7-08: single runtime per run).
+pub fn compile_with_runtime(path: &Path) -> (CompilationContext, ExtismRuntime) {
+    let runtime = build_runtime(path);
+    let ctx = specforge_emitter::compile::compile_with_runtime(path, Some(&runtime));
+    (ctx, runtime)
 }
 
 pub fn compile(path: &Path) -> CompilationContext {

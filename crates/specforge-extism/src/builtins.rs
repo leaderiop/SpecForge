@@ -8,12 +8,17 @@ static GOVERNANCE_WASM: &[u8] =
     include_bytes!("../../../extensions/governance/wasm/specforge_ext_governance.wasm");
 static FORMAL_WASM: &[u8] =
     include_bytes!("../../../extensions/formal/wasm/specforge_ext_formal.wasm");
+static RUST_WASM: &[u8] = include_bytes!("../../../extensions/rust/wasm/specforge_ext_rust.wasm");
+static TYPESCRIPT_WASM: &[u8] =
+    include_bytes!("../../../extensions/typescript/wasm/specforge_ext_typescript.wasm");
 
 pub const BUILTIN_EXTENSIONS: &[(&str, &[u8])] = &[
     ("@specforge/product", PRODUCT_WASM),
     ("@specforge/software", SOFTWARE_WASM),
     ("@specforge/governance", GOVERNANCE_WASM),
     ("@specforge/formal", FORMAL_WASM),
+    ("@specforge/rust", RUST_WASM),
+    ("@specforge/typescript", TYPESCRIPT_WASM),
 ];
 
 /// Load only the builtin Wasm extensions whose names appear in `requested`.

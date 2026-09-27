@@ -185,27 +185,16 @@ fn load_missing_file_returns_error() {
     assert!(err.contains("not found"), "Got: {}", err);
 }
 
-// --- Behavior 8: AOT cache check ---
+// --- Behavior 8: deterministic fuel budget (C7-10) ---
 
 #[test]
-fn has_cached_module_false_without_cache_dir() {
+fn load_module_bytes_with_limits_accepts_explicit_fuel() {
+    let tmp = write_minimal_wasm();
     let runtime = ExtismRuntime::new();
-    assert!(!runtime.has_cached_module("abc123"));
-}
-
-#[test]
-fn has_cached_module_false_when_file_missing() {
-    let dir = tempfile::tempdir().unwrap();
-    let runtime = ExtismRuntime::new().with_aot_cache_dir(dir.path().to_path_buf());
-    assert!(!runtime.has_cached_module("abc123"));
-}
-
-#[test]
-fn has_cached_module_true_when_file_exists() {
-    let dir = tempfile::tempdir().unwrap();
-    std::fs::write(dir.path().join("abc123.aot"), b"cached").unwrap();
-    let runtime = ExtismRuntime::new().with_aot_cache_dir(dir.path().to_path_buf());
-    assert!(runtime.has_cached_module("abc123"));
+    let bytes = std::fs::read(tmp.path()).unwrap();
+    runtime
+        .load_module_bytes_with_limits("fuel-limited", &bytes, specforge_extism::DEFAULT_FUEL_LIMIT)
+        .unwrap();
 }
 
 // --- Behavior: Call nonexistent export on loaded module returns trap ---

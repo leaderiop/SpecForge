@@ -3231,6 +3231,7 @@ dependencies = [
  "extism",
  "serde_json",
  "specforge-common",
+ "specforge-emitter",
  "specforge-registry",
  "specforge-wasm",
  "tempfile",

@@ -17,4 +17,5 @@ serde_json = { workspace = true }
 
 [dev-dependencies]
 specforge-registry = { workspace = true }
+specforge-emitter = { path = "../specforge-emitter" }
 tempfile = { workspace = true }

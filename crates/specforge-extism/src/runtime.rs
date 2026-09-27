@@ -7,6 +7,18 @@ use specforge_wasm::runtime::{WasmCallResult, WasmRuntime, WasmTrapInfo};
 
 use crate::host_context::{self, HostContext};
 
+/// Deterministic instruction budget per millisecond of guest work.
+///
+/// ~20M wasm instructions per millisecond on current Apple Silicon; the
+/// exact figure is a policy constant, not a measured contract — what matters
+/// is that it is deterministic (R-6) and applied by the engine (C7-10),
+/// replacing the previously unenforced `max_execution_ms`.
+pub const FUEL_PER_MS: u64 = 20_000_000;
+
+/// Default per-plugin fuel budget: 30 s of guest work at `FUEL_PER_MS`,
+/// matching `default_sandbox_policy()`'s 30 s timeout.
+pub const DEFAULT_FUEL_LIMIT: u64 = 30_000 * FUEL_PER_MS;
+
 struct LoadedPlugin {
     plugin: Plugin,
 }
@@ -15,9 +27,13 @@ struct LoadedPlugin {
 ///
 /// All extensions loaded by a given runtime share the same `HostContext`,
 /// meaning they write diagnostics to the same collector, see the same graph, etc.
+///
+/// Every plugin is instantiated with a deterministic fuel budget
+/// ([`DEFAULT_FUEL_LIMIT`], overridable per load) enforced by the engine —
+/// a guest that loops forever traps instead of hanging the host (C7-10).
 pub struct ExtismRuntime {
     plugins: Mutex<HashMap<String, LoadedPlugin>>,
-    aot_cache_dir: Option<PathBuf>,
+    compile_cache_dir: Option<PathBuf>,
     host_context: HostContext,
 }
 
@@ -25,7 +41,7 @@ impl ExtismRuntime {
     pub fn new() -> Self {
         Self {
             plugins: Mutex::new(HashMap::new()),
-            aot_cache_dir: None,
+            compile_cache_dir: None,
             host_context: HostContext::default(),
         }
     }
@@ -33,13 +49,40 @@ impl ExtismRuntime {
     pub fn with_host_context(ctx: HostContext) -> Self {
         Self {
             plugins: Mutex::new(HashMap::new()),
-            aot_cache_dir: None,
+            compile_cache_dir: None,
             host_context: ctx,
         }
     }
 
-    pub fn with_aot_cache_dir(mut self, dir: PathBuf) -> Self {
-        self.aot_cache_dir = Some(dir);
+    /// Enable Wasmtime's on-disk compilation cache under `dir`.
+    ///
+    /// Compiled native code is cached across processes (keyed by module bytes
+    /// and engine version by Wasmtime itself), cutting the ~80–110 ms
+    /// Cranelift compile per blob on warm invocations. Wasmtime's cache is
+    /// configured through a TOML file, so this writes a minimal config into
+    /// `dir` and points the engine at it. Callers should pass a per-user
+    /// cache directory; the runtime falls back to no cache when the
+    /// directory or config file cannot be created.
+    pub fn with_compile_cache(mut self, dir: PathBuf) -> Self {
+        if let Err(e) = std::fs::create_dir_all(&dir) {
+            eprintln!(
+                "warning: wasm compile cache disabled ({}: {})",
+                dir.display(),
+                e
+            );
+            return self;
+        }
+        let config_path = dir.join("config.toml");
+        let config = format!("[cache]\ndirectory = \"{}\"\n", dir.to_string_lossy());
+        if let Err(e) = std::fs::write(&config_path, config) {
+            eprintln!(
+                "warning: wasm compile cache disabled ({}: {})",
+                config_path.display(),
+                e
+            );
+            return self;
+        }
+        self.compile_cache_dir = Some(config_path);
         self
     }
 
@@ -48,15 +91,25 @@ impl ExtismRuntime {
         &self,
         name: &str,
         wasm_path: &Path,
-        aot_cache_path: Option<&Path>,
+        _aot_cache_path: Option<&Path>,
     ) -> Result<(), String> {
         let wasm_bytes = self.read_and_validate(wasm_path)?;
-        self.instantiate(name, &wasm_bytes, aot_cache_path)
+        self.instantiate(name, &wasm_bytes, DEFAULT_FUEL_LIMIT)
     }
 
     /// Load a Wasm module from raw bytes (for embedded/bundled extensions).
     pub fn load_module_bytes(&self, name: &str, wasm_bytes: &[u8]) -> Result<(), String> {
-        self.instantiate(name, wasm_bytes, None)
+        self.load_module_bytes_with_limits(name, wasm_bytes, DEFAULT_FUEL_LIMIT)
+    }
+
+    /// Load a Wasm module from raw bytes with an explicit fuel budget.
+    pub fn load_module_bytes_with_limits(
+        &self,
+        name: &str,
+        wasm_bytes: &[u8],
+        fuel: u64,
+    ) -> Result<(), String> {
+        self.instantiate(name, wasm_bytes, fuel)
     }
 
     fn read_and_validate(&self, wasm_path: &Path) -> Result<Vec<u8>, String> {
@@ -77,17 +130,17 @@ impl ExtismRuntime {
         Ok(wasm_bytes)
     }
 
-    fn instantiate(
-        &self,
-        name: &str,
-        wasm_bytes: &[u8],
-        _aot_cache_path: Option<&Path>,
-    ) -> Result<(), String> {
+    fn instantiate(&self, name: &str, wasm_bytes: &[u8], fuel: u64) -> Result<(), String> {
         let functions = host_context::build_host_functions(self.host_context.clone());
         let manifest = Manifest::new([Wasm::data(wasm_bytes.to_vec())]);
-        let plugin = PluginBuilder::new(manifest)
+        let mut builder = PluginBuilder::new(manifest)
             .with_wasi(true)
             .with_functions(functions)
+            .with_fuel_limit(fuel);
+        if let Some(dir) = &self.compile_cache_dir {
+            builder = builder.with_cache_config(dir);
+        }
+        let plugin = builder
             .build()
             .map_err(|e| format!("Failed to instantiate Wasm plugin {}: {}", name, e))?;
 
@@ -104,14 +157,14 @@ impl Default for ExtismRuntime {
 }
 
 impl WasmRuntime for ExtismRuntime {
-    fn load_module(&self, wasm_path: &Path, aot_cache_path: Option<&Path>) -> Result<(), String> {
+    fn load_module(&self, wasm_path: &Path, _aot_cache_path: Option<&Path>) -> Result<(), String> {
         let wasm_bytes = self.read_and_validate(wasm_path)?;
         let extension_name = wasm_path
             .file_stem()
             .and_then(|s| s.to_str())
             .unwrap_or("unknown")
             .to_string();
-        self.instantiate(&extension_name, &wasm_bytes, aot_cache_path)
+        self.instantiate(&extension_name, &wasm_bytes, DEFAULT_FUEL_LIMIT)
     }
 
     fn call_export(&self, extension_name: &str, export_name: &str, input: &[u8]) -> WasmCallResult {
@@ -147,10 +200,10 @@ impl WasmRuntime for ExtismRuntime {
         }
     }
 
-    fn has_cached_module(&self, wasm_hash: &str) -> bool {
-        match &self.aot_cache_dir {
-            Some(dir) => dir.join(format!("{}.aot", wasm_hash)).exists(),
-            None => false,
-        }
+    fn has_cached_module(&self, _wasm_hash: &str) -> bool {
+        // The byte-copy ".aot" cache never fed compilation (audit C7-02);
+        // warm-compile reuse is Wasmtime's on-disk compilation cache, enabled
+        // via [`ExtismRuntime::with_compile_cache`], not this check.
+        false
     }
 }

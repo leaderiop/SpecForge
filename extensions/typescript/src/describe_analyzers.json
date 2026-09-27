@@ -1,0 +1,25 @@
+{
+  "category": "analyzers",
+  "items": [
+    {
+      "classify_export": "classify__typescript",
+      "description": "Scans TypeScript/JavaScript source files for exported symbols (functions, classes, interfaces, types)",
+      "excluded_dirs": [
+        "node_modules",
+        "dist",
+        "build",
+        ".next",
+        ".nuxt"
+      ],
+      "file_extensions": [
+        ".ts",
+        ".tsx",
+        ".js",
+        ".jsx"
+      ],
+      "language": "typescript",
+      "map_export": "map__typescript",
+      "scan_export": "scan__typescript"
+    }
+  ]
+}

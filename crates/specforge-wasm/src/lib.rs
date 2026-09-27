@@ -4,7 +4,6 @@ pub mod builtin;
 mod cache;
 mod contributions;
 mod discovery;
-mod engine_pool;
 mod host_functions;
 mod install;
 mod integrity;
@@ -44,7 +43,6 @@ pub use discovery::{
     ExtensionSource, ExtensionSpecifier, ResolvedExtension, discover_extensions,
     parse_extension_specifier,
 };
-pub use engine_pool::{EnginePool, WarmEngineConfig, WarmInstance};
 pub use host_functions::{
     CallSite, QueryScope, compute_extension_query_scope, filter_graph_by_query_scope,
     host_add_graph_edge_check, host_add_graph_node_check, host_emit_diagnostic,

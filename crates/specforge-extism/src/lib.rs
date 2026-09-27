@@ -5,4 +5,4 @@ mod runtime;
 
 pub use composite::CompositeRuntime;
 pub use host_context::HostContext;
-pub use runtime::ExtismRuntime;
+pub use runtime::{DEFAULT_FUEL_LIMIT, ExtismRuntime, FUEL_PER_MS};

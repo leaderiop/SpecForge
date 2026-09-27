@@ -22,7 +22,14 @@ fn repo_root() -> PathBuf {
         .to_path_buf()
 }
 
-const EXTENSIONS: &[&str] = &["product", "software", "governance", "formal"];
+const EXTENSIONS: &[&str] = &[
+    "product",
+    "software",
+    "governance",
+    "formal",
+    "rust",
+    "typescript",
+];
 
 #[test]
 fn vendored_builtin_blobs_embed_current_manifest_payloads() {
@@ -74,8 +81,9 @@ fn vendored_builtin_blobs_embed_current_manifest_payloads() {
         }
     }
     assert!(
-        checked >= 34,
-        "expected >= 34 payload checks (9 per guest, formal -2), got {checked}"
+        checked >= 36,
+        "expected >= 36 payload checks (9 per existing guest, formal -2, \
+         rust/typescript +1 each), got {checked}"
     );
 }
 

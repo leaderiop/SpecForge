@@ -564,3 +564,92 @@ pub struct FeatureFlagDescriptor {
     #[serde(default)]
     pub default_enabled: bool,
 }
+
+// ── Custom Validator Protocol (v1) ──
+
+/// Context handed to a `validate__*` wasm export for one entity. The host
+/// precomputes everything the native custom-rule walks touch
+/// (`NativeCustomRules`), so a guest validator is a pure function of this
+/// value: reference resolutions replace graph lookups, declared types and
+/// primitives replace registry access.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct ValidatorContext {
+    /// The entity being validated.
+    pub entity: ValidatorEntity,
+    /// Resolution of every reference target the entity declares. A target
+    /// with no graph node carries `kind: null` (dangling reference).
+    pub referenced: Vec<ValidatorRef>,
+    /// IDs of every `type`-kind entity in the graph.
+    pub declared_types: Vec<String>,
+    /// Type names accepted without a declared `type` entity (the host's
+    /// primitive-type list).
+    pub primitives: Vec<String>,
+}
+
+/// One entity in a [`ValidatorContext`].
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct ValidatorEntity {
+    pub id: String,
+    pub kind: String,
+    /// Fields in declaration order; `value` is the stringified field value
+    /// (scalars as strings, reference lists as the declared IDs —
+    /// comma-joined string or array of strings).
+    pub fields: Vec<ValidatorField>,
+    /// Declared methods (populated for entity kinds that have them, e.g.
+    /// ports).
+    pub methods: Vec<ValidatorMethod>,
+}
+
+/// One field in a [`ValidatorEntity`].
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct ValidatorField {
+    pub key: String,
+    /// Stringified field value (see [`ValidatorEntity::fields`]).
+    pub value: serde_json::Value,
+    /// Annotation names applied to the field, without the `@`.
+    #[serde(default)]
+    pub annotations: Vec<String>,
+}
+
+/// One method in a [`ValidatorEntity`].
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct ValidatorMethod {
+    pub name: String,
+    pub params: Vec<ValidatorParam>,
+    #[serde(default)]
+    pub returns: Option<String>,
+}
+
+/// One method parameter.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct ValidatorParam {
+    pub name: String,
+    /// Parameter type as written (may be generic, e.g. `Result<A, B>`).
+    pub ty: String,
+}
+
+/// One resolved reference in a [`ValidatorContext`].
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct ValidatorRef {
+    pub id: String,
+    /// Kind of the referenced node; `None` when the reference dangles
+    /// (the ID names no node in the graph).
+    #[serde(default)]
+    pub kind: Option<String>,
+}
+
+/// Verdict of a `validate__*` wasm export; the wire mirror of the host's
+/// `CustomVerdict`. Serializes as `{"verdict":"pass"}` or
+/// `{"verdict":"fail","field":...,"value":...}` (`field`/`value` omitted
+/// when `None`).
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(tag = "verdict", rename_all = "lowercase")]
+pub enum ValidatorVerdict {
+    Pass,
+    Fail {
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        field: Option<String>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        value: Option<String>,
+    },
+}

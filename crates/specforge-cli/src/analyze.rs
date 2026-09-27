@@ -110,7 +110,7 @@ fn order_passes(passes: &[CompilerPassDescriptor]) -> Vec<CompilerPassDescriptor
 fn run_extension_passes(
     manifests: &[specforge_registry::ManifestV2],
     input: &specforge_emitter::analyze::AnalysisContext,
-    project_root: &Path,
+    runtime: &specforge_extism::ExtismRuntime,
     requested: &str,
 ) -> Vec<Report> {
     let ctx_graph = input.graph;
@@ -121,8 +121,7 @@ fn run_extension_passes(
     // extension passes.
     let wants = |name: &str| requested == "all" || requested == name;
 
-    let runtime = crate::pipeline::build_runtime(project_root);
-    let host = ProtocolHost::new(&runtime);
+    let host = ProtocolHost::new(runtime);
     let raw_entities = specforge_emitter::compile::build_validation_entities(ctx_graph);
     let entities: Vec<serde_json::Value> = raw_entities
         .iter()
@@ -217,8 +216,7 @@ pub fn run(
     test_results: Option<&Path>,
     prove: bool,
 ) -> i32 {
-    let ctx = pipeline::compile(path);
-
+    let (ctx, runtime) = pipeline::compile_with_runtime(path);
     let parsed_report = test_results.map(|report_path| {
         let raw = std::fs::read_to_string(report_path).unwrap_or_else(|e| {
             eprintln!("error: cannot read test results {}: {}", report_path.display(), e);
@@ -298,10 +296,9 @@ pub fn run(
     reports.extend(run_extension_passes(
         &ctx.manifests,
         &input,
-        path,
+        &runtime,
         &requested,
     ));
-
     // SMT proof pass report (computed before the built-ins so coverage can
     // thread formal discharge verdicts): verify numeric constraint bounds
     // with z3.

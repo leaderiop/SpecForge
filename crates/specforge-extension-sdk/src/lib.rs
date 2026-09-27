@@ -16,6 +16,8 @@ pub use specforge_protocol_types::{
     ContributionFlags, EdgeTypeDescriptor, EntityEnhancementDescriptor, EntityKindDescriptor,
     FeatureFlagDescriptor, FieldConstraintDescriptor, FieldDescriptor, HandshakeResponse,
     PeerDependency, ProtocolError, SandboxPolicy, ValidationRuleDescriptor, ValidationSeverity,
+    ValidatorContext, ValidatorEntity, ValidatorField, ValidatorMethod, ValidatorParam,
+    ValidatorRef, ValidatorVerdict,
 };
 
 use specforge_protocol_types::{CompilerPassDescriptor, DescribeRequest, DescribeResponse};
@@ -622,8 +624,9 @@ pub mod prelude {
         RuleBuilder,
     };
     pub use specforge_extension_sdk_macros::{compiler_pass, extension};
-
-    pub use specforge_protocol_types::{PeerDependency, SandboxPolicy, ValidationSeverity};
+    pub use specforge_protocol_types::{
+        PeerDependency, SandboxPolicy, ValidationSeverity, ValidatorContext, ValidatorVerdict,
+    };
 }
 
 #[cfg(test)]

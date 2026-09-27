@@ -45,6 +45,8 @@ fn committed_extension_json_matches_builtin_source() {
         "@specforge/software",
         "@specforge/governance",
         "@specforge/formal",
+        "@specforge/rust",
+        "@specforge/typescript",
     ];
     let categories = [
         "entities",
@@ -56,6 +58,7 @@ fn committed_extension_json_matches_builtin_source() {
         "surfaces",
         "passes",
         "feature_flags",
+        "analyzers",
     ];
 
     let ext_names: Vec<String> = extensions.iter().map(|s| s.to_string()).collect();
