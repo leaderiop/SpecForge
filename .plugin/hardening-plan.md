@@ -122,6 +122,8 @@ Principle: **wire real, or refuse — never fake.** All backends exist (§2.2); 
 
 **Decision gate:** GO component model iff per-call overhead ≤ 2× on batch-shaped calls, registry gates green, SDK delta confined to the bindings layer, binary-size delta acceptable. Otherwise **FALLBACK**: formalize `specforge-protocol-types` as a versioned JSON-schema IDL package (schema version in handshake, validation against schemas, conformance tests) — C7-03 closes either way; only the mechanism differs.
 
+> **W0 GATE RESULT (2026-09-27): GO.** Spike at `spike/w0-component/` — typed WIT component (wasm32-wasip2, wit-bindgen 0.30) hosted by wasmtime 49 `component::bindgen!`: tiny-call floor **0.31 µs**, 1.5 MB batch call **20.4 µs**, vs **1,056 µs** for the extism byte-array handshake (guest JSON through the PDK dominates). Component blob keeps the `\0asm` magic (layer=1) and sha256 addressing, so registry publish/download/integrity gates are unaffected. SDK delta confined to the bindings layer. All gate criteria met with large margin.
+
 **W1 — WIT world (GO path):** `specforge:extension@1.0.0` — guest exports: `handshake`, `describe(category)`, `pass(snapshot) → list<diagnostic>`, `validate(context) → verdict`, `scan/classify/map`, `mcp-tool`, `mcp-resource`; host imports: `emit-diagnostic`, `read-file` (policy-gated), `query-graph` (scope-gated). Types mapped 1:1 from protocol-types (`ValidatorContext`, `PassInput`, diagnostics). The WIT file becomes the reviewed, versioned contract artifact (checked into `spec/` or `wit/`).
 
 **W2 — Host runtime:** wasmtime 49 direct; component engine + `bindgen!` host side behind the existing `WasmRuntime` trait (ProtocolHost and all machinery keep working); fuel + compile-cache + pooling parity (component `InstancePre`).
