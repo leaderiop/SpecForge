@@ -1,3 +1,4 @@
+use crate::emit::EmitFormat;
 use std::cmp::Ordering;
 use std::collections::BTreeMap;
 use std::fmt;
@@ -797,20 +798,6 @@ pub fn detect_breaking_with_diagnostics(
 // ---------------------------------------------------------------------------
 
 #[allow(clippy::result_large_err)]
-pub fn negotiate_version_or_latest(
-    requested: Option<&SchemaVersion>,
-    min: &SchemaVersion,
-    max: &SchemaVersion,
-) -> Result<SchemaCompatibility, SchemaVersionError> {
-    match requested {
-        Some(v) => negotiate_version(v, min, max),
-        None => Ok(SchemaCompatibility {
-            requested: max.clone(),
-            resolved: max.clone(),
-        }),
-    }
-}
-
 // ---------------------------------------------------------------------------
 // Slice 3b: Scoped V2 Exports
 // ---------------------------------------------------------------------------
@@ -881,7 +868,15 @@ pub fn emit_schema_for_kind(
 // Slice 9: Publish JSON Schema
 // ---------------------------------------------------------------------------
 
-pub fn publish_json_schema(schema: &GraphProtocolSchema) -> String {
+/// Publish a JSON Schema describing an export of `format`.
+///
+/// Each format produces a different node shape (full / context / brief), so
+/// one schema cannot validate all exports. The `graph` (full) schema is the
+/// historical default.
+pub fn publish_json_schema_format(
+    schema: &GraphProtocolSchema,
+    format: EmitFormat,
+) -> String {
     let kind_names: Vec<Value> = schema
         .entity_kinds
         .iter()
@@ -904,6 +899,42 @@ pub fn publish_json_schema(schema: &GraphProtocolSchema) -> String {
         serde_json::json!({ "type": "string" })
     } else {
         serde_json::json!({ "type": "string", "enum": edge_labels })
+    };
+
+    let node_schema: serde_json::Value = match format {
+        EmitFormat::Context => serde_json::json!({
+            "type": "object",
+            "required": ["id", "kind"],
+            "properties": {
+                "id": { "type": "string" },
+                "kind": node_kind_schema,
+                "title": { "type": "string" },
+                "contract": { "type": ["string", "null"] },
+                "status": { "type": ["string", "null"] },
+                "verify": { "type": ["object", "array", "null"] }
+            }
+        }),
+        EmitFormat::Brief => serde_json::json!({
+            "type": "object",
+            "required": ["id", "kind"],
+            "properties": {
+                "id": { "type": "string" },
+                "kind": node_kind_schema,
+                "title": { "type": "string" }
+            }
+        }),
+        _ => serde_json::json!({
+            "type": "object",
+            "required": ["id", "kind", "file", "line", "fields"],
+            "properties": {
+                "id": { "type": "string" },
+                "kind": node_kind_schema,
+                "title": { "type": "string" },
+                "file": { "type": "string" },
+                "line": { "type": "integer" },
+                "fields": { "type": "object" }
+            }
+        }),
     };
 
     let json_schema = serde_json::json!({
@@ -929,18 +960,7 @@ pub fn publish_json_schema(schema: &GraphProtocolSchema) -> String {
             },
             "nodes": {
                 "type": "array",
-                "items": {
-                    "type": "object",
-                    "required": ["id", "kind", "file", "line", "fields"],
-                    "properties": {
-                        "id": { "type": "string" },
-                        "kind": node_kind_schema,
-                        "title": { "type": "string" },
-                        "file": { "type": "string" },
-                        "line": { "type": "integer" },
-                        "fields": { "type": "object" }
-                    }
-                }
+                "items": node_schema
             },
             "edges": {
                 "type": "array",

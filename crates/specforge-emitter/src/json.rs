@@ -3,7 +3,9 @@ use serde_json::Value;
 use specforge_graph::{FieldMap, FieldValue, Graph};
 use std::collections::BTreeMap;
 
-pub(crate) const SCHEMA_VERSION: &str = "0.1.0";
+/// V1 export envelope version. V1 is a frozen legacy shape; new consumers
+/// should use the V2 schema-embedded export.
+pub const SCHEMA_VERSION: &str = "0.1.0";
 
 #[derive(Serialize)]
 struct JsonGraph {

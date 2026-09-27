@@ -118,6 +118,10 @@ enum Commands {
         /// Publish as standalone JSON Schema (draft 2020-12)
         #[arg(long)]
         publish: bool,
+
+        /// Export format the published schema should describe
+        #[arg(long, value_parser = ["graph", "context", "brief"], default_value = "graph")]
+        format: String,
     },
     /// Render the logical data model (entity kinds, fields, relationships)
     Model {
@@ -760,8 +764,10 @@ fn main() {
             path,
             kind,
             publish,
+            format,
         } => {
-            let exit_code = export::run_schema(&path, kind.as_deref(), publish);
+            let exit_code =
+                export::run_schema(&path, kind.as_deref(), publish, Some(&format));
             std::process::exit(exit_code);
         }
         Commands::Model {

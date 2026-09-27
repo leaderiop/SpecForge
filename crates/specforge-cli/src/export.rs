@@ -59,9 +59,11 @@ pub fn run(
         if let Some(ver_str) = schema_version {
             match ver_str.parse::<SchemaVersion>() {
                 Ok(requested) => {
-                    let min = &schema.schema_version;
-                    let max = &schema.schema_version;
-                    if let Err(e) = specforge_emitter::negotiate_version(&requested, min, max) {
+                    // Real negotiation: same major as the produced schema,
+                    // minor/patch from 0 up to the produced version.
+                    let max = schema.schema_version.clone();
+                    let min = specforge_emitter::SchemaVersion::new(max.major, 0, 0);
+                    if let Err(e) = specforge_emitter::negotiate_version(&requested, &min, &max) {
                         eprintln!("{}", e);
                         return 1;
                     }
@@ -94,13 +96,18 @@ pub fn run(
     }
 }
 
-pub fn run_schema(path: &Path, kind: Option<&str>, publish: bool) -> i32 {
+pub fn run_schema(path: &Path, kind: Option<&str>, publish: bool, format: Option<&str>) -> i32 {
     let ctx = pipeline::compile(path);
 
     let schema = build_schema(&ctx);
 
     if publish {
-        let output = specforge_emitter::publish_json_schema(&schema);
+        let emit_format = match format.unwrap_or("graph") {
+            "context" => specforge_emitter::EmitFormat::Context,
+            "brief" => specforge_emitter::EmitFormat::Brief,
+            _ => specforge_emitter::EmitFormat::Json,
+        };
+        let output = specforge_emitter::publish_json_schema_format(&schema, emit_format);
         println!("{}", output);
         return 0;
     }

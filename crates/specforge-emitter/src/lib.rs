@@ -34,12 +34,13 @@ pub use error::EmitterError;
 pub use exit_code::{compute_exit_code, compute_exit_code_strict};
 pub use plan::{PlanValidationResult, serialize_plan_result, validate_plan};
 pub use query::query;
+pub use json::SCHEMA_VERSION;
 pub use schema::{
     GraphProtocolSchema, SchemaCacheEntry, SchemaCompatibility, SchemaEdgeType, SchemaEntityKind,
     SchemaExtensionInfo, SchemaField, SchemaMigration, SchemaMigrationChange, SchemaVersion,
     SchemaVersionError, compute_schema_version, detect_breaking_with_diagnostics, diff_schemas,
     diff_schemas_optional, emit_schema, emit_schema_for_kind, generate_schema, load_schema_cache,
-    negotiate_version, negotiate_version_or_latest, persist_schema_cache, publish_json_schema,
+    negotiate_version, persist_schema_cache, publish_json_schema_format,
 };
 pub use stats::{
     ProjectStats, compute_stats, compute_stats_with_diagnostics, compute_stats_with_testable,

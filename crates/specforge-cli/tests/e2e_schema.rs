@@ -1,3 +1,4 @@
+use assert_cmd::Command;
 use crate::e2e_fixtures::*;
 use specforge_test_macros::test as specforge_test;
 
@@ -235,5 +236,58 @@ feature gamma "G" { behaviors [alpha] }
     assert!(
         parsed["schema"].is_object(),
         "scoped V2 should still embed schema"
+    );
+}
+
+#[test]
+fn schema_publish_describes_the_requested_format() {
+    let tmp = tempfile::TempDir::new().unwrap();
+    let root = tmp.path();
+    std::fs::create_dir_all(root.join("src")).unwrap();
+    std::fs::write(
+        root.join("specforge.json"),
+        r#"{"name":"s","spec_root":"src","extensions":["@specforge/product"]}"#,
+    )
+    .unwrap();
+    std::fs::write(root.join("src/a.spec"), "type W { id string @unique }").unwrap();
+
+    let run = |fmt: &str| {
+        let out = Command::cargo_bin("specforge")
+            .unwrap()
+            .args(["schema", root.to_str().unwrap(), "--publish", "--format", fmt])
+            .output()
+            .unwrap();
+        assert!(out.status.success(), "{fmt}: {}", String::from_utf8_lossy(&out.stderr));
+        let v: serde_json::Value =
+            serde_json::from_slice(&out.stdout).expect("published schema is JSON");
+        v["properties"]["nodes"]["items"].clone()
+    };
+
+    let full = run("graph");
+    assert_eq!(
+        full["required"],
+        serde_json::json!(["id", "kind", "file", "line", "fields"]),
+        "graph schema describes full nodes"
+    );
+
+    let context = run("context");
+    assert_eq!(
+        context["required"],
+        serde_json::json!(["id", "kind"]),
+        "context schema describes context nodes (no file/line/fields required)"
+    );
+    assert!(
+        context["properties"].get("verify").is_some(),
+        "context schema knows the verify field"
+    );
+    assert!(context["properties"].get("file").is_none());
+
+    let brief = run("brief");
+    assert_eq!(
+        brief["properties"]
+            .as_object()
+            .map(|o| o.keys().cloned().collect::<Vec<_>>()),
+        Some(vec!["id".into(), "kind".into(), "title".into()]),
+        "brief schema exposes exactly id/kind/title"
     );
 }

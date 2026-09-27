@@ -4,7 +4,10 @@
   "title": "SpecForge Configuration",
   "description": "Configuration file for a SpecForge project. Like tsconfig.json for TypeScript, this file defines project identity, extensions, providers, and coverage thresholds.",
   "type": "object",
-  "required": ["name", "version"],
+  "required": [
+    "name",
+    "version"
+  ],
   "properties": {
     "$schema": {
       "type": "string",
@@ -51,7 +54,11 @@
     "enhancement_policy": {
       "type": "string",
       "description": "How to resolve conflicts when two extensions enhance the same field on the same entity kind.",
-      "enum": ["error", "priority", "namespace"],
+      "enum": [
+        "error",
+        "priority",
+        "namespace"
+      ],
       "default": "error"
     },
     "enhancement_overrides": {
@@ -64,13 +71,21 @@
     "entity_kind_policy": {
       "type": "string",
       "description": "How to resolve conflicts when two extensions register the same entity kind name.",
-      "enum": ["error", "priority", "namespace"],
+      "enum": [
+        "error",
+        "priority",
+        "namespace"
+      ],
       "default": "error"
     },
     "grammar_policy": {
       "type": "string",
       "description": "How to resolve conflicts when two extensions contribute grammars for the same entity kind.",
-      "enum": ["error", "priority", "namespace"],
+      "enum": [
+        "error",
+        "priority",
+        "namespace"
+      ],
       "default": "error"
     },
     "entity_kinds": {
@@ -112,6 +127,37 @@
     "coverage": {
       "$ref": "#/$defs/coverage",
       "description": "Test coverage configuration."
+    },
+    "inference": {
+      "type": "object",
+      "description": "Project-level inference hints that override or append to extension defaults.",
+      "additionalProperties": false,
+      "properties": {
+        "global": {
+          "type": "string",
+          "description": "Global inference source root"
+        },
+        "kinds": {
+          "type": "object",
+          "description": "Per-kind inference source roots",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "density_threshold": {
+          "type": "number",
+          "description": "Minimum entity density for inference",
+          "minimum": 0,
+          "maximum": 1
+        }
+      }
+    },
+    "registries": {
+      "type": "array",
+      "description": "Extension registries used by add/search/publish/login.",
+      "items": {
+        "$ref": "#/$defs/registry"
+      }
     }
   },
   "additionalProperties": false,
@@ -119,7 +165,9 @@
     "provider": {
       "type": "object",
       "description": "Configuration for a single provider instance.",
-      "required": ["package"],
+      "required": [
+        "package"
+      ],
       "properties": {
         "package": {
           "type": "string",
@@ -149,7 +197,9 @@
     "persona": {
       "type": "object",
       "description": "Configuration for a single persona.",
-      "required": ["display_name"],
+      "required": [
+        "display_name"
+      ],
       "properties": {
         "display_name": {
           "type": "string",
@@ -165,7 +215,9 @@
     "surface": {
       "type": "object",
       "description": "Configuration for a single surface.",
-      "required": ["display_name"],
+      "required": [
+        "display_name"
+      ],
       "properties": {
         "display_name": {
           "type": "string",
@@ -200,6 +252,35 @@
         }
       },
       "additionalProperties": false
+    },
+    "registry": {
+      "type": "object",
+      "description": "One extension registry endpoint (mirrors RegistryConfig).",
+      "additionalProperties": false,
+      "properties": {
+        "alias": {
+          "type": "string",
+          "description": "Unique alias for the registry"
+        },
+        "url": {
+          "type": "string",
+          "description": "Registry endpoint URL"
+        },
+        "scope_filter": {
+          "type": "string",
+          "description": "Only operate on scopes matching this filter"
+        },
+        "default_registry": {
+          "type": "boolean",
+          "default": false,
+          "description": "Use as the default registry"
+        }
+      },
+      "required": [
+        "alias",
+        "url"
+      ]
     }
-  }
+  },
+  "$comment": "Keys consumed via raw passthrough by the compiler (not typed on ProjectConfig): providers, personas, surfaces, test_dirs, coverage, enhancement_policy, enhancement_overrides, entity_kind_policy, grammar_policy, entity_kinds, strict, namespace, display_prefix. Registry client reads 'registries'; inference is typed on ProjectConfig."
 }
