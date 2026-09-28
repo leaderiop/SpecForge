@@ -1,3 +1,10 @@
+//! Sandbox policy core (C7-04). Every knob is **deny by default**: file
+//! system access and network access are off unless the manifest explicitly
+//! enables them, and an empty allowlist permits nothing (an allowlist is
+//! required whenever access is granted). This layer is enforced by the
+//! component host-import surface (planned) and by publish-time manifest
+//! validation today; no shipped guest has host access — pure-compute
+//! components never touch it.
 use specforge_common::{Diagnostic, Severity};
 use specforge_registry::{ManifestV2, SandboxPolicy};
 
@@ -19,7 +26,7 @@ pub fn default_sandbox_policy() -> SandboxPolicy {
             ".pdf".into(),
         ],
         network_access: Some(false),
-        file_system_access: Some(true),
+        file_system_access: Some(false),
     }
 }
 
@@ -138,8 +145,10 @@ pub fn is_path_allowed(path: &str, policy: &SandboxPolicy) -> bool {
     if policy.file_system_access != Some(true) {
         return false;
     }
+    // Deny-by-default: granting file system access with an EMPTY allowlist
+    // would permit the whole filesystem. An explicit allowlist is required.
     if policy.allowed_paths.is_empty() {
-        return true;
+        return false;
     }
     policy
         .allowed_paths
@@ -152,8 +161,10 @@ pub fn is_domain_allowed(domain: &str, policy: &SandboxPolicy) -> bool {
     if policy.network_access != Some(true) {
         return false;
     }
+    // Deny-by-default: network access with an empty domain allowlist would
+    // permit every domain. An explicit allowlist is required.
     if policy.allowed_domains.is_empty() {
-        return true;
+        return false;
     }
     policy
         .allowed_domains
@@ -208,7 +219,29 @@ mod tests {
         assert_eq!(policy.max_memory_mb, Some(64));
         assert_eq!(policy.max_execution_ms, Some(30_000));
         assert_eq!(policy.network_access, Some(false));
-        assert_eq!(policy.file_system_access, Some(true));
+        // C7-04: deny by default — file system access is OFF unless the
+        // manifest explicitly enables it.
+        assert_eq!(policy.file_system_access, Some(false));
+    }
+
+    // C7-04: access granted with an EMPTY allowlist permits nothing — an
+    // explicit allowlist is required (was: empty list allowed every path).
+    #[test]
+    fn test_empty_allowlist_denies_when_access_granted() {
+        let mut policy = default_sandbox_policy();
+        policy.file_system_access = Some(true);
+        policy.allowed_paths = vec![];
+        assert!(!is_path_allowed("/project/file", &policy));
+        assert!(!is_path_allowed("/", &policy));
+
+        policy.allowed_paths = vec!["/project".into()];
+        assert!(is_path_allowed("/project/file", &policy));
+        assert!(!is_path_allowed("/elsewhere", &policy));
+
+        policy.allowed_domains = vec!["api.example.com".into()];
+        policy.network_access = Some(true);
+        assert!(is_domain_allowed("api.example.com", &policy));
+        assert!(!is_domain_allowed("other.example.com", &policy));
     }
 
     // B:configure_sandbox_policy — verify unit "manifest policy overrides defaults"

@@ -18,8 +18,9 @@ mod tests {
         )
         .0;
 
-        // Default policy: filesystem=true but no allowed_paths restriction
-        assert!(crate::sandbox::is_path_allowed("/any/path", &policy));
+        // Default policy: deny by default — filesystem access is OFF and the
+        // allowlist is empty, so no path is readable (C7-04).
+        assert!(!crate::sandbox::is_path_allowed("/any/path", &policy));
 
         // Network is false by default
         assert!(!crate::sandbox::is_domain_allowed("evil.com", &policy));
