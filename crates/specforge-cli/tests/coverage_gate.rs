@@ -2,7 +2,7 @@
 //! and orphaned test records surface a W097 instead of dropping silently.
 
 use assert_cmd::Command;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use tempfile::TempDir;
 
 fn specforge() -> Command {
@@ -198,4 +198,95 @@ fn collect_ingests_report_and_warns_on_orphans() {
         .output()
         .unwrap();
     assert!(out.status.success(), "analyze consumes collected report");
+}
+
+// C1-06 rot guard: the flagship example's traceability loop must keep
+// working — collect from the committed runner report, analyze, and trace.
+#[test]
+fn todo_app_traceability_loop_stays_wired() {
+    // Flat-file copy of the example (spec/, specforge.json, fixture report),
+    // skipping build dirs.
+    fn walk(from: &Path, to: &Path) -> Vec<(PathBuf, PathBuf)> {
+        let mut out = Vec::new();
+        for e in std::fs::read_dir(from).unwrap().flatten() {
+            let path = e.path();
+            let dest = to.join(e.file_name());
+            if path.is_dir() {
+                if path.file_name().is_some_and(|n| n == "target" || n == "tests") {
+                    continue;
+                }
+                out.extend(walk(&path, &dest));
+            } else if path.is_file() {
+                out.push((path, dest));
+            }
+        }
+        out
+    }
+
+    let example = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .parent()
+        .unwrap()
+        .parent()
+        .unwrap()
+        .join("examples/todo-app");
+    let tmp = TempDir::new().unwrap();
+    // Copy the project (spec + config + committed fixture) so collect writes
+    // its report into the temp copy, not the repo.
+    let copy = |from: &Path, to: &Path| {
+        for e in walk(from, to) {
+            std::fs::create_dir_all(e.1.parent().unwrap()).unwrap();
+            std::fs::copy(&e.0, &e.1).unwrap();
+        }
+    };
+    copy(&example, tmp.path());
+
+    let specforge = || {
+        Command::new(env!("CARGO_BIN_EXE_specforge"))
+    };
+
+    // collect the committed fixture report
+    let out = specforge()
+        .args([
+            "collect",
+            "--path",
+            tmp.path().to_str().unwrap(),
+            "--report",
+            example.join("runner-report.fixture.json").to_str().unwrap(),
+        ])
+        .output()
+        .unwrap();
+    assert!(out.status.success(), "collect: {}", String::from_utf8_lossy(&out.stderr));
+
+    // analyze proves the recorded entities
+    let out = specforge()
+        .args([
+            "analyze",
+            "--path",
+            tmp.path().to_str().unwrap(),
+            "coverage",
+            "--test-results",
+            tmp.path().join("specforge-report.json").to_str().unwrap(),
+        ])
+        .output()
+        .unwrap();
+    assert!(out.status.success(), "analyze: {}", String::from_utf8_lossy(&out.stderr));
+    let stdout = String::from_utf8_lossy(&out.stdout);
+    assert!(
+        stdout.contains("\"entities_proven\":5"),
+        "the fixture proves 5 entities: {stdout}"
+    );
+
+    // trace surfaces provenance for a proven behavior
+    let out = specforge()
+        .args([
+            "trace",
+            "--path",
+            tmp.path().to_str().unwrap(),
+            "create_task",
+        ])
+        .output()
+        .unwrap();
+    assert!(out.status.success(), "trace failed");
+    let stdout = String::from_utf8_lossy(&out.stdout);
+    assert!(stdout.contains("create_task"), "trace names the entity");
 }

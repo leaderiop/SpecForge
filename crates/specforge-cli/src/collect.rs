@@ -75,13 +75,48 @@ pub fn run(path: &Path, collector: Option<&str>, reports: &[PathBuf], format: &s
                 return report_error(&msg, "E033", format);
             }
         };
-        let report: serde_json::Value = match serde_json::from_str(&raw) {
+        let mut report: serde_json::Value = match serde_json::from_str(&raw) {
             Ok(v) => v,
             Err(e) => {
                 let msg = format!("report {} is not valid JSON: {e}", report_path.display());
                 return report_error(&msg, "E045", format);
             }
         };
+
+        // The specforge-test integration writes `{entries: [{entity_id,
+        // test_name, verify, status: "pass"|"fail"}]}`; the ingest expects
+        // `{entity_results: [{entity_id, test_results: [{name, status:
+        // "passed"|"failed"}]}]}`. Normalize before ingesting so the two
+        // halves of the protocol finally meet (C11-00).
+        if report.get("entity_results").is_none() {
+            if let Some(entries) = report.get("entries").and_then(|v| v.as_array()) {
+                let mut by_entity: BTreeMap<String, Vec<serde_json::Value>> = BTreeMap::new();
+                for entry in entries {
+                    let Some(id) = entry.get("entity_id").and_then(|v| v.as_str()) else {
+                        continue;
+                    };
+                    let status = entry.get("status").and_then(|v| v.as_str()).unwrap_or("fail");
+                    let normalized = match status {
+                        "pass" => "passed",
+                        "fail" => "failed",
+                        other => other,
+                    };
+                    by_entity.entry(id.to_string()).or_default().push(serde_json::json!({
+                        "name": entry.get("test_name").and_then(|v| v.as_str()).unwrap_or(""),
+                        "status": normalized,
+                    }));
+                }
+                report = serde_json::json!({
+                    "entity_results": by_entity
+                        .into_iter()
+                        .map(|(entity_id, test_results)| serde_json::json!({
+                            "entity_id": entity_id,
+                            "test_results": test_results,
+                        }))
+                        .collect::<Vec<_>>(),
+                });
+            }
+        }
 
         let ingested = specforge_wasm::ingest_collector_report(&report, &known_ids);
         mapped += ingested.mapped_entries.len();

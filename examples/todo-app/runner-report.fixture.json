@@ -1,0 +1,62 @@
+{
+  "schema_version": "1.0",
+  "binary_name": "todo_app_tests-8213bcf44b1753ed",
+  "entries": [
+    {
+      "entity_kind": "behavior",
+      "entity_id": "complete_task",
+      "test_name": "completing_a_task_sets_status_to_done",
+      "file": "src/specforge_report.rs",
+      "verify": "completing a task sets status to done",
+      "status": "pass"
+    },
+    {
+      "entity_kind": "behavior",
+      "entity_id": "complete_task",
+      "test_name": "task_completed_event_fires_once_per_completion",
+      "file": "src/specforge_report.rs",
+      "verify": "task_completed event fires once per completion",
+      "status": "pass"
+    },
+    {
+      "entity_kind": "invariant",
+      "entity_id": "completed_implies_timestamp",
+      "test_name": "completing_a_task_sets_completed_at",
+      "file": "src/specforge_report.rs",
+      "verify": "completing a task sets completedAt",
+      "status": "pass"
+    },
+    {
+      "entity_kind": "behavior",
+      "entity_id": "create_task",
+      "test_name": "empty_title_is_rejected",
+      "file": "src/specforge_report.rs",
+      "verify": "empty title is rejected",
+      "status": "pass"
+    },
+    {
+      "entity_kind": "behavior",
+      "entity_id": "create_task",
+      "test_name": "valid_title_creates_an_open_task",
+      "file": "src/specforge_report.rs",
+      "verify": "valid title creates an open task",
+      "status": "pass"
+    },
+    {
+      "entity_kind": "behavior",
+      "entity_id": "list_tasks",
+      "test_name": "listing_open_tasks_excludes_done_tasks",
+      "file": "src/specforge_report.rs",
+      "verify": "listing open tasks excludes done tasks",
+      "status": "pass"
+    },
+    {
+      "entity_kind": "invariant",
+      "entity_id": "task_id_uniqueness",
+      "test_name": "concurrent_task_creation_never_produces_duplicate_ids",
+      "file": "src/specforge_report.rs",
+      "verify": "concurrent task creation never produces duplicate ids",
+      "status": "pass"
+    }
+  ]
+}

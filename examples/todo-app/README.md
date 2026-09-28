@@ -48,3 +48,27 @@ spec/
 *up* to it (`features [...]`), and journeys, modules, milestones, and personas all
 reference it — so `specforge trace task_management` shows the full chain from a
 user-facing capability down to the invariants that protect it.
+
+---
+
+## Principle 5, demonstrated: the traceability loop
+
+This example doesn't just declare specs — it closes the loop:
+
+1. **Test** — `cd tests && cargo test` runs the executable half: tests in
+   `tests/specforge_report.rs` are tagged with the entity + verify statement
+   they prove (`#[specforge_test(behavior = "create_task", verify = "...")]`),
+   and the integration records every result to
+   `target/specforge/<binary>.json`.
+2. **Collect** — `specforge collect --path . --report <the report>` maps the
+   recorded results onto the compiled graph and merges them into
+   `specforge-report.json` (a committed fixture: `runner-report.fixture.json`).
+3. **Analyze** — `specforge analyze --path . coverage --test-results
+   specforge-report.json` scores proof coverage: 5 of 9 obligated entities
+   proven in this fixture, with A014 findings for any failing proof.
+4. **Trace** — `specforge trace --path . create_task` shows the entity's
+   provenance graph (constraints, features, verifies).
+
+`tests/runner-report.fixture.json` is the committed result of step 1, so
+steps 2-4 can be reproduced without a test run:
+`specforge collect --path . --report tests-runner-report.fixture.json`

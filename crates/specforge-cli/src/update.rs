@@ -130,6 +130,13 @@ pub fn run(
             }
         };
 
+        // Preserve the peers recorded at the original install.
+        let peers = lock
+            .entries
+            .iter()
+            .find(|e| e.name == response.name)
+            .map(|e| e.peer_dependencies.clone())
+            .unwrap_or_default();
         match install_extension(
             &response.name,
             &response.version,
@@ -140,6 +147,7 @@ pub fn run(
             &mut lock,
             false,
             trust.key_id.as_deref(),
+            peers,
         ) {
             Ok(result) => {
                 updated.push(json!({

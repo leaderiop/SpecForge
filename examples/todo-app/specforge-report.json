@@ -1,0 +1,51 @@
+{
+  "results": {
+    "complete_task": {
+      "tests": [
+        {
+          "status": "pass"
+        },
+        {
+          "status": "pass"
+        }
+      ],
+      "total": 2
+    },
+    "completed_implies_timestamp": {
+      "tests": [
+        {
+          "status": "pass"
+        }
+      ],
+      "total": 1
+    },
+    "create_task": {
+      "tests": [
+        {
+          "status": "pass"
+        },
+        {
+          "status": "pass"
+        }
+      ],
+      "total": 2
+    },
+    "list_tasks": {
+      "tests": [
+        {
+          "status": "pass"
+        }
+      ],
+      "total": 1
+    },
+    "task_id_uniqueness": {
+      "tests": [
+        {
+          "status": "pass"
+        }
+      ],
+      "total": 1
+    }
+  },
+  "runner": "specforge-test"
+}
