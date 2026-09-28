@@ -1201,6 +1201,48 @@ fn detect_cycles_returns_empty_for_dag() {
     assert!(cycles.is_empty(), "DAG should have no cycles");
 }
 
+// C5-08: complementary suppression generalizes to cycles of any length.
+#[test]
+fn complementary_three_hop_cycle_is_suppressed() {
+    let mut graph = Graph::with_bidirectional_pairs(vec![(
+        "invariants".to_string(),
+        "enforced_by".to_string(),
+    )]);
+    graph.add_node(make_node("a", "behavior"));
+    graph.add_node(make_node("b", "feature"));
+    graph.add_node(make_node("c", "invariant"));
+    // a -invariants-> b -enforced_by-> c -enforced_by-> a: every hop label
+    // is one side of the registered pair and both directions appear.
+    graph.add_edge(make_edge("a", "b", "invariants"));
+    graph.add_edge(make_edge("b", "c", "enforced_by"));
+    graph.add_edge(make_edge("c", "a", "enforced_by"));
+
+    assert!(
+        graph.detect_cycles().is_empty(),
+        "a fully complementary 3-hop cycle is not a real dependency cycle"
+    );
+}
+
+#[test]
+fn forward_only_labels_are_real_cycles() {
+    let mut graph = Graph::with_bidirectional_pairs(vec![(
+        "invariants".to_string(),
+        "enforced_by".to_string(),
+    )]);
+    graph.add_node(make_node("a", "behavior"));
+    graph.add_node(make_node("b", "feature"));
+    graph.add_node(make_node("c", "invariant"));
+    // Same shape, but every hop uses the forward label — a genuine cycle.
+    graph.add_edge(make_edge("a", "b", "invariants"));
+    graph.add_edge(make_edge("b", "c", "invariants"));
+    graph.add_edge(make_edge("c", "a", "invariants"));
+
+    assert!(
+        !graph.detect_cycles().is_empty(),
+        "forward-only label cycle is a real dependency cycle"
+    );
+}
+
 #[specforge_test(
     behavior = "build_in_memory_graph",
     verify = "detects self-referencing cycle"

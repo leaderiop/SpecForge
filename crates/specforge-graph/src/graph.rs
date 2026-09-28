@@ -1,6 +1,6 @@
 use specforge_common::{Diagnostic, SourceSpan, Sym, find_close_match};
 use specforge_parser::{EntityId, EntityKind, FieldMap, FieldValue};
-use std::collections::{HashMap, HashSet, VecDeque};
+use std::collections::{BTreeMap, HashMap, HashSet, VecDeque};
 
 #[derive(Debug, Clone)]
 pub struct Node {
@@ -23,7 +23,10 @@ pub struct Edge {
 
 #[derive(Debug, Clone)]
 pub struct Graph {
-    nodes: HashMap<Sym, Node>,
+    /// BTreeMap keyed by Sym: iteration is string-sorted (Sym::cmp orders
+    /// by content), so reads are deterministic with no sort-at-read
+    /// compensation (C5-12).
+    nodes: BTreeMap<Sym, Node>,
     edges: Vec<Edge>,
     /// Index: source sym -> indices into `edges`
     source_index: HashMap<Sym, Vec<usize>>,
@@ -45,7 +48,7 @@ impl Default for Graph {
 impl Graph {
     pub fn new() -> Self {
         Self {
-            nodes: HashMap::new(),
+            nodes: BTreeMap::new(),
             edges: Vec::new(),
             source_index: HashMap::new(),
             target_index: HashMap::new(),
@@ -58,7 +61,7 @@ impl Graph {
     /// for complementary relationships (e.g., `invariants`/`enforced_by`).
     pub fn with_bidirectional_pairs(bidirectional_pairs: Vec<(String, String)>) -> Self {
         Self {
-            nodes: HashMap::new(),
+            nodes: BTreeMap::new(),
             edges: Vec::new(),
             source_index: HashMap::new(),
             target_index: HashMap::new(),
@@ -321,9 +324,9 @@ impl Graph {
         let entity_ids: HashSet<Sym> = self.nodes.keys().copied().collect();
 
         // Snapshot node data so we can mutate edges while iterating.
-        // Sorted by id: diagnostic and edge order must not depend on the
-        // per-process HashMap seeding (R-6 / hardening-plan D1 class).
-        let mut all_nodes: Vec<(Sym, Sym, FieldMap, SourceSpan)> = self
+        // BTreeMap iteration is string-sorted: diagnostic and edge order do
+        // not depend on per-process HashMap seeding (R-6 / C5-12).
+        let all_nodes: Vec<(Sym, Sym, FieldMap, SourceSpan)> = self
             .nodes
             .values()
             .map(|n| {
@@ -335,7 +338,6 @@ impl Graph {
                 )
             })
             .collect();
-        all_nodes.sort_by(|a, b| a.0.as_str().cmp(b.0.as_str()));
 
         let mut diagnostics = Vec::new();
 
@@ -399,45 +401,6 @@ impl Graph {
     /// Returns true if the directed edge set contains at least one cycle.
     pub fn has_cycles(&self) -> bool {
         !self.detect_cycles().is_empty()
-    }
-
-    /// Returns true if a 2-hop cycle (A -> B -> A) consists of a known
-    /// bidirectional edge pair and should NOT be reported as a real cycle.
-    fn is_bidirectional_pair_cycle(&self, a: Sym, b: Sym) -> bool {
-        // Collect edge labels from a -> b
-        let labels_ab: Vec<Sym> = self
-            .source_index
-            .get(&a)
-            .into_iter()
-            .flatten()
-            .filter(|&&idx| self.edges[idx].target == b)
-            .map(|&idx| self.edges[idx].label)
-            .collect();
-
-        // Collect edge labels from b -> a
-        let labels_ba: Vec<Sym> = self
-            .source_index
-            .get(&b)
-            .into_iter()
-            .flatten()
-            .filter(|&&idx| self.edges[idx].target == a)
-            .map(|&idx| self.edges[idx].label)
-            .collect();
-
-        // Check if any (ab_label, ba_label) combination matches a known pair
-        for &lab_ab in &labels_ab {
-            for &lab_ba in &labels_ba {
-                let ab_str = lab_ab.as_str();
-                let ba_str = lab_ba.as_str();
-                for (fwd, rev) in &self.bidirectional_pairs {
-                    if (ab_str == fwd && ba_str == rev) || (ab_str == rev && ba_str == fwd) {
-                        return true;
-                    }
-                }
-            }
-        }
-
-        false
     }
 }
 
@@ -554,10 +517,10 @@ impl Graph {
             color.insert(node, Color::Black);
         }
 
-        // Sorted seeds: which node a cycle is reported from (and thus its
-        // rendered rotation) must not depend on HashMap seeding (R-6).
-        let mut node_ids: Vec<Sym> = self.nodes.keys().copied().collect();
-        node_ids.sort_by(|a, b| a.as_str().cmp(b.as_str()));
+        // C5-12: BTreeMap iteration is string-sorted — which node a cycle
+        // is reported from (and thus its rendered rotation) must not depend
+        // on HashMap seeding (R-6).
+        let node_ids: Vec<Sym> = self.nodes.keys().copied().collect();
         for &node in &node_ids {
             if color.get(&node).copied() == Some(Color::White) {
                 dfs(
@@ -571,22 +534,54 @@ impl Graph {
             }
         }
 
-        // Filter out 2-hop cycles that are known bidirectional pairs.
-        // A 2-hop cycle is represented as [A, B, A] (3 elements, first == last).
-        cycles.retain(|cycle| {
-            if cycle.len() == 3 && cycle[0] == cycle[2] {
-                // This is a 2-hop cycle: A -> B -> A
-                !self.is_bidirectional_pair_cycle(cycle[0], cycle[1])
-            } else {
-                true // keep all longer cycles and self-loops
-            }
-        });
+        // C5-08: keep only real cycles. A cycle is complementary — and thus
+        // suppressed — when every hop's label belongs to ONE registered
+        // (forward, reverse) pair and BOTH directions appear on the path.
+        // This generalizes the old 2-hop-only suppression to cycles of any
+        // length; a cycle using only forward labels is a genuine cycle.
+        cycles.retain(|cycle| !self.is_complementary_cycle(cycle));
 
         // C5-02: dedupe by canonical member set. Parallel edges used to
-        // report the same cycle once per duplicate edge, and the DFS reports each
+        // report the same cycle once per duplicate edge, and the DFS reports
+        // each cycle from whichever seed entered it first.
         cycles.sort_by_cached_key(|c| canonical_cycle_key(c));
         cycles.dedup_by(|a, b| canonical_cycle_key(a) == canonical_cycle_key(b));
 
         cycles
+    }
+
+    /// True when `cycle` (closed path, first == last) is composed entirely
+    /// of hops whose labels are drawn from a single registered
+    /// (forward, reverse) bidirectional pair, with both directions present.
+    fn is_complementary_cycle(&self, cycle: &[Sym]) -> bool {
+        if cycle.len() < 3 {
+            return false;
+        }
+        let hops = cycle.len() - 1;
+        let mut hop_labels: Vec<std::collections::BTreeSet<&str>> = Vec::with_capacity(hops);
+        for i in 0..hops {
+            let (u, v) = (cycle[i], cycle[i + 1]);
+            let mut labels: std::collections::BTreeSet<&str> = std::collections::BTreeSet::new();
+            if let Some(indices) = self.source_index.get(&u) {
+                for &idx in indices {
+                    if self.edges[idx].target == v {
+                        labels.insert(self.edges[idx].label.as_str());
+                    }
+                }
+            }
+            if labels.is_empty() {
+                return false; // path is not actually connected
+            }
+            hop_labels.push(labels);
+        }
+
+        self.bidirectional_pairs.iter().any(|(fwd, rev)| {
+            let all_in_pair = hop_labels
+                .iter()
+                .all(|ls| ls.iter().all(|l| l == fwd || l == rev));
+            let has_fwd = hop_labels.iter().any(|ls| ls.contains(fwd.as_str()));
+            let has_rev = hop_labels.iter().any(|ls| ls.contains(rev.as_str()));
+            all_in_pair && has_fwd && has_rev
+        })
     }
 }
