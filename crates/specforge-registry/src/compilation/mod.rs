@@ -12,9 +12,11 @@ pub use contributions::{
     register_body_parser_contributions, register_grammar_contributions,
 };
 pub use detection::{
-    EntityRefInfo, KeywordExtensionIndex, check_graceful_degradation, detect_mistyped_references,
+    EntityRefInfo, KeywordExtensionIndex, check_graceful_degradation,
+    detect_identifier_length_violations, detect_mistyped_references, detect_reserved_entity_ids,
     detect_unknown_entity_fields, detect_unknown_entity_kinds, detect_unknown_verify_kinds,
     generate_required_field_rules, handle_all_extensions_failed, lsp_keywords_with_registry,
+    reserved_entity_id_words,
 };
 pub use keyword_index::KeywordExtensionIndex as ManifestKeywordIndex;
 pub use keyword_index::generate_keyword_extension_index;

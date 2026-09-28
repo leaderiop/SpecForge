@@ -30,8 +30,11 @@ pub fn render_diagnostics(diagnostics: &[Diagnostic], sources: &HashMap<String, 
             );
             (span.file.to_string(), byte_range)
         } else {
-            let file = sources.keys().next().cloned().unwrap_or_default();
-            (file, 0..1)
+            // C14-13: anchor spanless diagnostics deterministically — the
+            // lexicographically first source, never HashMap iteration order.
+            let file = sources.keys().min().cloned().unwrap_or_default();
+            let span_end = sources.get(&file).map(|s| s.len().min(1)).unwrap_or(0);
+            (file, 0..span_end)
         };
 
         let span: Span = (file.clone(), offset.clone());
@@ -84,8 +87,22 @@ fn line_col_to_byte_range(
         }
     }
 
-    let start = start.min(source.len());
-    let end = end.min(source.len()).max(start + 1);
+    // C14-13: clamp both ends into the buffer; never emit an empty or
+    // past-EOF range (ariadne slices into the source).
+    let len = source.len();
+    if len == 0 {
+        return 0..0;
+    }
+    let mut start = start.min(len - 1);
+    // Spans are byte columns; snap mid-char values to boundaries so ariadne
+    // can slice the source (floor the start, ceil the end).
+    while start > 0 && !source.is_char_boundary(start) {
+        start -= 1;
+    }
+    let mut end = end.clamp(start + 1, len);
+    while end < len && !source.is_char_boundary(end) {
+        end += 1;
+    }
     start..end
 }
 
@@ -128,5 +145,72 @@ mod tests {
         let range = line_col_to_byte_range(source, 3, 1, 3, 3);
         assert_eq!(range, 9..11);
         assert_eq!(&source[range], "gh");
+    }
+
+    // C14-13: past-EOF spans must clamp into the buffer, never past it.
+    #[test]
+    fn line_col_past_eof_clamps_inside_buffer() {
+        let source = "abc\ndef\n";
+        let range = line_col_to_byte_range(source, 50, 1, 50, 5);
+        assert!(range.end <= source.len());
+        assert!(!range.is_empty());
+        assert_eq!(&source[range.clone()], source);
+    }
+
+    // C14-13: multibyte columns are byte columns — a column landing inside
+    // a multibyte char must not split it (range stays on char boundaries).
+    #[test]
+    fn line_col_multibyte_never_splits_char() {
+        let source = "héllo wörld\n";
+        let range = line_col_to_byte_range(source, 1, 1, 1, 3);
+        assert!(
+            source.get(range.clone()).is_some(),
+            "range {range:?} splits a char"
+        );
+    }
+
+    // C14-13: spanless diagnostics anchor to the first source (sorted),
+    // regardless of HashMap iteration order.
+    #[test]
+    fn spanless_diagnostics_anchor_deterministically() {
+        let mut sources = HashMap::new();
+        sources.insert("zzz.spec".to_string(), "content z\n".to_string());
+        sources.insert("aaa.spec".to_string(), "content a\n".to_string());
+        let diag = Diagnostic {
+            code: "W001".to_string(),
+            severity: Severity::Warning,
+            message: "spanless".to_string(),
+            span: None,
+            suggestion: None,
+        };
+        let out1 = render_diagnostics(std::slice::from_ref(&diag), &sources);
+        let out2 = render_diagnostics(&[diag], &sources);
+        assert_eq!(out1, out2);
+        assert!(
+            out1.contains("aaa.spec"),
+            "anchor must be the first sorted source"
+        );
+    }
+
+    // C14-13: rendering a span whose lines exceed EOF must not panic.
+    #[test]
+    fn render_past_eof_span_does_not_panic() {
+        let mut sources = HashMap::new();
+        sources.insert("t.spec".to_string(), "abc\n".to_string());
+        let diag = Diagnostic {
+            code: "E001".to_string(),
+            severity: Severity::Error,
+            message: "beyond eof".to_string(),
+            span: Some(specforge_common::SourceSpan {
+                file: "t.spec".into(),
+                start_line: 999,
+                start_col: 1,
+                end_line: 999,
+                end_col: 10,
+            }),
+            suggestion: None,
+        };
+        let out = render_diagnostics(&[diag], &sources);
+        assert!(out.contains("beyond eof"));
     }
 }

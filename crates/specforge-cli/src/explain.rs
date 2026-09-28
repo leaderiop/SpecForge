@@ -332,3 +332,43 @@ fn lookup(code: &str) -> Option<(&'static str, &'static str)> {
         _ => return None,
     })
 }
+
+/// C4-10: docs/diagnostics.md is generated from this catalog and linked
+/// from LSP `codeDescription.href`. This test fails when someone adds or
+/// removes a code without regenerating the docs page.
+#[test]
+fn explain_docs_sync() {
+    // Extract `"E###" =>`-style arms from this file's own source.
+    let src = include_str!("explain.rs");
+    let bytes = src.as_bytes();
+    let mut codes: Vec<&str> = Vec::new();
+    for i in 0..bytes.len().saturating_sub(7) {
+        if bytes[i + 4..].starts_with(b"\" =>")
+            && i > 0
+            && bytes[i - 1] == b'"'
+            && matches!(bytes[i], b'E' | b'W' | b'I')
+            && bytes[i + 1].is_ascii_digit()
+            && bytes[i + 2].is_ascii_digit()
+            && bytes[i + 3].is_ascii_digit()
+        {
+            codes.push(&src[i..i + 4]);
+        }
+    }
+    codes.sort_unstable();
+    codes.dedup();
+
+    let docs_path = concat!(env!("CARGO_MANIFEST_DIR"), "/../../docs/diagnostics.md");
+    let docs = std::fs::read_to_string(docs_path).expect("docs/diagnostics.md exists");
+    let doc_codes: Vec<&str> = docs.lines().filter_map(|l| l.strip_prefix("## ")).collect();
+
+    let missing: Vec<&&str> = codes.iter().filter(|c| !doc_codes.contains(c)).collect();
+    assert!(
+        missing.is_empty(),
+        "codes missing from docs/diagnostics.md (regenerate the page): {missing:?}"
+    );
+    let stale: Vec<&&str> = doc_codes.iter().filter(|c| !codes.contains(c)).collect();
+    assert!(
+        stale.is_empty(),
+        "docs/diagnostics.md lists codes that no longer exist: {stale:?}"
+    );
+}

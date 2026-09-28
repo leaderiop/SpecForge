@@ -70,6 +70,76 @@ pub fn detect_unknown_entity_kinds(
     diagnostics
 }
 
+/// Reserved words that cannot be used as entity identifiers (E013): the
+/// structural grammar keywords plus every extension-declared entity kind.
+/// An ID equal to a keyword makes `refs [behavior]`-style entries ambiguous
+/// with the block introducer itself.
+pub fn reserved_entity_id_words(kind_reg: &KindRegistry) -> std::collections::BTreeSet<String> {
+    let mut reserved: std::collections::BTreeSet<String> = ["spec", "ref", "use", "define"]
+        .iter()
+        .map(|s| s.to_string())
+        .collect();
+    for kw in kind_reg.keywords() {
+        reserved.insert(kw.to_string());
+    }
+    reserved
+}
+
+/// E013: entity IDs that collide with reserved words. Documented in
+/// entity-model.md ("Reserved Words") long before it was enforced.
+pub fn detect_reserved_entity_ids(
+    entities: &[(String, String, SourceSpan)], // (kind, id, span)
+    kind_reg: &KindRegistry,
+) -> Vec<Diagnostic> {
+    let reserved = reserved_entity_id_words(kind_reg);
+    let mut diagnostics = Vec::new();
+    for (_kind, id, span) in entities {
+        if !reserved.contains(id) {
+            continue;
+        }
+        diagnostics.push(Diagnostic {
+            code: "E013".to_string(),
+            severity: Severity::Error,
+            message: format!(
+                "entity ID '{}' collides with a reserved keyword at {}",
+                id, span.file
+            ),
+            span: Some(span.clone()),
+            suggestion: Some(format!(
+                "rename the entity (e.g. `{id}_rule`, `{id}_spec`) — reserved words cannot be identifiers"
+            )),
+        });
+    }
+    diagnostics
+}
+
+/// E014: identifier length contract (2-60 chars) — the documented naming
+/// convention, previously unenforced (the grammar terminal accepts 1+).
+pub fn detect_identifier_length_violations(
+    entities: &[(String, String, SourceSpan)], // (kind, id, span)
+) -> Vec<Diagnostic> {
+    let mut diagnostics = Vec::new();
+    for (_kind, id, span) in entities {
+        let len = id.chars().count();
+        if (2..=60).contains(&len) {
+            continue;
+        }
+        diagnostics.push(Diagnostic {
+            code: "E014".to_string(),
+            severity: Severity::Error,
+            message: format!(
+                "entity ID '{}' violates the identifier length contract (2-60 chars, got {len}) at {}",
+                id, span.file
+            ),
+            span: Some(span.clone()),
+            suggestion: Some(
+                "pick a descriptive identifier between 2 and 60 characters".to_string(),
+            ),
+        });
+    }
+    diagnostics
+}
+
 /// Detect unknown entity fields by checking each field name against the FieldRegistry.
 /// Structural fields (title, verify) are always valid and skipped.
 /// Entities with unregistered kinds are skipped to avoid cascading diagnostics.
@@ -913,6 +983,76 @@ mod tests {
             span("t.spec"),
         )];
         assert!(detect_unknown_entity_fields(&e3, &kind_reg, &field_reg).is_empty());
+    }
+
+    // -- E013 reserved entity IDs --
+
+    // B:detect_reserved_entity_ids — verify unit "entity ID equal to an extension keyword produces E013"
+    #[test]
+    fn test_reserved_entity_id_produces_e013() {
+        let (kind_reg, _, _, _) = populate_registries(&[software_manifest()]);
+        let entities = vec![(
+            "behavior".to_string(),
+            "behavior".to_string(), // ID collides with the keyword itself
+            span("t.spec"),
+        )];
+        let diags = detect_reserved_entity_ids(&entities, &kind_reg);
+        assert_eq!(diags.len(), 1);
+        assert_eq!(diags[0].code, "E013");
+        assert!(diags[0].message.contains("behavior"));
+        assert!(diags[0].suggestion.as_ref().unwrap().contains("rename"));
+    }
+
+    // B:detect_reserved_entity_ids — verify unit "structural keywords are reserved even without extensions"
+    #[test]
+    fn test_structural_keywords_reserved_without_extensions() {
+        let kind_reg = KindRegistry::new();
+        let entities = vec![("spec".to_string(), "define".to_string(), span("t.spec"))];
+        let diags = detect_reserved_entity_ids(&entities, &kind_reg);
+        assert_eq!(diags.len(), 1);
+        assert_eq!(diags[0].code, "E013");
+    }
+
+    // B:detect_reserved_entity_ids — verify unit "normal identifiers produce no E013"
+    #[test]
+    fn test_normal_ids_pass_reserved_check() {
+        let (kind_reg, _, _, _) = populate_registries(&[software_manifest()]);
+        let entities = vec![
+            (
+                "behavior".to_string(),
+                "login_flow".to_string(),
+                span("t.spec"),
+            ),
+            ("spec".to_string(), "my_project".to_string(), span("t.spec")),
+        ];
+        assert!(detect_reserved_entity_ids(&entities, &kind_reg).is_empty());
+    }
+
+    // -- E014 identifier length --
+
+    // B:detect_identifier_length_violations — verify unit "1-char and >60-char identifiers produce E014"
+    #[test]
+    fn test_identifier_length_bounds() {
+        let short = vec![("behavior".to_string(), "x".to_string(), span("t.spec"))];
+        let d1 = detect_identifier_length_violations(&short);
+        assert_eq!(d1.len(), 1);
+        assert_eq!(d1[0].code, "E014");
+
+        let long_id = "a".repeat(61);
+        let long = vec![("behavior".to_string(), long_id, span("t.spec"))];
+        let d2 = detect_identifier_length_violations(&long);
+        assert_eq!(d2.len(), 1);
+        assert_eq!(d2[0].code, "E014");
+    }
+
+    // B:detect_identifier_length_violations — verify unit "bounds are inclusive: 2 and 60 chars pass"
+    #[test]
+    fn test_identifier_length_bounds_inclusive() {
+        let ok = vec![
+            ("behavior".to_string(), "ab".to_string(), span("t.spec")),
+            ("behavior".to_string(), "a".repeat(60), span("t.spec")),
+        ];
+        assert!(detect_identifier_length_violations(&ok).is_empty());
     }
 
     // -- B:graceful_degradation_without_extensions --

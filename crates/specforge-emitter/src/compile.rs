@@ -4,7 +4,8 @@ use specforge_registry::{
     EdgeRegistry, FieldRegistry, KindRegistry, ManifestV2, SurfaceContributions,
     SurfaceRegistryEntry,
     compilation::{
-        detect_mistyped_references, detect_unknown_entity_fields, detect_unknown_entity_kinds,
+        detect_identifier_length_violations, detect_mistyped_references,
+        detect_reserved_entity_ids, detect_unknown_entity_fields, detect_unknown_entity_kinds,
     },
     generate_required_field_rules, populate_registries, register_surface_contributions,
     validate_manifest, validate_manifest_consistency,
@@ -187,6 +188,13 @@ pub fn compile_with_runtime(path: &Path, runtime: Option<&dyn WasmRuntime>) -> C
             .collect();
         let kind_diags = detect_unknown_entity_kinds(&entity_kind_info, &kind_reg, None);
         diagnostics.extend(kind_diags);
+
+        // E013 / E014: the documented identifier contract, now enforced —
+        // reserved words and the 2-60 length bound from entity-model.md.
+        let reserved_diags = detect_reserved_entity_ids(&entity_kind_info, &kind_reg);
+        diagnostics.extend(reserved_diags);
+        let length_diags = detect_identifier_length_violations(&entity_kind_info);
+        diagnostics.extend(length_diags);
 
         let entity_field_info: Vec<_> = graph
             .nodes()

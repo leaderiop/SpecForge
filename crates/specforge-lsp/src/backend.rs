@@ -9,6 +9,9 @@ use tower_lsp::{Client, LanguageServer};
 
 use specforge_common::Sym;
 use specforge_graph::{GraphConfig, build_graph_with_config};
+use specforge_registry::compilation::{
+    detect_identifier_length_violations, detect_reserved_entity_ids,
+};
 use specforge_registry::{
     EntityRefInfo, KindRegistry, detect_mistyped_references, detect_unknown_entity_fields,
     detect_unknown_entity_kinds, populate_registries,
@@ -438,7 +441,12 @@ impl Backend {
                     })
                     .collect();
                 let e024_diags = detect_unknown_entity_kinds(&entity_kinds, kind_reg, None);
-                for d in &e024_diags {
+                // E013 / E014: the documented identifier contract (reserved
+                // words, 2-60 length) — same checks the CLI compile runs.
+                let mut all_diags = e024_diags;
+                all_diags.extend(detect_reserved_entity_ids(&entity_kinds, kind_reg));
+                all_diags.extend(detect_identifier_length_violations(&entity_kinds));
+                for d in &all_diags {
                     let diag_uri = d
                         .span
                         .as_ref()
@@ -661,12 +669,19 @@ fn diagnostic_to_lsp(diag: &specforge_common::Diagnostic, content: Option<&str>)
         .unwrap_or_default();
     Diagnostic {
         range,
+        // C4-10: editors can render this as a "view docs" link; the target
+        // page is generated from the `specforge explain` catalog.
+        code_description: Url::parse(&format!(
+            "https://github.com/specforge/specforge/blob/main/docs/diagnostics.md#{}",
+            diag.code.to_lowercase()
+        ))
+        .ok()
+        .map(|href| CodeDescription { href }),
         severity: Some(match diag.severity {
             specforge_common::Severity::Error => DiagnosticSeverity::ERROR,
             specforge_common::Severity::Warning => DiagnosticSeverity::WARNING,
             specforge_common::Severity::Info => DiagnosticSeverity::INFORMATION,
         }),
-        code: Some(NumberOrString::String(diag.code.clone())),
         source: Some("specforge".into()),
         // C4-08: the suggestion is the actionable half of the diagnostic
         // ("did you mean X / do Y") — surface it in the editor instead of

@@ -273,7 +273,7 @@ deliverable d1 "CLI App" {
     milestones [m1]
 }
 
-term spec "Specification" {
+term specification "Specification" {
     definition "A formal description of system behavior"
 }
 "#,

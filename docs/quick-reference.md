@@ -253,7 +253,7 @@ No incoming edges.
 | E009 | product | Surface not defined — journey surface must match spec root definition |
 | E010 | product | Behavior range invalid — range start > end or expanded IDs don't exist |
 
-### Warnings (12 codes)
+### Warnings (11 codes)
 
 | Code | Module | Rule |
 |------|--------|------|
@@ -266,9 +266,8 @@ No incoming edges.
 | W007 | core | Orphan event — event with no consumers |
 | W012 | core | Orphan ref — declared but never referenced by any entity |
 | W008 | product | Uncovered journey — deliverable journey not reachable via modules |
-| W009 | product | Orphan module — not referenced by any deliverable |
-| W010 | product | Deprecated feature — using a deprecated format feature |
-| W011 | product | Orphan journey — not referenced by any deliverable |
+| W009 | software | Invalid verify kind — verify kind not in allowed set for entity kind |
+| W010 | software | Unknown field annotation — unknown annotation on type field |
 
 ### Info (4 codes)
 

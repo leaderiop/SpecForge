@@ -267,11 +267,21 @@ When the target kind's extension is not installed, the compiler emits `I004` ins
 
 ## Naming Conventions
 
-Any valid identifier is accepted for all entity kinds. There is no enforced case convention.
+The grammar terminal accepts `[A-Za-z_][A-Za-z0-9_]*`; the compiler enforces
+the documented contract on top of it. There is no enforced case convention.
 
 ```ebnf
-identifier = ( letter | "_" ) , { letter | digit | "_" } ;   (* 1+ chars, unbounded *)
+identifier = ( letter | "_" ) , { letter | digit | "_" } ;   (* 2-60 chars — enforced, E014 *)
 ```
+
+- **Length (E014):** identifiers MUST be 2-60 characters. The grammar's
+  terminal is deliberately loose; the length contract is a graph-build check
+  so the bound can evolve without a grammar change.
+- **Reserved words (E013):** an identifier MUST NOT equal a reserved word —
+  the structural keywords (`spec`, `ref`, `use`, `define`) or any
+  extension-declared entity kind (e.g. `behavior`, `feature`). Enforced at
+  graph build with a rename suggestion; a collision makes `refs [behavior]`-
+  style entries ambiguous with the block introducer itself.
 
 | Convention | Used By | Examples |
 |------------|---------|----------|
@@ -301,7 +311,18 @@ word is preserved verbatim for downstream consumers (extensions decide which kin
 
 ### Reserved Words
 
-The structural keywords `spec` and `ref` cannot be used as entity names — the parser treats them as block introducers, so an attempt to declare an entity with one of these names fails with a syntax error (`E001`). Reserving extension-declared keywords as identifiers is planned but not yet enforced; no `E013` diagnostic is produced today.
+Entity identifiers MUST NOT collide with reserved words. Two layers:
+
+1. **Structural keywords** (`spec`, `ref`, `use`, `define`) are grammar
+   block introducers — the parser itself rejects them as names (`E001`).
+2. **Extension-declared keywords** (every kind in the KindRegistry, e.g.
+   `behavior`, `feature`, `event`) are reserved as identifiers. Using one
+   produces **`E013`** at graph build with a rename suggestion. Enforced
+   since 2026-09; earlier revisions documented this rule without
+   implementing it.
+
+Reserved words remain valid as *kinds* (`behavior auth_login { ... }`) —
+only the identifier position is restricted.
 
 ### Unicode
 
