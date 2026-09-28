@@ -84,8 +84,8 @@ behavior create_user "Create User" {
 | `requires` | block | Named preconditions (Design-by-Contract). Each entry: `name "description"`. |
 | `ensures` | block | Named postconditions (Design-by-Contract). Each entry: `name "description"`. |
 | `maintains` | block | Frame invariants that must hold before AND after execution. |
-| `abstract` | boolean | Marks this as a specification-only behavior (no implementation). |
-| `refines` | reference | Reference to an abstract behavior this concrete behavior refines. |
+| `abstract` | boolean | Marks this as a specification-only behavior (no implementation, no `verify` required). Requires `@specforge/formal`. |
+| `refines` | reference | Reference to an abstract behavior this concrete behavior refines. Requires `@specforge/formal`. |
 | `verify` | verify statement(s) | Test specifications: `verify {kind} "{description}"`. Multiple allowed. |
 | `tests` | string list | Paths to existing test files/functions that exercise this behavior. |
 | `gherkin` | string list | Paths to Gherkin (.feature) files for BDD scenarios. Extension-declared field (`file_reference=true`) from `@specforge/software`. |
@@ -150,7 +150,7 @@ behavior create_user "Create User" {
 7. **`tests` paths are strings** -- they point to actual test files, not entity IDs.
 8. **Import required files** -- `use` the files that declare referenced invariants, types, and ports.
 9. **Use `requires`/`ensures` for formal contracts** -- named preconditions and postconditions enable automated consistency checking.
-10. **Use `abstract`/`refines` for B-Method refinement** -- abstract behaviors are specification-only; concrete behaviors must satisfy the abstract's postconditions.
+10. **Use `abstract`/`refines` for specification layering** (`@specforge/formal`) -- abstract behaviors are specification-only; a concrete behavior must keep every `ensures` name of the abstract it refines (E031), `refines` must target an `abstract true` behavior (W110), and every abstract behavior needs a refinement (W030). A `refinement` entity (`abstract_entity` / `concrete_entity`) declares the same step explicitly.
 
 ## Validation Rules
 

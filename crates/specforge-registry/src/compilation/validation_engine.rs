@@ -498,7 +498,11 @@ pub fn execute_pattern(
                 }
             }
             ValidationPatternKind::NoVerifyStatements => {
-                !entity.fields.contains_key("verify") && !entity.fields.contains_key("gherkin")
+                // `abstract true` marks a specification-only entity: its
+                // obligations are carried by the concretes that refine it.
+                !entity.fields.contains_key("verify")
+                    && !entity.fields.contains_key("gherkin")
+                    && entity.fields.get("abstract").map(String::as_str) != Some("true")
             }
             ValidationPatternKind::Custom => {
                 if let (Some(func), Some(rt)) = (&pattern.wasm_function, wasm) {
@@ -759,6 +763,23 @@ mod tests {
         assert!(
             execute_pattern(&rule, &[gherkin], None).is_empty(),
             "gherkin exempts"
+        );
+
+        let mut spec_only = make_entity("b3", "behavior", 1, 1);
+        spec_only
+            .fields
+            .insert("abstract".to_string(), "true".to_string());
+        assert!(
+            execute_pattern(&rule, &[spec_only.clone()], None).is_empty(),
+            "abstract true exempts"
+        );
+        spec_only
+            .fields
+            .insert("abstract".to_string(), "false".to_string());
+        assert_eq!(
+            execute_pattern(&rule, &[spec_only], None).len(),
+            1,
+            "abstract false does not exempt"
         );
     }
 

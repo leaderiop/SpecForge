@@ -477,6 +477,81 @@ fn analyze_refinement_that_drops_an_ensures_condition_is_e031() {
     assert_ne!(code, 0, "an E031 error must fail analyze");
 }
 
+/// The field form of specification layering (`abstract true` + `refines`),
+/// declared by @specforge/formal on @specforge/software behaviors.
+#[test]
+fn refines_and_abstract_fields_drive_layering_end_to_end() {
+    let dir = TempDir::new().unwrap();
+    fs::write(
+        dir.path().join("specforge.json"),
+        r#"{"extensions": ["@specforge/formal", "@specforge/software"]}"#,
+    )
+    .unwrap();
+    fs::write(
+        dir.path().join("main.spec"),
+        concat!(
+            "behavior provision \"Provision\" {\n",
+            "  title \"Provision\"\n",
+            "  abstract true\n",
+            "  ensures {\n",
+            "    config_created \"config exists\"\n",
+            "    file_created \"file exists\"\n",
+            "  }\n",
+            "}\n",
+            "behavior provision_lazy \"Provision (lazy)\" {\n",
+            "  title \"Provision (lazy)\"\n",
+            "  refines provision\n",
+            "  ensures {\n",
+            "    config_created \"config exists\"\n",
+            "  }\n",
+            "  verify unit \"lazy\"\n",
+            "}\n",
+            "behavior plain \"Plain\" {\n  title \"Plain\"\n  verify unit \"plain\"\n}\n",
+            "behavior derived \"Derived\" {\n",
+            "  title \"Derived\"\n",
+            "  refines plain\n",
+            "  verify unit \"derived\"\n",
+            "}\n",
+            "behavior orphan_spec \"Orphan spec\" {\n",
+            "  title \"Orphan spec\"\n",
+            "  abstract true\n",
+            "}\n",
+        ),
+    )
+    .unwrap();
+
+    let check = specforge_cmd()
+        .args(["check", dir.path().to_str().unwrap(), "--format=json"])
+        .output()
+        .unwrap();
+    let diagnostics: Vec<serde_json::Value> = serde_json::from_slice(&check.stdout).unwrap();
+    let flagged: Vec<String> = diagnostics
+        .iter()
+        .filter(|d| d["code"] == "W020" || d["code"] == "W004")
+        .map(|d| d["message"].as_str().unwrap().to_string())
+        .collect();
+    assert!(
+        flagged.is_empty(),
+        "abstract/refines are declared fields and abstract behaviors need no verify: {flagged:?}"
+    );
+
+    let (doc, code) = json_body(&dir, &[]);
+    let findings = layering_findings(&doc);
+    let codes: Vec<&str> = findings.iter().map(|(c, _)| c.as_str()).collect();
+    assert_eq!(codes, vec!["E031", "W030", "W110"], "{findings:?}");
+    assert!(
+        findings[0]
+            .1
+            .contains("'provision_lazy' refines 'provision'")
+    );
+    assert!(
+        findings[1].1.contains("'orphan_spec'"),
+        "only the unrefined abstract"
+    );
+    assert!(findings[2].1.contains("'derived' refines 'plain'"));
+    assert_ne!(code, 0, "E031 fails analyze");
+}
+
 #[test]
 fn analyze_refinement_cycle_is_e041() {
     let dir = project(concat!(

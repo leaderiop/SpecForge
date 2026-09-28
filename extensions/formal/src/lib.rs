@@ -140,64 +140,106 @@ fn non_empty(entity: &PassEntity, field: &str) -> bool {
 }
 
 /// layering_verify (RES-25 part I): refinement chains must stay acyclic
-/// (E041) and shallow (W031 beyond depth 4).
+/// (E041) and shallow (W031 beyond depth 4), keep the abstract's ensures
+/// (E031), and every abstract behavior needs a refinement (W030).
 const MAX_LAYERING_DEPTH: usize = 4;
+const BEHAVIOR_KIND: &str = "behavior";
 const REFINEMENT_KIND: &str = "refinement";
 // Graph edges are labelled with the field that declared them, not the
 // describe_fields edge-type name (see specforge-resolver linker).
-const CONCRETE_FIELD: &str = "concrete_entity";
-const ABSTRACT_FIELD: &str = "abstract_entity";
+const REFINEMENT_CONCRETE_FIELD: &str = "concrete_entity";
+const REFINEMENT_ABSTRACT_FIELD: &str = "abstract_entity";
+const REFINES_FIELD: &str = "refines";
+const ABSTRACT_FLAG_FIELD: &str = "abstract";
 
-/// One `refinement` entity as (refinement id, concrete behavior, abstract
-/// behavior), read from the edges its `concrete_entity`/`abstract_entity`
-/// fields produce. Sorted by refinement id.
-fn refinement_steps(input: &PassInput) -> Vec<(&str, &str, &str)> {
-    use std::collections::{BTreeMap, HashSet};
+/// How a concrete -> abstract layering step was declared.
+#[derive(Debug, Clone, Copy, PartialEq)]
+enum Declared<'a> {
+    /// A `refinement` entity naming both behaviors.
+    Entity(&'a str),
+    /// A `refines` field on the concrete behavior.
+    Field,
+}
 
-    let refinements: HashSet<&str> = input
+#[derive(Debug, Clone, Copy)]
+struct LayeringStep<'a> {
+    declared: Declared<'a>,
+    concrete: &'a str,
+    abstract_id: &'a str,
+}
+
+/// Every concrete -> abstract step, from `refinement` entities and from
+/// `refines` fields on behaviors. When both declare the same pair the
+/// refinement entity wins (it is the more explicit record). Sorted by pair.
+fn layering_steps(input: &PassInput) -> Vec<LayeringStep<'_>> {
+    use std::collections::{BTreeMap, HashMap};
+
+    let kind_of: HashMap<&str, &str> = input
         .entities
         .iter()
-        .filter(|e| e.kind == REFINEMENT_KIND)
-        .map(|e| e.id.as_str())
+        .map(|e| (e.id.as_str(), e.kind.as_str()))
         .collect();
     let mut concrete: BTreeMap<&str, &str> = BTreeMap::new();
     let mut abstract_of: BTreeMap<&str, &str> = BTreeMap::new();
+    let mut steps: BTreeMap<(&str, &str), Declared> = BTreeMap::new();
     for edge in &input.edges {
-        if !refinements.contains(edge.source.as_str()) {
-            continue;
-        }
-        match edge.label.as_str() {
-            CONCRETE_FIELD => {
-                concrete.insert(edge.source.as_str(), edge.target.as_str());
+        let (source, target) = (edge.source.as_str(), edge.target.as_str());
+        match (kind_of.get(source).copied(), edge.label.as_str()) {
+            (Some(REFINEMENT_KIND), REFINEMENT_CONCRETE_FIELD) => {
+                concrete.insert(source, target);
             }
-            ABSTRACT_FIELD => {
-                abstract_of.insert(edge.source.as_str(), edge.target.as_str());
+            (Some(REFINEMENT_KIND), REFINEMENT_ABSTRACT_FIELD) => {
+                abstract_of.insert(source, target);
+            }
+            (Some(BEHAVIOR_KIND), REFINES_FIELD) => {
+                steps.entry((source, target)).or_insert(Declared::Field);
             }
             _ => {}
         }
     }
-    concrete
+    for (refinement, concrete) in concrete {
+        if let Some(&abstract_id) = abstract_of.get(refinement) {
+            steps
+                .entry((concrete, abstract_id))
+                .and_modify(|declared| {
+                    if *declared == Declared::Field {
+                        *declared = Declared::Entity(refinement);
+                    }
+                })
+                .or_insert(Declared::Entity(refinement));
+        }
+    }
+    steps
         .into_iter()
-        .filter_map(|(refinement, concrete)| {
-            abstract_of
-                .get(refinement)
-                .map(|&abstract_id| (refinement, concrete, abstract_id))
+        .map(|((concrete, abstract_id), declared)| LayeringStep {
+            declared,
+            concrete,
+            abstract_id,
         })
         .collect()
 }
 
 #[specforge_extension_sdk::compiler_pass(name = "layering_verify", after = "condition_check")]
 fn pass_layering_verify(input: &PassInput) -> Vec<PassDiagnostic> {
-    use std::collections::HashMap;
+    use std::collections::{HashMap, HashSet};
 
     let by_id: HashMap<&str, &PassEntity> =
         input.entities.iter().map(|e| (e.id.as_str(), e)).collect();
-    let steps = refinement_steps(input);
+    let is_abstract = |id: &str| {
+        by_id
+            .get(id)
+            .and_then(|e| e.fields.get(ABSTRACT_FLAG_FIELD))
+            .is_some_and(|v| v == "true")
+    };
+    let steps = layering_steps(input);
     // concrete behavior -> the abstract behaviors it refines
     let mut refines: HashMap<&str, Vec<&str>> = HashMap::new();
-    for &(_, concrete, abstract_id) in &steps {
-        if by_id.contains_key(concrete) && by_id.contains_key(abstract_id) {
-            refines.entry(concrete).or_default().push(abstract_id);
+    for step in &steps {
+        if by_id.contains_key(step.concrete) && by_id.contains_key(step.abstract_id) {
+            refines
+                .entry(step.concrete)
+                .or_default()
+                .push(step.abstract_id);
         }
     }
 
@@ -300,7 +342,12 @@ fn pass_layering_verify(input: &PassInput) -> Vec<PassDiagnostic> {
             Some(names)
         }
     };
-    for &(refinement, concrete, abstract_id) in &steps {
+    for step in &steps {
+        let LayeringStep {
+            declared,
+            concrete,
+            abstract_id,
+        } = *step;
         let (Some(concrete_names), Some(abstract_names)) =
             (ensures_names(concrete), ensures_names(abstract_id))
         else {
@@ -313,17 +360,56 @@ fn pass_layering_verify(input: &PassInput) -> Vec<PassDiagnostic> {
             .collect();
         if !missing.is_empty() {
             let names_list = missing.join(", ");
-            findings.push(PassDiagnostic::new(
-                "E031",
-                PassSeverity::Error,
-                format!(
+            let message = match declared {
+                Declared::Entity(refinement) => format!(
                     "refinement '{refinement}': '{concrete}' drops ensures condition(s) [{names_list}] from abstract '{abstract_id}'"
                 ),
-            )
-            .with_suggestion(
+                Declared::Field => format!(
+                    "'{concrete}' refines '{abstract_id}' but drops its ensures condition(s) [{names_list}]"
+                ),
+            };
+            findings.push(PassDiagnostic::new("E031", PassSeverity::Error, message).with_suggestion(
                 "keep every abstract ensures condition in the refinement (strengthening is allowed; weakening is not)",
             ));
         }
+    }
+
+    // W110: the `refines` field declares layering against an abstraction,
+    // so its target must be marked `abstract true`. Refinement entities
+    // predate the flag and may name any behavior.
+    for step in steps.iter().filter(|s| s.declared == Declared::Field) {
+        if by_id.contains_key(step.abstract_id) && !is_abstract(step.abstract_id) {
+            findings.push(
+                PassDiagnostic::warning(
+                    "W110",
+                    format!(
+                        "'{}' refines '{}', which is not marked `abstract true`",
+                        step.concrete, step.abstract_id
+                    ),
+                )
+                .with_suggestion(format!(
+                    "add `abstract true` to '{}', or refine an abstract behavior",
+                    step.abstract_id
+                )),
+            );
+        }
+    }
+
+    // W030: an abstract behavior nothing refines is an incomplete layer.
+    let refined: HashSet<&str> = steps.iter().map(|s| s.abstract_id).collect();
+    for entity in input.entities.iter().filter(|e| {
+        e.kind == BEHAVIOR_KIND && is_abstract(&e.id) && !refined.contains(e.id.as_str())
+    }) {
+        findings.push(
+            PassDiagnostic::warning(
+                "W030",
+                format!("abstract behavior '{}' has no concrete refinement", entity.id),
+            )
+            .with_suggestion(format!(
+                "add a behavior with `refines {}`, or a `refinement` entity naming it as abstract_entity",
+                entity.id
+            )),
+        );
     }
 
     // Deterministic order: DFS seeds came from a HashMap, so sort by
@@ -533,8 +619,8 @@ mod pass_tests {
     /// `abstract_entity` fields produce in the real graph.
     fn refinement(id: &str, concrete: &str, abstract_id: &str) -> [PassEdge; 2] {
         [
-            edge(id, concrete, CONCRETE_FIELD),
-            edge(id, abstract_id, ABSTRACT_FIELD),
+            edge(id, concrete, REFINEMENT_CONCRETE_FIELD),
+            edge(id, abstract_id, REFINEMENT_ABSTRACT_FIELD),
         ]
     }
 
@@ -696,18 +782,122 @@ mod pass_tests {
     }
 
     /// Labels no declared field produces (the pre-fix markers) must not be
-    /// mistaken for refinements: only `refinement` entities define layering.
+    /// mistaken for refinements, nor may a `refines` edge from a non-behavior.
     #[test]
     fn layering_ignores_edges_that_are_not_refinement_fields() {
         let input = PassInput {
-            entities: vec![entity("a", "behavior"), entity("b", "behavior")],
+            entities: vec![
+                entity("a", "behavior"),
+                entity("b", "behavior"),
+                entity("t", "type"),
+            ],
             edges: vec![
                 edge("a", "b", "RefinesTo"),
-                edge("b", "a", "refines"),
                 edge("a", "b", "RefinementChainLink"),
+                edge("t", "a", REFINES_FIELD),
             ],
         };
         assert!(pass_layering_verify(&input).is_empty());
+    }
+
+    fn behavior(id: &str, ensures: &str, is_abstract: bool) -> PassEntity {
+        let mut e = entity(id, "behavior");
+        if !ensures.is_empty() {
+            e.fields.insert("ensures".to_string(), ensures.to_string());
+        }
+        if is_abstract {
+            e.fields
+                .insert(ABSTRACT_FLAG_FIELD.to_string(), "true".to_string());
+        }
+        e
+    }
+
+    #[test]
+    fn refines_field_is_checked_like_a_refinement_entity() {
+        let input = PassInput {
+            entities: vec![
+                behavior("spec", "a, b", true),
+                behavior("keeps", "a, b, c", false),
+                behavior("drops", "a", false),
+            ],
+            edges: vec![
+                edge("keeps", "spec", REFINES_FIELD),
+                edge("drops", "spec", REFINES_FIELD),
+            ],
+        };
+        let findings = pass_layering_verify(&input);
+        assert_eq!(codes(&findings), vec!["E031"], "{findings:?}");
+        assert!(
+            findings[0].message.contains("'drops' refines 'spec'")
+                && findings[0].message.contains("[b]"),
+            "{}",
+            findings[0].message
+        );
+    }
+
+    #[test]
+    fn entity_and_field_declaring_one_pair_report_once_via_the_entity() {
+        let mut entities = vec![behavior("spec", "a, b", true), behavior("impl", "a", false)];
+        entities.push(entity("r", "refinement"));
+        let mut edges = refinement("r", "impl", "spec").to_vec();
+        edges.push(edge("impl", "spec", REFINES_FIELD));
+        let findings = pass_layering_verify(&PassInput { entities, edges });
+        assert_eq!(codes(&findings), vec!["E031"], "{findings:?}");
+        assert!(
+            findings[0].message.starts_with("refinement 'r'"),
+            "{}",
+            findings[0].message
+        );
+    }
+
+    #[test]
+    fn refines_on_a_non_abstract_behavior_is_w110_but_entities_are_exempt() {
+        let field = PassInput {
+            entities: vec![behavior("base", "", false), behavior("derived", "", false)],
+            edges: vec![edge("derived", "base", REFINES_FIELD)],
+        };
+        let findings = pass_layering_verify(&field);
+        assert_eq!(codes(&findings), vec!["W110"], "{findings:?}");
+        assert!(matches!(findings[0].severity, PassSeverity::Warning));
+
+        let entity_based = PassInput {
+            entities: vec![
+                behavior("base", "", false),
+                behavior("derived", "", false),
+                entity("r", "refinement"),
+            ],
+            edges: refinement("r", "derived", "base").to_vec(),
+        };
+        assert!(pass_layering_verify(&entity_based).is_empty());
+    }
+
+    #[test]
+    fn abstract_behavior_without_a_refinement_is_w030() {
+        let lonely = PassInput {
+            entities: vec![behavior("spec", "a", true)],
+            edges: vec![],
+        };
+        let findings = pass_layering_verify(&lonely);
+        assert_eq!(codes(&findings), vec!["W030"], "{findings:?}");
+        assert!(findings[0].message.contains("'spec'"));
+
+        for edges in [
+            vec![edge("impl", "spec", REFINES_FIELD)],
+            refinement("r", "impl", "spec").to_vec(),
+        ] {
+            let input = PassInput {
+                entities: vec![
+                    behavior("spec", "a", true),
+                    behavior("impl", "a", false),
+                    entity("r", "refinement"),
+                ],
+                edges,
+            };
+            assert!(
+                pass_layering_verify(&input).is_empty(),
+                "refined either way -> complete"
+            );
+        }
     }
 
     #[test]
@@ -921,8 +1111,8 @@ mod process_tests {
         let mut edges = Vec::new();
         for (r, concrete, abstract_id) in [("r1", "a", "b"), ("r2", "b", "a"), ("r3", "b", "a")] {
             entities.push(entity(r, "refinement"));
-            edges.push(edge(r, concrete, CONCRETE_FIELD));
-            edges.push(edge(r, abstract_id, ABSTRACT_FIELD));
+            edges.push(edge(r, concrete, REFINEMENT_CONCRETE_FIELD));
+            edges.push(edge(r, abstract_id, REFINEMENT_ABSTRACT_FIELD));
         }
         let input = PassInput { entities, edges };
         let findings = pass_layering_verify(&input);

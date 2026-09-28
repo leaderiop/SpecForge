@@ -38,6 +38,15 @@
           "label": "BehaviorSatisfiesProperty",
           "source_kind": "behavior",
           "target_kind": "property"
+        },
+        {
+          "description": "Concrete behavior refines an abstract behavior (specification layering)",
+          "edge_arrowhead": null,
+          "edge_color": "#4A148C",
+          "edge_style": "dashed",
+          "label": "BehaviorRefinesBehavior",
+          "source_kind": "behavior",
+          "target_kind": "behavior"
         }
       ],
       "fields": [
@@ -95,6 +104,28 @@
           "name": "sync",
           "required": false,
           "target_kind": null
+        },
+        {
+          "default_value": null,
+          "description": "Marks a specification-only behavior that concrete behaviors refine; it carries no verify obligations of its own",
+          "edge": null,
+          "field_type": "bool",
+          "file_reference": false,
+          "inverse_of": null,
+          "name": "abstract",
+          "required": false,
+          "target_kind": null
+        },
+        {
+          "default_value": null,
+          "description": "Abstract behavior this concrete behavior refines; its ensures conditions must be kept (E031)",
+          "edge": "BehaviorRefinesBehavior",
+          "field_type": "reference",
+          "file_reference": false,
+          "inverse_of": null,
+          "name": "refines",
+          "required": false,
+          "target_kind": "behavior"
         }
       ],
       "source_extension": "@specforge/formal",
