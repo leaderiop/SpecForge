@@ -58,5 +58,5 @@ pub fn emit_context(graph: &Graph) -> String {
         edges: sorted_edges(graph),
     };
 
-    serde_json::to_string_pretty(&output).expect("graph serialization cannot fail")
+    serde_json::to_string(&output).expect("graph serialization cannot fail")
 }

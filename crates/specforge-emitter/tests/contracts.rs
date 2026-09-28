@@ -807,3 +807,93 @@ fn dot_emits_registry_declared_styles() {
         "default emission must not invent registry styles"
     );
 }
+
+// C9-04: machine formats serialize compact — no pretty-print whitespace.
+#[test]
+fn machine_formats_serialize_compact() {
+    let graph = build_graph();
+    let options = specforge_emitter::EmitOptions {
+        format: specforge_emitter::EmitFormat::Json,
+        ..Default::default()
+    };
+    let json = specforge_emitter::emit(&graph, &options).unwrap();
+    assert!(
+        !json.contains("\n  \""),
+        "machine JSON must not contain pretty-print indentation"
+    );
+    let pretty_bytes = serde_json::to_string_pretty(
+        &serde_json::from_slice::<serde_json::Value>(json.as_bytes()).unwrap(),
+    )
+    .unwrap()
+    .len();
+    assert!(
+        json.len() < pretty_bytes,
+        "compact output must be smaller than pretty output"
+    );
+
+    let ctx = specforge_emitter::EmitOptions {
+        format: specforge_emitter::EmitFormat::Context,
+        ..Default::default()
+    };
+    let context = specforge_emitter::emit(&graph, &ctx).unwrap();
+    assert!(!context.contains("\n  \""), "context must be compact too");
+
+    let brief = specforge_emitter::EmitOptions {
+        format: specforge_emitter::EmitFormat::Brief,
+        ..Default::default()
+    };
+    let brief_out = specforge_emitter::emit(&graph, &brief).unwrap();
+    assert!(!brief_out.contains("\n  \""), "brief must be compact too");
+}
+
+// C1-10: token budget applies to the agent formats (context/brief), not just
+// schemaless JSON. A tight budget must shrink the output to a subgraph.
+#[test]
+fn budget_truncates_context_and_brief() {
+    let graph = build_graph(); // 3 nodes, 2 edges
+    for format in [
+        specforge_emitter::EmitFormat::Json,
+        specforge_emitter::EmitFormat::Context,
+        specforge_emitter::EmitFormat::Brief,
+    ] {
+        let full = specforge_emitter::emit(
+            &graph,
+            &specforge_emitter::EmitOptions {
+                format,
+                ..Default::default()
+            },
+        )
+        .unwrap();
+        let truncated = specforge_emitter::emit(
+            &graph,
+            &specforge_emitter::EmitOptions {
+                format,
+                token_budget: Some(20), // far below the full render
+                ..Default::default()
+            },
+        )
+        .unwrap();
+        assert!(
+            truncated.len() < full.len(),
+            "{format:?}: budgeted output must be strictly smaller ({} vs {})",
+            truncated.len(),
+            full.len()
+        );
+        // Budgeted output stays valid JSON for the JSON family.
+        if matches!(format, specforge_emitter::EmitFormat::Json) {
+            serde_json::from_str::<serde_json::Value>(&truncated)
+                .expect("budgeted JSON still parses");
+        }
+    }
+
+    // No budget: unchanged full output.
+    let full = specforge_emitter::emit(
+        &graph,
+        &specforge_emitter::EmitOptions {
+            format: specforge_emitter::EmitFormat::Brief,
+            ..Default::default()
+        },
+    )
+    .unwrap();
+    assert!(full.contains("\"edges\":"), "full brief keeps edges");
+}

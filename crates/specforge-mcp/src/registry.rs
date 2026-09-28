@@ -180,7 +180,7 @@ pub fn default_tools() -> Vec<McpToolDescriptor> {
                 "properties": {
                     "format": { "type": "string", "enum": ["graph", "context", "brief"], "default": "graph" },
                     "scope": { "type": "string", "description": "Scope to entity subgraph" },
-                    "max_tokens": { "type": "integer", "description": "Optional token budget; truncates JSON export to the most central entities (ignored for other formats)" }
+                    "max_tokens": { "type": "integer", "description": "Optional token budget; truncates the export to the most central entities that fit" }
                 }
             }),
             category: Some("core".into()),

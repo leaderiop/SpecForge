@@ -66,6 +66,7 @@ impl Default for EmitOptions<'_> {
 pub fn emit(graph: &Graph, options: &EmitOptions<'_>) -> Result<String, EmitterError> {
     // Resolve scope: use depth-limited subgraph when depth is set, otherwise full subgraph
     let scoped_graph;
+    let budgeted_graph;
     let g = if let Some(scope_id) = options.scope {
         scoped_graph = if let Some(depth) = options.depth {
             graph.subgraph_depth(scope_id, depth)
@@ -110,13 +111,34 @@ pub fn emit(graph: &Graph, options: &EmitOptions<'_>) -> Result<String, EmitterE
         g
     };
 
-    // Handle token budget (only for Json format without schema)
-    if let Some(budget) = options.token_budget
-        && options.format == EmitFormat::Json
-        && options.schema.is_none()
-    {
-        return Ok(crate::budget::emit_json_with_budget(g, budget));
-    }
+    // Token budget: agent-consumed formats (Json/Context/Brief) honor it by
+    // truncating to the most central subgraph that fits (C1-10). Schema
+    // definitions and DOT are not budgeted.
+    let g = match options.token_budget {
+        Some(budget) if options.format != EmitFormat::Dot => {
+            budgeted_graph = crate::budget::filter_graph_within_budget(
+                g,
+                budget,
+                |sub| match (options.format, options.schema) {
+                    (EmitFormat::Json, Some(schema)) => {
+                        crate::schema::emit_json_with_schema(sub, schema)
+                    }
+                    (EmitFormat::Json, None) => crate::json::emit_json(sub),
+                    (EmitFormat::Context, Some(schema)) => {
+                        crate::schema::emit_context_with_schema(sub, schema)
+                    }
+                    (EmitFormat::Context, None) => crate::context::emit_context(sub),
+                    (EmitFormat::Brief, Some(schema)) => {
+                        crate::schema::emit_brief_with_schema(sub, schema)
+                    }
+                    (EmitFormat::Brief, None) => crate::brief::emit_brief(sub),
+                    (EmitFormat::Dot, _) => crate::dot::emit_dot(g),
+                },
+            );
+            &budgeted_graph
+        }
+        _ => g,
+    };
 
     // Dispatch to format
     let output = match (options.format, options.schema) {

@@ -108,5 +108,5 @@ pub fn serialize_plan_result(result: &PlanValidationResult) -> String {
         validated_entries: &result.validated_entries,
     };
 
-    serde_json::to_string_pretty(&output).expect("serialization cannot fail")
+    serde_json::to_string(&output).expect("serialization cannot fail")
 }

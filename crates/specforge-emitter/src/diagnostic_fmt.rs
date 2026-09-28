@@ -54,7 +54,7 @@ pub fn serialize_diagnostics(diagnostics: &[Diagnostic]) -> String {
         })
         .collect();
 
-    serde_json::to_string_pretty(&entries).expect("diagnostic serialization cannot fail")
+    serde_json::to_string(&entries).expect("diagnostic serialization cannot fail")
 }
 
 /// Maximum number of diagnostics to emit before truncating.

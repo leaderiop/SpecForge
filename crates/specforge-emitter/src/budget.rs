@@ -130,7 +130,7 @@ pub fn emit_json_with_budget(graph: &Graph, max_tokens: usize) -> String {
             },
         };
 
-        let serialized = serde_json::to_string_pretty(&output).expect("serialization cannot fail");
+        let serialized = serde_json::to_string(&output).expect("serialization cannot fail");
         let est = estimate_tokens(&serialized);
 
         if est <= max_tokens || kept.len() <= 1 {
@@ -150,7 +150,7 @@ pub fn emit_json_with_budget(graph: &Graph, max_tokens: usize) -> String {
                     })
                 },
             };
-            return serde_json::to_string_pretty(&final_output).expect("serialization cannot fail");
+            return serde_json::to_string(&final_output).expect("serialization cannot fail");
         }
 
         // Remove the least-connected node

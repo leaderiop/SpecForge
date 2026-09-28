@@ -422,7 +422,7 @@ pub fn emit_json_with_schema(graph: &Graph, schema: &GraphProtocolSchema) -> Str
         edges: sorted_edges(graph),
     };
 
-    serde_json::to_string_pretty(&output).expect("graph serialization cannot fail")
+    serde_json::to_string(&output).expect("graph serialization cannot fail")
 }
 
 #[derive(Serialize)]
@@ -483,7 +483,7 @@ pub fn emit_context_with_schema(graph: &Graph, schema: &GraphProtocolSchema) -> 
         edges: sorted_edges(graph),
     };
 
-    serde_json::to_string_pretty(&output).expect("graph serialization cannot fail")
+    serde_json::to_string(&output).expect("graph serialization cannot fail")
 }
 
 #[derive(Serialize)]
@@ -522,7 +522,7 @@ pub fn emit_brief_with_schema(graph: &Graph, schema: &GraphProtocolSchema) -> St
         edges: sorted_edges(graph),
     };
 
-    serde_json::to_string_pretty(&output).expect("graph serialization cannot fail")
+    serde_json::to_string(&output).expect("graph serialization cannot fail")
 }
 
 // ---------------------------------------------------------------------------

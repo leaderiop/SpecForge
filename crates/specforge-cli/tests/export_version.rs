@@ -44,8 +44,8 @@ fn schema_version_within_same_major_is_accepted() {
     );
     let stdout = String::from_utf8_lossy(&out.stdout);
     assert!(
-        stdout.contains("\"schema_version\": \"1.0.0\""),
-        "label applied"
+        stdout.contains("\"schema_version\":\"1.0.0\""),
+        "label applied (compact)"
     );
 }
 
