@@ -81,14 +81,14 @@ invariant se_edge_consistency "Edge-Field Mapping Consistency" {
 invariant se_refinement_dag "Refinement DAG" {
   guarantee """
     The refines edges between behaviors MUST form a directed acyclic
-    graph (DAG). Cycles in refinement chains MUST produce E032 error
+    graph (DAG). Cycles in refinement chains MUST produce E041 error
     diagnostics. This ensures well-founded refinement from abstract
     specifications to concrete implementations.
   """
   risk high
 
   verify property "refines edges form a DAG with no cycles"
-  verify unit "cycle in refinement chain produces E032"
+  verify unit "cycle in refinement chain produces E041"
     tests ["crates/specforge-emitter/tests/builtins.rs"]
 
 }

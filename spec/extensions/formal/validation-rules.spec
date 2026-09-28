@@ -250,8 +250,8 @@ behavior fa_validate_orphan_refinement "W069: Orphan Refinement" {
   invariants [fa_refinement_entity_reachability]
   types      [FormalRefinement]
   contract   """
-    Detect refinement entities with no incoming RefinesTo or
-    RefinementChainLink edges. An orphan refinement is a graph node
+    Detect refinement entities with no RefinementRefinesAbstract,
+    RefinementRefinesConcrete, or RefinementChainsToRefinement edges. An orphan refinement is a graph node
     that captures an abstract-to-concrete mapping but is disconnected
     from all behaviors and other refinements — it should either be
     connected or removed. Requires warning_level=strict to fire.
@@ -261,16 +261,16 @@ behavior fa_validate_orphan_refinement "W069: Orphan Refinement" {
     strict_warning_level   "warning_level is set to strict"
   }
   ensures    {
-    orphan_detected        "refinement with no RefinesTo or RefinementChainLink edges produces W069 warning"
-    referenced_passes      "refinement with at least one RefinesTo or RefinementChainLink edge produces no diagnostic"
+    orphan_detected        "refinement with no refinement edges produces W069 warning"
+    referenced_passes      "refinement with at least one refinement edge produces no diagnostic"
     correct_template       "message template is: refinement '{id}' is not connected to any behavior or refinement chain"
   }
 
   features [fa_refinement_layering]
 
   verify unit "refinement with no edges produces W069"
-  verify unit "refinement with RefinesTo edge passes"
-  verify unit "refinement with RefinementChainLink edge passes"
+  verify unit "refinement with abstract_entity and concrete_entity edges passes"
+  verify unit "refinement with RefinementChainsToRefinement edge passes"
   verify unit "W069 only fires at warning_level=strict"
 }
 
@@ -325,7 +325,7 @@ behavior fa_validate_refinement_self_reference "E041b: Refinement Self-Reference
   category query
   types    [FormalRefinement]
   contract """
-    Detect refinement entities where abstract_id equals concrete_id.
+    Detect refinement entities where abstract_entity equals concrete_entity.
     A refinement that maps a behavior to itself is structurally invalid —
     it creates a trivial cycle. Produces E041 error.
   """
@@ -333,14 +333,14 @@ behavior fa_validate_refinement_self_reference "E041b: Refinement Self-Reference
     graph_built            "entity graph is fully constructed with all edges"
   }
   ensures  {
-    self_ref_detected      "refinement with abstract_id == concrete_id produces E041 error"
-    distinct_passes        "refinement with distinct abstract_id and concrete_id produces no diagnostic"
+    self_ref_detected      "refinement with abstract_entity == concrete_entity produces E041 error"
+    distinct_passes        "refinement with distinct abstract_entity and concrete_entity produces no diagnostic"
     correct_template       "message template is: refinement '{id}' maps behavior '{behavior_id}' to itself"
   }
 
   features [fa_refinement_layering]
 
-  verify unit "refinement with abstract_id == concrete_id produces E041"
+  verify unit "refinement with abstract_entity == concrete_entity produces E041"
   verify unit "refinement with distinct IDs passes"
 }
 

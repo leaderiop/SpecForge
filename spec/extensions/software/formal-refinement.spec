@@ -65,13 +65,13 @@ behavior se_build_refinement_chain "Build Refinement Chain" {
 
   ensures {
     chains_built           "each chain starts at abstract behavior, follows refines edges to concretes"
-    dag_enforced           "cycles in refinement produce E032"
+    dag_enforced           "cycles in refinement produce E041"
     depth_recorded         "each chain records its depth (number of refinement levels)"
     deep_chain_warned      "chain depth > 4 produces W031"
   }
 
   verify unit "refinement chain built from abstract to concrete"
-  verify unit "cycle in refinement produces E032"
+  verify unit "cycle in refinement produces E041"
   verify unit "chain depth recorded correctly"
   verify unit "chain depth > 4 produces W031"
     tests ["crates/specforge-cli/tests/analyze.rs"]

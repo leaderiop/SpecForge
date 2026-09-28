@@ -583,10 +583,11 @@ term t_structured_conditions "structured conditions" {
 term t_refinement_chain "refinement chain" {
   definition """
     Sequence of behavior refinements from abstract specification to
-    concrete implementation via refines edges, tracked as first-class
-    `refinement` entities (status: proposed, verified, discharged) — the
-    graph-node form of specification layering. Built by the
-    refinement_verify compiler pass. Cycles produce E032.
+    concrete implementation, declared either by a `refines` field on the
+    concrete behavior (the abstract marked `abstract true`) or by a
+    first-class `refinement` entity naming abstract_entity and
+    concrete_entity. Checked by the layering_verify compiler pass:
+    cycles produce E041, dropped ensures conditions E031.
   """
   aliases ["refinement path", "specification layering", "B-Method Refinement"]
 }

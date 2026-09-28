@@ -63,7 +63,7 @@ behavior fa_build_layering_chain "Build Specification Layering Chain" {
   ensures    {
     chains_built           "each chain starts at abstract behavior, follows refines edges to concretes via RefinementStep list"
     step_deltas_recorded   "each step records condition delta (added_ensures, removed_requires)"
-    dag_enforced           "cycles in layering produce E032"
+    dag_enforced           "cycles in layering produce E041"
     depth_recorded         "each chain records its depth (number of layering levels)"
     deep_chain_warned      "chain depth > 4 produces W031"
   }
@@ -72,7 +72,7 @@ behavior fa_build_layering_chain "Build Specification Layering Chain" {
 
   verify unit "layering chain built from abstract to concrete via steps"
   verify unit "each step records condition delta"
-  verify unit "cycle in layering produces E032"
+  verify unit "cycle in layering produces E041"
   verify unit "chain depth recorded correctly"
   verify unit "chain depth > 4 produces W031"
 }
@@ -131,26 +131,27 @@ behavior fa_parse_refinement_entity "Parse Refinement Entity" {
   category command
   types    [FormalRefinement, ConditionDelta, RefinementStatus]
   contract """
-    Parse refinement entity declarations. Creates RefinesTo edges
-    (refinement -> behavior) and RefinementChainLink edges
-    (refinement -> refinement). Validates that abstract_id and
-    concrete_id reference existing behavior entities. Status defaults
-    to proposed if not specified.
+    Parse refinement entity declarations. The abstract_entity and
+    concrete_entity fields create RefinementRefinesAbstract and
+    RefinementRefinesConcrete edges (refinement -> behavior); chains_to
+    creates RefinementChainsToRefinement edges (refinement -> refinement).
+    Validates that abstract_entity and concrete_entity reference existing
+    behavior entities. Status defaults to proposed if not specified.
   """
   ensures  {
-    refines_to_edges       "RefinesTo edges created from refinement to target behaviors"
-    chain_link_edges       "RefinementChainLink edges created between refinement entities"
-    abstract_validated     "abstract_id must reference an existing behavior entity"
-    concrete_validated     "concrete_id must reference an existing behavior entity"
+    refines_edges          "abstract_entity/concrete_entity create RefinementRefinesAbstract/RefinementRefinesConcrete edges to the named behaviors"
+    chain_link_edges       "chains_to creates RefinementChainsToRefinement edges between refinement entities"
+    abstract_validated     "abstract_entity must reference an existing behavior entity"
+    concrete_validated     "concrete_entity must reference an existing behavior entity"
     status_defaulted       "status defaults to proposed when not specified"
   }
 
   features [fa_refinement_layering]
 
-  verify unit "refinement entity parsed with RefinesTo edges"
+  verify unit "refinement entity parsed with abstract_entity and concrete_entity edges"
   verify unit "refinement chain link edges created"
-  verify unit "abstract_id referencing non-behavior produces error"
-  verify unit "concrete_id referencing non-behavior produces error"
+  verify unit "abstract_entity referencing non-behavior produces error"
+  verify unit "concrete_entity referencing non-behavior produces error"
   verify unit "status defaults to proposed"
 }
 
@@ -173,7 +174,7 @@ behavior fa_integrate_refinement_with_layering "Integrate Refinement Entities in
     unified_chains         "field-based and entity-based layering merged into unified RefinementChain"
     entity_delta_priority  "refinement entity condition delta takes precedence over inferred delta"
     dual_mode_coexist      "both field annotations and refinement entities coexist without conflict"
-    chain_dag_maintained   "unified chain maintains DAG property (E032 + E041)"
+    chain_dag_maintained   "unified chain maintains DAG property (E041)"
   }
 
   features [fa_refinement_layering]

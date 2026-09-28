@@ -62,8 +62,9 @@ feature fa_specification_layering "Specification Layering" {
     RefinementStep entries preserving per-step condition deltas rather
     than a flat list. The refinement entity kind provides first-class
     graph nodes for abstract-to-concrete mappings with condition deltas
-    and proof status. RefinesTo edges connect refinements to behaviors;
-    RefinementChainLink edges support multi-level refinement. Dual-mode:
+    and proof status. RefinementRefinesAbstract/RefinementRefinesConcrete edges connect
+    refinements to behaviors; RefinementChainsToRefinement edges support
+    multi-level refinement. Dual-mode:
     refinement entities coexist with abstract/refines field annotations.
     W069-W071 validation rules detect orphan refinements, empty
     descriptions, and missing condition deltas.
@@ -212,8 +213,9 @@ feature fa_refinement_layering "Refinement Entities" {
   solution  """
     The refinement entity kind captures abstract-to-concrete behavior
     mappings as first-class graph nodes with condition deltas and proof
-    status. RefinesTo edges connect refinements to target behaviors.
-    RefinementChainLink edges support multi-level refinement. Dual-mode:
+    status. RefinementRefinesAbstract/RefinementRefinesConcrete edges connect
+    refinements to target behaviors. RefinementChainsToRefinement edges
+    support multi-level refinement. Dual-mode:
     coexists with abstract/refines field annotations. W069-W071 validation.
   """
 }

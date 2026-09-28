@@ -60,8 +60,8 @@ type RefinementStatus = proposed | verified | discharged
 
 type FormalRefinement {
   description string
-  abstract_id EntityId
-  concrete_id EntityId
+  abstract_entity EntityId
+  concrete_entity EntityId
   conditions  ConditionDelta @optional
   status      RefinementStatus @optional
   references  EntityId[] @optional

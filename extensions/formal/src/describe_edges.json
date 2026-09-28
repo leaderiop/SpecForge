@@ -65,6 +65,15 @@
       "target_kind": "invariant"
     },
     {
+      "description": "Concrete behavior refines an abstract behavior (specification layering)",
+      "edge_arrowhead": null,
+      "edge_color": "#4A148C",
+      "edge_style": "dashed",
+      "label": "BehaviorRefinesBehavior",
+      "source_kind": "behavior",
+      "target_kind": "behavior"
+    },
+    {
       "description": "Refinement maps from this abstract behavior",
       "edge_arrowhead": null,
       "edge_color": "#1B5E20",

@@ -155,14 +155,15 @@ specforge extensions                    # list installed extensions
 │                                                                      │
 │  ┌─────────────────── Specification Layering ─────────────────────┐  │
 │  │                                                                │  │
-│  │   ┌────────────┐  RefinesTo          ┌───────────┐            │  │
+│  │   ┌────────────┐  RefinesAbstract,   ┌───────────┐            │  │
 │  │   │ refinement │────────────────────▶│ behavior  │            │  │
-│  │   │            │                     │(abstract) │            │  │
+│  │   │            │  RefinesConcrete    │           │            │  │
 │  │   │            │                     └───────────┘            │  │
-│  │   │            │  RefinementChainLink                         │  │
+│  │   │            │  ChainsToRefinement                          │  │
 │  │   │            │────────────────────▶┌────────────┐           │  │
 │  │   └────────────┘                     │ refinement │           │  │
 │  │                                      └────────────┘           │  │
+│  │   field form: behavior ── refines ──▶ behavior (abstract true)│  │
 │  └────────────────────────────────────────────────────────────────┘  │
 │                                                                      │
 │  ┌─────────────────── Event Graph Linting (CSP) ──────────────────┐  │
@@ -520,7 +521,7 @@ extensions themselves (not by guest passes).
 
 | Code | Rule |
 |------|------|
-| E041 | **Refinement chain cycle** — cycle in RefinementChainLink DAG |
+| E041 | **Refinement chain cycle** — cycle in the layering DAG (`refines` fields, refinement entities) |
 | E042 | **Process composition cycle** — a process composes (transitively) with itself via ProcessComposesProcess |
 | E046 | **Constraint bounds unsatisfiable** — the metric bounds contradict each other (SMT-verified) |
 | E047 | **Formal claim not entailed** — declared bounds do not guarantee the claim (counterexample reported) |
@@ -553,7 +554,7 @@ extensions themselves (not by guest passes).
 | W066 | **Orphan protocol** — no incoming FollowsProtocol edges from events |
 | W067 | **Empty protocol description** — protocol has blank description |
 | W068 | **Protocol ordering conflict** — ordering references events not in graph |
-| W069 | **Orphan refinement** — no incoming RefinesTo/RefinementChainLink edges |
+| W069 | **Orphan refinement** — refinement with no refinement edges |
 | W070 | **Empty refinement description** — refinement has blank description |
 | W071 | **Refinement without condition delta** — no conditions field |
 | W072 | **Orphan process** — no incoming ParticipatesIn edges |
@@ -686,7 +687,7 @@ For teams using structured conditions, specification layering, or event graph li
 specforge add @specforge/formal
 # → +5 entity kinds: property, axiom, protocol, refinement, process
 # → +4 compiler passes: condition_check, layering_verify, event_graph_analyze, coverage_tracking
-# → +8 edge types (AssumedBy, Satisfies, FollowsProtocol, PropertyDependsOn, RefinesTo, RefinementChainLink, ParticipatesIn, ProcessComposition)
+# → +13 edge types (BehaviorRequires/Ensures/MaintainsInvariant, BehaviorSatisfiesProperty, BehaviorRefinesBehavior, EventFollowsProtocol, EventParticipatesInProcess, PropertyDependsOnInvariant, AxiomAssumesInvariant, RefinementRefinesAbstract/Concrete, RefinementChainsToRefinement, ProcessComposesProcess)
 # → Inline condition fields (requires/ensures/maintains) enhanced on behavior entities
 # → Requires warning_level=strict in specforge.json for formal warnings
 ```

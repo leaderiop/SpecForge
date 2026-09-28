@@ -7,14 +7,14 @@ use "extensions/formal/types"
 invariant fa_layering_dag "Specification Layering DAG" {
   guarantee   """
     The refines edges between behaviors MUST form a directed acyclic
-    graph (DAG). Cycles in refinement chains MUST produce E032 error
+    graph (DAG). Cycles in refinement chains MUST produce E041 error
     diagnostics. This ensures well-founded layering from abstract
     specifications to concrete implementations.
   """
   risk        high
 
   verify property "refines edges form a DAG with no cycles"
-  verify unit "cycle in refinement chain produces E032"
+  verify unit "cycle in refinement chain produces E041"
 }
 
 invariant fa_condition_consistency "Structured Condition Consistency" {
@@ -74,26 +74,26 @@ invariant fa_protocol_entity_reachability "Protocol Entity Reachability" {
 
 invariant fa_refinement_entity_reachability "Refinement Entity Reachability" {
   guarantee """
-    Every refinement entity MUST be referenced by at least one RefinesTo
-    edge targeting a behavior, or be linked via RefinementChainLink from
-    another refinement. Unreferenced refinement entities produce W069.
+    Every refinement entity MUST reach behaviors through its
+    RefinementRefinesAbstract/RefinementRefinesConcrete edges, or be linked
+    via RefinementChainsToRefinement from another refinement. Unreferenced refinement entities produce W069.
   """
   risk low
 
-  verify unit "refinement with RefinesTo edge passes"
-  verify unit "refinement with only RefinementChainLink incoming passes"
+  verify unit "refinement with abstract_entity and concrete_entity edges passes"
+  verify unit "refinement with only RefinementChainsToRefinement incoming passes"
   verify unit "refinement with no edges produces W069"
 }
 
 invariant fa_refinement_chain_dag "Refinement Chain Link DAG" {
   guarantee """
-    RefinementChainLink edges between refinement entities MUST form a DAG.
+    RefinementChainsToRefinement edges between refinement entities MUST form a DAG.
     Cycles produce E041 error.
   """
   risk high
 
-  verify property "RefinementChainLink edges form a DAG"
-  verify unit "cycle in RefinementChainLink produces E041"
+  verify property "RefinementChainsToRefinement edges form a DAG"
+  verify unit "cycle in RefinementChainsToRefinement produces E041"
 }
 
 invariant fa_process_entity_reachability "Process Entity Reachability" {

@@ -56,7 +56,7 @@ behavior fa_declare_graph_views "Declare Named Graph Views" {
     property_graph         "property-graph view: all property entities with Satisfies edges from behaviors and PropertyDependsOn edges to invariants"
     axiom_graph            "axiom-graph view: all axiom entities with AssumedBy edges from invariants"
     protocol_graph         "protocol-graph view: all protocol entities with FollowsProtocol edges from events"
-    refinement_graph       "refinement-graph view: all refinement entities with RefinesTo edges to behaviors and RefinementChainLink edges"
+    refinement_graph       "refinement-graph view: all refinement entities with RefinementRefinesAbstract/RefinementRefinesConcrete edges to behaviors and RefinementChainsToRefinement edges"
     process_graph          "process-graph view: all process entities with ParticipatesIn edges from events and ProcessComposition edges"
   }
 
@@ -70,6 +70,6 @@ behavior fa_declare_graph_views "Declare Named Graph Views" {
   verify unit "property-graph view contains property entities with Satisfies edges"
   verify unit "axiom-graph view contains axiom entities with AssumedBy edges"
   verify unit "protocol-graph view contains protocol entities with FollowsProtocol edges"
-  verify unit "refinement-graph view contains refinement entities with RefinesTo edges"
+  verify unit "refinement-graph view contains refinement entities with their refinement edges"
   verify unit "process-graph view contains process entities with ParticipatesIn edges"
 }
