@@ -105,7 +105,13 @@ pub fn run_schema(path: &Path, kind: Option<&str>, publish: bool, format: Option
             "brief" => specforge_emitter::EmitFormat::Brief,
             _ => specforge_emitter::EmitFormat::Json,
         };
-        let output = specforge_emitter::publish_json_schema_format(&schema, emit_format);
+        let output = match specforge_emitter::publish_json_schema_format(&schema, emit_format) {
+            Ok(out) => out,
+            Err(err) => {
+                eprintln!("{}", err);
+                return 1;
+            }
+        };
         println!("{}", output);
         return 0;
     }
@@ -122,7 +128,13 @@ pub fn run_schema(path: &Path, kind: Option<&str>, publish: bool, format: Option
             }
         }
     } else {
-        let output = specforge_emitter::emit_schema(&schema);
+        let output = match specforge_emitter::emit_schema(&schema) {
+            Ok(out) => out,
+            Err(err) => {
+                eprintln!("{}", err);
+                return 1;
+            }
+        };
         println!("{}", output);
         0
     }

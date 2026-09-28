@@ -127,14 +127,14 @@ pub fn emit(graph: &Graph, options: &EmitOptions<'_>) -> Result<String, EmitterE
                     (EmitFormat::Context, Some(schema)) => {
                         crate::schema::emit_context_with_schema(sub, schema)
                     }
-                    (EmitFormat::Context, None) => crate::context::emit_context(sub),
+                    (EmitFormat::Context, None) => Ok(crate::context::emit_context(sub)),
                     (EmitFormat::Brief, Some(schema)) => {
                         crate::schema::emit_brief_with_schema(sub, schema)
                     }
-                    (EmitFormat::Brief, None) => crate::brief::emit_brief(sub),
-                    _ => crate::json::emit_json(sub),
+                    (EmitFormat::Brief, None) => Ok(crate::brief::emit_brief(sub)),
+                    _ => Ok(crate::json::emit_json(sub)),
                 }
-            });
+            })?;
             &budgeted_graph
         }
         _ => g,
@@ -142,11 +142,11 @@ pub fn emit(graph: &Graph, options: &EmitOptions<'_>) -> Result<String, EmitterE
 
     // Dispatch to format
     let output = match (options.format, options.schema) {
-        (EmitFormat::Json, Some(schema)) => crate::schema::emit_json_with_schema(g, schema),
+        (EmitFormat::Json, Some(schema)) => crate::schema::emit_json_with_schema(g, schema)?,
         (EmitFormat::Json, None) => crate::json::emit_json(g),
-        (EmitFormat::Context, Some(schema)) => crate::schema::emit_context_with_schema(g, schema),
+        (EmitFormat::Context, Some(schema)) => crate::schema::emit_context_with_schema(g, schema)?,
         (EmitFormat::Context, None) => crate::context::emit_context(g),
-        (EmitFormat::Brief, Some(schema)) => crate::schema::emit_brief_with_schema(g, schema),
+        (EmitFormat::Brief, Some(schema)) => crate::schema::emit_brief_with_schema(g, schema)?,
         (EmitFormat::Brief, None) => crate::brief::emit_brief(g),
         (EmitFormat::Dot, _) => crate::dot::emit_dot_with_styles(g, options.kind_registry),
     };

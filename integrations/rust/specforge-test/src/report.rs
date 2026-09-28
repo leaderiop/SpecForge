@@ -41,5 +41,10 @@ pub fn write_report(
 
     let path = dir.join(format!("{binary_name}.json"));
     let json = serde_json::to_string_pretty(&report)?;
-    std::fs::write(path, json)
+    // C6-08: temp-file-plus-rename — a crash or full disk mid-write must
+    // not leave a truncated {binary_name}.json (same policy as
+    // persist_schema_cache).
+    let tmp = dir.join(format!(".{binary_name}.json.tmp"));
+    std::fs::write(&tmp, &json)?;
+    std::fs::rename(tmp, path)
 }

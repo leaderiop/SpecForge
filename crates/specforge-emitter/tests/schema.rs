@@ -413,7 +413,7 @@ fn generate_schema_deterministic_sort() {
 fn emit_json_with_schema_has_format_version() {
     let graph = Graph::new();
     let schema = GraphProtocolSchema::empty();
-    let json = emit_json_with_schema(&graph, &schema);
+    let json = emit_json_with_schema(&graph, &schema).unwrap();
     let parsed: serde_json::Value = serde_json::from_str(&json).unwrap();
 
     assert_eq!(parsed["format_version"], "2.0");
@@ -431,7 +431,7 @@ fn emit_json_with_schema_includes_schema() {
     let mut graph = Graph::new();
     graph.add_node(node("alpha", "behavior", Some("Alpha")));
     let schema = sample_schema();
-    let json = emit_json_with_schema(&graph, &schema);
+    let json = emit_json_with_schema(&graph, &schema).unwrap();
     let parsed: serde_json::Value = serde_json::from_str(&json).unwrap();
 
     assert!(parsed["schema"]["entity_kinds"].is_array());
@@ -459,7 +459,7 @@ fn existing_emit_json_has_no_schema_key() {
 fn emit_context_with_schema_has_format_version() {
     let graph = Graph::new();
     let schema = GraphProtocolSchema::empty();
-    let json = emit_context_with_schema(&graph, &schema);
+    let json = emit_context_with_schema(&graph, &schema).unwrap();
     let parsed: serde_json::Value = serde_json::from_str(&json).unwrap();
     assert_eq!(parsed["format_version"], "2.0");
     assert!(parsed["schema"].is_object());
@@ -471,7 +471,7 @@ fn emit_context_with_schema_has_format_version() {
 fn emit_brief_with_schema_has_format_version() {
     let graph = Graph::new();
     let schema = GraphProtocolSchema::empty();
-    let json = emit_brief_with_schema(&graph, &schema);
+    let json = emit_brief_with_schema(&graph, &schema).unwrap();
     let parsed: serde_json::Value = serde_json::from_str(&json).unwrap();
     assert_eq!(parsed["format_version"], "2.0");
     assert!(parsed["schema"].is_object());
@@ -486,7 +486,7 @@ fn emit_brief_with_schema_has_format_version() {
 fn emit_json_with_schema_version_consistency() {
     let graph = Graph::new();
     let schema = sample_schema();
-    let json = emit_json_with_schema(&graph, &schema);
+    let json = emit_json_with_schema(&graph, &schema).unwrap();
     let parsed: serde_json::Value = serde_json::from_str(&json).unwrap();
 
     let top_level = parsed["schema_version"].as_str().unwrap();
@@ -932,7 +932,7 @@ fn cache_independent_of_export() {
 )]
 fn emit_schema_full() {
     let schema = sample_schema();
-    let json = emit_schema(&schema);
+    let json = emit_schema(&schema).unwrap();
     let parsed: serde_json::Value = serde_json::from_str(&json).unwrap();
     assert!(parsed["entity_kinds"].is_array());
     assert!(parsed["edge_types"].is_array());
@@ -980,7 +980,7 @@ fn emit_schema_for_kind_missing() {
 )]
 fn publish_json_schema_valid() {
     let schema = sample_schema();
-    let json_schema_str = publish_json_schema_format(&schema, EmitFormat::Json);
+    let json_schema_str = publish_json_schema_format(&schema, EmitFormat::Json).unwrap();
     let parsed: serde_json::Value = serde_json::from_str(&json_schema_str).unwrap();
 
     assert_eq!(
@@ -996,7 +996,7 @@ fn publish_json_schema_valid() {
 #[specforge_test(behavior = "publish_schema_specification", verify = "kinds in enum")]
 fn publish_json_schema_kinds_in_enum() {
     let schema = sample_schema();
-    let json_schema_str = publish_json_schema_format(&schema, EmitFormat::Json);
+    let json_schema_str = publish_json_schema_format(&schema, EmitFormat::Json).unwrap();
     let parsed: serde_json::Value = serde_json::from_str(&json_schema_str).unwrap();
 
     let kind_enum = &parsed["properties"]["nodes"]["items"]["properties"]["kind"]["enum"];
@@ -1019,7 +1019,7 @@ fn publish_json_schema_kinds_in_enum() {
 )]
 fn publish_json_schema_edge_labels_in_enum() {
     let schema = sample_schema();
-    let json_schema_str = publish_json_schema_format(&schema, EmitFormat::Json);
+    let json_schema_str = publish_json_schema_format(&schema, EmitFormat::Json).unwrap();
     let parsed: serde_json::Value = serde_json::from_str(&json_schema_str).unwrap();
 
     let label_enum = &parsed["properties"]["edges"]["items"]["properties"]["label"]["enum"];
@@ -1041,7 +1041,7 @@ fn publish_json_schema_edge_labels_in_enum() {
 )]
 fn publish_json_schema_required_properties() {
     let schema = sample_schema();
-    let json_schema_str = publish_json_schema_format(&schema, EmitFormat::Json);
+    let json_schema_str = publish_json_schema_format(&schema, EmitFormat::Json).unwrap();
     let parsed: serde_json::Value = serde_json::from_str(&json_schema_str).unwrap();
 
     let required = parsed["required"].as_array().unwrap();
@@ -1060,7 +1060,7 @@ fn publish_json_schema_required_properties() {
 )]
 fn publish_json_schema_empty_schema() {
     let schema = GraphProtocolSchema::empty();
-    let json_schema_str = publish_json_schema_format(&schema, EmitFormat::Json);
+    let json_schema_str = publish_json_schema_format(&schema, EmitFormat::Json).unwrap();
     let parsed: serde_json::Value = serde_json::from_str(&json_schema_str).unwrap();
 
     assert_eq!(
@@ -1078,7 +1078,7 @@ fn publish_json_schema_empty_schema() {
 #[specforge_test(behavior = "publish_schema_specification", verify = "has title")]
 fn publish_json_schema_has_title() {
     let schema = sample_schema();
-    let json_schema_str = publish_json_schema_format(&schema, EmitFormat::Json);
+    let json_schema_str = publish_json_schema_format(&schema, EmitFormat::Json).unwrap();
     let parsed: serde_json::Value = serde_json::from_str(&json_schema_str).unwrap();
     assert_eq!(parsed["title"], "SpecForge Graph Protocol");
 }
@@ -1131,7 +1131,7 @@ fn full_pipeline_registries_to_schema_to_embed() {
         label: Sym::new("implements"),
     });
 
-    let json = emit_json_with_schema(&graph, &schema);
+    let json = emit_json_with_schema(&graph, &schema).unwrap();
     let parsed: serde_json::Value = serde_json::from_str(&json).unwrap();
     assert_eq!(parsed["format_version"], "2.0");
     assert_eq!(parsed["nodes"].as_array().unwrap().len(), 2);
@@ -1255,7 +1255,7 @@ fn emit_json_with_schema_nodes_have_fields() {
     });
 
     let schema = GraphProtocolSchema::empty();
-    let json = emit_json_with_schema(&graph, &schema);
+    let json = emit_json_with_schema(&graph, &schema).unwrap();
     let parsed: serde_json::Value = serde_json::from_str(&json).unwrap();
 
     let node = &parsed["nodes"].as_array().unwrap()[0];
@@ -1278,7 +1278,7 @@ fn emit_json_with_schema_has_edges() {
     });
 
     let schema = GraphProtocolSchema::empty();
-    let json = emit_json_with_schema(&graph, &schema);
+    let json = emit_json_with_schema(&graph, &schema).unwrap();
     let parsed: serde_json::Value = serde_json::from_str(&json).unwrap();
 
     let edges = parsed["edges"].as_array().unwrap();
@@ -1356,7 +1356,7 @@ fn diff_multiple_field_changes() {
 )]
 fn publish_json_schema_description_includes_version() {
     let schema = sample_schema();
-    let json_schema_str = publish_json_schema_format(&schema, EmitFormat::Json);
+    let json_schema_str = publish_json_schema_format(&schema, EmitFormat::Json).unwrap();
     let parsed: serde_json::Value = serde_json::from_str(&json_schema_str).unwrap();
     let desc = parsed["description"].as_str().unwrap();
     assert!(desc.contains("1.2.3"));
@@ -1602,12 +1602,12 @@ fn schema_reflects_current_state() {
 )]
 fn published_schema_validates_known_good_export() {
     let schema = sample_schema();
-    let json_schema_str = publish_json_schema_format(&schema, EmitFormat::Json);
+    let json_schema_str = publish_json_schema_format(&schema, EmitFormat::Json).unwrap();
     let json_schema: serde_json::Value = serde_json::from_str(&json_schema_str).unwrap();
 
     let mut graph = Graph::new();
     graph.add_node(node("alpha", "behavior", Some("Alpha")));
-    let export = emit_json_with_schema(&graph, &schema);
+    let export = emit_json_with_schema(&graph, &schema).unwrap();
     let export_val: serde_json::Value = serde_json::from_str(&export).unwrap();
 
     // 1. Check required properties
@@ -1661,7 +1661,7 @@ fn published_schema_validates_known_good_export() {
 )]
 fn published_schema_describes_all_kinds() {
     let schema = sample_schema();
-    let json_schema_str = publish_json_schema_format(&schema, EmitFormat::Json);
+    let json_schema_str = publish_json_schema_format(&schema, EmitFormat::Json).unwrap();
     let json_schema: serde_json::Value = serde_json::from_str(&json_schema_str).unwrap();
 
     let kind_enum = json_schema["properties"]["nodes"]["items"]["properties"]["kind"]["enum"]
@@ -1684,7 +1684,7 @@ fn published_schema_describes_all_kinds() {
 )]
 fn published_schema_describes_all_edge_types() {
     let schema = sample_schema();
-    let json_schema_str = publish_json_schema_format(&schema, EmitFormat::Json);
+    let json_schema_str = publish_json_schema_format(&schema, EmitFormat::Json).unwrap();
     let json_schema: serde_json::Value = serde_json::from_str(&json_schema_str).unwrap();
 
     let label_enum = json_schema["properties"]["edges"]["items"]["properties"]["label"]["enum"]
@@ -1765,7 +1765,7 @@ fn embed_schema_contract() {
     let mut graph = Graph::new();
     graph.add_node(node("alpha", "behavior", Some("Alpha")));
 
-    let json = emit_json_with_schema(&graph, &schema);
+    let json = emit_json_with_schema(&graph, &schema).unwrap();
     let parsed: serde_json::Value = serde_json::from_str(&json).unwrap();
 
     // ensures: schema_embedded
@@ -1873,7 +1873,7 @@ fn serve_schema_contract() {
     let schema = sample_schema();
 
     // ensures: full_schema_output
-    let json = emit_schema(&schema);
+    let json = emit_schema(&schema).unwrap();
     let parsed: serde_json::Value = serde_json::from_str(&json).unwrap();
     assert!(parsed["entity_kinds"].is_array());
 
@@ -1894,7 +1894,7 @@ fn serve_schema_contract() {
 )]
 fn publish_schema_contract() {
     let schema = sample_schema();
-    let json_schema_str = publish_json_schema_format(&schema, EmitFormat::Json);
+    let json_schema_str = publish_json_schema_format(&schema, EmitFormat::Json).unwrap();
     let parsed: serde_json::Value = serde_json::from_str(&json_schema_str).unwrap();
 
     // ensures: valid_json_schema_produced
@@ -1924,7 +1924,7 @@ fn publish_schema_contract() {
 )]
 fn mcp_schema_resource_returns_graph_protocol_schema() {
     let schema = GraphProtocolSchema::empty();
-    let json = emit_schema(&schema);
+    let json = emit_schema(&schema).unwrap();
     let parsed: serde_json::Value = serde_json::from_str(&json).unwrap();
     assert!(parsed["schema_version"].is_object());
     assert!(parsed["entity_kinds"].is_array());
@@ -2028,5 +2028,29 @@ fn compute_version_metadata_only_no_bump() {
         version,
         SchemaVersion::new(1, 2, 3),
         "no structural change = no version bump"
+    );
+}
+
+// C6-03: SchemaVersion Ord must honor pre-release labels — 1.0.0-beta
+// sorts strictly below 1.0.0, and cmp/Eq stay consistent.
+#[test]
+fn schema_version_orders_prerelease_below_release() {
+    use std::cmp::Ordering;
+
+    let beta = "1.0.0-beta".parse::<SchemaVersion>().unwrap();
+    let release = "1.0.0".parse::<SchemaVersion>().unwrap();
+    let alpha = "1.0.0-alpha".parse::<SchemaVersion>().unwrap();
+
+    assert_eq!(beta.cmp(&release), Ordering::Less);
+    assert_eq!(alpha.cmp(&beta), Ordering::Less);
+    assert_eq!(release.cmp(&release), Ordering::Equal);
+    // Ord/PartialEq consistency: equal ordering implies Eq.
+    assert_eq!(
+        "1.0.0".parse::<SchemaVersion>().unwrap() == "1.0.0".parse::<SchemaVersion>().unwrap(),
+        "1.0.0"
+            .parse::<SchemaVersion>()
+            .unwrap()
+            .cmp(&"1.0.0".parse::<SchemaVersion>().unwrap())
+            == Ordering::Equal
     );
 }

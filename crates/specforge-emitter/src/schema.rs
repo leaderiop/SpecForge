@@ -90,6 +90,16 @@ impl Ord for SchemaVersion {
             .cmp(&other.major)
             .then(self.minor.cmp(&other.minor))
             .then(self.patch.cmp(&other.patch))
+            // C6-03: semver pre-release ordering — `1.0.0-beta` sorts
+            // strictly BELOW `1.0.0`. Without this, cmp returned Equal for
+            // a pair that Eq distinguishes, breaking Ord/PartialEq
+            // consistency for sorted containers.
+            .then_with(|| match (&self.label, &other.label) {
+                (None, None) => Ordering::Equal,
+                (Some(_), None) => Ordering::Less,
+                (None, Some(_)) => Ordering::Greater,
+                (Some(a), Some(b)) => a.cmp(b),
+            })
     }
 }
 
@@ -400,7 +410,10 @@ struct JsonNodeV2 {
     fields: BTreeMap<String, Value>,
 }
 
-pub fn emit_json_with_schema(graph: &Graph, schema: &GraphProtocolSchema) -> String {
+pub fn emit_json_with_schema(
+    graph: &Graph,
+    schema: &GraphProtocolSchema,
+) -> Result<String, EmitterError> {
     let nodes: Vec<JsonNodeV2> = graph
         .nodes()
         .iter()
@@ -422,7 +435,7 @@ pub fn emit_json_with_schema(graph: &Graph, schema: &GraphProtocolSchema) -> Str
         edges: sorted_edges(graph),
     };
 
-    serde_json::to_string(&output).expect("graph serialization cannot fail")
+    serde_json::to_string(&output).map_err(|e| EmitterError::SerializationError(e.to_string()))
 }
 
 #[derive(Serialize)]
@@ -448,7 +461,10 @@ struct ContextNodeV2 {
     verify: Option<Value>,
 }
 
-pub fn emit_context_with_schema(graph: &Graph, schema: &GraphProtocolSchema) -> String {
+pub fn emit_context_with_schema(
+    graph: &Graph,
+    schema: &GraphProtocolSchema,
+) -> Result<String, EmitterError> {
     let nodes: Vec<ContextNodeV2> = graph
         .nodes()
         .iter()
@@ -483,7 +499,7 @@ pub fn emit_context_with_schema(graph: &Graph, schema: &GraphProtocolSchema) -> 
         edges: sorted_edges(graph),
     };
 
-    serde_json::to_string(&output).expect("graph serialization cannot fail")
+    serde_json::to_string(&output).map_err(|e| EmitterError::SerializationError(e.to_string()))
 }
 
 #[derive(Serialize)]
@@ -503,7 +519,10 @@ struct BriefNodeV2 {
     title: Option<String>,
 }
 
-pub fn emit_brief_with_schema(graph: &Graph, schema: &GraphProtocolSchema) -> String {
+pub fn emit_brief_with_schema(
+    graph: &Graph,
+    schema: &GraphProtocolSchema,
+) -> Result<String, EmitterError> {
     let nodes: Vec<BriefNodeV2> = graph
         .nodes()
         .iter()
@@ -522,7 +541,7 @@ pub fn emit_brief_with_schema(graph: &Graph, schema: &GraphProtocolSchema) -> St
         edges: sorted_edges(graph),
     };
 
-    serde_json::to_string(&output).expect("graph serialization cannot fail")
+    serde_json::to_string(&output).map_err(|e| EmitterError::SerializationError(e.to_string()))
 }
 
 // ---------------------------------------------------------------------------
@@ -812,7 +831,7 @@ pub fn emit_json_scoped_with_schema(
             scope
         ))
     })?;
-    Ok(emit_json_with_schema(&sub, schema))
+    emit_json_with_schema(&sub, schema)
 }
 
 pub fn emit_context_scoped_with_schema(
@@ -826,7 +845,7 @@ pub fn emit_context_scoped_with_schema(
             scope
         ))
     })?;
-    Ok(emit_context_with_schema(&sub, schema))
+    emit_context_with_schema(&sub, schema)
 }
 
 pub fn emit_brief_scoped_with_schema(
@@ -840,15 +859,16 @@ pub fn emit_brief_scoped_with_schema(
             scope
         ))
     })?;
-    Ok(emit_brief_with_schema(&sub, schema))
+    emit_brief_with_schema(&sub, schema)
 }
 
 // ---------------------------------------------------------------------------
 // Slice 8: Serve Schema
 // ---------------------------------------------------------------------------
 
-pub fn emit_schema(schema: &GraphProtocolSchema) -> String {
-    serde_json::to_string_pretty(schema).expect("schema serialization cannot fail")
+pub fn emit_schema(schema: &GraphProtocolSchema) -> Result<String, EmitterError> {
+    serde_json::to_string_pretty(schema)
+        .map_err(|e| EmitterError::SerializationError(e.to_string()))
 }
 
 pub fn emit_schema_for_kind(
@@ -859,7 +879,11 @@ pub fn emit_schema_for_kind(
         .entity_kinds
         .iter()
         .find(|k| k.name == kind)
-        .map(|k| serde_json::to_string_pretty(k).expect("schema serialization cannot fail"))
+        .map(|k| {
+            serde_json::to_string_pretty(k)
+                .map_err(|e| EmitterError::SerializationError(e.to_string()))
+        })
+        .transpose()?
         .ok_or_else(|| EmitterError::EntityNotFound(format!("unknown entity kind: '{}'", kind)))
 }
 
@@ -872,7 +896,10 @@ pub fn emit_schema_for_kind(
 /// Each format produces a different node shape (full / context / brief), so
 /// one schema cannot validate all exports. The `graph` (full) schema is the
 /// historical default.
-pub fn publish_json_schema_format(schema: &GraphProtocolSchema, format: EmitFormat) -> String {
+pub fn publish_json_schema_format(
+    schema: &GraphProtocolSchema,
+    format: EmitFormat,
+) -> Result<String, EmitterError> {
     let kind_names: Vec<Value> = schema
         .entity_kinds
         .iter()
@@ -935,6 +962,12 @@ pub fn publish_json_schema_format(schema: &GraphProtocolSchema, format: EmitForm
 
     let json_schema = serde_json::json!({
         "$schema": "https://json-schema.org/draft/2020-12/schema",
+        // C6-00: stable, versioned identity so the published schema can be
+        // referenced by URI and cached like the hand-written schema/ files.
+        "$id": format!(
+            "https://specforge.dev/schema/graph-protocol-v{}.json",
+            schema.schema_version
+        ),
         "title": "SpecForge Graph Protocol",
         "description": format!(
             "Graph Protocol schema v{} — auto-generated from extension registries",
@@ -973,5 +1006,6 @@ pub fn publish_json_schema_format(schema: &GraphProtocolSchema, format: EmitForm
         }
     });
 
-    serde_json::to_string_pretty(&json_schema).expect("JSON Schema serialization cannot fail")
+    serde_json::to_string_pretty(&json_schema)
+        .map_err(|e| EmitterError::SerializationError(e.to_string()))
 }

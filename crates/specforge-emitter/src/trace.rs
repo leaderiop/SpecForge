@@ -72,7 +72,7 @@ pub fn detect_trace_gaps(graph: &Graph) -> Vec<String> {
     gaps
 }
 
-pub fn serialize_trace_all(chains: &[TraceChain]) -> String {
+pub fn serialize_trace_all(chains: &[TraceChain]) -> Result<String, crate::error::EmitterError> {
     #[derive(Serialize)]
     struct TraceAllOutput<'a> {
         schema_version: &'static str,
@@ -84,10 +84,11 @@ pub fn serialize_trace_all(chains: &[TraceChain]) -> String {
         traces: chains,
     };
 
-    serde_json::to_string_pretty(&output).expect("trace_all serialization cannot fail")
+    serde_json::to_string_pretty(&output)
+        .map_err(|e| crate::error::EmitterError::SerializationError(e.to_string()))
 }
 
-pub fn serialize_trace(chain: &TraceChain) -> String {
+pub fn serialize_trace(chain: &TraceChain) -> Result<String, crate::error::EmitterError> {
     #[derive(Serialize)]
     struct TraceOutput<'a> {
         schema_version: &'static str,
@@ -105,7 +106,8 @@ pub fn serialize_trace(chain: &TraceChain) -> String {
         downstream: &chain.downstream,
     };
 
-    serde_json::to_string_pretty(&output).expect("trace serialization cannot fail")
+    serde_json::to_string_pretty(&output)
+        .map_err(|e| crate::error::EmitterError::SerializationError(e.to_string()))
 }
 
 enum Direction {

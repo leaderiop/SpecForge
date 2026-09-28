@@ -112,7 +112,7 @@ fn trace_nonexistent_entity_returns_error() {
 fn trace_serializes_to_json() {
     let graph = build_chain();
     let trace = specforge_emitter::trace(&graph, "b").unwrap();
-    let json = specforge_emitter::serialize_trace(&trace);
+    let json = specforge_emitter::serialize_trace(&trace).unwrap();
     let parsed: serde_json::Value = serde_json::from_str(&json).unwrap();
 
     assert_eq!(parsed["entity_id"], "b");
@@ -171,7 +171,7 @@ fn trace_all_covers_all_root_entities() {
 fn trace_all_serializes_as_json_array() {
     let graph = build_chain();
     let traces = specforge_emitter::trace_all(&graph);
-    let json = specforge_emitter::serialize_trace_all(&traces);
+    let json = specforge_emitter::serialize_trace_all(&traces).unwrap();
     let parsed: serde_json::Value = serde_json::from_str(&json).unwrap();
     assert!(parsed["schema_version"].is_string());
     assert!(parsed["traces"].is_array());

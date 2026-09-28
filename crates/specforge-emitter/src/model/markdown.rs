@@ -135,7 +135,14 @@ fn render_entity(entity: &super::ModelEntity, model: &ModelIntermediate, out: &m
             let required = if field.required { "yes" } else { "no" };
             let contribution = field.contribution.as_deref().unwrap_or("");
             let source = field.contributed_by.as_deref().unwrap_or("");
-            let description = field.description.as_deref().unwrap_or("");
+            // C13-07: a raw pipe shifts every subsequent table column and a
+            // newline breaks the row — escape both for the table cell.
+            let description = field
+                .description
+                .as_deref()
+                .unwrap_or("")
+                .replace('|', "\\|")
+                .replace('\n', " ");
 
             writeln!(
                 out,

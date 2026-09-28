@@ -399,7 +399,7 @@ fn trace_data_contract_all_entities_traced() {
     let traces = specforge_emitter::trace_all(&graph);
     assert_eq!(traces.len(), graph.nodes().len(), "one trace per entity");
 
-    let json = specforge_emitter::serialize_trace_all(&traces);
+    let json = specforge_emitter::serialize_trace_all(&traces).unwrap();
     let parsed: serde_json::Value = serde_json::from_str(&json).unwrap();
     assert!(parsed["schema_version"].is_string());
     assert!(parsed["traces"].is_array());
@@ -445,7 +445,7 @@ fn trace_data_gaps_highlighted() {
 fn trace_data_output_conforms_to_schema() {
     let graph = build_graph();
     let traces = specforge_emitter::trace_all(&graph);
-    let json = specforge_emitter::serialize_trace_all(&traces);
+    let json = specforge_emitter::serialize_trace_all(&traces).unwrap();
     let parsed: serde_json::Value = serde_json::from_str(&json).unwrap();
     assert!(parsed["schema_version"].is_string());
     assert!(parsed["traces"].is_array());

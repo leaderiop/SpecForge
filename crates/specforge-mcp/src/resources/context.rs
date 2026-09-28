@@ -1,7 +1,7 @@
 use serde_json::Value;
 use specforge_emitter::{EmitFormat, EmitOptions, emit};
 
-use crate::protocol::JsonRpcResponse;
+use crate::protocol::{JsonRpcResponse, error_codes};
 use crate::state::McpState;
 
 pub fn read(state: &McpState, uri: &str, id: Option<Value>) -> JsonRpcResponse {
@@ -24,9 +24,14 @@ pub fn read(state: &McpState, uri: &str, id: Option<Value>) -> JsonRpcResponse {
                     ..EmitOptions::default()
                 },
             )
-            .expect("budgeted emit cannot fail")
-        }),
-        None => state.graph.clone(),
+        })
+        .map_err(|e| e.to_string())
+        .map_err(|msg| JsonRpcResponse::error(id.clone(), error_codes::INTERNAL_ERROR, msg)),
+        None => Ok(state.graph.clone()),
+    };
+    let graph_snapshot = match graph_snapshot {
+        Ok(g) => g,
+        Err(resp) => return resp,
     };
 
     let options = EmitOptions {

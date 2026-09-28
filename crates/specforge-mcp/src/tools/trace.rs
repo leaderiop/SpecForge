@@ -17,9 +17,17 @@ pub fn call(state: &McpState, args: Value, id: Option<Value>) -> JsonRpcResponse
 
     match specforge_emitter::trace(&state.graph, entity_id) {
         Ok(chain) => {
-            let mut trace_val: serde_json::Value =
-                serde_json::from_str(&specforge_emitter::serialize_trace(&chain))
-                    .unwrap_or(serde_json::Value::Null);
+            let mut trace_val: serde_json::Value = match specforge_emitter::serialize_trace(&chain)
+            {
+                Ok(json) => serde_json::from_str(&json).unwrap_or(serde_json::Value::Null),
+                Err(e) => {
+                    return JsonRpcResponse::error(
+                        id,
+                        crate::protocol::error_codes::INTERNAL_ERROR,
+                        e.to_string(),
+                    );
+                }
+            };
 
             // Add gaps detection
             let mut gaps = Vec::new();

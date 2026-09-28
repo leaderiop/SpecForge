@@ -288,6 +288,7 @@ fn trace_output_is_deterministic() {
     let outputs: Vec<_> = (0..5)
         .map(|_| {
             specforge_emitter::serialize_trace(&specforge_emitter::trace(&graph, "alpha").unwrap())
+                .unwrap()
         })
         .collect();
     for output in &outputs[1..] {

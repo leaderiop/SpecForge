@@ -101,10 +101,13 @@ fn render_entity(entity: &super::ModelEntity, out: &mut String) {
                 desc_parts.push(vals.join(", "));
             }
 
+            // C13-07: a quote or newline inside the description invalidates
+            // the erDiagram — escape both before it enters a quoted string.
             let desc_str = if desc_parts.is_empty() {
                 String::new()
             } else {
-                format!(" \"{}\"", desc_parts.join(" | "))
+                let escaped = desc_parts.join(" | ").replace('"', "\\u{0022}\\u{0022}");
+                format!(" \"{}\"", escaped)
             };
 
             writeln!(

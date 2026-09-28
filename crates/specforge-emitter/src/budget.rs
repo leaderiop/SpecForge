@@ -162,13 +162,17 @@ pub fn emit_json_with_budget(graph: &Graph, max_tokens: usize) -> String {
 /// Build the sub-graph that fits `max_tokens` when rendered by `render`,
 /// dropping least-connected nodes first (same prioritize strategy as
 /// [`emit_json_with_budget`]). Returns the filtered graph.
-pub fn filter_graph_within_budget<F>(graph: &Graph, max_tokens: usize, render: F) -> Graph
+pub fn filter_graph_within_budget<F>(
+    graph: &Graph,
+    max_tokens: usize,
+    render: F,
+) -> Result<Graph, crate::error::EmitterError>
 where
-    F: Fn(&Graph) -> String,
+    F: Fn(&Graph) -> Result<String, crate::error::EmitterError>,
 {
-    let full = render(graph);
+    let full = render(graph)?;
     if estimate_tokens(&full) <= max_tokens {
-        return graph.clone();
+        return Ok(graph.clone());
     }
 
     let degrees = degree_centrality(graph);
@@ -205,9 +209,9 @@ where
             }
         }
 
-        let rendered = render(&filtered);
+        let rendered = render(&filtered)?;
         if estimate_tokens(&rendered) <= max_tokens || kept.len() <= 1 {
-            return filtered;
+            return Ok(filtered);
         }
         kept.remove(0);
     }
