@@ -127,5 +127,3 @@ pub fn run_schema(path: &Path, kind: Option<&str>, publish: bool, format: Option
         0
     }
 }
-
-
