@@ -250,6 +250,9 @@ fn pass_layering_verify(input: &PassInput) -> Vec<PassDiagnostic> {
     // Deterministic order: DFS seeds came from a HashMap, so sort by
     // (entity, code) before returning (hardening-plan D4 / R-6).
     findings.sort_by(|a, b| a.code.cmp(&b.code).then_with(|| a.message.cmp(&b.message)));
+    // Parallel edges (duplicate RefinesTo between the same pair) make the DFS
+    // revisit the same back edge — dedup identical diagnostics (C10-11).
+    findings.dedup_by(|a, b| a.code == b.code && a.message == b.message);
     findings
 }
 
@@ -271,7 +274,114 @@ fn pass_event_graph_analyze(input: &PassInput) -> Vec<PassDiagnostic> {
         }
     }
 
-    let mut findings = Vec::new();
+    let mut findings: Vec<PassDiagnostic> = Vec::new();
+    // Process semantics (C10-00): an event participating in a process is
+    // used by it (suppresses W029), and ProcessComposesProcess edges form a
+    // composition graph whose cycles are the documented E042.
+    let mut process_edges: std::collections::BTreeMap<&str, std::collections::BTreeSet<&str>> =
+        std::collections::BTreeMap::new();
+    for edge in &input.edges {
+        // The graph labels these edges with the FIELD name (sub_processes /
+        // processes); the edge-type names (ProcessComposesProcess /
+        // EventParticipatesInProcess) match when hosts send type labels.
+        match edge.label.as_str() {
+            "EventParticipatesInProcess" | "processes" => {
+                *consumed.entry(edge.source.as_str()).or_default() += 1;
+            }
+            "ProcessComposesProcess" | "sub_processes" => {
+                process_edges
+                    .entry(edge.source.as_str())
+                    .or_default()
+                    .insert(edge.target.as_str());
+            }
+            _ => {}
+        }
+    }
+
+    // Process composition cycles (E042): exact-membership DFS over the
+    // composition graph, deterministic order (sorted seeds + sorted edges).
+    {
+        let mut seeds: Vec<&str> = process_edges.keys().copied().collect();
+        seeds.sort();
+        let mut color: HashMap<&str, u8> =
+            process_edges.keys().map(|&k| (k, 0u8)).collect();
+        let mut path: Vec<&str> = Vec::new();
+        fn dfs<'a>(
+            node: &'a str,
+            adj: &std::collections::BTreeMap<&'a str, std::collections::BTreeSet<&'a str>>,
+            color: &mut HashMap<&'a str, u8>,
+            path: &mut Vec<&'a str>,
+            by_id: &HashMap<&'a str, &'a PassEntity>,
+            findings: &mut Vec<PassDiagnostic>,
+        ) {
+            color.insert(node, 1);
+            path.push(node);
+            if let Some(neighbors) = adj.get(node) {
+                for &next in neighbors {
+                    match color.get(next).copied().unwrap_or(0) {
+                        1 => {
+                            if let Some(pos) = path.iter().position(|&n| n == next) {
+                                let cycle: Vec<&str> = path[pos..].to_vec();
+                                let rendered = cycle.join(" -> ");
+                                let first = by_id.get(cycle[0]).copied();
+                                findings.push(
+                                    PassDiagnostic::new(
+                                        "E042",
+                                        PassSeverity::Error,
+                                        format!(
+                                            "process composition cycle: {rendered} -> {next}"
+                                        ),
+                                    )
+                                    .with_span(PassSpan {
+                                        file: first
+                                            .and_then(|e| e.span.as_ref())
+                                            .map(|s| s.file.clone())
+                                            .unwrap_or_default(),
+                                        start_line: first
+                                            .and_then(|e| e.span.as_ref())
+                                            .map(|s| s.start_line)
+                                            .unwrap_or(0),
+                                        start_col: first
+                                            .and_then(|e| e.span.as_ref())
+                                            .map(|s| s.start_col)
+                                            .unwrap_or(0),
+                                        end_line: first
+                                            .and_then(|e| e.span.as_ref())
+                                            .map(|s| s.end_line)
+                                            .unwrap_or(0),
+                                        end_col: first
+                                            .and_then(|e| e.span.as_ref())
+                                            .map(|s| s.end_col)
+                                            .unwrap_or(0),
+                                    })
+                                    .with_suggestion(
+                                        "break the composition cycle — a process cannot compose (transitively) with itself",
+                                    ),
+                                );
+                            }
+                        }
+                        0 => dfs(next, adj, color, path, by_id, findings),
+                        _ => {}
+                    }
+                }
+            }
+            path.pop();
+            color.insert(node, 2);
+        }
+        for &seed in &seeds {
+            if color.get(&seed).copied() == Some(0) {
+                dfs(
+                    seed,
+                    &process_edges,
+                    &mut color,
+                    &mut path,
+                    &by_id,
+                    &mut findings,
+                );
+            }
+        }
+    }
+
     for (id, producers) in &produced {
         if consumed.contains_key(id) {
             continue;
@@ -498,3 +608,132 @@ specforge_extension_sdk::component_guest!(
     build = specforge_extension_build,
     handler = dispatch
 );
+
+// -- C10-00/C10-11: process semantics + detector soundness slivers --
+
+#[cfg(test)]
+mod process_tests {
+    use super::*;
+    use specforge_extension_sdk::{PassEdge, PassSeverity};
+
+    fn codes(findings: &[PassDiagnostic]) -> Vec<&str> {
+        findings.iter().map(|f| f.code.as_str()).collect()
+    }
+
+    fn entity(id: &str, kind: &str) -> PassEntity {
+        PassEntity {
+            id: id.to_string(),
+            kind: kind.to_string(),
+            fields: std::collections::BTreeMap::new(),
+            incoming_edge_count: 0,
+            outgoing_edge_count: 0,
+            span: None,
+            testable: false,
+        }
+    }
+
+    fn edge(source: &str, target: &str, label: &str) -> PassEdge {
+        PassEdge {
+            source: source.to_string(),
+            target: target.to_string(),
+            label: label.to_string(),
+        }
+    }
+
+    #[test]
+    fn process_composition_cycle_is_e042() {
+        let input = PassInput {
+            entities: vec![
+                entity("p1", "process"),
+                entity("p2", "process"),
+                entity("p3", "process"),
+            ],
+            edges: vec![
+                edge("p1", "p2", "ProcessComposesProcess"),
+                edge("p2", "p3", "ProcessComposesProcess"),
+                edge("p3", "p1", "ProcessComposesProcess"),
+            ],
+        };
+        let findings = pass_event_graph_analyze(&input);
+        assert_eq!(codes(&findings), vec!["E042"]);
+        assert!(findings[0].message.contains("p1 -> p2 -> p3"));
+    }
+
+    #[test]
+    fn acyclic_process_composition_is_clean() {
+        let input = PassInput {
+            entities: vec![entity("p1", "process"), entity("p2", "process")],
+            edges: vec![edge("p1", "p2", "ProcessComposesProcess")],
+        };
+        let findings = pass_event_graph_analyze(&input);
+        assert!(findings.is_empty(), "acyclic composition: {findings:?}");
+    }
+
+    #[test]
+    fn participation_counts_as_usage_for_w029() {
+        // event produced by a behavior AND participating in a process: the
+        // participation is usage, so W029 must not fire.
+        let input = PassInput {
+            entities: vec![
+                entity("evt", "event"),
+                entity("proc", "process"),
+                entity("b", "behavior"),
+            ],
+            edges: vec![
+                edge("b", "evt", "produces"),
+                edge("evt", "proc", "EventParticipatesInProcess"),
+            ],
+        };
+        let findings = pass_event_graph_analyze(&input);
+        assert!(
+            !findings.iter().any(|f| f.code == "W029"),
+            "participation counts as usage: {findings:?}"
+        );
+    }
+
+    #[test]
+    fn field_labeled_composition_edges_are_interpreted() {
+        // The host labels process edges with the field name (sub_processes).
+        let input = PassInput {
+            entities: vec![
+                entity("monitor", "process"),
+                entity("scheduler", "process"),
+            ],
+            edges: vec![
+                edge("monitor", "scheduler", "sub_processes"),
+                edge("scheduler", "monitor", "sub_processes"),
+            ],
+        };
+        let findings = pass_event_graph_analyze(&input);
+        assert_eq!(codes(&findings), vec!["E042"]);
+    }
+
+    #[test]
+    fn self_cycle_in_process_composition_is_e042() {
+        let input = PassInput {
+            entities: vec![entity("p", "process")],
+            edges: vec![edge("p", "p", "ProcessComposesProcess")],
+        };
+        let findings = pass_event_graph_analyze(&input);
+        assert_eq!(codes(&findings), vec!["E042"]);
+    }
+
+    #[test]
+    fn layering_parallel_edges_report_once() {
+        // duplicate RefinesTo edges between the same pair: E041 must not dup.
+        let input = PassInput {
+            entities: vec![
+                entity("a", "refinement"),
+                entity("b", "refinement"),
+            ],
+            edges: vec![
+                edge("a", "b", "RefinesTo"),
+                edge("b", "a", "RefinesTo"),
+                edge("b", "a", "RefinesTo"),
+            ],
+        };
+        let findings = pass_layering_verify(&input);
+        let e041 = findings.iter().filter(|f| f.code == "E041").count();
+        assert_eq!(e041, 1, "parallel edges yield one cycle diagnostic");
+    }
+}

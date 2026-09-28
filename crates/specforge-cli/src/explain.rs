@@ -77,6 +77,12 @@ fn lookup(code: &str) -> Option<(&'static str, &'static str)> {
             "The `.spec` file declares a format version this compiler does not \
              understand. Run `specforge migrate` to upgrade the project.",
         ),
+        "E042" => (
+            "Process composition cycle",
+            "A process composes (transitively) with itself via `sub_processes`. \
+             Break the cycle — composition must form a DAG. \
+             Reported by `specforge analyze` with @specforge/formal installed.",
+        ),
         "E045" => (
             "Invalid test report",
             "A collector report could not be read or is not the expected JSON \

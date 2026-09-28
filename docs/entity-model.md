@@ -478,6 +478,7 @@ extensions themselves (not by guest passes).
 | Code | Rule |
 |------|------|
 | E041 | **Refinement chain cycle** — cycle in RefinementChainLink DAG |
+| E042 | **Process composition cycle** — a process composes (transitively) with itself via ProcessComposesProcess |
 | E046 | **Constraint bounds unsatisfiable** — the metric bounds contradict each other (SMT-verified) |
 | E047 | **Formal claim not entailed** — declared bounds do not guarantee the claim (counterexample reported) |
 

@@ -589,8 +589,8 @@ term t_proof_obligation "proof obligation" {
 term t_sync_block "sync block" {
   definition """
     CSP synchronization declaration on event entities specifying
-    barrier behaviors and timeouts. Parsed by the process_analyze
-    compiler pass for deadlock and livelock detection.
+    barrier behaviors and timeouts. Checked by the event_graph_analyze
+    pass of @specforge/formal.
   """
 }
 
