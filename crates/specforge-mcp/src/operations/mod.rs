@@ -860,6 +860,7 @@ fn render_op(state: &McpState, args: Value, id: Option<Value>) -> JsonRpcRespons
             depth: None,
             kind_filter: Vec::new(),
             token_budget: None,
+            kind_registry: None,
         },
     ) {
         Ok(text) => ok(id, json!({ "format": format, "output": text })),

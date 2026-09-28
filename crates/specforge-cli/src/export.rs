@@ -41,6 +41,7 @@ pub fn run(
             scope,
             schema: None,
             token_budget: max_tokens,
+            kind_registry: Some(&ctx.kind_registry),
             ..Default::default()
         };
         match emit(&ctx.graph, &options) {

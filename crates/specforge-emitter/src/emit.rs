@@ -1,4 +1,5 @@
 use specforge_graph::Graph;
+use specforge_registry::KindRegistry;
 
 use crate::error::EmitterError;
 use crate::schema::GraphProtocolSchema;
@@ -39,6 +40,9 @@ pub struct EmitOptions<'a> {
     /// Filter output to only include nodes of these kinds (default: empty = all kinds).
     /// The scoped root entity is always included regardless of this filter.
     pub kind_filter: Vec<&'a str>,
+    /// Kind registry for style lookups (DOT shape/color/fillcolor declared by
+    /// extensions; C13-00). Default: None — nodes use built-in defaults.
+    pub kind_registry: Option<&'a KindRegistry>,
 }
 
 impl Default for EmitOptions<'_> {
@@ -50,6 +54,7 @@ impl Default for EmitOptions<'_> {
             token_budget: None,
             depth: None,
             kind_filter: Vec::new(),
+            kind_registry: None,
         }
     }
 }
@@ -121,7 +126,7 @@ pub fn emit(graph: &Graph, options: &EmitOptions<'_>) -> Result<String, EmitterE
         (EmitFormat::Context, None) => crate::context::emit_context(g),
         (EmitFormat::Brief, Some(schema)) => crate::schema::emit_brief_with_schema(g, schema),
         (EmitFormat::Brief, None) => crate::brief::emit_brief(g),
-        (EmitFormat::Dot, _) => crate::dot::emit_dot(g),
+        (EmitFormat::Dot, _) => crate::dot::emit_dot_with_styles(g, options.kind_registry),
     };
 
     Ok(output)
