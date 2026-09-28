@@ -744,63 +744,32 @@ fn detect_cycles(
         neighbors.sort_unstable();
     }
 
-    #[derive(Clone, Copy, PartialEq)]
-    enum Color {
-        White,
-        Gray,
-        Black,
-    }
+    // Cycle membership via the shared exact-membership walker (C5-00):
+    // one 3-color DFS with path-stack semantics for every entity-level
+    // detector (graph.rs, this pass).
+    let btree_adj: std::collections::BTreeMap<String, std::collections::BTreeSet<String>> = adj
+        .iter()
+        .map(|(k, v)| {
+            (
+                (*k).to_string(),
+                v.iter().map(|s| (*s).to_string()).collect(),
+            )
+        })
+        .collect();
+    let seeds: Vec<String> = nodes.iter().map(|n| n.id.raw.to_string()).collect();
+    let (cycle_members_set, _) = specforge_graph::find_cycles(
+        &seeds,
+        &btree_adj,
+        specforge_graph::CycleOptions::default(),
+    );
+    let cycle_members: HashSet<&str> =
+        cycle_members_set.iter().map(|s| s.as_str()).collect();
 
-    let mut color: HashMap<&str, Color> = node_ids.iter().map(|id| (*id, Color::White)).collect();
-    let mut cycle_members: HashSet<&str> = HashSet::new();
-    // Current DFS path, for exact cycle-segment membership.
-    let mut path: Vec<&str> = Vec::new();
-
-    fn dfs<'a>(
-        node: &'a str,
-        adj: &HashMap<&'a str, Vec<&'a str>>,
-        color: &mut HashMap<&'a str, Color>,
-        cycle_members: &mut HashSet<&'a str>,
-        path: &mut Vec<&'a str>,
-    ) {
-        color.insert(node, Color::Gray);
-        path.push(node);
-        if let Some(neighbors) = adj.get(node) {
-            for &next in neighbors {
-                match color.get(next) {
-                    Some(Color::Gray) => {
-                        // Back edge `node -> next`: mark the exact cycle
-                        // segment on the current path (`next..=node`).
-                        // Nodes that merely lead INTO the cycle are not
-                        // members — flagging them was both wrong and the
-                        // source of order-dependent sets.
-                        if let Some(pos) = path.iter().position(|&n| n == next) {
-                            for &member in &path[pos..] {
-                                cycle_members.insert(member);
-                            }
-                        }
-                    }
-                    Some(Color::White) => {
-                        dfs(next, adj, color, cycle_members, path);
-                    }
-                    _ => {}
-                }
-            }
-        }
-        path.pop();
-        color.insert(node, Color::Black);
-    }
-
-    for node in &nodes {
-        let id = node.id.raw.as_str();
-        if color[id] == Color::White {
-            dfs(id, &adj, &mut color, &mut cycle_members, &mut path);
-        }
-    }
 
     let mut diagnostics = Vec::new();
     let mut sorted_members: Vec<&str> = cycle_members.into_iter().collect();
     sorted_members.sort();
+
     for id in sorted_members {
         if let Some(node) = graph.node(id) {
             let message = specforge_registry::validation_engine::interpolate_template(
