@@ -49,10 +49,19 @@
           "type": "string",
           "description": "The verify description this test covers, if any."
         },
+        "verify_kind": {
+          "type": "string",
+          "description": "Kind-level traceability (C11-07): the verify statement's kind (e.g. 'unit', 'e2e') stamped from the exported graph.",
+          "enum": ["unit", "integration", "e2e", "contract", "property", "mutation", "load"]
+        },
+        "duration_ms": {
+          "type": "integer",
+          "description": "Wall-clock test duration in milliseconds (C11-04)."
+        },
         "status": {
           "type": "string",
-          "enum": ["pass", "fail"],
-          "description": "Test execution status."
+          "enum": ["pass", "fail", "skipped"],
+          "description": "Test execution status. 'skipped' records #[ignore]d tests (C11-04)."
         }
       },
       "additionalProperties": false

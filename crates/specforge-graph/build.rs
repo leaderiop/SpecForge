@@ -13,6 +13,12 @@ struct ExportedEntity {
     kind: String,
     verify: Vec<ExportedVerify>,
     testable: bool,
+    /// BDD intent (C11-03): gherkin feature-file references. A pure
+    /// Cucumber team's behaviors declare intent through this field with no
+    /// `verify` statements — without exporting it they disappear from the
+    /// coverage diff entirely.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    gherkin: Option<Vec<String>>,
 }
 
 #[derive(Serialize)]
@@ -63,12 +69,23 @@ fn main() {
                 _ => vec![],
             };
 
-            let testable = !verify.is_empty();
+            let gherkin = match entity.fields.get("gherkin") {
+                Some(FieldValue::StringList(files)) if !files.is_empty() => {
+                    Some(files.iter().map(|f| f.to_string()).collect::<Vec<_>>())
+                }
+                _ => None,
+            };
+
+            // C11-03: gherkin-referencing entities carry spec intent even
+            // with zero verify statements — W004 accepts verify OR gherkin,
+            // so the export must too.
+            let testable = !verify.is_empty() || gherkin.is_some();
             entities.push(ExportedEntity {
                 id: entity.id.raw.to_string(),
                 kind: entity.kind.raw.to_string(),
                 verify,
                 testable,
+                gherkin,
             });
         }
     }

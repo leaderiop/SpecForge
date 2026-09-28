@@ -87,16 +87,26 @@ pub struct HandshakeRequest {
 }
 
 /// Returned by the extension's `__handshake` export.
+///
+/// `contribution_flags` and `peer_dependencies` are **required** on the wire:
+/// a truncated handshake fails deserialization instead of silently yielding
+/// empty flags (host skips every describe category) or an empty dependency
+/// list (peer checks pass vacuously) — audit C7-07.
+///
+/// `sandbox_policy` is a documented exception: serde treats `Option<T>`
+/// fields as implicitly optional, so absence and explicit `null` both
+/// deserialize to `None`. That default is fail-safe, not silent — `None`
+/// means the plugin declares no limits and the host substitutes its own
+/// deny-by-default policy (`specforge-wasm::sandbox::default_sandbox_policy`).
+/// All builtin fixtures and every SDK-built extension serialize all six
+/// fields (`ContributionsBuilder::handshake_json` never elides them).
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct HandshakeResponse {
     pub protocol_version: String,
     pub name: String,
     pub version: String,
-    #[serde(default)]
     pub contribution_flags: ContributionFlags,
-    #[serde(default)]
     pub peer_dependencies: Vec<PeerDependency>,
-    #[serde(default)]
     pub sandbox_policy: Option<SandboxPolicy>,
 }
 

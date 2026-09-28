@@ -8,6 +8,7 @@ mod config_schema;
 mod contracts;
 mod coverage_gate;
 mod determinism;
+mod docs_truth;
 mod e2e_cross_extension;
 mod e2e_edges;
 mod e2e_mcp;

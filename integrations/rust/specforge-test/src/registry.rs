@@ -9,6 +9,13 @@ pub struct TestRecordEntry {
     pub file: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub verify: Option<String>,
+    /// Kind-level traceability (C11-07): `unit` vs `e2e` — stamped at
+    /// finalize time from the exported graph, since the spec (not the test)
+    /// declares the kind.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub verify_kind: Option<String>,
+    /// Wall-clock duration in milliseconds (C11-04).
+    pub duration_ms: u64,
     #[serde(rename = "status")]
     pub outcome: TestOutcome,
 }
@@ -18,6 +25,9 @@ pub struct TestRecordEntry {
 pub enum TestOutcome {
     Pass,
     Fail,
+    /// `#[ignore]`d test: the guard records the intent without running the
+    /// body (C11-04).
+    Skipped,
 }
 
 static REGISTRY: SegQueue<TestRecordEntry> = SegQueue::new();

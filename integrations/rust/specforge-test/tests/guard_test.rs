@@ -102,3 +102,34 @@ fn drain_clears_registry() {
     let second = registry::drain();
     assert_eq!(second.len(), 0);
 }
+
+// --- C11-04: should_panic inversion ---
+
+#[test]
+fn should_panic_guard_records_pass_on_panic() {
+    use specforge_test::registry;
+    let result = std::panic::catch_unwind(|| {
+        let _guard = TestGuard::with_expectations(
+            "behavior",
+            "panics_by_contract",
+            "mod",
+            "should_panic_test",
+            "test.rs",
+            1,
+            None,
+            true,
+        );
+        panic!("this panic is the success path");
+    });
+    assert!(
+        result.is_err(),
+        "the panic must still propagate to the harness"
+    );
+    let after = registry::drain();
+    let recorded = after.last().expect("guard must have recorded");
+    assert_eq!(
+        recorded.outcome,
+        TestOutcome::Pass,
+        "#[should_panic] panic must record Pass, not Fail (C11-04)"
+    );
+}

@@ -25,7 +25,7 @@ pub fn is_admin(record: &TokenRecord) -> bool {
     record.admin
 }
 
-pub fn list_tokens(db: &Database) -> Vec<TokenRecord> {
+pub fn list_tokens(db: &Database) -> Result<Vec<TokenRecord>, String> {
     db.list_tokens()
 }
 

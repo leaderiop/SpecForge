@@ -559,7 +559,7 @@ term t_enhancement_policy "enhancement policy" {
   aliases ["conflict policy"]
 }
 
-// ── @specforge/software Formal Methods Terms ──────────────────
+// ── @specforge/formal Terms ──────────────────────────────────
 
 term t_refinement_chain "refinement chain" {
   definition """

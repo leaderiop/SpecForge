@@ -46,6 +46,11 @@ pub fn handle_initialize(
     // Register tool/resource/prompt descriptors
     register_defaults(state);
 
+    // Diffs for delta notifications are taken against whatever the server
+    // held before this compile (empty on a fresh server).
+    let previous_graph = state.graph.clone();
+    let previous_diagnostics = state.diagnostics.clone();
+
     // Compile if project root is provided
     if let Some(root) = &project_root
         && root.exists()
@@ -64,6 +69,12 @@ pub fn handle_initialize(
         // Register extension MCP tools and resources from manifest surfaces
         register_extension_surfaces(state, &result.manifest_surfaces);
     }
+    // Subscribed clients learn what the initial compile changed (C9-01).
+    crate::notifications::enqueue_compile_notifications(
+        state,
+        &previous_graph,
+        &previous_diagnostics,
+    );
 
     if let Some(root) = &project_root {
         state.project_config = load_project_config(root);
@@ -78,7 +89,7 @@ pub fn handle_initialize(
                 list_changed: false,
             },
             resources: McpResourceCapability {
-                subscribe: false,
+                subscribe: true,
                 list_changed: false,
             },
             prompts: McpPromptCapability {

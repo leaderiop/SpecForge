@@ -86,6 +86,10 @@ fn initialize_returns_capabilities() {
         caps["prompts"].is_object(),
         "capabilities must declare prompts support"
     );
+    assert!(
+        caps["resources"]["subscribe"] == true,
+        "resources.subscribe must be advertised: the subscribe→recompile→notify loop is wired (C9-01)"
+    );
 
     // Convenience arrays still present for backwards compat
     assert!(result["tools"].is_array());

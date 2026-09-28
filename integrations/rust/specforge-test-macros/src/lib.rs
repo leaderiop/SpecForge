@@ -53,24 +53,58 @@ pub fn test(attr: TokenStream, item: TokenStream) -> TokenStream {
         None => quote! { None },
     };
 
-    let attrs = &input_fn.attrs;
+    // C11-04: honor #[should_panic] (panic is the success path) and
+    // #[ignore] (record Skipped, skip the body) instead of forwarding them
+    // blindly.
+    let expect_panic = input_fn
+        .attrs
+        .iter()
+        .any(|a| a.path().is_ident("should_panic"));
+    let ignored = input_fn.attrs.iter().any(|a| a.path().is_ident("ignore"));
+
+    let attrs: Vec<_> = input_fn
+        .attrs
+        .iter()
+        .filter(|a| !a.path().is_ident("ignore"))
+        .cloned()
+        .collect();
     let vis = &input_fn.vis;
     let sig = &input_fn.sig;
     let body = &input_fn.block;
 
-    let output = quote! {
-        #(#attrs)*
-        #vis #sig {
-            let __specforge_guard = ::specforge_test::__private::TestGuard::new(
-                #entity_kind,
-                #entity_id,
-                module_path!(),
-                #fn_name_str,
-                file!(),
-                line!(),
-                #verify_expr,
-            );
-            #body
+    let output = if ignored {
+        quote! {
+            #(#attrs)*
+            #vis #sig {
+                let _ignored = ::specforge_test::__private::TestGuard::new_skipped(
+                    #entity_kind,
+                    #entity_id,
+                    module_path!(),
+                    #fn_name_str,
+                    file!(),
+                    line!(),
+                    #verify_expr,
+                );
+                // Body intentionally skipped: the test is recorded as
+                // `skipped`, not absent (C11-04).
+            }
+        }
+    } else {
+        quote! {
+            #(#attrs)*
+            #vis #sig {
+                let __specforge_guard = ::specforge_test::__private::TestGuard::with_expectations(
+                    #entity_kind,
+                    #entity_id,
+                    module_path!(),
+                    #fn_name_str,
+                    file!(),
+                    line!(),
+                    #verify_expr,
+                    #expect_panic,
+                );
+                #body
+            }
         }
     };
 

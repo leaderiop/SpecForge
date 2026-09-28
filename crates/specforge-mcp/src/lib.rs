@@ -60,6 +60,12 @@ impl McpServer {
         &self.state
     }
 
+    /// Drain the server→client notification outbox (C9-01): notifications
+    /// queued for subscribed channels since the last drain.
+    pub fn take_notifications(&mut self) -> Vec<serde_json::Value> {
+        notifications::pending_notifications(&mut self.state)
+    }
+
     pub fn state_mut(&mut self) -> &mut McpState {
         &mut self.state
     }

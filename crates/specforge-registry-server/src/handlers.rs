@@ -1,7 +1,7 @@
 use axum::{
     Router,
-    extract::{DefaultBodyLimit, Multipart, Path, Query, State},
-    http::{HeaderMap, StatusCode},
+    extract::{DefaultBodyLimit, FromRequestParts, Multipart, Path, Query, State},
+    http::{HeaderMap, StatusCode, request::Parts},
     response::{IntoResponse, Json},
     routing::{delete, get, post, put},
 };
@@ -112,7 +112,7 @@ async fn health_check() -> &'static str {
 async fn get_package_versions(
     State(state): State<Arc<AppState>>,
     Path(name): Path<String>,
-) -> impl IntoResponse {
+) -> Result<(StatusCode, Json<serde_json::Value>), ApiError> {
     let name = decode_name(&name);
     let versions = {
         let st = state.clone();
@@ -120,27 +120,25 @@ async fn get_package_versions(
         tokio::task::spawn_blocking(move || st.database.get_package_versions(&name))
             .await
             .expect("package versions query panicked")
-    };
+    }
+    .map_err(|e| ApiError::internal("DB_ERROR", e))?;
 
     if versions.is_empty() {
-        return (
+        return Ok((
             StatusCode::NOT_FOUND,
-            Json(
-                serde_json::to_value(ErrorResponse {
-                    error: ErrorBody {
-                        code: "NOT_FOUND".to_string(),
-                        message: format!("package '{}' not found", name),
-                    },
-                })
-                .unwrap(),
-            ),
-        );
+            Json(serde_json::json!({
+                "error": { "code": "NOT_FOUND", "message": format!("package '{name}' not found") }
+            })),
+        ));
     }
 
-    (
+    Ok((
         StatusCode::OK,
-        Json(serde_json::to_value(PackageVersionsResponse { name, versions }).unwrap()),
-    )
+        Json(serde_json::json!(PackageVersionsResponse {
+            name,
+            versions
+        })),
+    ))
 }
 
 async fn get_package_version(
@@ -298,11 +296,12 @@ async fn download_package(
 async fn search_packages(
     State(state): State<Arc<AppState>>,
     Query(query): Query<SearchQuery>,
-) -> impl IntoResponse {
+) -> Result<(StatusCode, Json<serde_json::Value>), ApiError> {
     // rusqlite queries are blocking: run the search on the blocking pool.
     let results = tokio::task::spawn_blocking(move || state.database.search(&query.q, query.limit))
         .await
-        .expect("search query task panicked");
+        .expect("search query task panicked")
+        .map_err(|e| ApiError::internal("DB_ERROR", e))?;
 
     let hits: Vec<SearchHit> = results
         .into_iter()
@@ -313,15 +312,177 @@ async fn search_packages(
         })
         .collect();
 
-    Json(serde_json::to_value(SearchResponse { results: hits }).unwrap())
+    Ok((
+        StatusCode::OK,
+        Json(serde_json::json!(SearchResponse { results: hits })),
+    ))
+}
+
+/// Typed API failure (C14-05): one IntoResponse implementation replaces the
+/// hand-built `(StatusCode, Json)` tuples that mutating handlers used to
+/// copy-paste. Serialization is infallible — the body is built with `json!`,
+/// never `serde_json::to_value(...).unwrap()`.
+pub struct ApiError {
+    pub status: StatusCode,
+    pub code: String,
+    pub message: String,
+    /// Seconds for the Retry-After response header (rate limiting).
+    pub retry_after_secs: Option<u64>,
+}
+
+impl ApiError {
+    pub fn bad_request(code: &str, message: impl Into<String>) -> Self {
+        Self {
+            status: StatusCode::BAD_REQUEST,
+            code: code.to_string(),
+            message: message.into(),
+            retry_after_secs: None,
+        }
+    }
+
+    pub fn conflict(code: &str, message: impl Into<String>) -> Self {
+        Self {
+            status: StatusCode::CONFLICT,
+            code: code.to_string(),
+            message: message.into(),
+            retry_after_secs: None,
+        }
+    }
+
+    pub fn forbidden(message: impl Into<String>) -> Self {
+        Self {
+            status: StatusCode::FORBIDDEN,
+            code: "FORBIDDEN".to_string(),
+            message: message.into(),
+            retry_after_secs: None,
+        }
+    }
+
+    /// FORBIDDEN with a specific machine code (e.g. SCOPE_OWNED).
+    pub fn forbidden_code(code: &str, message: impl Into<String>) -> Self {
+        Self {
+            status: StatusCode::FORBIDDEN,
+            code: code.to_string(),
+            message: message.into(),
+            retry_after_secs: None,
+        }
+    }
+
+    pub fn not_found(message: impl Into<String>) -> Self {
+        Self {
+            status: StatusCode::NOT_FOUND,
+            code: "NOT_FOUND".to_string(),
+            message: message.into(),
+            retry_after_secs: None,
+        }
+    }
+
+    pub fn unauthorized(message: impl Into<String>) -> Self {
+        Self {
+            status: StatusCode::UNAUTHORIZED,
+            code: "UNAUTHORIZED".to_string(),
+            message: message.into(),
+            retry_after_secs: None,
+        }
+    }
+
+    pub fn rate_limited(retry_after: std::time::Duration) -> Self {
+        Self {
+            status: StatusCode::TOO_MANY_REQUESTS,
+            code: "RATE_LIMITED".to_string(),
+            message: format!(
+                "too many publish requests; retry after {} seconds",
+                retry_after.as_secs()
+            ),
+            retry_after_secs: Some(retry_after.as_secs()),
+        }
+    }
+
+    pub fn internal(code: &str, message: impl Into<String>) -> Self {
+        Self {
+            status: StatusCode::INTERNAL_SERVER_ERROR,
+            code: code.to_string(),
+            message: message.into(),
+            retry_after_secs: None,
+        }
+    }
+}
+
+impl IntoResponse for ApiError {
+    fn into_response(self) -> axum::response::Response {
+        let mut response = (
+            self.status,
+            Json(serde_json::json!({
+                "error": { "code": self.code, "message": self.message }
+            })),
+        )
+            .into_response();
+        if let Some(secs) = self.retry_after_secs
+            && let Ok(value) = secs.to_string().parse()
+        {
+            response.headers_mut().insert("retry-after", value);
+        }
+        response
+    }
+}
+
+/// Extractor validating the bearer token once per request, off the async
+/// runtime (C14-05): publish/yank/verify no longer repeat the
+/// header-extract + validate_bearer sequence, and a future handler cannot
+/// forget the check.
+pub struct AuthToken {
+    pub record: crate::db::TokenRecord,
+}
+
+impl AuthToken {
+    async fn extract(state: &Arc<AppState>, headers: &HeaderMap) -> Result<Self, ApiError> {
+        let auth_header = headers
+            .get("authorization")
+            .and_then(|v| v.to_str().ok())
+            .ok_or_else(|| ApiError::unauthorized("missing Authorization header"))?
+            .to_string();
+        let st = Arc::clone(state);
+        let record =
+            tokio::task::spawn_blocking(move || auth::validate_bearer(&st.database, &auth_header))
+                .await
+                .map_err(|e| {
+                    ApiError::internal("AUTH_TASK", format!("auth validation task failed: {e}"))
+                })?
+                .ok_or_else(|| ApiError::unauthorized("invalid or revoked token"))?;
+        Ok(Self { record })
+    }
+}
+
+impl FromRequestParts<Arc<AppState>> for AuthToken {
+    type Rejection = ApiError;
+
+    async fn from_request_parts(
+        parts: &mut Parts,
+        state: &Arc<AppState>,
+    ) -> Result<Self, Self::Rejection> {
+        Self::extract(state, &parts.headers).await
+    }
+}
+
+/// Publish/yank authorization: the token must cover the package's scope.
+fn require_publish_scope(record: &crate::db::TokenRecord, name: &str) -> Result<(), ApiError> {
+    if auth::token_has_scope(record, name) {
+        Ok(())
+    } else {
+        Err(ApiError::forbidden(format!(
+            "token does not have publish permission for scope '{name}'"
+        )))
+    }
 }
 
 async fn publish_package(
     State(state): State<Arc<AppState>>,
     Path((name, version)): Path<(String, String)>,
+    token: AuthToken,
     headers: HeaderMap,
     mut multipart: Multipart,
-) -> impl IntoResponse {
+) -> Result<(StatusCode, Json<serde_json::Value>), ApiError> {
+    let token_record = token.record;
     let name = decode_name(&name);
 
     // Package names must be scoped (`@scope/name`) with exactly one `/`
@@ -332,102 +493,28 @@ async fn publish_package(
         && !name.contains('%')
         && !name[1..].split('/').any(|seg| seg.is_empty());
     if !name_ok {
-        return bad_request(
+        return Err(ApiError::bad_request(
             "INVALID_NAME",
-            &format!("'{name}' is not a valid scoped package name (expected @scope/name)"),
-        );
+            format!("'{name}' is not a valid scoped package name (expected @scope/name)"),
+        ));
     }
 
     // C8-03: non-semver versions poison search ordering and resolver
     // matching downstream — reject them at the door.
     if semver::Version::parse(&version).is_err() {
-        return bad_request(
+        return Err(ApiError::bad_request(
             "INVALID_VERSION",
-            &format!("'{version}' is not a valid SemVer version (MAJOR.MINOR.PATCH)"),
-        );
+            format!("'{version}' is not a valid SemVer version (MAJOR.MINOR.PATCH)"),
+        ));
     }
 
-    // Auth check
-    let auth_header = match headers.get("authorization").and_then(|v| v.to_str().ok()) {
-        Some(h) => h.to_string(),
-        None => {
-            return (
-                StatusCode::UNAUTHORIZED,
-                Json(
-                    serde_json::to_value(ErrorResponse {
-                        error: ErrorBody {
-                            code: "UNAUTHORIZED".to_string(),
-                            message: "missing Authorization header".to_string(),
-                        },
-                    })
-                    .unwrap(),
-                ),
-            );
-        }
-    };
-
-    let token_record = {
-        let st = state.clone();
-        let auth_header = auth_header.clone();
-        tokio::task::spawn_blocking(move || auth::validate_bearer(&st.database, &auth_header))
-            .await
-            .expect("auth validation panicked")
-    };
-    let token_record = match token_record {
-        Some(r) => r,
-        None => {
-            return (
-                StatusCode::UNAUTHORIZED,
-                Json(
-                    serde_json::to_value(ErrorResponse {
-                        error: ErrorBody {
-                            code: "UNAUTHORIZED".to_string(),
-                            message: "invalid or revoked token".to_string(),
-                        },
-                    })
-                    .unwrap(),
-                ),
-            );
-        }
-    };
-
-    // Rate limit: per token and per client IP (fixed window). The
-    // Retry-After header rides on the JSON response for clients that honor it.
+    // Rate limit: per token and per client IP (fixed window). Retry-After
+    // rides both on the JSON body and the response header.
     if let Err(limited) = check_publish_rate(&state, &token_record, &headers) {
-        return (
-            StatusCode::TOO_MANY_REQUESTS,
-            Json(
-                serde_json::to_value(ErrorResponse {
-                    error: ErrorBody {
-                        code: "RATE_LIMITED".to_string(),
-                        message: format!(
-                            "too many publish requests; retry after {} seconds",
-                            limited.retry_after.as_secs()
-                        ),
-                    },
-                })
-                .unwrap(),
-            ),
-        );
+        return Err(ApiError::rate_limited(limited.retry_after));
     }
 
-    if !auth::token_has_scope(&token_record, &name) {
-        return (
-            StatusCode::FORBIDDEN,
-            Json(
-                serde_json::to_value(ErrorResponse {
-                    error: ErrorBody {
-                        code: "FORBIDDEN".to_string(),
-                        message: format!(
-                            "token does not have publish permission for scope '{}'",
-                            name
-                        ),
-                    },
-                })
-                .unwrap(),
-            ),
-        );
-    }
+    require_publish_scope(&token_record, &name)?;
 
     // Check if version already exists
     let duplicate = {
@@ -441,18 +528,10 @@ async fn publish_package(
         .expect("duplicate check panicked")
     };
     if duplicate {
-        return (
-            StatusCode::CONFLICT,
-            Json(
-                serde_json::to_value(ErrorResponse {
-                    error: ErrorBody {
-                        code: "DUPLICATE_VERSION".to_string(),
-                        message: format!("version {} already exists for {}", version, name),
-                    },
-                })
-                .unwrap(),
-            ),
-        );
+        return Err(ApiError::conflict(
+            "DUPLICATE_VERSION",
+            format!("version {version} already exists for {name}"),
+        ));
     }
 
     // Parse multipart form
@@ -493,20 +572,7 @@ async fn publish_package(
         };
         match claim {
             Ok(claimed) => claimed,
-            Err(e) => {
-                return (
-                    StatusCode::INTERNAL_SERVER_ERROR,
-                    Json(
-                        serde_json::to_value(ErrorResponse {
-                            error: ErrorBody {
-                                code: "STORAGE_ERROR".to_string(),
-                                message: e,
-                            },
-                        })
-                        .unwrap(),
-                    ),
-                );
-            }
+            Err(e) => return Err(ApiError::internal("STORAGE_ERROR", e)),
         }
     };
     if !claimed_now
@@ -519,21 +585,12 @@ async fn publish_package(
         }
         && owner_hash != token_record.token_hash
     {
-        return (
-            StatusCode::FORBIDDEN,
-            Json(
-                serde_json::to_value(ErrorResponse {
-                    error: ErrorBody {
-                        code: "SCOPE_OWNED".to_string(),
-                        message: format!(
-                            "scope '{}' is owned by publisher '{}' — only the owning publisher may publish into it",
-                            scope, owner_account
-                        ),
-                    },
-                })
-                .unwrap(),
+        return Err(ApiError::forbidden_code(
+            "SCOPE_OWNED",
+            format!(
+                "scope '{scope}' is owned by publisher '{owner_account}' — only the owning publisher may publish into it"
             ),
-        );
+        ));
     }
     let publisher_account = state
         .database
@@ -546,10 +603,10 @@ async fn publish_package(
     let signature_json = match signature_json {
         Some(sig) if !sig.trim().is_empty() => sig,
         _ => {
-            return bad_request(
+            return Err(ApiError::bad_request(
                 "UNSIGNED_PACKAGE",
                 "packages must be signed: run `specforge publish` (which signs) instead of uploading raw artifacts",
-            );
+            ));
         }
     };
 
@@ -557,54 +614,57 @@ async fn publish_package(
     let wasm_data = match wasm_bytes {
         Some(d) if !d.is_empty() => d,
         _ => {
-            return bad_request("BAD_REQUEST", "missing 'wasm' field in multipart body");
+            return Err(ApiError::bad_request(
+                "BAD_REQUEST",
+                "missing 'wasm' field in multipart body",
+            ));
         }
     };
     if !wasm_data.starts_with(b"\0asm") {
-        return bad_request(
+        return Err(ApiError::bad_request(
             "INVALID_WASM",
             "the uploaded 'wasm' field does not look like a Wasm binary (missing magic bytes)",
-        );
+        ));
     }
 
     // 3. Manifest must parse and validate against the v2 schema.
     if manifest_json.as_deref().is_none_or(|m| m.trim().is_empty()) {
-        return bad_request(
+        return Err(ApiError::bad_request(
             "INVALID_MANIFEST",
             "missing 'manifest' field in multipart body",
-        );
+        ));
     }
     let manifest: specforge_registry::ManifestV2 =
         match serde_json::from_str(manifest_json.as_deref().unwrap_or("")) {
             Ok(m) => m,
             Err(e) => {
-                return bad_request(
+                return Err(ApiError::bad_request(
                     "INVALID_MANIFEST",
-                    &format!("manifest is not valid JSON for ManifestV2: {}", e),
-                );
+                    format!("manifest is not valid JSON for ManifestV2: {e}"),
+                ));
             }
         };
     let schema_issues = specforge_registry::validate_manifest(&manifest);
     if !schema_issues.is_empty() {
         let first = &schema_issues[0];
-        return bad_request(
+        return Err(ApiError::bad_request(
             "INVALID_MANIFEST",
-            &format!(
+            format!(
                 "manifest failed schema validation ({}): {}",
                 first.code, first.message
             ),
-        );
+        ));
     }
 
     // 4. Manifest identity must match the upload URL.
     if manifest.name != name || manifest.version != version {
-        return bad_request(
+        return Err(ApiError::bad_request(
             "NAME_MISMATCH",
-            &format!(
+            format!(
                 "manifest identifies {}@{} but the upload path is {}@{}",
                 manifest.name, manifest.version, name, version
             ),
-        );
+        ));
     }
 
     // 5. v1 registry bar: no network-needing extensions.
@@ -614,10 +674,10 @@ async fn publish_package(
         .and_then(|p| p.network_access)
         == Some(true)
     {
-        return bad_request(
+        return Err(ApiError::bad_request(
             "SANDBOX_POLICY_REJECTED",
             "sandbox_policy.network_access = true is not accepted on this registry (v1 policy)",
-        );
+        ));
     }
     // --- end validation contract ---
 
@@ -672,20 +732,7 @@ async fn publish_package(
     .expect("storage write task panicked")
     {
         Ok(temp) => temp,
-        Err(e) => {
-            return (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                Json(
-                    serde_json::to_value(ErrorResponse {
-                        error: ErrorBody {
-                            code: "STORAGE_ERROR".to_string(),
-                            message: e,
-                        },
-                    })
-                    .unwrap(),
-                ),
-            );
-        }
+        Err(e) => return Err(ApiError::internal("STORAGE_ERROR", e)),
     };
 
     // Extract the short key id from the signature wire object for display
@@ -730,18 +777,7 @@ async fn publish_package(
         .expect("database insert task panicked")
     };
     if let Err(e) = insert_result {
-        return (
-            StatusCode::CONFLICT,
-            Json(
-                serde_json::to_value(ErrorResponse {
-                    error: ErrorBody {
-                        code: "DUPLICATE_VERSION".to_string(),
-                        message: e,
-                    },
-                })
-                .unwrap(),
-            ),
-        );
+        return Err(ApiError::conflict("DUPLICATE_VERSION", e));
     }
 
     // 3. Atomic rename — the moment the blob becomes visible.
@@ -767,121 +803,39 @@ async fn publish_package(
                 .delete_package(&rollback_name, &rollback_version)
         })
         .await;
-        return (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            Json(
-                serde_json::to_value(ErrorResponse {
-                    error: ErrorBody {
-                        code: "STORAGE_ERROR".to_string(),
-                        message: e,
-                    },
-                })
-                .unwrap(),
-            ),
-        );
+        return Err(ApiError::internal("STORAGE_ERROR", e));
     }
 
     tracing::info!("published {}@{} ({} bytes)", name, version, wasm_data.len());
 
-    (
+    Ok((
         StatusCode::CREATED,
-        Json(
-            serde_json::to_value(serde_json::json!({
-                "name": name,
-                "version": version,
-                "sha256": pkg.sha256,
-                "size_bytes": pkg.size_bytes,
-                "key_id": pkg.key_id,
-            }))
-            .unwrap(),
-        ),
-    )
+        Json(serde_json::json!({
+            "name": name,
+            "version": version,
+            "sha256": pkg.sha256,
+            "size_bytes": pkg.size_bytes,
+            "key_id": pkg.key_id,
+        })),
+    ))
 }
 
 async fn yank_package(
     State(state): State<Arc<AppState>>,
     Path((name, version)): Path<(String, String)>,
+    token: AuthToken,
     headers: HeaderMap,
-) -> impl IntoResponse {
+) -> Result<(StatusCode, Json<serde_json::Value>), ApiError> {
+    let token_record = token.record;
     let name = decode_name(&name);
 
-    let auth_header = match headers.get("authorization").and_then(|v| v.to_str().ok()) {
-        Some(h) => h.to_string(),
-        None => {
-            return (
-                StatusCode::UNAUTHORIZED,
-                Json(
-                    serde_json::to_value(ErrorResponse {
-                        error: ErrorBody {
-                            code: "UNAUTHORIZED".to_string(),
-                            message: "missing auth".to_string(),
-                        },
-                    })
-                    .unwrap(),
-                ),
-            );
-        }
-    };
-
-    let token_record = {
-        let st = state.clone();
-        let auth_header = auth_header.clone();
-        tokio::task::spawn_blocking(move || auth::validate_bearer(&st.database, &auth_header))
-            .await
-            .expect("auth validation panicked")
-    };
-    let token_record = match token_record {
-        Some(r) => r,
-        None => {
-            return (
-                StatusCode::UNAUTHORIZED,
-                Json(
-                    serde_json::to_value(ErrorResponse {
-                        error: ErrorBody {
-                            code: "UNAUTHORIZED".to_string(),
-                            message: "invalid token".to_string(),
-                        },
-                    })
-                    .unwrap(),
-                ),
-            );
-        }
-    };
-
-    // Rate limit: per token and per client IP (fixed window). The
-    // Retry-After header rides on the JSON response for clients that honor it.
+    // Rate limit: per token and per client IP (fixed window). Retry-After
+    // rides both on the JSON body and the response header.
     if let Err(limited) = check_publish_rate(&state, &token_record, &headers) {
-        return (
-            StatusCode::TOO_MANY_REQUESTS,
-            Json(
-                serde_json::to_value(ErrorResponse {
-                    error: ErrorBody {
-                        code: "RATE_LIMITED".to_string(),
-                        message: format!(
-                            "too many publish requests; retry after {} seconds",
-                            limited.retry_after.as_secs()
-                        ),
-                    },
-                })
-                .unwrap(),
-            ),
-        );
+        return Err(ApiError::rate_limited(limited.retry_after));
     }
 
-    if !auth::token_has_scope(&token_record, &name) {
-        return (
-            StatusCode::FORBIDDEN,
-            Json(
-                serde_json::to_value(ErrorResponse {
-                    error: ErrorBody {
-                        code: "FORBIDDEN".to_string(),
-                        message: "insufficient scope".to_string(),
-                    },
-                })
-                .unwrap(),
-            ),
-        );
-    }
+    require_publish_scope(&token_record, &name)?;
 
     let yanked = {
         let st = state.clone();
@@ -893,78 +847,26 @@ async fn yank_package(
     };
     if yanked {
         tracing::info!("yanked {}@{}", name, version);
-        (
-            StatusCode::OK,
-            Json(serde_json::to_value(serde_json::json!({"yanked": true})).unwrap()),
-        )
+        Ok((StatusCode::OK, Json(serde_json::json!({"yanked": true}))))
     } else {
-        (
-            StatusCode::NOT_FOUND,
-            Json(
-                serde_json::to_value(ErrorResponse {
-                    error: ErrorBody {
-                        code: "NOT_FOUND".to_string(),
-                        message: format!("{}@{} not found", name, version),
-                    },
-                })
-                .unwrap(),
-            ),
-        )
+        Err(ApiError::not_found(format!("{name}@{version} not found")))
     }
 }
 
-async fn verify_auth(State(state): State<Arc<AppState>>, headers: HeaderMap) -> impl IntoResponse {
-    let auth_header = match headers.get("authorization").and_then(|v| v.to_str().ok()) {
-        Some(h) => h.to_string(),
-        None => {
-            return (
-                StatusCode::UNAUTHORIZED,
-                Json(
-                    serde_json::to_value(ErrorResponse {
-                        error: ErrorBody {
-                            code: "UNAUTHORIZED".to_string(),
-                            message: "missing auth header".to_string(),
-                        },
-                    })
-                    .unwrap(),
-                ),
-            );
-        }
-    };
-
-    let verified = {
-        let st = state.clone();
-        let auth_header = auth_header.clone();
-        tokio::task::spawn_blocking(move || auth::validate_bearer(&st.database, &auth_header))
-            .await
-            .expect("auth validation panicked")
-    };
-    match verified {
-        Some(record) => (
-            StatusCode::OK,
-            Json(
-                serde_json::to_value(serde_json::json!({
-                    "valid": true,
-                    "scope": record.scope,
-                    "label": record.label,
-                    "expires_at": record.expires_at,
-                }))
-                .unwrap(),
-            ),
-        ),
-        None => (
-            StatusCode::UNAUTHORIZED,
-            Json(
-                serde_json::to_value(ErrorResponse {
-                    error: ErrorBody {
-                        code: "UNAUTHORIZED".to_string(),
-                        message: "invalid or revoked token".to_string(),
-                    },
-                })
-                .unwrap(),
-            ),
-        ),
-    }
+async fn verify_auth(
+    State(_state): State<Arc<AppState>>,
+    token: AuthToken,
+) -> Result<(StatusCode, Json<serde_json::Value>), ApiError> {
+    let record = token.record;
+    Ok((
+        StatusCode::OK,
+        Json(serde_json::json!({
+            "valid": true,
+            "scope": record.scope,
+            "label": record.label,
+            "expires_at": record.expires_at,
+        })),
+    ))
 }
 
 // --- Admin API (spec #21, T3): token lifecycle behind an admin-scoped bearer ---
@@ -999,15 +901,9 @@ async fn require_admin(
     if !auth::is_admin(&record) {
         return Err((
             StatusCode::FORBIDDEN,
-            Json(
-                serde_json::to_value(ErrorResponse {
-                    error: ErrorBody {
-                        code: "ADMIN_REQUIRED".to_string(),
-                        message: "this endpoint requires an admin token".to_string(),
-                    },
-                })
-                .unwrap(),
-            ),
+            Json(serde_json::json!({
+                "error": { "code": "ADMIN_REQUIRED", "message": "this endpoint requires an admin token" }
+            })),
         ));
     }
     Ok(record)
@@ -1016,15 +912,9 @@ async fn require_admin(
 fn unauthorized(message: &str) -> (StatusCode, Json<serde_json::Value>) {
     (
         StatusCode::UNAUTHORIZED,
-        Json(
-            serde_json::to_value(ErrorResponse {
-                error: ErrorBody {
-                    code: "UNAUTHORIZED".to_string(),
-                    message: message.to_string(),
-                },
-            })
-            .unwrap(),
-        ),
+        Json(serde_json::json!({
+            "error": { "code": "UNAUTHORIZED", "message": message }
+        })),
     )
 }
 
@@ -1077,15 +967,16 @@ async fn admin_create_token(
 async fn admin_list_tokens(
     State(state): State<Arc<AppState>>,
     headers: HeaderMap,
-) -> impl IntoResponse {
+) -> Result<(StatusCode, Json<serde_json::Value>), ApiError> {
     if let Err(resp) = require_admin(state.clone(), &headers).await {
-        return resp;
+        return Ok(resp);
     }
     let tokens: Vec<serde_json::Value> = {
         let st = state.clone();
         tokio::task::spawn_blocking(move || auth::list_tokens(&st.database))
             .await
             .expect("token listing panicked")
+            .map_err(|e| ApiError::internal("DB_ERROR", e))?
             .into_iter()
             .map(|t| {
                 serde_json::json!({
@@ -1099,10 +990,10 @@ async fn admin_list_tokens(
             })
             .collect()
     };
-    (
+    Ok((
         StatusCode::OK,
         Json(serde_json::json!({ "tokens": tokens })),
-    )
+    ))
 }
 
 async fn admin_revoke_token(
@@ -1152,21 +1043,6 @@ fn decode_name(encoded: &str) -> String {
 
 fn encode_name(name: &str) -> String {
     name.replace('/', "%2F")
-}
-
-fn bad_request(code: &str, message: &str) -> (StatusCode, Json<serde_json::Value>) {
-    (
-        StatusCode::BAD_REQUEST,
-        Json(
-            serde_json::to_value(ErrorResponse {
-                error: ErrorBody {
-                    code: code.to_string(),
-                    message: message.to_string(),
-                },
-            })
-            .unwrap(),
-        ),
-    )
 }
 
 /// Fixed-window publish rate limit, keyed per token and per client IP.

@@ -1,52 +1,49 @@
 use serde_json::Value;
-use specforge_emitter::{EmitFormat, EmitOptions, emit};
+use specforge_emitter::{EmitFormat, EmitOptions, emit, generate_schema};
 
 use crate::protocol::{JsonRpcResponse, error_codes};
 use crate::state::McpState;
 
+/// `specforge://brief` — minimal graph (id, kind, title, edges). Query
+/// parameters (C9-06): `root=<entity_id>` scopes to a subgraph, `depth=<n>`
+/// bounds the traversal, `kinds=a,b` filters node kinds, `max_tokens=<n>`
+/// budgets the payload. Scoped exports reference the published schema
+/// (`schema_ref`) instead of embedding it (C6-07).
 pub fn read(state: &McpState, uri: &str, id: Option<Value>) -> JsonRpcResponse {
-    // C9-03: context/brief accept an optional token budget via the resource
-    // URI (specforge://brief?max_tokens=4000). The graph is trimmed to fit
-    // (least-connected nodes dropped first) before emission.
-    let max_tokens = uri
-        .split('?')
-        .nth(1)
-        .and_then(|query| query.split('&').find(|kv| kv.starts_with("max_tokens=")))
-        .and_then(|kv| kv.split('=').nth(1))
-        .and_then(|v| v.parse::<usize>().ok());
+    let (base, query) = crate::resources::split_query(uri);
+    let parsed = crate::resources::parse_query(query);
 
-    let graph_snapshot = match max_tokens {
-        Some(budget) => specforge_emitter::filter_graph_within_budget(&state.graph, budget, |g| {
-            emit(
-                g,
-                &EmitOptions {
-                    format: EmitFormat::Brief,
-                    ..EmitOptions::default()
-                },
-            )
-        })
-        .map_err(|e| e.to_string())
-        .map_err(|msg| JsonRpcResponse::error(id.clone(), error_codes::INTERNAL_ERROR, msg)),
-        None => Ok(state.graph.clone()),
-    };
-    let graph_snapshot = match graph_snapshot {
-        Ok(g) => g,
-        Err(resp) => return resp,
-    };
+    let schema = generate_schema(
+        &state.kind_registry,
+        &state.edge_registry,
+        &state.field_registry,
+        &state.extension_info,
+    );
 
-    let options = EmitOptions {
-        format: EmitFormat::Brief,
-        ..EmitOptions::default()
-    };
-    let json_str = emit(&graph_snapshot, &options).expect("budgeted graph emit cannot fail");
-    JsonRpcResponse::success(
-        id,
-        serde_json::json!({
-            "contents": [{
-                "uri": "specforge://brief",
-                "mimeType": "application/json",
-                "text": json_str
-            }]
-        }),
-    )
+    let json_str = emit(
+        &state.graph,
+        &EmitOptions {
+            format: EmitFormat::Brief,
+            scope: parsed.root,
+            depth: parsed.depth,
+            kind_filter: parsed.kinds,
+            token_budget: parsed.max_tokens,
+            schema: Some(&schema),
+            ..EmitOptions::default()
+        },
+    );
+
+    match json_str {
+        Ok(payload) => JsonRpcResponse::success(
+            id,
+            serde_json::json!({
+                "contents": [{
+                    "uri": base,
+                    "mimeType": "application/json",
+                    "text": payload
+                }]
+            }),
+        ),
+        Err(err) => JsonRpcResponse::error(id, error_codes::INVALID_PARAMS, err.to_string()),
+    }
 }

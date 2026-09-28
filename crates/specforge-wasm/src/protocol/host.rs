@@ -35,6 +35,15 @@ impl<'a> ProtocolHost<'a> {
             WasmCallResult::Ok(response_bytes) => {
                 let response: HandshakeResponse =
                     serde_json::from_slice(&response_bytes).map_err(ProtocolError::from)?;
+                // C7-10: the plugin's declared `max_execution_ms` now gates
+                // every subsequent call into this extension (runtimes with
+                // epoch interruption enforce it; others ignore the hint).
+                if let Some(policy) = &response.sandbox_policy
+                    && let Some(ms) = policy.max_execution_ms
+                {
+                    self.runtime
+                        .set_execution_deadline_ms(extension_name, u64::from(ms));
+                }
                 Ok(response)
             }
             WasmCallResult::Trap(trap) => Err(ProtocolError::HandshakeFailed(format!(

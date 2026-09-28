@@ -46,6 +46,12 @@ pub trait WasmRuntime: Send + Sync {
 
     /// Call an export function on a loaded module.
     fn call_export(&self, extension_name: &str, export_name: &str, input: &[u8]) -> WasmCallResult;
+
+    /// Applies an extension's declared wall-clock budget (its handshake
+    /// `sandbox_policy.max_execution_ms`) to its subsequent calls.
+    /// Runtimes that cannot enforce wall-clock limits (mocks, test doubles)
+    /// ignore this (audit C7-10).
+    fn set_execution_deadline_ms(&self, _extension_name: &str, _max_execution_ms: u64) {}
 }
 
 /// A mock runtime for testing — records calls and returns configured results.

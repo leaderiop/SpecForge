@@ -6,6 +6,17 @@ pub struct Database {
     conn: Mutex<Connection>,
 }
 
+impl Database {
+    /// Poison-recovering lock (C8-08): a panic in one query must not lock
+    /// every future request out of the database. rusqlite keeps the file
+    /// consistent through the journal, so recovering the guard is safe.
+    fn conn(&self) -> std::sync::MutexGuard<'_, Connection> {
+        self.conn
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner())
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct PackageVersion {
     pub name: String,
@@ -58,8 +69,10 @@ impl Database {
     pub fn open(path: &Path) -> Result<Self, String> {
         let conn = Connection::open(path).map_err(|e| format!("failed to open database: {}", e))?;
 
-        conn.execute_batch("PRAGMA journal_mode=WAL; PRAGMA foreign_keys=ON;")
-            .map_err(|e| format!("failed to set pragmas: {}", e))?;
+        conn.execute_batch(
+            "PRAGMA journal_mode=WAL; PRAGMA foreign_keys=ON; PRAGMA busy_timeout=5000;",
+        )
+        .map_err(|e| format!("failed to set pragmas: {e}"))?;
 
         let db = Self {
             conn: Mutex::new(conn),
@@ -69,7 +82,7 @@ impl Database {
     }
 
     fn migrate(&self) -> Result<(), String> {
-        let conn = self.conn.lock().unwrap();
+        let conn = self.conn();
         conn.execute_batch(
             "CREATE TABLE IF NOT EXISTS packages (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -145,7 +158,7 @@ impl Database {
     }
 
     pub fn insert_package(&self, pkg: &PackageVersion) -> Result<(), String> {
-        let conn = self.conn.lock().unwrap();
+        let conn = self.conn();
         conn.execute(
             "INSERT INTO packages (name, version, sha256, size_bytes, description, keywords, publisher, published_at, signature, key_id, manifest)
              VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)",
@@ -173,7 +186,7 @@ impl Database {
     }
 
     pub fn get_package_version(&self, name: &str, version: &str) -> Option<PackageVersion> {
-        let conn = self.conn.lock().unwrap();
+        let conn = self.conn();
         conn.query_row(
             "SELECT name, version, sha256, size_bytes, description, keywords, publisher, published_at, signature, key_id, manifest
              FROM packages WHERE name = ?1 AND version = ?2 AND yanked = 0",
@@ -197,31 +210,33 @@ impl Database {
         .ok()
     }
 
-    pub fn get_package_versions(&self, name: &str) -> Vec<String> {
-        let conn = self.conn.lock().unwrap();
+    pub fn get_package_versions(&self, name: &str) -> Result<Vec<String>, String> {
+        let conn = self.conn();
         let mut stmt = conn
             .prepare(
                 "SELECT version FROM packages WHERE name = ?1 AND yanked = 0 ORDER BY published_at",
             )
-            .unwrap();
-        stmt.query_map(params![name], |row| row.get(0))
-            .unwrap()
+            .map_err(|e| format!("versions query failed: {e}"))?;
+        let rows = stmt
+            .query_map(params![name], |row| row.get(0))
+            .map_err(|e| format!("versions query failed: {e}"))?
             .filter_map(|r| r.ok())
-            .collect()
+            .collect();
+        Ok(rows)
     }
 
-    pub fn search(&self, query: &str, limit: u32) -> Vec<PackageVersion> {
+    pub fn search(&self, query: &str, limit: u32) -> Result<Vec<PackageVersion>, String> {
         use std::collections::HashMap;
 
-        let conn = self.conn.lock().unwrap();
-        let pattern = format!("%{}%", query);
+        let conn = self.conn();
+        let pattern = format!("%{query}%");
         let mut stmt = conn
             .prepare(
                 "SELECT name, version, sha256, size_bytes, description, keywords, publisher, published_at
                  FROM packages
                  WHERE yanked = 0 AND (name LIKE ?1 OR description LIKE ?1 OR keywords LIKE ?1)",
             )
-            .unwrap();
+            .map_err(|e| format!("search query failed: {e}"))?;
         let rows: Vec<PackageVersion> = stmt
             .query_map(params![pattern], |row| {
                 Ok(PackageVersion {
@@ -238,7 +253,7 @@ impl Database {
                     manifest: String::new(),
                 })
             })
-            .unwrap()
+            .map_err(|e| format!("search query failed: {e}"))?
             .filter_map(|r| r.ok())
             .collect();
 
@@ -256,7 +271,7 @@ impl Database {
         let mut out: Vec<PackageVersion> = latest.into_values().collect();
         out.sort_by(|a, b| a.name.cmp(&b.name));
         out.truncate(limit as usize);
-        out
+        Ok(out)
     }
 
     /// Claim a namespace scope on first publish. Returns `true` when this
@@ -267,7 +282,7 @@ impl Database {
         owner_token_hash: &str,
         account_id: &str,
     ) -> Result<bool, String> {
-        let conn = self.conn.lock().unwrap();
+        let conn = self.conn();
         let rows = conn
             .execute(
                 "INSERT OR IGNORE INTO scopes (scope, owner_token_hash, account_id) VALUES (?1, ?2, ?3)",
@@ -280,7 +295,7 @@ impl Database {
     /// The owner (token hash) and registry-assigned account id of a claimed
     /// scope, if it has been claimed.
     pub fn get_scope_owner(&self, scope: &str) -> Option<(String, String)> {
-        let conn = self.conn.lock().unwrap();
+        let conn = self.conn();
         conn.query_row(
             "SELECT owner_token_hash, account_id FROM scopes WHERE scope = ?1",
             params![scope],
@@ -292,7 +307,7 @@ impl Database {
     /// Compensating delete for a publish whose blob commit failed after
     /// the row landed. Returns true when a row was removed.
     pub fn delete_package(&self, name: &str, version: &str) -> bool {
-        let conn = self.conn.lock().unwrap();
+        let conn = self.conn();
         conn.execute(
             "DELETE FROM packages WHERE name = ?1 AND version = ?2",
             params![name, version],
@@ -302,7 +317,7 @@ impl Database {
     }
 
     pub fn yank_version(&self, name: &str, version: &str) -> bool {
-        let conn = self.conn.lock().unwrap();
+        let conn = self.conn();
         let rows = conn
             .execute(
                 "UPDATE packages SET yanked = 1 WHERE name = ?1 AND version = ?2",
@@ -323,7 +338,7 @@ impl Database {
         expires_at: Option<&str>,
         admin: bool,
     ) -> Result<(), String> {
-        let conn = self.conn.lock().unwrap();
+        let conn = self.conn();
         conn.execute(
             "INSERT INTO tokens (token_hash, scope, label, expires_at, admin) VALUES (?1, ?2, ?3, ?4, ?5)",
             params![token_hash, scope, label, expires_at, admin as i64],
@@ -333,7 +348,7 @@ impl Database {
     }
 
     pub fn validate_token(&self, token_hash: &str) -> Option<TokenRecord> {
-        let conn = self.conn.lock().unwrap();
+        let conn = self.conn();
         conn.query_row(
             "SELECT token_hash, scope, label, created_at, expires_at, admin FROM tokens WHERE token_hash = ?1 AND revoked = 0",
             params![token_hash],
@@ -351,28 +366,30 @@ impl Database {
         .ok()
     }
 
-    pub fn list_tokens(&self) -> Vec<TokenRecord> {
-        let conn = self.conn.lock().unwrap();
+    pub fn list_tokens(&self) -> Result<Vec<TokenRecord>, String> {
+        let conn = self.conn();
         let mut stmt = conn
             .prepare("SELECT token_hash, scope, label, created_at, expires_at, admin FROM tokens WHERE revoked = 0 ORDER BY created_at")
-            .unwrap();
-        stmt.query_map([], |row| {
-            Ok(TokenRecord {
-                token_hash: row.get(0)?,
-                scope: row.get(1)?,
-                label: row.get(2)?,
-                created_at: row.get(3)?,
-                expires_at: row.get(4)?,
-                admin: row.get::<_, i64>(5)? != 0,
+            .map_err(|e| format!("token listing failed: {e}"))?;
+        let rows = stmt
+            .query_map([], |row| {
+                Ok(TokenRecord {
+                    token_hash: row.get(0)?,
+                    scope: row.get(1)?,
+                    label: row.get(2)?,
+                    created_at: row.get(3)?,
+                    expires_at: row.get(4)?,
+                    admin: row.get::<_, i64>(5)? != 0,
+                })
             })
-        })
-        .unwrap()
-        .filter_map(|r| r.ok())
-        .collect()
+            .map_err(|e| format!("token listing failed: {e}"))?
+            .filter_map(|r| r.ok())
+            .collect();
+        Ok(rows)
     }
 
     pub fn revoke_token_by_prefix(&self, prefix: &str) -> bool {
-        let conn = self.conn.lock().unwrap();
+        let conn = self.conn();
         let pattern = format!("{}%", prefix);
         let rows = conn
             .execute(
@@ -404,13 +421,30 @@ mod tests {
         }
     }
 
+    // C8-08: committed data survives an unclean shutdown — the leaked
+    // connection never closes cleanly, so the WAL must be recovered on
+    // reopen.
+    #[test]
+    fn reopens_after_unclean_shutdown_recovers_wal() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("crash.db");
+        {
+            let db = Database::open(&path).unwrap();
+            db.insert_package(&pv("pkg", "1.0.0")).unwrap();
+            std::mem::forget(db);
+        }
+        let db = Database::open(&path).unwrap();
+        let versions = db.get_package_versions("pkg").unwrap();
+        assert_eq!(versions, vec!["1.0.0".to_string()]);
+    }
+
     #[test]
     fn search_prefers_semver_latest_over_lexicographic() {
         let dir = tempfile::tempdir().unwrap();
         let db = Database::open(&dir.path().join("t.db")).unwrap();
         db.insert_package(&pv("pkg", "9.0.0")).unwrap();
         db.insert_package(&pv("pkg", "10.0.0")).unwrap();
-        let hits = db.search("pkg", 10);
+        let hits = db.search("pkg", 10).unwrap();
         assert_eq!(hits.len(), 1, "one row per package name");
         assert_eq!(hits[0].version, "10.0.0", "10.0.0 must outrank 9.0.0");
     }
@@ -423,12 +457,12 @@ mod tests {
         let db = Database::open(&dir.path().join("t.db")).unwrap();
         db.insert_package(&pv("pkg", "2.0.0-beta.1")).unwrap();
         db.insert_package(&pv("pkg", "1.9.0")).unwrap();
-        let hits = db.search("pkg", 10);
+        let hits = db.search("pkg", 10).unwrap();
         assert_eq!(hits[0].version, "2.0.0-beta.1");
 
         // ...but a pre-release never outranks its own release triple.
         db.insert_package(&pv("pkg", "2.0.0")).unwrap();
-        let hits = db.search("pkg", 10);
+        let hits = db.search("pkg", 10).unwrap();
         assert_eq!(hits[0].version, "2.0.0");
     }
 }

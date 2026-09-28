@@ -1,0 +1,77 @@
+{
+  "$schema": "./schema.md",
+  "description": "C1-07: minimal falsifiable eval for the north-star claim (first-attempt accuracy 30% -> 70-85% with a validated spec graph). Each task runs an agent twice on the fixture repo — once with the compiled graph exported into context, once without — and scores first-attempt success against expected_entities.",
+  "scoring": "A task passes on a run when the agent's first delivered patch references every id in expected_entities (semantic matches allowed: file path or symbol containing the id) and none of forbidden_entities.",
+  "tasks": [
+    {
+      "id": "todo-add-due-date",
+      "fixture": "examples/todo-app",
+      "prompt": "Add a due_date field to todo items and enforce that completed items may not have an empty title.",
+      "expected_entities": ["todo_item", "mark_todo_done"],
+      "forbidden_entities": []
+    },
+    {
+      "id": "todo-feature-ordering",
+      "prompt": "Which feature covers the 'persist todos' behavior, and what else does that feature require?",
+      "fixture": "examples/todo-app",
+      "expected_entities": ["persist_todos"],
+      "forbidden_entities": []
+    },
+    {
+      "id": "spec-break-gherkin",
+      "fixture": "examples/todo-app",
+      "prompt": "Rename the verify description 'rejects empty title' everywhere it is tested.",
+      "expected_entities": ["create_todo"],
+      "forbidden_entities": []
+    },
+    {
+      "id": "spec-find-orphans",
+      "prompt": "List every behavior in this project that no feature references.",
+      "fixture": "examples/todo-app",
+      "expected_entities": [],
+      "forbidden_entities": []
+    },
+    {
+      "id": "spec-event-flow",
+      "prompt": "Trace what happens after specforge init creates a project: which events fire and in what order?",
+      "fixture": ".",
+      "expected_entities": ["spec_compiled", "registries_populated"],
+      "forbidden_entities": []
+    },
+    {
+      "id": "spec-lifecycle",
+      "prompt": "What invariants guard the feature lifecycle, and which transitions are invalid?",
+      "fixture": ".",
+      "expected_entities": ["feature_lifecycle"],
+      "forbidden_entities": []
+    },
+    {
+      "id": "spec-coverage-gap",
+      "prompt": "Which verify statements of behavior coverage_diff are untested?",
+      "fixture": ".",
+      "expected_entities": ["coverage_diff"],
+      "forbidden_entities": []
+    },
+    {
+      "id": "spec-refinement-chain",
+      "prompt": "Walk the refinement chain that ends at a concrete layering check and name each level.",
+      "fixture": ".",
+      "expected_entities": ["layering_verify"],
+      "forbidden_entities": []
+    },
+    {
+      "id": "spec-diagnostic-contract",
+      "prompt": "For diagnostic code E003: which behavior defines it, which event is emitted alongside it, and what suggestion does the renderer attach?",
+      "fixture": ".",
+      "expected_entities": ["resolve_references"],
+      "forbidden_entities": []
+    },
+    {
+      "id": "spec-cross-extension",
+      "prompt": "Which software entities are enhanced by the formal extension, and what fields does it add?",
+      "fixture": ".",
+      "expected_entities": ["behavior"],
+      "forbidden_entities": []
+    }
+  ]
+}

@@ -83,16 +83,55 @@ fn handshake_response_round_trip() {
 }
 
 #[test]
-fn handshake_response_minimal_defaults() {
-    let json = r#"{
-        "protocol_version": "1.0",
+fn handshake_response_rejects_missing_critical_fields() {
+    // C7-07: the handshake's critical envelope fields are REQUIRED on the
+    // wire. A truncated handshake must fail deserialization instead of
+    // silently yielding empty flags or an empty peer-dependency list.
+    for missing in [
+        "protocol_version",
+        "name",
+        "version",
+        "contribution_flags",
+        "peer_dependencies",
+    ] {
+        let full = handshake_with_all_fields();
+        let mut truncated = full.clone();
+        truncated.as_object_mut().unwrap().remove(missing);
+        let err = serde_json::from_str::<HandshakeResponse>(&truncated.to_string())
+            .expect_err("missing critical handshake field must fail deserialization");
+        assert!(
+            err.to_string().contains(missing),
+            "error should name the missing field '{missing}', got: {err}"
+        );
+    }
+}
+
+#[test]
+fn handshake_sandbox_policy_is_fail_safe_optional() {
+    // `sandbox_policy` is `Option<SandboxPolicy>`: serde maps absence and
+    // explicit `null` alike to `None`, which is fail-safe (the host then
+    // substitutes its own deny-by-default policy). Pin that documented
+    // semantic so it cannot silently change.
+    for json in [
+        r#"{"protocol_version":"1.0.0","name":"@t/x","version":"0.1.0","contribution_flags":{},"peer_dependencies":[]}"#,
+        r#"{"protocol_version":"1.0.0","name":"@t/x","version":"0.1.0","contribution_flags":{},"peer_dependencies":[],"sandbox_policy":null}"#,
+    ] {
+        let resp: HandshakeResponse =
+            serde_json::from_str(json).expect("no/absent sandbox_policy is valid");
+        assert!(resp.sandbox_policy.is_none());
+    }
+}
+
+/// A handshake value carrying every envelope field, for truncation tests.
+fn handshake_with_all_fields() -> serde_json::Value {
+    serde_json::json!({
+        "protocol_version": "1.0.0",
         "name": "@specforge/test",
-        "version": "0.1.0"
-    }"#;
-    let resp: HandshakeResponse = serde_json::from_str(json).unwrap();
-    assert_eq!(resp.contribution_flags, ContributionFlags::default());
-    assert!(resp.peer_dependencies.is_empty());
-    assert!(resp.sandbox_policy.is_none());
+        "version": "0.1.0",
+        "contribution_flags": {},
+        "peer_dependencies": [],
+        "sandbox_policy": null,
+    })
 }
 
 #[test]

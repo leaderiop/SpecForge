@@ -172,6 +172,7 @@ failure_mode non_deterministic_diagnostic_order "Non-Deterministic Diagnostic Or
 }
 
 failure_mode wasm_extension_crash "Wasm Extension Crash" {
+  threatens_features       [product_validation]
   invariant  wasm_sandbox_integrity
   severity   high
   occurrence occasional
@@ -232,6 +233,7 @@ failure_mode peer_dependency_version_mismatch "Peer Dependency Version Mismatch"
 }
 
 failure_mode builtin_field_shadow "Grammar-Level Construct Shadow by Extension" {
+  threatens_features       [product_entity_registration]
   invariant  enhancement_builtin_precedence
   severity   critical
   occurrence unlikely
@@ -292,6 +294,7 @@ failure_mode circular_peer_dependency "Circular Peer Dependency" {
 }
 
 failure_mode manifest_schema_mismatch "Manifest Schema Mismatch" {
+  threatens_features       [product_entity_registration]
   invariant  peer_dependency_satisfaction
   severity   medium
   occurrence unlikely
@@ -332,6 +335,7 @@ failure_mode host_function_type_violation "Host Function Type Safety Violation" 
 }
 
 failure_mode entity_kind_collision_undetected "Entity Kind Collision Undetected" {
+  threatens_features       [product_entity_registration]
   invariant  entity_kind_uniqueness
   severity   high
   occurrence unlikely
@@ -352,6 +356,7 @@ failure_mode entity_kind_collision_undetected "Entity Kind Collision Undetected"
 }
 
 failure_mode registry_unavailability "Registry Unavailability" {
+  threatens_features       [product_entity_registration]
   invariant  registry_integrity
   severity   medium
   occurrence occasional
@@ -372,6 +377,7 @@ failure_mode registry_unavailability "Registry Unavailability" {
 }
 
 failure_mode collector_output_malformation "Collector Output Malformation" {
+  threatens_features       [product_health_metric]
   invariant  collector_output_conformance
   severity   medium
   occurrence unlikely
@@ -468,5 +474,29 @@ failure_mode grammar_version_mismatch {
     occurrence unlikely
     detection certain
     rpn 4
+  }
+}
+
+// C12-01: the operational build assumption the ADRs record only in prose.
+// A fresh clone cannot run wasm-backed extensions until the embedded
+// builtin .wasm blobs exist — record the failure mode so the compiled
+// spec carries what docs forget.
+failure_mode fresh_clone_wasm_bootstrap_missing {
+  severity high
+  occurrence certain
+  detection certain
+  rpn 60
+
+  cause "Repository is cloned fresh and the embedded builtin .wasm blobs (extensions/*/src/*.wasm) have not been built — the wasm32-wasip2 target was never installed or the bootstrap step was skipped."
+  effect "Extension loading fails at startup; wasm-backed behaviors (registry populate, describe fetch, custom validation rules) are unavailable, and builds depending on them error instead of degrading."
+  mitigation "Bootstrap script builds the four builtin .wasm blobs (extensions/*/src) for wasm32-wasip2 before first run; compile-cache warm path documents the requirement; CI builds the blobs ahead of workspace tests."
+
+  invariant wasm_extension_runtime_integrity
+
+  post_mitigation {
+    severity low
+    occurrence unlikely
+    detection certain
+    rpn 6
   }
 }

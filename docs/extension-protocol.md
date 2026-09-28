@@ -416,77 +416,46 @@ Returns feature flag descriptors. Each flag declares allowed values and a defaul
 }
 ```
 
-## Host API
+## Host Functions
 
-The protocol is bidirectional. While the host drives the conversation (calling exports on the Wasm module), the extension can call back into the host via imported functions. This is how extensions read the graph, emit diagnostics, and resolve references during validation and command execution.
+The protocol is bidirectional in design: the host drives the conversation
+(calling exports on the Wasm module), and extensions may call back into the
+host through imported functions to read the graph, emit diagnostics, and
+access files.
 
-### Imported Host Functions
+> **Status: not callable from guests today.** The old extism-era import
+> surface was removed with the component-model cutover. Guests are
+> pure-compute wasip2 components; the host passes all needed context as call
+> input (e.g. the `ValidatorContext` snapshot for `validate__*` exports). A
+> typed component host-import surface is future work — the names below are
+> what the host's permission matrix already enforces
+> (`specforge-wasm::host_functions`), kept in lockstep with this table by a
+> drift guard test.
 
-Extensions import these functions from the host:
+### Host Function Table
 
-| Function | Signature | Purpose |
-|----------|-----------|---------|
-| `query` | `(pattern: &str) -> Vec<Entity>` | Query entities by kind, field values, or graph pattern |
-| `emit_diagnostic` | `(severity: Severity, code: &str, msg: &str)` | Emit a diagnostic to the host's diagnostic collection |
-| `resolve_ref` | `(id: &str) -> Option<EntityRef>` | Resolve an entity ID to a typed reference |
-| `read_file` | `(path: &str) -> Option<String>` | Read a file from the project (subject to sandbox policy) |
+| Function | Signature | Purpose | Allowed call sites |
+|----------|-----------|---------|--------------------|
+| `host_query_graph` | `(pattern: &str) -> Vec<Entity>` | Scope-limited query of the entity graph by kind, field values, or graph pattern | all |
+| `host_emit_diagnostic` | `(severity: Severity, code: &str, msg: &str)` | Emit a diagnostic to the host's diagnostic collection | all |
+| `host_read_file` | `(path: &str) -> Option<String>` | Read a file from the project (subject to sandbox policy) | Validator, Provider, Parser, Analyzer |
+| `host_emit_file` | `(path: &str, content: &[u8])` | Write renderer/collector output (subject to sandbox policy) | Renderer, Collector |
+| `host_http_get` | `(url: &str) -> Vec<u8>` | Fetch from an allowlisted domain | Provider |
+| `host_add_graph_node` | `(kind: &str, id: &str, fields: ...)` | Add a graph node | Parser |
+| `host_add_graph_edge` | `(label: &str, source: &str, target: &str)` | Add a graph edge | Parser |
 
-### query
-
-Query the entity graph using a pattern string. Returns matching entities with their fields and edges.
-
-```
-query("kind:behavior")
-  -> all behavior entities
-
-query("kind:behavior AND field:priority=high")
-  -> behaviors where priority is high
-
-query("edges_from:login_flow AND edge_type:BehaviorImplementsFeature")
-  -> features connected to login_flow via Implements edges
-```
-
-### emit_diagnostic
-
-Emit a diagnostic from within a validator, command, or compiler pass. The host collects all diagnostics and presents them according to the current output mode (terminal, JSON, LSP).
-
-```
-emit_diagnostic(Warning, "W001", "behavior 'create_user' does not implement any feature")
-```
-
-### resolve_ref
-
-Resolve a string identifier to an entity reference. Returns `None` if the entity is not in the graph (which may indicate the owning extension is not installed).
-
-```
-resolve_ref("user_management")
-  -> Some(EntityRef { kind: "feature", extension: "@specforge/product", ... })
-
-resolve_ref("nonexistent")
-  -> None
-```
-
-### read_file
-
-Read a file from the project filesystem. Subject to the extension's sandbox policy. Returns `None` if the file does not exist or the sandbox denies access.
-
-```
-read_file("behaviors/auth.spec")
-  -> Some("behavior login { ... }")
-
-read_file("/etc/passwd")
-  -> None  (sandbox denied)
-```
+Reference resolution — resolving an entity ID to its typed node, with a
+`None`/null kind for dangling IDs — is part of `host_query_graph` semantics
+(the scope-filtered graph carries nodes and edges) and of the precomputed
+`ValidatorContext.referenced` snapshot handed to `validate__*` exports.
 
 ### Host API Versioning
 
-The host API is versioned via the `host_api_version` field in the handshake response. The host checks this version and provides backward-compatible function signatures.
+The host-function surface is versioned alongside the wire protocol (`protocol_version` in the handshake response). A compatible major version guarantees the same function names and signatures.
 
-| Host API Version | Functions Available |
+| Protocol Version | Functions Available |
 |-----------------|-------------------|
-| `1.0.0` | `query`, `emit_diagnostic`, `resolve_ref`, `read_file` |
-
-Future host API versions will add new functions without removing existing ones. An extension requesting `host_api_version: "1.0.0"` will always receive the 1.0.0 function signatures, even on a host that supports 2.0.0.
+| `1.0.0` | `host_query_graph`, `host_emit_diagnostic`, `host_read_file`, `host_emit_file`, `host_http_get`, `host_add_graph_node`, `host_add_graph_edge` |
 
 ### Sandbox Policy
 
@@ -509,7 +478,7 @@ The sandbox policy declared in the handshake controls what an extension can acce
 | `max_memory_mb` | 256 | Maximum Wasm linear memory allocation |
 | `max_execution_ms` | 5000 | Maximum wall-clock time per export call |
 | `network_access` | false | Whether `fetch`-style host functions are available |
-| `file_system_access` | false | Whether `read_file` host function is available |
+| `file_system_access` | false | Whether the `host_read_file` / `host_emit_file` host functions are available |
 | `allowed_domains` | [] | If network enabled, restrict to these domains |
 | `allowed_paths` | [] | If filesystem enabled, restrict to these path prefixes |
 | `allowed_output_extensions` | [] | Restrict file writes to these extensions |
@@ -655,7 +624,7 @@ The Extension Protocol replaces the static `manifest.json` approach while mainta
 |--------|-------------------|-------------------|
 | Discovery | Parse JSON file at startup | `__handshake` + `__describe` at load time |
 | Contribution model | Same 18 contribution categories | Same 18 contribution categories |
-| Host API | Not available | Bidirectional: `query`, `emit_diagnostic`, `resolve_ref`, `read_file` |
+| Host functions | Not available | Planned import surface: `host_query_graph`, `host_emit_diagnostic`, `host_read_file`, and four more (see Host Function Table) |
 | Hot plug | Requires restart | Connect/disconnect at runtime |
 | Context-aware loading | All metadata loaded always | Host requests only needed categories |
 | Validation | Declarative only | Declarative + custom Wasm validators |

@@ -100,6 +100,12 @@ fn default_resources() -> Vec<McpResourceDescriptor> {
             mime_type: Some("application/json".into()),
         },
         McpResourceDescriptor {
+            uri: "specforge://context/{entity_id}".into(),
+            name: "context_entity".into(),
+            description: Some("Context-optimized subgraph rooted at an entity".into()),
+            mime_type: Some("application/json".into()),
+        },
+        McpResourceDescriptor {
             uri: "specforge://brief".into(),
             name: "brief".into(),
             description: Some("Brief graph (id, kind, title, edges only)".into()),
@@ -661,6 +667,16 @@ fn default_prompts() -> Vec<McpPromptDescriptor> {
                 McpPromptArgument {
                     name: "scope".into(),
                     description: "Scope: omit for overview, 'kind:{name}' for focused guide, 'file:{path}' for file deduplication".into(),
+                    required: false,
+                },
+                McpPromptArgument {
+                    name: "target_spec_directory".into(),
+                    description: "Directory where generated .spec files are written (scope \"plan\")".into(),
+                    required: false,
+                },
+                McpPromptArgument {
+                    name: "cursor".into(),
+                    description: "Offset into the plan's unanalyzed/stale file lists for paging (scope \"plan\")".into(),
                     required: false,
                 },
             ]),

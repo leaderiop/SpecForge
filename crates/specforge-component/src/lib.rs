@@ -12,13 +12,14 @@
 
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
-use std::sync::Mutex;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::{Arc, Mutex};
 
+use specforge_wasm::runtime::{WasmCallResult, WasmRuntime, WasmTrapInfo};
+use specforge_wasm::sandbox::default_sandbox_policy;
 use wasmtime::component::{Component, Linker};
 use wasmtime::{Cache, CacheConfig, Config, Engine, Store};
 use wasmtime_wasi::{WasiCtx, WasiCtxView, WasiView};
-
-use specforge_wasm::runtime::{WasmCallResult, WasmRuntime, WasmTrapInfo};
 
 wasmtime::component::bindgen!({
     path: "wit",
@@ -46,20 +47,80 @@ impl WasiView for HostState {
         }
     }
 }
-
 struct PluginInstance {
     store: Store<HostState>,
     bindings: Bridge,
+    /// Wall-clock budget for each call into this plugin, in milliseconds.
+    /// Enforced with wasmtime epoch interruption; `set_epoch_deadline` is
+    /// refreshed from this value before every `call`.
+    deadline_ms: u64,
 }
 
 /// Deterministic per-call instruction budget, shared by every surface.
 pub const DEFAULT_FUEL_LIMIT: u64 = 30_000 * 20_000_000;
 
+/// Granularity of the epoch ticker: a plugin's `max_execution_ms` deadline is
+/// enforced with a worst-case overshoot of this much wall-clock time. 10 ms
+/// keeps deadline precision well under any meaningful budget while the ticker
+/// thread costs one wakeup per interval per process.
+pub const EPOCH_TICK_MS: u64 = 10;
+
+/// Converts a wall-clock millisecond budget into a number of epoch ticks
+/// (rounded up), so any positive budget gets at least one tick.
+fn ms_to_ticks(deadline_ms: u64) -> u64 {
+    deadline_ms.div_ceil(EPOCH_TICK_MS)
+}
+
+/// Background thread that increments the engine epoch every
+/// [`EPOCH_TICK_MS`]. This is wasmtime's documented mechanism for epoch
+/// interruption: stores set a deadline in ticks and trap once the engine's
+/// epoch (advanced only by this thread) passes it. Stopped and joined when
+/// the owning [`ComponentRuntime`] drops.
+struct EpochTicker {
+    stop: Arc<AtomicBool>,
+    handle: Option<std::thread::JoinHandle<()>>,
+}
+
+impl EpochTicker {
+    fn spawn(engine: Engine) -> Self {
+        let stop = Arc::new(AtomicBool::new(false));
+        let stop_flag = Arc::clone(&stop);
+        let handle = std::thread::spawn(move || {
+            while !stop_flag.load(Ordering::Acquire) {
+                std::thread::sleep(std::time::Duration::from_millis(EPOCH_TICK_MS));
+                engine.increment_epoch();
+            }
+        });
+        Self {
+            stop,
+            handle: Some(handle),
+        }
+    }
+}
+
+impl Drop for EpochTicker {
+    fn drop(&mut self) {
+        self.stop.store(true, Ordering::Release);
+        if let Some(handle) = self.handle.take() {
+            let _ = handle.join();
+        }
+    }
+}
+
 /// A `WasmRuntime` backed by wasmtime 49 Component Model instances.
 pub struct ComponentRuntime {
     engine: Engine,
-    plugins: Mutex<HashMap<String, PluginInstance>>,
+    /// Loaded plugins. The map lock guards membership only; each plugin has
+    /// its own lock so calls into DIFFERENT extensions run concurrently while
+    /// calls into the SAME extension (its `Store` is single-threaded state)
+    /// still serialize (audit C7-10).
+    plugins: Mutex<HashMap<String, Arc<Mutex<PluginInstance>>>>,
     fuel: u64,
+    /// Ceiling for per-call wall-clock budgets: a plugin's declared
+    /// `max_execution_ms` is clamped to this.
+    default_deadline_ms: u64,
+    /// Drives epoch interruption; must outlive every `Store`.
+    _ticker: EpochTicker,
 }
 
 impl ComponentRuntime {
@@ -83,6 +144,11 @@ impl ComponentRuntime {
         let mut config = Config::new();
         config.wasm_component_model(true);
         config.consume_fuel(true);
+        // Epoch interruption enforces each plugin's `max_execution_ms`
+        // wall-clock budget (audit C7-10): stores get a deadline in ticks
+        // and the [`EpochTicker`] thread advances the engine epoch so long
+        // loops trap instead of pinning a host thread past their budget.
+        config.epoch_interruption(true);
         if let Some(dir) = &cache_dir
             && let Err(e) = enable_compile_cache(&mut config, dir)
         {
@@ -92,10 +158,17 @@ impl ComponentRuntime {
             );
         }
         let engine = Engine::new(&config).expect("engine initializes");
+        let default_deadline_ms = u64::from(
+            default_sandbox_policy()
+                .max_execution_ms
+                .unwrap_or(u32::MAX),
+        );
         Self {
+            _ticker: EpochTicker::spawn(engine.clone()),
             engine,
             plugins: Mutex::new(HashMap::new()),
             fuel: DEFAULT_FUEL_LIMIT,
+            default_deadline_ms,
         }
     }
 
@@ -174,19 +247,74 @@ impl ComponentRuntime {
         store
             .set_fuel(fuel)
             .map_err(|e| format!("failed to set fuel for {name}: {e}"))?;
+        // With epoch interruption enabled, stores start with a deadline of
+        // zero ticks and would trap immediately — arm the plugin's default
+        // wall-clock budget before any guest code can run.
+        store.set_epoch_deadline(ms_to_ticks(self.default_deadline_ms));
 
         let bindings = Bridge::instantiate(&mut store, &component, &linker)
             .map_err(|e| format!("failed to instantiate component {name}: {e}"))?;
 
         let mut plugins = self.plugins.lock().map_err(|e| e.to_string())?;
-        plugins.insert(name.to_string(), PluginInstance { store, bindings });
+        plugins.insert(
+            name.to_string(),
+            Arc::new(Mutex::new(PluginInstance {
+                store,
+                bindings,
+                deadline_ms: self.default_deadline_ms,
+            })),
+        );
         Ok(())
+    }
+
+    /// Applies a plugin-declared wall-clock budget (its handshake
+    /// `sandbox_policy.max_execution_ms`) to the named extension's
+    /// subsequent calls. The budget is clamped to the host's
+    /// deny-by-default ceiling: a plugin may tighten its own deadline but
+    /// never extend it past the host default.
+    pub fn set_execution_deadline_ms(&self, name: &str, max_execution_ms: u64) {
+        let effective = self.default_deadline_ms.min(max_execution_ms);
+        let plugins = match self.plugins.lock() {
+            Ok(p) => p,
+            Err(_) => return,
+        };
+        if let Some(plugin) = plugins.get(name)
+            && let Ok(mut plugin) = plugin.lock()
+        {
+            plugin.deadline_ms = effective;
+        }
     }
 
     /// Call the bridge `call` export; returns the raw JSON wire bytes.
     pub fn call(&self, name: &str, export: &str, input: &[u8]) -> WasmCallResult {
-        let mut plugins = match self.plugins.lock() {
-            Ok(p) => p,
+        // Look up the plugin and release the map lock immediately: holding
+        // it across the guest call would serialize every extension behind
+        // one mutex (the C7-10 finding). Only the target plugin's own lock
+        // is held for the duration of the call.
+        let plugin = {
+            let plugins = match self.plugins.lock() {
+                Ok(p) => p,
+                Err(e) => {
+                    return WasmCallResult::Trap(WasmTrapInfo {
+                        kind: "lock_poisoned".to_string(),
+                        message: e.to_string(),
+                        export_name: export.to_string(),
+                    });
+                }
+            };
+            match plugins.get(name) {
+                Some(plugin) => Arc::clone(plugin),
+                None => {
+                    return WasmCallResult::Trap(WasmTrapInfo {
+                        kind: "extension_not_found".to_string(),
+                        message: format!("Extension '{name}' not loaded"),
+                        export_name: export.to_string(),
+                    });
+                }
+            }
+        };
+        let mut instance = match plugin.lock() {
+            Ok(instance) => instance,
             Err(e) => {
                 return WasmCallResult::Trap(WasmTrapInfo {
                     kind: "lock_poisoned".to_string(),
@@ -195,14 +323,12 @@ impl ComponentRuntime {
                 });
             }
         };
-        let Some(instance) = plugins.get_mut(name) else {
-            return WasmCallResult::Trap(WasmTrapInfo {
-                kind: "extension_not_found".to_string(),
-                message: format!("Extension '{name}' not loaded"),
-                export_name: export.to_string(),
-            });
-        };
-        let PluginInstance { store, bindings } = instance;
+        let PluginInstance {
+            store,
+            bindings,
+            deadline_ms,
+        } = &mut *instance;
+        store.set_epoch_deadline(ms_to_ticks(*deadline_ms));
         match bindings.call_call(&mut *store, name, export, input) {
             Ok(Ok(bytes)) => WasmCallResult::Ok(bytes),
             Ok(Err(message)) => WasmCallResult::Trap(WasmTrapInfo {
@@ -210,11 +336,25 @@ impl ComponentRuntime {
                 message,
                 export_name: export.to_string(),
             }),
-            Err(e) => WasmCallResult::Trap(WasmTrapInfo {
-                kind: "call_failed".to_string(),
-                message: e.to_string(),
-                export_name: export.to_string(),
-            }),
+            Err(e) => {
+                // Epoch-deadline expiry surfaces as `Trap::Interrupt`; map it
+                // to a distinct kind so callers can tell a wall-clock
+                // timeout apart from other call failures.
+                let deadline_hit = matches!(
+                    e.downcast_ref::<wasmtime::Trap>(),
+                    Some(wasmtime::Trap::Interrupt)
+                );
+                WasmCallResult::Trap(WasmTrapInfo {
+                    kind: if deadline_hit {
+                        "deadline_exceeded"
+                    } else {
+                        "call_failed"
+                    }
+                    .to_string(),
+                    message: e.to_string(),
+                    export_name: export.to_string(),
+                })
+            }
         }
     }
 }
@@ -254,4 +394,18 @@ fn enable_compile_cache(config: &mut Config, dir: &Path) -> Result<(), String> {
     let cache = Cache::new(cache_config).map_err(|e| e.to_string())?;
     config.cache(Some(cache));
     Ok(())
+}
+
+#[cfg(test)]
+mod deadline_tests {
+    use super::{EPOCH_TICK_MS, ms_to_ticks};
+
+    #[test]
+    fn ms_to_ticks_rounds_up_per_tick_period() {
+        assert_eq!(ms_to_ticks(0), 0, "zero budget means trap immediately");
+        assert_eq!(ms_to_ticks(1), 1, "any positive budget gets a tick");
+        assert_eq!(ms_to_ticks(EPOCH_TICK_MS), 1);
+        assert_eq!(ms_to_ticks(EPOCH_TICK_MS + 1), 2, "partial ticks round up");
+        assert_eq!(ms_to_ticks(30_000), 3_000);
+    }
 }

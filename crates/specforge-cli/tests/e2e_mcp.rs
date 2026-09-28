@@ -477,8 +477,8 @@ fn mcp_resource_list_returns_six_resources() {
         .expect("should have resources array");
     assert_eq!(
         resources.len(),
-        7,
-        "should have 7 default resources (6 core + entities_by_kind), got {}",
+        8,
+        "should have 8 default resources (6 core + entities_by_kind + context/{{entity_id}} template), got {}",
         resources.len()
     );
 }

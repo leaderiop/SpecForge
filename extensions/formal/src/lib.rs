@@ -247,6 +247,56 @@ fn pass_layering_verify(input: &PassInput) -> Vec<PassDiagnostic> {
             ));
         }
     }
+    // E031 (C10-02): named-condition set inclusion. For each concrete
+    // entity refining an abstract one, the concrete ensures names must be a
+    // superset of the abstract's (pattern-catalog fa_pattern_e031):
+    // strengthening is allowed, weakening is the layering violation.
+    let ensures_names = |id: &str| -> Option<Vec<String>> {
+        let entity = by_id.get(id)?;
+        let raw = entity.fields.get("ensures")?;
+        let names: Vec<String> = raw
+            .split(',')
+            .map(|s| s.trim().to_string())
+            .filter(|s| !s.is_empty())
+            .collect();
+        if names.is_empty() {
+            None
+        } else {
+            Some(names)
+        }
+    };
+    for (concrete, abstracts) in &refines {
+        let Some(concrete_names) = ensures_names(concrete) else {
+            continue;
+        };
+        for abstract_id in abstracts {
+            let Some(abstract_names) = ensures_names(abstract_id) else {
+                continue;
+            };
+            let missing: Vec<&String> = abstract_names
+                .iter()
+                .filter(|name| !concrete_names.iter().any(|c| c == *name))
+                .collect();
+            if !missing.is_empty() {
+                let names_list = missing
+                    .iter()
+                    .map(|s| s.as_str())
+                    .collect::<Vec<_>>()
+                    .join(", ");
+                findings.push(PassDiagnostic::new(
+                    "E031",
+                    PassSeverity::Error,
+                    format!(
+                        "refinement '{concrete}' drops ensures condition(s) [{names_list}] from abstract '{abstract_id}'"
+                    ),
+                )
+                .with_suggestion(
+                    "keep every abstract ensures condition in the refinement (strengthening is allowed; weakening is not)",
+                ));
+            }
+        }
+    }
+
     // Deterministic order: DFS seeds came from a HashMap, so sort by
     // (entity, code) before returning (hardening-plan D4 / R-6).
     findings.sort_by(|a, b| a.code.cmp(&b.code).then_with(|| a.message.cmp(&b.message)));
@@ -449,6 +499,95 @@ mod pass_tests {
 
     fn codes(findings: &[PassDiagnostic]) -> Vec<&str> {
         findings.iter().map(|f| f.code.as_str()).collect()
+    }
+
+    // C10-02: E031 — refinement ensures set inclusion.
+    #[test]
+    fn e031_subset_refinement_fires_and_superset_passes() {
+        let mut abstract_entity = entity("abstract", "behavior");
+        abstract_entity
+            .fields
+            .insert("ensures".to_string(), "config_created, file_created".to_string());
+        let mut good = entity("good_impl", "behavior");
+        good.fields.insert(
+            "ensures".to_string(),
+            "file_created, config_created, extra_guarantee".to_string(),
+        );
+        let mut bad = entity("bad_impl", "behavior");
+        bad.fields
+            .insert("ensures".to_string(), "config_created".to_string());
+
+        let entities = vec![abstract_entity, good, bad];
+        let edges = vec![
+            edge("good_impl", "abstract", "RefinesTo"),
+            edge("bad_impl", "abstract", "RefinesTo"),
+        ];
+        let findings = pass_layering_verify(&PassInput { entities, edges });
+
+        assert!(
+            codes(&findings).contains(&"E031"),
+            "weakening refinement must fire E031: {findings:?}"
+        );
+        let e031 = findings
+            .iter()
+            .find(|f| f.code == "E031")
+            .expect("E031 present");
+        assert!(
+            e031.message.contains("file_created") && e031.message.contains("bad_impl"),
+            "missing condition names listed in the message: {}",
+            e031.message
+        );
+        assert!(
+            !e031.message.contains("good_impl"),
+            "superset refinement must pass: {}",
+            e031.message
+        );
+    }
+
+    // C10-12: describe_validation_rules.json is the single source for the
+    // formal rules. The declarative JSON must stay loadable and its
+    // one_of/matches constraints must survive the same parse-time
+    // validation the engine applies — otherwise a hand edit can silently
+    // register a rule that can never fire (or none at all).
+    #[test]
+    fn describe_validation_rules_are_loadable_and_complete() {
+        let raw = String::from_utf8(DESCRIBE_VALIDATION_RULES.to_vec())
+            .expect("validation rules describe is UTF-8");
+        let doc: serde_json::Value = serde_json::from_str(&raw).expect("valid JSON");
+        let items = doc["items"].as_array().expect("items array");
+
+        let codes: Vec<&str> = items
+            .iter()
+            .filter_map(|r| r["code"].as_str())
+            .collect();
+        for expected in ["W059", "W060", "W061", "W062", "W063", "W064", "W065", "W066"] {
+            assert!(
+                codes.contains(&expected),
+                "formal rule {expected} missing from describe_validation_rules.json: {codes:?}"
+            );
+        }
+
+        // Declarative sanity per rule: field_value_constraint rules carry a
+        // non-empty constraint; matches patterns are compilable regexes.
+        for rule in items {
+            let code = rule["code"].as_str().unwrap_or("?");
+            if rule["check"].as_str() == Some("field_value_constraint") {
+                let constraint = &rule["constraint"];
+                assert!(
+                    constraint.is_object() && constraint.get("kind").is_some(),
+                    "{code}: field_value_constraint without a constraint kind"
+                );
+                if constraint["kind"].as_str() == Some("matches") {
+                    let pattern = constraint["pattern"].as_str().expect("matches pattern");
+                    regex::Regex::new(pattern)
+                        .unwrap_or_else(|e| panic!("{code}: malformed regex '{pattern}': {e}"));
+                }
+                if constraint["kind"].as_str() == Some("one_of") {
+                    let values = constraint["values"].as_array().expect("one_of values");
+                    assert!(!values.is_empty(), "{code}: one_of with empty values");
+                }
+            }
+        }
     }
 
     #[test]

@@ -25,6 +25,16 @@ jobs:
       - name: Cache dependencies
         uses: Swatinem/rust-cache@v2
 
+      # C3-03: parser.c/grammar.json/node-types.json are committed build
+      # artifacts of grammar.js. A grammar edit without regeneration used to
+      # build silently against stale tables — fail the build instead.
+      - name: Verify tree-sitter grammar artifacts are fresh
+        run: |
+          cargo install tree-sitter-cli --locked --version 0.27.0
+          cd crates/tree-sitter-specforge
+          tree-sitter generate
+          git diff --exit-code -- src/parser.c src/grammar.json src/node-types.json             || (echo "::error::grammar.js changed without regenerating — run 'tree-sitter generate' and commit the artifacts" && exit 1)
+
       - name: Check formatting
         run: cargo fmt --all -- --check
 

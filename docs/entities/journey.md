@@ -4,7 +4,7 @@
 
 ## Purpose
 
-A `journey` declares a **UX flow** — a concrete interaction path that maps a specific persona on a specific channel to the features they use. Journeys are the top of the traceability chain: they represent what a real user actually does with the system.
+A `journey` declares a **UX flow** — a concrete interaction path that maps a specific persona on a specific channel to the features they use. Journeys sit at the top of the product model: they represent what a real user actually does with the system. Note (C12-14): journey steps are prose by deliberate decision (ADR pe_journey_flow_opaque) — journeys are documentation, not per-step traceability edges; the traceability chain runs behavior → verify → test record.
 
 It answers: **"How does the user experience this?"**
 

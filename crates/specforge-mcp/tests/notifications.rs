@@ -1,11 +1,81 @@
 use specforge_common::{Diagnostic, Severity, SourceSpan};
 use specforge_graph::{Graph, Node};
 use specforge_mcp::notifications::{
-    compute_diagnostics_delta, compute_graph_delta, format_diagnostics_notification,
-    format_graph_notification,
+    DIAGNOSTICS_CHANNEL, GRAPH_CHANNEL, compute_diagnostics_delta, compute_graph_delta,
+    enqueue_compile_notifications, format_diagnostics_notification, format_graph_notification,
 };
+use specforge_mcp::state::McpState;
+use specforge_mcp::subscriptions;
 use specforge_parser::{EntityId, EntityKind, FieldMap};
 use specforge_test::prelude::*;
+
+/// B:notify_graph_delta_via_mcp — verify unit "enqueue delivers one
+/// notification per subscribed channel and suppresses empty channels"
+#[test]
+fn enqueue_delivers_graph_and_diagnostics_to_subscribers() {
+    let mut state = McpState::new();
+    subscriptions::subscribe(&mut state, "c1", GRAPH_CHANNEL);
+    subscriptions::subscribe(&mut state, "c1", DIAGNOSTICS_CHANNEL);
+
+    let previous = Graph::new();
+    let mut current = Graph::new();
+    current.add_node(node("alpha"));
+    state.graph = current;
+    state.diagnostics = vec![Diagnostic {
+        code: "V001".into(),
+        severity: Severity::Error,
+        message: "boom".into(),
+        span: None,
+        suggestion: None,
+    }];
+
+    enqueue_compile_notifications(&mut state, &previous, &[]);
+
+    assert_eq!(
+        state.notification_outbox.len(),
+        2,
+        "one notification per subscribed channel"
+    );
+    assert_eq!(state.notification_outbox[0]["method"], GRAPH_CHANNEL);
+    assert_eq!(state.notification_outbox[1]["method"], DIAGNOSTICS_CHANNEL);
+
+    // Draining empties the outbox (the captured client sink).
+    let drained = specforge_mcp::notifications::pending_notifications(&mut state);
+    assert_eq!(drained.len(), 2);
+    assert!(state.notification_outbox.is_empty());
+}
+
+/// B:notify_graph_delta_via_mcp — verify unit "enqueue suppresses
+/// channels without subscribers and unchanged graphs"
+#[test]
+fn enqueue_suppresses_unsubscribed_and_unchanged() {
+    let mut state = McpState::new();
+    // Only the diagnostics channel is subscribed.
+    subscriptions::subscribe(&mut state, "c1", DIAGNOSTICS_CHANNEL);
+
+    let mut graph = Graph::new();
+    graph.add_node(node("alpha"));
+    state.graph = graph;
+
+    // Graph changed but nobody subscribes; diagnostics unchanged anyway.
+    enqueue_compile_notifications(&mut state, &Graph::new(), &[]);
+    assert!(
+        state.notification_outbox.is_empty(),
+        "graph delta must be suppressed without subscribers"
+    );
+
+    // Diagnostics changed and the channel is subscribed.
+    state.diagnostics = vec![Diagnostic {
+        code: "V001".into(),
+        severity: Severity::Error,
+        message: "boom".into(),
+        span: None,
+        suggestion: None,
+    }];
+    enqueue_compile_notifications(&mut state, &Graph::new(), &[]);
+    assert_eq!(state.notification_outbox.len(), 1);
+    assert_eq!(state.notification_outbox[0]["method"], DIAGNOSTICS_CHANNEL);
+}
 
 fn span() -> SourceSpan {
     SourceSpan {

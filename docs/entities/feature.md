@@ -51,7 +51,7 @@ All fields are optional at the type level. Features are intentionally lightweigh
 | `solution` | string | How the system addresses the problem. Written from the system's perspective. |
 | `priority` | Priority | Importance level: `critical`, `high`, `medium`, `low`. Validated by W078. |
 | `status` | FeatureStatus | Lifecycle state: `proposed`, `accepted`, `in_progress`, `done`, `deferred`. Validated by W077. Used in completion calculations. |
-| `acceptance` | string[] | Free-form acceptance criteria. Omission emits I048. |
+| `acceptance` | string[] | Free-form acceptance criteria. Omission emits I048. Deliberately prose (ADR pe_acceptance_free_form, C12-16): acceptance strings are wishes with formatting, not compiled references — checkable criteria belong in a behavior's `verify` blocks, which the coverage diff tracks. |
 | `depends_on` | EntityId[] | Other features this one depends on. Creates `FeatureDependsOn` edges. Cycles detected by W045. |
 | `reason` | string | Rationale for current status (expected when `deferred`, checked by I059). |
 | `tags` | string[] | Free-form tags for categorization. Format validated by I068 (lowercase hyphen-separated, 2-50 chars). |

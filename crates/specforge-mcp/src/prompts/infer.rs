@@ -4,6 +4,76 @@ use std::collections::HashMap;
 use crate::protocol::{JsonRpcResponse, error_codes};
 use crate::state::McpState;
 
+/// Maximum number of files listed per page in the plan prompt (C9-08).
+const MAX_LISTED_FILES: usize = 50;
+
+/// Build the prompt result: a single user message carrying the instruction
+/// followed by the reference payload (C9-14). Payload data must never be
+/// presented as an assistant turn.
+fn user_prompt(instruction: &str, payload: &Value) -> Value {
+    serde_json::json!({
+        "messages": [{
+            "role": "user",
+            "content": {
+                "type": "text",
+                "text": format!("{}\n\n## Reference Data\n{}", instruction, payload)
+            }
+        }]
+    })
+}
+
+/// Page `files` to the window starting at `cursor`, capped at
+/// MAX_LISTED_FILES entries, with a trailing "... and K more (use the
+/// cursor param)" marker when the tail was cut (C9-08).
+fn page_files(files: &[String], cursor: usize) -> Vec<Value> {
+    let start = cursor.min(files.len());
+    let end = (start + MAX_LISTED_FILES).min(files.len());
+    let mut page: Vec<Value> = files[start..end]
+        .iter()
+        .map(|f| Value::from(f.as_str()))
+        .collect();
+    let remaining = files.len() - end;
+    if remaining > 0 {
+        page.push(Value::from(format!(
+            "... and {} more (use the cursor param)",
+            remaining
+        )));
+    }
+    page
+}
+
+/// Component-wise file match (C9-09): separators canonicalize to '/', then
+/// the query matches a span file exactly, or anchored at component
+/// boundaries — as a directory prefix ("src/auth" matches files under it)
+/// or as a trailing suffix path ("auth/login.rs" matches
+/// "src/auth/login.rs"). Substrings never match ("e.rs" does not match
+/// "src/cache.rs").
+fn match_mode(query: &str, span_file: &str) -> &'static str {
+    fn components(path: &str) -> Vec<String> {
+        path.replace('\\', "/")
+            .split('/')
+            .filter(|c| !c.is_empty())
+            .map(|c| c.to_string())
+            .collect()
+    }
+    let query_components = components(query);
+    let span_components = components(span_file);
+    if query_components == span_components {
+        return "exact";
+    }
+    let under = span_components.len() > query_components.len()
+        && span_components[..query_components.len()] == query_components[..];
+    let suffix = !query_components.is_empty()
+        && span_components.len() >= query_components.len()
+        && span_components[span_components.len() - query_components.len()..]
+            == query_components[..];
+    if under || suffix {
+        "suffix_path"
+    } else {
+        "none"
+    }
+}
+
 pub fn get(state: &McpState, args: Value, id: Option<Value>) -> JsonRpcResponse {
     let scope = args.get("scope").and_then(|v| v.as_str());
 
@@ -91,21 +161,7 @@ fn get_overview(state: &McpState, id: Option<Value>) -> JsonRpcResponse {
         Each kind has signals describing what to look for in code. \
         Do not duplicate entities that already exist.";
 
-    JsonRpcResponse::success(
-        id,
-        serde_json::json!({
-            "messages": [
-                {
-                    "role": "user",
-                    "content": { "type": "text", "text": instruction }
-                },
-                {
-                    "role": "assistant",
-                    "content": { "type": "text", "text": result.to_string() }
-                }
-            ]
-        }),
-    )
+    JsonRpcResponse::success(id, user_prompt(instruction, &result))
 }
 
 fn get_kind_scoped(state: &McpState, kind_name: &str, id: Option<Value>) -> JsonRpcResponse {
@@ -167,34 +223,29 @@ fn get_kind_scoped(state: &McpState, kind_name: &str, id: Option<Value>) -> Json
         kind_name
     );
 
-    JsonRpcResponse::success(
-        id,
-        serde_json::json!({
-            "messages": [
-                {
-                    "role": "user",
-                    "content": { "type": "text", "text": instruction }
-                },
-                {
-                    "role": "assistant",
-                    "content": { "type": "text", "text": result.to_string() }
-                }
-            ]
-        }),
-    )
+    JsonRpcResponse::success(id, user_prompt(&instruction, &result))
 }
 
 fn get_file_scoped(state: &McpState, file_path: &str, id: Option<Value>) -> JsonRpcResponse {
-    let referencing_entities: Vec<String> = state
-        .graph
-        .nodes()
-        .into_iter()
-        .filter(|n| {
-            let span_file: &str = n.source_span.file.as_str();
-            span_file.contains(file_path)
-        })
-        .map(|n| format!("{} ({})", n.id.raw, n.kind.raw))
-        .collect();
+    let mut exact_matches: Vec<String> = Vec::new();
+    let mut suffix_matches: Vec<String> = Vec::new();
+    for node in state.graph.nodes() {
+        let entity = format!("{} ({})", node.id.raw, node.kind.raw);
+        match match_mode(file_path, node.source_span.file.as_str()) {
+            "exact" => exact_matches.push(entity),
+            "suffix_path" => suffix_matches.push(entity),
+            _ => {}
+        }
+    }
+    // Exact relative-path matches anchor tightest; fall back to
+    // component-boundary suffix matches (C9-09).
+    let (referencing_entities, match_mode) = if !exact_matches.is_empty() {
+        (exact_matches, "exact")
+    } else if !suffix_matches.is_empty() {
+        (suffix_matches, "suffix_path")
+    } else {
+        (Vec::new(), "none")
+    };
 
     let mut kinds_info: Vec<Value> = Vec::new();
     for manifest in &state.manifests {
@@ -217,6 +268,7 @@ fn get_file_scoped(state: &McpState, file_path: &str, id: Option<Value>) -> Json
 
     let result = serde_json::json!({
         "file": file_path,
+        "match_mode": match_mode,
         "existing_entities_referencing_file": referencing_entities,
         "kinds": kinds_info,
         "project_conventions": global_conventions,
@@ -230,21 +282,7 @@ fn get_file_scoped(state: &McpState, file_path: &str, id: Option<Value>) -> Json
         file_path
     );
 
-    JsonRpcResponse::success(
-        id,
-        serde_json::json!({
-            "messages": [
-                {
-                    "role": "user",
-                    "content": { "type": "text", "text": instruction }
-                },
-                {
-                    "role": "assistant",
-                    "content": { "type": "text", "text": result.to_string() }
-                }
-            ]
-        }),
-    )
+    JsonRpcResponse::success(id, user_prompt(&instruction, &result))
 }
 
 fn get_plan(state: &McpState, args: &Value, id: Option<Value>) -> JsonRpcResponse {
@@ -252,6 +290,7 @@ fn get_plan(state: &McpState, args: &Value, id: Option<Value>) -> JsonRpcRespons
         .get("target_spec_directory")
         .and_then(|v| v.as_str())
         .unwrap_or("spec/");
+    let cursor = args.get("cursor").and_then(|v| v.as_u64()).unwrap_or(0) as usize;
 
     let project_root = state.project_root.as_deref();
 
@@ -318,6 +357,18 @@ fn get_plan(state: &McpState, args: &Value, id: Option<Value>) -> JsonRpcRespons
         })
         .collect();
 
+    // File lists are capped to a page so prompt size stays bounded
+    // regardless of project size (C9-08); the remainder pages via `cursor`.
+    let unanalyzed_page = page_files(&unanalyzed, cursor);
+    let stale_page = page_files(&stale, cursor);
+    let next_cursor = if unanalyzed.len() > cursor + MAX_LISTED_FILES
+        || stale.len() > cursor + MAX_LISTED_FILES
+    {
+        Some(cursor + MAX_LISTED_FILES)
+    } else {
+        None
+    };
+
     let result = serde_json::json!({
         "plan": {
             "target_spec_directory": target_spec_directory,
@@ -326,8 +377,12 @@ fn get_plan(state: &McpState, args: &Value, id: Option<Value>) -> JsonRpcRespons
                 "files_analyzed": summary.files_analyzed,
                 "entities_produced": summary.entities_produced,
             },
-            "unanalyzed_files": unanalyzed,
-            "stale_files": stale,
+            "cursor": cursor,
+            "next_cursor": next_cursor,
+            "unanalyzed_files": unanalyzed_page,
+            "unanalyzed_total": unanalyzed.len(),
+            "stale_files": stale_page,
+            "stale_total": stale.len(),
             "kind_priorities": kind_priorities,
         }
     });
@@ -342,21 +397,7 @@ fn get_plan(state: &McpState, args: &Value, id: Option<Value>) -> JsonRpcRespons
         target_spec_directory
     );
 
-    JsonRpcResponse::success(
-        id,
-        serde_json::json!({
-            "messages": [
-                {
-                    "role": "user",
-                    "content": { "type": "text", "text": instruction }
-                },
-                {
-                    "role": "assistant",
-                    "content": { "type": "text", "text": result.to_string() }
-                }
-            ]
-        }),
-    )
+    JsonRpcResponse::success(id, user_prompt(&instruction, &result))
 }
 
 fn get_workflow(state: &McpState, id: Option<Value>) -> JsonRpcResponse {
@@ -412,21 +453,7 @@ If validation fails, fix the .spec file and re-validate. Do not skip errors.
 If a file has no identifiable entities, still mark it as analyzed with an empty `entities_produced`.
 ";
 
-    JsonRpcResponse::success(
-        id,
-        serde_json::json!({
-            "messages": [
-                {
-                    "role": "user",
-                    "content": { "type": "text", "text": workflow }
-                },
-                {
-                    "role": "assistant",
-                    "content": { "type": "text", "text": result.to_string() }
-                }
-            ]
-        }),
-    )
+    JsonRpcResponse::success(id, user_prompt(workflow, &result))
 }
 
 fn build_guide_for_kind(
@@ -488,6 +515,17 @@ mod tests {
     use crate::state::McpState;
     use specforge_common::{InferenceConfig, ProjectConfig, SourceSpan, Sym};
     use specforge_graph::{EntityId, EntityKind, FieldMap, Node};
+
+    /// Extract the reference payload JSON from a prompt response (C9-14:
+    /// the payload rides in the user message after the "## Reference Data"
+    /// header).
+    fn parse_payload(resp: &JsonRpcResponse) -> Value {
+        let text = resp.result.as_ref().unwrap()["messages"][0]["content"]["text"]
+            .as_str()
+            .unwrap();
+        serde_json::from_str(text.split("## Reference Data\n").nth(1).unwrap()).unwrap()
+    }
+
     use specforge_registry::{ManifestEntityKind, ManifestField, ManifestV2};
 
     fn test_manifest(kind_name: &str, guide: Option<&str>) -> ManifestV2 {
@@ -579,10 +617,7 @@ mod tests {
     fn overview_returns_installed_extensions() {
         let state = make_state_with_kind("behavior", Some("Look for public functions"));
         let resp = get(&state, serde_json::json!({}), Some(Value::from(1)));
-        let result = resp.result.unwrap();
-        let messages = result["messages"].as_array().unwrap();
-        let content: Value =
-            serde_json::from_str(messages[1]["content"]["text"].as_str().unwrap()).unwrap();
+        let content: Value = parse_payload(&resp);
         assert_eq!(content["installed_extensions"][0], "@specforge/test");
     }
 
@@ -590,10 +625,7 @@ mod tests {
     fn overview_includes_inference_guide_from_extension() {
         let state = make_state_with_kind("behavior", Some("Look for public functions"));
         let resp = get(&state, serde_json::json!({}), Some(Value::from(1)));
-        let result = resp.result.unwrap();
-        let messages = result["messages"].as_array().unwrap();
-        let content: Value =
-            serde_json::from_str(messages[1]["content"]["text"].as_str().unwrap()).unwrap();
+        let content: Value = parse_payload(&resp);
         let guide = content["kinds"][0]["inference_guide"].as_str().unwrap();
         assert!(guide.contains("Look for public functions"));
     }
@@ -617,10 +649,7 @@ mod tests {
             ..Default::default()
         };
         let resp = get(&state, serde_json::json!({}), Some(Value::from(1)));
-        let result = resp.result.unwrap();
-        let messages = result["messages"].as_array().unwrap();
-        let content: Value =
-            serde_json::from_str(messages[1]["content"]["text"].as_str().unwrap()).unwrap();
+        let content: Value = parse_payload(&resp);
         let guide = content["kinds"][0]["inference_guide"].as_str().unwrap();
         assert!(guide.contains("Look for public functions"));
         assert!(guide.contains("Project-specific"));
@@ -639,10 +668,7 @@ mod tests {
             serde_json::json!({"scope": "kind:behavior"}),
             Some(Value::from(1)),
         );
-        let result = resp.result.unwrap();
-        let messages = result["messages"].as_array().unwrap();
-        let content: Value =
-            serde_json::from_str(messages[1]["content"]["text"].as_str().unwrap()).unwrap();
+        let content: Value = parse_payload(&resp);
         let ids = content["existing_entity_ids"].as_array().unwrap();
         assert!(ids.contains(&Value::from("my_behavior")));
     }
@@ -655,10 +681,7 @@ mod tests {
             serde_json::json!({"scope": "kind:behavior"}),
             Some(Value::from(1)),
         );
-        let result = resp.result.unwrap();
-        let messages = result["messages"].as_array().unwrap();
-        let content: Value =
-            serde_json::from_str(messages[1]["content"]["text"].as_str().unwrap()).unwrap();
+        let content: Value = parse_payload(&resp);
         let example = content["example"].as_str().unwrap();
         assert!(example.contains("behavior example_behavior"));
     }
@@ -674,10 +697,7 @@ mod tests {
             serde_json::json!({"scope": "file:src/auth.rs"}),
             Some(Value::from(1)),
         );
-        let result = resp.result.unwrap();
-        let messages = result["messages"].as_array().unwrap();
-        let content: Value =
-            serde_json::from_str(messages[1]["content"]["text"].as_str().unwrap()).unwrap();
+        let content: Value = parse_payload(&resp);
         let refs = content["existing_entities_referencing_file"]
             .as_array()
             .unwrap();
@@ -696,10 +716,7 @@ mod tests {
             serde_json::json!({"scope": "kind:Behavior"}),
             Some(Value::from(1)),
         );
-        let result = resp.result.unwrap();
-        let messages = result["messages"].as_array().unwrap();
-        let content: Value =
-            serde_json::from_str(messages[1]["content"]["text"].as_str().unwrap()).unwrap();
+        let content: Value = parse_payload(&resp);
         let ids = content["existing_entity_ids"].as_array().unwrap();
         assert!(ids.contains(&Value::from("my_behavior")));
     }
@@ -712,10 +729,7 @@ mod tests {
             serde_json::json!({"scope": "unknown:value"}),
             Some(Value::from(1)),
         );
-        let result = resp.result.unwrap();
-        let messages = result["messages"].as_array().unwrap();
-        let content: Value =
-            serde_json::from_str(messages[1]["content"]["text"].as_str().unwrap()).unwrap();
+        let content: Value = parse_payload(&resp);
         assert!(content.get("installed_extensions").is_some());
     }
 
@@ -765,10 +779,7 @@ mod tests {
     fn overview_with_no_inference_guide() {
         let state = make_state_with_kind("behavior", None);
         let resp = get(&state, serde_json::json!({}), Some(Value::from(1)));
-        let result = resp.result.unwrap();
-        let messages = result["messages"].as_array().unwrap();
-        let content: Value =
-            serde_json::from_str(messages[1]["content"]["text"].as_str().unwrap()).unwrap();
+        let content: Value = parse_payload(&resp);
         let guide = content["kinds"][0]["inference_guide"].as_str().unwrap();
         assert_eq!(guide, "");
     }
@@ -784,10 +795,7 @@ mod tests {
             serde_json::json!({"scope": "plan"}),
             Some(Value::from(1)),
         );
-        let result = resp.result.unwrap();
-        let messages = result["messages"].as_array().unwrap();
-        let content: Value =
-            serde_json::from_str(messages[1]["content"]["text"].as_str().unwrap()).unwrap();
+        let content: Value = parse_payload(&resp);
         let priorities = content["plan"]["kind_priorities"].as_array().unwrap();
         assert!(!priorities.is_empty());
         assert_eq!(priorities[0]["kind"], "behavior");
@@ -802,10 +810,7 @@ mod tests {
             serde_json::json!({"scope": "plan", "target_spec_directory": "specs/"}),
             Some(Value::from(1)),
         );
-        let result = resp.result.unwrap();
-        let messages = result["messages"].as_array().unwrap();
-        let content: Value =
-            serde_json::from_str(messages[1]["content"]["text"].as_str().unwrap()).unwrap();
+        let content: Value = parse_payload(&resp);
         assert_eq!(content["plan"]["target_spec_directory"], "specs/");
     }
 
@@ -817,10 +822,7 @@ mod tests {
             serde_json::json!({"scope": "plan"}),
             Some(Value::from(1)),
         );
-        let result = resp.result.unwrap();
-        let messages = result["messages"].as_array().unwrap();
-        let content: Value =
-            serde_json::from_str(messages[1]["content"]["text"].as_str().unwrap()).unwrap();
+        let content: Value = parse_payload(&resp);
         assert!(content["plan"]["progress"]["files_total"].is_number());
     }
 
@@ -848,14 +850,188 @@ mod tests {
             serde_json::json!({"scope": "workflow"}),
             Some(Value::from(1)),
         );
-        let result = resp.result.unwrap();
-        let messages = result["messages"].as_array().unwrap();
-        let content: Value =
-            serde_json::from_str(messages[1]["content"]["text"].as_str().unwrap()).unwrap();
+        let content: Value = parse_payload(&resp);
         let tools = content["tools"].as_array().unwrap();
         assert!(tools.contains(&Value::from("specforge.infer_session")));
         assert!(tools.contains(&Value::from("specforge.infer_progress")));
         let kinds = content["installed_kinds"].as_array().unwrap();
         assert!(kinds.contains(&Value::from("behavior")));
+    }
+    // ---- C9-09: component-boundary file matching ----
+
+    #[test]
+    fn match_mode_rejects_partial_components() {
+        assert_eq!(match_mode("e.rs", "src/cache.rs"), "none");
+        assert_eq!(match_mode("todo_list.rs", "todo_list.rs"), "exact");
+        assert_eq!(
+            match_mode("todo_list.rs", "src/todo_list.rs"),
+            "suffix_path"
+        );
+        assert_eq!(match_mode("src/auth", "src/auth/login.rs"), "suffix_path");
+        assert_eq!(match_mode("src\\auth.rs", "src/auth.rs"), "exact");
+    }
+
+    #[test]
+    fn file_scope_substring_no_longer_matches() {
+        let mut state = make_state_with_kind("behavior", Some("guide text"));
+        state
+            .graph
+            .add_node(make_node("cache_impl", "behavior", "src/cache.rs"));
+        let resp = get(
+            &state,
+            serde_json::json!({"scope": "file:e.rs"}),
+            Some(Value::from(1)),
+        );
+        let content: Value = parse_payload(&resp);
+        let refs = content["existing_entities_referencing_file"]
+            .as_array()
+            .unwrap();
+        assert!(
+            refs.is_empty(),
+            "'e.rs' must not substring-match 'src/cache.rs'"
+        );
+        assert_eq!(content["match_mode"], "none");
+    }
+
+    #[test]
+    fn file_scope_exact_match_reported() {
+        let mut state = make_state_with_kind("behavior", Some("guide text"));
+        state
+            .graph
+            .add_node(make_node("todo_list", "behavior", "todo_list.rs"));
+        let resp = get(
+            &state,
+            serde_json::json!({"scope": "file:todo_list.rs"}),
+            Some(Value::from(1)),
+        );
+        let content: Value = parse_payload(&resp);
+        assert_eq!(content["match_mode"], "exact");
+        let refs = content["existing_entities_referencing_file"]
+            .as_array()
+            .unwrap();
+        assert!(refs[0].as_str().unwrap().contains("todo_list"));
+    }
+
+    #[test]
+    fn file_scope_directory_matches_children_as_suffix_path() {
+        let mut state = make_state_with_kind("behavior", Some("guide text"));
+        state
+            .graph
+            .add_node(make_node("login", "behavior", "src/auth/login.rs"));
+        state
+            .graph
+            .add_node(make_node("logout", "behavior", "src/auth/logout.rs"));
+        state
+            .graph
+            .add_node(make_node("main", "behavior", "src/main.rs"));
+        let resp = get(
+            &state,
+            serde_json::json!({"scope": "file:src/auth"}),
+            Some(Value::from(1)),
+        );
+        let content: Value = parse_payload(&resp);
+        assert_eq!(content["match_mode"], "suffix_path");
+        let refs = content["existing_entities_referencing_file"]
+            .as_array()
+            .unwrap();
+        assert_eq!(
+            refs.len(),
+            2,
+            "files under src/auth match, src/main.rs does not"
+        );
+    }
+
+    // ---- C9-08: plan list capping and cursor paging ----
+
+    fn plan_state_with_sources(count: usize) -> (McpState, tempfile::TempDir) {
+        let mut state = make_state_with_kind("behavior", Some("guide text"));
+        let mut manifest = test_manifest("behavior", Some("guide text"));
+        manifest.analyzer_contributions = vec![specforge_registry::AnalyzerContribution {
+            language: "rust".to_string(),
+            file_extensions: vec![".rs".to_string()],
+            excluded_dirs: vec![],
+            scan_export: String::new(),
+            classify_export: String::new(),
+            map_export: String::new(),
+            description: None,
+        }];
+        state.manifests = vec![manifest];
+        let dir = tempfile::TempDir::new().unwrap();
+        let src = dir.path().join("src");
+        std::fs::create_dir_all(&src).unwrap();
+        for i in 0..count {
+            std::fs::write(src.join(format!("mod_{i:02}.rs")), "fn stub() {}\n").unwrap();
+        }
+        state.project_root = Some(dir.path().to_path_buf());
+        (state, dir)
+    }
+
+    fn plan_payload(state: &McpState, args: Value) -> Value {
+        parse_payload(&get(state, args, Some(Value::from(1))))
+    }
+
+    #[test]
+    fn plan_scope_caps_file_lists_at_50() {
+        let (state, _dir) = plan_state_with_sources(60);
+        let content = plan_payload(&state, serde_json::json!({"scope": "plan"}));
+        let files = content["plan"]["unanalyzed_files"].as_array().unwrap();
+        assert_eq!(
+            files.len(),
+            51,
+            "50 files plus the trailing truncation marker"
+        );
+        assert!(
+            files[50]
+                .as_str()
+                .unwrap()
+                .contains("... and 10 more (use the cursor param)"),
+            "marker must name the withheld count: {}",
+            files[50]
+        );
+        assert_eq!(content["plan"]["unanalyzed_total"], 60);
+        assert_eq!(content["plan"]["next_cursor"], 50);
+    }
+
+    #[test]
+    fn plan_scope_pages_remaining_files_via_cursor() {
+        let (state, _dir) = plan_state_with_sources(60);
+        let content = plan_payload(&state, serde_json::json!({"scope": "plan", "cursor": 50}));
+        let files = content["plan"]["unanalyzed_files"].as_array().unwrap();
+        assert_eq!(files.len(), 10, "only the remainder is listed");
+        assert!(
+            content["plan"]["next_cursor"].is_null(),
+            "no further page exists"
+        );
+    }
+
+    // ---- C9-14: prompt role hygiene ----
+
+    #[test]
+    fn prompts_carry_payloads_only_in_user_messages() {
+        let mut state = make_state_with_kind("behavior", Some("guide text"));
+        state
+            .graph
+            .add_node(make_node("my_behavior", "behavior", "src/auth.rs"));
+        for args in [
+            serde_json::json!({}),
+            serde_json::json!({"scope": "kind:behavior"}),
+            serde_json::json!({"scope": "file:src/auth.rs"}),
+            serde_json::json!({"scope": "plan"}),
+            serde_json::json!({"scope": "workflow"}),
+        ] {
+            let resp = get(&state, args, Some(Value::from(1)));
+            let result = resp.result.unwrap();
+            let messages = result["messages"].as_array().unwrap();
+            assert!(
+                !messages.is_empty(),
+                "prompt must carry at least one message"
+            );
+            for message in messages {
+                assert_eq!(
+                    message["role"], "user",
+                    "reference payloads must ride in user messages, never assistant turns"
+                );
+            }
+        }
     }
 }

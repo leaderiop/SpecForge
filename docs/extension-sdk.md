@@ -13,14 +13,14 @@
 > extism, or `plugin_fn`, read `wasm32-wasip2`, the component engine, and
 > `component_guest!`.
 
-The `specforge-extension-sdk` crate provides the types, host API bindings, and attribute macros that extension authors use to build SpecForge extensions as Wasm modules.
+The `specforge-extension-sdk` crate provides the wire types and attribute macros that extension authors use to build SpecForge extensions as Wasm modules.
 
 ## Overview
 
 An extension is a standalone Rust crate that compiles to `wasm32-wasip2`. The SDK is the only dependency it needs. The SDK provides:
 
 - **Protocol types** -- entity kind descriptors, edge type descriptors, field descriptors, and all other metadata structures the host expects
-- **Host API bindings** -- typed wrappers around the imported host functions (`query`, `emit_diagnostic`, `resolve_ref`, `read_file`)
+- **Host functions (planned)** -- the typed import surface is future work; guests today are pure-compute and receive all context as call input (see [Host Functions](#host-functions))
 - **Attribute macros** -- declarative macros that generate Wasm exports conforming to the Extension Protocol
 - **Shared types** -- `Entity`, `EntityRef`, `Diagnostic`, `Graph`, and other types used in both host and extension code
 
@@ -181,26 +181,28 @@ mod software {
 
     // Custom validators are Wasm-backed. The SDK generates a
     // validate__* export that the host calls during validation.
-    // The function receives the entity being validated and the
-    // host API for querying the graph.
+    // The host precomputes everything the validator needs — the entity,
+    // its resolved reference targets, declared type ids, and the known
+    // primitive set — into a ValidatorContext snapshot. Guests are
+    // pure functions of that snapshot: no host calls are needed (or
+    // possible) today.
 
     #[validator(code = "W009", severity = "warning",
         message = "{kind} '{id}' has verify kind '{value}' not in allowed set {allowed}")]
-    fn validate_verify_kind_allowlist(entity: &Entity, host: &HostApi) -> Vec<Diagnostic> {
-        // Custom logic: check entity's verify kinds against
-        // the allowed set for its entity kind.
-        let allowed = host.resolve_ref(&entity.kind)
-            .map(|k| k.allowed_verify_kinds.clone())
-            .unwrap_or_default();
-
-        entity.verify_kinds.iter()
-            .filter(|vk| !allowed.contains(vk))
-            .map(|vk| Diagnostic::warning(
-                "W009",
-                format!("{} '{}' has verify kind '{}' not in allowed set {:?}",
-                    entity.kind, entity.id, vk, allowed),
-            ))
-            .collect()
+    fn validate_verify_kind_allowlist(context: ValidatorContext) -> ValidatorVerdict {
+        // Custom logic: work from the precomputed snapshot — resolved
+        // reference targets live in `context.referenced` (`kind: null`
+        // marks a dangling reference), declared types in
+        // `context.declared_types` — instead of graph lookups.
+        let dangling = context.referenced.iter().any(|r| r.kind.is_none());
+        if dangling {
+            ValidatorVerdict::Fail {
+                field: Some("verify_kinds".to_string()),
+                value: Some(context.entity.id.clone()),
+            }
+        } else {
+            ValidatorVerdict::Pass
+        }
     }
 
     // ── CLI Commands ──────────────────────────────────────────────
@@ -216,16 +218,12 @@ mod software {
         #[arg(required, description = "Path to spec root")] path: PathArg,
         #[arg(default = "default", description = "Lint profile")] lint: EnumArg,
     ) -> Result<()> {
-        let entities = host().query("kind:behavior")?;
-        for entity in entities {
-            if entity.edges_out("BehaviorImplementsFeature").is_empty() {
-                host().emit_diagnostic(
-                    Severity::Warning,
-                    "W001",
-                    &format!("behavior '{}' does not implement any feature", entity.id),
-                );
-            }
-        }
+        // Guests are pure functions of their input today: the host passes
+        // the parsed spec path and arguments; returned output is the
+        // command's result. Graph queries and diagnostics go through the
+        // planned host-function surface (see "Host Functions" below).
+        let report = validate_behaviors(&path, &lint)?;
+        println!("{report}");
         Ok(())
     }
 
@@ -238,9 +236,8 @@ mod software {
     #[mcp_tool(name = "model", description = "Generate entity model", category = "visualization")]
     fn mcp_model(#[arg(description = "Output format")] format: Option<String>) -> Result<String> {
         let fmt = format.unwrap_or_else(|| "markdown".to_string());
-        let entities = host().query("kind:*")?;
-        // Render model in requested format...
-        Ok(render_model(&entities, &fmt))
+        // Render the model from the snapshot the host passed in...
+        Ok(render_model(&model_snapshot(), &fmt))
     }
 
     // ── MCP Resources ─────────────────────────────────────────────
@@ -251,9 +248,10 @@ mod software {
 
     #[mcp_resource(uri = "specforge://entities/{kind}", name = "entity_list",
         description = "List entities by kind", mime_type = "application/json")]
-    fn resource_entity_list(kind: &str, host: &HostApi) -> Result<String> {
-        let entities = host.query(&format!("kind:{kind}"))?;
-        Ok(serde_json::to_string(&entities)?)
+    fn resource_entity_list(kind: &str) -> Result<String> {
+        // The host resolves the URI template and passes the extracted
+        // parameters; the export returns the resource payload.
+        Ok(serde_json::to_string(&entities_of_kind(kind))?)
     }
 
     // ── Grammar Contributions ─────────────────────────────────────
@@ -272,7 +270,7 @@ mod software {
     // parsing entities of the specified kind.
 
     #[body_parser(kind = "type")]
-    fn parse_type_fields(content: &str, host: &HostApi) -> ParseResult {
+    fn parse_type_fields(content: &str) -> ParseResult {
         // Parse structured type body content...
         ParseResult::ok(fields)
     }
@@ -285,7 +283,7 @@ mod software {
 
     #[collector(name = "rust", formats = ["junit-xml", "json"])]
     #[auto_detect(files = ["**/target/**/junit.xml"], env = ["CARGO_TARGET_DIR"])]
-    fn collect_rust(input: &[u8], host: &HostApi) -> CollectionResult {
+    fn collect_rust(input: &[u8]) -> CollectionResult {
         // Parse JUnit XML or JSON input...
         // Map test results to entity IDs...
         CollectionResult::ok(results)
@@ -463,9 +461,10 @@ Declares a custom Wasm-backed validator. The SDK generates a `validate__*` expor
 
 ```rust
 #[validator(code = "W009", severity = "warning",
-    message = "{kind} '{id}' has verify kind '{value}' not in allowed set {allowed}")]
-fn validate_verify_kind_allowlist(entity: &Entity, host: &HostApi) -> Vec<Diagnostic> {
-    // Return empty Vec for no diagnostics, or Vec<Diagnostic> for findings
+        message = "{kind} '{id}' has verify kind '{value}' not in allowed set {allowed}")]
+fn validate_verify_kind_allowlist(context: ValidatorContext) -> ValidatorVerdict {
+    // Inspect context.entity, context.referenced, context.declared_types;
+    // return ValidatorVerdict::Pass or ValidatorVerdict::Fail { field, value }.
 }
 ```
 
@@ -535,40 +534,30 @@ Declares a feature flag configurable via `specforge.json`.
 | `values` | yes | Allowed values |
 | `default` | yes | Default value (must be in `values`) |
 
-## Host API Bindings
+## Host Functions
 
-The SDK provides typed bindings for the host functions imported at the Wasm boundary.
+**Status: not callable from guests today.** The old `HostApi` import surface
+was removed with the extism runtime (see the banner at the top of this page).
+Guests are pure-compute wasip2 components: the host passes everything a guest
+needs as call input (e.g. the `ValidatorContext` snapshot for `validate__*`
+exports, the entity snapshot for `__pass_*`), and the guest's return value is
+the only channel back.
 
-### Accessing the Host
+A typed component host-import surface is future work. When it lands, guests
+will import exactly the functions below — these are the names the host's
+permission matrix (`specforge-wasm::host_functions::is_host_function_allowed`)
+already enforces, and they are kept in lockstep with this table by a drift
+guard test:
 
-Inside any export function, call `host()` to get a reference to the `HostApi`:
-
-```rust
-fn cmd_validate(path: PathArg, lint: EnumArg) -> Result<()> {
-    let behaviors = host().query("kind:behavior")?;
-    let file = host().read_file("specforge.json")?;
-    host().emit_diagnostic(Severity::Info, "I100", "validation complete");
-    Ok(())
-}
-```
-
-### HostApi Methods
-
-```rust
-impl HostApi {
-    /// Query entities by pattern. Returns matching entities with fields and edges.
-    fn query(&self, pattern: &str) -> Result<Vec<Entity>>;
-
-    /// Emit a diagnostic to the host's collection.
-    fn emit_diagnostic(&self, severity: Severity, code: &str, message: &str);
-
-    /// Resolve an entity ID to a typed reference.
-    fn resolve_ref(&self, id: &str) -> Option<EntityRef>;
-
-    /// Read a file from the project. Subject to sandbox policy.
-    fn read_file(&self, path: &str) -> Option<String>;
-}
-```
+| Function | Purpose | Allowed call sites |
+|----------|---------|--------------------|
+| `host_emit_diagnostic` | Emit a diagnostic to the host's collection | all |
+| `host_read_file` | Read a file from the project (sandbox-checked) | Validator, Provider, Parser, Analyzer |
+| `host_emit_file` | Write renderer/collector output (sandbox-checked) | Renderer, Collector |
+| `host_http_get` | Fetch from an allowlisted domain | Provider |
+| `host_query_graph` | Scope-limited query of the entity graph (replaces the phantom `query`/`resolve_ref` pair) | all |
+| `host_add_graph_node` | Add a graph node | Parser |
+| `host_add_graph_edge` | Add a graph edge | Parser |
 
 ### Entity Type
 
@@ -689,7 +678,7 @@ mod software_testing {
 
     #[collector(name = "cucumber", formats = ["junit-xml", "json"])]
     #[auto_detect(files = ["**/cucumber-report.json", "**/cucumber-report.xml"])]
-    fn collect_cucumber(input: &[u8], host: &HostApi) -> CollectionResult {
+    fn collect_cucumber(input: &[u8]) -> CollectionResult {
         // Parse Cucumber/Gherkin test results...
         CollectionResult::ok(results)
     }

@@ -9,6 +9,8 @@ fn make_entry(entity_id: &str, verify: Option<&str>, outcome: TestOutcome) -> Te
         test_name: format!("test_{}", verify.unwrap_or("unknown")),
         file: "test.rs".to_string(),
         verify: verify.map(|s| s.to_string()),
+        verify_kind: None,
+        duration_ms: 0,
         outcome,
     }
 }
@@ -33,6 +35,7 @@ fn make_entity(id: &str, kind: &str, verify: Vec<(&str, &str)>, testable: bool) 
             })
             .collect(),
         testable,
+        gherkin: None,
     }
 }
 
@@ -237,7 +240,8 @@ fn load_valid_graph_json() {
     let path = dir.path().join("graph.json");
     fs::write(&path, &json).unwrap();
 
-    let loaded = load_graph(&path);
+    use specforge_test::ports::GraphReader;
+    let loaded = specforge_test::ports::RealFs.read_graph(&path);
     assert!(loaded.is_some(), "valid graph.json should load");
     let loaded = loaded.unwrap();
     assert_eq!(loaded.entities.len(), 1);
@@ -247,7 +251,8 @@ fn load_valid_graph_json() {
 #[test]
 fn missing_graph_json_returns_none() {
     let path = std::path::PathBuf::from("/nonexistent/graph.json");
-    let loaded = load_graph(&path);
+    use specforge_test::ports::GraphReader;
+    let loaded = specforge_test::ports::RealFs.read_graph(&path);
     assert!(loaded.is_none(), "missing file should return None");
 }
 
@@ -257,7 +262,8 @@ fn malformed_graph_json_returns_none() {
     let path = dir.path().join("graph.json");
     fs::write(&path, "{ not valid json !!!").unwrap();
 
-    let loaded = load_graph(&path);
+    use specforge_test::ports::GraphReader;
+    let loaded = specforge_test::ports::RealFs.read_graph(&path);
     assert!(loaded.is_none(), "malformed JSON should return None");
 }
 
@@ -344,4 +350,105 @@ fn summary_shows_failing_status() {
         output.contains("! failing"),
         "should show failing status: {output}"
     );
+}
+
+// --- C11-02: slug fallback + orphan visibility + unmatched detection ---
+
+#[test]
+fn casing_or_punctuation_drift_still_matches_by_slug() {
+    let graph = make_graph(vec![make_entity(
+        "alpha",
+        "behavior",
+        vec![("unit", "rejects invalid password")],
+        true,
+    )]);
+    // The spec wording drifted in case/punctuation after the test was
+    // written: the raw strings differ, but both slugify to the same key, so
+    // coverage no longer silently drops (C11-02).
+    let entries = vec![make_entry(
+        "alpha",
+        Some("Rejects invalid password!"),
+        TestOutcome::Pass,
+    )];
+    let diffs = compute_coverage_diff(&graph, &entries);
+    let d = diffs.iter().find(|d| d.entity_id == "alpha").unwrap();
+    assert_eq!(
+        d.status,
+        CoverageDiffStatus::FullyCovered,
+        "slug fallback: {d:?}"
+    );
+}
+
+#[test]
+fn orphaned_entities_stay_visible_as_uncovered() {
+    let graph = make_graph(vec![
+        make_entity("tested", "behavior", vec![("unit", "works")], true),
+        make_entity(
+            "never_tested",
+            "behavior",
+            vec![("unit", "also works")],
+            true,
+        ),
+    ]);
+    let entries = vec![make_entry("tested", Some("works"), TestOutcome::Pass)];
+    let diffs = compute_coverage_diff(&graph, &entries);
+    let orphan = diffs
+        .iter()
+        .find(|d| d.entity_id == "never_tested")
+        .unwrap();
+    assert_eq!(
+        orphan.status,
+        CoverageDiffStatus::Uncovered,
+        "orphans must not vanish"
+    );
+}
+
+#[test]
+fn unmatched_records_report_tests_that_match_nothing() {
+    let graph = make_graph(vec![make_entity(
+        "alpha",
+        "behavior",
+        vec![("unit", "real behavior")],
+        true,
+    )]);
+    let entries = vec![
+        make_entry("alpha", Some("real behavior"), TestOutcome::Pass),
+        make_entry(
+            "alpha",
+            Some("phantom verify that never existed"),
+            TestOutcome::Pass,
+        ),
+        make_entry("ghost_entity", Some("no such entity"), TestOutcome::Pass),
+    ];
+    let unmatched = unmatched_records(&graph, &entries);
+    assert_eq!(
+        unmatched.len(),
+        2,
+        "unmatched entries surfaced: {unmatched:?}"
+    );
+    assert!(
+        unmatched.iter().any(|u| u.contains("phantom verify")),
+        "both stray records must be listed: {unmatched:?}"
+    );
+}
+
+// --- C11-03: gherkin-only behaviors enter the diff ---
+
+#[test]
+fn gherkin_only_behavior_is_gherkin_specified_not_absent() {
+    let mut entity = make_entity("cuke", "behavior", vec![], true);
+    entity.gherkin = Some(vec!["features/login.feature".to_string()]);
+    let graph = make_graph(vec![entity]);
+
+    // No test records at all: the pure-Cucumber behavior must show up with
+    // its own status instead of being filtered out of the diff entirely.
+    let diffs = compute_coverage_diff(&graph, &[]);
+    let d = diffs.iter().find(|d| d.entity_id == "cuke").unwrap();
+    assert_eq!(d.status, CoverageDiffStatus::GherkinSpecified);
+
+    // A behavior with neither verify nor gherkin stays NoIntent.
+    let plain = make_graph(vec![make_entity("plain", "behavior", vec![], true)]);
+    let diffs = compute_coverage_diff(&plain, &[]);
+    let d = diffs.iter().find(|d| d.entity_id == "plain").unwrap();
+    assert_eq!(d.status, CoverageDiffStatus::NoIntent);
 }

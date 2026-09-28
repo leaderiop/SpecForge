@@ -9,8 +9,9 @@ use "extensions/product/features"
 feature product_entity_registration "Product Entity Registration" {
   problem   """
     The compiler has no knowledge of product planning concepts until
-    @specforge/product registers its 9 entity kinds, 16 edge types,
-    field definitions, and validation rules.
+    @specforge/product registers its entity kinds, edge types, field
+    definitions, and validation rules (counts live in the manifest —
+    see extensions/product — not in prose).
   """
   solution  """
     A comprehensive ManifestV2 declaration provides all entity kinds with
@@ -36,8 +37,8 @@ feature product_graph_queries "Product Graph Queries" {
     journey coverage, feature ordering, or reverse traversals.
   """
   solution  """
-    26 query methods traverse the product graph to compute planning
-    metrics. Results are cached per build and atomically invalidated
+    The product query port (every method declared in the query surface
+    manifest) traverses the product graph to compute planning metrics. Results are cached per build and atomically invalidated
     on graph rebuild. Entity-not-found errors include fuzzy-match
     suggestions.
   """
@@ -52,12 +53,12 @@ feature product_surface_access "Product Surface Access" {
     to expose them to users and agents.
   """
   solution  """
-    16 CLI commands (8 list + 6 query + bulk-status + health) are
-    auto-promoted to MCP tools. 23 MCP resources expose remaining
+    CLI commands declared in the manifest surfaces field are
+    auto-promoted to MCP tools; MCP resources expose the remaining
     query-port methods. All surfaces have typed input/output schemas.
   """
   acceptance [
-    "All 16 CLI commands respond to --help with usage and typed arguments",
+    "Every promoted CLI command responds to --help with usage and typed arguments",
     "All MCP resources return valid ProductSurfaceResponse JSON",
     "CLI commands auto-promoted to MCP tools with matching input schemas",
     "Surface contributions registered from manifest surfaces field without manual wiring",
@@ -74,13 +75,14 @@ feature product_validation "Product Validation Rules" {
     cycles, lifecycle inconsistencies, or invalid field values.
   """
   solution  """
-    47 declarative validation rules across 3 severity levels (5 errors,
-    22 warnings, 28 info) detect structural and semantic quality issues.
+    Declarative validation rules across the severity ladder detect
+    structural and semantic quality issues (the rule inventory is the
+    manifest's, not this prose's).
     Each rule uses the declarative pattern engine with full diagnostic
     code traceability.
   """
   acceptance [
-    "All 55 diagnostic codes fire on their respective invalid inputs",
+    "Every declared diagnostic code fires on its respective invalid inputs",
     "No false positives on valid specs with complete product graphs",
     "Status transition violations (W087-W091, W094) caught for all entity lifecycles",
     "Cycle detection (W092) reports all participants in the cycle",

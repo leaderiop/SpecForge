@@ -24,6 +24,9 @@ pub struct McpState {
     pub resource_registry: Vec<McpResourceDescriptor>,
     pub prompt_registry: Vec<McpPromptDescriptor>,
     pub events: Vec<McpEvent>,
+    /// Server→client notifications queued for subscribed channels (C9-01),
+    /// drained by the host loop via `pending_notifications`.
+    pub notification_outbox: Vec<serde_json::Value>,
     pub kind_registry: KindRegistry,
     pub field_registry: FieldRegistry,
     pub edge_registry: EdgeRegistry,
@@ -64,6 +67,8 @@ impl McpState {
             return;
         }
         if let Some(root) = self.project_root.clone() {
+            let previous_graph = self.graph.clone();
+            let previous_diagnostics = self.diagnostics.clone();
             let compiled = crate::compile::compile_project(&root);
             self.graph = compiled.graph;
             self.diagnostics = compiled.diagnostics;
@@ -73,6 +78,12 @@ impl McpState {
             self.extension_info = compiled.extension_info;
             self.manifests = compiled.manifests;
             self.loaded_at = Some(SystemTime::now());
+            // Subscribed clients learn what changed (C9-01).
+            crate::notifications::enqueue_compile_notifications(
+                self,
+                &previous_graph,
+                &previous_diagnostics,
+            );
         }
     }
 }
@@ -103,6 +114,7 @@ impl McpState {
             prompt_registry: Vec::new(),
             events: Vec::new(),
             kind_registry: KindRegistry::new(),
+            notification_outbox: Vec::new(),
             field_registry: FieldRegistry::new(),
             edge_registry: EdgeRegistry::new(),
             extension_info: Vec::new(),
@@ -127,6 +139,7 @@ impl McpState {
     pub fn shutdown(&mut self) {
         self.phase = ServerPhase::ShuttingDown;
         self.subscriptions.clear();
+        self.notification_outbox.clear();
         self.previous_diagnostics = std::mem::take(&mut self.diagnostics);
         self.graph = Graph::new();
         self.project_root = None;

@@ -9,6 +9,8 @@ fn entry(id: &str, outcome: TestOutcome) -> TestRecordEntry {
         test_name: format!("test_{id}"),
         file: "test.rs".to_string(),
         verify: None,
+        verify_kind: None,
+        duration_ms: 0,
         outcome,
     }
 }

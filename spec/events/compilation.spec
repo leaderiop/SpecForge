@@ -74,7 +74,7 @@ event extension_manifests_loaded {
   }
 
 
-  verify "Extension manifests MUST be loaded before populating the kind registry"
+  verify unit "Extension manifests MUST be loaded before populating the kind registry"
 }
 
 event registries_populated "Registries Populated" {

@@ -195,31 +195,29 @@ fn event_mcp_prompt_invoked() {
 )]
 fn event_mcp_delta_notified() {
     let mut server = init_server();
+    subscriptions::subscribe(server.state_mut(), "client1", "specforge/graphChanged");
 
-    let state = server.state_mut();
-    let mut graph = Graph::new();
-    graph.add_node(Node {
-        id: EntityId {
-            raw: "alpha".into(),
-        },
-        kind: EntityKind {
-            raw: "behavior".into(),
-        },
-        title: Some("Alpha".into()),
-        fields: FieldMap::new(),
-        source_span: SourceSpan {
-            file: "test.spec".into(),
-            start_line: 1,
-            start_col: 0,
-            end_line: 3,
-            end_col: 0,
-        },
-        methods: Vec::new(),
-    });
-    state.graph = graph;
-    attach_project(state);
+    // Attach a real project plus a watch snapshot marker so the routed read
+    // performs an honest recompile (C9-07 staleness path).
+    attach_project(server.state_mut());
+    let root = server.state().project_root.clone().unwrap();
+    let marker_dir = root.join(".specforge");
+    std::fs::create_dir_all(&marker_dir).unwrap();
+    std::fs::write(marker_dir.join("graph.json"), "{}").unwrap();
 
-    pending_notifications(server.state_mut());
+    call(
+        &mut server,
+        "resources/read",
+        json!({"uri": "specforge://diagnostics"}),
+    );
+
+    let notifications = pending_notifications(server.state_mut());
+    assert_eq!(
+        notifications.len(),
+        1,
+        "subscribed client must receive the graph delta: {notifications:?}"
+    );
+    assert_eq!(notifications[0]["method"], "specforge/graphChanged");
     assert!(has_event(&server, "mcp_delta_notified"));
 }
 

@@ -614,3 +614,140 @@ fn graph_resource_returns_json_mime_type() {
     let mime = resp["result"]["contents"][0]["mimeType"].as_str().unwrap();
     assert_eq!(mime, "application/json");
 }
+
+// ---- C9-06: query parameters on graph resources ----
+
+// B:expose_graph_as_mcp_resource — verify unit "root query scopes the read to a subgraph with a schema_ref"
+#[test]
+#[specforge_test(
+    behavior = "expose_graph_as_mcp_resource",
+    verify = "scope query parameter restricts to subgraph"
+)]
+fn graph_resource_root_scopes_with_schema_ref() {
+    let mut server = test_server();
+    let resp = read_resource(&mut server, "specforge://graph?root=alpha");
+    let text = resource_text(&resp);
+    let parsed: Value = serde_json::from_str(&text).unwrap();
+    let ids: Vec<&str> = parsed["nodes"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|n| n["id"].as_str().unwrap())
+        .collect();
+    assert!(
+        !ids.is_empty() && ids.iter().all(|id| *id == "alpha" || *id == "beta"),
+        "scoped read must return only the subgraph: {ids:?}"
+    );
+    assert!(
+        parsed["schema_ref"].is_object(),
+        "scoped exports reference the published schema instead of embedding it"
+    );
+    assert!(
+        parsed["schema"].is_null(),
+        "scoped read must not embed the full schema"
+    );
+}
+
+// B:expose_graph_as_mcp_resource — verify unit "unknown root returns an error"
+#[test]
+fn graph_resource_unknown_root_errors() {
+    let mut server = test_server();
+    let resp = read_resource(&mut server, "specforge://graph?root=nonexistent");
+    assert!(resp["error"].is_object());
+}
+
+// B:expose_graph_as_mcp_resource — verify unit "kinds query filters node kinds"
+#[test]
+fn graph_resource_kinds_filter() {
+    let mut server = test_server();
+    let resp = read_resource(&mut server, "specforge://graph?kinds=behavior");
+    let parsed: Value = serde_json::from_str(&resource_text(&resp)).unwrap();
+    let kinds: Vec<&str> = parsed["nodes"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|n| n["kind"].as_str().unwrap())
+        .collect();
+    assert_eq!(kinds, vec!["behavior"], "kinds=a,b must filter node kinds");
+}
+
+// B:expose_graph_as_mcp_resource — verify unit "max_tokens budgets the payload"
+#[test]
+fn graph_resource_max_tokens_budgets() {
+    let mut server = test_server();
+    let resp = read_resource(&mut server, "specforge://graph?max_tokens=1");
+    let parsed: Value = serde_json::from_str(&resource_text(&resp)).unwrap();
+    let nodes = parsed["nodes"].as_array().unwrap();
+    assert_eq!(
+        nodes.len(),
+        1,
+        "a one-token budget must trim to the last keepable node"
+    );
+}
+
+// B:expose_context_as_mcp_resource — verify unit "context entity template scopes to the subgraph"
+#[test]
+#[specforge_test(
+    behavior = "expose_context_as_mcp_resource",
+    verify = "scope query parameter restricts to subgraph"
+)]
+fn context_entity_template_scopes() {
+    let mut server = test_server();
+    let resp = read_resource(&mut server, "specforge://context/alpha");
+    let text = resource_text(&resp);
+    assert_eq!(
+        resp["result"]["contents"][0]["uri"],
+        "specforge://context/alpha"
+    );
+    let parsed: Value = serde_json::from_str(&text).unwrap();
+    let ids: Vec<&str> = parsed["nodes"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|n| n["id"].as_str().unwrap())
+        .collect();
+    assert!(
+        ids.contains(&"alpha"),
+        "context template must serve the subgraph rooted at the path entity"
+    );
+    assert!(
+        parsed["schema_ref"].is_object(),
+        "scoped context must reference the schema"
+    );
+}
+
+#[test]
+fn context_entity_template_with_kinds_query() {
+    let mut server = test_server();
+    // kinds=event matches nothing: the kind filter drops alpha (behavior),
+    // but the scoped root (beta) is always kept regardless of the filter.
+    let resp = read_resource(&mut server, "specforge://context/beta?kinds=event");
+    let parsed: Value = serde_json::from_str(&resource_text(&resp)).unwrap();
+    let ids: Vec<&str> = parsed["nodes"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|n| n["id"].as_str().unwrap())
+        .collect();
+    assert_eq!(
+        ids,
+        vec!["beta"],
+        "kind filter drops non-matching nodes but the scoped root remains"
+    );
+}
+
+#[test]
+fn context_entity_template_registered() {
+    let mut server = test_server();
+    let resp = call(&mut server, "resources/list", json!({}));
+    let uris: Vec<&str> = resp["result"]["resources"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|r| r["uri"].as_str().unwrap())
+        .collect();
+    assert!(
+        uris.contains(&"specforge://context/{entity_id}"),
+        "specforge://context/{{entity_id}} must be advertised: {uris:?}"
+    );
+}

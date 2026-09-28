@@ -12,7 +12,7 @@ mod manifest_bridge;
 pub mod protocol;
 mod query_extensions;
 pub mod runtime;
-mod sandbox;
+pub mod sandbox;
 mod surface;
 mod toposort;
 mod trap;
@@ -39,9 +39,10 @@ pub use discovery::{
     parse_extension_specifier,
 };
 pub use host_functions::{
-    CallSite, QueryScope, compute_extension_query_scope, filter_graph_by_query_scope,
-    host_add_graph_edge_check, host_add_graph_node_check, host_emit_diagnostic,
-    host_emit_file_check, host_http_get_check, host_read_file_check, is_host_function_allowed,
+    CallSite, HOST_FUNCTIONS, QueryScope, compute_extension_query_scope,
+    filter_graph_by_query_scope, host_add_graph_edge_check, host_add_graph_node_check,
+    host_emit_diagnostic, host_emit_file_check, host_http_get_check, host_read_file_check,
+    is_host_function_allowed,
 };
 pub use install::{InstallResult, install_extension, install_from_local, installed_wasm_path};
 pub use integrity::{hex_sha256, verify_wasm_integrity, verify_wasm_integrity_or_skip};

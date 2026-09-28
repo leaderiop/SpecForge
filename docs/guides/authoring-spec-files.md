@@ -162,17 +162,21 @@ behavior greet_user "Greet a user by name" {
 **Field value kinds** you'll use constantly:
 
 ```spec
-status   draft                      // bare word (enum / keyword value)
-category "auth"                      // string (quotes optional for single tokens)
+behavior field_value_kinds "Field Value Kinds" {
+  // Field value kinds you'll use constantly:
 
-contract """                         // triple-quoted multi-line string
-  Multi-line text.
-  Indentation is stripped sensibly.
-"""
+  status   draft                      // bare word (enum / keyword value)
+  category "auth"                     // string (quotes optional for single tokens)
 
-invariants [data_persistence]        // reference list → creates graph EDGES (compiler-checked)
-acceptance ["fast", "secure"]        // string list → opaque values (not checked)
-refs       ["gh.issue:42"]           // external reference strings
+  contract """                        // triple-quoted multi-line string
+    Multi-line text.
+    Indentation is stripped sensibly.
+  """
+
+  invariants [data_persistence]       // reference list → creates graph EDGES (compiler-checked)
+  acceptance ["fast", "secure"]       // string list → opaque values (not checked)
+  refs       ["gh.issue:42"]          // external reference strings
+}
 ```
 
 > 💡 The difference between `[data_persistence]` and `["data_persistence"]` matters. The

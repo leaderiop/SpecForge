@@ -64,7 +64,9 @@ behavior scaffold_starter_spec_file "Scaffold Starter Spec File" {
   invariants [zero_domain_knowledge_core, init_config_validity]
   types      [CompilerConfig, InitError]
   ports      [FileSystem]
-  // No produces — sub-step of scaffold_new_project
+  // Deliberately passive: declared as data (C12-13) so the event-graph
+  // lint can enforce the absence, not just a comment.
+  produces   []
 
   requires {
     config_created "specforge.json has been created by the parent scaffold_new_project step"

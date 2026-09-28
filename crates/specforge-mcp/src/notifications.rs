@@ -1,8 +1,15 @@
 use serde_json::Value;
-use specforge_common::Diagnostic;
-use specforge_graph::Graph;
+
+/// Subscription channel for graph delta notifications (C9-01).
+pub const GRAPH_CHANNEL: &str = "specforge/graphChanged";
+
+/// Subscription channel for diagnostics delta notifications (C9-01).
+pub const DIAGNOSTICS_CHANNEL: &str = "specforge/diagnosticsChanged";
 
 use crate::state::McpState;
+use crate::subscriptions::subscribers;
+use specforge_common::Diagnostic;
+use specforge_graph::Graph;
 
 pub struct GraphDelta {
     pub added_nodes: Vec<String>,
@@ -133,23 +140,52 @@ pub fn format_diagnostics_notification(delta: &DiagnosticsDelta) -> Value {
     })
 }
 
+/// Queue delta notifications after a (re)compile (C9-01). Diffs the previous
+/// graph/diagnostics against the freshly compiled state and pushes one
+/// notification per subscribed channel onto the server→client outbox.
+/// Channels without subscribers are suppressed, and unchanged state emits
+/// nothing.
+pub fn enqueue_compile_notifications(
+    state: &mut McpState,
+    previous_graph: &Graph,
+    previous_diagnostics: &[Diagnostic],
+) {
+    if !subscribers(state, GRAPH_CHANNEL).is_empty() {
+        let graph_delta = compute_graph_delta(previous_graph, &state.graph);
+        if !graph_delta.added_nodes.is_empty()
+            || !graph_delta.removed_nodes.is_empty()
+            || graph_delta.added_edges > 0
+            || graph_delta.removed_edges > 0
+        {
+            state
+                .notification_outbox
+                .push(format_graph_notification(&graph_delta));
+            state.push_event(
+                "mcp_delta_notified",
+                serde_json::json!({
+                    "kind": "graph",
+                    "added": graph_delta.added_nodes.len(),
+                    "removed": graph_delta.removed_nodes.len(),
+                }),
+            );
+        }
+    }
+
+    if !subscribers(state, DIAGNOSTICS_CHANNEL).is_empty() {
+        let diag_delta = compute_diagnostics_delta(previous_diagnostics, &state.diagnostics);
+        if !diag_delta.added.is_empty() || !diag_delta.removed.is_empty() {
+            state
+                .notification_outbox
+                .push(format_diagnostics_notification(&diag_delta));
+            state.push_event(
+                "mcp_delta_notified",
+                serde_json::json!({"kind": "diagnostics"}),
+            );
+        }
+    }
+}
+
+/// Drain the server→client notification outbox (the captured client sink).
 pub fn pending_notifications(state: &mut McpState) -> Vec<Value> {
-    let mut notifications = Vec::new();
-
-    let graph_delta = compute_graph_delta(&Graph::new(), &state.graph);
-    if !graph_delta.added_nodes.is_empty() || !graph_delta.removed_nodes.is_empty() {
-        notifications.push(format_graph_notification(&graph_delta));
-        state.push_event("mcp_delta_notified", serde_json::json!({"kind": "graph"}));
-    }
-
-    let diag_delta = compute_diagnostics_delta(&state.previous_diagnostics, &state.diagnostics);
-    if !diag_delta.added.is_empty() || !diag_delta.removed.is_empty() {
-        notifications.push(format_diagnostics_notification(&diag_delta));
-        state.push_event(
-            "mcp_delta_notified",
-            serde_json::json!({"kind": "diagnostics"}),
-        );
-    }
-
-    notifications
+    std::mem::take(&mut state.notification_outbox)
 }

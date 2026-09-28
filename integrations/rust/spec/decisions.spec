@@ -127,7 +127,8 @@ decision convention_as_fallback "Convention Mapping as Fallback" {
   consequences """
     Positive: zero-dependency path exists, works with proptest decl macros.
     Negative: convention is fragile — renames break it. Mitigated by
-    specforge trace showing unmatched tests.
+    unmatched_records (C11-02): records matching no exported verify are
+    listed instead of silently ignored.
   """
 
   protects [convention_separator_unambiguous]

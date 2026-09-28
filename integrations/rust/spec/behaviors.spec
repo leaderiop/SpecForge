@@ -269,8 +269,13 @@ behavior compute_coverage_diff "Compute Coverage Diff" {
     Given a GraphExport and collected TestRecordEntries, the system MUST
     compute a CoverageDiff per testable entity: expected verify count from
     the graph, covered count from matching test records, and a status
-    (fully_covered, partially_covered, uncovered, no_intent). Entities
-    without verify statements MUST be reported as no_intent.
+    (fully_covered, covered_with_failures, partially_covered, uncovered,
+    gherkin_specified, no_intent). Test records match a verify by exact
+    description or by the exported slug (C11-02). Entities with verify
+    statements but no matching records MUST be reported as uncovered —
+    never filtered out. Entities whose only intent is a gherkin feature
+    reference MUST be reported as gherkin_specified; entities without
+    verify statements and without gherkin MUST be reported as no_intent.
   """
 
   requires {
@@ -282,6 +287,7 @@ behavior compute_coverage_diff "Compute Coverage Diff" {
     all_testable_covered "every testable entity in graph appears in the diff"
     counts_accurate      "expected = graph verify count, covered = matching test count"
     status_derived       "status is fully_covered iff covered >= expected and expected > 0"
+    unmatched_surfaced   "test records matching no exported verify are reportable via unmatched_records (C11-02)"
   }
 
   verify unit "entity with 3 verify and 3 tests is fully_covered"

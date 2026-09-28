@@ -6,12 +6,15 @@ use std::path::Path;
 
 struct MockRuntime {
     call_results: std::collections::HashMap<String, WasmCallResult>,
+    /// Records `set_execution_deadline_ms` calls (extension, ms).
+    deadlines: std::sync::Mutex<Vec<(String, u64)>>,
 }
 
 impl MockRuntime {
     fn new() -> Self {
         Self {
             call_results: std::collections::HashMap::new(),
+            deadlines: std::sync::Mutex::new(Vec::new()),
         }
     }
 
@@ -58,8 +61,14 @@ impl WasmRuntime for MockRuntime {
                 WasmCallResult::Ok(serde_json::to_vec(&default_resp).unwrap())
             })
     }
-}
 
+    fn set_execution_deadline_ms(&self, extension_name: &str, max_execution_ms: u64) {
+        self.deadlines
+            .lock()
+            .unwrap()
+            .push((extension_name.to_string(), max_execution_ms));
+    }
+}
 // ── Helper: build a valid handshake response JSON ──
 
 fn handshake_response_json(name: &str, entities: bool, validators: bool) -> Vec<u8> {
@@ -101,6 +110,50 @@ fn handshake_returns_parsed_response() {
     assert_eq!(resp.protocol_version, "1.0.0");
     assert!(resp.contribution_flags.entities);
     assert!(resp.contribution_flags.validators);
+}
+
+// ── Handshake applies the plugin's declared execution budget (C7-10) ──
+
+#[test]
+fn handshake_applies_declared_max_execution_ms() {
+    let policy = SandboxPolicy {
+        max_execution_ms: Some(5000),
+        ..Default::default()
+    };
+    let resp = HandshakeResponse {
+        protocol_version: PROTOCOL_VERSION.to_string(),
+        name: "@specforge/software".to_string(),
+        version: "1.0.0".to_string(),
+        contribution_flags: ContributionFlags::default(),
+        peer_dependencies: vec![],
+        sandbox_policy: Some(policy),
+    };
+    let runtime =
+        MockRuntime::new().with_call_ok("__handshake", serde_json::to_vec(&resp).unwrap());
+    let host = ProtocolHost::new(&runtime);
+    host.handshake("@specforge/software").unwrap();
+
+    assert_eq!(
+        *runtime.deadlines.lock().unwrap_or_else(|p| p.into_inner()),
+        vec![("@specforge/software".to_string(), 5000)]
+    );
+}
+
+#[test]
+fn handshake_without_execution_budget_sets_no_deadline() {
+    let runtime = MockRuntime::new().with_call_ok(
+        "__handshake",
+        handshake_response_json("@specforge/formal", true, false),
+    );
+    let host = ProtocolHost::new(&runtime);
+    host.handshake("@specforge/formal").unwrap();
+    assert!(
+        runtime
+            .deadlines
+            .lock()
+            .unwrap_or_else(|p| p.into_inner())
+            .is_empty()
+    );
 }
 
 // ── Step 2: Handshake error handling ──

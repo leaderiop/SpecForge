@@ -1,3 +1,4 @@
+mod conformance;
 mod contracts;
 mod events;
 mod freshness;

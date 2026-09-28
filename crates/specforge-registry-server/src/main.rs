@@ -165,7 +165,7 @@ async fn main() {
             TokenAction::List { data_dir } => {
                 let database =
                     Database::open(&data_dir.join("registry.db")).expect("failed to open database");
-                let tokens = auth::list_tokens(&database);
+                let tokens = auth::list_tokens(&database).expect("failed to list tokens");
                 if tokens.is_empty() {
                     println!("No tokens found.");
                 } else {

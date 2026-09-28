@@ -96,9 +96,9 @@ All domain vocabulary comes from **extensions** that you install based on your w
 - A software team installs `@specforge/software` and gets behavior, invariant, feature, event, type, port.
 - A compliance team would install a future `@specforge/compliance` extension to get regulation, control, evidence, audit.
 - A design systems team would install a future `@specforge/atomic-design` extension to get atom, molecule, organism, template, page.
-- A data team installs `@specforge/data-pipeline` and gets source, transform, sink, schedule.
-- An API team installs `@specforge/api-design` and gets endpoint, schema, operation.
-- A business strategy team installs `@specforge/business-model` and gets value_proposition, customer_segment, channel.
+- A data team would install a future `@specforge/data-pipeline` extension to get source, transform, sink, schedule.
+- An API team would install a future `@specforge/api-design` extension to get endpoint, schema, operation.
+- A business strategy team would install a future `@specforge/business-model` extension to get value_proposition, customer_segment, channel.
 
 You combine extensions freely. A regulated fintech team might use `@specforge/software` + `@specforge/compliance` + `@specforge/api-design`. A product design team might use `@specforge/product` + `@specforge/atomic-design`. Each combination shapes the graph that agents consume.
 
@@ -120,6 +120,9 @@ This is exactly how Terraform works. Terraform's core has zero infrastructure kn
  ├────────────────────────────────────────────────────────┤
  │           Extensions (ALL domain knowledge)            │
  │                                                        │
+ │  shipping today: product, governance, software, formal │
+ │                                                        │
+ │  illustrative futures (not yet built):                 │
  │  @specforge/software    @specforge/compliance          │
  │  @specforge/product     @specforge/api-design          │
  │  @specforge/governance  @specforge/atomic-design       │

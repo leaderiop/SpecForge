@@ -265,6 +265,28 @@ The compiler uses the field name in which a reference appears to determine the e
 
 When the target kind's extension is not installed, the compiler emits `I004` instead of `E003`.
 
+## Field Type Vocabulary (C2-08)
+
+Extensions declare fields with one of eight typed vocabularies
+(`ManifestFieldType` in the field registry). Author-facing meaning:
+
+| Type | Value shape | Reference semantics |
+|------|-------------|---------------------|
+| `string` | free text | none |
+| `integer` | whole number | none |
+| `boolean` | true/false | none |
+| `enum` | one of the declared enum values | none |
+| `string_list` | list of strings | none |
+| `reference` | a single entity id | MUST resolve to a declared entity (E003) |
+| `reference_list` | list of entity ids | each MUST resolve (E003) |
+| `block` | nested structured block (requires/ensures-style clauses) | clause names are surfaced to extension passes |
+
+A field may additionally declare `edge` + `target_kind` (its references
+become typed graph edges), `required` (E006 enforcement), and
+`file_reference=true` (path values validated to exist, e.g. `gherkin`).
+The per-kind vocabulary is the field registry's — `specforge model`
+renders it from the same source.
+
 ## Naming Conventions
 
 The grammar terminal accepts `[A-Za-z_][A-Za-z0-9_]*`; the compiler enforces
@@ -593,9 +615,9 @@ extensions themselves (not by guest passes).
 
 ## DSL Scope Boundaries
 
-### What belongs in the DSL (23 entity types across 4 extensions + structural core)
+### What belongs in the DSL (24 entity types: 2 structural + 22 across 4 extensions)
 
-The 23 entity types above are the complete set of compiled block types. They were selected because they have high cross-reference density, benefit from compiler validation, and complete the traceability chain.
+The 24 entity types above are the complete set of compiled block types. They were selected because they have high cross-reference density, benefit from compiler validation, and complete the traceability chain.
 
 ### What stays as markdown
 

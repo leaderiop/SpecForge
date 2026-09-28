@@ -433,6 +433,21 @@ pub fn filter_graph_by_query_scope(
     }
 }
 
+/// Every host-function name the host's permission matrix recognizes. This is
+/// the single source of truth for the doc drift guard
+/// (`tests/host_function_drift.rs`): the host-function tables in
+/// `docs/extension-sdk.md` and `docs/extension-protocol.md` must enumerate
+/// exactly these names — no phantom functions, no undocumented ones.
+pub const HOST_FUNCTIONS: &[&str] = &[
+    "host_emit_diagnostic",
+    "host_read_file",
+    "host_emit_file",
+    "host_http_get",
+    "host_query_graph",
+    "host_add_graph_node",
+    "host_add_graph_edge",
+];
+
 /// Permission matrix: which host functions are allowed per call site.
 pub fn is_host_function_allowed(call_site: CallSite, function_name: &str) -> bool {
     match function_name {

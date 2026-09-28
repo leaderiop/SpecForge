@@ -13,4 +13,5 @@ wit-bindgen = "0.30"
 
 [dev-dependencies]
 tempfile = { workspace = true }
+wat = "=1.258.0"
 serde_json = { workspace = true }

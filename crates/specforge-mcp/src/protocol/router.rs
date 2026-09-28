@@ -28,6 +28,9 @@ pub fn route(
             crate::resources::handle_resource_read(state, params, id)
         }
 
+        "resources/subscribe" => crate::resources::handle_resource_subscribe(state, params, id),
+        "resources/unsubscribe" => crate::resources::handle_resource_unsubscribe(state, params, id),
+
         // Tools
         "tools/call" => {
             state.refresh_if_stale();

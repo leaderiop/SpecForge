@@ -1,3 +1,4 @@
+use crate::ports::RealFs;
 use crate::registry::TestRecordEntry;
 use serde::Serialize;
 use std::io::{BufWriter, Write};
@@ -19,17 +20,11 @@ struct BinaryReportRef<'a> {
     entries: &'a [TestRecordEntry],
 }
 
-pub fn write_report(
-    dir: &Path,
+/// Serialize the report payload (shared by the port-routed writer).
+pub fn serialize_report(
     binary_name: &str,
     entries: &[TestRecordEntry],
-) -> std::io::Result<()> {
-    if entries.is_empty() {
-        return Ok(());
-    }
-
-    std::fs::create_dir_all(dir)?;
-
+) -> serde_json::Result<Vec<u8>> {
     let mut sorted = entries.to_vec();
     sorted.sort_by(|a, b| {
         a.entity_id
@@ -42,6 +37,26 @@ pub fn write_report(
         binary_name,
         entries: &sorted,
     };
+    let mut bytes = Vec::new();
+    serde_json::to_writer(&mut bytes, &report)?;
+    Ok(bytes)
+}
+
+/// Finalize path routed through the ReportWriter port (C11-08) so hermetic
+/// tests can inject a fake.
+pub fn write_report_with(
+    fs: &dyn crate::ports::ReportWriter,
+    dir: &Path,
+    binary_name: &str,
+    entries: &[TestRecordEntry],
+) -> std::io::Result<()> {
+    if entries.is_empty() {
+        return Ok(());
+    }
+
+    fs.create_dir_all(dir)?;
+
+    let bytes = serialize_report(binary_name, entries).map_err(std::io::Error::other)?;
 
     let path = dir.join(format!("{binary_name}.json"));
     // C6-08: temp-file-plus-rename — a crash or full disk mid-write must
@@ -53,8 +68,16 @@ pub fn write_report(
     let file = std::fs::File::create(&tmp)?;
     {
         let mut writer = BufWriter::new(file);
-        serde_json::to_writer(&mut writer, &report)?;
+        writer.write_all(&bytes)?;
         writer.flush()?;
     }
     std::fs::rename(tmp, path)
+}
+
+pub fn write_report(
+    dir: &Path,
+    binary_name: &str,
+    entries: &[TestRecordEntry],
+) -> std::io::Result<()> {
+    write_report_with(&RealFs, dir, binary_name, entries)
 }
