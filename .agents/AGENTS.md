@@ -166,15 +166,27 @@ references (papers/books/repos with why each helps), and a *study first* list.
 
 ## Priority engagement order (if only 8)
 
-1. **Extension-runtime bootstrap** (Manuel/Eckel type, C7) — closes the fresh-clone build gap
-   (`specforge-extism/src/builtins.rs` needs 4 hand-built `.wasm` blobs; no bootstrap script exists).
-2. **Incremental/LSP pipeline** (Kladov/Woerister type, C4) — salsa-style shared query model for
-   watch + LSP instead of two incremental implementations.
+Items 1, 2, and 5 below were closed by the W1-W9 audit-remediation pass (see
+`.plugin/wave3-plan.md`, `.plugin/audit-triage.md`) and are kept here only as
+historical context for the roster's "why this engineer" framing, not as open
+work.
+
+1. ~~**Extension-runtime bootstrap**~~ (Manuel/Eckel type, C7) — **done.**
+   `.github/workflows/ci.yml`'s "Fresh-clone bootstrap" job runs
+   `xtask build-builtins --force` from a clean checkout and asserts every
+   builtin `.wasm` exists; the blobs are also git-tracked under
+   `extensions/*/wasm/*.wasm` as a working fallback.
+2. ~~**Incremental/LSP pipeline**~~ (Kladov/Woerister type, C4) — **done.**
+   `specforge-lsp` now imports `specforge_watch::IncrementalPipeline`
+   directly (`crates/specforge-lsp/src/{state,backend}.rs`) — one shared
+   incremental pipeline, not two.
 3. **MCP & agent DX** (Soria Parra/Delimarsky type, C9) — tool surface, token-budgeted exports,
    dialogue with the spec-driven-development ecosystem.
 4. **Formal analyze roadmap** (Leino/Jackson type, C10) — turn `specforge analyze` passes into a
    staged path toward machine-checked conditions.
-5. **Registry trust** (Cappos/Hinds type, C8) — signing + update framework before public publishing.
+5. ~~**Registry trust**~~ (Cappos/Hinds type, C8) — **done.** `crates/specforge-registry/src/signing.rs`
+   implements Ed25519 sign/verify with key persistence; the registry-server rejects unsigned
+   publishes (`crates/specforge-registry-server/src/handlers.rs`, `tests/publish_signatures.rs`).
 6. **Diagnostics UX** (Küber/Czaplicki type, C4) — rustc-grade codes, spans, suggestions everywhere.
 7. **Graph Protocol standardization** (Hutton/Byron type, C6) — governance and conformance suites
    for the open schema.
