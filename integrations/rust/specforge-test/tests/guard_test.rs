@@ -107,7 +107,9 @@ fn drain_clears_registry() {
 
 #[test]
 fn should_panic_guard_records_pass_on_panic() {
-    use specforge_test::registry;
+    let _lock = SERIAL.lock().unwrap_or_else(|e| e.into_inner());
+    registry::drain();
+
     let result = std::panic::catch_unwind(|| {
         let _guard = TestGuard::with_expectations(
             "behavior",
@@ -126,9 +128,9 @@ fn should_panic_guard_records_pass_on_panic() {
         "the panic must still propagate to the harness"
     );
     let after = registry::drain();
-    let recorded = after.last().expect("guard must have recorded");
+    assert_eq!(after.len(), 1, "exactly this guard recorded: {after:?}");
     assert_eq!(
-        recorded.outcome,
+        after[0].outcome,
         TestOutcome::Pass,
         "#[should_panic] panic must record Pass, not Fail (C11-04)"
     );
