@@ -2,7 +2,7 @@ use axum::{
     Router,
     extract::{DefaultBodyLimit, FromRequestParts, Multipart, Path, Query, State},
     http::{HeaderMap, StatusCode, request::Parts},
-    response::{IntoResponse, Json},
+    response::{IntoResponse, Json, Response},
     routing::{delete, get, post, put},
 };
 use serde::{Deserialize, Serialize};
@@ -81,17 +81,6 @@ struct SearchHit {
     description: String,
 }
 
-#[derive(Serialize)]
-struct ErrorResponse {
-    error: ErrorBody,
-}
-
-#[derive(Serialize)]
-struct ErrorBody {
-    code: String,
-    message: String,
-}
-
 #[derive(Deserialize)]
 struct SearchQuery {
     q: String,
@@ -144,7 +133,7 @@ async fn get_package_versions(
 async fn get_package_version(
     State(state): State<Arc<AppState>>,
     Path((name, version)): Path<(String, String)>,
-) -> impl IntoResponse {
+) -> Result<(StatusCode, Json<serde_json::Value>), ApiError> {
     let name = decode_name(&name);
 
     let pkg = {
@@ -153,24 +142,12 @@ async fn get_package_version(
         let version = version.clone();
         tokio::task::spawn_blocking(move || st.database.get_package_version(&name, &version))
             .await
-            .expect("package version query panicked")
+            .map_err(|e| {
+                ApiError::internal("DB_TASK", format!("package version query task failed: {e}"))
+            })?
     };
-    let pkg = match pkg {
-        Some(p) => p,
-        None => {
-            return (
-                StatusCode::NOT_FOUND,
-                Json(
-                    serde_json::to_value(ErrorResponse {
-                        error: ErrorBody {
-                            code: "NOT_FOUND".to_string(),
-                            message: format!("{}@{} not found", name, version),
-                        },
-                    })
-                    .unwrap(),
-                ),
-            );
-        }
+    let Some(pkg) = pkg else {
+        return Err(ApiError::not_found(format!("{name}@{version} not found")));
     };
 
     // Relative to the API base: clients compose this with their configured
@@ -185,32 +162,29 @@ async fn get_package_version(
             .collect()
     };
 
-    (
+    Ok((
         StatusCode::OK,
-        Json(
-            serde_json::to_value(PackageMetadataResponse {
-                name: pkg.name,
-                version: pkg.version,
-                sha256: pkg.sha256,
-                size_bytes: pkg.size_bytes,
-                description: pkg.description,
-                keywords,
-                publisher: pkg.publisher,
-                published_at: pkg.published_at,
-                wasm_url,
-                signature: pkg.signature,
-                key_id: pkg.key_id,
-                manifest: pkg.manifest,
-            })
-            .unwrap(),
-        ),
-    )
+        Json(serde_json::json!(PackageMetadataResponse {
+            name: pkg.name,
+            version: pkg.version,
+            sha256: pkg.sha256,
+            size_bytes: pkg.size_bytes,
+            description: pkg.description,
+            keywords,
+            publisher: pkg.publisher,
+            published_at: pkg.published_at,
+            wasm_url,
+            signature: pkg.signature,
+            key_id: pkg.key_id,
+            manifest: pkg.manifest,
+        })),
+    ))
 }
 
 async fn download_package(
     State(state): State<Arc<AppState>>,
     Path((name, version)): Path<(String, String)>,
-) -> impl IntoResponse {
+) -> Result<Response, ApiError> {
     let name = decode_name(&name);
 
     // Storage reads are blocking file I/O: run them on the blocking pool.
@@ -223,13 +197,13 @@ async fn download_package(
             .read_wasm(&storage_name, &storage_version)
     })
     .await
-    .expect("storage read task panicked");
+    .map_err(|e| ApiError::internal("STORAGE_TASK", format!("storage read task failed: {e}")))?;
 
     // C8-09 hardening: serve only blobs whose bytes hash to the DB's
     // recorded sha256 — torn or corrupted files are never handed out.
     // The DB lookup and the (up to 64 MB) hash run on the blocking pool.
     if let Some(data) = &data {
-        let integrity = {
+        let (expected, actual) = {
             let st = state.clone();
             let name = name.clone();
             let version = version.clone();
@@ -249,47 +223,31 @@ async fn download_package(
                 (expected, actual)
             })
             .await
-            .expect("integrity check panicked")
+            .map_err(|e| {
+                ApiError::internal(
+                    "INTEGRITY_TASK",
+                    format!("integrity check task failed: {e}"),
+                )
+            })?
         };
-        let expected = integrity.0;
-        let actual = integrity.1;
         if !expected.is_empty() && actual != expected {
-            return (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                Json(
-                    serde_json::to_value(ErrorResponse {
-                        error: ErrorBody {
-                            code: "INTEGRITY_VIOLATION".to_string(),
-                            message: "stored blob does not match its recorded digest".to_string(),
-                        },
-                    })
-                    .unwrap(),
-                ),
-            )
-                .into_response();
+            return Err(ApiError::internal(
+                "INTEGRITY_VIOLATION",
+                "stored blob does not match its recorded digest",
+            ));
         }
     }
 
     match data {
-        Some(data) => (
+        Some(data) => Ok((
             StatusCode::OK,
             [(axum::http::header::CONTENT_TYPE, "application/wasm")],
             data,
         )
-            .into_response(),
-        None => (
-            StatusCode::NOT_FOUND,
-            Json(
-                serde_json::to_value(ErrorResponse {
-                    error: ErrorBody {
-                        code: "NOT_FOUND".to_string(),
-                        message: format!("binary not found for {}@{}", name, version),
-                    },
-                })
-                .unwrap(),
-            ),
-        )
-            .into_response(),
+            .into_response()),
+        None => Err(ApiError::not_found(format!(
+            "binary not found for {name}@{version}"
+        ))),
     }
 }
 
@@ -461,6 +419,34 @@ impl FromRequestParts<Arc<AppState>> for AuthToken {
         state: &Arc<AppState>,
     ) -> Result<Self, Self::Rejection> {
         Self::extract(state, &parts.headers).await
+    }
+}
+
+/// Admin-only extractor: same bearer validation as `AuthToken`, plus the
+/// admin-scope check. Built on `AuthToken::extract` rather than a
+/// hand-rolled second header-parse + `validate_bearer` call, so the admin
+/// routes share one auth-checking implementation with everything else.
+pub struct AdminToken {
+    pub record: crate::db::TokenRecord,
+}
+
+impl FromRequestParts<Arc<AppState>> for AdminToken {
+    type Rejection = ApiError;
+
+    async fn from_request_parts(
+        parts: &mut Parts,
+        state: &Arc<AppState>,
+    ) -> Result<Self, Self::Rejection> {
+        let token = AuthToken::extract(state, &parts.headers).await?;
+        if !auth::is_admin(&token.record) {
+            return Err(ApiError::forbidden_code(
+                "ADMIN_REQUIRED",
+                "this endpoint requires an admin token",
+            ));
+        }
+        Ok(Self {
+            record: token.record,
+        })
     }
 }
 
@@ -882,50 +868,11 @@ struct AdminTokenCreate {
     expires_in_days: Option<u64>,
 }
 
-async fn require_admin(
-    state: Arc<AppState>,
-    headers: &HeaderMap,
-) -> Result<crate::db::TokenRecord, (StatusCode, Json<serde_json::Value>)> {
-    let auth_header = headers
-        .get("authorization")
-        .and_then(|v| v.to_str().ok())
-        .ok_or_else(|| unauthorized("missing Authorization header"))?;
-    let record = {
-        let st = state.clone();
-        let auth_header = auth_header.to_string();
-        tokio::task::spawn_blocking(move || auth::validate_bearer(&st.database, &auth_header))
-            .await
-            .expect("auth validation panicked")
-    }
-    .ok_or_else(|| unauthorized("invalid, revoked, or expired token"))?;
-    if !auth::is_admin(&record) {
-        return Err((
-            StatusCode::FORBIDDEN,
-            Json(serde_json::json!({
-                "error": { "code": "ADMIN_REQUIRED", "message": "this endpoint requires an admin token" }
-            })),
-        ));
-    }
-    Ok(record)
-}
-
-fn unauthorized(message: &str) -> (StatusCode, Json<serde_json::Value>) {
-    (
-        StatusCode::UNAUTHORIZED,
-        Json(serde_json::json!({
-            "error": { "code": "UNAUTHORIZED", "message": message }
-        })),
-    )
-}
-
 async fn admin_create_token(
     State(state): State<Arc<AppState>>,
-    headers: HeaderMap,
+    _admin: AdminToken,
     body: Option<Json<AdminTokenCreate>>,
 ) -> impl IntoResponse {
-    if let Err(resp) = require_admin(state.clone(), &headers).await {
-        return resp;
-    }
     let Json(req) = body.unwrap_or(Json(AdminTokenCreate {
         scope: None,
         label: None,
@@ -966,11 +913,8 @@ async fn admin_create_token(
 
 async fn admin_list_tokens(
     State(state): State<Arc<AppState>>,
-    headers: HeaderMap,
+    _admin: AdminToken,
 ) -> Result<(StatusCode, Json<serde_json::Value>), ApiError> {
-    if let Err(resp) = require_admin(state.clone(), &headers).await {
-        return Ok(resp);
-    }
     let tokens: Vec<serde_json::Value> = {
         let st = state.clone();
         tokio::task::spawn_blocking(move || auth::list_tokens(&st.database))
@@ -998,12 +942,9 @@ async fn admin_list_tokens(
 
 async fn admin_revoke_token(
     State(state): State<Arc<AppState>>,
-    headers: HeaderMap,
+    _admin: AdminToken,
     Path(prefix): Path<String>,
 ) -> impl IntoResponse {
-    if let Err(resp) = require_admin(state.clone(), &headers).await {
-        return resp;
-    }
     let revoked = {
         let st = state.clone();
         let prefix = prefix.clone();
