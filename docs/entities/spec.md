@@ -25,7 +25,7 @@ spec "my-service" {
 
   providers {
     gh "work" {
-      package "@specforge/gh"
+      extension "@specforge/gh"
       repo    "myorg/my-service"
     }
   }
@@ -65,13 +65,13 @@ spec "my-service" {
 | `namespace` | string | Optional namespace for cross-project references (e.g., `"@auth-service"`). |
 | `display_prefix` | string | Optional prefix for human-readable reports (e.g., `"MS"`). Does not affect entity IDs. |
 | `extensions` | string list | Installed extension packages (e.g., `"@specforge/product"`, `"@specforge/governance"`). |
-| `providers` | block | Provider configurations for external platform integrations. See [extension-model.md](../extension-model.md). |
+| `providers` | block | *(planned — not yet implemented)* Provider configurations for external platform integrations. See [extension-model.md](../extension-model.md). |
 | `test_dirs` | string list | Glob patterns for directories containing test files. Used by coverage scanning. |
 | `persona` | sub-block(s) | Persona definitions. Validates that every `persona` in a `journey` block matches a defined persona. |
 | `surface` | sub-block(s) | Surface definitions. Validates that every `surface` in a `journey` block matches a defined surface. |
 | `define` | sub-block(s) | Meta-schema definitions for user-defined entity types beyond the core set. |
 | `coverage` | block | Test coverage configuration (threshold, report paths, flags). |
-| `gen` | block(s) | Code generation configuration per target language. |
+| `gen` | block(s) | *(planned — not yet implemented)* Code generation configuration per target language. |
 
 ### Coverage Sub-Block
 
@@ -116,27 +116,27 @@ The `define` mechanism allows user-defined entity types beyond the core set. Use
 The `extensions` field is a string list of installed extension packages:
 
 ```spec
-plugins [
+extensions [
   "@specforge/product",
   "@specforge/governance",
 ]
 ```
 
-Plugins extend the entity model with new block types, edge types, and validation rules. See [extension-model.md](../extension-model.md) for details.
+Extensions extend the entity model with new block types, edge types, and validation rules. See [extension-model.md](../extension-model.md) for details.
 
-### Providers Sub-Block
+### Providers Sub-Block (planned — not yet implemented)
 
 The `providers` block configures external platform integrations for `ref` entity validation and URL resolution:
 
 ```spec
 providers {
   gh "work" {
-    package "@specforge/gh"
+    extension "@specforge/gh"
     repo    "myorg/my-service"
   }
 
   jira "project" {
-    package "@specforge/jira"
+    extension "@specforge/jira"
     project "PROJ"
     server  "https://myorg.atlassian.net"
   }
@@ -148,12 +148,12 @@ Each provider entry has:
 | Field | Type | Description |
 |-------|------|-------------|
 | `alias` | identifier | Instance name (the string after the scheme). Supports multiple instances of the same provider. |
-| `package` | string | The provider package to use (e.g., `"@specforge/gh"`). |
+| `extension` | string | The provider extension package to use (e.g., `"@specforge/gh"`). |
 | Provider-specific fields | varies | Configuration fields defined by the provider (e.g., `repo`, `project`, `server`). |
 
 See [extension-model.md](../extension-model.md) for the full provider model.
 
-### Gen Sub-Block (per language)
+### Gen Sub-Block (per language, planned — not yet implemented)
 
 | Field | Type | Description |
 |-------|------|-------------|
@@ -237,29 +237,29 @@ spec "regulated-service" {
 }
 ```
 
-### With Providers
+### With Providers (planned — not yet implemented)
 
 ```spec
 spec "my-service" {
   version "1.0"
 
-  plugins [
+  extensions [
     "@specforge/product",
   ]
 
   providers {
     gh "main" {
-      package "@specforge/gh"
+      extension "@specforge/gh"
       repo    "myorg/my-service"
     }
 
     gh "shared" {
-      package "@specforge/gh"
+      extension "@specforge/gh"
       repo    "myorg/shared-libs"
     }
 
     jira "backend" {
-      package "@specforge/jira"
+      extension "@specforge/jira"
       project "BACK"
       server  "https://myorg.atlassian.net"
     }
@@ -283,12 +283,12 @@ spec "healthcare-platform" {
 
   providers {
     gh "platform" {
-      package "@specforge/gh"
+      extension "@specforge/gh"
       repo    "healthorg/platform"
     }
 
     jira "clinical" {
-      package "@specforge/jira"
+      extension "@specforge/jira"
       project "CLIN"
       server  "https://healthorg.atlassian.net"
     }

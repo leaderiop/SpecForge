@@ -1,6 +1,10 @@
 # SpecForge Extension Model
 
-SpecForge supports three distinct extension mechanisms — **extensions**, **providers**, and **generators** — each serving a different purpose in the ecosystem. This follows the Terraform model: a small stable core extended by composable, independently installable extensions.
+> **Status:** only **extensions** are implemented today. **Providers** and
+> **generators** are designed here but not yet built — the extension
+> protocol declares `providers: false` and `renderers: false`
+> ([extension-protocol.md](extension-protocol.md)). Syntax below is the
+> design target, not current grammar.
 
 ## Architecture
 
@@ -64,6 +68,11 @@ specforge extensions                    # list installed extensions
 ```
 
 ## Providers
+
+> **Planned — not yet implemented** (extension protocol capability:
+> `providers: false`). The `providers` block does not parse today; the
+> field spelling below (`extension "@specforge/…"`) is the design of
+> record.
 
 Providers extend the **`ref` entity** — they register schemes, validate ref targets, resolve URLs, and optionally sync metadata. Providers are the bridge between SpecForge and external platforms (GitHub, Jira, Figma, etc.).
 
@@ -228,9 +237,10 @@ spec "my-service" {
 }
 ```
 
-### CLI
+### CLI (planned)
 
 ```bash
+# NOT IMPLEMENTED YET — the `gen` command does not exist.
 specforge gen typescript ./src/generated/    # run generator
 specforge gen typescript --check             # drift detection
 specforge verify typescript                  # adapter verification

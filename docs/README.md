@@ -136,7 +136,7 @@ The industry has independently converged on structured context files (CLAUDE.md,
 | [RES-13](../spec/research/RES-13-README.md) | Market landscape 2026 |
 | [RES-18](../spec/research/RES-18-ai-agent-token-economics.md) | **AI agent token economics — cost reduction analysis** |
 | [RES-19](../spec/research/RES-19-market-position-success-estimation.md) | **Market position & success estimation** |
-| [Extension Model](extension-model.md) | Plugins, providers, and generators architecture |
+| [Extension Model](extension-model.md) | Extensions, providers, and generators architecture |
 
 ## Business Plan
 

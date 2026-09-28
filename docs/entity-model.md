@@ -64,7 +64,7 @@ specforge add @specforge/product        # + 8 product entities
 specforge add @specforge/governance     # + 3 governance entities
 specforge add @specforge/formal         # + 5 formal entities (property, axiom, protocol, refinement, process)
 specforge remove @specforge/governance  # remove extension
-specforge plugins                       # list installed extensions
+specforge extensions                    # list installed extensions
 ```
 
 `specforge init` offers interactive setup with @specforge/software pre-selected:
