@@ -132,9 +132,18 @@ async fn e2e_multiple_files_cross_reference() {
         .wait_for_notification("textDocument/publishDiagnostics", 5000)
         .await;
 
-    // Goto definition from A -> B
-    let resp = client.goto_definition(&uri_a, 1, 10).await;
-    let result = &resp["result"];
+    // Goto definition from A -> B. The reparse now runs on the blocking pool,
+    // so the awaited diagnostic may belong to the previous open; poll until
+    // A's index is live rather than assuming a single notification suffices.
+    let mut result = serde_json::Value::Null;
+    for _ in 0..50 {
+        let resp = client.goto_definition(&uri_a, 1, 10).await;
+        result = resp["result"].clone();
+        if !result.is_null() {
+            break;
+        }
+        tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+    }
     assert!(!result.is_null(), "Expected cross-file definition");
     let target = result["uri"].as_str().unwrap();
     assert!(

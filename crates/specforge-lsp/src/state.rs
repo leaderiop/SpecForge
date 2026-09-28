@@ -122,6 +122,17 @@ impl LspState {
         &self.pipeline
     }
 
+    /// Take the pipeline out (for blocking compute off the async runtime).
+    /// The state is left with an empty pipeline until `set_pipeline`.
+    pub fn take_pipeline(&mut self) -> IncrementalPipeline {
+        std::mem::replace(&mut self.pipeline, IncrementalPipeline::empty())
+    }
+
+    /// Put a previously taken pipeline back.
+    pub fn set_pipeline(&mut self, pipeline: IncrementalPipeline) {
+        self.pipeline = pipeline;
+    }
+
     pub fn pipeline_mut(&mut self) -> &mut IncrementalPipeline {
         &mut self.pipeline
     }

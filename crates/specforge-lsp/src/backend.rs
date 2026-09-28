@@ -255,13 +255,46 @@ impl Backend {
         // watch` uses): the open buffer is authoritative for this file, while
         // transitively invalidated files (importers) are re-read from disk.
         // The pipeline retains tree-sitter trees and re-parses incrementally.
-        let result = {
-            let mut st = state.write().await;
-            st.pipeline_mut()
-                .update_open_file(&file_path, Some(content), |f: &str| {
-                    std::fs::read_to_string(f).ok()
-                })
+        //
+        // The update does synchronous fs reads and a full re-parse + rebuild,
+        // so it runs on the blocking pool: the pipeline is taken out of the
+        // state (brief write lock), computed without any lock held, and put
+        // back (brief write lock). Async workers are never blocked.
+        let content_owned = content.to_string();
+        let file_path_owned = file_path.clone();
+        let joined = {
+            let mut pipeline = {
+                let mut st = state.write().await;
+                st.take_pipeline()
+            };
+            tokio::task::spawn_blocking(move || {
+                let result = pipeline.update_open_file(
+                    &file_path_owned,
+                    Some(&content_owned),
+                    |f: &str| std::fs::read_to_string(f).ok(),
+                );
+                (pipeline, result)
+            })
+            .await
         };
+        let (mut pipeline, result) = match joined {
+            Ok(pair) => pair,
+            Err(e) => {
+                // Blocking task panicked: report as an E001 on the file.
+                let mut m = std::collections::HashMap::new();
+                let mut diag = Diagnostic::default();
+                diag.severity = Some(DiagnosticSeverity::ERROR);
+                diag.code = Some(NumberOrString::String("E001".into()));
+                diag.source = Some("specforge".into());
+                diag.message = format!("internal error during reparse: {e}");
+                m.insert(uri.clone(), vec![diag]);
+                return m;
+            }
+        };
+        {
+            let mut st = state.write().await;
+            st.set_pipeline(pipeline);
+        }
 
         let mut state = state.write().await;
 
