@@ -119,11 +119,19 @@ fn build_relationships(
 
     for source_name in source_kinds {
         for target_name in target_kinds {
-            let (cardinality, source_field) = match entity_map.get(source_name.as_str()) {
-                Some(entity) => infer_cardinality(&edge.label, entity),
-                None => (Cardinality::ManyToMany, None),
+            // Pairs reference kinds that must exist in the model.
+            let (Some(source_entity), Some(target_entity)) = (
+                entity_map.get(source_name.as_str()),
+                entity_map.get(target_name.as_str()),
+            ) else {
+                continue;
             };
-
+            // C5-06: the manifest edge_type is the declaration; the fields
+            // refine its cardinality (N:1, 1:1, 1:N) instead of every pair
+            // defaulting to a blind N:M.
+            let (cardinality, source_field) =
+                infer_cardinality(&edge.label, source_entity, Some(target_entity))
+                    .unwrap_or((Cardinality::ManyToMany, None));
             relationships.push(ModelRelationship {
                 name: edge.label.clone(),
                 source: source_name.clone(),

@@ -1,4 +1,4 @@
-use std::collections::{BTreeSet, HashMap, HashSet, VecDeque};
+use std::collections::{BTreeSet, HashMap, HashSet};
 
 /// Tracks file-level import dependencies.
 /// Maps each file path to the set of files it imports.
@@ -57,36 +57,16 @@ impl ImportDag {
     }
 
     /// Compute the invalidation set: the changed files plus all transitive
-    /// reverse dependents (files that directly or indirectly import the changed files).
+    /// reverse dependents (files that directly or indirectly import the
+    /// changed files). Delegates to the single workspace implementation
+    /// (C5-03).
     pub fn invalidation_set(&self, changed_files: &[String]) -> HashSet<String> {
-        // Build reverse dependency map
-        let mut reverse: HashMap<&str, Vec<&str>> = HashMap::new();
-        for (file, imports) in &self.deps {
-            for imp in imports {
-                reverse.entry(imp.as_str()).or_default().push(file.as_str());
-            }
-        }
-
-        let mut affected = HashSet::new();
-        let mut queue = VecDeque::new();
-
-        for file in changed_files {
-            if affected.insert(file.clone()) {
-                queue.push_back(file.as_str());
-            }
-        }
-
-        while let Some(file) = queue.pop_front() {
-            if let Some(dependents) = reverse.get(file) {
-                for &dep in dependents {
-                    if affected.insert(dep.to_string()) {
-                        queue.push_back(dep);
-                    }
-                }
-            }
-        }
-
-        affected
+        let dag: Vec<(String, Vec<String>)> = self
+            .deps
+            .iter()
+            .map(|(k, v)| (k.clone(), v.iter().cloned().collect()))
+            .collect();
+        specforge_graph::compute_invalidation_set(&dag, changed_files)
     }
 
     /// Detect import cycles using Tarjan's SCC algorithm.

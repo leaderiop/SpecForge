@@ -671,6 +671,9 @@ fn diagnostic_to_lsp(diag: &specforge_common::Diagnostic, content: Option<&str>)
         range,
         // C4-10: editors can render this as a "view docs" link; the target
         // page is generated from the `specforge explain` catalog.
+        code: Some(NumberOrString::String(diag.code.clone())),
+        // C4-10: editors can render this as a "view docs" link; the target
+        // page is generated from the `specforge explain` catalog.
         code_description: Url::parse(&format!(
             "https://github.com/specforge/specforge/blob/main/docs/diagnostics.md#{}",
             diag.code.to_lowercase()

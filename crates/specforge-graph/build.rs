@@ -5,7 +5,6 @@ use std::path::{Path, PathBuf};
 #[derive(Serialize)]
 struct GraphExport {
     entities: Vec<ExportedEntity>,
-    timestamp: String,
 }
 
 #[derive(Serialize)]
@@ -74,10 +73,10 @@ fn main() {
         }
     }
 
-    let export = GraphExport {
-        entities,
-        timestamp: chrono_lite_now(),
-    };
+    // C5-05: no wall-clock timestamp — it defeated incremental reuse of
+    // graph.json by dirtying the file on every rebuild. Content is derived
+    // solely from spec/, so the output is reproducible.
+    let export = GraphExport { entities };
 
     // Write to target/specforge/graph.json
     let target_dir = find_target_dir();
@@ -129,60 +128,4 @@ fn find_target_dir() -> PathBuf {
         }
     }
     PathBuf::from("target")
-}
-
-fn chrono_lite_now() -> String {
-    // ISO 8601 UTC timestamp without pulling in chrono
-    let secs = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .unwrap_or_default()
-        .as_secs();
-
-    let days = secs / 86400;
-    let time = secs % 86400;
-    let h = time / 3600;
-    let m = (time % 3600) / 60;
-    let s = time % 60;
-
-    // Days since epoch → year/month/day (simplified Gregorian)
-    let mut y = 1970i64;
-    let mut remaining = days as i64;
-    loop {
-        let year_days = if y % 4 == 0 && (y % 100 != 0 || y % 400 == 0) {
-            366
-        } else {
-            365
-        };
-        if remaining < year_days {
-            break;
-        }
-        remaining -= year_days;
-        y += 1;
-    }
-    let leap = y % 4 == 0 && (y % 100 != 0 || y % 400 == 0);
-    let month_days = [
-        31,
-        if leap { 29 } else { 28 },
-        31,
-        30,
-        31,
-        30,
-        31,
-        31,
-        30,
-        31,
-        30,
-        31,
-    ];
-    let mut mo = 0;
-    for (i, &md) in month_days.iter().enumerate() {
-        if remaining < md as i64 {
-            mo = i + 1;
-            break;
-        }
-        remaining -= md as i64;
-    }
-    let d = remaining + 1;
-
-    format!("{y:04}-{mo:02}-{d:02}T{h:02}:{m:02}:{s:02}Z")
 }

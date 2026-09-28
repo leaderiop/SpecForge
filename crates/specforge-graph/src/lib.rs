@@ -5,6 +5,6 @@ pub use cycles::{CycleOptions, find_cycles};
 pub mod rename;
 
 pub use build::{GraphConfig, build_graph, build_graph_with_config};
-pub use graph::{Edge, Graph, Node};
+pub use graph::{Edge, Graph, Node, compute_invalidation_set};
 pub use specforge_common::{Diagnostic, Severity, SourceSpan};
 pub use specforge_parser::{EntityId, EntityKind, FieldMap, FieldValue, SpecFile};

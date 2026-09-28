@@ -87,7 +87,17 @@ impl Graph {
         }
     }
 
+    /// Insert an edge. Idempotent on the (source, target, label) triple —
+    /// duplicate edges corrupted cycle reporting and inflated renderers
+    /// (C5-09/C5-02).
     pub fn add_edge(&mut self, edge: Edge) {
+        if self
+            .edges
+            .iter()
+            .any(|e| e.source == edge.source && e.target == edge.target && e.label == edge.label)
+        {
+            return;
+        }
         let idx = self.edges.len();
         self.source_index.entry(edge.source).or_default().push(idx);
         self.target_index.entry(edge.target).or_default().push(idx);
@@ -282,44 +292,6 @@ impl Graph {
         Some(sub)
     }
 
-    /// Compute the set of files that need rebuilding when `changed_file` changes.
-    /// `import_dag` maps each file to the files it imports (dependencies).
-    /// Returns the changed file plus all transitive reverse-dependents.
-    pub fn invalidation_set(
-        &self,
-        changed_file: &str,
-        import_dag: &[(String, Vec<String>)],
-    ) -> HashSet<String> {
-        // Build reverse dependency map: file -> files that import it
-        let mut reverse_deps: HashMap<&str, Vec<&str>> = HashMap::new();
-        for (file, deps) in import_dag {
-            for dep in deps {
-                reverse_deps
-                    .entry(dep.as_str())
-                    .or_default()
-                    .push(file.as_str());
-            }
-        }
-
-        // BFS from changed_file through reverse dependencies
-        let mut affected = HashSet::new();
-        let mut queue = VecDeque::new();
-        affected.insert(changed_file.to_string());
-        queue.push_back(changed_file);
-
-        while let Some(file) = queue.pop_front() {
-            if let Some(dependents) = reverse_deps.get(file) {
-                for dep in dependents {
-                    if affected.insert(dep.to_string()) {
-                        queue.push_back(dep);
-                    }
-                }
-            }
-        }
-
-        affected
-    }
-
     /// Resolve reference fields into graph edges and return E001
     /// diagnostics for any unresolved references.
     ///
@@ -467,6 +439,66 @@ impl Graph {
 
         false
     }
+}
+
+/// Canonical key for a cycle: the sorted member list, so rotations and
+/// parallel-edge re-reports collapse to one entry (C5-02).
+fn canonical_cycle_key(cycle: &[Sym]) -> Vec<String> {
+    let mut members: Vec<String> = cycle.iter().map(|s| s.as_str().to_string()).collect();
+    members.sort_unstable();
+    members.dedup();
+    members
+}
+
+/// Compute the invalidation set for a batch of changed files: each changed
+/// file plus all transitive reverse dependents (files that directly or
+/// indirectly import a changed file) through the import DAG.
+///
+/// Single implementation for the whole workspace (C5-03): `Graph` and
+/// `specforge_watch::ImportDag` both delegate here.
+pub fn compute_invalidation_set(
+    import_dag: &[(String, Vec<String>)],
+    changed_files: &[String],
+) -> HashSet<String> {
+    let mut reverse: HashMap<&str, Vec<&str>> = HashMap::new();
+    for (file, deps) in import_dag {
+        for dep in deps {
+            reverse.entry(dep.as_str()).or_default().push(file.as_str());
+        }
+    }
+
+    let mut affected = HashSet::new();
+    let mut queue = VecDeque::new();
+    for file in changed_files {
+        if affected.insert(file.clone()) {
+            queue.push_back(file.as_str());
+        }
+    }
+    while let Some(file) = queue.pop_front() {
+        if let Some(dependents) = reverse.get(file) {
+            for &dep in dependents {
+                if affected.insert(dep.to_string()) {
+                    queue.push_back(dep);
+                }
+            }
+        }
+    }
+    affected
+}
+
+impl Graph {
+    /// Compute the set of files that need rebuilding when `changed_file`
+    /// changes: the file plus all transitive reverse dependents.
+    ///
+    /// Thin wrapper over [`compute_invalidation_set`] — the single BFS
+    /// implementation (C5-03).
+    pub fn invalidation_set(
+        &self,
+        changed_file: &str,
+        import_dag: &[(String, Vec<String>)],
+    ) -> HashSet<String> {
+        compute_invalidation_set(import_dag, &[changed_file.to_string()])
+    }
 
     /// Detect all cycles in the directed edge set using DFS.
     /// Returns a list of cycles, where each cycle is a Vec of node IDs forming the path.
@@ -549,6 +581,11 @@ impl Graph {
                 true // keep all longer cycles and self-loops
             }
         });
+
+        // C5-02: dedupe by canonical member set. Parallel edges used to
+        // report the same cycle once per duplicate edge, and the DFS reports each
+        cycles.sort_by_cached_key(|c| canonical_cycle_key(c));
+        cycles.dedup_by(|a, b| canonical_cycle_key(a) == canonical_cycle_key(b));
 
         cycles
     }
