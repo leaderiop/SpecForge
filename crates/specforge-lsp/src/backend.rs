@@ -336,6 +336,20 @@ impl Backend {
             });
         }
 
+        // F1 syntax-only fast path (C4-07): when the edited file has parse
+        // errors, the graph is broken — validator, registry checks, and Wasm
+        // rule dispatch would evaluate garbage on every keystroke. Publish
+        // the E001 layer only; full passes resume once it parses cleanly.
+        let edited_has_parse_errors = result.diagnostics.iter().any(|pd| {
+            pd.code == "E001"
+                && pd
+                    .span
+                    .as_ref()
+                    .map(|s| s.file.as_str() == file_path)
+                    .unwrap_or(false)
+        });
+
+        if !edited_has_parse_errors {
         // Validator diagnostics, grouped by each diagnostic's own file
         let validator_diags = specforge_validator::validate(state.graph_mut());
         for vd in &validator_diags {
@@ -487,6 +501,10 @@ impl Backend {
             let entities = specforge_emitter::build_validation_entities(state.graph());
             for (pattern, extension) in validation_patterns {
                 if pattern.check
+                    // C6-14: intentionally skipped — cycle detection requires
+                    // the full graph and is enforced by build_graph's W061,
+                    // which already flows through the pipeline above; running
+                    // it here would duplicate the diagnostics.
                     == specforge_registry::validation_engine::ValidationPatternKind::CycleDetection
                 {
                     continue;
@@ -530,6 +548,8 @@ impl Backend {
                 }
             }
         }
+
+        } // end syntax-only fast path gate
 
         // Ensure the triggering file always has an entry (even if empty)
         // so its diagnostics get cleared when there are no errors.

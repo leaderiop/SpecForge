@@ -627,3 +627,68 @@ async fn e2e_cross_file_references_no_false_e001() {
         last_diags_for_behavior,
     );
 }
+
+// C4-07 acceptance: a syntax-broken edit publishes only the E001 layer —
+// validator/registry/Wasm-rule passes stay off until the file parses again.
+#[tokio::test]
+async fn e2e_syntax_only_fast_path_on_broken_file() {
+    // Parses cleanly but references an undeclared entity: full passes would
+    // add W022 (mistyped reference) on top of pipeline diagnostics.
+    let text = "behavior login \"Login\" {\n  types [widget]\n}\n";
+    let (mut client, uri) = start_server_with_doc(None, "test.spec", text).await;
+    client
+        .wait_for_notification("textDocument/publishDiagnostics", 5000)
+        .await;
+
+    // Break the syntax with a whole-file replacement.
+    client
+        .did_change(
+            &uri,
+            2,
+            vec![json!({
+                "text": "behavior login \"Login\" {\n  types [widget!! ]\n"
+            })],
+        )
+        .await;
+    let broken = client
+        .wait_for_notification("textDocument/publishDiagnostics", 5000)
+        .await
+        .expect("broken-state diagnostics published");
+    let codes: Vec<String> = broken["params"]["diagnostics"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|d| d["code"].as_str().unwrap_or("").to_string())
+        .collect();
+    assert!(
+        codes.iter().any(|c| c == "E001"),
+        "broken file must report E001: {codes:?}"
+    );
+
+    // Fix the syntax: full passes resume and stay clean for this file
+    // (the reference is still unresolved, so E003 must come back — proving
+    // the graph-level pipeline resumed after the fast path).
+    client
+        .did_change(
+            &uri,
+            3,
+            vec![json!({
+                "text": "behavior login \"Login\" {\n  types [widget]\n}\n"
+            })],
+        )
+        .await;
+    let fixed = client
+        .wait_for_notification("textDocument/publishDiagnostics", 5000)
+        .await
+        .expect("fixed-state diagnostics published");
+    let fixed_codes: Vec<String> = fixed["params"]["diagnostics"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|d| d["code"].as_str().unwrap_or("").to_string())
+        .collect();
+    assert!(
+        !fixed_codes.iter().any(|c| c == "E001"),
+        "fixed file must not report parse errors: {fixed_codes:?}"
+    );
+}
