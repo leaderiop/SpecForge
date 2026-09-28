@@ -29,13 +29,13 @@ pub use diagnostic_fmt::{
     MAX_DIAGNOSTICS, diagnostic_summary, format_diagnostic, serialize_diagnostics,
     truncate_diagnostics,
 };
+pub use dot::emit_dot_with_styles;
 pub use emit::{EmitFormat, EmitOptions, emit};
 pub use error::EmitterError;
 pub use exit_code::{compute_exit_code, compute_exit_code_strict};
+pub use json::SCHEMA_VERSION;
 pub use plan::{PlanValidationResult, serialize_plan_result, validate_plan};
 pub use query::query;
-pub use dot::emit_dot_with_styles;
-pub use json::SCHEMA_VERSION;
 pub use schema::{
     GraphProtocolSchema, SchemaCacheEntry, SchemaCompatibility, SchemaEdgeType, SchemaEntityKind,
     SchemaExtensionInfo, SchemaField, SchemaMigration, SchemaMigrationChange, SchemaVersion,

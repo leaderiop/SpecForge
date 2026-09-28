@@ -268,25 +268,26 @@ impl Backend {
                 st.take_pipeline()
             };
             tokio::task::spawn_blocking(move || {
-                let result = pipeline.update_open_file(
-                    &file_path_owned,
-                    Some(&content_owned),
-                    |f: &str| std::fs::read_to_string(f).ok(),
-                );
+                let result =
+                    pipeline.update_open_file(&file_path_owned, Some(&content_owned), |f: &str| {
+                        std::fs::read_to_string(f).ok()
+                    });
                 (pipeline, result)
             })
             .await
         };
-        let (mut pipeline, result) = match joined {
+        let (pipeline, result) = match joined {
             Ok(pair) => pair,
             Err(e) => {
                 // Blocking task panicked: report as an E001 on the file.
                 let mut m = std::collections::HashMap::new();
-                let mut diag = Diagnostic::default();
-                diag.severity = Some(DiagnosticSeverity::ERROR);
-                diag.code = Some(NumberOrString::String("E001".into()));
-                diag.source = Some("specforge".into());
-                diag.message = format!("internal error during reparse: {e}");
+                let diag = Diagnostic {
+                    severity: Some(DiagnosticSeverity::ERROR),
+                    code: Some(NumberOrString::String("E001".into())),
+                    source: Some("specforge".into()),
+                    message: format!("internal error during reparse: {e}"),
+                    ..Default::default()
+                };
                 m.insert(uri.clone(), vec![diag]);
                 return m;
             }
@@ -1435,7 +1436,8 @@ impl LanguageServer for Backend {
             let line_texts: Vec<&str> = file_text.lines().collect();
             let first_line = edit.line.saturating_sub(1); // 1-indexed -> 0-indexed
             let last_line = edit_line_end(&file_text, first_line);
-            for line_idx in first_line..=last_line.min(file_text.lines().count().saturating_sub(1)) {
+            for line_idx in first_line..=last_line.min(file_text.lines().count().saturating_sub(1))
+            {
                 let Some(line_text) = line_texts.get(line_idx) else {
                     continue;
                 };

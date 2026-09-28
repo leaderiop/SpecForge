@@ -775,8 +775,7 @@ fn main() {
             publish,
             format,
         } => {
-            let exit_code =
-                export::run_schema(&path, kind.as_deref(), publish, Some(&format));
+            let exit_code = export::run_schema(&path, kind.as_deref(), publish, Some(&format));
             std::process::exit(exit_code);
         }
         Commands::Model {

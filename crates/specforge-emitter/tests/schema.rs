@@ -1,12 +1,13 @@
 use specforge_common::{SourceSpan, Sym};
-use specforge_emitter::{EmitFormat, 
-    GraphProtocolSchema, SchemaCacheEntry, SchemaEdgeType, SchemaEntityKind, SchemaExtensionInfo,
-    SchemaField, SchemaMigration, SchemaMigrationChange, SchemaVersion, SchemaVersionError,
-    compute_schema_version, detect_breaking_with_diagnostics, diff_schemas, diff_schemas_optional,
-    emit_brief_scoped_with_schema, emit_brief_with_schema, emit_context_scoped_with_schema,
-    emit_context_with_schema, emit_json, emit_json_scoped_with_schema, emit_json_with_schema,
-    emit_schema, emit_schema_for_kind, generate_schema, load_schema_cache, negotiate_version,
-    persist_schema_cache, publish_json_schema_format,
+use specforge_emitter::{
+    EmitFormat, GraphProtocolSchema, SchemaCacheEntry, SchemaEdgeType, SchemaEntityKind,
+    SchemaExtensionInfo, SchemaField, SchemaMigration, SchemaMigrationChange, SchemaVersion,
+    SchemaVersionError, compute_schema_version, detect_breaking_with_diagnostics, diff_schemas,
+    diff_schemas_optional, emit_brief_scoped_with_schema, emit_brief_with_schema,
+    emit_context_scoped_with_schema, emit_context_with_schema, emit_json,
+    emit_json_scoped_with_schema, emit_json_with_schema, emit_schema, emit_schema_for_kind,
+    generate_schema, load_schema_cache, negotiate_version, persist_schema_cache,
+    publish_json_schema_format,
 };
 use specforge_graph::{Edge, Graph, Node};
 use specforge_parser::{EntityId, EntityKind, FieldMap};

@@ -76,7 +76,11 @@ fn specforge_json_with_inference_and_registries_loads() {
         }"#,
     )
     .unwrap();
-    std::fs::write(root.join("src/a.spec"), "type Widget {\n  id string @unique\n}\n").unwrap();
+    std::fs::write(
+        root.join("src/a.spec"),
+        "type Widget {\n  id string @unique\n}\n",
+    )
+    .unwrap();
 
     let bin = env!("CARGO_BIN_EXE_specforge");
     let out = std::process::Command::new(bin)

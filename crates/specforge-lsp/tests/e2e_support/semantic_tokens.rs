@@ -96,10 +96,13 @@ async fn e2e_semantic_tokens_multibyte_lines_use_utf16() {
     // The multibyte token "–ü" sits at UTF-16 col 9 with UTF-16 length 2.
     // Byte-column emission would report col 9 len 5; UTF-16 emission gives
     // col 9 len 2. Line 0 also ends with the keyword token (0, 0, 8).
-    let tok_on_line0: Vec<(u64, u64, u64)> =
-        decoded.iter().filter(|(l, _, _)| *l == 0).copied().collect();
+    let tok_on_line0: Vec<(u64, u64, u64)> = decoded
+        .iter()
+        .filter(|(l, _, _)| *l == 0)
+        .copied()
+        .collect();
     assert!(
-        tok_on_line0.iter().any(|t| *t == (0, 9, 2)),
+        tok_on_line0.contains(&(0, 9, 2)),
         "the –ü token must be UTF-16 col 9 len 2 (byte emission: len 5); got {:?}",
         tok_on_line0
     );
@@ -108,7 +111,10 @@ async fn e2e_semantic_tokens_multibyte_lines_use_utf16() {
     let mut prev = (0u64, 0u64);
     for (l, c, _) in &decoded {
         if *l == prev.0 {
-            assert!(*c >= prev.1, "deltaStart must be non-decreasing within a line");
+            assert!(
+                *c >= prev.1,
+                "deltaStart must be non-decreasing within a line"
+            );
         }
         prev = (*l, *c);
     }

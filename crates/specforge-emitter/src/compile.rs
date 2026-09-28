@@ -757,14 +757,9 @@ fn detect_cycles(
         })
         .collect();
     let seeds: Vec<String> = nodes.iter().map(|n| n.id.raw.to_string()).collect();
-    let (cycle_members_set, _) = specforge_graph::find_cycles(
-        &seeds,
-        &btree_adj,
-        specforge_graph::CycleOptions::default(),
-    );
-    let cycle_members: HashSet<&str> =
-        cycle_members_set.iter().map(|s| s.as_str()).collect();
-
+    let (cycle_members_set, _) =
+        specforge_graph::find_cycles(&seeds, &btree_adj, specforge_graph::CycleOptions::default());
+    let cycle_members: HashSet<&str> = cycle_members_set.iter().map(|s| s.as_str()).collect();
 
     let mut diagnostics = Vec::new();
     let mut sorted_members: Vec<&str> = cycle_members.into_iter().collect();

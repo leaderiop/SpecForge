@@ -26,7 +26,10 @@ pub fn emit_dot(graph: &Graph) -> String {
 /// Emit DOT with per-kind styles from the registry: extensions declare
 /// `dot_shape`/`dot_color`/`dot_fillcolor` on their entity kinds (C13-00) and
 /// the emitter honors them. Kinds without declarations keep the defaults.
-pub fn emit_dot_with_styles(graph: &Graph, kind_registry: Option<&specforge_registry::KindRegistry>) -> String {
+pub fn emit_dot_with_styles(
+    graph: &Graph,
+    kind_registry: Option<&specforge_registry::KindRegistry>,
+) -> String {
     let mut out = String::new();
     writeln!(out, "digraph specforge {{").unwrap();
     writeln!(out, "  rankdir=LR;").unwrap();
@@ -35,7 +38,10 @@ pub fn emit_dot_with_styles(graph: &Graph, kind_registry: Option<&specforge_regi
     for node in graph.nodes() {
         let mut style = String::new();
         if let Some(registry) = kind_registry
-            && let Some(entry) = registry.iter().find(|(name, _)| *name == node.kind.raw.as_str()).map(|(_, e)| e)
+            && let Some(entry) = registry
+                .iter()
+                .find(|(name, _)| *name == node.kind.raw.as_str())
+                .map(|(_, e)| e)
         {
             if let Some(shape) = &entry.dot_shape {
                 style.push_str(&format!(" shape=\"{}\"", escape_dot(shape)));

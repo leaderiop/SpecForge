@@ -98,7 +98,15 @@ pub fn find_cycles(
 
     for seed in seeds {
         if color.get(seed.as_str()).copied() == Some(Color::White) {
-            dfs(seed, adj, &mut color, &mut members, &mut paths, &mut path, options.report_paths);
+            dfs(
+                seed,
+                adj,
+                &mut color,
+                &mut members,
+                &mut paths,
+                &mut path,
+                options.report_paths,
+            );
         }
     }
 
@@ -112,9 +120,7 @@ mod tests {
     fn adj(edges: &[(&str, &str)]) -> BTreeMap<String, BTreeSet<String>> {
         let mut adj: BTreeMap<String, BTreeSet<String>> = BTreeMap::new();
         for (a, b) in edges {
-            adj.entry(a.to_string())
-                .or_default()
-                .insert(b.to_string());
+            adj.entry(a.to_string()).or_default().insert(b.to_string());
         }
         adj
     }
@@ -133,11 +139,7 @@ mod tests {
     fn feeder_into_cycle_is_not_a_member() {
         // feeder -> a -> b -> a: the feeder leads INTO the cycle.
         let a = adj(&[("feeder", "a"), ("a", "b"), ("b", "a")]);
-        let seeds = vec![
-            "a".to_string(),
-            "b".to_string(),
-            "feeder".to_string(),
-        ];
+        let seeds = vec!["a".to_string(), "b".to_string(), "feeder".to_string()];
         let (members, _) = find_cycles(&seeds, &a, CycleOptions::default());
         assert!(members.contains("a") && members.contains("b"));
         assert!(!members.contains("feeder"), "feeder must not be a member");

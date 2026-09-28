@@ -4,8 +4,8 @@
 //! in `tools/` + `operations/` is how agents end up calling hidden params or
 //! sending ignored ones — this test fails on either direction.
 
-use serde_json::json;
 use serde_json::Value;
+use serde_json::json;
 
 /// Records which top-level argument keys a handler touches.
 #[derive(Default)]
@@ -56,18 +56,48 @@ fn advertised_properties() -> std::collections::BTreeMap<String, Vec<String>> {
 /// set will touch a key the schema does not list.
 fn handler_read_keys(tool_name: &str, dispatch: impl Fn(&ArgSpy) -> Value) -> Vec<String> {
     let probe: Value = [
-        ("entity_id", "@specforge/product"), ("depth", "0"), ("format", "graph"),
-        ("include_coverage", "false"), ("path", "/nonexistent-probe-root"),
-        ("severity_filter", "info"), ("use_cached", "true"), ("pass", "coverage"),
-        ("strict", "false"), ("test_results", ""), ("scope", ""), ("max_tokens", "1"),
-        ("plan", "{}"), ("query", ""), ("limit", "1"), ("field", ""), ("value", ""),
-        ("references", ""), ("kind", ""), ("group_by", ""), ("fields", "[]"),
-        ("extension", ""), ("root", ""), ("file", ""), ("new_name", ""),
-        ("specifier", ""), ("name", ""), ("force", "false"), ("check", "false"),
-        ("write", "false"), ("from_version", ""), ("to_version", ""),
-        ("collector", ""), ("action", "status"), ("agent", ""),
-        ("source_roots", "[]"), ("source_file", ""), ("entities_produced", "[]"),
-        ("session_id", ""), ("status", ""), ("file_path", ""), ("paths", "[]"),
+        ("entity_id", "@specforge/product"),
+        ("depth", "0"),
+        ("format", "graph"),
+        ("include_coverage", "false"),
+        ("path", "/nonexistent-probe-root"),
+        ("severity_filter", "info"),
+        ("use_cached", "true"),
+        ("pass", "coverage"),
+        ("strict", "false"),
+        ("test_results", ""),
+        ("scope", ""),
+        ("max_tokens", "1"),
+        ("plan", "{}"),
+        ("query", ""),
+        ("limit", "1"),
+        ("field", ""),
+        ("value", ""),
+        ("references", ""),
+        ("kind", ""),
+        ("group_by", ""),
+        ("fields", "[]"),
+        ("extension", ""),
+        ("root", ""),
+        ("file", ""),
+        ("new_name", ""),
+        ("specifier", ""),
+        ("name", ""),
+        ("force", "false"),
+        ("check", "false"),
+        ("write", "false"),
+        ("from_version", ""),
+        ("to_version", ""),
+        ("collector", ""),
+        ("action", "status"),
+        ("agent", ""),
+        ("source_roots", "[]"),
+        ("source_file", ""),
+        ("entities_produced", "[]"),
+        ("session_id", ""),
+        ("status", ""),
+        ("file_path", ""),
+        ("paths", "[]"),
     ]
     .iter()
     .map(|(k, v)| (k.to_string(), Value::String(v.to_string())))
@@ -92,7 +122,9 @@ fn trace_no_longer_advertises_plan() {
 #[test]
 fn format_advertises_path_and_write_not_paths() {
     let tools = advertised_properties();
-    let format = tools.get("specforge.format").expect("format tool advertised");
+    let format = tools
+        .get("specforge.format")
+        .expect("format tool advertised");
     assert!(format.iter().any(|p| p == "path"), "format reads path");
     assert!(format.iter().any(|p| p == "write"), "format reads write");
     assert!(
@@ -113,7 +145,9 @@ fn operation_tools_advertise_path() {
         "specforge.validate",
         "specforge.format",
     ] {
-        let props = tools.get(name).unwrap_or_else(|| panic!("{name} advertised"));
+        let props = tools
+            .get(name)
+            .unwrap_or_else(|| panic!("{name} advertised"));
         assert!(
             props.iter().any(|p| p == "path"),
             "{name} resolves its root via project_root_of (reads 'path') but does not advertise it"
@@ -136,7 +170,9 @@ fn query_advertises_format_and_coverage() {
 #[test]
 fn validate_advertises_severity_filter_and_cache() {
     let tools = advertised_properties();
-    let validate = tools.get("specforge.validate").expect("validate advertised");
+    let validate = tools
+        .get("specforge.validate")
+        .expect("validate advertised");
     for expected in ["severity_filter", "use_cached"] {
         assert!(
             validate.iter().any(|p| p == expected),

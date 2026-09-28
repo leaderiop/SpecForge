@@ -1,5 +1,5 @@
-use assert_cmd::Command;
 use crate::e2e_fixtures::*;
+use assert_cmd::Command;
 use specforge_test_macros::test as specforge_test;
 
 // --- Phase 1d: Schema command tests ---
@@ -252,12 +252,21 @@ fn schema_publish_describes_the_requested_format() {
     std::fs::write(root.join("src/a.spec"), "type W { id string @unique }").unwrap();
 
     let run = |fmt: &str| {
-        let out = Command::cargo_bin("specforge")
-            .unwrap()
-            .args(["schema", root.to_str().unwrap(), "--publish", "--format", fmt])
+        let out = Command::new(env!("CARGO_BIN_EXE_specforge"))
+            .args([
+                "schema",
+                root.to_str().unwrap(),
+                "--publish",
+                "--format",
+                fmt,
+            ])
             .output()
             .unwrap();
-        assert!(out.status.success(), "{fmt}: {}", String::from_utf8_lossy(&out.stderr));
+        assert!(
+            out.status.success(),
+            "{fmt}: {}",
+            String::from_utf8_lossy(&out.stderr)
+        );
         let v: serde_json::Value =
             serde_json::from_slice(&out.stdout).expect("published schema is JSON");
         v["properties"]["nodes"]["items"].clone()

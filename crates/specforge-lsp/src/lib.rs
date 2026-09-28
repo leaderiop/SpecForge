@@ -24,8 +24,9 @@ pub use document::DocumentBuffer;
 pub use grammar_cache::GrammarCache;
 pub use hover::{hover_field_info, hover_info, hover_info_with_registries};
 pub use navigation::{find_all_references, go_to_definition, goto_import_definition};
-pub use semantic_tokens::{byte_col_to_utf16, utf16_len,
-    MOD_DECLARATION, MOD_REFERENCE, SemanticToken, TOKEN_MODIFIERS, TOKEN_TYPES, classify_tokens,
+pub use semantic_tokens::{
+    MOD_DECLARATION, MOD_REFERENCE, SemanticToken, TOKEN_MODIFIERS, TOKEN_TYPES, byte_col_to_utf16,
+    classify_tokens, utf16_len,
 };
 pub use specforge_graph::rename::{RenameEdit, compute_rename_edits, prepare_rename};
 pub use state::LspState;

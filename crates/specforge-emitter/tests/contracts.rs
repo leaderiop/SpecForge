@@ -791,7 +791,10 @@ fn dot_emits_registry_declared_styles() {
         dot.contains("shape=\"hexagon\""),
         "registry shape emitted: {dot}"
     );
-    assert!(dot.contains("color=\"firebrick\""), "registry color emitted");
+    assert!(
+        dot.contains("color=\"firebrick\""),
+        "registry color emitted"
+    );
     assert!(
         dot.contains("fillcolor=\"#ffeeee\""),
         "registry fillcolor emitted"

@@ -797,7 +797,6 @@ pub fn detect_breaking_with_diagnostics(
 // Slice 6b: Version Negotiation — default to latest
 // ---------------------------------------------------------------------------
 
-#[allow(clippy::result_large_err)]
 // ---------------------------------------------------------------------------
 // Slice 3b: Scoped V2 Exports
 // ---------------------------------------------------------------------------
@@ -873,10 +872,7 @@ pub fn emit_schema_for_kind(
 /// Each format produces a different node shape (full / context / brief), so
 /// one schema cannot validate all exports. The `graph` (full) schema is the
 /// historical default.
-pub fn publish_json_schema_format(
-    schema: &GraphProtocolSchema,
-    format: EmitFormat,
-) -> String {
+pub fn publish_json_schema_format(schema: &GraphProtocolSchema, format: EmitFormat) -> String {
     let kind_names: Vec<Value> = schema
         .entity_kinds
         .iter()

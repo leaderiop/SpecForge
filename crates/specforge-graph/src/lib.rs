@@ -1,7 +1,7 @@
-pub mod cycles;
 mod build;
+pub mod cycles;
 mod graph;
-pub use cycles::{find_cycles, CycleOptions};
+pub use cycles::{CycleOptions, find_cycles};
 pub mod rename;
 
 pub use build::{GraphConfig, build_graph, build_graph_with_config};

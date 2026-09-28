@@ -6,7 +6,7 @@ use std::path::Path;
 use tempfile::TempDir;
 
 fn specforge() -> Command {
-    Command::cargo_bin("specforge").unwrap()
+    Command::new(env!("CARGO_BIN_EXE_specforge"))
 }
 
 fn seed(path: &Path) {
@@ -31,10 +31,8 @@ fn report(path: &Path, proven: bool, extra: Option<&str>) -> String {
     if let Some(orphan) = extra {
         json = json.trim_end_matches('}').to_string();
         json.push_str(
-            format!(
-                r#", "{orphan}": {{"tests":[{{"name":"orphan test","status":"pass"}}]}}}}}}"#
-            )
-            .as_str(),
+            format!(r#", "{orphan}": {{"tests":[{{"name":"orphan test","status":"pass"}}]}}}}}}"#)
+                .as_str(),
         );
     }
     std::fs::write(path.join("specforge-report.json"), &json).unwrap();
@@ -59,7 +57,11 @@ fn min_gate_passes_when_coverage_meets_threshold() {
         ])
         .output()
         .unwrap();
-    assert!(out.status.success(), "{}", String::from_utf8_lossy(&out.stderr));
+    assert!(
+        out.status.success(),
+        "{}",
+        String::from_utf8_lossy(&out.stderr)
+    );
 }
 
 #[test]
@@ -128,10 +130,7 @@ fn orphaned_test_records_warn_with_suggestion() {
         .unwrap();
     let stderr = String::from_utf8_lossy(&out.stderr);
     assert!(stderr.contains("W097"), "orphan warning emitted: {stderr}");
-    assert!(
-        stderr.contains("wodget"),
-        "names the orphaned id: {stderr}"
-    );
+    assert!(stderr.contains("wodget"), "names the orphaned id: {stderr}");
     assert!(
         stderr.contains("widget") && stderr.contains("did you mean"),
         "suggests the close match: {stderr}"
@@ -162,9 +161,12 @@ fn collect_ingests_report_and_warns_on_orphans() {
         ])
         .output()
         .unwrap();
-    assert!(out.status.success(), "{}", String::from_utf8_lossy(&out.stderr));
-    let stdout: serde_json::Value =
-        serde_json::from_slice(&out.stdout).expect("json output");
+    assert!(
+        out.status.success(),
+        "{}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+    let stdout: serde_json::Value = serde_json::from_slice(&out.stdout).expect("json output");
     assert_eq!(stdout["status"], "collected");
     assert_eq!(stdout["mapped_entries"], 1);
     assert_eq!(stdout["unmapped_entries"], 1);
@@ -177,7 +179,9 @@ fn collect_ingests_report_and_warns_on_orphans() {
     .unwrap();
     assert_eq!(report_json["runner"], "specforge-test");
     assert!(
-        report_json["results"]["widget"]["tests"].as_array().is_some_and(|t| !t.is_empty()),
+        report_json["results"]["widget"]["tests"]
+            .as_array()
+            .is_some_and(|t| !t.is_empty()),
         "widget's tests merged into the report"
     );
 

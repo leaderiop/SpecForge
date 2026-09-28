@@ -17,6 +17,7 @@ mod e2e_schema;
 mod e2e_trace;
 mod e2e_verify;
 mod export;
+mod export_version;
 mod extension_authoring;
 mod extensions;
 #[allow(deprecated)]
@@ -32,4 +33,3 @@ mod stats;
 mod trace;
 mod watch;
 mod watch_reload;
-mod export_version;

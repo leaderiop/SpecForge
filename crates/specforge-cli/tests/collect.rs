@@ -39,6 +39,7 @@ fn test_collect_with_explicit_collector() {
     )
     .unwrap();
 
+    // A report is required: collect without one errors (E019).
     specforge_cmd()
         .args([
             "collect",
@@ -48,8 +49,28 @@ fn test_collect_with_explicit_collector() {
             "rust",
         ])
         .assert()
+        .failure()
+        .stderr(predicate::str::contains("no report files found"));
+
+    // With a report, collect succeeds and prints the collected summary.
+    std::fs::write(
+        dir.path().join("runner-report.json"),
+        r#"{"entity_results":[]}"#,
+    )
+    .unwrap();
+    specforge_cmd()
+        .args([
+            "collect",
+            "--path",
+            dir.path().to_str().unwrap(),
+            "--collector",
+            "rust",
+            "--report",
+            dir.path().join("runner-report.json").to_str().unwrap(),
+        ])
+        .assert()
         .success()
-        .stdout(predicate::str::contains("collector: rust"));
+        .stdout(predicate::str::contains("collected 1 report file(s)"));
 }
 
 // B:collect_cli_command — verify unit "specforge collect without collector auto-detects"
@@ -62,12 +83,12 @@ fn test_collect_without_collector_no_auto_detect() {
     )
     .unwrap();
 
-    // No recognizable files → auto-detect fails with I013
+    // No reports found (and none passed) → E019 error.
     specforge_cmd()
         .args(["collect", "--path", dir.path().to_str().unwrap()])
         .assert()
         .failure()
-        .stderr(predicate::str::contains("no collector auto-detected"));
+        .stderr(predicate::str::contains("no report files found"));
 }
 
 // B:collect_cli_command — verify unit "specforge collect json format"

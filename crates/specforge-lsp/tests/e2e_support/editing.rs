@@ -210,7 +210,10 @@ async fn e2e_rename_multibyte_lines_utf16_columns() {
     // Rename "token" at line 0, col 6 (ASCII declaration line)
     let resp = client.rename(&uri, 0, 6, "jwt_token").await;
     let result = &resp["result"];
-    assert!(!result.is_null(), "rename succeeds with multibyte strings in file");
+    assert!(
+        !result.is_null(),
+        "rename succeeds with multibyte strings in file"
+    );
     let changes = result["changes"].as_object().unwrap();
     let mut saw_reference_edit = false;
     for (_uri, edits) in changes {

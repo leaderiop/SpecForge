@@ -4,7 +4,7 @@ use assert_cmd::Command;
 use tempfile::TempDir;
 
 fn specforge() -> Command {
-    Command::cargo_bin("specforge").unwrap()
+    Command::new(env!("CARGO_BIN_EXE_specforge"))
 }
 
 fn seed(path: &std::path::Path) {
@@ -43,7 +43,10 @@ fn schema_version_within_same_major_is_accepted() {
         String::from_utf8_lossy(&out.stderr)
     );
     let stdout = String::from_utf8_lossy(&out.stdout);
-    assert!(stdout.contains("\"schema_version\": \"1.0.0\""), "label applied");
+    assert!(
+        stdout.contains("\"schema_version\": \"1.0.0\""),
+        "label applied"
+    );
 }
 
 #[test]
@@ -63,6 +66,12 @@ fn schema_version_other_major_is_rejected_with_range() {
         .unwrap();
     assert_eq!(out.status.code(), Some(1));
     let stderr = String::from_utf8_lossy(&out.stderr);
-    assert!(stderr.contains("2.0.0"), "names the rejected version: {stderr}");
-    assert!(stderr.contains("incompatible major"), "explains the failure: {stderr}");
+    assert!(
+        stderr.contains("2.0.0"),
+        "names the rejected version: {stderr}"
+    );
+    assert!(
+        stderr.contains("incompatible major"),
+        "explains the failure: {stderr}"
+    );
 }

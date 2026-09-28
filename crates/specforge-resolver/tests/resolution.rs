@@ -1098,3 +1098,89 @@ fn same_id_different_kind_across_files_no_w063() {
         w063s
     );
 }
+
+// C3-06 acceptance: references resolve through the file's import graph;
+// out-of-import references still resolve but emit W099; unknown ids stay E003.
+mod import_visibility {
+    use specforge_resolver::linker::link_references;
+    use specforge_resolver::{ResolveConfig, resolve_project_with_config};
+    use std::path::Path;
+
+    fn write_project(root: &Path) {
+        std::fs::create_dir_all(root.join("types")).unwrap();
+        std::fs::create_dir_all(root.join("features")).unwrap();
+        // widget declares; behavior references it.
+        std::fs::write(
+            root.join("types/core.spec"),
+            "type widget {\n  id string @unique\n}\n",
+        )
+        .unwrap();
+        // feature file that DOES import types/core
+        std::fs::write(
+            root.join("features/imported.spec"),
+            "use \"../types/core\"\nbehavior uses_import \"BI\" {\n  types [widget]\n}\n",
+        )
+        .unwrap();
+        // feature file that does NOT import
+        std::fs::write(
+            root.join("features/unimported.spec"),
+            "behavior uses_global \"BG\" {\n  types [widget]\n}\n",
+        )
+        .unwrap();
+    }
+
+    fn warnings_for(root: &Path, file: &str) -> Vec<String> {
+        let mut config = ResolveConfig::default();
+        let _ = &mut config;
+        let project = resolve_project_with_config(root, &config);
+        let resolved_file = project
+            .files
+            .iter()
+            .find(|f| f.path.ends_with(file))
+            .unwrap_or_else(|| panic!("file {file} resolved"));
+        let (edges, diagnostics) = link_references(&project);
+        let _ = edges;
+        let _ = &resolved_file;
+        // Only the target file's own diagnostics (link_references runs
+        // project-wide).
+        let file_suffix = format!("/{}", file);
+        diagnostics
+            .iter()
+            .filter(|d| d.code == "W099")
+            .filter(|d| {
+                d.span
+                    .as_ref()
+                    .map(|s| {
+                        let f = s.file.as_str();
+                        f == file || f.ends_with(&file_suffix)
+                    })
+                    .unwrap_or(false)
+            })
+            .map(|d| d.message.clone())
+            .collect()
+    }
+
+    #[test]
+    fn imported_reference_resolves_without_warning() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        write_project(tmp.path());
+        let warnings = warnings_for(tmp.path(), "features/imported.spec");
+        assert!(
+            warnings.is_empty(),
+            "imported reference must not warn: {warnings:?}"
+        );
+    }
+
+    #[test]
+    fn out_of_import_reference_resolves_but_warns() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        write_project(tmp.path());
+        let warnings = warnings_for(tmp.path(), "features/unimported.spec");
+        assert!(
+            warnings
+                .iter()
+                .any(|m| m.contains("outside the file's import graph")),
+            "out-of-import reference must emit W099: {warnings:?}"
+        );
+    }
+}

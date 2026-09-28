@@ -67,9 +67,7 @@ pub fn run(
                     Some(near) => eprintln!(
                         "W097: test record references unknown entity '{entity_id}' (did you mean '{near}'?)"
                     ),
-                    None => eprintln!(
-                        "W097: test record references unknown entity '{entity_id}'"
-                    ),
+                    None => eprintln!("W097: test record references unknown entity '{entity_id}'"),
                 }
             }
         }
@@ -237,7 +235,9 @@ pub fn run(
             eprintln!("error[E048]: --min requires the coverage pass (pass=coverage or all)");
             return 2;
         };
-        let total = coverage_report.summary["testable_total"].as_u64().unwrap_or(0);
+        let total = coverage_report.summary["testable_total"]
+            .as_u64()
+            .unwrap_or(0);
         let proven = coverage_report.summary["discharge_funnel"]["entities_proven"]
             .as_u64()
             .unwrap_or(0);

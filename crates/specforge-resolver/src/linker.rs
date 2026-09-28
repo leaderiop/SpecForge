@@ -49,14 +49,68 @@ pub fn link_references(project: &ResolvedProject) -> (Vec<PendingEdge>, Vec<Diag
 
     let all_ids: Vec<&str> = entity_ids.keys().map(|s| s.as_str()).collect();
 
+    // C3-06: per-file visibility. A file may reference entities it declares,
+    // plus entities exported by the files it imports. The global index remains
+    // as a fallback, but a reference that only resolves globally now emits
+    // W099 (advisory — the edge is still created) instead of resolving
+    // silently. Deliberately permissive: an aliased selective import makes
+    // both the alias and the whole target's exports visible; tightening that
+    // is a follow-up once warning data exists.
+    let mut visible_by_file: HashMap<&str, std::collections::HashSet<String>> = HashMap::new();
+    for file in &project.files {
+        let scope = project.file_scopes.get(file.path.as_str());
+        let mut visible: std::collections::HashSet<String> = scope
+            .map(|s| s.declared.iter().cloned().collect())
+            .unwrap_or_default();
+        if project.file_scopes.contains_key(file.path.as_str()) {
+            for target in &file.import_targets {
+                if let Some(target_scope) = project.file_scopes.get(target) {
+                    visible.extend(target_scope.exported.iter().cloned());
+                }
+            }
+        }
+        // Selective imports with aliases: the alias is the referenceable name.
+        for import in &file.spec_file.imports {
+            if let Some(bindings) = &import.bindings {
+                for binding in bindings {
+                    if let Some(alias) = &binding.alias {
+                        visible.insert(alias.clone());
+                    }
+                }
+            }
+        }
+        visible_by_file.insert(file.path.as_str(), visible);
+    }
+
     // Walk all entities, find reference lists, and create edges
     for file in &project.files {
+        let visible = visible_by_file.get(file.path.as_str());
         for entity in &file.spec_file.entities {
             for entry in entity.fields.entries() {
                 if let FieldValue::ReferenceList(refs) = &entry.value {
                     for target_id in refs {
                         let target_sym = Sym::new(target_id);
                         if entity_ids.contains_key(&target_sym) {
+                            // Advisory visibility check (C3-06): known but not
+                            // imported means the file relies on global scope.
+                            let imported = visible
+                                .map(|v| v.contains(target_id.as_str()))
+                                .unwrap_or(true);
+                            if !imported {
+                                diagnostics.push(Diagnostic {
+                                    code: "W099".to_string(),
+                                    severity: Severity::Warning,
+                                    message: format!(
+                                        "reference '{}' in entity '{}' resolves outside the file's import graph",
+                                        target_id, entity.id.raw
+                                    ),
+                                    span: Some(entity.span.clone()),
+                                    suggestion: Some(format!(
+                                        "add `use \"...{}...\"` to make the dependency explicit",
+                                        target_id
+                                    )),
+                                });
+                            }
                             edges.push(PendingEdge {
                                 source: entity.id.raw,
                                 target: target_sym,
