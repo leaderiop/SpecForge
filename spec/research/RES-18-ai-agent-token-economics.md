@@ -4,9 +4,29 @@
 > **Date:** 2026-03-03
 >
 > **Measurement note:** the 75–86% savings figures in this research are
-> *projected estimates from analysis*, not measured benchmarks. No
-> measurement apparatus exists yet (see the north-star metric). Treat
-> them as hypotheses to falsify, not findings.
+> *projected estimates from analysis*, not measured benchmarks. Treat
+> them as hypotheses to falsify against the measured baseline below.
+>
+> **Measured baseline (2026-09-28, rev ~aceef6f + budget work):**
+> produced by `specforge export <root> --format <fmt> [--max-tokens N] | wc -c`
+> against the self-host corpus (`spec/`, 2.1k entities) and
+> `examples/todo-app`. Token estimates assume ~4 bytes/token for compact JSON.
+>
+> | Export (compact serialization) | spec/ corpus | todo-app |
+> |---|---|---|
+> | full JSON | 2,465,197 B (~616k tokens) | 59,996 B (~15k tokens) |
+> | context | 1,319,875 B (~330k tokens) | 54,535 B (~14k tokens) |
+> | brief | 623,855 B (~156k tokens) | 52,439 B (~13k tokens) |
+> | context @ max_tokens=4000 | **19,760 B (~4.9k tokens)** | — |
+> | context @ max_tokens=500 | **2,148 B (~537 tokens)** | — |
+> | brief @ max_tokens=500 | **2,185 B (~546 tokens)** | — |
+>
+> Reading: format choice (JSON → context → brief) cuts bytes 1.9×→4.0×;
+> the degree-centrality budget turns an unbounded 1.3 MB context pull into
+> a hard 4-5k-token answer (67× reduction) — the RES-18 "budget mechanism"
+> now exists and is measurable. Savings vs a naive whole-corpus dump are
+> real and bounded; the 75-86% agent-level figures remain projections
+> pending the first-attempt-accuracy eval.
 > **Priority:** CRITICAL
 > **Depends on:** RES-13 (market landscape), RES-15 (traceability model)
 > **Tags:** economics, ai-agents, context-engineering, cost-reduction

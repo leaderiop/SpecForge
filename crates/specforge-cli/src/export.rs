@@ -31,9 +31,6 @@ pub fn run(
 ) -> i32 {
     let ctx = pipeline::compile(path);
     let fmt = parse_format(format);
-    if max_tokens.is_some() && !budget_applies(fmt, no_schema) {
-        eprintln!("token budget applies only to JSON export");
-    }
 
     if no_schema || fmt == EmitFormat::Dot {
         let options = EmitOptions {
@@ -131,24 +128,8 @@ pub fn run_schema(path: &Path, kind: Option<&str>, publish: bool, format: Option
     }
 }
 
-/// The emitter honors `token_budget` only for JSON output without an embedded schema.
-fn budget_applies(format: EmitFormat, no_schema: bool) -> bool {
-    format == EmitFormat::Json && no_schema
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
 
-    #[test]
-    fn budget_applies_only_to_schemaless_json() {
-        assert!(budget_applies(EmitFormat::Json, true));
-        assert!(
-            !budget_applies(EmitFormat::Json, false),
-            "embedded-schema path ignores the budget"
-        );
-        assert!(!budget_applies(EmitFormat::Context, true));
-        assert!(!budget_applies(EmitFormat::Brief, true));
-        assert!(!budget_applies(EmitFormat::Dot, true));
     }
-}
