@@ -1,5 +1,6 @@
 mod contracts;
 mod events;
+mod freshness;
 mod invariants;
 mod lifecycle;
 mod notifications;
@@ -7,7 +8,6 @@ mod operations_mgmt;
 mod operations_mutation;
 mod prompts;
 mod protocol;
-mod freshness;
 mod resources;
 mod schema_reflection;
 mod subscriptions;

@@ -157,7 +157,7 @@ pub fn install_from_local(
         cache_dir,
         lock,
         skip_aot,
-        None, // local installs are unsigned
+        None,       // local installs are unsigned
         Vec::new(), // local manifests are not parsed for peers
     )
 }

@@ -115,15 +115,15 @@ pub fn emit(graph: &Graph, options: &EmitOptions<'_>) -> Result<String, EmitterE
     // truncating to the most central subgraph that fits (C1-10). Schema
     // definitions and DOT are not budgeted.
     let g = match options.token_budget {
-        Some(budget) if options.format != EmitFormat::Dot => {
-            budgeted_graph = crate::budget::filter_graph_within_budget(
-                g,
-                budget,
-                |sub| match (options.format, options.schema) {
-                    (EmitFormat::Json, Some(schema)) => {
-                        crate::schema::emit_json_with_schema(sub, schema)
-                    }
-                    (EmitFormat::Json, None) => crate::json::emit_json(sub),
+        // Schemaless JSON keeps its richer budget path: the payload embeds
+        // token_budget metadata (budget/estimate/truncated entities).
+        Some(budget) if options.format == EmitFormat::Json && options.schema.is_none() => {
+            return Ok(crate::budget::emit_json_with_budget(g, budget));
+        }
+        // Context/brief truncate to the most central subgraph that fits.
+        Some(budget) if matches!(options.format, EmitFormat::Context | EmitFormat::Brief) => {
+            budgeted_graph = crate::budget::filter_graph_within_budget(g, budget, |sub| {
+                match (options.format, options.schema) {
                     (EmitFormat::Context, Some(schema)) => {
                         crate::schema::emit_context_with_schema(sub, schema)
                     }
@@ -132,9 +132,9 @@ pub fn emit(graph: &Graph, options: &EmitOptions<'_>) -> Result<String, EmitterE
                         crate::schema::emit_brief_with_schema(sub, schema)
                     }
                     (EmitFormat::Brief, None) => crate::brief::emit_brief(sub),
-                    (EmitFormat::Dot, _) => crate::dot::emit_dot(g),
-                },
-            );
+                    _ => crate::json::emit_json(sub),
+                }
+            });
             &budgeted_graph
         }
         _ => g,

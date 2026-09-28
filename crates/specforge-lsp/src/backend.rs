@@ -350,135 +350,61 @@ impl Backend {
         });
 
         if !edited_has_parse_errors {
-        // Validator diagnostics, grouped by each diagnostic's own file
-        let validator_diags = specforge_validator::validate(state.graph_mut());
-        for vd in &validator_diags {
-            let diag_uri = vd
-                .span
-                .as_ref()
-                .map(|s| file_path_to_uri(s.file.as_str()))
-                .unwrap_or_else(|| uri.clone());
-            diags_by_file.entry(diag_uri).or_default().push({
-                let file_text = vd
-                    .span
-                    .as_ref()
-                    .and_then(|s| file_content(&state, s.file.as_str()));
-                diagnostic_to_lsp(vd, file_text.as_deref())
-            });
-        }
-
-        // E022: Mistyped reference diagnostics (wrong-kind targets)
-        let field_reg = state.field_registry();
-        let kind_reg = state.kind_registry();
-        if !field_reg.is_empty() && !kind_reg.is_empty() {
-            let graph = state.graph();
-            let node_kind_index: std::collections::HashMap<String, String> = graph
-                .nodes()
-                .iter()
-                .map(|n| (n.id.raw.to_string(), n.kind.raw.to_string()))
-                .collect();
-
-            let entity_refs: Vec<EntityRefInfo> = all_nodes
-                .iter()
-                .map(|(id, fields, span)| {
-                    let ref_fields: Vec<(String, Vec<String>)> = fields
-                        .entries()
-                        .iter()
-                        .filter_map(|entry| {
-                            if let specforge_parser::FieldValue::ReferenceList(refs) = &entry.value
-                            {
-                                Some((entry.key.to_string(), refs.clone()))
-                            } else {
-                                None
-                            }
-                        })
-                        .collect();
-                    let entity_kind = graph
-                        .node(id.as_str())
-                        .map(|n| n.kind.raw.to_string())
-                        .unwrap_or_default();
-                    (entity_kind, id.to_string(), ref_fields, span.clone())
-                })
-                .collect();
-
-            let w022_diags =
-                detect_mistyped_references(&entity_refs, field_reg, kind_reg, &node_kind_index);
-            for d in &w022_diags {
-                let diag_uri = d
+            // Validator diagnostics, grouped by each diagnostic's own file
+            let validator_diags = specforge_validator::validate(state.graph_mut());
+            for vd in &validator_diags {
+                let diag_uri = vd
                     .span
                     .as_ref()
                     .map(|s| file_path_to_uri(s.file.as_str()))
                     .unwrap_or_else(|| uri.clone());
                 diags_by_file.entry(diag_uri).or_default().push({
-                    let file_text = d
+                    let file_text = vd
                         .span
                         .as_ref()
                         .and_then(|s| file_content(&state, s.file.as_str()));
-                    diagnostic_to_lsp(d, file_text.as_deref())
-                });
-            }
-        }
-
-        // E024: Unknown entity kinds + W020: Unknown entity fields
-        // Only fire when registries are populated (not in structural-only mode).
-        if !kind_reg.is_empty() {
-            let graph = state.graph();
-
-            // E024: entity kinds not registered by any extension
-            let entity_kinds: Vec<(String, String, specforge_common::SourceSpan)> = graph
-                .nodes()
-                .iter()
-                .map(|n| {
-                    (
-                        n.kind.raw.to_string(),
-                        n.id.raw.to_string(),
-                        n.source_span.clone(),
-                    )
-                })
-                .collect();
-            let e024_diags = detect_unknown_entity_kinds(&entity_kinds, kind_reg, None);
-            for d in &e024_diags {
-                let diag_uri = d
-                    .span
-                    .as_ref()
-                    .map(|s| file_path_to_uri(s.file.as_str()))
-                    .unwrap_or_else(|| uri.clone());
-                diags_by_file.entry(diag_uri).or_default().push({
-                    let file_text = d
-                        .span
-                        .as_ref()
-                        .and_then(|s| file_content(&state, s.file.as_str()));
-                    diagnostic_to_lsp(d, file_text.as_deref())
+                    diagnostic_to_lsp(vd, file_text.as_deref())
                 });
             }
 
-            // W020: fields not registered for their entity kind
-            if !field_reg.is_empty() {
-                let entity_fields: Vec<(
-                    String,
-                    String,
-                    Vec<String>,
-                    specforge_common::SourceSpan,
-                )> = graph
+            // E022: Mistyped reference diagnostics (wrong-kind targets)
+            let field_reg = state.field_registry();
+            let kind_reg = state.kind_registry();
+            if !field_reg.is_empty() && !kind_reg.is_empty() {
+                let graph = state.graph();
+                let node_kind_index: std::collections::HashMap<String, String> = graph
                     .nodes()
                     .iter()
-                    .map(|n| {
-                        let field_names: Vec<String> = n
-                            .fields
+                    .map(|n| (n.id.raw.to_string(), n.kind.raw.to_string()))
+                    .collect();
+
+                let entity_refs: Vec<EntityRefInfo> = all_nodes
+                    .iter()
+                    .map(|(id, fields, span)| {
+                        let ref_fields: Vec<(String, Vec<String>)> = fields
                             .entries()
                             .iter()
-                            .map(|e| e.key.to_string())
+                            .filter_map(|entry| {
+                                if let specforge_parser::FieldValue::ReferenceList(refs) =
+                                    &entry.value
+                                {
+                                    Some((entry.key.to_string(), refs.clone()))
+                                } else {
+                                    None
+                                }
+                            })
                             .collect();
-                        (
-                            n.kind.raw.to_string(),
-                            n.id.raw.to_string(),
-                            field_names,
-                            n.source_span.clone(),
-                        )
+                        let entity_kind = graph
+                            .node(id.as_str())
+                            .map(|n| n.kind.raw.to_string())
+                            .unwrap_or_default();
+                        (entity_kind, id.to_string(), ref_fields, span.clone())
                     })
                     .collect();
-                let w020_diags = detect_unknown_entity_fields(&entity_fields, kind_reg, field_reg);
-                for d in &w020_diags {
+
+                let w022_diags =
+                    detect_mistyped_references(&entity_refs, field_reg, kind_reg, &node_kind_index);
+                for d in &w022_diags {
                     let diag_uri = d
                         .span
                         .as_ref()
@@ -493,14 +419,90 @@ impl Backend {
                     });
                 }
             }
-        }
 
-        // Extension validation rules (E006 missing required fields, W001-W011, etc.)
-        let validation_patterns = state.validation_patterns();
-        if !validation_patterns.is_empty() {
-            let entities = specforge_emitter::build_validation_entities(state.graph());
-            for (pattern, extension) in validation_patterns {
-                if pattern.check
+            // E024: Unknown entity kinds + W020: Unknown entity fields
+            // Only fire when registries are populated (not in structural-only mode).
+            if !kind_reg.is_empty() {
+                let graph = state.graph();
+
+                // E024: entity kinds not registered by any extension
+                let entity_kinds: Vec<(String, String, specforge_common::SourceSpan)> = graph
+                    .nodes()
+                    .iter()
+                    .map(|n| {
+                        (
+                            n.kind.raw.to_string(),
+                            n.id.raw.to_string(),
+                            n.source_span.clone(),
+                        )
+                    })
+                    .collect();
+                let e024_diags = detect_unknown_entity_kinds(&entity_kinds, kind_reg, None);
+                for d in &e024_diags {
+                    let diag_uri = d
+                        .span
+                        .as_ref()
+                        .map(|s| file_path_to_uri(s.file.as_str()))
+                        .unwrap_or_else(|| uri.clone());
+                    diags_by_file.entry(diag_uri).or_default().push({
+                        let file_text = d
+                            .span
+                            .as_ref()
+                            .and_then(|s| file_content(&state, s.file.as_str()));
+                        diagnostic_to_lsp(d, file_text.as_deref())
+                    });
+                }
+
+                // W020: fields not registered for their entity kind
+                if !field_reg.is_empty() {
+                    let entity_fields: Vec<(
+                        String,
+                        String,
+                        Vec<String>,
+                        specforge_common::SourceSpan,
+                    )> = graph
+                        .nodes()
+                        .iter()
+                        .map(|n| {
+                            let field_names: Vec<String> = n
+                                .fields
+                                .entries()
+                                .iter()
+                                .map(|e| e.key.to_string())
+                                .collect();
+                            (
+                                n.kind.raw.to_string(),
+                                n.id.raw.to_string(),
+                                field_names,
+                                n.source_span.clone(),
+                            )
+                        })
+                        .collect();
+                    let w020_diags =
+                        detect_unknown_entity_fields(&entity_fields, kind_reg, field_reg);
+                    for d in &w020_diags {
+                        let diag_uri = d
+                            .span
+                            .as_ref()
+                            .map(|s| file_path_to_uri(s.file.as_str()))
+                            .unwrap_or_else(|| uri.clone());
+                        diags_by_file.entry(diag_uri).or_default().push({
+                            let file_text = d
+                                .span
+                                .as_ref()
+                                .and_then(|s| file_content(&state, s.file.as_str()));
+                            diagnostic_to_lsp(d, file_text.as_deref())
+                        });
+                    }
+                }
+            }
+
+            // Extension validation rules (E006 missing required fields, W001-W011, etc.)
+            let validation_patterns = state.validation_patterns();
+            if !validation_patterns.is_empty() {
+                let entities = specforge_emitter::build_validation_entities(state.graph());
+                for (pattern, extension) in validation_patterns {
+                    if pattern.check
                     // C6-14: intentionally skipped — cycle detection requires
                     // the full graph and is enforced by build_graph's W061,
                     // which already flows through the pipeline above; running
@@ -509,46 +511,47 @@ impl Backend {
                 {
                     continue;
                 }
-                // Custom rules dispatch through the owning extension's Wasm
-                // module; declarative patterns evaluate host-side (Phase 5).
-                let rule_diags = if pattern.check
-                    == specforge_registry::validation_engine::ValidationPatternKind::Custom
-                {
-                    match state.runtime() {
-                        Some(runtime) if !extension.is_empty() => {
-                            let wasm_rules = specforge_emitter::compile::WasmCustomRules {
-                                runtime: runtime.as_ref(),
-                                extension,
-                                graph: state.graph(),
-                            };
-                            specforge_registry::validation_engine::execute_pattern(
-                                pattern,
-                                &entities,
-                                Some(&wasm_rules),
-                            )
+                    // Custom rules dispatch through the owning extension's Wasm
+                    // module; declarative patterns evaluate host-side (Phase 5).
+                    let rule_diags = if pattern.check
+                        == specforge_registry::validation_engine::ValidationPatternKind::Custom
+                    {
+                        match state.runtime() {
+                            Some(runtime) if !extension.is_empty() => {
+                                let wasm_rules = specforge_emitter::compile::WasmCustomRules {
+                                    runtime: runtime.as_ref(),
+                                    extension,
+                                    graph: state.graph(),
+                                };
+                                specforge_registry::validation_engine::execute_pattern(
+                                    pattern,
+                                    &entities,
+                                    Some(&wasm_rules),
+                                )
+                            }
+                            _ => Vec::new(),
                         }
-                        _ => Vec::new(),
-                    }
-                } else {
-                    specforge_registry::validation_engine::execute_pattern(pattern, &entities, None)
-                };
-                for d in &rule_diags {
-                    let diag_uri = d
-                        .span
-                        .as_ref()
-                        .map(|s| file_path_to_uri(s.file.as_str()))
-                        .unwrap_or_else(|| uri.clone());
-                    diags_by_file.entry(diag_uri).or_default().push({
-                        let file_text = d
+                    } else {
+                        specforge_registry::validation_engine::execute_pattern(
+                            pattern, &entities, None,
+                        )
+                    };
+                    for d in &rule_diags {
+                        let diag_uri = d
                             .span
                             .as_ref()
-                            .and_then(|s| file_content(&state, s.file.as_str()));
-                        diagnostic_to_lsp(d, file_text.as_deref())
-                    });
+                            .map(|s| file_path_to_uri(s.file.as_str()))
+                            .unwrap_or_else(|| uri.clone());
+                        diags_by_file.entry(diag_uri).or_default().push({
+                            let file_text = d
+                                .span
+                                .as_ref()
+                                .and_then(|s| file_content(&state, s.file.as_str()));
+                            diagnostic_to_lsp(d, file_text.as_deref())
+                        });
+                    }
                 }
             }
-        }
-
         } // end syntax-only fast path gate
 
         // Ensure the triggering file always has an entry (even if empty)

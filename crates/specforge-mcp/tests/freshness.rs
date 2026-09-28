@@ -5,7 +5,6 @@
 use serde_json::{Value, json};
 use specforge_mcp::McpServer;
 use std::fs;
-use std::time::Duration;
 use tempfile::TempDir;
 
 fn call(server: &mut McpServer, method: &str, params: Value) -> Value {

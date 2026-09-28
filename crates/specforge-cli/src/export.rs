@@ -128,8 +128,4 @@ pub fn run_schema(path: &Path, kind: Option<&str>, publish: bool, format: Option
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
 
-    }

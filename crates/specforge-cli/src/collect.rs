@@ -88,34 +88,40 @@ pub fn run(path: &Path, collector: Option<&str>, reports: &[PathBuf], format: &s
         // `{entity_results: [{entity_id, test_results: [{name, status:
         // "passed"|"failed"}]}]}`. Normalize before ingesting so the two
         // halves of the protocol finally meet (C11-00).
-        if report.get("entity_results").is_none() {
-            if let Some(entries) = report.get("entries").and_then(|v| v.as_array()) {
-                let mut by_entity: BTreeMap<String, Vec<serde_json::Value>> = BTreeMap::new();
-                for entry in entries {
-                    let Some(id) = entry.get("entity_id").and_then(|v| v.as_str()) else {
-                        continue;
-                    };
-                    let status = entry.get("status").and_then(|v| v.as_str()).unwrap_or("fail");
-                    let normalized = match status {
-                        "pass" => "passed",
-                        "fail" => "failed",
-                        other => other,
-                    };
-                    by_entity.entry(id.to_string()).or_default().push(serde_json::json!({
+        if report.get("entity_results").is_none()
+            && let Some(entries) = report.get("entries").and_then(|v| v.as_array())
+        {
+            let mut by_entity: BTreeMap<String, Vec<serde_json::Value>> = BTreeMap::new();
+            for entry in entries {
+                let Some(id) = entry.get("entity_id").and_then(|v| v.as_str()) else {
+                    continue;
+                };
+                let status = entry
+                    .get("status")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("fail");
+                let normalized = match status {
+                    "pass" => "passed",
+                    "fail" => "failed",
+                    other => other,
+                };
+                by_entity
+                    .entry(id.to_string())
+                    .or_default()
+                    .push(serde_json::json!({
                         "name": entry.get("test_name").and_then(|v| v.as_str()).unwrap_or(""),
                         "status": normalized,
                     }));
-                }
-                report = serde_json::json!({
-                    "entity_results": by_entity
-                        .into_iter()
-                        .map(|(entity_id, test_results)| serde_json::json!({
-                            "entity_id": entity_id,
-                            "test_results": test_results,
-                        }))
-                        .collect::<Vec<_>>(),
-                });
             }
+            report = serde_json::json!({
+                "entity_results": by_entity
+                    .into_iter()
+                    .map(|(entity_id, test_results)| serde_json::json!({
+                        "entity_id": entity_id,
+                        "test_results": test_results,
+                    }))
+                    .collect::<Vec<_>>(),
+            });
         }
 
         let ingested = specforge_wasm::ingest_collector_report(&report, &known_ids);

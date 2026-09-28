@@ -183,7 +183,7 @@ fn lock_file_roundtrip() {
                 wasm_hash: "abc123".to_string(),
                 key_id: None,
                 peer_dependencies: Vec::new(),
-},
+            },
             LockFileEntry {
                 name: "@specforge/governance".to_string(),
                 version: "2.0.0".to_string(),
@@ -191,7 +191,7 @@ fn lock_file_roundtrip() {
                 wasm_hash: "def456".to_string(),
                 key_id: None,
                 peer_dependencies: Vec::new(),
-},
+            },
         ],
     };
 
@@ -236,7 +236,7 @@ fn doctor_missing_binary() {
             wasm_hash: "abc".to_string(),
             key_id: None,
             peer_dependencies: Vec::new(),
-}],
+        }],
     };
     let results = run_doctor_check(&lock, dir.path(), |_| None, &HashMap::new());
     assert!(
@@ -263,7 +263,7 @@ fn doctor_stale_hash() {
             wasm_hash: "expected_hash".to_string(),
             key_id: None,
             peer_dependencies: Vec::new(),
-}],
+        }],
     };
     let results = run_doctor_check(
         &lock,
@@ -295,7 +295,7 @@ fn doctor_all_healthy() {
             wasm_hash: "correct".to_string(),
             key_id: None,
             peer_dependencies: Vec::new(),
-}],
+        }],
     };
     let installed: HashMap<String, String> = [("good-ext".to_string(), "1.0.0".to_string())]
         .into_iter()
@@ -349,7 +349,7 @@ fn refresh_updates_existing() {
             wasm_hash: "old".to_string(),
             key_id: None,
             peer_dependencies: Vec::new(),
-}],
+        }],
     };
 
     let mut manifest = default_manifest();
@@ -385,7 +385,7 @@ fn refresh_prunes_removed() {
                 wasm_hash: "h1".to_string(),
                 key_id: None,
                 peer_dependencies: Vec::new(),
-},
+            },
             LockFileEntry {
                 name: "@ext/remove".to_string(),
                 version: "1.0.0".to_string(),
@@ -393,7 +393,7 @@ fn refresh_prunes_removed() {
                 wasm_hash: "h2".to_string(),
                 key_id: None,
                 peer_dependencies: Vec::new(),
-},
+            },
         ],
     };
 

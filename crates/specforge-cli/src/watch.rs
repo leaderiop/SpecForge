@@ -184,10 +184,7 @@ pub fn run(path: &Path, json: bool) -> i32 {
         // The marker lives under the spec root's parent (the project root
         // when it matches); walking up is avoided — the spec root parent is
         // where .specforge/ and specforge.json live in standard layouts.
-        let marker_dir = spec_root
-            .parent()
-            .unwrap_or(&spec_root)
-            .join(".specforge");
+        let marker_dir = spec_root.parent().unwrap_or(&spec_root).join(".specforge");
         let _ = std::fs::create_dir_all(&marker_dir);
         let marker_tmp = marker_dir.join("graph.json.tmp");
         let marker = marker_dir.join("graph.json");

@@ -60,12 +60,13 @@ pub fn run(
             continue;
         }
 
-        let registry = match specforge_registry::find_registry_for_specifier(&entry.name, &registries)
-            .or_else(|| registries.first())
-        {
-            Some(r) => r,
-            None => continue,
-        };
+        let registry =
+            match specforge_registry::find_registry_for_specifier(&entry.name, &registries)
+                .or_else(|| registries.first())
+            {
+                Some(r) => r,
+                None => continue,
+            };
 
         // Resolve latest version
         let latest = match resolve_version(&entry.name, "*", &client, registry) {

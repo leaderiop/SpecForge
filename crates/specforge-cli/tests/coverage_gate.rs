@@ -212,7 +212,10 @@ fn todo_app_traceability_loop_stays_wired() {
             let path = e.path();
             let dest = to.join(e.file_name());
             if path.is_dir() {
-                if path.file_name().is_some_and(|n| n == "target" || n == "tests") {
+                if path
+                    .file_name()
+                    .is_some_and(|n| n == "target" || n == "tests")
+                {
                     continue;
                 }
                 out.extend(walk(&path, &dest));
@@ -240,9 +243,7 @@ fn todo_app_traceability_loop_stays_wired() {
     };
     copy(&example, tmp.path());
 
-    let specforge = || {
-        Command::new(env!("CARGO_BIN_EXE_specforge"))
-    };
+    let specforge = || Command::new(env!("CARGO_BIN_EXE_specforge"));
 
     // collect the committed fixture report
     let out = specforge()
@@ -255,7 +256,11 @@ fn todo_app_traceability_loop_stays_wired() {
         ])
         .output()
         .unwrap();
-    assert!(out.status.success(), "collect: {}", String::from_utf8_lossy(&out.stderr));
+    assert!(
+        out.status.success(),
+        "collect: {}",
+        String::from_utf8_lossy(&out.stderr)
+    );
 
     // analyze proves the recorded entities
     let out = specforge()
@@ -269,7 +274,11 @@ fn todo_app_traceability_loop_stays_wired() {
         ])
         .output()
         .unwrap();
-    assert!(out.status.success(), "analyze: {}", String::from_utf8_lossy(&out.stderr));
+    assert!(
+        out.status.success(),
+        "analyze: {}",
+        String::from_utf8_lossy(&out.stderr)
+    );
     let stdout = String::from_utf8_lossy(&out.stdout);
     assert!(
         stdout.contains("\"entities_proven\":5"),

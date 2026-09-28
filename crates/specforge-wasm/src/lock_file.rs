@@ -163,7 +163,10 @@ pub fn run_doctor_check(
                         Err(_) => results.push(DoctorStatus::PeerMismatch {
                             name: entry.name.clone(),
                             peer: peer.name.clone(),
-                            required: format!("{} (installed version '{}' is not semver)", peer.version, version),
+                            required: format!(
+                                "{} (installed version '{}' is not semver)",
+                                peer.version, version
+                            ),
                         }),
                     },
                     Err(_) => results.push(DoctorStatus::PeerMismatch {
@@ -259,8 +262,8 @@ mod tests {
                 source: "registry".to_string(),
                 wasm_hash: "abc123".to_string(),
                 key_id: None,
-                        peer_dependencies: Vec::new(),
-        }],
+                peer_dependencies: Vec::new(),
+            }],
         };
 
         write_lock_file(&lock, &path).unwrap();
@@ -286,16 +289,16 @@ mod tests {
                     source: "registry".to_string(),
                     wasm_hash: "abc123".to_string(),
                     key_id: None,
-                            peer_dependencies: Vec::new(),
-        },
+                    peer_dependencies: Vec::new(),
+                },
                 LockFileEntry {
                     name: "@specforge/governance".to_string(),
                     version: "1.0.0".to_string(),
                     source: "local".to_string(),
                     wasm_hash: "def456".to_string(),
                     key_id: None,
-                            peer_dependencies: Vec::new(),
-        },
+                    peer_dependencies: Vec::new(),
+                },
             ],
         };
 
@@ -339,8 +342,8 @@ mod tests {
                 source: "registry".to_string(),
                 wasm_hash: "abc".to_string(),
                 key_id: None,
-                        peer_dependencies: Vec::new(),
-        }],
+                peer_dependencies: Vec::new(),
+            }],
         };
 
         let results = run_doctor_check(&lock, dir.path(), |_| None, &HashMap::new());
@@ -369,8 +372,8 @@ mod tests {
                 source: "registry".to_string(),
                 wasm_hash: "expected_hash".to_string(),
                 key_id: None,
-                        peer_dependencies: Vec::new(),
-        }],
+                peer_dependencies: Vec::new(),
+            }],
         };
 
         let results = run_doctor_check(
@@ -402,8 +405,8 @@ mod tests {
                 source: "registry".to_string(),
                 wasm_hash: "correct_hash".to_string(),
                 key_id: None,
-                        peer_dependencies: Vec::new(),
-        }],
+                peer_dependencies: Vec::new(),
+            }],
         };
 
         let installed: HashMap<String, String> = [("good-ext".to_string(), "1.0.0".to_string())]
@@ -459,8 +462,8 @@ mod tests {
                 source: "registry".to_string(),
                 wasm_hash: "old_hash".to_string(),
                 key_id: None,
-                        peer_dependencies: Vec::new(),
-        }],
+                peer_dependencies: Vec::new(),
+            }],
         };
 
         let mut manifest = default_manifest();
@@ -550,7 +553,12 @@ mod peer_check_tests {
             .filter(|s| matches!(s, DoctorStatus::PeerMismatch { .. }))
             .collect();
         assert_eq!(mismatches.len(), 1, "one mismatch: {results:?}");
-        if let DoctorStatus::PeerMismatch { name, peer, required } = mismatches[0] {
+        if let DoctorStatus::PeerMismatch {
+            name,
+            peer,
+            required,
+        } = mismatches[0]
+        {
             assert_eq!(name, "@a/ext");
             assert_eq!(peer, "@b/lib", "names the actual peer (not self)");
             assert!(required.contains("2.0.0"));
@@ -565,9 +573,8 @@ mod peer_check_tests {
             entries: vec![entry("@a/ext", peers)],
             ..Default::default()
         };
-        let installed = std::collections::HashMap::from([
-            ("@a/ext".to_string(), "1.0.0".to_string()),
-        ]);
+        let installed =
+            std::collections::HashMap::from([("@a/ext".to_string(), "1.0.0".to_string())]);
         let results = run_doctor_check(&lock, Path::new("/nonexistent"), |_| None, &installed);
         assert!(
             !results
