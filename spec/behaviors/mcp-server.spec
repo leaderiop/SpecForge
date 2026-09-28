@@ -51,7 +51,7 @@ behavior mcp_initialize "MCP Initialize" {
   verify unit "initialization rejects tool calls before completion"
   verify unit "all core tools registered before accepting requests"
   verify unit "all core resources registered before accepting requests"
-  verify contract "requires/ensures consistency for MCP initialization"
+  verify contract "MCP Initialize: MCP initialization holds — compiler_api_available, wasm_runtime_available, capabilities_returned, surface_contributions_merged, mcp_initialized_emitted"
   tests ["crates/specforge-mcp/tests/lifecycle.rs"]
 }
 
@@ -84,7 +84,7 @@ behavior mcp_shutdown "MCP Shutdown" {
   verify unit "shutdown unsubscribes all active subscriptions"
   verify unit "shutdown rejects new tool calls during teardown"
   verify integration "shutdown completes within 5 seconds"
-  verify contract "requires/ensures consistency for MCP shutdown"
+  verify contract "MCP Shutdown: MCP shutdown holds — server_initialized, notifications_flushed, subscriptions_removed, wasm_engines_released, shutdown_emitted"
   tests ["crates/specforge-mcp/tests/lifecycle.rs"]
 }
 
@@ -117,7 +117,7 @@ behavior list_mcp_resources "List MCP Resources" {
   verify unit "returns all registered resource descriptors after extension load"
   verify unit "returns core-provided descriptors when no extensions installed"
   verify unit "reflects resources from newly loaded extension"
-  verify contract "requires/ensures consistency for listing MCP resources"
+  verify contract "List MCP Resources: listing MCP resources holds — server_initialized, complete_list_returned, disabled_excluded, discovery_emitted"
   tests ["crates/specforge-mcp/tests/resources.rs"]
 }
 
@@ -150,7 +150,7 @@ behavior list_mcp_tools "List MCP Tools" {
   verify unit "returns all registered tool descriptors after extension load"
   verify unit "returns core-provided descriptors when no extensions installed"
   verify unit "reflects tools from newly loaded extension"
-  verify contract "requires/ensures consistency for listing MCP tools"
+  verify contract "List MCP Tools: listing MCP tools holds — server_initialized, complete_list_returned, disabled_excluded, discovery_emitted"
   tests ["crates/specforge-mcp/tests/tools_core.rs"]
 }
 
@@ -179,7 +179,7 @@ behavior list_mcp_prompts "List MCP Prompts" {
   verify unit "returns all registered prompt descriptors after extension load"
   verify unit "returns core-provided descriptors when no extensions installed"
   verify unit "reflects prompts from newly loaded extension"
-  verify contract "requires/ensures consistency for listing MCP prompts"
+  verify contract "List MCP Prompts: listing MCP prompts holds — server_initialized, complete_list_returned, discovery_emitted"
   tests ["crates/specforge-mcp/tests/prompts.rs"]
 }
 
@@ -217,7 +217,7 @@ behavior expose_graph_as_mcp_resource "Expose Graph as MCP Resource" {
   verify unit "specforge://graph resource returns full Graph Protocol JSON"
   verify unit "resource refreshes after recompilation"
   verify unit "output includes embedded schema and schema_version"
-  verify contract "requires/ensures consistency for graph MCP resource"
+  verify contract "Expose Graph as MCP Resource: graph MCP resource holds — validation_complete_fired, graph_json_returned, resource_read_emitted"
 
   tests ["crates/specforge-mcp/tests/resources.rs"]
 }
@@ -250,7 +250,7 @@ behavior expose_schema_as_mcp_resource "Expose Schema as MCP Resource" {
 
   verify unit "specforge://schema resource returns GraphProtocolSchema JSON"
   verify unit "schema updates when extensions change"
-  verify contract "requires/ensures consistency for schema MCP resource"
+  verify contract "Expose Schema as MCP Resource: schema MCP resource holds — validation_complete_fired, schema_json_returned, resource_read_emitted"
 
   tests ["crates/specforge-mcp/tests/resources.rs"]
 }
@@ -282,7 +282,7 @@ behavior expose_context_as_mcp_resource "Expose Context as MCP Resource" {
 
   verify unit "specforge://context resource returns token-optimized format"
   verify unit "resource refreshes after recompilation"
-  verify contract "requires/ensures consistency for context MCP resource"
+  verify contract "Expose Context as MCP Resource: context MCP resource holds — validation_complete_fired, context_format_returned, resource_read_emitted"
 
   tests ["crates/specforge-mcp/tests/resources.rs"]
 }
@@ -314,7 +314,7 @@ behavior expose_brief_as_mcp_resource "Expose Brief as MCP Resource" {
 
   verify unit "specforge://brief resource returns minimal IDs and edges format"
   verify unit "resource refreshes after recompilation"
-  verify contract "requires/ensures consistency for brief MCP resource"
+  verify contract "Expose Brief as MCP Resource: brief MCP resource holds — validation_complete_fired, brief_format_returned, resource_read_emitted"
 
   tests ["crates/specforge-mcp/tests/resources.rs"]
 }
@@ -347,7 +347,7 @@ behavior expose_diagnostics_as_mcp_resource "Expose Diagnostics as MCP Resource"
   verify unit "specforge://diagnostics resource returns current DiagnosticBag as JSON"
   verify unit "resource updates after recompilation"
   verify unit "each diagnostic includes severity, code, message, file, and span"
-  verify contract "requires/ensures consistency for diagnostics MCP resource"
+  verify contract "Expose Diagnostics as MCP Resource: diagnostics MCP resource holds — validation_complete_fired, diagnostics_returned, resource_read_emitted"
 
   tests ["crates/specforge-mcp/tests/resources.rs"]
 }
@@ -381,7 +381,7 @@ behavior expose_entity_as_mcp_resource "Expose Per-Entity MCP Resource" {
   verify unit "non-existent entity_id returns 404 error"
   verify unit "malformed entity_id returns 400 error"
   verify unit "resource refreshes after recompilation"
-  verify contract "requires/ensures consistency for per-entity MCP resource"
+  verify contract "Expose Per-Entity MCP Resource: per-entity MCP resource holds — validation_complete_fired, subgraph_returned, resource_read_emitted"
 
   tests ["crates/specforge-mcp/tests/resources.rs"]
 }
@@ -424,7 +424,7 @@ behavior notify_graph_delta_via_mcp "Notify Graph Delta via MCP" {
   verify unit "notification includes GraphDelta payload"
   verify unit "unsubscribed clients do not receive notifications"
   verify unit "no notification when no clients subscribed"
-  verify contract "requires/ensures consistency for graph delta MCP notification"
+  verify contract "Notify Graph Delta via MCP: graph delta MCP notification holds — graph_delta_computed_fired, subscribers_notified, no_notification_when_empty, delta_notified_emitted"
 
   tests ["crates/specforge-mcp/tests/subscriptions.rs"]
 }
@@ -460,7 +460,7 @@ behavior notify_diagnostics_delta_via_mcp "Notify Diagnostics Delta via MCP" {
   verify unit "payload includes added and removed diagnostics"
   verify unit "unsubscribed clients do not receive notifications"
   verify unit "no notification when diagnostics are unchanged"
-  verify contract "requires/ensures consistency for diagnostics delta MCP notification"
+  verify contract "Notify Diagnostics Delta via MCP: diagnostics delta MCP notification holds — validation_complete_fired, subscribers_notified, unchanged_suppressed, delta_notified_emitted"
 
   tests ["crates/specforge-mcp/tests/notifications.rs"]
 }
@@ -504,7 +504,7 @@ behavior handle_mcp_protocol_error "Handle MCP Protocol Error" {
   verify unit "server remains operational after protocol error"
   verify unit "returns -32600 for invalid request"
   verify unit "returns -32603 for internal error"
-  verify contract "requires/ensures consistency for MCP protocol error handling"
+  verify contract "Handle MCP Protocol Error: MCP protocol error handling holds — mcp_protocol_available, standard_error_returned, no_state_leaked, server_operational, error_handled_emitted"
 
   tests ["crates/specforge-mcp/tests/protocol.rs"]
 }
@@ -539,7 +539,7 @@ behavior handle_mcp_request_cancellation "Handle MCP Request Cancellation" {
   verify unit "cancellation of completed request is a no-op"
   verify unit "server state remains consistent after cancellation"
   verify integration "cancelled long-running export returns partial result or acknowledgment"
-  verify contract "requires/ensures consistency for MCP request cancellation"
+  verify contract "Handle MCP Request Cancellation: MCP request cancellation holds — mcp_protocol_available, cancellation_safe, request_cancelled_emitted"
 
   tests ["crates/specforge-mcp/tests/protocol.rs"]
 }
@@ -572,7 +572,7 @@ behavior guard_mcp_reinitialization "Guard MCP Reinitialization" {
   verify unit "second initialize request returns -32600 error"
   verify unit "existing session continues after rejected reinitialization"
   verify unit "no resources leaked on rejected reinitialization"
-  verify contract "requires/ensures consistency for MCP reinitialization guard"
+  verify contract "Guard MCP Reinitialization: MCP reinitialization guard holds — server_initialized, reinit_rejected, session_unaffected, error_handled_emitted"
 
   tests ["crates/specforge-mcp/tests/lifecycle.rs"]
 }

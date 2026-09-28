@@ -33,7 +33,7 @@ behavior build_in_memory_graph "Build In-Memory Graph" {
   verify unit "graph contains one node per entity"
   verify unit "graph contains one edge per resolved reference"
   verify unit "edge types match relationship semantics"
-  verify contract "requires/ensures consistency for in-memory graph construction"
+  verify contract "Build In-Memory Graph: in-memory graph construction holds — resolution_complete, one_node_per_entity, one_edge_per_reference, no_orphan_edges"
 
   tests ["crates/specforge-graph/tests/graph.rs", "crates/specforge-graph/tests/contracts.rs"]
 }
@@ -67,7 +67,7 @@ behavior maintain_mutable_graph "Maintain Mutable Graph" {
   verify unit "add and remove nodes from graph"
   verify unit "removing a node removes its edges"
   verify unit "graph consistency after batch mutations"
-  verify contract "requires/ensures consistency for mutable graph maintenance"
+  verify contract "Maintain Mutable Graph: mutable graph maintenance holds — graph_initialized, mutations_applied, no_dangling_edges_enforced, graph_consistency"
 
   tests ["crates/specforge-graph/tests/graph.rs", "crates/specforge-graph/tests/contracts.rs"]
 }
@@ -103,7 +103,7 @@ behavior compute_subgraph_for_invalidation "Compute Subgraph for Invalidation" {
   verify unit        "transitive dependents are included in subgraph"
   verify unit        "unaffected files are not invalidated"
   verify integration "subgraph rebuild matches full rebuild result"
-  verify contract "requires/ensures consistency for subgraph invalidation"
+  verify contract "Compute Subgraph for Invalidation: subgraph invalidation holds — graph_built_ready, changed_file_identified, invalidation_subgraph_computed, only_affected_rebuilt, unaffected_subgraphs_intact"
 
   tests ["crates/specforge-graph/tests/graph.rs", "crates/specforge-graph/tests/contracts.rs"]
 }
