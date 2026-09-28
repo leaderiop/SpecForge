@@ -1,6 +1,6 @@
 [workspace]
 resolver = "3"
-exclude = ["fixtures/test-extension", "fixtures/greet-extension", "extensions/product", "extensions/software", "extensions/governance", "extensions/formal", "extensions/rust", "extensions/typescript"]
+exclude = ["fixtures/greet-extension", "extensions/product", "extensions/software", "extensions/governance", "extensions/formal", "extensions/rust", "extensions/typescript"]
 members = [
     "crates/specforge-common",
     "crates/specforge-component",

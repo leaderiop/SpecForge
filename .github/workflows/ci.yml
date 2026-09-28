@@ -63,8 +63,17 @@ jobs:
             cargo test --manifest-path "$ext"
           done
 
-      - name: Run cargo-audit
-        run: cargo install cargo-audit && cargo audit
+      # Every committed lockfile: vulns, unsound, and yanked fail; unmaintained only warns.
+      - name: Run cargo-audit (every lockfile)
+        run: |
+          cargo install cargo-audit --locked
+          failed=0
+          for lock in $(git ls-files '*Cargo.lock'); do
+            echo "::group::cargo audit $lock"
+            cargo audit --deny unsound --deny yanked -f "$lock" || { echo "::error file=$lock::cargo audit failed"; failed=1; }
+            echo "::endgroup::"
+          done
+          exit $failed
 
   bootstrap:
     name: Fresh-clone bootstrap (builtin components)
