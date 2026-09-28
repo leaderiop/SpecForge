@@ -1071,12 +1071,14 @@ fn cross_file_duplicate_entity_id_produces_w063() {
     );
 }
 
+// C3-07: one ID declared as two kinds across files is an ambiguous identity
+// and warns (previously silent).
 #[specforge_test(
     behavior = "link_entity_references",
-    verify = "same ID different kind across files does not produce W063"
+    verify = "same ID different kind across files warns W063 with both kinds named"
 )]
 #[test]
-fn same_id_different_kind_across_files_no_w063() {
+fn same_id_different_kind_across_files_warns_w063() {
     let dir = setup_project(&[
         (
             "a.spec",
@@ -1093,9 +1095,18 @@ fn same_id_different_kind_across_files_no_w063() {
 
     let w063s: Vec<_> = diagnostics.iter().filter(|d| d.code == "W063").collect();
     assert!(
-        w063s.is_empty(),
-        "same ID with different kind should NOT produce W063, got: {:?}",
+        w063s.len() == 1,
+        "cross-kind ID collision should produce exactly one W063, got: {:?}",
         w063s
+    );
+    let msg = &w063s[0].message;
+    assert!(
+        msg.contains("behavior") && msg.contains("feature"),
+        "both kinds named: {msg}"
+    );
+    assert!(
+        msg.contains("a.spec") && msg.contains("b.spec"),
+        "both files named: {msg}"
     );
 }
 

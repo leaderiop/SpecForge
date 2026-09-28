@@ -108,7 +108,14 @@ impl FieldMap {
     }
 
     pub fn get(&self, key: &str) -> Option<&FieldValue> {
-        self.entries.iter().find(|e| e.key == key).map(|e| &e.value)
+        // C3-10: intern the query once, then compare interned symbols
+        // (u32 eq) per entry — previously every entry's key was resolved
+        // to &str for a full string compare.
+        let key_sym = Sym::new(key);
+        self.entries
+            .iter()
+            .find(|e| e.key == key_sym)
+            .map(|e| &e.value)
     }
 
     pub fn entries(&self) -> &[FieldEntry] {

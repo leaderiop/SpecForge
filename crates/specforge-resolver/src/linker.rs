@@ -21,24 +21,41 @@ pub fn link_references(project: &ResolvedProject) -> (Vec<PendingEdge>, Vec<Diag
     for file in &project.files {
         for entity in &file.spec_file.entities {
             if let Some(&(first_file, first_kind)) = id_first_seen.get(&entity.id.raw) {
-                // Same (kind, id) duplicates are caught by build.rs as E002.
-                // Here we detect cross-file same-ID occurrences and warn
-                // only when the first occurrence was in a *different* file,
-                // to avoid double-reporting with the graph builder's E002.
-                if first_file != file.path.as_str() && first_kind == entity.kind.raw {
-                    diagnostics.push(Diagnostic {
-                        code: "W063".to_string(),
-                        severity: Severity::Warning,
-                        message: format!(
-                            "entity ID '{}' defined in '{}' was already defined in '{}'",
-                            entity.id.raw, file.path, first_file
-                        ),
-                        span: Some(entity.span.clone()),
-                        suggestion: Some(
-                            "use unique entity IDs across files, or use imports to share entities"
-                                .to_string(),
-                        ),
-                    });
+                // Same-file same-(kind, id) duplicates are caught by
+                // build.rs as E002. Cross-file occurrences warn here —
+                // same kind is a duplicate definition (W063), a *different*
+                // kind under the same ID is an ambiguous identity and is
+                // called out as such (C3-07: previously silent).
+                if first_file != file.path.as_str() {
+                    if first_kind == entity.kind.raw {
+                        diagnostics.push(Diagnostic {
+                            code: "W063".to_string(),
+                            severity: Severity::Warning,
+                            message: format!(
+                                "entity ID '{}' defined in '{}' was already defined in '{}'",
+                                entity.id.raw, file.path, first_file
+                            ),
+                            span: Some(entity.span.clone()),
+                            suggestion: Some(
+                                "use unique entity IDs across files, or use imports to share entities"
+                                    .to_string(),
+                            ),
+                        });
+                    } else {
+                        diagnostics.push(Diagnostic {
+                            code: "W063".to_string(),
+                            severity: Severity::Warning,
+                            message: format!(
+                                "entity ID '{}' is declared as '{}' in '{}' but as '{}' in '{}' — one ID, two kinds",
+                                entity.id.raw, first_kind, first_file, entity.kind.raw, file.path
+                            ),
+                            span: Some(entity.span.clone()),
+                            suggestion: Some(
+                                "entity IDs share one flat namespace regardless of kind; rename one occurrence"
+                                    .to_string(),
+                            ),
+                        });
+                    }
                 }
             } else {
                 id_first_seen.insert(entity.id.raw, (file.path.as_str(), entity.kind.raw));
