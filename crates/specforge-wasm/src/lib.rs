@@ -24,10 +24,7 @@ mod invariants;
 #[cfg(test)]
 pub(crate) mod test_helpers;
 
-pub use cache::{
-    CacheEntry, InvalidationReason, cache_grammar_artifact, cache_path_for_hash, cache_wasm_binary,
-    grammar_cache_key, has_cached_artifact, has_cached_grammar, invalidate_cache, invalidate_entry,
-};
+pub use cache::{cache_grammar_artifact, grammar_cache_key, has_cached_grammar};
 pub use contributions::{
     ContributionToggle, CoverageMetadata, EnhancementConflict, EnhancementOverride,
     EnhancementPolicy, GrammarConflictPolicy, IngestedReport, RegisteredCollector,

@@ -48,7 +48,7 @@ behavior compute_extension_query_scope "Compute Extension Query Scope" {
   verify unit "computed scope cached per extension per compilation"
   verify contract "Compute Extension Query Scope: extension query scope computation holds — manifest_available, kind_registry_populated, scope_computed, scope_cached"
 
-  tests ["crates/specforge-extism/tests/composite.rs"]
+  tests ["crates/specforge-wasm/tests/host_functions_integration.rs"]
 }
 
 behavior provide_host_function_query_graph "Provide Host Function: query_graph" {
@@ -81,7 +81,7 @@ behavior provide_host_function_query_graph "Provide Host Function: query_graph" 
   verify unit "restricted scope returns filtered subgraph"
   verify contract "Provide Host Function: query_graph: query_graph host function holds — graph_built, query_scope_computed, valid_json_returned, scope_enforced"
 
-  tests ["crates/specforge-extism/tests/host_functions.rs"]
+  tests ["crates/specforge-wasm/tests/host_functions_integration.rs"]
 }
 
 behavior provide_host_function_emit_diagnostic "Provide Host Function: emit_diagnostic" {
@@ -114,7 +114,7 @@ behavior provide_host_function_emit_diagnostic "Provide Host Function: emit_diag
   verify unit "diagnostic severity validated against allowed values"
   verify contract "Provide Host Function: emit_diagnostic: emit_diagnostic host function holds — diagnostic_collection_available, diagnostic_added, rendered_like_core, malformed_input_trapped"
 
-  tests ["crates/specforge-extism/tests/host_functions.rs"]
+  tests ["crates/specforge-wasm/tests/host_functions_integration.rs"]
 }
 
 // NOTE: Entity kinds and edge types are registered DECLARATIVELY from
@@ -158,7 +158,7 @@ behavior provide_host_function_add_graph_node "Provide Host Function: add_graph_
   verify unit "validates field values against kind schema"
   verify contract "Provide Host Function: add_graph_node: add_graph_node host function holds — entity_kind_declared, graph_available, node_added, undeclared_kind_rejected, node_participates"
 
-  tests ["crates/specforge-extism/tests/host_functions.rs"]
+  tests ["crates/specforge-wasm/tests/host_functions_integration.rs"]
 }
 
 behavior provide_host_function_add_graph_edge "Provide Host Function: add_graph_edge" {
@@ -195,7 +195,7 @@ behavior provide_host_function_add_graph_edge "Provide Host Function: add_graph_
   verify unit "rejects edge when source or target node missing"
   verify contract "Provide Host Function: add_graph_edge: add_graph_edge host function holds — edge_type_declared, source_and_target_exist, edge_added, undeclared_label_rejected, missing_nodes_rejected, edge_participates"
 
-  tests ["crates/specforge-extism/tests/host_functions.rs"]
+  tests ["crates/specforge-wasm/tests/host_functions_integration.rs"]
 }
 
 behavior provide_host_function_read_file "Provide Host Function: read_file" {
@@ -244,7 +244,7 @@ behavior provide_host_function_read_file "Provide Host Function: read_file" {
   verify unit "read_file from renderer contribution returns permission error"
   verify contract "Provide Host Function: read_file: read_file host function holds — parser_call_site, spec_root_known, path_scoped, pattern_restricted, size_limited, non_parser_rejected"
 
-  tests ["crates/specforge-extism/tests/host_functions.rs"]
+  tests ["crates/specforge-wasm/tests/host_functions_integration.rs"]
 }
 
 behavior provide_host_function_emit_file "Provide Host Function: emit_file" {
@@ -300,7 +300,7 @@ behavior provide_host_function_emit_file "Provide Host Function: emit_file" {
   verify unit "emit_file rejects .sh extension"
   verify contract "Provide Host Function: emit_file: emit_file host function holds — output_directory_known, sandbox_policy_ready, path_scoped_to_output, extension_allowlist_enforced, no_code_generation"
 
-  tests ["crates/specforge-extism/tests/host_functions.rs"]
+  tests ["crates/specforge-wasm/tests/host_functions_integration.rs"]
 }
 
 behavior provide_host_function_http_get "Provide Host Function: http_get" {
@@ -344,5 +344,5 @@ behavior provide_host_function_http_get "Provide Host Function: http_get" {
   verify unit "http_get from validator contribution returns permission error"
   verify contract "Provide Host Function: http_get: http_get host function holds — provider_call_site, sandbox_policy_ready, domain_allowlist_enforced, timeout_enforced, timeout_produces_warning, non_provider_rejected"
 
-  tests ["crates/specforge-extism/tests/host_functions.rs"]
+  tests ["crates/specforge-wasm/tests/host_functions_integration.rs"]
 }

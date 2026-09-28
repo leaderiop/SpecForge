@@ -31,8 +31,6 @@ type CompilerConfig {
   watch_debounce_ms  integer @optional
   // When true, GraphDelta includes old+new values for modified fields (default: false)
   delta_include_values boolean @optional
-  // Wasm warm engine pool configuration for LSP/MCP long-running modes
-  warm_engine WarmEngineConfig @optional
   grammar_policy GrammarConflictPolicy @optional
   // Graph Protocol schema version compatibility range for agent negotiation.
   // Defaults to current major range (e.g., 1.0.0..1.x.x). See ADR graph_protocol_version_management.

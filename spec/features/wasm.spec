@@ -1,4 +1,4 @@
-// Wasm/Extism extension runtime features
+// Wasm component extension runtime features
 
 use "behaviors/wasm-authoring"
 use "behaviors/wasm-extensions"
@@ -16,7 +16,7 @@ feature wasm_extension_runtime "Wasm Extension Runtime" {
   """
 
   solution """
-    Wasm/Extism as the sole extension runtime. Extensions compile to .wasm
+    Wasm components (wasmtime Component Model) as the sole extension runtime. Extensions compile to .wasm
     binaries. The compiler loads modules, validates peer dependencies,
     initializes in topological order, calls validators, and handles traps
     gracefully — failed extensions do not affect others.
@@ -62,10 +62,12 @@ feature wasm_performance_optimization "Wasm Performance Optimization" {
   """
 
   solution """
-    AOT compilation cached in .specforge/cache/ using content-addressed
-    filenames for CLI cold start performance. Warm engine instances kept
-    alive across compilations for LSP/MCP interactive use. Cache integrity
-    verified by re-hashing on load.
+    Wasmtime's on-disk compilation cache (selected via
+    SPECFORGE_WASMTIME_CACHE) stores compiled machine code keyed by
+    component bytes and engine config, so CLI cold starts deserialize
+    instead of recompiling. One runtime engine per LSP/MCP session keeps
+    instantiated components alive across calls. Unusable caches degrade
+    to uncached compilation with a warning.
   """
 }
 
@@ -159,8 +161,8 @@ feature wasm_extension_installation "Wasm Extension Installation" {
   """
 
   solution """
-    Install resolves from multiple sources, verifies integrity, and AOT
-    compiles. Uninstall removes the extension, invalidates caches, and
+    Install resolves from multiple sources, verifies integrity, and
+    places the binary atomically. Uninstall removes the extension and
     checks peer dependencies. Upgrade checks compatibility and handles
     breaking peer dependencies.
   """
@@ -191,10 +193,11 @@ feature wasm_extension_maintenance "Wasm Extension Maintenance" {
   """
 
   solution """
-    Discovery queries registries for available extensions. AOT cache
-    invalidation triggers on runtime version changes, manual clear,
-    and binary changes. Bulk update checks all extensions for newer
-    versions and upgrades them in dependency order.
+    Discovery queries registries for available extensions. The engine
+    compile cache is content-keyed, so replaced binaries never serve
+    stale artifacts and need no host-side invalidation. Bulk update
+    checks all extensions for newer versions and upgrades them in
+    dependency order.
   """
 }
 

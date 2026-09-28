@@ -18,11 +18,11 @@ use std::path::{Path, PathBuf};
 pub fn project_runtime(path: &Path) -> ComponentRuntime {
     let config = specforge_common::load_project_config(path);
 
-    let runtime = ComponentRuntime::new();
-
+    // The compile cache must be selected at construction — wasmtime reads it
+    // when the Engine is built. Builtin loads below populate it on first use.
     let runtime = match user_compile_cache_dir() {
-        Some(dir) => runtime.with_compile_cache(dir),
-        None => runtime,
+        Some(dir) => ComponentRuntime::new_with_compile_cache(dir),
+        None => ComponentRuntime::new(),
     };
 
     builtins::load_builtins_for(&runtime, &config.extensions)
@@ -45,7 +45,7 @@ pub fn project_runtime(path: &Path) -> ComponentRuntime {
             } else {
                 Path::new(wasm_path).to_path_buf()
             };
-            if let Err(e) = runtime.load_module_as(name, &resolved, None) {
+            if let Err(e) = runtime.load_module_as(name, &resolved) {
                 eprintln!("warning: failed to load Wasm extension '{name}': {e}");
             }
         }

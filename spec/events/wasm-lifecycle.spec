@@ -127,7 +127,6 @@ event extension_install_completed "Extension Install Completed" {
     extensionName   string
     version       string
     source        string
-    aotCompiled   boolean
     installTimeMs integer
   }
 
@@ -142,12 +141,11 @@ event wasm_extension_removed "Wasm Extension Removed" {
 
   payload {
     extensionName   string
-    cacheCleared  boolean
   }
 
 
-  verify integration "emits extension_removed with correct extensionName and cacheCleared"
-  verify integration "consumer invalidate_aot_cache receives event and clears cache"
+  verify integration "emits extension_removed with correct extensionName"
+  verify integration "consumer reuse_session_runtime drops the extension's loaded instance"
 
 }
 
@@ -159,7 +157,6 @@ event extension_upgrade_completed "Extension Upgrade Completed" {
     previousVersion   string
     newVersion        string
     peerCheckPassed   boolean
-    aotRecompiled     boolean
   }
 
 

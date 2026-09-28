@@ -71,7 +71,6 @@ fn compute_sha256(data: &[u8]) -> String {
 fn test_install_verify_sha256_and_place_binary() {
     let dir = TempDir::new().unwrap();
     let extensions_dir = dir.path().join("extensions");
-    let cache_dir = dir.path().join("cache");
     std::fs::create_dir_all(&extensions_dir).unwrap();
 
     let wasm_bytes = fake_wasm_bytes();
@@ -84,9 +83,7 @@ fn test_install_verify_sha256_and_place_binary() {
         &wasm_bytes,
         &expected_hash,
         &extensions_dir,
-        &cache_dir,
         &mut lock,
-        true,
         None,
         Vec::new(),
     )
@@ -107,7 +104,6 @@ fn test_install_verify_sha256_and_place_binary() {
 fn test_install_from_local_path() {
     let dir = TempDir::new().unwrap();
     let extensions_dir = dir.path().join("extensions");
-    let cache_dir = dir.path().join("cache");
     std::fs::create_dir_all(&extensions_dir).unwrap();
 
     // Write a local wasm file
@@ -122,9 +118,7 @@ fn test_install_from_local_path() {
         "1.0.0",
         &local_wasm,
         &extensions_dir,
-        &cache_dir,
         &mut lock,
-        true,
     )
     .unwrap();
 
@@ -139,45 +133,11 @@ fn test_install_from_local_path() {
     assert_eq!(std::fs::read(&installed_path).unwrap(), wasm_bytes);
 }
 
-// B:install_wasm_extension — verify unit "install AOT compiles after placement"
-#[test]
-fn test_install_aot_compiles_after_placement() {
-    let dir = TempDir::new().unwrap();
-    let extensions_dir = dir.path().join("extensions");
-    let cache_dir = dir.path().join("cache");
-    std::fs::create_dir_all(&extensions_dir).unwrap();
-
-    let wasm_bytes = fake_wasm_bytes();
-    let expected_hash = compute_sha256(&wasm_bytes);
-    let mut lock = LockFile::new();
-
-    let result = install_extension(
-        "@test/aot-ext",
-        "1.0.0",
-        &wasm_bytes,
-        &expected_hash,
-        &extensions_dir,
-        &cache_dir,
-        &mut lock,
-        false, // do NOT skip AOT
-        None,
-        Vec::new(),
-    )
-    .unwrap();
-
-    assert!(result.cached);
-
-    // Cache artifact exists
-    let cached_path = cache_dir.join(format!("{}.aot", expected_hash));
-    assert!(cached_path.exists());
-}
-
 // B:install_wasm_extension — verify unit "install updates lock file with extension entry"
 #[test]
 fn test_install_updates_lock_file() {
     let dir = TempDir::new().unwrap();
     let extensions_dir = dir.path().join("extensions");
-    let cache_dir = dir.path().join("cache");
     std::fs::create_dir_all(&extensions_dir).unwrap();
 
     let wasm_bytes = fake_wasm_bytes();
@@ -190,9 +150,7 @@ fn test_install_updates_lock_file() {
         &wasm_bytes,
         &expected_hash,
         &extensions_dir,
-        &cache_dir,
         &mut lock,
-        true,
         None,
         Vec::new(),
     )
@@ -210,7 +168,6 @@ fn test_install_updates_lock_file() {
 fn test_install_rolls_back_on_integrity_failure() {
     let dir = TempDir::new().unwrap();
     let extensions_dir = dir.path().join("extensions");
-    let cache_dir = dir.path().join("cache");
     std::fs::create_dir_all(&extensions_dir).unwrap();
 
     let wasm_bytes = fake_wasm_bytes();
@@ -223,9 +180,7 @@ fn test_install_rolls_back_on_integrity_failure() {
         &wasm_bytes,
         "0000000000000000000000000000000000000000000000000000000000000000",
         &extensions_dir,
-        &cache_dir,
         &mut lock,
-        true,
         None,
         Vec::new(),
     )
@@ -240,39 +195,6 @@ fn test_install_rolls_back_on_integrity_failure() {
 
     // Lock file is unchanged
     assert!(lock.entries.is_empty());
-}
-
-// B:install_wasm_extension — verify unit "install defers AOT when skip_aot is true"
-#[test]
-fn test_install_defers_aot_when_skip_aot() {
-    let dir = TempDir::new().unwrap();
-    let extensions_dir = dir.path().join("extensions");
-    let cache_dir = dir.path().join("cache");
-    std::fs::create_dir_all(&extensions_dir).unwrap();
-
-    let wasm_bytes = fake_wasm_bytes();
-    let expected_hash = compute_sha256(&wasm_bytes);
-    let mut lock = LockFile::new();
-
-    let result = install_extension(
-        "@test/no-aot-ext",
-        "1.0.0",
-        &wasm_bytes,
-        &expected_hash,
-        &extensions_dir,
-        &cache_dir,
-        &mut lock,
-        true, // skip AOT
-        None,
-        Vec::new(),
-    )
-    .unwrap();
-
-    assert!(!result.cached);
-
-    // No cache artifact
-    let cached_path = cache_dir.join(format!("{}.aot", expected_hash));
-    assert!(!cached_path.exists());
 }
 
 // ============================================================================
@@ -300,7 +222,6 @@ fn test_check_newer_version() {
 fn test_upgrade_validates_peer_compat() {
     let dir = TempDir::new().unwrap();
     let extensions_dir = dir.path().join("extensions");
-    let cache_dir = dir.path().join("cache");
     std::fs::create_dir_all(&extensions_dir).unwrap();
 
     let wasm_bytes = fake_wasm_bytes();
@@ -331,7 +252,6 @@ fn test_upgrade_validates_peer_compat() {
         &peer_manifests,
         &ext_a_new,
         &extensions_dir,
-        &cache_dir,
         &mut lock,
         false,
     )
@@ -346,7 +266,6 @@ fn test_upgrade_validates_peer_compat() {
 fn test_upgrade_rejects_breaking_peer_without_force() {
     let dir = TempDir::new().unwrap();
     let extensions_dir = dir.path().join("extensions");
-    let cache_dir = dir.path().join("cache");
     std::fs::create_dir_all(&extensions_dir).unwrap();
 
     let wasm_bytes = fake_wasm_bytes();
@@ -376,7 +295,6 @@ fn test_upgrade_rejects_breaking_peer_without_force() {
         &peer_manifests,
         &new_manifest,
         &extensions_dir,
-        &cache_dir,
         &mut lock,
         false, // no force
     )
@@ -387,26 +305,19 @@ fn test_upgrade_rejects_breaking_peer_without_force() {
     assert!(err.suggestion.as_ref().unwrap().contains("--force"));
 }
 
-// B:upgrade_wasm_extension — verify unit "invalidate old AOT cache + recompile"
+// B:upgrade_wasm_extension — verify unit "upgrade replaces lock entry with new version + hash"
 #[test]
-fn test_upgrade_invalidates_old_aot_and_recompiles() {
+fn test_upgrade_updates_lock_entry() {
     let dir = TempDir::new().unwrap();
     let extensions_dir = dir.path().join("extensions");
-    let cache_dir = dir.path().join("cache");
     std::fs::create_dir_all(&extensions_dir).unwrap();
-    std::fs::create_dir_all(&cache_dir).unwrap();
-
-    // Create old AOT artifact
-    let old_hash = "old_fake_hash";
-    let old_aot_path = cache_dir.join(format!("{}.aot", old_hash));
-    std::fs::write(&old_aot_path, b"old aot data").unwrap();
 
     let mut lock = LockFile::new();
     lock.entries.push(LockFileEntry {
         name: "@test/ext".to_string(),
         version: "1.0.0".to_string(),
         source: "registry".to_string(),
-        wasm_hash: old_hash.to_string(),
+        wasm_hash: "old_fake_hash".to_string(),
         key_id: None,
         peer_dependencies: Vec::new(),
     });
@@ -423,19 +334,13 @@ fn test_upgrade_invalidates_old_aot_and_recompiles() {
         std::slice::from_ref(&new_manifest),
         &new_manifest,
         &extensions_dir,
-        &cache_dir,
         &mut lock,
         false,
     )
     .unwrap();
 
-    // Old cache was invalidated
-    assert!(!old_aot_path.exists());
-
-    // New binary was cached
-    assert!(result.recached);
-    let new_cached_path = cache_dir.join(format!("{}.aot", expected_hash));
-    assert!(new_cached_path.exists());
+    assert_eq!(result.old_version, "1.0.0");
+    assert_eq!(result.new_version, "2.0.0");
 
     // Lock file updated
     assert_eq!(lock.entries.len(), 1);
@@ -452,7 +357,6 @@ fn test_upgrade_invalidates_old_aot_and_recompiles() {
 fn test_uninstall_removes_from_lock_file() {
     let dir = TempDir::new().unwrap();
     let extensions_dir = dir.path().join("extensions");
-    let cache_dir = dir.path().join("cache");
     std::fs::create_dir_all(&extensions_dir).unwrap();
 
     // Create the extension dir with a wasm file
@@ -470,15 +374,7 @@ fn test_uninstall_removes_from_lock_file() {
         peer_dependencies: Vec::new(),
     });
 
-    uninstall_extension(
-        "@test/ext",
-        &[],
-        &extensions_dir,
-        &cache_dir,
-        &mut lock,
-        false,
-    )
-    .unwrap();
+    uninstall_extension("@test/ext", &[], &extensions_dir, &mut lock, false).unwrap();
 
     assert!(lock.entries.is_empty());
 }
@@ -488,8 +384,6 @@ fn test_uninstall_removes_from_lock_file() {
 fn test_uninstall_deletes_wasm_binary() {
     let dir = TempDir::new().unwrap();
     let extensions_dir = dir.path().join("extensions");
-    let cache_dir = dir.path().join("cache");
-    std::fs::create_dir_all(&extensions_dir).unwrap();
 
     let ext_dir = extensions_dir.join("@test/ext");
     std::fs::create_dir_all(&ext_dir).unwrap();
@@ -505,59 +399,9 @@ fn test_uninstall_deletes_wasm_binary() {
         peer_dependencies: Vec::new(),
     });
 
-    uninstall_extension(
-        "@test/ext",
-        &[],
-        &extensions_dir,
-        &cache_dir,
-        &mut lock,
-        false,
-    )
-    .unwrap();
+    uninstall_extension("@test/ext", &[], &extensions_dir, &mut lock, false).unwrap();
 
     assert!(!ext_dir.exists());
-}
-
-// B:uninstall_wasm_extension — verify unit "invalidate AOT cache"
-#[test]
-fn test_uninstall_invalidates_aot_cache() {
-    let dir = TempDir::new().unwrap();
-    let extensions_dir = dir.path().join("extensions");
-    let cache_dir = dir.path().join("cache");
-    std::fs::create_dir_all(&extensions_dir).unwrap();
-    std::fs::create_dir_all(&cache_dir).unwrap();
-
-    let ext_dir = extensions_dir.join("@test/ext");
-    std::fs::create_dir_all(&ext_dir).unwrap();
-    std::fs::write(ext_dir.join("extension.wasm"), b"wasm").unwrap();
-
-    // Create an AOT cache artifact
-    let wasm_hash = "aot_hash_123";
-    let aot_path = cache_dir.join(format!("{}.aot", wasm_hash));
-    std::fs::write(&aot_path, b"aot artifact").unwrap();
-
-    let mut lock = LockFile::new();
-    lock.entries.push(LockFileEntry {
-        name: "@test/ext".to_string(),
-        version: "1.0.0".to_string(),
-        source: "registry".to_string(),
-        wasm_hash: wasm_hash.to_string(),
-        key_id: None,
-        peer_dependencies: Vec::new(),
-    });
-
-    let result = uninstall_extension(
-        "@test/ext",
-        &[],
-        &extensions_dir,
-        &cache_dir,
-        &mut lock,
-        false,
-    )
-    .unwrap();
-
-    assert!(result.cache_invalidated);
-    assert!(!aot_path.exists());
 }
 
 // B:uninstall_wasm_extension — verify unit "reject when dependents exist without --force"
@@ -565,7 +409,6 @@ fn test_uninstall_invalidates_aot_cache() {
 fn test_uninstall_rejects_when_dependents_exist() {
     let dir = TempDir::new().unwrap();
     let extensions_dir = dir.path().join("extensions");
-    let cache_dir = dir.path().join("cache");
     std::fs::create_dir_all(&extensions_dir).unwrap();
 
     let core = make_manifest("@test/core", "1.0.0", &[]);
@@ -582,15 +425,8 @@ fn test_uninstall_rejects_when_dependents_exist() {
         peer_dependencies: Vec::new(),
     });
 
-    let err = uninstall_extension(
-        "@test/core",
-        &manifests,
-        &extensions_dir,
-        &cache_dir,
-        &mut lock,
-        false,
-    )
-    .unwrap_err();
+    let err = uninstall_extension("@test/core", &manifests, &extensions_dir, &mut lock, false)
+        .unwrap_err();
 
     assert_eq!(err.code, "E027");
     assert!(err.message.contains("required by"));
@@ -605,7 +441,6 @@ fn test_uninstall_rejects_when_dependents_exist() {
 fn test_uninstall_with_force_bypasses_dependent_check() {
     let dir = TempDir::new().unwrap();
     let extensions_dir = dir.path().join("extensions");
-    let cache_dir = dir.path().join("cache");
     std::fs::create_dir_all(&extensions_dir).unwrap();
 
     let ext_dir = extensions_dir.join("@test/core");
@@ -631,7 +466,6 @@ fn test_uninstall_with_force_bypasses_dependent_check() {
         "@test/core",
         &manifests,
         &extensions_dir,
-        &cache_dir,
         &mut lock,
         true, // force
     )

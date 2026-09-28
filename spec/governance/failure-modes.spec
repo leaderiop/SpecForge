@@ -180,7 +180,7 @@ failure_mode wasm_extension_crash "Wasm Extension Crash" {
 
   cause      "Extension Wasm module traps during validate() or render() — e.g., out-of-bounds memory access, stack overflow, or unreachable instruction"
   effect     "Extension fails to complete its validation or export pass — diagnostics from that extension are lost, output may be incomplete"
-  mitigation "Extism catches all traps and returns error; compiler wraps call in Result, emits ExtensionError with trap details; remaining extensions continue execution"
+  mitigation "Wasmtime catches all traps and returns error; compiler wraps call in Result, emits ExtensionError with trap details; remaining extensions continue execution"
 
   post_mitigation {
     severity   high
@@ -251,24 +251,24 @@ failure_mode builtin_field_shadow "Grammar-Level Construct Shadow by Extension" 
   verify unit "Grammar-Level Construct Shadow by Extension failure mode is handled"
 }
 
-failure_mode aot_cache_corruption "AOT Cache Corruption" {
-  invariant  aot_cache_integrity
+failure_mode wasm_compile_cache_corruption "Wasm Compile Cache Corruption" {
+  invariant  wasm_compile_cache_integrity
   severity   medium
   occurrence unlikely
   detection  unlikely
   rpn        40
 
-  cause      "AOT compiled artifact in .specforge/cache/ is corrupted — e.g., interrupted write, disk error, or platform mismatch after OS upgrade"
-  effect     "Extension fails to load from cache — confusing error message if corruption not detected; potential wrong behavior if partially loaded"
-  mitigation "Content-hash verification on cache load; corrupted entries evicted and recompiled; platform string in cache filename prevents cross-platform misuse"
+  cause      "A cached compilation artifact is corrupted — e.g., interrupted write, disk error, or engine/platform change after an OS upgrade"
+  effect     "Cache lookup misses or fails to deserialize — without engine validation this could serve wrong code; with it, the cost is only a lost cache entry"
+  mitigation "Cache entries are keyed by component bytes and engine config and validated by the runtime engine; any corrupt or mismatched entry falls back to fresh compilation"
 
   post_mitigation {
-    severity   medium
+    severity   low
     occurrence rare
     detection  certain
-    rpn        5
+    rpn        2
   }
-  verify unit "AOT Cache Corruption failure mode is handled"
+  verify unit "Wasm Compile Cache Corruption failure mode is handled"
 }
 
 failure_mode circular_peer_dependency "Circular Peer Dependency" {

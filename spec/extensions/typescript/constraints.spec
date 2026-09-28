@@ -43,14 +43,14 @@ constraint ts_collection_accuracy "TypeScript Collection Accuracy" {
 }
 
 constraint ts_wasm_binary_size "TypeScript Extension Wasm Binary Size" {
-  description "The Wasm binary must be small enough for fast download and AOT compilation."
+  description "The Wasm binary must be small enough for fast download and first compilation."
   category    performance
   priority    high
 
   metric """
     Wasm binary size (gzipped): <2MB including tree-sitter-typescript grammar.
-    AOT compilation time: <3 seconds on first use.
-    Warm startup from cached AOT: <100ms.
+    First compilation: <3 seconds on a cold compile cache.
+    Compile-cache-hit startup: <100ms.
   """
 
   constrains [scan_typescript_project, extract_source_items]

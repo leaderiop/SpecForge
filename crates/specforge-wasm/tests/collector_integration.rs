@@ -39,7 +39,7 @@ impl MockRuntime {
 }
 
 impl WasmRuntime for MockRuntime {
-    fn load_module(&self, _wasm_path: &Path, _aot: Option<&Path>) -> Result<(), String> {
+    fn load_module(&self, _wasm_path: &Path) -> Result<(), String> {
         Ok(())
     }
 
@@ -48,10 +48,6 @@ impl WasmRuntime for MockRuntime {
             .get(export_name)
             .cloned()
             .unwrap_or(WasmCallResult::Ok(vec![]))
-    }
-
-    fn has_cached_module(&self, _wasm_hash: &str) -> bool {
-        false
     }
 }
 

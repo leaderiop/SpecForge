@@ -113,7 +113,7 @@ deliverable specforge_rust_traceability_deliverable "specforge/rust-traceability
 
 deliverable specforge_wasm_runtime_deliverable "specforge-wasm" {
   artifact_type library
-  description "The Wasm extension runtime: loading, sandboxing, host functions, and AOT caching."
+  description "The Wasm extension runtime: loading, sandboxing, host functions, and compile caching."
   journeys [
     author_a_domain_extension,
     author_a_custom_provider,

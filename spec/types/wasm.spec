@@ -1,4 +1,4 @@
-// Wasm/Extism extension runtime types
+// Wasm component extension runtime types
 //
 // Extension manifests use ManifestV2 from types/zero-entity-core.spec.
 // This file contains supporting types for the Wasm runtime: dependencies,
@@ -40,19 +40,6 @@ type SandboxPolicy {
   verify unit "SandboxPolicy schema is valid"
 }
 
-type WasmModuleCache {
-  wasm_hash         string          @readonly
-  aot_path          string
-  platform          string
-  created_at        string
-  verify unit "WasmModuleCache schema is valid"
-}
-
-type WarmEngineConfig {
-  max_instances     u32             @doc "Default: 16"
-  max_memory_mb     u32             @doc "Default: 512"
-  verify unit "WarmEngineConfig schema is valid"
-}
 
 // trapped state removed — extensions that trap are immediately unloaded
 type ExtensionLifecycleState = discovered | loading | initialized | validating | exporting | unloaded | failed
@@ -120,7 +107,6 @@ type ExtensionInstallResult {
   version           string          @readonly
   source            ExtensionSource
   wasm_size         integer
-  aot_compiled      boolean
   installed_path    string
   verify unit "ExtensionInstallResult schema is valid"
 }

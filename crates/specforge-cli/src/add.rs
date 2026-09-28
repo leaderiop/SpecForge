@@ -154,7 +154,6 @@ fn install_from_registry(
 
     // Install
     let extensions_dir = project_path.join(".specforge").join("extensions");
-    let cache_dir = project_path.join(".specforge").join("cache");
     let lock_path = project_path.join("specforge.lock");
 
     let mut lock = read_lock_file(&lock_path).unwrap_or_default();
@@ -170,9 +169,7 @@ fn install_from_registry(
         &wasm_bytes,
         &response.sha256,
         &extensions_dir,
-        &cache_dir,
         &mut lock,
-        false,
         trust.key_id.as_deref(),
         peer_dependencies,
     ) {
@@ -191,7 +188,6 @@ fn install_from_registry(
                         "name": result.name,
                         "version": result.version,
                         "sha256": result.wasm_hash,
-                        "cached": result.cached,
                         "key_id": trust.key_id,
                     });
                     println!("{}", serde_json::to_string_pretty(&output).unwrap());
@@ -229,20 +225,11 @@ fn install_local(local_path: &Path, project_path: &Path, format: &str) -> i32 {
         .unwrap_or("unknown");
 
     let extensions_dir = project_path.join(".specforge").join("extensions");
-    let cache_dir = project_path.join(".specforge").join("cache");
     let lock_path = project_path.join("specforge.lock");
 
     let mut lock = read_lock_file(&lock_path).unwrap_or_default();
 
-    match install_from_local(
-        name,
-        "local",
-        local_path,
-        &extensions_dir,
-        &cache_dir,
-        &mut lock,
-        false,
-    ) {
+    match install_from_local(name, "local", local_path, &extensions_dir, &mut lock) {
         Ok(result) => {
             if let Err(diag) = write_lock_file(&lock, &lock_path) {
                 print_error(format, &diag.message, &diag.code);

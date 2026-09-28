@@ -4,8 +4,7 @@ use specforge_common::{Diagnostic, Severity};
 use specforge_registry::ManifestV2;
 use std::path::Path;
 
-/// Load a Wasm module from the manifest's wasm_path.
-/// Checks AOT cache first; falls back to loading the raw .wasm binary.
+/// Load a Wasm component from the manifest's wasm_path.
 ///
 /// `expected_hash` enforces the lockfile pin (spec #21, T4): when it carries
 /// a hash (from `specforge.lock`), the on-disk binary must match it — a
@@ -14,7 +13,6 @@ use std::path::Path;
 pub fn load_wasm_module(
     extension_name: &str,
     wasm_path: &Path,
-    aot_cache_dir: Option<&Path>,
     runtime: &dyn WasmRuntime,
     expected_hash: Option<&str>,
 ) -> Result<LoadedModule, Diagnostic> {
@@ -36,7 +34,7 @@ pub fn load_wasm_module(
         });
     }
 
-    // Compute content hash for AOT cache lookup
+    // Content hash recorded on the loaded module (lockfile verification)
     let bytes = std::fs::read(wasm_path).map_err(|e| Diagnostic {
         code: "E028".to_string(),
         severity: Severity::Error,
@@ -71,24 +69,16 @@ pub fn load_wasm_module(
         });
     }
 
-    // Check AOT cache
-    let aot_path = aot_cache_dir.map(|dir| dir.join(format!("{}.aot", wasm_hash)));
-    let cache_hit = runtime.has_cached_module(&wasm_hash);
-
-    let load_path = if cache_hit { aot_path.as_deref() } else { None };
-
-    runtime
-        .load_module(wasm_path, load_path)
-        .map_err(|e| Diagnostic {
-            code: "E028".to_string(),
-            severity: Severity::Error,
-            message: format!(
-                "extension '{}': failed to load Wasm module: {}",
-                extension_name, e
-            ),
-            span: None,
-            suggestion: None,
-        })?;
+    runtime.load_module(wasm_path).map_err(|e| Diagnostic {
+        code: "E028".to_string(),
+        severity: Severity::Error,
+        message: format!(
+            "extension '{}': failed to load Wasm module: {}",
+            extension_name, e
+        ),
+        span: None,
+        suggestion: None,
+    })?;
 
     Ok(LoadedModule {
         extension_name: extension_name.to_string(),
@@ -332,23 +322,10 @@ mod tests {
         let wasm_path = create_fake_wasm(&dir, "ext.wasm");
         let runtime = MockRuntime::new();
 
-        let module = load_wasm_module("test-ext", &wasm_path, None, &runtime, None).unwrap();
+        let module = load_wasm_module("test-ext", &wasm_path, &runtime, None).unwrap();
         assert_eq!(module.extension_name, "test-ext");
         assert_eq!(module.state, ExtensionLifecycleState::Loading);
         assert!(!module.wasm_hash.is_empty());
-    }
-
-    // B:load_wasm_module — verify unit "uses AOT cache on cache hit"
-    #[test]
-    fn test_uses_aot_cache_on_cache_hit() {
-        let dir = TempDir::new().unwrap();
-        let wasm_path = create_fake_wasm(&dir, "ext.wasm");
-        let wasm_hash = hex_sha256(&std::fs::read(&wasm_path).unwrap());
-        let runtime = MockRuntime::new().with_cached(&wasm_hash);
-
-        let module =
-            load_wasm_module("test-ext", &wasm_path, Some(dir.path()), &runtime, None).unwrap();
-        assert_eq!(module.wasm_hash, wasm_hash);
     }
 
     // B:load_wasm_module — verify unit "missing .wasm produces ExtensionError"
@@ -357,7 +334,7 @@ mod tests {
         let runtime = MockRuntime::new();
         let missing = Path::new("/nonexistent/ext.wasm");
 
-        let err = load_wasm_module("test-ext", missing, None, &runtime, None).unwrap_err();
+        let err = load_wasm_module("test-ext", missing, &runtime, None).unwrap_err();
         assert_eq!(err.code, "E028");
         assert!(err.message.contains("not found"));
     }
@@ -370,12 +347,12 @@ mod tests {
         let runtime = MockRuntime::new();
 
         // ensures: extension_loaded on success
-        let module = load_wasm_module("test-ext", &wasm_path, None, &runtime, None).unwrap();
+        let module = load_wasm_module("test-ext", &wasm_path, &runtime, None).unwrap();
         assert_eq!(module.state, ExtensionLifecycleState::Loading);
 
         // ensures: missing_binary_diagnosed
         let missing = Path::new("/nonexistent.wasm");
-        let err = load_wasm_module("missing", missing, None, &runtime, None).unwrap_err();
+        let err = load_wasm_module("missing", missing, &runtime, None).unwrap_err();
         assert_eq!(err.code, "E028");
         assert_eq!(err.severity, Severity::Error);
     }

@@ -327,7 +327,6 @@ fn add_extension_op(state: &McpState, args: Value, id: Option<Value>) -> JsonRpc
 
     let config_path = root.join("specforge.json");
     let extensions_dir = root.join(".specforge").join("extensions");
-    let cache_dir = root.join(".specforge").join("cache");
     let lock_path = root.join("specforge.lock");
 
     let mut lock = read_lock_file(&lock_path).unwrap_or_default();
@@ -343,15 +342,7 @@ fn add_extension_op(state: &McpState, args: Value, id: Option<Value>) -> JsonRpc
             .and_then(|s| s.to_str())
             .unwrap_or("unknown")
             .to_string();
-        return match install_from_local(
-            &name,
-            "0.0.0",
-            &local,
-            &extensions_dir,
-            &cache_dir,
-            &mut lock,
-            false,
-        ) {
+        return match install_from_local(&name, "0.0.0", &local, &extensions_dir, &mut lock) {
             Ok(result) => {
                 if let Err(diag) = write_lock_file(&lock, &lock_path) {
                     return err_invalid(id, diag.message);
@@ -451,9 +442,7 @@ fn add_extension_op(state: &McpState, args: Value, id: Option<Value>) -> JsonRpc
         &wasm_bytes,
         &response.sha256,
         &extensions_dir,
-        &cache_dir,
         &mut lock,
-        false,
         trust.key_id.as_deref(),
         peer_dependencies,
     ) {
@@ -491,7 +480,6 @@ fn remove_extension_op(state: &McpState, args: Value, id: Option<Value>) -> Json
 
     let lock_path = root.join("specforge.lock");
     let extensions_dir = root.join(".specforge").join("extensions");
-    let cache_dir = root.join(".specforge").join("cache");
 
     let mut lock = match read_lock_file(&lock_path) {
         Ok(lock) => lock,
@@ -506,14 +494,7 @@ fn remove_extension_op(state: &McpState, args: Value, id: Option<Value>) -> Json
         return err_invalid(id, format!("extension '{name}' is not installed"));
     }
 
-    match uninstall_extension(
-        &name,
-        &state.manifests,
-        &extensions_dir,
-        &cache_dir,
-        &mut lock,
-        force,
-    ) {
+    match uninstall_extension(&name, &state.manifests, &extensions_dir, &mut lock, force) {
         Ok(result) => {
             if let Err(diag) = write_lock_file(&lock, &lock_path) {
                 return err_invalid(id, diag.message);
@@ -524,7 +505,6 @@ fn remove_extension_op(state: &McpState, args: Value, id: Option<Value>) -> Json
                     "removed_extension": name,
                     "success": true,
                     "version": result.version,
-                    "cache_invalidated": result.cache_invalidated,
                 }),
             )
         }

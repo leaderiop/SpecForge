@@ -1,4 +1,3 @@
-use crate::cache::cache_wasm_binary;
 use crate::integrity::hex_sha256;
 use crate::lock_file::{LockFile, LockFileEntry};
 use specforge_common::{Diagnostic, Severity};
@@ -10,11 +9,10 @@ pub struct InstallResult {
     pub name: String,
     pub version: String,
     pub wasm_hash: String,
-    pub cached: bool,
 }
 
 /// Install an extension from downloaded bytes.
-/// Steps: verify SHA256 -> place binary (atomic via temp dir) -> cache binary -> update lock file.
+/// Steps: verify SHA256 -> place binary (atomic via temp dir) -> update lock file.
 #[allow(clippy::too_many_arguments)]
 pub fn install_extension(
     name: &str,
@@ -22,9 +20,7 @@ pub fn install_extension(
     wasm_bytes: &[u8],
     expected_sha256: &str,
     extensions_dir: &Path,
-    cache_dir: &Path,
     lock: &mut LockFile,
-    skip_aot: bool,
     key_id: Option<&str>,
     peer_dependencies: Vec<specforge_registry::PeerDependency>,
 ) -> Result<InstallResult, Diagnostic> {
@@ -90,15 +86,7 @@ pub fn install_extension(
         });
     }
 
-    // 3. Cache wasm binary (optional)
-    let cached = if !skip_aot {
-        let wasm_path = ext_dir.join("extension.wasm");
-        cache_wasm_binary(&wasm_path, cache_dir).is_ok()
-    } else {
-        false
-    };
-
-    // 4. Update lock file
+    // 3. Update lock file
     if let Some(existing) = lock.entries.iter_mut().find(|e| e.name == name) {
         existing.version = version.to_string();
         existing.wasm_hash = actual_hash.clone();
@@ -119,7 +107,6 @@ pub fn install_extension(
         name: name.to_string(),
         version: version.to_string(),
         wasm_hash: actual_hash,
-        cached,
     })
 }
 
@@ -129,9 +116,7 @@ pub fn install_from_local(
     version: &str,
     local_wasm_path: &Path,
     extensions_dir: &Path,
-    cache_dir: &Path,
     lock: &mut LockFile,
-    skip_aot: bool,
 ) -> Result<InstallResult, Diagnostic> {
     let wasm_bytes = std::fs::read(local_wasm_path).map_err(|e| Diagnostic {
         code: "E028".to_string(),
@@ -154,9 +139,7 @@ pub fn install_from_local(
         &wasm_bytes,
         &hash,
         extensions_dir,
-        cache_dir,
         lock,
-        skip_aot,
         None,       // local installs are unsigned
         Vec::new(), // local manifests are not parsed for peers
     )

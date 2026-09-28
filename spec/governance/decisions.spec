@@ -168,7 +168,7 @@ decision three_layer_traceability_model "Three-Layer Traceability Model" {
   invariants [traceability_chain_integrity]
 }
 
-decision wasm_extism_extension_runtime "Wasm/Extism Unified Extension Runtime" {
+decision wasm_component_extension_runtime "Wasm Component Model Extension Runtime" {
   status   accepted
   date     2026-03-03
 
@@ -185,15 +185,20 @@ decision wasm_extism_extension_runtime "Wasm/Extism Unified Extension Runtime" {
   """
 
   decision """
-    Use WebAssembly via Extism as the unified extension runtime for all
-    contribution types. Extensions expose host functions (specforge.query_graph,
-    specforge.emit_diagnostic) — Wasm modules never touch the OS directly.
+    Use WebAssembly components (wasmtime Component Model, wasip2 guests)
+    as the unified extension runtime for all contribution types. The
+    guest contract is the specforge:bridge WIT world: one `call` export
+    dispatching the JSON wire protocol by host-function name.
+    Extensions expose host functions (specforge.query_graph,
+    specforge.emit_diagnostic) — components never touch the OS directly
+    beyond their WASI grants.
     Renderers use specforge.emit_file(path, content) instead of raw
     filesystem access, with the host validating paths and enforcing
     sandboxing. Providers use specforge.http_get for external
-    service validation. Universal .wasm binaries are distributed via npm,
-    GitHub Releases, or OCI registries. AOT compilation caches .wasm modules
-    for CLI cold start; LSP and MCP keep warm engine instances in-process.
+    service validation. Universal .wasm components are distributed via npm,
+    GitHub Releases, or OCI registries. Wasmtime's on-disk compile cache
+    makes CLI cold starts cheap; LSP and MCP keep one engine with
+    instantiated components alive per session.
   """
 
   consequences [
@@ -201,9 +206,9 @@ decision wasm_extism_extension_runtime "Wasm/Extism Unified Extension Runtime" {
     "Multi-language extension authoring — Rust, Go, TypeScript, Python via Wasm compilation",
     "Universal .wasm binary distribution — same artifact runs on all platforms",
     "Single runtime covers all contribution types and all three surfaces uniformly",
-    "+5MB binary size increase from Extism/Wasmtime runtime",
+    "+5MB binary size increase from the wasmtime runtime",
     "Extension authors need Wasm toolchain (cargo-component, tinygo, javy, etc.)",
-    "10-50ms cold start per extension — mitigated by AOT caching for CLI, warm engines for LSP/MCP",
+    "10-50ms load per extension from compile cache; one engine per LSP/MCP session",
   ]
 
   invariants [reference_resolution_completeness]
@@ -322,37 +327,41 @@ decision entity_enhancement_model "Entity Enhancement Model" {
   invariants [enhancement_field_uniqueness, enhancement_builtin_precedence]
 }
 
-decision aot_compilation_strategy "AOT Compilation Strategy" {
+decision wasm_compile_cache_strategy "Wasm Compile Cache Strategy" {
   status   accepted
   date     2026-03-03
 
   context """
-    Wasm modules can be executed via JIT (compile-on-first-call) or AOT
-    (compile-ahead-of-time and cache). JIT has zero upfront cost but slower
-    first-call latency. AOT has an upfront compilation cost but subsequent
-    loads are fast. For a batch compiler like SpecForge where cold start
-    matters (CLI, CI), AOT is preferred.
+    Components can be compiled on every load (JIT) or compiled once and
+    cached as native machine code (AOT). JIT has zero setup but pays full
+    compilation on every CLI invocation; AOT trades one compile for fast
+    subsequent loads. For a batch compiler like SpecForge where cold start
+    matters (CLI, CI), cached AOT is preferred. A previous hand-rolled
+    side cache (content-hash `.aot` byte copies) was never consumed by any
+    runtime and was deleted in the Component Model cutover.
   """
 
   decision """
-    AOT compilation with content-addressed caching. The .wasm binary is
-    hashed with SHA256 and the compiled artifact is stored in
-    .specforge/cache/ using the hash as the filename. The platform triple
-    is included in the cache key to prevent cross-platform misuse. On
-    cache hit, the pre-compiled artifact is loaded directly. Cache entries
-    are self-healing: corruption is detected by re-hashing and corrupted
-    entries are evicted and recompiled automatically.
+    Use wasmtime's native on-disk compilation cache, configured when the
+    engine is constructed (CacheConfig on Config::cache — after Engine
+    creation the setting is inert, so the constructor is the only wiring
+    point). The cache directory is selected by SPECFORGE_WASMTIME_CACHE
+    (default $HOME/.cache/specforge/wasmtime; 'off' disables) with a
+    500MB files-total-size soft limit. Entries are keyed by component
+    bytes and engine config; integrity and cleanup are engine-owned.
+    Host-side concerns stay separate: installed-binary integrity is the
+    specforge.lock hash pin (E035) at load time.
   """
 
   consequences [
-    "CLI cold start <50ms per extension with cache hit",
-    "First-time compilation takes 100-500ms per extension",
-    "Cache directory grows proportionally to installed extensions",
-    "Platform migration (e.g., x86 to ARM) invalidates entire cache",
-    "Self-healing cache prevents silent corruption from causing failures",
+    "CLI cold start <50ms per extension on cache hit",
+    "First-time compilation pays full Cranelift compilation (100-500ms)",
+    "Cache directory grows proportionally to distinct compiled components",
+    "Engine or platform changes naturally miss the cache and recompile",
+    "No host-side invalidation logic to maintain or test",
   ]
 
-  invariants [aot_cache_integrity, extension_load_order_determinism]
+  invariants [wasm_compile_cache_integrity, extension_load_order_determinism]
 }
 
 decision contribution_based_extension_model "Contribution-Based Extension Model" {

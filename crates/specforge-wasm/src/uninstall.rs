@@ -1,4 +1,3 @@
-use crate::cache::invalidate_entry;
 use crate::lock_file::LockFile;
 use specforge_common::{Diagnostic, Severity};
 use specforge_registry::ManifestV2;
@@ -9,7 +8,6 @@ use std::path::Path;
 pub struct UninstallResult {
     pub name: String,
     pub version: String,
-    pub cache_invalidated: bool,
 }
 
 /// Check if any installed extensions depend on the one being uninstalled.
@@ -21,12 +19,11 @@ pub fn check_dependents(name: &str, installed_manifests: &[ManifestV2]) -> Vec<S
         .collect()
 }
 
-/// Uninstall: check dependents -> remove from lock -> delete .wasm -> invalidate AOT.
+/// Uninstall: check dependents -> remove from lock -> delete .wasm.
 pub fn uninstall_extension(
     name: &str,
     installed_manifests: &[ManifestV2],
     extensions_dir: &Path,
-    cache_dir: &Path,
     lock: &mut LockFile,
     force: bool,
 ) -> Result<UninstallResult, Diagnostic> {
@@ -56,11 +53,6 @@ pub fn uninstall_extension(
         .map(|e| e.version.clone())
         .unwrap_or_default();
 
-    let wasm_hash = entry
-        .as_ref()
-        .map(|e| e.wasm_hash.clone())
-        .unwrap_or_default();
-
     // 3. Remove from lock file
     let original_len = lock.entries.len();
     lock.entries.retain(|e| e.name != name);
@@ -88,16 +80,8 @@ pub fn uninstall_extension(
         });
     }
 
-    // 5. Invalidate AOT cache
-    let cache_invalidated = if !wasm_hash.is_empty() {
-        invalidate_entry(cache_dir, &wasm_hash)
-    } else {
-        false
-    };
-
     Ok(UninstallResult {
         name: name.to_string(),
         version,
-        cache_invalidated,
     })
 }

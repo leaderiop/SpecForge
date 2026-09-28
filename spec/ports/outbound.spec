@@ -56,11 +56,9 @@ port WasmRuntime {
   method loadModule(wasmPath: string) -> Result<string, ExtensionError>
   method callExport(extensionId: string, exportName: string, input: JsonValue) -> Result<JsonValue, ExtensionError>
   method registerHostFunction(name: string, handler: string) -> Result<void, ExtensionError>
-  method aotCompile(wasmPath: string, cachePath: string) -> Result<string, ExtensionError>
   method unloadModule(extensionId: string) -> Result<void, ExtensionError>
   method getMemoryUsage(extensionId: string) -> Result<integer, never>
   method discoverExtensions(source: string, extensionSpec: string) -> Result<string[], ExtensionError>
-  method getCacheStatus(extensionId: string) -> Result<string, never>
   method loadGrammar(contribution: GrammarContribution) -> Result<void, GrammarError>
   method callBodyParser(export_name: string, raw_body: string) -> Result<FieldMap, BodyParserError>
   method getGrammarCacheStatus(hash: string) -> Result<GrammarCacheEntry, GrammarError>

@@ -44,17 +44,24 @@ invariant peer_dependency_satisfaction "Peer Dependency Satisfaction" {
 
 // -- Cache & Isolation Invariants ---------------------------------------------
 
-invariant aot_cache_integrity "AOT Cache Integrity" {
+invariant wasm_compile_cache_integrity "Wasm Compile Cache Integrity" {
   guarantee """
-    AOT artifacts MUST be verified on load by re-hashing the source .wasm
-    binary and comparing against the cache key. Corrupted, truncated, or
-    platform-mismatched cache entries MUST be automatically evicted and
-    recompiled. The cache MUST NOT serve stale or invalid artifacts.
+    The Wasm compilation cache MUST be keyed by the engine configuration and
+    the exact component bytes that produced each artifact: an entry MUST
+    deserialize only for the binary and engine that compiled it. Corrupted
+    or mismatched cache entries MUST be ignored — the runtime falls back to
+    fresh compilation — never served. The cache directory is managed by the
+    runtime engine (wasmtime), selected via SPECFORGE_WASMTIME_CACHE.
+    Separately, the integrity of an installed extension binary is enforced
+    by the specforge.lock hash pin: a binary that no longer matches its
+    recorded hash MUST be refused at load time (E035).
   """
   risk medium
 
-  verify property "corrupted AOT artifact is detected and recompiled"
-  verify unit "platform-mismatched cache entry is evicted"
+  verify property "a cache artifact from different bytes or engine config is never reused"
+  verify unit "corrupted cache entry falls back to fresh compilation"
+  verify unit "tampered installed binary refused via lockfile hash pin (E035)"
+  tests ["crates/specforge-component/tests/compile_cache.rs", "crates/specforge-wasm/tests/wasm_lifecycle.rs"]
 
 }
 

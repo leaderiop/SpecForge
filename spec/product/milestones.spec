@@ -253,7 +253,7 @@ milestone zero_entity_core "Phase 9: Zero-Entity Core Architecture" {
 }
 
 milestone wasm_runtime "Phase 10: Wasm Extension Runtime" {
-  description "Wasm/Extism runtime with AOT caching, sandbox enforcement, host function API, peer dependency validation, and surface contribution dispatch."
+  description "Wasm component runtime with compile caching, sandbox enforcement, host function API, peer dependency validation, and surface contribution dispatch."
   status      completed
   start_date  "2026-01-15"
   target_date "2026-02-01"
@@ -280,7 +280,7 @@ milestone wasm_runtime "Phase 10: Wasm Extension Runtime" {
   exit_criteria [
     "Wasm extensions load, initialize, and validate without errors",
     "All 8 host functions work correctly (query, diagnostic, node, edge, file, http)",
-    "AOT compilation reduces cold start to <50ms per extension",
+    "Compile-cache hits load extensions in <50ms",
     "Sandbox enforcement blocks unauthorized filesystem and network access",
     "Peer dependency validation catches missing or incompatible extensions",
     "Wasm traps produce structured diagnostics without crashing the compiler",

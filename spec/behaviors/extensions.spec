@@ -262,7 +262,7 @@ behavior remove_extension "Remove Extension" {
     When specforge remove <extension-specifier> is invoked, the system MUST
     delegate to uninstall_wasm_extension (behaviors/wasm-lifecycle.spec) for the full
     Wasm lifecycle cleanup: removing the extension entry from specforge.json,
-    deleting the .wasm binary, invalidating the AOT cache, updating
+    deleting the .wasm binary, updating
     specforge.lock, and checking peer dependencies. This behavior is the
     user-facing CLI entry point; uninstall_wasm_extension handles the
     implementation. Existing .spec files using the extension's entities
@@ -544,7 +544,7 @@ behavior publish_to_registry "Publish to Registry" {
 }
 
 behavior verify_registry_integrity "Verify Registry Integrity" {
-  invariants [registry_integrity, aot_cache_integrity, offline_first_extension_resolution]
+  invariants [registry_integrity, wasm_compile_cache_integrity, offline_first_extension_resolution]
   category   validation
   types      [RegistryResponse, LockFileEntry, TrustLevel, ExtensionError]
   ports      [FileSystem]

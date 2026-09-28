@@ -1,4 +1,4 @@
-// Wasm sandbox enforcement, AOT compilation, caching, warm engines,
+// Wasm sandbox enforcement, compile cache, session runtime reuse,
 // error recovery, and sandbox configuration
 
 use "invariants/wasm"
@@ -40,143 +40,84 @@ behavior enforce_wasm_sandbox "Enforce Wasm Sandbox" {
   verify unit "network restriction enforced"
   verify contract "Enforce Wasm Sandbox: Wasm sandbox enforcement holds — sandbox_policy_configured, wasm_runtime_available, memory_limit_enforced, execution_time_enforced, violations_trapped"
 
-  tests ["crates/specforge-extism/tests/runtime.rs"]
+  tests ["crates/specforge-wasm/tests/sandbox_integration.rs"]
 }
 
-behavior aot_compile_wasm_module "AOT Compile Wasm Module" {
-  invariants [aot_cache_integrity]
+behavior compile_wasm_component_with_cache "Compile Wasm Component With Cache" {
+  invariants [wasm_compile_cache_integrity]
   category   command
-  types      [WasmModuleCache, ManifestV2]
+  types      [ManifestV2]
   ports      [WasmRuntime, FileSystem]
-  consumes   [aot_cache_invalidated]
 
   requires {
-    wasm_binary_available ".wasm binary exists and is accessible for compilation"
-    aot_cache_invalidated_fired "aot_cache_invalidated event has fired, or this is the first load of the binary"
+    component_binary_available "component .wasm binary exists and is readable"
+    cache_dir_resolved "compile cache directory resolved: SPECFORGE_WASMTIME_CACHE if set, else $HOME/.cache/specforge/wasmtime; 'off' disables"
   }
 
   ensures {
-    wasm_aot_compiled_emitted "wasm_aot_compiled event is emitted after successful compilation"
-    artifact_cached "compiled artifact is cached in .specforge/cache/ with content-hash filename"
-    subsequent_loads_fast "subsequent loads use the cached artifact to reduce cold start time"
+    engine_configured_at_construction "the compile cache is configured when the runtime engine is built, before any component compiles"
+    first_compile_populates_cache "first compile of a binary writes its compiled artifact to the cache directory"
+    cache_hit_skips_compilation "a later engine over the same cache directory deserializes the artifact instead of recompiling"
+    cache_failure_degrades "an unwritable or corrupted cache degrades to uncached compilation with a warning, never a load failure"
   }
 
   contract """
-    On first load of a .wasm binary, the runtime MUST AOT compile the
-    module and cache the compiled artifact in .specforge/cache/ using
-    a content-hash filename. Subsequent loads MUST use the cached
-    artifact to reduce cold start time.
+    The runtime engine (wasmtime) MUST be constructed with its native
+    on-disk compilation cache when SPECFORGE_WASMTIME_CACHE selects a
+    directory (default: $HOME/.cache/specforge/wasmtime; the value 'off'
+    disables the cache). Compiled machine code MUST be cached and
+    deserialized on later loads, keyed by the engine configuration and
+    component bytes. Cache corruption or an unusable cache directory MUST
+    degrade to uncached compilation with a warning. Installed-binary
+    integrity is a separate concern enforced by the lockfile hash pin
+    (E035) at load time.
   """
 
-  produces [wasm_aot_compiled]
+  verify unit "first compile populates the compile cache directory"
+  verify unit "second engine over the same cache dir loads via cache and executes"
+  verify unit "unwritable cache dir degrades to uncached compile with warning"
+  verify unit "tampered installed binary refused via E035 lockfile pin"
+  verify contract "Compile Wasm Component With Cache: wasm compile cache holds — component_binary_available, cache_dir_resolved, engine_configured_at_construction, first_compile_populates_cache, cache_hit_skips_compilation, cache_failure_degrades"
 
-  verify unit "first load triggers AOT compilation"
-  verify unit "compiled artifact cached with content-hash filename"
-  verify unit "subsequent load uses cached artifact"
-  verify contract "AOT Compile Wasm Module: AOT Wasm compilation holds — wasm_binary_available, aot_cache_invalidated_fired, wasm_aot_compiled_emitted, artifact_cached, subsequent_loads_fast"
-
-  tests ["crates/specforge-extism/tests/runtime.rs"]
+  tests ["crates/specforge-component/tests/compile_cache.rs"]
 }
 
-behavior cache_aot_artifacts "Cache AOT Artifacts" {
-  invariants [aot_cache_integrity]
-  category   command
-  types      [WasmModuleCache]
-  ports      [FileSystem]
-  consumes   [wasm_aot_compiled]
-
-  requires {
-    wasm_aot_compiled_fired "wasm_aot_compiled event has fired, confirming AOT artifact is available for caching"
-    filesystem_available "FileSystem port is available for writing cache entries to .specforge/cache/"
-  }
-
-  ensures {
-    content_addressed "cache entries use filenames derived from SHA256 of the .wasm binary"
-    corruption_detected "corrupted cache entries are detected by re-hashing on load"
-    corruption_recovered "corrupted entries are evicted and recompiled"
-  }
-
-  contract """
-    The AOT content-addressed cache MUST store entries using filenames
-    derived from the SHA256 of the .wasm binary. The cache MUST detect
-    corruption by re-hashing on load. Corrupted entries MUST be evicted
-    and recompiled. The cache directory MUST be .specforge/cache/.
-  """
-
-  verify unit "cache entries use content-addressed filenames"
-  verify unit "corrupted cache entry is evicted and recompiled"
-  verify contract "Cache AOT Artifacts: AOT artifact caching holds — wasm_aot_compiled_fired, filesystem_available, content_addressed, corruption_detected, corruption_recovered"
-
-  tests ["crates/specforge-extism/tests/runtime.rs"]
-}
-
-behavior warm_wasm_engine_instance "Warm Wasm Engine Instance" {
+behavior reuse_session_runtime "Reuse Session Runtime" {
   invariants [extension_isolation]
   category   command
-  types      [ExtensionLifecycleState, WarmEngineConfig]
+  types      [ExtensionLifecycleState]
   ports      [WasmRuntime]
-  consumes   [engine_evicted]
 
   requires {
-    lsp_or_mcp_context "runtime is in LSP or MCP server context (not CLI batch mode)"
-    wasm_runtime_available "WasmRuntime port is available for keeping engine instances warm"
+    session_context "the process is a CLI run, an LSP session, or an MCP server session"
+    wasm_runtime_available "the session's ComponentRuntime is available to all compilation stages"
   }
 
   ensures {
-    engine_warmed_emitted "engine_warmed event is emitted after instance is warmed"
-    instance_reused "warm instances are reused for subsequent validate() and render() calls"
-    instance_unloaded_on_removal "instances are unloaded when extension is removed or server shuts down"
+    single_engine_per_session "one runtime engine is constructed per run/session and shared by every stage"
+    plugin_instances_reused "loaded component instances are reused across repeated calls without re-instantiation"
+    instance_replaced_atomically "reloading an extension atomically replaces its loaded instance"
+    instances_dropped_on_shutdown "all instances are dropped when the runtime is dropped at session end"
   }
 
   contract """
-    For LSP and MCP server contexts, the runtime MUST keep initialized
-    Wasm engine instances warm across compilations. Warm instances MUST
-    be reused for subsequent validate() and render() calls. Instances
-    MUST be unloaded when the extension is removed or the server shuts down.
+    Each process MUST construct a single ComponentRuntime and share it
+    across compilation stages (CLI pipeline, LSP state, MCP server).
+    Loaded component instances live in the runtime and MUST be reused for
+    subsequent calls. Hot reload MUST atomically replace an extension's
+    loaded instance. No cross-process warm pool is promised: a new
+    process pays component compilation once per binary (mitigated by the
+    on-disk compile cache) and instances end with the session.
   """
 
-  produces [engine_warmed]
+  verify unit "same runtime instance serves repeated calls without re-instantiation"
+  verify unit "hot reload atomically replaces a loaded component"
+  verify unit "runtime dropped at session end releases all instances"
+  verify contract "Reuse Session Runtime: session runtime reuse holds — session_context, wasm_runtime_available, single_engine_per_session, plugin_instances_reused, instance_replaced_atomically, instances_dropped_on_shutdown"
 
-  verify unit "warm instance reused across compilations"
-  verify unit "instance unloaded on extension removal"
-  verify contract "Warm Wasm Engine Instance: warm engine instance management holds — lsp_or_mcp_context, wasm_runtime_available, engine_warmed_emitted, instance_reused, instance_unloaded_on_removal"
-
-  tests ["crates/specforge-extism/tests/runtime.rs"]
+  tests ["crates/specforge-component/tests/runtime.rs", "crates/specforge-component/tests/compile_cache.rs"]
 }
 
-behavior evict_warm_engine_instance "Evict Warm Engine Instance" {
-  invariants [extension_isolation]
-  category   command
-  types      [ExtensionLifecycleState, WarmEngineConfig]
-  ports      [WasmRuntime]
-  consumes   [engine_warmed]
-
-  requires {
-    engine_warmed_fired "engine_warmed event has fired, confirming warm instances exist to potentially evict"
-    memory_pressure_detected "memory pressure exceeds configured limits or max concurrent instances exceeded"
-  }
-
-  ensures {
-    engine_evicted_emitted "engine_evicted event is emitted after LRU instance is evicted"
-    lru_order_respected "eviction follows LRU ordering"
-    memory_ceiling_enforced "total memory across warm instances stays within configured ceiling (default 512MB)"
-  }
-
-  contract """
-    The runtime MUST evict warm Wasm engine instances when memory pressure
-    exceeds configured limits. Eviction follows LRU ordering. The maximum
-    concurrent warm instances MUST be configurable via CompilerConfig.
-    Default: 16 instances, 512MB total memory ceiling.
-  """
-
-  produces [engine_evicted]
-
-  verify unit "LRU engine evicted when max instances exceeded"
-  verify unit "memory ceiling triggers eviction of least-recent engine"
-  verify contract "Evict Warm Engine Instance: warm engine eviction holds — engine_warmed_fired, memory_pressure_detected, engine_evicted_emitted, lru_order_respected, memory_ceiling_enforced"
-
-  tests ["crates/specforge-extism/tests/runtime.rs"]
-}
 
 // -- Error Recovery -----
 
@@ -215,45 +156,15 @@ behavior handle_wasm_trap "Handle Wasm Trap" {
   verify unit "remaining extensions continue after trap"
   verify contract "Handle Wasm Trap: Wasm trap handling holds — trap_occurred, wasm_trap_caught_emitted, lifecycle_transitioned, trapped_extension_skipped, remaining_extensions_continue"
 
-  tests ["crates/specforge-extism/tests/runtime.rs"]
+  tests ["crates/specforge-component/tests/runtime.rs"]
 }
 
-// -- Cache Management -----
-
-behavior invalidate_aot_cache "Invalidate AOT Cache" {
-  invariants [aot_cache_integrity]
-  category   validation
-  types      [WasmModuleCache]
-  ports      [WasmRuntime, FileSystem]
-  consumes   [wasm_extension_removed, batch_update_completed]
-
-  requires {
-    invalidation_trigger "one of: runtime version changed, specforge cache clear invoked, .wasm binary content changed, or extension removed/updated"
-  }
-
-  ensures {
-    aot_cache_invalidated_emitted "aot_cache_invalidated event is emitted after stale artifacts are removed"
-    stale_artifacts_removed "stale AOT artifacts are deleted from .specforge/cache/"
-    extension_marked_for_recompilation "affected extension is marked for recompilation on next load"
-  }
-
-  contract """
-    The AOT cache MUST be invalidated when: (1) the Wasm runtime
-    version changes, (2) the user runs specforge cache clear, or (3) the
-    .wasm binary content has changed. Stale AOT artifacts MUST be removed
-    and the affected extension MUST be marked for recompilation on next load.
-  """
-
-  produces [aot_cache_invalidated]
-
-  verify unit "invalidates on runtime version change"
-  verify unit "invalidates on specforge cache clear"
-  verify unit "invalidates when .wasm binary changes"
-  verify unit "removes stale AOT artifacts"
-  verify contract "Invalidate AOT Cache: AOT cache invalidation holds — invalidation_trigger, aot_cache_invalidated_emitted, stale_artifacts_removed, extension_marked_for_recompilation"
-
-  tests ["crates/specforge-extism/tests/runtime.rs"]
-}
+// -- Compile Cache -----
+// The compile cache is owned by the runtime engine (wasmtime): entries are
+// keyed by bytes + engine config and validated by the engine itself, so
+// there is no host-side invalidation behavior. See
+// compile_wasm_component_with_cache and the wasm_compile_cache_integrity
+// invariant.
 
 // V2: .yaml/.yml removed from the default filesystem allowlist. Extensions
 // that need to emit YAML output MUST explicitly declare .yaml or .yml in

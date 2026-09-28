@@ -116,40 +116,6 @@ mod tests {
         assert_eq!(diags[0].code, "E027");
     }
 
-    // -- I:aot_cache_integrity --
-
-    // I:aot_cache_integrity — verify property "corrupted AOT artifact is detected and recompiled"
-    #[test]
-    fn test_corrupted_aot_detected() {
-        let dir = tempfile::TempDir::new().unwrap();
-        let cache_dir = dir.path().join("cache");
-        let wasm_path = dir.path().join("ext.wasm");
-        std::fs::write(&wasm_path, b"module_data").unwrap();
-
-        let entry = crate::cache::cache_wasm_binary(&wasm_path, &cache_dir).unwrap();
-        // Corrupt
-        std::fs::write(&entry.cached_path, b"garbage").unwrap();
-        // Detection
-        assert!(crate::cache::has_cached_artifact(&wasm_path, &cache_dir).is_none());
-    }
-
-    // I:aot_cache_integrity — verify unit "platform-mismatched cache entry is evicted"
-    // Note: platform detection is part of the cache key in production.
-    // Here we test that content-hash mismatch triggers eviction.
-    #[test]
-    fn test_content_mismatch_evicts_cache() {
-        let dir = tempfile::TempDir::new().unwrap();
-        let cache_dir = dir.path().join("cache");
-        let wasm_path = dir.path().join("ext.wasm");
-        std::fs::write(&wasm_path, b"v1").unwrap();
-        crate::cache::cache_wasm_binary(&wasm_path, &cache_dir).unwrap();
-
-        // Change the binary
-        std::fs::write(&wasm_path, b"v2").unwrap();
-        // Old cache doesn't match new content
-        assert!(crate::cache::has_cached_artifact(&wasm_path, &cache_dir).is_none());
-    }
-
     // -- I:extension_isolation --
 
     // I:extension_isolation — verify property "extension trap does not affect other extensions"
@@ -281,21 +247,5 @@ mod tests {
         let detected = specforge_registry::detect_duplicate_entity_kinds(&[m1, m2]);
         assert!(!detected.is_empty());
         assert_eq!(detected[0].code, "E026");
-    }
-
-    // -- I:extension_operation_atomicity --
-
-    // I:extension_operation_atomicity — verify unit "failed install rolls back to previous state"
-    // Tested through cache invalidation — if AOT compile fails, no artifact is left
-    #[test]
-    fn test_failed_operation_leaves_no_artifacts() {
-        let dir = tempfile::TempDir::new().unwrap();
-        let cache_dir = dir.path().join("cache");
-        let missing = dir.path().join("nonexistent.wasm");
-
-        let result = crate::cache::cache_wasm_binary(&missing, &cache_dir);
-        assert!(result.is_err());
-        // No cache artifacts created for failed operation
-        assert!(!cache_dir.exists() || std::fs::read_dir(&cache_dir).unwrap().count() == 0);
     }
 }

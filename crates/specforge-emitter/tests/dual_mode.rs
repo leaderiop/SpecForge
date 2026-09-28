@@ -79,7 +79,7 @@ impl MockRuntime {
 }
 
 impl WasmRuntime for MockRuntime {
-    fn load_module(&self, _wasm_path: &Path, _aot_cache_path: Option<&Path>) -> Result<(), String> {
+    fn load_module(&self, _wasm_path: &Path) -> Result<(), String> {
         Ok(())
     }
 
@@ -104,10 +104,6 @@ impl WasmRuntime for MockRuntime {
                 let default_resp = serde_json::json!({"category": "unknown", "items": []});
                 WasmCallResult::Ok(serde_json::to_vec(&default_resp).unwrap())
             })
-    }
-
-    fn has_cached_module(&self, _wasm_hash: &str) -> bool {
-        false
     }
 }
 

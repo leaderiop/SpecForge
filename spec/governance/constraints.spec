@@ -105,7 +105,7 @@ constraint zero_runtime_dependencies "Zero Runtime Dependencies" {
   metric """
     The specforge-cli and specforge-lsp binaries MUST be statically
     linked with zero runtime dependencies beyond the OS. No Node.js,
-    Python, or JVM required at runtime. The Extism runtime is statically
+    Python, or JVM required at runtime. The wasmtime runtime is statically
     linked into the binary.
   """
 
@@ -311,7 +311,7 @@ constraint extension_system_integrity "Extension System Integrity" {
     prevents runaway extensions
   """
 
-  constrains [load_extension_manifests, register_extension_entity_types, load_provider_configurations, validate_provider_refs, remove_extension, list_installed_extensions, custom_entity_types_via_define, list_configured_providers, validate_ref_target_format, validate_provider_kinds, load_wasm_module, initialize_wasm_extension, enforce_wasm_sandbox, validate_extension_peer_dependencies, call_extension_validators, provide_host_function_query_graph, provide_host_function_emit_diagnostic, provide_host_function_add_graph_node, provide_host_function_add_graph_edge, warm_wasm_engine_instance, topological_sort_extensions, load_extension_manifest, register_entity_enhancements, detect_enhancement_conflicts, resolve_enhancement_conflicts, run_doctor_check, scaffold_wasm_extension_project, build_wasm_extension, validate_wasm_extension_locally, publish_wasm_extension, reject_reserved_entity_kind, detect_entity_kind_collision, upgrade_wasm_extension, validate_extension_manifest, handle_wasm_trap, discover_extensions, parse_extension_specifier, resolve_extension_source, write_lock_file, read_lock_file, verify_wasm_integrity, dispatch_contribution_exports, validate_contribution_exports, toggle_extension_contributions]
+  constrains [load_extension_manifests, register_extension_entity_types, load_provider_configurations, validate_provider_refs, remove_extension, list_installed_extensions, custom_entity_types_via_define, list_configured_providers, validate_ref_target_format, validate_provider_kinds, load_wasm_module, initialize_wasm_extension, enforce_wasm_sandbox, validate_extension_peer_dependencies, call_extension_validators, provide_host_function_query_graph, provide_host_function_emit_diagnostic, provide_host_function_add_graph_node, provide_host_function_add_graph_edge, reuse_session_runtime, topological_sort_extensions, load_extension_manifest, register_entity_enhancements, detect_enhancement_conflicts, resolve_enhancement_conflicts, run_doctor_check, scaffold_wasm_extension_project, build_wasm_extension, validate_wasm_extension_locally, publish_wasm_extension, reject_reserved_entity_kind, detect_entity_kind_collision, upgrade_wasm_extension, validate_extension_manifest, handle_wasm_trap, discover_extensions, parse_extension_specifier, resolve_extension_source, write_lock_file, read_lock_file, verify_wasm_integrity, dispatch_contribution_exports, validate_contribution_exports, toggle_extension_contributions]
   protects [spec_root_singleton, reference_resolution_completeness, wasm_sandbox_integrity]
 
   verify integration "extension operations never corrupt state or crash"
@@ -321,22 +321,22 @@ constraint extension_system_integrity "Extension System Integrity" {
 
 
 
-constraint wasm_cold_start_budget "Wasm Cold Start Budget" {
-  description "Each Wasm extension must load in under 50ms with AOT cache, and first-load AOT compilation must complete in under 500ms for typical extensions."
+constraint wasm_compile_cache_budget "Wasm Compile Cache Budget" {
+  description "Wasm extensions must load from the compile cache in under 50ms, and first compilation must complete in under 500ms for typical components."
   category    performance
   priority    critical
 
   metric """
-    Each Wasm extension MUST load in under 50ms with AOT cache.
-    First load (without cache) SHOULD complete AOT compilation
-    in under 500ms for a typical extension (<1MB .wasm).
+    Each Wasm extension MUST load in under 50ms on a compile-cache hit.
+    First compilation (cache cold) SHOULD complete in under 500ms for a
+    typical component (<1MB .wasm).
   """
 
-  constrains [load_wasm_module, aot_compile_wasm_module, cache_aot_artifacts, warm_wasm_engine_instance]
+  constrains [load_wasm_module, compile_wasm_component_with_cache, reuse_session_runtime]
   protects [extension_load_order_determinism]
 
-  verify load "benchmark AOT-cached extension load, assert < 50ms"
-  verify load "benchmark first-load AOT compilation for 1MB .wasm, assert < 500ms"
+  verify load "benchmark compile-cache-hit extension load, assert < 50ms"
+  verify load "benchmark first compilation of a 1MB component, assert < 500ms"
 
 }
 
@@ -387,10 +387,10 @@ constraint wasm_binary_size_limit "Wasm Binary Size Limit" {
   metric """
     Each extension .wasm binary SHOULD be under 5MB. Binaries exceeding 10MB
     MUST produce a warning diagnostic at install time. This ensures
-    reasonable download times and AOT compilation latency.
+    reasonable download times and first-compilation latency.
   """
 
-  constrains [install_wasm_extension, build_wasm_extension, aot_compile_wasm_module]
+  constrains [install_wasm_extension, build_wasm_extension, compile_wasm_component_with_cache]
   protects [extension_load_order_determinism]
 
   verify unit "extension under 5MB installs without warning"
@@ -418,23 +418,24 @@ constraint extension_count_limit "Extension Count Limit" {
 
 }
 
-constraint aot_cache_size_limit "AOT Cache Size Limit" {
-  description "The AOT cache directory must stay under 500MB, with LRU eviction removing least recently used entries when the limit is exceeded."
+constraint wasm_compile_cache_size_limit "Wasm Compile Cache Size Limit" {
+  description "The wasmtime compile cache directory must stay under 500MB total; the engine's built-in size-based cleanup removes least-recently-used entries beyond the soft limit."
   category    portability
   priority    high
 
   metric """
-    The AOT cache directory SHOULD stay under 500MB total. When the cache
-    exceeds this limit, LRU eviction MUST remove the least recently used
-    entries and an info diagnostic MUST be emitted.
+    The compile cache directory SHOULD stay under 500MB total. The
+    runtime configures wasmtime's cache with a 500MB files-total-size
+    soft limit; when exceeded, the engine's cleanup removes
+    least-recently-used entries on subsequent runs. No info diagnostic
+    is required — cleanup is engine-internal.
   """
 
-  constrains [aot_compile_wasm_module, cache_aot_artifacts, invalidate_aot_cache]
-  protects [aot_cache_integrity]
+  constrains [compile_wasm_component_with_cache]
+  protects [wasm_compile_cache_integrity]
 
   verify unit "cache under 500MB operates normally"
-  verify unit "cache over 500MB triggers LRU eviction"
-  verify unit "eviction emits info diagnostic"
+  verify unit "cache configured with 500MB files-total-size soft limit"
 
 }
 

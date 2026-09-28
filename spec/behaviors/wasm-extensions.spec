@@ -966,7 +966,7 @@ behavior read_lock_file "Read Lock File" {
 // ── Extension Update ──────────────────────────────────────────
 
 behavior update_all_extensions "Update All Extensions" {
-  invariants [wasm_sandbox_integrity, peer_dependency_satisfaction, aot_cache_integrity, extension_operation_atomicity]
+  invariants [wasm_sandbox_integrity, peer_dependency_satisfaction, wasm_compile_cache_integrity, extension_operation_atomicity]
   category   command
   types      [ManifestV2, LockFileEntry, ExtensionError]
   ports      [WasmRuntime]
@@ -979,7 +979,7 @@ behavior update_all_extensions "Update All Extensions" {
   ensures {
     batch_update_completed_emitted "batch_update_completed event is emitted after all upgrades are applied"
     semver_constraints_respected "upgrades respect semver constraints, major bumps skipped without --major"
-    aot_caches_recompiled "AOT caches are recompiled for all updated extensions"
+    lock_hashes_refreshed "updated lock entries record the new binary hashes"
     atomic_rollback_on_failure "if any upgrade fails, all changes are rolled back"
   }
 
@@ -988,8 +988,8 @@ behavior update_all_extensions "Update All Extensions" {
     extensions for newer versions by querying their configured registries.
     The system MUST upgrade each extension to the latest compatible version
     respecting semver constraints. Major version bumps MUST be skipped unless
-    --major is specified. After upgrading, the system MUST recompile AOT
-    caches for updated extensions and refresh the lock file. Peer dependency
+    --major is specified. After upgrading, the system MUST refresh the lock
+    file with the new binary hashes. Peer dependency
     conflicts introduced by upgrades MUST be detected and reported before
     applying changes. If any upgrade fails, the system MUST roll back all
     changes and report the failure.
@@ -1000,17 +1000,16 @@ behavior update_all_extensions "Update All Extensions" {
   verify unit "newer versions detected from registry"
   verify unit "semver-compatible upgrades applied"
   verify unit "major version skipped without --major flag"
-  verify unit "AOT cache recompiled for updated extensions"
-  verify unit "lock file refreshed after update"
+  verify unit "lock file records new binary hashes after update"
   verify unit "peer dependency conflicts detected before applying"
   verify unit "failed upgrade rolls back all changes"
-  verify contract "Update All Extensions: batch extension update holds — extensions_installed, registries_reachable, batch_update_completed_emitted, semver_constraints_respected, aot_caches_recompiled, atomic_rollback_on_failure"
+  verify contract "Update All Extensions: batch extension update holds — extensions_installed, registries_reachable, batch_update_completed_emitted, semver_constraints_respected, lock_hashes_refreshed, atomic_rollback_on_failure"
 
   tests ["crates/specforge-cli/tests/registry.rs"]
 }
 
 behavior refresh_lock_file "Refresh Lock File" {
-  invariants [aot_cache_integrity, registry_integrity]
+  invariants [wasm_compile_cache_integrity, registry_integrity]
   category   command
   types      [LockFileEntry, ManifestV2]
   ports      [WasmRuntime, FileSystem]

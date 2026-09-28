@@ -1,4 +1,3 @@
-use crate::cache::invalidate_entry;
 use crate::install::install_extension;
 use crate::lock_file::LockFile;
 use specforge_common::{Diagnostic, Severity};
@@ -11,7 +10,6 @@ pub struct UpgradeResult {
     pub name: String,
     pub old_version: String,
     pub new_version: String,
-    pub recached: bool,
 }
 
 /// Check if a newer version is available (compare version strings).
@@ -34,8 +32,8 @@ pub fn check_newer_version(current: &str, available: &str) -> bool {
     }
 }
 
-/// Upgrade an extension: validate peer compat -> install new -> invalidate old cache -> recache.
 #[allow(clippy::too_many_arguments)]
+/// Upgrade an extension: validate peer compat -> install new version.
 pub fn upgrade_extension(
     name: &str,
     new_version: &str,
@@ -44,7 +42,6 @@ pub fn upgrade_extension(
     peer_manifests: &[ManifestV2],
     new_manifest: &ManifestV2,
     extensions_dir: &Path,
-    cache_dir: &Path,
     lock: &mut LockFile,
     force: bool,
 ) -> Result<UpgradeResult, Diagnostic> {
@@ -54,13 +51,6 @@ pub fn upgrade_extension(
         .iter()
         .find(|e| e.name == name)
         .map(|e| e.version.clone())
-        .unwrap_or_default();
-
-    let old_hash = lock
-        .entries
-        .iter()
-        .find(|e| e.name == name)
-        .map(|e| e.wasm_hash.clone())
         .unwrap_or_default();
 
     // 2. Validate peer dependency compatibility
@@ -97,26 +87,19 @@ pub fn upgrade_extension(
         });
     }
 
-    // 3. Invalidate old cache entry
-    if !old_hash.is_empty() {
-        invalidate_entry(cache_dir, &old_hash);
-    }
-
-    // 4. Install new version (preserve the recorded publisher key, if any)
+    // 3. Install new version (preserve the recorded publisher key, if any)
     let prior = lock.entries.iter().find(|e| e.name == name);
     let prior_key_id = prior.and_then(|e| e.key_id.clone());
     let prior_peers = prior
         .map(|e| e.peer_dependencies.clone())
         .unwrap_or_default();
-    let install_result = install_extension(
+    install_extension(
         name,
         new_version,
         new_wasm_bytes,
         expected_sha256,
         extensions_dir,
-        cache_dir,
         lock,
-        false, // always cache on upgrade
         prior_key_id.as_deref(),
         prior_peers,
     )?;
@@ -125,6 +108,5 @@ pub fn upgrade_extension(
         name: name.to_string(),
         old_version,
         new_version: new_version.to_string(),
-        recached: install_result.cached,
     })
 }

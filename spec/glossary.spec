@@ -221,7 +221,7 @@ term t_extension "extension" {
   definition """
     A Wasm extension (.wasm binary) that provides domain vocabulary to the
     compiler: entity kinds, edge types, validation rules, and testability
-    flags. Loaded via the Extism runtime. The core compiler has zero built-in
+    flags. Loaded via the wasmtime runtime. The core compiler has zero built-in
     entity types — ALL domain knowledge comes from extensions. Official extensions:
     @specforge/software, @specforge/product, @specforge/governance. Domain
     extensions: @specforge/atomic-design, @specforge/compliance, @specforge/api-design.
@@ -424,28 +424,19 @@ term t_semantic_token "semantic token" {
   see_also   [t_glossary_entity_enhancement, t_entity_id]
 }
 
-// ── Wasm/Extism Runtime ─────────────────────────────────────
+// ── Wasm Component Runtime ───────────────────────────────────
 
 term t_wasm "Wasm" {
   definition """
     WebAssembly — a portable binary instruction format used as the
     universal extension runtime for SpecForge. Extensions compile to
-    .wasm binaries that run in a sandboxed environment via the
-    Extism runtime.
+    wasip2 components that run in a sandboxed environment via the
+    wasmtime Component Model runtime.
   """
   aliases ["WebAssembly", ".wasm"]
-  see_also   [t_aot_compilation, t_grammar_composition]
+  see_also   [t_compile_cache, t_grammar_composition]
 }
 
-term t_extism "Extism" {
-  definition """
-    A cross-language framework for building WebAssembly plugin systems
-    (Extism itself refers to these as plugins). SpecForge uses Extism
-    as its sole extension runtime, providing host function registration,
-    linear memory management, and sandboxed execution. Statically linked
-    into the specforge binary.
-  """
-}
 
 term t_host_function "host function" {
   definition """
@@ -472,15 +463,16 @@ term t_linear_memory "linear memory" {
   """
 }
 
-term t_aot_compilation "AOT compilation" {
+term t_compile_cache "compile cache" {
   definition """
-    Ahead-of-Time compilation of .wasm binaries to native machine code.
-    Cached in .specforge/cache/ using content-hash filenames. Reduces
-    extension cold start to <50ms. Platform-specific — cache entries include
-    the target platform in their filename.
+    Wasmtime's on-disk cache of compiled component machine code, selected
+    via SPECFORGE_WASMTIME_CACHE (default $HOME/.cache/specforge/wasmtime;
+    'off' disables). Entries are keyed by component bytes and engine
+    configuration; a cache hit deserializes precompiled code instead of
+    recompiling, reducing extension load to <50ms. Platform-specific —
+    engine config is part of the key.
   """
-  aliases ["ahead-of-time compilation", "AOT"]
-  see_also   [t_extism]
+  aliases ["AOT compilation", "ahead-of-time compilation"]
 }
 
 term t_peer_dependency "peer dependency" {
@@ -498,7 +490,7 @@ term t_sandbox_policy "sandbox policy" {
     A configuration object that defines the security boundaries for a
     Wasm extension: maximum memory, execution time limit, allowed filesystem
     paths, allowed network domains, and access levels. Enforced by the
-    Extism runtime and host function implementations.
+    wasmtime runtime and host function implementations.
   """
 }
 
@@ -528,7 +520,7 @@ term t_glossary_entity_enhancement "entity enhancement" {
 term t_wasm_trap "Wasm trap" {
   definition """
     An unrecoverable WebAssembly error such as out-of-bounds memory
-    access, stack overflow, or unreachable instruction. The Extism
+    access, stack overflow, or unreachable instruction. The wasmtime
     runtime catches all traps and converts them to Result errors.
     Trapped extensions transition to the failed lifecycle state.
   """
@@ -537,21 +529,23 @@ term t_wasm_trap "Wasm trap" {
 
 term t_fuel_metering "fuel metering" {
   definition """
-    Extism/Wasmtime's instruction counting mechanism for enforcing
+    Wasmtime's instruction counting mechanism for enforcing
     execution time limits on Wasm extensions. Each Wasm instruction
     consumes fuel; when the fuel budget is exhausted, the extension
     traps. Prevents runaway extensions from blocking compilation.
   """
+  aliases ["fuel"]
 }
 
 term t_content_addressed_cache "content-addressed cache" {
   definition """
-    The AOT cache naming strategy where compiled artifacts are stored
-    using the SHA256 hash of the source .wasm binary as the filename.
-    This ensures cache hits are always valid and cache misses trigger
-    recompilation. The platform triple is included in the key.
+    A cache strategy where artifacts are keyed by a hash of the bytes
+    that produced them, so identical inputs always hit and changed inputs
+    always miss. The grammar artifact cache keys on content hash + ABI
+    version; the component compile cache keys on bytes + engine config
+    inside wasmtime.
   """
-  see_also   [t_wasm]
+  see_also   [t_wasm, t_compile_cache]
 }
 
 term t_enhancement_policy "enhancement policy" {

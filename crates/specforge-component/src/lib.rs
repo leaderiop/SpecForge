@@ -15,7 +15,7 @@ use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 
 use wasmtime::component::{Component, Linker};
-use wasmtime::{Config, Engine, Store};
+use wasmtime::{Cache, CacheConfig, Config, Engine, Store};
 use wasmtime_wasi::{WasiCtx, WasiCtxView, WasiView};
 
 use specforge_wasm::runtime::{WasmCallResult, WasmRuntime, WasmTrapInfo};
@@ -52,7 +52,7 @@ struct PluginInstance {
     bindings: Bridge,
 }
 
-/// Deterministic per-call instruction budget (mirrors `specforge-extism`).
+/// Deterministic per-call instruction budget, shared by every surface.
 pub const DEFAULT_FUEL_LIMIT: u64 = 30_000 * 20_000_000;
 
 /// A `WasmRuntime` backed by wasmtime 49 Component Model instances.
@@ -60,39 +60,48 @@ pub struct ComponentRuntime {
     engine: Engine,
     plugins: Mutex<HashMap<String, PluginInstance>>,
     fuel: u64,
-    compile_cache_dir: Option<PathBuf>,
 }
 
 impl ComponentRuntime {
+    /// Runtime without a compilation cache (unit tests, one-shot tooling).
     pub fn new() -> Self {
+        Self::construct(None)
+    }
+
+    /// Runtime with wasmtime's on-disk compilation cache enabled
+    /// (`SPECFORGE_WASMTIME_CACHE` selection happens in `project_runtime`).
+    ///
+    /// The cache MUST be configured before the `Engine` is built — wasmtime
+    /// reads the cache setting at construction — so this is a constructor,
+    /// not a post-hoc setter (C7-02: the previous `.aot` side cache was a
+    /// byte copy that no runtime ever consumed).
+    pub fn new_with_compile_cache(dir: PathBuf) -> Self {
+        Self::construct(Some(dir))
+    }
+
+    fn construct(cache_dir: Option<PathBuf>) -> Self {
         let mut config = Config::new();
         config.wasm_component_model(true);
         config.consume_fuel(true);
+        if let Some(dir) = &cache_dir
+            && let Err(e) = enable_compile_cache(&mut config, dir)
+        {
+            eprintln!(
+                "warning: wasm compile cache disabled ({}: {e})",
+                dir.display()
+            );
+        }
         let engine = Engine::new(&config).expect("engine initializes");
         Self {
             engine,
             plugins: Mutex::new(HashMap::new()),
             fuel: DEFAULT_FUEL_LIMIT,
-            compile_cache_dir: None,
         }
     }
 
     /// Deterministic per-call instruction budget, enforced by the engine.
     pub fn with_fuel_limit(mut self, fuel: u64) -> Self {
         self.fuel = fuel;
-        self
-    }
-
-    /// Enable Wasmtime's on-disk compilation cache (opt-in).
-    pub fn with_compile_cache(mut self, dir: PathBuf) -> Self {
-        match std::fs::create_dir_all(&dir) {
-            Ok(()) => self.compile_cache_dir = Some(dir),
-            Err(e) => eprintln!(
-                "warning: wasm compile cache disabled ({}: {})",
-                dir.display(),
-                e
-            ),
-        }
         self
     }
 
@@ -115,12 +124,7 @@ impl ComponentRuntime {
     }
 
     /// Compile a component from a file and register it under `name`.
-    pub fn load_module_as(
-        &self,
-        name: &str,
-        wasm_path: &Path,
-        _aot_cache_path: Option<&Path>,
-    ) -> Result<(), String> {
+    pub fn load_module_as(&self, name: &str, wasm_path: &Path) -> Result<(), String> {
         let component = Component::from_file(&self.engine, wasm_path)
             .map_err(|e| format!("failed to compile component {name}: {e}"))?;
         self.instantiate(name, component)
@@ -222,7 +226,7 @@ impl Default for ComponentRuntime {
 }
 
 impl WasmRuntime for ComponentRuntime {
-    fn load_module(&self, wasm_path: &Path, _aot_cache_path: Option<&Path>) -> Result<(), String> {
+    fn load_module(&self, wasm_path: &Path) -> Result<(), String> {
         let bytes = std::fs::read(wasm_path).map_err(|e| e.to_string())?;
         let name = wasm_path
             .file_stem()
@@ -235,8 +239,19 @@ impl WasmRuntime for ComponentRuntime {
     fn call_export(&self, extension_name: &str, export_name: &str, input: &[u8]) -> WasmCallResult {
         self.call(extension_name, export_name, input)
     }
+}
 
-    fn has_cached_module(&self, _wasm_hash: &str) -> bool {
-        false
-    }
+/// Configure wasmtime's native on-disk compilation cache (true AOT: compiled
+/// machine code is cached and deserialized on later runs, keyed by input
+/// bytes + engine config). Covers components — `compile_component` goes
+/// through wasmtime's `ModuleCacheEntry` like modules do. The soft size cap
+/// keeps the governance constraint (500 MB, size-based eviction) true.
+fn enable_compile_cache(config: &mut Config, dir: &Path) -> Result<(), String> {
+    std::fs::create_dir_all(dir).map_err(|e| e.to_string())?;
+    let mut cache_config = CacheConfig::new();
+    cache_config.with_directory(dir);
+    cache_config.with_files_total_size_soft_limit(500 * 1024 * 1024);
+    let cache = Cache::new(cache_config).map_err(|e| e.to_string())?;
+    config.cache(Some(cache));
+    Ok(())
 }

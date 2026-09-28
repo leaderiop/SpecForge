@@ -52,7 +52,6 @@ pub fn run(
     }
 
     let extensions_dir = path.join(".specforge").join("extensions");
-    let cache_dir = path.join(".specforge").join("cache");
     let mut updated = Vec::new();
 
     for entry in &entries_to_update {
@@ -144,9 +143,7 @@ pub fn run(
             &wasm_bytes,
             &response.sha256,
             &extensions_dir,
-            &cache_dir,
             &mut lock,
-            false,
             trust.key_id.as_deref(),
             peers,
         ) {

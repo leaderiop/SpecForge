@@ -5,7 +5,6 @@ use std::path::Path;
 pub fn run(name: &str, path: &Path, force: bool, format: &str) -> i32 {
     let lock_path = path.join("specforge.lock");
     let extensions_dir = path.join(".specforge").join("extensions");
-    let cache_dir = path.join(".specforge").join("cache");
 
     // 1. Read lock file (missing lock file means nothing to remove)
     let mut lock = match read_lock_file(&lock_path) {
@@ -57,7 +56,6 @@ pub fn run(name: &str, path: &Path, force: bool, format: &str) -> i32 {
         name,
         &installed_manifests,
         &extensions_dir,
-        &cache_dir,
         &mut lock,
         force,
     ) {
@@ -87,7 +85,6 @@ pub fn run(name: &str, path: &Path, force: bool, format: &str) -> i32 {
                     let output = json!({
                         "removed": result.name,
                         "version": result.version,
-                        "cache_invalidated": result.cache_invalidated,
                     });
                     println!(
                         "{}",
@@ -96,9 +93,6 @@ pub fn run(name: &str, path: &Path, force: bool, format: &str) -> i32 {
                 }
                 _ => {
                     println!("Removed extension '{}' (v{})", result.name, result.version);
-                    if result.cache_invalidated {
-                        println!("  AOT cache invalidated");
-                    }
                 }
             }
             0

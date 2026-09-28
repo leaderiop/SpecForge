@@ -222,7 +222,7 @@ journey diagnose_extension_issues "Diagnose Extension Issues" {
     2. System loads all extension manifests
     3. System builds KindRegistry and FieldRegistry from extension declarations
     4. System detects entity kind conflicts and enhancement conflicts
-    5. System checks AOT cache health
+    5. System checks Wasm compile cache health
     6. System produces a report listing installed extensions, entity kinds,
        enhancements, conflicts with actionable resolution suggestions, and cache status
     7. Developer resolves issues based on report
@@ -238,7 +238,7 @@ journey manage_extensions "Manage Extensions" {
   flow     """
     1. Developer runs specforge add @specforge/governance
     2. System downloads the .wasm extension binary
-    3. System AOT compiles and caches in .specforge/cache/
+    3. System verifies the binary SHA256 and places it atomically under .specforge/extensions/
     4. System adds extension to specforge.json
     5. New entity kinds become available from the extension's domain vocabulary
     6. Developer runs specforge extensions to verify installed extensions
@@ -273,7 +273,7 @@ journey install_domain_extensions "Install Domain Extensions" {
     1. Developer runs specforge add @specforge/atomic-design
     2. System resolves extension from registry
     3. System downloads .wasm binary and validates manifest
-    4. System AOT compiles and caches in .specforge/cache/
+    4. System verifies the binary SHA256 and places it atomically under .specforge/extensions/
     5. System adds extension to specforge.json extensions list
     6. New entity kinds (atom, molecule, organism, template, page) become available
     7. Developer writes .spec files using the new domain vocabulary

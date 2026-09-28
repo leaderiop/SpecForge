@@ -13,7 +13,7 @@ use "events/wasm-lifecycle"
 behavior load_wasm_module "Load Wasm Module" {
   invariants [wasm_sandbox_integrity]
   category   command
-  types      [ManifestV2, WasmModuleCache, ExtensionError]
+  types      [ManifestV2, ExtensionError]
   ports      [WasmRuntime]
   consumes   [manifest_validated, wasm_integrity_verified, extension_install_completed, extension_upgrade_completed]
 
@@ -25,24 +25,28 @@ behavior load_wasm_module "Load Wasm Module" {
 
   ensures {
     extension_loaded_emitted "extension_loaded event is emitted on successful module load"
-    aot_cache_utilized "AOT cache is checked and used on cache hit, skipping recompilation"
+    extension_loaded_via_runtime "the binary is loaded into the runtime engine (component compilation itself is cached by the engine — see compile_wasm_component_with_cache)"
+    tampered_binary_refused "a binary whose hash no longer matches the specforge.lock pin is refused with E035"
     missing_binary_diagnosed "missing .wasm binary produces ExtensionError diagnostic"
   }
 
   contract """
     When the compiler loads an extension, it MUST locate the .wasm binary
-    from the manifest's wasmPath, check the AOT cache for a pre-compiled
-    module matching the content hash, and load it into the Wasm runtime.
-    Cache hits MUST skip recompilation. Missing .wasm files MUST produce
-    a ExtensionError diagnostic.
+    from the manifest's wasmPath, verify its content hash against the
+    specforge.lock pin (refusing a mismatch with E035; legacy entries
+    without a hash warn and load), and load it into the Wasm runtime.
+    Component compilation caching is the engine's concern (see
+    compile_wasm_component_with_cache). Missing .wasm files MUST produce
+    an ExtensionError diagnostic.
   """
 
   produces [extension_loaded]
 
   verify unit "loads .wasm binary from manifest path"
-  verify unit "uses AOT cache on cache hit"
+  verify unit "tampered installed binary refused via E035 lockfile pin"
+  verify unit "legacy lockfile entry without hash loads unchanged"
   verify unit "missing .wasm produces ExtensionError"
-  verify contract "Load Wasm Module: Wasm module loading holds — manifest_validated_fired, wasm_integrity_verified_fired, wasm_runtime_available, extension_loaded_emitted, aot_cache_utilized, missing_binary_diagnosed"
+  verify contract "Load Wasm Module: Wasm module loading holds — manifest_validated_fired, wasm_integrity_verified_fired, wasm_runtime_available, extension_loaded_emitted, extension_loaded_via_runtime, tampered_binary_refused, missing_binary_diagnosed"
 
   tests ["crates/specforge-wasm/tests/wasm_lifecycle.rs"]
 }
@@ -130,7 +134,7 @@ behavior call_extension_validators "Call Extension Validators" {
   verify unit "validation continues to next extension after errors"
   verify contract "Call Extension Validators: extension validator dispatch holds — extension_initialized_fired, extensions_sorted_fired, extension_validated_emitted, diagnostics_collected, validation_continues"
 
-  tests ["crates/specforge-extism/tests/composite.rs"]
+  tests ["crates/specforge-wasm/tests/host_functions_integration.rs"]
 }
 
 // -- Dependencies -----
@@ -203,7 +207,7 @@ behavior topological_sort_extensions "Topological Sort Extensions" {
 // -- Extension Lifecycle -----
 
 behavior install_wasm_extension "Install Wasm Extension" {
-  invariants [aot_cache_integrity, extension_operation_atomicity, offline_first_extension_resolution]
+  invariants [wasm_compile_cache_integrity, extension_operation_atomicity, offline_first_extension_resolution]
   category   command
   types      [ManifestV2, ExtensionInstallResult, ExtensionSource, ExtensionError]
   ports      [WasmRuntime, FileSystem]
@@ -221,16 +225,15 @@ behavior install_wasm_extension "Install Wasm Extension" {
   }
 
   contract """
-    When specforge add <pkg> is invoked, the system MUST resolve the extension
-    from its source (registry, local path, or git), download the .wasm
-    binary, verify its SHA256 integrity, place it in the project, AOT compile
-    it, and update specforge.json with the extension entry. On failure at any
-    step, the system MUST rollback all changes — no partial installs.
-    Per Principle 8 (seconds to value), installation MUST complete within
-    the caller's time budget. When the remaining time budget is insufficient
-    for AOT compilation, the system MUST defer AOT to first use — installing
-    the raw .wasm binary and compiling on first load. This deferred-AOT
-    strategy ensures P8 compliance even with slow networks or large binaries.
+    When specforge add <pkg> is invoked, the system MUST resolve the
+    extension from its source (registry, local path, or git), download
+    the .wasm binary, verify its SHA256 integrity, place it in the
+    project atomically (temp dir + rename), and update specforge.json
+    with the extension entry. On failure at any step, the system MUST
+    rollback all changes — no partial installs. Component compilation
+    is NOT an install step: the engine compiles on first load and
+    caches the artifact (see compile_wasm_component_with_cache), so a
+    slow network or large binary never blocks install.
   """
 
   produces [extension_install_completed]
@@ -238,18 +241,17 @@ behavior install_wasm_extension "Install Wasm Extension" {
   verify unit "resolves extension from registry"
   verify unit "resolves extension from local path"
   verify unit "verifies SHA256 integrity of downloaded .wasm"
-  verify unit "AOT compiles after install"
+  verify unit "places binary atomically via temp dir"
   verify unit "updates specforge.json with extension entry"
   verify unit "rolls back on download failure"
   verify performance "single extension install completes within 30 seconds on commodity hardware"
-  verify unit "defers AOT compilation when time budget is insufficient"
   verify contract "Install Wasm Extension: Wasm extension installation holds — extension_source_available, filesystem_available, extension_install_completed_emitted, integrity_verified, atomic_install_enforced, config_updated"
 
   tests ["crates/specforge-wasm/tests/wasm_lifecycle.rs"]
 }
 
 behavior upgrade_wasm_extension "Upgrade Wasm Extension" {
-  invariants [peer_dependency_satisfaction, aot_cache_integrity, extension_operation_atomicity]
+  invariants [peer_dependency_satisfaction, extension_operation_atomicity]
   category   mutation
   types      [ManifestV2, PeerDependency, ExtensionInstallResult, ExtensionError]
   ports      [WasmRuntime, FileSystem]
@@ -261,27 +263,29 @@ behavior upgrade_wasm_extension "Upgrade Wasm Extension" {
 
   ensures {
     extension_upgrade_completed_emitted "extension_upgrade_completed event is emitted on successful upgrade"
-    old_cache_invalidated "old AOT cache entry is invalidated and binary is recompiled"
+    binary_replaced "the installed .wasm binary is replaced and the lock entry records the new hash"
     peer_compatibility_enforced "breaking peer dependency changes are rejected without --force"
   }
 
   contract """
     When specforge extension upgrade is invoked, the system MUST check the
     source for a newer version, validate peer dependency compatibility
-    with all installed extensions, replace the .wasm binary, invalidate the
-    old AOT cache entry, and recompile. Breaking peer dependency changes
-    MUST require the --force flag. Without --force, the upgrade MUST be
-    rejected with a diagnostic listing the incompatible peers.
+    with all installed extensions, and replace the .wasm binary. The lock
+    entry MUST record the new hash, which becomes the tamper pin for
+    subsequent loads. The engine's compile cache keys on binary content,
+    so the new binary never resolves to the previous artifact. Breaking
+    peer dependency changes MUST require the --force flag. Without
+    --force, the upgrade MUST be rejected with a diagnostic listing the
+    incompatible peers.
   """
 
   produces [extension_upgrade_completed]
 
   verify unit "checks source for newer version"
   verify unit "validates peer dependency compatibility"
-  verify unit "replaces binary and invalidates old cache"
-  verify unit "recompiles AOT after upgrade"
+  verify unit "replaces binary and records new lock hash"
   verify unit "rejects breaking peer change without --force"
-  verify contract "Upgrade Wasm Extension: Wasm extension upgrade holds — extension_installed, source_available, extension_upgrade_completed_emitted, old_cache_invalidated, peer_compatibility_enforced"
+  verify contract "Upgrade Wasm Extension: Wasm extension upgrade holds — extension_installed, source_available, extension_upgrade_completed_emitted, binary_replaced, peer_compatibility_enforced"
 
   tests ["crates/specforge-wasm/tests/wasm_lifecycle.rs"]
 }
@@ -291,7 +295,7 @@ behavior upgrade_wasm_extension "Upgrade Wasm Extension" {
 // is the user-facing CLI entry point. This behavior handles all Wasm-specific
 // cleanup; remove_extension handles CLI interaction and post-removal messaging.
 behavior uninstall_wasm_extension "Uninstall Wasm Extension" {
-  invariants [aot_cache_integrity, peer_dependency_satisfaction, extension_load_order_determinism, extension_operation_atomicity]
+  invariants [peer_dependency_satisfaction, extension_load_order_determinism, extension_operation_atomicity]
   category   command
   types      [ManifestV2, ExtensionInstallResult, ExtensionError]
   ports      [WasmRuntime, FileSystem]
@@ -302,7 +306,7 @@ behavior uninstall_wasm_extension "Uninstall Wasm Extension" {
   }
 
   ensures {
-    extension_unloaded_emitted "extension_unloaded event is emitted after warm engine instances are unloaded"
+    extension_unloaded_emitted "extension_unloaded event is emitted after the extension is unloaded"
     wasm_extension_removed_emitted "wasm_extension_removed event is emitted after full cleanup"
     dependent_check_enforced "removal is rejected when dependents exist unless --force is provided"
     atomic_uninstall_enforced "on failure, all changes are rolled back"
@@ -311,22 +315,20 @@ behavior uninstall_wasm_extension "Uninstall Wasm Extension" {
   contract """
     When called by remove_extension (behaviors/extensions.spec), the system
     MUST perform the full Wasm lifecycle cleanup: remove the extension entry
-    from specforge.json, delete the .wasm binary from the project, invalidate
-    the AOT cache entry, and update specforge.lock. If other installed
-    extensions declare a peer dependency on the removed extension, the system
-    MUST reject the removal with a diagnostic listing the dependent extensions
-    unless --force is provided. Warm engine instances MUST be unloaded. On
-    failure, the system MUST rollback all changes.
+    from specforge.json, delete the .wasm binary from the project, and
+    update specforge.lock. If other installed extensions declare a peer
+    dependency on the removed extension, the system MUST reject the removal
+    with a diagnostic listing the dependent extensions unless --force is
+    provided. The session runtime drops the extension's loaded instance
+    (see reuse_session_runtime); stale engine cache entries are inert —
+    cache keys include binary content. On failure, the system MUST
+    rollback all changes.
   """
 
   produces [extension_unloaded, wasm_extension_removed]
 
   verify unit "removes extension entry from specforge.json"
   verify unit "deletes .wasm binary from project"
-  verify unit "invalidates AOT cache entry"
-  verify unit "updates specforge.lock after removal"
-  verify unit "rejects removal when dependents exist without --force"
-  verify unit "unloads warm engine instance"
   verify unit "rolls back on failure"
   verify contract "Uninstall Wasm Extension: Wasm extension uninstall holds — extension_installed_ready, filesystem_available, extension_unloaded_emitted, wasm_extension_removed_emitted, dependent_check_enforced, atomic_uninstall_enforced"
   tests ["crates/specforge-wasm/tests/wasm_lifecycle.rs"]
@@ -375,7 +377,7 @@ behavior validate_extension_manifest "Validate Extension Manifest" {
 }
 
 behavior verify_wasm_integrity "Verify Wasm Integrity" {
-  invariants [aot_cache_integrity, registry_integrity]
+  invariants [wasm_compile_cache_integrity, registry_integrity]
   category   validation
   types      [ManifestV2, LockFileEntry, ExtensionError]
   ports      [FileSystem]
@@ -412,7 +414,7 @@ behavior verify_wasm_integrity "Verify Wasm Integrity" {
 // -- Extension-Defined Grammar Loading ----------------------------------------
 
 behavior load_extension_grammar "Load Extension Grammar" {
-  invariants [aot_cache_integrity, grammar_injection_isolation]
+  invariants [wasm_compile_cache_integrity, grammar_injection_isolation]
   category   command
   types      [GrammarContribution, GrammarCacheEntry, GrammarError]
   ports      [WasmRuntime, FileSystem]
@@ -567,7 +569,7 @@ behavior dispatch_body_parser "Dispatch Body Parser" {
 }
 
 behavior cache_grammar_artifacts "Cache Grammar Artifacts" {
-  invariants [aot_cache_integrity]
+  invariants [wasm_compile_cache_integrity]
   category   command
   types      [GrammarCacheEntry, GrammarContribution]
   ports      [FileSystem]
@@ -587,9 +589,9 @@ behavior cache_grammar_artifacts "Cache Grammar Artifacts" {
     The system MUST cache loaded grammar artifacts using a content-hash +
     ABI version composite cache key. Cache hits MUST skip grammar loading
     and validation. Cache MUST be invalidated when: (1) the grammar .wasm
-    content hash changes, (2) the host ABI version changes, (3) the user
-    runs specforge clean. The cache location MUST follow the existing AOT
-    cache directory structure.
+    content hash changes, (2) the host ABI version changes, or (3) the
+    cached artifact is missing. Grammar artifacts are stored under the
+    project's .specforge cache directory.
   """
 
   verify unit "cache key combines content hash and ABI version"

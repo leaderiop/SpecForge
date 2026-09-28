@@ -22,14 +22,12 @@ use tempfile::TempDir;
 
 struct MockRuntime {
     call_results: std::collections::HashMap<String, WasmCallResult>,
-    cached_modules: std::collections::HashSet<String>,
 }
 
 impl MockRuntime {
     fn new() -> Self {
         Self {
             call_results: std::collections::HashMap::new(),
-            cached_modules: std::collections::HashSet::new(),
         }
     }
 
@@ -44,15 +42,10 @@ impl MockRuntime {
             .insert(export.to_string(), WasmCallResult::Trap(trap));
         self
     }
-
-    fn with_cached(mut self, hash: &str) -> Self {
-        self.cached_modules.insert(hash.to_string());
-        self
-    }
 }
 
 impl WasmRuntime for MockRuntime {
-    fn load_module(&self, _wasm_path: &Path, _aot: Option<&Path>) -> Result<(), String> {
+    fn load_module(&self, _wasm_path: &Path) -> Result<(), String> {
         Ok(())
     }
 
@@ -61,10 +54,6 @@ impl WasmRuntime for MockRuntime {
             .get(export_name)
             .cloned()
             .unwrap_or(WasmCallResult::Ok(vec![]))
-    }
-
-    fn has_cached_module(&self, wasm_hash: &str) -> bool {
-        self.cached_modules.contains(wasm_hash)
     }
 }
 
@@ -132,7 +121,7 @@ fn test_load_valid_module_returns_loaded_module() {
     let wasm_path = create_fake_wasm(&dir, "ext.wasm");
     let runtime = MockRuntime::new();
 
-    let module = load_wasm_module("@test/ext", &wasm_path, None, &runtime, None).unwrap();
+    let module = load_wasm_module("@test/ext", &wasm_path, &runtime, None).unwrap();
     assert_eq!(module.extension_name, "@test/ext");
     assert_eq!(module.state, ExtensionLifecycleState::Loading);
     assert!(!module.wasm_hash.is_empty());
@@ -145,25 +134,9 @@ fn test_load_missing_wasm_returns_e028() {
     let runtime = MockRuntime::new();
     let missing = Path::new("/nonexistent/path/ext.wasm");
 
-    let err = load_wasm_module("@test/missing", missing, None, &runtime, None).unwrap_err();
-    assert_eq!(err.code, "E028");
+    let err = load_wasm_module("@test/missing", missing, &runtime, None).unwrap_err();
     assert_eq!(err.severity, Severity::Error);
     assert!(err.message.contains("not found"));
-}
-
-// B:load_wasm_module — verify integration "AOT cache hit uses cached path"
-#[test]
-fn test_load_with_aot_cache_hit() {
-    let dir = TempDir::new().unwrap();
-    let wasm_path = create_fake_wasm(&dir, "ext.wasm");
-    let bytes = std::fs::read(&wasm_path).unwrap();
-    let hash = specforge_wasm::hex_sha256(&bytes);
-    let runtime = MockRuntime::new().with_cached(&hash);
-
-    let module =
-        load_wasm_module("@test/ext", &wasm_path, Some(dir.path()), &runtime, None).unwrap();
-    assert_eq!(module.wasm_hash, hash);
-    assert_eq!(module.state, ExtensionLifecycleState::Loading);
 }
 
 // B:load_wasm_module — verify contract "requires valid bytes, ensures LoadedModule or diagnostic"
@@ -174,12 +147,11 @@ fn test_load_wasm_module_contract() {
     let runtime = MockRuntime::new();
 
     // ensures: success path returns LoadedModule
-    let module = load_wasm_module("@test/ext", &wasm_path, None, &runtime, None).unwrap();
+    let module = load_wasm_module("@test/ext", &wasm_path, &runtime, None).unwrap();
     assert_eq!(module.state, ExtensionLifecycleState::Loading);
 
     // ensures: failure path returns E028 diagnostic
-    let err =
-        load_wasm_module("bad", Path::new("/no/such.wasm"), None, &runtime, None).unwrap_err();
+    let err = load_wasm_module("bad", Path::new("/no/such.wasm"), &runtime, None).unwrap_err();
     assert_eq!(err.code, "E028");
     assert_eq!(err.severity, Severity::Error);
 }
@@ -585,7 +557,6 @@ fn load_refuses_binary_that_differs_from_lockfile_hash() {
 
     let dir = TempDir::new().unwrap();
     let extensions_dir = dir.path().join("extensions");
-    let cache_dir = dir.path().join("cache");
     std::fs::create_dir_all(&extensions_dir).unwrap();
 
     let wasm_bytes = b"\0asm-original";
@@ -596,9 +567,7 @@ fn load_refuses_binary_that_differs_from_lockfile_hash() {
         wasm_bytes,
         &specforge_wasm::hex_sha256(wasm_bytes),
         &extensions_dir,
-        &cache_dir,
         &mut lock,
-        false,
         None,
         Vec::new(),
     )
@@ -611,7 +580,6 @@ fn load_refuses_binary_that_differs_from_lockfile_hash() {
     let module = load_wasm_module(
         "@test/ext",
         &wasm_path,
-        None,
         &runtime,
         Some(lock.entries[0].wasm_hash.as_str()),
     )
@@ -623,7 +591,6 @@ fn load_refuses_binary_that_differs_from_lockfile_hash() {
     let err = load_wasm_module(
         "@test/ext",
         &wasm_path,
-        None,
         &runtime,
         Some(lock.entries[0].wasm_hash.as_str()),
     )
@@ -642,12 +609,12 @@ fn load_with_empty_or_absent_hash_does_not_fail() {
     let runtime = MockRuntime::new();
 
     // Legacy lockfile entry: empty hash string — warn-and-load, not fail.
-    let module = load_wasm_module("@test/legacy", &wasm_path, None, &runtime, Some("")).unwrap();
+    let module = load_wasm_module("@test/legacy", &wasm_path, &runtime, Some("")).unwrap();
     assert_eq!(
         module.wasm_hash,
         specforge_wasm::hex_sha256(b"\0asm-legacy")
     );
 
     // No hash context at all (local dev load): unchanged behavior.
-    load_wasm_module("@test/local", &wasm_path, None, &runtime, None).unwrap();
+    load_wasm_module("@test/local", &wasm_path, &runtime, None).unwrap();
 }

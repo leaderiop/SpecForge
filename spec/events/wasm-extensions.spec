@@ -405,12 +405,10 @@ event batch_update_completed "Batch Update Completed" {
     timestamp       timestamp
   }
 
-  // After a batch update completes, the AOT cache for updated extensions
-  // must be invalidated so that stale compiled artifacts are not served.
-  // Downstream compilation should be re-triggered to pick up new versions.
-
+  // After a batch update completes, the new binary hashes are recorded in
+  // specforge.lock. The engine compile cache keys on binary content, so
+  // updated extensions never serve stale compiled artifacts.
   verify integration "emits batch_update_completed with correct updatedCount after bulk update"
-  verify integration "consumer invalidate_aot_cache receives event to clear stale AOT artifacts"
 
 }
 

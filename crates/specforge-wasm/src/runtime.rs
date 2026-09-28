@@ -36,15 +36,16 @@ pub struct LoadedModule {
 }
 
 /// Testable abstraction over a Wasm runtime (wasmtime component engine).
+///
+/// Compilation caching is a host-engine concern (wasmtime's native on-disk
+/// cache, configured at `ComponentRuntime` construction) — it is not part of
+/// the load contract.
 pub trait WasmRuntime: Send + Sync {
-    /// Load a .wasm binary (or AOT-cached artifact) into the runtime.
-    fn load_module(&self, wasm_path: &Path, aot_cache_path: Option<&Path>) -> Result<(), String>;
+    /// Load a .wasm component binary into the runtime.
+    fn load_module(&self, wasm_path: &Path) -> Result<(), String>;
 
     /// Call an export function on a loaded module.
     fn call_export(&self, extension_name: &str, export_name: &str, input: &[u8]) -> WasmCallResult;
-
-    /// Check if an AOT-cached artifact exists for the given hash.
-    fn has_cached_module(&self, wasm_hash: &str) -> bool;
 }
 
 /// A mock runtime for testing — records calls and returns configured results.
@@ -52,7 +53,6 @@ pub trait WasmRuntime: Send + Sync {
 pub struct MockRuntime {
     pub load_results: std::collections::HashMap<String, Result<(), String>>,
     pub call_results: std::collections::HashMap<String, WasmCallResult>,
-    pub cached_modules: std::collections::HashSet<String>,
 }
 
 #[cfg(test)]
@@ -68,13 +68,7 @@ impl MockRuntime {
         Self {
             load_results: std::collections::HashMap::new(),
             call_results: std::collections::HashMap::new(),
-            cached_modules: std::collections::HashSet::new(),
         }
-    }
-
-    pub fn with_cached(mut self, hash: &str) -> Self {
-        self.cached_modules.insert(hash.to_string());
-        self
     }
 
     pub fn with_load_ok(mut self, path: &str) -> Self {
@@ -103,7 +97,7 @@ impl MockRuntime {
 
 #[cfg(test)]
 impl WasmRuntime for MockRuntime {
-    fn load_module(&self, wasm_path: &Path, _aot_cache_path: Option<&Path>) -> Result<(), String> {
+    fn load_module(&self, wasm_path: &Path) -> Result<(), String> {
         let key = wasm_path.to_string_lossy().to_string();
         self.load_results.get(&key).cloned().unwrap_or(Ok(()))
     }
@@ -118,10 +112,6 @@ impl WasmRuntime for MockRuntime {
             .get(export_name)
             .cloned()
             .unwrap_or(WasmCallResult::Ok(vec![]))
-    }
-
-    fn has_cached_module(&self, wasm_hash: &str) -> bool {
-        self.cached_modules.contains(wasm_hash)
     }
 }
 
