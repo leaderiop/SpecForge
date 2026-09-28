@@ -19,11 +19,6 @@ ignore = [
   "RUSTSEC-2026-0096",
   "RUSTSEC-2026-0114",
   "RUSTSEC-2026-0222",
-  # unmaintained transitive crates (im-rc -> sized-chunks -> bitmaps)
-  "RUSTSEC-2026-0247",
-  "RUSTSEC-2026-0250",
-  "RUSTSEC-2026-0251",
-  "RUSTSEC-2026-0255",
   # anyhow 1.0.104 still flagged; re-check on next release
   "RUSTSEC-2026-0190",
   # HIGH (8.8): filesystem sandbox escape with trailing-slash paths.
