@@ -600,7 +600,8 @@ fn load_refuses_binary_that_differs_from_lockfile_hash() {
         &mut lock,
         false,
         None,
-    )
+    
+        Vec::new(),)
     .unwrap();
 
     let wasm_path = extensions_dir.join("@test/ext").join("extension.wasm");

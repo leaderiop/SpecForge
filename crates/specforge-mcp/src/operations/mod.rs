@@ -399,7 +399,9 @@ fn add_extension_op(state: &McpState, args: Value, id: Option<Value>) -> JsonRpc
         || version.starts_with('>')
         || version == "*"
     {
-        let Some(registry) = registries.first() else {
+        let Some(registry) = specforge_registry::find_registry_for_specifier(&name, &registries)
+            .or_else(|| registries.first())
+        else {
             return err_invalid(id, "no registries configured");
         };
         match resolve_version(&name, &version, &client, registry) {
@@ -439,6 +441,10 @@ fn add_extension_op(state: &McpState, args: Value, id: Option<Value>) -> JsonRpc
         Err(diag) => return err_invalid(id, format!("{}: {}", diag.code, diag.message)),
     };
 
+    let peer_dependencies: Vec<specforge_registry::PeerDependency> =
+        serde_json::from_str::<specforge_registry::ManifestV2>(&response.manifest)
+            .map(|m| m.peer_dependencies)
+            .unwrap_or_default();
     match install_extension(
         &response.name,
         &response.version,
@@ -449,6 +455,7 @@ fn add_extension_op(state: &McpState, args: Value, id: Option<Value>) -> JsonRpc
         &mut lock,
         false,
         trust.key_id.as_deref(),
+        peer_dependencies,
     ) {
         Ok(result) => {
             if let Err(diag) = write_lock_file(&lock, &lock_path) {

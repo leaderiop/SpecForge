@@ -26,6 +26,7 @@ pub fn install_extension(
     lock: &mut LockFile,
     skip_aot: bool,
     key_id: Option<&str>,
+    peer_dependencies: Vec<specforge_registry::PeerDependency>,
 ) -> Result<InstallResult, Diagnostic> {
     // 1. Verify SHA256
     let actual_hash = hex_sha256(wasm_bytes);
@@ -110,6 +111,7 @@ pub fn install_extension(
             source: "registry".to_string(),
             wasm_hash: actual_hash.clone(),
             key_id: key_id.map(str::to_string),
+            peer_dependencies,
         });
     }
 
@@ -156,6 +158,7 @@ pub fn install_from_local(
         lock,
         skip_aot,
         None, // local installs are unsigned
+        Vec::new(), // local manifests are not parsed for peers
     )
 }
 

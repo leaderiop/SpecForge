@@ -96,7 +96,8 @@ fn install_from_registry(
         || version.starts_with('>')
         || version == "*"
     {
-        let registry = registries.first().unwrap();
+        let registry = specforge_registry::find_registry_for_specifier(name, &registries)
+            .unwrap_or_else(|| registries.first().unwrap());
         match resolve_version(name, version, &client, registry) {
             Ok(v) => v,
             Err(diag) => {
@@ -158,6 +159,11 @@ fn install_from_registry(
 
     let mut lock = read_lock_file(&lock_path).unwrap_or_default();
 
+    // Record the peers the package declares so doctor can verify them later.
+    let peer_dependencies: Vec<specforge_registry::PeerDependency> =
+        serde_json::from_str::<specforge_registry::ManifestV2>(&response.manifest)
+            .map(|m| m.peer_dependencies)
+            .unwrap_or_default();
     match install_extension(
         &response.name,
         &response.version,
@@ -168,6 +174,7 @@ fn install_from_registry(
         &mut lock,
         false,
         trust.key_id.as_deref(),
+        peer_dependencies,
     ) {
         Ok(result) => {
             if let Err(diag) = write_lock_file(&lock, &lock_path) {

@@ -22,6 +22,11 @@ pub struct LockFileEntry {
     /// publishing existed (field defaults on deserialize for compatibility).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub key_id: Option<String>,
+    /// Peer requirements recorded at install from the extension's manifest
+    /// (C8-05: doctor verifies these across the other lock entries). Defaults
+    /// on deserialize for lock files written before this existed.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub peer_dependencies: Vec<specforge_registry::PeerDependency>,
 }
 
 impl Default for LockFile {
@@ -131,19 +136,43 @@ pub fn run_doctor_check(
         }
     }
 
-    // Check peer dependencies using semver-like comparison
+    // C8-05: real peer-dependency verification. Each entry's recorded peers
+    // must be present among the installed versions and satisfy the declared
+    // semver requirement. Optional peers that are absent are fine.
     for entry in &lock.entries {
-        // Simple check: look for peer dependency entries referencing other extensions
-        // In a real implementation, this would parse ManifestV2 peer_dependencies
-        // For now, we check if all lock file entries have matching installed versions
-        if let Some(version) = installed_versions.get(&entry.name)
-            && version != &entry.version
-        {
-            results.push(DoctorStatus::PeerMismatch {
-                name: entry.name.clone(),
-                peer: entry.name.clone(),
-                required: entry.version.clone(),
-            });
+        for peer in &entry.peer_dependencies {
+            let installed = installed_versions.get(&peer.name);
+            match installed {
+                None => {
+                    if !peer.optional {
+                        results.push(DoctorStatus::PeerMismatch {
+                            name: entry.name.clone(),
+                            peer: peer.name.clone(),
+                            required: peer.version.clone(),
+                        });
+                    }
+                }
+                Some(version) => match semver::VersionReq::parse(&peer.version) {
+                    Ok(req) => match semver::Version::parse(version) {
+                        Ok(v) if req.matches(&v) => {}
+                        Ok(v) => results.push(DoctorStatus::PeerMismatch {
+                            name: entry.name.clone(),
+                            peer: peer.name.clone(),
+                            required: format!("{} (installed {})", peer.version, v),
+                        }),
+                        Err(_) => results.push(DoctorStatus::PeerMismatch {
+                            name: entry.name.clone(),
+                            peer: peer.name.clone(),
+                            required: format!("{} (installed version '{}' is not semver)", peer.version, version),
+                        }),
+                    },
+                    Err(_) => results.push(DoctorStatus::PeerMismatch {
+                        name: entry.name.clone(),
+                        peer: peer.name.clone(),
+                        required: format!("unparseable requirement '{}'", peer.version),
+                    }),
+                },
+            }
         }
     }
 
@@ -184,6 +213,7 @@ pub fn refresh_lock_file(
             existing.version = ext.manifest.version.clone();
             existing.source = source;
             existing.wasm_hash = hash;
+            existing.peer_dependencies = ext.manifest.peer_dependencies.clone();
         } else {
             lock.entries.push(LockFileEntry {
                 name: ext.manifest.name.clone(),
@@ -191,6 +221,7 @@ pub fn refresh_lock_file(
                 source,
                 wasm_hash: hash,
                 key_id: None,
+                peer_dependencies: ext.manifest.peer_dependencies.clone(),
             });
         }
     }
@@ -228,7 +259,8 @@ mod tests {
                 source: "registry".to_string(),
                 wasm_hash: "abc123".to_string(),
                 key_id: None,
-            }],
+                        peer_dependencies: Vec::new(),
+        }],
         };
 
         write_lock_file(&lock, &path).unwrap();
@@ -254,14 +286,16 @@ mod tests {
                     source: "registry".to_string(),
                     wasm_hash: "abc123".to_string(),
                     key_id: None,
-                },
+                            peer_dependencies: Vec::new(),
+        },
                 LockFileEntry {
                     name: "@specforge/governance".to_string(),
                     version: "1.0.0".to_string(),
                     source: "local".to_string(),
                     wasm_hash: "def456".to_string(),
                     key_id: None,
-                },
+                            peer_dependencies: Vec::new(),
+        },
             ],
         };
 
@@ -305,7 +339,8 @@ mod tests {
                 source: "registry".to_string(),
                 wasm_hash: "abc".to_string(),
                 key_id: None,
-            }],
+                        peer_dependencies: Vec::new(),
+        }],
         };
 
         let results = run_doctor_check(&lock, dir.path(), |_| None, &HashMap::new());
@@ -334,7 +369,8 @@ mod tests {
                 source: "registry".to_string(),
                 wasm_hash: "expected_hash".to_string(),
                 key_id: None,
-            }],
+                        peer_dependencies: Vec::new(),
+        }],
         };
 
         let results = run_doctor_check(
@@ -366,7 +402,8 @@ mod tests {
                 source: "registry".to_string(),
                 wasm_hash: "correct_hash".to_string(),
                 key_id: None,
-            }],
+                        peer_dependencies: Vec::new(),
+        }],
         };
 
         let installed: HashMap<String, String> = [("good-ext".to_string(), "1.0.0".to_string())]
@@ -422,7 +459,8 @@ mod tests {
                 source: "registry".to_string(),
                 wasm_hash: "old_hash".to_string(),
                 key_id: None,
-            }],
+                        peer_dependencies: Vec::new(),
+        }],
         };
 
         let mut manifest = default_manifest();
@@ -444,5 +482,98 @@ mod tests {
         assert_eq!(lock.entries.len(), 1);
         assert_eq!(lock.entries[0].version, "2.0.0");
         assert_eq!(lock.entries[0].wasm_hash, "new_hash");
+    }
+}
+
+// C8-05 acceptance: doctor verifies recorded peers across OTHER entries.
+#[cfg(test)]
+mod peer_check_tests {
+    use super::*;
+
+    fn entry(name: &str, peers: Vec<specforge_registry::PeerDependency>) -> LockFileEntry {
+        LockFileEntry {
+            name: name.to_string(),
+            version: "1.0.0".to_string(),
+            source: "registry".to_string(),
+            wasm_hash: "hash".to_string(),
+            key_id: None,
+            peer_dependencies: peers,
+        }
+    }
+
+    fn peer(name: &str, req: &str) -> specforge_registry::PeerDependency {
+        specforge_registry::PeerDependency {
+            name: name.to_string(),
+            version: req.to_string(),
+            optional: false,
+        }
+    }
+
+    #[test]
+    fn satisfied_peer_is_clean() {
+        let lock = LockFile {
+            entries: vec![
+                entry("@a/ext", vec![peer("@b/lib", "^2.0.0")]),
+                entry("@b/lib", vec![]),
+            ],
+            ..Default::default()
+        };
+        let installed = std::collections::HashMap::from([
+            ("@a/ext".to_string(), "1.0.0".to_string()),
+            ("@b/lib".to_string(), "2.1.0".to_string()),
+        ]);
+        let results = run_doctor_check(&lock, Path::new("/nonexistent"), |_| None, &installed);
+        assert!(
+            !results
+                .iter()
+                .any(|s| matches!(s, DoctorStatus::PeerMismatch { .. })),
+            "satisfied peer must be clean: {results:?}"
+        );
+    }
+
+    #[test]
+    fn unsatisfied_peer_reports_the_peer_not_self() {
+        let lock = LockFile {
+            entries: vec![
+                entry("@a/ext", vec![peer("@b/lib", "^2.0.0")]),
+                entry("@b/lib", vec![]),
+            ],
+            ..Default::default()
+        };
+        let installed = std::collections::HashMap::from([
+            ("@a/ext".to_string(), "1.0.0".to_string()),
+            ("@b/lib".to_string(), "1.0.0".to_string()),
+        ]);
+        let results = run_doctor_check(&lock, Path::new("/nonexistent"), |_| None, &installed);
+        let mismatches: Vec<&DoctorStatus> = results
+            .iter()
+            .filter(|s| matches!(s, DoctorStatus::PeerMismatch { .. }))
+            .collect();
+        assert_eq!(mismatches.len(), 1, "one mismatch: {results:?}");
+        if let DoctorStatus::PeerMismatch { name, peer, required } = mismatches[0] {
+            assert_eq!(name, "@a/ext");
+            assert_eq!(peer, "@b/lib", "names the actual peer (not self)");
+            assert!(required.contains("2.0.0"));
+        }
+    }
+
+    #[test]
+    fn missing_optional_peer_is_clean() {
+        let mut peers = vec![peer("@b/lib", "^2.0.0")];
+        peers[0].optional = true;
+        let lock = LockFile {
+            entries: vec![entry("@a/ext", peers)],
+            ..Default::default()
+        };
+        let installed = std::collections::HashMap::from([
+            ("@a/ext".to_string(), "1.0.0".to_string()),
+        ]);
+        let results = run_doctor_check(&lock, Path::new("/nonexistent"), |_| None, &installed);
+        assert!(
+            !results
+                .iter()
+                .any(|s| matches!(s, DoctorStatus::PeerMismatch { .. })),
+            "missing optional peer is fine: {results:?}"
+        );
     }
 }

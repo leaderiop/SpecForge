@@ -88,7 +88,8 @@ fn test_install_verify_sha256_and_place_binary() {
         &mut lock,
         true,
         None,
-    )
+    
+        Vec::new(),)
     .unwrap();
 
     assert_eq!(result.name, "@test/my-ext");
@@ -160,7 +161,8 @@ fn test_install_aot_compiles_after_placement() {
         &mut lock,
         false, // do NOT skip AOT
         None,
-    )
+    
+        Vec::new(),)
     .unwrap();
 
     assert!(result.cached);
@@ -192,7 +194,8 @@ fn test_install_updates_lock_file() {
         &mut lock,
         true,
         None,
-    )
+    
+        Vec::new(),)
     .unwrap();
 
     assert_eq!(lock.entries.len(), 1);
@@ -224,7 +227,8 @@ fn test_install_rolls_back_on_integrity_failure() {
         &mut lock,
         true,
         None,
-    )
+    
+        Vec::new(),)
     .unwrap_err();
 
     assert_eq!(err.code, "E032");
@@ -260,7 +264,8 @@ fn test_install_defers_aot_when_skip_aot() {
         &mut lock,
         true, // skip AOT
         None,
-    )
+    
+        Vec::new(),)
     .unwrap();
 
     assert!(!result.cached);
@@ -309,7 +314,8 @@ fn test_upgrade_validates_peer_compat() {
         source: "registry".to_string(),
         wasm_hash: "old_hash".to_string(),
         key_id: None,
-    });
+        peer_dependencies: Vec::new(),
+});
 
     // Peer manifests: ext-b depends on ext-a >=1.0.0
     let ext_a_new = make_manifest("@test/ext-a", "2.0.0", &[]);
@@ -353,7 +359,8 @@ fn test_upgrade_rejects_breaking_peer_without_force() {
         source: "registry".to_string(),
         wasm_hash: "old_hash".to_string(),
         key_id: None,
-    });
+        peer_dependencies: Vec::new(),
+});
 
     // New manifest declares a peer dep on a non-existent extension
     let new_manifest = make_manifest("@test/core", "3.0.0", &[("@test/nonexistent", ">=1.0.0")]);
@@ -401,7 +408,8 @@ fn test_upgrade_invalidates_old_aot_and_recompiles() {
         source: "registry".to_string(),
         wasm_hash: old_hash.to_string(),
         key_id: None,
-    });
+        peer_dependencies: Vec::new(),
+});
 
     let wasm_bytes = fake_wasm_bytes();
     let expected_hash = compute_sha256(&wasm_bytes);
@@ -459,7 +467,8 @@ fn test_uninstall_removes_from_lock_file() {
         source: "registry".to_string(),
         wasm_hash: "abc123".to_string(),
         key_id: None,
-    });
+        peer_dependencies: Vec::new(),
+});
 
     uninstall_extension(
         "@test/ext",
@@ -493,7 +502,8 @@ fn test_uninstall_deletes_wasm_binary() {
         source: "registry".to_string(),
         wasm_hash: "hash".to_string(),
         key_id: None,
-    });
+        peer_dependencies: Vec::new(),
+});
 
     uninstall_extension(
         "@test/ext",
@@ -533,7 +543,8 @@ fn test_uninstall_invalidates_aot_cache() {
         source: "registry".to_string(),
         wasm_hash: wasm_hash.to_string(),
         key_id: None,
-    });
+        peer_dependencies: Vec::new(),
+});
 
     let result = uninstall_extension(
         "@test/ext",
@@ -568,7 +579,8 @@ fn test_uninstall_rejects_when_dependents_exist() {
         source: "registry".to_string(),
         wasm_hash: "hash".to_string(),
         key_id: None,
-    });
+        peer_dependencies: Vec::new(),
+});
 
     let err = uninstall_extension(
         "@test/core",
@@ -611,7 +623,8 @@ fn test_uninstall_with_force_bypasses_dependent_check() {
         source: "registry".to_string(),
         wasm_hash: "hash".to_string(),
         key_id: None,
-    });
+        peer_dependencies: Vec::new(),
+});
 
     // With force=true, should succeed even with dependents
     let result = uninstall_extension(

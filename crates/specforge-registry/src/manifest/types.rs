@@ -186,7 +186,7 @@ pub struct FieldConstraint {
     pub values: Vec<String>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 pub struct PeerDependency {
     pub name: String,

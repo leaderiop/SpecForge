@@ -60,7 +60,9 @@ pub fn run(
             continue;
         }
 
-        let registry = match registries.first() {
+        let registry = match specforge_registry::find_registry_for_specifier(&entry.name, &registries)
+            .or_else(|| registries.first())
+        {
             Some(r) => r,
             None => continue,
         };

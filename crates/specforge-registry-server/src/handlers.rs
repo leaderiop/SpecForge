@@ -114,7 +114,13 @@ async fn get_package_versions(
     Path(name): Path<String>,
 ) -> impl IntoResponse {
     let name = decode_name(&name);
-    let versions = state.database.get_package_versions(&name);
+    let versions = {
+        let st = state.clone();
+        let name = name.clone();
+        tokio::task::spawn_blocking(move || st.database.get_package_versions(&name))
+            .await
+            .expect("package versions query panicked")
+    };
 
     if versions.is_empty() {
         return (
@@ -143,7 +149,15 @@ async fn get_package_version(
 ) -> impl IntoResponse {
     let name = decode_name(&name);
 
-    let pkg = match state.database.get_package_version(&name, &version) {
+    let pkg = {
+        let st = state.clone();
+        let name = name.clone();
+        let version = version.clone();
+        tokio::task::spawn_blocking(move || st.database.get_package_version(&name, &version))
+            .await
+            .expect("package version query panicked")
+    };
+    let pkg = match pkg {
         Some(p) => p,
         None => {
             return (
@@ -215,18 +229,32 @@ async fn download_package(
 
     // C8-09 hardening: serve only blobs whose bytes hash to the DB's
     // recorded sha256 — torn or corrupted files are never handed out.
+    // The DB lookup and the (up to 64 MB) hash run on the blocking pool.
     if let Some(data) = &data {
-        let expected = state
-            .database
-            .get_package_version(&name, &version)
-            .map(|row| row.sha256)
-            .unwrap_or_default();
-        let actual = {
-            use sha2::{Digest, Sha256};
-            let mut hasher = Sha256::new();
-            hasher.update(data);
-            hex::encode(hasher.finalize())
+        let integrity = {
+            let st = state.clone();
+            let name = name.clone();
+            let version = version.clone();
+            let data = data.clone();
+            tokio::task::spawn_blocking(move || {
+                let expected = st
+                    .database
+                    .get_package_version(&name, &version)
+                    .map(|row| row.sha256)
+                    .unwrap_or_default();
+                let actual = {
+                    use sha2::{Digest, Sha256};
+                    let mut hasher = Sha256::new();
+                    hasher.update(&data);
+                    hex::encode(hasher.finalize())
+                };
+                (expected, actual)
+            })
+            .await
+            .expect("integrity check panicked")
         };
+        let expected = integrity.0;
+        let actual = integrity.1;
         if !expected.is_empty() && actual != expected {
             return (
                 StatusCode::INTERNAL_SERVER_ERROR,
@@ -338,7 +366,14 @@ async fn publish_package(
         }
     };
 
-    let token_record = match auth::validate_bearer(&state.database, &auth_header) {
+    let token_record = {
+        let st = state.clone();
+        let auth_header = auth_header.clone();
+        tokio::task::spawn_blocking(move || auth::validate_bearer(&st.database, &auth_header))
+            .await
+            .expect("auth validation panicked")
+    };
+    let token_record = match token_record {
         Some(r) => r,
         None => {
             return (
@@ -395,11 +430,17 @@ async fn publish_package(
     }
 
     // Check if version already exists
-    if state
-        .database
-        .get_package_version(&name, &version)
-        .is_some()
-    {
+    let duplicate = {
+        let st = state.clone();
+        let name = name.clone();
+        let version = version.clone();
+        tokio::task::spawn_blocking(move || {
+            st.database.get_package_version(&name, &version).is_some()
+        })
+        .await
+        .expect("duplicate check panicked")
+    };
+    if duplicate {
         return (
             StatusCode::CONFLICT,
             Json(
@@ -438,11 +479,19 @@ async fn publish_package(
     // --- Namespace ownership (spec #21, T6): first claim wins ---
     let scope = package_scope(&name);
     let account_id = account_id_for(&token_record.token_hash);
-    let claimed_now =
-        match state
-            .database
-            .claim_scope(&scope, &token_record.token_hash, &account_id)
-        {
+    let claimed_now = {
+        let claim = {
+            let st = state.clone();
+            let scope = scope.clone();
+            let token_hash = token_record.token_hash.clone();
+            let account_id = account_id.clone();
+            tokio::task::spawn_blocking(move || {
+                st.database.claim_scope(&scope, &token_hash, &account_id)
+            })
+            .await
+            .expect("scope claim panicked")
+        };
+        match claim {
             Ok(claimed) => claimed,
             Err(e) => {
                 return (
@@ -458,9 +507,16 @@ async fn publish_package(
                     ),
                 );
             }
-        };
+        }
+    };
     if !claimed_now
-        && let Some((owner_hash, owner_account)) = state.database.get_scope_owner(&scope)
+        && let Some((owner_hash, owner_account)) = {
+            let st = state.clone();
+            let scope = scope.clone();
+            tokio::task::spawn_blocking(move || st.database.get_scope_owner(&scope))
+                .await
+                .expect("scope owner query panicked")
+        }
         && owner_hash != token_record.token_hash
     {
         return (
@@ -767,7 +823,14 @@ async fn yank_package(
         }
     };
 
-    let token_record = match auth::validate_bearer(&state.database, &auth_header) {
+    let token_record = {
+        let st = state.clone();
+        let auth_header = auth_header.clone();
+        tokio::task::spawn_blocking(move || auth::validate_bearer(&st.database, &auth_header))
+            .await
+            .expect("auth validation panicked")
+    };
+    let token_record = match token_record {
         Some(r) => r,
         None => {
             return (
@@ -820,7 +883,15 @@ async fn yank_package(
         );
     }
 
-    if state.database.yank_version(&name, &version) {
+    let yanked = {
+        let st = state.clone();
+        let name = name.clone();
+        let version = version.clone();
+        tokio::task::spawn_blocking(move || st.database.yank_version(&name, &version))
+            .await
+            .expect("yank write panicked")
+    };
+    if yanked {
         tracing::info!("yanked {}@{}", name, version);
         (
             StatusCode::OK,
@@ -861,7 +932,14 @@ async fn verify_auth(State(state): State<Arc<AppState>>, headers: HeaderMap) -> 
         }
     };
 
-    match auth::validate_bearer(&state.database, &auth_header) {
+    let verified = {
+        let st = state.clone();
+        let auth_header = auth_header.clone();
+        tokio::task::spawn_blocking(move || auth::validate_bearer(&st.database, &auth_header))
+            .await
+            .expect("auth validation panicked")
+    };
+    match verified {
         Some(record) => (
             StatusCode::OK,
             Json(
@@ -902,16 +980,22 @@ struct AdminTokenCreate {
     expires_in_days: Option<u64>,
 }
 
-fn require_admin(
-    state: &AppState,
+async fn require_admin(
+    state: Arc<AppState>,
     headers: &HeaderMap,
 ) -> Result<crate::db::TokenRecord, (StatusCode, Json<serde_json::Value>)> {
     let auth_header = headers
         .get("authorization")
         .and_then(|v| v.to_str().ok())
         .ok_or_else(|| unauthorized("missing Authorization header"))?;
-    let record = auth::validate_bearer(&state.database, auth_header)
-        .ok_or_else(|| unauthorized("invalid, revoked, or expired token"))?;
+    let record = {
+        let st = state.clone();
+        let auth_header = auth_header.to_string();
+        tokio::task::spawn_blocking(move || auth::validate_bearer(&st.database, &auth_header))
+            .await
+            .expect("auth validation panicked")
+    }
+    .ok_or_else(|| unauthorized("invalid, revoked, or expired token"))?;
     if !auth::is_admin(&record) {
         return Err((
             StatusCode::FORBIDDEN,
@@ -949,7 +1033,7 @@ async fn admin_create_token(
     headers: HeaderMap,
     body: Option<Json<AdminTokenCreate>>,
 ) -> impl IntoResponse {
-    if let Err(resp) = require_admin(&state, &headers) {
+    if let Err(resp) = require_admin(state.clone(), &headers).await {
         return resp;
     }
     let Json(req) = body.unwrap_or(Json(AdminTokenCreate {
@@ -957,19 +1041,29 @@ async fn admin_create_token(
         label: None,
         expires_in_days: None,
     }));
-    let raw = auth::create_token(
-        &state.database,
-        req.scope.as_deref(),
-        req.label.as_deref().unwrap_or("default"),
-        Some(req.expires_in_days.unwrap_or(90)),
-        false,
-    );
-    // The revocable identifier is the hash prefix (tokens are stored hashed).
-    let prefix: String = {
-        let mut hasher = Sha256::new();
-        hasher.update(raw.as_bytes());
-        hex::encode(hasher.finalize())[..8].to_string()
+    let created = {
+        let st = state.clone();
+        let scope = req.scope.clone();
+        let label = req.label.clone();
+        let days = req.expires_in_days.unwrap_or(90);
+        tokio::task::spawn_blocking(move || {
+            let raw = auth::create_token(
+                &st.database,
+                scope.as_deref(),
+                label.as_deref().unwrap_or("default"),
+                Some(days),
+                false,
+            );
+            // The revocable identifier is the hash prefix (tokens are stored hashed).
+            let mut hasher = Sha256::new();
+            hasher.update(raw.as_bytes());
+            let prefix = hex::encode(hasher.finalize())[..8].to_string();
+            (raw, prefix)
+        })
+        .await
+        .expect("token creation panicked")
     };
+    let (raw, prefix) = created;
     (
         StatusCode::CREATED,
         Json(serde_json::json!({
@@ -984,22 +1078,27 @@ async fn admin_list_tokens(
     State(state): State<Arc<AppState>>,
     headers: HeaderMap,
 ) -> impl IntoResponse {
-    if let Err(resp) = require_admin(&state, &headers) {
+    if let Err(resp) = require_admin(state.clone(), &headers).await {
         return resp;
     }
-    let tokens: Vec<serde_json::Value> = auth::list_tokens(&state.database)
-        .into_iter()
-        .map(|t| {
-            serde_json::json!({
-                "prefix": &t.token_hash[..8.min(t.token_hash.len())],
-                "scope": t.scope,
-                "label": t.label,
-                "created_at": t.created_at,
-                "expires_at": t.expires_at,
-                "admin": t.admin,
+    let tokens: Vec<serde_json::Value> = {
+        let st = state.clone();
+        tokio::task::spawn_blocking(move || auth::list_tokens(&st.database))
+            .await
+            .expect("token listing panicked")
+            .into_iter()
+            .map(|t| {
+                serde_json::json!({
+                    "prefix": &t.token_hash[..8.min(t.token_hash.len())],
+                    "scope": t.scope,
+                    "label": t.label,
+                    "created_at": t.created_at,
+                    "expires_at": t.expires_at,
+                    "admin": t.admin,
+                })
             })
-        })
-        .collect();
+            .collect()
+    };
     (
         StatusCode::OK,
         Json(serde_json::json!({ "tokens": tokens })),
@@ -1011,10 +1110,16 @@ async fn admin_revoke_token(
     headers: HeaderMap,
     Path(prefix): Path<String>,
 ) -> impl IntoResponse {
-    if let Err(resp) = require_admin(&state, &headers) {
+    if let Err(resp) = require_admin(state.clone(), &headers).await {
         return resp;
     }
-    let revoked = auth::revoke_token(&state.database, &prefix);
+    let revoked = {
+        let st = state.clone();
+        let prefix = prefix.clone();
+        tokio::task::spawn_blocking(move || auth::revoke_token(&st.database, &prefix))
+            .await
+            .expect("token revocation panicked")
+    };
     (
         StatusCode::OK,
         Json(serde_json::json!({ "revoked": revoked })),

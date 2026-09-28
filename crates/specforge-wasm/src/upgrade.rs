@@ -103,11 +103,9 @@ pub fn upgrade_extension(
     }
 
     // 4. Install new version (preserve the recorded publisher key, if any)
-    let prior_key_id = lock
-        .entries
-        .iter()
-        .find(|e| e.name == name)
-        .and_then(|e| e.key_id.clone());
+    let prior = lock.entries.iter().find(|e| e.name == name);
+    let prior_key_id = prior.and_then(|e| e.key_id.clone());
+    let prior_peers = prior.map(|e| e.peer_dependencies.clone()).unwrap_or_default();
     let install_result = install_extension(
         name,
         new_version,
@@ -118,6 +116,7 @@ pub fn upgrade_extension(
         lock,
         false, // always cache on upgrade
         prior_key_id.as_deref(),
+        prior_peers,
     )?;
 
     Ok(UpgradeResult {
