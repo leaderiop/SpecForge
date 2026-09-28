@@ -55,7 +55,7 @@ behavior provide_mcp_query_tool "Provide MCP Query Tool" {
   verify unit "format parameter changes output serialization"
   verify unit "non-existent entityId returns error response"
   verify unit "include_coverage parameter includes coverage status in response"
-  verify contract "requires/ensures consistency for MCP query tool"
+  verify contract "Provide MCP Query Tool: MCP query tool holds — graph_available, subgraph_returned, unknown_kinds_reported, tool_invoked_emitted"
 
   tests ["crates/specforge-mcp/tests/tools_core.rs"]
 }
@@ -105,7 +105,7 @@ behavior provide_mcp_validate_tool "Provide MCP Validate Tool" {
   verify unit "strict mode promotes warnings to errors"
   verify unit "validate with use_cached=false triggers fresh compilation"
   verify unit "validate with use_cached=true returns existing diagnostics without recompilation"
-  verify contract "requires/ensures consistency for MCP validate tool"
+  verify contract "Provide MCP Validate Tool: MCP validate tool holds — compiler_api_available, diagnostics_returned, strict_promotion_enforced, tool_invoked_emitted"
 
   tests ["crates/specforge-mcp/tests/tools_core.rs"]
 }
@@ -141,7 +141,7 @@ behavior provide_mcp_export_tool "Provide MCP Export Tool" {
   verify unit "scope parameter restricts to subgraph"
   verify unit "max_tokens truncates output to fit token budget"
   verify unit "all three formats (context, brief, graph) supported"
-  verify contract "requires/ensures consistency for MCP export tool"
+  verify contract "Provide MCP Export Tool: MCP export tool holds — graph_available, format_produced, token_budget_enforced, tool_invoked_emitted"
 
   tests ["crates/specforge-mcp/tests/tools_core.rs"]
 }
@@ -179,7 +179,7 @@ behavior provide_mcp_trace_tool "Provide MCP Trace Tool" {
   verify unit "non-existent entityId returns error response"
   verify unit "response includes upstream and downstream links"
   verify unit "missing links flagged in trace output"
-  verify contract "requires/ensures consistency for MCP trace tool"
+  verify contract "Provide MCP Trace Tool: MCP trace tool holds — graph_available, trace_result_returned, gaps_identified, tool_invoked_emitted"
 
   tests ["crates/specforge-mcp/tests/tools_core.rs"]
 }
@@ -220,7 +220,7 @@ behavior provide_mcp_search_tool "Provide MCP Search Tool" {
   verify unit "limit caps the number of returned results"
   verify unit "empty query returns all entities up to limit"
   verify unit "references filter returns entities referencing target"
-  verify contract "requires/ensures consistency for MCP search tool"
+  verify contract "Provide MCP Search Tool: MCP search tool holds — graph_available, filtered_results_returned, unknown_kinds_reported, tool_invoked_emitted"
 
   tests ["crates/specforge-mcp/tests/tools_core.rs"]
 }
@@ -255,7 +255,7 @@ behavior provide_mcp_schema_tool "Provide MCP Schema Tool" {
   verify unit "kind filter restricts schema to single entity kind"
   verify unit "include_edges false omits edge type definitions"
   verify unit "include_validation_rules true includes validation rules"
-  verify contract "requires/ensures consistency for MCP schema tool"
+  verify contract "Provide MCP Schema Tool: MCP schema tool holds — graph_available, schema_returned, tool_invoked_emitted"
 
   tests ["crates/specforge-mcp/tests/tools_core.rs"]
 }
@@ -293,7 +293,7 @@ behavior provide_mcp_coverage_tool "Provide MCP Coverage Tool" {
   verify unit "entity_id filter returns single entity coverage"
   verify unit "kind filter restricts to matching entity kinds"
   verify unit "status_filter restricts to matching coverage status"
-  verify contract "requires/ensures consistency for MCP coverage tool"
+  verify contract "Provide MCP Coverage Tool: MCP coverage tool holds — graph_available, coverage_returned, testability_respected, tool_invoked_emitted"
 
   tests ["crates/specforge-mcp/tests/tools_core.rs"]
 }
@@ -327,7 +327,7 @@ behavior provide_mcp_stats_tool "Provide MCP Stats Tool" {
   verify unit "response includes coverage percentage"
   verify unit "response includes orphan node count"
   verify unit "response includes diagnostic summary by severity"
-  verify contract "requires/ensures consistency for MCP stats tool"
+  verify contract "Provide MCP Stats Tool: MCP stats tool holds — graph_available, stats_returned, latest_state_reflected, tool_invoked_emitted"
 
   tests ["crates/specforge-mcp/tests/tools_core.rs"]
 }
@@ -365,7 +365,7 @@ behavior provide_mcp_inspect_tool "Provide MCP Inspect Tool" {
   verify unit "specforge.inspect returns full entity details"
   verify unit "response includes references and verify declarations"
   verify unit "non-existent entity returns error response"
-  verify contract "requires/ensures consistency for MCP inspect tool"
+  verify contract "Provide MCP Inspect Tool: MCP inspect tool holds — graph_available, entity_details_returned, tool_invoked_emitted"
 
   tests ["crates/specforge-mcp/tests/tools_core.rs"]
 }
@@ -398,7 +398,7 @@ behavior provide_mcp_find_definition_tool "Provide MCP Find Definition Tool" {
 
   verify unit "specforge.find_definition returns file, line, and column"
   verify unit "non-existent entity returns error response"
-  verify contract "requires/ensures consistency for MCP find definition tool"
+  verify contract "Provide MCP Find Definition Tool: MCP find definition tool holds — graph_available, source_location_returned, tool_invoked_emitted"
 
   tests ["crates/specforge-mcp/tests/tools_navigation.rs"]
 }
@@ -433,7 +433,7 @@ behavior provide_mcp_find_references_tool "Provide MCP Find References Tool" {
   verify unit "specforge.find_references returns all reference locations"
   verify unit "entity with no references returns empty list"
   verify unit "non-existent entity returns error response"
-  verify contract "requires/ensures consistency for MCP find references tool"
+  verify contract "Provide MCP Find References Tool: MCP find references tool holds — graph_available, references_returned, empty_list_for_unreferenced, tool_invoked_emitted"
 
   tests ["crates/specforge-mcp/tests/tools_navigation.rs"]
 }
@@ -467,7 +467,7 @@ behavior provide_mcp_outline_tool "Provide MCP Outline Tool" {
   verify unit "specforge.outline returns all entities defined in file"
   verify unit "nested entries included for complex entities"
   verify unit "non-existent file returns error response"
-  verify contract "requires/ensures consistency for MCP outline tool"
+  verify contract "Provide MCP Outline Tool: MCP outline tool holds — graph_available, outline_returned, tool_invoked_emitted"
 
   tests ["crates/specforge-mcp/tests/tools_navigation.rs"]
 }
@@ -505,7 +505,7 @@ behavior provide_mcp_suggest_fixes_tool "Provide MCP Suggest Fixes Tool" {
   verify unit "specforge.suggest_fixes returns applicable fix suggestions"
   verify unit "clean entity with no diagnostics returns empty list"
   verify unit "diagnostic_code filter restricts to matching diagnostics"
-  verify contract "requires/ensures consistency for MCP suggest fixes tool"
+  verify contract "Provide MCP Suggest Fixes Tool: MCP suggest fixes tool holds — graph_available, fixes_returned, empty_for_clean, tool_invoked_emitted"
 
   tests ["crates/specforge-mcp/tests/tools_core.rs"]
 }

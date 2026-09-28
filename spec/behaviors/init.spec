@@ -53,7 +53,7 @@ behavior scaffold_new_project "Scaffold New Project" {
   verify performance "full init-check-export cycle completes in under 60 seconds"
   verify integration "scaffold in non-empty directory preserves existing files"
   verify integration "scaffolded project passes init-check-export cycle"
-  verify contract "requires/ensures consistency for new project scaffolding"
+  verify contract "Scaffold New Project: new project scaffolding holds — filesystem_available, no_existing_project, valid_config_created, schema_field_included, project_initialized_emitted"
 
   tests ["crates/specforge-cli/tests/init.rs"]
 }
@@ -100,7 +100,7 @@ behavior scaffold_starter_spec_file "Scaffold Starter Spec File" {
   verify unit        "starter file content is deterministic for same extension set"
   verify integration "extension-contributed starter templates are used when available"
   verify integration "extension-contributed starter file passes specforge check with zero errors"
-  verify contract "requires/ensures consistency for starter spec file scaffolding"
+  verify contract "Scaffold Starter Spec File: starter spec file scaffolding holds — config_created, filesystem_available, starter_file_created, structural_syntax_only, zero_diagnostic_pass"
 
   tests ["crates/specforge-cli/tests/init.rs"]
 }
@@ -151,7 +151,7 @@ behavior interactive_extension_selection "Interactive Extension Selection" {
   verify performance "bundled index fallback completes within 10 seconds"
   verify unit "init does not fail when registry is unreachable"
   verify unit "missing registry and bundled index proceeds with zero extensions and info diagnostic"
-  verify contract "requires/ensures consistency for interactive extension selection"
+  verify contract "Interactive Extension Selection: interactive extension selection holds — tty_or_fallback_ready, catalog_source_available, selected_in_config, unselected_excluded, no_default_preselection, non_tty_graceful"
 
   tests ["crates/specforge-cli/tests/init.rs"]
 }
@@ -203,7 +203,7 @@ behavior non_interactive_init "Non-Interactive Init" {
   verify unit "non-interactive init --format=json includes all 4 required fields: project_root, config_path, spec_file_path, extensions_installed"
   verify unit "non-interactive init with --version overrides default version in specforge.json"
   verify integration "non_interactive_init completes full init-check-export cycle in under 60 seconds"
-  verify contract "requires/ensures consistency for non-interactive init"
+  verify contract "Non-Interactive Init: non-interactive init holds — name_flag_provided, filesystem_available, no_existing_project, config_identical_to_interactive, all_prompts_skipped, json_output_supported, project_initialized_emitted"
 
   tests ["crates/specforge-cli/tests/init.rs"]
 }
@@ -258,7 +258,7 @@ behavior add_extension_to_existing_project "Add Extension to Existing Project" {
   verify unit        "add extension without version resolves to latest compatible version"
   verify unit        "add extension with unsatisfied peer dependencies emits error diagnostics and rejects"
   verify integration "add extension preserves all other config fields"
-  verify contract "requires/ensures consistency for adding extension to existing project"
+  verify contract "Add Extension to Existing Project: adding extension to existing project holds — existing_project_found, extension_resolvable, extension_appended, no_duplicate_added, other_fields_preserved, peer_deps_satisfied, extension_added_emitted"
 
   tests ["crates/specforge-cli/tests/init.rs"]
 }
@@ -301,7 +301,7 @@ behavior graceful_zero_extension_init "Graceful Zero-Extension Init" {
   verify integration "zero-extension project produces valid graph via specforge export"
   verify integration "graceful_zero_extension_init completes full init-check-export cycle in under 60 seconds"
   verify unit "zero-extension config produces empty extensions array []"
-  verify contract "requires/ensures consistency for zero-extension init"
+  verify contract "Graceful Zero-Extension Init: zero-extension init holds — zero_extensions_selected, filesystem_available, empty_extensions_list, structural_starter_valid, valid_graph_exportable, project_initialized_emitted"
 
   tests ["crates/specforge-cli/tests/init.rs"]
 }
@@ -347,6 +347,6 @@ behavior find_project_root "Find Project Root" {
   verify unit "circular symlink chain does not cause infinite loop"
   verify unit "no config found returns None"
   verify performance "directory traversal completes in under 100ms for 20-level deep hierarchy"
-  verify contract "requires/ensures consistency for project root discovery"
+  verify contract "Find Project Root: project root discovery holds — filesystem_available, closest_wins_enforced, json_precedence, symlinks_resolved, none_on_missing"
   tests ["crates/specforge-cli/tests/init.rs"]
 }

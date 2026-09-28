@@ -35,7 +35,7 @@ behavior scaffold_wasm_extension_project "Scaffold Wasm Extension Project" {
   verify unit "scaffold creates manifest file"
   verify unit "scaffold creates src/ with skeleton exports"
   verify unit "scaffold creates build script for wasm32-wasi"
-  verify contract "requires/ensures consistency for Wasm extension scaffolding"
+  verify contract "Scaffold Wasm Extension Project: Wasm extension scaffolding holds — filesystem_available, manifest_created, skeleton_exports_created, build_script_created, extension_project_scaffolded_emitted"
 
 }
 
@@ -67,7 +67,7 @@ behavior build_wasm_extension "Build Wasm Extension" {
 
   verify unit "build produces .wasm binary"
   verify unit "build errors reported as ExtensionError diagnostics"
-  verify contract "requires/ensures consistency for Wasm extension building"
+  verify contract "Build Wasm Extension: Wasm extension building holds — source_available, toolchain_available, wasm_binary_produced, build_errors_diagnosed, extension_built_emitted"
 
 }
 
@@ -109,7 +109,7 @@ behavior validate_wasm_extension_locally "Validate Wasm Extension Locally" {
   verify unit "validation runs against fixtures"
   verify unit "validation uses production sandbox policy"
   verify unit "validation failure reported as ExtensionError"
-  verify contract "requires/ensures consistency for local Wasm extension validation"
+  verify contract "Validate Wasm Extension Locally: local Wasm extension validation holds — wasm_binary_available, wasm_runtime_available, fixtures_available, production_sandbox_used, export_failures_diagnosed, extension_fixtures_validated_emitted"
 
 }
 
@@ -146,6 +146,6 @@ behavior publish_wasm_extension "Publish Wasm Extension" {
   verify unit "publish bundles .wasm and manifest"
   verify unit "manifest validated before publish"
   verify unit "publish failure reported as ExtensionError"
-  verify contract "requires/ensures consistency for Wasm extension publishing"
+  verify contract "Publish Wasm Extension: Wasm extension publishing holds — wasm_binary_available, manifest_valid, registry_available, bundle_published, publish_failures_diagnosed, extension_published_emitted"
 
 }

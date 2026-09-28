@@ -45,7 +45,7 @@ behavior validate_manifest_v2_schema "Validate Manifest V2 Schema" {
   verify unit "missing required field produces hard error"
   verify unit "manifestVersion != 2 produces hard error"
   verify unit "unknown top-level field produces warning"
-  verify contract "requires/ensures consistency for manifest v2 schema validation"
+  verify contract "Validate Manifest V2 Schema: manifest v2 schema validation holds — manifest_json_available, schema_validated, malformed_diagnosed"
 
   tests ["crates/specforge-registry/tests/zero_entity_registries.rs"]
 }
@@ -82,7 +82,7 @@ behavior register_entity_kinds_from_manifest "Register Entity Kinds From Manifes
   verify unit "testable=true entity participates in coverage"
   verify unit "testable=false entity excluded from coverage"
   verify unit "no default testability assumed by core"
-  verify contract "requires/ensures consistency for entity kind registration"
+  verify contract "Register Entity Kinds From Manifest: entity kind registration holds — extension_manifests_loaded_fired, kinds_registered, source_extension_recorded"
 
   tests ["crates/specforge-registry/tests/zero_entity_registries.rs"]
 }
@@ -124,7 +124,7 @@ behavior register_edge_types_from_manifest "Register Edge Types From Manifest" {
   verify unit "duplicate edge label across extensions produces W-level warning"
   verify unit "first-registered edge type wins on collision (topological order)"
   verify unit "field-to-edge mapping creates edge type"
-  verify contract "requires/ensures consistency for edge type registration"
+  verify contract "Register Edge Types From Manifest: edge type registration holds — extension_manifests_loaded_fired, edge_types_registered, constraints_recorded, duplicates_warned"
 
   tests ["crates/specforge-registry/tests/zero_entity_registries.rs"]
 }
@@ -170,7 +170,7 @@ behavior register_validation_rules_from_manifest "Register Validation Rules From
   verify unit "target_kind reference validated against KindRegistry after registries_populated"
   verify unit "edge_type reference validated against edge type set after registries_populated"
   verify unit "invalid reference produces warning not error"
-  verify contract "requires/ensures consistency for validation rule registration"
+  verify contract "Register Validation Rules From Manifest: validation rule registration holds — extension_manifests_loaded_fired, rules_registered, deferred_validation_complete, invalid_refs_warned"
 
   tests ["crates/specforge-registry/tests/zero_entity_registries.rs"]
 }
@@ -202,7 +202,7 @@ behavior register_verify_kinds_from_manifest "Register Verify Kinds From Manifes
   verify unit "custom verify kinds registered from manifest"
   verify unit "no hardcoded verify kinds in core"
   verify unit "unknown verify kind in .spec produces W-level diagnostic in Phase 2"
-  verify contract "requires/ensures consistency for verify kind registration"
+  verify contract "Register Verify Kinds From Manifest: verify kind registration holds — extension_manifests_loaded_fired, verify_kinds_registered, no_hardcoded_kinds"
 
   tests ["crates/specforge-registry/tests/zero_entity_registries.rs"]
 }
@@ -236,7 +236,7 @@ behavior boot_empty_kind_registry "Boot Empty Kind Registry" {
   verify unit "parser recognizes ref keyword without extensions"
   verify unit "parser recognizes use keyword without extensions"
   verify unit "parser recognizes define keyword without extensions"
-  verify contract "requires/ensures consistency for empty kind registry boot"
+  verify contract "Boot Empty Kind Registry: empty kind registry boot holds — compiler_initializing, kind_registry_empty, structural_keywords_ready"
 
   tests ["crates/specforge-registry/tests/zero_entity_registries.rs"]
 }
@@ -268,7 +268,7 @@ behavior boot_empty_field_registry "Boot Empty Field Registry" {
   verify unit "FieldRegistry::new() has zero entries"
   verify unit "no field names recognized before extension loading"
   verify unit "entity title parsed by grammar, not FieldRegistry"
-  verify contract "requires/ensures consistency for empty field registry boot"
+  verify contract "Boot Empty Field Registry: empty field registry boot holds — compiler_initializing, field_registry_empty, no_fields_recognized"
 
   tests ["crates/specforge-registry/tests/zero_entity_registries.rs"]
 }
@@ -297,7 +297,7 @@ behavior boot_empty_edge_registry "Boot Empty Edge Registry" {
 
   verify unit "edge type set starts with zero entries"
   verify unit "no edge labels recognized before extension loading"
-  verify contract "requires/ensures consistency for empty edge registry boot"
+  verify contract "Boot Empty Edge Registry: empty edge registry boot holds — compiler_initializing, edge_registry_empty, no_edges_recognized"
 
   tests ["crates/specforge-registry/tests/zero_entity_registries.rs"]
 }
@@ -348,7 +348,7 @@ behavior custom_entity_types_via_define "Custom Entity Types via Define" {
   verify unit "define block can reference extension-defined kinds"
   verify unit "define-block kind has source_extension '<project>'"
   verify unit "custom_entity_type_defined event emitted per define block"
-  verify contract "requires/ensures consistency for custom entity type registration"
+  verify contract "Custom Entity Types via Define: custom entity type registration holds — registries_populated_fired, custom_kinds_registered, events_emitted, resolution_participation"
 
   tests ["crates/specforge-registry/tests/zero_entity_registries.rs"]
 }
@@ -387,7 +387,7 @@ behavior populate_kind_registry_from_extensions "Populate Kind Registry From Ext
   verify unit "registered keywords available to parser"
   verify unit "population completes before validation"
   verify integration "two extensions register kinds without collision"
-  verify contract "requires/ensures consistency for registry population"
+  verify contract "Populate Kind Registry From Extensions: registry population holds for the declared obligations"
 
   tests ["crates/specforge-registry/tests/zero_entity_registries.rs"]
 }
@@ -424,7 +424,7 @@ behavior populate_field_registry_from_extensions "Populate Field Registry From E
   verify unit "fields registered per entity kind"
   verify unit "field types validated against known types"
   verify unit "invalid field type produces warning"
-  verify contract "requires/ensures consistency for field registry population"
+  verify contract "Populate Field Registry From Extensions: field registry population holds — extension_manifests_loaded_fired, kind_registry_populated, fields_registered, field_types_validated, fields_populated"
 
   tests ["crates/specforge-registry/tests/zero_entity_registries.rs"]
 }
@@ -457,7 +457,7 @@ behavior populate_edge_registry_from_extensions "Populate Edge Registry From Ext
   verify unit "explicit edgeTypes merged into edge set"
   verify unit "implicit edges from field mappings merged"
   verify unit "duplicate edge labels produce warning"
-  verify contract "requires/ensures consistency for edge registry population"
+  verify contract "Populate Edge Registry From Extensions: edge registry population holds — extension_manifests_loaded_fired, edge_set_complete, duplicates_warned, edges_populated"
 
   tests ["crates/specforge-registry/tests/zero_entity_registries.rs"]
 }
@@ -498,7 +498,7 @@ behavior validate_registered_entity_fields "Validate Registered Entity Fields" {
   verify unit "unresolved target_kind produces warning"
   verify unit "unresolved edge label produces warning"
   verify unit "cross-validation uses no domain-specific logic"
-  verify contract "requires/ensures consistency for field cross-validation"
+  verify contract "Validate Registered Entity Fields: field cross-validation holds for the declared obligations"
 
   tests ["crates/specforge-registry/tests/zero_entity_registries.rs"]
 }
@@ -537,7 +537,7 @@ behavior collapse_grammar_to_generic_entity_block "Collapse Grammar to Generic E
   verify unit "ref_block remains as separate grammar rule"
   verify unit "use_import remains as separate grammar rule"
   verify unit "define_block remains as separate grammar rule"
-  verify contract "requires/ensures consistency for grammar collapse"
+  verify contract "Collapse Grammar to Generic Entity Block: grammar collapse holds — grammar_source_available, single_generic_rule, structural_rules_preserved, no_keyword_validation_in_grammar"
 
   tests ["crates/specforge-registry/tests/zero_entity_registries.rs"]
 }
@@ -576,7 +576,7 @@ behavior two_phase_parse_structural "Two-Phase Parse: Structural" {
   verify unit "no keyword validation in Phase 1"
   verify unit "all .spec files parsed before Phase 2"
   verify unit "parse errors collected without aborting"
-  verify contract "requires/ensures consistency for structural parsing"
+  verify contract "Two-Phase Parse: Structural: structural parsing holds — spec_files_available, structural_parse_produced, structural_parse_event_emitted, no_keyword_validation"
 
   tests ["crates/specforge-registry/tests/zero_entity_registries.rs"]
 }
@@ -618,7 +618,7 @@ behavior two_phase_validate_semantic "Two-Phase Validate: Semantic" {
   verify unit "field validation uses FieldRegistry"
   verify unit "Phase 2 starts only after registries populated"
   verify integration "Phase 2 waits for both registries_populated AND define_blocks_registered"
-  verify contract "requires/ensures consistency for semantic validation"
+  verify contract "Two-Phase Validate: Semantic: semantic validation holds — unknown_keywords_diagnosed"
 
   tests ["crates/specforge-registry/tests/zero_entity_registries.rs"]
 }
@@ -669,7 +669,7 @@ behavior suggest_missing_extensions "Suggest Missing Extensions" {
   verify unit "E024 for keyword in index suggests the providing extension"
   verify unit "E024 for keyword not in index suggests specforge search"
   verify unit "keyword-to-extension index is loaded from bundled data file"
-  verify contract "requires/ensures consistency for missing extension suggestions"
+  verify contract "Suggest Missing Extensions: missing extension suggestions holds — e024_diagnostic_emitted, suggestion_provided, lazy_loading_enforced"
 
   tests ["crates/specforge-registry/tests/zero_entity_registries.rs"]
 }
@@ -706,7 +706,7 @@ behavior detect_unknown_entity_kinds "Detect Unknown Entity Kinds" {
   verify unit "E024 includes keyword name and source span"
   verify unit "registered keyword does not produce E024"
   verify unit "define-block keywords not checked against KindRegistry"
-  verify contract "requires/ensures consistency for unknown entity kind detection"
+  verify contract "Detect Unknown Entity Kinds: unknown entity kind detection holds — registries_populated_fired, structural_parse_ready, unknown_kinds_diagnosed, registered_kinds_accepted"
 
   tests ["crates/specforge-registry/tests/zero_entity_registries.rs"]
 }
@@ -752,7 +752,7 @@ behavior graceful_degradation_without_extensions "Graceful Degradation Without E
   verify unit "generic entity nodes appear as nodes in exported graph"
   verify unit "references between generic entities produce edges"
   verify integration "specforge check with zero extensions exits cleanly with I002"
-  verify contract "requires/ensures consistency for graceful degradation"
+  verify contract "Graceful Degradation Without Extensions: graceful degradation holds — registries_populated_fired, i002_emitted, structural_mode_operational, valid_export_produced"
 
   tests ["crates/specforge-registry/tests/zero_entity_registries.rs"]
 }
@@ -785,7 +785,7 @@ behavior handle_all_extensions_failed_to_load "Handle All Extensions Failed to L
   verify unit "all extensions failing produces per-extension E-level diagnostics"
   verify unit "system transitions to structural-only mode after all failures"
   verify integration "specforge check with all extensions unavailable exits cleanly"
-  verify contract "requires/ensures consistency for all-extensions-failed handling"
+  verify contract "Handle All Extensions Failed to Load: all-extensions-failed handling holds — extension_manifests_loaded_fired, per_extension_errors_emitted, structural_mode_fallback, no_crash_guaranteed"
   tests ["crates/specforge-registry/tests/zero_entity_registries.rs"]
 }
 
@@ -827,7 +827,7 @@ behavior render_extension_defined_dot_shapes "Render Extension-Defined DOT Shape
   verify unit "dot_color sets DOT node color attribute"
   verify unit "dot_fillcolor sets DOT node fillcolor and style=filled attributes"
   verify integration "multi-extension graph renders each kind with its declared shape"
-  verify contract "requires/ensures consistency for DOT shape rendering"
+  verify contract "Render Extension-Defined DOT Shapes: DOT shape rendering holds — kind_registry_available, graph_available, shapes_applied, colors_applied, be"
 
   tests ["crates/specforge-registry/tests/zero_entity_registries.rs"]
 }
@@ -865,7 +865,7 @@ behavior render_extension_defined_edge_styles "Render Extension-Defined Edge Sty
   verify unit "edge_color sets DOT edge color attribute"
   verify unit "edge_arrowhead sets DOT edge arrowhead attribute"
   verify integration "multi-extension graph renders each edge type with its declared style"
-  verify contract "requires/ensures consistency for DOT edge style rendering"
+  verify contract "Render Extension-Defined Edge Styles: DOT edge style rendering holds — edge_registry_available, graph_available, styles_applied, edge_colors_applied"
 
   tests ["crates/specforge-registry/tests/zero_entity_registries.rs"]
 }
@@ -905,7 +905,7 @@ behavior register_grammar_contributions "Register Grammar Contributions" {
   verify unit "grammar contribution for unregistered kind produces warning"
   verify unit "grammar conflict detected and policy applied"
   verify unit "grammar .wasm path validated as accessible"
-  verify contract "requires/ensures consistency for grammar contribution registration"
+  verify contract "Register Grammar Contributions: grammar contribution registration holds — extension_manifests_loaded_fired, kind_registry_available, grammar_contributions_registered, grammar_event_emitted, conflicts_resolved"
 
   tests ["crates/specforge-registry/tests/zero_entity_registries.rs"]
 }
@@ -942,7 +942,7 @@ behavior register_body_parser_contributions "Register Body Parser Contributions"
   verify unit "body parser for unregistered kind produces warning"
   verify unit "duplicate body parser for same kind produces error"
   verify unit "export_name verified against Wasm binary"
-  verify contract "requires/ensures consistency for body parser contribution registration"
+  verify contract "Register Body Parser Contributions: body parser contribution registration holds — extension_manifests_loaded_fired, kind_registry_available, body_parsers_registered, body_parser_event_emitted, one_parser_per_kind_enforced"
 
   tests ["crates/specforge-registry/tests/zero_entity_registries.rs"]
 }
@@ -987,7 +987,7 @@ behavior validate_extension_manifest_consistency "Validate Extension Manifest Co
   verify unit "self-contradictory target_kind produces E-level error"
   verify unit "target_kind referencing non-peer extension kind produces W-level warning"
   verify unit "self-contradictory edge label produces E-level error"
-  verify contract "requires/ensures consistency for manifest self-consistency validation"
+  verify contract "Validate Extension Manifest Consistency: manifest self-consistency validation holds — manifest_parsed, peer_dependencies_known, self_consistency_validated, authoring_errors_diagnosed"
 
   tests ["crates/specforge-registry/tests/zero_entity_registries.rs"]
 }

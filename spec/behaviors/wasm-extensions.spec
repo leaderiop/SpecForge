@@ -48,7 +48,7 @@ behavior provide_extension_query_extensions "Provide Extension Query Extensions"
   verify unit "invalid query pattern produces warning diagnostic"
   verify unit "invalid pattern does not block extension loading"
   verify unit "query extensions extracted from manifest"
-  verify contract "requires/ensures consistency for extension query extension loading"
+  verify contract "Provide Extension Query Extensions: extension query extension loading holds — extension_manifests_loaded_fired, query_extensions_loaded_emitted, invalid_patterns_warned, patterns_stored"
 
   tests ["crates/specforge-cli/tests/extensions.rs"]
 }
@@ -86,7 +86,7 @@ behavior compose_query_files_from_extensions "Compose Query Files From Extension
   verify unit "extension query extensions appended in load order"
   verify unit "#match? predicates work in composed query"
   verify unit "composition is deterministic across runs"
-  verify contract "requires/ensures consistency for query file composition"
+  verify contract "Compose Query Files From Extensions: query file composition holds — query_extensions_loaded_fired, query_files_composed_emitted, composition_deterministic, base_queries_first"
 
 }
 
@@ -134,7 +134,7 @@ behavior reject_reserved_entity_kind "Reject Reserved Entity Kind" {
   verify unit "rejects invalid identifier characters"
   verify unit "rejects keyword reserved by another extension via reserved_keywords manifest field"
   verify unit "extension reserving 'scenario' prevents other extensions from using it as a kind"
-  verify contract "requires/ensures consistency for reserved entity kind rejection"
+  verify contract "Reject Reserved Entity Kind: reserved entity kind rejection holds — extension_manifests_loaded_fired, reserved_entity_kind_rejected_emitted, rejection_before_registration, invalid_identifiers_rejected"
 
   tests ["crates/specforge-registry/tests/zero_entity_registries.rs"]
 }
@@ -174,7 +174,7 @@ behavior detect_entity_kind_collision "Detect Entity Kind Collision" {
   verify unit "collision with structural keyword produces E023"
   verify unit "collision with define block produces E022"
   verify unit "no false positive for different kind names"
-  verify contract "requires/ensures consistency for entity kind collision detection"
+  verify contract "Detect Entity Kind Collision: entity kind collision detection holds — extension_manifests_loaded_fired, entity_kind_conflict_detected_emitted, all_collision_types_checked"
 
   tests ["crates/specforge-registry/tests/zero_entity_registries.rs"]
 }
@@ -229,7 +229,7 @@ behavior load_extension_manifest "Load Extension Manifest" {
   verify unit "malformed sidecar produces ExtensionError"
   verify unit "bundled extensions loaded from bundled resources directory"
   verify unit "initialization follows documented 7-step sequence"
-  verify contract "requires/ensures consistency for extension manifest loading"
+  verify contract "Load Extension Manifest: extension manifest loading holds — extension_discovered, filesystem_available, manifest_loaded_emitted, malformed_manifest_diagnosed, initialization_sequence_followed"
 
   tests ["crates/specforge-wasm/tests/wasm_lifecycle.rs"]
 }
@@ -265,7 +265,7 @@ behavior register_entity_enhancements "Register Entity Enhancements" {
   verify unit "enhanced reference fields create graph edges"
   verify unit "enhanced data fields participate in type validation"
   verify unit "registration order follows extensions array"
-  verify contract "requires/ensures consistency for entity enhancement registration"
+  verify contract "Register Entity Enhancements: entity enhancement registration holds — manifests_validated, enhancement_registered_emitted, registration_before_resolve, registration_order_deterministic"
 
   tests ["crates/specforge-registry/tests/zero_entity_registries.rs"]
 }
@@ -301,7 +301,7 @@ behavior detect_enhancement_conflicts "Detect Enhancement Conflicts" {
   verify unit "conflict with grammar-level construct produces E018"
   verify unit "conflict record includes both extension identities"
   verify unit "no false positives for same field on different entities"
-  verify contract "requires/ensures consistency for enhancement conflict detection"
+  verify contract "Detect Enhancement Conflicts: enhancement conflict detection holds — enhancements_being_registered, enhancement_conflict_detected_emitted, grammar_conflicts_hard_error, conflict_record_complete"
 
   tests ["crates/specforge-registry/tests/zero_entity_registries.rs"]
 }
@@ -335,7 +335,7 @@ behavior resolve_enhancement_conflicts "Resolve Enhancement Conflicts" {
 
   verify unit "error policy produces E017 for unresolved conflicts"
   verify unit "explicit override takes precedence over policy"
-  verify contract "requires/ensures consistency for enhancement conflict resolution"
+  verify contract "Resolve Enhancement Conflicts: enhancement conflict resolution holds — enhancement_conflict_detected_fired, enhancement_conflict_resolved_emitted, error_policy_enforced, overrides_precedence"
 
   tests ["crates/specforge-registry/tests/zero_entity_registries.rs"]
 }
@@ -401,7 +401,7 @@ behavior dispatch_contribution_exports "Dispatch Contribution Exports" {
   verify unit "parser contribution exports dispatched before validation phase"
   verify unit "parser contribution receives read_file, emit_diagnostic, add_graph_node, add_graph_edge only"
   verify unit "renderer contributions re-dispatched after collector_report_ingested"
-  verify contract "requires/ensures consistency for contribution export dispatch"
+  verify contract "Dispatch Contribution Exports: contribution export dispatch holds — contribution_exports_validated_fired, wasm_runtime_available, contribution_exports_dispatched_emitted, missing_export_diagnosed, renderers_refreshed_on_ingestion"
 
   tests ["crates/specforge-wasm/tests/wasm_lifecycle.rs"]
 }
@@ -451,7 +451,7 @@ behavior enforce_per_call_site_permissions "Enforce Per-Call-Site Permissions" {
   verify unit "collector contribution export limited to query_graph and emit_file"
   verify unit "parser contribution export limited to emit_diagnostic, add_graph_node, add_graph_edge, and read_file"
   verify unit "unauthorized host function call is rejected"
-  verify contract "requires/ensures consistency for per-call-site permission enforcement"
+  verify contract "Enforce Per-Call-Site Permissions: per-call-site permission enforcement holds — sandbox_policy_ready, contribution_type_known, contribution_permission_denied_emitted, per_call_site_enforced, unauthorized_calls_rejected"
 
 }
 
@@ -486,7 +486,7 @@ behavior validate_contribution_exports "Validate Contribution Exports" {
   verify unit "all declared contribution exports present passes"
   verify unit "missing contribution export produces E020"
   verify unit "extra exports beyond contributions are ignored"
-  verify contract "requires/ensures consistency for contribution export validation"
+  verify contract "Validate Contribution Exports: contribution export validation holds — extension_loaded_ready, manifest_contributions_declared, contribution_exports_validated_emitted, contribution_export_validation_failed_emitted, missing_exports_diagnosed"
 
   tests ["crates/specforge-wasm/tests/wasm_lifecycle.rs"]
 }
@@ -523,7 +523,7 @@ behavior toggle_extension_contributions "Toggle Extension Contributions" {
   verify unit "extension still loaded when some contributions disabled"
   verify unit "re-enabled contribution resumes normal dispatch"
   verify unit "disabling only entity provider for a kind produces W028"
-  verify contract "requires/ensures consistency for extension contribution toggling"
+  verify contract "Toggle Extension Contributions: extension contribution toggling holds — extension_loaded_ready, config_available, contribution_toggled_emitted, disabled_contributions_skipped, sole_provider_warned"
 
   tests ["crates/specforge-cli/tests/extensions.rs"]
 }
@@ -568,7 +568,7 @@ behavior register_collector_contributions "Register Collector Contributions" {
   verify unit "collector registered in collector registry"
   verify unit "missing Wasm export produces E020"
   verify unit "duplicate collector name produces E029"
-  verify contract "requires/ensures consistency for collector contribution registration"
+  verify contract "Register Collector Contributions: collector contribution registration holds — manifest_declares_collectors, wasm_runtime_available, collector_registered_emitted, duplicate_names_diagnosed, missing_exports_diagnosed"
 
   tests ["crates/specforge-cli/tests/collect.rs"]
 }
@@ -614,7 +614,7 @@ behavior auto_detect_collector "Auto-Detect Collector" {
   verify unit "env var match selects collector"
   verify unit "first match wins when multiple match"
   verify unit "no match emits I013 with available collectors"
-  verify contract "requires/ensures consistency for collector auto-detection"
+  verify contract "Auto-Detect Collector: collector auto-detection holds — collector_registered_fired, filesystem_available, first_match_selected, no_match_diagnosed"
 
   tests ["crates/specforge-cli/tests/collect.rs"]
 }
@@ -654,7 +654,7 @@ behavior dispatch_collector "Dispatch Collector" {
   verify unit "returns CollectorReport on success"
   verify unit "Wasm trap caught and reported as ExtensionError"
   verify unit "collector dispatch spawns no external processes"
-  verify contract "requires/ensures consistency for collector dispatch"
+  verify contract "Dispatch Collector: collector dispatch holds — collector_selected, wasm_runtime_available, collector_dispatched_emitted, traps_caught, no_external_processes"
 
   tests ["crates/specforge-cli/tests/collect.rs"]
 }
@@ -691,7 +691,7 @@ behavior validate_collector_output "Validate Collector Output" {
   verify unit "unknown entity ID produces W029"
   verify unit "inconsistent stats produce W030"
   verify unit "missing schema field produces hard error"
-  verify contract "requires/ensures consistency for collector output validation"
+  verify contract "Validate Collector Output: collector output validation holds — collector_dispatched_fired, collector_output_validated_emitted, unknown_entities_warned, stats_consistency_checked"
 
   tests ["crates/specforge-cli/tests/collect.rs"]
 }
@@ -731,7 +731,7 @@ behavior ingest_collector_report "Ingest Collector Report" {
   verify unit "coverage metadata updated on entity"
   verify unit "merged report written to specforge-report.json"
   verify unit "unknown entity entries in unmapped_tests"
-  verify contract "requires/ensures consistency for collector report ingestion"
+  verify contract "Ingest Collector Report: collector report ingestion holds — collector_output_validated_fired, graph_available, collector_report_ingested_emitted, coverage_metadata_updated, merged_report_written, unmapped_entries_preserved"
 
   tests ["crates/specforge-cli/tests/collect.rs"]
 }
@@ -773,7 +773,7 @@ behavior discover_extensions "Discover Extensions" {
   verify unit "checks for updates to installed extensions"
   verify unit "aggregates results across multiple registries"
   verify unit "network failure produces warning without aborting"
-  verify contract "requires/ensures consistency for extension discovery"
+  verify contract "Discover Extensions: extension discovery holds — registries_configured, extensions_discovered_emitted, network_failure_graceful, results_complete"
 
   tests ["crates/specforge-cli/tests/extensions.rs"]
 }
@@ -815,7 +815,7 @@ behavior run_doctor_check "Run Doctor Check" {
   verify unit "doctor reports conflicts with resolution suggestions"
   verify unit "doctor detects shadowed grammar-level constructs"
   verify unit "doctor --json produces valid JSON output"
-  verify contract "requires/ensures consistency for doctor check"
+  verify contract "Run Doctor Check: doctor check holds — enhancement_registered_fired, filesystem_available, doctor_check_completed_emitted, report_produced, json_output_supported"
 
 }
 
@@ -849,7 +849,7 @@ behavior parse_extension_specifier "Parse Extension Specifier" {
   verify unit "./path parsed as local source"
   verify unit "git:url#ref parsed as git source"
   verify unit "invalid specifier produces ExtensionError"
-  verify contract "requires/ensures consistency for extension specifier parsing"
+  verify contract "Parse Extension Specifier: extension specifier parsing holds — specifier_string_provided, extension_specifier_parsed_emitted, invalid_specifier_diagnosed"
 
   tests ["crates/specforge-cli/tests/registry.rs"]
 }
@@ -885,7 +885,7 @@ behavior resolve_extension_source "Resolve Extension Source" {
   verify unit "local source resolves from filesystem"
   verify unit "git source resolves from repository"
   verify unit "resolution failure produces ExtensionError"
-  verify contract "requires/ensures consistency for extension source resolution"
+  verify contract "Resolve Extension Source: extension source resolution holds — extension_specifier_parsed_fired, source_ports_available, extension_source_resolved_emitted, resolution_failure_diagnosed"
 
   tests ["crates/specforge-cli/tests/registry.rs"]
 }
@@ -923,7 +923,7 @@ behavior write_lock_file "Write Lock File" {
   verify unit "lock file contains exact versions and wasm hashes"
   verify unit "lock file output is deterministic"
   verify unit "lock file written atomically"
-  verify contract "requires/ensures consistency for lock file writing"
+  verify contract "Write Lock File: lock file writing holds — extensions_resolved, filesystem_available, lock_file_written_emitted, output_deterministic, write_atomic"
 
   tests ["crates/specforge-cli/tests/registry.rs"]
 }
@@ -958,7 +958,7 @@ behavior read_lock_file "Read Lock File" {
   verify unit "locked versions used when lock file exists"
   verify unit "missing lock entry triggers resolution"
   verify unit "malformed lock file produces warning and falls back"
-  verify contract "requires/ensures consistency for lock file reading"
+  verify contract "Read Lock File: lock file reading holds — all_files_parsed_fired, filesystem_available, lock_file_read_emitted, locked_versions_used, malformed_lock_graceful"
 
   tests ["crates/specforge-cli/tests/registry.rs"]
 }
@@ -1004,7 +1004,7 @@ behavior update_all_extensions "Update All Extensions" {
   verify unit "lock file refreshed after update"
   verify unit "peer dependency conflicts detected before applying"
   verify unit "failed upgrade rolls back all changes"
-  verify contract "requires/ensures consistency for batch extension update"
+  verify contract "Update All Extensions: batch extension update holds — extensions_installed, registries_reachable, batch_update_completed_emitted, semver_constraints_respected, aot_caches_recompiled, atomic_rollback_on_failure"
 
   tests ["crates/specforge-cli/tests/registry.rs"]
 }
@@ -1041,7 +1041,7 @@ behavior refresh_lock_file "Refresh Lock File" {
   verify unit "SHA256 hashes verified against lock entries"
   verify unit "mismatched hash produces warning"
   verify unit "lock file regenerated with current metadata"
-  verify contract "requires/ensures consistency for lock file refresh"
+  verify contract "Refresh Lock File: lock file refresh holds — lock_file_exists, registries_reachable, lock_file_refreshed_emitted, versions_unchanged, hashes_verified"
 
   tests ["crates/specforge-cli/tests/registry.rs"]
 }

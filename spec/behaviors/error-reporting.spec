@@ -33,7 +33,7 @@ behavior format_diagnostics_with_source_context "Format Diagnostics with Source 
   verify unit "diagnostic shows file:line:col"
   verify unit "context snippet highlights offending token"
   verify unit "multi-line span shows full range"
-  verify contract "requires/ensures consistency for diagnostic source context formatting"
+  verify contract "Format Diagnostics with Source Context: diagnostic source context formatting holds — valid_source_span, header_present, context_snippet_present, caret_marker_present"
 
   tests ["crates/specforge-emitter/tests/diagnostics.rs"]
 }
@@ -65,7 +65,7 @@ behavior provide_did_you_mean_suggestions "Provide Did-You-Mean Suggestions" {
   verify unit "close match produces suggestion"
   verify unit "distant match produces no suggestion"
   verify unit "suggestion appears in help text"
-  verify contract "requires/ensures consistency for did-you-mean suggestions"
+  verify contract "Provide Did-You-Mean Suggestions: did-you-mean suggestions holds — unresolved_reference_available, kind_registry_populated, distance_threshold, sorted_by_distance"
 
   tests ["crates/specforge-emitter/tests/diagnostics.rs"]
 }
@@ -94,7 +94,7 @@ behavior aggregate_diagnostic_summary "Aggregate Diagnostic Summary" {
   verify unit "summary shows correct counts"
   verify unit "summary is red when errors exist"
   verify unit "summary matches actual diagnostics"
-  verify contract "requires/ensures consistency for diagnostic summary aggregation"
+  verify contract "Aggregate Diagnostic Summary: diagnostic summary aggregation holds — validation_executed, counts_match"
 
   tests ["crates/specforge-emitter/tests/diagnostics.rs"]
 }

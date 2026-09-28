@@ -37,7 +37,7 @@ behavior resolve_use_imports "Resolve Use Imports" {
   verify unit        "resolve use path to file on disk"
   verify unit        "missing import file produces E025"
   verify integration "imports across nested directories resolve correctly"
-  verify contract "requires/ensures consistency for use import resolution"
+  verify contract "Resolve Use Imports: use import resolution holds — registries_populated_fired, define_blocks_registered_fired, filesystem_available, imports_resolved, missing_files_diagnosed, dependency_graph_built"
 
   tests ["crates/specforge-resolver/tests/resolution.rs"]
 }
@@ -68,7 +68,7 @@ behavior detect_import_cycles "Detect Import Cycles" {
   verify unit "detect direct cycle between two files"
   verify unit "detect transitive cycle across three files"
   verify unit "non-cyclic files still process when a cycle exists"
-  verify contract "requires/ensures consistency for import cycle detection"
+  verify contract "Detect Import Cycles: import cycle detection holds — import_graph_available, cycles_detected, cycle_diagnostic_emitted, non_cyclic_unaffected"
 
   tests ["crates/specforge-resolver/tests/resolution.rs"]
 }
@@ -101,7 +101,7 @@ behavior link_entity_references "Link Entity References" {
   verify unit "reference list IDs create graph edges"
   verify unit "unresolvable reference produces E001"
   verify unit "close match triggers did-you-mean suggestion"
-  verify contract "requires/ensures consistency for entity reference linking"
+  verify contract "Link Entity References: entity reference linking holds — registries_populated, all_files_parsed, all_references_resolved, no_silent_ignoring"
 
   tests ["crates/specforge-resolver/tests/resolution.rs"]
 }
@@ -139,7 +139,7 @@ behavior resolve_soft_cross_extension_references "Resolve Soft Cross-Extension R
   verify unit "unknown keyword matching known extension emits I004"
   verify unit "installed extension with missing entity emits E001"
   verify unit "installed extension with imported file but missing entity emits E001"
-  verify contract "requires/ensures consistency for soft cross-extension resolution"
+  verify contract "Resolve Soft Cross-Extension References: soft cross-extension resolution holds — registries_populated_fired, known_extensions_catalog_available, suggestion_emitted, installed_extensions_resolved"
 
   tests ["crates/specforge-resolver/tests/resolution.rs"]
 }
@@ -173,7 +173,7 @@ behavior resolve_external_ref_declarations "Resolve External Ref Declarations" {
   verify unit "ref with known scheme is registered and marked for provider validation"
   verify unit "ref with unknown scheme emits I005"
   verify unit "ref node is added to graph with scheme metadata"
-  verify contract "requires/ensures consistency for external ref resolution"
+  verify contract "Resolve External Ref Declarations: external ref resolution holds — ref_blocks_parsed, filesystem_available, refs_registered, known_schemes_marked, unknown_schemes_deferred"
 
   tests ["crates/specforge-resolver/tests/resolution.rs"]
 }

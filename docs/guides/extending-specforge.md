@@ -202,7 +202,7 @@ behavior publish "Publish" {
     artifacts_written "output files exist on disk"
   }
 
-  verify contract "requires/ensures consistency for publish"
+  verify contract "Publish: artifacts land on disk — artifacts_written"
 }
 ```
 

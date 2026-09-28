@@ -40,7 +40,7 @@ behavior detect_dangling_references "Detect Dangling References" {
   verify unit "reference without corresponding graph edge indicates resolver bug"
   verify unit "reference with corresponding graph edge passes"
   verify unit "empty graph with zero edges produces no dangling reference diagnostic"
-  verify contract "requires/ensures consistency for dangling reference detection"
+  verify contract "Detect Dangling References: dangling reference detection holds — graph_built_fired, resolver_integrity_verified, no_duplicate_diagnostics"
 
   tests ["crates/specforge-validator/tests/validation.rs"]
 }
@@ -70,7 +70,7 @@ behavior detect_duplicate_entity_ids "Detect Duplicate Entity IDs" {
   verify unit "duplicate ID in same file produces E002"
   verify unit "duplicate ID across files produces E002"
   verify unit "E002 includes both source locations"
-  verify contract "requires/ensures consistency for duplicate entity ID detection"
+  verify contract "Detect Duplicate Entity IDs: duplicate entity ID detection holds — all_files_parsed, duplicate_ids_diagnosed"
 
   tests ["crates/specforge-validator/tests/validation.rs"]
 }
@@ -153,7 +153,7 @@ behavior detect_orphan_refs "Detect Orphan Structural Nodes" {
   verify unit "referenced ref suppresses W012"
   verify unit "unreferenced structural node of any grammar-level kind produces W012"
   verify unit "structural node with at least one incoming edge suppresses W012"
-  verify contract "requires/ensures consistency for orphan structural node detection"
+  verify contract "Detect Orphan Structural Nodes: orphan structural node detection holds — graph_built_fired, orphans_detected, referenced_nodes_clean"
 
   tests ["crates/specforge-validator/tests/validation.rs"]
 }
@@ -214,7 +214,7 @@ behavior validate_file_reference_paths "Validate File Reference Paths" {
   verify unit "existing file reference passes silently"
   verify unit "multiple file references in same entity each validated independently"
   verify unit "relative path resolved from spec file directory"
-  verify contract "requires/ensures consistency for file reference validation"
+  verify contract "Validate File Reference Paths: file reference validation holds — graph_built_fired, filesystem_available, missing_files_diagnosed, existing_files_pass"
 
   tests ["crates/specforge-validator/tests/validation.rs"]
 }

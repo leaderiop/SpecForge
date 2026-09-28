@@ -38,7 +38,7 @@ behavior enforce_wasm_sandbox "Enforce Wasm Sandbox" {
   verify unit "execution time limit enforced via fuel metering"
   verify unit "filesystem restriction enforced"
   verify unit "network restriction enforced"
-  verify contract "requires/ensures consistency for Wasm sandbox enforcement"
+  verify contract "Enforce Wasm Sandbox: Wasm sandbox enforcement holds — sandbox_policy_configured, wasm_runtime_available, memory_limit_enforced, execution_time_enforced, violations_trapped"
 
   tests ["crates/specforge-extism/tests/runtime.rs"]
 }
@@ -73,7 +73,7 @@ behavior aot_compile_wasm_module "AOT Compile Wasm Module" {
   verify unit "first load triggers AOT compilation"
   verify unit "compiled artifact cached with content-hash filename"
   verify unit "subsequent load uses cached artifact"
-  verify contract "requires/ensures consistency for AOT Wasm compilation"
+  verify contract "AOT Compile Wasm Module: AOT Wasm compilation holds — wasm_binary_available, aot_cache_invalidated_fired, wasm_aot_compiled_emitted, artifact_cached, subsequent_loads_fast"
 
   tests ["crates/specforge-extism/tests/runtime.rs"]
 }
@@ -105,7 +105,7 @@ behavior cache_aot_artifacts "Cache AOT Artifacts" {
 
   verify unit "cache entries use content-addressed filenames"
   verify unit "corrupted cache entry is evicted and recompiled"
-  verify contract "requires/ensures consistency for AOT artifact caching"
+  verify contract "Cache AOT Artifacts: AOT artifact caching holds — wasm_aot_compiled_fired, filesystem_available, content_addressed, corruption_detected, corruption_recovered"
 
   tests ["crates/specforge-extism/tests/runtime.rs"]
 }
@@ -139,7 +139,7 @@ behavior warm_wasm_engine_instance "Warm Wasm Engine Instance" {
 
   verify unit "warm instance reused across compilations"
   verify unit "instance unloaded on extension removal"
-  verify contract "requires/ensures consistency for warm engine instance management"
+  verify contract "Warm Wasm Engine Instance: warm engine instance management holds — lsp_or_mcp_context, wasm_runtime_available, engine_warmed_emitted, instance_reused, instance_unloaded_on_removal"
 
   tests ["crates/specforge-extism/tests/runtime.rs"]
 }
@@ -173,7 +173,7 @@ behavior evict_warm_engine_instance "Evict Warm Engine Instance" {
 
   verify unit "LRU engine evicted when max instances exceeded"
   verify unit "memory ceiling triggers eviction of least-recent engine"
-  verify contract "requires/ensures consistency for warm engine eviction"
+  verify contract "Evict Warm Engine Instance: warm engine eviction holds — engine_warmed_fired, memory_pressure_detected, engine_evicted_emitted, lru_order_respected, memory_ceiling_enforced"
 
   tests ["crates/specforge-extism/tests/runtime.rs"]
 }
@@ -213,7 +213,7 @@ behavior handle_wasm_trap "Handle Wasm Trap" {
   verify unit "extracts trap kind and message"
   verify unit "transitions extension to failed state"
   verify unit "remaining extensions continue after trap"
-  verify contract "requires/ensures consistency for Wasm trap handling"
+  verify contract "Handle Wasm Trap: Wasm trap handling holds — trap_occurred, wasm_trap_caught_emitted, lifecycle_transitioned, trapped_extension_skipped, remaining_extensions_continue"
 
   tests ["crates/specforge-extism/tests/runtime.rs"]
 }
@@ -250,7 +250,7 @@ behavior invalidate_aot_cache "Invalidate AOT Cache" {
   verify unit "invalidates on specforge cache clear"
   verify unit "invalidates when .wasm binary changes"
   verify unit "removes stale AOT artifacts"
-  verify contract "requires/ensures consistency for AOT cache invalidation"
+  verify contract "Invalidate AOT Cache: AOT cache invalidation holds — invalidation_trigger, aot_cache_invalidated_emitted, stale_artifacts_removed, extension_marked_for_recompilation"
 
   tests ["crates/specforge-extism/tests/runtime.rs"]
 }
@@ -303,7 +303,7 @@ behavior configure_sandbox_policy "Configure Sandbox Policy" {
   verify unit "total memory exceeding 256MB produces warning"
   verify unit "manifest with code file extension (.rs, .js, .ts) in allowed_output_extensions produces E030"
   verify unit "manifest with non-code extension (.json, .csv, .md) in allowed_output_extensions passes"
-  verify contract "requires/ensures consistency for sandbox policy configuration"
+  verify contract "Configure Sandbox Policy: sandbox policy configuration holds — manifest_available, config_available, sandbox_policy_configured_emitted, most_restrictive_wins, list_intersection_applied, memory_ceiling_enforced, code_extensions_blocked"
 
   tests ["crates/specforge-wasm/tests/wasm_lifecycle.rs"]
 }

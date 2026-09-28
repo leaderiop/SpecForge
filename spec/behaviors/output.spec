@@ -50,7 +50,7 @@ behavior serialize_json_graph "Serialize JSON Graph" {
   verify unit "empty graph produces valid JSON with empty nodes and edges arrays"
   verify unit "schema is included even for empty graph"
   verify integration "structural-only graph (zero extensions) produces valid Graph Protocol JSON with raw keywords in kind field"
-  verify contract "requires/ensures consistency for JSON graph serialization"
+  verify contract "Serialize JSON Graph: JSON graph serialization holds — validation_complete_fired, all_nodes_serialized, all_edges_serialized, schema_version_present, valid_json_produced, render_complete_emitted"
 
   tests ["crates/specforge-cli/tests/export.rs"]
 }
@@ -93,7 +93,7 @@ behavior serialize_dot_visualization "Serialize DOT Visualization" {
   verify unit "nodes are labeled with IDs"
   verify unit "edges are labeled with types"
   verify unit "node shapes use extension-defined dot_shape"
-  verify contract "requires/ensures consistency for DOT visualization"
+  verify contract "Serialize DOT Visualization: DOT visualization holds — validation_complete_fired, valid_dot_produced, nodes_labeled, edges_labeled, render_complete_emitted"
 
   tests ["crates/specforge-cli/tests/export.rs"]
 }
@@ -131,7 +131,7 @@ behavior compute_traceability_chain "Compute Traceability Chain" {
   verify unit "trace from entity shows upstream and downstream connections"
   verify unit "trace shows full chain depth"
   verify unit "missing link in chain is flagged"
-  verify contract "requires/ensures consistency for traceability chain computation"
+  verify contract "Compute Traceability Chain: traceability chain computation holds — validation_complete_fired, full_chain_traversed, missing_links_flagged, trace_chain_computed_emitted"
 
   tests ["crates/specforge-cli/tests/export.rs"]
 }
@@ -172,7 +172,7 @@ behavior compute_project_statistics "Compute Project Statistics" {
   verify unit "stats reports orphan count"
   verify unit "stats reports diagnostic summary"
   verify unit "coverage is 0% when testable_entity_count is zero"
-  verify contract "requires/ensures consistency for project statistics computation"
+  verify contract "Compute Project Statistics: project statistics computation holds — validation_complete_fired, entity_counts_produced, coverage_computed, zero_testable_safe"
 
   tests ["crates/specforge-cli/tests/export.rs"]
 }
@@ -203,7 +203,7 @@ behavior print_diagnostics_structured "Print Diagnostics Structured" {
   verify unit "error diagnostic is formatted with file:line:col"
   verify unit "diagnostic includes context snippet"
   verify unit "suggestion is displayed when available"
-  verify contract "requires/ensures consistency for structured diagnostic printing"
+  verify contract "Print Diagnostics Structured: structured diagnostic printing holds — validation_complete_fired, structured_format_enforced, color_coding_applied"
 
   tests ["crates/specforge-cli/tests/export.rs"]
 }
@@ -234,7 +234,7 @@ behavior exit_code_reflects_diagnostic_severity "Exit Code Reflects Diagnostic S
   verify unit "exit 0 with no errors"
   verify unit "exit 1 with errors"
   verify unit "exit 1 with warnings in strict mode"
-  verify contract "requires/ensures consistency for exit code severity mapping"
+  verify contract "Exit Code Reflects Diagnostic Severity: exit code severity mapping holds — validation_complete_fired, exit_zero_on_clean, exit_one_on_errors, strict_mode_enforced"
 
   tests ["crates/specforge-cli/tests/export.rs"]
 }
@@ -269,7 +269,7 @@ behavior serialize_traceability_data "Serialize Traceability Data" {
   verify unit "full trace covers all root entities across registered edge types"
   verify unit "gaps in chain are highlighted"
   verify unit "output conforms to Graph Protocol schema"
-  verify contract "requires/ensures consistency for traceability data serialization"
+  verify contract "Serialize Traceability Data: traceability data serialization holds — validation_complete_fired, full_trace_serialized, gaps_included, graph_protocol_conformance, render_complete_emitted, a"
 
   tests ["crates/specforge-cli/tests/export.rs"]
 }
@@ -312,7 +312,7 @@ behavior validate_agent_plan "Validate Agent Implementation Plan" {
   verify unit "testable entity missing from plan produces warning"
   verify unit "plan dependency order contradicting graph produces diagnostic"
   verify unit "output is structured JSON"
-  verify contract "requires/ensures consistency for agent plan validation"
+  verify contract "Validate Agent Implementation Plan: agent plan validation holds — validation_complete_fired, unresolvable_ids_diagnosed, missing_entries_warned, ordering_validated, structured_report_produced, plan_validated_emitted"
 
   tests ["crates/specforge-cli/tests/export.rs"]
 }
@@ -347,7 +347,7 @@ behavior deterministic_output "Deterministic Output" {
   verify unit "entity ordering is independent of hashmap iteration"
   verify unit "file emission order is independent of filesystem readdir order"
   verify unit "output contains no timestamps or non-deterministic values"
-  verify contract "requires/ensures consistency for deterministic output"
+  verify contract "Deterministic Output: deterministic output holds — validation_complete_fired, byte_identical_output, no_nondeterministic_values"
 
   tests ["crates/specforge-cli/tests/export.rs"]
 }
@@ -379,7 +379,7 @@ behavior check_mode_for_ci "Check Mode for CI" {
   verify unit        "check mode produces no output files"
   verify unit        "check mode prints diagnostics to stderr"
   verify integration "check mode works in CI environment"
-  verify contract "requires/ensures consistency for CI check mode"
+  verify contract "Check Mode for CI: CI check mode holds — validation_complete_fired, no_output_files_produced, diagnostics_to_stderr, appropriate_exit_code"
 
   tests ["crates/specforge-cli/tests/export.rs"]
 }
@@ -417,7 +417,7 @@ behavior export_diagnostics_as_json "Export Diagnostics as JSON" {
   verify unit "JSON output is valid and parseable"
   verify unit "exit code unaffected by format flag"
   verify unit "suggestion field included when available"
-  verify contract "requires/ensures consistency for JSON diagnostic export"
+  verify contract "Export Diagnostics as JSON: JSON diagnostic export holds — validation_complete_fired, json_array_produced, diagnostic_fields_complete, exit_code_unaffected"
 
   tests ["crates/specforge-cli/tests/export.rs"]
 }
@@ -467,7 +467,7 @@ behavior export_agent_context_format "Export Agent Context Format" {
   verify unit "non-existent scope entity produces E001 and exit code 1"
   verify unit "output conforms to Graph Protocol schema"
   verify unit "output includes schema_version field"
-  verify contract "requires/ensures consistency for agent context export"
+  verify contract "Export Agent Context Format: agent context export holds — validation_complete_fired, token_optimized_output, schema_version_present, scope_enforced, invalid_scope_diagnosed, export_complete_emitted"
 
   tests ["crates/specforge-cli/tests/export.rs"]
 }
@@ -503,7 +503,7 @@ behavior export_agent_brief_format "Export Agent Brief Format" {
   verify unit "brief format is smaller than context format"
   verify unit "output conforms to Graph Protocol schema"
   verify unit "output includes schema_version field"
-  verify contract "requires/ensures consistency for agent brief export"
+  verify contract "Export Agent Brief Format: agent brief export holds — validation_complete_fired, minimal_representation, schema_version_present, export_complete_emitted"
 
   tests ["crates/specforge-cli/tests/export.rs"]
 }
@@ -547,7 +547,7 @@ behavior export_agent_graph_format "Export Agent Graph Format" {
   verify unit "output conforms to Graph Protocol schema"
   verify unit "output includes schema_version field"
   verify integration "structural-only graph exports valid JSON with raw keyword strings as entity kinds"
-  verify contract "requires/ensures consistency for agent graph export"
+  verify contract "Export Agent Graph Format: agent graph export holds — validation_complete_fired, full_fidelity_output, schema_version_present, scope_enforced, invalid_scope_diagnosed, export_complete_emitted"
   tests ["crates/specforge-cli/tests/export.rs"]
 }
 
@@ -592,7 +592,7 @@ behavior query_graph_multi_resolution "Query Graph at Multiple Resolutions" {
   verify unit "output conforms to Graph Protocol schema"
   verify unit "output includes schema_version field"
   verify property "querying same entity at same depth produces identical subgraph"
-  verify contract "requires/ensures consistency for multi-resolution graph query"
+  verify contract "Query Graph at Multiple Resolutions: multi-resolution graph query holds — validation_complete_fired, depth_respected, kind_filter_applied, graph_protocol_conformance, graph_queried_emitted"
 
   tests ["crates/specforge-cli/tests/export.rs"]
 }
@@ -644,7 +644,7 @@ behavior enforce_token_budget "Enforce Token Budget" {
   verify unit "no --max-tokens skips budget enforcement"
   verify integration "export with max_tokens produces output within budget and includes metadata"
   verify unit "error strategy rejects export exceeding budget"
-  verify contract "requires/ensures consistency for token budget enforcement"
+  verify contract "Enforce Token Budget: token budget enforcement holds — validation_complete_fired, budget_respected, truncation_metadata_produced, valid_subgraph_after_truncation, token_budget_applied_emitted"
 
   tests ["crates/specforge-cli/tests/export.rs"]
 }

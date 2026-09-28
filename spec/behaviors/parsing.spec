@@ -35,7 +35,7 @@ behavior parse_spec_file_to_ast "Parse Spec File to AST" {
 
   verify unit "parse valid file produces complete AST"
   verify unit "AST source spans match original token positions"
-  verify contract "requires/ensures consistency for spec file parsing"
+  verify contract "Parse Spec File to AST: spec file parsing holds — source_parser_available, valid_utf8_input, ast_produced, source_spans_complete, file_parsed_emitted"
 
   tests ["crates/specforge-parser/tests/parse_test.rs", "crates/specforge-parser/tests/snapshot_tests.rs", "crates/specforge-parser/tests/contracts.rs"]
 }
@@ -69,7 +69,7 @@ behavior recover_from_syntax_errors "Recover From Syntax Errors" {
 
   verify unit "parser collects multiple errors from one file"
   verify unit "valid blocks after syntax error are still parsed"
-  verify contract "requires/ensures consistency for syntax error recovery"
+  verify contract "Recover From Syntax Errors: syntax error recovery holds — error_recovery_enabled, valid_utf8_input, valid_blocks_preserved, errors_collected"
 
   tests ["crates/specforge-parser/tests/parse_test.rs", "crates/specforge-parser/tests/snapshot_tests.rs", "crates/specforge-parser/tests/contracts.rs"]
 }
@@ -99,7 +99,7 @@ behavior parse_use_imports "Parse Use Imports" {
   verify unit "parse full use import"
   verify unit "parse selective use import with braces"
   verify unit "reject use import with .spec extension"
-  verify contract "requires/ensures consistency for use import parsing"
+  verify contract "Parse Use Imports: use import parsing holds — source_parser_available, imports_extracted, extension_rejected"
 
   tests ["crates/specforge-parser/tests/parse_test.rs", "crates/specforge-parser/tests/snapshot_tests.rs", "crates/specforge-parser/tests/contracts.rs"]
 }
@@ -141,7 +141,7 @@ behavior parse_all_block_types "Parse All Block Types" {
   verify unit "any keyword produces generic entity_block AST node"
   verify unit "generic block preserves kind, name, title, and fields"
   verify unit "parse string field values correctly"
-  verify contract "requires/ensures consistency for block type parsing"
+  verify contract "Parse All Block Types: block type parsing holds — source_parser_available, generic_blocks_parsed, unknown_keywords_accepted, raw_body_preserved"
 
   tests ["crates/specforge-parser/tests/parse_test.rs", "crates/specforge-parser/tests/snapshot_tests.rs", "crates/specforge-parser/tests/contracts.rs"]
 }
@@ -173,7 +173,7 @@ behavior parse_triple_quoted_strings "Parse Triple-Quoted Strings" {
   verify unit "common leading whitespace is stripped"
   verify unit "relative indentation is preserved"
   verify unit "recover from unclosed triple-quoted string with diagnostic"
-  verify contract "requires/ensures consistency for triple-quoted string parsing"
+  verify contract "Parse Triple-Quoted Strings: triple-quoted string parsing holds — source_parser_available, newlines_preserved, dedent_applied, relative_indent_kept"
 
   tests ["crates/specforge-parser/tests/parse_test.rs", "crates/specforge-parser/tests/snapshot_tests.rs", "crates/specforge-parser/tests/contracts.rs"]
 }
@@ -260,7 +260,7 @@ behavior parse_verify_statements "Parse Verify Statements" {
   verify unit "verify parsed in spec block"
   verify unit "verify parsed in define block"
   verify unit "verify kind and description extracted correctly"
-  verify contract "requires/ensures consistency for verify statement parsing"
+  verify contract "Parse Verify Statements: verify statement parsing holds — source_parser_available, verify_statements_extracted, all_block_types_supported, semantic_validation_deferred"
 
   tests ["crates/specforge-parser/tests/parse_test.rs", "crates/specforge-parser/tests/snapshot_tests.rs", "crates/specforge-parser/tests/contracts.rs"]
 }
@@ -296,7 +296,7 @@ behavior parse_ref_blocks "Parse Ref Blocks" {
   verify unit "ref block extracts scheme, kind, and identifier components"
   verify unit "ref block supports optional title and body fields"
   verify unit "reject ref block with missing scheme or identifier"
-  verify contract "requires/ensures consistency for ref block parsing"
+  verify contract "Parse Ref Blocks: ref block parsing holds — source_parser_available, ref_components_extracted, both_forms_handled, malformed_refs_rejected"
 
   tests ["crates/specforge-parser/tests/parse_test.rs", "crates/specforge-parser/tests/snapshot_tests.rs", "crates/specforge-parser/tests/contracts.rs"]
 }
@@ -329,7 +329,7 @@ behavior parse_define_blocks "Parse Define Blocks" {
   verify unit "parse define block with name and body"
   verify unit "define block supports standard field syntax"
   verify unit "define block parsed without extension knowledge"
-  verify contract "requires/ensures consistency for define block parsing"
+  verify contract "Parse Define Blocks: define block parsing holds — source_parser_available, define_block_parsed, no_extension_knowledge_required"
 
   tests ["crates/specforge-parser/tests/parse_test.rs", "crates/specforge-parser/tests/snapshot_tests.rs", "crates/specforge-parser/tests/contracts.rs"]
 }
@@ -389,7 +389,7 @@ behavior delegate_body_parsing_to_extension "Delegate Body Parsing to Extension"
   verify unit "entity with body parser delegates to dispatch_body_parser"
   verify unit "entity without body parser uses default field parsing"
   verify unit "structured fields replace raw body in FieldMap"
-  verify contract "requires/ensures consistency for body parsing delegation"
+  verify contract "Delegate Body Parsing to Extension: body parsing delegation holds — all_files_parsed_ready, wasm_runtime_available, body_parsing_delegated, default_parsing_preserved"
 
   tests ["crates/specforge-parser/tests/parse_test.rs", "crates/specforge-parser/tests/snapshot_tests.rs", "crates/specforge-parser/tests/contracts.rs"]
 }
