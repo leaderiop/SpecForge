@@ -30,9 +30,14 @@ pub fn run(
     json: bool,
     strict: bool,
     test_results: Option<&Path>,
+    min: Option<f64>,
     prove: bool,
 ) -> i32 {
     let (ctx, runtime) = pipeline::compile_with_runtime(path);
+    if min.is_some() && test_results.is_none() {
+        eprintln!("error: --min requires --test-results (the gate scores recorded proof results)");
+        return 2;
+    }
     let parsed_report = test_results.map(|report_path| {
         let raw = std::fs::read_to_string(report_path).unwrap_or_else(|e| {
             eprintln!("error: cannot read test results {}: {}", report_path.display(), e);
@@ -47,6 +52,28 @@ pub fn run(
             std::process::exit(2);
         })
     });
+
+    // D3: orphaned test records — report entries for entities the graph
+    // does not know. Exact matching is preserved; the warning only surfaces
+    // what was silently dropped before.
+    if let Some(report) = &parsed_report {
+        for entity_id in report.results.keys() {
+            if ctx.graph.node(entity_id).is_none() {
+                let suggestion = specforge_common::suggest::find_close_match(
+                    entity_id,
+                    ctx.graph.nodes().iter().map(|n| n.id.raw.as_str()),
+                );
+                match suggestion {
+                    Some(near) => eprintln!(
+                        "W097: test record references unknown entity '{entity_id}' (did you mean '{near}'?)"
+                    ),
+                    None => eprintln!(
+                        "W097: test record references unknown entity '{entity_id}'"
+                    ),
+                }
+            }
+        }
+    }
 
     let requested = pass.unwrap_or_else(|| "all".to_string());
     let base_input = specforge_emitter::analyze::AnalysisContext {
@@ -200,6 +227,31 @@ pub fn run(
                     .collect::<Vec<_>>(),
             )
         );
+    }
+
+    // D2: coverage gate — after the reports print, so the operator still
+    // sees the full analysis; the gate only decides the exit code.
+    if let Some(min_pct) = min {
+        let coverage_report = reports.iter().find(|r| r.name == "coverage");
+        let Some(coverage_report) = coverage_report else {
+            eprintln!("error[E048]: --min requires the coverage pass (pass=coverage or all)");
+            return 2;
+        };
+        let total = coverage_report.summary["testable_total"].as_u64().unwrap_or(0);
+        let proven = coverage_report.summary["discharge_funnel"]["entities_proven"]
+            .as_u64()
+            .unwrap_or(0);
+        let pct = if total == 0 {
+            100.0 // nothing testable: the gate is vacuously satisfied
+        } else {
+            proven as f64 * 100.0 / total as f64
+        };
+        if pct + f64::EPSILON < min_pct {
+            eprintln!(
+                "error[E048]: proof coverage {pct:.1}% is below the required minimum {min_pct:.1}% ({proven}/{total} entities proven)"
+            );
+            return 1;
+        }
     }
 
     if has_errors { 1 } else { 0 }

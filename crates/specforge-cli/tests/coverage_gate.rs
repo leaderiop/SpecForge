@@ -1,0 +1,197 @@
+//! C11-01 + C11-02 acceptance: `analyze coverage --min` gates the exit code,
+//! and orphaned test records surface a W097 instead of dropping silently.
+
+use assert_cmd::Command;
+use std::path::Path;
+use tempfile::TempDir;
+
+fn specforge() -> Command {
+    Command::cargo_bin("specforge").unwrap()
+}
+
+fn seed(path: &Path) {
+    std::fs::create_dir_all(path.join("src")).unwrap();
+    std::fs::write(
+        path.join("specforge.json"),
+        r#"{"name":"cov","spec_root":"src","extensions":["@specforge/software"]}"#,
+    )
+    .unwrap();
+    std::fs::write(
+        path.join("src/a.spec"),
+        "type widget \"Widget\" {\n  id string @unique\n  verify unit \"widget valid\"\n}\n",
+    )
+    .unwrap();
+}
+
+fn report(path: &Path, proven: bool, extra: Option<&str>) -> String {
+    let status = if proven { "pass" } else { "fail" };
+    let mut json = format!(
+        r#"{{"runner":"specforge-test","results":{{"widget":{{"tests":[{{"name":"w test","status":"{status}"}}]}}}}}}"#
+    );
+    if let Some(orphan) = extra {
+        json = json.trim_end_matches('}').to_string();
+        json.push_str(
+            format!(
+                r#", "{orphan}": {{"tests":[{{"name":"orphan test","status":"pass"}}]}}}}}}"#
+            )
+            .as_str(),
+        );
+    }
+    std::fs::write(path.join("specforge-report.json"), &json).unwrap();
+    json
+}
+
+#[test]
+fn min_gate_passes_when_coverage_meets_threshold() {
+    let tmp = TempDir::new().unwrap();
+    seed(tmp.path());
+    report(tmp.path(), true, None);
+    let out = specforge()
+        .args([
+            "analyze",
+            "--path",
+            tmp.path().to_str().unwrap(),
+            "coverage",
+            "--test-results",
+            tmp.path().join("specforge-report.json").to_str().unwrap(),
+            "--min",
+            "50",
+        ])
+        .output()
+        .unwrap();
+    assert!(out.status.success(), "{}", String::from_utf8_lossy(&out.stderr));
+}
+
+#[test]
+fn min_gate_fails_when_coverage_below_threshold() {
+    let tmp = TempDir::new().unwrap();
+    seed(tmp.path());
+    // 1 of 1 entities proven = 100%; make it fail by NOT proving: failing test
+    let report = r#"{"runner":"r","results":{"widget":{"tests":[{"name":"w","status":"fail"}]}}}"#;
+    std::fs::write(tmp.path().join("specforge-report.json"), report).unwrap();
+    let out = specforge()
+        .args([
+            "analyze",
+            "--path",
+            tmp.path().to_str().unwrap(),
+            "coverage",
+            "--test-results",
+            tmp.path().join("specforge-report.json").to_str().unwrap(),
+            "--min",
+            "50",
+        ])
+        .output()
+        .unwrap();
+    assert_eq!(out.status.code(), Some(1), "gate must fail below threshold");
+    let stderr = String::from_utf8_lossy(&out.stderr);
+    assert!(stderr.contains("E048"), "gate names E048: {stderr}");
+    assert!(stderr.contains("below the required minimum"), "{stderr}");
+}
+
+#[test]
+fn min_requires_test_results() {
+    let tmp = TempDir::new().unwrap();
+    seed(tmp.path());
+    let out = specforge()
+        .args([
+            "analyze",
+            "--path",
+            tmp.path().to_str().unwrap(),
+            "coverage",
+            "--min",
+            "50",
+        ])
+        .output()
+        .unwrap();
+    assert_eq!(out.status.code(), Some(2));
+    let stderr = String::from_utf8_lossy(&out.stderr);
+    assert!(stderr.contains("--min requires --test-results"), "{stderr}");
+}
+
+#[test]
+fn orphaned_test_records_warn_with_suggestion() {
+    let tmp = TempDir::new().unwrap();
+    seed(tmp.path());
+    // Report proves "widget" and orphans "wodget" (typo of widget).
+    let report = r#"{"runner":"r","results":{"widget":{"tests":[{"name":"w","status":"pass"}]},"wodget":{"tests":[{"name":"x","status":"pass"}]}}}"#;
+    std::fs::write(tmp.path().join("specforge-report.json"), report).unwrap();
+    let out = specforge()
+        .args([
+            "analyze",
+            "--path",
+            tmp.path().to_str().unwrap(),
+            "coverage",
+            "--test-results",
+            tmp.path().join("specforge-report.json").to_str().unwrap(),
+        ])
+        .output()
+        .unwrap();
+    let stderr = String::from_utf8_lossy(&out.stderr);
+    assert!(stderr.contains("W097"), "orphan warning emitted: {stderr}");
+    assert!(
+        stderr.contains("wodget"),
+        "names the orphaned id: {stderr}"
+    );
+    assert!(
+        stderr.contains("widget") && stderr.contains("did you mean"),
+        "suggests the close match: {stderr}"
+    );
+    // Warnings do not fail the run.
+    assert!(out.status.success(), "orphan warnings don't gate: {stderr}");
+}
+
+// C11-00 acceptance: collect ingests a report, writes specforge-report.json,
+// and reports orphaned entries (previously it only printed "ready").
+#[test]
+fn collect_ingests_report_and_warns_on_orphans() {
+    let tmp = TempDir::new().unwrap();
+    seed(tmp.path());
+    let report = r#"{"entity_results":[{"entity_id":"widget","test_results":[{"name":"w","status":"passed"}]},{"entity_id":"ghost","test_results":[{"name":"g","status":"failed"}]}]}"#;
+    let report_path = tmp.path().join("runner-report.json");
+    std::fs::write(&report_path, report).unwrap();
+
+    let out = specforge()
+        .args([
+            "collect",
+            "--path",
+            tmp.path().to_str().unwrap(),
+            "--report",
+            report_path.to_str().unwrap(),
+            "--format",
+            "json",
+        ])
+        .output()
+        .unwrap();
+    assert!(out.status.success(), "{}", String::from_utf8_lossy(&out.stderr));
+    let stdout: serde_json::Value =
+        serde_json::from_slice(&out.stdout).expect("json output");
+    assert_eq!(stdout["status"], "collected");
+    assert_eq!(stdout["mapped_entries"], 1);
+    assert_eq!(stdout["unmapped_entries"], 1);
+    assert_eq!(stdout["entities_updated"], 1);
+
+    // specforge-report.json written in the TestReport shape.
+    let report_json: serde_json::Value = serde_json::from_str(
+        &std::fs::read_to_string(tmp.path().join("specforge-report.json")).unwrap(),
+    )
+    .unwrap();
+    assert_eq!(report_json["runner"], "specforge-test");
+    assert!(
+        report_json["results"]["widget"]["tests"].as_array().is_some_and(|t| !t.is_empty()),
+        "widget's tests merged into the report"
+    );
+
+    // The written report feeds analyze coverage end-to-end.
+    let out = specforge()
+        .args([
+            "analyze",
+            "--path",
+            tmp.path().to_str().unwrap(),
+            "coverage",
+            "--test-results",
+            tmp.path().join("specforge-report.json").to_str().unwrap(),
+        ])
+        .output()
+        .unwrap();
+    assert!(out.status.success(), "analyze consumes collected report");
+}

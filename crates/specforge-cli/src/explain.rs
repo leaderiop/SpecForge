@@ -77,6 +77,12 @@ fn lookup(code: &str) -> Option<(&'static str, &'static str)> {
             "The `.spec` file declares a format version this compiler does not \
              understand. Run `specforge migrate` to upgrade the project.",
         ),
+        "E045" => (
+            "Invalid test report",
+            "A collector report could not be read or is not the expected JSON \
+             shape (`entity_results` entries with `entity_id` and `test_results`). \
+             Re-run the test runner or `specforge collect` with a valid --report.",
+        ),
         "E022" => (
             "Mistyped reference",
             "A reference points to an entity of the wrong kind.\n\

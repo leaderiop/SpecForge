@@ -6,6 +6,7 @@ mod cli;
 mod collect;
 mod config_schema;
 mod contracts;
+mod coverage_gate;
 mod determinism;
 mod e2e_cross_extension;
 mod e2e_edges;

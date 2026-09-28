@@ -471,6 +471,7 @@ extensions themselves (not by guest passes).
 | E034 | **Provider scheme conflict** — two extensions register the same URI scheme |
 | E019 | **Unsupported format version** — a `.spec` file declares a format version this compiler does not understand (run `specforge migrate`) |
 | E016 | **Referenced file does not exist** — a file reference points to a missing path |
+| E045 | **Invalid test report** — a collector report could not be read or does not match the expected shape |
 
 ### @specforge/formal Errors (requires warning_level=strict)
 

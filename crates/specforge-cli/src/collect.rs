@@ -1,83 +1,181 @@
-use specforge_common::find_project_root;
-use std::path::Path;
+//! `specforge collect` — ingest test-runner reports into the project's
+//! `specforge-report.json` so `specforge analyze coverage --test-results`
+//! can score verify statements (RES-15 layer 3).
+//!
+//! v1 ingests the collector JSON shape `ingest_collector_report` understands:
+//! `{"entity_results": [{"entity_id": "...", "test_results":
+//! [{"name": "...", "status": "passed|failed"}]}]}`. junit/jest/pytest
+//! conversion is planned. Extension-provided collector transforms
+//! (`collect__*` wasm exports) will hook in here once an extension declares
+//! the `collectors` contribution; none do today.
 
-pub fn run(path: &Path, collector: Option<&str>, format: &str) -> i32 {
+use specforge_common::find_project_root;
+use std::collections::BTreeMap;
+use std::path::{Path, PathBuf};
+
+/// Default report locations: the rust integration's atexit handler writes
+/// `target/specforge/<binary>.json`.
+const DEFAULT_REPORT_GLOB: &str = "target/specforge";
+
+pub fn run(path: &Path, collector: Option<&str>, reports: &[PathBuf], format: &str) -> i32 {
     let project_root = match find_project_root(path) {
         Some(root) => root,
         None => {
             let msg = "no specforge project found (missing specforge.json or specforge.spec)";
-            if format == "json" {
-                let output = serde_json::json!({
-                    "error": msg,
-                    "exit_code": 1,
-                });
-                println!(
-                    "{}",
-                    serde_json::to_string_pretty(&output).expect("serialize JSON output")
-                );
-            } else {
-                eprintln!("error: {}", msg);
-            }
-            return 1;
+            return report_error(msg, "", format);
         }
     };
 
-    let collector_name = match collector {
-        Some(name) => name.to_string(),
-        None => {
-            // Auto-detect collector based on project files
-            let files: Vec<String> = std::fs::read_dir(&project_root)
-                .into_iter()
-                .flatten()
-                .flatten()
-                .filter_map(|e| e.file_name().into_string().ok())
-                .collect();
-
-            let patterns: &[(&str, &str)] = &[
-                ("junit", "rust"),
-                ("jest", "javascript"),
-                ("pytest", "python"),
-            ];
-
-            match specforge_wasm::auto_detect_collector(patterns, &files) {
-                Ok(name) => name,
-                Err(diag) => {
-                    if format == "json" {
-                        let output = serde_json::json!({
-                            "error": diag.message,
-                            "code": diag.code,
-                            "exit_code": 1,
-                        });
-                        println!(
-                            "{}",
-                            serde_json::to_string_pretty(&output).expect("serialize JSON output")
-                        );
-                    } else {
-                        eprintln!("{}: {}", diag.code, diag.message);
-                        if let Some(suggestion) = &diag.suggestion {
-                            eprintln!("  hint: {}", suggestion);
-                        }
-                    }
-                    return 1;
-                }
-            }
+    // Compile the project: known entity ids gate which report entries map.
+    let ctx = crate::pipeline::compile(&project_root);
+    if !ctx.diagnostics.is_empty() && format != "json" {
+        for d in &ctx.diagnostics {
+            eprintln!("{}: {}", d.code, d.message);
         }
-    };
+    }
+    let known_ids: std::collections::HashSet<String> = ctx
+        .graph
+        .nodes()
+        .iter()
+        .map(|n| n.id.raw.to_string())
+        .collect();
 
+    // Resolve report inputs: explicit --report paths, else the default glob.
+    let report_paths: Vec<PathBuf> = if reports.is_empty() {
+        let dir = project_root.join(DEFAULT_REPORT_GLOB);
+        let mut found: Vec<PathBuf> = std::fs::read_dir(&dir)
+            .into_iter()
+            .flatten()
+            .flatten()
+            .map(|e| e.path())
+            .filter(|p| p.extension().is_some_and(|e| e == "json"))
+            .collect();
+        found.sort();
+        found
+    } else {
+        reports.to_vec()
+    };
+    if report_paths.is_empty() {
+        let msg = format!(
+            "no report files found (passed --report or found *.json under {DEFAULT_REPORT_GLOB})"
+        );
+        return report_error(&msg, "E019", format);
+    }
+
+    let mut mapped = 0usize;
+    let mut unmapped: Vec<serde_json::Value> = Vec::new();
+    let mut updates: BTreeMap<String, (u64, u64, u64)> = BTreeMap::new();
+    let mut ingested_files = 0usize;
+
+    for report_path in &report_paths {
+        let raw = match std::fs::read_to_string(report_path) {
+            Ok(raw) => raw,
+            Err(e) => {
+                let msg = format!("failed to read report {}: {e}", report_path.display());
+                return report_error(&msg, "E033", format);
+            }
+        };
+        let report: serde_json::Value = match serde_json::from_str(&raw) {
+            Ok(v) => v,
+            Err(e) => {
+                let msg = format!("report {} is not valid JSON: {e}", report_path.display());
+                return report_error(&msg, "E045", format);
+            }
+        };
+
+        let ingested = specforge_wasm::ingest_collector_report(&report, &known_ids);
+        mapped += ingested.mapped_entries.len();
+        unmapped.extend(ingested.unmapped_entries);
+        for (entity_id, meta) in ingested.coverage_updates {
+            let entry = updates.entry(entity_id).or_insert((0, 0, 0));
+            entry.0 += meta.total;
+            entry.1 += meta.passed;
+            entry.2 += meta.failed;
+        }
+        ingested_files += 1;
+    }
+
+    // Merge into specforge-report.json (the TestReport shape consumed by
+    // `specforge analyze coverage --test-results`).
+    let out_path = project_root.join("specforge-report.json");
+    let mut merged: BTreeMap<String, serde_json::Value> = BTreeMap::new();
+    if let Ok(existing) = std::fs::read_to_string(&out_path)
+        && let Ok(v) = serde_json::from_str::<serde_json::Value>(&existing)
+        && let Some(results) = v.get("results").and_then(|r| r.as_object())
+    {
+        for (k, val) in results {
+            merged.insert(k.clone(), val.clone());
+        }
+    }
+    for (entity_id, (total, passed, failed)) in &updates {
+        // The collector vocabulary is "passed"/"failed"; the analyze pass
+        // matches "pass"/"fail". Normalize here so collect is the adapter.
+        let tests: Vec<serde_json::Value> = (0..*passed)
+            .map(|_| serde_json::json!({"status": "pass"}))
+            .chain((0..*failed).map(|_| serde_json::json!({"status": "fail"})))
+            .collect();
+        merged.insert(
+            entity_id.clone(),
+            serde_json::json!({ "tests": tests, "total": total }),
+        );
+    }
+    let out_doc = serde_json::json!({
+        "runner": collector.unwrap_or("specforge-test"),
+        "results": merged,
+    });
+    if let Err(e) = std::fs::write(
+        &out_path,
+        serde_json::to_string_pretty(&out_doc).expect("report serialization cannot fail"),
+    ) {
+        let msg = format!("failed to write {}: {e}", out_path.display());
+        return report_error(&msg, "E033", format);
+    }
+
+    // Report
     if format == "json" {
         let output = serde_json::json!({
-            "collector": collector_name,
-            "project_root": project_root.display().to_string(),
-            "status": "ready",
+            "status": "collected",
+            "files_ingested": ingested_files,
+            "mapped_entries": mapped,
+            "unmapped_entries": unmapped.len(),
+            "entities_updated": updates.len(),
+            "report": out_path.display().to_string(),
         });
         println!(
             "{}",
             serde_json::to_string_pretty(&output).expect("serialize JSON output")
         );
     } else {
-        println!("collector: {}", collector_name);
-        println!("project: {}", project_root.display());
+        println!("collected {ingested_files} report file(s)");
+        println!("mapped entries:   {mapped}");
+        println!("entities updated: {}", updates.len());
+        println!("report written:   {}", out_path.display());
+        for entry in &unmapped {
+            let id = entry
+                .get("entity_id")
+                .and_then(|v| v.as_str())
+                .unwrap_or("<no id>");
+            println!("W097: test record references unknown entity '{id}'");
+            println!("  hint: check for renames or typos against the compiled graph");
+        }
     }
 
     0
+}
+
+fn report_error(msg: &str, code: &str, format: &str) -> i32 {
+    if format == "json" {
+        let output = serde_json::json!({
+            "error": msg,
+            "code": code,
+            "exit_code": 1,
+        });
+        println!(
+            "{}",
+            serde_json::to_string_pretty(&output).expect("serialize JSON output")
+        );
+    } else {
+        eprintln!("error[{code}]: {msg}");
+    }
+    1
 }

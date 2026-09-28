@@ -3,7 +3,7 @@ pub mod inference;
 mod interner;
 mod project;
 mod span;
-mod suggest;
+pub mod suggest;
 
 pub use diagnostic::{Diagnostic, DiagnosticsExt, Severity};
 pub use inference::anchors::{

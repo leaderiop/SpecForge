@@ -328,6 +328,11 @@ enum Commands {
         /// Verify constraint metric bounds with an SMT solver (z3)
         #[arg(long, default_value_t = false)]
         prove: bool,
+
+        /// Fail with a non-zero exit when proof coverage falls below this
+        /// percentage (requires --test-results)
+        #[arg(long)]
+        min: Option<f64>,
     },
     /// Watch a project and rebuild incrementally on changes
     Watch {
@@ -424,6 +429,10 @@ enum Commands {
         /// Collector name (e.g., rust, javascript). Auto-detected if omitted.
         #[arg(long)]
         collector: Option<String>,
+
+        /// Collector report files to ingest (JSON; defaults to target/specforge/*.json)
+        #[arg(long = "report", value_name = "FILE")]
+        reports: Vec<PathBuf>,
 
         /// Output format: human or json
         #[arg(long, default_value = "human")]
@@ -844,6 +853,7 @@ fn main() {
             json,
             strict,
             test_results,
+            min,
             prove,
         } => {
             let project = path
@@ -855,6 +865,7 @@ fn main() {
                 json,
                 strict,
                 test_results.as_deref().map(Path::new),
+                min,
                 prove,
             );
             std::process::exit(exit_code);
@@ -930,9 +941,10 @@ fn main() {
         Commands::Collect {
             path,
             collector,
+            reports,
             format,
         } => {
-            let exit_code = collect::run(&path, collector.as_deref(), &format);
+            let exit_code = collect::run(&path, collector.as_deref(), &reports, &format);
             std::process::exit(exit_code);
         }
         Commands::Doctor { path, format } => {
