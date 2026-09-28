@@ -36,8 +36,11 @@ const kindIcons: Record<string, string> = {
   process: "$(server-process)",
 };
 
-/** Regex to detect entity header format: **kind** `entity_id`... */
-const entityHeaderRegex = /^\*\*(\w+)\*\*\s+`([^`]+)`/;
+/**
+ * Entity header format: an optional server-provided codicon (the registry's
+ * `lsp_icon`, authoritative — C4-11) followed by `**kind** \`entity_id\``.
+ */
+const entityHeaderRegex = /^(\$?\(([^)]+)\)\s)?\*\*(\w+)\*\*\s+`([^`]+)`/;
 
 function enhanceHover(hover: vscode.Hover): vscode.Hover {
   const contents = hover.contents;
@@ -49,17 +52,24 @@ function enhanceHover(hover: vscode.Hover): vscode.Hover {
 
   let md = contents.value;
 
-  // Detect if this is an entity hover by checking the first line
+  // Detect if this is an entity hover by checking the first line.
+  // Capture groups: 1 = whole codicon prefix, 2 = icon name,
+  // 3 = kind, 4 = entity id.
   const firstLine = md.split("\n")[0];
   const headerMatch = firstLine.match(entityHeaderRegex);
   const isEntityHover = headerMatch !== null;
 
-  // Add kind icon before the header line (only for entity hovers with a known kind)
+  // C4-11: the server prepends the KindRegistry's `lsp_icon` when the kind
+  // declares one — that is authoritative. The static map below is only a
+  // fallback for kinds the registry does not style.
   if (isEntityHover) {
-    const kind = headerMatch[1];
-    const icon = kindIcons[kind];
-    if (icon) {
-      md = `${icon} ${md}`;
+    const serverIcon = headerMatch[1];
+    if (!serverIcon) {
+      const kind = headerMatch[3];
+      const fallback = kindIcons[kind];
+      if (fallback) {
+        md = `${fallback} ${md}`;
+      }
     }
   }
 
@@ -70,7 +80,7 @@ function enhanceHover(hover: vscode.Hover): vscode.Hover {
 
   // Add command link at the bottom (only for entity hovers)
   if (isEntityHover) {
-    const entityId = headerMatch[2];
+    const entityId = headerMatch[4];
     const args = encodeURIComponent(JSON.stringify(entityId));
     md += `\n\n---\n\n[$(graph-line) Show in Graph](command:specforge.focusInGraph?${args})`;
   }

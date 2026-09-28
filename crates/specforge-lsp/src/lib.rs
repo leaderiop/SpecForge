@@ -13,7 +13,8 @@ mod symbols;
 
 pub use capabilities::{ServerCapabilities, ServerInfo, server_capabilities, server_info};
 pub use code_actions::{
-    CodeAction, code_action_add_import, code_action_create_stub, code_actions_missing_verify,
+    CodeAction, code_action_add_import, code_action_create_stub, code_actions_from_diagnostics,
+    code_actions_missing_verify,
 };
 pub use completion::enclosing_entity_kind;
 pub use completion::{

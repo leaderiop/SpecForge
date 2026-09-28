@@ -111,6 +111,35 @@ fn autocomplete_all_ids_without_filter() {
     assert_eq!(items.len(), 2);
 }
 
+// C4-06: prefix matches rank before substring matches.
+#[test]
+fn prefix_matches_rank_before_substring_matches() {
+    let mut g = Graph::new();
+    g.add_node(node("reuser_login", "behavior", None)); // substring
+    g.add_node(node("user_logout", "behavior", None)); // prefix
+
+    let items = specforge_lsp::complete_entity_ids(&g, "user");
+    assert_eq!(items[0].id, "user_logout", "prefix match must rank first");
+    assert_eq!(items.len(), 2, "substring match is still suggested");
+}
+
+// C4-06: fuzzy matches (Jaro-Winkler >= 0.7) fill in behind structured
+// matches so a typo still surfaces the intended entity.
+#[test]
+fn fuzzy_match_suggested_behind_exact_matches() {
+    let mut g = Graph::new();
+    g.add_node(node("user_login", "behavior", None));
+    g.add_node(node("auth_token", "type", None));
+
+    let items = specforge_lsp::complete_entity_ids(&g, "user_lgon");
+    assert!(
+        items.iter().any(|c| c.id == "user_login"),
+        "typo'd prefix should still fuzzy-match user_login, got: {:?}",
+        items.iter().map(|c| c.id.clone()).collect::<Vec<_>>()
+    );
+    assert_eq!(items[0].id, "user_login", "fuzzy match should be ranked");
+}
+
 // -- complete_field_names -----------------------------------------------------
 
 #[spec(

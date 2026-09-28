@@ -22,11 +22,11 @@ use specforge_wasm::protocol::{
 use specforge_watch::{ImportDag, IncrementalPipeline};
 
 use crate::{
-    LspState, classify_tokens, code_actions_missing_verify, complete_entity_ids,
-    complete_entity_ids_filtered, complete_keywords, compute_rename_edits, cursor_context,
-    document_symbols, find_all_references, go_to_definition, goto_import_definition,
-    hover_field_info, hover_info_with_registries, server_capabilities, server_info,
-    source_span_to_lsp_range, source_span_to_lsp_range_with_text, workspace_symbols,
+    LspState, classify_tokens, code_actions_from_diagnostics, code_actions_missing_verify,
+    complete_entity_ids, complete_entity_ids_filtered, complete_keywords, compute_rename_edits,
+    cursor_context, document_symbols, find_all_references, go_to_definition,
+    goto_import_definition, hover_field_info, hover_info_with_registries, server_capabilities,
+    server_info, source_span_to_lsp_range, source_span_to_lsp_range_with_text, workspace_symbols,
 };
 
 use crate::formatting::{EditorOptions, format_document, format_document_range};
@@ -1295,7 +1295,7 @@ impl LanguageServer for Backend {
             complete_entity_ids(state.graph(), &prefix)
         };
 
-        for item in entity_items {
+        for (rank, item) in entity_items.into_iter().enumerate() {
             let detail = item
                 .title
                 .as_ref()
@@ -1305,15 +1305,25 @@ impl LanguageServer for Backend {
                 label: item.id.clone(),
                 kind: Some(CompletionItemKind::REFERENCE),
                 detail: Some(detail),
+                // C4-06: preserve the server's fuzzy ranking in the editor.
+                sort_text: Some(format!("{rank:04}")),
                 ..Default::default()
             });
         }
 
-        if pos.character < 2 {
-            let kind_reg = state.kind_registry();
-            let dynamic_kinds: Vec<String> = kind_reg.keywords().cloned().collect();
-            let kind_refs: Vec<&str> = dynamic_kinds.iter().map(|s| s.as_str()).collect();
-            for kw in complete_keywords(&kind_refs) {
+        // C4-06: keywords used to be offered only before the second
+        // character. Offer them whenever the typed word prefix-matches,
+        // deduped against entity items that already matched.
+        let kind_reg = state.kind_registry();
+        let dynamic_kinds: Vec<String> = kind_reg.keywords().cloned().collect();
+        let kind_refs: Vec<&str> = dynamic_kinds.iter().map(|s| s.as_str()).collect();
+        let existing: std::collections::HashSet<String> =
+            items.iter().map(|i| i.label.clone()).collect();
+        let lower_prefix = prefix.to_lowercase();
+        for kw in complete_keywords(&kind_refs) {
+            if !existing.contains(kw.as_str())
+                && (prefix.is_empty() || kw.to_lowercase().starts_with(&lower_prefix))
+            {
                 items.push(CompletionItem {
                     label: kw,
                     kind: Some(CompletionItemKind::KEYWORD),
@@ -1511,8 +1521,9 @@ impl LanguageServer for Backend {
     async fn code_action(&self, params: CodeActionParams) -> Result<Option<CodeActionResponse>> {
         let uri = params.text_document.uri;
         let file_path = uri_to_file_path(&uri);
-
         let state = self.state.read().await;
+        let content = file_content(&state, &file_path);
+
         let testable: Vec<String> = state
             .kind_registry()
             .iter()
@@ -1520,7 +1531,14 @@ impl LanguageServer for Backend {
             .map(|(name, _)| name.clone())
             .collect();
         let testable_refs: Vec<&str> = testable.iter().map(|s| s.as_str()).collect();
-        let actions = code_actions_missing_verify(state.graph(), &file_path, &testable_refs);
+        let mut actions = code_actions_missing_verify(state.graph(), &file_path, &testable_refs);
+
+        // C4-09: E003/E025 diagnostics with a did-you-mean suggestion
+        // become one-tap rename quickfixes.
+        let file_diags = state.diagnostics(uri.as_str()).to_vec();
+        if let Some(text) = &content {
+            actions.extend(code_actions_from_diagnostics(&file_diags, text));
+        }
 
         if actions.is_empty() {
             return Ok(None);
@@ -1530,6 +1548,20 @@ impl LanguageServer for Backend {
             .into_iter()
             .map(|a| {
                 let file_uri = file_path_to_uri(&a.file);
+                let line_idx = a.insert_line.saturating_sub(1);
+                let (start_char, end_char) = match a.replace_cols {
+                    Some((s, e)) => {
+                        let line_text = content
+                            .as_deref()
+                            .and_then(|c| c.lines().nth(line_idx))
+                            .unwrap_or("");
+                        (
+                            byte_col_to_utf16(line_text, s) as u32,
+                            byte_col_to_utf16(line_text, e) as u32,
+                        )
+                    }
+                    None => (0, 0),
+                };
                 let mut changes = std::collections::HashMap::new();
                 changes
                     .entry(file_uri)
@@ -1537,15 +1569,19 @@ impl LanguageServer for Backend {
                     .push(TextEdit {
                         range: Range {
                             start: Position {
-                                line: a.insert_line as u32,
-                                character: 0,
+                                line: line_idx as u32,
+                                character: start_char,
                             },
                             end: Position {
-                                line: a.insert_line as u32,
-                                character: 0,
+                                line: line_idx as u32,
+                                character: end_char,
                             },
                         },
-                        new_text: format!("{}\n", a.edit_text),
+                        new_text: if a.replace_cols.is_some() {
+                            a.edit_text
+                        } else {
+                            format!("{}\n", a.edit_text)
+                        },
                     });
                 CodeActionOrCommand::CodeAction(tower_lsp::lsp_types::CodeAction {
                     title: a.title,

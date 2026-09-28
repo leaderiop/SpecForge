@@ -31,7 +31,16 @@ pub fn hover_info_with_registries(
         .unwrap_or_default();
 
     // Section 1: Header + description + extension badges
-    let mut header_section = format!("**{}** `{}`{}", node.kind.raw, node.id.raw, title);
+    // C4-11: the registry's lsp_icon is authoritative for the client — the
+    // vscode extension only falls back to its static map when the server
+    // did not prepend one.
+    let icon = kind_registry
+        .and_then(|reg| reg.get(node.kind.raw.as_str()))
+        .and_then(|entry| entry.lsp_icon.clone())
+        .map(|i| format!("{i} "))
+        .unwrap_or_default();
+
+    let mut header_section = format!("{icon}**{}** `{}`{}", node.kind.raw, node.id.raw, title);
 
     if let Some(kind_reg) = kind_registry
         && let Some(entry) = kind_reg.get(node.kind.raw.as_str())

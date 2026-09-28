@@ -25,6 +25,7 @@ tower-lsp = { workspace = true }
 tokio = { workspace = true }
 serde_json = { workspace = true }
 walkdir = { workspace = true }
+strsim = { workspace = true }
 
 [dev-dependencies]
 specforge-test = { workspace = true }
