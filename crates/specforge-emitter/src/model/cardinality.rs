@@ -67,6 +67,7 @@ mod tests {
             name: "e".to_string(),
             extension: "@test".to_string(),
             description: None,
+            dot_color: None,
             fields,
             enhanced_by: vec![],
         }

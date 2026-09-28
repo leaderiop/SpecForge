@@ -90,7 +90,7 @@ fn risk_of(node: &specforge_graph::Node) -> String {
 fn test_links(node: &specforge_graph::Node) -> Vec<String> {
     match node.fields.get("tests") {
         Some(FieldValue::StringList(items)) => items.clone(),
-        Some(FieldValue::ReferenceList(items)) => items.clone(),
+        Some(FieldValue::ReferenceList(items)) => items.iter().map(|r| r.id.clone()).collect(),
         _ => Vec::new(),
     }
 }

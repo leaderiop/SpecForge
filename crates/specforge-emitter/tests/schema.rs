@@ -108,6 +108,7 @@ fn sample_schema() -> GraphProtocolSchema {
                 name: "behavior".to_string(),
                 source_extension: "@specforge/software".to_string(),
                 testable: true,
+                dot_color: None,
                 fields: vec![SchemaField {
                     name: "contract".to_string(),
                     field_type: "string".to_string(),
@@ -124,6 +125,7 @@ fn sample_schema() -> GraphProtocolSchema {
                 name: "feature".to_string(),
                 source_extension: "@specforge/product".to_string(),
                 testable: false,
+                dot_color: None,
                 fields: vec![],
             },
         ],
@@ -531,6 +533,7 @@ fn diff_added_kind_is_non_breaking() {
         name: "event".to_string(),
         source_extension: "@specforge/software".to_string(),
         testable: true,
+        dot_color: None,
         fields: vec![],
     });
 
@@ -1936,13 +1939,13 @@ fn mcp_schema_resource_returns_graph_protocol_schema() {
 // Gap coverage: Scoped V2 exports
 // ===========================================================================
 
-// B:embed_schema_in_export — verify unit "scoped V2 export has full schema"
+// B:embed_schema_in_export — verify unit "scoped exports carry schema_ref (url and content_hash) instead of embedded schema"
 #[test]
 #[specforge_test(
     behavior = "embed_schema_in_export",
-    verify = "scoped V2 export has full schema"
+    verify = "scoped exports carry schema_ref (url and content_hash) instead of embedded schema"
 )]
-fn scoped_v2_export_has_full_schema() {
+fn scoped_v2_export_references_schema() {
     let mut graph = Graph::new();
     graph.add_node(node("a", "behavior", Some("A")));
     graph.add_node(node("b", "feature", Some("B")));
@@ -1957,17 +1960,24 @@ fn scoped_v2_export_has_full_schema() {
     let parsed: serde_json::Value = serde_json::from_str(&json).unwrap();
 
     assert_eq!(parsed["format_version"], "2.0");
-    assert_eq!(
-        parsed["schema"]["entity_kinds"].as_array().unwrap().len(),
-        2
+    assert!(
+        parsed.get("schema").is_none(),
+        "scoped export must not embed the full schema: {json}"
     );
+    assert_eq!(
+        parsed["schema_ref"]["url"],
+        "https://specforge.dev/schema/graph-protocol-v1.2.3.json"
+    );
+    let hash = parsed["schema_ref"]["content_hash"].as_str().unwrap();
+    assert_eq!(hash.len(), 64, "sha256 hex hash, got {hash}");
+    assert!(hash.chars().all(|c| c.is_ascii_hexdigit()));
 }
 
-// B:embed_schema_in_export — verify unit "scoped context V2 export works"
+// B:embed_schema_in_export — verify unit "scoped context V2 export references schema"
 #[test]
 #[specforge_test(
     behavior = "embed_schema_in_export",
-    verify = "scoped context V2 export"
+    verify = "scoped exports carry schema_ref (url and content_hash) instead of embedded schema"
 )]
 fn scoped_context_v2_export() {
     let mut graph = Graph::new();
@@ -1976,12 +1986,16 @@ fn scoped_context_v2_export() {
     let json = emit_context_scoped_with_schema(&graph, "a", &schema).unwrap();
     let parsed: serde_json::Value = serde_json::from_str(&json).unwrap();
     assert_eq!(parsed["format_version"], "2.0");
-    assert!(parsed["schema"].is_object());
+    assert!(parsed.get("schema").is_none());
+    assert!(parsed["schema_ref"]["content_hash"].is_string());
 }
 
-// B:embed_schema_in_export — verify unit "scoped brief V2 export works"
+// B:embed_schema_in_export — verify unit "scoped brief V2 export references schema"
 #[test]
-#[specforge_test(behavior = "embed_schema_in_export", verify = "scoped brief V2 export")]
+#[specforge_test(
+    behavior = "embed_schema_in_export",
+    verify = "scoped exports carry schema_ref (url and content_hash) instead of embedded schema"
+)]
 fn scoped_brief_v2_export() {
     let mut graph = Graph::new();
     graph.add_node(node("a", "behavior", Some("A")));
@@ -1989,7 +2003,8 @@ fn scoped_brief_v2_export() {
     let json = emit_brief_scoped_with_schema(&graph, "a", &schema).unwrap();
     let parsed: serde_json::Value = serde_json::from_str(&json).unwrap();
     assert_eq!(parsed["format_version"], "2.0");
-    assert!(parsed["schema"].is_object());
+    assert!(parsed.get("schema").is_none());
+    assert!(parsed["schema_ref"]["content_hash"].is_string());
 }
 
 // B:embed_schema_in_export — verify unit "scoped V2 export with nonexistent scope returns error"
@@ -2052,5 +2067,78 @@ fn schema_version_orders_prerelease_below_release() {
             .unwrap()
             .cmp(&"1.0.0".parse::<SchemaVersion>().unwrap())
             == Ordering::Equal
+    );
+}
+
+// C6-07: full exports keep embedding the schema; only scoped exports
+// downgrade to a schema_ref.
+#[test]
+fn full_v2_export_still_embeds_schema() {
+    let mut graph = Graph::new();
+    graph.add_node(node("a", "behavior", Some("A")));
+    let schema = sample_schema();
+
+    let json = emit_brief_with_schema(&graph, &schema).unwrap();
+    let parsed: serde_json::Value = serde_json::from_str(&json).unwrap();
+    assert!(
+        parsed["schema"]["entity_kinds"].as_array().unwrap().len() == 2,
+        "full export embeds the whole schema"
+    );
+    assert!(
+        parsed.get("schema_ref").is_none(),
+        "full export must not carry a schema_ref"
+    );
+}
+
+// C6-04: the published schema constrains field names and types per kind,
+// forbids unknown properties, and describes schema_ref.
+#[test]
+fn published_schema_constrains_fields_per_kind() {
+    let schema = sample_schema();
+
+    let json_schema_str = publish_json_schema_format(&schema, EmitFormat::Json).unwrap();
+    let parsed: serde_json::Value = serde_json::from_str(&json_schema_str).unwrap();
+
+    assert_eq!(parsed["additionalProperties"], false, "root closed");
+    assert!(
+        parsed["$defs"]["entity_kind"].is_object(),
+        "shared entity_kind def present"
+    );
+    let behavior_fields = &parsed["$defs"]["fields_behavior"];
+    assert_eq!(behavior_fields["type"], "object");
+    assert_eq!(
+        behavior_fields["properties"]["contract"],
+        serde_json::json!({ "type": "string" }),
+        "behavior.contract typed from the registry"
+    );
+    assert!(
+        parsed["$defs"].get("fields_feature").is_some(),
+        "per-kind def exists even when the kind declares no fields"
+    );
+
+    // Node items carry the kind discriminator guards.
+    let guards = parsed["properties"]["nodes"]["items"]["allOf"]
+        .as_array()
+        .unwrap();
+    assert_eq!(guards.len(), schema.entity_kinds.len());
+    assert_eq!(guards[0]["if"]["properties"]["kind"]["const"], "behavior");
+    assert_eq!(
+        guards[0]["then"]["properties"]["fields"]["$ref"],
+        "#/$defs/fields_behavior"
+    );
+
+    // Brief nodes have no fields, so no per-kind defs or guards there.
+    let brief_str = publish_json_schema_format(&schema, EmitFormat::Brief).unwrap();
+    let brief: serde_json::Value = serde_json::from_str(&brief_str).unwrap();
+    assert!(brief["$defs"].get("fields_behavior").is_none());
+    assert!(brief["properties"]["nodes"]["items"].get("allOf").is_none());
+
+    // schema_ref shape is published for scoped consumers.
+    assert_eq!(
+        parsed["properties"]["schema_ref"]["required"]
+            .as_array()
+            .unwrap()
+            .len(),
+        2
     );
 }

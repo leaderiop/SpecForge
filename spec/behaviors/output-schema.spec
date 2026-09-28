@@ -69,27 +69,30 @@ behavior embed_schema_in_export "Embed Schema in Export" {
   }
 
   ensures {
-    schema_embedded "GraphProtocolSchema is embedded as a top-level schema key in the JSON output"
-    format_version_set "format_version is set to 2.0 when schema is present, 1.0 when suppressed"
-    full_project_schema "Embedded schema reflects the full project, not just a scoped subgraph"
+    schema_embedded "Full-graph exports embed GraphProtocolSchema as a top-level schema key in the JSON output"
+    format_version_set "format_version is set to 2.0 when schema or schema_ref is present, 1.0 when suppressed"
+    schema_ref_names_full_schema "Scoped exports carry a schema_ref (url + content_hash) naming the full-project published schema instead of embedding it"
   }
 
   contract """
-    When exporting the graph as JSON (specforge export or specforge render json),
-    the system MUST embed the GraphProtocolSchema as a top-level "schema" key
-    in the output, placed before the "nodes" and "edges" keys. The
-    format_version field MUST be set to "2.0" when schema is present. The
-    --no-schema flag MUST suppress schema embedding for backward compatibility,
-    in which case format_version remains "1.0". The schema MUST reflect
-    the full project (all registered entity kinds and edge types), not
-    just a scoped subgraph. This allows agents to understand the broader
-    context even when operating on a scoped extraction.
+    When exporting the full graph as JSON (specforge export or specforge
+    render json), the system MUST embed the GraphProtocolSchema as a
+    top-level "schema" key in the output, placed before the "nodes" and
+    "edges" keys. The format_version field MUST be set to "2.0" when the
+    schema is present or referenced. The --no-schema flag MUST suppress
+    schema embedding for backward compatibility, in which case
+    format_version remains "1.0". A scoped extraction MUST NOT embed the
+    full schema — it MUST instead carry a "schema_ref" object holding the
+    published schema's url and content_hash, so agents retain access to the
+    broader context (the full-project schema is retrievable by that
+    reference) without taping the whole schema into every scoped letter.
   """
 
-  verify unit "schema embedded as top-level key in JSON export"
+  verify unit "schema embedded as top-level key in full JSON export"
   verify unit "format_version set to 2.0 with schema"
   verify unit "--no-schema suppresses schema and keeps format_version 1.0"
-  verify contract "Embed Schema in Export: schema embedding in export holds — schema_version_computed_fired, validation_complete_fired, schema_embedded, format_version_set, full_project_schema"
+  verify unit "scoped exports carry schema_ref (url and content_hash) instead of embedded schema"
+  verify contract "Embed Schema in Export: schema embedding in export holds — schema_version_computed_fired, validation_complete_fired, schema_embedded, format_version_set, schema_ref_names_full_schema"
 
   tests ["crates/specforge-cli/tests/e2e_schema.rs"]
 }

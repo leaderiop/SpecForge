@@ -326,26 +326,20 @@ impl Graph {
         // Snapshot node data so we can mutate edges while iterating.
         // BTreeMap iteration is string-sorted: diagnostic and edge order do
         // not depend on per-process HashMap seeding (R-6 / C5-12).
-        let all_nodes: Vec<(Sym, Sym, FieldMap, SourceSpan)> = self
+        let all_nodes: Vec<(Sym, Sym, FieldMap)> = self
             .nodes
             .values()
-            .map(|n| {
-                (
-                    n.id.raw,
-                    n.kind.raw,
-                    n.fields.clone(),
-                    n.source_span.clone(),
-                )
-            })
+            .map(|n| (n.id.raw, n.kind.raw, n.fields.clone()))
             .collect();
 
         let mut diagnostics = Vec::new();
 
-        for (node_id, node_kind, fields, span) in &all_nodes {
+        for (node_id, node_kind, fields) in &all_nodes {
             for entry in fields.entries() {
                 match &entry.value {
                     FieldValue::ReferenceList(refs) => {
-                        for target_id in refs {
+                        for target_ref in refs {
+                            let target_id = target_ref.as_str();
                             let target_sym = Sym::new(target_id);
                             if entity_ids.contains(&target_sym) {
                                 self.add_edge(Edge {
@@ -365,7 +359,7 @@ impl Graph {
                                         target_id, node_id
                                     ),
                                 )
-                                .with_span(span.clone());
+                                .with_span(target_ref.span.clone());
                                 if let Some(s) = suggestion {
                                     diag = diag.with_suggestion(format!("did you mean '{}'?", s));
                                 }

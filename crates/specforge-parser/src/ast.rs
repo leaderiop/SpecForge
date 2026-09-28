@@ -136,10 +136,33 @@ pub struct FieldEntry {
     pub annotations: Vec<Annotation>,
 }
 
+/// One item of a reference list: the target ID plus the exact source span
+/// of its identifier token, so diagnostics (E003) can point at the token
+/// instead of the whole entity block.
+#[derive(Debug, Clone)]
+pub struct SpannedRef {
+    pub id: String,
+    pub span: SourceSpan,
+}
+
+impl SpannedRef {
+    pub fn as_str(&self) -> &str {
+        &self.id
+    }
+}
+
+// Serialize as the bare ID string: the span is compiler-internal data and
+// serialized field values must remain plain reference names.
+impl Serialize for SpannedRef {
+    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        serializer.serialize_str(&self.id)
+    }
+}
+
 #[derive(Debug, Clone, Serialize)]
 pub enum FieldValue {
     String(String),
-    ReferenceList(Vec<String>),
+    ReferenceList(Vec<SpannedRef>),
     VariantList(Vec<String>),
     StringList(Vec<String>),
     /// A list containing items of mixed types (e.g., strings, integers, booleans).

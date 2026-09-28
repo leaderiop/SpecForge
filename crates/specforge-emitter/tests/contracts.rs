@@ -126,7 +126,7 @@ fn dot_contract_finalized_graph_produces_valid_dot() {
     // Requires: graph is finalized
     // Ensures: valid Graphviz DOT syntax
     let graph = build_graph();
-    let dot = specforge_emitter::emit_dot(&graph);
+    let dot = specforge_emitter::emit_dot(&graph, &specforge_emitter::DotOptions::default());
 
     assert!(dot.starts_with("digraph"), "must be a directed graph");
     assert!(dot.contains("rankdir=LR"), "must have LR layout");
@@ -373,8 +373,8 @@ fn deterministic_contract_same_input_identical_output() {
     let json2 = specforge_emitter::emit_json(&graph);
     assert_eq!(json1, json2, "JSON must be deterministic");
 
-    let dot1 = specforge_emitter::emit_dot(&graph);
-    let dot2 = specforge_emitter::emit_dot(&graph);
+    let dot1 = specforge_emitter::emit_dot(&graph, &specforge_emitter::DotOptions::default());
+    let dot2 = specforge_emitter::emit_dot(&graph, &specforge_emitter::DotOptions::default());
     assert_eq!(dot1, dot2, "DOT must be deterministic");
 
     let brief1 = specforge_emitter::emit_brief(&graph);
@@ -712,7 +712,7 @@ fn json_graph_structural_only() {
 )]
 fn dot_valid_syntax() {
     let graph = build_graph();
-    let dot = specforge_emitter::emit_dot(&graph);
+    let dot = specforge_emitter::emit_dot(&graph, &specforge_emitter::DotOptions::default());
     assert!(dot.starts_with("digraph"));
     assert!(dot.contains("{"));
     assert!(dot.trim_end().ends_with("}"));
@@ -725,7 +725,7 @@ fn dot_valid_syntax() {
 )]
 fn dot_nodes_labeled() {
     let graph = build_graph();
-    let dot = specforge_emitter::emit_dot(&graph);
+    let dot = specforge_emitter::emit_dot(&graph, &specforge_emitter::DotOptions::default());
     assert!(dot.contains("\"a\""), "node a must be present");
     assert!(dot.contains("\"b\""), "node b must be present");
     assert!(dot.contains("\"c\""), "node c must be present");
@@ -738,7 +738,7 @@ fn dot_nodes_labeled() {
 )]
 fn dot_edges_labeled() {
     let graph = build_graph();
-    let dot = specforge_emitter::emit_dot(&graph);
+    let dot = specforge_emitter::emit_dot(&graph, &specforge_emitter::DotOptions::default());
     assert!(
         dot.contains("behaviors"),
         "edge label 'behaviors' must be present"
@@ -756,7 +756,7 @@ fn dot_edges_labeled() {
 )]
 fn dot_node_shapes() {
     let graph = build_graph();
-    let dot = specforge_emitter::emit_dot(&graph);
+    let dot = specforge_emitter::emit_dot(&graph, &specforge_emitter::DotOptions::default());
     assert!(dot.contains("shape="), "nodes must have shape attribute");
 }
 
@@ -786,7 +786,13 @@ fn dot_emits_registry_declared_styles() {
         open_fields: false,
     });
 
-    let dot = specforge_emitter::emit_dot_with_styles(&graph, Some(&registry));
+    let dot = specforge_emitter::emit_dot(
+        &graph,
+        &specforge_emitter::DotOptions {
+            kind_registry: Some(&registry),
+            ..Default::default()
+        },
+    );
     assert!(
         dot.contains("shape=\"hexagon\""),
         "registry shape emitted: {dot}"
@@ -801,7 +807,7 @@ fn dot_emits_registry_declared_styles() {
     );
 
     // No registry: default emission (no per-node shape overrides).
-    let plain = specforge_emitter::emit_dot_with_styles(&graph, None);
+    let plain = specforge_emitter::emit_dot(&graph, &specforge_emitter::DotOptions::default());
     assert!(
         !plain.contains("shape=\"hexagon\""),
         "default emission must not invent registry styles"

@@ -1,6 +1,10 @@
 use crate::registry::TestRecordEntry;
 use serde::Serialize;
+use std::io::{BufWriter, Write};
 use std::path::Path;
+
+/// Wire schema version of the report JSON.
+pub const REPORT_SCHEMA_VERSION: &str = "1.0";
 
 #[derive(Debug, Serialize)]
 pub struct BinaryReport {
@@ -34,17 +38,23 @@ pub fn write_report(
     });
 
     let report = BinaryReportRef {
-        schema_version: "1.0",
+        schema_version: REPORT_SCHEMA_VERSION,
         binary_name,
         entries: &sorted,
     };
 
     let path = dir.join(format!("{binary_name}.json"));
-    let json = serde_json::to_string_pretty(&report)?;
     // C6-08: temp-file-plus-rename — a crash or full disk mid-write must
     // not leave a truncated {binary_name}.json (same policy as
     // persist_schema_cache).
     let tmp = dir.join(format!(".{binary_name}.json.tmp"));
-    std::fs::write(&tmp, &json)?;
+    // C6-15: compact JSON is streamed straight into a buffered file writer —
+    // no intermediate String and no pretty-print whitespace.
+    let file = std::fs::File::create(&tmp)?;
+    {
+        let mut writer = BufWriter::new(file);
+        serde_json::to_writer(&mut writer, &report)?;
+        writer.flush()?;
+    }
     std::fs::rename(tmp, path)
 }

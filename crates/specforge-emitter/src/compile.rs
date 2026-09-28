@@ -233,7 +233,10 @@ pub fn compile_with_runtime(path: &Path, runtime: Option<&dyn WasmRuntime>) -> C
                     .iter()
                     .filter_map(|e| {
                         if let specforge_parser::FieldValue::ReferenceList(refs) = &e.value {
-                            Some((e.key.to_string(), refs.clone()))
+                            Some((
+                                e.key.to_string(),
+                                refs.iter().map(|r| r.id.clone()).collect(),
+                            ))
                         } else {
                             None
                         }
@@ -421,7 +424,13 @@ pub fn build_validation_entities(graph: &Graph) -> Vec<ValidationEntity> {
                         fields.insert(entry.key.to_string(), list.join(", "));
                     }
                     specforge_parser::FieldValue::ReferenceList(refs) => {
-                        fields.insert(entry.key.to_string(), refs.join(", "));
+                        fields.insert(
+                            entry.key.to_string(),
+                            refs.iter()
+                                .map(|r| r.as_str())
+                                .collect::<Vec<_>>()
+                                .join(", "),
+                        );
                     }
                     specforge_parser::FieldValue::Integer(n) => {
                         fields.insert(entry.key.to_string(), n.to_string());
@@ -504,7 +513,12 @@ fn stringify_field_value(value: &specforge_parser::FieldValue) -> serde_json::Va
         FieldValue::String(s) => serde_json::Value::String(s.clone()),
         FieldValue::Identifier(s) => serde_json::Value::String(s.clone()),
         FieldValue::StringList(list) => serde_json::Value::String(list.join(", ")),
-        FieldValue::ReferenceList(refs) => serde_json::Value::String(refs.join(", ")),
+        FieldValue::ReferenceList(refs) => serde_json::Value::String(
+            refs.iter()
+                .map(|r| r.as_str())
+                .collect::<Vec<_>>()
+                .join(", "),
+        ),
         FieldValue::Integer(n) => serde_json::Value::String(n.to_string()),
         FieldValue::Boolean(b) => serde_json::Value::String(b.to_string()),
         FieldValue::Date(d) => serde_json::Value::String(d.clone()),
@@ -542,10 +556,13 @@ impl<'a> WasmCustomRules<'a> {
         for entry in node.fields.entries() {
             if let specforge_parser::FieldValue::ReferenceList(refs) = &entry.value {
                 for r in refs {
-                    if seen_refs.insert(r.clone()) {
+                    if seen_refs.insert(r.id.clone()) {
                         referenced.push(ValidatorRef {
-                            id: r.clone(),
-                            kind: self.graph.node(r).map(|target| target.kind.raw.to_string()),
+                            id: r.id.clone(),
+                            kind: self
+                                .graph
+                                .node(&r.id)
+                                .map(|target| target.kind.raw.to_string()),
                         });
                     }
                 }

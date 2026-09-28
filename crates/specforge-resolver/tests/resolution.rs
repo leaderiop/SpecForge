@@ -229,6 +229,46 @@ feature gamma "G" {
     assert!(errors[0].message.contains("nonexistent"));
 }
 
+// C3-07: the E003 span must cover exactly the offending identifier token,
+// not the whole entity block — even when the bad entry is not first and the
+// entity spans multiple lines.
+#[specforge_test(
+    behavior = "link_entity_references",
+    verify = "E003 span covers exactly the unresolved identifier token"
+)]
+#[test]
+fn e003_span_points_at_reference_token() {
+    let dir = setup_project(&[(
+        "main.spec",
+        r#"
+behavior fulfillment "F" { contract "ships orders" }
+entity order {
+  title "Order"
+  depends_on [fulfillment, ghost]
+}"#,
+    )]);
+
+    let resolved = resolve_project(dir.path());
+    let (_, diagnostics) = link_references(&resolved);
+
+    let errors: Vec<_> = diagnostics.iter().filter(|d| d.code == "E003").collect();
+    assert_eq!(errors.len(), 1);
+    assert!(errors[0].message.contains("ghost"));
+
+    // `ghost` sits on line 5 of main.spec in
+    // `  depends_on [fulfillment, ghost]`, columns 28-32.
+    let span = errors[0].span.as_ref().expect("E003 must carry a span");
+    assert!(
+        span.file.as_str().ends_with("main.spec"),
+        "span file should be main.spec, got: {}",
+        span.file
+    );
+    assert_eq!(span.start_line, 5, "bad entry is on the 5th source line");
+    assert_eq!(span.start_col, 28, "span starts at 'g' of ghost");
+    assert_eq!(span.end_line, 5, "span must not extend past the token");
+    assert_eq!(span.end_col, 33, "exclusive end column, one past 't'");
+}
+
 #[specforge_test(
     behavior = "link_entity_references",
     verify = "close match triggers did-you-mean suggestion"

@@ -391,7 +391,10 @@ impl Backend {
                                 if let specforge_parser::FieldValue::ReferenceList(refs) =
                                     &entry.value
                                 {
-                                    Some((entry.key.to_string(), refs.clone()))
+                                    Some((
+                                        entry.key.to_string(),
+                                        refs.iter().map(|r| r.id.clone()).collect(),
+                                    ))
                                 } else {
                                     None
                                 }

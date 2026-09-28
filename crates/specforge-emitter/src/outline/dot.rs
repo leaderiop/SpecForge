@@ -117,8 +117,12 @@ fn sanitize_id(name: &str) -> String {
 }
 
 fn extension_color(name: &str) -> &'static str {
+    // Exact slug match (text after the final '/'), never substring: an
+    // extension named "governance-tools-plus" must not inherit the
+    // governance palette (C13-03).
+    let slug = name.rsplit('/').next().unwrap_or(name);
     for (key, color) in COLORS {
-        if name.contains(key) {
+        if slug == *key {
             return color;
         }
     }

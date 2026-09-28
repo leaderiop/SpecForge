@@ -77,7 +77,9 @@ fn same_input_produces_identical_json_across_runs() {
 #[specforge_test(behavior = "deterministic_output")]
 fn same_input_produces_identical_dot_across_runs() {
     let outputs: Vec<String> = (0..5)
-        .map(|_| specforge_emitter::emit_dot(&build_graph()))
+        .map(|_| {
+            specforge_emitter::emit_dot(&build_graph(), &specforge_emitter::DotOptions::default())
+        })
         .collect();
     for output in &outputs[1..] {
         assert_eq!(

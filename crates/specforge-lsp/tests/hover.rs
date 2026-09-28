@@ -221,14 +221,30 @@ fn hover_shows_extension_source() {
 
 #[test]
 fn hover_shows_actual_field_values() {
-    use specforge_parser::FieldValue;
+    use specforge_parser::{FieldValue, SpannedRef};
 
     let mut g = Graph::new();
     let mut fields = FieldMap::new();
     fields.push(Sym::new("status"), FieldValue::Identifier("draft".into()));
+    let ref_span = SourceSpan {
+        file: Sym::new("test.spec"),
+        start_line: 0,
+        start_col: 0,
+        end_line: 0,
+        end_col: 0,
+    };
     fields.push(
         Sym::new("invariants"),
-        FieldValue::ReferenceList(vec!["data_integrity".into(), "auth_required".into()]),
+        FieldValue::ReferenceList(vec![
+            SpannedRef {
+                id: "data_integrity".into(),
+                span: ref_span.clone(),
+            },
+            SpannedRef {
+                id: "auth_required".into(),
+                span: ref_span,
+            },
+        ]),
     );
     fields.push(
         Sym::new("contract"),

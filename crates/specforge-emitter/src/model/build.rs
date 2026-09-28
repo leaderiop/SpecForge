@@ -9,7 +9,12 @@ use crate::schema::{GraphProtocolSchema, SchemaEdgeType, SchemaEntityKind};
 
 #[allow(non_snake_case)]
 pub fn ModelIntermediate_from_schema(schema: &GraphProtocolSchema) -> ModelIntermediate {
-    let entities: Vec<ModelEntity> = schema.entity_kinds.iter().map(build_entity).collect();
+    let mut warnings = Vec::new();
+    let entities: Vec<ModelEntity> = schema
+        .entity_kinds
+        .iter()
+        .map(|kind| build_entity(kind, &mut warnings))
+        .collect();
 
     let entity_map: HashMap<&str, &ModelEntity> =
         entities.iter().map(|e| (e.name.as_str(), e)).collect();
@@ -34,10 +39,11 @@ pub fn ModelIntermediate_from_schema(schema: &GraphProtocolSchema) -> ModelInter
         entities,
         relationships,
         edge_type_owners,
+        warnings,
     }
 }
 
-fn build_entity(kind: &SchemaEntityKind) -> ModelEntity {
+fn build_entity(kind: &SchemaEntityKind, warnings: &mut Vec<String>) -> ModelEntity {
     let mut fields = vec![ModelField {
         name: "id".to_string(),
         field_type: ModelFieldType::String,
@@ -55,7 +61,11 @@ fn build_entity(kind: &SchemaEntityKind) -> ModelEntity {
     let mut enhancing_extensions: Vec<String> = Vec::new();
 
     for sf in &kind.fields {
-        let field_type = ModelFieldType::from_schema_str(&sf.field_type);
+        let mut field_warnings = Vec::new();
+        let field_type = ModelFieldType::from_schema_str(&sf.field_type, &mut field_warnings);
+        for w in field_warnings {
+            warnings.push(format!("{} field '{}': {}", kind.name, sf.name, w));
+        }
         let references = sf.target_kind.clone();
 
         // Determine contribution info: "EdgeLabel -> target_kind"
@@ -97,6 +107,7 @@ fn build_entity(kind: &SchemaEntityKind) -> ModelEntity {
         name: kind.name.clone(),
         extension: kind.source_extension.clone(),
         description: None,
+        dot_color: kind.dot_color.clone(),
         fields,
         enhanced_by: enhancing_extensions,
     }

@@ -29,7 +29,7 @@ pub use diagnostic_fmt::{
     MAX_DIAGNOSTICS, diagnostic_summary, format_diagnostic, serialize_diagnostics,
     truncate_diagnostics,
 };
-pub use dot::emit_dot_with_styles;
+pub use dot::DotOptions;
 pub use emit::{EmitFormat, EmitOptions, emit};
 pub use error::EmitterError;
 pub use exit_code::{compute_exit_code, compute_exit_code_strict};

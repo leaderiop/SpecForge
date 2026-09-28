@@ -471,7 +471,7 @@ impl<'a> ParseContext<'a> {
         if key_sym == "values"
             && let FieldValue::ReferenceList(items) = &field_value
         {
-            field_value = FieldValue::VariantList(items.clone());
+            field_value = FieldValue::VariantList(items.iter().map(|r| r.id.clone()).collect());
         }
 
         // Extract annotations (children with kind "annotation")
@@ -568,14 +568,17 @@ impl<'a> ParseContext<'a> {
 
         // Collect typed items for mixed-type detection
         let mut typed_items: Vec<FieldValue> = Vec::new();
-        // Parallel flat string items for homogeneous lists
+        // Parallel flat string items for homogeneous lists, with each
+        // item's source span so references can be diagnosed token-exactly.
         let mut flat_items: Vec<String> = Vec::new();
+        let mut item_spans: Vec<SourceSpan> = Vec::new();
 
         let mut cursor = node.walk();
         for child in node.children(&mut cursor) {
             match child.kind() {
                 "identifier" => {
                     let text = self.text(child).to_string();
+                    let span = self.span(child);
                     // Detect boolean literals that tree-sitter parses
                     // as identifiers inside list context.
                     if text == "true" || text == "false" {
@@ -586,18 +589,21 @@ impl<'a> ParseContext<'a> {
                         typed_items.push(FieldValue::Identifier(text.clone()));
                     }
                     flat_items.push(text);
+                    item_spans.push(span);
                 }
                 "string" => {
                     let text = self.unquote(child);
                     has_string = true;
                     typed_items.push(FieldValue::String(text.clone()));
                     flat_items.push(text);
+                    item_spans.push(self.span(child));
                 }
                 "scheme_ref_id" => {
                     let text = self.text(child).to_string();
                     has_identifier = true;
                     typed_items.push(FieldValue::Identifier(text.clone()));
                     flat_items.push(text);
+                    item_spans.push(self.span(child));
                 }
                 "integer" => {
                     let text = self.text(child);
@@ -605,12 +611,14 @@ impl<'a> ParseContext<'a> {
                     let val = text.parse::<i64>().unwrap_or(0);
                     typed_items.push(FieldValue::Integer(val));
                     flat_items.push(text.to_string());
+                    item_spans.push(self.span(child));
                 }
                 "boolean" => {
                     let text = self.text(child);
                     has_boolean = true;
                     typed_items.push(FieldValue::Boolean(text == "true"));
                     flat_items.push(text.to_string());
+                    item_spans.push(self.span(child));
                 }
                 _ => {}
             }
@@ -640,7 +648,13 @@ impl<'a> ParseContext<'a> {
         if has_string {
             FieldValue::StringList(flat_items)
         } else {
-            FieldValue::ReferenceList(flat_items)
+            FieldValue::ReferenceList(
+                flat_items
+                    .into_iter()
+                    .zip(item_spans)
+                    .map(|(id, span)| SpannedRef { id, span })
+                    .collect(),
+            )
         }
     }
 

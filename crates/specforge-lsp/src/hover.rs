@@ -195,7 +195,15 @@ fn format_field_value(fv: &FieldValue) -> String {
         FieldValue::Integer(n) => n.to_string(),
         FieldValue::Boolean(b) => b.to_string(),
         FieldValue::Date(d) => d.clone(),
-        FieldValue::ReferenceList(refs) => format!("[{}]", refs.join(", ")),
+        FieldValue::ReferenceList(refs) => {
+            format!(
+                "[{}]",
+                refs.iter()
+                    .map(|r| r.as_str())
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            )
+        }
         FieldValue::StringList(items) => {
             if items.len() <= 5 {
                 format!(

@@ -76,6 +76,7 @@ pub fn filter_entities(model: &ModelIntermediate, options: &ModelOptions) -> Mod
         entities,
         relationships,
         edge_type_owners,
+        warnings: model.warnings.clone(),
     }
 }
 
@@ -171,6 +172,7 @@ pub fn filter_fields(model: &ModelIntermediate, level: FieldLevel) -> ModelInter
                 name: entity.name.clone(),
                 extension: entity.extension.clone(),
                 description: entity.description.clone(),
+                dot_color: entity.dot_color.clone(),
                 fields,
                 enhanced_by: entity.enhanced_by.clone(),
             }
@@ -183,5 +185,6 @@ pub fn filter_fields(model: &ModelIntermediate, level: FieldLevel) -> ModelInter
         entities,
         relationships: model.relationships.clone(),
         edge_type_owners: model.edge_type_owners.clone(),
+        warnings: model.warnings.clone(),
     }
 }

@@ -105,14 +105,13 @@ pub fn link_references(project: &ResolvedProject) -> (Vec<PendingEdge>, Vec<Diag
         for entity in &file.spec_file.entities {
             for entry in entity.fields.entries() {
                 if let FieldValue::ReferenceList(refs) = &entry.value {
-                    for target_id in refs {
+                    for target_ref in refs {
+                        let target_id = target_ref.as_str();
                         let target_sym = Sym::new(target_id);
                         if entity_ids.contains_key(&target_sym) {
                             // Advisory visibility check (C3-06): known but not
                             // imported means the file relies on global scope.
-                            let imported = visible
-                                .map(|v| v.contains(target_id.as_str()))
-                                .unwrap_or(true);
+                            let imported = visible.map(|v| v.contains(target_id)).unwrap_or(true);
                             if !imported {
                                 diagnostics.push(Diagnostic {
                                     code: "W099".to_string(),
@@ -142,7 +141,7 @@ pub fn link_references(project: &ResolvedProject) -> (Vec<PendingEdge>, Vec<Diag
                                     "unresolved reference '{}' in entity '{}'",
                                     target_id, entity.id.raw
                                 ),
-                                span: Some(entity.span.clone()),
+                                span: Some(target_ref.span.clone()),
                                 suggestion: suggestion.map(|s| format!("did you mean '{}'?", s)),
                             });
                         }

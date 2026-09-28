@@ -213,9 +213,9 @@ fn export_schema_version_negotiation() {
 #[test]
 #[specforge_test(
     behavior = "embed_schema_in_export",
-    verify = "--no-schema suppresses schema and keeps format_version 1.0"
+    verify = "scoped exports carry schema_ref (url and content_hash) instead of embedded schema"
 )]
-fn export_scoped_v2_still_has_schema() {
+fn export_scoped_v2_references_schema() {
     let dir = setup_project(&[(
         "main.spec",
         r#"
@@ -234,8 +234,17 @@ feature gamma "G" { behaviors [alpha] }
     let parsed = parse_json_stdout(&output);
     assert_eq!(parsed["format_version"], "2.0");
     assert!(
-        parsed["schema"].is_object(),
-        "scoped V2 should still embed schema"
+        parsed.get("schema").is_none(),
+        "scoped V2 must not embed the full schema"
+    );
+    assert!(
+        parsed["schema_ref"]["url"].is_string(),
+        "scoped V2 carries a schema_ref url"
+    );
+    assert_eq!(
+        parsed["schema_ref"]["content_hash"].as_str().unwrap().len(),
+        64,
+        "schema_ref content_hash is a sha256 hex digest"
     );
 }
 

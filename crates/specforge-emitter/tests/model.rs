@@ -69,6 +69,7 @@ fn single_entity_kind_maps_to_model_entity_with_id() {
             name: "behavior".to_string(),
             source_extension: "@specforge/software".to_string(),
             testable: true,
+            dot_color: None,
             fields: vec![],
         }],
         edge_types: vec![],
@@ -106,6 +107,7 @@ fn entity_fields_mapped_from_schema() {
             name: "behavior".to_string(),
             source_extension: "@specforge/software".to_string(),
             testable: true,
+            dot_color: None,
             fields: vec![
                 SchemaField {
                     name: "status".to_string(),
@@ -181,6 +183,7 @@ fn edge_type_maps_to_relationship() {
                 name: "behavior".to_string(),
                 source_extension: "@specforge/software".to_string(),
                 testable: true,
+                dot_color: None,
                 fields: vec![SchemaField {
                     name: "features".to_string(),
                     field_type: "reference_list".to_string(),
@@ -197,6 +200,7 @@ fn edge_type_maps_to_relationship() {
                 name: "feature".to_string(),
                 source_extension: "@specforge/software".to_string(),
                 testable: false,
+                dot_color: None,
                 fields: vec![],
             },
         ],
@@ -243,18 +247,21 @@ fn extension_metadata_counts() {
                 name: "behavior".to_string(),
                 source_extension: "@specforge/software".to_string(),
                 testable: true,
+                dot_color: None,
                 fields: vec![],
             },
             SchemaEntityKind {
                 name: "event".to_string(),
                 source_extension: "@specforge/software".to_string(),
                 testable: false,
+                dot_color: None,
                 fields: vec![],
             },
             SchemaEntityKind {
                 name: "feature".to_string(),
                 source_extension: "@specforge/product".to_string(),
                 testable: false,
+                dot_color: None,
                 fields: vec![],
             },
         ],
@@ -312,6 +319,7 @@ fn reference_field_infers_many_to_one() {
                 name: "behavior".to_string(),
                 source_extension: "@specforge/software".to_string(),
                 testable: true,
+                dot_color: None,
                 fields: vec![SchemaField {
                     name: "parent".to_string(),
                     field_type: "reference".to_string(),
@@ -328,6 +336,7 @@ fn reference_field_infers_many_to_one() {
                 name: "feature".to_string(),
                 source_extension: "@specforge/software".to_string(),
                 testable: false,
+                dot_color: None,
                 fields: vec![],
             },
         ],
@@ -366,12 +375,14 @@ fn no_matching_field_defaults_to_many_to_many() {
                 name: "behavior".to_string(),
                 source_extension: "@specforge/software".to_string(),
                 testable: true,
+                dot_color: None,
                 fields: vec![], // no fields at all
             },
             SchemaEntityKind {
                 name: "event".to_string(),
                 source_extension: "@specforge/software".to_string(),
                 testable: false,
+                dot_color: None,
                 fields: vec![],
             },
         ],
@@ -429,6 +440,7 @@ fn reference_singular_field_infers_many_to_one_for_term_module() {
                 name: "term".to_string(),
                 source_extension: "@specforge/product".to_string(),
                 testable: false,
+                dot_color: None,
                 fields: vec![SchemaField {
                     name: "module".to_string(),
                     field_type: "reference".to_string(),
@@ -445,6 +457,7 @@ fn reference_singular_field_infers_many_to_one_for_term_module() {
                 name: "module".to_string(),
                 source_extension: "@specforge/product".to_string(),
                 testable: false,
+                dot_color: None,
                 fields: vec![],
             },
         ],
@@ -497,6 +510,7 @@ fn multi_extension_schema() -> GraphProtocolSchema {
                 name: "behavior".to_string(),
                 source_extension: "@specforge/software".to_string(),
                 testable: true,
+                dot_color: None,
                 fields: vec![
                     SchemaField {
                         name: "contract".to_string(),
@@ -526,12 +540,14 @@ fn multi_extension_schema() -> GraphProtocolSchema {
                 name: "event".to_string(),
                 source_extension: "@specforge/software".to_string(),
                 testable: false,
+                dot_color: None,
                 fields: vec![],
             },
             SchemaEntityKind {
                 name: "feature".to_string(),
                 source_extension: "@specforge/product".to_string(),
                 testable: false,
+                dot_color: None,
                 fields: vec![SchemaField {
                     name: "priority".to_string(),
                     field_type: "enum".to_string(),
@@ -548,6 +564,7 @@ fn multi_extension_schema() -> GraphProtocolSchema {
                 name: "journey".to_string(),
                 source_extension: "@specforge/product".to_string(),
                 testable: false,
+                dot_color: None,
                 fields: vec![],
             },
         ],
@@ -935,4 +952,201 @@ fn render_dbml_empty() {
     let model = ModelIntermediate_from_schema(&schema);
     let output = render(&model, &default_options(ModelFormat::Dbml));
     assert_snapshot!(output);
+}
+
+// C13-09: an unknown field type string falls back to string AND warns.
+#[test]
+fn unknown_field_type_warns_and_falls_back_to_string() {
+    let schema = GraphProtocolSchema {
+        schema_version: SchemaVersion::new(1, 0, 0),
+        extensions: vec![SchemaExtensionInfo {
+            name: "@specforge/software".to_string(),
+            version: "1.0.0".to_string(),
+        }],
+        entity_kinds: vec![SchemaEntityKind {
+            name: "behavior".to_string(),
+            source_extension: "@specforge/software".to_string(),
+            testable: true,
+            dot_color: None,
+            fields: vec![SchemaField {
+                name: "sneaky".to_string(),
+                field_type: "stirng".to_string(),
+                required: false,
+                enum_values: None,
+                edge: None,
+                target_kind: None,
+                description: None,
+                default_value: None,
+                source_extension: "@specforge/software".to_string(),
+            }],
+        }],
+        edge_types: vec![],
+    };
+
+    let model = ModelIntermediate_from_schema(&schema);
+
+    let sneaky = model.entities[0]
+        .fields
+        .iter()
+        .find(|f| f.name == "sneaky")
+        .unwrap();
+    assert_eq!(sneaky.field_type, ModelFieldType::String, "safe fallback");
+    assert!(
+        model
+            .warnings
+            .iter()
+            .any(|w| w.contains("stirng") && w.contains("sneaky")),
+        "warning names the bad type and field: {:?}",
+        model.warnings
+    );
+}
+
+// C13-03: registry-declared dot_color wins over the extension palette.
+#[test]
+fn declared_dot_color_reaches_model_dot() {
+    let mut schema = GraphProtocolSchema {
+        schema_version: SchemaVersion::new(1, 0, 0),
+        extensions: vec![SchemaExtensionInfo {
+            name: "@specforge/software".to_string(),
+            version: "1.0.0".to_string(),
+        }],
+        entity_kinds: vec![
+            SchemaEntityKind {
+                name: "behavior".to_string(),
+                source_extension: "@specforge/software".to_string(),
+                testable: true,
+                dot_color: Some("#123456".to_string()),
+                fields: vec![],
+            },
+            SchemaEntityKind {
+                name: "event".to_string(),
+                source_extension: "@specforge/software".to_string(),
+                testable: false,
+                dot_color: None,
+                fields: vec![],
+            },
+        ],
+        edge_types: vec![],
+    };
+    schema.extensions = vec![SchemaExtensionInfo {
+        name: "@specforge/software".to_string(),
+        version: "1.0.0".to_string(),
+    }];
+
+    let model = ModelIntermediate_from_schema(&schema);
+    let output = render(&model, &default_options(ModelFormat::Dot));
+
+    assert!(
+        output.contains("#123456"),
+        "declared per-kind color emitted: {output}"
+    );
+    let software_palette = "#4a90d9";
+    assert!(
+        output.contains(software_palette),
+        "undeclared kinds keep the extension palette: {output}"
+    );
+}
+
+// C13-10: DBML renders real column types and cardinality-matching Ref
+// operators instead of all-string columns and hardcoded `>`.
+#[test]
+fn dbml_maps_real_types_and_cardinality_operators() {
+    let schema = GraphProtocolSchema {
+        schema_version: SchemaVersion::new(1, 0, 0),
+        extensions: vec![SchemaExtensionInfo {
+            name: "@specforge/software".to_string(),
+            version: "1.0.0".to_string(),
+        }],
+        entity_kinds: vec![
+            SchemaEntityKind {
+                name: "behavior".to_string(),
+                source_extension: "@specforge/software".to_string(),
+                testable: true,
+                dot_color: None,
+                fields: vec![
+                    SchemaField {
+                        name: "count".to_string(),
+                        field_type: "integer".to_string(),
+                        required: false,
+                        enum_values: None,
+                        edge: None,
+                        target_kind: None,
+                        description: None,
+                        default_value: None,
+                        source_extension: "@specforge/software".to_string(),
+                    },
+                    SchemaField {
+                        name: "flag".to_string(),
+                        field_type: "boolean".to_string(),
+                        required: false,
+                        enum_values: None,
+                        edge: None,
+                        target_kind: None,
+                        description: None,
+                        default_value: None,
+                        source_extension: "@specforge/software".to_string(),
+                    },
+                    SchemaField {
+                        name: "tags".to_string(),
+                        field_type: "string_list".to_string(),
+                        required: false,
+                        enum_values: None,
+                        edge: None,
+                        target_kind: None,
+                        description: None,
+                        default_value: None,
+                        source_extension: "@specforge/software".to_string(),
+                    },
+                    SchemaField {
+                        name: "body".to_string(),
+                        field_type: "block".to_string(),
+                        required: false,
+                        enum_values: None,
+                        edge: None,
+                        target_kind: None,
+                        description: None,
+                        default_value: None,
+                        source_extension: "@specforge/software".to_string(),
+                    },
+                    SchemaField {
+                        name: "features".to_string(),
+                        field_type: "reference_list".to_string(),
+                        required: false,
+                        enum_values: None,
+                        edge: Some("BehaviorImplementsFeature".to_string()),
+                        target_kind: Some("feature".to_string()),
+                        description: None,
+                        default_value: None,
+                        source_extension: "@specforge/software".to_string(),
+                    },
+                ],
+            },
+            SchemaEntityKind {
+                name: "feature".to_string(),
+                source_extension: "@specforge/software".to_string(),
+                testable: false,
+                dot_color: None,
+                fields: vec![],
+            },
+        ],
+        edge_types: vec![SchemaEdgeType {
+            label: "BehaviorImplementsFeature".to_string(),
+            source_extension: "@specforge/software".to_string(),
+            source_kinds: Some(vec!["behavior".to_string()]),
+            target_kinds: Some(vec!["feature".to_string()]),
+        }],
+    };
+
+    let model = ModelIntermediate_from_schema(&schema);
+    let output = render(&model, &default_options(ModelFormat::Dbml));
+
+    assert!(output.contains("count integer"), "integer mapped: {output}");
+    assert!(output.contains("flag boolean"), "boolean mapped: {output}");
+    assert!(output.contains("tags text"), "string_list mapped: {output}");
+    assert!(output.contains("body json"), "block mapped: {output}");
+    // reference_list -> ManyToMany -> `<>`, target column is the PK.
+    assert!(
+        output.contains("Ref BehaviorImplementsFeature: behavior.features <> feature.id"),
+        "cardinality operator and PK column: {output}"
+    );
 }

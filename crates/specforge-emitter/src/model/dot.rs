@@ -47,17 +47,17 @@ fn render_grouped(model: &ModelIntermediate, out: &mut String) {
             continue;
         }
 
-        let color = extension_color(&ext.name);
+        let ext_color = extension_color(&ext.name);
         let cluster_id = ext.name.replace("@specforge/", "").replace('/', "_");
 
         writeln!(out).unwrap();
         writeln!(out, "  subgraph cluster_{} {{", cluster_id).unwrap();
         writeln!(out, "    label=\"{}\";", ext.name).unwrap();
         writeln!(out, "    style=dashed;").unwrap();
-        writeln!(out, "    color=\"{}\";", color).unwrap();
+        writeln!(out, "    color=\"{}\";", ext_color).unwrap();
 
         for entity in entities {
-            render_entity(entity, color, out);
+            render_entity(entity, entity_color(entity, ext_color), out);
         }
 
         writeln!(out, "  }}").unwrap();
@@ -66,9 +66,17 @@ fn render_grouped(model: &ModelIntermediate, out: &mut String) {
 
 fn render_flat(model: &ModelIntermediate, out: &mut String) {
     for entity in &model.entities {
-        let color = extension_color(&entity.extension);
-        render_entity(entity, color, out);
+        render_entity(
+            entity,
+            entity_color(entity, extension_color(&entity.extension)),
+            out,
+        );
     }
+}
+
+/// Per-kind declared color wins; the extension palette is the fallback (C13-03).
+fn entity_color<'a>(entity: &'a super::ModelEntity, fallback: &'a str) -> &'a str {
+    entity.dot_color.as_deref().unwrap_or(fallback)
 }
 
 fn render_entity(entity: &super::ModelEntity, color: &str, out: &mut String) {

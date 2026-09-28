@@ -134,6 +134,10 @@ pub struct SchemaEntityKind {
     pub name: String,
     pub source_extension: String,
     pub testable: bool,
+    /// Registry-declared DOT color for model renderers (C13-03). Absent when
+    /// the extension declares none; renderers fall back to palette colors.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub dot_color: Option<String>,
     pub fields: Vec<SchemaField>,
 }
 
@@ -260,6 +264,35 @@ pub struct SchemaCacheEntry {
     pub content_hash: String,
 }
 
+/// Pointer to a published Graph Protocol schema (C6-07): the same `$id` URL
+/// the publisher emits plus the content hash from the schema cache, letting
+/// scoped exports name their schema without embedding the whole document.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct SchemaRefBlock {
+    pub url: String,
+    pub content_hash: String,
+}
+
+impl SchemaRefBlock {
+    pub fn for_schema(schema: &GraphProtocolSchema) -> Self {
+        Self {
+            url: format!(
+                "https://specforge.dev/schema/graph-protocol-v{}.json",
+                schema.schema_version
+            ),
+            content_hash: compute_content_hash(schema),
+        }
+    }
+}
+
+/// How the schema travels with a V2 export: embedded document (full exports)
+/// or reference (scoped exports, C6-07).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum SchemaAttachment {
+    Embedded,
+    Referenced,
+}
+
 // ---------------------------------------------------------------------------
 // Slice 2: Generate Schema from Registries
 // ---------------------------------------------------------------------------
@@ -322,6 +355,7 @@ pub fn generate_schema(
                 name: entry.kind_name.clone(),
                 source_extension: entry.source_extension.clone(),
                 testable: entry.testable,
+                dot_color: entry.dot_color.clone(),
                 fields: kind_fields,
             }
         })
@@ -390,11 +424,24 @@ pub fn generate_schema(
 // Slice 3: Embed Schema in Export
 // ---------------------------------------------------------------------------
 
+fn schema_block(
+    schema: &GraphProtocolSchema,
+    attach: SchemaAttachment,
+) -> (Option<GraphProtocolSchema>, Option<SchemaRefBlock>) {
+    match attach {
+        SchemaAttachment::Embedded => (Some(schema.clone()), None),
+        SchemaAttachment::Referenced => (None, Some(SchemaRefBlock::for_schema(schema))),
+    }
+}
+
 #[derive(Serialize)]
 struct JsonGraphV2 {
     format_version: &'static str,
     schema_version: String,
-    schema: GraphProtocolSchema,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    schema: Option<GraphProtocolSchema>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    schema_ref: Option<SchemaRefBlock>,
     nodes: Vec<JsonNodeV2>,
     edges: Vec<JsonEdge>,
 }
@@ -414,6 +461,14 @@ pub fn emit_json_with_schema(
     graph: &Graph,
     schema: &GraphProtocolSchema,
 ) -> Result<String, EmitterError> {
+    emit_json_attached(graph, schema, SchemaAttachment::Embedded)
+}
+
+pub(crate) fn emit_json_attached(
+    graph: &Graph,
+    schema: &GraphProtocolSchema,
+    attach: SchemaAttachment,
+) -> Result<String, EmitterError> {
     let nodes: Vec<JsonNodeV2> = graph
         .nodes()
         .iter()
@@ -427,10 +482,12 @@ pub fn emit_json_with_schema(
         })
         .collect();
 
+    let (embedded, reference) = schema_block(schema, attach);
     let output = JsonGraphV2 {
         format_version: "2.0",
         schema_version: schema.schema_version.to_string(),
-        schema: schema.clone(),
+        schema: embedded,
+        schema_ref: reference,
         nodes,
         edges: sorted_edges(graph),
     };
@@ -442,7 +499,10 @@ pub fn emit_json_with_schema(
 struct ContextGraphV2 {
     format_version: &'static str,
     schema_version: String,
-    schema: GraphProtocolSchema,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    schema: Option<GraphProtocolSchema>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    schema_ref: Option<SchemaRefBlock>,
     nodes: Vec<ContextNodeV2>,
     edges: Vec<JsonEdge>,
 }
@@ -464,6 +524,14 @@ struct ContextNodeV2 {
 pub fn emit_context_with_schema(
     graph: &Graph,
     schema: &GraphProtocolSchema,
+) -> Result<String, EmitterError> {
+    emit_context_attached(graph, schema, SchemaAttachment::Embedded)
+}
+
+pub(crate) fn emit_context_attached(
+    graph: &Graph,
+    schema: &GraphProtocolSchema,
+    attach: SchemaAttachment,
 ) -> Result<String, EmitterError> {
     let nodes: Vec<ContextNodeV2> = graph
         .nodes()
@@ -491,10 +559,12 @@ pub fn emit_context_with_schema(
         })
         .collect();
 
+    let (embedded, reference) = schema_block(schema, attach);
     let output = ContextGraphV2 {
         format_version: "2.0",
         schema_version: schema.schema_version.to_string(),
-        schema: schema.clone(),
+        schema: embedded,
+        schema_ref: reference,
         nodes,
         edges: sorted_edges(graph),
     };
@@ -506,7 +576,10 @@ pub fn emit_context_with_schema(
 struct BriefGraphV2 {
     format_version: &'static str,
     schema_version: String,
-    schema: GraphProtocolSchema,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    schema: Option<GraphProtocolSchema>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    schema_ref: Option<SchemaRefBlock>,
     nodes: Vec<BriefNodeV2>,
     edges: Vec<JsonEdge>,
 }
@@ -523,6 +596,14 @@ pub fn emit_brief_with_schema(
     graph: &Graph,
     schema: &GraphProtocolSchema,
 ) -> Result<String, EmitterError> {
+    emit_brief_attached(graph, schema, SchemaAttachment::Embedded)
+}
+
+pub(crate) fn emit_brief_attached(
+    graph: &Graph,
+    schema: &GraphProtocolSchema,
+    attach: SchemaAttachment,
+) -> Result<String, EmitterError> {
     let nodes: Vec<BriefNodeV2> = graph
         .nodes()
         .iter()
@@ -533,10 +614,12 @@ pub fn emit_brief_with_schema(
         })
         .collect();
 
+    let (embedded, reference) = schema_block(schema, attach);
     let output = BriefGraphV2 {
         format_version: "2.0",
         schema_version: schema.schema_version.to_string(),
-        schema: schema.clone(),
+        schema: embedded,
+        schema_ref: reference,
         nodes,
         edges: sorted_edges(graph),
     };
@@ -820,6 +903,9 @@ pub fn detect_breaking_with_diagnostics(
 // Slice 3b: Scoped V2 Exports
 // ---------------------------------------------------------------------------
 
+/// Scoped exports name their schema by URL + content hash instead of
+/// embedding the full document (C6-07): a scoped payload should not carry
+/// the whole schema in every letter.
 pub fn emit_json_scoped_with_schema(
     graph: &Graph,
     scope: &str,
@@ -831,7 +917,7 @@ pub fn emit_json_scoped_with_schema(
             scope
         ))
     })?;
-    emit_json_with_schema(&sub, schema)
+    emit_json_attached(&sub, schema, SchemaAttachment::Referenced)
 }
 
 pub fn emit_context_scoped_with_schema(
@@ -845,7 +931,7 @@ pub fn emit_context_scoped_with_schema(
             scope
         ))
     })?;
-    emit_context_with_schema(&sub, schema)
+    emit_context_attached(&sub, schema, SchemaAttachment::Referenced)
 }
 
 pub fn emit_brief_scoped_with_schema(
@@ -859,7 +945,7 @@ pub fn emit_brief_scoped_with_schema(
             scope
         ))
     })?;
-    emit_brief_with_schema(&sub, schema)
+    emit_brief_attached(&sub, schema, SchemaAttachment::Referenced)
 }
 
 // ---------------------------------------------------------------------------
@@ -890,6 +976,24 @@ pub fn emit_schema_for_kind(
 // ---------------------------------------------------------------------------
 // Slice 9: Publish JSON Schema
 // ---------------------------------------------------------------------------
+
+/// JSON Schema fragment for one field value, derived from the registry's
+/// declared field type (C6-04).
+fn json_field_schema(field_type: &str, enum_values: Option<&[String]>) -> Value {
+    match field_type {
+        "integer" => serde_json::json!({ "type": "integer" }),
+        "boolean" => serde_json::json!({ "type": "boolean" }),
+        "enum" => match enum_values {
+            Some(values) if !values.is_empty() => serde_json::json!({ "enum": values }),
+            _ => serde_json::json!({ "type": "string" }),
+        },
+        "string_list" | "reference_list" => {
+            serde_json::json!({ "type": "array", "items": { "type": "string" } })
+        }
+        "block" => serde_json::json!({ "type": "object" }),
+        _ => serde_json::json!({ "type": "string" }),
+    }
+}
 
 /// Publish a JSON Schema describing an export of `format`.
 ///
@@ -927,6 +1031,7 @@ pub fn publish_json_schema_format(
     let node_schema: serde_json::Value = match format {
         EmitFormat::Context => serde_json::json!({
             "type": "object",
+            "additionalProperties": false,
             "required": ["id", "kind"],
             "properties": {
                 "id": { "type": "string" },
@@ -939,6 +1044,7 @@ pub fn publish_json_schema_format(
         }),
         EmitFormat::Brief => serde_json::json!({
             "type": "object",
+            "additionalProperties": false,
             "required": ["id", "kind"],
             "properties": {
                 "id": { "type": "string" },
@@ -948,6 +1054,7 @@ pub fn publish_json_schema_format(
         }),
         _ => serde_json::json!({
             "type": "object",
+            "additionalProperties": false,
             "required": ["id", "kind", "file", "line", "fields"],
             "properties": {
                 "id": { "type": "string" },
@@ -958,6 +1065,87 @@ pub fn publish_json_schema_format(
                 "fields": { "type": "object" }
             }
         }),
+    };
+
+    // C6-04: per-kind field subschemas under $defs, selected by a `kind`
+    // discriminator, plus a shared entity_kind def for the embedded schema
+    // block. Full exports carry the per-node guards; brief/context nodes
+    // have no `fields` and skip them.
+    let mut defs = serde_json::Map::new();
+    defs.insert(
+        "entity_kind".to_string(),
+        serde_json::json!({
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["name", "source_extension", "testable", "fields"],
+            "properties": {
+                "name": { "type": "string" },
+                "source_extension": { "type": "string" },
+                "testable": { "type": "boolean" },
+                "dot_color": { "type": "string" },
+                "fields": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "required": ["name", "field_type", "required", "source_extension"],
+                        "properties": {
+                            "name": { "type": "string" },
+                            "field_type": { "enum": [
+                                "string", "integer", "boolean", "enum",
+                                "string_list", "reference", "reference_list", "block"
+                            ] },
+                            "required": { "type": "boolean" },
+                            "enum_values": { "type": "array", "items": { "type": "string" } },
+                            "edge": { "type": "string" },
+                            "target_kind": { "type": "string" },
+                            "description": { "type": "string" },
+                            "default_value": { "type": "string" },
+                            "source_extension": { "type": "string" }
+                        }
+                    }
+                }
+            }
+        }),
+    );
+
+    let mut node_guards: Vec<Value> = Vec::new();
+    if matches!(format, EmitFormat::Json) {
+        for kind in &schema.entity_kinds {
+            let mut props = serde_json::Map::new();
+            let mut required: Vec<Value> = Vec::new();
+            for field in &kind.fields {
+                props.insert(
+                    field.name.clone(),
+                    json_field_schema(&field.field_type, field.enum_values.as_deref()),
+                );
+                if field.required {
+                    required.push(Value::String(field.name.clone()));
+                }
+            }
+            let mut fields_def = serde_json::Map::new();
+            fields_def.insert("type".to_string(), Value::String("object".into()));
+            fields_def.insert("properties".to_string(), Value::Object(props));
+            if !required.is_empty() {
+                fields_def.insert("required".to_string(), Value::Array(required));
+            }
+            let def_name = format!("fields_{}", kind.name);
+            defs.insert(def_name.clone(), Value::Object(fields_def));
+            node_guards.push(serde_json::json!({
+                "if": { "properties": { "kind": { "const": kind.name } } },
+                "then": {
+                    "properties": { "fields": { "$ref": format!("#/$defs/{def_name}") } }
+                }
+            }));
+        }
+    }
+
+    let node_schema = if node_guards.is_empty() {
+        node_schema
+    } else {
+        let mut with_guards = node_schema;
+        with_guards["allOf"] = Value::Array(node_guards);
+        with_guards
     };
 
     let json_schema = serde_json::json!({
@@ -974,6 +1162,7 @@ pub fn publish_json_schema_format(
             schema.schema_version
         ),
         "type": "object",
+        "additionalProperties": false,
         "required": ["format_version", "schema_version", "nodes", "edges"],
         "properties": {
             "format_version": {
@@ -985,8 +1174,59 @@ pub fn publish_json_schema_format(
             },
             "schema": {
                 "type": "object",
-                "description": "Embedded Graph Protocol schema"
+                "description": "Embedded Graph Protocol schema",
+                "additionalProperties": false,
+                "required": ["schema_version", "extensions", "entity_kinds", "edge_types"],
+                "properties": {
+                    "schema_version": { "type": "string" },
+                    "extensions": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "additionalProperties": false,
+                            "required": ["name", "version"],
+                            "properties": {
+                                "name": { "type": "string" },
+                                "version": { "type": "string" }
+                            }
+                        }
+                    },
+                    "entity_kinds": {
+                        "type": "array",
+                        "items": { "$ref": "#/$defs/entity_kind" }
+                    },
+                    "edge_types": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "additionalProperties": false,
+                            "required": ["label", "source_extension"],
+                            "properties": {
+                                "label": { "type": "string" },
+                                "source_extension": { "type": "string" },
+                                "source_kinds": {
+                                    "type": "array",
+                                    "items": { "type": "string" }
+                                },
+                                "target_kinds": {
+                                    "type": "array",
+                                    "items": { "type": "string" }
+                                }
+                            }
+                        }
+                    }
+                }
             },
+            "schema_ref": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["url", "content_hash"],
+                "properties": {
+                    "url": { "type": "string", "format": "uri" },
+                    "content_hash": { "type": "string", "pattern": "^[0-9a-f]{64}$" }
+                }
+            },
+            "token_budget": { "type": "object" },
             "nodes": {
                 "type": "array",
                 "items": node_schema
@@ -995,6 +1235,7 @@ pub fn publish_json_schema_format(
                 "type": "array",
                 "items": {
                     "type": "object",
+                    "additionalProperties": false,
                     "required": ["source", "target", "label"],
                     "properties": {
                         "source": { "type": "string" },
@@ -1003,7 +1244,8 @@ pub fn publish_json_schema_format(
                     }
                 }
             }
-        }
+        },
+        "$defs": Value::Object(defs)
     });
 
     serde_json::to_string_pretty(&json_schema)

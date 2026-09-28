@@ -299,7 +299,8 @@ behavior test_values "Test Values" {
     // Reference list (all identifiers)
     match e.fields.get("tags").expect("missing tags") {
         FieldValue::ReferenceList(items) => {
-            assert_eq!(items, &["alpha", "beta", "gamma"]);
+            let ids: Vec<&str> = items.iter().map(|r| r.id.as_str()).collect();
+            assert_eq!(ids, ["alpha", "beta", "gamma"]);
         }
         other => panic!("expected ReferenceList, got {:?}", other),
     }
@@ -554,7 +555,8 @@ behavior trailing "Trailing Comma" {
     );
     match result.entities[0].fields.get("tags").expect("missing tags") {
         FieldValue::ReferenceList(items) => {
-            assert_eq!(items, &["alpha", "beta", "gamma"]);
+            let ids: Vec<&str> = items.iter().map(|r| r.id.as_str()).collect();
+            assert_eq!(ids, ["alpha", "beta", "gamma"]);
         }
         other => panic!("expected ReferenceList, got {:?}", other),
     }
@@ -581,8 +583,17 @@ behavior with_refs "Refs" {
     match result.entities[0].fields.get("refs").expect("missing refs") {
         FieldValue::ReferenceList(items) => {
             assert_eq!(items.len(), 2);
-            assert_eq!(items[0], "gh.issue:42");
-            assert_eq!(items[1], "jira.story:ABC-123");
+            assert_eq!(items[0].id, "gh.issue:42");
+            assert_eq!(items[1].id, "jira.story:ABC-123");
+            // Each item keeps the exact span of its identifier token
+            // (C3-07). Line 3 is `    refs [gh.issue:42, jira.story:ABC-123]`:
+            // `gh.issue:42` occupies columns 11-21, `jira.story:ABC-123` 24-41.
+            assert_eq!(items[0].span.start_line, 3);
+            assert_eq!(items[0].span.start_col, 11);
+            assert_eq!(items[0].span.end_col, 22);
+            assert_eq!(items[1].span.start_line, 3);
+            assert_eq!(items[1].span.start_col, 24);
+            assert_eq!(items[1].span.end_col, 42);
         }
         other => panic!("expected ReferenceList with scheme refs, got {:?}", other),
     }

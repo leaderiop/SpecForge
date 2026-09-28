@@ -97,7 +97,10 @@ impl fmt::Display for ModelFieldType {
 }
 
 impl ModelFieldType {
-    pub fn from_schema_str(s: &str) -> Self {
+    /// Maps a manifest field type to the model IR. Unknown type strings fall
+    /// back to [`ModelFieldType::String`] and emit a warning describing the
+    /// fallback (C13-09) so a typo cannot silently corrupt every diagram.
+    pub fn from_schema_str(s: &str, warnings: &mut Vec<String>) -> Self {
         match s {
             "string" => Self::String,
             "integer" => Self::Integer,
@@ -107,12 +110,13 @@ impl ModelFieldType {
             "reference" => Self::Reference,
             "reference_list" => Self::ReferenceList,
             "block" => Self::Block,
-            _ => Self::String, // safe fallback
+            other => {
+                warnings.push(format!("unknown field type '{other}'; rendering as string"));
+                Self::String
+            }
         }
     }
 }
-
-// ---------------------------------------------------------------------------
 // Options
 // ---------------------------------------------------------------------------
 
@@ -141,14 +145,22 @@ pub struct ModelIntermediate {
     /// extension edge counts after filtering. Not serialized to output.
     #[serde(skip)]
     pub edge_type_owners: Vec<(String, String)>,
+    /// Non-fatal build warnings, e.g. unknown field types that fell back to
+    /// string (C13-09). Not serialized to output; surfaced on stderr by the CLI.
+    #[serde(skip)]
+    pub warnings: Vec<String>,
 }
-
 #[derive(Debug, Clone, Serialize, Deserialize)]
+
 pub struct ModelEntity {
     pub name: String,
     pub extension: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub description: Option<String>,
+    /// Registry-declared DOT color; renderers fall back to the extension
+    /// palette when absent (C13-03).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub dot_color: Option<String>,
     pub fields: Vec<ModelField>,
     /// Extensions that contribute fields to this entity via entity enhancements.
     #[serde(skip_serializing_if = "Vec::is_empty")]

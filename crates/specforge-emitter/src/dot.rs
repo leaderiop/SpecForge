@@ -1,4 +1,5 @@
-use specforge_graph::Graph;
+use specforge_graph::{Graph, Node};
+use std::collections::BTreeMap;
 use std::fmt::Write;
 
 /// Escape a string for safe inclusion inside a DOT quoted string.
@@ -19,30 +20,55 @@ fn escape_dot(text: &str) -> String {
     out
 }
 
-pub fn emit_dot(graph: &Graph) -> String {
-    emit_dot_with_styles(graph, None)
+/// Options controlling whole-graph DOT emission (C13-01): per-kind registry
+/// styles (C13-00), a label toggle, kind filtering, and per-extension
+/// subgraph clusters for the previous flat hairball.
+#[derive(Debug, Clone, Copy)]
+pub struct DotOptions<'a> {
+    /// Registry for per-kind `dot_shape`/`dot_color`/`dot_fillcolor` and for
+    /// extension lookup when clustering.
+    pub kind_registry: Option<&'a specforge_registry::KindRegistry>,
+    /// Include node title labels (default true; `false` emits bare IDs).
+    pub labels: bool,
+    /// Wrap nodes in one `subgraph cluster_*` per declaring extension
+    /// (needs `kind_registry`; kinds absent from the registry stay top-level).
+    pub cluster_by_extension: bool,
+    /// Emit only nodes whose kind is listed (`None` = all kinds). Edges whose
+    /// endpoints were filtered out are dropped with them.
+    pub kind_filter: Option<&'a [String]>,
 }
 
-/// Emit DOT with per-kind styles from the registry: extensions declare
-/// `dot_shape`/`dot_color`/`dot_fillcolor` on their entity kinds (C13-00) and
-/// the emitter honors them. Kinds without declarations keep the defaults.
-pub fn emit_dot_with_styles(
-    graph: &Graph,
-    kind_registry: Option<&specforge_registry::KindRegistry>,
-) -> String {
+impl Default for DotOptions<'_> {
+    fn default() -> Self {
+        Self {
+            kind_registry: None,
+            labels: true,
+            cluster_by_extension: false,
+            kind_filter: None,
+        }
+    }
+}
+pub fn emit_dot(graph: &Graph, options: &DotOptions<'_>) -> String {
     let mut out = String::new();
     writeln!(out, "digraph specforge {{").unwrap();
     writeln!(out, "  rankdir=LR;").unwrap();
     writeln!(out, "  node [shape=box];").unwrap();
 
-    for node in graph.nodes() {
+    let kind_entry = |kind: &str| match options.kind_registry {
+        Some(registry) => registry
+            .iter()
+            .find(|(name, _)| *name == kind)
+            .map(|(_, e)| e),
+        None => None,
+    };
+    let included = |node: &Node| {
+        options
+            .kind_filter
+            .is_none_or(|f| f.iter().any(|k| k == node.kind.raw.as_str()))
+    };
+    let write_node = |out: &mut String, node: &Node, indent: &str| {
         let mut style = String::new();
-        if let Some(registry) = kind_registry
-            && let Some(entry) = registry
-                .iter()
-                .find(|(name, _)| *name == node.kind.raw.as_str())
-                .map(|(_, e)| e)
-        {
+        if let Some(entry) = kind_entry(node.kind.raw.as_str()) {
             if let Some(shape) = &entry.dot_shape {
                 style.push_str(&format!(" shape=\"{}\"", escape_dot(shape)));
             }
@@ -53,28 +79,70 @@ pub fn emit_dot_with_styles(
                 style.push_str(&format!(" fillcolor=\"{}\"", escape_dot(fill)));
             }
         }
-        let label = match &node.title {
-            Some(title) => format!(
-                "{}\\n{}",
-                escape_dot(node.id.raw.as_str()),
-                escape_dot(title)
-            ),
-            None => escape_dot(node.id.raw.as_str()),
+        let label = if options.labels {
+            match &node.title {
+                Some(title) => format!(
+                    "{}\\n{}",
+                    escape_dot(node.id.raw.as_str()),
+                    escape_dot(title)
+                ),
+                None => escape_dot(node.id.raw.as_str()),
+            }
+        } else {
+            escape_dot(node.id.raw.as_str())
         };
         writeln!(
             out,
-            "  \"{}\" [label=\"{}\"{}];",
+            "{indent}\"{}\" [label=\"{}\"{}];",
             escape_dot(node.id.raw.as_str()),
             label,
             style
         )
         .unwrap();
+    };
+
+    if options.cluster_by_extension {
+        let mut clusters: BTreeMap<&str, Vec<&Node>> = BTreeMap::new();
+        let mut top_level: Vec<&Node> = Vec::new();
+        for node in graph.nodes() {
+            if !included(node) {
+                continue;
+            }
+            match kind_entry(node.kind.raw.as_str()).map(|e| e.source_extension.as_str()) {
+                Some(ext) => clusters.entry(ext).or_default().push(node),
+                None => top_level.push(node),
+            }
+        }
+        for node in top_level {
+            write_node(&mut out, node, "  ");
+        }
+        for (ext, nodes) in clusters {
+            let cluster_id = ext.replace('@', "").replace(['/', '-'], "_");
+            writeln!(out).unwrap();
+            writeln!(out, "  subgraph cluster_{cluster_id} {{").unwrap();
+            writeln!(out, "    label=\"{ext}\";").unwrap();
+            for node in nodes {
+                write_node(&mut out, node, "    ");
+            }
+            writeln!(out, "  }}").unwrap();
+        }
+    } else {
+        for node in graph.nodes() {
+            if included(node) {
+                write_node(&mut out, node, "  ");
+            }
+        }
     }
 
     let mut edges: Vec<_> = graph.edges().to_vec();
     edges.sort_by(|a, b| (&a.source, &a.target, &a.label).cmp(&(&b.source, &b.target, &b.label)));
 
     for edge in &edges {
+        let keep = graph.node(edge.source.as_str()).is_none_or(&included)
+            && graph.node(edge.target.as_str()).is_none_or(&included);
+        if !keep {
+            continue;
+        }
         writeln!(
             out,
             "  \"{}\" -> \"{}\" [label=\"{}\"];",
@@ -129,7 +197,7 @@ mod dot_escape_tests {
             },
             methods: Vec::new(),
         });
-        let dot = emit_dot(&graph);
+        let dot = emit_dot(&graph, &DotOptions::default());
         let node_stmts = dot
             .lines()
             .filter(|l| l.trim_start().starts_with('"'))

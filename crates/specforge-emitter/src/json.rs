@@ -54,11 +54,9 @@ pub(crate) fn field_value_to_json(value: &FieldValue) -> Value {
         FieldValue::Integer(n) => Value::Number((*n).into()),
         FieldValue::Boolean(b) => Value::Bool(*b),
         FieldValue::Date(s) => Value::String(s.clone()),
-        FieldValue::ReferenceList(refs) => Value::Array(
-            refs.iter()
-                .map(|r: &String| Value::String(r.clone()))
-                .collect(),
-        ),
+        FieldValue::ReferenceList(refs) => {
+            Value::Array(refs.iter().map(|r| Value::String(r.id.clone())).collect())
+        }
         FieldValue::VariantList(variants) => Value::Array(
             variants
                 .iter()

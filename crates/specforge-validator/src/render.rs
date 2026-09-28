@@ -48,7 +48,12 @@ pub fn render_diagnostics(diagnostics: &[Diagnostic], sources: &HashMap<String, 
             builder = builder.with_help(suggestion.clone());
         }
 
-        let report = builder.finish();
+        // render_diagnostics returns a plain String: embedding ANSI escapes
+        // here corrupts piped/agent-facing output (and split substrings for
+        // consumers matching rendered lines). Callers own any re-coloring.
+        let report = builder
+            .with_config(ariadne::Config::default().with_color(false))
+            .finish();
         report.write(&mut cache, &mut buf).ok();
     }
 

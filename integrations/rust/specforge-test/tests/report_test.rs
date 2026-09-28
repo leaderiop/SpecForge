@@ -49,6 +49,29 @@ fn empty_entries_writes_nothing() {
 }
 
 #[test]
+fn report_bytes_are_compact_json() {
+    let dir = tempfile::tempdir().unwrap();
+    let entries = vec![entry("compact", TestOutcome::Pass)];
+
+    report::write_report(dir.path(), "compact_binary", &entries).unwrap();
+
+    let raw = fs::read_to_string(dir.path().join("compact_binary.json")).unwrap();
+    // C6-15: compact serialization — a single line, no pretty-print
+    // whitespace between keys and values.
+    assert!(
+        !raw.contains('\n'),
+        "report must not be pretty-printed: {raw:?}"
+    );
+    assert!(!raw.contains(": "), "no pretty spacing: {raw:?}");
+    // Still valid JSON with the same schema.
+    let content: serde_json::Value = serde_json::from_str(&raw).unwrap();
+    assert_eq!(content["schema_version"], "1.0");
+    assert_eq!(content["binary_name"], "compact_binary");
+    assert_eq!(content["entries"][0]["entity_id"], "compact");
+    assert_eq!(content["entries"][0]["status"], "pass");
+}
+
+#[test]
 fn entries_are_sorted_in_report() {
     let dir = tempfile::tempdir().unwrap();
     // Write entries in reverse order

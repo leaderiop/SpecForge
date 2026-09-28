@@ -146,6 +146,64 @@ fn unrecognized_pattern_kind_produces_warning() {
 
 #[specforge_test(
     behavior = "parse_validation_rule_pattern",
+    verify = "misconfigured rule with empty one_of values produces parse-time warning"
+)]
+#[test]
+fn misconfigured_one_of_with_empty_values_produces_warning() {
+    let mut rule = make_rule("W107", "field_value_constraint");
+    rule.field = Some("status".to_string());
+    rule.constraint = Some(FieldConstraint {
+        kind: "one_of".to_string(),
+        pattern: None,
+        values: vec![],
+    });
+
+    let err = parse_rule_pattern(&rule, "@test/ext").unwrap_err();
+    assert_eq!(err.code, "W024");
+    assert!(err.message.contains("W107"));
+    assert!(err.message.contains("one_of"));
+
+    // The dead rule must not reach execution.
+    let manifests = vec![("@test/ext".to_string(), vec![rule])];
+    let (patterns, diags) = parse_all_rule_patterns(&manifests);
+    assert!(patterns.is_empty());
+    assert_eq!(diags.len(), 1);
+    assert_eq!(diags[0].code, "W024");
+}
+
+#[specforge_test(
+    behavior = "parse_validation_rule_pattern",
+    verify = "field-requiring check without a field produces parse-time warning"
+)]
+#[test]
+fn field_requiring_check_without_field_produces_warning() {
+    // make_rule leaves field unset; missing_field_when_flag_set reads it.
+    let rule = make_rule("W108", "missing_field_when_flag_set");
+    let err = parse_rule_pattern(&rule, "@test/ext").unwrap_err();
+    assert_eq!(err.code, "W024");
+    assert!(err.message.contains("W108"));
+    assert!(err.message.contains("requires a field"));
+}
+
+#[specforge_test(
+    behavior = "parse_validation_rule_pattern",
+    verify = "valid one_of rule still parses after misconfiguration checks"
+)]
+#[test]
+fn valid_one_of_rule_still_parses() {
+    let mut rule = make_rule("W109", "field_value_constraint");
+    rule.field = Some("status".to_string());
+    rule.constraint = Some(FieldConstraint {
+        kind: "one_of".to_string(),
+        pattern: None,
+        values: vec!["draft".to_string(), "active".to_string()],
+    });
+    let pattern = parse_rule_pattern(&rule, "@test/ext").unwrap();
+    assert_eq!(pattern.check, ValidationPatternKind::FieldValueConstraint);
+}
+
+#[specforge_test(
+    behavior = "parse_validation_rule_pattern",
     verify = "all required fields validated on each rule"
 )]
 #[test]
@@ -724,6 +782,48 @@ fn unresolvable_wasm_function_produces_warning() {
             .any(|d| d.code == "W025" && d.message.contains("missing_func"))
     );
     // Still registered for later (will be skipped during execution)
+    assert_eq!(registered.len(), 1);
+}
+
+#[specforge_test(
+    behavior = "register_custom_validation_patterns",
+    verify = "wasm function that fails the probe produces a warning"
+)]
+#[test]
+fn wasm_function_probe_failure_produces_warning() {
+    struct TrappingRuntime;
+    impl WasmValidationRuntime for TrappingRuntime {
+        fn call_custom_validator(
+            &self,
+            _func: &str,
+            id: &str,
+            _kind: &str,
+        ) -> Result<bool, String> {
+            if id == "__probe__" {
+                Err("trapped: unreachable".to_string())
+            } else {
+                Ok(true)
+            }
+        }
+    }
+    let pattern = ValidationRulePattern {
+        code: "E202".to_string(),
+        severity: Severity::Error,
+        message_template: "test".to_string(),
+        check: ValidationPatternKind::Custom,
+        target_kind: None,
+        edge_type: None,
+        field: None,
+        constraint: None,
+        wasm_function: Some("broken_export".to_string()),
+    };
+
+    let (registered, diags) = register_custom_patterns(&[pattern], Some(&TrappingRuntime));
+    // The dead function is reported, not silently registered as healthy.
+    assert!(diags.iter().any(|d| d.code == "W025"
+        && d.message.contains("broken_export")
+        && d.message.contains("can never fire")));
+    // Still registered (execution will simply never fire it).
     assert_eq!(registered.len(), 1);
 }
 

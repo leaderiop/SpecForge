@@ -64,6 +64,9 @@ pub fn run(
     };
 
     let model = ModelIntermediate_from_schema(&schema);
+    for warning in &model.warnings {
+        eprintln!("warning (model): {warning}");
+    }
     let model = filter_entities(&model, &options);
     let model = filter_fields(&model, options.fields);
 

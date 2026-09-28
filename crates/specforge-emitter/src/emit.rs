@@ -111,6 +111,14 @@ pub fn emit(graph: &Graph, options: &EmitOptions<'_>) -> Result<String, EmitterE
         g
     };
 
+    // Scoped exports reference the published schema instead of embedding it
+    // (C6-07); full exports embed.
+    let attach = if options.scope.is_some() {
+        crate::schema::SchemaAttachment::Referenced
+    } else {
+        crate::schema::SchemaAttachment::Embedded
+    };
+
     // Token budget: agent-consumed formats (Json/Context/Brief) honor it by
     // truncating to the most central subgraph that fits (C1-10). Schema
     // definitions and DOT are not budgeted.
@@ -125,11 +133,11 @@ pub fn emit(graph: &Graph, options: &EmitOptions<'_>) -> Result<String, EmitterE
             budgeted_graph = crate::budget::filter_graph_within_budget(g, budget, |sub| {
                 match (options.format, options.schema) {
                     (EmitFormat::Context, Some(schema)) => {
-                        crate::schema::emit_context_with_schema(sub, schema)
+                        crate::schema::emit_context_attached(sub, schema, attach)
                     }
                     (EmitFormat::Context, None) => Ok(crate::context::emit_context(sub)),
                     (EmitFormat::Brief, Some(schema)) => {
-                        crate::schema::emit_brief_with_schema(sub, schema)
+                        crate::schema::emit_brief_attached(sub, schema, attach)
                     }
                     (EmitFormat::Brief, None) => Ok(crate::brief::emit_brief(sub)),
                     _ => Ok(crate::json::emit_json(sub)),
@@ -142,13 +150,21 @@ pub fn emit(graph: &Graph, options: &EmitOptions<'_>) -> Result<String, EmitterE
 
     // Dispatch to format
     let output = match (options.format, options.schema) {
-        (EmitFormat::Json, Some(schema)) => crate::schema::emit_json_with_schema(g, schema)?,
+        (EmitFormat::Json, Some(schema)) => crate::schema::emit_json_attached(g, schema, attach)?,
         (EmitFormat::Json, None) => crate::json::emit_json(g),
-        (EmitFormat::Context, Some(schema)) => crate::schema::emit_context_with_schema(g, schema)?,
+        (EmitFormat::Context, Some(schema)) => {
+            crate::schema::emit_context_attached(g, schema, attach)?
+        }
         (EmitFormat::Context, None) => crate::context::emit_context(g),
-        (EmitFormat::Brief, Some(schema)) => crate::schema::emit_brief_with_schema(g, schema)?,
+        (EmitFormat::Brief, Some(schema)) => crate::schema::emit_brief_attached(g, schema, attach)?,
         (EmitFormat::Brief, None) => crate::brief::emit_brief(g),
-        (EmitFormat::Dot, _) => crate::dot::emit_dot_with_styles(g, options.kind_registry),
+        (EmitFormat::Dot, _) => crate::dot::emit_dot(
+            g,
+            &crate::dot::DotOptions {
+                kind_registry: options.kind_registry,
+                ..Default::default()
+            },
+        ),
     };
 
     Ok(output)

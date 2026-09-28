@@ -107,8 +107,26 @@ impl WasmValidationRuntime for StubWasmRuntime {
     }
 }
 
+/// C6-12: diagnostic for a structurally impossible rule — one whose check
+/// kind requires a field or constraint it does not carry, or whose
+/// constraint can never match. Such a rule would execute as a silent no-op,
+/// so it is rejected at parse time (W024) and never registered.
+fn unexecutable_rule(extension_name: &str, rule_code: &str, why: &str) -> Diagnostic {
+    Diagnostic {
+        code: "W024".to_string(),
+        severity: Severity::Warning,
+        message: format!(
+            "extension '{}': rule '{}': {} — the rule can never fire and was not registered",
+            extension_name, rule_code, why
+        ),
+        span: None,
+        suggestion: None,
+    }
+}
+
 /// Parse a ManifestValidationRule into a ValidationRulePattern.
-/// Returns Ok(pattern) or Err(diagnostic) for unrecognized check kinds.
+/// Returns Ok(pattern) or Err(diagnostic) when the rule is unrecognized or
+/// structurally cannot fire (missing field/constraint, empty values — W024).
 #[allow(clippy::result_large_err)]
 pub fn parse_rule_pattern(
     rule: &ManifestValidationRule,
@@ -147,6 +165,86 @@ pub fn parse_rule_pattern(
         "info" => Severity::Info,
         _ => Severity::Warning,
     };
+
+    // C6-12: structural validation. A rule missing the field or constraint
+    // its check kind reads — or carrying a constraint shape that can never
+    // match — would execute as a silent no-op. Reject it at parse time so
+    // the misconfiguration is reported instead of shipping a dead rule.
+    match check {
+        ValidationPatternKind::FieldValueConstraint => match rule.constraint.as_ref() {
+            None => {
+                return Err(unexecutable_rule(
+                    extension_name,
+                    &rule.code,
+                    "check 'field_value_constraint' requires a constraint but none is set",
+                ));
+            }
+            Some(c) => match c.kind.as_str() {
+                "non_empty" => {}
+                "one_of" if c.values.is_empty() => {
+                    return Err(unexecutable_rule(
+                        extension_name,
+                        &rule.code,
+                        "one_of constraint has an empty values list — every field value would be flagged as a violation",
+                    ));
+                }
+                "matches" if c.pattern.is_none() => {
+                    return Err(unexecutable_rule(
+                        extension_name,
+                        &rule.code,
+                        "matches constraint has no pattern — no value can ever be checked",
+                    ));
+                }
+                "one_of" | "matches" => {}
+                other => {
+                    return Err(unexecutable_rule(
+                        extension_name,
+                        &rule.code,
+                        &format!(
+                            "unknown constraint kind '{other}' for check 'field_value_constraint' (expected non_empty, one_of, or matches)"
+                        ),
+                    ));
+                }
+            },
+        },
+        ValidationPatternKind::ConditionalFieldRequired => match rule.constraint.as_ref() {
+            None => {
+                return Err(unexecutable_rule(
+                    extension_name,
+                    &rule.code,
+                    "check 'conditional_field_required' requires a constraint but none is set",
+                ));
+            }
+            Some(c) => {
+                if c.pattern.is_none() {
+                    return Err(unexecutable_rule(
+                        extension_name,
+                        &rule.code,
+                        "conditional_field_required requires constraint.pattern (the condition field) — without it the condition can never be met",
+                    ));
+                }
+                if c.values.is_empty() {
+                    return Err(unexecutable_rule(
+                        extension_name,
+                        &rule.code,
+                        "conditional_field_required has an empty condition values list — the condition can never be met",
+                    ));
+                }
+            }
+        },
+        ValidationPatternKind::MissingFieldWhenFlagSet
+        | ValidationPatternKind::FileExists
+        | ValidationPatternKind::MissingRequiredField
+            if rule.field.is_none() =>
+        {
+            return Err(unexecutable_rule(
+                extension_name,
+                &rule.code,
+                &format!("check '{}' requires a field but none is set", rule.check),
+            ));
+        }
+        _ => {}
+    }
 
     let constraint = match rule.constraint.as_ref() {
         Some(c) => {
@@ -411,6 +509,10 @@ pub fn execute_pattern(
                             violation_value = value;
                             true
                         }
+                        // A runtime error means a broken or trapping export,
+                        // already reported once by register_custom_patterns'
+                        // __probe__ at load time; repeating per entity would
+                        // only spam.
                         Err(_) => false,
                     }
                 } else {
@@ -478,8 +580,26 @@ pub fn register_custom_patterns(
                 // Try to resolve the Wasm function
                 if let Some(rt) = wasm {
                     match rt.call_custom_validator(func, "__probe__", "__probe__") {
-                        Ok(_) | Err(_) => {
-                            // Function exists (or runtime available but function fails) — register it
+                        Ok(_) => {
+                            // Probe passed — the export exists and runs.
+                            registered.push(pattern.clone());
+                        }
+                        Err(err) => {
+                            // C6-12: a function that traps on the probe can
+                            // never produce a verdict, so registering it
+                            // silently would ship a dead rule. Warn loudly;
+                            // still register (execution will never fire it),
+                            // matching the no-runtime policy below.
+                            diagnostics.push(Diagnostic {
+                                code: "W025".to_string(),
+                                severity: Severity::Warning,
+                                message: format!(
+                                    "custom validation pattern '{}' probes wasm_function '{}' and the call failed: {} — the rule can never fire",
+                                    pattern.code, func, err
+                                ),
+                                span: None,
+                                suggestion: None,
+                            });
                             registered.push(pattern.clone());
                         }
                     }
@@ -948,6 +1068,204 @@ mod tests {
         );
         assert_eq!(diags.len(), 1);
         assert_eq!(diags[0].code, "W024");
+    }
+
+    // C6-12: a one_of constraint with no values misconfigures the allowlist.
+    #[test]
+    fn test_empty_one_of_values_rejected_at_parse() {
+        let rule = ManifestValidationRule {
+            code: "W103".to_string(),
+            severity: "warning".to_string(),
+            message_template: "{kind} '{id}' has invalid {field}='{value}'".to_string(),
+            check: "field_value_constraint".to_string(),
+            target_kind: Some("behavior".to_string()),
+            edge_type: None,
+            field: Some("status".to_string()),
+            constraint: Some(crate::FieldConstraint {
+                kind: "one_of".to_string(),
+                pattern: None,
+                values: vec![],
+            }),
+            wasm_function: None,
+        };
+
+        let err = parse_rule_pattern(&rule, "@test").unwrap_err();
+        assert_eq!(err.code, "W024");
+        assert!(err.message.contains("W103"), "{}", err.message);
+        assert!(err.message.contains("one_of"), "{}", err.message);
+
+        let manifests = vec![("@test".to_string(), vec![rule])];
+        let (patterns, diags) = parse_all_rule_patterns(&manifests);
+        assert!(
+            patterns.is_empty(),
+            "the misconfigured rule must not reach execution"
+        );
+        assert_eq!(diags.len(), 1);
+        assert_eq!(diags[0].code, "W024");
+    }
+
+    // C6-12: a check kind that reads a field cannot run without one.
+    #[test]
+    fn test_missing_field_for_field_check_rejected_at_parse() {
+        let rule = make_rule("W104", "missing_field_when_flag_set"); // field: None
+        let err = parse_rule_pattern(&rule, "@test").unwrap_err();
+        assert_eq!(err.code, "W024");
+        assert!(err.message.contains("W104"), "{}", err.message);
+        assert!(err.message.contains("requires a field"), "{}", err.message);
+    }
+
+    // C6-12: a matches constraint without a pattern can never check anything.
+    #[test]
+    fn test_matches_without_pattern_rejected_at_parse() {
+        let rule = ManifestValidationRule {
+            code: "W105".to_string(),
+            severity: "warning".to_string(),
+            message_template: "{kind} '{id}' has invalid {field}".to_string(),
+            check: "field_value_constraint".to_string(),
+            target_kind: Some("release".to_string()),
+            edge_type: None,
+            field: Some("version".to_string()),
+            constraint: Some(crate::FieldConstraint {
+                kind: "matches".to_string(),
+                pattern: None,
+                values: vec![],
+            }),
+            wasm_function: None,
+        };
+        let err = parse_rule_pattern(&rule, "@test").unwrap_err();
+        assert_eq!(err.code, "W024");
+        assert!(
+            err.message.contains("matches constraint has no pattern"),
+            "{}",
+            err.message
+        );
+    }
+
+    // C6-12: an unrecognized constraint kind never matches — reject loudly.
+    #[test]
+    fn test_unknown_constraint_kind_rejected_at_parse() {
+        let rule = ManifestValidationRule {
+            code: "W106".to_string(),
+            severity: "warning".to_string(),
+            message_template: "{kind} '{id}' has invalid {field}".to_string(),
+            check: "field_value_constraint".to_string(),
+            target_kind: Some("behavior".to_string()),
+            edge_type: None,
+            field: Some("status".to_string()),
+            constraint: Some(crate::FieldConstraint {
+                kind: "equals".to_string(),
+                pattern: None,
+                values: vec!["active".to_string()],
+            }),
+            wasm_function: None,
+        };
+        let err = parse_rule_pattern(&rule, "@test").unwrap_err();
+        assert_eq!(err.code, "W024");
+        assert!(
+            err.message.contains("unknown constraint kind 'equals'"),
+            "{}",
+            err.message
+        );
+    }
+
+    // C6-12: a conditional rule with no condition values can never trigger.
+    #[test]
+    fn test_conditional_field_required_empty_condition_values_rejected() {
+        let rule = ManifestValidationRule {
+            code: "I059".to_string(),
+            severity: "info".to_string(),
+            message_template: "feature '{id}' has status 'deferred' but no reason".to_string(),
+            check: "conditional_field_required".to_string(),
+            target_kind: Some("feature".to_string()),
+            edge_type: None,
+            field: Some("reason".to_string()),
+            constraint: Some(crate::FieldConstraint {
+                kind: "when_field_equals".to_string(),
+                pattern: Some("status".to_string()),
+                values: vec![],
+            }),
+            wasm_function: None,
+        };
+        let err = parse_rule_pattern(&rule, "@test").unwrap_err();
+        assert_eq!(err.code, "W024");
+        assert!(
+            err.message.contains("empty condition values"),
+            "{}",
+            err.message
+        );
+    }
+
+    // C6-12: a wasm function that traps on the __probe__ is warned about at
+    // registration instead of being silently registered as healthy.
+    #[test]
+    fn test_probe_failure_warns_instead_of_silent_registration() {
+        struct TrappingRuntime;
+        impl WasmValidationRuntime for TrappingRuntime {
+            fn call_custom_validator(
+                &self,
+                _func: &str,
+                id: &str,
+                _kind: &str,
+            ) -> Result<bool, String> {
+                if id == "__probe__" {
+                    Err("trapped: unreachable".to_string())
+                } else {
+                    Ok(true)
+                }
+            }
+        }
+        let pattern = ValidationRulePattern {
+            code: "E202".to_string(),
+            severity: Severity::Error,
+            message_template: "{id} failed".to_string(),
+            check: ValidationPatternKind::Custom,
+            target_kind: None,
+            edge_type: None,
+            field: None,
+            constraint: None,
+            wasm_function: Some("broken_export".to_string()),
+        };
+
+        let (registered, diags) = register_custom_patterns(&[pattern], Some(&TrappingRuntime));
+        assert_eq!(registered.len(), 1);
+        assert!(
+            diags.iter().any(|d| d.code == "W025"
+                && d.message.contains("broken_export")
+                && d.message.contains("can never fire")),
+            "probe failure must be reported: {:?}",
+            diags
+        );
+    }
+
+    // C6-12: a healthy probe registers without any warning.
+    #[test]
+    fn test_healthy_probe_registers_without_warning() {
+        struct HealthyRuntime;
+        impl WasmValidationRuntime for HealthyRuntime {
+            fn call_custom_validator(
+                &self,
+                _func: &str,
+                _id: &str,
+                _kind: &str,
+            ) -> Result<bool, String> {
+                Ok(true)
+            }
+        }
+        let pattern = ValidationRulePattern {
+            code: "E203".to_string(),
+            severity: Severity::Error,
+            message_template: "{id} failed".to_string(),
+            check: ValidationPatternKind::Custom,
+            target_kind: None,
+            edge_type: None,
+            field: None,
+            constraint: None,
+            wasm_function: Some("healthy_export".to_string()),
+        };
+
+        let (registered, diags) = register_custom_patterns(&[pattern], Some(&HealthyRuntime));
+        assert_eq!(registered.len(), 1);
+        assert!(diags.is_empty(), "healthy probe must not warn: {:?}", diags);
     }
 
     // B:execute_validation_pattern — verify unit "matches constraint anchors the full value (not a substring)"

@@ -34,7 +34,7 @@ fn node(id: &str, kind: &str, title: Option<&str>) -> Node {
 )]
 fn empty_graph_produces_valid_dot() {
     let graph = Graph::new();
-    let dot = specforge_emitter::emit_dot(&graph);
+    let dot = specforge_emitter::emit_dot(&graph, &specforge_emitter::DotOptions::default());
     assert!(dot.starts_with("digraph"));
     assert!(dot.contains('{'));
     assert!(dot.trim_end().ends_with('}'));
@@ -50,7 +50,7 @@ fn dot_nodes_labeled_with_id_and_title() {
     let mut graph = Graph::new();
     graph.add_node(node("alpha", "behavior", Some("Alpha Behavior")));
 
-    let dot = specforge_emitter::emit_dot(&graph);
+    let dot = specforge_emitter::emit_dot(&graph, &specforge_emitter::DotOptions::default());
     assert!(dot.contains("alpha"), "node ID in DOT output");
     assert!(dot.contains("Alpha Behavior"), "node title in DOT output");
 }
@@ -71,7 +71,7 @@ fn dot_edges_labeled_with_type() {
         label: Sym::new("behaviors"),
     });
 
-    let dot = specforge_emitter::emit_dot(&graph);
+    let dot = specforge_emitter::emit_dot(&graph, &specforge_emitter::DotOptions::default());
     assert!(
         dot.contains("feat_a") && dot.contains("beh_b"),
         "edge endpoints in DOT"
@@ -89,6 +89,135 @@ fn dot_node_default_shape_is_box() {
     let mut graph = Graph::new();
     graph.add_node(node("alpha", "behavior", Some("Alpha")));
 
-    let dot = specforge_emitter::emit_dot(&graph);
+    let dot = specforge_emitter::emit_dot(&graph, &specforge_emitter::DotOptions::default());
     assert!(dot.contains("box"), "default shape is box");
+}
+
+// B:serialize_dot_visualization — verify unit "labels toggle emits bare IDs"
+#[test]
+#[specforge_test(
+    behavior = "serialize_dot_visualization",
+    verify = "labels toggle emits bare IDs"
+)]
+fn dot_labels_toggle_drops_titles() {
+    let mut graph = Graph::new();
+    graph.add_node(node("alpha", "behavior", Some("Alpha Behavior")));
+
+    let dot = specforge_emitter::emit_dot(
+        &graph,
+        &specforge_emitter::DotOptions {
+            labels: false,
+            ..Default::default()
+        },
+    );
+    assert!(dot.contains("alpha"), "node ID still emitted");
+    assert!(
+        !dot.contains("Alpha Behavior"),
+        "title must be dropped when labels are off: {dot}"
+    );
+}
+
+// B:serialize_dot_visualization — verify unit "kind filter drops other kinds"
+#[test]
+#[specforge_test(
+    behavior = "serialize_dot_visualization",
+    verify = "kind filter drops other kinds"
+)]
+fn dot_kind_filter_drops_nodes_and_edges() {
+    let mut graph = Graph::new();
+    graph.add_node(node("feat_a", "feature", None));
+    graph.add_node(node("beh_b", "behavior", None));
+    graph.add_edge(Edge {
+        source: Sym::new("feat_a"),
+        target: Sym::new("beh_b"),
+        label: Sym::new("behaviors"),
+    });
+
+    let behaviors = vec!["behavior".to_string()];
+    let dot = specforge_emitter::emit_dot(
+        &graph,
+        &specforge_emitter::DotOptions {
+            kind_filter: Some(&behaviors),
+            ..Default::default()
+        },
+    );
+    assert!(dot.contains("beh_b"), "kept kind present");
+    assert!(!dot.contains("feat_a"), "filtered kind absent: {dot}");
+    assert!(
+        !dot.contains("behaviors"),
+        "edge with filtered endpoint must be dropped: {dot}"
+    );
+}
+
+// B:serialize_dot_visualization — verify unit "clusters group by declaring extension"
+#[test]
+#[specforge_test(
+    behavior = "serialize_dot_visualization",
+    verify = "clusters group by declaring extension"
+)]
+fn dot_cluster_by_extension_groups_nodes() {
+    let mut registry = specforge_registry::KindRegistry::new();
+    registry.register(specforge_registry::KindRegistryEntry {
+        kind_name: "behavior".to_string(),
+        description: None,
+        source_extension: "@specforge/software".to_string(),
+        testable: false,
+        singleton: false,
+        supports_verify: false,
+        allowed_verify_kinds: Vec::new(),
+        has_body_parser: false,
+        semantic_token: None,
+        lsp_icon: None,
+        dot_shape: None,
+        dot_color: None,
+        dot_fillcolor: None,
+        open_fields: false,
+    });
+    registry.register(specforge_registry::KindRegistryEntry {
+        kind_name: "term".to_string(),
+        description: None,
+        source_extension: "@specforge/product".to_string(),
+        testable: false,
+        singleton: false,
+        supports_verify: false,
+        allowed_verify_kinds: Vec::new(),
+        has_body_parser: false,
+        semantic_token: None,
+        lsp_icon: None,
+        dot_shape: None,
+        dot_color: None,
+        dot_fillcolor: None,
+        open_fields: false,
+    });
+    let mut graph = Graph::new();
+    graph.add_node(node("beh_b", "behavior", None));
+    graph.add_node(node("term_t", "term", None));
+
+    let dot = specforge_emitter::emit_dot(
+        &graph,
+        &specforge_emitter::DotOptions {
+            kind_registry: Some(&registry),
+            cluster_by_extension: true,
+            ..Default::default()
+        },
+    );
+    assert!(
+        dot.contains("subgraph cluster_specforge_software"),
+        "software cluster present: {dot}"
+    );
+    assert!(
+        dot.contains("subgraph cluster_specforge_product"),
+        "product cluster present: {dot}"
+    );
+    // Clusters iterate in extension-name order: @specforge/product first.
+    let product = dot.find("cluster_specforge_product").unwrap();
+    let software = dot.find("cluster_specforge_software").unwrap();
+    let term = dot.find("\"term_t\"").unwrap();
+    let beh = dot.find("\"beh_b\"").unwrap();
+    assert!(product < software, "clusters sorted by extension: {dot}");
+    assert!(
+        product < term && term < software,
+        "term_t inside the product cluster: {dot}"
+    );
+    assert!(software < beh, "beh_b inside the software cluster: {dot}");
 }

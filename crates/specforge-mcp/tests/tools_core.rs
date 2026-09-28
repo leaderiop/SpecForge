@@ -2,7 +2,7 @@ use serde_json::{Value, json};
 use specforge_common::SourceSpan;
 use specforge_graph::{Edge, Graph, Node};
 use specforge_mcp::McpServer;
-use specforge_parser::{EntityId, EntityKind, FieldMap, FieldValue, VerifyStatement};
+use specforge_parser::{EntityId, EntityKind, FieldMap, FieldValue, SpannedRef, VerifyStatement};
 use specforge_test::prelude::*;
 
 fn span() -> SourceSpan {
@@ -50,7 +50,10 @@ fn test_server() -> McpServer {
     let mut fields_b = FieldMap::new();
     fields_b.push(
         "behaviors".into(),
-        FieldValue::ReferenceList(vec!["alpha".into()]),
+        FieldValue::ReferenceList(vec![SpannedRef {
+            id: "alpha".into(),
+            span: span(),
+        }]),
     );
     graph.add_node(Node {
         id: EntityId {

@@ -370,7 +370,7 @@ invariant security "Security Invariant" {
     assert!(!context.is_empty(), "context must not be empty");
 
     // DOT format
-    let dot = specforge_emitter::emit_dot(&ctx.graph);
+    let dot = specforge_emitter::emit_dot(&ctx.graph, &specforge_emitter::DotOptions::default());
     assert!(dot.contains("digraph"), "DOT must contain digraph");
 
     // Stats
