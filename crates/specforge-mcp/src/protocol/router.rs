@@ -21,10 +21,18 @@ pub fn route(
         "prompts/list" => crate::registry::handle_list_prompts(state, id),
 
         // Resources
-        "resources/read" => crate::resources::handle_resource_read(state, params, id),
+        "resources/read" => {
+            // C9-07: serve a fresh graph when watch has produced a newer
+            // snapshot.
+            state.refresh_if_stale();
+            crate::resources::handle_resource_read(state, params, id)
+        }
 
         // Tools
-        "tools/call" => crate::tools::handle_tool_call(state, params, id),
+        "tools/call" => {
+            state.refresh_if_stale();
+            crate::tools::handle_tool_call(state, params, id)
+        }
 
         // Prompts
         "prompts/get" => crate::prompts::handle_prompt_get(state, params, id),

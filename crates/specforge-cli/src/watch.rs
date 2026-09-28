@@ -179,6 +179,37 @@ pub fn run(path: &Path, json: bool) -> i32 {
             .filter(|d| d.severity == Severity::Warning)
             .count();
 
+        // C9-07: write the freshness marker so a running MCP server (or any
+        // agent polling the snapshot) can detect the newer graph.
+        // The marker lives under the spec root's parent (the project root
+        // when it matches); walking up is avoided — the spec root parent is
+        // where .specforge/ and specforge.json live in standard layouts.
+        let marker_dir = spec_root
+            .parent()
+            .unwrap_or(&spec_root)
+            .join(".specforge");
+        let _ = std::fs::create_dir_all(&marker_dir);
+        let marker_tmp = marker_dir.join("graph.json.tmp");
+        let marker = marker_dir.join("graph.json");
+        let marker_doc = serde_json::json!({
+            "updated_at": std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .map(|d| d.as_millis())
+                .unwrap_or(0),
+            "nodes": pipeline.graph().node_count(),
+            "edges": pipeline.graph().edge_count(),
+        });
+        if let Ok(mut f) = std::fs::File::create(&marker_tmp) {
+            use std::io::Write;
+            let _ = f.write_all(
+                serde_json::to_string(&marker_doc)
+                    .expect("marker serialization cannot fail")
+                    .as_bytes(),
+            );
+            let _ = f.sync_all();
+            let _ = std::fs::rename(&marker_tmp, &marker);
+        }
+
         if json {
             println!(
                 "{}",

@@ -58,6 +58,7 @@ pub fn handle_initialize(
         state.edge_registry = result.edge_registry;
         state.extension_info = result.extension_info;
         state.surface_entries = result.surface_entries;
+        state.loaded_at = Some(std::time::SystemTime::now());
         state.manifests = result.manifests;
 
         // Register extension MCP tools and resources from manifest surfaces

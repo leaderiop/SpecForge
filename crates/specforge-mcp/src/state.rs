@@ -31,6 +31,50 @@ pub struct McpState {
     pub surface_entries: Vec<SurfaceRegistryEntry>,
     pub manifests: Vec<specforge_registry::ManifestV2>,
     pub project_config: ProjectConfig,
+    /// When the current graph was compiled. Compared against the watch
+    /// snapshot marker mtime to detect staleness (C9-07).
+    pub loaded_at: Option<std::time::SystemTime>,
+}
+
+impl McpState {
+    /// Path of the watch snapshot marker for this project, if configured.
+    pub fn snapshot_marker(&self) -> Option<std::path::PathBuf> {
+        self.project_root
+            .as_ref()
+            .map(|root| root.join(".specforge").join("graph.json"))
+    }
+
+    /// Rebuild the graph when watch has written a newer snapshot (C9-07).
+    /// No-op without a project root, without a snapshot, or when fresh.
+    pub fn refresh_if_stale(&mut self) {
+        use std::time::SystemTime;
+        let Some(marker) = self.snapshot_marker() else {
+            return;
+        };
+        let Ok(meta) = std::fs::metadata(&marker) else {
+            return;
+        };
+        let mtime = meta.modified().ok();
+        let stale = match (self.loaded_at, mtime) {
+            (Some(loaded), Some(m)) => m > loaded,
+            (None, _) => true, // never compiled against a snapshot
+            _ => false,
+        };
+        if !stale {
+            return;
+        }
+        if let Some(root) = self.project_root.clone() {
+            let compiled = crate::compile::compile_project(&root);
+            self.graph = compiled.graph;
+            self.diagnostics = compiled.diagnostics;
+            self.kind_registry = compiled.kind_registry;
+            self.field_registry = compiled.field_registry;
+            self.edge_registry = compiled.edge_registry;
+            self.extension_info = compiled.extension_info;
+            self.manifests = compiled.manifests;
+            self.loaded_at = Some(SystemTime::now());
+        }
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -65,6 +109,7 @@ impl McpState {
             surface_entries: Vec::new(),
             manifests: Vec::new(),
             project_config: ProjectConfig::default(),
+            loaded_at: None,
         }
     }
 
