@@ -35,6 +35,10 @@ jobs:
           tree-sitter generate
           git diff --exit-code -- src/parser.c src/grammar.json src/node-types.json             || (echo "::error::grammar.js changed without regenerating — run 'tree-sitter generate' and commit the artifacts" && exit 1)
 
+      # specforge-component embeds extensions/*/wasm/*.wasm; fail when their recorded sources drift.
+      - name: Verify vendored builtin blobs match their sources
+        run: cargo run -p xtask --bin build-builtins -- --check
+
       - name: Check formatting
         run: cargo fmt --all -- --check
 

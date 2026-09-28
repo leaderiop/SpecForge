@@ -1057,8 +1057,11 @@ decision wasm_component_runtime "All Extensions Execute as wasip2 Components" {
     prevents its reintroduction. The guest boundary is the
     specforge:bridge world (call: name, export-name, input -> result).
     Deterministic per-extension fuel limits replace wall-clock budgets.
-    Fresh clones build missing builtin blobs via
-    `cargo run -p xtask --bin build-builtins` (wasm32-wasip2 target).
+    The six builtin blobs are vendored under extensions/<name>/wasm/ and
+    embedded at compile time, each with an inputs.json fingerprint of the
+    sources it was built from; `cargo run -p xtask --bin build-builtins
+    -- --install` rebuilds and re-vendors them (wasm32-wasip2 target), and
+    CI's `--check` fails when a vendored blob drifts from its sources.
   """
 
   consequences """

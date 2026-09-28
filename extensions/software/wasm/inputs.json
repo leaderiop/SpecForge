@@ -1,0 +1,27 @@
+{
+  "artifact": "specforge_ext_software.wasm",
+  "artifact_sha256": "cf6899060987d3262ad1887d79b44f4cf470baf62a4f58effdc7e9ff052480f1",
+  "built_with": "rustc 1.98.1 (48a229cea 2026-09-01)",
+  "inputs": {
+    "Cargo.toml#workspace-inherited": "5b6984643f750654b77450e8b8a9fa89b8c4ac25b3fefdcaa19f9107f375bcdc",
+    "crates/specforge-extension-sdk-macros/Cargo.toml": "8e4cca6917dfb890653f49fe20256289db6851044fdcbaac69569d358c3eb64d",
+    "crates/specforge-extension-sdk-macros/src/lib.rs": "ad2948c86a0d8ac7228edd933c41316d8f5f6db2a9548d68068304337615d8a2",
+    "crates/specforge-extension-sdk/Cargo.toml": "c7b2dc38619f1d923d82be483f86b90d795eede0e30c2c8187cb93b0e475b7bf",
+    "crates/specforge-extension-sdk/src/lib.rs": "aa502dac557e792c36c1594590f8e8eb7235a27d105b049a7915dc5efdb7b745",
+    "crates/specforge-extension-sdk/src/testing.rs": "8fcab95aa132910d6b72406ecbdb70a802d5a6825966b2b4314fdd2234c70f6b",
+    "crates/specforge-protocol-types/Cargo.toml": "00d9084460a9967560586181f748c4ee56b8ef0a93c9221d68887d6470da44c7",
+    "crates/specforge-protocol-types/src/lib.rs": "36d4ba06ba2d0fec1da2b4808783dce5ceaaa829a88cc57aa06ac3d8fefc0114",
+    "extensions/software/Cargo.lock": "0dca28766540ea34a00da3c575571c59a4c9b8950a5ea1b08f5770b81961fa41",
+    "extensions/software/Cargo.toml": "25b6f5b1dd9abd441077c5331128bb06ba12bc672ee30a7acf050fc623419d6f",
+    "extensions/software/src/describe_edges.json": "811c2d3249c9516ce5ec70127390aa1089a4aecfcf48623de819b968303d633a",
+    "extensions/software/src/describe_enhancements.json": "1336bbfa346d8ef95042248b64c2ebb14abbe0bceab2af48e3d200bc44be8e25",
+    "extensions/software/src/describe_entities.json": "722d7b00ed08e129da5b2888581c57d12d8701f86677928700944624cedffd27",
+    "extensions/software/src/describe_feature_flags.json": "11e9c7a339d20bdee69f54fbb75c3ecc65e634f55c01ad8b7c90889b0c3826ae",
+    "extensions/software/src/describe_fields.json": "b5b6ac9ae149eafa1336c68ffa0d8f15542d3111aa181e94fd35d1646839cb8b",
+    "extensions/software/src/describe_passes.json": "6865f5eb00a0e339ed6eec5049fea88c02743cda8cfa6bc909ddb357677245fd",
+    "extensions/software/src/describe_shared_fields.json": "14faf141b6e8cd457f9aeb486f1205793c5c4e4bc3d2882e063067a1250acfe4",
+    "extensions/software/src/describe_surfaces.json": "c4682537c14ad4e829c21f65ce32263160327917bb1f824e6a67fcd9a82f1a82",
+    "extensions/software/src/describe_validation_rules.json": "ad6cd6ba4c1d65bd1d5d31cbf2d941168335652de60ada942501ca39d60afa69",
+    "extensions/software/src/lib.rs": "a0e49b6470661c8cd37545084d8879702eea2df7129723f6ea145e50f1ee44c2"
+  }
+}

@@ -127,7 +127,7 @@ Projects are configured via **`specforge.json`** (like `tsconfig.json`):
 
 - **Parser** — Tree-sitter grammar that parses any `keyword name { ... }` block generically, with error recovery (collects multiple diagnostics, never fails fast).
 - **Graph** — typed entity graph over interned symbols (custom node/edge indexes), with cycle detection and subgraph queries. Reference resolution is one shared code path used by the CLI, LSP, and watch mode.
-- **Extension runtime** — every extension (including the six builtins) is a WIT-typed wasip2 component executed through a single wasmtime component engine, with deterministic per-extension fuel limits. No native tier: builtins and third-party extensions are the same kind of plugin. Blob builds from source are available via `cargo run -p xtask --bin build-builtins`.
+- **Extension runtime** — every extension (including the six builtins) is a WIT-typed wasip2 component executed through a single wasmtime component engine, with deterministic per-extension fuel limits. No native tier: builtins and third-party extensions are the same kind of plugin. The six builtin blobs are vendored under `extensions/<name>/wasm/` and embedded in the binary; after changing an extension or the SDK, rebuild and re-vendor them with `cargo run -p xtask --bin build-builtins -- --install` (CI's `--check` fails when vendored blobs drift from their sources).
 - **Surfaces** — CLI (`specforge-cli`), LSP (`specforge-lsp`), and MCP (`specforge-mcp`) all consume the same graph.
 
 The implementation is a Rust workspace (edition 2024) under [`crates/`](crates/).
