@@ -28,6 +28,9 @@ pub struct ProjectConfig {
     pub version: Option<String>,
     pub spec_root: Option<String>,
     pub extensions: Vec<String>,
+    /// Path substrings excluded from `.spec` discovery (C4-04): matched
+    /// against the workspace-relative path by the shared discovery walker.
+    pub exclude: Vec<String>,
     pub inference: InferenceConfig,
     pub raw: Option<serde_json::Value>,
 }
@@ -74,6 +77,15 @@ pub fn load_project_config(project_root: &Path) -> ProjectConfig {
                 .collect()
         })
         .unwrap_or_default();
+    let exclude = value
+        .get("exclude")
+        .and_then(|v| v.as_array())
+        .map(|arr| {
+            arr.iter()
+                .filter_map(|v| v.as_str().map(|s| s.to_string()))
+                .collect()
+        })
+        .unwrap_or_default();
 
     let inference = parse_inference_config(&value);
 
@@ -82,6 +94,7 @@ pub fn load_project_config(project_root: &Path) -> ProjectConfig {
         version,
         spec_root,
         extensions,
+        exclude,
         inference,
         raw: Some(value),
     }

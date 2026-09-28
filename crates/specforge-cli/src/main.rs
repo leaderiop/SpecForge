@@ -30,7 +30,7 @@ mod trust_flow;
 mod update;
 mod watch;
 
-use clap::{CommandFactory, Parser, Subcommand};
+use clap::{CommandFactory, Parser, Subcommand, ValueEnum};
 use clap_complete::Shell;
 use std::path::{Path, PathBuf};
 
@@ -39,6 +39,101 @@ use std::path::{Path, PathBuf};
 struct Cli {
     #[command(subcommand)]
     command: Commands,
+}
+
+/// Human-readable vs machine-readable output for registry-style commands.
+#[derive(ValueEnum, Clone, Copy, Debug, PartialEq, Eq)]
+enum OutputFormat {
+    Human,
+    Json,
+}
+
+/// Export graph resolutions (`specforge export --format`).
+#[derive(ValueEnum, Clone, Copy, Debug, PartialEq, Eq)]
+enum ExportFormat {
+    Graph,
+    Brief,
+    Context,
+    Dot,
+}
+
+/// Export formats a published JSON Schema may describe (`specforge schema --format`).
+#[derive(ValueEnum, Clone, Copy, Debug, PartialEq, Eq)]
+enum SchemaFormat {
+    Graph,
+    Context,
+    Brief,
+}
+
+/// Renderers for the logical data model (`specforge model --format`).
+#[derive(ValueEnum, Clone, Copy, Debug, PartialEq, Eq)]
+enum ModelFormat {
+    Markdown,
+    Mermaid,
+    Dot,
+    Json,
+    Dbml,
+}
+
+/// Renderers for the extension architecture (`specforge outline --format`).
+#[derive(ValueEnum, Clone, Copy, Debug, PartialEq, Eq)]
+enum OutlineFormat {
+    Markdown,
+    Mermaid,
+    Dot,
+    Json,
+}
+
+/// Entity grouping for the data model (`specforge model --group-by`).
+#[derive(ValueEnum, Clone, Copy, Debug, PartialEq, Eq)]
+enum GroupBy {
+    Extension,
+    None,
+}
+
+/// Field detail level shared by `model --fields` and `outline --fields`.
+#[derive(ValueEnum, Clone, Copy, Debug, PartialEq, Eq)]
+enum FieldLevel {
+    None,
+    Keys,
+    All,
+}
+
+/// Dependency visibility for `specforge outline --deps`.
+#[derive(ValueEnum, Clone, Copy, Debug, PartialEq, Eq)]
+enum DepsLevel {
+    Direct,
+    Effective,
+    Full,
+}
+
+/// Static analysis passes for `specforge analyze --pass`.
+#[derive(ValueEnum, Clone, Copy, Debug, PartialEq, Eq)]
+enum AnalysisPass {
+    All,
+    Coverage,
+    Contracts,
+}
+
+impl AnalysisPass {
+    /// The pass name used to select and order built-in/extension passes.
+    fn name(self) -> &'static str {
+        match self {
+            AnalysisPass::All => "all",
+            AnalysisPass::Coverage => "coverage",
+            AnalysisPass::Contracts => "contracts",
+        }
+    }
+}
+impl OutputFormat {
+    /// Canonical flag spelling — the value name accepted by registry-client
+    /// APIs that take the raw output-format string.
+    fn as_str(self) -> &'static str {
+        match self {
+            OutputFormat::Human => "human",
+            OutputFormat::Json => "json",
+        }
+    }
 }
 
 #[derive(Subcommand)]
@@ -59,7 +154,7 @@ enum Commands {
 
         /// Output format: human or json
         #[arg(long, default_value = "human")]
-        format: String,
+        format: OutputFormat,
     },
     /// Validate .spec files and report diagnostics
     Check {
@@ -73,7 +168,7 @@ enum Commands {
 
         /// Output format: human or json
         #[arg(long, default_value = "human")]
-        format: String,
+        format: OutputFormat,
 
         /// Enable additional lint profiles (e.g., pedantic, inferred)
         #[arg(long, value_delimiter = ',')]
@@ -87,7 +182,7 @@ enum Commands {
 
         /// Output format: graph, brief, context, or dot
         #[arg(long, default_value = "graph")]
-        format: String,
+        format: ExportFormat,
 
         /// Scope export to subgraph reachable from this entity ID
         #[arg(long)]
@@ -120,8 +215,8 @@ enum Commands {
         publish: bool,
 
         /// Export format the published schema should describe
-        #[arg(long, value_parser = ["graph", "context", "brief"], default_value = "graph")]
-        format: String,
+        #[arg(long, default_value = "graph")]
+        format: SchemaFormat,
     },
     /// Render the logical data model (entity kinds, fields, relationships)
     Model {
@@ -131,15 +226,15 @@ enum Commands {
 
         /// Output format: markdown (default), mermaid, dot, json, dbml
         #[arg(long, default_value = "markdown")]
-        format: String,
+        format: ModelFormat,
 
         /// Group entities by: extension (default), none
         #[arg(long, default_value = "extension")]
-        group_by: String,
+        group_by: GroupBy,
 
         /// Field detail level: none, keys (default), all
         #[arg(long, default_value = "keys")]
-        fields: String,
+        fields: FieldLevel,
 
         /// Filter to a single extension
         #[arg(long)]
@@ -165,15 +260,15 @@ enum Commands {
 
         /// Output format: markdown (default), mermaid, dot, json
         #[arg(long, default_value = "markdown")]
-        format: String,
+        format: OutlineFormat,
 
         /// Detail level: none (overview only), keys (default), all (full field attribution)
         #[arg(long, default_value = "keys")]
-        fields: String,
+        fields: FieldLevel,
 
         /// Dependency visibility: direct (declared only), effective (direct + used transitive), full (all transitive)
         #[arg(long, default_value = "direct")]
-        deps: String,
+        deps: DepsLevel,
     },
     /// Query the graph at multiple resolutions
     Query {
@@ -231,7 +326,7 @@ enum Commands {
 
         /// Output format: human or json
         #[arg(long, default_value = "human")]
-        format: String,
+        format: OutputFormat,
     },
     /// Install an extension
     Add {
@@ -244,7 +339,7 @@ enum Commands {
 
         /// Output format: human or json
         #[arg(long, default_value = "human")]
-        format: String,
+        format: OutputFormat,
 
         /// Accept unsigned packages (publisher verification skipped)
         #[arg(long, default_value_t = false)]
@@ -269,7 +364,7 @@ enum Commands {
 
         /// Output format: human or json
         #[arg(long, default_value = "human")]
-        format: String,
+        format: OutputFormat,
     },
     /// List installed extensions
     Extensions {
@@ -279,7 +374,7 @@ enum Commands {
 
         /// Output format: human or json
         #[arg(long, default_value = "human")]
-        format: String,
+        format: OutputFormat,
     },
     /// Publish an extension to the registry
     Publish {
@@ -289,7 +384,7 @@ enum Commands {
 
         /// Output format: human or json
         #[arg(long, default_value = "human")]
-        format: String,
+        format: OutputFormat,
     },
     /// Search for extensions in registries
     Search {
@@ -302,12 +397,12 @@ enum Commands {
 
         /// Output format: human or json
         #[arg(long, default_value = "human")]
-        format: String,
+        format: OutputFormat,
     },
     /// Run static analysis passes over the compiled project
     Analyze {
         /// Analysis pass to run (all, coverage, contracts)
-        pass: Option<String>,
+        pass: Option<AnalysisPass>,
 
         /// Project directory (defaults to current directory)
         #[arg(long)]
@@ -359,7 +454,7 @@ enum Commands {
 
         /// Output format: human or json
         #[arg(long, default_value = "human")]
-        format: String,
+        format: OutputFormat,
     },
     /// Update installed extensions to latest compatible versions
     Update {
@@ -372,7 +467,7 @@ enum Commands {
 
         /// Output format: human or json
         #[arg(long, default_value = "human")]
-        format: String,
+        format: OutputFormat,
 
         /// Accept unsigned packages (publisher verification skipped)
         #[arg(long, default_value_t = false)]
@@ -398,7 +493,7 @@ enum Commands {
 
         /// Output format: human or json
         #[arg(long, default_value = "human")]
-        format: String,
+        format: OutputFormat,
     },
     /// Remove registry credentials
     Logout {
@@ -408,7 +503,7 @@ enum Commands {
 
         /// Output format: human or json
         #[arg(long, default_value = "human")]
-        format: String,
+        format: OutputFormat,
     },
     /// List configured providers
     Providers {
@@ -418,7 +513,7 @@ enum Commands {
 
         /// Output format: human or json
         #[arg(long, default_value = "human")]
-        format: String,
+        format: OutputFormat,
     },
     /// Collect test results from a test runner
     Collect {
@@ -436,7 +531,7 @@ enum Commands {
 
         /// Output format: human or json
         #[arg(long, default_value = "human")]
-        format: String,
+        format: OutputFormat,
     },
     /// Run health checks on installed extensions
     Doctor {
@@ -446,7 +541,7 @@ enum Commands {
 
         /// Output format: human or json
         #[arg(long, default_value = "human")]
-        format: String,
+        format: OutputFormat,
     },
     /// Start MCP server (JSON-RPC over stdio)
     Mcp {
@@ -478,7 +573,7 @@ enum Commands {
 
         /// Output format: human or json
         #[arg(long, default_value = "human")]
-        format: String,
+        format: OutputFormat,
     },
     /// Generate shell completions
     Completions {
@@ -499,7 +594,7 @@ enum Commands {
 
         /// Output format: human or json
         #[arg(long, default_value = "human")]
-        format: String,
+        format: OutputFormat,
 
         /// Show unanalyzed files grouped by directory
         #[arg(long)]
@@ -540,7 +635,7 @@ enum ProductAction {
         #[arg(long)]
         offset: Option<usize>,
         #[arg(long, default_value = "human")]
-        format: String,
+        format: OutputFormat,
     },
     /// List journeys
     Journeys {
@@ -549,7 +644,7 @@ enum ProductAction {
         #[arg(long)]
         limit: Option<usize>,
         #[arg(long, default_value = "human")]
-        format: String,
+        format: OutputFormat,
     },
     /// List deliverables
     Deliverables {
@@ -560,7 +655,7 @@ enum ProductAction {
         #[arg(long)]
         limit: Option<usize>,
         #[arg(long, default_value = "human")]
-        format: String,
+        format: OutputFormat,
     },
     /// List milestones
     Milestones {
@@ -571,7 +666,7 @@ enum ProductAction {
         #[arg(long)]
         limit: Option<usize>,
         #[arg(long, default_value = "human")]
-        format: String,
+        format: OutputFormat,
     },
     /// List modules
     Modules {
@@ -580,7 +675,7 @@ enum ProductAction {
         #[arg(long)]
         limit: Option<usize>,
         #[arg(long, default_value = "human")]
-        format: String,
+        format: OutputFormat,
     },
     /// List terms
     Terms {
@@ -589,7 +684,7 @@ enum ProductAction {
         #[arg(long)]
         limit: Option<usize>,
         #[arg(long, default_value = "human")]
-        format: String,
+        format: OutputFormat,
     },
     /// List personas
     Personas {
@@ -598,7 +693,7 @@ enum ProductAction {
         #[arg(long)]
         limit: Option<usize>,
         #[arg(long, default_value = "human")]
-        format: String,
+        format: OutputFormat,
     },
     /// List channels
     Channels {
@@ -607,7 +702,7 @@ enum ProductAction {
         #[arg(long)]
         limit: Option<usize>,
         #[arg(long, default_value = "human")]
-        format: String,
+        format: OutputFormat,
     },
     /// List releases
     Releases {
@@ -618,7 +713,7 @@ enum ProductAction {
         #[arg(long)]
         limit: Option<usize>,
         #[arg(long, default_value = "human")]
-        format: String,
+        format: OutputFormat,
     },
     /// Show milestone completion progress
     MilestoneCompletion {
@@ -626,7 +721,7 @@ enum ProductAction {
         #[arg(long, default_value = ".")]
         path: PathBuf,
         #[arg(long, default_value = "human")]
-        format: String,
+        format: OutputFormat,
     },
     /// Show journey feature-module coverage
     JourneyCoverage {
@@ -634,7 +729,7 @@ enum ProductAction {
         #[arg(long, default_value = ".")]
         path: PathBuf,
         #[arg(long, default_value = "human")]
-        format: String,
+        format: OutputFormat,
     },
     /// Show feature impact analysis
     FeatureImpact {
@@ -642,7 +737,7 @@ enum ProductAction {
         #[arg(long, default_value = ".")]
         path: PathBuf,
         #[arg(long, default_value = "human")]
-        format: String,
+        format: OutputFormat,
     },
     /// Show features that depend on a given feature
     FeatureDependents {
@@ -650,7 +745,7 @@ enum ProductAction {
         #[arg(long, default_value = ".")]
         path: PathBuf,
         #[arg(long, default_value = "human")]
-        format: String,
+        format: OutputFormat,
     },
     /// Show features reachable from a persona (via journeys)
     PersonaFeatures {
@@ -658,7 +753,7 @@ enum ProductAction {
         #[arg(long, default_value = ".")]
         path: PathBuf,
         #[arg(long, default_value = "human")]
-        format: String,
+        format: OutputFormat,
     },
     /// Show features reachable from a channel (via journeys)
     ChannelFeatures {
@@ -666,21 +761,21 @@ enum ProductAction {
         #[arg(long, default_value = ".")]
         path: PathBuf,
         #[arg(long, default_value = "human")]
-        format: String,
+        format: OutputFormat,
     },
     /// Show status breakdown across all entity kinds
     BulkStatus {
         #[arg(long, default_value = ".")]
         path: PathBuf,
         #[arg(long, default_value = "human")]
-        format: String,
+        format: OutputFormat,
     },
     /// Show project health score
     Health {
         #[arg(long, default_value = ".")]
         path: PathBuf,
         #[arg(long, default_value = "human")]
-        format: String,
+        format: OutputFormat,
     },
 }
 
@@ -698,7 +793,7 @@ enum ExtensionAction {
 
         /// Output format: human or json
         #[arg(long, default_value = "human")]
-        format: String,
+        format: OutputFormat,
     },
     /// Validate extension project structure
     Build {
@@ -708,7 +803,7 @@ enum ExtensionAction {
 
         /// Output format: human or json
         #[arg(long, default_value = "human")]
-        format: String,
+        format: OutputFormat,
     },
     /// Validate extension manifest against schema
     Validate {
@@ -718,14 +813,14 @@ enum ExtensionAction {
 
         /// Output format: human or json
         #[arg(long, default_value = "human")]
-        format: String,
+        format: OutputFormat,
     },
 }
 
 fn main() {
     let cli = Cli::parse();
 
-    match cli.command {
+    let exit_code = match cli.command {
         Commands::Init {
             name,
             version,
@@ -733,24 +828,20 @@ fn main() {
             format,
         } => {
             let path = std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
-            let exit_code = init::run(
+            init::run(
                 &path,
                 name.as_deref(),
                 version.as_deref(),
                 &extensions,
-                &format,
-            );
-            std::process::exit(exit_code);
+                format,
+            )
         }
         Commands::Check {
             path,
             strict,
             format,
             lint,
-        } => {
-            let exit_code = check::run(&path, strict, &format, &lint);
-            std::process::exit(exit_code);
-        }
+        } => check::run(&path, strict, format, &lint),
         Commands::Export {
             path,
             format,
@@ -758,26 +849,20 @@ fn main() {
             no_schema,
             schema_version,
             max_tokens,
-        } => {
-            let exit_code = export::run(
-                &path,
-                &format,
-                scope.as_deref(),
-                no_schema,
-                schema_version.as_deref(),
-                max_tokens,
-            );
-            std::process::exit(exit_code);
-        }
+        } => export::run(
+            &path,
+            format,
+            scope.as_deref(),
+            no_schema,
+            schema_version.as_deref(),
+            max_tokens,
+        ),
         Commands::Schema {
             path,
             kind,
             publish,
             format,
-        } => {
-            let exit_code = export::run_schema(&path, kind.as_deref(), publish, Some(&format));
-            std::process::exit(exit_code);
-        }
+        } => export::run_schema(&path, kind.as_deref(), publish, format),
         Commands::Model {
             path,
             format,
@@ -787,65 +872,44 @@ fn main() {
             kinds,
             root,
             depth,
-        } => {
-            let exit_code = model::run(
-                &path,
-                &format,
-                &group_by,
-                &fields,
-                extension.as_deref(),
-                &kinds,
-                root.as_deref(),
-                depth,
-            );
-            std::process::exit(exit_code);
-        }
+        } => model::run(
+            &path,
+            format,
+            group_by,
+            fields,
+            extension.as_deref(),
+            &kinds,
+            root.as_deref(),
+            depth,
+        ),
         Commands::Outline {
             path,
             format,
             fields,
             deps,
-        } => {
-            let exit_code = outline::run(&path, &format, &fields, &deps);
-            std::process::exit(exit_code);
-        }
+        } => outline::run(&path, format, fields, deps),
         Commands::Query {
             entity,
             path,
             depth,
             kind,
-        } => {
-            let exit_code = query::run(&path, &entity, depth, &kind);
-            std::process::exit(exit_code);
-        }
-        Commands::Trace { entity, path } => {
-            let exit_code = trace::run(&path, &entity);
-            std::process::exit(exit_code);
-        }
+        } => query::run(&path, &entity, depth, &kind),
+        Commands::Trace { entity, path } => trace::run(&path, &entity),
         Commands::Format {
             paths,
             path,
             check,
             diff,
             stdin,
-        } => {
-            let exit_code = format::run(&path, check, diff, stdin, &paths);
-            std::process::exit(exit_code);
-        }
-        Commands::Stats { path, format } => {
-            let exit_code = stats::run(&path, &format);
-            std::process::exit(exit_code);
-        }
+        } => format::run(&path, check, diff, stdin, &paths),
+        Commands::Stats { path, format } => stats::run(&path, format),
         Commands::Add {
             specifier,
             path,
             format,
             allow_unsigned,
             yes,
-        } => {
-            let exit_code = add::run(&specifier, &path, &format, allow_unsigned, yes);
-            std::process::exit(exit_code);
-        }
+        } => add::run(&specifier, &path, format, allow_unsigned, yes),
         Commands::Analyze {
             pass,
             path,
@@ -858,7 +922,7 @@ fn main() {
             let project = path
                 .map(PathBuf::from)
                 .unwrap_or_else(|| PathBuf::from("."));
-            let exit_code = analyze::run(
+            analyze::run(
                 &project,
                 pass,
                 json,
@@ -866,103 +930,62 @@ fn main() {
                 test_results.as_deref().map(Path::new),
                 min,
                 prove,
-            );
-            std::process::exit(exit_code);
+            )
         }
         Commands::Watch { path, json } => {
             let project = path
                 .map(PathBuf::from)
                 .unwrap_or_else(|| PathBuf::from("."));
-            let exit_code = watch::run(&project, json);
-            std::process::exit(exit_code);
+            watch::run(&project, json)
         }
         Commands::New {
             name,
             extension,
             path,
             format,
-        } => {
-            let exit_code = new::run(&name, extension, &path, &format);
-            std::process::exit(exit_code);
-        }
+        } => new::run(&name, extension, &path, format),
         Commands::Remove {
             name,
             path,
             force,
             format,
-        } => {
-            let exit_code = remove::run(&name, &path, force, &format);
-            std::process::exit(exit_code);
-        }
-        Commands::Extensions { path, format } => {
-            let exit_code = extensions::run(&path, &format);
-            std::process::exit(exit_code);
-        }
-        Commands::Publish { path, format } => {
-            let exit_code = publish::run(&path, &format);
-            std::process::exit(exit_code);
-        }
+        } => remove::run(&name, &path, force, format),
+        Commands::Extensions { path, format } => extensions::run(&path, format),
+        Commands::Publish { path, format } => publish::run(&path, format),
         Commands::Search {
             query,
             path,
             format,
-        } => {
-            let exit_code = search::run(&query, &path, &format);
-            std::process::exit(exit_code);
-        }
+        } => search::run(&query, &path, format),
         Commands::Update {
             name,
             path,
             format,
             allow_unsigned,
             yes,
-        } => {
-            let exit_code = update::run(name.as_deref(), &path, &format, allow_unsigned, yes);
-            std::process::exit(exit_code);
-        }
+        } => update::run(name.as_deref(), &path, format, allow_unsigned, yes),
         Commands::Login {
             registry,
             token,
             path,
             format,
-        } => {
-            let exit_code = login::run(registry.as_deref(), token.as_deref(), &path, &format);
-            std::process::exit(exit_code);
-        }
-        Commands::Logout { registry, format } => {
-            let exit_code = login::run_logout(registry.as_deref(), &format);
-            std::process::exit(exit_code);
-        }
-        Commands::Providers { path, format } => {
-            let exit_code = providers::run(&path, &format);
-            std::process::exit(exit_code);
-        }
+        } => login::run(registry.as_deref(), token.as_deref(), &path, format),
+        Commands::Logout { registry, format } => login::run_logout(registry.as_deref(), format),
+        Commands::Providers { path, format } => providers::run(&path, format),
         Commands::Collect {
             path,
             collector,
             reports,
             format,
-        } => {
-            let exit_code = collect::run(&path, collector.as_deref(), &reports, &format);
-            std::process::exit(exit_code);
-        }
-        Commands::Doctor { path, format } => {
-            let exit_code = doctor::run(&path, &format);
-            std::process::exit(exit_code);
-        }
-        Commands::Mcp { path } => {
-            let exit_code = mcp::run(&path);
-            std::process::exit(exit_code);
-        }
+        } => collect::run(&path, collector.as_deref(), &reports, format),
+        Commands::Doctor { path, format } => doctor::run(&path, format),
+        Commands::Mcp { path } => mcp::run(&path),
         Commands::Completions { shell } => {
             let mut cmd = Cli::command();
             clap_complete::generate(shell, &mut cmd, "specforge", &mut std::io::stdout());
-            std::process::exit(0);
+            0
         }
-        Commands::Explain { code } => {
-            let exit_code = explain::run(&code);
-            std::process::exit(exit_code);
-        }
+        Commands::Explain { code } => explain::run(&code),
         Commands::Migrate {
             path,
             dry_run,
@@ -970,162 +993,149 @@ fn main() {
             rollback,
             target_version,
             format,
-        } => {
-            let exit_code = migrate::run(
-                &path,
-                dry_run,
-                no_backup,
-                rollback,
-                target_version.as_deref(),
-                &format,
-            );
-            std::process::exit(exit_code);
-        }
+        } => migrate::run(
+            &path,
+            dry_run,
+            no_backup,
+            rollback,
+            target_version.as_deref(),
+            format,
+        ),
         Commands::InferStatus {
             path,
             format,
             gaps,
             stale,
             gaps_detail,
-        } => {
-            let exit_code = infer_status::run(&path, &format, gaps, stale, gaps_detail);
-            std::process::exit(exit_code);
-        }
-        Commands::Product { action } => {
-            let exit_code = match action {
-                ProductAction::Features {
-                    path,
-                    status,
-                    priority,
-                    limit,
-                    offset,
-                    format,
-                } => product::run_list(
-                    &path,
-                    "feature",
-                    status.as_deref(),
-                    priority.as_deref(),
-                    limit,
-                    offset,
-                    &format,
-                ),
-                ProductAction::Journeys {
-                    path,
-                    limit,
-                    format,
-                } => product::run_list(&path, "journey", None, None, limit, None, &format),
-                ProductAction::Deliverables {
-                    path,
-                    status,
-                    limit,
-                    format,
-                } => product::run_list(
-                    &path,
-                    "deliverable",
-                    status.as_deref(),
-                    None,
-                    limit,
-                    None,
-                    &format,
-                ),
-                ProductAction::Milestones {
-                    path,
-                    status,
-                    limit,
-                    format,
-                } => product::run_list(
-                    &path,
-                    "milestone",
-                    status.as_deref(),
-                    None,
-                    limit,
-                    None,
-                    &format,
-                ),
-                ProductAction::Modules {
-                    path,
-                    limit,
-                    format,
-                } => product::run_list(&path, "module", None, None, limit, None, &format),
-                ProductAction::Terms {
-                    path,
-                    limit,
-                    format,
-                } => product::run_list(&path, "term", None, None, limit, None, &format),
-                ProductAction::Personas {
-                    path,
-                    limit,
-                    format,
-                } => product::run_list(&path, "persona", None, None, limit, None, &format),
-                ProductAction::Channels {
-                    path,
-                    limit,
-                    format,
-                } => product::run_list(&path, "channel", None, None, limit, None, &format),
-                ProductAction::Releases {
-                    path,
-                    status,
-                    limit,
-                    format,
-                } => product::run_list(
-                    &path,
-                    "release",
-                    status.as_deref(),
-                    None,
-                    limit,
-                    None,
-                    &format,
-                ),
-                ProductAction::MilestoneCompletion {
-                    milestone,
-                    path,
-                    format,
-                } => product::run_milestone_completion(&path, &milestone, &format),
-                ProductAction::JourneyCoverage {
-                    journey,
-                    path,
-                    format,
-                } => product::run_journey_coverage(&path, &journey, &format),
-                ProductAction::FeatureImpact {
-                    feature,
-                    path,
-                    format,
-                } => product::run_feature_impact(&path, &feature, &format),
-                ProductAction::FeatureDependents {
-                    feature,
-                    path,
-                    format,
-                } => product::run_feature_dependents(&path, &feature, &format),
-                ProductAction::PersonaFeatures {
-                    persona,
-                    path,
-                    format,
-                } => product::run_persona_features(&path, &persona, &format),
-                ProductAction::ChannelFeatures {
-                    channel,
-                    path,
-                    format,
-                } => product::run_channel_features(&path, &channel, &format),
-                ProductAction::BulkStatus { path, format } => {
-                    product::run_bulk_status(&path, &format)
-                }
-                ProductAction::Health { path, format } => product::run_health(&path, &format),
-            };
-            std::process::exit(exit_code);
-        }
-        Commands::Extension { action } => {
-            let exit_code = match action {
-                ExtensionAction::Init { name, path, format } => {
-                    extension_authoring::run_init(&path, name.as_deref(), &format)
-                }
-                ExtensionAction::Build { path, format } => {
-                    extension_authoring::run_build(&path, &format)
-                }
-                ExtensionAction::Validate { path, format } => {
-                    extension_authoring::run_validate(&path, &format)
-                }
-            };
-            std::process::exit(exit_code);
-        }
-    }
+        } => infer_status::run(&path, format, gaps, stale, gaps_detail),
+        Commands::Product { action } => match action {
+            ProductAction::Features {
+                path,
+                status,
+                priority,
+                limit,
+                offset,
+                format,
+            } => product::run_list(
+                &path,
+                "feature",
+                status.as_deref(),
+                priority.as_deref(),
+                limit,
+                offset,
+                format,
+            ),
+            ProductAction::Journeys {
+                path,
+                limit,
+                format,
+            } => product::run_list(&path, "journey", None, None, limit, None, format),
+            ProductAction::Deliverables {
+                path,
+                status,
+                limit,
+                format,
+            } => product::run_list(
+                &path,
+                "deliverable",
+                status.as_deref(),
+                None,
+                limit,
+                None,
+                format,
+            ),
+            ProductAction::Milestones {
+                path,
+                status,
+                limit,
+                format,
+            } => product::run_list(
+                &path,
+                "milestone",
+                status.as_deref(),
+                None,
+                limit,
+                None,
+                format,
+            ),
+            ProductAction::Modules {
+                path,
+                limit,
+                format,
+            } => product::run_list(&path, "module", None, None, limit, None, format),
+            ProductAction::Terms {
+                path,
+                limit,
+                format,
+            } => product::run_list(&path, "term", None, None, limit, None, format),
+            ProductAction::Personas {
+                path,
+                limit,
+                format,
+            } => product::run_list(&path, "persona", None, None, limit, None, format),
+            ProductAction::Channels {
+                path,
+                limit,
+                format,
+            } => product::run_list(&path, "channel", None, None, limit, None, format),
+            ProductAction::Releases {
+                path,
+                status,
+                limit,
+                format,
+            } => product::run_list(
+                &path,
+                "release",
+                status.as_deref(),
+                None,
+                limit,
+                None,
+                format,
+            ),
+            ProductAction::MilestoneCompletion {
+                milestone,
+                path,
+                format,
+            } => product::run_milestone_completion(&path, &milestone, format),
+            ProductAction::JourneyCoverage {
+                journey,
+                path,
+                format,
+            } => product::run_journey_coverage(&path, &journey, format),
+            ProductAction::FeatureImpact {
+                feature,
+                path,
+                format,
+            } => product::run_feature_impact(&path, &feature, format),
+            ProductAction::FeatureDependents {
+                feature,
+                path,
+                format,
+            } => product::run_feature_dependents(&path, &feature, format),
+            ProductAction::PersonaFeatures {
+                persona,
+                path,
+                format,
+            } => product::run_persona_features(&path, &persona, format),
+            ProductAction::ChannelFeatures {
+                channel,
+                path,
+                format,
+            } => product::run_channel_features(&path, &channel, format),
+            ProductAction::BulkStatus { path, format } => product::run_bulk_status(&path, format),
+            ProductAction::Health { path, format } => product::run_health(&path, format),
+        },
+        Commands::Extension { action } => match action {
+            ExtensionAction::Init { name, path, format } => {
+                extension_authoring::run_init(&path, name.as_deref(), format)
+            }
+            ExtensionAction::Build { path, format } => {
+                extension_authoring::run_build(&path, format)
+            }
+            ExtensionAction::Validate { path, format } => {
+                extension_authoring::run_validate(&path, format)
+            }
+        },
+    };
+    std::process::exit(exit_code);
 }

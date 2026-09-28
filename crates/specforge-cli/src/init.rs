@@ -1,3 +1,4 @@
+use crate::OutputFormat;
 use serde_json::json;
 use specforge_common::find_project_root;
 use std::path::Path;
@@ -7,7 +8,7 @@ pub fn run(
     name: Option<&str>,
     version: Option<&str>,
     extensions: &[String],
-    format: &str,
+    format: OutputFormat,
 ) -> i32 {
     // Check for existing project
     if let Some(existing) = find_project_root(path) {
@@ -103,7 +104,7 @@ pub fn run(
 
     // Output
     match format {
-        "json" => {
+        OutputFormat::Json => {
             let output = json!({
                 "project_root": path.canonicalize().unwrap_or_else(|_| path.to_path_buf()),
                 "config_path": config_path,
@@ -115,7 +116,7 @@ pub fn run(
                 serde_json::to_string_pretty(&output).expect("serialize JSON output")
             );
         }
-        _ => {
+        OutputFormat::Human => {
             println!(
                 "Initialized project '{}' at {}",
                 project_name,

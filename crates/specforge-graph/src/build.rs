@@ -41,10 +41,43 @@ pub fn build_graph_with_config(
     config: &GraphConfig,
 ) -> (Graph, Vec<Diagnostic>) {
     let mut graph = Graph::with_bidirectional_pairs(config.bidirectional_pairs.clone());
+    let mut diagnostics = entity_pass(spec_files.iter(), config, Some(&mut graph));
+    diagnostics.extend(link_and_diagnose(&mut graph, config));
+    (graph, diagnostics)
+}
+
+/// The graph node for one parsed entity — the single mapping used by both
+/// the cold build and the pipeline's red-green re-add phase (C4-01).
+pub fn node_from_entity(entity: &specforge_parser::Entity) -> Node {
+    Node {
+        id: entity.id,
+        kind: entity.kind,
+        title: entity.title.clone(),
+        fields: entity.fields.clone(),
+        source_span: entity.span.clone(),
+        methods: entity.methods.clone(),
+    }
+}
+
+/// The file-sweep passes shared by the cold build and the incremental
+/// pipeline (C4-01): parse errors, duplicate IDs (E002/W060), extension
+/// keyword hints (I004), and ref schemes (I005). When `sink` is `Some`,
+/// accepted entities are added to that graph (cold build semantics,
+/// first-writer-wins on (kind, id)); when `None`, the pass only diagnoses
+/// (the pipeline adds nodes itself after stripping old contributions).
+/// Diagnostic order follows the iteration order of `spec_files`.
+pub fn entity_pass<'a, I>(
+    spec_files: I,
+    config: &GraphConfig,
+    mut sink: Option<&mut Graph>,
+) -> Vec<Diagnostic>
+where
+    I: IntoIterator<Item = &'a SpecFile> + Clone,
+{
     let mut diagnostics = Vec::new();
 
     // Surface parse errors as diagnostics so CLI/MCP consumers see them
-    for spec_file in spec_files {
+    for spec_file in spec_files.clone() {
         for error in &spec_file.errors {
             diagnostics.push(Diagnostic::from(error));
         }
@@ -55,7 +88,7 @@ pub fn build_graph_with_config(
     let mut entity_ids: HashSet<Sym> = HashSet::new();
     // Track entity ID to first-seen kind for cross-kind collision detection (W060)
     let mut id_to_kind: HashMap<Sym, Sym> = HashMap::new();
-    for spec_file in spec_files {
+    for spec_file in spec_files.clone() {
         for entity in &spec_file.entities {
             let key = (entity.kind.raw, entity.id.raw);
             if !seen.insert(key) {
@@ -96,21 +129,15 @@ pub fn build_graph_with_config(
             }
 
             entity_ids.insert(entity.id.raw);
-            let node = Node {
-                id: entity.id,
-                kind: entity.kind,
-                title: entity.title.clone(),
-                fields: entity.fields.clone(),
-                source_span: entity.span.clone(),
-                methods: entity.methods.clone(),
-            };
-            graph.add_node(node);
+            if let Some(graph) = sink.as_deref_mut() {
+                graph.add_node(node_from_entity(entity));
+            }
         }
     }
 
     // Check for unknown keywords that match known extensions (I004)
     if !config.known_extension_keywords.is_empty() {
-        for spec_file in spec_files {
+        for spec_file in spec_files.clone() {
             for entity in &spec_file.entities {
                 let keyword = entity.kind.raw.as_str();
                 // Skip structural kinds that are always valid
@@ -139,7 +166,7 @@ pub fn build_graph_with_config(
 
     // Check ref nodes for unknown provider schemes (I005)
     if !config.known_provider_schemes.is_empty() {
-        for spec_file in spec_files {
+        for spec_file in spec_files.clone() {
             for entity in &spec_file.entities {
                 if entity.kind.raw == "ref"
                     && let Some(FieldValue::String(scheme)) = entity.fields.get("scheme")
@@ -159,6 +186,16 @@ pub fn build_graph_with_config(
             }
         }
     }
+
+    diagnostics
+}
+
+/// Link reference edges, resolve E003s (single-reference aware), emit W061
+/// cycle warnings, and apply the E001 suppression filter. Operates on a
+/// live graph — the incremental pipeline reuses it after red-green node
+/// updates instead of rebuilding (C4-01).
+pub fn link_and_diagnose(graph: &mut Graph, config: &GraphConfig) -> Vec<Diagnostic> {
+    let mut diagnostics = Vec::new();
 
     // Link references -> edges (shared with LSP via Graph::resolve_references)
     let ref_diags = graph.resolve_references();
@@ -204,5 +241,5 @@ pub fn build_graph_with_config(
         diagnostics.extend(singles_diags);
     }
 
-    (graph, diagnostics)
+    diagnostics
 }

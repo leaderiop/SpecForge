@@ -1,7 +1,8 @@
+use crate::OutputFormat;
 use serde_json::json;
 use std::path::Path;
 
-pub fn run(path: &Path, format: &str) -> i32 {
+pub fn run(path: &Path, format: OutputFormat) -> i32 {
     let config_path = path.join("specforge.json");
 
     // Read specforge.json
@@ -10,14 +11,14 @@ pub fn run(path: &Path, format: &str) -> i32 {
             Ok(v) => v,
             Err(_) => {
                 match format {
-                    "json" => {
+                    OutputFormat::Json => {
                         let output = json!({ "providers": [], "count": 0 });
                         println!(
                             "{}",
                             serde_json::to_string_pretty(&output).expect("serialize JSON output")
                         );
                     }
-                    _ => {
+                    OutputFormat::Human => {
                         eprintln!("warning: specforge.json is not valid JSON");
                         println!("No providers configured.");
                     }
@@ -27,14 +28,14 @@ pub fn run(path: &Path, format: &str) -> i32 {
         },
         Err(_) => {
             match format {
-                "json" => {
+                OutputFormat::Json => {
                     let output = json!({ "providers": [], "count": 0 });
                     println!(
                         "{}",
                         serde_json::to_string_pretty(&output).expect("serialize JSON output")
                     );
                 }
-                _ => {
+                OutputFormat::Human => {
                     println!("No providers configured (no specforge.json found).");
                 }
             }
@@ -49,7 +50,7 @@ pub fn run(path: &Path, format: &str) -> i32 {
     };
 
     match format {
-        "json" => {
+        OutputFormat::Json => {
             let output = json!({
                 "providers": providers,
                 "count": providers.len(),
@@ -59,7 +60,7 @@ pub fn run(path: &Path, format: &str) -> i32 {
                 serde_json::to_string_pretty(&output).expect("serialize JSON output")
             );
         }
-        _ => {
+        OutputFormat::Human => {
             if providers.is_empty() {
                 println!("No providers configured.");
             } else {

@@ -2,6 +2,7 @@ use super::{
     ListFilter, bulk_status, channel_features, feature_dependents, feature_impact,
     journey_coverage, list_entities, milestone_completion, persona_features, project_health,
 };
+use crate::OutputFormat;
 use crate::pipeline;
 use std::path::Path;
 
@@ -12,7 +13,7 @@ pub fn run_list(
     priority: Option<&str>,
     limit: Option<usize>,
     offset: Option<usize>,
-    format: &str,
+    format: OutputFormat,
 ) -> i32 {
     let ctx = pipeline::compile(path);
 
@@ -27,11 +28,11 @@ pub fn run_list(
     let result = list_entities(&ctx.graph, &filter);
 
     match format {
-        "json" => {
+        OutputFormat::Json => {
             let json = serde_json::to_string_pretty(&result).unwrap_or_default();
             println!("{}", json);
         }
-        _ => {
+        OutputFormat::Human => {
             println!(
                 "{} {} entities (showing {}):",
                 result.total,
@@ -57,17 +58,17 @@ pub fn run_list(
     0
 }
 
-pub fn run_milestone_completion(path: &Path, milestone_id: &str, format: &str) -> i32 {
+pub fn run_milestone_completion(path: &Path, milestone_id: &str, format: OutputFormat) -> i32 {
     let ctx = pipeline::compile(path);
 
     match milestone_completion(&ctx.graph, milestone_id) {
         Some(result) => {
             match format {
-                "json" => {
+                OutputFormat::Json => {
                     let json = serde_json::to_string_pretty(&result).unwrap_or_default();
                     println!("{}", json);
                 }
-                _ => {
+                OutputFormat::Human => {
                     println!(
                         "Milestone: {} ({})",
                         result.milestone_id,
@@ -91,17 +92,17 @@ pub fn run_milestone_completion(path: &Path, milestone_id: &str, format: &str) -
     }
 }
 
-pub fn run_journey_coverage(path: &Path, journey_id: &str, format: &str) -> i32 {
+pub fn run_journey_coverage(path: &Path, journey_id: &str, format: OutputFormat) -> i32 {
     let ctx = pipeline::compile(path);
 
     match journey_coverage(&ctx.graph, journey_id) {
         Some(result) => {
             match format {
-                "json" => {
+                OutputFormat::Json => {
                     let json = serde_json::to_string_pretty(&result).unwrap_or_default();
                     println!("{}", json);
                 }
-                _ => {
+                OutputFormat::Human => {
                     println!(
                         "Journey: {} (persona: {})",
                         result.journey_id,
@@ -122,17 +123,17 @@ pub fn run_journey_coverage(path: &Path, journey_id: &str, format: &str) -> i32 
     }
 }
 
-pub fn run_feature_impact(path: &Path, feature_id: &str, format: &str) -> i32 {
+pub fn run_feature_impact(path: &Path, feature_id: &str, format: OutputFormat) -> i32 {
     let ctx = pipeline::compile(path);
 
     match feature_impact(&ctx.graph, feature_id) {
         Some(result) => {
             match format {
-                "json" => {
+                OutputFormat::Json => {
                     let json = serde_json::to_string_pretty(&result).unwrap_or_default();
                     println!("{}", json);
                 }
-                _ => {
+                OutputFormat::Human => {
                     println!("Feature: {}", result.feature_id);
                     println!("  Journeys: {:?}", result.referenced_by_journeys);
                     println!("  Milestones: {:?}", result.referenced_by_milestones);
@@ -150,17 +151,17 @@ pub fn run_feature_impact(path: &Path, feature_id: &str, format: &str) -> i32 {
     }
 }
 
-pub fn run_feature_dependents(path: &Path, feature_id: &str, format: &str) -> i32 {
+pub fn run_feature_dependents(path: &Path, feature_id: &str, format: OutputFormat) -> i32 {
     let ctx = pipeline::compile(path);
 
     match feature_dependents(&ctx.graph, feature_id) {
         Some(deps) => {
             match format {
-                "json" => {
+                OutputFormat::Json => {
                     let json = serde_json::to_string_pretty(&deps).unwrap_or_default();
                     println!("{}", json);
                 }
-                _ => {
+                OutputFormat::Human => {
                     println!("Features depending on '{}':", feature_id);
                     for dep in &deps {
                         println!("  {}", dep);
@@ -179,17 +180,17 @@ pub fn run_feature_dependents(path: &Path, feature_id: &str, format: &str) -> i3
     }
 }
 
-pub fn run_persona_features(path: &Path, persona_id: &str, format: &str) -> i32 {
+pub fn run_persona_features(path: &Path, persona_id: &str, format: OutputFormat) -> i32 {
     let ctx = pipeline::compile(path);
 
     match persona_features(&ctx.graph, persona_id) {
         Some(features) => {
             match format {
-                "json" => {
+                OutputFormat::Json => {
                     let json = serde_json::to_string_pretty(&features).unwrap_or_default();
                     println!("{}", json);
                 }
-                _ => {
+                OutputFormat::Human => {
                     println!("Features for persona '{}':", persona_id);
                     for f in &features {
                         println!("  {}", f);
@@ -208,17 +209,17 @@ pub fn run_persona_features(path: &Path, persona_id: &str, format: &str) -> i32 
     }
 }
 
-pub fn run_channel_features(path: &Path, channel_id: &str, format: &str) -> i32 {
+pub fn run_channel_features(path: &Path, channel_id: &str, format: OutputFormat) -> i32 {
     let ctx = pipeline::compile(path);
 
     match channel_features(&ctx.graph, channel_id) {
         Some(features) => {
             match format {
-                "json" => {
+                OutputFormat::Json => {
                     let json = serde_json::to_string_pretty(&features).unwrap_or_default();
                     println!("{}", json);
                 }
-                _ => {
+                OutputFormat::Human => {
                     println!("Features for channel '{}':", channel_id);
                     for f in &features {
                         println!("  {}", f);
@@ -237,16 +238,16 @@ pub fn run_channel_features(path: &Path, channel_id: &str, format: &str) -> i32 
     }
 }
 
-pub fn run_bulk_status(path: &Path, format: &str) -> i32 {
+pub fn run_bulk_status(path: &Path, format: OutputFormat) -> i32 {
     let ctx = pipeline::compile(path);
     let results = bulk_status(&ctx.graph);
 
     match format {
-        "json" => {
+        OutputFormat::Json => {
             let json = serde_json::to_string_pretty(&results).unwrap_or_default();
             println!("{}", json);
         }
-        _ => {
+        OutputFormat::Human => {
             for bs in &results {
                 println!("{} ({} total):", bs.kind, bs.total);
                 for sc in &bs.by_status {
@@ -261,16 +262,16 @@ pub fn run_bulk_status(path: &Path, format: &str) -> i32 {
     0
 }
 
-pub fn run_health(path: &Path, format: &str) -> i32 {
+pub fn run_health(path: &Path, format: OutputFormat) -> i32 {
     let ctx = pipeline::compile(path);
     let report = project_health(&ctx.graph);
 
     match format {
-        "json" => {
+        OutputFormat::Json => {
             let json = serde_json::to_string_pretty(&report).unwrap_or_default();
             println!("{}", json);
         }
-        _ => {
+        OutputFormat::Human => {
             println!("Project Health Score: {:.0}/100", report.score.overall);
             println!("  Coverage:     {:.0}%", report.score.coverage);
             println!("  Connectivity: {:.0}%", report.score.connectivity);

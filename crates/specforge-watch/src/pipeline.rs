@@ -290,8 +290,16 @@ impl IncrementalPipeline {
     }
 
     /// Shared rebuild body: re-parse every file in the invalidation set
-    /// (reusing retained trees), rebuild the graph with the pipeline's
-    /// config, and diff per-file diagnostics.
+    /// (reusing retained trees), apply the changes to the live graph
+    /// red-green style (C4-01), and diff per-file diagnostics.
+    ///
+    /// Red-green: every invalidated file's live contribution is stripped
+    /// ([`Graph::remove_entities_of_file`]), the re-parsed entities are
+    /// re-added in deterministic (sorted-path, first-writer-wins) order,
+    /// and reference edges are re-linked over the whole graph. Cross-file
+    /// diagnostics (duplicates, unresolved references, cycles) are
+    /// recomputed from the cached parses, so they stay authoritative
+    /// without cloning every AST or rebuilding the graph from scratch.
     fn apply_invalidated<F>(
         &mut self,
         invalidation_set: &HashSet<String>,
@@ -306,7 +314,8 @@ impl IncrementalPipeline {
         // Track which files we actually rebuilt
         let mut rebuilt_files: Vec<String> = Vec::new();
 
-        // Process each invalidated file
+        // Phase 1: re-parse each invalidated file (no graph mutation yet).
+        let mut reparsed: Vec<(String, Option<SpecFile>)> = Vec::new();
         for file in invalidation_set {
             match read_file(file) {
                 Some(content) => {
@@ -345,6 +354,7 @@ impl IncrementalPipeline {
 
                     self.parsed_files.insert(file.clone(), spec_file);
                     rebuilt_files.push(file.clone());
+                    reparsed.push((file.clone(), self.parsed_files.get(file.as_str()).cloned()));
                 }
                 None => {
                     // File was deleted
@@ -353,19 +363,50 @@ impl IncrementalPipeline {
                     self.parsed_files.remove(file);
                     self.import_dag.remove_file(file);
                     rebuilt_files.push(file.clone());
+                    reparsed.push((file.clone(), None));
                 }
             }
         }
 
-        // Rebuild full graph from all cached parsed files
-        let all_spec_files: Vec<SpecFile> = self.parsed_files.values().cloned().collect();
-        let (new_graph, build_diagnostics) =
-            build_graph_with_config(&all_spec_files, &self.graph_config);
-        let delta = compute_graph_delta_with_config(&old_graph, &new_graph, &self.delta_config);
+        // Phase 2 (red): strip every invalidated file's live contribution.
+        for (file, _) in &reparsed {
+            self.graph.remove_entities_of_file(Sym::new(file));
+        }
 
-        // build_graph processes ALL files, so its diagnostics are authoritative.
-        // Replace the entire diagnostics map with fresh results.
-        let mut new_file_diagnostics = partition_by_file(&build_diagnostics);
+        // Phase 3 (green): re-add entities in sorted-path, first-writer-wins
+        // order — the same acceptance rule the cold build applies.
+        reparsed.sort_by(|a, b| a.0.cmp(&b.0));
+        let mut accepted: HashSet<(Sym, Sym)> = HashSet::new();
+        for (_, spec_file) in &reparsed {
+            let Some(spec_file) = spec_file else { continue };
+            for entity in &spec_file.entities {
+                if !accepted.insert((entity.kind.raw, entity.id.raw)) {
+                    continue;
+                }
+                self.graph
+                    .add_node(specforge_graph::node_from_entity(entity));
+            }
+        }
+
+        // Phase 4: recompute the authoritative diagnostics over the cached
+        // parses (sorted for determinism) and the live graph — no AST clone,
+        // no rebuild.
+        let mut sorted_paths: Vec<&String> = self.parsed_files.keys().collect();
+        sorted_paths.sort();
+        let cached: Vec<&SpecFile> = sorted_paths
+            .iter()
+            .filter_map(|p| self.parsed_files.get(p.as_str()))
+            .collect();
+        let mut diagnostics =
+            specforge_graph::entity_pass(cached.iter().copied(), &self.graph_config, None);
+        diagnostics.extend(specforge_graph::link_and_diagnose(
+            &mut self.graph,
+            &self.graph_config,
+        ));
+
+        // build_graph's diagnostics are authoritative: replace the entire
+        // diagnostics map with fresh results.
+        let mut new_file_diagnostics = partition_by_file(&diagnostics);
         for diag in cycle_diagnostics(&self.import_dag) {
             let file = diag
                 .span
@@ -394,14 +435,20 @@ impl IncrementalPipeline {
         changed_diagnostic_files.sort();
         changed_diagnostic_files.dedup();
 
+        let delta = compute_graph_delta_with_config(&old_graph, &self.graph, &self.delta_config);
+
         self.file_diagnostics = new_file_diagnostics;
-        self.graph = new_graph;
 
         rebuilt_files.sort();
 
         // Verify incremental correctness by comparing against a cold rebuild
+        // (same sorted order the red-green path uses).
         let verification = if self.verify_incremental {
-            let cold_specs: Vec<SpecFile> = self.parsed_files.values().cloned().collect();
+            let cold_specs: Vec<SpecFile> = sorted_paths
+                .iter()
+                .filter_map(|p| self.parsed_files.get(p.as_str()))
+                .cloned()
+                .collect();
             let (cold_graph, _) = build_graph_with_config(&cold_specs, &self.graph_config);
             let cold_delta =
                 compute_graph_delta_with_config(&old_graph, &cold_graph, &self.delta_config);
@@ -411,13 +458,11 @@ impl IncrementalPipeline {
                 || self.graph.edge_count() != cold_graph.edge_count()
             {
                 Some(Err(format!(
-                    "incremental/cold mismatch: inc nodes={}/{} edges={}/{}, cold nodes={}/{} edges={}/{}",
+                    "incremental/cold mismatch: inc delta nodes +{}/-{}, inc nodes={}, inc edges={}, cold nodes={}, cold edges={}",
                     delta.added_nodes.len(),
                     delta.removed_nodes.len(),
                     self.graph.node_count(),
                     self.graph.edge_count(),
-                    cold_delta.added_nodes.len(),
-                    cold_delta.removed_nodes.len(),
                     cold_graph.node_count(),
                     cold_graph.edge_count(),
                 )))

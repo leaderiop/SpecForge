@@ -22,7 +22,7 @@ pub fn run(path: &Path, json: bool) -> i32 {
     // Start watching before announcing readiness: a client that writes on
     // seeing "ready" must never race a watcher that does not exist yet.
     let (tx, rx) = mpsc::channel::<Vec<specforge_watch::WatchEvent>>();
-    let watcher = match SpecWatcher::new(&spec_root, tx) {
+    let watcher = match SpecWatcher::new(&spec_root, tx, specforge_watch::DEFAULT_DEBOUNCE_WINDOW) {
         Ok(w) => w,
         Err(e) => {
             eprintln!("error: {e}");
@@ -41,6 +41,7 @@ pub fn run(path: &Path, json: bool) -> i32 {
             specforge_watch::WatchEventKind::Config,
             specforge_watch::WatchEventKind::Plugin,
         ],
+        specforge_watch::DEFAULT_DEBOUNCE_WINDOW,
     ) {
         Ok(w) => w,
         Err(e) => {

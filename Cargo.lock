@@ -2808,6 +2808,7 @@ dependencies = [
  "sha2",
  "strsim",
  "tempfile",
+ "walkdir",
 ]
 
 [[package]]
@@ -2922,7 +2923,6 @@ dependencies = [
  "tokio",
  "tower-lsp",
  "tree-sitter",
- "walkdir",
 ]
 
 [[package]]

@@ -1,10 +1,11 @@
+use crate::OutputFormat;
 use serde_json::json;
 use specforge_registry::{
     HttpRegistryClient, RegistryConfig, parse_registries_from_config, search_registries,
 };
 use std::path::Path;
 
-pub fn run(query: &str, path: &Path, format: &str) -> i32 {
+pub fn run(query: &str, path: &Path, format: OutputFormat) -> i32 {
     let config_path = path.join("specforge.json");
     let registries = load_registries(&config_path);
 
@@ -12,7 +13,7 @@ pub fn run(query: &str, path: &Path, format: &str) -> i32 {
     let (results, diagnostics) = search_registries(query, &registries, &client);
 
     match format {
-        "json" => {
+        OutputFormat::Json => {
             let output = json!({
                 "query": query,
                 "results": results.iter().map(|r| json!({
@@ -24,7 +25,7 @@ pub fn run(query: &str, path: &Path, format: &str) -> i32 {
             });
             println!("{}", serde_json::to_string_pretty(&output).unwrap());
         }
-        _ => {
+        OutputFormat::Human => {
             if results.is_empty() {
                 if diagnostics.is_empty() {
                     println!("no extensions found matching '{}'", query);

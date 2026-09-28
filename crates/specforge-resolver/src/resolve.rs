@@ -216,19 +216,10 @@ pub fn resolve_project_with_config(spec_root: &Path, config: &ResolveConfig) -> 
 }
 
 fn discover_spec_files(root: &Path) -> Vec<PathBuf> {
-    let mut files = Vec::new();
-    for entry in walkdir::WalkDir::new(root)
-        .follow_links(false) // Do not follow symlinks — prevents path traversal attacks
-        .into_iter()
-        .filter_map(|e| e.ok())
-    {
-        let path = entry.path();
-        if path.extension().is_some_and(|ext| ext == "spec") && !entry.path_is_symlink() {
-            files.push(path.to_path_buf());
-        }
-    }
-    files.sort();
-    files
+    // Shared policy (C14-16): same skip-list, symlink rule, and ordering as
+    // the LSP and the formatter — one workspace scan behaves identically
+    // everywhere.
+    specforge_common::discover_spec_files(root, &[])
 }
 
 /// 5-step import resolution cascade:

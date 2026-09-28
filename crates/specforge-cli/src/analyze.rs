@@ -11,10 +11,9 @@ use specforge_common::{Diagnostic, Severity};
 use specforge_emitter::truncate_diagnostics;
 use specforge_validator::{diagnostic_summary_detailed, render_diagnostics};
 
+use crate::AnalysisPass;
 use crate::check::build_source_map;
 use crate::pipeline;
-
-const PASSES: &[&str] = &["all", "coverage", "contracts"];
 
 /// Result of one analysis pass (built-in or extension-owned).
 struct Report {
@@ -26,7 +25,7 @@ struct Report {
 
 pub fn run(
     path: &Path,
-    pass: Option<String>,
+    pass: Option<AnalysisPass>,
     json: bool,
     strict: bool,
     test_results: Option<&Path>,
@@ -73,7 +72,7 @@ pub fn run(
         }
     }
 
-    let requested = pass.unwrap_or_else(|| "all".to_string());
+    let requested = pass.map_or("all", AnalysisPass::name);
     let base_input = specforge_emitter::analyze::AnalysisContext {
         graph: &ctx.graph,
         kind_registry: &ctx.kind_registry,
@@ -86,7 +85,7 @@ pub fn run(
     // Run the SMT proof pass FIRST when requested: its entailment verdicts
     // feed the coverage discharge funnel (a proved formal claim discharges
     // `verify property` obligations without executable tests).
-    let prove_report = if prove || requested == "prove" {
+    let prove_report = if prove {
         Some(crate::prove::run_prove(&base_input))
     } else {
         None
@@ -104,19 +103,11 @@ pub fn run(
         },
         ..base_input
     };
-    let mut selected: Vec<&str> = Vec::new();
-    if requested == "all" {
-        selected.extend(specforge_emitter::analyze::PASS_NAMES);
-    } else if specforge_emitter::analyze::PASS_NAMES.contains(&requested.as_str()) {
-        selected.push(requested.as_str());
-    }
-    if selected.is_empty() {
-        eprintln!(
-            "error: unknown analysis pass '{requested}' (available: {})",
-            PASSES.join(", ")
-        );
-        return 2;
-    }
+    let selected: &[&str] = match pass.unwrap_or(AnalysisPass::All) {
+        AnalysisPass::All => specforge_emitter::analyze::PASS_NAMES,
+        AnalysisPass::Coverage => &["coverage"],
+        AnalysisPass::Contracts => &["contracts"],
+    };
 
     let sources = build_source_map(&ctx.spec_root, &ctx.resolved.files);
     let mut reports: Vec<Report> = Vec::new();
@@ -139,7 +130,7 @@ pub fn run(
             &ctx.manifests,
             &input,
             &runtime,
-            &requested,
+            requested,
         )
         .into_iter()
         .map(|r| Report {

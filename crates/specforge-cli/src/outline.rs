@@ -1,32 +1,34 @@
 use std::path::Path;
 
 use specforge_emitter::outline::{
-    DependencyDepth, OutlineDetail, OutlineFormat, OutlineIntermediate_from_manifests,
-    OutlineOptions, render,
+    DependencyDepth as EmitterDependencyDepth, OutlineDetail as EmitterOutlineDetail,
+    OutlineFormat as EmitterOutlineFormat, OutlineIntermediate_from_manifests, OutlineOptions,
+    render,
 };
 
 use crate::pipeline;
+use crate::{DepsLevel, FieldLevel, OutlineFormat};
 
-pub fn run(path: &Path, format: &str, fields: &str, deps: &str) -> i32 {
+pub fn run(path: &Path, format: OutlineFormat, fields: FieldLevel, deps: DepsLevel) -> i32 {
     let ctx = pipeline::compile(path);
 
     let outline_format = match format {
-        "mermaid" => OutlineFormat::Mermaid,
-        "dot" => OutlineFormat::Dot,
-        "json" => OutlineFormat::Json,
-        _ => OutlineFormat::Markdown,
+        OutlineFormat::Markdown => EmitterOutlineFormat::Markdown,
+        OutlineFormat::Mermaid => EmitterOutlineFormat::Mermaid,
+        OutlineFormat::Dot => EmitterOutlineFormat::Dot,
+        OutlineFormat::Json => EmitterOutlineFormat::Json,
     };
 
     let detail = match fields {
-        "none" => OutlineDetail::None,
-        "all" => OutlineDetail::All,
-        _ => OutlineDetail::Keys,
+        FieldLevel::None => EmitterOutlineDetail::None,
+        FieldLevel::Keys => EmitterOutlineDetail::Keys,
+        FieldLevel::All => EmitterOutlineDetail::All,
     };
 
     let dep_depth = match deps {
-        "effective" => DependencyDepth::Effective,
-        "full" => DependencyDepth::Full,
-        _ => DependencyDepth::Direct,
+        DepsLevel::Direct => EmitterDependencyDepth::Direct,
+        DepsLevel::Effective => EmitterDependencyDepth::Effective,
+        DepsLevel::Full => EmitterDependencyDepth::Full,
     };
 
     let options = OutlineOptions {

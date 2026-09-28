@@ -2,15 +2,7 @@ use specforge_emitter::{EmitFormat, EmitOptions, SchemaVersion, emit, generate_s
 use std::path::Path;
 
 use crate::pipeline;
-
-fn parse_format(format: &str) -> EmitFormat {
-    match format {
-        "brief" => EmitFormat::Brief,
-        "context" => EmitFormat::Context,
-        "dot" => EmitFormat::Dot,
-        _ => EmitFormat::Json,
-    }
-}
+use crate::{ExportFormat, SchemaFormat};
 
 fn build_schema(ctx: &pipeline::CompilationContext) -> specforge_emitter::GraphProtocolSchema {
     generate_schema(
@@ -23,14 +15,19 @@ fn build_schema(ctx: &pipeline::CompilationContext) -> specforge_emitter::GraphP
 
 pub fn run(
     path: &Path,
-    format: &str,
+    format: ExportFormat,
     scope: Option<&str>,
     no_schema: bool,
     schema_version: Option<&str>,
     max_tokens: Option<usize>,
 ) -> i32 {
     let ctx = pipeline::compile(path);
-    let fmt = parse_format(format);
+    let fmt = match format {
+        ExportFormat::Graph => EmitFormat::Json,
+        ExportFormat::Brief => EmitFormat::Brief,
+        ExportFormat::Context => EmitFormat::Context,
+        ExportFormat::Dot => EmitFormat::Dot,
+    };
 
     if no_schema || fmt == EmitFormat::Dot {
         let options = EmitOptions {
@@ -94,16 +91,16 @@ pub fn run(
     }
 }
 
-pub fn run_schema(path: &Path, kind: Option<&str>, publish: bool, format: Option<&str>) -> i32 {
+pub fn run_schema(path: &Path, kind: Option<&str>, publish: bool, format: SchemaFormat) -> i32 {
     let ctx = pipeline::compile(path);
 
     let schema = build_schema(&ctx);
 
     if publish {
-        let emit_format = match format.unwrap_or("graph") {
-            "context" => specforge_emitter::EmitFormat::Context,
-            "brief" => specforge_emitter::EmitFormat::Brief,
-            _ => specforge_emitter::EmitFormat::Json,
+        let emit_format = match format {
+            SchemaFormat::Context => specforge_emitter::EmitFormat::Context,
+            SchemaFormat::Brief => specforge_emitter::EmitFormat::Brief,
+            SchemaFormat::Graph => specforge_emitter::EmitFormat::Json,
         };
         let output = match specforge_emitter::publish_json_schema_format(&schema, emit_format) {
             Ok(out) => out,

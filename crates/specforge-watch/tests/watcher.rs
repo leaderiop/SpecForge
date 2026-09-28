@@ -25,7 +25,8 @@ fn file_modification_triggers_recompilation() {
     fs::write(&spec_path, r#"behavior foo "Foo" { contract "x" }"#).unwrap();
 
     let (tx, rx) = mpsc::channel();
-    let _watcher = SpecWatcher::new(dir.path(), tx).unwrap();
+    let _watcher =
+        SpecWatcher::new(dir.path(), tx, specforge_watch::DEFAULT_DEBOUNCE_WINDOW).unwrap();
 
     // Give watcher time to start
     std::thread::sleep(Duration::from_millis(100));
@@ -57,7 +58,8 @@ fn file_creation_triggers_recompilation() {
     let dir = TempDir::new().unwrap();
 
     let (tx, rx) = mpsc::channel();
-    let _watcher = SpecWatcher::new(dir.path(), tx).unwrap();
+    let _watcher =
+        SpecWatcher::new(dir.path(), tx, specforge_watch::DEFAULT_DEBOUNCE_WINDOW).unwrap();
 
     std::thread::sleep(Duration::from_millis(100));
 
@@ -91,7 +93,8 @@ fn file_deletion_triggers_recompilation() {
     fs::write(&spec_path, r#"behavior doomed "Doomed" { contract "bye" }"#).unwrap();
 
     let (tx, rx) = mpsc::channel();
-    let _watcher = SpecWatcher::new(dir.path(), tx).unwrap();
+    let _watcher =
+        SpecWatcher::new(dir.path(), tx, specforge_watch::DEFAULT_DEBOUNCE_WINDOW).unwrap();
 
     std::thread::sleep(Duration::from_millis(100));
 
@@ -124,7 +127,8 @@ fn watch_detects_changes_within_latency_target() {
     fs::write(&spec_path, r#"behavior init "Init" { contract "x" }"#).unwrap();
 
     let (tx, rx) = mpsc::channel();
-    let _watcher = SpecWatcher::new(dir.path(), tx).unwrap();
+    let _watcher =
+        SpecWatcher::new(dir.path(), tx, specforge_watch::DEFAULT_DEBOUNCE_WINDOW).unwrap();
 
     std::thread::sleep(Duration::from_millis(200));
 
@@ -155,7 +159,8 @@ fn watch_contract_consistency() {
 
     // Requires: watch mode active on spec root
     let (tx, rx) = mpsc::channel();
-    let _watcher = SpecWatcher::new(dir.path(), tx).unwrap();
+    let _watcher =
+        SpecWatcher::new(dir.path(), tx, specforge_watch::DEFAULT_DEBOUNCE_WINDOW).unwrap();
     std::thread::sleep(Duration::from_millis(200));
 
     // Ensures: file_changed event produced for creation
@@ -191,7 +196,8 @@ fn config_and_plugin_changes_classify() {
     .unwrap();
 
     let (tx, rx) = mpsc::channel();
-    let _watcher = SpecWatcher::new(dir.path(), tx).unwrap();
+    let _watcher =
+        SpecWatcher::new(dir.path(), tx, specforge_watch::DEFAULT_DEBOUNCE_WINDOW).unwrap();
     std::thread::sleep(Duration::from_millis(100));
 
     // Config change

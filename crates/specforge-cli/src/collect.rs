@@ -9,6 +9,7 @@
 //! (`collect__*` wasm exports) will hook in here once an extension declares
 //! the `collectors` contribution; none do today.
 
+use crate::OutputFormat;
 use specforge_common::find_project_root;
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
@@ -17,7 +18,7 @@ use std::path::{Path, PathBuf};
 /// `target/specforge/<binary>.json`.
 const DEFAULT_REPORT_GLOB: &str = "target/specforge";
 
-pub fn run(path: &Path, collector: Option<&str>, reports: &[PathBuf], format: &str) -> i32 {
+pub fn run(path: &Path, collector: Option<&str>, reports: &[PathBuf], format: OutputFormat) -> i32 {
     let project_root = match find_project_root(path) {
         Some(root) => root,
         None => {
@@ -28,7 +29,7 @@ pub fn run(path: &Path, collector: Option<&str>, reports: &[PathBuf], format: &s
 
     // Compile the project: known entity ids gate which report entries map.
     let ctx = crate::pipeline::compile(&project_root);
-    if !ctx.diagnostics.is_empty() && format != "json" {
+    if !ctx.diagnostics.is_empty() && format != OutputFormat::Json {
         for d in &ctx.diagnostics {
             eprintln!("{}: {}", d.code, d.message);
         }
@@ -173,7 +174,7 @@ pub fn run(path: &Path, collector: Option<&str>, reports: &[PathBuf], format: &s
     }
 
     // Report
-    if format == "json" {
+    if format == OutputFormat::Json {
         let output = serde_json::json!({
             "status": "collected",
             "files_ingested": ingested_files,
@@ -204,8 +205,8 @@ pub fn run(path: &Path, collector: Option<&str>, reports: &[PathBuf], format: &s
     0
 }
 
-fn report_error(msg: &str, code: &str, format: &str) -> i32 {
-    if format == "json" {
+fn report_error(msg: &str, code: &str, format: OutputFormat) -> i32 {
+    if format == OutputFormat::Json {
         let output = serde_json::json!({
             "error": msg,
             "code": code,

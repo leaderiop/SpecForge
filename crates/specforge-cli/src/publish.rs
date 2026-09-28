@@ -1,3 +1,4 @@
+use crate::OutputFormat;
 use serde_json::json;
 use specforge_common::Diagnostic;
 use specforge_registry::{
@@ -9,7 +10,7 @@ use specforge_registry::{
 };
 use std::path::Path;
 
-pub fn run(path: &Path, format: &str) -> i32 {
+pub fn run(path: &Path, format: OutputFormat) -> i32 {
     // Load manifest
     let manifest_path = path.join("manifest.json");
     if !manifest_path.exists() {
@@ -115,7 +116,7 @@ pub fn run(path: &Path, format: &str) -> i32 {
         Ok(url) => {
             let key_id = signing_key.key_id();
             match format {
-                "json" => {
+                OutputFormat::Json => {
                     let output = json!({
                         "action": "publish",
                         "name": manifest.name,
@@ -128,7 +129,7 @@ pub fn run(path: &Path, format: &str) -> i32 {
                     });
                     println!("{}", serde_json::to_string_pretty(&output).unwrap());
                 }
-                _ => {
+                OutputFormat::Human => {
                     if key_created {
                         println!("generated publisher signing key {}", key_id);
                     }
@@ -174,13 +175,13 @@ fn default_registry() -> RegistryConfig {
     }
 }
 
-fn print_error(format: &str, message: &str, code: &str) {
+fn print_error(format: OutputFormat, message: &str, code: &str) {
     match format {
-        "json" => {
+        OutputFormat::Json => {
             let output = json!({"error": message, "code": code});
             println!("{}", serde_json::to_string_pretty(&output).unwrap());
         }
-        _ => eprintln!("error[{}]: {}", code, message),
+        OutputFormat::Human => eprintln!("error[{}]: {}", code, message),
     }
 }
 

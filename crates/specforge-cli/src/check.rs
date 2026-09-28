@@ -4,11 +4,12 @@ use specforge_validator::{diagnostic_summary_detailed, render_diagnostics};
 use std::collections::HashMap;
 use std::path::Path;
 
+use crate::OutputFormat;
 use crate::pipeline;
 
 const DEFAULT_DENSITY_THRESHOLD: f64 = 0.05;
 
-pub fn run(path: &Path, strict: bool, format: &str, lint_profiles: &[String]) -> i32 {
+pub fn run(path: &Path, strict: bool, format: OutputFormat, lint_profiles: &[String]) -> i32 {
     let ctx = pipeline::compile(path);
 
     let mut all_diagnostics = ctx.diagnostics;
@@ -37,11 +38,11 @@ pub fn run(path: &Path, strict: bool, format: &str, lint_profiles: &[String]) ->
 
     // Output
     match format {
-        "json" => {
+        OutputFormat::Json => {
             let json = serde_json::to_string_pretty(&all_diagnostics).unwrap_or_default();
             println!("{}", json);
         }
-        _ => {
+        OutputFormat::Human => {
             if !all_diagnostics.is_empty() {
                 let sources = build_source_map(&ctx.spec_root, &ctx.resolved.files);
                 let rendered = render_diagnostics(&all_diagnostics, &sources);

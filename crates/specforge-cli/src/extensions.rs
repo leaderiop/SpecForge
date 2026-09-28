@@ -1,8 +1,9 @@
+use crate::OutputFormat;
 use serde_json::json;
 use specforge_wasm::{LockFile, read_lock_file};
 use std::path::Path;
 
-pub fn run(path: &Path, format: &str) -> i32 {
+pub fn run(path: &Path, format: OutputFormat) -> i32 {
     let lock_path = path.join("specforge.lock");
 
     // Read lock file — missing lock file means no extensions installed
@@ -13,7 +14,7 @@ pub fn run(path: &Path, format: &str) -> i32 {
     entries.sort_by(|a, b| a.name.cmp(&b.name));
 
     match format {
-        "json" => {
+        OutputFormat::Json => {
             let items: Vec<serde_json::Value> = entries
                 .iter()
                 .map(|e| {
@@ -33,7 +34,7 @@ pub fn run(path: &Path, format: &str) -> i32 {
                 serde_json::to_string_pretty(&output).expect("serialize JSON output")
             );
         }
-        _ => {
+        OutputFormat::Human => {
             if entries.is_empty() {
                 println!("No extensions installed.");
                 println!();

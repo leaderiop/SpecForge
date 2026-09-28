@@ -1,16 +1,17 @@
 use specforge_emitter::{ProjectStats, compute_stats_with_diagnostics};
 use std::path::Path;
 
+use crate::OutputFormat;
 use crate::pipeline;
 
-pub fn run(path: &Path, format: &str) -> i32 {
+pub fn run(path: &Path, format: OutputFormat) -> i32 {
     let ctx = pipeline::compile(path);
 
     let stats = compute_stats_with_diagnostics(&ctx.graph, &[], &ctx.diagnostics);
 
     match format {
-        "json" => print_json(&stats),
-        _ => print_human(&stats),
+        OutputFormat::Json => print_json(&stats),
+        OutputFormat::Human => print_human(&stats),
     }
 
     0

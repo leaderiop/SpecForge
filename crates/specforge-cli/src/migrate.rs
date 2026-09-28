@@ -1,3 +1,4 @@
+use crate::OutputFormat;
 use specforge_migrate::{
     CURRENT_FORMAT_VERSION, FormatVersion, MAX_SUPPORTED_VERSION, MigrationStatus,
     MigrationSummary, RollbackSummary, compare_graphs, migrate_project, run_rollback,
@@ -11,7 +12,7 @@ pub fn run(
     no_backup: bool,
     rollback: bool,
     target_version: Option<&str>,
-    format: &str,
+    format: OutputFormat,
 ) -> i32 {
     // Handle rollback mode
     if rollback {
@@ -125,13 +126,13 @@ fn invoke_migration_hooks(path: &Path) -> Result<Vec<String>, String> {
     Ok(invoked)
 }
 
-fn print_rollback(summary: &RollbackSummary, format: &str) {
+fn print_rollback(summary: &RollbackSummary, format: OutputFormat) {
     match format {
-        "json" => {
+        OutputFormat::Json => {
             let json = serde_json::to_string_pretty(summary).unwrap_or_default();
             println!("{json}");
         }
-        _ => {
+        OutputFormat::Human => {
             for r in &summary.results {
                 match r.status {
                     MigrationStatus::Restored => eprintln!("  restored: {}", r.file_path),
@@ -154,13 +155,13 @@ fn print_rollback(summary: &RollbackSummary, format: &str) {
     }
 }
 
-fn print_migration(summary: &MigrationSummary, format: &str, dry_run: bool) {
+fn print_migration(summary: &MigrationSummary, format: OutputFormat, dry_run: bool) {
     match format {
-        "json" => {
+        OutputFormat::Json => {
             let json = serde_json::to_string_pretty(summary).unwrap_or_default();
             println!("{json}");
         }
-        _ => {
+        OutputFormat::Human => {
             if dry_run {
                 for d in &summary.diffs {
                     println!("{}", d.unified_text);

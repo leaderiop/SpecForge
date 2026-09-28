@@ -1,4 +1,5 @@
 mod diagnostic;
+pub mod discovery;
 pub mod inference;
 mod interner;
 mod project;
@@ -6,6 +7,7 @@ mod span;
 pub mod suggest;
 
 pub use diagnostic::{Diagnostic, DiagnosticsExt, Severity};
+pub use discovery::{SKIP_DIRS, discover_spec_files};
 pub use inference::anchors::{
     AnchorManifest, SourceAnchor, load_anchor_manifest, save_anchor_manifest,
 };

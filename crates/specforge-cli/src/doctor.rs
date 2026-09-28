@@ -1,10 +1,11 @@
+use crate::OutputFormat;
 use serde_json::json;
 use specforge_registry::client::credentials::{credentials_path, read_credentials};
 use specforge_wasm::{DoctorStatus, LockFile, read_lock_file, run_doctor_check};
 use std::collections::HashMap;
 use std::path::Path;
 
-pub fn run(path: &Path, format: &str) -> i32 {
+pub fn run(path: &Path, format: OutputFormat) -> i32 {
     let lock_path = path.join("specforge.lock");
     let extensions_dir = path.join(".specforge").join("extensions");
 
@@ -13,7 +14,7 @@ pub fn run(path: &Path, format: &str) -> i32 {
         Ok(lock) => lock,
         Err(_) => {
             match format {
-                "json" => {
+                OutputFormat::Json => {
                     let output = json!({
                         "status": "healthy",
                         "issues": [],
@@ -24,7 +25,7 @@ pub fn run(path: &Path, format: &str) -> i32 {
                         serde_json::to_string_pretty(&output).expect("serialize JSON output")
                     );
                 }
-                _ => {
+                OutputFormat::Human => {
                     println!("No lock file found — no extensions to check.");
                 }
             }
@@ -34,7 +35,7 @@ pub fn run(path: &Path, format: &str) -> i32 {
 
     if lock.entries.is_empty() {
         match format {
-            "json" => {
+            OutputFormat::Json => {
                 let output = json!({
                     "status": "healthy",
                     "issues": [],
@@ -45,7 +46,7 @@ pub fn run(path: &Path, format: &str) -> i32 {
                     serde_json::to_string_pretty(&output).expect("serialize JSON output")
                 );
             }
-            _ => {
+            OutputFormat::Human => {
                 println!("No extensions installed — nothing to check.");
             }
         }
@@ -132,7 +133,7 @@ pub fn run(path: &Path, format: &str) -> i32 {
     let signing_key = specforge_registry::signing::signing_key_path();
 
     match format {
-        "json" => {
+        OutputFormat::Json => {
             let issue_items: Vec<serde_json::Value> = issues
                 .iter()
                 .map(|status| match status {
@@ -179,7 +180,7 @@ pub fn run(path: &Path, format: &str) -> i32 {
                 serde_json::to_string_pretty(&output).expect("serialize JSON output")
             );
         }
-        _ => {
+        OutputFormat::Human => {
             println!(
                 "Extension health check ({} extension(s)):",
                 lock.entries.len()

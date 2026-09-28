@@ -4,11 +4,18 @@
 pub struct DocumentBuffer {
     uri: String,
     content: String,
+    /// Editor document version from didOpen/didChange, stamped onto
+    /// published diagnostics so clients can drop stale deliveries (C4-05).
+    version: Option<i32>,
 }
 
 impl DocumentBuffer {
     pub fn new(uri: String, content: String) -> Self {
-        Self { uri, content }
+        Self {
+            uri,
+            content,
+            version: None,
+        }
     }
 
     pub fn uri(&self) -> &str {
@@ -17,6 +24,14 @@ impl DocumentBuffer {
 
     pub fn content(&self) -> &str {
         &self.content
+    }
+
+    pub fn set_version(&mut self, version: i32) {
+        self.version = Some(version);
+    }
+
+    pub fn version(&self) -> Option<i32> {
+        self.version
     }
 
     /// Apply an incremental text edit specified by (start_line, start_col) to

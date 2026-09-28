@@ -1,12 +1,13 @@
+use crate::OutputFormat;
 use std::path::Path;
 
-pub fn run_init(path: &Path, name: Option<&str>, format: &str) -> i32 {
+pub fn run_init(path: &Path, name: Option<&str>, format: OutputFormat) -> i32 {
     let ext_name = name.unwrap_or("my-extension");
     let ext_dir = path.join(ext_name);
 
     if ext_dir.exists() {
         let msg = format!("directory '{}' already exists", ext_dir.display());
-        if format == "json" {
+        if format == OutputFormat::Json {
             println!("{}", serde_json::json!({"error": msg, "exit_code": 1}));
         } else {
             eprintln!("error: {}", msg);
@@ -16,7 +17,7 @@ pub fn run_init(path: &Path, name: Option<&str>, format: &str) -> i32 {
 
     if let Err(e) = std::fs::create_dir_all(&ext_dir) {
         let msg = format!("cannot create directory: {}", e);
-        if format == "json" {
+        if format == OutputFormat::Json {
             println!("{}", serde_json::json!({"error": msg, "exit_code": 1}));
         } else {
             eprintln!("error: {}", msg);
@@ -40,7 +41,7 @@ pub fn run_init(path: &Path, name: Option<&str>, format: &str) -> i32 {
         serde_json::to_string_pretty(&manifest).expect("serialize JSON output"),
     ) {
         let msg = format!("cannot write manifest.json: {}", e);
-        if format == "json" {
+        if format == OutputFormat::Json {
             println!("{}", serde_json::json!({"error": msg, "exit_code": 1}));
         } else {
             eprintln!("error: {}", msg);
@@ -51,7 +52,7 @@ pub fn run_init(path: &Path, name: Option<&str>, format: &str) -> i32 {
     // Write src/lib.rs skeleton
     if let Err(e) = std::fs::create_dir_all(ext_dir.join("src")) {
         let msg = format!("cannot create src directory: {}", e);
-        if format == "json" {
+        if format == OutputFormat::Json {
             println!("{}", serde_json::json!({"error": msg, "exit_code": 1}));
         } else {
             eprintln!("error: {}", msg);
@@ -72,7 +73,7 @@ pub extern "C" fn _start() {{}}
         ),
     ) {
         let msg = format!("cannot write src/lib.rs: {}", e);
-        if format == "json" {
+        if format == OutputFormat::Json {
             println!("{}", serde_json::json!({"error": msg, "exit_code": 1}));
         } else {
             eprintln!("error: {}", msg);
@@ -96,7 +97,7 @@ crate-type = ["cdylib"]
         ),
     ) {
         let msg = format!("cannot write Cargo.toml: {}", e);
-        if format == "json" {
+        if format == OutputFormat::Json {
             println!("{}", serde_json::json!({"error": msg, "exit_code": 1}));
         } else {
             eprintln!("error: {}", msg);
@@ -104,7 +105,7 @@ crate-type = ["cdylib"]
         return 1;
     }
 
-    if format == "json" {
+    if format == OutputFormat::Json {
         println!(
             "{}",
             serde_json::to_string_pretty(&serde_json::json!({
@@ -124,11 +125,11 @@ crate-type = ["cdylib"]
     0
 }
 
-pub fn run_build(path: &Path, format: &str) -> i32 {
+pub fn run_build(path: &Path, format: OutputFormat) -> i32 {
     // Check for Cargo.toml
     if !path.join("Cargo.toml").exists() {
         let msg = format!("no Cargo.toml found at {}", path.display());
-        if format == "json" {
+        if format == OutputFormat::Json {
             println!(
                 "{}",
                 serde_json::json!({"error": msg, "code": "E040", "exit_code": 1})
@@ -142,7 +143,7 @@ pub fn run_build(path: &Path, format: &str) -> i32 {
     // Check for manifest.json
     if !path.join("manifest.json").exists() {
         let msg = format!("no manifest.json found at {}", path.display());
-        if format == "json" {
+        if format == OutputFormat::Json {
             println!(
                 "{}",
                 serde_json::json!({"error": msg, "code": "E040", "exit_code": 1})
@@ -153,7 +154,7 @@ pub fn run_build(path: &Path, format: &str) -> i32 {
         return 1;
     }
 
-    if format == "json" {
+    if format == OutputFormat::Json {
         println!(
             "{}",
             serde_json::to_string_pretty(&serde_json::json!({
@@ -172,12 +173,12 @@ pub fn run_build(path: &Path, format: &str) -> i32 {
     0
 }
 
-pub fn run_validate(path: &Path, format: &str) -> i32 {
+pub fn run_validate(path: &Path, format: OutputFormat) -> i32 {
     // Check manifest exists
     let manifest_path = path.join("manifest.json");
     if !manifest_path.exists() {
         let msg = format!("no manifest.json found at {}", path.display());
-        if format == "json" {
+        if format == OutputFormat::Json {
             println!(
                 "{}",
                 serde_json::json!({"error": msg, "code": "E040", "exit_code": 1})
@@ -193,7 +194,7 @@ pub fn run_validate(path: &Path, format: &str) -> i32 {
         Ok(c) => c,
         Err(e) => {
             let msg = format!("cannot read manifest.json: {}", e);
-            if format == "json" {
+            if format == OutputFormat::Json {
                 println!("{}", serde_json::json!({"error": msg, "exit_code": 1}));
             } else {
                 eprintln!("error: {}", msg);
@@ -206,7 +207,7 @@ pub fn run_validate(path: &Path, format: &str) -> i32 {
         Ok(m) => m,
         Err(e) => {
             let msg = format!("invalid manifest.json: {}", e);
-            if format == "json" {
+            if format == OutputFormat::Json {
                 println!(
                     "{}",
                     serde_json::json!({"error": msg, "code": "E030", "exit_code": 1})
@@ -220,7 +221,7 @@ pub fn run_validate(path: &Path, format: &str) -> i32 {
 
     let diags = specforge_registry::validate_manifest(&manifest);
     if !diags.is_empty() {
-        if format == "json" {
+        if format == OutputFormat::Json {
             let errs: Vec<_> = diags
                 .iter()
                 .map(|d| {
@@ -247,7 +248,7 @@ pub fn run_validate(path: &Path, format: &str) -> i32 {
         return 1;
     }
 
-    if format == "json" {
+    if format == OutputFormat::Json {
         println!(
             "{}",
             serde_json::to_string_pretty(&serde_json::json!({

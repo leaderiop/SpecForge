@@ -1,3 +1,4 @@
+use crate::OutputFormat;
 use serde_json::json;
 use specforge_registry::{
     AuthMethod, HttpRegistryClient, RegistryConfig, RegistryCredential,
@@ -6,7 +7,12 @@ use specforge_registry::{
 };
 use std::path::Path;
 
-pub fn run(registry_alias: Option<&str>, token: Option<&str>, path: &Path, format: &str) -> i32 {
+pub fn run(
+    registry_alias: Option<&str>,
+    token: Option<&str>,
+    path: &Path,
+    format: OutputFormat,
+) -> i32 {
     let alias = registry_alias.unwrap_or("default");
 
     let token_value = match token {
@@ -62,7 +68,7 @@ pub fn run(registry_alias: Option<&str>, token: Option<&str>, path: &Path, forma
     }
 
     match format {
-        "json" => {
+        OutputFormat::Json => {
             let output = json!({
                 "action": "login",
                 "registry": alias,
@@ -70,7 +76,7 @@ pub fn run(registry_alias: Option<&str>, token: Option<&str>, path: &Path, forma
             });
             println!("{}", serde_json::to_string_pretty(&output).unwrap());
         }
-        _ => {
+        OutputFormat::Human => {
             println!("logged in to registry '{}'", alias);
         }
     }
@@ -78,7 +84,7 @@ pub fn run(registry_alias: Option<&str>, token: Option<&str>, path: &Path, forma
     0
 }
 
-pub fn run_logout(registry_alias: Option<&str>, format: &str) -> i32 {
+pub fn run_logout(registry_alias: Option<&str>, format: OutputFormat) -> i32 {
     let alias = registry_alias.unwrap_or("default");
     let cred_path = credentials_path();
 
@@ -88,7 +94,7 @@ pub fn run_logout(registry_alias: Option<&str>, format: &str) -> i32 {
 
     if !removed {
         match format {
-            "json" => {
+            OutputFormat::Json => {
                 let output = json!({
                     "action": "logout",
                     "registry": alias,
@@ -96,7 +102,7 @@ pub fn run_logout(registry_alias: Option<&str>, format: &str) -> i32 {
                 });
                 println!("{}", serde_json::to_string_pretty(&output).unwrap());
             }
-            _ => println!("no credentials found for registry '{}'", alias),
+            OutputFormat::Human => println!("no credentials found for registry '{}'", alias),
         }
         return 0;
     }
@@ -107,7 +113,7 @@ pub fn run_logout(registry_alias: Option<&str>, format: &str) -> i32 {
     }
 
     match format {
-        "json" => {
+        OutputFormat::Json => {
             let output = json!({
                 "action": "logout",
                 "registry": alias,
@@ -115,7 +121,7 @@ pub fn run_logout(registry_alias: Option<&str>, format: &str) -> i32 {
             });
             println!("{}", serde_json::to_string_pretty(&output).unwrap());
         }
-        _ => println!("logged out from registry '{}'", alias),
+        OutputFormat::Human => println!("logged out from registry '{}'", alias),
     }
 
     0
@@ -148,12 +154,12 @@ fn default_registry() -> RegistryConfig {
     }
 }
 
-fn print_error(format: &str, message: &str, code: &str) {
+fn print_error(format: OutputFormat, message: &str, code: &str) {
     match format {
-        "json" => {
+        OutputFormat::Json => {
             let output = json!({"error": message, "code": code});
             println!("{}", serde_json::to_string_pretty(&output).unwrap());
         }
-        _ => eprintln!("error[{}]: {}", code, message),
+        OutputFormat::Human => eprintln!("error[{}]: {}", code, message),
     }
 }

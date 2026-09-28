@@ -43,25 +43,14 @@ pub fn discover_targets(
 
 /// Recursively collect all .spec files under a directory.
 fn collect_spec_files(dir: &Path) -> Vec<PathBuf> {
-    let mut files = Vec::new();
-
     if !dir.exists() || !dir.is_dir() {
-        return files;
+        return Vec::new();
     }
 
-    for entry in walkdir::WalkDir::new(dir)
-        .follow_links(true)
-        .into_iter()
-        .filter_map(|e| e.ok())
-    {
-        let path = entry.path();
-        if path.is_file() && path.extension().is_some_and(|e| e == "spec") {
-            files.push(path.to_path_buf());
-        }
-    }
-
-    files.sort();
-    files
+    // Shared policy (C14-16): skip build/VCS dirs, never follow symlinks —
+    // matching the resolver, the LSP, and the CLI. Formatter-side exclude
+    // globs are layered on top by the caller.
+    specforge_common::discover_spec_files(dir, &[])
 }
 
 #[cfg(test)]

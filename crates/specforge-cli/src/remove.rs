@@ -1,8 +1,9 @@
+use crate::OutputFormat;
 use serde_json::json;
 use specforge_wasm::{read_lock_file, uninstall_extension, write_lock_file};
 use std::path::Path;
 
-pub fn run(name: &str, path: &Path, force: bool, format: &str) -> i32 {
+pub fn run(name: &str, path: &Path, force: bool, format: OutputFormat) -> i32 {
     let lock_path = path.join("specforge.lock");
     let extensions_dir = path.join(".specforge").join("extensions");
 
@@ -11,7 +12,7 @@ pub fn run(name: &str, path: &Path, force: bool, format: &str) -> i32 {
         Ok(lock) => lock,
         Err(_) => {
             match format {
-                "json" => {
+                OutputFormat::Json => {
                     let output = json!({
                         "error": format!("extension '{}' is not installed (no lock file found)", name),
                     });
@@ -20,7 +21,7 @@ pub fn run(name: &str, path: &Path, force: bool, format: &str) -> i32 {
                         serde_json::to_string_pretty(&output).expect("serialize JSON output")
                     );
                 }
-                _ => {
+                OutputFormat::Human => {
                     eprintln!(
                         "error: extension '{}' is not installed (no lock file found)",
                         name
@@ -34,7 +35,7 @@ pub fn run(name: &str, path: &Path, force: bool, format: &str) -> i32 {
     // Check if extension is in the lock file
     if !lock.entries.iter().any(|e| e.name == name) {
         match format {
-            "json" => {
+            OutputFormat::Json => {
                 let output = json!({
                     "error": format!("extension '{}' is not installed", name),
                 });
@@ -43,7 +44,7 @@ pub fn run(name: &str, path: &Path, force: bool, format: &str) -> i32 {
                     serde_json::to_string_pretty(&output).expect("serialize JSON output")
                 );
             }
-            _ => {
+            OutputFormat::Human => {
                 eprintln!("error: extension '{}' is not installed", name);
             }
         }
@@ -63,7 +64,7 @@ pub fn run(name: &str, path: &Path, force: bool, format: &str) -> i32 {
             // 3. Write updated lock file
             if let Err(diag) = write_lock_file(&lock, &lock_path) {
                 match format {
-                    "json" => {
+                    OutputFormat::Json => {
                         let output = json!({
                             "error": diag.message,
                         });
@@ -72,7 +73,7 @@ pub fn run(name: &str, path: &Path, force: bool, format: &str) -> i32 {
                             serde_json::to_string_pretty(&output).expect("serialize JSON output")
                         );
                     }
-                    _ => {
+                    OutputFormat::Human => {
                         eprintln!("error: {}", diag.message);
                     }
                 }
@@ -81,7 +82,7 @@ pub fn run(name: &str, path: &Path, force: bool, format: &str) -> i32 {
 
             // 4. Report success
             match format {
-                "json" => {
+                OutputFormat::Json => {
                     let output = json!({
                         "removed": result.name,
                         "version": result.version,
@@ -91,7 +92,7 @@ pub fn run(name: &str, path: &Path, force: bool, format: &str) -> i32 {
                         serde_json::to_string_pretty(&output).expect("serialize JSON output")
                     );
                 }
-                _ => {
+                OutputFormat::Human => {
                     println!("Removed extension '{}' (v{})", result.name, result.version);
                 }
             }
@@ -99,7 +100,7 @@ pub fn run(name: &str, path: &Path, force: bool, format: &str) -> i32 {
         }
         Err(diag) => {
             match format {
-                "json" => {
+                OutputFormat::Json => {
                     let output = json!({
                         "error": diag.message,
                         "code": diag.code,
@@ -109,7 +110,7 @@ pub fn run(name: &str, path: &Path, force: bool, format: &str) -> i32 {
                         serde_json::to_string_pretty(&output).expect("serialize JSON output")
                     );
                 }
-                _ => {
+                OutputFormat::Human => {
                     eprintln!("error: {}", diag.message);
                     if let Some(suggestion) = &diag.suggestion {
                         eprintln!("  hint: {}", suggestion);

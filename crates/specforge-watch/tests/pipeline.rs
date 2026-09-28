@@ -971,3 +971,102 @@ fn update_open_file_none_deletes() {
     assert_eq!(pipeline.graph().node_count(), 0);
     assert_eq!(pipeline.file_diagnostics("solo.spec"), &[]);
 }
+
+// ── C4-01: red-green graph updates match cold rebuilds ─────────
+
+#[spec(
+    behavior = "rebuild_affected_subgraph",
+    verify = "red-green updates keep the graph identical to a cold rebuild"
+)]
+#[test]
+fn red_green_matches_cold_after_target_edit() {
+    let (mut pipeline, mut sources) = cold_build(&[
+        ("a.spec", r#"behavior alpha "A" { contract "x" }"#),
+        ("b.spec", r#"feature gamma "G" { behaviors [alpha] }"#),
+    ]);
+    pipeline.set_verify_incremental(true);
+
+    // Rename the referenced entity in a.spec — b.spec's reference goes stale.
+    sources.insert(
+        "a.spec".to_string(),
+        r#"behavior beta "B" { contract "x" }"#.to_string(),
+    );
+    let result = pipeline.rebuild(&["a.spec".to_string()], |f| sources.get(f).cloned());
+    assert_eq!(
+        result.verification,
+        Some(Ok(())),
+        "{:?}",
+        result.verification
+    );
+    assert!(
+        result.diagnostics.iter().any(|d| d.code == "E003"),
+        "stale cross-file reference must resolve to E003: {:?}",
+        result.diagnostics
+    );
+
+    // Fix b.spec; every file is resolved again.
+    sources.insert(
+        "b.spec".to_string(),
+        r#"feature gamma "G" { behaviors [beta] }"#.to_string(),
+    );
+    let result = pipeline.rebuild(&["b.spec".to_string()], |f| sources.get(f).cloned());
+    assert_eq!(
+        result.verification,
+        Some(Ok(())),
+        "{:?}",
+        result.verification
+    );
+    assert!(
+        !result.diagnostics.iter().any(|d| d.code == "E003"),
+        "no unresolved references expected: {:?}",
+        result.diagnostics
+    );
+
+    // The live graph must be identical to a cold rebuild — node ids and
+    // edge triples, not just counts.
+    let all: Vec<(&str, &str)> = sources
+        .iter()
+        .map(|(k, v)| (k.as_str(), v.as_str()))
+        .collect();
+    let (cold, _) = cold_build(&all);
+    let inc_nodes: Vec<String> = pipeline
+        .graph()
+        .nodes()
+        .iter()
+        .map(|n| n.id.raw.to_string())
+        .collect();
+    let cold_nodes: Vec<String> = cold
+        .graph()
+        .nodes()
+        .iter()
+        .map(|n| n.id.raw.to_string())
+        .collect();
+    assert_eq!(inc_nodes, cold_nodes, "node sets must match cold rebuild");
+    let mut inc_edges: Vec<(String, String, String)> = pipeline
+        .graph()
+        .edges()
+        .iter()
+        .map(|e| {
+            (
+                e.source.to_string(),
+                e.target.to_string(),
+                e.label.to_string(),
+            )
+        })
+        .collect();
+    inc_edges.sort();
+    let mut cold_edges: Vec<(String, String, String)> = cold
+        .graph()
+        .edges()
+        .iter()
+        .map(|e| {
+            (
+                e.source.to_string(),
+                e.target.to_string(),
+                e.label.to_string(),
+            )
+        })
+        .collect();
+    cold_edges.sort();
+    assert_eq!(inc_edges, cold_edges, "edge sets must match cold rebuild");
+}

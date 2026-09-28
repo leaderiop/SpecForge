@@ -1,8 +1,7 @@
 use std::collections::HashMap;
 use std::sync::Arc;
-
+use tokio::sync::mpsc;
 use tokio::sync::{Mutex, RwLock};
-use tokio::task::JoinHandle;
 use tower_lsp::jsonrpc::Result;
 use tower_lsp::lsp_types::*;
 use tower_lsp::{Client, LanguageServer};
@@ -34,68 +33,113 @@ use crate::formatting::{EditorOptions, format_document, format_document_range};
 use crate::document::utf16_col_to_byte_offset;
 use crate::{byte_col_to_utf16, utf16_len};
 
-/// Debounce delay for `did_change` reparse (milliseconds).
+/// Debounce quiet-window for `did_change` reparse (milliseconds): the
+/// worker coalesces requests until the stream is quiet this long.
 const DEBOUNCE_MS: u64 = 150;
 
 pub struct Backend {
     client: Client,
     state: Arc<RwLock<LspState>>,
     root_dir: Arc<Mutex<Option<String>>>,
+    /// All workspace roots to index (C4-04): rootUri plus every
+    /// workspace folder, not just the first.
+    workspace_roots: Arc<Mutex<Vec<String>>>,
     /// Resolved spec root directory (project root + spec_root from specforge.json).
     /// Falls back to project root if specforge.json is absent or has no spec_root.
     spec_root: Arc<Mutex<Option<String>>>,
-    /// Per-URI debounce handles for `did_change` reparse.
-    pending_updates: Arc<Mutex<HashMap<Url, JoinHandle<()>>>>,
+    /// Latest-wins reparse requests (C4-03): keystrokes send here; one
+    /// serialized worker coalesces and processes, so at most one
+    /// whole-graph pass runs at a time and the state lock is never held
+    /// across a keystroke storm.
+    update_tx: mpsc::UnboundedSender<Url>,
 }
 
 impl Backend {
     pub fn new(client: Client) -> Self {
+        let state = Arc::new(RwLock::new(LspState::new()));
+        let (update_tx, mut update_rx) = mpsc::unbounded_channel::<Url>();
+
+        // Serialized latest-wins reparse worker (C4-03). Exits when the
+        // Backend (and its sender) is dropped.
+        let worker_state = Arc::clone(&state);
+        let worker_client = client.clone();
+        tokio::spawn(async move {
+            while let Some(first) = update_rx.recv().await {
+                // Coalesce everything already queued, then hold off until
+                // the stream is quiet for DEBOUNCE_MS.
+                let mut pending = vec![first];
+                while let Ok(Some(next)) = tokio::time::timeout(
+                    std::time::Duration::from_millis(DEBOUNCE_MS),
+                    update_rx.recv(),
+                )
+                .await
+                {
+                    pending.push(next);
+                }
+                pending.sort();
+                pending.dedup();
+                for uri in pending {
+                    let (version, content) = {
+                        let s = worker_state.read().await;
+                        match s.document(uri.as_str()) {
+                            Some(doc) => (doc.version(), Some(doc.content().to_string())),
+                            None => (None, None),
+                        }
+                    };
+                    let Some(content) = content else {
+                        continue;
+                    };
+                    // Single shared recompute path (same as did_open): drives
+                    // the incremental pipeline and assembles every layer.
+                    let diags_by_file = Self::parse_and_update(&worker_state, &uri, &content).await;
+                    for (file_uri, diags) in diags_by_file {
+                        worker_client
+                            .publish_diagnostics(file_uri, diags, version)
+                            .await;
+                    }
+                }
+            }
+        });
+
         Self {
             client,
-            state: Arc::new(RwLock::new(LspState::new())),
+            state,
             root_dir: Arc::new(Mutex::new(None)),
+            workspace_roots: Arc::new(Mutex::new(Vec::new())),
             spec_root: Arc::new(Mutex::new(None)),
-            pending_updates: Arc::new(Mutex::new(HashMap::new())),
+            update_tx,
         }
     }
 
-    /// Directories to skip during workspace indexing (build artifacts, dependencies).
-    const SKIP_DIRS: &[&str] = &["target", "node_modules", ".git", ".hg", "dist", "build"];
-
-    /// Walk the workspace root for all `.spec` files and parse them into the graph.
-    /// Returns the number of files indexed.
-    async fn index_workspace(&self, root: &str) -> usize {
-        let root_path = root.to_string();
+    /// Walk the workspace roots for all `.spec` files and parse them into
+    /// the graph. Uses the shared discovery policy (C14-16) with the
+    /// project's `exclude` patterns from specforge.json (C4-04). Static
+    /// over the shared state so the background indexing task can call it
+    /// without borrowing the backend. Returns the number of files indexed.
+    async fn index_roots_static(state: &RwLock<LspState>, roots: &[String]) -> usize {
+        let roots_owned: Vec<String> = roots.to_vec();
         let parsed: Vec<(String, specforge_parser::SpecFile)> =
             tokio::task::spawn_blocking(move || {
                 let mut files = Vec::new();
-                for entry in walkdir::WalkDir::new(&root_path)
-                    .into_iter()
-                    .filter_entry(|e| {
-                        if e.file_type().is_dir()
-                            && let Some(name) = e.file_name().to_str()
-                        {
-                            return !Self::SKIP_DIRS.contains(&name);
+                for root in &roots_owned {
+                    let root_path = std::path::Path::new(root);
+                    let exclude = specforge_common::load_project_config(root_path).exclude;
+                    for path in specforge_common::discover_spec_files(root_path, &exclude) {
+                        if let Ok(content) = std::fs::read_to_string(&path) {
+                            let file_path = path.to_string_lossy().to_string();
+                            files.push((
+                                file_path,
+                                specforge_parser::parse(&content, &path.to_string_lossy()),
+                            ));
                         }
-                        true
-                    })
-                    .filter_map(|e| e.ok())
-                {
-                    let path = entry.path();
-                    if path.extension().is_some_and(|ext| ext == "spec")
-                        && let Ok(content) = std::fs::read_to_string(path)
-                    {
-                        let file_path = path.to_string_lossy().to_string();
-                        files.push((
-                            file_path,
-                            specforge_parser::parse(&content, &path.to_string_lossy()),
-                        ));
                     }
                 }
                 files
             })
             .await
             .unwrap_or_default();
+
+        let count = parsed.len();
 
         // Build the import DAG so later edits invalidate importers.
         let mut dag = ImportDag::new();
@@ -111,8 +155,7 @@ impl Backend {
         // Build the graph through the same build_graph_with_config the CLI
         // uses, seeded from the loaded extension registries — so LSP
         // diagnostics (duplicates, unresolved references, cycles) match.
-        let count = parsed.len();
-        let mut state = self.state.write().await;
+        let mut state = state.write().await;
         let single_reference_fields: std::collections::HashSet<(String, String)> = state
             .field_registry()
             .iter()
@@ -161,8 +204,10 @@ impl Backend {
     }
 
     /// Load extensions via the protocol pipeline and populate registries.
+    /// Static over the shared state so the background indexing task (C4-04)
+    /// can call it without borrowing the backend.
     /// Returns the number of extensions loaded.
-    async fn load_registries(&self, project_root: &str) -> usize {
+    async fn load_registries_static(state: &RwLock<LspState>, project_root: &str) -> usize {
         let config_path = std::path::Path::new(project_root).join("specforge.json");
         let extensions: Vec<String> = match std::fs::read_to_string(&config_path) {
             Ok(content) => {
@@ -234,7 +279,7 @@ impl Backend {
                         .map(move |k| (k.keyword.clone(), m.name.clone()))
                 })
                 .collect();
-            let mut state = self.state.write().await;
+            let mut state = state.write().await;
             state.set_registries(kind_reg, field_reg, edge_reg);
             state.set_validation_patterns(patterns);
             state.set_known_extension_keywords(known_extension_keywords);
@@ -246,7 +291,9 @@ impl Backend {
 
     /// Parse a document, update the graph, and return diagnostics grouped by file URI.
     /// Diagnostics are keyed by URI so callers can publish each file's diagnostics
-    /// under the correct URI (not all under the triggering file).
+    /// under the correct URI (not all under the triggering file). Callers stamp the
+    /// triggering document's editor version onto every publish so clients can drop
+    /// stale deliveries (C4-05).
     async fn parse_and_update(
         state: &RwLock<LspState>,
         uri: &Url,
@@ -300,7 +347,12 @@ impl Backend {
             st.set_pipeline(pipeline);
         }
 
-        let mut state = state.write().await;
+        // Everything below only reads the graph, registries, and cached
+        // diagnostics — the graph validator takes `&Graph`. Hold the read
+        // lock, not the write lock, so concurrent reads never queue behind
+        // a long analysis pass (C4-05); writers are serialized by the
+        // reparse worker (C4-03).
+        let state = state.read().await;
 
         // Snapshot node data for registry-based diagnostics below.
         let all_nodes: Vec<(
@@ -354,7 +406,7 @@ impl Backend {
 
         if !edited_has_parse_errors {
             // Validator diagnostics, grouped by each diagnostic's own file
-            let validator_diags = specforge_validator::validate(state.graph_mut());
+            let validator_diags = specforge_validator::validate(state.graph());
             for vd in &validator_diags {
                 let diag_uri = vd
                     .span
@@ -871,11 +923,30 @@ impl LanguageServer for Backend {
                 }
             })
             .or_else(|| root.clone());
+        // Every workspace folder is indexed (C4-04), not just the first.
+        let mut roots: Vec<String> = params
+            .workspace_folders
+            .as_ref()
+            .map(|folders| {
+                folders
+                    .iter()
+                    .filter_map(|f| f.uri.to_file_path().ok())
+                    .map(|p| p.to_string_lossy().to_string())
+                    .collect()
+            })
+            .unwrap_or_default();
+        if let Some(root) = &root
+            && !roots.contains(root)
+        {
+            roots.push(root.clone());
+        }
         *self.spec_root.lock().await = resolved_spec_root;
+        *self.workspace_roots.lock().await = roots;
         *self.root_dir.lock().await = root;
         let state = self.state.read().await;
         let kind_keywords: Vec<String> = state.kind_registry().keywords().cloned().collect();
         let kind_refs: Vec<&str> = kind_keywords.iter().map(|s| s.as_str()).collect();
+
         drop(state);
         let caps = server_capabilities(&kind_refs);
         let token_types: Vec<SemanticTokenType> = crate::TOKEN_TYPES
@@ -963,30 +1034,79 @@ impl LanguageServer for Backend {
             }])
             .await;
 
-        // Load extension registries from specforge.json before indexing
-        let root_dir = self.root_dir.lock().await.clone();
-        if let Some(ref root) = root_dir {
-            let ext_count = self.load_registries(root).await;
-            if ext_count > 0 {
-                self.client
-                    .log_message(
-                        MessageType::INFO,
-                        format!("specforge-lsp: loaded {ext_count} extension(s)"),
+        // Indexing, registry loading, and the open-document re-diagnose all
+        // move to a background task with workDone progress (C4-04):
+        // `initialized` returns immediately so the session stays responsive.
+        let roots = self.workspace_roots.lock().await.clone();
+        let spec_root = self.spec_root.lock().await.clone();
+        let client = self.client.clone();
+        let state = Arc::clone(&self.state);
+        tokio::spawn(async move {
+            let token = NumberOrString::String("specforge-index".into());
+            let _ = client
+                .send_request::<tower_lsp::lsp_types::request::WorkDoneProgressCreate>(
+                    WorkDoneProgressCreateParams {
+                        token: token.clone(),
+                    },
+                )
+                .await;
+            client
+                .send_notification::<tower_lsp::lsp_types::notification::Progress>(ProgressParams {
+                    token: token.clone(),
+                    value: ProgressParamsValue::WorkDone(WorkDoneProgress::Begin(
+                        WorkDoneProgressBegin {
+                            title: "specforge: indexing workspace".into(),
+                            cancellable: None,
+                            message: None,
+                            percentage: None,
+                        },
+                    )),
+                })
+                .await;
+
+            // Load extension registries from specforge.json before indexing
+            if let Some(root) = roots.first() {
+                let ext_count = Self::load_registries_static(&state, root).await;
+                if ext_count > 0 {
+                    client
+                        .log_message(
+                            MessageType::INFO,
+                            format!("specforge-lsp: loaded {ext_count} extension(s)"),
+                        )
+                        .await;
+                }
+            }
+
+            // spec_root (from specforge.json) narrows the walk; otherwise
+            // index every workspace folder (C4-04).
+            let index_roots: Vec<String> = match spec_root {
+                Some(spec_root) => vec![spec_root],
+                None => roots,
+            };
+            if index_roots.is_empty() {
+                client
+                    .log_message(MessageType::INFO, "specforge-lsp initialized (no root_uri)")
+                    .await;
+                client
+                    .send_notification::<tower_lsp::lsp_types::notification::Progress>(
+                        ProgressParams {
+                            token,
+                            value: ProgressParamsValue::WorkDone(WorkDoneProgress::End(
+                                WorkDoneProgressEnd { message: None },
+                            )),
+                        },
                     )
                     .await;
+                return;
             }
-        }
-
-        // Use spec_root (from specforge.json) for indexing — it's much narrower than
-        // root_dir and avoids traversing huge directories like target/ or node_modules/.
-        let spec_root = self.spec_root.lock().await.clone();
-        let index_root = spec_root.or(root_dir);
-        if let Some(root_path) = index_root {
-            let count = self.index_workspace(&root_path).await;
-            self.client
+            let count = Self::index_roots_static(&state, &index_roots).await;
+            client
                 .log_message(
                     MessageType::INFO,
-                    format!("specforge-lsp: indexed {count} .spec files from {root_path}"),
+                    format!(
+                        "specforge-lsp: indexed {count} .spec files from {}",
+                        index_roots.join(", ")
+                    ),
                 )
                 .await;
 
@@ -994,29 +1114,36 @@ impl LanguageServer for Backend {
             // is populated.  Without this, didOpen diagnostics that raced
             // against indexing would show stale E001 errors for cross-file
             // references that hadn't been indexed yet.
-            let open_uris: Vec<(Url, String)> = {
-                let state = self.state.read().await;
+            let open_docs: Vec<(Url, String, Option<i32>)> = {
+                let state = state.read().await;
                 state
                     .open_uris()
                     .into_iter()
                     .filter_map(|uri_str| {
                         let uri = Url::parse(uri_str).ok()?;
-                        let content = state.document(uri_str)?.content().to_string();
-                        Some((uri, content))
+                        let doc = state.document(uri_str)?;
+                        Some((uri, doc.content().to_string(), doc.version()))
                     })
                     .collect()
             };
-            for (uri, content) in open_uris {
-                let diags_by_file = Self::parse_and_update(&self.state, &uri, &content).await;
+            for (uri, content, version) in open_docs {
+                let diags_by_file = Self::parse_and_update(&state, &uri, &content).await;
                 for (file_uri, diags) in diags_by_file {
-                    self.client.publish_diagnostics(file_uri, diags, None).await;
+                    client.publish_diagnostics(file_uri, diags, version).await;
                 }
             }
-        } else {
-            self.client
-                .log_message(MessageType::INFO, "specforge-lsp initialized (no root_uri)")
+
+            client
+                .send_notification::<tower_lsp::lsp_types::notification::Progress>(ProgressParams {
+                    token,
+                    value: ProgressParamsValue::WorkDone(WorkDoneProgress::End(
+                        WorkDoneProgressEnd {
+                            message: Some(format!("{count} files")),
+                        },
+                    )),
+                })
                 .await;
-        }
+        });
     }
 
     async fn shutdown(&self) -> Result<()> {
@@ -1027,12 +1154,21 @@ impl LanguageServer for Backend {
     async fn did_open(&self, params: DidOpenTextDocumentParams) {
         let uri = params.text_document.uri;
         let text = params.text_document.text;
+        let version = params.text_document.version;
 
-        self.state.write().await.open_document(uri.as_str(), &text);
+        {
+            let mut state = self.state.write().await;
+            state.open_document(uri.as_str(), &text);
+            if let Some(doc) = state.document_mut(uri.as_str()) {
+                doc.set_version(version);
+            }
+        }
 
         let diags_by_file = Self::parse_and_update(&self.state, &uri, &text).await;
         for (file_uri, diags) in diags_by_file {
-            self.client.publish_diagnostics(file_uri, diags, None).await;
+            self.client
+                .publish_diagnostics(file_uri, diags, Some(version))
+                .await;
         }
     }
 
@@ -1057,49 +1193,14 @@ impl LanguageServer for Backend {
                     state.open_document(uri.as_str(), &change.text);
                 }
             }
-        }
-
-        // Cancel any pending debounced reparse for this URI
-        {
-            let mut pending = self.pending_updates.lock().await;
-            if let Some(handle) = pending.remove(&uri) {
-                handle.abort();
+            if let Some(doc) = state.document_mut(uri.as_str()) {
+                doc.set_version(params.text_document.version);
             }
         }
 
-        // Spawn a debounced reparse task
-        let state = self.state.clone();
-        let client = self.client.clone();
-        let pending = self.pending_updates.clone();
-        let uri_clone = uri.clone();
-
-        let handle = tokio::spawn(async move {
-            tokio::time::sleep(std::time::Duration::from_millis(DEBOUNCE_MS)).await;
-
-            // Remove ourselves from pending map
-            {
-                let mut p = pending.lock().await;
-                p.remove(&uri_clone);
-            }
-
-            let content = {
-                let s = state.read().await;
-                s.document(uri_clone.as_str())
-                    .map(|d| d.content().to_string())
-            };
-            if let Some(content) = content {
-                // Single shared recompute path (same as did_open): drives the
-                // incremental pipeline and assembles every diagnostic layer.
-                let diags_by_file = Self::parse_and_update(&state, &uri_clone, &content).await;
-                for (file_uri, diags) in diags_by_file {
-                    client.publish_diagnostics(file_uri, diags, None).await;
-                }
-            }
-        });
-
-        // Store the handle for cancellation
-        let mut pending = self.pending_updates.lock().await;
-        pending.insert(uri, handle);
+        // Hand off to the serialized latest-wins worker (C4-03): the burst
+        // is coalesced and one whole-graph pass runs at a time.
+        let _ = self.update_tx.send(uri);
     }
 
     async fn did_close(&self, params: DidCloseTextDocumentParams) {
@@ -1120,7 +1221,7 @@ impl LanguageServer for Backend {
             if file_path.ends_with("specforge.json") || file_path.ends_with(".wasm") {
                 let root_dir = self.root_dir.lock().await.clone();
                 if let Some(root) = root_dir {
-                    let ext_count = self.load_registries(&root).await;
+                    let ext_count = Self::load_registries_static(&self.state, &root).await;
                     self.client
                         .log_message(
                             MessageType::INFO,
@@ -1129,7 +1230,7 @@ impl LanguageServer for Backend {
                             ),
                         )
                         .await;
-                    let files = self.index_workspace(&root).await;
+                    let files = Self::index_roots_static(&self.state, &[root]).await;
                     let _ = files;
                 }
                 continue;
@@ -1145,13 +1246,40 @@ impl LanguageServer for Backend {
                     // Remove the file through the shared pipeline (nodes,
                     // edges, cached parse, and import-DAG entries), then
                     // republish diagnostics for everything affected.
-                    let mut state = self.state.write().await;
-                    let result =
-                        state
-                            .pipeline_mut()
-                            .update_open_file(&file_path, None, |f: &str| {
-                                std::fs::read_to_string(f).ok()
-                            });
+                    // The pipeline update does synchronous fs reads (the
+                    // invalidation set is re-read from disk), so it runs on
+                    // the blocking pool: take the pipeline out (brief write
+                    // lock), compute without any lock held, put it back
+                    // (C4-03). Async workers are never blocked on std::fs.
+                    let mut pipeline = {
+                        let mut st = self.state.write().await;
+                        st.take_pipeline()
+                    };
+                    let joined = tokio::task::spawn_blocking(move || {
+                        let result = pipeline.update_open_file(&file_path, None, |f: &str| {
+                            std::fs::read_to_string(f).ok()
+                        });
+                        (pipeline, result)
+                    })
+                    .await;
+                    let (pipeline, result) = match joined {
+                        Ok(pair) => pair,
+                        Err(e) => {
+                            self.client
+                                .log_message(
+                                    MessageType::ERROR,
+                                    format!("specforge-lsp: deletion reparse failed: {e}"),
+                                )
+                                .await;
+                            continue;
+                        }
+                    };
+                    {
+                        let mut st = self.state.write().await;
+                        st.set_pipeline(pipeline);
+                    }
+
+                    let state = self.state.read().await;
 
                     let mut diags_by_file: std::collections::HashMap<Url, Vec<Diagnostic>> =
                         std::collections::HashMap::new();
@@ -1175,7 +1303,7 @@ impl LanguageServer for Backend {
                     }
 
                     // Validator diagnostics over the post-deletion graph
-                    let validator_diags = specforge_validator::validate(state.graph_mut());
+                    let validator_diags = specforge_validator::validate(state.graph());
                     for vd in &validator_diags {
                         let diag_uri = vd
                             .span
@@ -1209,12 +1337,27 @@ impl LanguageServer for Backend {
                     }
                 }
                 _ => {
-                    // Created or Changed — re-read from disk and update graph
-                    if let Ok(content) = std::fs::read_to_string(&file_path) {
+                    // Created or Changed — re-read from disk (blocking pool)
+                    // and update graph through the shared recompute path.
+                    let content = {
+                        let file_path = file_path.clone();
+                        tokio::task::spawn_blocking(move || {
+                            std::fs::read_to_string(&file_path).ok()
+                        })
+                        .await
+                        .unwrap_or(None)
+                    };
+                    if let Some(content) = content {
+                        let version = {
+                            let state = self.state.read().await;
+                            state.document(uri.as_str()).and_then(|d| d.version())
+                        };
                         let diags_by_file =
                             Self::parse_and_update(&self.state, uri, &content).await;
                         for (file_uri, diags) in diags_by_file {
-                            self.client.publish_diagnostics(file_uri, diags, None).await;
+                            self.client
+                                .publish_diagnostics(file_uri, diags, version)
+                                .await;
                         }
                     }
                 }

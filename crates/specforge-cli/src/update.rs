@@ -1,3 +1,4 @@
+use crate::OutputFormat;
 use serde_json::json;
 use specforge_registry::{
     HttpRegistryClient, RegistryConfig, parse_registries_from_config, resolve_from_registry,
@@ -9,7 +10,7 @@ use std::path::Path;
 pub fn run(
     name: Option<&str>,
     path: &Path,
-    format: &str,
+    format: OutputFormat,
     allow_unsigned: bool,
     assume_yes: bool,
 ) -> i32 {
@@ -42,11 +43,11 @@ pub fn run(
 
     if entries_to_update.is_empty() {
         match format {
-            "json" => println!(
+            OutputFormat::Json => println!(
                 "{}",
                 serde_json::to_string_pretty(&json!({"updated": []})).unwrap()
             ),
-            _ => println!("no extensions to update"),
+            OutputFormat::Human => println!("no extensions to update"),
         }
         return 0;
     }
@@ -117,7 +118,7 @@ pub fn run(
             &wasm_bytes,
             allow_unsigned,
             assume_yes,
-            format,
+            format.as_str(),
             None,
         ) {
             Ok(t) => t,
@@ -169,11 +170,11 @@ pub fn run(
     }
 
     match format {
-        "json" => {
+        OutputFormat::Json => {
             let output = json!({"updated": updated});
             println!("{}", serde_json::to_string_pretty(&output).unwrap());
         }
-        _ => {
+        OutputFormat::Human => {
             if updated.is_empty() {
                 println!("all extensions are up to date");
             } else {
@@ -220,12 +221,12 @@ fn default_registry() -> RegistryConfig {
     }
 }
 
-fn print_error(format: &str, message: &str, code: &str) {
+fn print_error(format: OutputFormat, message: &str, code: &str) {
     match format {
-        "json" => {
+        OutputFormat::Json => {
             let output = json!({"error": message, "code": code});
             println!("{}", serde_json::to_string_pretty(&output).unwrap());
         }
-        _ => eprintln!("error[{}]: {}", code, message),
+        OutputFormat::Human => eprintln!("error[{}]: {}", code, message),
     }
 }

@@ -31,7 +31,7 @@ fn schema_version_within_same_major_is_accepted() {
             "export",
             tmp.path().join("src").to_str().unwrap(),
             "--format",
-            "json",
+            "graph",
             "--schema-version",
             "1.0.0",
         ])
@@ -58,7 +58,7 @@ fn schema_version_other_major_is_rejected_with_range() {
             "export",
             tmp.path().join("src").to_str().unwrap(),
             "--format",
-            "json",
+            "graph",
             "--schema-version",
             "2.0.0",
         ])

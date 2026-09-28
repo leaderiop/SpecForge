@@ -1,3 +1,4 @@
+use crate::OutputFormat;
 use serde_json::json;
 use specforge_registry::{
     HttpRegistryClient, RegistryConfig, parse_registries_from_config, resolve_from_registry,
@@ -12,7 +13,7 @@ use std::path::Path;
 pub fn run(
     specifier: &str,
     path: &Path,
-    format: &str,
+    format: OutputFormat,
     allow_unsigned: bool,
     assume_yes: bool,
 ) -> i32 {
@@ -20,14 +21,14 @@ pub fn run(
         Ok(p) => p,
         Err(diag) => {
             match format {
-                "json" => {
+                OutputFormat::Json => {
                     let output = json!({
                         "error": diag.message,
                         "code": diag.code,
                     });
                     println!("{}", serde_json::to_string_pretty(&output).unwrap());
                 }
-                _ => {
+                OutputFormat::Human => {
                     eprintln!("error: {}", diag.message);
                     if let Some(suggestion) = &diag.suggestion {
                         eprintln!("  hint: {}", suggestion);
@@ -47,14 +48,14 @@ pub fn run(
         }
         specforge_wasm::ExtensionSpecifier::Git { url, .. } => {
             match format {
-                "json" => {
+                OutputFormat::Json => {
                     let output = json!({
                         "error": format!("git source '{}' not yet supported", url),
                         "code": "E-ADD-001",
                     });
                     println!("{}", serde_json::to_string_pretty(&output).unwrap());
                 }
-                _ => eprintln!("error: git source not yet supported: {}", url),
+                OutputFormat::Human => eprintln!("error: git source not yet supported: {}", url),
             }
             1
         }
@@ -65,7 +66,7 @@ fn install_from_registry(
     name: &str,
     version: &str,
     project_path: &Path,
-    format: &str,
+    format: OutputFormat,
     allow_unsigned: bool,
     assume_yes: bool,
 ) -> i32 {
@@ -75,14 +76,14 @@ fn install_from_registry(
     if registries.is_empty() {
         let msg = "no registries configured. Add a \"registries\" section to specforge.json or set a default registry.";
         match format {
-            "json" => {
+            OutputFormat::Json => {
                 println!(
                     "{}",
                     serde_json::to_string_pretty(&json!({"error": msg, "code": "R-OPS-001"}))
                         .unwrap()
                 );
             }
-            _ => eprintln!("error: {}", msg),
+            OutputFormat::Human => eprintln!("error: {}", msg),
         }
         return 1;
     }
@@ -142,7 +143,7 @@ fn install_from_registry(
         &wasm_bytes,
         allow_unsigned,
         assume_yes,
-        format,
+        format.as_str(),
         None,
     ) {
         Ok(t) => t,
@@ -182,7 +183,7 @@ fn install_from_registry(
             update_specforge_json(&config_path, &response.name, &resolved_version);
 
             match format {
-                "json" => {
+                OutputFormat::Json => {
                     let output = json!({
                         "action": "add",
                         "name": result.name,
@@ -192,7 +193,7 @@ fn install_from_registry(
                     });
                     println!("{}", serde_json::to_string_pretty(&output).unwrap());
                 }
-                _ => {
+                OutputFormat::Human => {
                     println!("installed {} v{}", result.name, result.version);
                     match &trust.key_id {
                         Some(key_id) => println!("  signed by key: {}", key_id),
@@ -209,7 +210,7 @@ fn install_from_registry(
     }
 }
 
-fn install_local(local_path: &Path, project_path: &Path, format: &str) -> i32 {
+fn install_local(local_path: &Path, project_path: &Path, format: OutputFormat) -> i32 {
     if !local_path.exists() {
         print_error(
             format,
@@ -237,7 +238,7 @@ fn install_local(local_path: &Path, project_path: &Path, format: &str) -> i32 {
             }
 
             match format {
-                "json" => {
+                OutputFormat::Json => {
                     let output = json!({
                         "action": "add",
                         "name": result.name,
@@ -247,7 +248,7 @@ fn install_local(local_path: &Path, project_path: &Path, format: &str) -> i32 {
                     });
                     println!("{}", serde_json::to_string_pretty(&output).unwrap());
                 }
-                _ => {
+                OutputFormat::Human => {
                     println!("installed {} from local path", result.name);
                 }
             }
@@ -319,12 +320,12 @@ fn update_specforge_json(config_path: &Path, name: &str, version: &str) {
     }
 }
 
-fn print_error(format: &str, message: &str, code: &str) {
+fn print_error(format: OutputFormat, message: &str, code: &str) {
     match format {
-        "json" => {
+        OutputFormat::Json => {
             let output = json!({"error": message, "code": code});
             println!("{}", serde_json::to_string_pretty(&output).unwrap());
         }
-        _ => eprintln!("error[{}]: {}", code, message),
+        OutputFormat::Human => eprintln!("error[{}]: {}", code, message),
     }
 }

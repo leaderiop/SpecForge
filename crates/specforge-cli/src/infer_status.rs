@@ -1,3 +1,4 @@
+use crate::OutputFormat;
 use std::path::Path;
 
 use specforge_common::AnalyzerConfig;
@@ -7,7 +8,7 @@ use specforge_emitter::scanner_dispatch;
 
 pub fn run(
     path: &Path,
-    format: &str,
+    format: OutputFormat,
     show_gaps: bool,
     show_stale: bool,
     show_gaps_detail: bool,
@@ -46,7 +47,7 @@ pub fn run(
     let summary = manifest.compute_summary(source_files.len());
 
     match format {
-        "json" => {
+        OutputFormat::Json => {
             let json = serde_json::json!({
                 "summary": {
                     "files_total": summary.files_total,
@@ -62,7 +63,7 @@ pub fn run(
                 serde_json::to_string_pretty(&json).expect("serialize JSON output")
             );
         }
-        _ => {
+        OutputFormat::Human => {
             let pct = if summary.files_total > 0 {
                 (summary.files_analyzed as f64 / summary.files_total as f64) * 100.0
             } else {

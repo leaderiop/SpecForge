@@ -2,18 +2,19 @@ use std::path::Path;
 
 use specforge_emitter::generate_schema;
 use specforge_emitter::model::{
-    FieldLevel, GroupBy, ModelFormat, ModelIntermediate_from_schema, ModelOptions, filter_entities,
-    filter_fields, render,
+    FieldLevel as EmitterFieldLevel, GroupBy as EmitterGroupBy, ModelFormat as EmitterModelFormat,
+    ModelIntermediate_from_schema, ModelOptions, filter_entities, filter_fields, render,
 };
 
 use crate::pipeline;
+use crate::{FieldLevel, GroupBy, ModelFormat};
 
 #[allow(clippy::too_many_arguments)]
 pub fn run(
     path: &Path,
-    format: &str,
-    group_by: &str,
-    fields: &str,
+    format: ModelFormat,
+    group_by: GroupBy,
+    fields: FieldLevel,
     extension: Option<&str>,
     kinds: &[String],
     root: Option<&str>,
@@ -29,22 +30,22 @@ pub fn run(
     );
 
     let model_format = match format {
-        "mermaid" => ModelFormat::Mermaid,
-        "dot" => ModelFormat::Dot,
-        "json" => ModelFormat::Json,
-        "dbml" => ModelFormat::Dbml,
-        _ => ModelFormat::Markdown,
+        ModelFormat::Markdown => EmitterModelFormat::Markdown,
+        ModelFormat::Mermaid => EmitterModelFormat::Mermaid,
+        ModelFormat::Dot => EmitterModelFormat::Dot,
+        ModelFormat::Json => EmitterModelFormat::Json,
+        ModelFormat::Dbml => EmitterModelFormat::Dbml,
     };
 
     let group = match group_by {
-        "none" => GroupBy::None,
-        _ => GroupBy::Extension,
+        GroupBy::Extension => EmitterGroupBy::Extension,
+        GroupBy::None => EmitterGroupBy::None,
     };
 
     let field_level = match fields {
-        "none" => FieldLevel::None,
-        "all" => FieldLevel::All,
-        _ => FieldLevel::Keys,
+        FieldLevel::None => EmitterFieldLevel::None,
+        FieldLevel::Keys => EmitterFieldLevel::Keys,
+        FieldLevel::All => EmitterFieldLevel::All,
     };
 
     let kind_filter = if kinds.is_empty() {

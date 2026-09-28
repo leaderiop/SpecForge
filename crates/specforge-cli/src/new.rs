@@ -5,10 +5,11 @@
 //! depending on `specforge-extension-sdk`, targeting `wasm32-unknown-unknown`,
 //! with a `src/lib.rs` skeleton that builds and describes out of the box.
 
+use crate::OutputFormat;
 use serde_json::json;
 use std::path::{Path, PathBuf};
 
-pub fn run(name: &str, extension: bool, path: &Path, format: &str) -> i32 {
+pub fn run(name: &str, extension: bool, path: &Path, format: OutputFormat) -> i32 {
     if !extension {
         print_error(
             format,
@@ -39,7 +40,7 @@ pub fn run(name: &str, extension: bool, path: &Path, format: &str) -> i32 {
     }
 
     match format {
-        "json" => {
+        OutputFormat::Json => {
             let output = json!({
                 "action": "new",
                 "kind": "extension",
@@ -48,7 +49,7 @@ pub fn run(name: &str, extension: bool, path: &Path, format: &str) -> i32 {
             });
             println!("{}", serde_json::to_string_pretty(&output).unwrap());
         }
-        _ => {
+        OutputFormat::Human => {
             println!("scaffolded extension '{}' in {}", name, dir.display());
             println!();
             println!("next steps:");
@@ -184,13 +185,13 @@ specforge_extension_sdk::component_guest!(
     Ok(())
 }
 
-fn print_error(format: &str, message: &str, code: &str) {
+fn print_error(format: OutputFormat, message: &str, code: &str) {
     match format {
-        "json" => {
+        OutputFormat::Json => {
             let output = json!({"error": message, "code": code});
             println!("{}", serde_json::to_string_pretty(&output).unwrap());
         }
-        _ => eprintln!("error[{}]: {}", code, message),
+        OutputFormat::Human => eprintln!("error[{}]: {}", code, message),
     }
 }
 

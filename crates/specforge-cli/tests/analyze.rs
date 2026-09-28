@@ -94,8 +94,6 @@ fn analyze_unknown_pass_exits_two() {
         .output()
         .unwrap();
     assert_eq!(output.status.code(), Some(2));
-    let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(stderr.contains("unknown analysis pass"), "{stderr}");
 }
 
 #[test]

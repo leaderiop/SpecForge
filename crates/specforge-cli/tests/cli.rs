@@ -621,3 +621,32 @@ feature gamma "G" { behaviors [alpha_parsr] }
         diags
     );
 }
+
+// === typed format flags (C14-10) ===
+
+#[specforge_test(
+    behavior = "unknown_format_value_rejected_at_parse_time",
+    verify = "a typo'd --format fails with a clap error (exit 2), not a bespoke runtime error"
+)]
+#[test]
+fn unknown_format_value_is_rejected_by_clap() {
+    let dir = setup_project(&[("main.spec", r#"behavior alpha "A" { contract "first" }"#)]);
+
+    let output = specforge_cmd()
+        .args(["stats", "--format=yaml"])
+        .arg(dir.path())
+        .env("COLUMNS", "100")
+        .output()
+        .unwrap();
+
+    assert_eq!(
+        output.status.code(),
+        Some(2),
+        "clap rejects unknown values with exit code 2"
+    );
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("invalid value"),
+        "expected a clap parse error, got: {stderr}"
+    );
+}

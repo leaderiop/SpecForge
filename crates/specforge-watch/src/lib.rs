@@ -6,7 +6,7 @@ mod pipeline;
 mod subscribers;
 mod watcher;
 
-pub use debounce::Debouncer;
+pub use debounce::{DEFAULT_DEBOUNCE_WINDOW, Debouncer};
 pub use delta::{
     DeltaConfig, DeltaValidationResult, EdgeChange, GraphDelta, ModifiedNodeChange, NodeChange,
     compute_graph_delta, compute_graph_delta_with_config, validate_delta_correctness,
