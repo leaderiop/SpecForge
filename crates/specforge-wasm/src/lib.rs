@@ -52,8 +52,8 @@ pub use lifecycle::{
     validate_grammar_wasm,
 };
 pub use lock_file::{
-    DoctorStatus, LockFile, LockFileEntry, read_lock_file, refresh_lock_file, run_doctor_check,
-    write_lock_file,
+    DoctorStatus, LockFile, LockFileEntry, collect_peer_requirers, read_lock_file,
+    refresh_lock_file, run_doctor_check, write_lock_file,
 };
 pub use manifest_bridge::{
     detect_entity_kind_collision, load_extension_manifest_from_path, validate_extension_manifest,

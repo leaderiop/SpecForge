@@ -79,8 +79,8 @@ pub use client::{
     RegistryCredential, RegistryError, RegistryResponse, RegistrySearchResult, RetryPolicy,
     TrustCheck, authenticate_with_retry, find_registry_for_specifier, load_known_keys,
     logout_registry, parse_registries_from_config, publish_to_registry, resolve_credential,
-    resolve_from_registry, resolve_version, sanitize_token, save_known_keys, search_registries,
-    validate_credentials, verify_package_signature, verify_registry_integrity,
+    resolve_diamond, resolve_from_registry, resolve_version, sanitize_token, save_known_keys,
+    search_registries, validate_credentials, verify_package_signature, verify_registry_integrity,
 };
 
 // Backward-compatible module path aliases for external code that uses

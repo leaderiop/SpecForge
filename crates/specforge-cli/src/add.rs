@@ -1,12 +1,13 @@
 use crate::OutputFormat;
 use serde_json::json;
+use specforge_common::{Diagnostic, Severity};
 use specforge_registry::{
     HttpRegistryClient, RegistryConfig, parse_registries_from_config, resolve_from_registry,
     resolve_version, verify_registry_integrity,
 };
 use specforge_wasm::{
-    install_extension, install_from_local, parse_extension_specifier, read_lock_file,
-    write_lock_file,
+    collect_peer_requirers, install_extension, install_from_local, parse_extension_specifier,
+    read_lock_file, write_lock_file,
 };
 use std::path::Path;
 
@@ -164,6 +165,65 @@ fn install_from_registry(
         serde_json::from_str::<specforge_registry::ManifestV2>(&response.manifest)
             .map(|m| m.peer_dependencies)
             .unwrap_or_default();
+
+    // C8-07: a version diamond — this package and some already-locked
+    // package both depend on the same peer at incompatible ranges — must be
+    // caught and unified here, not left for `doctor` to discover after the
+    // fact. If the currently locked version already satisfies this
+    // package's range there is nothing to do; that is the common case.
+    for peer in &peer_dependencies {
+        let Some(locked_peer) = lock.entries.iter().find(|e| e.name == peer.name) else {
+            continue;
+        };
+        let satisfied = match (
+            semver::VersionReq::parse(&peer.version),
+            semver::Version::parse(&locked_peer.version),
+        ) {
+            (Ok(req), Ok(v)) => req.matches(&v),
+            // Malformed ranges/versions are reported by validate_peer_dependencies (W062);
+            // don't block install on them here.
+            _ => true,
+        };
+        if satisfied {
+            continue;
+        }
+
+        let requirers =
+            collect_peer_requirers(&lock, &peer.name, Some((&response.name, &peer.version)));
+        let peer_registry =
+            specforge_registry::find_registry_for_specifier(&peer.name, &registries)
+                .unwrap_or_else(|| registries.first().unwrap());
+
+        let diag = match specforge_registry::resolve_diamond(
+            &peer.name,
+            &requirers,
+            &client,
+            peer_registry,
+        ) {
+            Ok(unified) if unified == locked_peer.version => {
+                // Unreachable in practice (unified would have satisfied `req` above),
+                // but fall through safely rather than panic if it ever happens.
+                continue;
+            }
+            Ok(unified) => Diagnostic {
+                code: "R-RES-006".to_string(),
+                severity: Severity::Error,
+                message: format!(
+                    "version diamond: '{}' requires peer '{}' {} but {} is locked; {} {} would satisfy every requirer",
+                    response.name, peer.name, peer.version, locked_peer.version, peer.name, unified
+                ),
+                span: None,
+                suggestion: Some(format!(
+                    "no command pins peer versions yet; manually reinstall '{}' at {} (or a version satisfying every requirer), then retry add",
+                    peer.name, unified
+                )),
+            },
+            Err(diag) => diag,
+        };
+        print_error(format, &diag.message, &diag.code);
+        return 1;
+    }
+
     match install_extension(
         &response.name,
         &response.version,

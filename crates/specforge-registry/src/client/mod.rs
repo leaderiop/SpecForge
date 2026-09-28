@@ -26,7 +26,7 @@ pub use registry_ops::{
     TrustCheck, publish_to_registry, resolve_from_registry, search_registries,
     verify_package_signature, verify_registry_integrity,
 };
-pub use resolver::resolve_version;
+pub use resolver::{resolve_diamond, resolve_version};
 pub use trust::{
     KnownKeys, known_keys_path, load_known_keys, load_known_keys_at, save_known_keys,
     save_known_keys_at,

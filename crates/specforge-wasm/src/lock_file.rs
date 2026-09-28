@@ -182,6 +182,31 @@ pub fn run_doctor_check(
     results
 }
 
+/// Collect every requirer (name, range) declaring a peer dependency on
+/// `peer_name` across all locked entries, plus one optional extra requirer —
+/// the package currently being installed, which may not be in `lock` yet.
+/// Used to unify a version diamond (C8-07) before it is silently locked.
+pub fn collect_peer_requirers(
+    lock: &LockFile,
+    peer_name: &str,
+    extra: Option<(&str, &str)>,
+) -> Vec<(String, String)> {
+    let mut requirers: Vec<(String, String)> = lock
+        .entries
+        .iter()
+        .flat_map(|e| {
+            e.peer_dependencies
+                .iter()
+                .filter(|p| p.name == peer_name)
+                .map(move |p| (e.name.clone(), p.version.clone()))
+        })
+        .collect();
+    if let Some((name, range)) = extra {
+        requirers.push((name.to_string(), range.to_string()));
+    }
+    requirers
+}
+
 /// Refresh lock file entries from a list of resolved extensions.
 /// Updates existing entries and adds new ones. Returns diagnostics for any issues.
 pub fn refresh_lock_file(
@@ -563,6 +588,35 @@ mod peer_check_tests {
             assert_eq!(peer, "@b/lib", "names the actual peer (not self)");
             assert!(required.contains("2.0.0"));
         }
+    }
+
+    #[test]
+    fn collect_peer_requirers_gathers_every_locked_entry_wanting_the_peer() {
+        let lock = LockFile {
+            entries: vec![
+                entry("@a/ext", vec![peer("@shared/lib", "^1.0.0")]),
+                entry("@b/ext", vec![peer("@shared/lib", "^2.0.0")]),
+                entry("@shared/lib", vec![]),
+            ],
+            ..Default::default()
+        };
+
+        let requirers = collect_peer_requirers(&lock, "@shared/lib", None);
+        assert_eq!(requirers.len(), 2);
+        assert!(requirers.contains(&("@a/ext".to_string(), "^1.0.0".to_string())));
+        assert!(requirers.contains(&("@b/ext".to_string(), "^2.0.0".to_string())));
+    }
+
+    #[test]
+    fn collect_peer_requirers_includes_the_extra_in_flight_requirer() {
+        let lock = LockFile {
+            entries: vec![entry("@a/ext", vec![peer("@shared/lib", "^1.0.0")])],
+            ..Default::default()
+        };
+
+        let requirers = collect_peer_requirers(&lock, "@shared/lib", Some(("@c/ext", "^3.0.0")));
+        assert_eq!(requirers.len(), 2);
+        assert!(requirers.contains(&("@c/ext".to_string(), "^3.0.0".to_string())));
     }
 
     #[test]
