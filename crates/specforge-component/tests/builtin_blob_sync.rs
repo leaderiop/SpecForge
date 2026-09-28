@@ -1,15 +1,12 @@
-//! Drift guard for the vendored builtin wasm blobs.
+//! Fast local drift guard for the vendored builtin wasm blobs.
 //!
 //! `extensions/<name>/wasm/<blob>.wasm` is committed to the repo and
-//! embedded into `specforge-extism` via `include_bytes!` — it is what makes
-//! a fresh clone build without pre-building the guest crates. The blobs
-//! embed the extension's `describe_*.json` payloads verbatim
-//! (`include_bytes!("describe_entities.json")` in each guest), so if a
-//! guest's manifest surface changes and the blob is not rebuilt +
-//! re-vendored, the committed blob goes stale and this test fails.
+//! embedded into `specforge-component` via `include_bytes!`. The blobs embed
+//! each extension's `describe_*.json` payloads verbatim, so a manifest change
+//! without a re-vendor fails here. Rust source drift is invisible to this
+//! test; CI's `build-builtins --check` covers every input.
 //!
-//! Refresh flow: `cd extensions/<name> && cargo build --release --target
-//! wasm32-wasip2` then copy the artifact over `wasm/<blob>.wasm`.
+//! Refresh flow: `cargo run -p xtask --bin build-builtins -- --install`.
 
 use std::path::PathBuf;
 
@@ -70,12 +67,9 @@ fn vendored_builtin_blobs_embed_current_manifest_payloads() {
             assert!(
                 contains_subslice(&blob, &payload),
                 "{}: vendored blob is stale — it does not embed the current {}. \
-                 Rebuild the guest and re-vendor: cd extensions/{ext} && cargo build \
-                 --release --target wasm32-wasip2, then copy the artifact to \
-                 wasm/specforge_ext_{ext}.wasm",
+                 Re-vendor: cargo run -p xtask --bin build-builtins -- --install",
                 blob_path.display(),
                 json_path.display(),
-                ext = ext
             );
             checked += 1;
         }

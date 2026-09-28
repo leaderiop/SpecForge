@@ -141,8 +141,50 @@ fn non_empty(entity: &PassEntity, field: &str) -> bool {
 
 /// layering_verify (RES-25 part I): refinement chains must stay acyclic
 /// (E041) and shallow (W031 beyond depth 4).
-const REFINEMENT_EDGE_MARKERS: &[&str] = &["RefinesTo", "RefinementChainLink", "refines"];
 const MAX_LAYERING_DEPTH: usize = 4;
+const REFINEMENT_KIND: &str = "refinement";
+// Graph edges are labelled with the field that declared them, not the
+// describe_fields edge-type name (see specforge-resolver linker).
+const CONCRETE_FIELD: &str = "concrete_entity";
+const ABSTRACT_FIELD: &str = "abstract_entity";
+
+/// One `refinement` entity as (refinement id, concrete behavior, abstract
+/// behavior), read from the edges its `concrete_entity`/`abstract_entity`
+/// fields produce. Sorted by refinement id.
+fn refinement_steps(input: &PassInput) -> Vec<(&str, &str, &str)> {
+    use std::collections::{BTreeMap, HashSet};
+
+    let refinements: HashSet<&str> = input
+        .entities
+        .iter()
+        .filter(|e| e.kind == REFINEMENT_KIND)
+        .map(|e| e.id.as_str())
+        .collect();
+    let mut concrete: BTreeMap<&str, &str> = BTreeMap::new();
+    let mut abstract_of: BTreeMap<&str, &str> = BTreeMap::new();
+    for edge in &input.edges {
+        if !refinements.contains(edge.source.as_str()) {
+            continue;
+        }
+        match edge.label.as_str() {
+            CONCRETE_FIELD => {
+                concrete.insert(edge.source.as_str(), edge.target.as_str());
+            }
+            ABSTRACT_FIELD => {
+                abstract_of.insert(edge.source.as_str(), edge.target.as_str());
+            }
+            _ => {}
+        }
+    }
+    concrete
+        .into_iter()
+        .filter_map(|(refinement, concrete)| {
+            abstract_of
+                .get(refinement)
+                .map(|&abstract_id| (refinement, concrete, abstract_id))
+        })
+        .collect()
+}
 
 #[specforge_extension_sdk::compiler_pass(name = "layering_verify", after = "condition_check")]
 fn pass_layering_verify(input: &PassInput) -> Vec<PassDiagnostic> {
@@ -150,19 +192,12 @@ fn pass_layering_verify(input: &PassInput) -> Vec<PassDiagnostic> {
 
     let by_id: HashMap<&str, &PassEntity> =
         input.entities.iter().map(|e| (e.id.as_str(), e)).collect();
-    // refinement -> entities it refines (via refinement-labeled edges)
+    let steps = refinement_steps(input);
+    // concrete behavior -> the abstract behaviors it refines
     let mut refines: HashMap<&str, Vec<&str>> = HashMap::new();
-    for edge in &input.edges {
-        if REFINEMENT_EDGE_MARKERS
-            .iter()
-            .any(|m| edge.label.contains(m))
-            && by_id.contains_key(edge.source.as_str())
-            && by_id.contains_key(edge.target.as_str())
-        {
-            refines
-                .entry(edge.source.as_str())
-                .or_default()
-                .push(edge.target.as_str());
+    for &(_, concrete, abstract_id) in &steps {
+        if by_id.contains_key(concrete) && by_id.contains_key(abstract_id) {
+            refines.entry(concrete).or_default().push(abstract_id);
         }
     }
 
@@ -236,7 +271,7 @@ fn pass_layering_verify(input: &PassInput) -> Vec<PassDiagnostic> {
         if *d > MAX_LAYERING_DEPTH {
             let message = if let Some(e) = by_id.get(id) {
                 format!(
-                    "refinement '{}' sits in a chain {} layers deep (max {})",
+                    "behavior '{}' sits in a refinement chain {} layers deep (max {})",
                     e.id, d, MAX_LAYERING_DEPTH
                 )
             } else {
@@ -265,42 +300,36 @@ fn pass_layering_verify(input: &PassInput) -> Vec<PassDiagnostic> {
             Some(names)
         }
     };
-    for (concrete, abstracts) in &refines {
-        let Some(concrete_names) = ensures_names(concrete) else {
+    for &(refinement, concrete, abstract_id) in &steps {
+        let (Some(concrete_names), Some(abstract_names)) =
+            (ensures_names(concrete), ensures_names(abstract_id))
+        else {
             continue;
         };
-        for abstract_id in abstracts {
-            let Some(abstract_names) = ensures_names(abstract_id) else {
-                continue;
-            };
-            let missing: Vec<&String> = abstract_names
-                .iter()
-                .filter(|name| !concrete_names.iter().any(|c| c == *name))
-                .collect();
-            if !missing.is_empty() {
-                let names_list = missing
-                    .iter()
-                    .map(|s| s.as_str())
-                    .collect::<Vec<_>>()
-                    .join(", ");
-                findings.push(PassDiagnostic::new(
-                    "E031",
-                    PassSeverity::Error,
-                    format!(
-                        "refinement '{concrete}' drops ensures condition(s) [{names_list}] from abstract '{abstract_id}'"
-                    ),
-                )
-                .with_suggestion(
-                    "keep every abstract ensures condition in the refinement (strengthening is allowed; weakening is not)",
-                ));
-            }
+        let missing: Vec<&str> = abstract_names
+            .iter()
+            .filter(|name| !concrete_names.contains(name))
+            .map(String::as_str)
+            .collect();
+        if !missing.is_empty() {
+            let names_list = missing.join(", ");
+            findings.push(PassDiagnostic::new(
+                "E031",
+                PassSeverity::Error,
+                format!(
+                    "refinement '{refinement}': '{concrete}' drops ensures condition(s) [{names_list}] from abstract '{abstract_id}'"
+                ),
+            )
+            .with_suggestion(
+                "keep every abstract ensures condition in the refinement (strengthening is allowed; weakening is not)",
+            ));
         }
     }
 
     // Deterministic order: DFS seeds came from a HashMap, so sort by
     // (entity, code) before returning (hardening-plan D4 / R-6).
     findings.sort_by(|a, b| a.code.cmp(&b.code).then_with(|| a.message.cmp(&b.message)));
-    // Parallel edges (duplicate RefinesTo between the same pair) make the DFS
+    // Two refinements naming the same concrete/abstract pair make the DFS
     // revisit the same back edge — dedup identical diagnostics (C10-11).
     findings.dedup_by(|a, b| a.code == b.code && a.message == b.message);
     findings
@@ -353,8 +382,7 @@ fn pass_event_graph_analyze(input: &PassInput) -> Vec<PassDiagnostic> {
     {
         let mut seeds: Vec<&str> = process_edges.keys().copied().collect();
         seeds.sort();
-        let mut color: HashMap<&str, u8> =
-            process_edges.keys().map(|&k| (k, 0u8)).collect();
+        let mut color: HashMap<&str, u8> = process_edges.keys().map(|&k| (k, 0u8)).collect();
         let mut path: Vec<&str> = Vec::new();
         fn dfs<'a>(
             node: &'a str,
@@ -501,13 +529,23 @@ mod pass_tests {
         findings.iter().map(|f| f.code.as_str()).collect()
     }
 
+    /// The two edges a `refinement` entity's `concrete_entity` /
+    /// `abstract_entity` fields produce in the real graph.
+    fn refinement(id: &str, concrete: &str, abstract_id: &str) -> [PassEdge; 2] {
+        [
+            edge(id, concrete, CONCRETE_FIELD),
+            edge(id, abstract_id, ABSTRACT_FIELD),
+        ]
+    }
+
     // C10-02: E031 — refinement ensures set inclusion.
     #[test]
     fn e031_subset_refinement_fires_and_superset_passes() {
         let mut abstract_entity = entity("abstract", "behavior");
-        abstract_entity
-            .fields
-            .insert("ensures".to_string(), "config_created, file_created".to_string());
+        abstract_entity.fields.insert(
+            "ensures".to_string(),
+            "config_created, file_created".to_string(),
+        );
         let mut good = entity("good_impl", "behavior");
         good.fields.insert(
             "ensures".to_string(),
@@ -517,24 +555,31 @@ mod pass_tests {
         bad.fields
             .insert("ensures".to_string(), "config_created".to_string());
 
-        let entities = vec![abstract_entity, good, bad];
-        let edges = vec![
-            edge("good_impl", "abstract", "RefinesTo"),
-            edge("bad_impl", "abstract", "RefinesTo"),
+        let entities = vec![
+            abstract_entity,
+            good,
+            bad,
+            entity("r_good", "refinement"),
+            entity("r_bad", "refinement"),
         ];
+        let edges = [
+            refinement("r_good", "good_impl", "abstract"),
+            refinement("r_bad", "bad_impl", "abstract"),
+        ]
+        .concat();
         let findings = pass_layering_verify(&PassInput { entities, edges });
 
-        assert!(
-            codes(&findings).contains(&"E031"),
-            "weakening refinement must fire E031: {findings:?}"
+        assert_eq!(
+            codes(&findings),
+            vec!["E031"],
+            "only the weakening refinement fires: {findings:?}"
         );
-        let e031 = findings
-            .iter()
-            .find(|f| f.code == "E031")
-            .expect("E031 present");
+        let e031 = &findings[0];
         assert!(
-            e031.message.contains("file_created") && e031.message.contains("bad_impl"),
-            "missing condition names listed in the message: {}",
+            e031.message.contains("file_created")
+                && e031.message.contains("bad_impl")
+                && e031.message.contains("r_bad"),
+            "message names the refinement, the concrete, and the dropped condition: {}",
             e031.message
         );
         assert!(
@@ -556,11 +601,10 @@ mod pass_tests {
         let doc: serde_json::Value = serde_json::from_str(&raw).expect("valid JSON");
         let items = doc["items"].as_array().expect("items array");
 
-        let codes: Vec<&str> = items
-            .iter()
-            .filter_map(|r| r["code"].as_str())
-            .collect();
-        for expected in ["W059", "W060", "W061", "W062", "W063", "W064", "W065", "W066"] {
+        let codes: Vec<&str> = items.iter().filter_map(|r| r["code"].as_str()).collect();
+        for expected in [
+            "W059", "W060", "W061", "W062", "W063", "W064", "W065", "W066",
+        ] {
             assert!(
                 codes.contains(&expected),
                 "formal rule {expected} missing from describe_validation_rules.json: {codes:?}"
@@ -594,15 +638,19 @@ mod pass_tests {
     fn layering_detects_refinement_cycles() {
         let input = PassInput {
             entities: vec![
-                entity("a", "refinement"),
-                entity("b", "refinement"),
-                entity("c", "refinement"),
+                entity("a", "behavior"),
+                entity("b", "behavior"),
+                entity("c", "behavior"),
+                entity("r1", "refinement"),
+                entity("r2", "refinement"),
+                entity("r3", "refinement"),
             ],
-            edges: vec![
-                edge("a", "b", "RefinesTo"),
-                edge("b", "c", "RefinesTo"),
-                edge("c", "a", "RefinesTo"),
-            ],
+            edges: [
+                refinement("r1", "a", "b"),
+                refinement("r2", "b", "c"),
+                refinement("r3", "c", "a"),
+            ]
+            .concat(),
         };
         let findings = pass_layering_verify(&input);
         assert_eq!(codes(&findings), vec!["E041"]);
@@ -611,20 +659,17 @@ mod pass_tests {
 
     #[test]
     fn layering_flags_deep_chains() {
-        let mut entities = vec![
-            entity("l0", "refinement"),
-            entity("l1", "refinement"),
-            entity("l2", "refinement"),
-            entity("l3", "refinement"),
-            entity("l4", "refinement"),
-            entity("l5", "refinement"),
-        ];
-        for e in &mut entities {
-            e.kind = "refinement".to_string();
-        }
+        let mut entities: Vec<PassEntity> = (0..=5)
+            .map(|l| entity(&format!("l{l}"), "behavior"))
+            .collect();
         let mut edges = Vec::new();
         for w in 0..5 {
-            edges.push(edge(&format!("l{w}"), &format!("l{}", w + 1), "RefinesTo"));
+            entities.push(entity(&format!("r{w}"), "refinement"));
+            edges.extend(refinement(
+                &format!("r{w}"),
+                &format!("l{w}"),
+                &format!("l{}", w + 1),
+            ));
         }
         let input = PassInput { entities, edges };
         let findings = pass_layering_verify(&input);
@@ -640,8 +685,27 @@ mod pass_tests {
     #[test]
     fn layering_accepts_shallow_acyclic_chains() {
         let input = PassInput {
-            entities: vec![entity("a", "refinement"), entity("b", "refinement")],
-            edges: vec![edge("a", "b", "RefinesTo")],
+            entities: vec![
+                entity("a", "behavior"),
+                entity("b", "behavior"),
+                entity("r", "refinement"),
+            ],
+            edges: refinement("r", "a", "b").to_vec(),
+        };
+        assert!(pass_layering_verify(&input).is_empty());
+    }
+
+    /// Labels no declared field produces (the pre-fix markers) must not be
+    /// mistaken for refinements: only `refinement` entities define layering.
+    #[test]
+    fn layering_ignores_edges_that_are_not_refinement_fields() {
+        let input = PassInput {
+            entities: vec![entity("a", "behavior"), entity("b", "behavior")],
+            edges: vec![
+                edge("a", "b", "RefinesTo"),
+                edge("b", "a", "refines"),
+                edge("a", "b", "RefinementChainLink"),
+            ],
         };
         assert!(pass_layering_verify(&input).is_empty());
     }
@@ -732,7 +796,6 @@ mod coverage_tracking_tests {
     }
 }
 
-
 fn dispatch(export: &str, input: &[u8]) -> Option<Result<Vec<u8>, String>> {
     match export {
         "__pass_condition_check" => Some(specforge_dispatch_pass_condition_check(input)),
@@ -743,17 +806,14 @@ fn dispatch(export: &str, input: &[u8]) -> Option<Result<Vec<u8>, String>> {
     }
 }
 
-specforge_extension_sdk::component_guest!(
-    build = specforge_extension_build,
-    handler = dispatch
-);
+specforge_extension_sdk::component_guest!(build = specforge_extension_build, handler = dispatch);
 
 // -- C10-00/C10-11: process semantics + detector soundness slivers --
 
 #[cfg(test)]
 mod process_tests {
     use super::*;
-    use specforge_extension_sdk::{PassEdge, PassSeverity};
+    use specforge_extension_sdk::PassEdge;
 
     fn codes(findings: &[PassDiagnostic]) -> Vec<&str> {
         findings.iter().map(|f| f.code.as_str()).collect()
@@ -834,10 +894,7 @@ mod process_tests {
     fn field_labeled_composition_edges_are_interpreted() {
         // The host labels process edges with the field name (sub_processes).
         let input = PassInput {
-            entities: vec![
-                entity("monitor", "process"),
-                entity("scheduler", "process"),
-            ],
+            entities: vec![entity("monitor", "process"), entity("scheduler", "process")],
             edges: vec![
                 edge("monitor", "scheduler", "sub_processes"),
                 edge("scheduler", "monitor", "sub_processes"),
@@ -859,18 +916,15 @@ mod process_tests {
 
     #[test]
     fn layering_parallel_edges_report_once() {
-        // duplicate RefinesTo edges between the same pair: E041 must not dup.
-        let input = PassInput {
-            entities: vec![
-                entity("a", "refinement"),
-                entity("b", "refinement"),
-            ],
-            edges: vec![
-                edge("a", "b", "RefinesTo"),
-                edge("b", "a", "RefinesTo"),
-                edge("b", "a", "RefinesTo"),
-            ],
-        };
+        // two refinements naming the same b -> a pair: E041 must not dup.
+        let mut entities = vec![entity("a", "behavior"), entity("b", "behavior")];
+        let mut edges = Vec::new();
+        for (r, concrete, abstract_id) in [("r1", "a", "b"), ("r2", "b", "a"), ("r3", "b", "a")] {
+            entities.push(entity(r, "refinement"));
+            edges.push(edge(r, concrete, CONCRETE_FIELD));
+            edges.push(edge(r, abstract_id, ABSTRACT_FIELD));
+        }
+        let input = PassInput { entities, edges };
         let findings = pass_layering_verify(&input);
         let e041 = findings.iter().filter(|f| f.code == "E041").count();
         assert_eq!(e041, 1, "parallel edges yield one cycle diagnostic");

@@ -398,6 +398,108 @@ fn analyze_event_graph_flags_unconsumed_events() {
     assert_eq!(w029.len(), 1, "unconsumed producer must surface W029");
 }
 
+fn layering_findings(doc: &serde_json::Value) -> Vec<(String, String)> {
+    doc["passes"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|p| p["pass"] == "@specforge/formal:layering_verify")
+        .expect("layering_verify pass must be dispatched")["findings"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|f| {
+            (
+                f["code"].as_str().unwrap().to_string(),
+                f["message"].as_str().unwrap().to_string(),
+            )
+        })
+        .collect()
+}
+
+/// Through the real binary and embedded formal blob: the pass must read the
+/// edges `refinement` entities actually produce (C10-02 was unreachable when
+/// it matched labels no field emits).
+#[test]
+fn analyze_refinement_that_drops_an_ensures_condition_is_e031() {
+    let dir = project(concat!(
+        "behavior provision \"Provision\" {\n",
+        "  title \"Provision\"\n",
+        "  ensures {\n",
+        "    config_created \"config exists\"\n",
+        "    file_created \"file exists\"\n",
+        "  }\n",
+        "  verify contract \"abstract contract\"\n",
+        "}\n",
+        "behavior provision_full \"Provision (full)\" {\n",
+        "  title \"Provision (full)\"\n",
+        "  ensures {\n",
+        "    config_created \"config exists\"\n",
+        "    file_created \"file exists\"\n",
+        "    audit_logged \"audit entry written\"\n",
+        "  }\n",
+        "  verify unit \"full\"\n",
+        "}\n",
+        "behavior provision_lazy \"Provision (lazy)\" {\n",
+        "  title \"Provision (lazy)\"\n",
+        "  ensures {\n",
+        "    config_created \"config exists\"\n",
+        "  }\n",
+        "  verify unit \"lazy\"\n",
+        "}\n",
+        "refinement full_refines \"Full\" {\n",
+        "  abstract_entity provision\n",
+        "  concrete_entity provision_full\n",
+        "}\n",
+        "refinement lazy_refines \"Lazy\" {\n",
+        "  abstract_entity provision\n",
+        "  concrete_entity provision_lazy\n",
+        "}\n",
+    ));
+
+    let (doc, code) = json_body(&dir, &[]);
+    let findings = layering_findings(&doc);
+    let e031: Vec<&String> = findings
+        .iter()
+        .filter(|(c, _)| c == "E031")
+        .map(|(_, m)| m)
+        .collect();
+    assert_eq!(
+        e031.len(),
+        1,
+        "only the weakening refinement fires: {findings:?}"
+    );
+    assert!(
+        e031[0].contains("lazy_refines") && e031[0].contains("file_created"),
+        "names the refinement and the dropped condition: {}",
+        e031[0]
+    );
+    assert_ne!(code, 0, "an E031 error must fail analyze");
+}
+
+#[test]
+fn analyze_refinement_cycle_is_e041() {
+    let dir = project(concat!(
+        "behavior alpha \"Alpha\" {\n  title \"Alpha\"\n  verify unit \"a\"\n}\n",
+        "behavior beta \"Beta\" {\n  title \"Beta\"\n  verify unit \"b\"\n}\n",
+        "refinement alpha_refines_beta \"A\" {\n",
+        "  abstract_entity beta\n",
+        "  concrete_entity alpha\n",
+        "}\n",
+        "refinement beta_refines_alpha \"B\" {\n",
+        "  abstract_entity alpha\n",
+        "  concrete_entity beta\n",
+        "}\n",
+    ));
+
+    let (doc, _) = json_body(&dir, &[]);
+    let codes: Vec<String> = layering_findings(&doc)
+        .into_iter()
+        .map(|(c, _)| c)
+        .collect();
+    assert_eq!(codes, vec!["E041"], "a two-refinement loop is one cycle");
+}
+
 #[test]
 fn analyze_orders_extension_passes_by_constraints() {
     // The formal extension declares its passes shuffled (event_graph_analyze
