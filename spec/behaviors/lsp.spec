@@ -358,12 +358,12 @@ behavior rename_entity_id "Rename Entity ID" {
   tests ["crates/specforge-lsp/tests/rename.rs"]
 }
 
-// No produces — delegates to shared_incremental_pipeline which produces incremental_diagnostics_complete
 behavior emit_live_diagnostics "Live Diagnostics" {
   invariants [multi_error_collection, incremental_correctness, diagnostic_determinism, lsp_response_latency, zero_domain_knowledge_core]
   category   command
   types      [DiagnosticBag]
   ports      [LspProtocol]
+  consumes   [incremental_rebuild_complete]  // delegates to the shared incremental pipeline's rebuild event
 
   requires {
     lsp_initialized_fired "LSP server has been initialized and the incremental pipeline is ready"

@@ -38,11 +38,11 @@ behavior build_in_memory_graph "Build In-Memory Graph" {
   tests ["crates/specforge-graph/tests/graph.rs", "crates/specforge-graph/tests/contracts.rs"]
 }
 
-// No produces — passive API behavior, graph mutations are observed via rebuild events
 behavior maintain_mutable_graph "Maintain Mutable Graph" {
   invariants [incremental_correctness, graph_traversal_integrity]
   category   command
   types      [Graph, Subgraph]
+  produces   []  // passive API behavior: graph mutations surface via rebuild events, not events of its own
 
   requires {
     graph_initialized "An in-memory graph instance exists and is accessible for mutation"

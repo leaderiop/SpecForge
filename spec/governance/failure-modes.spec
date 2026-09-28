@@ -8,6 +8,8 @@ use "invariants/validation"
 use "invariants/wasm"
 failure_mode incremental_divergence "Incremental Divergence" {
   invariant  incremental_correctness
+  threatens_features       [product_validation]
+  affected_behaviors       [rebuild_affected_subgraph, compute_graph_delta, build_in_memory_graph]
   severity   high
   occurrence occasional
   detection  unlikely
@@ -28,6 +30,7 @@ failure_mode incremental_divergence "Incremental Divergence" {
 
 failure_mode string_interning_collision "String Interning Collision" {
   invariant  string_interning_consistency
+  affected_behaviors       [build_in_memory_graph, maintain_mutable_graph]
   severity   critical
   occurrence rare
   detection  undetectable
@@ -48,6 +51,7 @@ failure_mode string_interning_collision "String Interning Collision" {
 
 failure_mode duplicate_id_detection_miss "Duplicate ID Detection Miss" {
   invariant  entity_id_uniqueness
+  affected_behaviors       [build_in_memory_graph]
   severity   high
   occurrence unlikely
   detection  moderate
@@ -68,6 +72,7 @@ failure_mode duplicate_id_detection_miss "Duplicate ID Detection Miss" {
 
 failure_mode import_cycle_detection_miss "Import Cycle Detection Miss" {
   invariant  import_dag
+  affected_behaviors       [compute_subgraph_for_invalidation, build_in_memory_graph]
   severity   medium
   occurrence unlikely
   detection  moderate

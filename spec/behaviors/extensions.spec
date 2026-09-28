@@ -283,7 +283,7 @@ behavior remove_extension "Remove Extension" {
   tests ["crates/specforge-cli/tests/extensions.rs"]
 }
 
-// Read-only query — no event produced.
+// Read-only query. (produces [] declared below; no event of its own.)
 behavior list_installed_extensions "List Installed Extensions" {
   invariants [diagnostic_determinism, zero_domain_knowledge_core]
   category   query
@@ -314,7 +314,7 @@ behavior list_installed_extensions "List Installed Extensions" {
   tests ["crates/specforge-cli/tests/extensions.rs"]
 }
 
-// Read-only query — no event produced.
+// Read-only query. (produces [] declared below; no event of its own.)
 behavior list_configured_providers "List Configured Providers" {
   invariants [diagnostic_determinism, zero_domain_knowledge_core]
   category   query

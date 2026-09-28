@@ -136,7 +136,7 @@ behavior compute_traceability_chain "Compute Traceability Chain" {
   tests ["crates/specforge-cli/tests/export.rs"]
 }
 
-// CLI query command (specforge stats) — no event produced. Output is terminal,
+// CLI query command (specforge stats). Read-only: produces []. Output is terminal,
 // not a pipeline signal.
 behavior compute_project_statistics "Compute Project Statistics" {
   invariants [diagnostic_determinism, testable_entity_classification, zero_domain_knowledge_core]
