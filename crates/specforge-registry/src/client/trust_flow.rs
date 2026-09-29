@@ -151,8 +151,10 @@ fn save(known: &KnownKeys, override_path: Option<&Path>) -> Result<(), Diagnosti
 
 /// Ask the human to accept a key change. Refusal is the default.
 fn prompt_accept(name: &str, old: &str, new: &str, format: &str) -> bool {
-    if format == "json" {
-        // Non-interactive output mode: never prompt.
+    use std::io::IsTerminal;
+    if format == "json" || !std::io::stdin().is_terminal() {
+        // Non-interactive (JSON output, or no human at stdin — CI, pipes):
+        // never prompt; blocking on a pipe that never answers would hang.
         return false;
     }
     eprintln!(
