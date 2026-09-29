@@ -302,6 +302,9 @@ fn cold_build(path: &Path) -> (crate::pipeline::CompilationContext, IncrementalP
         bidirectional_pairs: ctx.field_registry.bidirectional_pairs(),
         suppressed_parse_error_ranges,
         single_reference_fields,
+        absent_reference_targets: ctx
+            .field_registry
+            .absent_reference_targets(&ctx.kind_registry),
     };
     let mut dag = ImportDag::new();
     for f in &ctx.resolved.files {

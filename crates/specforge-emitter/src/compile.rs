@@ -151,6 +151,7 @@ pub fn compile_with_runtime(path: &Path, runtime: Option<&dyn WasmRuntime>) -> C
         bidirectional_pairs,
         suppressed_parse_error_ranges,
         single_reference_fields,
+        absent_reference_targets: field_reg.absent_reference_targets(&kind_reg),
     };
 
     // 8. Build graph

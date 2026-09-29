@@ -27,7 +27,7 @@ behavior se_declare_manifest "Declare @specforge/software Manifest" {
     all_kinds_named          "entityKinds contains behavior, invariant, feature, event, type, port"
     all_edges_named          "edgeTypes contains References, Implements, Produces, Consumes, UsesType, UsesPort, Enforces, Imports, LinksTo"
     contributes_declared     "contributes declares entities=true and validators=true"
-    no_peer_deps             "peer_dependencies is empty (software has no peer deps)"
+    optional_product_peer    "peer_dependencies holds one optional peer, @specforge/product, whose kinds the feature/module/milestone links target"
   }
 
   verify unit "manifest name is @specforge/software"
@@ -35,7 +35,7 @@ behavior se_declare_manifest "Declare @specforge/software Manifest" {
   verify unit "manifest declares exactly 9 edge types"
   verify unit "manifest version is 2"
   verify unit "contributes declares entities and validators"
-  verify unit "peer_dependencies is empty"
+  verify unit "the only peer is @specforge/product, and it is optional"
 }
 
 invariant se_manifest_six_entity_kinds "Six Entity Kinds" {

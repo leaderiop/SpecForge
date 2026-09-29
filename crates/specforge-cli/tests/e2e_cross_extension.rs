@@ -224,3 +224,85 @@ feature graph_validation "G" {
         stderr,
     );
 }
+
+#[specforge_test(
+    behavior = "cp_missing_product_from_software",
+    verify = "I004 names the kind no enabled extension provides"
+)]
+#[specforge_test(
+    behavior = "cp_missing_product_from_software",
+    verify = "E003 not emitted for soft cross-extension reference"
+)]
+#[specforge_test(
+    behavior = "cp_missing_product_from_software",
+    verify = "references resolve after product is installed"
+)]
+fn software_without_product_treats_feature_references_as_soft() {
+    let spec = r#"
+behavior user_login "Log in" {
+  contract "c"
+  features [user_authentication]
+}
+"#;
+    let dir = setup_project_with_config(
+        r#"{"name":"t","version":"0.1.0","spec_root":"spec","extensions":["@specforge/software"]}"#,
+        &[("main.spec", spec)],
+    );
+    let output = specforge_cmd()
+        .args(["check", "--format=json"])
+        .arg(dir.path())
+        .output()
+        .unwrap();
+    assert_eq!(
+        output.status.code(),
+        Some(0),
+        "a soft reference is not an error"
+    );
+    let diagnostics = parse_json_stdout(&output);
+    let codes: Vec<&str> = diagnostics
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|d| d["code"].as_str().unwrap())
+        .collect();
+    assert!(!codes.contains(&"E003"), "{diagnostics}");
+    let i004 = diagnostics
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|d| d["code"] == "I004")
+        .unwrap_or_else(|| panic!("I004 expected: {diagnostics}"));
+    assert!(
+        i004["message"]
+            .as_str()
+            .unwrap()
+            .contains("targets kind 'feature'"),
+        "{i004}"
+    );
+
+    // With product enabled and the feature declared, the same file resolves.
+    let dir = setup_project_with_config(
+        r#"{"name":"t","version":"0.1.0","spec_root":"spec","extensions":["@specforge/software","@specforge/product"]}"#,
+        &[
+            ("main.spec", spec),
+            (
+                "product.spec",
+                "feature user_authentication \"Auth\" {\n  problem \"p\"\n}\n",
+            ),
+        ],
+    );
+    let output = specforge_cmd()
+        .args(["export", "--format", "graph"])
+        .arg(dir.path())
+        .output()
+        .unwrap();
+    let graph = parse_json_stdout(&output);
+    assert!(
+        graph["edges"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|e| { e["source"] == "user_login" && e["target"] == "user_authentication" }),
+        "the reference resolves once product is enabled: {graph}"
+    );
+}

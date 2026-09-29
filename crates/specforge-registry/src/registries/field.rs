@@ -90,6 +90,22 @@ impl FieldRegistry {
         })
     }
 
+    /// Reference fields whose target kind `kinds` doesn't declare, as
+    /// (kind, field) -> target kind: the kind's extension isn't enabled
+    /// (e.g. software's `behavior.features` without @specforge/product).
+    pub fn absent_reference_targets(
+        &self,
+        kinds: &crate::KindRegistry,
+    ) -> HashMap<(String, String), String> {
+        self.iter()
+            .filter_map(|(kind, field, entry)| {
+                let target = entry.target_kind.as_ref()?;
+                (!kinds.contains(target))
+                    .then(|| ((kind.to_string(), field.to_string()), target.clone()))
+            })
+            .collect()
+    }
+
     pub fn bidirectional_pairs(&self) -> Vec<(String, String)> {
         let mut pairs = Vec::new();
         let mut seen = std::collections::HashSet::new();

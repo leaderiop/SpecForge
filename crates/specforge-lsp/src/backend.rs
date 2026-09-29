@@ -188,6 +188,9 @@ impl Backend {
             bidirectional_pairs: state.field_registry().bidirectional_pairs(),
             suppressed_parse_error_ranges,
             single_reference_fields,
+            absent_reference_targets: state
+                .field_registry()
+                .absent_reference_targets(state.kind_registry()),
         };
         let spec_files: Vec<specforge_parser::SpecFile> =
             parsed.iter().map(|(_, sf)| sf.clone()).collect();

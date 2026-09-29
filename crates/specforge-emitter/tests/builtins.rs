@@ -180,7 +180,10 @@ fn testing_extension_makes_software_kinds_testable() {
     assert_eq!(codes, ["W004", "W009"].into_iter().collect());
 }
 
-#[test]
+#[specforge_test_macros::test(
+    behavior = "se_declare_manifest",
+    verify = "the only peer is @specforge/product, and it is optional"
+)]
 fn software_extension_loads_via_protocol() {
     let manifest = load_via_protocol("@specforge/software");
     assert_eq!(manifest.name, "@specforge/software");
@@ -198,6 +201,10 @@ fn software_extension_loads_via_protocol() {
         "software declares no test vocabulary"
     );
     assert_eq!(manifest.peer_dependencies.len(), 1);
+    assert!(
+        manifest.peer_dependencies[0].optional,
+        "product is an optional peer: software works without it"
+    );
     assert!(manifest.sandbox_policy.is_some());
     assert!(manifest.contributes.entities);
     assert!(manifest.contributes.validators);

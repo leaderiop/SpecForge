@@ -268,9 +268,10 @@ behavior cp_missing_product_from_software "Missing @specforge/product: Software 
     1. Parse the features field and store the reference list normally.
     2. During resolution, detect that "feature" is not a registered kind
        in the KindRegistry.
-    3. Emit I004 (info severity) with the message:
-       "Unknown entity kind 'feature' — install @specforge/product
-       (`specforge add @specforge/product`) to resolve feature references."
+    3. Emit I004 (info severity) naming the reference, the field, and the
+       kind no enabled extension provides ("reference 'x' in field
+       'features' of 'user_login' targets kind 'feature', which no enabled
+       extension provides"), suggesting to enable its extension.
     4. Store the reference as unresolved — it is NOT discarded.
     5. NOT emit E003 (error) — the reference is soft, not hard.
 
@@ -302,7 +303,7 @@ behavior cp_missing_product_from_software "Missing @specforge/product: Software 
   }
 
   verify unit "features field parsed and stored when product not installed"
-  verify unit "I004 emitted with message suggesting @specforge/product"
+  verify unit "I004 names the kind no enabled extension provides"
   verify unit "E003 not emitted for soft cross-extension reference"
   verify unit "entity_enhancements silently skipped — no warning or error"
   verify unit "references resolve after product is installed"

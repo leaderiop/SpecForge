@@ -1032,6 +1032,45 @@ fn add_builtin_enables_it_in_specforge_json() {
 
 #[specforge_test(
     behavior = "add_extension_to_existing_project",
+    verify = "add enables a builtin's required peers but not its optional ones"
+)]
+fn add_enables_required_peers_only() {
+    // software's peer on product is optional: software alone is enabled.
+    let dir = TempDir::new().unwrap();
+    write_config_with_extensions(dir.path(), &[]);
+    specforge_cmd()
+        .args(["add", "@specforge/software", "--path"])
+        .arg(dir.path())
+        .assert()
+        .success();
+    assert_eq!(
+        read_config(dir.path())["extensions"],
+        serde_json::json!(["@specforge/software"])
+    );
+
+    // cargo-test requires @specforge/testing: it is enabled first.
+    let dir = TempDir::new().unwrap();
+    write_config_with_extensions(dir.path(), &["@specforge/software"]);
+    specforge_cmd()
+        .args(["add", "@specforge/cargo-test", "--path"])
+        .arg(dir.path())
+        .assert()
+        .success()
+        .stdout(predicates::str::contains(
+            "enabled builtin @specforge/testing (required by @specforge/cargo-test)",
+        ));
+    assert_eq!(
+        read_config(dir.path())["extensions"],
+        serde_json::json!([
+            "@specforge/software",
+            "@specforge/testing",
+            "@specforge/cargo-test"
+        ])
+    );
+}
+
+#[specforge_test(
+    behavior = "add_extension_to_existing_project",
     verify = "add duplicate extension is a no-op with info message"
 )]
 fn add_enabled_builtin_is_a_no_op() {

@@ -38,7 +38,7 @@ Extensions declare peer dependencies that control load order and enable cross-ex
                            └────────────┘ └────────────┘
 ```
 
-Load order: `product` first (no dependencies), then `software` (depends on product), then `formal` and `governance` (depend on software). `testing` depends optionally on `software` and `governance`, whose kinds it makes testable; the runner extensions require `testing`.
+Load order: `product` first (no dependencies), then `software` (optionally depends on product), then `formal` and `governance` (depend on software). `testing` depends optionally on `software` and `governance`, whose kinds it makes testable; the runner extensions require `testing`.
 
 ## @specforge/product
 
@@ -98,7 +98,7 @@ Load order: `product` first (no dependencies), then `software` (depends on produ
 
 ## @specforge/software
 
-**Depends on: @specforge/product** (peer dependency). Provides the software engineering vocabulary: behavioral contracts, domain events, type definitions, and port interfaces.
+**Optionally depends on: @specforge/product** (optional peer dependency: without it, `features` references are I004 hints and the product enhancements are skipped). Provides the software engineering vocabulary: behavioral contracts, domain events, type definitions, and port interfaces.
 
 ### Entity Kinds (5)
 
@@ -144,7 +144,7 @@ Load order: `product` first (no dependencies), then `software` (depends on produ
 
 ## @specforge/governance
 
-**Depends on: @specforge/software** (peer dependency, which transitively depends on product). Provides architecture governance, quality tracking, and risk assessment.
+**Depends on: @specforge/software** (peer dependency). Provides architecture governance, quality tracking, and risk assessment.
 
 ### Entity Kinds (3)
 

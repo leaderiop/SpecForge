@@ -95,7 +95,7 @@ fn builtin_handshakes_survive_sdk_migration() {
     let expectations = [
         (
             "@specforge/software",
-            &[("@specforge/product", false)][..],
+            &[("@specforge/product", true)][..],
             true,
         ),
         (

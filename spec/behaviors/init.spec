@@ -247,6 +247,7 @@ behavior add_extension_to_existing_project "Add Extension to Existing Project" {
   """
 
   verify unit        "add extension appends to extensions list"
+  verify unit        "add enables a builtin's required peers but not its optional ones"
   verify unit        "add duplicate extension is a no-op with info message"
   verify unit        "add extension with no specforge.json rejects with error and exit code 1"
   verify unit        "add unresolvable extension rejects with diagnostic"

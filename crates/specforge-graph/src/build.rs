@@ -28,6 +28,10 @@ pub struct GraphConfig {
     /// (replacing the initial E003 diagnostics), creating edges for fields
     /// like `journey.persona -> persona`.
     pub single_reference_fields: std::collections::HashSet<(String, String)>,
+    /// (kind, field) reference fields whose target kind no loaded extension
+    /// declares, mapped to that kind: an unresolved reference there is an
+    /// I004 hint (the kind's extension isn't enabled), not an E003.
+    pub absent_reference_targets: HashMap<(String, String), String>,
 }
 
 #[must_use = "diagnostics should be checked for errors"]
@@ -198,8 +202,8 @@ pub fn link_and_diagnose(graph: &mut Graph, config: &GraphConfig) -> Vec<Diagnos
     let mut diagnostics = Vec::new();
 
     // Link references -> edges (shared with LSP via Graph::resolve_references)
-    let ref_diags = graph.resolve_references();
-    diagnostics.extend(ref_diags);
+    let mut ref_diags =
+        graph.resolve_references_with(&HashSet::new(), &config.absent_reference_targets);
 
     // Detect reference cycles and emit W061
     let cycles = graph.detect_cycles();
@@ -233,13 +237,15 @@ pub fn link_and_diagnose(graph: &mut Graph, config: &GraphConfig) -> Vec<Diagnos
     }
 
     // Re-resolve references with single-reference field awareness. Replaces
-    // the initial E003s with ones that also account for single Reference
-    // fields (e.g., journey.persona -> persona).
+    // the initial reference diagnostics with ones that also account for
+    // single Reference fields (e.g., journey.persona -> persona).
     if !config.single_reference_fields.is_empty() {
-        let singles_diags = graph.resolve_references_with_singles(&config.single_reference_fields);
-        diagnostics.retain(|d| d.code != "E003");
-        diagnostics.extend(singles_diags);
+        ref_diags = graph.resolve_references_with(
+            &config.single_reference_fields,
+            &config.absent_reference_targets,
+        );
     }
 
-    diagnostics
+    ref_diags.extend(diagnostics);
+    ref_diags
 }

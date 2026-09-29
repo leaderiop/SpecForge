@@ -348,6 +348,18 @@ impl Graph {
         &mut self,
         single_ref_fields: &HashSet<(String, String)>,
     ) -> Vec<Diagnostic> {
+        self.resolve_references_with(single_ref_fields, &HashMap::new())
+    }
+
+    /// Like [`resolve_references_with_singles`], and an unresolved target
+    /// in a field listed in `absent_targets` ((kind, field) -> target kind)
+    /// is an I004 hint: no loaded extension declares that kind, so the
+    /// reference can't resolve until its extension is enabled.
+    pub fn resolve_references_with(
+        &mut self,
+        single_ref_fields: &HashSet<(String, String)>,
+        absent_targets: &HashMap<(String, String), String>,
+    ) -> Vec<Diagnostic> {
         self.clear_edges();
 
         let entity_ids: HashSet<Sym> = self.nodes.keys().copied().collect();
@@ -376,6 +388,23 @@ impl Graph {
                                     target: target_sym,
                                     label: entry.key,
                                 });
+                            } else if let Some(target_kind) = absent_targets.get(&(
+                                node_kind.as_str().to_string(),
+                                entry.key.as_str().to_string(),
+                            )) {
+                                diagnostics.push(
+                                    Diagnostic::info(
+                                        "I004",
+                                        format!(
+                                            "reference '{}' in field '{}' of '{}' targets kind '{}', which no enabled extension provides",
+                                            target_id, entry.key, node_id, target_kind
+                                        ),
+                                    )
+                                    .with_span(target_ref.span.clone())
+                                    .with_suggestion(format!(
+                                        "enable the extension that declares '{target_kind}' (e.g. `specforge add @specforge/<name>`), or drop the field"
+                                    )),
+                                );
                             } else {
                                 let suggestion = find_close_match(
                                     target_id,

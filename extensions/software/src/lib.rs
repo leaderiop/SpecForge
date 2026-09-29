@@ -22,10 +22,12 @@ struct Software;
 
 impl Contributions for Software {
     fn contribute(c: &mut ContributionsBuilder) {
+        // Optional: product provides the kinds behind the feature, module
+        // and milestone links; without it those links are inert (I004).
         c.meta.peer_dependencies.push(PeerDependency {
             name: "@specforge/product".to_string(),
             version: "^1.0".to_string(),
-            optional: false,
+            optional: true,
         });
         c.meta.sandbox_policy = Some(SandboxPolicy {
             max_memory_mb: Some(256),

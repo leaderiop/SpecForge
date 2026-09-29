@@ -874,14 +874,25 @@ fn mermaid_renders_required_dep_as_solid_arrow() {
 }
 
 #[test]
-fn only_governance_product_is_optional() {
+fn only_the_product_links_are_optional() {
     let manifests = load_all_manifests();
     let outline = OutlineIntermediate_from_manifests(&manifests);
 
-    let optional_deps: Vec<_> = outline.dependencies.iter().filter(|d| d.optional).collect();
-    assert_eq!(optional_deps.len(), 1, "exactly one optional dep expected");
-    assert_eq!(optional_deps[0].from, "@specforge/governance");
-    assert_eq!(optional_deps[0].to, "@specforge/product");
+    let mut optional_deps: Vec<(&str, &str)> = outline
+        .dependencies
+        .iter()
+        .filter(|d| d.optional)
+        .map(|d| (d.from.as_str(), d.to.as_str()))
+        .collect();
+    optional_deps.sort();
+    assert_eq!(
+        optional_deps,
+        vec![
+            ("@specforge/formal", "@specforge/product"),
+            ("@specforge/governance", "@specforge/product"),
+            ("@specforge/software", "@specforge/product"),
+        ]
+    );
 }
 
 #[test]
@@ -896,14 +907,26 @@ fn json_dependencies_include_optional_field() {
     let output = render(&outline, &opts);
     let parsed: serde_json::Value = serde_json::from_str(&output).expect("JSON should be valid");
     let deps = parsed["dependencies"].as_array().unwrap();
-    let optional_deps: Vec<_> = deps.iter().filter(|d| d["optional"] == true).collect();
+    let mut optional_deps: Vec<String> = deps
+        .iter()
+        .filter(|d| d["optional"] == true)
+        .map(|d| {
+            format!(
+                "{} -> {}",
+                d["from"].as_str().unwrap(),
+                d["to"].as_str().unwrap()
+            )
+        })
+        .collect();
+    optional_deps.sort();
     assert_eq!(
-        optional_deps.len(),
-        1,
-        "exactly one optional dep in JSON output"
+        optional_deps,
+        vec![
+            "@specforge/formal -> @specforge/product",
+            "@specforge/governance -> @specforge/product",
+            "@specforge/software -> @specforge/product",
+        ]
     );
-    assert_eq!(optional_deps[0]["from"], "@specforge/governance");
-    assert_eq!(optional_deps[0]["to"], "@specforge/product");
 }
 
 #[test]
