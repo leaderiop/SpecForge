@@ -464,7 +464,9 @@ pub struct AutoDetectConfig {
 /// and where the runner leaves its report (`report`, a file or directory
 /// relative to the project root). The host runs the command, with the
 /// user's consent, and passes the report bytes to the pure `export`
-/// (ADR 0002).
+/// (ADR 0002). With `capture: "stdout"` the host also keeps the command's
+/// standard output and passes it along, for runners whose results only
+/// appear there.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct CollectorDescriptor {
     pub name: String,
@@ -476,6 +478,8 @@ pub struct CollectorDescriptor {
     pub run: Vec<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub report: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub capture: Option<String>,
 }
 
 // ── Analyzer Protocol Types ──

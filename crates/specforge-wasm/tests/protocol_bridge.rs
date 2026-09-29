@@ -614,6 +614,7 @@ fn convert_grammar_body_parser_collector() {
         }),
         run: vec!["cargo".to_string(), "test".to_string()],
         report: Some("target/specforge".to_string()),
+        capture: Some("stdout".to_string()),
     }];
 
     let manifest = protocol_extension_to_manifest(&ext);
@@ -642,6 +643,7 @@ fn convert_grammar_body_parser_collector() {
     assert_eq!(ad.env_vars, vec!["CARGO_TARGET_DIR"]);
     assert_eq!(cc.run, vec!["cargo", "test"]);
     assert_eq!(cc.report.as_deref(), Some("target/specforge"));
+    assert_eq!(cc.capture.as_deref(), Some("stdout"));
 }
 
 #[test]
@@ -654,6 +656,7 @@ fn convert_collector_without_auto_detect() {
         auto_detect: None,
         run: vec![],
         report: None,
+        capture: None,
     }];
 
     let manifest = protocol_extension_to_manifest(&ext);

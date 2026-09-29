@@ -589,11 +589,19 @@ behavior run_collector_command "Run Collector Command" {
     output goes to the terminal, to stderr under `--format json`, and
     nowhere under MCP. Test runners exit non-zero when tests fail, so the
     exit status only matters when no report was written, which is E045.
+    A collector that declares `capture: "stdout"` gets the command's
+    standard output too: it still reaches the terminal (or stderr) as it
+    is produced, and is also written to `<collector>.stdout.txt` inside a
+    report directory (next to a report file), which `--no-run` reads back.
+    A captured output counts as a report. Any other `capture` value is
+    E058.
   """
   produces   []
   verify unit "report path must stay inside the project"
   verify unit "run ignores stale reports and sets the report env"
   verify unit "command line expands the report placeholder"
+  verify unit "a captured stdout is kept in every output mode"
+  verify unit "an unknown capture is refused"
   verify contract "Run Collector Command: collector command execution holds — command_approved, report_inside_project, stale_report_ignored, report_path_exported, failing_tests_recorded"
 }
 
@@ -613,7 +621,9 @@ behavior dispatch_collector "Dispatch Collector" {
   contract   """
     The host reads the report (the file itself, or every `*.json` file
     directly inside a report directory, in path order) and passes the files
-    to the collector's pure export as `{"reports": [{"path", "content"}]}`.
+    to the collector's pure export as `{"reports": [{"path", "content"}],
+    "stdout"?}`, `stdout` being the captured standard output when the
+    collector declares one.
     The export answers with test results grouped by entity:
     `{"entity_results": [{"entity_id", "test_results": [{"name", "status",
     "verify"?, "duration_ms"?}]}]}`, where status is passed, failed or

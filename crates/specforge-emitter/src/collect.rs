@@ -36,7 +36,12 @@ pub struct Collector {
     pub run: Vec<String>,
     /// Report file or directory, relative to the project root.
     pub report: String,
+    /// What else the host keeps from the run: `"stdout"` or nothing.
+    pub capture: Option<String>,
 }
+
+/// The only `capture` value: the command's standard output.
+pub const CAPTURE_STDOUT: &str = "stdout";
 
 /// Every collector the enabled extensions declare, in manifest order.
 pub fn collectors(manifests: &[ManifestV2]) -> Vec<Collector> {
@@ -57,6 +62,7 @@ pub fn collectors(manifests: &[ManifestV2]) -> Vec<Collector> {
                     .report
                     .clone()
                     .unwrap_or_else(|| format!(".specforge/reports/{}.json", c.name)),
+                capture: c.capture.clone(),
             })
         })
         .collect()
@@ -118,6 +124,38 @@ pub fn report_path(collector: &Collector, root: &Path) -> Result<PathBuf, String
         ));
     }
     Ok(root.join(relative))
+}
+
+/// Whether the collector keeps its command's standard output. Any value
+/// other than `"stdout"` is refused.
+pub fn captures_stdout(collector: &Collector) -> Result<bool, String> {
+    match collector.capture.as_deref() {
+        None => Ok(false),
+        Some(CAPTURE_STDOUT) => Ok(true),
+        Some(other) => Err(format!(
+            "collector '{}' of {} declares unknown capture '{other}' (only \"stdout\")",
+            collector.name, collector.extension
+        )),
+    }
+}
+
+/// Where a captured standard output is kept: inside a report directory
+/// (a report path without an extension), else next to the report file.
+pub fn capture_path(collector: &Collector, report: &Path) -> PathBuf {
+    if report.is_dir() || report.extension().is_none() {
+        return report.join(format!("{}.stdout.txt", collector.name));
+    }
+    let mut name = report.file_name().unwrap_or_default().to_os_string();
+    name.push(".stdout.txt");
+    report.with_file_name(name)
+}
+
+/// The captured standard output at `path`, if there is one. Runner output
+/// isn't always UTF-8 (tests print what they like), so it's read lossily.
+pub fn read_capture(path: &Path) -> Option<String> {
+    std::fs::read(path)
+        .ok()
+        .map(|bytes| String::from_utf8_lossy(&bytes).into_owned())
 }
 
 /// The declared command with `{report}` expanded.
@@ -215,19 +253,24 @@ pub enum RunnerOutput {
 }
 
 /// What running a collector's command produced.
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone)]
 pub struct Ran {
     /// The runner's exit code; non-zero is normal when tests fail.
     pub exit_code: Option<i32>,
     /// When the command started: a report directory is only read for
     /// files written since, so an old report can never pass for a new run.
     pub started: SystemTime,
+    /// The file holding the command's standard output, when the collector
+    /// captures it.
+    pub stdout: Option<PathBuf>,
 }
 
 /// Run the collector's declared command in the project root. A report
 /// *file* left by an earlier run is removed first; a report *directory* is
 /// left alone (other tools may keep files there) and filtered by
-/// modification time when it's read.
+/// modification time when it's read. A captured standard output still
+/// reaches the chosen output as it's produced, and is also written to
+/// [`capture_path`].
 pub fn run(
     collector: &Collector,
     root: &Path,
@@ -241,11 +284,16 @@ pub fn run(
             collector.name, collector.extension
         ));
     };
+    let capture = captures_stdout(collector)?.then(|| capture_path(collector, report));
     if report.is_file() {
         std::fs::remove_file(report).map_err(|e| format!("{}: {e}", report.display()))?;
     }
-    if let Some(parent) = report.parent() {
-        std::fs::create_dir_all(parent).map_err(|e| format!("{}: {e}", parent.display()))?;
+    for dir in report
+        .parent()
+        .into_iter()
+        .chain(capture.as_deref().and_then(Path::parent))
+    {
+        std::fs::create_dir_all(dir).map_err(|e| format!("{}: {e}", dir.display()))?;
     }
     let mut cmd = std::process::Command::new(program);
     cmd.args(args)
@@ -263,13 +311,52 @@ pub fn run(
         }
     }
     let started = SystemTime::now();
-    let status = cmd
-        .status()
-        .map_err(|e| format!("failed to run `{}`: {e}", argv.join(" ")))?;
+    let failed = |e: std::io::Error| format!("failed to run `{}`: {e}", argv.join(" "));
+    let Some(capture) = capture else {
+        let status = cmd.status().map_err(failed)?;
+        return Ok(Ran {
+            exit_code: status.code(),
+            started,
+            stdout: None,
+        });
+    };
+    let mut child = cmd
+        .stdout(std::process::Stdio::piped())
+        .spawn()
+        .map_err(failed)?;
+    let pipe = child.stdout.take().expect("stdout is piped");
+    let tee = tee(pipe, &capture, output);
+    let status = child.wait().map_err(failed)?;
+    tee.map_err(|e| format!("{}: {e}", capture.display()))?;
     Ok(Ran {
         exit_code: status.code(),
         started,
+        stdout: Some(capture),
     })
+}
+
+/// Copy the child's standard output to `file` and to where `output` sends
+/// the runner's output, as it arrives.
+fn tee(mut pipe: impl std::io::Read, file: &Path, output: RunnerOutput) -> std::io::Result<()> {
+    use std::io::Write;
+    let mut file = std::fs::File::create(file)?;
+    let mut shown: Box<dyn Write> = match output {
+        RunnerOutput::Inherit => Box::new(std::io::stdout()),
+        RunnerOutput::Stderr => Box::new(std::io::stderr()),
+        RunnerOutput::Discard => Box::new(std::io::sink()),
+    };
+    let mut buf = [0u8; 8192];
+    loop {
+        let n = match pipe.read(&mut buf) {
+            Ok(0) => return Ok(()),
+            Ok(n) => n,
+            Err(e) if e.kind() == std::io::ErrorKind::Interrupted => continue,
+            Err(e) => return Err(e),
+        };
+        file.write_all(&buf[..n])?;
+        // The terminal going away mustn't lose the capture.
+        let _ = shown.write_all(&buf[..n]).and_then(|()| shown.flush());
+    }
 }
 
 fn json_files(dir: &Path) -> Vec<PathBuf> {
@@ -354,14 +441,16 @@ pub struct CollectedTest {
     pub duration_ms: Option<f64>,
 }
 
-/// Hand the report files to the collector's pure export.
+/// Hand the report files, and the captured standard output if any, to the
+/// collector's pure export.
 pub fn dispatch(
     runtime: &dyn specforge_wasm::runtime::WasmRuntime,
     collector: &Collector,
     reports: &[ReportFile],
+    stdout: Option<&str>,
 ) -> Result<CollectedResults, String> {
     use specforge_wasm::runtime::WasmCallResult;
-    let input = serde_json::to_vec(&serde_json::json!({ "reports": reports }))
+    let input = serde_json::to_vec(&serde_json::json!({ "reports": reports, "stdout": stdout }))
         .map_err(|e| format!("cannot serialize reports: {e}"))?;
     match runtime.call_export(&collector.extension, &collector.export, &input) {
         WasmCallResult::Ok(bytes) => serde_json::from_slice(&bytes).map_err(|e| {
@@ -560,9 +649,11 @@ pub fn collect(
     let mut diagnostics = Vec::new();
     for collector in selected {
         let report_at = report_path(collector, root).map_err(|m| fail("E058", m))?;
+        let capturing = captures_stdout(collector).map_err(|m| fail("E058", m))?;
         let argv = command_line(collector, &report_at);
         let mut exit_code = None;
         let mut since = None;
+        let mut stdout = None;
         if let Mode::Run(output) = request.mode {
             if !approve(collector, &argv) {
                 return Err(fail(
@@ -578,6 +669,11 @@ pub fn collect(
             let ran = run(collector, root, &report_at, output).map_err(|m| fail("E045", m))?;
             exit_code = ran.exit_code;
             since = Some(ran.started);
+            stdout = ran.stdout.as_deref().and_then(read_capture);
+        } else if let Mode::NoRun = request.mode
+            && capturing
+        {
+            stdout = read_capture(&capture_path(collector, &report_at));
         }
 
         let files = match request.mode {
@@ -589,7 +685,7 @@ pub fn collect(
             _ => read_report(&report_at, root, since),
         }
         .map_err(|m| fail("E045", m))?;
-        if files.is_empty() {
+        if files.is_empty() && stdout.as_deref().is_none_or(str::is_empty) {
             let message = match request.mode {
                 Mode::Run(_) => format!(
                     "{} produced no report at {} (did the tests build?)",
@@ -606,7 +702,8 @@ pub fn collect(
             return Err(fail("E045", message));
         }
 
-        let collected = dispatch(runtime, collector, &files).map_err(|m| fail("E028", m))?;
+        let collected =
+            dispatch(runtime, collector, &files, stdout.as_deref()).map_err(|m| fail("E028", m))?;
         let (stats, diags) = merge(&mut report, &collector.name, &collected, known_ids);
         diagnostics.extend(diags);
         runners.push(RunnerResult {
@@ -713,6 +810,7 @@ mod tests {
             detect: vec!["acme.config.*".into()],
             run: vec!["acme".into(), "--out={report}".into()],
             report: report.into(),
+            capture: None,
         }
     }
 
@@ -841,6 +939,51 @@ mod tests {
         let read = read_report(&out, dir.path(), Some(ran.started)).unwrap();
         let paths: Vec<&str> = read.iter().map(|f| f.path.as_str()).collect();
         assert_eq!(paths, vec!["out/new.json"]);
+    }
+
+    #[specforge_test(
+        behavior = "run_collector_command",
+        verify = "a captured stdout is kept in every output mode"
+    )]
+    fn a_captured_stdout_is_kept_in_every_output_mode() {
+        let dir = tempfile::tempdir().unwrap();
+        let out = dir.path().join("out");
+        let mut c = collector("out");
+        c.run = vec!["sh".into(), "-c".into(), "echo 'test a ... ok'".into()];
+        c.capture = Some(CAPTURE_STDOUT.into());
+        for mode in [
+            RunnerOutput::Discard,
+            RunnerOutput::Stderr,
+            RunnerOutput::Inherit,
+        ] {
+            let ran = run(&c, dir.path(), &out, mode).unwrap();
+            let kept = ran.stdout.expect("captured");
+            assert_eq!(kept, out.join("acme.stdout.txt"));
+            assert_eq!(read_capture(&kept).as_deref(), Some("test a ... ok\n"));
+        }
+        // Not captured without the declaration.
+        c.capture = None;
+        std::fs::remove_file(out.join("acme.stdout.txt")).unwrap();
+        let ran = run(&c, dir.path(), &out, RunnerOutput::Discard).unwrap();
+        assert!(ran.stdout.is_none());
+        assert!(!out.join("acme.stdout.txt").exists());
+    }
+
+    #[specforge_test(
+        behavior = "run_collector_command",
+        verify = "an unknown capture is refused"
+    )]
+    fn an_unknown_capture_is_refused() {
+        let mut c = collector("r.json");
+        assert_eq!(captures_stdout(&c), Ok(false));
+        c.capture = Some("stderr".into());
+        let err = captures_stdout(&c).unwrap_err();
+        assert!(err.contains("unknown capture 'stderr'"), "{err}");
+        // A file report keeps its capture next to it.
+        assert_eq!(
+            capture_path(&c, Path::new("/p/out/r.json")),
+            Path::new("/p/out/r.json.stdout.txt")
+        );
     }
 
     fn collected(entries: &[(&str, &str, &str)]) -> CollectedResults {

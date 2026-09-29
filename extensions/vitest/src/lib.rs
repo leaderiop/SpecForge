@@ -179,6 +179,7 @@ mod tests {
                 path: ".specforge/reports/vitest.json".to_string(),
                 content: content.to_string(),
             }],
+            ..CollectInput::default()
         })
     }
 

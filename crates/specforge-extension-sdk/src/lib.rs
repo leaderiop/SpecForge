@@ -629,6 +629,7 @@ impl CollectorBuilder {
             auto_detect: None,
             run: Vec::new(),
             report: None,
+            capture: None,
         })
     }
     /// A report format the collector reads (informational).
@@ -657,6 +658,12 @@ impl CollectorBuilder {
     /// root. A directory is read as every `*.json` file directly inside it.
     pub fn report(&mut self, path: &str) -> &mut Self {
         self.0.report = Some(path.to_string());
+        self
+    }
+    /// Keep the command's standard output and pass it to the export as
+    /// `CollectInput::stdout`, for runners whose results only appear there.
+    pub fn capture_stdout(&mut self) -> &mut Self {
+        self.0.capture = Some("stdout".to_string());
         self
     }
 }
@@ -718,6 +725,16 @@ mod raw_category_flag_tests {
             "raw validation_rules must raise validators flag"
         );
         assert_eq!(flags["grammars"], serde_json::json!(false));
+    }
+
+    #[test]
+    fn a_collector_can_capture_stdout() {
+        let mut k = CollectorBuilder::new("cargo-test");
+        let plain = serde_json::to_value(&k.0).unwrap();
+        assert!(plain.get("capture").is_none());
+        k.capture_stdout();
+        let captured = serde_json::to_value(&k.0).unwrap();
+        assert_eq!(captured["capture"], serde_json::json!("stdout"));
     }
 }
 
@@ -810,11 +827,14 @@ pub struct PassTestResult {
 }
 
 /// What the host passes to a `collect__<name>` export: the runner's report
-/// files, read from the declared report location.
-#[derive(Debug, Clone, serde::Deserialize, serde::Serialize)]
+/// files, read from the declared report location, and the command's
+/// standard output when the collector captures it.
+#[derive(Debug, Clone, Default, serde::Deserialize, serde::Serialize)]
 pub struct CollectInput {
     #[serde(default)]
     pub reports: Vec<CollectReportFile>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub stdout: Option<String>,
 }
 
 /// One report file: its path relative to the project root, and its text.

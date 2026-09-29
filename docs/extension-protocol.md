@@ -363,8 +363,9 @@ select it (`auto_detect.file_patterns`, last segment may use `*`), the command
 `specforge collect` runs with the user's consent (`run`; `{report}` expands to
 the absolute report path, also exported as `SPECFORGE_REPORT`), where the
 report lands (`report`, a file or directory inside the project; default
-`.specforge/reports/<name>.json`), and the pure export that maps the report
-to entities.
+`.specforge/reports/<name>.json`), whether the host also keeps the command's
+standard output (`capture: "stdout"`, for runners whose results only appear
+there), and the pure export that maps the report to entities.
 
 ```json
 {
@@ -376,13 +377,15 @@ to entities.
       "export": "collect__cargo_test",
       "auto_detect": { "file_patterns": ["Cargo.toml"], "env_vars": [] },
       "run": ["cargo", "test", "--workspace", "--no-fail-fast"],
-      "report": "target/specforge"
+      "report": "target/specforge",
+      "capture": "stdout"
     }
   ]
 }
 ```
 
-The host calls the export with `{"reports": [{"path", "content"}]}` and
+The host calls the export with `{"reports": [{"path", "content"}],
+"stdout"?}` (`stdout` only when the collector captures it) and
 expects `{"entity_results": [{"entity_id", "test_results": [{"name",
 "status", "verify"?, "duration_ms"?}]}]}`, with `status` one of `passed`,
 `failed` or `skipped`.

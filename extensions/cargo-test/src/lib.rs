@@ -131,6 +131,7 @@ mod tests {
                 file("target/specforge/graph.json", r#"{"nodes":[]}"#),
                 file("target/specforge/junk.json", "not json"),
             ],
+            ..CollectInput::default()
         };
         let out = collect(&input);
         let ids: Vec<&str> = out

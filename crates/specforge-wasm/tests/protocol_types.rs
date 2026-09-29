@@ -652,6 +652,7 @@ fn collector_descriptor_with_auto_detect() {
         }),
         run: vec![],
         report: None,
+        capture: None,
     };
     let json = serde_json::to_string(&collector).unwrap();
     let decoded: CollectorDescriptor = serde_json::from_str(&json).unwrap();

@@ -501,7 +501,8 @@ c.collector("cargo-test", |k| {
     k.input_format("specforge-test-json")
         .detect_files(&["Cargo.toml"])            // project-root files that select it
         .run(&["cargo", "test", "--workspace"])  // `{report}` expands to the report path
-        .report("target/specforge");              // file or directory, inside the project
+        .report("target/specforge")               // file or directory, inside the project
+        .capture_stdout();                        // also pass the command's stdout
 });
 ```
 
@@ -512,7 +513,10 @@ the absolute report path. It then reads the report (the file, or every
 `collect__<name>` export (`-` becomes `_`), which the guest's dispatch
 handler routes to a pure function from [`CollectInput`] to
 [`CollectOutput`]: test results grouped by entity, with `status` `passed`,
-`failed` or `skipped`. The guest never runs anything itself.
+`failed` or `skipped`. With `capture_stdout()`, the command's output still
+reaches the user's terminal, and the host also keeps it (in
+`<name>.stdout.txt` inside a report directory) and passes it as
+`CollectInput::stdout`. The guest never runs anything itself.
 
 ### #[compiler_pass]
 

@@ -280,6 +280,7 @@ fn convert_collector(desc: &CollectorDescriptor) -> specforge_registry::Collecto
             }),
         run: desc.run.clone(),
         report: desc.report.clone(),
+        capture: desc.capture.clone(),
     }
 }
 

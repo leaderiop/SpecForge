@@ -258,6 +258,10 @@ pub struct CollectorContribution {
     /// Report file or directory, relative to the project root.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub report: Option<String>,
+    /// `"stdout"`: the host keeps the command's standard output and passes
+    /// it to the export along with the report.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub capture: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
