@@ -12,7 +12,7 @@ use crate::analyze::{ReportedEntity, ReportedTest, TestReport};
 use serde::{Deserialize, Serialize};
 use specforge_common::{Diagnostic, Severity};
 use specforge_registry::ManifestV2;
-use std::collections::{BTreeMap, BTreeSet, HashSet};
+use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Component, Path, PathBuf};
 use std::time::SystemTime;
 
@@ -482,6 +482,50 @@ pub fn dispatch(
 
 // ── merging ─────────────────────────────────────────────────────────────────
 
+/// The entities results may name, each with its obligation texts (the
+/// `verify` descriptions a convention-linked test may prove).
+#[derive(Debug, Clone, Default)]
+pub struct KnownEntities(BTreeMap<String, Vec<String>>);
+
+impl KnownEntities {
+    /// Every entity of the compiled graph.
+    pub fn from_graph(graph: &specforge_graph::Graph) -> Self {
+        graph
+            .nodes()
+            .iter()
+            .map(|node| {
+                let texts = node
+                    .fields
+                    .entries()
+                    .iter()
+                    .find_map(|entry| match &entry.value {
+                        specforge_parser::FieldValue::VerifyList(stmts) => {
+                            Some(stmts.iter().map(|s| s.description.clone()).collect())
+                        }
+                        _ => None,
+                    })
+                    .unwrap_or_default();
+                (node.id.raw.to_string(), texts)
+            })
+            .collect()
+    }
+
+    pub fn contains(&self, id: &str) -> bool {
+        self.0.contains_key(id)
+    }
+
+    /// The entity's obligation texts, empty for an unknown entity.
+    pub fn obligations(&self, id: &str) -> &[String] {
+        self.0.get(id).map(Vec::as_slice).unwrap_or_default()
+    }
+}
+
+impl FromIterator<(String, Vec<String>)> for KnownEntities {
+    fn from_iter<I: IntoIterator<Item = (String, Vec<String>)>>(iter: I) -> Self {
+        Self(iter.into_iter().collect())
+    }
+}
+
 /// Counts from one merge.
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize)]
 pub struct MergeStats {
@@ -499,7 +543,7 @@ pub fn merge(
     report: &mut TestReport,
     runner: &str,
     collected: &CollectedResults,
-    known_ids: &HashSet<String>,
+    known: &KnownEntities,
 ) -> (MergeStats, Vec<Diagnostic>) {
     for entity in report.results.values_mut() {
         entity
@@ -512,7 +556,7 @@ pub fn merge(
     let mut diagnostics = Vec::new();
     let mut unknown = BTreeSet::new();
     for entity in &collected.entity_results {
-        if !known_ids.contains(&entity.entity_id) {
+        if !known.contains(&entity.entity_id) {
             unknown.insert(entity.entity_id.as_str());
             continue;
         }
@@ -619,6 +663,8 @@ pub struct RunnerResult {
     pub files: usize,
     #[serde(flatten)]
     pub stats: MergeStats,
+    /// Tests linked by naming convention rather than by the report.
+    pub by_convention: usize,
 }
 
 /// The outcome of a successful collect.
@@ -637,7 +683,7 @@ pub fn collect(
     request: &Request,
     manifests: &[ManifestV2],
     runtime: &dyn specforge_wasm::runtime::WasmRuntime,
-    known_ids: &HashSet<String>,
+    known: &KnownEntities,
     approve: &mut dyn FnMut(&Collector, &[String]) -> bool,
     announce: &mut dyn FnMut(&Collector, &[String]),
 ) -> Result<Outcome, CollectError> {
@@ -716,9 +762,13 @@ pub fn collect(
             return Err(fail("E045", message));
         }
 
-        let collected =
+        let mut collected =
             dispatch(runtime, collector, &files, stdout.as_deref()).map_err(|m| fail("E028", m))?;
-        let (stats, diags) = merge(&mut report, &collector.name, &collected, known_ids);
+        let (by_convention, diags) = crate::convention::resolve(&collected.unlinked, known);
+        diagnostics.extend(diags);
+        let by_convention_count = by_convention.iter().map(|e| e.test_results.len()).sum();
+        collected.entity_results.extend(by_convention);
+        let (stats, diags) = merge(&mut report, &collector.name, &collected, known);
         diagnostics.extend(diags);
         runners.push(RunnerResult {
             name: collector.name.clone(),
@@ -727,6 +777,7 @@ pub fn collect(
             exit_code,
             files: files.len(),
             stats,
+            by_convention: by_convention_count,
         });
     }
 
@@ -1027,7 +1078,7 @@ mod tests {
         verify = "merge replaces only the same runner"
     )]
     fn merge_replaces_only_the_same_runner() {
-        let known: HashSet<String> = ["a", "b"].iter().map(|s| s.to_string()).collect();
+        let known = KnownEntities::from_iter(["a", "b"].map(|s| (s.to_string(), Vec::new())));
         let mut report = TestReport {
             runner: None,
             results: BTreeMap::new(),
@@ -1082,7 +1133,7 @@ mod tests {
         verify = "unknown entity ID in collector entry produces W115"
     )]
     fn unknown_entities_are_dropped_with_w115() {
-        let known: HashSet<String> = HashSet::from(["a".to_string()]);
+        let known = KnownEntities::from_iter([("a".to_string(), Vec::new())]);
         let mut report = empty_report();
         let (_, diags) = merge(
             &mut report,
@@ -1101,7 +1152,7 @@ mod tests {
         verify = "skipped tests are not recorded as proof"
     )]
     fn skipped_tests_are_not_recorded() {
-        let known: HashSet<String> = HashSet::from(["a".to_string()]);
+        let known = KnownEntities::from_iter([("a".to_string(), Vec::new())]);
         let mut report = empty_report();
         let (stats, _) = merge(
             &mut report,

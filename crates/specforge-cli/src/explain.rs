@@ -993,6 +993,12 @@ pub const CATALOG: &[CodeEntry] = &[
         owner: "@specforge/formal",
         explanation: "A `process` entity is not referenced by any other entity, so it may be unused. Reference the process from a relevant entity, or remove it if it is no longer needed.",
     },
+    CodeEntry {
+        code: "W137",
+        title: "Ambiguous convention mapping",
+        owner: "core",
+        explanation: "`specforge collect` links a test that no annotation links by its name: `entity_id__obligation_slug`, or a module named after an entity. This test's name splits at more than one `__` into a declared entity ID (entity IDs aren't meant to contain `__`), so it isn't linked. Rename the test or the entity, or link the test explicitly (`#[specforge_test]`).",
+    },
 ];
 
 #[cfg(test)]

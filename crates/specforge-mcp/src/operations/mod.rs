@@ -761,12 +761,7 @@ fn collect_op(state: &McpState, args: Value, id: Option<Value>) -> JsonRpcRespon
 
     let runtime = specforge_component::project_runtime(&root);
     let ctx = specforge_emitter::compile::compile_with_runtime(&root, Some(&runtime));
-    let known_ids: std::collections::HashSet<String> = ctx
-        .graph
-        .nodes()
-        .iter()
-        .map(|n| n.id.raw.to_string())
-        .collect();
+    let known = collect::KnownEntities::from_graph(&ctx.graph);
 
     // The server never prompts: a command runs only if the user already
     // approved it for this project with `specforge collect` in a terminal.
@@ -786,7 +781,7 @@ fn collect_op(state: &McpState, args: Value, id: Option<Value>) -> JsonRpcRespon
         &request,
         &ctx.manifests,
         &runtime,
-        &known_ids,
+        &known,
         &mut approve,
         &mut |_, _| {},
     ) {

@@ -12,6 +12,8 @@ fn specforge_cmd() -> Command {
 /// A Rust project collected by `@specforge/cargo-test`, a fake `cargo` on
 /// `PATH` that writes a report the way `specforge-test` does (and leaves a
 /// marker so tests can tell whether it ran), and a private consent store.
+/// With `PLAIN_TESTS` set, the fake prints libtest's output for plain
+/// `#[test]` functions instead, and writes no report.
 struct Fixture {
     dir: TempDir,
 }
@@ -41,6 +43,13 @@ impl Fixture {
             r#"#!/bin/sh
 touch "$(dirname "$0")/ran"
 [ -n "$NO_REPORT" ] && exit 101
+if [ -n "$PLAIN_TESTS" ]; then
+  printf 'running 3 tests\n'
+  printf 'test tests::login__accepts_valid_credentials ... ok\n'
+  printf 'test login::rejects_a_locked_account ... FAILED\n'
+  printf 'test tests::unrelated ... ok\n'
+  exit 101
+fi
 mkdir -p "$SPECFORGE_REPORT"
 cat > "$SPECFORGE_REPORT/demo.json" <<'EOF'
 {"entries":[{"entity_id":"login","test_name":"accepts","verify":"accepts valid credentials","status":"pass"}]}
@@ -285,6 +294,41 @@ fn explicit_report_files_are_parsed() {
     .success()
     .stdout(predicate::str::contains("0 passed, 1 failed"));
     assert!(!fx.ran());
+}
+
+#[specforge_test(
+    behavior = "resolve_test_conventions",
+    verify = "collect links plain tests by naming convention"
+)]
+fn collect_links_plain_tests_by_naming_convention() {
+    let fx = Fixture::new();
+    fx.cmd(&["collect", "--yes"])
+        .env("PLAIN_TESTS", "1")
+        .assert()
+        .success()
+        .stdout(predicate::str::contains(
+            "1 passed, 1 failed, 0 skipped (0 report file(s), 2 linked by naming convention)",
+        ));
+    let tests = &fx.report()["results"]["login"]["tests"];
+    assert_eq!(tests[0]["name"], "tests::login__accepts_valid_credentials");
+    assert_eq!(tests[0]["verify"], "accepts valid credentials");
+    assert_eq!(tests[0]["status"], "pass");
+    assert_eq!(tests[1]["name"], "login::rejects_a_locked_account");
+    assert!(tests[1]["verify"].is_null(), "not an obligation of login");
+    assert_eq!(tests[1]["status"], "fail");
+    assert!(
+        fx.root()
+            .join("target/specforge/cargo-test.stdout.txt")
+            .exists()
+    );
+
+    // --no-run reads the captured output back.
+    std::fs::remove_file(fx.root().join("specforge-report.json")).unwrap();
+    fx.cmd(&["collect", "--no-run"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("2 linked by naming convention"));
+    assert_eq!(fx.report()["results"]["login"]["tests"], *tests);
 }
 
 #[specforge_test(

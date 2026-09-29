@@ -12,7 +12,6 @@
 use crate::OutputFormat;
 use specforge_common::find_project_root;
 use specforge_emitter::collect::{self, Collector, Mode, Request, RunnerOutput};
-use std::collections::HashSet;
 use std::io::{BufRead, IsTerminal, Write};
 use std::path::{Path, PathBuf};
 
@@ -30,12 +29,7 @@ pub fn run(path: &Path, options: &Options, format: OutputFormat) -> i32 {
     };
 
     let (ctx, runtime) = crate::pipeline::compile_with_runtime(&root);
-    let known_ids: HashSet<String> = ctx
-        .graph
-        .nodes()
-        .iter()
-        .map(|n| n.id.raw.to_string())
-        .collect();
+    let known = collect::KnownEntities::from_graph(&ctx.graph);
 
     let mode = if !options.reports.is_empty() {
         Mode::Reports(options.reports)
@@ -70,7 +64,7 @@ pub fn run(path: &Path, options: &Options, format: OutputFormat) -> i32 {
         &request,
         &ctx.manifests,
         &runtime,
-        &known_ids,
+        &known,
         &mut approve,
         &mut announce,
     ) {
@@ -92,8 +86,12 @@ pub fn run(path: &Path, options: &Options, format: OutputFormat) -> i32 {
     } else {
         for r in &outcome.runners {
             let s = &r.stats;
+            let by_convention = match r.by_convention {
+                0 => String::new(),
+                n => format!(", {n} linked by naming convention"),
+            };
             println!(
-                "{}: {} entities, {} passed, {} failed, {} skipped ({} report file(s))",
+                "{}: {} entities, {} passed, {} failed, {} skipped ({} report file(s){by_convention})",
                 r.name, s.entities, s.passed, s.failed, s.skipped, r.files
             );
             if let Some(code) = r.exit_code.filter(|c| *c != 0) {

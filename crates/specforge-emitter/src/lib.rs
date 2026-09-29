@@ -5,6 +5,7 @@ pub mod collect;
 pub use budget::filter_graph_within_budget;
 pub mod compile;
 mod context;
+mod convention;
 mod diagnostic_fmt;
 mod dot;
 mod emit;

@@ -1798,3 +1798,17 @@ needed.
 
 Owner: @specforge/formal
 ```
+
+## W137
+
+```
+W137: Ambiguous convention mapping
+
+`specforge collect` links a test that no annotation links by its name:
+`entity_id__obligation_slug`, or a module named after an entity. This test's
+name splits at more than one `__` into a declared entity ID (entity IDs aren't
+meant to contain `__`), so it isn't linked. Rename the test or the entity, or
+link the test explicitly (`#[specforge_test]`).
+
+Owner: core
+```

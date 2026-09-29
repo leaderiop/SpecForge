@@ -110,8 +110,10 @@ behavior resolve_convention_mapping "Resolve Convention Mapping" {
   contract   """
     Given a test function name, the resolver MUST attempt to extract an
     entity ID using the double-underscore convention: {entity_id}__{slug}.
-    If no double underscore exists, it MUST check if the enclosing module
-    name matches a known entity ID. The slugification algorithm MUST be
+    If that yields no known entity, it MUST check whether an enclosing
+    module name (the innermost first) matches a known entity ID. The
+    `specforge collect` host resolves these names, from the tests the
+    cargo-test collector reads in libtest's output. The slugification algorithm MUST be
     deterministic: lowercase, spaces to underscores, angle brackets to
     lt/gt/lte/gte, strip non-alphanumeric, collapse consecutive underscores.
   """

@@ -669,6 +669,44 @@ behavior ingest_collector_report "Ingest Collector Report" {
   verify contract "Ingest Collector Report: collector report ingestion holds — collector_dispatched_fired, graph_available, collector_report_ingested_emitted, runner_results_replaced, unknown_entities_warned, skipped_not_recorded, merged_report_written"
 }
 
+behavior resolve_test_conventions "Resolve Test Naming Conventions" {
+  invariants [collector_output_conformance]
+  category   query
+  consumes   [collector_dispatched]
+  requires {
+    unlinked_returned "the collector returned the tests its report doesn't link"
+  }
+  ensures {
+    double_underscore_linked "entity_id__slug links the test to that entity"
+    module_linked            "otherwise the innermost module named after an entity links it"
+    obligation_by_slug       "the rest of the name proves the one obligation whose slug it is"
+    ambiguity_warned         "a name that splits into several entities is W137 and not linked"
+    unresolved_silent        "a test no convention links is left out without a diagnostic"
+  }
+  contract   """
+    A test the collector's report doesn't link (a plain `#[test]` seen in
+    libtest's output, say) is linked by its name before the merge. When
+    the part of the test's own name before a `__` is a declared entity ID,
+    the test belongs to that entity and the rest of the name is checked
+    against its obligations; otherwise the innermost enclosing module
+    named after an entity takes it, with the whole name checked. The test
+    proves the obligation whose slug equals the name's slug, when exactly
+    one does, and otherwise the entity alone. A name whose `__` splits
+    give more than one declared entity is W137 and stays unlinked. Tests
+    no rule links are dropped silently, since plain tests are the norm.
+    `specforge collect` reports how many tests it linked this way.
+  """
+  produces   []
+  verify unit "a double underscore splits the entity from the obligation"
+  verify unit "an entity with single underscores is not split"
+  verify unit "the innermost module named after an entity links its tests"
+  verify unit "a double underscore takes precedence over the module"
+  verify unit "an obligation matches only when its slug is unique"
+  verify unit "a name that splits into several entities is W137"
+  verify unit "a test no convention links is left out silently"
+  verify integration "collect links plain tests by naming convention"
+}
+
 behavior slug_obligation_text "Slug an Obligation Text" {
   invariants [collector_output_conformance]
   category   query
