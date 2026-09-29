@@ -278,6 +278,8 @@ fn convert_collector(desc: &CollectorDescriptor) -> specforge_registry::Collecto
                 file_patterns: ad.file_patterns.clone(),
                 env_vars: ad.env_vars.clone(),
             }),
+        run: desc.run.clone(),
+        report: desc.report.clone(),
     }
 }
 

@@ -650,6 +650,8 @@ fn collector_descriptor_with_auto_detect() {
             file_patterns: vec!["**/target/**/junit.xml".to_string()],
             env_vars: vec!["CARGO_TARGET_DIR".to_string()],
         }),
+        run: vec![],
+        report: None,
     };
     let json = serde_json::to_string(&collector).unwrap();
     let decoded: CollectorDescriptor = serde_json::from_str(&json).unwrap();

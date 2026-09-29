@@ -300,15 +300,19 @@ There are three layers:
    ```
 2. **Linkage** — each test names the entity it proves, in its runner's idiom
    (see [ADR 0002](../adr/0002-test-runner-extensions.md)); the spec carries no test paths.
-3. **Proof** — `specforge collect` ingests a test runner's results into
+3. **Proof** — `specforge collect` runs each detected runner extension's
+   test command (`@specforge/cargo-test` runs `cargo test`), once you've
+   approved that command for the project, and records the results in
    `specforge-report.json`, which feeds coverage back into the graph.
 
 ```bash
-specforge collect                        # auto-detect runner, ingest results
-specforge coverage                        # see which entities are proven
+specforge collect                        # detect runners, run them, record results
+specforge collect --no-run               # record the runners' existing reports
+specforge analyze coverage               # see which entities are proven
 ```
 
-> SpecForge never *runs* tests — it traces and consumes their results. See
+> The compiler never runs anything: runner extensions declare their command,
+> and `collect` runs it on their behalf with your consent. See
 > [principles §5](../../vision/principles.md) on traceability as a feedback loop.
 
 ---

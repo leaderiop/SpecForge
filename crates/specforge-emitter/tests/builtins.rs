@@ -103,6 +103,30 @@ fn governance_extension_loads_via_protocol() {
 }
 
 #[test]
+#[specforge_test_macros::test(
+    behavior = "ct_declare_cargo_collector",
+    verify = "cargo-test declares its collector"
+)]
+fn cargo_test_declares_its_collector() {
+    let manifest = load_via_protocol("@specforge/cargo-test");
+    assert!(
+        manifest
+            .peer_dependencies
+            .iter()
+            .any(|p| p.name == "@specforge/testing" && !p.optional),
+        "testing is a required peer"
+    );
+    let collectors = specforge_emitter::collect::collectors(std::slice::from_ref(&manifest));
+    assert_eq!(collectors.len(), 1);
+    let c = &collectors[0];
+    assert_eq!(c.name, "cargo-test");
+    assert_eq!(c.export, "collect__cargo_test");
+    assert_eq!(c.detect, ["Cargo.toml"]);
+    assert_eq!(c.run, ["cargo", "test", "--workspace"]);
+    assert_eq!(c.report, "target/specforge");
+}
+
+#[test]
 fn testing_extension_makes_software_kinds_testable() {
     let manifest = load_via_protocol("@specforge/testing");
     assert_eq!(manifest.name, "@specforge/testing");

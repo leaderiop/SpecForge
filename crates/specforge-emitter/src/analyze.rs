@@ -70,8 +70,14 @@ pub struct ReportedTest {
     #[serde(default)]
     pub name: Option<String>,
     pub status: String,
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub duration_ms: Option<f64>,
+    /// The `verify` obligation the test proves, when it says so.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub verify: Option<String>,
+    /// The collector that recorded the test.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub runner: Option<String>,
 }
 
 // ── contracts ───────────────────────────────────────────────────────────────

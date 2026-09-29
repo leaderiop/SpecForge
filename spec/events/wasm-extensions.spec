@@ -304,30 +304,13 @@ event collector_dispatched "Collector Dispatched" {
   payload {
     collectorName   string
     reportPath      string
-    entityCount     integer
-    durationMs      integer
+    fileCount       integer
     success         boolean
   }
 
 
-  verify integration "emits collector_dispatched with correct collectorName and durationMs"
-  verify integration "consumer validate_collector_output receives event"
-
-}
-
-event collector_output_validated "Collector Output Validated" {
-  channel   "wasm.collector_output_validated"
-
-  payload {
-    collectorName     string
-    schemaValid       boolean
-    unknownEntityCount integer
-    statsConsistent   boolean
-  }
-
-
-  verify integration "emits collector_output_validated with correct schemaValid and unknownEntityCount"
-  verify integration "consumer ingest_collector_report receives event after validation"
+  verify integration "emits collector_dispatched with correct collectorName and fileCount"
+  verify integration "consumer ingest_collector_report receives event"
 
 }
 

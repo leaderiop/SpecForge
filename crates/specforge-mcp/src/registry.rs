@@ -488,11 +488,12 @@ pub fn default_tools() -> Vec<McpToolDescriptor> {
         },
         McpToolDescriptor {
             name: "specforge.collect".into(),
-            description: "Collect test results from a runner".into(),
+            description: "Record which entities the project's tests prove, from the test runner's report (runs the runner only with run: true and prior approval)".into(),
             input_schema: json!({
                 "type": "object",
                 "properties": {
-                    "collector": { "type": "string", "description": "Collector name" },
+                    "runner": { "type": "string", "description": "Collector name (e.g. cargo-test); detected from project files if omitted" },
+                    "run": { "type": "boolean", "description": "Run the test command first; it must have been approved with `specforge collect` in a terminal (default false: parse the existing report)" },
                     "path": { "type": "string", "description": "Project root path (uses initialized root if omitted)" }
                 }
             }),

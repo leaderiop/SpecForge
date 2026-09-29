@@ -612,6 +612,8 @@ fn convert_grammar_body_parser_collector() {
             file_patterns: vec!["**/target/**/junit.xml".to_string()],
             env_vars: vec!["CARGO_TARGET_DIR".to_string()],
         }),
+        run: vec!["cargo".to_string(), "test".to_string()],
+        report: Some("target/specforge".to_string()),
     }];
 
     let manifest = protocol_extension_to_manifest(&ext);
@@ -638,6 +640,8 @@ fn convert_grammar_body_parser_collector() {
     let ad = cc.auto_detect.as_ref().unwrap();
     assert_eq!(ad.file_patterns, vec!["**/target/**/junit.xml"]);
     assert_eq!(ad.env_vars, vec!["CARGO_TARGET_DIR"]);
+    assert_eq!(cc.run, vec!["cargo", "test"]);
+    assert_eq!(cc.report.as_deref(), Some("target/specforge"));
 }
 
 #[test]
@@ -648,6 +652,8 @@ fn convert_collector_without_auto_detect() {
         input_formats: vec!["jest-json".to_string()],
         export: "collect__jest".to_string(),
         auto_detect: None,
+        run: vec![],
+        report: None,
     }];
 
     let manifest = protocol_extension_to_manifest(&ext);

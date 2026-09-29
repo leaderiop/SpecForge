@@ -12,8 +12,8 @@ use specforge_registry::{
     resolve_version, verify_registry_integrity,
 };
 use specforge_wasm::{
-    auto_detect_collector, install_extension, install_from_local, read_lock_file, run_doctor_check,
-    uninstall_extension, write_lock_file,
+    install_extension, install_from_local, read_lock_file, run_doctor_check, uninstall_extension,
+    write_lock_file,
 };
 use std::process::Command as Z3Command;
 
@@ -746,68 +746,69 @@ fn doctor_op(state: &McpState, _args: Value, id: Option<Value>) -> JsonRpcRespon
 
 // ── collect ─────────────────────────────────────────────────────────────────
 
-fn collect_op(_state: &McpState, args: Value, id: Option<Value>) -> JsonRpcResponse {
-    let collector = args
-        .get("collector")
-        .and_then(|v| v.as_str())
-        .unwrap_or("auto");
+fn collect_op(state: &McpState, args: Value, id: Option<Value>) -> JsonRpcResponse {
+    use specforge_emitter::collect::{self, Mode, Request, RunnerOutput};
 
-    let known_formats = ["junit", "tap", "json", "auto"];
-    if let Some(fmt) = args
-        .get("format")
-        .and_then(|v| v.as_str())
-        .filter(|fmt| !known_formats.contains(fmt))
-    {
-        return err_invalid(
-            id,
-            serde_json::json!({
-                "message": format!("Unrecognized format: {fmt}"),
-                "available_formats": known_formats
-            })
-            .to_string(),
-        );
-    }
-
-    if let Some(ext) = args
-        .get("extension")
-        .and_then(|v| v.as_str())
-        .filter(|ext| !ext.starts_with('@'))
-    {
-        return err_invalid(id, format!("Unknown extension: {ext}"));
-    }
-
-    let Some(root) = project_root_of(_state, &args) else {
+    let Some(root) = project_root_of(state, &args) else {
         return err_invalid(id, "collect needs a project root (pass {\"path\": ...})");
     };
+    let runner = args
+        .get("runner")
+        .or_else(|| args.get("collector"))
+        .and_then(|v| v.as_str())
+        .filter(|r| *r != "auto");
+    let run = args.get("run").and_then(|v| v.as_bool()).unwrap_or(false);
 
-    let collector_name = if collector == "auto" {
-        let files: Vec<String> = std::fs::read_dir(&root)
-            .into_iter()
-            .flatten()
-            .flatten()
-            .filter_map(|e| e.file_name().into_string().ok())
-            .collect();
-        let patterns: &[(&str, &str)] = &[
-            ("junit", "rust"),
-            ("jest", "javascript"),
-            ("pytest", "python"),
-        ];
-        match auto_detect_collector(patterns, &files) {
-            Ok(name) => name,
-            Err(diag) => return err_invalid(id, format!("{}: {}", diag.code, diag.message)),
-        }
-    } else {
-        collector.to_string()
+    let runtime = specforge_component::project_runtime(&root);
+    let ctx = specforge_emitter::compile::compile_with_runtime(&root, Some(&runtime));
+    let known_ids: std::collections::HashSet<String> = ctx
+        .graph
+        .nodes()
+        .iter()
+        .map(|n| n.id.raw.to_string())
+        .collect();
+
+    // The server never prompts: a command runs only if the user already
+    // approved it for this project with `specforge collect` in a terminal.
+    let store = collect::consent_path();
+    let mut approve = |c: &collect::Collector, _: &[String]| collect::is_approved(&store, c, &root);
+    let request = Request {
+        root: &root,
+        runner,
+        mode: if run {
+            // The server owns stdio: the runner's output is discarded.
+            Mode::Run(RunnerOutput::Discard)
+        } else {
+            Mode::NoRun
+        },
     };
-
-    ok(
-        id,
-        json!({
-            "collector": collector_name,
-            "project_root": root.display().to_string(),
-            "status": "ready",
-        }),
-    )
+    match collect::collect(
+        &request,
+        &ctx.manifests,
+        &runtime,
+        &known_ids,
+        &mut approve,
+        &mut |_, _| {},
+    ) {
+        Ok(outcome) => ok(
+            id,
+            json!({
+                "status": "collected",
+                "runners": outcome.runners,
+                "diagnostics": outcome.diagnostics,
+                "report": outcome.report.display().to_string(),
+            }),
+        ),
+        Err(e) if e.code == "E059" => err_invalid(
+            id,
+            format!(
+                "E059: the test command isn't approved for this project; run `specforge collect` \
+                 in a terminal once to approve it ({})",
+                e.message
+            ),
+        ),
+        Err(e) => err_invalid(id, format!("{}: {}", e.code, e.message)),
+    }
 }
 
 // ── render ──────────────────────────────────────────────────────────────────

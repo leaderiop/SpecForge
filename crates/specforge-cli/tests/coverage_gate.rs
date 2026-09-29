@@ -107,7 +107,7 @@ fn min_requires_test_results() {
         .unwrap();
     assert_eq!(out.status.code(), Some(2));
     let stderr = String::from_utf8_lossy(&out.stderr);
-    assert!(stderr.contains("--min requires --test-results"), "{stderr}");
+    assert!(stderr.contains("--min needs test results"), "{stderr}");
 }
 
 #[test]
@@ -137,67 +137,6 @@ fn orphaned_test_records_warn_with_suggestion() {
     );
     // Warnings do not fail the run.
     assert!(out.status.success(), "orphan warnings don't gate: {stderr}");
-}
-
-// C11-00 acceptance: collect ingests a report, writes specforge-report.json,
-// and reports orphaned entries (previously it only printed "ready").
-#[test]
-fn collect_ingests_report_and_warns_on_orphans() {
-    let tmp = TempDir::new().unwrap();
-    seed(tmp.path());
-    let report = r#"{"entity_results":[{"entity_id":"widget","test_results":[{"name":"w","status":"passed"}]},{"entity_id":"ghost","test_results":[{"name":"g","status":"failed"}]}]}"#;
-    let report_path = tmp.path().join("runner-report.json");
-    std::fs::write(&report_path, report).unwrap();
-
-    let out = specforge()
-        .args([
-            "collect",
-            "--path",
-            tmp.path().to_str().unwrap(),
-            "--report",
-            report_path.to_str().unwrap(),
-            "--format",
-            "json",
-        ])
-        .output()
-        .unwrap();
-    assert!(
-        out.status.success(),
-        "{}",
-        String::from_utf8_lossy(&out.stderr)
-    );
-    let stdout: serde_json::Value = serde_json::from_slice(&out.stdout).expect("json output");
-    assert_eq!(stdout["status"], "collected");
-    assert_eq!(stdout["mapped_entries"], 1);
-    assert_eq!(stdout["unmapped_entries"], 1);
-    assert_eq!(stdout["entities_updated"], 1);
-
-    // specforge-report.json written in the TestReport shape.
-    let report_json: serde_json::Value = serde_json::from_str(
-        &std::fs::read_to_string(tmp.path().join("specforge-report.json")).unwrap(),
-    )
-    .unwrap();
-    assert_eq!(report_json["runner"], "specforge-test");
-    assert!(
-        report_json["results"]["widget"]["tests"]
-            .as_array()
-            .is_some_and(|t| !t.is_empty()),
-        "widget's tests merged into the report"
-    );
-
-    // The written report feeds analyze coverage end-to-end.
-    let out = specforge()
-        .args([
-            "analyze",
-            "--path",
-            tmp.path().to_str().unwrap(),
-            "coverage",
-            "--test-results",
-            tmp.path().join("specforge-report.json").to_str().unwrap(),
-        ])
-        .output()
-        .unwrap();
-    assert!(out.status.success(), "analyze consumes collected report");
 }
 
 // C1-06 rot guard: the flagship example's traceability loop must keep

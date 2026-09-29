@@ -1,4 +1,3 @@
-mod collector_integration;
 mod contributions_integration;
 mod discovery_and_lockfile;
 mod grammar_and_cache;

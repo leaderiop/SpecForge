@@ -97,13 +97,14 @@ jobs:
       - name: Build all builtin component blobs from source
         run: cargo run -p xtask --bin build-builtins -- --force
 
-      - name: Assert all seven builtin blobs exist
+      - name: Assert all eight builtin blobs exist
         run: |
           test -f extensions/product/target/wasm32-wasip2/release/specforge_ext_product.wasm
           test -f extensions/software/target/wasm32-wasip2/release/specforge_ext_software.wasm
           test -f extensions/governance/target/wasm32-wasip2/release/specforge_ext_governance.wasm
           test -f extensions/formal/target/wasm32-wasip2/release/specforge_ext_formal.wasm
           test -f extensions/testing/target/wasm32-wasip2/release/specforge_ext_testing.wasm
+          test -f extensions/cargo-test/target/wasm32-wasip2/release/specforge_ext_cargo_test.wasm
           test -f extensions/rust/target/wasm32-wasip2/release/specforge_ext_rust.wasm
           test -f extensions/typescript/target/wasm32-wasip2/release/specforge_ext_typescript.wasm
 

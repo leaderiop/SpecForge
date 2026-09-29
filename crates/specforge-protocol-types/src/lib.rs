@@ -458,6 +458,13 @@ pub struct AutoDetectConfig {
 }
 
 /// Describes a test result collector.
+///
+/// A runner extension declares the command that runs its test runner
+/// (`run`, an argv whose elements may contain the `{report}` placeholder)
+/// and where the runner leaves its report (`report`, a file or directory
+/// relative to the project root). The host runs the command, with the
+/// user's consent, and passes the report bytes to the pure `export`
+/// (ADR 0002).
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct CollectorDescriptor {
     pub name: String,
@@ -465,6 +472,10 @@ pub struct CollectorDescriptor {
     pub export: String,
     #[serde(default)]
     pub auto_detect: Option<AutoDetectConfig>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub run: Vec<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub report: Option<String>,
 }
 
 // ── Analyzer Protocol Types ──

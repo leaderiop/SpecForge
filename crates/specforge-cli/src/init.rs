@@ -18,6 +18,13 @@ pub fn run(
     {
         extensions.push("@specforge/testing".to_string());
     }
+    // A Cargo project gets the runner that collects its test results.
+    if extensions.iter().any(|e| e == "@specforge/testing")
+        && path.join("Cargo.toml").is_file()
+        && !extensions.iter().any(|e| e == "@specforge/cargo-test")
+    {
+        extensions.push("@specforge/cargo-test".to_string());
+    }
     let extensions = extensions.as_slice();
 
     // Check for existing project
@@ -140,6 +147,9 @@ pub fn run(
             println!("\nNext steps:");
             println!("  specforge check    # validate your spec files");
             println!("  specforge export   # export the graph");
+            if extensions.iter().any(|e| e == "@specforge/cargo-test") {
+                println!("  specforge collect  # run the tests and record what they prove");
+            }
         }
     }
 

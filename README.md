@@ -71,7 +71,7 @@ claude mcp add specforge -- specforge mcp /path/to/your/project
 
 The compiler is a **pure typed-graph engine**. It knows how to parse `keyword name { fields }` blocks, resolve references, detect orphans and cycles, and emit a validated graph — but it carries **no domain vocabulary**. Every entity kind, edge type, and validation rule comes from an extension. If a new domain required a compiler change, the architecture would have failed.
 
-Seven extensions ship as builtins, embedded in the binary. Enable one with `specforge add @specforge/<name>` (or `specforge init --extensions ...`); it is recorded in `specforge.json`, with nothing to download:
+Eight extensions ship as builtins, embedded in the binary. Enable one with `specforge add @specforge/<name>` (or `specforge init --extensions ...`); it is recorded in `specforge.json`, with nothing to download:
 
 | Extension | Entity kinds | Purpose |
 |-----------|-------------|---------|
@@ -80,6 +80,7 @@ Seven extensions ship as builtins, embedded in the binary. Enable one with `spec
 | **`@specforge/governance`** | decision · constraint · failure_mode | Architecture decisions, non-functional requirements, FMEA risk. |
 | **`@specforge/formal`** | property · axiom · protocol · refinement · process | Formal methods: temporal properties, specification layering, event-graph linting. Enhances software entities. |
 | **`@specforge/testing`** | — | Test vocabulary: which kinds accept `verify` obligations and of which kinds (W004/W009). Enabled with `@specforge/software`; test-runner extensions build on it ([ADR 0002](docs/adr/0002-test-runner-extensions.md)). |
+| **`@specforge/cargo-test`** | — | Rust test runner: `specforge collect` runs `cargo test` (after you approve the command once per project) and records which entities the `#[specforge_test]`-annotated tests prove. Enabled by `init` in a Cargo project; `specforge add` also enables `@specforge/testing`. |
 | **`@specforge/rust`** | — | Source analyzer used by inference: maps Rust code to spec entities. |
 | **`@specforge/typescript`** | — | Source analyzer used by inference: maps TypeScript/JavaScript code to spec entities. |
 
@@ -134,7 +135,7 @@ specforge publish                    # publish an extension to a registry
 
 # Tooling
 specforge format                     # format .spec files
-specforge collect                    # ingest test results (traces, never runs)
+specforge collect                    # run the test runners (with your approval) and record what they prove
 specforge doctor                     # health-check installed extensions
 specforge mcp                        # start the MCP server (stdio)
 specforge explain E001               # explain a diagnostic code

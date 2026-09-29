@@ -26,13 +26,11 @@ pub(crate) mod test_helpers;
 
 pub use cache::{cache_grammar_artifact, grammar_cache_key, has_cached_grammar};
 pub use contributions::{
-    ContributionToggle, CoverageMetadata, EnhancementConflict, EnhancementOverride,
-    EnhancementPolicy, GrammarConflictPolicy, IngestedReport, RegisteredCollector,
-    auto_detect_collector, compose_grammar_injections, detect_grammar_contribution_conflicts,
-    dispatch_collector, dispatch_contribution_exports, ingest_collector_report,
-    is_contribution_disabled, register_collector_contributions, register_entity_enhancements,
+    ContributionToggle, EnhancementConflict, EnhancementOverride, EnhancementPolicy,
+    GrammarConflictPolicy, compose_grammar_injections, detect_grammar_contribution_conflicts,
+    dispatch_contribution_exports, is_contribution_disabled, register_entity_enhancements,
     reject_reserved_entity_kind, required_contribution_exports, resolve_enhancement_conflicts,
-    validate_collector_output, validate_contribution_exports,
+    validate_contribution_exports,
 };
 pub use discovery::{
     ExtensionSource, ExtensionSpecifier, ResolvedExtension, discover_extensions,

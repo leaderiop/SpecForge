@@ -417,7 +417,8 @@ enum Commands {
         #[arg(long, default_value_t = false)]
         strict: bool,
 
-        /// Test-results report (RES-15 specforge-report.json) for proof-level verdicts
+        /// Test-results report for proof-level verdicts (default: the project's
+        /// specforge-report.json, written by `specforge collect`)
         #[arg(long)]
         test_results: Option<String>,
 
@@ -426,7 +427,7 @@ enum Commands {
         prove: bool,
 
         /// Fail with a non-zero exit when proof coverage falls below this
-        /// percentage (requires --test-results)
+        /// percentage (needs test results)
         #[arg(long)]
         min: Option<f64>,
     },
@@ -516,19 +517,27 @@ enum Commands {
         #[arg(long, default_value = "human")]
         format: OutputFormat,
     },
-    /// Collect test results from a test runner
+    /// Run the project's test runners and record which entities their tests prove
     Collect {
         /// Path to the project root
         #[arg(long, default_value = ".")]
         path: PathBuf,
 
-        /// Collector name (e.g., rust, javascript). Auto-detected if omitted.
-        #[arg(long)]
-        collector: Option<String>,
+        /// Collector to use (e.g. cargo-test). Detected from project files if omitted.
+        #[arg(long, alias = "collector", value_name = "NAME")]
+        runner: Option<String>,
 
-        /// Collector report files to ingest (JSON; defaults to target/specforge/*.json)
+        /// Parse the runner's existing report instead of running it
+        #[arg(long)]
+        no_run: bool,
+
+        /// Report files to parse instead of running the runner (implies --no-run)
         #[arg(long = "report", value_name = "FILE")]
         reports: Vec<PathBuf>,
+
+        /// Run the declared test command without asking (for CI)
+        #[arg(long)]
+        yes: bool,
 
         /// Output format: human or json
         #[arg(long, default_value = "human")]
@@ -975,10 +984,21 @@ fn main() {
         Commands::Providers { path, format } => providers::run(&path, format),
         Commands::Collect {
             path,
-            collector,
+            runner,
+            no_run,
             reports,
+            yes,
             format,
-        } => collect::run(&path, collector.as_deref(), &reports, format),
+        } => collect::run(
+            &path,
+            &collect::Options {
+                runner: runner.as_deref(),
+                no_run,
+                reports: &reports,
+                yes,
+            },
+            format,
+        ),
         Commands::Doctor { path, format } => doctor::run(&path, format),
         Commands::Mcp { path } => mcp::run(&path),
         Commands::Completions { shell } => {

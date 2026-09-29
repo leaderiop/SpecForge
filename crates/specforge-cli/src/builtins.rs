@@ -18,6 +18,25 @@ pub fn builtin_name(specifier: &str) -> Option<&'static str> {
         .find(|builtin| *builtin == name)
 }
 
+/// Builtins that `name` requires (its non-optional peer dependencies that
+/// are themselves builtins), read from its handshake.
+pub fn required_peers(name: &str) -> Vec<&'static str> {
+    let runtime = specforge_component::ComponentRuntime::new();
+    if specforge_component::builtins::load_builtins_for(&runtime, &[name.to_string()]).is_err() {
+        return Vec::new();
+    }
+    let host = specforge_wasm::protocol::ProtocolHost::new(&runtime);
+    let Ok(handshake) = host.handshake(name) else {
+        return Vec::new();
+    };
+    handshake
+        .peer_dependencies
+        .iter()
+        .filter(|peer| !peer.optional)
+        .filter_map(|peer| builtin_name(&peer.name))
+        .collect()
+}
+
 /// Builtins enabled in the project's `specforge.json`, in declaration order.
 pub fn enabled(project: &Path) -> Vec<&'static str> {
     specforge_common::load_project_config(project)

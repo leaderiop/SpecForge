@@ -148,12 +148,11 @@ type LockFile {
 
 type CollectorContribution {
   name              string          @readonly
-  description       string          @optional
   input_formats     string[]
   auto_detect       CollectorAutoDetect @optional
-  entity_mapping    CollectorEntityMapping
   export            string
-  output_schema     string
+  run               string[]        @optional
+  report            string          @optional
   verify unit "CollectorContribution schema is valid"
 }
 
@@ -163,43 +162,26 @@ type CollectorAutoDetect {
   verify unit "CollectorAutoDetect schema is valid"
 }
 
-type CollectorEntityMapping {
-  strategies        EntityMappingStrategy[]
-  verify unit "CollectorEntityMapping schema is valid"
-}
-
-type EntityMappingStrategy {
-  priority          integer
-  strategy_type     string          @readonly
-  description       string          @optional
-  verify unit "EntityMappingStrategy schema is valid"
-}
-
 type CollectorReport {
-  schema            string          @readonly
-  entries           CollectorReportEntry[]
-  unmapped_tests    string[]        @optional
-  stats             CollectorStats
+  entity_results    CollectorEntityResult[]
   verify unit "CollectorReport schema is valid"
 }
 
-type CollectorReportEntry {
+type CollectorEntityResult {
   entity_id         string
-  test_id           string
+  test_results      CollectorTestResult[]
+  verify unit "CollectorEntityResult schema is valid"
+}
+
+type CollectorTestResult {
+  name              string
   status            CollectorTestStatus
-  duration_ms       integer         @optional
-  source            string          @optional
-  verify unit "CollectorReportEntry schema is valid"
+  verify            string          @optional
+  duration_ms       float           @optional
+  verify unit "CollectorTestResult schema is valid"
 }
 
-type CollectorTestStatus = pass | fail | skip | error
-
-type CollectorStats {
-  total             integer
-  mapped            integer
-  unmapped          integer
-  verify unit "CollectorStats schema is valid"
-}
+type CollectorTestStatus = passed | failed | skipped
 
 type ExtensionSpecifier "Parsed Extension Specifier" {
   raw        string
@@ -215,11 +197,14 @@ type ExtensionSpecifier "Parsed Extension Specifier" {
 
 
 type CollectorDispatchInput {
-  collector_id    string
-  test_report_path string
-  entity_ids      EntityId[]
-  options         JsonObject      @optional
+  reports         CollectorReportFile[]
   verify unit "CollectorDispatchInput schema is valid"
+}
+
+type CollectorReportFile {
+  path            string
+  content         string
+  verify unit "CollectorReportFile schema is valid"
 }
 
 // --- Extension-Defined Grammar Types ---

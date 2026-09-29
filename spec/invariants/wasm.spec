@@ -139,17 +139,16 @@ invariant enhancement_builtin_precedence "Enhancement Built-in Precedence" {
 
 invariant collector_output_conformance "Collector Output Conformance" {
   guarantee """
-    Collector output MUST conform to the specforge-report/v1 schema. Every
-    CollectorReport MUST include a valid schema field, entries array, and
-    stats object. Entity IDs referenced in collector entries MUST be validated
-    against the graph — unknown entity IDs MUST produce a W115 warning, not
-    a hard error, to allow partial coverage ingestion.
+    What a collector reports is only recorded for entities the graph
+    declares: results for any other entity ID are dropped with a W115
+    warning, not a hard error, so one stale annotation doesn't block the
+    rest of a run. Recorded statuses are only `pass` and `fail`; skipped
+    tests are never recorded as proof.
   """
   risk medium
 
-  verify unit "valid collector output passes schema validation"
   verify unit "unknown entity ID in collector entry produces W115"
-  verify unit "missing required fields produce hard error"
+  verify unit "skipped tests are not recorded as proof"
 }
 
 // -- Registry Invariants ----------------------------------------------------

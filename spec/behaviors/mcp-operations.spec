@@ -371,38 +371,30 @@ behavior provide_mcp_collect_tool "Provide MCP Collect Tool" {
 
   ensures {
     report_emitted "specforge-report.json emitted with test-to-entity mappings"
-    collector_delegated "Collection delegated to extension's registered collector contribution"
+    collector_delegated "Collection delegated to the enabled extensions' collectors"
+    never_prompts "the tool never asks for approval: it runs only commands the user already approved"
     tool_invoked_emitted "mcp_tool_invoked event emitted"
   }
 
   contract """
-    In MCP server mode, the system MUST register a specforge.collect tool that
-    accepts extension (required), format? (optional), and path (required, path
-    to test results). The extension parameter selects which installed extension
-    provides the collector contribution (e.g., "@scope/example-collector").
-    The format parameter selects the specific collector within that extension
-    when it registers multiple collectors (e.g., format="json" vs format="custom-format");
-    when omitted, the extension's default collector MUST be used. The tool MUST
-    delegate to the extension's registered collector contribution to parse the
-    test results file and map tests to spec entities using the extension's
-    entity-to-test mapping, and emit a specforge-report.json.
-
-    Example: specforge.collect(extension="@scope/example-collector",
-    format="custom-format", path="test-results.xml") invokes the
-    custom-format collector from the @scope/example-collector extension.
-
-    If the extension is not installed or does not provide a collector, the tool
-    MUST return an error. If the format is unrecognized by the extension, the
-    tool MUST return an error listing available formats. If the path is invalid,
-    the tool MUST return an error.
+    In MCP server mode, the system MUST register a specforge.collect tool
+    that accepts runner? (a collector name or extension; detected from
+    project files when omitted), run? (default false) and path? (the
+    project root; the initialized root when omitted). It runs the same
+    flow as `specforge collect`: by default it parses the runners' existing
+    reports; with run=true it first runs each runner's declared command,
+    but only a command the user already approved for the project with
+    `specforge collect` in a terminal, and with its output discarded
+    because the server owns stdio. An unapproved command is an E059 error,
+    and a missing collector or report is an error naming its code. The
+    result lists each runner's counts, the W115 diagnostics and the path of
+    the written specforge-report.json.
   """
 
   verify unit "specforge.collect parses test results and maps to entities"
-  verify unit "emits specforge-report.json"
-  verify unit "invalid path returns error"
-  verify unit "unrecognized format returns error listing available formats"
-  verify unit "unknown extension returns error"
-  verify contract "Provide MCP Collect Tool: MCP collect tool holds — filesystem_available, compiler_api_available, report_emitted, collector_delegated, tool_invoked_emitted"
+  verify unit "specforge.collect refuses to run an unapproved command"
+  verify unit "a project without a collector returns an E058 error"
+  verify contract "Provide MCP Collect Tool: MCP collect tool holds — filesystem_available, compiler_api_available, report_emitted, collector_delegated, never_prompts, tool_invoked_emitted"
 }
 
 behavior provide_mcp_render_tool "Provide MCP Render Tool" {

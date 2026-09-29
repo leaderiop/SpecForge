@@ -1,6 +1,7 @@
 pub mod analyze;
 mod brief;
 mod budget;
+pub mod collect;
 pub use budget::filter_graph_within_budget;
 pub mod compile;
 mod context;

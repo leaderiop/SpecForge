@@ -1,0 +1,24 @@
+{
+  "category": "collectors",
+  "items": [
+    {
+      "auto_detect": {
+        "env_vars": [],
+        "file_patterns": [
+          "Cargo.toml"
+        ]
+      },
+      "export": "collect__cargo_test",
+      "input_formats": [
+        "specforge-test-json"
+      ],
+      "name": "cargo-test",
+      "report": "target/specforge",
+      "run": [
+        "cargo",
+        "test",
+        "--workspace"
+      ]
+    }
+  ]
+}

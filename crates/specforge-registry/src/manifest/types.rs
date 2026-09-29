@@ -252,6 +252,12 @@ pub struct CollectorContribution {
     pub export: String,
     #[serde(default)]
     pub auto_detect: Option<CollectorAutoDetect>,
+    /// Command that runs the test runner; `{report}` expands to the report path.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub run: Vec<String>,
+    /// Report file or directory, relative to the project root.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub report: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]

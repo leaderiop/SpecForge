@@ -808,23 +808,6 @@ fn contract_providers() {
 
 #[test]
 #[specforge_test(
-    behavior = "provide_mcp_collect_tool",
-    verify = "Provide MCP Collect Tool: MCP collect tool holds — filesystem_available, compiler_api_available, report_emitted, collector_delegated, tool_invoked_emitted"
-)]
-fn contract_collect() {
-    let mut server = test_server();
-    let resp = call_tool(
-        &mut server,
-        "specforge.collect",
-        json!({"collector": "junit"}),
-    );
-    let text = resp["result"]["content"][0]["text"].as_str().unwrap();
-    let parsed: Value = serde_json::from_str(text).unwrap();
-    assert!(parsed.get("collector").is_some());
-}
-
-#[test]
-#[specforge_test(
     behavior = "provide_mcp_render_tool",
     verify = "Provide MCP Render Tool: MCP render tool holds — graph_available, filesystem_available, files_written, files_listed, tool_invoked_emitted"
 )]

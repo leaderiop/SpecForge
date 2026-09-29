@@ -119,6 +119,37 @@ fn doctor_returns_report() {
 
 // --- specforge.collect ---
 
+/// A project whose Rust tests `@specforge/cargo-test` collects, with a
+/// report already written by an earlier `cargo test`.
+fn collect_project() -> std::path::PathBuf {
+    let dir = tempfile::TempDir::new().unwrap();
+    let root = dir.path().to_path_buf();
+    std::mem::forget(dir); // outlives the test
+    let config = json!({
+        "name": "t",
+        "version": "0.1.0",
+        "extensions": ["@specforge/software", "@specforge/testing", "@specforge/cargo-test"]
+    });
+    std::fs::write(root.join("specforge.json"), config.to_string()).unwrap();
+    std::fs::write(
+        root.join("app.spec"),
+        "behavior alpha \"Alpha\" {\n  verify unit \"works\"\n}\n",
+    )
+    .unwrap();
+    std::fs::write(root.join("Cargo.toml"), "").unwrap();
+    std::fs::create_dir_all(root.join("target/specforge")).unwrap();
+    std::fs::write(
+        root.join("target/specforge/t.json"),
+        json!({"entries": [
+            {"entity_id": "alpha", "test_name": "works", "status": "pass"},
+            {"entity_id": "ghost", "test_name": "stale", "status": "pass"}
+        ]})
+        .to_string(),
+    )
+    .unwrap();
+    root
+}
+
 // B:provide_mcp_collect_tool — verify unit "returns collect result"
 #[test]
 #[specforge_test(
@@ -127,15 +158,82 @@ fn doctor_returns_report() {
 )]
 fn collect_returns_result() {
     let mut server = test_server();
+    let root = collect_project();
     let resp = call_tool(
         &mut server,
         "specforge.collect",
-        json!({"collector": "rust"}),
+        json!({"path": root.to_str().unwrap()}),
     );
-    let text = tool_text(&resp);
-    let parsed: Value = serde_json::from_str(&text).unwrap();
-    assert!(parsed["collector"].is_string());
-    assert_eq!(parsed["status"], "ready");
+    let parsed: Value = serde_json::from_str(&tool_text(&resp)).unwrap();
+    assert_eq!(parsed["status"], "collected");
+    assert_eq!(parsed["runners"][0]["name"], "cargo-test");
+    assert_eq!(parsed["runners"][0]["ran"], false);
+    assert_eq!(parsed["runners"][0]["passed"], 1);
+    assert_eq!(parsed["diagnostics"][0]["code"], "W115");
+    let report: Value =
+        serde_json::from_str(&std::fs::read_to_string(root.join("specforge-report.json")).unwrap())
+            .unwrap();
+    assert_eq!(report["results"]["alpha"]["tests"][0]["status"], "pass");
+}
+
+// B:provide_mcp_collect_tool — verify unit "unapproved command is refused"
+#[test]
+#[specforge_test(
+    behavior = "provide_mcp_collect_tool",
+    verify = "specforge.collect refuses to run an unapproved command"
+)]
+fn collect_refuses_unapproved_command() {
+    let mut server = test_server();
+    let root = collect_project();
+    // A fresh temp project was never approved, and the server never asks.
+    let resp = call_tool(
+        &mut server,
+        "specforge.collect",
+        json!({"path": root.to_str().unwrap(), "run": true}),
+    );
+    let msg = resp["error"]["message"].as_str().unwrap();
+    assert!(msg.starts_with("E059"), "{msg}");
+    assert!(
+        root.join("target/specforge/t.json").exists(),
+        "nothing ran, so the old report is untouched"
+    );
+}
+
+// B:provide_mcp_collect_tool — verify unit "no collector is an error"
+#[test]
+#[specforge_test(
+    behavior = "provide_mcp_collect_tool",
+    verify = "a project without a collector returns an E058 error"
+)]
+fn collect_without_collector_errors() {
+    let mut server = test_server();
+    let resp = call_tool(&mut server, "specforge.collect", json!({}));
+    let msg = resp["error"]["message"].as_str().unwrap();
+    assert!(msg.starts_with("E058"), "{msg}");
+}
+
+// B:provide_mcp_collect_tool — verify contract
+#[test]
+#[specforge_test(
+    behavior = "provide_mcp_collect_tool",
+    verify = "Provide MCP Collect Tool: MCP collect tool holds — filesystem_available, compiler_api_available, report_emitted, collector_delegated, never_prompts, tool_invoked_emitted"
+)]
+fn collect_contract() {
+    let mut server = test_server();
+    let root = collect_project();
+    let path = root.to_str().unwrap();
+    // Delegated to the enabled extension's collector; the report is written.
+    let ok = call_tool(&mut server, "specforge.collect", json!({"path": path}));
+    let parsed: Value = serde_json::from_str(&tool_text(&ok)).unwrap();
+    assert_eq!(parsed["runners"][0]["extension"], "@specforge/cargo-test");
+    assert!(root.join("specforge-report.json").is_file());
+    // Never prompts: running an unapproved command is an error.
+    let err = call_tool(
+        &mut server,
+        "specforge.collect",
+        json!({"path": path, "run": true}),
+    );
+    assert!(err["error"].is_object());
 }
 
 // --- specforge.render ---
@@ -212,42 +310,6 @@ fn doctor_deterministic_steps() {
     assert!(parsed["findings"].is_array());
 }
 
-// B:provide_mcp_collect_tool — verify unit "emits specforge-report.json"
-#[test]
-#[specforge_test(
-    behavior = "provide_mcp_collect_tool",
-    verify = "emits specforge-report.json"
-)]
-fn collect_emits_report() {
-    let mut server = test_server();
-    let resp = call_tool(
-        &mut server,
-        "specforge.collect",
-        json!({"collector": "rust"}),
-    );
-    let text = tool_text(&resp);
-    let parsed: Value = serde_json::from_str(&text).unwrap();
-    assert!(parsed["collector"].is_string());
-    assert_eq!(parsed["status"], "ready");
-}
-
-// B:provide_mcp_collect_tool — verify unit "invalid path returns error"
-#[test]
-#[specforge_test(
-    behavior = "provide_mcp_collect_tool",
-    verify = "invalid path returns error"
-)]
-fn collect_invalid_path_error_placeholder() {
-    let mut server = test_server();
-    // No collector-detectable files exist in the fixture -> honest error.
-    let resp = call_tool(
-        &mut server,
-        "specforge.collect",
-        json!({"collector": "auto"}),
-    );
-    assert!(resp["error"].is_object());
-}
-
 // B:provide_mcp_render_tool — verify unit "registered renderer invoked for matching format"
 #[test]
 #[specforge_test(
@@ -309,42 +371,6 @@ fn doctor_resolution_steps() {
     let parsed: Value = serde_json::from_str(&text).unwrap();
     // resolution_steps superseded by `findings` + `conflicts` arrays.
     assert!(parsed["findings"].is_array());
-}
-
-// B:provide_mcp_collect_tool — verify unit "unrecognized format returns error listing available formats"
-#[test]
-#[specforge_test(
-    behavior = "provide_mcp_collect_tool",
-    verify = "unrecognized format returns error listing available formats"
-)]
-fn collect_unrecognized_format() {
-    let mut server = test_server();
-    let resp = call_tool(
-        &mut server,
-        "specforge.collect",
-        json!({"collector": "auto", "format": "xml"}),
-    );
-    assert!(resp["error"].is_object());
-    let msg = resp["error"]["message"].as_str().unwrap();
-    assert!(msg.contains("Unrecognized format"));
-}
-
-// B:provide_mcp_collect_tool — verify unit "unknown extension returns error"
-#[test]
-#[specforge_test(
-    behavior = "provide_mcp_collect_tool",
-    verify = "unknown extension returns error"
-)]
-fn collect_unknown_extension() {
-    let mut server = test_server();
-    let resp = call_tool(
-        &mut server,
-        "specforge.collect",
-        json!({"collector": "auto", "extension": "bad_ext"}),
-    );
-    assert!(resp["error"].is_object());
-    let msg = resp["error"]["message"].as_str().unwrap();
-    assert!(msg.contains("Unknown extension"));
 }
 
 // B:provide_mcp_render_tool — verify unit "unrecognized format returns error listing available renderers (duplicate coverage)"
@@ -420,34 +446,6 @@ fn doctor_contract() {
     assert!(parsed["findings"].is_array());
     assert!(parsed["cache_checks"].is_array());
     // resolution_steps superseded by `findings` + `conflicts` arrays.
-}
-
-// B:provide_mcp_collect_tool — verify contract
-#[test]
-#[specforge_test(
-    behavior = "provide_mcp_collect_tool",
-    verify = "Provide MCP Collect Tool: MCP collect tool holds — filesystem_available, compiler_api_available, report_emitted, collector_delegated, tool_invoked_emitted"
-)]
-fn collect_contract() {
-    let mut server = test_server();
-    // Requires: filesystem + compiler API available
-    // Ensures: report emitted, collector delegated, errors for invalid input
-    let ok = call_tool(
-        &mut server,
-        "specforge.collect",
-        json!({"collector": "rust"}),
-    );
-    let text = tool_text(&ok);
-    let parsed: Value = serde_json::from_str(&text).unwrap();
-    assert!(parsed["collector"].is_string());
-    assert_eq!(parsed["status"], "ready");
-    // Invalid collector returns error
-    let err = call_tool(
-        &mut server,
-        "specforge.collect",
-        json!({"collector": "auto", "extension": "bad_ext"}),
-    );
-    assert!(err["error"].is_object());
 }
 
 // B:provide_mcp_render_tool — verify contract

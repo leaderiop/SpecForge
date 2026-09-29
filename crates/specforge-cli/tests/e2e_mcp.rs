@@ -2010,9 +2010,9 @@ fn mcp_tool_doctor_returns_health() {
 #[test]
 #[specforge_test(
     behavior = "provide_mcp_collect_tool",
-    verify = "specforge.collect parses test results and maps to entities"
+    verify = "a project without a collector returns an E058 error"
 )]
-fn mcp_tool_collect_returns_report() {
+fn mcp_tool_collect_without_collector_errors() {
     let responses = mcp_session(
         BASIC_SPEC,
         &[mcp_request(
@@ -2020,19 +2020,14 @@ fn mcp_tool_collect_returns_report() {
             "tools/call",
             serde_json::json!({
                 "name": "specforge.collect",
-                "arguments": { "collector": "junit" }
+                "arguments": {}
             }),
         )],
     );
 
     let resp = find_response(&responses, 1).expect("should get response for id 1");
-    assert!(resp["error"].is_null(), "should not be error: {}", resp);
-    let content = parse_tool_content(resp);
-    assert!(
-        content["collector"].is_string(),
-        "collect should have collector"
-    );
-    assert_eq!(content["status"], "ready");
+    let msg = resp["error"]["message"].as_str().unwrap_or_default();
+    assert!(msg.starts_with("E058"), "expected E058, got: {resp}");
 }
 
 #[test]
@@ -2252,32 +2247,6 @@ fn mcp_tool_search_with_limit() {
         "limit=1 should return at most 1 result, got {}",
         arr.len()
     );
-}
-
-#[test]
-#[specforge_test(
-    behavior = "provide_mcp_collect_tool",
-    verify = "unrecognized format returns error listing available formats"
-)]
-fn mcp_tool_collect_invalid_format() {
-    let responses = mcp_session(
-        BASIC_SPEC,
-        &[mcp_request(
-            1,
-            "tools/call",
-            serde_json::json!({
-                "name": "specforge.collect",
-                "arguments": { "format": "xyz" }
-            }),
-        )],
-    );
-
-    let resp = find_response(&responses, 1).expect("should get response for id 1");
-    assert!(
-        resp["error"].is_object(),
-        "should be error for invalid format"
-    );
-    assert_eq!(resp["error"]["code"], -32602, "should be INVALID_PARAMS");
 }
 
 #[test]

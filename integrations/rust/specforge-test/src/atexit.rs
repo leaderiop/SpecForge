@@ -71,6 +71,11 @@ extern "C" fn on_exit() {
 }
 
 fn report_dir() -> PathBuf {
+    // `specforge collect` names the report directory when it runs the tests
+    // (`@specforge/cargo-test`), wherever the target directory lives.
+    if let Some(dir) = std::env::var_os("SPECFORGE_REPORT") {
+        return PathBuf::from(dir);
+    }
     // Walk up from the current exe to find target/, then use target/specforge/
     std::env::current_exe()
         .ok()

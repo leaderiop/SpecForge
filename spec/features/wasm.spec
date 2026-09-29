@@ -229,8 +229,9 @@ feature contribution_based_extensions "Contribution-Based Extensions" {
     test_result_collection feature. Surface contributions (CLI commands,
     MCP tools, MCP resources) are owned by the surface_contributions feature.
     Collector behaviors (register_collector_contributions,
-    auto_detect_collector, dispatch_collector, validate_collector_output,
-    ingest_collector_report) are owned by the test_result_collection feature.
+    auto_detect_collector, approve_collector_command, run_collector_command,
+    dispatch_collector, ingest_collector_report) are owned by the
+    test_result_collection feature.
     The eight dispatch contribution types and their feature owners:
     1-5. entities, validators, renderers, providers, parsers — this feature.
     6. collectors — test_result_collection feature.
@@ -245,25 +246,23 @@ feature contribution_based_extensions "Contribution-Based Extensions" {
 feature test_result_collection "Test Result Collection" {
 
   problem """
-    SpecForge traces test results but does not execute tests. Extensions need
-    a formal contribution type for collectors that parse test runner output
-    (structured output from external tools — format-specific parsing is
-    extension-owned) and map results back to spec entities. Without a
-    collector contribution type, test result ingestion requires ad-hoc scripts
-    outside the extension model, breaking Principle 7 (extensions over built-ins).
+    Coverage needs to know which entities the project's tests prove, but
+    every test runner has its own command and report format. Wiring them
+    into the compiler would put runner knowledge in core, and asking users
+    to run each runner in exactly the way SpecForge expects makes the loop
+    fragile (ADR 0002).
   """
 
   solution """
-    Formal CollectorContribution type in extension manifests. Collectors
-    declare input formats, auto-detection criteria, entity mapping strategies,
-    and a Wasm export. The compiler registers collectors at startup, auto-detects
-    the appropriate collector, dispatches it with entity IDs, validates the
-    output against specforge-report/v1 schema, and ingests results into the
-    graph with coverage metadata.
-    The specforge collect CLI entry point is an extension-owned surface
-    contribution (P7: extensions over built-ins). Extensions providing
-    collectors declare a collect command in their manifest's surfaces.commands
-    array, dispatched via the surface_contributions feature.
+    Runner extensions (`@specforge/cargo-test`, …) declare a collector: the
+    project files that select it, the command that runs the runner, where
+    the report lands and a pure export that maps the report to entities.
+    `specforge collect` detects the collectors that apply, asks the user to
+    approve each command once per project, runs it on the extension's
+    behalf, hands the report to the export and merges the answer into
+    `specforge-report.json`, which `specforge analyze` reads. The compiler
+    still never executes anything, and extensions stay pure wasm; `--no-run`
+    parses an existing report without running anything.
   """
 }
 

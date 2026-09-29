@@ -56,19 +56,21 @@ user-facing capability down to the invariants that protect it.
 This example doesn't just declare specs — it closes the loop:
 
 1. **Test** — `cd tests && cargo test` runs the executable half: tests in
-   `tests/specforge_report.rs` are tagged with the entity + verify statement
-   they prove (`#[specforge_test(behavior = "create_task", verify = "...")]`),
-   and the integration records every result to
+   `tests/src/specforge_report.rs` are tagged with the entity + verify
+   statement they prove (`#[specforge_test(behavior = "create_task", verify
+   = "...")]`), and the integration records every result to
    `target/specforge/<binary>.json`.
-2. **Collect** — `specforge collect --path . --report <the report>` maps the
-   recorded results onto the compiled graph and merges them into
-   `specforge-report.json` (a committed fixture: `runner-report.fixture.json`).
-3. **Analyze** — `specforge analyze --path . coverage --test-results
-   specforge-report.json` scores proof coverage: 5 of 9 obligated entities
-   proven in this fixture, with A014 findings for any failing proof.
+2. **Collect** — `@specforge/cargo-test` maps those reports onto the
+   compiled graph: `specforge collect --path . --report <the report>` merges
+   them into `specforge-report.json`. (In a project whose `Cargo.toml` sits
+   at the root, plain `specforge collect` runs `cargo test` itself, after
+   you approve the command once.)
+3. **Analyze** — `specforge analyze --path . coverage` reads
+   `specforge-report.json` and scores proof coverage: 5 of 9 obligated
+   entities proven in this fixture, with A014 findings for any failing proof.
 4. **Trace** — `specforge trace --path . create_task` shows the entity's
    provenance graph (constraints, features, verifies).
 
-`tests/runner-report.fixture.json` is the committed result of step 1, so
-steps 2-4 can be reproduced without a test run:
-`specforge collect --path . --report tests-runner-report.fixture.json`
+`runner-report.fixture.json` is the committed result of step 1, so steps
+2-4 can be reproduced without a test run:
+`specforge collect --path . --report runner-report.fixture.json`

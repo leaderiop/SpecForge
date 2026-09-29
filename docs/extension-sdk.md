@@ -499,21 +499,28 @@ Argument types:
 | `EnumArg` | `enum` |
 | `Option<T>` | optional variant of inner type |
 
-### #[collector]
+### Collectors
 
-Declares a test result collector. The SDK generates a `collect__*` export.
+A test-runner extension declares a collector with `c.collector(name, ...)`
+in `contribute` ([ADR 0002](adr/0002-test-runner-extensions.md)):
 
-| Attribute | Required | Description |
-|-----------|----------|-------------|
-| `name` | yes | Collector name (used in `specforge collect <name>`) |
-| `formats` | yes | Accepted input formats (e.g., `["junit-xml", "json"]`) |
+```rust
+c.collector("cargo-test", |k| {
+    k.input_format("specforge-test-json")
+        .detect_files(&["Cargo.toml"])            // project-root files that select it
+        .run(&["cargo", "test", "--workspace"])  // `{report}` expands to the report path
+        .report("target/specforge");              // file or directory, inside the project
+});
+```
 
-The `#[auto_detect]` companion macro configures automatic discovery:
-
-| Attribute | Required | Description |
-|-----------|----------|-------------|
-| `files` | no | Glob patterns for result files |
-| `env` | no | Environment variables indicating result locations |
+`specforge collect` runs the declared command in the project root, after
+the user approves it once for the project, with `SPECFORGE_REPORT` set to
+the absolute report path. It then reads the report (the file, or every
+`*.json` file directly inside the directory) and calls the extension's
+`collect__<name>` export (`-` becomes `_`), which the guest's dispatch
+handler routes to a pure function from [`CollectInput`] to
+[`CollectOutput`]: test results grouped by entity, with `status` `passed`,
+`failed` or `skipped`. The guest never runs anything itself.
 
 ### #[compiler_pass]
 

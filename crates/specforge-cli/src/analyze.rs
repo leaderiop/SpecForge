@@ -33,8 +33,15 @@ pub fn run(
     prove: bool,
 ) -> i32 {
     let (ctx, runtime) = pipeline::compile_with_runtime(path);
+    // Without --test-results, use what `specforge collect` last recorded.
+    let collected = specforge_common::find_project_root(path)
+        .map(|root| root.join(specforge_emitter::collect::REPORT_FILE))
+        .filter(|report| report.is_file());
+    let test_results = test_results.or(collected.as_deref());
     if min.is_some() && test_results.is_none() {
-        eprintln!("error: --min requires --test-results (the gate scores recorded proof results)");
+        eprintln!(
+            "error: --min needs test results: run `specforge collect` or pass --test-results"
+        );
         return 2;
     }
     let parsed_report = test_results.map(|report_path| {

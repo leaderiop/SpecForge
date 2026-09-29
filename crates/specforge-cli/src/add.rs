@@ -69,6 +69,26 @@ pub fn run(
 
 /// Builtins are embedded in the binary: enabling one only edits specforge.json.
 fn enable_builtin(name: &str, project_path: &Path, format: OutputFormat) -> i32 {
+    // Required builtin peers come first, so they're enabled before the
+    // extension that builds on them. An already-enabled extension is left
+    // exactly as it is.
+    let already = crate::builtins::enabled(project_path).contains(&name);
+    let peers = if already {
+        Vec::new()
+    } else {
+        crate::builtins::required_peers(name)
+    };
+    let mut peers_added = Vec::new();
+    for peer in &peers {
+        match crate::builtins::enable(project_path, peer) {
+            Ok(true) => peers_added.push(*peer),
+            Ok(false) => {}
+            Err(message) => {
+                print_error(format, &message, "E032");
+                return 1;
+            }
+        }
+    }
     let added = match crate::builtins::enable(project_path, name) {
         Ok(added) => added,
         Err(message) => {
@@ -83,11 +103,20 @@ fn enable_builtin(name: &str, project_path: &Path, format: OutputFormat) -> i32 
                 "name": name,
                 "source": "builtin",
                 "changed": added,
+                "peers_enabled": peers_added,
             });
             println!("{}", serde_json::to_string_pretty(&output).unwrap());
         }
-        OutputFormat::Human if added => println!("enabled builtin {}", name),
-        OutputFormat::Human => println!("{} is already enabled", name),
+        OutputFormat::Human => {
+            for peer in &peers_added {
+                println!("enabled builtin {peer} (required by {name})");
+            }
+            if added {
+                println!("enabled builtin {}", name);
+            } else {
+                println!("{} is already enabled", name);
+            }
+        }
     }
     0
 }

@@ -512,51 +512,44 @@ behavior toggle_extension_contributions "Toggle Extension Contributions" {
 
 // -- Collector Contribution Behaviors -----
 
-// Cross-ref: collector workflow spans multiple behaviors:
-// register_collector_contributions → auto_detect_collector → dispatch_collector →
-// validate_collector_output → ingest_collector_report. CLI entry point is
-// specforge collect; MCP entry point is provide_mcp_collect_tool
-// (behaviors/mcp-operations.spec).
+// Cross-ref: the collect flow (ADR 0002) spans these behaviors:
+// register_collector_contributions → auto_detect_collector →
+// approve_collector_command → run_collector_command → dispatch_collector →
+// ingest_collector_report. The CLI entry point is `specforge collect`; the
+// MCP entry point is provide_mcp_collect_tool (behaviors/mcp-operations.spec).
 behavior register_collector_contributions "Register Collector Contributions" {
   invariants [extension_load_order_determinism]
   category   query
-  types      [ManifestV2, CollectorContribution, ExtensionContributions, ExtensionError, CollectorEntityMapping, EntityMappingStrategy, CollectorTestStatus]
+  types      [ManifestV2, CollectorContribution, CollectorAutoDetect]
   ports      [WasmRuntime]
 
   requires {
-    manifest_declares_collectors "extension manifest declares collectors=true in contributes section"
-    wasm_runtime_available "WasmRuntime port is available for validating collector Wasm exports"
+    manifest_declares_collectors "an enabled extension's handshake raises the collectors flag and its describe payload lists collectors"
   }
 
   ensures {
-    collector_registered_emitted "collector_registered event is emitted after successful registration"
-    duplicate_names_diagnosed "duplicate collector names across extensions produce E059"
-    missing_exports_diagnosed "missing Wasm exports produce E020"
+    collectors_listed "every declared collector is listed with its extension, export, detection files, command and report location"
+    default_report_location "a collector that names no report location reads .specforge/reports/<name>.json"
   }
 
   contract """
-    When an extension manifest declares collectors=true in its contributes
-    section and includes collector contribution entries, the compiler MUST
-    parse each CollectorContribution from the manifest, register it in a
-    collector registry keyed by name, validate that the declared Wasm export
-    exists in the .wasm binary, and detect duplicate collector names across
-    extensions (E059). Registration MUST happen during the extension
-    initialization phase in topological order.
+    Collectors come from the `collectors` describe payload of each enabled
+    extension, in manifest order. A collector names its pure export
+    (`collect__<name>`), the project-root files that select it, the argv
+    that runs its test runner (elements may contain the `{report}`
+    placeholder) and the report file or directory the runner writes,
+    relative to the project root. A collector without a report location
+    reads `.specforge/reports/<name>.json`.
   """
 
   produces [collector_registered]
 
   verify unit "collector contribution parsed from manifest"
-  verify unit "collector registered in collector registry"
-  verify unit "missing Wasm export produces E020"
-  verify unit "duplicate collector name produces E059"
-  verify contract "Register Collector Contributions: collector contribution registration holds — manifest_declares_collectors, wasm_runtime_available, collector_registered_emitted, duplicate_names_diagnosed, missing_exports_diagnosed"
+  verify contract "Register Collector Contributions: collector contribution registration holds — manifest_declares_collectors, collectors_listed, default_report_location"
 }
 
 // NOTE: auto_detect_collector does not produce an event because dispatch is
-// CLI-initiated (specforge collect), not event-driven. The CLI command
-// directly selects and dispatches the collector — there is no intermediate
-// event between detection and dispatch.
+// CLI-initiated (specforge collect), not event-driven.
 behavior auto_detect_collector "Auto-Detect Collector" {
   invariants [extension_load_order_determinism]
   category   validation
@@ -566,146 +559,179 @@ behavior auto_detect_collector "Auto-Detect Collector" {
 
   requires {
     collector_registered_fired "collector_registered event has fired, confirming collectors are available for auto-detection"
-    filesystem_available "FileSystem port is available for matching file patterns against project directory"
   }
 
   ensures {
-    first_match_selected "the first matching collector is selected when multiple match"
-    no_match_diagnosed "if no collector matches, I013 info diagnostic is emitted listing available collectors"
+    all_matches_selected "every collector whose detection files exist at the project root is selected"
+    runner_flag_selects_one "--runner selects exactly the collector with that name or extension"
+    no_match_diagnosed "no collector, no match or an unknown --runner is E058, listing the available collectors"
   }
 
   contract """
-    When specforge collect is invoked without an explicit collector name,
-    the system MUST iterate over all registered collectors and match their
-    auto_detect criteria against the project. File patterns MUST be matched
-    against the project directory. Environment variables MUST be checked
-    for presence. The first matching collector MUST be selected. If no
-    collector matches, the system MUST emit an I013 info diagnostic
-    listing available collectors.
-
-    This behavior does not produce an event because dispatch is CLI-initiated
-    (specforge collect), not event-driven — the CLI command directly selects
-    and dispatches the collector.
+    Without `--runner`, `specforge collect` selects every collector whose
+    detection files exist at the project root; the last segment of a
+    detection pattern may use `*` wildcards (`vitest.config.*`). A project
+    with Rust and TypeScript tests therefore collects from both runners.
+    `--runner` names one collector by name or extension. When parsing an
+    existing report (`--no-run`, `--report`) and only one collector is
+    enabled, it is selected without detection. When nothing can be
+    selected, the command fails with E058 and lists the collectors that are
+    available.
   """
 
   produces []
 
   verify unit "file pattern match selects collector"
-  verify unit "env var match selects collector"
-  verify unit "first match wins when multiple match"
-  verify unit "no match emits I013 with available collectors"
-  verify contract "Auto-Detect Collector: collector auto-detection holds — collector_registered_fired, filesystem_available, first_match_selected, no_match_diagnosed"
+  verify unit "wildcards match within the last path segment"
+  verify unit "no match emits E058 with available collectors"
+  verify contract "Auto-Detect Collector: collector auto-detection holds — collector_registered_fired, all_matches_selected, runner_flag_selects_one, no_match_diagnosed"
+}
+
+behavior approve_collector_command "Approve Collector Command" {
+  invariants [extension_isolation]
+  category   validation
+  types      [CollectorContribution]
+  ports      [FileSystem]
+
+  requires {
+    command_declared "the selected collector declares a command"
+  }
+
+  ensures {
+    consent_outside_project "approvals are stored in the user-level consent store, never in the project"
+    changed_command_reprompts "an approval covers one project, extension, collector and exact argv; any change asks again"
+    non_interactive_refuses "without a terminal, or with JSON output, an unapproved command is refused with E059 unless --yes is passed"
+  }
+
+  contract """
+    `specforge collect` runs a collector's command only after the user
+    approves it. It shows the extension, the project root and the exact
+    command, asks once, and remembers the answer per project, extension,
+    collector and argv in `~/.specforge/collector-consent.json`
+    (`$SPECFORGE_CONSENT_FILE` overrides). The store lives outside the
+    project, so a cloned repository can't approve its own commands. A
+    changed command asks again. Without a terminal, or with `--format
+    json`, nothing is asked: an unapproved command fails with E059, `--yes`
+    runs it without recording an approval, and `--no-run` parses an
+    existing report. The MCP server never prompts and runs only approved
+    commands.
+  """
+
+  produces []
+
+  verify unit "consent is keyed by project, extension and command"
+  verify integration "unapproved command without a terminal fails with E059 and runs nothing"
+  verify integration "--yes runs the declared command"
+  verify contract "Approve Collector Command: consent holds — command_declared, consent_outside_project, changed_command_reprompts, non_interactive_refuses"
+}
+
+behavior run_collector_command "Run Collector Command" {
+  invariants [extension_isolation]
+  category   command
+  types      [CollectorContribution]
+  ports      [FileSystem]
+
+  requires {
+    command_approved "approve_collector_command allowed the command"
+  }
+
+  ensures {
+    report_inside_project "a report location outside the project (absolute or with ..) is refused with E058"
+    stale_report_cleared "a report left at the declared location by an earlier run is removed before the command starts"
+    report_path_exported "the command runs in the project root with SPECFORGE_REPORT set to the absolute report path and {report} expanded"
+    failing_tests_recorded "a non-zero exit is not an error when a report was written; no report is E045"
+  }
+
+  contract """
+    The host, not the extension, runs the approved command: extensions stay
+    pure wasm with no process access. The report location must stay inside
+    the project. Before running, the host removes a stale report at that
+    location (the file, or the `*.json` files directly inside a report
+    directory) so an old report can't pass for a new run. The command runs
+    in the project root with stdin closed, `{report}` expanded in its
+    arguments and `SPECFORGE_REPORT` set to the absolute report path. Its
+    output goes to the terminal, to stderr under `--format json`, and
+    nowhere under MCP. Test runners exit non-zero when tests fail, so the
+    exit status only matters when no report was written, which is E045.
+  """
+
+  produces []
+
+  verify unit "report path must stay inside the project"
+  verify unit "run clears stale reports and sets the report env"
+  verify unit "command line expands the report placeholder"
+  verify contract "Run Collector Command: collector command execution holds — command_approved, report_inside_project, stale_report_cleared, report_path_exported, failing_tests_recorded"
 }
 
 behavior dispatch_collector "Dispatch Collector" {
   invariants [wasm_sandbox_integrity, extension_isolation]
   category   query
-  types      [CollectorContribution, CollectorDispatchInput, CollectorReport, ExtensionError, WasmTrapInfo]
+  types      [CollectorContribution, CollectorDispatchInput, CollectorReport, WasmTrapInfo]
   ports      [WasmRuntime, FileSystem]
 
   requires {
-    collector_selected "a collector has been selected (explicitly or via auto-detection)"
-    wasm_runtime_available "WasmRuntime port is available for calling collector Wasm export"
+    report_available "the collector's report exists: a file, or a directory of *.json files"
   }
 
   ensures {
-    collector_dispatched_emitted "collector_dispatched event is emitted after collector execution completes"
-    traps_caught "Wasm traps during collector execution are caught and reported as ExtensionError"
-    no_external_processes "no external processes or system commands are spawned during dispatch"
+    collector_dispatched_emitted "collector_dispatched event is emitted after the export returns"
+    report_files_passed "the export receives every report file with its project-relative path and text"
+    traps_reported "a trap or malformed answer is E028"
   }
 
   contract """
-    When a collector is selected, the system MUST call the collector's
-    declared Wasm export with the test report path and the set of known
-    entity IDs as input. The collector Wasm function MUST return a
-    CollectorReport. Wasm traps during collector execution MUST be caught
-    and reported as ExtensionError diagnostics without affecting the
-    compilation pipeline. The collector Wasm export runs within the sandbox.
-    The system MUST NOT spawn external processes or invoke system commands
-    during collector dispatch. All evidence parsing occurs within the Wasm
-    sandbox boundary.
+    The host reads the report (the file itself, or every `*.json` file
+    directly inside a report directory, in path order) and passes the files
+    to the collector's pure export as `{"reports": [{"path", "content"}]}`.
+    The export answers with test results grouped by entity:
+    `{"entity_results": [{"entity_id", "test_results": [{"name", "status",
+    "verify"?, "duration_ms"?}]}]}`, where status is passed, failed or
+    skipped. A trap or an answer that doesn't parse is E028. `--no-run`
+    and `--report` skip running and dispatch an existing report.
   """
 
   produces [collector_dispatched]
 
-  verify unit "calls collector Wasm export with report path and entity IDs"
-  verify unit "returns CollectorReport on success"
-  verify unit "Wasm trap caught and reported as ExtensionError"
-  verify unit "collector dispatch spawns no external processes"
-  verify contract "Dispatch Collector: collector dispatch holds — collector_selected, wasm_runtime_available, collector_dispatched_emitted, traps_caught, no_external_processes"
-}
-
-behavior validate_collector_output "Validate Collector Output" {
-  invariants [collector_output_conformance]
-  category   validation
-  types      [CollectorReport, CollectorStats, ExtensionError]
-  consumes   [collector_dispatched]
-
-  requires {
-    collector_dispatched_fired "collector_dispatched event has fired, confirming collector has returned a report"
-  }
-
-  ensures {
-    collector_output_validated_emitted "collector_output_validated event is emitted when report passes schema validation"
-    unknown_entities_warned "unknown entity IDs referenced in entries produce W115 warning"
-    stats_consistency_checked "inconsistent stats (total != entries.length) produce W115 warning"
-  }
-
-  contract """
-    After a collector returns its report, the system MUST validate the
-    output against the specforge-report/v1 schema. Entity IDs referenced
-    in entries MUST be checked against the graph — unknown entity IDs
-    MUST produce a W115 warning. Stats consistency MUST be verified:
-    stats.total MUST equal entries.length, stats.mapped + stats.unmapped
-    MUST equal stats.total. Inconsistent stats MUST produce a W115
-    warning.
-  """
-
-  produces [collector_output_validated]
-
-  verify unit "valid report passes schema validation"
-  verify unit "unknown entity ID produces W115"
-  verify unit "inconsistent stats produce W115"
-  verify unit "missing schema field produces hard error"
-  verify contract "Validate Collector Output: collector output validation holds — collector_dispatched_fired, collector_output_validated_emitted, unknown_entities_warned, stats_consistency_checked"
+  verify unit "reads a file or every json file in a directory"
+  verify contract "Dispatch Collector: collector dispatch holds — report_available, collector_dispatched_emitted, report_files_passed, traps_reported"
 }
 
 behavior ingest_collector_report "Ingest Collector Report" {
   invariants [collector_output_conformance]
   category   query
-  types      [CollectorReport, CollectorReportEntry, Graph]
+  types      [CollectorReport, Graph]
   ports      [FileSystem]
-  consumes   [collector_output_validated]
+  consumes   [collector_dispatched]
 
   requires {
-    collector_output_validated_fired "collector_output_validated event has fired, confirming report passed schema validation"
-    graph_available "compiled graph is available for associating entries with entity nodes"
+    collector_dispatched_fired "collector_dispatched event has fired with the export's answer"
+    graph_available "the compiled graph is available to check entity IDs"
   }
 
   ensures {
-    collector_report_ingested_emitted "collector_report_ingested event is emitted after entries are associated and report is written"
-    coverage_metadata_updated "coverage metadata is updated on entity nodes in the graph"
-    merged_report_written "merged report is written to specforge-report.json"
-    unmapped_entries_preserved "entries with unknown entity IDs are included in unmapped_tests section"
+    collector_report_ingested_emitted "collector_report_ingested event is emitted after the report is written"
+    runner_results_replaced "a runner's earlier results are replaced; other runners' results are kept"
+    unknown_entities_warned "results for undeclared entities are dropped with W115"
+    skipped_not_recorded "skipped tests are counted but not recorded"
+    merged_report_written "the merged results are written to specforge-report.json, which analyze reads by default"
   }
 
   contract """
-    This behavior MUST NOT be invoked until validate_collector_output
-    completes successfully. After validation, the system MUST associate
-    each CollectorReportEntry with its corresponding entity node in the
-    graph, update coverage metadata on the entity node, and write the
-    merged report to specforge-report.json. Entries with unknown entity IDs (already
-    warned by validate_collector_output) MUST be included in the
-    unmapped_tests section of the output.
+    Each runner's answer is merged into `specforge-report.json`: the
+    runner's earlier results are removed and its new ones added, so several
+    runners can report on one project. Every recorded test carries its
+    name, `pass` or `fail`, the `verify` obligation it names and the runner
+    that recorded it. Results for entities the graph doesn't declare are
+    dropped with a W115 warning. Skipped tests prove nothing, so they're
+    counted but not recorded. `specforge analyze` reads the written report
+    without `--test-results`.
   """
 
   produces [collector_report_ingested]
 
-  verify unit "entries associated with entity nodes"
-  verify unit "coverage metadata updated on entity"
-  verify unit "merged report written to specforge-report.json"
-  verify unit "unknown entity entries in unmapped_tests"
-  verify contract "Ingest Collector Report: collector report ingestion holds — collector_output_validated_fired, graph_available, collector_report_ingested_emitted, coverage_metadata_updated, merged_report_written, unmapped_entries_preserved"
+  verify unit "merge replaces only the same runner"
+  verify integration "collect then analyze scores the recorded tests"
+  verify contract "Ingest Collector Report: collector report ingestion holds — collector_dispatched_fired, graph_available, collector_report_ingested_emitted, runner_results_replaced, unknown_entities_warned, skipped_not_recorded, merged_report_written"
 }
 
 // -- Discovery & Configuration -----

@@ -442,10 +442,11 @@ Owner: @specforge/formal
 ```
 E045: Invalid test report
 
-`specforge collect` couldn't proceed with a test report: no report files were
-found (pass `--report` or place `*.json` files under the default report
-directory), a report file couldn't be read, or its contents aren't valid JSON.
-Check the report path and its contents.
+`specforge collect` couldn't get a test report: the runner's command couldn't be
+started, it finished without writing a report at the collector's declared
+location (often because the tests didn't build), `--no-run` found no existing
+report, or a report file couldn't be read. Check the runner's output above the
+error and the report path.
 
 Owner: core
 ```
@@ -562,6 +563,36 @@ distinct schemes for each provider extension.
 Owner: core
 ```
 
+## E058
+
+```
+E058: No test collector
+
+`specforge collect` found no collector to use: no enabled extension provides
+one, none of the enabled collectors' detection files (such as `Cargo.toml`) are
+present at the project root, the `--runner` name matches no collector, a
+collector declares a report path outside the project, or `--report` was passed
+while several collectors apply. Enable a runner extension (e.g. `specforge add
+@specforge/cargo-test`) or pick one with `--runner`.
+
+Owner: core
+```
+
+## E059
+
+```
+E059: Test command not approved
+
+A runner extension declares the command that runs its tests, and `specforge
+collect` only runs it after you approve it for the project. The approval is
+asked at an interactive prompt and remembered per project, extension and
+command, in your user-level `~/.specforge/collector-consent.json`, never in the
+project. Without a terminal (CI, `--format json`) nothing is asked: pass `--yes`
+to run the command, or `--no-run` to parse a report the runner already wrote.
+
+Owner: core
+```
+
 ## I002
 
 ```
@@ -648,18 +679,6 @@ A `term` entity has no edges at all, meaning nothing links to or from it via
 remove it if it's unused.
 
 Owner: @specforge/product
-```
-
-## I013
-
-```
-I013: No collector auto-detected
-
-None of the known file patterns matched files in the current project, so no
-test-coverage collector could be auto-detected. Pass `--collector` explicitly to
-select one.
-
-Owner: core
 ```
 
 ## I016
@@ -1535,10 +1554,10 @@ Owner: core
 ```
 W115: Invalid collector report
 
-A test-coverage collector's output report references an entity ID that does not
-match any declared entity, or its `total`/`passed`/`failed`/`skipped` stats are
-inconsistent. Fix the collector integration so its report only references known
-entity IDs and its counts add up.
+A collector reported tests for an entity ID that no spec declares (usually a
+renamed entity or a typo in the test's annotation), or its
+`total`/`passed`/`failed`/`skipped` stats are inconsistent. `specforge collect`
+drops those results; fix the test annotation so it names a declared entity.
 
 Owner: core
 ```
