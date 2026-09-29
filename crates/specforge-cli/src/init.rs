@@ -86,13 +86,19 @@ pub fn run(
         return 1;
     }
 
-    // Append specforge-infer.json to .gitignore (create if missing)
+    // Append the generated files to .gitignore (create if missing): the
+    // inference cache, the report `collect` writes, and its working dir.
     let gitignore_path = path.join(".gitignore");
-    let needs_entry = match std::fs::read_to_string(&gitignore_path) {
-        Ok(content) => !content.lines().any(|l| l.trim() == "specforge-infer.json"),
-        Err(_) => true,
-    };
-    if needs_entry {
+    let existing = std::fs::read_to_string(&gitignore_path).unwrap_or_default();
+    let missing: Vec<&str> = [
+        "specforge-infer.json",
+        "specforge-report.json",
+        ".specforge/",
+    ]
+    .into_iter()
+    .filter(|entry| !existing.lines().any(|l| l.trim() == *entry))
+    .collect();
+    if !missing.is_empty() {
         let mut file = std::fs::OpenOptions::new()
             .create(true)
             .append(true)
@@ -100,7 +106,12 @@ pub fn run(
             .ok();
         if let Some(ref mut f) = file {
             use std::io::Write;
-            let _ = writeln!(f, "specforge-infer.json");
+            if !existing.is_empty() && !existing.ends_with('\n') {
+                let _ = writeln!(f);
+            }
+            for entry in missing {
+                let _ = writeln!(f, "{entry}");
+            }
         }
     }
 
@@ -247,6 +258,7 @@ spec "{project_name}" {{
 
 type user "User account" {{
   status draft
+  verify "rejects an empty email"
 }}
 
 behavior authenticate_user "Authenticate a user with credentials" {{
@@ -261,6 +273,7 @@ behavior authenticate_user "Authenticate a user with credentials" {{
 
 event user_logged_in "User successfully logged in" {{
   payload user
+  verify "is emitted once per successful login"
 }}
 "#
     )

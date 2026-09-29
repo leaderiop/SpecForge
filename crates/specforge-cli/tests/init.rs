@@ -1271,3 +1271,50 @@ fn graceful_zero_extension_init_contract_in_init() {
     assert!(graph["nodes"].is_array());
     assert!(graph["edges"].is_array());
 }
+
+#[specforge_test(
+    behavior = "scaffold_starter_spec_file",
+    verify = "the software starter passes specforge check with no warnings"
+)]
+fn init_software_starter_checks_clean() {
+    let dir = TempDir::new().unwrap();
+    specforge_cmd()
+        .args([
+            "init",
+            "--name",
+            "demo",
+            "--extensions",
+            "@specforge/software",
+        ])
+        .current_dir(dir.path())
+        .assert()
+        .success();
+    specforge_cmd()
+        .args(["check", "--strict"])
+        .current_dir(dir.path())
+        .assert()
+        .success();
+}
+
+#[specforge_test(
+    behavior = "scaffold_new_project",
+    verify = "init adds the generated report files to .gitignore without duplicating entries"
+)]
+fn init_ignores_generated_files() {
+    let dir = TempDir::new().unwrap();
+    fs::write(
+        dir.path().join(".gitignore"),
+        "/target\nspecforge-report.json",
+    )
+    .unwrap();
+    specforge_cmd()
+        .args(["init", "--name", "demo"])
+        .current_dir(dir.path())
+        .assert()
+        .success();
+    let gitignore = fs::read_to_string(dir.path().join(".gitignore")).unwrap();
+    assert_eq!(
+        gitignore,
+        "/target\nspecforge-report.json\nspecforge-infer.json\n.specforge/\n"
+    );
+}

@@ -53,6 +53,7 @@ behavior scaffold_new_project "Scaffold New Project" {
   verify performance "full init-check-export cycle completes in under 60 seconds"
   verify integration "scaffold in non-empty directory preserves existing files"
   verify integration "scaffolded project passes init-check-export cycle"
+  verify unit        "init adds the generated report files to .gitignore without duplicating entries"
   verify contract "Scaffold New Project: new project scaffolding holds — filesystem_available, no_existing_project, valid_config_created, schema_field_included, project_initialized_emitted"
 }
 
@@ -100,6 +101,7 @@ behavior scaffold_starter_spec_file "Scaffold Starter Spec File" {
   verify unit        "starter file content is deterministic for same extension set"
   verify integration "extension-contributed starter templates are used when available"
   verify integration "extension-contributed starter file passes specforge check with zero errors"
+  verify integration "the software starter passes specforge check with no warnings"
   verify contract "Scaffold Starter Spec File: starter spec file scaffolding holds — config_created, filesystem_available, starter_file_created, structural_syntax_only, zero_diagnostic_pass"
 }
 
