@@ -61,6 +61,12 @@ pub struct MethodDecl {
 pub struct Parameter {
     pub name: String,
     pub ty: String,
+    /// Declared `name?: Type`.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub optional: bool,
+    /// `@name` annotations after the type (`id: EntityId @optional`).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub annotations: Vec<Annotation>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize)]

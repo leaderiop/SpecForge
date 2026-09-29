@@ -155,9 +155,12 @@ module.exports = grammar({
     // --- Shared rules ------------------------------------------------
 
     // Field: key value [annotations...]
+    // `verify` is word-reserved for verify statements, but a type may still
+    // declare a field named verify (`verify string @optional`): with no
+    // string after it, it is a field key.
     field: ($) =>
       seq(
-        field("key", $.identifier),
+        field("key", choice($.identifier, alias("verify", $.identifier))),
         field("value", $._value),
         repeat($.annotation),
       ),
@@ -180,9 +183,13 @@ module.exports = grammar({
         $.type_union,
         $.expr_group,
       ),
-    // Type[] — array type suffix (e.g., ImportDeclaration[])
+    // Type[] — array type suffix (e.g., ImportDeclaration[]); nests
+    // (float[][]) and applies to generics (Result<T, E>[]).
     array_type: ($) =>
-      seq(field("element", $.identifier), token.immediate("[]")),
+      seq(
+        field("element", choice($.identifier, $.type_generic, $.array_type)),
+        token.immediate("[]"),
+      ),
 
     // method name(param: Type, ...) -> ReturnType
     // A generic block member (ports define their interfaces this way);
@@ -198,11 +205,37 @@ module.exports = grammar({
         optional(seq("->", field("returns", $._type_ref))),
       ),
 
+    // name[?]: Type [annotations...] — `?` marks an optional parameter.
     parameter: ($) =>
-      seq(field("name", $.identifier), ":", field("type", $._type_ref)),
+      seq(
+        field("name", $.identifier),
+        optional(field("optional", "?")),
+        ":",
+        field("type", $._type_ref),
+        repeat($.annotation),
+      ),
 
     _type_ref: ($) =>
-      choice($.type_generic, $.array_type, $.identifier),
+      choice(
+        $.type_generic,
+        $.array_type,
+        $.identifier,
+        $.unit_type,
+        $.function_type,
+      ),
+
+    // () — the unit type (Result<(), E>).
+    unit_type: (_) => seq("(", ")"),
+
+    // fn(A, B) -> R — a function type.
+    function_type: ($) =>
+      seq(
+        "fn",
+        "(",
+        optional(commaSep1($._type_ref)),
+        ")",
+        optional(seq("->", field("returns", $._type_ref))),
+      ),
 
     type_generic: ($) =>
       seq(
@@ -215,17 +248,25 @@ module.exports = grammar({
     // Union-typed field declaration: query_scope string | string[]
     // Engages only when `|` follows a type; bare identifiers stay plain
     // values. (RES-20 direction: declared field types.)
+    // Members may also be string literals: status "ok" | "error".
     type_union: ($) =>
       prec.right(
-        seq($._type_ref, repeat1(seq("|", $._type_ref))),
+        seq(
+          choice($._type_ref, $.string),
+          repeat1(seq("|", choice($._type_ref, $.string))),
+        ),
       ),
 
     // verify [kind] "description"
+    // Wins over a field keyed `verify` whenever a string follows.
     verify_statement: ($) =>
-      seq(
-        "verify",
-        optional(field("kind", $.identifier)),
-        field("description", $.string),
+      prec(
+        1,
+        seq(
+          "verify",
+          optional(field("kind", $.identifier)),
+          field("description", $.string),
+        ),
       ),
 
     // --- Lists -------------------------------------------------------

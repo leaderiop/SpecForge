@@ -82,11 +82,19 @@ const PRIMITIVE_TYPES: &[&str] = &[
 
 /// `Result<A, B>` -> `A, B`; `string[]` -> `string`; whitespace trimmed.
 fn base_type_names(ty: &str) -> Vec<String> {
+    // Generics, arrays, the unit type `()` and function types
+    // `fn(A) -> B` reduce to the named types inside them.
     ty.chars()
-        .map(|c| if matches!(c, '<' | '>' | '[' | ']') { ' ' } else { c })
+        .map(|c| {
+            if matches!(c, '<' | '>' | '[' | ']' | '(' | ')' | '-') {
+                ' '
+            } else {
+                c
+            }
+        })
         .collect::<String>()
         .split(|c: char| c == ',' || c.is_whitespace())
-        .filter(|s| !s.is_empty())
+        .filter(|s| !s.is_empty() && *s != "fn")
         .map(str::to_string)
         .collect()
 }
@@ -222,9 +230,9 @@ fn dispatch(export: &str, input: &[u8]) -> Option<Result<Vec<u8>, String>> {
         "validate__event_triggers" => {
             Some(parse_req(input).and_then(|c| to_json(&validate_event_triggers(&c))))
         }
-        "validate__milestone_behavior_ranges" => Some(
-            parse_req(input).and_then(|c| to_json(&validate_milestone_behavior_ranges(&c))),
-        ),
+        "validate__milestone_behavior_ranges" => {
+            Some(parse_req(input).and_then(|c| to_json(&validate_milestone_behavior_ranges(&c))))
+        }
         "validate__type_field_annotations" => {
             Some(parse_req(input).and_then(|c| to_json(&validate_type_field_annotations(&c))))
         }
@@ -235,10 +243,7 @@ fn dispatch(export: &str, input: &[u8]) -> Option<Result<Vec<u8>, String>> {
     }
 }
 
-specforge_extension_sdk::component_guest!(
-    build = specforge_extension_build,
-    handler = dispatch
-);
+specforge_extension_sdk::component_guest!(build = specforge_extension_build, handler = dispatch);
 
 #[cfg(test)]
 mod validator_tests {
@@ -285,6 +290,20 @@ mod validator_tests {
     }
 
     #[test]
+    fn base_type_names_reach_inside_every_type_form() {
+        assert_eq!(
+            base_type_names("Result<(), string>"),
+            vec!["Result", "string"]
+        );
+        assert_eq!(base_type_names("float[][]"), vec!["float"]);
+        assert_eq!(
+            base_type_names("fn(string, i32) -> bool"),
+            vec!["string", "i32", "bool"]
+        );
+        assert!(base_type_names("fn()").is_empty());
+    }
+
+    #[test]
     fn event_triggers_pass_on_valid_behavior_refs() {
         let ctx = context(
             entity(
@@ -292,8 +311,14 @@ mod validator_tests {
                 vec![field("triggers", serde_json::json!("b1, b2"))],
             ),
             vec![
-                ValidatorRef { id: "b1".into(), kind: Some("behavior".into()) },
-                ValidatorRef { id: "b2".into(), kind: Some("behavior".into()) },
+                ValidatorRef {
+                    id: "b1".into(),
+                    kind: Some("behavior".into()),
+                },
+                ValidatorRef {
+                    id: "b2".into(),
+                    kind: Some("behavior".into()),
+                },
             ],
         );
         assert_eq!(validate_event_triggers(&ctx), pass());
@@ -322,8 +347,14 @@ mod validator_tests {
                 )],
             ),
             vec![
-                ValidatorRef { id: "ok_b".into(), kind: Some("behavior".into()) },
-                ValidatorRef { id: "not_a_behavior".into(), kind: Some("type".into()) },
+                ValidatorRef {
+                    id: "ok_b".into(),
+                    kind: Some("behavior".into()),
+                },
+                ValidatorRef {
+                    id: "not_a_behavior".into(),
+                    kind: Some("type".into()),
+                },
             ],
         );
         assert_eq!(
@@ -339,7 +370,10 @@ mod validator_tests {
                 "event",
                 vec![field("payload", serde_json::json!("some_type"))],
             ),
-            vec![ValidatorRef { id: "some_type".into(), kind: Some("type".into()) }],
+            vec![ValidatorRef {
+                id: "some_type".into(),
+                kind: Some("type".into()),
+            }],
         );
         assert_eq!(validate_event_triggers(&ctx), pass());
     }
@@ -351,7 +385,10 @@ mod validator_tests {
                 "milestone",
                 vec![field("behaviors", serde_json::json!("gone"))],
             ),
-            vec![ValidatorRef { id: "gone".into(), kind: None }],
+            vec![ValidatorRef {
+                id: "gone".into(),
+                kind: None,
+            }],
         );
         assert_eq!(
             validate_milestone_behavior_ranges(&ctx),
@@ -366,7 +403,10 @@ mod validator_tests {
                 "milestone",
                 vec![field("behaviors", serde_json::json!("b1"))],
             ),
-            vec![ValidatorRef { id: "b1".into(), kind: Some("behavior".into()) }],
+            vec![ValidatorRef {
+                id: "b1".into(),
+                kind: Some("behavior".into()),
+            }],
         );
         assert_eq!(validate_milestone_behavior_ranges(&ctx), pass());
     }
@@ -468,8 +508,7 @@ mod validator_tests {
             serde_json::json!({ "verdict": "fail" })
         );
         let round: ValidatorVerdict =
-            serde_json::from_value(serde_json::json!({ "verdict": "fail", "field": "f" }))
-                .unwrap();
+            serde_json::from_value(serde_json::json!({ "verdict": "fail", "field": "f" })).unwrap();
         assert_eq!(
             round,
             ValidatorVerdict::Fail {

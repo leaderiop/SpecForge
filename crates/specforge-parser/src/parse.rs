@@ -112,6 +112,10 @@ pub fn parse_incremental(
                 _ => {}
             }
         }
+        // The walk above reports errors at block level and inside field
+        // values. Tree-sitter recovers anywhere, so report the rest too
+        // (method signatures, parameters, ...): no syntax error is silent.
+        ctx.report_unreported_errors(root);
     }
 
     (
@@ -175,6 +179,36 @@ impl<'a> ParseContext<'a> {
             (Some(start), Some(end)) if end > start => Some(self.source[start..end].to_string()),
             (Some(start), Some(end)) if start == end => Some(String::new()),
             _ => None,
+        }
+    }
+
+    /// Report every outermost ERROR or MISSING node under `node` that no
+    /// already-reported error covers.
+    fn report_unreported_errors(&mut self, node: Node) {
+        if node.is_error() || node.is_missing() {
+            let span = self.span(node);
+            let covered = self.errors.iter().any(|e| span_within(&span, &e.span));
+            if covered {
+                return;
+            }
+            if node.is_missing() {
+                self.errors.push(ParseError {
+                    message: format!("syntax error: missing '{}'", node.kind()),
+                    span,
+                    expected: Some(format!("'{}'", node.kind())),
+                    found: None,
+                });
+            } else {
+                self.push_error_node(node);
+            }
+            return;
+        }
+        if !node.has_error() {
+            return;
+        }
+        let mut cursor = node.walk();
+        for child in node.children(&mut cursor) {
+            self.report_unreported_errors(child);
         }
     }
 
@@ -693,9 +727,18 @@ impl<'a> ParseContext<'a> {
                 .child_by_field_name("type")
                 .map(|n| self.text(n).trim().to_string())
                 .unwrap_or_default();
+            let mut annotations = Vec::new();
+            let mut param_cursor = child.walk();
+            for part in child.children(&mut param_cursor) {
+                if part.kind() == "annotation" {
+                    annotations.push(self.parse_annotation(part));
+                }
+            }
             params.push(Parameter {
                 name: pname,
                 ty: pty,
+                optional: child.child_by_field_name("optional").is_some(),
+                annotations,
             });
         }
         MethodDecl {
@@ -733,7 +776,8 @@ impl<'a> ParseContext<'a> {
         let mut cursor = node.walk();
         for child in node.children(&mut cursor) {
             match child.kind() {
-                "identifier" | "array_type" | "type_generic" => {
+                "identifier" | "array_type" | "type_generic" | "unit_type" | "function_type"
+                | "string" => {
                     types.push(self.text(child).trim().to_string());
                 }
                 _ => {}
@@ -951,6 +995,12 @@ fn dedent(text: &str) -> String {
     }
 
     result.join("\n")
+}
+
+/// Whether `inner` lies inside `outer` (same file assumed).
+fn span_within(inner: &SourceSpan, outer: &SourceSpan) -> bool {
+    (outer.start_line, outer.start_col) <= (inner.start_line, inner.start_col)
+        && (inner.end_line, inner.end_col) <= (outer.end_line, outer.end_col)
 }
 
 /// Depth-first search for an ERROR or MISSING node produced by the
