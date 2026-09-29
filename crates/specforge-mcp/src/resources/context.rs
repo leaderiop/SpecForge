@@ -1,5 +1,5 @@
 use serde_json::Value;
-use specforge_emitter::{EmitFormat, EmitOptions, emit, generate_schema};
+use specforge_emitter::{EmitFormat, EmitOptions, emit};
 
 use crate::protocol::{JsonRpcResponse, error_codes};
 use crate::state::McpState;
@@ -19,13 +19,6 @@ pub fn read(state: &McpState, uri: &str, id: Option<Value>) -> JsonRpcResponse {
             .filter(|root| !root.is_empty());
     }
 
-    let schema = generate_schema(
-        &state.kind_registry,
-        &state.edge_registry,
-        &state.field_registry,
-        &state.extension_info,
-    );
-
     let json_str = emit(
         &state.graph,
         &EmitOptions {
@@ -34,7 +27,9 @@ pub fn read(state: &McpState, uri: &str, id: Option<Value>) -> JsonRpcResponse {
             depth: parsed.depth,
             kind_filter: parsed.kinds,
             token_budget: parsed.max_tokens,
-            schema: Some(&schema),
+            // The entities only: the schema (specforge://schema) is most of
+            // the bytes and an agent reading the context needs the graph.
+            schema: None,
             ..EmitOptions::default()
         },
     );

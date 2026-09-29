@@ -189,9 +189,15 @@ enum Commands {
         #[arg(long)]
         scope: Option<String>,
 
-        /// Suppress schema embedding (keeps format_version 1.0)
+        /// Suppress schema embedding in `graph` exports (keeps format_version 1.0)
         #[arg(long)]
         no_schema: bool,
+
+        /// Embed the schema in `context` and `brief` exports too. They
+        /// leave it out by default: an agent reading the context needs the
+        /// entities, and the schema is most of the bytes.
+        #[arg(long, conflicts_with = "no_schema")]
+        with_schema: bool,
 
         /// Request a specific schema version for the export
         #[arg(long)]
@@ -857,13 +863,15 @@ fn main() {
             format,
             scope,
             no_schema,
+            with_schema,
             schema_version,
             max_tokens,
         } => export::run(
             &path,
             format,
             scope.as_deref(),
-            no_schema,
+            no_schema
+                || (matches!(format, ExportFormat::Context | ExportFormat::Brief) && !with_schema),
             schema_version.as_deref(),
             max_tokens,
         ),

@@ -687,8 +687,8 @@ fn context_entity_template_scopes() {
         "context template must serve the subgraph rooted at the path entity"
     );
     assert!(
-        parsed["schema_ref"].is_object(),
-        "scoped context must reference the schema"
+        parsed.get("schema").is_none() && parsed.get("schema_ref").is_none(),
+        "the context carries the graph only; the schema is specforge://schema"
     );
 }
 

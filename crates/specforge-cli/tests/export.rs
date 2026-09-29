@@ -1,4 +1,5 @@
 use assert_cmd::Command;
+use specforge_test_macros::test as specforge_test;
 use std::fs;
 use tempfile::TempDir;
 
@@ -219,42 +220,56 @@ fn export_no_schema_flag_produces_v1() {
     );
 }
 
-// B:embed_schema_in_export — V2 brief with schema
-#[test]
-fn export_brief_produces_v2_with_schema() {
+#[specforge_test(
+    behavior = "export_agent_brief_format",
+    verify = "the brief export leaves the schema out unless --with-schema is given"
+)]
+fn export_brief_omits_the_schema_unless_asked() {
     let dir = setup_project(&[("main.spec", SPEC_CONTENT)]);
+    let export = |extra: &[&str]| {
+        let output = specforge_cmd()
+            .args(["export", "--format=brief"])
+            .args(extra)
+            .arg(dir.path())
+            .output()
+            .unwrap();
+        assert!(output.status.success());
+        serde_json::from_slice::<serde_json::Value>(&output.stdout).unwrap()
+    };
 
-    let output = specforge_cmd()
-        .args(["export", "--format=brief"])
-        .arg(dir.path())
-        .output()
-        .unwrap();
+    let lean = export(&[]);
+    assert!(lean.get("schema").is_none(), "{lean}");
+    assert!(!lean["nodes"].as_array().unwrap().is_empty());
 
-    assert!(output.status.success());
-    let stdout = String::from_utf8_lossy(&output.stdout);
-    let parsed: serde_json::Value = serde_json::from_str(&stdout).unwrap();
-
-    assert_eq!(parsed["format_version"], "2.0");
-    assert!(parsed["schema"].is_object());
+    let full = export(&["--with-schema"]);
+    assert_eq!(full["format_version"], "2.0");
+    assert!(full["schema"].is_object());
 }
 
-// B:embed_schema_in_export — V2 context with schema
-#[test]
-fn export_context_produces_v2_with_schema() {
+#[specforge_test(
+    behavior = "export_agent_context_format",
+    verify = "the context export leaves the schema out unless --with-schema is given"
+)]
+fn export_context_omits_the_schema_unless_asked() {
     let dir = setup_project(&[("main.spec", SPEC_CONTENT)]);
+    let export = |extra: &[&str]| {
+        let output = specforge_cmd()
+            .args(["export", "--format=context"])
+            .args(extra)
+            .arg(dir.path())
+            .output()
+            .unwrap();
+        assert!(output.status.success());
+        serde_json::from_slice::<serde_json::Value>(&output.stdout).unwrap()
+    };
 
-    let output = specforge_cmd()
-        .args(["export", "--format=context"])
-        .arg(dir.path())
-        .output()
-        .unwrap();
+    let lean = export(&[]);
+    assert!(lean.get("schema").is_none(), "{lean}");
+    assert!(!lean["nodes"].as_array().unwrap().is_empty());
 
-    assert!(output.status.success());
-    let stdout = String::from_utf8_lossy(&output.stdout);
-    let parsed: serde_json::Value = serde_json::from_str(&stdout).unwrap();
-
-    assert_eq!(parsed["format_version"], "2.0");
-    assert!(parsed["schema"].is_object());
+    let full = export(&["--with-schema"]);
+    assert_eq!(full["format_version"], "2.0");
+    assert!(full["schema"].is_object());
 }
 
 // B:negotiate_schema_version — invalid --schema-version exits 1

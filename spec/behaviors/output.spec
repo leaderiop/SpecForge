@@ -438,6 +438,7 @@ behavior export_agent_context_format "Export Agent Context Format" {
   verify unit "output conforms to Graph Protocol schema"
   verify unit "output includes schema_version field"
   verify contract "Export Agent Context Format: agent context export holds — validation_complete_fired, token_optimized_output, schema_version_present, scope_enforced, invalid_scope_diagnosed, export_complete_emitted"
+  verify unit "the context export leaves the schema out unless --with-schema is given"
 }
 
 behavior export_agent_brief_format "Export Agent Brief Format" {
@@ -473,6 +474,7 @@ behavior export_agent_brief_format "Export Agent Brief Format" {
   verify unit "output conforms to Graph Protocol schema"
   verify unit "output includes schema_version field"
   verify contract "Export Agent Brief Format: agent brief export holds — validation_complete_fired, minimal_representation, schema_version_present, export_complete_emitted"
+  verify unit "the brief export leaves the schema out unless --with-schema is given"
 }
 
 behavior export_agent_graph_format "Export Agent Graph Format" {
