@@ -151,7 +151,7 @@ fn watch_detects_changes_within_latency_target() {
 
 #[spec(
     behavior = "watch_file_system_for_changes",
-    verify = "requires/ensures consistency for file system watching"
+    verify = "Watch File System for Changes: file system watching holds for the declared obligations"
 )]
 #[test]
 fn watch_contract_consistency() {

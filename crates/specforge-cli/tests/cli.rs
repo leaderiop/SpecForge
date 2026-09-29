@@ -404,7 +404,7 @@ feature gamma "G" { behaviors [alpha, nonexistent] }
 
 #[specforge_test(
     behavior = "print_diagnostics_structured",
-    verify = "requires/ensures consistency for structured diagnostic printing"
+    verify = "Print Diagnostics Structured: structured diagnostic printing holds — validation_complete_fired, structured_format_enforced, color_coding_applied"
 )]
 #[test]
 fn print_diagnostics_contract_consistency() {
@@ -432,7 +432,7 @@ feature gamma "G" { behaviors [alpha, nonexistent] }
 
 #[specforge_test(
     behavior = "exit_code_reflects_diagnostic_severity",
-    verify = "requires/ensures consistency for exit code severity mapping"
+    verify = "Exit Code Reflects Diagnostic Severity: exit code severity mapping holds — validation_complete_fired, exit_zero_on_clean, exit_one_on_errors, strict_mode_enforced"
 )]
 #[test]
 fn exit_code_contract_consistency() {
@@ -455,7 +455,7 @@ fn exit_code_contract_consistency() {
 
 #[specforge_test(
     behavior = "check_mode_for_ci",
-    verify = "requires/ensures consistency for CI check mode"
+    verify = "Check Mode for CI: CI check mode holds — validation_complete_fired, no_output_files_produced, diagnostics_to_stderr, appropriate_exit_code"
 )]
 #[test]
 fn check_mode_contract_consistency() {
@@ -553,7 +553,7 @@ feature gamma "G" { behaviors [alpha, nonexistent] }
 
 #[specforge_test(
     behavior = "export_diagnostics_as_json",
-    verify = "requires/ensures consistency for JSON diagnostic export"
+    verify = "Export Diagnostics as JSON: JSON diagnostic export holds — validation_complete_fired, json_array_produced, diagnostic_fields_complete, exit_code_unaffected"
 )]
 #[test]
 fn json_diagnostics_contract_consistency() {

@@ -5,7 +5,7 @@ use specforge_test_macros::test as specforge_test;
 #[test]
 #[specforge_test(
     behavior = "parse_spec_file_to_ast",
-    verify = "requires/ensures consistency for spec file parsing"
+    verify = "Parse Spec File to AST: spec file parsing holds — source_parser_available, valid_utf8_input, ast_produced, source_spans_complete, file_parsed_emitted"
 )]
 fn parse_spec_file_to_ast_contract() {
     // Requires: valid UTF-8 source string and file path
@@ -48,7 +48,7 @@ behavior beta "Beta" {
 #[test]
 #[specforge_test(
     behavior = "recover_from_syntax_errors",
-    verify = "requires/ensures consistency for syntax error recovery"
+    verify = "Recover From Syntax Errors: syntax error recovery holds — error_recovery_enabled, valid_utf8_input, valid_blocks_preserved, errors_collected"
 )]
 fn recover_from_syntax_errors_contract() {
     // Requires: source with syntax errors
@@ -91,7 +91,7 @@ behavior also_good "Also Good" {
 #[test]
 #[specforge_test(
     behavior = "parse_use_imports",
-    verify = "requires/ensures consistency for use import parsing"
+    verify = "Parse Use Imports: use import parsing holds — source_parser_available, imports_extracted, extension_rejected"
 )]
 fn parse_use_imports_contract() {
     // Requires: source with use declarations
@@ -136,7 +136,7 @@ use { SpecFile, ParseError } from "types/core"
 #[test]
 #[specforge_test(
     behavior = "parse_all_block_types",
-    verify = "requires/ensures consistency for block type parsing"
+    verify = "Parse All Block Types: block type parsing holds — source_parser_available, generic_blocks_parsed, unknown_keywords_accepted, raw_body_preserved"
 )]
 fn parse_all_block_types_contract() {
     // Requires: source with behavior, feature, type (different keywords)
@@ -182,7 +182,7 @@ type AuthToken {
 #[test]
 #[specforge_test(
     behavior = "parse_triple_quoted_strings",
-    verify = "requires/ensures consistency for triple-quoted string parsing"
+    verify = "Parse Triple-Quoted Strings: triple-quoted string parsing holds — source_parser_available, newlines_preserved, dedent_applied, relative_indent_kept"
 )]
 fn parse_triple_quoted_strings_contract() {
     // Requires: entity with triple-quoted string field
@@ -223,7 +223,7 @@ fn parse_triple_quoted_strings_contract() {
 #[test]
 #[specforge_test(
     behavior = "parse_verify_statements",
-    verify = "requires/ensures consistency for verify statement parsing"
+    verify = "Parse Verify Statements: verify statement parsing holds — source_parser_available, verify_statements_extracted, all_block_types_supported, semantic_validation_deferred"
 )]
 fn parse_verify_statements_contract() {
     // Requires: entity with verify lines
@@ -262,7 +262,7 @@ behavior validate "Validate" {
 #[test]
 #[specforge_test(
     behavior = "parse_ref_blocks",
-    verify = "requires/ensures consistency for ref block parsing"
+    verify = "Parse Ref Blocks: ref block parsing holds — source_parser_available, ref_components_extracted, both_forms_handled, malformed_refs_rejected"
 )]
 fn parse_ref_blocks_contract() {
     // Requires: ref block with scheme.kind:identifier syntax
@@ -290,7 +290,7 @@ fn parse_ref_blocks_contract() {
 #[test]
 #[specforge_test(
     behavior = "parse_define_blocks",
-    verify = "requires/ensures consistency for define block parsing"
+    verify = "Parse Define Blocks: define block parsing holds — source_parser_available, define_block_parsed, no_extension_knowledge_required"
 )]
 fn parse_define_blocks_contract() {
     // Requires: define block with name and body fields

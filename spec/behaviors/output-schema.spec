@@ -128,6 +128,7 @@ behavior persist_schema_cache "Persist Schema Cache" {
   verify unit "schema-cache.json written after schema generation"
   verify unit "cache file overwritten atomically via temp+rename"
   verify unit "cache updated even when no JSON export is performed"
+  verify integration "persisted cache feeds breaking change detection in the next compilation"
   verify contract "Persist Schema Cache: schema cache persistence holds — schema_generated_fired, cache_written_atomically, cache_always_updated, schema_cache_persisted_emitted"
 
   tests ["crates/specforge-cli/tests/e2e_schema.rs"]
@@ -322,6 +323,12 @@ behavior detect_breaking_schema_changes "Detect Breaking Schema Changes" {
   verify unit "SchemaMigration record emitted on version change"
   verify unit "no previous schema treats all changes as non-breaking"
   verify unit "missing cache with prior exports emits I016 info diagnostic"
+  verify unit "missing cache without prior exports emits no diagnostic"
+  verify unit "new entity kind detected as non-breaking"
+  verify unit "new edge type detected as non-breaking"
+  verify unit "removed edge type detected as breaking"
+  verify unit "previous schema is read from .specforge/schema-cache.json"
+  verify unit "missing schema cache yields no previous schema"
   verify contract "Detect Breaking Schema Changes: breaking schema change detection holds — schema_generated_fired, filesystem_available, breaking_changes_classified, nonbreaking_changes_classified, migration_record_emitted, schema_breaking_change_detected_emitted"
 
   tests ["crates/specforge-cli/tests/e2e_schema.rs"]
@@ -362,6 +369,9 @@ behavior compute_schema_version "Compute Schema Version" {
   verify unit "new entity kind triggers minor version bump"
   verify unit "removed entity kind triggers major version bump"
   verify unit "field metadata change triggers patch version bump"
+  verify unit "new edge type triggers minor version bump"
+  verify unit "removed edge type triggers major version bump"
+  verify unit "new required field triggers major version bump"
   verify contract "Compute Schema Version: schema version computation holds — schema_breaking_change_detected_fired, version_auto_computed, first_compilation_baseline, version_attached, schema_version_computed_emitted"
 
   tests ["crates/specforge-cli/tests/e2e_schema.rs"]
@@ -403,6 +413,7 @@ behavior publish_schema_specification "Publish Schema Specification" {
   verify unit "published schema describes all edge types"
   verify unit "third-party validator can use published schema"
   verify unit "published schema validates known-good export"
+  verify unit "published schema requires the Graph Protocol top-level properties"
   verify contract "Publish Schema Specification: schema specification publication holds — schema_version_computed_fired, validation_complete_fired, valid_json_schema_produced, all_kinds_described, third_party_usable, render_complete_emitted"
 
   tests ["crates/specforge-cli/tests/e2e_schema.rs"]

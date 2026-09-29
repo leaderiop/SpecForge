@@ -145,7 +145,7 @@ term t_reference_list "reference list" {
 term t_soft_reference "soft reference" {
   definition """
     A cross-module reference that degrades gracefully when the target
-    extension is not installed. Emits I004 (info) instead of E001 (error)
+    extension is not installed. Emits I004 (info) instead of E003 (error)
     when the referenced entity's extension is missing.
   """
   context "Used for cross-extension references when the target extension is not installed."

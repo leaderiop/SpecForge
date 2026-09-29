@@ -25,7 +25,7 @@ behavior detect_format_version_mismatch "Detect Format Version Mismatch" {
 
   ensures {
     version_mismatch_reported "I007 info diagnostic emitted when detected version differs from expected version"
-    unsupported_version_rejected "E015 diagnostic emitted for format versions outside the supported range"
+    unsupported_version_rejected "E019 diagnostic emitted for format versions outside the supported range"
     parsing_continues "Parsing proceeds with best-effort compatibility regardless of version mismatch"
   }
 
@@ -48,7 +48,7 @@ behavior detect_format_version_mismatch "Detect Format Version Mismatch" {
 
     The compiler MUST support the current and previous major format versions.
     Files declaring an unsupported format version (older than previous major
-    or newer than current) MUST produce an E015 diagnostic with upgrade
+    or newer than current) MUST produce an E019 diagnostic with upgrade
     guidance indicating which compiler version supports that format.
   """
 
@@ -58,7 +58,7 @@ behavior detect_format_version_mismatch "Detect Format Version Mismatch" {
   verify unit "header comment format version detected correctly"
   verify unit "spec root format_version field detected correctly"
   verify unit "mismatched header and root format_version produces E-level diagnostic"
-  verify unit "unsupported format version produces E015 with upgrade guidance"
+  verify unit "unsupported format version produces E019 with upgrade guidance"
   verify contract "Detect Format Version Mismatch: format version detection holds — spec_file_available, version_mismatch_reported, unsupported_version_rejected, parsing_continues"
 
   tests ["crates/specforge-cli/tests/migrate.rs"]

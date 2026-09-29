@@ -36,6 +36,7 @@ behavior resolve_use_imports "Resolve Use Imports" {
 
   verify unit        "resolve use path to file on disk"
   verify unit        "missing import file produces E025"
+  verify unit        "relative import traversing above spec_root is rejected"
   verify integration "imports across nested directories resolve correctly"
   verify contract "Resolve Use Imports: use import resolution holds — registries_populated_fired, define_blocks_registered_fired, filesystem_available, imports_resolved, missing_files_diagnosed, dependency_graph_built"
 
@@ -85,7 +86,7 @@ behavior link_entity_references "Link Entity References" {
   }
 
   ensures {
-    all_references_resolved "Every reference list entry either resolves to a declared entity or emits an E001 diagnostic"
+    all_references_resolved "Every reference list entry either resolves to a declared entity or emits an E003 diagnostic"
     no_silent_ignoring "No reference is silently ignored"
   }
 
@@ -94,12 +95,12 @@ behavior link_entity_references "Link Entity References" {
     declaration site of that entity. Each resolved reference MUST be
     recorded as a pending edge (source, target, edge type) for the
     graph builder to materialize. Unresolvable references MUST produce
-    an E001 diagnostic with a "did you mean?" suggestion when a close
+    an E003 diagnostic with a "did you mean?" suggestion when a close
     match exists.
   """
 
   verify unit "reference list IDs create graph edges"
-  verify unit "unresolvable reference produces E001"
+  verify unit "unresolvable reference produces E003"
   verify unit "close match triggers did-you-mean suggestion"
   verify contract "Link Entity References: entity reference linking holds — registries_populated, all_files_parsed, all_references_resolved, no_silent_ignoring"
 
@@ -119,7 +120,7 @@ behavior resolve_soft_cross_extension_references "Resolve Soft Cross-Extension R
 
   ensures {
     suggestion_emitted "Unknown keywords matching a known extension produce I004 info diagnostics"
-    installed_extensions_resolved "Keywords from installed extensions follow normal E001 resolution"
+    installed_extensions_resolved "Keywords from installed extensions follow normal E003 resolution"
   }
 
   contract """
@@ -133,12 +134,12 @@ behavior resolve_soft_cross_extension_references "Resolve Soft Cross-Extension R
     list entries — reference lists contain entity IDs (not keywords), so the
     resolver cannot determine a target entity's kind from an unresolvable ID.
     When the extension IS installed and the target entity does not exist,
-    normal E001 validation via link_entity_references MUST apply.
+    normal E003 validation via link_entity_references MUST apply.
   """
 
   verify unit "unknown keyword matching known extension emits I004"
-  verify unit "installed extension with missing entity emits E001"
-  verify unit "installed extension with imported file but missing entity emits E001"
+  verify unit "installed extension with missing entity emits E003"
+  verify unit "installed extension with imported file but missing entity emits E003"
   verify contract "Resolve Soft Cross-Extension References: soft cross-extension resolution holds — registries_populated_fired, known_extensions_catalog_available, suggestion_emitted, installed_extensions_resolved"
 
   tests ["crates/specforge-resolver/tests/resolution.rs"]

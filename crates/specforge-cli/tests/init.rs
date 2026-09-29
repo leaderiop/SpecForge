@@ -1018,7 +1018,7 @@ fn non_interactive_unknown_extension_rejected() {
 
 #[specforge_test(
     behavior = "find_project_root",
-    verify = "requires/ensures consistency for project root discovery"
+    verify = "Find Project Root: project root discovery holds — filesystem_available, closest_wins_enforced, json_precedence, symlinks_resolved, none_on_missing"
 )]
 #[test]
 fn find_project_root_contract_in_init() {
@@ -1054,7 +1054,7 @@ fn find_project_root_contract_in_init() {
 
 #[specforge_test(
     behavior = "scaffold_new_project",
-    verify = "requires/ensures consistency for new project scaffolding"
+    verify = "Scaffold New Project: new project scaffolding holds — filesystem_available, no_existing_project, valid_config_created, schema_field_included, project_initialized_emitted"
 )]
 #[test]
 fn scaffold_new_project_contract_in_init() {
@@ -1152,7 +1152,7 @@ fn extension_starter_passes_check() {
 
 #[specforge_test(
     behavior = "scaffold_starter_spec_file",
-    verify = "requires/ensures consistency for starter spec file scaffolding"
+    verify = "Scaffold Starter Spec File: starter spec file scaffolding holds — config_created, filesystem_available, starter_file_created, structural_syntax_only, zero_diagnostic_pass"
 )]
 #[test]
 fn scaffold_starter_spec_file_contract() {
@@ -1186,7 +1186,7 @@ fn scaffold_starter_spec_file_contract() {
 
 #[specforge_test(
     behavior = "non_interactive_init",
-    verify = "requires/ensures consistency for non-interactive init"
+    verify = "Non-Interactive Init: non-interactive init holds — name_flag_provided, filesystem_available, no_existing_project, config_identical_to_interactive, all_prompts_skipped, json_output_supported, project_initialized_emitted"
 )]
 #[test]
 fn non_interactive_init_contract_in_init() {
@@ -1219,7 +1219,7 @@ fn non_interactive_init_contract_in_init() {
 
 #[specforge_test(
     behavior = "graceful_zero_extension_init",
-    verify = "requires/ensures consistency for zero-extension init"
+    verify = "Graceful Zero-Extension Init: zero-extension init holds — zero_extensions_selected, filesystem_available, empty_extensions_list, structural_starter_valid, valid_graph_exportable, project_initialized_emitted"
 )]
 #[test]
 fn graceful_zero_extension_init_contract_in_init() {

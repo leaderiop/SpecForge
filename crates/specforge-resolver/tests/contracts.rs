@@ -20,7 +20,7 @@ fn setup_project(files: &[(&str, &str)]) -> TempDir {
 #[test]
 #[specforge_test(
     behavior = "resolve_use_imports",
-    verify = "requires/ensures consistency for use import resolution"
+    verify = "Resolve Use Imports: use import resolution holds — registries_populated_fired, define_blocks_registered_fired, filesystem_available, imports_resolved, missing_files_diagnosed, dependency_graph_built"
 )]
 fn resolve_use_imports_contract() {
     // Requires: project with valid use imports across files
@@ -63,7 +63,7 @@ fn resolve_use_imports_contract() {
 #[test]
 #[specforge_test(
     behavior = "detect_import_cycles",
-    verify = "requires/ensures consistency for import cycle detection"
+    verify = "Detect Import Cycles: import cycle detection holds — import_graph_available, cycles_detected, cycle_diagnostic_emitted, non_cyclic_unaffected"
 )]
 fn detect_import_cycles_contract() {
     // Requires: project with circular imports
@@ -102,7 +102,7 @@ fn detect_import_cycles_contract() {
 #[test]
 #[specforge_test(
     behavior = "link_entity_references",
-    verify = "requires/ensures consistency for entity reference linking"
+    verify = "Link Entity References: entity reference linking holds — registries_populated, all_files_parsed, all_references_resolved, no_silent_ignoring"
 )]
 fn link_entity_references_contract() {
     // Requires: project with cross-file entity references

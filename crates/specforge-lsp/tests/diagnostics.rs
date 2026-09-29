@@ -4,7 +4,7 @@ use specforge_test_macros::test as spec;
 // -- live_diagnostics ---------------------------------------------------------
 
 #[spec(
-    behavior = "live_diagnostics",
+    behavior = "emit_live_diagnostics",
     verify = "diagnostics update after file change"
 )]
 #[test]
@@ -28,7 +28,7 @@ fn diagnostics_update_after_change() {
 }
 
 #[spec(
-    behavior = "live_diagnostics",
+    behavior = "emit_live_diagnostics",
     verify = "only changed file diagnostics are refreshed"
 )]
 #[test]
@@ -66,7 +66,7 @@ fn only_changed_file_diagnostics_refreshed() {
 }
 
 #[spec(
-    behavior = "live_diagnostics",
+    behavior = "emit_live_diagnostics",
     verify = "diagnostics appear within 100ms"
 )]
 #[test]

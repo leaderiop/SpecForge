@@ -522,7 +522,7 @@ behavior alpha "A" {
 
 #[specforge_test(
     behavior = "detect_orphan_refs",
-    verify = "requires/ensures consistency for orphan structural node detection"
+    verify = "Detect Orphan Structural Nodes: orphan structural node detection holds — graph_built_fired, orphans_detected, referenced_nodes_clean"
 )]
 #[test]
 fn orphan_refs_contract_consistency() {
@@ -558,7 +558,7 @@ ref gh.issue:42 "Linked ref"
 
 #[specforge_test(
     behavior = "validate_file_reference_paths",
-    verify = "requires/ensures consistency for file reference validation"
+    verify = "Validate File Reference Paths: file reference validation holds — graph_built_fired, filesystem_available, missing_files_diagnosed, existing_files_pass"
 )]
 #[test]
 fn file_ref_contract_consistency() {
@@ -593,7 +593,7 @@ behavior alpha "A" {
 
 #[specforge_test(
     behavior = "format_diagnostics_with_source_context",
-    verify = "requires/ensures consistency for diagnostic source context formatting"
+    verify = "Format Diagnostics with Source Context: diagnostic source context formatting holds — valid_source_span, header_present, context_snippet_present, caret_marker_present"
 )]
 #[test]
 fn diagnostic_format_contract_consistency() {
@@ -632,7 +632,7 @@ fn diagnostic_format_contract_consistency() {
 
 #[specforge_test(
     behavior = "aggregate_diagnostic_summary",
-    verify = "requires/ensures consistency for diagnostic summary aggregation"
+    verify = "Aggregate Diagnostic Summary: diagnostic summary aggregation holds — validation_executed, counts_match"
 )]
 #[test]
 fn summary_contract_consistency() {
@@ -691,7 +691,7 @@ fn summary_contract_consistency() {
 
 #[specforge_test(
     behavior = "provide_did_you_mean_suggestions",
-    verify = "requires/ensures consistency for did-you-mean suggestions"
+    verify = "Provide Did-You-Mean Suggestions: did-you-mean suggestions holds — unresolved_reference_available, kind_registry_populated, distance_threshold, sorted_by_distance"
 )]
 #[test]
 fn did_you_mean_contract_consistency() {
@@ -853,7 +853,7 @@ behavior alpha "A" { contract "first" }
 
 #[specforge_test(
     behavior = "detect_dangling_references",
-    verify = "requires/ensures consistency for dangling reference detection"
+    verify = "Detect Dangling References: dangling reference detection holds — graph_built_fired, resolver_integrity_verified, no_duplicate_diagnostics"
 )]
 #[test]
 fn dangling_ref_contract_consistency() {
@@ -989,7 +989,7 @@ behavior alpha "Alpha in file B" { contract "second" }
 
 #[specforge_test(
     behavior = "detect_duplicate_entity_ids",
-    verify = "requires/ensures consistency for duplicate entity ID detection"
+    verify = "Detect Duplicate Entity IDs: duplicate entity ID detection holds — all_files_parsed, duplicate_ids_diagnosed"
 )]
 #[test]
 fn duplicate_id_contract_consistency() {

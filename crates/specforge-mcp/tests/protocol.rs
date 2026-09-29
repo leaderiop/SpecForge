@@ -45,7 +45,7 @@ fn invalid_request_returns_32600() {
 #[test]
 #[specforge_test(
     behavior = "handle_mcp_protocol_error",
-    verify = "missing method returns -32600"
+    verify = "returns -32600 for invalid request"
 )]
 fn missing_method_returns_32600() {
     let mut server = McpServer::new();
@@ -70,7 +70,7 @@ fn unknown_method_returns_32601() {
 #[test]
 #[specforge_test(
     behavior = "handle_mcp_protocol_error",
-    verify = "invalid jsonrpc version returns -32600"
+    verify = "returns -32600 for invalid request"
 )]
 fn invalid_jsonrpc_version_returns_32600() {
     let mut server = McpServer::new();
@@ -125,7 +125,7 @@ fn success_response_includes_request_id() {
 #[test]
 #[specforge_test(
     behavior = "handle_mcp_request_cancellation",
-    verify = "cancel request returns success"
+    verify = "cancellation of completed request is a no-op"
 )]
 fn cancel_request_returns_success() {
     let mut server = McpServer::new();
@@ -156,7 +156,7 @@ fn init_server() -> McpServer {
 #[test]
 #[specforge_test(
     behavior = "handle_mcp_protocol_error",
-    verify = "missing required params produces -32602"
+    verify = "missing required params produces -32602 Invalid params"
 )]
 fn missing_tool_name_returns_32602() {
     let mut server = init_server();

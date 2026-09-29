@@ -11,7 +11,7 @@ fn specforge_cmd() -> Command {
 #[test]
 #[specforge_test(
     behavior = "find_project_root",
-    verify = "requires/ensures consistency for project root discovery"
+    verify = "Find Project Root: project root discovery holds — filesystem_available, closest_wins_enforced, json_precedence, symlinks_resolved, none_on_missing"
 )]
 fn find_project_root_contract() {
     use specforge_common::find_project_root;
@@ -56,7 +56,7 @@ fn find_project_root_contract() {
 #[test]
 #[specforge_test(
     behavior = "scaffold_new_project",
-    verify = "requires/ensures consistency for new project scaffolding"
+    verify = "Scaffold New Project: new project scaffolding holds — filesystem_available, no_existing_project, valid_config_created, schema_field_included, project_initialized_emitted"
 )]
 fn scaffold_new_project_contract() {
     // Requires: empty directory + project name
@@ -95,7 +95,7 @@ fn scaffold_new_project_contract() {
 #[test]
 #[specforge_test(
     behavior = "non_interactive_init",
-    verify = "requires/ensures consistency for non-interactive init"
+    verify = "Non-Interactive Init: non-interactive init holds — name_flag_provided, filesystem_available, no_existing_project, config_identical_to_interactive, all_prompts_skipped, json_output_supported, project_initialized_emitted"
 )]
 fn non_interactive_init_contract() {
     // Requires: --name flag provided (no interactive prompts)
@@ -127,7 +127,7 @@ fn non_interactive_init_contract() {
 #[test]
 #[specforge_test(
     behavior = "graceful_zero_extension_init",
-    verify = "requires/ensures consistency for zero-extension init"
+    verify = "Graceful Zero-Extension Init: zero-extension init holds — zero_extensions_selected, filesystem_available, empty_extensions_list, structural_starter_valid, valid_graph_exportable, project_initialized_emitted"
 )]
 fn graceful_zero_extension_init_contract() {
     // Requires: init with no --extensions flag

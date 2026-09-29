@@ -63,8 +63,8 @@ fn compile_with_builtins(
 // B:compile_pipeline — verify unit "port method body syntax does not surface parse errors"
 #[test]
 #[specforge_test(
-    behavior = "compile_pipeline",
-    verify = "extension-owned body syntax (port methods) does not surface E001"
+    behavior = "delegate_body_parsing_to_extension",
+    verify = "extension-owned body syntax does not surface E001 parse errors"
 )]
 fn port_method_body_does_not_surface_parse_errors() {
     let ctx = compile_with_builtins(
@@ -102,8 +102,8 @@ port TaskRepository "Repo" {
 // B:compile_pipeline — verify unit "type inline-union field syntax does not surface parse errors"
 #[test]
 #[specforge_test(
-    behavior = "compile_pipeline",
-    verify = "extension-owned body syntax (type inline unions) does not surface E001"
+    behavior = "delegate_body_parsing_to_extension",
+    verify = "extension-owned body syntax does not surface E001 parse errors"
 )]
 fn type_inline_union_field_does_not_surface_parse_errors() {
     let ctx = compile_with_builtins(
@@ -172,8 +172,8 @@ type CodeAction "Code Action" {
 // B:compile_pipeline — verify unit "single entity roundtrip: parse→graph→json"
 #[test]
 #[specforge_test(
-    behavior = "compile_pipeline",
-    verify = "single entity roundtrip produces valid graph"
+    behavior = "build_in_memory_graph",
+    verify = "graph contains one node per entity"
 )]
 fn single_entity_roundtrip() {
     let ctx = compile_specs(&[(
@@ -209,8 +209,8 @@ fn single_entity_roundtrip() {
 // B:compile_pipeline — verify unit "multi-file resolution with imports"
 #[test]
 #[specforge_test(
-    behavior = "compile_pipeline",
-    verify = "multi-file resolution with imports"
+    behavior = "resolve_use_imports",
+    verify = "resolve use path to file on disk"
 )]
 fn multi_file_with_imports() {
     let ctx = compile_specs(&[
@@ -251,8 +251,8 @@ behavior login "User Login" {
 // B:compile_pipeline — verify unit "cross-entity references produce edges"
 #[test]
 #[specforge_test(
-    behavior = "compile_pipeline",
-    verify = "cross-entity references produce edges"
+    behavior = "link_entity_references",
+    verify = "reference list IDs create graph edges"
 )]
 fn cross_entity_references_produce_edges() {
     let ctx = compile_specs(&[(
@@ -283,8 +283,8 @@ behavior save_record "Save Record" {
 // B:compile_pipeline — verify unit "validation diagnostics surface through pipeline"
 #[test]
 #[specforge_test(
-    behavior = "compile_pipeline",
-    verify = "validation diagnostics surface through pipeline"
+    behavior = "link_entity_references",
+    verify = "unresolvable reference produces E003"
 )]
 fn validation_diagnostics_surface() {
     let ctx = compile_specs(&[(
@@ -311,8 +311,8 @@ fn validation_diagnostics_surface() {
 // B:compile_pipeline — verify unit "empty project produces empty graph"
 #[test]
 #[specforge_test(
-    behavior = "compile_pipeline",
-    verify = "empty project produces empty graph"
+    behavior = "build_in_memory_graph",
+    verify = "graph contains one node per entity"
 )]
 fn empty_project_produces_empty_graph() {
     let dir = TempDir::new().unwrap();
@@ -333,10 +333,7 @@ fn empty_project_produces_empty_graph() {
 
 // B:compile_pipeline — verify unit "all emit formats work on pipeline output"
 #[test]
-#[specforge_test(
-    behavior = "compile_pipeline",
-    verify = "all emit formats work on pipeline output"
-)]
+#[specforge_test(behavior = "serialize_json_graph", verify = "output is valid JSON")]
 fn all_emit_formats_work() {
     let ctx = compile_specs(&[(
         "core.spec",

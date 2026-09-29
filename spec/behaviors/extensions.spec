@@ -64,6 +64,7 @@ behavior load_extension_manifests "Load Extension Manifests" {
   verify unit "manifest declares entity types and validations"
   verify unit "manifest includes wasmPath to .wasm binary"
   verify integration "two extensions loaded and registries populated without collision"
+  verify unit "unloadable extension binary produces diagnostic instead of crash"
   verify contract "Load Extension Manifests: extension manifest loading holds — all_files_parsed, extensions_config_available, all_extensions_attempted, loaded_manifests_available, failed_extensions_diagnosed, loaded_event_fired, extension_isolation"
 
   tests ["crates/specforge-cli/tests/extensions.rs"]
@@ -269,7 +270,7 @@ behavior remove_extension "Remove Extension" {
     MUST NOT be modified. On the next compilation, entity blocks using the
     removed extension's keywords MUST produce E024 (unknown entity kind)
     since the keyword is no longer in the KindRegistry. Reference list
-    entries pointing to those entities MUST produce E001 (dangling
+    entries pointing to those entities MUST produce E003 (dangling
     reference). The user MUST either reinstall the extension or remove
     the affected entity blocks.
   """

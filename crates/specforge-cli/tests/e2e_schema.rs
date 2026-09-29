@@ -144,7 +144,7 @@ fn schema_publish_includes_edge_label_enum() {
 #[test]
 #[specforge_test(
     behavior = "embed_schema_in_export",
-    verify = "schema embedded as top-level key in JSON export"
+    verify = "schema embedded as top-level key in full JSON export"
 )]
 fn export_v2_schema_has_entity_kinds() {
     let dir = setup_project(&[("main.spec", SOFTWARE_SPEC)]);

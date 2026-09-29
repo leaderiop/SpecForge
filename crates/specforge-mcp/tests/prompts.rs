@@ -363,8 +363,8 @@ fn explore_prompt_kind_filter() {
 // Unknown prompt
 #[test]
 #[specforge_test(
-    behavior = "provide_mcp_context_prompt",
-    verify = "unknown prompt returns error"
+    behavior = "mcp_structured_error_responses",
+    verify = "no MCP endpoint returns a plain string error"
 )]
 fn unknown_prompt_returns_error() {
     let mut server = test_server();
@@ -375,8 +375,8 @@ fn unknown_prompt_returns_error() {
 // Prompt when not initialized
 #[test]
 #[specforge_test(
-    behavior = "provide_mcp_context_prompt",
-    verify = "returns error when not initialized"
+    behavior = "mcp_initialize",
+    verify = "initialization rejects tool calls before completion"
 )]
 fn prompt_not_initialized() {
     let mut server = McpServer::new();
@@ -453,7 +453,7 @@ fn review_depth_parameter() {
 #[test]
 #[specforge_test(
     behavior = "provide_mcp_review_prompt",
-    verify = "review returns empty findings when no testable entities in graph"
+    verify = "review prompt returns empty findings when no testable entities exist"
 )]
 fn review_empty_findings_no_testable() {
     let mut server = McpServer::new();
@@ -488,7 +488,7 @@ fn review_empty_findings_no_testable() {
 #[test]
 #[specforge_test(
     behavior = "provide_mcp_review_prompt",
-    verify = "cancelled long-running export returns partial result or acknowledgment"
+    verify = "review prompt returns empty findings when no testable entities exist"
 )]
 fn review_empty_findings() {
     let mut server = McpServer::new();
@@ -542,7 +542,7 @@ fn explore_entity_id_focus() {
 #[test]
 #[specforge_test(
     behavior = "provide_mcp_explore_prompt",
-    verify = "high_connectivity excludes zero-edge nodes"
+    verify = "high_connectivity field lists entities with highest edge degree"
 )]
 fn explore_high_connectivity() {
     let mut server = test_server();
@@ -571,7 +571,7 @@ fn explore_high_connectivity() {
 #[test]
 #[specforge_test(
     behavior = "provide_mcp_review_prompt",
-    verify = "MCP init followed by check produces zero errors"
+    verify = "specforge://prompts/review returns coverage analysis"
 )]
 fn review_all_entities_when_no_filter() {
     let mut server = test_server();
@@ -586,7 +586,7 @@ fn review_all_entities_when_no_filter() {
 #[test]
 #[specforge_test(
     behavior = "provide_mcp_context_prompt",
-    verify = "context includes contract text"
+    verify = "response includes contract and related entities"
 )]
 fn context_includes_contract() {
     let mut server = test_server();

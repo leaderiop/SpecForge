@@ -198,7 +198,7 @@ mod tests {
 
     #[specforge_test_macros::test(
         behavior = "discover_format_targets",
-        verify = "requires/ensures consistency for format target discovery"
+        verify = "Discover Format Targets: format target discovery holds — project_root_available, filesystem_accessible, all_spec_files_discovered, exclusions_applied, non_spec_skipped"
     )]
     #[test]
     fn test_discover_format_targets_contract() {

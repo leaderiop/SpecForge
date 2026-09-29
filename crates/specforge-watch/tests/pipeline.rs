@@ -570,7 +570,7 @@ fn new_file_entities_added_to_graph() {
 
 #[spec(
     behavior = "invalidate_changed_files",
-    verify = "requires/ensures consistency for file invalidation"
+    verify = "Invalidate Changed Files: file invalidation holds — file_changes_coalesced_fired, invalidation_set_computed, subgraph_invalidated_emitted, unrelated_files_untouched"
 )]
 #[test]
 fn invalidate_changed_files_contract() {
@@ -675,7 +675,7 @@ fn file_change_to_diagnostics_emitted_within_100ms() {
 
 #[spec(
     behavior = "emit_incremental_diagnostics",
-    verify = "requires/ensures consistency for incremental diagnostics"
+    verify = "Emit Incremental Diagnostics: incremental diagnostics holds for the declared obligations"
 )]
 #[test]
 fn emit_incremental_diagnostics_contract() {
@@ -976,7 +976,7 @@ fn update_open_file_none_deletes() {
 
 #[spec(
     behavior = "rebuild_affected_subgraph",
-    verify = "red-green updates keep the graph identical to a cold rebuild"
+    verify = "incremental rebuild equals cold rebuild"
 )]
 #[test]
 fn red_green_matches_cold_after_target_edit() {

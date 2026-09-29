@@ -145,7 +145,7 @@ fn json_nodes_sorted_by_id() {
 #[test]
 #[specforge_test(
     behavior = "deterministic_output",
-    verify = "edge ordering is deterministic"
+    verify = "edge ordering is independent of hashmap iteration"
 )]
 fn json_edges_sorted_deterministically() {
     let graph = build_graph();
@@ -262,7 +262,7 @@ fn file_emission_order_independent_of_filesystem() {
 #[test]
 #[specforge_test(
     behavior = "deterministic_output",
-    verify = "stats output is deterministic"
+    verify = "same input produces identical output across runs"
 )]
 fn stats_output_is_deterministic() {
     let outputs: Vec<_> = (0..5)
@@ -283,7 +283,7 @@ fn stats_output_is_deterministic() {
 #[test]
 #[specforge_test(
     behavior = "deterministic_output",
-    verify = "trace output is deterministic"
+    verify = "same input produces identical output across runs"
 )]
 fn trace_output_is_deterministic() {
     let graph = build_graph();
@@ -305,7 +305,7 @@ fn trace_output_is_deterministic() {
 #[test]
 #[specforge_test(
     behavior = "deterministic_output",
-    verify = "scoped emit is deterministic"
+    verify = "same input produces identical output across runs"
 )]
 fn scoped_json_output_is_deterministic() {
     let graph = build_graph();
@@ -324,7 +324,7 @@ fn scoped_json_output_is_deterministic() {
 #[test]
 #[specforge_test(
     behavior = "deterministic_output",
-    verify = "scoped context emit is deterministic"
+    verify = "same input produces identical output across runs"
 )]
 fn scoped_context_output_is_deterministic() {
     let graph = build_graph();

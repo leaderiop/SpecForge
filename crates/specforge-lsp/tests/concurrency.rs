@@ -136,7 +136,7 @@ async fn read_write_interleaving_no_deadlock() {
 // -- rapid_open_close_stress -----------------------------------------------------
 
 #[spec(
-    behavior = "rapid_open_close_stress",
+    behavior = "document_open_close",
     verify = "rapid open and close cycles do not corrupt state"
 )]
 #[tokio::test]

@@ -379,7 +379,7 @@ fn stdin_formatting_converges_to_canonical_form() {
 
 #[specforge_test(
     behavior = "format_spec_files",
-    verify = "requires/ensures consistency for spec file formatting"
+    verify = "Format Spec Files: spec file formatting holds — spec_files_available, format_config_loaded, formatted_output_written, unchanged_files_preserved, format_complete_emitted, summary_printed"
 )]
 #[test]
 fn format_spec_files_contract_requires_ensures() {
@@ -420,7 +420,7 @@ fn format_spec_files_contract_requires_ensures() {
 
 #[specforge_test(
     behavior = "check_formatting",
-    verify = "requires/ensures consistency for formatting check"
+    verify = "Check Formatting Without Modifying Files: formatting check holds — spec_files_available, format_config_loaded, no_files_written, exit_code_correct, unformatted_paths_printed"
 )]
 #[test]
 fn check_formatting_contract_requires_ensures() {
@@ -455,7 +455,7 @@ fn check_formatting_contract_requires_ensures() {
 
 #[specforge_test(
     behavior = "show_formatting_diff",
-    verify = "requires/ensures consistency for formatting diff"
+    verify = "Show Formatting Diff: formatting diff holds — spec_files_available, format_config_loaded, no_files_written, unified_diff_produced"
 )]
 #[test]
 fn show_formatting_diff_contract_requires_ensures() {
@@ -482,7 +482,7 @@ fn show_formatting_diff_contract_requires_ensures() {
 
 #[specforge_test(
     behavior = "format_from_stdin",
-    verify = "requires/ensures consistency for stdin formatting"
+    verify = "Format from Standard Input: stdin formatting holds — stdin_available, format_config_loaded, stdout_produced, no_files_touched, format_complete_emitted"
 )]
 #[test]
 fn format_from_stdin_contract_requires_ensures() {

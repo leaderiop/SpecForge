@@ -447,7 +447,7 @@ fn suggest_fixes_diagnostic_code_filter() {
 #[test]
 #[specforge_test(
     behavior = "provide_mcp_find_references_tool",
-    verify = "each reference includes source span"
+    verify = "specforge.find_references returns all reference locations"
 )]
 fn find_references_returns_source_spans() {
     let mut server = test_server();

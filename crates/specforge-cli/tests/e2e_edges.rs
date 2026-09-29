@@ -5,8 +5,8 @@ use specforge_test_macros::test as specforge_test;
 
 #[test]
 #[specforge_test(
-    behavior = "emit_graph_protocol_json",
-    verify = "behaviors field creates edges"
+    behavior = "export_agent_graph_format",
+    verify = "graph format includes all nodes and edges"
 )]
 fn behaviors_field_creates_edges() {
     let dir = setup_project(&[(
@@ -50,8 +50,8 @@ feature gamma "G" { behaviors [alpha, beta] }
 
 #[test]
 #[specforge_test(
-    behavior = "emit_graph_protocol_json",
-    verify = "features field creates edges"
+    behavior = "export_agent_graph_format",
+    verify = "graph format includes all nodes and edges"
 )]
 fn features_field_creates_edges() {
     let dir = setup_project(&[(
@@ -80,8 +80,8 @@ behavior parse_input "P" {
 
 #[test]
 #[specforge_test(
-    behavior = "emit_graph_protocol_json",
-    verify = "enforced_by field creates edges"
+    behavior = "export_agent_graph_format",
+    verify = "graph format includes all nodes and edges"
 )]
 fn enforced_by_field_creates_edges() {
     let dir = setup_project(&[(
@@ -113,8 +113,8 @@ invariant refs_resolved "RR" {
 
 #[test]
 #[specforge_test(
-    behavior = "emit_graph_protocol_json",
-    verify = "mitigations field creates edges"
+    behavior = "export_agent_graph_format",
+    verify = "graph format includes all nodes and edges"
 )]
 fn mitigations_field_creates_edges() {
     let dir = setup_project(&[(
@@ -146,8 +146,8 @@ failure_mode parser_crash "PC" {
 
 #[test]
 #[specforge_test(
-    behavior = "emit_graph_protocol_json",
-    verify = "export graph edge labels are field names"
+    behavior = "build_in_memory_graph",
+    verify = "edge types match relationship semantics"
 )]
 fn export_graph_edge_labels_are_field_names() {
     let dir = setup_project(&[(
@@ -173,7 +173,10 @@ feature gamma "G" { behaviors [alpha] }
 }
 
 #[test]
-#[specforge_test(behavior = "emit_dot_output", verify = "DOT export shows edge labels")]
+#[specforge_test(
+    behavior = "serialize_dot_visualization",
+    verify = "edges are labeled with types"
+)]
 fn dot_export_shows_edge_labels() {
     let dir = setup_project(&[(
         "main.spec",
@@ -200,8 +203,8 @@ feature gamma "G" { behaviors [alpha] }
 
 #[test]
 #[specforge_test(
-    behavior = "trace_entity_dependencies",
-    verify = "trace follows edges across entity kinds"
+    behavior = "compute_traceability_chain",
+    verify = "trace from entity shows upstream and downstream connections"
 )]
 fn trace_follows_edges_across_entity_kinds() {
     let dir = setup_project(&[("main.spec", CROSS_REF_SPEC)]);
@@ -235,8 +238,8 @@ fn trace_follows_edges_across_entity_kinds() {
 
 #[test]
 #[specforge_test(
-    behavior = "multi_resolution_graph_queries",
-    verify = "query depth 2 traverses multi-hop"
+    behavior = "query_graph_multi_resolution",
+    verify = "depth 1 returns direct neighbors"
 )]
 fn query_depth_2_traverses_multi_hop() {
     let dir = setup_project(&[(
@@ -269,8 +272,8 @@ journey dev_journey "DJ" { description "workflow" }
 
 #[test]
 #[specforge_test(
-    behavior = "emit_graph_protocol_json",
-    verify = "multiple reference fields produce separate edges"
+    behavior = "export_agent_graph_format",
+    verify = "graph format includes all nodes and edges"
 )]
 fn multiple_reference_fields_produce_separate_edges() {
     let dir = setup_project(&[(
@@ -311,8 +314,8 @@ invariant inv_a "I" { guarantee "always" enforced_by [validate] }
 
 #[test]
 #[specforge_test(
-    behavior = "emit_dot_output",
-    verify = "DOT export includes all entity kinds as nodes"
+    behavior = "serialize_dot_visualization",
+    verify = "nodes are labeled with IDs"
 )]
 fn dot_export_all_entity_kinds_as_nodes() {
     let dir = setup_project(&[("main.spec", MULTI_EXTENSION_SPEC)]);
@@ -339,7 +342,10 @@ fn dot_export_all_entity_kinds_as_nodes() {
 }
 
 #[test]
-#[specforge_test(behavior = "emit_dot_output", verify = "DOT export cross-kind edges")]
+#[specforge_test(
+    behavior = "serialize_dot_visualization",
+    verify = "nodes are labeled with IDs"
+)]
 fn dot_export_cross_kind_edges() {
     let dir = setup_project(&[(
         "main.spec",
@@ -366,8 +372,8 @@ failure_mode fm "FM" { severity 1 occurrence 1 detection 1 cause "x" effect "y" 
 
 #[test]
 #[specforge_test(
-    behavior = "emit_dot_output",
-    verify = "DOT export deterministic output"
+    behavior = "deterministic_output",
+    verify = "same input produces identical output across runs"
 )]
 fn dot_export_deterministic_output() {
     let dir = setup_project(&[("main.spec", MULTI_EXTENSION_SPEC)]);

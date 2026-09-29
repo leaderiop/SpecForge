@@ -84,7 +84,7 @@ fn build_graph() -> Graph {
 #[test]
 #[specforge_test(
     behavior = "serialize_json_graph",
-    verify = "requires/ensures consistency for JSON graph serialization"
+    verify = "Serialize JSON Graph: JSON graph serialization holds — validation_complete_fired, all_nodes_serialized, all_edges_serialized, schema_version_present, valid_json_produced, render_complete_emitted"
 )]
 fn json_graph_contract_finalized_graph_produces_valid_output() {
     // Requires: graph is finalized (built with nodes + edges)
@@ -120,7 +120,7 @@ fn json_graph_contract_finalized_graph_produces_valid_output() {
 #[test]
 #[specforge_test(
     behavior = "serialize_dot_visualization",
-    verify = "requires/ensures consistency for DOT visualization"
+    verify = "Serialize DOT Visualization: DOT visualization holds — validation_complete_fired, valid_dot_produced, nodes_labeled, edges_labeled, render_complete_emitted"
 )]
 fn dot_contract_finalized_graph_produces_valid_dot() {
     // Requires: graph is finalized
@@ -143,7 +143,7 @@ fn dot_contract_finalized_graph_produces_valid_dot() {
 #[test]
 #[specforge_test(
     behavior = "compute_traceability_chain",
-    verify = "requires/ensures consistency for traceability chain computation"
+    verify = "Compute Traceability Chain: traceability chain computation holds — validation_complete_fired, full_chain_traversed, missing_links_flagged, trace_chain_computed_emitted"
 )]
 fn trace_contract_entity_in_graph_produces_chain() {
     // Requires: entity exists in graph
@@ -182,7 +182,7 @@ fn trace_contract_entity_in_graph_produces_chain() {
 #[test]
 #[specforge_test(
     behavior = "compute_project_statistics",
-    verify = "requires/ensures consistency for project statistics computation"
+    verify = "Compute Project Statistics: project statistics computation holds — validation_complete_fired, entity_counts_produced, coverage_computed, zero_testable_safe"
 )]
 fn stats_contract_graph_with_diagnostics_produces_complete_stats() {
     // Requires: graph + diagnostics collected
@@ -221,7 +221,7 @@ fn stats_contract_graph_with_diagnostics_produces_complete_stats() {
 #[test]
 #[specforge_test(
     behavior = "export_agent_context_format",
-    verify = "requires/ensures consistency for agent context export"
+    verify = "Export Agent Context Format: agent context export holds — validation_complete_fired, token_optimized_output, schema_version_present, scope_enforced, invalid_scope_diagnosed, export_complete_emitted"
 )]
 fn context_contract_includes_contracts_and_verify_omits_prose() {
     // Requires: finalized graph
@@ -247,7 +247,7 @@ fn context_contract_includes_contracts_and_verify_omits_prose() {
 #[test]
 #[specforge_test(
     behavior = "export_agent_graph_format",
-    verify = "requires/ensures consistency for agent graph export"
+    verify = "Export Agent Graph Format: agent graph export holds — validation_complete_fired, full_fidelity_output, schema_version_present, scope_enforced, invalid_scope_diagnosed, export_complete_emitted"
 )]
 fn graph_format_contract_finalized_graph_produces_full_output() {
     // Requires: finalized graph
@@ -284,7 +284,7 @@ fn graph_format_contract_finalized_graph_produces_full_output() {
 #[test]
 #[specforge_test(
     behavior = "query_graph_multi_resolution",
-    verify = "requires/ensures consistency for multi-resolution graph query"
+    verify = "Query Graph at Multiple Resolutions: multi-resolution graph query holds — validation_complete_fired, depth_respected, kind_filter_applied, graph_protocol_conformance, graph_queried_emitted"
 )]
 fn query_contract_valid_entity_returns_subgraph() {
     // Requires: entity exists in graph, depth >= 0
@@ -309,7 +309,7 @@ fn query_contract_valid_entity_returns_subgraph() {
 #[test]
 #[specforge_test(
     behavior = "enforce_token_budget",
-    verify = "requires/ensures consistency for token budget enforcement"
+    verify = "Enforce Token Budget: token budget enforcement holds — validation_complete_fired, budget_respected, truncation_metadata_produced, valid_subgraph_after_truncation, token_budget_applied_emitted"
 )]
 fn budget_contract_within_budget_no_truncation() {
     // Requires: graph + budget
@@ -328,7 +328,7 @@ fn budget_contract_within_budget_no_truncation() {
 #[test]
 #[specforge_test(
     behavior = "validate_agent_plan",
-    verify = "requires/ensures consistency for agent plan validation"
+    verify = "Validate Agent Implementation Plan: agent plan validation holds — validation_complete_fired, unresolvable_ids_diagnosed, missing_entries_warned, ordering_validated, structured_report_produced, plan_validated_emitted"
 )]
 fn plan_contract_validates_ids_coverage_ordering() {
     // Requires: finalized graph + plan JSON
@@ -362,7 +362,7 @@ fn plan_contract_validates_ids_coverage_ordering() {
 #[test]
 #[specforge_test(
     behavior = "deterministic_output",
-    verify = "requires/ensures consistency for deterministic output"
+    verify = "Deterministic Output: deterministic output holds — validation_complete_fired, byte_identical_output, no_nondeterministic_values"
 )]
 fn deterministic_contract_same_input_identical_output() {
     // Requires: same graph input
@@ -392,7 +392,7 @@ fn deterministic_contract_same_input_identical_output() {
 #[test]
 #[specforge_test(
     behavior = "serialize_traceability_data",
-    verify = "requires/ensures consistency for traceability data serialization"
+    verify = "Serialize Traceability Data: traceability data serialization holds — validation_complete_fired, full_trace_serialized, gaps_included, graph_protocol_conformance, render_complete_emitted, a"
 )]
 fn trace_data_contract_all_entities_traced() {
     let graph = build_graph();
@@ -462,7 +462,7 @@ fn trace_data_output_conforms_to_schema() {
 #[test]
 #[specforge_test(
     behavior = "export_diagnostics_as_json",
-    verify = "requires/ensures consistency for JSON diagnostic export"
+    verify = "Export Diagnostics as JSON: JSON diagnostic export holds — validation_complete_fired, json_array_produced, diagnostic_fields_complete, exit_code_unaffected"
 )]
 fn diagnostic_json_contract_complete_fields() {
     let diags = vec![Diagnostic {

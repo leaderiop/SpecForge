@@ -37,7 +37,7 @@ invariant multi_error_collection "Multi-Error Collection" {
     warning, and info diagnostic MUST be emitted to the user.
   """
   // detect_dangling_references is a post-resolution integrity check (detects
-  // resolver bugs), not a user-facing diagnostic emitter — E001 is emitted
+  // resolver bugs), not a user-facing diagnostic emitter — E003 is emitted
   // by link_entity_references during resolution.
   risk high
 

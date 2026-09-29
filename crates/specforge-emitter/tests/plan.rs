@@ -192,7 +192,7 @@ fn plan_validation_output_is_structured_json() {
 #[test]
 #[specforge_test(
     behavior = "validate_agent_plan",
-    verify = "requires/ensures consistency for agent plan validation"
+    verify = "Validate Agent Implementation Plan: agent plan validation holds — validation_complete_fired, unresolvable_ids_diagnosed, missing_entries_warned, ordering_validated, structured_report_produced, plan_validated_emitted"
 )]
 fn plan_validation_contract_consistency() {
     // Requires: graph is finalized (we pass a built graph)

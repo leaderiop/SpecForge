@@ -277,7 +277,7 @@ fn extensions_no_lock_file() {
 
 #[specforge_test(
     behavior = "list_installed_extensions",
-    verify = "requires/ensures consistency for extension listing"
+    verify = "List Installed Extensions: extension listing holds — kind_registry_ready, all_extensions_listed, entity_counts_included, output_deterministic"
 )]
 #[test]
 fn extensions_contract() {
@@ -471,7 +471,7 @@ fn providers_output_order_deterministic() {
 
 #[specforge_test(
     behavior = "list_configured_providers",
-    verify = "requires/ensures consistency for provider listing"
+    verify = "List Configured Providers: provider listing holds — scheme_registry_ready, all_providers_listed, schemes_and_kinds_included, aliases_shown_separately, output_deterministic"
 )]
 #[test]
 fn providers_contract() {
@@ -700,7 +700,7 @@ fn doctor_detects_stale_hash() {
 
 #[specforge_test(
     behavior = "run_doctor_check",
-    verify = "requires/ensures consistency for doctor check"
+    verify = "Run Doctor Check: doctor check holds — enhancement_registered_fired, filesystem_available, doctor_check_completed_emitted, report_produced, json_output_supported"
 )]
 #[test]
 fn doctor_contract() {
@@ -758,8 +758,8 @@ fn doctor_contract() {
 // ===============================================================
 
 #[specforge_test(
-    behavior = "add_extension",
-    verify = "specforge add validates registry specifier"
+    behavior = "add_extension_to_existing_project",
+    verify = "add unresolvable extension rejects with diagnostic"
 )]
 #[test]
 fn add_validates_registry_specifier() {
@@ -784,8 +784,8 @@ fn add_validates_registry_specifier() {
 }
 
 #[specforge_test(
-    behavior = "add_extension",
-    verify = "specforge add rejects invalid specifier"
+    behavior = "parse_extension_specifier",
+    verify = "invalid specifier produces ExtensionError"
 )]
 #[test]
 fn add_rejects_invalid_specifier() {
@@ -799,8 +799,8 @@ fn add_rejects_invalid_specifier() {
 }
 
 #[specforge_test(
-    behavior = "add_extension",
-    verify = "specforge add validates local path specifier"
+    behavior = "parse_extension_specifier",
+    verify = "./path parsed as local source"
 )]
 #[test]
 fn add_validates_local_specifier() {
@@ -874,7 +874,7 @@ fn remove_extension_keywords_produce_e024() {
 
 #[specforge_test(
     behavior = "remove_extension",
-    verify = "requires/ensures consistency for extension removal"
+    verify = "Remove Extension: extension removal holds — extension_installed, filesystem_available, extension_entry_removed, spec_files_unchanged, extension_removed_emitted"
 )]
 #[test]
 fn remove_extension_contract() {

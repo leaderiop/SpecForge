@@ -90,7 +90,7 @@ fn suggestion_displayed_when_available() {
 #[test]
 #[specforge_test(
     behavior = "print_diagnostics_structured",
-    verify = "requires/ensures consistency for structured diagnostic printing"
+    verify = "Print Diagnostics Structured: structured diagnostic printing holds — validation_complete_fired, structured_format_enforced, color_coding_applied"
 )]
 fn print_diagnostics_contract() {
     // Requires: diagnostics collected (validation_complete)
@@ -269,7 +269,7 @@ fn exit_code_one_with_errors() {
 #[test]
 #[specforge_test(
     behavior = "exit_code_reflects_diagnostic_severity",
-    verify = "requires/ensures consistency for exit code severity mapping"
+    verify = "Exit Code Reflects Diagnostic Severity: exit code severity mapping holds — validation_complete_fired, exit_zero_on_clean, exit_one_on_errors, strict_mode_enforced"
 )]
 fn exit_code_contract() {
     // Requires: diagnostics collected (validation_complete)
@@ -450,8 +450,8 @@ fn truncate_diagnostics_no_op_under_limit() {
 
 #[test]
 #[specforge_test(
-    behavior = "export_diagnostics_as_json",
-    verify = "summary groups diagnostics by code"
+    behavior = "aggregate_diagnostic_summary",
+    verify = "summary shows correct counts"
 )]
 fn diagnostic_summary_groups_by_code() {
     let diags = vec![
@@ -479,8 +479,8 @@ fn diagnostic_summary_groups_by_code() {
 
 #[test]
 #[specforge_test(
-    behavior = "export_diagnostics_as_json",
-    verify = "has_errors detects error severity"
+    behavior = "aggregate_diagnostic_summary",
+    verify = "summary matches actual diagnostics"
 )]
 fn diagnostics_ext_has_errors() {
     use specforge_common::DiagnosticsExt;
@@ -557,7 +557,7 @@ fn spanless_error_diagnostic_uses_code() {
 #[test]
 #[specforge_test(
     behavior = "print_diagnostics_structured",
-    verify = "spanned diagnostic ignores code fallback"
+    verify = "error diagnostic is formatted with file:line:col"
 )]
 fn spanned_diagnostic_ignores_code_fallback() {
     let diag = diag_with_span("E001", Severity::Error, "bad ref", "src/test.spec", 10, 5);

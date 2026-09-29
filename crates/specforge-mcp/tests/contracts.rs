@@ -105,7 +105,7 @@ fn call_tool(server: &mut McpServer, name: &str, args: Value) -> Value {
 #[test]
 #[specforge_test(
     behavior = "mcp_initialize",
-    verify = "requires/ensures consistency for MCP initialization"
+    verify = "MCP Initialize: MCP initialization holds — compiler_api_available, wasm_runtime_available, capabilities_returned, surface_contributions_merged, mcp_initialized_emitted"
 )]
 fn contract_initialize() {
     let mut server = McpServer::new();
@@ -123,7 +123,7 @@ fn contract_initialize() {
 #[test]
 #[specforge_test(
     behavior = "mcp_shutdown",
-    verify = "requires/ensures consistency for MCP shutdown"
+    verify = "MCP Shutdown: MCP shutdown holds — server_initialized, notifications_flushed, subscriptions_removed, wasm_engines_released, shutdown_emitted"
 )]
 fn contract_shutdown() {
     let mut server = McpServer::new();
@@ -135,7 +135,7 @@ fn contract_shutdown() {
 #[test]
 #[specforge_test(
     behavior = "provide_mcp_query_tool",
-    verify = "requires/ensures consistency for MCP query tool"
+    verify = "Provide MCP Query Tool: MCP query tool holds — graph_available, subgraph_returned, unknown_kinds_reported, tool_invoked_emitted"
 )]
 fn contract_query() {
     let mut server = test_server();
@@ -153,7 +153,7 @@ fn contract_query() {
 #[test]
 #[specforge_test(
     behavior = "provide_mcp_export_tool",
-    verify = "requires/ensures consistency for MCP export tool"
+    verify = "Provide MCP Export Tool: MCP export tool holds — graph_available, format_produced, token_budget_enforced, tool_invoked_emitted"
 )]
 fn contract_export() {
     let mut server = test_server();
@@ -172,7 +172,7 @@ fn contract_export() {
 #[test]
 #[specforge_test(
     behavior = "provide_mcp_export_tool",
-    verify = "export descriptor declares max_tokens and the tool honors it for graph format"
+    verify = "max_tokens truncates output to fit token budget"
 )]
 fn contract_export_max_tokens() {
     let mut server = test_server();
@@ -211,7 +211,7 @@ fn contract_export_max_tokens() {
 #[test]
 #[specforge_test(
     behavior = "provide_mcp_trace_tool",
-    verify = "requires/ensures consistency for MCP trace tool"
+    verify = "Provide MCP Trace Tool: MCP trace tool holds — graph_available, trace_result_returned, gaps_identified, tool_invoked_emitted"
 )]
 fn contract_trace() {
     let mut server = test_server();
@@ -230,7 +230,7 @@ fn contract_trace() {
 #[test]
 #[specforge_test(
     behavior = "provide_mcp_search_tool",
-    verify = "requires/ensures consistency for MCP search tool"
+    verify = "Provide MCP Search Tool: MCP search tool holds — graph_available, filtered_results_returned, unknown_kinds_reported, tool_invoked_emitted"
 )]
 fn contract_search() {
     let mut server = test_server();
@@ -243,7 +243,7 @@ fn contract_search() {
 #[test]
 #[specforge_test(
     behavior = "provide_mcp_stats_tool",
-    verify = "requires/ensures consistency for MCP stats tool"
+    verify = "Provide MCP Stats Tool: MCP stats tool holds — graph_available, stats_returned, latest_state_reflected, tool_invoked_emitted"
 )]
 fn contract_stats() {
     let mut server = test_server();
@@ -257,7 +257,7 @@ fn contract_stats() {
 #[test]
 #[specforge_test(
     behavior = "provide_mcp_inspect_tool",
-    verify = "requires/ensures consistency for MCP inspect tool"
+    verify = "Provide MCP Inspect Tool: MCP inspect tool holds — graph_available, entity_details_returned, tool_invoked_emitted"
 )]
 fn contract_inspect() {
     let mut server = test_server();
@@ -276,7 +276,7 @@ fn contract_inspect() {
 #[test]
 #[specforge_test(
     behavior = "provide_mcp_find_definition_tool",
-    verify = "requires/ensures consistency for MCP find definition tool"
+    verify = "Provide MCP Find Definition Tool: MCP find definition tool holds — graph_available, source_location_returned, tool_invoked_emitted"
 )]
 fn contract_find_definition() {
     let mut server = test_server();
@@ -294,7 +294,7 @@ fn contract_find_definition() {
 #[test]
 #[specforge_test(
     behavior = "provide_mcp_find_references_tool",
-    verify = "requires/ensures consistency for MCP find references tool"
+    verify = "Provide MCP Find References Tool: MCP find references tool holds — graph_available, references_returned, empty_list_for_unreferenced, tool_invoked_emitted"
 )]
 fn contract_find_references() {
     let mut server = test_server();
@@ -312,7 +312,7 @@ fn contract_find_references() {
 #[test]
 #[specforge_test(
     behavior = "provide_mcp_outline_tool",
-    verify = "requires/ensures consistency for MCP outline tool"
+    verify = "Provide MCP Outline Tool: MCP outline tool holds — graph_available, outline_returned, tool_invoked_emitted"
 )]
 fn contract_outline() {
     let mut server = test_server();
@@ -329,7 +329,7 @@ fn contract_outline() {
 #[test]
 #[specforge_test(
     behavior = "provide_mcp_coverage_tool",
-    verify = "requires/ensures consistency for MCP coverage tool"
+    verify = "Provide MCP Coverage Tool: MCP coverage tool holds — graph_available, coverage_returned, testability_respected, tool_invoked_emitted"
 )]
 fn contract_coverage() {
     let mut server = test_server();
@@ -342,7 +342,7 @@ fn contract_coverage() {
 #[test]
 #[specforge_test(
     behavior = "provide_mcp_schema_tool",
-    verify = "requires/ensures consistency for MCP schema tool"
+    verify = "Provide MCP Schema Tool: MCP schema tool holds — graph_available, schema_returned, tool_invoked_emitted"
 )]
 fn contract_schema() {
     let mut server = test_server();
@@ -355,7 +355,7 @@ fn contract_schema() {
 #[test]
 #[specforge_test(
     behavior = "provide_mcp_context_prompt",
-    verify = "requires/ensures consistency for MCP context prompt"
+    verify = "Provide MCP Context Prompt: MCP context prompt holds — graph_available, context_returned, hints_included, prompt_invoked_emitted"
 )]
 fn contract_context_prompt() {
     let mut server = test_server();
@@ -370,7 +370,7 @@ fn contract_context_prompt() {
 #[test]
 #[specforge_test(
     behavior = "provide_mcp_review_prompt",
-    verify = "requires/ensures consistency for MCP review prompt"
+    verify = "Provide MCP Review Prompt: MCP review prompt holds — graph_available, coverage_analysis_returned, gaps_identified, prompt_invoked_emitted"
 )]
 fn contract_review_prompt() {
     let mut server = test_server();
@@ -385,7 +385,7 @@ fn contract_review_prompt() {
 #[test]
 #[specforge_test(
     behavior = "provide_mcp_trace_prompt",
-    verify = "requires/ensures consistency for MCP trace prompt"
+    verify = "Provide MCP Trace Prompt: MCP trace prompt holds — graph_available, gaps_returned, affected_entities_listed, prompt_invoked_emitted"
 )]
 fn contract_trace_prompt() {
     let mut server = test_server();
@@ -400,7 +400,7 @@ fn contract_trace_prompt() {
 #[test]
 #[specforge_test(
     behavior = "provide_mcp_explore_prompt",
-    verify = "requires/ensures consistency for MCP explore prompt"
+    verify = "Provide MCP Explore Prompt: MCP explore prompt holds — graph_available, exploration_returned, bfs_from_entity, prompt_invoked_emitted"
 )]
 fn contract_explore_prompt() {
     let mut server = test_server();
@@ -415,7 +415,7 @@ fn contract_explore_prompt() {
 #[test]
 #[specforge_test(
     behavior = "list_mcp_tools",
-    verify = "requires/ensures consistency for listing MCP tools"
+    verify = "List MCP Tools: listing MCP tools holds — server_initialized, complete_list_returned, disabled_excluded, discovery_emitted"
 )]
 fn contract_list_tools() {
     let mut server = test_server();
@@ -431,7 +431,7 @@ fn contract_list_tools() {
 #[test]
 #[specforge_test(
     behavior = "list_mcp_resources",
-    verify = "requires/ensures consistency for listing MCP resources"
+    verify = "List MCP Resources: listing MCP resources holds — server_initialized, complete_list_returned, disabled_excluded, discovery_emitted"
 )]
 fn contract_list_resources() {
     let mut server = test_server();
@@ -446,7 +446,7 @@ fn contract_list_resources() {
 #[test]
 #[specforge_test(
     behavior = "list_mcp_prompts",
-    verify = "requires/ensures consistency for listing MCP prompts"
+    verify = "List MCP Prompts: listing MCP prompts holds — server_initialized, complete_list_returned, discovery_emitted"
 )]
 fn contract_list_prompts() {
     let mut server = test_server();
@@ -461,7 +461,7 @@ fn contract_list_prompts() {
 #[test]
 #[specforge_test(
     behavior = "guard_mcp_reinitialization",
-    verify = "requires/ensures consistency for MCP reinitialization guard"
+    verify = "Guard MCP Reinitialization: MCP reinitialization guard holds — server_initialized, reinit_rejected, session_unaffected, error_handled_emitted"
 )]
 fn contract_guard_reinit() {
     let mut server = test_server();
@@ -472,7 +472,7 @@ fn contract_guard_reinit() {
 #[test]
 #[specforge_test(
     behavior = "handle_mcp_request_cancellation",
-    verify = "requires/ensures consistency for MCP request cancellation"
+    verify = "Handle MCP Request Cancellation: MCP request cancellation holds — mcp_protocol_available, cancellation_safe, request_cancelled_emitted"
 )]
 fn contract_cancel() {
     let mut server = test_server();
@@ -483,7 +483,7 @@ fn contract_cancel() {
 #[test]
 #[specforge_test(
     behavior = "handle_mcp_protocol_error",
-    verify = "requires/ensures consistency for MCP protocol error handling"
+    verify = "Handle MCP Protocol Error: MCP protocol error handling holds — mcp_protocol_available, standard_error_returned, no_state_leaked, server_operational, error_handled_emitted"
 )]
 fn contract_protocol_error() {
     let mut server = test_server();
@@ -496,7 +496,7 @@ fn contract_protocol_error() {
 #[test]
 #[specforge_test(
     behavior = "provide_mcp_validate_tool",
-    verify = "requires/ensures consistency for MCP validate tool"
+    verify = "Provide MCP Validate Tool: MCP validate tool holds — compiler_api_available, diagnostics_returned, strict_promotion_enforced, tool_invoked_emitted"
 )]
 fn contract_validate() {
     let mut server = test_server();
@@ -510,7 +510,7 @@ fn contract_validate() {
 #[test]
 #[specforge_test(
     behavior = "provide_mcp_suggest_fixes_tool",
-    verify = "requires/ensures consistency for MCP suggest fixes tool"
+    verify = "Provide MCP Suggest Fixes Tool: MCP suggest fixes tool holds — graph_available, fixes_returned, empty_for_clean, tool_invoked_emitted"
 )]
 fn contract_suggest_fixes() {
     let mut server = test_server();
@@ -523,7 +523,7 @@ fn contract_suggest_fixes() {
 #[test]
 #[specforge_test(
     behavior = "provide_mcp_format_tool",
-    verify = "requires/ensures consistency for MCP format tool"
+    verify = "Provide MCP Format Tool: MCP format tool holds — filesystem_available, files_formatted, check_mode_readonly, mutation_completed_emitted, tool_invoked_emitted"
 )]
 fn contract_format() {
     let mut server = test_server();
@@ -536,7 +536,7 @@ fn contract_format() {
 #[test]
 #[specforge_test(
     behavior = "provide_mcp_rename_tool",
-    verify = "requires/ensures consistency for MCP rename tool"
+    verify = "Provide MCP Rename Tool: MCP rename tool holds — graph_available, filesystem_available, references_updated, recompilation_triggered, dry_run_safe, mutation_completed_emitted, tool_invoked_emitted"
 )]
 fn contract_rename() {
     let mut server = test_server();
@@ -554,7 +554,7 @@ fn contract_rename() {
 #[test]
 #[specforge_test(
     behavior = "provide_mcp_init_tool",
-    verify = "requires/ensures consistency for MCP init tool"
+    verify = "Provide MCP Init Tool: MCP init tool holds — filesystem_available, project_created, path_outside_current, extensions_validated, project_initialized_emitted, tool_invoked_emitted"
 )]
 fn contract_init() {
     let dir = tempfile::TempDir::new().unwrap();
@@ -572,7 +572,7 @@ fn contract_init() {
 #[test]
 #[specforge_test(
     behavior = "provide_mcp_extensions_tool",
-    verify = "requires/ensures consistency for MCP extensions tool"
+    verify = "Provide MCP Extensions Tool: MCP extensions tool holds — compiler_api_available, extensions_listed, config_reflected, tool_invoked_emitted"
 )]
 fn contract_extensions() {
     let mut server = test_server();
@@ -585,7 +585,7 @@ fn contract_extensions() {
 #[test]
 #[specforge_test(
     behavior = "provide_mcp_doctor_tool",
-    verify = "requires/ensures consistency for MCP doctor tool"
+    verify = "Provide MCP Doctor Tool: MCP doctor tool holds — compiler_api_available, health_checked, resolution_steps_provided, tool_invoked_emitted"
 )]
 fn contract_doctor() {
     let mut server = test_server();
@@ -600,7 +600,7 @@ fn contract_doctor() {
 #[test]
 #[specforge_test(
     behavior = "expose_graph_as_mcp_resource",
-    verify = "requires/ensures consistency for graph MCP resource"
+    verify = "Expose Graph as MCP Resource: graph MCP resource holds — validation_complete_fired, graph_json_returned, resource_read_emitted"
 )]
 fn contract_graph_resource() {
     let mut server = test_server();
@@ -615,7 +615,7 @@ fn contract_graph_resource() {
 #[test]
 #[specforge_test(
     behavior = "expose_schema_as_mcp_resource",
-    verify = "requires/ensures consistency for schema MCP resource"
+    verify = "Expose Schema as MCP Resource: schema MCP resource holds — validation_complete_fired, schema_json_returned, resource_read_emitted"
 )]
 fn contract_schema_resource() {
     let mut server = test_server();
@@ -630,7 +630,7 @@ fn contract_schema_resource() {
 #[test]
 #[specforge_test(
     behavior = "expose_context_as_mcp_resource",
-    verify = "requires/ensures consistency for context MCP resource"
+    verify = "Expose Context as MCP Resource: context MCP resource holds — validation_complete_fired, context_format_returned, resource_read_emitted"
 )]
 fn contract_context_resource() {
     let mut server = test_server();
@@ -645,7 +645,7 @@ fn contract_context_resource() {
 #[test]
 #[specforge_test(
     behavior = "expose_brief_as_mcp_resource",
-    verify = "requires/ensures consistency for brief MCP resource"
+    verify = "Expose Brief as MCP Resource: brief MCP resource holds — validation_complete_fired, brief_format_returned, resource_read_emitted"
 )]
 fn contract_brief_resource() {
     let mut server = test_server();
@@ -660,7 +660,7 @@ fn contract_brief_resource() {
 #[test]
 #[specforge_test(
     behavior = "expose_diagnostics_as_mcp_resource",
-    verify = "requires/ensures consistency for diagnostics MCP resource"
+    verify = "Expose Diagnostics as MCP Resource: diagnostics MCP resource holds — validation_complete_fired, diagnostics_returned, resource_read_emitted"
 )]
 fn contract_diagnostics_resource() {
     let mut server = test_server();
@@ -675,7 +675,7 @@ fn contract_diagnostics_resource() {
 #[test]
 #[specforge_test(
     behavior = "expose_entity_as_mcp_resource",
-    verify = "requires/ensures consistency for per-entity MCP resource"
+    verify = "Expose Per-Entity MCP Resource: per-entity MCP resource holds — validation_complete_fired, subgraph_returned, resource_read_emitted"
 )]
 fn contract_entity_resource() {
     let mut server = test_server();
@@ -690,7 +690,7 @@ fn contract_entity_resource() {
 #[test]
 #[specforge_test(
     behavior = "notify_graph_delta_via_mcp",
-    verify = "requires/ensures consistency for graph delta MCP notification"
+    verify = "Notify Graph Delta via MCP: graph delta MCP notification holds — graph_delta_computed_fired, subscribers_notified, no_notification_when_empty, delta_notified_emitted"
 )]
 fn contract_graph_notification() {
     use specforge_mcp::notifications::*;
@@ -715,7 +715,7 @@ fn contract_graph_notification() {
 #[test]
 #[specforge_test(
     behavior = "notify_diagnostics_delta_via_mcp",
-    verify = "requires/ensures consistency for diagnostics delta MCP notification"
+    verify = "Notify Diagnostics Delta via MCP: diagnostics delta MCP notification holds — validation_complete_fired, subscribers_notified, unchanged_suppressed, delta_notified_emitted"
 )]
 fn contract_diagnostics_notification() {
     use specforge_common::{Diagnostic, Severity};
@@ -736,7 +736,7 @@ fn contract_diagnostics_notification() {
 #[test]
 #[specforge_test(
     behavior = "provide_mcp_add_extension_tool",
-    verify = "requires/ensures consistency for MCP add extension tool"
+    verify = "Provide MCP Add Extension Tool: MCP add extension tool holds — filesystem_available, extension_installed, wasm_downloaded, extension_added_emitted, dry_run_safe, tool_invoked_emitted"
 )]
 fn contract_add_extension() {
     let dir = tempfile::TempDir::new().unwrap();
@@ -765,7 +765,7 @@ fn contract_add_extension() {
 #[test]
 #[specforge_test(
     behavior = "provide_mcp_remove_extension_tool",
-    verify = "requires/ensures consistency for MCP remove extension tool"
+    verify = "Provide MCP Remove Extension Tool: MCP remove extension tool holds — filesystem_available, extension_removed, orphan_warning_produced, dry_run_safe, mutation_completed_emitted, tool_invoked_emitted"
 )]
 fn contract_remove_extension() {
     let dir = tempfile::TempDir::new().unwrap();
@@ -783,7 +783,7 @@ fn contract_remove_extension() {
 #[test]
 #[specforge_test(
     behavior = "provide_mcp_migrate_tool",
-    verify = "requires/ensures consistency for MCP migrate tool"
+    verify = "Provide MCP Migrate Tool: MCP migrate tool holds — filesystem_available, migrations_applied, post_migration_validated, dry_run_safe, mutation_completed_emitted, tool_invoked_emitted"
 )]
 fn contract_migrate() {
     let mut server = test_server();
@@ -796,7 +796,7 @@ fn contract_migrate() {
 #[test]
 #[specforge_test(
     behavior = "provide_mcp_providers_tool",
-    verify = "requires/ensures consistency for MCP providers tool"
+    verify = "Provide MCP Providers Tool: MCP providers tool holds — compiler_api_available, providers_listed, tool_invoked_emitted"
 )]
 fn contract_providers() {
     let mut server = test_server();
@@ -809,7 +809,7 @@ fn contract_providers() {
 #[test]
 #[specforge_test(
     behavior = "provide_mcp_collect_tool",
-    verify = "requires/ensures consistency for MCP collect tool"
+    verify = "Provide MCP Collect Tool: MCP collect tool holds — filesystem_available, compiler_api_available, report_emitted, collector_delegated, tool_invoked_emitted"
 )]
 fn contract_collect() {
     let mut server = test_server();
@@ -826,7 +826,7 @@ fn contract_collect() {
 #[test]
 #[specforge_test(
     behavior = "provide_mcp_render_tool",
-    verify = "requires/ensures consistency for MCP render tool"
+    verify = "Provide MCP Render Tool: MCP render tool holds — graph_available, filesystem_available, files_written, files_listed, tool_invoked_emitted"
 )]
 fn contract_render() {
     let mut server = test_server();

@@ -345,7 +345,7 @@ mod tests {
 
     #[specforge_test_macros::test(
         behavior = "load_format_config",
-        verify = "requires/ensures consistency for format config loading"
+        verify = "Load Format Configuration: format config loading holds — project_root_available, filesystem_accessible, config_resolved, walk_bounded, invalid_values_diagnosed"
     )]
     #[test]
     fn test_load_format_config_contract_requires_ensures() {

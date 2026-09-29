@@ -157,7 +157,7 @@ fn brief_conforms_to_graph_protocol_schema() {
 #[test]
 #[specforge_test(
     behavior = "export_agent_brief_format",
-    verify = "requires/ensures consistency for agent brief export"
+    verify = "Export Agent Brief Format: agent brief export holds — validation_complete_fired, minimal_representation, schema_version_present, export_complete_emitted"
 )]
 fn brief_export_contract() {
     // Requires: graph is finalized (validation_complete)

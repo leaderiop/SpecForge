@@ -5,8 +5,8 @@ use specforge_test_macros::test as specforge_test;
 
 #[test]
 #[specforge_test(
-    behavior = "multi_resolution_graph_queries",
-    verify = "depth 0 returns only root"
+    behavior = "query_graph_multi_resolution",
+    verify = "depth 0 returns only the target entity"
 )]
 fn query_depth_0_returns_only_root() {
     let dir = setup_project(&[("main.spec", DEEP_CHAIN_SPEC)]);
@@ -27,8 +27,8 @@ fn query_depth_0_returns_only_root() {
 
 #[test]
 #[specforge_test(
-    behavior = "multi_resolution_graph_queries",
-    verify = "depth 0 still includes edges between surviving nodes"
+    behavior = "query_graph_multi_resolution",
+    verify = "depth 0 returns only the target entity"
 )]
 fn query_depth_0_edges_behavior() {
     let dir = setup_project(&[("main.spec", DEEP_CHAIN_SPEC)]);
@@ -49,8 +49,8 @@ fn query_depth_0_edges_behavior() {
 
 #[test]
 #[specforge_test(
-    behavior = "multi_resolution_graph_queries",
-    verify = "multiple kind filters"
+    behavior = "query_graph_multi_resolution",
+    verify = "multiple kind filters combine as union"
 )]
 fn query_multiple_kind_filters() {
     let dir = setup_project(&[("main.spec", DEEP_CHAIN_SPEC)]);
@@ -85,8 +85,8 @@ fn query_multiple_kind_filters() {
 
 #[test]
 #[specforge_test(
-    behavior = "multi_resolution_graph_queries",
-    verify = "kind filter no match returns root only"
+    behavior = "query_graph_multi_resolution",
+    verify = "kind filter restricts results to specified entity kinds"
 )]
 fn query_kind_filter_no_match_returns_root_only() {
     let dir = setup_project(&[("main.spec", DEEP_CHAIN_SPEC)]);
@@ -116,8 +116,8 @@ fn query_kind_filter_no_match_returns_root_only() {
 
 #[test]
 #[specforge_test(
-    behavior = "multi_resolution_graph_queries",
-    verify = "kind filter prunes edges"
+    behavior = "query_graph_multi_resolution",
+    verify = "kind filter restricts results to specified entity kinds"
 )]
 fn query_kind_filter_prunes_edges() {
     let dir = setup_project(&[("main.spec", DEEP_CHAIN_SPEC)]);
@@ -158,8 +158,8 @@ fn query_kind_filter_prunes_edges() {
 
 #[test]
 #[specforge_test(
-    behavior = "multi_resolution_graph_queries",
-    verify = "isolated entity at depth 1"
+    behavior = "query_graph_multi_resolution",
+    verify = "depth 1 returns direct neighbors"
 )]
 fn query_isolated_entity_depth_1() {
     let dir = setup_project(&[("main.spec", ISOLATED_SPEC)]);
@@ -184,8 +184,8 @@ fn query_isolated_entity_depth_1() {
 
 #[test]
 #[specforge_test(
-    behavior = "multi_resolution_graph_queries",
-    verify = "query handles cycles"
+    invariant = "graph_traversal_integrity",
+    verify = "traversal from any node visits every reachable node exactly once"
 )]
 fn query_handles_cycles() {
     let dir = setup_project(&[("main.spec", CYCLE_SPEC)]);
@@ -217,8 +217,8 @@ fn query_handles_cycles() {
 
 #[test]
 #[specforge_test(
-    behavior = "multi_resolution_graph_queries",
-    verify = "large depth on small graph returns all"
+    behavior = "query_graph_multi_resolution",
+    verify = "depth N returns all entities within N hops"
 )]
 fn query_large_depth_on_small_graph() {
     let dir = setup_project(&[("main.spec", DEEP_CHAIN_SPEC)]);
@@ -243,8 +243,8 @@ fn query_large_depth_on_small_graph() {
 
 #[test]
 #[specforge_test(
-    behavior = "multi_resolution_graph_queries",
-    verify = "output has schema version"
+    behavior = "query_graph_multi_resolution",
+    verify = "output includes schema_version field"
 )]
 fn query_output_has_schema_version() {
     let dir = setup_project(&[("main.spec", ISOLATED_SPEC)]);
@@ -266,8 +266,8 @@ fn query_output_has_schema_version() {
 
 #[test]
 #[specforge_test(
-    behavior = "multi_resolution_graph_queries",
-    verify = "nodes have required fields"
+    behavior = "query_graph_multi_resolution",
+    verify = "output conforms to Graph Protocol schema"
 )]
 fn query_nodes_have_required_fields() {
     let dir = setup_project(&[("main.spec", DEEP_CHAIN_SPEC)]);

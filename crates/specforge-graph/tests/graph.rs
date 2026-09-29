@@ -308,8 +308,8 @@ fn same_id_different_kind_no_e002() {
 }
 
 #[specforge_test(
-    behavior = "build_in_memory_graph",
-    verify = "parse errors are surfaced as diagnostics"
+    behavior = "two_phase_parse_structural",
+    verify = "parse errors collected without aborting"
 )]
 #[test]
 fn build_graph_surfaces_parse_errors() {
@@ -857,7 +857,7 @@ fn unknown_keyword_matching_known_extension_emits_i004() {
 
 #[specforge_test(
     behavior = "resolve_soft_cross_extension_references",
-    verify = "installed extension with missing entity emits E001"
+    verify = "installed extension with missing entity emits E003"
 )]
 #[test]
 fn installed_keyword_does_not_emit_i004() {
@@ -1086,8 +1086,8 @@ feature gamma "G" { behaviors [alpha, nonexistent] }
 // === edge index correctness ===
 
 #[specforge_test(
-    behavior = "build_in_memory_graph",
-    verify = "edge index returns same results as linear scan"
+    behavior = "maintain_mutable_graph",
+    verify = "added edges are reflected in outgoing edge queries"
 )]
 #[test]
 fn edges_from_returns_correct_edges_after_multiple_adds() {
@@ -1114,8 +1114,8 @@ fn edges_from_returns_correct_edges_after_multiple_adds() {
 }
 
 #[specforge_test(
-    behavior = "build_in_memory_graph",
-    verify = "edge index updated on node removal"
+    behavior = "maintain_mutable_graph",
+    verify = "removing a node removes its edges"
 )]
 #[test]
 fn edges_to_updated_after_node_removal() {
@@ -1145,7 +1145,7 @@ fn edges_to_updated_after_node_removal() {
 
 #[specforge_test(
     behavior = "maintain_mutable_graph",
-    verify = "clear_edges resets all edge indexes"
+    verify = "graph consistency after batch mutations"
 )]
 #[test]
 fn clear_edges_resets_index() {
@@ -1327,7 +1327,7 @@ feature f "F" { behaviors [a, b] }
 
 #[specforge_test(
     behavior = "build_in_memory_graph",
-    verify = "union type variants are not treated as references"
+    verify = "graph contains one edge per resolved reference"
 )]
 #[test]
 fn union_type_variants_do_not_produce_unresolved_ref() {
@@ -1361,8 +1361,8 @@ behavior my_behavior "B" {
 // === Phase 9: Predicate Query API ===
 
 #[specforge_test(
-    behavior = "query_graph",
-    verify = "filter_nodes returns matching nodes"
+    behavior = "query_graph_multi_resolution",
+    verify = "kind filter restricts results to specified entity kinds"
 )]
 #[test]
 fn filter_nodes_by_kind() {
@@ -1408,8 +1408,8 @@ fn filter_nodes_by_field_value() {
 }
 
 #[specforge_test(
-    behavior = "query_graph",
-    verify = "nodes_by_kind returns empty for unknown kind"
+    behavior = "query_graph_multi_resolution",
+    verify = "kind filter restricts results to specified entity kinds"
 )]
 #[test]
 fn nodes_by_kind_returns_empty_for_unknown() {
@@ -1423,8 +1423,8 @@ fn nodes_by_kind_returns_empty_for_unknown() {
 // --- one-way authoring, bidirectional query ---
 
 #[specforge_test(
-    behavior = "query_graph",
-    verify = "querying a feature returns behaviors that reference it via incoming edges"
+    behavior = "query_graph_multi_resolution",
+    verify = "depth 1 returns direct neighbors"
 )]
 #[test]
 fn subgraph_depth_finds_behavior_via_incoming_implements_edge() {
@@ -1449,8 +1449,8 @@ fn subgraph_depth_finds_behavior_via_incoming_implements_edge() {
 }
 
 #[specforge_test(
-    behavior = "query_graph",
-    verify = "one-way Implements edge is sufficient -- no reverse behaviors edge needed"
+    behavior = "query_graph_multi_resolution",
+    verify = "depth 1 returns direct neighbors"
 )]
 #[test]
 fn subgraph_depth_no_reverse_edge_needed_for_feature_behavior_link() {
@@ -1469,8 +1469,8 @@ fn subgraph_depth_no_reverse_edge_needed_for_feature_behavior_link() {
 }
 
 #[specforge_test(
-    behavior = "query_graph",
-    verify = "one-way enforced_by edge is sufficient -- no reverse invariants edge needed"
+    behavior = "query_graph_multi_resolution",
+    verify = "depth 1 returns direct neighbors"
 )]
 #[test]
 fn subgraph_depth_invariant_found_via_incoming_enforced_by_edge() {
@@ -1487,8 +1487,8 @@ fn subgraph_depth_invariant_found_via_incoming_enforced_by_edge() {
 }
 
 #[specforge_test(
-    behavior = "query_graph",
-    verify = "one-way constrains edge is sufficient -- no reverse edge needed"
+    behavior = "query_graph_multi_resolution",
+    verify = "depth 1 returns direct neighbors"
 )]
 #[test]
 fn subgraph_depth_constraint_found_via_incoming_constrains_edge() {
@@ -1505,8 +1505,8 @@ fn subgraph_depth_constraint_found_via_incoming_constrains_edge() {
 }
 
 #[specforge_test(
-    behavior = "query_graph",
-    verify = "one-way produces edge is sufficient -- no reverse trigger edge needed"
+    behavior = "query_graph_multi_resolution",
+    verify = "depth 1 returns direct neighbors"
 )]
 #[test]
 fn subgraph_depth_event_found_via_incoming_produces_edge() {
@@ -1527,8 +1527,8 @@ fn subgraph_depth_event_found_via_incoming_produces_edge() {
 }
 
 #[specforge_test(
-    behavior = "query_graph",
-    verify = "one-way consumes edge is sufficient -- no reverse consumers edge needed"
+    behavior = "query_graph_multi_resolution",
+    verify = "depth 1 returns direct neighbors"
 )]
 #[test]
 fn subgraph_depth_event_found_via_incoming_consumes_edge() {
@@ -1549,8 +1549,8 @@ fn subgraph_depth_event_found_via_incoming_consumes_edge() {
 }
 
 #[specforge_test(
-    behavior = "query_graph",
-    verify = "querying invariant finds enforcing behaviors without enforced_by reverse field"
+    behavior = "query_graph_multi_resolution",
+    verify = "depth 1 returns direct neighbors"
 )]
 #[test]
 fn subgraph_depth_invariant_found_via_incoming_invariants_edge() {
@@ -1651,8 +1651,8 @@ behavior c "C" { contract "c" depends_on [a] }
 }
 
 #[specforge_test(
-    behavior = "build_in_memory_graph",
-    verify = "E002 carries actionable suggestion"
+    behavior = "detect_duplicate_entity_ids",
+    verify = "duplicate ID across files produces E002"
 )]
 #[test]
 fn e002_duplicate_entity_has_suggestion() {
@@ -1744,7 +1744,7 @@ fn graph_with_bidirectional_pairs_stores_pairs() {
 
 #[specforge_test(
     behavior = "build_in_memory_graph",
-    verify = "add_edge_checked rejects edge with non-existent source"
+    verify = "every edge connects two existing nodes"
 )]
 #[test]
 fn add_edge_checked_rejects_nonexistent_source() {
@@ -1772,7 +1772,7 @@ fn add_edge_checked_rejects_nonexistent_source() {
 
 #[specforge_test(
     behavior = "build_in_memory_graph",
-    verify = "add_edge_checked rejects edge with non-existent target"
+    verify = "every edge connects two existing nodes"
 )]
 #[test]
 fn add_edge_checked_rejects_nonexistent_target() {
@@ -1798,7 +1798,7 @@ fn add_edge_checked_rejects_nonexistent_target() {
 
 #[specforge_test(
     behavior = "build_in_memory_graph",
-    verify = "add_edge_checked accepts edge between existing nodes"
+    verify = "every edge connects two existing nodes"
 )]
 #[test]
 fn add_edge_checked_accepts_valid_edge() {
@@ -1819,7 +1819,7 @@ fn add_edge_checked_accepts_valid_edge() {
 
 #[specforge_test(
     behavior = "build_in_memory_graph",
-    verify = "add_edge_checked rejects edge when both source and target are missing"
+    verify = "every edge connects two existing nodes"
 )]
 #[test]
 fn add_edge_checked_rejects_both_missing() {

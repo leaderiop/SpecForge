@@ -82,7 +82,7 @@ fn call_tool(server: &mut McpServer, name: &str, args: Value) -> Value {
 #[test]
 #[specforge_test(
     behavior = "mcp_structured_error_responses",
-    verify = "all error responses have code and message"
+    verify = "error response includes error code and message fields"
 )]
 fn error_responses_have_code_and_message() {
     let mut server = McpServer::new();
@@ -173,7 +173,10 @@ fn export_is_idempotent() {
 
 // I:mcp_tool_idempotency — verify property "stats is idempotent"
 #[test]
-#[specforge_test(behavior = "mcp_tool_idempotency", verify = "stats is idempotent")]
+#[specforge_test(
+    behavior = "mcp_tool_idempotency",
+    verify = "read-only tools return equivalent results for identical inputs"
+)]
 fn stats_is_idempotent() {
     let mut server = test_server();
     let resp1 = call_tool(&mut server, "specforge.stats", json!({}));
@@ -185,7 +188,10 @@ fn stats_is_idempotent() {
 
 // I:mcp_tool_idempotency — verify property "trace is idempotent"
 #[test]
-#[specforge_test(behavior = "mcp_tool_idempotency", verify = "trace is idempotent")]
+#[specforge_test(
+    behavior = "mcp_tool_idempotency",
+    verify = "read-only tools return equivalent results for identical inputs"
+)]
 fn trace_is_idempotent() {
     let mut server = test_server();
     let resp1 = call_tool(

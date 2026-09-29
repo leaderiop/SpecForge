@@ -55,7 +55,7 @@ fn check_accepts_all_governance_entity_kinds() {
 #[test]
 #[specforge_test(
     behavior = "check_mode_for_ci",
-    verify = "requires/ensures consistency for CI check mode"
+    verify = "Check Mode for CI: CI check mode holds — validation_complete_fired, no_output_files_produced, diagnostics_to_stderr, appropriate_exit_code"
 )]
 fn check_full_multi_extension_project_exits_zero() {
     let dir = setup_project(&[("main.spec", MULTI_EXTENSION_SPEC)]);

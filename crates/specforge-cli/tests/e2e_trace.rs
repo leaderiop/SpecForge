@@ -5,8 +5,8 @@ use specforge_test_macros::test as specforge_test;
 
 #[test]
 #[specforge_test(
-    behavior = "trace_entity_dependencies",
-    verify = "isolated entity has empty upstream and downstream"
+    behavior = "compute_traceability_chain",
+    verify = "trace from entity shows upstream and downstream connections"
 )]
 fn trace_isolated_entity_has_empty_upstream_and_downstream() {
     let dir = setup_project(&[("main.spec", ISOLATED_SPEC)]);
@@ -28,8 +28,8 @@ fn trace_isolated_entity_has_empty_upstream_and_downstream() {
 
 #[test]
 #[specforge_test(
-    behavior = "trace_entity_dependencies",
-    verify = "linear chain shows correct depths"
+    behavior = "compute_traceability_chain",
+    verify = "trace shows full chain depth"
 )]
 fn trace_linear_chain_shows_correct_depths() {
     let dir = setup_project(&[("main.spec", DEEP_CHAIN_SPEC)]);
@@ -61,8 +61,8 @@ fn trace_linear_chain_shows_correct_depths() {
 
 #[test]
 #[specforge_test(
-    behavior = "trace_entity_dependencies",
-    verify = "trace includes edge labels"
+    behavior = "compute_traceability_chain",
+    verify = "trace from entity shows upstream and downstream connections"
 )]
 fn trace_includes_edge_labels() {
     let dir = setup_project(&[("main.spec", DEEP_CHAIN_SPEC)]);
@@ -89,8 +89,8 @@ fn trace_includes_edge_labels() {
 
 #[test]
 #[specforge_test(
-    behavior = "trace_entity_dependencies",
-    verify = "trace handles cycles without hanging"
+    invariant = "graph_traversal_integrity",
+    verify = "traversal from any node visits every reachable node exactly once"
 )]
 fn trace_handles_cycles_without_hanging() {
     let dir = setup_project(&[("main.spec", CYCLE_SPEC)]);
@@ -113,8 +113,8 @@ fn trace_handles_cycles_without_hanging() {
 
 #[test]
 #[specforge_test(
-    behavior = "trace_entity_dependencies",
-    verify = "cycle visits each node once"
+    invariant = "graph_traversal_integrity",
+    verify = "traversal from any node visits every reachable node exactly once"
 )]
 fn trace_cycle_visits_each_node_once() {
     let dir = setup_project(&[("main.spec", CYCLE_SPEC)]);
@@ -161,8 +161,8 @@ fn trace_cycle_visits_each_node_once() {
 
 #[test]
 #[specforge_test(
-    behavior = "trace_entity_dependencies",
-    verify = "deterministic output"
+    invariant = "graph_traversal_integrity",
+    verify = "identical graph inputs produce identical traversal results"
 )]
 fn trace_deterministic_output() {
     let dir = setup_project(&[("main.spec", DEEP_CHAIN_SPEC)]);
@@ -188,8 +188,8 @@ fn trace_deterministic_output() {
 
 #[test]
 #[specforge_test(
-    behavior = "trace_entity_dependencies",
-    verify = "root entity has no upstream"
+    behavior = "compute_traceability_chain",
+    verify = "trace from entity shows upstream and downstream connections"
 )]
 fn trace_root_entity_has_no_upstream() {
     let dir = setup_project(&[("main.spec", DEEP_CHAIN_SPEC)]);
@@ -214,8 +214,8 @@ fn trace_root_entity_has_no_upstream() {
 
 #[test]
 #[specforge_test(
-    behavior = "trace_entity_dependencies",
-    verify = "leaf entity has no downstream"
+    behavior = "compute_traceability_chain",
+    verify = "trace from entity shows upstream and downstream connections"
 )]
 fn trace_leaf_entity_has_no_downstream() {
     let dir = setup_project(&[(
@@ -250,8 +250,8 @@ feature beta "B" { problem "p" solution "s" behaviors [alpha] }
 
 #[test]
 #[specforge_test(
-    behavior = "trace_entity_dependencies",
-    verify = "multi kind chain preserves entity kind"
+    behavior = "compute_traceability_chain",
+    verify = "trace from entity shows upstream and downstream connections"
 )]
 fn trace_multi_kind_chain_preserves_entity_kind() {
     let dir = setup_project(&[("main.spec", DEEP_CHAIN_SPEC)]);

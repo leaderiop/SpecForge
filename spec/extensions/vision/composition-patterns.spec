@@ -272,7 +272,7 @@ behavior cp_missing_product_from_software "Missing @specforge/product: Software 
        "Unknown entity kind 'feature' — install @specforge/product
        (`specforge add @specforge/product`) to resolve feature references."
     4. Store the reference as unresolved — it is NOT discarded.
-    5. NOT emit E001 (error) — the reference is soft, not hard.
+    5. NOT emit E003 (error) — the reference is soft, not hard.
 
     The Implements edge (behavior -> feature) is declared in software's
     manifest but its target_kind "feature" is unregistered. The edge
@@ -295,7 +295,7 @@ behavior cp_missing_product_from_software "Missing @specforge/product: Software 
   ensures {
     reference_stored       "The features reference list is parsed and stored"
     i004_emitted           "I004 info diagnostic emitted for unresolved feature kind"
-    e001_not_emitted       "E001 error is NOT emitted for cross-extension soft references"
+    e003_not_emitted       "E003 error is NOT emitted for cross-extension soft references"
     enhancements_skipped   "entity_enhancements targeting product kinds are silently ignored"
     edge_type_loaded       "Implements edge type exists in EdgeRegistry but no instances created"
     future_resolution      "Installing @specforge/product resolves the references without .spec changes"
@@ -303,7 +303,7 @@ behavior cp_missing_product_from_software "Missing @specforge/product: Software 
 
   verify unit "features field parsed and stored when product not installed"
   verify unit "I004 emitted with message suggesting @specforge/product"
-  verify unit "E001 not emitted for soft cross-extension reference"
+  verify unit "E003 not emitted for soft cross-extension reference"
   verify unit "entity_enhancements silently skipped — no warning or error"
   verify unit "references resolve after product is installed"
 }
@@ -332,7 +332,7 @@ behavior cp_missing_software_from_governance "Missing @specforge/software: Gover
        "Unknown entity kind 'behavior' — install @specforge/software
        (`specforge add @specforge/software`) to resolve behavior references."
     4. Store all references as unresolved — they are NOT discarded.
-    5. NOT emit E001 (error) — governance declares @specforge/software
+    5. NOT emit E003 (error) — governance declares @specforge/software
        as an optional peer dependency for exactly this reason.
 
     Governance's ConstrainsBehavior edge (constraint -> behavior) cannot
@@ -353,7 +353,7 @@ behavior cp_missing_software_from_governance "Missing @specforge/software: Gover
   ensures {
     references_stored        "Cross-extension reference lists are parsed and stored"
     i004_emitted             "I004 info diagnostic emitted for each unresolved software kind"
-    e001_not_emitted         "E001 error is NOT emitted — peer dependency is optional"
+    e003_not_emitted         "E003 error is NOT emitted — peer dependency is optional"
     governance_still_works   "decision, constraint, failure_mode entities function normally"
     cross_edges_not_created  "ConstrainsBehavior and related edges exist in registry but no instances created"
   }
@@ -361,7 +361,7 @@ behavior cp_missing_software_from_governance "Missing @specforge/software: Gover
   verify unit "constrains field parsed and stored when software not installed"
   verify unit "I004 emitted for unresolved behavior kind reference"
   verify unit "I004 emitted for unresolved invariant kind reference"
-  verify unit "E001 not emitted — optional peer dependency"
+  verify unit "E003 not emitted — optional peer dependency"
   verify unit "governance entities validate and export normally"
 }
 

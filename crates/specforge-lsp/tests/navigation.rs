@@ -173,7 +173,7 @@ fn goto_import_returns_none_for_missing() {
 
 #[spec(
     behavior = "goto_import_definition",
-    verify = "textDocument/definition on use line dispatches to goto_import_definition"
+    verify = "go-to-def on use path navigates to target file"
 )]
 #[test]
 fn goto_definition_dispatches_to_import_on_use_line() {

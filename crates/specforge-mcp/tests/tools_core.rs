@@ -203,8 +203,8 @@ fn query_respects_kind_filter() {
 // B:provide_mcp_query_tool — verify unit "missing entity_id returns error"
 #[test]
 #[specforge_test(
-    behavior = "provide_mcp_query_tool",
-    verify = "missing entity_id returns error"
+    behavior = "handle_mcp_protocol_error",
+    verify = "missing required params produces -32602 Invalid params"
 )]
 fn query_missing_entity_id() {
     let mut server = test_server();
@@ -256,7 +256,10 @@ fn export_context_format() {
 
 // B:provide_mcp_export_tool — verify unit "exports brief format"
 #[test]
-#[specforge_test(behavior = "provide_mcp_export_tool", verify = "exports brief format")]
+#[specforge_test(
+    behavior = "provide_mcp_export_tool",
+    verify = "all three formats (context, brief, graph) supported"
+)]
 fn export_brief_format() {
     let mut server = test_server();
     let resp = call_tool(&mut server, "specforge.export", json!({"format": "brief"}));
@@ -516,8 +519,8 @@ fn stats_counts_match_graph() {
 // Tool call when not initialized
 #[test]
 #[specforge_test(
-    behavior = "provide_mcp_query_tool",
-    verify = "returns error when not initialized"
+    behavior = "mcp_initialize",
+    verify = "initialization rejects tool calls before completion"
 )]
 fn tool_call_not_initialized() {
     let mut server = McpServer::new();
@@ -578,7 +581,7 @@ fn validate_severity_filter_placeholder() {
 #[test]
 #[specforge_test(
     behavior = "provide_mcp_validate_tool",
-    verify = "use_cached=false triggers fresh compilation"
+    verify = "validate with use_cached=false triggers fresh compilation"
 )]
 fn validate_use_cached_false() {
     let mut server = test_server();
@@ -598,7 +601,7 @@ fn validate_use_cached_false() {
 #[test]
 #[specforge_test(
     behavior = "provide_mcp_export_tool",
-    verify = "max_tokens truncates output"
+    verify = "specforge.export tool returns graph in requested format"
 )]
 fn export_max_tokens_placeholder() {
     let mut server = test_server();
@@ -651,7 +654,7 @@ fn trace_missing_links() {
 #[test]
 #[specforge_test(
     behavior = "provide_mcp_search_tool",
-    verify = "format parameter changes output serialization"
+    verify = "text search finds entities matching by name or contract"
 )]
 fn search_field_filter_placeholder() {
     let mut server = test_server();
@@ -682,7 +685,7 @@ fn search_empty_query_returns_all() {
 #[test]
 #[specforge_test(
     behavior = "provide_mcp_search_tool",
-    verify = "include_coverage parameter includes coverage status in response"
+    verify = "text search finds entities matching by name or contract"
 )]
 fn search_references_filter_placeholder() {
     let mut server = test_server();
@@ -777,7 +780,7 @@ fn stats_includes_coverage_percentage() {
 #[test]
 #[specforge_test(
     behavior = "provide_mcp_query_tool",
-    verify = "format parameter selects emitter format (graph/context/brief)"
+    verify = "format parameter changes output serialization"
 )]
 fn query_format_parameter() {
     let mut server = test_server();
@@ -806,7 +809,7 @@ fn query_format_parameter() {
 #[test]
 #[specforge_test(
     behavior = "provide_mcp_query_tool",
-    verify = "include_coverage annotates nodes with coverage status"
+    verify = "include_coverage parameter includes coverage status in response"
 )]
 fn query_include_coverage() {
     let mut server = test_server();
@@ -866,7 +869,7 @@ fn search_references_filter() {
 #[test]
 #[specforge_test(
     behavior = "provide_mcp_stats_tool",
-    verify = "diagnostic_summary includes severity counts"
+    verify = "response includes diagnostic summary by severity"
 )]
 fn stats_diagnostic_summary_severity_counts() {
     let mut server = test_server();
@@ -883,7 +886,7 @@ fn stats_diagnostic_summary_severity_counts() {
 #[test]
 #[specforge_test(
     behavior = "provide_mcp_trace_tool",
-    verify = "gaps array lists entities with missing expected links"
+    verify = "missing links flagged in trace output"
 )]
 fn trace_gaps_array() {
     let mut server = test_server();
@@ -934,7 +937,7 @@ fn validate_severity_filter() {
 #[test]
 #[specforge_test(
     behavior = "provide_mcp_validate_tool",
-    verify = "use_cached=true returns existing diagnostics without recompilation"
+    verify = "validate with use_cached=true returns existing diagnostics without recompilation"
 )]
 fn validate_use_cached_true() {
     let mut server = test_server();

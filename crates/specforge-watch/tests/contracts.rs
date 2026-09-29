@@ -66,7 +66,7 @@ fn cold_build(files: &[(&str, &str)]) -> (IncrementalPipeline, HashMap<String, S
 #[test]
 #[specforge_test(
     behavior = "compute_graph_delta",
-    verify = "requires/ensures consistency for graph delta computation"
+    verify = "Compute Graph Delta: graph delta computation holds — previous_graph_available"
 )]
 fn compute_graph_delta_contract() {
     // Requires: old graph and new graph
@@ -105,7 +105,7 @@ fn compute_graph_delta_contract() {
 #[test]
 #[specforge_test(
     behavior = "debounce_file_changes",
-    verify = "requires/ensures consistency for file change debouncing"
+    verify = "Debounce File Changes: file change debouncing holds — file_changed_fired, coalesced_batch_produced, redundant_recompilation_prevented"
 )]
 fn debounce_file_changes_contract() {
     use specforge_watch::Debouncer;
@@ -136,7 +136,7 @@ fn debounce_file_changes_contract() {
 #[test]
 #[specforge_test(
     behavior = "track_import_dag_incrementally",
-    verify = "requires/ensures consistency for incremental import DAG tracking"
+    verify = "Track Import DAG Incrementally: incremental import DAG tracking holds — subgraph_invalidated_fired, import_dag_updated_emitted, cycle_detection_rerun"
 )]
 fn track_import_dag_incrementally_contract() {
     // Requires: file change that adds/removes imports
@@ -178,7 +178,7 @@ fn track_import_dag_incrementally_contract() {
 #[test]
 #[specforge_test(
     behavior = "dispatch_incremental_validators",
-    verify = "requires/ensures consistency for incremental dispatch"
+    verify = "Dispatch Incremental Validators: incremental dispatch holds — all_validators_invoked"
 )]
 fn dispatch_incremental_validators_contract() {
     // Requires: delta with affected entity kinds + validator descriptors
@@ -242,7 +242,7 @@ fn dispatch_incremental_validators_contract() {
 #[test]
 #[specforge_test(
     behavior = "notify_delta_subscribers",
-    verify = "requires/ensures consistency for delta subscriber notification"
+    verify = "Notify Delta Subscribers: delta subscriber notification holds — graph_delta_computed_fired, lsp_notified, diagnostics_delta_delivered, delta_subscribers_notified_emitted"
 )]
 fn notify_delta_subscribers_contract() {
     // Requires: delta produced + registered subscribers
@@ -291,7 +291,7 @@ fn notify_delta_subscribers_contract() {
 #[test]
 #[specforge_test(
     behavior = "rebuild_affected_subgraph",
-    verify = "requires/ensures consistency for affected subgraph rebuild"
+    verify = "Rebuild Affected Subgraph: affected subgraph rebuild holds — subgraph_invalidated, import_dag_updated, graph_reflects_reparse, stale_removed, new_added, rebuild_event_fired, unaffected_subgraph_intact"
 )]
 fn rebuild_affected_subgraph_contract() {
     // Requires: file change in a multi-file project
@@ -340,7 +340,7 @@ fn rebuild_affected_subgraph_contract() {
 #[test]
 #[specforge_test(
     behavior = "validate_delta_correctness",
-    verify = "requires/ensures consistency for delta correctness validation"
+    verify = "Validate Delta Correctness: delta correctness validation holds — graph_delta_available, debug_mode_active, delta_verified, validation_event_emitted"
 )]
 fn validate_delta_correctness_contract() {
     // Requires: computed delta from old→new graph

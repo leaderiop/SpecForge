@@ -337,7 +337,7 @@ mod tests {
 
     #[specforge_test_macros::test(
         behavior = "preserve_comments",
-        verify = "requires/ensures consistency for comment preservation"
+        verify = "Preserve Comments During Formatting: comment preservation holds — cst_available, all_comments_attached, no_comments_lost"
     )]
     #[test]
     fn test_preserve_comments_contract() {

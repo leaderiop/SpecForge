@@ -179,7 +179,7 @@ fn no_field_names_for_unknown_kind() {
 
 #[spec(
     behavior = "complete_field_names",
-    verify = "field name completion uses FieldRegistry when populated"
+    verify = "field name completion uses FieldRegistry for entity kind"
 )]
 #[test]
 fn complete_field_names_from_registry() {
@@ -217,7 +217,7 @@ fn complete_field_names_from_registry() {
 
 #[spec(
     behavior = "complete_field_names",
-    verify = "returns empty when registry has no fields for kind"
+    verify = "suggestions are filtered by entity kind"
 )]
 #[test]
 fn complete_field_names_empty_when_registry_has_no_fields() {

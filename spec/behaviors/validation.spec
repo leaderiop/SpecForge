@@ -24,14 +24,14 @@ behavior detect_dangling_references "Detect Dangling References" {
 
   ensures {
     resolver_integrity_verified "Every reference list entry has a corresponding graph edge, or an internal error is raised"
-    no_duplicate_diagnostics "E001 diagnostics already emitted by link_entity_references are not re-emitted"
+    no_duplicate_diagnostics "E003 diagnostics already emitted by link_entity_references are not re-emitted"
   }
 
   contract """
     This behavior is a post-resolution integrity assertion. User-facing
-    E001 diagnostics are emitted by link_entity_references during resolution.
-    This behavior delegates to link_entity_references for E001 emission.
-    The validator MUST NOT re-emit E001 for references already flagged
+    E003 diagnostics are emitted by link_entity_references during resolution.
+    This behavior delegates to link_entity_references for E003 emission.
+    The validator MUST NOT re-emit E003 for references already flagged
     during resolution. The validator's role is to verify that every
     reference list entry has a corresponding graph edge — if not, it
     indicates a resolver bug, not a user error.
@@ -161,7 +161,7 @@ behavior detect_orphan_refs "Detect Orphan Structural Nodes" {
 // Core structural validation: checks file existence for ANY field declared as
 // a file reference in extension metadata. This is purely structural and
 // domain-agnostic — the core checks that referenced files exist, just like it
-// checks that referenced entity IDs exist (E001). This mechanism applies to
+// checks that referenced entity IDs exist (E003). This mechanism applies to
 // any file-reference field registered by any extension (e.g., gherkin from
 // @specforge/software, or a future openapi field from another extension).
 // W018 (missing file-reference field on supported kind) is an extension-level

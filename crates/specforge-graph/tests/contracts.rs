@@ -53,7 +53,7 @@ fn make_edge(source: &str, target: &str, label: &str) -> Edge {
 #[test]
 #[specforge_test(
     behavior = "build_in_memory_graph",
-    verify = "requires/ensures consistency for in-memory graph construction"
+    verify = "Build In-Memory Graph: in-memory graph construction holds — resolution_complete, one_node_per_entity, one_edge_per_reference, no_orphan_edges"
 )]
 fn build_in_memory_graph_contract() {
     // Requires: set of nodes and edges
@@ -86,7 +86,7 @@ fn build_in_memory_graph_contract() {
 #[test]
 #[specforge_test(
     behavior = "maintain_mutable_graph",
-    verify = "requires/ensures consistency for mutable graph maintenance"
+    verify = "Maintain Mutable Graph: mutable graph maintenance holds — graph_initialized, mutations_applied, no_dangling_edges_enforced, graph_consistency"
 )]
 fn maintain_mutable_graph_contract() {
     // Requires: existing graph with nodes and edges
@@ -124,7 +124,7 @@ fn maintain_mutable_graph_contract() {
 #[test]
 #[specforge_test(
     behavior = "compute_subgraph_for_invalidation",
-    verify = "requires/ensures consistency for subgraph invalidation"
+    verify = "Compute Subgraph for Invalidation: subgraph invalidation holds — graph_built_ready, changed_file_identified, invalidation_subgraph_computed, only_affected_rebuilt, unaffected_subgraphs_intact"
 )]
 fn compute_subgraph_for_invalidation_contract() {
     // Requires: graph with nodes across files + import DAG
@@ -161,7 +161,7 @@ fn compute_subgraph_for_invalidation_contract() {
 #[test]
 #[specforge_test(
     behavior = "resolve_external_ref_declarations",
-    verify = "requires/ensures consistency for external ref resolution"
+    verify = "Resolve External Ref Declarations: external ref resolution holds — ref_blocks_parsed, filesystem_available, refs_registered, known_schemes_marked, unknown_schemes_deferred"
 )]
 fn resolve_external_ref_declarations_contract() {
     // Requires: graph with ref nodes having scheme metadata
@@ -208,7 +208,7 @@ ref jira.story:ABC-1 "Backend work"
 #[test]
 #[specforge_test(
     behavior = "resolve_soft_cross_extension_references",
-    verify = "requires/ensures consistency for soft cross-extension resolution"
+    verify = "Resolve Soft Cross-Extension References: soft cross-extension resolution holds — registries_populated_fired, known_extensions_catalog_available, suggestion_emitted, installed_extensions_resolved"
 )]
 fn resolve_soft_cross_extension_references_contract() {
     // Requires: entity with keyword from uninstalled but known extension
@@ -256,7 +256,7 @@ fn resolve_soft_cross_extension_references_contract() {
 #[test]
 #[specforge_test(
     behavior = "provide_did_you_mean_suggestions",
-    verify = "requires/ensures consistency for did-you-mean suggestions"
+    verify = "Provide Did-You-Mean Suggestions: did-you-mean suggestions holds — unresolved_reference_available, kind_registry_populated, distance_threshold, sorted_by_distance"
 )]
 fn provide_did_you_mean_suggestions_contract() {
     // Requires: unresolved reference with entity IDs available

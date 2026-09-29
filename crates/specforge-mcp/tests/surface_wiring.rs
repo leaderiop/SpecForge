@@ -161,8 +161,8 @@ fn init_server_with_surfaces() -> (McpServer, TempDir) {
 // B:surface_wiring — verify unit "extension MCP tools appear in tool registry after init"
 #[test]
 #[specforge_test(
-    behavior = "surface_wiring",
-    verify = "extension MCP tools appear in tool registry after init"
+    behavior = "mcp_initialize",
+    verify = "initialization registers all tools from installed extensions"
 )]
 fn extension_mcp_tools_in_registry() {
     let (mut server, _dir) = init_server_with_surfaces();
@@ -187,8 +187,8 @@ fn extension_mcp_tools_in_registry() {
 // B:surface_wiring — verify unit "extension MCP resources appear in resource registry after init"
 #[test]
 #[specforge_test(
-    behavior = "surface_wiring",
-    verify = "extension MCP resources appear in resource registry after init"
+    behavior = "list_mcp_resources",
+    verify = "returns all registered resource descriptors after extension load"
 )]
 fn extension_mcp_resources_in_registry() {
     let (mut server, _dir) = init_server_with_surfaces();
@@ -216,8 +216,8 @@ fn extension_mcp_resources_in_registry() {
 // B:surface_wiring — verify unit "capabilities response includes extension tool/resource counts"
 #[test]
 #[specforge_test(
-    behavior = "surface_wiring",
-    verify = "capabilities include extension counts"
+    behavior = "list_mcp_tools",
+    verify = "returns all registered tool descriptors after extension load"
 )]
 fn capabilities_include_extension_counts() {
     use specforge_mcp::types::McpToolDescriptor;
@@ -353,8 +353,8 @@ fn list_tool_registered() {
 // B:extension_tool_dispatch — verify unit "calling extension tool dispatches rather than METHOD_NOT_FOUND"
 #[test]
 #[specforge_test(
-    behavior = "extension_tool_dispatch",
-    verify = "extension tool dispatches from surface registry"
+    behavior = "dispatch_surface_mcp_tool",
+    verify = "input JSON passed to mcp__ export"
 )]
 fn extension_tool_dispatches() {
     let (mut server, _dir) = init_server_with_surfaces();
@@ -384,8 +384,8 @@ fn unknown_tool_returns_invalid_params() {
 // B:extension_tool_dispatch — verify unit "re-compilation preserves core tools"
 #[test]
 #[specforge_test(
-    behavior = "extension_tool_dispatch",
-    verify = "validate recompiles and preserves core tools"
+    behavior = "list_mcp_tools",
+    verify = "returns core-provided descriptors when no extensions installed"
 )]
 fn recompilation_refreshes_surfaces() {
     let dir = TempDir::new().unwrap();

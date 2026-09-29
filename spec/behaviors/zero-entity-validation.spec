@@ -40,6 +40,7 @@ behavior parse_validation_rule_pattern "Parse Validation Rule Pattern" {
   verify unit "parses missing_field_when_flag_set pattern from manifest"
   verify unit "unrecognized pattern kind produces warning"
   verify unit "all required fields validated on each rule"
+  verify unit "parses field_value_constraint pattern from manifest"
   verify contract "Parse Validation Rule Pattern: validation rule parsing holds — manifest_rules_available, patterns_parsed, unrecognized_warned"
 
   tests ["crates/specforge-registry/tests/zero_entity_validation.rs"]

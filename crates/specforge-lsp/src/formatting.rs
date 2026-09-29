@@ -311,7 +311,7 @@ mod tests {
 
     #[specforge_test_macros::test(
         behavior = "lsp_format_document",
-        verify = "requires/ensures consistency for LSP document formatting"
+        verify = "LSP Format Document: LSP document formatting holds — document_open, format_config_loaded, textedit_list_returned, cli_parity_enforced, format_complete_emitted"
     )]
     #[test]
     fn test_lsp_format_document_contract() {
@@ -338,7 +338,7 @@ mod tests {
 
     #[specforge_test_macros::test(
         behavior = "lsp_format_range",
-        verify = "requires/ensures consistency for LSP range formatting"
+        verify = "LSP Format Range: LSP range formatting holds — document_open, format_config_loaded, range_expanded, textedit_list_returned, full_format_parity, format_complete_emitted"
     )]
     #[test]
     fn test_lsp_format_range_contract() {
@@ -359,7 +359,7 @@ mod tests {
 
     #[specforge_test_macros::test(
         behavior = "lsp_respect_editor_config",
-        verify = "requires/ensures consistency for editor config respect"
+        verify = "LSP Respect Editor Config: editor config respect holds — lsp_initialized_fired, config_precedence_enforced, editor_fallback_applied"
     )]
     #[test]
     fn test_lsp_respect_editor_config_contract() {

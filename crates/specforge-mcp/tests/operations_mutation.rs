@@ -543,7 +543,7 @@ fn remove_extension_orphan_warning_placeholder() {
 #[test]
 #[specforge_test(
     behavior = "provide_mcp_rename_tool",
-    verify = "invalid new_name format returns validation error"
+    verify = "invalid new_name returns validation error"
 )]
 fn rename_invalid_name_format() {
     let mut server = test_server();
@@ -839,7 +839,7 @@ fn remove_extension_dry_run() {
 #[test]
 #[specforge_test(
     behavior = "provide_mcp_format_tool",
-    verify = "requires/ensures consistency for MCP format tool"
+    verify = "Provide MCP Format Tool: MCP format tool holds — filesystem_available, files_formatted, check_mode_readonly, mutation_completed_emitted, tool_invoked_emitted"
 )]
 fn format_contract() {
     let mut server = test_server();
@@ -860,7 +860,7 @@ fn format_contract() {
 #[test]
 #[specforge_test(
     behavior = "provide_mcp_rename_tool",
-    verify = "requires/ensures consistency for MCP rename tool"
+    verify = "Provide MCP Rename Tool: MCP rename tool holds — graph_available, filesystem_available, references_updated, recompilation_triggered, dry_run_safe, mutation_completed_emitted, tool_invoked_emitted"
 )]
 fn rename_contract() {
     let mut server = test_server();
@@ -884,7 +884,7 @@ fn rename_contract() {
 #[test]
 #[specforge_test(
     behavior = "provide_mcp_init_tool",
-    verify = "requires/ensures consistency for MCP init tool"
+    verify = "Provide MCP Init Tool: MCP init tool holds — filesystem_available, project_created, path_outside_current, extensions_validated, project_initialized_emitted, tool_invoked_emitted"
 )]
 fn init_contract() {
     let dir = fresh_project_dir();
@@ -912,7 +912,7 @@ fn init_contract() {
 #[test]
 #[specforge_test(
     behavior = "provide_mcp_add_extension_tool",
-    verify = "requires/ensures consistency for MCP add extension tool"
+    verify = "Provide MCP Add Extension Tool: MCP add extension tool holds — filesystem_available, extension_installed, wasm_downloaded, extension_added_emitted, dry_run_safe, tool_invoked_emitted"
 )]
 fn add_extension_contract() {
     let dir = tempfile::TempDir::new().unwrap();
@@ -943,7 +943,7 @@ fn add_extension_contract() {
 #[test]
 #[specforge_test(
     behavior = "provide_mcp_remove_extension_tool",
-    verify = "requires/ensures consistency for MCP remove extension tool"
+    verify = "Provide MCP Remove Extension Tool: MCP remove extension tool holds — filesystem_available, extension_removed, orphan_warning_produced, dry_run_safe, mutation_completed_emitted, tool_invoked_emitted"
 )]
 fn remove_extension_contract() {
     let dir = tempfile::TempDir::new().unwrap();
@@ -974,7 +974,7 @@ fn remove_extension_contract() {
 #[test]
 #[specforge_test(
     behavior = "provide_mcp_migrate_tool",
-    verify = "requires/ensures consistency for MCP migrate tool"
+    verify = "Provide MCP Migrate Tool: MCP migrate tool holds — filesystem_available, migrations_applied, post_migration_validated, dry_run_safe, mutation_completed_emitted, tool_invoked_emitted"
 )]
 fn migrate_contract() {
     let mut server = test_server();

@@ -103,8 +103,8 @@ fn load_patterns_for(
 }
 
 #[spec(
-    behavior = "validation_patterns",
-    verify = "LspState starts empty and registries are loaded via config"
+    invariant = "zero_domain_knowledge_core",
+    verify = "core with zero extensions installed has zero entity kinds in KindRegistry"
 )]
 #[test]
 fn state_starts_with_empty_registries() {

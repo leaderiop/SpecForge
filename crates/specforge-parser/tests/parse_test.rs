@@ -1843,7 +1843,7 @@ define exotic_kind {
 
 // --- pub use import tests ---
 
-#[specforge_test(behavior = "parse_use_imports", verify = "parse pub use import")]
+#[specforge_test(behavior = "parse_use_imports", verify = "parse full use import")]
 #[test]
 fn parse_pub_use_import() {
     let source = "pub use \"./foo\"\n";
@@ -1863,7 +1863,7 @@ fn parse_pub_use_import() {
 
 #[specforge_test(
     behavior = "parse_use_imports",
-    verify = "parse pub use selective import"
+    verify = "parse selective use import with braces"
 )]
 #[test]
 fn parse_pub_use_selective() {
@@ -1890,10 +1890,7 @@ fn parse_pub_use_selective() {
     assert_eq!(bindings[1].name, "Baz");
 }
 
-#[specforge_test(
-    behavior = "parse_use_imports",
-    verify = "parse mixed use and pub use imports"
-)]
+#[specforge_test(behavior = "parse_use_imports", verify = "parse full use import")]
 #[test]
 fn parse_mixed_use_and_pub_use() {
     let source = r#"
@@ -2111,10 +2108,10 @@ behavior overflowed "Overflow" {
     assert!(err.found.is_some(), "error should have 'found' field");
 }
 
-// B:parse_all_block_types — verify unit "missing opening brace produces helpful error"
+// B:recover_from_syntax_errors — verify unit "missing opening brace produces a parse error"
 #[specforge_test(
-    behavior = "parse_all_block_types",
-    verify = "missing opening brace produces helpful error"
+    behavior = "recover_from_syntax_errors",
+    verify = "missing opening brace produces a parse error"
 )]
 #[test]
 fn missing_opening_brace_produces_error() {
@@ -2128,9 +2125,9 @@ fn missing_opening_brace_produces_error() {
     );
 }
 
-// B:parse_all_block_types — verify unit "completely invalid syntax produces error with location"
+// B:recover_from_syntax_errors — verify unit "completely invalid syntax produces error with location"
 #[specforge_test(
-    behavior = "parse_all_block_types",
+    behavior = "recover_from_syntax_errors",
     verify = "completely invalid syntax produces error with location"
 )]
 #[test]
@@ -2183,7 +2180,7 @@ behavior normal "Normal" {
 
 #[specforge_test(
     behavior = "parse_all_block_types",
-    verify = "escaped quotes in strings are unescaped"
+    verify = "parse string field values correctly"
 )]
 #[test]
 fn unquote_processes_escaped_quotes() {
@@ -2203,7 +2200,7 @@ fn unquote_processes_escaped_quotes() {
 
 #[specforge_test(
     behavior = "parse_all_block_types",
-    verify = "escaped backslashes in strings are unescaped"
+    verify = "parse string field values correctly"
 )]
 #[test]
 fn unquote_processes_escaped_backslashes() {

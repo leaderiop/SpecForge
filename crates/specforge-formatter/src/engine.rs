@@ -1579,7 +1579,7 @@ mod tests {
 
     #[specforge_test_macros::test(
         behavior = "apply_format_rules",
-        verify = "requires/ensures consistency for format rule application"
+        verify = "Apply Format Rules: format rule application holds — cst_available, format_config_loaded, contribution_registry_available, deterministic_output, no_domain_logic, extension_rules_applied"
     )]
     #[test]
     fn test_formatting_does_not_alter_entity_ids_field_values_or_reference_lists() {
@@ -1642,7 +1642,7 @@ mod tests {
 
     #[specforge_test_macros::test(
         behavior = "apply_format_rules",
-        verify = "requires/ensures consistency for format rule application"
+        verify = "Apply Format Rules: format rule application holds — cst_available, format_config_loaded, contribution_registry_available, deterministic_output, no_domain_logic, extension_rules_applied"
     )]
     #[test]
     fn test_determinism_same_input_same_config_same_output() {
@@ -1876,7 +1876,7 @@ mod tests {
 
     #[specforge_test_macros::test(
         behavior = "apply_format_rules",
-        verify = "requires/ensures consistency for format rule application"
+        verify = "Apply Format Rules: format rule application holds — cst_available, format_config_loaded, contribution_registry_available, deterministic_output, no_domain_logic, extension_rules_applied"
     )]
     #[test]
     fn test_apply_format_rules_contract() {
@@ -1912,7 +1912,7 @@ mod tests {
 
     #[specforge_test_macros::test(
         behavior = "maintain_format_idempotency",
-        verify = "requires/ensures consistency for format idempotency"
+        verify = "Maintain Format Idempotency: format idempotency holds — format_rules_available, idempotency_holds, no_oscillation"
     )]
     #[test]
     fn test_maintain_format_idempotency_contract() {
@@ -2051,7 +2051,7 @@ mod tests {
 
     #[specforge_test_macros::test(
         behavior = "format_with_parse_errors",
-        verify = "requires/ensures consistency for formatting with parse errors"
+        verify = "Format Files with Parse Errors: formatting with parse errors holds — cst_with_errors, no_crash, well_formed_regions_formatted, error_regions_preserved, parse_error_diagnosed"
     )]
     #[test]
     fn test_format_with_parse_errors_contract() {
@@ -2309,7 +2309,7 @@ mod tests {
 
     #[specforge_test_macros::test(
         behavior = "lsp_respect_editor_config",
-        verify = "requires/ensures consistency for editor config respect"
+        verify = "LSP Respect Editor Config: editor config respect holds — lsp_initialized_fired, config_precedence_enforced, editor_fallback_applied"
     )]
     #[test]
     fn test_editor_config_contract() {
@@ -2414,7 +2414,7 @@ mod tests {
 
     #[specforge_test_macros::test(
         behavior = "format_spec_files",
-        verify = "requires/ensures consistency for spec file formatting"
+        verify = "Format Spec Files: spec file formatting holds — spec_files_available, format_config_loaded, formatted_output_written, unchanged_files_preserved, format_complete_emitted, summary_printed"
     )]
     #[test]
     fn test_format_spec_files_contract() {
@@ -2468,7 +2468,7 @@ mod tests {
 
     #[specforge_test_macros::test(
         behavior = "show_formatting_diff",
-        verify = "requires/ensures consistency for formatting diff"
+        verify = "Show Formatting Diff: formatting diff holds — spec_files_available, format_config_loaded, no_files_written, unified_diff_produced"
     )]
     #[test]
     fn test_show_formatting_diff_contract() {
@@ -2554,7 +2554,7 @@ mod tests {
 
     #[specforge_test_macros::test(
         behavior = "lsp_format_document",
-        verify = "requires/ensures consistency for LSP document formatting"
+        verify = "LSP Format Document: LSP document formatting holds — document_open, format_config_loaded, textedit_list_returned, cli_parity_enforced, format_complete_emitted"
     )]
     #[test]
     fn test_lsp_format_document_contract() {
@@ -2616,7 +2616,7 @@ mod tests {
 
     #[specforge_test_macros::test(
         behavior = "lsp_format_range",
-        verify = "requires/ensures consistency for LSP range formatting"
+        verify = "LSP Format Range: LSP range formatting holds — document_open, format_config_loaded, range_expanded, textedit_list_returned, full_format_parity, format_complete_emitted"
     )]
     #[test]
     fn test_lsp_format_range_contract() {

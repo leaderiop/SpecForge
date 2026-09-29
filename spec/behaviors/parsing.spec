@@ -69,6 +69,8 @@ behavior recover_from_syntax_errors "Recover From Syntax Errors" {
 
   verify unit "parser collects multiple errors from one file"
   verify unit "valid blocks after syntax error are still parsed"
+  verify unit "completely invalid syntax produces error with location"
+  verify unit "missing opening brace produces a parse error"
   verify contract "Recover From Syntax Errors: syntax error recovery holds — error_recovery_enabled, valid_utf8_input, valid_blocks_preserved, errors_collected"
 
   tests ["crates/specforge-parser/tests/parse_test.rs", "crates/specforge-parser/tests/snapshot_tests.rs", "crates/specforge-parser/tests/contracts.rs"]
@@ -389,6 +391,7 @@ behavior delegate_body_parsing_to_extension "Delegate Body Parsing to Extension"
   verify unit "entity with body parser delegates to dispatch_body_parser"
   verify unit "entity without body parser uses default field parsing"
   verify unit "structured fields replace raw body in FieldMap"
+  verify integration "extension-owned body syntax does not surface E001 parse errors"
   verify contract "Delegate Body Parsing to Extension: body parsing delegation holds — all_files_parsed_ready, wasm_runtime_available, body_parsing_delegated, default_parsing_preserved"
 
   tests ["crates/specforge-parser/tests/parse_test.rs", "crates/specforge-parser/tests/snapshot_tests.rs", "crates/specforge-parser/tests/contracts.rs"]

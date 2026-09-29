@@ -69,8 +69,8 @@ fn incremental_sync_reduces_transfer_size() {
 // -- utf16_positions -----------------------------------------------------------
 
 #[spec(
-    behavior = "utf16_positions",
-    verify = "utf16 columns resolve to byte offsets across emoji and CJK chars"
+    behavior = "incremental_document_sync",
+    verify = "incremental change applies correctly to source buffer"
 )]
 #[test]
 fn utf16_columns_resolve_to_byte_offsets_after_multibyte_chars() {

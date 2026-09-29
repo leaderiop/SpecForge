@@ -3,14 +3,14 @@
 invariant reference_resolution_completeness "Reference Resolution Completeness" {
   guarantee """
     Every entity ID in a reference list MUST resolve to a declared entity.
-    The compiler MUST emit E001 for unresolvable hard references and I004
+    The compiler MUST emit E003 for unresolvable hard references and I004
     for unresolvable soft references (cross-extension). No reference MUST be
     silently ignored.
   """
   risk high
 
   verify property "every entity ID in a reference list resolves to a declared entity or emits a diagnostic"
-  verify unit "E001 is emitted for broken hard references and I004 for broken soft references"
+  verify unit "E003 is emitted for broken hard references and I004 for broken soft references"
 
 }
 

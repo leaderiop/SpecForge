@@ -290,8 +290,8 @@ fn tools_have_categories() {
 // B:list_mcp_tools — verify unit "returns error when not initialized"
 #[test]
 #[specforge_test(
-    behavior = "list_mcp_tools",
-    verify = "returns error when not initialized"
+    behavior = "mcp_initialize",
+    verify = "initialization rejects tool calls before completion"
 )]
 fn list_tools_error_when_not_initialized() {
     let mut server = McpServer::new();
@@ -320,8 +320,8 @@ fn list_resources_returns_descriptors() {
 // B:list_mcp_resources — verify unit "returns error when not initialized"
 #[test]
 #[specforge_test(
-    behavior = "list_mcp_resources",
-    verify = "returns error when not initialized"
+    behavior = "mcp_initialize",
+    verify = "initialization rejects tool calls before completion"
 )]
 fn list_resources_error_when_not_initialized() {
     let mut server = McpServer::new();
@@ -350,8 +350,8 @@ fn list_prompts_returns_descriptors() {
 // B:list_mcp_prompts — verify unit "returns error when not initialized"
 #[test]
 #[specforge_test(
-    behavior = "list_mcp_prompts",
-    verify = "returns error when not initialized"
+    behavior = "mcp_initialize",
+    verify = "initialization rejects tool calls before completion"
 )]
 fn list_prompts_error_when_not_initialized() {
     let mut server = McpServer::new();
@@ -400,7 +400,7 @@ fn shutdown_events_recorded() {
 #[test]
 #[specforge_test(
     behavior = "guard_mcp_reinitialization",
-    verify = "existing session continues after rejected reinit"
+    verify = "existing session continues after rejected reinitialization"
 )]
 fn reinit_rejected_session_continues() {
     let (mut server, _dir) = init_server_with_project();
@@ -415,7 +415,7 @@ fn reinit_rejected_session_continues() {
 #[test]
 #[specforge_test(
     behavior = "guard_mcp_reinitialization",
-    verify = "no resources leaked on rejected reinit"
+    verify = "no resources leaked on rejected reinitialization"
 )]
 fn reinit_rejected_no_resource_leak() {
     let mut server = init_server();
@@ -437,7 +437,7 @@ fn reinit_rejected_no_resource_leak() {
 #[test]
 #[specforge_test(
     behavior = "list_mcp_tools",
-    verify = "returns core-provided descriptors when no extensions"
+    verify = "returns core-provided descriptors when no extensions installed"
 )]
 fn list_tools_core_descriptors_no_extensions() {
     let mut server = init_server();
@@ -473,7 +473,7 @@ fn list_tools_reflects_extension_tools() {
 #[test]
 #[specforge_test(
     behavior = "list_mcp_resources",
-    verify = "returns core-provided descriptors when no extensions"
+    verify = "returns core-provided descriptors when no extensions installed"
 )]
 fn list_resources_core_descriptors_no_extensions() {
     let mut server = init_server();
@@ -506,7 +506,7 @@ fn list_resources_reflects_extension_resources() {
 #[test]
 #[specforge_test(
     behavior = "list_mcp_prompts",
-    verify = "returns core-provided descriptors when no extensions"
+    verify = "returns core-provided descriptors when no extensions installed"
 )]
 fn list_prompts_core_descriptors_no_extensions() {
     let mut server = init_server();
@@ -541,7 +541,7 @@ fn list_prompts_reflects_extension_prompts() {
 #[test]
 #[specforge_test(
     behavior = "handle_mcp_request_cancellation",
-    verify = "server state remains consistent"
+    verify = "server state remains consistent after cancellation"
 )]
 fn cancel_state_consistent() {
     let mut server = init_server();
@@ -556,7 +556,7 @@ fn cancel_state_consistent() {
 #[test]
 #[specforge_test(
     behavior = "handle_mcp_request_cancellation",
-    verify = "cancel returns acknowledgment for long-running operations"
+    verify = "cancelled long-running export returns partial result or acknowledgment"
 )]
 fn cancel_long_running_acknowledgment() {
     let mut server = init_server();

@@ -51,6 +51,8 @@ behavior mcp_initialize "MCP Initialize" {
   verify unit "initialization rejects tool calls before completion"
   verify unit "all core tools registered before accepting requests"
   verify unit "all core resources registered before accepting requests"
+  verify unit "returns MCP-compliant init response"
+  verify unit "compiles project when projectRoot is provided"
   verify contract "MCP Initialize: MCP initialization holds — compiler_api_available, wasm_runtime_available, capabilities_returned, surface_contributions_merged, mcp_initialized_emitted"
   tests ["crates/specforge-mcp/tests/lifecycle.rs"]
 }
@@ -424,6 +426,7 @@ behavior notify_graph_delta_via_mcp "Notify Graph Delta via MCP" {
   verify unit "notification includes GraphDelta payload"
   verify unit "unsubscribed clients do not receive notifications"
   verify unit "no notification when no clients subscribed"
+  verify unit "clients can subscribe and unsubscribe from delta notifications"
   verify contract "Notify Graph Delta via MCP: graph delta MCP notification holds — graph_delta_computed_fired, subscribers_notified, no_notification_when_empty, delta_notified_emitted"
 
   tests ["crates/specforge-mcp/tests/subscriptions.rs"]

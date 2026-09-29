@@ -98,7 +98,7 @@ fn reference_list_items_classified_as_variable() {
 
 #[spec(
     behavior = "provide_semantic_tokens",
-    verify = "verify keyword classified as keyword"
+    verify = "structural keywords are classified as keyword"
 )]
 #[test]
 fn verify_keyword_classified() {
@@ -139,7 +139,7 @@ fn comments_classified() {
 
 #[spec(
     behavior = "provide_semantic_tokens",
-    verify = "define keyword classified as keyword, define name as function"
+    verify = "structural keywords are classified as keyword"
 )]
 #[test]
 fn define_block_classified() {
@@ -156,7 +156,7 @@ fn define_block_classified() {
 
 #[spec(
     behavior = "provide_semantic_tokens",
-    verify = "multiline reference lists classified correctly"
+    verify = "reference list items classified as 'variable' with reference modifier"
 )]
 #[test]
 fn multiline_reference_list() {
@@ -174,7 +174,7 @@ fn multiline_reference_list() {
 
 #[spec(
     behavior = "provide_semantic_tokens",
-    verify = "field name before list classified as property"
+    verify = "enhanced fields are classified as property"
 )]
 #[test]
 fn field_name_before_list_classified() {
@@ -230,8 +230,8 @@ fn use_path_classified_as_string() {
 }
 
 #[spec(
-    behavior = "provide_semantic_tokens",
-    verify = "TOKEN_TYPES constant has all expected types"
+    behavior = "lsp_initialize",
+    verify = "initialize response includes semantic token legend"
 )]
 #[test]
 fn token_types_constant_complete() {
@@ -248,8 +248,8 @@ fn token_types_constant_complete() {
 }
 
 #[spec(
-    behavior = "provide_semantic_tokens",
-    verify = "TOKEN_MODIFIERS constant has declaration and reference"
+    behavior = "lsp_initialize",
+    verify = "initialize response includes semantic token legend"
 )]
 #[test]
 fn token_modifiers_constant_complete() {

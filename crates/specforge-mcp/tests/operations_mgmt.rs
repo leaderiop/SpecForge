@@ -282,7 +282,7 @@ fn render_unrecognized_format_placeholder() {
 #[test]
 #[specforge_test(
     behavior = "provide_mcp_doctor_tool",
-    verify = "cache_checks array included in doctor response"
+    verify = "response checks wasm cache integrity"
 )]
 fn doctor_cache_checks() {
     let mut server = test_server();
@@ -300,7 +300,7 @@ fn doctor_cache_checks() {
 #[test]
 #[specforge_test(
     behavior = "provide_mcp_doctor_tool",
-    verify = "resolution_steps array included in doctor response"
+    verify = "response provides deterministic resolution steps"
 )]
 fn doctor_resolution_steps() {
     let mut server = test_server();
@@ -367,7 +367,7 @@ fn render_unrecognized_format_with_list() {
 #[test]
 #[specforge_test(
     behavior = "provide_mcp_extensions_tool",
-    verify = "requires/ensures consistency for MCP extensions tool"
+    verify = "Provide MCP Extensions Tool: MCP extensions tool holds — compiler_api_available, extensions_listed, config_reflected, tool_invoked_emitted"
 )]
 fn extensions_contract() {
     let mut server = test_server();
@@ -387,7 +387,7 @@ fn extensions_contract() {
 #[test]
 #[specforge_test(
     behavior = "provide_mcp_providers_tool",
-    verify = "requires/ensures consistency for MCP providers tool"
+    verify = "Provide MCP Providers Tool: MCP providers tool holds — compiler_api_available, providers_listed, tool_invoked_emitted"
 )]
 fn providers_contract() {
     let mut server = test_server();
@@ -407,7 +407,7 @@ fn providers_contract() {
 #[test]
 #[specforge_test(
     behavior = "provide_mcp_doctor_tool",
-    verify = "requires/ensures consistency for MCP doctor tool"
+    verify = "Provide MCP Doctor Tool: MCP doctor tool holds — compiler_api_available, health_checked, resolution_steps_provided, tool_invoked_emitted"
 )]
 fn doctor_contract() {
     let mut server = test_server();
@@ -426,7 +426,7 @@ fn doctor_contract() {
 #[test]
 #[specforge_test(
     behavior = "provide_mcp_collect_tool",
-    verify = "requires/ensures consistency for MCP collect tool"
+    verify = "Provide MCP Collect Tool: MCP collect tool holds — filesystem_available, compiler_api_available, report_emitted, collector_delegated, tool_invoked_emitted"
 )]
 fn collect_contract() {
     let mut server = test_server();
@@ -454,7 +454,7 @@ fn collect_contract() {
 #[test]
 #[specforge_test(
     behavior = "provide_mcp_render_tool",
-    verify = "requires/ensures consistency for MCP render tool"
+    verify = "Provide MCP Render Tool: MCP render tool holds — graph_available, filesystem_available, files_written, files_listed, tool_invoked_emitted"
 )]
 fn render_contract() {
     let mut server = test_server();

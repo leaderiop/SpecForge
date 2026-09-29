@@ -125,7 +125,7 @@ behavior compute_traceability_chain "Compute Traceability Chain" {
     A TraceLink with status "missing" indicates an edge type registered
     in an extension manifest that is NOT instantiated between the two
     entities in the current graph. This distinguishes from broken
-    references (E001), which are caught during resolution.
+    references (E003), which are caught during resolution.
   """
 
   verify unit "trace from entity shows upstream and downstream connections"
@@ -287,7 +287,7 @@ behavior validate_agent_plan "Validate Agent Implementation Plan" {
   }
 
   ensures {
-    unresolvable_ids_diagnosed "Every plan entity ID that does not resolve to a declared entity produces an E001 diagnostic"
+    unresolvable_ids_diagnosed "Every plan entity ID that does not resolve to a declared entity produces an E003 diagnostic"
     missing_entries_warned "Every testable entity missing from the plan produces a warning"
     ordering_validated "Plan dependency order is validated against graph edge structure"
     structured_report_produced "Output is a structured JSON report listing validated entries, gaps, and ordering violations"
@@ -298,7 +298,7 @@ behavior validate_agent_plan "Validate Agent Implementation Plan" {
     When specforge trace --plan plan.json is invoked, the system MUST parse
     the plan file and validate it against the current spec graph. Every entity
     ID referenced in the plan MUST resolve to a declared entity in the graph;
-    unresolvable IDs MUST produce an E001 diagnostic. Every testable entity
+    unresolvable IDs MUST produce an E003 diagnostic. Every testable entity
     in the graph MUST have a corresponding planned action in the plan; missing
     entries MUST be reported as warnings. Dependency order declared in the plan
     MUST be validated against the graph's edge structure; any ordering that
@@ -308,7 +308,7 @@ behavior validate_agent_plan "Validate Agent Implementation Plan" {
   """
 
   verify unit "plan with all valid entity IDs passes validation"
-  verify unit "plan referencing nonexistent entity ID produces E001"
+  verify unit "plan referencing nonexistent entity ID produces E003"
   verify unit "testable entity missing from plan produces warning"
   verify unit "plan dependency order contradicting graph produces diagnostic"
   verify unit "output is structured JSON"
@@ -347,6 +347,7 @@ behavior deterministic_output "Deterministic Output" {
   verify unit "entity ordering is independent of hashmap iteration"
   verify unit "file emission order is independent of filesystem readdir order"
   verify unit "output contains no timestamps or non-deterministic values"
+  verify unit "edge ordering is independent of hashmap iteration"
   verify contract "Deterministic Output: deterministic output holds — validation_complete_fired, byte_identical_output, no_nondeterministic_values"
 
   tests ["crates/specforge-cli/tests/export.rs"]
@@ -442,7 +443,7 @@ behavior export_agent_context_format "Export Agent Context Format" {
     token_optimized_output "Output omits verbose prose fields to minimize token consumption"
     schema_version_present "Output includes a schema_version field identifying the Graph Protocol version"
     scope_enforced "When --scope is specified, only the reachable subgraph is returned"
-    invalid_scope_diagnosed "Non-existent scope entity produces E001 and exit code 1"
+    invalid_scope_diagnosed "Non-existent scope entity produces E003 and exit code 1"
     export_complete_emitted "export_complete event is emitted after successful export"
   }
 
@@ -455,7 +456,7 @@ behavior export_agent_context_format "Export Agent Context Format" {
     The output MUST include a schema_version field identifying the Graph
     Protocol version. An optional --scope parameter MUST allow scoping to
     a subgraph rooted at a specific entity. If --scope references a
-    non-existent entity ID, the system MUST emit an E001 diagnostic
+    non-existent entity ID, the system MUST emit an E003 diagnostic
     and exit with code 1. When coverage metadata is available from
     compute_project_statistics, the context export MUST include
     coverage_pct and testable_entity_count in the graph metadata.
@@ -464,7 +465,7 @@ behavior export_agent_context_format "Export Agent Context Format" {
   verify unit "context format includes entity IDs and contracts"
   verify unit "context format omits verbose prose fields"
   verify unit "scoped export returns only reachable subgraph"
-  verify unit "non-existent scope entity produces E001 and exit code 1"
+  verify unit "non-existent scope entity produces E003 and exit code 1"
   verify unit "output conforms to Graph Protocol schema"
   verify unit "output includes schema_version field"
   verify contract "Export Agent Context Format: agent context export holds — validation_complete_fired, token_optimized_output, schema_version_present, scope_enforced, invalid_scope_diagnosed, export_complete_emitted"
@@ -524,7 +525,7 @@ behavior export_agent_graph_format "Export Agent Graph Format" {
     full_fidelity_output "Output contains all nodes, edges, fields, and metadata"
     schema_version_present "Output includes a schema_version field identifying the Graph Protocol version"
     scope_enforced "When --scope is specified, only the reachable subgraph is returned"
-    invalid_scope_diagnosed "Non-existent scope entity produces E001 and exit code 1"
+    invalid_scope_diagnosed "Non-existent scope entity produces E003 and exit code 1"
     export_complete_emitted "export_complete event is emitted after successful export"
   }
 
@@ -535,7 +536,7 @@ behavior export_agent_graph_format "Export Agent Graph Format" {
     metadata. Unlike specforge render json (which writes files to disk), this
     command writes to stdout for agent consumption. An optional --scope parameter
     MUST allow scoping to a subgraph rooted at a specific entity. If --scope
-    references a non-existent entity ID, the system MUST emit an E001
+    references a non-existent entity ID, the system MUST emit an E003
     diagnostic and exit with code 1. The output MUST include a schema_version
     field identifying the Graph Protocol version.
   """
@@ -543,7 +544,7 @@ behavior export_agent_graph_format "Export Agent Graph Format" {
   verify unit "graph format includes all nodes and edges"
   verify unit "graph format includes all fields and metadata"
   verify unit "scoped export returns only reachable subgraph"
-  verify unit "non-existent scope entity produces E001 and exit code 1"
+  verify unit "non-existent scope entity produces E003 and exit code 1"
   verify unit "output conforms to Graph Protocol schema"
   verify unit "output includes schema_version field"
   verify integration "structural-only graph exports valid JSON with raw keyword strings as entity kinds"

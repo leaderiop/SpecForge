@@ -137,7 +137,7 @@ fn graph_delta_detects_removed_nodes() {
 #[test]
 #[specforge_test(
     behavior = "notify_graph_delta_via_mcp",
-    verify = "formats notification as JSON-RPC"
+    verify = "notification includes GraphDelta payload"
 )]
 fn graph_notification_format() {
     let old = Graph::new();
@@ -197,7 +197,7 @@ fn diagnostics_delta_detects_removed() {
 #[test]
 #[specforge_test(
     behavior = "notify_diagnostics_delta_via_mcp",
-    verify = "formats notification as JSON-RPC"
+    verify = "payload includes added and removed diagnostics"
 )]
 fn diagnostics_notification_format() {
     let old: Vec<Diagnostic> = vec![];

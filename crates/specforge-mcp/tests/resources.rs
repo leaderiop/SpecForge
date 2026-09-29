@@ -113,7 +113,7 @@ fn graph_resource_returns_json() {
 #[test]
 #[specforge_test(
     behavior = "expose_graph_as_mcp_resource",
-    verify = "graph resource has correct MIME type"
+    verify = "specforge://graph resource returns full Graph Protocol JSON"
 )]
 fn graph_resource_has_mime_type() {
     let mut server = test_server();
@@ -128,7 +128,7 @@ fn graph_resource_has_mime_type() {
 #[test]
 #[specforge_test(
     behavior = "expose_schema_as_mcp_resource",
-    verify = "specforge://schema resource returns graph-derived entity kinds"
+    verify = "specforge://schema resource returns GraphProtocolSchema JSON"
 )]
 fn schema_resource_returns_kinds() {
     let mut server = test_server();
@@ -257,7 +257,7 @@ fn entity_resource_error_for_unknown() {
 #[test]
 #[specforge_test(
     behavior = "expose_entity_as_mcp_resource",
-    verify = "returns error for empty entity ID"
+    verify = "malformed entity_id returns 400 error"
 )]
 fn entity_resource_error_for_empty_id() {
     let mut server = test_server();
@@ -268,8 +268,8 @@ fn entity_resource_error_for_empty_id() {
 // Resource read missing URI
 #[test]
 #[specforge_test(
-    behavior = "expose_graph_as_mcp_resource",
-    verify = "returns error for missing URI"
+    behavior = "handle_mcp_protocol_error",
+    verify = "missing required params produces -32602 Invalid params"
 )]
 fn resource_read_missing_uri() {
     let mut server = test_server();
@@ -292,8 +292,8 @@ fn resource_read_unknown_uri() {
 // Resource read when not initialized
 #[test]
 #[specforge_test(
-    behavior = "expose_graph_as_mcp_resource",
-    verify = "returns error when not initialized"
+    behavior = "mcp_initialize",
+    verify = "initialization rejects tool calls before completion"
 )]
 fn resource_read_not_initialized() {
     let mut server = McpServer::new();
@@ -358,7 +358,7 @@ fn graph_refreshes_after_recompilation() {
 #[test]
 #[specforge_test(
     behavior = "expose_schema_as_mcp_resource",
-    verify = "schema updates when graph changes"
+    verify = "schema updates when extensions change"
 )]
 fn schema_updates_when_graph_changes() {
     let mut server = test_server();
@@ -606,7 +606,7 @@ fn entity_refreshes_after_recompilation() {
 #[test]
 #[specforge_test(
     behavior = "expose_graph_as_mcp_resource",
-    verify = "resource has application/json MIME type"
+    verify = "specforge://graph resource returns full Graph Protocol JSON"
 )]
 fn graph_resource_returns_json_mime_type() {
     let mut server = test_server();
@@ -620,7 +620,7 @@ fn graph_resource_returns_json_mime_type() {
 // B:expose_graph_as_mcp_resource — verify unit "root query scopes the read to a subgraph with a schema_ref"
 #[test]
 #[specforge_test(
-    behavior = "expose_graph_as_mcp_resource",
+    behavior = "serve_graph_resource",
     verify = "scope query parameter restricts to subgraph"
 )]
 fn graph_resource_root_scopes_with_schema_ref() {
@@ -688,7 +688,7 @@ fn graph_resource_max_tokens_budgets() {
 // B:expose_context_as_mcp_resource — verify unit "context entity template scopes to the subgraph"
 #[test]
 #[specforge_test(
-    behavior = "expose_context_as_mcp_resource",
+    behavior = "serve_graph_resource",
     verify = "scope query parameter restricts to subgraph"
 )]
 fn context_entity_template_scopes() {

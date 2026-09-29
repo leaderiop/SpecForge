@@ -88,7 +88,7 @@ fn migrate_json_output_contains_summary_fields() {
 
 // A3: Unknown --target-version produces error
 #[specforge_test(
-    behavior = "migrate_spec_files_in_place",
+    behavior = "detect_format_version_mismatch",
     verify = "unsupported format version produces E019 with upgrade guidance"
 )]
 #[test]
@@ -1139,7 +1139,7 @@ fn unsupported_format_version_produces_e015() {
 
 #[specforge_test(
     behavior = "detect_format_version_mismatch",
-    verify = "requires/ensures consistency for format version detection"
+    verify = "Detect Format Version Mismatch: format version detection holds — spec_file_available, version_mismatch_reported, unsupported_version_rejected, parsing_continues"
 )]
 #[test]
 fn detect_format_version_contract() {
@@ -1173,7 +1173,7 @@ fn detect_format_version_contract() {
 
 #[specforge_test(
     behavior = "migrate_spec_files_in_place",
-    verify = "requires/ensures consistency for in-place migration"
+    verify = "Migrate Spec Files In Place: in-place migration holds — semantic_preservation"
 )]
 #[test]
 fn migrate_in_place_contract() {
@@ -1352,7 +1352,7 @@ fn dry_run_failure_isolation() {
 
 #[specforge_test(
     behavior = "generate_migration_diff",
-    verify = "requires/ensures consistency for migration diff generation"
+    verify = "Generate Migration Diff: migration diff generation holds — spec_files_available, dry_run_flag_set, diff_produced, no_files_modified, migration_diff_generated_emitted"
 )]
 #[test]
 fn migration_diff_contract() {
@@ -1501,7 +1501,7 @@ fn new_entities_after_migration_reported() {
 
 #[specforge_test(
     behavior = "validate_post_migration_integrity",
-    verify = "requires/ensures consistency for post-migration integrity validation"
+    verify = "Validate Post-Migration Integrity: post-migration integrity validation holds — extension_hooks_complete_fired, structural_equivalence_checked, differences_reported, migration_validation_complete_emitted"
 )]
 #[test]
 fn post_migration_integrity_contract() {
@@ -1654,7 +1654,7 @@ fn snapshot_persists_across_lifecycle() {
 
 #[specforge_test(
     behavior = "capture_pre_migration_schema_snapshot",
-    verify = "requires/ensures consistency for pre-migration schema capture"
+    verify = "Capture Pre-Migration Schema Snapshot: pre-migration schema capture holds — migration_starting_fired, snapshot_captured, pre_migration_snapshot_captured_emitted"
 )]
 #[test]
 fn pre_migration_snapshot_contract() {
@@ -2058,7 +2058,7 @@ fn cross_extension_broken_reference_produces_diagnostic() {
 
 #[specforge_test(
     behavior = "verify_graph_protocol_compatibility_after_migration",
-    verify = "requires/ensures consistency for graph protocol compatibility verification"
+    verify = "Verify Graph Protocol Compatibility After Migration: graph protocol compatibility verification holds — pre_migration_snapshot_available, extension_hooks_complete, compatibility_verified, breaking_changes_warned, graph_protocol_compatibility_emitted"
 )]
 #[test]
 fn graph_protocol_compatibility_contract() {
@@ -2192,7 +2192,7 @@ fn rollback_summary_counts() {
 
 #[specforge_test(
     behavior = "rollback_failed_migration",
-    verify = "requires/ensures consistency for migration rollback"
+    verify = "Rollback Failed Migration: migration rollback holds — migration_started, files_restored, rollback_event_emitted, backup_file_preservation"
 )]
 #[test]
 fn rollback_contract() {
@@ -2435,7 +2435,7 @@ fn failed_extension_hook_skipped() {
 
 #[specforge_test(
     behavior = "invoke_extension_migration_hooks",
-    verify = "requires/ensures consistency for extension migration hooks"
+    verify = "Invoke Extension Migration Hooks: extension migration hooks holds for the declared obligations"
 )]
 #[test]
 fn extension_hooks_contract() {

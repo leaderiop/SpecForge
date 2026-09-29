@@ -146,7 +146,7 @@ fn unrecognized_pattern_kind_produces_warning() {
 
 #[specforge_test(
     behavior = "parse_validation_rule_pattern",
-    verify = "misconfigured rule with empty one_of values produces parse-time warning"
+    verify = "all required fields validated on each rule"
 )]
 #[test]
 fn misconfigured_one_of_with_empty_values_produces_warning() {
@@ -173,7 +173,7 @@ fn misconfigured_one_of_with_empty_values_produces_warning() {
 
 #[specforge_test(
     behavior = "parse_validation_rule_pattern",
-    verify = "field-requiring check without a field produces parse-time warning"
+    verify = "all required fields validated on each rule"
 )]
 #[test]
 fn field_requiring_check_without_field_produces_warning() {
@@ -187,7 +187,7 @@ fn field_requiring_check_without_field_produces_warning() {
 
 #[specforge_test(
     behavior = "parse_validation_rule_pattern",
-    verify = "valid one_of rule still parses after misconfiguration checks"
+    verify = "parses field_value_constraint pattern from manifest"
 )]
 #[test]
 fn valid_one_of_rule_still_parses() {
@@ -228,7 +228,7 @@ fn all_required_fields_validated_on_each_rule() {
 
 #[specforge_test(
     behavior = "parse_validation_rule_pattern",
-    verify = "requires/ensures consistency for validation rule parsing"
+    verify = "Parse Validation Rule Pattern: validation rule parsing holds — manifest_rules_available, patterns_parsed, unrecognized_warned"
 )]
 #[test]
 fn parse_validation_rule_pattern_contract() {
@@ -461,7 +461,7 @@ fn pattern_violation_produces_diagnostic_with_configured_code_and_severity() {
 
 #[specforge_test(
     behavior = "execute_validation_pattern",
-    verify = "requires/ensures consistency for declarative validation"
+    verify = "Execute Validation Pattern: declarative validation holds — all_entities_matched, violations_diagnosed, deterministic_order"
 )]
 #[test]
 fn execute_validation_pattern_contract() {
@@ -573,7 +573,7 @@ fn diagnostic_severity_matches_pattern_severity() {
 
 #[specforge_test(
     behavior = "emit_diagnostic_from_pattern",
-    verify = "requires/ensures consistency for pattern diagnostic emission"
+    verify = "Emit Diagnostic From Pattern: pattern diagnostic emission holds — violation_detected, pattern_configured, diagnostic_emitted, template_interpolated"
 )]
 #[test]
 fn emit_diagnostic_from_pattern_contract() {
@@ -706,7 +706,7 @@ fn rules_sorted_by_code_for_deterministic_order() {
 
 #[specforge_test(
     behavior = "register_extension_validation_rules",
-    verify = "requires/ensures consistency for cross-extension rule aggregation"
+    verify = "Register Extension Validation Rules: cross-extension rule aggregation holds — extension_manifests_loaded_fired, individual_rules_parsed, unified_rule_set_produced, deterministic_order_enforced, duplicate_codes_warned"
 )]
 #[test]
 fn register_extension_validation_rules_contract() {
@@ -787,7 +787,7 @@ fn unresolvable_wasm_function_produces_warning() {
 
 #[specforge_test(
     behavior = "register_custom_validation_patterns",
-    verify = "wasm function that fails the probe produces a warning"
+    verify = "unresolvable wasm_function produces warning"
 )]
 #[test]
 fn wasm_function_probe_failure_produces_warning() {
@@ -903,7 +903,7 @@ fn custom_pattern_failure_emits_configured_diagnostic() {
 
 #[specforge_test(
     behavior = "register_custom_validation_patterns",
-    verify = "requires/ensures consistency for custom validation pattern registration"
+    verify = "Register Custom Validation Patterns: custom validation pattern registration holds — extension_manifests_loaded_fired, wasm_runtime_available, custom_patterns_registered, wasm_functions_resolved"
 )]
 #[test]
 fn register_custom_validation_patterns_contract() {
@@ -1061,7 +1061,7 @@ fn field_validation_skipped_when_entity_kind_is_unregistered() {
 
 #[specforge_test(
     behavior = "detect_unknown_entity_fields",
-    verify = "requires/ensures consistency for unknown field detection"
+    verify = "Detect Unknown Entity Fields: unknown field detection holds — registries_populated_fired, define_blocks_registered_fired, unknown_fields_diagnosed, cascading_avoided"
 )]
 #[test]
 fn detect_unknown_entity_fields_contract() {
@@ -1171,7 +1171,7 @@ fn single_extension_registering_a_kind_produces_no_diagnostic() {
 
 #[specforge_test(
     behavior = "detect_duplicate_entity_kinds",
-    verify = "requires/ensures consistency for duplicate entity kind detection"
+    verify = "Detect Duplicate Entity Kinds: duplicate entity kind detection holds — manifests_loading, collisions_detected, first_wins_enforced"
 )]
 #[test]
 fn detect_duplicate_entity_kinds_contract() {
@@ -1287,7 +1287,7 @@ fn incompatible_version_produces_hard_error_with_required_range() {
 
 #[specforge_test(
     behavior = "validate_peer_dependencies",
-    verify = "requires/ensures consistency for peer dependency validation"
+    verify = "Validate Peer Dependencies: peer dependency validation holds — manifests_available, dependencies_validated, unsatisfied_blocked, loading_failed_emitted"
 )]
 #[test]
 fn validate_peer_dependencies_contract() {
@@ -1416,7 +1416,7 @@ fn consistent_testable_and_supports_verify_flags_produce_no_diagnostic() {
 
 #[specforge_test(
     behavior = "validate_extension_testability",
-    verify = "requires/ensures consistency for extension testability validation"
+    verify = "Validate Extension Testability: extension testability validation holds — registries_populated_fired, flag_consistency_checked, advisory_diagnostics_emitted"
 )]
 #[test]
 fn validate_extension_testability_contract() {

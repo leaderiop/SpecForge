@@ -15,8 +15,8 @@ fn init_server() -> McpServer {
 // B:mcp_subscription_cleanup — verify unit "subscribe adds subscription"
 #[test]
 #[specforge_test(
-    behavior = "mcp_subscription_cleanup",
-    verify = "subscribe adds subscription"
+    behavior = "notify_graph_delta_via_mcp",
+    verify = "clients can subscribe and unsubscribe from delta notifications"
 )]
 fn subscribe_adds_subscription() {
     let mut server = init_server();
@@ -30,8 +30,8 @@ fn subscribe_adds_subscription() {
 // B:mcp_subscription_cleanup — verify unit "duplicate subscribe returns false"
 #[test]
 #[specforge_test(
-    behavior = "mcp_subscription_cleanup",
-    verify = "duplicate subscribe returns false"
+    behavior = "notify_graph_delta_via_mcp",
+    verify = "clients can subscribe and unsubscribe from delta notifications"
 )]
 fn duplicate_subscribe_returns_false() {
     let mut server = init_server();
@@ -43,8 +43,8 @@ fn duplicate_subscribe_returns_false() {
 // B:mcp_subscription_cleanup — verify unit "unsubscribe removes subscription"
 #[test]
 #[specforge_test(
-    behavior = "mcp_subscription_cleanup",
-    verify = "unsubscribe removes subscription"
+    behavior = "notify_graph_delta_via_mcp",
+    verify = "clients can subscribe and unsubscribe from delta notifications"
 )]
 fn unsubscribe_removes_subscription() {
     let mut server = init_server();
@@ -80,8 +80,8 @@ fn unsubscribe_all_removes_all() {
 // B:mcp_subscription_cleanup — verify unit "shutdown clears all subscriptions"
 #[test]
 #[specforge_test(
-    behavior = "mcp_subscription_cleanup",
-    verify = "shutdown clears all subscriptions"
+    behavior = "mcp_shutdown",
+    verify = "shutdown unsubscribes all active subscriptions"
 )]
 fn shutdown_clears_subscriptions() {
     let mut server = init_server();

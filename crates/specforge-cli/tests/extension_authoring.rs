@@ -13,8 +13,8 @@ fn specforge_cmd() -> Command {
 // ===============================================================
 
 #[specforge_test(
-    behavior = "extension_scaffold_init",
-    verify = "specforge extension init creates manifest.json"
+    behavior = "scaffold_wasm_extension_project",
+    verify = "scaffold creates manifest file"
 )]
 #[test]
 fn extension_init_creates_manifest_json() {
@@ -41,8 +41,8 @@ fn extension_init_creates_manifest_json() {
 }
 
 #[specforge_test(
-    behavior = "extension_scaffold_init",
-    verify = "specforge extension init creates src/lib.rs with skeleton exports"
+    behavior = "scaffold_wasm_extension_project",
+    verify = "scaffold creates src/ with skeleton exports"
 )]
 #[test]
 fn extension_init_creates_src_lib_rs() {
@@ -73,8 +73,8 @@ fn extension_init_creates_src_lib_rs() {
 }
 
 #[specforge_test(
-    behavior = "extension_scaffold_init",
-    verify = "specforge extension init creates Cargo.toml with cdylib crate type"
+    behavior = "scaffold_wasm_extension_project",
+    verify = "scaffold creates build script for wasm32-wasi"
 )]
 #[test]
 fn extension_init_creates_cargo_toml() {
@@ -203,8 +203,8 @@ fn extension_build_validates_structure() {
 }
 
 #[specforge_test(
-    behavior = "extension_build_validate_structure",
-    verify = "specforge extension build errors on missing Cargo.toml"
+    behavior = "build_wasm_extension",
+    verify = "build errors reported as ExtensionError diagnostics"
 )]
 #[test]
 fn extension_build_errors_missing_cargo_toml() {
@@ -222,8 +222,8 @@ fn extension_build_errors_missing_cargo_toml() {
 }
 
 #[specforge_test(
-    behavior = "extension_build_validate_structure",
-    verify = "specforge extension build errors on missing manifest.json"
+    behavior = "build_wasm_extension",
+    verify = "build errors reported as ExtensionError diagnostics"
 )]
 #[test]
 fn extension_build_errors_missing_manifest() {
@@ -241,8 +241,8 @@ fn extension_build_errors_missing_manifest() {
 }
 
 #[specforge_test(
-    behavior = "extension_build_validate_structure",
-    verify = "specforge extension build --format=json outputs structured error"
+    behavior = "build_wasm_extension",
+    verify = "build errors reported as ExtensionError diagnostics"
 )]
 #[test]
 fn extension_build_json_error() {
@@ -267,8 +267,8 @@ fn extension_build_json_error() {
 // ===============================================================
 
 #[specforge_test(
-    behavior = "extension_validate_manifest",
-    verify = "specforge extension validate checks manifest against ManifestV2 schema"
+    behavior = "validate_extension_manifest",
+    verify = "valid manifest passes validation"
 )]
 #[test]
 fn extension_validate_valid_manifest() {
@@ -317,8 +317,8 @@ fn extension_validate_invalid_json() {
 }
 
 #[specforge_test(
-    behavior = "extension_validate_manifest",
-    verify = "specforge extension validate errors on manifest with wrong manifestVersion"
+    behavior = "validate_extension_manifest",
+    verify = "unknown manifest_version produces hard error"
 )]
 #[test]
 fn extension_validate_wrong_manifest_version() {
@@ -360,8 +360,8 @@ fn extension_validate_missing_manifest() {
 }
 
 #[specforge_test(
-    behavior = "extension_validate_manifest",
-    verify = "specforge extension validate --format=json outputs structured result for valid manifest"
+    behavior = "validate_extension_manifest",
+    verify = "valid manifest passes validation"
 )]
 #[test]
 fn extension_validate_json_output_valid() {
@@ -394,8 +394,8 @@ fn extension_validate_json_output_valid() {
 }
 
 #[specforge_test(
-    behavior = "extension_validate_manifest",
-    verify = "specforge extension validate --format=json outputs diagnostics for invalid manifest"
+    behavior = "validate_extension_manifest",
+    verify = "unknown manifest_version produces hard error"
 )]
 #[test]
 fn extension_validate_json_output_invalid() {
@@ -435,8 +435,8 @@ fn extension_validate_json_output_invalid() {
 // ===============================================================
 
 #[specforge_test(
-    behavior = "extension_init_then_validate_roundtrip",
-    verify = "scaffolded extension passes validation"
+    behavior = "validate_extension_manifest",
+    verify = "valid manifest passes validation"
 )]
 #[test]
 fn extension_init_then_validate_roundtrip() {
@@ -469,8 +469,8 @@ fn extension_init_then_validate_roundtrip() {
 // ===============================================================
 
 #[specforge_test(
-    behavior = "extension_scaffold_init",
-    verify = "contract: init creates exactly 3 files in a new directory"
+    behavior = "scaffold_wasm_extension_project",
+    verify = "Scaffold Wasm Extension Project: Wasm extension scaffolding holds — filesystem_available, manifest_created, skeleton_exports_created, build_script_created, extension_project_scaffolded_emitted"
 )]
 #[test]
 fn contract_init_creates_three_files() {
@@ -495,8 +495,8 @@ fn contract_init_creates_three_files() {
 }
 
 #[specforge_test(
-    behavior = "extension_build_validate_structure",
-    verify = "contract: build requires both Cargo.toml and manifest.json"
+    behavior = "build_wasm_extension",
+    verify = "build errors reported as ExtensionError diagnostics"
 )]
 #[test]
 fn contract_build_requires_both_files() {
@@ -538,8 +538,8 @@ fn contract_build_requires_both_files() {
 }
 
 #[specforge_test(
-    behavior = "extension_validate_manifest",
-    verify = "contract: validate returns exit 0 for valid manifest, exit 1 for invalid"
+    behavior = "validate_extension_manifest",
+    verify = "Validate Extension Manifest: extension manifest validation holds — manifest_loaded_fired, manifest_validated_emitted, invalid_manifest_diagnosed, schema_validated"
 )]
 #[test]
 fn contract_validate_exit_codes() {

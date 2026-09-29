@@ -390,7 +390,7 @@ feature gamma "G" {
 
 #[specforge_test(
     behavior = "provide_did_you_mean_suggestions",
-    verify = "requires/ensures consistency for did-you-mean suggestions"
+    verify = "Provide Did-You-Mean Suggestions: did-you-mean suggestions holds — unresolved_reference_available, kind_registry_populated, distance_threshold, sorted_by_distance"
 )]
 #[test]
 fn did_you_mean_contract_consistency() {
@@ -433,7 +433,7 @@ feature gamma "G" { behaviors [xyz_totally_different] }
 
 #[specforge_test(
     behavior = "resolve_use_imports",
-    verify = "resolve relative import from importing file directory"
+    verify = "resolve use path to file on disk"
 )]
 #[test]
 fn resolve_relative_dot_slash() {
@@ -463,7 +463,7 @@ fn resolve_relative_dot_slash() {
 
 #[specforge_test(
     behavior = "resolve_use_imports",
-    verify = "resolve relative import from importing file directory"
+    verify = "resolve use path to file on disk"
 )]
 #[test]
 fn resolve_relative_dot_dot_slash() {
@@ -493,7 +493,7 @@ fn resolve_relative_dot_dot_slash() {
 
 #[specforge_test(
     behavior = "resolve_use_imports",
-    verify = "resolve relative import from importing file directory"
+    verify = "relative import traversing above spec_root is rejected"
 )]
 #[test]
 fn resolve_relative_escaping_spec_root() {
@@ -518,7 +518,7 @@ fn resolve_relative_escaping_spec_root() {
 
 #[specforge_test(
     behavior = "resolve_use_imports",
-    verify = "resolve path alias from specforge.json config"
+    verify = "resolve use path to file on disk"
 )]
 #[test]
 fn resolve_path_alias() {
@@ -554,7 +554,7 @@ fn resolve_path_alias() {
 
 #[specforge_test(
     behavior = "resolve_use_imports",
-    verify = "resolve directory to index.spec"
+    verify = "resolve use path to file on disk"
 )]
 #[test]
 fn resolve_directory_to_index_spec() {
@@ -585,7 +585,7 @@ fn resolve_directory_to_index_spec() {
 
 #[specforge_test(
     behavior = "resolve_use_imports",
-    verify = "bare path takes precedence over directory index"
+    verify = "resolve use path to file on disk"
 )]
 #[test]
 fn bare_path_precedence_over_index() {
@@ -664,7 +664,7 @@ fn extension_import_emits_i004() {
 
 #[specforge_test(
     behavior = "resolve_use_imports",
-    verify = "missing import file produces E025 with suggestion"
+    verify = "missing import file produces E025"
 )]
 #[test]
 fn missing_import_e025_with_suggestion() {
@@ -693,7 +693,7 @@ fn missing_import_e025_with_suggestion() {
 
 #[specforge_test(
     behavior = "resolve_use_imports",
-    verify = "missing import file with no close match produces E025 without suggestion"
+    verify = "missing import file produces E025"
 )]
 #[test]
 fn missing_import_e025_no_suggestion() {

@@ -195,7 +195,7 @@ fn schema_version_ord() {
 #[test]
 #[specforge_test(
     behavior = "generate_schema_from_registries",
-    verify = "empty schema serde round-trip"
+    verify = "zero extensions produces valid empty schema"
 )]
 fn empty_schema_serde_round_trip() {
     let schema = GraphProtocolSchema::empty();
@@ -427,7 +427,7 @@ fn emit_json_with_schema_has_format_version() {
 #[test]
 #[specforge_test(
     behavior = "embed_schema_in_export",
-    verify = "schema embedded as top-level key in JSON export"
+    verify = "schema embedded as top-level key in full JSON export"
 )]
 fn emit_json_with_schema_includes_schema() {
     let mut graph = Graph::new();
@@ -445,7 +445,7 @@ fn emit_json_with_schema_includes_schema() {
 #[test]
 #[specforge_test(
     behavior = "embed_schema_in_export",
-    verify = "backward compat emit_json"
+    verify = "--no-schema suppresses schema and keeps format_version 1.0"
 )]
 fn existing_emit_json_has_no_schema_key() {
     let graph = Graph::new();
@@ -457,7 +457,10 @@ fn existing_emit_json_has_no_schema_key() {
 
 // B:embed_schema_in_export — verify unit "emit_context_with_schema produces format_version 2.0"
 #[test]
-#[specforge_test(behavior = "embed_schema_in_export", verify = "context with schema")]
+#[specforge_test(
+    behavior = "embed_schema_in_export",
+    verify = "format_version set to 2.0 with schema"
+)]
 fn emit_context_with_schema_has_format_version() {
     let graph = Graph::new();
     let schema = GraphProtocolSchema::empty();
@@ -469,7 +472,10 @@ fn emit_context_with_schema_has_format_version() {
 
 // B:embed_schema_in_export — verify unit "emit_brief_with_schema produces format_version 2.0"
 #[test]
-#[specforge_test(behavior = "embed_schema_in_export", verify = "brief with schema")]
+#[specforge_test(
+    behavior = "embed_schema_in_export",
+    verify = "format_version set to 2.0 with schema"
+)]
 fn emit_brief_with_schema_has_format_version() {
     let graph = Graph::new();
     let schema = GraphProtocolSchema::empty();
@@ -482,8 +488,8 @@ fn emit_brief_with_schema_has_format_version() {
 // B:embed_schema_in_export — verify unit "schema_version in V2 matches schema object"
 #[test]
 #[specforge_test(
-    behavior = "embed_schema_in_export",
-    verify = "schema_version consistency"
+    behavior = "serialize_json_graph",
+    verify = "output includes schema_version field"
 )]
 fn emit_json_with_schema_version_consistency() {
     let graph = Graph::new();
@@ -524,7 +530,7 @@ fn diff_removed_kind_is_breaking() {
 #[test]
 #[specforge_test(
     behavior = "detect_breaking_schema_changes",
-    verify = "added kind is non-breaking"
+    verify = "new entity kind detected as non-breaking"
 )]
 fn diff_added_kind_is_non_breaking() {
     let old = sample_schema();
@@ -613,7 +619,7 @@ fn diff_removed_field_is_breaking() {
 #[test]
 #[specforge_test(
     behavior = "detect_breaking_schema_changes",
-    verify = "removed edge is breaking"
+    verify = "removed edge type detected as breaking"
 )]
 fn diff_removed_edge_is_breaking() {
     let old = sample_schema();
@@ -628,7 +634,7 @@ fn diff_removed_edge_is_breaking() {
 #[test]
 #[specforge_test(
     behavior = "detect_breaking_schema_changes",
-    verify = "added edge is non-breaking"
+    verify = "new edge type detected as non-breaking"
 )]
 fn diff_added_edge_non_breaking() {
     let old = sample_schema();
@@ -733,7 +739,7 @@ fn compute_version_no_changes_returns_previous() {
 #[test]
 #[specforge_test(
     behavior = "compute_schema_version",
-    verify = "mixed breaking and non-breaking"
+    verify = "removed entity kind triggers major version bump"
 )]
 fn compute_version_mixed_changes_major_wins() {
     let migration = SchemaMigration {
@@ -770,7 +776,10 @@ fn negotiate_in_range_succeeds() {
 
 // B:negotiate_schema_version — verify unit "exact min boundary succeeds"
 #[test]
-#[specforge_test(behavior = "negotiate_schema_version", verify = "exact min boundary")]
+#[specforge_test(
+    behavior = "negotiate_schema_version",
+    verify = "compatible version within range is resolved"
+)]
 fn negotiate_exact_min_succeeds() {
     let min = SchemaVersion::new(1, 0, 0);
     let max = SchemaVersion::new(1, 5, 0);
@@ -780,7 +789,10 @@ fn negotiate_exact_min_succeeds() {
 
 // B:negotiate_schema_version — verify unit "exact max boundary succeeds"
 #[test]
-#[specforge_test(behavior = "negotiate_schema_version", verify = "exact max boundary")]
+#[specforge_test(
+    behavior = "negotiate_schema_version",
+    verify = "compatible version within range is resolved"
+)]
 fn negotiate_exact_max_succeeds() {
     let min = SchemaVersion::new(1, 0, 0);
     let max = SchemaVersion::new(1, 5, 0);
@@ -809,7 +821,7 @@ fn negotiate_out_of_range_fails() {
 #[test]
 #[specforge_test(
     behavior = "negotiate_schema_version",
-    verify = "different major version fails"
+    verify = "incompatible version produces E027 with supported range"
 )]
 fn negotiate_different_major_fails() {
     let min = SchemaVersion::new(1, 0, 0);
@@ -824,7 +836,10 @@ fn negotiate_different_major_fails() {
 
 // B:negotiate_schema_version — verify unit "SchemaVersionError Display includes E027"
 #[test]
-#[specforge_test(behavior = "negotiate_schema_version", verify = "error display")]
+#[specforge_test(
+    behavior = "negotiate_schema_version",
+    verify = "incompatible version produces E027 with supported range"
+)]
 fn schema_version_error_display() {
     let err = SchemaVersionError {
         requested: SchemaVersion::new(2, 0, 0),
@@ -861,8 +876,8 @@ fn cache_write_read_round_trip() {
 // B:persist_schema_cache — verify unit "missing cache returns None"
 #[test]
 #[specforge_test(
-    behavior = "persist_schema_cache",
-    verify = "missing cache returns None"
+    behavior = "detect_breaking_schema_changes",
+    verify = "missing schema cache yields no previous schema"
 )]
 fn cache_missing_returns_none() {
     let dir = tempfile::tempdir().unwrap();
@@ -996,7 +1011,10 @@ fn publish_json_schema_valid() {
 
 // B:publish_schema_specification — verify unit "all kinds in node kind enum"
 #[test]
-#[specforge_test(behavior = "publish_schema_specification", verify = "kinds in enum")]
+#[specforge_test(
+    behavior = "publish_schema_specification",
+    verify = "published schema describes all registered entity kinds"
+)]
 fn publish_json_schema_kinds_in_enum() {
     let schema = sample_schema();
     let json_schema_str = publish_json_schema_format(&schema, EmitFormat::Json).unwrap();
@@ -1018,7 +1036,7 @@ fn publish_json_schema_kinds_in_enum() {
 #[test]
 #[specforge_test(
     behavior = "publish_schema_specification",
-    verify = "edge labels in enum"
+    verify = "published schema describes all edge types"
 )]
 fn publish_json_schema_edge_labels_in_enum() {
     let schema = sample_schema();
@@ -1040,7 +1058,7 @@ fn publish_json_schema_edge_labels_in_enum() {
 #[test]
 #[specforge_test(
     behavior = "publish_schema_specification",
-    verify = "required properties"
+    verify = "published schema requires the Graph Protocol top-level properties"
 )]
 fn publish_json_schema_required_properties() {
     let schema = sample_schema();
@@ -1078,7 +1096,10 @@ fn publish_json_schema_empty_schema() {
 
 // B:publish_schema_specification — verify unit "has title"
 #[test]
-#[specforge_test(behavior = "publish_schema_specification", verify = "has title")]
+#[specforge_test(
+    behavior = "publish_schema_specification",
+    verify = "published schema is valid JSON Schema"
+)]
 fn publish_json_schema_has_title() {
     let schema = sample_schema();
     let json_schema_str = publish_json_schema_format(&schema, EmitFormat::Json).unwrap();
@@ -1094,7 +1115,7 @@ fn publish_json_schema_has_title() {
 #[test]
 #[specforge_test(
     behavior = "generate_schema_from_registries",
-    verify = "full pipeline integration"
+    verify = "schema includes all registered entity kinds"
 )]
 fn full_pipeline_registries_to_schema_to_embed() {
     // Build registries
@@ -1155,7 +1176,10 @@ fn full_pipeline_registries_to_schema_to_embed() {
 
 // B:compute_schema_version — verify unit "new edge bumps minor"
 #[test]
-#[specforge_test(behavior = "compute_schema_version", verify = "new edge bumps minor")]
+#[specforge_test(
+    behavior = "compute_schema_version",
+    verify = "new edge type triggers minor version bump"
+)]
 fn compute_version_new_edge_bumps_minor() {
     let migration = SchemaMigration {
         changes: vec![SchemaMigrationChange::EdgeAdded("enforces".to_string())],
@@ -1168,7 +1192,7 @@ fn compute_version_new_edge_bumps_minor() {
 #[test]
 #[specforge_test(
     behavior = "compute_schema_version",
-    verify = "removed edge bumps major"
+    verify = "removed edge type triggers major version bump"
 )]
 fn compute_version_removed_edge_bumps_major() {
     let migration = SchemaMigration {
@@ -1200,7 +1224,7 @@ fn compute_version_added_optional_field_bumps_minor() {
 #[test]
 #[specforge_test(
     behavior = "compute_schema_version",
-    verify = "added required field bumps major"
+    verify = "new required field triggers major version bump"
 )]
 fn compute_version_added_required_field_bumps_major() {
     let migration = SchemaMigration {
@@ -1234,8 +1258,8 @@ fn compute_version_removed_field_bumps_major() {
 // B:embed_schema_in_export — verify unit "V2 nodes contain all fields"
 #[test]
 #[specforge_test(
-    behavior = "embed_schema_in_export",
-    verify = "V2 nodes contain fields"
+    behavior = "export_agent_graph_format",
+    verify = "graph format includes all fields and metadata"
 )]
 fn emit_json_with_schema_nodes_have_fields() {
     let mut graph = Graph::new();
@@ -1269,7 +1293,10 @@ fn emit_json_with_schema_nodes_have_fields() {
 
 // B:embed_schema_in_export — verify unit "V2 edges present"
 #[test]
-#[specforge_test(behavior = "embed_schema_in_export", verify = "V2 edges present")]
+#[specforge_test(
+    behavior = "export_agent_graph_format",
+    verify = "graph format includes all nodes and edges"
+)]
 fn emit_json_with_schema_has_edges() {
     let mut graph = Graph::new();
     graph.add_node(node("a", "behavior", None));
@@ -1292,7 +1319,10 @@ fn emit_json_with_schema_has_edges() {
 
 // B:negotiate_schema_version — verify unit "above max fails"
 #[test]
-#[specforge_test(behavior = "negotiate_schema_version", verify = "above max fails")]
+#[specforge_test(
+    behavior = "negotiate_schema_version",
+    verify = "incompatible version produces E027 with supported range"
+)]
 fn negotiate_above_max_fails() {
     let min = SchemaVersion::new(1, 0, 0);
     let max = SchemaVersion::new(1, 5, 0);
@@ -1305,7 +1335,7 @@ fn negotiate_above_max_fails() {
 #[test]
 #[specforge_test(
     behavior = "generate_schema_from_registries",
-    verify = "edge with no source/target"
+    verify = "schema includes all registered edge types"
 )]
 fn generate_schema_edge_no_source_target() {
     let mut edges = EdgeRegistry::new();
@@ -1326,7 +1356,7 @@ fn generate_schema_edge_no_source_target() {
 #[test]
 #[specforge_test(
     behavior = "detect_breaking_schema_changes",
-    verify = "multiple field changes"
+    verify = "SchemaMigration record emitted on version change"
 )]
 fn diff_multiple_field_changes() {
     let old = sample_schema();
@@ -1369,7 +1399,7 @@ fn publish_json_schema_description_includes_version() {
 #[test]
 #[specforge_test(
     behavior = "persist_schema_cache",
-    verify = "cache load diff version pipeline"
+    verify = "persisted cache feeds breaking change detection in the next compilation"
 )]
 fn cache_load_diff_version_pipeline() {
     let dir = tempfile::tempdir().unwrap();
@@ -1499,7 +1529,7 @@ fn detect_breaking_missing_cache_no_exports_no_diagnostic() {
 #[test]
 #[specforge_test(
     behavior = "detect_breaking_schema_changes",
-    verify = "cached schema used for diff"
+    verify = "previous schema is read from .specforge/schema-cache.json"
 )]
 fn detect_breaking_with_cached_schema() {
     let dir = tempfile::tempdir().unwrap();
@@ -1710,7 +1740,7 @@ fn published_schema_describes_all_edge_types() {
 #[test]
 #[specforge_test(
     behavior = "generate_schema_from_registries",
-    verify = "requires/ensures consistency for schema generation from registries"
+    verify = "Generate Schema From Registries: schema generation from registries holds — registries_populated_fired, all_kinds_in_schema, all_edges_in_schema, schema_cached, schema_generated_emitted"
 )]
 fn generate_schema_contract() {
     let mut kinds = KindRegistry::new();
@@ -1761,7 +1791,7 @@ fn generate_schema_contract() {
 #[test]
 #[specforge_test(
     behavior = "embed_schema_in_export",
-    verify = "requires/ensures consistency for schema embedding in export"
+    verify = "Embed Schema in Export: schema embedding in export holds — schema_version_computed_fired, validation_complete_fired, schema_embedded, format_version_set, schema_ref_names_full_schema"
 )]
 fn embed_schema_contract() {
     let schema = sample_schema();
@@ -1786,7 +1816,7 @@ fn embed_schema_contract() {
 #[test]
 #[specforge_test(
     behavior = "detect_breaking_schema_changes",
-    verify = "requires/ensures consistency for breaking schema change detection"
+    verify = "Detect Breaking Schema Changes: breaking schema change detection holds — schema_generated_fired, filesystem_available, breaking_changes_classified, nonbreaking_changes_classified, migration_record_emitted, schema_breaking_change_detected_emitted"
 )]
 fn detect_breaking_contract() {
     let old = sample_schema();
@@ -1822,7 +1852,7 @@ fn detect_breaking_contract() {
 #[test]
 #[specforge_test(
     behavior = "compute_schema_version",
-    verify = "requires/ensures consistency for schema version computation"
+    verify = "Compute Schema Version: schema version computation holds — schema_breaking_change_detected_fired, version_auto_computed, first_compilation_baseline, version_attached, schema_version_computed_emitted"
 )]
 fn compute_version_contract() {
     // ensures: first_compilation_baseline
@@ -1850,7 +1880,7 @@ fn compute_version_contract() {
 #[test]
 #[specforge_test(
     behavior = "persist_schema_cache",
-    verify = "requires/ensures consistency for schema cache persistence"
+    verify = "Persist Schema Cache: schema cache persistence holds — schema_generated_fired, cache_written_atomically, cache_always_updated, schema_cache_persisted_emitted"
 )]
 fn persist_cache_contract() {
     let dir = tempfile::tempdir().unwrap();
@@ -1870,7 +1900,7 @@ fn persist_cache_contract() {
 #[test]
 #[specforge_test(
     behavior = "serve_schema_resource",
-    verify = "requires/ensures consistency for schema resource serving"
+    verify = "Serve Schema Resource: schema resource serving holds — validation_complete_fired, full_schema_output, kind_filter_supported, mcp_resource_available"
 )]
 fn serve_schema_contract() {
     let schema = sample_schema();
@@ -1893,7 +1923,7 @@ fn serve_schema_contract() {
 #[test]
 #[specforge_test(
     behavior = "publish_schema_specification",
-    verify = "requires/ensures consistency for schema specification publication"
+    verify = "Publish Schema Specification: schema specification publication holds — schema_version_computed_fired, validation_complete_fired, valid_json_schema_produced, all_kinds_described, third_party_usable, render_complete_emitted"
 )]
 fn publish_schema_contract() {
     let schema = sample_schema();
@@ -2010,8 +2040,8 @@ fn scoped_brief_v2_export() {
 // B:embed_schema_in_export — verify unit "scoped V2 export with nonexistent scope returns error"
 #[test]
 #[specforge_test(
-    behavior = "embed_schema_in_export",
-    verify = "scoped V2 nonexistent scope error"
+    behavior = "export_agent_graph_format",
+    verify = "non-existent scope entity produces E003 and exit code 1"
 )]
 fn scoped_v2_nonexistent_scope_error() {
     let graph = Graph::new();

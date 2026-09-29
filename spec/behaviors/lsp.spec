@@ -120,6 +120,7 @@ behavior document_open_close "Document Open/Close" {
   verify unit "didOpen registers document and triggers compilation"
   verify unit "didClose removes document and clears diagnostics"
   verify unit "only open documents participate in incremental compilation"
+  verify unit "rapid open and close cycles do not corrupt state"
   verify contract "Document Open/Close: document open/close holds — lsp_initialized_fired, document_tracked, file_changed_emitted, closed_diagnostics_cleared"
 
   tests ["crates/specforge-lsp/tests/document.rs"]
@@ -181,6 +182,7 @@ behavior go_to_definition "Go-to-Definition" {
   verify unit        "go-to-def navigates to entity declaration"
   verify unit        "go-to-def on non-existent ID returns no result"
   verify integration "go-to-def works across files"
+  verify unit        "source spans convert from 1-based to 0-based for LSP"
   verify contract "Go-to-Definition: go-to-definition holds — graph_available, declaration_site_returned"
 
   tests ["crates/specforge-lsp/tests/navigation.rs"]
@@ -580,6 +582,12 @@ behavior provide_semantic_tokens "Provide Semantic Tokens" {
   verify unit "triple-quoted strings are classified as strings"
   verify unit "default semantic_token is keyword when not specified"
   verify unit "enhanced fields are classified as property"
+  verify unit "reference list items classified as 'variable' with reference modifier"
+  verify unit "verify kind classified as enumMember"
+  verify unit "comments classified as comment"
+  verify unit "number values classified as number"
+  verify unit "entity title strings classified as string"
+  verify unit "use path classified as string"
   verify contract "Provide Semantic Tokens: semantic tokens holds — graph_available, kind_registry_available, tokens_classified, structural_keywords_enforced, extension_delegation_applied"
 
   tests ["crates/specforge-lsp/tests/semantic_tokens.rs"]
@@ -688,7 +696,7 @@ behavior code_action_add_missing_import "Code Action: Add Missing Import" {
   ports      [LspProtocol]
 
   requires {
-    graph_available "in-memory graph is built and E001 diagnostics are available"
+    graph_available "in-memory graph is built and E003 diagnostics are available"
     entity_exists_elsewhere "the referenced entity ID exists in another file in the workspace"
   }
 
@@ -697,14 +705,14 @@ behavior code_action_add_missing_import "Code Action: Add Missing Import" {
   }
 
   contract """
-    When an E001 diagnostic (unresolved reference) exists for an entity ID
+    When an E003 diagnostic (unresolved reference) exists for an entity ID
     that exists in another file, the LSP MUST offer a code action to add
-    the appropriate `use` import statement. (E001 is emitted by
+    the appropriate `use` import statement. (E003 is emitted by
     link_entity_references during resolution, not by the validator.) The import MUST be inserted
     at the top of the file, after existing `use` statements.
   """
 
-  verify unit "code action offered on E001 for resolvable entity"
+  verify unit "code action offered on E003 for resolvable entity"
   verify unit "import is inserted after existing use statements"
   verify unit "no code action when entity does not exist anywhere"
   verify contract "Code Action: Add Missing Import: add missing import holds — graph_available, entity_exists_elsewhere, import_added"
@@ -720,7 +728,7 @@ behavior code_action_create_entity_stub "Code Action: Create Entity Stub" {
   features   [extension_driven_code_actions]
 
   requires {
-    graph_available "in-memory graph is built and E001 diagnostics are available"
+    graph_available "in-memory graph is built and E003 diagnostics are available"
     field_registry_available "FieldRegistry is populated with target_kind constraints for kind inference"
   }
 
@@ -731,7 +739,7 @@ behavior code_action_create_entity_stub "Code Action: Create Entity Stub" {
   }
 
   contract """
-    When an E001 diagnostic (unresolved reference) exists for an entity ID
+    When an E003 diagnostic (unresolved reference) exists for an entity ID
     that does not exist in any file, the LSP SHOULD offer a code action
     to create a stub entity definition. The entity kind for the stub MUST
     be inferred from the enclosing field's target_kind constraint in the
@@ -746,7 +754,7 @@ behavior code_action_create_entity_stub "Code Action: Create Entity Stub" {
     structural context; agents produce implementation.
   """
 
-  verify unit "code action offered on E001 for non-existent entity"
+  verify unit "code action offered on E003 for non-existent entity"
   verify unit "stub uses correct entity kind from FieldRegistry target_kind"
   verify unit "no code action when enclosing field has no target_kind"
   verify unit "stub is inserted at end of current file"
