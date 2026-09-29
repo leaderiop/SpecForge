@@ -28,8 +28,20 @@ fn mcp_server_responds_to_initialize() {
 
     let stdin = child.stdin.as_mut().unwrap();
 
-    let request = r#"{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}"#;
-    writeln!(stdin, "{}", request).unwrap();
+    // A standard client handshake: `initialize` without `projectRoot`, the
+    // `initialized` notification, then a request.
+    writeln!(stdin, "{}", mcp_initialize(1)).unwrap();
+    writeln!(
+        stdin,
+        r#"{{"jsonrpc":"2.0","method":"notifications/initialized"}}"#
+    )
+    .unwrap();
+    writeln!(
+        stdin,
+        "{}",
+        mcp_request(2, "tools/list", serde_json::json!({}))
+    )
+    .unwrap();
     stdin.flush().unwrap();
 
     drop(child.stdin.take());
@@ -37,19 +49,54 @@ fn mcp_server_responds_to_initialize() {
     let output = child.wait_with_output().unwrap();
     let stdout = String::from_utf8_lossy(&output.stdout);
 
-    let lines: Vec<&str> = stdout.lines().filter(|l| !l.trim().is_empty()).collect();
-    assert!(
-        !lines.is_empty(),
-        "MCP should produce at least one response line: {}",
-        stdout
+    let responses: Vec<serde_json::Value> = stdout
+        .lines()
+        .filter(|l| !l.trim().is_empty())
+        .map(|l| serde_json::from_str(l).unwrap_or_else(|e| panic!("invalid JSON {e}: {l}")))
+        .collect();
+    // One response per request, nothing unsolicited.
+    let ids: Vec<&serde_json::Value> = responses.iter().map(|r| &r["id"]).collect();
+    assert_eq!(
+        ids,
+        [1, 2],
+        "exactly the two requests are answered: {stdout}"
     );
 
-    let first: serde_json::Value = serde_json::from_str(lines[0])
-        .unwrap_or_else(|e| panic!("first response not valid JSON: {}\nline: {}", e, lines[0]));
+    let init = &responses[0];
     assert!(
-        first["result"].is_object() || first["id"].is_number(),
-        "first response should be a JSON-RPC response: {}",
-        lines[0]
+        init["error"].is_null(),
+        "the client's initialize must succeed: {init}"
+    );
+    assert!(init["result"]["capabilities"]["tools"].is_object());
+
+    let tools = responses[1]["result"]["tools"].as_array().expect("tools");
+    assert!(!tools.is_empty(), "core tools registered");
+}
+
+#[test]
+#[specforge_test(
+    behavior = "mcp_initialize",
+    verify = "all core tools registered before accepting requests"
+)]
+fn mcp_initialize_without_project_root_compiles_cli_path() {
+    let responses = mcp_session(
+        r#"behavior alpha "A" { contract "first" }"#,
+        &[mcp_request(
+            1,
+            "tools/call",
+            serde_json::json!({"name": "specforge.search", "arguments": {"query": "alpha"}}),
+        )],
+    );
+
+    let init = find_response(&responses, 0).expect("initialize response");
+    assert!(init["error"].is_null(), "initialize succeeds: {init}");
+    let search = find_response(&responses, 1).expect("search response");
+    let text = search["result"]["content"][0]["text"]
+        .as_str()
+        .expect("search text");
+    assert!(
+        text.contains("alpha"),
+        "the `specforge mcp <path>` project was compiled: {text}"
     );
 }
 
@@ -71,6 +118,7 @@ fn mcp_server_lists_tools() {
         .expect("failed to start specforge mcp");
 
     let stdin = child.stdin.as_mut().unwrap();
+    writeln!(stdin, "{}", mcp_initialize(0)).unwrap();
     let request = r#"{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}"#;
     writeln!(stdin, "{}", request).unwrap();
     stdin.flush().unwrap();
@@ -171,7 +219,7 @@ fn mcp_invalid_json_returns_parse_error() {
     let stdout = String::from_utf8_lossy(&output.stdout);
     let lines: Vec<&str> = stdout.lines().filter(|l| !l.trim().is_empty()).collect();
 
-    // Should have at least the auto-init response and an error for our bad JSON
+    // Our bad JSON gets an error response
     let has_parse_error = lines.iter().any(|l| {
         if let Ok(v) = serde_json::from_str::<serde_json::Value>(l) {
             v["error"]["code"] == -32700 || v["error"]["code"] == -32600
@@ -2313,7 +2361,7 @@ fn mcp_lifecycle_cancel_request() {
     verify = "second initialize request returns -32600 error"
 )]
 fn mcp_lifecycle_double_init_error() {
-    // The CLI auto-initializes on startup (id=0), so sending another initialize should fail
+    // mcp_session already sent the client's initialize (id 0); a second one fails
     let responses = mcp_session(
         BASIC_SPEC,
         &[mcp_request(

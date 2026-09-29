@@ -3,25 +3,9 @@ use std::io::{self, BufRead, Write};
 use std::path::Path;
 
 pub fn run(path: &Path) -> i32 {
-    let mut server = McpServer::new();
-
-    // Auto-initialize with project root
-    let init_params = serde_json::json!({
-        "projectRoot": path.to_str().unwrap_or(".")
-    });
-    let init_req = serde_json::json!({
-        "jsonrpc": "2.0",
-        "id": 0,
-        "method": "initialize",
-        "params": init_params
-    });
-    if let Some(resp) = server.handle_message(&init_req.to_string()) {
-        // Write init response to stdout
-        let stdout = io::stdout();
-        let mut out = stdout.lock();
-        let _ = writeln!(out, "{}", resp);
-        let _ = out.flush();
-    }
+    // The client drives the handshake; its `initialize` compiles `path`
+    // unless it names a `projectRoot` of its own.
+    let mut server = McpServer::with_project_root(path.to_path_buf());
 
     // Stdio loop: read JSON-RPC from stdin, write responses to stdout
     let stdin = io::stdin();

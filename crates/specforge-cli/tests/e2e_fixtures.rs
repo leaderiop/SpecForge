@@ -273,8 +273,22 @@ pub fn mcp_request(id: u64, method: &str, params: serde_json::Value) -> String {
     .to_string()
 }
 
-/// Send requests to MCP, collect all response lines.
-/// Returns parsed JSON values for each non-empty stdout line.
+/// The `initialize` a standard MCP client sends first: no `projectRoot`, so
+/// the server compiles the `specforge mcp <path>` argument.
+pub fn mcp_initialize(id: u64) -> String {
+    mcp_request(
+        id,
+        "initialize",
+        serde_json::json!({
+            "protocolVersion": "2025-03-26",
+            "capabilities": {},
+            "clientInfo": {"name": "e2e", "version": "0"}
+        }),
+    )
+}
+
+/// Send requests to MCP after a standard `initialize` (id 0), collect all
+/// response lines. Returns parsed JSON values for each non-empty stdout line.
 pub fn mcp_session(spec_content: &str, requests: &[String]) -> Vec<serde_json::Value> {
     let dir = setup_project(&[("main.spec", spec_content)]);
 
@@ -288,6 +302,7 @@ pub fn mcp_session(spec_content: &str, requests: &[String]) -> Vec<serde_json::V
         .expect("failed to start specforge mcp");
 
     let stdin = child.stdin.as_mut().unwrap();
+    writeln!(stdin, "{}", mcp_initialize(0)).unwrap();
     for req in requests {
         writeln!(stdin, "{}", req).unwrap();
     }

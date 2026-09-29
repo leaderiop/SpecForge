@@ -18,6 +18,9 @@ pub struct McpState {
     pub graph: Graph,
     pub diagnostics: Vec<Diagnostic>,
     pub project_root: Option<PathBuf>,
+    /// Project compiled when the client's `initialize` names no `projectRoot`
+    /// (the `specforge mcp <path>` argument).
+    pub default_project_root: Option<PathBuf>,
     pub subscriptions: HashMap<String, Vec<Subscription>>,
     pub previous_diagnostics: Vec<Diagnostic>,
     pub tool_registry: Vec<McpToolDescriptor>,
@@ -107,6 +110,7 @@ impl McpState {
             graph: Graph::new(),
             diagnostics: Vec::new(),
             project_root: None,
+            default_project_root: None,
             subscriptions: HashMap::new(),
             previous_diagnostics: Vec::new(),
             tool_registry: Vec::new(),

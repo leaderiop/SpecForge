@@ -32,6 +32,14 @@ impl McpServer {
         }
     }
 
+    /// A server that compiles `root` when the client's `initialize` does not
+    /// name a `projectRoot` — standard MCP clients never send one.
+    pub fn with_project_root(root: std::path::PathBuf) -> Self {
+        let mut server = Self::new();
+        server.state.default_project_root = Some(root);
+        server
+    }
+
     pub fn handle_message(&mut self, input: &str) -> Option<String> {
         let request = match parse_request(input) {
             Ok(req) => req,

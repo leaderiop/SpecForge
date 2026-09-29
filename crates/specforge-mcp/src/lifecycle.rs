@@ -41,7 +41,8 @@ pub fn handle_initialize(
         .get("projectRoot")
         .or_else(|| params.get("project_root"))
         .and_then(|v| v.as_str())
-        .map(PathBuf::from);
+        .map(PathBuf::from)
+        .or_else(|| state.default_project_root.clone());
 
     // Register tool/resource/prompt descriptors
     register_defaults(state);
