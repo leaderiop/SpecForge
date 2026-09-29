@@ -97,12 +97,12 @@ fn parse_git_specifier_with_rev() {
 
 // B:parse_extension_specifier — verify integration "empty/invalid input produces E032"
 #[test]
-fn parse_invalid_specifier_e032() {
+fn parse_invalid_specifier_e054() {
     let err = parse_extension_specifier("").unwrap_err();
-    assert_eq!(err.code, "E032");
+    assert_eq!(err.code, "E054");
 
     let err = parse_extension_specifier("just-a-name").unwrap_err();
-    assert_eq!(err.code, "E032");
+    assert_eq!(err.code, "E054");
 }
 
 // ============================================================
@@ -151,7 +151,7 @@ fn discover_invalid_manifest_warning() {
     let (resolved, diags) = discover_extensions(dir.path());
     assert_eq!(resolved.len(), 1);
     assert_eq!(diags.len(), 1);
-    assert_eq!(diags[0].code, "W029");
+    assert_eq!(diags[0].code, "W116");
 }
 
 // B:discover_extensions — verify integration "non-existent directory produces warning"
@@ -160,7 +160,7 @@ fn discover_nonexistent_dir_warning() {
     let (resolved, diags) = discover_extensions(Path::new("/nonexistent/extensions/dir"));
     assert!(resolved.is_empty());
     assert_eq!(diags.len(), 1);
-    assert_eq!(diags[0].code, "W029");
+    assert_eq!(diags[0].code, "W116");
 }
 
 // ============================================================
@@ -435,20 +435,20 @@ fn validate_query_ext_valid() {
 
 // B:validate_query_extensions — verify integration "empty pattern produces W031"
 #[test]
-fn validate_query_ext_empty_w031() {
+fn validate_query_ext_empty_w117() {
     let raw = vec![RawQueryExtension {
         file_kind: "highlights".to_string(),
         pattern: String::new(),
     }];
     let (valid, warnings) = validate_query_extensions("@ext/test", &raw);
     assert_eq!(warnings.len(), 1);
-    assert_eq!(warnings[0].code, "W031");
+    assert_eq!(warnings[0].code, "W117");
     assert!(valid.is_empty());
 }
 
 // B:validate_query_extensions — verify integration "null bytes produce W031, valid ones still pass"
 #[test]
-fn validate_query_ext_null_bytes_w031() {
+fn validate_query_ext_null_bytes_w117() {
     let raw = vec![
         RawQueryExtension {
             file_kind: "highlights".to_string(),
@@ -461,7 +461,7 @@ fn validate_query_ext_null_bytes_w031() {
     ];
     let (valid, warnings) = validate_query_extensions("@ext/test", &raw);
     assert_eq!(warnings.len(), 1);
-    assert_eq!(warnings[0].code, "W031");
+    assert_eq!(warnings[0].code, "W117");
     assert_eq!(valid.len(), 1);
     assert_eq!(valid[0].file_kind, QueryFileKind::Locals);
 }

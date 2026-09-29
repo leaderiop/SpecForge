@@ -166,16 +166,16 @@ behavior pe_register_validation_rules "Register Product Validation Rules" {
     field_definitions_registered "all field definitions for 9 kinds and 16 edge types are in FieldRegistry"
   }
   ensures  {
-    rules_registered       "all diagnostic codes (E007-E009, E015-E016, W041-W046, W049, W057, W075-W095, I010, I046-I097) are registered as declarative validation rules"
+    rules_registered       "all diagnostic codes (E007-E009, E015, E052, W041-W046, W049, W057, W075-W095, I010, I046-I097) are registered as declarative validation rules"
     rules_sorted           "rules are sorted by diagnostic code for deterministic execution"
-    rules_count            "69 rules total: field validation (W077-W086, W095, I050, I053, I056, I061, I062, I068, I095, E008, E009), structural (W041-W046, W049, W057, I010, I046-I052, I067, I071, I072, I075, I096, W075, W076, W086), lifecycle (W087-W094, I054-I060, I063-I066, I069-I070, I073-I079, I080-I091, I092-I094, I097, W092-W093), DAG (E007, E015, E016, W045)"
+    rules_count            "69 rules total: field validation (W077-W086, W095, I050, I053, I056, I061, I062, I068, I095, E008, E009), structural (W041-W046, W049, W057, I010, I046-I052, I067, I071, I072, I075, I096, W075, W076, W086), lifecycle (W087-W094, I054-I060, I063-I066, I069-I070, I073-I079, I080-I091, I092-I094, I097, W092-W093), DAG (E007, E015, E052, W045)"
   }
 
   ports    [ProductValidationPort]
   features [pe_core_entity_kinds, pe_validation_suite, product_validation]
 
   verify unit "validation rules registered from manifest"
-  verify unit "rules include E007-E009, E015-E016, W041-W046, W049, W057, W075-W095, I010, I046-I097"
+  verify unit "rules include E007-E009, E015, E052, W041-W046, W049, W057, W075-W095, I010, I046-I097"
   verify unit "rules sorted by diagnostic code"
 }
 

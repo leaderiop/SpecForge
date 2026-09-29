@@ -34,7 +34,7 @@ pub fn parse_extension_specifier(input: &str) -> Result<ExtensionSpecifier, Diag
 
     if input.is_empty() {
         return Err(Diagnostic {
-            code: "E032".to_string(),
+            code: "E054".to_string(),
             severity: Severity::Error,
             message: "empty extension specifier".to_string(),
             span: None,
@@ -78,7 +78,7 @@ pub fn parse_extension_specifier(input: &str) -> Result<ExtensionSpecifier, Diag
     }
 
     Err(Diagnostic {
-        code: "E032".to_string(),
+        code: "E054".to_string(),
         severity: Severity::Error,
         message: format!("invalid extension specifier: '{}'", input),
         span: None,
@@ -99,7 +99,7 @@ pub fn discover_extensions(extensions_dir: &Path) -> (Vec<ResolvedExtension>, Ve
         Ok(entries) => entries,
         Err(e) => {
             diagnostics.push(Diagnostic {
-                code: "W029".to_string(),
+                code: "W116".to_string(),
                 severity: Severity::Warning,
                 message: format!(
                     "cannot read extensions directory '{}': {}",
@@ -135,7 +135,7 @@ pub fn discover_extensions(extensions_dir: &Path) -> (Vec<ResolvedExtension>, Ve
                 }
                 Err(e) => {
                     diagnostics.push(Diagnostic {
-                        code: "W029".to_string(),
+                        code: "W116".to_string(),
                         severity: Severity::Warning,
                         message: format!(
                             "invalid manifest at '{}': {}",
@@ -149,7 +149,7 @@ pub fn discover_extensions(extensions_dir: &Path) -> (Vec<ResolvedExtension>, Ve
             },
             Err(e) => {
                 diagnostics.push(Diagnostic {
-                    code: "W029".to_string(),
+                    code: "W116".to_string(),
                     severity: Severity::Warning,
                     message: format!(
                         "cannot read manifest at '{}': {}",
@@ -233,10 +233,10 @@ mod tests {
     #[test]
     fn test_rejects_invalid_specifier() {
         let err = parse_extension_specifier("").unwrap_err();
-        assert_eq!(err.code, "E032");
+        assert_eq!(err.code, "E054");
 
         let err2 = parse_extension_specifier("just-a-name").unwrap_err();
-        assert_eq!(err2.code, "E032");
+        assert_eq!(err2.code, "E054");
     }
 
     // -- discover_extensions --
@@ -288,7 +288,7 @@ mod tests {
         assert_eq!(resolved.len(), 1);
         assert_eq!(resolved[0].manifest.name, "@test/valid");
         assert_eq!(diags.len(), 1);
-        assert_eq!(diags[0].code, "W029");
+        assert_eq!(diags[0].code, "W116");
         assert!(diags[0].message.contains("invalid manifest"));
     }
 }

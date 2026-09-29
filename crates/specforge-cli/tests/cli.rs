@@ -61,7 +61,7 @@ fn self_check_runs_without_crashing() {
         diagnostics.iter().all(|d| {
             let code = d["code"].as_str().unwrap_or("");
             [
-                "E001", "E002", "E003", "W003", "W012", "W060", "W061", "W062",
+                "E001", "E002", "E003", "W113", "W012", "W060", "W061", "W062",
             ]
             .contains(&code)
         }),

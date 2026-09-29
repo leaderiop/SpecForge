@@ -72,7 +72,7 @@ behavior validate_surface_exports "Validate Surface Exports" {
 
   ensures {
     all_declared_exports_verified "Every function declared in surface contributions has a corresponding Wasm export"
-    missing_exports_diagnosed "Missing cmd__ or mcp__ exports produce E036 diagnostics"
+    missing_exports_diagnosed "Missing cmd__ or mcp__ exports produce E020 diagnostics"
     surface_exports_validated_emitted "surface_exports_validated event is emitted when all exports are present"
   }
 
@@ -81,7 +81,7 @@ behavior validate_surface_exports "Validate Surface Exports" {
     that the .wasm binary exports all functions declared in the extension's
     surface contributions. CLI commands MUST have cmd__{id} exports. MCP
     tools and resources MUST have mcp__{name} exports. Missing exports
-    MUST produce E036 diagnostics listing the expected export name. Extra
+    MUST produce E020 diagnostics listing the expected export name. Extra
     exports beyond declared surfaces MUST be ignored. Extensions with no
     surfaces field are trivially valid. If the extension has no Wasm binary
     but declares surfaces, W055 MUST be emitted.
@@ -89,8 +89,8 @@ behavior validate_surface_exports "Validate Surface Exports" {
 
   verify unit "all declared cmd__ exports present passes"
   verify unit "all declared mcp__ exports present passes"
-  verify unit "missing cmd__ export produces E036"
-  verify unit "missing mcp__ export produces E036"
+  verify unit "missing cmd__ export produces E020"
+  verify unit "missing mcp__ export produces E020"
   verify unit "no Wasm binary with surface declarations produces W055"
   verify unit "extra exports beyond surfaces are ignored"
   verify contract "Validate Surface Exports: surface export validation holds — extension_loaded_fired, all_declared_exports_verified, missing_exports_diagnosed, surface_exports_validated_emitted"
@@ -111,7 +111,7 @@ behavior validate_mcp_tool_schemas "Validate MCP Tool Schemas" {
 
   ensures {
     schemas_validated "Every MCP tool input_schema is validated as valid JSON Schema"
-    invalid_schemas_diagnosed "Invalid JSON Schemas produce E037 diagnostics"
+    invalid_schemas_diagnosed "Invalid JSON Schemas produce E055 diagnostics"
     missing_descriptions_warned "MCP tools without descriptions produce W056 warnings"
     mcp_tool_schemas_validated_emitted "mcp_tool_schemas_validated event is emitted after schema validation completes"
   }
@@ -119,13 +119,13 @@ behavior validate_mcp_tool_schemas "Validate MCP Tool Schemas" {
   contract """
     After surface contributions are registered, the compiler MUST validate
     the input_schema of each MCP tool contribution. The input_schema MUST
-    be valid JSON Schema. Invalid schemas MUST produce E037. MCP tools
+    be valid JSON Schema. Invalid schemas MUST produce E055. MCP tools
     without a description MUST produce W056 — agents need descriptions
     for tool discovery.
   """
 
   verify unit "valid JSON Schema passes validation"
-  verify unit "invalid JSON Schema produces E037"
+  verify unit "invalid JSON Schema produces E055"
   verify unit "MCP tool without description produces W056"
   verify contract "Validate MCP Tool Schemas: MCP tool schema validation holds — surface_contributions_registered_fired, schemas_validated, invalid_schemas_diagnosed, missing_descriptions_warned, mcp_tool_schemas_validated_emitted"
 
@@ -145,7 +145,7 @@ behavior validate_command_arg_types "Validate Command Arg Types" {
 
   ensures {
     arg_types_validated "Every command arg has a known CommandArgType"
-    unknown_types_diagnosed "Unknown arg types produce E038 diagnostics"
+    unknown_types_diagnosed "Unknown arg types produce E055 diagnostics"
     command_args_validated_emitted "command_args_validated event is emitted after arg type validation completes"
   }
 
@@ -153,12 +153,12 @@ behavior validate_command_arg_types "Validate Command Arg Types" {
     After surface contributions are registered, the compiler MUST validate
     the arg type declarations on each CLI command contribution. Each arg
     MUST have a known CommandArgType (string_arg, path_arg, bool_arg,
-    enum_arg, integer_arg). Unknown arg types MUST produce E038. Commands
+    enum_arg, integer_arg). Unknown arg types MUST produce E055. Commands
     with no args declaration MUST produce W057 as a style warning.
   """
 
   verify unit "known arg types pass validation"
-  verify unit "unknown arg type produces E038"
+  verify unit "unknown arg type produces E055"
   verify unit "command with no args produces W057"
   verify contract "Validate Command Arg Types: command arg type validation holds — surface_contributions_registered_fired, arg_types_validated, unknown_types_diagnosed, command_args_validated_emitted"
 

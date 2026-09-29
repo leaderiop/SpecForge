@@ -74,7 +74,7 @@ pub fn host_read_file_check(
         CallSite::Validator | CallSite::Provider | CallSite::Parser | CallSite::Analyzer => {}
         other => {
             return Err(Diagnostic {
-                code: "E031".to_string(),
+                code: "E053".to_string(),
                 severity: Severity::Error,
                 message: format!(
                     "extension '{}': host_read_file not allowed from {:?} call site",
@@ -89,7 +89,7 @@ pub fn host_read_file_check(
     // Filesystem access must be enabled
     if policy.file_system_access != Some(true) {
         return Err(Diagnostic {
-            code: "E031".to_string(),
+            code: "E053".to_string(),
             severity: Severity::Error,
             message: format!(
                 "extension '{}': host_read_file denied — file_system_access is disabled",
@@ -104,7 +104,7 @@ pub fn host_read_file_check(
     let path_str = path.to_string_lossy();
     if path_str.contains("..") {
         return Err(Diagnostic {
-            code: "E031".to_string(),
+            code: "E053".to_string(),
             severity: Severity::Error,
             message: format!(
                 "extension '{}': host_read_file denied — path contains '..' escape: {}",
@@ -131,7 +131,7 @@ pub fn host_read_file_check(
     // Path must be under spec_root
     if !effective_path.starts_with(&effective_root) {
         return Err(Diagnostic {
-            code: "E031".to_string(),
+            code: "E053".to_string(),
             severity: Severity::Error,
             message: format!(
                 "extension '{}': host_read_file denied — path '{}' is not under spec_root '{}'",
@@ -163,7 +163,7 @@ pub fn host_emit_file_check(
     // Path must be under output_dir
     if !path.starts_with(output_dir) {
         return Err(Diagnostic {
-            code: "E031".to_string(),
+            code: "E053".to_string(),
             severity: Severity::Error,
             message: format!(
                 "extension '{}': host_emit_file denied — path '{}' is not under output dir '{}'",
@@ -181,7 +181,7 @@ pub fn host_emit_file_check(
         let ext = format!(".{}", ext_os.to_string_lossy());
         if CODE_EXTENSIONS.contains(&ext.as_str()) {
             return Err(Diagnostic {
-                code: "E031".to_string(),
+                code: "E053".to_string(),
                 severity: Severity::Error,
                 message: format!(
                     "extension '{}': host_emit_file denied — code file extension '{}' is blocked",
@@ -197,7 +197,7 @@ pub fn host_emit_file_check(
             && !policy.allowed_output_extensions.contains(&ext)
         {
             return Err(Diagnostic {
-                code: "E031".to_string(),
+                code: "E053".to_string(),
                 severity: Severity::Error,
                 message: format!(
                     "extension '{}': host_emit_file denied — extension '{}' not in allowed_output_extensions",
@@ -223,7 +223,7 @@ pub fn host_http_get_check(
     // Call-site restriction: only providers can make HTTP requests
     if call_site != CallSite::Provider {
         return Err(Diagnostic {
-            code: "E031".to_string(),
+            code: "E053".to_string(),
             severity: Severity::Error,
             message: format!(
                 "extension '{}': host_http_get not allowed from {:?} call site",
@@ -237,7 +237,7 @@ pub fn host_http_get_check(
     // Network access must be enabled
     if policy.network_access != Some(true) {
         return Err(Diagnostic {
-            code: "E031".to_string(),
+            code: "E053".to_string(),
             severity: Severity::Error,
             message: format!(
                 "extension '{}': host_http_get denied — network_access is disabled",
@@ -251,7 +251,7 @@ pub fn host_http_get_check(
     // Domain must be in allowlist (if allowlist is non-empty)
     if !policy.allowed_domains.is_empty() && !policy.allowed_domains.iter().any(|d| d == domain) {
         return Err(Diagnostic {
-            code: "E031".to_string(),
+            code: "E053".to_string(),
             severity: Severity::Error,
             message: format!(
                 "extension '{}': host_http_get denied — domain '{}' not in allowed_domains",
@@ -275,7 +275,7 @@ pub fn host_add_graph_node_check(
 ) -> Result<(), Diagnostic> {
     if call_site != CallSite::Parser {
         return Err(Diagnostic {
-            code: "E031".to_string(),
+            code: "E053".to_string(),
             severity: Severity::Error,
             message: format!(
                 "extension '{}': host_add_graph_node not allowed from {:?} call site",
@@ -288,7 +288,7 @@ pub fn host_add_graph_node_check(
 
     if !declared_kinds.iter().any(|k| k == entity_kind) {
         return Err(Diagnostic {
-            code: "E031".to_string(),
+            code: "E053".to_string(),
             severity: Severity::Error,
             message: format!(
                 "extension '{}': entity kind '{}' is not declared in manifest",
@@ -319,7 +319,7 @@ pub fn host_add_graph_edge_check(
 ) -> Result<(), Diagnostic> {
     if call_site != CallSite::Parser {
         return Err(Diagnostic {
-            code: "E031".to_string(),
+            code: "E053".to_string(),
             severity: Severity::Error,
             message: format!(
                 "extension '{}': host_add_graph_edge not allowed from {:?} call site",
@@ -332,7 +332,7 @@ pub fn host_add_graph_edge_check(
 
     if !declared_edge_labels.iter().any(|l| l == edge_label) {
         return Err(Diagnostic {
-            code: "E031".to_string(),
+            code: "E053".to_string(),
             severity: Severity::Error,
             message: format!(
                 "extension '{}': edge label '{}' is not declared in manifest",
@@ -348,7 +348,7 @@ pub fn host_add_graph_edge_check(
 
     if !known_node_ids.contains(source_id) {
         return Err(Diagnostic {
-            code: "E031".to_string(),
+            code: "E053".to_string(),
             severity: Severity::Error,
             message: format!(
                 "extension '{}': source node '{}' does not exist in the graph",
@@ -361,7 +361,7 @@ pub fn host_add_graph_edge_check(
 
     if !known_node_ids.contains(target_id) {
         return Err(Diagnostic {
-            code: "E031".to_string(),
+            code: "E053".to_string(),
             severity: Severity::Error,
             message: format!(
                 "extension '{}': target node '{}' does not exist in the graph",
@@ -1202,7 +1202,7 @@ mod tests {
         let result = host_add_graph_node_check("ext", "widget", CallSite::Parser, &declared);
         assert!(result.is_err());
         let err = result.unwrap_err();
-        assert_eq!(err.code, "E031");
+        assert_eq!(err.code, "E053");
         assert!(err.message.contains("widget"));
         assert!(err.message.contains("not declared"));
     }
@@ -1214,7 +1214,7 @@ mod tests {
         let result = host_add_graph_node_check("ext", "behavior", CallSite::Validator, &declared);
         assert!(result.is_err());
         let err = result.unwrap_err();
-        assert_eq!(err.code, "E031");
+        assert_eq!(err.code, "E053");
         assert!(err.message.contains("call site"));
     }
 
@@ -1227,16 +1227,16 @@ mod tests {
         assert!(host_add_graph_node_check("ext", "behavior", CallSite::Parser, &declared).is_ok());
         assert!(host_add_graph_node_check("ext", "event", CallSite::Parser, &declared).is_ok());
 
-        // ensures: undeclared kind fails with E031
+        // ensures: undeclared kind fails with E053
         let err =
             host_add_graph_node_check("ext", "unknown", CallSite::Parser, &declared).unwrap_err();
-        assert_eq!(err.code, "E031");
+        assert_eq!(err.code, "E053");
         assert_eq!(err.severity, Severity::Error);
 
-        // ensures: non-parser call site fails with E031
+        // ensures: non-parser call site fails with E053
         let err = host_add_graph_node_check("ext", "behavior", CallSite::Renderer, &declared)
             .unwrap_err();
-        assert_eq!(err.code, "E031");
+        assert_eq!(err.code, "E053");
     }
 
     // -- host_add_graph_edge_check --
@@ -1280,7 +1280,7 @@ mod tests {
         );
         assert!(result.is_err());
         let err = result.unwrap_err();
-        assert_eq!(err.code, "E031");
+        assert_eq!(err.code, "E053");
         assert!(err.message.contains("unknown_edge"));
         assert!(err.message.contains("not declared"));
     }
@@ -1341,7 +1341,7 @@ mod tests {
             .is_ok()
         );
 
-        // ensures: non-parser fails with E031
+        // ensures: non-parser fails with E053
         let err = host_add_graph_edge_check(
             "ext",
             "references",
@@ -1352,14 +1352,14 @@ mod tests {
             &nodes,
         )
         .unwrap_err();
-        assert_eq!(err.code, "E031");
+        assert_eq!(err.code, "E053");
         assert_eq!(err.severity, Severity::Error);
 
         // ensures: undeclared label fails
         let err =
             host_add_graph_edge_check("ext", "nope", "a", "b", CallSite::Parser, &labels, &nodes)
                 .unwrap_err();
-        assert_eq!(err.code, "E031");
+        assert_eq!(err.code, "E053");
 
         // ensures: missing node fails
         let err = host_add_graph_edge_check(
@@ -1372,7 +1372,7 @@ mod tests {
             &nodes,
         )
         .unwrap_err();
-        assert_eq!(err.code, "E031");
+        assert_eq!(err.code, "E053");
     }
 
     // -- filter_graph_by_query_scope --

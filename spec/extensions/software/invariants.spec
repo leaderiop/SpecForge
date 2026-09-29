@@ -113,12 +113,12 @@ invariant se_event_trigger_validity "Event Trigger Validity" {
     An event's trigger field MUST reference a behavior entity. Events
     are caused by behaviors — they cannot trigger themselves or reference
     non-behavior entity kinds. Invalid trigger references MUST produce
-    E006 error diagnostics.
+    E051 error diagnostics.
   """
   risk high
 
   verify unit "event trigger referencing behavior passes"
-  verify unit "event trigger referencing non-behavior produces E006"
+  verify unit "event trigger referencing non-behavior produces E051"
     tests ["crates/specforge-emitter/tests/builtins.rs"]
 
 }

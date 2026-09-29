@@ -161,37 +161,37 @@ fn read_file_valid_path_ok() {
 
 // B:host_read_file_check — verify integration "path with .. escape produces E031"
 #[test]
-fn read_file_dotdot_escape_e031() {
+fn read_file_dotdot_escape_e053() {
     let spec_root = Path::new("/project/spec");
     let path = Path::new("/project/spec/../secrets/key.pem");
     let policy = fs_enabled_policy();
     let err =
         host_read_file_check("@ext/a", path, spec_root, CallSite::Validator, &policy).unwrap_err();
-    assert_eq!(err.code, "E031");
+    assert_eq!(err.code, "E053");
     assert!(err.message.contains(".."));
 }
 
 // B:host_read_file_check — verify integration "path outside spec_root produces E031"
 #[test]
-fn read_file_outside_spec_root_e031() {
+fn read_file_outside_spec_root_e053() {
     let spec_root = Path::new("/project/spec");
     let path = Path::new("/other/directory/file.spec");
     let policy = fs_enabled_policy();
     let err =
         host_read_file_check("@ext/a", path, spec_root, CallSite::Validator, &policy).unwrap_err();
-    assert_eq!(err.code, "E031");
+    assert_eq!(err.code, "E053");
     assert!(err.message.contains("not under spec_root"));
 }
 
 // B:host_read_file_check — verify integration "disallowed call site (Renderer) produces E031"
 #[test]
-fn read_file_disallowed_call_site_e031() {
+fn read_file_disallowed_call_site_e053() {
     let spec_root = Path::new("/project/spec");
     let path = Path::new("/project/spec/file.spec");
     let policy = fs_enabled_policy();
     let err =
         host_read_file_check("@ext/a", path, spec_root, CallSite::Renderer, &policy).unwrap_err();
-    assert_eq!(err.code, "E031");
+    assert_eq!(err.code, "E053");
     assert!(err.message.contains("not allowed from"));
 }
 
@@ -214,23 +214,23 @@ fn emit_file_valid_path_ok() {
 
 // B:host_emit_file_check — verify integration "path outside output_dir produces E031"
 #[test]
-fn emit_file_outside_output_dir_e031() {
+fn emit_file_outside_output_dir_e053() {
     let output_dir = Path::new("/project/output");
     let path = Path::new("/project/src/main.rs");
     let policy = SandboxPolicy::default();
     let err = host_emit_file_check("@ext/a", path, output_dir, &policy).unwrap_err();
-    assert_eq!(err.code, "E031");
+    assert_eq!(err.code, "E053");
     assert!(err.message.contains("not under output dir"));
 }
 
 // B:host_emit_file_check — verify integration "code file extension blocked with E031"
 #[test]
-fn emit_file_code_extension_e031() {
+fn emit_file_code_extension_e053() {
     let output_dir = Path::new("/project/output");
     let path = Path::new("/project/output/exploit.rs");
     let policy = SandboxPolicy::default();
     let err = host_emit_file_check("@ext/a", path, output_dir, &policy).unwrap_err();
-    assert_eq!(err.code, "E031");
+    assert_eq!(err.code, "E053");
     assert!(err.message.contains("code file extension"));
 }
 
@@ -248,21 +248,21 @@ fn http_get_provider_allowed_domain_ok() {
 
 // B:host_http_get_check — verify integration "non-provider call site produces E031"
 #[test]
-fn http_get_non_provider_e031() {
+fn http_get_non_provider_e053() {
     let policy = network_enabled_policy(vec![]);
     let err =
         host_http_get_check("@ext/a", "api.example.com", CallSite::Validator, &policy).unwrap_err();
-    assert_eq!(err.code, "E031");
+    assert_eq!(err.code, "E053");
     assert!(err.message.contains("not allowed from"));
 }
 
 // B:host_http_get_check — verify integration "domain not in allowlist produces E031"
 #[test]
-fn http_get_domain_not_allowed_e031() {
+fn http_get_domain_not_allowed_e053() {
     let policy = network_enabled_policy(vec!["safe.example.com".to_string()]);
     let err =
         host_http_get_check("@ext/a", "evil.example.com", CallSite::Provider, &policy).unwrap_err();
-    assert_eq!(err.code, "E031");
+    assert_eq!(err.code, "E053");
     assert!(err.message.contains("not in allowed_domains"));
 }
 
@@ -280,19 +280,19 @@ fn add_node_parser_declared_kind_ok() {
 
 // B:host_add_graph_node_check — verify integration "non-parser call site produces E031"
 #[test]
-fn add_node_non_parser_e031() {
+fn add_node_non_parser_e053() {
     let kinds = vec!["behavior".to_string()];
     let err =
         host_add_graph_node_check("@ext/a", "behavior", CallSite::Validator, &kinds).unwrap_err();
-    assert_eq!(err.code, "E031");
+    assert_eq!(err.code, "E053");
 }
 
 // B:host_add_graph_node_check — verify integration "undeclared entity kind produces E031"
 #[test]
-fn add_node_undeclared_kind_e031() {
+fn add_node_undeclared_kind_e053() {
     let kinds = vec!["behavior".to_string()];
     let err = host_add_graph_node_check("@ext/a", "widget", CallSite::Parser, &kinds).unwrap_err();
-    assert_eq!(err.code, "E031");
+    assert_eq!(err.code, "E053");
     assert!(err.message.contains("not declared"));
 }
 
@@ -319,7 +319,7 @@ fn add_edge_valid_ok() {
 
 // B:host_add_graph_edge_check — verify integration "undeclared edge label produces E031"
 #[test]
-fn add_edge_undeclared_label_e031() {
+fn add_edge_undeclared_label_e053() {
     let labels = vec!["implements".to_string()];
     let nodes: HashSet<String> = ["b1".to_string(), "f1".to_string()].into_iter().collect();
     let err = host_add_graph_edge_check(
@@ -332,13 +332,13 @@ fn add_edge_undeclared_label_e031() {
         &nodes,
     )
     .unwrap_err();
-    assert_eq!(err.code, "E031");
+    assert_eq!(err.code, "E053");
     assert!(err.message.contains("not declared"));
 }
 
 // B:host_add_graph_edge_check — verify integration "unknown source/target node produces E031"
 #[test]
-fn add_edge_unknown_node_e031() {
+fn add_edge_unknown_node_e053() {
     let labels = vec!["implements".to_string()];
     let nodes: HashSet<String> = ["b1".to_string()].into_iter().collect();
     let err = host_add_graph_edge_check(
@@ -351,7 +351,7 @@ fn add_edge_unknown_node_e031() {
         &nodes,
     )
     .unwrap_err();
-    assert_eq!(err.code, "E031");
+    assert_eq!(err.code, "E053");
     assert!(err.message.contains("target node"));
 }
 

@@ -117,12 +117,12 @@ behavior se_register_validation_rules "Register Software Validation Rules" {
   }
 
   ensures {
-    rules_registered       "all W001-W005, W007-W010, E006, E004 rules are registered"
+    rules_registered       "all W001-W005, W007-W010, E051, E004 rules are registered"
     rules_sorted           "rules are sorted by diagnostic code for deterministic execution"
   }
 
   verify unit "validation rules registered from manifest"
-  verify unit "rules include W001-W005, W007-W010, E006, and E004"
+  verify unit "rules include W001-W005, W007-W010, E051, and E004"
   verify unit "rules sorted by diagnostic code"
     tests ["crates/specforge-emitter/tests/builtins.rs", "crates/specforge-wasm/tests/protocol_bridge.rs"]
 

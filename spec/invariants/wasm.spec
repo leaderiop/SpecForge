@@ -54,13 +54,13 @@ invariant wasm_compile_cache_integrity "Wasm Compile Cache Integrity" {
     runtime engine (wasmtime), selected via SPECFORGE_WASMTIME_CACHE.
     Separately, the integrity of an installed extension binary is enforced
     by the specforge.lock hash pin: a binary that no longer matches its
-    recorded hash MUST be refused at load time (E035).
+    recorded hash MUST be refused at load time (E033).
   """
   risk medium
 
   verify property "a cache artifact from different bytes or engine config is never reused"
   verify unit "corrupted cache entry falls back to fresh compilation"
-  verify unit "tampered installed binary refused via lockfile hash pin (E035)"
+  verify unit "tampered installed binary refused via lockfile hash pin (E033)"
   tests ["crates/specforge-component/tests/compile_cache.rs", "crates/specforge-wasm/tests/wasm_lifecycle.rs"]
 
 }
@@ -152,13 +152,13 @@ invariant collector_output_conformance "Collector Output Conformance" {
     Collector output MUST conform to the specforge-report/v1 schema. Every
     CollectorReport MUST include a valid schema field, entries array, and
     stats object. Entity IDs referenced in collector entries MUST be validated
-    against the graph — unknown entity IDs MUST produce a W029 warning, not
+    against the graph — unknown entity IDs MUST produce a W115 warning, not
     a hard error, to allow partial coverage ingestion.
   """
   risk medium
 
   verify unit "valid collector output passes schema validation"
-  verify unit "unknown entity ID in collector entry produces W029"
+  verify unit "unknown entity ID in collector entry produces W115"
   verify unit "missing required fields produce hard error"
 
 }
@@ -274,15 +274,15 @@ invariant surface_schema_validity "Surface Schema Validity" {
   guarantee """
     Extension-contributed MCP tool input schemas and CLI command argument
     types MUST conform to JSON Schema draft 2020-12 and declared type
-    constraints. Invalid schemas MUST produce E037. Unknown argument types
-    MUST produce E038.
+    constraints. Invalid schemas MUST produce E055. Unknown argument types
+    MUST produce E055.
   """
 
   risk medium
 
   verify unit "valid MCP tool schema passes validation"
-  verify unit "invalid MCP tool schema produces E037"
+  verify unit "invalid MCP tool schema produces E055"
   verify unit "known command arg type passes validation"
-  verify unit "unknown command arg type produces E038"
+  verify unit "unknown command arg type produces E055"
 
 }

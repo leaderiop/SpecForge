@@ -45,7 +45,7 @@ This directory contains the entity model reference and design documentation for 
 | refinement | `identifier` | Abstract-to-concrete behavior mapping with condition deltas |
 | process | `identifier` | CSP-style communicating process with alphabet and composition |
 
-Provides structured conditions (inline requires/ensures/maintains fields on behaviors), specification layering, event graph linting, and coverage tracking. Conditions are inline fields that reference invariants, not standalone entities. Contributes 8 edge types (AssumedBy, Satisfies, FollowsProtocol, PropertyDependsOn, RefinesTo, RefinementChainLink, ParticipatesIn, ProcessComposition), 4 compiler passes (condition_check, layering_verify, event_graph_analyze, coverage_tracking), and formal analysis diagnostics (E030-E035, E041-E042, W028-W040, W058, W061-W074). Requires `warning_level=strict` in specforge.json.
+Provides structured conditions (inline requires/ensures/maintains fields on behaviors), specification layering, event graph linting, and coverage tracking. Conditions are inline fields that reference invariants, not standalone entities. Contributes 8 edge types (AssumedBy, Satisfies, FollowsProtocol, PropertyDependsOn, RefinesTo, RefinementChainLink, ParticipatesIn, ProcessComposition), 4 compiler passes (condition_check, layering_verify, event_graph_analyze, coverage_tracking), and formal analysis diagnostics (E030-E035, E041-E042, W028-W040, W058, W123-W136). Requires `warning_level=strict` in specforge.json.
 
 ## Traceability Chain
 
@@ -152,7 +152,7 @@ A comprehensive business plan covering 10 areas (executive summary, financials, 
 | E002 | core | No duplicate IDs — each entity ID is globally unique |
 | E003 | core | No import cycles — `imports` edges form a DAG |
 | E005 | governance | RPN mismatch — severity x occurrence x detection must equal declared rpn |
-| E006 | core | Event trigger invalid — trigger must reference an existing behavior |
+| E051 | software | Event trigger invalid — trigger must reference an existing behavior |
 | E011 | core | Invalid ref target format — provider validates identifier doesn't match expected pattern |
 | E012 | core | Unknown provider kind — ref uses kind not registered by its provider |
 | E007 | product | Circular module dependency — `depends_on` edges must form a DAG |

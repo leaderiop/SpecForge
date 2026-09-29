@@ -39,7 +39,7 @@ fn test_collect_with_explicit_collector() {
     )
     .unwrap();
 
-    // A report is required: collect without one errors (E019).
+    // A report is required: collect without one errors (E045).
     specforge_cmd()
         .args([
             "collect",
@@ -83,7 +83,7 @@ fn test_collect_without_collector_no_auto_detect() {
     )
     .unwrap();
 
-    // No reports found (and none passed) → E019 error.
+    // No reports found (and none passed) → E045 error.
     specforge_cmd()
         .args(["collect", "--path", dir.path().to_str().unwrap()])
         .assert()

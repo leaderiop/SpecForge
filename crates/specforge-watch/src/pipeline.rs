@@ -124,7 +124,7 @@ fn cycle_diagnostics(import_dag: &ImportDag) -> Vec<Diagnostic> {
         let cycle_desc = cycle.join(" -> ");
         let file = cycle.first().cloned().unwrap_or_default();
         diags.push(Diagnostic {
-            code: "W003".to_string(),
+            code: "W113".to_string(),
             message: format!("import cycle detected: {}", cycle_desc),
             severity: Severity::Warning,
             span: Some(SourceSpan {

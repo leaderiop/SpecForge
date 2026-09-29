@@ -348,7 +348,7 @@ fn analyze_dispatches_extension_compiler_pass() {
         .iter()
         .filter(|f| f["code"] == "W096")
         .count();
-    assert_eq!(a, 1, "requires-without-ensures must surface W075");
+    assert_eq!(a, 1, "requires-without-ensures must surface W096");
     assert_eq!(pass["summary"]["entities_analyzed"], 1);
     assert_eq!(pass["summary"]["extension"], "@specforge/formal");
 }

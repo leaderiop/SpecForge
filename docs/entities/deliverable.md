@@ -51,7 +51,7 @@ All fields are optional at the type level. The compiler emits warnings (W043, W0
 | `journeys` | EntityId[] | The UX journeys this deliverable ships. Creates `DeliverableJourney` edges. Omission emits W043. |
 | `modules` | EntityId[] | The modules this deliverable is built from. Creates `DeliverableModule` edges. Omission emits W046. |
 | `milestones` | EntityId[] | Milestones this deliverable is tracked against. Creates `DeliverableMilestone` edges. |
-| `depends_on` | EntityId[] | Other deliverables this one depends on. Creates `DeliverableDependsOn` edges. Cycles detected by E016. |
+| `depends_on` | EntityId[] | Other deliverables this one depends on. Creates `DeliverableDependsOn` edges. Cycles detected by E052. |
 | `version` | string | Semantic Versioning 2.0.0 string (e.g., `1.0.0`, `1.0.0-alpha.1`, `1.0.0+build.42`). Format validated by I061. |
 | `reason` | string | Rationale for current status (required context for `deprecated` status, checked by I066). |
 | `tags` | string[] | Free-form tags for categorization. Format validated by I068 (lowercase hyphen-separated, 2-50 chars). |
@@ -79,7 +79,7 @@ All fields are optional at the type level. The compiler emits warnings (W043, W0
 
 | Code | Level | Rule |
 |------|-------|------|
-| E016 | error | Circular deliverable dependency — `depends_on` edges form a cycle. |
+| E052 | error | Circular deliverable dependency — `depends_on` edges form a cycle. |
 | W043 | warning | Deliverable with no journeys. |
 | W046 | warning | Deliverable with no modules. |
 | W085 | warning | Invalid `status` value (not in DeliverableStatus enum). |

@@ -51,7 +51,7 @@ feature se_validation_suite "Software Validation Suite" {
   """
 
   solution """
-    Declarative validation rules (W001-W005, W007-W010, W009, W028, E006, E004)
+    Declarative validation rules (W001-W005, W007-W010, W009, W028, E051, E004)
     detect common specification quality issues: orphan entities without
     incoming edges, testable entities without verify statements, invalid
     event triggers, features with empty behavior lists, unknown field
@@ -119,7 +119,7 @@ feature se_formal_concurrency "CSP Concurrency Analysis" {
     The process_analyze compiler pass builds an event-behavior bipartite
     graph and performs CSP-inspired analysis. Tarjan's SCC algorithm
     detects deadlocks (E034). Payload type checking catches channel
-    mismatches (E035). Producer/consumer pairing detects lost side
+    mismatches (E060). Producer/consumer pairing detects lost side
     effects (W029). Retry pattern analysis flags livelock risks (W032).
     Starvation detection on ports (W033). Unbounded channel buffer
     detection (W034). Sync blocks declare barrier and timeout constraints.

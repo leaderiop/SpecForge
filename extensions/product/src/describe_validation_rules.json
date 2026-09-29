@@ -315,7 +315,7 @@
     },
     {
       "check": "cycle_detection",
-      "code": "E016",
+      "code": "E052",
       "constraint": null,
       "edge_type": "DeliverableDependsOn",
       "field": null,

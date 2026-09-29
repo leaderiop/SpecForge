@@ -55,7 +55,7 @@ pub fn register_entity_enhancements(
 
             if conflict {
                 diagnostics.push(Diagnostic {
-                    code: "E034".to_string(),
+                    code: "E017".to_string(),
                     severity: Severity::Error,
                     message: format!(
                         "extension '{}': entity enhancement conflict — field '{}' on kind '{}' already enhanced by another extension",
@@ -320,7 +320,7 @@ pub fn validate_collector_output(
                 && !known_entity_ids.contains(id)
             {
                 diagnostics.push(Diagnostic {
-                    code: "W029".to_string(),
+                    code: "W115".to_string(),
                     severity: Severity::Warning,
                     message: format!("collector report references unknown entity ID '{}'", id),
                     span: None,
@@ -341,7 +341,7 @@ pub fn validate_collector_output(
 
         if total > 0 && passed + failed + skipped != total {
             diagnostics.push(Diagnostic {
-                code: "W030".to_string(),
+                code: "W115".to_string(),
                 severity: Severity::Warning,
                 message: format!(
                     "collector report stats inconsistent: total={} but passed+failed+skipped={}",
@@ -732,7 +732,7 @@ mod tests {
 
         let diags = register_entity_enhancements(&manifest, &mut existing);
         assert_eq!(diags.len(), 1);
-        assert_eq!(diags[0].code, "E034");
+        assert_eq!(diags[0].code, "E017");
         assert!(diags[0].message.contains("priority"));
     }
 
@@ -1242,7 +1242,7 @@ mod tests {
 
     // B:validate_collector_output — verify unit "unknown entity ID → W029"
     #[test]
-    fn test_validate_collector_output_unknown_entity_w029() {
+    fn test_validate_collector_output_unknown_entity_w115() {
         let known = HashSet::from(["my_behavior".to_string()]);
         let report: serde_json::Value = serde_json::from_str(
             r#"{
@@ -1256,13 +1256,13 @@ mod tests {
 
         let diags = validate_collector_output(&report, &known);
         assert_eq!(diags.len(), 1);
-        assert_eq!(diags[0].code, "W029");
+        assert_eq!(diags[0].code, "W115");
         assert!(diags[0].message.contains("unknown_behavior"));
     }
 
     // B:validate_collector_output — verify unit "inconsistent stats → W030"
     #[test]
-    fn test_validate_collector_output_inconsistent_stats_w030() {
+    fn test_validate_collector_output_inconsistent_stats_w115() {
         let known = HashSet::new();
         let report: serde_json::Value = serde_json::from_str(
             r#"{
@@ -1274,7 +1274,7 @@ mod tests {
 
         let diags = validate_collector_output(&report, &known);
         assert_eq!(diags.len(), 1);
-        assert_eq!(diags[0].code, "W030");
+        assert_eq!(diags[0].code, "W115");
         assert!(diags[0].message.contains("total=10"));
     }
 
@@ -1293,7 +1293,7 @@ mod tests {
         .unwrap();
         assert!(validate_collector_output(&good, &known).is_empty());
 
-        // ensures: unknown ID → W029
+        // ensures: unknown ID → W115
         let bad_id: serde_json::Value = serde_json::from_str(
             r#"{
             "entity_results": [{ "entity_id": "unknown", "status": "passed" }]
@@ -1301,9 +1301,9 @@ mod tests {
         )
         .unwrap();
         let diags = validate_collector_output(&bad_id, &known);
-        assert!(diags.iter().any(|d| d.code == "W029"));
+        assert!(diags.iter().any(|d| d.code == "W115"));
 
-        // ensures: bad stats → W030
+        // ensures: bad stats → W115
         let bad_stats: serde_json::Value = serde_json::from_str(
             r#"{
             "stats": { "total": 5, "passed": 1, "failed": 1, "skipped": 1 }
@@ -1311,7 +1311,7 @@ mod tests {
         )
         .unwrap();
         let diags = validate_collector_output(&bad_stats, &known);
-        assert!(diags.iter().any(|d| d.code == "W030"));
+        assert!(diags.iter().any(|d| d.code == "W115"));
     }
 
     // -- auto_detect_collector --

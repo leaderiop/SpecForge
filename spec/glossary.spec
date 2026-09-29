@@ -91,74 +91,11 @@ term t_diagnostic "diagnostic" {
   definition """
     A compiler message with a severity (error, warning, info), a validation
     code, source location, and human-readable message. Styled like rustc
-    output. Diagnostic codes are partitioned between core and extensions:
-
-    Core error codes (structural validation):
-      E001 (dangling ref), E002 (duplicate ID), E003 (import cycle),
-      E011 (invalid ID format), E012 (invalid field value),
-      E013 (unknown provider kind), E015 (unsupported format version),
-      E016 (missing file reference), E017 (enhancement conflict unresolved),
-      E018 (enhancement shadows grammar-level construct),
-      E020 (missing contribution export), E022 (entity kind collision
-      with define block), E023 (reserved entity kind),
-      E024 (unknown entity kind), E025 (missing import file),
-      E026 (unresolved entity kind conflict between extensions),
-      E027 (incompatible schema version),
-      E028 (unknown or unsupported manifest version).
-
-    Core warning codes (structural validation):
-      W012 (orphan ref), W015 (deprecated syntax), W017 (testable entity
-      without verify — extension-declared testability flag),
-      W018 (missing file-reference field on extension-supported kind — pattern-driven),
-      W019 (unused import), W020 (unknown field name on registered entity
-      kind — field not in FieldRegistry for the entity's kind),
-      W023 (deprecated field), W026 (enhancement conflict resolved by
-      priority policy), W027 (entity kind conflict resolved by priority
-      policy).
-
-    Core info codes:
-      I001 (unused glossary term), I003 (older format version suggestion),
-      I004 (soft ref unresolved), I005 (unrecognized ref scheme),
-      I006 (verify but not testable), I007 (cross-extension ref info),
-      I002 (no extensions installed), I016 (schema cache not found).
-
-    Allocation ranges (non-overlapping, codes listed per owner):
-      Core (structural):    E001-E003, E011-E028,
-                            W012, W015, W017-W020, W023, W026-W027,
-                            I001-I007, I016
-
-      @specforge/software:  E004, E006, E030-E035,
-                            W001-W005, W007-W010, W028-W040,
-                            I008-I009, I011, I014-I015
-      @specforge/product:   E007-E009, E010,
-                            W041-W044,
-                            I010
-      @specforge/governance: E005,
-                            W047-W048
-
-      Federation (@specforge/federation):    E040, I012, W050-W052, W054
-
-      Migration (core):     W053
-
-      Wasm (core):          E029, I013
-
-      Surface (core):       E036 (missing surface export),
-                            E037 (invalid MCP tool input_schema),
-                            E038 (unknown CLI command arg type),
-                            E039 (duplicate surface contribution),
-                            W055 (surface declared without Wasm binary),
-                            W056 (MCP tool without description),
-                            W057 (CLI command without args),
-                            I017 (auto-promoted tool conflicts with explicit)
-
-      Reserved (future @specforge extensions): E040-E099,
-                            W011, W013-W014, W016, W021-W022, W024-W025,
-                            W045-W046, W049, W058-W099,
-                            I018-I099
-      Third-party extensions: E100+, W100+, I100+
-
-    Note: Allocation is by owner, not by contiguous numeric range.
-    Each code has exactly one owner.
+    output. Each code has exactly one meaning and one owner (core or a
+    single extension); the canonical registry is the `specforge explain`
+    catalog, rendered to docs/diagnostics.md and enforced by tests against
+    every emitting source. Third-party extensions use E900-E998,
+    W900-W998, I900-I998 (I999 is core).
   """
   aliases ["compiler diagnostic", "validation message"]
 }

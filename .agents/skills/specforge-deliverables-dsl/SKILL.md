@@ -52,7 +52,7 @@ deliverable user_management_mvp "User Management MVP" {
 | `status` | DeliverableStatus @optional | Lifecycle state: `draft`, `in_progress`, `shipped`, `deprecated`. Validated by W085. |
 | `modules` | reference list | Libraries this deliverable is built from. Omission emits W046. |
 | `milestones` | EntityId[] @optional | Milestones this deliverable is tracked against. Creates `DeliverableMilestone` edges. |
-| `depends_on` | EntityId[] @optional | Other deliverables this one depends on. Creates `DeliverableDependsOn` edges. Cycles detected by E016. |
+| `depends_on` | EntityId[] @optional | Other deliverables this one depends on. Creates `DeliverableDependsOn` edges. Cycles detected by E052. |
 | `version` | string @optional | Semantic Versioning 2.0.0 string (e.g., `1.0.0`). Format validated by I061. |
 | `reason` | string @optional | Rationale for current status (required context for `deprecated` status, checked by I066). |
 | `personas` | identifier list | Personas this deliverable targets. |
@@ -90,7 +90,7 @@ deliverable user_management_mvp "User Management MVP" {
 
 | Code | Level | Rule |
 |------|-------|------|
-| E016 | error | Circular deliverable dependency -- `depends_on` edges form a cycle. |
+| E052 | error | Circular deliverable dependency -- `depends_on` edges form a cycle. |
 | W043 | warning | Deliverable with no journeys. |
 | W046 | warning | Deliverable with no modules. |
 | W085 | warning | Invalid `status` value (not in DeliverableStatus enum). |

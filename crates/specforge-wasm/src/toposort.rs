@@ -60,7 +60,7 @@ pub fn topological_sort_extensions(
             .map(|(&name, _)| name.to_string())
             .collect();
         return Err(vec![Diagnostic {
-            code: "E031".to_string(),
+            code: "E027".to_string(),
             severity: Severity::Error,
             message: format!(
                 "cycle detected in peer dependencies: {}",
@@ -104,7 +104,7 @@ mod tests {
 
         let err = topological_sort_extensions(&manifests).unwrap_err();
         assert_eq!(err.len(), 1);
-        assert_eq!(err[0].code, "E031");
+        assert_eq!(err[0].code, "E027");
         assert!(err[0].message.contains("cycle"));
     }
 
@@ -151,7 +151,7 @@ mod tests {
             make_manifest("Z", &[("X", ">=1.0.0")]),
         ];
         let err = topological_sort_extensions(&cyclic).unwrap_err();
-        assert_eq!(err[0].code, "E031");
+        assert_eq!(err[0].code, "E027");
         assert_eq!(err[0].severity, Severity::Error);
     }
 }

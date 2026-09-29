@@ -29,7 +29,7 @@ pub fn link_references(project: &ResolvedProject) -> (Vec<PendingEdge>, Vec<Diag
                 if first_file != file.path.as_str() {
                     if first_kind == entity.kind.raw {
                         diagnostics.push(Diagnostic {
-                            code: "W063".to_string(),
+                            code: "W122".to_string(),
                             severity: Severity::Warning,
                             message: format!(
                                 "entity ID '{}' defined in '{}' was already defined in '{}'",
@@ -43,7 +43,7 @@ pub fn link_references(project: &ResolvedProject) -> (Vec<PendingEdge>, Vec<Diag
                         });
                     } else {
                         diagnostics.push(Diagnostic {
-                            code: "W063".to_string(),
+                            code: "W060".to_string(),
                             severity: Severity::Warning,
                             message: format!(
                                 "entity ID '{}' is declared as '{}' in '{}' but as '{}' in '{}' — one ID, two kinds",

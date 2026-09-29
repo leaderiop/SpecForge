@@ -102,7 +102,7 @@
     },
     {
       "check": "custom",
-      "code": "E006",
+      "code": "E051",
       "constraint": null,
       "edge_type": null,
       "field": null,

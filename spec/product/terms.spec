@@ -38,7 +38,7 @@ term orphan_entity "Orphan Entity" {
 }
 
 term cycle_detection "Cycle Detection" {
-  definition "The process of finding circular dependencies in a directed graph. SpecForge detects cycles in module (E007), milestone (E015), feature (W045), and deliverable (E016) dependency graphs using Tarjan's algorithm. Cycles in E-coded graphs are errors; cycles in W-coded graphs are warnings."
+  definition "The process of finding circular dependencies in a directed graph. SpecForge detects cycles in module (E007), milestone (E015), feature (W045), and deliverable (E052) dependency graphs using Tarjan's algorithm. Cycles in E-coded graphs are errors; cycles in W-coded graphs are warnings."
   context    "All dependency graphs (depends_on fields) must form DAGs. Cycle members are named in the diagnostic message."
   aliases    ["circular_dependency", "dag_violation"]
   tags       ["validation", "graph"]

@@ -16,7 +16,7 @@ pub fn validate_surface_exports(
         let expected = format!("cmd__{}", id);
         if !available_exports.contains(&expected) && !available_exports.contains(*export) {
             diagnostics.push(Diagnostic {
-                code: "E036".to_string(),
+                code: "E020".to_string(),
                 severity: Severity::Error,
                 message: format!(
                     "surface command '{}': export '{}' not found in Wasm module",
@@ -35,7 +35,7 @@ pub fn validate_surface_exports(
         let expected = format!("mcp__{}", name);
         if !available_exports.contains(&expected) && !available_exports.contains(*export) {
             diagnostics.push(Diagnostic {
-                code: "E036".to_string(),
+                code: "E020".to_string(),
                 severity: Severity::Error,
                 message: format!(
                     "MCP tool '{}': export '{}' not found in Wasm module",
@@ -54,7 +54,7 @@ pub fn validate_surface_exports(
         let expected = format!("mcp__{}", name);
         if !available_exports.contains(&expected) && !available_exports.contains(*export) {
             diagnostics.push(Diagnostic {
-                code: "E036".to_string(),
+                code: "E020".to_string(),
                 severity: Severity::Error,
                 message: format!(
                     "MCP resource '{}': export '{}' not found in Wasm module",
@@ -81,7 +81,7 @@ pub fn validate_mcp_tool_schemas(
     for (name, input_schema, output_schema) in tools {
         if !input_schema.is_object() {
             diagnostics.push(Diagnostic {
-                code: "E037".to_string(),
+                code: "E055".to_string(),
                 severity: Severity::Error,
                 message: format!("MCP tool '{}': input_schema must be a JSON object", name),
                 span: None,
@@ -92,7 +92,7 @@ pub fn validate_mcp_tool_schemas(
             && !out.is_object()
         {
             diagnostics.push(Diagnostic {
-                code: "E037".to_string(),
+                code: "E055".to_string(),
                 severity: Severity::Error,
                 message: format!("MCP tool '{}': output_schema must be a JSON object", name),
                 span: None,
@@ -115,7 +115,7 @@ pub fn validate_command_arg_types(
         for arg_type in *arg_types {
             if !known_types.contains(arg_type) {
                 diagnostics.push(Diagnostic {
-                    code: "E038".to_string(),
+                    code: "E055".to_string(),
                     severity: Severity::Error,
                     message: format!("command '{}': unknown argument type '{}'", id, arg_type),
                     span: None,
@@ -237,7 +237,7 @@ pub fn dispatch_surface_command(
             }
         }
         WasmCallResult::Trap(trap) => Err(Diagnostic {
-            code: "E041".to_string(),
+            code: "E028".to_string(),
             severity: Severity::Error,
             message: format!(
                 "surface command {}() trapped: {} — {}",
@@ -258,14 +258,14 @@ pub fn dispatch_surface_mcp_tool(
 ) -> Result<serde_json::Value, Diagnostic> {
     match runtime.call_export(extension_name, export_name, input_json) {
         WasmCallResult::Ok(output) => serde_json::from_slice(&output).map_err(|e| Diagnostic {
-            code: "E041".to_string(),
+            code: "E028".to_string(),
             severity: Severity::Error,
             message: format!("MCP tool {}() returned invalid JSON: {}", export_name, e),
             span: None,
             suggestion: None,
         }),
         WasmCallResult::Trap(trap) => Err(Diagnostic {
-            code: "E041".to_string(),
+            code: "E028".to_string(),
             severity: Severity::Error,
             message: format!(
                 "MCP tool {}() trapped: {} — {}",
@@ -307,7 +307,7 @@ pub fn dispatch_surface_mcp_resource(
             }
         }
         WasmCallResult::Trap(trap) => Err(Diagnostic {
-            code: "E041".to_string(),
+            code: "E028".to_string(),
             severity: Severity::Error,
             message: format!(
                 "MCP resource {}() trapped: {} — {}",
@@ -431,12 +431,12 @@ mod tests {
 
     // B:validate_surface_exports — verify unit "missing cmd export produces E036"
     #[test]
-    fn test_validate_missing_cmd_export_e036() {
+    fn test_validate_missing_cmd_export_e020() {
         let exports: HashSet<String> = HashSet::new();
         let commands = [("analyze", "cmd__analyze")];
         let diags = validate_surface_exports(&commands, &[], &[], &exports);
         assert_eq!(diags.len(), 1);
-        assert_eq!(diags[0].code, "E036");
+        assert_eq!(diags[0].code, "E020");
         assert!(diags[0].message.contains("analyze"));
     }
 
@@ -455,12 +455,12 @@ mod tests {
 
     // B:validate_surface_exports — verify unit "missing mcp export produces E036"
     #[test]
-    fn test_validate_missing_mcp_export_e036() {
+    fn test_validate_missing_mcp_export_e020() {
         let exports: HashSet<String> = HashSet::new();
         let tools = [("search", "mcp__search")];
         let diags = validate_surface_exports(&[], &tools, &[], &exports);
         assert_eq!(diags.len(), 1);
-        assert_eq!(diags[0].code, "E036");
+        assert_eq!(diags[0].code, "E020");
         assert!(diags[0].message.contains("search"));
     }
 
@@ -482,7 +482,7 @@ mod tests {
         let tools = [("search", &schema, None)];
         let diags = validate_mcp_tool_schemas(&tools);
         assert_eq!(diags.len(), 1);
-        assert_eq!(diags[0].code, "E037");
+        assert_eq!(diags[0].code, "E055");
     }
 
     // B:validate_mcp_tool_schemas — verify unit "valid output_schema passes"
@@ -504,7 +504,7 @@ mod tests {
         let tools = [("search", &input, Some(&output))];
         let diags = validate_mcp_tool_schemas(&tools);
         assert_eq!(diags.len(), 1);
-        assert_eq!(diags[0].code, "E037");
+        assert_eq!(diags[0].code, "E055");
         assert!(diags[0].message.contains("output_schema"));
     }
 
@@ -535,9 +535,9 @@ mod tests {
         );
         assert!(diags.is_empty());
 
-        // ensures: missing → E036 with export name
+        // ensures: missing → E020 with export name
         let diags = validate_surface_exports(&[("x", "cmd__x")], &[], &[], &HashSet::new());
-        assert!(diags.iter().all(|d| d.code == "E036"));
+        assert!(diags.iter().all(|d| d.code == "E020"));
     }
 
     // -- auto_promote_commands_to_mcp_tools --
@@ -649,7 +649,7 @@ mod tests {
 
         let result = dispatch_surface_command("@ext/a", "cmd__analyze", b"{}", &runtime);
         assert!(result.is_err());
-        assert_eq!(result.unwrap_err().code, "E041");
+        assert_eq!(result.unwrap_err().code, "E028");
     }
 
     // B:dispatch_surface_command — verify unit "exit_code, stdout, stderr returned"
@@ -694,7 +694,7 @@ mod tests {
 
         let result = dispatch_surface_mcp_tool("@ext/a", "mcp__search", b"{}", &runtime);
         assert!(result.is_err());
-        assert_eq!(result.unwrap_err().code, "E041");
+        assert_eq!(result.unwrap_err().code, "E028");
     }
 
     // B:dispatch_surface_mcp_tool — verify unit "output returned as tool result"
@@ -739,7 +739,7 @@ mod tests {
         let result =
             dispatch_surface_mcp_resource("@ext/a", "mcp__graph", "spec://graph", &runtime);
         assert!(result.is_err());
-        assert_eq!(result.unwrap_err().code, "E041");
+        assert_eq!(result.unwrap_err().code, "E028");
     }
 
     // B:dispatch — verify contract "dispatch contracts"

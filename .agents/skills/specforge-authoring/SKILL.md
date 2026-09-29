@@ -209,11 +209,10 @@ behavior create_user "Create User" {
 | Code | Description |
 |------|-------------|
 | E004 | Port method references invalid type |
-| E006 | Event trigger invalid -- trigger must be an existing behavior |
+| E051 | Event trigger invalid -- trigger must be an existing behavior |
 | E030 | Always-false precondition in requires block |
 | E031 | Liskov compliance violation -- strengthened precondition or weakened postcondition |
-| E032 | Cycle in refinement chain |
-| E033 | Behavior not satisfying feature requirements |
+| E041 | Cycle in refinement chain |
 | E034 | Event deadlock detected (circular event dependency) |
 | E035 | Channel type mismatch -- producer and consumer payload types differ |
 | E041 | Refinement chain cycle -- cycle in RefinementChainLink DAG |
@@ -242,11 +241,11 @@ behavior create_user "Create User" {
 | W040 | Invariant without formal property -- no maintains block |
 | W058 | Feature coverage mismatch (downgraded from E033) |
 | W059-W060 | Condition entity validation (orphan, empty description) |
-| W061-W063 | Property entity validation (orphan, empty description, missing kind) |
-| W064-W065 | Axiom entity validation (orphan, empty description) |
-| W066-W068 | Protocol entity validation (orphan, empty description, ordering conflict) |
-| W069-W071 | Refinement entity validation (orphan, empty description, missing delta) |
-| W072-W074 | Process entity validation (orphan, empty description, missing alphabet) |
+| W123-W125 | Property entity validation (orphan, empty description, missing kind) |
+| W126-W127 | Axiom entity validation (orphan, empty description) |
+| W128-W130 | Protocol entity validation (orphan, empty description, ordering conflict) |
+| W131-W133 | Refinement entity validation (orphan, empty description, missing delta) |
+| W134-W136 | Process entity validation (orphan, empty description, missing alphabet) |
 
 ### @specforge/software Info
 

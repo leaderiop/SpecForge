@@ -17,7 +17,7 @@ behavior pe_declare_manifest "Declare @specforge/product Manifest" {
     MilestoneDependsOn, DeliverableMilestone, DeliverableDependsOn,
     ReleaseDeliverable, ReleaseMilestone),
     and all associated validation rules. Diagnostic codes: E007-E009,
-    E015-E016, W041-W046, W049, W057, W075-W095, I010, I046-I097.
+    E015, E052, W041-W046, W049, W057, W075-W095, I010, I046-I097.
   """
   requires {
     valid_manifest_version   "manifestVersion == 2"

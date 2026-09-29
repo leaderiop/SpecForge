@@ -160,7 +160,7 @@ impl Contributions for Extension {{
         }});
 
         // Contribute a validation rule (delete if not needed):
-        c.rule("E001", |r| {{
+        c.rule("W900", |r| {{
             r.check(CheckKind::MissingField);
             r.target_kind("thing");
             r.field("description");

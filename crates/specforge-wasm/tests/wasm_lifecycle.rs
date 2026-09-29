@@ -391,7 +391,7 @@ fn test_toposort_diamond_dependency() {
 
 // B:topological_sort_extensions — verify integration "cycle detected → E031 diagnostic"
 #[test]
-fn test_toposort_cycle_produces_e031() {
+fn test_toposort_cycle_produces_e027() {
     let manifests = vec![
         make_manifest("A", "1.0.0", &[("B", ">=1.0.0")]),
         make_manifest("B", "1.0.0", &[("C", ">=1.0.0")]),
@@ -400,7 +400,7 @@ fn test_toposort_cycle_produces_e031() {
 
     let err = topological_sort_extensions(&manifests).unwrap_err();
     assert_eq!(err.len(), 1);
-    assert_eq!(err[0].code, "E031");
+    assert_eq!(err[0].code, "E027");
     assert_eq!(err[0].severity, Severity::Error);
     assert!(err[0].message.contains("cycle"));
 }
@@ -586,7 +586,7 @@ fn load_refuses_binary_that_differs_from_lockfile_hash() {
     .unwrap();
     assert_eq!(module.wasm_hash, lock.entries[0].wasm_hash);
 
-    // Tamper with the installed binary, then load: refused with E035.
+    // Tamper with the installed binary, then load: refused with E033.
     std::fs::write(&wasm_path, b"\0asm-swapped-after-install").unwrap();
     let err = load_wasm_module(
         "@test/ext",
@@ -595,7 +595,7 @@ fn load_refuses_binary_that_differs_from_lockfile_hash() {
         Some(lock.entries[0].wasm_hash.as_str()),
     )
     .unwrap_err();
-    assert_eq!(err.code, "E035");
+    assert_eq!(err.code, "E033");
     assert!(err.message.contains("integrity mismatch"));
     assert!(err.suggestion.unwrap_or_default().contains("re-install"));
 }

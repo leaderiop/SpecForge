@@ -144,7 +144,7 @@ pub fn resolve_project_with_config(spec_root: &Path, config: &ResolveConfig) -> 
             })
             .collect();
         diagnostics.push(Diagnostic {
-            code: "W003".to_string(),
+            code: "W113".to_string(),
             severity: Severity::Warning,
             message: format!("circular import detected: {}", names.join(" -> ")),
             span: None,

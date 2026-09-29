@@ -238,7 +238,7 @@ fn validate_output_all_known() {
 
 // B:validate_collector_output — verify integration "unknown entity ID produces W029"
 #[test]
-fn validate_output_unknown_entity_w029() {
+fn validate_output_unknown_entity_w115() {
     let known: HashSet<String> = ["b1".to_string()].into_iter().collect();
     let report = serde_json::json!({
         "entity_results": [
@@ -248,13 +248,13 @@ fn validate_output_unknown_entity_w029() {
     });
     let diags = validate_collector_output(&report, &known);
     assert_eq!(diags.len(), 1);
-    assert_eq!(diags[0].code, "W029");
+    assert_eq!(diags[0].code, "W115");
     assert!(diags[0].message.contains("unknown_entity"));
 }
 
 // B:validate_collector_output — verify integration "stats inconsistency produces W030"
 #[test]
-fn validate_output_stats_inconsistency_w030() {
+fn validate_output_stats_inconsistency_w115() {
     let known: HashSet<String> = HashSet::new();
     let report = serde_json::json!({
         "entity_results": [],
@@ -262,7 +262,7 @@ fn validate_output_stats_inconsistency_w030() {
     });
     let diags = validate_collector_output(&report, &known);
     assert_eq!(diags.len(), 1);
-    assert_eq!(diags[0].code, "W030");
+    assert_eq!(diags[0].code, "W115");
     assert!(diags[0].message.contains("inconsistent"));
 }
 

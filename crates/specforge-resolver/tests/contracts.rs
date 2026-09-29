@@ -67,7 +67,7 @@ fn resolve_use_imports_contract() {
 )]
 fn detect_import_cycles_contract() {
     // Requires: project with circular imports
-    // Ensures: W003 cycle diagnostic produced as warning (not error)
+    // Ensures: W113 cycle diagnostic produced as warning (not error)
     let dir = setup_project(&[
         ("a.spec", "use \"b\"\nbehavior alpha \"A\" { }"),
         ("b.spec", "use \"a\"\nbehavior beta \"B\" { }"),
@@ -78,11 +78,11 @@ fn detect_import_cycles_contract() {
     let cycle_warnings: Vec<_> = result
         .diagnostics
         .iter()
-        .filter(|d| d.code == "W003")
+        .filter(|d| d.code == "W113")
         .collect();
     assert!(
         !cycle_warnings.is_empty(),
-        "circular imports must produce W003"
+        "circular imports must produce W113"
     );
     assert!(
         cycle_warnings

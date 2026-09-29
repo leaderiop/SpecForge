@@ -38,7 +38,7 @@ pub fn validate_query_extensions(
         // Validate pattern: non-empty and no null bytes
         if raw.pattern.is_empty() {
             warnings.push(Diagnostic {
-                code: "W031".to_string(),
+                code: "W117".to_string(),
                 severity: Severity::Warning,
                 message: format!(
                     "extension '{}': query extension pattern for '{}' is empty",
@@ -52,7 +52,7 @@ pub fn validate_query_extensions(
 
         if raw.pattern.contains('\0') {
             warnings.push(Diagnostic {
-                code: "W031".to_string(),
+                code: "W117".to_string(),
                 severity: Severity::Warning,
                 message: format!(
                     "extension '{}': query extension pattern for '{}' contains null bytes",
@@ -130,7 +130,7 @@ mod tests {
 
         let (valid, warnings) = validate_query_extensions("@ext/test", &raw);
         assert_eq!(warnings.len(), 1);
-        assert_eq!(warnings[0].code, "W031");
+        assert_eq!(warnings[0].code, "W117");
         assert_eq!(warnings[0].severity, Severity::Warning);
         assert!(warnings[0].message.contains("empty"));
         // Valid one still passes

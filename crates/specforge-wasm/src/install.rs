@@ -47,7 +47,7 @@ pub fn install_extension(
     let _ = std::fs::remove_dir_all(&temp_dir);
 
     std::fs::create_dir_all(&temp_dir).map_err(|e| Diagnostic {
-        code: "E033".to_string(),
+        code: "E032".to_string(),
         severity: Severity::Error,
         message: format!("failed to create temp directory for '{}': {}", name, e),
         span: None,
@@ -58,7 +58,7 @@ pub fn install_extension(
     if let Err(e) = std::fs::write(&temp_wasm_path, wasm_bytes) {
         let _ = rollback_install(&temp_dir);
         return Err(Diagnostic {
-            code: "E033".to_string(),
+            code: "E032".to_string(),
             severity: Severity::Error,
             message: format!("failed to write .wasm binary for '{}': {}", name, e),
             span: None,
@@ -78,7 +78,7 @@ pub fn install_extension(
     if let Err(e) = std::fs::rename(&temp_dir, &ext_dir) {
         let _ = rollback_install(&temp_dir);
         return Err(Diagnostic {
-            code: "E033".to_string(),
+            code: "E032".to_string(),
             severity: Severity::Error,
             message: format!("failed to finalize installation of '{}': {}", name, e),
             span: None,
@@ -152,7 +152,7 @@ fn rollback_install(ext_dir: &Path) -> Vec<Diagnostic> {
         && let Err(e) = std::fs::remove_dir_all(ext_dir)
     {
         diagnostics.push(Diagnostic {
-            code: "W033".to_string(),
+            code: "W119".to_string(),
             severity: Severity::Warning,
             message: format!(
                 "failed to clean up partial install at '{}': {}",

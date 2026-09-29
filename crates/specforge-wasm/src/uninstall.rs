@@ -68,7 +68,7 @@ pub fn uninstall_extension(
             lock.entries.push(entry);
         }
         return Err(Diagnostic {
-            code: "E033".to_string(),
+            code: "E032".to_string(),
             severity: Severity::Error,
             message: format!(
                 "failed to remove extension directory '{}': {}",

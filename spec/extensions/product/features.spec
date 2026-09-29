@@ -162,7 +162,7 @@ feature pe_validation_suite "Product Validation Suite" {
     journeys, empty milestone phases, or unused modules.
   """
   solution  """
-    Declarative validation rules (E007-E009, E015-E016, W041-W046, W049,
+    Declarative validation rules (E007-E009, E015, E052, W041-W046, W049,
     W057, W075-W086, I010, I046-I075) detect common product specification
     quality issues.
 
@@ -195,7 +195,7 @@ feature pe_validation_suite "Product Validation Suite" {
     reason (I060), invalid deliverable version format (I061),
     non-standard module family (I062), done features with incomplete
     dependencies (I063), milestone temporal inconsistency (I064),
-    deliverable dependency cycles (E016), invalid persona status (W083),
+    deliverable dependency cycles (E052), invalid persona status (W083),
     invalid channel status (W084), invalid deliverable status (W085),
     shipped deliverable with incomplete milestones (I065), deprecated
     deliverable without reason (I066), modules with no features (I067),

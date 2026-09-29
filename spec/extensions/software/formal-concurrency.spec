@@ -89,7 +89,7 @@ behavior se_detect_event_deadlocks "E034: Detect Event Deadlocks" {
 
 }
 
-behavior se_detect_channel_type_mismatch "E035: Channel Type Mismatch" {
+behavior se_detect_channel_type_mismatch "E060: Channel Type Mismatch" {
   category query
   types [SoftwareEvent, SoftwareTypeDef]
   features [se_formal_concurrency]
@@ -104,11 +104,11 @@ behavior se_detect_channel_type_mismatch "E035: Channel Type Mismatch" {
 
   ensures {
     matching_passes        "matching producer/consumer payload types produce no diagnostic"
-    mismatch_error         "mismatching payload types produce E035 error"
+    mismatch_error         "mismatching payload types produce E060 error"
   }
 
   verify unit "matching producer/consumer payload types pass"
-  verify unit "mismatching payload types produce E035"
+  verify unit "mismatching payload types produce E060"
     tests ["crates/specforge-cli/tests/analyze.rs"]
 
 }
@@ -217,7 +217,7 @@ behavior se_process_analyze_pass "Process Analyze Compiler Pass" {
   ensures {
     bipartite_delegated    "event-behavior bipartite graph construction delegated to se_build_event_bipartite_graph"
     deadlock_checked       "Tarjan SCC deadlock detection runs (E034)"
-    channel_checked        "channel type compatibility checked (E035)"
+    channel_checked        "channel type compatibility checked (E060)"
     unmatched_checked      "unmatched producers detected (W029)"
     livelock_checked       "livelock risks detected (W032)"
     starvation_checked     "starvation risks on ports with unfair access detected (W033)"

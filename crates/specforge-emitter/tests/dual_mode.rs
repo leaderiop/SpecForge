@@ -156,13 +156,13 @@ fn protocol_extension_loaded_with_runtime() {
         w031
     );
 
-    // No E031 — protocol loading should succeed
-    let e031: Vec<_> = ctx
+    // No E028 — protocol loading should succeed
+    let e028: Vec<_> = ctx
         .diagnostics
         .iter()
-        .filter(|d| d.code == "E031")
+        .filter(|d| d.code == "E028")
         .collect();
-    assert!(e031.is_empty(), "should not have E031: {:?}", e031);
+    assert!(e028.is_empty(), "should not have E028: {:?}", e028);
 
     // ManifestV2 should appear in ctx.manifests
     assert_eq!(
@@ -191,7 +191,7 @@ fn protocol_extension_loaded_with_runtime() {
     behavior = "dual_mode_loading",
     verify = "protocol handshake trap produces E031 diagnostic"
 )]
-fn protocol_handshake_trap_produces_e031() {
+fn protocol_handshake_trap_produces_e028() {
     let dir = setup_project(
         &["./ext-broken"],
         "behavior hello \"Hello\" {\n    status planned\n}\n",
@@ -212,25 +212,25 @@ fn protocol_handshake_trap_produces_e031() {
 
     let ctx = specforge_emitter::compile_with_runtime(dir.path(), Some(&runtime));
 
-    // E031 diagnostic should be emitted
-    let e031: Vec<_> = ctx
+    // E028 diagnostic should be emitted
+    let e028: Vec<_> = ctx
         .diagnostics
         .iter()
-        .filter(|d| d.code == "E031")
+        .filter(|d| d.code == "E028")
         .collect();
     assert_eq!(
-        e031.len(),
+        e028.len(),
         1,
-        "expected exactly 1 E031 diagnostic, got: {:?}",
-        e031
+        "expected exactly 1 E028 diagnostic, got: {:?}",
+        e028
     );
     assert!(
-        e031[0].message.contains("ext-broken"),
-        "E031 should mention extension name"
+        e028[0].message.contains("ext-broken"),
+        "E028 should mention extension name"
     );
     assert!(
-        e031[0].message.contains("protocol loading failed"),
-        "E031 should describe the error"
+        e028[0].message.contains("protocol loading failed"),
+        "E028 should describe the error"
     );
 
     // No manifests from the broken extension
@@ -246,7 +246,7 @@ fn protocol_handshake_trap_produces_e031() {
     behavior = "dual_mode_loading",
     verify = "protocol version mismatch produces E031"
 )]
-fn protocol_version_mismatch_produces_e031() {
+fn protocol_version_mismatch_produces_e028() {
     let dir = setup_project(
         &["./ext-badver"],
         "behavior hello \"Hello\" {\n    status planned\n}\n",
@@ -278,26 +278,26 @@ fn protocol_version_mismatch_produces_e031() {
 
     let ctx = specforge_emitter::compile_with_runtime(dir.path(), Some(&runtime));
 
-    let e031: Vec<_> = ctx
+    let e028: Vec<_> = ctx
         .diagnostics
         .iter()
-        .filter(|d| d.code == "E031")
+        .filter(|d| d.code == "E028")
         .collect();
     assert_eq!(
-        e031.len(),
+        e028.len(),
         1,
-        "expected exactly 1 E031 for version mismatch"
+        "expected exactly 1 E028 for version mismatch"
     );
     assert!(
-        e031[0].message.contains("protocol loading failed"),
-        "E031 should describe error"
+        e028[0].message.contains("protocol loading failed"),
+        "E028 should describe error"
     );
     assert!(
-        e031[0].message.contains("version mismatch"),
-        "E031 should mention version mismatch"
+        e028[0].message.contains("version mismatch"),
+        "E028 should mention version mismatch"
     );
 }
 
 // (Removed: "protocol error does not prevent manifest extensions from loading" tested dual-mode
 // coexistence which is no longer supported. Error isolation for protocol extensions is covered
-// by protocol_handshake_trap_produces_e031.)
+// by protocol_handshake_trap_produces_e028.)

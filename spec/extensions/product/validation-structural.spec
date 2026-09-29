@@ -183,17 +183,17 @@ behavior detect_deliverable_cycles "Detect Deliverable Cycles" {
   contract   """
     The @specforge/product extension MUST declare a cycle_detection
     validation pattern for the DeliverableDependsOn edge type among
-    deliverable entities. Cycles MUST produce an E016 diagnostic naming
+    deliverable entities. Cycles MUST produce an E052 diagnostic naming
     the deliverables in the cycle.
   """
   ensures    {
-    cycle_detected "deliverable dependency cycle produces E016 naming all cycle members"
-    acyclic_passes "acyclic deliverable graph produces no E016"
+    cycle_detected "deliverable dependency cycle produces E052 naming all cycle members"
+    acyclic_passes "acyclic deliverable graph produces no E052"
   }
 
   features [pe_validation_suite]
 
-  verify unit "deliverable cycle produces E016"
+  verify unit "deliverable cycle produces E052"
   verify unit "acyclic deliverable graph passes"
 }
 

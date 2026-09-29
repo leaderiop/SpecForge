@@ -1,6 +1,6 @@
 {
   "artifact": "specforge_ext_governance.wasm",
-  "artifact_sha256": "6a9e3cee7b20d81dece245d4c1fbe07d30431de0380536ed88dc9fe25a0e405d",
+  "artifact_sha256": "2c500b05790f04e8edca603aa262286e154cc5ba3fd670cfb2edb26cf236884e",
   "built_with": "rustc 1.98.1 (48a229cea 2026-09-01)",
   "inputs": {
     "Cargo.toml#workspace-inherited": "5b6984643f750654b77450e8b8a9fa89b8c4ac25b3fefdcaa19f9107f375bcdc",
@@ -21,7 +21,7 @@
     "extensions/governance/src/describe_passes.json": "6865f5eb00a0e339ed6eec5049fea88c02743cda8cfa6bc909ddb357677245fd",
     "extensions/governance/src/describe_shared_fields.json": "14faf141b6e8cd457f9aeb486f1205793c5c4e4bc3d2882e063067a1250acfe4",
     "extensions/governance/src/describe_surfaces.json": "c4682537c14ad4e829c21f65ce32263160327917bb1f824e6a67fcd9a82f1a82",
-    "extensions/governance/src/describe_validation_rules.json": "5d0ab2b6a05385ba689d222edeaaa214975362d40add07d3e17ffc79c291fd69",
+    "extensions/governance/src/describe_validation_rules.json": "d09a0fa148694ce41b1ff55efcdb81209b3f9ed402706696e739f0902c86449d",
     "extensions/governance/src/lib.rs": "badd5e47c7866faa212830d35de7f9d1feb1562bcf4fbe9bbdfa96ae62d19a56"
   }
 }

@@ -139,7 +139,7 @@ fn unrecognized_pattern_kind_produces_warning() {
     let result = parse_rule_pattern(&rule, "@test/ext");
     assert!(result.is_err());
     let diag = result.unwrap_err();
-    assert_eq!(diag.code, "W024");
+    assert_eq!(diag.code, "W112");
     assert!(diag.message.contains("invalid_check_kind"));
     assert!(diag.message.contains("@test/ext"));
 }
@@ -159,7 +159,7 @@ fn misconfigured_one_of_with_empty_values_produces_warning() {
     });
 
     let err = parse_rule_pattern(&rule, "@test/ext").unwrap_err();
-    assert_eq!(err.code, "W024");
+    assert_eq!(err.code, "W112");
     assert!(err.message.contains("W107"));
     assert!(err.message.contains("one_of"));
 
@@ -168,7 +168,7 @@ fn misconfigured_one_of_with_empty_values_produces_warning() {
     let (patterns, diags) = parse_all_rule_patterns(&manifests);
     assert!(patterns.is_empty());
     assert_eq!(diags.len(), 1);
-    assert_eq!(diags[0].code, "W024");
+    assert_eq!(diags[0].code, "W112");
 }
 
 #[specforge_test(
@@ -180,7 +180,7 @@ fn field_requiring_check_without_field_produces_warning() {
     // make_rule leaves field unset; missing_field_when_flag_set reads it.
     let rule = make_rule("W108", "missing_field_when_flag_set");
     let err = parse_rule_pattern(&rule, "@test/ext").unwrap_err();
-    assert_eq!(err.code, "W024");
+    assert_eq!(err.code, "W112");
     assert!(err.message.contains("W108"));
     assert!(err.message.contains("requires a field"));
 }
@@ -248,7 +248,7 @@ fn parse_validation_rule_pattern_contract() {
     assert_eq!(patterns.len(), 1);
     assert_eq!(patterns[0].0.code, "W100");
     // ensures: unrecognized warned
-    assert!(diags.iter().any(|d| d.code == "W024"));
+    assert!(diags.iter().any(|d| d.code == "W112"));
 }
 
 // ============================================================================
@@ -779,7 +779,7 @@ fn unresolvable_wasm_function_produces_warning() {
     assert!(
         diags
             .iter()
-            .any(|d| d.code == "W025" && d.message.contains("missing_func"))
+            .any(|d| d.code == "W112" && d.message.contains("missing_func"))
     );
     // Still registered for later (will be skipped during execution)
     assert_eq!(registered.len(), 1);
@@ -820,7 +820,7 @@ fn wasm_function_probe_failure_produces_warning() {
 
     let (registered, diags) = register_custom_patterns(&[pattern], Some(&TrappingRuntime));
     // The dead function is reported, not silently registered as healthy.
-    assert!(diags.iter().any(|d| d.code == "W025"
+    assert!(diags.iter().any(|d| d.code == "W112"
         && d.message.contains("broken_export")
         && d.message.contains("can never fire")));
     // Still registered (execution will simply never fire it).
@@ -933,7 +933,7 @@ fn register_custom_validation_patterns_contract() {
     let (registered, diags) = register_custom_patterns(&[custom, declarative], None);
     assert_eq!(registered.len(), 2);
     // ensures: unresolvable Wasm produces warning
-    assert!(diags.iter().any(|d| d.code == "W025"));
+    assert!(diags.iter().any(|d| d.code == "W112"));
 }
 
 // ============================================================================

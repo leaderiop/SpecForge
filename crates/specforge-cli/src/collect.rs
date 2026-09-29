@@ -60,7 +60,7 @@ pub fn run(path: &Path, collector: Option<&str>, reports: &[PathBuf], format: Ou
         let msg = format!(
             "no report files found (passed --report or found *.json under {DEFAULT_REPORT_GLOB})"
         );
-        return report_error(&msg, "E019", format);
+        return report_error(&msg, "E045", format);
     }
 
     let mut mapped = 0usize;
@@ -73,7 +73,7 @@ pub fn run(path: &Path, collector: Option<&str>, reports: &[PathBuf], format: Ou
             Ok(raw) => raw,
             Err(e) => {
                 let msg = format!("failed to read report {}: {e}", report_path.display());
-                return report_error(&msg, "E033", format);
+                return report_error(&msg, "E045", format);
             }
         };
         let mut report: serde_json::Value = match serde_json::from_str(&raw) {
@@ -170,7 +170,7 @@ pub fn run(path: &Path, collector: Option<&str>, reports: &[PathBuf], format: Ou
         serde_json::to_string_pretty(&out_doc).expect("report serialization cannot fail"),
     ) {
         let msg = format!("failed to write {}: {e}", out_path.display());
-        return report_error(&msg, "E033", format);
+        return report_error(&msg, "E056", format);
     }
 
     // Report

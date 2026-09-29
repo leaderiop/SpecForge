@@ -26,14 +26,14 @@ behavior load_wasm_module "Load Wasm Module" {
   ensures {
     extension_loaded_emitted "extension_loaded event is emitted on successful module load"
     extension_loaded_via_runtime "the binary is loaded into the runtime engine (component compilation itself is cached by the engine — see compile_wasm_component_with_cache)"
-    tampered_binary_refused "a binary whose hash no longer matches the specforge.lock pin is refused with E035"
+    tampered_binary_refused "a binary whose hash no longer matches the specforge.lock pin is refused with E033"
     missing_binary_diagnosed "missing .wasm binary produces ExtensionError diagnostic"
   }
 
   contract """
     When the compiler loads an extension, it MUST locate the .wasm binary
     from the manifest's wasmPath, verify its content hash against the
-    specforge.lock pin (refusing a mismatch with E035; legacy entries
+    specforge.lock pin (refusing a mismatch with E033; legacy entries
     without a hash warn and load), and load it into the Wasm runtime.
     Component compilation caching is the engine's concern (see
     compile_wasm_component_with_cache). Missing .wasm files MUST produce
@@ -43,7 +43,7 @@ behavior load_wasm_module "Load Wasm Module" {
   produces [extension_loaded]
 
   verify unit "loads .wasm binary from manifest path"
-  verify unit "tampered installed binary refused via E035 lockfile pin"
+  verify unit "tampered installed binary refused via E033 lockfile pin"
   verify unit "legacy lockfile entry without hash loads unchanged"
   verify unit "missing .wasm produces ExtensionError"
   verify contract "Load Wasm Module: Wasm module loading holds — manifest_validated_fired, wasm_integrity_verified_fired, wasm_runtime_available, extension_loaded_emitted, extension_loaded_via_runtime, tampered_binary_refused, missing_binary_diagnosed"

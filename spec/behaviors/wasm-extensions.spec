@@ -548,7 +548,7 @@ behavior register_collector_contributions "Register Collector Contributions" {
 
   ensures {
     collector_registered_emitted "collector_registered event is emitted after successful registration"
-    duplicate_names_diagnosed "duplicate collector names across extensions produce E029"
+    duplicate_names_diagnosed "duplicate collector names across extensions produce E059"
     missing_exports_diagnosed "missing Wasm exports produce E020"
   }
 
@@ -558,7 +558,7 @@ behavior register_collector_contributions "Register Collector Contributions" {
     parse each CollectorContribution from the manifest, register it in a
     collector registry keyed by name, validate that the declared Wasm export
     exists in the .wasm binary, and detect duplicate collector names across
-    extensions (E029). Registration MUST happen during the extension
+    extensions (E059). Registration MUST happen during the extension
     initialization phase in topological order.
   """
 
@@ -567,7 +567,7 @@ behavior register_collector_contributions "Register Collector Contributions" {
   verify unit "collector contribution parsed from manifest"
   verify unit "collector registered in collector registry"
   verify unit "missing Wasm export produces E020"
-  verify unit "duplicate collector name produces E029"
+  verify unit "duplicate collector name produces E059"
   verify contract "Register Collector Contributions: collector contribution registration holds — manifest_declares_collectors, wasm_runtime_available, collector_registered_emitted, duplicate_names_diagnosed, missing_exports_diagnosed"
 
   tests ["crates/specforge-cli/tests/collect.rs"]
@@ -671,25 +671,25 @@ behavior validate_collector_output "Validate Collector Output" {
 
   ensures {
     collector_output_validated_emitted "collector_output_validated event is emitted when report passes schema validation"
-    unknown_entities_warned "unknown entity IDs referenced in entries produce W029 warning"
-    stats_consistency_checked "inconsistent stats (total != entries.length) produce W030 warning"
+    unknown_entities_warned "unknown entity IDs referenced in entries produce W115 warning"
+    stats_consistency_checked "inconsistent stats (total != entries.length) produce W115 warning"
   }
 
   contract """
     After a collector returns its report, the system MUST validate the
     output against the specforge-report/v1 schema. Entity IDs referenced
     in entries MUST be checked against the graph — unknown entity IDs
-    MUST produce a W029 warning. Stats consistency MUST be verified:
+    MUST produce a W115 warning. Stats consistency MUST be verified:
     stats.total MUST equal entries.length, stats.mapped + stats.unmapped
-    MUST equal stats.total. Inconsistent stats MUST produce a W030
+    MUST equal stats.total. Inconsistent stats MUST produce a W115
     warning.
   """
 
   produces [collector_output_validated]
 
   verify unit "valid report passes schema validation"
-  verify unit "unknown entity ID produces W029"
-  verify unit "inconsistent stats produce W030"
+  verify unit "unknown entity ID produces W115"
+  verify unit "inconsistent stats produce W115"
   verify unit "missing schema field produces hard error"
   verify contract "Validate Collector Output: collector output validation holds — collector_dispatched_fired, collector_output_validated_emitted, unknown_entities_warned, stats_consistency_checked"
 

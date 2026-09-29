@@ -55,12 +55,12 @@ invariant feature_dag "Feature DAG" {
 invariant deliverable_dag "Deliverable DAG" {
   guarantee """
     The depends_on edges between deliverable entities MUST form a
-    directed acyclic graph. Cycles are detected by E016 and rejected.
+    directed acyclic graph. Cycles are detected by E052 and rejected.
   """
   risk high
 
   verify property "acyclic deliverable dependency graph is accepted"
-  verify unit "circular deliverable dependency produces E016"
+  verify unit "circular deliverable dependency produces E052"
 }
 
 invariant release_dag "Release DAG" {

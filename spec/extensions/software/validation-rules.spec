@@ -127,7 +127,7 @@ behavior se_validate_orphan_ports "W005: Orphan Ports" {
 
 // W006 is allocated to @specforge/product (Orphan Capabilities → W042)
 
-behavior se_validate_event_triggers "E006: Invalid Event Triggers" {
+behavior se_validate_event_triggers "E051: Invalid Event Triggers" {
   category query
   invariants [se_event_trigger_validity]
   types [ValidationRulePattern, ValidationPatternKind]
@@ -143,14 +143,14 @@ behavior se_validate_event_triggers "E006: Invalid Event Triggers" {
 
   ensures {
     valid_trigger_passes   "event trigger referencing behavior produces no diagnostic"
-    invalid_trigger_error  "event trigger referencing non-behavior produces E006 error"
+    invalid_trigger_error  "event trigger referencing non-behavior produces E051 error"
     correct_template       "message template is: event '{id}' trigger must reference a behavior, found {kind} '{value}'"
   }
 
   verify unit "event trigger referencing behavior passes"
-  verify unit "event trigger referencing type produces E006"
-  verify unit "event trigger referencing feature produces E006"
-  verify unit "E006 severity is error"
+  verify unit "event trigger referencing type produces E051"
+  verify unit "event trigger referencing feature produces E051"
+  verify unit "E051 severity is error"
     tests ["crates/specforge-registry/tests/zero_entity_validation.rs", "crates/specforge-emitter/tests/builtins.rs"]
 
   // Note: missing trigger field is caught by se_validate_entity_fields

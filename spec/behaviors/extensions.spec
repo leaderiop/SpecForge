@@ -171,7 +171,7 @@ behavior register_provider_schemes "Register Provider Schemes" {
 
   ensures {
     schemes_registered "All provider schemes are registered as SchemeRegistryEntry entries"
-    duplicate_scheme_warned "Duplicate schemes produce W025 warning listing both providers"
+    duplicate_scheme_warned "Duplicate schemes produce E057 error listing both providers"
     declaration_order_tiebreak "Duplicate scheme conflicts resolved by specforge.json declaration order"
     schemes_registered_emitted "provider_schemes_registered event fires exactly once after all schemes are registered"
   }
@@ -183,7 +183,7 @@ behavior register_provider_schemes "Register Provider Schemes" {
     so that validate_provider_refs can route refs to the correct provider.
     The core MUST NOT contain any built-in scheme registrations — all
     schemes come exclusively from provider extensions. Schemes already
-    registered by another provider MUST produce a W025 warning listing
+    registered by another provider MUST produce an E057 error listing
     both providers; the provider declared first in the specforge.json
     providers array MUST win the scheme registration as a deterministic
     tiebreaker. Unresolvable provider extensions MUST produce an
@@ -191,7 +191,7 @@ behavior register_provider_schemes "Register Provider Schemes" {
   """
 
   verify unit "provider schemes registered from manifest"
-  verify unit "duplicate scheme from two providers produces W025"
+  verify unit "duplicate scheme from two providers produces E057"
   verify unit "duplicate scheme resolved by specforge.json declaration order"
   verify unit "unresolvable provider extension produces ExtensionError"
   verify unit "no built-in schemes exist before provider loading"

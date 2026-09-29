@@ -79,7 +79,7 @@ pub fn register_grammar_contributions(
                 match policy {
                     GrammarConflictPolicy::FirstWins => {
                         diagnostics.push(Diagnostic {
-                            code: "W024".to_string(),
+                            code: "W111".to_string(),
                             severity: Severity::Warning,
                             message: format!(
                                 "Grammar conflict for kind '{}': '{}' already registered by '{}', ignoring '{}'",
@@ -91,7 +91,7 @@ pub fn register_grammar_contributions(
                     }
                     GrammarConflictPolicy::LastWins => {
                         diagnostics.push(Diagnostic {
-                            code: "W024".to_string(),
+                            code: "W111".to_string(),
                             severity: Severity::Warning,
                             message: format!(
                                 "Grammar conflict for kind '{}': replacing '{}' with '{}'",
@@ -104,7 +104,7 @@ pub fn register_grammar_contributions(
                     }
                     GrammarConflictPolicy::Error => {
                         diagnostics.push(Diagnostic {
-                            code: "E029".to_string(),
+                            code: "E018".to_string(),
                             severity: Severity::Error,
                             message: format!(
                                 "Grammar conflict for kind '{}': already registered by '{}', also declared by '{}'",
@@ -372,7 +372,7 @@ mod tests {
             &|_| true,
         );
         assert_eq!(grammars_e.len(), 1); // first one registered, second triggers error
-        let error_diags: Vec<_> = diags_e.iter().filter(|d| d.code == "E029").collect();
+        let error_diags: Vec<_> = diags_e.iter().filter(|d| d.code == "E018").collect();
         assert_eq!(error_diags.len(), 1);
     }
 

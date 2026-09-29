@@ -205,7 +205,7 @@ fn register_enhancement_new_field() {
 
 // B:register_entity_enhancements — verify integration "two extensions same target kind same field name produces E034"
 #[test]
-fn register_enhancement_conflict_e034() {
+fn register_enhancement_conflict_e017() {
     let field = ManifestField {
         name: "priority".to_string(),
         field_type: "string".to_string(),
@@ -242,7 +242,7 @@ fn register_enhancement_conflict_e034() {
 
     let diags = register_entity_enhancements(&manifest, &mut existing);
     assert_eq!(diags.len(), 1);
-    assert_eq!(diags[0].code, "E034");
+    assert_eq!(diags[0].code, "E017");
     assert!(diags[0].message.contains("priority"));
     assert!(diags[0].message.contains("behavior"));
 }

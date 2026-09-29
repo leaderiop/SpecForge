@@ -3,11 +3,11 @@
 // W058 (downgraded from E033): behavior not satisfying feature requirements
 // is a structural coverage check, not semantic verification.
 // W059-W060: removed (were condition entity validation, condition entity kind removed)
-// W061-W063: property entity validation
-// W064-W065: axiom entity validation
-// W066-W068: protocol entity validation
-// W069-W071: refinement entity validation
-// W072-W074: process entity validation
+// W123-W125: property entity validation
+// W126-W127: axiom entity validation
+// W128-W130: protocol entity validation
+// W131-W133: refinement entity validation
+// W134-W136: process entity validation
 
 use "extensions/formal/types"
 use "extensions/formal/invariants"
@@ -49,9 +49,9 @@ behavior fa_validate_w058_feature_coverage_mismatch "W058: Feature Coverage Mism
 // W059-W060 removed: condition entity kind no longer exists.
 // Conditions are inline fields, not standalone entities.
 
-// ── Property Validation (W061-W063) ──────────────────────────
+// ── Property Validation (W123-W125) ──────────────────────────
 
-behavior fa_validate_orphan_property "W061: Orphan Property" {
+behavior fa_validate_orphan_property "W123: Orphan Property" {
   category   query
   invariants [fa_property_entity_reachability]
   types      [FormalProperty]
@@ -66,19 +66,19 @@ behavior fa_validate_orphan_property "W061: Orphan Property" {
     strict_warning_level   "warning_level is set to strict"
   }
   ensures    {
-    orphan_detected        "property with no incoming Satisfies edges produces W061 warning"
+    orphan_detected        "property with no incoming Satisfies edges produces W123 warning"
     referenced_passes      "property with at least one incoming Satisfies edge produces no diagnostic"
     correct_template       "message template is: property '{id}' is not satisfied by any behavior"
   }
 
   features [fa_temporal_properties]
 
-  verify unit "property with no incoming Satisfies edges produces W061"
+  verify unit "property with no incoming Satisfies edges produces W123"
   verify unit "property with Satisfies edge passes"
-  verify unit "W061 only fires at warning_level=strict"
+  verify unit "W123 only fires at warning_level=strict"
 }
 
-behavior fa_validate_empty_property_description "W062: Empty Property Description" {
+behavior fa_validate_empty_property_description "W124: Empty Property Description" {
   category query
   types    [FormalProperty]
   contract """
@@ -87,18 +87,18 @@ behavior fa_validate_empty_property_description "W062: Empty Property Descriptio
     property opaque to agents and reviewers.
   """
   ensures  {
-    empty_warned           "property with empty description produces W062 warning"
+    empty_warned           "property with empty description produces W124 warning"
     non_empty_passes       "property with non-empty description passes"
     correct_template       "message template is: property '{id}' has empty description"
   }
 
   features [fa_temporal_properties]
 
-  verify unit "property with empty description produces W062"
+  verify unit "property with empty description produces W124"
   verify unit "property with non-empty description passes"
 }
 
-behavior fa_validate_property_without_kind "W063: Property Without Kind" {
+behavior fa_validate_property_without_kind "W125: Property Without Kind" {
   category query
   types    [FormalProperty, PropertyKind]
   contract """
@@ -107,22 +107,22 @@ behavior fa_validate_property_without_kind "W063: Property Without Kind" {
     is required for meaningful graph queries and agent consumption.
   """
   ensures  {
-    missing_warned         "property with no kind field produces W063 warning"
+    missing_warned         "property with no kind field produces W125 warning"
     present_passes         "property with kind field produces no diagnostic"
     correct_template       "message template is: property '{id}' has no kind (safety/liveness/fairness)"
   }
 
   features [fa_temporal_properties]
 
-  verify unit "property with no kind produces W063"
+  verify unit "property with no kind produces W125"
   verify unit "property with kind=safety passes"
   verify unit "property with kind=liveness passes"
   verify unit "property with kind=fairness passes"
 }
 
-// ── Axiom Validation (W064-W065) ─────────────────────────────
+// ── Axiom Validation (W126-W127) ─────────────────────────────
 
-behavior fa_validate_orphan_axiom "W064: Orphan Axiom" {
+behavior fa_validate_orphan_axiom "W126: Orphan Axiom" {
   category   query
   invariants [fa_axiom_entity_reachability]
   types      [FormalAxiom]
@@ -137,19 +137,19 @@ behavior fa_validate_orphan_axiom "W064: Orphan Axiom" {
     strict_warning_level   "warning_level is set to strict"
   }
   ensures    {
-    orphan_detected        "axiom with no incoming AssumedBy edges produces W064 warning"
+    orphan_detected        "axiom with no incoming AssumedBy edges produces W126 warning"
     referenced_passes      "axiom with at least one incoming AssumedBy edge produces no diagnostic"
     correct_template       "message template is: axiom '{id}' is not assumed by any condition"
   }
 
   features [fa_axiom_foundations]
 
-  verify unit "axiom with no incoming AssumedBy edges produces W064"
+  verify unit "axiom with no incoming AssumedBy edges produces W126"
   verify unit "axiom with AssumedBy edge passes"
-  verify unit "W064 only fires at warning_level=strict"
+  verify unit "W126 only fires at warning_level=strict"
 }
 
-behavior fa_validate_empty_axiom_description "W065: Empty Axiom Description" {
+behavior fa_validate_empty_axiom_description "W127: Empty Axiom Description" {
   category query
   types    [FormalAxiom]
   contract """
@@ -158,20 +158,20 @@ behavior fa_validate_empty_axiom_description "W065: Empty Axiom Description" {
     the assumption invisible and unjustifiable.
   """
   ensures  {
-    empty_warned           "axiom with empty description produces W065 warning"
+    empty_warned           "axiom with empty description produces W127 warning"
     non_empty_passes       "axiom with non-empty description passes"
     correct_template       "message template is: axiom '{id}' has empty description"
   }
 
   features [fa_axiom_foundations]
 
-  verify unit "axiom with empty description produces W065"
+  verify unit "axiom with empty description produces W127"
   verify unit "axiom with non-empty description passes"
 }
 
-// ── Protocol Validation (W066-W068) ──────────────────────────
+// ── Protocol Validation (W128-W130) ──────────────────────────
 
-behavior fa_validate_orphan_protocol "W066: Orphan Protocol" {
+behavior fa_validate_orphan_protocol "W128: Orphan Protocol" {
   category   query
   invariants [fa_protocol_entity_reachability]
   types      [FormalProtocol]
@@ -186,19 +186,19 @@ behavior fa_validate_orphan_protocol "W066: Orphan Protocol" {
     strict_warning_level   "warning_level is set to strict"
   }
   ensures    {
-    orphan_detected        "protocol with no incoming FollowsProtocol edges produces W066 warning"
+    orphan_detected        "protocol with no incoming FollowsProtocol edges produces W128 warning"
     referenced_passes      "protocol with at least one incoming FollowsProtocol edge produces no diagnostic"
     correct_template       "message template is: protocol '{id}' is not followed by any event"
   }
 
   features [fa_protocol_contracts]
 
-  verify unit "protocol with no incoming FollowsProtocol edges produces W066"
+  verify unit "protocol with no incoming FollowsProtocol edges produces W128"
   verify unit "protocol with FollowsProtocol edge passes"
-  verify unit "W066 only fires at warning_level=strict"
+  verify unit "W128 only fires at warning_level=strict"
 }
 
-behavior fa_validate_empty_protocol_description "W067: Empty Protocol Description" {
+behavior fa_validate_empty_protocol_description "W129: Empty Protocol Description" {
   category query
   types    [FormalProtocol]
   contract """
@@ -207,18 +207,18 @@ behavior fa_validate_empty_protocol_description "W067: Empty Protocol Descriptio
     the contract opaque to agents and event graph analysis.
   """
   ensures  {
-    empty_warned           "protocol with empty description produces W067 warning"
+    empty_warned           "protocol with empty description produces W129 warning"
     non_empty_passes       "protocol with non-empty description passes"
     correct_template       "message template is: protocol '{id}' has empty description"
   }
 
   features [fa_protocol_contracts]
 
-  verify unit "protocol with empty description produces W067"
+  verify unit "protocol with empty description produces W129"
   verify unit "protocol with non-empty description passes"
 }
 
-behavior fa_validate_protocol_ordering_conflict "W068: Protocol Ordering Conflict" {
+behavior fa_validate_protocol_ordering_conflict "W130: Protocol Ordering Conflict" {
   category query
   types    [FormalProtocol]
   contract """
@@ -231,21 +231,21 @@ behavior fa_validate_protocol_ordering_conflict "W068: Protocol Ordering Conflic
     graph_built            "entity graph is fully constructed with all edges"
   }
   ensures  {
-    missing_event_warned   "protocol ordering referencing non-existent event produces W068 warning"
+    missing_event_warned   "protocol ordering referencing non-existent event produces W130 warning"
     valid_ordering_passes  "protocol ordering with all valid event references produces no diagnostic"
     correct_template       "message template is: protocol '{id}' ordering references unknown event '{event_id}'"
   }
 
   features [fa_protocol_contracts]
 
-  verify unit "protocol ordering referencing non-existent event produces W068"
+  verify unit "protocol ordering referencing non-existent event produces W130"
   verify unit "protocol ordering with all valid events passes"
   verify unit "protocol with empty ordering passes (no ordering to validate)"
 }
 
-// ── Refinement Validation (W069-W071) ───────────────────────
+// ── Refinement Validation (W131-W133) ───────────────────────
 
-behavior fa_validate_orphan_refinement "W069: Orphan Refinement" {
+behavior fa_validate_orphan_refinement "W131: Orphan Refinement" {
   category   query
   invariants [fa_refinement_entity_reachability]
   types      [FormalRefinement]
@@ -261,20 +261,20 @@ behavior fa_validate_orphan_refinement "W069: Orphan Refinement" {
     strict_warning_level   "warning_level is set to strict"
   }
   ensures    {
-    orphan_detected        "refinement with no refinement edges produces W069 warning"
+    orphan_detected        "refinement with no refinement edges produces W131 warning"
     referenced_passes      "refinement with at least one refinement edge produces no diagnostic"
     correct_template       "message template is: refinement '{id}' is not connected to any behavior or refinement chain"
   }
 
   features [fa_refinement_layering]
 
-  verify unit "refinement with no edges produces W069"
+  verify unit "refinement with no edges produces W131"
   verify unit "refinement with abstract_entity and concrete_entity edges passes"
   verify unit "refinement with RefinementChainsToRefinement edge passes"
-  verify unit "W069 only fires at warning_level=strict"
+  verify unit "W131 only fires at warning_level=strict"
 }
 
-behavior fa_validate_empty_refinement_description "W070: Empty Refinement Description" {
+behavior fa_validate_empty_refinement_description "W132: Empty Refinement Description" {
   category query
   types    [FormalRefinement]
   contract """
@@ -283,18 +283,18 @@ behavior fa_validate_empty_refinement_description "W070: Empty Refinement Descri
     makes the mapping opaque to agents and reviewers.
   """
   ensures  {
-    empty_warned           "refinement with empty description produces W070 warning"
+    empty_warned           "refinement with empty description produces W132 warning"
     non_empty_passes       "refinement with non-empty description passes"
     correct_template       "message template is: refinement '{id}' has empty description"
   }
 
   features [fa_refinement_layering]
 
-  verify unit "refinement with empty description produces W070"
+  verify unit "refinement with empty description produces W132"
   verify unit "refinement with non-empty description passes"
 }
 
-behavior fa_validate_refinement_without_delta "W071: Refinement Without Condition Delta" {
+behavior fa_validate_refinement_without_delta "W133: Refinement Without Condition Delta" {
   category query
   types    [FormalRefinement, ConditionDelta]
   contract """
@@ -307,16 +307,16 @@ behavior fa_validate_refinement_without_delta "W071: Refinement Without Conditio
     strict_warning_level   "warning_level is set to strict"
   }
   ensures  {
-    missing_warned         "refinement with no conditions field produces W071 warning"
+    missing_warned         "refinement with no conditions field produces W133 warning"
     present_passes         "refinement with conditions field produces no diagnostic"
     correct_template       "message template is: refinement '{id}' has no condition delta"
   }
 
   features [fa_refinement_layering]
 
-  verify unit "refinement with no conditions produces W071"
+  verify unit "refinement with no conditions produces W133"
   verify unit "refinement with conditions passes"
-  verify unit "W071 only fires at warning_level=strict"
+  verify unit "W133 only fires at warning_level=strict"
 }
 
 // ── Refinement Structural Validation (E041) ─────────────────
@@ -344,9 +344,9 @@ behavior fa_validate_refinement_self_reference "E041b: Refinement Self-Reference
   verify unit "refinement with distinct IDs passes"
 }
 
-// ── Process Validation (W072-W074) ──────────────────────────
+// ── Process Validation (W134-W136) ──────────────────────────
 
-behavior fa_validate_orphan_process "W072: Orphan Process" {
+behavior fa_validate_orphan_process "W134: Orphan Process" {
   category   query
   invariants [fa_process_entity_reachability]
   types      [FormalProcess]
@@ -361,19 +361,19 @@ behavior fa_validate_orphan_process "W072: Orphan Process" {
     strict_warning_level   "warning_level is set to strict"
   }
   ensures    {
-    orphan_detected        "process with no incoming ParticipatesIn edges produces W072 warning"
+    orphan_detected        "process with no incoming ParticipatesIn edges produces W134 warning"
     referenced_passes      "process with at least one incoming ParticipatesIn edge produces no diagnostic"
     correct_template       "message template is: process '{id}' has no events participating in it"
   }
 
   features [fa_process_modeling]
 
-  verify unit "process with no incoming ParticipatesIn edges produces W072"
+  verify unit "process with no incoming ParticipatesIn edges produces W134"
   verify unit "process with ParticipatesIn edge passes"
-  verify unit "W072 only fires at warning_level=strict"
+  verify unit "W134 only fires at warning_level=strict"
 }
 
-behavior fa_validate_empty_process_description "W073: Empty Process Description" {
+behavior fa_validate_empty_process_description "W135: Empty Process Description" {
   category query
   types    [FormalProcess]
   contract """
@@ -382,18 +382,18 @@ behavior fa_validate_empty_process_description "W073: Empty Process Description"
     makes the process opaque to agents and event graph analysis.
   """
   ensures  {
-    empty_warned           "process with empty description produces W073 warning"
+    empty_warned           "process with empty description produces W135 warning"
     non_empty_passes       "process with non-empty description passes"
     correct_template       "message template is: process '{id}' has empty description"
   }
 
   features [fa_process_modeling]
 
-  verify unit "process with empty description produces W073"
+  verify unit "process with empty description produces W135"
   verify unit "process with non-empty description passes"
 }
 
-behavior fa_validate_process_without_alphabet "W074: Process Without Alphabet" {
+behavior fa_validate_process_without_alphabet "W136: Process Without Alphabet" {
   category query
   types    [FormalProcess]
   contract """
@@ -406,14 +406,14 @@ behavior fa_validate_process_without_alphabet "W074: Process Without Alphabet" {
     strict_warning_level   "warning_level is set to strict"
   }
   ensures  {
-    missing_warned         "process with empty or absent alphabet produces W074 warning"
+    missing_warned         "process with empty or absent alphabet produces W136 warning"
     present_passes         "process with non-empty alphabet produces no diagnostic"
     correct_template       "message template is: process '{id}' has no alphabet (no events declared)"
   }
 
   features [fa_process_modeling]
 
-  verify unit "process with empty alphabet produces W074"
+  verify unit "process with empty alphabet produces W136"
   verify unit "process with non-empty alphabet passes"
-  verify unit "W074 only fires at warning_level=strict"
+  verify unit "W136 only fires at warning_level=strict"
 }

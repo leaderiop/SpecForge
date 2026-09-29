@@ -50,7 +50,7 @@ These don't block compilation, but most indicate a missing edge or coverage gap.
 | **W001** | `behavior 'X' does not implement any feature` | The behavior has no `features [...]` edge. | Add `features [some_feature]` (or accept it if intentional during early authoring). |
 | **W002** | `type 'X' is not referenced by any behavior, port, or type` | Orphan type. | Reference it from a behavior/port, or remove it. |
 | **W003** (software) | `invariant 'X' is not enforced by any behavior` | No behavior lists this invariant. | Add the invariant to an enforcing behavior's `invariants [...]`. |
-| **W003** (import) | `circular import detected: a.spec -> b.spec` | A `use` chain forms a cycle. | Break the cycle, or extract shared entities into a third file both import. |
+| **W113** (import) | `circular import detected: a.spec -> b.spec` | A `use` chain forms a cycle. | Break the cycle, or extract shared entities into a third file both import. |
 | **W005** | `port 'X' is not referenced by any behavior` | Orphan port. | Add it to a behavior's `ports [...]`, or remove it. |
 | **W006** | `behavior 'X' has no category` | Missing `category` (agents use it for task routing). | Add `category command` / `query` / `handler` / etc. |
 | **W007** | `event 'X' is not produced by any behavior` | Orphan event. | Add it to a behavior's `produces [...]`. |
@@ -58,7 +58,7 @@ These don't block compilation, but most indicate a missing edge or coverage gap.
 | **W041 / W042 / W044** | `<feature/journey/module> 'X' has no incoming edges` | Product entity isn't referenced by anything upstream. | Reference it from a journey/milestone/deliverable, as appropriate. |
 | **W045 / W092** | `<feature/release> dependency cycle detected` | Cyclic `depends_on`. | Break the cycle. |
 | **W049** | `milestone 'X' has no features and no modules` | Empty milestone. | Add `features [...]` and/or `modules [...]`. |
-| **W051 / W052 / W053** | `failure_mode 'X' has invalid severity/occurrence/detection` | A FMEA score used a number or unknown word. | Use the enum words (severity: critical/high/medium/low; occurrence: certain/likely/occasional/unlikely/rare; detection: certain/likely/moderate/unlikely/undetectable). |
+| **W051 / W052 / W121** | `failure_mode 'X' has invalid severity/occurrence/detection` | A FMEA score used a number or unknown word. | Use the enum words (severity: critical/high/medium/low; occurrence: certain/likely/occasional/unlikely/rare; detection: certain/likely/moderate/unlikely/undetectable). |
 | **W077 / W079 / W085** | `<feature/milestone/deliverable> 'X' has invalid status` | A status value outside the allowed enum. | Use a valid status (feature: proposed/accepted/in_progress/done/deferred/deprecated; milestone: planned/in_progress/completed/blocked; deliverable: draft/in_progress/shipped/deprecated). |
 | **W078** | `<entity> 'X' has invalid priority` | Priority outside the enum. | Use critical / high / medium / low. |
 | **W080** | `deliverable 'X' has invalid artifact_type` | Unknown artifact type. | Use one of: cli, service, library, web_app, mobile_app, api, extension, documentation, package. |

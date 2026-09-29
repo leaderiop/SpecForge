@@ -17,7 +17,7 @@ constraint product_validation_latency "Product Validation Latency" {
   category   performance
   priority   critical
   metric     """
-    Product-specific validation rules (E007-E009, E015-E016, W041-W046,
+    Product-specific validation rules (E007-E009, E015, E052, W041-W046,
     W049, W057, W075-W091, I010, I046-I079) MUST complete in under
     50ms for a project with up to 500 product entities across all 9 kinds.
   """
@@ -263,7 +263,7 @@ constraint product_diagnostic_severity_correctness "Product Diagnostic Severity 
   priority   critical
   metric     """
     All product diagnostics MUST fire at their declared severity level:
-    E-codes (E007-E009, E015-E016) are errors, W-codes (W041-W046, W049,
+    E-codes (E007-E009, E015, E052) are errors, W-codes (W041-W046, W049,
     W057, W075-W091) are warnings, I-codes (I010, I046-I079) are info. No
     diagnostic may fire at a different severity than its code prefix declares.
   """

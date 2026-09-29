@@ -184,8 +184,8 @@ specforge extensions                    # list installed extensions
 │  Entity kinds:  property · axiom · protocol · refinement · process   │
 │  All: testable=false, supports_verify=false                          │
 │  Conditions: inline fields (requires/ensures/maintains), not entities│
-│  Errors:   E030-E035, E041 (refinement cycle), E042 (process cycle)  │
-│  Warnings: W028-W040, W058, W061-W074                                │
+│  Errors:   E031, E034, E041 (refinement cycle), E042 (process cycle) │
+│  Warnings: W029-W035, W096, W110, W123-W136 (docs/diagnostics.md)    │
 │  Passes:   condition_check → layering_verify → event_graph_analyze   │
 │            → coverage_tracking                                       │
 └──────────────────────────────────────────────────────────────────────┘
@@ -468,151 +468,12 @@ failure_mode ──mitigates──→ invariant (software)
 
 The compiler enforces structural invariants. Each rule belongs to the extension that owns the entities it validates. **Extension rules only fire when the extension is installed.** Cross-extension rules include `requires` guards for extension availability.
 
-### Core Errors
-
-| Code | Rule |
-|------|------|
-| E001 | **Parse error** — a `.spec` file could not be parsed (invalid syntax) |
-| E002 | **No duplicate IDs** — each entity ID is globally unique across all `.spec` files |
-| E003 | **No dangling references** — every ID in a reference list must resolve to a declared entity (soft for cross-extension references) |
-| E011 | **Invalid ref target format** — provider validates identifier doesn't match expected pattern |
-| E012 | **Unknown provider kind** — ref uses kind not registered by its provider |
-
-### @specforge/software Errors
-
-| Code | Rule |
-|------|------|
-| E004 | **Invalid port methods** — port operation type references unknown entity |
-| E006 | **Event trigger invalid** — event's trigger must reference existing behaviors |
-| E010 | **Invalid behavior range** — milestone behaviors range is malformed (requires @specforge/product) |
-
-### @specforge/software Warnings
-
-| Code | Rule |
-|------|------|
-| W001 | **Orphan behavior** — not implementing any feature (requires @specforge/product) |
-| W002 | **Orphan type** — no incoming UsesType or ExtendsType edges |
-| W003 | **Unused invariant** — no incoming Enforces edges from behaviors |
-| W004 | **Unverified testable** — testable entity with no verify or test reference |
-| W005 | **Orphan port** — no incoming UsesPort edges |
-| W006 | **Missing behavior category** — agent task routing requires category |
-| W007 | **Orphan event** — no incoming Produces edges (see also: W029) |
-| W008 | **Feature without behaviors** — no incoming Implements edges (requires @specforge/product) |
-| W009 | **Invalid verify kind** — verify kind not in allowed set for entity kind |
-| W010 | **Unknown field annotation** — unknown annotation on type field |
-
-### Extension Host Errors
-
-Emitted by the compiler and extension host while loading and managing
-extensions themselves (not by guest passes).
-
-| Code | Rule |
-|------|------|
-| E030 | **Invalid extension manifest** — manifest JSON is unreadable, fails schema validation, or violates the sandbox policy |
-| E031 | **Extension protocol or dependency error** — extension dependency cycle, or extension protocol loading failed |
-| E032 | **Extension install failed** — an install operation could not complete |
-| E033 | **Lock-file error** — lock file is missing an entry, is inconsistent, or fails verification |
-| E034 | **Provider scheme conflict** — two extensions register the same URI scheme |
-| E019 | **Unsupported format version** — a `.spec` file declares a format version this compiler does not understand (run `specforge migrate`) |
-| E016 | **Referenced file does not exist** — a file reference points to a missing path |
-| E045 | **Invalid test report** — a collector report could not be read or does not match the expected shape |
-
-### @specforge/formal Errors (requires warning_level=strict)
-
-| Code | Rule |
-|------|------|
-| E041 | **Refinement chain cycle** — cycle in the layering DAG (`refines` fields, refinement entities) |
-| E042 | **Process composition cycle** — a process composes (transitively) with itself via ProcessComposesProcess |
-| E046 | **Constraint bounds unsatisfiable** — the metric bounds contradict each other (SMT-verified) |
-| E047 | **Formal claim not entailed** — declared bounds do not guarantee the claim (counterexample reported) |
-
-### @specforge/formal Warnings (requires warning_level=strict)
-
-| Code | Rule |
-|------|------|
-| W028 | **Conditions without verify** — requires/ensures without contract/property verify |
-| W029 | **Unmatched producers** — event with producers but no consumers |
-| W030 | **Incomplete layering** — abstract behavior with no concrete refinement |
-| W031 | **Deep layering chain** — chain depth > 4 |
-| W032 | **Unmitigated retry cycle** — event cycle without timeout in sync block |
-| W033 | **Asymmetric connectivity** — port with structurally unbalanced access pattern |
-| W034 | **Unbounded channel** — event with no sync timeout or buffer limit |
-| W035 | **Undischarged coverage item** — coverage tracking item not covered by test (aggregated summary) |
-| W036 | **Port-behavior incompatibility** — port condition stricter/weaker than behavior |
-| W037 | **Unverifiable condition** — condition references external state |
-| W038 | **Unreachable postcondition** — postcondition contradicts precondition |
-| W039 | **Redundant precondition** — precondition implied by sibling |
-| W040 | **Invariant without property** — prose guarantee without maintains block |
-| W058 | **Feature coverage mismatch** — behavior may not satisfy feature requirements (structural check only, downgraded from E033) |
-| W059 | ~~REMOVED~~ — condition entity kind removed |
-| W060 | ~~REMOVED~~ — condition entity kind removed |
-| W061 | **Orphan property** — no incoming Satisfies edges from behaviors |
-| W062 | **Empty property description** — property has blank description |
-| W063 | **Property without kind** — missing safety/liveness/fairness classification |
-| W064 | **Orphan axiom** — no incoming AssumedBy edges from invariants |
-| W065 | **Empty axiom description** — axiom has blank description |
-| W066 | **Orphan protocol** — no incoming FollowsProtocol edges from events |
-| W067 | **Empty protocol description** — protocol has blank description |
-| W068 | **Protocol ordering conflict** — ordering references events not in graph |
-| W069 | **Orphan refinement** — refinement with no refinement edges |
-| W070 | **Empty refinement description** — refinement has blank description |
-| W071 | **Refinement without condition delta** — no conditions field |
-| W072 | **Orphan process** — no incoming ParticipatesIn edges |
-| W073 | **Empty process description** — process has blank description |
-| W074 | **Process without alphabet** — empty/absent alphabet field |
-
-### Core Info
-
-| Code | Rule |
-|------|------|
-| I003 | **Newer format features available** — project version < compiler version |
-| I004 | **Unknown entity in reference field** — reference uses an identifier not found in any installed extension's entity registry |
-| I005 | **Unknown provider scheme** — ref uses a scheme not registered by any installed provider |
-
-### @specforge/product Errors
-
-| Code | Rule |
-|------|------|
-| E007 | **Circular module dependency** — `depends_on` edges between modules form a cycle |
-| E008 | **Persona not defined** — journey's `persona` doesn't match any persona defined in the project |
-| E009 | **Channel not defined** — journey's `channel` doesn't match any channel defined in the project |
-
-### @specforge/product Warnings
-
-| Code | Rule |
-|------|------|
-| W041 | **Orphan feature** — not referenced by any journey |
-| W042 | **Orphan journey** — journey not referenced by any deliverable's `journeys` field |
-| W043 | **Deliverable with no journeys** — deliverable has an empty `journeys` list |
-| W044 | **Orphan module** — module not referenced by any deliverable's `modules` field |
-| W045 | **Feature dependency cycle** — `depends_on` edges between features form a cycle |
-
-### @specforge/product Info
-
-| Code | Rule |
-|------|------|
-| I010 | **Orphan term** — term not referenced by any entity's see_also |
-| I046 | **Orphan persona** — persona not referenced by any journey |
-| I047 | **Orphan channel** — channel not referenced by any journey |
-
-### @specforge/governance Errors
-
-| Code | Rule |
-|------|------|
-| E005 | **RPN mismatch** — severity × occurrence × detection ≠ declared rpn |
-
-### @specforge/governance Warnings
-
-| Code | Rule |
-|------|------|
-| W005 | **Unmitigated high-risk invariant** — `risk: high` with no `failure_mode` |
-| W006 | **Unconstrained behavior** — behavior with no constraint coverage for common categories |
-
-### @specforge/governance Info
-
-| Code | Rule |
-|------|------|
-| I001 | **Stale proposal** — decision with `status: proposed` older than 30 days |
+Every diagnostic code, its meaning, and the component that owns it (`core` or the
+emitting `@specforge/<name>` extension) is listed in [docs/diagnostics.md](diagnostics.md).
+That page is generated from the `specforge explain` catalog (`crates/specforge-cli/src/explain.rs`),
+which a test keeps in lockstep with the codes the compiler and extensions actually emit — so it is
+the only registry; run `specforge explain <CODE>` for the same text in the terminal. Codes in the
+`E900`–`E998`, `W900`–`W998` and `I900`–`I998` ranges are reserved for third-party extensions.
 
 ## DSL Scope Boundaries
 

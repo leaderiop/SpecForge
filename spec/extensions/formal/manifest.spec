@@ -73,7 +73,7 @@ behavior fa_declare_manifest "Declare @specforge/formal Manifest" {
     Feature flags: conditions (default true, no deps), layering (default
     true, requires conditions), concurrency (default true, no deps).
 
-    Warning level requirement: all formal warnings (W028-W040, W058-W074)
+    Warning level requirement: all formal warnings (W028-W040, W058, W123-W136)
     require warning_level=strict. This prevents overwhelming new users.
 
     Safety-critical scope: @specforge/formal is intended for projects

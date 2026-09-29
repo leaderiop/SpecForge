@@ -55,7 +55,7 @@ pub fn load_wasm_module(
     // runtime (this also denies a tampered binary a cache-hit load path).
     if let Some(expected) = expected_hash.filter(|h| !h.is_empty() && h != &wasm_hash) {
         return Err(Diagnostic {
-            code: "E035".to_string(),
+            code: "E033".to_string(),
             severity: Severity::Error,
             message: format!(
                 "integrity mismatch for '{}': lockfile records hash {} but the installed binary is {}",
@@ -182,7 +182,7 @@ pub fn validate_grammar_wasm(
 ) -> Result<(), Diagnostic> {
     if !available_exports.iter().any(|e| e == expected_export) {
         return Err(Diagnostic {
-            code: "E036".to_string(),
+            code: "E020".to_string(),
             severity: Severity::Error,
             message: format!(
                 "grammar validation failed: missing language export '{}'",
@@ -633,7 +633,7 @@ mod tests {
         let exports = vec!["other_export".to_string()];
         let err = validate_grammar_wasm(&bytes, "tree_sitter_specforge", &exports, 14, 14, 1024)
             .unwrap_err();
-        assert_eq!(err.code, "E036");
+        assert_eq!(err.code, "E020");
         assert!(err.message.contains("missing language export"));
     }
 
@@ -777,7 +777,7 @@ mod tests {
             1024,
         )
         .unwrap_err();
-        assert_eq!(err.code, "E036");
+        assert_eq!(err.code, "E020");
     }
 
     // B:load_extension_grammar — verify unit "loaded grammar is cached for subsequent use"
@@ -850,11 +850,11 @@ mod tests {
         assert_eq!(r.abi_version, 14);
         assert!(!r.content_hash.is_empty());
 
-        // ensures: missing export -> E036
+        // ensures: missing export -> E020
         let err =
             load_extension_grammar("/g.wasm", &bytes, "missing_export", &exports, 14, 14, 1024)
                 .unwrap_err();
-        assert_eq!(err.code, "E036");
+        assert_eq!(err.code, "E020");
 
         // ensures: ABI mismatch -> E037
         let err = load_extension_grammar(

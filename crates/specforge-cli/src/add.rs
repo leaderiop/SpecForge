@@ -275,7 +275,7 @@ fn install_local(local_path: &Path, project_path: &Path, format: OutputFormat) -
         print_error(
             format,
             &format!("file not found: {}", local_path.display()),
-            "E028",
+            "E054",
         );
         return 1;
     }

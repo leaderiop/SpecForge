@@ -110,10 +110,10 @@ impl WasmValidationRuntime for StubWasmRuntime {
 /// C6-12: diagnostic for a structurally impossible rule — one whose check
 /// kind requires a field or constraint it does not carry, or whose
 /// constraint can never match. Such a rule would execute as a silent no-op,
-/// so it is rejected at parse time (W024) and never registered.
+/// so it is rejected at parse time (W112) and never registered.
 fn unexecutable_rule(extension_name: &str, rule_code: &str, why: &str) -> Diagnostic {
     Diagnostic {
-        code: "W024".to_string(),
+        code: "W112".to_string(),
         severity: Severity::Warning,
         message: format!(
             "extension '{}': rule '{}': {} — the rule can never fire and was not registered",
@@ -126,7 +126,7 @@ fn unexecutable_rule(extension_name: &str, rule_code: &str, why: &str) -> Diagno
 
 /// Parse a ManifestValidationRule into a ValidationRulePattern.
 /// Returns Ok(pattern) or Err(diagnostic) when the rule is unrecognized or
-/// structurally cannot fire (missing field/constraint, empty values — W024).
+/// structurally cannot fire (missing field/constraint, empty values — W112).
 #[allow(clippy::result_large_err)]
 pub fn parse_rule_pattern(
     rule: &ManifestValidationRule,
@@ -147,7 +147,7 @@ pub fn parse_rule_pattern(
         "missing_required_field" => ValidationPatternKind::MissingRequiredField,
         other => {
             return Err(Diagnostic {
-                code: "W024".to_string(),
+                code: "W112".to_string(),
                 severity: Severity::Warning,
                 message: format!(
                     "extension '{}': unrecognized validation pattern kind '{}'",
@@ -255,7 +255,7 @@ pub fn parse_rule_pattern(
                     Some(Ok(re)) => Some(re),
                     Some(Err(err)) => {
                         return Err(Diagnostic {
-                            code: "W024".to_string(),
+                            code: "W112".to_string(),
                             severity: Severity::Warning,
                             message: format!(
                                 "extension '{}': rule '{}': invalid regex pattern '{}': {}",
@@ -409,7 +409,7 @@ pub fn execute_pattern(
                             "matches" => {
                                 // The regex was compiled once at parse time; a
                                 // malformed pattern is rejected at load time with
-                                // a W024 diagnostic, so `None` here only means the
+                                // a W112 diagnostic, so `None` here only means the
                                 // rule never carried a pattern (not a violation).
                                 match &constraint.compiled_pattern {
                                     Some(re) => !re.is_match(value),
@@ -595,7 +595,7 @@ pub fn register_custom_patterns(
                             // still register (execution will never fire it),
                             // matching the no-runtime policy below.
                             diagnostics.push(Diagnostic {
-                                code: "W025".to_string(),
+                                code: "W112".to_string(),
                                 severity: Severity::Warning,
                                 message: format!(
                                     "custom validation pattern '{}' probes wasm_function '{}' and the call failed: {} — the rule can never fire",
@@ -609,7 +609,7 @@ pub fn register_custom_patterns(
                     }
                 } else {
                     diagnostics.push(Diagnostic {
-                        code: "W025".to_string(),
+                        code: "W112".to_string(),
                         severity: Severity::Warning,
                         message: format!(
                             "custom validation pattern '{}' references wasm_function '{}' but Wasm runtime is not available",
@@ -623,7 +623,7 @@ pub fn register_custom_patterns(
                 }
             } else {
                 diagnostics.push(Diagnostic {
-                    code: "W025".to_string(),
+                    code: "W112".to_string(),
                     severity: Severity::Warning,
                     message: format!(
                         "custom validation pattern '{}' has check 'custom' but no wasm_function",
@@ -814,7 +814,7 @@ mod tests {
         let result = parse_rule_pattern(&rule, "@test/ext");
         assert!(result.is_err());
         let diag = result.unwrap_err();
-        assert_eq!(diag.code, "W024");
+        assert_eq!(diag.code, "W112");
         assert!(diag.message.contains("invalid_check_kind"));
     }
 
@@ -857,7 +857,7 @@ mod tests {
         assert_eq!(patterns.len(), 1);
         assert_eq!(patterns[0].0.code, "W100");
         // ensures: unrecognized warned
-        assert!(diags.iter().any(|d| d.code == "W024"));
+        assert!(diags.iter().any(|d| d.code == "W112"));
     }
 
     // -- B:execute_validation_pattern --
@@ -1069,7 +1069,7 @@ mod tests {
         };
 
         let err = parse_rule_pattern(&rule, "@test").unwrap_err();
-        assert_eq!(err.code, "W024");
+        assert_eq!(err.code, "W112");
         assert!(
             err.message.contains("W095"),
             "diagnostic names the rule: {}",
@@ -1088,7 +1088,7 @@ mod tests {
             "the invalid rule must not reach execution"
         );
         assert_eq!(diags.len(), 1);
-        assert_eq!(diags[0].code, "W024");
+        assert_eq!(diags[0].code, "W112");
     }
 
     // C6-12: a one_of constraint with no values misconfigures the allowlist.
@@ -1111,7 +1111,7 @@ mod tests {
         };
 
         let err = parse_rule_pattern(&rule, "@test").unwrap_err();
-        assert_eq!(err.code, "W024");
+        assert_eq!(err.code, "W112");
         assert!(err.message.contains("W103"), "{}", err.message);
         assert!(err.message.contains("one_of"), "{}", err.message);
 
@@ -1122,7 +1122,7 @@ mod tests {
             "the misconfigured rule must not reach execution"
         );
         assert_eq!(diags.len(), 1);
-        assert_eq!(diags[0].code, "W024");
+        assert_eq!(diags[0].code, "W112");
     }
 
     // C6-12: a check kind that reads a field cannot run without one.
@@ -1130,7 +1130,7 @@ mod tests {
     fn test_missing_field_for_field_check_rejected_at_parse() {
         let rule = make_rule("W104", "missing_field_when_flag_set"); // field: None
         let err = parse_rule_pattern(&rule, "@test").unwrap_err();
-        assert_eq!(err.code, "W024");
+        assert_eq!(err.code, "W112");
         assert!(err.message.contains("W104"), "{}", err.message);
         assert!(err.message.contains("requires a field"), "{}", err.message);
     }
@@ -1154,7 +1154,7 @@ mod tests {
             wasm_function: None,
         };
         let err = parse_rule_pattern(&rule, "@test").unwrap_err();
-        assert_eq!(err.code, "W024");
+        assert_eq!(err.code, "W112");
         assert!(
             err.message.contains("matches constraint has no pattern"),
             "{}",
@@ -1181,7 +1181,7 @@ mod tests {
             wasm_function: None,
         };
         let err = parse_rule_pattern(&rule, "@test").unwrap_err();
-        assert_eq!(err.code, "W024");
+        assert_eq!(err.code, "W112");
         assert!(
             err.message.contains("unknown constraint kind 'equals'"),
             "{}",
@@ -1208,7 +1208,7 @@ mod tests {
             wasm_function: None,
         };
         let err = parse_rule_pattern(&rule, "@test").unwrap_err();
-        assert_eq!(err.code, "W024");
+        assert_eq!(err.code, "W112");
         assert!(
             err.message.contains("empty condition values"),
             "{}",
@@ -1250,7 +1250,7 @@ mod tests {
         let (registered, diags) = register_custom_patterns(&[pattern], Some(&TrappingRuntime));
         assert_eq!(registered.len(), 1);
         assert!(
-            diags.iter().any(|d| d.code == "W025"
+            diags.iter().any(|d| d.code == "W112"
                 && d.message.contains("broken_export")
                 && d.message.contains("can never fire")),
             "probe failure must be reported: {:?}",
@@ -1662,7 +1662,7 @@ mod tests {
         assert!(
             diags
                 .iter()
-                .any(|d| d.code == "W025" && d.message.contains("missing_func"))
+                .any(|d| d.code == "W112" && d.message.contains("missing_func"))
         );
         // Still registered for later (will be skipped during execution)
         assert_eq!(registered.len(), 1);
@@ -1765,7 +1765,7 @@ mod tests {
         let (registered, diags) = register_custom_patterns(&[custom, declarative], None);
         assert_eq!(registered.len(), 2);
         // ensures: unresolvable Wasm produces warning
-        assert!(diags.iter().any(|d| d.code == "W025"));
+        assert!(diags.iter().any(|d| d.code == "W112"));
     }
 
     // -- B:conditional_field_required -- M1 fix: remove hardcoded CONDITIONAL_RULES

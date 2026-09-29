@@ -384,7 +384,7 @@ pub fn load_extensions(
             }
             Err(e) => {
                 diagnostics.push(Diagnostic {
-                    code: "E031".to_string(),
+                    code: "E028".to_string(),
                     severity: Severity::Error,
                     message: format!("extension '{}': protocol loading failed: {}", ext_name, e),
                     span: None,

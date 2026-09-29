@@ -16,7 +16,7 @@ pub fn validate_registered_entity_fields(
             && !kind_reg.contains(target)
         {
             diagnostics.push(Diagnostic {
-                code: "W022".to_string(),
+                code: "W021".to_string(),
                 severity: Severity::Warning,
                 message: format!(
                     "field '{}' on kind '{}' references target_kind '{}' which is not in the KindRegistry",
@@ -32,7 +32,7 @@ pub fn validate_registered_entity_fields(
             && !edge_reg.contains(edge)
         {
             diagnostics.push(Diagnostic {
-                code: "W022".to_string(),
+                code: "W021".to_string(),
                 severity: Severity::Warning,
                 message: format!(
                     "field '{}' on kind '{}' references edge label '{}' which is not in the EdgeRegistry",
@@ -505,8 +505,8 @@ mod tests {
         assert!(
             diags
                 .iter()
-                .any(|d| d.code == "W022" && d.message.contains("person")),
-            "expected W022 about unresolved target_kind 'person', got: {:?}",
+                .any(|d| d.code == "W021" && d.message.contains("person")),
+            "expected W021 about unresolved target_kind 'person', got: {:?}",
             diags
         );
     }
@@ -986,7 +986,7 @@ mod tests {
         let diags = validate_registered_entity_fields(&field_reg, &kind_reg, &edge_reg);
         // ensures: valid references produce no warnings
         assert!(diags.is_empty());
-        // ensures: unresolved references produce W022
+        // ensures: unresolved references produce W021
         let bad_manifest: ManifestV2 = serde_json::from_str(
             r#"{"name":"@t/e","version":"1.0.0","manifestVersion":2,"wasmPath":"x.wasm",
                 "entityKinds":[{"name":"A","keyword":"a","fields":[
@@ -996,7 +996,7 @@ mod tests {
         .unwrap();
         let (kr, fr, er, _) = populate_registries(&[bad_manifest]);
         let bad_diags = validate_registered_entity_fields(&fr, &kr, &er);
-        assert!(bad_diags.iter().any(|d| d.code == "W022"));
+        assert!(bad_diags.iter().any(|d| d.code == "W021"));
     }
 
     // B:detect_duplicate_entity_kinds — verify contract "requires/ensures consistency for duplicate entity kind detection"

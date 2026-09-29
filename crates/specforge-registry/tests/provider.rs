@@ -124,7 +124,7 @@ fn test_load_providers_invalid_entry_warns() {
     let (providers, diags) = load_provider_configurations(&config);
     assert!(providers.is_empty());
     assert_eq!(diags.len(), 2);
-    assert!(diags.iter().all(|d| d.code == "W032"));
+    assert!(diags.iter().all(|d| d.code == "W118"));
 }
 
 // B:load_provider_configurations — verify contract "requires config JSON, ensures provider configs"
@@ -143,10 +143,10 @@ fn test_load_providers_contract() {
     assert!(providers.is_empty());
     assert!(diags.is_empty());
 
-    // ensures: invalid entry → W032
+    // ensures: invalid entry → W118
     let config = serde_json::json!({ "providers": [{}] });
     let (_, diags) = load_provider_configurations(&config);
-    assert!(diags.iter().any(|d| d.code == "W032"));
+    assert!(diags.iter().any(|d| d.code == "W118"));
 }
 
 // ============================================================================
@@ -178,7 +178,7 @@ fn test_register_schemes_from_manifest() {
 
 // B:register_provider_schemes — verify integration "duplicate scheme → E033"
 #[test]
-fn test_register_schemes_duplicate_produces_e033() {
+fn test_register_schemes_duplicate_produces_e057() {
     let providers = vec![
         ProviderConfig {
             name: "gh-a".to_string(),
@@ -201,8 +201,8 @@ fn test_register_schemes_duplicate_produces_e033() {
 
     let (_, diags) = register_provider_schemes(&providers, &manifests);
     assert!(
-        diags.iter().any(|d| d.code == "E033"),
-        "expected E033 for duplicate scheme, got: {:?}",
+        diags.iter().any(|d| d.code == "E057"),
+        "expected E057 for duplicate scheme, got: {:?}",
         diags
     );
 }
@@ -222,8 +222,8 @@ fn test_register_schemes_no_manifest_warns() {
 
     let (_, diags) = register_provider_schemes(&providers, &manifests);
     assert!(
-        diags.iter().any(|d| d.code == "W033"),
-        "expected W033, got: {:?}",
+        diags.iter().any(|d| d.code == "W118"),
+        "expected W118, got: {:?}",
         diags
     );
 }
@@ -277,7 +277,7 @@ fn test_validate_provider_ref_unknown_scheme() {
 
     let diags = validate_provider_ref("unknown", "42", &registry);
     assert_eq!(diags.len(), 1);
-    assert_eq!(diags[0].code, "E034");
+    assert_eq!(diags[0].code, "I005");
     assert!(diags[0].message.contains("unknown"));
 }
 
@@ -295,10 +295,10 @@ fn test_validate_provider_ref_contract() {
     // ensures: known → empty
     assert!(validate_provider_ref("gh", "issue/42", &registry).is_empty());
 
-    // ensures: unknown → E034
+    // ensures: unknown → I005
     let diags = validate_provider_ref("jira", "PROJ-123", &registry);
-    assert_eq!(diags[0].code, "E034");
-    assert_eq!(diags[0].severity, Severity::Error);
+    assert_eq!(diags[0].code, "I005");
+    assert_eq!(diags[0].severity, Severity::Info);
 }
 
 // ============================================================================
@@ -318,7 +318,7 @@ fn test_validate_ref_target_valid() {
 fn test_validate_ref_target_empty() {
     let diags = validate_ref_target_format("");
     assert_eq!(diags.len(), 1);
-    assert_eq!(diags[0].code, "W034");
+    assert_eq!(diags[0].code, "W120");
 }
 
 // B:validate_ref_target_format — verify contract "requires target string, ensures format check"
@@ -327,9 +327,9 @@ fn test_validate_ref_target_contract() {
     // ensures: valid → empty
     assert!(validate_ref_target_format("valid-target").is_empty());
 
-    // ensures: empty → W034
+    // ensures: empty → W120
     let diags = validate_ref_target_format("");
-    assert_eq!(diags[0].code, "W034");
+    assert_eq!(diags[0].code, "W120");
     assert_eq!(diags[0].severity, Severity::Warning);
 }
 

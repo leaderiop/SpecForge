@@ -111,7 +111,7 @@ sync {
 | E001 | `trigger` must resolve to an existing behavior. |
 | E001 | Every ID in `consumers` must resolve to an existing behavior. |
 | E002 | No duplicate event IDs across all `.spec` files. |
-| E006 | Trigger behavior must be valid. |
+| E051 | Trigger behavior must be valid. |
 | E034 | Circular event dependency detected (deadlock). |
 | E035 | Channel type mismatch -- producer and consumer disagree on payload type. |
 | W007 | Orphan event -- no consumers. |

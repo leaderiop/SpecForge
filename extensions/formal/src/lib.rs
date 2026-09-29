@@ -688,9 +688,7 @@ mod pass_tests {
         let items = doc["items"].as_array().expect("items array");
 
         let codes: Vec<&str> = items.iter().filter_map(|r| r["code"].as_str()).collect();
-        for expected in [
-            "W059", "W060", "W061", "W062", "W063", "W064", "W065", "W066",
-        ] {
+        for expected in ["W125", "W123", "W126", "W128", "W131", "W134"] {
             assert!(
                 codes.contains(&expected),
                 "formal rule {expected} missing from describe_validation_rules.json: {codes:?}"

@@ -51,7 +51,7 @@ pub fn load_provider_configurations(
             Some(n) => n.to_string(),
             None => {
                 diagnostics.push(Diagnostic {
-                    code: "W032".to_string(),
+                    code: "W118".to_string(),
                     severity: Severity::Warning,
                     message: format!("providers[{}]: missing 'alias' or 'name' field", i),
                     span: None,
@@ -69,7 +69,7 @@ pub fn load_provider_configurations(
 
         if scheme.is_empty() {
             diagnostics.push(Diagnostic {
-                code: "W032".to_string(),
+                code: "W118".to_string(),
                 severity: Severity::Warning,
                 message: format!("providers[{}] '{}': missing 'scheme' field", i, name),
                 span: None,
@@ -140,7 +140,7 @@ pub fn register_provider_schemes(
 
         if let Some(existing_ext) = seen_schemes.get(&provider.scheme) {
             diagnostics.push(Diagnostic {
-                code: "E033".to_string(),
+                code: "E057".to_string(),
                 severity: Severity::Error,
                 message: format!(
                     "scheme '{}' registered by extension '{}' conflicts with '{}'",
@@ -165,7 +165,7 @@ pub fn register_provider_schemes(
         let has_contributor = manifests.iter().any(|(_, m)| m.contributes.providers);
         if !has_contributor {
             diagnostics.push(Diagnostic {
-                code: "W033".to_string(),
+                code: "W118".to_string(),
                 severity: Severity::Warning,
                 message: format!(
                     "provider '{}' configured but no extension contributes providers",
@@ -190,8 +190,8 @@ pub fn validate_provider_ref(
 
     if registry.find_by_scheme(scheme).is_none() {
         diagnostics.push(Diagnostic {
-            code: "E034".to_string(),
-            severity: Severity::Error,
+            code: "I005".to_string(),
+            severity: Severity::Info,
             message: format!(
                 "unknown provider scheme '{}' in ref '{}:{}'",
                 scheme, scheme, target
@@ -213,7 +213,7 @@ pub fn validate_ref_target_format(target: &str) -> Vec<Diagnostic> {
 
     if target.is_empty() {
         diagnostics.push(Diagnostic {
-            code: "W034".to_string(),
+            code: "W120".to_string(),
             severity: Severity::Warning,
             message: "ref target is empty".to_string(),
             span: None,
@@ -227,7 +227,7 @@ pub fn validate_ref_target_format(target: &str) -> Vec<Diagnostic> {
     // Check for obviously invalid characters
     if target.contains(|c: char| c.is_control()) {
         diagnostics.push(Diagnostic {
-            code: "W034".to_string(),
+            code: "W120".to_string(),
             severity: Severity::Warning,
             message: format!("ref target '{}' contains control characters", target),
             span: None,

@@ -39,7 +39,7 @@ feature fa_structured_conditions "Structured Conditions" {
     to port method signatures (W036). Additional warnings detect
     unverifiable conditions (W037), unreachable postconditions (W038),
     redundant preconditions (W039), and invariants without formal
-    properties (W040). All formal analysis warnings (W028-W040, W058-W074)
+    properties (W040). All formal analysis warnings (W028-W040, W058, W123-W136)
     require warning_level=strict.
   """
 }
@@ -66,7 +66,7 @@ feature fa_specification_layering "Specification Layering" {
     refinements to behaviors; RefinementChainsToRefinement edges support
     multi-level refinement. Dual-mode:
     refinement entities coexist with abstract/refines field annotations.
-    W069-W071 validation rules detect orphan refinements, empty
+    W131-W133 validation rules detect orphan refinements, empty
     descriptions, and missing condition deltas.
   """
 }
@@ -84,7 +84,7 @@ feature fa_event_graph_linting "Event Graph Linting" {
     bipartite graph and performs structural event flow analysis.
     Tarjan's SCC algorithm detects unmitigated cycles (E034 — checks
     for sync.timeout, @idempotent, circuit_breaker before firing).
-    Payload type checking catches mismatches (E035). Producer/consumer
+    Payload type checking catches mismatches (E060). Producer/consumer
     pairing detects lost side effects (W029). Retry cycle analysis
     flags unmitigated retry cycles (W032). Asymmetric connectivity
     warnings on ports (W033). Unbounded channel buffer detection
@@ -94,7 +94,7 @@ feature fa_event_graph_linting "Event Graph Linting" {
     operators. ParticipatesIn edges connect events to processes;
     ProcessComposition edges model hierarchical composition. Process-
     level deadlock detection extends E034. Dual-mode: process entities
-    coexist with inline sync blocks. W072-W074 validation rules detect
+    coexist with inline sync blocks. W134-W136 validation rules detect
     orphan processes, empty descriptions, and missing alphabets.
   """
 }
@@ -164,8 +164,8 @@ feature fa_temporal_properties "Temporal Properties" {
     with a kind classifier (safety/liveness/fairness). Behaviors
     declare which properties they satisfy via the satisfies field,
     creating Satisfies edges. Properties can depend on conditions via
-    PropertyDependsOn edges. Orphan properties (W061), empty
-    descriptions (W062), and missing kinds (W063) are detected.
+    PropertyDependsOn edges. Orphan properties (W123), empty
+    descriptions (W124), and missing kinds (W125) are detected.
   """
 }
 
@@ -180,8 +180,8 @@ feature fa_axiom_foundations "Axiom Foundations" {
     The axiom entity kind represents an assumed-true foundation that
     conditions depend on. Axioms require no proof and generate no
     coverage tracking items. Conditions reference axioms via the
-    assumes field, creating AssumedBy edges. Orphan axioms (W064)
-    and empty descriptions (W065) are detected.
+    assumes field, creating AssumedBy edges. Orphan axioms (W126)
+    and empty descriptions (W127) are detected.
   """
 }
 
@@ -197,8 +197,8 @@ feature fa_protocol_contracts "Protocol Contracts" {
     contract with ordering, timeout, and delivery semantics. Events
     reference protocols via the follows_protocol field, creating
     FollowsProtocol edges. Protocol ordering is validated against the
-    event graph topology. Orphan protocols (W066), empty descriptions
-    (W067), and ordering conflicts (W068) are detected. Protocols
+    event graph topology. Orphan protocols (W128), empty descriptions
+    (W129), and ordering conflicts (W130) are detected. Protocols
     coexist with inline sync blocks — dual-mode like conditions.
   """
 }
@@ -216,7 +216,7 @@ feature fa_refinement_layering "Refinement Entities" {
     status. RefinementRefinesAbstract/RefinementRefinesConcrete edges connect
     refinements to target behaviors. RefinementChainsToRefinement edges
     support multi-level refinement. Dual-mode:
-    coexists with abstract/refines field annotations. W069-W071 validation.
+    coexists with abstract/refines field annotations. W131-W133 validation.
   """
 }
 
@@ -233,20 +233,20 @@ feature fa_process_modeling "Process Modeling" {
     alphabet (event set), states, and composition operators. ParticipatesIn
     edges connect events to processes. ProcessComposition edges model
     hierarchical composition. Process-level deadlock detection extends E034.
-    Dual-mode: coexists with inline sync blocks. W072-W074 validation.
+    Dual-mode: coexists with inline sync blocks. W134-W136 validation.
   """
 }
 
 feature fa_progressive_warnings "Progressive Warning Levels" {
   problem   """
-    All formal analysis warnings (W028-W040, W058-W074) fire at the same level.
+    All formal analysis warnings (W028-W040, W058, W123-W136) fire at the same level.
     New users are overwhelmed by formal analysis warnings they cannot
     act on yet. There is no way to gradually increase warning
     strictness as the project matures.
   """
   solution  """
     Three warning levels (onboarding, standard, strict) control which
-    warnings are emitted. Formal analysis warnings (W028-W040, W058-W074) require
+    warnings are emitted. Formal analysis warnings (W028-W040, W058, W123-W136) require
     warning_level=strict. Basic warnings (W001-W010) fire at all
     levels. The warning_level is set in specforge.json or
     CompilerConfig. Default is standard.

@@ -22,7 +22,7 @@ behavior load_federation_config "Load Federation Config" {
     MUST declare a project name and a local filesystem path to the
     remote project's published graph. Duplicate project names MUST
     produce a W054 warning. Entries with missing required fields (name
-    or path) MUST produce an E029 diagnostic. When no federation section
+    or path) MUST produce an E058 diagnostic. When no federation section
     exists, the system MUST proceed with an empty dependency list — the
     absence of federation config is not an error.
   """
@@ -30,7 +30,7 @@ behavior load_federation_config "Load Federation Config" {
   verify unit "federation section parsed from specforge.json"
   verify unit "ProjectDependency entries validated"
   verify unit "duplicate project name produces W054"
-  verify unit "missing required field produces E029"
+  verify unit "missing required field produces E058"
   verify unit "absent federation section yields empty dependency list"
 
 }

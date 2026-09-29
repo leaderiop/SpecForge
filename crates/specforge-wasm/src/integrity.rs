@@ -54,7 +54,7 @@ pub fn verify_wasm_integrity_or_skip(
         return (
             true,
             vec![Diagnostic {
-                code: "W027".to_string(),
+                code: "W114".to_string(),
                 severity: Severity::Warning,
                 message: format!(
                     "integrity check skipped for '{}' due to --skip-verify flag",
@@ -111,7 +111,7 @@ mod tests {
         let (ok, diags) = verify_wasm_integrity_or_skip(f.path(), "wrong-hash", true);
         assert!(ok);
         assert_eq!(diags.len(), 1);
-        assert_eq!(diags[0].code, "W027");
+        assert_eq!(diags[0].code, "W114");
         assert_eq!(diags[0].severity, Severity::Warning);
     }
 

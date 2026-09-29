@@ -182,7 +182,7 @@ behavior create_user "Create User" {
 1. **Parser** -- Tree-sitter grammar produces per-file ASTs
 2. **Resolver** -- Resolves `use` imports, links name references to definitions, builds the in-memory graph; processes files in topological order (dependencies first); detects import cycles
 3. **In-memory graph** -- Directed graph of nodes and edges; the "database" (no external database required)
-4. **Validators** -- Enforce graph invariants; emit errors (E001-E003, E005-E009, E011-E014, E030-E035, E041-E042), warnings (W001-W040, W058-W074), info diagnostics (I001, I003-I009, I011, I014-I015)
+4. **Validators** -- Enforce graph invariants; emit errors (E001-E003, E005-E009, E011-E014, E030-E035, E041-E042), warnings (W001-W040, W058, W123-W136), info diagnostics (I001, I003-I009, I011, I014-I015)
 5. **LSP** -- Reads from the in-memory graph; provides go-to-def, find-refs, hover, autocomplete, rename, live diagnostics
 6. **Emitters** -- Traverse the graph to produce markdown, JSON, DOT graph, index.yaml, traceability reports
 
@@ -333,7 +333,7 @@ Diagnostics are module-scoped: plugin rules only fire when the plugin is install
 | Code | Level | Description |
 |------|-------|-------------|
 | `E004` | error | Port method references invalid type |
-| `E006` | error | Event trigger invalid -- event's trigger must reference an existing behavior |
+| `E051` | error | Event trigger invalid -- event's trigger must reference an existing behavior |
 | `E010` | error | Invalid behavior range in milestone (requires @specforge/product) |
 | `W001` | warning | Orphan behavior -- not implementing any feature |
 | `W002` | warning | Orphan type -- no incoming UsesType or ExtendsType edges |
@@ -352,7 +352,7 @@ Diagnostics are module-scoped: plugin rules only fire when the plugin is install
 |------|-------|-------------|
 | `E030` | error | Contradictory precondition (X/not_X, tautological false) |
 | `E031` | error | Layering condition mismatch -- named-condition set violation |
-| `E032` | error | Layering cycle -- cycle in specification layering DAG |
+| `E041` | error | Layering cycle -- cycle in specification layering DAG |
 | `E034` | error | Unmitigated cycle -- circular dependency without timeout/@idempotent/circuit_breaker |
 | `E035` | error | Payload type mismatch -- producer/consumer disagree on event payload |
 | `W028` | warning | Conditions without verify |
@@ -371,20 +371,20 @@ Diagnostics are module-scoped: plugin rules only fire when the plugin is install
 | `W058` | warning | Feature coverage mismatch (downgraded from E033) |
 | `W059` | warning | REMOVED -- condition entity kind removed |
 | `W060` | warning | REMOVED -- condition entity kind removed |
-| `W061` | warning | Orphan property -- no incoming Satisfies edges |
-| `W062` | warning | Empty property description |
-| `W063` | warning | Property without kind (safety/liveness/fairness) |
-| `W064` | warning | Orphan axiom -- no incoming AssumedBy edges |
-| `W065` | warning | Empty axiom description |
-| `W066` | warning | Orphan protocol -- no incoming FollowsProtocol edges |
-| `W067` | warning | Empty protocol description |
-| `W068` | warning | Protocol ordering conflict -- events not found |
-| `W069` | warning | Orphan refinement -- no RefinesTo/RefinementChainLink edges |
-| `W070` | warning | Empty refinement description |
-| `W071` | warning | Refinement without condition delta |
-| `W072` | warning | Orphan process -- no ParticipatesIn edges |
-| `W073` | warning | Empty process description |
-| `W074` | warning | Process without alphabet |
+| `W123` | warning | Orphan property -- no incoming Satisfies edges |
+| `W124` | warning | Empty property description |
+| `W125` | warning | Property without kind (safety/liveness/fairness) |
+| `W126` | warning | Orphan axiom -- no incoming AssumedBy edges |
+| `W127` | warning | Empty axiom description |
+| `W128` | warning | Orphan protocol -- no incoming FollowsProtocol edges |
+| `W129` | warning | Empty protocol description |
+| `W130` | warning | Protocol ordering conflict -- events not found |
+| `W131` | warning | Orphan refinement -- no RefinesTo/RefinementChainLink edges |
+| `W132` | warning | Empty refinement description |
+| `W133` | warning | Refinement without condition delta |
+| `W134` | warning | Orphan process -- no ParticipatesIn edges |
+| `W135` | warning | Empty process description |
+| `W136` | warning | Process without alphabet |
 | `E041` | error | Refinement chain cycle -- cycle in RefinementChainLink DAG |
 | `E042` | error | Process composition cycle -- cycle in ProcessComposition DAG |
 | `I008` | info | Coverage item covered by test |

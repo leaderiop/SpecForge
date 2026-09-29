@@ -36,53 +36,53 @@ invariant fa_condition_consistency "Structured Condition Consistency" {
 invariant fa_property_entity_reachability "Property Entity Reachability" {
   guarantee   """
     Every property entity MUST be referenced by at least one Satisfies
-    edge from a behavior. Unreferenced property entities produce W061
+    edge from a behavior. Unreferenced property entities produce W123
     warning. This prevents orphaned temporal assertions that exist in
     the graph but no behavior claims to satisfy.
   """
   risk        low
 
   verify unit "property with Satisfies edge passes"
-  verify unit "property with no incoming edges produces W061"
+  verify unit "property with no incoming edges produces W123"
 }
 
 invariant fa_axiom_entity_reachability "Axiom Entity Reachability" {
   guarantee   """
     Every axiom entity MUST be referenced by at least one AssumedBy
-    edge from a condition. Unreferenced axiom entities produce W064
+    edge from a condition. Unreferenced axiom entities produce W126
     warning. This prevents orphaned assumptions that no condition
     depends on.
   """
   risk        low
 
   verify unit "axiom with AssumedBy edge passes"
-  verify unit "axiom with no incoming edges produces W064"
+  verify unit "axiom with no incoming edges produces W126"
 }
 
 invariant fa_protocol_entity_reachability "Protocol Entity Reachability" {
   guarantee   """
     Every protocol entity MUST be referenced by at least one
     FollowsProtocol edge from an event. Unreferenced protocol entities
-    produce W066 warning. This prevents orphaned sync contracts that
+    produce W128 warning. This prevents orphaned sync contracts that
     no event follows.
   """
   risk        low
 
   verify unit "protocol with FollowsProtocol edge passes"
-  verify unit "protocol with no incoming edges produces W066"
+  verify unit "protocol with no incoming edges produces W128"
 }
 
 invariant fa_refinement_entity_reachability "Refinement Entity Reachability" {
   guarantee """
     Every refinement entity MUST reach behaviors through its
     RefinementRefinesAbstract/RefinementRefinesConcrete edges, or be linked
-    via RefinementChainsToRefinement from another refinement. Unreferenced refinement entities produce W069.
+    via RefinementChainsToRefinement from another refinement. Unreferenced refinement entities produce W131.
   """
   risk low
 
   verify unit "refinement with abstract_entity and concrete_entity edges passes"
   verify unit "refinement with only RefinementChainsToRefinement incoming passes"
-  verify unit "refinement with no edges produces W069"
+  verify unit "refinement with no edges produces W131"
 }
 
 invariant fa_refinement_chain_dag "Refinement Chain Link DAG" {
@@ -99,12 +99,12 @@ invariant fa_refinement_chain_dag "Refinement Chain Link DAG" {
 invariant fa_process_entity_reachability "Process Entity Reachability" {
   guarantee """
     Every process entity MUST be referenced by at least one ParticipatesIn
-    edge from an event. Unreferenced process entities produce W072.
+    edge from an event. Unreferenced process entities produce W134.
   """
   risk low
 
   verify unit "process with ParticipatesIn edge passes"
-  verify unit "process with no incoming edges produces W072"
+  verify unit "process with no incoming edges produces W134"
 }
 
 invariant fa_process_composition_dag "Process Composition DAG" {

@@ -245,7 +245,7 @@ No incoming edges.
 | E002 | core | No duplicate IDs — each entity ID is globally unique |
 | E003 | core | No dangling references — every ID in a reference list must resolve to a declared entity |
 | E005 | governance | RPN mismatch — severity x occurrence x detection must equal declared rpn |
-| E006 | core | Event trigger invalid — trigger must reference an existing behavior |
+| E051 | software | Event trigger invalid — trigger must reference an existing behavior |
 | E011 | core | Invalid ref target format — provider validates identifier doesn't match expected pattern |
 | E012 | core | Unknown provider kind — ref uses kind not registered by its provider |
 | E007 | product | Circular module dependency — `depends_on` must form a DAG |

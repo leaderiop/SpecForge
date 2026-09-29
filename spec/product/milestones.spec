@@ -359,7 +359,7 @@ milestone software_extension_v1 "Phase 11a: @specforge/software Extension v1" {
   exit_criteria [
     "manifest.json declares 5 entity kinds with all fields, testability, and LSP metadata",
     "manifest.json declares 14 edge types with source/target constraints",
-    "Validation rules W001-W010, E004, E006, E010, E016 fire correctly",
+    "Validation rules W001-W010, E004, E051, E010, E016 fire correctly",
     "Entity enhancements add ports and behaviors fields to product entities",
     "specforge check with @specforge/software loaded produces zero false positives on own .spec files",
     "All verify statements have corresponding test implementations",

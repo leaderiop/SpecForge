@@ -100,7 +100,7 @@ behavior fa_detect_unmitigated_cycles "E034: Detect Unmitigated Cycles" {
   verify unit "E034 includes full cycle path and missing mitigations"
 }
 
-behavior fa_detect_payload_type_mismatch "E035: Payload Type Mismatch" {
+behavior fa_detect_payload_type_mismatch "E060: Payload Type Mismatch" {
   category query
   contract """
     Verify that event producers and consumers agree on payload type.
@@ -110,13 +110,13 @@ behavior fa_detect_payload_type_mismatch "E035: Payload Type Mismatch" {
   }
   ensures  {
     matching_passes        "matching producer/consumer payload types produce no diagnostic"
-    mismatch_error         "mismatching payload types produce E035 error"
+    mismatch_error         "mismatching payload types produce E060 error"
   }
 
   features [fa_event_graph_linting]
 
   verify unit "matching producer/consumer payload types pass"
-  verify unit "mismatching payload types produce E035"
+  verify unit "mismatching payload types produce E060"
 }
 
 behavior fa_detect_unmatched_producers "W029: Unmatched Producers" {
@@ -215,7 +215,7 @@ behavior fa_event_graph_analyze_pass "Event Graph Analyze Compiler Pass" {
   ensures  {
     bipartite_delegated    "event-behavior bipartite graph construction delegated to fa_build_event_bipartite_graph"
     cycle_checked          "Tarjan SCC unmitigated cycle detection runs (E034)"
-    channel_checked        "payload type compatibility checked (E035)"
+    channel_checked        "payload type compatibility checked (E060)"
     unmatched_checked      "unmatched producers detected (W029)"
     retry_cycle_checked    "unmitigated retry cycles detected (W032)"
     connectivity_checked   "asymmetric connectivity on ports detected (W033)"

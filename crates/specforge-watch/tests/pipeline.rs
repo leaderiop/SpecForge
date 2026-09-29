@@ -770,7 +770,7 @@ fn cycle_detection_reruns_after_import_dag_update() {
     // No cycles initially
     let initial_diags = pipeline.diagnostics();
     assert!(
-        !initial_diags.iter().any(|d| d.code == "W003"),
+        !initial_diags.iter().any(|d| d.code == "W113"),
         "should have no cycle warnings initially"
     );
 
@@ -782,9 +782,9 @@ fn cycle_detection_reruns_after_import_dag_update() {
 
     let result = pipeline.rebuild(&["a.spec".to_string()], |f| sources.get(f).cloned());
 
-    // Should now have W003 for the cycle
+    // Should now have W113 for the cycle
     assert!(
-        result.diagnostics.iter().any(|d| d.code == "W003"),
+        result.diagnostics.iter().any(|d| d.code == "W113"),
         "should detect import cycle after DAG update, diags: {:?}",
         result
             .diagnostics
@@ -814,7 +814,7 @@ fn cycle_resolved_after_removing_circular_import() {
     // Cycle should be detected initially
     let initial_diags = pipeline.diagnostics();
     assert!(
-        initial_diags.iter().any(|d| d.code == "W003"),
+        initial_diags.iter().any(|d| d.code == "W113"),
         "should have cycle warning initially, diags: {:?}",
         initial_diags.iter().map(|d| &d.code).collect::<Vec<_>>()
     );
@@ -829,7 +829,7 @@ fn cycle_resolved_after_removing_circular_import() {
 
     // Cycle warning should be gone
     assert!(
-        !result.diagnostics.iter().any(|d| d.code == "W003"),
+        !result.diagnostics.iter().any(|d| d.code == "W113"),
         "cycle warning should be resolved, diags: {:?}",
         result
             .diagnostics

@@ -174,7 +174,7 @@ fn test_load_grammar_missing_export_fails() {
         1024,
     )
     .unwrap_err();
-    assert_eq!(err.code, "E036");
+    assert_eq!(err.code, "E020");
 }
 
 // B:load_extension_grammar — verify contract "requires wasm bytes, ensures grammar or error"
@@ -265,9 +265,9 @@ fn test_validate_grammar_contract() {
     let bytes = vec![0u8; 100];
     let exports = vec!["tree_sitter_specforge".to_string()];
 
-    // ensures: missing export → E036
+    // ensures: missing export → E020
     let err = validate_grammar_wasm(&bytes, "missing_export", &exports, 14, 14, 1024).unwrap_err();
-    assert_eq!(err.code, "E036");
+    assert_eq!(err.code, "E020");
 
     // ensures: oversized → E038
     let big = vec![0u8; 2000];

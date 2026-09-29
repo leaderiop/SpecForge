@@ -1080,7 +1080,7 @@ fn validate_fields_unresolved_target_kind() {
     assert!(
         diags
             .iter()
-            .any(|d| d.code == "W022" && d.message.contains("person"))
+            .any(|d| d.code == "W021" && d.message.contains("person"))
     );
 }
 
@@ -1173,7 +1173,7 @@ fn validate_fields_contract() {
     .unwrap();
     let (kr, fr, er, _) = populate_registries(&[bad_manifest]);
     let bad_diags = validate_registered_entity_fields(&fr, &kr, &er);
-    assert!(bad_diags.iter().any(|d| d.code == "W022"));
+    assert!(bad_diags.iter().any(|d| d.code == "W021"));
 }
 
 // ===========================================================================
@@ -1563,11 +1563,11 @@ fn validation_rule_invalid_ref_warning() {
     .unwrap();
     let (kind_reg, field_reg, edge_reg, _) = populate_registries(&[manifest]);
     let diags = validate_registered_entity_fields(&field_reg, &kind_reg, &edge_reg);
-    // Should be a warning (W022), not error
+    // Should be a warning (W021), not error
     assert!(
         diags
             .iter()
-            .any(|d| d.code == "W022" && d.severity == Severity::Warning)
+            .any(|d| d.code == "W021" && d.severity == Severity::Warning)
     );
     assert!(!diags.iter().any(|d| d.severity == Severity::Error));
 }

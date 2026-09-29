@@ -79,11 +79,11 @@ fn detect_direct_import_cycle() {
     let cycle_warnings: Vec<_> = result
         .diagnostics
         .iter()
-        .filter(|d| d.code == "W003")
+        .filter(|d| d.code == "W113")
         .collect();
     assert!(
         !cycle_warnings.is_empty(),
-        "should detect import cycle with W003"
+        "should detect import cycle with W113"
     );
     assert!(
         cycle_warnings
@@ -110,11 +110,11 @@ fn detect_transitive_import_cycle() {
     let cycle_warnings: Vec<_> = result
         .diagnostics
         .iter()
-        .filter(|d| d.code == "W003")
+        .filter(|d| d.code == "W113")
         .collect();
     assert!(
         !cycle_warnings.is_empty(),
-        "should detect transitive cycle with W003"
+        "should detect transitive cycle with W113"
     );
 }
 
@@ -1008,14 +1008,14 @@ fn relative_import_path_traversal_rejected() {
     );
 }
 
-// === M3: W003 import cycle diagnostic carries suggestion ===
+// === M3: W113 import cycle diagnostic carries suggestion ===
 
 #[specforge_test(
     behavior = "detect_import_cycles",
     verify = "W003 carries actionable suggestion"
 )]
 #[test]
-fn w003_import_cycle_has_suggestion() {
+fn w113_import_cycle_has_suggestion() {
     let dir = setup_project(&[
         ("a.spec", "use \"b\"\nbehavior alpha \"A\" { }"),
         ("b.spec", "use \"a\"\nbehavior beta \"B\" { }"),
@@ -1023,20 +1023,20 @@ fn w003_import_cycle_has_suggestion() {
 
     let result = resolve_project(dir.path());
 
-    let w003s: Vec<_> = result
+    let w113s: Vec<_> = result
         .diagnostics
         .iter()
-        .filter(|d| d.code == "W003")
+        .filter(|d| d.code == "W113")
         .collect();
-    assert!(!w003s.is_empty(), "import cycle should produce W003");
+    assert!(!w113s.is_empty(), "import cycle should produce W113");
     assert!(
-        w003s[0].suggestion.is_some(),
-        "W003 should carry an actionable suggestion, got None"
+        w113s[0].suggestion.is_some(),
+        "W113 should carry an actionable suggestion, got None"
     );
     assert!(
-        w003s[0].suggestion.as_ref().unwrap().contains("break"),
-        "W003 suggestion should advise breaking the cycle, got: {:?}",
-        w003s[0].suggestion
+        w113s[0].suggestion.as_ref().unwrap().contains("break"),
+        "W113 suggestion should advise breaking the cycle, got: {:?}",
+        w113s[0].suggestion
     );
 }
 
@@ -1076,14 +1076,14 @@ fn pub_use_through_cycle_no_transitive() {
     );
 }
 
-// === H2: Cross-file duplicate entity ID detection (W063) ===
+// === H2: Cross-file duplicate entity ID detection (W122) ===
 
 #[specforge_test(
     behavior = "link_entity_references",
     verify = "cross-file duplicate entity ID produces W063"
 )]
 #[test]
-fn cross_file_duplicate_entity_id_produces_w063() {
+fn cross_file_duplicate_entity_id_produces_w122() {
     let dir = setup_project(&[
         (
             "a.spec",
@@ -1098,16 +1098,16 @@ fn cross_file_duplicate_entity_id_produces_w063() {
     let resolved = resolve_project(dir.path());
     let (_, diagnostics) = link_references(&resolved);
 
-    let w063s: Vec<_> = diagnostics.iter().filter(|d| d.code == "W063").collect();
+    let w122s: Vec<_> = diagnostics.iter().filter(|d| d.code == "W122").collect();
     assert_eq!(
-        w063s.len(),
+        w122s.len(),
         1,
-        "cross-file duplicate entity ID should produce exactly one W063, got: {:?}",
-        w063s
+        "cross-file duplicate entity ID should produce exactly one W122, got: {:?}",
+        w122s
     );
     assert!(
-        w063s[0].message.contains("alpha"),
-        "W063 message should mention the duplicate ID 'alpha'"
+        w122s[0].message.contains("alpha"),
+        "W122 message should mention the duplicate ID 'alpha'"
     );
 }
 
@@ -1118,7 +1118,7 @@ fn cross_file_duplicate_entity_id_produces_w063() {
     verify = "same ID different kind across files warns W063 with both kinds named"
 )]
 #[test]
-fn same_id_different_kind_across_files_warns_w063() {
+fn same_id_different_kind_across_files_warns_w060() {
     let dir = setup_project(&[
         (
             "a.spec",
@@ -1133,13 +1133,13 @@ fn same_id_different_kind_across_files_warns_w063() {
     let resolved = resolve_project(dir.path());
     let (_, diagnostics) = link_references(&resolved);
 
-    let w063s: Vec<_> = diagnostics.iter().filter(|d| d.code == "W063").collect();
+    let w060s: Vec<_> = diagnostics.iter().filter(|d| d.code == "W060").collect();
     assert!(
-        w063s.len() == 1,
-        "cross-kind ID collision should produce exactly one W063, got: {:?}",
-        w063s
+        w060s.len() == 1,
+        "cross-kind ID collision should produce exactly one W060, got: {:?}",
+        w060s
     );
-    let msg = &w063s[0].message;
+    let msg = &w060s[0].message;
     assert!(
         msg.contains("behavior") && msg.contains("feature"),
         "both kinds named: {msg}"

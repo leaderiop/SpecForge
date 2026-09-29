@@ -163,7 +163,7 @@ Cross-cutting: `ref` — attach external references at any phase.
 
 ### Checkpoint
 - [ ] Every event has at least one consumer (avoids W007)
-- [ ] Every event's trigger references a valid behavior (avoids E006)
+- [ ] Every event's trigger references a valid behavior (avoids E051)
 - [ ] Ports cover all integration points
 - [ ] No behavior references a non-existent port or type (avoids E001)
 
@@ -323,7 +323,7 @@ After completing all phases, the spec should have zero errors:
 | Valid RPN (E005) | Failure mode math checks out |
 | Valid personas (E008) | Journey personas match spec |
 | Valid surfaces (E009) | Journey surfaces match spec |
-| Valid triggers (E006) | Event triggers reference real behaviors |
+| Valid triggers (E051) | Event triggers reference real behaviors |
 
 And minimal warnings:
 
