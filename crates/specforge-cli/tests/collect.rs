@@ -435,3 +435,75 @@ exit 0
     assert_eq!(test["verify"], "accepts valid credentials");
     assert_eq!(test["runner"], "vitest");
 }
+
+#[specforge_test(
+    behavior = "resolve_test_conventions",
+    verify = "a plain cargo test proves obligations by naming convention"
+)]
+fn a_plain_cargo_test_proves_obligations_by_naming_convention() {
+    let dir = TempDir::new().unwrap();
+    let root = dir.path();
+    std::fs::write(
+        root.join("specforge.json"),
+        r#"{"name":"shop","version":"0.1.0","extensions":["@specforge/software","@specforge/testing","@specforge/cargo-test"]}"#,
+    )
+    .unwrap();
+    std::fs::write(
+        root.join("cart.spec"),
+        "behavior add_item \"Add an item\" {\n  verify unit \"rejects an empty name\"\n  verify unit \"rejects a duplicate item\"\n}\n",
+    )
+    .unwrap();
+    // No specforge-test dependency: only the names link the tests.
+    std::fs::write(
+        root.join("Cargo.toml"),
+        "[package]\nname = \"shop\"\nversion = \"0.1.0\"\nedition = \"2021\"\n\n[workspace]\n",
+    )
+    .unwrap();
+    std::fs::create_dir_all(root.join("src")).unwrap();
+    std::fs::write(
+        root.join("src/lib.rs"),
+        r#"#[cfg(test)]
+mod tests {
+    #[test]
+    #[allow(non_snake_case)]
+    fn add_item__rejects_an_empty_name() {}
+
+    mod add_item {
+        #[test]
+        fn rejects_a_duplicate_item() {}
+    }
+
+    #[test]
+    fn unrelated() {}
+}
+"#,
+    )
+    .unwrap();
+
+    specforge_cmd()
+        .args(["collect", "--yes", "--path"])
+        .arg(root)
+        .env("CARGO_TARGET_DIR", root.join("target"))
+        .env("SPECFORGE_CONSENT_FILE", root.join("consent.json"))
+        .write_stdin("")
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("2 linked by naming convention"));
+
+    let out = specforge_cmd()
+        .args(["analyze", "coverage", "--json", "--path"])
+        .arg(root)
+        .assert()
+        .get_output()
+        .stdout
+        .clone();
+    let text = String::from_utf8(out).unwrap();
+    assert!(
+        !text.contains("A015"),
+        "both obligations are proven: {text}"
+    );
+    assert!(
+        text.contains(r#""obligations_proven": 2"#) || text.contains(r#""obligations_proven":2"#),
+        "{text}"
+    );
+}

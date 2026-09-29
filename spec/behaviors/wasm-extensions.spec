@@ -705,6 +705,7 @@ behavior resolve_test_conventions "Resolve Test Naming Conventions" {
   verify unit "a name that splits into several entities is W137"
   verify unit "a test no convention links is left out silently"
   verify integration "collect links plain tests by naming convention"
+  verify integration "a plain cargo test proves obligations by naming convention"
 }
 
 behavior slug_obligation_text "Slug an Obligation Text" {
