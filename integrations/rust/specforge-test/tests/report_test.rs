@@ -7,6 +7,7 @@ fn entry(id: &str, outcome: TestOutcome) -> TestRecordEntry {
         entity_kind: "behavior".to_string(),
         entity_id: id.to_string(),
         test_name: format!("test_{id}"),
+        module_path: None,
         file: "test.rs".to_string(),
         verify: None,
         verify_kind: None,

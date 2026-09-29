@@ -7,6 +7,7 @@ fn make_entry(entity_id: &str, verify: Option<&str>, outcome: TestOutcome) -> Te
         entity_kind: "behavior".to_string(),
         entity_id: entity_id.to_string(),
         test_name: format!("test_{}", verify.unwrap_or("unknown")),
+        module_path: None,
         file: "test.rs".to_string(),
         verify: verify.map(|s| s.to_string()),
         verify_kind: None,

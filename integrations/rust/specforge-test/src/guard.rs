@@ -5,6 +5,7 @@ use std::time::Instant;
 pub struct TestGuard {
     entity_kind: &'static str,
     entity_id: &'static str,
+    module_path: &'static str,
     test_name: &'static str,
     file: &'static str,
     verify: Option<&'static str>,
@@ -48,7 +49,7 @@ impl TestGuard {
     pub fn new(
         entity_kind: &'static str,
         entity_id: &'static str,
-        _module_path: &'static str,
+        module_path: &'static str,
         test_name: &'static str,
         file: &'static str,
         _line: u32,
@@ -57,7 +58,7 @@ impl TestGuard {
         Self::with_expectations(
             entity_kind,
             entity_id,
-            _module_path,
+            module_path,
             test_name,
             file,
             _line,
@@ -73,7 +74,7 @@ impl TestGuard {
     pub fn with_expectations(
         entity_kind: &'static str,
         entity_id: &'static str,
-        _module_path: &'static str,
+        module_path: &'static str,
         test_name: &'static str,
         file: &'static str,
         _line: u32,
@@ -84,6 +85,7 @@ impl TestGuard {
         Self {
             entity_kind,
             entity_id,
+            module_path,
             test_name,
             file,
             verify,
@@ -117,6 +119,7 @@ impl Drop for TestGuard {
             entity_kind: self.entity_kind.to_string(),
             entity_id: self.entity_id.to_string(),
             test_name: self.test_name.to_string(),
+            module_path: Some(self.module_path.to_string()),
             file: self.file.to_string(),
             verify: self.verify.map(|s| s.to_string()),
             verify_kind: None, // stamped at finalize from the exported graph (C11-07)

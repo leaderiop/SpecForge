@@ -42,6 +42,8 @@ behavior record_test_via_drop_guard "Record Test via Drop Guard" {
     to $SPECFORGE_REPORT when `specforge collect` sets it, else to
     target/specforge/, one report per test target named
     <package>--<target>.json so a rebuild replaces its predecessor.
+    Each entry carries the test's module path, so a collector can match
+    it to the test's line in libtest's output.
   """
   verify unit "successful test records pass via Drop"
   verify unit "panicking test records fail via Drop"
@@ -49,4 +51,5 @@ behavior record_test_via_drop_guard "Record Test via Drop Guard" {
   verify unit "the attribute registers the test without #[test]"
   verify unit "an ignored test runs and is recorded only when libtest is asked to run it"
   verify unit "under nextest each test writes its own report and reports of other runs are pruned"
+  verify unit "the recorded entry carries the test's module path"
 }

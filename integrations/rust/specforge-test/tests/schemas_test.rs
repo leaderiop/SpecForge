@@ -107,6 +107,7 @@ fn make_entry(id: &str, outcome: TestOutcome) -> TestRecordEntry {
         entity_kind: "behavior".to_string(),
         entity_id: id.to_string(),
         test_name: format!("test_{id}"),
+        module_path: None,
         file: "tests/x.rs".to_string(),
         verify: Some("rejects invalid input".to_string()),
         verify_kind: Some("unit".to_string()),

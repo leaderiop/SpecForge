@@ -10,6 +10,7 @@ fn atexit_writes_report_on_process_exit() {
         entity_kind: "behavior".to_string(),
         entity_id: "test_entity".to_string(),
         test_name: "test_fn".to_string(),
+        module_path: None,
         file: "test.rs".to_string(),
         verify: None,
         verify_kind: None,

@@ -6,6 +6,11 @@ pub struct TestRecordEntry {
     pub entity_kind: String,
     pub entity_id: String,
     pub test_name: String,
+    /// `module_path!()` of the test (`my_crate::cart::tests`): with
+    /// `test_name` it names the test as libtest prints it, so a collector
+    /// can tell attribute-linked tests from plain ones.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub module_path: Option<String>,
     pub file: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub verify: Option<String>,
