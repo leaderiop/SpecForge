@@ -243,12 +243,52 @@ fn analyze_discharge_intent_and_proof() {
     // Proven: all recorded tests pass.
     let (doc, code) = analyze_with(serde_json::json!({
         "runner": "manual",
-        "results": {"held": {"tests": [{"name": "holds", "status": "pass"}]}}
+        "results": {"held": {"tests": [{"name": "holds", "status": "pass", "verify": "holds"}]}}
     }));
     assert_eq!(code, Some(0));
     let summary = &coverage(&doc)["summary"];
     assert_eq!(summary["discharge_funnel"]["entities_proven"], 1);
     assert_eq!(summary["test_results"]["runner"], "manual");
+}
+
+#[specforge_test(
+    behavior = "te_coverage_pass",
+    verify = "an obligation no passing test names is A015 and a test naming an undeclared obligation is A016"
+)]
+fn analyze_reports_unproven_and_undeclared_obligations() {
+    let dir = project(concat!(
+        "invariant unique_emails \"Unique emails\" {\n",
+        "  guarantee \"g\"\n",
+        "  risk low\n",
+        "  verify unit \"rejects a duplicate email\"\n",
+        "  verify unit \"stores a hashed password\"\n",
+        "}\n",
+    ));
+    let report = serde_json::json!({
+        "runner": "manual",
+        "results": {"unique_emails": {"tests": [
+            {"name": "dup", "status": "pass", "verify": "rejects a duplicate email"},
+            {"name": "hash", "status": "pass", "verify": "stores a hashed pasword"}
+        ]}}
+    });
+    fs::write(dir.path().join("specforge-report.json"), report.to_string()).unwrap();
+    let (doc, code) = json_body(&dir, &[]);
+    assert_eq!(code, 0, "warnings only: {doc}");
+    let findings = coverage(&doc)["findings"].as_array().unwrap().clone();
+    let message = |code: &str| {
+        findings
+            .iter()
+            .find(|f| f["code"] == code)
+            .unwrap_or_else(|| panic!("{code} missing: {findings:?}"))["message"]
+            .as_str()
+            .unwrap()
+            .to_string()
+    };
+    assert!(message("A015").contains("\"stores a hashed password\""));
+    assert!(message("A016").contains("\"stores a hashed pasword\""));
+    let summary = &coverage(&doc)["summary"];
+    assert_eq!(summary["discharge_funnel"]["entities_proven"], 0);
+    assert_eq!(summary["test_results"]["obligations_proven"], 1);
 }
 
 #[test]

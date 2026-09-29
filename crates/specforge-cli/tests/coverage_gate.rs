@@ -27,7 +27,7 @@ fn seed(path: &Path) {
 fn report(path: &Path, proven: bool, extra: Option<&str>) -> String {
     let status = if proven { "pass" } else { "fail" };
     let mut json = format!(
-        r#"{{"runner":"specforge-test","results":{{"widget":{{"tests":[{{"name":"w test","status":"{status}"}}]}}}}}}"#
+        r#"{{"runner":"specforge-test","results":{{"widget":{{"tests":[{{"name":"w test","status":"{status}","verify":"widget valid"}}]}}}}}}"#
     );
     if let Some(orphan) = extra {
         json = json.trim_end_matches('}').to_string();
@@ -226,9 +226,15 @@ fn todo_app_traceability_loop_stays_wired() {
         String::from_utf8_lossy(&out.stderr)
     );
     let stdout = String::from_utf8_lossy(&out.stdout);
+    // Two entities have every obligation named by a passing test; the
+    // others' untested obligations are listed as A015.
     assert!(
-        stdout.contains("\"entities_proven\":5"),
-        "the fixture proves 5 entities: {stdout}"
+        stdout.contains("discharge_funnel.entities_proven: 2"),
+        "the fixture proves 2 entities: {stdout}"
+    );
+    assert!(
+        stdout.contains("[A015]"),
+        "unproven obligations listed: {stdout}"
     );
 
     // trace surfaces provenance for a proven behavior

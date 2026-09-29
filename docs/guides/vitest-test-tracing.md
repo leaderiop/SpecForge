@@ -104,9 +104,12 @@ npx --no vitest run --reporter=default --reporter=json --outputFile.json=<report
   is remembered per project and command in `~/.specforge/collector-consent.json`.
 - **Failing tests:** they don't make `collect` fail. They're recorded, and
   `analyze` reports them (A014).
+- **Unproven obligations:** `analyze` lists the obligations no passing test
+  names (A015). A test proves an obligation only by naming its exact text in
+  `verify`; one naming an obligation the entity doesn't declare is A016.
 - **Skipped tests:** skipped and todo tests are counted but prove nothing.
 - **Generated files:** `specforge-report.json` and `.specforge/` are
-  generated; add them to `.gitignore`.
+  generated. `specforge init` adds them to `.gitignore`.
 - **CI:** pass `--yes`. Or run vitest yourself with the JSON reporter
   writing to `.specforge/reports/vitest.json`, then `specforge collect --no-run`.
 - **Mixed Rust and TypeScript:** in a project with both, `collect` runs vitest
@@ -117,6 +120,8 @@ npx --no vitest run --reporter=default --reporter=json --outputFile.json=<report
 
 - **`W115 ... reported tests for unknown entity 'x'`:** a test's `specforge`
   entry names an entity no spec declares. Fix the entry.
+- **`A016 tests name obligation(s) ... does not declare`:** the entry's
+  `verify` text differs from the spec's statement. Make them match exactly.
 - **`E058 no test runner detected`:** several runners are enabled and none
   was detected, for example with vitest configured inside `vite.config.ts`.
   Use `--runner vitest`.

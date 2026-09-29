@@ -386,6 +386,7 @@ pub fn generate_required_field_rules(field_registry: &FieldRegistry) -> Vec<Vali
             check: ValidationPatternKind::MissingRequiredField,
             target_kind: Some(kind.to_string()),
             edge_type: None,
+            edge_peer_kind: None,
             field: Some(field.to_string()),
             constraint: None,
             wasm_function: None,

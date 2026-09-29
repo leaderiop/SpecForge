@@ -35,6 +35,17 @@ behavior build_in_memory_graph "Build In-Memory Graph" {
   verify unit "edge types match relationship semantics"
   verify unit "every edge connects two existing nodes"
   verify contract "Build In-Memory Graph: in-memory graph construction holds — resolution_complete, one_node_per_entity, one_edge_per_reference, no_orphan_edges"
+  verify unit "Graph::with_bidirectional_pairs stores pairs for cycle suppression"
+  verify unit "W060 carries actionable suggestion"
+  verify unit "W061 carries actionable suggestion"
+  verify unit "build_graph emits W061 for reference cycles"
+  verify unit "build_graph no W061 for acyclic refs"
+  verify unit "custom bidirectional pairs suppress false-positive cycles"
+  verify unit "detects cycles in directed graph"
+  verify unit "detects self-referencing cycle"
+  verify unit "has_cycles returns boolean"
+  verify unit "no false positives for acyclic graph"
+  verify unit "same ID with different kinds does not produce E002"
 }
 
 behavior maintain_mutable_graph "Maintain Mutable Graph" {

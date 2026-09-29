@@ -94,8 +94,13 @@ The approval is remembered per project and command, in
 don't make `collect` fail: they're recorded, and `analyze` reports them
 (A014).
 
+`analyze` then lists, per entity, the obligations no passing test names
+(A015). A test proves an obligation only by naming its exact text in
+`verify = "..."`; a test that names an obligation the entity doesn't declare,
+usually a typo or a reworded statement, is A016.
+
 - **Generated files:** `specforge-report.json` and `.specforge/` are
-  generated; add them to `.gitignore`.
+  generated. `specforge init` adds them to `.gitignore`.
 - **CI:** there's no terminal to ask, so pass `--yes`, or run `cargo test`
   yourself and then `specforge collect --no-run` to record the report it wrote.
 - **Custom target directory:** `collect` sets `SPECFORGE_REPORT`, and
@@ -108,6 +113,8 @@ don't make `collect` fail: they're recorded, and `analyze` reports them
 
 - **`W115 ... reported tests for unknown entity 'x'`:** a test names an entity
   no spec declares, usually after a rename. Fix the annotation.
+- **`A016 tests name obligation(s) ... does not declare`:** the test's
+  `verify` text differs from the spec's statement. Make them match exactly.
 - **`E059 ... needs your approval`:** you ran `collect` without a terminal.
   Use `--yes` or `--no-run`.
 - **`E045 ... produced no report`:** the tests didn't build, or no test

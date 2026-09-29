@@ -189,6 +189,7 @@ behavior provide_mcp_add_extension_tool "Provide MCP Add Extension Tool" {
   verify unit "invalid manifest returns error"
   verify unit "dry_run returns preview without modifying files"
   verify contract "Provide MCP Add Extension Tool: MCP add extension tool holds — filesystem_available, extension_installed, wasm_downloaded, extension_added_emitted, dry_run_safe, tool_invoked_emitted"
+  verify unit "invalid specifier format returns error"
 }
 
 behavior provide_mcp_remove_extension_tool "Provide MCP Remove Extension Tool" {

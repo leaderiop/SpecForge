@@ -56,7 +56,7 @@ behavior list_tasks "List Tasks by Status" {
 
   contract """
     When given a TaskStatus filter, the system MUST return all tasks with that
-    status ordered by createdAt ascending. It MUST return Result<Task[], never>.
+    status ordered by createdAt ascending. Listing cannot fail.
   """
 
   verify unit "listing open tasks excludes done tasks"

@@ -129,6 +129,63 @@ const INVARIANT_KIND: &str = "invariant";
 /// The verify kind a proved formal claim discharges.
 const PROPERTY_VERIFY_KIND: &str = "property";
 const PASSING_STATUS: &str = "pass";
+/// The summary's name for obligations written without a kind.
+const UNTYPED_OBLIGATION: &str = "untyped";
+
+/// How an entity's recorded tests cover its `verify` obligations.
+struct ObligationProof<'a> {
+    /// Obligations a passing test names.
+    proven: usize,
+    /// Obligations no passing test names, in declaration order.
+    unproven: Vec<&'a str>,
+    /// Obligation texts tests name that the entity doesn't declare.
+    undeclared: Vec<&'a str>,
+}
+
+/// A test proves an obligation by naming its text; a test that names none
+/// counts toward the entity but proves no particular obligation. When the
+/// entity's formal claims were entailed, its `verify property` obligations
+/// are discharged without a test.
+fn obligation_proof<'a>(
+    entity: &'a PassEntity,
+    tests: &'a [PassTestResult],
+    formally_proved: bool,
+) -> ObligationProof<'a> {
+    let passing: BTreeSet<&str> = tests
+        .iter()
+        .filter(|t| t.status == PASSING_STATUS)
+        .filter_map(|t| t.verify.as_deref())
+        .collect();
+    let declared: BTreeSet<&str> = entity.verify_texts.iter().map(String::as_str).collect();
+    let mut proven = 0;
+    let mut unproven = Vec::new();
+    for (i, text) in entity.verify_texts.iter().enumerate() {
+        let property = entity.verify_kinds.get(i).map(String::as_str) == Some(PROPERTY_VERIFY_KIND);
+        if passing.contains(text.as_str()) || (formally_proved && property) {
+            proven += 1;
+        } else {
+            unproven.push(text.as_str());
+        }
+    }
+    let undeclared: BTreeSet<&str> = tests
+        .iter()
+        .filter_map(|t| t.verify.as_deref())
+        .filter(|text| !declared.contains(text))
+        .collect();
+    ObligationProof {
+        proven,
+        unproven,
+        undeclared: undeclared.into_iter().collect(),
+    }
+}
+
+fn quoted(texts: &[&str]) -> String {
+    texts
+        .iter()
+        .map(|t| format!("\"{t}\""))
+        .collect::<Vec<_>>()
+        .join(", ")
+}
 
 fn at(diagnostic: PassDiagnostic, entity: &PassEntity) -> PassDiagnostic {
     match &entity.span {
@@ -143,6 +200,11 @@ fn at(diagnostic: PassDiagnostic, entity: &PassEntity) -> PassDiagnostic {
 /// - A002: invariant with no verify obligations (an error when high-risk)
 /// - A011: invariant that nothing references (orphan guarantee)
 /// - A014: an entity's recorded tests include failures
+/// - A015: obligations no passing test names (with recorded results)
+/// - A016: tests name obligations the entity doesn't declare
+///
+/// With recorded results, an entity is proven when it has tests, all of
+/// them pass, and each of its obligations is named by a passing test.
 #[specforge_extension_sdk::compiler_pass(name = "coverage", after = "resolve")]
 fn pass_coverage(input: &PassInput) -> PassOutput {
     let proved: Option<BTreeSet<&str>> = input
@@ -156,6 +218,7 @@ fn pass_coverage(input: &PassInput) -> PassOutput {
     let (mut with_obligations, mut proven, mut report_failures, mut discharged) =
         (0usize, 0usize, 0usize, 0usize);
     let mut invariant_orphans = 0usize;
+    let mut obligations_proven = 0usize;
     // risk -> (invariants, invariants without obligations)
     let mut invariants: BTreeMap<String, (usize, usize)> = BTreeMap::new();
 
@@ -165,27 +228,72 @@ fn pass_coverage(input: &PassInput) -> PassOutput {
         let (kind, id) = (entity.kind.as_str(), entity.id.as_str());
         let obligations = entity.verify_kinds.len();
         for verify_kind in &entity.verify_kinds {
-            *obligation_kinds.entry(verify_kind).or_default() += 1;
+            // A bare `verify "..."` has no kind.
+            let key = if verify_kind.is_empty() {
+                UNTYPED_OBLIGATION
+            } else {
+                verify_kind
+            };
+            *obligation_kinds.entry(key).or_default() += 1;
         }
         if obligations > 0 {
             with_obligations += 1;
         }
 
-        let recorded = input
+        let tests: &[PassTestResult] = input
             .test_results
             .as_ref()
             .and_then(|r| r.results.get(id))
-            .filter(|r| !r.tests.is_empty());
-        if let Some(recorded) = recorded {
-            let failed: Vec<&str> = recorded
-                .tests
+            .map_or(&[], |r| r.tests.as_slice());
+        if input.test_results.is_some() {
+            let formally_proved = proved.as_ref().is_some_and(|ids| ids.contains(id));
+            let proof = obligation_proof(entity, tests, formally_proved);
+            obligations_proven += proof.proven;
+            if !proof.unproven.is_empty() {
+                findings.push(at(
+                    PassDiagnostic::warning(
+                        "A015",
+                        format!(
+                            "{kind} '{id}' has {} obligation(s) no passing test proves: {}",
+                            proof.unproven.len(),
+                            quoted(&proof.unproven)
+                        ),
+                    )
+                    .with_suggestion(
+                        "link a test to each obligation by its text (`verify = \"...\"` in the test's annotation)",
+                    ),
+                    entity,
+                ));
+            }
+            if !proof.undeclared.is_empty() {
+                findings.push(at(
+                    PassDiagnostic::warning(
+                        "A016",
+                        format!(
+                            "tests name obligation(s) {kind} '{id}' does not declare: {}",
+                            quoted(&proof.undeclared)
+                        ),
+                    )
+                    .with_suggestion(
+                        "fix the test's `verify` text to match the spec's statement exactly, or add the statement",
+                    ),
+                    entity,
+                ));
+            }
+            if !tests.is_empty()
+                && proof.unproven.is_empty()
+                && tests.iter().all(|t| t.status == PASSING_STATUS)
+            {
+                proven += 1;
+            }
+        }
+        if !tests.is_empty() {
+            let failed: Vec<&str> = tests
                 .iter()
                 .filter(|t| t.status != PASSING_STATUS)
                 .map(|t| t.name.as_deref().unwrap_or("<unnamed>"))
                 .collect();
-            if failed.is_empty() {
-                proven += 1;
-            } else {
+            if !failed.is_empty() {
                 report_failures += failed.len();
                 findings.push(at(
                     PassDiagnostic::new(
@@ -284,6 +392,7 @@ fn pass_coverage(input: &PassInput) -> PassOutput {
             "tests_recorded": tests.clone().count(),
             "tests_failed": tests.filter(|t| t.status != PASSING_STATUS).count(),
             "entities_proven": proven,
+            "obligations_proven": obligations_proven,
         })
     });
     let summary = serde_json::json!({
@@ -323,3 +432,90 @@ fn dispatch(export: &str, input: &[u8]) -> Option<Result<Vec<u8>, String>> {
 }
 
 specforge_extension_sdk::component_guest!(build = specforge_extension_build, handler = dispatch);
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn coverage(input: serde_json::Value) -> PassOutput {
+        pass_coverage(&serde_json::from_value(input).unwrap())
+    }
+
+    fn codes(output: &PassOutput) -> Vec<&str> {
+        output.diagnostics.iter().map(|d| d.code.as_str()).collect()
+    }
+
+    fn create_user(tests: serde_json::Value) -> serde_json::Value {
+        serde_json::json!({
+            "entities": [{
+                "id": "create_user", "kind": "behavior", "testable": true,
+                "verify_kinds": ["unit", "unit"],
+                "verify_texts": ["rejects a duplicate email", "stores a hashed password"]
+            }],
+            "test_results": {"runner": "cargo-test", "results": {"create_user": {"tests": tests}}}
+        })
+    }
+
+    #[test]
+    fn an_obligation_is_proven_by_a_passing_test_that_names_it() {
+        let out = coverage(create_user(serde_json::json!([
+            {"name": "dup", "status": "pass", "verify": "rejects a duplicate email"},
+            {"name": "hash", "status": "pass", "verify": "stores a hashed password"}
+        ])));
+        assert!(out.diagnostics.is_empty(), "{:?}", codes(&out));
+        assert_eq!(out.summary["discharge_funnel"]["entities_proven"], 1);
+        assert_eq!(out.summary["test_results"]["obligations_proven"], 2);
+    }
+
+    #[test]
+    fn unnamed_and_failing_tests_leave_obligations_unproven() {
+        let out = coverage(create_user(serde_json::json!([
+            {"name": "any", "status": "pass"},
+            {"name": "hash", "status": "fail", "verify": "stores a hashed password"}
+        ])));
+        assert_eq!(codes(&out), vec!["A015", "A014"]);
+        assert!(out.diagnostics[0].message.contains(
+            "2 obligation(s) no passing test proves: \"rejects a duplicate email\", \"stores a hashed password\""
+        ));
+        assert_eq!(out.summary["discharge_funnel"]["entities_proven"], 0);
+    }
+
+    #[test]
+    fn a_test_naming_an_undeclared_obligation_is_reported() {
+        let out = coverage(create_user(serde_json::json!([
+            {"name": "dup", "status": "pass", "verify": "rejects a duplicate email"},
+            {"name": "hash", "status": "pass", "verify": "stores a hashed pasword"}
+        ])));
+        assert_eq!(codes(&out), vec!["A015", "A016"]);
+        assert!(out.diagnostics[1]
+            .message
+            .contains("\"stores a hashed pasword\""));
+    }
+
+    #[test]
+    fn an_entailed_formal_claim_discharges_property_obligations() {
+        let out = coverage(serde_json::json!({
+            "entities": [{
+                "id": "unique_ids", "kind": "invariant", "testable": true, "incoming_edge_count": 1,
+                "verify_kinds": ["property", "unit"],
+                "verify_texts": ["ids never collide", "a second insert fails"]
+            }],
+            "test_results": {"results": {}},
+            "proved_claims": ["unique_ids"]
+        }));
+        assert_eq!(codes(&out), vec!["A015"]);
+        assert!(out.diagnostics[0].message.contains("1 obligation(s)"));
+        assert!(out.diagnostics[0]
+            .message
+            .contains("\"a second insert fails\""));
+    }
+
+    #[test]
+    fn without_recorded_results_obligations_are_not_scored() {
+        let mut input = create_user(serde_json::json!([]));
+        input.as_object_mut().unwrap().remove("test_results");
+        let out = coverage(input);
+        assert!(out.diagnostics.is_empty(), "{:?}", codes(&out));
+        assert!(out.summary["test_results"].is_null());
+    }
+}

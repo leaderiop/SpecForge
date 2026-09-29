@@ -600,6 +600,7 @@ mod pass_tests {
             outgoing_edge_count: 0,
             span: None,
             testable: false,
+            ..Default::default()
         }
     }
 
@@ -653,7 +654,11 @@ mod pass_tests {
             refinement("r_bad", "bad_impl", "abstract"),
         ]
         .concat();
-        let findings = pass_layering_verify(&PassInput { entities, edges });
+        let findings = pass_layering_verify(&PassInput {
+            entities,
+            edges,
+            ..Default::default()
+        });
 
         assert_eq!(
             codes(&findings),
@@ -735,6 +740,7 @@ mod pass_tests {
                 refinement("r3", "c", "a"),
             ]
             .concat(),
+            ..Default::default()
         };
         let findings = pass_layering_verify(&input);
         assert_eq!(codes(&findings), vec!["E041"]);
@@ -755,7 +761,11 @@ mod pass_tests {
                 &format!("l{}", w + 1),
             ));
         }
-        let input = PassInput { entities, edges };
+        let input = PassInput {
+            entities,
+            edges,
+            ..Default::default()
+        };
         let findings = pass_layering_verify(&input);
         assert_eq!(
             codes(&findings),
@@ -775,6 +785,7 @@ mod pass_tests {
                 entity("r", "refinement"),
             ],
             edges: refinement("r", "a", "b").to_vec(),
+            ..Default::default()
         };
         assert!(pass_layering_verify(&input).is_empty());
     }
@@ -794,6 +805,7 @@ mod pass_tests {
                 edge("a", "b", "RefinementChainLink"),
                 edge("t", "a", REFINES_FIELD),
             ],
+            ..Default::default()
         };
         assert!(pass_layering_verify(&input).is_empty());
     }
@@ -822,6 +834,7 @@ mod pass_tests {
                 edge("keeps", "spec", REFINES_FIELD),
                 edge("drops", "spec", REFINES_FIELD),
             ],
+            ..Default::default()
         };
         let findings = pass_layering_verify(&input);
         assert_eq!(codes(&findings), vec!["E031"], "{findings:?}");
@@ -839,7 +852,11 @@ mod pass_tests {
         entities.push(entity("r", "refinement"));
         let mut edges = refinement("r", "impl", "spec").to_vec();
         edges.push(edge("impl", "spec", REFINES_FIELD));
-        let findings = pass_layering_verify(&PassInput { entities, edges });
+        let findings = pass_layering_verify(&PassInput {
+            entities,
+            edges,
+            ..Default::default()
+        });
         assert_eq!(codes(&findings), vec!["E031"], "{findings:?}");
         assert!(
             findings[0].message.starts_with("refinement 'r'"),
@@ -853,6 +870,7 @@ mod pass_tests {
         let field = PassInput {
             entities: vec![behavior("base", "", false), behavior("derived", "", false)],
             edges: vec![edge("derived", "base", REFINES_FIELD)],
+            ..Default::default()
         };
         let findings = pass_layering_verify(&field);
         assert_eq!(codes(&findings), vec!["W110"], "{findings:?}");
@@ -865,6 +883,7 @@ mod pass_tests {
                 entity("r", "refinement"),
             ],
             edges: refinement("r", "derived", "base").to_vec(),
+            ..Default::default()
         };
         assert!(pass_layering_verify(&entity_based).is_empty());
     }
@@ -874,6 +893,7 @@ mod pass_tests {
         let lonely = PassInput {
             entities: vec![behavior("spec", "a", true)],
             edges: vec![],
+            ..Default::default()
         };
         let findings = pass_layering_verify(&lonely);
         assert_eq!(codes(&findings), vec!["W030"], "{findings:?}");
@@ -890,6 +910,7 @@ mod pass_tests {
                     entity("r", "refinement"),
                 ],
                 edges,
+                ..Default::default()
             };
             assert!(
                 pass_layering_verify(&input).is_empty(),
@@ -912,6 +933,7 @@ mod pass_tests {
                 edge("finisher", "done", "produces"),
                 edge("handler", "done", "consumes"),
             ],
+            ..Default::default()
         };
         let findings = pass_event_graph_analyze(&input);
         assert_eq!(codes(&findings), vec!["W029"]);
@@ -941,6 +963,7 @@ mod coverage_tracking_tests {
             outgoing_edge_count: 0,
             span: None,
             testable,
+            ..Default::default()
         }
     }
 
@@ -953,6 +976,7 @@ mod coverage_tracking_tests {
                 entity("t1", "type", false, false),
             ],
             edges: vec![],
+            ..Default::default()
         };
         let findings = pass_coverage_tracking(&input);
         assert_eq!(findings.len(), 1, "one aggregated W035");
@@ -979,6 +1003,7 @@ mod coverage_tracking_tests {
         let input = PassInput {
             entities: vec![entity("inv1", "invariant", false, true)],
             edges: vec![],
+            ..Default::default()
         };
         assert!(pass_coverage_tracking(&input).is_empty());
     }
@@ -1016,6 +1041,7 @@ mod process_tests {
             outgoing_edge_count: 0,
             span: None,
             testable: false,
+            ..Default::default()
         }
     }
 
@@ -1040,6 +1066,7 @@ mod process_tests {
                 edge("p2", "p3", "ProcessComposesProcess"),
                 edge("p3", "p1", "ProcessComposesProcess"),
             ],
+            ..Default::default()
         };
         let findings = pass_event_graph_analyze(&input);
         assert_eq!(codes(&findings), vec!["E042"]);
@@ -1051,6 +1078,7 @@ mod process_tests {
         let input = PassInput {
             entities: vec![entity("p1", "process"), entity("p2", "process")],
             edges: vec![edge("p1", "p2", "ProcessComposesProcess")],
+            ..Default::default()
         };
         let findings = pass_event_graph_analyze(&input);
         assert!(findings.is_empty(), "acyclic composition: {findings:?}");
@@ -1070,6 +1098,7 @@ mod process_tests {
                 edge("b", "evt", "produces"),
                 edge("evt", "proc", "EventParticipatesInProcess"),
             ],
+            ..Default::default()
         };
         let findings = pass_event_graph_analyze(&input);
         assert!(
@@ -1087,6 +1116,7 @@ mod process_tests {
                 edge("monitor", "scheduler", "sub_processes"),
                 edge("scheduler", "monitor", "sub_processes"),
             ],
+            ..Default::default()
         };
         let findings = pass_event_graph_analyze(&input);
         assert_eq!(codes(&findings), vec!["E042"]);
@@ -1097,6 +1127,7 @@ mod process_tests {
         let input = PassInput {
             entities: vec![entity("p", "process")],
             edges: vec![edge("p", "p", "ProcessComposesProcess")],
+            ..Default::default()
         };
         let findings = pass_event_graph_analyze(&input);
         assert_eq!(codes(&findings), vec!["E042"]);
@@ -1112,7 +1143,11 @@ mod process_tests {
             edges.push(edge(r, concrete, REFINEMENT_CONCRETE_FIELD));
             edges.push(edge(r, abstract_id, REFINEMENT_ABSTRACT_FIELD));
         }
-        let input = PassInput { entities, edges };
+        let input = PassInput {
+            entities,
+            edges,
+            ..Default::default()
+        };
         let findings = pass_layering_verify(&input);
         let e041 = findings.iter().filter(|f| f.code == "E041").count();
         assert_eq!(e041, 1, "parallel edges yield one cycle diagnostic");

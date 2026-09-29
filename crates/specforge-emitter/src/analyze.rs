@@ -317,6 +317,7 @@ pub fn run_extension_passes(
                 "span": e.span,
                 "testable": testable,
                 "verify_kinds": e.verify_kinds,
+                "verify_texts": e.verify_texts,
             })
         })
         .collect();

@@ -255,7 +255,7 @@ Each enhancement makes its target kind testable with the verify kinds listed. An
 
 ### Compiler Passes (1)
 
-`coverage` (`specforge analyze coverage`): scores intent (A001/A002), enforcement (A011) and proof from the results `specforge collect` records (A014), plus formal discharge. `--min` gates CI on proof coverage.
+`coverage` (`specforge analyze coverage`): scores intent (A001/A002), enforcement (A011) and proof from the results `specforge collect` records: failing tests (A014), obligations no passing test names (A015), and tests naming obligations the spec doesn't declare (A016), plus formal discharge. `--min` gates CI on proof coverage.
 
 ### Runner extensions
 

@@ -730,7 +730,7 @@ mod raw_category_flag_tests {
 
 /// One entity in the snapshot handed to a compiler pass. Mirrors the host's
 /// `ValidationEntity` (id, kind, stringified fields, edge counts).
-#[derive(Debug, Clone, serde::Deserialize)]
+#[derive(Debug, Clone, Default, serde::Deserialize)]
 pub struct PassEntity {
     pub id: String,
     pub kind: String,
@@ -750,6 +750,9 @@ pub struct PassEntity {
     /// bare `verify "..."`. Empty when the entity declares no obligations.
     #[serde(default)]
     pub verify_kinds: Vec<String>,
+    /// The obligations' texts, parallel to `verify_kinds`.
+    #[serde(default)]
+    pub verify_texts: Vec<String>,
 }
 
 /// One resolved reference in the snapshot (label = edge label, e.g.
@@ -762,7 +765,7 @@ pub struct PassEdge {
 }
 
 /// The `__pass_<name>` export input.
-#[derive(Debug, Clone, serde::Deserialize)]
+#[derive(Debug, Clone, Default, serde::Deserialize)]
 pub struct PassInput {
     pub entities: Vec<PassEntity>,
     /// Resolved references between snapshot entities. Serde default keeps
@@ -801,6 +804,9 @@ pub struct PassTestResult {
     #[serde(default)]
     pub name: Option<String>,
     pub status: String,
+    /// The obligation the test proves, when it names one.
+    #[serde(default)]
+    pub verify: Option<String>,
 }
 
 /// What the host passes to a `collect__<name>` export: the runner's report

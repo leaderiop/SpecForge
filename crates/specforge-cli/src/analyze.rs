@@ -215,7 +215,14 @@ pub fn run(
                     }
                 }
             }
-            println!("  summary: {}", report.summary);
+            let mut lines = Vec::new();
+            summary_lines(&report.summary, "", &mut lines);
+            if !lines.is_empty() {
+                println!("  summary:");
+                for line in lines {
+                    println!("    {line}");
+                }
+            }
             println!();
         }
         println!(
@@ -261,6 +268,53 @@ pub fn run(
     }
 
     if has_errors { 1 } else { 0 }
+}
+
+/// A pass summary as `key: value` lines, nested keys dotted. Its shape is
+/// the extension's, so nothing here knows what the keys mean; nulls (a
+/// section with nothing to report) are left out.
+fn summary_lines(value: &serde_json::Value, prefix: &str, out: &mut Vec<String>) {
+    match value {
+        serde_json::Value::Null => {}
+        serde_json::Value::Object(map) => {
+            for (key, value) in map {
+                let key = if prefix.is_empty() {
+                    key.clone()
+                } else {
+                    format!("{prefix}.{key}")
+                };
+                summary_lines(value, &key, out);
+            }
+        }
+        serde_json::Value::String(s) => out.push(format!("{prefix}: {s}")),
+        other => out.push(format!("{prefix}: {other}")),
+    }
+}
+
+#[cfg(test)]
+mod summary_tests {
+    use super::summary_lines;
+
+    #[test]
+    fn nested_keys_are_dotted_and_nulls_left_out() {
+        let mut lines = Vec::new();
+        let summary = serde_json::json!({
+            "pass": "coverage",
+            "funnel": {"proven": 2, "failures": 0},
+            "results": null,
+            "kinds": ["a", "b"]
+        });
+        summary_lines(&summary, "", &mut lines);
+        assert_eq!(
+            lines,
+            vec![
+                "funnel.failures: 0",
+                "funnel.proven: 2",
+                "kinds: [\"a\",\"b\"]",
+                "pass: coverage"
+            ]
+        );
+    }
 }
 
 #[cfg(test)]

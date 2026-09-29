@@ -11,6 +11,7 @@ use specforge_registry::{
     validate_manifest, validate_manifest_consistency,
     validation_engine::{
         ValidationEntity, ValidationRulePattern, execute_pattern, parse_all_rule_patterns,
+        resolve_edge_rules,
     },
 };
 use specforge_resolver::{ResolvedProject, resolve_project};
@@ -75,6 +76,7 @@ pub fn compile_with_runtime(path: &Path, runtime: Option<&dyn WasmRuntime>) -> C
         .collect();
     let (mut patterns, rule_diags) = parse_all_rule_patterns(&rule_inputs);
     diagnostics.extend(rule_diags);
+    resolve_edge_rules(&mut patterns, &edge_reg, &kind_reg);
 
     // 4a. Auto-generated E006 rules for fields marked required: true.
     // Originless (host-generated, declarative — no custom-rule dispatch).
@@ -407,11 +409,25 @@ pub fn build_validation_entities(graph: &Graph) -> Vec<ValidationEntity> {
     nodes
         .into_iter()
         .map(|node| {
-            let incoming = graph.edges_to(node.id.raw.as_str()).len();
-            let outgoing = graph.edges_from(node.id.raw.as_str()).len();
+            let incoming_edges = graph.edges_to(node.id.raw.as_str());
+            let outgoing_edges = graph.edges_from(node.id.raw.as_str());
+            let (incoming, outgoing) = (incoming_edges.len(), outgoing_edges.len());
+            let by_kind = |ids: &mut dyn Iterator<Item = &str>| {
+                let mut counts = std::collections::BTreeMap::new();
+                for kind in ids
+                    .filter_map(|id| graph.node(id))
+                    .map(|n| n.kind.raw.to_string())
+                {
+                    *counts.entry(kind).or_insert(0) += 1;
+                }
+                counts
+            };
+            let incoming_kinds = by_kind(&mut incoming_edges.iter().map(|e| e.source.as_str()));
+            let outgoing_kinds = by_kind(&mut outgoing_edges.iter().map(|e| e.target.as_str()));
 
             let mut fields = HashMap::new();
             let mut verify_kinds: Vec<String> = Vec::new();
+            let mut verify_texts: Vec<String> = Vec::new();
             for entry in node.fields.entries() {
                 match &entry.value {
                     specforge_parser::FieldValue::String(s) => {
@@ -447,6 +463,7 @@ pub fn build_validation_entities(graph: &Graph) -> Vec<ValidationEntity> {
                                 stmts.iter().map(|s| s.description.as_str()).collect();
                             fields.insert(entry.key.to_string(), descriptions.join("; "));
                             verify_kinds = stmts.iter().map(|s| s.kind.clone()).collect();
+                            verify_texts = stmts.iter().map(|s| s.description.clone()).collect();
                         }
                     }
                     specforge_parser::FieldValue::VariantList(variants) if !variants.is_empty() => {
@@ -474,6 +491,9 @@ pub fn build_validation_entities(graph: &Graph) -> Vec<ValidationEntity> {
                 outgoing_edge_count: outgoing,
                 span: node.source_span.clone(),
                 verify_kinds,
+                verify_texts,
+                outgoing_kinds,
+                incoming_kinds,
             }
         })
         .collect()

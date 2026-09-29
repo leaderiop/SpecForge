@@ -10,6 +10,10 @@ pub struct ValidationRulePattern {
     pub check: ValidationPatternKind,
     pub target_kind: Option<String>,
     pub edge_type: Option<String>,
+    /// For an edge-scoped `no_outgoing_edges` / `no_incoming_edges` rule:
+    /// the kind at the far end of `edge_type`, so only edges to (or from)
+    /// that kind count. Filled by [`resolve_edge_rules`].
+    pub edge_peer_kind: Option<String>,
     pub field: Option<String>,
     pub constraint: Option<FieldConstraintPattern>,
     pub wasm_function: Option<String>,
@@ -290,10 +294,49 @@ pub fn parse_rule_pattern(
         check,
         target_kind: rule.target_kind.clone(),
         edge_type: rule.edge_type.clone(),
+        edge_peer_kind: None,
         field: rule.field.clone(),
         constraint,
         wasm_function: rule.wasm_function.clone(),
     })
+}
+
+/// Scope edge rules to their declared `edge_type`.
+///
+/// A `no_outgoing_edges` rule on `BehaviorImplementsFeature` asks whether a
+/// behavior implements a feature, not whether it references anything at
+/// all, so it counts only edges to the edge type's target kind (its source
+/// kind for `no_incoming_edges`). When no loaded extension declares that
+/// kind, the edge can't exist in the project and the rule is dropped: a
+/// project without `feature` can't be told to implement one.
+pub fn resolve_edge_rules(
+    patterns: &mut Vec<(ValidationRulePattern, String)>,
+    edges: &crate::EdgeRegistry,
+    kinds: &crate::KindRegistry,
+) {
+    patterns.retain_mut(|(pattern, _)| {
+        let peer = match pattern.check {
+            ValidationPatternKind::NoOutgoingEdges => pattern
+                .edge_type
+                .as_deref()
+                .and_then(|label| edges.get(label))
+                .and_then(|edge| edge.target_kind.clone()),
+            ValidationPatternKind::NoIncomingEdges => pattern
+                .edge_type
+                .as_deref()
+                .and_then(|label| edges.get(label))
+                .and_then(|edge| edge.source_kind.clone()),
+            _ => None,
+        };
+        let Some(peer) = peer else {
+            return true;
+        };
+        if !kinds.contains(&peer) {
+            return false;
+        }
+        pattern.edge_peer_kind = Some(peer);
+        true
+    });
 }
 
 /// Parse all rules from manifests into validated patterns, paired with the
@@ -360,6 +403,32 @@ pub struct ValidationEntity {
     /// used by [`ValidationPatternKind::VerifyKindAllowlist`].
     #[serde(default)]
     pub verify_kinds: Vec<String>,
+    /// The verify statements' texts, parallel to `verify_kinds`.
+    #[serde(default)]
+    pub verify_texts: Vec<String>,
+    /// Outgoing edges by the kind of the entity they reach, for edge-scoped
+    /// rules ([`ValidationRulePattern::edge_peer_kind`]).
+    #[serde(skip)]
+    pub outgoing_kinds: std::collections::BTreeMap<String, usize>,
+    /// Incoming edges by the kind of the entity they come from.
+    #[serde(skip)]
+    pub incoming_kinds: std::collections::BTreeMap<String, usize>,
+}
+
+impl ValidationEntity {
+    /// Edges out of (`outgoing`) or into this entity, only those to or from
+    /// `peer_kind` when it is set.
+    fn edge_count(&self, outgoing: bool, peer_kind: Option<&str>) -> usize {
+        let (total, by_kind) = if outgoing {
+            (self.outgoing_edge_count, &self.outgoing_kinds)
+        } else {
+            (self.incoming_edge_count, &self.incoming_kinds)
+        };
+        match peer_kind {
+            Some(kind) => by_kind.get(kind).copied().unwrap_or(0),
+            None => total,
+        }
+    }
 }
 
 /// Execute a single validation pattern against a set of entities.
@@ -380,8 +449,12 @@ pub fn execute_pattern(
         let mut violation_field: Option<String> = None;
         let mut violation_value: Option<String> = None;
         let violated = match pattern.check {
-            ValidationPatternKind::NoIncomingEdges => entity.incoming_edge_count == 0,
-            ValidationPatternKind::NoOutgoingEdges => entity.outgoing_edge_count == 0,
+            ValidationPatternKind::NoIncomingEdges => {
+                entity.edge_count(false, pattern.edge_peer_kind.as_deref()) == 0
+            }
+            ValidationPatternKind::NoOutgoingEdges => {
+                entity.edge_count(true, pattern.edge_peer_kind.as_deref()) == 0
+            }
             ValidationPatternKind::NoEdges => {
                 entity.incoming_edge_count == 0 && entity.outgoing_edge_count == 0
             }
@@ -502,9 +575,11 @@ pub fn execute_pattern(
                 // declaring extension names another), plus gherkin scenarios
                 // (C11-03). `abstract true` marks a specification-only
                 // entity: its obligations are carried by the concretes that
-                // refine it.
+                // refine it. Union types (`type X = A | B`) have no body to
+                // hold obligations in.
                 let obligations = pattern.field.as_deref().unwrap_or("verify");
-                !entity.fields.contains_key(obligations)
+                !entity.fields.contains_key("variants")
+                    && !entity.fields.contains_key(obligations)
                     && !entity.fields.contains_key("gherkin")
                     && entity.fields.get("abstract").map(String::as_str) != Some("true")
             }
@@ -684,6 +759,9 @@ mod tests {
             outgoing_edge_count: outgoing,
             span: span(),
             verify_kinds: Vec::new(),
+            verify_texts: Vec::new(),
+            outgoing_kinds: Default::default(),
+            incoming_kinds: Default::default(),
         }
     }
 
@@ -696,6 +774,7 @@ mod tests {
             check: ValidationPatternKind::VerifyKindAllowlist,
             target_kind: Some(target.to_string()),
             edge_type: None,
+            edge_peer_kind: None,
             field: None,
             constraint: Some(FieldConstraintPattern {
                 kind: "one_of".to_string(),
@@ -747,6 +826,7 @@ mod tests {
             check: ValidationPatternKind::NoVerifyStatements,
             target_kind: Some("behavior".to_string()),
             edge_type: None,
+            edge_peer_kind: None,
             field: None,
             constraint: None,
             wasm_function: None,
@@ -784,6 +864,15 @@ mod tests {
             execute_pattern(&rule, &[spec_only], None).len(),
             1,
             "abstract false does not exempt"
+        );
+
+        let mut union = make_entity("t1", "behavior", 1, 1);
+        union
+            .fields
+            .insert("variants".to_string(), "open | done".to_string());
+        assert!(
+            execute_pattern(&rule, &[union], None).is_empty(),
+            "a union type has no body to hold obligations"
         );
     }
 
@@ -1246,6 +1335,7 @@ mod tests {
             check: ValidationPatternKind::Custom,
             target_kind: None,
             edge_type: None,
+            edge_peer_kind: None,
             field: None,
             constraint: None,
             wasm_function: Some("broken_export".to_string()),
@@ -1283,6 +1373,7 @@ mod tests {
             check: ValidationPatternKind::Custom,
             target_kind: None,
             edge_type: None,
+            edge_peer_kind: None,
             field: None,
             constraint: None,
             wasm_function: Some("healthy_export".to_string()),
@@ -1657,6 +1748,7 @@ mod tests {
             check: ValidationPatternKind::Custom,
             target_kind: None,
             edge_type: None,
+            edge_peer_kind: None,
             field: None,
             constraint: None,
             wasm_function: Some("missing_func".to_string()),
@@ -1693,6 +1785,7 @@ mod tests {
             check: ValidationPatternKind::Custom,
             target_kind: None,
             edge_type: None,
+            edge_peer_kind: None,
             field: None,
             constraint: None,
             wasm_function: Some("check".to_string()),
@@ -1727,6 +1820,7 @@ mod tests {
             check: ValidationPatternKind::Custom,
             target_kind: None,
             edge_type: None,
+            edge_peer_kind: None,
             field: None,
             constraint: None,
             wasm_function: Some("always_fail".to_string()),
@@ -1750,6 +1844,7 @@ mod tests {
             check: ValidationPatternKind::Custom,
             target_kind: None,
             edge_type: None,
+            edge_peer_kind: None,
             field: None,
             constraint: None,
             wasm_function: Some("func".to_string()),
@@ -1761,6 +1856,7 @@ mod tests {
             check: ValidationPatternKind::NoIncomingEdges,
             target_kind: None,
             edge_type: None,
+            edge_peer_kind: None,
             field: None,
             constraint: None,
             wasm_function: None,

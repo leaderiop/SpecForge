@@ -92,6 +92,9 @@ behavior serialize_dot_visualization "Serialize DOT Visualization" {
   verify unit "edges are labeled with types"
   verify unit "node shapes use extension-defined dot_shape"
   verify contract "Serialize DOT Visualization: DOT visualization holds — validation_complete_fired, valid_dot_produced, nodes_labeled, edges_labeled, render_complete_emitted"
+  verify unit "clusters group by declaring extension"
+  verify unit "kind filter drops other kinds"
+  verify unit "labels toggle emits bare IDs"
 }
 
 behavior compute_traceability_chain "Compute Traceability Chain" {
@@ -198,6 +201,8 @@ behavior print_diagnostics_structured "Print Diagnostics Structured" {
   verify unit "diagnostic includes context snippet"
   verify unit "suggestion is displayed when available"
   verify contract "Print Diagnostics Structured: structured diagnostic printing holds — validation_complete_fired, structured_format_enforced, color_coding_applied"
+  verify unit "spanless diagnostic uses code as fallback location"
+  verify unit "spanless error diagnostic also uses code"
 }
 
 behavior exit_code_reflects_diagnostic_severity "Exit Code Reflects Diagnostic Severity" {
@@ -405,6 +410,8 @@ behavior export_diagnostics_as_json "Export Diagnostics as JSON" {
   verify unit "exit code unaffected by format flag"
   verify unit "suggestion field included when available"
   verify contract "Export Diagnostics as JSON: JSON diagnostic export holds — validation_complete_fired, json_array_produced, diagnostic_fields_complete, exit_code_unaffected"
+  verify unit "max diagnostics limit truncates output"
+  verify unit "no truncation under limit"
 }
 
 // ── Agent-Optimized Export (Principle 3: agents are first-class consumers) ──

@@ -57,6 +57,7 @@ behavior provide_mcp_query_tool "Provide MCP Query Tool" {
   verify unit "non-existent entityId returns error response"
   verify unit "include_coverage parameter includes coverage status in response"
   verify contract "Provide MCP Query Tool: MCP query tool holds — graph_available, subgraph_returned, unknown_kinds_reported, tool_invoked_emitted"
+  verify unit "unknown tool returns error"
 }
 
 // Idempotency here means result equivalence: the same input always produces
@@ -139,6 +140,7 @@ behavior provide_mcp_export_tool "Provide MCP Export Tool" {
   verify unit "max_tokens truncates output to fit token budget"
   verify unit "all three formats (context, brief, graph) supported"
   verify contract "Provide MCP Export Tool: MCP export tool holds — graph_available, format_produced, token_budget_enforced, tool_invoked_emitted"
+  verify unit "unknown format returns error"
 }
 
 behavior provide_mcp_trace_tool "Provide MCP Trace Tool" {
@@ -214,6 +216,7 @@ behavior provide_mcp_search_tool "Provide MCP Search Tool" {
   verify unit "empty query returns all entities up to limit"
   verify unit "references filter returns entities referencing target"
   verify contract "Provide MCP Search Tool: MCP search tool holds — graph_available, filtered_results_returned, unknown_kinds_reported, tool_invoked_emitted"
+  verify unit "missing query returns error"
 }
 
 behavior provide_mcp_schema_tool "Provide MCP Schema Tool" {
@@ -447,6 +450,8 @@ behavior provide_mcp_outline_tool "Provide MCP Outline Tool" {
   verify unit "nested entries included for complex entities"
   verify unit "non-existent file returns error response"
   verify contract "Provide MCP Outline Tool: MCP outline tool holds — graph_available, outline_returned, tool_invoked_emitted"
+  verify unit "outline entries sorted by line number"
+  verify unit "sorted by line number"
 }
 
 behavior provide_mcp_suggest_fixes_tool "Provide MCP Suggest Fixes Tool" {

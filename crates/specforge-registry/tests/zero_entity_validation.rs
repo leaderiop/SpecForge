@@ -15,12 +15,12 @@ use specforge_common::{Severity, SourceSpan, Sym};
 use specforge_registry::validation_engine::{
     ValidationEntity, ValidationPatternKind, ValidationRulePattern, WasmValidationRuntime,
     execute_pattern, interpolate_template, parse_all_rule_patterns, parse_rule_pattern,
-    register_custom_patterns,
+    register_custom_patterns, resolve_edge_rules,
 };
 use specforge_registry::{
-    FieldConstraint, ManifestV2, ManifestValidationRule, detect_duplicate_entity_kinds,
-    populate_registries, register_validation_rules, validate_extension_testability,
-    validate_peer_dependencies,
+    EdgeRegistry, EdgeRegistryEntry, FieldConstraint, KindRegistry, KindRegistryEntry, ManifestV2,
+    ManifestValidationRule, detect_duplicate_entity_kinds, populate_registries,
+    register_validation_rules, validate_extension_testability, validate_peer_dependencies,
 };
 use specforge_test_macros::test as specforge_test;
 
@@ -61,6 +61,9 @@ fn make_entity(id: &str, kind: &str, incoming: usize, outgoing: usize) -> Valida
         outgoing_edge_count: outgoing,
         span: span(),
         verify_kinds: Vec::new(),
+        verify_texts: Vec::new(),
+        outgoing_kinds: Default::default(),
+        incoming_kinds: Default::default(),
     }
 }
 
@@ -260,6 +263,68 @@ fn no_incoming_edges_detects_orphan_entities() {
     let diags = execute_pattern(&pattern, &entities, None);
     assert_eq!(diags.len(), 1);
     assert!(diags[0].message.contains("b1"));
+}
+
+fn kind(name: &str) -> KindRegistryEntry {
+    KindRegistryEntry {
+        kind_name: name.to_string(),
+        description: None,
+        source_extension: "@test".to_string(),
+        testable: false,
+        singleton: false,
+        supports_verify: false,
+        allowed_verify_kinds: Vec::new(),
+        has_body_parser: false,
+        semantic_token: None,
+        lsp_icon: None,
+        dot_shape: None,
+        dot_color: None,
+        dot_fillcolor: None,
+        open_fields: false,
+    }
+}
+
+#[specforge_test(
+    behavior = "execute_validation_pattern",
+    verify = "an edge rule counts only edges of its edge type and is dropped when no extension declares the kind at its far end"
+)]
+fn an_edge_rule_counts_only_its_edge_type() {
+    let mut edges = EdgeRegistry::new();
+    edges.register(EdgeRegistryEntry {
+        label: "BehaviorImplementsFeature".to_string(),
+        source_kind: Some("behavior".to_string()),
+        target_kind: Some("feature".to_string()),
+        source_extension: "@test".to_string(),
+        edge_style: None,
+        edge_color: None,
+        edge_arrowhead: None,
+    });
+    let mut rule = make_rule("W001", "no_outgoing_edges");
+    rule.edge_type = Some("BehaviorImplementsFeature".to_string());
+    rule.message_template = "behavior '{id}' does not implement any feature".to_string();
+
+    // b1 references an event but no feature; b2 implements a feature.
+    let mut b1 = make_entity("b1", "behavior", 0, 1);
+    b1.outgoing_kinds.insert("event".to_string(), 1);
+    let mut b2 = make_entity("b2", "behavior", 0, 1);
+    b2.outgoing_kinds.insert("feature".to_string(), 1);
+    let entities = vec![b1, b2];
+
+    let mut kinds = KindRegistry::new();
+    kinds.register(kind("behavior"));
+    kinds.register(kind("feature"));
+    let (mut patterns, _) = parse_all_rule_patterns(&[("@test".to_string(), vec![rule.clone()])]);
+    resolve_edge_rules(&mut patterns, &edges, &kinds);
+    let diags = execute_pattern(&patterns[0].0, &entities, None);
+    assert_eq!(diags.len(), 1, "{diags:?}");
+    assert!(diags[0].message.contains("b1"));
+
+    // Without an extension declaring `feature`, the rule can't be met: dropped.
+    let mut kinds = KindRegistry::new();
+    kinds.register(kind("behavior"));
+    let (mut patterns, _) = parse_all_rule_patterns(&[("@test".to_string(), vec![rule])]);
+    resolve_edge_rules(&mut patterns, &edges, &kinds);
+    assert!(patterns.is_empty());
 }
 
 #[specforge_test(
@@ -742,6 +807,7 @@ fn unresolvable_wasm_function_produces_warning() {
         check: ValidationPatternKind::Custom,
         target_kind: None,
         edge_type: None,
+        edge_peer_kind: None,
         field: None,
         constraint: None,
         wasm_function: Some("missing_func".to_string()),
@@ -784,6 +850,7 @@ fn wasm_function_probe_failure_produces_warning() {
         check: ValidationPatternKind::Custom,
         target_kind: None,
         edge_type: None,
+        edge_peer_kind: None,
         field: None,
         constraint: None,
         wasm_function: Some("broken_export".to_string()),
@@ -821,6 +888,7 @@ fn custom_pattern_dispatched_to_wasm_runtime_during_validation() {
         check: ValidationPatternKind::Custom,
         target_kind: None,
         edge_type: None,
+        edge_peer_kind: None,
         field: None,
         constraint: None,
         wasm_function: Some("check".to_string()),
@@ -857,6 +925,7 @@ fn custom_pattern_failure_emits_configured_diagnostic() {
         check: ValidationPatternKind::Custom,
         target_kind: None,
         edge_type: None,
+        edge_peer_kind: None,
         field: None,
         constraint: None,
         wasm_function: Some("always_fail".to_string()),
@@ -882,6 +951,7 @@ fn register_custom_validation_patterns_contract() {
         check: ValidationPatternKind::Custom,
         target_kind: None,
         edge_type: None,
+        edge_peer_kind: None,
         field: None,
         constraint: None,
         wasm_function: Some("func".to_string()),
@@ -893,6 +963,7 @@ fn register_custom_validation_patterns_contract() {
         check: ValidationPatternKind::NoIncomingEdges,
         target_kind: None,
         edge_type: None,
+        edge_peer_kind: None,
         field: None,
         constraint: None,
         wasm_function: None,

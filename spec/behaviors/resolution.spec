@@ -39,6 +39,8 @@ behavior resolve_use_imports "Resolve Use Imports" {
   verify unit        "relative import traversing above spec_root is rejected"
   verify integration "imports across nested directories resolve correctly"
   verify contract "Resolve Use Imports: use import resolution holds — registries_populated_fired, define_blocks_registered_fired, filesystem_available, imports_resolved, missing_files_diagnosed, dependency_graph_built"
+  verify unit "resolve extension import path"
+  verify unit "symlink pointing outside spec_root is rejected"
 }
 
 // No consumes — called inline during use import resolution
@@ -68,6 +70,7 @@ behavior detect_import_cycles "Detect Import Cycles" {
   verify unit "detect transitive cycle across three files"
   verify unit "non-cyclic files still process when a cycle exists"
   verify contract "Detect Import Cycles: import cycle detection holds — import_graph_available, cycles_detected, cycle_diagnostic_emitted, non_cyclic_unaffected"
+  verify unit "W003 carries actionable suggestion"
 }
 
 behavior link_entity_references "Link Entity References" {
@@ -99,6 +102,9 @@ behavior link_entity_references "Link Entity References" {
   verify unit "unresolvable reference produces E003"
   verify unit "close match triggers did-you-mean suggestion"
   verify contract "Link Entity References: entity reference linking holds — registries_populated, all_files_parsed, all_references_resolved, no_silent_ignoring"
+  verify unit "E003 span covers exactly the unresolved identifier token"
+  verify unit "cross-file duplicate entity ID produces W063"
+  verify unit "same ID different kind across files warns W063 with both kinds named"
 }
 
 behavior resolve_soft_cross_extension_references "Resolve Soft Cross-Extension References" {

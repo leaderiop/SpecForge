@@ -80,6 +80,7 @@ behavior provide_mcp_review_prompt "Provide MCP Review Prompt" {
   verify unit "depth parameter controls neighbor traversal depth"
   verify unit "review prompt returns empty findings when no testable entities exist"
   verify contract "Provide MCP Review Prompt: MCP review prompt holds — graph_available, coverage_analysis_returned, gaps_identified, prompt_invoked_emitted"
+  verify unit "detects orphan entities"
 }
 
 behavior provide_mcp_trace_prompt "Provide MCP Trace Prompt" {

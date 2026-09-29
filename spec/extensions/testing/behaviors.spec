@@ -85,10 +85,13 @@ behavior te_coverage_pass "Coverage Analysis Pass" {
     project at three layers. Intent: a testable entity that declares no
     verify obligations is A001, and an invariant with none is A002, an
     error when its risk is high. Enforcement: an invariant nothing
-    references is an A011 orphan guarantee. Proof: an entity whose
-    recorded tests (from specforge-report.json, which `analyze` reads by
-    default after `specforge collect`) all pass is proven, and one with a
-    failing test is A014. A formal claim the prove pass entailed
+    references is an A011 orphan guarantee. Proof, from the recorded
+    tests (specforge-report.json, which `analyze` reads by default after
+    `specforge collect`): a test proves an obligation by naming its text.
+    An obligation no passing test names is A015, a test naming an
+    obligation its entity doesn't declare is A016, and a failing test is
+    A014. An entity is proven when it has tests, all of them pass, and
+    every obligation is proven. A formal claim the prove pass entailed
     discharges `verify property` obligations without executable tests.
     The summary MUST report the discharge funnel (entities with
     obligations, proven, formally discharged, report failures).
@@ -98,12 +101,14 @@ behavior te_coverage_pass "Coverage Analysis Pass" {
     intent_scored      "entities without obligations are A001, invariants A002"
     orphans_found      "unreferenced invariants are A011"
     proof_recorded     "recorded passing tests prove an entity; a failing one is A014"
+    obligations_proven "each obligation needs a passing test that names it (A015); unknown names are A016"
     formal_discharge   "entailed formal claims discharge verify property obligations"
   }
 
   verify unit "a high-risk invariant without obligations is an A002 error"
   verify unit "invariant references count as enforcement"
   verify unit "recorded test results prove entities and failing tests are A014"
+  verify unit "an obligation no passing test names is A015 and a test naming an undeclared obligation is A016"
   verify unit "a proved formal claim discharges verify property obligations"
 }
 

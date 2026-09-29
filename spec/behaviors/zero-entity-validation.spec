@@ -83,6 +83,7 @@ behavior execute_validation_pattern "Execute Validation Pattern" {
 
   verify unit "no_incoming_edges detects orphan entities"
   verify unit "no_outgoing_edges detects entities with zero outgoing edges"
+  verify unit "an edge rule counts only edges of its edge type and is dropped when no extension declares the kind at its far end"
   verify unit "missing_field_when_flag_set detects missing specified field on flagged entity"
   verify unit "field_value_constraint rejects invalid field value"
   verify unit "cycle_detection finds cycles in edge type"

@@ -150,6 +150,7 @@ behavior list_mcp_tools "List MCP Tools" {
   verify unit "returns core-provided descriptors when no extensions installed"
   verify unit "reflects tools from newly loaded extension"
   verify contract "List MCP Tools: listing MCP tools holds — server_initialized, complete_list_returned, disabled_excluded, discovery_emitted"
+  verify unit "tools have categories"
 }
 
 behavior list_mcp_prompts "List MCP Prompts" {
@@ -215,6 +216,7 @@ behavior expose_graph_as_mcp_resource "Expose Graph as MCP Resource" {
   verify unit "resource refreshes after recompilation"
   verify unit "output includes embedded schema and schema_version"
   verify contract "Expose Graph as MCP Resource: graph MCP resource holds — validation_complete_fired, graph_json_returned, resource_read_emitted"
+  verify unit "returns error for unknown URI"
 }
 
 behavior expose_schema_as_mcp_resource "Expose Schema as MCP Resource" {
@@ -488,6 +490,10 @@ behavior handle_mcp_protocol_error "Handle MCP Protocol Error" {
   verify unit "returns -32603 for internal error"
   verify unit "truly unknown tool returns -32602 Invalid params (MCP spec example)"
   verify contract "Handle MCP Protocol Error: MCP protocol error handling holds — mcp_protocol_available, standard_error_returned, no_state_leaked, server_operational, error_handled_emitted"
+  verify unit "error response includes id from request"
+  verify unit "notifications produce no response"
+  verify unit "response always has jsonrpc 2.0 field"
+  verify unit "success response includes id from request"
 }
 
 behavior handle_mcp_request_cancellation "Handle MCP Request Cancellation" {
@@ -552,4 +558,5 @@ behavior guard_mcp_reinitialization "Guard MCP Reinitialization" {
   verify unit "existing session continues after rejected reinitialization"
   verify unit "no resources leaked on rejected reinitialization"
   verify contract "Guard MCP Reinitialization: MCP reinitialization guard holds — server_initialized, reinit_rejected, session_unaffected, error_handled_emitted"
+  verify unit "can reinitialize after shutdown"
 }

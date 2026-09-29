@@ -52,6 +52,7 @@ behavior lsp_initialize "LSP Initialize" {
   verify unit "initialize response includes completion trigger characters"
   verify unit "zero extensions produces structural-only capabilities"
   verify contract "LSP Initialize: LSP initialization holds — extensions_loaded, capabilities_reflect_extensions, semantic_legend_populated, incremental_sync_advertised, lsp_initialized_emitted"
+  verify unit "initialize response includes server_info with name and version"
 }
 
 behavior lsp_shutdown "LSP Shutdown" {
@@ -560,6 +561,8 @@ behavior provide_semantic_tokens "Provide Semantic Tokens" {
   verify unit "entity title strings classified as string"
   verify unit "use path classified as string"
   verify contract "Provide Semantic Tokens: semantic tokens holds — graph_available, kind_registry_available, tokens_classified, structural_keywords_enforced, extension_delegation_applied"
+  verify unit "entity IDs classified as 'function' with declaration modifier"
+  verify unit "entity keywords classified as 'type'"
 }
 
 behavior complete_field_names "Complete Field Names" {

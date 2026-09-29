@@ -263,6 +263,11 @@ impl Backend {
                 .collect();
             let (mut patterns, _rule_diags) =
                 specforge_registry::validation_engine::parse_all_rule_patterns(&rule_inputs);
+            specforge_registry::validation_engine::resolve_edge_rules(
+                &mut patterns,
+                &edge_reg,
+                &kind_reg,
+            );
 
             // Auto-generate E006 rules for required fields (originless,
             // host-generated, declarative)

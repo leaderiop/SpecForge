@@ -9,7 +9,8 @@
 /// One diagnostic code and what it means.
 #[derive(Debug, Clone, Copy)]
 pub struct CodeEntry {
-    /// `E###` (error), `W###` (warning) or `I###` (info).
+    /// `E###` (error), `W###` (warning), `I###` (info), or `A###` (an
+    /// `analyze` pass finding, whose severity the pass sets).
     pub code: &'static str,
     /// Short human-readable name.
     pub title: &'static str,
@@ -43,7 +44,9 @@ pub fn run(code: &str) -> i32 {
         }
         None => {
             eprintln!("unknown diagnostic code: {code}");
-            eprintln!("hint: codes follow the pattern E### (error), W### (warning), I### (info)");
+            eprintln!(
+                "hint: codes follow the pattern E### (error), W### (warning), I### (info), A### (analyze finding)"
+            );
             eprintln!(
                 "hint: E900-E998, W900-W998 and I900-I998 are reserved for third-party extensions; \
                  see the extension's own documentation"
@@ -100,7 +103,8 @@ compiler and CLI, or the `@specforge/<name>` extension that emits it. A test
 fails when an emitted code is missing here, is attributed to the wrong owner,
 or is listed but never emitted.
 
-Codes follow the pattern `E###` (error), `W###` (warning) and `I###` (info).
+Codes follow the pattern `E###` (error), `W###` (warning) and `I###` (info);
+`A###` codes are `specforge analyze` findings, whose severity the pass sets.
 The ranges `E900`-`E998`, `W900`-`W998` and `I900`-`I998` are reserved for
 third-party extensions and never appear in this catalog; `I999` is a core code.
 
@@ -113,6 +117,48 @@ SPECFORGE_BLESS=1 cargo test -p specforge-cli explain_docs_sync
 
 /// Every diagnostic code emitted today, sorted by code.
 pub const CATALOG: &[CodeEntry] = &[
+    CodeEntry {
+        code: "A001",
+        title: "Testable entity without obligations",
+        owner: "@specforge/testing",
+        explanation: "`specforge analyze coverage` found a testable entity (one whose kind accepts `verify`) that declares no `verify` obligations, so nothing states what a test must prove about it. Add `verify unit \"...\"` (or another obligation kind) statements.",
+    },
+    CodeEntry {
+        code: "A002",
+        title: "Invariant without obligations",
+        owner: "@specforge/testing",
+        explanation: "An invariant declares no `verify` obligations. It is an error when the invariant's `risk` is `high`, a warning otherwise. Add a `verify property` or `verify unit` statement stating how the guarantee is checked.",
+    },
+    CodeEntry {
+        code: "A010",
+        title: "Entity without contract obligations",
+        owner: "core",
+        explanation: "`specforge analyze contracts` found an entity whose kind registers contract reference fields (`requires`, `ensures`, `maintains`, ...) that declares none of them, so no invariant constrains it. Add the references, or ignore this info-level finding for entities that need none.",
+    },
+    CodeEntry {
+        code: "A011",
+        title: "Orphan invariant",
+        owner: "@specforge/testing",
+        explanation: "An invariant that nothing references: no behavior lists it in `invariants`, `requires`, `ensures` or `maintains`, so no code path is bound to enforce it. Reference it from the behaviors that must preserve it, or drop it.",
+    },
+    CodeEntry {
+        code: "A014",
+        title: "Failing tests",
+        owner: "@specforge/testing",
+        explanation: "The recorded test results (`specforge-report.json`, written by `specforge collect`) include failing tests for this entity, so what it promises is not proven. Fix the code or the test and run `specforge collect` again.",
+    },
+    CodeEntry {
+        code: "A015",
+        title: "Unproven obligations",
+        owner: "@specforge/testing",
+        explanation: "With recorded test results, some of an entity's `verify` obligations are named by no passing test. A test proves an obligation by naming its exact text: `verify = \"...\"` in `#[specforge_test(...)]`, or in a vitest test's `meta.specforge`. Link a test to each listed obligation, or write the missing tests.",
+    },
+    CodeEntry {
+        code: "A016",
+        title: "Test names an undeclared obligation",
+        owner: "@specforge/testing",
+        explanation: "A recorded test names a `verify` obligation that its entity does not declare, usually a typo or an obligation reworded in the spec. The test proves nothing until its text matches the spec's statement exactly; fix whichever side is wrong.",
+    },
     CodeEntry {
         code: "E001",
         title: "Parse error",
@@ -1003,10 +1049,13 @@ mod tests {
         for entry in CATALOG {
             let b = entry.code.as_bytes();
             let shaped = b.len() == 4
-                && matches!(b[0], b'E' | b'W' | b'I')
+                && matches!(b[0], b'E' | b'W' | b'I' | b'A')
                 && b[1..].iter().all(u8::is_ascii_digit);
             if !shaped {
-                problems.push(format!("{}: not of the form E###/W###/I###", entry.code));
+                problems.push(format!(
+                    "{}: not of the form E###/W###/I###/A###",
+                    entry.code
+                ));
             } else if is_third_party(entry.code) {
                 problems.push(format!(
                     "{}: the 900-998 range is reserved for third-party extensions",
@@ -1088,7 +1137,7 @@ mod tests {
         let mut found = Vec::new();
         for i in 0..b.len().saturating_sub(5) {
             if b[i] == b'"'
-                && matches!(b[i + 1], b'E' | b'W' | b'I')
+                && matches!(b[i + 1], b'E' | b'W' | b'I' | b'A')
                 && b[i + 2..i + 5].iter().all(u8::is_ascii_digit)
                 && b[i + 5] == b'"'
             {

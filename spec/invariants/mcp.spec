@@ -12,6 +12,7 @@ invariant mcp_structured_error_responses "MCP Structured Error Responses" {
   verify unit "error response includes error code and message fields"
   verify unit "error response includes entity_id when applicable"
   verify unit "no MCP endpoint returns a plain string error"
+  verify unit "success responses never have error field"
 }
 
 invariant mcp_subscription_cleanup "MCP Subscription Cleanup" {

@@ -66,8 +66,10 @@ This example doesn't just declare specs — it closes the loop:
    at the root, plain `specforge collect` runs `cargo test` itself, after
    you approve the command once.)
 3. **Analyze** — `specforge analyze --path . coverage` reads
-   `specforge-report.json` and scores proof coverage: 5 of 9 obligated
-   entities proven in this fixture, with A014 findings for any failing proof.
+   `specforge-report.json` and scores proof coverage. A test proves the
+   obligation whose text it names; the fixture proves 7 obligations, which
+   fully prove 2 entities. A015 lists the obligations no test covers yet,
+   and A014 any failing proof.
 4. **Trace** — `specforge trace --path . create_task` shows the entity's
    provenance graph (constraints, features, verifies).
 

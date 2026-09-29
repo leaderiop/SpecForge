@@ -149,6 +149,7 @@ behavior detect_orphan_refs "Detect Orphan Structural Nodes" {
   verify unit "unreferenced structural node of any grammar-level kind produces W012"
   verify unit "structural node with at least one incoming edge suppresses W012"
   verify contract "Detect Orphan Structural Nodes: orphan structural node detection holds — graph_built_fired, orphans_detected, referenced_nodes_clean"
+  verify unit "spec block is a root container and does not produce W012"
 }
 
 // Core structural validation: checks file existence for ANY field declared as

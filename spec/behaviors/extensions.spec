@@ -270,6 +270,8 @@ behavior remove_extension "Remove Extension" {
   verify unit "removed extension keywords produce E024 on next compile"
   verify unit ".spec files are not modified by removal"
   verify contract "Remove Extension: extension removal holds — extension_installed, filesystem_available, extension_entry_removed, spec_files_unchanged, extension_removed_emitted"
+  verify unit "specforge remove for non-existent extension reports error"
+  verify unit "specforge remove with no lock file reports error"
 }
 
 // Read-only query. (produces [] declared below; no event of its own.)

@@ -38,6 +38,7 @@ behavior watch_file_system_for_changes "Watch File System for Changes" {
   verify unit        "file deletion triggers recompilation"
   verify integration "watch detects changes within 100ms"
   verify contract "Watch File System for Changes: file system watching holds for the declared obligations"
+  verify unit "specforge.json and .wasm changes classify as config/plugin"
 }
 
 behavior invalidate_changed_files "Invalidate Changed Files" {
