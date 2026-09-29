@@ -87,7 +87,7 @@ behavior lsp_shutdown "LSP Shutdown" {
 }
 
 behavior document_open_close "Document Open/Close" {
-  invariants [incremental_correctness]
+  invariants [incremental_correctness, lsp_state_concurrency_safety]
   category   command
   types      [SourceSpan]
   ports      [LspProtocol]
@@ -725,7 +725,7 @@ behavior code_action_create_entity_stub "Code Action: Create Entity Stub" {
 }
 
 behavior incremental_document_sync "Incremental Document Sync" {
-  invariants [incremental_correctness, lsp_response_latency]
+  invariants [incremental_correctness, lsp_response_latency, lsp_utf16_positions]
   category   command
   types      [SourceSpan]
   ports      [LspProtocol]

@@ -102,7 +102,7 @@ fn extension_init_creates_cargo_toml() {
 }
 
 #[specforge_test(
-    behavior = "extension_scaffold_init",
+    behavior = "scaffold_wasm_extension_project",
     verify = "specforge extension init rejects when directory already exists"
 )]
 fn extension_init_rejects_existing_directory() {
@@ -119,7 +119,7 @@ fn extension_init_rejects_existing_directory() {
 }
 
 #[specforge_test(
-    behavior = "extension_scaffold_init",
+    behavior = "scaffold_wasm_extension_project",
     verify = "specforge extension init --format=json outputs structured JSON"
 )]
 fn extension_init_json_output() {
@@ -151,7 +151,7 @@ fn extension_init_json_output() {
 }
 
 #[specforge_test(
-    behavior = "extension_scaffold_init",
+    behavior = "scaffold_wasm_extension_project",
     verify = "specforge extension init uses default name when --name not provided"
 )]
 fn extension_init_default_name() {
@@ -173,7 +173,7 @@ fn extension_init_default_name() {
 // ===============================================================
 
 #[specforge_test(
-    behavior = "extension_build_validate_structure",
+    behavior = "build_wasm_extension",
     verify = "specforge extension build validates project structure exists"
 )]
 fn extension_build_validates_structure() {
@@ -289,7 +289,7 @@ fn extension_validate_valid_manifest() {
 }
 
 #[specforge_test(
-    behavior = "extension_validate_manifest",
+    behavior = "validate_wasm_extension_locally",
     verify = "specforge extension validate errors on invalid manifest JSON"
 )]
 fn extension_validate_invalid_json() {
@@ -331,7 +331,7 @@ fn extension_validate_wrong_manifest_version() {
 }
 
 #[specforge_test(
-    behavior = "extension_validate_manifest",
+    behavior = "validate_wasm_extension_locally",
     verify = "specforge extension validate errors on missing manifest.json"
 )]
 fn extension_validate_missing_manifest() {

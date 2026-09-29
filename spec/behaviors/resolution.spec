@@ -168,3 +168,41 @@ behavior resolve_external_ref_declarations "Resolve External Ref Declarations" {
   verify unit "ref node is added to graph with scheme metadata"
   verify contract "Resolve External Ref Declarations: external ref resolution holds — ref_blocks_parsed, filesystem_available, refs_registered, known_schemes_marked, unknown_schemes_deferred"
 }
+
+behavior resolve_reexports "Resolve pub use Re-exports" {
+  invariants [import_dag]
+  category   query
+  types      [FileEntry]
+
+  requires {
+    imports_resolved "use imports have been resolved to files"
+  }
+
+  ensures {
+    all_reexported       "pub use re-exports every entity the target file exports"
+    selective_reexported "pub use { A, B } re-exports only the named entities"
+    chains_transitive    "re-exports through several files resolve transitively"
+    plain_use_private    "a plain use never re-exports"
+    unknown_name_warned  "a selective re-export of a name the target doesn't export is W027"
+  }
+
+  contract """
+    `pub use "target"` MUST make every entity the target exports visible to
+    files that import the re-exporting file, and `pub use { A, B } from
+    "target"` MUST re-export only the named entities. Re-exports MUST chain
+    transitively, so a barrel index file can re-export its sub-files. A
+    plain `use` MUST NOT re-export anything. A selective re-export of a
+    name the target doesn't export MUST produce W027. When files import
+    each other in a cycle, a re-export through a cycle participant MUST use
+    only that file's declared set, never a transitive closure through the
+    cycle.
+  """
+
+  verify unit "pub use re-exports all entities from target"
+  verify unit "pub use selective re-exports only named entities"
+  verify unit "pub use chains resolve transitively"
+  verify unit "regular use does not re-export"
+  verify unit "barrel index with pub use re-exports from sub-files"
+  verify unit "selective re-export of unknown entity produces W027"
+  verify unit "pub use through cycle participant uses only declared set"
+}

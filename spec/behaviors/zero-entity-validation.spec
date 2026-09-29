@@ -149,11 +149,16 @@ behavior register_extension_validation_rules "Register Extension Validation Rule
     codes across extensions MUST produce a warning listing both extensions.
     Rules MUST be sorted by code for deterministic execution order.
     Collection MUST complete before any declarative validation begins.
+    The rule set MUST also contain a generated E006 rule for every
+    field registered as required, so required fields are enforced without
+    each extension declaring its own rule.
   """
 
   verify unit "rules from multiple extensions are collected"
   verify unit "duplicate codes across extensions produce warning"
   verify unit "rules sorted by code for deterministic order"
+  verify unit "extensions produce E006 rules for required fields"
+  verify unit "E006 covers all required fields from builtin extensions"
   verify contract "Register Extension Validation Rules: cross-extension rule aggregation holds — extension_manifests_loaded_fired, individual_rules_parsed, unified_rule_set_produced, deterministic_order_enforced, duplicate_codes_warned"
 }
 

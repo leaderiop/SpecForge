@@ -96,7 +96,7 @@ fn utf16_columns_resolve_to_byte_offsets_after_multibyte_chars() {
 }
 
 #[spec(
-    behavior = "utf16_positions",
+    invariant = "lsp_utf16_positions",
     verify = "word_at_position extracts words using utf16 columns"
 )]
 fn word_at_position_handles_utf16_columns() {

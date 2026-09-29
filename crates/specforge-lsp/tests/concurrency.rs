@@ -14,7 +14,7 @@ fn shared_state_with_document() -> Arc<RwLock<LspState>> {
 // -- concurrent_read_safety ------------------------------------------------------
 
 #[spec(
-    behavior = "concurrent_read_safety",
+    invariant = "lsp_state_concurrency_safety",
     verify = "multiple concurrent readers complete without blocking each other"
 )]
 #[tokio::test]
@@ -46,7 +46,7 @@ async fn concurrent_reads_complete() {
 }
 
 #[spec(
-    behavior = "concurrent_read_safety",
+    invariant = "lsp_state_concurrency_safety",
     verify = "concurrent readers see consistent graph and document state"
 )]
 #[tokio::test]
@@ -88,7 +88,7 @@ async fn concurrent_reads_see_consistent_state() {
 // -- read_write_interleaving -----------------------------------------------------
 
 #[spec(
-    behavior = "read_write_interleaving",
+    invariant = "lsp_state_concurrency_safety",
     verify = "interleaved read and write operations do not deadlock"
 )]
 #[tokio::test]
@@ -207,7 +207,7 @@ async fn rapid_open_close_no_corruption() {
 }
 
 #[spec(
-    behavior = "rapid_open_close_stress",
+    invariant = "lsp_state_concurrency_safety",
     verify = "concurrent writes to different documents do not interfere"
 )]
 #[tokio::test]

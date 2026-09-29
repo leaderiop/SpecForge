@@ -122,11 +122,13 @@ behavior compute_traceability_chain "Compute Traceability Chain" {
     in an extension manifest that is NOT instantiated between the two
     entities in the current graph. This distinguishes from broken
     references (E003), which are caught during resolution.
+    The JSON trace output MUST carry the Graph Protocol schema_version.
   """
 
   verify unit "trace from entity shows upstream and downstream connections"
   verify unit "trace shows full chain depth"
   verify unit "missing link in chain is flagged"
+  verify unit "trace output includes schema version"
   verify contract "Compute Traceability Chain: traceability chain computation holds — validation_complete_fired, full_chain_traversed, missing_links_flagged, trace_chain_computed_emitted"
 }
 
@@ -219,11 +221,15 @@ behavior exit_code_reflects_diagnostic_severity "Exit Code Reflects Diagnostic S
     specforge check MUST exit with code 0 if no errors exist. It MUST
     exit with code 1 if any error-level diagnostic exists. With --strict,
     warnings MUST also cause exit code 1.
+    A command-line value outside a flag's allowed set, such as an
+    unknown --format, MUST be rejected while arguments are parsed, with
+    exit code 2, before anything is compiled.
   """
 
   verify unit "exit 0 with no errors"
   verify unit "exit 1 with errors"
   verify unit "exit 1 with warnings in strict mode"
+  verify unit "a typo'd --format fails with a clap error (exit 2), not a bespoke runtime error"
   verify contract "Exit Code Reflects Diagnostic Severity: exit code severity mapping holds — validation_complete_fired, exit_zero_on_clean, exit_one_on_errors, strict_mode_enforced"
 }
 
@@ -556,6 +562,8 @@ behavior query_graph_multi_resolution "Query Graph at Multiple Resolutions" {
     The output MUST be valid JSON conforming to the Graph Protocol schema
     with a schema_version field. This enables agents to request exactly the
     context slice they need without consuming the full graph.
+    Filtering builds on a graph-level node filter that accepts any
+    predicate over an entity's kind and fields.
   """
 
   verify unit "depth 0 returns only the target entity"
@@ -566,6 +574,7 @@ behavior query_graph_multi_resolution "Query Graph at Multiple Resolutions" {
   verify unit "output conforms to Graph Protocol schema"
   verify unit "output includes schema_version field"
   verify property "querying same entity at same depth produces identical subgraph"
+  verify unit "filter_nodes with field predicate"
   verify contract "Query Graph at Multiple Resolutions: multi-resolution graph query holds — validation_complete_fired, depth_respected, kind_filter_applied, graph_protocol_conformance, graph_queried_emitted"
 }
 

@@ -1667,7 +1667,7 @@ fn ext_validation_rules_duplicate_codes() {
 }
 
 // ===========================================================================
-// B:apply_entity_enhancements (5 verifies)
+// B:register_entity_enhancements (5 verifies)
 // ===========================================================================
 
 #[spec(
@@ -1703,7 +1703,7 @@ fn enhancements_merge_fields() {
 }
 
 #[spec(
-    behavior = "apply_entity_enhancements",
+    behavior = "register_entity_enhancements",
     verify = "unknown target kind produces I004 info diagnostic"
 )]
 fn enhancements_unknown_kind_i004() {
@@ -1737,7 +1737,7 @@ fn enhancements_unknown_kind_i004() {
 }
 
 #[spec(
-    behavior = "apply_entity_enhancements",
+    behavior = "register_entity_enhancements",
     verify = "enhancement field does NOT overwrite existing kind-level field"
 )]
 fn enhancements_no_overwrite() {

@@ -275,7 +275,7 @@ fn trace_multi_kind_chain_preserves_entity_kind() {
 }
 
 #[specforge_test(
-    behavior = "trace_entity_dependencies",
+    behavior = "compute_traceability_chain",
     verify = "trace output includes schema version"
 )]
 fn trace_output_includes_schema_version() {

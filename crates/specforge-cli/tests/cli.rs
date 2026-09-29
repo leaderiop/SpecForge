@@ -607,7 +607,7 @@ feature gamma "G" { behaviors [alpha_parsr] }
 // === typed format flags (C14-10) ===
 
 #[specforge_test(
-    behavior = "unknown_format_value_rejected_at_parse_time",
+    behavior = "exit_code_reflects_diagnostic_severity",
     verify = "a typo'd --format fails with a clap error (exit 2), not a bespoke runtime error"
 )]
 fn unknown_format_value_is_rejected_by_clap() {

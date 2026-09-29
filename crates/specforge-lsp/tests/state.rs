@@ -109,7 +109,7 @@ fn state_starts_with_empty_registries() {
 }
 
 #[spec(
-    behavior = "validation_patterns",
+    behavior = "register_extension_validation_rules",
     verify = "extensions produce E006 rules for required fields"
 )]
 fn extensions_produce_e006_rules() {
@@ -131,7 +131,7 @@ fn extensions_produce_e006_rules() {
 }
 
 #[spec(
-    behavior = "validation_patterns",
+    behavior = "register_extension_validation_rules",
     verify = "E006 covers all required fields from builtin extensions"
 )]
 fn e006_covers_all_required_fields() {

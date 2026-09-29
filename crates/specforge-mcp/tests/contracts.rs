@@ -777,7 +777,7 @@ fn contract_render() {
 
 #[specforge_test(
     behavior = "provide_mcp_analyze_tool",
-    verify = "requires/ensures consistency for MCP analyze tool"
+    verify = "Provide MCP Analyze Tool: MCP analyze tool holds — graph_available, passes_run, results_structured, tool_invoked_emitted"
 )]
 fn contract_analyze() {
     let mut server = test_server();

@@ -1,8 +1,9 @@
 // MCP Tool behaviors — Core tools and navigation tools
 //
-// 13 behaviors:
-//   - Core Tools (8): query, validate, export, trace, search, schema, coverage, stats
+// 15 behaviors:
+//   - Core Tools (9): query, validate, export, trace, search, schema, coverage, stats, analyze
 //   - Navigation Tools (5): inspect, find_definition, find_references, outline, suggest_fixes
+//   - Dynamic kinds (1): specforge.list and the entities-by-kind resource
 
 use "invariants/core"
 use "invariants/validation"
@@ -482,4 +483,68 @@ behavior provide_mcp_suggest_fixes_tool "Provide MCP Suggest Fixes Tool" {
   verify unit "clean entity with no diagnostics returns empty list"
   verify unit "diagnostic_code filter restricts to matching diagnostics"
   verify contract "Provide MCP Suggest Fixes Tool: MCP suggest fixes tool holds — graph_available, fixes_returned, empty_for_clean, tool_invoked_emitted"
+}
+
+behavior provide_mcp_analyze_tool "Provide MCP Analyze Tool" {
+  invariants [diagnostic_determinism, mcp_structured_error_responses, mcp_tool_idempotency]
+  category   query
+  types      [McpToolDescriptor]
+  ports      [McpProtocol, CompilerApi]
+  produces   [mcp_tool_invoked]
+
+  requires {
+    graph_available "Compiled graph is available via CompilerApi"
+  }
+
+  ensures {
+    passes_run          "the requested analysis pass, or every pass, runs over the compiled project"
+    results_structured  "each pass's findings and summary are returned with an overall ok flag"
+    tool_invoked_emitted "mcp_tool_invoked event emitted"
+  }
+
+  contract """
+    In MCP server mode, the system MUST register a specforge.analyze tool
+    that runs the same analysis passes as `specforge analyze`: the core
+    `contracts` pass and every extension-owned pass (such as
+    @specforge/testing's coverage), or only the one named by `pass`. It
+    accepts `strict` (warnings become errors) and `test_results` (a
+    specforge-report.json path). The result MUST list each pass with its
+    findings and summary, plus an `ok` flag that is false when any finding
+    is an error.
+  """
+
+  verify contract "Provide MCP Analyze Tool: MCP analyze tool holds — graph_available, passes_run, results_structured, tool_invoked_emitted"
+}
+
+behavior provide_mcp_entities_by_kind "List Entities by Kind over MCP" {
+  invariants [graph_traversal_integrity, mcp_tool_idempotency]
+  category   query
+  types      [McpToolDescriptor]
+  ports      [McpProtocol, CompilerApi]
+  produces   [mcp_tool_invoked]
+
+  requires {
+    graph_available "Compiled graph is available via CompilerApi"
+  }
+
+  ensures {
+    tool_lists_by_kind     "specforge.list returns the entities of a kind, or all entities without one"
+    resource_lists_by_kind "specforge://entities/{kind} returns the entities of that kind"
+    unknown_kind_empty     "an unknown kind yields an empty list, not an error"
+  }
+
+  contract """
+    Because entity kinds come from extensions, MCP clients need a way to
+    enumerate entities without knowing the kinds in advance. The system
+    MUST register a specforge.list tool (optional `kind`) and a
+    specforge://entities/{kind} resource template. Both MUST return each
+    matching entity's id, kind and title. An unknown kind MUST yield an
+    empty list.
+  """
+
+  verify unit "specforge.list returns entities filtered by kind"
+  verify unit "specforge.list returns empty for unknown kind"
+  verify unit "entity-by-kind resource returns entities"
+  verify unit "specforge.list tool appears in tool list"
+  verify unit "entities resource template in resource list"
 }

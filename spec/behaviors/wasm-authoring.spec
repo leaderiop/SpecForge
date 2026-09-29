@@ -28,6 +28,9 @@ behavior scaffold_wasm_extension_project "Scaffold Wasm Extension Project" {
     new Wasm extension project with: a manifest file, a src/ directory
     with a skeleton implementing initialize/validate/export exports,
     a build script targeting wasm32-wasi, and a README with PDK docs.
+    It MUST refuse to scaffold into a directory that already exists,
+    default the extension name when --name is not given, and describe what
+    it created as structured JSON under --format=json.
   """
 
   produces [extension_project_scaffolded]
@@ -35,6 +38,9 @@ behavior scaffold_wasm_extension_project "Scaffold Wasm Extension Project" {
   verify unit "scaffold creates manifest file"
   verify unit "scaffold creates src/ with skeleton exports"
   verify unit "scaffold creates build script for wasm32-wasi"
+  verify unit "specforge extension init rejects when directory already exists"
+  verify unit "specforge extension init --format=json outputs structured JSON"
+  verify unit "specforge extension init uses default name when --name not provided"
   verify contract "Scaffold Wasm Extension Project: Wasm extension scaffolding holds — filesystem_available, manifest_created, skeleton_exports_created, build_script_created, extension_project_scaffolded_emitted"
 
 }
@@ -61,12 +67,15 @@ behavior build_wasm_extension "Build Wasm Extension" {
     the extension source to a .wasm binary using the configured toolchain.
     The output .wasm MUST be placed alongside the manifest. Build
     errors MUST be reported as ExtensionError diagnostics.
+    Before compiling, it MUST check that the extension project
+    structure exists and fail with a diagnostic when it doesn't.
   """
 
   produces [extension_built]
 
   verify unit "build produces .wasm binary"
   verify unit "build errors reported as ExtensionError diagnostics"
+  verify unit "specforge extension build validates project structure exists"
   verify contract "Build Wasm Extension: Wasm extension building holds — source_available, toolchain_available, wasm_binary_produced, build_errors_diagnosed, extension_built_emitted"
 
 }
@@ -101,6 +110,8 @@ behavior validate_wasm_extension_locally "Validate Wasm Extension Locally" {
     each contribution export, not a test report. The extension MUST run in the same sandbox as
     production to catch permission errors early. Export failures MUST be
     reported as ExtensionError diagnostics.
+    A missing or malformed manifest.json MUST be reported as an error
+    before anything is loaded.
   """
 
   produces [extension_fixtures_validated]
@@ -109,6 +120,8 @@ behavior validate_wasm_extension_locally "Validate Wasm Extension Locally" {
   verify unit "validation runs against fixtures"
   verify unit "validation uses production sandbox policy"
   verify unit "validation failure reported as ExtensionError"
+  verify unit "specforge extension validate errors on invalid manifest JSON"
+  verify unit "specforge extension validate errors on missing manifest.json"
   verify contract "Validate Wasm Extension Locally: local Wasm extension validation holds — wasm_binary_available, wasm_runtime_available, fixtures_available, production_sandbox_used, export_failures_diagnosed, extension_fixtures_validated_emitted"
 
 }

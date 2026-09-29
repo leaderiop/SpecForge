@@ -258,9 +258,9 @@ fn capabilities_include_extension_counts() {
 
 // --- Dynamic kind-based tools and resources ---
 
-// B:dynamic_kind_tools — verify unit "specforge.list returns entities filtered by kind"
+// B:provide_mcp_entities_by_kind — verify unit "specforge.list returns entities filtered by kind"
 #[specforge_test(
-    behavior = "dynamic_kind_tools",
+    behavior = "provide_mcp_entities_by_kind",
     verify = "specforge.list returns entities filtered by kind"
 )]
 fn list_tool_returns_entities_by_kind() {
@@ -286,9 +286,9 @@ fn list_tool_returns_entities_by_kind() {
     assert!(ids.contains(&"feat_search"));
 }
 
-// B:dynamic_kind_tools — verify unit "specforge.list returns empty array for unknown kind"
+// B:provide_mcp_entities_by_kind — verify unit "specforge.list returns empty array for unknown kind"
 #[specforge_test(
-    behavior = "dynamic_kind_tools",
+    behavior = "provide_mcp_entities_by_kind",
     verify = "specforge.list returns empty for unknown kind"
 )]
 fn list_tool_empty_for_unknown_kind() {
@@ -303,9 +303,9 @@ fn list_tool_empty_for_unknown_kind() {
     assert_eq!(parsed.as_array().unwrap().len(), 0);
 }
 
-// B:dynamic_kind_tools — verify unit "specforge://entities/{kind} resource returns entities as JSON"
+// B:provide_mcp_entities_by_kind — verify unit "specforge://entities/{kind} resource returns entities as JSON"
 #[specforge_test(
-    behavior = "dynamic_kind_tools",
+    behavior = "provide_mcp_entities_by_kind",
     verify = "entity-by-kind resource returns entities"
 )]
 fn entities_by_kind_resource() {
@@ -324,9 +324,9 @@ fn entities_by_kind_resource() {
     assert_eq!(entities[0]["id"].as_str().unwrap(), "login_behavior");
 }
 
-// B:dynamic_kind_tools — verify unit "specforge.list tool is registered"
+// B:provide_mcp_entities_by_kind — verify unit "specforge.list tool is registered"
 #[specforge_test(
-    behavior = "dynamic_kind_tools",
+    behavior = "provide_mcp_entities_by_kind",
     verify = "specforge.list tool appears in tool list"
 )]
 fn list_tool_registered() {
@@ -343,7 +343,7 @@ fn list_tool_registered() {
 
 // --- Extension tool dispatch ---
 
-// B:extension_tool_dispatch — verify unit "calling extension tool dispatches rather than METHOD_NOT_FOUND"
+// B:dispatch_surface_mcp_tool — verify unit "calling extension tool dispatches rather than METHOD_NOT_FOUND"
 #[specforge_test(
     behavior = "dispatch_surface_mcp_tool",
     verify = "input JSON passed to mcp__ export"
@@ -361,9 +361,9 @@ fn extension_tool_dispatches() {
     );
 }
 
-// B:extension_tool_dispatch — verify unit "unknown tool still returns METHOD_NOT_FOUND"
+// B:handle_mcp_protocol_error — verify unit "unknown tool still returns METHOD_NOT_FOUND"
 #[specforge_test(
-    behavior = "extension_tool_dispatch",
+    behavior = "handle_mcp_protocol_error",
     verify = "truly unknown tool returns -32602 Invalid params (MCP spec example)"
 )]
 fn unknown_tool_returns_invalid_params() {
@@ -372,7 +372,7 @@ fn unknown_tool_returns_invalid_params() {
     assert_eq!(resp["error"]["code"].as_i64(), Some(-32602));
 }
 
-// B:extension_tool_dispatch — verify unit "re-compilation preserves core tools"
+// B:list_mcp_tools — verify unit "re-compilation preserves core tools"
 #[specforge_test(
     behavior = "list_mcp_tools",
     verify = "returns core-provided descriptors when no extensions installed"
@@ -435,9 +435,9 @@ fn recompilation_refreshes_surfaces() {
     );
 }
 
-// B:dynamic_kind_tools — verify unit "entities resource registered in resource list"
+// B:provide_mcp_entities_by_kind — verify unit "entities resource registered in resource list"
 #[specforge_test(
-    behavior = "dynamic_kind_tools",
+    behavior = "provide_mcp_entities_by_kind",
     verify = "entities resource template in resource list"
 )]
 fn entities_resource_registered() {

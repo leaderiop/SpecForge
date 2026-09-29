@@ -486,6 +486,7 @@ behavior handle_mcp_protocol_error "Handle MCP Protocol Error" {
   verify unit "server remains operational after protocol error"
   verify unit "returns -32600 for invalid request"
   verify unit "returns -32603 for internal error"
+  verify unit "truly unknown tool returns -32602 Invalid params (MCP spec example)"
   verify contract "Handle MCP Protocol Error: MCP protocol error handling holds — mcp_protocol_available, standard_error_returned, no_state_leaked, server_operational, error_handled_emitted"
 }
 

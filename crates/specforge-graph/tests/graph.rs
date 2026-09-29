@@ -1334,7 +1334,10 @@ fn filter_nodes_by_kind() {
     assert_eq!(invariants[0].id.raw.as_str(), "data_ok");
 }
 
-#[specforge_test(behavior = "query_graph", verify = "filter_nodes with field predicate")]
+#[specforge_test(
+    behavior = "query_graph_multi_resolution",
+    verify = "filter_nodes with field predicate"
+)]
 fn filter_nodes_by_field_value() {
     use specforge_parser::FieldValue;
 

@@ -127,6 +127,8 @@ behavior parse_all_block_types "Parse All Block Types" {
     of each entity block to support Phase 1.5 extension body parsing.
     Raw body text MUST be preserved verbatim before any field parsing
     occurs.
+    A field named `kind` inside an entity body is an ordinary field of
+    that entity, never the block's keyword.
   """
 
   verify unit "parse any keyword as generic entity_block"
@@ -137,6 +139,7 @@ behavior parse_all_block_types "Parse All Block Types" {
   verify unit "any keyword produces generic entity_block AST node"
   verify unit "generic block preserves kind, name, title, and fields"
   verify unit "parse string field values correctly"
+  verify unit "a type field named kind is an ordinary field"
   verify contract "Parse All Block Types: block type parsing holds — source_parser_available, generic_blocks_parsed, unknown_keywords_accepted, raw_body_preserved"
 }
 

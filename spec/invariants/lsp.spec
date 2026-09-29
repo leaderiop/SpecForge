@@ -45,3 +45,30 @@ invariant lsp_text_edit_non_overlapping "LSP TextEdit Non-Overlapping" {
   verify property "no LSP response contains overlapping TextEdit ranges"
   verify unit "formatting response TextEdits are sorted and non-overlapping"
 }
+
+invariant lsp_state_concurrency_safety "LSP State Concurrency Safety" {
+  guarantee """
+    The LSP's shared state (open documents and the compiled graph) MUST
+    stay consistent under concurrent requests: readers MUST NOT block each
+    other, a reader MUST never observe a half-applied update, interleaved
+    reads and writes MUST NOT deadlock, and writes to different documents
+    MUST NOT interfere.
+  """
+  risk high
+
+  verify unit "multiple concurrent readers complete without blocking each other"
+  verify unit "concurrent readers see consistent graph and document state"
+  verify unit "interleaved read and write operations do not deadlock"
+  verify unit "concurrent writes to different documents do not interfere"
+}
+
+invariant lsp_utf16_positions "LSP UTF-16 Positions" {
+  guarantee """
+    Every position the LSP receives or returns MUST count columns in UTF-16
+    code units, as the Language Server Protocol requires, so non-ASCII text
+    before the cursor never shifts the word, range or edit it resolves to.
+  """
+  risk medium
+
+  verify unit "word_at_position extracts words using utf16 columns"
+}

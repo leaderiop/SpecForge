@@ -60,7 +60,7 @@ fn compile_with_builtins(
     specforge_emitter::compile_with_runtime(dir.path(), Some(&runtime))
 }
 
-// B:compile_pipeline — verify unit "port method body syntax does not surface parse errors"
+// B:delegate_body_parsing_to_extension — verify unit "port method body syntax does not surface parse errors"
 #[specforge_test(
     behavior = "delegate_body_parsing_to_extension",
     verify = "extension-owned body syntax does not surface E001 parse errors"
@@ -98,7 +98,7 @@ port TaskRepository "Repo" {
     );
 }
 
-// B:compile_pipeline — verify unit "type inline-union field syntax does not surface parse errors"
+// B:delegate_body_parsing_to_extension — verify unit "type inline-union field syntax does not surface parse errors"
 #[specforge_test(
     behavior = "delegate_body_parsing_to_extension",
     verify = "extension-owned body syntax does not surface E001 parse errors"
@@ -132,12 +132,12 @@ type Manifest "M" {
     );
 }
 
-// B:compile_pipeline — verify unit "a domain field named `kind` on a type is not flagged as an invalid meta-kind"
+// B:parse_all_block_types — verify unit "a domain field named `kind` on a type is not flagged as an invalid meta-kind"
 #[specforge_test(
-    behavior = "compile_pipeline",
-    verify = "type with a domain field named kind does not produce W011"
+    behavior = "parse_all_block_types",
+    verify = "a type field named kind is an ordinary field"
 )]
-fn type_domain_kind_field_does_not_produce_w011() {
+fn type_domain_kind_field_is_an_ordinary_field() {
     let ctx = compile_with_builtins(
         &["@specforge/software"],
         &[(
@@ -154,19 +154,32 @@ type CodeAction "Code Action" {
 
     // `kind` here is an ordinary struct field (of type CodeActionKind), not the
     // struct meta-attribute. It must NOT trip the type-kind enum constraint.
-    let w011: Vec<_> = ctx
+    let node = ctx.graph.node("CodeAction").expect("CodeAction compiled");
+    assert_eq!(
+        node.kind.raw.as_str(),
+        "type",
+        "the block keyword is still `type`"
+    );
+    assert!(
+        matches!(
+            node.fields.get("kind"),
+            Some(specforge_parser::FieldValue::Identifier(t)) if t == "CodeActionKind"
+        ),
+        "`kind` is an ordinary field of the type: {:?}",
+        node.fields
+    );
+    let about_kind: Vec<_> = ctx
         .diagnostics
         .iter()
-        .filter(|d| d.code == "W011")
+        .filter(|d| d.message.contains("'kind'"))
         .collect();
     assert!(
-        w011.is_empty(),
-        "a domain field named `kind` must not produce W011, got: {:?}",
-        w011
+        about_kind.is_empty(),
+        "a domain field named `kind` must not be diagnosed, got: {about_kind:?}"
     );
 }
 
-// B:compile_pipeline — verify unit "single entity roundtrip: parse→graph→json"
+// B:build_in_memory_graph — verify unit "single entity roundtrip: parse→graph→json"
 #[specforge_test(
     behavior = "build_in_memory_graph",
     verify = "graph contains one node per entity"
@@ -202,7 +215,7 @@ fn single_entity_roundtrip() {
     assert_eq!(nodes[0]["id"].as_str().unwrap(), "login");
 }
 
-// B:compile_pipeline — verify unit "multi-file resolution with imports"
+// B:resolve_use_imports — verify unit "multi-file resolution with imports"
 #[specforge_test(
     behavior = "resolve_use_imports",
     verify = "resolve use path to file on disk"
@@ -243,7 +256,7 @@ behavior login "User Login" {
     );
 }
 
-// B:compile_pipeline — verify unit "cross-entity references produce edges"
+// B:link_entity_references — verify unit "cross-entity references produce edges"
 #[specforge_test(
     behavior = "link_entity_references",
     verify = "reference list IDs create graph edges"
@@ -274,7 +287,7 @@ behavior save_record "Save Record" {
     assert_eq!(edge.target.as_str(), "data_integrity");
 }
 
-// B:compile_pipeline — verify unit "validation diagnostics surface through pipeline"
+// B:link_entity_references — verify unit "validation diagnostics surface through pipeline"
 #[specforge_test(
     behavior = "link_entity_references",
     verify = "unresolvable reference produces E003"
@@ -301,7 +314,7 @@ fn validation_diagnostics_surface() {
     );
 }
 
-// B:compile_pipeline — verify unit "empty project produces empty graph"
+// B:build_in_memory_graph — verify unit "empty project produces empty graph"
 #[specforge_test(
     behavior = "build_in_memory_graph",
     verify = "graph contains one node per entity"
@@ -323,7 +336,7 @@ fn empty_project_produces_empty_graph() {
 // (Removed: surfaces_flow_through_compilation_context — tested manifest.json surface loading
 // which is no longer supported. Surface wiring is tested in MCP surface_wiring tests.)
 
-// B:compile_pipeline — verify unit "all emit formats work on pipeline output"
+// B:serialize_json_graph — verify unit "all emit formats work on pipeline output"
 #[specforge_test(behavior = "serialize_json_graph", verify = "output is valid JSON")]
 fn all_emit_formats_work() {
     let ctx = compile_specs(&[(
