@@ -513,7 +513,8 @@ the absolute report path. It then reads the report (the file, or every
 `collect__<name>` export (`-` becomes `_`), which the guest's dispatch
 handler routes to a pure function from [`CollectInput`] to
 [`CollectOutput`]: test results grouped by entity, with `status` `passed`,
-`failed` or `skipped`. With `capture_stdout()`, the command's output still
+`failed` or `skipped`, plus the tests the report doesn't link
+(`unlinked`), which the host links by naming convention when it can. With `capture_stdout()`, the command's output still
 reaches the user's terminal, and the host also keeps it (in
 `<name>.stdout.txt` inside a report directory) and passes it as
 `CollectInput::stdout`. The guest never runs anything itself.

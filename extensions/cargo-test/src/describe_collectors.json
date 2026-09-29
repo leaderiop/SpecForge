@@ -8,9 +8,11 @@
           "Cargo.toml"
         ]
       },
+      "capture": "stdout",
       "export": "collect__cargo_test",
       "input_formats": [
-        "specforge-test-json"
+        "specforge-test-json",
+        "libtest-stdout"
       ],
       "name": "cargo-test",
       "report": "target/specforge",

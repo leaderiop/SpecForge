@@ -148,6 +148,7 @@ fn collect(input: &CollectInput) -> CollectOutput {
                 test_results,
             })
             .collect(),
+        ..CollectOutput::default()
     }
 }
 

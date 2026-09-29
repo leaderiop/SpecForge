@@ -626,8 +626,9 @@ behavior dispatch_collector "Dispatch Collector" {
     collector declares one.
     The export answers with test results grouped by entity:
     `{"entity_results": [{"entity_id", "test_results": [{"name", "status",
-    "verify"?, "duration_ms"?}]}]}`, where status is passed, failed or
-    skipped. A trap or an answer that doesn't parse is E028. `--no-run`
+    "verify"?, "duration_ms"?}]}], "unlinked"?: [{"name", "path",
+    "status"}]}`, where status is passed, failed or skipped and `unlinked`
+    lists tests the report doesn't link to an entity. A trap or an answer that doesn't parse is E028. `--no-run`
     and `--report` skip running and dispatch an existing report.
   """
   produces   [collector_dispatched]

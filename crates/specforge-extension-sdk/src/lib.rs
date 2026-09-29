@@ -690,7 +690,7 @@ pub mod prelude {
     };
     pub use crate::{
         CollectEntityResult, CollectInput, CollectOutput, CollectReportFile, CollectTestResult,
-        CollectorBuilder,
+        CollectUnlinkedTest, CollectorBuilder,
     };
     pub use specforge_extension_sdk_macros::{compiler_pass, extension};
     pub use specforge_protocol_types::{
@@ -845,10 +845,23 @@ pub struct CollectReportFile {
 }
 
 /// What a `collect__<name>` export returns: test results grouped by the
-/// entity each test proves.
+/// entity each test proves, and the tests the report doesn't link to any
+/// entity, which the host links by naming convention when it can.
 #[derive(Debug, Clone, Default, serde::Deserialize, serde::Serialize)]
 pub struct CollectOutput {
     pub entity_results: Vec<CollectEntityResult>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub unlinked: Vec<CollectUnlinkedTest>,
+}
+
+/// A test the report doesn't link to an entity: its name, the name split
+/// into its path segments (`["tests", "add_item", "rejects_a_duplicate"]`,
+/// the test's own name last), and `passed`, `failed` or `skipped`.
+#[derive(Debug, Clone, serde::Deserialize, serde::Serialize)]
+pub struct CollectUnlinkedTest {
+    pub name: String,
+    pub path: Vec<String>,
+    pub status: String,
 }
 
 #[derive(Debug, Clone, serde::Deserialize, serde::Serialize)]

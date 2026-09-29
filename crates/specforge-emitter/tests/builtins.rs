@@ -147,6 +147,52 @@ fn cargo_test_declares_its_collector() {
     assert_eq!(c.detect, ["Cargo.toml"]);
     assert_eq!(c.run, ["cargo", "test", "--workspace", "--no-fail-fast"]);
     assert_eq!(c.report, "target/specforge");
+    assert_eq!(
+        c.capture.as_deref(),
+        Some("stdout"),
+        "plain tests only appear in libtest's output"
+    );
+}
+
+#[specforge_test_macros::test(
+    behavior = "ct_report_unlinked_tests",
+    verify = "tests the attribute did not record are reported as unlinked"
+)]
+fn cargo_test_reports_plain_tests_as_unlinked() {
+    use specforge_emitter::collect::{ReportFile, collectors, dispatch};
+    let runtime = wasm_runtime_for(&["@specforge/cargo-test"]);
+    let manifest = load_via_protocol("@specforge/cargo-test");
+    let collector = &collectors(std::slice::from_ref(&manifest))[0];
+    let stdout = include_str!("../../../extensions/cargo-test/tests/fixtures/libtest-stdout.txt");
+    let report = ReportFile {
+        path: "target/specforge/shop_lib.json".into(),
+        content: r#"{"entries":[{"entity_id":"cart","test_name":"panics",
+            "module_path":"shop_lib::tests","file":"src/lib.rs","status":"pass"}]}"#
+            .into(),
+    };
+    let out = dispatch(&runtime, collector, &[report], Some(stdout)).unwrap();
+    assert_eq!(out.entity_results.len(), 1, "the attribute's own result");
+    let unlinked: Vec<(&str, &str)> = out
+        .unlinked
+        .iter()
+        .map(|t| (t.name.as_str(), t.status.as_str()))
+        .collect();
+    assert_eq!(
+        unlinked,
+        [
+            ("tests::plain_ignored", "skipped"),
+            ("tests::slow_one", "skipped"),
+            ("tests::add_item::rejects_a_duplicate_item", "passed"),
+            ("tests::add_item__rejects_an_empty_name", "passed"),
+            ("tests::fails", "failed"),
+            ("cart__is_empty_at_first", "passed"),
+        ],
+        "doc tests, the attribute's test and replayed failure output are left out"
+    );
+    assert_eq!(
+        out.unlinked[2].path,
+        ["tests", "add_item", "rejects_a_duplicate_item"]
+    );
 }
 
 #[test]

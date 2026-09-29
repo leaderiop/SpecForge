@@ -421,6 +421,20 @@ pub fn read_report(
 pub struct CollectedResults {
     #[serde(default)]
     pub entity_results: Vec<EntityResults>,
+    /// Tests the report doesn't link to an entity, for the host to link
+    /// by naming convention.
+    #[serde(default)]
+    pub unlinked: Vec<UnlinkedTest>,
+}
+
+/// A test the collector couldn't link: its name, its path segments (the
+/// test's own name last) and its status.
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct UnlinkedTest {
+    pub name: String,
+    #[serde(default)]
+    pub path: Vec<String>,
+    pub status: String,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -1004,6 +1018,7 @@ mod tests {
                     test_results: tests,
                 })
                 .collect(),
+            unlinked: Vec::new(),
         }
     }
 

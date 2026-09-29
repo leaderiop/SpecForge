@@ -1,0 +1,35 @@
+
+running 6 tests
+test tests::plain_ignored ... ignored
+test tests::slow_one ... ignored, slow
+test tests::add_item::rejects_a_duplicate_item ... ok
+test tests::add_item__rejects_an_empty_name ... ok
+test tests::panics - should panic ... ok
+test tests::fails ... FAILED
+
+failures:
+
+---- tests::fails stdout ----
+noise ... ok
+
+thread 'tests::fails' (46780572) panicked at src/lib.rs:22:44:
+assertion failed: false
+
+
+failures:
+    tests::fails
+
+test result: FAILED. 3 passed; 1 failed; 2 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+running 1 test
+test cart__is_empty_at_first ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+running 1 test
+test src/lib.rs - add (line 3) ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.36s
+

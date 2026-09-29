@@ -387,8 +387,12 @@ there), and the pure export that maps the report to entities.
 The host calls the export with `{"reports": [{"path", "content"}],
 "stdout"?}` (`stdout` only when the collector captures it) and
 expects `{"entity_results": [{"entity_id", "test_results": [{"name",
-"status", "verify"?, "duration_ms"?}]}]}`, with `status` one of `passed`,
-`failed` or `skipped`.
+"status", "verify"?, "duration_ms"?}]}], "unlinked"?: [{"name", "path",
+"status"}]}`, with `status` one of `passed`, `failed` or `skipped`.
+`unlinked` lists tests the report doesn't link to an entity (`path` is the
+test's name split into segments, its own name last); the host links them by
+naming convention when it can (`entity_id__obligation_slug`, or a module
+named after an entity).
 
 ### Category: passes
 
