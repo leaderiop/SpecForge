@@ -42,6 +42,11 @@ jobs:
       - name: Check formatting
         run: cargo fmt --all -- --check
 
+      # The spec corpora are formatted with the project's own formatter;
+      # format_corpus (a test) proves formatting changes only layout.
+      - name: Check spec formatting
+        run: cargo run -q -p specforge-cli -- format --check spec integrations/rust/spec examples/todo-app
+
       - name: Run clippy
         run: |
           cargo clippy --workspace --all-targets -- -D warnings

@@ -61,9 +61,11 @@ extensions_check() {
     return $status
 }
 
-# Same check as CI: the workspace. (Extension crates are outside it.)
+# Same checks as CI: rustfmt on the workspace (extension crates are
+# outside it) and the spec corpora through `specforge format --check`.
 fmt_check() {
-    cargo fmt --all -- --check
+    cargo fmt --all -- --check || return 1
+    cargo run -q -p specforge-cli -- format --check "${CORPORA[@]}"
 }
 
 spec_checks() {
