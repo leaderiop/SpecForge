@@ -15,6 +15,7 @@ spec "payments" {
 
 type user "User account" {
   status draft
+  verify "rejects an empty email"
 }
 
 behavior authenticate_user "Authenticate a user with credentials" {
@@ -29,20 +30,48 @@ behavior authenticate_user "Authenticate a user with credentials" {
 
 event user_logged_in "User successfully logged in" {
   payload user
+  verify "is emitted once per successful login"
 }
 ```
 
 ```bash
-specforge init        # scaffold a project (interactive extension selection)
+specforge init --extensions @specforge/software   # scaffold a project
 specforge check       # validate all .spec files and report diagnostics
 specforge export      # emit the typed graph for an agent to consume
+```
+
+## Install
+
+SpecForge is a single binary. Build it from source with a stable Rust toolchain:
+
+```bash
+git clone https://github.com/leaderiop/SpecForge && cd SpecForge
+cargo install --path crates/specforge-cli     # installs `specforge` into ~/.cargo/bin
+```
+
+The builtin extensions are embedded in the binary; no extra toolchain is needed to install it.
+
+### Connect an agent (MCP)
+
+`specforge mcp <project>` serves the graph over MCP (JSON-RPC on stdio). Point your client at an absolute project path:
+
+```bash
+claude mcp add specforge -- specforge mcp /path/to/your/project
+```
+
+```json
+{
+  "mcpServers": {
+    "specforge": { "command": "specforge", "args": ["mcp", "/path/to/your/project"] }
+  }
+}
 ```
 
 ## Zero-Domain-Knowledge Core + Extensions
 
 The compiler is a **pure typed-graph engine**. It knows how to parse `keyword name { fields }` blocks, resolve references, detect orphans and cycles, and emit a validated graph — but it carries **no domain vocabulary**. Every entity kind, edge type, and validation rule comes from an extension. If a new domain required a compiler change, the architecture would have failed.
 
-Four extensions ship as builtins:
+Six extensions ship as builtins, embedded in the binary. Enable one with `specforge add @specforge/<name>` (or `specforge init --extensions ...`); it is recorded in `specforge.json`, with nothing to download:
 
 | Extension | Entity kinds | Purpose |
 |-----------|-------------|---------|
@@ -50,6 +79,8 @@ Four extensions ship as builtins:
 | **`@specforge/product`** | journey · deliverable · milestone · module · term · feature · persona · channel · release | Product planning, roadmaps, and ubiquitous language. |
 | **`@specforge/governance`** | decision · constraint · failure_mode | Architecture decisions, non-functional requirements, FMEA risk. |
 | **`@specforge/formal`** | property · axiom · protocol · refinement · process | Formal methods: temporal properties, specification layering, event-graph linting. Enhances software entities. |
+| **`@specforge/rust`** | — | Source analyzer used by inference: maps Rust code to spec entities. |
+| **`@specforge/typescript`** | — | Source analyzer used by inference: maps TypeScript/JavaScript code to spec entities. |
 
 Start with one extension and a single spec file — that already improves agent output. Add more as your project grows. Anyone can author and publish their own extension; the open Graph Protocol is the moat, not the implementation.
 
@@ -94,9 +125,9 @@ specforge outline                    # render the extension architecture
 specforge stats                      # project statistics
 
 # Extensions & registry
-specforge extensions                 # list installed extensions
-specforge add @specforge/product     # install an extension
-specforge remove <name>              # uninstall an extension
+specforge extensions                 # list enabled builtins and installed extensions
+specforge add @specforge/product     # enable a builtin, or install @scope/name@version from a registry
+specforge remove <name>              # disable a builtin, or uninstall an extension
 specforge search <query>             # search registries
 specforge publish                    # publish an extension to a registry
 
@@ -121,7 +152,7 @@ Projects are configured via **`specforge.json`** (like `tsconfig.json`):
 }
 ```
 
-`specforge init` creates this for you with interactive extension selection.
+`specforge init --extensions @specforge/software` creates this for you; `specforge add` / `specforge remove` edit the `extensions` list afterwards.
 
 ## Architecture
 
@@ -132,7 +163,7 @@ Projects are configured via **`specforge.json`** (like `tsconfig.json`):
 
 The implementation is a Rust workspace (edition 2024) under [`crates/`](crates/).
 
-> Building from source requires the `wasm32-unknown-unknown` target (`rustup target add wasm32-unknown-unknown`). The build bootstraps the four builtin extension blobs automatically — no manual step.
+> Building the CLI uses the committed builtin blobs, so it needs no wasm target. Rebuilding the builtins after changing an extension needs `rustup target add wasm32-wasip2`.
 
 ## Documentation
 
