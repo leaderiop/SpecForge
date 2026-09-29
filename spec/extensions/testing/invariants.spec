@@ -9,7 +9,8 @@ invariant te_testable_kinds_from_one_table "Testability, Allowed Verify Kinds, a
     table in the extension. The allowlist W009 enforces is exactly the
     kind's registered verify kinds, so the two can never disagree.
     Testable kinds: behavior, invariant, event, type, port
-    (@specforge/software) and constraint (@specforge/governance).
+    (@specforge/software), constraint and failure_mode
+    (@specforge/governance).
   """
   risk medium
 

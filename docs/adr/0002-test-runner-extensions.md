@@ -14,8 +14,12 @@ We move all test vocabulary out of core and out of `@specforge/software`:
 
 - **`@specforge/testing`** (runner-agnostic builtin) owns the `verify` statement field and its
   kinds, testability of kinds, W004/W009, the coverage analysis (A001/A002/A011–A014) and the
-  normalized test-result format. Core keeps only a generic `keyword [ident] "string"` statement
-  shape; without `@specforge/testing`, `verify` is an unrecognized field (W020).
+  normalized test-result format. Core keeps `verify [kind] "..."` only as reserved syntax, like
+  `method`: every meaning comes from the registry, and on a kind no extension made testable
+  `verify` is an unrecognized field (W020). A fully generic `keyword [ident] "string"` statement was
+  considered and rejected: its bare form `verify "..."` is indistinguishable from an ordinary string
+  field before the registry exists, so the parser, resolver, formatter and editor tooling would all
+  need registry-aware merging for no user-visible gain.
 - **One extension per test runner** (`@specforge/cargo-test` and `@specforge/vitest` first;
   `@specforge/pytest`, `@specforge/jest` later) peer-depends on `@specforge/testing` and contributes
   a *collector*: how to detect the runner, the command that runs it, and a `collect__<runner>`

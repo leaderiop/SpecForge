@@ -221,10 +221,11 @@ behavior detect_unknown_entity_fields "Detect Unknown Entity Fields" {
     each field name against the FieldRegistry for that kind. Every field
     name not present in the FieldRegistry for the entity's kind MUST
     produce a W020 warning diagnostic with the entity's source span, the
-    unrecognized field name, and the entity kind name. Structural fields
-    parsed by dedicated grammar rules (title, verify) MUST NOT
-    be checked against the FieldRegistry — they are grammar-level
-    constructs, not extension-defined fields. When the entity's kind
+    unrecognized field name, and the entity kind name. `title` is
+    structural and MUST NOT be checked against the FieldRegistry.
+    `verify` is reserved syntax whose meaning extensions supply
+    (ADR 0002): it MUST be accepted only on kinds an extension made
+    testable (supports_verify) and produce W020 elsewhere. When the entity's kind
     itself is unregistered (already reported as E024), field validation
     MUST be skipped for that entity to avoid cascading diagnostics.
   """
@@ -233,6 +234,7 @@ behavior detect_unknown_entity_fields "Detect Unknown Entity Fields" {
   verify unit "W020 includes field name, entity kind, and source span"
   verify unit "registered field name does not produce W020"
   verify unit "structural fields (title, verify) not checked against FieldRegistry"
+  verify unit "verify on a kind no extension made testable produces W020"
   verify unit "field validation skipped when entity kind is unregistered"
   verify contract "Detect Unknown Entity Fields: unknown field detection holds — registries_populated_fired, define_blocks_registered_fired, unknown_fields_diagnosed, cascading_avoided"
 }

@@ -71,6 +71,17 @@
         "load",
         "contract"
       ]
+    },
+    {
+      "edge_types": [],
+      "fields": [],
+      "source_extension": "@specforge/governance",
+      "target_kind": "failure_mode",
+      "verify_kinds": [
+        "unit",
+        "integration",
+        "property"
+      ]
     }
   ]
 }

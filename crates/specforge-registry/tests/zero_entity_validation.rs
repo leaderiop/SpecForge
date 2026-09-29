@@ -1039,6 +1039,34 @@ fn structural_fields_not_checked_against_field_registry() {
 
 #[specforge_test(
     behavior = "detect_unknown_entity_fields",
+    verify = "verify on a kind no extension made testable produces W020"
+)]
+#[test]
+fn verify_on_non_testable_kind_produces_w020() {
+    let (mut kind_reg, field_reg, _, _) = populate_registries(&[software_manifest()]);
+    kind_reg.get_mut("behavior").unwrap().supports_verify = false;
+    let entities = vec![(
+        "behavior".to_string(),
+        "b1".to_string(),
+        vec!["title".to_string(), "verify".to_string()],
+        span(),
+    )];
+    let diags = specforge_registry::compilation::detect_unknown_entity_fields(
+        &entities, &kind_reg, &field_reg,
+    );
+    assert_eq!(diags.len(), 1, "only verify is flagged: {diags:?}");
+    assert_eq!(diags[0].code, "W020");
+    assert!(diags[0].message.contains("'verify'"));
+    assert!(
+        diags[0]
+            .suggestion
+            .as_deref()
+            .is_some_and(|s| s.contains("@specforge/testing"))
+    );
+}
+
+#[specforge_test(
+    behavior = "detect_unknown_entity_fields",
     verify = "field validation skipped when entity kind is unregistered"
 )]
 #[test]

@@ -417,7 +417,7 @@ fn refines_and_abstract_fields_drive_layering_end_to_end() {
     let dir = TempDir::new().unwrap();
     fs::write(
         dir.path().join("specforge.json"),
-        r#"{"extensions": ["@specforge/formal", "@specforge/software"]}"#,
+        r#"{"extensions": ["@specforge/formal", "@specforge/software", "@specforge/testing"]}"#,
     )
     .unwrap();
     fs::write(

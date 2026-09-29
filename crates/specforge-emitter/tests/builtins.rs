@@ -122,6 +122,7 @@ fn testing_extension_makes_software_kinds_testable() {
             ("type", "@specforge/software"),
             ("port", "@specforge/software"),
             ("constraint", "@specforge/governance"),
+            ("failure_mode", "@specforge/governance"),
         ]
     );
     let codes: std::collections::BTreeSet<&str> = manifest

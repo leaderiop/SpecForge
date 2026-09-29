@@ -141,45 +141,52 @@ pub fn detect_identifier_length_violations(
 }
 
 /// Detect unknown entity fields by checking each field name against the FieldRegistry.
-/// Structural fields (title, verify) are always valid and skipped.
+/// `title` is structural and always valid. `verify` is reserved syntax whose
+/// meaning comes from extensions (ADR 0002): it is valid only on kinds an
+/// extension made testable (`supports_verify`), e.g. via @specforge/testing.
 /// Entities with unregistered kinds are skipped to avoid cascading diagnostics.
 pub fn detect_unknown_entity_fields(
     entities: &[(String, String, Vec<String>, SourceSpan)], // (kind, id, field_names, span)
     kind_reg: &KindRegistry,
     field_reg: &FieldRegistry,
 ) -> Vec<Diagnostic> {
-    let structural_fields = ["title", "verify"];
     let mut diagnostics = Vec::new();
 
     for (kind, id, field_names, span) in entities {
         // Skip entities with unregistered kinds — already E024
-        if !kind_reg.contains(kind) {
+        let Some(entry) = kind_reg.get(kind) else {
             continue;
-        }
+        };
 
         // Skip entities with open_fields — any field name is valid (e.g., type struct fields, port methods)
-        if let Some(entry) = kind_reg.get(kind)
-            && entry.open_fields
-        {
+        if entry.open_fields {
             continue;
         }
 
         for field_name in field_names {
-            if structural_fields.contains(&field_name.as_str()) {
+            let accepted = match field_name.as_str() {
+                "title" => true,
+                "verify" => entry.supports_verify,
+                _ => field_reg.contains(kind, field_name),
+            };
+            if accepted {
                 continue;
             }
-            if !field_reg.contains(kind, field_name) {
-                diagnostics.push(Diagnostic {
-                    code: "W020".to_string(),
-                    severity: Severity::Warning,
-                    message: format!(
-                        "unrecognized field '{}' on entity '{}' of kind '{}' at {}",
-                        field_name, id, kind, span.file
-                    ),
-                    span: Some(span.clone()),
-                    suggestion: None,
-                });
-            }
+            let suggestion = (field_name == "verify").then(|| {
+                format!(
+                    "'{kind}' accepts no verify obligations: enable an extension that makes it testable (for software kinds, `specforge add @specforge/testing`)"
+                )
+            });
+            diagnostics.push(Diagnostic {
+                code: "W020".to_string(),
+                severity: Severity::Warning,
+                message: format!(
+                    "unrecognized field '{}' on entity '{}' of kind '{}' at {}",
+                    field_name, id, kind, span.file
+                ),
+                span: Some(span.clone()),
+                suggestion,
+            });
         }
     }
 

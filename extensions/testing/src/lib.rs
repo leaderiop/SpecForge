@@ -26,6 +26,9 @@ struct Testable {
     requires_obligations: bool,
 }
 
+/// The reserved statement whose meaning this extension supplies.
+const VERIFY_FIELD: &str = "verify";
+
 const SOFTWARE: &str = "@specforge/software";
 const GOVERNANCE: &str = "@specforge/governance";
 
@@ -66,6 +69,12 @@ const TESTABLE: &[Testable] = &[
         verify_kinds: &["unit", "integration", "property", "load", "contract"],
         requires_obligations: false,
     },
+    Testable {
+        kind: "failure_mode",
+        owner: GOVERNANCE,
+        verify_kinds: &["unit", "integration", "property"],
+        requires_obligations: false,
+    },
 ];
 
 #[specforge_extension_sdk::extension(name = "@specforge/testing", version = "1.0.0")]
@@ -89,6 +98,7 @@ impl Contributions for Testing {
                 c.rule("W004", |r| {
                     r.check(CheckKind::NoVerifyStatements)
                         .target_kind(t.kind)
+                        .field(VERIFY_FIELD)
                         .severity(ValidationSeverity::Warning)
                         .message_template(
                             "{kind} '{id}' is testable but declares no verify obligations and no gherkin scenario",

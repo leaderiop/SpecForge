@@ -6,7 +6,7 @@
       "code": "W004",
       "constraint": null,
       "edge_type": null,
-      "field": null,
+      "field": "verify",
       "message_template": "{kind} '{id}' is testable but declares no verify obligations and no gherkin scenario",
       "severity": "warning",
       "target_kind": "behavior",
@@ -38,7 +38,7 @@
       "code": "W004",
       "constraint": null,
       "edge_type": null,
-      "field": null,
+      "field": "verify",
       "message_template": "{kind} '{id}' is testable but declares no verify obligations and no gherkin scenario",
       "severity": "warning",
       "target_kind": "invariant",
@@ -70,7 +70,7 @@
       "code": "W004",
       "constraint": null,
       "edge_type": null,
-      "field": null,
+      "field": "verify",
       "message_template": "{kind} '{id}' is testable but declares no verify obligations and no gherkin scenario",
       "severity": "warning",
       "target_kind": "event",
@@ -101,7 +101,7 @@
       "code": "W004",
       "constraint": null,
       "edge_type": null,
-      "field": null,
+      "field": "verify",
       "message_template": "{kind} '{id}' is testable but declares no verify obligations and no gherkin scenario",
       "severity": "warning",
       "target_kind": "type",
@@ -130,7 +130,7 @@
       "code": "W004",
       "constraint": null,
       "edge_type": null,
-      "field": null,
+      "field": "verify",
       "message_template": "{kind} '{id}' is testable but declares no verify obligations and no gherkin scenario",
       "severity": "warning",
       "target_kind": "port",
@@ -173,6 +173,25 @@
       "message_template": "entity '{id}' has verify kind '{value}' not in allowed set {allowed}",
       "severity": "warning",
       "target_kind": "constraint",
+      "wasm_function": null
+    },
+    {
+      "check": "verify_kind_allowlist",
+      "code": "W009",
+      "constraint": {
+        "kind": "one_of",
+        "pattern": null,
+        "values": [
+          "unit",
+          "integration",
+          "property"
+        ]
+      },
+      "edge_type": null,
+      "field": null,
+      "message_template": "entity '{id}' has verify kind '{value}' not in allowed set {allowed}",
+      "severity": "warning",
+      "target_kind": "failure_mode",
       "wasm_function": null
     }
   ]

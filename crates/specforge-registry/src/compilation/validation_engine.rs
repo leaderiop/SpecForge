@@ -498,9 +498,13 @@ pub fn execute_pattern(
                 }
             }
             ValidationPatternKind::NoVerifyStatements => {
-                // `abstract true` marks a specification-only entity: its
-                // obligations are carried by the concretes that refine it.
-                !entity.fields.contains_key("verify")
+                // The obligation field is the rule's (`verify` unless the
+                // declaring extension names another), plus gherkin scenarios
+                // (C11-03). `abstract true` marks a specification-only
+                // entity: its obligations are carried by the concretes that
+                // refine it.
+                let obligations = pattern.field.as_deref().unwrap_or("verify");
+                !entity.fields.contains_key(obligations)
                     && !entity.fields.contains_key("gherkin")
                     && entity.fields.get("abstract").map(String::as_str) != Some("true")
             }
