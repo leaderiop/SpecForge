@@ -28,12 +28,6 @@ struct ExportedVerify {
     slug: String,
 }
 
-fn slugify(s: &str) -> String {
-    s.to_lowercase()
-        .replace(' ', "_")
-        .replace(|c: char| !c.is_alphanumeric() && c != '_', "")
-}
-
 fn main() {
     let manifest_dir = PathBuf::from(std::env::var("CARGO_MANIFEST_DIR").unwrap());
     let project_root = manifest_dir.parent().unwrap().parent().unwrap();
@@ -63,7 +57,7 @@ fn main() {
                     .map(|v| ExportedVerify {
                         kind: v.kind.clone(),
                         description: v.description.clone(),
-                        slug: slugify(&v.description),
+                        slug: specforge_common::slug(&v.description),
                     })
                     .collect(),
                 _ => vec![],

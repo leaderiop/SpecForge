@@ -13,4 +13,6 @@ strsim = { workspace = true }
 walkdir = { workspace = true }
 
 [dev-dependencies]
+specforge-test = { workspace = true }
+specforge-test-macros = { workspace = true }
 tempfile = { workspace = true }

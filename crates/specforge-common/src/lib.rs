@@ -3,6 +3,7 @@ pub mod discovery;
 pub mod inference;
 mod interner;
 mod project;
+mod slug;
 mod span;
 pub mod suggest;
 
@@ -19,5 +20,6 @@ pub use inference::{
 };
 pub use interner::Sym;
 pub use project::{InferenceConfig, ProjectConfig, find_project_root, load_project_config};
+pub use slug::slug;
 pub use span::SourceSpan;
 pub use suggest::find_close_match;

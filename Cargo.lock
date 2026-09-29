@@ -2807,6 +2807,8 @@ dependencies = [
  "serde",
  "serde_json",
  "sha2",
+ "specforge-test",
+ "specforge-test-macros",
  "strsim",
  "tempfile",
  "walkdir",

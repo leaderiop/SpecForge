@@ -658,6 +658,24 @@ behavior ingest_collector_report "Ingest Collector Report" {
   verify contract "Ingest Collector Report: collector report ingestion holds — collector_dispatched_fired, graph_available, collector_report_ingested_emitted, runner_results_replaced, unknown_entities_warned, skipped_not_recorded, merged_report_written"
 }
 
+behavior slug_obligation_text "Slug an Obligation Text" {
+  invariants [collector_output_conformance]
+  category   query
+  ensures {
+    one_algorithm "the host and the specforge-test crate slug a text the same way"
+  }
+  contract   """
+    A test named after an obligation carries the obligation's slug:
+    `<=`, `>=`, `<` and `>` become `lte`, `gte`, `lt` and `gt`, spaces
+    become underscores, ASCII letters are lowercased, every other character
+    outside `[a-z0-9_]` is dropped, runs of underscores collapse to one and
+    leading or trailing underscores are trimmed. The host and the
+    `specforge-test` crate each carry this algorithm and are held to the
+    same test vectors, so a name that links in one links in the other.
+  """
+  verify unit "slug matches the shared test vectors"
+}
+
 // -- Discovery & Configuration -----
 
 behavior discover_extensions "Discover Extensions" {

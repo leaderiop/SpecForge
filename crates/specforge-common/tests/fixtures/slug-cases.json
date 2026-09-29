@@ -1,0 +1,14 @@
+[
+  { "text": "missing reference produces E001", "slug": "missing_reference_produces_e001" },
+  { "text": "p99 < 200ms under 1000 concurrent", "slug": "p99_lt_200ms_under_1000_concurrent" },
+  { "text": "latency <= 100ms and throughput >= 500", "slug": "latency_lte_100ms_and_throughput_gte_500" },
+  { "text": "a > b", "slug": "a_gt_b" },
+  { "text": "email uniqueness (under concurrent writes!)", "slug": "email_uniqueness_under_concurrent_writes" },
+  { "text": "foo   bar", "slug": "foo_bar" },
+  { "text": "  leading and trailing  ", "slug": "leading_and_trailing" },
+  { "text": "snake_case stays, __doubles__ collapse", "slug": "snake_case_stays_doubles_collapse" },
+  { "text": "cross-extension link is kept", "slug": "crossextension_link_is_kept" },
+  { "text": "café naïve", "slug": "caf_nave" },
+  { "text": "rejects a duplicate item", "slug": "rejects_a_duplicate_item" },
+  { "text": "", "slug": "" }
+]

@@ -14,6 +14,7 @@ specforge-common = { workspace = true }
 specforge-parser = { workspace = true }
 
 [build-dependencies]
+specforge-common = { workspace = true }
 specforge-parser = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
