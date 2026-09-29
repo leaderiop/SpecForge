@@ -166,7 +166,7 @@ A comprehensive business plan covering 10 areas (executive summary, financials, 
 |------|--------|------|
 | W001 | core | Orphan behavior — not referenced by any feature |
 | W002 | product | Orphan feature — not referenced by any journey |
-| W003 | core | Unused invariant — not referenced by any behavior |
+| W003 | @specforge/software | Unused invariant — not referenced by any behavior |
 | W004 | testing | Unverified testable entity — no `verify` statement |
 | W005 | governance | Unmitigated high-risk invariant — `risk: high` with no failure_mode |
 | W006 | governance | Unconstrained behavior — no constraint coverage |

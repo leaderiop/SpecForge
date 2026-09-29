@@ -15,15 +15,15 @@ SpecForge validates your specs in real time and reports issues as you type. Ever
 ### Errors you will see first
 
 - **E001** -- Syntax error in the spec file
-- **E004** -- Unknown entity kind (check your extensions)
-- **E006** -- Duplicate entity ID in the same scope
-- **E010** -- Unresolved reference (the target entity does not exist)
+- **E002** -- Duplicate entity ID
+- **E003** -- Unresolved reference (the target entity does not exist)
+- **E006** -- Missing required field
 
 ### Warnings to watch for
 
-- **W001** -- Entity has no references (orphan in the graph)
-- **W003** -- Missing recommended field
-- **W010** -- Circular dependency detected
+- **W001** -- Behavior implements no feature (with `@specforge/product`)
+- **W003** -- Invariant that nothing references
+- **W061** -- Reference cycle detected
 
 ## Using diagnostics
 

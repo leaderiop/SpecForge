@@ -54,8 +54,10 @@ behavior se_validate_unused_invariants "W003: Unused Invariants" {
   types [ValidationRulePattern]
 
   contract """
-    Detect invariant entities with no incoming References edges and
-    no enforced_by field entries.
+    Detect invariant entities that nothing references: no behavior lists
+    them in `invariants`, `requires`, `ensures` or `maintains`. This is the
+    only orphan-invariant finding; `analyze coverage` counts them without
+    reporting them again.
   """
 
   requires {
@@ -63,13 +65,11 @@ behavior se_validate_unused_invariants "W003: Unused Invariants" {
   }
 
   ensures {
-    unused_detected        "invariant with no references and no enforced_by produces W003"
-    enforced_by_passes     "invariant with enforced_by field produces no diagnostic"
+    unused_detected        "invariant nothing references produces W003"
     referenced_passes      "invariant with incoming reference edge produces no diagnostic"
   }
 
-  verify unit "invariant with no references and no enforced_by produces W003"
-  verify unit "invariant with enforced_by field passes"
+  verify unit "invariant nothing references produces W003"
   verify unit "invariant with incoming reference edge passes"
 }
 

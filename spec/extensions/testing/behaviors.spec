@@ -84,8 +84,9 @@ behavior te_coverage_pass "Coverage Analysis Pass" {
     analyze coverage`, or `analyze` with every pass) MUST score the
     project at three layers. Intent: a testable entity that declares no
     verify obligations is A001, and an invariant with none is A002, an
-    error when its risk is high. Enforcement: an invariant nothing
-    references is an A011 orphan guarantee. Proof, from the recorded
+    error when its risk is high. Enforcement: invariants nothing
+    references are counted in the summary (the finding is software's
+    W003 from `specforge check`, not repeated here). Proof, from the recorded
     tests (specforge-report.json, which `analyze` reads by default after
     `specforge collect`): a test proves an obligation by naming its text.
     An obligation no passing test names is A015, a test naming an
@@ -99,7 +100,7 @@ behavior te_coverage_pass "Coverage Analysis Pass" {
 
   ensures {
     intent_scored      "entities without obligations are A001, invariants A002"
-    orphans_found      "unreferenced invariants are A011"
+    orphans_counted    "unreferenced invariants are counted, not re-reported"
     proof_recorded     "recorded passing tests prove an entity; a failing one is A014"
     obligations_proven "each obligation needs a passing test that names it (A015); unknown names are A016"
     formal_discharge   "entailed formal claims discharge verify property obligations"

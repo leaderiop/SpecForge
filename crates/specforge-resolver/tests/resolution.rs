@@ -981,7 +981,7 @@ fn relative_import_path_traversal_rejected() {
 
 #[specforge_test(
     behavior = "detect_import_cycles",
-    verify = "W003 carries actionable suggestion"
+    verify = "W113 carries actionable suggestion"
 )]
 fn w113_import_cycle_has_suggestion() {
     let dir = setup_project(&[

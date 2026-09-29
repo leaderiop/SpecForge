@@ -59,18 +59,6 @@ info-level finding for entities that need none.
 Owner: core
 ```
 
-## A011
-
-```
-A011: Orphan invariant
-
-An invariant that nothing references: no behavior lists it in `invariants`,
-`requires`, `ensures` or `maintains`, so no code path is bound to enforce it.
-Reference it from the behaviors that must preserve it, or drop it.
-
-Owner: @specforge/testing
-```
-
 ## A014
 
 ```
@@ -951,9 +939,11 @@ Owner: @specforge/software
 ```
 W003: Unenforced invariant
 
-An `invariant` entity has no incoming edges from any `behavior`, meaning nothing
-enforces it. Add an `enforces` reference from a behavior, or remove the
-invariant if it no longer applies.
+An `invariant` that nothing references: no behavior lists it in `invariants`,
+`requires`, `ensures` or `maintains`, so no code path is bound to preserve it.
+Reference it from the behaviors that must preserve it, or remove it if it no
+longer applies. `specforge analyze coverage` counts these invariants but does
+not report them again.
 
 Owner: @specforge/software
 ```

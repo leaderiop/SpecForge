@@ -198,13 +198,14 @@ fn at(diagnostic: PassDiagnostic, entity: &PassEntity) -> PassDiagnostic {
 ///
 /// - A001: testable entity with no verify obligations (no intent)
 /// - A002: invariant with no verify obligations (an error when high-risk)
-/// - A011: invariant that nothing references (orphan guarantee)
 /// - A014: an entity's recorded tests include failures
 /// - A015: obligations no passing test names (with recorded results)
 /// - A016: tests name obligations the entity doesn't declare
 ///
 /// With recorded results, an entity is proven when it has tests, all of
 /// them pass, and each of its obligations is named by a passing test.
+/// Invariants nothing references are counted (`invariant_orphans`); the
+/// finding itself is software's W003 from `specforge check`.
 #[specforge_extension_sdk::compiler_pass(name = "coverage", after = "resolve")]
 fn pass_coverage(input: &PassInput) -> PassOutput {
     let proved: Option<BTreeSet<&str>> = input
@@ -346,16 +347,6 @@ fn pass_coverage(input: &PassInput) -> PassOutput {
             tally.0 += 1;
             if entity.incoming_edge_count == 0 {
                 invariant_orphans += 1;
-                findings.push(at(
-                    PassDiagnostic::warning(
-                        "A011",
-                        format!("invariant '{id}' is an orphan guarantee: nothing references it"),
-                    )
-                    .with_suggestion(
-                        "reference it from a behavior (invariants list, requires, ensures, or maintains) or drop the invariant",
-                    ),
-                    entity,
-                ));
             }
             if obligations == 0 {
                 tally.1 += 1;

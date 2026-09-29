@@ -13,7 +13,7 @@ makes "which runner, which report, which linkage" a core concern instead of an e
 We move all test vocabulary out of core and out of `@specforge/software`:
 
 - **`@specforge/testing`** (runner-agnostic builtin) owns the `verify` statement field and its
-  kinds, testability of kinds, W004/W009, the coverage analysis (A001/A002/A011–A014) and the
+  kinds, testability of kinds, W004/W009, the coverage analysis (A001/A002/A011–A014; A011 was later dropped as a duplicate of W003, and A015/A016 added) and the
   normalized test-result format. Core keeps `verify [kind] "..."` only as reserved syntax, like
   `method`: every meaning comes from the registry, and on a kind no extension made testable
   `verify` is an unrecognized field (W020). A fully generic `keyword [ident] "string"` statement was

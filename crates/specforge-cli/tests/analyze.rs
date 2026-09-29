@@ -137,7 +137,8 @@ fn analyze_single_pass_selection() {
 )]
 fn analyze_enforcement_maps_invariant_references() {
     // invariant referenced by a behavior via `invariants [...]` -> enforced;
-    // an unreferenced invariant is an orphan guarantee (A011 warning).
+    // an unreferenced invariant is counted as an orphan. Reporting it is
+    // W003's job in `check`, so analyze emits no finding for it.
     let spec = r#"
 invariant held "Held" {
   guarantee "g"
@@ -165,21 +166,55 @@ behavior keeper "Keeper" {
     assert_eq!(coverage["summary"]["invariant_enforced"], 1);
     assert_eq!(coverage["summary"]["invariant_orphans"], 1);
 
-    let a011: Vec<&serde_json::Value> = coverage["findings"]
+    assert!(
+        coverage["findings"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .all(|f| !f["message"].as_str().unwrap().contains("'orphan'")),
+        "the orphan is counted, not reported: {coverage}"
+    );
+}
+
+#[specforge_test(
+    behavior = "se_validate_unused_invariants",
+    verify = "invariant nothing references produces W003"
+)]
+#[specforge_test(
+    behavior = "se_validate_unused_invariants",
+    verify = "invariant with incoming reference edge passes"
+)]
+fn check_reports_an_unreferenced_invariant_as_w003() {
+    let dir = TempDir::new().unwrap();
+    fs::write(
+        dir.path().join("specforge.json"),
+        r#"{"extensions": ["@specforge/software"]}"#,
+    )
+    .unwrap();
+    fs::write(
+        dir.path().join("main.spec"),
+        concat!(
+            "invariant held \"Held\" {\n  guarantee \"g\"\n}\n",
+            "invariant orphan \"Orphan\" {\n  guarantee \"g\"\n}\n",
+            "behavior keeper \"Keeper\" {\n  contract \"c\"\n  invariants [held]\n}\n",
+        ),
+    )
+    .unwrap();
+    let output = specforge_cmd()
+        .args(["check", "--format=json"])
+        .arg(dir.path())
+        .output()
+        .unwrap();
+    let diagnostics: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
+    let w003: Vec<&str> = diagnostics
         .as_array()
         .unwrap()
         .iter()
-        .filter(|f| f["code"] == "A011")
+        .filter(|d| d["code"] == "W003")
+        .map(|d| d["message"].as_str().unwrap())
         .collect();
-    assert_eq!(a011.len(), 1, "exactly one orphan: {a011:?}");
-    assert!(
-        a011[0]["message"].as_str().unwrap().contains("orphan"),
-        "A011 message: {a011:?}"
-    );
-
-    // --strict promotes the orphan warning to a failure.
-    let (_, code) = json_body(&dir, &["--strict"]);
-    assert_eq!(code, 1, "--strict must fail on the orphan warning");
+    assert_eq!(w003.len(), 1, "{diagnostics}");
+    assert!(w003[0].contains("'orphan'"), "{w003:?}");
 }
 
 #[specforge_test(

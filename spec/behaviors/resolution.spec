@@ -70,7 +70,7 @@ behavior detect_import_cycles "Detect Import Cycles" {
   verify unit "detect transitive cycle across three files"
   verify unit "non-cyclic files still process when a cycle exists"
   verify contract "Detect Import Cycles: import cycle detection holds — import_graph_available, cycles_detected, cycle_diagnostic_emitted, non_cyclic_unaffected"
-  verify unit "W003 carries actionable suggestion"
+  verify unit "W113 carries actionable suggestion"
 }
 
 behavior link_entity_references "Link Entity References" {

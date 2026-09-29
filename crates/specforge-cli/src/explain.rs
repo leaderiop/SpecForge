@@ -136,12 +136,6 @@ pub const CATALOG: &[CodeEntry] = &[
         explanation: "`specforge analyze contracts` found an entity whose kind registers contract reference fields (`requires`, `ensures`, `maintains`, ...) that declares none of them, so no invariant constrains it. Add the references, or ignore this info-level finding for entities that need none.",
     },
     CodeEntry {
-        code: "A011",
-        title: "Orphan invariant",
-        owner: "@specforge/testing",
-        explanation: "An invariant that nothing references: no behavior lists it in `invariants`, `requires`, `ensures` or `maintains`, so no code path is bound to enforce it. Reference it from the behaviors that must preserve it, or drop it.",
-    },
-    CodeEntry {
         code: "A014",
         title: "Failing tests",
         owner: "@specforge/testing",
@@ -571,7 +565,7 @@ pub const CATALOG: &[CodeEntry] = &[
         code: "W003",
         title: "Unenforced invariant",
         owner: "@specforge/software",
-        explanation: "An `invariant` entity has no incoming edges from any `behavior`, meaning nothing enforces it. Add an `enforces` reference from a behavior, or remove the invariant if it no longer applies.",
+        explanation: "An `invariant` that nothing references: no behavior lists it in `invariants`, `requires`, `ensures` or `maintains`, so no code path is bound to preserve it. Reference it from the behaviors that must preserve it, or remove it if it no longer applies. `specforge analyze coverage` counts these invariants but does not report them again.",
     },
     CodeEntry {
         code: "W004",

@@ -117,7 +117,7 @@ fn partition_by_file(diagnostics: &[Diagnostic]) -> HashMap<String, Vec<Diagnost
     map
 }
 
-/// W003 import-cycle diagnostics for the current DAG.
+/// W113 import-cycle diagnostics for the current DAG.
 fn cycle_diagnostics(import_dag: &ImportDag) -> Vec<Diagnostic> {
     let mut diags = Vec::new();
     for cycle in import_dag.detect_cycles() {
