@@ -11,7 +11,12 @@ use std::path::{Path, PathBuf};
 /// Each corpus is checked by this path from the repository root; the root
 /// `specforge.json` is the project config of `spec` and
 /// `integrations/rust/spec`.
-const CORPORA: &[&str] = &["spec", "examples/todo-app", "integrations/rust/spec"];
+const CORPORA: &[&str] = &[
+    "spec",
+    "examples/todo-app",
+    "examples/shop",
+    "integrations/rust/spec",
+];
 
 fn repo_root() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR")).join("../..")

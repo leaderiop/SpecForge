@@ -1,0 +1,11 @@
+[package]
+name = "shop"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+# Standalone: not a member of the SpecForge workspace.
+[workspace]
+
+[dev-dependencies]
+specforge-test = { path = "../../integrations/rust/specforge-test" }

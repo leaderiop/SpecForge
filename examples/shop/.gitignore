@@ -1,0 +1,4 @@
+specforge-infer.json
+specforge-report.json
+.specforge/
+/target

@@ -20,7 +20,7 @@ cd "$ROOT"
 LOGS=target/gate
 EXT_TARGET="$ROOT/target/ext"
 SPECFORGE=target/debug/specforge
-CORPORA=(spec integrations/rust/spec examples/todo-app)
+CORPORA=(spec integrations/rust/spec examples/todo-app examples/shop)
 mkdir -p "$LOGS"
 rm -f "$LOGS"/*.status
 

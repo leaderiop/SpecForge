@@ -108,6 +108,8 @@ Learn to write `.spec` files:
 - **[Extending SpecForge](guides/extending-specforge.md)** — the extension-authoring tutorial: scaffold a Wasm extension, contribute kinds/fields/rules, write compiler passes, build and install.
 - **[Formal Verification](guides/formal-verification.md)** — machine-checkable bounds and claims: the expression language, `metric expr { }`, SMT-proven consistency and entailment, counterexamples, discharge linkage.
 - **[Worked Example: todo-app](../examples/todo-app/)** — a complete, validated reference project.
+- **[Rust test tracing](guides/rust-test-tracing.md)** and **[vitest test tracing](guides/vitest-test-tracing.md)** — link tests to the obligations they prove; `specforge collect` and `analyze coverage`.
+- **[Demo script](demo.md)** — a 10-minute walkthrough on `examples/shop`: spec, check, agent context, tests, coverage.
 
 ## Quick Reference
 
