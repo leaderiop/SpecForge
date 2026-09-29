@@ -20,25 +20,32 @@ behavior enforce_wasm_sandbox "Enforce Wasm Sandbox" {
 
   ensures {
     memory_limit_enforced "memory limits are enforced via runtime's linear memory cap"
-    execution_time_enforced "execution time limits are enforced via fuel metering"
+    execution_time_enforced "execution time limits are enforced: wall-clock by epoch interruption, instructions by fuel metering"
+    deadline_never_early    "a call is never interrupted before its max_execution_ms budget has elapsed"
     violations_trapped "sandbox violations trap the extension and emit a diagnostic"
   }
 
   contract """
     The runtime MUST enforce the sandbox policy for each extension: memory
     limits via the runtime's linear memory cap, execution time limits via
-    fuel metering, filesystem restrictions via host function validation,
+    epoch interruption (wall-clock max_execution_ms, checked by a background
+    ticker every 10 ms) and fuel metering (a deterministic instruction
+    budget), filesystem restrictions via host function validation,
     and network restrictions via domain allowlists. Violations MUST
-    trap the extension and emit a diagnostic.
+    trap the extension and emit a diagnostic. The wall-clock deadline MUST
+    never interrupt a call before its budget has elapsed, whatever the
+    ticker's phase when the call starts, and SHOULD overshoot it by no more
+    than two ticks plus scheduling delay.
   """
 
   produces [wasm_sandbox_violation]
 
   verify unit "memory limit enforced via linear memory cap"
   verify unit "execution time limit enforced via fuel metering"
+  verify unit "the execution deadline never interrupts a call before its budget"
   verify unit "filesystem restriction enforced"
   verify unit "network restriction enforced"
-  verify contract "Enforce Wasm Sandbox: Wasm sandbox enforcement holds — sandbox_policy_configured, wasm_runtime_available, memory_limit_enforced, execution_time_enforced, violations_trapped"
+  verify contract "Enforce Wasm Sandbox: Wasm sandbox enforcement holds — sandbox_policy_configured, wasm_runtime_available, memory_limit_enforced, execution_time_enforced, deadline_never_early, violations_trapped"
 }
 
 behavior compile_wasm_component_with_cache "Compile Wasm Component With Cache" {

@@ -15,3 +15,5 @@ wit-bindgen = "0.30"
 tempfile = { workspace = true }
 wat = "=1.258.0"
 serde_json = { workspace = true }
+specforge-test = { workspace = true }
+specforge-test-macros = { workspace = true }

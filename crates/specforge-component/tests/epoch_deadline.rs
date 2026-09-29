@@ -12,6 +12,7 @@ use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 use specforge_component::ComponentRuntime;
+use specforge_test_macros::test as specforge_test;
 use specforge_wasm::runtime::{WasmCallResult, WasmRuntime};
 
 /// A component exporting the `specforge:bridge` `call` func whose body is an
@@ -69,7 +70,10 @@ fn trap_kind(result: &WasmCallResult) -> String {
     }
 }
 
-#[test]
+#[specforge_test(
+    behavior = "enforce_wasm_sandbox",
+    verify = "the execution deadline never interrupts a call before its budget"
+)]
 fn execution_deadline_traps_long_running_export() {
     let runtime = ComponentRuntime::new();
     runtime
@@ -81,8 +85,9 @@ fn execution_deadline_traps_long_running_export() {
     let result = runtime.call_export("@spin", "__handshake", b"");
     let elapsed = start.elapsed();
 
-    // 50 ms budget = 5 epoch ticks: this can only trap if the background
-    // ticker thread is actually advancing the engine epoch.
+    // A 50 ms budget is 5 intervals plus one tick for the ticker's unknown
+    // phase: this can only trap if the background ticker thread is actually
+    // advancing the engine epoch, and never before the budget has elapsed.
     assert_eq!(trap_kind(&result), "deadline_exceeded");
     assert!(
         elapsed >= Duration::from_millis(50),

@@ -60,15 +60,27 @@ struct PluginInstance {
 pub const DEFAULT_FUEL_LIMIT: u64 = 30_000 * 20_000_000;
 
 /// Granularity of the epoch ticker: a plugin's `max_execution_ms` deadline is
-/// enforced with a worst-case overshoot of this much wall-clock time. 10 ms
-/// keeps deadline precision well under any meaningful budget while the ticker
-/// thread costs one wakeup per interval per process.
+/// never enforced early, and overshoots by at most two of these intervals
+/// (plus scheduling delay). 10 ms keeps deadline precision well under any
+/// meaningful budget while the ticker thread costs one wakeup per interval
+/// per process.
 pub const EPOCH_TICK_MS: u64 = 10;
 
-/// Converts a wall-clock millisecond budget into a number of epoch ticks
-/// (rounded up), so any positive budget gets at least one tick.
+/// Converts a wall-clock millisecond budget into a number of epoch ticks.
+///
+/// The ticker runs continuously, so the first tick after a call starts can
+/// arrive at any point within one interval — even immediately. Consecutive
+/// ticks are at least [`EPOCH_TICK_MS`] apart (`sleep` never wakes early), so
+/// `n` ticks guarantee only `(n - 1)` full intervals. A positive budget
+/// therefore gets one tick more than it covers: the call is never
+/// interrupted before `deadline_ms` has elapsed. Zero stays zero (trap at the
+/// first checkpoint).
 fn ms_to_ticks(deadline_ms: u64) -> u64 {
-    deadline_ms.div_ceil(EPOCH_TICK_MS)
+    if deadline_ms == 0 {
+        0
+    } else {
+        deadline_ms.div_ceil(EPOCH_TICK_MS) + 1
+    }
 }
 
 /// Background thread that increments the engine epoch every
@@ -401,11 +413,17 @@ mod deadline_tests {
     use super::{EPOCH_TICK_MS, ms_to_ticks};
 
     #[test]
-    fn ms_to_ticks_rounds_up_per_tick_period() {
+    fn ms_to_ticks_never_undercounts_the_budget() {
         assert_eq!(ms_to_ticks(0), 0, "zero budget means trap immediately");
-        assert_eq!(ms_to_ticks(1), 1, "any positive budget gets a tick");
-        assert_eq!(ms_to_ticks(EPOCH_TICK_MS), 1);
-        assert_eq!(ms_to_ticks(EPOCH_TICK_MS + 1), 2, "partial ticks round up");
-        assert_eq!(ms_to_ticks(30_000), 3_000);
+        // One tick for the unknown phase of the first tick, plus the
+        // intervals the budget covers (rounded up).
+        assert_eq!(ms_to_ticks(1), 2);
+        assert_eq!(ms_to_ticks(EPOCH_TICK_MS), 2);
+        assert_eq!(ms_to_ticks(EPOCH_TICK_MS + 1), 3, "partial ticks round up");
+        assert_eq!(ms_to_ticks(30_000), 3_001);
+        // n ticks guarantee (n - 1) full intervals: always at least the budget.
+        for ms in [1, 9, 10, 11, 49, 50, 51, 5_000] {
+            assert!((ms_to_ticks(ms) - 1) * EPOCH_TICK_MS >= ms, "{ms} ms");
+        }
     }
 }
