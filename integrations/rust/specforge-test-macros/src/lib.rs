@@ -9,6 +9,7 @@
 
 use proc_macro::TokenStream;
 use quote::quote;
+use syn::ext::IdentExt;
 use syn::parse::{Parse, ParseStream};
 use syn::{Attribute, Ident, ItemFn, LitStr, Token};
 
@@ -23,11 +24,12 @@ struct TestAttr {
 
 impl Parse for TestAttr {
     fn parse(input: ParseStream) -> syn::Result<Self> {
-        let kind_ident: Ident = input.parse()?;
+        // Entity kinds can be Rust keywords (`type`), so accept any ident.
+        let kind_ident = Ident::parse_any(input)?;
         let _eq: Token![=] = input.parse()?;
         let id_lit: LitStr = input.parse()?;
 
-        let entity_kind = kind_ident.to_string();
+        let entity_kind = kind_ident.unraw().to_string();
 
         let mut verify = None;
         let mut guard_only = false;
@@ -42,12 +44,15 @@ impl Parse for TestAttr {
                 guard_only = true;
                 continue;
             }
+            if key != "verify" {
+                return Err(syn::Error::new(
+                    key.span(),
+                    format!("unknown argument `{key}`: expected `verify = \"...\"`"),
+                ));
+            }
             let _eq: Token![=] = input.parse()?;
             let val: LitStr = input.parse()?;
-
-            if key == "verify" {
-                verify = Some(val.value());
-            }
+            verify = Some(val.value());
         }
 
         Ok(TestAttr {

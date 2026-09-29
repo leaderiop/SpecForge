@@ -10,3 +10,9 @@
 fn the_attribute_alone_registers_the_test() {
     assert_eq!(1 + 1, 2);
 }
+
+/// Entity kinds that are Rust keywords are accepted as written.
+#[specforge_test_macros::test(type = "TestGuard")]
+fn a_keyword_entity_kind_is_accepted() {
+    assert_eq!(1 + 1, 2);
+}
