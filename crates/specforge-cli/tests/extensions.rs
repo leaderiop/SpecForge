@@ -745,10 +745,15 @@ fn doctor_contract() {
 )]
 fn add_validates_registry_specifier() {
     let dir = TempDir::new().unwrap();
-
-    // specforge add now attempts a real download from the registry.
-    // Without a running registry, it will fail with a network error.
-    // This test verifies the specifier is parsed correctly and the error is structured.
+    // A registry nothing listens on (port 9, discard): the connection is
+    // refused at once, so the test never reaches the network or waits on a
+    // timeout. The specifier must parse and the failure be structured.
+    fs::write(
+        dir.path().join("specforge.json"),
+        r#"{"name":"t","version":"0.1.0","extensions":[],
+            "registries":[{"alias":"local","url":"http://127.0.0.1:9/v1","default_registry":true}]}"#,
+    )
+    .unwrap();
     let output = specforge_cmd()
         .args(["add", "@acme/widget@1.0.0", "--path"])
         .arg(dir.path())

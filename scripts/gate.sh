@@ -185,7 +185,7 @@ run_quick() {
         # features), but run only the changed crates' tests.
         local filter
         filter=$(printf 'package(=%s) | ' "${pkgs[@]}")
-        step nextest cargo nextest run --workspace --profile gate -E "${filter% | }"
+        step nextest cargo nextest run --workspace --profile quick -E "${filter% | }"
         step clippy cargo clippy -q --workspace --all-targets -- -D warnings
         if printf '%s\n' "${pkgs[@]}" | grep -qxF -f <(doctest_packages); then
             # shellcheck disable=SC2046

@@ -86,6 +86,11 @@ tempfile = "3.26.0"
 specforge-test = { path = "integrations/rust/specforge-test" }
 specforge-test-macros = { path = "integrations/rust/specforge-test-macros" }
 
+[profile.dev]
+# Line tables only: backtraces keep file:line, and binaries stay small, so
+# they link faster (and, on macOS, pass the first-launch scan faster).
+debug = "line-tables-only"
+
 [profile.test]
 opt-level = 1
 debug = "line-tables-only"
