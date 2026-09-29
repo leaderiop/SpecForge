@@ -353,7 +353,7 @@ milestone software_extension_v1 "Phase 11a: @specforge/software Extension v1" {
   owner       "specforge-team"
   contributors ["specforge-team"]
   depends_on  [zero_entity_core, wasm_runtime]
-  features    [se_core_entity_kinds, se_validation_suite, se_gherkin_bridge, se_formal_contracts, se_formal_refinement, se_formal_concurrency, se_proof_obligations, se_analyze_commands]
+  features    [se_core_entity_kinds, se_validation_suite, se_gherkin_bridge]
   modules     [specforge_package_software]
   tags        ["h2", "extension"]
   exit_criteria [

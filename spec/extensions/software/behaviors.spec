@@ -75,7 +75,7 @@ behavior se_register_edge_types "Register Software Edge Types" {
 
 behavior se_register_field_definitions "Register Software Field Definitions" {
   category command
-  types [ManifestField, ManifestEntityKind, BehaviorCategory, PortDirection, TypeDefKind, TypeFieldDef, RiskLevel, ProofObligationKind]
+  types [ManifestField, ManifestEntityKind, BehaviorCategory, PortDirection, TypeDefKind, TypeFieldDef, RiskLevel]
 
   contract """
     The @specforge/software extension MUST register field definitions for

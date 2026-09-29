@@ -142,33 +142,3 @@ type TypeFieldDef {
 // Core VerifyKind (types/core.spec) remains an open string.
 type SoftwareVerifyKind = unit | integration | property | load | e2e
                         | contract | refinement | trace | deadlock_free | liveness | mutation
-
-// ── Proof Obligation Types ───────────────────────────────────
-
-type ProofObligation {
-  entityId       EntityId         @readonly
-  kind           ProofObligationKind
-  description    string
-  status         ProofDischargeStatus
-  dischargedBy   string           @optional
-  verify unit "ProofObligation schema is valid"
-  tests ["crates/specforge-wasm/tests/protocol_types.rs", "crates/specforge-emitter/tests/builtins.rs"]
-}
-
-type ConcurrencyAnalysisReport {
-  deadlock_count     integer
-  livelock_risks     integer
-  unmatched_count    integer
-  channel_mismatches integer
-  timed_out          boolean          @optional
-  verify unit "ConcurrencyAnalysisReport schema is valid"
-  tests ["crates/specforge-wasm/tests/protocol_types.rs", "crates/specforge-emitter/tests/builtins.rs"]
-}
-
-type ProofObligationKind = contract_preservation | invariant_preservation | refinement_correctness
-
-type ProofDischargeStatus = pending | auto_proved | test_verified
-
-// ── Progressive Formality Levels (RES-25) ────────────────────
-
-type FormalityLevel = prose | entity_graph | contracts | invariants | proofs

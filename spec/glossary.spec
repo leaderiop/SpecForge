@@ -560,7 +560,7 @@ term t_specification_depth_level "specification depth level" {
     prose, entity_graph, conditions, invariants, proofs. Each level adds
     machine-checkable rigor without requiring the next. Per RES-25.
   """
-  aliases ["progressive formality", "formality levels", "FormalityLevel"]
+  aliases ["progressive formality", "formality levels"]
 }
 
 term t_formal_property "formal property" {

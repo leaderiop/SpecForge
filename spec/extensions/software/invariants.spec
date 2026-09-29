@@ -78,36 +78,6 @@ invariant se_edge_consistency "Edge-Field Mapping Consistency" {
 
 }
 
-invariant se_refinement_dag "Refinement DAG" {
-  guarantee """
-    The refines edges between behaviors MUST form a directed acyclic
-    graph (DAG). Cycles in refinement chains MUST produce E041 error
-    diagnostics. This ensures well-founded refinement from abstract
-    specifications to concrete implementations.
-  """
-  risk high
-
-  verify property "refines edges form a DAG with no cycles"
-  verify unit "cycle in refinement chain produces E041"
-    tests ["crates/specforge-emitter/tests/builtins.rs"]
-
-}
-
-invariant se_formal_contract_consistency "Formal Contract Consistency" {
-  guarantee """
-    In an ensures block, condition descriptions MUST NOT reference
-    identifiers that are absent from the corresponding requires block
-    or the entity's own scope (types, ports, invariants fields). This
-    prevents postconditions from depending on undefined state.
-  """
-  risk medium
-
-  verify unit "ensures referencing unknown identifier detected"
-  verify unit "ensures referencing requires identifier passes"
-    tests ["crates/specforge-emitter/tests/builtins.rs"]
-
-}
-
 invariant se_event_trigger_validity "Event Trigger Validity" {
   guarantee """
     An event's trigger field MUST reference a behavior entity. Events
