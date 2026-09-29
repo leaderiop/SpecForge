@@ -7,7 +7,7 @@ use crate::state::McpState;
 /// Entity ids with recorded tests in the project's `specforge-report.json`
 /// (written by `specforge collect`). Tests link themselves to entities by
 /// annotation (ADR 0002), so recorded results are the linkage.
-fn entities_with_recorded_tests(state: &McpState) -> std::collections::HashSet<String> {
+pub(crate) fn entities_with_recorded_tests(state: &McpState) -> std::collections::HashSet<String> {
     let Some(root) = &state.project_root else {
         return Default::default();
     };

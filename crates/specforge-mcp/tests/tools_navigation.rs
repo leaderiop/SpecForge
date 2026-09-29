@@ -152,6 +152,64 @@ fn inspect_unknown_entity() {
     );
 }
 
+#[specforge_test(
+    behavior = "provide_mcp_inspect_tool",
+    verify = "response includes every field, like an invariant's guarantee"
+)]
+fn inspect_returns_every_field() {
+    let mut server = test_server();
+    let mut fields = FieldMap::new();
+    fields.push(
+        "guarantee".into(),
+        FieldValue::String("Ids MUST be unique".into()),
+    );
+    fields.push("risk".into(), FieldValue::Identifier("medium".into()));
+    server.state_mut().graph.add_node(Node {
+        id: EntityId {
+            raw: "unique_ids".into(),
+        },
+        kind: EntityKind {
+            raw: "invariant".into(),
+        },
+        title: Some("Unique ids".into()),
+        fields,
+        source_span: span(),
+        methods: Vec::new(),
+    });
+    let resp = call_tool(
+        &mut server,
+        "specforge.inspect",
+        json!({"entity_id": "unique_ids"}),
+    );
+    let parsed: Value = serde_json::from_str(&tool_text(&resp)).unwrap();
+    assert_eq!(parsed["fields"]["guarantee"], "Ids MUST be unique");
+    assert_eq!(parsed["fields"]["risk"], "medium");
+    assert!(parsed["contract"].is_null(), "an invariant has no contract");
+}
+
+#[specforge_test(
+    behavior = "provide_mcp_inspect_tool",
+    verify = "coverage status counts the recorded test results"
+)]
+fn inspect_coverage_counts_recorded_tests() {
+    let mut server = test_server();
+    let status = |server: &mut McpServer| {
+        let resp = call_tool(server, "specforge.inspect", json!({"entity_id": "alpha"}));
+        let parsed: Value = serde_json::from_str(&tool_text(&resp)).unwrap();
+        parsed["coverage_status"].as_str().unwrap().to_string()
+    };
+    assert_eq!(status(&mut server), "partial");
+
+    let project = tempfile::tempdir().unwrap();
+    std::fs::write(
+        project.path().join("specforge-report.json"),
+        r#"{"results":{"alpha":{"tests":[{"name":"t","status":"passed"}]}}}"#,
+    )
+    .unwrap();
+    server.state_mut().project_root = Some(project.path().to_path_buf());
+    assert_eq!(status(&mut server), "covered", "as specforge.coverage says");
+}
+
 // --- specforge.find_definition ---
 
 // B:provide_mcp_find_definition_tool — verify unit "returns source location"

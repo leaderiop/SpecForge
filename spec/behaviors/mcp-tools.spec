@@ -359,7 +359,11 @@ behavior provide_mcp_inspect_tool "Provide MCP Inspect Tool" {
     In MCP server mode, the system MUST register a specforge.inspect tool that
     accepts entity_id (required). The tool MUST return full entity details
     including kind, fields, contract text, references, verify declarations,
-    coverage status, and related diagnostics. LSP equivalence: this tool
+    coverage status, and related diagnostics. The fields MUST include every
+    field the entity declares, whatever its kind names them (an invariant's
+    guarantee, a decision's rationale), not just contract. The coverage status
+    MUST count the recorded test results in specforge-report.json exactly as
+    specforge.coverage does. LSP equivalence: this tool
     mirrors textDocument/hover, providing the same entity detail an IDE shows
     on hover but over the MCP transport. If the entity does not exist, the
     tool MUST return an error response.
@@ -367,6 +371,8 @@ behavior provide_mcp_inspect_tool "Provide MCP Inspect Tool" {
   verify unit "specforge.inspect returns full entity details"
   verify unit "response includes references and verify declarations"
   verify unit "non-existent entity returns error response"
+  verify unit "response includes every field, like an invariant's guarantee"
+  verify unit "coverage status counts the recorded test results"
   verify contract "Provide MCP Inspect Tool: MCP inspect tool holds — graph_available, entity_details_returned, tool_invoked_emitted"
 }
 

@@ -32,7 +32,8 @@ pub(crate) struct JsonEdge {
     pub label: String,
 }
 
-pub(crate) fn field_map_to_json(fields: &FieldMap) -> BTreeMap<String, Value> {
+/// Every field of an entity as plain JSON, keyed by field name.
+pub fn field_map_to_json(fields: &FieldMap) -> BTreeMap<String, Value> {
     let mut map = BTreeMap::new();
     for entry in fields.entries() {
         map.insert(entry.key.to_string(), field_value_to_json(&entry.value));

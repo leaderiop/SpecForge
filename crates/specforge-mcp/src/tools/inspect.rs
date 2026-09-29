@@ -74,7 +74,13 @@ pub fn call(state: &McpState, args: Value, id: Option<Value>) -> JsonRpcResponse
         })
         .collect();
 
-    let coverage_status = if has_verify { "partial" } else { "uncovered" };
+    // The same classification `specforge.coverage` reports.
+    let has_tests = super::coverage::entities_with_recorded_tests(state).contains(entity_id);
+    let coverage_status = match (has_verify, has_tests) {
+        (true, true) => "covered",
+        (true, false) => "partial",
+        (false, _) => "uncovered",
+    };
 
     let result = serde_json::json!({
         "entity_id": node.id.raw,
@@ -90,6 +96,9 @@ pub fn call(state: &McpState, args: Value, id: Option<Value>) -> JsonRpcResponse
             "end_col": node.source_span.end_col,
         },
         "contract": contract,
+        // Every field, whatever the kind names its text: an invariant's
+        // `guarantee`, a decision's `rationale`, a feature's `description`.
+        "fields": specforge_emitter::field_map_to_json(&node.fields),
         "verify_declarations": verify_declarations,
         "references": references,
         "coverage_status": coverage_status,
