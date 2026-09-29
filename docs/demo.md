@@ -133,7 +133,5 @@ the next run.
 - Windows: not supported yet.
 - jest, pytest and Playwright projects: no runner extension yet (vitest and
   cargo are supported).
-- Rust tests without `#[specforge_test]`: naming-convention linkage isn't
-  built yet.
 - `specforge analyze` on SpecForge's own spec: it honestly lists ~1,375
   obligations without a test, which reads badly out of context.

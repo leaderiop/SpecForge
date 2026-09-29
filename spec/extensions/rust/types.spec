@@ -24,7 +24,7 @@ type EntityMappingEntry {
   verify unit "EntityMappingEntry schema is valid"
 }
 
-type MappingResolutionLevel = proc_macro | naming_convention
+type MappingResolutionLevel = proc_macro | convention
 
 type RustFrameworkSupport {
   framework RustFramework

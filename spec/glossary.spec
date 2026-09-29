@@ -643,7 +643,9 @@ term t_naming_convention "naming convention" {
   definition """
     The convention for Rust test function names that enables convention-based
     entity mapping: {entity_id}__{description_slug}. The double underscore
-    separates the entity ID from the test description.
+    separates the entity ID from the test description. A test whose name
+    carries no entity is linked to the innermost enclosing module named
+    after one. `specforge collect` applies it to plain `#[test]` functions.
   """
   see_also   [t_double_underscore_separator]
 }

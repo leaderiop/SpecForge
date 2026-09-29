@@ -263,7 +263,7 @@ Each test runner has its own extension that requires `@specforge/testing` and co
 
 | Extension | Detected by | Command | How a test links to its entity |
 |-----------|-------------|---------|--------------------------------|
-| `@specforge/cargo-test` | `Cargo.toml` | `cargo test --workspace --no-fail-fast` | `#[specforge_test(behavior = "...", verify = "...")]` |
+| `@specforge/cargo-test` | `Cargo.toml` | `cargo test --workspace --no-fail-fast` (stdout captured) | `#[specforge_test(behavior = "...", verify = "...")]`, or plain tests named `entity_id__obligation_slug` or inside `mod entity_id` |
 | `@specforge/vitest` | `vitest.config.*`, `vitest.workspace.*` | `npx --no vitest run` with the JSON reporter | `meta: { specforge: { behavior: "...", verify: "..." } }` |
 
 ### Notes

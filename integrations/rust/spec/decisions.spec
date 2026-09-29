@@ -103,7 +103,8 @@ decision convention_as_fallback "Convention Mapping as Fallback" {
     Convention-based mapping is the fallback tier: module name matches
     entity ID, or double-underscore naming {entity_id}__{slug} in
     function names. The proc macro is primary; conventions are for edge
-    cases and zero-dependency adoption.
+    cases and zero-dependency adoption. `specforge collect` applies them
+    to the plain tests @specforge/cargo-test reads in libtest's output.
   """
   consequences """
     Positive: zero-dependency path exists, works with proptest decl macros.
