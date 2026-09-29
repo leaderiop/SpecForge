@@ -23,6 +23,7 @@ mod extension_authoring;
 mod extensions;
 #[allow(deprecated)]
 mod format;
+mod format_corpus;
 mod init;
 #[allow(deprecated)]
 mod migrate;
