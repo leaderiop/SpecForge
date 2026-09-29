@@ -256,12 +256,16 @@ behavior register_entity_enhancements "Register Entity Enhancements" {
     FieldRegistry, and register any dynamic edge types. Registration
     MUST happen before the resolve phase begins. The order of
     registration MUST follow the extensions array order in specforge.json.
+    An enhancement that names another extension as the target kind's owner
+    is conditional: when that owner is not loaded the enhancement MUST be
+    skipped without a diagnostic, because the project does not use it.
   """
 
   produces [enhancement_registered]
 
   verify unit "enhancement fields registered in FieldRegistry"
   verify unit "unknown target entity kind produces error"
+  verify unit "enhancement of a kind owned by an extension that is not loaded is skipped silently"
   verify unit "enhanced reference fields create graph edges"
   verify unit "enhanced data fields participate in type validation"
   verify unit "registration order follows extensions array"

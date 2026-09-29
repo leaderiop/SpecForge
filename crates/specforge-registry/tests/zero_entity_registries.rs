@@ -1784,7 +1784,7 @@ fn enhancements_merge_fields() {
             }],
         },
     )];
-    let diags = apply_entity_enhancements(&enhancements, &kind_reg, &mut field_reg);
+    let diags = apply_entity_enhancements(&enhancements, &[], &kind_reg, &mut field_reg);
     assert!(diags.is_empty());
     assert!(field_reg.contains("behavior", "coverage_threshold"));
 }
@@ -1816,7 +1816,7 @@ fn enhancements_unknown_kind_i004() {
             }],
         },
     )];
-    let diags = apply_entity_enhancements(&enhancements, &kind_reg, &mut field_reg);
+    let diags = apply_entity_enhancements(&enhancements, &[], &kind_reg, &mut field_reg);
     assert_eq!(diags.len(), 1);
     assert_eq!(diags[0].code, "I004");
     assert!(diags[0].message.contains("nonexistent_kind"));
@@ -1850,7 +1850,7 @@ fn enhancements_no_overwrite() {
             }],
         },
     )];
-    let diags = apply_entity_enhancements(&enhancements, &kind_reg, &mut field_reg);
+    let diags = apply_entity_enhancements(&enhancements, &[], &kind_reg, &mut field_reg);
     assert!(diags.is_empty());
     let contract = field_reg.get("behavior", "contract").unwrap();
     assert_eq!(contract.field_type, ManifestFieldType::Block);
@@ -1906,7 +1906,7 @@ fn enhancements_two_non_conflicting() {
             },
         ),
     ];
-    let diags = apply_entity_enhancements(&enhancements, &kind_reg, &mut field_reg);
+    let diags = apply_entity_enhancements(&enhancements, &[], &kind_reg, &mut field_reg);
     assert!(diags.is_empty());
     assert!(field_reg.contains("behavior", "priority"));
     assert!(field_reg.contains("behavior", "category"));

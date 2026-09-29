@@ -31,17 +31,24 @@ pub fn populate_registries(
                 .map(move |e| (m.name.clone(), e.clone()))
         })
         .collect();
-    let enh_diags = apply_entity_enhancements(&all_enhancements, &kind_reg, &mut field_reg);
+    let loaded: Vec<String> = manifests.iter().map(|m| m.name.clone()).collect();
+    let enh_diags =
+        apply_entity_enhancements(&all_enhancements, &loaded, &kind_reg, &mut field_reg);
     diagnostics.extend(enh_diags);
 
     (kind_reg, field_reg, edge_reg, diagnostics)
 }
 
 /// Apply entity enhancements to the FieldRegistry.
-/// Enhancements targeting unknown kinds produce I004 info diagnostics.
 /// Enhancement fields do NOT overwrite existing kind-level fields.
+///
+/// An enhancement whose target kind is unknown is skipped. It is *conditional*
+/// — skipped silently — when it names another extension as the kind's owner
+/// (`source_extension`) and that extension is not in `loaded_extensions`: the
+/// project simply doesn't use it. Any other unknown target is reported as I004.
 pub fn apply_entity_enhancements(
     enhancements: &[(String, crate::FieldEnhancement)],
+    loaded_extensions: &[String],
     kind_reg: &KindRegistry,
     field_reg: &mut FieldRegistry,
 ) -> Vec<Diagnostic> {
@@ -49,6 +56,13 @@ pub fn apply_entity_enhancements(
 
     for (ext_name, enhancement) in enhancements {
         if !kind_reg.contains(&enhancement.target_kind) {
+            let owner = &enhancement.source_extension;
+            let owner_absent = !owner.is_empty()
+                && owner != ext_name
+                && !loaded_extensions.iter().any(|loaded| loaded == owner);
+            if owner_absent {
+                continue;
+            }
             diagnostics.push(Diagnostic {
                 code: "I004".to_string(),
                 severity: Severity::Info,
@@ -976,7 +990,7 @@ mod tests {
                 edge_types: vec![],
             },
         )];
-        let diags = apply_entity_enhancements(&enhancements, &kind_reg, &mut field_reg);
+        let diags = apply_entity_enhancements(&enhancements, &[], &kind_reg, &mut field_reg);
         assert!(
             diags.is_empty(),
             "expected no diagnostics, got: {:?}",
@@ -1009,12 +1023,43 @@ mod tests {
                 edge_types: vec![],
             },
         )];
-        let diags = apply_entity_enhancements(&enhancements, &kind_reg, &mut field_reg);
+        let diags = apply_entity_enhancements(&enhancements, &[], &kind_reg, &mut field_reg);
         assert_eq!(diags.len(), 1);
         assert_eq!(diags[0].code, "I004");
         assert!(diags[0].message.contains("nonexistent_kind"));
         // Field should NOT be registered
         assert!(!field_reg.contains("nonexistent_kind", "extra"));
+    }
+
+    fn enhancement_of(target_kind: &str, owner: &str) -> crate::FieldEnhancement {
+        crate::FieldEnhancement {
+            target_kind: target_kind.to_string(),
+            source_extension: owner.to_string(),
+            fields: vec![],
+            edge_types: vec![],
+        }
+    }
+
+    // B:apply_entity_enhancements — verify unit "enhancement of a kind owned by an extension that is not loaded is skipped silently"
+    #[test]
+    fn test_apply_enhancements_for_absent_owner_is_silent() {
+        let (kind_reg, mut field_reg, _, _) = populate_registries(&[software_manifest()]);
+        let enhancements = vec![(
+            "@specforge/software".to_string(),
+            enhancement_of("module", "@specforge/product"),
+        )];
+        let loaded = vec!["@specforge/software".to_string()];
+        let diags = apply_entity_enhancements(&enhancements, &loaded, &kind_reg, &mut field_reg);
+        assert!(diags.is_empty(), "product not loaded: nothing to report");
+
+        // Owner loaded yet the kind is missing: a real mismatch, still I004.
+        let loaded = vec![
+            "@specforge/software".to_string(),
+            "@specforge/product".to_string(),
+        ];
+        let diags = apply_entity_enhancements(&enhancements, &loaded, &kind_reg, &mut field_reg);
+        assert_eq!(diags.len(), 1);
+        assert_eq!(diags[0].code, "I004");
     }
 
     // B:apply_entity_enhancements — verify unit "enhancement field does NOT overwrite existing kind-level field"
@@ -1042,7 +1087,7 @@ mod tests {
                 edge_types: vec![],
             },
         )];
-        let diags = apply_entity_enhancements(&enhancements, &kind_reg, &mut field_reg);
+        let diags = apply_entity_enhancements(&enhancements, &[], &kind_reg, &mut field_reg);
         assert!(diags.is_empty());
         // Original kind-level field should be unchanged
         let contract = field_reg.get("behavior", "contract").unwrap();
@@ -1096,7 +1141,7 @@ mod tests {
                 },
             ),
         ];
-        let diags = apply_entity_enhancements(&enhancements, &kind_reg, &mut field_reg);
+        let diags = apply_entity_enhancements(&enhancements, &[], &kind_reg, &mut field_reg);
         assert!(diags.is_empty());
         assert!(field_reg.contains("behavior", "priority"));
         assert!(field_reg.contains("behavior", "category"));

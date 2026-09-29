@@ -393,7 +393,7 @@ pub const CATALOG: &[CodeEntry] = &[
         code: "I004",
         title: "Extension not installed",
         owner: "core",
-        explanation: "A `.spec` file uses a keyword, entity enhancement, or `@scope/name` extension import that maps to a known but not-installed extension. Install the missing extension with `specforge add <name>` to resolve the reference.",
+        explanation: "A `.spec` file uses a keyword, entity enhancement, or `@scope/name` extension import that maps to a known but not-installed extension. Install the missing extension with `specforge add <name>` to resolve the reference. An extension's enhancement of a kind owned by an extension the project doesn't use is skipped silently, not reported.",
     },
     CodeEntry {
         code: "I005",
