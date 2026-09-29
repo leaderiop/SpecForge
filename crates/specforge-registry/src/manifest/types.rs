@@ -222,6 +222,10 @@ pub struct FieldEnhancement {
     pub fields: Vec<ManifestField>,
     #[serde(default)]
     pub edge_types: Vec<ManifestEdgeType>,
+    /// Makes the target kind testable: it accepts `verify` obligations of
+    /// these kinds (ADR 0002 — testability is contributed, not intrinsic).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub verify_kinds: Option<Vec<String>>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

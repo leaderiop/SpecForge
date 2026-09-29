@@ -530,9 +530,11 @@ fn non_interactive_with_extensions() {
     let content = fs::read_to_string(dir.path().join("specforge.json")).unwrap();
     let json: serde_json::Value = serde_json::from_str(&content).unwrap();
     let extensions = json["extensions"].as_array().unwrap();
-    assert_eq!(extensions.len(), 2);
+    // Enabling software enables the test vocabulary it relies on (ADR 0002).
+    assert_eq!(extensions.len(), 3);
     assert_eq!(extensions[0], "@specforge/software");
     assert_eq!(extensions[1], "@specforge/product");
+    assert_eq!(extensions[2], "@specforge/testing");
 }
 
 #[specforge_test(
@@ -603,7 +605,13 @@ fn non_interactive_json_all_fields() {
     assert!(spec_path.ends_with("hello.spec"));
 
     let exts = json["extensions_installed"].as_array().unwrap();
-    assert_eq!(exts, &[serde_json::json!("@specforge/software")]);
+    assert_eq!(
+        exts,
+        &[
+            serde_json::json!("@specforge/software"),
+            serde_json::json!("@specforge/testing")
+        ]
+    );
 }
 
 #[specforge_test(

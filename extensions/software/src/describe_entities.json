@@ -314,13 +314,9 @@
       "open_fields": false,
       "semantic_token": "function",
       "singleton": false,
-      "supports_verify": true,
-      "testable": true,
-      "verify_kinds": [
-        "unit",
-        "integration",
-        "load"
-      ]
+      "supports_verify": false,
+      "testable": false,
+      "verify_kinds": []
     },
     {
       "description": "A system-wide constraint that must always hold true",
@@ -437,13 +433,9 @@
       "open_fields": false,
       "semantic_token": "property",
       "singleton": false,
-      "supports_verify": true,
-      "testable": true,
-      "verify_kinds": [
-        "property",
-        "unit",
-        "mutation"
-      ]
+      "supports_verify": false,
+      "testable": false,
+      "verify_kinds": []
     },
     {
       "description": "A significant occurrence in the system that triggers reactions",
@@ -538,11 +530,9 @@
       "open_fields": false,
       "semantic_token": "event",
       "singleton": false,
-      "supports_verify": true,
-      "testable": true,
-      "verify_kinds": [
-        "unit"
-      ]
+      "supports_verify": false,
+      "testable": false,
+      "verify_kinds": []
     },
     {
       "description": "A data structure or domain model definition",
@@ -626,11 +616,9 @@
       "open_fields": true,
       "semantic_token": "type",
       "singleton": false,
-      "supports_verify": true,
-      "testable": true,
-      "verify_kinds": [
-        "unit"
-      ]
+      "supports_verify": false,
+      "testable": false,
+      "verify_kinds": []
     },
     {
       "description": "An interface boundary between system components",
@@ -703,11 +691,9 @@
       "open_fields": true,
       "semantic_token": "interface",
       "singleton": false,
-      "supports_verify": true,
-      "testable": true,
-      "verify_kinds": [
-        "integration"
-      ]
+      "supports_verify": false,
+      "testable": false,
+      "verify_kinds": []
     }
   ]
 }

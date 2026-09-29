@@ -140,5 +140,3 @@ type TypeFieldDef {
 // Software-specific verify kinds. These are declared in the manifest's
 // allowedVerifyKinds per entity kind, not as a core type override.
 // Core VerifyKind (types/core.spec) remains an open string.
-type SoftwareVerifyKind = unit | integration | property | load | e2e
-                        | contract | refinement | trace | deadlock_free | liveness | mutation

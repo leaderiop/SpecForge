@@ -10,6 +10,16 @@ pub fn run(
     extensions: &[String],
     format: OutputFormat,
 ) -> i32 {
+    // Test obligations (`verify`) on software kinds come from @specforge/testing
+    // (ADR 0002), so enabling software enables it too.
+    let mut extensions = extensions.to_vec();
+    if extensions.iter().any(|e| e == "@specforge/software")
+        && !extensions.iter().any(|e| e == "@specforge/testing")
+    {
+        extensions.push("@specforge/testing".to_string());
+    }
+    let extensions = extensions.as_slice();
+
     // Check for existing project
     if let Some(existing) = find_project_root(path) {
         eprintln!("error: project already exists at {}", existing.display());

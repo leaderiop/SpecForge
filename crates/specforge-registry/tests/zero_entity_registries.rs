@@ -1763,10 +1763,11 @@ fn ext_validation_rules_duplicate_codes() {
 )]
 #[test]
 fn enhancements_merge_fields() {
-    let (kind_reg, mut field_reg, _, _) = populate_registries(&[software_manifest()]);
+    let (mut kind_reg, mut field_reg, _, _) = populate_registries(&[software_manifest()]);
     let enhancements = vec![(
         "@test/coverage".to_string(),
         FieldEnhancement {
+            verify_kinds: None,
             target_kind: "behavior".to_string(),
             source_extension: "@test/coverage".to_string(),
             edge_types: vec![],
@@ -1784,7 +1785,7 @@ fn enhancements_merge_fields() {
             }],
         },
     )];
-    let diags = apply_entity_enhancements(&enhancements, &[], &kind_reg, &mut field_reg);
+    let diags = apply_entity_enhancements(&enhancements, &[], &mut kind_reg, &mut field_reg);
     assert!(diags.is_empty());
     assert!(field_reg.contains("behavior", "coverage_threshold"));
 }
@@ -1795,10 +1796,11 @@ fn enhancements_merge_fields() {
 )]
 #[test]
 fn enhancements_unknown_kind_i004() {
-    let (kind_reg, mut field_reg, _, _) = populate_registries(&[software_manifest()]);
+    let (mut kind_reg, mut field_reg, _, _) = populate_registries(&[software_manifest()]);
     let enhancements = vec![(
         "@test/ext".to_string(),
         FieldEnhancement {
+            verify_kinds: None,
             target_kind: "nonexistent_kind".to_string(),
             source_extension: "@test/ext".to_string(),
             edge_types: vec![],
@@ -1816,7 +1818,7 @@ fn enhancements_unknown_kind_i004() {
             }],
         },
     )];
-    let diags = apply_entity_enhancements(&enhancements, &[], &kind_reg, &mut field_reg);
+    let diags = apply_entity_enhancements(&enhancements, &[], &mut kind_reg, &mut field_reg);
     assert_eq!(diags.len(), 1);
     assert_eq!(diags[0].code, "I004");
     assert!(diags[0].message.contains("nonexistent_kind"));
@@ -1829,10 +1831,11 @@ fn enhancements_unknown_kind_i004() {
 )]
 #[test]
 fn enhancements_no_overwrite() {
-    let (kind_reg, mut field_reg, _, _) = populate_registries(&[software_manifest()]);
+    let (mut kind_reg, mut field_reg, _, _) = populate_registries(&[software_manifest()]);
     let enhancements = vec![(
         "@test/ext".to_string(),
         FieldEnhancement {
+            verify_kinds: None,
             target_kind: "behavior".to_string(),
             source_extension: "@test/ext".to_string(),
             edge_types: vec![],
@@ -1850,7 +1853,7 @@ fn enhancements_no_overwrite() {
             }],
         },
     )];
-    let diags = apply_entity_enhancements(&enhancements, &[], &kind_reg, &mut field_reg);
+    let diags = apply_entity_enhancements(&enhancements, &[], &mut kind_reg, &mut field_reg);
     assert!(diags.is_empty());
     let contract = field_reg.get("behavior", "contract").unwrap();
     assert_eq!(contract.field_type, ManifestFieldType::Block);
@@ -1863,11 +1866,12 @@ fn enhancements_no_overwrite() {
 )]
 #[test]
 fn enhancements_two_non_conflicting() {
-    let (kind_reg, mut field_reg, _, _) = populate_registries(&[software_manifest()]);
+    let (mut kind_reg, mut field_reg, _, _) = populate_registries(&[software_manifest()]);
     let enhancements = vec![
         (
             "@ext/a".to_string(),
             FieldEnhancement {
+                verify_kinds: None,
                 target_kind: "behavior".to_string(),
                 source_extension: "@ext/a".to_string(),
                 edge_types: vec![],
@@ -1888,6 +1892,7 @@ fn enhancements_two_non_conflicting() {
         (
             "@ext/b".to_string(),
             FieldEnhancement {
+                verify_kinds: None,
                 target_kind: "behavior".to_string(),
                 source_extension: "@ext/b".to_string(),
                 edge_types: vec![],
@@ -1906,7 +1911,7 @@ fn enhancements_two_non_conflicting() {
             },
         ),
     ];
-    let diags = apply_entity_enhancements(&enhancements, &[], &kind_reg, &mut field_reg);
+    let diags = apply_entity_enhancements(&enhancements, &[], &mut kind_reg, &mut field_reg);
     assert!(diags.is_empty());
     assert!(field_reg.contains("behavior", "priority"));
     assert!(field_reg.contains("behavior", "category"));

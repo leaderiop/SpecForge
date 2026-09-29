@@ -69,6 +69,10 @@ pub enum CheckKind {
     Cycle,
     FileExists,
     ConditionalRequired,
+    /// A testable entity declares no `verify` obligations.
+    NoVerifyStatements,
+    /// `verify` kinds must be within the rule constraint's `values`.
+    VerifyKindAllowlist,
     Custom(String),
 }
 
@@ -82,6 +86,8 @@ impl CheckKind {
             CheckKind::Cycle => "cycle",
             CheckKind::FileExists => "file_exists",
             CheckKind::ConditionalRequired => "conditional_required",
+            CheckKind::NoVerifyStatements => "no_verify_statements",
+            CheckKind::VerifyKindAllowlist => "verify_kind_allowlist",
             CheckKind::Custom(s) => s,
         }
     }
@@ -472,12 +478,18 @@ impl EnhancementBuilder {
             source_extension: source_extension.to_string(),
             fields: Vec::new(),
             edge_types: Vec::new(),
+            verify_kinds: None,
         })
     }
     pub fn field(&mut self, name: &str, f: impl FnOnce(&mut FieldBuilder)) -> &mut Self {
         let mut b = FieldBuilder::new(name);
         f(&mut b);
         self.0.fields.push(b.0);
+        self
+    }
+    /// Make the target kind testable, accepting `verify` obligations of these kinds.
+    pub fn verify_kinds(&mut self, kinds: &[&str]) -> &mut Self {
+        self.0.verify_kinds = Some(kinds.iter().map(|k| k.to_string()).collect());
         self
     }
     pub fn edge_type(&mut self, label: &str, f: impl FnOnce(&mut EdgeBuilder)) -> &mut Self {

@@ -393,6 +393,7 @@ fn convert_validation_rules_to_manifest() {
 fn convert_entity_enhancements_to_manifest() {
     let mut ext = minimal_protocol_extension("@specforge/formal", vec![]);
     ext.descriptions.enhancements = vec![EntityEnhancementDescriptor {
+        verify_kinds: None,
         target_kind: "behavior".to_string(),
         source_extension: "@specforge/formal".to_string(),
         fields: vec![FieldDescriptor {
@@ -460,6 +461,7 @@ fn populate_from_protocol_applies_enhancements_across_extensions() {
     // Extension 2: enhances "behavior" with "requires" field
     let mut formal = minimal_protocol_extension("@specforge/formal", vec![]);
     formal.descriptions.enhancements = vec![EntityEnhancementDescriptor {
+        verify_kinds: None,
         target_kind: "behavior".to_string(),
         source_extension: "@specforge/formal".to_string(),
         fields: vec![FieldDescriptor {

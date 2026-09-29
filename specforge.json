@@ -6,6 +6,7 @@
   "extensions": [
     "@specforge/product",
     "@specforge/software",
+    "@specforge/testing",
     "@specforge/governance",
     "@specforge/formal"
   ]

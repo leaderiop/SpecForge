@@ -4,6 +4,7 @@
   "spec_root": "spec",
   "extensions": [
     "@specforge/software",
+    "@specforge/testing",
     "@specforge/product",
     "@specforge/governance",
     "@specforge/formal"

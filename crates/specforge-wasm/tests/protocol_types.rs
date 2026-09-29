@@ -401,6 +401,7 @@ fn shared_field_descriptor_is_field_descriptor() {
 #[test]
 fn entity_enhancement_descriptor_round_trip() {
     let enh = EntityEnhancementDescriptor {
+        verify_kinds: None,
         target_kind: "behavior".to_string(),
         source_extension: "@specforge/formal".to_string(),
         fields: vec![FieldDescriptor {

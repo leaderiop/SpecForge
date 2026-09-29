@@ -524,7 +524,7 @@ pub const CATALOG: &[CodeEntry] = &[
     CodeEntry {
         code: "W004",
         title: "Untested testable entity",
-        owner: "@specforge/software",
+        owner: "@specforge/testing",
         explanation: "A testable entity (`behavior`, `invariant`, `event`, `type`, or `port`) declares no `verify` obligations and no Gherkin scenario, so it has no test linkage. Add a `verify` block or a Gherkin scenario covering it.",
     },
     CodeEntry {
@@ -554,7 +554,7 @@ pub const CATALOG: &[CodeEntry] = &[
     CodeEntry {
         code: "W009",
         title: "Disallowed verify kind",
-        owner: "@specforge/software",
+        owner: "@specforge/testing",
         explanation: "An entity uses a `verify` kind (for example `unit`, `contract`, `integration`) that isn't in the allowed set for its entity kind. Use one of the verify kinds listed as allowed in the diagnostic.",
     },
     CodeEntry {

@@ -71,7 +71,7 @@ claude mcp add specforge -- specforge mcp /path/to/your/project
 
 The compiler is a **pure typed-graph engine**. It knows how to parse `keyword name { fields }` blocks, resolve references, detect orphans and cycles, and emit a validated graph — but it carries **no domain vocabulary**. Every entity kind, edge type, and validation rule comes from an extension. If a new domain required a compiler change, the architecture would have failed.
 
-Six extensions ship as builtins, embedded in the binary. Enable one with `specforge add @specforge/<name>` (or `specforge init --extensions ...`); it is recorded in `specforge.json`, with nothing to download:
+Seven extensions ship as builtins, embedded in the binary. Enable one with `specforge add @specforge/<name>` (or `specforge init --extensions ...`); it is recorded in `specforge.json`, with nothing to download:
 
 | Extension | Entity kinds | Purpose |
 |-----------|-------------|---------|
@@ -79,6 +79,7 @@ Six extensions ship as builtins, embedded in the binary. Enable one with `specfo
 | **`@specforge/product`** | journey · deliverable · milestone · module · term · feature · persona · channel · release | Product planning, roadmaps, and ubiquitous language. |
 | **`@specforge/governance`** | decision · constraint · failure_mode | Architecture decisions, non-functional requirements, FMEA risk. |
 | **`@specforge/formal`** | property · axiom · protocol · refinement · process | Formal methods: temporal properties, specification layering, event-graph linting. Enhances software entities. |
+| **`@specforge/testing`** | — | Test vocabulary: which kinds accept `verify` obligations and of which kinds (W004/W009). Enabled with `@specforge/software`; test-runner extensions build on it ([ADR 0002](docs/adr/0002-test-runner-extensions.md)). |
 | **`@specforge/rust`** | — | Source analyzer used by inference: maps Rust code to spec entities. |
 | **`@specforge/typescript`** | — | Source analyzer used by inference: maps TypeScript/JavaScript code to spec entities. |
 
@@ -158,7 +159,7 @@ Projects are configured via **`specforge.json`** (like `tsconfig.json`):
 
 - **Parser** — Tree-sitter grammar that parses any `keyword name { ... }` block generically, with error recovery (collects multiple diagnostics, never fails fast).
 - **Graph** — typed entity graph over interned symbols (custom node/edge indexes), with cycle detection and subgraph queries. Reference resolution is one shared code path used by the CLI, LSP, and watch mode.
-- **Extension runtime** — every extension (including the six builtins) is a WIT-typed wasip2 component executed through a single wasmtime component engine, with deterministic per-extension fuel limits. No native tier: builtins and third-party extensions are the same kind of plugin. The six builtin blobs are vendored under `extensions/<name>/wasm/` and embedded in the binary; after changing an extension or the SDK, rebuild and re-vendor them with `cargo run -p xtask --bin build-builtins -- --install` (CI's `--check` fails when vendored blobs drift from their sources).
+- **Extension runtime** — every extension (including the builtins) is a WIT-typed wasip2 component executed through a single wasmtime component engine, with deterministic per-extension fuel limits. No native tier: builtins and third-party extensions are the same kind of plugin. The builtin blobs are vendored under `extensions/<name>/wasm/` and embedded in the binary; after changing an extension or the SDK, rebuild and re-vendor them with `cargo run -p xtask --bin build-builtins -- --install` (CI's `--check` fails when vendored blobs drift from their sources).
 - **Surfaces** — CLI (`specforge-cli`), LSP (`specforge-lsp`), and MCP (`specforge-mcp`) all consume the same graph.
 
 The implementation is a Rust workspace (edition 2024) under [`crates/`](crates/).

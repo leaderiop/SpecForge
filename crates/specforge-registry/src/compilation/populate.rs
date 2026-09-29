@@ -33,7 +33,7 @@ pub fn populate_registries(
         .collect();
     let loaded: Vec<String> = manifests.iter().map(|m| m.name.clone()).collect();
     let enh_diags =
-        apply_entity_enhancements(&all_enhancements, &loaded, &kind_reg, &mut field_reg);
+        apply_entity_enhancements(&all_enhancements, &loaded, &mut kind_reg, &mut field_reg);
     diagnostics.extend(enh_diags);
 
     (kind_reg, field_reg, edge_reg, diagnostics)
@@ -46,10 +46,13 @@ pub fn populate_registries(
 /// — skipped silently — when it names another extension as the kind's owner
 /// (`source_extension`) and that extension is not in `loaded_extensions`: the
 /// project simply doesn't use it. Any other unknown target is reported as I004.
+///
+/// An enhancement carrying `verify_kinds` makes its target kind testable
+/// with exactly those kinds (ADR 0002).
 pub fn apply_entity_enhancements(
     enhancements: &[(String, crate::FieldEnhancement)],
     loaded_extensions: &[String],
-    kind_reg: &KindRegistry,
+    kind_reg: &mut KindRegistry,
     field_reg: &mut FieldRegistry,
 ) -> Vec<Diagnostic> {
     let mut diagnostics = Vec::new();
@@ -74,6 +77,14 @@ pub fn apply_entity_enhancements(
                 suggestion: None,
             });
             continue;
+        }
+
+        if let Some(verify_kinds) = &enhancement.verify_kinds
+            && let Some(kind) = kind_reg.get_mut(&enhancement.target_kind)
+        {
+            kind.testable = true;
+            kind.supports_verify = true;
+            kind.allowed_verify_kinds = verify_kinds.clone();
         }
 
         for field in &enhancement.fields {
@@ -969,10 +980,11 @@ mod tests {
     // B:apply_entity_enhancements — verify unit "merges enhancement fields into FieldRegistry for known target kind"
     #[test]
     fn test_apply_enhancements_merges_fields_for_known_kind() {
-        let (kind_reg, mut field_reg, _, _) = populate_registries(&[software_manifest()]);
+        let (mut kind_reg, mut field_reg, _, _) = populate_registries(&[software_manifest()]);
         let enhancements = vec![(
             "@test/coverage".to_string(),
             crate::FieldEnhancement {
+                verify_kinds: None,
                 target_kind: "behavior".to_string(),
                 source_extension: "@test/coverage".to_string(),
                 fields: vec![crate::ManifestField {
@@ -990,7 +1002,7 @@ mod tests {
                 edge_types: vec![],
             },
         )];
-        let diags = apply_entity_enhancements(&enhancements, &[], &kind_reg, &mut field_reg);
+        let diags = apply_entity_enhancements(&enhancements, &[], &mut kind_reg, &mut field_reg);
         assert!(
             diags.is_empty(),
             "expected no diagnostics, got: {:?}",
@@ -1002,10 +1014,11 @@ mod tests {
     // B:apply_entity_enhancements — verify unit "unknown target kind produces I004 info diagnostic"
     #[test]
     fn test_apply_enhancements_unknown_kind_produces_i004() {
-        let (kind_reg, mut field_reg, _, _) = populate_registries(&[software_manifest()]);
+        let (mut kind_reg, mut field_reg, _, _) = populate_registries(&[software_manifest()]);
         let enhancements = vec![(
             "@test/ext".to_string(),
             crate::FieldEnhancement {
+                verify_kinds: None,
                 target_kind: "nonexistent_kind".to_string(),
                 source_extension: "@test/ext".to_string(),
                 fields: vec![crate::ManifestField {
@@ -1023,7 +1036,7 @@ mod tests {
                 edge_types: vec![],
             },
         )];
-        let diags = apply_entity_enhancements(&enhancements, &[], &kind_reg, &mut field_reg);
+        let diags = apply_entity_enhancements(&enhancements, &[], &mut kind_reg, &mut field_reg);
         assert_eq!(diags.len(), 1);
         assert_eq!(diags[0].code, "I004");
         assert!(diags[0].message.contains("nonexistent_kind"));
@@ -1033,6 +1046,7 @@ mod tests {
 
     fn enhancement_of(target_kind: &str, owner: &str) -> crate::FieldEnhancement {
         crate::FieldEnhancement {
+            verify_kinds: None,
             target_kind: target_kind.to_string(),
             source_extension: owner.to_string(),
             fields: vec![],
@@ -1043,13 +1057,14 @@ mod tests {
     // B:apply_entity_enhancements — verify unit "enhancement of a kind owned by an extension that is not loaded is skipped silently"
     #[test]
     fn test_apply_enhancements_for_absent_owner_is_silent() {
-        let (kind_reg, mut field_reg, _, _) = populate_registries(&[software_manifest()]);
+        let (mut kind_reg, mut field_reg, _, _) = populate_registries(&[software_manifest()]);
         let enhancements = vec![(
             "@specforge/software".to_string(),
             enhancement_of("module", "@specforge/product"),
         )];
         let loaded = vec!["@specforge/software".to_string()];
-        let diags = apply_entity_enhancements(&enhancements, &loaded, &kind_reg, &mut field_reg);
+        let diags =
+            apply_entity_enhancements(&enhancements, &loaded, &mut kind_reg, &mut field_reg);
         assert!(diags.is_empty(), "product not loaded: nothing to report");
 
         // Owner loaded yet the kind is missing: a real mismatch, still I004.
@@ -1057,19 +1072,37 @@ mod tests {
             "@specforge/software".to_string(),
             "@specforge/product".to_string(),
         ];
-        let diags = apply_entity_enhancements(&enhancements, &loaded, &kind_reg, &mut field_reg);
+        let diags =
+            apply_entity_enhancements(&enhancements, &loaded, &mut kind_reg, &mut field_reg);
         assert_eq!(diags.len(), 1);
         assert_eq!(diags[0].code, "I004");
+    }
+
+    // B:register_entity_enhancements — verify unit "an enhancement with verify kinds makes its target kind testable"
+    #[test]
+    fn test_apply_enhancements_with_verify_kinds_makes_kind_testable() {
+        let (mut kind_reg, mut field_reg, _, _) = populate_registries(&[software_manifest()]);
+        kind_reg.get_mut("behavior").unwrap().supports_verify = false;
+        let mut enhancement = enhancement_of("behavior", "@specforge/software");
+        enhancement.verify_kinds = Some(vec!["unit".to_string(), "contract".to_string()]);
+        let enhancements = vec![("@specforge/testing".to_string(), enhancement)];
+
+        let diags = apply_entity_enhancements(&enhancements, &[], &mut kind_reg, &mut field_reg);
+        assert!(diags.is_empty());
+        let behavior = kind_reg.get("behavior").unwrap();
+        assert!(behavior.supports_verify && behavior.testable);
+        assert_eq!(behavior.allowed_verify_kinds, ["unit", "contract"]);
     }
 
     // B:apply_entity_enhancements — verify unit "enhancement field does NOT overwrite existing kind-level field"
     #[test]
     fn test_apply_enhancements_does_not_overwrite_kind_level_field() {
-        let (kind_reg, mut field_reg, _, _) = populate_registries(&[software_manifest()]);
+        let (mut kind_reg, mut field_reg, _, _) = populate_registries(&[software_manifest()]);
         // "contract" is already a kind-level field on behavior (type: block)
         let enhancements = vec![(
             "@test/ext".to_string(),
             crate::FieldEnhancement {
+                verify_kinds: None,
                 target_kind: "behavior".to_string(),
                 source_extension: "@test/ext".to_string(),
                 fields: vec![crate::ManifestField {
@@ -1087,7 +1120,7 @@ mod tests {
                 edge_types: vec![],
             },
         )];
-        let diags = apply_entity_enhancements(&enhancements, &[], &kind_reg, &mut field_reg);
+        let diags = apply_entity_enhancements(&enhancements, &[], &mut kind_reg, &mut field_reg);
         assert!(diags.is_empty());
         // Original kind-level field should be unchanged
         let contract = field_reg.get("behavior", "contract").unwrap();
@@ -1098,11 +1131,12 @@ mod tests {
     // B:apply_entity_enhancements — verify unit "two non-conflicting enhancements on same kind both registered"
     #[test]
     fn test_apply_two_non_conflicting_enhancements_on_same_kind() {
-        let (kind_reg, mut field_reg, _, _) = populate_registries(&[software_manifest()]);
+        let (mut kind_reg, mut field_reg, _, _) = populate_registries(&[software_manifest()]);
         let enhancements = vec![
             (
                 "@ext/a".to_string(),
                 crate::FieldEnhancement {
+                    verify_kinds: None,
                     target_kind: "behavior".to_string(),
                     source_extension: "@ext/a".to_string(),
                     fields: vec![crate::ManifestField {
@@ -1123,6 +1157,7 @@ mod tests {
             (
                 "@ext/b".to_string(),
                 crate::FieldEnhancement {
+                    verify_kinds: None,
                     target_kind: "behavior".to_string(),
                     source_extension: "@ext/b".to_string(),
                     fields: vec![crate::ManifestField {
@@ -1141,7 +1176,7 @@ mod tests {
                 },
             ),
         ];
-        let diags = apply_entity_enhancements(&enhancements, &[], &kind_reg, &mut field_reg);
+        let diags = apply_entity_enhancements(&enhancements, &[], &mut kind_reg, &mut field_reg);
         assert!(diags.is_empty());
         assert!(field_reg.contains("behavior", "priority"));
         assert!(field_reg.contains("behavior", "category"));

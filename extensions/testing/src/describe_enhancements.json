@@ -1,0 +1,76 @@
+{
+  "category": "enhancements",
+  "items": [
+    {
+      "edge_types": [],
+      "fields": [],
+      "source_extension": "@specforge/software",
+      "target_kind": "behavior",
+      "verify_kinds": [
+        "unit",
+        "contract",
+        "integration",
+        "property",
+        "performance"
+      ]
+    },
+    {
+      "edge_types": [],
+      "fields": [],
+      "source_extension": "@specforge/software",
+      "target_kind": "invariant",
+      "verify_kinds": [
+        "unit",
+        "integration",
+        "property",
+        "performance",
+        "mutation"
+      ]
+    },
+    {
+      "edge_types": [],
+      "fields": [],
+      "source_extension": "@specforge/software",
+      "target_kind": "event",
+      "verify_kinds": [
+        "integration",
+        "unit",
+        "deadlock_free",
+        "liveness"
+      ]
+    },
+    {
+      "edge_types": [],
+      "fields": [],
+      "source_extension": "@specforge/software",
+      "target_kind": "type",
+      "verify_kinds": [
+        "unit",
+        "property"
+      ]
+    },
+    {
+      "edge_types": [],
+      "fields": [],
+      "source_extension": "@specforge/software",
+      "target_kind": "port",
+      "verify_kinds": [
+        "integration",
+        "unit"
+      ]
+    },
+    {
+      "edge_types": [],
+      "fields": [],
+      "source_extension": "@specforge/governance",
+      "target_kind": "constraint",
+      "verify_kinds": [
+        "unit",
+        "integration",
+        "property",
+        "load",
+        "contract"
+      ]
+    }
+  ]
+}

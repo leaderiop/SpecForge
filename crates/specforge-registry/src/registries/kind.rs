@@ -44,6 +44,10 @@ impl KindRegistry {
         self.entries.get(kind_name)
     }
 
+    pub fn get_mut(&mut self, kind_name: &str) -> Option<&mut KindRegistryEntry> {
+        self.entries.get_mut(kind_name)
+    }
+
     pub fn contains(&self, kind_name: &str) -> bool {
         self.entries.contains_key(kind_name)
     }

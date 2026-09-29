@@ -5,12 +5,13 @@ use "extensions/software/types"
 use "extensions/software/invariants"
 behavior se_register_entity_kinds "Register Software Entity Kinds" {
   category command
-  invariants [se_behavior_testability, se_invariant_testability, se_event_testability, se_feature_non_testable, se_manifest_six_entity_kinds]
+  invariants [se_manifest_six_entity_kinds]
   types [ManifestEntityKind, SoftwareBehavior, SoftwareInvariant, SoftwareFeature, SoftwareEvent, SoftwareTypeDef, SoftwarePort]
 
   contract """
     The @specforge/software extension MUST register 6 entity kinds with
-    full metadata in the KindRegistry.
+    full metadata in the KindRegistry. It declares no test vocabulary:
+    testability and verify kinds are contributed by @specforge/testing.
   """
 
   requires {
@@ -19,18 +20,16 @@ behavior se_register_entity_kinds "Register Software Entity Kinds" {
   }
 
   ensures {
-    behavior_registered    "KindRegistry contains behavior: testable=true, supportsVerify=true, semanticToken=function, lspIcon=Method, dotShape=box"
-    invariant_registered   "KindRegistry contains invariant: testable=true, supportsVerify=true, semanticToken=property, lspIcon=Property, dotShape=diamond"
-    feature_registered     "KindRegistry contains feature: testable=false, supportsVerify=false, semanticToken=class, lspIcon=Package, dotShape=hexagon"
-    event_registered       "KindRegistry contains event: testable=true, supportsVerify=true, semanticToken=event, lspIcon=Event, dotShape=ellipse"
-    type_registered        "KindRegistry contains type: testable=false, supportsVerify=false, semanticToken=type, lspIcon=Struct, dotShape=rectangle"
-    port_registered        "KindRegistry contains port: testable=false, supportsVerify=false, semanticToken=interface, lspIcon=Interface, dotShape=trapezium"
+    behavior_registered    "KindRegistry contains behavior: semanticToken=function, lspIcon=Method, dotShape=box"
+    invariant_registered   "KindRegistry contains invariant: semanticToken=property, lspIcon=Property, dotShape=diamond"
+    feature_registered     "KindRegistry contains feature: semanticToken=class, lspIcon=Package, dotShape=hexagon"
+    event_registered       "KindRegistry contains event: semanticToken=event, lspIcon=Event, dotShape=ellipse"
+    type_registered        "KindRegistry contains type: semanticToken=type, lspIcon=Struct, dotShape=rectangle"
+    port_registered        "KindRegistry contains port: semanticToken=interface, lspIcon=Interface, dotShape=trapezium"
     six_kinds_total        "KindRegistry has exactly 6 domain entries after registration"
   }
 
-  verify unit "behavior registered with testable=true and supportsVerify=true"
-  verify unit "invariant registered with testable=true and supportsVerify=true"
-  verify unit "feature registered with testable=false"
+  verify unit "software kinds declare no testability of their own"
   verify unit "event registered with semanticToken=event"
   verify unit "type registered with dotShape=rectangle"
   verify unit "port registered with lspIcon=Interface"
@@ -128,34 +127,6 @@ behavior se_register_validation_rules "Register Software Validation Rules" {
 
 }
 
-behavior se_register_verify_kinds "Register Software Verify Kinds" {
-  category command
-  types [ManifestEntityKind, SoftwareVerifyKind]
-
-  contract """
-    The @specforge/software extension MUST register 11 verify kinds across
-    its entity kinds.
-  """
-
-  requires {
-    kinds_registered       "all 6 entity kinds are in KindRegistry"
-  }
-
-  ensures {
-    behavior_verify_kinds  "behavior allows: unit, integration, property, load, e2e, contract, refinement, trace, mutation"
-    invariant_verify_kinds "invariant allows: property, unit, mutation"
-    event_verify_kinds     "event allows: integration, deadlock_free, liveness"
-    eleven_kinds_total     "11 unique verify kinds registered across all entity kinds"
-  }
-
-  verify unit "behavior allows unit, integration, property, load, e2e, contract, refinement, trace, mutation"
-  verify unit "invariant allows property, unit, mutation"
-  verify unit "event allows integration, deadlock_free, liveness"
-  verify unit "unknown verify kind on behavior produces warning"
-    tests ["crates/specforge-emitter/tests/builtins.rs", "crates/specforge-wasm/tests/protocol_bridge.rs"]
-
-}
-
 behavior se_register_lsp_metadata "Register Software LSP Metadata" {
   category command
   types [ManifestEntityKind, KindRegistryEntry]
@@ -206,7 +177,6 @@ behavior se_validate_entity_fields "Validate Software Entity Fields" {
 
 behavior se_parse_gherkin_statements "Register Gherkin Field" {
   category command
-  invariants [se_behavior_testability]
 
   contract """
     The @specforge/software extension MUST declare a gherkin field with

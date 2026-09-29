@@ -103,14 +103,52 @@ fn governance_extension_loads_via_protocol() {
 }
 
 #[test]
+fn testing_extension_makes_software_kinds_testable() {
+    let manifest = load_via_protocol("@specforge/testing");
+    assert_eq!(manifest.name, "@specforge/testing");
+    assert!(manifest.entity_kinds.is_empty(), "testing owns no kinds");
+    let testable: Vec<(&str, &str)> = manifest
+        .entity_enhancements
+        .iter()
+        .filter(|e| e.verify_kinds.is_some())
+        .map(|e| (e.target_kind.as_str(), e.source_extension.as_str()))
+        .collect();
+    assert_eq!(
+        testable,
+        [
+            ("behavior", "@specforge/software"),
+            ("invariant", "@specforge/software"),
+            ("event", "@specforge/software"),
+            ("type", "@specforge/software"),
+            ("port", "@specforge/software"),
+            ("constraint", "@specforge/governance"),
+        ]
+    );
+    let codes: std::collections::BTreeSet<&str> = manifest
+        .validation_rules
+        .iter()
+        .map(|r| r.code.as_str())
+        .collect();
+    assert_eq!(codes, ["W004", "W009"].into_iter().collect());
+}
+
+#[test]
 fn software_extension_loads_via_protocol() {
     let manifest = load_via_protocol("@specforge/software");
     assert_eq!(manifest.name, "@specforge/software");
     assert_eq!(manifest.version, "1.0.0");
     assert_eq!(manifest.entity_kinds.len(), 5);
     assert_eq!(manifest.edge_types.len(), 14);
-    assert_eq!(manifest.validation_rules.len(), 21);
+    // W004/W009 moved to @specforge/testing (ADR 0002).
+    assert_eq!(manifest.validation_rules.len(), 11);
     assert_eq!(manifest.entity_enhancements.len(), 2);
+    assert!(
+        manifest
+            .entity_kinds
+            .iter()
+            .all(|k| !k.supports_verify && !k.testable),
+        "software declares no test vocabulary"
+    );
     assert_eq!(manifest.peer_dependencies.len(), 1);
     assert!(manifest.sandbox_policy.is_some());
     assert!(manifest.contributes.entities);

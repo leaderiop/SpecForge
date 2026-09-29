@@ -179,6 +179,7 @@ fn register_enhancement_new_field() {
     let mut manifest = default_manifest();
     manifest.name = "@ext/a".to_string();
     manifest.entity_enhancements = vec![FieldEnhancement {
+        verify_kinds: None,
         target_kind: "behavior".to_string(),
         source_extension: "@ext/a".to_string(),
         fields: vec![ManifestField {
@@ -223,6 +224,7 @@ fn register_enhancement_conflict_e017() {
     let mut existing: Vec<(String, FieldEnhancement)> = vec![(
         "@ext/first".to_string(),
         FieldEnhancement {
+            verify_kinds: None,
             target_kind: "behavior".to_string(),
             source_extension: "@ext/first".to_string(),
             fields: vec![field.clone()],
@@ -234,6 +236,7 @@ fn register_enhancement_conflict_e017() {
     let mut manifest = default_manifest();
     manifest.name = "@ext/second".to_string();
     manifest.entity_enhancements = vec![FieldEnhancement {
+        verify_kinds: None,
         target_kind: "behavior".to_string(),
         source_extension: "@ext/second".to_string(),
         fields: vec![field],

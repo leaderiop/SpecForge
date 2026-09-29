@@ -3,5 +3,5 @@
   "name": "test-project",
   "version": "0.1.0",
   "spec_root": "spec",
-  "extensions": ["@specforge/software"]
+  "extensions": ["@specforge/software", "@specforge/testing"]
 }

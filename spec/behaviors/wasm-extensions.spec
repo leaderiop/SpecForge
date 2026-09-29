@@ -266,6 +266,7 @@ behavior register_entity_enhancements "Register Entity Enhancements" {
   verify unit "enhancement fields registered in FieldRegistry"
   verify unit "unknown target entity kind produces error"
   verify unit "enhancement of a kind owned by an extension that is not loaded is skipped silently"
+  verify unit "an enhancement with verify kinds makes its target kind testable"
   verify unit "enhanced reference fields create graph edges"
   verify unit "enhanced data fields participate in type validation"
   verify unit "registration order follows extensions array"

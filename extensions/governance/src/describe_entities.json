@@ -334,8 +334,8 @@
       "open_fields": false,
       "semantic_token": "property",
       "singleton": false,
-      "supports_verify": true,
-      "testable": true,
+      "supports_verify": false,
+      "testable": false,
       "verify_kinds": []
     },
     {

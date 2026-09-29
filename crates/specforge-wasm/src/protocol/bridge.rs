@@ -216,6 +216,7 @@ fn convert_enhancement(desc: &EntityEnhancementDescriptor) -> specforge_registry
         source_extension: desc.source_extension.clone(),
         fields: desc.fields.iter().map(convert_field).collect(),
         edge_types: desc.edge_types.iter().map(convert_edge_type).collect(),
+        verify_kinds: desc.verify_kinds.clone(),
     }
 }
 

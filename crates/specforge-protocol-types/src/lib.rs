@@ -288,6 +288,9 @@ pub struct EntityEnhancementDescriptor {
     pub fields: Vec<FieldDescriptor>,
     #[serde(default)]
     pub edge_types: Vec<EdgeTypeDescriptor>,
+    /// Makes the target kind testable with these `verify` kinds.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub verify_kinds: Option<Vec<String>>,
 }
 
 // ── Validation Rule Descriptor ──

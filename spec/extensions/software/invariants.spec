@@ -1,68 +1,6 @@
 // @specforge/software extension invariants — guarantees on entity behavior
 
 use "extensions/software/types"
-invariant se_behavior_testability "Behavior Testability" {
-  guarantee """
-    Behavior entities MUST have testable=true. They MUST accept verify
-    kinds: unit, integration, property, load, e2e, contract, refinement,
-    trace, mutation. Behavior entities MUST also declare a gherkin
-    file-reference field for BDD traceability. This is the primary
-    testable entity kind.
-  """
-  risk high
-
-  verify property "behavior kind has testable=true in manifest"
-  verify unit "behavior accepts all 9 standard verify kinds"
-    tests ["crates/specforge-emitter/tests/builtins.rs"]
-
-}
-
-invariant se_invariant_testability "Invariant Testability" {
-  guarantee """
-    Invariant entities MUST have testable=true. They MUST accept verify
-    kinds: property, unit, mutation. Invariants represent guarantees
-    that can be verified via property-based testing, direct unit tests,
-    or mutation testing of contract-derived mutants (RES-25).
-  """
-  risk medium
-
-  verify property "invariant kind has testable=true in manifest"
-  verify unit "invariant accepts property, unit, and mutation verify kinds"
-    tests ["crates/specforge-emitter/tests/builtins.rs"]
-
-}
-
-invariant se_event_testability "Event Testability" {
-  guarantee """
-    Event entities MUST have testable=true. They MUST accept verify
-    kinds: integration, deadlock_free, liveness. Events represent
-    asynchronous communication that requires integration-level testing
-    and formal concurrency verification.
-  """
-  risk medium
-
-  verify property "event kind has testable=true in manifest"
-  verify unit "event accepts integration, deadlock_free, liveness verify kinds"
-    tests ["crates/specforge-emitter/tests/builtins.rs"]
-
-}
-
-invariant se_feature_non_testable "Feature, Type, Port Non-Testable" {
-  guarantee """
-    Feature, type, and port entities MUST have testable=false. Features
-    are grouping constructs (tested through their behaviors). Types are
-    data shape declarations. Ports are interface contracts. None of
-    these directly produce test obligations.
-  """
-  risk medium
-
-  verify property "feature kind has testable=false"
-  verify property "type kind has testable=false"
-  verify property "port kind has testable=false"
-    tests ["crates/specforge-emitter/tests/builtins.rs"]
-
-}
-
 invariant se_edge_consistency "Edge-Field Mapping Consistency" {
   guarantee """
     Every field definition with an edge mapping MUST have a corresponding

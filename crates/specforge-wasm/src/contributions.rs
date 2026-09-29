@@ -663,6 +663,7 @@ mod tests {
         let mut manifest = default_manifest();
         manifest.name = "@test/coverage".to_string();
         manifest.entity_enhancements = vec![FieldEnhancement {
+            verify_kinds: None,
             target_kind: "behavior".to_string(),
             source_extension: "@test/coverage".to_string(),
             edge_types: vec![],
@@ -692,6 +693,7 @@ mod tests {
         let mut existing = vec![(
             "@ext/a".to_string(),
             FieldEnhancement {
+                verify_kinds: None,
                 target_kind: "behavior".to_string(),
                 source_extension: "@ext/a".to_string(),
                 edge_types: vec![],
@@ -713,6 +715,7 @@ mod tests {
         let mut manifest = default_manifest();
         manifest.name = "@ext/b".to_string();
         manifest.entity_enhancements = vec![FieldEnhancement {
+            verify_kinds: None,
             target_kind: "behavior".to_string(),
             source_extension: "@ext/b".to_string(),
             edge_types: vec![],
@@ -742,6 +745,7 @@ mod tests {
         let mut existing = vec![(
             "@ext/a".to_string(),
             FieldEnhancement {
+                verify_kinds: None,
                 target_kind: "behavior".to_string(),
                 source_extension: "@ext/a".to_string(),
                 edge_types: vec![],
@@ -763,6 +767,7 @@ mod tests {
         let mut manifest = default_manifest();
         manifest.name = "@ext/a".to_string(); // Same extension
         manifest.entity_enhancements = vec![FieldEnhancement {
+            verify_kinds: None,
             target_kind: "behavior".to_string(),
             source_extension: "@ext/a".to_string(),
             edge_types: vec![],

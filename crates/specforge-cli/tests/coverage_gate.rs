@@ -13,7 +13,7 @@ fn seed(path: &Path) {
     std::fs::create_dir_all(path.join("src")).unwrap();
     std::fs::write(
         path.join("specforge.json"),
-        r#"{"name":"cov","spec_root":"src","extensions":["@specforge/software"]}"#,
+        r#"{"name":"cov","spec_root":"src","extensions":["@specforge/software","@specforge/testing"]}"#,
     )
     .unwrap();
     std::fs::write(

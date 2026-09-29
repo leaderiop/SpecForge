@@ -79,33 +79,6 @@ behavior se_validate_unused_invariants "W003: Unused Invariants" {
 
 }
 
-behavior se_validate_unverified_testable "W004: Unverified Testable Entities" {
-  category query
-  types [ValidationRulePattern, ValidationPatternKind]
-
-  contract """
-    Detect testable entities that have no verify statements and no
-    gherkin field values. Check pattern: missing_field_when_flag_set.
-  """
-
-  requires {
-    testability_known      "KindRegistry has testable flag for all entity kinds"
-  }
-
-  ensures {
-    unverified_detected    "testable entity with no verify and no gherkin field value produces W004"
-    verified_passes        "testable entity with verify produces no diagnostic"
-    non_testable_exempt    "non-testable entity never produces W004"
-    correct_template       "message template is: {kind} '{id}' is testable but has no verify or gherkin"
-  }
-
-  verify unit "testable behavior with no verify produces W004"
-  verify unit "testable behavior with verify passes"
-  verify unit "non-testable feature never produces W004"
-    tests ["crates/specforge-registry/tests/zero_entity_validation.rs", "crates/specforge-emitter/tests/builtins.rs"]
-
-}
-
 behavior se_validate_orphan_ports "W005: Orphan Ports" {
   category query
   types [ValidationRulePattern]
@@ -193,34 +166,6 @@ behavior se_validate_features_with_empty_behaviors "W008: Features with Empty Be
 
   verify unit "feature with empty behaviors list produces W008"
   verify unit "feature with at least one behavior suppresses W008"
-    tests ["crates/specforge-registry/tests/zero_entity_validation.rs", "crates/specforge-emitter/tests/builtins.rs"]
-
-}
-
-behavior se_validate_verify_kind_allowlist "W009: Invalid Verify Kind for Entity" {
-  category query
-  types [ValidationRulePattern, SoftwareVerifyKind]
-
-  contract """
-    Detect verify statements whose kind is not in the allowedVerifyKinds
-    list declared by the extension manifest for that entity's kind.
-    For example, a behavior with verify load is valid, but an invariant
-    with verify load is not (invariant allows only property, unit, mutation).
-  """
-
-  requires {
-    kind_registry_available "KindRegistry with allowedVerifyKinds per entity kind is populated"
-  }
-
-  ensures {
-    allowed_passes         "verify kind in allowedVerifyKinds produces no diagnostic"
-    disallowed_warned      "verify kind not in allowedVerifyKinds produces W009 warning"
-    correct_template       "message template is: {kind} '{id}' has verify kind '{value}' not in allowed set {allowed}"
-  }
-
-  verify unit "behavior with verify unit passes (unit in allowedVerifyKinds)"
-  verify unit "invariant with verify load produces W009 (load not in allowedVerifyKinds)"
-  verify unit "W009 message includes allowed set"
     tests ["crates/specforge-registry/tests/zero_entity_validation.rs", "crates/specforge-emitter/tests/builtins.rs"]
 
 }

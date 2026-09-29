@@ -858,7 +858,7 @@ A testable entity (`behavior`, `invariant`, `event`, `type`, or `port`) declares
 no `verify` obligations and no Gherkin scenario, so it has no test linkage. Add
 a `verify` block or a Gherkin scenario covering it.
 
-Owner: @specforge/software
+Owner: @specforge/testing
 ```
 
 ## W005
@@ -915,7 +915,7 @@ An entity uses a `verify` kind (for example `unit`, `contract`, `integration`)
 that isn't in the allowed set for its entity kind. Use one of the verify kinds
 listed as allowed in the diagnostic.
 
-Owner: @specforge/software
+Owner: @specforge/testing
 ```
 
 ## W010

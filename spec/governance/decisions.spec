@@ -1057,7 +1057,7 @@ decision wasm_component_runtime "All Extensions Execute as wasip2 Components" {
     prevents its reintroduction. The guest boundary is the
     specforge:bridge world (call: name, export-name, input -> result).
     Deterministic per-extension fuel limits replace wall-clock budgets.
-    The six builtin blobs are vendored under extensions/<name>/wasm/ and
+    The builtin blobs are vendored under extensions/<name>/wasm/ and
     embedded at compile time, each with an inputs.json fingerprint of the
     sources it was built from; `cargo run -p xtask --bin build-builtins
     -- --install` rebuilds and re-vendors them (wasm32-wasip2 target), and
@@ -1071,5 +1071,40 @@ decision wasm_component_runtime "All Extensions Execute as wasip2 Components" {
     wasm32-unknown-unknown blobs are gone. Neutral: HostApi host functions
     were removed with the extism runtime; a typed component host-import
     surface is future work.
+  """
+}
+
+decision test_runner_extensions "Tests Belong to @specforge/testing and One Extension per Runner" {
+  status accepted
+  date 2026-09-29
+
+  context """
+    Test vocabulary was spread across core (the verify grammar, the
+    coverage pass, the report format, the collect normalizer) and
+    @specforge/software (testability flags, W004/W009). `collect` only
+    parsed one hard-coded report shape; users had to run their test
+    runner exactly as SpecForge expected. See docs/adr/0002.
+  """
+
+  decision """
+    A runner-agnostic @specforge/testing builtin owns the test vocabulary:
+    testability of kinds and their verify kinds (contributed to other
+    extensions' kinds through enhancements), W004/W009, coverage, and the
+    normalized result format. One extension per test runner
+    (@specforge/cargo-test, @specforge/vitest first) declares a collector:
+    how to detect the runner, one command to run it, and a pure export that
+    maps its report to entity results. The compiler still never executes
+    anything; `specforge collect` runs a runner extension's declared
+    command after per-project consent. Tests link to entities by
+    annotation in the runner's own idiom; the spec-side `tests` field is
+    retired.
+  """
+
+  consequences """
+    Positive: core and kind-owning extensions carry no test vocabulary;
+    several runners coexist without field conflicts; `collect` runs the
+    project's real runner. Negative: projects using verify must enable
+    @specforge/testing (init does it alongside @specforge/software);
+    supersedes "SpecForge never executes tests" in README and vision.
   """
 }
