@@ -769,7 +769,7 @@ fn add_validates_registry_specifier() {
     // Without a running registry, it will fail with a network error.
     // This test verifies the specifier is parsed correctly and the error is structured.
     let output = specforge_cmd()
-        .args(["add", "@specforge/software@1.0.0", "--path"])
+        .args(["add", "@acme/widget@1.0.0", "--path"])
         .arg(dir.path())
         .args(["--format", "json"])
         .output()
@@ -1002,4 +1002,157 @@ fn new_extension_refuses_existing_directory() {
 
     let stderr = String::from_utf8_lossy(&assert.stderr);
     assert!(stderr.contains("already exists"), "{}", stderr);
+}
+
+// ===============================================================
+// Builtins: enabled through specforge.json, no download or lock entry
+// ===============================================================
+
+fn write_config_with_extensions(dir: &std::path::Path, extensions: &[&str]) {
+    let config = serde_json::json!({
+        "name": "test-project",
+        "version": "0.1.0",
+        "spec_root": "spec",
+        "extensions": extensions,
+    });
+    fs::write(
+        dir.join("specforge.json"),
+        serde_json::to_string_pretty(&config).unwrap(),
+    )
+    .unwrap();
+}
+
+fn read_config(dir: &std::path::Path) -> serde_json::Value {
+    serde_json::from_str(&fs::read_to_string(dir.join("specforge.json")).unwrap()).unwrap()
+}
+
+#[specforge_test(
+    behavior = "add_extension_to_existing_project",
+    verify = "add extension appends to extensions list"
+)]
+#[test]
+fn add_builtin_enables_it_in_specforge_json() {
+    let dir = TempDir::new().unwrap();
+    write_config_with_extensions(dir.path(), &["@specforge/software"]);
+
+    specforge_cmd()
+        .args(["add", "@specforge/product", "--path"])
+        .arg(dir.path())
+        .assert()
+        .success()
+        .stdout(predicates::str::contains(
+            "enabled builtin @specforge/product",
+        ));
+
+    let config = read_config(dir.path());
+    assert_eq!(
+        config["extensions"],
+        serde_json::json!(["@specforge/software", "@specforge/product"])
+    );
+    assert_eq!(config["name"], "test-project", "other fields preserved");
+    assert!(
+        !dir.path().join("specforge.lock").exists(),
+        "builtins need no lock entry"
+    );
+}
+
+#[specforge_test(
+    behavior = "add_extension_to_existing_project",
+    verify = "add duplicate extension is a no-op with info message"
+)]
+#[test]
+fn add_enabled_builtin_is_a_no_op() {
+    let dir = TempDir::new().unwrap();
+    write_config_with_extensions(dir.path(), &["@specforge/software"]);
+
+    specforge_cmd()
+        .args(["add", "@specforge/software@latest", "--path"])
+        .arg(dir.path())
+        .assert()
+        .success()
+        .stdout(predicates::str::contains("already enabled"));
+
+    assert_eq!(
+        read_config(dir.path())["extensions"],
+        serde_json::json!(["@specforge/software"])
+    );
+}
+
+#[specforge_test(
+    behavior = "add_extension_to_existing_project",
+    verify = "add extension with no specforge.json rejects with error and exit code 1"
+)]
+#[test]
+fn add_builtin_without_project_fails() {
+    let dir = TempDir::new().unwrap();
+
+    specforge_cmd()
+        .args(["add", "@specforge/product", "--path"])
+        .arg(dir.path())
+        .assert()
+        .code(1)
+        .stderr(predicates::str::contains("specforge init"));
+}
+
+#[specforge_test(
+    behavior = "list_installed_extensions",
+    verify = "list shows all installed extensions"
+)]
+#[test]
+fn extensions_lists_enabled_builtins() {
+    let dir = TempDir::new().unwrap();
+    write_config_with_extensions(dir.path(), &["@specforge/software", "@specforge/formal"]);
+    write_lock_file(dir.path(), &[("@acme/widget", "1.0.0", "registry")]);
+
+    let output = specforge_cmd()
+        .args(["extensions", "--path"])
+        .arg(dir.path())
+        .args(["--format", "json"])
+        .output()
+        .unwrap();
+    assert!(output.status.success());
+    let json: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
+
+    assert_eq!(json["count"], 3);
+    let listed: Vec<(&str, &str)> = json["extensions"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|e| (e["name"].as_str().unwrap(), e["source"].as_str().unwrap()))
+        .collect();
+    assert_eq!(
+        listed,
+        [
+            ("@specforge/formal", "builtin"),
+            ("@specforge/software", "builtin"),
+            ("@acme/widget", "registry"),
+        ]
+    );
+}
+
+#[specforge_test(
+    behavior = "remove_extension",
+    verify = "extension is removed from extensions list"
+)]
+#[test]
+fn remove_builtin_disables_it() {
+    let dir = TempDir::new().unwrap();
+    write_config_with_extensions(dir.path(), &["@specforge/software", "@specforge/product"]);
+
+    specforge_cmd()
+        .args(["remove", "@specforge/product", "--path"])
+        .arg(dir.path())
+        .assert()
+        .success();
+    assert_eq!(
+        read_config(dir.path())["extensions"],
+        serde_json::json!(["@specforge/software"])
+    );
+
+    specforge_cmd()
+        .args(["remove", "@specforge/product", "--path"])
+        .arg(dir.path())
+        .assert()
+        .code(1)
+        .stderr(predicates::str::contains("not installed"));
 }

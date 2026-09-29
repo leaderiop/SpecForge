@@ -18,6 +18,10 @@ pub fn run(
     allow_unsigned: bool,
     assume_yes: bool,
 ) -> i32 {
+    if let Some(name) = crate::builtins::builtin_name(specifier) {
+        return enable_builtin(name, path, format);
+    }
+
     let parsed = match parse_extension_specifier(specifier) {
         Ok(p) => p,
         Err(diag) => {
@@ -61,6 +65,31 @@ pub fn run(
             1
         }
     }
+}
+
+/// Builtins are embedded in the binary: enabling one only edits specforge.json.
+fn enable_builtin(name: &str, project_path: &Path, format: OutputFormat) -> i32 {
+    let added = match crate::builtins::enable(project_path, name) {
+        Ok(added) => added,
+        Err(message) => {
+            print_error(format, &message, "E032");
+            return 1;
+        }
+    };
+    match format {
+        OutputFormat::Json => {
+            let output = json!({
+                "action": "add",
+                "name": name,
+                "source": "builtin",
+                "changed": added,
+            });
+            println!("{}", serde_json::to_string_pretty(&output).unwrap());
+        }
+        OutputFormat::Human if added => println!("enabled builtin {}", name),
+        OutputFormat::Human => println!("{} is already enabled", name),
+    }
+    0
 }
 
 fn install_from_registry(

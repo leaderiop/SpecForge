@@ -5,6 +5,13 @@ use std::path::Path;
 
 pub fn run(name: &str, path: &Path, force: bool, format: OutputFormat) -> i32 {
     let lock_path = path.join("specforge.lock");
+
+    // A locked install of that name wins; otherwise a builtin name disables the builtin.
+    let locked =
+        read_lock_file(&lock_path).is_ok_and(|lock| lock.entries.iter().any(|e| e.name == name));
+    if !locked && let Some(builtin) = crate::builtins::builtin_name(name) {
+        return disable_builtin(builtin, path, format);
+    }
     let extensions_dir = path.join(".specforge").join("extensions");
 
     // 1. Read lock file (missing lock file means nothing to remove)
@@ -118,6 +125,46 @@ pub fn run(name: &str, path: &Path, force: bool, format: OutputFormat) -> i32 {
                 }
             }
             1
+        }
+    }
+}
+
+/// Builtins are embedded in the binary: disabling one only edits specforge.json.
+fn disable_builtin(name: &str, path: &Path, format: OutputFormat) -> i32 {
+    let not_installed = format!("extension '{}' is not installed", name);
+    let error = if !path.join("specforge.json").exists() {
+        Some(format!("{not_installed} (no specforge.json found)"))
+    } else {
+        match crate::builtins::disable(path, name) {
+            Ok(true) => None,
+            Ok(false) => Some(not_installed),
+            Err(message) => Some(message),
+        }
+    };
+    match (error, format) {
+        (Some(message), OutputFormat::Json) => {
+            println!(
+                "{}",
+                serde_json::to_string_pretty(&json!({"error": message}))
+                    .expect("serialize JSON output")
+            );
+            1
+        }
+        (Some(message), OutputFormat::Human) => {
+            eprintln!("error: {}", message);
+            1
+        }
+        (None, OutputFormat::Json) => {
+            println!(
+                "{}",
+                serde_json::to_string_pretty(&json!({"removed": name, "source": "builtin"}))
+                    .expect("serialize JSON output")
+            );
+            0
+        }
+        (None, OutputFormat::Human) => {
+            println!("Disabled builtin extension '{}'", name);
+            0
         }
     }
 }
