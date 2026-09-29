@@ -17,7 +17,8 @@
       "run": [
         "cargo",
         "test",
-        "--workspace"
+        "--workspace",
+        "--no-fail-fast"
       ]
     }
   ]

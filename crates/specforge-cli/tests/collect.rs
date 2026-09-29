@@ -157,13 +157,29 @@ fn collect_without_a_runner_extension_is_e058() {
 )]
 fn collect_without_detection_files_is_e058() {
     let fx = Fixture::new();
+    std::fs::write(
+        fx.root().join("specforge.json"),
+        r#"{"name":"demo","version":"0.1.0","extensions":["@specforge/software","@specforge/testing","@specforge/cargo-test","@specforge/vitest"]}"#,
+    )
+    .unwrap();
     std::fs::remove_file(fx.root().join("Cargo.toml")).unwrap();
     fx.cmd(&["collect", "--yes"])
         .assert()
         .failure()
         .stderr(predicate::str::contains("no test runner detected"))
-        .stderr(predicate::str::contains("available: cargo-test"));
+        .stderr(predicate::str::contains("available: cargo-test, vitest"));
     assert!(!fx.ran());
+}
+
+#[specforge_test(
+    behavior = "auto_detect_collector",
+    verify = "a single enabled collector is used without detection"
+)]
+fn a_single_enabled_runner_needs_no_detection() {
+    let fx = Fixture::new();
+    std::fs::remove_file(fx.root().join("Cargo.toml")).unwrap();
+    fx.cmd(&["collect", "--yes"]).assert().success();
+    assert!(fx.ran());
 }
 
 #[specforge_test(
@@ -176,7 +192,9 @@ fn unapproved_command_without_a_terminal_is_refused() {
         .assert()
         .failure()
         .stderr(predicate::str::contains("error[E059]"))
-        .stderr(predicate::str::contains("cargo test --workspace"));
+        .stderr(predicate::str::contains(
+            "cargo test --workspace --no-fail-fast",
+        ));
     assert!(!fx.ran(), "the command must not run without approval");
     assert!(!fx.root().join("specforge-report.json").exists());
 }
@@ -196,7 +214,7 @@ fn yes_runs_the_declared_command() {
         .assert()
         .success()
         .stderr(predicate::str::contains(
-            "running cargo-test (@specforge/cargo-test): cargo test --workspace",
+            "running cargo-test (@specforge/cargo-test): cargo test --workspace --no-fail-fast",
         ))
         .stdout(predicate::str::contains(
             "cargo-test: 1 entities, 1 passed, 0 failed, 0 skipped",
@@ -289,4 +307,87 @@ fn collect_then_analyze_scores_the_recorded_tests() {
         text.contains(r#""entities_proven": 1"#) || text.contains(r#""entities_proven":1"#),
         "analyze should read specforge-report.json by default: {text}"
     );
+}
+
+#[specforge_test(
+    behavior = "vt_declare_vitest_collector",
+    verify = "collect runs vitest with the report path and maps linked tests"
+)]
+fn vitest_runs_with_the_report_path_and_maps_linked_tests() {
+    let dir = TempDir::new().unwrap();
+    let root = dir.path().join("web");
+    std::fs::create_dir_all(&root).unwrap();
+    std::fs::write(
+        root.join("specforge.json"),
+        r#"{"name":"web","version":"0.1.0","extensions":["@specforge/software","@specforge/testing","@specforge/vitest"]}"#,
+    )
+    .unwrap();
+    std::fs::write(
+        root.join("app.spec"),
+        "behavior login \"Login\" {\n  verify unit \"accepts valid credentials\"\n}\n",
+    )
+    .unwrap();
+    std::fs::write(root.join("vitest.config.ts"), "export default {}\n").unwrap();
+
+    // A fake `npx` that records its arguments and writes a vitest JSON
+    // report to the `--outputFile.json=` path the collector declared.
+    let bin = dir.path().join("bin");
+    std::fs::create_dir_all(&bin).unwrap();
+    let npx = bin.join("npx");
+    std::fs::write(
+        &npx,
+        r#"#!/bin/sh
+echo "$@" > "$(dirname "$0")/args"
+for arg in "$@"; do
+  case "$arg" in --outputFile.json=*) out="${arg#--outputFile.json=}" ;; esac
+done
+mkdir -p "$(dirname "$out")"
+cat > "$out" <<'REPORT'
+{"testResults":[{"assertionResults":[
+ {"fullName":"login accepts valid credentials","status":"passed","duration":3,
+  "meta":{"specforge":{"behavior":"login","verify":"accepts valid credentials"}}},
+ {"fullName":"unlinked","status":"passed","meta":{}}]}]}
+REPORT
+exit 0
+"#,
+    )
+    .unwrap();
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        std::fs::set_permissions(&npx, std::fs::Permissions::from_mode(0o755)).unwrap();
+    }
+
+    let path = format!(
+        "{}:{}",
+        bin.display(),
+        std::env::var("PATH").unwrap_or_default()
+    );
+    specforge_cmd()
+        .args(["collect", "--yes", "--path"])
+        .arg(&root)
+        .env("PATH", path)
+        .env("SPECFORGE_CONSENT_FILE", dir.path().join("consent.json"))
+        .write_stdin("")
+        .assert()
+        .success()
+        .stdout(predicate::str::contains(
+            "vitest: 1 entities, 1 passed, 0 failed, 0 skipped",
+        ));
+
+    let args = std::fs::read_to_string(bin.join("args")).unwrap();
+    assert!(
+        args.starts_with("--no vitest run"),
+        "never downloads vitest: {args}"
+    );
+    assert!(
+        args.contains(".specforge/reports/vitest.json"),
+        "the report path is expanded: {args}"
+    );
+    let report: serde_json::Value =
+        serde_json::from_str(&std::fs::read_to_string(root.join("specforge-report.json")).unwrap())
+            .unwrap();
+    let test = &report["results"]["login"]["tests"][0];
+    assert_eq!(test["verify"], "accepts valid credentials");
+    assert_eq!(test["runner"], "vitest");
 }

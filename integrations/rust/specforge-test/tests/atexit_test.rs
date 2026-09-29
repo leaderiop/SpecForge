@@ -28,3 +28,15 @@ fn atexit_writes_report_on_process_exit() {
     assert_eq!(content["binary_name"], "test_binary");
     assert_eq!(content["entries"][0]["entity_id"], "test_entity");
 }
+
+#[test]
+fn build_hash_is_stripped_from_report_names() {
+    use specforge_test::atexit::strip_build_hash;
+    assert_eq!(strip_build_hash("tests-87edb3de886b35bf"), "tests");
+    assert_eq!(
+        strip_build_hash("specforge_emitter-9ca163c6142f8316"),
+        "specforge_emitter"
+    );
+    assert_eq!(strip_build_hash("my-tool"), "my-tool");
+    assert_eq!(strip_build_hash("plain"), "plain");
+}

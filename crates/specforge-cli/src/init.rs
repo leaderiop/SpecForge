@@ -18,12 +18,14 @@ pub fn run(
     {
         extensions.push("@specforge/testing".to_string());
     }
-    // A Cargo project gets the runner that collects its test results.
-    if extensions.iter().any(|e| e == "@specforge/testing")
-        && path.join("Cargo.toml").is_file()
-        && !extensions.iter().any(|e| e == "@specforge/cargo-test")
-    {
-        extensions.push("@specforge/cargo-test".to_string());
+    // The project's test runners get the extensions that collect their
+    // results.
+    if extensions.iter().any(|e| e == "@specforge/testing") {
+        for runner in detected_runners(path) {
+            if !extensions.iter().any(|e| e == runner) {
+                extensions.push(runner.to_string());
+            }
+        }
     }
     let extensions = extensions.as_slice();
 
@@ -147,7 +149,10 @@ pub fn run(
             println!("\nNext steps:");
             println!("  specforge check    # validate your spec files");
             println!("  specforge export   # export the graph");
-            if extensions.iter().any(|e| e == "@specforge/cargo-test") {
+            if extensions
+                .iter()
+                .any(|e| e == "@specforge/cargo-test" || e == "@specforge/vitest")
+            {
                 println!("  specforge collect  # run the tests and record what they prove");
             }
         }
@@ -314,4 +319,39 @@ deliverable app "Application" {{
 }}
 "#
     )
+}
+
+/// Runner extensions for the test runners the project at `path` uses.
+fn detected_runners(path: &Path) -> Vec<&'static str> {
+    let mut runners = Vec::new();
+    if path.join("Cargo.toml").is_file() {
+        runners.push("@specforge/cargo-test");
+    }
+    if uses_vitest(path) {
+        runners.push("@specforge/vitest");
+    }
+    runners
+}
+
+/// A vitest config file, or vitest among package.json's dependencies (a
+/// project may configure it inside vite.config.*).
+fn uses_vitest(path: &Path) -> bool {
+    let config = std::fs::read_dir(path)
+        .into_iter()
+        .flatten()
+        .flatten()
+        .any(|e| {
+            e.file_name().to_str().is_some_and(|n| {
+                n.starts_with("vitest.config.") || n.starts_with("vitest.workspace.")
+            })
+        });
+    config
+        || std::fs::read_to_string(path.join("package.json"))
+            .ok()
+            .and_then(|raw| serde_json::from_str::<serde_json::Value>(&raw).ok())
+            .is_some_and(|pkg| {
+                ["dependencies", "devDependencies"]
+                    .iter()
+                    .any(|deps| pkg[deps].get("vitest").is_some())
+            })
 }

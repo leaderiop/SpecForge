@@ -515,6 +515,50 @@ fn non_interactive_with_extensions() {
     assert_eq!(extensions[2], "@specforge/testing");
 }
 
+/// `init` enables the runner extensions for the test runners it finds: a
+/// Cargo.toml, a vitest config, or vitest in package.json.
+#[test]
+fn init_enables_runner_extensions_for_detected_test_runners() {
+    let init = |setup: &dyn Fn(&std::path::Path)| {
+        let dir = TempDir::new().unwrap();
+        setup(dir.path());
+        specforge_cmd()
+            .args([
+                "init",
+                "--name",
+                "demo",
+                "--extensions",
+                "@specforge/software",
+            ])
+            .current_dir(dir.path())
+            .assert()
+            .success();
+        let content = fs::read_to_string(dir.path().join("specforge.json")).unwrap();
+        let json: serde_json::Value = serde_json::from_str(&content).unwrap();
+        json["extensions"].clone()
+    };
+    let has =
+        |exts: &serde_json::Value, name: &str| exts.as_array().unwrap().iter().any(|e| e == name);
+
+    let none = init(&|_| {});
+    assert!(!has(&none, "@specforge/cargo-test") && !has(&none, "@specforge/vitest"));
+
+    let rust = init(&|d| fs::write(d.join("Cargo.toml"), "").unwrap());
+    assert!(has(&rust, "@specforge/cargo-test") && !has(&rust, "@specforge/vitest"));
+
+    let config = init(&|d| fs::write(d.join("vitest.config.ts"), "").unwrap());
+    assert!(has(&config, "@specforge/vitest"));
+
+    let dependency = init(&|d| {
+        fs::write(
+            d.join("package.json"),
+            r#"{"devDependencies":{"vitest":"^5.0.0"}}"#,
+        )
+        .unwrap()
+    });
+    assert!(has(&dependency, "@specforge/vitest"));
+}
+
 #[specforge_test(
     behavior = "non_interactive_init",
     verify = "non-interactive init with --format=json outputs InitOutput JSON"

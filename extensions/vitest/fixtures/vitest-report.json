@@ -1,0 +1,133 @@
+{
+  "numTotalTestSuites": 2,
+  "numPassedTestSuites": 1,
+  "numFailedTestSuites": 1,
+  "numPendingTestSuites": 0,
+  "numTotalTests": 6,
+  "numPassedTests": 4,
+  "numFailedTests": 1,
+  "numPendingTests": 1,
+  "numTodoTests": 0,
+  "snapshot": {
+    "added": 0,
+    "failure": false,
+    "filesAdded": 0,
+    "filesRemoved": 0,
+    "filesRemovedList": [],
+    "filesUnmatched": 0,
+    "filesUpdated": 0,
+    "matched": 0,
+    "total": 0,
+    "unchecked": 0,
+    "uncheckedKeysByFile": [],
+    "unmatched": 0,
+    "updated": 0,
+    "didUpdate": false
+  },
+  "startTime": 1790675962294,
+  "success": false,
+  "testResults": [
+    {
+      "assertionResults": [
+        {
+          "ancestorTitles": [],
+          "fullName": "rejects a duplicate email",
+          "status": "passed",
+          "title": "rejects a duplicate email",
+          "duration": 2.632125000000002,
+          "failureMessages": [],
+          "meta": {
+            "specforge": {
+              "behavior": "create_user",
+              "verify": "rejects a duplicate email"
+            }
+          },
+          "tags": [],
+          "benchmarks": []
+        },
+        {
+          "ancestorTitles": [],
+          "fullName": "fails on purpose",
+          "status": "failed",
+          "title": "fails on purpose",
+          "duration": 3.426792000000006,
+          "failureMessages": [
+            "AssertionError: expected 1 to be 2 // Object.is equality"
+          ],
+          "meta": {
+            "specforge": {
+              "behavior": "create_user",
+              "verify": "stores a hashed password"
+            }
+          },
+          "tags": [],
+          "benchmarks": []
+        },
+        {
+          "ancestorTitles": [],
+          "fullName": "runtime meta",
+          "status": "passed",
+          "title": "runtime meta",
+          "duration": 0.1496670000000222,
+          "failureMessages": [],
+          "meta": {
+            "specforge": {
+              "invariant": "unique_ids"
+            }
+          },
+          "tags": [],
+          "benchmarks": []
+        },
+        {
+          "ancestorTitles": [
+            "suite meta"
+          ],
+          "fullName": "suite meta inherits",
+          "status": "passed",
+          "title": "inherits",
+          "duration": 0.23141699999999332,
+          "failureMessages": [],
+          "meta": {
+            "specforge": {
+              "behavior": "delete_user"
+            }
+          },
+          "tags": [],
+          "benchmarks": []
+        },
+        {
+          "ancestorTitles": [
+            "suite meta"
+          ],
+          "fullName": "suite meta skipped one",
+          "status": "skipped",
+          "title": "skipped one",
+          "failureMessages": [],
+          "meta": {
+            "specforge": {
+              "behavior": "delete_user"
+            }
+          },
+          "tags": [],
+          "benchmarks": []
+        },
+        {
+          "ancestorTitles": [],
+          "fullName": "unlinked",
+          "status": "passed",
+          "title": "unlinked",
+          "duration": 0.06395899999998278,
+          "failureMessages": [],
+          "meta": {},
+          "tags": [],
+          "benchmarks": []
+        }
+      ],
+      "startTime": 1790675962453,
+      "endTime": 1790675962460.2314,
+      "status": "failed",
+      "message": "",
+      "name": "/project/test/users.test.ts"
+    }
+  ]
+}

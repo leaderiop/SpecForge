@@ -84,7 +84,7 @@ The attribute takes any entity kind as its first argument (`behavior`,
 ## 4. Collect and analyze
 
 ```bash
-specforge collect            # runs `cargo test --workspace`, records results
+specforge collect            # runs `cargo test --workspace --no-fail-fast`, records results
 specforge analyze coverage   # reads specforge-report.json
 ```
 
@@ -94,6 +94,8 @@ The approval is remembered per project and command, in
 don't make `collect` fail: they're recorded, and `analyze` reports them
 (A014).
 
+- **Generated files:** `specforge-report.json` and `.specforge/` are
+  generated; add them to `.gitignore`.
 - **CI:** there's no terminal to ask, so pass `--yes`, or run `cargo test`
   yourself and then `specforge collect --no-run` to record the report it wrote.
 - **Custom target directory:** `collect` sets `SPECFORGE_REPORT`, and

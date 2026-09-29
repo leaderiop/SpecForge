@@ -3,7 +3,8 @@
 //! Tests link themselves to entities with the `#[specforge_test(...)]`
 //! attribute from the `specforge-test` crate, which records every annotated
 //! test and writes one JSON report per test binary. This extension declares
-//! the command `specforge collect` runs (`cargo test --workspace`) and maps
+//! the command `specforge collect` runs (`cargo test --workspace --no-fail-fast`, so one failing test
+//! binary doesn't stop the others from reporting) and maps
 //! those per-binary reports to entity results. It runs nothing itself: the
 //! host runs the command with the user's consent and passes the report
 //! files to `collect__cargo_test`.
@@ -26,7 +27,7 @@ impl Contributions for CargoTest {
         c.collector(COLLECTOR, |k| {
             k.input_format("specforge-test-json")
                 .detect_files(&["Cargo.toml"])
-                .run(&["cargo", "test", "--workspace"])
+                .run(&["cargo", "test", "--workspace", "--no-fail-fast"])
                 .report("target/specforge");
         });
     }
@@ -132,7 +133,11 @@ mod tests {
             ],
         };
         let out = collect(&input);
-        let ids: Vec<&str> = out.entity_results.iter().map(|e| e.entity_id.as_str()).collect();
+        let ids: Vec<&str> = out
+            .entity_results
+            .iter()
+            .map(|e| e.entity_id.as_str())
+            .collect();
         assert_eq!(ids, vec!["login", "user"]);
         let login = &out.entity_results[0].test_results;
         assert_eq!(login.len(), 2);

@@ -541,7 +541,7 @@ pub fn collect(
     let root = request.root;
     let available = collectors(manifests);
     let parse_only = !matches!(request.mode, Mode::Run(_));
-    let selected = select(&available, request.runner, parse_only, root)?;
+    let selected = select(&available, request.runner, root)?;
     if let Mode::Reports(_) = request.mode
         && selected.len() > 1
     {
@@ -632,7 +632,6 @@ pub fn collect(
 fn select<'a>(
     available: &'a [Collector],
     runner: Option<&str>,
-    parse_only: bool,
     root: &Path,
 ) -> Result<Vec<&'a Collector>, CollectError> {
     if available.is_empty() {
@@ -662,9 +661,10 @@ fn select<'a>(
             });
     }
     let detected = detect(available, root);
-    // Parsing an existing report needs no detection when only one runner
-    // is enabled.
-    if detected.is_empty() && parse_only && available.len() == 1 {
+    // A project that enabled a single runner chose it: detection only
+    // decides between several (vitest configured inside vite.config.ts,
+    // for one, has no file of its own to detect).
+    if detected.is_empty() && available.len() == 1 {
         return Ok(vec![&available[0]]);
     }
     if detected.is_empty() {

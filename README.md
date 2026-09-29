@@ -71,7 +71,7 @@ claude mcp add specforge -- specforge mcp /path/to/your/project
 
 The compiler is a **pure typed-graph engine**. It knows how to parse `keyword name { fields }` blocks, resolve references, detect orphans and cycles, and emit a validated graph — but it carries **no domain vocabulary**. Every entity kind, edge type, and validation rule comes from an extension. If a new domain required a compiler change, the architecture would have failed.
 
-Eight extensions ship as builtins, embedded in the binary. Enable one with `specforge add @specforge/<name>` (or `specforge init --extensions ...`); it is recorded in `specforge.json`, with nothing to download:
+Nine extensions ship as builtins, embedded in the binary. Enable one with `specforge add @specforge/<name>` (or `specforge init --extensions ...`); it is recorded in `specforge.json`, with nothing to download:
 
 | Extension | Entity kinds | Purpose |
 |-----------|-------------|---------|
@@ -81,6 +81,7 @@ Eight extensions ship as builtins, embedded in the binary. Enable one with `spec
 | **`@specforge/formal`** | property · axiom · protocol · refinement · process | Formal methods: temporal properties, specification layering, event-graph linting. Enhances software entities. |
 | **`@specforge/testing`** | — | Test vocabulary: which kinds accept `verify` obligations and of which kinds (W004/W009). Enabled with `@specforge/software`; test-runner extensions build on it ([ADR 0002](docs/adr/0002-test-runner-extensions.md)). |
 | **`@specforge/cargo-test`** | — | Rust test runner: `specforge collect` runs `cargo test` (after you approve the command once per project) and records which entities the `#[specforge_test]`-annotated tests prove. Enabled by `init` in a Cargo project; `specforge add` also enables `@specforge/testing`. |
+| **`@specforge/vitest`** | — | vitest runner: `specforge collect` runs the project's own vitest (after you approve the command once per project) and records which entities tests name in their `meta.specforge`. Enabled by `init` in a vitest project; `specforge add` also enables `@specforge/testing`. |
 | **`@specforge/rust`** | — | Source analyzer used by inference: maps Rust code to spec entities. |
 | **`@specforge/typescript`** | — | Source analyzer used by inference: maps TypeScript/JavaScript code to spec entities. |
 
@@ -173,6 +174,7 @@ The implementation is a Rust workspace (edition 2024) under [`crates/`](crates/)
 - **[Vision](vision/README.md)** — the manifesto, [principles](vision/principles.md), and [north star](vision/north-star.md). The source of truth for every product decision.
 - **[Documentation Hub](docs/README.md)** — entity reference tables, traceability chain, validation codes.
 - **[Rust Test Tracing](docs/guides/rust-test-tracing.md)** — link Rust tests to the entities they prove with `#[specforge_test]`, then `specforge collect` and `specforge analyze coverage`.
+- **[vitest Test Tracing](docs/guides/vitest-test-tracing.md)** — link vitest tests to the entities they prove through test metadata, then `specforge collect`.
 - **[Formal Verification](docs/guides/formal-verification.md)** — SMT-proven specs: declare machine-checkable bounds and claims, get contradictions and counterexamples with exact locations.
 - **[Entity Model](docs/entity-model.md)** — full architecture: core engine, extensions, edges, validation rules.
 - **[Quick Reference](docs/quick-reference.md)** — single-page cheat sheet.

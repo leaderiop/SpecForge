@@ -564,7 +564,8 @@ behavior auto_detect_collector "Auto-Detect Collector" {
   ensures {
     all_matches_selected "every collector whose detection files exist at the project root is selected"
     runner_flag_selects_one "--runner selects exactly the collector with that name or extension"
-    no_match_diagnosed "no collector, no match or an unknown --runner is E058, listing the available collectors"
+    single_collector_used "a single enabled collector is used without detection"
+    no_match_diagnosed "no collector, no match among several or an unknown --runner is E058, listing the available collectors"
   }
 
   contract """
@@ -572,9 +573,9 @@ behavior auto_detect_collector "Auto-Detect Collector" {
     detection files exist at the project root; the last segment of a
     detection pattern may use `*` wildcards (`vitest.config.*`). A project
     with Rust and TypeScript tests therefore collects from both runners.
-    `--runner` names one collector by name or extension. When parsing an
-    existing report (`--no-run`, `--report`) and only one collector is
-    enabled, it is selected without detection. When nothing can be
+    `--runner` names one collector by name or extension. When only one
+    collector is enabled, it is selected without detection: detection
+    only decides between several. When nothing can be
     selected, the command fails with E058 and lists the collectors that are
     available.
   """
@@ -584,7 +585,8 @@ behavior auto_detect_collector "Auto-Detect Collector" {
   verify unit "file pattern match selects collector"
   verify unit "wildcards match within the last path segment"
   verify unit "no match emits E058 with available collectors"
-  verify contract "Auto-Detect Collector: collector auto-detection holds — collector_registered_fired, all_matches_selected, runner_flag_selects_one, no_match_diagnosed"
+  verify integration "a single enabled collector is used without detection"
+  verify contract "Auto-Detect Collector: collector auto-detection holds — collector_registered_fired, all_matches_selected, runner_flag_selects_one, single_collector_used, no_match_diagnosed"
 }
 
 behavior approve_collector_command "Approve Collector Command" {

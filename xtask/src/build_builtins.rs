@@ -22,6 +22,7 @@ const EXTENSIONS: &[(&str, &str)] = &[
     ("formal", "specforge_ext_formal.wasm"),
     ("testing", "specforge_ext_testing.wasm"),
     ("cargo-test", "specforge_ext_cargo_test.wasm"),
+    ("vitest", "specforge_ext_vitest.wasm"),
     ("rust", "specforge_ext_rust.wasm"),
     ("typescript", "specforge_ext_typescript.wasm"),
 ];

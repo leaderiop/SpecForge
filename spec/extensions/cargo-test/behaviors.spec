@@ -9,7 +9,8 @@ behavior ct_declare_cargo_collector "Declare the cargo test Collector" {
   contract """
     @specforge/cargo-test MUST declare one collector, `cargo-test`, selected
     by a `Cargo.toml` at the project root. Its command is
-    `cargo test --workspace` and its report is the `target/specforge`
+    `cargo test --workspace --no-fail-fast` (one failing test binary must
+    not stop the others from reporting) and its report is the `target/specforge`
     directory, where the `specforge-test` attribute writes one JSON report
     per test binary (or `$SPECFORGE_REPORT`, which the host sets when it
     runs the command). It requires @specforge/testing, which owns the
@@ -18,7 +19,7 @@ behavior ct_declare_cargo_collector "Declare the cargo test Collector" {
 
   ensures {
     detected_by_cargo_toml "a project with Cargo.toml at its root selects cargo-test"
-    declares_command       "the declared command is cargo test --workspace"
+    declares_command       "the declared command is cargo test --workspace --no-fail-fast"
     requires_testing       "@specforge/testing is a required peer, enabled with it by specforge add"
   }
 

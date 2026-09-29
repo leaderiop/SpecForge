@@ -103,6 +103,30 @@ fn governance_extension_loads_via_protocol() {
 }
 
 #[specforge_test_macros::test(
+    behavior = "vt_declare_vitest_collector",
+    verify = "vitest declares its collector"
+)]
+fn vitest_declares_its_collector() {
+    let manifest = load_via_protocol("@specforge/vitest");
+    assert!(
+        manifest
+            .peer_dependencies
+            .iter()
+            .any(|p| p.name == "@specforge/testing" && !p.optional),
+        "testing is a required peer"
+    );
+    let collectors = specforge_emitter::collect::collectors(std::slice::from_ref(&manifest));
+    assert_eq!(collectors.len(), 1);
+    let c = &collectors[0];
+    assert_eq!(c.name, "vitest");
+    assert_eq!(c.export, "collect__vitest");
+    assert_eq!(c.detect, ["vitest.config.*", "vitest.workspace.*"]);
+    assert_eq!(&c.run[..3], ["npx", "--no", "vitest"]);
+    assert!(c.run.iter().any(|a| a == "--outputFile.json={report}"));
+    assert_eq!(c.report, ".specforge/reports/vitest.json");
+}
+
+#[specforge_test_macros::test(
     behavior = "ct_declare_cargo_collector",
     verify = "cargo-test declares its collector"
 )]
@@ -121,7 +145,7 @@ fn cargo_test_declares_its_collector() {
     assert_eq!(c.name, "cargo-test");
     assert_eq!(c.export, "collect__cargo_test");
     assert_eq!(c.detect, ["Cargo.toml"]);
-    assert_eq!(c.run, ["cargo", "test", "--workspace"]);
+    assert_eq!(c.run, ["cargo", "test", "--workspace", "--no-fail-fast"]);
     assert_eq!(c.report, "target/specforge");
 }
 

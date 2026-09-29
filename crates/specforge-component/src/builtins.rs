@@ -12,6 +12,8 @@ static TESTING_WASM: &[u8] =
     include_bytes!("../../../extensions/testing/wasm/specforge_ext_testing.wasm");
 static CARGO_TEST_WASM: &[u8] =
     include_bytes!("../../../extensions/cargo-test/wasm/specforge_ext_cargo_test.wasm");
+static VITEST_WASM: &[u8] =
+    include_bytes!("../../../extensions/vitest/wasm/specforge_ext_vitest.wasm");
 static RUST_WASM: &[u8] = include_bytes!("../../../extensions/rust/wasm/specforge_ext_rust.wasm");
 static TYPESCRIPT_WASM: &[u8] =
     include_bytes!("../../../extensions/typescript/wasm/specforge_ext_typescript.wasm");
@@ -23,6 +25,7 @@ pub const BUILTIN_EXTENSIONS: &[(&str, &[u8])] = &[
     ("@specforge/formal", FORMAL_WASM),
     ("@specforge/testing", TESTING_WASM),
     ("@specforge/cargo-test", CARGO_TEST_WASM),
+    ("@specforge/vitest", VITEST_WASM),
     ("@specforge/rust", RUST_WASM),
     ("@specforge/typescript", TYPESCRIPT_WASM),
 ];

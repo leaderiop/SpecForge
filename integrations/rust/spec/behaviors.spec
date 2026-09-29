@@ -317,11 +317,14 @@ behavior print_coverage_summary "Print Coverage Summary" {
 
   contract """
     After computing the coverage diff, the atexit handler MUST print a
-    compact summary to stderr showing each testable entity with its
-    coverage status. The summary MUST include the graph export timestamp
-    so staleness is visible. If no graph export is available, the summary
-    MUST be skipped silently. The summary MUST be printed only when at
-    least one #[specforge::test] was collected.
+    compact summary to stderr showing each entity this test binary
+    recorded tests for, with its coverage status. Entities the binary
+    didn't exercise are left out: project-wide gaps are reported by
+    `specforge analyze coverage` after `specforge collect`. The header
+    MUST include the graph export timestamp when the export carries one.
+    If no graph export is available, the summary MUST be skipped silently.
+    The summary MUST be printed only when at least one #[specforge_test]
+    was collected.
   """
 
   requires {
@@ -330,13 +333,13 @@ behavior print_coverage_summary "Print Coverage Summary" {
   }
 
   ensures {
-    summary_printed      "stderr shows coverage table with entity/expected/covered/status"
-    timestamp_visible    "graph export timestamp is included in header"
+    summary_printed      "stderr shows coverage table with entity/expected/covered/status for the binary's recorded entities"
+    timestamp_visible    "a graph export timestamp, when present, is included in header"
     skipped_when_no_graph "no output when graph.json was unavailable"
     skipped_when_no_tests "no output when zero specforge tests ran"
   }
 
-  verify unit "summary includes all testable entities"
+  verify unit "summary includes the entities the binary recorded"
   verify unit "timestamp from graph export appears in header"
   verify unit "no graph means no output"
   verify unit "no specforge tests means no output"

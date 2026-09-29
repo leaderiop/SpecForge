@@ -25,3 +25,7 @@ tests/spec/
 # Environment
 .env
 .env.*
+
+# SpecForge: test results written by `specforge collect`, and runner reports
+/specforge-report.json
+.specforge/

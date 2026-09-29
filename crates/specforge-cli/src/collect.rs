@@ -97,7 +97,9 @@ pub fn run(path: &Path, options: &Options, format: OutputFormat) -> i32 {
                 r.name, s.entities, s.passed, s.failed, s.skipped, r.files
             );
             if let Some(code) = r.exit_code.filter(|c| *c != 0) {
-                println!("  the runner exited with status {code}; failing tests are recorded");
+                println!(
+                    "  the runner exited with status {code}; results of the tests that ran are recorded"
+                );
             }
         }
         for d in &outcome.diagnostics {

@@ -41,16 +41,38 @@ fn binary_name() -> String {
         .unwrap_or_else(|| "unknown".to_string())
 }
 
+/// The final report's name: stable across rebuilds, so each run of a test
+/// target replaces its previous report instead of leaving one per build
+/// hash for `specforge collect --no-run` to count again. Cargo sets
+/// `CARGO_PKG_NAME` when it runs tests; the target name is the binary's
+/// stem without its build hash (`tests-87edb3de886b35bf` → `tests`).
+fn report_name() -> String {
+    let binary = binary_name();
+    match std::env::var("CARGO_PKG_NAME") {
+        Ok(package) => format!("{package}--{}", strip_build_hash(&binary)),
+        Err(_) => binary,
+    }
+}
+
+/// `name-<16 hex digits>` → `name`; anything else unchanged.
+pub fn strip_build_hash(binary: &str) -> &str {
+    match binary.rsplit_once('-') {
+        Some((target, hash)) if hash.len() == 16 && hash.chars().all(|c| c.is_ascii_hexdigit()) => {
+            target
+        }
+        _ => binary,
+    }
+}
+
 extern "C" fn on_exit() {
     let entries = registry::drain();
     if entries.is_empty() {
         return;
     }
 
-    let binary_name = binary_name();
     let dir = report_dir();
 
-    if let Err(e) = report::write_report(&dir, &binary_name, &entries) {
+    if let Err(e) = report::write_report(&dir, &report_name(), &entries) {
         eprintln!("[specforge-test] failed to write report: {e}");
     }
 
@@ -61,7 +83,16 @@ extern "C" fn on_exit() {
     let fs = RealFs;
     if let Some(graph) = fs.read_graph(&graph_path) {
         let stamped = coverage::stamp_verify_kinds(entries, &graph);
-        let diffs = coverage::compute_coverage_diff(&graph, &stamped);
+        // Only the entities this binary's tests recorded: a binary exercises
+        // a slice of the project, so listing every other entity as
+        // uncovered is noise. Project-wide gaps are `specforge analyze
+        // coverage`'s job, after `specforge collect`.
+        let recorded: std::collections::HashSet<&str> =
+            stamped.iter().map(|e| e.entity_id.as_str()).collect();
+        let diffs: Vec<_> = coverage::compute_coverage_diff(&graph, &stamped)
+            .into_iter()
+            .filter(|d| recorded.contains(d.entity_id.as_str()))
+            .collect();
         if let Err(e) =
             coverage::format_coverage_summary(&mut std::io::stderr(), &diffs, &graph.timestamp)
         {
