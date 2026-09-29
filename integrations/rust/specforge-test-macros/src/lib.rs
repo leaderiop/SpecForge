@@ -143,64 +143,37 @@ pub fn test(attr: TokenStream, item: TokenStream) -> TokenStream {
         }
     };
 
-    // C11-04: honor #[should_panic] (panic is the success path) and
-    // #[ignore] (record Skipped, skip the body) instead of forwarding them
-    // blindly.
+    // C11-04: #[should_panic] makes a panic the success path. #[ignore]
+    // stays on the generated test, so libtest reports it as ignored, and
+    // `cargo test -- --ignored` runs the real body and records its result.
     let expect_panic = input_fn
         .attrs
         .iter()
         .any(|a| a.path().is_ident("should_panic"));
-    let ignored = input_fn.attrs.iter().any(|a| a.path().is_ident("ignore"));
 
-    let attrs: Vec<_> = input_fn
-        .attrs
-        .iter()
-        .filter(|a| !a.path().is_ident("ignore"))
-        .cloned()
-        .collect();
+    let attrs = &input_fn.attrs;
     let vis = &input_fn.vis;
     let sig = &input_fn.sig;
     // Splice the body's statements rather than nesting its block, so a
     // single-expression body doesn't trip `unused_braces` in user code.
     let body = &input_fn.block.stmts;
 
-    let output = if ignored {
-        quote! {
-            #register
-            #(#attrs)*
-            #vis #sig {
-                #once
-                let _ignored = ::specforge_test::__private::TestGuard::new_skipped(
-                    #entity_kind,
-                    #entity_id,
-                    module_path!(),
-                    #fn_name_str,
-                    file!(),
-                    line!(),
-                    #verify_expr,
-                );
-                // Body intentionally skipped: the test is recorded as
-                // `skipped`, not absent (C11-04).
-            }
-        }
-    } else {
-        quote! {
-            #register
-            #(#attrs)*
-            #vis #sig {
-                #once
-                let __specforge_guard = ::specforge_test::__private::TestGuard::with_expectations(
-                    #entity_kind,
-                    #entity_id,
-                    module_path!(),
-                    #fn_name_str,
-                    file!(),
-                    line!(),
-                    #verify_expr,
-                    #expect_panic,
-                );
-                #(#body)*
-            }
+    let output = quote! {
+        #register
+        #(#attrs)*
+        #vis #sig {
+            #once
+            let __specforge_guard = ::specforge_test::__private::TestGuard::with_expectations(
+                #entity_kind,
+                #entity_id,
+                module_path!(),
+                #fn_name_str,
+                file!(),
+                line!(),
+                #verify_expr,
+                #expect_panic,
+            );
+            #(#body)*
         }
     };
 

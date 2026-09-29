@@ -79,7 +79,7 @@ The attribute takes any entity kind as its first argument (`behavior`,
 | two `#[specforge_test(...)]` on one function | One test, one recorded result per attribute: a test can prove several entities. |
 | `#[specforge_test(...)]` above `#[tokio::test]`, `#[rstest]` or `#[test_case]` | That attribute registers the test; the macro only records it. |
 | with `#[should_panic]` | A panic records `pass`; no panic records `fail`. |
-| with `#[ignore]` | Recorded as `skipped` without running the body. Skipped tests prove nothing. |
+| with `#[ignore]` | Ignored as usual: nothing runs and nothing is recorded. `cargo test -- --ignored` (or `--include-ignored`) runs it and records its result. |
 
 ## 4. Collect and analyze
 
@@ -108,6 +108,8 @@ usually a typo or a reworded statement, is A016.
   `CARGO_TARGET_DIR` points.
 - **Another command** (for example `cargo nextest run`): run it yourself, then
   `specforge collect --no-run`. The reports land in `target/specforge/`.
+  Under nextest, which runs each test in its own process, every test writes
+  its own report, and a run replaces the previous run's reports.
 
 ## Troubleshooting
 

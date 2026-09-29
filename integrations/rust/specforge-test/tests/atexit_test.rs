@@ -40,3 +40,55 @@ fn build_hash_is_stripped_from_report_names() {
     assert_eq!(strip_build_hash("my-tool"), "my-tool");
     assert_eq!(strip_build_hash("plain"), "plain");
 }
+
+#[specforge_test_macros::test(
+    behavior = "record_test_via_drop_guard",
+    verify = "under nextest each test writes its own report and reports of other runs are pruned"
+)]
+fn nextest_reports_are_per_test_and_prune_other_runs() {
+    use specforge_test::atexit::{prune_superseded, report_name};
+    assert_eq!(report_name("pkg--tests", None), "pkg--tests");
+    assert_eq!(
+        report_name(
+            "pkg--tests",
+            Some(("0123456789abcdef", "collect::runs_with <x>"))
+        ),
+        "pkg--tests--01234567--collect.runs_with__x_"
+    );
+
+    let dir = tempfile::tempdir().unwrap();
+    let touch = |name: &str| std::fs::write(dir.path().join(name), "{}").unwrap();
+    let names = || {
+        let mut names: Vec<String> = std::fs::read_dir(dir.path())
+            .unwrap()
+            .map(|e| e.unwrap().file_name().into_string().unwrap())
+            .collect();
+        names.sort();
+        names
+    };
+    for name in [
+        "pkg--tests.json",
+        "pkg--tests--aaaaaaaa--old.json",
+        "pkg--tests--bbbbbbbb--kept.json",
+        "pkg--tests_more.json",
+        "other--tests.json",
+    ] {
+        touch(name);
+    }
+
+    // A nextest process of run bbbbbbbb: the cargo test report and run
+    // aaaaaaaa's reports of this target go; other targets stay.
+    prune_superseded(dir.path(), "pkg--tests", Some("bbbbbbbb-rest-of-uuid"));
+    assert_eq!(
+        names(),
+        vec![
+            "other--tests.json",
+            "pkg--tests--bbbbbbbb--kept.json",
+            "pkg--tests_more.json"
+        ]
+    );
+
+    // A cargo test run of the target replaces every nextest report of it.
+    prune_superseded(dir.path(), "pkg--tests", None);
+    assert_eq!(names(), vec!["other--tests.json", "pkg--tests_more.json"]);
+}

@@ -11,9 +11,6 @@ pub struct TestGuard {
     /// `#[should_panic]` test: a panic is the success path (C11-04).
     expect_panic: bool,
     started: Instant,
-    /// `#[ignore]`d test: Skipped is recorded on construction and Drop is a
-    /// no-op (C11-04).
-    skip: bool,
 }
 
 /// Fail a test that runs twice in one test binary. `#[specforge_test]`
@@ -69,8 +66,9 @@ impl TestGuard {
         )
     }
 
-    /// Macro entry point carrying `#[should_panic]` / `#[ignore]`
-    /// expectations (C11-04).
+    /// Macro entry point carrying the `#[should_panic]` expectation
+    /// (C11-04). An `#[ignore]`d test runs only when libtest is asked to
+    /// (`--ignored`), and is then recorded like any other.
     #[allow(clippy::too_many_arguments)]
     pub fn with_expectations(
         entity_kind: &'static str,
@@ -91,50 +89,12 @@ impl TestGuard {
             verify,
             expect_panic,
             started: Instant::now(),
-            skip: false,
-        }
-    }
-
-    /// `#[ignore]` entry point: records [`TestOutcome::Skipped`] immediately
-    /// (the caller then skips the body), and Drop records nothing.
-    pub fn new_skipped(
-        entity_kind: &'static str,
-        entity_id: &'static str,
-        _module_path: &'static str,
-        test_name: &'static str,
-        file: &'static str,
-        _line: u32,
-        verify: Option<&'static str>,
-    ) -> Self {
-        atexit::ensure_registered();
-        registry::record(TestRecordEntry {
-            entity_kind: entity_kind.to_string(),
-            entity_id: entity_id.to_string(),
-            test_name: test_name.to_string(),
-            file: file.to_string(),
-            verify: verify.map(|s| s.to_string()),
-            verify_kind: None,
-            duration_ms: 0,
-            outcome: TestOutcome::Skipped,
-        });
-        Self {
-            entity_kind,
-            entity_id,
-            test_name,
-            file,
-            verify,
-            expect_panic: false,
-            started: Instant::now(),
-            skip: true,
         }
     }
 }
 
 impl Drop for TestGuard {
     fn drop(&mut self) {
-        if self.skip {
-            return;
-        }
         let outcome = if self.expect_panic {
             // C11-04: a panic under #[should_panic] is the success path —
             // recording Fail made every should_panic test count against

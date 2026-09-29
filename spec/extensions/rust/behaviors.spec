@@ -38,8 +38,9 @@ behavior record_test_via_drop_guard "Record Test via Drop Guard" {
     as a test (no separate #[test]; it defers to a runner attribute such
     as #[tokio::test] below it) and inject a TestGuard that records
     pass/fail on Drop. The guard MUST check std::thread::panicking() to
-    determine status, inverted under #[should_panic]; an #[ignore]d test
-    is recorded as skipped. Results MUST be written via an atexit handler
+    determine status, inverted under #[should_panic]. An #[ignore]d test
+    stays ignored and records nothing; run with `--ignored` it records its
+    real result. Results MUST be written via an atexit handler
     to $SPECFORGE_REPORT when `specforge collect` sets it, else to
     target/specforge/, one report per test target named
     <package>--<target>.json so a rebuild replaces its predecessor.
@@ -49,4 +50,6 @@ behavior record_test_via_drop_guard "Record Test via Drop Guard" {
   verify unit "panicking test records fail via Drop"
   verify unit "results written to target/specforge/ on process exit"
   verify unit "the attribute registers the test without #[test]"
+  verify unit "an ignored test runs and is recorded only when libtest is asked to run it"
+  verify unit "under nextest each test writes its own report and reports of other runs are pruned"
 }

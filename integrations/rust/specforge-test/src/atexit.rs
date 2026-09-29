@@ -46,11 +46,78 @@ fn binary_name() -> String {
 /// hash for `specforge collect --no-run` to count again. Cargo sets
 /// `CARGO_PKG_NAME` when it runs tests; the target name is the binary's
 /// stem without its build hash (`tests-87edb3de886b35bf` → `tests`).
-fn report_name() -> String {
+fn report_base() -> String {
     let binary = binary_name();
     match std::env::var("CARGO_PKG_NAME") {
         Ok(package) => format!("{package}--{}", strip_build_hash(&binary)),
         Err(_) => binary,
+    }
+}
+
+/// The nextest run this process belongs to: nextest runs each test in its
+/// own process and sets `NEXTEST_RUN_ID` and `NEXTEST_TEST_NAME`.
+fn nextest_run() -> Option<(String, String)> {
+    let run = std::env::var("NEXTEST_RUN_ID").ok()?;
+    let test = std::env::var("NEXTEST_TEST_NAME").ok()?;
+    Some((run, test))
+}
+
+/// The report's file stem. Under `cargo test` one process runs a whole
+/// test target: `<base>`. Under nextest each test is its own process, so
+/// each writes its own report, `<base>--<run>--<test>`: one shared name
+/// would keep only the last test of every target. `run` is the first 8
+/// characters of the run ID, so reports of other runs can be pruned by name.
+pub fn report_name(base: &str, nextest: Option<(&str, &str)>) -> String {
+    match nextest {
+        None => base.to_string(),
+        Some((run, test)) => {
+            let run: String = run.chars().take(8).collect();
+            let test: String = test
+                .replace("::", ".")
+                .chars()
+                .map(|c| {
+                    if c.is_ascii_alphanumeric() || c == '.' || c == '_' {
+                        c
+                    } else {
+                        '_'
+                    }
+                })
+                .collect();
+            format!("{base}--{run}--{test}")
+        }
+    }
+}
+
+/// Remove this target's reports that the new one supersedes, so
+/// `specforge collect --no-run` never reads a stale or duplicate result:
+/// a `cargo test` report removes the target's nextest reports, and a
+/// nextest report removes the `cargo test` report and other runs' reports.
+pub fn prune_superseded(dir: &std::path::Path, base: &str, nextest_run: Option<&str>) {
+    let Ok(entries) = std::fs::read_dir(dir) else {
+        return;
+    };
+    let per_test = format!("{base}--");
+    let this_run = nextest_run.map(|run| {
+        let run: String = run.chars().take(8).collect();
+        format!("{run}--")
+    });
+    for entry in entries.filter_map(Result::ok) {
+        let name = entry.file_name();
+        let Some(stem) = name.to_str().and_then(|n| n.strip_suffix(".json")) else {
+            continue;
+        };
+        let superseded = match &this_run {
+            None => stem.starts_with(&per_test),
+            Some(this_run) => {
+                stem == base
+                    || stem
+                        .strip_prefix(&per_test)
+                        .is_some_and(|rest| !rest.starts_with(this_run.as_str()))
+            }
+        };
+        if superseded {
+            let _ = std::fs::remove_file(entry.path());
+        }
     }
 }
 
@@ -72,7 +139,16 @@ extern "C" fn on_exit() {
 
     let dir = report_dir();
 
-    if let Err(e) = report::write_report(&dir, &report_name(), &entries) {
+    let base = report_base();
+    let nextest = nextest_run();
+    prune_superseded(&dir, &base, nextest.as_ref().map(|(run, _)| run.as_str()));
+    let name = report_name(
+        &base,
+        nextest
+            .as_ref()
+            .map(|(run, test)| (run.as_str(), test.as_str())),
+    );
+    if let Err(e) = report::write_report(&dir, &name, &entries) {
         eprintln!("[specforge-test] failed to write report: {e}");
     }
 

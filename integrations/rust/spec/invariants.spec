@@ -78,13 +78,15 @@ invariant should_panic_expectation "Should Panic Expectation" {
     A test annotated with both #[should_panic] and #[specforge_test] MUST
     record `pass` when it panics and `fail` when it doesn't: the guard reads
     the expectation from the attribute instead of treating every panic as a
-    failure. An #[ignore]d test MUST be recorded as `skipped` without
-    running its body.
+    failure. An #[ignore]d test MUST stay ignored: libtest reports it as
+    ignored and nothing is recorded, and when libtest is asked to run it
+    (`--ignored`, `--include-ignored`) its body runs and its real result is
+    recorded.
   """
   risk medium
 
   verify unit "should_panic test that panics records pass"
-  verify unit "ignored test records skipped"
+  verify unit "an ignored test runs and is recorded only when libtest is asked to run it"
 }
 
 invariant single_registration "Single Registration" {

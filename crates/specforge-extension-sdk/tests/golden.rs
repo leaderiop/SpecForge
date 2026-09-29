@@ -12,7 +12,7 @@ fn software_builder() -> ContributionsBuilder {
     meta.peer_dependencies = vec![PeerDependency {
         name: "@specforge/product".to_string(),
         version: "^1.0".to_string(),
-        optional: false,
+        optional: true,
     }];
     meta.sandbox_policy = Some(SandboxPolicy {
         max_memory_mb: Some(256),
