@@ -2878,6 +2878,7 @@ dependencies = [
  "glob",
  "insta",
  "serde_json",
+ "similar",
  "specforge-common",
  "specforge-parser",
  "specforge-test",

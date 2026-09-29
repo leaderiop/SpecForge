@@ -182,9 +182,10 @@ run_quick() {
     if [ ${#pkgs[@]} -gt 0 ]; then
         # Build and lint the whole workspace (cached, and the same feature
         # set as the full gate: `-p` would rebuild dependencies with other
-        # features), but run only the changed crates' tests.
+        # features), but run only the tests of the changed crates and of
+        # the crates that depend on them.
         local filter
-        filter=$(printf 'package(=%s) | ' "${pkgs[@]}")
+        filter=$(printf 'rdeps(=%s) | ' "${pkgs[@]}")
         step nextest cargo nextest run --workspace --profile quick -E "${filter% | }"
         step clippy cargo clippy -q --workspace --all-targets -- -D warnings
         if printf '%s\n' "${pkgs[@]}" | grep -qxF -f <(doctest_packages); then

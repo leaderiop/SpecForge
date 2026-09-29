@@ -12,6 +12,7 @@ specforge-common = { workspace = true }
 toml = { workspace = true }
 glob = { workspace = true }
 walkdir = { workspace = true }
+similar = "2.7"
 
 [dev-dependencies]
 insta = { workspace = true }

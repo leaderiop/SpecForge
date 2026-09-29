@@ -89,20 +89,23 @@ pub fn normalize_spacing(line: &str) -> String {
     result
 }
 
-/// Normalize comment spacing: ensure `// ` has exactly one space after `//`.
+/// Normalize comment spacing: `//text` gets one space after `//`, and
+/// trailing whitespace goes. Everything else is the author's: `///` and
+/// `//!` stay, and so does indentation after `//` (nested bullets, tables).
 pub fn normalize_comment(line: &str) -> String {
+    let line = line.trim_end();
     let trimmed = line.trim_start();
-    let leading_ws: String = line.chars().take_while(|c| c.is_whitespace()).collect();
-
-    if let Some(rest) = trimmed.strip_prefix("//") {
-        let rest_trimmed = rest.trim_start();
-        if rest_trimmed.is_empty() {
-            format!("{leading_ws}//")
-        } else {
-            format!("{leading_ws}// {rest_trimmed}")
+    let leading_ws = &line[..line.len() - trimmed.len()];
+    match trimmed.strip_prefix("//") {
+        Some(rest)
+            if rest
+                .chars()
+                .next()
+                .is_some_and(|c| !c.is_whitespace() && c != '/' && c != '!') =>
+        {
+            format!("{leading_ws}// {rest}")
         }
-    } else {
-        line.to_string()
+        _ => line.to_string(),
     }
 }
 
@@ -361,10 +364,16 @@ mod tests {
     )]
     fn test_normalize_comment_spacing() {
         assert_eq!(normalize_comment("//comment"), "// comment");
-        assert_eq!(normalize_comment("//  extra  spaces"), "// extra  spaces");
-        assert_eq!(normalize_comment("  //  indented"), "  // indented");
-        assert_eq!(normalize_comment("// already good"), "// already good");
+        assert_eq!(normalize_comment("// already good  "), "// already good");
         assert_eq!(normalize_comment("//"), "//");
+        // The author's layout inside a comment is kept verbatim.
+        assert_eq!(
+            normalize_comment("//   - nested bullet"),
+            "//   - nested bullet"
+        );
+        assert_eq!(normalize_comment("  //  indented"), "  //  indented");
+        assert_eq!(normalize_comment("/// doc"), "/// doc");
+        assert_eq!(normalize_comment("//! inner"), "//! inner");
     }
 
     #[specforge_test_macros::test(

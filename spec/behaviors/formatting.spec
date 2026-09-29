@@ -61,7 +61,11 @@ behavior preserve_comments "Preserve Comments During Formatting" {
     the comment attachment algorithm: leading comments attach to the following
     node, trailing comments attach to the preceding node on the same line,
     section header comments attach to the next block group, and standalone
-    comment blocks separated by blank lines are preserved as-is.
+    comment blocks separated by blank lines are preserved as-is. Comments
+    inside blocks stay between the statements they sat between, in every
+    block kind (spec, define, ref and entity blocks). A comment's text is
+    kept as written — `///`, `//!` and indentation after `//` included —
+    except that `//text` gains one space.
   """
 
   verify unit "leading comment attaches to following node"
@@ -130,6 +134,7 @@ behavior show_formatting_diff "Show Formatting Diff" {
   verify unit "diff output uses unified format"
   verify unit "diff mode writes no files to disk"
   verify unit "unchanged files produce no diff output"
+  verify unit "an unchanged line is shown as context, never as removed and added"
   verify contract "Show Formatting Diff: formatting diff holds — spec_files_available, format_config_loaded, no_files_written, unified_diff_produced"
 }
 
@@ -228,7 +233,11 @@ behavior apply_format_rules "Apply Format Rules" {
     The formatting rule engine MUST walk the CST and emit formatting
     decisions for each whitespace region: keep, replace, insert, or remove.
     Rules cover indentation, spacing, alignment, wrapping, blank lines,
-    comments, imports, and string formatting. All rules MUST produce
+    comments, imports, and string formatting. Statements keep their source
+    order; only runs of imports are sorted. Field keys align to the longest
+    key plus one; annotations of single-line values align in one column;
+    `verify [kind] "..."` statements are single-spaced. A list that does
+    not fit wraps one item per line, splitting only between items. All rules MUST produce
     deterministic output for the same input and configuration. Rules
     operate on generic keyword blocks and fields — they MUST NOT contain
     logic specific to any extension-defined entity kind.
@@ -243,6 +252,8 @@ behavior apply_format_rules "Apply Format Rules" {
   verify unit "indentation rules normalize to configured indent style"
   verify unit "spacing rules normalize single spaces between tokens"
   verify unit "alignment rules align field values within blocks"
+  verify unit "statements keep their source order"
+  verify unit "a union that does not fit wraps one variant per line"
   verify unit "wrapping rules break long reference lists to multi-line"
   verify unit "import sorting produces alphabetical order"
   verify unit "blank line rules enforce exactly one between blocks"

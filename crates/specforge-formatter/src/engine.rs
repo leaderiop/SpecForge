@@ -1,4 +1,3 @@
-use crate::comments::{CommentMap, build_comment_map};
 use crate::config::FormatConfig;
 use crate::rules;
 use specforge_common::Diagnostic;
@@ -45,7 +44,6 @@ pub fn format_source(source: &str, config: &FormatConfig) -> FormatResult {
     };
 
     let root = tree.root_node();
-    let comment_map = build_comment_map(root, source);
 
     // Check for parse errors
     let error_regions = collect_error_regions(root);
@@ -68,7 +66,7 @@ pub fn format_source(source: &str, config: &FormatConfig) -> FormatResult {
         }
     }
 
-    let formatted = format_tree(root, source, config, &comment_map, &error_regions);
+    let formatted = format_tree(root, source, config, &error_regions);
 
     FormatResult {
         formatted,
@@ -290,785 +288,524 @@ fn expand_to_block_boundaries(root: Node, start_line: usize, end_line: usize) ->
     (expanded_start, expanded_end)
 }
 
-/// Main formatting: walk the CST and emit formatted output.
+/// Main formatting: emit every top-level item in source order.
+///
+/// Nothing is reordered except runs of consecutive imports, which are
+/// sorted. Comments stay where they are: a comment on the line of a node
+/// stays on that line, and a comment directly above a block stays attached
+/// to it. Blocks are separated by exactly one blank line; a blank line
+/// between two comments, or between a comment and a block, is kept (one),
+/// since it tells a standalone comment from a block's doc comment. Inside
+/// blocks blank lines are removed.
 fn format_tree(
     root: Node,
     source: &str,
     config: &FormatConfig,
-    _comment_map: &CommentMap,
     error_regions: &[(usize, usize)],
 ) -> String {
     let source_lines: Vec<&str> = source.lines().collect();
-    let mut output_lines: Vec<String> = Vec::new();
-
-    // Phase 1: Collect structured blocks from CST
-    let blocks = collect_top_level_blocks(root, source);
-
-    // Phase 2: Sort imports
-    let mut import_lines: Vec<String> = Vec::new();
-    let mut content_blocks: Vec<FormattedBlock> = Vec::new();
-
-    for block in &blocks {
-        match block {
-            TopLevelBlock::Import { text, row } => {
-                if in_error_region(*row, error_regions) {
-                    // Preserve imports in error regions as-is
-                    import_lines.push(text.clone());
-                } else {
-                    let normalized = rules::normalize_comment(text);
-                    import_lines.push(normalized);
-                }
-            }
-            TopLevelBlock::Comment { text, row } => {
-                if !import_lines.is_empty() {
-                    // Flush sorted imports before non-import content
-                    let sorted = rules::sort_imports(&import_lines);
-                    for line in sorted {
-                        content_blocks.push(FormattedBlock::Line(line));
-                    }
-                    import_lines.clear();
-                }
-                if in_error_region(*row, error_regions) {
-                    content_blocks.push(FormattedBlock::Line(text.clone()));
-                } else {
-                    content_blocks.push(FormattedBlock::Line(rules::normalize_comment(text)));
-                }
-            }
-            TopLevelBlock::Block {
-                node,
-                start_row,
-                end_row,
-            } => {
-                if !import_lines.is_empty() {
-                    let sorted = rules::sort_imports(&import_lines);
-                    for line in sorted {
-                        content_blocks.push(FormattedBlock::Line(line));
-                    }
-                    import_lines.clear();
-                }
-
-                // Check if any part of this block is in an error region
-                let in_error =
-                    (*start_row..=*end_row).any(|row| in_error_region(row, error_regions));
-
-                if in_error {
-                    // Preserve error regions verbatim
-                    for row in *start_row..=*end_row {
-                        if row < source_lines.len() {
-                            content_blocks
-                                .push(FormattedBlock::Line(source_lines[row].to_string()));
-                        }
-                    }
-                } else {
-                    let formatted = format_block(*node, source, config);
-                    content_blocks.push(FormattedBlock::Block(formatted));
-                }
-            }
-            TopLevelBlock::BlankLine => {
-                if !import_lines.is_empty() {
-                    let sorted = rules::sort_imports(&import_lines);
-                    for line in sorted {
-                        content_blocks.push(FormattedBlock::Line(line));
-                    }
-                    import_lines.clear();
-                }
-                content_blocks.push(FormattedBlock::Blank);
-            }
-        }
-    }
-
-    // Flush remaining imports
-    if !import_lines.is_empty() {
-        let sorted = rules::sort_imports(&import_lines);
-        for line in sorted {
-            content_blocks.push(FormattedBlock::Line(line));
-        }
-    }
-
-    // Phase 3: Emit with proper blank line rules
-    // Rule: exactly 1 blank line between top-level blocks, 0 within
-    let mut prev_was_blank = false;
-    let mut prev_was_content = false;
-    let mut is_first = true;
-
-    for block in &content_blocks {
-        match block {
-            FormattedBlock::Line(line) => {
-                if prev_was_content && !prev_was_blank && !is_first {
-                    // Check if we need a blank line before this
-                    let trimmed = line.trim();
-                    if !trimmed.is_empty()
-                        && !trimmed.starts_with("use ")
-                        && !trimmed.starts_with("//")
-                    {
-                        // Don't add blank line between consecutive imports or comments
-                    }
-                }
-                output_lines.push(line.clone());
-                prev_was_blank = line.trim().is_empty();
-                prev_was_content = !prev_was_blank;
-                is_first = false;
-            }
-            FormattedBlock::Block(lines) => {
-                // Add blank line before block (unless first or already blank)
-                if prev_was_content && !prev_was_blank {
-                    output_lines.push(String::new());
-                }
-                for line in lines {
-                    output_lines.push(line.clone());
-                }
-                prev_was_blank = false;
-                prev_was_content = true;
-                is_first = false;
-            }
-            FormattedBlock::Blank => {
-                if !prev_was_blank && !is_first {
-                    output_lines.push(String::new());
-                    prev_was_blank = true;
-                }
-            }
-        }
-    }
-
-    // Ensure trailing newline
-    let mut result = output_lines.join("\n");
-    if !result.is_empty() && !result.ends_with('\n') {
-        result.push('\n');
-    }
-
-    result
-}
-
-#[derive(Debug)]
-enum FormattedBlock {
-    Line(String),
-    Block(Vec<String>),
-    Blank,
-}
-
-#[derive(Debug)]
-enum TopLevelBlock<'a> {
-    Import {
-        text: String,
-        row: usize,
-    },
-    Comment {
-        text: String,
-        row: usize,
-    },
-    Block {
-        node: Node<'a>,
-        start_row: usize,
-        end_row: usize,
-    },
-    BlankLine,
-}
-
-/// Collect top-level blocks from the CST root.
-fn collect_top_level_blocks<'a>(root: Node<'a>, source: &str) -> Vec<TopLevelBlock<'a>> {
-    let mut blocks: Vec<TopLevelBlock<'a>> = Vec::new();
-    let mut covered_rows: std::collections::HashSet<usize> = std::collections::HashSet::new();
-
     let mut cursor = root.walk();
-    if cursor.goto_first_child() {
-        loop {
-            let node = cursor.node();
-            let start_row = node.start_position().row;
-            let end_row = node.end_position().row;
+    let items: Vec<Node> = root.children(&mut cursor).collect();
 
-            for row in start_row..=end_row {
-                covered_rows.insert(row);
-            }
+    let mut out: Vec<String> = Vec::new();
+    // The class and last source row of the previous top-level item.
+    let mut prev: Option<(Item, usize)> = None;
+    let mut i = 0;
+    while i < items.len() {
+        let node = items[i];
+        let class = Item::of(node);
+        let (start, end) = (node.start_position().row, node.end_position().row);
 
-            match node.kind() {
-                "use_import" => {
-                    let text = node.utf8_text(source.as_bytes()).unwrap_or("").to_string();
-                    blocks.push(TopLevelBlock::Import {
-                        text,
-                        row: start_row,
-                    });
-                }
-                "comment" => {
-                    let text = node.utf8_text(source.as_bytes()).unwrap_or("").to_string();
-                    blocks.push(TopLevelBlock::Comment {
-                        text,
-                        row: start_row,
-                    });
-                }
-                _ => {
-                    blocks.push(TopLevelBlock::Block {
-                        node,
-                        start_row,
-                        end_row,
-                    });
-                }
-            }
-
-            if !cursor.goto_next_sibling() {
-                break;
-            }
-        }
-    }
-
-    // Insert blank lines for uncovered rows between blocks
-    let mut result: Vec<TopLevelBlock<'a>> = Vec::new();
-    let mut prev_end: Option<usize> = None;
-
-    for block in blocks {
-        let start = match &block {
-            TopLevelBlock::Import { row, .. } => *row,
-            TopLevelBlock::Comment { row, .. } => *row,
-            TopLevelBlock::Block { start_row, .. } => *start_row,
-            TopLevelBlock::BlankLine => continue,
-        };
-
-        if let Some(prev) = prev_end {
-            // Check for blank lines between prev_end and start
-            let gap = start.saturating_sub(prev + 1);
-            if gap > 0 {
-                result.push(TopLevelBlock::BlankLine);
-            }
-        }
-
-        let end = match &block {
-            TopLevelBlock::Import { row, .. } => *row,
-            TopLevelBlock::Comment { row, .. } => *row,
-            TopLevelBlock::Block { end_row, .. } => *end_row,
-            TopLevelBlock::BlankLine => start,
-        };
-
-        prev_end = Some(end);
-        result.push(block);
-    }
-
-    result
-}
-
-/// Format a single top-level block (entity_block, spec_block, etc.).
-fn format_block(node: Node, source: &str, config: &FormatConfig) -> Vec<String> {
-    let mut lines = Vec::new();
-
-    match node.kind() {
-        "entity_block" => format_entity_block(node, source, config, &mut lines),
-        "spec_block" => format_spec_block(node, source, config, &mut lines),
-        "ref_inline" => format_ref_inline(node, source, &mut lines),
-        "ref_full" => format_ref_full(node, source, config, &mut lines),
-        "define_block" => format_define_block(node, source, config, &mut lines),
-        "union_block" => format_union_block(node, source, &mut lines),
-        _ => {
-            // Unknown block type: preserve as-is
-            let text = node.utf8_text(source.as_bytes()).unwrap_or("");
-            for line in text.lines() {
-                lines.push(line.to_string());
-            }
-        }
-    }
-
-    lines
-}
-
-fn format_entity_block(node: Node, source: &str, config: &FormatConfig, lines: &mut Vec<String>) {
-    let indent = config.indent_str();
-
-    // Collect header parts
-    let kind = get_child_text(node, "kind", source);
-    let name = get_child_text(node, "name", source);
-    let title = get_child_field_text(node, "title", source);
-
-    // Build header line
-    let header = if let Some(t) = &title {
-        format!("{kind} {name} {t} {{")
-    } else {
-        format!("{kind} {name} {{")
-    };
-    lines.push(header);
-
-    // Collect and format fields + methods + verify statements
-    let (field_lines, method_lines, verify_lines) = collect_block_children(node, source, config);
-
-    // Calculate alignment for fields
-    let field_keys: Vec<&str> = field_lines.iter().map(|(key, _, _)| key.as_str()).collect();
-    let align_col = if field_keys.len() > 1 {
-        rules::alignment_column(&field_keys)
-    } else {
-        0
-    };
-
-    // Emit fields with alignment
-    for (key, value, annotations) in &field_lines {
-        let padding = if align_col > 0 && key.len() < align_col {
-            " ".repeat(align_col - key.len())
-        } else {
-            " ".to_string()
-        };
-
-        let ann_str = if annotations.is_empty() {
-            String::new()
-        } else {
-            format!(" {}", annotations.join(" "))
-        };
-
-        let field_text = format!("{indent}{key}{padding}{value}{ann_str}");
-
-        // Check if value is a list that needs wrapping
-        if value.starts_with('[') && value.ends_with(']') {
-            let inner = &value[1..value.len() - 1];
-            let items: Vec<&str> = inner.split(", ").collect();
-            let line_len = indent.len() + key.len() + 1 + value.len();
-
-            if line_len > config.max_width && items.len() > 1 {
-                let item_indent = format!("{indent}  ");
-                let wrapped = rules::format_list_multiline(&items, &indent, &item_indent);
-                let wrapped_field = format!("{indent}{key}{padding}{wrapped}{ann_str}");
-                for wline in wrapped_field.lines() {
-                    lines.push(wline.to_string());
-                }
-                continue;
-            }
-        }
-
-        // Triple-quoted strings: preserve verbatim (no normalization).
-        // The string content is opaque to the formatter.
-        if value.starts_with("\"\"\"") {
-            let first_line = format!("{indent}{key}{padding}{value}");
-            for tline in first_line.lines() {
-                lines.push(tline.to_string());
-            }
+        // A comment on the line where the previous item ends stays there.
+        if class == Item::Comment
+            && prev.is_some_and(|(_, prev_end)| prev_end == start)
+            && let Some(last) = out.last_mut()
+        {
+            last.push(' ');
+            last.push_str(&comment_text(node, source));
+            prev = Some((Item::Comment, end));
+            i += 1;
             continue;
         }
 
-        lines.push(field_text);
-    }
+        if let Some((prev_class, prev_end)) = prev {
+            let gap = start.saturating_sub(prev_end + 1);
+            if needs_blank_line(prev_class, class, gap) {
+                out.push(String::new());
+            }
+        }
 
-    if !field_lines.is_empty() && !method_lines.is_empty() {
-        lines.push(String::new());
-    }
-
-    // Emit method statements
-    for method in &method_lines {
-        lines.push(format!("{indent}{method}"));
-    }
-
-    for verify in &verify_lines {
-        lines.push(format!("{indent}{verify}"));
-    }
-
-    // Emit inner comments
-    let mut cursor = node.walk();
-    if cursor.goto_first_child() {
-        loop {
-            let child = cursor.node();
-            if child.kind() == "comment" {
-                let text = child.utf8_text(source.as_bytes()).unwrap_or("");
-                let normalized = rules::normalize_comment(text);
-                // Only add if not already in the output (comments between fields)
-                let indent_comment = format!("{indent}{}", normalized.trim());
-                if !lines.contains(&indent_comment) {
-                    // Find the right position - after the last field before this comment
-                    lines.push(indent_comment);
+        // A run of imports (blank lines allowed, no comments) is sorted.
+        if class == Item::Import {
+            let mut run = Vec::new();
+            let mut last_end = end;
+            while i < items.len() && Item::of(items[i]) == Item::Import {
+                let import = items[i];
+                last_end = import.end_position().row;
+                if overlaps(import, error_regions) {
+                    run.push(verbatim(import, &source_lines).join("\n"));
+                } else {
+                    run.push(collapse_whitespace(node_text(import, source)));
                 }
+                i += 1;
             }
-            if !cursor.goto_next_sibling() {
-                break;
-            }
+            run.sort();
+            out.extend(run);
+            prev = Some((Item::Import, last_end));
+            continue;
         }
-        cursor.goto_parent();
+
+        if overlaps(node, error_regions) {
+            out.extend(verbatim(node, &source_lines));
+        } else if class == Item::Comment {
+            out.push(comment_text(node, source));
+        } else {
+            out.extend(format_block(node, source, config));
+        }
+        prev = Some((class, end));
+        i += 1;
     }
 
-    lines.push("}".to_string());
+    let mut result = out.join("\n");
+    if !result.is_empty() {
+        result.push('\n');
+    }
+    result
 }
 
-fn format_spec_block(node: Node, source: &str, config: &FormatConfig, lines: &mut Vec<String>) {
-    let indent = config.indent_str();
-    let name = get_child_field_text(node, "name", source).unwrap_or("\"\"".into());
+/// What a top-level item is, for the blank-line rules.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Item {
+    Import,
+    Comment,
+    Block,
+}
 
-    lines.push(format!("spec {name} {{"));
+impl Item {
+    fn of(node: Node) -> Self {
+        match node.kind() {
+            "use_import" | "pub_use_import" => Item::Import,
+            "comment" => Item::Comment,
+            _ => Item::Block,
+        }
+    }
+}
 
-    let (field_lines, method_lines, verify_lines) = collect_block_children(node, source, config);
+/// Whether one blank line separates `prev` from `next` at top level, given
+/// the `gap` of blank lines between them in the source.
+fn needs_blank_line(prev: Item, next: Item, gap: usize) -> bool {
+    match (prev, next) {
+        (Item::Block, _) => true,
+        (Item::Import, Item::Import) => false,
+        (Item::Import, _) => true,
+        // A comment directly above something is attached to it.
+        (Item::Comment, _) => gap > 0,
+    }
+}
 
-    let field_keys: Vec<&str> = field_lines.iter().map(|(key, _, _)| key.as_str()).collect();
-    let align_col = if field_keys.len() > 1 {
-        rules::alignment_column(&field_keys)
-    } else {
-        0
+fn node_text<'s>(node: Node, source: &'s str) -> &'s str {
+    node.utf8_text(source.as_bytes()).unwrap_or("")
+}
+
+fn overlaps(node: Node, error_regions: &[(usize, usize)]) -> bool {
+    (node.start_position().row..=node.end_position().row)
+        .any(|row| in_error_region(row, error_regions))
+}
+
+/// The node's source lines, unchanged.
+fn verbatim(node: Node, source_lines: &[&str]) -> Vec<String> {
+    (node.start_position().row..=node.end_position().row)
+        .filter_map(|row| source_lines.get(row).map(|l| l.trim_end().to_string()))
+        .collect()
+}
+
+/// Collapse runs of whitespace outside string literals to one space.
+fn collapse_whitespace(text: &str) -> String {
+    let mut out = String::with_capacity(text.len());
+    let mut in_string = false;
+    let mut escaped = false;
+    let mut pending_space = false;
+    for c in text.trim().chars() {
+        if in_string {
+            out.push(c);
+            if escaped {
+                escaped = false;
+            } else if c == '\\' {
+                escaped = true;
+            } else if c == '"' {
+                in_string = false;
+            }
+            continue;
+        }
+        if c.is_whitespace() {
+            pending_space = true;
+            continue;
+        }
+        if pending_space && !out.is_empty() {
+            out.push(' ');
+        }
+        pending_space = false;
+        if c == '"' {
+            in_string = true;
+        }
+        out.push(c);
+    }
+    out
+}
+
+/// A comment's text: trailing whitespace trimmed, and a space inserted in
+/// `//text`. Anything else is kept as written (`///`, `//!`, indentation
+/// after `//`).
+fn comment_text(node: Node, source: &str) -> String {
+    rules::normalize_comment(node_text(node, source).trim_end())
+}
+
+/// Format one top-level block.
+fn format_block(node: Node, source: &str, config: &FormatConfig) -> Vec<String> {
+    let text = |field: &str| {
+        node.child_by_field_name(field)
+            .map(|n| node_text(n, source).to_string())
+            .unwrap_or_default()
     };
-
-    for (key, value, annotations) in &field_lines {
-        let padding = if align_col > 0 && key.len() < align_col {
-            " ".repeat(align_col - key.len())
-        } else {
-            " ".to_string()
-        };
-        let ann_str = if annotations.is_empty() {
-            String::new()
-        } else {
-            format!(" {}", annotations.join(" "))
-        };
-
-        // Handle nested blocks
-        if value.starts_with('{') || value.contains('\n') {
-            format_nested_field(key, value, &indent, config, lines, &ann_str);
-        } else {
-            lines.push(format!("{indent}{key}{padding}{value}{ann_str}"));
+    let header = match node.kind() {
+        "entity_block" => match node.child_by_field_name("title") {
+            Some(title) => format!(
+                "{} {} {}",
+                text("kind"),
+                text("name"),
+                node_text(title, source)
+            ),
+            None => format!("{} {}", text("kind"), text("name")),
+        },
+        "spec_block" => format!("spec {}", text("name")),
+        "define_block" => format!("define {}", text("name")),
+        "ref_full" => format!("ref {} {}", text("id"), text("title")),
+        "ref_block" => {
+            // ref_block wraps ref_inline / ref_full.
+            let mut cursor = node.walk();
+            let inner = node.named_children(&mut cursor).next();
+            return match inner {
+                Some(inner) => format_block(inner, source, config),
+                None => vec![node_text(node, source).trim_end().to_string()],
+            };
         }
-    }
-
-    if !field_lines.is_empty() && !method_lines.is_empty() {
-        lines.push(String::new());
-    }
-    for method in &method_lines {
-        lines.push(format!("{indent}{method}"));
-    }
-    for verify in &verify_lines {
-        lines.push(format!("{indent}{verify}"));
-    }
-
-    lines.push("}".to_string());
-}
-
-fn format_ref_inline(node: Node, source: &str, lines: &mut Vec<String>) {
-    let id = get_child_field_text(node, "id", source).unwrap_or_default();
-    let title = get_child_field_text(node, "title", source).unwrap_or_default();
-    lines.push(format!("ref {id} {title}"));
-}
-
-fn format_ref_full(node: Node, source: &str, config: &FormatConfig, lines: &mut Vec<String>) {
-    let indent = config.indent_str();
-    let id = get_child_field_text(node, "id", source).unwrap_or_default();
-    let title = get_child_field_text(node, "title", source).unwrap_or_default();
-    lines.push(format!("ref {id} {title} {{"));
-
-    let (field_lines, _, _) = collect_block_children(node, source, config);
-    for (key, value, annotations) in &field_lines {
-        let ann_str = if annotations.is_empty() {
-            String::new()
-        } else {
-            format!(" {}", annotations.join(" "))
-        };
-        lines.push(format!("{indent}{key} {value}{ann_str}"));
-    }
-
-    lines.push("}".to_string());
-}
-
-fn format_define_block(node: Node, source: &str, config: &FormatConfig, lines: &mut Vec<String>) {
-    let indent = config.indent_str();
-    let name = get_child_text(node, "name", source);
-    lines.push(format!("define {name} {{"));
-
-    let (field_lines, method_lines, verify_lines) = collect_block_children(node, source, config);
-
-    let field_keys: Vec<&str> = field_lines.iter().map(|(key, _, _)| key.as_str()).collect();
-    let align_col = if field_keys.len() > 1 {
-        rules::alignment_column(&field_keys)
-    } else {
-        0
+        "ref_inline" => return vec![format!("ref {} {}", text("id"), text("title"))],
+        "union_block" => return format_union_block(node, source, config),
+        _ => {
+            return node_text(node, source)
+                .lines()
+                .map(|l| l.trim_end().to_string())
+                .collect();
+        }
     };
-
-    for (key, value, annotations) in &field_lines {
-        let padding = if align_col > 0 && key.len() < align_col {
-            " ".repeat(align_col - key.len())
-        } else {
-            " ".to_string()
-        };
-        let ann_str = if annotations.is_empty() {
-            String::new()
-        } else {
-            format!(" {}", annotations.join(" "))
-        };
-        lines.push(format!("{indent}{key}{padding}{value}{ann_str}"));
-    }
-
-    if !field_lines.is_empty() && !method_lines.is_empty() {
-        lines.push(String::new());
-    }
-    for method in &method_lines {
-        lines.push(format!("{indent}{method}"));
-    }
-    for verify in &verify_lines {
-        lines.push(format!("{indent}{verify}"));
-    }
-
+    let mut lines = vec![format!("{header} {{")];
+    format_body(node, source, config, 1, &mut lines);
     lines.push("}".to_string());
+    lines
 }
 
-fn format_union_block(node: Node, source: &str, lines: &mut Vec<String>) {
-    let kind = get_child_text(node, "kind", source);
-    let name = get_child_text(node, "name", source);
-
-    let variants_node = node.child_by_field_name("variants");
-    let variants = if let Some(v) = variants_node {
-        v.utf8_text(source.as_bytes()).unwrap_or("").to_string()
-    } else {
-        String::new()
+/// `kind name = a | b | c`, one variant per line when it doesn't fit.
+fn format_union_block(node: Node, source: &str, config: &FormatConfig) -> Vec<String> {
+    let text = |field: &str| {
+        node.child_by_field_name(field)
+            .map(|n| node_text(n, source).to_string())
+            .unwrap_or_default()
     };
-
-    // Normalize variant spacing
-    let parts: Vec<&str> = variants.split('|').map(|s| s.trim()).collect();
-    let normalized = parts.join(" | ");
-
-    lines.push(format!("{kind} {name} = {normalized}"));
+    let Some(variants) = node.child_by_field_name("variants") else {
+        return vec![node_text(node, source).trim_end().to_string()];
+    };
+    let mut cursor = variants.walk();
+    let children: Vec<Node> = variants.children(&mut cursor).collect();
+    if children.iter().any(|c| c.kind() == "comment") {
+        return node_text(node, source)
+            .lines()
+            .map(|l| l.trim_end().to_string())
+            .collect();
+    }
+    let parts: Vec<&str> = children
+        .iter()
+        .filter(|c| c.kind() != "|")
+        .map(|c| node_text(*c, source))
+        .collect();
+    let head = format!("{} {} = ", text("kind"), text("name"));
+    let one_line = format!("{head}{}", parts.join(" | "));
+    if one_line.len() <= config.max_width || parts.len() < 2 {
+        return vec![one_line];
+    }
+    let indent = config.indent_str();
+    let mut lines = vec![format!("{head}{}", parts[0])];
+    lines.extend(parts[1..].iter().map(|p| format!("{indent}| {p}")));
+    lines
 }
 
-/// Format a nested field (e.g., `providers { ... }`).
-fn format_nested_field(
-    key: &str,
-    value: &str,
-    indent: &str,
-    config: &FormatConfig,
-    lines: &mut Vec<String>,
-    ann_str: &str,
-) {
-    // Parse the nested block value
-    if value.trim() == "{}" {
-        lines.push(format!("{indent}{key} {{}}{ann_str}"));
-        return;
-    }
-
-    // Re-indent nested content
-    let inner_indent = format!("{indent}{}", config.indent_str());
-    lines.push(format!("{indent}{key} {{"));
-
-    // Extract inner lines (between { and })
-    let trimmed = value.trim();
-    if trimmed.starts_with('{') && trimmed.ends_with('}') {
-        let inner = &trimmed[1..trimmed.len() - 1];
-        for line in inner.lines() {
-            let ltrim = line.trim();
-            if !ltrim.is_empty() {
-                lines.push(format!("{inner_indent}{ltrim}"));
-            }
-        }
-    } else {
-        // Multi-line value, handle generically
-        for line in value.lines() {
-            let ltrim = line.trim();
-            if ltrim == "{" || ltrim == "}" {
-                continue;
-            }
-            if !ltrim.is_empty() {
-                lines.push(format!("{inner_indent}{ltrim}"));
-            }
-        }
-    }
-
-    lines.push(format!("{indent}}}"));
+/// One formatted member of a block body.
+enum Member {
+    Field {
+        key: String,
+        /// The value's first line and, for multi-line values, the rest.
+        value: Vec<String>,
+        annotations: Vec<String>,
+    },
+    /// A nested block value, formatted recursively.
+    Nested {
+        key: String,
+        lines: Vec<String>,
+        annotations: Vec<String>,
+    },
+    Line(String),
+    Comment(String),
 }
 
-/// A parsed field: (key, value, annotations).
-type FieldEntry = (String, String, Vec<String>);
-
-/// Collect fields, methods, and verify statements from a block node's
-/// children.
-fn collect_block_children(
+/// Format the members of a block body (fields, verify statements, methods
+/// and comments) in source order at `depth`.
+fn format_body(
     node: Node,
     source: &str,
     config: &FormatConfig,
-) -> (Vec<FieldEntry>, Vec<String>, Vec<String>) {
-    let mut fields = Vec::new();
-    let mut verifies = Vec::new();
-    let mut methods = Vec::new();
-
+    depth: usize,
+    lines: &mut Vec<String>,
+) {
+    let indent = config.indent_str().repeat(depth);
     let mut cursor = node.walk();
-    if cursor.goto_first_child() {
-        loop {
-            let child = cursor.node();
-            match child.kind() {
-                "field" => {
-                    let key_node = child.child_by_field_name("key");
-                    let value_node = child.child_by_field_name("value");
+    let children: Vec<Node> = node.children(&mut cursor).collect();
 
-                    let key = key_node
-                        .map(|n| n.utf8_text(source.as_bytes()).unwrap_or(""))
-                        .unwrap_or("")
-                        .to_string();
-
-                    let value = value_node
-                        .map(|n| format_value_node(n, source, config))
-                        .unwrap_or_default();
-
-                    // Collect annotations
-                    let mut annotations = Vec::new();
-                    let mut ann_cursor = child.walk();
-                    if ann_cursor.goto_first_child() {
-                        loop {
-                            let ann_child = ann_cursor.node();
-                            if ann_child.kind() == "annotation" {
-                                let ann_text = ann_child.utf8_text(source.as_bytes()).unwrap_or("");
-                                annotations.push(ann_text.to_string());
-                            }
-                            if !ann_cursor.goto_next_sibling() {
-                                break;
-                            }
-                        }
-                    }
-
-                    fields.push((key, value, annotations));
-                }
-                "verify_statement" => {
-                    let kind = child
-                        .child_by_field_name("kind")
-                        .map(|n| n.utf8_text(source.as_bytes()).unwrap_or("").to_string());
-                    let desc = child
-                        .child_by_field_name("description")
-                        .map(|n| n.utf8_text(source.as_bytes()).unwrap_or("").to_string())
-                        .unwrap_or_default();
-
-                    let stmt = if let Some(k) = kind {
-                        format!("verify {k} {desc}")
-                    } else {
-                        format!("verify {desc}")
-                    };
-                    verifies.push(stmt);
-                }
-                "method_statement" => {
-                    // Rebuild the normalized one-line form from parts.
-                    let name = child
-                        .child_by_field_name("name")
-                        .map(|n| n.utf8_text(source.as_bytes()).unwrap_or("").to_string())
-                        .unwrap_or_default();
-
-                    let mut params: Vec<String> = Vec::new();
-                    let mut returns: Option<String> = None;
-                    let mut inner = child.walk();
-                    if inner.goto_first_child() {
-                        loop {
-                            let part = inner.node();
-                            match part.kind() {
-                                "parameter" => {
-                                    let pname = part
-                                        .child_by_field_name("name")
-                                        .map(|n| {
-                                            n.utf8_text(source.as_bytes()).unwrap_or("").to_string()
-                                        })
-                                        .unwrap_or_default();
-                                    let pty = part
-                                        .child_by_field_name("type")
-                                        .map(|n| {
-                                            n.utf8_text(source.as_bytes()).unwrap_or("").to_string()
-                                        })
-                                        .unwrap_or_default();
-                                    params.push(format!("{pname}: {pty}"));
-                                }
-                                _ => {
-                                    if inner.goto_first_child() {
-                                        // anonymous tokens: capture "->" returns type
-                                    }
-                                }
-                            }
-                            if !inner.goto_next_sibling() {
-                                break;
-                            }
-                        }
-                    }
-                    let _ = &mut returns;
-                    let _ = config;
-                    let param_text = params.join(", ");
-                    let mut stmt = if params.is_empty() {
-                        format!("method {name}()")
-                    } else {
-                        format!("method {name}({param_text})")
-                    };
-                    // Returns: the type_generic/array_type/identifier child
-                    // after "->"; recover from the raw text tail.
-                    let raw = child.utf8_text(source.as_bytes()).unwrap_or("");
-                    if let Some(idx) = raw.find("->") {
-                        let ret = raw[idx + 2..].trim();
-                        if !ret.is_empty() {
-                            returns = Some(ret.to_string());
-                        }
-                    }
-                    if let Some(r) = returns {
-                        stmt.push_str(&format!(" -> {r}"));
-                    }
-                    methods.push(stmt);
-                }
-                _ => {}
-            }
-            if !cursor.goto_next_sibling() {
-                break;
-            }
-        }
-        cursor.goto_parent();
+    // (member, source start row, source end row)
+    let mut members: Vec<(Member, usize, usize)> = Vec::new();
+    for child in &children {
+        let (start, end) = (child.start_position().row, child.end_position().row);
+        let member = match child.kind() {
+            "field" => field_member(*child, source, config, depth),
+            "verify_statement" => Member::Line(verify_line(*child, source)),
+            "method_statement" => Member::Line(method_line(*child, source)),
+            "comment" => Member::Comment(comment_text(*child, source)),
+            "ERROR" => Member::Line(node_text(*child, source).trim().to_string()),
+            _ => continue,
+        };
+        members.push((member, start, end));
     }
 
-    (fields, methods, verifies)
-}
+    // Keys align to the longest key + 1 (a nested block's `key {` is not
+    // aligned: it opens a block, not a value column); annotations of
+    // single-line values align to the longest such value + 1.
+    let key_width = members
+        .iter()
+        .filter_map(|(m, _, _)| match m {
+            Member::Field { key, .. } => Some(key.len()),
+            _ => None,
+        })
+        .max()
+        .unwrap_or(0);
+    let pad = |key: &str| " ".repeat((key_width + 1).saturating_sub(key.len()).max(1));
+    let annotated_width = members
+        .iter()
+        .filter_map(|(m, _, _)| match m {
+            Member::Field {
+                value, annotations, ..
+            } if value.len() == 1 && !annotations.is_empty() => Some(value[0].len()),
+            _ => None,
+        })
+        .max()
+        .unwrap_or(0);
 
-/// Format a value node, handling nested blocks, lists, etc.
-fn format_value_node(node: Node, source: &str, config: &FormatConfig) -> String {
-    match node.kind() {
-        "list" => format_list_node(node, source, config),
-        "nested_block" => format_nested_block_node(node, source, config),
-        "triple_quoted_string" => node.utf8_text(source.as_bytes()).unwrap_or("").to_string(),
-        _ => node.utf8_text(source.as_bytes()).unwrap_or("").to_string(),
+    // The row of the opening brace: a comment on it trails the header.
+    let open_row = children
+        .iter()
+        .find(|c| c.kind() == "{")
+        .map(|c| c.start_position().row);
+    let mut prev_end = open_row;
+    for (member, start, end) in members {
+        if let Member::Comment(text) = &member
+            && prev_end == Some(start)
+            && let Some(last) = lines.last_mut()
+        {
+            last.push(' ');
+            last.push_str(text);
+            prev_end = Some(end);
+            continue;
+        }
+        match member {
+            Member::Field {
+                key,
+                value,
+                annotations,
+            } => {
+                let anns = annotations.join(" ");
+                let first = if annotations.is_empty() {
+                    value[0].clone()
+                } else if value.len() == 1 {
+                    format!(
+                        "{}{}{anns}",
+                        value[0],
+                        " ".repeat(annotated_width + 1 - value[0].len())
+                    )
+                } else {
+                    format!("{} {anns}", value[0])
+                };
+                lines.push(format!("{indent}{key}{}{first}", pad(&key)));
+                lines.extend(value[1..].iter().cloned());
+            }
+            Member::Nested {
+                key,
+                lines: body,
+                annotations,
+            } => {
+                let anns = if annotations.is_empty() {
+                    String::new()
+                } else {
+                    format!(" {}", annotations.join(" "))
+                };
+                if body.is_empty() {
+                    lines.push(format!("{indent}{key} {{}}{anns}"));
+                } else {
+                    lines.push(format!("{indent}{key} {{"));
+                    lines.extend(body);
+                    lines.push(format!("{indent}}}{anns}"));
+                }
+            }
+            Member::Line(text) | Member::Comment(text) => lines.push(format!("{indent}{text}")),
+        }
+        prev_end = Some(end);
     }
 }
 
-/// Format a list node: `[a, b, c]`
-///
-/// If the list contains comments, preserve verbatim (comments in lists
-/// are opaque to the formatter to guarantee idempotency).
-fn format_list_node(node: Node, source: &str, _config: &FormatConfig) -> String {
-    // Check for embedded comments — if found, preserve verbatim
+fn field_member(node: Node, source: &str, config: &FormatConfig, depth: usize) -> Member {
+    let key = node
+        .child_by_field_name("key")
+        .map(|n| node_text(n, source).to_string())
+        .unwrap_or_default();
     let mut cursor = node.walk();
-    let has_comments = {
-        let mut found = false;
-        if cursor.goto_first_child() {
-            loop {
-                if cursor.node().kind() == "comment" {
-                    found = true;
-                    break;
-                }
-                if !cursor.goto_next_sibling() {
-                    break;
-                }
-            }
-            cursor.goto_parent();
-        }
-        found
+    let annotations: Vec<String> = node
+        .children(&mut cursor)
+        .filter(|c| c.kind() == "annotation")
+        .map(|c| collapse_whitespace(node_text(c, source)))
+        .collect();
+    let Some(value) = node.child_by_field_name("value") else {
+        return Member::Line(node_text(node, source).trim().to_string());
     };
-
-    if has_comments {
-        return node.utf8_text(source.as_bytes()).unwrap_or("").to_string();
-    }
-
-    let mut items = Vec::new();
-    if cursor.goto_first_child() {
-        loop {
-            let child = cursor.node();
-            match child.kind() {
-                "[" | "]" | "," => {}
-                _ => {
-                    let text = child.utf8_text(source.as_bytes()).unwrap_or("");
-                    if !text.trim().is_empty() {
-                        items.push(text.trim().to_string());
-                    }
-                }
+    match value.kind() {
+        "nested_block" => {
+            let mut body = Vec::new();
+            format_body(value, source, config, depth + 1, &mut body);
+            Member::Nested {
+                key,
+                lines: body,
+                annotations,
             }
-            if !cursor.goto_next_sibling() {
-                break;
+        }
+        "list" => Member::Field {
+            value: list_value(value, source, config, depth, key.len()),
+            key,
+            annotations,
+        },
+        _ => {
+            // Multi-line values (triple-quoted strings, ...) are opaque: the
+            // first line follows the key, the rest stays as written.
+            let text = node_text(value, source);
+            let mut value_lines = text.lines();
+            let first = value_lines.next().unwrap_or("").trim_end().to_string();
+            let mut value: Vec<String> = vec![first];
+            value.extend(value_lines.map(|l| l.trim_end().to_string()));
+            Member::Field {
+                key,
+                value,
+                annotations,
             }
         }
     }
-    format!("[{}]", items.join(", "))
 }
 
-/// Format a nested_block node.
-fn format_nested_block_node(node: Node, source: &str, _config: &FormatConfig) -> String {
-    let text = node.utf8_text(source.as_bytes()).unwrap_or("");
-    text.to_string()
+/// `[a, b, c]` on one line when it fits, else one item per line. Items are
+/// the list's child nodes, so strings containing `, ` stay whole. A list
+/// holding comments is kept as written.
+fn list_value(
+    node: Node,
+    source: &str,
+    config: &FormatConfig,
+    depth: usize,
+    key_len: usize,
+) -> Vec<String> {
+    let mut cursor = node.walk();
+    let children: Vec<Node> = node.children(&mut cursor).collect();
+    if children.iter().any(|c| c.kind() == "comment") {
+        return node_text(node, source)
+            .lines()
+            .map(|l| l.trim_end().to_string())
+            .collect();
+    }
+    let items: Vec<String> = children
+        .iter()
+        .filter(|c| !matches!(c.kind(), "[" | "]" | ","))
+        .map(|c| collapse_whitespace(node_text(*c, source)))
+        .collect();
+    let one_line = format!("[{}]", items.join(", "));
+    let indent = config.indent_str();
+    let outer = indent.repeat(depth);
+    // indent + key + at least one space + value
+    if outer.len() + key_len + 1 + one_line.len() <= config.max_width || items.len() < 2 {
+        return vec![one_line];
+    }
+    let mut lines = vec!["[".to_string()];
+    lines.extend(items.iter().map(|item| format!("{outer}{indent}{item},")));
+    lines.push(format!("{outer}]"));
+    lines
 }
 
-/// Get the text of a named child node by field name.
-fn get_child_field_text(node: Node, field_name: &str, source: &str) -> Option<String> {
-    node.child_by_field_name(field_name)
-        .map(|n| n.utf8_text(source.as_bytes()).unwrap_or("").to_string())
+/// `verify [kind] "description"`, single-spaced.
+fn verify_line(node: Node, source: &str) -> String {
+    let desc = node
+        .child_by_field_name("description")
+        .map(|n| node_text(n, source))
+        .unwrap_or("\"\"");
+    match node.child_by_field_name("kind") {
+        Some(kind) => format!("verify {} {desc}", node_text(kind, source)),
+        None => format!("verify {desc}"),
+    }
 }
 
-/// Get the text of the first child with a specific field name.
-fn get_child_text(node: Node, field_name: &str, source: &str) -> String {
-    get_child_field_text(node, field_name, source).unwrap_or_default()
+/// `method name(a: T, b?: U @ann) -> R`, rebuilt from its parts.
+fn method_line(node: Node, source: &str) -> String {
+    let name = node
+        .child_by_field_name("name")
+        .map(|n| node_text(n, source))
+        .unwrap_or("");
+    let mut cursor = node.walk();
+    let params: Vec<String> = node
+        .children(&mut cursor)
+        .filter(|c| c.kind() == "parameter")
+        .map(|p| {
+            let pname = p
+                .child_by_field_name("name")
+                .map(|n| node_text(n, source))
+                .unwrap_or("");
+            let optional = if p.child_by_field_name("optional").is_some() {
+                "?"
+            } else {
+                ""
+            };
+            let ty = p
+                .child_by_field_name("type")
+                .map(|n| collapse_whitespace(node_text(n, source)))
+                .unwrap_or_default();
+            let mut param_cursor = p.walk();
+            let anns: Vec<String> = p
+                .children(&mut param_cursor)
+                .filter(|c| c.kind() == "annotation")
+                .map(|c| collapse_whitespace(node_text(c, source)))
+                .collect();
+            let mut text = format!("{pname}{optional}: {ty}");
+            for ann in anns {
+                text.push(' ');
+                text.push_str(&ann);
+            }
+            text
+        })
+        .collect();
+    let mut line = format!("method {name}({})", params.join(", "));
+    if let Some(returns) = node.child_by_field_name("returns") {
+        line.push_str(" -> ");
+        line.push_str(&collapse_whitespace(node_text(returns, source)));
+    }
+    line
 }
 
 #[cfg(test)]
@@ -2593,5 +2330,171 @@ mod tests {
             range_bar, full_bar,
             "range format must match full format for affected blocks"
         );
+    }
+}
+
+/// The emitter keeps every comment where it was, keeps statement order, and
+/// never splits a value: each test pins one bug of the previous engine.
+#[cfg(test)]
+mod emitter_tests {
+    use super::*;
+
+    fn fmt(source: &str) -> String {
+        let result = format_source(source, &FormatConfig::default());
+        assert!(result.diagnostics.is_empty(), "{:?}", result.diagnostics);
+        let again = format_source(&result.formatted, &FormatConfig::default()).formatted;
+        assert_eq!(again, result.formatted, "not idempotent");
+        result.formatted
+    }
+
+    #[specforge_test_macros::test(
+        behavior = "preserve_comments",
+        verify = "leading comment attaches to following node"
+    )]
+    #[specforge_test_macros::test(
+        invariant = "comment_preservation",
+        verify = "leading comments remain attached to their following node"
+    )]
+    fn a_leading_comment_stays_directly_above_its_block() {
+        let out = fmt(
+            "behavior a \"A\" {\n  contract \"c\"\n}\n// doc for b\nbehavior b \"B\" {\n  contract \"c\"\n}\n",
+        );
+        assert!(out.contains("}\n\n// doc for b\nbehavior b"), "{out}");
+    }
+
+    #[specforge_test_macros::test(
+        behavior = "preserve_comments",
+        verify = "trailing comment attaches to preceding node on same line"
+    )]
+    #[specforge_test_macros::test(
+        invariant = "comment_preservation",
+        verify = "trailing comments remain attached to their preceding node"
+    )]
+    fn a_trailing_comment_stays_on_its_line() {
+        let out =
+            fmt("behavior a \"A\" { // header note\n  contract \"c\" // why\n  status draft\n}\n");
+        assert!(out.contains("behavior a \"A\" { // header note\n"), "{out}");
+        assert!(out.contains("contract \"c\" // why\n"), "{out}");
+    }
+
+    #[specforge_test_macros::test(
+        behavior = "preserve_comments",
+        verify = "section header comment attaches to next block group"
+    )]
+    #[specforge_test_macros::test(
+        behavior = "preserve_comments",
+        verify = "standalone comment block between blocks is preserved"
+    )]
+    fn standalone_and_section_comments_keep_their_separation() {
+        let out = fmt(concat!(
+            "behavior a \"A\" {\n  contract \"c\"\n}\n\n\n",
+            "// standalone note\n\n\n",
+            "// Section: more\nbehavior b \"B\" {\n  contract \"c\"\n}\n",
+        ));
+        assert_eq!(
+            out,
+            "behavior a \"A\" {\n  contract \"c\"\n}\n\n// standalone note\n\n// Section: more\nbehavior b \"B\" {\n  contract \"c\"\n}\n"
+        );
+    }
+
+    #[specforge_test_macros::test(
+        behavior = "preserve_comments",
+        verify = "no comments are lost after formatting"
+    )]
+    #[specforge_test_macros::test(
+        invariant = "comment_preservation",
+        verify = "every comment in input appears in formatted output"
+    )]
+    fn comments_in_every_block_kind_stay_in_place() {
+        let source = concat!(
+            "spec \"s\" {\n  version \"1\"\n  // spec note\n}\n\n",
+            "define widget {\n  // define note\n  size integer\n}\n\n",
+            "ref gh.issue:1 \"Issue\" {\n  // ref note\n  status open\n}\n\n",
+            "behavior a \"A\" {\n  contract \"c\"\n  // between\n  status draft\n  // again\n  // again\n  verify unit \"x\"\n}\n",
+        );
+        let out = fmt(source);
+        assert!(out.contains("  version \"1\"\n  // spec note\n}"), "{out}");
+        assert!(
+            out.contains("define widget {\n  // define note\n  size integer\n}"),
+            "{out}"
+        );
+        assert!(out.contains("  // ref note\n  status open\n}"), "{out}");
+        assert!(
+            out.contains("  contract \"c\"\n  // between\n  status   draft\n  // again\n  // again\n  verify unit \"x\"\n"),
+            "{out}"
+        );
+    }
+
+    #[specforge_test_macros::test(
+        behavior = "preserve_comments",
+        verify = "Preserve Comments During Formatting: comment preservation holds — cst_available, all_comments_attached, no_comments_lost"
+    )]
+    fn comment_text_is_kept_as_written() {
+        let out = fmt(
+            "/// doc comment\n//   - nested bullet\n//no space\nbehavior a \"A\" {\n  contract \"c\"\n}\n",
+        );
+        assert!(
+            out.starts_with("/// doc comment\n//   - nested bullet\n// no space\nbehavior a"),
+            "{out}"
+        );
+    }
+
+    #[specforge_test_macros::test(
+        behavior = "apply_format_rules",
+        verify = "wrapping rules break long reference lists to multi-line"
+    )]
+    fn wrapping_a_list_never_splits_a_string() {
+        let long = "Each kind has correct testable, singleton, and supports_verify flags";
+        let source = format!(
+            "feature f \"F\" {{\n  criteria [\"{long}\", \"second criterion that is long enough to wrap\"]\n}}\n"
+        );
+        let out = fmt(&source);
+        assert!(out.contains(&format!("    \"{long}\",\n")), "{out}");
+        assert!(out.contains("  criteria [\n"), "{out}");
+        // A short hand-wrapped list is joined.
+        let out = fmt("feature f \"F\" {\n  refs [\n    a,\n    b,\n  ]\n}\n");
+        assert!(out.contains("  refs [a, b]\n"), "{out}");
+    }
+
+    #[specforge_test_macros::test(
+        behavior = "apply_format_rules",
+        verify = "statements keep their source order"
+    )]
+    fn statements_keep_their_order() {
+        let out = fmt(
+            "event e \"E\" {\n  verify unit \"first\"\n  channel bus\n  method m(x: string)\n  payload order\n}\n",
+        );
+        assert_eq!(
+            out,
+            "event e \"E\" {\n  verify unit \"first\"\n  channel bus\n  method m(x: string)\n  payload order\n}\n"
+        );
+    }
+
+    #[specforge_test_macros::test(
+        behavior = "apply_format_rules",
+        verify = "alignment rules align field values within blocks"
+    )]
+    fn keys_and_annotations_align_but_verify_does_not() {
+        let out = fmt(
+            "type task \"T\" {\n  id string @readonly @unique\n  title string\n  completedAt timestamp @optional\n  verify   unit    \"x\"\n}\n",
+        );
+        assert_eq!(
+            out,
+            "type task \"T\" {\n  id          string    @readonly @unique\n  title       string\n  completedAt timestamp @optional\n  verify unit \"x\"\n}\n"
+        );
+    }
+
+    #[specforge_test_macros::test(
+        behavior = "apply_format_rules",
+        verify = "a union that does not fit wraps one variant per line"
+    )]
+    fn a_long_union_wraps() {
+        let source = "type verify_kind = unit | contract | integration | property | performance | mutation | load | deadlock_free\n";
+        let out = fmt(source);
+        assert!(
+            out.starts_with("type verify_kind = unit\n  | contract\n"),
+            "{out}"
+        );
+        assert_eq!(fmt("type k = a|b\n"), "type k = a | b\n");
     }
 }
