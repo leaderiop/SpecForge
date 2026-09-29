@@ -7,7 +7,7 @@
     "crates/specforge-extension-sdk-macros/Cargo.toml": "8e4cca6917dfb890653f49fe20256289db6851044fdcbaac69569d358c3eb64d",
     "crates/specforge-extension-sdk-macros/src/lib.rs": "ad2948c86a0d8ac7228edd933c41316d8f5f6db2a9548d68068304337615d8a2",
     "crates/specforge-extension-sdk/Cargo.toml": "c7b2dc38619f1d923d82be483f86b90d795eede0e30c2c8187cb93b0e475b7bf",
-    "crates/specforge-extension-sdk/src/lib.rs": "bba4d9bfb46dc84125c639da485623e7d0b072f2aa4621e8492ebcf971da65a2",
+    "crates/specforge-extension-sdk/src/lib.rs": "40e469c9a73cfcbe9384e76fe9b327ce1fdc2a20acffae7b7b77b07b55ce6d20",
     "crates/specforge-extension-sdk/src/testing.rs": "8fcab95aa132910d6b72406ecbdb70a802d5a6825966b2b4314fdd2234c70f6b",
     "crates/specforge-protocol-types/Cargo.toml": "00d9084460a9967560586181f748c4ee56b8ef0a93c9221d68887d6470da44c7",
     "crates/specforge-protocol-types/src/lib.rs": "a1f77f3cafe5b03deb1fddf1a4fe85a3853780cbd0f76be895f13660d45a0511",

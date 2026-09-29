@@ -47,8 +47,6 @@ behavior load_wasm_module "Load Wasm Module" {
   verify unit "legacy lockfile entry without hash loads unchanged"
   verify unit "missing .wasm produces ExtensionError"
   verify contract "Load Wasm Module: Wasm module loading holds — manifest_validated_fired, wasm_integrity_verified_fired, wasm_runtime_available, extension_loaded_emitted, extension_loaded_via_runtime, tampered_binary_refused, missing_binary_diagnosed"
-
-  tests ["crates/specforge-wasm/tests/wasm_lifecycle.rs"]
 }
 
 behavior initialize_wasm_extension "Initialize Wasm Extension" {
@@ -97,8 +95,6 @@ behavior initialize_wasm_extension "Initialize Wasm Extension" {
   verify unit "lifecycle transitions to initialized on success"
   verify unit "lifecycle transitions to failed on error"
   verify contract "Initialize Wasm Extension: Wasm extension initialization holds — extension_loaded_fired, registries_populated, extension_initialized_emitted, lifecycle_state_updated, no_manifest_override"
-
-  tests ["crates/specforge-wasm/tests/wasm_lifecycle.rs"]
 }
 
 behavior call_extension_validators "Call Extension Validators" {
@@ -133,8 +129,6 @@ behavior call_extension_validators "Call Extension Validators" {
   verify unit "diagnostics emitted via host function are collected"
   verify unit "validation continues to next extension after errors"
   verify contract "Call Extension Validators: extension validator dispatch holds — extension_initialized_fired, extensions_sorted_fired, extension_validated_emitted, diagnostics_collected, validation_continues"
-
-  tests ["crates/specforge-wasm/tests/host_functions_integration.rs"]
 }
 
 // -- Dependencies -----
@@ -167,8 +161,6 @@ behavior validate_extension_peer_dependencies "Validate Extension Peer Dependenc
   verify unit "missing peer produces hard error"
   verify unit "version mismatch produces hard error"
   verify contract "Validate Extension Peer Dependencies: peer dependency validation holds — manifests_loaded, peer_dependencies_validated_emitted, unsatisfied_peers_diagnosed"
-
-  tests ["crates/specforge-cli/tests/registry.rs"]
 }
 
 behavior topological_sort_extensions "Topological Sort Extensions" {
@@ -200,8 +192,6 @@ behavior topological_sort_extensions "Topological Sort Extensions" {
   verify unit "cycle in peer dependencies produces error"
   verify unit "deterministic ordering on ties"
   verify contract "Topological Sort Extensions: topological extension sorting holds — peer_dependencies_validated_fired, extensions_sorted_emitted, sort_deterministic, cycles_diagnosed"
-
-  tests ["crates/specforge-registry/tests/zero_entity_registries.rs"]
 }
 
 // -- Extension Lifecycle -----
@@ -246,8 +236,6 @@ behavior install_wasm_extension "Install Wasm Extension" {
   verify unit "rolls back on download failure"
   verify performance "single extension install completes within 30 seconds on commodity hardware"
   verify contract "Install Wasm Extension: Wasm extension installation holds — extension_source_available, filesystem_available, extension_install_completed_emitted, integrity_verified, atomic_install_enforced, config_updated"
-
-  tests ["crates/specforge-wasm/tests/wasm_lifecycle.rs"]
 }
 
 behavior upgrade_wasm_extension "Upgrade Wasm Extension" {
@@ -286,8 +274,6 @@ behavior upgrade_wasm_extension "Upgrade Wasm Extension" {
   verify unit "replaces binary and records new lock hash"
   verify unit "rejects breaking peer change without --force"
   verify contract "Upgrade Wasm Extension: Wasm extension upgrade holds — extension_installed, source_available, extension_upgrade_completed_emitted, binary_replaced, peer_compatibility_enforced"
-
-  tests ["crates/specforge-wasm/tests/wasm_lifecycle.rs"]
 }
 
 // uninstall_wasm_extension is the Wasm lifecycle implementation for extension
@@ -331,7 +317,6 @@ behavior uninstall_wasm_extension "Uninstall Wasm Extension" {
   verify unit "deletes .wasm binary from project"
   verify unit "rolls back on failure"
   verify contract "Uninstall Wasm Extension: Wasm extension uninstall holds — extension_installed_ready, filesystem_available, extension_unloaded_emitted, wasm_extension_removed_emitted, dependent_check_enforced, atomic_uninstall_enforced"
-  tests ["crates/specforge-wasm/tests/wasm_lifecycle.rs"]
 }
 
 // -- Manifest Validation -----
@@ -372,8 +357,6 @@ behavior validate_extension_manifest "Validate Extension Manifest" {
   verify unit "unknown fields produce warning"
   verify unit "unknown manifest_version produces hard error"
   verify contract "Validate Extension Manifest: extension manifest validation holds — manifest_loaded_fired, manifest_validated_emitted, invalid_manifest_diagnosed, schema_validated"
-
-  tests ["crates/specforge-wasm/tests/wasm_lifecycle.rs"]
 }
 
 behavior verify_wasm_integrity "Verify Wasm Integrity" {
@@ -407,8 +390,6 @@ behavior verify_wasm_integrity "Verify Wasm Integrity" {
   verify unit "mismatched hash produces hard error"
   verify unit "--skip-verify bypasses check with warning"
   verify contract "Verify Wasm Integrity: Wasm integrity verification holds — lock_file_read_fired, filesystem_available, wasm_integrity_verified_emitted, wasm_integrity_check_failed_emitted, tampering_diagnosed"
-
-  tests ["crates/specforge-wasm/tests/wasm_lifecycle.rs"]
 }
 
 // -- Extension-Defined Grammar Loading ----------------------------------------
@@ -446,8 +427,6 @@ behavior load_extension_grammar "Load Extension Grammar" {
   verify unit "loaded grammar is cached for subsequent use"
   verify integration "grammar loading completes within performance budget"
   verify contract "Load Extension Grammar: extension grammar loading holds — extension_manifests_loaded_fired, wasm_runtime_available, grammar_loaded_emitted, grammar_cached, load_failure_diagnosed"
-
-  tests ["crates/specforge-lsp/tests/grammar_loading.rs"]
 }
 
 behavior validate_grammar_wasm "Validate Grammar Wasm" {
@@ -480,8 +459,6 @@ behavior validate_grammar_wasm "Validate Grammar Wasm" {
   verify unit "ABI version mismatch produces GrammarError with versions"
   verify unit "oversized grammar binary is rejected"
   verify contract "Validate Grammar Wasm: grammar Wasm validation holds — grammar_binary_available, abi_version_checked, size_limit_enforced, language_export_verified"
-
-  tests ["crates/specforge-lsp/tests/grammar_loading.rs"]
 }
 
 behavior compose_grammar_injections "Compose Grammar Injections" {
@@ -519,8 +496,6 @@ behavior compose_grammar_injections "Compose Grammar Injections" {
   verify unit "conflict with namespace policy loads both grammars"
   verify property "same extensions + same policy = same composition"
   verify contract "Compose Grammar Injections: grammar injection composition holds — grammars_loaded, kind_registry_populated, grammars_composed_emitted, composition_deterministic, conflict_policy_applied"
-
-  tests ["crates/specforge-lsp/tests/grammar_loading.rs"]
 }
 
 behavior dispatch_body_parser "Dispatch Body Parser" {
@@ -565,7 +540,6 @@ behavior dispatch_body_parser "Dispatch Body Parser" {
   verify unit "entity kind without body parser uses default field parser"
   verify integration "body parser output feeds into Phase 2 validation"
   verify contract "Dispatch Body Parser: body parser dispatch holds — body_parser_registered, wasm_runtime_available, body_parsed_emitted, output_schema_validated, timeout_enforced, fallback_on_failure"
-
 }
 
 behavior cache_grammar_artifacts "Cache Grammar Artifacts" {
@@ -599,6 +573,4 @@ behavior cache_grammar_artifacts "Cache Grammar Artifacts" {
   verify unit "content hash change invalidates cache"
   verify unit "ABI version change invalidates cache"
   verify contract "Cache Grammar Artifacts: grammar artifact caching holds — grammar_validated, filesystem_available, cache_key_composite, cache_hit_skips_loading, cache_invalidation_enforced"
-
-  tests ["crates/specforge-lsp/tests/grammar_loading.rs"]
 }

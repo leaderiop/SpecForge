@@ -47,7 +47,6 @@ behavior build_model_intermediate "Build Model Intermediate Representation" {
   verify unit "extension metadata has correct entity and edge counts"
   verify unit "empty schema produces empty ModelIntermediate"
   verify contract "Build Model Intermediate Representation: model IR construction holds — schema_available, all_kinds_mapped, synthetic_id_added, cardinality_inferred, extension_metadata_computed"
-  tests ["crates/specforge-emitter/tests/model.rs"]
 }
 
 behavior render_model_markdown "Render Model as Markdown" {
@@ -90,7 +89,6 @@ behavior render_model_markdown "Render Model as Markdown" {
   verify unit "fields=all shows every field"
   verify unit "empty model produces valid Markdown with zero-entity message"
   verify contract "Render Model as Markdown: Markdown rendering holds — model_ir_built, preamble_present, extension_summary, field_tables_present, relationships_listed, grouping_respected, field_level_respected"
-  tests ["crates/specforge-emitter/tests/model.rs"]
 }
 
 behavior render_model_mermaid "Render Model as Mermaid erDiagram" {
@@ -129,7 +127,6 @@ behavior render_model_mermaid "Render Model as Mermaid erDiagram" {
   verify unit "extension grouping uses comment headers"
   verify unit "empty model produces valid erDiagram with no entities"
   verify contract "Render Model as Mermaid erDiagram: Mermaid rendering holds — model_ir_built, valid_mermaid_produced, cardinality_notation_correct, field_types_shown, grouping_via_comments"
-  tests ["crates/specforge-emitter/tests/model.rs"]
 }
 
 behavior render_model_dot "Render Model as DOT" {
@@ -172,7 +169,6 @@ behavior render_model_dot "Render Model as DOT" {
   verify unit "fields=none produces header-only nodes"
   verify unit "empty model produces valid DOT with no nodes"
   verify contract "Render Model as DOT: DOT rendering holds — model_ir_built, valid_dot_produced, html_labels_used, extension_color_coding, required_fields_bolded, reference_markers_shown, cluster_grouping, edges_labeled"
-  tests ["crates/specforge-emitter/tests/model.rs"]
 }
 
 behavior render_model_json "Render Model as ERD JSON" {
@@ -209,7 +205,6 @@ behavior render_model_json "Render Model as ERD JSON" {
   verify unit "fields level filters the field array"
   verify unit "empty model produces valid JSON with empty arrays"
   verify contract "Render Model as ERD JSON: ERD JSON rendering holds — model_ir_built, valid_json_produced, erd_schema_conformed, distinct_from_specforge_schema, model_version_present"
-  tests ["crates/specforge-emitter/tests/model.rs"]
 }
 
 behavior render_model_dbml "Render Model as DBML" {
@@ -253,7 +248,6 @@ behavior render_model_dbml "Render Model as DBML" {
   verify unit "field descriptions use [note: '...']"
   verify unit "empty model produces valid DBML with no tables"
   verify contract "Render Model as DBML: DBML rendering holds — model_ir_built, valid_dbml_produced, table_per_entity, synthetic_pk, enum_definitions, table_groups, named_refs, required_not_null"
-  tests ["crates/specforge-emitter/tests/model.rs"]
 }
 
 behavior filter_model "Filter Model by Extension, Kind, or Depth" {
@@ -295,7 +289,6 @@ behavior filter_model "Filter Model by Extension, Kind, or Depth" {
   verify unit "unknown extension name produces empty model"
   verify unit "unknown kind name is silently ignored"
   verify contract "Filter Model by Extension, Kind, or Depth: model filtering holds — model_ir_built, extension_filter_applied, kind_filter_applied, depth_filter_applied, edges_pruned, filters_compose"
-  tests ["crates/specforge-emitter/tests/model.rs"]
 }
 
 behavior expose_model_mcp_tool "Expose Model as MCP Tool" {
@@ -330,5 +323,4 @@ behavior expose_model_mcp_tool "Expose Model as MCP Tool" {
   verify unit "filter parameters are passed through to model options"
   verify integration "MCP tool produces same output as CLI command"
   verify contract "Expose Model as MCP Tool: MCP model tool holds — validation_complete_fired, tool_registered, all_formats_available, all_filters_available, result_is_string"
-  tests ["crates/specforge-mcp/tests/tools_core.rs"]
 }

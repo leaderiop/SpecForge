@@ -663,7 +663,7 @@ pub const CATALOG: &[CodeEntry] = &[
         code: "W035",
         title: "Undischarged coverage items",
         owner: "@specforge/formal",
-        explanation: "One or more coverage-tracking items are not covered by any test linkage. Add a `tests [...]` field pointing at the executable tests that cover them.",
+        explanation: "One or more coverage-tracking items are not covered by any recorded test. Annotate a test with the entity it proves and run `specforge collect` so its result is recorded.",
     },
     CodeEntry {
         code: "W041",

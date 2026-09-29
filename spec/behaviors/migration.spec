@@ -60,8 +60,6 @@ behavior detect_format_version_mismatch "Detect Format Version Mismatch" {
   verify unit "mismatched header and root format_version produces E-level diagnostic"
   verify unit "unsupported format version produces E019 with upgrade guidance"
   verify contract "Detect Format Version Mismatch: format version detection holds — spec_file_available, version_mismatch_reported, unsupported_version_rejected, parsing_continues"
-
-  tests ["crates/specforge-cli/tests/migrate.rs"]
 }
 
 // Transform chaining strategy: when migrating across multiple format versions
@@ -132,8 +130,6 @@ behavior migrate_spec_files_in_place "Migrate Spec Files In Place" {
   verify unit "interrupted migration leaves no partially written files"
   verify unit "pre-migration snapshot captured before migration_starting event"
   verify unit "files already at target version are skipped with skippedCount incremented"
-
-  tests ["crates/specforge-cli/tests/migrate.rs"]
 }
 
 behavior generate_migration_diff "Generate Migration Diff" {
@@ -175,8 +171,6 @@ behavior generate_migration_diff "Generate Migration Diff" {
   verify unit "failure in one file does not block diff generation for others"
   verify unit "json format diff produces structured output with file-level entries"
   verify contract "Generate Migration Diff: migration diff generation holds — spec_files_available, dry_run_flag_set, diff_produced, no_files_modified, migration_diff_generated_emitted"
-
-  tests ["crates/specforge-cli/tests/migrate.rs"]
 }
 
 behavior validate_post_migration_integrity "Validate Post-Migration Integrity" {
@@ -218,8 +212,6 @@ behavior validate_post_migration_integrity "Validate Post-Migration Integrity" {
   verify unit "structural differences reported as warnings"
   verify unit "new diagnostics from migration reported"
   verify contract "Validate Post-Migration Integrity: post-migration integrity validation holds — extension_hooks_complete_fired, structural_equivalence_checked, differences_reported, migration_validation_complete_emitted"
-
-  tests ["crates/specforge-cli/tests/migrate.rs"]
 }
 
 behavior capture_pre_migration_schema_snapshot "Capture Pre-Migration Schema Snapshot" {
@@ -254,8 +246,6 @@ behavior capture_pre_migration_schema_snapshot "Capture Pre-Migration Schema Sna
   verify unit "snapshot includes node kinds, edge types, and field definitions"
   verify unit "snapshot persists in memory across migration_starting to extension_migration_hooks_complete"
   verify contract "Capture Pre-Migration Schema Snapshot: pre-migration schema capture holds — migration_starting_fired, snapshot_captured, pre_migration_snapshot_captured_emitted"
-
-  tests ["crates/specforge-cli/tests/migrate.rs"]
 }
 
 behavior verify_graph_protocol_compatibility_after_migration "Verify Graph Protocol Compatibility After Migration" {
@@ -326,8 +316,6 @@ behavior verify_graph_protocol_compatibility_after_migration "Verify Graph Proto
   verify unit "comparison runs once after extension_migration_hooks_complete"
   verify unit "cross-extension reference broken by migration produces diagnostic"
   verify contract "Verify Graph Protocol Compatibility After Migration: graph protocol compatibility verification holds — pre_migration_snapshot_available, extension_hooks_complete, compatibility_verified, breaking_changes_warned, graph_protocol_compatibility_emitted"
-
-  tests ["crates/specforge-cli/tests/migrate.rs"]
 }
 
 behavior rollback_failed_migration "Rollback Failed Migration" {
@@ -377,8 +365,6 @@ behavior rollback_failed_migration "Rollback Failed Migration" {
   verify unit "rollback failure for one file does not block others"
   verify unit "summary reports restored, skipped, and failed counts"
   verify contract "Rollback Failed Migration: migration rollback holds — migration_started, files_restored, rollback_event_emitted, backup_file_preservation"
-
-  tests ["crates/specforge-cli/tests/migrate.rs"]
 }
 
 behavior invoke_extension_migration_hooks "Invoke Extension Migration Hooks" {
@@ -458,6 +444,4 @@ behavior invoke_extension_migration_hooks "Invoke Extension Migration Hooks" {
   verify unit "hook exceeding timeout treated as trap"
   verify unit "validation runs once after both core and extension hooks complete"
   verify contract "Invoke Extension Migration Hooks: extension migration hooks holds for the declared obligations"
-
-  tests ["crates/specforge-cli/tests/migrate.rs"]
 }

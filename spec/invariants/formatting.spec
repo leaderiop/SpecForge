@@ -11,8 +11,6 @@ invariant formatting_idempotency "Formatting Idempotency" {
 
   verify property "formatting an already-formatted file produces identical output"
   verify property "random valid .spec files satisfy format(format(x)) == format(x)"
-
-  tests ["crates/specforge-cli/tests/format.rs"]
 }
 
 invariant comment_preservation "Comment Preservation" {
@@ -26,8 +24,6 @@ invariant comment_preservation "Comment Preservation" {
   verify property "every comment in input appears in formatted output"
   verify unit "trailing comments remain attached to their preceding node"
   verify unit "leading comments remain attached to their following node"
-
-  tests ["crates/specforge-cli/tests/format.rs"]
 }
 
 invariant formatting_consistency "Formatting Consistency" {
@@ -43,8 +39,6 @@ invariant formatting_consistency "Formatting Consistency" {
 
   verify property "two files differing only in whitespace produce identical formatted output"
   verify unit "tab-indented and space-indented inputs produce the same output"
-
-  tests ["crates/specforge-cli/tests/format.rs"]
 }
 
 invariant config_defaults_valid "Config Defaults Valid" {
@@ -57,8 +51,6 @@ invariant config_defaults_valid "Config Defaults Valid" {
 
   verify unit "default FormatConfig passes validation"
   verify unit "fallback from invalid config produces usable FormatConfig"
-
-  tests ["crates/specforge-cli/tests/format.rs"]
 }
 
 invariant discover_completeness "Discovery Completeness" {
@@ -70,12 +62,10 @@ invariant discover_completeness "Discovery Completeness" {
     explicitly excluded via configuration.
   """
 
-
   risk medium
 
   verify unit "all .spec files under spec_root are discovered"
   verify unit "no .spec files are silently skipped"
-
 }
 
 invariant format_rule_determinism "Format Rule Determinism" {
@@ -90,8 +80,6 @@ invariant format_rule_determinism "Format Rule Determinism" {
 
   verify property "same input and config produce identical output across CLI and LSP"
   verify property "same input and config produce identical output across platforms"
-
-  tests ["crates/specforge-cli/tests/format.rs"]
 }
 
 invariant formatting_semantic_preservation "Formatting Semantic Preservation" {
@@ -106,8 +94,6 @@ invariant formatting_semantic_preservation "Formatting Semantic Preservation" {
 
   verify property "format(spec) parses to an identical entity graph as spec"
   verify unit "formatting does not alter entity IDs, field values, or reference lists"
-
-  tests ["crates/specforge-cli/tests/format.rs"]
 }
 
 invariant format_rule_priority "Format Rule Application Order" {
@@ -124,5 +110,4 @@ invariant format_rule_priority "Format Rule Application Order" {
 
   verify unit "indent rule takes precedence over spacing rule on same whitespace region"
   verify property "rule priority order is deterministic across invocations"
-  tests ["crates/specforge-cli/tests/format.rs"]
 }

@@ -4,7 +4,29 @@ use specforge_graph::FieldValue;
 use crate::protocol::JsonRpcResponse;
 use crate::state::McpState;
 
+/// Entity ids with recorded tests in the project's `specforge-report.json`
+/// (written by `specforge collect`). Tests link themselves to entities by
+/// annotation (ADR 0002), so recorded results are the linkage.
+fn entities_with_recorded_tests(state: &McpState) -> std::collections::HashSet<String> {
+    let Some(root) = &state.project_root else {
+        return Default::default();
+    };
+    let Ok(raw) = std::fs::read_to_string(root.join("specforge-report.json")) else {
+        return Default::default();
+    };
+    let Ok(report) = serde_json::from_str::<specforge_emitter::analyze::TestReport>(&raw) else {
+        return Default::default();
+    };
+    report
+        .results
+        .into_iter()
+        .filter(|(_, entity)| !entity.tests.is_empty())
+        .map(|(id, _)| id)
+        .collect()
+}
+
 pub fn call(state: &McpState, args: Value, id: Option<Value>) -> JsonRpcResponse {
+    let recorded = entities_with_recorded_tests(state);
     let entity_filter = args.get("entity_id").and_then(|v| v.as_str());
     let kind_filter = args.get("kind").and_then(|v| v.as_str());
 
@@ -26,13 +48,7 @@ pub fn call(state: &McpState, args: Value, id: Option<Value>) -> JsonRpcResponse
                 n.fields.get("verify"),
                 Some(FieldValue::VerifyList(stmts)) if !stmts.is_empty()
             );
-            let has_tests = matches!(
-                n.fields.get("tests"),
-                Some(FieldValue::ReferenceList(refs)) if !refs.is_empty()
-            ) || matches!(
-                n.fields.get("tests"),
-                Some(FieldValue::StringList(refs)) if !refs.is_empty()
-            );
+            let has_tests = recorded.contains(n.id.raw.as_str());
 
             let status = if has_verify && has_tests {
                 "covered"

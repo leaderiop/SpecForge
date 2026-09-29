@@ -66,8 +66,6 @@ behavior load_extension_manifests "Load Extension Manifests" {
   verify integration "two extensions loaded and registries populated without collision"
   verify unit "unloadable extension binary produces diagnostic instead of crash"
   verify contract "Load Extension Manifests: extension manifest loading holds — all_files_parsed, extensions_config_available, all_extensions_attempted, loaded_manifests_available, failed_extensions_diagnosed, loaded_event_fired, extension_isolation"
-
-  tests ["crates/specforge-cli/tests/extensions.rs"]
 }
 
 // register_extension_entity_types is a thin delegation wrapper that calls
@@ -115,8 +113,6 @@ behavior register_extension_entity_types "Register Extension Entity Types" {
   verify unit "KindRegistry records source extension for each kind"
   verify unit "I004 message includes unresolved kind name and suggested extension"
   verify contract "Register Extension Entity Types: extension entity type registration holds — extension_manifests_loaded_fired, kind_registry_populated, field_registry_populated, edge_registry_populated, registered_event_emitted, soft_resolution_for_missing"
-
-  tests ["crates/specforge-cli/tests/extensions.rs"]
 }
 
 behavior load_provider_configurations "Load Provider Configurations" {
@@ -153,8 +149,6 @@ behavior load_provider_configurations "Load Provider Configurations" {
   verify unit "provider config settings are passed through"
   verify unit "no hardcoded provider schemes exist in core"
   verify contract "Load Provider Configurations: provider configuration loading holds — extension_manifests_loaded_fired, specforge_json_available, provider_instances_created, aliased_instances_distinct, no_hardcoded_schemes, provider_configured_emitted"
-
-  tests ["crates/specforge-registry/tests/provider.rs"]
 }
 
 behavior register_provider_schemes "Register Provider Schemes" {
@@ -198,8 +192,6 @@ behavior register_provider_schemes "Register Provider Schemes" {
   verify unit "no built-in schemes exist before provider loading"
   verify integration "Wasm-based provider scheme registered and validates ref"
   verify contract "Register Provider Schemes: provider scheme registration holds — provider_configured_fired, wasm_runtime_available, schemes_registered, duplicate_scheme_warned, declaration_order_tiebreak, schemes_registered_emitted"
-
-  tests ["crates/specforge-registry/tests/provider.rs"]
 }
 
 behavior validate_provider_refs "Validate Provider Refs" {
@@ -233,8 +225,6 @@ behavior validate_provider_refs "Validate Provider Refs" {
   verify unit "provider validates identifier format"
   verify unit "no built-in ref validation logic exists in core"
   verify contract "Validate Provider Refs: provider ref validation holds — provider_schemes_registered_fired, ref_validator_available, known_scheme_delegated, unknown_scheme_diagnosed, ref_validated_emitted"
-
-  tests ["crates/specforge-registry/tests/provider.rs"]
 }
 
 // remove_extension is the user-facing CLI entry point for extension removal.
@@ -280,8 +270,6 @@ behavior remove_extension "Remove Extension" {
   verify unit "removed extension keywords produce E024 on next compile"
   verify unit ".spec files are not modified by removal"
   verify contract "Remove Extension: extension removal holds — extension_installed, filesystem_available, extension_entry_removed, spec_files_unchanged, extension_removed_emitted"
-
-  tests ["crates/specforge-cli/tests/extensions.rs"]
 }
 
 // Read-only query. (produces [] declared below; no event of its own.)
@@ -311,8 +299,6 @@ behavior list_installed_extensions "List Installed Extensions" {
   verify unit "list includes entity counts and entity types"
   verify unit "output order is deterministic"
   verify contract "List Installed Extensions: extension listing holds — kind_registry_ready, all_extensions_listed, entity_counts_included, output_deterministic"
-
-  tests ["crates/specforge-cli/tests/extensions.rs"]
 }
 
 // Read-only query. (produces [] declared below; no event of its own.)
@@ -345,8 +331,6 @@ behavior list_configured_providers "List Configured Providers" {
   verify unit "multiple aliases shown separately"
   verify unit "output order is deterministic"
   verify contract "List Configured Providers: provider listing holds — scheme_registry_ready, all_providers_listed, schemes_and_kinds_included, aliases_shown_separately, output_deterministic"
-
-  tests ["crates/specforge-registry/tests/provider.rs"]
 }
 
 // Called imperatively by validate_provider_refs (which consumes provider_schemes_registered).
@@ -378,8 +362,6 @@ behavior validate_ref_target_format "Validate Ref Target Format" {
   verify unit "malformed ref identifier produces E011"
   verify unit "no built-in format patterns exist in core"
   verify contract "Validate Ref Target Format: ref target format validation holds — scheme_registry_populated, ref_validator_available, valid_identifier_passes, malformed_identifier_diagnosed"
-
-  tests ["crates/specforge-cli/tests/registry.rs"]
 }
 
 // Called imperatively by validate_provider_refs (which consumes provider_schemes_registered).
@@ -410,8 +392,6 @@ behavior validate_provider_kinds "Validate Provider Kinds" {
   verify unit "valid scheme with unknown kind produces E013"
   verify unit "no built-in kind registrations exist in core"
   verify contract "Validate Provider Kinds: provider kind validation holds — scheme_registry_populated, ref_validator_available, valid_kind_passes, unknown_kind_diagnosed"
-
-  tests ["crates/specforge-registry/tests/provider.rs"]
 }
 
 // -- Registry Behaviors -----
@@ -454,8 +434,6 @@ behavior resolve_registry_source "Resolve Registry Source" {
   verify unit "successful query returns RegistryResponse"
   verify integration "unreachable scope-specific registry falls back to next scope"
   verify contract "Resolve Registry Source: registry source resolution holds — registries_configured_fired, registry_client_available, scope_routed, default_fallback_used, network_error_diagnosed, registry_resolved_emitted"
-
-  tests ["crates/specforge-cli/tests/registry.rs"]
 }
 
 behavior search_registry "Search Registry" {
@@ -498,8 +476,6 @@ behavior search_registry "Search Registry" {
   verify unit "output is deterministic"
   verify unit "error from one registry does not abort search of others"
   verify contract "Search Registry: registry search holds — registries_available, registry_client_available, all_registries_queried, results_deduplicated, output_deterministic, search_completed_emitted, partial_failure_resilience"
-
-  tests ["crates/specforge-cli/tests/registry.rs"]
 }
 
 // CLI entry point: `specforge publish`. Delegates Wasm binary packaging
@@ -540,8 +516,6 @@ behavior publish_to_registry "Publish to Registry" {
   verify unit "successful publish returns registry URL"
   verify unit "unauthenticated publish produces ExtensionError"
   verify contract "Publish to Registry: registry publishing holds — manifest_valid, wasm_binary_available, registry_client_available, credentials_available, sha256_computed, duplicate_version_rejected, registry_url_returned, published_event_emitted"
-
-  tests ["crates/specforge-cli/tests/registry.rs"]
 }
 
 behavior verify_registry_integrity "Verify Registry Integrity" {
@@ -584,8 +558,6 @@ behavior verify_registry_integrity "Verify Registry Integrity" {
   verify unit "community registry source assigned community trust level"
   verify unit "verified registry source assigned verified trust level"
   verify contract "Verify Registry Integrity: registry integrity verification holds — wasm_binary_downloaded, registry_response_available, hash_verified, mismatch_aborts, trust_level_assigned, lock_file_updated, integrity_verified_emitted, receive"
-
-  tests ["crates/specforge-cli/tests/registry.rs"]
 }
 
 behavior configure_registries "Configure Registries" {
@@ -638,8 +610,6 @@ behavior configure_registries "Configure Registries" {
   verify integration "first specforge init succeeds without any registry authentication"
   verify unit "default public registry is accessible without credentials"
   verify contract "Configure Registries: registry configuration holds — specforge_json_parsed, filesystem_available, registry_entries_created, scope_filters_set, no_registries_diagnosed, no_hardcoded_urls, registries_configured_emitted"
-
-  tests ["crates/specforge-cli/tests/registry.rs"]
 }
 
 // ── Registry Authentication ──────────────────────────────────
@@ -702,8 +672,6 @@ behavior authenticate_registry_request "Authenticate Registry Request" {
   verify unit "unreachable registry with cached extension falls back to cache with I-level diagnostic"
   verify unit "authentication failure (401/403) does not trigger cache fallback"
   verify contract "Authenticate Registry Request: registry authentication holds — credential_configured, registry_client_available, token_resolved, auth_header_attached, missing_source_diagnosed, double_401_diagnosed, tokens_never_logged, cache_fallback_on_network_only, authenticated_emitted"
-
-  tests ["crates/specforge-cli/tests/registry.rs"]
 }
 
 behavior retry_registry_request "Retry Registry Request" {
@@ -738,8 +706,6 @@ behavior retry_registry_request "Retry Registry Request" {
   verify unit "network timeout produces ExtensionError with retry guidance"
   verify unit "max retries exceeded produces final error"
   verify contract "Retry Registry Request: registry request retry holds — registry_request_failed, registry_client_available, exponential_backoff_applied, timeout_diagnosed, retries_exhausted_emitted"
-
-  tests ["crates/specforge-cli/tests/registry.rs"]
 }
 
 behavior validate_registry_credentials "Validate Registry Credentials" {
@@ -775,8 +741,6 @@ behavior validate_registry_credentials "Validate Registry Credentials" {
   verify unit "raw token never stored in specforge.json"
   verify unit "success message includes registry alias and scope"
   verify contract "Validate Registry Credentials: registry credential validation holds — registry_configured, registry_client_available, valid_credentials_stored, invalid_credentials_diagnosed, raw_token_never_stored, credentials_validated_emitted"
-
-  tests ["crates/specforge-cli/tests/registry.rs"]
 }
 
 behavior logout_registry "Logout Registry" {
@@ -814,8 +778,6 @@ behavior logout_registry "Logout Registry" {
   verify unit "no credential for alias succeeds silently"
   verify unit "no network requests made during logout"
   verify contract "Logout Registry: registry logout holds — alias_matches_config, filesystem_available, credential_removed, other_credentials_intact, missing_credential_silent, no_network_requests, logged_out_emitted"
-
-  tests ["crates/specforge-cli/tests/registry.rs"]
 }
 
 behavior generate_keyword_extension_index "Generate Keyword Extension Index" {
@@ -864,8 +826,6 @@ behavior generate_keyword_extension_index "Generate Keyword Extension Index" {
   verify unit "empty registry produces empty index"
   verify property "index generation accepts configurable registry list"
   verify contract "Generate Keyword Extension Index: keyword extension index generation holds — registry_accessible, filesystem_available, keyword_mapping_complete, index_deterministic, multi_provider_included, index_written, index_generated_emitted"
-
-  tests ["crates/specforge-registry/tests/keyword_index.rs"]
 }
 
 behavior support_private_registries "Support Private Registries" {
@@ -904,6 +864,4 @@ behavior support_private_registries "Support Private Registries" {
   // Observability: error diagnostics for private registry operations delegate
   // to authenticate_registry_request and retry_registry_request for auth and
   // retry details. This behavior owns the scope_filter and trust_level logic.
-
-  tests ["crates/specforge-cli/tests/registry.rs"]
 }

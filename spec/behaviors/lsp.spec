@@ -52,8 +52,6 @@ behavior lsp_initialize "LSP Initialize" {
   verify unit "initialize response includes completion trigger characters"
   verify unit "zero extensions produces structural-only capabilities"
   verify contract "LSP Initialize: LSP initialization holds — extensions_loaded, capabilities_reflect_extensions, semantic_legend_populated, incremental_sync_advertised, lsp_initialized_emitted"
-
-  tests ["crates/specforge-lsp/tests/lifecycle.rs"]
 }
 
 behavior lsp_shutdown "LSP Shutdown" {
@@ -86,8 +84,6 @@ behavior lsp_shutdown "LSP Shutdown" {
   verify unit "shutdown releases Wasm engines"
   verify unit "requests after shutdown return InvalidRequest"
   verify contract "LSP Shutdown: LSP shutdown holds — lsp_initialized_fired, resources_released, post_shutdown_rejected, no_disk_persistence, lsp_shutdown_complete_emitted"
-
-  tests ["crates/specforge-lsp/tests/lifecycle.rs"]
 }
 
 behavior document_open_close "Document Open/Close" {
@@ -122,8 +118,6 @@ behavior document_open_close "Document Open/Close" {
   verify unit "only open documents participate in incremental compilation"
   verify unit "rapid open and close cycles do not corrupt state"
   verify contract "Document Open/Close: document open/close holds — lsp_initialized_fired, document_tracked, file_changed_emitted, closed_diagnostics_cleared"
-
-  tests ["crates/specforge-lsp/tests/document.rs"]
 }
 
 // Event consumer chain: didChange -> file_changed -> debounce window ->
@@ -155,7 +149,6 @@ behavior handle_text_document_change "Handle Text Document Change" {
   verify unit "didChange applies incremental edits to buffer"
   verify unit "didChange triggers incremental recompile"
   verify contract "Handle Text Document Change: text document change holds — document_open, buffer_updated, file_changed_emitted, event_loop_unblocked"
-  tests ["crates/specforge-lsp/tests/document.rs"]
 }
 
 behavior go_to_definition "Go-to-Definition" {
@@ -184,8 +177,6 @@ behavior go_to_definition "Go-to-Definition" {
   verify integration "go-to-def works across files"
   verify unit        "source spans convert from 1-based to 0-based for LSP"
   verify contract "Go-to-Definition: go-to-definition holds — graph_available, declaration_site_returned"
-
-  tests ["crates/specforge-lsp/tests/navigation.rs"]
 }
 
 behavior find_all_references "Find All References" {
@@ -213,8 +204,6 @@ behavior find_all_references "Find All References" {
   verify unit "find-refs includes the declaration site"
   verify unit "find-refs across multiple files"
   verify contract "Find All References: find all references holds — graph_available, all_references_returned, declaration_included"
-
-  tests ["crates/specforge-lsp/tests/navigation.rs"]
 }
 
 behavior hover_information "Hover Information" {
@@ -250,8 +239,6 @@ behavior hover_information "Hover Information" {
   verify unit "hover delegates to provide_extension_entity_hover"
   verify unit "hover returns markdown-formatted content"
   verify contract "Hover Information: hover information holds — graph_available, kind_registry_available, hover_delegated, markdown_produced"
-
-  tests ["crates/specforge-lsp/tests/hover.rs"]
 }
 
 // Completion behaviors (autocomplete_entity_ids, complete_field_names, complete_keywords)
@@ -291,8 +278,6 @@ behavior autocomplete_entity_ids "Autocomplete Entity IDs" {
   verify unit "suggestions filtered by target_kind when FieldRegistry has constraint"
   verify unit "all IDs suggested when no target_kind constraint exists"
   verify contract "Autocomplete Entity IDs: entity ID autocomplete holds — graph_available, field_registry_available, matching_ids_suggested, target_kind_filtering_applied"
-
-  tests ["crates/specforge-lsp/tests/completion.rs"]
 }
 
 behavior prepare_rename "Prepare Rename" {
@@ -322,8 +307,6 @@ behavior prepare_rename "Prepare Rename" {
   verify unit "prepare rename on entity ID returns token range"
   verify unit "prepare rename on non-renameable token returns not available"
   verify contract "Prepare Rename: prepare rename holds — graph_available, token_range_returned, non_renameable_rejected"
-
-  tests ["crates/specforge-lsp/tests/rename.rs"]
 }
 
 behavior rename_entity_id "Rename Entity ID" {
@@ -356,8 +339,6 @@ behavior rename_entity_id "Rename Entity ID" {
   verify unit "rename across multiple files"
   verify unit "rename rejects new name that duplicates existing entity ID"
   verify contract "Rename Entity ID: entity rename holds — graph_available, prepare_rename_ready, all_references_updated, rename_atomic, entity_renamed_emitted"
-
-  tests ["crates/specforge-lsp/tests/rename.rs"]
 }
 
 behavior emit_live_diagnostics "Live Diagnostics" {
@@ -388,8 +369,6 @@ behavior emit_live_diagnostics "Live Diagnostics" {
   verify unit        "only changed file diagnostics are refreshed"
   verify integration "diagnostics appear within 100ms"
   verify contract "Live Diagnostics: live diagnostics holds — lsp_initialized_fired, graph_available, diagnostics_pushed, latency_enforced"
-
-  tests ["crates/specforge-lsp/tests/diagnostics.rs"]
 }
 
 behavior code_actions_for_missing_verify "Code Actions for Missing Verify" {
@@ -434,8 +413,6 @@ behavior code_actions_for_missing_verify "Code Actions for Missing Verify" {
   verify unit "code action kind is QuickFix"
   verify unit "no test source files or application code generated"
   verify contract "Code Actions for Missing Verify: missing verify code actions holds — kind_registry_available, graph_available, quickfix_offered, verify_stubs_produced, no_code_generated"
-
-  tests ["crates/specforge-lsp/tests/code_actions.rs"]
 }
 
 behavior outline_view "Outline View" {
@@ -468,8 +445,6 @@ behavior outline_view "Outline View" {
   verify unit "outline shows entity kind, ID, and title"
   verify unit "outline uses extension-defined SymbolKind from KindRegistry lsp_icon"
   verify contract "Outline View: outline view holds — graph_available, kind_registry_available, all_entities_listed, symbol_kind_delegated"
-
-  tests ["crates/specforge-lsp/tests/symbols.rs"]
 }
 
 behavior workspace_symbol_search "Workspace Symbol Search" {
@@ -499,8 +474,6 @@ behavior workspace_symbol_search "Workspace Symbol Search" {
   verify unit "search by title fragment returns matches"
   verify unit "search results use extension-defined SymbolKind"
   verify contract "Workspace Symbol Search: workspace symbol search holds — graph_available, kind_registry_available, matching_entities_returned, symbol_kind_delegated"
-
-  tests ["crates/specforge-lsp/tests/symbols.rs"]
 }
 
 // Delegates to behaviors/incremental.spec pipeline: watch_file_system_for_changes ->
@@ -540,8 +513,6 @@ behavior shared_incremental_pipeline "Shared Incremental Pipeline" {
   verify property "CLI and LSP share identical debounce window"
   verify property "CLI and LSP share identical validator dispatch order"
   verify contract "Shared Incremental Pipeline: shared incremental pipeline holds — incremental_rebuild_complete_fired, shared_graph_updated, diagnostics_pushed, pipeline_parity_enforced"
-
-  tests ["crates/specforge-lsp/tests/contracts.rs"]
 }
 
 behavior provide_semantic_tokens "Provide Semantic Tokens" {
@@ -589,8 +560,6 @@ behavior provide_semantic_tokens "Provide Semantic Tokens" {
   verify unit "entity title strings classified as string"
   verify unit "use path classified as string"
   verify contract "Provide Semantic Tokens: semantic tokens holds — graph_available, kind_registry_available, tokens_classified, structural_keywords_enforced, extension_delegation_applied"
-
-  tests ["crates/specforge-lsp/tests/semantic_tokens.rs"]
 }
 
 behavior complete_field_names "Complete Field Names" {
@@ -622,8 +591,6 @@ behavior complete_field_names "Complete Field Names" {
   verify unit "suggestions are filtered by entity kind"
   verify unit "no field name suggestions outside entity blocks"
   verify contract "Complete Field Names: field name completion holds — field_registry_available, cursor_inside_entity, fields_suggested, snippets_informed"
-
-  tests ["crates/specforge-lsp/tests/completion.rs"]
 }
 
 behavior complete_keywords "Complete Keywords" {
@@ -658,8 +625,6 @@ behavior complete_keywords "Complete Keywords" {
   verify unit "no keyword suggestions inside entity blocks"
   verify unit "snippet templates based on kind field definitions"
   verify contract "Complete Keywords: keyword completion holds — kind_registry_available, cursor_at_top_level, keywords_delegated, structural_keywords_included"
-
-  tests ["crates/specforge-lsp/tests/completion.rs"]
 }
 
 behavior goto_import_definition "Go-to-Definition on Imports" {
@@ -685,8 +650,6 @@ behavior goto_import_definition "Go-to-Definition on Imports" {
   verify unit "go-to-def on use path navigates to target file"
   verify unit "go-to-def on non-existent use path returns no result"
   verify contract "Go-to-Definition on Imports: import go-to-definition holds — imports_resolved, target_file_navigated"
-
-  tests ["crates/specforge-lsp/tests/navigation.rs"]
 }
 
 behavior code_action_add_missing_import "Code Action: Add Missing Import" {
@@ -716,8 +679,6 @@ behavior code_action_add_missing_import "Code Action: Add Missing Import" {
   verify unit "import is inserted after existing use statements"
   verify unit "no code action when entity does not exist anywhere"
   verify contract "Code Action: Add Missing Import: add missing import holds — graph_available, entity_exists_elsewhere, import_added"
-
-  tests ["crates/specforge-lsp/tests/code_actions.rs"]
 }
 
 behavior code_action_create_entity_stub "Code Action: Create Entity Stub" {
@@ -761,8 +722,6 @@ behavior code_action_create_entity_stub "Code Action: Create Entity Stub" {
   verify unit "code action kind is Refactor"
   verify unit "generated stub contains no application code or test files"
   verify contract "Code Action: Create Entity Stub: create entity stub holds — graph_available, field_registry_available, stub_created, kind_inferred, no_code_generated"
-
-  tests ["crates/specforge-lsp/tests/code_actions.rs"]
 }
 
 behavior incremental_document_sync "Incremental Document Sync" {
@@ -793,8 +752,6 @@ behavior incremental_document_sync "Incremental Document Sync" {
   verify unit "multiple incremental changes produce correct source"
   verify integration "incremental sync reduces transfer size vs full sync"
   verify contract "Incremental Document Sync: incremental document sync holds — lsp_initialized_fired, document_open, buffer_consistent, partial_update_applied"
-
-  tests ["crates/specforge-lsp/tests/document.rs"]
 }
 
 // -- Extension Grammar Highlighting -------------------------------------------
@@ -831,6 +788,4 @@ behavior load_extension_grammars_for_highlighting "Load Extension Grammars for H
   verify unit "grammar conflict resolved per grammar_policy"
   verify unit "grammar loading failure does not affect other kinds"
   verify contract "Load Extension Grammars for Highlighting: extension grammar loading holds — extensions_loaded, wasm_runtime_available, grammars_cached, grammar_kind_association, loading_failures_isolated"
-
-  tests ["crates/specforge-lsp/tests/grammar_loading.rs"]
 }

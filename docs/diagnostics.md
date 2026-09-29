@@ -1127,8 +1127,9 @@ Owner: @specforge/formal
 ```
 W035: Undischarged coverage items
 
-One or more coverage-tracking items are not covered by any test linkage. Add a
-`tests [...]` field pointing at the executable tests that cover them.
+One or more coverage-tracking items are not covered by any recorded test.
+Annotate a test with the entity it proves and run `specforge collect` so its
+result is recorded.
 
 Owner: @specforge/formal
 ```

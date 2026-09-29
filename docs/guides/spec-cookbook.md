@@ -298,8 +298,8 @@ There are three layers:
      verify integration "created task is retrievable"
    }
    ```
-2. **Linkage** — a `tests` field (or naming convention / proc-macro, per the language
-   extension) maps the behavior to real test cases.
+2. **Linkage** — each test names the entity it proves, in its runner's idiom
+   (see [ADR 0002](../adr/0002-test-runner-extensions.md)); the spec carries no test paths.
 3. **Proof** — `specforge collect` ingests a test runner's results into
    `specforge-report.json`, which feeds coverage back into the graph.
 

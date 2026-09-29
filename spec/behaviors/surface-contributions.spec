@@ -54,8 +54,6 @@ behavior register_surface_contributions "Register Surface Contributions" {
   verify unit "duplicate MCP tool name across extensions produces E039"
   verify unit "registration succeeds with no duplicates"
   verify contract "Register Surface Contributions: surface contribution registration holds — manifest_loaded_fired, all_surfaces_registered, duplicates_detected, surface_contributions_registered_emitted"
-
-  tests ["crates/specforge-registry/tests/surface.rs"]
 }
 
 behavior validate_surface_exports "Validate Surface Exports" {
@@ -94,8 +92,6 @@ behavior validate_surface_exports "Validate Surface Exports" {
   verify unit "no Wasm binary with surface declarations produces W055"
   verify unit "extra exports beyond surfaces are ignored"
   verify contract "Validate Surface Exports: surface export validation holds — extension_loaded_fired, all_declared_exports_verified, missing_exports_diagnosed, surface_exports_validated_emitted"
-
-  tests ["crates/specforge-registry/tests/surface.rs"]
 }
 
 behavior validate_mcp_tool_schemas "Validate MCP Tool Schemas" {
@@ -128,8 +124,6 @@ behavior validate_mcp_tool_schemas "Validate MCP Tool Schemas" {
   verify unit "invalid JSON Schema produces E055"
   verify unit "MCP tool without description produces W056"
   verify contract "Validate MCP Tool Schemas: MCP tool schema validation holds — surface_contributions_registered_fired, schemas_validated, invalid_schemas_diagnosed, missing_descriptions_warned, mcp_tool_schemas_validated_emitted"
-
-  tests ["crates/specforge-registry/tests/surface.rs"]
 }
 
 behavior validate_command_arg_types "Validate Command Arg Types" {
@@ -161,8 +155,6 @@ behavior validate_command_arg_types "Validate Command Arg Types" {
   verify unit "unknown arg type produces E055"
   verify unit "command with no args produces W057"
   verify contract "Validate Command Arg Types: command arg type validation holds — surface_contributions_registered_fired, arg_types_validated, unknown_types_diagnosed, command_args_validated_emitted"
-
-  tests ["crates/specforge-registry/tests/surface.rs"]
 }
 
 // ── Auto-Promotion ──────────────────────────────────────────
@@ -200,8 +192,6 @@ behavior auto_promote_commands_to_mcp_tools "Auto-Promote Commands to MCP Tools"
   verify unit "derived input_schema computed from command args"
   verify unit "explicit MCP tool wins over auto-promoted tool with I017"
   verify contract "Auto-Promote Commands to MCP Tools: command-to-MCP-tool auto-promotion holds — surface_contributions_registered_fired, all_commands_promoted, naming_convention_enforced, explicit_tool_wins, commands_auto_promoted_emitted"
-
-  tests ["crates/specforge-registry/tests/surface.rs"]
 }
 
 // ── Dispatch ────────────────────────────────────────────────
@@ -248,8 +238,6 @@ behavior dispatch_surface_command "Dispatch Surface Command" {
   verify unit "Wasm trap caught and reported as ExtensionError"
   verify unit "exit code, stdout, stderr returned to CLI"
   verify contract "Dispatch Surface Command: surface command dispatch holds — surface_exports_validated_fired, command_args_validated_fired, args_serialized, sandbox_restricted, traps_caught, output_returned, surface_command_dispatched_emitted"
-
-  tests ["crates/specforge-mcp/tests/surface_wiring.rs"]
 }
 
 behavior dispatch_surface_mcp_tool "Dispatch Surface MCP Tool" {
@@ -296,8 +284,6 @@ behavior dispatch_surface_mcp_tool "Dispatch Surface MCP Tool" {
   verify unit "Wasm trap returned as structured MCP error"
   verify unit "tool output returned as MCP tool result"
   verify contract "Dispatch Surface MCP Tool: surface MCP tool dispatch holds — surface_exports_validated_fired, mcp_tool_schemas_validated_fired, commands_auto_promoted_fired, input_validated, sandbox_restricted, traps_as_mcp_errors, tool_result_returned, surface_mcp_tool_dispatched_emitted"
-
-  tests ["crates/specforge-mcp/tests/surface_wiring.rs"]
 }
 
 behavior dispatch_surface_mcp_resource "Dispatch Surface MCP Resource" {
@@ -341,8 +327,6 @@ behavior dispatch_surface_mcp_resource "Dispatch Surface MCP Resource" {
   verify unit "Wasm trap returned as structured MCP error"
   verify unit "resource content and mime_type returned to client"
   verify contract "Dispatch Surface MCP Resource: surface MCP resource dispatch holds — surface_exports_validated_fired, uri_matched, fs_write_denied, traps_as_mcp_errors, content_returned, surface_mcp_resource_dispatched_emitted"
-
-  tests ["crates/specforge-mcp/tests/surface_wiring.rs"]
 }
 
 // ── Sandbox Enforcement ─────────────────────────────────────
@@ -381,8 +365,6 @@ behavior enforce_surface_sandbox "Enforce Surface Sandbox" {
   verify unit "per-contribution override cannot expand beyond extension policy"
   verify unit "permission denial produces surface_permission_denied event"
   verify contract "Enforce Surface Sandbox: surface sandbox enforcement holds — sandbox_policy_available, surface_type_known, effective_sandbox_computed, ceiling_enforced, denial_event_produced"
-
-  tests ["crates/specforge-mcp/tests/surface_wiring.rs"]
 }
 
 // ── Configuration ───────────────────────────────────────────
@@ -420,6 +402,4 @@ behavior toggle_surface_contributions "Toggle Surface Contributions" {
   verify unit "disabled MCP resource excluded from resource listing"
   verify unit "re-enabled contribution restored without restart"
   verify contract "Toggle Surface Contributions: surface contribution toggling holds — surface_contributions_registered_fired, disabled_excluded, extension_still_loaded, reenable_without_restart, surface_contribution_toggled_emitted"
-
-  tests ["crates/specforge-registry/tests/surface.rs"]
 }

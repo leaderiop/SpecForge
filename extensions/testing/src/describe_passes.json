@@ -1,0 +1,11 @@
+{
+  "category": "passes",
+  "items": [
+    {
+      "after": "resolve",
+      "before": null,
+      "name": "coverage",
+      "phase": null
+    }
+  ]
+}

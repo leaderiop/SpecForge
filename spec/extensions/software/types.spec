@@ -20,7 +20,6 @@ type SoftwareBehavior {
   tests          string[]         @optional
   gherkin        string[]         @optional
   verify unit "SoftwareBehavior schema is valid"
-  tests ["crates/specforge-wasm/tests/protocol_types.rs", "crates/specforge-emitter/tests/builtins.rs"]
 }
 
 type SoftwareInvariant {
@@ -28,7 +27,6 @@ type SoftwareInvariant {
   enforced_by    EntityId[]       @optional
   risk           RiskLevel        @optional
   verify unit "SoftwareInvariant schema is valid"
-  tests ["crates/specforge-wasm/tests/protocol_types.rs", "crates/specforge-emitter/tests/builtins.rs"]
 }
 
 type SoftwareFeature {
@@ -36,7 +34,6 @@ type SoftwareFeature {
   problem        string           @optional
   solution       string           @optional
   verify unit "SoftwareFeature schema is valid"
-  tests ["crates/specforge-wasm/tests/protocol_types.rs", "crates/specforge-emitter/tests/builtins.rs"]
 }
 
 type SoftwareEvent {
@@ -46,14 +43,12 @@ type SoftwareEvent {
   consumers      EntityId[]       @optional
   sync           SyncBlock        @optional
   verify unit "SoftwareEvent schema is valid"
-  tests ["crates/specforge-wasm/tests/protocol_types.rs", "crates/specforge-emitter/tests/builtins.rs"]
 }
 
 type SoftwareTypeDef {
   kind           TypeDefKind      @optional
   fields         TypeFieldDef[]   @optional
   verify unit "SoftwareTypeDef schema is valid"
-  tests ["crates/specforge-wasm/tests/protocol_types.rs", "crates/specforge-emitter/tests/builtins.rs"]
 }
 
 type SoftwarePort {
@@ -61,7 +56,6 @@ type SoftwarePort {
   category       string           @optional
   methods        PortOperation[]  @optional
   verify unit "SoftwarePort schema is valid"
-  tests ["crates/specforge-wasm/tests/protocol_types.rs", "crates/specforge-emitter/tests/builtins.rs"]
 }
 
 // ── Formal Methods Types ─────────────────────────────────────
@@ -70,32 +64,27 @@ type ContractCondition {
   name           string           @readonly
   description    string
   verify unit "ContractCondition schema is valid"
-  tests ["crates/specforge-wasm/tests/protocol_types.rs", "crates/specforge-emitter/tests/builtins.rs"]
 }
 
 type RequiresBlock {
   conditions     ContractCondition[]
   verify unit "RequiresBlock schema is valid"
-  tests ["crates/specforge-wasm/tests/protocol_types.rs", "crates/specforge-emitter/tests/builtins.rs"]
 }
 
 type EnsuresBlock {
   conditions     ContractCondition[]
   verify unit "EnsuresBlock schema is valid"
-  tests ["crates/specforge-wasm/tests/protocol_types.rs", "crates/specforge-emitter/tests/builtins.rs"]
 }
 
 type MaintainsBlock {
   conditions     ContractCondition[]
   verify unit "MaintainsBlock schema is valid"
-  tests ["crates/specforge-wasm/tests/protocol_types.rs", "crates/specforge-emitter/tests/builtins.rs"]
 }
 
 type SyncBlock {
   barrier        EntityId[]       @optional
   timeout        string           @optional
   verify unit "SyncBlock schema is valid"
-  tests ["crates/specforge-wasm/tests/protocol_types.rs", "crates/specforge-emitter/tests/builtins.rs"]
 }
 
 type PortOperation {
@@ -105,7 +94,6 @@ type PortOperation {
   requires       RequiresBlock    @optional
   ensures        EnsuresBlock     @optional
   verify unit "PortOperation schema is valid"
-  tests ["crates/specforge-wasm/tests/protocol_types.rs", "crates/specforge-emitter/tests/builtins.rs"]
 }
 
 type RefinementChain {
@@ -113,7 +101,6 @@ type RefinementChain {
   concreteIds    EntityId[]
   depth          integer
   verify unit "RefinementChain schema is valid"
-  tests ["crates/specforge-wasm/tests/protocol_types.rs", "crates/specforge-emitter/tests/builtins.rs"]
 }
 
 // ── Enums ────────────────────────────────────────────────────
@@ -134,7 +121,6 @@ type TypeFieldDef {
   annotations    FieldAnnotation[] @optional
   refined        string           @optional
   verify unit "TypeFieldDef schema is valid"
-  tests ["crates/specforge-wasm/tests/protocol_types.rs", "crates/specforge-emitter/tests/builtins.rs"]
 }
 
 // Software-specific verify kinds. These are declared in the manifest's

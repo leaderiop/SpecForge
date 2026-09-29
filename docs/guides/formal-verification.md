@@ -114,11 +114,10 @@ is). If the solver cannot decide, `I098` reports it.
 ## Discharge linkage
 
 `verify property` obligations are normally discharged by executable
-tests (`tests [...]` + `--test-results`). A **proved** formal claim is
-an alternative discharge path: coverage counts it as
-`formally_discharged` in the discharge funnel and suppresses the
-`A012` "obligations with no tests" hint. Proof without test-shaped
-artifacts.
+tests whose recorded results reach `analyze --test-results`. A
+**proved** formal claim is an alternative discharge path: the coverage
+pass (`@specforge/testing:coverage`) counts it as `formally_discharged`
+in the discharge funnel. Proof without test-shaped artifacts.
 
 Run both passes together to get the linkage:
 

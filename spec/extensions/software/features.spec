@@ -26,7 +26,6 @@ feature se_core_entity_kinds "Core Entity Kind Registration" {
     The @specforge/software extension must register 6 entity kinds with
     full metadata, 9 edge types, field definitions, validation rules,
     verify kinds, and LSP metadata. Without this registration, the
-    tests ["crates/specforge-emitter/tests/builtins.rs"]
     compiler has zero knowledge of software engineering domain concepts.
   """
 

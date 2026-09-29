@@ -23,7 +23,6 @@ invariant lsp_extension_reload_consistency "LSP Extension Reload Consistency" {
   verify unit "adding an extension while LSP is running updates KindRegistry atomically"
   verify unit "removing an extension while LSP is running removes kinds from KindRegistry atomically"
   verify unit "semantic token legend reflects current extensions after reload"
-
 }
 
 invariant rename_atomicity "Rename Atomicity" {
@@ -34,7 +33,6 @@ invariant rename_atomicity "Rename Atomicity" {
   risk high
 
   verify property "Rename Atomicity guarantee holds"
-  tests ["crates/specforge-lsp/tests/rename.rs"]
 }
 
 invariant lsp_text_edit_non_overlapping "LSP TextEdit Non-Overlapping" {
@@ -46,5 +44,4 @@ invariant lsp_text_edit_non_overlapping "LSP TextEdit Non-Overlapping" {
   risk high
   verify property "no LSP response contains overlapping TextEdit ranges"
   verify unit "formatting response TextEdits are sorted and non-overlapping"
-  tests ["crates/specforge-lsp/tests/rename.rs"]
 }

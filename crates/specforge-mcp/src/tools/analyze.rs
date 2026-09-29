@@ -83,16 +83,25 @@ pub fn call(state: &mut McpState, args: Value, id: Option<Value>) -> JsonRpcResp
         .and_then(|v| v.as_str())
         .unwrap_or("all")
         .to_string();
+    // Coverage is an extension pass owned by @specforge/testing (ADR 0002).
+    let requested = if requested == "coverage" {
+        specforge_emitter::analyze::COVERAGE_PASS.to_string()
+    } else {
+        requested
+    };
     let pass_names: Vec<&str> = if requested == "all" {
         specforge_emitter::analyze::PASS_NAMES.to_vec()
     } else if specforge_emitter::analyze::PASS_NAMES.contains(&requested.as_str()) {
         vec![requested.as_str()]
+    } else if requested.contains(':') {
+        // `<extension>:<pass>` selects an extension pass only.
+        Vec::new()
     } else {
         return JsonRpcResponse::error(
             id,
             error_codes::INVALID_PARAMS,
             format!(
-                "Unknown analysis pass '{requested}' (available: all, {})",
+                "Unknown analysis pass '{requested}' (available: all, coverage, {})",
                 specforge_emitter::analyze::PASS_NAMES.join(", ")
             ),
         );

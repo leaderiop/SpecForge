@@ -11,7 +11,6 @@ invariant wasm_sandbox_integrity "Wasm Sandbox Integrity" {
 
   verify property "no extension can read or write outside its sandbox boundaries"
   verify unit "sandbox violation traps the extension and emits a diagnostic"
-
 }
 
 invariant extension_load_order_determinism "Extension Load Order Determinism" {
@@ -24,7 +23,6 @@ invariant extension_load_order_determinism "Extension Load Order Determinism" {
 
   verify property "same extension set produces identical load order across 100 runs"
   verify unit "load order is deterministic across different platforms"
-
 }
 
 invariant peer_dependency_satisfaction "Peer Dependency Satisfaction" {
@@ -39,7 +37,6 @@ invariant peer_dependency_satisfaction "Peer Dependency Satisfaction" {
   verify unit "satisfied peer dependencies pass validation"
   verify unit "unsatisfied peer dependency produces an error diagnostic"
   verify unit "peer with wrong version range produces an error diagnostic"
-
 }
 
 // -- Cache & Isolation Invariants ---------------------------------------------
@@ -61,8 +58,6 @@ invariant wasm_compile_cache_integrity "Wasm Compile Cache Integrity" {
   verify property "a cache artifact from different bytes or engine config is never reused"
   verify unit "corrupted cache entry falls back to fresh compilation"
   verify unit "tampered installed binary refused via lockfile hash pin (E033)"
-  tests ["crates/specforge-component/tests/compile_cache.rs", "crates/specforge-wasm/tests/wasm_lifecycle.rs"]
-
 }
 
 invariant extension_isolation "Extension Isolation" {
@@ -76,7 +71,6 @@ invariant extension_isolation "Extension Isolation" {
 
   verify property "extension trap does not affect other extensions"
   verify unit "failed extension excluded from subsequent phases"
-
 }
 
 invariant host_function_type_safety "Host Function Type Safety" {
@@ -90,7 +84,6 @@ invariant host_function_type_safety "Host Function Type Safety" {
 
   verify unit "malformed extension input produces ExtensionError"
   verify unit "valid extension input is processed correctly"
-
 }
 
 // -- Entity Kind Invariants ---------------------------------------------------
@@ -109,7 +102,6 @@ invariant entity_kind_uniqueness "Entity Kind Uniqueness" {
 
   verify property "no two extensions can silently register the same entity kind"
   verify unit "built-in keyword rejection is unconditional"
-
 }
 
 // -- Entity Enhancement Invariants --------------------------------------------
@@ -125,7 +117,6 @@ invariant enhancement_field_uniqueness "Enhancement Field Uniqueness" {
 
   verify property "no two extensions can silently claim the same field"
   verify unit "conflict resolution is deterministic across runs"
-
 }
 
 invariant enhancement_builtin_precedence "Enhancement Built-in Precedence" {
@@ -142,7 +133,6 @@ invariant enhancement_builtin_precedence "Enhancement Built-in Precedence" {
 
   verify unit "enhancement shadowing grammar-level construct produces E018"
   verify unit "E018 not configurable via enhancement_policy"
-
 }
 
 // -- Collector Invariants ---------------------------------------------------
@@ -160,7 +150,6 @@ invariant collector_output_conformance "Collector Output Conformance" {
   verify unit "valid collector output passes schema validation"
   verify unit "unknown entity ID in collector entry produces W115"
   verify unit "missing required fields produce hard error"
-
 }
 
 // -- Registry Invariants ----------------------------------------------------
@@ -177,7 +166,6 @@ invariant registry_integrity "Registry Integrity" {
   verify unit "SHA256 match passes verification"
   verify unit "SHA256 mismatch produces hard error and aborts"
   verify unit "trust level recorded in lock file"
-
 }
 
 invariant extension_operation_atomicity "Extension Operation Atomicity" {
@@ -235,7 +223,6 @@ invariant grammar_composition_determinism "Grammar Composition Determinism" {
 
   verify property "same extensions + same policy = same grammar mapping"
   verify unit "extension load order does not affect grammar selection"
-
 }
 
 invariant grammar_injection_isolation "Grammar Injection Isolation" {
@@ -250,7 +237,6 @@ invariant grammar_injection_isolation "Grammar Injection Isolation" {
 
   verify property "grammar scoped to declared entity_kinds only"
   verify unit "malformed grammar does not affect other extensions"
-
 }
 
 invariant body_parser_output_conformance "Body Parser Output Conformance" {
@@ -267,7 +253,6 @@ invariant body_parser_output_conformance "Body Parser Output Conformance" {
   verify property "parser output always conforms to declared schema"
   verify unit "non-conforming output produces BodyParserError"
   verify mutation "removing output validation allows invalid fields through"
-
 }
 
 invariant surface_schema_validity "Surface Schema Validity" {
@@ -284,5 +269,4 @@ invariant surface_schema_validity "Surface Schema Validity" {
   verify unit "invalid MCP tool schema produces E055"
   verify unit "known command arg type passes validation"
   verify unit "unknown command arg type produces E055"
-
 }

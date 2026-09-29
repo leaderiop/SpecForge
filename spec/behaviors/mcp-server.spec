@@ -54,7 +54,6 @@ behavior mcp_initialize "MCP Initialize" {
   verify unit "returns MCP-compliant init response"
   verify unit "compiles project when projectRoot is provided"
   verify contract "MCP Initialize: MCP initialization holds — compiler_api_available, wasm_runtime_available, capabilities_returned, surface_contributions_merged, mcp_initialized_emitted"
-  tests ["crates/specforge-mcp/tests/lifecycle.rs"]
 }
 
 behavior mcp_shutdown "MCP Shutdown" {
@@ -87,7 +86,6 @@ behavior mcp_shutdown "MCP Shutdown" {
   verify unit "shutdown rejects new tool calls during teardown"
   verify integration "shutdown completes within 5 seconds"
   verify contract "MCP Shutdown: MCP shutdown holds — server_initialized, notifications_flushed, subscriptions_removed, wasm_engines_released, shutdown_emitted"
-  tests ["crates/specforge-mcp/tests/lifecycle.rs"]
 }
 
 behavior list_mcp_resources "List MCP Resources" {
@@ -120,7 +118,6 @@ behavior list_mcp_resources "List MCP Resources" {
   verify unit "returns core-provided descriptors when no extensions installed"
   verify unit "reflects resources from newly loaded extension"
   verify contract "List MCP Resources: listing MCP resources holds — server_initialized, complete_list_returned, disabled_excluded, discovery_emitted"
-  tests ["crates/specforge-mcp/tests/resources.rs"]
 }
 
 behavior list_mcp_tools "List MCP Tools" {
@@ -153,7 +150,6 @@ behavior list_mcp_tools "List MCP Tools" {
   verify unit "returns core-provided descriptors when no extensions installed"
   verify unit "reflects tools from newly loaded extension"
   verify contract "List MCP Tools: listing MCP tools holds — server_initialized, complete_list_returned, disabled_excluded, discovery_emitted"
-  tests ["crates/specforge-mcp/tests/tools_core.rs"]
 }
 
 behavior list_mcp_prompts "List MCP Prompts" {
@@ -182,7 +178,6 @@ behavior list_mcp_prompts "List MCP Prompts" {
   verify unit "returns core-provided descriptors when no extensions installed"
   verify unit "reflects prompts from newly loaded extension"
   verify contract "List MCP Prompts: listing MCP prompts holds — server_initialized, complete_list_returned, discovery_emitted"
-  tests ["crates/specforge-mcp/tests/prompts.rs"]
 }
 
 // ---------------------------------------------------------------------------
@@ -220,8 +215,6 @@ behavior expose_graph_as_mcp_resource "Expose Graph as MCP Resource" {
   verify unit "resource refreshes after recompilation"
   verify unit "output includes embedded schema and schema_version"
   verify contract "Expose Graph as MCP Resource: graph MCP resource holds — validation_complete_fired, graph_json_returned, resource_read_emitted"
-
-  tests ["crates/specforge-mcp/tests/resources.rs"]
 }
 
 behavior expose_schema_as_mcp_resource "Expose Schema as MCP Resource" {
@@ -253,8 +246,6 @@ behavior expose_schema_as_mcp_resource "Expose Schema as MCP Resource" {
   verify unit "specforge://schema resource returns GraphProtocolSchema JSON"
   verify unit "schema updates when extensions change"
   verify contract "Expose Schema as MCP Resource: schema MCP resource holds — validation_complete_fired, schema_json_returned, resource_read_emitted"
-
-  tests ["crates/specforge-mcp/tests/resources.rs"]
 }
 
 behavior expose_context_as_mcp_resource "Expose Context as MCP Resource" {
@@ -285,8 +276,6 @@ behavior expose_context_as_mcp_resource "Expose Context as MCP Resource" {
   verify unit "specforge://context resource returns token-optimized format"
   verify unit "resource refreshes after recompilation"
   verify contract "Expose Context as MCP Resource: context MCP resource holds — validation_complete_fired, context_format_returned, resource_read_emitted"
-
-  tests ["crates/specforge-mcp/tests/resources.rs"]
 }
 
 behavior expose_brief_as_mcp_resource "Expose Brief as MCP Resource" {
@@ -317,8 +306,6 @@ behavior expose_brief_as_mcp_resource "Expose Brief as MCP Resource" {
   verify unit "specforge://brief resource returns minimal IDs and edges format"
   verify unit "resource refreshes after recompilation"
   verify contract "Expose Brief as MCP Resource: brief MCP resource holds — validation_complete_fired, brief_format_returned, resource_read_emitted"
-
-  tests ["crates/specforge-mcp/tests/resources.rs"]
 }
 
 behavior expose_diagnostics_as_mcp_resource "Expose Diagnostics as MCP Resource" {
@@ -350,8 +337,6 @@ behavior expose_diagnostics_as_mcp_resource "Expose Diagnostics as MCP Resource"
   verify unit "resource updates after recompilation"
   verify unit "each diagnostic includes severity, code, message, file, and span"
   verify contract "Expose Diagnostics as MCP Resource: diagnostics MCP resource holds — validation_complete_fired, diagnostics_returned, resource_read_emitted"
-
-  tests ["crates/specforge-mcp/tests/resources.rs"]
 }
 
 behavior expose_entity_as_mcp_resource "Expose Per-Entity MCP Resource" {
@@ -384,8 +369,6 @@ behavior expose_entity_as_mcp_resource "Expose Per-Entity MCP Resource" {
   verify unit "malformed entity_id returns 400 error"
   verify unit "resource refreshes after recompilation"
   verify contract "Expose Per-Entity MCP Resource: per-entity MCP resource holds — validation_complete_fired, subgraph_returned, resource_read_emitted"
-
-  tests ["crates/specforge-mcp/tests/resources.rs"]
 }
 
 // ---------------------------------------------------------------------------
@@ -428,8 +411,6 @@ behavior notify_graph_delta_via_mcp "Notify Graph Delta via MCP" {
   verify unit "no notification when no clients subscribed"
   verify unit "clients can subscribe and unsubscribe from delta notifications"
   verify contract "Notify Graph Delta via MCP: graph delta MCP notification holds — graph_delta_computed_fired, subscribers_notified, no_notification_when_empty, delta_notified_emitted"
-
-  tests ["crates/specforge-mcp/tests/subscriptions.rs"]
 }
 
 behavior notify_diagnostics_delta_via_mcp "Notify Diagnostics Delta via MCP" {
@@ -464,8 +445,6 @@ behavior notify_diagnostics_delta_via_mcp "Notify Diagnostics Delta via MCP" {
   verify unit "unsubscribed clients do not receive notifications"
   verify unit "no notification when diagnostics are unchanged"
   verify contract "Notify Diagnostics Delta via MCP: diagnostics delta MCP notification holds — validation_complete_fired, subscribers_notified, unchanged_suppressed, delta_notified_emitted"
-
-  tests ["crates/specforge-mcp/tests/notifications.rs"]
 }
 
 // ---------------------------------------------------------------------------
@@ -508,8 +487,6 @@ behavior handle_mcp_protocol_error "Handle MCP Protocol Error" {
   verify unit "returns -32600 for invalid request"
   verify unit "returns -32603 for internal error"
   verify contract "Handle MCP Protocol Error: MCP protocol error handling holds — mcp_protocol_available, standard_error_returned, no_state_leaked, server_operational, error_handled_emitted"
-
-  tests ["crates/specforge-mcp/tests/protocol.rs"]
 }
 
 behavior handle_mcp_request_cancellation "Handle MCP Request Cancellation" {
@@ -543,8 +520,6 @@ behavior handle_mcp_request_cancellation "Handle MCP Request Cancellation" {
   verify unit "server state remains consistent after cancellation"
   verify integration "cancelled long-running export returns partial result or acknowledgment"
   verify contract "Handle MCP Request Cancellation: MCP request cancellation holds — mcp_protocol_available, cancellation_safe, request_cancelled_emitted"
-
-  tests ["crates/specforge-mcp/tests/protocol.rs"]
 }
 
 behavior guard_mcp_reinitialization "Guard MCP Reinitialization" {
@@ -576,6 +551,4 @@ behavior guard_mcp_reinitialization "Guard MCP Reinitialization" {
   verify unit "existing session continues after rejected reinitialization"
   verify unit "no resources leaked on rejected reinitialization"
   verify contract "Guard MCP Reinitialization: MCP reinitialization guard holds — server_initialized, reinit_rejected, session_unaffected, error_handled_emitted"
-
-  tests ["crates/specforge-mcp/tests/lifecycle.rs"]
 }

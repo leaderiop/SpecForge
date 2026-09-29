@@ -48,8 +48,6 @@ behavior provide_mcp_context_prompt "Provide MCP Context Prompt" {
   verify unit "non-existent entity returns error"
   verify unit "context prompt works with zero extensions installed"
   verify contract "Provide MCP Context Prompt: MCP context prompt holds — graph_available, context_returned, hints_included, prompt_invoked_emitted"
-
-  tests ["crates/specforge-mcp/tests/prompts.rs"]
 }
 
 behavior provide_mcp_review_prompt "Provide MCP Review Prompt" {
@@ -82,8 +80,6 @@ behavior provide_mcp_review_prompt "Provide MCP Review Prompt" {
   verify unit "depth parameter controls neighbor traversal depth"
   verify unit "review prompt returns empty findings when no testable entities exist"
   verify contract "Provide MCP Review Prompt: MCP review prompt holds — graph_available, coverage_analysis_returned, gaps_identified, prompt_invoked_emitted"
-
-  tests ["crates/specforge-mcp/tests/prompts.rs"]
 }
 
 behavior provide_mcp_trace_prompt "Provide MCP Trace Prompt" {
@@ -119,8 +115,6 @@ behavior provide_mcp_trace_prompt "Provide MCP Trace Prompt" {
   verify unit "affected entities are listed"
   verify unit "malformed plan JSON returns validation error"
   verify contract "Provide MCP Trace Prompt: MCP trace prompt holds — graph_available, gaps_returned, affected_entities_listed, prompt_invoked_emitted"
-
-  tests ["crates/specforge-mcp/tests/prompts.rs"]
 }
 
 behavior provide_mcp_explore_prompt "Provide MCP Explore Prompt" {
@@ -156,6 +150,4 @@ behavior provide_mcp_explore_prompt "Provide MCP Explore Prompt" {
   verify unit "high_connectivity field lists entities with highest edge degree"
   verify unit "orphan_nodes field lists entities with zero incoming and outgoing edges"
   verify contract "Provide MCP Explore Prompt: MCP explore prompt holds — graph_available, exploration_returned, bfs_from_entity, prompt_invoked_emitted"
-
-  tests ["crates/specforge-mcp/tests/prompts.rs"]
 }

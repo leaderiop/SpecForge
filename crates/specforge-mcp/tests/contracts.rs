@@ -849,5 +849,7 @@ fn contract_analyze() {
     assert!(parsed["ok"].is_boolean(), "analyze must return ok flag");
     let passes = parsed["passes"].as_array().unwrap();
     assert!(!passes.is_empty(), "all-pass run must include passes");
-    assert!(passes.iter().any(|p| p["pass"] == "coverage"));
+    // Built-in passes always run; coverage is @specforge/testing's pass and
+    // this fixture enables no extensions.
+    assert!(passes.iter().any(|p| p["pass"] == "contracts"));
 }

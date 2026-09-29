@@ -620,7 +620,8 @@ pub mod prelude {
     pub use crate::{
         CheckKind, Contributions, ContributionsBuilder, EdgeBuilder, EnhancementBuilder,
         ExtensionMeta, FieldBuilder, FieldConstraintBuilder, FieldType, KindBuilder, PassBuilder,
-        PassDiagnostic, PassEdge, PassEntity, PassInput, PassSeverity, PassSpan, RuleBuilder,
+        PassDiagnostic, PassEdge, PassEntity, PassEntityResults, PassInput, PassOutput,
+        PassSeverity, PassSpan, PassTestResult, PassTestResults, RuleBuilder,
     };
     pub use specforge_extension_sdk_macros::{compiler_pass, extension};
     pub use specforge_protocol_types::{
@@ -683,6 +684,10 @@ pub struct PassEntity {
     /// derives this from its kind registry).
     #[serde(default)]
     pub testable: bool,
+    /// One entry per `verify` statement, in order: its kind, or `""` for a
+    /// bare `verify "..."`. Empty when the entity declares no obligations.
+    #[serde(default)]
+    pub verify_kinds: Vec<String>,
 }
 
 /// One resolved reference in the snapshot (label = edge label, e.g.
@@ -702,6 +707,47 @@ pub struct PassInput {
     /// passes written against the entities-only ABI compatible.
     #[serde(default)]
     pub edges: Vec<PassEdge>,
+    /// Recorded test results (the normalized `specforge-report.json`), when
+    /// the host has them.
+    #[serde(default)]
+    pub test_results: Option<PassTestResults>,
+    /// Entity ids whose formal claims the prove pass entailed; `None` when
+    /// the prove pass did not run.
+    #[serde(default)]
+    pub proved_claims: Option<Vec<String>>,
+}
+
+/// Normalized test results handed to a pass: per entity id, the recorded tests.
+#[derive(Debug, Clone, Default, serde::Deserialize)]
+pub struct PassTestResults {
+    #[serde(default)]
+    pub runner: Option<String>,
+    #[serde(default)]
+    pub results: std::collections::BTreeMap<String, PassEntityResults>,
+}
+
+/// The tests recorded for one entity.
+#[derive(Debug, Clone, Default, serde::Deserialize)]
+pub struct PassEntityResults {
+    #[serde(default)]
+    pub tests: Vec<PassTestResult>,
+}
+
+/// One recorded test. `status` is `"pass"` for a passing test.
+#[derive(Debug, Clone, serde::Deserialize)]
+pub struct PassTestResult {
+    #[serde(default)]
+    pub name: Option<String>,
+    pub status: String,
+}
+
+/// A pass result carrying a summary beside its diagnostics. A pass may return
+/// either this or a bare `Vec<PassDiagnostic>`; the host merges `summary`
+/// into the pass report.
+#[derive(Debug, Clone, serde::Serialize)]
+pub struct PassOutput {
+    pub diagnostics: Vec<PassDiagnostic>,
+    pub summary: serde_json::Value,
 }
 
 /// Severity mirror of the host diagnostic enum. Serializes to the same wire

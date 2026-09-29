@@ -26,8 +26,6 @@ behavior se_validate_orphan_behaviors "W001: Orphan Behaviors" {
   verify unit "behavior with no incoming Implements edge produces W001"
   verify unit "behavior with incoming Implements edge passes"
   verify unit "W001 severity is warning"
-    tests ["crates/specforge-registry/tests/zero_entity_validation.rs", "crates/specforge-emitter/tests/builtins.rs"]
-
 }
 
 behavior se_validate_orphan_types "W002: Orphan Types" {
@@ -49,8 +47,6 @@ behavior se_validate_orphan_types "W002: Orphan Types" {
 
   verify unit "type with no incoming UsesType edge produces W002"
   verify unit "type with incoming UsesType edge passes"
-    tests ["crates/specforge-registry/tests/zero_entity_validation.rs", "crates/specforge-emitter/tests/builtins.rs"]
-
 }
 
 behavior se_validate_unused_invariants "W003: Unused Invariants" {
@@ -75,8 +71,6 @@ behavior se_validate_unused_invariants "W003: Unused Invariants" {
   verify unit "invariant with no references and no enforced_by produces W003"
   verify unit "invariant with enforced_by field passes"
   verify unit "invariant with incoming reference edge passes"
-    tests ["crates/specforge-registry/tests/zero_entity_validation.rs", "crates/specforge-emitter/tests/builtins.rs"]
-
 }
 
 behavior se_validate_orphan_ports "W005: Orphan Ports" {
@@ -94,8 +88,6 @@ behavior se_validate_orphan_ports "W005: Orphan Ports" {
 
   verify unit "port with no incoming UsesPort edge produces W005"
   verify unit "port with incoming UsesPort edge passes"
-    tests ["crates/specforge-registry/tests/zero_entity_validation.rs", "crates/specforge-emitter/tests/builtins.rs"]
-
 }
 
 // W006 is allocated to @specforge/product (Orphan Capabilities → W042)
@@ -124,11 +116,9 @@ behavior se_validate_event_triggers "E051: Invalid Event Triggers" {
   verify unit "event trigger referencing type produces E051"
   verify unit "event trigger referencing feature produces E051"
   verify unit "E051 severity is error"
-    tests ["crates/specforge-registry/tests/zero_entity_validation.rs", "crates/specforge-emitter/tests/builtins.rs"]
 
   // Note: missing trigger field is caught by se_validate_entity_fields
   // (generic required-field check), not by this rule.
-
 }
 
 behavior se_validate_orphan_events "W007: Orphan Events" {
@@ -146,8 +136,6 @@ behavior se_validate_orphan_events "W007: Orphan Events" {
 
   verify unit "event with no incoming Produces edge produces W007"
   verify unit "event with incoming Produces edge passes"
-    tests ["crates/specforge-registry/tests/zero_entity_validation.rs", "crates/specforge-emitter/tests/builtins.rs"]
-
 }
 
 behavior se_validate_features_with_empty_behaviors "W008: Features with Empty Behaviors" {
@@ -166,8 +154,6 @@ behavior se_validate_features_with_empty_behaviors "W008: Features with Empty Be
 
   verify unit "feature with empty behaviors list produces W008"
   verify unit "feature with at least one behavior suppresses W008"
-    tests ["crates/specforge-registry/tests/zero_entity_validation.rs", "crates/specforge-emitter/tests/builtins.rs"]
-
 }
 
 behavior se_validate_port_methods "E004: Invalid Port Methods" {
@@ -191,8 +177,6 @@ behavior se_validate_port_methods "E004: Invalid Port Methods" {
 
   verify unit "port method with valid type references passes"
   verify unit "port method with unknown type reference produces E004"
-    tests ["crates/specforge-registry/tests/zero_entity_validation.rs", "crates/specforge-emitter/tests/builtins.rs"]
-
 }
 
 behavior se_validate_type_field_annotations "W010: Unknown Field Annotations" {
@@ -212,6 +196,4 @@ behavior se_validate_type_field_annotations "W010: Unknown Field Annotations" {
 
   verify unit "field with @readonly annotation passes"
   verify unit "field with @unknown annotation produces W010"
-    tests ["crates/specforge-registry/tests/zero_entity_validation.rs", "crates/specforge-emitter/tests/builtins.rs"]
-
 }

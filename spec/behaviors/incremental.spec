@@ -38,8 +38,6 @@ behavior watch_file_system_for_changes "Watch File System for Changes" {
   verify unit        "file deletion triggers recompilation"
   verify integration "watch detects changes within 100ms"
   verify contract "Watch File System for Changes: file system watching holds for the declared obligations"
-
-  tests ["crates/specforge-watch/tests/pipeline.rs", "crates/specforge-watch/tests/delta.rs", "crates/specforge-watch/tests/watcher.rs", "crates/specforge-watch/tests/debounce.rs"]
 }
 
 behavior invalidate_changed_files "Invalidate Changed Files" {
@@ -80,8 +78,6 @@ behavior invalidate_changed_files "Invalidate Changed Files" {
   verify unit "deleted file entities removed from graph"
   verify unit "new file entities added to graph"
   verify contract "Invalidate Changed Files: file invalidation holds — file_changes_coalesced_fired, invalidation_set_computed, subgraph_invalidated_emitted, unrelated_files_untouched"
-
-  tests ["crates/specforge-watch/tests/pipeline.rs", "crates/specforge-watch/tests/delta.rs", "crates/specforge-watch/tests/watcher.rs", "crates/specforge-watch/tests/debounce.rs"]
 }
 
 behavior rebuild_affected_subgraph "Rebuild Affected Subgraph" {
@@ -133,8 +129,6 @@ behavior rebuild_affected_subgraph "Rebuild Affected Subgraph" {
   verify property    "incremental rebuild equals cold rebuild"
   verify unit        "debug --verify-incremental performs cold rebuild comparison"
   verify contract "Rebuild Affected Subgraph: affected subgraph rebuild holds — subgraph_invalidated, import_dag_updated, graph_reflects_reparse, stale_removed, new_added, rebuild_event_fired, unaffected_subgraph_intact"
-
-  tests ["crates/specforge-watch/tests/pipeline.rs", "crates/specforge-watch/tests/delta.rs", "crates/specforge-watch/tests/watcher.rs", "crates/specforge-watch/tests/debounce.rs"]
 }
 
 behavior emit_incremental_diagnostics "Emit Incremental Diagnostics" {
@@ -188,8 +182,6 @@ behavior emit_incremental_diagnostics "Emit Incremental Diagnostics" {
   verify unit "total diagnostic set matches full rebuild"
   verify performance "file change to diagnostics emitted within 100ms"
   verify contract "Emit Incremental Diagnostics: incremental diagnostics holds for the declared obligations"
-
-  tests ["crates/specforge-watch/tests/pipeline.rs", "crates/specforge-watch/tests/delta.rs", "crates/specforge-watch/tests/watcher.rs", "crates/specforge-watch/tests/debounce.rs"]
 }
 
 behavior debounce_file_changes "Debounce File Changes" {
@@ -223,8 +215,6 @@ behavior debounce_file_changes "Debounce File Changes" {
   verify unit "coalesced batch includes union of all changed files"
   verify unit "single isolated change triggers after debounce window"
   verify contract "Debounce File Changes: file change debouncing holds — file_changed_fired, coalesced_batch_produced, redundant_recompilation_prevented"
-
-  tests ["crates/specforge-watch/tests/pipeline.rs", "crates/specforge-watch/tests/delta.rs", "crates/specforge-watch/tests/watcher.rs", "crates/specforge-watch/tests/debounce.rs"]
 }
 
 behavior track_import_dag_incrementally "Track Import DAG Incrementally" {
@@ -262,8 +252,6 @@ behavior track_import_dag_incrementally "Track Import DAG Incrementally" {
   verify unit "cycle detection re-runs after import DAG update"
   verify property "incremental import DAG matches full rebuild import DAG"
   verify contract "Track Import DAG Incrementally: incremental import DAG tracking holds — subgraph_invalidated_fired, import_dag_updated_emitted, cycle_detection_rerun"
-
-  tests ["crates/specforge-watch/tests/pipeline.rs", "crates/specforge-watch/tests/delta.rs", "crates/specforge-watch/tests/watcher.rs", "crates/specforge-watch/tests/debounce.rs"]
 }
 
 // ── Incremental Graph Delta ───────────────────────────────────
@@ -312,8 +300,6 @@ behavior compute_graph_delta "Compute Graph Delta" {
   verify unit "delta_include_values=true populates old_value and new_value"
   verify unit "delta_include_values=false omits old_value and new_value"
   verify contract "Compute Graph Delta: graph delta computation holds — previous_graph_available"
-
-  tests ["crates/specforge-watch/tests/pipeline.rs", "crates/specforge-watch/tests/delta.rs", "crates/specforge-watch/tests/watcher.rs", "crates/specforge-watch/tests/debounce.rs"]
 }
 
 behavior dispatch_incremental_validators "Dispatch Incremental Validators" {
@@ -356,8 +342,6 @@ behavior dispatch_incremental_validators "Dispatch Incremental Validators" {
   verify unit "kind with incremental=false triggers full graph validation for that kind"
   verify unit "mixed incremental and non-incremental kinds dispatch separately"
   verify contract "Dispatch Incremental Validators: incremental dispatch holds — all_validators_invoked"
-
-  tests ["crates/specforge-watch/tests/pipeline.rs", "crates/specforge-watch/tests/delta.rs", "crates/specforge-watch/tests/watcher.rs", "crates/specforge-watch/tests/debounce.rs"]
 }
 
 behavior notify_delta_subscribers "Notify Delta Subscribers" {
@@ -395,8 +379,6 @@ behavior notify_delta_subscribers "Notify Delta Subscribers" {
   verify unit "diagnostics delta includes added and removed"
   verify unit "slow subscriber does not block pipeline"
   verify contract "Notify Delta Subscribers: delta subscriber notification holds — graph_delta_computed_fired, lsp_notified, diagnostics_delta_delivered, delta_subscribers_notified_emitted"
-
-  tests ["crates/specforge-watch/tests/pipeline.rs", "crates/specforge-watch/tests/delta.rs", "crates/specforge-watch/tests/watcher.rs", "crates/specforge-watch/tests/debounce.rs"]
 }
 
 behavior validate_delta_correctness "Validate Delta Correctness" {
@@ -436,6 +418,4 @@ behavior validate_delta_correctness "Validate Delta Correctness" {
   verify unit "check disabled in release builds"
   verify unit "successful validation emits delta_validation_passed with node and edge counts"
   verify contract "Validate Delta Correctness: delta correctness validation holds — graph_delta_available, debug_mode_active, delta_verified, validation_event_emitted"
-
-  tests ["crates/specforge-watch/tests/pipeline.rs", "crates/specforge-watch/tests/delta.rs", "crates/specforge-watch/tests/watcher.rs", "crates/specforge-watch/tests/debounce.rs"]
 }

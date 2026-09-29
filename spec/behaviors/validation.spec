@@ -41,8 +41,6 @@ behavior detect_dangling_references "Detect Dangling References" {
   verify unit "reference with corresponding graph edge passes"
   verify unit "empty graph with zero edges produces no dangling reference diagnostic"
   verify contract "Detect Dangling References: dangling reference detection holds — graph_built_fired, resolver_integrity_verified, no_duplicate_diagnostics"
-
-  tests ["crates/specforge-validator/tests/validation.rs"]
 }
 
 behavior detect_duplicate_entity_ids "Detect Duplicate Entity IDs" {
@@ -71,10 +69,7 @@ behavior detect_duplicate_entity_ids "Detect Duplicate Entity IDs" {
   verify unit "duplicate ID across files produces E002"
   verify unit "E002 includes both source locations"
   verify contract "Detect Duplicate Entity IDs: duplicate entity ID detection holds — all_files_parsed, duplicate_ids_diagnosed"
-
-  tests ["crates/specforge-validator/tests/validation.rs"]
 }
-
 
 // ── Domain-Specific Validation ──────────────────────────────
 // Domain-specific validations (orphan entity checks, unused reference
@@ -154,8 +149,6 @@ behavior detect_orphan_refs "Detect Orphan Structural Nodes" {
   verify unit "unreferenced structural node of any grammar-level kind produces W012"
   verify unit "structural node with at least one incoming edge suppresses W012"
   verify contract "Detect Orphan Structural Nodes: orphan structural node detection holds — graph_built_fired, orphans_detected, referenced_nodes_clean"
-
-  tests ["crates/specforge-validator/tests/validation.rs"]
 }
 
 // Core structural validation: checks file existence for ANY field declared as
@@ -215,8 +208,6 @@ behavior validate_file_reference_paths "Validate File Reference Paths" {
   verify unit "multiple file references in same entity each validated independently"
   verify unit "relative path resolved from spec file directory"
   verify contract "Validate File Reference Paths: file reference validation holds — graph_built_fired, filesystem_available, missing_files_diagnosed, existing_files_pass"
-
-  tests ["crates/specforge-validator/tests/validation.rs"]
 }
 
 // validate_extension_testability moved to behaviors/zero-entity-validation.spec

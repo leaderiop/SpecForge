@@ -39,8 +39,6 @@ behavior enforce_wasm_sandbox "Enforce Wasm Sandbox" {
   verify unit "filesystem restriction enforced"
   verify unit "network restriction enforced"
   verify contract "Enforce Wasm Sandbox: Wasm sandbox enforcement holds — sandbox_policy_configured, wasm_runtime_available, memory_limit_enforced, execution_time_enforced, violations_trapped"
-
-  tests ["crates/specforge-wasm/tests/sandbox_integration.rs"]
 }
 
 behavior compile_wasm_component_with_cache "Compile Wasm Component With Cache" {
@@ -78,8 +76,6 @@ behavior compile_wasm_component_with_cache "Compile Wasm Component With Cache" {
   verify unit "unwritable cache dir degrades to uncached compile with warning"
   verify unit "tampered installed binary refused via E033 lockfile pin"
   verify contract "Compile Wasm Component With Cache: wasm compile cache holds — component_binary_available, cache_dir_resolved, engine_configured_at_construction, first_compile_populates_cache, cache_hit_skips_compilation, cache_failure_degrades"
-
-  tests ["crates/specforge-component/tests/compile_cache.rs"]
 }
 
 behavior reuse_session_runtime "Reuse Session Runtime" {
@@ -114,10 +110,7 @@ behavior reuse_session_runtime "Reuse Session Runtime" {
   verify unit "hot reload atomically replaces a loaded component"
   verify unit "runtime dropped at session end releases all instances"
   verify contract "Reuse Session Runtime: session runtime reuse holds — session_context, wasm_runtime_available, single_engine_per_session, plugin_instances_reused, instance_replaced_atomically, instances_dropped_on_shutdown"
-
-  tests ["crates/specforge-component/tests/runtime.rs", "crates/specforge-component/tests/compile_cache.rs"]
 }
-
 
 // -- Error Recovery -----
 
@@ -155,8 +148,6 @@ behavior handle_wasm_trap "Handle Wasm Trap" {
   verify unit "transitions extension to failed state"
   verify unit "remaining extensions continue after trap"
   verify contract "Handle Wasm Trap: Wasm trap handling holds — trap_occurred, wasm_trap_caught_emitted, lifecycle_transitioned, trapped_extension_skipped, remaining_extensions_continue"
-
-  tests ["crates/specforge-component/tests/runtime.rs"]
 }
 
 // -- Compile Cache -----
@@ -215,6 +206,4 @@ behavior configure_sandbox_policy "Configure Sandbox Policy" {
   verify unit "manifest with code file extension (.rs, .js, .ts) in allowed_output_extensions produces E030"
   verify unit "manifest with non-code extension (.json, .csv, .md) in allowed_output_extensions passes"
   verify contract "Configure Sandbox Policy: sandbox policy configuration holds — manifest_available, config_available, sandbox_policy_configured_emitted, most_restrictive_wins, list_intersection_applied, memory_ceiling_enforced, code_extensions_blocked"
-
-  tests ["crates/specforge-wasm/tests/wasm_lifecycle.rs"]
 }

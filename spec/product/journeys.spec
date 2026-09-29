@@ -207,7 +207,7 @@ journey trace_test_coverage "Trace Test Coverage" {
     3. System computes four-level coverage (declared/linked/executed/passing)
     4. System renders traceability matrix showing each testable entity
     5. Developer reviews matrix to identify gaps
-    6. Developer fills gaps by adding tests and updating tests field
+    6. Developer fills gaps by adding tests annotated with the entity they prove
   """
 }
 

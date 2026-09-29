@@ -42,8 +42,6 @@ behavior parse_validation_rule_pattern "Parse Validation Rule Pattern" {
   verify unit "all required fields validated on each rule"
   verify unit "parses field_value_constraint pattern from manifest"
   verify contract "Parse Validation Rule Pattern: validation rule parsing holds — manifest_rules_available, patterns_parsed, unrecognized_warned"
-
-  tests ["crates/specforge-registry/tests/zero_entity_validation.rs"]
 }
 
 behavior execute_validation_pattern "Execute Validation Pattern" {
@@ -92,8 +90,6 @@ behavior execute_validation_pattern "Execute Validation Pattern" {
   verify unit "custom pattern dispatches to registered Wasm function"
   verify unit "pattern violation produces diagnostic with configured code and severity"
   verify contract "Execute Validation Pattern: declarative validation holds — all_entities_matched, violations_diagnosed, deterministic_order"
-
-  tests ["crates/specforge-registry/tests/zero_entity_validation.rs"]
 }
 
 behavior emit_diagnostic_from_pattern "Emit Diagnostic From Pattern" {
@@ -125,8 +121,6 @@ behavior emit_diagnostic_from_pattern "Emit Diagnostic From Pattern" {
   verify unit "diagnostic code matches pattern code"
   verify unit "diagnostic severity matches pattern severity"
   verify contract "Emit Diagnostic From Pattern: pattern diagnostic emission holds — violation_detected, pattern_configured, diagnostic_emitted, template_interpolated"
-
-  tests ["crates/specforge-registry/tests/zero_entity_validation.rs"]
 }
 
 behavior register_extension_validation_rules "Register Extension Validation Rules" {
@@ -161,8 +155,6 @@ behavior register_extension_validation_rules "Register Extension Validation Rule
   verify unit "duplicate codes across extensions produce warning"
   verify unit "rules sorted by code for deterministic order"
   verify contract "Register Extension Validation Rules: cross-extension rule aggregation holds — extension_manifests_loaded_fired, individual_rules_parsed, unified_rule_set_produced, deterministic_order_enforced, duplicate_codes_warned"
-
-  tests ["crates/specforge-registry/tests/zero_entity_validation.rs"]
 }
 
 behavior register_custom_validation_patterns "Register Custom Validation Patterns" {
@@ -203,8 +195,6 @@ behavior register_custom_validation_patterns "Register Custom Validation Pattern
   verify unit "custom pattern dispatched to Wasm runtime during validation"
   verify unit "custom pattern failure emits configured diagnostic"
   verify contract "Register Custom Validation Patterns: custom validation pattern registration holds — extension_manifests_loaded_fired, wasm_runtime_available, custom_patterns_registered, wasm_functions_resolved"
-
-  tests ["crates/specforge-registry/tests/zero_entity_validation.rs"]
 }
 
 // -- Field Validation --------------------------------------------------------
@@ -245,8 +235,6 @@ behavior detect_unknown_entity_fields "Detect Unknown Entity Fields" {
   verify unit "structural fields (title, verify) not checked against FieldRegistry"
   verify unit "field validation skipped when entity kind is unregistered"
   verify contract "Detect Unknown Entity Fields: unknown field detection holds — registries_populated_fired, define_blocks_registered_fired, unknown_fields_diagnosed, cascading_avoided"
-
-  tests ["crates/specforge-registry/tests/zero_entity_validation.rs"]
 }
 
 // Registry-level collision detection during manifest loading. Called by
@@ -280,8 +268,6 @@ behavior detect_duplicate_entity_kinds "Detect Duplicate Entity Kinds" {
   verify unit "first extension in topological order owns the kind"
   verify unit "single extension registering a kind produces no diagnostic"
   verify contract "Detect Duplicate Entity Kinds: duplicate entity kind detection holds — manifests_loading, collisions_detected, first_wins_enforced"
-
-  tests ["crates/specforge-registry/tests/zero_entity_validation.rs"]
 }
 
 behavior validate_peer_dependencies "Validate Peer Dependencies" {
@@ -314,8 +300,6 @@ behavior validate_peer_dependencies "Validate Peer Dependencies" {
   verify unit "missing peer dependency produces hard error"
   verify unit "incompatible version produces hard error with required range"
   verify contract "Validate Peer Dependencies: peer dependency validation holds — manifests_available, dependencies_validated, unsatisfied_blocked, loading_failed_emitted"
-
-  tests ["crates/specforge-registry/tests/zero_entity_validation.rs"]
 }
 
 // Moved from behaviors/validation.spec — belongs with zero-entity core validation
@@ -362,6 +346,4 @@ behavior validate_extension_testability "Validate Extension Testability" {
   verify unit "kind with supportsVerify but not testable produces I006"
   verify unit "consistent testable and supportsVerify flags produce no diagnostic"
   verify contract "Validate Extension Testability: extension testability validation holds — registries_populated_fired, flag_consistency_checked, advisory_diagnostics_emitted"
-
-  tests ["crates/specforge-registry/tests/zero_entity_validation.rs"]
 }

@@ -287,9 +287,9 @@ constraint traceability_completeness "Traceability Completeness" {
 
   metric """
     specforge trace MUST detect all broken links in the traceability
-    chain with zero false negatives: missing tests field on testable
-    entities with verify declarations, non-existent test file paths,
-    missing report results for linked entities.
+    chain with zero false negatives: testable entities with verify
+    declarations but no recorded test results, and recorded results
+    that name unknown entities.
   """
 
   constrains [consume_specforge_report, compute_four_level_coverage, render_test_traceability_matrix, validate_file_reference_paths]

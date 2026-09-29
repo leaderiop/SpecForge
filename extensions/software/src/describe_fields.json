@@ -146,17 +146,6 @@
     },
     {
       "default_value": null,
-      "description": "Executable test files that verify this behavior, relative to the project root (RES-15 linkage)",
-      "edge": null,
-      "field_type": "string_list",
-      "file_reference": false,
-      "inverse_of": null,
-      "name": "tests",
-      "required": false,
-      "target_kind": null
-    },
-    {
-      "default_value": null,
       "description": "The behavioral contract this behavior guarantees",
       "edge": null,
       "field_type": "string",
@@ -339,17 +328,6 @@
       "file_reference": false,
       "inverse_of": null,
       "name": "refs",
-      "required": false,
-      "target_kind": null
-    },
-    {
-      "default_value": null,
-      "description": "Executable test files that verify this invariant, relative to the project root (RES-15 linkage)",
-      "edge": null,
-      "field_type": "string_list",
-      "file_reference": false,
-      "inverse_of": null,
-      "name": "tests",
       "required": false,
       "target_kind": null
     },

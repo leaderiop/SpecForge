@@ -34,8 +34,6 @@ behavior complete_extension_defined_keywords "Complete Extension-Defined Keyword
   verify unit "completion items include snippet templates"
   verify unit "completion detail shows source extension"
   verify contract "Complete Extension-Defined Keywords: extension keyword completion holds — kind_registry_populated, all_registered_keywords_included, snippet_templates_provided"
-
-  tests ["crates/specforge-lsp/tests/completion.rs"]
 }
 
 behavior provide_extension_entity_semantic_tokens "Provide Extension Entity Semantic Tokens" {
@@ -68,8 +66,6 @@ behavior provide_extension_entity_semantic_tokens "Provide Extension Entity Sema
   verify unit "default keyword token used when semantic_token not specified"
   verify unit "custom token types included in legend"
   verify contract "Provide Extension Entity Semantic Tokens: extension semantic tokens holds — kind_registry_populated, token_type_resolved_from_registry, default_keyword_for_unregistered"
-
-  tests ["crates/specforge-lsp/tests/semantic_tokens.rs"]
 }
 
 behavior provide_extension_entity_hover "Provide Extension Entity Hover" {
@@ -108,8 +104,6 @@ behavior provide_extension_entity_hover "Provide Extension Entity Hover" {
   verify unit "hover shows first string field as summary"
   verify unit "hover shows reference count from graph"
   verify contract "Provide Extension Entity Hover: extension entity hover holds — kind_registry_populated, hover_content_from_registry, source_extension_shown"
-
-  tests ["crates/specforge-lsp/tests/hover.rs"]
 }
 
 behavior provide_extension_defined_lsp_icons "Provide Extension-Defined LSP Icons" {
@@ -138,6 +132,4 @@ behavior provide_extension_defined_lsp_icons "Provide Extension-Defined LSP Icon
   verify unit "default SymbolKind::Object when lsp_icon not specified"
   verify unit "extension icons appear in outline view"
   verify contract "Provide Extension-Defined LSP Icons: extension LSP icons holds — kind_registry_populated, symbol_kind_from_registry, default_object_for_unregistered"
-
-  tests ["crates/specforge-lsp/tests/semantic_tokens.rs"]
 }

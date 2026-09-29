@@ -40,8 +40,6 @@ behavior format_spec_files "Format Spec Files" {
   verify unit "summary count reflects actual changes"
   verify integration "formatting all files in spec/ directory succeeds"
   verify contract "Format Spec Files: spec file formatting holds — spec_files_available, format_config_loaded, formatted_output_written, unchanged_files_preserved, format_complete_emitted, summary_printed"
-
-  tests ["crates/specforge-cli/tests/format.rs"]
 }
 
 behavior preserve_comments "Preserve Comments During Formatting" {
@@ -72,8 +70,6 @@ behavior preserve_comments "Preserve Comments During Formatting" {
   verify unit "standalone comment block between blocks is preserved"
   verify property "no comments are lost after formatting"
   verify contract "Preserve Comments During Formatting: comment preservation holds — cst_available, all_comments_attached, no_comments_lost"
-
-  tests ["crates/specforge-cli/tests/format.rs"]
 }
 
 behavior check_formatting "Check Formatting Without Modifying Files" {
@@ -105,8 +101,6 @@ behavior check_formatting "Check Formatting Without Modifying Files" {
   verify unit "unformatted files exit with code 1"
   verify unit "check mode writes no files to disk"
   verify contract "Check Formatting Without Modifying Files: formatting check holds — spec_files_available, format_config_loaded, no_files_written, exit_code_correct, unformatted_paths_printed"
-
-  tests ["crates/specforge-cli/tests/format.rs"]
 }
 
 behavior show_formatting_diff "Show Formatting Diff" {
@@ -137,8 +131,6 @@ behavior show_formatting_diff "Show Formatting Diff" {
   verify unit "diff mode writes no files to disk"
   verify unit "unchanged files produce no diff output"
   verify contract "Show Formatting Diff: formatting diff holds — spec_files_available, format_config_loaded, no_files_written, unified_diff_produced"
-
-  tests ["crates/specforge-cli/tests/format.rs"]
 }
 
 behavior format_from_stdin "Format from Standard Input" {
@@ -174,8 +166,6 @@ behavior format_from_stdin "Format from Standard Input" {
   verify property "stdin formatting is idempotent"
   verify property "stdin formatting converges to canonical form"
   verify contract "Format from Standard Input: stdin formatting holds — stdin_available, format_config_loaded, stdout_produced, no_files_touched, format_complete_emitted"
-
-  tests ["crates/specforge-cli/tests/format.rs"]
 }
 
 behavior load_format_config "Load Format Configuration" {
@@ -213,8 +203,6 @@ behavior load_format_config "Load Format Configuration" {
   verify unit "invalid indent_width produces diagnostic and uses default"
   verify unit "missing config file uses defaults"
   verify contract "Load Format Configuration: format config loading holds — project_root_available, filesystem_accessible, config_resolved, walk_bounded, invalid_values_diagnosed"
-
-  tests ["crates/specforge-cli/tests/format.rs"]
 }
 
 behavior apply_format_rules "Apply Format Rules" {
@@ -262,8 +250,6 @@ behavior apply_format_rules "Apply Format Rules" {
   verify unit "string rules normalize multiline string literal indentation"
   verify property "two files differing only in whitespace produce identical output after formatting"
   verify contract "Apply Format Rules: format rule application holds — cst_available, format_config_loaded, contribution_registry_available, deterministic_output, no_domain_logic, extension_rules_applied"
-
-  tests ["crates/specforge-cli/tests/format.rs"]
 }
 
 behavior maintain_format_idempotency "Maintain Format Idempotency" {
@@ -292,8 +278,6 @@ behavior maintain_format_idempotency "Maintain Format Idempotency" {
   verify unit "alignment rules do not oscillate between runs"
   verify unit "wrapping decisions are stable across runs"
   verify contract "Maintain Format Idempotency: format idempotency holds — format_rules_available, idempotency_holds, no_oscillation"
-
-  tests ["crates/specforge-cli/tests/format.rs"]
 }
 
 behavior lsp_format_document "LSP Format Document" {
@@ -333,8 +317,6 @@ behavior lsp_format_document "LSP Format Document" {
   verify integration "parse errors in document trigger format_with_parse_errors delegation"
   verify performance "formats document within 50ms for files under 1000 lines"
   verify contract "LSP Format Document: LSP document formatting holds — document_open, format_config_loaded, textedit_list_returned, cli_parity_enforced, format_complete_emitted"
-
-  tests ["crates/specforge-cli/tests/format.rs"]
 }
 
 behavior lsp_format_range "LSP Format Range" {
@@ -372,8 +354,6 @@ behavior lsp_format_range "LSP Format Range" {
   verify integration "parse errors within range are left unchanged per format_with_parse_errors"
   verify performance "formats range within 20ms for ranges under 200 lines"
   verify contract "LSP Format Range: LSP range formatting holds — document_open, format_config_loaded, range_expanded, textedit_list_returned, full_format_parity, format_complete_emitted"
-
-  tests ["crates/specforge-cli/tests/format.rs"]
 }
 
 behavior lsp_respect_editor_config "LSP Respect Editor Config" {
@@ -400,8 +380,6 @@ behavior lsp_respect_editor_config "LSP Respect Editor Config" {
   verify unit "editor tab size used when no config file exists"
   verify unit "config file takes precedence over editor settings"
   verify contract "LSP Respect Editor Config: editor config respect holds — lsp_initialized_fired, config_precedence_enforced, editor_fallback_applied"
-
-  tests ["crates/specforge-cli/tests/format.rs"]
 }
 
 behavior format_with_parse_errors "Format Files with Parse Errors" {
@@ -444,8 +422,6 @@ behavior format_with_parse_errors "Format Files with Parse Errors" {
   verify unit "whitespace within error regions is preserved byte-for-byte"
   verify unit "diagnostic lists files with parse errors and error line ranges"
   verify contract "Format Files with Parse Errors: formatting with parse errors holds — cst_with_errors, no_crash, well_formed_regions_formatted, error_regions_preserved, parse_error_diagnosed"
-
-  tests ["crates/specforge-cli/tests/format.rs"]
 }
 
 behavior discover_format_targets "Discover Format Targets" {
@@ -481,6 +457,4 @@ behavior discover_format_targets "Discover Format Targets" {
   verify unit "directory argument recursively discovers .spec files"
   verify unit "non-.spec files are skipped with no error"
   verify contract "Discover Format Targets: format target discovery holds — project_root_available, filesystem_accessible, all_spec_files_discovered, exclusions_applied, non_spec_skipped"
-
-  tests ["crates/specforge-cli/tests/format.rs"]
 }

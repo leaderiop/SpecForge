@@ -72,7 +72,11 @@ pub fn run(
         }
     }
 
-    let requested = pass.map_or("all", AnalysisPass::name);
+    let requested = match pass {
+        // Coverage is an extension pass (ADR 0002).
+        Some(AnalysisPass::Coverage) => specforge_emitter::analyze::COVERAGE_PASS,
+        other => other.map_or("all", AnalysisPass::name),
+    };
     let base_input = specforge_emitter::analyze::AnalysisContext {
         graph: &ctx.graph,
         kind_registry: &ctx.kind_registry,
@@ -105,7 +109,7 @@ pub fn run(
     };
     let selected: &[&str] = match pass.unwrap_or(AnalysisPass::All) {
         AnalysisPass::All => specforge_emitter::analyze::PASS_NAMES,
-        AnalysisPass::Coverage => &["coverage"],
+        AnalysisPass::Coverage => &[],
         AnalysisPass::Contracts => &["contracts"],
     };
 
@@ -221,9 +225,13 @@ pub fn run(
     // D2: coverage gate — after the reports print, so the operator still
     // sees the full analysis; the gate only decides the exit code.
     if let Some(min_pct) = min {
-        let coverage_report = reports.iter().find(|r| r.name == "coverage");
+        let coverage_report = reports
+            .iter()
+            .find(|r| r.name == specforge_emitter::analyze::COVERAGE_PASS);
         let Some(coverage_report) = coverage_report else {
-            eprintln!("error[E048]: --min requires the coverage pass (pass=coverage or all)");
+            eprintln!(
+                "error[E048]: --min requires the coverage pass (pass=coverage or all) from @specforge/testing — enable it with `specforge add @specforge/testing`"
+            );
             return 2;
         };
         let total = coverage_report.summary["testable_total"]
