@@ -58,7 +58,7 @@ behavior se_register_edge_types "Register Software Edge Types" {
     uses_port_edge         "EdgeTypeSet contains UsesPort (behavior->port)"
     enforces_edge          "EdgeTypeSet contains Enforces (invariant->behavior, sourceKind=invariant, targetKind=behavior)"
     imports_edge           "EdgeTypeSet contains Imports (spec file use statements)"
-    links_to_edge          "EdgeTypeSet contains LinksTo (generic linkage: tests field, external refs)"
+    links_to_edge          "EdgeTypeSet contains LinksTo (generic linkage: external refs)"
     nine_edges_total       "EdgeTypeSet has exactly 9 entries"
   }
 

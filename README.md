@@ -4,7 +4,7 @@
 
 Intent is trapped in prose — scattered across docs, comments, tickets, and tribal knowledge. AI agents waste most of their token budget rediscovering what should have been specified. SpecForge gives them a structured, validated, machine-readable representation of what your team means.
 
-**The graph is the product.** Not the compiler, not the DSL — the typed graph, exported as an open JSON schema (the Graph Protocol), is what makes agents reliable. SpecForge is *not* a code generator and *not* a test runner: it provides context, agents produce output, and it traces tests rather than executing them.
+**The graph is the product.** Not the compiler, not the DSL — the typed graph, exported as an open JSON schema (the Graph Protocol), is what makes agents reliable. SpecForge is *not* a code generator and *not* a test framework: it provides context, agents produce output. The compiler never executes anything; test-runner extensions declare how your tests run, and `specforge collect` runs them with your consent to record which entities they prove.
 
 ## Quick Example
 

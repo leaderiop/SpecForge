@@ -153,14 +153,16 @@ decision three_layer_traceability_model "Three-Layer Traceability Model" {
 
   decision """
     Three-layer traceability: intent (verify declarations and extension-declared test file fields in .spec
-    files), linkage (tests field pointing to real test files), and proof
-    (specforge-report.json consumed from test runner extensions with pass/fail
-    results). specforge trace validates all three layers.
+    files), linkage (each test names the entity it proves, in its runner's
+    idiom), and proof (the pass/fail results `specforge collect` records in
+    specforge-report.json). `specforge analyze coverage` scores all three
+    layers. (Linkage was first a `tests` field in .spec files; ADR 0002
+    moved it into the tests themselves.)
   """
 
   consequences [
-    "Agents can close the full loop: read spec → generate code → fill tests field → validate",
-    "Coverage measured at four levels within the three-layer model: declared, linked, executed, passing",
+    "Agents can close the full loop: read spec → generate code → annotate tests → collect → analyze",
+    "Coverage measured within the three-layer model: declared, recorded, passing",
     "Requires test runner extensions to produce specforge-report.json",
     "Additional complexity in the coverage pipeline",
   ]
@@ -966,8 +968,8 @@ decision adr_surface_contribution_model "Surface Contribution Model" {
     renderers, providers, collectors, grammars, body_parsers) but cannot
     extend the tooling surfaces — CLI, MCP, LSP. This creates a capability
     asymmetry: @specforge/software declares analyze commands but has no
-    registration mechanism; @specforge/rust needs specforge collect rust
-    but it is hardcoded; extensions cannot register MCP tools so agents
+    registration mechanism; Rust test collection was hardcoded in the
+    CLI; extensions cannot register MCP tools so agents
     only see core tools.
 
     RES-24 conducted a 10-expert analysis recommending Option A: Static

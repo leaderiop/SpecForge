@@ -10,7 +10,7 @@
     "validators": false,
     "renderers": false,
     "providers": true,
-    "collectors": true,
+    "collectors": false,
     "prompts": false,
     "parsers": false,
     "grammars": false,
@@ -22,60 +22,6 @@
     { "name": "@specforge/product", "version": ">=1.0.0", "optional": true }
   ],
 
-  "collectorContributions": [
-    {
-      "name": "jest",
-      "inputFormats": ["jest-json"],
-      "export": "collect__jest",
-      "autoDetect": {
-        "filePatterns": ["**/jest.config.*", "**/jest.config.ts", "**/jest.config.js"],
-        "envVars": ["JEST_WORKER_ID"]
-      }
-    },
-    {
-      "name": "vitest",
-      "inputFormats": ["vitest-json"],
-      "export": "collect__vitest",
-      "autoDetect": {
-        "filePatterns": ["**/vitest.config.*", "**/vitest.config.ts", "**/vite.config.*"],
-        "envVars": ["VITEST"]
-      }
-    },
-    {
-      "name": "playwright",
-      "inputFormats": ["playwright-json"],
-      "export": "collect__playwright",
-      "autoDetect": {
-        "filePatterns": ["**/playwright.config.*", "**/playwright.config.ts"],
-        "envVars": ["PLAYWRIGHT_BROWSERS_PATH"]
-      }
-    },
-    {
-      "name": "cypress",
-      "inputFormats": ["junit-xml", "mochawesome-json"],
-      "export": "collect__cypress",
-      "autoDetect": {
-        "filePatterns": ["**/cypress.config.*", "**/cypress.json", "**/cypress/"],
-        "envVars": ["CYPRESS_CACHE_FOLDER"]
-      }
-    },
-    {
-      "name": "mocha",
-      "inputFormats": ["mocha-json", "junit-xml"],
-      "export": "collect__mocha",
-      "autoDetect": {
-        "filePatterns": ["**/.mocharc.*", "**/.mocharc.yml", "**/.mocharc.json"]
-      }
-    },
-    {
-      "name": "node-test",
-      "inputFormats": ["tap"],
-      "export": "collect__node_test",
-      "autoDetect": {
-        "filePatterns": []
-      }
-    }
-  ],
 
   "sandboxPolicy": {
     "maxMemoryMb": 512,

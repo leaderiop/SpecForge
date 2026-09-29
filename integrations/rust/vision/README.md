@@ -1,5 +1,11 @@
 # The @specforge/rust Vision
 
+> **Status.** This essay predates [ADR 0002](../../../docs/adr/0002-test-runner-extensions.md), which settled
+> the mechanism: tests link themselves with the `#[specforge_test]` attribute, `@specforge/cargo-test`
+> declares the `cargo test` command that `specforge collect` runs with the user's consent, and
+> `@specforge/testing` scores coverage (`specforge analyze coverage`). Passages about mechanism are updated
+> to match; the argument is unchanged. See the [Rust test tracing guide](../../../docs/guides/rust-test-tracing.md).
+
 ## Why This Exists
 
 SpecForge compiles human intent into a validated typed entity graph. The `@specforge/software` extension gives that graph its vocabulary: behaviors, invariants, features, events, types, ports. But a graph of declared intent without proof of implementation is a wish list. The graph needs to know what is tested, what passes, and what is broken.
@@ -24,9 +30,9 @@ Traceability is not binary. A behavior is not "tested" or "untested." There are 
 
 **Declared.** A behavior exists in a `.spec` file with at least one `verify` statement. This is intent. Someone thought hard enough about `PaymentProcessing` to write `verify "rejects expired cards"` and `verify "applies currency conversion"` and `verify "emits PaymentCompleted event"`. Three statements of what correctness means. Zero proof that anything works. But this alone is valuable — an agent reading this spec knows what the system *should* do, which is more than a codebase with no specs provides.
 
-**Linked.** The behavior's `tests` field points to a real Rust test file: `tests: ["tests/payment_processing_test.rs"]`. Someone connected intent to implementation. The file exists. It presumably contains test functions. But "presumably" is doing heavy lifting — the file might test something else entirely, the tests might be `#[ignore]`d, or the file might have been emptied during a refactor. Linkage is a claim, not evidence.
+**Linked.** A test says which behavior it proves: `#[specforge_test(behavior = "payment_processing", verify = "rejects expired cards")]`. Someone connected intent to implementation, in the test itself, where the link can't rot when files move. But a link is still a claim, not evidence — the test might be `#[ignore]`d, or never run in CI.
 
-**Executed.** `specforge collect rust` consumes JUnit XML from `cargo test` and matches test functions to entities. The three-level resolution — `tests` field paths, `#[specforge::test("PaymentProcessing")]` attributes, `payment_processing__rejects_expired_cards` naming convention — resolves concrete test functions to concrete verify statements. Now we know: two of the three verify statements have corresponding test functions that *ran*. The third — "applies currency conversion" — has no matching test. It is declared, linked by proximity, but unexecuted. The gap is visible.
+**Executed.** `specforge collect` runs `cargo test` and records every annotated test that ran against the entity it names. Now we know: two of the three verify statements have corresponding tests that *ran*. The third — "applies currency conversion" — has no matching test. It is declared but unexecuted. The gap is visible.
 
 **Passing.** Of the two executed tests, one passes and one fails. `payment_processing__rejects_expired_cards` is green. `payment_processing__emits_payment_completed_event` is red. The graph now carries proof: one verify statement is validated, one is falsified, one is dark. Three verify statements, three different statuses, three different actions required.
 
@@ -34,7 +40,7 @@ Each level is a strict subset. Everything passing was executed. Everything execu
 
 ### Compounding value
 
-Each `specforge collect rust` run produces a point-in-time snapshot: which behaviors have tests, which tests pass, which verify statements are dark. That snapshot alone enriches the graph — an agent reading it knows the current state of every specified behavior, which is more than any amount of source code scanning provides.
+Each `specforge collect` run produces a point-in-time snapshot: which behaviors have tests, which tests pass, which verify statements are dark. That snapshot alone enriches the graph — an agent reading it knows the current state of every specified behavior, which is more than any amount of source code scanning provides.
 
 Today, `specforge-report.json` is a single snapshot. It does not store history. But even without history, the latest snapshot compounds with the spec graph itself. New behaviors get added over time, verify statements accumulate, and each collection run maps the growing spec surface against the growing test surface. The graph carries the current state of that mapping — complete, structured, and queryable.
 
@@ -99,51 +105,50 @@ behavior validate_payment "Validate Payment Amount" {
 }
 ```
 
-They already have tests for this. The tests are called `test_negative_payment`, `test_zero_payment`, `test_rounding`. Nobody remembers which requirement each test covers. The developer renames nothing. Changes no `Cargo.toml`. Adds no dependencies. They just adopt a naming convention in their next test:
+They already have tests for this. The tests are called `test_negative_payment`, `test_zero_payment`, `test_rounding`. Nobody remembers which requirement each test covers. The developer renames nothing. They add one dev-dependency, `specforge-test`, and in place of `#[test]` they say what each test proves:
 
 ```rust
-#[test]
-fn validate_payment__negative_amount_returns_invalid_amount_error() {
+#[specforge_test(behavior = "validate_payment", verify = "negative amount returns InvalidAmount error")]
+fn test_negative_payment() {
     let result = validate_payment(Amount::new(-100, Currency::USD));
     assert!(matches!(result, Err(PaymentError::InvalidAmount { .. })));
 }
 ```
 
-The double underscore is the only ceremony. They run:
+One attribute is the only ceremony. They run:
 
 ```bash
-cargo nextest run --profile ci    # produces JUnit XML
-specforge collect rust --from-junit target/nextest/ci/junit.xml
-specforge trace --test-results
+specforge collect            # runs cargo test once they approve the command
+specforge analyze coverage
 ```
 
-And there it is. A traceability matrix. Three verify statements. Two have matching tests. One does not. The `valid amount rounds to currency precision` verify is uncovered — staring back at them in the terminal, impossible to ignore.
+And there it is. Three verify statements. Two have matching tests. One does not. The `valid amount rounds to currency precision` verify is uncovered — staring back at them in the terminal, impossible to ignore.
 
-That is the moment. Not when they installed the tool. Not when they wrote the spec. The moment they saw a gap they did not know existed — in a codebase they thought they understood — in under five minutes, with zero dependencies added.
+That is the moment. Not when they installed the tool. Not when they wrote the spec. The moment they saw a gap they did not know existed — in a codebase they thought they understood — in under five minutes.
 
 ### Progressive enhancement without rewrites
 
 The journey from convention to precision is a gradient, not a migration.
 
-**Day 1: Naming conventions.** Zero crate dependencies. The developer uses `{entity_id}__{slug}` in test function names. This is the floor. It works today, on any Rust project, with any test framework, without touching `Cargo.toml`.
+**Day 1: One attribute.** The developer adds one dev-dependency, `specforge-test`, and writes `#[specforge_test(behavior = "validate_payment")]` instead of `#[test]` — or above `#[tokio::test]`, `#[rstest]`, parameterized tests, property tests. The proc macro composes: it registers the test itself, and defers to a runner attribute that already does. (Zero-dependency naming conventions — `validate_payment__rejects_negative` — remain a planned fallback; today the attribute is the link.)
 
-**Day 7: Proc macro for precision.** The developer adds one dev-dependency: `specforge-test = "0.1"`. Now they can write `#[specforge_test(behavior = "validate_payment")]` instead of `#[test]`, and above `#[tokio::test]`, `#[rstest]`, parameterized tests, property tests. The proc macro composes: it registers the test itself, and defers to a runner attribute that already does.
+**Day 7: Obligations.** They add `verify = "..."` to name the exact obligation each test proves, so coverage is per statement, not just per behavior.
 
 **Day 30: CI gates.** Three lines in GitHub Actions:
 
 ```yaml
 - run: specforge check --strict
-- run: specforge collect rust --from-junit target/nextest/ci/junit.xml
-- run: specforge coverage --min <threshold>
+- run: specforge collect --yes
+- run: specforge analyze coverage --min <threshold>
 ```
 
-**Day 90: Living documentation.** `specforge trace --test-results` is an artifact attached to every PR. Reviewers see which behaviors the PR affects. Suspect links flag stale tests.
+**Day 90: Living documentation.** The coverage report is an artifact attached to every PR. Reviewers see which behaviors the PR affects. Suspect links flag stale tests.
 
-At no point does the developer rewrite anything. Day 1 conventions still work on day 90. Each phase adds capability on top of the last. The migration cost between phases is zero because there is no migration — only addition.
+At no point does the developer rewrite anything. Day 1 annotations still work on day 90. Each phase adds capability on top of the last. The migration cost between phases is zero because there is no migration — only addition.
 
 ### Team adoption path
 
-SpecForge does not require organizational buy-in to deliver value. One developer, one spec file, one `specforge trace` — and the value is visible. The path is organic. One developer starts writing spec files for the behaviors they own. A colleague notices in a PR and asks what they are. The colleague writes a spec for their module. A tech lead notices that PRs with spec coverage are higher quality. They propose adding `specforge coverage --min 80` to CI.
+SpecForge does not require organizational buy-in to deliver value. One developer, one spec file, one `specforge analyze coverage` — and the value is visible. The path is organic. One developer starts writing spec files for the behaviors they own. A colleague notices in a PR and asks what they are. The colleague writes a spec for their module. A tech lead notices that PRs with spec coverage are higher quality. They propose adding `specforge analyze coverage --min 80` to CI.
 
 This is not a rollout plan. It is an adoption pattern. The difference matters. Rollout plans have timelines and executive sponsors. Adoption patterns have a first user who found it useful and a second user who saw the first user's results. SpecForge bets on the latter because that is how every enduring developer tool has spread.
 
@@ -215,33 +220,32 @@ This is why Rust goes first. Not because it is the most convenient target, but b
 
 The reference implementation establishes four things that every subsequent integration must provide:
 
-1. **A collection adapter** that plugs into the `collect` surface command (contributed by `@specforge/coverage`). The user runs `specforge collect <language>` — or just `specforge collect` for auto-detection — and the adapter transforms native test output into `specforge-report.json`.
+1. **A runner extension** that declares how its runner is detected, the command that runs it, and a pure mapping from its native report to entity results. The user runs `specforge collect` — detection picks the runner — and the results land in `specforge-report.json`.
 2. **An annotation mechanism** (proc macro, decorator, doc comment, build tag) that explicitly links test functions to spec entities.
-3. **A naming convention** (`{entity_id}__{description_slug}`) that provides zero-config mapping as a fallback.
-4. **A `tests` field pattern** in `.spec` files that uses workspace-relative paths with optional function granularity.
+3. **A naming convention** (`{entity_id}__{description_slug}`) that provides zero-config mapping as a fallback (planned).
+4. **No test paths in `.spec` files.** Linkage lives in the tests, so it survives refactors.
 
 ### The universal report format
 
 `specforge-report.json` is language-agnostic by design. A Rust project produces the same schema as a TypeScript project. The schema cares about entity IDs, test names, pass/fail status, and duration. It does not care whether the test runner was cargo-nextest, vitest, pytest, or `go test`.
 
-**The report format is the contract, not the collection mechanism.** Collection is language-specific and messy. What comes out the other side is clean, uniform, and universal. A polyglot monorepo with three languages produces three reports. `specforge coverage` merges them into a single traceability matrix. The coverage gate does not know or care which language produced which result.
+**The report format is the contract, not the collection mechanism.** Collection is language-specific and messy, so each test runner gets its own small extension that runs it and maps its native report. What comes out the other side is clean, uniform, and universal. A polyglot monorepo with three languages runs three runners; `specforge collect` merges their results into one `specforge-report.json`. The coverage gate does not know or care which language produced which result.
 
-### The three-level resolution model
+### The two-level resolution model
 
 Entity-to-test mapping follows a strict precedence hierarchy:
 
 ```
-1. tests field in .spec file        (authoritative — always wins)
-2. Language-specific annotation     (explicit in-code linkage)
-3. Naming convention                (implicit, zero-config fallback)
+1. Language-specific annotation     (explicit in-code linkage — always wins)
+2. Naming convention                (implicit, zero-config fallback — planned)
 ```
 
-This hierarchy is universal. The middle layer varies by language:
+Spec files carry no test paths: a path in a `.spec` file rots the moment a test moves, so linkage lives in the test itself. The annotation varies by language:
 
 | Language   | Annotation |
 |------------|---------------------|
-| Rust       | `#[specforge::test(behavior = "entity_id")]` proc macro |
-| TypeScript | `/** @specforge behavior entity_id */` JSDoc comment |
+| Rust       | `#[specforge_test(behavior = "entity_id")]` proc macro (shipped) |
+| TypeScript | vitest `meta: { specforge: { behavior: "entity_id" } }` (shipped) |
 | Python     | `@specforge.test(behavior="entity_id")` decorator |
 | Go         | `//specforge:behavior entity_id` build-tag comment |
 | Java       | `@SpecforgeTest(behavior = "entity_id")` annotation |
@@ -250,7 +254,7 @@ Each is the idiomatic way to attach metadata in its language. The pattern is the
 
 ### The polyglot future
 
-A team with a Rust backend and a TypeScript frontend installs both `@specforge/rust` and `@specforge/typescript`. Both produce `specforge-report.json`. `specforge coverage` merges them. One traceability matrix. One coverage number. One CI gate. The backend team and the frontend team see the same spec graph and contribute to the same coverage metric.
+A team with a Rust backend and a TypeScript frontend enables both `@specforge/cargo-test` and `@specforge/vitest`. `specforge collect` runs both and merges their results. One traceability matrix. One coverage number. One CI gate. The backend team and the frontend team see the same spec graph and contribute to the same coverage metric.
 
 This is not a convenience feature. It is the architectural consequence of making the report format language-agnostic. The moment you decouple the report schema from the collection mechanism, polyglot traceability becomes free.
 
@@ -260,9 +264,9 @@ This is not a convenience feature. It is the architectural consequence of making
 
 ### Working WITH Rust, not against it
 
-Every design choice respects Rust's constraints. No unstable features required. No custom test harness. No `build.rs` magic. The proc macro composes with existing test attributes. The collection reads stable output formats.
+Every design choice respects Rust's constraints. No unstable features required. No custom test harness. No `build.rs` magic. The proc macro composes with existing test attributes. The collection reads a report format SpecForge owns.
 
-`@specforge/rust` requires zero unstable features. It does not require nightly. It does not replace `cargo test` or pretend to be a test runner. It provides a proc macro that stacks alongside `#[test]` and records which spec entity each test covers. It reads stable output formats — JUnit XML from cargo-nextest, mapping files from its own proc macro — and merges them into `specforge-report.json`. The integration is a thin observation layer over machinery that already works.
+The Rust integration requires zero unstable features. It does not require nightly. It does not replace `cargo test` or pretend to be a test runner. It provides a proc macro that takes the place of `#[test]` and records which spec entity each test covers, and `@specforge/cargo-test` reads those per-binary records into `specforge-report.json`. The integration is a thin observation layer over machinery that already works.
 
 ### The proc macro philosophy
 
@@ -278,13 +282,13 @@ SpecForge's macro is one more layer. It expands to the test (registered by itsel
 
 Each test binary writes its own mapping file to `target/specforge/<binary-name>.json`. The collector merges all per-binary files into a single `specforge-report.json`. One crate or fifty crates, the pipeline is identical. Workspace complexity is invisible to the user.
 
-### The nextest alignment
+### The report the attribute writes
 
-cargo-nextest is becoming the standard Rust test runner for CI. Its JUnit XML output is stable, machine-readable, and already adopted by CI systems. Building on nextest rather than fighting libtest is a bet on where Rust testing is going.
+Stable libtest has no machine-readable output, and JUnit XML from nextest carries no link to a spec entity. So the attribute writes its own per-binary report — entity, test, obligation, outcome, duration — and `@specforge/cargo-test` reads that. It works the same under `cargo test` and `cargo nextest run`.
 
 ### What we do NOT do
 
-No custom test harness. No unstable features. No `build.rs` injection. No nightly requirement. No reimplementation of `cargo test`. No mandatory runtime. The boundary is clear: SpecForge observes your tests and maps them to your specs. It does not run your tests, modify your tests, or replace your test infrastructure. The line does not move.
+No custom test harness. No unstable features. No `build.rs` injection. No nightly requirement. No reimplementation of `cargo test`. No mandatory runtime. The boundary is clear: SpecForge observes your tests and maps them to your specs. It does not modify your tests or replace your test infrastructure. When `specforge collect` runs `cargo test`, it runs exactly the command the extension declares, after you approve it — your runner, your flags, your output. The line does not move.
 
 ---
 
@@ -298,9 +302,9 @@ A project can have 100% code coverage — every line executed, every branch take
 
 **Stage 1: Spec Validation** (`specforge check --strict`) — Under one second. Validates references, detects orphans, checks graph consistency. The cheapest check with the highest signal-per-second ratio. This is a core command.
 
-**Stage 2: Test Execution and Collection** (`cargo nextest run` + `specforge collect rust`) — Expensive. Compilation and tests take minutes. Runs second because if the spec graph is broken, there is no point compiling. `collect` is a surface command contributed by `@specforge/coverage`.
+**Stage 2: Test Execution and Collection** (`specforge collect --yes`) — Expensive. Compilation and tests take minutes. Runs second because if the spec graph is broken, there is no point compiling. The command that runs is the one `@specforge/cargo-test` declares.
 
-**Stage 3: Spec Coverage Gate** (`specforge coverage --min=90`) — Reads the graph and report, computes spec coverage, fails the build if coverage drops below threshold. `coverage` is also contributed by `@specforge/coverage`.
+**Stage 3: Spec Coverage Gate** (`specforge analyze coverage --min 90`) — Reads the graph and the recorded results, computes spec coverage, fails the build if coverage drops below threshold. The analysis is `@specforge/testing`'s coverage pass.
 
 Three stages. Seconds, then minutes, then milliseconds. Cheap checks first. Expensive work in the middle. Gates at the end.
 
@@ -310,7 +314,7 @@ Three stages. Seconds, then minutes, then milliseconds. Cheap checks first. Expe
 
 ### Progressive strictness
 
-**Day 1:** `specforge check` — informational. **Day 30:** `specforge check --strict` — warnings are errors. **Day 90:** `specforge coverage --min=50` — low bar. **Day 180:** `specforge coverage --min=90` — high bar. Teams ratchet up as coverage grows. The ratchet only moves in one direction.
+**Day 1:** `specforge check` — informational. **Day 30:** `specforge check --strict` — warnings are errors. **Day 90:** `specforge analyze coverage --min 50` — low bar. **Day 180:** `specforge analyze coverage --min 90` — high bar. Teams ratchet up as coverage grows. The ratchet only moves in one direction.
 
 ---
 
@@ -320,38 +324,31 @@ Three stages. Seconds, then minutes, then milliseconds. Cheap checks first. Expe
 
 It would take an afternoon to hardcode Rust collection into the CLI. It would also be the first crack in the architecture. The moment Rust-specific logic enters the compiler core, the compiler knows something about a language. These are facts about Rust, not facts about specification graphs. They do not belong in the core.
 
-There is no "pragmatic Phase 1" exception. The `collect` command is contributed by `@specforge/coverage` as a surface command, dispatched to a Wasm export. The Rust-specific parsing logic lives in `@specforge/rust`'s adapter, invoked by `@specforge/coverage` at collection time. The core CLI loads extension manifests, registers their contributed commands, and dispatches — nothing more.
+There is no "pragmatic Phase 1" exception. `specforge collect` is generic: it asks the enabled runner extensions for their collectors, runs the command a collector declares (only after the user approves it for the project), and passes the report to the collector's pure Wasm export. Every fact about Rust — the command, where the report lands, how to read it — lives in `@specforge/cargo-test`. The core knows none of it.
 
-### The adapter pattern
+### The runner-extension pattern
 
-@specforge/rust is an **adapter**, not an extension. The distinction matters: an adapter transforms external data (test results) into graph-compatible format (`specforge-report.json`). It does not declare entity kinds, contribute validators, or extend the graph schema. It sits at the boundary between a language ecosystem and the SpecForge graph.
+`@specforge/cargo-test` is small by design. It declares one collector: the file that selects it (`Cargo.toml`), the command (`cargo test --workspace --no-fail-fast`), the report location, and a pure function that maps per-binary reports to entity results. It declares no entity kinds and no validators. It sits at the boundary between a language ecosystem and the SpecForge graph.
 
-The core consumes the report. The adapter produces it. The boundary is surgical. The report schema is a contract. The adapter honors one side. The core honors the other. Neither reaches across.
+The host runs the command; the extension only reads bytes. The report schema is a contract. The extension honors one side. The core honors the other. Neither reaches across.
 
 ### Peer dependency composition
 
-@specforge/rust requires two peer **extensions** as dependencies:
+`@specforge/cargo-test` requires one peer extension:
 
-- **@specforge/software** provides the entity vocabulary (behaviors, invariants, etc.)
-- **@specforge/coverage** provides the report consumption pipeline
+- **@specforge/testing** gives `verify` its meaning, makes kinds testable, and scores coverage from the recorded results
 
-The adapter produces data; the extensions give that data meaning in the graph. @specforge/rust composes with its peer extensions the way Unix pipes compose: clear inputs, clear outputs, no shared mutable state.
+`@specforge/software` provides the entity vocabulary those results attach to. The runner produces data; the extensions give that data meaning in the graph — clear inputs, clear outputs, no shared mutable state.
 
-### Extension-contributed CLI commands
+### Commands stay generic
 
-The core CLI contains only structural graph operations: `init`, `check`, `export`, `query`, `trace`, `format`, `stats`. These are operations on the typed entity graph itself — parsing, validating, serializing, querying. They require zero domain knowledge.
+The core CLI contains structural graph operations — `init`, `check`, `export`, `query`, `trace`, `format`, `stats`, `analyze` — and `collect`, which is generic in the same way `analyze` is: `analyze` runs whatever passes extensions contribute, `collect` runs whatever collectors they contribute. Neither knows a language.
 
-`collect` is NOT a core command. It is a **surface command contributed by `@specforge/coverage`** via the extension manifest's `surfaces.commands[]` declaration. The core CLI loads `specforge.json`, reads installed extension manifests, builds a `SurfaceRegistry`, and dynamically registers extension-contributed commands as CLI subcommands. When the user runs `specforge collect rust`, the core dispatches to `@specforge/coverage`'s `cmd__collect` Wasm export, which in turn delegates to the `@specforge/rust` adapter for Rust-specific parsing.
-
-This follows Principle 2 exactly. Terraform's core has `init`, `plan`, `apply`, `destroy` — structural operations on infrastructure state. All cloud knowledge lives in providers. SpecForge's core has `check`, `export`, `query` — structural operations on the spec graph. All traceability knowledge lives in extensions. The core binary contains zero collection or coverage logic.
-
-The user experience is verb-noun: `specforge collect rust`, not `specforge rust collect`. But the verb itself is extension-contributed, not hardcoded. This preserves discoverability — `specforge collect --help` lists all installed adapters — and enables auto-detection: `specforge collect` with no argument matches file patterns (`Cargo.toml` → rust, `package.json` → typescript) to select the right adapter automatically.
-
-MCP auto-promotion creates `specforge.coverage.collect` as a tool name, following the `specforge.{ext_short}.{cmd_id}` convention from the surface spec.
+This follows Principle 2 exactly. Terraform's core has `init`, `plan`, `apply`, `destroy` — structural operations on infrastructure state. All cloud knowledge lives in providers. All test-runner knowledge lives in runner extensions. `specforge collect` with no argument matches each collector's detection files (`Cargo.toml` → cargo-test, `vitest.config.*` → vitest) and runs every runner the project uses; `--runner` picks one.
 
 ### Separate release cycle
 
-The proc macro crate on crates.io evolves independently of the compiler. When `custom_test_frameworks` stabilizes, @specforge/rust updates. The compiler does not know this happened. When a new coverage format appears, @specforge/rust adds a parser. The compiler does not know this happened. The compiler's release cycle is governed by graph protocol evolution, not by the release schedules of `rustc` or `cargo`.
+The proc macro crate on crates.io evolves independently of the compiler. When `custom_test_frameworks` stabilizes, @specforge/rust updates. The compiler does not know this happened. When a new test runner appears, it gets its own runner extension. The compiler does not know this happened. The compiler's release cycle is governed by graph protocol evolution, not by the release schedules of `rustc` or `cargo`.
 
 ### The extension test
 
@@ -363,21 +360,21 @@ If tomorrow someone builds @specforge/zig, they follow the same pattern. Zero co
 
 ## Start Where You Are
 
-### Zero-dependency entry
+### Low-friction entry
 
-Phase 1 requires no crate. No proc macro. No Cargo.toml edit. Name your test function with a double underscore, run `specforge collect rust`, and you have traceability. The friction is zero. The value is immediate.
+One dev-dependency, one attribute in place of `#[test]`, one `specforge collect`. No custom harness, no build script, no nightly. Zero-dependency naming conventions are the planned next step down in friction.
 
 ### The spectrum of precision
 
-Naming conventions are approximate. Proc macros are precise. The `tests` field is authoritative. A team can mix all three in the same project. Some behaviors use convention, critical ones use proc macros, the canonical mapping lives in .spec files. No all-or-nothing.
+A test can name just the behavior it covers, or the exact `verify` obligation it proves. Critical behaviors get per-obligation links; the rest can start coarse. No all-or-nothing.
 
 ### Retroactive adoption
 
-An existing Rust project with 500 tests can adopt SpecForge without renaming anything. Write a few .spec files, add `tests` fields pointing to existing test files, run `specforge collect rust`. The existing tests gain traceability without modification.
+An existing Rust project with 500 tests can adopt SpecForge without renaming anything. Write a few .spec files, swap `#[test]` for `#[specforge_test(...)]` on the tests that prove them, run `specforge collect`. The existing tests gain traceability without changing what they test.
 
 ### The ratchet
 
-Teams start with 5% spec coverage. Each sprint, they add a few more behaviors. `specforge coverage --min` ratchets up. Regression is prevented. Progress is irreversible. This is how real adoption works — not a mandate from above, but a monotonically increasing floor, enforced by CI, driven by the natural rhythm of development.
+Teams start with 5% spec coverage. Each sprint, they add a few more behaviors. `specforge analyze coverage --min` ratchets up. Regression is prevented. Progress is irreversible. This is how real adoption works — not a mandate from above, but a monotonically increasing floor, enforced by CI, driven by the natural rhythm of development.
 
 ### One file is enough
 
@@ -452,13 +449,13 @@ The graph without coverage is a blueprint. The graph with coverage is a living s
 
 ## What This Is NOT
 
-**Not a test runner.** @specforge/rust never executes tests. `cargo test` runs tests. `cargo-nextest` runs tests. SpecForge reads their output. The boundary is absolute.
+**Not a test framework.** `cargo test` and `cargo-nextest` run tests. SpecForge's compiler never executes anything; `specforge collect` runs the one command `@specforge/cargo-test` declares, after you approve it, and reads the results. The boundary is absolute.
 
 **Not a code coverage tool.** Spec coverage and code coverage are orthogonal. Both matter. Both should be measured. They answer different questions. @specforge/rust measures spec coverage — "did we test what the spec says?" — not code coverage — "did our tests touch all the code?"
 
 **Not a Rust framework.** @specforge/rust does not change how you write Rust code, structure your crates, or organize your tests. It observes what you already do and maps it to your specifications.
 
-**Not the last language integration.** It is the first. And the pattern it establishes — collection command, annotation mechanism, naming convention, universal report format — scales to every language an AI agent will ever need to understand.
+**Not the last language integration.** It is the first. And the pattern it establishes — a runner extension, an in-test annotation, a universal report format — scales to every language an AI agent will ever need to understand.
 
 ---
 

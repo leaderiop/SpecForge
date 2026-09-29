@@ -1,6 +1,6 @@
 # Extension Inventory
 
-This document catalogs the four official (shipped) SpecForge extensions after the entity audit and testability extraction. Together they provide 22 entity kinds, 57 edge types, and cross-extension enhancements through the Extension Protocol. A fifth extension, @specforge/software-testing, is designed but not yet shipped (see its section).
+This document catalogs the four official domain extensions after the entity audit and testability extraction. Together they provide 22 entity kinds, 57 edge types, and cross-extension enhancements through the Extension Protocol. Test concepts live in three more builtins that declare no entity kinds: `@specforge/testing` and the runner extensions `@specforge/cargo-test` and `@specforge/vitest` ([ADR 0002](adr/0002-test-runner-extensions.md); see their section). The `@specforge/rust` and `@specforge/typescript` builtins are source analyzers used by inference.
 
 ## Dependency Graph
 
@@ -25,14 +25,20 @@ Extensions declare peer dependencies that control load order and enable cross-ex
      │             │                       │
      v             v                       v
 ┌──────────┐ ┌──────────────┐  ┌────────────────────┐
-│ formal   │ │ governance   │  │ software-testing    │
+│ formal   │ │ governance   │  │ testing             │
 │ 5 kinds  │ │ 3 kinds      │  │ 0 kinds             │
-│ 12 edges │ │ 11 edges     │  │ 1 edge              │
-└──────────┘ └──────────────┘  │ 13 enhancements     │
-                               └────────────────────┘
+│ 12 edges │ │ 11 edges     │  │ 7 enhancements      │
+└──────────┘ └──────────────┘  └─────────┬──────────┘
+                                         │
+                                  ┌──────┴───────┐
+                                  v              v
+                           ┌────────────┐ ┌────────────┐
+                           │ cargo-test │ │ vitest     │
+                           │ collector  │ │ collector  │
+                           └────────────┘ └────────────┘
 ```
 
-Load order: `product` first (no dependencies), then `software` (depends on product), then `formal`, `governance`, and `software-testing` (all depend on software; software-testing also depends on product).
+Load order: `product` first (no dependencies), then `software` (depends on product), then `formal` and `governance` (depend on software). `testing` depends optionally on `software` and `governance`, whose kinds it makes testable; the runner extensions require `testing`.
 
 ## @specforge/product
 
@@ -85,7 +91,7 @@ Load order: `product` first (no dependencies), then `software` (depends on produ
 
 ### Notes
 
-- No testable or verify concepts. Testing was extracted to `@specforge/software-testing`.
+- No testable or verify concepts: `@specforge/testing` contributes those.
 - Feature includes a `deprecated` status (terminal state, reachable from `done`).
 - Status transition validation (W087-W091, W094) requires an explicit build cache (`specforge-cache.json`).
 - Persona and channel are first-class entity kinds, not configuration values.
@@ -132,7 +138,7 @@ Load order: `product` first (no dependencies), then `software` (depends on produ
 
 ### Notes
 
-- No testable or verify concepts. Testing was extracted to `@specforge/software-testing`.
+- No testable or verify concepts: `@specforge/testing` contributes those.
 - Cross-extension edges to `feature` (product) use the peer dependency mechanism.
 - Enhancement edges (`MilestoneIncludesBehavior`, `ModuleConsumesPort`, `ModuleDefinesPort`) are declared via `#[enhance]` on product entity kinds.
 
@@ -222,64 +228,48 @@ Load order: `product` first (no dependencies), then `software` (depends on produ
 - Structured conditions are inline blocks (requires/ensures/maintains) within behavior bodies. Conditions are not standalone entities; shared constraints are modeled as invariant entities.
 - Cycle detection on refinement chains (E041) and process composition (E042) prevents infinite layering.
 
-## @specforge/software-testing (planned — not yet shipped)
+## @specforge/testing and the runner extensions
 
-**Depends on: @specforge/software, @specforge/product.** Enhancement-only extension that adds the `gherkin` field and test result collectors to entity kinds across multiple extensions.
+**`@specforge/testing`** owns the test vocabulary ([ADR 0002](adr/0002-test-runner-extensions.md)). Core keeps `verify [kind] "..."` only as reserved syntax; this extension gives it meaning. It declares no entity kinds or edge types.
 
-### Entity Kinds (0)
+### Entity Enhancements (7)
 
-This extension declares no entity kinds of its own. It exists solely to enhance other extensions' entity kinds with testing capabilities.
+Each enhancement makes its target kind testable with the verify kinds listed. An enhancement whose owner extension isn't enabled is skipped silently.
 
-### Edge Types (1)
-
-| Edge Type | Source | Target | Semantics |
-|-----------|--------|--------|-----------|
-| `TestedBy` | any enhanced kind | test file | This entity is tested by these files |
-
-### Entity Enhancements (13)
-
-The `gherkin` field (`string_list`, `file_reference = true`) is added to 13 entity kinds across four extensions:
-
-**Direct enhancements** (peer dependencies installed):
-
-| Target Kind | Owner Extension |
-|-------------|----------------|
-| `behavior` | @specforge/software |
-| `invariant` | @specforge/software |
-| `event` | @specforge/software |
-| `type` | @specforge/software |
-| `port` | @specforge/software |
-| `feature` | @specforge/product |
-| `deliverable` | @specforge/product |
-| `milestone` | @specforge/product |
-
-**Soft reference enhancements** (enhancement applies if extension installed, `I004` otherwise):
-
-| Target Kind | Owner Extension |
-|-------------|----------------|
-| `constraint` | @specforge/governance |
-| `property` | @specforge/formal |
-| `protocol` | @specforge/formal |
-| `process` | @specforge/formal |
-| `refinement` | @specforge/formal |
+| Target Kind | Owner Extension | Verify Kinds | W004 when no obligations |
+|-------------|----------------|--------------|--------------------------|
+| `behavior` | @specforge/software | unit, contract, integration, property, performance | yes |
+| `invariant` | @specforge/software | unit, integration, property, performance, mutation | yes |
+| `event` | @specforge/software | integration, unit, deadlock_free, liveness | yes |
+| `type` | @specforge/software | unit, property | yes |
+| `port` | @specforge/software | integration, unit | yes |
+| `constraint` | @specforge/governance | unit, integration, property, load, contract | no |
+| `failure_mode` | @specforge/governance | unit, integration, property | no |
 
 ### Validation Rules
 
 | Code | Severity | Rule |
 |------|----------|------|
-| W004 | warning | Entity has `gherkin` field but no files referenced |
+| W004 | warning | Testable entity declares no verify obligations and no gherkin scenario |
+| W009 | warning | Verify kind outside the kind's allowed set |
 
-### Collectors
+### Compiler Passes (1)
 
-| Collector | Formats | Auto-detect |
-|-----------|---------|-------------|
-| Gherkin/Cucumber | junit-xml, json | `**/cucumber-report.json`, `**/cucumber-report.xml` |
+`coverage` (`specforge analyze coverage`): scores intent (A001/A002), enforcement (A011) and proof from the results `specforge collect` records (A014), plus formal discharge. `--min` gates CI on proof coverage.
+
+### Runner extensions
+
+Each test runner has its own extension that requires `@specforge/testing` and contributes one collector: the files that select it, the command `specforge collect` runs (after the user approves it), where the report lands, and a pure export mapping the report to entities.
+
+| Extension | Detected by | Command | How a test links to its entity |
+|-----------|-------------|---------|--------------------------------|
+| `@specforge/cargo-test` | `Cargo.toml` | `cargo test --workspace --no-fail-fast` | `#[specforge_test(behavior = "...", verify = "...")]` |
+| `@specforge/vitest` | `vitest.config.*`, `vitest.workspace.*` | `npx --no vitest run` with the JSON reporter | `meta: { specforge: { behavior: "...", verify: "..." } }` |
 
 ### Notes
 
-- Gherkin is the sole testing mechanism. There are no `verify` blocks in the DSL.
-- Testing was extracted from `@specforge/software` to follow Principle 7 (extensions over built-ins). Projects that do not use BDD testing can skip this extension entirely.
-- The `gherkin` field's `file_reference = true` enables the host to validate that referenced `.feature` files exist on disk.
+- Spec files carry no test paths: the retired `tests` field is replaced by linkage in the tests themselves.
+- `init` enables `@specforge/testing` with `@specforge/software`, and a runner extension when it finds that runner in the project.
 
 ## What Was Removed (Entity Audit)
 
@@ -291,7 +281,7 @@ The entity audit identified four redundant entity kinds and one DSL construct th
 | `capability` | Identical fields to journey (persona, channels, features, flow) | Use `journey` |
 | `roadmap` | Covered by milestone + release (planning via milestones, shipping via releases) | Use `milestone` and `release` |
 | `condition` | Retargeted to invariant; edges renamed `*Condition` to `*Invariant` | Use `invariant` with requires/ensures/maintains references |
-| `verify` blocks | Removed from DSL entirely | Use `gherkin` files via `@specforge/software-testing` |
+| `verify` as core grammar | `verify [kind] "..."` stays as reserved syntax; its meaning moved out of core | `@specforge/testing` (ADR 0002) |
 
 ## Entity Count Summary
 
@@ -301,7 +291,9 @@ The entity audit identified four redundant entity kinds and one DSL construct th
 | @specforge/software | 5 | 14 | module, milestone | product |
 | @specforge/governance | 3 | 11 | -- | software |
 | @specforge/formal | 5 | 12 | behavior, event | software |
-| @specforge/software-testing | 0 | 1 | 13 entity kinds | software, product — **planned, not shipped** |
+| @specforge/testing | 0 | 0 | 7 entity kinds | software, governance (optional) |
+| @specforge/cargo-test | 0 | 0 | -- | testing |
+| @specforge/vitest | 0 | 0 | -- | testing |
 | **Total (shipped)** | **22** | **57** | -- | -- |
 
 ## Related Documentation

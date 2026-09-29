@@ -6,7 +6,9 @@
 use "invariants/core"
 use "extensions/rust/invariants"
 use "extensions/rust/behaviors"
-use "extensions/coverage/behaviors"
+use "extensions/testing/behaviors"
+use "extensions/cargo-test/behaviors"
+use "behaviors/wasm-extensions"
 constraint test_coverage_accuracy "Test Coverage Accuracy" {
   description "Ensures coverage percentages are accurate and merge operations produce correct deduplicated results."
   category    reliability
@@ -17,7 +19,7 @@ constraint test_coverage_accuracy "Test Coverage Accuracy" {
     merge produces correct deduplicated results
   """
 
-  constrains [merge_coverage_reports, compute_coverage_summary, gate_on_coverage_threshold, validate_test_ids_against_spec]
+  constrains [ingest_collector_report, te_coverage_pass, te_coverage_gate]
   protects [testable_entity_classification, traceability_chain_integrity]
 
   verify unit "coverage percentage and merge are accurate"
@@ -25,16 +27,16 @@ constraint test_coverage_accuracy "Test Coverage Accuracy" {
 }
 
 constraint rust_collection_accuracy "Rust Collection Accuracy" {
-  description "Ensures entity mapping has zero false positives and generated reports conform to the SpecforgeReport schema."
+  description "Ensures entity mapping has zero false positives and every recorded result names a declared entity."
   category    reliability
   priority    critical
 
   metric """
-    entity mapping has zero false positives; specforge-report.json
-    conforms to the SpecforgeReport schema; all entity IDs are validated
+    entity mapping has zero false positives; every recorded result names a
+    declared entity, and results that don't are reported as W115
   """
 
-  constrains [collect_rust_test_results, parse_junit_xml, parse_libtest_json, resolve_entity_mapping, validate_rust_entity_ids, merge_workspace_reports, emit_specforge_report_from_rust, record_test_via_drop_guard]
+  constrains [resolve_entity_mapping, record_test_via_drop_guard, ct_map_binary_reports]
   protects [entity_mapping_precedence]
 
   verify unit "entity mapping and report generation are accurate"

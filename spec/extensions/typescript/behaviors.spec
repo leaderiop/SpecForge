@@ -4,7 +4,6 @@ use "invariants/core"
 use "extensions/typescript/invariants"
 use "types/core"
 use "types/diagnostics"
-use "extensions/coverage/types"
 use "extensions/typescript/types"
 use "ports/outbound"
 use "extensions/typescript/events"
@@ -199,9 +198,10 @@ behavior map_typescript_entity_ids "Map TypeScript Entity IDs" {
     user_service), camelCase -> snake_case (validateInput -> validate_input),
     SCREAMING_SNAKE -> lower_snake (MAX_RETRIES -> max_retries), React
     hooks -> snake_case without "use" prefix (useAuth -> auth). Resolution
-    precedence: (1) tests field in .spec, (2) @specforge JSDoc tag,
-    (3) naming convention. Barrel re-exports MUST trace to the original
-    defining file for canonical ID assignment.
+    precedence: (1) @specforge JSDoc tag, (2) naming convention. Barrel
+    re-exports MUST trace to the original defining file for canonical ID
+    assignment. (Tests link to entities separately, in their runner's
+    idiom; see @specforge/vitest.)
   """
 
   verify unit "PascalCase class maps to snake_case"
@@ -210,7 +210,6 @@ behavior map_typescript_entity_ids "Map TypeScript Entity IDs" {
   verify unit "React hook useAuth maps to auth"
   verify unit "React component UserCard maps to user_card"
   verify unit "@specforge JSDoc tag overrides convention"
-  verify unit "tests field overrides JSDoc tag"
   verify unit "barrel re-export traces to original source"
   verify unit "name collision across files produces diagnostic"
 }
@@ -274,107 +273,4 @@ behavior anchor_entity_to_source "Anchor Entity to Source" {
   verify unit "interface merging produces secondary locations"
   verify unit "module augmentation produces secondary location"
   verify unit "missing entity ID returns not-found diagnostic"
-}
-
-// ── Test Collection ────────────────────────────────────────────
-
-behavior collect_jest_results "Collect Jest Test Results" {
-  types      [SpecforgeReport, TestResultEntry, TsTestFormat, TsTestsCollectedPayload]
-  category   command
-  ports      [TsTestOutputParser, FileSystem]
-  invariants [ts_entity_mapping_precedence]
-  produces   [ts_tests_collected]
-
-  contract """
-    The system MUST parse Jest JSON output (--json flag) and map test
-    results to specforge entity IDs. Jest organizes tests as describe/it
-    blocks; the entity mapping uses the describe block name as a hint
-    and the @specforge JSDoc tag or naming convention for resolution.
-    The output MUST conform to the SpecforgeReport schema.
-  """
-
-  verify unit "Jest JSON output is parsed"
-  verify unit "describe block maps to entity context"
-  verify unit "it/test block maps to individual test"
-  verify unit "passed/failed/skipped statuses are captured"
-  verify unit "test duration is captured"
-  verify unit "output conforms to SpecforgeReport schema"
-}
-
-behavior collect_vitest_results "Collect Vitest Test Results" {
-  types      [SpecforgeReport, TestResultEntry, TsTestFormat, TsTestsCollectedPayload]
-  category   command
-  ports      [TsTestOutputParser, FileSystem]
-  invariants [ts_entity_mapping_precedence]
-  produces   [ts_tests_collected]
-
-  contract """
-    The system MUST parse Vitest JSON output (--reporter=json). Vitest
-    output format is compatible with Jest JSON but includes additional
-    metadata (benchmark results, type-check results). The system MUST
-    handle both vitest run and vitest bench output.
-  """
-
-  verify unit "Vitest JSON output is parsed"
-  verify unit "Vitest benchmark results are handled"
-  verify unit "output conforms to SpecforgeReport schema"
-}
-
-behavior collect_playwright_results "Collect Playwright Test Results" {
-  types      [SpecforgeReport, TestResultEntry, TsTestFormat, TsTestsCollectedPayload]
-  category   command
-  ports      [TsTestOutputParser, FileSystem]
-  invariants [ts_entity_mapping_precedence]
-  produces   [ts_tests_collected]
-
-  contract """
-    The system MUST parse Playwright JSON reporter output. Playwright
-    organizes tests with spec files, describe blocks, and test.step
-    annotations. Entity mapping uses file path and describe name as
-    signals. The system MUST handle multi-browser test results (same
-    test run in chromium, firefox, webkit).
-  """
-
-  verify unit "Playwright JSON reporter output is parsed"
-  verify unit "multi-browser results are deduplicated"
-  verify unit "test.step annotations are captured"
-  verify unit "output conforms to SpecforgeReport schema"
-}
-
-behavior collect_cypress_results "Collect Cypress Test Results" {
-  types      [SpecforgeReport, TestResultEntry, TsTestFormat]
-  category   command
-  ports      [TsTestOutputParser, FileSystem]
-  invariants [ts_entity_mapping_precedence]
-  produces   [ts_tests_collected]
-
-  contract """
-    The system MUST parse Cypress test results from JUnit XML or
-    Mochawesome JSON reporter output. Cypress organizes tests as
-    describe/it blocks within spec files.
-  """
-
-  verify unit "Cypress JUnit XML is parsed"
-  verify unit "Cypress Mochawesome JSON is parsed"
-  verify unit "output conforms to SpecforgeReport schema"
-}
-
-behavior merge_monorepo_reports "Merge Monorepo Test Reports" {
-  types      [SpecforgeReport, TestResultEntry, TsMonorepoInfo]
-  category   command
-  ports      [FileSystem]
-
-  contract """
-    In a monorepo, the system MUST merge test results from multiple
-    packages into a single SpecforgeReport. Each package may use a
-    different test runner (Jest in one, Vitest in another, Playwright
-    for e2e). Duplicate entity results across packages MUST be merged
-    with the most recent result winning. Package-scoped entity IDs
-    MUST be resolved to project-global IDs.
-  """
-
-  verify unit "results from multiple packages are merged"
-  verify unit "different test runners per package are handled"
-  verify unit "duplicate entities take most recent result"
-  verify unit "package-scoped IDs resolved to global IDs"
 }

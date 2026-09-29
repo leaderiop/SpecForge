@@ -1,7 +1,6 @@
 // @specforge/typescript extension ports
 
 use "types/errors"
-use "extensions/coverage/types"
 use "extensions/typescript/types"
 
 port TsSourceScanner {
@@ -13,19 +12,6 @@ port TsSourceScanner {
   method resolveBarrelExport(barrel_path: string, symbol_name: string) -> Result<TsSourceAnchor, EmitterError>
   method findDefinition(entity_id: string, project_root: string) -> Result<TsSourceAnchor, EmitterError>
   verify integration "TsSourceScanner contract is satisfied"
-}
-
-port TsTestOutputParser {
-  direction outbound
-  category  "testing/typescript"
-
-  method parseJestJson(input: string) -> Result<TestResultEntry[], EmitterError>
-  method parseVitestJson(input: string) -> Result<TestResultEntry[], EmitterError>
-  method parsePlaywrightJson(input: string) -> Result<TestResultEntry[], EmitterError>
-  method parseCypressJunit(path: string) -> Result<TestResultEntry[], EmitterError>
-  method parseMochaJson(input: string) -> Result<TestResultEntry[], EmitterError>
-  method parseTap(input: string) -> Result<TestResultEntry[], EmitterError>
-  verify integration "TsTestOutputParser contract is satisfied"
 }
 
 port TsProjectDetector {

@@ -260,13 +260,13 @@ No incoming edges.
 | W001 | core | Orphan behavior — not referenced by any feature |
 | W002 | product | Orphan feature — not referenced by any journey |
 | W003 | core | Unused invariant — not referenced by any behavior |
-| W004 | core | Unverified behavior — no `verify` statement |
+| W004 | testing | Unverified testable entity — no `verify` statement |
 | W005 | governance | Unmitigated high-risk invariant — `risk: high` with no failure_mode |
 | W006 | governance | Unconstrained behavior — no constraint coverage |
 | W007 | core | Orphan event — event with no consumers |
 | W012 | core | Orphan ref — declared but never referenced by any entity |
 | W008 | product | Uncovered journey — deliverable journey not reachable via modules |
-| W009 | software | Invalid verify kind — verify kind not in allowed set for entity kind |
+| W009 | testing | Invalid verify kind — verify kind not in allowed set for entity kind |
 | W010 | software | Unknown field annotation — unknown annotation on type field |
 
 ### Info (4 codes)

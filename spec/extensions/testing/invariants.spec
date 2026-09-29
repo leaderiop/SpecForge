@@ -28,3 +28,18 @@ invariant te_owners_declare_no_test_vocabulary "Kind Owners Declare No Test Voca
 
   verify unit "software kinds declare no testability of their own"
 }
+
+invariant traceability_chain_integrity "Traceability Chain Integrity" {
+  guarantee """
+    No broken link MUST go unreported in the intent -> linkage -> proof
+    chain. Every file-reference field (any extension-declared field with
+    file_reference=true, e.g. gherkin) MUST reference an existing file.
+    Every result `specforge collect` records MUST name an entity the spec
+    graph declares; a result naming any other entity is dropped with a
+    W115 warning rather than counted as proof.
+  """
+  risk high
+
+  verify property "every file-reference field references an existing file"
+  verify unit "unknown entity ID in collector entry produces W115"
+}

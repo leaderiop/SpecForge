@@ -4,6 +4,7 @@
 // scanning approach, entity ID mapping, test collection, framework support.
 
 use "extensions/typescript/invariants"
+use "governance/decisions"
 
 decision tree_sitter_for_scanning "Tree-sitter for TypeScript Scanning" {
   status   accepted
@@ -98,7 +99,8 @@ decision pascal_to_snake_convention "PascalCase to snake_case Entity ID Conventi
 }
 
 decision multi_runner_test_collection "Multi-Runner Test Collection" {
-  status   accepted
+  status   superseded
+  superseded_by test_runner_extensions
   date     2026-04-24
 
   context """
@@ -123,6 +125,7 @@ decision multi_runner_test_collection "Multi-Runner Test Collection" {
     "Per-package runner detection handles mixed monorepos",
     "Each parser is independently testable",
     "New runners can be added without changing the collection pipeline",
+    "Superseded by test_runner_extensions (ADR 0002): each runner is its own extension (@specforge/vitest first), declaring the command collect runs, instead of format parsers inside this analyzer",
   ]
 }
 

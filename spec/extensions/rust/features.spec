@@ -1,19 +1,20 @@
-// @specforge/rust extension features — Rust test collection
+// @specforge/rust extension features — Rust test traceability
 
 use "extensions/rust/behaviors"
 feature rust_test_collection "Rust Test Collection" {
 
   problem """
     Rust test frameworks (cargo test, nextest) produce results in various
-    formats but none natively link tests to spec entities. The specforge
-    coverage pipeline needs a standardized specforge-report.json.
+    formats, but none links a test to the spec entity it proves, so
+    coverage could count obligations but never proof.
   """
 
   solution """
-    specforge collect rust reads test output (JUnit XML, libtest JSON, or
-    stdin), maps test names to entity IDs via three-level precedence
-    (tests field > proc macro > naming convention), and emits
-    specforge-report.json for the traceability pipeline.
+    Tests name the entity they prove with the #[specforge_test] attribute,
+    which records each result to a per-binary report. @specforge/cargo-test
+    declares the command `specforge collect` runs (cargo test) and maps
+    those reports to entities (ADR 0002); the explicit attribute takes
+    precedence over naming conventions.
   """
 }
 

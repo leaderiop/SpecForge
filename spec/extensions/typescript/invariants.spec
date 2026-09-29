@@ -2,15 +2,15 @@
 
 invariant ts_entity_mapping_precedence "TypeScript Entity Mapping Precedence" {
   guarantee """
-    Test-to-entity resolution MUST follow strict precedence: (1) tests field
-    in .spec files (authoritative), (2) @specforge JSDoc tag (explicit),
-    (3) naming convention with PascalCase-to-snake_case conversion (implicit).
-    Higher levels MUST always override lower levels. Ambiguous mappings MUST
-    produce diagnostics.
+    Source-to-entity resolution MUST follow strict precedence: (1)
+    @specforge JSDoc tag (explicit), (2) naming convention with
+    PascalCase-to-snake_case conversion (implicit). The explicit level MUST
+    always override the implicit one. Ambiguous mappings MUST produce
+    diagnostics.
   """
   risk high
 
-  verify property "tests field always overrides JSDoc tag and naming convention"
+  verify property "a JSDoc tag always overrides the naming convention"
   verify unit "ambiguous mappings produce diagnostics"
 }
 

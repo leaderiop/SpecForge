@@ -2,14 +2,14 @@
 
 invariant entity_mapping_precedence "Entity Mapping Precedence" {
   guarantee """
-    Test-to-entity resolution MUST follow strict precedence: tests field
-    (1st) > proc macro attribute (2nd) > naming convention (3rd). A higher
-    level MUST always override a lower level. No ambiguous mappings MUST
-    exist after resolution — conflicts MUST produce diagnostics.
+    Test-to-entity resolution MUST follow strict precedence: the
+    #[specforge_test] attribute (1st) > naming convention (2nd). The
+    explicit attribute MUST always override the convention. No ambiguous
+    mappings MUST exist after resolution — conflicts MUST produce
+    diagnostics. Spec files carry no test paths (ADR 0002).
   """
   risk high
 
-  verify property "tests field always overrides proc macro and convention"
+  verify property "the proc macro attribute always overrides the naming convention"
   verify unit "ambiguous mappings produce diagnostics"
-
 }

@@ -73,3 +73,61 @@ behavior te_validate_verify_kind_allowlist "W009: Verify Kind Outside the Kind's
   verify unit "invariant with verify load produces W009 (load not in allowedVerifyKinds)"
   verify unit "W009 message includes allowed set"
 }
+
+behavior te_coverage_pass "Coverage Analysis Pass" {
+  category query
+  invariants [te_testable_kinds_from_one_table]
+  types [TestingVerifyKind]
+
+  contract """
+    @specforge/testing's `coverage` compiler pass (run by `specforge
+    analyze coverage`, or `analyze` with every pass) MUST score the
+    project at three layers. Intent: a testable entity that declares no
+    verify obligations is A001, and an invariant with none is A002, an
+    error when its risk is high. Enforcement: an invariant nothing
+    references is an A011 orphan guarantee. Proof: an entity whose
+    recorded tests (from specforge-report.json, which `analyze` reads by
+    default after `specforge collect`) all pass is proven, and one with a
+    failing test is A014. A formal claim the prove pass entailed
+    discharges `verify property` obligations without executable tests.
+    The summary MUST report the discharge funnel (entities with
+    obligations, proven, formally discharged, report failures).
+  """
+
+  ensures {
+    intent_scored      "entities without obligations are A001, invariants A002"
+    orphans_found      "unreferenced invariants are A011"
+    proof_recorded     "recorded passing tests prove an entity; a failing one is A014"
+    formal_discharge   "entailed formal claims discharge verify property obligations"
+  }
+
+  verify unit "a high-risk invariant without obligations is an A002 error"
+  verify unit "invariant references count as enforcement"
+  verify unit "recorded test results prove entities and failing tests are A014"
+  verify unit "a proved formal claim discharges verify property obligations"
+}
+
+behavior te_coverage_gate "Proof Coverage Gate" {
+  category validation
+  types [TestingVerifyKind]
+
+  contract """
+    `specforge analyze coverage --min N` MUST exit non-zero (E048) when
+    the share of testable entities the coverage pass proved is below N
+    percent, after printing the full analysis. It needs test results
+    (the project's specforge-report.json or --test-results) and the
+    coverage pass, and a project with nothing testable satisfies any
+    threshold.
+  """
+
+  ensures {
+    below_fails  "proof coverage below the threshold fails with E048"
+    above_passes "proof coverage at or above the threshold passes"
+    needs_results "the gate refuses to run without test results"
+  }
+
+  verify unit "coverage at or above the threshold passes"
+  verify unit "coverage below the threshold fails with E048"
+  verify unit "the gate needs test results"
+}
+

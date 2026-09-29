@@ -1,6 +1,5 @@
-// @specforge/rust extension types — Rust test collection
+// @specforge/rust extension types — Rust test traceability
 
-use "extensions/coverage/types"
 type TestGuard {
   entity_kind     string    @readonly
   entity_id       string    @readonly
@@ -22,13 +21,10 @@ type EntityMappingEntry {
   file            string
   line            integer   @optional
   resolution      MappingResolutionLevel
-  status          TestResultStatus  @optional
   verify unit "EntityMappingEntry schema is valid"
 }
 
-type MappingResolutionLevel = tests_field | proc_macro | naming_convention
-
-type CollectFormat = junit_xml | libtest_json | cargo_text
+type MappingResolutionLevel = proc_macro | naming_convention
 
 type RustFrameworkSupport {
   framework       RustFramework
@@ -40,12 +36,3 @@ type RustFrameworkSupport {
 type RustFramework = builtin | nextest | proptest | criterion | tokio | rstest | trybuild
 
 type RustSupportLevel = full | partial | unsupported
-
-type RustTestsCollectedPayload {
-  totalTests      integer
-  mappedTests     integer
-  unmappedTests   integer
-  format          CollectFormat
-  timestamp       timestamp
-  verify unit "RustTestsCollectedPayload schema is valid"
-}

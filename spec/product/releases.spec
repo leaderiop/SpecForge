@@ -20,7 +20,7 @@ release alpha "SpecForge Alpha" {
     resolution, mutable entity graph, ariadne-powered diagnostics,
     multi-format export (JSON, DOT, context, brief), project
     initialization via specforge init, and Rust test traceability
-    toolkit with proc macro and JUnit XML collector.
+    toolkit with proc macro and test result collection.
   """
   reason       "Establish the core compilation pipeline and validate the graph-first approach with early adopters."
   owner        "specforge-team"

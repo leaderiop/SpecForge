@@ -1,9 +1,10 @@
 // @specforge/rust extension Architecture Decision Records
 //
 // Decisions specific to the Rust language integration:
-// test guard design, JUnit format, naming conventions, delivery phases.
+// test guard design, report format, naming conventions, delivery phases.
 
 use "extensions/rust/invariants"
+use "governance/decisions"
 decision drop_based_test_guard "Drop-Based Test Guard" {
   status   accepted
   date     2026-03-02
@@ -19,13 +20,13 @@ decision drop_based_test_guard "Drop-Based Test Guard" {
   decision """
     Use a Drop-based TestGuard. On creation, record entity ID and test name.
     On drop, check std::thread::panicking() — false means pass, true means
-    fail. Write results to target/specforge/ via atexit handler.
-    Document #[should_panic] as unsupported.
+    fail, inverted under #[should_panic] (the attribute reads the
+    expectation). Write results to target/specforge/ via atexit handler.
   """
 
   consequences [
     "Works with async tests, rstest, proptest, and all composable test attributes",
-    "#[should_panic] tests are incompatible — records FAIL because panicking() is true during unwinding",
+    "#[should_panic] needs the guard to know the expectation, since panicking() is true during unwinding",
     "atexit handler introduces global state — acceptable for test binaries",
     "Simple implementation: ~50 lines of unsafe-free Rust",
   ]
@@ -34,7 +35,8 @@ decision drop_based_test_guard "Drop-Based Test Guard" {
 }
 
 decision nextest_junit_primary_format "Nextest JUnit XML as Primary Format" {
-  status   accepted
+  status   superseded
+  superseded_by test_runner_extensions
   date     2026-03-02
 
   context """
@@ -55,6 +57,7 @@ decision nextest_junit_primary_format "Nextest JUnit XML as Primary Format" {
     "nextest adoption is growing rapidly in Rust ecosystem",
     "JUnit XML is well-understood and parsed by many tools",
     "Users who don't use nextest can still use convention-based collection",
+    "Superseded by test_runner_extensions (ADR 0002): stable libtest has no JSON output, so @specforge/cargo-test reads the per-test report the #[specforge_test] attribute writes instead of JUnit XML",
   ]
 }
 
@@ -96,7 +99,7 @@ decision phased_rust_delivery "Phased Rust Delivery" {
   """
 
   decision """
-    Three-phase delivery: Phase 1 ships specforge collect rust with
+    Three-phase delivery: Phase 1 ships test collection with
     convention-based mapping (zero Rust dependencies). Phase 2 ships the
     proc macro crate for explicit annotation. Phase 3 adds advanced
     features (watch, LSP, suspect links).

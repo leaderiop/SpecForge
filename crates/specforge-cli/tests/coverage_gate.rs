@@ -2,6 +2,7 @@
 //! and orphaned test records surface a W097 instead of dropping silently.
 
 use assert_cmd::Command;
+use specforge_test_macros::test as specforge_test;
 use std::path::{Path, PathBuf};
 use tempfile::TempDir;
 
@@ -39,7 +40,10 @@ fn report(path: &Path, proven: bool, extra: Option<&str>) -> String {
     json
 }
 
-#[test]
+#[specforge_test(
+    behavior = "te_coverage_gate",
+    verify = "coverage at or above the threshold passes"
+)]
 fn min_gate_passes_when_coverage_meets_threshold() {
     let tmp = TempDir::new().unwrap();
     seed(tmp.path());
@@ -64,7 +68,10 @@ fn min_gate_passes_when_coverage_meets_threshold() {
     );
 }
 
-#[test]
+#[specforge_test(
+    behavior = "te_coverage_gate",
+    verify = "coverage below the threshold fails with E048"
+)]
 fn min_gate_fails_when_coverage_below_threshold() {
     let tmp = TempDir::new().unwrap();
     seed(tmp.path());
@@ -90,7 +97,7 @@ fn min_gate_fails_when_coverage_below_threshold() {
     assert!(stderr.contains("below the required minimum"), "{stderr}");
 }
 
-#[test]
+#[specforge_test(behavior = "te_coverage_gate", verify = "the gate needs test results")]
 fn min_requires_test_results() {
     let tmp = TempDir::new().unwrap();
     seed(tmp.path());

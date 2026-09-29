@@ -52,14 +52,14 @@ If you've used these tools, the analogy helps — but note the difference:
 
 | Like… | …in that | Unlike, because SpecForge… |
 |-------|----------|----------------------------|
-| **Gherkin/Cucumber** | structured, human-readable intent | builds a *typed graph*, doesn't run tests |
+| **Gherkin/Cucumber** | structured, human-readable intent | builds a *typed graph*; tests stay in your test runner |
 | **TypeSpec / Protobuf** | a compiled schema language | spans requirements → behavior → architecture, not just APIs |
 | **Terraform HCL** | declarative, validated, version-controlled | describes *intent for agents*, not infrastructure to apply |
 
 **SpecForge is NOT:**
 
 - ❌ a code generator — agents produce code; SpecForge gives them context.
-- ❌ a test runner — it *traces* tests and consumes results; it never executes them.
+- ❌ a test framework — it *traces* tests and consumes their results. The compiler never executes anything; `specforge collect` runs your runner's declared command only with your consent.
 - ❌ a documentation format — the value is the *compiler*, not prose with conventions.
 
 Here's the smallest meaningful `.spec` file. You'll understand every line by the end of

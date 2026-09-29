@@ -1,6 +1,8 @@
 // Modules — code packages that implement features
 
-use "extensions/coverage/features"
+use "extensions/testing/features"
+use "extensions/cargo-test/features"
+use "extensions/vitest/features"
 use "features/extensions"
 use "features/formatting"
 use "features/incremental"
@@ -196,19 +198,27 @@ module specforge_provider_gh "specforge-provider-gh" {
   tags        ["extension", "provider"]
 }
 
-module specforge_coverage "specforge-coverage" {
-  family      core
-  description "Test coverage reporting and traceability proof ingestion"
-  features    [test_coverage_reporting]
-  depends_on  [specforge_graph]
-  tags        ["coverage", "traceability"]
+module specforge_package_testing "specforge-package-testing" {
+  family      extension
+  description "Wasm package for @specforge/testing: verify obligations, W004/W009 and the coverage analysis pass"
+  features    [te_test_vocabulary, te_coverage_analysis]
+  depends_on  [specforge_validator, specforge_wasm]
+  tags        ["extension", "traceability"]
 }
 
-module specforge_collect_rust "specforge-collect-rust" {
+module specforge_package_cargo_test "specforge-package-cargo-test" {
   family      extension
-  description "Rust test collector: parses JUnit XML and maps tests to entity IDs via specforge-report.json"
-  features    [rust_test_collection]
-  depends_on  [specforge_graph]
+  description "Wasm package for @specforge/cargo-test: runs cargo test for specforge collect and maps specforge-test reports to entities"
+  features    [ct_cargo_test_collection, test_result_collection]
+  depends_on  [specforge_package_testing, specforge_wasm]
+  tags        ["extension", "traceability"]
+}
+
+module specforge_package_vitest "specforge-package-vitest" {
+  family      extension
+  description "Wasm package for @specforge/vitest: runs vitest for specforge collect and maps tests linked through meta.specforge"
+  features    [vt_vitest_collection, test_result_collection]
+  depends_on  [specforge_package_testing, specforge_wasm]
   tags        ["extension", "traceability"]
 }
 

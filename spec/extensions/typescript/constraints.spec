@@ -6,7 +6,6 @@
 use "invariants/core"
 use "extensions/typescript/invariants"
 use "extensions/typescript/behaviors"
-use "extensions/coverage/behaviors"
 
 constraint ts_scan_performance "TypeScript Scan Performance" {
   description "Source scanning must complete within acceptable time for interactive use and watch mode."
@@ -25,18 +24,17 @@ constraint ts_scan_performance "TypeScript Scan Performance" {
   verify unit "scan performance meets target for 1000-file project"
 }
 
-constraint ts_collection_accuracy "TypeScript Collection Accuracy" {
-  description "Entity mapping has zero false positives and generated reports conform to the SpecforgeReport schema."
+constraint ts_collection_accuracy "TypeScript Mapping Accuracy" {
+  description "Source-to-entity mapping has zero false positives."
   category    reliability
   priority    critical
 
   metric """
-    entity mapping has zero false positives; specforge-report.json
-    conforms to the SpecforgeReport schema; all entity IDs are validated
-    against the spec graph
+    source-to-entity mapping has zero false positives; every mapped ID is
+    validated against the spec graph
   """
 
-  constrains [collect_jest_results, collect_vitest_results, collect_playwright_results, collect_cypress_results, map_typescript_entity_ids, merge_monorepo_reports]
+  constrains [map_typescript_entity_ids]
   protects [ts_entity_mapping_precedence]
 
   verify unit "entity mapping and report generation are accurate"

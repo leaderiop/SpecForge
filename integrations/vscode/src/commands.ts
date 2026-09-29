@@ -206,7 +206,7 @@ export function registerCommands(
     }),
 
     vscode.commands.registerCommand("specforge.coverage", () => {
-      runCliCommand(["coverage"]);
+      runCliCommand(["analyze", "coverage"]);
     }),
 
     vscode.commands.registerCommand("specforge.outline", async () => {

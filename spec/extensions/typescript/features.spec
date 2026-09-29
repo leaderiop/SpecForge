@@ -33,9 +33,8 @@ feature ts_entity_mapping "TypeScript Entity ID Mapping" {
   """
 
   solution """
-    Three-level mapping precedence: (1) tests field in .spec files,
-    (2) @specforge JSDoc tag, (3) PascalCase/camelCase to snake_case
-    naming convention. Barrel re-exports trace to original source.
+    Two-level mapping precedence: (1) @specforge JSDoc tag, (2)
+    PascalCase/camelCase to snake_case naming convention. Barrel re-exports trace to original source.
     Collisions produce diagnostics. React hooks drop the "use" prefix.
   """
 }
@@ -50,11 +49,13 @@ feature ts_test_collection "TypeScript Test Collection" {
   """
 
   solution """
-    specforge collect typescript parses runner-specific output formats
-    (jest-json, vitest-json, playwright-json, junit-xml, mocha-json, TAP)
-    into the standard SpecforgeReport schema. Auto-detects runner from
-    config files. In monorepos, merges per-package results with
-    deduplication.
+    One runner extension per test runner (ADR 0002), not one parser per
+    format inside this source analyzer. @specforge/vitest ships today:
+    tests name their entity in vitest's test metadata, and `specforge
+    collect` runs vitest with the user's consent. Jest, Playwright,
+    Cypress, Mocha and the Node.js test runner are future runner
+    extensions; several can be enabled in one project, and collect merges
+    their results per runner.
   """
 }
 

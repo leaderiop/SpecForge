@@ -621,11 +621,10 @@ term t_test_guard "test guard" {
   definition """
     A Drop-based Rust struct (TestGuard) that records whether a test
     passed or failed. On drop, checks std::thread::panicking() — false
-    means pass, true means fail. Results are written to target/specforge/
-    via an atexit handler.
+    means pass, true means fail (inverted under #[should_panic]). Results
+    are written to target/specforge/ via an atexit handler.
   """
   aliases ["TestGuard", "drop guard"]
-  see_also   [t_junit_xml]
 }
 
 term t_naming_convention "naming convention" {
@@ -646,16 +645,6 @@ term t_double_underscore_separator "double underscore separator" {
   """
 }
 
-term t_junit_xml "JUnit XML" {
-  definition """
-    An XML test report format produced by cargo-nextest. The primary
-    machine-readable format for specforge collect rust. Contains
-    testcase elements with classname, duration, and failure messages.
-  """
-  aliases ["JUnit report", "nextest XML"]
-  see_also   [t_collect_command]
-}
-
 // ── Traceability & Coverage (core concepts) ─────────────────
 
 term t_traceability_chain "traceability chain" {
@@ -672,8 +661,8 @@ term t_spec_coverage "spec coverage" {
   definition """
     The percentage of testable entities that have passing tests. Distinct
     from code coverage — spec coverage measures how many testable
-    entities (as declared by extensions via the testable flag in their
-    manifest) have verified test results.
+    entities (kinds @specforge/testing makes testable) have recorded
+    passing test results. `specforge analyze coverage --min` gates on it.
   """
   aliases ["specification coverage"]
 }
@@ -682,30 +671,31 @@ term t_verify_statement "verify statement" {
   definition """
     A declaration inside a testable entity block specifying how to test
     that entity. Syntax: verify <kind> "description". Verify kinds are
-    extension-defined — not hardcoded. Extensions declare allowedVerifyKinds
-    per entity kind in their manifest. For example, @specforge/software
-    declares unit, integration, property, load, e2e as its verify kinds
-    — these are NOT core defaults, they exist only when the extension is
-    installed. Testable entities without verify statements trigger W004
-    (from the extension's missing_field_when_flag_set validation pattern).
+    extension-defined — not hardcoded: `verify` is reserved syntax whose
+    meaning comes from the registry. @specforge/testing makes kinds
+    testable and declares each kind's verify kinds (for example unit,
+    contract, integration, property and performance on behavior) — these
+    are NOT core defaults, they exist only when the extension is enabled.
+    Testable entities without verify statements trigger W004.
   """
 }
 
 term t_specforge_report_json "specforge-report.json" {
   definition """
-    The standard JSON report file produced by external test runners and
-    ingested by specforge collect. Contains per-entity test results
-    (pass/fail/skip/duration) for any testable entity kind. SpecForge
-    reads these pre-generated reports — it never executes tests itself.
+    The project's recorded test results, written by `specforge collect`
+    and read by `specforge analyze`. Contains per-entity test results
+    (name, pass/fail, the verify obligation, duration, and the runner that
+    recorded it) for any testable entity kind.
   """
   aliases ["coverage report", "test report"]
 }
 
 term t_collect_command "collect command" {
   definition """
-    The specforge collect subcommand that ingests test output from a
-    language-specific format and emits specforge-report.json. Follows
-    the Go-style verb-noun pattern: specforge collect rust.
+    The specforge collect subcommand. It detects the project's test
+    runners from the enabled runner extensions, runs each one's declared
+    command after the user approves it (or parses an existing report
+    with --no-run), and records the results in specforge-report.json.
   """
   aliases ["specforge collect"]
   see_also   [t_specforge_report_json]
@@ -714,8 +704,9 @@ term t_collect_command "collect command" {
 term t_entity_mapping "entity mapping" {
   definition """
     The process of resolving which spec entity a test function corresponds
-    to. Uses three-level precedence: tests field (1st) > proc macro
-    attribute (2nd) > naming convention (3rd).
+    to, in the runner's own idiom: the #[specforge_test] attribute in Rust,
+    vitest test metadata in TypeScript. Explicit linkage takes precedence
+    over naming conventions; spec files carry no test paths.
   """
   aliases ["test-to-entity mapping", "entity resolution"]
   see_also   [t_specforge_test, t_naming_convention]

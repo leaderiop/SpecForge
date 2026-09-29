@@ -13,7 +13,7 @@ failure_mode rust_entity_mapping_mismatch "Rust Entity Mapping Mismatch" {
 
   cause      "Test function mapped to wrong entity due to naming collision in double-underscore convention — e.g., validate__input vs validate_input__"
   effect     "Coverage report attributes test results to wrong entity — misleading spec coverage metrics and false confidence"
-  mitigation "Three-level precedence (tests field > proc macro > convention); ambiguous mappings produce diagnostics; strict mode rejects ambiguity"
+  mitigation "Explicit #[specforge_test] attribute takes precedence over the naming convention; ambiguous mappings produce diagnostics; results naming undeclared entities are W115 at collect"
 
   post_mitigation {
     severity   high
@@ -33,7 +33,7 @@ failure_mode rust_proc_macro_silent_drop "Rust Proc Macro Silent Drop" {
 
   cause      "TestGuard Drop handler fails to record result — e.g., atexit handler not registered, file write fails, or process killed before Drop"
   effect     "Test result lost — entity shows as untested in coverage report despite passing test"
-  mitigation "Atexit handler registered on first guard creation; fallback to JUnit XML collection; diagnostic when mapping file is missing expected entries"
+  mitigation "Atexit handler registered on first guard creation; a JSONL line is appended as each test finishes, surviving aborts; collect fails with E045 when a run leaves no report"
 
   post_mitigation {
     severity   medium

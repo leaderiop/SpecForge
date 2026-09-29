@@ -324,8 +324,9 @@ milestone extension_ecosystem "Phase 11: Extension Ecosystem" {
     specforge_package_formal,
     specforge_package_product,
     specforge_package_governance,
-    specforge_coverage,
-    specforge_collect_rust,
+    specforge_package_testing,
+    specforge_package_cargo_test,
+    specforge_package_vitest,
     specforge_test_lib,
     specforge_test_macros_lib,
   ]

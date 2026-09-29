@@ -3,6 +3,7 @@
 use std::fs;
 
 use assert_cmd::Command;
+use specforge_test_macros::test as specforge_test;
 use tempfile::TempDir;
 
 #[allow(deprecated)]
@@ -59,7 +60,10 @@ fn analyze_clean_project_exits_zero() {
     assert_eq!(coverage["summary"]["obligations"], 1);
 }
 
-#[test]
+#[specforge_test(
+    behavior = "te_coverage_pass",
+    verify = "a high-risk invariant without obligations is an A002 error"
+)]
 fn analyze_high_risk_unverified_invariant_fails() {
     let dir =
         project("invariant bad \"Never verified\" {\n  guarantee \"nothing\"\n  risk high\n}\n");
@@ -127,7 +131,10 @@ fn analyze_single_pass_selection() {
     assert_eq!(passes[0]["pass"], "@specforge/testing:coverage");
 }
 
-#[test]
+#[specforge_test(
+    behavior = "te_coverage_pass",
+    verify = "invariant references count as enforcement"
+)]
 fn analyze_enforcement_maps_invariant_references() {
     // invariant referenced by a behavior via `invariants [...]` -> enforced;
     // an unreferenced invariant is an orphan guarantee (A011 warning).
@@ -175,7 +182,10 @@ behavior keeper "Keeper" {
     assert_eq!(code, 1, "--strict must fail on the orphan warning");
 }
 
-#[test]
+#[specforge_test(
+    behavior = "te_coverage_pass",
+    verify = "recorded test results prove entities and failing tests are A014"
+)]
 fn analyze_discharge_intent_and_proof() {
     let dir = project(concat!(
         "invariant held \"Held\" {\n",
@@ -656,7 +666,10 @@ fn analyze_prove_satisfiable_constraint_exits_zero() {
     assert_eq!(prove["summary"]["unsatisfiable"], false);
 }
 
-#[test]
+#[specforge_test(
+    behavior = "te_coverage_pass",
+    verify = "a proved formal claim discharges verify property obligations"
+)]
 fn analyze_proved_claims_discharge_verify_property_obligations() {
     if std::process::Command::new("z3")
         .arg("--version")

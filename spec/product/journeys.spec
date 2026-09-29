@@ -4,7 +4,9 @@
 
 use "product/personas"
 use "product/channels"
-use "extensions/coverage/features"
+use "extensions/testing/features"
+use "extensions/cargo-test/features"
+use "extensions/vitest/features"
 use "features/extensions"
 use "features/formatting"
 use "features/incremental"
@@ -184,13 +186,14 @@ journey check_test_coverage "Check Test Coverage" {
   channels [cli]
   priority high
   tags     ["developer", "cli"]
-  features [test_coverage_reporting, test_traceability]
+  features [test_result_collection, te_coverage_analysis]
   flow     """
-    1. Developer runs tests with framework extension (e.g., vitest)
-    2. Extension emits specforge-report.json
-    3. Developer runs specforge coverage
-    4. System merges reports and computes statistics
-    5. Success: coverage summary printed
+    1. Developer runs specforge collect
+    2. System runs each detected runner extension's approved test command
+       (e.g. vitest, cargo test) and records results in specforge-report.json
+    3. Developer runs specforge analyze coverage
+    4. System scores intent, enforcement and proof per entity
+    5. Success: coverage findings and summary printed
     6. Developer sets --min threshold for CI gating
   """
 }
@@ -200,14 +203,14 @@ journey trace_test_coverage "Trace Test Coverage" {
   channels [cli]
   priority high
   tags     ["developer", "cli"]
-  features [test_traceability, test_coverage_reporting]
+  features [te_coverage_analysis]
   flow     """
-    1. Developer runs specforge trace --test-results
-    2. System parses specforge-report.json files
-    3. System computes four-level coverage (declared/linked/executed/passing)
-    4. System renders traceability matrix showing each testable entity
-    5. Developer reviews matrix to identify gaps
-    6. Developer fills gaps by adding tests annotated with the entity they prove
+    1. Developer runs specforge analyze coverage after specforge collect
+    2. System reads the recorded results from specforge-report.json
+    3. System reports testable entities without obligations (A001), with
+       failing tests (A014), and the discharge funnel of proven entities
+    4. Developer reviews the findings to identify gaps
+    5. Developer fills gaps by adding tests annotated with the entity they prove
   """
 }
 
@@ -719,14 +722,15 @@ journey j_collect_rust_test_results "Collect Rust Test Results" {
   channels [cli]
   priority medium
   tags     ["developer", "agent_integration"]
-  features [rust_test_collection]
+  features [ct_cargo_test_collection]
   flow     """
-    1. Developer runs cargo nextest run --profile ci
-    2. nextest produces JUnit XML in target/nextest/ci/
-    3. Developer runs specforge collect rust --format=junit target/nextest/ci/junit.xml
-    4. System parses JUnit XML and maps tests to entity IDs
-    5. System emits specforge-report.json
-    6. Developer runs specforge coverage to see results
+    1. Developer runs specforge collect in a Cargo project
+    2. System shows the cargo test command and asks for approval once
+    3. System runs it; the specforge-test attribute writes one report per
+       test binary
+    4. @specforge/cargo-test maps the reports to entity IDs
+    5. System writes specforge-report.json
+    6. Developer runs specforge analyze coverage to see results
   """
 }
 
@@ -738,10 +742,12 @@ journey annotate_tests_with_proc_macro "Annotate Tests with Proc Macro" {
   features [rust_proc_macro_annotation]
   flow     """
     1. Developer adds specforge-test dependency to Cargo.toml
-    2. Developer annotates test with #[specforge::test("entity_id")]
-    3. Developer runs cargo test
+    2. Developer writes #[specforge_test(behavior = "entity_id")] in place
+       of #[test]
+    3. Developer runs specforge collect (or cargo test, then
+       specforge collect --no-run)
     4. Drop guard records pass/fail to target/specforge/
-    5. Developer runs specforge collect rust to gather results
+    5. System records which entities the tests prove
   """
 }
 
@@ -782,10 +788,10 @@ journey gate_on_coverage_in_ci "Gate on Coverage in CI" {
   channels [ci_surface]
   priority high
   tags     ["ci", "automation"]
-  features [test_coverage_reporting]
+  features [te_coverage_analysis]
   flow     """
-    1. CI pipeline runs test suite with framework extension
-    2. CI pipeline runs specforge coverage --min=90
+    1. CI pipeline runs specforge collect --yes
+    2. CI pipeline runs specforge analyze coverage --min 90
     3. Coverage above threshold: exit 0
     4. Coverage below threshold: exit 1 with summary
   """

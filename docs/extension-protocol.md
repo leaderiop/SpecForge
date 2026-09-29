@@ -357,24 +357,35 @@ Returns body parser contributions. Each contribution associates a Wasm export wi
 
 ### Category: collectors
 
-Returns collector contributions with auto-detection configuration.
+Returns the test-result collectors a runner extension contributes
+([ADR 0002](adr/0002-test-runner-extensions.md)): the project-root files that
+select it (`auto_detect.file_patterns`, last segment may use `*`), the command
+`specforge collect` runs with the user's consent (`run`; `{report}` expands to
+the absolute report path, also exported as `SPECFORGE_REPORT`), where the
+report lands (`report`, a file or directory inside the project; default
+`.specforge/reports/<name>.json`), and the pure export that maps the report
+to entities.
 
 ```json
 {
   "category": "collectors",
   "items": [
     {
-      "name": "rust",
-      "input_formats": ["junit-xml", "json"],
-      "export": "collect__rust",
-      "auto_detect": {
-        "file_patterns": ["**/target/**/junit.xml"],
-        "env_vars": ["CARGO_TARGET_DIR"]
-      }
+      "name": "cargo-test",
+      "input_formats": ["specforge-test-json"],
+      "export": "collect__cargo_test",
+      "auto_detect": { "file_patterns": ["Cargo.toml"], "env_vars": [] },
+      "run": ["cargo", "test", "--workspace", "--no-fail-fast"],
+      "report": "target/specforge"
     }
   ]
 }
 ```
+
+The host calls the export with `{"reports": [{"path", "content"}]}` and
+expects `{"entity_results": [{"entity_id", "test_results": [{"name",
+"status", "verify"?, "duration_ms"?}]}]}`, with `status` one of `passed`,
+`failed` or `skipped`.
 
 ### Category: passes
 

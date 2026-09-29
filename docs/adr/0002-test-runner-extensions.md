@@ -38,7 +38,7 @@ sandbox and need a new permission model, and nothing requires the guest to choos
 runtime. `collect --no-run` parses an existing report without running anything.
 
 **Linkage.** A test states which entity (and optionally which `verify` obligation) it proves, in
-the runner's own idiom: vitest test metadata, and in Rust the `#[specforge::test(behavior = "…",
+the runner's own idiom: vitest test metadata, and in Rust the `#[specforge_test(behavior = "…",
 verify = "…")]` attribute, which now registers the test itself instead of requiring a separate
 `#[test]`. Spec files carry no test paths, so they don't rot when tests move. The spec-side
 `tests [...]` field is retired: linkage is whatever the collected results prove, which also

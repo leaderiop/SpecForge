@@ -104,7 +104,7 @@ deliverable specforge_gh "specforge/gh" {
 
 deliverable specforge_rust_traceability_deliverable "specforge/rust-traceability" {
   artifact_type library
-  description "Rust test traceability toolkit: proc macro, test guard, JUnit XML collector."
+  description "Rust test traceability toolkit: the #[specforge_test] attribute, test guard, and the @specforge/cargo-test collector."
   journeys [
     j_collect_rust_test_results,
     annotate_tests_with_proc_macro,

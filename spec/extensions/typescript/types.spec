@@ -5,7 +5,6 @@
 // tree-sitter-typescript or ts-morph in Wasm) and emits one SourceItem per
 // public export. Agents and the entity-mapping pipeline consume these.
 
-use "extensions/coverage/types"
 
 // ── File Extensions & Classification ───────────────────────────
 
@@ -343,22 +342,6 @@ type TsMappingResolution = tests_field | jsdoc_tag | naming_convention | barrel_
 //   Custom hook                -> snake_case without "use" prefix: useAuth -> auth
 //   Barrel re-export           -> traced to original source, uses original's ID
 //   @specforge tag in JSDoc    -> explicit override: /** @specforge entity_id */
-
-// ── Test Collection Types ──────────────────────────────────────
-
-type TsTestRunner = jest | vitest | mocha | playwright | cypress | node_test
-
-type TsTestFormat = jest_json | vitest_json | junit_xml | playwright_json | tap | mocha_json
-
-type TsTestsCollectedPayload {
-  total_tests       integer
-  mapped_tests      integer
-  unmapped_tests    integer
-  format            TsTestFormat
-  runner            TsTestRunner
-  timestamp         timestamp
-  verify unit "TsTestsCollectedPayload schema is valid"
-}
 
 // ── Monorepo Types ─────────────────────────────────────────────
 

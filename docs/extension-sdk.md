@@ -277,17 +277,9 @@ mod software {
 
     // ── Collectors ────────────────────────────────────────────────
 
-    // Collectors ingest test results in external formats and produce
-    // specforge-report.json entries. The auto_detect macro configures
-    // automatic discovery of result files.
-
-    #[collector(name = "rust", formats = ["junit-xml", "json"])]
-    #[auto_detect(files = ["**/target/**/junit.xml"], env = ["CARGO_TARGET_DIR"])]
-    fn collect_rust(input: &[u8]) -> CollectionResult {
-        // Parse JUnit XML or JSON input...
-        // Map test results to entity IDs...
-        CollectionResult::ok(results)
-    }
+    // Test collection belongs to runner extensions (@specforge/cargo-test,
+    // @specforge/vitest), which declare a collector with the
+    // `c.collector(...)` builder; see [Collectors](#collectors).
 
     // ── Compiler Passes ───────────────────────────────────────────
 
@@ -373,7 +365,7 @@ Every macro maps to a protocol category. The SDK generates the appropriate Wasm 
 | `#[mcp_resource]` | `mcp__*` export | `surfaces` |
 | `#[grammar]` | Grammar contribution | `grammars` |
 | `#[body_parser]` | `parse__*` export | `body_parsers` |
-| `#[collector]` | `collect__*` export | `collectors` |
+| `c.collector(...)` (builder) | declared command + `collect__*` export | `collectors` |
 | `#[compiler_pass]` | Pass descriptor | `passes` |
 | `#[feature_flag]` | Flag descriptor | `feature_flags` |
 | `#[sandbox]` | Sandbox policy | handshake |
@@ -683,12 +675,8 @@ mod software_testing {
     )]
     const EMPTY_GHERKIN: ValidationRule;
 
-    #[collector(name = "cucumber", formats = ["junit-xml", "json"])]
-    #[auto_detect(files = ["**/cucumber-report.json", "**/cucumber-report.xml"])]
-    fn collect_cucumber(input: &[u8]) -> CollectionResult {
-        // Parse Cucumber/Gherkin test results...
-        CollectionResult::ok(results)
-    }
+    // Running Cucumber and mapping its results would be a separate runner
+    // extension with a collector; see [Collectors](#collectors).
 }
 ```
 
