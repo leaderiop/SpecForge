@@ -3,7 +3,6 @@ use specforge_test_macros::test as specforge_test;
 
 // --- Trace depth tests ---
 
-#[test]
 #[specforge_test(
     behavior = "compute_traceability_chain",
     verify = "trace from entity shows upstream and downstream connections"
@@ -26,7 +25,6 @@ fn trace_isolated_entity_has_empty_upstream_and_downstream() {
     assert_eq!(parsed["downstream"].as_array().unwrap().len(), 0);
 }
 
-#[test]
 #[specforge_test(
     behavior = "compute_traceability_chain",
     verify = "trace shows full chain depth"
@@ -59,7 +57,6 @@ fn trace_linear_chain_shows_correct_depths() {
     assert_eq!(beh.unwrap()["depth"], 1);
 }
 
-#[test]
 #[specforge_test(
     behavior = "compute_traceability_chain",
     verify = "trace from entity shows upstream and downstream connections"
@@ -87,7 +84,6 @@ fn trace_includes_edge_labels() {
     }
 }
 
-#[test]
 #[specforge_test(
     invariant = "graph_traversal_integrity",
     verify = "traversal from any node visits every reachable node exactly once"
@@ -111,7 +107,6 @@ fn trace_handles_cycles_without_hanging() {
     assert_eq!(parsed["entity_id"], "cycle_a");
 }
 
-#[test]
 #[specforge_test(
     invariant = "graph_traversal_integrity",
     verify = "traversal from any node visits every reachable node exactly once"
@@ -159,7 +154,6 @@ fn trace_cycle_visits_each_node_once() {
     );
 }
 
-#[test]
 #[specforge_test(
     invariant = "graph_traversal_integrity",
     verify = "identical graph inputs produce identical traversal results"
@@ -186,7 +180,6 @@ fn trace_deterministic_output() {
     assert_eq!(stdout1, stdout2, "trace output should be deterministic");
 }
 
-#[test]
 #[specforge_test(
     behavior = "compute_traceability_chain",
     verify = "trace from entity shows upstream and downstream connections"
@@ -212,7 +205,6 @@ fn trace_root_entity_has_no_upstream() {
     );
 }
 
-#[test]
 #[specforge_test(
     behavior = "compute_traceability_chain",
     verify = "trace from entity shows upstream and downstream connections"
@@ -248,7 +240,6 @@ feature beta "B" { problem "p" solution "s" behaviors [alpha] }
     );
 }
 
-#[test]
 #[specforge_test(
     behavior = "compute_traceability_chain",
     verify = "trace from entity shows upstream and downstream connections"
@@ -283,7 +274,6 @@ fn trace_multi_kind_chain_preserves_entity_kind() {
     }
 }
 
-#[test]
 #[specforge_test(
     behavior = "trace_entity_dependencies",
     verify = "trace output includes schema version"

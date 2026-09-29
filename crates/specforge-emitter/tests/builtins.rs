@@ -102,7 +102,6 @@ fn governance_extension_loads_via_protocol() {
     assert!(diags.is_empty(), "consistency errors: {:?}", diags);
 }
 
-#[test]
 #[specforge_test_macros::test(
     behavior = "ct_declare_cargo_collector",
     verify = "cargo-test declares its collector"

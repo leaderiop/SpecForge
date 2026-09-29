@@ -91,7 +91,6 @@ impl DeltaSubscriber for AffectedFilesRecorder {
 // ── subscriber receives delta notification ────────────────────
 
 #[spec(behavior = "notify_delta_subscribers")]
-#[test]
 fn subscriber_receives_delta_notification() {
     let count = Arc::new(AtomicUsize::new(0));
     let subscriber = CountingSubscriber {
@@ -110,7 +109,6 @@ fn subscriber_receives_delta_notification() {
 // ── multiple subscribers all notified ─────────────────────────
 
 #[spec(behavior = "notify_delta_subscribers")]
-#[test]
 fn multiple_subscribers_all_notified() {
     let count = Arc::new(AtomicUsize::new(0));
     let subscribers: Vec<Box<dyn DeltaSubscriber>> = (0..3)
@@ -135,7 +133,6 @@ fn multiple_subscribers_all_notified() {
     behavior = "notify_delta_subscribers",
     verify = "slow subscriber does not block pipeline"
 )]
-#[test]
 fn slow_subscriber_does_not_block_other_subscribers() {
     let fast_count = Arc::new(AtomicUsize::new(0));
     let slow_done = Arc::new(AtomicUsize::new(0));
@@ -164,7 +161,6 @@ fn slow_subscriber_does_not_block_other_subscribers() {
     behavior = "notify_delta_subscribers",
     verify = "LSP receives semantic token updates for affected files"
 )]
-#[test]
 fn lsp_subscriber_receives_affected_files() {
     let files = Arc::new(Mutex::new(Vec::new()));
     let subscriber = AffectedFilesRecorder {
@@ -195,7 +191,6 @@ fn lsp_subscriber_receives_affected_files() {
     behavior = "notify_delta_subscribers",
     verify = "diagnostics delta includes added and removed"
 )]
-#[test]
 fn diagnostics_delta_includes_added_and_removed() {
     let old_diags = vec![
         make_diag("E001", "a.spec", 1),
@@ -217,7 +212,6 @@ fn diagnostics_delta_includes_added_and_removed() {
 }
 
 #[spec(behavior = "notify_delta_subscribers")]
-#[test]
 fn no_changes_produces_empty_diagnostics_delta() {
     let diags = vec![make_diag("E001", "a.spec", 1)];
     let delta = compute_diagnostics_delta(&diags, &diags);

@@ -3,7 +3,6 @@ use specforge_test_macros::test as specforge_test;
 
 // --- Phase 1c: Edge types from reference-list fields, DOT labels, multi-hop ---
 
-#[test]
 #[specforge_test(
     behavior = "export_agent_graph_format",
     verify = "graph format includes all nodes and edges"
@@ -48,7 +47,6 @@ feature gamma "G" { behaviors [alpha, beta] }
     assert!(targets.contains(&"beta"));
 }
 
-#[test]
 #[specforge_test(
     behavior = "export_agent_graph_format",
     verify = "graph format includes all nodes and edges"
@@ -78,7 +76,6 @@ behavior parse_input "P" {
     assert_eq!(edges[0]["target"], "fast_parsing");
 }
 
-#[test]
 #[specforge_test(
     behavior = "export_agent_graph_format",
     verify = "graph format includes all nodes and edges"
@@ -111,7 +108,6 @@ invariant refs_resolved "RR" {
     assert_eq!(edges[0]["target"], "validate");
 }
 
-#[test]
 #[specforge_test(
     behavior = "export_agent_graph_format",
     verify = "graph format includes all nodes and edges"
@@ -144,7 +140,6 @@ failure_mode parser_crash "PC" {
     assert_eq!(edges[0]["target"], "parse_input");
 }
 
-#[test]
 #[specforge_test(
     behavior = "build_in_memory_graph",
     verify = "edge types match relationship semantics"
@@ -172,7 +167,6 @@ feature gamma "G" { behaviors [alpha] }
     );
 }
 
-#[test]
 #[specforge_test(
     behavior = "serialize_dot_visualization",
     verify = "edges are labeled with types"
@@ -201,7 +195,6 @@ feature gamma "G" { behaviors [alpha] }
     );
 }
 
-#[test]
 #[specforge_test(
     behavior = "compute_traceability_chain",
     verify = "trace from entity shows upstream and downstream connections"
@@ -236,7 +229,6 @@ fn trace_follows_edges_across_entity_kinds() {
     );
 }
 
-#[test]
 #[specforge_test(
     behavior = "query_graph_multi_resolution",
     verify = "depth 1 returns direct neighbors"
@@ -270,7 +262,6 @@ journey dev_journey "DJ" { description "workflow" }
     );
 }
 
-#[test]
 #[specforge_test(
     behavior = "export_agent_graph_format",
     verify = "graph format includes all nodes and edges"
@@ -312,7 +303,6 @@ invariant inv_a "I" { guarantee "always" enforced_by [validate] }
     );
 }
 
-#[test]
 #[specforge_test(
     behavior = "serialize_dot_visualization",
     verify = "nodes are labeled with IDs"
@@ -341,7 +331,6 @@ fn dot_export_all_entity_kinds_as_nodes() {
     }
 }
 
-#[test]
 #[specforge_test(
     behavior = "serialize_dot_visualization",
     verify = "nodes are labeled with IDs"
@@ -370,7 +359,6 @@ failure_mode fm "FM" { severity 1 occurrence 1 detection 1 cause "x" effect "y" 
     assert!(stdout.contains("fm"), "should have fm node");
 }
 
-#[test]
 #[specforge_test(
     behavior = "deterministic_output",
     verify = "same input produces identical output across runs"

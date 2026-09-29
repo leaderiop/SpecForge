@@ -28,7 +28,6 @@ fn node(id: &str, kind: &str, title: Option<&str>) -> Node {
 
 // B:serialize_json_graph — verify unit "output is valid JSON"
 // B:serialize_json_graph — verify unit "empty graph produces valid JSON with empty nodes and edges arrays"
-#[test]
 #[specforge_test(behavior = "serialize_json_graph", verify = "output is valid JSON")]
 fn empty_graph_produces_valid_json_with_empty_arrays() {
     let graph = Graph::new();
@@ -44,7 +43,6 @@ fn empty_graph_produces_valid_json_with_empty_arrays() {
 }
 
 // B:serialize_json_graph — verify unit "JSON output contains all nodes"
-#[test]
 #[specforge_test(
     behavior = "serialize_json_graph",
     verify = "JSON output contains all nodes"
@@ -70,7 +68,6 @@ fn json_contains_all_nodes() {
 }
 
 // B:serialize_json_graph — verify unit "JSON output contains all edges"
-#[test]
 #[specforge_test(
     behavior = "serialize_json_graph",
     verify = "JSON output contains all edges"
@@ -96,7 +93,6 @@ fn json_contains_all_edges() {
 }
 
 // B:serialize_json_graph — verify unit "output includes schema_version field"
-#[test]
 #[specforge_test(
     behavior = "serialize_json_graph",
     verify = "output includes schema_version field"
@@ -114,7 +110,6 @@ fn json_includes_schema_version() {
 
 // B:serialize_json_graph — verify unit "JSON output contains all nodes"
 // (covers field serialization within nodes)
-#[test]
 #[specforge_test(behavior = "serialize_json_graph")]
 fn json_includes_fields() {
     let mut fields = FieldMap::new();
@@ -151,7 +146,6 @@ fn json_includes_fields() {
 }
 
 // B:serialize_json_graph — verify unit "empty graph produces valid JSON with empty nodes and edges arrays"
-#[test]
 #[specforge_test(
     behavior = "serialize_json_graph",
     verify = "empty graph produces valid JSON with empty nodes and edges arrays"
@@ -166,7 +160,6 @@ fn empty_graph_valid_json_with_empty_arrays() {
 }
 
 // B:serialize_json_graph — verify unit "schema is included even for empty graph"
-#[test]
 #[specforge_test(
     behavior = "serialize_json_graph",
     verify = "schema is included even for empty graph"
@@ -183,7 +176,6 @@ fn schema_included_even_for_empty_graph() {
 }
 
 // B:serialize_json_graph — verify integration "structural-only graph (zero extensions) produces valid Graph Protocol JSON with raw keywords in kind field"
-#[test]
 #[specforge_test(
     behavior = "serialize_json_graph",
     verify = "structural-only graph (zero extensions) produces valid Graph Protocol JSON with raw keywords in kind field"
@@ -213,7 +205,6 @@ fn structural_only_graph_produces_valid_json_with_raw_keywords() {
 
 // B:serialize_json_graph — verify unit "JSON output contains all nodes"
 // (covers source location metadata within nodes)
-#[test]
 #[specforge_test(behavior = "serialize_json_graph")]
 fn json_includes_source_location() {
     let mut graph = Graph::new();

@@ -46,7 +46,6 @@ feature greeting "Greeting Feature" {
 }
 
 // B:mcp_initialize — verify unit "returns MCP-compliant init response"
-#[test]
 #[specforge_test(
     behavior = "mcp_initialize",
     verify = "returns MCP-compliant init response"
@@ -98,7 +97,6 @@ fn initialize_returns_capabilities() {
 }
 
 // B:mcp_initialize — verify unit "registers tools"
-#[test]
 #[specforge_test(
     behavior = "mcp_initialize",
     verify = "all core tools registered before accepting requests"
@@ -118,7 +116,6 @@ fn initialize_registers_tools() {
 }
 
 // B:mcp_initialize — verify unit "registers resources"
-#[test]
 #[specforge_test(
     behavior = "mcp_initialize",
     verify = "all core resources registered before accepting requests"
@@ -138,7 +135,6 @@ fn initialize_registers_resources() {
 }
 
 // B:mcp_initialize — verify unit "registers prompts"
-#[test]
 #[specforge_test(
     behavior = "mcp_initialize",
     verify = "initialization registers all tools from installed extensions"
@@ -158,7 +154,6 @@ fn initialize_registers_prompts() {
 }
 
 // B:mcp_initialize — verify unit "compiles project when projectRoot is provided"
-#[test]
 #[specforge_test(
     behavior = "mcp_initialize",
     verify = "compiles project when projectRoot is provided"
@@ -169,7 +164,6 @@ fn initialize_compiles_project() {
 }
 
 // B:mcp_shutdown — verify unit "clears state on shutdown"
-#[test]
 #[specforge_test(
     behavior = "mcp_shutdown",
     verify = "shutdown unsubscribes all active subscriptions"
@@ -182,7 +176,6 @@ fn shutdown_clears_state() {
 }
 
 // B:mcp_shutdown — verify unit "returns success response"
-#[test]
 #[specforge_test(
     behavior = "mcp_shutdown",
     verify = "shutdown completes within 5 seconds"
@@ -195,7 +188,6 @@ fn shutdown_returns_success() {
 }
 
 // B:mcp_shutdown — verify unit "rejects calls after shutdown"
-#[test]
 #[specforge_test(
     behavior = "mcp_shutdown",
     verify = "shutdown rejects new tool calls during teardown"
@@ -208,7 +200,6 @@ fn rejects_calls_after_shutdown() {
 }
 
 // B:mcp_shutdown — verify unit "double shutdown returns error"
-#[test]
 #[specforge_test(
     behavior = "mcp_shutdown",
     verify = "shutdown releases Wasm engine instances"
@@ -221,7 +212,6 @@ fn double_shutdown_returns_error() {
 }
 
 // B:guard_mcp_reinitialization — verify unit "duplicate initialize returns -32600"
-#[test]
 #[specforge_test(
     behavior = "guard_mcp_reinitialization",
     verify = "second initialize request returns -32600 error"
@@ -233,7 +223,6 @@ fn duplicate_initialize_returns_error() {
 }
 
 // B:guard_mcp_reinitialization — verify unit "can reinitialize after shutdown"
-#[test]
 #[specforge_test(
     behavior = "guard_mcp_reinitialization",
     verify = "can reinitialize after shutdown"
@@ -251,7 +240,6 @@ fn can_reinitialize_after_shutdown() {
 }
 
 // B:list_mcp_tools — verify unit "returns registered tool descriptors"
-#[test]
 #[specforge_test(
     behavior = "list_mcp_tools",
     verify = "returns all registered tool descriptors after extension load"
@@ -270,7 +258,6 @@ fn list_tools_returns_descriptors() {
 }
 
 // B:list_mcp_tools — verify unit "tools have categories"
-#[test]
 #[specforge_test(behavior = "list_mcp_tools", verify = "tools have categories")]
 fn tools_have_categories() {
     let mut server = init_server();
@@ -288,7 +275,6 @@ fn tools_have_categories() {
 }
 
 // B:list_mcp_tools — verify unit "returns error when not initialized"
-#[test]
 #[specforge_test(
     behavior = "mcp_initialize",
     verify = "initialization rejects tool calls before completion"
@@ -300,7 +286,6 @@ fn list_tools_error_when_not_initialized() {
 }
 
 // B:list_mcp_resources — verify unit "returns registered resource descriptors"
-#[test]
 #[specforge_test(
     behavior = "list_mcp_resources",
     verify = "returns all registered resource descriptors after extension load"
@@ -318,7 +303,6 @@ fn list_resources_returns_descriptors() {
 }
 
 // B:list_mcp_resources — verify unit "returns error when not initialized"
-#[test]
 #[specforge_test(
     behavior = "mcp_initialize",
     verify = "initialization rejects tool calls before completion"
@@ -330,7 +314,6 @@ fn list_resources_error_when_not_initialized() {
 }
 
 // B:list_mcp_prompts — verify unit "returns registered prompt descriptors"
-#[test]
 #[specforge_test(
     behavior = "list_mcp_prompts",
     verify = "returns all registered prompt descriptors after extension load"
@@ -348,7 +331,6 @@ fn list_prompts_returns_descriptors() {
 }
 
 // B:list_mcp_prompts — verify unit "returns error when not initialized"
-#[test]
 #[specforge_test(
     behavior = "mcp_initialize",
     verify = "initialization rejects tool calls before completion"
@@ -360,7 +342,6 @@ fn list_prompts_error_when_not_initialized() {
 }
 
 // B:mcp_initialize — verify unit "initialization rejects tool calls before completion"
-#[test]
 #[specforge_test(
     behavior = "mcp_initialize",
     verify = "initialization rejects tool calls before completion"
@@ -377,7 +358,6 @@ fn initialize_rejects_tool_calls_before_completion() {
 }
 
 // B:mcp_shutdown — verify unit "shutdown flushes pending notifications"
-#[test]
 #[specforge_test(
     behavior = "mcp_shutdown",
     verify = "shutdown flushes pending notifications"
@@ -397,7 +377,6 @@ fn shutdown_events_recorded() {
 }
 
 // B:guard_mcp_reinitialization — verify unit "existing session continues after rejected reinit"
-#[test]
 #[specforge_test(
     behavior = "guard_mcp_reinitialization",
     verify = "existing session continues after rejected reinitialization"
@@ -412,7 +391,6 @@ fn reinit_rejected_session_continues() {
 }
 
 // B:guard_mcp_reinitialization — verify unit "no resources leaked on rejected reinit"
-#[test]
 #[specforge_test(
     behavior = "guard_mcp_reinitialization",
     verify = "no resources leaked on rejected reinitialization"
@@ -434,7 +412,6 @@ fn reinit_rejected_no_resource_leak() {
 }
 
 // B:list_mcp_tools — verify unit "returns core-provided descriptors when no extensions"
-#[test]
 #[specforge_test(
     behavior = "list_mcp_tools",
     verify = "returns core-provided descriptors when no extensions installed"
@@ -456,7 +433,6 @@ fn list_tools_core_descriptors_no_extensions() {
 }
 
 // B:list_mcp_tools — verify unit "reflects tools from newly loaded extension"
-#[test]
 #[specforge_test(
     behavior = "list_mcp_tools",
     verify = "reflects tools from newly loaded extension"
@@ -470,7 +446,6 @@ fn list_tools_reflects_extension_tools() {
 }
 
 // B:list_mcp_resources — verify unit "returns core-provided descriptors when no extensions"
-#[test]
 #[specforge_test(
     behavior = "list_mcp_resources",
     verify = "returns core-provided descriptors when no extensions installed"
@@ -489,7 +464,6 @@ fn list_resources_core_descriptors_no_extensions() {
 }
 
 // B:list_mcp_resources — verify unit "reflects resources from newly loaded extension"
-#[test]
 #[specforge_test(
     behavior = "list_mcp_resources",
     verify = "reflects resources from newly loaded extension"
@@ -503,7 +477,6 @@ fn list_resources_reflects_extension_resources() {
 }
 
 // B:list_mcp_prompts — verify unit "returns core-provided descriptors when no extensions"
-#[test]
 #[specforge_test(
     behavior = "list_mcp_prompts",
     verify = "returns core-provided descriptors when no extensions installed"
@@ -524,7 +497,6 @@ fn list_prompts_core_descriptors_no_extensions() {
 }
 
 // B:list_mcp_prompts — verify unit "reflects prompts from newly loaded extension"
-#[test]
 #[specforge_test(
     behavior = "list_mcp_prompts",
     verify = "reflects prompts from newly loaded extension"
@@ -538,7 +510,6 @@ fn list_prompts_reflects_extension_prompts() {
 }
 
 // B:handle_mcp_request_cancellation — verify unit "server state remains consistent"
-#[test]
 #[specforge_test(
     behavior = "handle_mcp_request_cancellation",
     verify = "server state remains consistent after cancellation"
@@ -553,7 +524,6 @@ fn cancel_state_consistent() {
 }
 
 // B:handle_mcp_request_cancellation — verify unit "cancel returns acknowledgment for long-running operations"
-#[test]
 #[specforge_test(
     behavior = "handle_mcp_request_cancellation",
     verify = "cancelled long-running export returns partial result or acknowledgment"
@@ -570,7 +540,6 @@ fn cancel_long_running_acknowledgment() {
 }
 
 // B:handle_mcp_request_cancellation — verify unit "cancellation of in-progress request stops operation"
-#[test]
 #[specforge_test(
     behavior = "handle_mcp_request_cancellation",
     verify = "cancellation of in-progress request stops operation"
@@ -585,7 +554,6 @@ fn cancel_in_progress_best_effort() {
 }
 
 // B:handle_mcp_request_cancellation — verify unit "server state remains consistent after cancellation"
-#[test]
 #[specforge_test(
     behavior = "handle_mcp_request_cancellation",
     verify = "server state remains consistent after cancellation"
@@ -613,7 +581,6 @@ fn cancel_server_state_consistent() {
 }
 
 // B:list_mcp_resources — verify unit "returns core-provided descriptors when no extensions installed"
-#[test]
 #[specforge_test(
     behavior = "list_mcp_resources",
     verify = "returns core-provided descriptors when no extensions installed"
@@ -630,7 +597,6 @@ fn list_resources_core_only() {
 }
 
 // B:list_mcp_tools — verify unit "returns core-provided descriptors when no extensions installed"
-#[test]
 #[specforge_test(
     behavior = "list_mcp_tools",
     verify = "returns core-provided descriptors when no extensions installed"
@@ -646,7 +612,6 @@ fn list_tools_core_only() {
 }
 
 // B:list_mcp_prompts — verify unit "returns core-provided descriptors when no extensions installed"
-#[test]
 #[specforge_test(
     behavior = "list_mcp_prompts",
     verify = "returns core-provided descriptors when no extensions installed"
@@ -662,7 +627,6 @@ fn list_prompts_core_only() {
 }
 
 // B:guard_mcp_reinitialization — verify unit "existing session continues after rejected reinitialization"
-#[test]
 #[specforge_test(
     behavior = "guard_mcp_reinitialization",
     verify = "existing session continues after rejected reinitialization"
@@ -685,7 +649,6 @@ fn reinit_existing_session_continues() {
 }
 
 // B:guard_mcp_reinitialization — verify unit "no resources leaked on rejected reinitialization"
-#[test]
 #[specforge_test(
     behavior = "guard_mcp_reinitialization",
     verify = "no resources leaked on rejected reinitialization"

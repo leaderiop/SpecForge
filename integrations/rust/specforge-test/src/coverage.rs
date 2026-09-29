@@ -6,6 +6,9 @@ use crate::registry::{TestOutcome, TestRecordEntry};
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct GraphExport {
     pub entities: Vec<ExportedEntity>,
+    /// Older exports stamped the build time; current ones don't (C5-05),
+    /// and a missing field must not make the whole export unreadable.
+    #[serde(default, skip_serializing_if = "String::is_empty")]
     pub timestamp: String,
 }
 
@@ -197,7 +200,11 @@ pub fn format_coverage_summary(
         return Ok(());
     }
 
-    writeln!(w, "\n── specforge coverage (graph: {timestamp}) ──\n")?;
+    if timestamp.is_empty() {
+        writeln!(w, "\n── specforge coverage ──\n")?;
+    } else {
+        writeln!(w, "\n── specforge coverage (graph: {timestamp}) ──\n")?;
+    }
 
     let id_width = diffs
         .iter()

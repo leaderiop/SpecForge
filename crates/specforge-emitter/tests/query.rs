@@ -52,7 +52,6 @@ fn build_linear_graph() -> Graph {
 }
 
 // B:query_graph_multi_resolution — verify unit "depth 0 returns only the target entity"
-#[test]
 #[specforge_test(
     behavior = "query_graph_multi_resolution",
     verify = "depth 0 returns only the target entity"
@@ -67,7 +66,6 @@ fn depth_0_returns_only_target_entity() {
 }
 
 // B:query_graph_multi_resolution — verify unit "depth 1 returns direct neighbors"
-#[test]
 #[specforge_test(
     behavior = "query_graph_multi_resolution",
     verify = "depth 1 returns direct neighbors"
@@ -86,7 +84,6 @@ fn depth_1_returns_direct_neighbors() {
 }
 
 // B:query_graph_multi_resolution — verify unit "depth N returns all entities within N hops"
-#[test]
 #[specforge_test(
     behavior = "query_graph_multi_resolution",
     verify = "depth N returns all entities within N hops"
@@ -100,7 +97,6 @@ fn depth_n_returns_all_within_n_hops() {
 }
 
 // B:query_graph_multi_resolution — verify unit "kind filter restricts results to specified entity kinds"
-#[test]
 #[specforge_test(
     behavior = "query_graph_multi_resolution",
     verify = "kind filter restricts results to specified entity kinds"
@@ -124,7 +120,6 @@ fn kind_filter_restricts_results() {
 }
 
 // B:query_graph_multi_resolution — verify unit "multiple kind filters combine as union"
-#[test]
 #[specforge_test(
     behavior = "query_graph_multi_resolution",
     verify = "multiple kind filters combine as union"
@@ -143,7 +138,6 @@ fn multiple_kind_filters_combine_as_union() {
 
 // B:query_graph_multi_resolution — verify unit "depth 0 returns only the target entity"
 // (error case: nonexistent entity returns error)
-#[test]
 #[specforge_test(behavior = "query_graph_multi_resolution")]
 fn query_nonexistent_entity_returns_error() {
     let graph = build_linear_graph();
@@ -152,7 +146,6 @@ fn query_nonexistent_entity_returns_error() {
 }
 
 // B:query_graph_multi_resolution — verify unit "output conforms to Graph Protocol schema"
-#[test]
 #[specforge_test(
     behavior = "query_graph_multi_resolution",
     verify = "output conforms to Graph Protocol schema"
@@ -178,7 +171,6 @@ fn query_conforms_to_graph_protocol_schema() {
 }
 
 // B:query_graph_multi_resolution — verify unit "output includes schema_version field"
-#[test]
 #[specforge_test(
     behavior = "query_graph_multi_resolution",
     verify = "output includes schema_version field"
@@ -191,7 +183,6 @@ fn query_includes_schema_version() {
 }
 
 // B:query_graph_multi_resolution — verify property "querying same entity at same depth produces identical subgraph"
-#[test]
 #[specforge_test(
     behavior = "query_graph_multi_resolution",
     verify = "querying same entity at same depth produces identical subgraph"

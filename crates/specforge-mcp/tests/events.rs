@@ -49,7 +49,6 @@ fn init_server() -> McpServer {
 }
 
 // E:mcp_initialized — verify integration "mcp initialization emits event with tool counts"
-#[test]
 #[specforge_test(
     behavior = "mcp_initialized",
     verify = "mcp initialization emits event with tool counts"
@@ -60,7 +59,6 @@ fn event_mcp_initialized() {
 }
 
 // E:mcp_server_shutdown — verify integration "emits mcp_server_shutdown with correct counts when MCP server shuts down"
-#[test]
 #[specforge_test(
     behavior = "mcp_server_shutdown",
     verify = "emits mcp_server_shutdown with correct counts when MCP server shuts down"
@@ -72,7 +70,6 @@ fn event_mcp_server_shutdown() {
 }
 
 // E:mcp_initialization_failed — verify integration "emits mcp_initialization_failed when MCP server fails to initialize"
-#[test]
 #[specforge_test(
     behavior = "mcp_initialization_failed",
     verify = "emits mcp_initialization_failed when MCP server fails to initialize"
@@ -84,7 +81,6 @@ fn event_mcp_initialization_failed() {
 }
 
 // E:mcp_protocol_error_handled — verify integration "emits mcp_protocol_error_handled with correct errorCode for each error type"
-#[test]
 #[specforge_test(
     behavior = "mcp_protocol_error_handled",
     verify = "emits mcp_protocol_error_handled with correct errorCode for each error type"
@@ -96,7 +92,6 @@ fn event_mcp_protocol_error_handled() {
 }
 
 // E:mcp_request_cancelled — verify integration "emits mcp_request_cancelled with correct requestId and wasInProgress flag"
-#[test]
 #[specforge_test(
     behavior = "mcp_request_cancelled",
     verify = "emits mcp_request_cancelled with correct requestId and wasInProgress flag"
@@ -108,7 +103,6 @@ fn event_mcp_request_cancelled() {
 }
 
 // E:mcp_discovery_invoked — verify integration "emits mcp_discovery_invoked with correct discoveryType when agent lists tools, prompts, or resources"
-#[test]
 #[specforge_test(
     behavior = "mcp_discovery_invoked",
     verify = "emits mcp_discovery_invoked with correct discoveryType when agent lists tools, prompts, or resources"
@@ -120,7 +114,6 @@ fn event_mcp_discovery_invoked() {
 }
 
 // E:mcp_resource_read — verify integration "emits mcp_resource_read with correct resourceUri when agent reads any MCP resource"
-#[test]
 #[specforge_test(
     behavior = "mcp_resource_read",
     verify = "emits mcp_resource_read with correct resourceUri when agent reads any MCP resource"
@@ -136,7 +129,6 @@ fn event_mcp_resource_read() {
 }
 
 // E:mcp_tool_invoked — verify integration "emits mcp_tool_invoked with correct toolName, category, and parameters for any tool call"
-#[test]
 #[specforge_test(
     behavior = "mcp_tool_invoked",
     verify = "emits mcp_tool_invoked with correct toolName, category, and parameters for any tool call"
@@ -148,7 +140,6 @@ fn event_mcp_tool_invoked() {
 }
 
 // E:mcp_prompt_invoked — verify integration "emits mcp_prompt_invoked with correct promptName and arguments"
-#[test]
 #[specforge_test(
     behavior = "mcp_prompt_invoked",
     verify = "emits mcp_prompt_invoked with correct promptName and arguments"
@@ -188,7 +179,6 @@ fn event_mcp_prompt_invoked() {
 }
 
 // E:mcp_delta_notified — verify integration "emits mcp_delta_notified with correct notification type and delta summary"
-#[test]
 #[specforge_test(
     behavior = "mcp_delta_notified",
     verify = "emits mcp_delta_notified with correct notification type and delta summary"
@@ -222,7 +212,6 @@ fn event_mcp_delta_notified() {
 }
 
 // E:mcp_mutation_completed — verify integration "emits mcp_mutation_completed with structured outcome after each mutation tool"
-#[test]
 #[specforge_test(
     behavior = "mcp_mutation_completed",
     verify = "emits mcp_mutation_completed with structured outcome after each mutation tool"
@@ -234,7 +223,6 @@ fn event_mcp_mutation_completed() {
 }
 
 // E:mcp_subscription_created — verify integration "emits mcp_subscription_created when a client subscribes to delta notifications"
-#[test]
 #[specforge_test(
     behavior = "mcp_subscription_created",
     verify = "emits mcp_subscription_created when a client subscribes to delta notifications"
@@ -246,7 +234,6 @@ fn event_mcp_subscription_created() {
 }
 
 // E:mcp_subscription_removed — verify integration "emits mcp_subscription_removed when a client unsubscribes or server shuts down"
-#[test]
 #[specforge_test(
     behavior = "mcp_subscription_removed",
     verify = "emits mcp_subscription_removed when a client unsubscribes or server shuts down"

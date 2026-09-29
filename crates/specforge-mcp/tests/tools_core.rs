@@ -123,7 +123,6 @@ fn tool_text(resp: &Value) -> String {
 // --- specforge.query ---
 
 // B:provide_mcp_query_tool — verify unit "returns subgraph for entity"
-#[test]
 #[specforge_test(
     behavior = "provide_mcp_query_tool",
     verify = "specforge.query tool returns subgraph for valid entityId"
@@ -141,7 +140,6 @@ fn query_returns_subgraph() {
 }
 
 // B:provide_mcp_query_tool — verify unit "returns error for unknown entity"
-#[test]
 #[specforge_test(
     behavior = "provide_mcp_query_tool",
     verify = "non-existent entityId returns error response"
@@ -157,7 +155,6 @@ fn query_error_for_unknown() {
 }
 
 // B:provide_mcp_query_tool — verify unit "respects depth parameter"
-#[test]
 #[specforge_test(
     behavior = "provide_mcp_query_tool",
     verify = "depth parameter limits traversal depth"
@@ -178,7 +175,6 @@ fn query_respects_depth() {
 }
 
 // B:provide_mcp_query_tool — verify unit "respects kind filter"
-#[test]
 #[specforge_test(
     behavior = "provide_mcp_query_tool",
     verify = "kind filter restricts returned node types"
@@ -201,7 +197,6 @@ fn query_respects_kind_filter() {
 }
 
 // B:provide_mcp_query_tool — verify unit "missing entity_id returns error"
-#[test]
 #[specforge_test(
     behavior = "handle_mcp_protocol_error",
     verify = "missing required params produces -32602 Invalid params"
@@ -215,7 +210,6 @@ fn query_missing_entity_id() {
 // --- specforge.export ---
 
 // B:provide_mcp_export_tool — verify unit "exports graph format"
-#[test]
 #[specforge_test(
     behavior = "provide_mcp_export_tool",
     verify = "specforge.export tool returns graph in requested format"
@@ -237,7 +231,6 @@ fn export_graph_format() {
 }
 
 // B:provide_mcp_export_tool — verify unit "exports context format"
-#[test]
 #[specforge_test(
     behavior = "provide_mcp_export_tool",
     verify = "all three formats (context, brief, graph) supported"
@@ -255,7 +248,6 @@ fn export_context_format() {
 }
 
 // B:provide_mcp_export_tool — verify unit "exports brief format"
-#[test]
 #[specforge_test(
     behavior = "provide_mcp_export_tool",
     verify = "all three formats (context, brief, graph) supported"
@@ -269,7 +261,6 @@ fn export_brief_format() {
 }
 
 // B:provide_mcp_export_tool — verify unit "exports scoped subgraph"
-#[test]
 #[specforge_test(
     behavior = "provide_mcp_export_tool",
     verify = "scope parameter restricts to subgraph"
@@ -287,7 +278,6 @@ fn export_scoped() {
 }
 
 // B:provide_mcp_export_tool — verify unit "unknown format returns error"
-#[test]
 #[specforge_test(
     behavior = "provide_mcp_export_tool",
     verify = "unknown format returns error"
@@ -301,7 +291,6 @@ fn export_unknown_format() {
 // --- specforge.trace ---
 
 // B:provide_mcp_trace_tool — verify unit "returns trace chain"
-#[test]
 #[specforge_test(
     behavior = "provide_mcp_trace_tool",
     verify = "specforge.trace tool returns traceability chain for valid entityId"
@@ -321,7 +310,6 @@ fn trace_returns_chain() {
 }
 
 // B:provide_mcp_trace_tool — verify unit "unknown entity returns error"
-#[test]
 #[specforge_test(
     behavior = "provide_mcp_trace_tool",
     verify = "non-existent entityId returns error response"
@@ -339,7 +327,6 @@ fn trace_unknown_entity() {
 // --- specforge.search ---
 
 // B:provide_mcp_search_tool — verify unit "returns fuzzy matches"
-#[test]
 #[specforge_test(
     behavior = "provide_mcp_search_tool",
     verify = "text search finds entities matching by name or contract"
@@ -355,7 +342,6 @@ fn search_returns_matches() {
 }
 
 // B:provide_mcp_search_tool — verify unit "respects kind filter"
-#[test]
 #[specforge_test(
     behavior = "provide_mcp_search_tool",
     verify = "kind filter restricts results to matching entity kinds"
@@ -377,7 +363,6 @@ fn search_respects_kind_filter() {
 }
 
 // B:provide_mcp_search_tool — verify unit "respects limit"
-#[test]
 #[specforge_test(
     behavior = "provide_mcp_search_tool",
     verify = "limit caps the number of returned results"
@@ -395,7 +380,6 @@ fn search_respects_limit() {
 }
 
 // B:provide_mcp_search_tool — verify unit "missing query returns error"
-#[test]
 #[specforge_test(
     behavior = "provide_mcp_search_tool",
     verify = "missing query returns error"
@@ -409,7 +393,6 @@ fn search_missing_query() {
 // --- specforge.schema ---
 
 // B:provide_mcp_schema_tool — verify unit "returns schema with entity kinds"
-#[test]
 #[specforge_test(
     behavior = "provide_mcp_schema_tool",
     verify = "specforge.schema returns full GraphProtocolSchema"
@@ -423,7 +406,6 @@ fn schema_tool_returns_kinds() {
 }
 
 // B:provide_mcp_schema_tool — verify unit "respects kind filter"
-#[test]
 #[specforge_test(
     behavior = "provide_mcp_schema_tool",
     verify = "kind filter restricts schema to single entity kind"
@@ -441,7 +423,6 @@ fn schema_tool_kind_filter() {
 // --- specforge.coverage ---
 
 // B:provide_mcp_coverage_tool — verify unit "returns coverage per entity"
-#[test]
 #[specforge_test(
     behavior = "provide_mcp_coverage_tool",
     verify = "entity_id filter returns single entity coverage"
@@ -462,7 +443,6 @@ fn coverage_returns_per_entity() {
 }
 
 // B:provide_mcp_coverage_tool — verify unit "alpha has partial coverage"
-#[test]
 #[specforge_test(
     behavior = "provide_mcp_coverage_tool",
     verify = "specforge.coverage returns coverage for all testable entities"
@@ -485,7 +465,6 @@ fn coverage_alpha_partial() {
 // --- specforge.stats ---
 
 // B:provide_mcp_stats_tool — verify unit "returns project statistics"
-#[test]
 #[specforge_test(
     behavior = "provide_mcp_stats_tool",
     verify = "specforge.stats returns entity counts by kind"
@@ -502,7 +481,6 @@ fn stats_returns_statistics() {
 }
 
 // B:provide_mcp_stats_tool — verify unit "counts match graph"
-#[test]
 #[specforge_test(
     behavior = "provide_mcp_stats_tool",
     verify = "response includes coverage percentage"
@@ -517,7 +495,6 @@ fn stats_counts_match_graph() {
 }
 
 // Tool call when not initialized
-#[test]
 #[specforge_test(
     behavior = "mcp_initialize",
     verify = "initialization rejects tool calls before completion"
@@ -533,7 +510,6 @@ fn tool_call_not_initialized() {
 }
 
 // Unknown tool name
-#[test]
 #[specforge_test(
     behavior = "provide_mcp_query_tool",
     verify = "unknown tool returns error"
@@ -545,7 +521,6 @@ fn unknown_tool_returns_error() {
 }
 
 // B:provide_mcp_validate_tool — verify unit "response includes all diagnostics"
-#[test]
 #[specforge_test(
     behavior = "provide_mcp_validate_tool",
     verify = "specforge.validate tool triggers compilation"
@@ -563,7 +538,6 @@ fn validate_returns_all_diagnostics() {
 }
 
 // B:provide_mcp_validate_tool — verify unit "severity_filter restricts returned diagnostics"
-#[test]
 #[specforge_test(
     behavior = "provide_mcp_validate_tool",
     verify = "strict mode promotes warnings to errors"
@@ -578,7 +552,6 @@ fn validate_severity_filter_placeholder() {
 }
 
 // B:provide_mcp_validate_tool — verify unit "use_cached=false triggers fresh compilation"
-#[test]
 #[specforge_test(
     behavior = "provide_mcp_validate_tool",
     verify = "validate with use_cached=false triggers fresh compilation"
@@ -598,7 +571,6 @@ fn validate_use_cached_false() {
 }
 
 // B:provide_mcp_export_tool — verify unit "max_tokens truncates output"
-#[test]
 #[specforge_test(
     behavior = "provide_mcp_export_tool",
     verify = "specforge.export tool returns graph in requested format"
@@ -612,7 +584,6 @@ fn export_max_tokens_placeholder() {
 }
 
 // B:provide_mcp_trace_tool — verify unit "plan parameter triggers gap analysis"
-#[test]
 #[specforge_test(
     behavior = "provide_mcp_trace_tool",
     verify = "plan parameter triggers gap analysis"
@@ -630,7 +601,6 @@ fn trace_plan_gap_analysis() {
 }
 
 // B:provide_mcp_trace_tool — verify unit "missing links flagged in trace output"
-#[test]
 #[specforge_test(
     behavior = "provide_mcp_trace_tool",
     verify = "response includes upstream and downstream links"
@@ -651,7 +621,6 @@ fn trace_missing_links() {
 }
 
 // B:provide_mcp_search_tool — verify unit "field and value filter matches entity fields"
-#[test]
 #[specforge_test(
     behavior = "provide_mcp_search_tool",
     verify = "text search finds entities matching by name or contract"
@@ -666,7 +635,6 @@ fn search_field_filter_placeholder() {
 }
 
 // B:provide_mcp_search_tool — verify unit "empty query returns all entities up to limit"
-#[test]
 #[specforge_test(
     behavior = "provide_mcp_search_tool",
     verify = "empty query returns all entities up to limit"
@@ -682,7 +650,6 @@ fn search_empty_query_returns_all() {
 }
 
 // B:provide_mcp_search_tool — verify unit "references filter returns entities referencing target"
-#[test]
 #[specforge_test(
     behavior = "provide_mcp_search_tool",
     verify = "text search finds entities matching by name or contract"
@@ -697,7 +664,6 @@ fn search_references_filter_placeholder() {
 }
 
 // B:provide_mcp_schema_tool — verify unit "include_edges false omits edge type definitions"
-#[test]
 #[specforge_test(
     behavior = "provide_mcp_schema_tool",
     verify = "include_edges false omits edge type definitions"
@@ -712,7 +678,6 @@ fn schema_include_edges_false_placeholder() {
 }
 
 // B:provide_mcp_schema_tool — verify unit "include_validation_rules true includes rules"
-#[test]
 #[specforge_test(
     behavior = "provide_mcp_schema_tool",
     verify = "include_validation_rules true includes validation rules"
@@ -727,7 +692,6 @@ fn schema_include_validation_rules_placeholder() {
 }
 
 // B:provide_mcp_coverage_tool — verify unit "kind filter restricts to matching entity kinds"
-#[test]
 #[specforge_test(
     behavior = "provide_mcp_coverage_tool",
     verify = "kind filter restricts to matching entity kinds"
@@ -748,7 +712,6 @@ fn coverage_kind_filter() {
 }
 
 // B:provide_mcp_coverage_tool — verify unit "status_filter restricts to matching status"
-#[test]
 #[specforge_test(
     behavior = "provide_mcp_coverage_tool",
     verify = "status_filter restricts to matching coverage status"
@@ -763,7 +726,6 @@ fn coverage_status_filter_placeholder() {
 }
 
 // B:provide_mcp_stats_tool — verify unit "response includes coverage percentage"
-#[test]
 #[specforge_test(
     behavior = "provide_mcp_stats_tool",
     verify = "response includes orphan node count"
@@ -777,7 +739,6 @@ fn stats_includes_coverage_percentage() {
 }
 
 // B:provide_mcp_query_tool — verify unit "format parameter selects emitter format"
-#[test]
 #[specforge_test(
     behavior = "provide_mcp_query_tool",
     verify = "format parameter changes output serialization"
@@ -806,7 +767,6 @@ fn query_format_parameter() {
 }
 
 // B:provide_mcp_query_tool — verify unit "include_coverage annotates nodes with coverage status"
-#[test]
 #[specforge_test(
     behavior = "provide_mcp_query_tool",
     verify = "include_coverage parameter includes coverage status in response"
@@ -826,7 +786,6 @@ fn query_include_coverage() {
 }
 
 // B:provide_mcp_search_tool — verify unit "field and value filter matches entity fields"
-#[test]
 #[specforge_test(
     behavior = "provide_mcp_search_tool",
     verify = "field and value filter matches entity fields"
@@ -846,7 +805,6 @@ fn search_field_value_filter() {
 }
 
 // B:provide_mcp_search_tool — verify unit "references filter returns entities referencing target"
-#[test]
 #[specforge_test(
     behavior = "provide_mcp_search_tool",
     verify = "references filter returns entities referencing target"
@@ -866,7 +824,6 @@ fn search_references_filter() {
 }
 
 // B:provide_mcp_stats_tool — verify unit "diagnostic_summary includes severity counts"
-#[test]
 #[specforge_test(
     behavior = "provide_mcp_stats_tool",
     verify = "response includes diagnostic summary by severity"
@@ -883,7 +840,6 @@ fn stats_diagnostic_summary_severity_counts() {
 }
 
 // B:provide_mcp_trace_tool — verify unit "gaps array lists missing expected links"
-#[test]
 #[specforge_test(
     behavior = "provide_mcp_trace_tool",
     verify = "missing links flagged in trace output"
@@ -903,7 +859,6 @@ fn trace_gaps_array() {
 }
 
 // B:provide_mcp_validate_tool — verify unit "severity_filter restricts returned diagnostics"
-#[test]
 #[specforge_test(
     behavior = "provide_mcp_validate_tool",
     verify = "severity_filter restricts returned diagnostics"
@@ -934,7 +889,6 @@ fn validate_severity_filter() {
 }
 
 // B:provide_mcp_validate_tool — verify unit "use_cached returns existing diagnostics"
-#[test]
 #[specforge_test(
     behavior = "provide_mcp_validate_tool",
     verify = "validate with use_cached=true returns existing diagnostics without recompilation"
@@ -958,7 +912,6 @@ fn validate_use_cached_true() {
 }
 
 // B:provide_mcp_validate_tool — verify unit "validate recompiles and updates graph"
-#[test]
 #[specforge_test(
     behavior = "provide_mcp_validate_tool",
     verify = "response includes all diagnostics as Graph Protocol diagnostics"
@@ -974,7 +927,6 @@ fn validate_updates_graph() {
 }
 
 // B:provide_mcp_validate_tool — verify unit "validate with use_cached=false triggers fresh compilation"
-#[test]
 #[specforge_test(
     behavior = "provide_mcp_validate_tool",
     verify = "validate with use_cached=false triggers fresh compilation"
@@ -998,7 +950,6 @@ fn validate_use_cached_false_triggers_fresh() {
 }
 
 // B:provide_mcp_validate_tool — verify unit "validate with use_cached=true returns existing diagnostics without recompilation"
-#[test]
 #[specforge_test(
     behavior = "provide_mcp_validate_tool",
     verify = "validate with use_cached=true returns existing diagnostics without recompilation"
@@ -1020,7 +971,6 @@ fn validate_use_cached_true_returns_existing() {
 }
 
 // B:provide_mcp_export_tool — verify unit "max_tokens truncates output to fit token budget"
-#[test]
 #[specforge_test(
     behavior = "provide_mcp_export_tool",
     verify = "max_tokens truncates output to fit token budget"
@@ -1037,7 +987,6 @@ fn export_max_tokens_truncates() {
 }
 
 // B:provide_mcp_trace_tool — verify unit "missing links flagged in trace output"
-#[test]
 #[specforge_test(
     behavior = "provide_mcp_trace_tool",
     verify = "missing links flagged in trace output"
@@ -1055,7 +1004,6 @@ fn trace_missing_links_flagged() {
 }
 
 // B:provide_mcp_stats_tool — verify unit "response includes diagnostic summary by severity"
-#[test]
 #[specforge_test(
     behavior = "provide_mcp_stats_tool",
     verify = "response includes diagnostic summary by severity"

@@ -42,7 +42,6 @@ fn node_at(id: &str, kind: &str, file: &str, line: usize, col: usize) -> Node {
 }
 
 // B:lsp_initialize — verify contract "requires/ensures consistency for LSP initialization"
-#[test]
 #[specforge_test(
     behavior = "lsp_initialize",
     verify = "LSP Initialize: LSP initialization holds — extensions_loaded, capabilities_reflect_extensions, semantic_legend_populated, incremental_sync_advertised, lsp_initialized_emitted"
@@ -72,7 +71,6 @@ fn lsp_initialize_contract() {
 }
 
 // B:lsp_shutdown — verify contract "requires/ensures consistency for LSP shutdown"
-#[test]
 #[specforge_test(
     behavior = "lsp_shutdown",
     verify = "LSP Shutdown: LSP shutdown holds — lsp_initialized_fired, resources_released, post_shutdown_rejected, no_disk_persistence, lsp_shutdown_complete_emitted"
@@ -101,7 +99,6 @@ fn lsp_shutdown_contract() {
 }
 
 // B:document_open_close — verify contract "requires/ensures consistency for document open/close"
-#[test]
 #[specforge_test(
     behavior = "document_open_close",
     verify = "Document Open/Close: document open/close holds — lsp_initialized_fired, document_tracked, file_changed_emitted, closed_diagnostics_cleared"
@@ -125,7 +122,6 @@ fn document_open_close_contract() {
 }
 
 // B:autocomplete_entity_ids — verify contract "requires/ensures consistency for entity ID autocomplete"
-#[test]
 #[specforge_test(
     behavior = "autocomplete_entity_ids",
     verify = "Autocomplete Entity IDs: entity ID autocomplete holds — graph_available, field_registry_available, matching_ids_suggested, target_kind_filtering_applied"
@@ -148,7 +144,6 @@ fn autocomplete_entity_ids_contract() {
 }
 
 // B:complete_field_names — verify contract "requires/ensures consistency for field name completion"
-#[test]
 #[specforge_test(
     behavior = "complete_field_names",
     verify = "Complete Field Names: field name completion holds — field_registry_available, cursor_inside_entity, fields_suggested, snippets_informed"
@@ -196,7 +191,6 @@ fn complete_field_names_contract() {
 }
 
 // B:complete_keywords — verify contract "requires/ensures consistency for keyword completion"
-#[test]
 #[specforge_test(
     behavior = "complete_keywords",
     verify = "Complete Keywords: keyword completion holds — kind_registry_available, cursor_at_top_level, keywords_delegated, structural_keywords_included"
@@ -231,7 +225,6 @@ fn complete_keywords_contract() {
 }
 
 // B:hover_information — verify contract "requires/ensures consistency for hover information"
-#[test]
 #[specforge_test(
     behavior = "hover_information",
     verify = "Hover Information: hover information holds — graph_available, kind_registry_available, hover_delegated, markdown_produced"
@@ -253,7 +246,6 @@ fn hover_information_contract() {
 }
 
 // B:find_all_references — verify contract "requires/ensures consistency for find all references"
-#[test]
 #[specforge_test(
     behavior = "find_all_references",
     verify = "Find All References: find all references holds — graph_available, all_references_returned, declaration_included"
@@ -292,7 +284,6 @@ fn find_all_references_contract() {
 }
 
 // B:goto_import_definition — verify contract "requires/ensures consistency for import go-to-definition"
-#[test]
 #[specforge_test(
     behavior = "goto_import_definition",
     verify = "Go-to-Definition on Imports: import go-to-definition holds — imports_resolved, target_file_navigated"
@@ -323,7 +314,6 @@ fn goto_import_definition_contract() {
 }
 
 // B:prepare_rename — verify contract "requires/ensures consistency for prepare rename"
-#[test]
 #[specforge_test(
     behavior = "prepare_rename",
     verify = "Prepare Rename: prepare rename holds — graph_available, token_range_returned, non_renameable_rejected"
@@ -345,7 +335,6 @@ fn prepare_rename_contract() {
 }
 
 // B:rename_entity_id — verify contract "requires/ensures consistency for entity rename"
-#[test]
 #[specforge_test(
     behavior = "rename_entity_id",
     verify = "Rename Entity ID: entity rename holds — graph_available, prepare_rename_ready, all_references_updated, rename_atomic, entity_renamed_emitted"
@@ -380,7 +369,6 @@ fn rename_entity_id_contract() {
 }
 
 // B:outline_view — verify contract "requires/ensures consistency for outline view"
-#[test]
 #[specforge_test(
     behavior = "outline_view",
     verify = "Outline View: outline view holds — graph_available, kind_registry_available, all_entities_listed, symbol_kind_delegated"
@@ -403,7 +391,6 @@ fn outline_view_contract() {
 }
 
 // B:workspace_symbol_search — verify contract "requires/ensures consistency for workspace symbol search"
-#[test]
 #[specforge_test(
     behavior = "workspace_symbol_search",
     verify = "Workspace Symbol Search: workspace symbol search holds — graph_available, kind_registry_available, matching_entities_returned, symbol_kind_delegated"
@@ -425,7 +412,6 @@ fn workspace_symbol_search_contract() {
 }
 
 // B:provide_semantic_tokens — verify contract "requires/ensures consistency for semantic tokens"
-#[test]
 #[specforge_test(
     behavior = "provide_semantic_tokens",
     verify = "Provide Semantic Tokens: semantic tokens holds — graph_available, kind_registry_available, tokens_classified, structural_keywords_enforced, extension_delegation_applied"
@@ -456,7 +442,6 @@ fn provide_semantic_tokens_contract() {
 }
 
 // B:code_action_add_missing_import — verify contract "requires/ensures consistency for add missing import"
-#[test]
 #[specforge_test(
     behavior = "code_action_add_missing_import",
     verify = "Code Action: Add Missing Import: add missing import holds — graph_available, entity_exists_elsewhere, import_added"
@@ -480,7 +465,6 @@ fn code_action_add_missing_import_contract() {
 }
 
 // B:code_action_create_entity_stub — verify contract "requires/ensures consistency for create entity stub"
-#[test]
 #[specforge_test(
     behavior = "code_action_create_entity_stub",
     verify = "Code Action: Create Entity Stub: create entity stub holds — graph_available, field_registry_available, stub_created, kind_inferred, no_code_generated"
@@ -502,7 +486,6 @@ fn code_action_create_entity_stub_contract() {
 }
 
 // B:code_actions_for_missing_verify — verify contract "requires/ensures consistency for missing verify code actions"
-#[test]
 #[specforge_test(
     behavior = "code_actions_for_missing_verify",
     verify = "Code Actions for Missing Verify: missing verify code actions holds — kind_registry_available, graph_available, quickfix_offered, verify_stubs_produced, no_code_generated"
@@ -535,7 +518,6 @@ fn code_actions_for_missing_verify_contract() {
 }
 
 // B:go_to_definition — verify contract "requires/ensures consistency for go-to-definition"
-#[test]
 #[specforge_test(
     behavior = "go_to_definition",
     verify = "Go-to-Definition: go-to-definition holds — graph_available, declaration_site_returned"
@@ -563,7 +545,6 @@ fn go_to_definition_contract() {
 }
 
 // B:incremental_document_sync — verify contract "requires/ensures consistency for incremental document sync"
-#[test]
 #[specforge_test(
     behavior = "incremental_document_sync",
     verify = "Incremental Document Sync: incremental document sync holds — lsp_initialized_fired, document_open, buffer_consistent, partial_update_applied"
@@ -594,7 +575,6 @@ fn incremental_document_sync_contract() {
 }
 
 // B:live_diagnostics — verify contract "requires/ensures consistency for live diagnostics"
-#[test]
 #[specforge_test(
     behavior = "emit_live_diagnostics",
     verify = "Live Diagnostics: live diagnostics holds — lsp_initialized_fired, graph_available, diagnostics_pushed, latency_enforced"
@@ -637,7 +617,6 @@ fn live_diagnostics_contract() {
 }
 
 // B:shared_incremental_pipeline — verify contract "requires/ensures consistency for shared incremental pipeline"
-#[test]
 #[specforge_test(
     behavior = "shared_incremental_pipeline",
     verify = "Shared Incremental Pipeline: shared incremental pipeline holds — incremental_rebuild_complete_fired, shared_graph_updated, diagnostics_pushed, pipeline_parity_enforced"
@@ -687,7 +666,6 @@ fn shared_incremental_pipeline_contract() {
 }
 
 // B:load_extension_grammars_for_highlighting — verify contract "requires/ensures consistency for extension grammar loading"
-#[test]
 #[specforge_test(
     behavior = "load_extension_grammars_for_highlighting",
     verify = "Load Extension Grammars for Highlighting: extension grammar loading holds — extensions_loaded, wasm_runtime_available, grammars_cached, grammar_kind_association, loading_failures_isolated"

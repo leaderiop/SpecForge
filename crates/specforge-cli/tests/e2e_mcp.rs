@@ -9,7 +9,6 @@ fn specforge_binary() -> Command {
     Command::new(assert_cmd::cargo_bin!("specforge"))
 }
 
-#[test]
 #[specforge_test(
     behavior = "mcp_initialize",
     verify = "all core tools registered before accepting requests"
@@ -73,7 +72,6 @@ fn mcp_server_responds_to_initialize() {
     assert!(!tools.is_empty(), "core tools registered");
 }
 
-#[test]
 #[specforge_test(
     behavior = "mcp_initialize",
     verify = "all core tools registered before accepting requests"
@@ -100,7 +98,6 @@ fn mcp_initialize_without_project_root_compiles_cli_path() {
     );
 }
 
-#[test]
 #[specforge_test(
     behavior = "list_mcp_tools",
     verify = "returns all registered tool descriptors after extension load"
@@ -143,7 +140,6 @@ fn mcp_server_lists_tools() {
     );
 }
 
-#[test]
 #[specforge_test(
     behavior = "mcp_shutdown",
     verify = "shutdown flushes pending notifications"
@@ -177,7 +173,6 @@ behavior beta "Beta" { contract "second" }
 feature gamma "Gamma" { problem "p" solution "s" behaviors [alpha, beta] }
 invariant inv "Invariant" { guarantee "always" enforced_by [alpha] }"#;
 
-#[test]
 #[specforge_test(
     behavior = "handle_mcp_protocol_error",
     verify = "invalid method produces -32601 Method not found"
@@ -193,7 +188,6 @@ fn mcp_unknown_method_returns_error() {
     assert_eq!(resp["error"]["code"], -32601, "should be METHOD_NOT_FOUND");
 }
 
-#[test]
 #[specforge_test(
     behavior = "handle_mcp_protocol_error",
     verify = "malformed JSON produces -32700 Parse error"
@@ -234,7 +228,6 @@ fn mcp_invalid_json_returns_parse_error() {
     );
 }
 
-#[test]
 #[specforge_test(
     behavior = "handle_mcp_protocol_error",
     verify = "missing required params produces -32602 Invalid params"
@@ -250,7 +243,6 @@ fn mcp_tool_call_missing_name_returns_error() {
     assert_eq!(resp["error"]["code"], -32602, "should be INVALID_PARAMS");
 }
 
-#[test]
 #[specforge_test(
     behavior = "mcp_initialize",
     verify = "all core resources registered before accepting requests"
@@ -271,7 +263,6 @@ fn mcp_ping_returns_empty_object() {
 
 // --- Tool Invocations ---
 
-#[test]
 #[specforge_test(
     behavior = "provide_mcp_query_tool",
     verify = "specforge.query tool returns subgraph for valid entityId"
@@ -310,7 +301,6 @@ fn mcp_tool_query_returns_subgraph() {
     assert!(ids.contains(&"gamma"), "should include queried entity");
 }
 
-#[test]
 #[specforge_test(
     behavior = "provide_mcp_trace_tool",
     verify = "specforge.trace tool returns traceability chain for valid entityId"
@@ -342,7 +332,6 @@ fn mcp_tool_trace_returns_chain() {
     );
 }
 
-#[test]
 #[specforge_test(
     behavior = "provide_mcp_trace_tool",
     verify = "missing links flagged in trace output"
@@ -376,7 +365,6 @@ fn mcp_tool_trace_includes_gaps() {
     );
 }
 
-#[test]
 #[specforge_test(
     behavior = "provide_mcp_export_tool",
     verify = "specforge.export tool returns graph in requested format"
@@ -404,7 +392,6 @@ fn mcp_tool_export_graph_format() {
     );
 }
 
-#[test]
 #[specforge_test(
     behavior = "provide_mcp_search_tool",
     verify = "text search finds entities matching by name or contract"
@@ -445,7 +432,6 @@ fn mcp_tool_search_fuzzy_match() {
     );
 }
 
-#[test]
 #[specforge_test(
     behavior = "provide_mcp_stats_tool",
     verify = "specforge.stats returns entity counts by kind"
@@ -476,7 +462,6 @@ fn mcp_tool_stats_returns_counts() {
     );
 }
 
-#[test]
 #[specforge_test(
     behavior = "handle_mcp_protocol_error",
     verify = "server remains operational after protocol error"
@@ -507,7 +492,6 @@ fn mcp_tool_unknown_returns_error() {
 
 // --- Resource Reads ---
 
-#[test]
 #[specforge_test(
     behavior = "list_mcp_resources",
     verify = "returns all registered resource descriptors after extension load"
@@ -531,7 +515,6 @@ fn mcp_resource_list_returns_six_resources() {
     );
 }
 
-#[test]
 #[specforge_test(
     behavior = "expose_graph_as_mcp_resource",
     verify = "specforge://graph resource returns full Graph Protocol JSON"
@@ -558,7 +541,6 @@ fn mcp_resource_read_graph() {
     );
 }
 
-#[test]
 #[specforge_test(
     behavior = "expose_diagnostics_as_mcp_resource",
     verify = "specforge://diagnostics resource returns current DiagnosticBag as JSON"
@@ -581,7 +563,6 @@ fn mcp_resource_read_diagnostics() {
     );
 }
 
-#[test]
 #[specforge_test(
     behavior = "expose_entity_as_mcp_resource",
     verify = "specforge://graph/{entity_id} returns entity and its neighbors"
@@ -606,7 +587,6 @@ fn mcp_resource_read_entity_subgraph() {
 
 // --- Prompts listing ---
 
-#[test]
 #[specforge_test(
     behavior = "list_mcp_prompts",
     verify = "returns all registered prompt descriptors after extension load"
@@ -631,7 +611,6 @@ fn mcp_prompts_list_returns_prompts() {
 
 // --- Multiple requests in one session ---
 
-#[test]
 #[specforge_test(
     behavior = "mcp_initialize",
     verify = "initialization registers all tools from installed extensions"
@@ -664,7 +643,6 @@ fn mcp_multiple_requests_in_single_session() {
 // Phase 1: Navigation Tools
 // ============================================================
 
-#[test]
 #[specforge_test(
     behavior = "provide_mcp_validate_tool",
     verify = "specforge.validate tool triggers compilation"
@@ -699,7 +677,6 @@ fn mcp_tool_validate_returns_diagnostics() {
     );
 }
 
-#[test]
 #[specforge_test(
     behavior = "provide_mcp_schema_tool",
     verify = "specforge.schema returns full GraphProtocolSchema"
@@ -737,7 +714,6 @@ fn mcp_tool_schema_returns_entity_kinds() {
     );
 }
 
-#[test]
 #[specforge_test(
     behavior = "provide_mcp_coverage_tool",
     verify = "specforge.coverage returns coverage for all testable entities"
@@ -779,7 +755,6 @@ fn mcp_tool_coverage_returns_status() {
     );
 }
 
-#[test]
 #[specforge_test(
     behavior = "provide_mcp_inspect_tool",
     verify = "specforge.inspect returns full entity details"
@@ -812,7 +787,6 @@ fn mcp_tool_inspect_returns_entity_detail() {
     );
 }
 
-#[test]
 #[specforge_test(
     behavior = "provide_mcp_inspect_tool",
     verify = "non-existent entity returns error response"
@@ -839,7 +813,6 @@ fn mcp_tool_inspect_missing_entity_returns_error() {
     );
 }
 
-#[test]
 #[specforge_test(
     behavior = "provide_mcp_find_definition_tool",
     verify = "specforge.find_definition returns file, line, and column"
@@ -875,7 +848,6 @@ fn mcp_tool_find_definition_returns_location() {
     );
 }
 
-#[test]
 #[specforge_test(
     behavior = "provide_mcp_find_references_tool",
     verify = "specforge.find_references returns all reference locations"
@@ -913,7 +885,6 @@ fn mcp_tool_find_references_returns_locations() {
     );
 }
 
-#[test]
 #[specforge_test(
     behavior = "provide_mcp_outline_tool",
     verify = "specforge.outline returns all entities defined in file"
@@ -959,7 +930,6 @@ fn mcp_tool_outline_returns_entities_in_file() {
 // Phase 2: Tool Parameter Variants
 // ============================================================
 
-#[test]
 #[specforge_test(
     behavior = "provide_mcp_query_tool",
     verify = "format parameter changes output serialization"
@@ -985,7 +955,6 @@ fn mcp_tool_query_format_context() {
         .unwrap_or_else(|e| panic!("context output not valid JSON: {}\ntext: {}", e, text));
 }
 
-#[test]
 #[specforge_test(
     behavior = "provide_mcp_query_tool",
     verify = "depth parameter limits traversal depth"
@@ -1010,7 +979,6 @@ fn mcp_tool_query_format_brief() {
         .unwrap_or_else(|e| panic!("brief output not valid JSON: {}\ntext: {}", e, text));
 }
 
-#[test]
 #[specforge_test(
     behavior = "provide_mcp_query_tool",
     verify = "include_coverage parameter includes coverage status in response"
@@ -1041,7 +1009,6 @@ fn mcp_tool_query_include_coverage() {
     );
 }
 
-#[test]
 #[specforge_test(
     behavior = "provide_mcp_query_tool",
     verify = "kind filter restricts returned node types"
@@ -1077,7 +1044,6 @@ fn mcp_tool_query_with_kinds_filter() {
     }
 }
 
-#[test]
 #[specforge_test(
     behavior = "provide_mcp_export_tool",
     verify = "scope parameter restricts to subgraph"
@@ -1105,7 +1071,6 @@ fn mcp_tool_export_scoped() {
     assert!(ids.contains(&"alpha"), "scoped export should include alpha");
 }
 
-#[test]
 #[specforge_test(
     behavior = "provide_mcp_export_tool",
     verify = "all three formats (context, brief, graph) supported"
@@ -1130,7 +1095,6 @@ fn mcp_tool_export_format_context() {
         .unwrap_or_else(|e| panic!("context export not valid JSON: {}\ntext: {}", e, text));
 }
 
-#[test]
 #[specforge_test(
     behavior = "provide_mcp_search_tool",
     verify = "kind filter restricts results to matching entity kinds"
@@ -1161,7 +1125,6 @@ fn mcp_tool_search_with_kinds() {
     }
 }
 
-#[test]
 #[specforge_test(
     behavior = "provide_mcp_search_tool",
     verify = "references filter returns entities referencing target"
@@ -1196,7 +1159,6 @@ fn mcp_tool_search_references() {
 // Phase 3: Resources & Error Paths
 // ============================================================
 
-#[test]
 #[specforge_test(
     behavior = "expose_schema_as_mcp_resource",
     verify = "specforge://schema resource returns GraphProtocolSchema JSON"
@@ -1230,7 +1192,6 @@ fn mcp_resource_read_schema() {
     );
 }
 
-#[test]
 #[specforge_test(
     behavior = "expose_context_as_mcp_resource",
     verify = "specforge://context resource returns token-optimized format"
@@ -1257,7 +1218,6 @@ fn mcp_resource_read_context() {
     );
 }
 
-#[test]
 #[specforge_test(
     behavior = "expose_brief_as_mcp_resource",
     verify = "specforge://brief resource returns minimal IDs and edges format"
@@ -1284,7 +1244,6 @@ fn mcp_resource_read_brief() {
     );
 }
 
-#[test]
 #[specforge_test(
     behavior = "handle_mcp_protocol_error",
     verify = "returns -32600 for invalid request"
@@ -1304,7 +1263,6 @@ fn mcp_resource_read_unknown_uri_returns_error() {
     assert_eq!(resp["error"]["code"], -32602, "should be INVALID_PARAMS");
 }
 
-#[test]
 #[specforge_test(
     behavior = "handle_mcp_protocol_error",
     verify = "error response does not leak internal state"
@@ -1320,7 +1278,6 @@ fn mcp_resource_read_missing_uri_returns_error() {
     assert_eq!(resp["error"]["code"], -32602, "should be INVALID_PARAMS");
 }
 
-#[test]
 #[specforge_test(
     behavior = "expose_entity_as_mcp_resource",
     verify = "non-existent entity_id returns 404 error"
@@ -1343,7 +1300,6 @@ fn mcp_resource_read_entity_not_found() {
     assert_eq!(resp["error"]["code"], -32602, "should be INVALID_PARAMS");
 }
 
-#[test]
 #[specforge_test(
     behavior = "expose_graph_as_mcp_resource",
     verify = "output includes embedded schema and schema_version"
@@ -1381,7 +1337,6 @@ fn mcp_resource_contents_format() {
 // Phase 4: Prompts
 // ============================================================
 
-#[test]
 #[specforge_test(
     behavior = "provide_mcp_context_prompt",
     verify = "specforge://prompts/context returns structured entity context"
@@ -1418,7 +1373,6 @@ fn mcp_prompt_context_returns_messages() {
     assert_eq!(parsed["entity_id"], "alpha");
 }
 
-#[test]
 #[specforge_test(
     behavior = "provide_mcp_review_prompt",
     verify = "specforge://prompts/review returns coverage analysis"
@@ -1463,7 +1417,6 @@ fn mcp_prompt_review_returns_findings() {
     );
 }
 
-#[test]
 #[specforge_test(
     behavior = "provide_mcp_trace_prompt",
     verify = "response returns identified gaps with gap context"
@@ -1503,7 +1456,6 @@ fn mcp_prompt_trace_returns_gaps() {
     );
 }
 
-#[test]
 #[specforge_test(
     behavior = "provide_mcp_explore_prompt",
     verify = "specforge://prompts/explore returns exploration starting points"
@@ -1548,7 +1500,6 @@ fn mcp_prompt_explore_returns_starting_points() {
     );
 }
 
-#[test]
 #[specforge_test(
     behavior = "handle_mcp_protocol_error",
     verify = "returns -32603 for internal error"
@@ -1574,7 +1525,6 @@ fn mcp_prompt_unknown_returns_error() {
     assert_eq!(resp["error"]["code"], -32602, "should be INVALID_PARAMS");
 }
 
-#[test]
 #[specforge_test(
     behavior = "provide_mcp_context_prompt",
     verify = "non-existent entity returns error"
@@ -1600,7 +1550,6 @@ fn mcp_prompt_context_missing_entity_returns_error() {
     assert_eq!(resp["error"]["code"], -32602, "should be INVALID_PARAMS");
 }
 
-#[test]
 #[specforge_test(
     behavior = "provide_mcp_context_prompt",
     verify = "context prompt works with zero extensions installed"
@@ -1630,7 +1579,6 @@ fn mcp_prompt_context_entity_not_found() {
 // Phase 5: Operation Tools
 // ============================================================
 
-#[test]
 #[specforge_test(
     behavior = "provide_mcp_format_tool",
     verify = "specforge.format formats spec files"
@@ -1665,7 +1613,6 @@ fn mcp_tool_format_returns_result() {
     );
 }
 
-#[test]
 #[specforge_test(
     behavior = "provide_mcp_format_tool",
     verify = "check mode reports without modifying files"
@@ -1692,7 +1639,6 @@ fn mcp_tool_format_check_mode() {
     );
 }
 
-#[test]
 #[specforge_test(
     behavior = "provide_mcp_rename_tool",
     verify = "specforge.rename renames entity and all references"
@@ -1721,7 +1667,6 @@ fn mcp_tool_rename_returns_affected() {
     );
 }
 
-#[test]
 #[specforge_test(
     behavior = "provide_mcp_rename_tool",
     verify = "non-existent entity returns error response"
@@ -1747,7 +1692,6 @@ fn mcp_tool_rename_missing_entity_error() {
     assert_eq!(resp["error"]["code"], -32602, "should be INVALID_PARAMS");
 }
 
-#[test]
 #[specforge_test(
     behavior = "provide_mcp_rename_tool",
     verify = "invalid new_name returns validation error"
@@ -1773,7 +1717,6 @@ fn mcp_tool_rename_invalid_name_error() {
     assert_eq!(resp["error"]["code"], -32602, "should be INVALID_PARAMS");
 }
 
-#[test]
 #[specforge_test(
     behavior = "provide_mcp_init_tool",
     verify = "specforge.init creates specforge.json project"
@@ -1803,7 +1746,6 @@ fn mcp_tool_init_returns_project() {
     );
 }
 
-#[test]
 #[specforge_test(
     behavior = "provide_mcp_add_extension_tool",
     verify = "specforge.add_extension adds extension to config"
@@ -1835,7 +1777,6 @@ fn mcp_tool_add_extension_returns_installed() {
     assert_eq!(content["installed"], true);
 }
 
-#[test]
 #[specforge_test(
     behavior = "provide_mcp_add_extension_tool",
     verify = "invalid manifest returns error"
@@ -1861,7 +1802,6 @@ fn mcp_tool_add_extension_invalid_specifier() {
     assert_eq!(resp["error"]["code"], -32602, "should be INVALID_PARAMS");
 }
 
-#[test]
 #[specforge_test(
     behavior = "provide_mcp_remove_extension_tool",
     verify = "specforge.remove_extension removes extension from config"
@@ -1888,7 +1828,6 @@ fn mcp_tool_remove_extension_returns_success() {
     );
 }
 
-#[test]
 #[specforge_test(
     behavior = "provide_mcp_migrate_tool",
     verify = "specforge.migrate applies pending migrations"
@@ -1916,7 +1855,6 @@ fn mcp_tool_migrate_returns_result() {
     assert!(content["message"].is_string());
 }
 
-#[test]
 #[specforge_test(
     behavior = "provide_mcp_extensions_tool",
     verify = "specforge.extensions lists all installed extensions"
@@ -1948,7 +1886,6 @@ fn mcp_tool_extensions_returns_list() {
     );
 }
 
-#[test]
 #[specforge_test(
     behavior = "provide_mcp_providers_tool",
     verify = "specforge.providers lists all configured providers"
@@ -1975,7 +1912,6 @@ fn mcp_tool_providers_returns_list() {
     );
 }
 
-#[test]
 #[specforge_test(
     behavior = "provide_mcp_doctor_tool",
     verify = "specforge.doctor detects extension conflicts"
@@ -2007,7 +1943,6 @@ fn mcp_tool_doctor_returns_health() {
     );
 }
 
-#[test]
 #[specforge_test(
     behavior = "provide_mcp_collect_tool",
     verify = "a project without a collector returns an E058 error"
@@ -2030,7 +1965,6 @@ fn mcp_tool_collect_without_collector_errors() {
     assert!(msg.starts_with("E058"), "expected E058, got: {resp}");
 }
 
-#[test]
 #[specforge_test(
     behavior = "provide_mcp_render_tool",
     verify = "specforge.render writes output files to out_dir"
@@ -2062,7 +1996,6 @@ fn mcp_tool_render_returns_output() {
 // Phase 6: Suggest Fixes + Parameter Variants
 // ============================================================
 
-#[test]
 #[specforge_test(
     behavior = "provide_mcp_suggest_fixes_tool",
     verify = "clean entity with no diagnostics returns empty list"
@@ -2089,7 +2022,6 @@ fn mcp_tool_suggest_fixes_returns_array() {
     );
 }
 
-#[test]
 #[specforge_test(
     behavior = "provide_mcp_validate_tool",
     verify = "severity_filter restricts returned diagnostics"
@@ -2127,7 +2059,6 @@ fn mcp_tool_validate_severity_filter() {
     }
 }
 
-#[test]
 #[specforge_test(
     behavior = "provide_mcp_coverage_tool",
     verify = "kind filter restricts to matching entity kinds"
@@ -2159,7 +2090,6 @@ fn mcp_tool_coverage_kind_filter() {
     }
 }
 
-#[test]
 #[specforge_test(
     behavior = "provide_mcp_schema_tool",
     verify = "kind filter restricts schema to single entity kind"
@@ -2195,7 +2125,6 @@ fn mcp_tool_schema_kind_filter() {
     );
 }
 
-#[test]
 #[specforge_test(
     behavior = "provide_mcp_export_tool",
     verify = "max_tokens truncates output to fit token budget"
@@ -2220,7 +2149,6 @@ fn mcp_tool_export_format_brief() {
         .unwrap_or_else(|e| panic!("brief export not valid JSON: {}\ntext: {}", e, text));
 }
 
-#[test]
 #[specforge_test(
     behavior = "provide_mcp_search_tool",
     verify = "limit caps the number of returned results"
@@ -2249,7 +2177,6 @@ fn mcp_tool_search_with_limit() {
     );
 }
 
-#[test]
 #[specforge_test(
     behavior = "provide_mcp_render_tool",
     verify = "unrecognized format returns error listing available renderers"
@@ -2279,7 +2206,6 @@ fn mcp_tool_render_invalid_format() {
 // Phase 7: Lifecycle & Protocol
 // ============================================================
 
-#[test]
 #[specforge_test(
     behavior = "mcp_shutdown",
     verify = "shutdown releases Wasm engine instances"
@@ -2298,7 +2224,6 @@ fn mcp_lifecycle_shutdown() {
     assert!(resp["error"].is_null(), "shutdown should not return error");
 }
 
-#[test]
 #[specforge_test(
     behavior = "handle_mcp_request_cancellation",
     verify = "cancellation of completed request is a no-op"
@@ -2324,7 +2249,6 @@ fn mcp_lifecycle_cancel_request() {
     );
 }
 
-#[test]
 #[specforge_test(
     behavior = "guard_mcp_reinitialization",
     verify = "second initialize request returns -32600 error"
@@ -2348,7 +2272,6 @@ fn mcp_lifecycle_double_init_error() {
     assert_eq!(resp["error"]["code"], -32600, "should be INVALID_REQUEST");
 }
 
-#[test]
 #[specforge_test(
     behavior = "mcp_initialize",
     verify = "initialization rejects tool calls before completion"

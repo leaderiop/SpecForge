@@ -3,7 +3,6 @@ use specforge_test_macros::test as specforge_test;
 
 // --- Query depth tests ---
 
-#[test]
 #[specforge_test(
     behavior = "query_graph_multi_resolution",
     verify = "depth 0 returns only the target entity"
@@ -25,7 +24,6 @@ fn query_depth_0_returns_only_root() {
     assert_eq!(nodes[0]["id"], "beh_middle");
 }
 
-#[test]
 #[specforge_test(
     behavior = "query_graph_multi_resolution",
     verify = "depth 0 returns only the target entity"
@@ -47,7 +45,6 @@ fn query_depth_0_edges_behavior() {
     assert_eq!(edges.len(), 0, "depth 0 single node should have no edges");
 }
 
-#[test]
 #[specforge_test(
     behavior = "query_graph_multi_resolution",
     verify = "multiple kind filters combine as union"
@@ -83,7 +80,6 @@ fn query_multiple_kind_filters() {
     assert!(nodes.len() >= 2, "should include at least root + inv_deep");
 }
 
-#[test]
 #[specforge_test(
     behavior = "query_graph_multi_resolution",
     verify = "kind filter restricts results to specified entity kinds"
@@ -114,7 +110,6 @@ fn query_kind_filter_no_match_returns_root_only() {
     assert_eq!(nodes[0]["id"], "beh_middle");
 }
 
-#[test]
 #[specforge_test(
     behavior = "query_graph_multi_resolution",
     verify = "kind filter restricts results to specified entity kinds"
@@ -156,7 +151,6 @@ fn query_kind_filter_prunes_edges() {
     }
 }
 
-#[test]
 #[specforge_test(
     behavior = "query_graph_multi_resolution",
     verify = "depth 1 returns direct neighbors"
@@ -182,7 +176,6 @@ fn query_isolated_entity_depth_1() {
     assert_eq!(nodes[0]["id"], "isolated_node");
 }
 
-#[test]
 #[specforge_test(
     invariant = "graph_traversal_integrity",
     verify = "traversal from any node visits every reachable node exactly once"
@@ -215,7 +208,6 @@ fn query_handles_cycles() {
     );
 }
 
-#[test]
 #[specforge_test(
     behavior = "query_graph_multi_resolution",
     verify = "depth N returns all entities within N hops"
@@ -241,7 +233,6 @@ fn query_large_depth_on_small_graph() {
     );
 }
 
-#[test]
 #[specforge_test(
     behavior = "query_graph_multi_resolution",
     verify = "output includes schema_version field"
@@ -264,7 +255,6 @@ fn query_output_has_schema_version() {
     );
 }
 
-#[test]
 #[specforge_test(
     behavior = "query_graph_multi_resolution",
     verify = "output conforms to Graph Protocol schema"

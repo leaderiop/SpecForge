@@ -8,7 +8,6 @@ use specforge_test_macros::test as spec;
     behavior = "incremental_document_sync",
     verify = "incremental change applies correctly to source buffer"
 )]
-#[test]
 fn incremental_change_applies_correctly() {
     let mut buf = DocumentBuffer::new(
         "file:///test.spec".into(),
@@ -28,7 +27,6 @@ fn incremental_change_applies_correctly() {
     behavior = "incremental_document_sync",
     verify = "multiple incremental changes produce correct source"
 )]
-#[test]
 fn multiple_incremental_changes_produce_correct_source() {
     let mut buf = DocumentBuffer::new("file:///test.spec".into(), "line0\nline1\nline2\n".into());
 
@@ -45,7 +43,6 @@ fn multiple_incremental_changes_produce_correct_source() {
     behavior = "incremental_document_sync",
     verify = "incremental sync reduces transfer size vs full sync"
 )]
-#[test]
 fn incremental_sync_reduces_transfer_size() {
     let original = "behavior foo \"Foo\" {\n  contract \"old value\"\n}\n";
     let mut buf = DocumentBuffer::new("file:///test.spec".into(), original.into());
@@ -72,7 +69,6 @@ fn incremental_sync_reduces_transfer_size() {
     behavior = "incremental_document_sync",
     verify = "incremental change applies correctly to source buffer"
 )]
-#[test]
 fn utf16_columns_resolve_to_byte_offsets_after_multibyte_chars() {
     // Line 0 layout: `behavior foo "🚀世" {`
     //   `behavior foo "` = 14 UTF-16 units / 14 bytes
@@ -103,7 +99,6 @@ fn utf16_columns_resolve_to_byte_offsets_after_multibyte_chars() {
     behavior = "utf16_positions",
     verify = "word_at_position extracts words using utf16 columns"
 )]
-#[test]
 fn word_at_position_handles_utf16_columns() {
     // `contract ` = 9 units/bytes, 🚀 = 2 units/4 bytes, ` ` = 1 unit/byte,
     // `alpha_beta` spans units 12..22 (bytes 14..24).

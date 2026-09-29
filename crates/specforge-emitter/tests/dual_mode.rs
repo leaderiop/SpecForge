@@ -110,7 +110,6 @@ impl WasmRuntime for MockRuntime {
 // --- Step 6: Protocol extension loaded with MockRuntime ---
 
 // B:dual_mode_loading — verify unit "protocol extension loaded via runtime"
-#[test]
 #[specforge_test(
     behavior = "load_extension_manifests",
     verify = "installed extension manifest is loaded"
@@ -186,7 +185,6 @@ fn protocol_extension_loaded_with_runtime() {
 // --- Step 8: Error handling — protocol failures become diagnostics ---
 
 // B:dual_mode_loading — verify unit "protocol handshake trap produces E031 diagnostic"
-#[test]
 #[specforge_test(
     behavior = "load_extension_manifests",
     verify = "unloadable extension binary produces diagnostic instead of crash"
@@ -241,7 +239,6 @@ fn protocol_handshake_trap_produces_e028() {
 }
 
 // B:dual_mode_loading — verify unit "protocol version mismatch produces E031"
-#[test]
 #[specforge_test(
     behavior = "load_extension_manifests",
     verify = "unloadable extension binary produces diagnostic instead of crash"

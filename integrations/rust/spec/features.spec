@@ -6,17 +6,20 @@ feature test_annotation "Test Annotation" {
   behaviors [expand_test_attribute, record_test_result_on_drop, register_atexit_handler]
 
   problem """
-    Rust developers need a way to link their #[test] functions to spec
-    entity IDs without changing how tests run. The standard test harness
-    has no plugin API, so any solution must work alongside #[test], not
-    replace it.
+    Rust developers need a way to link their tests to spec entity IDs
+    without changing how tests run. The standard test harness has no
+    plugin API, and writing both #[test] and a linkage attribute on every
+    test is noise that invites the two to drift apart.
   """
 
   solution """
-    A proc macro #[specforge::test(behavior = "id")] that stacks alongside
-    #[test] and injects a Drop-based guard. The guard records pass/fail
-    per entity without interfering with the test harness. Works with
-    #[tokio::test], #[rstest], proptest, and other frameworks.
+    A proc macro #[specforge_test(behavior = "id", verify = "...")] that
+    registers the test itself and injects a Drop-based guard. The guard
+    records pass/fail/skipped per entity without interfering with the test
+    harness. Runner attributes such as #[tokio::test] and #[rstest] keep
+    registering their tests; the macro defers to them.
+    `specforge collect` (@specforge/cargo-test) runs the tests and reads
+    the per-binary reports.
   """
 }
 

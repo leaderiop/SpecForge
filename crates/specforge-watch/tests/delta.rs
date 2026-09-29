@@ -29,7 +29,6 @@ fn make_node(id: &str, kind: &str, file: &str, line: usize) -> Node {
     behavior = "compute_graph_delta",
     verify = "added nodes appear in delta"
 )]
-#[test]
 fn added_nodes_appear_in_delta() {
     let old = Graph::new();
     let mut new = Graph::new();
@@ -50,7 +49,6 @@ fn added_nodes_appear_in_delta() {
     behavior = "compute_graph_delta",
     verify = "removed nodes appear in delta"
 )]
-#[test]
 fn removed_nodes_appear_in_delta() {
     let mut old = Graph::new();
     old.add_node(make_node("bar", "feature", "b.spec", 5));
@@ -70,7 +68,6 @@ fn removed_nodes_appear_in_delta() {
     behavior = "compute_graph_delta",
     verify = "modified nodes list changed fields"
 )]
-#[test]
 fn modified_nodes_list_changed_fields() {
     let mut old = Graph::new();
     let mut old_node = make_node("baz", "behavior", "c.spec", 1);
@@ -105,7 +102,6 @@ fn modified_nodes_list_changed_fields() {
     behavior = "compute_graph_delta",
     verify = "added and removed edges appear in delta"
 )]
-#[test]
 fn added_and_removed_edges_appear_in_delta() {
     let mut old = Graph::new();
     old.add_node(make_node("a", "behavior", "a.spec", 1));
@@ -143,7 +139,6 @@ fn added_and_removed_edges_appear_in_delta() {
     behavior = "compute_graph_delta",
     verify = "affected files listed in delta"
 )]
-#[test]
 fn affected_files_listed_in_delta() {
     let mut old = Graph::new();
     old.add_node(make_node("x", "behavior", "file1.spec", 1));
@@ -160,7 +155,6 @@ fn affected_files_listed_in_delta() {
 // ── compute_graph_delta: deterministic sort ───────────────────
 
 #[spec(behavior = "compute_graph_delta")]
-#[test]
 fn delta_arrays_sorted_by_entity_id() {
     let old = Graph::new();
     let mut new = Graph::new();
@@ -177,7 +171,6 @@ fn delta_arrays_sorted_by_entity_id() {
 // ── compute_graph_delta: no changes ───────────────────────────
 
 #[spec(behavior = "compute_graph_delta")]
-#[test]
 fn identical_graphs_produce_empty_delta() {
     let mut old = Graph::new();
     old.add_node(make_node("same", "behavior", "a.spec", 1));
@@ -201,7 +194,6 @@ fn identical_graphs_produce_empty_delta() {
     behavior = "compute_graph_delta",
     verify = "delta_include_values=true populates old_value and new_value"
 )]
-#[test]
 fn delta_include_values_populates_old_and_new_value() {
     use specforge_watch::DeltaConfig;
 
@@ -233,7 +225,6 @@ fn delta_include_values_populates_old_and_new_value() {
     behavior = "compute_graph_delta",
     verify = "delta_include_values=false omits old_value and new_value"
 )]
-#[test]
 fn delta_default_config_omits_values() {
     let mut old = Graph::new();
     let mut old_node = make_node("x", "behavior", "a.spec", 1);
@@ -262,7 +253,6 @@ fn delta_default_config_omits_values() {
     behavior = "validate_delta_correctness",
     verify = "delta applied to old graph equals new graph"
 )]
-#[test]
 fn validate_delta_passes_for_correct_delta() {
     use specforge_watch::validate_delta_correctness;
 
@@ -279,7 +269,6 @@ fn validate_delta_passes_for_correct_delta() {
     behavior = "validate_delta_correctness",
     verify = "successful validation emits delta_validation_passed with node and edge counts"
 )]
-#[test]
 fn successful_validation_returns_node_and_edge_counts() {
     use specforge_watch::validate_delta_correctness;
 
@@ -304,7 +293,6 @@ fn successful_validation_returns_node_and_edge_counts() {
     behavior = "validate_delta_correctness",
     verify = "discrepancy triggers debug assertion with descriptive message"
 )]
-#[test]
 fn validate_delta_fails_for_wrong_node_count() {
     use specforge_watch::{NodeChange, validate_delta_correctness};
 
@@ -342,7 +330,6 @@ fn validate_delta_fails_for_wrong_node_count() {
     behavior = "validate_delta_correctness",
     verify = "discrepancy triggers debug assertion with descriptive message"
 )]
-#[test]
 fn validate_delta_fails_for_wrong_edge_count() {
     use specforge_watch::validate_delta_correctness;
 
@@ -383,7 +370,6 @@ fn validate_delta_fails_for_wrong_edge_count() {
     behavior = "validate_delta_correctness",
     verify = "discrepancy triggers debug assertion with descriptive message"
 )]
-#[test]
 fn validate_delta_fails_when_added_node_missing_from_new_graph() {
     use specforge_watch::{NodeChange, validate_delta_correctness};
 
@@ -425,7 +411,6 @@ fn validate_delta_fails_when_added_node_missing_from_new_graph() {
     behavior = "validate_delta_correctness",
     verify = "check disabled in release builds"
 )]
-#[test]
 fn validate_delta_disabled_skips_checks() {
     use specforge_watch::validate_delta_correctness_if_enabled;
 
@@ -466,7 +451,6 @@ fn validate_delta_disabled_skips_checks() {
     behavior = "validate_delta_correctness",
     verify = "discrepancy triggers debug assertion with descriptive message"
 )]
-#[test]
 fn validate_delta_fails_when_removed_node_still_in_new_graph() {
     use specforge_watch::{NodeChange, validate_delta_correctness};
 

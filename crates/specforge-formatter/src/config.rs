@@ -207,7 +207,6 @@ mod tests {
         behavior = "load_format_config",
         verify = "missing config file uses defaults"
     )]
-    #[test]
     fn test_default_config() {
         let config = FormatConfig::default();
         assert_eq!(config.indent_width, 2);
@@ -219,7 +218,6 @@ mod tests {
         behavior = "load_format_config",
         verify = "config file in project root is loaded"
     )]
-    #[test]
     fn test_config_file_in_project_root_is_loaded() {
         let tmp = TempDir::new().unwrap();
         let root = tmp.path();
@@ -240,7 +238,6 @@ mod tests {
         behavior = "load_format_config",
         verify = "config file in parent directory is discovered"
     )]
-    #[test]
     fn test_config_file_in_parent_directory_is_discovered() {
         let tmp = TempDir::new().unwrap();
         let root = tmp.path();
@@ -259,7 +256,6 @@ mod tests {
         behavior = "load_format_config",
         verify = "config outside project root is not discovered"
     )]
-    #[test]
     fn test_config_outside_project_root_is_not_discovered() {
         let tmp = TempDir::new().unwrap();
         let root = tmp.path();
@@ -280,7 +276,6 @@ mod tests {
         behavior = "load_format_config",
         verify = "invalid indent_width produces diagnostic and uses default"
     )]
-    #[test]
     fn test_invalid_indent_width_produces_diagnostic_and_uses_default() {
         let tmp = TempDir::new().unwrap();
         let root = tmp.path();
@@ -301,7 +296,6 @@ mod tests {
         behavior = "load_format_config",
         verify = "missing config file uses defaults"
     )]
-    #[test]
     fn test_missing_config_file_uses_defaults() {
         let tmp = TempDir::new().unwrap();
         let root = tmp.path();
@@ -317,7 +311,6 @@ mod tests {
         behavior = "apply_format_rules",
         verify = "indentation rules normalize to configured indent style"
     )]
-    #[test]
     fn test_indent_str_spaces() {
         let config = FormatConfig {
             indent_width: 4,
@@ -331,7 +324,6 @@ mod tests {
         behavior = "apply_format_rules",
         verify = "indentation rules normalize to configured indent style"
     )]
-    #[test]
     fn test_indent_str_tabs() {
         let config = FormatConfig {
             indent_width: 4,
@@ -347,7 +339,6 @@ mod tests {
         behavior = "load_format_config",
         verify = "Load Format Configuration: format config loading holds — project_root_available, filesystem_accessible, config_resolved, walk_bounded, invalid_values_diagnosed"
     )]
-    #[test]
     fn test_load_format_config_contract_requires_ensures() {
         let tmp = TempDir::new().unwrap();
         let root = tmp.path();
@@ -404,7 +395,6 @@ mod tests {
         behavior = "load_format_config",
         verify = "config discovery walks from formatted file directory up to specforge.json parent then stops"
     )]
-    #[test]
     fn test_config_discovery_walks_from_file_dir_up_to_project_root_then_stops() {
         let tmp = TempDir::new().unwrap();
         let root = tmp.path();

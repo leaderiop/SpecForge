@@ -3,7 +3,6 @@ use specforge_test_macros::test as specforge_test;
 
 // --- Phase 1b: All entity kinds through check/export/query/trace/stats ---
 
-#[test]
 #[specforge_test(
     behavior = "check_mode_for_ci",
     verify = "check mode produces no output files"
@@ -18,7 +17,6 @@ fn check_accepts_all_software_entity_kinds() {
         .success();
 }
 
-#[test]
 #[specforge_test(
     behavior = "check_mode_for_ci",
     verify = "check mode prints diagnostics to stderr"
@@ -35,7 +33,6 @@ fn check_accepts_all_product_entity_kinds() {
         .success();
 }
 
-#[test]
 #[specforge_test(
     behavior = "check_mode_for_ci",
     verify = "check mode works in CI environment"
@@ -52,7 +49,6 @@ fn check_accepts_all_governance_entity_kinds() {
         .success();
 }
 
-#[test]
 #[specforge_test(
     behavior = "check_mode_for_ci",
     verify = "Check Mode for CI: CI check mode holds — validation_complete_fired, no_output_files_produced, diagnostics_to_stderr, appropriate_exit_code"
@@ -67,7 +63,6 @@ fn check_full_multi_extension_project_exits_zero() {
         .success();
 }
 
-#[test]
 #[specforge_test(
     behavior = "serialize_json_graph",
     verify = "JSON output contains all nodes"
@@ -111,7 +106,6 @@ fn export_graph_includes_all_entity_kinds() {
     }
 }
 
-#[test]
 #[specforge_test(
     behavior = "export_agent_brief_format",
     verify = "brief format includes only IDs, kinds, titles, and edges"
@@ -139,7 +133,6 @@ fn export_brief_includes_all_entity_kinds() {
     }
 }
 
-#[test]
 #[specforge_test(
     behavior = "export_agent_context_format",
     verify = "context format includes entity IDs and contracts"
@@ -165,7 +158,6 @@ fn export_context_shows_contracts_for_all_kinds() {
     );
 }
 
-#[test]
 #[specforge_test(
     behavior = "query_graph_multi_resolution",
     verify = "output conforms to Graph Protocol schema"
@@ -187,7 +179,6 @@ fn query_by_kind_filter_product_entities() {
     assert_eq!(nodes[0]["kind"], "feature");
 }
 
-#[test]
 #[specforge_test(
     behavior = "query_graph_multi_resolution",
     verify = "querying same entity at same depth produces identical subgraph"
@@ -209,7 +200,6 @@ fn query_by_kind_filter_governance_entities() {
     assert_eq!(nodes[0]["kind"], "decision");
 }
 
-#[test]
 #[specforge_test(
     behavior = "compute_project_statistics",
     verify = "stats reports correct entity counts"
@@ -246,7 +236,6 @@ fn stats_entities_by_kind_counts_all_kinds() {
     assert_eq!(by_kind["behavior"], 2, "expected 2 behaviors");
 }
 
-#[test]
 #[specforge_test(
     behavior = "compute_project_statistics",
     verify = "stats reports coverage percentage"
@@ -279,7 +268,6 @@ fn stats_human_format_lists_all_kinds() {
     }
 }
 
-#[test]
 #[specforge_test(
     behavior = "check_mode_for_ci",
     verify = "check mode produces no output files"

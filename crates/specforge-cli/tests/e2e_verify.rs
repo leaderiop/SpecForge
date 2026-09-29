@@ -3,7 +3,6 @@ use specforge_test_macros::test as specforge_test;
 
 // --- Phase 2b: Verify declarations through pipeline ---
 
-#[test]
 #[specforge_test(
     behavior = "parse_verify_statements",
     verify = "parse verify statement in any entity block"
@@ -38,7 +37,6 @@ behavior parse_input "Parse Input" {
     );
 }
 
-#[test]
 #[specforge_test(
     behavior = "parse_verify_statements",
     verify = "verify kind and description extracted correctly"
@@ -67,7 +65,6 @@ behavior emit_output "Emit Output" {
     assert!(node["fields"].get("verify").is_some());
 }
 
-#[test]
 #[specforge_test(
     behavior = "parse_verify_statements",
     verify = "parse verify statement in any entity block"
@@ -96,7 +93,6 @@ behavior graph_build "Graph Build" {
     assert!(node["fields"].get("verify").is_some());
 }
 
-#[test]
 #[specforge_test(
     behavior = "parse_verify_statements",
     verify = "parse multiple verify statements in same entity"
@@ -136,7 +132,6 @@ behavior parse_input "Parse Input" {
     );
 }
 
-#[test]
 #[specforge_test(
     behavior = "export_agent_context_format",
     verify = "context format includes entity IDs and contracts"
@@ -169,7 +164,6 @@ behavior parse_input "Parse Input" {
     );
 }
 
-#[test]
 #[specforge_test(
     behavior = "compute_project_statistics",
     verify = "stats reports correct entity counts"
@@ -211,7 +205,6 @@ feature gamma "G" { behaviors [alpha, beta] }
     );
 }
 
-#[test]
 #[specforge_test(
     behavior = "parse_verify_statements",
     verify = "parse verify statement in any entity block"
@@ -243,7 +236,6 @@ invariant graph_acyclic "Graph Acyclicity" {
     );
 }
 
-#[test]
 #[specforge_test(
     behavior = "export_agent_graph_format",
     verify = "graph format includes all fields and metadata"

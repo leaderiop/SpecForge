@@ -14,7 +14,6 @@ fn span() -> SourceSpan {
 }
 
 // B:export_agent_graph_format — verify unit "graph format includes all fields and metadata"
-#[test]
 #[specforge_test(
     behavior = "export_agent_graph_format",
     verify = "graph format includes all fields and metadata"
@@ -58,7 +57,6 @@ fn emit_graph_includes_all_fields_and_metadata() {
 
 // B:export_agent_graph_format — verify unit "graph format includes all nodes and edges"
 // (graph format is identical to full JSON — validates full fidelity)
-#[test]
 #[specforge_test(
     behavior = "export_agent_graph_format",
     verify = "graph format includes all nodes and edges"
@@ -84,7 +82,6 @@ fn emit_graph_equals_emit_json() {
 }
 
 // B:export_agent_graph_format — verify unit "output conforms to Graph Protocol schema"
-#[test]
 #[specforge_test(
     behavior = "export_agent_graph_format",
     verify = "output conforms to Graph Protocol schema"
@@ -140,7 +137,6 @@ fn graph_format_conforms_to_graph_protocol_schema() {
 }
 
 // B:export_agent_graph_format — verify unit "output includes schema_version field"
-#[test]
 #[specforge_test(
     behavior = "export_agent_graph_format",
     verify = "output includes schema_version field"
@@ -170,7 +166,6 @@ fn graph_format_includes_schema_version() {
 }
 
 // B:export_agent_graph_format — verify unit "non-existent scope entity produces E003 and exit code 1"
-#[test]
 #[specforge_test(
     behavior = "export_agent_graph_format",
     verify = "non-existent scope entity produces E003 and exit code 1"
@@ -204,7 +199,6 @@ fn graph_format_scoped_nonexistent_entity_produces_e001() {
 }
 
 // B:export_agent_graph_format — verify integration "structural-only graph exports valid JSON with raw keyword strings as entity kinds"
-#[test]
 #[specforge_test(
     behavior = "export_agent_graph_format",
     verify = "structural-only graph exports valid JSON with raw keyword strings as entity kinds"

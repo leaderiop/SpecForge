@@ -599,10 +599,10 @@ term t_rpn "RPN" {
 
 term t_specforge_test "specforge-test" {
   definition """
-    A runtime Rust crate published on crates.io that provides the
-    #[specforge::test("entity_id")] proc macro attribute and the
-    Drop-based TestGuard for recording test results. Part of the
-    Rust extension for SpecForge.
+    The runtime Rust crate that provides the #[specforge_test(...)]
+    attribute (re-exported from specforge-test-macros) and the
+    Drop-based TestGuard for recording test results. The attribute
+    registers the test itself; @specforge/cargo-test collects the results.
   """
   aliases ["specforge test crate"]
   see_also   [t_specforge_test_macros, t_test_guard]
@@ -610,9 +610,9 @@ term t_specforge_test "specforge-test" {
 
 term t_specforge_test_macros "specforge-test-macros" {
   definition """
-    A proc macro Rust crate published on crates.io that contains the
-    attribute macro implementation for #[specforge::test]. Depends on
-    specforge-test for the runtime guard.
+    The proc macro Rust crate that implements the #[specforge_test]
+    attribute. Its expansion calls into specforge-test for the runtime
+    guard.
   """
   aliases ["specforge test macros crate"]
 }

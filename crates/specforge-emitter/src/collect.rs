@@ -14,6 +14,7 @@ use specforge_common::{Diagnostic, Severity};
 use specforge_registry::ManifestV2;
 use std::collections::{BTreeMap, BTreeSet, HashSet};
 use std::path::{Component, Path, PathBuf};
+use std::time::SystemTime;
 
 /// Where `collect` writes the merged results `analyze` reads.
 pub const REPORT_FILE: &str = "specforge-report.json";
@@ -213,16 +214,26 @@ pub enum RunnerOutput {
     Discard,
 }
 
-/// Run the collector's declared command in the project root. Stale reports
-/// at the declared location are removed first so an old report can never
-/// pass for a new run. Returns the runner's exit code; a non-zero code is
-/// normal when tests fail.
+/// What running a collector's command produced.
+#[derive(Debug, Clone, Copy)]
+pub struct Ran {
+    /// The runner's exit code; non-zero is normal when tests fail.
+    pub exit_code: Option<i32>,
+    /// When the command started: a report directory is only read for
+    /// files written since, so an old report can never pass for a new run.
+    pub started: SystemTime,
+}
+
+/// Run the collector's declared command in the project root. A report
+/// *file* left by an earlier run is removed first; a report *directory* is
+/// left alone (other tools may keep files there) and filtered by
+/// modification time when it's read.
 pub fn run(
     collector: &Collector,
     root: &Path,
     report: &Path,
     output: RunnerOutput,
-) -> Result<Option<i32>, String> {
+) -> Result<Ran, String> {
     let argv = command_line(collector, report);
     let Some((program, args)) = argv.split_first() else {
         return Err(format!(
@@ -230,7 +241,9 @@ pub fn run(
             collector.name, collector.extension
         ));
     };
-    clear_report(report)?;
+    if report.is_file() {
+        std::fs::remove_file(report).map_err(|e| format!("{}: {e}", report.display()))?;
+    }
     if let Some(parent) = report.parent() {
         std::fs::create_dir_all(parent).map_err(|e| format!("{}: {e}", parent.display()))?;
     }
@@ -249,21 +262,14 @@ pub fn run(
                 .stderr(std::process::Stdio::null());
         }
     }
+    let started = SystemTime::now();
     let status = cmd
         .status()
         .map_err(|e| format!("failed to run `{}`: {e}", argv.join(" ")))?;
-    Ok(status.code())
-}
-
-fn clear_report(report: &Path) -> Result<(), String> {
-    if report.is_dir() {
-        for path in json_files(report) {
-            std::fs::remove_file(&path).map_err(|e| format!("{}: {e}", path.display()))?;
-        }
-    } else if report.is_file() {
-        std::fs::remove_file(report).map_err(|e| format!("{}: {e}", report.display()))?;
-    }
-    Ok(())
+    Ok(Ran {
+        exit_code: status.code(),
+        started,
+    })
 }
 
 fn json_files(dir: &Path) -> Vec<PathBuf> {
@@ -288,10 +294,22 @@ pub struct ReportFile {
 }
 
 /// Read the report at `report`: the file itself, or every `*.json` file
-/// directly inside a directory. Paths are reported relative to `root`.
-pub fn read_report(report: &Path, root: &Path) -> Result<Vec<ReportFile>, String> {
+/// directly inside a directory, only those modified at or after `since`
+/// when given. Paths are reported relative to `root`.
+pub fn read_report(
+    report: &Path,
+    root: &Path,
+    since: Option<SystemTime>,
+) -> Result<Vec<ReportFile>, String> {
+    let fresh = |path: &PathBuf| {
+        since.is_none_or(|since| {
+            std::fs::metadata(path)
+                .and_then(|m| m.modified())
+                .is_ok_and(|modified| modified >= since)
+        })
+    };
     let paths = if report.is_dir() {
-        json_files(report)
+        json_files(report).into_iter().filter(fresh).collect()
     } else if report.is_file() {
         vec![report.to_path_buf()]
     } else {
@@ -544,6 +562,7 @@ pub fn collect(
         let report_at = report_path(collector, root).map_err(|m| fail("E058", m))?;
         let argv = command_line(collector, &report_at);
         let mut exit_code = None;
+        let mut since = None;
         if let Mode::Run(output) = request.mode {
             if !approve(collector, &argv) {
                 return Err(fail(
@@ -556,16 +575,18 @@ pub fn collect(
                 ));
             }
             announce(collector, &argv);
-            exit_code = run(collector, root, &report_at, output).map_err(|m| fail("E045", m))?;
+            let ran = run(collector, root, &report_at, output).map_err(|m| fail("E045", m))?;
+            exit_code = ran.exit_code;
+            since = Some(ran.started);
         }
 
         let files = match request.mode {
             Mode::Reports(paths) => paths
                 .iter()
-                .map(|p| read_report(p, root))
+                .map(|p| read_report(p, root, None))
                 .collect::<Result<Vec<_>, _>>()
                 .map(|files| files.into_iter().flatten().collect()),
-            _ => read_report(&report_at, root),
+            _ => read_report(&report_at, root, since),
         }
         .map_err(|m| fail("E045", m))?;
         if files.is_empty() {
@@ -695,7 +716,6 @@ mod tests {
         }
     }
 
-    #[test]
     #[specforge_test(
         behavior = "auto_detect_collector",
         verify = "wildcards match within the last path segment"
@@ -708,7 +728,6 @@ mod tests {
         assert!(!wildcard("a*a", "a"));
     }
 
-    #[test]
     #[specforge_test(
         behavior = "auto_detect_collector",
         verify = "file pattern match selects collector"
@@ -721,7 +740,6 @@ mod tests {
         assert_eq!(detect(&all, dir.path()).len(), 1);
     }
 
-    #[test]
     #[specforge_test(
         behavior = "run_collector_command",
         verify = "report path must stay inside the project"
@@ -736,7 +754,6 @@ mod tests {
         assert!(report_path(&collector("/etc/r.json"), root).is_err());
     }
 
-    #[test]
     #[specforge_test(
         behavior = "run_collector_command",
         verify = "command line expands the report placeholder"
@@ -746,7 +763,6 @@ mod tests {
         assert_eq!(argv, vec!["acme", "--out=/p/r.json"]);
     }
 
-    #[test]
     #[specforge_test(
         behavior = "approve_collector_command",
         verify = "consent is keyed by project, extension and command"
@@ -769,7 +785,6 @@ mod tests {
         assert_eq!(load_consent(&store).approved.len(), 1, "approval replaced");
     }
 
-    #[test]
     #[specforge_test(
         behavior = "dispatch_collector",
         verify = "reads a file or every json file in a directory"
@@ -781,22 +796,21 @@ mod tests {
         std::fs::write(reports.join("b.json"), "{}").unwrap();
         std::fs::write(reports.join("a.json"), "[]").unwrap();
         std::fs::write(reports.join("notes.txt"), "x").unwrap();
-        let files = read_report(&reports, dir.path()).unwrap();
+        let files = read_report(&reports, dir.path(), None).unwrap();
         let paths: Vec<&str> = files.iter().map(|f| f.path.as_str()).collect();
         assert_eq!(paths, vec!["out/a.json", "out/b.json"]);
         assert!(
-            read_report(&dir.path().join("none.json"), dir.path())
+            read_report(&dir.path().join("none.json"), dir.path(), None)
                 .unwrap()
                 .is_empty()
         );
     }
 
-    #[test]
     #[specforge_test(
         behavior = "run_collector_command",
-        verify = "run clears stale reports and sets the report env"
+        verify = "run ignores stale reports and sets the report env"
     )]
-    fn run_clears_stale_reports_and_sets_the_report_env() {
+    fn run_ignores_stale_reports_and_sets_the_report_env() {
         let dir = tempfile::tempdir().unwrap();
         let report = dir.path().join("r.json");
         std::fs::write(&report, "stale").unwrap();
@@ -806,9 +820,27 @@ mod tests {
             "-c".into(),
             format!("test ! -e {{report}} && printf fresh > \"${REPORT_ENV}\""),
         ];
-        let code = run(&c, dir.path(), &report, RunnerOutput::Discard).unwrap();
-        assert_eq!(code, Some(0));
+        let ran = run(&c, dir.path(), &report, RunnerOutput::Discard).unwrap();
+        assert_eq!(ran.exit_code, Some(0));
         assert_eq!(std::fs::read_to_string(&report).unwrap(), "fresh");
+
+        // A report directory keeps its other files; only files the run
+        // wrote are read.
+        let out = dir.path().join("out");
+        std::fs::create_dir(&out).unwrap();
+        std::fs::write(out.join("old.json"), "{}").unwrap();
+        std::fs::write(out.join("graph.json"), "{}").unwrap();
+        std::thread::sleep(std::time::Duration::from_millis(20));
+        c.run = vec![
+            "sh".into(),
+            "-c".into(),
+            format!("printf '{{}}' > \"${REPORT_ENV}/new.json\""),
+        ];
+        let ran = run(&c, dir.path(), &out, RunnerOutput::Discard).unwrap();
+        assert!(out.join("old.json").exists() && out.join("graph.json").exists());
+        let read = read_report(&out, dir.path(), Some(ran.started)).unwrap();
+        let paths: Vec<&str> = read.iter().map(|f| f.path.as_str()).collect();
+        assert_eq!(paths, vec!["out/new.json"]);
     }
 
     fn collected(entries: &[(&str, &str, &str)]) -> CollectedResults {
@@ -832,7 +864,6 @@ mod tests {
         }
     }
 
-    #[test]
     #[specforge_test(
         behavior = "ingest_collector_report",
         verify = "merge replaces only the same runner"
@@ -888,7 +919,6 @@ mod tests {
         }
     }
 
-    #[test]
     #[specforge_test(
         invariant = "collector_output_conformance",
         verify = "unknown entity ID in collector entry produces W115"
@@ -908,7 +938,6 @@ mod tests {
         assert!(report.results.is_empty());
     }
 
-    #[test]
     #[specforge_test(
         invariant = "collector_output_conformance",
         verify = "skipped tests are not recorded as proof"

@@ -48,7 +48,6 @@ fn node_with_verify(id: &str, kind: &str) -> Node {
 }
 
 // B:compute_project_statistics — verify unit "stats reports correct entity counts"
-#[test]
 #[specforge_test(
     behavior = "compute_project_statistics",
     verify = "stats reports correct entity counts"
@@ -67,7 +66,6 @@ fn stats_reports_correct_entity_counts() {
 
 // B:compute_project_statistics — verify unit "stats reports correct entity counts"
 // (covers edge count reporting)
-#[test]
 #[specforge_test(behavior = "compute_project_statistics")]
 fn stats_reports_edge_count() {
     let mut graph = Graph::new();
@@ -84,7 +82,6 @@ fn stats_reports_edge_count() {
 }
 
 // B:compute_project_statistics — verify unit "stats reports orphan count"
-#[test]
 #[specforge_test(
     behavior = "compute_project_statistics",
     verify = "stats reports orphan count"
@@ -106,7 +103,6 @@ fn stats_reports_orphan_count() {
 
 // B:compute_project_statistics — verify unit "stats reports coverage percentage"
 // (covers verified entity counting for coverage computation)
-#[test]
 #[specforge_test(behavior = "compute_project_statistics")]
 fn stats_reports_verified_count() {
     let mut graph = Graph::new();
@@ -119,7 +115,6 @@ fn stats_reports_verified_count() {
 
 // B:compute_project_statistics — verify unit "stats reports correct entity counts"
 // (edge case: empty graph)
-#[test]
 #[specforge_test(behavior = "compute_project_statistics")]
 fn stats_on_empty_graph() {
     let graph = Graph::new();
@@ -131,7 +126,6 @@ fn stats_on_empty_graph() {
 }
 
 // B:compute_project_statistics — verify unit "stats reports coverage percentage"
-#[test]
 #[specforge_test(
     behavior = "compute_project_statistics",
     verify = "stats reports coverage percentage"
@@ -151,7 +145,6 @@ fn stats_coverage_with_testable_kinds() {
 }
 
 // B:compute_project_statistics — verify unit "coverage is 0% when testable_entity_count is zero"
-#[test]
 #[specforge_test(
     behavior = "compute_project_statistics",
     verify = "coverage is 0% when testable_entity_count is zero"
@@ -167,7 +160,6 @@ fn stats_coverage_zero_when_no_testable_entities() {
 }
 
 // B:compute_project_statistics — verify unit "stats reports diagnostic summary"
-#[test]
 #[specforge_test(
     behavior = "compute_project_statistics",
     verify = "stats reports diagnostic summary"

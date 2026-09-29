@@ -151,7 +151,6 @@ fn collect_without_a_runner_extension_is_e058() {
         ));
 }
 
-#[test]
 #[specforge_test(
     behavior = "auto_detect_collector",
     verify = "no match emits E058 with available collectors"
@@ -167,7 +166,6 @@ fn collect_without_detection_files_is_e058() {
     assert!(!fx.ran());
 }
 
-#[test]
 #[specforge_test(
     behavior = "approve_collector_command",
     verify = "unapproved command without a terminal fails with E059 and runs nothing"
@@ -183,7 +181,6 @@ fn unapproved_command_without_a_terminal_is_refused() {
     assert!(!fx.root().join("specforge-report.json").exists());
 }
 
-#[test]
 #[specforge_test(
     behavior = "approve_collector_command",
     verify = "--yes runs the declared command"
@@ -272,7 +269,6 @@ fn explicit_report_files_are_parsed() {
     assert!(!fx.ran());
 }
 
-#[test]
 #[specforge_test(
     behavior = "ingest_collector_report",
     verify = "collect then analyze scores the recorded tests"

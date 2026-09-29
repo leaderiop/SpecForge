@@ -7,7 +7,6 @@ use specforge_test_macros::test as spec;
     behavior = "provide_semantic_tokens",
     verify = "entity keywords classified as 'type'"
 )]
-#[test]
 fn entity_keywords_classified_as_type() {
     let tokens = specforge_lsp::classify_tokens("behavior foo \"Foo\" {\n}\n", &["behavior"]);
     let tok = tokens.iter().find(|t| t.text == "behavior").unwrap();
@@ -18,7 +17,6 @@ fn entity_keywords_classified_as_type() {
     behavior = "provide_semantic_tokens",
     verify = "structural keywords are classified as keyword"
 )]
-#[test]
 fn structural_keywords_classified() {
     let tokens = specforge_lsp::classify_tokens("use \"behaviors/core\"\n", &[]);
     assert!(
@@ -32,7 +30,6 @@ fn structural_keywords_classified() {
     behavior = "provide_semantic_tokens",
     verify = "triple-quoted strings are classified as strings"
 )]
-#[test]
 fn triple_quoted_strings_classified() {
     let tokens = specforge_lsp::classify_tokens(
         "behavior foo \"Foo\" {\n  contract \"\"\"\n    hello\n  \"\"\"\n}\n",
@@ -45,7 +42,6 @@ fn triple_quoted_strings_classified() {
     behavior = "provide_semantic_tokens",
     verify = "entity IDs classified as 'function' with declaration modifier"
 )]
-#[test]
 fn entity_ids_classified_as_function_declaration() {
     let tokens = specforge_lsp::classify_tokens("behavior foo \"Foo\" {\n}\n", &["behavior"]);
     let tok = tokens.iter().find(|t| t.text == "foo").unwrap();
@@ -61,7 +57,6 @@ fn entity_ids_classified_as_function_declaration() {
     behavior = "provide_semantic_tokens",
     verify = "enhanced fields are classified as property"
 )]
-#[test]
 fn fields_classified_as_property() {
     let tokens = specforge_lsp::classify_tokens(
         "behavior foo \"Foo\" {\n  contract \"x\"\n}\n",
@@ -78,7 +73,6 @@ fn fields_classified_as_property() {
     behavior = "provide_semantic_tokens",
     verify = "reference list items classified as 'variable' with reference modifier"
 )]
-#[test]
 fn reference_list_items_classified_as_variable() {
     let tokens = specforge_lsp::classify_tokens(
         "behavior foo \"Foo\" {\n  invariants [inv_a, inv_b]\n}\n",
@@ -100,7 +94,6 @@ fn reference_list_items_classified_as_variable() {
     behavior = "provide_semantic_tokens",
     verify = "structural keywords are classified as keyword"
 )]
-#[test]
 fn verify_keyword_classified() {
     let tokens = specforge_lsp::classify_tokens(
         "behavior foo \"Foo\" {\n  verify unit \"it works\"\n}\n",
@@ -117,7 +110,6 @@ fn verify_keyword_classified() {
     behavior = "provide_semantic_tokens",
     verify = "verify kind classified as enumMember"
 )]
-#[test]
 fn verify_kind_classified_as_enum_member() {
     let tokens = specforge_lsp::classify_tokens(
         "behavior foo \"Foo\" {\n  verify unit \"it works\"\n}\n",
@@ -131,7 +123,6 @@ fn verify_kind_classified_as_enum_member() {
     behavior = "provide_semantic_tokens",
     verify = "comments classified as comment"
 )]
-#[test]
 fn comments_classified() {
     let tokens = specforge_lsp::classify_tokens("// this is a comment\n", &[]);
     assert!(tokens.iter().any(|t| t.token_type == "comment"));
@@ -141,7 +132,6 @@ fn comments_classified() {
     behavior = "provide_semantic_tokens",
     verify = "structural keywords are classified as keyword"
 )]
-#[test]
 fn define_block_classified() {
     let tokens = specforge_lsp::classify_tokens("define MyType {\n}\n", &[]);
     assert!(
@@ -158,7 +148,6 @@ fn define_block_classified() {
     behavior = "provide_semantic_tokens",
     verify = "reference list items classified as 'variable' with reference modifier"
 )]
-#[test]
 fn multiline_reference_list() {
     let tokens = specforge_lsp::classify_tokens(
         "behavior foo \"Foo\" {\n  types [\n    type_a,\n    type_b\n  ]\n}\n",
@@ -176,7 +165,6 @@ fn multiline_reference_list() {
     behavior = "provide_semantic_tokens",
     verify = "enhanced fields are classified as property"
 )]
-#[test]
 fn field_name_before_list_classified() {
     let tokens = specforge_lsp::classify_tokens(
         "behavior foo \"Foo\" {\n  invariants [inv_a]\n}\n",
@@ -193,7 +181,6 @@ fn field_name_before_list_classified() {
     behavior = "provide_semantic_tokens",
     verify = "number values classified as number"
 )]
-#[test]
 fn number_values_classified() {
     let tokens =
         specforge_lsp::classify_tokens("behavior foo \"Foo\" {\n  risk 5\n}\n", &["behavior"]);
@@ -205,7 +192,6 @@ fn number_values_classified() {
     behavior = "provide_semantic_tokens",
     verify = "entity title strings classified as string"
 )]
-#[test]
 fn entity_title_classified_as_string() {
     let tokens = specforge_lsp::classify_tokens("behavior foo \"My Title\" {\n}\n", &["behavior"]);
     assert!(
@@ -219,7 +205,6 @@ fn entity_title_classified_as_string() {
     behavior = "provide_semantic_tokens",
     verify = "use path classified as string"
 )]
-#[test]
 fn use_path_classified_as_string() {
     let tokens = specforge_lsp::classify_tokens("use \"core/types\"\n", &[]);
     assert!(
@@ -233,7 +218,6 @@ fn use_path_classified_as_string() {
     behavior = "lsp_initialize",
     verify = "initialize response includes semantic token legend"
 )]
-#[test]
 fn token_types_constant_complete() {
     let types = specforge_lsp::TOKEN_TYPES;
     assert!(types.contains(&"keyword"));
@@ -251,7 +235,6 @@ fn token_types_constant_complete() {
     behavior = "lsp_initialize",
     verify = "initialize response includes semantic token legend"
 )]
-#[test]
 fn token_modifiers_constant_complete() {
     let mods = specforge_lsp::TOKEN_MODIFIERS;
     assert!(mods.contains(&"declaration"));

@@ -13,16 +13,23 @@ use "events"
 
 behavior expand_test_attribute "Expand Test Attribute" {
   category command
-  invariants [zero_compiler_dependency, should_panic_incompatibility]
+  invariants [zero_compiler_dependency, should_panic_expectation, single_registration]
   types      [TestGuard]
 
   contract """
-    The #[specforge::test(...)] proc macro MUST expand to inject a TestGuard
-    at the start of the annotated function body. It MUST NOT replace or
-    interfere with #[test], #[tokio::test], #[rstest], or other test
-    attributes. It MUST parse entity_kind and entity_id from the attribute
-    arguments. Multiple #[specforge::test(...)] attributes on the same
-    function MUST each produce a separate TestGuard.
+    The #[specforge_test(...)] proc macro MUST inject a TestGuard at the
+    start of the annotated function body and MUST register the function
+    as a test itself, so no separate #[test] is written (ADR 0002). It
+    MUST parse entity_kind and entity_id from the attribute arguments.
+    Multiple specforge attributes on the same function MUST each produce a
+    separate TestGuard, and only the last one registers the test. When a
+    runner attribute below it registers the test (#[tokio::test],
+    #[rstest], #[test_case]), the macro MUST defer to it. A plain #[test]
+    below it MUST be a compile error naming the attribute to remove. A
+    #[test] above it is expanded by the compiler first and is invisible to
+    the macro; the guard MUST then fail the second registration at run
+    time (single_registration). The hidden `__guard_only` flag records the
+    guard without registering a test, for functions called directly.
   """
 
   requires {
@@ -30,17 +37,19 @@ behavior expand_test_attribute "Expand Test Attribute" {
   }
 
   ensures {
-    guard_injected    "function body begins with a TestGuard::new() binding"
-    test_attr_intact  "original #[test] or framework attribute is preserved"
-    multi_attr_works  "N attributes produce N guards"
+    guard_injected     "function body begins with a TestGuard binding"
+    registers_test     "the annotated function is a test without a separate #[test]"
+    runner_attr_defers "a runner attribute below the macro registers the test instead"
+    plain_test_rejected "a plain #[test] below the macro is a compile error"
+    multi_attr_works   "N attributes produce N guards and one test"
   }
 
   verify unit "single behavior attribute expands correctly"
   verify unit "verify description attribute includes slug in guard"
   verify unit "multiple attributes on same function produce multiple guards"
-  verify unit "attribute alongside #[tokio::test] preserves async"
-  verify unit "attribute alongside #[rstest] preserves parameterization"
-  verify unit "should_panic combined with specforge::test emits compile warning"
+  verify unit "the attribute alone registers the test"
+  verify unit "a plain #[test] below the attribute is a compile error"
+  verify unit "attribute alongside #[tokio::test] defers registration"
 }
 
 behavior record_test_result_on_drop "Record Test Result on Drop" {

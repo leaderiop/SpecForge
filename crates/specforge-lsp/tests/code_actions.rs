@@ -28,7 +28,6 @@ fn node(id: &str, kind: &str, file: &str, line: usize) -> Node {
     behavior = "code_actions_for_missing_verify",
     verify = "code action offered on untested testable entity"
 )]
-#[test]
 fn missing_verify_action_offered() {
     let mut g = Graph::new();
     g.add_node(node("my_behavior", "behavior", "a.spec", 5));
@@ -42,7 +41,6 @@ fn missing_verify_action_offered() {
     behavior = "code_actions_for_missing_verify",
     verify = "generated verify stubs added to entity block in .spec file"
 )]
-#[test]
 fn missing_verify_produces_stub() {
     let mut g = Graph::new();
     g.add_node(node("my_behavior", "behavior", "a.spec", 5));
@@ -55,7 +53,6 @@ fn missing_verify_produces_stub() {
     behavior = "code_actions_for_missing_verify",
     verify = "verify stub uses allowed_verify_kinds from KindRegistry"
 )]
-#[test]
 fn verify_stub_uses_unit_kind() {
     let mut g = Graph::new();
     g.add_node(node("my_behavior", "behavior", "a.spec", 5));
@@ -68,7 +65,6 @@ fn verify_stub_uses_unit_kind() {
     behavior = "code_actions_for_missing_verify",
     verify = "stub format is verify <kind> entity_id TODO"
 )]
-#[test]
 fn verify_stub_format() {
     let mut g = Graph::new();
     g.add_node(node("my_behavior", "behavior", "a.spec", 5));
@@ -82,7 +78,6 @@ fn verify_stub_format() {
     behavior = "code_actions_for_missing_verify",
     verify = "code action kind is QuickFix"
 )]
-#[test]
 fn verify_action_is_quickfix() {
     let mut g = Graph::new();
     g.add_node(node("my_behavior", "behavior", "a.spec", 5));
@@ -95,7 +90,6 @@ fn verify_action_is_quickfix() {
     behavior = "code_actions_for_missing_verify",
     verify = "no test source files or application code generated"
 )]
-#[test]
 fn verify_action_no_code_gen() {
     let mut g = Graph::new();
     g.add_node(node("my_behavior", "behavior", "a.spec", 5));
@@ -111,7 +105,6 @@ fn verify_action_no_code_gen() {
     behavior = "code_action_add_missing_import",
     verify = "code action offered on E003 for resolvable entity"
 )]
-#[test]
 fn add_import_offered_for_resolvable_entity() {
     let mut g = Graph::new();
     g.add_node(node("auth_token", "type", "types/auth.spec", 1));
@@ -127,7 +120,6 @@ fn add_import_offered_for_resolvable_entity() {
     behavior = "code_action_add_missing_import",
     verify = "import is inserted after existing use statements"
 )]
-#[test]
 fn add_import_position() {
     let mut g = Graph::new();
     g.add_node(node("auth_token", "type", "types/auth.spec", 1));
@@ -143,7 +135,6 @@ fn add_import_position() {
     behavior = "code_action_add_missing_import",
     verify = "no code action when entity does not exist anywhere"
 )]
-#[test]
 fn no_import_for_nonexistent_entity() {
     let g = Graph::new();
     let action = specforge_lsp::code_action_add_import(&g, "nonexistent", "login.spec", "spec");
@@ -156,7 +147,6 @@ fn no_import_for_nonexistent_entity() {
     behavior = "code_action_create_entity_stub",
     verify = "code action offered on E003 for non-existent entity"
 )]
-#[test]
 fn create_stub_offered() {
     let _g = Graph::new();
     let action =
@@ -168,7 +158,6 @@ fn create_stub_offered() {
     behavior = "code_action_create_entity_stub",
     verify = "stub uses correct entity kind from FieldRegistry target_kind"
 )]
-#[test]
 fn stub_uses_correct_kind() {
     let action =
         specforge_lsp::code_action_create_stub("missing_type", Some("type"), "current.spec")
@@ -180,7 +169,6 @@ fn stub_uses_correct_kind() {
     behavior = "code_action_create_entity_stub",
     verify = "no code action when enclosing field has no target_kind"
 )]
-#[test]
 fn no_stub_without_target_kind() {
     let action = specforge_lsp::code_action_create_stub("unknown_thing", None, "current.spec");
     assert!(action.is_none());
@@ -190,7 +178,6 @@ fn no_stub_without_target_kind() {
     behavior = "code_action_create_entity_stub",
     verify = "stub is inserted at end of current file"
 )]
-#[test]
 fn stub_targets_current_file() {
     let action =
         specforge_lsp::code_action_create_stub("my_event", Some("event"), "current.spec").unwrap();
@@ -201,7 +188,6 @@ fn stub_targets_current_file() {
     behavior = "code_action_create_entity_stub",
     verify = "code action kind is Refactor"
 )]
-#[test]
 fn stub_action_is_refactor() {
     let action =
         specforge_lsp::code_action_create_stub("my_event", Some("event"), "current.spec").unwrap();
@@ -212,7 +198,6 @@ fn stub_action_is_refactor() {
     behavior = "code_action_create_entity_stub",
     verify = "generated stub contains no application code or test files"
 )]
-#[test]
 fn stub_no_app_code() {
     let action =
         specforge_lsp::code_action_create_stub("my_event", Some("event"), "current.spec").unwrap();

@@ -9,7 +9,6 @@ use specforge_validator::{Diagnostic, Severity, SourceSpan};
     behavior = "detect_orphan_refs",
     verify = "unreferenced ref produces W012"
 )]
-#[test]
 fn unreferenced_ref_produces_w012() {
     let source = r#"
 behavior alpha "A" { contract "first" }
@@ -30,7 +29,6 @@ ref gh.issue:42 "Support Wasm extensions"
     behavior = "detect_orphan_refs",
     verify = "referenced ref suppresses W012"
 )]
-#[test]
 fn referenced_ref_suppresses_w012() {
     let source = r#"
 behavior alpha "A" {
@@ -55,7 +53,6 @@ ref gh.issue:42 "Support Wasm extensions"
     behavior = "detect_orphan_refs",
     verify = "spec block is a root container and does not produce W012"
 )]
-#[test]
 fn spec_block_does_not_produce_w012() {
     // spec blocks are project root containers — they naturally have no
     // incoming edges and should NOT produce W012.
@@ -82,7 +79,6 @@ behavior alpha "A" { contract "first" }
     behavior = "detect_orphan_refs",
     verify = "structural node with at least one incoming edge suppresses W012"
 )]
-#[test]
 fn non_structural_kind_does_not_produce_w012() {
     // Extension-defined kinds (behavior, feature) are NOT structural —
     // their orphan detection is extension-defined, not core
@@ -107,7 +103,6 @@ behavior alpha "A" { contract "first" }
     behavior = "validate_file_reference_paths",
     verify = "non-existent file reference produces E016"
 )]
-#[test]
 fn missing_file_reference_produces_e016() {
     use specforge_validator::ValidatorConfig;
     use std::path::Path;
@@ -136,7 +131,6 @@ behavior alpha "A" {
     behavior = "validate_file_reference_paths",
     verify = "existing file reference passes silently"
 )]
-#[test]
 fn existing_file_reference_passes() {
     use specforge_validator::ValidatorConfig;
 
@@ -168,7 +162,6 @@ behavior alpha "A" {
     behavior = "validate_file_reference_paths",
     verify = "multiple file references in same entity each validated independently"
 )]
-#[test]
 fn multiple_file_refs_validated_independently() {
     use specforge_validator::ValidatorConfig;
 
@@ -204,7 +197,6 @@ behavior alpha "A" {
     behavior = "provide_did_you_mean_suggestions",
     verify = "close match produces suggestion"
 )]
-#[test]
 fn e016_suggests_similar_filename() {
     use specforge_validator::ValidatorConfig;
 
@@ -245,7 +237,6 @@ behavior alpha "A" {
     behavior = "provide_did_you_mean_suggestions",
     verify = "distant match produces no suggestion"
 )]
-#[test]
 fn e016_no_suggestion_when_no_similar_file() {
     use specforge_validator::ValidatorConfig;
 
@@ -285,7 +276,6 @@ behavior alpha "A" {
     behavior = "format_diagnostics_with_source_context",
     verify = "diagnostic shows file:line:col"
 )]
-#[test]
 fn diagnostic_shows_file_line_col() {
     use specforge_validator::render_diagnostics;
     use std::collections::HashMap;
@@ -317,7 +307,6 @@ feature gamma "G" { behaviors [alpha, nonexistent] }
     behavior = "format_diagnostics_with_source_context",
     verify = "context snippet highlights offending token"
 )]
-#[test]
 fn diagnostic_shows_source_context() {
     use specforge_validator::render_diagnostics;
     use std::collections::HashMap;
@@ -345,7 +334,6 @@ feature gamma "G" { behaviors [alpha, nonexistent] }
     behavior = "format_diagnostics_with_source_context",
     verify = "multi-line span shows full range"
 )]
-#[test]
 fn diagnostic_renders_multiline_span() {
     use specforge_validator::render_diagnostics;
     use std::collections::HashMap;
@@ -384,7 +372,6 @@ fn diagnostic_renders_multiline_span() {
     behavior = "aggregate_diagnostic_summary",
     verify = "summary shows correct counts"
 )]
-#[test]
 fn summary_shows_correct_counts() {
     use specforge_validator::diagnostic_summary;
 
@@ -442,7 +429,6 @@ fn summary_shows_correct_counts() {
     behavior = "aggregate_diagnostic_summary",
     verify = "summary matches actual diagnostics"
 )]
-#[test]
 fn summary_clean_project() {
     use specforge_validator::diagnostic_summary;
 
@@ -458,7 +444,6 @@ fn summary_clean_project() {
     behavior = "aggregate_diagnostic_summary",
     verify = "summary is red when errors exist"
 )]
-#[test]
 fn summary_red_when_errors_exist() {
     use specforge_validator::diagnostic_summary;
 
@@ -485,7 +470,6 @@ fn summary_red_when_errors_exist() {
     behavior = "validate_file_reference_paths",
     verify = "relative path resolved from spec file directory"
 )]
-#[test]
 fn relative_path_resolved_from_spec_root() {
     use specforge_validator::ValidatorConfig;
 
@@ -524,7 +508,6 @@ behavior alpha "A" {
     behavior = "detect_orphan_refs",
     verify = "Detect Orphan Structural Nodes: orphan structural node detection holds — graph_built_fired, orphans_detected, referenced_nodes_clean"
 )]
-#[test]
 fn orphan_refs_contract_consistency() {
     // Requires: graph_built event has fired (graph is fully constructed)
     // Ensures: all structural nodes with zero incoming edges produce W012,
@@ -560,7 +543,6 @@ ref gh.issue:42 "Linked ref"
     behavior = "validate_file_reference_paths",
     verify = "Validate File Reference Paths: file reference validation holds — graph_built_fired, filesystem_available, missing_files_diagnosed, existing_files_pass"
 )]
-#[test]
 fn file_ref_contract_consistency() {
     use specforge_validator::ValidatorConfig;
 
@@ -595,7 +577,6 @@ behavior alpha "A" {
     behavior = "format_diagnostics_with_source_context",
     verify = "Format Diagnostics with Source Context: diagnostic source context formatting holds — valid_source_span, header_present, context_snippet_present, caret_marker_present"
 )]
-#[test]
 fn diagnostic_format_contract_consistency() {
     use specforge_validator::render_diagnostics;
     use std::collections::HashMap;
@@ -634,7 +615,6 @@ fn diagnostic_format_contract_consistency() {
     behavior = "aggregate_diagnostic_summary",
     verify = "Aggregate Diagnostic Summary: diagnostic summary aggregation holds — validation_executed, counts_match"
 )]
-#[test]
 fn summary_contract_consistency() {
     use specforge_validator::diagnostic_summary;
 
@@ -693,7 +673,6 @@ fn summary_contract_consistency() {
     behavior = "provide_did_you_mean_suggestions",
     verify = "Provide Did-You-Mean Suggestions: did-you-mean suggestions holds — unresolved_reference_available, kind_registry_populated, distance_threshold, sorted_by_distance"
 )]
-#[test]
 fn did_you_mean_contract_consistency() {
     // Requires: unresolved reference available, entity IDs populated
     // Ensures: suggestions within distance threshold, no suggestion for distant matches
@@ -731,7 +710,6 @@ feature gamma "G" { behaviors [zzzzz_completely_different] }
     behavior = "provide_did_you_mean_suggestions",
     verify = "suggestion appears in help text"
 )]
-#[test]
 fn suggestion_appears_in_help_text_for_file_refs() {
     use specforge_validator::ValidatorConfig;
 
@@ -771,7 +749,6 @@ behavior login_flow "Login" {
     behavior = "detect_dangling_references",
     verify = "reference without corresponding graph edge indicates resolver bug"
 )]
-#[test]
 fn dangling_ref_without_edge_indicates_resolver_bug() {
     // A reference list entry that resolves (target exists) should always
     // produce a corresponding graph edge. If it doesn't, that's a resolver bug.
@@ -801,7 +778,6 @@ behavior alpha "A" {
     behavior = "detect_dangling_references",
     verify = "reference with corresponding graph edge passes"
 )]
-#[test]
 fn resolved_ref_has_corresponding_edge() {
     let source = r#"
 behavior alpha "A" {
@@ -834,7 +810,6 @@ invariant inv_one "Invariant One" {
     behavior = "detect_dangling_references",
     verify = "empty graph with zero edges produces no dangling reference diagnostic"
 )]
-#[test]
 fn empty_graph_no_dangling_diagnostics() {
     let source = r#"
 behavior alpha "A" { contract "first" }
@@ -855,7 +830,6 @@ behavior alpha "A" { contract "first" }
     behavior = "detect_dangling_references",
     verify = "Detect Dangling References: dangling reference detection holds — graph_built_fired, resolver_integrity_verified, no_duplicate_diagnostics"
 )]
-#[test]
 fn dangling_ref_contract_consistency() {
     // Requires: graph_built event has fired (graph is fully constructed)
     // Ensures: every reference list entry has a corresponding graph edge,
@@ -902,7 +876,6 @@ behavior beta "B" { contract "second" invariants [missing] }
     behavior = "detect_duplicate_entity_ids",
     verify = "duplicate ID in same file produces E002"
 )]
-#[test]
 fn duplicate_id_same_file_produces_e002() {
     let source = r#"
 behavior alpha "First Alpha" { contract "first" }
@@ -927,7 +900,6 @@ behavior alpha "Second Alpha" { contract "second" }
     behavior = "detect_duplicate_entity_ids",
     verify = "duplicate ID across files produces E002"
 )]
-#[test]
 fn duplicate_id_across_files_produces_e002() {
     let source_a = r#"
 behavior alpha "Alpha in file A" { contract "first" }
@@ -955,7 +927,6 @@ behavior alpha "Alpha in file B" { contract "second" }
     behavior = "detect_duplicate_entity_ids",
     verify = "E002 includes both source locations"
 )]
-#[test]
 fn e002_includes_both_source_locations() {
     let source_a = r#"
 behavior alpha "Alpha in file A" { contract "first" }
@@ -991,7 +962,6 @@ behavior alpha "Alpha in file B" { contract "second" }
     behavior = "detect_duplicate_entity_ids",
     verify = "Detect Duplicate Entity IDs: duplicate entity ID detection holds — all_files_parsed, duplicate_ids_diagnosed"
 )]
-#[test]
 fn duplicate_id_contract_consistency() {
     // Requires: all_files_parsed (all .spec files parsed, entity IDs collected)
     // Ensures: every duplicate entity ID has E002 naming both declaration sites

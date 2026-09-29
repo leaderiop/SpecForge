@@ -154,7 +154,6 @@ mod tests {
         behavior = "show_formatting_diff",
         verify = "diff output uses unified format"
     )]
-    #[test]
     fn test_unified_diff_format() {
         let diff = unified_diff(
             "spec/test.spec",
@@ -170,7 +169,6 @@ mod tests {
         behavior = "show_formatting_diff",
         verify = "unchanged files produce no diff output"
     )]
-    #[test]
     fn test_diff_unchanged_files_empty() {
         let diff = unified_diff("test.spec", "hello\n", "hello\n");
         assert!(diff.diff_text.is_empty());
@@ -182,7 +180,6 @@ mod tests {
         behavior = "show_formatting_diff",
         verify = "diff output uses unified format"
     )]
-    #[test]
     fn test_diff_counts_insertions_deletions() {
         let diff = unified_diff("test.spec", "  line1\n  line2\n", "line1\nline2\n");
         assert!(diff.insertions > 0 || diff.deletions > 0);

@@ -6,8 +6,19 @@ pub mod registry;
 pub mod report;
 pub mod slugify;
 
-/// Re-export the proc macro so users can write `#[specforge::test(...)]`
+/// Re-export the proc macro so users can write `#[specforge_test(...)]`
 /// when they `use specforge_test::prelude::*`.
+///
+/// The attribute registers the test itself; a plain `#[test]` below it
+/// is rejected at compile time:
+///
+/// ```compile_fail
+/// use specforge_test::prelude::*;
+///
+/// #[specforge_test(behavior = "create_user")]
+/// #[test]
+/// fn creates_a_user() {}
+/// ```
 pub mod prelude {
     pub use specforge_test_macros::test as specforge_test;
 }
@@ -15,6 +26,6 @@ pub mod prelude {
 /// Private API consumed by proc macro expansion. Not for direct use.
 #[doc(hidden)]
 pub mod __private {
-    pub use crate::guard::TestGuard;
+    pub use crate::guard::{assert_registered_once, TestGuard};
     pub use crate::slugify::slugify_verify_description;
 }

@@ -17,7 +17,6 @@ fn setup_project(files: &[(&str, &str)]) -> TempDir {
 }
 
 // B:resolve_use_imports — verify contract "requires/ensures consistency for use import resolution"
-#[test]
 #[specforge_test(
     behavior = "resolve_use_imports",
     verify = "Resolve Use Imports: use import resolution holds — registries_populated_fired, define_blocks_registered_fired, filesystem_available, imports_resolved, missing_files_diagnosed, dependency_graph_built"
@@ -60,7 +59,6 @@ fn resolve_use_imports_contract() {
 }
 
 // B:detect_import_cycles — verify contract "requires/ensures consistency for import cycle detection"
-#[test]
 #[specforge_test(
     behavior = "detect_import_cycles",
     verify = "Detect Import Cycles: import cycle detection holds — import_graph_available, cycles_detected, cycle_diagnostic_emitted, non_cyclic_unaffected"
@@ -99,7 +97,6 @@ fn detect_import_cycles_contract() {
 }
 
 // B:link_entity_references — verify contract "requires/ensures consistency for entity reference linking"
-#[test]
 #[specforge_test(
     behavior = "link_entity_references",
     verify = "Link Entity References: entity reference linking holds — registries_populated, all_files_parsed, all_references_resolved, no_silent_ignoring"

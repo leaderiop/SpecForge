@@ -81,21 +81,37 @@ fn panicking_annotated_function_records_fail() {
     assert_eq!(entries[0].outcome, TestOutcome::Fail);
 }
 
-// Helper functions with the macro attribute (NOT #[test] — called directly)
-#[specforge_test_macros::test(behavior = "create_user")]
+#[test]
+fn a_test_registered_twice_fails_its_second_run() {
+    use specforge_test::__private::assert_registered_once;
+    assert_registered_once("m", "twice", "e", Some("v"));
+    let second = std::panic::catch_unwind(|| assert_registered_once("m", "twice", "e", Some("v")));
+    let message = second.expect_err("the second registration must fail");
+    let message = message
+        .downcast_ref::<String>()
+        .cloned()
+        .unwrap_or_default();
+    assert!(message.contains("remove its #[test]"), "{message}");
+    // A different obligation of the same test is a separate registration.
+    assert_registered_once("m", "twice", "e", Some("other"));
+}
+
+// Helper functions with the macro attribute, called directly: `__guard_only`
+// records the guard without registering them as tests.
+#[specforge_test_macros::test(behavior = "create_user", __guard_only)]
 fn annotated_passing_test() {}
 
-#[specforge_test_macros::test(invariant = "unique_ids")]
+#[specforge_test_macros::test(invariant = "unique_ids", __guard_only)]
 fn annotated_invariant_test() {}
 
-#[specforge_test_macros::test(constraint = "naming_convention")]
+#[specforge_test_macros::test(constraint = "naming_convention", __guard_only)]
 fn annotated_custom_kind_test() {}
 
-#[specforge_test_macros::test(behavior = "create_user")]
-#[specforge_test_macros::test(invariant = "unique_ids")]
+#[specforge_test_macros::test(behavior = "create_user", __guard_only)]
+#[specforge_test_macros::test(invariant = "unique_ids", __guard_only)]
 fn annotated_multi_entity() {}
 
-#[specforge_test_macros::test(behavior = "delete_user")]
+#[specforge_test_macros::test(behavior = "delete_user", __guard_only)]
 fn annotated_panicking() {
     panic!("simulated failure");
 }

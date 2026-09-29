@@ -70,7 +70,6 @@ mod tests {
         behavior = "discover_format_targets",
         verify = "no arguments formats all .spec files under spec_root"
     )]
-    #[test]
     fn test_no_arguments_formats_all_spec_files() {
         let tmp = TempDir::new().unwrap();
         let root = tmp.path();
@@ -86,7 +85,6 @@ mod tests {
         behavior = "discover_format_targets",
         verify = "files matching format.exclude globs are excluded"
     )]
-    #[test]
     fn test_exclude_globs_filter_files() {
         let tmp = TempDir::new().unwrap();
         let root = tmp.path();
@@ -102,7 +100,6 @@ mod tests {
         behavior = "discover_format_targets",
         verify = "explicit file paths format only those files"
     )]
-    #[test]
     fn test_explicit_paths_format_only_those() {
         let tmp = TempDir::new().unwrap();
         let root = tmp.path();
@@ -119,7 +116,6 @@ mod tests {
         behavior = "discover_format_targets",
         verify = "directory argument recursively discovers .spec files"
     )]
-    #[test]
     fn test_directory_argument_recursively_discovers() {
         let tmp = TempDir::new().unwrap();
         let root = tmp.path();
@@ -135,7 +131,6 @@ mod tests {
         behavior = "discover_format_targets",
         verify = "non-.spec files are skipped with no error"
     )]
-    #[test]
     fn test_non_spec_files_are_skipped() {
         let tmp = TempDir::new().unwrap();
         let root = tmp.path();
@@ -155,7 +150,6 @@ mod tests {
         behavior = "discover_format_targets",
         verify = "no arguments formats all .spec files under spec_root"
     )]
-    #[test]
     fn test_all_spec_files_under_spec_root_are_discovered() {
         let tmp = TempDir::new().unwrap();
         let root = tmp.path();
@@ -172,7 +166,6 @@ mod tests {
         behavior = "discover_format_targets",
         verify = "non-.spec files are skipped with no error"
     )]
-    #[test]
     fn test_no_spec_files_are_silently_skipped() {
         let tmp = TempDir::new().unwrap();
         let root = tmp.path();
@@ -200,7 +193,6 @@ mod tests {
         behavior = "discover_format_targets",
         verify = "Discover Format Targets: format target discovery holds — project_root_available, filesystem_accessible, all_spec_files_discovered, exclusions_applied, non_spec_skipped"
     )]
-    #[test]
     fn test_discover_format_targets_contract() {
         let tmp = TempDir::new().unwrap();
         let root = tmp.path();

@@ -59,7 +59,6 @@ fn write_config_with_providers(dir: &std::path::Path, providers: &[serde_json::V
     behavior = "remove_extension",
     verify = "delegates to uninstall_wasm_extension for lifecycle cleanup"
 )]
-#[test]
 fn remove_delegates_to_uninstall() {
     let dir = TempDir::new().unwrap();
 
@@ -92,7 +91,6 @@ fn remove_delegates_to_uninstall() {
     behavior = "remove_extension",
     verify = "extension is removed from extensions list"
 )]
-#[test]
 fn remove_updates_lock_file() {
     let dir = TempDir::new().unwrap();
 
@@ -130,7 +128,6 @@ fn remove_updates_lock_file() {
     behavior = "remove_extension",
     verify = ".spec files are not modified by removal"
 )]
-#[test]
 fn remove_does_not_modify_spec_files() {
     let dir = TempDir::new().unwrap();
 
@@ -172,7 +169,6 @@ fn remove_does_not_modify_spec_files() {
     behavior = "list_installed_extensions",
     verify = "output order is deterministic"
 )]
-#[test]
 fn extensions_lists_alphabetically() {
     let dir = TempDir::new().unwrap();
 
@@ -214,7 +210,6 @@ fn extensions_lists_alphabetically() {
     behavior = "list_installed_extensions",
     verify = "list includes entity counts and entity types"
 )]
-#[test]
 fn extensions_json_format() {
     let dir = TempDir::new().unwrap();
 
@@ -256,7 +251,6 @@ fn extensions_json_format() {
     behavior = "list_installed_extensions",
     verify = "list shows all installed extensions"
 )]
-#[test]
 fn extensions_no_lock_file() {
     let dir = TempDir::new().unwrap();
 
@@ -279,7 +273,6 @@ fn extensions_no_lock_file() {
     behavior = "list_installed_extensions",
     verify = "List Installed Extensions: extension listing holds — kind_registry_ready, all_extensions_listed, entity_counts_included, output_deterministic"
 )]
-#[test]
 fn extensions_contract() {
     let dir = TempDir::new().unwrap();
 
@@ -323,7 +316,6 @@ fn extensions_contract() {
     behavior = "list_configured_providers",
     verify = "list shows all configured providers"
 )]
-#[test]
 fn providers_lists_alias_extension_schemes() {
     let dir = TempDir::new().unwrap();
 
@@ -355,7 +347,6 @@ fn providers_lists_alias_extension_schemes() {
     behavior = "list_configured_providers",
     verify = "multiple aliases shown separately"
 )]
-#[test]
 fn providers_multiple_aliases() {
     let dir = TempDir::new().unwrap();
 
@@ -397,7 +388,6 @@ fn providers_multiple_aliases() {
     behavior = "list_configured_providers",
     verify = "list includes scheme and kind registrations"
 )]
-#[test]
 fn providers_includes_scheme_and_kind() {
     let dir = TempDir::new().unwrap();
 
@@ -433,7 +423,6 @@ fn providers_includes_scheme_and_kind() {
     behavior = "list_configured_providers",
     verify = "output order is deterministic"
 )]
-#[test]
 fn providers_output_order_deterministic() {
     let dir = TempDir::new().unwrap();
 
@@ -473,7 +462,6 @@ fn providers_output_order_deterministic() {
     behavior = "list_configured_providers",
     verify = "List Configured Providers: provider listing holds — scheme_registry_ready, all_providers_listed, schemes_and_kinds_included, aliases_shown_separately, output_deterministic"
 )]
-#[test]
 fn providers_contract() {
     let dir = TempDir::new().unwrap();
 
@@ -516,7 +504,6 @@ fn providers_contract() {
     behavior = "run_doctor_check",
     verify = "doctor lists all installed extensions with enhancement counts"
 )]
-#[test]
 fn doctor_reports_health_check() {
     let dir = TempDir::new().unwrap();
 
@@ -553,7 +540,6 @@ fn doctor_reports_health_check() {
     behavior = "run_doctor_check",
     verify = "doctor reports conflicts with resolution suggestions"
 )]
-#[test]
 fn doctor_missing_binary() {
     let dir = TempDir::new().unwrap();
 
@@ -585,7 +571,6 @@ fn doctor_missing_binary() {
     behavior = "run_doctor_check",
     verify = "doctor --json produces valid JSON output"
 )]
-#[test]
 fn doctor_no_lock_file() {
     let dir = TempDir::new().unwrap();
 
@@ -608,7 +593,6 @@ fn doctor_no_lock_file() {
     behavior = "run_doctor_check",
     verify = "doctor lists all enhancements grouped by entity kind"
 )]
-#[test]
 fn doctor_lists_enhancements() {
     let dir = TempDir::new().unwrap();
 
@@ -665,7 +649,6 @@ fn doctor_lists_enhancements() {
     behavior = "run_doctor_check",
     verify = "doctor detects shadowed grammar-level constructs"
 )]
-#[test]
 fn doctor_detects_stale_hash() {
     let dir = TempDir::new().unwrap();
 
@@ -702,7 +685,6 @@ fn doctor_detects_stale_hash() {
     behavior = "run_doctor_check",
     verify = "Run Doctor Check: doctor check holds — enhancement_registered_fired, filesystem_available, doctor_check_completed_emitted, report_produced, json_output_supported"
 )]
-#[test]
 fn doctor_contract() {
     let dir = TempDir::new().unwrap();
 
@@ -761,7 +743,6 @@ fn doctor_contract() {
     behavior = "add_extension_to_existing_project",
     verify = "add unresolvable extension rejects with diagnostic"
 )]
-#[test]
 fn add_validates_registry_specifier() {
     let dir = TempDir::new().unwrap();
 
@@ -787,7 +768,6 @@ fn add_validates_registry_specifier() {
     behavior = "parse_extension_specifier",
     verify = "invalid specifier produces ExtensionError"
 )]
-#[test]
 fn add_rejects_invalid_specifier() {
     let dir = TempDir::new().unwrap();
 
@@ -802,7 +782,6 @@ fn add_rejects_invalid_specifier() {
     behavior = "parse_extension_specifier",
     verify = "./path parsed as local source"
 )]
-#[test]
 fn add_validates_local_specifier() {
     let dir = TempDir::new().unwrap();
 
@@ -833,7 +812,6 @@ fn add_validates_local_specifier() {
     behavior = "remove_extension",
     verify = "removed extension keywords produce E024 on next compile"
 )]
-#[test]
 fn remove_extension_keywords_produce_e024() {
     let dir = TempDir::new().unwrap();
 
@@ -876,7 +854,6 @@ fn remove_extension_keywords_produce_e024() {
     behavior = "remove_extension",
     verify = "Remove Extension: extension removal holds — extension_installed, filesystem_available, extension_entry_removed, spec_files_unchanged, extension_removed_emitted"
 )]
-#[test]
 fn remove_extension_contract() {
     let dir = TempDir::new().unwrap();
 
@@ -919,7 +896,6 @@ fn remove_extension_contract() {
     behavior = "remove_extension",
     verify = "specforge remove with no lock file reports error"
 )]
-#[test]
 fn remove_no_lock_file() {
     let dir = TempDir::new().unwrap();
 
@@ -935,7 +911,6 @@ fn remove_no_lock_file() {
     behavior = "remove_extension",
     verify = "specforge remove for non-existent extension reports error"
 )]
-#[test]
 fn remove_nonexistent_extension() {
     let dir = TempDir::new().unwrap();
 
@@ -1030,7 +1005,6 @@ fn read_config(dir: &std::path::Path) -> serde_json::Value {
     behavior = "add_extension_to_existing_project",
     verify = "add extension appends to extensions list"
 )]
-#[test]
 fn add_builtin_enables_it_in_specforge_json() {
     let dir = TempDir::new().unwrap();
     write_config_with_extensions(dir.path(), &["@specforge/software"]);
@@ -1060,7 +1034,6 @@ fn add_builtin_enables_it_in_specforge_json() {
     behavior = "add_extension_to_existing_project",
     verify = "add duplicate extension is a no-op with info message"
 )]
-#[test]
 fn add_enabled_builtin_is_a_no_op() {
     let dir = TempDir::new().unwrap();
     write_config_with_extensions(dir.path(), &["@specforge/software"]);
@@ -1082,7 +1055,6 @@ fn add_enabled_builtin_is_a_no_op() {
     behavior = "add_extension_to_existing_project",
     verify = "add extension with no specforge.json rejects with error and exit code 1"
 )]
-#[test]
 fn add_builtin_without_project_fails() {
     let dir = TempDir::new().unwrap();
 
@@ -1098,7 +1070,6 @@ fn add_builtin_without_project_fails() {
     behavior = "list_installed_extensions",
     verify = "list shows all installed extensions"
 )]
-#[test]
 fn extensions_lists_enabled_builtins() {
     let dir = TempDir::new().unwrap();
     write_config_with_extensions(dir.path(), &["@specforge/software", "@specforge/formal"]);
@@ -1134,7 +1105,6 @@ fn extensions_lists_enabled_builtins() {
     behavior = "remove_extension",
     verify = "extension is removed from extensions list"
 )]
-#[test]
 fn remove_builtin_disables_it() {
     let dir = TempDir::new().unwrap();
     write_config_with_extensions(dir.path(), &["@specforge/software", "@specforge/product"]);

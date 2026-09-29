@@ -159,7 +159,6 @@ fn init_server_with_surfaces() -> (McpServer, TempDir) {
 }
 
 // B:surface_wiring — verify unit "extension MCP tools appear in tool registry after init"
-#[test]
 #[specforge_test(
     behavior = "mcp_initialize",
     verify = "initialization registers all tools from installed extensions"
@@ -185,7 +184,6 @@ fn extension_mcp_tools_in_registry() {
 }
 
 // B:surface_wiring — verify unit "extension MCP resources appear in resource registry after init"
-#[test]
 #[specforge_test(
     behavior = "list_mcp_resources",
     verify = "returns all registered resource descriptors after extension load"
@@ -214,7 +212,6 @@ fn extension_mcp_resources_in_registry() {
 }
 
 // B:surface_wiring — verify unit "capabilities response includes extension tool/resource counts"
-#[test]
 #[specforge_test(
     behavior = "list_mcp_tools",
     verify = "returns all registered tool descriptors after extension load"
@@ -262,7 +259,6 @@ fn capabilities_include_extension_counts() {
 // --- Dynamic kind-based tools and resources ---
 
 // B:dynamic_kind_tools — verify unit "specforge.list returns entities filtered by kind"
-#[test]
 #[specforge_test(
     behavior = "dynamic_kind_tools",
     verify = "specforge.list returns entities filtered by kind"
@@ -291,7 +287,6 @@ fn list_tool_returns_entities_by_kind() {
 }
 
 // B:dynamic_kind_tools — verify unit "specforge.list returns empty array for unknown kind"
-#[test]
 #[specforge_test(
     behavior = "dynamic_kind_tools",
     verify = "specforge.list returns empty for unknown kind"
@@ -309,7 +304,6 @@ fn list_tool_empty_for_unknown_kind() {
 }
 
 // B:dynamic_kind_tools — verify unit "specforge://entities/{kind} resource returns entities as JSON"
-#[test]
 #[specforge_test(
     behavior = "dynamic_kind_tools",
     verify = "entity-by-kind resource returns entities"
@@ -331,7 +325,6 @@ fn entities_by_kind_resource() {
 }
 
 // B:dynamic_kind_tools — verify unit "specforge.list tool is registered"
-#[test]
 #[specforge_test(
     behavior = "dynamic_kind_tools",
     verify = "specforge.list tool appears in tool list"
@@ -351,7 +344,6 @@ fn list_tool_registered() {
 // --- Extension tool dispatch ---
 
 // B:extension_tool_dispatch — verify unit "calling extension tool dispatches rather than METHOD_NOT_FOUND"
-#[test]
 #[specforge_test(
     behavior = "dispatch_surface_mcp_tool",
     verify = "input JSON passed to mcp__ export"
@@ -370,7 +362,6 @@ fn extension_tool_dispatches() {
 }
 
 // B:extension_tool_dispatch — verify unit "unknown tool still returns METHOD_NOT_FOUND"
-#[test]
 #[specforge_test(
     behavior = "extension_tool_dispatch",
     verify = "truly unknown tool returns -32602 Invalid params (MCP spec example)"
@@ -382,7 +373,6 @@ fn unknown_tool_returns_invalid_params() {
 }
 
 // B:extension_tool_dispatch — verify unit "re-compilation preserves core tools"
-#[test]
 #[specforge_test(
     behavior = "list_mcp_tools",
     verify = "returns core-provided descriptors when no extensions installed"
@@ -446,7 +436,6 @@ fn recompilation_refreshes_surfaces() {
 }
 
 // B:dynamic_kind_tools — verify unit "entities resource registered in resource list"
-#[test]
 #[specforge_test(
     behavior = "dynamic_kind_tools",
     verify = "entities resource template in resource list"

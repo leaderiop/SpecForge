@@ -25,7 +25,6 @@ fn specforge_cmd() -> Command {
     behavior = "check_mode_for_ci",
     verify = "check mode works in CI environment"
 )]
-#[test]
 fn self_check_runs_without_crashing() {
     // Find the project's spec/ directory relative to the crate manifest
     let spec_dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
@@ -75,7 +74,6 @@ fn self_check_runs_without_crashing() {
     behavior = "exit_code_reflects_diagnostic_severity",
     verify = "exit 0 with no errors"
 )]
-#[test]
 fn check_clean_project_exits_zero() {
     let dir = setup_project(&[("main.spec", r#"behavior alpha "A" { contract "first" }"#)]);
 
@@ -92,7 +90,6 @@ fn check_clean_project_exits_zero() {
     behavior = "exit_code_reflects_diagnostic_severity",
     verify = "exit 1 with errors"
 )]
-#[test]
 fn check_project_with_errors_exits_one() {
     let dir = setup_project(&[(
         "main.spec",
@@ -113,7 +110,6 @@ feature gamma "G" { behaviors [alpha, nonexistent] }
     behavior = "exit_code_reflects_diagnostic_severity",
     verify = "exit 1 with warnings in strict mode"
 )]
-#[test]
 fn strict_mode_promotes_warnings_to_errors() {
     // Orphan ref produces W012 (warning) — with --strict it becomes an error → exit 1
     let dir = setup_project(&[(
@@ -146,7 +142,6 @@ ref gh.issue:42 "Orphan ref"
     behavior = "export_diagnostics_as_json",
     verify = "JSON output is valid and parseable"
 )]
-#[test]
 fn json_format_outputs_valid_json() {
     let dir = setup_project(&[(
         "main.spec",
@@ -195,7 +190,6 @@ feature gamma "G" { behaviors [alpha, nonexistent] }
     behavior = "print_diagnostics_structured",
     verify = "error diagnostic is formatted with file:line:col"
 )]
-#[test]
 fn structured_output_includes_file_line_col() {
     let dir = setup_project(&[(
         "main.spec",
@@ -223,7 +217,6 @@ feature gamma "G" { behaviors [alpha, nonexistent] }
     behavior = "print_diagnostics_structured",
     verify = "diagnostic includes context snippet"
 )]
-#[test]
 fn structured_output_includes_context_snippet() {
     let dir = setup_project(&[(
         "main.spec",
@@ -251,7 +244,6 @@ feature gamma "G" { behaviors [alpha, nonexistent] }
     behavior = "print_diagnostics_structured",
     verify = "suggestion is displayed when available"
 )]
-#[test]
 fn structured_output_includes_suggestion() {
     let dir = setup_project(&[(
         "main.spec",
@@ -281,7 +273,6 @@ feature gamma "G" { behaviors [alpha_parsr] }
     behavior = "check_mode_for_ci",
     verify = "check mode produces no output files"
 )]
-#[test]
 fn check_mode_produces_no_output_files() {
     let dir = setup_project(&[("main.spec", r#"behavior alpha "A" { contract "first" }"#)]);
 
@@ -310,7 +301,6 @@ fn check_mode_produces_no_output_files() {
     behavior = "check_mode_for_ci",
     verify = "check mode prints diagnostics to stderr"
 )]
-#[test]
 fn check_mode_prints_to_stderr() {
     let dir = setup_project(&[(
         "main.spec",
@@ -347,7 +337,6 @@ feature gamma "G" { behaviors [alpha, nonexistent] }
     behavior = "export_diagnostics_as_json",
     verify = "each diagnostic includes code, severity, message, file, line, column"
 )]
-#[test]
 fn json_diagnostics_have_complete_fields() {
     let dir = setup_project(&[(
         "main.spec",
@@ -406,7 +395,6 @@ feature gamma "G" { behaviors [alpha, nonexistent] }
     behavior = "print_diagnostics_structured",
     verify = "Print Diagnostics Structured: structured diagnostic printing holds — validation_complete_fired, structured_format_enforced, color_coding_applied"
 )]
-#[test]
 fn print_diagnostics_contract_consistency() {
     // Requires: validation_complete fired (diagnostics collected)
     // Ensures: structured format with file:line:col, color-coded severity
@@ -434,7 +422,6 @@ feature gamma "G" { behaviors [alpha, nonexistent] }
     behavior = "exit_code_reflects_diagnostic_severity",
     verify = "Exit Code Reflects Diagnostic Severity: exit code severity mapping holds — validation_complete_fired, exit_zero_on_clean, exit_one_on_errors, strict_mode_enforced"
 )]
-#[test]
 fn exit_code_contract_consistency() {
     // Requires: validation_complete fired
     // Ensures: exit 0 on clean, exit 1 on errors, strict promotes warnings
@@ -457,7 +444,6 @@ fn exit_code_contract_consistency() {
     behavior = "check_mode_for_ci",
     verify = "Check Mode for CI: CI check mode holds — validation_complete_fired, no_output_files_produced, diagnostics_to_stderr, appropriate_exit_code"
 )]
-#[test]
 fn check_mode_contract_consistency() {
     // Requires: validation_complete fired
     // Ensures: no output files, diagnostics to stderr, appropriate exit code
@@ -493,7 +479,6 @@ feature gamma "G" { behaviors [alpha, nonexistent] }
     behavior = "export_diagnostics_as_json",
     verify = "diagnostics serialized as JSON array to stdout"
 )]
-#[test]
 fn json_format_outputs_to_stdout() {
     let dir = setup_project(&[(
         "main.spec",
@@ -521,7 +506,6 @@ feature gamma "G" { behaviors [alpha, nonexistent] }
     behavior = "export_diagnostics_as_json",
     verify = "exit code unaffected by format flag"
 )]
-#[test]
 fn json_format_exit_code_matches_human_format() {
     // With errors: both human and json format should exit 1
     let dir = setup_project(&[(
@@ -555,7 +539,6 @@ feature gamma "G" { behaviors [alpha, nonexistent] }
     behavior = "export_diagnostics_as_json",
     verify = "Export Diagnostics as JSON: JSON diagnostic export holds — validation_complete_fired, json_array_produced, diagnostic_fields_complete, exit_code_unaffected"
 )]
-#[test]
 fn json_diagnostics_contract_consistency() {
     // Requires: validation_complete (diagnostics collected)
     // Ensures: JSON array to stdout, complete fields, exit code unaffected
@@ -594,7 +577,6 @@ feature gamma "G" { behaviors [alpha, nonexistent] }
     behavior = "export_diagnostics_as_json",
     verify = "suggestion field included when available"
 )]
-#[test]
 fn json_diagnostics_include_suggestion_when_available() {
     let dir = setup_project(&[(
         "main.spec",
@@ -628,7 +610,6 @@ feature gamma "G" { behaviors [alpha_parsr] }
     behavior = "unknown_format_value_rejected_at_parse_time",
     verify = "a typo'd --format fails with a clap error (exit 2), not a bespoke runtime error"
 )]
-#[test]
 fn unknown_format_value_is_rejected_by_clap() {
     let dir = setup_project(&[("main.spec", r#"behavior alpha "A" { contract "first" }"#)]);
 

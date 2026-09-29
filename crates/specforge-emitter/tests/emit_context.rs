@@ -49,7 +49,6 @@ fn rich_node() -> Node {
 }
 
 // B:export_agent_context_format — verify unit "context format includes entity IDs and contracts"
-#[test]
 #[specforge_test(
     behavior = "export_agent_context_format",
     verify = "context format includes entity IDs and contracts"
@@ -76,7 +75,6 @@ fn context_includes_contracts_and_verify() {
 }
 
 // B:export_agent_context_format — verify unit "context format omits verbose prose fields"
-#[test]
 #[specforge_test(
     behavior = "export_agent_context_format",
     verify = "context format omits verbose prose fields"
@@ -99,7 +97,6 @@ fn context_omits_verbose_prose_fields() {
 
 // B:export_agent_context_format — verify unit "output includes schema_version field"
 // B:export_agent_context_format — verify unit "output conforms to Graph Protocol schema"
-#[test]
 #[specforge_test(
     behavior = "export_agent_context_format",
     verify = "output includes schema_version field"
@@ -138,7 +135,6 @@ fn context_includes_edges_and_schema_version() {
 }
 
 // B:export_agent_context_format — verify unit "output conforms to Graph Protocol schema"
-#[test]
 #[specforge_test(
     behavior = "export_agent_context_format",
     verify = "output conforms to Graph Protocol schema"
@@ -167,7 +163,6 @@ fn context_conforms_to_graph_protocol_schema() {
 
 // B:export_agent_context_format — verify unit "context format omits verbose prose fields"
 // (demonstrates token optimization by size comparison)
-#[test]
 #[specforge_test(behavior = "export_agent_context_format")]
 fn context_is_smaller_than_full_json() {
     let mut graph = Graph::new();

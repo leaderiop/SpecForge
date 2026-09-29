@@ -54,7 +54,6 @@ fn build_graph() -> Graph {
 }
 
 // B:deterministic_output — verify property "same input produces identical output across runs"
-#[test]
 #[specforge_test(
     behavior = "deterministic_output",
     verify = "same input produces identical output across runs"
@@ -73,7 +72,6 @@ fn same_input_produces_identical_json_across_runs() {
 
 // B:deterministic_output — verify property "same input produces identical output across runs"
 // (DOT format)
-#[test]
 #[specforge_test(behavior = "deterministic_output")]
 fn same_input_produces_identical_dot_across_runs() {
     let outputs: Vec<String> = (0..5)
@@ -91,7 +89,6 @@ fn same_input_produces_identical_dot_across_runs() {
 
 // B:deterministic_output — verify property "same input produces identical output across runs"
 // (brief format)
-#[test]
 #[specforge_test(behavior = "deterministic_output")]
 fn same_input_produces_identical_brief_across_runs() {
     let outputs: Vec<String> = (0..5)
@@ -107,7 +104,6 @@ fn same_input_produces_identical_brief_across_runs() {
 
 // B:deterministic_output — verify property "same input produces identical output across runs"
 // (context format)
-#[test]
 #[specforge_test(behavior = "deterministic_output")]
 fn same_input_produces_identical_context_across_runs() {
     let outputs: Vec<String> = (0..5)
@@ -122,7 +118,6 @@ fn same_input_produces_identical_context_across_runs() {
 }
 
 // B:deterministic_output — verify unit "entity ordering is independent of hashmap iteration"
-#[test]
 #[specforge_test(
     behavior = "deterministic_output",
     verify = "entity ordering is independent of hashmap iteration"
@@ -142,7 +137,6 @@ fn json_nodes_sorted_by_id() {
 }
 
 // B:deterministic_output — verify unit "edge ordering is deterministic"
-#[test]
 #[specforge_test(
     behavior = "deterministic_output",
     verify = "edge ordering is independent of hashmap iteration"
@@ -164,7 +158,6 @@ fn json_edges_sorted_deterministically() {
 }
 
 // B:deterministic_output — verify unit "output contains no timestamps or non-deterministic values"
-#[test]
 #[specforge_test(
     behavior = "deterministic_output",
     verify = "output contains no timestamps or non-deterministic values"
@@ -183,7 +176,6 @@ fn json_output_contains_no_timestamps() {
 }
 
 // B:deterministic_output — verify unit "file emission order is independent of filesystem readdir order"
-#[test]
 #[specforge_test(
     behavior = "deterministic_output",
     verify = "file emission order is independent of filesystem readdir order"
@@ -259,7 +251,6 @@ fn file_emission_order_independent_of_filesystem() {
 }
 
 // B:deterministic_output — verify property "stats output is deterministic"
-#[test]
 #[specforge_test(
     behavior = "deterministic_output",
     verify = "same input produces identical output across runs"
@@ -280,7 +271,6 @@ fn stats_output_is_deterministic() {
 }
 
 // B:deterministic_output — verify property "trace output is deterministic"
-#[test]
 #[specforge_test(
     behavior = "deterministic_output",
     verify = "same input produces identical output across runs"
@@ -302,7 +292,6 @@ fn trace_output_is_deterministic() {
 }
 
 // B:deterministic_output — verify property "scoped emit is deterministic"
-#[test]
 #[specforge_test(
     behavior = "deterministic_output",
     verify = "same input produces identical output across runs"
@@ -321,7 +310,6 @@ fn scoped_json_output_is_deterministic() {
 }
 
 // B:deterministic_output — verify property "scoped context emit is deterministic"
-#[test]
 #[specforge_test(
     behavior = "deterministic_output",
     verify = "same input produces identical output across runs"

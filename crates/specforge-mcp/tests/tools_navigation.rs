@@ -94,7 +94,6 @@ fn tool_text(resp: &Value) -> String {
 // --- specforge.inspect ---
 
 // B:provide_mcp_inspect_tool — verify unit "returns entity details"
-#[test]
 #[specforge_test(
     behavior = "provide_mcp_inspect_tool",
     verify = "specforge.inspect returns full entity details"
@@ -116,7 +115,6 @@ fn inspect_returns_details() {
 }
 
 // B:provide_mcp_inspect_tool — verify unit "includes reference count"
-#[test]
 #[specforge_test(
     behavior = "provide_mcp_inspect_tool",
     verify = "response includes references and verify declarations"
@@ -134,7 +132,6 @@ fn inspect_includes_reference_count() {
 }
 
 // B:provide_mcp_inspect_tool — verify unit "unknown entity returns error"
-#[test]
 #[specforge_test(
     behavior = "provide_mcp_inspect_tool",
     verify = "non-existent entity returns error response"
@@ -158,7 +155,6 @@ fn inspect_unknown_entity() {
 // --- specforge.find_definition ---
 
 // B:provide_mcp_find_definition_tool — verify unit "returns source location"
-#[test]
 #[specforge_test(
     behavior = "provide_mcp_find_definition_tool",
     verify = "specforge.find_definition returns file, line, and column"
@@ -178,7 +174,6 @@ fn find_definition_returns_location() {
 }
 
 // B:provide_mcp_find_definition_tool — verify unit "unknown entity returns error"
-#[test]
 #[specforge_test(
     behavior = "provide_mcp_find_definition_tool",
     verify = "non-existent entity returns error response"
@@ -202,7 +197,6 @@ fn find_definition_unknown_entity() {
 // --- specforge.find_references ---
 
 // B:provide_mcp_find_references_tool — verify unit "returns referencing entities"
-#[test]
 #[specforge_test(
     behavior = "provide_mcp_find_references_tool",
     verify = "specforge.find_references returns all reference locations"
@@ -223,7 +217,6 @@ fn find_references_returns_refs() {
 }
 
 // B:provide_mcp_find_references_tool — verify unit "unknown entity returns error"
-#[test]
 #[specforge_test(
     behavior = "provide_mcp_find_references_tool",
     verify = "non-existent entity returns error response"
@@ -247,7 +240,6 @@ fn find_references_unknown_entity() {
 // --- specforge.outline ---
 
 // B:provide_mcp_outline_tool — verify unit "returns entities in file"
-#[test]
 #[specforge_test(
     behavior = "provide_mcp_outline_tool",
     verify = "specforge.outline returns all entities defined in file"
@@ -270,7 +262,6 @@ fn outline_returns_entities_in_file() {
 }
 
 // B:provide_mcp_outline_tool — verify unit "empty for unknown file"
-#[test]
 #[specforge_test(
     behavior = "provide_mcp_outline_tool",
     verify = "non-existent file returns error response"
@@ -288,7 +279,6 @@ fn outline_empty_for_unknown_file() {
 }
 
 // B:provide_mcp_outline_tool — verify unit "sorted by line number"
-#[test]
 #[specforge_test(
     behavior = "provide_mcp_outline_tool",
     verify = "sorted by line number"
@@ -315,7 +305,6 @@ fn outline_sorted_by_line() {
 // --- specforge.suggest_fixes ---
 
 // B:provide_mcp_suggest_fixes_tool — verify unit "returns suggestions from diagnostics"
-#[test]
 #[specforge_test(
     behavior = "provide_mcp_suggest_fixes_tool",
     verify = "specforge.suggest_fixes returns applicable fix suggestions"
@@ -347,7 +336,6 @@ fn suggest_fixes_returns_suggestions() {
 }
 
 // B:provide_mcp_suggest_fixes_tool — verify unit "empty when no diagnostics"
-#[test]
 #[specforge_test(
     behavior = "provide_mcp_suggest_fixes_tool",
     verify = "clean entity with no diagnostics returns empty list"
@@ -361,7 +349,6 @@ fn suggest_fixes_empty_when_no_diagnostics() {
 }
 
 // B:provide_mcp_find_references_tool — verify unit "entity with no references returns empty list"
-#[test]
 #[specforge_test(
     behavior = "provide_mcp_find_references_tool",
     verify = "entity with no references returns empty list"
@@ -397,7 +384,6 @@ fn find_references_empty_list() {
 }
 
 // B:provide_mcp_outline_tool — verify unit "nested entries included for complex entities"
-#[test]
 #[specforge_test(
     behavior = "provide_mcp_outline_tool",
     verify = "nested entries included for complex entities"
@@ -415,7 +401,6 @@ fn outline_nested_entries_placeholder() {
 }
 
 // B:provide_mcp_suggest_fixes_tool — verify unit "diagnostic_code filter restricts to matching diagnostics"
-#[test]
 #[specforge_test(
     behavior = "provide_mcp_suggest_fixes_tool",
     verify = "diagnostic_code filter restricts to matching diagnostics"
@@ -444,7 +429,6 @@ fn suggest_fixes_diagnostic_code_filter() {
 }
 
 // B:provide_mcp_find_references_tool — verify unit "each reference includes source span"
-#[test]
 #[specforge_test(
     behavior = "provide_mcp_find_references_tool",
     verify = "specforge.find_references returns all reference locations"
@@ -464,7 +448,6 @@ fn find_references_returns_source_spans() {
 }
 
 // B:provide_mcp_outline_tool — verify unit "outline entries sorted by line number"
-#[test]
 #[specforge_test(
     behavior = "provide_mcp_outline_tool",
     verify = "outline entries sorted by line number"

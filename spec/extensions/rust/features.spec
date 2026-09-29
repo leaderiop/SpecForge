@@ -26,9 +26,11 @@ feature rust_proc_macro_annotation "Rust Proc Macro Annotation" {
   """
 
   solution """
-    #[specforge::test("entity_id")] proc macro attribute wraps test body
-    with a Drop-based guard that records pass/fail. Results are written
-    to target/specforge/ for collection by specforge collect rust.
-    Composable with #[tokio::test], #[rstest], etc.
+    The #[specforge_test(behavior = "entity_id", verify = "...")] proc
+    macro attribute registers the test and wraps its body with a
+    Drop-based guard that records pass/fail. Results are written to
+    target/specforge/ for `specforge collect` (@specforge/cargo-test).
+    Composable with #[tokio::test], #[rstest], etc., which keep
+    registering their tests.
   """
 }

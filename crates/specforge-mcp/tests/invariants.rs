@@ -79,7 +79,6 @@ fn call_tool(server: &mut McpServer, name: &str, args: Value) -> Value {
 }
 
 // I:mcp_structured_error_responses — verify property "error response includes error code and message fields"
-#[test]
 #[specforge_test(
     behavior = "mcp_structured_error_responses",
     verify = "error response includes error code and message fields"
@@ -100,7 +99,6 @@ fn error_responses_have_code_and_message() {
 }
 
 // I:mcp_structured_error_responses — verify property "error codes are valid JSON-RPC codes"
-#[test]
 #[specforge_test(
     behavior = "mcp_structured_error_responses",
     verify = "error response includes error code and message fields"
@@ -121,7 +119,6 @@ fn error_codes_are_valid() {
 }
 
 // I:mcp_structured_error_responses — verify property "success responses never have error field"
-#[test]
 #[specforge_test(
     behavior = "mcp_structured_error_responses",
     verify = "success responses never have error field"
@@ -134,7 +131,6 @@ fn success_never_has_error() {
 }
 
 // I:mcp_tool_idempotency — verify property "query is idempotent"
-#[test]
 #[specforge_test(
     behavior = "mcp_tool_idempotency",
     verify = "read-only tools return equivalent results for identical inputs"
@@ -157,7 +153,6 @@ fn query_is_idempotent() {
 }
 
 // I:mcp_tool_idempotency — verify property "export is idempotent"
-#[test]
 #[specforge_test(
     behavior = "mcp_tool_idempotency",
     verify = "repeated calls with same params return identical results when graph unchanged"
@@ -172,7 +167,6 @@ fn export_is_idempotent() {
 }
 
 // I:mcp_tool_idempotency — verify property "stats is idempotent"
-#[test]
 #[specforge_test(
     behavior = "mcp_tool_idempotency",
     verify = "read-only tools return equivalent results for identical inputs"
@@ -187,7 +181,6 @@ fn stats_is_idempotent() {
 }
 
 // I:mcp_tool_idempotency — verify property "trace is idempotent"
-#[test]
 #[specforge_test(
     behavior = "mcp_tool_idempotency",
     verify = "read-only tools return equivalent results for identical inputs"
@@ -210,7 +203,6 @@ fn trace_is_idempotent() {
 }
 
 // I:mcp_subscription_cleanup — verify property "no subscriptions survive shutdown"
-#[test]
 #[specforge_test(
     behavior = "mcp_subscription_cleanup",
     verify = "no orphan subscriptions remain after disconnect"
@@ -227,7 +219,6 @@ fn no_subscriptions_survive_shutdown() {
 }
 
 // I:mcp_structured_error_responses — verify property "error response includes entity_id when applicable"
-#[test]
 #[specforge_test(
     behavior = "mcp_structured_error_responses",
     verify = "error response includes entity_id when applicable"
@@ -251,7 +242,6 @@ fn error_includes_entity_id_when_applicable() {
 }
 
 // I:mcp_structured_error_responses — verify property "no MCP endpoint returns a plain string error"
-#[test]
 #[specforge_test(
     behavior = "mcp_structured_error_responses",
     verify = "no MCP endpoint returns a plain string error"
@@ -308,7 +298,6 @@ fn no_plain_string_error() {
 }
 
 // I:mcp_type_schema_versioning — verify property "adding required field to MCP type triggers major version bump"
-#[test]
 #[specforge_test(
     behavior = "mcp_type_schema_versioning",
     verify = "adding required field to MCP type triggers major version bump"

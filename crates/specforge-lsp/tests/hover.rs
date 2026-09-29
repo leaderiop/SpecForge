@@ -34,7 +34,6 @@ fn edge(source: &str, target: &str, label: &str) -> Edge {
     behavior = "hover_information",
     verify = "hover delegates to provide_extension_entity_hover"
 )]
-#[test]
 fn hover_returns_entity_info() {
     let mut g = Graph::new();
     g.add_node(node("user_login", "behavior", Some("User Login")));
@@ -52,7 +51,6 @@ fn hover_returns_entity_info() {
     behavior = "hover_information",
     verify = "hover returns markdown-formatted content"
 )]
-#[test]
 fn hover_returns_markdown() {
     let mut g = Graph::new();
     g.add_node(node("my_type", "type", Some("My Type")));

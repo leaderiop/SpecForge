@@ -16,7 +16,6 @@ fn specforge_cmd() -> Command {
     behavior = "scaffold_wasm_extension_project",
     verify = "scaffold creates manifest file"
 )]
-#[test]
 fn extension_init_creates_manifest_json() {
     let dir = TempDir::new().unwrap();
 
@@ -44,7 +43,6 @@ fn extension_init_creates_manifest_json() {
     behavior = "scaffold_wasm_extension_project",
     verify = "scaffold creates src/ with skeleton exports"
 )]
-#[test]
 fn extension_init_creates_src_lib_rs() {
     let dir = TempDir::new().unwrap();
 
@@ -76,7 +74,6 @@ fn extension_init_creates_src_lib_rs() {
     behavior = "scaffold_wasm_extension_project",
     verify = "scaffold creates build script for wasm32-wasi"
 )]
-#[test]
 fn extension_init_creates_cargo_toml() {
     let dir = TempDir::new().unwrap();
 
@@ -108,7 +105,6 @@ fn extension_init_creates_cargo_toml() {
     behavior = "extension_scaffold_init",
     verify = "specforge extension init rejects when directory already exists"
 )]
-#[test]
 fn extension_init_rejects_existing_directory() {
     let dir = TempDir::new().unwrap();
     let ext_dir = dir.path().join("existing-ext");
@@ -126,7 +122,6 @@ fn extension_init_rejects_existing_directory() {
     behavior = "extension_scaffold_init",
     verify = "specforge extension init --format=json outputs structured JSON"
 )]
-#[test]
 fn extension_init_json_output() {
     let dir = TempDir::new().unwrap();
 
@@ -159,7 +154,6 @@ fn extension_init_json_output() {
     behavior = "extension_scaffold_init",
     verify = "specforge extension init uses default name when --name not provided"
 )]
-#[test]
 fn extension_init_default_name() {
     let dir = TempDir::new().unwrap();
 
@@ -182,7 +176,6 @@ fn extension_init_default_name() {
     behavior = "extension_build_validate_structure",
     verify = "specforge extension build validates project structure exists"
 )]
-#[test]
 fn extension_build_validates_structure() {
     let dir = TempDir::new().unwrap();
 
@@ -206,7 +199,6 @@ fn extension_build_validates_structure() {
     behavior = "build_wasm_extension",
     verify = "build errors reported as ExtensionError diagnostics"
 )]
-#[test]
 fn extension_build_errors_missing_cargo_toml() {
     let dir = TempDir::new().unwrap();
     // Create manifest.json but no Cargo.toml
@@ -225,7 +217,6 @@ fn extension_build_errors_missing_cargo_toml() {
     behavior = "build_wasm_extension",
     verify = "build errors reported as ExtensionError diagnostics"
 )]
-#[test]
 fn extension_build_errors_missing_manifest() {
     let dir = TempDir::new().unwrap();
     // Create Cargo.toml but no manifest.json
@@ -244,7 +235,6 @@ fn extension_build_errors_missing_manifest() {
     behavior = "build_wasm_extension",
     verify = "build errors reported as ExtensionError diagnostics"
 )]
-#[test]
 fn extension_build_json_error() {
     let dir = TempDir::new().unwrap();
 
@@ -270,7 +260,6 @@ fn extension_build_json_error() {
     behavior = "validate_extension_manifest",
     verify = "valid manifest passes validation"
 )]
-#[test]
 fn extension_validate_valid_manifest() {
     let dir = TempDir::new().unwrap();
 
@@ -303,7 +292,6 @@ fn extension_validate_valid_manifest() {
     behavior = "extension_validate_manifest",
     verify = "specforge extension validate errors on invalid manifest JSON"
 )]
-#[test]
 fn extension_validate_invalid_json() {
     let dir = TempDir::new().unwrap();
     fs::write(dir.path().join("manifest.json"), "not valid json {{{").unwrap();
@@ -320,7 +308,6 @@ fn extension_validate_invalid_json() {
     behavior = "validate_extension_manifest",
     verify = "unknown manifest_version produces hard error"
 )]
-#[test]
 fn extension_validate_wrong_manifest_version() {
     let dir = TempDir::new().unwrap();
 
@@ -347,7 +334,6 @@ fn extension_validate_wrong_manifest_version() {
     behavior = "extension_validate_manifest",
     verify = "specforge extension validate errors on missing manifest.json"
 )]
-#[test]
 fn extension_validate_missing_manifest() {
     let dir = TempDir::new().unwrap();
 
@@ -363,7 +349,6 @@ fn extension_validate_missing_manifest() {
     behavior = "validate_extension_manifest",
     verify = "valid manifest passes validation"
 )]
-#[test]
 fn extension_validate_json_output_valid() {
     let dir = TempDir::new().unwrap();
 
@@ -397,7 +382,6 @@ fn extension_validate_json_output_valid() {
     behavior = "validate_extension_manifest",
     verify = "unknown manifest_version produces hard error"
 )]
-#[test]
 fn extension_validate_json_output_invalid() {
     let dir = TempDir::new().unwrap();
 
@@ -438,7 +422,6 @@ fn extension_validate_json_output_invalid() {
     behavior = "validate_extension_manifest",
     verify = "valid manifest passes validation"
 )]
-#[test]
 fn extension_init_then_validate_roundtrip() {
     let dir = TempDir::new().unwrap();
 
@@ -472,7 +455,6 @@ fn extension_init_then_validate_roundtrip() {
     behavior = "scaffold_wasm_extension_project",
     verify = "Scaffold Wasm Extension Project: Wasm extension scaffolding holds — filesystem_available, manifest_created, skeleton_exports_created, build_script_created, extension_project_scaffolded_emitted"
 )]
-#[test]
 fn contract_init_creates_three_files() {
     let dir = TempDir::new().unwrap();
 
@@ -498,7 +480,6 @@ fn contract_init_creates_three_files() {
     behavior = "build_wasm_extension",
     verify = "build errors reported as ExtensionError diagnostics"
 )]
-#[test]
 fn contract_build_requires_both_files() {
     // Neither file
     let dir1 = TempDir::new().unwrap();
@@ -541,7 +522,6 @@ fn contract_build_requires_both_files() {
     behavior = "validate_extension_manifest",
     verify = "Validate Extension Manifest: extension manifest validation holds — manifest_loaded_fired, manifest_validated_emitted, invalid_manifest_diagnosed, schema_validated"
 )]
-#[test]
 fn contract_validate_exit_codes() {
     // Valid manifest -> exit 0
     let dir1 = TempDir::new().unwrap();

@@ -46,7 +46,6 @@ fn build_chain() -> Graph {
 }
 
 // B:compute_traceability_chain — verify unit "trace from entity shows upstream and downstream connections"
-#[test]
 #[specforge_test(
     behavior = "compute_traceability_chain",
     verify = "trace from entity shows upstream and downstream connections"
@@ -66,7 +65,6 @@ fn trace_shows_upstream_and_downstream() {
 }
 
 // B:compute_traceability_chain — verify unit "trace shows full chain depth"
-#[test]
 #[specforge_test(
     behavior = "compute_traceability_chain",
     verify = "trace shows full chain depth"
@@ -95,7 +93,6 @@ fn trace_shows_full_chain_depth() {
 
 // B:compute_traceability_chain — verify unit "trace from entity shows upstream and downstream connections"
 // (error case: nonexistent entity returns error)
-#[test]
 #[specforge_test(behavior = "compute_traceability_chain")]
 fn trace_nonexistent_entity_returns_error() {
     let graph = build_chain();
@@ -104,7 +101,6 @@ fn trace_nonexistent_entity_returns_error() {
 }
 
 // B:serialize_traceability_data — verify unit "output conforms to Graph Protocol schema"
-#[test]
 #[specforge_test(
     behavior = "serialize_traceability_data",
     verify = "output conforms to Graph Protocol schema"
@@ -123,7 +119,6 @@ fn trace_serializes_to_json() {
 
 // B:compute_traceability_chain — verify unit "trace from entity shows upstream and downstream connections"
 // (edge case: leaf has upstream only)
-#[test]
 #[specforge_test(behavior = "compute_traceability_chain")]
 fn trace_on_leaf_has_upstream_only() {
     let graph = build_chain();
@@ -138,7 +133,6 @@ fn trace_on_leaf_has_upstream_only() {
 
 // B:compute_traceability_chain — verify unit "trace from entity shows upstream and downstream connections"
 // (edge case: root has downstream only)
-#[test]
 #[specforge_test(behavior = "compute_traceability_chain")]
 fn trace_on_root_has_downstream_only() {
     let graph = build_chain();
@@ -149,7 +143,6 @@ fn trace_on_root_has_downstream_only() {
 }
 
 // B:serialize_traceability_data — verify unit "full trace covers all root entities across registered edge types"
-#[test]
 #[specforge_test(
     behavior = "serialize_traceability_data",
     verify = "full trace covers all root entities across registered edge types"
@@ -166,7 +159,6 @@ fn trace_all_covers_all_root_entities() {
 }
 
 // B:serialize_traceability_data — verify unit "output conforms to Graph Protocol schema"
-#[test]
 #[specforge_test(behavior = "serialize_traceability_data")]
 fn trace_all_serializes_as_json_array() {
     let graph = build_chain();
@@ -179,7 +171,6 @@ fn trace_all_serializes_as_json_array() {
 }
 
 // B:compute_traceability_chain — verify unit "missing link in chain is flagged"
-#[test]
 #[specforge_test(
     behavior = "compute_traceability_chain",
     verify = "missing link in chain is flagged"
@@ -216,7 +207,6 @@ fn trace_missing_link_flagged() {
 }
 
 // B:serialize_traceability_data — verify unit "gaps in chain are highlighted"
-#[test]
 #[specforge_test(
     behavior = "serialize_traceability_data",
     verify = "gaps in chain are highlighted"

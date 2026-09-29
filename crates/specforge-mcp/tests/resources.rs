@@ -94,7 +94,6 @@ fn resource_text(resp: &Value) -> String {
 }
 
 // B:expose_graph_as_mcp_resource — verify unit "returns full graph as JSON"
-#[test]
 #[specforge_test(
     behavior = "expose_graph_as_mcp_resource",
     verify = "specforge://graph resource returns full Graph Protocol JSON"
@@ -110,7 +109,6 @@ fn graph_resource_returns_json() {
 }
 
 // B:expose_graph_as_mcp_resource — verify unit "graph resource has correct MIME type"
-#[test]
 #[specforge_test(
     behavior = "expose_graph_as_mcp_resource",
     verify = "specforge://graph resource returns full Graph Protocol JSON"
@@ -125,7 +123,6 @@ fn graph_resource_has_mime_type() {
 }
 
 // B:expose_schema_as_mcp_resource — verify unit "returns schema with entity kinds derived from graph"
-#[test]
 #[specforge_test(
     behavior = "expose_schema_as_mcp_resource",
     verify = "specforge://schema resource returns GraphProtocolSchema JSON"
@@ -163,7 +160,6 @@ fn schema_resource_returns_kinds() {
 }
 
 // B:expose_context_as_mcp_resource — verify unit "returns context-optimized graph"
-#[test]
 #[specforge_test(
     behavior = "expose_context_as_mcp_resource",
     verify = "specforge://context resource returns token-optimized format"
@@ -185,7 +181,6 @@ fn context_resource_returns_context_graph() {
 }
 
 // B:expose_brief_as_mcp_resource — verify unit "returns brief graph"
-#[test]
 #[specforge_test(
     behavior = "expose_brief_as_mcp_resource",
     verify = "specforge://brief resource returns minimal IDs and edges format"
@@ -206,7 +201,6 @@ fn brief_resource_returns_brief_graph() {
 }
 
 // B:expose_diagnostics_as_mcp_resource — verify unit "returns diagnostics array"
-#[test]
 #[specforge_test(
     behavior = "expose_diagnostics_as_mcp_resource",
     verify = "specforge://diagnostics resource returns current DiagnosticBag as JSON"
@@ -220,7 +214,6 @@ fn diagnostics_resource_returns_array() {
 }
 
 // B:expose_entity_as_mcp_resource — verify unit "returns entity subgraph"
-#[test]
 #[specforge_test(
     behavior = "expose_entity_as_mcp_resource",
     verify = "specforge://graph/{entity_id} returns entity and its neighbors"
@@ -242,7 +235,6 @@ fn entity_resource_returns_subgraph() {
 }
 
 // B:expose_entity_as_mcp_resource — verify unit "returns error for unknown entity"
-#[test]
 #[specforge_test(
     behavior = "expose_entity_as_mcp_resource",
     verify = "non-existent entity_id returns 404 error"
@@ -254,7 +246,6 @@ fn entity_resource_error_for_unknown() {
 }
 
 // B:expose_entity_as_mcp_resource — verify unit "returns error for empty entity ID"
-#[test]
 #[specforge_test(
     behavior = "expose_entity_as_mcp_resource",
     verify = "malformed entity_id returns 400 error"
@@ -266,7 +257,6 @@ fn entity_resource_error_for_empty_id() {
 }
 
 // Resource read missing URI
-#[test]
 #[specforge_test(
     behavior = "handle_mcp_protocol_error",
     verify = "missing required params produces -32602 Invalid params"
@@ -278,7 +268,6 @@ fn resource_read_missing_uri() {
 }
 
 // Unknown resource URI
-#[test]
 #[specforge_test(
     behavior = "expose_graph_as_mcp_resource",
     verify = "returns error for unknown URI"
@@ -290,7 +279,6 @@ fn resource_read_unknown_uri() {
 }
 
 // Resource read when not initialized
-#[test]
 #[specforge_test(
     behavior = "mcp_initialize",
     verify = "initialization rejects tool calls before completion"
@@ -306,7 +294,6 @@ fn resource_read_not_initialized() {
 }
 
 // B:expose_graph_as_mcp_resource — verify unit "output includes valid JSON with nodes"
-#[test]
 #[specforge_test(
     behavior = "expose_graph_as_mcp_resource",
     verify = "output includes embedded schema and schema_version"
@@ -321,7 +308,6 @@ fn graph_includes_schema_version() {
 }
 
 // B:expose_graph_as_mcp_resource — verify unit "resource refreshes after recompilation"
-#[test]
 #[specforge_test(
     behavior = "expose_graph_as_mcp_resource",
     verify = "resource refreshes after recompilation"
@@ -355,7 +341,6 @@ fn graph_refreshes_after_recompilation() {
 }
 
 // B:expose_schema_as_mcp_resource — verify unit "schema updates when graph changes"
-#[test]
 #[specforge_test(
     behavior = "expose_schema_as_mcp_resource",
     verify = "schema updates when extensions change"
@@ -396,7 +381,6 @@ fn schema_updates_when_graph_changes() {
 }
 
 // B:expose_context_as_mcp_resource — verify unit "resource refreshes after recompilation"
-#[test]
 #[specforge_test(
     behavior = "expose_context_as_mcp_resource",
     verify = "resource refreshes after recompilation"
@@ -429,7 +413,6 @@ fn context_refreshes_after_recompilation() {
 }
 
 // B:expose_brief_as_mcp_resource — verify unit "resource refreshes after recompilation"
-#[test]
 #[specforge_test(
     behavior = "expose_brief_as_mcp_resource",
     verify = "resource refreshes after recompilation"
@@ -462,7 +445,6 @@ fn brief_refreshes_after_recompilation() {
 }
 
 // B:expose_diagnostics_as_mcp_resource — verify unit "resource updates after recompilation"
-#[test]
 #[specforge_test(
     behavior = "expose_diagnostics_as_mcp_resource",
     verify = "resource updates after recompilation"
@@ -500,7 +482,6 @@ fn diagnostics_updates_after_recompilation() {
 }
 
 // B:expose_diagnostics_as_mcp_resource — verify unit "each diagnostic includes severity, code, message, file, span"
-#[test]
 #[specforge_test(
     behavior = "expose_diagnostics_as_mcp_resource",
     verify = "each diagnostic includes severity, code, message, file, and span"
@@ -540,7 +521,6 @@ fn diagnostics_fields_present() {
 }
 
 // B:expose_entity_as_mcp_resource — verify unit "malformed entity_id returns 400 error"
-#[test]
 #[specforge_test(
     behavior = "expose_entity_as_mcp_resource",
     verify = "malformed entity_id returns 400 error"
@@ -552,7 +532,6 @@ fn entity_malformed_id_returns_error() {
 }
 
 // B:expose_entity_as_mcp_resource — verify unit "resource refreshes after recompilation"
-#[test]
 #[specforge_test(
     behavior = "expose_entity_as_mcp_resource",
     verify = "resource refreshes after recompilation"
@@ -603,7 +582,6 @@ fn entity_refreshes_after_recompilation() {
 }
 
 // B:expose_graph_as_mcp_resource — verify unit "resource has application/json MIME type"
-#[test]
 #[specforge_test(
     behavior = "expose_graph_as_mcp_resource",
     verify = "specforge://graph resource returns full Graph Protocol JSON"
@@ -618,7 +596,6 @@ fn graph_resource_returns_json_mime_type() {
 // ---- C9-06: query parameters on graph resources ----
 
 // B:expose_graph_as_mcp_resource — verify unit "root query scopes the read to a subgraph with a schema_ref"
-#[test]
 #[specforge_test(
     behavior = "serve_graph_resource",
     verify = "scope query parameter restricts to subgraph"
@@ -686,7 +663,6 @@ fn graph_resource_max_tokens_budgets() {
 }
 
 // B:expose_context_as_mcp_resource — verify unit "context entity template scopes to the subgraph"
-#[test]
 #[specforge_test(
     behavior = "serve_graph_resource",
     verify = "scope query parameter restricts to subgraph"

@@ -45,7 +45,6 @@ fn graph_with_refs() -> Graph {
     behavior = "go_to_definition",
     verify = "source spans convert from 1-based to 0-based for LSP"
 )]
-#[test]
 fn source_span_converts_1based_to_0based() {
     // Parser produces 1-based spans (line 3, col 1 means third line, first column)
     let span = SourceSpan {
@@ -67,7 +66,6 @@ fn source_span_converts_1based_to_0based() {
     behavior = "go_to_definition",
     verify = "source spans convert from 1-based to 0-based for LSP"
 )]
-#[test]
 fn source_span_zero_saturates() {
     // Edge case: span with 0 values shouldn't underflow
     let span = SourceSpan {
@@ -88,7 +86,6 @@ fn source_span_zero_saturates() {
     behavior = "go_to_definition",
     verify = "go-to-def navigates to entity declaration"
 )]
-#[test]
 fn go_to_def_navigates_to_declaration() {
     let g = graph_with_refs();
     let result = specforge_lsp::go_to_definition(&g, "auth_token");
@@ -102,7 +99,6 @@ fn go_to_def_navigates_to_declaration() {
     behavior = "go_to_definition",
     verify = "go-to-def on non-existent ID returns no result"
 )]
-#[test]
 fn go_to_def_returns_none_for_missing() {
     let g = graph_with_refs();
     let result = specforge_lsp::go_to_definition(&g, "nonexistent");
@@ -110,7 +106,6 @@ fn go_to_def_returns_none_for_missing() {
 }
 
 #[spec(behavior = "go_to_definition", verify = "go-to-def works across files")]
-#[test]
 fn go_to_def_works_across_files() {
     let mut g = Graph::new();
     g.add_node(node("controller", "behavior", "controllers.spec", 1));
@@ -139,7 +134,6 @@ fn go_to_def_works_across_files() {
     behavior = "goto_import_definition",
     verify = "go-to-def on use path navigates to target file"
 )]
-#[test]
 fn goto_import_navigates_to_file() {
     let tmp = tempfile::tempdir().unwrap();
     let behaviors_dir = tmp.path().join("behaviors");
@@ -161,7 +155,6 @@ fn goto_import_navigates_to_file() {
     behavior = "goto_import_definition",
     verify = "go-to-def on non-existent use path returns no result"
 )]
-#[test]
 fn goto_import_returns_none_for_missing() {
     let tmp = tempfile::tempdir().unwrap();
     let spec_root = tmp.path().to_str().unwrap();
@@ -175,7 +168,6 @@ fn goto_import_returns_none_for_missing() {
     behavior = "goto_import_definition",
     verify = "go-to-def on use path navigates to target file"
 )]
-#[test]
 fn goto_definition_dispatches_to_import_on_use_line() {
     let tmp = tempfile::tempdir().unwrap();
     let behaviors_dir = tmp.path().join("behaviors");
@@ -209,7 +201,6 @@ fn goto_definition_dispatches_to_import_on_use_line() {
     behavior = "find_all_references",
     verify = "find-refs returns all reference sites"
 )]
-#[test]
 fn find_refs_returns_all_sites() {
     let mut g = Graph::new();
     g.add_node(node("auth_token", "type", "types.spec", 10));
@@ -235,7 +226,6 @@ fn find_refs_returns_all_sites() {
     behavior = "find_all_references",
     verify = "find-refs includes the declaration site"
 )]
-#[test]
 fn find_refs_includes_declaration() {
     let g = graph_with_refs();
     let refs = specforge_lsp::find_all_references(&g, "auth_token");
@@ -249,7 +239,6 @@ fn find_refs_includes_declaration() {
     behavior = "find_all_references",
     verify = "find-refs across multiple files"
 )]
-#[test]
 fn find_refs_across_files() {
     let mut g = Graph::new();
     g.add_node(node("auth_token", "type", "types.spec", 10));

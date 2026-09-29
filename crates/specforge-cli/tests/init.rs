@@ -15,7 +15,6 @@ fn specforge_cmd() -> Command {
     behavior = "find_project_root",
     verify = "specforge.json found in current directory"
 )]
-#[test]
 fn find_project_root_json_in_current_dir() {
     use specforge_common::find_project_root;
 
@@ -30,7 +29,6 @@ fn find_project_root_json_in_current_dir() {
     behavior = "find_project_root",
     verify = "specforge.json found in ancestor directory"
 )]
-#[test]
 fn find_project_root_json_in_ancestor() {
     use specforge_common::find_project_root;
 
@@ -47,7 +45,6 @@ fn find_project_root_json_in_ancestor() {
     behavior = "find_project_root",
     verify = "specforge.spec found when specforge.json is absent at same level"
 )]
-#[test]
 fn find_project_root_spec_fallback() {
     use specforge_common::find_project_root;
 
@@ -62,7 +59,6 @@ fn find_project_root_spec_fallback() {
     behavior = "find_project_root",
     verify = "closest directory wins over ancestor directory"
 )]
-#[test]
 fn find_project_root_closest_wins() {
     use specforge_common::find_project_root;
 
@@ -82,7 +78,6 @@ fn find_project_root_closest_wins() {
     behavior = "find_project_root",
     verify = "specforge.json takes precedence over specforge.spec in same directory"
 )]
-#[test]
 fn find_project_root_json_precedence() {
     use specforge_common::find_project_root;
 
@@ -102,7 +97,6 @@ fn find_project_root_json_precedence() {
     behavior = "find_project_root",
     verify = "no config found returns None"
 )]
-#[test]
 fn find_project_root_none_when_missing() {
     use specforge_common::find_project_root;
 
@@ -132,7 +126,6 @@ fn find_project_root_none_when_missing() {
     behavior = "scaffold_new_project",
     verify = "scaffold creates valid specforge.json"
 )]
-#[test]
 fn init_creates_valid_specforge_json() {
     let dir = TempDir::new().unwrap();
 
@@ -159,7 +152,6 @@ fn init_creates_valid_specforge_json() {
     behavior = "scaffold_new_project",
     verify = "scaffold includes $schema field in generated config"
 )]
-#[test]
 fn init_includes_schema_field() {
     let dir = TempDir::new().unwrap();
 
@@ -186,7 +178,6 @@ fn init_includes_schema_field() {
     behavior = "scaffold_new_project",
     verify = "scaffold rejects when specforge.json already exists"
 )]
-#[test]
 fn init_rejects_existing_project() {
     let dir = TempDir::new().unwrap();
     fs::write(dir.path().join("specforge.json"), "{}").unwrap();
@@ -203,7 +194,6 @@ fn init_rejects_existing_project() {
     behavior = "scaffold_new_project",
     verify = "scaffold rejects when a parent directory contains specforge.json"
 )]
-#[test]
 fn init_rejects_when_parent_has_config() {
     let dir = TempDir::new().unwrap();
     fs::write(dir.path().join("specforge.json"), "{}").unwrap();
@@ -223,7 +213,6 @@ fn init_rejects_when_parent_has_config() {
     behavior = "scaffold_new_project",
     verify = "scaffold in non-empty directory preserves existing files"
 )]
-#[test]
 fn init_preserves_existing_files() {
     let dir = TempDir::new().unwrap();
     fs::write(dir.path().join("README.md"), "# Hello").unwrap();
@@ -257,7 +246,6 @@ fn init_preserves_existing_files() {
     behavior = "scaffold_starter_spec_file",
     verify = "starter spec file is created alongside specforge.json"
 )]
-#[test]
 fn init_creates_starter_spec_file() {
     let dir = TempDir::new().unwrap();
 
@@ -280,7 +268,6 @@ fn init_creates_starter_spec_file() {
     behavior = "scaffold_starter_spec_file",
     verify = "starter spec file passes specforge check with zero errors"
 )]
-#[test]
 fn init_starter_passes_check() {
     let dir = TempDir::new().unwrap();
 
@@ -302,7 +289,6 @@ fn init_starter_passes_check() {
     behavior = "scaffold_starter_spec_file",
     verify = "starter file uses only structural syntax when no extensions contribute templates"
 )]
-#[test]
 fn init_starter_uses_structural_syntax_only() {
     let dir = TempDir::new().unwrap();
 
@@ -342,7 +328,6 @@ fn init_starter_uses_structural_syntax_only() {
     behavior = "scaffold_starter_spec_file",
     verify = "starter file content is deterministic for same extension set"
 )]
-#[test]
 fn init_starter_is_deterministic() {
     let dir1 = TempDir::new().unwrap();
     let dir2 = TempDir::new().unwrap();
@@ -372,7 +357,6 @@ fn init_starter_is_deterministic() {
     behavior = "graceful_zero_extension_init",
     verify = "zero-extension init creates valid specforge.json with empty extensions"
 )]
-#[test]
 fn zero_ext_init_creates_valid_config() {
     let dir = TempDir::new().unwrap();
 
@@ -392,7 +376,6 @@ fn zero_ext_init_creates_valid_config() {
     behavior = "graceful_zero_extension_init",
     verify = "zero-extension config produces empty extensions array []"
 )]
-#[test]
 fn zero_ext_config_has_empty_array() {
     let dir = TempDir::new().unwrap();
 
@@ -414,7 +397,6 @@ fn zero_ext_config_has_empty_array() {
     behavior = "graceful_zero_extension_init",
     verify = "zero-extension starter file passes specforge check"
 )]
-#[test]
 fn zero_ext_starter_passes_check() {
     let dir = TempDir::new().unwrap();
 
@@ -435,7 +417,6 @@ fn zero_ext_starter_passes_check() {
     behavior = "graceful_zero_extension_init",
     verify = "zero-extension project produces valid graph via specforge export"
 )]
-#[test]
 fn zero_ext_export_produces_valid_graph() {
     let dir = TempDir::new().unwrap();
 
@@ -467,7 +448,6 @@ fn zero_ext_export_produces_valid_graph() {
     behavior = "non_interactive_init",
     verify = "non-interactive init creates valid specforge.json"
 )]
-#[test]
 fn non_interactive_creates_valid_config() {
     let dir = TempDir::new().unwrap();
 
@@ -486,7 +466,6 @@ fn non_interactive_creates_valid_config() {
     behavior = "non_interactive_init",
     verify = "non-interactive init skips all prompts"
 )]
-#[test]
 fn non_interactive_no_prompts() {
     let dir = TempDir::new().unwrap();
 
@@ -509,7 +488,6 @@ fn non_interactive_no_prompts() {
     behavior = "non_interactive_init",
     verify = "non-interactive init with --extensions populates extensions list"
 )]
-#[test]
 fn non_interactive_with_extensions() {
     let dir = TempDir::new().unwrap();
 
@@ -541,7 +519,6 @@ fn non_interactive_with_extensions() {
     behavior = "non_interactive_init",
     verify = "non-interactive init with --format=json outputs InitOutput JSON"
 )]
-#[test]
 fn non_interactive_json_output() {
     let dir = TempDir::new().unwrap();
 
@@ -572,7 +549,6 @@ fn non_interactive_json_output() {
     behavior = "non_interactive_init",
     verify = "non-interactive init --format=json includes all 4 required fields: project_root, config_path, spec_file_path, extensions_installed"
 )]
-#[test]
 fn non_interactive_json_all_fields() {
     let dir = TempDir::new().unwrap();
 
@@ -618,7 +594,6 @@ fn non_interactive_json_all_fields() {
     behavior = "non_interactive_init",
     verify = "non-interactive init with --version overrides default version in specforge.json"
 )]
-#[test]
 fn non_interactive_version_override() {
     let dir = TempDir::new().unwrap();
 
@@ -637,7 +612,6 @@ fn non_interactive_version_override() {
     behavior = "non_interactive_init",
     verify = "non-interactive output matches interactive output for same inputs"
 )]
-#[test]
 fn non_interactive_matches_default_name() {
     // With --name, the result should be deterministic regardless of how
     // the name was provided (flag vs. directory name inference).
@@ -666,7 +640,6 @@ fn non_interactive_matches_default_name() {
     behavior = "find_project_root",
     verify = "symlinks are resolved before path comparison"
 )]
-#[test]
 fn find_project_root_resolves_symlinks() {
     use specforge_common::find_project_root;
 
@@ -689,7 +662,6 @@ fn find_project_root_resolves_symlinks() {
     behavior = "find_project_root",
     verify = "circular symlink chain does not cause infinite loop"
 )]
-#[test]
 fn find_project_root_handles_circular_symlinks() {
     use specforge_common::find_project_root;
 
@@ -717,7 +689,6 @@ fn find_project_root_handles_circular_symlinks() {
     behavior = "find_project_root",
     verify = "directory traversal completes in under 100ms for 20-level deep hierarchy"
 )]
-#[test]
 fn find_project_root_performance() {
     use specforge_common::find_project_root;
 
@@ -750,7 +721,6 @@ fn find_project_root_performance() {
     behavior = "scaffold_new_project",
     verify = "scaffolded project passes init-check-export cycle"
 )]
-#[test]
 fn init_check_export_cycle() {
     let dir = TempDir::new().unwrap();
 
@@ -785,7 +755,6 @@ fn init_check_export_cycle() {
     behavior = "scaffold_new_project",
     verify = "full init-check-export cycle completes in under 60 seconds"
 )]
-#[test]
 fn init_check_export_performance() {
     let dir = TempDir::new().unwrap();
     let start = std::time::Instant::now();
@@ -824,7 +793,6 @@ fn init_check_export_performance() {
     behavior = "scaffold_starter_spec_file",
     verify = "starter file contains no domain-specific keywords from extensions"
 )]
-#[test]
 fn init_starter_no_domain_keywords() {
     let dir = TempDir::new().unwrap();
 
@@ -871,7 +839,6 @@ fn init_starter_no_domain_keywords() {
     behavior = "graceful_zero_extension_init",
     verify = "graceful_zero_extension_init completes full init-check-export cycle in under 60 seconds"
 )]
-#[test]
 fn zero_ext_full_cycle_performance() {
     let dir = TempDir::new().unwrap();
     let start = std::time::Instant::now();
@@ -913,7 +880,6 @@ fn zero_ext_full_cycle_performance() {
     behavior = "non_interactive_init",
     verify = "invalid project name is rejected with InitError::invalid_name"
 )]
-#[test]
 fn non_interactive_invalid_name_rejected() {
     let dir = TempDir::new().unwrap();
 
@@ -948,7 +914,6 @@ fn non_interactive_invalid_name_rejected() {
     behavior = "non_interactive_init",
     verify = "non_interactive_init completes full init-check-export cycle in under 60 seconds"
 )]
-#[test]
 fn non_interactive_full_cycle_performance() {
     let dir = TempDir::new().unwrap();
     let start = std::time::Instant::now();
@@ -989,7 +954,6 @@ fn non_interactive_full_cycle_performance() {
     behavior = "non_interactive_init",
     verify = "non-interactive init with unknown extension rejects with diagnostic and exit code 1"
 )]
-#[test]
 fn non_interactive_unknown_extension_rejected() {
     let dir = TempDir::new().unwrap();
 
@@ -1028,7 +992,6 @@ fn non_interactive_unknown_extension_rejected() {
     behavior = "find_project_root",
     verify = "Find Project Root: project root discovery holds — filesystem_available, closest_wins_enforced, json_precedence, symlinks_resolved, none_on_missing"
 )]
-#[test]
 fn find_project_root_contract_in_init() {
     use specforge_common::find_project_root;
 
@@ -1064,7 +1027,6 @@ fn find_project_root_contract_in_init() {
     behavior = "scaffold_new_project",
     verify = "Scaffold New Project: new project scaffolding holds — filesystem_available, no_existing_project, valid_config_created, schema_field_included, project_initialized_emitted"
 )]
-#[test]
 fn scaffold_new_project_contract_in_init() {
     // Requires: filesystem available, no existing project
     // Ensures: valid config created, $schema included, project_initialized emitted
@@ -1103,7 +1065,6 @@ fn scaffold_new_project_contract_in_init() {
     behavior = "scaffold_starter_spec_file",
     verify = "extension-contributed starter templates are used when available"
 )]
-#[test]
 fn starter_uses_extension_templates_when_available() {
     let dir = TempDir::new().unwrap();
 
@@ -1134,7 +1095,6 @@ fn starter_uses_extension_templates_when_available() {
     behavior = "scaffold_starter_spec_file",
     verify = "extension-contributed starter file passes specforge check with zero errors"
 )]
-#[test]
 fn extension_starter_passes_check() {
     let dir = TempDir::new().unwrap();
 
@@ -1162,7 +1122,6 @@ fn extension_starter_passes_check() {
     behavior = "scaffold_starter_spec_file",
     verify = "Scaffold Starter Spec File: starter spec file scaffolding holds — config_created, filesystem_available, starter_file_created, structural_syntax_only, zero_diagnostic_pass"
 )]
-#[test]
 fn scaffold_starter_spec_file_contract() {
     // Requires: specforge.json created, filesystem available
     // Ensures: starter file created, structural syntax only (no extensions),
@@ -1196,7 +1155,6 @@ fn scaffold_starter_spec_file_contract() {
     behavior = "non_interactive_init",
     verify = "Non-Interactive Init: non-interactive init holds — name_flag_provided, filesystem_available, no_existing_project, config_identical_to_interactive, all_prompts_skipped, json_output_supported, project_initialized_emitted"
 )]
-#[test]
 fn non_interactive_init_contract_in_init() {
     // Requires: --name flag provided, filesystem available, no existing project
     // Ensures: config identical to interactive, all prompts skipped,
@@ -1229,7 +1187,6 @@ fn non_interactive_init_contract_in_init() {
     behavior = "graceful_zero_extension_init",
     verify = "Graceful Zero-Extension Init: zero-extension init holds — zero_extensions_selected, filesystem_available, empty_extensions_list, structural_starter_valid, valid_graph_exportable, project_initialized_emitted"
 )]
-#[test]
 fn graceful_zero_extension_init_contract_in_init() {
     // Requires: zero extensions selected, filesystem available
     // Ensures: empty extensions list, structural starter valid,

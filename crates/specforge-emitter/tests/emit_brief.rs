@@ -45,7 +45,6 @@ fn node_with_contract(id: &str, kind: &str, title: &str, contract: &str) -> Node
 }
 
 // B:export_agent_brief_format — verify unit "brief format includes only IDs, kinds, titles, and edges"
-#[test]
 #[specforge_test(
     behavior = "export_agent_brief_format",
     verify = "brief format includes only IDs, kinds, titles, and edges"
@@ -93,7 +92,6 @@ fn brief_includes_only_ids_kinds_titles_and_edges() {
 }
 
 // B:export_agent_brief_format — verify unit "brief format is smaller than context format"
-#[test]
 #[specforge_test(
     behavior = "export_agent_brief_format",
     verify = "brief format is smaller than context format"
@@ -118,7 +116,6 @@ fn brief_is_smaller_than_full_json() {
 }
 
 // B:export_agent_brief_format — verify unit "output conforms to Graph Protocol schema"
-#[test]
 #[specforge_test(
     behavior = "export_agent_brief_format",
     verify = "output conforms to Graph Protocol schema"
@@ -154,7 +151,6 @@ fn brief_conforms_to_graph_protocol_schema() {
 }
 
 // B:export_agent_brief_format — verify contract "requires/ensures consistency for agent brief export"
-#[test]
 #[specforge_test(
     behavior = "export_agent_brief_format",
     verify = "Export Agent Brief Format: agent brief export holds — validation_complete_fired, minimal_representation, schema_version_present, export_complete_emitted"
@@ -202,7 +198,6 @@ fn brief_export_contract() {
 }
 
 // B:export_agent_brief_format — verify unit "output includes schema_version field"
-#[test]
 #[specforge_test(
     behavior = "export_agent_brief_format",
     verify = "output includes schema_version field"

@@ -22,7 +22,6 @@ fn setup_project(files: &[(&str, &str)]) -> TempDir {
     behavior = "resolve_use_imports",
     verify = "resolve use path to file on disk"
 )]
-#[test]
 fn resolve_use_import_to_file() {
     let dir = setup_project(&[
         ("types.spec", r#"behavior alpha "A" { contract "first" }"#),
@@ -49,7 +48,6 @@ fn resolve_use_import_to_file() {
     behavior = "resolve_use_imports",
     verify = "missing import file produces E025"
 )]
-#[test]
 fn missing_import_produces_e025() {
     let dir = setup_project(&[("main.spec", "use \"nonexistent\"\nbehavior foo \"F\" { }")]);
 
@@ -67,7 +65,6 @@ fn missing_import_produces_e025() {
     behavior = "detect_import_cycles",
     verify = "detect direct cycle between two files"
 )]
-#[test]
 fn detect_direct_import_cycle() {
     let dir = setup_project(&[
         ("a.spec", "use \"b\"\nbehavior alpha \"A\" { }"),
@@ -97,7 +94,6 @@ fn detect_direct_import_cycle() {
     behavior = "detect_import_cycles",
     verify = "detect transitive cycle across three files"
 )]
-#[test]
 fn detect_transitive_import_cycle() {
     let dir = setup_project(&[
         ("a.spec", "use \"b\"\nbehavior alpha \"A\" { }"),
@@ -122,7 +118,6 @@ fn detect_transitive_import_cycle() {
     behavior = "detect_import_cycles",
     verify = "non-cyclic files still process when a cycle exists"
 )]
-#[test]
 fn non_cyclic_files_still_resolve_when_cycle_exists() {
     let dir = setup_project(&[
         ("a.spec", "use \"b\"\nbehavior alpha \"A\" { }"),
@@ -143,7 +138,6 @@ fn non_cyclic_files_still_resolve_when_cycle_exists() {
     behavior = "resolve_use_imports",
     verify = "imports across nested directories resolve correctly"
 )]
-#[test]
 fn imports_across_nested_directories_resolve_correctly() {
     let dir = setup_project(&[
         (
@@ -180,7 +174,6 @@ fn imports_across_nested_directories_resolve_correctly() {
     behavior = "link_entity_references",
     verify = "reference list IDs create graph edges"
 )]
-#[test]
 fn reference_list_creates_pending_edges() {
     let dir = setup_project(&[(
         "main.spec",
@@ -210,7 +203,6 @@ feature gamma "G" {
     behavior = "link_entity_references",
     verify = "unresolvable reference produces E003"
 )]
-#[test]
 fn unresolvable_reference_produces_e003() {
     let dir = setup_project(&[(
         "main.spec",
@@ -236,7 +228,6 @@ feature gamma "G" {
     behavior = "link_entity_references",
     verify = "E003 span covers exactly the unresolved identifier token"
 )]
-#[test]
 fn e003_span_points_at_reference_token() {
     let dir = setup_project(&[(
         "main.spec",
@@ -273,7 +264,6 @@ entity order {
     behavior = "link_entity_references",
     verify = "close match triggers did-you-mean suggestion"
 )]
-#[test]
 fn link_reference_close_match_triggers_suggestion() {
     let dir = setup_project(&[(
         "main.spec",
@@ -302,7 +292,6 @@ feature gamma "G" {
     behavior = "provide_did_you_mean_suggestions",
     verify = "close match produces suggestion"
 )]
-#[test]
 fn close_match_triggers_did_you_mean() {
     let dir = setup_project(&[(
         "main.spec",
@@ -336,7 +325,6 @@ feature gamma "G" {
     behavior = "provide_did_you_mean_suggestions",
     verify = "distant match produces no suggestion"
 )]
-#[test]
 fn distant_match_produces_no_suggestion() {
     let dir = setup_project(&[(
         "main.spec",
@@ -362,7 +350,6 @@ feature gamma "G" {
     behavior = "provide_did_you_mean_suggestions",
     verify = "suggestion appears in help text"
 )]
-#[test]
 fn suggestion_appears_in_help_text() {
     let dir = setup_project(&[(
         "main.spec",
@@ -392,7 +379,6 @@ feature gamma "G" {
     behavior = "provide_did_you_mean_suggestions",
     verify = "Provide Did-You-Mean Suggestions: did-you-mean suggestions holds — unresolved_reference_available, kind_registry_populated, distance_threshold, sorted_by_distance"
 )]
-#[test]
 fn did_you_mean_contract_consistency() {
     // Close match → suggestion present
     let dir = setup_project(&[(
@@ -435,7 +421,6 @@ feature gamma "G" { behaviors [xyz_totally_different] }
     behavior = "resolve_use_imports",
     verify = "resolve use path to file on disk"
 )]
-#[test]
 fn resolve_relative_dot_slash() {
     let dir = setup_project(&[
         (
@@ -465,7 +450,6 @@ fn resolve_relative_dot_slash() {
     behavior = "resolve_use_imports",
     verify = "resolve use path to file on disk"
 )]
-#[test]
 fn resolve_relative_dot_dot_slash() {
     let dir = setup_project(&[
         (
@@ -495,7 +479,6 @@ fn resolve_relative_dot_dot_slash() {
     behavior = "resolve_use_imports",
     verify = "relative import traversing above spec_root is rejected"
 )]
-#[test]
 fn resolve_relative_escaping_spec_root() {
     let dir = setup_project(&[(
         "sub/main.spec",
@@ -520,7 +503,6 @@ fn resolve_relative_escaping_spec_root() {
     behavior = "resolve_use_imports",
     verify = "resolve use path to file on disk"
 )]
-#[test]
 fn resolve_path_alias() {
     let dir = setup_project(&[
         (
@@ -556,7 +538,6 @@ fn resolve_path_alias() {
     behavior = "resolve_use_imports",
     verify = "resolve use path to file on disk"
 )]
-#[test]
 fn resolve_directory_to_index_spec() {
     let dir = setup_project(&[
         (
@@ -587,7 +568,6 @@ fn resolve_directory_to_index_spec() {
     behavior = "resolve_use_imports",
     verify = "resolve use path to file on disk"
 )]
-#[test]
 fn bare_path_precedence_over_index() {
     let dir = setup_project(&[
         (
@@ -632,7 +612,6 @@ fn bare_path_precedence_over_index() {
     behavior = "resolve_use_imports",
     verify = "resolve extension import path"
 )]
-#[test]
 fn extension_import_emits_i004() {
     let dir = setup_project(&[(
         "main.spec",
@@ -666,7 +645,6 @@ fn extension_import_emits_i004() {
     behavior = "resolve_use_imports",
     verify = "missing import file produces E025"
 )]
-#[test]
 fn missing_import_e025_with_suggestion() {
     let dir = setup_project(&[
         ("helpers.spec", r#"behavior helper "H" { contract "help" }"#),
@@ -695,7 +673,6 @@ fn missing_import_e025_with_suggestion() {
     behavior = "resolve_use_imports",
     verify = "missing import file produces E025"
 )]
-#[test]
 fn missing_import_e025_no_suggestion() {
     let dir = setup_project(&[
         ("types.spec", r#"behavior t "T" { contract "t" }"#),
@@ -726,7 +703,6 @@ fn missing_import_e025_no_suggestion() {
     behavior = "resolve_reexports",
     verify = "pub use re-exports all entities from target"
 )]
-#[test]
 fn pub_use_reexports_all_entities() {
     let dir = setup_project(&[
         (
@@ -765,7 +741,6 @@ behavior UserProfile "UP" { contract "profile" }"#,
     behavior = "resolve_reexports",
     verify = "pub use selective re-exports only named entities"
 )]
-#[test]
 fn pub_use_selective_reexport() {
     let dir = setup_project(&[
         (
@@ -804,7 +779,6 @@ behavior UserProfile "UP" { contract "profile" }"#,
     behavior = "resolve_reexports",
     verify = "pub use chains resolve transitively"
 )]
-#[test]
 fn pub_use_transitive_chain() {
     let dir = setup_project(&[
         (
@@ -840,7 +814,6 @@ fn pub_use_transitive_chain() {
     behavior = "resolve_reexports",
     verify = "regular use does not re-export"
 )]
-#[test]
 fn regular_use_does_not_reexport() {
     let dir = setup_project(&[
         ("user.spec", r#"behavior User "U" { contract "user" }"#),
@@ -870,7 +843,6 @@ fn regular_use_does_not_reexport() {
     behavior = "resolve_reexports",
     verify = "barrel index with pub use re-exports from sub-files"
 )]
-#[test]
 fn barrel_index_with_pub_use() {
     let dir = setup_project(&[
         (
@@ -912,7 +884,6 @@ fn barrel_index_with_pub_use() {
     behavior = "resolve_reexports",
     verify = "selective re-export of unknown entity produces W027"
 )]
-#[test]
 fn pub_use_unknown_entity_w027() {
     let dir = setup_project(&[
         ("foo.spec", r#"behavior Foo "F" { contract "foo" }"#),
@@ -940,7 +911,6 @@ fn pub_use_unknown_entity_w027() {
     behavior = "resolve_use_imports",
     verify = "symlink pointing outside spec_root is rejected"
 )]
-#[test]
 fn symlink_outside_spec_root_rejected() {
     // Create a temp dir with a spec_root subdirectory and a secret file outside it
     let outer = TempDir::new().unwrap();
@@ -978,7 +948,6 @@ fn symlink_outside_spec_root_rejected() {
     behavior = "resolve_use_imports",
     verify = "relative import traversing above spec_root is rejected"
 )]
-#[test]
 fn relative_import_path_traversal_rejected() {
     let outer = TempDir::new().unwrap();
     let spec_root = outer.path().join("specs");
@@ -1014,7 +983,6 @@ fn relative_import_path_traversal_rejected() {
     behavior = "detect_import_cycles",
     verify = "W003 carries actionable suggestion"
 )]
-#[test]
 fn w113_import_cycle_has_suggestion() {
     let dir = setup_project(&[
         ("a.spec", "use \"b\"\nbehavior alpha \"A\" { }"),
@@ -1044,7 +1012,6 @@ fn w113_import_cycle_has_suggestion() {
     behavior = "resolve_reexports",
     verify = "pub use through cycle participant uses only declared set"
 )]
-#[test]
 fn pub_use_through_cycle_no_transitive() {
     // a.spec and b.spec form a cycle. c.spec pub-uses a.spec.
     // c should get a.spec's declared entities, but not anything
@@ -1082,7 +1049,6 @@ fn pub_use_through_cycle_no_transitive() {
     behavior = "link_entity_references",
     verify = "cross-file duplicate entity ID produces W063"
 )]
-#[test]
 fn cross_file_duplicate_entity_id_produces_w122() {
     let dir = setup_project(&[
         (
@@ -1117,7 +1083,6 @@ fn cross_file_duplicate_entity_id_produces_w122() {
     behavior = "link_entity_references",
     verify = "same ID different kind across files warns W063 with both kinds named"
 )]
-#[test]
 fn same_id_different_kind_across_files_warns_w060() {
     let dir = setup_project(&[
         (

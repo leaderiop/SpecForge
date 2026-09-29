@@ -7,7 +7,6 @@ use std::path::PathBuf;
     behavior = "parse_all_block_types",
     verify = "parse any keyword as generic entity_block"
 )]
-#[test]
 fn parse_basic_entity_block() {
     let source = r#"
 behavior parse_spec_file "Parse Spec File" {
@@ -43,7 +42,6 @@ behavior parse_spec_file "Parse Spec File" {
 }
 
 #[specforge_test(behavior = "parse_use_imports", verify = "parse full use import")]
-#[test]
 fn parse_use_import() {
     let source = "use \"behaviors/parsing\"\n";
     let result = parse(source, "test.spec");
@@ -63,7 +61,6 @@ fn parse_use_import() {
     behavior = "parse_use_imports",
     verify = "parse selective use import with braces"
 )]
-#[test]
 fn parse_selective_import() {
     let source = "use { SpecFile, ParseError } from \"types/core\"\n";
     let result = parse(source, "test.spec");
@@ -94,7 +91,6 @@ fn parse_selective_import() {
     behavior = "parse_verify_statements",
     verify = "parse verify statement in any entity block"
 )]
-#[test]
 fn parse_verify_statements() {
     let source = r#"
 behavior validate_input "Validate Input" {
@@ -128,7 +124,6 @@ behavior validate_input "Validate Input" {
     behavior = "parse_all_block_types",
     verify = "spec block uses dedicated grammar rule"
 )]
-#[test]
 fn parse_spec_block() {
     let source = r#"
 spec "SpecForge" {
@@ -158,7 +153,6 @@ spec "SpecForge" {
 }
 
 #[specforge_test(behavior = "parse_ref_blocks", verify = "parse one-line ref syntax")]
-#[test]
 fn parse_ref_inline() {
     let source = r#"ref gh.issue:42 "Support Wasm extensions""#;
     let result = parse(source, "test.spec");
@@ -190,7 +184,6 @@ fn parse_ref_inline() {
     behavior = "parse_ref_blocks",
     verify = "ref block supports optional title and body fields"
 )]
-#[test]
 fn parse_ref_full_block() {
     let source = r#"
 ref gh.issue:99 "Performance tracking" {
@@ -219,7 +212,6 @@ ref gh.issue:99 "Performance tracking" {
     behavior = "parse_define_blocks",
     verify = "parse define block with name and body"
 )]
-#[test]
 fn parse_define_block() {
     let source = r#"
 define my_custom_type {
@@ -253,7 +245,6 @@ define my_custom_type {
     behavior = "parse_all_block_types",
     verify = "generic block preserves kind, name, title, and fields"
 )]
-#[test]
 fn parse_all_field_value_types() {
     let source = r#"
 behavior test_values "Test Values" {
@@ -327,7 +318,6 @@ behavior test_values "Test Values" {
     behavior = "parse_triple_quoted_strings",
     verify = "common leading whitespace is stripped"
 )]
-#[test]
 fn parse_triple_quoted_string() {
     let source = "behavior doc_test \"Doc Test\" {\n    contract \"\"\"\n        Given a valid input\n        When processed\n        Then output is correct\n    \"\"\"\n}\n";
     let result = parse(source, "test.spec");
@@ -356,7 +346,6 @@ fn parse_triple_quoted_string() {
     behavior = "recover_from_syntax_errors",
     verify = "valid blocks after syntax error are still parsed"
 )]
-#[test]
 fn multi_error_recovery() {
     let source = r#"
 behavior good_before "Before" {
@@ -399,7 +388,6 @@ behavior good_after "After" {
     behavior = "recover_from_syntax_errors",
     verify = "parser collects multiple errors from one file"
 )]
-#[test]
 fn multiple_errors_produce_multiple_diagnostics() {
     let source = r#"
 !!!
@@ -429,7 +417,6 @@ behavior valid "Valid" {
     behavior = "parse_all_block_types",
     verify = "unknown keyword parsed without error"
 )]
-#[test]
 fn unknown_keyword_parsed_without_error() {
     // Use a completely made-up keyword — the parser must accept it generically
     let source = r#"
@@ -479,7 +466,6 @@ behavior example "Example" {
     behavior = "parse_all_block_types",
     verify = "any keyword produces generic entity_block AST node"
 )]
-#[test]
 fn parse_entity_without_title() {
     let source = r#"
 invariant no_orphans {
@@ -504,7 +490,6 @@ invariant no_orphans {
     behavior = "parse_spec_file_to_ast",
     verify = "parse valid file produces complete AST"
 )]
-#[test]
 fn parse_multiple_entities_in_one_file() {
     let source = r#"
 use "types/core"
@@ -539,7 +524,6 @@ invariant third {
     behavior = "parse_all_block_types",
     verify = "parse string field values correctly"
 )]
-#[test]
 fn parse_list_with_trailing_comma() {
     let source = r#"
 behavior trailing "Trailing Comma" {
@@ -566,7 +550,6 @@ behavior trailing "Trailing Comma" {
     behavior = "parse_ref_blocks",
     verify = "ref block extracts scheme, kind, and identifier components"
 )]
-#[test]
 fn parse_mixed_list_with_scheme_refs() {
     let source = r#"
 behavior with_refs "Refs" {
@@ -600,7 +583,6 @@ behavior with_refs "Refs" {
 }
 
 #[specforge_test(behavior = "parse_use_imports", verify = "parse full use import")]
-#[test]
 fn parse_multiple_use_imports() {
     let source = r#"
 use "behaviors/parsing"
@@ -626,7 +608,6 @@ use "features/output"
     behavior = "parse_spec_file_to_ast",
     verify = "AST source spans match original token positions"
 )]
-#[test]
 fn source_spans_are_accurate() {
     let source = "behavior first \"First\" {\n    status planned\n}\n";
     let result = parse(source, "test.spec");
@@ -647,7 +628,6 @@ fn source_spans_are_accurate() {
     behavior = "parse_spec_file_to_ast",
     verify = "parse valid file produces complete AST"
 )]
-#[test]
 fn parse_empty_file() {
     let result = parse("", "empty.spec");
     assert!(result.errors.is_empty());
@@ -659,7 +639,6 @@ fn parse_empty_file() {
     behavior = "parse_all_block_types",
     verify = "any keyword produces generic entity_block AST node"
 )]
-#[test]
 fn parse_empty_block() {
     let source = "behavior empty_block \"Empty\" {\n}\n";
     let result = parse(source, "test.spec");
@@ -678,7 +657,6 @@ fn parse_empty_block() {
     behavior = "parse_spec_file_to_ast",
     verify = "parse valid file produces complete AST"
 )]
-#[test]
 fn parse_real_world_spec_file() {
     // A realistic .spec file exercising many constructs at once
     let source = r#"
@@ -753,7 +731,6 @@ behavior recover_from_syntax_errors "Recover from Syntax Errors" {
     behavior = "parse_all_block_types",
     verify = "generic block preserves kind, name, title, and fields"
 )]
-#[test]
 fn parse_deeply_nested_dbc_blocks() {
     let source = r#"
 behavior complex "Complex" {
@@ -805,7 +782,6 @@ behavior complex "Complex" {
     behavior = "parse_spec_file_to_ast",
     verify = "parse valid file produces complete AST"
 )]
-#[test]
 fn parse_actual_spec_files_from_project() {
     // Find the project root (crates/specforge-parser -> project root)
     let manifest_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
@@ -839,7 +815,6 @@ fn parse_actual_spec_files_from_project() {
     behavior = "parse_all_block_types",
     verify = "any keyword produces generic entity_block AST node"
 )]
-#[test]
 fn parse_type_struct_with_annotations() {
     let source = r#"
 type SpecFile {
@@ -869,7 +844,6 @@ type SpecFile {
     behavior = "parse_all_block_types",
     verify = "any keyword produces generic entity_block AST node"
 )]
-#[test]
 fn parse_union_type() {
     let source = r#"
 type FieldValue = StringValue | ReferenceList | StringList | Block | VerifyList
@@ -892,7 +866,6 @@ type FieldValue = StringValue | ReferenceList | StringList | Block | VerifyList
     behavior = "parse_all_block_types",
     verify = "any keyword produces generic entity_block AST node"
 )]
-#[test]
 fn parse_string_union_type() {
     let source = r#"
 type McpErrorCode = "invalid_input" | "compilation_failed" | "entity_not_found"
@@ -915,7 +888,6 @@ type McpErrorCode = "invalid_input" | "compilation_failed" | "entity_not_found"
     behavior = "parse_all_block_types",
     verify = "any keyword produces generic entity_block AST node"
 )]
-#[test]
 fn parse_multiline_union_type() {
     // Multi-line union with continuation via leading |
     let source = r#"
@@ -937,7 +909,6 @@ type ExportFormat = "json" | "dot" | "context"
     behavior = "parse_all_block_types",
     verify = "any keyword produces generic entity_block AST node"
 )]
-#[test]
 fn parse_integer_union_type() {
     let source = r#"
 type JsonRpcErrorCode = -32700 | -32600 | -32601
@@ -957,7 +928,6 @@ type JsonRpcErrorCode = -32700 | -32600 | -32601
     behavior = "parse_use_imports",
     verify = "reject use import with .spec extension"
 )]
-#[test]
 fn reject_use_import_with_spec_extension() {
     let source = "use \"behaviors/parsing.spec\"\n";
     let result = parse(source, "test.spec");
@@ -972,7 +942,6 @@ fn reject_use_import_with_spec_extension() {
     behavior = "parse_verify_statements",
     verify = "verify parsed in spec block"
 )]
-#[test]
 fn verify_statements_in_spec_block() {
     let source = r#"
 spec "MyProject" {
@@ -1016,7 +985,6 @@ spec "MyProject" {
     behavior = "parse_verify_statements",
     verify = "verify parsed in define block"
 )]
-#[test]
 fn verify_statements_in_define_block() {
     let source = r#"
 define my_custom_kind {
@@ -1059,7 +1027,6 @@ define my_custom_kind {
     behavior = "parse_triple_quoted_strings",
     verify = "recover from unclosed triple-quoted string with diagnostic"
 )]
-#[test]
 fn unclosed_triple_quoted_string_produces_error() {
     let source = r#"
 behavior broken "Broken" {
@@ -1084,7 +1051,6 @@ behavior after "After" {
     behavior = "recover_from_syntax_errors",
     verify = "valid blocks after syntax error are still parsed"
 )]
-#[test]
 fn unclosed_regular_string_recovers_next_block() {
     let source = "behavior broken \"Broken {\n    status planned\n}\n\nbehavior after \"After\" {\n    status done\n}\n";
     let result = parse(source, "test.spec");
@@ -1103,7 +1069,6 @@ fn unclosed_regular_string_recovers_next_block() {
     behavior = "parse_ref_blocks",
     verify = "reject ref block with missing scheme or identifier"
 )]
-#[test]
 fn malformed_ref_missing_scheme_produces_error() {
     // ref without proper scheme.kind:identifier should produce a parse error
     // since the grammar requires scheme_ref_id format, tree-sitter will
@@ -1130,7 +1095,6 @@ fn malformed_ref_missing_scheme_produces_error() {
     behavior = "parse_all_block_types",
     verify = "generic block preserves kind, name, title, and fields"
 )]
-#[test]
 fn entity_preserves_raw_body() {
     let source = r#"
 behavior parse_things "Parse Things" {
@@ -1168,7 +1132,6 @@ behavior parse_things "Parse Things" {
     behavior = "parse_all_block_types",
     verify = "generic block preserves kind, name, title, and fields"
 )]
-#[test]
 fn empty_block_has_empty_raw_body() {
     let source = "behavior empty \"Empty\" {\n}\n";
     let result = parse(source, "test.spec");
@@ -1190,7 +1153,6 @@ fn empty_block_has_empty_raw_body() {
     behavior = "parse_spec_file_to_ast",
     verify = "parse valid file produces complete AST"
 )]
-#[test]
 fn spec_files_without_extension_syntax_parse_cleanly() {
     // Files that use ONLY standard field syntax (no port method signatures,
     // no term sub-blocks) should parse with ZERO errors.
@@ -1268,7 +1230,6 @@ fn spec_files_without_extension_syntax_parse_cleanly() {
     behavior = "parse_all_block_types",
     verify = "parse string field values correctly"
 )]
-#[test]
 fn annotation_with_string_value() {
     let source = r#"
 type WasmConfig {
@@ -1293,7 +1254,6 @@ type WasmConfig {
     behavior = "parse_verify_statements",
     verify = "verify kind and description extracted correctly"
 )]
-#[test]
 fn verify_statement_without_kind() {
     let source = r#"
 event manifests_loaded "Manifests Loaded" {
@@ -1331,7 +1291,6 @@ event manifests_loaded "Manifests Loaded" {
     behavior = "parse_all_block_types",
     verify = "parse string field values correctly"
 )]
-#[test]
 fn string_field_values_distinct_from_identifiers() {
     let source = r#"
 behavior example "Example" {
@@ -1391,7 +1350,6 @@ behavior example "Example" {
     behavior = "parse_triple_quoted_strings",
     verify = "relative indentation is preserved"
 )]
-#[test]
 fn triple_quoted_relative_indentation_preserved() {
     let source = "behavior b \"B\" {\n    contract \"\"\"\n        line one\n            indented deeper\n        back to base\n    \"\"\"\n}\n";
     let result = parse(source, "test.spec");
@@ -1421,7 +1379,6 @@ fn triple_quoted_relative_indentation_preserved() {
     behavior = "parse_all_block_types",
     verify = "parse string field values correctly"
 )]
-#[test]
 fn parse_empty_reference_list() {
     let source = r#"
 behavior foo "T" {
@@ -1447,7 +1404,6 @@ behavior foo "T" {
     behavior = "parse_all_block_types",
     verify = "generic block preserves kind, name, title, and fields"
 )]
-#[test]
 fn parse_empty_nested_block() {
     let source = r#"
 behavior foo "T" {
@@ -1481,7 +1437,6 @@ behavior foo "T" {
     behavior = "parse_all_block_types",
     verify = "spec block uses dedicated grammar rule"
 )]
-#[test]
 fn spec_block_preserves_raw_body() {
     let source = r#"
 spec "MyProject" {
@@ -1509,7 +1464,6 @@ spec "MyProject" {
     behavior = "parse_define_blocks",
     verify = "define block supports standard field syntax"
 )]
-#[test]
 fn define_block_preserves_raw_body() {
     let source = r#"
 define my_kind {
@@ -1537,7 +1491,6 @@ define my_kind {
     behavior = "parse_all_block_types",
     verify = "any keyword produces generic entity_block AST node"
 )]
-#[test]
 fn parse_single_variant_union() {
     let source = "type Singleton = OnlyOne\n";
     let result = parse(source, "test.spec");
@@ -1567,7 +1520,6 @@ fn parse_single_variant_union() {
     behavior = "parse_all_block_types",
     verify = "any keyword produces generic entity_block AST node"
 )]
-#[test]
 fn parse_union_type_variants_extracted() {
     let source =
         "type FieldValue = StringValue | ReferenceList | StringList | Block | VerifyList\n";
@@ -1609,7 +1561,6 @@ fn parse_union_type_variants_extracted() {
     behavior = "parse_all_block_types",
     verify = "ref block uses dedicated grammar rule"
 )]
-#[test]
 fn ref_block_uses_dedicated_grammar_rule() {
     // Ref blocks have unique syntax: ref scheme.kind:identifier [title] { fields }
     // This verifies that ref is parsed via a dedicated grammar rule, not generic entity_block
@@ -1643,7 +1594,6 @@ ref gh.pr:100 "Ref grammar rule" {
     behavior = "parse_all_block_types",
     verify = "define block uses dedicated grammar rule"
 )]
-#[test]
 fn define_block_uses_dedicated_grammar_rule() {
     // Define blocks have unique syntax: define <name> { fields }
     // No title allowed — this differentiates from generic entity_block
@@ -1686,7 +1636,6 @@ define custom_entity {
     behavior = "parse_triple_quoted_strings",
     verify = "triple-quoted string preserves newlines"
 )]
-#[test]
 fn triple_quoted_string_preserves_newlines() {
     // Verify that internal newlines are preserved in triple-quoted strings
     let source = "behavior b \"B\" {\n    contract \"\"\"\n        First line\n        Second line\n        Third line\n    \"\"\"\n}\n";
@@ -1721,7 +1670,6 @@ fn triple_quoted_string_preserves_newlines() {
     behavior = "parse_verify_statements",
     verify = "parse multiple verify statements in same entity"
 )]
-#[test]
 fn parse_multiple_verify_statements_in_same_entity() {
     let source = r#"
 behavior multi_verify "Multi Verify" {
@@ -1765,7 +1713,6 @@ behavior multi_verify "Multi Verify" {
     behavior = "parse_ref_blocks",
     verify = "parse ref block with scheme.kind:identifier format"
 )]
-#[test]
 fn parse_ref_block_with_scheme_kind_identifier_format() {
     // Verify the full ref block syntax with scheme.kind:identifier is parsed
     let source = r#"ref jira.epic:PROJ-42 "Epic tracking""#;
@@ -1795,7 +1742,6 @@ fn parse_ref_block_with_scheme_kind_identifier_format() {
     behavior = "parse_define_blocks",
     verify = "define block parsed without extension knowledge"
 )]
-#[test]
 fn define_block_parsed_without_extension_knowledge() {
     // Define blocks are core grammar constructs — they must parse even when
     // no extensions are loaded. The parser has no extension context at all,
@@ -1844,7 +1790,6 @@ define exotic_kind {
 // --- pub use import tests ---
 
 #[specforge_test(behavior = "parse_use_imports", verify = "parse full use import")]
-#[test]
 fn parse_pub_use_import() {
     let source = "pub use \"./foo\"\n";
     let result = parse(source, "test.spec");
@@ -1865,7 +1810,6 @@ fn parse_pub_use_import() {
     behavior = "parse_use_imports",
     verify = "parse selective use import with braces"
 )]
-#[test]
 fn parse_pub_use_selective() {
     let source = "pub use { Bar, Baz } from \"./foo\"\n";
     let result = parse(source, "test.spec");
@@ -1891,7 +1835,6 @@ fn parse_pub_use_selective() {
 }
 
 #[specforge_test(behavior = "parse_use_imports", verify = "parse full use import")]
-#[test]
 fn parse_mixed_use_and_pub_use() {
     let source = r#"
 use "./private"
@@ -1927,7 +1870,6 @@ pub use { Foo } from "./another_public"
     behavior = "parse_all_block_types",
     verify = "negative integer parsed as field value"
 )]
-#[test]
 fn parse_negative_integer_as_field_value() {
     let source = r#"
 behavior test "Test" {
@@ -1954,7 +1896,6 @@ behavior test "Test" {
     behavior = "parse_all_block_types",
     verify = "negative integer parsed as field value with larger magnitude"
 )]
-#[test]
 fn parse_negative_integer_larger_magnitude() {
     let source = r#"
 behavior test "Test" {
@@ -2073,7 +2014,6 @@ behavior test "Test" {
     behavior = "parse_all_block_types",
     verify = "integer overflow produces parse error instead of silent 0"
 )]
-#[test]
 fn integer_overflow_produces_parse_error() {
     let source = r#"
 behavior overflowed "Overflow" {
@@ -2113,7 +2053,6 @@ behavior overflowed "Overflow" {
     behavior = "recover_from_syntax_errors",
     verify = "missing opening brace produces a parse error"
 )]
-#[test]
 fn missing_opening_brace_produces_error() {
     let source = "behavior no_brace \"No Brace\"\n    status planned\n}\n";
     let result = parse(source, "test.spec");
@@ -2130,7 +2069,6 @@ fn missing_opening_brace_produces_error() {
     behavior = "recover_from_syntax_errors",
     verify = "completely invalid syntax produces error with location"
 )]
-#[test]
 fn completely_invalid_syntax_produces_error_with_location() {
     let source = "@@@ invalid !!! garbage\n";
     let result = parse(source, "test.spec");
@@ -2157,7 +2095,6 @@ fn completely_invalid_syntax_produces_error_with_location() {
     behavior = "parse_all_block_types",
     verify = "valid integer parses correctly"
 )]
-#[test]
 fn valid_integer_parses_correctly() {
     let source = r#"
 behavior normal "Normal" {
@@ -2182,7 +2119,6 @@ behavior normal "Normal" {
     behavior = "parse_all_block_types",
     verify = "parse string field values correctly"
 )]
-#[test]
 fn unquote_processes_escaped_quotes() {
     let source = r#"behavior test "Test" { contract "hello \"world\"" }"#;
     let result = parse(source, "test.spec");
@@ -2202,7 +2138,6 @@ fn unquote_processes_escaped_quotes() {
     behavior = "parse_all_block_types",
     verify = "parse string field values correctly"
 )]
-#[test]
 fn unquote_processes_escaped_backslashes() {
     let source = r#"behavior test "Test" { contract "back\\slash" }"#;
     let result = parse(source, "test.spec");
@@ -2227,7 +2162,6 @@ fn unquote_processes_escaped_backslashes() {
     behavior = "parse_all_block_types",
     verify = "field annotations are extracted into FieldEntry"
 )]
-#[test]
 fn parse_field_annotation_deprecated() {
     // A single @deprecated annotation on a field should be extracted
     let source = r#"
@@ -2268,7 +2202,6 @@ behavior annotated "Annotated" {
     behavior = "parse_all_block_types",
     verify = "multiple annotations on a single field are all extracted"
 )]
-#[test]
 fn parse_field_multiple_annotations() {
     // Two annotations: @optional (no value) and @doc with a string value
     let source = r#"
@@ -2320,7 +2253,6 @@ type Config {
     behavior = "parse_all_block_types",
     verify = "mixed-type list preserves per-item types"
 )]
-#[test]
 fn parse_mixed_list_preserves_item_types() {
     let source = r#"
 behavior mixed_test "Mixed Test" {
@@ -2359,7 +2291,6 @@ behavior mixed_test "Mixed Test" {
     behavior = "parse_all_block_types",
     verify = "homogeneous string list is not MixedList"
 )]
-#[test]
 fn parse_homogeneous_string_list_remains_string_list() {
     let source = r#"
 behavior homo_test "Homo Test" {
@@ -2385,7 +2316,6 @@ behavior homo_test "Homo Test" {
     behavior = "parse_all_block_types",
     verify = "homogeneous reference list is not MixedList"
 )]
-#[test]
 fn parse_homogeneous_ref_list_remains_ref_list() {
     let source = r#"
 behavior ref_test "Ref Test" {
@@ -2414,7 +2344,6 @@ behavior ref_test "Ref Test" {
     behavior = "parse_all_block_types",
     verify = "mixed list with strings and integers preserves both"
 )]
-#[test]
 fn parse_mixed_list_strings_and_integers() {
     let source = r#"
 behavior mix_si "Mix String Int" {

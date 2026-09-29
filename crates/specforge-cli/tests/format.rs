@@ -26,7 +26,6 @@ fn write_spec(dir: &std::path::Path, name: &str, content: &str) {
     behavior = "format_spec_files",
     verify = "formatting all files in spec/ directory succeeds"
 )]
-#[test]
 fn format_command_formats_files() {
     let tmp = TempDir::new().unwrap();
     let root = tmp.path();
@@ -54,7 +53,6 @@ fn format_command_formats_files() {
     behavior = "format_spec_files",
     verify = "files matching the canonical format are not rewritten"
 )]
-#[test]
 fn format_does_not_rewrite_unchanged_files() {
     let tmp = TempDir::new().unwrap();
     let root = tmp.path();
@@ -75,7 +73,6 @@ fn format_does_not_rewrite_unchanged_files() {
     behavior = "format_spec_files",
     verify = "changed files are printed to stdout"
 )]
-#[test]
 fn format_prints_changed_file_names() {
     let tmp = TempDir::new().unwrap();
     let root = tmp.path();
@@ -100,7 +97,6 @@ fn format_prints_changed_file_names() {
     behavior = "check_formatting",
     verify = "already formatted files exit with code 0"
 )]
-#[test]
 fn check_already_formatted_exits_zero() {
     let tmp = TempDir::new().unwrap();
     let root = tmp.path();
@@ -122,7 +118,6 @@ fn check_already_formatted_exits_zero() {
     behavior = "check_formatting",
     verify = "unformatted files exit with code 1"
 )]
-#[test]
 fn check_unformatted_exits_one() {
     let tmp = TempDir::new().unwrap();
     let root = tmp.path();
@@ -144,7 +139,6 @@ fn check_unformatted_exits_one() {
     behavior = "check_formatting",
     verify = "check mode writes no files to disk"
 )]
-#[test]
 fn check_mode_writes_no_files() {
     let tmp = TempDir::new().unwrap();
     let root = tmp.path();
@@ -168,7 +162,6 @@ fn check_mode_writes_no_files() {
     behavior = "show_formatting_diff",
     verify = "diff output uses unified format"
 )]
-#[test]
 fn diff_shows_unified_format() {
     let tmp = TempDir::new().unwrap();
     let root = tmp.path();
@@ -193,7 +186,6 @@ fn diff_shows_unified_format() {
     behavior = "show_formatting_diff",
     verify = "diff mode writes no files to disk"
 )]
-#[test]
 fn diff_mode_writes_no_files() {
     let tmp = TempDir::new().unwrap();
     let root = tmp.path();
@@ -215,7 +207,6 @@ fn diff_mode_writes_no_files() {
     behavior = "show_formatting_diff",
     verify = "unchanged files produce no diff output"
 )]
-#[test]
 fn diff_unchanged_produces_no_output() {
     let tmp = TempDir::new().unwrap();
     let root = tmp.path();
@@ -240,7 +231,6 @@ fn diff_unchanged_produces_no_output() {
     behavior = "format_from_stdin",
     verify = "stdin content is formatted and written to stdout"
 )]
-#[test]
 fn stdin_formats_and_writes_to_stdout() {
     Command::cargo_bin("specforge")
         .unwrap()
@@ -255,7 +245,6 @@ fn stdin_formats_and_writes_to_stdout() {
     behavior = "format_from_stdin",
     verify = "stdin mode does not read or write files"
 )]
-#[test]
 fn stdin_mode_does_not_read_files() {
     // stdin mode should work even without a project
     Command::cargo_bin("specforge")
@@ -272,7 +261,6 @@ fn stdin_mode_does_not_read_files() {
     behavior = "format_spec_files",
     verify = "formatting all files in spec/ directory succeeds"
 )]
-#[test]
 fn format_integration_all_spec_files_in_directory() {
     let tmp = TempDir::new().unwrap();
     let root = tmp.path();
@@ -320,7 +308,6 @@ fn format_integration_all_spec_files_in_directory() {
     behavior = "format_from_stdin",
     verify = "stdin formatting is idempotent"
 )]
-#[test]
 fn stdin_formatting_is_idempotent() {
     let input = "behavior foo \"Foo\" {\n      contract   \"stuff\"\n    types [a, b]\n}\n";
 
@@ -352,7 +339,6 @@ fn stdin_formatting_is_idempotent() {
     behavior = "format_from_stdin",
     verify = "stdin formatting converges to canonical form"
 )]
-#[test]
 fn stdin_formatting_converges_to_canonical_form() {
     let variants = [
         "behavior foo \"Foo\" {\n      contract   \"stuff\"\n}\n",
@@ -381,7 +367,6 @@ fn stdin_formatting_converges_to_canonical_form() {
     behavior = "format_spec_files",
     verify = "Format Spec Files: spec file formatting holds — spec_files_available, format_config_loaded, formatted_output_written, unchanged_files_preserved, format_complete_emitted, summary_printed"
 )]
-#[test]
 fn format_spec_files_contract_requires_ensures() {
     let tmp = TempDir::new().unwrap();
     let root = tmp.path();
@@ -422,7 +407,6 @@ fn format_spec_files_contract_requires_ensures() {
     behavior = "check_formatting",
     verify = "Check Formatting Without Modifying Files: formatting check holds — spec_files_available, format_config_loaded, no_files_written, exit_code_correct, unformatted_paths_printed"
 )]
-#[test]
 fn check_formatting_contract_requires_ensures() {
     let tmp = TempDir::new().unwrap();
     let root = tmp.path();
@@ -457,7 +441,6 @@ fn check_formatting_contract_requires_ensures() {
     behavior = "show_formatting_diff",
     verify = "Show Formatting Diff: formatting diff holds — spec_files_available, format_config_loaded, no_files_written, unified_diff_produced"
 )]
-#[test]
 fn show_formatting_diff_contract_requires_ensures() {
     let tmp = TempDir::new().unwrap();
     let root = tmp.path();
@@ -484,7 +467,6 @@ fn show_formatting_diff_contract_requires_ensures() {
     behavior = "format_from_stdin",
     verify = "Format from Standard Input: stdin formatting holds — stdin_available, format_config_loaded, stdout_produced, no_files_touched, format_complete_emitted"
 )]
-#[test]
 fn format_from_stdin_contract_requires_ensures() {
     // ensures: stdout_produced, no_files_touched
     Command::cargo_bin("specforge")

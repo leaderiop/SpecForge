@@ -54,7 +54,6 @@ fn node(id: &str, kind: &str, title: Option<&str>) -> Node {
     behavior = "autocomplete_entity_ids",
     verify = "autocomplete suggests matching IDs"
 )]
-#[test]
 fn autocomplete_suggests_matching_ids() {
     let mut g = Graph::new();
     g.add_node(node("user_login", "behavior", Some("User Login")));
@@ -71,7 +70,6 @@ fn autocomplete_suggests_matching_ids() {
     behavior = "autocomplete_entity_ids",
     verify = "suggestions include entity titles and kinds"
 )]
-#[test]
 fn autocomplete_includes_titles_and_kinds() {
     let mut g = Graph::new();
     g.add_node(node("user_login", "behavior", Some("User Login")));
@@ -86,7 +84,6 @@ fn autocomplete_includes_titles_and_kinds() {
     behavior = "autocomplete_entity_ids",
     verify = "suggestions filtered by target_kind when FieldRegistry has constraint"
 )]
-#[test]
 fn autocomplete_filters_by_target_kind() {
     let mut g = Graph::new();
     g.add_node(node("user_login", "behavior", Some("User Login")));
@@ -101,7 +98,6 @@ fn autocomplete_filters_by_target_kind() {
     behavior = "autocomplete_entity_ids",
     verify = "all IDs suggested when no target_kind constraint exists"
 )]
-#[test]
 fn autocomplete_all_ids_without_filter() {
     let mut g = Graph::new();
     g.add_node(node("a", "behavior", None));
@@ -146,7 +142,6 @@ fn fuzzy_match_suggested_behind_exact_matches() {
     behavior = "complete_field_names",
     verify = "field name completion uses FieldRegistry for entity kind"
 )]
-#[test]
 fn complete_field_names_for_kind() {
     let reg = default_field_registry();
     let fields = specforge_lsp::complete_field_names("behavior", Some(&reg));
@@ -157,7 +152,6 @@ fn complete_field_names_for_kind() {
     behavior = "complete_field_names",
     verify = "suggestions are filtered by entity kind"
 )]
-#[test]
 fn field_names_differ_by_kind() {
     let reg = default_field_registry();
     let behavior_fields = specforge_lsp::complete_field_names("behavior", Some(&reg));
@@ -169,7 +163,6 @@ fn field_names_differ_by_kind() {
     behavior = "complete_field_names",
     verify = "no field name suggestions outside entity blocks"
 )]
-#[test]
 fn no_field_names_for_unknown_kind() {
     let fields = specforge_lsp::complete_field_names("__nonexistent__", None);
     assert!(fields.is_empty());
@@ -181,7 +174,6 @@ fn no_field_names_for_unknown_kind() {
     behavior = "complete_field_names",
     verify = "field name completion uses FieldRegistry for entity kind"
 )]
-#[test]
 fn complete_field_names_from_registry() {
     use specforge_registry::{FieldRegistry, FieldRegistryEntry, ManifestFieldType};
     let mut reg = FieldRegistry::new();
@@ -219,7 +211,6 @@ fn complete_field_names_from_registry() {
     behavior = "complete_field_names",
     verify = "suggestions are filtered by entity kind"
 )]
-#[test]
 fn complete_field_names_empty_when_registry_has_no_fields() {
     use specforge_registry::FieldRegistry;
     let reg = FieldRegistry::new();
@@ -233,7 +224,6 @@ fn complete_field_names_empty_when_registry_has_no_fields() {
     behavior = "complete_keywords",
     verify = "keyword completion includes all registered kinds"
 )]
-#[test]
 fn keyword_completion_includes_registered_kinds() {
     let keywords = specforge_lsp::complete_keywords(&["behavior", "type", "event"]);
     assert!(keywords.contains(&"behavior".to_string()));
@@ -245,7 +235,6 @@ fn keyword_completion_includes_registered_kinds() {
     behavior = "complete_keywords",
     verify = "structural keywords always included"
 )]
-#[test]
 fn keyword_completion_includes_structural() {
     let keywords = specforge_lsp::complete_keywords(&[]);
     assert!(keywords.contains(&"use".to_string()));
@@ -256,7 +245,6 @@ fn keyword_completion_includes_structural() {
     behavior = "complete_keywords",
     verify = "no keyword suggestions inside entity blocks"
 )]
-#[test]
 fn keyword_completion_no_duplicates() {
     // Even if "use" is passed as a registered kind, it should appear only once
     let keywords = specforge_lsp::complete_keywords(&["use", "behavior"]);
@@ -268,7 +256,6 @@ fn keyword_completion_no_duplicates() {
     behavior = "complete_keywords",
     verify = "snippet templates based on kind field definitions"
 )]
-#[test]
 fn keyword_completion_snippet_template() {
     // Keywords should come with snippet templates
     let keywords = specforge_lsp::complete_keywords(&["behavior"]);

@@ -71,7 +71,6 @@ fn tool_text(resp: &Value) -> String {
 // --- specforge.extensions ---
 
 // B:provide_mcp_extensions_tool — verify unit "returns extensions list"
-#[test]
 #[specforge_test(
     behavior = "provide_mcp_extensions_tool",
     verify = "specforge.extensions lists all installed extensions"
@@ -87,7 +86,6 @@ fn extensions_returns_list() {
 // --- specforge.providers ---
 
 // B:provide_mcp_providers_tool — verify unit "returns providers list"
-#[test]
 #[specforge_test(
     behavior = "provide_mcp_providers_tool",
     verify = "specforge.providers lists all configured providers"
@@ -103,7 +101,6 @@ fn providers_returns_list() {
 // --- specforge.doctor ---
 
 // B:provide_mcp_doctor_tool — verify unit "returns doctor report"
-#[test]
 #[specforge_test(
     behavior = "provide_mcp_doctor_tool",
     verify = "specforge.doctor detects extension conflicts"
@@ -151,7 +148,6 @@ fn collect_project() -> std::path::PathBuf {
 }
 
 // B:provide_mcp_collect_tool — verify unit "returns collect result"
-#[test]
 #[specforge_test(
     behavior = "provide_mcp_collect_tool",
     verify = "specforge.collect parses test results and maps to entities"
@@ -177,7 +173,6 @@ fn collect_returns_result() {
 }
 
 // B:provide_mcp_collect_tool — verify unit "unapproved command is refused"
-#[test]
 #[specforge_test(
     behavior = "provide_mcp_collect_tool",
     verify = "specforge.collect refuses to run an unapproved command"
@@ -200,7 +195,6 @@ fn collect_refuses_unapproved_command() {
 }
 
 // B:provide_mcp_collect_tool — verify unit "no collector is an error"
-#[test]
 #[specforge_test(
     behavior = "provide_mcp_collect_tool",
     verify = "a project without a collector returns an E058 error"
@@ -213,7 +207,6 @@ fn collect_without_collector_errors() {
 }
 
 // B:provide_mcp_collect_tool — verify contract
-#[test]
 #[specforge_test(
     behavior = "provide_mcp_collect_tool",
     verify = "Provide MCP Collect Tool: MCP collect tool holds — filesystem_available, compiler_api_available, report_emitted, collector_delegated, never_prompts, tool_invoked_emitted"
@@ -239,7 +232,6 @@ fn collect_contract() {
 // --- specforge.render ---
 
 // B:provide_mcp_render_tool — verify unit "returns render result"
-#[test]
 #[specforge_test(
     behavior = "provide_mcp_render_tool",
     verify = "specforge.render writes output files to out_dir"
@@ -254,7 +246,6 @@ fn render_returns_result() {
 }
 
 // B:provide_mcp_extensions_tool — verify unit "each entry includes name, version, entity kinds, status"
-#[test]
 #[specforge_test(
     behavior = "provide_mcp_extensions_tool",
     verify = "each entry includes name, version, entity kinds, and status"
@@ -269,7 +260,6 @@ fn extensions_entry_fields() {
 }
 
 // B:provide_mcp_providers_tool — verify unit "each entry includes scheme, alias, extension, status"
-#[test]
 #[specforge_test(
     behavior = "provide_mcp_providers_tool",
     verify = "each entry includes scheme, alias, extension, and status"
@@ -283,7 +273,6 @@ fn providers_entry_fields() {
 }
 
 // B:provide_mcp_doctor_tool — verify unit "checks wasm cache integrity"
-#[test]
 #[specforge_test(
     behavior = "provide_mcp_doctor_tool",
     verify = "response checks wasm cache integrity"
@@ -297,7 +286,6 @@ fn doctor_cache_integrity() {
 }
 
 // B:provide_mcp_doctor_tool — verify unit "provides deterministic resolution steps"
-#[test]
 #[specforge_test(
     behavior = "provide_mcp_doctor_tool",
     verify = "response provides deterministic resolution steps"
@@ -311,7 +299,6 @@ fn doctor_deterministic_steps() {
 }
 
 // B:provide_mcp_render_tool — verify unit "registered renderer invoked for matching format"
-#[test]
 #[specforge_test(
     behavior = "provide_mcp_render_tool",
     verify = "registered renderer invoked for matching format"
@@ -325,7 +312,6 @@ fn render_registered_renderer() {
 }
 
 // B:provide_mcp_render_tool — verify unit "unrecognized format returns error listing available renderers"
-#[test]
 #[specforge_test(
     behavior = "provide_mcp_render_tool",
     verify = "unrecognized format returns error listing available renderers"
@@ -341,7 +327,6 @@ fn render_unrecognized_format_placeholder() {
 }
 
 // B:provide_mcp_doctor_tool — verify unit "cache_checks included in response"
-#[test]
 #[specforge_test(
     behavior = "provide_mcp_doctor_tool",
     verify = "response checks wasm cache integrity"
@@ -359,7 +344,6 @@ fn doctor_cache_checks() {
 }
 
 // B:provide_mcp_doctor_tool — verify unit "resolution_steps included in response"
-#[test]
 #[specforge_test(
     behavior = "provide_mcp_doctor_tool",
     verify = "response provides deterministic resolution steps"
@@ -374,7 +358,6 @@ fn doctor_resolution_steps() {
 }
 
 // B:provide_mcp_render_tool — verify unit "unrecognized format returns error listing available renderers (duplicate coverage)"
-#[test]
 #[specforge_test(
     behavior = "provide_mcp_render_tool",
     verify = "unrecognized format returns error listing available renderers"
@@ -390,7 +373,6 @@ fn render_unrecognized_format_with_list() {
 // --- Contract tests ---
 
 // B:provide_mcp_extensions_tool — verify contract
-#[test]
 #[specforge_test(
     behavior = "provide_mcp_extensions_tool",
     verify = "Provide MCP Extensions Tool: MCP extensions tool holds — compiler_api_available, extensions_listed, config_reflected, tool_invoked_emitted"
@@ -410,7 +392,6 @@ fn extensions_contract() {
 }
 
 // B:provide_mcp_providers_tool — verify contract
-#[test]
 #[specforge_test(
     behavior = "provide_mcp_providers_tool",
     verify = "Provide MCP Providers Tool: MCP providers tool holds — compiler_api_available, providers_listed, tool_invoked_emitted"
@@ -430,7 +411,6 @@ fn providers_contract() {
 }
 
 // B:provide_mcp_doctor_tool — verify contract
-#[test]
 #[specforge_test(
     behavior = "provide_mcp_doctor_tool",
     verify = "Provide MCP Doctor Tool: MCP doctor tool holds — compiler_api_available, health_checked, resolution_steps_provided, tool_invoked_emitted"
@@ -449,7 +429,6 @@ fn doctor_contract() {
 }
 
 // B:provide_mcp_render_tool — verify contract
-#[test]
 #[specforge_test(
     behavior = "provide_mcp_render_tool",
     verify = "Provide MCP Render Tool: MCP render tool holds — graph_available, filesystem_available, files_written, files_listed, tool_invoked_emitted"

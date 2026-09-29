@@ -7,7 +7,6 @@ use std::time::Duration;
     behavior = "debounce_file_changes",
     verify = "rapid successive changes coalesced into single batch"
 )]
-#[test]
 fn rapid_successive_changes_coalesced_into_single_batch() {
     let (tx, rx) = mpsc::channel();
     let debouncer = Debouncer::new(Duration::from_millis(50));
@@ -27,7 +26,6 @@ fn rapid_successive_changes_coalesced_into_single_batch() {
     behavior = "debounce_file_changes",
     verify = "single isolated change triggers after debounce window"
 )]
-#[test]
 fn single_isolated_change_triggers_after_debounce_window() {
     let (tx, rx) = mpsc::channel();
     let debouncer = Debouncer::new(Duration::from_millis(20));
@@ -39,7 +37,6 @@ fn single_isolated_change_triggers_after_debounce_window() {
 }
 
 #[spec(behavior = "debounce_file_changes")]
-#[test]
 fn closed_channel_returns_none() {
     let (tx, rx) = mpsc::channel::<String>();
     let debouncer = Debouncer::new(Duration::from_millis(20));
@@ -54,7 +51,6 @@ fn closed_channel_returns_none() {
     behavior = "debounce_file_changes",
     verify = "debounce window prevents redundant recompilation"
 )]
-#[test]
 fn debounce_window_prevents_redundant_recompilation() {
     let (tx, rx) = mpsc::channel();
     let debouncer = Debouncer::new(Duration::from_millis(50));
@@ -80,7 +76,6 @@ fn debounce_window_prevents_redundant_recompilation() {
     behavior = "debounce_file_changes",
     verify = "coalesced batch includes union of all changed files"
 )]
-#[test]
 fn coalesced_batch_includes_union_of_all_changed_files() {
     let (tx, rx) = mpsc::channel();
     let debouncer = Debouncer::new(Duration::from_millis(50));

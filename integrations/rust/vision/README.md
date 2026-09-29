@@ -127,7 +127,7 @@ The journey from convention to precision is a gradient, not a migration.
 
 **Day 1: Naming conventions.** Zero crate dependencies. The developer uses `{entity_id}__{slug}` in test function names. This is the floor. It works today, on any Rust project, with any test framework, without touching `Cargo.toml`.
 
-**Day 7: Proc macro for precision.** The developer adds one dev-dependency: `specforge-test = "0.1"`. Now they can write `#[specforge::test(behavior = "validate_payment")]` on any test function — including `#[tokio::test]`, `#[rstest]`, parameterized tests, property tests. The proc macro composes. It does not replace `#[test]`. It stacks alongside it.
+**Day 7: Proc macro for precision.** The developer adds one dev-dependency: `specforge-test = "0.1"`. Now they can write `#[specforge_test(behavior = "validate_payment")]` instead of `#[test]`, and above `#[tokio::test]`, `#[rstest]`, parameterized tests, property tests. The proc macro composes: it registers the test itself, and defers to a runner attribute that already does.
 
 **Day 30: CI gates.** Three lines in GitHub Actions:
 
@@ -266,9 +266,9 @@ Every design choice respects Rust's constraints. No unstable features required. 
 
 ### The proc macro philosophy
 
-`#[specforge::test(behavior = "create_user")]` does not replace `#[test]`. It stacks alongside it. This is how Rust works. `#[tokio::test]` wraps to provide an async runtime. `#[rstest]` wraps for parameterized fixtures. `#[traced_test]` wraps for tracing output. Each is a layer, not a takeover. They compose because none claims ownership of the test lifecycle.
+`#[specforge_test(behavior = "create_user")]` replaces `#[test]`: it registers the test and links it in one attribute, so the two can't drift apart (ADR 0002). Next to a runner attribute it steps aside. This is how Rust works. `#[tokio::test]` wraps to provide an async runtime. `#[rstest]` wraps for parameterized fixtures. `#[traced_test]` wraps for tracing output. Each is a layer, not a takeover. They compose because none claims ownership of the test lifecycle.
 
-SpecForge's macro is one more layer. It expands to the original attribute plus a `TestGuard` — a struct whose `Drop` implementation detects whether the test panicked and records the result. Deterministic cleanup via RAII, no runtime hooks. The guard records results into a process-local, thread-safe registry — the only shared state, flushed to disk on process exit.
+SpecForge's macro is one more layer. It expands to the test (registered by itself, or by the runner attribute below it) plus a `TestGuard` — a struct whose `Drop` implementation detects whether the test panicked and records the result. Deterministic cleanup via RAII, no runtime hooks. The guard records results into a process-local, thread-safe registry — the only shared state, flushed to disk on process exit.
 
 ### Minimal dependency footprint
 

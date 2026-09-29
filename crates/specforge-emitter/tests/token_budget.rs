@@ -55,7 +55,6 @@ fn build_large_graph() -> Graph {
 }
 
 // B:enforce_token_budget — verify unit "output within budget includes all entities"
-#[test]
 #[specforge_test(
     behavior = "enforce_token_budget",
     verify = "output within budget includes all entities"
@@ -75,7 +74,6 @@ fn output_within_budget_includes_all_entities() {
 }
 
 // B:enforce_token_budget — verify unit "output exceeding budget truncates low-priority entities"
-#[test]
 #[specforge_test(
     behavior = "enforce_token_budget",
     verify = "output exceeding budget truncates low-priority entities"
@@ -96,7 +94,6 @@ fn output_exceeding_budget_truncates_low_priority_entities() {
 }
 
 // B:enforce_token_budget — verify unit "TokenBudgetResult included in metadata when budget applied"
-#[test]
 #[specforge_test(
     behavior = "enforce_token_budget",
     verify = "TokenBudgetResult included in metadata when budget applied"
@@ -116,7 +113,6 @@ fn token_budget_result_included_in_metadata() {
 }
 
 // B:enforce_token_budget — verify unit "truncated_entities lists omitted entity IDs"
-#[test]
 #[specforge_test(
     behavior = "enforce_token_budget",
     verify = "truncated_entities lists omitted entity IDs"
@@ -151,7 +147,6 @@ fn truncated_entities_list_contains_omitted_ids() {
 }
 
 // B:enforce_token_budget — verify unit "no --max-tokens skips budget enforcement"
-#[test]
 #[specforge_test(
     behavior = "enforce_token_budget",
     verify = "no --max-tokens skips budget enforcement"
@@ -167,7 +162,6 @@ fn no_max_tokens_skips_budget_enforcement() {
 
 // B:enforce_token_budget — verify unit "truncated_entities lists omitted entity IDs"
 // (validates no dangling edges remain after truncation)
-#[test]
 #[specforge_test(behavior = "enforce_token_budget")]
 fn no_dangling_edges_after_truncation() {
     let graph = build_large_graph();
@@ -198,7 +192,6 @@ fn no_dangling_edges_after_truncation() {
 }
 
 // B:enforce_token_budget — verify unit "error strategy rejects export exceeding budget"
-#[test]
 #[specforge_test(
     behavior = "enforce_token_budget",
     verify = "error strategy rejects export exceeding budget"
@@ -219,7 +212,6 @@ fn error_strategy_rejects_export_exceeding_budget() {
 }
 
 // B:enforce_token_budget — verify integration "export with max_tokens produces output within budget and includes metadata"
-#[test]
 #[specforge_test(
     behavior = "enforce_token_budget",
     verify = "export with max_tokens produces output within budget and includes metadata"
@@ -252,7 +244,6 @@ fn export_with_max_tokens_within_budget_includes_metadata() {
 
 // B:enforce_token_budget — verify unit "error strategy rejects export exceeding budget"
 // (inverse case: passes when within budget)
-#[test]
 #[specforge_test(behavior = "enforce_token_budget")]
 fn error_strategy_passes_when_within_budget() {
     let graph = build_large_graph();

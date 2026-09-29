@@ -36,7 +36,6 @@ fn make_edge(source: &str, target: &str, label: &str) -> Edge {
     behavior = "build_in_memory_graph",
     verify = "graph contains one node per entity"
 )]
-#[test]
 fn graph_one_node_per_entity() {
     let mut graph = Graph::new();
     graph.add_node(make_node("alpha", "behavior"));
@@ -51,7 +50,6 @@ fn graph_one_node_per_entity() {
     behavior = "build_in_memory_graph",
     verify = "graph contains one edge per resolved reference"
 )]
-#[test]
 fn graph_one_edge_per_reference() {
     let mut graph = Graph::new();
     graph.add_node(make_node("alpha", "behavior"));
@@ -67,7 +65,6 @@ fn graph_one_edge_per_reference() {
     behavior = "build_in_memory_graph",
     verify = "edge types match relationship semantics"
 )]
-#[test]
 fn graph_edges_connect_existing_nodes() {
     let mut graph = Graph::new();
     graph.add_node(make_node("feat", "feature"));
@@ -87,7 +84,6 @@ fn graph_edges_connect_existing_nodes() {
     behavior = "maintain_mutable_graph",
     verify = "add and remove nodes from graph"
 )]
-#[test]
 fn remove_node_from_graph() {
     let mut graph = Graph::new();
     graph.add_node(make_node("alpha", "behavior"));
@@ -104,7 +100,6 @@ fn remove_node_from_graph() {
     behavior = "maintain_mutable_graph",
     verify = "removing a node removes its edges"
 )]
-#[test]
 fn removing_node_removes_its_edges() {
     let mut graph = Graph::new();
     graph.add_node(make_node("feat", "feature"));
@@ -123,7 +118,6 @@ fn removing_node_removes_its_edges() {
     behavior = "maintain_mutable_graph",
     verify = "graph consistency after batch mutations"
 )]
-#[test]
 fn graph_consistency_after_batch_mutations() {
     let mut graph = Graph::new();
     graph.add_node(make_node("a", "behavior"));
@@ -146,7 +140,6 @@ fn graph_consistency_after_batch_mutations() {
     behavior = "compute_subgraph_for_invalidation",
     verify = "changed file and direct dependents are invalidated"
 )]
-#[test]
 fn subgraph_for_file() {
     let mut graph = Graph::new();
 
@@ -172,7 +165,6 @@ fn subgraph_for_file() {
     behavior = "build_in_memory_graph",
     verify = "graph contains one node per entity"
 )]
-#[test]
 fn build_graph_one_node_per_entity() {
     use specforge_graph::build_graph;
     use specforge_parser::parse;
@@ -202,7 +194,6 @@ feature gamma "G" { behaviors [alpha, beta] }
     behavior = "build_in_memory_graph",
     verify = "graph contains one edge per resolved reference"
 )]
-#[test]
 fn build_graph_one_edge_per_resolved_reference() {
     use specforge_graph::build_graph;
     use specforge_parser::parse;
@@ -227,7 +218,6 @@ feature gamma "G" { behaviors [alpha, beta] }
     behavior = "build_in_memory_graph",
     verify = "graph contains one edge per resolved reference"
 )]
-#[test]
 fn build_graph_unresolved_ref_produces_e003() {
     use specforge_graph::build_graph;
     use specforge_parser::parse;
@@ -254,7 +244,6 @@ feature gamma "G" { behaviors [alpha, nonexistent] }
     behavior = "build_in_memory_graph",
     verify = "graph contains one node per entity"
 )]
-#[test]
 fn build_graph_duplicate_entity_id_produces_e002() {
     use specforge_graph::build_graph;
     use specforge_parser::parse;
@@ -274,7 +263,6 @@ fn build_graph_duplicate_entity_id_produces_e002() {
     behavior = "build_in_memory_graph",
     verify = "same ID with different kinds does not produce E002"
 )]
-#[test]
 fn same_id_different_kind_no_e002() {
     use specforge_graph::build_graph;
     use specforge_parser::parse;
@@ -311,7 +299,6 @@ fn same_id_different_kind_no_e002() {
     behavior = "two_phase_parse_structural",
     verify = "parse errors collected without aborting"
 )]
-#[test]
 fn build_graph_surfaces_parse_errors() {
     use specforge_graph::build_graph;
     use specforge_parser::parse;
@@ -341,7 +328,6 @@ behavior also_good "Also Good" { status done }
     behavior = "build_in_memory_graph",
     verify = "graph contains one edge per resolved reference"
 )]
-#[test]
 fn build_graph_cross_file_references() {
     use specforge_graph::build_graph;
     use specforge_parser::parse;
@@ -366,7 +352,6 @@ fn build_graph_cross_file_references() {
     behavior = "provide_did_you_mean_suggestions",
     verify = "close match produces suggestion"
 )]
-#[test]
 fn build_graph_did_you_mean_for_close_match() {
     use specforge_graph::build_graph;
     use specforge_parser::parse;
@@ -394,7 +379,6 @@ feature gamma "G" { behaviors [alpha_parsr] }
     behavior = "provide_did_you_mean_suggestions",
     verify = "distant match produces no suggestion"
 )]
-#[test]
 fn build_graph_no_suggestion_for_distant_match() {
     use specforge_graph::build_graph;
     use specforge_parser::parse;
@@ -419,7 +403,6 @@ feature gamma "G" { behaviors [zzzzz_totally_unrelated] }
     behavior = "provide_did_you_mean_suggestions",
     verify = "suggestion appears in help text"
 )]
-#[test]
 fn build_graph_suggestion_appears_in_help_text() {
     use specforge_graph::build_graph;
     use specforge_parser::parse;
@@ -450,7 +433,6 @@ feature gamma "G" { behaviors [alpha_parsr] }
     behavior = "build_in_memory_graph",
     verify = "edge types match relationship semantics"
 )]
-#[test]
 fn edge_labels_match_field_names() {
     use specforge_graph::build_graph;
     use specforge_parser::parse;
@@ -495,7 +477,6 @@ feature gamma "G" {
     behavior = "compute_subgraph_for_invalidation",
     verify = "changed file and direct dependents are invalidated"
 )]
-#[test]
 fn invalidation_set_includes_changed_file() {
     use specforge_graph::build_graph;
     use specforge_parser::parse;
@@ -521,7 +502,6 @@ fn invalidation_set_includes_changed_file() {
     behavior = "compute_subgraph_for_invalidation",
     verify = "changed file and direct dependents are invalidated"
 )]
-#[test]
 fn invalidation_set_includes_direct_dependents() {
     use specforge_graph::build_graph;
     use specforge_parser::parse;
@@ -548,7 +528,6 @@ fn invalidation_set_includes_direct_dependents() {
     behavior = "compute_subgraph_for_invalidation",
     verify = "transitive dependents are included in subgraph"
 )]
-#[test]
 fn invalidation_set_includes_transitive_dependents() {
     use specforge_graph::build_graph;
     use specforge_parser::parse;
@@ -578,7 +557,6 @@ fn invalidation_set_includes_transitive_dependents() {
     behavior = "compute_subgraph_for_invalidation",
     verify = "unaffected files are not invalidated"
 )]
-#[test]
 fn invalidation_set_excludes_unaffected_files() {
     use specforge_graph::build_graph;
     use specforge_parser::parse;
@@ -608,7 +586,6 @@ fn invalidation_set_excludes_unaffected_files() {
     behavior = "compute_subgraph_for_invalidation",
     verify = "subgraph rebuild matches full rebuild result"
 )]
-#[test]
 fn subgraph_rebuild_matches_full_rebuild() {
     use specforge_graph::build_graph;
     use specforge_parser::parse;
@@ -703,7 +680,6 @@ behavior delta "D" { contract "new" }
     behavior = "build_in_memory_graph",
     verify = "graph contains one node per entity"
 )]
-#[test]
 fn ref_blocks_become_graph_nodes() {
     use specforge_graph::build_graph;
     use specforge_parser::parse;
@@ -724,7 +700,6 @@ ref gh.issue:42 "Support Wasm extensions"
     behavior = "resolve_external_ref_declarations",
     verify = "ref node is added to graph with scheme metadata"
 )]
-#[test]
 fn ref_blocks_carry_scheme_metadata() {
     use specforge_graph::{FieldValue, build_graph};
     use specforge_parser::parse;
@@ -747,7 +722,6 @@ fn ref_blocks_carry_scheme_metadata() {
     behavior = "resolve_external_ref_declarations",
     verify = "ref with unknown scheme emits I005"
 )]
-#[test]
 fn ref_with_unknown_scheme_emits_i005() {
     use specforge_graph::{GraphConfig, build_graph_with_config};
     use specforge_parser::parse;
@@ -772,7 +746,6 @@ fn ref_with_unknown_scheme_emits_i005() {
     behavior = "resolve_external_ref_declarations",
     verify = "ref with known scheme is registered and marked for provider validation"
 )]
-#[test]
 fn ref_with_no_providers_configured_skips_i005() {
     use specforge_graph::build_graph;
     use specforge_parser::parse;
@@ -790,7 +763,6 @@ fn ref_with_no_providers_configured_skips_i005() {
     behavior = "resolve_external_ref_declarations",
     verify = "ref with known scheme is registered and marked for provider validation"
 )]
-#[test]
 fn ref_with_known_scheme_registered_and_no_i005() {
     use specforge_graph::{FieldValue, GraphConfig, build_graph_with_config};
     use specforge_parser::parse;
@@ -823,7 +795,6 @@ fn ref_with_known_scheme_registered_and_no_i005() {
     behavior = "resolve_soft_cross_extension_references",
     verify = "unknown keyword matching known extension emits I004"
 )]
-#[test]
 fn unknown_keyword_matching_known_extension_emits_i004() {
     use specforge_graph::{GraphConfig, build_graph_with_config};
     use specforge_parser::parse;
@@ -859,7 +830,6 @@ fn unknown_keyword_matching_known_extension_emits_i004() {
     behavior = "resolve_soft_cross_extension_references",
     verify = "installed extension with missing entity emits E003"
 )]
-#[test]
 fn installed_keyword_does_not_emit_i004() {
     use specforge_graph::{GraphConfig, build_graph_with_config};
     use specforge_parser::parse;
@@ -886,7 +856,6 @@ fn installed_keyword_does_not_emit_i004() {
     behavior = "resolve_soft_cross_extension_references",
     verify = "unknown keyword matching known extension emits I004"
 )]
-#[test]
 fn unknown_keyword_with_no_catalog_match_no_i004() {
     use specforge_graph::{GraphConfig, build_graph_with_config};
     use specforge_parser::parse;
@@ -915,7 +884,6 @@ fn unknown_keyword_with_no_catalog_match_no_i004() {
     behavior = "resolve_soft_cross_extension_references",
     verify = "installed extension with missing entity emits E003"
 )]
-#[test]
 fn installed_keyword_with_missing_entity_emits_e003() {
     use specforge_graph::{GraphConfig, build_graph_with_config};
     use specforge_parser::parse;
@@ -955,7 +923,6 @@ feature gamma "G" { behaviors [alpha, nonexistent] }
     behavior = "resolve_soft_cross_extension_references",
     verify = "installed extension with imported file but missing entity emits E003"
 )]
-#[test]
 fn installed_keyword_cross_file_missing_entity_emits_e003() {
     use specforge_graph::{GraphConfig, build_graph_with_config};
     use specforge_parser::parse;
@@ -1008,7 +975,6 @@ fn setup_project(files: &[(&str, &str)]) -> tempfile::TempDir {
     behavior = "build_in_memory_graph",
     verify = "graph contains one node per entity"
 )]
-#[test]
 fn end_to_end_resolve_and_build() {
     use specforge_graph::build_graph;
     use specforge_resolver::resolve_project;
@@ -1055,7 +1021,6 @@ fn end_to_end_resolve_and_build() {
     behavior = "build_in_memory_graph",
     verify = "graph contains one edge per resolved reference"
 )]
-#[test]
 fn end_to_end_with_errors() {
     use specforge_graph::build_graph;
     use specforge_resolver::resolve_project;
@@ -1089,7 +1054,6 @@ feature gamma "G" { behaviors [alpha, nonexistent] }
     behavior = "maintain_mutable_graph",
     verify = "added edges are reflected in outgoing edge queries"
 )]
-#[test]
 fn edges_from_returns_correct_edges_after_multiple_adds() {
     let mut graph = Graph::new();
     graph.add_node(make_node("a", "behavior"));
@@ -1117,7 +1081,6 @@ fn edges_from_returns_correct_edges_after_multiple_adds() {
     behavior = "maintain_mutable_graph",
     verify = "removing a node removes its edges"
 )]
-#[test]
 fn edges_to_updated_after_node_removal() {
     let mut graph = Graph::new();
     graph.add_node(make_node("a", "behavior"));
@@ -1147,7 +1110,6 @@ fn edges_to_updated_after_node_removal() {
     behavior = "maintain_mutable_graph",
     verify = "graph consistency after batch mutations"
 )]
-#[test]
 fn clear_edges_resets_index() {
     let mut graph = Graph::new();
     graph.add_node(make_node("a", "behavior"));
@@ -1166,7 +1128,6 @@ fn clear_edges_resets_index() {
     behavior = "build_in_memory_graph",
     verify = "detects cycles in directed graph"
 )]
-#[test]
 fn detect_cycles_finds_simple_cycle() {
     let mut graph = Graph::new();
     graph.add_node(make_node("a", "behavior"));
@@ -1187,7 +1148,6 @@ fn detect_cycles_finds_simple_cycle() {
     behavior = "build_in_memory_graph",
     verify = "no false positives for acyclic graph"
 )]
-#[test]
 fn detect_cycles_returns_empty_for_dag() {
     let mut graph = Graph::new();
     graph.add_node(make_node("a", "behavior"));
@@ -1247,7 +1207,6 @@ fn forward_only_labels_are_real_cycles() {
     behavior = "build_in_memory_graph",
     verify = "detects self-referencing cycle"
 )]
-#[test]
 fn detect_cycles_finds_self_loop() {
     let mut graph = Graph::new();
     graph.add_node(make_node("a", "behavior"));
@@ -1261,7 +1220,6 @@ fn detect_cycles_finds_self_loop() {
     behavior = "build_in_memory_graph",
     verify = "has_cycles returns boolean"
 )]
-#[test]
 fn has_cycles_boolean_check() {
     let mut graph = Graph::new();
     graph.add_node(make_node("a", "behavior"));
@@ -1283,7 +1241,6 @@ fn has_cycles_boolean_check() {
     behavior = "build_in_memory_graph",
     verify = "build_graph emits W061 for reference cycles"
 )]
-#[test]
 fn build_graph_emits_w061_for_reference_cycles() {
     use specforge_graph::build_graph;
     use specforge_parser::parse;
@@ -1308,7 +1265,6 @@ behavior c "C" { contract "c" depends_on [a] }
     behavior = "build_in_memory_graph",
     verify = "build_graph no W061 for acyclic refs"
 )]
-#[test]
 fn build_graph_no_w061_for_acyclic_refs() {
     use specforge_graph::build_graph;
     use specforge_parser::parse;
@@ -1329,7 +1285,6 @@ feature f "F" { behaviors [a, b] }
     behavior = "build_in_memory_graph",
     verify = "graph contains one edge per resolved reference"
 )]
-#[test]
 fn union_type_variants_do_not_produce_unresolved_ref() {
     use specforge_graph::build_graph;
     use specforge_parser::parse;
@@ -1364,7 +1319,6 @@ behavior my_behavior "B" {
     behavior = "query_graph_multi_resolution",
     verify = "kind filter restricts results to specified entity kinds"
 )]
-#[test]
 fn filter_nodes_by_kind() {
     let mut graph = Graph::new();
     graph.add_node(make_node("login", "behavior"));
@@ -1381,7 +1335,6 @@ fn filter_nodes_by_kind() {
 }
 
 #[specforge_test(behavior = "query_graph", verify = "filter_nodes with field predicate")]
-#[test]
 fn filter_nodes_by_field_value() {
     use specforge_parser::FieldValue;
 
@@ -1411,7 +1364,6 @@ fn filter_nodes_by_field_value() {
     behavior = "query_graph_multi_resolution",
     verify = "kind filter restricts results to specified entity kinds"
 )]
-#[test]
 fn nodes_by_kind_returns_empty_for_unknown() {
     let mut graph = Graph::new();
     graph.add_node(make_node("login", "behavior"));
@@ -1426,7 +1378,6 @@ fn nodes_by_kind_returns_empty_for_unknown() {
     behavior = "query_graph_multi_resolution",
     verify = "depth 1 returns direct neighbors"
 )]
-#[test]
 fn subgraph_depth_finds_behavior_via_incoming_implements_edge() {
     let mut graph = Graph::new();
     // Feature has NO behaviors field -- it's a plain node
@@ -1452,7 +1403,6 @@ fn subgraph_depth_finds_behavior_via_incoming_implements_edge() {
     behavior = "query_graph_multi_resolution",
     verify = "depth 1 returns direct neighbors"
 )]
-#[test]
 fn subgraph_depth_no_reverse_edge_needed_for_feature_behavior_link() {
     let mut graph = Graph::new();
     graph.add_node(make_node("feat_a", "feature"));
@@ -1472,7 +1422,6 @@ fn subgraph_depth_no_reverse_edge_needed_for_feature_behavior_link() {
     behavior = "query_graph_multi_resolution",
     verify = "depth 1 returns direct neighbors"
 )]
-#[test]
 fn subgraph_depth_invariant_found_via_incoming_enforced_by_edge() {
     let mut graph = Graph::new();
     graph.add_node(make_node("my_invariant", "invariant"));
@@ -1490,7 +1439,6 @@ fn subgraph_depth_invariant_found_via_incoming_enforced_by_edge() {
     behavior = "query_graph_multi_resolution",
     verify = "depth 1 returns direct neighbors"
 )]
-#[test]
 fn subgraph_depth_constraint_found_via_incoming_constrains_edge() {
     let mut graph = Graph::new();
     graph.add_node(make_node("my_constraint", "constraint"));
@@ -1508,7 +1456,6 @@ fn subgraph_depth_constraint_found_via_incoming_constrains_edge() {
     behavior = "query_graph_multi_resolution",
     verify = "depth 1 returns direct neighbors"
 )]
-#[test]
 fn subgraph_depth_event_found_via_incoming_produces_edge() {
     let mut graph = Graph::new();
     graph.add_node(make_node("my_event", "event"));
@@ -1530,7 +1477,6 @@ fn subgraph_depth_event_found_via_incoming_produces_edge() {
     behavior = "query_graph_multi_resolution",
     verify = "depth 1 returns direct neighbors"
 )]
-#[test]
 fn subgraph_depth_event_found_via_incoming_consumes_edge() {
     let mut graph = Graph::new();
     graph.add_node(make_node("my_event", "event"));
@@ -1552,7 +1498,6 @@ fn subgraph_depth_event_found_via_incoming_consumes_edge() {
     behavior = "query_graph_multi_resolution",
     verify = "depth 1 returns direct neighbors"
 )]
-#[test]
 fn subgraph_depth_invariant_found_via_incoming_invariants_edge() {
     let mut graph = Graph::new();
     graph.add_node(make_node("inv_1", "invariant"));
@@ -1575,7 +1520,6 @@ fn subgraph_depth_invariant_found_via_incoming_invariants_edge() {
     behavior = "build_in_memory_graph",
     verify = "custom bidirectional pairs suppress false-positive cycles"
 )]
-#[test]
 fn custom_bidirectional_pairs_suppress_cycle_warning() {
     use specforge_graph::{GraphConfig, build_graph_with_config};
     use specforge_parser::parse;
@@ -1620,7 +1564,6 @@ behavior b "B" { contract "second" guarded_by [a] }
     behavior = "build_in_memory_graph",
     verify = "W061 carries actionable suggestion"
 )]
-#[test]
 fn w061_cycle_warning_has_suggestion() {
     use specforge_graph::build_graph;
     use specforge_parser::parse;
@@ -1654,7 +1597,6 @@ behavior c "C" { contract "c" depends_on [a] }
     behavior = "detect_duplicate_entity_ids",
     verify = "duplicate ID across files produces E002"
 )]
-#[test]
 fn e002_duplicate_entity_has_suggestion() {
     use specforge_graph::build_graph;
     use specforge_parser::parse;
@@ -1680,7 +1622,6 @@ fn e002_duplicate_entity_has_suggestion() {
     behavior = "build_in_memory_graph",
     verify = "W060 carries actionable suggestion"
 )]
-#[test]
 fn w060_cross_kind_collision_has_suggestion() {
     use specforge_graph::build_graph;
     use specforge_parser::parse;
@@ -1706,7 +1647,6 @@ fn w060_cross_kind_collision_has_suggestion() {
     behavior = "build_in_memory_graph",
     verify = "Graph::with_bidirectional_pairs stores pairs for cycle suppression"
 )]
-#[test]
 fn graph_with_bidirectional_pairs_stores_pairs() {
     let mut graph = Graph::with_bidirectional_pairs(vec![(
         "invariants".to_string(),
@@ -1746,7 +1686,6 @@ fn graph_with_bidirectional_pairs_stores_pairs() {
     behavior = "build_in_memory_graph",
     verify = "every edge connects two existing nodes"
 )]
-#[test]
 fn add_edge_checked_rejects_nonexistent_source() {
     let mut graph = Graph::new();
     graph.add_node(make_node("alpha", "behavior"));
@@ -1774,7 +1713,6 @@ fn add_edge_checked_rejects_nonexistent_source() {
     behavior = "build_in_memory_graph",
     verify = "every edge connects two existing nodes"
 )]
-#[test]
 fn add_edge_checked_rejects_nonexistent_target() {
     let mut graph = Graph::new();
     graph.add_node(make_node("alpha", "behavior"));
@@ -1800,7 +1738,6 @@ fn add_edge_checked_rejects_nonexistent_target() {
     behavior = "build_in_memory_graph",
     verify = "every edge connects two existing nodes"
 )]
-#[test]
 fn add_edge_checked_accepts_valid_edge() {
     let mut graph = Graph::new();
     graph.add_node(make_node("alpha", "behavior"));
@@ -1821,7 +1758,6 @@ fn add_edge_checked_accepts_valid_edge() {
     behavior = "build_in_memory_graph",
     verify = "every edge connects two existing nodes"
 )]
-#[test]
 fn add_edge_checked_rejects_both_missing() {
     let mut graph = Graph::new();
     let diag = graph.add_edge_checked(make_edge("ghost_a", "ghost_b", "depends_on"));

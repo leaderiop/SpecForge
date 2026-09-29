@@ -15,7 +15,6 @@ fn call_raw(server: &mut McpServer, input: &str) -> Option<String> {
 // -- JSON-RPC 2.0 framing --
 
 // B:handle_mcp_protocol_error — verify unit "parse error returns -32700"
-#[test]
 #[specforge_test(
     behavior = "handle_mcp_protocol_error",
     verify = "malformed JSON produces -32700 Parse error"
@@ -29,7 +28,6 @@ fn parse_error_returns_32700() {
 }
 
 // B:handle_mcp_protocol_error — verify unit "invalid request returns -32600"
-#[test]
 #[specforge_test(
     behavior = "handle_mcp_protocol_error",
     verify = "returns -32600 for invalid request"
@@ -42,7 +40,6 @@ fn invalid_request_returns_32600() {
 }
 
 // B:handle_mcp_protocol_error — verify unit "missing method returns -32600"
-#[test]
 #[specforge_test(
     behavior = "handle_mcp_protocol_error",
     verify = "returns -32600 for invalid request"
@@ -55,7 +52,6 @@ fn missing_method_returns_32600() {
 }
 
 // B:handle_mcp_protocol_error — verify unit "unknown method returns -32601"
-#[test]
 #[specforge_test(
     behavior = "handle_mcp_protocol_error",
     verify = "invalid method produces -32601 Method not found"
@@ -67,7 +63,6 @@ fn unknown_method_returns_32601() {
 }
 
 // B:handle_mcp_protocol_error — verify unit "invalid jsonrpc version returns -32600"
-#[test]
 #[specforge_test(
     behavior = "handle_mcp_protocol_error",
     verify = "returns -32600 for invalid request"
@@ -80,7 +75,6 @@ fn invalid_jsonrpc_version_returns_32600() {
 }
 
 // B:handle_mcp_protocol_error — verify unit "response always has jsonrpc 2.0 field"
-#[test]
 #[specforge_test(
     behavior = "handle_mcp_protocol_error",
     verify = "response always has jsonrpc 2.0 field"
@@ -92,7 +86,6 @@ fn response_always_has_jsonrpc_field() {
 }
 
 // B:handle_mcp_protocol_error — verify unit "error response includes id from request"
-#[test]
 #[specforge_test(
     behavior = "handle_mcp_protocol_error",
     verify = "error response includes id from request"
@@ -107,7 +100,6 @@ fn error_response_includes_request_id() {
 }
 
 // B:handle_mcp_protocol_error — verify unit "success response includes id from request"
-#[test]
 #[specforge_test(
     behavior = "handle_mcp_protocol_error",
     verify = "success response includes id from request"
@@ -122,7 +114,6 @@ fn success_response_includes_request_id() {
 }
 
 // B:handle_mcp_request_cancellation — verify unit "cancel request returns success"
-#[test]
 #[specforge_test(
     behavior = "handle_mcp_request_cancellation",
     verify = "cancellation of completed request is a no-op"
@@ -134,7 +125,6 @@ fn cancel_request_returns_success() {
 }
 
 // Notifications (no id) should not produce a response
-#[test]
 #[specforge_test(
     behavior = "handle_mcp_protocol_error",
     verify = "notifications produce no response"
@@ -153,7 +143,6 @@ fn init_server() -> McpServer {
 }
 
 // B:handle_mcp_protocol_error — verify unit "missing required params produces -32602"
-#[test]
 #[specforge_test(
     behavior = "handle_mcp_protocol_error",
     verify = "missing required params produces -32602 Invalid params"
@@ -165,7 +154,6 @@ fn missing_tool_name_returns_32602() {
 }
 
 // B:handle_mcp_protocol_error — verify unit "error response does not leak internal state"
-#[test]
 #[specforge_test(
     behavior = "handle_mcp_protocol_error",
     verify = "error response does not leak internal state"
@@ -180,7 +168,6 @@ fn error_does_not_leak_internal_state() {
 }
 
 // B:handle_mcp_protocol_error — verify unit "server remains operational after protocol error"
-#[test]
 #[specforge_test(
     behavior = "handle_mcp_protocol_error",
     verify = "server remains operational after protocol error"
@@ -194,7 +181,6 @@ fn server_operational_after_protocol_error() {
 }
 
 // B:handle_mcp_protocol_error — verify unit "returns -32603 for internal error"
-#[test]
 #[specforge_test(
     behavior = "handle_mcp_protocol_error",
     verify = "returns -32603 for internal error"
@@ -204,7 +190,6 @@ fn internal_error_code_defined() {
 }
 
 // B:handle_mcp_request_cancellation — verify unit "cancellation of completed request is a no-op"
-#[test]
 #[specforge_test(
     behavior = "handle_mcp_request_cancellation",
     verify = "cancellation of completed request is a no-op"
@@ -219,7 +204,6 @@ fn cancel_completed_request_is_noop() {
 }
 
 // B:handle_mcp_protocol_error — verify unit "missing required params produces -32602 Invalid params"
-#[test]
 #[specforge_test(
     behavior = "handle_mcp_protocol_error",
     verify = "missing required params produces -32602 Invalid params"

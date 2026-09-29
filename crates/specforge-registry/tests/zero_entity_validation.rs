@@ -105,7 +105,6 @@ fn software_manifest() -> ManifestV2 {
     behavior = "parse_validation_rule_pattern",
     verify = "parses no_incoming_edges pattern from manifest"
 )]
-#[test]
 fn parses_no_incoming_edges_pattern_from_manifest() {
     let rule = make_rule("W100", "no_incoming_edges");
     let pattern = parse_rule_pattern(&rule, "@test/ext").unwrap();
@@ -117,7 +116,6 @@ fn parses_no_incoming_edges_pattern_from_manifest() {
     behavior = "parse_validation_rule_pattern",
     verify = "parses missing_field_when_flag_set pattern from manifest"
 )]
-#[test]
 fn parses_missing_field_when_flag_set_pattern_from_manifest() {
     let mut rule = make_rule("W101", "missing_field_when_flag_set");
     rule.field = Some("contract".to_string());
@@ -133,7 +131,6 @@ fn parses_missing_field_when_flag_set_pattern_from_manifest() {
     behavior = "parse_validation_rule_pattern",
     verify = "unrecognized pattern kind produces warning"
 )]
-#[test]
 fn unrecognized_pattern_kind_produces_warning() {
     let rule = make_rule("W102", "invalid_check_kind");
     let result = parse_rule_pattern(&rule, "@test/ext");
@@ -148,7 +145,6 @@ fn unrecognized_pattern_kind_produces_warning() {
     behavior = "parse_validation_rule_pattern",
     verify = "all required fields validated on each rule"
 )]
-#[test]
 fn misconfigured_one_of_with_empty_values_produces_warning() {
     let mut rule = make_rule("W107", "field_value_constraint");
     rule.field = Some("status".to_string());
@@ -175,7 +171,6 @@ fn misconfigured_one_of_with_empty_values_produces_warning() {
     behavior = "parse_validation_rule_pattern",
     verify = "all required fields validated on each rule"
 )]
-#[test]
 fn field_requiring_check_without_field_produces_warning() {
     // make_rule leaves field unset; missing_field_when_flag_set reads it.
     let rule = make_rule("W108", "missing_field_when_flag_set");
@@ -189,7 +184,6 @@ fn field_requiring_check_without_field_produces_warning() {
     behavior = "parse_validation_rule_pattern",
     verify = "parses field_value_constraint pattern from manifest"
 )]
-#[test]
 fn valid_one_of_rule_still_parses() {
     let mut rule = make_rule("W109", "field_value_constraint");
     rule.field = Some("status".to_string());
@@ -206,7 +200,6 @@ fn valid_one_of_rule_still_parses() {
     behavior = "parse_validation_rule_pattern",
     verify = "all required fields validated on each rule"
 )]
-#[test]
 fn all_required_fields_validated_on_each_rule() {
     let rule = ManifestValidationRule {
         code: "W100".to_string(),
@@ -230,7 +223,6 @@ fn all_required_fields_validated_on_each_rule() {
     behavior = "parse_validation_rule_pattern",
     verify = "Parse Validation Rule Pattern: validation rule parsing holds — manifest_rules_available, patterns_parsed, unrecognized_warned"
 )]
-#[test]
 fn parse_validation_rule_pattern_contract() {
     // requires: manifest rules available
     let rules = vec![
@@ -259,7 +251,6 @@ fn parse_validation_rule_pattern_contract() {
     behavior = "execute_validation_pattern",
     verify = "no_incoming_edges detects orphan entities"
 )]
-#[test]
 fn no_incoming_edges_detects_orphan_entities() {
     let pattern = parse_rule_pattern(&make_rule("W100", "no_incoming_edges"), "@test").unwrap();
     let entities = vec![
@@ -275,7 +266,6 @@ fn no_incoming_edges_detects_orphan_entities() {
     behavior = "execute_validation_pattern",
     verify = "no_outgoing_edges detects entities with zero outgoing edges"
 )]
-#[test]
 fn no_outgoing_edges_detects_entities_with_zero_outgoing_edges() {
     let mut rule = make_rule("W101", "no_outgoing_edges");
     rule.message_template = "leaf {kind} '{id}'".to_string();
@@ -293,7 +283,6 @@ fn no_outgoing_edges_detects_entities_with_zero_outgoing_edges() {
     behavior = "execute_validation_pattern",
     verify = "missing_field_when_flag_set detects missing specified field on flagged entity"
 )]
-#[test]
 fn missing_field_when_flag_set_detects_missing_field() {
     let mut rule = make_rule("W102", "missing_field_when_flag_set");
     rule.field = Some("contract".to_string());
@@ -314,7 +303,6 @@ fn missing_field_when_flag_set_detects_missing_field() {
     behavior = "execute_validation_pattern",
     verify = "field_value_constraint rejects invalid field value"
 )]
-#[test]
 fn field_value_constraint_rejects_invalid_field_value() {
     let rule = ManifestValidationRule {
         code: "W103".to_string(),
@@ -352,7 +340,6 @@ fn field_value_constraint_rejects_invalid_field_value() {
     behavior = "execute_validation_pattern",
     verify = "cycle_detection finds cycles in edge type"
 )]
-#[test]
 fn cycle_detection_finds_cycles_in_edge_type() {
     // Cycle detection requires full graph — current implementation defers to caller.
     // The pattern parses correctly but execution returns no violations (graph needed).
@@ -370,7 +357,6 @@ fn cycle_detection_finds_cycles_in_edge_type() {
     behavior = "execute_validation_pattern",
     verify = "file_exists reports missing file-reference field targets"
 )]
-#[test]
 fn file_exists_reports_missing_file_reference_field_targets() {
     let rule = ManifestValidationRule {
         code: "E101".to_string(),
@@ -400,7 +386,6 @@ fn file_exists_reports_missing_file_reference_field_targets() {
     behavior = "execute_validation_pattern",
     verify = "custom pattern dispatches to registered Wasm function"
 )]
-#[test]
 fn custom_pattern_dispatches_to_registered_wasm_function() {
     struct MockRuntime;
     impl WasmValidationRuntime for MockRuntime {
@@ -439,7 +424,6 @@ fn custom_pattern_dispatches_to_registered_wasm_function() {
     behavior = "execute_validation_pattern",
     verify = "pattern violation produces diagnostic with configured code and severity"
 )]
-#[test]
 fn pattern_violation_produces_diagnostic_with_configured_code_and_severity() {
     let rule = ManifestValidationRule {
         code: "E999".to_string(),
@@ -463,7 +447,6 @@ fn pattern_violation_produces_diagnostic_with_configured_code_and_severity() {
     behavior = "execute_validation_pattern",
     verify = "Execute Validation Pattern: declarative validation holds — all_entities_matched, violations_diagnosed, deterministic_order"
 )]
-#[test]
 fn execute_validation_pattern_contract() {
     let rule = make_rule("W100", "no_incoming_edges");
     let pattern = parse_rule_pattern(&rule, "@test").unwrap();
@@ -487,7 +470,6 @@ fn execute_validation_pattern_contract() {
     behavior = "emit_diagnostic_from_pattern",
     verify = "message template interpolates {id} and {kind}"
 )]
-#[test]
 fn message_template_interpolates_id_and_kind() {
     let result = interpolate_template(
         "orphan {kind} '{id}'",
@@ -504,7 +486,6 @@ fn message_template_interpolates_id_and_kind() {
     behavior = "emit_diagnostic_from_pattern",
     verify = "message template interpolates {field} and {value}"
 )]
-#[test]
 fn message_template_interpolates_field_and_value() {
     let result = interpolate_template(
         "{kind} '{id}' has {field}='{value}'",
@@ -521,7 +502,6 @@ fn message_template_interpolates_field_and_value() {
     behavior = "emit_diagnostic_from_pattern",
     verify = "diagnostic code matches pattern code"
 )]
-#[test]
 fn diagnostic_code_matches_pattern_code() {
     let rule = ManifestValidationRule {
         code: "E999".to_string(),
@@ -543,7 +523,6 @@ fn diagnostic_code_matches_pattern_code() {
     behavior = "emit_diagnostic_from_pattern",
     verify = "diagnostic severity matches pattern severity"
 )]
-#[test]
 fn diagnostic_severity_matches_pattern_severity() {
     for (sev_str, expected) in &[
         ("error", Severity::Error),
@@ -575,7 +554,6 @@ fn diagnostic_severity_matches_pattern_severity() {
     behavior = "emit_diagnostic_from_pattern",
     verify = "Emit Diagnostic From Pattern: pattern diagnostic emission holds — violation_detected, pattern_configured, diagnostic_emitted, template_interpolated"
 )]
-#[test]
 fn emit_diagnostic_from_pattern_contract() {
     // requires: violation detected, pattern configured
     let result = interpolate_template("{kind} '{id}' orphan", "b1", "behavior", None, None, None);
@@ -597,7 +575,6 @@ fn emit_diagnostic_from_pattern_contract() {
     behavior = "register_extension_validation_rules",
     verify = "rules from multiple extensions are collected"
 )]
-#[test]
 fn rules_from_multiple_extensions_are_collected() {
     let m1: ManifestV2 = serde_json::from_str(
         r#"{
@@ -632,7 +609,6 @@ fn rules_from_multiple_extensions_are_collected() {
     behavior = "register_extension_validation_rules",
     verify = "duplicate codes across extensions produce warning"
 )]
-#[test]
 fn duplicate_codes_across_extensions_produce_warning() {
     let m1: ManifestV2 = serde_json::from_str(
         r#"{
@@ -672,7 +648,6 @@ fn duplicate_codes_across_extensions_produce_warning() {
     behavior = "register_extension_validation_rules",
     verify = "rules sorted by code for deterministic order"
 )]
-#[test]
 fn rules_sorted_by_code_for_deterministic_order() {
     let m1: ManifestV2 = serde_json::from_str(
         r#"{
@@ -708,7 +683,6 @@ fn rules_sorted_by_code_for_deterministic_order() {
     behavior = "register_extension_validation_rules",
     verify = "Register Extension Validation Rules: cross-extension rule aggregation holds — extension_manifests_loaded_fired, individual_rules_parsed, unified_rule_set_produced, deterministic_order_enforced, duplicate_codes_warned"
 )]
-#[test]
 fn register_extension_validation_rules_contract() {
     // requires: manifests parsed
     let m: ManifestV2 = serde_json::from_str(
@@ -739,7 +713,6 @@ fn register_extension_validation_rules_contract() {
     behavior = "register_custom_validation_patterns",
     verify = "custom pattern registered with wasm_function reference"
 )]
-#[test]
 fn custom_pattern_registered_with_wasm_function_reference() {
     let rule = ManifestValidationRule {
         code: "E200".to_string(),
@@ -761,7 +734,6 @@ fn custom_pattern_registered_with_wasm_function_reference() {
     behavior = "register_custom_validation_patterns",
     verify = "unresolvable wasm_function produces warning"
 )]
-#[test]
 fn unresolvable_wasm_function_produces_warning() {
     let pattern = ValidationRulePattern {
         code: "E200".to_string(),
@@ -789,7 +761,6 @@ fn unresolvable_wasm_function_produces_warning() {
     behavior = "register_custom_validation_patterns",
     verify = "unresolvable wasm_function produces warning"
 )]
-#[test]
 fn wasm_function_probe_failure_produces_warning() {
     struct TrappingRuntime;
     impl WasmValidationRuntime for TrappingRuntime {
@@ -831,7 +802,6 @@ fn wasm_function_probe_failure_produces_warning() {
     behavior = "register_custom_validation_patterns",
     verify = "custom pattern dispatched to Wasm runtime during validation"
 )]
-#[test]
 fn custom_pattern_dispatched_to_wasm_runtime_during_validation() {
     struct FailRuntime;
     impl WasmValidationRuntime for FailRuntime {
@@ -868,7 +838,6 @@ fn custom_pattern_dispatched_to_wasm_runtime_during_validation() {
     behavior = "register_custom_validation_patterns",
     verify = "custom pattern failure emits configured diagnostic"
 )]
-#[test]
 fn custom_pattern_failure_emits_configured_diagnostic() {
     struct AlwaysFail;
     impl WasmValidationRuntime for AlwaysFail {
@@ -905,7 +874,6 @@ fn custom_pattern_failure_emits_configured_diagnostic() {
     behavior = "register_custom_validation_patterns",
     verify = "Register Custom Validation Patterns: custom validation pattern registration holds — extension_manifests_loaded_fired, wasm_runtime_available, custom_patterns_registered, wasm_functions_resolved"
 )]
-#[test]
 fn register_custom_validation_patterns_contract() {
     let custom = ValidationRulePattern {
         code: "E200".to_string(),
@@ -944,7 +912,6 @@ fn register_custom_validation_patterns_contract() {
     behavior = "detect_unknown_entity_fields",
     verify = "unregistered field name produces W020"
 )]
-#[test]
 fn unregistered_field_name_produces_w020() {
     let (kind_reg, field_reg, _, _) = populate_registries(&[software_manifest()]);
     let entities = vec![(
@@ -967,7 +934,6 @@ fn unregistered_field_name_produces_w020() {
     behavior = "detect_unknown_entity_fields",
     verify = "W020 includes field name, entity kind, and source span"
 )]
-#[test]
 fn w020_includes_field_name_entity_kind_and_source_span() {
     let (kind_reg, field_reg, _, _) = populate_registries(&[software_manifest()]);
     let s = SourceSpan {
@@ -1003,7 +969,6 @@ fn w020_includes_field_name_entity_kind_and_source_span() {
     behavior = "detect_unknown_entity_fields",
     verify = "registered field name does not produce W020"
 )]
-#[test]
 fn registered_field_name_does_not_produce_w020() {
     let (kind_reg, field_reg, _, _) = populate_registries(&[software_manifest()]);
     let entities = vec![(
@@ -1022,7 +987,6 @@ fn registered_field_name_does_not_produce_w020() {
     behavior = "detect_unknown_entity_fields",
     verify = "structural fields (title, verify) not checked against FieldRegistry"
 )]
-#[test]
 fn structural_fields_not_checked_against_field_registry() {
     let (kind_reg, field_reg, _, _) = populate_registries(&[software_manifest()]);
     let entities = vec![(
@@ -1041,7 +1005,6 @@ fn structural_fields_not_checked_against_field_registry() {
     behavior = "detect_unknown_entity_fields",
     verify = "verify on a kind no extension made testable produces W020"
 )]
-#[test]
 fn verify_on_non_testable_kind_produces_w020() {
     let (mut kind_reg, field_reg, _, _) = populate_registries(&[software_manifest()]);
     kind_reg.get_mut("behavior").unwrap().supports_verify = false;
@@ -1069,7 +1032,6 @@ fn verify_on_non_testable_kind_produces_w020() {
     behavior = "detect_unknown_entity_fields",
     verify = "field validation skipped when entity kind is unregistered"
 )]
-#[test]
 fn field_validation_skipped_when_entity_kind_is_unregistered() {
     let (kind_reg, field_reg, _, _) = populate_registries(&[software_manifest()]);
     let entities = vec![(
@@ -1091,7 +1053,6 @@ fn field_validation_skipped_when_entity_kind_is_unregistered() {
     behavior = "detect_unknown_entity_fields",
     verify = "Detect Unknown Entity Fields: unknown field detection holds — registries_populated_fired, define_blocks_registered_fired, unknown_fields_diagnosed, cascading_avoided"
 )]
-#[test]
 fn detect_unknown_entity_fields_contract() {
     let (kind_reg, field_reg, _, _) = populate_registries(&[software_manifest()]);
     // ensures: unknown field → W020
@@ -1138,7 +1099,6 @@ fn detect_unknown_entity_fields_contract() {
     behavior = "detect_duplicate_entity_kinds",
     verify = "duplicate kind from two extensions produces E026"
 )]
-#[test]
 fn duplicate_kind_from_two_extensions_produces_e026() {
     let m1 = software_manifest();
     let m2: ManifestV2 = serde_json::from_str(
@@ -1167,7 +1127,6 @@ fn duplicate_kind_from_two_extensions_produces_e026() {
     behavior = "detect_duplicate_entity_kinds",
     verify = "first extension in topological order owns the kind"
 )]
-#[test]
 fn first_extension_in_topological_order_owns_the_kind() {
     let m1 = software_manifest();
     let m2: ManifestV2 = serde_json::from_str(
@@ -1191,7 +1150,6 @@ fn first_extension_in_topological_order_owns_the_kind() {
     behavior = "detect_duplicate_entity_kinds",
     verify = "single extension registering a kind produces no diagnostic"
 )]
-#[test]
 fn single_extension_registering_a_kind_produces_no_diagnostic() {
     let diags = detect_duplicate_entity_kinds(&[software_manifest()]);
     assert!(diags.is_empty());
@@ -1201,7 +1159,6 @@ fn single_extension_registering_a_kind_produces_no_diagnostic() {
     behavior = "detect_duplicate_entity_kinds",
     verify = "Detect Duplicate Entity Kinds: duplicate entity kind detection holds — manifests_loading, collisions_detected, first_wins_enforced"
 )]
-#[test]
 fn detect_duplicate_entity_kinds_contract() {
     // requires: manifests parsed
     // ensures: no duplicates → no diagnostics
@@ -1225,7 +1182,6 @@ fn detect_duplicate_entity_kinds_contract() {
     behavior = "validate_peer_dependencies",
     verify = "satisfied peer dependency passes validation"
 )]
-#[test]
 fn satisfied_peer_dependency_passes_validation() {
     let m1 = software_manifest();
     let m2: ManifestV2 = serde_json::from_str(
@@ -1252,7 +1208,6 @@ fn satisfied_peer_dependency_passes_validation() {
     behavior = "validate_peer_dependencies",
     verify = "missing peer dependency produces hard error"
 )]
-#[test]
 fn missing_peer_dependency_produces_hard_error() {
     let m: ManifestV2 = serde_json::from_str(
         r#"{
@@ -1280,7 +1235,6 @@ fn missing_peer_dependency_produces_hard_error() {
     behavior = "validate_peer_dependencies",
     verify = "incompatible version produces hard error with required range"
 )]
-#[test]
 fn incompatible_version_produces_hard_error_with_required_range() {
     let m1: ManifestV2 = serde_json::from_str(
         r#"{
@@ -1317,7 +1271,6 @@ fn incompatible_version_produces_hard_error_with_required_range() {
     behavior = "validate_peer_dependencies",
     verify = "Validate Peer Dependencies: peer dependency validation holds — manifests_available, dependencies_validated, unsatisfied_blocked, loading_failed_emitted"
 )]
-#[test]
 fn validate_peer_dependencies_contract() {
     // requires: manifests loaded
     // ensures: satisfied deps → no error
@@ -1346,7 +1299,6 @@ fn validate_peer_dependencies_contract() {
     behavior = "validate_extension_testability",
     verify = "testable kind without supportsVerify produces W017"
 )]
-#[test]
 fn testable_kind_without_supports_verify_produces_w017() {
     let manifest: ManifestV2 = serde_json::from_str(
         r#"{
@@ -1375,7 +1327,6 @@ fn testable_kind_without_supports_verify_produces_w017() {
     behavior = "validate_extension_testability",
     verify = "testable kind with supportsVerify=true passes"
 )]
-#[test]
 fn testable_kind_with_supports_verify_true_passes() {
     let (kind_reg, _, _, _) = populate_registries(&[software_manifest()]);
     let diags = validate_extension_testability(&kind_reg);
@@ -1390,7 +1341,6 @@ fn testable_kind_with_supports_verify_true_passes() {
     behavior = "validate_extension_testability",
     verify = "kind with supportsVerify but not testable produces I006"
 )]
-#[test]
 fn kind_with_supports_verify_but_not_testable_produces_i006() {
     let manifest: ManifestV2 = serde_json::from_str(
         r#"{
@@ -1419,7 +1369,6 @@ fn kind_with_supports_verify_but_not_testable_produces_i006() {
     behavior = "validate_extension_testability",
     verify = "consistent testable and supportsVerify flags produce no diagnostic"
 )]
-#[test]
 fn consistent_testable_and_supports_verify_flags_produce_no_diagnostic() {
     let manifest: ManifestV2 = serde_json::from_str(
         r#"{
@@ -1446,7 +1395,6 @@ fn consistent_testable_and_supports_verify_flags_produce_no_diagnostic() {
     behavior = "validate_extension_testability",
     verify = "Validate Extension Testability: extension testability validation holds — registries_populated_fired, flag_consistency_checked, advisory_diagnostics_emitted"
 )]
-#[test]
 fn validate_extension_testability_contract() {
     // requires: KindRegistry populated
     let (kind_reg, _, _, _) = populate_registries(&[software_manifest()]);

@@ -43,7 +43,6 @@ fn cold_build(files: &[(&str, &str)]) -> (IncrementalPipeline, HashMap<String, S
     behavior = "rebuild_affected_subgraph",
     verify = "stale nodes are removed"
 )]
-#[test]
 fn stale_nodes_are_removed_after_file_edit() {
     let (mut pipeline, mut sources) =
         cold_build(&[("a.spec", r#"behavior foo "Foo" { contract "does stuff" }"#)]);
@@ -74,7 +73,6 @@ fn stale_nodes_are_removed_after_file_edit() {
 // ── rebuild_affected_subgraph: new nodes added ────────────────
 
 #[spec(behavior = "rebuild_affected_subgraph", verify = "new nodes are added")]
-#[test]
 fn new_nodes_are_added_after_file_creation() {
     let (mut pipeline, mut sources) =
         cold_build(&[("a.spec", r#"behavior foo "Foo" { contract "x" }"#)]);
@@ -101,7 +99,6 @@ fn new_nodes_are_added_after_file_creation() {
     behavior = "invalidate_changed_files",
     verify = "deleted file entities removed from graph"
 )]
-#[test]
 fn deleted_file_entities_removed_from_graph() {
     let (mut pipeline, sources) = cold_build(&[
         ("a.spec", r#"behavior foo "Foo" { contract "x" }"#),
@@ -133,7 +130,6 @@ fn deleted_file_entities_removed_from_graph() {
     behavior = "rebuild_affected_subgraph",
     verify = "incremental rebuild equals cold rebuild"
 )]
-#[test]
 fn incremental_rebuild_equals_cold_rebuild() {
     let (mut pipeline, mut sources) = cold_build(&[
         ("a.spec", r#"behavior foo "Foo" { contract "x" }"#),
@@ -185,7 +181,6 @@ fn incremental_rebuild_equals_cold_rebuild() {
     behavior = "rebuild_affected_subgraph",
     verify = "debug --verify-incremental performs cold rebuild comparison"
 )]
-#[test]
 fn verify_incremental_performs_cold_rebuild_comparison() {
     let (mut pipeline, mut sources) =
         cold_build(&[("a.spec", r#"behavior foo "Foo" { contract "x" }"#)]);
@@ -216,7 +211,6 @@ fn verify_incremental_performs_cold_rebuild_comparison() {
     behavior = "rebuild_affected_subgraph",
     verify = "debug --verify-incremental performs cold rebuild comparison"
 )]
-#[test]
 fn verify_incremental_disabled_skips_comparison() {
     let (mut pipeline, mut sources) =
         cold_build(&[("a.spec", r#"behavior foo "Foo" { contract "x" }"#)]);
@@ -242,7 +236,6 @@ fn verify_incremental_disabled_skips_comparison() {
     behavior = "emit_incremental_diagnostics",
     verify = "diagnostics from changed files are refreshed"
 )]
-#[test]
 fn diagnostics_from_changed_files_are_refreshed() {
     let (mut pipeline, mut sources) = cold_build(&[(
         "a.spec",
@@ -277,7 +270,6 @@ fn diagnostics_from_changed_files_are_refreshed() {
     behavior = "emit_incremental_diagnostics",
     verify = "diagnostics from unchanged files are preserved"
 )]
-#[test]
 fn diagnostics_from_unchanged_files_are_preserved() {
     let (mut pipeline, mut sources) = cold_build(&[
         (
@@ -316,7 +308,6 @@ fn diagnostics_from_unchanged_files_are_preserved() {
     behavior = "track_import_dag_incrementally",
     verify = "added use import creates file dependency edge"
 )]
-#[test]
 fn added_use_import_creates_file_dependency_edge() {
     let (mut pipeline, mut sources) = cold_build(&[
         ("a.spec", r#"behavior foo "Foo" { contract "x" }"#),
@@ -347,7 +338,6 @@ fn added_use_import_creates_file_dependency_edge() {
     behavior = "track_import_dag_incrementally",
     verify = "removed use import deletes file dependency edge"
 )]
-#[test]
 fn removed_use_import_deletes_file_dependency_edge() {
     let (mut pipeline, mut sources) = cold_build(&[
         ("a.spec", r#"behavior foo "Foo" { contract "x" }"#),
@@ -384,7 +374,6 @@ fn removed_use_import_deletes_file_dependency_edge() {
     behavior = "track_import_dag_incrementally",
     verify = "incremental import DAG matches full rebuild import DAG"
 )]
-#[test]
 fn incremental_import_dag_matches_full_rebuild_dag() {
     let (mut pipeline, mut sources) = cold_build(&[
         ("a.spec", r#"behavior foo "Foo" { contract "x" }"#),
@@ -422,7 +411,6 @@ fn incremental_import_dag_matches_full_rebuild_dag() {
     behavior = "emit_incremental_diagnostics",
     verify = "total diagnostic set matches full rebuild"
 )]
-#[test]
 fn total_diagnostic_set_matches_full_rebuild() {
     let (mut pipeline, mut sources) = cold_build(&[
         ("a.spec", r#"behavior foo "Foo" { contract "x" }"#),
@@ -472,7 +460,6 @@ fn total_diagnostic_set_matches_full_rebuild() {
     behavior = "invalidate_changed_files",
     verify = "unrelated files are not re-parsed"
 )]
-#[test]
 fn unrelated_files_are_not_re_parsed() {
     let (mut pipeline, mut sources) = cold_build(&[
         ("a.spec", r#"behavior foo "Foo" { contract "x" }"#),
@@ -498,7 +485,6 @@ fn unrelated_files_are_not_re_parsed() {
     behavior = "invalidate_changed_files",
     verify = "transitive importers are in invalidation set"
 )]
-#[test]
 fn transitive_importer_is_re_parsed_when_dependency_changes() {
     let (mut pipeline, mut sources) = cold_build(&[
         ("a.spec", r#"behavior foo "Foo" { contract "x" }"#),
@@ -536,7 +522,6 @@ fn transitive_importer_is_re_parsed_when_dependency_changes() {
     behavior = "invalidate_changed_files",
     verify = "new file entities added to graph"
 )]
-#[test]
 fn new_file_entities_added_to_graph() {
     let (mut pipeline, mut sources) =
         cold_build(&[("a.spec", r#"behavior foo "Foo" { contract "x" }"#)]);
@@ -572,7 +557,6 @@ fn new_file_entities_added_to_graph() {
     behavior = "invalidate_changed_files",
     verify = "Invalidate Changed Files: file invalidation holds — file_changes_coalesced_fired, invalidation_set_computed, subgraph_invalidated_emitted, unrelated_files_untouched"
 )]
-#[test]
 fn invalidate_changed_files_contract() {
     // Requires: file_changes_coalesced event has fired, providing a batch of changed files
     // Ensures: invalidation_set_computed, subgraph_invalidated_emitted, unrelated_files_untouched
@@ -637,7 +621,6 @@ fn invalidate_changed_files_contract() {
     behavior = "emit_incremental_diagnostics",
     verify = "file change to diagnostics emitted within 100ms"
 )]
-#[test]
 fn file_change_to_diagnostics_emitted_within_100ms() {
     use std::time::Instant;
 
@@ -677,7 +660,6 @@ fn file_change_to_diagnostics_emitted_within_100ms() {
     behavior = "emit_incremental_diagnostics",
     verify = "Emit Incremental Diagnostics: incremental diagnostics holds for the declared obligations"
 )]
-#[test]
 fn emit_incremental_diagnostics_contract() {
     // Requires: incremental rebuild has completed, diagnostics from changed files refreshed
     // Ensures: merged diagnostic set = changed-file diagnostics + preserved unchanged-file diagnostics
@@ -755,7 +737,6 @@ fn emit_incremental_diagnostics_contract() {
     behavior = "track_import_dag_incrementally",
     verify = "cycle detection re-runs after import DAG update"
 )]
-#[test]
 fn cycle_detection_reruns_after_import_dag_update() {
     // Use file paths as import targets so the DAG keys are consistent.
     // In production, the resolver normalizes import paths to file paths.
@@ -798,7 +779,6 @@ fn cycle_detection_reruns_after_import_dag_update() {
     behavior = "track_import_dag_incrementally",
     verify = "cycle detection re-runs after import DAG update"
 )]
-#[test]
 fn cycle_resolved_after_removing_circular_import() {
     let (mut pipeline, mut sources) = cold_build(&[
         (
@@ -978,7 +958,6 @@ fn update_open_file_none_deletes() {
     behavior = "rebuild_affected_subgraph",
     verify = "incremental rebuild equals cold rebuild"
 )]
-#[test]
 fn red_green_matches_cold_after_target_edit() {
     let (mut pipeline, mut sources) = cold_build(&[
         ("a.spec", r#"behavior alpha "A" { contract "x" }"#),

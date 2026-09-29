@@ -99,7 +99,6 @@ fn tool_text(resp: &Value) -> String {
 // --- specforge.format ---
 
 // B:provide_mcp_format_tool — verify unit "returns format result"
-#[test]
 #[specforge_test(
     behavior = "provide_mcp_format_tool",
     verify = "specforge.format formats spec files"
@@ -114,7 +113,6 @@ fn format_returns_result() {
 }
 
 // B:provide_mcp_format_tool — verify unit "supports check mode"
-#[test]
 #[specforge_test(
     behavior = "provide_mcp_format_tool",
     verify = "check mode reports without modifying files"
@@ -130,7 +128,6 @@ fn format_check_mode() {
 // --- specforge.rename ---
 
 // B:provide_mcp_rename_tool — verify unit "returns rename result"
-#[test]
 #[specforge_test(
     behavior = "provide_mcp_rename_tool",
     verify = "specforge.rename renames entity and all references"
@@ -151,7 +148,6 @@ fn rename_returns_result() {
 }
 
 // B:provide_mcp_rename_tool — verify unit "unknown entity returns error"
-#[test]
 #[specforge_test(
     behavior = "provide_mcp_rename_tool",
     verify = "non-existent entity returns error response"
@@ -167,7 +163,6 @@ fn rename_unknown_entity() {
 }
 
 // B:provide_mcp_rename_tool — verify unit "missing params returns error"
-#[test]
 #[specforge_test(
     behavior = "provide_mcp_rename_tool",
     verify = "invalid new_name returns validation error"
@@ -181,7 +176,6 @@ fn rename_missing_params() {
 // --- specforge.init ---
 
 // B:provide_mcp_init_tool — verify unit "returns init result"
-#[test]
 #[specforge_test(
     behavior = "provide_mcp_init_tool",
     verify = "specforge.init creates specforge.json project"
@@ -208,7 +202,6 @@ fn init_returns_result() {
 // --- specforge.add_extension ---
 
 // B:provide_mcp_add_extension_tool — verify unit "returns install result"
-#[test]
 #[specforge_test(
     behavior = "provide_mcp_add_extension_tool",
     verify = "specforge.add_extension adds extension to config"
@@ -244,7 +237,6 @@ fn add_extension_returns_result() {
 }
 
 // B:provide_mcp_add_extension_tool — verify unit "missing specifier returns error"
-#[test]
 #[specforge_test(
     behavior = "provide_mcp_add_extension_tool",
     verify = "invalid manifest returns error"
@@ -258,7 +250,6 @@ fn add_extension_missing_specifier() {
 // --- specforge.remove_extension ---
 
 // B:provide_mcp_remove_extension_tool — verify unit "returns removal result"
-#[test]
 #[specforge_test(
     behavior = "provide_mcp_remove_extension_tool",
     verify = "specforge.remove_extension removes extension from config"
@@ -291,7 +282,6 @@ fn remove_extension_returns_result() {
 // --- specforge.migrate ---
 
 // B:provide_mcp_migrate_tool — verify unit "returns migration result"
-#[test]
 #[specforge_test(
     behavior = "provide_mcp_migrate_tool",
     verify = "specforge.migrate applies pending migrations"
@@ -312,7 +302,6 @@ fn migrate_returns_result() {
 }
 
 // B:provide_mcp_format_tool — verify unit "diff mode returns FormatDiff entries"
-#[test]
 #[specforge_test(
     behavior = "provide_mcp_format_tool",
     verify = "diff mode returns FormatDiff entries"
@@ -326,7 +315,6 @@ fn format_diff_mode_placeholder() {
 }
 
 // B:provide_mcp_format_tool — verify unit "paths filter restricts to specified files"
-#[test]
 #[specforge_test(
     behavior = "provide_mcp_format_tool",
     verify = "paths filter restricts to specified files"
@@ -344,7 +332,6 @@ fn format_paths_filter() {
 }
 
 // B:provide_mcp_rename_tool — verify unit "dry_run returns rename plan"
-#[test]
 #[specforge_test(
     behavior = "provide_mcp_rename_tool",
     verify = "dry_run returns rename plan without applying changes"
@@ -361,7 +348,6 @@ fn rename_invalid_new_name() {
 }
 
 // B:provide_mcp_rename_tool — verify unit "dry_run returns rename plan without applying"
-#[test]
 #[specforge_test(
     behavior = "provide_mcp_rename_tool",
     verify = "dry_run returns rename plan without applying changes"
@@ -379,7 +365,6 @@ fn rename_dry_run_placeholder() {
 }
 
 // B:provide_mcp_init_tool — verify unit "extensions installed when specified"
-#[test]
 #[specforge_test(
     behavior = "provide_mcp_init_tool",
     verify = "extensions installed when specified"
@@ -398,7 +383,6 @@ fn init_extensions_installed() {
 }
 
 // B:provide_mcp_init_tool — verify unit "default version"
-#[test]
 #[specforge_test(
     behavior = "provide_mcp_init_tool",
     verify = "default version is 0.1.0"
@@ -417,7 +401,6 @@ fn init_default_version() {
 }
 
 // B:provide_mcp_init_tool — verify unit "version parameter overrides"
-#[test]
 #[specforge_test(
     behavior = "provide_mcp_init_tool",
     verify = "version parameter overrides default 0.1.0"
@@ -436,7 +419,6 @@ fn init_version_override() {
 }
 
 // B:provide_mcp_init_tool — verify unit "result includes starter file path"
-#[test]
 #[specforge_test(
     behavior = "provide_mcp_init_tool",
     verify = "specforge.init result includes the starter file path and installed extensions"
@@ -455,7 +437,6 @@ fn init_starter_file_path() {
 }
 
 // B:provide_mcp_add_extension_tool — verify unit "already-installed returns info"
-#[test]
 #[specforge_test(
     behavior = "provide_mcp_add_extension_tool",
     verify = "already-installed extension returns info without modifying config"
@@ -491,7 +472,6 @@ fn add_extension_already_installed_placeholder() {
 }
 
 // B:provide_mcp_add_extension_tool — verify unit "wasm module downloaded for remote extensions"
-#[test]
 #[specforge_test(
     behavior = "provide_mcp_add_extension_tool",
     verify = "wasm module downloaded for remote extensions"
@@ -509,7 +489,6 @@ fn add_extension_invalid_manifest_placeholder() {
 }
 
 // B:provide_mcp_remove_extension_tool — verify unit "orphan entities produce warning"
-#[test]
 #[specforge_test(
     behavior = "provide_mcp_remove_extension_tool",
     verify = "orphan entities produce a warning"
@@ -540,7 +519,6 @@ fn remove_extension_orphan_warning_placeholder() {
 }
 
 // B:provide_mcp_rename_tool — verify unit "invalid new_name format returns validation error"
-#[test]
 #[specforge_test(
     behavior = "provide_mcp_rename_tool",
     verify = "invalid new_name returns validation error"
@@ -571,7 +549,6 @@ fn rename_invalid_name_format() {
 }
 
 // B:provide_mcp_init_tool — verify unit "result includes starter file and extensions"
-#[test]
 #[specforge_test(
     behavior = "provide_mcp_init_tool",
     verify = "specforge.init result includes the starter file path and installed extensions"
@@ -591,7 +568,6 @@ fn init_extensions_in_result() {
 }
 
 // B:provide_mcp_init_tool — verify unit "default version is 0.1.0"
-#[test]
 #[specforge_test(
     behavior = "provide_mcp_init_tool",
     verify = "default version is 0.1.0"
@@ -610,7 +586,6 @@ fn init_default_version_value() {
 }
 
 // B:provide_mcp_init_tool — verify unit "version parameter overrides default 0.1.0"
-#[test]
 #[specforge_test(
     behavior = "provide_mcp_init_tool",
     verify = "version parameter overrides default 0.1.0"
@@ -629,7 +604,6 @@ fn init_version_override_value() {
 }
 
 // B:provide_mcp_init_tool — verify integration "MCP init followed by check produces zero errors"
-#[test]
 #[specforge_test(
     behavior = "provide_mcp_init_tool",
     verify = "MCP init followed by check produces zero errors"
@@ -649,7 +623,6 @@ fn init_then_check_integration() {
 }
 
 // B:provide_mcp_add_extension_tool — verify unit "invalid specifier returns error"
-#[test]
 #[specforge_test(
     behavior = "provide_mcp_add_extension_tool",
     verify = "invalid specifier format returns error"
@@ -667,7 +640,6 @@ fn add_extension_invalid_specifier() {
 }
 
 // B:provide_mcp_remove_extension_tool — verify unit "non-installed extension returns extension_not_found error"
-#[test]
 #[specforge_test(
     behavior = "provide_mcp_remove_extension_tool",
     verify = "non-installed extension returns extension_not_found error"
@@ -685,7 +657,6 @@ fn remove_extension_not_installed() {
 }
 
 // B:provide_mcp_migrate_tool — verify unit "dry_run returns diff without modifying files"
-#[test]
 #[specforge_test(
     behavior = "provide_mcp_migrate_tool",
     verify = "dry_run returns diff without modifying files"
@@ -704,7 +675,6 @@ fn migrate_dry_run() {
 }
 
 // B:provide_mcp_migrate_tool — verify unit "post-migration validation reports errors"
-#[test]
 #[specforge_test(
     behavior = "provide_mcp_migrate_tool",
     verify = "post-migration validation reports errors"
@@ -724,7 +694,6 @@ fn migrate_post_validation() {
 // --- Missing verify statements ---
 
 // B:provide_mcp_init_tool — verify unit "path inside current project returns error"
-#[test]
 #[specforge_test(
     behavior = "provide_mcp_init_tool",
     verify = "path inside current project returns error"
@@ -741,7 +710,6 @@ fn init_path_inside_current_project() {
 }
 
 // B:provide_mcp_init_tool — verify unit "invalid project name returns error"
-#[test]
 #[specforge_test(
     behavior = "provide_mcp_init_tool",
     verify = "invalid project name returns error"
@@ -758,7 +726,6 @@ fn init_invalid_project_name() {
 }
 
 // B:provide_mcp_init_tool — verify unit "unknown extension returns error with diagnostic"
-#[test]
 #[specforge_test(
     behavior = "provide_mcp_init_tool",
     verify = "unknown extension returns error with diagnostic"
@@ -775,7 +742,6 @@ fn init_unknown_extension() {
 }
 
 // B:provide_mcp_add_extension_tool — verify unit "dry_run returns preview without modifying files"
-#[test]
 #[specforge_test(
     behavior = "provide_mcp_add_extension_tool",
     verify = "dry_run returns preview without modifying files"
@@ -802,7 +768,6 @@ fn add_extension_dry_run() {
 }
 
 // B:provide_mcp_remove_extension_tool — verify unit "dry_run returns preview without modifying files"
-#[test]
 #[specforge_test(
     behavior = "provide_mcp_remove_extension_tool",
     verify = "dry_run returns preview without modifying files"
@@ -836,7 +801,6 @@ fn remove_extension_dry_run() {
 // --- Contract tests ---
 
 // B:provide_mcp_format_tool — verify contract
-#[test]
 #[specforge_test(
     behavior = "provide_mcp_format_tool",
     verify = "Provide MCP Format Tool: MCP format tool holds — filesystem_available, files_formatted, check_mode_readonly, mutation_completed_emitted, tool_invoked_emitted"
@@ -857,7 +821,6 @@ fn format_contract() {
 }
 
 // B:provide_mcp_rename_tool — verify contract
-#[test]
 #[specforge_test(
     behavior = "provide_mcp_rename_tool",
     verify = "Provide MCP Rename Tool: MCP rename tool holds — graph_available, filesystem_available, references_updated, recompilation_triggered, dry_run_safe, mutation_completed_emitted, tool_invoked_emitted"
@@ -881,7 +844,6 @@ fn rename_contract() {
 }
 
 // B:provide_mcp_init_tool — verify contract
-#[test]
 #[specforge_test(
     behavior = "provide_mcp_init_tool",
     verify = "Provide MCP Init Tool: MCP init tool holds — filesystem_available, project_created, path_outside_current, extensions_validated, project_initialized_emitted, tool_invoked_emitted"
@@ -909,7 +871,6 @@ fn init_contract() {
 }
 
 // B:provide_mcp_add_extension_tool — verify contract
-#[test]
 #[specforge_test(
     behavior = "provide_mcp_add_extension_tool",
     verify = "Provide MCP Add Extension Tool: MCP add extension tool holds — filesystem_available, extension_installed, wasm_downloaded, extension_added_emitted, dry_run_safe, tool_invoked_emitted"
@@ -940,7 +901,6 @@ fn add_extension_contract() {
 }
 
 // B:provide_mcp_remove_extension_tool — verify contract
-#[test]
 #[specforge_test(
     behavior = "provide_mcp_remove_extension_tool",
     verify = "Provide MCP Remove Extension Tool: MCP remove extension tool holds — filesystem_available, extension_removed, orphan_warning_produced, dry_run_safe, mutation_completed_emitted, tool_invoked_emitted"
@@ -971,7 +931,6 @@ fn remove_extension_contract() {
 }
 
 // B:provide_mcp_migrate_tool — verify contract
-#[test]
 #[specforge_test(
     behavior = "provide_mcp_migrate_tool",
     verify = "Provide MCP Migrate Tool: MCP migrate tool holds — filesystem_available, migrations_applied, post_migration_validated, dry_run_safe, mutation_completed_emitted, tool_invoked_emitted"

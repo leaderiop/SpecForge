@@ -126,7 +126,6 @@ fn span(file: &str) -> SourceSpan {
     behavior = "boot_empty_kind_registry",
     verify = "KindRegistry::new() has zero entries"
 )]
-#[test]
 fn boot_kind_registry_zero_entries() {
     let registry = KindRegistry::new();
     assert_eq!(registry.len(), 0);
@@ -137,7 +136,6 @@ fn boot_kind_registry_zero_entries() {
     behavior = "boot_empty_kind_registry",
     verify = "parser recognizes spec keyword without extensions"
 )]
-#[test]
 fn boot_kind_registry_spec_keyword() {
     let registry = KindRegistry::new();
     // spec is a structural keyword — NOT in KindRegistry
@@ -155,7 +153,6 @@ fn boot_kind_registry_spec_keyword() {
     behavior = "boot_empty_kind_registry",
     verify = "parser recognizes ref keyword without extensions"
 )]
-#[test]
 fn boot_kind_registry_ref_keyword() {
     let registry = KindRegistry::new();
     assert!(!registry.contains("ref"));
@@ -168,7 +165,6 @@ fn boot_kind_registry_ref_keyword() {
     behavior = "boot_empty_kind_registry",
     verify = "parser recognizes use keyword without extensions"
 )]
-#[test]
 fn boot_kind_registry_use_keyword() {
     let registry = KindRegistry::new();
     assert!(!registry.contains("use"));
@@ -180,7 +176,6 @@ fn boot_kind_registry_use_keyword() {
     behavior = "boot_empty_kind_registry",
     verify = "parser recognizes define keyword without extensions"
 )]
-#[test]
 fn boot_kind_registry_define_keyword() {
     let registry = KindRegistry::new();
     assert!(!registry.contains("define"));
@@ -199,7 +194,6 @@ fn boot_kind_registry_define_keyword() {
     behavior = "boot_empty_kind_registry",
     verify = "Boot Empty Kind Registry: empty kind registry boot holds — compiler_initializing, kind_registry_empty, structural_keywords_ready"
 )]
-#[test]
 fn boot_kind_registry_contract() {
     let registry = KindRegistry::new();
     assert!(registry.is_empty());
@@ -219,7 +213,6 @@ fn boot_kind_registry_contract() {
     behavior = "boot_empty_field_registry",
     verify = "FieldRegistry::new() has zero entries"
 )]
-#[test]
 fn boot_field_registry_zero_entries() {
     let registry = FieldRegistry::new();
     assert_eq!(registry.len(), 0);
@@ -230,7 +223,6 @@ fn boot_field_registry_zero_entries() {
     behavior = "boot_empty_field_registry",
     verify = "no field names recognized before extension loading"
 )]
-#[test]
 fn boot_field_registry_no_fields() {
     let registry = FieldRegistry::new();
     assert!(registry.get("behavior", "contract").is_none());
@@ -242,7 +234,6 @@ fn boot_field_registry_no_fields() {
     behavior = "boot_empty_field_registry",
     verify = "entity title parsed by grammar, not FieldRegistry"
 )]
-#[test]
 fn boot_field_registry_title_not_a_field() {
     let mut registry = FieldRegistry::new();
     registry.register(FieldRegistryEntry {
@@ -265,7 +256,6 @@ fn boot_field_registry_title_not_a_field() {
     behavior = "boot_empty_field_registry",
     verify = "Boot Empty Field Registry: empty field registry boot holds — compiler_initializing, field_registry_empty, no_fields_recognized"
 )]
-#[test]
 fn boot_field_registry_contract() {
     let registry = FieldRegistry::new();
     assert!(registry.is_empty());
@@ -283,7 +273,6 @@ fn boot_field_registry_contract() {
     behavior = "boot_empty_edge_registry",
     verify = "edge type set starts with zero entries"
 )]
-#[test]
 fn boot_edge_registry_zero_entries() {
     let registry = EdgeRegistry::new();
     assert_eq!(registry.len(), 0);
@@ -294,7 +283,6 @@ fn boot_edge_registry_zero_entries() {
     behavior = "boot_empty_edge_registry",
     verify = "no edge labels recognized before extension loading"
 )]
-#[test]
 fn boot_edge_registry_no_labels() {
     let registry = EdgeRegistry::new();
     assert!(registry.get("enforces").is_none());
@@ -305,7 +293,6 @@ fn boot_edge_registry_no_labels() {
     behavior = "boot_empty_edge_registry",
     verify = "Boot Empty Edge Registry: empty edge registry boot holds — compiler_initializing, edge_registry_empty, no_edges_recognized"
 )]
-#[test]
 fn boot_edge_registry_contract() {
     let registry = EdgeRegistry::new();
     assert!(registry.is_empty());
@@ -323,7 +310,6 @@ fn boot_edge_registry_contract() {
     behavior = "populate_kind_registry_from_extensions",
     verify = "extensions iterated in topological order"
 )]
-#[test]
 fn populate_kind_extensions_topological_order() {
     let (kind_reg, _, _, _) = populate_registries(&[software_manifest(), product_manifest()]);
     assert!(kind_reg.contains("behavior"));
@@ -335,7 +321,6 @@ fn populate_kind_extensions_topological_order() {
     behavior = "populate_kind_registry_from_extensions",
     verify = "all entityKinds entries registered"
 )]
-#[test]
 fn populate_kind_all_entries_registered() {
     let (kind_reg, _, _, _) = populate_registries(&[software_manifest()]);
     assert_eq!(kind_reg.len(), 2);
@@ -347,7 +332,6 @@ fn populate_kind_all_entries_registered() {
     behavior = "populate_kind_registry_from_extensions",
     verify = "registered keywords available to parser"
 )]
-#[test]
 fn populate_kind_keywords_available() {
     let (kind_reg, _, _, _) = populate_registries(&[software_manifest(), product_manifest()]);
     let keywords: Vec<String> = kind_reg.keywords().cloned().collect();
@@ -360,7 +344,6 @@ fn populate_kind_keywords_available() {
     behavior = "populate_kind_registry_from_extensions",
     verify = "population completes before validation"
 )]
-#[test]
 fn populate_kind_completes_before_validation() {
     let (kind_reg, field_reg, edge_reg, _) = populate_registries(&[software_manifest()]);
     assert!(!kind_reg.is_empty());
@@ -372,7 +355,6 @@ fn populate_kind_completes_before_validation() {
     behavior = "populate_kind_registry_from_extensions",
     verify = "two extensions register kinds without collision"
 )]
-#[test]
 fn populate_kind_two_extensions_no_collision() {
     let (kind_reg, _, _, diags) = populate_registries(&[software_manifest(), product_manifest()]);
     assert!(!diags.iter().any(|d| d.code == "E026"));
@@ -383,7 +365,6 @@ fn populate_kind_two_extensions_no_collision() {
     behavior = "populate_kind_registry_from_extensions",
     verify = "Populate Kind Registry From Extensions: registry population holds for the declared obligations"
 )]
-#[test]
 fn populate_kind_registry_contract() {
     let (kind_reg, field_reg, edge_reg, diags) =
         populate_registries(&[software_manifest(), product_manifest()]);
@@ -404,7 +385,6 @@ fn populate_kind_registry_contract() {
     behavior = "populate_field_registry_from_extensions",
     verify = "fields registered per entity kind"
 )]
-#[test]
 fn populate_field_per_entity_kind() {
     let (_, field_reg, _, _) = populate_registries(&[software_manifest()]);
     assert!(field_reg.contains("behavior", "contract"));
@@ -416,7 +396,6 @@ fn populate_field_per_entity_kind() {
     behavior = "populate_field_registry_from_extensions",
     verify = "field types validated against known types"
 )]
-#[test]
 fn populate_field_types_validated() {
     let (_, field_reg, _, _) = populate_registries(&[software_manifest()]);
     let contract = field_reg.get("behavior", "contract").unwrap();
@@ -429,7 +408,6 @@ fn populate_field_types_validated() {
     behavior = "populate_field_registry_from_extensions",
     verify = "invalid field type produces warning"
 )]
-#[test]
 fn populate_field_invalid_type_warning() {
     let manifest: ManifestV2 = serde_json::from_str(
         r#"{
@@ -462,7 +440,6 @@ fn populate_field_invalid_type_warning() {
     behavior = "populate_field_registry_from_extensions",
     verify = "Populate Field Registry From Extensions: field registry population holds — extension_manifests_loaded_fired, kind_registry_populated, fields_registered, field_types_validated, fields_populated"
 )]
-#[test]
 fn populate_field_registry_contract() {
     let (_, field_reg, _, diags) = populate_registries(&[software_manifest()]);
     assert!(field_reg.contains("behavior", "contract"));
@@ -480,7 +457,6 @@ fn populate_field_registry_contract() {
     behavior = "populate_edge_registry_from_extensions",
     verify = "explicit edgeTypes merged into edge set"
 )]
-#[test]
 fn populate_edge_explicit_merged() {
     let (_, _, edge_reg, _) = populate_registries(&[software_manifest()]);
     assert!(edge_reg.contains("enforces"));
@@ -490,7 +466,6 @@ fn populate_edge_explicit_merged() {
     behavior = "populate_edge_registry_from_extensions",
     verify = "implicit edges from field mappings merged"
 )]
-#[test]
 fn populate_edge_implicit_from_fields() {
     let manifest: ManifestV2 = serde_json::from_str(
         r#"{
@@ -521,7 +496,6 @@ fn populate_edge_implicit_from_fields() {
     behavior = "populate_edge_registry_from_extensions",
     verify = "duplicate edge labels produce warning"
 )]
-#[test]
 fn populate_edge_duplicate_warning() {
     let mut m1 = software_manifest();
     let mut m2 = product_manifest();
@@ -555,7 +529,6 @@ fn populate_edge_duplicate_warning() {
     behavior = "populate_edge_registry_from_extensions",
     verify = "Populate Edge Registry From Extensions: edge registry population holds — extension_manifests_loaded_fired, edge_set_complete, duplicates_warned, edges_populated"
 )]
-#[test]
 fn populate_edge_registry_contract() {
     let (_, _, edge_reg, diags) = populate_registries(&[software_manifest(), product_manifest()]);
     assert!(edge_reg.contains("enforces"));
@@ -571,7 +544,6 @@ fn populate_edge_registry_contract() {
     behavior = "register_entity_kinds_from_manifest",
     verify = "entity kind registered with testable flag"
 )]
-#[test]
 fn register_kind_testable_flag() {
     let (kind_reg, _, _, diags) = populate_registries(&[software_manifest()]);
     assert!(diags.is_empty());
@@ -585,7 +557,6 @@ fn register_kind_testable_flag() {
     behavior = "register_entity_kinds_from_manifest",
     verify = "entity kind registered with singleton flag"
 )]
-#[test]
 fn register_kind_singleton_flag() {
     let (kind_reg, _, _, _) = populate_registries(&[software_manifest()]);
     let behavior = kind_reg.get("behavior").unwrap();
@@ -596,7 +567,6 @@ fn register_kind_singleton_flag() {
     behavior = "register_entity_kinds_from_manifest",
     verify = "entity kind registered with LSP metadata"
 )]
-#[test]
 fn register_kind_lsp_metadata() {
     let (kind_reg, _, _, _) = populate_registries(&[software_manifest()]);
     let behavior = kind_reg.get("behavior").unwrap();
@@ -608,7 +578,6 @@ fn register_kind_lsp_metadata() {
     behavior = "register_entity_kinds_from_manifest",
     verify = "source extension recorded in registry entry"
 )]
-#[test]
 fn register_kind_source_extension() {
     let (kind_reg, _, _, _) = populate_registries(&[software_manifest()]);
     let behavior = kind_reg.get("behavior").unwrap();
@@ -619,7 +588,6 @@ fn register_kind_source_extension() {
     behavior = "register_entity_kinds_from_manifest",
     verify = "testable=true entity participates in coverage"
 )]
-#[test]
 fn register_kind_testable_participates_in_coverage() {
     let (kind_reg, _, _, _) = populate_registries(&[software_manifest()]);
     let testable_kinds: Vec<_> = kind_reg
@@ -635,7 +603,6 @@ fn register_kind_testable_participates_in_coverage() {
     behavior = "register_entity_kinds_from_manifest",
     verify = "testable=false entity excluded from coverage"
 )]
-#[test]
 fn register_kind_testable_false_excluded() {
     let (kind_reg, _, _, _) = populate_registries(&[product_manifest()]);
     let feature = kind_reg.get("feature").unwrap();
@@ -646,7 +613,6 @@ fn register_kind_testable_false_excluded() {
     behavior = "register_entity_kinds_from_manifest",
     verify = "no default testability assumed by core"
 )]
-#[test]
 fn register_kind_no_default_testability() {
     let manifest: ManifestV2 = serde_json::from_str(
         r#"{
@@ -669,7 +635,6 @@ fn register_kind_no_default_testability() {
     behavior = "register_entity_kinds_from_manifest",
     verify = "Register Entity Kinds From Manifest: entity kind registration holds — extension_manifests_loaded_fired, kinds_registered, source_extension_recorded"
 )]
-#[test]
 fn register_kind_contract() {
     let manifest = software_manifest();
     let (kind_reg, _, _, diags) = populate_registries(&[manifest]);
@@ -691,7 +656,6 @@ fn register_kind_contract() {
     behavior = "register_edge_types_from_manifest",
     verify = "edge type registered with label and description"
 )]
-#[test]
 fn register_edge_label_and_description() {
     let (_, _, edge_reg, _) = populate_registries(&[software_manifest()]);
     let enforces = edge_reg.get("enforces").unwrap();
@@ -704,7 +668,6 @@ fn register_edge_label_and_description() {
     behavior = "register_edge_types_from_manifest",
     verify = "source/target kind constraints recorded"
 )]
-#[test]
 fn register_edge_source_target_constraints() {
     let (_, _, edge_reg, _) = populate_registries(&[software_manifest()]);
     let enforces = edge_reg.get("enforces").unwrap();
@@ -717,7 +680,6 @@ fn register_edge_source_target_constraints() {
     behavior = "register_edge_types_from_manifest",
     verify = "duplicate edge label across extensions produces W-level warning"
 )]
-#[test]
 fn register_edge_duplicate_warning() {
     let m1 = software_manifest();
     let mut m2 = product_manifest();
@@ -742,7 +704,6 @@ fn register_edge_duplicate_warning() {
     behavior = "register_edge_types_from_manifest",
     verify = "first-registered edge type wins on collision (topological order)"
 )]
-#[test]
 fn register_edge_first_wins() {
     let m1 = software_manifest();
     let mut m2 = product_manifest();
@@ -765,7 +726,6 @@ fn register_edge_first_wins() {
     behavior = "register_edge_types_from_manifest",
     verify = "field-to-edge mapping creates edge type"
 )]
-#[test]
 fn register_edge_field_mapping() {
     let (_, _, edge_reg, _) = populate_registries(&[product_manifest()]);
     assert!(edge_reg.contains("composes"));
@@ -775,7 +735,6 @@ fn register_edge_field_mapping() {
     behavior = "register_edge_types_from_manifest",
     verify = "Register Edge Types From Manifest: edge type registration holds — extension_manifests_loaded_fired, edge_types_registered, constraints_recorded, duplicates_warned"
 )]
-#[test]
 fn register_edge_contract() {
     let manifest = software_manifest();
     let (_, _, edge_reg, diags) = populate_registries(&[manifest]);
@@ -794,7 +753,6 @@ fn register_edge_contract() {
     behavior = "validate_manifest_v2_schema",
     verify = "valid v2 manifest passes schema validation"
 )]
-#[test]
 fn manifest_v2_valid_passes() {
     let manifest: ManifestV2 = serde_json::from_str(
         r#"{
@@ -813,7 +771,6 @@ fn manifest_v2_valid_passes() {
     behavior = "validate_manifest_v2_schema",
     verify = "missing required field produces hard error"
 )]
-#[test]
 fn manifest_v2_missing_required_field() {
     let manifest: ManifestV2 = serde_json::from_str(
         r#"{"name": "", "version": "1.0.0", "manifestVersion": 2, "wasmPath": "x.wasm"}"#,
@@ -842,7 +799,6 @@ fn manifest_v2_missing_required_field() {
     behavior = "validate_manifest_v2_schema",
     verify = "manifestVersion != 2 produces hard error"
 )]
-#[test]
 fn manifest_v2_wrong_version() {
     let manifest: ManifestV2 = serde_json::from_str(
         r#"{"name": "@test/ext", "version": "1.0.0", "manifestVersion": 1, "wasmPath": "x.wasm"}"#,
@@ -860,7 +816,6 @@ fn manifest_v2_wrong_version() {
     behavior = "validate_manifest_v2_schema",
     verify = "unknown top-level field produces warning"
 )]
-#[test]
 fn manifest_v2_unknown_field() {
     // serde silently ignores unknown fields (deny_unknown_fields is NOT set)
     // Warning is handled at a higher level that compares raw JSON keys
@@ -877,7 +832,6 @@ fn manifest_v2_unknown_field() {
     behavior = "validate_manifest_v2_schema",
     verify = "Validate Manifest V2 Schema: manifest v2 schema validation holds — manifest_json_available, schema_validated, malformed_diagnosed"
 )]
-#[test]
 fn manifest_v2_schema_contract() {
     let good: ManifestV2 = serde_json::from_str(
         r#"{"name": "@specforge/software", "version": "1.0.0", "manifestVersion": 2, "wasmPath": "software.wasm"}"#,
@@ -903,7 +857,6 @@ fn manifest_v2_schema_contract() {
     behavior = "detect_unknown_entity_kinds",
     verify = "unregistered keyword produces E024"
 )]
-#[test]
 fn detect_unknown_kinds_e024() {
     let (kind_reg, _, _, _) = populate_registries(&[software_manifest()]);
     let entities = vec![(
@@ -921,7 +874,6 @@ fn detect_unknown_kinds_e024() {
     behavior = "detect_unknown_entity_kinds",
     verify = "E024 includes keyword name and source span"
 )]
-#[test]
 fn detect_unknown_kinds_e024_includes_info() {
     let (kind_reg, _, _, _) = populate_registries(&[software_manifest()]);
     let s = SourceSpan {
@@ -943,7 +895,6 @@ fn detect_unknown_kinds_e024_includes_info() {
     behavior = "detect_unknown_entity_kinds",
     verify = "registered keyword does not produce E024"
 )]
-#[test]
 fn detect_unknown_kinds_registered_no_e024() {
     let (kind_reg, _, _, _) = populate_registries(&[software_manifest()]);
     let entities = vec![("behavior".to_string(), "b1".to_string(), span("test.spec"))];
@@ -956,7 +907,6 @@ fn detect_unknown_kinds_registered_no_e024() {
     behavior = "detect_unknown_entity_kinds",
     verify = "define-block keywords not checked against KindRegistry"
 )]
-#[test]
 fn detect_unknown_kinds_define_not_checked() {
     let kind_reg = KindRegistry::new();
     let entities = vec![(
@@ -973,7 +923,6 @@ fn detect_unknown_kinds_define_not_checked() {
     behavior = "detect_unknown_entity_kinds",
     verify = "Detect Unknown Entity Kinds: unknown entity kind detection holds — registries_populated_fired, structural_parse_ready, unknown_kinds_diagnosed, registered_kinds_accepted"
 )]
-#[test]
 fn detect_unknown_kinds_contract() {
     let (kind_reg, _, _, _) = populate_registries(&[software_manifest()]);
     let unknown = vec![("xyzzy".to_string(), "x1".to_string(), span("t.spec"))];
@@ -993,7 +942,6 @@ fn detect_unknown_kinds_contract() {
     behavior = "suggest_missing_extensions",
     verify = "E024 for keyword in index suggests the providing extension"
 )]
-#[test]
 fn suggest_missing_ext_known_keyword() {
     let kind_reg = KindRegistry::new();
     let mut entries = std::collections::HashMap::new();
@@ -1018,7 +966,6 @@ fn suggest_missing_ext_known_keyword() {
     behavior = "suggest_missing_extensions",
     verify = "E024 for keyword not in index suggests specforge search"
 )]
-#[test]
 fn suggest_missing_ext_unknown_keyword() {
     let kind_reg = KindRegistry::new();
     let index = specforge_registry::compilation::KeywordExtensionIndex::new();
@@ -1041,7 +988,6 @@ fn suggest_missing_ext_unknown_keyword() {
     behavior = "suggest_missing_extensions",
     verify = "keyword-to-extension index is loaded from bundled data file"
 )]
-#[test]
 fn suggest_missing_ext_data_driven_index() {
     let json = r#"{"behavior": "@specforge/software", "feature": "@specforge/product"}"#;
     let entries: std::collections::HashMap<String, String> = serde_json::from_str(json).unwrap();
@@ -1055,7 +1001,6 @@ fn suggest_missing_ext_data_driven_index() {
     behavior = "suggest_missing_extensions",
     verify = "Suggest Missing Extensions: missing extension suggestions holds — e024_diagnostic_emitted, suggestion_provided, lazy_loading_enforced"
 )]
-#[test]
 fn suggest_missing_ext_contract() {
     let kind_reg = KindRegistry::new();
     let mut entries = std::collections::HashMap::new();
@@ -1091,7 +1036,6 @@ fn suggest_missing_ext_contract() {
     behavior = "validate_registered_entity_fields",
     verify = "target_kind reference resolves to registered kind"
 )]
-#[test]
 fn validate_fields_target_kind_resolves() {
     let (kind_reg, field_reg, edge_reg, _) = populate_registries(&[software_manifest()]);
     let diags = validate_registered_entity_fields(&field_reg, &kind_reg, &edge_reg);
@@ -1102,7 +1046,6 @@ fn validate_fields_target_kind_resolves() {
     behavior = "validate_registered_entity_fields",
     verify = "edge label resolves to registered edge type"
 )]
-#[test]
 fn validate_fields_edge_label_resolves() {
     let (kind_reg, field_reg, edge_reg, _) = populate_registries(&[software_manifest()]);
     let diags = validate_registered_entity_fields(&field_reg, &kind_reg, &edge_reg);
@@ -1113,7 +1056,6 @@ fn validate_fields_edge_label_resolves() {
     behavior = "validate_registered_entity_fields",
     verify = "unresolved target_kind produces warning"
 )]
-#[test]
 fn validate_fields_unresolved_target_kind() {
     let manifest: ManifestV2 = serde_json::from_str(
         r#"{
@@ -1146,7 +1088,6 @@ fn validate_fields_unresolved_target_kind() {
     behavior = "validate_registered_entity_fields",
     verify = "unresolved edge label produces warning"
 )]
-#[test]
 fn validate_fields_unresolved_edge_label() {
     let manifest: ManifestV2 = serde_json::from_str(
         r#"{
@@ -1178,7 +1119,6 @@ fn validate_fields_unresolved_edge_label() {
     behavior = "validate_registered_entity_fields",
     verify = "cross-validation uses no domain-specific logic"
 )]
-#[test]
 fn validate_fields_no_domain_logic() {
     // Entirely custom domain — cooking! No software/product assumptions.
     let manifest: ManifestV2 = serde_json::from_str(
@@ -1219,7 +1159,6 @@ fn validate_fields_no_domain_logic() {
     behavior = "validate_registered_entity_fields",
     verify = "Validate Registered Entity Fields: field cross-validation holds for the declared obligations"
 )]
-#[test]
 fn validate_fields_contract() {
     let (kind_reg, field_reg, edge_reg, _) = populate_registries(&[software_manifest()]);
     let diags = validate_registered_entity_fields(&field_reg, &kind_reg, &edge_reg);
@@ -1245,7 +1184,6 @@ fn validate_fields_contract() {
     behavior = "detect_duplicate_entity_kinds",
     verify = "duplicate kind from two extensions produces E026"
 )]
-#[test]
 fn detect_dup_kinds_e026() {
     let m1 = software_manifest();
     let m2: ManifestV2 = serde_json::from_str(
@@ -1265,7 +1203,6 @@ fn detect_dup_kinds_e026() {
     behavior = "detect_duplicate_entity_kinds",
     verify = "first extension in topological order owns the kind"
 )]
-#[test]
 fn detect_dup_kinds_first_wins() {
     let m1 = software_manifest();
     let m2: ManifestV2 = serde_json::from_str(
@@ -1282,7 +1219,6 @@ fn detect_dup_kinds_first_wins() {
     behavior = "detect_duplicate_entity_kinds",
     verify = "single extension registering a kind produces no diagnostic"
 )]
-#[test]
 fn detect_dup_kinds_single_ext_no_diag() {
     let diags = detect_duplicate_entity_kinds(&[software_manifest()]);
     assert!(diags.is_empty());
@@ -1292,7 +1228,6 @@ fn detect_dup_kinds_single_ext_no_diag() {
     behavior = "detect_duplicate_entity_kinds",
     verify = "Detect Duplicate Entity Kinds: duplicate entity kind detection holds — manifests_loading, collisions_detected, first_wins_enforced"
 )]
-#[test]
 fn detect_dup_kinds_contract() {
     let diags = detect_duplicate_entity_kinds(&[software_manifest()]);
     assert!(diags.is_empty());
@@ -1313,7 +1248,6 @@ fn detect_dup_kinds_contract() {
     behavior = "validate_peer_dependencies",
     verify = "satisfied peer dependency passes validation"
 )]
-#[test]
 fn peer_deps_satisfied() {
     let m1 = software_manifest();
     let m2: ManifestV2 = serde_json::from_str(
@@ -1329,7 +1263,6 @@ fn peer_deps_satisfied() {
     behavior = "validate_peer_dependencies",
     verify = "missing peer dependency produces hard error"
 )]
-#[test]
 fn peer_deps_missing() {
     let m: ManifestV2 = serde_json::from_str(
         r#"{"name":"@specforge/product","version":"1.0.0","manifestVersion":2,"wasmPath":"product.wasm",
@@ -1348,7 +1281,6 @@ fn peer_deps_missing() {
     behavior = "validate_peer_dependencies",
     verify = "incompatible version produces hard error with required range"
 )]
-#[test]
 fn peer_deps_incompatible_version() {
     let m1: ManifestV2 = serde_json::from_str(
         r#"{"name":"@specforge/software","version":"0.5.0","manifestVersion":2,"wasmPath":"software.wasm"}"#,
@@ -1371,7 +1303,6 @@ fn peer_deps_incompatible_version() {
     behavior = "validate_peer_dependencies",
     verify = "Validate Peer Dependencies: peer dependency validation holds — manifests_available, dependencies_validated, unsatisfied_blocked, loading_failed_emitted"
 )]
-#[test]
 fn peer_deps_contract() {
     let m1 = software_manifest();
     let m2: ManifestV2 = serde_json::from_str(
@@ -1397,7 +1328,6 @@ fn peer_deps_contract() {
     behavior = "validate_extension_testability",
     verify = "testable kind without supportsVerify produces W017"
 )]
-#[test]
 fn testability_w017() {
     let manifest: ManifestV2 = serde_json::from_str(
         r#"{"name":"@test/ext","version":"1.0.0","manifestVersion":2,"wasmPath":"x.wasm",
@@ -1417,7 +1347,6 @@ fn testability_w017() {
     behavior = "validate_extension_testability",
     verify = "testable kind with supportsVerify=true passes"
 )]
-#[test]
 fn testability_passes() {
     let (kind_reg, _, _, _) = populate_registries(&[software_manifest()]);
     let diags = validate_extension_testability(&kind_reg);
@@ -1428,7 +1357,6 @@ fn testability_passes() {
     behavior = "validate_extension_testability",
     verify = "kind with supportsVerify but not testable produces I006"
 )]
-#[test]
 fn testability_i006() {
     let manifest: ManifestV2 = serde_json::from_str(
         r#"{"name":"@test/ext","version":"1.0.0","manifestVersion":2,"wasmPath":"x.wasm",
@@ -1448,7 +1376,6 @@ fn testability_i006() {
     behavior = "validate_extension_testability",
     verify = "consistent testable and supportsVerify flags produce no diagnostic"
 )]
-#[test]
 fn testability_consistent_no_diag() {
     let manifest: ManifestV2 = serde_json::from_str(
         r#"{"name":"@test/ext","version":"1.0.0","manifestVersion":2,"wasmPath":"x.wasm",
@@ -1464,7 +1391,6 @@ fn testability_consistent_no_diag() {
     behavior = "validate_extension_testability",
     verify = "Validate Extension Testability: extension testability validation holds — registries_populated_fired, flag_consistency_checked, advisory_diagnostics_emitted"
 )]
-#[test]
 fn testability_contract() {
     let (kind_reg, _, _, _) = populate_registries(&[software_manifest()]);
     let diags = validate_extension_testability(&kind_reg);
@@ -1487,7 +1413,6 @@ fn testability_contract() {
     behavior = "register_verify_kinds_from_manifest",
     verify = "custom verify kinds registered from manifest"
 )]
-#[test]
 fn verify_kinds_registered() {
     let manifest: ManifestV2 = serde_json::from_str(
         r#"{"name":"@test/ext","version":"1.0.0","manifestVersion":2,"wasmPath":"x.wasm",
@@ -1505,7 +1430,6 @@ fn verify_kinds_registered() {
     behavior = "register_verify_kinds_from_manifest",
     verify = "no hardcoded verify kinds in core"
 )]
-#[test]
 fn verify_kinds_no_hardcoded() {
     let (kinds, _) = register_verify_kinds(&[]);
     assert!(
@@ -1518,7 +1442,6 @@ fn verify_kinds_no_hardcoded() {
     behavior = "register_verify_kinds_from_manifest",
     verify = "unknown verify kind in .spec produces W-level diagnostic in Phase 2"
 )]
-#[test]
 fn verify_kinds_unknown_w026() {
     let (kind_reg, _, _, _) = populate_registries(&[software_manifest()]);
     let registered_kinds = vec![
@@ -1548,7 +1471,6 @@ fn verify_kinds_unknown_w026() {
     behavior = "register_verify_kinds_from_manifest",
     verify = "Register Verify Kinds From Manifest: verify kind registration holds — extension_manifests_loaded_fired, verify_kinds_registered, no_hardcoded_kinds"
 )]
-#[test]
 fn verify_kinds_contract() {
     let m: ManifestV2 = serde_json::from_str(
         r#"{"name":"@t/e","version":"1.0.0","manifestVersion":2,"wasmPath":"x.wasm",
@@ -1570,7 +1492,6 @@ fn verify_kinds_contract() {
     behavior = "register_validation_rules_from_manifest",
     verify = "validation rule registered from manifest"
 )]
-#[test]
 fn validation_rule_registered() {
     let manifest: ManifestV2 = serde_json::from_str(
         r#"{"name":"@test/ext","version":"1.0.0","manifestVersion":2,"wasmPath":"x.wasm",
@@ -1590,7 +1511,6 @@ fn validation_rule_registered() {
     behavior = "register_validation_rules_from_manifest",
     verify = "target_kind validation deferred to post-registration phase"
 )]
-#[test]
 fn validation_rule_target_kind_deferred() {
     let manifest: ManifestV2 = serde_json::from_str(
         r#"{"name":"@test/ext","version":"1.0.0","manifestVersion":2,"wasmPath":"x.wasm",
@@ -1611,7 +1531,6 @@ fn validation_rule_target_kind_deferred() {
     behavior = "register_validation_rules_from_manifest",
     verify = "target_kind reference validated against KindRegistry after registries_populated"
 )]
-#[test]
 fn validation_rule_target_kind_validated_post_registration() {
     let (kind_reg, field_reg, edge_reg, _) = populate_registries(&[software_manifest()]);
     // Post-registration cross-validation catches unresolved refs
@@ -1624,7 +1543,6 @@ fn validation_rule_target_kind_validated_post_registration() {
     behavior = "register_validation_rules_from_manifest",
     verify = "edge_type reference validated against edge type set after registries_populated"
 )]
-#[test]
 fn validation_rule_edge_type_validated_post_registration() {
     let (kind_reg, field_reg, edge_reg, _) = populate_registries(&[software_manifest()]);
     let diags = validate_registered_entity_fields(&field_reg, &kind_reg, &edge_reg);
@@ -1635,7 +1553,6 @@ fn validation_rule_edge_type_validated_post_registration() {
     behavior = "register_validation_rules_from_manifest",
     verify = "invalid reference produces warning not error"
 )]
-#[test]
 fn validation_rule_invalid_ref_warning() {
     let manifest: ManifestV2 = serde_json::from_str(
         r#"{"name":"@t/e","version":"1.0.0","manifestVersion":2,"wasmPath":"x.wasm",
@@ -1659,7 +1576,6 @@ fn validation_rule_invalid_ref_warning() {
     behavior = "register_validation_rules_from_manifest",
     verify = "Register Validation Rules From Manifest: validation rule registration holds — extension_manifests_loaded_fired, rules_registered, deferred_validation_complete, invalid_refs_warned"
 )]
-#[test]
 fn validation_rule_contract() {
     let m: ManifestV2 = serde_json::from_str(
         r#"{"name":"@t/e","version":"1.0.0","manifestVersion":2,"wasmPath":"x.wasm",
@@ -1682,7 +1598,6 @@ fn validation_rule_contract() {
     behavior = "register_extension_validation_rules",
     verify = "rules sorted by code for deterministic order"
 )]
-#[test]
 fn ext_validation_rules_sorted() {
     let m1: ManifestV2 = serde_json::from_str(
         r#"{"name":"@ext/a","version":"1.0.0","manifestVersion":2,"wasmPath":"a.wasm",
@@ -1708,7 +1623,6 @@ fn ext_validation_rules_sorted() {
     behavior = "register_extension_validation_rules",
     verify = "rules from multiple extensions are collected"
 )]
-#[test]
 fn ext_validation_rules_multiple_extensions() {
     let m1: ManifestV2 = serde_json::from_str(
         r#"{"name":"@ext/a","version":"1.0.0","manifestVersion":2,"wasmPath":"a.wasm",
@@ -1733,7 +1647,6 @@ fn ext_validation_rules_multiple_extensions() {
     behavior = "register_extension_validation_rules",
     verify = "duplicate codes across extensions produce warning"
 )]
-#[test]
 fn ext_validation_rules_duplicate_codes() {
     let m1: ManifestV2 = serde_json::from_str(
         r#"{"name":"@ext/a","version":"1.0.0","manifestVersion":2,"wasmPath":"a.wasm",
@@ -1761,7 +1674,6 @@ fn ext_validation_rules_duplicate_codes() {
     behavior = "register_entity_enhancements",
     verify = "enhancement fields registered in FieldRegistry"
 )]
-#[test]
 fn enhancements_merge_fields() {
     let (mut kind_reg, mut field_reg, _, _) = populate_registries(&[software_manifest()]);
     let enhancements = vec![(
@@ -1794,7 +1706,6 @@ fn enhancements_merge_fields() {
     behavior = "apply_entity_enhancements",
     verify = "unknown target kind produces I004 info diagnostic"
 )]
-#[test]
 fn enhancements_unknown_kind_i004() {
     let (mut kind_reg, mut field_reg, _, _) = populate_registries(&[software_manifest()]);
     let enhancements = vec![(
@@ -1829,7 +1740,6 @@ fn enhancements_unknown_kind_i004() {
     behavior = "apply_entity_enhancements",
     verify = "enhancement field does NOT overwrite existing kind-level field"
 )]
-#[test]
 fn enhancements_no_overwrite() {
     let (mut kind_reg, mut field_reg, _, _) = populate_registries(&[software_manifest()]);
     let enhancements = vec![(
@@ -1864,7 +1774,6 @@ fn enhancements_no_overwrite() {
     behavior = "register_entity_enhancements",
     verify = "enhancement fields registered in FieldRegistry"
 )]
-#[test]
 fn enhancements_two_non_conflicting() {
     let (mut kind_reg, mut field_reg, _, _) = populate_registries(&[software_manifest()]);
     let enhancements = vec![
@@ -1921,7 +1830,6 @@ fn enhancements_two_non_conflicting() {
     behavior = "register_entity_enhancements",
     verify = "Register Entity Enhancements: entity enhancement registration holds — manifests_validated, enhancement_registered_emitted, registration_before_resolve, registration_order_deterministic"
 )]
-#[test]
 fn enhancements_contract() {
     let manifests = vec![
         software_manifest(),
@@ -1953,7 +1861,6 @@ fn enhancements_contract() {
     behavior = "validate_extension_manifest_consistency",
     verify = "target_kind referencing own manifest kind passes"
 )]
-#[test]
 fn manifest_consistency_own_kind_passes() {
     let manifest: ManifestV2 = serde_json::from_str(
         r#"{"name":"@test/ext","version":"1.0.0","manifestVersion":2,"wasmPath":"x.wasm",
@@ -1973,7 +1880,6 @@ fn manifest_consistency_own_kind_passes() {
     behavior = "validate_extension_manifest_consistency",
     verify = "target_kind referencing peer dependency kind passes"
 )]
-#[test]
 fn manifest_consistency_peer_dep_passes() {
     let manifest: ManifestV2 = serde_json::from_str(
         r#"{"name":"@test/ext","version":"1.0.0","manifestVersion":2,"wasmPath":"x.wasm",
@@ -1993,7 +1899,6 @@ fn manifest_consistency_peer_dep_passes() {
     behavior = "validate_extension_manifest_consistency",
     verify = "self-contradictory target_kind produces E-level error"
 )]
-#[test]
 fn manifest_consistency_self_contradictory_target() {
     let manifest: ManifestV2 = serde_json::from_str(
         r#"{"name":"@test/ext","version":"1.0.0","manifestVersion":2,"wasmPath":"x.wasm",
@@ -2012,7 +1917,6 @@ fn manifest_consistency_self_contradictory_target() {
     behavior = "validate_extension_manifest_consistency",
     verify = "target_kind referencing non-peer extension kind produces W-level warning"
 )]
-#[test]
 fn manifest_consistency_non_peer_warning() {
     let manifest: ManifestV2 = serde_json::from_str(
         r#"{"name":"@test/ext","version":"1.0.0","manifestVersion":2,"wasmPath":"x.wasm",
@@ -2035,7 +1939,6 @@ fn manifest_consistency_non_peer_warning() {
     behavior = "validate_extension_manifest_consistency",
     verify = "self-contradictory edge label produces E-level error"
 )]
-#[test]
 fn manifest_consistency_self_contradictory_edge() {
     let manifest: ManifestV2 = serde_json::from_str(
         r#"{"name":"@test/ext","version":"1.0.0","manifestVersion":2,"wasmPath":"x.wasm",
@@ -2054,7 +1957,6 @@ fn manifest_consistency_self_contradictory_edge() {
     behavior = "validate_extension_manifest_consistency",
     verify = "Validate Extension Manifest Consistency: manifest self-consistency validation holds — manifest_parsed, peer_dependencies_known, self_consistency_validated, authoring_errors_diagnosed"
 )]
-#[test]
 fn manifest_consistency_contract() {
     let good: ManifestV2 = serde_json::from_str(
         r#"{"name":"@test/ext","version":"1.0.0","manifestVersion":2,"wasmPath":"x.wasm",

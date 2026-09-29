@@ -41,7 +41,6 @@ fn diag_with_suggestion(code: &str, severity: Severity, msg: &str, suggestion: &
 }
 
 // B:print_diagnostics_structured — verify unit "error diagnostic is formatted with file:line:col"
-#[test]
 #[specforge_test(
     behavior = "print_diagnostics_structured",
     verify = "error diagnostic is formatted with file:line:col"
@@ -67,7 +66,6 @@ fn error_diagnostic_formatted_with_file_line_col() {
 }
 
 // B:print_diagnostics_structured — verify unit "suggestion is displayed when available"
-#[test]
 #[specforge_test(
     behavior = "print_diagnostics_structured",
     verify = "suggestion is displayed when available"
@@ -87,7 +85,6 @@ fn suggestion_displayed_when_available() {
 }
 
 // B:print_diagnostics_structured — verify contract "requires/ensures consistency for structured diagnostic printing"
-#[test]
 #[specforge_test(
     behavior = "print_diagnostics_structured",
     verify = "Print Diagnostics Structured: structured diagnostic printing holds — validation_complete_fired, structured_format_enforced, color_coding_applied"
@@ -124,7 +121,6 @@ fn print_diagnostics_contract() {
 }
 
 // B:export_diagnostics_as_json — verify unit "diagnostics serialized as JSON array to stdout"
-#[test]
 #[specforge_test(
     behavior = "export_diagnostics_as_json",
     verify = "diagnostics serialized as JSON array to stdout"
@@ -155,7 +151,6 @@ fn diagnostics_serialized_as_json_array() {
 }
 
 // B:export_diagnostics_as_json — verify unit "each diagnostic includes code, severity, message, file, line, column"
-#[test]
 #[specforge_test(
     behavior = "export_diagnostics_as_json",
     verify = "each diagnostic includes code, severity, message, file, line, column"
@@ -185,7 +180,6 @@ fn each_diagnostic_includes_code_severity_message_file_line_column() {
 }
 
 // B:export_diagnostics_as_json — verify unit "suggestion field included when available"
-#[test]
 #[specforge_test(
     behavior = "export_diagnostics_as_json",
     verify = "suggestion field included when available"
@@ -206,7 +200,6 @@ fn suggestion_field_included_in_json_when_available() {
 }
 
 // B:export_diagnostics_as_json — verify unit "JSON output is valid and parseable"
-#[test]
 #[specforge_test(
     behavior = "export_diagnostics_as_json",
     verify = "JSON output is valid and parseable"
@@ -222,7 +215,6 @@ fn json_diagnostics_output_is_valid_json() {
 }
 
 // B:exit_code_reflects_diagnostic_severity — verify unit "exit 0 with no errors"
-#[test]
 #[specforge_test(
     behavior = "exit_code_reflects_diagnostic_severity",
     verify = "exit 0 with no errors"
@@ -249,7 +241,6 @@ fn exit_code_zero_no_errors() {
 }
 
 // B:exit_code_reflects_diagnostic_severity — verify unit "exit 1 with errors"
-#[test]
 #[specforge_test(
     behavior = "exit_code_reflects_diagnostic_severity",
     verify = "exit 1 with errors"
@@ -266,7 +257,6 @@ fn exit_code_one_with_errors() {
 }
 
 // B:exit_code_reflects_diagnostic_severity — verify contract "requires/ensures consistency for exit code severity mapping"
-#[test]
 #[specforge_test(
     behavior = "exit_code_reflects_diagnostic_severity",
     verify = "Exit Code Reflects Diagnostic Severity: exit code severity mapping holds — validation_complete_fired, exit_zero_on_clean, exit_one_on_errors, strict_mode_enforced"
@@ -302,7 +292,6 @@ fn exit_code_contract() {
 }
 
 // B:print_diagnostics_structured — verify unit "diagnostic includes context snippet"
-#[test]
 #[specforge_test(
     behavior = "print_diagnostics_structured",
     verify = "diagnostic includes context snippet"
@@ -332,7 +321,6 @@ fn diagnostic_includes_context_snippet() {
 }
 
 // B:export_diagnostics_as_json — verify unit "exit code unaffected by format flag"
-#[test]
 #[specforge_test(
     behavior = "export_diagnostics_as_json",
     verify = "exit code unaffected by format flag"
@@ -373,7 +361,6 @@ fn exit_code_unaffected_by_format_flag() {
 }
 
 // B:exit_code_reflects_diagnostic_severity — verify unit "exit 1 with warnings in strict mode"
-#[test]
 #[specforge_test(
     behavior = "exit_code_reflects_diagnostic_severity",
     verify = "exit 1 with warnings in strict mode"
@@ -396,7 +383,6 @@ fn exit_code_one_with_warnings_in_strict_mode() {
 
 // B:export_diagnostics_as_json — verify unit "suggestion field included when available"
 // (inverse case: suggestion absent when none)
-#[test]
 #[specforge_test(behavior = "export_diagnostics_as_json")]
 fn suggestion_field_absent_in_json_when_none() {
     let diags = vec![diag_with_span(
@@ -414,7 +400,6 @@ fn suggestion_field_absent_in_json_when_none() {
 
 // === diagnostic truncation ===
 
-#[test]
 #[specforge_test(
     behavior = "export_diagnostics_as_json",
     verify = "max diagnostics limit truncates output"
@@ -431,7 +416,6 @@ fn truncate_diagnostics_limits_output() {
     assert!(diags.last().unwrap().message.contains("150"));
 }
 
-#[test]
 #[specforge_test(
     behavior = "export_diagnostics_as_json",
     verify = "no truncation under limit"
@@ -448,7 +432,6 @@ fn truncate_diagnostics_no_op_under_limit() {
 
 // === diagnostic summary ===
 
-#[test]
 #[specforge_test(
     behavior = "aggregate_diagnostic_summary",
     verify = "summary shows correct counts"
@@ -477,7 +460,6 @@ fn diagnostic_summary_groups_by_code() {
 
 // === DiagnosticsExt trait ===
 
-#[test]
 #[specforge_test(
     behavior = "aggregate_diagnostic_summary",
     verify = "summary matches actual diagnostics"
@@ -505,7 +487,6 @@ fn diagnostics_ext_has_errors() {
 // ============================================================================
 
 // L9: spanless diagnostic uses code as fallback location
-#[test]
 #[specforge_test(
     behavior = "print_diagnostics_structured",
     verify = "spanless diagnostic uses code as fallback location"
@@ -533,7 +514,6 @@ fn spanless_diagnostic_uses_code_as_fallback() {
     );
 }
 
-#[test]
 #[specforge_test(
     behavior = "print_diagnostics_structured",
     verify = "spanless error diagnostic also uses code"
@@ -554,7 +534,6 @@ fn spanless_error_diagnostic_uses_code() {
     );
 }
 
-#[test]
 #[specforge_test(
     behavior = "print_diagnostics_structured",
     verify = "error diagnostic is formatted with file:line:col"

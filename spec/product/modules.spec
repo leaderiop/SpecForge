@@ -221,7 +221,7 @@ module specforge_test_lib "specforge-test" {
 
 module specforge_test_macros_lib "specforge-test-macros" {
   family      extension
-  description "Rust proc macro crate: #[specforge::test(\"entity_id\")] attribute for test-to-entity mapping"
+  description "Rust proc macro crate: #[specforge_test(behavior = \"entity_id\")] attribute that registers a test and maps it to its entity"
   features    [rust_proc_macro_annotation]
   depends_on  [specforge_test_lib]
   tags        ["extension", "traceability"]

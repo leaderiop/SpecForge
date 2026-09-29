@@ -70,14 +70,14 @@ behavior resolve_entity_mapping "Resolve Entity Mapping" {
   invariants [entity_mapping_precedence]
 
   contract """
-    The system MUST resolve test-to-entity mappings using three-level
-    precedence: (1) tests field in .spec files (authoritative), (2)
-    #[specforge::test] proc macro attribute (explicit), (3) module
-    name / double-underscore convention (implicit). Higher levels
-    MUST override lower levels. Ambiguous mappings MUST be reported.
+    The system MUST resolve test-to-entity mappings using two-level
+    precedence: (1) the #[specforge_test] proc macro attribute
+    (explicit), (2) module name / double-underscore convention
+    (implicit). The explicit level MUST override the implicit one.
+    Ambiguous mappings MUST be reported. Spec files carry no test paths:
+    the `tests` field is retired (ADR 0002).
   """
 
-  verify unit "tests field mapping takes highest precedence"
   verify unit "proc macro attribute overrides naming convention"
   verify unit "double-underscore convention extracts entity ID"
   verify unit "ambiguous mapping produces diagnostic"
@@ -124,17 +124,20 @@ behavior record_test_via_drop_guard "Record Test via Drop Guard" {
   types      [TestGuard, TestRegistry, RustFramework, RustFrameworkSupport, RustSupportLevel]
 
   contract """
-    The #[specforge::test] proc macro MUST expand to inject a TestGuard
-    that records pass/fail on Drop. The guard MUST check
-    std::thread::panicking() to determine status. Results MUST be written
-    to target/specforge/<binary>.json via an atexit handler. Tests using
-    #[should_panic] are incompatible and MUST be documented as unsupported.
+    The #[specforge_test] proc macro MUST register the annotated function
+    as a test (no separate #[test]; it defers to a runner attribute such
+    as #[tokio::test] below it) and inject a TestGuard that records
+    pass/fail on Drop. The guard MUST check std::thread::panicking() to
+    determine status, inverted under #[should_panic]; an #[ignore]d test
+    is recorded as skipped. Results MUST be written via an atexit handler
+    to $SPECFORGE_REPORT when `specforge collect` sets it, else to
+    target/specforge/<binary>.json.
   """
 
   verify unit "successful test records pass via Drop"
   verify unit "panicking test records fail via Drop"
   verify unit "results written to target/specforge/ on process exit"
-  verify unit "#[should_panic] incompatibility is documented"
+  verify unit "the attribute registers the test without #[test]"
 
 }
 

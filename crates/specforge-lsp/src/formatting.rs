@@ -90,7 +90,6 @@ mod tests {
         behavior = "lsp_format_document",
         verify = "formatting request returns TextEdit list"
     )]
-    #[test]
     fn test_format_document_returns_textedit_list() {
         let source = "behavior foo \"Foo\" {\n      contract \"does stuff\"\n}\n";
         let (edits, _diags) = format_document(source, None, None, None);
@@ -101,7 +100,6 @@ mod tests {
         behavior = "lsp_format_document",
         verify = "TextEdit coordinates are 0-indexed lines and columns"
     )]
-    #[test]
     fn test_textedit_coordinates_zero_indexed() {
         let source = "behavior foo \"Foo\" {\n      contract \"does stuff\"\n}\n";
         let (edits, _) = format_document(source, None, None, None);
@@ -116,7 +114,6 @@ mod tests {
         behavior = "lsp_format_document",
         verify = "TextEdit operations in a response do not overlap"
     )]
-    #[test]
     fn test_textedits_do_not_overlap() {
         let source = "behavior foo \"Foo\" {\n      contract \"a\"\n      types [x]\n}\n";
         let (edits, _) = format_document(source, None, None, None);
@@ -132,7 +129,6 @@ mod tests {
         behavior = "lsp_respect_editor_config",
         verify = "editor tab size used when no config file exists"
     )]
-    #[test]
     fn test_editor_tab_size_used_when_no_config() {
         let source = "behavior foo \"Foo\" {\n    contract \"a\"\n}\n";
         let opts = EditorOptions {
@@ -151,7 +147,6 @@ mod tests {
         behavior = "lsp_respect_editor_config",
         verify = "config file takes precedence over editor settings"
     )]
-    #[test]
     fn test_config_file_takes_precedence_over_editor() {
         let tmp = TempDir::new().unwrap();
         let root = tmp.path();
@@ -171,7 +166,6 @@ mod tests {
         behavior = "lsp_format_range",
         verify = "range is expanded to block boundaries"
     )]
-    #[test]
     fn test_format_range_expands_to_block_boundaries() {
         let source = "behavior foo \"Foo\" {\n  contract \"a\"\n  types [x]\n}\n\nbehavior bar \"Bar\" {\n      contract \"b\"\n}\n";
         let (edits, _) = format_document_range(source, 6, 6, None, None, None);
@@ -187,7 +181,6 @@ mod tests {
         behavior = "lsp_format_document",
         verify = "parse errors in document trigger format_with_parse_errors delegation"
     )]
-    #[test]
     fn test_format_document_with_parse_errors() {
         let source = "behavior foo \"Foo\" {\n  contract \"good\"\n}\n\n{{{broken\n\nbehavior bar \"Bar\" {\n      contract \"also good\"\n}\n";
         let (_edits, diags) = format_document(source, None, None, None);
@@ -202,7 +195,6 @@ mod tests {
         behavior = "lsp_format_document",
         verify = "LSP format produces same result as CLI format"
     )]
-    #[test]
     fn test_lsp_format_produces_same_result_as_cli_format() {
         let source = "behavior foo \"Foo\" {\n      contract \"stuff\"\n    types [a, b]\n}\n";
         let (edits, _) = format_document(source, None, None, None);
@@ -226,7 +218,6 @@ mod tests {
         behavior = "lsp_format_document",
         verify = "formats document within 50ms for files under 1000 lines"
     )]
-    #[test]
     fn test_format_document_performance_under_50ms() {
         let mut source = String::from("use types/core\n\n");
         for i in 0..50 {
@@ -252,7 +243,6 @@ mod tests {
         behavior = "lsp_format_range",
         verify = "range formatting matches full formatting for affected blocks"
     )]
-    #[test]
     fn test_range_formatting_matches_full_formatting() {
         let source = "behavior foo \"Foo\" {\n  contract \"a\"\n}\n\nbehavior bar \"Bar\" {\n      contract \"b\"\n}\n";
 
@@ -271,7 +261,6 @@ mod tests {
         behavior = "lsp_format_range",
         verify = "parse errors within range are left unchanged per format_with_parse_errors"
     )]
-    #[test]
     fn test_parse_errors_within_range_left_unchanged() {
         let source = "behavior foo \"Foo\" {\n  contract \"good\"\n}\n\n{{{broken\n\nbehavior bar \"Bar\" {\n  contract \"ok\"\n}\n";
         let (edits, diags) = format_document_range(source, 3, 5, None, None, None);
@@ -287,7 +276,6 @@ mod tests {
         behavior = "lsp_format_range",
         verify = "formats range within 20ms for ranges under 200 lines"
     )]
-    #[test]
     fn test_format_range_performance_under_20ms() {
         let mut source = String::from("use types/core\n\n");
         for i in 0..20 {
@@ -313,7 +301,6 @@ mod tests {
         behavior = "lsp_format_document",
         verify = "LSP Format Document: LSP document formatting holds — document_open, format_config_loaded, textedit_list_returned, cli_parity_enforced, format_complete_emitted"
     )]
-    #[test]
     fn test_lsp_format_document_contract() {
         let source = "behavior foo \"Foo\" {\n      contract \"stuff\"\n}\n";
         // requires: document_open (simulated), format_config_loaded (defaults)
@@ -340,7 +327,6 @@ mod tests {
         behavior = "lsp_format_range",
         verify = "LSP Format Range: LSP range formatting holds — document_open, format_config_loaded, range_expanded, textedit_list_returned, full_format_parity, format_complete_emitted"
     )]
-    #[test]
     fn test_lsp_format_range_contract() {
         let source = "behavior foo \"Foo\" {\n  contract \"a\"\n}\n\nbehavior bar \"Bar\" {\n      contract \"b\"\n}\n";
         // requires: document_open (simulated), format_config_loaded (defaults)
@@ -361,7 +347,6 @@ mod tests {
         behavior = "lsp_respect_editor_config",
         verify = "LSP Respect Editor Config: editor config respect holds — lsp_initialized_fired, config_precedence_enforced, editor_fallback_applied"
     )]
-    #[test]
     fn test_lsp_respect_editor_config_contract() {
         // ensures: editor_fallback_applied (no config file)
         let opts = EditorOptions {

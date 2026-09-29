@@ -4,7 +4,6 @@ use specforge_watch::ImportDag;
 // ── cycle detection ───────────────────────────────────────────
 
 #[spec(behavior = "track_import_dag_incrementally")]
-#[test]
 fn detect_direct_cycle_in_import_dag() {
     let mut dag = ImportDag::new();
     dag.set_imports("a.spec", vec!["b.spec".to_string()]);
@@ -25,7 +24,6 @@ fn detect_direct_cycle_in_import_dag() {
 }
 
 #[spec(behavior = "track_import_dag_incrementally")]
-#[test]
 fn no_cycle_in_acyclic_import_dag() {
     let mut dag = ImportDag::new();
     dag.set_imports("a.spec", vec![]);
@@ -37,7 +35,6 @@ fn no_cycle_in_acyclic_import_dag() {
 }
 
 #[spec(behavior = "track_import_dag_incrementally")]
-#[test]
 fn detect_transitive_cycle_in_import_dag() {
     let mut dag = ImportDag::new();
     dag.set_imports("a.spec", vec!["b.spec".to_string()]);
@@ -52,7 +49,6 @@ fn detect_transitive_cycle_in_import_dag() {
     behavior = "invalidate_changed_files",
     verify = "changed file is in invalidation set"
 )]
-#[test]
 fn changed_file_is_in_invalidation_set() {
     let mut dag = ImportDag::new();
     dag.set_imports("a.spec", vec![]);
@@ -65,7 +61,6 @@ fn changed_file_is_in_invalidation_set() {
     behavior = "invalidate_changed_files",
     verify = "direct importers are in invalidation set"
 )]
-#[test]
 fn direct_importers_are_in_invalidation_set() {
     let mut dag = ImportDag::new();
     dag.set_imports("a.spec", vec![]);
@@ -80,7 +75,6 @@ fn direct_importers_are_in_invalidation_set() {
     behavior = "invalidate_changed_files",
     verify = "transitive importers are in invalidation set"
 )]
-#[test]
 fn transitive_importers_are_in_invalidation_set() {
     let mut dag = ImportDag::new();
     dag.set_imports("a.spec", vec![]);
@@ -94,7 +88,6 @@ fn transitive_importers_are_in_invalidation_set() {
 }
 
 #[spec(behavior = "invalidate_changed_files")]
-#[test]
 fn unrelated_files_are_not_in_invalidation_set() {
     let mut dag = ImportDag::new();
     dag.set_imports("a.spec", vec![]);
@@ -106,7 +99,6 @@ fn unrelated_files_are_not_in_invalidation_set() {
 }
 
 #[spec(behavior = "track_import_dag_incrementally")]
-#[test]
 fn removed_file_can_be_removed_from_dag() {
     let mut dag = ImportDag::new();
     dag.set_imports("a.spec", vec![]);
@@ -117,7 +109,6 @@ fn removed_file_can_be_removed_from_dag() {
 }
 
 #[spec(behavior = "track_import_dag_incrementally")]
-#[test]
 fn set_imports_replaces_previous_entry() {
     let mut dag = ImportDag::new();
     dag.set_imports("a.spec", vec!["old.spec".to_string()]);

@@ -17,10 +17,14 @@ type TestRecordEntry {
   entity_id    string    @readonly
   test_name    string    @readonly
   file         string    @readonly
+  // serialized as `verify` (reserved statement keyword in .spec files)
+  verify_description string @optional
+  verify_kind  string    @optional
+  duration_ms  integer   @readonly
   status       TestOutcome
 }
 
-type TestOutcome = pass | fail
+type TestOutcome = pass | fail | skipped
 
 type EntityMappingEntry {
   entity_kind  string
@@ -31,7 +35,7 @@ type EntityMappingEntry {
   resolution   MappingResolutionLevel
 }
 
-type MappingResolutionLevel = tests_field | proc_macro | convention
+type MappingResolutionLevel = proc_macro | convention
 
 // Registry holds all collected test results for a single binary.
 // Written to target/specforge/<binary-name>.json at process exit.
@@ -45,14 +49,18 @@ type BinaryReport {
 // This is a SUBSET of the full graph — only what the crate needs.
 type GraphExport {
   entities     ExportedEntity[]
-  timestamp    string    @readonly
+  // Older exports stamped the build time; current ones don't.
+  timestamp    string    @optional
 }
 
+// `obligations` is serialized as `verify` (a reserved statement keyword in
+// .spec files, so it can't be a field name here).
 type ExportedEntity {
   id           string    @readonly
   kind         string    @readonly
-  verify       ExportedVerify[]
+  obligations  ExportedVerify[]
   testable     boolean   @readonly
+  gherkin      string[]  @optional
 }
 
 type ExportedVerify {

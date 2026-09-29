@@ -27,7 +27,6 @@ fn node(id: &str, kind: &str, title: Option<&str>) -> Node {
 }
 
 // B:serialize_dot_visualization — verify unit "DOT output is valid Graphviz syntax"
-#[test]
 #[specforge_test(
     behavior = "serialize_dot_visualization",
     verify = "DOT output is valid Graphviz syntax"
@@ -41,7 +40,6 @@ fn empty_graph_produces_valid_dot() {
 }
 
 // B:serialize_dot_visualization — verify unit "nodes are labeled with IDs"
-#[test]
 #[specforge_test(
     behavior = "serialize_dot_visualization",
     verify = "nodes are labeled with IDs"
@@ -56,7 +54,6 @@ fn dot_nodes_labeled_with_id_and_title() {
 }
 
 // B:serialize_dot_visualization — verify unit "edges are labeled with types"
-#[test]
 #[specforge_test(
     behavior = "serialize_dot_visualization",
     verify = "edges are labeled with types"
@@ -80,7 +77,6 @@ fn dot_edges_labeled_with_type() {
 }
 
 // B:serialize_dot_visualization — verify unit "node shapes use extension-defined dot_shape"
-#[test]
 #[specforge_test(
     behavior = "serialize_dot_visualization",
     verify = "node shapes use extension-defined dot_shape"
@@ -94,7 +90,6 @@ fn dot_node_default_shape_is_box() {
 }
 
 // B:serialize_dot_visualization — verify unit "labels toggle emits bare IDs"
-#[test]
 #[specforge_test(
     behavior = "serialize_dot_visualization",
     verify = "labels toggle emits bare IDs"
@@ -118,7 +113,6 @@ fn dot_labels_toggle_drops_titles() {
 }
 
 // B:serialize_dot_visualization — verify unit "kind filter drops other kinds"
-#[test]
 #[specforge_test(
     behavior = "serialize_dot_visualization",
     verify = "kind filter drops other kinds"
@@ -150,7 +144,6 @@ fn dot_kind_filter_drops_nodes_and_edges() {
 }
 
 // B:serialize_dot_visualization — verify unit "clusters group by declaring extension"
-#[test]
 #[specforge_test(
     behavior = "serialize_dot_visualization",
     verify = "clusters group by declaring extension"

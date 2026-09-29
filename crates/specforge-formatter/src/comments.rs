@@ -200,7 +200,6 @@ mod tests {
         behavior = "preserve_comments",
         verify = "leading comment attaches to following node"
     )]
-    #[test]
     fn test_leading_comment_attaches_to_following_node() {
         let source =
             "// This describes foo\nbehavior foo \"Foo\" {\n  contract \"does stuff\"\n}\n";
@@ -219,7 +218,6 @@ mod tests {
         behavior = "preserve_comments",
         verify = "trailing comment attaches to preceding node on same line"
     )]
-    #[test]
     fn test_trailing_comment_attaches_to_preceding_node_on_same_line() {
         let source = "behavior foo \"Foo\" { // inline comment\n  contract \"does stuff\"\n}\n";
         let tree = parse_source(source);
@@ -238,7 +236,6 @@ mod tests {
         behavior = "preserve_comments",
         verify = "standalone comment block between blocks is preserved"
     )]
-    #[test]
     fn test_standalone_comment_block_between_blocks_is_preserved() {
         let source = concat!(
             "behavior foo \"Foo\" {\n  contract \"does stuff\"\n}\n",
@@ -262,7 +259,6 @@ mod tests {
         behavior = "preserve_comments",
         verify = "section header comment attaches to next block group"
     )]
-    #[test]
     fn test_section_header_comment_attaches_to_next_block_group() {
         let source =
             "// Section: behaviors\nbehavior foo \"Foo\" {\n  contract \"does stuff\"\n}\n";
@@ -281,7 +277,6 @@ mod tests {
         behavior = "preserve_comments",
         verify = "no comments are lost after formatting"
     )]
-    #[test]
     fn test_no_comments_lost_in_comment_map() {
         // All comment tokens should be captured by the comment map
         let source = concat!(
@@ -339,7 +334,6 @@ mod tests {
         behavior = "preserve_comments",
         verify = "Preserve Comments During Formatting: comment preservation holds — cst_available, all_comments_attached, no_comments_lost"
     )]
-    #[test]
     fn test_preserve_comments_contract() {
         // requires: cst_available (we parse the source)
         let source = "// leading\nbehavior foo \"Foo\" { // trailing\n  contract \"stuff\"\n}\n";

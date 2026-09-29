@@ -10,7 +10,6 @@ invariant zero_compiler_dependency "Zero Compiler Dependency" {
     The only coupling MUST be the specforge-report.json schema and the
     graph export JSON format — both are data contracts, not Rust types.
   """
-  enforced_by [emit_binary_report, expand_test_attribute]
   risk critical
 
   verify property "no compiler crate appears in dependency tree"
@@ -24,7 +23,6 @@ invariant drop_guard_correctness "Drop Guard Correctness" {
     during Drop, and pass otherwise. It MUST NOT interfere with the
     test harness panic handling.
   """
-  enforced_by [record_test_result_on_drop]
   risk high
 
   verify unit "non-panicking test records pass"
@@ -39,7 +37,6 @@ invariant atexit_write_once "Atexit Write-Once Guarantee" {
     per process, even when multiple test threads complete concurrently.
     It MUST use std::sync::Once to guarantee single invocation.
   """
-  enforced_by [emit_binary_report]
   risk high
 
   verify unit "report written exactly once with multiple test threads"
@@ -54,7 +51,6 @@ invariant convention_separator_unambiguous "Convention Separator Unambiguous" {
     be deterministic and produce the same output for the same input across
     all platforms.
   """
-  enforced_by [resolve_convention_mapping]
   risk medium
 
   verify property "slugify is deterministic for all valid verify descriptions"
@@ -70,7 +66,6 @@ invariant graceful_degradation "Graceful Degradation" {
     summary. Tests MUST still compile and run normally. No hard failure
     MUST occur from missing specforge tooling.
   """
-  enforced_by [invoke_specforge_export, print_coverage_summary]
   risk high
 
   verify unit "build.rs succeeds when specforge is not on PATH"
@@ -78,15 +73,29 @@ invariant graceful_degradation "Graceful Degradation" {
   verify unit "atexit handler skips summary when graph.json is missing"
 }
 
-invariant should_panic_incompatibility "Should Panic Incompatibility" {
+invariant should_panic_expectation "Should Panic Expectation" {
   guarantee """
-    Tests annotated with #[should_panic] MUST NOT be used with
-    #[specforge::test]. The Drop guard cannot distinguish expected panics
-    from unexpected panics. This limitation MUST be documented. The proc
-    macro SHOULD emit a compile-time warning if both attributes are detected.
+    A test annotated with both #[should_panic] and #[specforge_test] MUST
+    record `pass` when it panics and `fail` when it doesn't: the guard reads
+    the expectation from the attribute instead of treating every panic as a
+    failure. An #[ignore]d test MUST be recorded as `skipped` without
+    running its body.
   """
-  enforced_by [expand_test_attribute]
   risk medium
 
-  verify unit "compile warning emitted for should_panic + specforge::test"
+  verify unit "should_panic test that panics records pass"
+  verify unit "ignored test records skipped"
+}
+
+invariant single_registration "Single Registration" {
+  guarantee """
+    Every annotated test MUST be registered with the test harness exactly
+    once, so each run records each result once. The macro registers the
+    test unless another attribute does; a test that runs twice in one test
+    binary (a leftover #[test] above the attribute) MUST fail with a
+    message telling the user to remove the #[test].
+  """
+  risk high
+
+  verify unit "a test registered twice fails its second run"
 }

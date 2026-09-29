@@ -18,7 +18,6 @@ fn wait_for_event(
     behavior = "watch_file_system_for_changes",
     verify = "file modification triggers recompilation"
 )]
-#[test]
 fn file_modification_triggers_recompilation() {
     let dir = TempDir::new().unwrap();
     let spec_path = dir.path().join("a.spec");
@@ -53,7 +52,6 @@ fn file_modification_triggers_recompilation() {
     behavior = "watch_file_system_for_changes",
     verify = "file creation triggers recompilation"
 )]
-#[test]
 fn file_creation_triggers_recompilation() {
     let dir = TempDir::new().unwrap();
 
@@ -86,7 +84,6 @@ fn file_creation_triggers_recompilation() {
     behavior = "watch_file_system_for_changes",
     verify = "file deletion triggers recompilation"
 )]
-#[test]
 fn file_deletion_triggers_recompilation() {
     let dir = TempDir::new().unwrap();
     let spec_path = dir.path().join("doomed.spec");
@@ -120,7 +117,6 @@ fn file_deletion_triggers_recompilation() {
     behavior = "watch_file_system_for_changes",
     verify = "watch detects changes within 100ms"
 )]
-#[test]
 fn watch_detects_changes_within_latency_target() {
     let dir = TempDir::new().unwrap();
     let spec_path = dir.path().join("latency.spec");
@@ -153,7 +149,6 @@ fn watch_detects_changes_within_latency_target() {
     behavior = "watch_file_system_for_changes",
     verify = "Watch File System for Changes: file system watching holds for the declared obligations"
 )]
-#[test]
 fn watch_contract_consistency() {
     let dir = TempDir::new().unwrap();
 
@@ -186,7 +181,6 @@ fn watch_contract_consistency() {
     behavior = "watch_file_system_for_changes",
     verify = "specforge.json and .wasm changes classify as config/plugin"
 )]
-#[test]
 fn config_and_plugin_changes_classify() {
     let dir = TempDir::new().unwrap();
     fs::write(

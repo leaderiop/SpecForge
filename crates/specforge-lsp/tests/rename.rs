@@ -44,7 +44,6 @@ fn graph_with_refs() -> Graph {
     behavior = "prepare_rename",
     verify = "prepare rename on entity ID returns token range"
 )]
-#[test]
 fn prepare_rename_returns_range() {
     let g = graph_with_refs();
     let result = specforge_lsp::prepare_rename(&g, "auth_token");
@@ -59,7 +58,6 @@ fn prepare_rename_returns_range() {
     behavior = "prepare_rename",
     verify = "prepare rename on non-renameable token returns not available"
 )]
-#[test]
 fn prepare_rename_returns_none_for_missing() {
     let g = graph_with_refs();
     let result = specforge_lsp::prepare_rename(&g, "nonexistent");
@@ -72,7 +70,6 @@ fn prepare_rename_returns_none_for_missing() {
     behavior = "rename_entity_id",
     verify = "rename updates declaration and all references"
 )]
-#[test]
 fn rename_updates_all_sites() {
     let g = graph_with_refs();
     let edits = specforge_lsp::compute_rename_edits(&g, "auth_token", "session_token");
@@ -87,7 +84,6 @@ fn rename_updates_all_sites() {
     behavior = "rename_entity_id",
     verify = "rename is atomic — all or nothing"
 )]
-#[test]
 fn rename_is_atomic() {
     let g = graph_with_refs();
     // Valid rename produces all edits at once
@@ -99,7 +95,6 @@ fn rename_is_atomic() {
 }
 
 #[spec(behavior = "rename_entity_id", verify = "rename across multiple files")]
-#[test]
 fn rename_across_files() {
     let mut g = Graph::new();
     g.add_node(node_at("tok", "type", "a.spec", 0, 5));
@@ -127,7 +122,6 @@ fn rename_across_files() {
     behavior = "rename_entity_id",
     verify = "rename rejects new name that duplicates existing entity ID"
 )]
-#[test]
 fn rename_rejects_duplicate() {
     let g = graph_with_refs();
     let edits = specforge_lsp::compute_rename_edits(&g, "auth_token", "user_login");

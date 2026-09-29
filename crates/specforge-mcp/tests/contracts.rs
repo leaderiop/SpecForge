@@ -102,7 +102,6 @@ fn call_tool(server: &mut McpServer, name: &str, args: Value) -> Value {
     )
 }
 
-#[test]
 #[specforge_test(
     behavior = "mcp_initialize",
     verify = "MCP Initialize: MCP initialization holds — compiler_api_available, wasm_runtime_available, capabilities_returned, surface_contributions_merged, mcp_initialized_emitted"
@@ -120,7 +119,6 @@ fn contract_initialize() {
     assert!(result["capabilities"].is_object());
 }
 
-#[test]
 #[specforge_test(
     behavior = "mcp_shutdown",
     verify = "MCP Shutdown: MCP shutdown holds — server_initialized, notifications_flushed, subscriptions_removed, wasm_engines_released, shutdown_emitted"
@@ -132,7 +130,6 @@ fn contract_shutdown() {
     assert!(resp["result"].is_object());
 }
 
-#[test]
 #[specforge_test(
     behavior = "provide_mcp_query_tool",
     verify = "Provide MCP Query Tool: MCP query tool holds — graph_available, subgraph_returned, unknown_kinds_reported, tool_invoked_emitted"
@@ -150,7 +147,6 @@ fn contract_query() {
     assert!(parsed["edges"].is_array());
 }
 
-#[test]
 #[specforge_test(
     behavior = "provide_mcp_export_tool",
     verify = "Provide MCP Export Tool: MCP export tool holds — graph_available, format_produced, token_budget_enforced, tool_invoked_emitted"
@@ -169,7 +165,6 @@ fn contract_export() {
     }
 }
 
-#[test]
 #[specforge_test(
     behavior = "provide_mcp_export_tool",
     verify = "max_tokens truncates output to fit token budget"
@@ -208,7 +203,6 @@ fn contract_export_max_tokens() {
     );
 }
 
-#[test]
 #[specforge_test(
     behavior = "provide_mcp_trace_tool",
     verify = "Provide MCP Trace Tool: MCP trace tool holds — graph_available, trace_result_returned, gaps_identified, tool_invoked_emitted"
@@ -227,7 +221,6 @@ fn contract_trace() {
     assert!(parsed["downstream"].is_array());
 }
 
-#[test]
 #[specforge_test(
     behavior = "provide_mcp_search_tool",
     verify = "Provide MCP Search Tool: MCP search tool holds — graph_available, filtered_results_returned, unknown_kinds_reported, tool_invoked_emitted"
@@ -240,7 +233,6 @@ fn contract_search() {
     assert!(parsed.is_array());
 }
 
-#[test]
 #[specforge_test(
     behavior = "provide_mcp_stats_tool",
     verify = "Provide MCP Stats Tool: MCP stats tool holds — graph_available, stats_returned, latest_state_reflected, tool_invoked_emitted"
@@ -254,7 +246,6 @@ fn contract_stats() {
     assert!(parsed["diagnostic_summary"].is_object());
 }
 
-#[test]
 #[specforge_test(
     behavior = "provide_mcp_inspect_tool",
     verify = "Provide MCP Inspect Tool: MCP inspect tool holds — graph_available, entity_details_returned, tool_invoked_emitted"
@@ -273,7 +264,6 @@ fn contract_inspect() {
     assert!(parsed["source_span"].is_object());
 }
 
-#[test]
 #[specforge_test(
     behavior = "provide_mcp_find_definition_tool",
     verify = "Provide MCP Find Definition Tool: MCP find definition tool holds — graph_available, source_location_returned, tool_invoked_emitted"
@@ -291,7 +281,6 @@ fn contract_find_definition() {
     assert!(parsed["line"].is_number());
 }
 
-#[test]
 #[specforge_test(
     behavior = "provide_mcp_find_references_tool",
     verify = "Provide MCP Find References Tool: MCP find references tool holds — graph_available, references_returned, empty_list_for_unreferenced, tool_invoked_emitted"
@@ -309,7 +298,6 @@ fn contract_find_references() {
     assert!(parsed["locations"].is_array());
 }
 
-#[test]
 #[specforge_test(
     behavior = "provide_mcp_outline_tool",
     verify = "Provide MCP Outline Tool: MCP outline tool holds — graph_available, outline_returned, tool_invoked_emitted"
@@ -326,7 +314,6 @@ fn contract_outline() {
     assert!(parsed.is_array());
 }
 
-#[test]
 #[specforge_test(
     behavior = "provide_mcp_coverage_tool",
     verify = "Provide MCP Coverage Tool: MCP coverage tool holds — graph_available, coverage_returned, testability_respected, tool_invoked_emitted"
@@ -339,7 +326,6 @@ fn contract_coverage() {
     assert!(parsed.is_array());
 }
 
-#[test]
 #[specforge_test(
     behavior = "provide_mcp_schema_tool",
     verify = "Provide MCP Schema Tool: MCP schema tool holds — graph_available, schema_returned, tool_invoked_emitted"
@@ -352,7 +338,6 @@ fn contract_schema() {
     assert!(parsed["entity_kinds"].is_object());
 }
 
-#[test]
 #[specforge_test(
     behavior = "provide_mcp_context_prompt",
     verify = "Provide MCP Context Prompt: MCP context prompt holds — graph_available, context_returned, hints_included, prompt_invoked_emitted"
@@ -367,7 +352,6 @@ fn contract_context_prompt() {
     assert!(resp["result"]["messages"].is_array());
 }
 
-#[test]
 #[specforge_test(
     behavior = "provide_mcp_review_prompt",
     verify = "Provide MCP Review Prompt: MCP review prompt holds — graph_available, coverage_analysis_returned, gaps_identified, prompt_invoked_emitted"
@@ -382,7 +366,6 @@ fn contract_review_prompt() {
     assert!(resp["result"]["messages"].is_array());
 }
 
-#[test]
 #[specforge_test(
     behavior = "provide_mcp_trace_prompt",
     verify = "Provide MCP Trace Prompt: MCP trace prompt holds — graph_available, gaps_returned, affected_entities_listed, prompt_invoked_emitted"
@@ -397,7 +380,6 @@ fn contract_trace_prompt() {
     assert!(resp["result"]["messages"].is_array());
 }
 
-#[test]
 #[specforge_test(
     behavior = "provide_mcp_explore_prompt",
     verify = "Provide MCP Explore Prompt: MCP explore prompt holds — graph_available, exploration_returned, bfs_from_entity, prompt_invoked_emitted"
@@ -412,7 +394,6 @@ fn contract_explore_prompt() {
     assert!(resp["result"]["messages"].is_array());
 }
 
-#[test]
 #[specforge_test(
     behavior = "list_mcp_tools",
     verify = "List MCP Tools: listing MCP tools holds — server_initialized, complete_list_returned, disabled_excluded, discovery_emitted"
@@ -428,7 +409,6 @@ fn contract_list_tools() {
     }
 }
 
-#[test]
 #[specforge_test(
     behavior = "list_mcp_resources",
     verify = "List MCP Resources: listing MCP resources holds — server_initialized, complete_list_returned, disabled_excluded, discovery_emitted"
@@ -443,7 +423,6 @@ fn contract_list_resources() {
     }
 }
 
-#[test]
 #[specforge_test(
     behavior = "list_mcp_prompts",
     verify = "List MCP Prompts: listing MCP prompts holds — server_initialized, complete_list_returned, discovery_emitted"
@@ -458,7 +437,6 @@ fn contract_list_prompts() {
     }
 }
 
-#[test]
 #[specforge_test(
     behavior = "guard_mcp_reinitialization",
     verify = "Guard MCP Reinitialization: MCP reinitialization guard holds — server_initialized, reinit_rejected, session_unaffected, error_handled_emitted"
@@ -469,7 +447,6 @@ fn contract_guard_reinit() {
     assert!(resp["error"].is_object());
 }
 
-#[test]
 #[specforge_test(
     behavior = "handle_mcp_request_cancellation",
     verify = "Handle MCP Request Cancellation: MCP request cancellation holds — mcp_protocol_available, cancellation_safe, request_cancelled_emitted"
@@ -480,7 +457,6 @@ fn contract_cancel() {
     assert!(resp["result"].is_object() || resp["result"].is_null());
 }
 
-#[test]
 #[specforge_test(
     behavior = "handle_mcp_protocol_error",
     verify = "Handle MCP Protocol Error: MCP protocol error handling holds — mcp_protocol_available, standard_error_returned, no_state_leaked, server_operational, error_handled_emitted"
@@ -493,7 +469,6 @@ fn contract_protocol_error() {
     assert!(resp["error"]["message"].is_string());
 }
 
-#[test]
 #[specforge_test(
     behavior = "provide_mcp_validate_tool",
     verify = "Provide MCP Validate Tool: MCP validate tool holds — compiler_api_available, diagnostics_returned, strict_promotion_enforced, tool_invoked_emitted"
@@ -507,7 +482,6 @@ fn contract_validate() {
     );
 }
 
-#[test]
 #[specforge_test(
     behavior = "provide_mcp_suggest_fixes_tool",
     verify = "Provide MCP Suggest Fixes Tool: MCP suggest fixes tool holds — graph_available, fixes_returned, empty_for_clean, tool_invoked_emitted"
@@ -520,7 +494,6 @@ fn contract_suggest_fixes() {
     assert!(parsed.is_array());
 }
 
-#[test]
 #[specforge_test(
     behavior = "provide_mcp_format_tool",
     verify = "Provide MCP Format Tool: MCP format tool holds — filesystem_available, files_formatted, check_mode_readonly, mutation_completed_emitted, tool_invoked_emitted"
@@ -533,7 +506,6 @@ fn contract_format() {
     assert!(parsed.get("changed_files").is_some());
 }
 
-#[test]
 #[specforge_test(
     behavior = "provide_mcp_rename_tool",
     verify = "Provide MCP Rename Tool: MCP rename tool holds — graph_available, filesystem_available, references_updated, recompilation_triggered, dry_run_safe, mutation_completed_emitted, tool_invoked_emitted"
@@ -551,7 +523,6 @@ fn contract_rename() {
     assert!(parsed.get("new_name").is_some());
 }
 
-#[test]
 #[specforge_test(
     behavior = "provide_mcp_init_tool",
     verify = "Provide MCP Init Tool: MCP init tool holds — filesystem_available, project_created, path_outside_current, extensions_validated, project_initialized_emitted, tool_invoked_emitted"
@@ -569,7 +540,6 @@ fn contract_init() {
     assert!(parsed.get("project_path").is_some());
 }
 
-#[test]
 #[specforge_test(
     behavior = "provide_mcp_extensions_tool",
     verify = "Provide MCP Extensions Tool: MCP extensions tool holds — compiler_api_available, extensions_listed, config_reflected, tool_invoked_emitted"
@@ -582,7 +552,6 @@ fn contract_extensions() {
     assert!(parsed.get("extensions").is_some());
 }
 
-#[test]
 #[specforge_test(
     behavior = "provide_mcp_doctor_tool",
     verify = "Provide MCP Doctor Tool: MCP doctor tool holds — compiler_api_available, health_checked, resolution_steps_provided, tool_invoked_emitted"
@@ -597,7 +566,6 @@ fn contract_doctor() {
 
 // Additional contracts for remaining behaviors
 
-#[test]
 #[specforge_test(
     behavior = "expose_graph_as_mcp_resource",
     verify = "Expose Graph as MCP Resource: graph MCP resource holds — validation_complete_fired, graph_json_returned, resource_read_emitted"
@@ -612,7 +580,6 @@ fn contract_graph_resource() {
     assert!(resp["result"]["contents"].is_array());
 }
 
-#[test]
 #[specforge_test(
     behavior = "expose_schema_as_mcp_resource",
     verify = "Expose Schema as MCP Resource: schema MCP resource holds — validation_complete_fired, schema_json_returned, resource_read_emitted"
@@ -627,7 +594,6 @@ fn contract_schema_resource() {
     assert!(resp["result"]["contents"].is_array());
 }
 
-#[test]
 #[specforge_test(
     behavior = "expose_context_as_mcp_resource",
     verify = "Expose Context as MCP Resource: context MCP resource holds — validation_complete_fired, context_format_returned, resource_read_emitted"
@@ -642,7 +608,6 @@ fn contract_context_resource() {
     assert!(resp["result"]["contents"].is_array());
 }
 
-#[test]
 #[specforge_test(
     behavior = "expose_brief_as_mcp_resource",
     verify = "Expose Brief as MCP Resource: brief MCP resource holds — validation_complete_fired, brief_format_returned, resource_read_emitted"
@@ -657,7 +622,6 @@ fn contract_brief_resource() {
     assert!(resp["result"]["contents"].is_array());
 }
 
-#[test]
 #[specforge_test(
     behavior = "expose_diagnostics_as_mcp_resource",
     verify = "Expose Diagnostics as MCP Resource: diagnostics MCP resource holds — validation_complete_fired, diagnostics_returned, resource_read_emitted"
@@ -672,7 +636,6 @@ fn contract_diagnostics_resource() {
     assert!(resp["result"]["contents"].is_array());
 }
 
-#[test]
 #[specforge_test(
     behavior = "expose_entity_as_mcp_resource",
     verify = "Expose Per-Entity MCP Resource: per-entity MCP resource holds — validation_complete_fired, subgraph_returned, resource_read_emitted"
@@ -687,7 +650,6 @@ fn contract_entity_resource() {
     assert!(resp["result"]["contents"].is_array());
 }
 
-#[test]
 #[specforge_test(
     behavior = "notify_graph_delta_via_mcp",
     verify = "Notify Graph Delta via MCP: graph delta MCP notification holds — graph_delta_computed_fired, subscribers_notified, no_notification_when_empty, delta_notified_emitted"
@@ -712,7 +674,6 @@ fn contract_graph_notification() {
     assert!(notif["params"]["added_nodes"].is_array());
 }
 
-#[test]
 #[specforge_test(
     behavior = "notify_diagnostics_delta_via_mcp",
     verify = "Notify Diagnostics Delta via MCP: diagnostics delta MCP notification holds — validation_complete_fired, subscribers_notified, unchanged_suppressed, delta_notified_emitted"
@@ -733,7 +694,6 @@ fn contract_diagnostics_notification() {
     assert!(notif["params"]["added"].is_array());
 }
 
-#[test]
 #[specforge_test(
     behavior = "provide_mcp_add_extension_tool",
     verify = "Provide MCP Add Extension Tool: MCP add extension tool holds — filesystem_available, extension_installed, wasm_downloaded, extension_added_emitted, dry_run_safe, tool_invoked_emitted"
@@ -762,7 +722,6 @@ fn contract_add_extension() {
     assert!(lock.contains("specforge_ext_product"));
 }
 
-#[test]
 #[specforge_test(
     behavior = "provide_mcp_remove_extension_tool",
     verify = "Provide MCP Remove Extension Tool: MCP remove extension tool holds — filesystem_available, extension_removed, orphan_warning_produced, dry_run_safe, mutation_completed_emitted, tool_invoked_emitted"
@@ -780,7 +739,6 @@ fn contract_remove_extension() {
     assert!(resp["error"].is_object());
 }
 
-#[test]
 #[specforge_test(
     behavior = "provide_mcp_migrate_tool",
     verify = "Provide MCP Migrate Tool: MCP migrate tool holds — filesystem_available, migrations_applied, post_migration_validated, dry_run_safe, mutation_completed_emitted, tool_invoked_emitted"
@@ -793,7 +751,6 @@ fn contract_migrate() {
     assert!(parsed.get("migrated").is_some());
 }
 
-#[test]
 #[specforge_test(
     behavior = "provide_mcp_providers_tool",
     verify = "Provide MCP Providers Tool: MCP providers tool holds — compiler_api_available, providers_listed, tool_invoked_emitted"
@@ -806,7 +763,6 @@ fn contract_providers() {
     assert!(parsed.get("providers").is_some());
 }
 
-#[test]
 #[specforge_test(
     behavior = "provide_mcp_render_tool",
     verify = "Provide MCP Render Tool: MCP render tool holds — graph_available, filesystem_available, files_written, files_listed, tool_invoked_emitted"
@@ -819,7 +775,6 @@ fn contract_render() {
     assert!(parsed.get("format").is_some());
 }
 
-#[test]
 #[specforge_test(
     behavior = "provide_mcp_analyze_tool",
     verify = "requires/ensures consistency for MCP analyze tool"

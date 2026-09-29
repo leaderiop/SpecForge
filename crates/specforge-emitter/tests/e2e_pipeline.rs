@@ -61,7 +61,6 @@ fn compile_with_builtins(
 }
 
 // B:compile_pipeline — verify unit "port method body syntax does not surface parse errors"
-#[test]
 #[specforge_test(
     behavior = "delegate_body_parsing_to_extension",
     verify = "extension-owned body syntax does not surface E001 parse errors"
@@ -100,7 +99,6 @@ port TaskRepository "Repo" {
 }
 
 // B:compile_pipeline — verify unit "type inline-union field syntax does not surface parse errors"
-#[test]
 #[specforge_test(
     behavior = "delegate_body_parsing_to_extension",
     verify = "extension-owned body syntax does not surface E001 parse errors"
@@ -135,7 +133,6 @@ type Manifest "M" {
 }
 
 // B:compile_pipeline — verify unit "a domain field named `kind` on a type is not flagged as an invalid meta-kind"
-#[test]
 #[specforge_test(
     behavior = "compile_pipeline",
     verify = "type with a domain field named kind does not produce W011"
@@ -170,7 +167,6 @@ type CodeAction "Code Action" {
 }
 
 // B:compile_pipeline — verify unit "single entity roundtrip: parse→graph→json"
-#[test]
 #[specforge_test(
     behavior = "build_in_memory_graph",
     verify = "graph contains one node per entity"
@@ -207,7 +203,6 @@ fn single_entity_roundtrip() {
 }
 
 // B:compile_pipeline — verify unit "multi-file resolution with imports"
-#[test]
 #[specforge_test(
     behavior = "resolve_use_imports",
     verify = "resolve use path to file on disk"
@@ -249,7 +244,6 @@ behavior login "User Login" {
 }
 
 // B:compile_pipeline — verify unit "cross-entity references produce edges"
-#[test]
 #[specforge_test(
     behavior = "link_entity_references",
     verify = "reference list IDs create graph edges"
@@ -281,7 +275,6 @@ behavior save_record "Save Record" {
 }
 
 // B:compile_pipeline — verify unit "validation diagnostics surface through pipeline"
-#[test]
 #[specforge_test(
     behavior = "link_entity_references",
     verify = "unresolvable reference produces E003"
@@ -309,7 +302,6 @@ fn validation_diagnostics_surface() {
 }
 
 // B:compile_pipeline — verify unit "empty project produces empty graph"
-#[test]
 #[specforge_test(
     behavior = "build_in_memory_graph",
     verify = "graph contains one node per entity"
@@ -332,7 +324,6 @@ fn empty_project_produces_empty_graph() {
 // which is no longer supported. Surface wiring is tested in MCP surface_wiring tests.)
 
 // B:compile_pipeline — verify unit "all emit formats work on pipeline output"
-#[test]
 #[specforge_test(behavior = "serialize_json_graph", verify = "output is valid JSON")]
 fn all_emit_formats_work() {
     let ctx = compile_specs(&[(

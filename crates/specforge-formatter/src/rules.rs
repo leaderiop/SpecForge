@@ -300,7 +300,6 @@ mod tests {
         behavior = "apply_format_rules",
         verify = "indentation rules normalize to configured indent style"
     )]
-    #[test]
     fn test_indent_normalizes_to_configured_width() {
         let config = FormatConfig {
             indent_width: 2,
@@ -321,7 +320,6 @@ mod tests {
         behavior = "apply_format_rules",
         verify = "indentation rules normalize to configured indent style"
     )]
-    #[test]
     fn test_indent_with_tabs() {
         let config = FormatConfig {
             indent_width: 4,
@@ -338,7 +336,6 @@ mod tests {
         behavior = "apply_format_rules",
         verify = "spacing rules normalize single spaces between tokens"
     )]
-    #[test]
     fn test_normalize_spacing_collapses_multiple_spaces() {
         assert_eq!(
             normalize_spacing("  contract   \"test\""),
@@ -351,7 +348,6 @@ mod tests {
         behavior = "apply_format_rules",
         verify = "spacing rules normalize single spaces between tokens"
     )]
-    #[test]
     fn test_normalize_spacing_preserves_string_content() {
         assert_eq!(
             normalize_spacing("  contract \"multiple   spaces   inside\""),
@@ -363,7 +359,6 @@ mod tests {
         behavior = "apply_format_rules",
         verify = "comment rules normalize spacing around inline comments"
     )]
-    #[test]
     fn test_normalize_comment_spacing() {
         assert_eq!(normalize_comment("//comment"), "// comment");
         assert_eq!(normalize_comment("//  extra  spaces"), "// extra  spaces");
@@ -376,7 +371,6 @@ mod tests {
         behavior = "apply_format_rules",
         verify = "import sorting produces alphabetical order"
     )]
-    #[test]
     fn test_sort_imports_alphabetical() {
         let lines = vec![
             "use \"types/core\"".to_string(),
@@ -393,7 +387,6 @@ mod tests {
         behavior = "apply_format_rules",
         verify = "import sorting produces alphabetical order"
     )]
-    #[test]
     fn test_sort_imports_preserves_non_import_lines() {
         let lines = vec![
             "use \"types/core\"".to_string(),
@@ -412,7 +405,6 @@ mod tests {
         behavior = "apply_format_rules",
         verify = "alignment rules align field values within blocks"
     )]
-    #[test]
     fn test_alignment_column() {
         assert_eq!(alignment_column(&["invariants", "types", "ports"]), 11);
         assert_eq!(alignment_column(&["a", "bb", "ccc"]), 4);
@@ -422,7 +414,6 @@ mod tests {
         behavior = "apply_format_rules",
         verify = "alignment rules align field values within blocks"
     )]
-    #[test]
     fn test_align_field() {
         assert_eq!(
             align_field("  invariants [a, b]", 12, "  "),
@@ -435,7 +426,6 @@ mod tests {
         behavior = "apply_format_rules",
         verify = "wrapping rules break long reference lists to multi-line"
     )]
-    #[test]
     fn test_should_wrap_list() {
         let config = FormatConfig {
             indent_width: 2,
@@ -454,7 +444,6 @@ mod tests {
         behavior = "apply_format_rules",
         verify = "wrapping rules break long reference lists to multi-line"
     )]
-    #[test]
     fn test_format_list_multiline() {
         let result = format_list_multiline(&["a", "b", "c"], "  ", "    ");
         assert_eq!(result, "[\n    a,\n    b,\n    c,\n  ]");
@@ -464,7 +453,6 @@ mod tests {
         behavior = "apply_format_rules",
         verify = "string rules normalize multiline string literal indentation"
     )]
-    #[test]
     fn test_normalize_triple_string() {
         let input = "\"\"\"\n    First line\n    Second line\n  \"\"\"";
         let result = normalize_triple_string(input, "  ");

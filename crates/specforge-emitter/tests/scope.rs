@@ -47,7 +47,6 @@ fn build_chain_graph() -> Graph {
 }
 
 // B:export_agent_graph_format — verify unit "scoped export returns only reachable subgraph"
-#[test]
 #[specforge_test(
     behavior = "export_agent_graph_format",
     verify = "scoped export returns only reachable subgraph"
@@ -68,7 +67,6 @@ fn scoped_json_returns_only_reachable_subgraph() {
 }
 
 // B:export_agent_context_format — verify unit "scoped export returns only reachable subgraph"
-#[test]
 #[specforge_test(
     behavior = "export_agent_context_format",
     verify = "scoped export returns only reachable subgraph"
@@ -90,7 +88,6 @@ fn scoped_context_returns_only_reachable_subgraph() {
 
 // B:export_agent_context_format — verify unit "non-existent scope entity produces E003 and exit code 1"
 // B:export_agent_graph_format — verify unit "non-existent scope entity produces E003 and exit code 1"
-#[test]
 #[specforge_test(
     behavior = "export_agent_context_format",
     verify = "non-existent scope entity produces E003 and exit code 1"
@@ -109,7 +106,6 @@ fn scoped_export_on_nonexistent_entity_returns_error() {
 }
 
 // B:export_agent_graph_format — verify unit "non-existent scope entity produces E003 and exit code 1"
-#[test]
 #[specforge_test(
     behavior = "export_agent_graph_format",
     verify = "non-existent scope entity produces E003 and exit code 1"
@@ -129,7 +125,6 @@ fn graph_scoped_export_on_nonexistent_entity_returns_e001() {
 
 // B:export_agent_graph_format — verify unit "scoped export returns only reachable subgraph"
 // (validates edges are also scoped correctly)
-#[test]
 #[specforge_test(behavior = "export_agent_graph_format")]
 fn scoped_edges_only_between_reachable_nodes() {
     let graph = build_chain_graph();
@@ -142,7 +137,6 @@ fn scoped_edges_only_between_reachable_nodes() {
 
 // B:export_agent_graph_format — verify unit "scoped export returns only reachable subgraph"
 // (edge case: disconnected leaf returns single node)
-#[test]
 #[specforge_test(behavior = "export_agent_graph_format")]
 fn scoped_leaf_node_returns_single_node() {
     let graph = build_chain_graph();

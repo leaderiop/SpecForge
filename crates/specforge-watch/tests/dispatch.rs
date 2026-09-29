@@ -29,7 +29,6 @@ fn delta_with_kinds(kinds: &[&str]) -> GraphDelta {
     behavior = "dispatch_incremental_validators",
     verify = "incremental extension receives delta only"
 )]
-#[test]
 fn incremental_extension_receives_delta_input() {
     let validators = vec![ValidatorDescriptor {
         extension_name: "@specforge/software".to_string(),
@@ -51,7 +50,6 @@ fn incremental_extension_receives_delta_input() {
     behavior = "dispatch_incremental_validators",
     verify = "non-incremental extension receives full graph"
 )]
-#[test]
 fn non_incremental_extension_receives_full_graph_input() {
     let validators = vec![ValidatorDescriptor {
         extension_name: "@specforge/governance".to_string(),
@@ -73,7 +71,6 @@ fn non_incremental_extension_receives_full_graph_input() {
     behavior = "dispatch_incremental_validators",
     verify = "dispatch follows topological order"
 )]
-#[test]
 fn dispatch_preserves_topological_order() {
     let validators = vec![
         ValidatorDescriptor {
@@ -115,7 +112,6 @@ fn dispatch_preserves_topological_order() {
     behavior = "dispatch_incremental_validators",
     verify = "mixed incremental and non-incremental kinds dispatch separately"
 )]
-#[test]
 fn mixed_incremental_and_non_incremental_dispatch_separately() {
     let validators = vec![
         ValidatorDescriptor {
@@ -146,7 +142,6 @@ fn mixed_incremental_and_non_incremental_dispatch_separately() {
     behavior = "dispatch_incremental_validators",
     verify = "kind with incremental=false triggers full graph validation for that kind"
 )]
-#[test]
 fn kind_with_incremental_false_triggers_full_graph_for_that_kind() {
     // Extension has both incremental and non-incremental kinds.
     // When a non-incremental kind appears in the delta, full graph is used.
@@ -178,7 +173,6 @@ fn kind_with_incremental_false_triggers_full_graph_for_that_kind() {
 }
 
 #[spec(behavior = "dispatch_incremental_validators")]
-#[test]
 fn mixed_kinds_delta_only_incremental_kinds_uses_delta() {
     // Same extension with mixed kinds, but delta only has incremental kinds
     let validators = vec![ValidatorDescriptor {

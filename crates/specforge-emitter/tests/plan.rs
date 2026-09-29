@@ -67,7 +67,6 @@ fn build_graph() -> Graph {
 }
 
 // B:validate_agent_plan — verify unit "plan with all valid entity IDs passes validation"
-#[test]
 #[specforge_test(
     behavior = "validate_agent_plan",
     verify = "plan with all valid entity IDs passes validation"
@@ -90,7 +89,6 @@ fn plan_with_all_valid_entity_ids_passes() {
 }
 
 // B:validate_agent_plan — verify unit "plan referencing nonexistent entity ID produces E003"
-#[test]
 #[specforge_test(
     behavior = "validate_agent_plan",
     verify = "plan referencing nonexistent entity ID produces E003"
@@ -116,7 +114,6 @@ fn plan_referencing_nonexistent_entity_produces_error() {
 }
 
 // B:validate_agent_plan — verify unit "testable entity missing from plan produces warning"
-#[test]
 #[specforge_test(
     behavior = "validate_agent_plan",
     verify = "testable entity missing from plan produces warning"
@@ -139,7 +136,6 @@ fn testable_entity_missing_from_plan_produces_warning() {
 }
 
 // B:validate_agent_plan — verify unit "plan dependency order contradicting graph produces diagnostic"
-#[test]
 #[specforge_test(
     behavior = "validate_agent_plan",
     verify = "plan dependency order contradicting graph produces diagnostic"
@@ -167,7 +163,6 @@ fn plan_dependency_order_contradicting_graph_produces_diagnostic() {
 }
 
 // B:validate_agent_plan — verify unit "output is structured JSON"
-#[test]
 #[specforge_test(behavior = "validate_agent_plan", verify = "output is structured JSON")]
 fn plan_validation_output_is_structured_json() {
     let graph = build_graph();
@@ -189,7 +184,6 @@ fn plan_validation_output_is_structured_json() {
 }
 
 // B:validate_agent_plan — verify contract "requires/ensures consistency for agent plan validation"
-#[test]
 #[specforge_test(
     behavior = "validate_agent_plan",
     verify = "Validate Agent Implementation Plan: agent plan validation holds — validation_complete_fired, unresolvable_ids_diagnosed, missing_entries_warned, ordering_validated, structured_report_produced, plan_validated_emitted"

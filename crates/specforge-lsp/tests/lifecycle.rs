@@ -6,7 +6,6 @@ use specforge_test_macros::test as spec;
     behavior = "lsp_initialize",
     verify = "initialize response includes semantic token legend"
 )]
-#[test]
 fn init_includes_semantic_legend() {
     let caps = specforge_lsp::server_capabilities(&["behavior", "type", "event"]);
     assert!(!caps.semantic_token_types.is_empty());
@@ -17,7 +16,6 @@ fn init_includes_semantic_legend() {
     behavior = "lsp_initialize",
     verify = "semantic token legend includes extension-defined token types"
 )]
-#[test]
 fn init_legend_includes_extension_types() {
     let caps = specforge_lsp::server_capabilities(&["behavior", "type"]);
     // Extension kinds should appear in the legend as "keyword" type
@@ -30,7 +28,6 @@ fn init_legend_includes_extension_types() {
     behavior = "lsp_initialize",
     verify = "initialize response advertises incremental sync"
 )]
-#[test]
 fn init_advertises_incremental_sync() {
     let caps = specforge_lsp::server_capabilities(&[]);
     assert!(caps.incremental_sync);
@@ -40,7 +37,6 @@ fn init_advertises_incremental_sync() {
     behavior = "lsp_initialize",
     verify = "initialize response includes completion trigger characters"
 )]
-#[test]
 fn init_includes_completion_triggers() {
     let caps = specforge_lsp::server_capabilities(&[]);
     assert!(!caps.completion_trigger_characters.is_empty());
@@ -50,7 +46,6 @@ fn init_includes_completion_triggers() {
     behavior = "lsp_initialize",
     verify = "initialize response includes server_info with name and version"
 )]
-#[test]
 fn init_includes_server_info() {
     let info = specforge_lsp::server_info();
     assert_eq!(info.name, "specforge-lsp");
@@ -61,7 +56,6 @@ fn init_includes_server_info() {
     behavior = "lsp_initialize",
     verify = "zero extensions produces structural-only capabilities"
 )]
-#[test]
 fn init_zero_extensions() {
     let caps = specforge_lsp::server_capabilities(&[]);
     // Even with no extensions, structural capabilities exist
@@ -76,7 +70,6 @@ fn init_zero_extensions() {
     behavior = "lsp_shutdown",
     verify = "shutdown releases in-memory graph"
 )]
-#[test]
 fn shutdown_clears_state() {
     let mut state = specforge_lsp::LspState::new();
     state.open_document("file:///a.spec", "content");
@@ -86,7 +79,6 @@ fn shutdown_clears_state() {
 }
 
 #[spec(behavior = "lsp_shutdown", verify = "shutdown releases Wasm engines")]
-#[test]
 fn shutdown_sets_flag() {
     let mut state = specforge_lsp::LspState::new();
     state.shutdown();
@@ -97,7 +89,6 @@ fn shutdown_sets_flag() {
     behavior = "lsp_shutdown",
     verify = "requests after shutdown return InvalidRequest"
 )]
-#[test]
 fn requests_after_shutdown_rejected() {
     let mut state = specforge_lsp::LspState::new();
     state.shutdown();
@@ -112,7 +103,6 @@ fn requests_after_shutdown_rejected() {
     behavior = "shared_incremental_pipeline",
     verify = "LSP and watch share the same graph"
 )]
-#[test]
 fn lsp_state_holds_graph() {
     let mut state = specforge_lsp::LspState::new();
     assert_eq!(state.graph().node_count(), 0);
@@ -144,7 +134,6 @@ fn lsp_state_holds_graph() {
     behavior = "shared_incremental_pipeline",
     verify = "graph update serves all LSP features"
 )]
-#[test]
 fn graph_update_serves_all_features() {
     use specforge_common::SourceSpan;
     use specforge_graph::{Edge, Node};
@@ -221,7 +210,6 @@ fn graph_update_serves_all_features() {
     behavior = "shared_incremental_pipeline",
     verify = "CLI and LSP share identical debounce window"
 )]
-#[test]
 fn cli_and_lsp_share_debounce_window() {
     // The debounce window is a constant shared between CLI watch and LSP.
     // Both must use the same value to ensure pipeline parity.
@@ -237,7 +225,6 @@ fn cli_and_lsp_share_debounce_window() {
     behavior = "shared_incremental_pipeline",
     verify = "CLI and LSP share identical validator dispatch order"
 )]
-#[test]
 fn cli_and_lsp_share_validator_dispatch_order() {
     // The validator dispatch order is a shared constant/function between CLI and LSP.
     // Both must produce the same ordering to ensure deterministic diagnostics.

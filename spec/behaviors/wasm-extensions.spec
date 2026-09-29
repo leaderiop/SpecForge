@@ -637,7 +637,7 @@ behavior run_collector_command "Run Collector Command" {
 
   ensures {
     report_inside_project "a report location outside the project (absolute or with ..) is refused with E058"
-    stale_report_cleared "a report left at the declared location by an earlier run is removed before the command starts"
+    stale_report_ignored "an earlier run's report is never read: a report file is removed before the command starts, and only report-directory files written during the run are read"
     report_path_exported "the command runs in the project root with SPECFORGE_REPORT set to the absolute report path and {report} expanded"
     failing_tests_recorded "a non-zero exit is not an error when a report was written; no report is E045"
   }
@@ -645,9 +645,10 @@ behavior run_collector_command "Run Collector Command" {
   contract """
     The host, not the extension, runs the approved command: extensions stay
     pure wasm with no process access. The report location must stay inside
-    the project. Before running, the host removes a stale report at that
-    location (the file, or the `*.json` files directly inside a report
-    directory) so an old report can't pass for a new run. The command runs
+    the project. So that an old report can't pass for a new run, the host
+    removes a report file before running, and reads only the `*.json` files
+    of a report directory that were written after the command started (it
+    deletes nothing there: other tools may keep files in it). The command runs
     in the project root with stdin closed, `{report}` expanded in its
     arguments and `SPECFORGE_REPORT` set to the absolute report path. Its
     output goes to the terminal, to stderr under `--format json`, and
@@ -658,9 +659,9 @@ behavior run_collector_command "Run Collector Command" {
   produces []
 
   verify unit "report path must stay inside the project"
-  verify unit "run clears stale reports and sets the report env"
+  verify unit "run ignores stale reports and sets the report env"
   verify unit "command line expands the report placeholder"
-  verify contract "Run Collector Command: collector command execution holds — command_approved, report_inside_project, stale_report_cleared, report_path_exported, failing_tests_recorded"
+  verify contract "Run Collector Command: collector command execution holds — command_approved, report_inside_project, stale_report_ignored, report_path_exported, failing_tests_recorded"
 }
 
 behavior dispatch_collector "Dispatch Collector" {

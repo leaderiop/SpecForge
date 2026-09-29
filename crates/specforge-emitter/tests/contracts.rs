@@ -81,7 +81,6 @@ fn build_graph() -> Graph {
 // === serialize_json_graph contract ===
 
 // B:serialize_json_graph — verify contract "requires/ensures consistency for JSON graph serialization"
-#[test]
 #[specforge_test(
     behavior = "serialize_json_graph",
     verify = "Serialize JSON Graph: JSON graph serialization holds — validation_complete_fired, all_nodes_serialized, all_edges_serialized, schema_version_present, valid_json_produced, render_complete_emitted"
@@ -117,7 +116,6 @@ fn json_graph_contract_finalized_graph_produces_valid_output() {
 // === serialize_dot_visualization contract ===
 
 // B:serialize_dot_visualization — verify contract "requires/ensures consistency for DOT visualization"
-#[test]
 #[specforge_test(
     behavior = "serialize_dot_visualization",
     verify = "Serialize DOT Visualization: DOT visualization holds — validation_complete_fired, valid_dot_produced, nodes_labeled, edges_labeled, render_complete_emitted"
@@ -140,7 +138,6 @@ fn dot_contract_finalized_graph_produces_valid_dot() {
 // === compute_traceability_chain contract ===
 
 // B:compute_traceability_chain — verify contract "requires/ensures consistency for traceability chain computation"
-#[test]
 #[specforge_test(
     behavior = "compute_traceability_chain",
     verify = "Compute Traceability Chain: traceability chain computation holds — validation_complete_fired, full_chain_traversed, missing_links_flagged, trace_chain_computed_emitted"
@@ -179,7 +176,6 @@ fn trace_contract_entity_in_graph_produces_chain() {
 // === compute_project_statistics contract ===
 
 // B:compute_project_statistics — verify contract "requires/ensures consistency for project statistics computation"
-#[test]
 #[specforge_test(
     behavior = "compute_project_statistics",
     verify = "Compute Project Statistics: project statistics computation holds — validation_complete_fired, entity_counts_produced, coverage_computed, zero_testable_safe"
@@ -218,7 +214,6 @@ fn stats_contract_graph_with_diagnostics_produces_complete_stats() {
 // === export_agent_context_format contract ===
 
 // B:export_agent_context_format — verify contract "requires/ensures consistency for agent context export"
-#[test]
 #[specforge_test(
     behavior = "export_agent_context_format",
     verify = "Export Agent Context Format: agent context export holds — validation_complete_fired, token_optimized_output, schema_version_present, scope_enforced, invalid_scope_diagnosed, export_complete_emitted"
@@ -244,7 +239,6 @@ fn context_contract_includes_contracts_and_verify_omits_prose() {
 // === export_agent_graph_format contract ===
 
 // B:export_agent_graph_format — verify contract "requires/ensures consistency for agent graph export"
-#[test]
 #[specforge_test(
     behavior = "export_agent_graph_format",
     verify = "Export Agent Graph Format: agent graph export holds — validation_complete_fired, full_fidelity_output, schema_version_present, scope_enforced, invalid_scope_diagnosed, export_complete_emitted"
@@ -281,7 +275,6 @@ fn graph_format_contract_finalized_graph_produces_full_output() {
 // === query_graph_multi_resolution contract ===
 
 // B:query_graph_multi_resolution — verify contract "requires/ensures consistency for multi-resolution graph query"
-#[test]
 #[specforge_test(
     behavior = "query_graph_multi_resolution",
     verify = "Query Graph at Multiple Resolutions: multi-resolution graph query holds — validation_complete_fired, depth_respected, kind_filter_applied, graph_protocol_conformance, graph_queried_emitted"
@@ -306,7 +299,6 @@ fn query_contract_valid_entity_returns_subgraph() {
 // === enforce_token_budget contract ===
 
 // B:enforce_token_budget — verify contract "requires/ensures consistency for token budget enforcement"
-#[test]
 #[specforge_test(
     behavior = "enforce_token_budget",
     verify = "Enforce Token Budget: token budget enforcement holds — validation_complete_fired, budget_respected, truncation_metadata_produced, valid_subgraph_after_truncation, token_budget_applied_emitted"
@@ -325,7 +317,6 @@ fn budget_contract_within_budget_no_truncation() {
 // === validate_agent_plan contract ===
 
 // B:validate_agent_plan — verify contract "requires/ensures consistency for agent plan validation"
-#[test]
 #[specforge_test(
     behavior = "validate_agent_plan",
     verify = "Validate Agent Implementation Plan: agent plan validation holds — validation_complete_fired, unresolvable_ids_diagnosed, missing_entries_warned, ordering_validated, structured_report_produced, plan_validated_emitted"
@@ -359,7 +350,6 @@ fn plan_contract_validates_ids_coverage_ordering() {
 // === deterministic_output contract ===
 
 // B:deterministic_output — verify contract "requires/ensures consistency for deterministic output"
-#[test]
 #[specforge_test(
     behavior = "deterministic_output",
     verify = "Deterministic Output: deterministic output holds — validation_complete_fired, byte_identical_output, no_nondeterministic_values"
@@ -389,7 +379,6 @@ fn deterministic_contract_same_input_identical_output() {
 // === serialize_traceability_data contract ===
 
 // B:serialize_traceability_data — verify contract "requires/ensures consistency for traceability data serialization"
-#[test]
 #[specforge_test(
     behavior = "serialize_traceability_data",
     verify = "Serialize Traceability Data: traceability data serialization holds — validation_complete_fired, full_trace_serialized, gaps_included, graph_protocol_conformance, render_complete_emitted, a"
@@ -405,7 +394,6 @@ fn trace_data_contract_all_entities_traced() {
     assert!(parsed["traces"].is_array());
 }
 
-#[test]
 #[specforge_test(
     behavior = "serialize_traceability_data",
     verify = "full trace covers all root entities across registered edge types"
@@ -419,7 +407,6 @@ fn trace_data_full_trace_covers_all_roots() {
     assert!(ids.contains(&"c"), "leaf entity c must be traced");
 }
 
-#[test]
 #[specforge_test(
     behavior = "serialize_traceability_data",
     verify = "gaps in chain are highlighted"
@@ -437,7 +424,6 @@ fn trace_data_gaps_highlighted() {
     assert!(!gaps.is_empty(), "dangling edge should produce trace gaps");
 }
 
-#[test]
 #[specforge_test(
     behavior = "serialize_traceability_data",
     verify = "output conforms to Graph Protocol schema"
@@ -459,7 +445,6 @@ fn trace_data_output_conforms_to_schema() {
 // === export_diagnostics_as_json contract ===
 
 // B:export_diagnostics_as_json — verify contract "requires/ensures consistency for JSON diagnostic export"
-#[test]
 #[specforge_test(
     behavior = "export_diagnostics_as_json",
     verify = "Export Diagnostics as JSON: JSON diagnostic export holds — validation_complete_fired, json_array_produced, diagnostic_fields_complete, exit_code_unaffected"
@@ -492,7 +477,6 @@ fn diagnostic_json_contract_complete_fields() {
     assert_eq!(entry["suggestion"], "did you mean 'foo'?");
 }
 
-#[test]
 #[specforge_test(
     behavior = "export_diagnostics_as_json",
     verify = "diagnostics serialized as JSON array to stdout"
@@ -520,7 +504,6 @@ fn diagnostic_json_array() {
     assert_eq!(parsed.as_array().unwrap().len(), 2);
 }
 
-#[test]
 #[specforge_test(
     behavior = "export_diagnostics_as_json",
     verify = "each diagnostic includes code, severity, message, file, line, column"
@@ -550,7 +533,6 @@ fn diagnostic_json_all_fields() {
     assert_eq!(e["column"], 7);
 }
 
-#[test]
 #[specforge_test(
     behavior = "export_diagnostics_as_json",
     verify = "JSON output is valid and parseable"
@@ -568,7 +550,6 @@ fn diagnostic_json_valid_parseable() {
     assert!(result.is_ok(), "output must be valid JSON");
 }
 
-#[test]
 #[specforge_test(
     behavior = "export_diagnostics_as_json",
     verify = "exit code unaffected by format flag"
@@ -589,7 +570,6 @@ fn diagnostic_exit_code_unaffected_by_format() {
     assert!(!json.is_empty());
 }
 
-#[test]
 #[specforge_test(
     behavior = "export_diagnostics_as_json",
     verify = "suggestion field included when available"
@@ -611,7 +591,6 @@ fn diagnostic_suggestion_included() {
 // serialize_json_graph — remaining verify statements
 // ============================================================
 
-#[test]
 #[specforge_test(
     behavior = "serialize_json_graph",
     verify = "JSON output contains all nodes"
@@ -623,7 +602,6 @@ fn json_graph_all_nodes() {
     assert_eq!(parsed["nodes"].as_array().unwrap().len(), 3);
 }
 
-#[test]
 #[specforge_test(
     behavior = "serialize_json_graph",
     verify = "JSON output contains all edges"
@@ -635,7 +613,6 @@ fn json_graph_all_edges() {
     assert_eq!(parsed["edges"].as_array().unwrap().len(), 2);
 }
 
-#[test]
 #[specforge_test(behavior = "serialize_json_graph", verify = "output is valid JSON")]
 fn json_graph_valid_json() {
     let graph = build_graph();
@@ -644,7 +621,6 @@ fn json_graph_valid_json() {
     assert!(result.is_ok(), "output must be valid JSON");
 }
 
-#[test]
 #[specforge_test(
     behavior = "serialize_json_graph",
     verify = "output includes schema_version field"
@@ -656,7 +632,6 @@ fn json_graph_schema_version() {
     assert!(parsed["schema_version"].is_string());
 }
 
-#[test]
 #[specforge_test(
     behavior = "serialize_json_graph",
     verify = "empty graph produces valid JSON with empty nodes and edges arrays"
@@ -669,7 +644,6 @@ fn json_graph_empty() {
     assert_eq!(parsed["edges"].as_array().unwrap().len(), 0);
 }
 
-#[test]
 #[specforge_test(
     behavior = "serialize_json_graph",
     verify = "schema is included even for empty graph"
@@ -684,7 +658,6 @@ fn json_graph_empty_has_schema() {
     );
 }
 
-#[test]
 #[specforge_test(
     behavior = "serialize_json_graph",
     verify = "structural-only graph (zero extensions) produces valid Graph Protocol JSON with raw keywords in kind field"
@@ -705,7 +678,6 @@ fn json_graph_structural_only() {
 // serialize_dot_visualization — remaining verify statements
 // ============================================================
 
-#[test]
 #[specforge_test(
     behavior = "serialize_dot_visualization",
     verify = "DOT output is valid Graphviz syntax"
@@ -718,7 +690,6 @@ fn dot_valid_syntax() {
     assert!(dot.trim_end().ends_with("}"));
 }
 
-#[test]
 #[specforge_test(
     behavior = "serialize_dot_visualization",
     verify = "nodes are labeled with IDs"
@@ -731,7 +702,6 @@ fn dot_nodes_labeled() {
     assert!(dot.contains("\"c\""), "node c must be present");
 }
 
-#[test]
 #[specforge_test(
     behavior = "serialize_dot_visualization",
     verify = "edges are labeled with types"
@@ -749,7 +719,6 @@ fn dot_edges_labeled() {
     );
 }
 
-#[test]
 #[specforge_test(
     behavior = "serialize_dot_visualization",
     verify = "node shapes use extension-defined dot_shape"

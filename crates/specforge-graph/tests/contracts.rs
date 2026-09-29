@@ -50,7 +50,6 @@ fn make_edge(source: &str, target: &str, label: &str) -> Edge {
 }
 
 // B:build_in_memory_graph — verify contract "requires/ensures consistency for in-memory graph construction"
-#[test]
 #[specforge_test(
     behavior = "build_in_memory_graph",
     verify = "Build In-Memory Graph: in-memory graph construction holds — resolution_complete, one_node_per_entity, one_edge_per_reference, no_orphan_edges"
@@ -83,7 +82,6 @@ fn build_in_memory_graph_contract() {
 }
 
 // B:maintain_mutable_graph — verify contract "requires/ensures consistency for mutable graph maintenance"
-#[test]
 #[specforge_test(
     behavior = "maintain_mutable_graph",
     verify = "Maintain Mutable Graph: mutable graph maintenance holds — graph_initialized, mutations_applied, no_dangling_edges_enforced, graph_consistency"
@@ -121,7 +119,6 @@ fn maintain_mutable_graph_contract() {
 }
 
 // B:compute_subgraph_for_invalidation — verify contract "requires/ensures consistency for subgraph invalidation"
-#[test]
 #[specforge_test(
     behavior = "compute_subgraph_for_invalidation",
     verify = "Compute Subgraph for Invalidation: subgraph invalidation holds — graph_built_ready, changed_file_identified, invalidation_subgraph_computed, only_affected_rebuilt, unaffected_subgraphs_intact"
@@ -158,7 +155,6 @@ fn compute_subgraph_for_invalidation_contract() {
 }
 
 // B:resolve_external_ref_declarations — verify contract "requires/ensures consistency for external ref resolution"
-#[test]
 #[specforge_test(
     behavior = "resolve_external_ref_declarations",
     verify = "Resolve External Ref Declarations: external ref resolution holds — ref_blocks_parsed, filesystem_available, refs_registered, known_schemes_marked, unknown_schemes_deferred"
@@ -205,7 +201,6 @@ ref jira.story:ABC-1 "Backend work"
 }
 
 // B:resolve_soft_cross_extension_references — verify contract "requires/ensures consistency for soft cross-extension resolution"
-#[test]
 #[specforge_test(
     behavior = "resolve_soft_cross_extension_references",
     verify = "Resolve Soft Cross-Extension References: soft cross-extension resolution holds — registries_populated_fired, known_extensions_catalog_available, suggestion_emitted, installed_extensions_resolved"
@@ -253,7 +248,6 @@ fn resolve_soft_cross_extension_references_contract() {
 }
 
 // B:provide_did_you_mean_suggestions — verify contract "requires/ensures consistency for did-you-mean suggestions"
-#[test]
 #[specforge_test(
     behavior = "provide_did_you_mean_suggestions",
     verify = "Provide Did-You-Mean Suggestions: did-you-mean suggestions holds — unresolved_reference_available, kind_registry_populated, distance_threshold, sorted_by_distance"

@@ -3,7 +3,6 @@ use specforge_test_macros::test as specforge_test;
 
 // --- Phase 2a: Cross-extension references, I004 soft resolution, did-you-mean ---
 
-#[test]
 #[specforge_test(
     behavior = "link_entity_references",
     verify = "reference list IDs create graph edges"
@@ -18,7 +17,6 @@ fn cross_kind_references_resolve() {
         .success();
 }
 
-#[test]
 #[specforge_test(
     behavior = "link_entity_references",
     verify = "unresolvable reference produces E003"
@@ -48,7 +46,6 @@ feature gamma "G" { behaviors [alpha, nonexistent_behavior] }
     );
 }
 
-#[test]
 #[specforge_test(
     behavior = "link_entity_references",
     verify = "reference list IDs create graph edges"
@@ -76,7 +73,6 @@ failure_mode parser_crash "PC" {
         .success();
 }
 
-#[test]
 #[specforge_test(
     behavior = "link_entity_references",
     verify = "reference list IDs create graph edges"
@@ -101,7 +97,6 @@ feature fast_parsing "F" {
         .success();
 }
 
-#[test]
 #[specforge_test(
     behavior = "export_diagnostics_as_json",
     verify = "diagnostics serialized as JSON array to stdout"
@@ -134,7 +129,6 @@ decision use_rust "D" {
     );
 }
 
-#[test]
 #[specforge_test(
     behavior = "serialize_json_graph",
     verify = "JSON output contains all edges"
@@ -169,7 +163,6 @@ fn export_includes_cross_kind_edges() {
     );
 }
 
-#[test]
 #[specforge_test(
     behavior = "compute_traceability_chain",
     verify = "trace from entity shows upstream and downstream connections"
@@ -201,7 +194,6 @@ fn trace_crosses_extension_boundaries() {
     );
 }
 
-#[test]
 #[specforge_test(
     behavior = "link_entity_references",
     verify = "close match triggers did-you-mean suggestion"

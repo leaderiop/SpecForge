@@ -4,7 +4,6 @@ use specforge_test_macros::test as specforge_test;
 
 // --- Phase 1d: Schema command tests ---
 
-#[test]
 #[specforge_test(
     behavior = "serve_schema_resource",
     verify = "specforge schema outputs full schema as JSON"
@@ -34,7 +33,6 @@ fn schema_command_outputs_valid_json() {
     );
 }
 
-#[test]
 #[specforge_test(
     behavior = "serve_schema_resource",
     verify = "--kind filter restricts to single entity kind"
@@ -52,7 +50,6 @@ fn schema_kind_filter_returns_single_kind() {
         .code(1);
 }
 
-#[test]
 #[specforge_test(
     behavior = "serve_schema_resource",
     verify = "schema reflects current compilation state"
@@ -67,7 +64,6 @@ fn schema_kind_filter_unknown_exits_one() {
         .code(1);
 }
 
-#[test]
 #[specforge_test(
     behavior = "publish_schema_specification",
     verify = "published schema is valid JSON Schema"
@@ -90,7 +86,6 @@ fn schema_publish_produces_json_schema_draft() {
     assert_eq!(parsed["title"], "SpecForge Graph Protocol");
 }
 
-#[test]
 #[specforge_test(
     behavior = "publish_schema_specification",
     verify = "published schema describes all registered entity kinds"
@@ -116,7 +111,6 @@ fn schema_publish_includes_node_kind_enum() {
     assert_eq!(node_props["kind"]["type"], "string");
 }
 
-#[test]
 #[specforge_test(
     behavior = "publish_schema_specification",
     verify = "published schema describes all edge types"
@@ -141,7 +135,6 @@ fn schema_publish_includes_edge_label_enum() {
     assert_eq!(edge_props["label"]["type"], "string");
 }
 
-#[test]
 #[specforge_test(
     behavior = "embed_schema_in_export",
     verify = "schema embedded as top-level key in full JSON export"
@@ -164,7 +157,6 @@ fn export_v2_schema_has_entity_kinds() {
     );
 }
 
-#[test]
 #[specforge_test(
     behavior = "embed_schema_in_export",
     verify = "format_version set to 2.0 with schema"
@@ -186,7 +178,6 @@ fn export_v2_schema_has_edge_types() {
     );
 }
 
-#[test]
 #[specforge_test(
     behavior = "negotiate_schema_version",
     verify = "compatible version within range is resolved"
@@ -210,7 +201,6 @@ fn export_schema_version_negotiation() {
         .code(1);
 }
 
-#[test]
 #[specforge_test(
     behavior = "embed_schema_in_export",
     verify = "scoped exports carry schema_ref (url and content_hash) instead of embedded schema"

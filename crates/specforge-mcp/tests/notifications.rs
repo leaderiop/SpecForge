@@ -101,7 +101,6 @@ fn node(id: &str) -> Node {
 }
 
 // B:notify_graph_delta_via_mcp — verify unit "detects added nodes"
-#[test]
 #[specforge_test(
     behavior = "notify_graph_delta_via_mcp",
     verify = "graph_changed notification sent after incremental rebuild"
@@ -118,7 +117,6 @@ fn graph_delta_detects_added_nodes() {
 }
 
 // B:notify_graph_delta_via_mcp — verify unit "detects removed nodes"
-#[test]
 #[specforge_test(
     behavior = "notify_graph_delta_via_mcp",
     verify = "notification includes GraphDelta payload"
@@ -134,7 +132,6 @@ fn graph_delta_detects_removed_nodes() {
 }
 
 // B:notify_graph_delta_via_mcp — verify unit "formats notification as JSON-RPC"
-#[test]
 #[specforge_test(
     behavior = "notify_graph_delta_via_mcp",
     verify = "notification includes GraphDelta payload"
@@ -152,7 +149,6 @@ fn graph_notification_format() {
 }
 
 // B:notify_diagnostics_delta_via_mcp — verify unit "detects added diagnostics"
-#[test]
 #[specforge_test(
     behavior = "notify_diagnostics_delta_via_mcp",
     verify = "diagnostics_changed notification sent after validation"
@@ -173,7 +169,6 @@ fn diagnostics_delta_detects_added() {
 }
 
 // B:notify_diagnostics_delta_via_mcp — verify unit "detects removed diagnostics"
-#[test]
 #[specforge_test(
     behavior = "notify_diagnostics_delta_via_mcp",
     verify = "payload includes added and removed diagnostics"
@@ -194,7 +189,6 @@ fn diagnostics_delta_detects_removed() {
 }
 
 // B:notify_diagnostics_delta_via_mcp — verify unit "formats notification as JSON-RPC"
-#[test]
 #[specforge_test(
     behavior = "notify_diagnostics_delta_via_mcp",
     verify = "payload includes added and removed diagnostics"
@@ -217,7 +211,6 @@ fn diagnostics_notification_format() {
 }
 
 // B:notify_graph_delta_via_mcp — verify unit "no notification when no clients subscribed"
-#[test]
 #[specforge_test(
     behavior = "notify_graph_delta_via_mcp",
     verify = "no notification when no clients subscribed"
@@ -234,7 +227,6 @@ fn no_notification_when_no_subscribers() {
 }
 
 // B:notify_graph_delta_via_mcp — verify unit "unsubscribed clients do not receive notifications"
-#[test]
 #[specforge_test(
     behavior = "notify_graph_delta_via_mcp",
     verify = "unsubscribed clients do not receive notifications"
@@ -249,7 +241,6 @@ fn no_notification_when_graph_unchanged() {
 }
 
 // B:notify_diagnostics_delta_via_mcp — verify unit "no notification when diagnostics are unchanged"
-#[test]
 #[specforge_test(
     behavior = "notify_diagnostics_delta_via_mcp",
     verify = "no notification when diagnostics are unchanged"
@@ -269,7 +260,6 @@ fn diagnostics_no_notification_when_unchanged() {
 }
 
 // B:notify_diagnostics_delta_via_mcp — verify unit "unsubscribed clients do not receive notifications"
-#[test]
 #[specforge_test(
     behavior = "notify_diagnostics_delta_via_mcp",
     verify = "unsubscribed clients do not receive notifications"

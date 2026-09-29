@@ -108,7 +108,6 @@ fn prompt_text(resp: &Value) -> String {
 // --- specforge://prompts/context ---
 
 // B:provide_mcp_context_prompt — verify unit "returns entity context with instructional framing"
-#[test]
 #[specforge_test(
     behavior = "provide_mcp_context_prompt",
     verify = "specforge://prompts/context returns structured entity context"
@@ -158,7 +157,6 @@ fn context_prompt_returns_context() {
 }
 
 // B:provide_mcp_context_prompt — verify unit "unknown entity returns error"
-#[test]
 #[specforge_test(
     behavior = "provide_mcp_context_prompt",
     verify = "non-existent entity returns error"
@@ -174,7 +172,6 @@ fn context_prompt_unknown_entity() {
 }
 
 // B:provide_mcp_context_prompt — verify unit "includes upstream and downstream"
-#[test]
 #[specforge_test(
     behavior = "provide_mcp_context_prompt",
     verify = "response includes contract and related entities"
@@ -196,7 +193,6 @@ fn context_prompt_includes_edges() {
 // --- specforge://prompts/review ---
 
 // B:provide_mcp_review_prompt — verify unit "returns findings"
-#[test]
 #[specforge_test(
     behavior = "provide_mcp_review_prompt",
     verify = "specforge://prompts/review returns coverage analysis"
@@ -211,7 +207,6 @@ fn review_prompt_returns_findings() {
 }
 
 // B:provide_mcp_review_prompt — verify unit "detects uncovered entities"
-#[test]
 #[specforge_test(
     behavior = "provide_mcp_review_prompt",
     verify = "response identifies entities with missing verification coverage"
@@ -231,7 +226,6 @@ fn review_prompt_detects_uncovered() {
 }
 
 // B:provide_mcp_review_prompt — verify unit "detects orphan entities"
-#[test]
 #[specforge_test(
     behavior = "provide_mcp_review_prompt",
     verify = "detects orphan entities"
@@ -252,7 +246,6 @@ fn review_prompt_detects_orphans() {
 // --- specforge://prompts/trace ---
 
 // B:provide_mcp_trace_prompt — verify unit "returns trace gaps"
-#[test]
 #[specforge_test(
     behavior = "provide_mcp_trace_prompt",
     verify = "specforge://prompts/trace identifies gaps in plan"
@@ -271,7 +264,6 @@ fn trace_prompt_returns_gaps() {
 }
 
 // B:provide_mcp_trace_prompt — verify unit "identifies unverified entities in trace"
-#[test]
 #[specforge_test(
     behavior = "provide_mcp_trace_prompt",
     verify = "response returns identified gaps with gap context"
@@ -291,7 +283,6 @@ fn trace_prompt_identifies_unverified() {
 }
 
 // B:provide_mcp_trace_prompt — verify unit "unknown entity returns error"
-#[test]
 #[specforge_test(
     behavior = "provide_mcp_trace_prompt",
     verify = "affected entities are listed"
@@ -309,7 +300,6 @@ fn trace_prompt_unknown_entity() {
 // --- specforge://prompts/explore ---
 
 // B:provide_mcp_explore_prompt — verify unit "returns exploration data"
-#[test]
 #[specforge_test(
     behavior = "provide_mcp_explore_prompt",
     verify = "specforge://prompts/explore returns exploration starting points"
@@ -326,7 +316,6 @@ fn explore_prompt_returns_data() {
 }
 
 // B:provide_mcp_explore_prompt — verify unit "identifies orphan nodes"
-#[test]
 #[specforge_test(
     behavior = "provide_mcp_explore_prompt",
     verify = "orphan_nodes field lists entities with zero incoming and outgoing edges"
@@ -341,7 +330,6 @@ fn explore_prompt_identifies_orphans() {
 }
 
 // B:provide_mcp_explore_prompt — verify unit "respects kind filter"
-#[test]
 #[specforge_test(
     behavior = "provide_mcp_explore_prompt",
     verify = "kind filter restricts results to matching entity kind"
@@ -361,7 +349,6 @@ fn explore_prompt_kind_filter() {
 }
 
 // Unknown prompt
-#[test]
 #[specforge_test(
     behavior = "mcp_structured_error_responses",
     verify = "no MCP endpoint returns a plain string error"
@@ -373,7 +360,6 @@ fn unknown_prompt_returns_error() {
 }
 
 // Prompt when not initialized
-#[test]
 #[specforge_test(
     behavior = "mcp_initialize",
     verify = "initialization rejects tool calls before completion"
@@ -399,7 +385,6 @@ fn span() -> SourceSpan {
 }
 
 // B:provide_mcp_context_prompt — verify unit "context prompt works with zero extensions installed"
-#[test]
 #[specforge_test(
     behavior = "provide_mcp_context_prompt",
     verify = "context prompt works with zero extensions installed"
@@ -434,7 +419,6 @@ fn context_zero_extensions() {
 }
 
 // B:provide_mcp_review_prompt — verify unit "depth parameter controls neighbor traversal depth"
-#[test]
 #[specforge_test(
     behavior = "provide_mcp_review_prompt",
     verify = "depth parameter controls neighbor traversal depth"
@@ -450,7 +434,6 @@ fn review_depth_parameter() {
 }
 
 // B:provide_mcp_review_prompt — verify unit "review returns empty findings when no testable entities in graph"
-#[test]
 #[specforge_test(
     behavior = "provide_mcp_review_prompt",
     verify = "review prompt returns empty findings when no testable entities exist"
@@ -485,7 +468,6 @@ fn review_empty_findings_no_testable() {
 }
 
 // B:provide_mcp_review_prompt — verify unit "review prompt returns empty findings when no testable entities"
-#[test]
 #[specforge_test(
     behavior = "provide_mcp_review_prompt",
     verify = "review prompt returns empty findings when no testable entities exist"
@@ -503,7 +485,6 @@ fn review_empty_findings() {
 }
 
 // B:provide_mcp_trace_prompt — verify unit "malformed plan JSON returns validation error"
-#[test]
 #[specforge_test(
     behavior = "provide_mcp_trace_prompt",
     verify = "malformed plan JSON returns validation error"
@@ -520,7 +501,6 @@ fn trace_malformed_plan() {
 }
 
 // B:provide_mcp_explore_prompt — verify unit "entity_id focuses exploration on that entity"
-#[test]
 #[specforge_test(
     behavior = "provide_mcp_explore_prompt",
     verify = "entity_id focuses exploration on that entity"
@@ -539,7 +519,6 @@ fn explore_entity_id_focus() {
 }
 
 // B:provide_mcp_explore_prompt — verify unit "high_connectivity excludes zero-edge nodes"
-#[test]
 #[specforge_test(
     behavior = "provide_mcp_explore_prompt",
     verify = "high_connectivity field lists entities with highest edge degree"
@@ -568,7 +547,6 @@ fn explore_high_connectivity() {
 }
 
 // B:provide_mcp_review_prompt — verify unit "reviews all entities when entity_id is omitted"
-#[test]
 #[specforge_test(
     behavior = "provide_mcp_review_prompt",
     verify = "specforge://prompts/review returns coverage analysis"
@@ -583,7 +561,6 @@ fn review_all_entities_when_no_filter() {
 }
 
 // B:provide_mcp_context_prompt — verify unit "context includes contract text"
-#[test]
 #[specforge_test(
     behavior = "provide_mcp_context_prompt",
     verify = "response includes contract and related entities"
@@ -602,7 +579,6 @@ fn context_includes_contract() {
 }
 
 // B:provide_mcp_review_prompt — verify unit "review prompt returns empty findings when no testable entities exist"
-#[test]
 #[specforge_test(
     behavior = "provide_mcp_review_prompt",
     verify = "review prompt returns empty findings when no testable entities exist"

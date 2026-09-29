@@ -16,6 +16,37 @@ pub struct TestGuard {
     skip: bool,
 }
 
+/// Fail a test that runs twice in one test binary. `#[specforge_test]`
+/// registers the test itself; a `#[test]` written *above* it is invisible
+/// to the macro (the compiler expands it first) and would register the
+/// function a second time, doubling every recorded result.
+pub fn assert_registered_once(
+    module_path: &'static str,
+    test_name: &'static str,
+    entity_id: &'static str,
+    verify: Option<&'static str>,
+) {
+    use std::collections::HashSet;
+    use std::sync::{Mutex, OnceLock};
+    type Key = (
+        &'static str,
+        &'static str,
+        &'static str,
+        Option<&'static str>,
+    );
+    static SEEN: OnceLock<Mutex<HashSet<Key>>> = OnceLock::new();
+    let first = SEEN
+        .get_or_init(Default::default)
+        .lock()
+        .unwrap_or_else(|e| e.into_inner())
+        .insert((module_path, test_name, entity_id, verify));
+    assert!(
+        first,
+        "{module_path}::{test_name} is registered twice: remove its #[test] \
+         (#[specforge_test] registers the test itself)"
+    );
+}
+
 impl TestGuard {
     pub fn new(
         entity_kind: &'static str,

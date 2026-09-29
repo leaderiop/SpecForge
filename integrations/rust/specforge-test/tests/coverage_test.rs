@@ -324,6 +324,26 @@ fn summary_includes_timestamp() {
     );
 }
 
+/// The graph export stopped carrying a build timestamp (C5-05); an export
+/// without one must still parse, or the summary silently never prints.
+#[test]
+fn graph_export_without_timestamp_parses_and_summarizes() {
+    let graph: GraphExport = serde_json::from_str(
+        r#"{"entities":[{"id":"alpha","kind":"behavior","verify":[{"kind":"unit","description":"works","slug":"works"}],"testable":true}]}"#,
+    )
+    .expect("an export without a timestamp parses");
+    assert!(graph.timestamp.is_empty());
+    let diffs = compute_coverage_diff(
+        &graph,
+        &[make_entry("alpha", Some("works"), TestOutcome::Pass)],
+    );
+    let mut buf = Vec::new();
+    format_coverage_summary(&mut buf, &diffs, &graph.timestamp).unwrap();
+    let output = String::from_utf8(buf).unwrap();
+    assert!(output.contains("── specforge coverage ──"), "{output}");
+    assert!(output.contains("alpha"), "{output}");
+}
+
 #[test]
 fn summary_empty_diffs_produces_no_output() {
     let mut buf = Vec::new();

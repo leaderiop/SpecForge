@@ -6,7 +6,6 @@ use specforge_test_macros::test as spec;
     behavior = "document_open_close",
     verify = "didOpen registers document and triggers compilation"
 )]
-#[test]
 fn did_open_registers_document() {
     let mut state = specforge_lsp::LspState::new();
     state.open_document("file:///a.spec", "behavior a \"A\" {}\n");
@@ -22,7 +21,6 @@ fn did_open_registers_document() {
     behavior = "document_open_close",
     verify = "didClose removes document and clears diagnostics"
 )]
-#[test]
 fn did_close_removes_document() {
     let mut state = specforge_lsp::LspState::new();
     state.open_document("file:///a.spec", "behavior a \"A\" {}\n");
@@ -36,7 +34,6 @@ fn did_close_removes_document() {
     behavior = "document_open_close",
     verify = "only open documents participate in incremental compilation"
 )]
-#[test]
 fn only_open_documents_tracked() {
     let mut state = specforge_lsp::LspState::new();
     state.open_document("file:///a.spec", "a");
@@ -55,7 +52,6 @@ fn only_open_documents_tracked() {
     behavior = "handle_text_document_change",
     verify = "didChange applies incremental edits to buffer"
 )]
-#[test]
 fn did_change_applies_edits() {
     let mut state = specforge_lsp::LspState::new();
     state.open_document("file:///a.spec", "hello world\n");
@@ -106,7 +102,6 @@ fn load_patterns_for(
     invariant = "zero_domain_knowledge_core",
     verify = "core with zero extensions installed has zero entity kinds in KindRegistry"
 )]
-#[test]
 fn state_starts_with_empty_registries() {
     let state = specforge_lsp::LspState::new();
     assert!(state.kind_registry().is_empty());
@@ -117,7 +112,6 @@ fn state_starts_with_empty_registries() {
     behavior = "validation_patterns",
     verify = "extensions produce E006 rules for required fields"
 )]
-#[test]
 fn extensions_produce_e006_rules() {
     let patterns = load_patterns_for(&[
         "@specforge/software",
@@ -140,7 +134,6 @@ fn extensions_produce_e006_rules() {
     behavior = "validation_patterns",
     verify = "E006 covers all required fields from builtin extensions"
 )]
-#[test]
 fn e006_covers_all_required_fields() {
     let patterns = load_patterns_for(&[
         "@specforge/software",

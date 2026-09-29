@@ -1130,7 +1130,6 @@ mod tests {
         behavior = "apply_format_rules",
         verify = "indentation rules normalize to configured indent style"
     )]
-    #[test]
     fn test_indent_normalizes_to_configured_style() {
         let input = "behavior foo \"Foo\" {\n      contract \"does stuff\"\n}\n";
         let result = fmt(input);
@@ -1146,7 +1145,6 @@ mod tests {
         behavior = "apply_format_rules",
         verify = "spacing rules normalize single spaces between tokens"
     )]
-    #[test]
     fn test_spacing_normalizes_single_spaces() {
         let input = "behavior foo   \"Foo\" {\n  contract   \"does stuff\"\n}\n";
         let result = fmt(input);
@@ -1157,7 +1155,6 @@ mod tests {
         behavior = "apply_format_rules",
         verify = "alignment rules align field values within blocks"
     )]
-    #[test]
     fn test_alignment_aligns_field_values() {
         let input = "behavior foo \"Foo\" {\n  invariants [a, b]\n  types [x]\n  ports [y]\n}\n";
         let result = fmt(input);
@@ -1186,7 +1183,6 @@ mod tests {
         behavior = "apply_format_rules",
         verify = "wrapping rules break long reference lists to multi-line"
     )]
-    #[test]
     fn test_wrapping_breaks_long_lists() {
         let config = FormatConfig {
             indent_width: 2,
@@ -1211,7 +1207,6 @@ mod tests {
         behavior = "apply_format_rules",
         verify = "import sorting produces alphabetical order"
     )]
-    #[test]
     fn test_import_sorting() {
         let input = "use \"types/core\"\nuse \"behaviors/auth\"\nuse \"events/compilation\"\n\nbehavior foo \"Foo\" {\n  contract \"stuff\"\n}\n";
         let result = fmt(input);
@@ -1230,7 +1225,6 @@ mod tests {
         behavior = "apply_format_rules",
         verify = "blank line rules enforce exactly one between blocks"
     )]
-    #[test]
     fn test_blank_line_between_blocks() {
         let input = "behavior foo \"Foo\" {\n  contract \"a\"\n}\nbehavior bar \"Bar\" {\n  contract \"b\"\n}\n";
         let result = fmt(input);
@@ -1242,7 +1236,6 @@ mod tests {
         behavior = "apply_format_rules",
         verify = "comment rules normalize spacing around inline comments"
     )]
-    #[test]
     fn test_comment_spacing_normalized() {
         let input = "//comment without space\nbehavior foo \"Foo\" {\n  contract \"stuff\"\n}\n";
         let result = fmt(input);
@@ -1253,7 +1246,6 @@ mod tests {
         behavior = "apply_format_rules",
         verify = "string rules normalize multiline string literal indentation"
     )]
-    #[test]
     fn test_string_multiline_normalization() {
         let input = "behavior foo \"Foo\" {\n  contract \"\"\"\n      First line\n      Second line\n  \"\"\"\n}\n";
         let result = fmt(input);
@@ -1267,7 +1259,6 @@ mod tests {
         behavior = "maintain_format_idempotency",
         verify = "format(format(x)) == format(x) for random valid inputs"
     )]
-    #[test]
     fn test_idempotency_simple() {
         let input = "use \"types/core\"\n\nbehavior foo \"Foo\" {\n  contract \"does stuff\"\n}\n";
         let first = fmt(input);
@@ -1279,7 +1270,6 @@ mod tests {
         behavior = "maintain_format_idempotency",
         verify = "format(format(x)) == format(x) for random valid inputs"
     )]
-    #[test]
     fn test_idempotency_complex() {
         let input = concat!(
             "use \"types/core\"\n",
@@ -1311,7 +1301,6 @@ mod tests {
         behavior = "format_with_parse_errors",
         verify = "file with syntax error is partially formatted without crash"
     )]
-    #[test]
     fn test_file_with_syntax_error_partially_formatted() {
         let input = "behavior foo \"Foo\" {\n  contract \"good\"\n}\n\nthis is invalid syntax { broken\n\nbehavior bar \"Bar\" {\n  contract \"also good\"\n}\n";
         let result = format_source(input, &FormatConfig::default());
@@ -1326,7 +1315,6 @@ mod tests {
         behavior = "format_with_parse_errors",
         verify = "error regions are preserved verbatim in output"
     )]
-    #[test]
     fn test_error_regions_preserved_verbatim() {
         let input = "behavior foo \"Foo\" {\n  contract \"good\"\n}\n\n{{{broken\n\nbehavior bar \"Bar\" {\n  contract \"also good\"\n}\n";
         let result = format_source(input, &FormatConfig::default());
@@ -1338,7 +1326,6 @@ mod tests {
         behavior = "format_with_parse_errors",
         verify = "well-formed blocks in a file with errors are still formatted"
     )]
-    #[test]
     fn test_well_formed_blocks_with_errors_are_formatted() {
         let input = "behavior foo \"Foo\" {\n      contract \"good\"\n}\n\n broken {{\n\nbehavior bar \"Bar\" {\n    contract \"also good\"\n}\n";
         let result = format_source(input, &FormatConfig::default());
@@ -1353,7 +1340,6 @@ mod tests {
         behavior = "format_with_parse_errors",
         verify = "diagnostic lists files with parse errors and error line ranges"
     )]
-    #[test]
     fn test_parse_error_diagnostics() {
         let input = "behavior foo \"Foo\" {\n  contract \"good\"\n}\n{{{broken\n";
         let result = format_source(input, &FormatConfig::default());
@@ -1371,7 +1357,6 @@ mod tests {
         behavior = "lsp_format_document",
         verify = "formatting request returns TextEdit list"
     )]
-    #[test]
     fn test_compute_edits_no_changes() {
         let edits = compute_edits("hello\nworld\n", "hello\nworld\n");
         assert!(edits.is_empty());
@@ -1381,7 +1366,6 @@ mod tests {
         behavior = "lsp_format_document",
         verify = "formatting request returns TextEdit list"
     )]
-    #[test]
     fn test_compute_edits_single_line_change() {
         let edits = compute_edits("  hello\n", "hello\n");
         assert!(!edits.is_empty());
@@ -1392,7 +1376,6 @@ mod tests {
         behavior = "lsp_format_document",
         verify = "TextEdit coordinates are 0-indexed lines and columns"
     )]
-    #[test]
     fn test_textedit_coordinates_are_zero_indexed() {
         let edits = compute_edits("  line1\n  line2\n", "line1\nline2\n");
         assert!(!edits.is_empty());
@@ -1405,7 +1388,6 @@ mod tests {
         behavior = "maintain_format_idempotency",
         verify = "alignment rules do not oscillate between runs"
     )]
-    #[test]
     fn test_alignment_rules_do_not_oscillate_between_runs() {
         let input = "behavior foo \"Foo\" {\n  invariants [a, b]\n  types [x]\n  ports [y, z]\n  contract \"stuff\"\n}\n";
         let first = fmt(input);
@@ -1419,7 +1401,6 @@ mod tests {
         behavior = "maintain_format_idempotency",
         verify = "wrapping decisions are stable across runs"
     )]
-    #[test]
     fn test_wrapping_decisions_are_stable_across_runs() {
         let config = FormatConfig {
             indent_width: 2,
@@ -1438,7 +1419,6 @@ mod tests {
         behavior = "maintain_format_idempotency",
         verify = "format(format(x)) == format(x) for random valid inputs"
     )]
-    #[test]
     fn test_idempotency_random_valid_inputs() {
         // Property-style test: multiple representative inputs
         let inputs = [
@@ -1467,7 +1447,6 @@ mod tests {
         behavior = "apply_format_rules",
         verify = "two files differing only in whitespace produce identical output after formatting"
     )]
-    #[test]
     fn test_whitespace_only_differences_produce_identical_output() {
         // Two files that differ only in whitespace should produce identical output
         let input_a =
@@ -1490,7 +1469,6 @@ mod tests {
         behavior = "format_with_parse_errors",
         verify = "error region starts at first unparseable token"
     )]
-    #[test]
     fn test_error_region_starts_at_first_unparseable_token() {
         let input = "behavior foo \"Foo\" {\n  contract \"good\"\n}\n{{{broken stuff here\n";
         let result = format_source(input, &FormatConfig::default());
@@ -1508,7 +1486,6 @@ mod tests {
         behavior = "format_with_parse_errors",
         verify = "error region ends before next parseable top-level statement"
     )]
-    #[test]
     fn test_error_region_ends_before_next_parseable_statement() {
         let input = "behavior foo \"Foo\" {\n  contract \"good\"\n}\n\n{{{ broken\n\nbehavior bar \"Bar\" {\n  contract \"also good\"\n}\n";
         let result = format_source(input, &FormatConfig::default());
@@ -1524,7 +1501,6 @@ mod tests {
         behavior = "format_with_parse_errors",
         verify = "whitespace within error regions is preserved byte-for-byte"
     )]
-    #[test]
     fn test_whitespace_within_error_regions_preserved_byte_for_byte() {
         let input = "behavior foo \"Foo\" {\n  contract \"good\"\n}\n\n  {{{  broken   stuff  \n\nbehavior bar \"Bar\" {\n  contract \"also good\"\n}\n";
         let result = format_source(input, &FormatConfig::default());
@@ -1543,7 +1519,6 @@ mod tests {
         behavior = "format_spec_files",
         verify = "files matching the canonical format are not rewritten"
     )]
-    #[test]
     fn test_formatting_already_formatted_file_produces_identical_output() {
         // First format to get the canonical form, then verify idempotency
         let input = "use \"behaviors/auth\"\nuse \"types/core\"\n\nbehavior foo \"Foo\" {\n  invariants [a, b]\n  types [x]\n  contract \"does stuff\"\n\n  verify unit \"test one\"\n}\n";
@@ -1561,7 +1536,6 @@ mod tests {
         behavior = "apply_format_rules",
         verify = "two files differing only in whitespace produce identical output after formatting"
     )]
-    #[test]
     fn test_tab_and_space_indented_inputs_produce_same_output() {
         let space_input = "behavior foo \"Foo\" {\n    contract \"test\"\n    types [x]\n}\n";
         let tab_input = "behavior foo \"Foo\" {\n\tcontract \"test\"\n\ttypes [x]\n}\n";
@@ -1581,7 +1555,6 @@ mod tests {
         behavior = "apply_format_rules",
         verify = "Apply Format Rules: format rule application holds — cst_available, format_config_loaded, contribution_registry_available, deterministic_output, no_domain_logic, extension_rules_applied"
     )]
-    #[test]
     fn test_formatting_does_not_alter_entity_ids_field_values_or_reference_lists() {
         let input = "behavior my_behavior \"My Behavior\" {\n      invariants    [inv_a, inv_b, inv_c]\n      types    [type_x, type_y]\n      ports    [port_z]\n      contract    \"does something important\"\n\n      verify unit \"test alpha\"\n      verify integration \"test beta\"\n}\n";
         let result = fmt(input);
@@ -1625,7 +1598,6 @@ mod tests {
         behavior = "apply_format_rules",
         verify = "indentation rules normalize to configured indent style"
     )]
-    #[test]
     fn test_indent_rule_takes_precedence_over_spacing_rule() {
         // Indent rule (priority 1) should set the leading whitespace,
         // spacing rule (priority 3) should not override it
@@ -1644,7 +1616,6 @@ mod tests {
         behavior = "apply_format_rules",
         verify = "Apply Format Rules: format rule application holds — cst_available, format_config_loaded, contribution_registry_available, deterministic_output, no_domain_logic, extension_rules_applied"
     )]
-    #[test]
     fn test_determinism_same_input_same_config_same_output() {
         let input = "behavior foo \"Foo\" {\n      contract   \"test\"\n    types [a, b]\n}\n";
         let config = FormatConfig::default();
@@ -1661,7 +1632,6 @@ mod tests {
         behavior = "preserve_comments",
         verify = "no comments are lost after formatting"
     )]
-    #[test]
     fn test_every_comment_in_input_appears_in_formatted_output() {
         let input = concat!(
             "// file header comment\n",
@@ -1706,7 +1676,6 @@ mod tests {
         behavior = "preserve_comments",
         verify = "trailing comment attaches to preceding node on same line"
     )]
-    #[test]
     fn test_trailing_comments_remain_attached_to_preceding_node() {
         let input = "behavior foo \"Foo\" { // trailing\n  contract \"stuff\"\n}\n";
         let result = fmt(input);
@@ -1722,7 +1691,6 @@ mod tests {
         behavior = "preserve_comments",
         verify = "leading comment attaches to following node"
     )]
-    #[test]
     fn test_leading_comments_remain_attached_to_following_node() {
         let input = "// describes foo\nbehavior foo \"Foo\" {\n  contract \"stuff\"\n}\n";
         let result = fmt(input);
@@ -1746,7 +1714,6 @@ mod tests {
         behavior = "load_format_config",
         verify = "missing config file uses defaults"
     )]
-    #[test]
     fn test_default_format_config_passes_validation() {
         let config = FormatConfig::default();
         assert_eq!(config.indent_width, 2);
@@ -1766,7 +1733,6 @@ mod tests {
         behavior = "load_format_config",
         verify = "invalid indent_width produces diagnostic and uses default"
     )]
-    #[test]
     fn test_fallback_from_invalid_config_produces_usable_format_config() {
         use tempfile::TempDir;
         let tmp = TempDir::new().unwrap();
@@ -1796,7 +1762,6 @@ mod tests {
         behavior = "lsp_format_range",
         verify = "range formatting matches full formatting for affected blocks"
     )]
-    #[test]
     fn test_format_range_matches_full_formatting_for_affected_blocks() {
         let source = "behavior foo \"Foo\" {\n  contract \"a\"\n}\n\nbehavior bar \"Bar\" {\n      contract \"b\"\n}\n";
         let full = fmt(source);
@@ -1827,7 +1792,6 @@ mod tests {
         behavior = "lsp_format_document",
         verify = "formats document within 50ms for files under 1000 lines"
     )]
-    #[test]
     fn test_formats_document_within_50ms() {
         // Generate a reasonably large file (under 1000 lines)
         let mut source = String::from("use \"types/core\"\nuse \"behaviors/auth\"\n\n");
@@ -1852,7 +1816,6 @@ mod tests {
         behavior = "lsp_format_range",
         verify = "formats range within 20ms for ranges under 200 lines"
     )]
-    #[test]
     fn test_formats_range_within_20ms() {
         let mut source = String::from("use \"types/core\"\n\n");
         for i in 0..20 {
@@ -1878,7 +1841,6 @@ mod tests {
         behavior = "apply_format_rules",
         verify = "Apply Format Rules: format rule application holds — cst_available, format_config_loaded, contribution_registry_available, deterministic_output, no_domain_logic, extension_rules_applied"
     )]
-    #[test]
     fn test_apply_format_rules_contract() {
         // requires: cst_available — source must parse into a CST
         // requires: format_config_loaded — config is resolved
@@ -1914,7 +1876,6 @@ mod tests {
         behavior = "maintain_format_idempotency",
         verify = "Maintain Format Idempotency: format idempotency holds — format_rules_available, idempotency_holds, no_oscillation"
     )]
-    #[test]
     fn test_maintain_format_idempotency_contract() {
         let config = FormatConfig::default();
 
@@ -1950,7 +1911,6 @@ mod tests {
         behavior = "apply_format_rules",
         verify = "two files differing only in whitespace produce identical output after formatting"
     )]
-    #[test]
     fn test_format_parses_to_identical_entity_graph() {
         let inputs = [
             "behavior login \"Login\" {\n  invariants [auth_required, session_valid]\n  types [Credentials, Session]\n  ports [AuthService]\n  contract \"authenticates the user\"\n\n  verify unit \"valid credentials succeed\"\n  verify integration \"session is created\"\n}\n",
@@ -2053,7 +2013,6 @@ mod tests {
         behavior = "format_with_parse_errors",
         verify = "Format Files with Parse Errors: formatting with parse errors holds — cst_with_errors, no_crash, well_formed_regions_formatted, error_regions_preserved, parse_error_diagnosed"
     )]
-    #[test]
     fn test_format_with_parse_errors_contract() {
         let config = FormatConfig::default();
 
@@ -2107,7 +2066,6 @@ mod tests {
         behavior = "format_spec_files",
         verify = "summary count reflects actual changes"
     )]
-    #[test]
     fn test_summary_count_reflects_actual_changes() {
         let config = FormatConfig::default();
         // Already-formatted input should produce no changes
@@ -2148,7 +2106,6 @@ mod tests {
         behavior = "lsp_format_document",
         verify = "TextEdit operations in a response do not overlap"
     )]
-    #[test]
     fn test_textedit_operations_do_not_overlap() {
         let original = "behavior foo \"Foo\" {\n      contract   \"a\"\n      types   [x, y]\n}\n\nbehavior bar \"Bar\" {\n      contract   \"b\"\n}\n";
         let formatted = format_source(original, &FormatConfig::default()).formatted;
@@ -2186,7 +2143,6 @@ mod tests {
         behavior = "lsp_format_range",
         verify = "range is expanded to block boundaries"
     )]
-    #[test]
     fn test_range_is_expanded_to_block_boundaries() {
         // Source with two blocks: request formatting in the MIDDLE of the second block
         let source = "behavior foo \"Foo\" {\n  contract \"a\"\n}\n\nbehavior bar \"Bar\" {\n      contract   \"b\"\n      types   [x]\n}\n";
@@ -2217,7 +2173,6 @@ mod tests {
         behavior = "lsp_respect_editor_config",
         verify = "editor tab size used when no config file exists"
     )]
-    #[test]
     fn test_editor_tab_size_used_when_no_config_file() {
         // When no .specforgefmt.toml exists, the FormatConfig should use defaults
         // which correspond to what the editor would provide
@@ -2260,7 +2215,6 @@ mod tests {
         behavior = "lsp_respect_editor_config",
         verify = "editor tab size used when no config file exists"
     )]
-    #[test]
     fn test_editor_insert_spaces_false_produces_tabs() {
         let config = FormatConfig {
             indent_width: 2,
@@ -2280,7 +2234,6 @@ mod tests {
         behavior = "lsp_respect_editor_config",
         verify = "config file takes precedence over editor settings"
     )]
-    #[test]
     fn test_config_file_overrides_editor_settings() {
         use tempfile::TempDir;
         let tmp = TempDir::new().unwrap();
@@ -2311,7 +2264,6 @@ mod tests {
         behavior = "lsp_respect_editor_config",
         verify = "LSP Respect Editor Config: editor config respect holds — lsp_initialized_fired, config_precedence_enforced, editor_fallback_applied"
     )]
-    #[test]
     fn test_editor_config_contract() {
         use tempfile::TempDir;
 
@@ -2366,7 +2318,6 @@ mod tests {
         behavior = "format_spec_files",
         verify = "changed files are printed to stdout"
     )]
-    #[test]
     fn test_changed_files_printed_to_stdout() {
         let config = FormatConfig::default();
         let dirty = "behavior foo \"Foo\" {\n      contract   \"test\"\n}\n";
@@ -2389,7 +2340,6 @@ mod tests {
         behavior = "format_spec_files",
         verify = "formatting all files in spec/ directory succeeds"
     )]
-    #[test]
     fn test_formatting_multiple_files_succeeds() {
         let config = FormatConfig::default();
         let files = [
@@ -2416,7 +2366,6 @@ mod tests {
         behavior = "format_spec_files",
         verify = "Format Spec Files: spec file formatting holds — spec_files_available, format_config_loaded, formatted_output_written, unchanged_files_preserved, format_complete_emitted, summary_printed"
     )]
-    #[test]
     fn test_format_spec_files_contract() {
         let config = FormatConfig::default();
         // Requires: spec file available, config loaded
@@ -2446,7 +2395,6 @@ mod tests {
         behavior = "show_formatting_diff",
         verify = "diff mode writes no files to disk"
     )]
-    #[test]
     fn test_diff_mode_writes_no_files() {
         use tempfile::TempDir;
         let tmp = TempDir::new().unwrap();
@@ -2470,7 +2418,6 @@ mod tests {
         behavior = "show_formatting_diff",
         verify = "Show Formatting Diff: formatting diff holds — spec_files_available, format_config_loaded, no_files_written, unified_diff_produced"
     )]
-    #[test]
     fn test_show_formatting_diff_contract() {
         let config = FormatConfig::default();
         let dirty = "behavior foo \"Foo\" {\n      contract   \"test\"\n}\n";
@@ -2509,7 +2456,6 @@ mod tests {
         behavior = "lsp_format_document",
         verify = "LSP format produces same result as CLI format"
     )]
-    #[test]
     fn test_lsp_format_matches_cli_format() {
         let config = FormatConfig::default();
         let source = "behavior foo \"Foo\" {\n      contract   \"test\"\n      types   [x]\n}\n";
@@ -2533,7 +2479,6 @@ mod tests {
         behavior = "lsp_format_document",
         verify = "parse errors in document trigger format_with_parse_errors delegation"
     )]
-    #[test]
     fn test_parse_errors_trigger_partial_formatting() {
         let config = FormatConfig::default();
         let source_with_error = "behavior foo \"Foo\" {\n  contract \"ok\"\n}\n\n{{{ invalid syntax\n\nbehavior bar \"Bar\" {\n      contract   \"fix\"\n}\n";
@@ -2556,7 +2501,6 @@ mod tests {
         behavior = "lsp_format_document",
         verify = "LSP Format Document: LSP document formatting holds — document_open, format_config_loaded, textedit_list_returned, cli_parity_enforced, format_complete_emitted"
     )]
-    #[test]
     fn test_lsp_format_document_contract() {
         let config = FormatConfig::default();
         let source = "behavior foo \"Foo\" {\n      contract   \"test\"\n}\n";
@@ -2600,7 +2544,6 @@ mod tests {
         behavior = "lsp_format_range",
         verify = "parse errors within range are left unchanged per format_with_parse_errors"
     )]
-    #[test]
     fn test_range_parse_errors_left_unchanged() {
         let config = FormatConfig::default();
         let source = "behavior foo \"Foo\" {\n  contract \"ok\"\n}\n\n{{{ broken\n\nbehavior bar \"Bar\" {\n      contract   \"fix\"\n}\n";
@@ -2618,7 +2561,6 @@ mod tests {
         behavior = "lsp_format_range",
         verify = "LSP Format Range: LSP range formatting holds — document_open, format_config_loaded, range_expanded, textedit_list_returned, full_format_parity, format_complete_emitted"
     )]
-    #[test]
     fn test_lsp_format_range_contract() {
         let config = FormatConfig::default();
         let source = "behavior foo \"Foo\" {\n  contract \"a\"\n}\n\nbehavior bar \"Bar\" {\n      contract   \"b\"\n}\n";
