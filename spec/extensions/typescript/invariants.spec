@@ -8,8 +8,7 @@ invariant ts_entity_mapping_precedence "TypeScript Entity Mapping Precedence" {
     always override the implicit one. Ambiguous mappings MUST produce
     diagnostics.
   """
-  risk high
-
+  risk      high
   verify property "a JSDoc tag always overrides the naming convention"
   verify unit "ambiguous mappings produce diagnostics"
 }
@@ -22,8 +21,7 @@ invariant ts_barrel_resolution_correctness "Barrel Re-export Resolution" {
     re-exports from c/impl.ts) MUST be fully resolved. Circular re-exports
     MUST produce an error diagnostic, not infinite recursion.
   """
-  risk high
-
+  risk      high
   verify unit "barrel re-exports resolve to original source"
   verify unit "chained re-exports are fully resolved"
   verify unit "circular re-exports produce error diagnostic"
@@ -37,8 +35,7 @@ invariant ts_file_role_accuracy "File Role Classification Accuracy" {
     signals conflict (e.g., a file in __tests__/ that is also .generated.ts),
     the most specific signal MUST win.
   """
-  risk medium
-
+  risk      medium
   verify unit "test files are never classified as production"
   verify unit "production files are never classified as test"
   verify unit "conflicting signals resolve by specificity"
@@ -53,8 +50,7 @@ invariant ts_react_component_detection "React Component Detection" {
     distinguished from regular functions by at least one signal: JSX return
     type, React type annotation, or capitalized name returning JSX.
   """
-  risk medium
-
+  risk      medium
   verify unit "function component with JSX return is detected"
   verify unit "arrow function component with FC type is detected"
   verify unit "forwardRef component is detected"
@@ -71,8 +67,7 @@ invariant ts_export_completeness "Export Completeness" {
     and export assignments (module.exports = x). Internally-scoped symbols
     (not exported) MUST NOT appear in scan results.
   """
-  risk high
-
+  risk      high
   verify unit "named exports are extracted"
   verify unit "default exports are extracted"
   verify unit "re-exports are extracted"

@@ -1,15 +1,13 @@
 // @specforge/compliance extension features
 
 feature compliance_validation "Compliance Validation" {
-
-  problem """
+  problem  """
     Regulatory compliance specifications (SOC 2, HIPAA, GDPR, ISO 27001)
     require traceability from regulations through controls to evidence.
     Without automated validation, compliance gaps — orphan controls,
     unimplemented regulations, missing evidence — go undetected until
     audit time.
   """
-
   solution """
     Declarative validation rules in the @specforge/compliance extension
     manifest. The core engine's execute_validation_pattern behavior interprets
@@ -20,13 +18,11 @@ feature compliance_validation "Compliance Validation" {
 }
 
 feature compliance_reporting "Compliance Reporting" {
-
-  problem """
+  problem  """
     Compliance auditors need a visual traceability matrix mapping regulations
     to controls with maturity status and evidence coverage. Producing this
     manually is error-prone and always stale.
   """
-
   solution """
     A renderer contribution in the @specforge/compliance extension produces
     a regulation-to-control traceability matrix via the emit_file host

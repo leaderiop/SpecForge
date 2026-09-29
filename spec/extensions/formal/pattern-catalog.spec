@@ -27,16 +27,14 @@ behavior fa_pattern_e030_contradiction "E030 Pattern: Contradictory Precondition
        "count > 0" and "count == 0"). Detection: same-entity
        reference with opposing comparison operators.
   """
-  ensures  {
-    x_not_x_detected       "requires with X and not_X condition names produces E030"
-    tautological_detected  "requires with explicitly impossible condition produces E030"
-    empty_domain_detected  "requires with mutually exclusive constraints on same entity produces E030"
-    normal_passes          "requires with non-contradictory conditions passes"
-    pattern_documented     "E030 diagnostic message includes which pattern triggered"
+  ensures {
+    x_not_x_detected      "requires with X and not_X condition names produces E030"
+    tautological_detected "requires with explicitly impossible condition produces E030"
+    empty_domain_detected "requires with mutually exclusive constraints on same entity produces E030"
+    normal_passes         "requires with non-contradictory conditions passes"
+    pattern_documented    "E030 diagnostic message includes which pattern triggered"
   }
-
   features [fa_structured_conditions]
-
   verify unit "X/not_X condition pair produces E030"
   verify unit "tautological false condition produces E030"
   verify unit "empty domain intersection produces E030"
@@ -63,16 +61,14 @@ behavior fa_pattern_e031_set_inclusion "E031 Pattern: Condition Set Inclusion" {
     Detection algorithm: set difference (abstract.ensures.names -
     concrete.ensures.names). Non-empty difference triggers E031.
   """
-  ensures  {
-    superset_passes        "concrete ensures that is superset of abstract ensures passes"
-    subset_error           "concrete ensures missing abstract condition names produces E031"
-    exact_match_passes     "concrete ensures with exactly same names as abstract passes"
-    additional_ok          "concrete ensures with extra conditions beyond abstract passes"
-    missing_documented     "E031 message lists the missing condition names"
+  ensures {
+    superset_passes    "concrete ensures that is superset of abstract ensures passes"
+    subset_error       "concrete ensures missing abstract condition names produces E031"
+    exact_match_passes "concrete ensures with exactly same names as abstract passes"
+    additional_ok      "concrete ensures with extra conditions beyond abstract passes"
+    missing_documented "E031 message lists the missing condition names"
   }
-
   features [fa_specification_layering]
-
   verify unit "concrete ensures superset of abstract ensures passes"
   verify unit "concrete ensures missing condition names produces E031"
   verify unit "concrete ensures with additional conditions passes"
@@ -98,17 +94,15 @@ behavior fa_pattern_e034_unmitigated_cycle "E034 Pattern: Unmitigated Cycle" {
     This eliminates false positives on normal feedback loops that have
     appropriate timeout/idempotency safeguards.
   """
-  ensures  {
-    unmitigated_error      "SCC with no mitigations produces E034"
-    timeout_mitigated      "SCC with sync.timeout on any event passes"
-    idempotent_mitigated   "SCC with @idempotent on any behavior passes"
-    breaker_mitigated      "SCC with circuit_breaker pattern passes"
-    path_documented        "E034 includes full cycle path (node1 -> node2 -> ... -> node1)"
-    mitigations_listed     "E034 lists which mitigations would resolve the cycle"
+  ensures {
+    unmitigated_error    "SCC with no mitigations produces E034"
+    timeout_mitigated    "SCC with sync.timeout on any event passes"
+    idempotent_mitigated "SCC with @idempotent on any behavior passes"
+    breaker_mitigated    "SCC with circuit_breaker pattern passes"
+    path_documented      "E034 includes full cycle path (node1 -> node2 -> ... -> node1)"
+    mitigations_listed   "E034 lists which mitigations would resolve the cycle"
   }
-
   features [fa_event_graph_linting]
-
   verify unit "SCC with no mitigations produces E034"
   verify unit "SCC with sync.timeout passes"
   verify unit "SCC with @idempotent passes"

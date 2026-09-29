@@ -49,18 +49,16 @@ behavior validate_feature_status_transition "Validate Feature Status Transition"
     entity statuses from the previous build. When no cache exists,
     W087 is suppressed entirely — only enum validity (W077) is checked.
   """
-  ensures  {
-    fires_on_invalid   "feature transitioning to an unreachable status produces W087"
-    allows_valid       "feature following a valid transition suppresses W087"
-    done_to_deprecated "feature with status=done transitioning to deprecated is valid"
+  ensures {
+    fires_on_invalid    "feature transitioning to an unreachable status produces W087"
+    allows_valid        "feature following a valid transition suppresses W087"
+    done_to_deprecated  "feature with status=done transitioning to deprecated is valid"
     terminal_deprecated "feature with status=deprecated transitioning to any other status produces W087"
-    cache_required     "W087 requires build cache; suppressed when no cache file exists"
-    absent_exempt      "feature not present in cache (new entity) suppresses W087"
-    includes_targets   "W087 message includes valid target statuses for the current state"
+    cache_required      "W087 requires build cache; suppressed when no cache file exists"
+    absent_exempt       "feature not present in cache (new entity) suppresses W087"
+    includes_targets    "W087 message includes valid target statuses for the current state"
   }
-
   features [product_validation]
-
   verify unit "proposed->accepted is valid, suppresses W087"
   verify unit "proposed->done is invalid, produces W087"
   verify unit "done->deprecated is valid, suppresses W087"
@@ -82,14 +80,13 @@ behavior validate_milestone_status_transition "Validate Milestone Status Transit
     a W088 warning. Requires build cache for comparison; suppressed
     when no cache file exists.
   """
-  ensures  {
-    fires_on_invalid     "milestone transitioning to unreachable status produces W088"
-    allows_valid         "milestone following valid transition suppresses W088"
-    terminal_completed   "completed milestone transitioning to any other status produces W088"
-    cache_required       "W088 requires build cache; suppressed when no cache file exists"
-    absent_exempt        "milestone not present in cache (new entity) suppresses W088"
+  ensures {
+    fires_on_invalid   "milestone transitioning to unreachable status produces W088"
+    allows_valid       "milestone following valid transition suppresses W088"
+    terminal_completed "completed milestone transitioning to any other status produces W088"
+    cache_required     "W088 requires build cache; suppressed when no cache file exists"
+    absent_exempt      "milestone not present in cache (new entity) suppresses W088"
   }
-
   verify unit "planned->in_progress is valid, suppresses W088"
   verify unit "planned->completed is invalid, produces W088"
   verify unit "completed->planned is invalid (terminal), produces W088"
@@ -107,14 +104,13 @@ behavior validate_deliverable_status_transition "Validate Deliverable Status Tra
     terminal. Invalid transitions MUST produce a W089 warning. Requires
     build cache for comparison; suppressed when no cache file exists.
   """
-  ensures  {
-    fires_on_invalid      "deliverable transitioning to unreachable status produces W089"
-    allows_valid          "deliverable following valid transition suppresses W089"
-    terminal_deprecated   "deprecated deliverable transitioning to any other status produces W089"
-    cache_required        "W089 requires build cache; suppressed when no cache file exists"
-    absent_exempt         "deliverable not present in cache (new entity) suppresses W089"
+  ensures {
+    fires_on_invalid    "deliverable transitioning to unreachable status produces W089"
+    allows_valid        "deliverable following valid transition suppresses W089"
+    terminal_deprecated "deprecated deliverable transitioning to any other status produces W089"
+    cache_required      "W089 requires build cache; suppressed when no cache file exists"
+    absent_exempt       "deliverable not present in cache (new entity) suppresses W089"
   }
-
   verify unit "draft->in_progress is valid, suppresses W089"
   verify unit "draft->shipped is invalid, produces W089"
   verify unit "deprecated->draft is invalid (terminal), produces W089"
@@ -130,13 +126,12 @@ behavior validate_persona_status_transition "Validate Persona Status Transition"
     Invalid transitions MUST produce a W090 warning. Requires build
     cache for comparison; suppressed when no cache file exists.
   """
-  ensures  {
-    fires_on_invalid      "persona transitioning to unreachable status produces W090"
-    allows_valid          "persona active->deprecated suppresses W090"
-    terminal_deprecated   "deprecated persona reverting to active produces W090"
-    cache_required        "W090 requires build cache; suppressed when no cache file exists"
+  ensures {
+    fires_on_invalid    "persona transitioning to unreachable status produces W090"
+    allows_valid        "persona active->deprecated suppresses W090"
+    terminal_deprecated "deprecated persona reverting to active produces W090"
+    cache_required      "W090 requires build cache; suppressed when no cache file exists"
   }
-
   verify unit "active->deprecated is valid, suppresses W090"
   verify unit "deprecated->active is invalid (terminal), produces W090"
 }
@@ -151,13 +146,12 @@ behavior validate_channel_status_transition "Validate Channel Status Transition"
     Invalid transitions MUST produce a W091 warning. Requires build
     cache for comparison; suppressed when no cache file exists.
   """
-  ensures  {
-    fires_on_invalid      "channel transitioning to unreachable status produces W091"
-    allows_valid          "channel active->deprecated suppresses W091"
-    terminal_deprecated   "deprecated channel reverting to active produces W091"
-    cache_required        "W091 requires build cache; suppressed when no cache file exists"
+  ensures {
+    fires_on_invalid    "channel transitioning to unreachable status produces W091"
+    allows_valid        "channel active->deprecated suppresses W091"
+    terminal_deprecated "deprecated channel reverting to active produces W091"
+    cache_required      "W091 requires build cache; suppressed when no cache file exists"
   }
-
   verify unit "active->deprecated is valid, suppresses W091"
   verify unit "deprecated->active is invalid (terminal), produces W091"
 }
@@ -174,7 +168,15 @@ behavior validate_channel_status_transition "Validate Channel Status Transition"
 
 behavior detect_terminal_initial_status "Detect Terminal Status on First Build" {
   category validation
-  types    [Diagnostic, FeatureStatus, MilestoneStatus, DeliverableStatus, PersonaStatus, ChannelStatus, ReleaseStatus]
+  types    [
+    Diagnostic,
+    FeatureStatus,
+    MilestoneStatus,
+    DeliverableStatus,
+    PersonaStatus,
+    ChannelStatus,
+    ReleaseStatus,
+  ]
   contract """
     The @specforge/product extension SHOULD detect entities whose initial
     status is a terminal state (feature=done, milestone=completed,
@@ -198,15 +200,13 @@ behavior detect_terminal_initial_status "Detect Terminal Status on First Build" 
     not present in any prior build. If a prior build exists and the entity
     was in the prior build, W087-W091 handle transition validation instead.
   """
-  ensures  {
-    fires_terminal_first_build    "entity starting in terminal state on first build produces I092"
-    suppresses_non_terminal       "entity starting in non-terminal state suppresses I092"
-    suppresses_with_prior_build   "entity present in prior build suppresses I092 (W087-W091 apply)"
-    per_kind_terminal             "terminal state is kind-specific: done for feature, completed for milestone, etc."
+  ensures {
+    fires_terminal_first_build  "entity starting in terminal state on first build produces I092"
+    suppresses_non_terminal     "entity starting in non-terminal state suppresses I092"
+    suppresses_with_prior_build "entity present in prior build suppresses I092 (W087-W091 apply)"
+    per_kind_terminal           "terminal state is kind-specific: done for feature, completed for milestone, etc."
   }
-
   features [pe_validation_suite]
-
   verify unit "feature with status=done on first build produces I092"
   verify unit "feature with status=proposed on first build suppresses I092"
   verify unit "milestone with status=completed on first build produces I092"
@@ -228,15 +228,13 @@ behavior detect_inconsistent_initial_done "Detect Done Feature Without Acceptanc
     Fires only on first build (no prior build state) or for new entities.
     Subsequent builds rely on transition validation (W087) instead.
   """
-  ensures  {
-    fires_done_empty_acceptance   "feature with status=done and empty acceptance on first build produces I093"
-    suppresses_non_done           "feature with status!=done suppresses I093 regardless of acceptance"
-    suppresses_with_acceptance    "feature with status=done and non-empty acceptance suppresses I093"
-    suppresses_with_prior_build   "feature in prior build suppresses I093"
+  ensures {
+    fires_done_empty_acceptance "feature with status=done and empty acceptance on first build produces I093"
+    suppresses_non_done         "feature with status!=done suppresses I093 regardless of acceptance"
+    suppresses_with_acceptance  "feature with status=done and non-empty acceptance suppresses I093"
+    suppresses_with_prior_build "feature in prior build suppresses I093"
   }
-
   features [pe_validation_suite]
-
   verify unit "done feature without acceptance on first build produces I093"
   verify unit "done feature with acceptance on first build suppresses I093"
   verify unit "proposed feature without acceptance suppresses I093 (I048 handles this)"
@@ -256,14 +254,12 @@ behavior detect_blocked_milestone_without_dependency "Detect Blocked Milestone W
     with no dependencies has nothing to wait for — the status may be
     stale. Produces an I057 info diagnostic.
   """
-  ensures  {
-    fires_blocked_empty     "blocked milestone with empty depends_on produces I057"
-    suppresses_with_deps    "blocked milestone with at least one depends_on suppresses I057"
-    suppresses_non_blocked  "non-blocked milestone without depends_on suppresses I057"
+  ensures {
+    fires_blocked_empty    "blocked milestone with empty depends_on produces I057"
+    suppresses_with_deps   "blocked milestone with at least one depends_on suppresses I057"
+    suppresses_non_blocked "non-blocked milestone without depends_on suppresses I057"
   }
-
   features [pe_validation_suite]
-
   verify unit "blocked milestone with depends_on suppresses I057"
   verify unit "blocked milestone without depends_on produces I057"
   verify unit "in_progress milestone without depends_on suppresses I057"
@@ -278,14 +274,12 @@ behavior detect_deferred_feature_without_reason "Detect Deferred Feature Without
     without a reason has no documented justification for deferral.
     Produces an I059 info diagnostic.
   """
-  ensures  {
-    fires_deferred_empty     "deferred feature with empty reason produces I059"
-    suppresses_with_reason   "deferred feature with non-empty reason suppresses I059"
-    suppresses_non_deferred  "non-deferred feature without reason suppresses I059"
+  ensures {
+    fires_deferred_empty    "deferred feature with empty reason produces I059"
+    suppresses_with_reason  "deferred feature with non-empty reason suppresses I059"
+    suppresses_non_deferred "non-deferred feature without reason suppresses I059"
   }
-
   features [pe_validation_suite]
-
   verify unit "deferred feature with reason suppresses I059"
   verify unit "deferred feature without reason produces I059"
   verify unit "accepted feature without reason suppresses I059"
@@ -300,14 +294,12 @@ behavior detect_blocked_milestone_without_reason "Detect Blocked Milestone Witho
     without a reason has no documented explanation for the block.
     Produces an I060 info diagnostic.
   """
-  ensures  {
-    fires_blocked_empty     "blocked milestone with empty reason produces I060"
-    suppresses_with_reason  "blocked milestone with non-empty reason suppresses I060"
-    suppresses_non_blocked  "non-blocked milestone without reason suppresses I060"
+  ensures {
+    fires_blocked_empty    "blocked milestone with empty reason produces I060"
+    suppresses_with_reason "blocked milestone with non-empty reason suppresses I060"
+    suppresses_non_blocked "non-blocked milestone without reason suppresses I060"
   }
-
   features [pe_validation_suite]
-
   verify unit "blocked milestone with reason suppresses I060"
   verify unit "blocked milestone without reason produces I060"
   verify unit "planned milestone without reason suppresses I060"
@@ -323,16 +315,14 @@ behavior detect_done_feature_with_incomplete_deps "Detect Done Feature With Inco
     indicates a status inconsistency. Produces an I063 info diagnostic
     per incomplete dependency.
   """
-  ensures  {
-    fires_per_incomplete     "each non-done dependency of a done feature produces one I063"
-    identifies_both          "I063 identifies both the done feature and its non-done dependency"
-    suppresses_all_done      "done feature with all dependencies also done suppresses I063"
-    suppresses_non_done      "non-done feature with incomplete dependencies suppresses I063"
-    no_deps_no_fire          "done feature with no dependencies produces no I063"
+  ensures {
+    fires_per_incomplete "each non-done dependency of a done feature produces one I063"
+    identifies_both      "I063 identifies both the done feature and its non-done dependency"
+    suppresses_all_done  "done feature with all dependencies also done suppresses I063"
+    suppresses_non_done  "non-done feature with incomplete dependencies suppresses I063"
+    no_deps_no_fire      "done feature with no dependencies produces no I063"
   }
-
   features [pe_validation_suite]
-
   verify unit "done feature with all done deps suppresses I063"
   verify unit "done feature with non-done dep produces I063"
   verify unit "in_progress feature with non-done dep suppresses I063"
@@ -350,15 +340,13 @@ behavior detect_milestone_temporal_inconsistency "Detect Milestone Temporal Inco
     before its prerequisites. Produces an I064 info diagnostic per
     inconsistent dependency pair.
   """
-  ensures  {
-    fires_per_inconsistency  "milestone with earlier target_date than its dependency produces I064"
-    identifies_pair          "I064 identifies both the milestone and the dependency with their dates"
-    suppresses_consistent    "milestone with later target_date than dependency suppresses I064"
-    absent_dates_no_fire     "milestone or dependency without target_date produces no I064"
+  ensures {
+    fires_per_inconsistency "milestone with earlier target_date than its dependency produces I064"
+    identifies_pair         "I064 identifies both the milestone and the dependency with their dates"
+    suppresses_consistent   "milestone with later target_date than dependency suppresses I064"
+    absent_dates_no_fire    "milestone or dependency without target_date produces no I064"
   }
-
   features [pe_validation_suite]
-
   verify unit "milestone before its dependency produces I064"
   verify unit "milestone after its dependency suppresses I064"
   verify unit "milestone or dependency without target_date produces no I064"
@@ -375,16 +363,14 @@ behavior detect_shipped_deliverable_incomplete_milestones "Detect Shipped Delive
     milestones indicates a status inconsistency. Produces an I065 info
     diagnostic per incomplete milestone.
   """
-  ensures    {
+  ensures {
     fires_per_incomplete     "each non-completed milestone in a shipped deliverable produces one I065"
     identifies_both          "I065 identifies both the shipped deliverable and its non-completed milestone"
     suppresses_all_completed "shipped deliverable with all milestones completed suppresses I065"
     suppresses_non_shipped   "non-shipped deliverable with incomplete milestones suppresses I065"
     no_milestones_no_fire    "shipped deliverable with no milestones produces no I065"
   }
-
-  features [pe_validation_suite]
-
+  features   [pe_validation_suite]
   verify unit "shipped deliverable with all completed milestones suppresses I065"
   verify unit "shipped deliverable with non-completed milestone produces I065"
   verify unit "draft deliverable with non-completed milestone suppresses I065"
@@ -401,13 +387,11 @@ behavior detect_journeys_without_persona "Detect Journeys without Persona" {
     I054 info diagnostic. Info-level respects incremental adoption —
     journeys may be authored before personas are defined.
   """
-  ensures  {
-    fires_when_absent    "journey without persona reference produces I054"
-    suppresses_present   "journey with persona reference suppresses I054"
+  ensures {
+    fires_when_absent  "journey without persona reference produces I054"
+    suppresses_present "journey with persona reference suppresses I054"
   }
-
   features [pe_validation_suite]
-
   verify unit "journey with persona suppresses I054"
   verify unit "journey without persona produces I054"
 }
@@ -423,13 +407,11 @@ behavior detect_journeys_without_channels "Detect Journeys without Channels" {
     incremental adoption — journeys may be authored before channels
     are defined.
   """
-  ensures  {
-    fires_when_absent    "journey without channel references produces I055"
-    suppresses_present   "journey with at least one channel reference suppresses I055"
+  ensures {
+    fires_when_absent  "journey without channel references produces I055"
+    suppresses_present "journey with at least one channel reference suppresses I055"
   }
-
   features [pe_validation_suite]
-
   verify unit "journey with channels suppresses I055"
   verify unit "journey without channels produces I055"
 }
@@ -447,14 +429,12 @@ behavior detect_deprecated_deliverable_without_reason "Detect Deprecated Deliver
     deliverable without a reason has no documented justification.
     Produces an I066 info diagnostic.
   """
-  ensures  {
-    fires_deprecated_empty     "deprecated deliverable with empty reason produces I066"
-    suppresses_with_reason     "deprecated deliverable with non-empty reason suppresses I066"
-    suppresses_non_deprecated  "non-deprecated deliverable without reason suppresses I066"
+  ensures {
+    fires_deprecated_empty    "deprecated deliverable with empty reason produces I066"
+    suppresses_with_reason    "deprecated deliverable with non-empty reason suppresses I066"
+    suppresses_non_deprecated "non-deprecated deliverable without reason suppresses I066"
   }
-
   features [pe_validation_suite]
-
   verify unit "deprecated deliverable with reason suppresses I066"
   verify unit "deprecated deliverable without reason produces I066"
   verify unit "draft deliverable without reason suppresses I066"
@@ -469,15 +449,13 @@ behavior detect_deprecated_persona_without_reason "Detect Deprecated Persona Wit
     persona without a reason has no documented justification for
     deprecation. Produces an I069 info diagnostic.
   """
-  ensures  {
-    fires_deprecated_empty     "deprecated persona with empty reason produces I069"
-    suppresses_with_reason     "deprecated persona with non-empty reason suppresses I069"
-    suppresses_non_deprecated  "non-deprecated persona without reason suppresses I069"
-    absent_treated_active      "persona without status field produces no I069"
+  ensures {
+    fires_deprecated_empty    "deprecated persona with empty reason produces I069"
+    suppresses_with_reason    "deprecated persona with non-empty reason suppresses I069"
+    suppresses_non_deprecated "non-deprecated persona without reason suppresses I069"
+    absent_treated_active     "persona without status field produces no I069"
   }
-
   features [pe_validation_suite]
-
   verify unit "deprecated persona with reason suppresses I069"
   verify unit "deprecated persona without reason produces I069"
   verify unit "active persona without reason suppresses I069"
@@ -493,15 +471,13 @@ behavior detect_deprecated_channel_without_reason "Detect Deprecated Channel Wit
     channel without a reason has no documented justification for
     deprecation. Produces an I070 info diagnostic.
   """
-  ensures  {
-    fires_deprecated_empty     "deprecated channel with empty reason produces I070"
-    suppresses_with_reason     "deprecated channel with non-empty reason suppresses I070"
-    suppresses_non_deprecated  "non-deprecated channel without reason suppresses I070"
-    absent_treated_active      "channel without status field produces no I070"
+  ensures {
+    fires_deprecated_empty    "deprecated channel with empty reason produces I070"
+    suppresses_with_reason    "deprecated channel with non-empty reason suppresses I070"
+    suppresses_non_deprecated "non-deprecated channel without reason suppresses I070"
+    absent_treated_active     "channel without status field produces no I070"
   }
-
   features [pe_validation_suite]
-
   verify unit "deprecated channel with reason suppresses I070"
   verify unit "deprecated channel without reason produces I070"
   verify unit "active channel without reason suppresses I070"
@@ -519,15 +495,13 @@ behavior detect_transitive_deprecated_persona "Detect Transitive Deprecated Pers
     managers identify deliverables that ship user flows targeting
     deprecated user roles.
   """
-  ensures  {
-    fires_transitive          "deliverable->journey->deprecated persona produces I073 on the deliverable"
-    identifies_journey        "I073 names the intermediate journey and the deprecated persona"
-    suppresses_active         "deliverable->journey->active persona suppresses I073"
-    per_journey_diagnostic    "I073 fires per affected journey within the deliverable"
+  ensures {
+    fires_transitive       "deliverable->journey->deprecated persona produces I073 on the deliverable"
+    identifies_journey     "I073 names the intermediate journey and the deprecated persona"
+    suppresses_active      "deliverable->journey->active persona suppresses I073"
+    per_journey_diagnostic "I073 fires per affected journey within the deliverable"
   }
-
   features [pe_validation_suite]
-
   verify unit "deliverable with journey referencing deprecated persona produces I073"
   verify unit "deliverable with journey referencing active persona suppresses I073"
   verify unit "deliverable with multiple journeys fires I073 per affected journey"
@@ -544,15 +518,13 @@ behavior detect_transitive_deprecated_channel "Detect Transitive Deprecated Chan
     managers identify deliverables that ship user flows through
     deprecated interaction mediums.
   """
-  ensures  {
-    fires_transitive          "deliverable->journey->deprecated channel produces I074 on the deliverable"
-    identifies_journey        "I074 names the intermediate journey and the deprecated channel"
-    suppresses_active         "deliverable->journey->active channel suppresses I074"
-    per_journey_diagnostic    "I074 fires per affected journey within the deliverable"
+  ensures {
+    fires_transitive       "deliverable->journey->deprecated channel produces I074 on the deliverable"
+    identifies_journey     "I074 names the intermediate journey and the deprecated channel"
+    suppresses_active      "deliverable->journey->active channel suppresses I074"
+    per_journey_diagnostic "I074 fires per affected journey within the deliverable"
   }
-
   features [pe_validation_suite]
-
   verify unit "deliverable with journey referencing deprecated channel produces I074"
   verify unit "deliverable with journey referencing active channel suppresses I074"
   verify unit "deliverable with multiple journeys fires I074 per affected journey"
@@ -574,12 +546,11 @@ behavior detect_deliverable_chain_gap "Detect Deliverable End-to-End Chain Gap" 
     deeper check than I049 (journey-module gap) — it validates the
     milestone path as well.
   """
-  ensures  {
-    fires_when_gap    "deliverable with milestone feature not in any deliverable module produces I076"
-    suppresses_match  "deliverable where all milestone features are in modules suppresses I076"
-    per_feature       "I076 fires once per uncovered feature, not once per milestone"
+  ensures {
+    fires_when_gap   "deliverable with milestone feature not in any deliverable module produces I076"
+    suppresses_match "deliverable where all milestone features are in modules suppresses I076"
+    per_feature      "I076 fires once per uncovered feature, not once per milestone"
   }
-
   verify unit "deliverable with matching milestone-module features passes"
   verify unit "deliverable with milestone feature not in any module produces I076"
   verify unit "I076 identifies the specific uncovered feature and milestone"
@@ -595,12 +566,11 @@ behavior detect_feature_multi_milestone "Detect Feature in Multiple Milestones" 
     all milestones that reference it. This is informational — multi-
     milestone scheduling may be intentional for phased delivery.
   """
-  ensures  {
+  ensures {
     fires_multi       "feature referenced by 2+ milestones produces I077"
     suppresses_single "feature referenced by exactly 1 milestone suppresses I077"
     lists_milestones  "I077 message lists all milestone IDs referencing the feature"
   }
-
   verify unit "feature in two milestones produces I077"
   verify unit "feature in one milestone suppresses I077"
   verify unit "feature in zero milestones suppresses I077"
@@ -617,12 +587,11 @@ behavior detect_priority_escalation_gap "Detect Priority Escalation Gap" {
     MUST be produced. Priority ordering: critical > high > medium > low.
     Missing priority on either side suppresses the check.
   """
-  ensures  {
-    fires_escalation   "critical feature in low-priority milestone produces I078"
-    suppresses_match   "high feature in high-priority milestone suppresses I078"
-    absent_exempt      "feature or milestone without priority suppresses I078"
+  ensures {
+    fires_escalation "critical feature in low-priority milestone produces I078"
+    suppresses_match "high feature in high-priority milestone suppresses I078"
+    absent_exempt    "feature or milestone without priority suppresses I078"
   }
-
   verify unit "critical feature in low milestone produces I078"
   verify unit "high feature in medium milestone suppresses I078"
   verify unit "feature without priority in low milestone suppresses I078"
@@ -640,12 +609,11 @@ behavior detect_milestone_implicit_ordering "Detect Milestone Implicit Ordering 
     (directly or transitively), an I079 info diagnostic MUST be produced.
     Milestones without target_date are excluded from this check.
   """
-  ensures  {
-    fires_implicit     "milestones sharing feature with conflicting dates and no dependency produce I079"
-    suppresses_dep     "milestones with explicit depends_on suppress I079"
-    absent_exempt      "milestones without target_date suppress I079"
+  ensures {
+    fires_implicit "milestones sharing feature with conflicting dates and no dependency produce I079"
+    suppresses_dep "milestones with explicit depends_on suppress I079"
+    absent_exempt  "milestones without target_date suppress I079"
   }
-
   verify unit "two milestones sharing feature with conflicting dates produce I079"
   verify unit "milestones with depends_on between them suppress I079"
   verify unit "milestones without target_date suppress I079"
@@ -656,8 +624,8 @@ behavior detect_milestone_implicit_ordering "Detect Milestone Implicit Ordering 
 // ════════════════════════════════════════════════════════════════
 
 behavior detect_deliverable_version_release_mismatch "Detect Deliverable-Release Version Mismatch" {
-  category    validation
-  contract    """
+  category validation
+  contract """
     The @specforge/product extension SHOULD detect deliverables whose
     version field does not match the version of the release they ship in.
     When a deliverable has a version field AND is referenced by a release
@@ -680,16 +648,14 @@ behavior detect_deliverable_version_release_mismatch "Detect Deliverable-Release
     field suppress the rule. Multiple releases referencing the same
     deliverable check each release independently.
   """
-  ensures  {
-    fires_major_mismatch     "deliverable with major version != release major version produces I094"
-    suppresses_major_match   "deliverable with matching major version suppresses I094"
-    suppresses_no_version    "deliverable without version field suppresses I094"
-    suppresses_no_release    "deliverable not in any release suppresses I094"
-    per_release_check        "deliverable in multiple releases is checked against each"
+  ensures {
+    fires_major_mismatch   "deliverable with major version != release major version produces I094"
+    suppresses_major_match "deliverable with matching major version suppresses I094"
+    suppresses_no_version  "deliverable without version field suppresses I094"
+    suppresses_no_release  "deliverable not in any release suppresses I094"
+    per_release_check      "deliverable in multiple releases is checked against each"
   }
-
   features [pe_chain_validation]
-
   verify unit "deliverable 0.1.0 in release 0.5.0 suppresses I094 (same major)"
   verify unit "deliverable 0.1.0 in release 2.0.0 produces I094 (different major)"
   verify unit "deliverable without version in any release suppresses I094"
@@ -704,7 +670,7 @@ behavior detect_deliverable_version_release_mismatch "Detect Deliverable-Release
 behavior detect_release_dependency_cycles "Detect Release Dependency Cycles" {
   category    validation
   invariants  [release_dag]
-  produces  [pe_release_cycle_detected]
+  produces    [pe_release_cycle_detected]
   contract    """
     The compiler SHOULD detect circular dependencies between release entities
     via depends_on fields. Cycles produce a W092 warning.
@@ -712,7 +678,6 @@ behavior detect_release_dependency_cycles "Detect Release Dependency Cycles" {
   diagnostic  W092
   severity    warning
   description "Circular release dependency detected"
-
   verify unit "two releases with mutual depends_on produce W092"
   verify unit "linear release chain produces no W092"
   verify unit "self-referencing release produces W092"
@@ -728,7 +693,6 @@ behavior detect_release_without_deliverables "Detect Release Without Deliverable
   diagnostic  I082
   severity    info
   description "Release has no deliverables"
-
   verify unit "release with deliverables produces no I082"
   verify unit "release with empty deliverables list produces I082"
 }
@@ -743,7 +707,6 @@ behavior detect_release_without_milestones "Detect Release Without Milestones" {
   diagnostic  I083
   severity    info
   description "Release has no milestones"
-
   verify unit "release with milestones produces no I083"
   verify unit "release without milestones produces I083"
 }
@@ -759,7 +722,6 @@ behavior detect_released_release_incomplete_deliverables "Detect Released Releas
   diagnostic  I088
   severity    info
   description "Released release has incomplete deliverables"
-
   verify unit "released release with all shipped deliverables produces no I088"
   verify unit "released release with draft deliverable produces I088"
 }
@@ -773,7 +735,6 @@ behavior detect_recalled_release_without_reason "Detect Recalled Release Without
   diagnostic  I089
   severity    info
   description "Recalled release without reason"
-
   verify unit "recalled release with reason produces no I089"
   verify unit "recalled release without reason produces I089"
 }
@@ -788,7 +749,6 @@ behavior detect_invalid_release_date "Detect Invalid Release Date" {
   diagnostic  I086
   severity    info
   description "Invalid release_date format"
-
   verify unit "release_date '2026-06-01' produces no I086"
   verify unit "release_date 'June 2026' produces I086"
 }
@@ -803,7 +763,6 @@ behavior detect_invalid_start_date "Detect Invalid Start Date" {
   diagnostic  I087
   severity    info
   description "Invalid milestone start_date format"
-
   verify unit "start_date '2026-01-15' produces no I087"
   verify unit "start_date 'Jan 15' produces I087"
 }
@@ -819,7 +778,6 @@ behavior detect_journey_flow_feature_references "Detect Journey Flow Feature Ref
   diagnostic  I090
   severity    info
   description "Journey flow step references unknown feature"
-
   verify unit "flow step with [declared_feature] produces no I090"
   verify unit "flow step with [undeclared_feature] produces I090"
   verify unit "flow step without brackets produces no I090"
@@ -835,7 +793,6 @@ behavior detect_release_version_not_semver "Detect Release Version Not SemVer" {
   diagnostic  W093
   severity    warning
   description "Release version is not valid SemVer"
-
   verify unit "version '1.0.0' produces no W093"
   verify unit "version 'v1' produces W093"
 }
@@ -843,8 +800,8 @@ behavior detect_release_version_not_semver "Detect Release Version Not SemVer" {
 behavior validate_release_status_transition "Validate Release Status Transition" {
   category    validation
   invariants  [pe_release_status_transition]
-  produces  [pe_release_status_transition_validated]
-  types     [ReleaseStatusTransition]
+  produces    [pe_release_status_transition_validated]
+  types       [ReleaseStatusTransition]
   contract    """
     Release status transitions SHOULD follow the declared state machine:
     planned->in_progress, in_progress->released, released->recalled.
@@ -854,7 +811,6 @@ behavior validate_release_status_transition "Validate Release Status Transition"
   diagnostic  W094
   severity    warning
   description "Invalid release status transition"
-
   verify unit "planned->in_progress produces no W094"
   verify unit "planned->released produces W094"
   verify unit "recalled->planned produces W094"
@@ -871,7 +827,6 @@ behavior detect_missing_owner "Detect Missing Owner" {
   diagnostic  I080
   severity    info
   description "Entity has no owner"
-
   verify unit "feature with owner produces no I080"
   verify unit "feature without owner produces I080"
   verify unit "milestone without owner produces I080"
@@ -890,7 +845,6 @@ behavior detect_missing_effort "Detect Missing Effort" {
   diagnostic  I081
   severity    info
   description "Feature has no effort estimate"
-
   verify unit "feature with effort produces no I081"
   verify unit "feature without effort produces I081"
 }
@@ -905,9 +859,7 @@ behavior detect_blocked_milestone_without_blockers "Detect Blocked Milestone Wit
   diagnostic  I084
   severity    info
   description "Blocked milestone has no blockers"
-
-  features [pe_external_blockers]
-
+  features    [pe_external_blockers]
   verify unit "blocked milestone with blockers produces no I084"
   verify unit "blocked milestone with depends_on produces no I084"
   verify unit "blocked milestone with neither produces I084"
@@ -928,7 +880,6 @@ behavior detect_inconsistent_owner_strings "Detect Inconsistent Owner Strings" {
   diagnostic  I085
   severity    info
   description "Inconsistent owner string detected"
-
   verify unit "identical owner strings across entities produce no I085"
   verify unit "owner 'specforge-team' and 'Specforge Team' produce I085"
   verify unit "completely different owners produce no I085"
@@ -950,7 +901,6 @@ behavior detect_cache_absent_awareness "Detect Cache-Absent Transition Suppressi
   diagnostic  I097
   severity    info
   description "Status transition validation suppressed (no build cache)"
-
   verify unit "build with status fields and no cache produces I097"
   verify unit "build with status fields and cache produces no I097"
   verify unit "build with no status fields and no cache produces no I097"
@@ -971,7 +921,6 @@ behavior detect_duplicate_release_version "Detect Duplicate Release Version" {
   diagnostic  I091
   severity    info
   description "Duplicate release version detected"
-
   verify unit "two releases with same version produce I091"
   verify unit "releases with different versions produce no I091"
   verify unit "releases without version field produce no I091"

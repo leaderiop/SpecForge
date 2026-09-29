@@ -1,5 +1,5 @@
 port NotificationPort "Sends" {
-    method send(payload: UnknownType)
+  method send(payload: UnknownType)
 }
 
 type KnownType "x" {

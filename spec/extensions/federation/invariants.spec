@@ -7,11 +7,9 @@ invariant federated_graph_determinism "Federated Graph Determinism" {
     graphs with the same content, the merged FederatedGraph MUST be
     identical regardless of load order or merge sequence.
   """
-  risk medium
-
+  risk      medium
   verify property "different merge orders produce identical federated graph"
   verify unit "parallel and sequential loading produce the same result"
-
 }
 
 invariant project_qualified_id_uniqueness "Project-Qualified ID Uniqueness" {
@@ -22,11 +20,9 @@ invariant project_qualified_id_uniqueness "Project-Qualified ID Uniqueness" {
     project prefix. A collision where two projects declare the same
     project prefix MUST be detected and reported as an error.
   """
-  risk high
-
+  risk      high
   verify property "project-qualified IDs are unique across federated graph"
   verify unit "duplicate project prefix detected and reported as error"
-
 }
 
 invariant cross_project_reference_safety "Cross-Project Reference Safety" {
@@ -38,12 +34,10 @@ invariant cross_project_reference_safety "Cross-Project Reference Safety" {
     projects MUST degrade gracefully with an I012 info diagnostic, never
     an error.
   """
-  risk medium
-
+  risk      medium
   verify property "no cycles exist across project boundaries"
   verify unit "local graph validates independently without remote projects"
   verify unit "missing remote project produces I012 info, not error"
-
 }
 
 invariant federated_graph_traversal_integrity "Federated Graph Traversal Integrity" {
@@ -54,11 +48,9 @@ invariant federated_graph_traversal_integrity "Federated Graph Traversal Integri
     along a traversal path MUST be included. Traversal order MUST be
     deterministic for identical federated graph inputs.
   """
-  risk high
-
+  risk      high
   verify property "federated traversal visits every reachable cross-project node exactly once"
   verify unit "identical federated graph inputs produce identical traversal results"
-
 }
 
 invariant federated_schema_completeness "Federated Schema Completeness" {
@@ -69,9 +61,7 @@ invariant federated_schema_completeness "Federated Schema Completeness" {
     omitted. The schema MUST accurately reflect the union of all project
     schemas.
   """
-  risk medium
-
+  risk      medium
   verify property "federated schema contains every kind and edge type from all merged projects"
   verify unit "newly added remote project kinds appear in federated schema"
-
 }

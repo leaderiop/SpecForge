@@ -1,31 +1,29 @@
 // Wasm sandbox enforcement, compile cache, session runtime reuse,
 // error recovery, and sandbox configuration
 
+use "events/wasm-sandbox"
 use "invariants/wasm"
-use "types/wasm"
+use "ports/outbound"
 use "types/config"
 use "types/errors"
-use "ports/outbound"
-use "events/wasm-sandbox"
+use "types/wasm"
+
 behavior enforce_wasm_sandbox "Enforce Wasm Sandbox" {
   invariants [wasm_sandbox_integrity, extension_isolation]
   category   command
   types      [SandboxPolicy, ExtensionError]
   ports      [WasmRuntime]
-
   requires {
     sandbox_policy_configured "sandbox policy has been computed for the extension via configure_sandbox_policy"
-    wasm_runtime_available "WasmRuntime port is available for enforcement"
+    wasm_runtime_available    "WasmRuntime port is available for enforcement"
   }
-
   ensures {
-    memory_limit_enforced "memory limits are enforced via runtime's linear memory cap"
+    memory_limit_enforced   "memory limits are enforced via runtime's linear memory cap"
     execution_time_enforced "execution time limits are enforced: wall-clock by epoch interruption, instructions by fuel metering"
     deadline_never_early    "a call is never interrupted before its max_execution_ms budget has elapsed"
-    violations_trapped "sandbox violations trap the extension and emit a diagnostic"
+    violations_trapped      "sandbox violations trap the extension and emit a diagnostic"
   }
-
-  contract """
+  contract   """
     The runtime MUST enforce the sandbox policy for each extension: memory
     limits via the runtime's linear memory cap, execution time limits via
     epoch interruption (wall-clock max_execution_ms, checked by a background
@@ -37,9 +35,7 @@ behavior enforce_wasm_sandbox "Enforce Wasm Sandbox" {
     ticker's phase when the call starts, and SHOULD overshoot it by no more
     than two ticks plus scheduling delay.
   """
-
-  produces [wasm_sandbox_violation]
-
+  produces   [wasm_sandbox_violation]
   verify unit "memory limit enforced via linear memory cap"
   verify unit "execution time limit enforced via fuel metering"
   verify unit "the execution deadline never interrupts a call before its budget"
@@ -53,20 +49,17 @@ behavior compile_wasm_component_with_cache "Compile Wasm Component With Cache" {
   category   command
   types      [ManifestV2]
   ports      [WasmRuntime, FileSystem]
-
   requires {
     component_binary_available "component .wasm binary exists and is readable"
-    cache_dir_resolved "compile cache directory resolved: SPECFORGE_WASMTIME_CACHE if set, else $HOME/.cache/specforge/wasmtime; 'off' disables"
+    cache_dir_resolved         "compile cache directory resolved: SPECFORGE_WASMTIME_CACHE if set, else $HOME/.cache/specforge/wasmtime; 'off' disables"
   }
-
   ensures {
     engine_configured_at_construction "the compile cache is configured when the runtime engine is built, before any component compiles"
-    first_compile_populates_cache "first compile of a binary writes its compiled artifact to the cache directory"
-    cache_hit_skips_compilation "a later engine over the same cache directory deserializes the artifact instead of recompiling"
-    cache_failure_degrades "an unwritable or corrupted cache degrades to uncached compilation with a warning, never a load failure"
+    first_compile_populates_cache     "first compile of a binary writes its compiled artifact to the cache directory"
+    cache_hit_skips_compilation       "a later engine over the same cache directory deserializes the artifact instead of recompiling"
+    cache_failure_degrades            "an unwritable or corrupted cache degrades to uncached compilation with a warning, never a load failure"
   }
-
-  contract """
+  contract   """
     The runtime engine (wasmtime) MUST be constructed with its native
     on-disk compilation cache when SPECFORGE_WASMTIME_CACHE selects a
     directory (default: $HOME/.cache/specforge/wasmtime; the value 'off'
@@ -77,7 +70,6 @@ behavior compile_wasm_component_with_cache "Compile Wasm Component With Cache" {
     integrity is a separate concern enforced by the lockfile hash pin
     (E033) at load time.
   """
-
   verify unit "first compile populates the compile cache directory"
   verify unit "second engine over the same cache dir loads via cache and executes"
   verify unit "unwritable cache dir degrades to uncached compile with warning"
@@ -90,20 +82,17 @@ behavior reuse_session_runtime "Reuse Session Runtime" {
   category   command
   types      [ExtensionLifecycleState]
   ports      [WasmRuntime]
-
   requires {
-    session_context "the process is a CLI run, an LSP session, or an MCP server session"
+    session_context        "the process is a CLI run, an LSP session, or an MCP server session"
     wasm_runtime_available "the session's ComponentRuntime is available to all compilation stages"
   }
-
   ensures {
-    single_engine_per_session "one runtime engine is constructed per run/session and shared by every stage"
-    plugin_instances_reused "loaded component instances are reused across repeated calls without re-instantiation"
-    instance_replaced_atomically "reloading an extension atomically replaces its loaded instance"
+    single_engine_per_session     "one runtime engine is constructed per run/session and shared by every stage"
+    plugin_instances_reused       "loaded component instances are reused across repeated calls without re-instantiation"
+    instance_replaced_atomically  "reloading an extension atomically replaces its loaded instance"
     instances_dropped_on_shutdown "all instances are dropped when the runtime is dropped at session end"
   }
-
-  contract """
+  contract   """
     Each process MUST construct a single ComponentRuntime and share it
     across compilation stages (CLI pipeline, LSP state, MCP server).
     Loaded component instances live in the runtime and MUST be reused for
@@ -112,7 +101,6 @@ behavior reuse_session_runtime "Reuse Session Runtime" {
     process pays component compilation once per binary (mitigated by the
     on-disk compile cache) and instances end with the session.
   """
-
   verify unit "same runtime instance serves repeated calls without re-instantiation"
   verify unit "hot reload atomically replaces a loaded component"
   verify unit "runtime dropped at session end releases all instances"
@@ -127,28 +115,23 @@ behavior handle_wasm_trap "Handle Wasm Trap" {
   types      [WasmTrapInfo, ExtensionLifecycleState, ExtensionError]
   ports      [WasmRuntime]
   consumes   [wasm_sandbox_violation, wasm_integrity_check_failed]
-
   requires {
     trap_occurred "a Wasm trap has occurred during an extension export call (sandbox violation or integrity failure)"
   }
-
   ensures {
-    wasm_trap_caught_emitted "wasm_trap_caught event is emitted with trap details"
-    lifecycle_transitioned "extension lifecycle transitions to failed state"
-    trapped_extension_skipped "trapped extension is not called again in the current compilation"
+    wasm_trap_caught_emitted      "wasm_trap_caught event is emitted with trap details"
+    lifecycle_transitioned        "extension lifecycle transitions to failed state"
+    trapped_extension_skipped     "trapped extension is not called again in the current compilation"
     remaining_extensions_continue "remaining extensions continue execution normally after trap"
   }
-
-  contract """
+  contract   """
     When a Wasm trap occurs during any extension export call, the compiler
     MUST catch the trap, extract trap details (kind, message, export name),
     transition the extension lifecycle to failed, and emit a ExtensionError
     diagnostic. The trapped extension MUST NOT be called again in the current
     compilation. Remaining extensions MUST continue execution normally.
   """
-
-  produces [wasm_trap_caught]
-
+  produces   [wasm_trap_caught]
   verify unit "catches trap during validate() export"
   verify unit "catches trap during render() call"
   verify unit "extracts trap kind and message"
@@ -173,21 +156,18 @@ behavior configure_sandbox_policy "Configure Sandbox Policy" {
   category   command
   types      [SandboxPolicy, ManifestV2]
   ports      [FileSystem]
-
   requires {
     manifest_available "extension manifest with optional sandbox policy is loaded"
-    config_available "specforge.json with optional project-level overrides is available"
+    config_available   "specforge.json with optional project-level overrides is available"
   }
-
   ensures {
     sandbox_policy_configured_emitted "sandbox_policy_configured event is emitted with the merged policy"
-    most_restrictive_wins "numeric policies use minimum value across default, manifest, and config override"
-    list_intersection_applied "list policies use intersection of all sources"
-    memory_ceiling_enforced "total memory across all extensions does not exceed 256MB"
-    code_extensions_blocked "manifest-level allowed_output_extensions with code file extensions produce E030"
+    most_restrictive_wins             "numeric policies use minimum value across default, manifest, and config override"
+    list_intersection_applied         "list policies use intersection of all sources"
+    memory_ceiling_enforced           "total memory across all extensions does not exceed 256MB"
+    code_extensions_blocked           "manifest-level allowed_output_extensions with code file extensions produce E030"
   }
-
-  contract """
+  contract   """
     The sandbox policy for each extension MUST be computed by merging three
     layers: (1) built-in defaults, (2) per-extension manifest sandbox policy,
     (3) project-level specforge.json overrides. The merged policy MUST NOT
@@ -203,9 +183,7 @@ behavior configure_sandbox_policy "Configure Sandbox Policy" {
     .kt). The system MUST reject manifest policies that attempt to add
     blacklisted extensions with an E030 diagnostic.
   """
-
-  produces [sandbox_policy_configured]
-
+  produces   [sandbox_policy_configured]
   verify unit "built-in defaults applied when no override"
   verify unit "manifest policy overrides defaults"
   verify unit "specforge.json overrides manifest policy"

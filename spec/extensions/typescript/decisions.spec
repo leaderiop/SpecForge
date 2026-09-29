@@ -7,25 +7,22 @@ use "extensions/typescript/invariants"
 use "governance/decisions"
 
 decision tree_sitter_for_scanning "Tree-sitter for TypeScript Scanning" {
-  status   accepted
-  date     2026-04-24
-
-  context """
+  status       accepted
+  date         2026-04-24
+  context      """
     The source scanner needs to parse TypeScript/JavaScript files to extract
     exported symbols. Options: (1) tree-sitter-typescript compiled to Wasm,
     (2) ts-morph (TypeScript compiler API) via wasm-bindgen, (3) SWC parser
     compiled to Wasm, (4) regex-based extraction. The scanner runs inside
     the Wasm sandbox, so native Node.js APIs are unavailable.
   """
-
-  decision """
+  decision     """
     Use tree-sitter-typescript compiled to Wasm. Tree-sitter provides
     error-tolerant, incremental parsing that works on incomplete files
     and is already used by the specforge core compiler. The TypeScript
     grammar handles .ts, .tsx, .js, .jsx. Type-level accuracy is
     sufficient for signature extraction without full type checking.
   """
-
   consequences [
     "Consistent with specforge core parser technology",
     "Error-tolerant: partial files still produce results",
@@ -37,24 +34,21 @@ decision tree_sitter_for_scanning "Tree-sitter for TypeScript Scanning" {
 }
 
 decision jsdoc_tag_for_entity_mapping "JSDoc @specforge Tag for Entity Mapping" {
-  status   accepted
-  date     2026-04-24
-
-  context """
+  status       accepted
+  date         2026-04-24
+  context      """
     TypeScript lacks a proc macro system like Rust's #[specforge::test].
     Developers need an explicit, non-invasive way to link source symbols
     to specforge entity IDs. Options: (1) JSDoc tag, (2) magic comments,
     (3) companion .specforge.json files, (4) TypeScript decorators.
   """
-
-  decision """
+  decision     """
     Use a JSDoc @specforge tag: /** @specforge entity_id */. JSDoc is
     already widely used in TypeScript projects, is preserved by all
     build tools, works in .js files without TypeScript, and is
     understood by IDEs for hover documentation. Decorators were rejected
     because they require runtime code and are not available in .js files.
   """
-
   consequences [
     "Zero runtime overhead: JSDoc is stripped at compile time",
     "Works in both .ts and .js files",
@@ -63,21 +57,18 @@ decision jsdoc_tag_for_entity_mapping "JSDoc @specforge Tag for Entity Mapping" 
     "Established convention: similar to @see, @link, @module",
     "Less discoverable than decorators for developers unfamiliar with JSDoc",
   ]
-
-  invariants [ts_entity_mapping_precedence]
+  invariants   [ts_entity_mapping_precedence]
 }
 
 decision pascal_to_snake_convention "PascalCase to snake_case Entity ID Convention" {
-  status   accepted
-  date     2026-04-24
-
-  context """
+  status       accepted
+  date         2026-04-24
+  context      """
     TypeScript uses PascalCase for classes/interfaces/components and
     camelCase for functions/variables. Specforge entity IDs are snake_case.
     The conversion must be deterministic and reversible-enough for humans.
   """
-
-  decision """
+  decision     """
     Apply standard PascalCase/camelCase to snake_case conversion:
     UserService -> user_service, validateInput -> validate_input,
     HTTPClient -> http_client, MAX_RETRIES -> max_retries. Acronyms
@@ -86,7 +77,6 @@ decision pascal_to_snake_convention "PascalCase to snake_case Entity ID Conventi
     (HTTPClient -> http_client). React hooks drop the "use" prefix:
     useAuth -> auth, useUserProfile -> user_profile.
   """
-
   consequences [
     "Deterministic: same symbol always produces same entity ID",
     "Human-readable: snake_case IDs are easy to write in .spec files",
@@ -94,23 +84,20 @@ decision pascal_to_snake_convention "PascalCase to snake_case Entity ID Conventi
     "Hook prefix removal is opinionated but reduces noise",
     "May collide: Auth class and useAuth hook both map to 'auth' -- collision produces diagnostic",
   ]
-
-  invariants [ts_entity_mapping_precedence]
+  invariants   [ts_entity_mapping_precedence]
 }
 
 decision multi_runner_test_collection "Multi-Runner Test Collection" {
-  status   superseded
+  status        superseded
   superseded_by test_runner_extensions
-  date     2026-04-24
-
-  context """
+  date          2026-04-24
+  context       """
     The TypeScript ecosystem has many test runners: Jest, Vitest, Mocha,
     Playwright, Cypress, Node.js built-in test runner. A monorepo may use
     different runners for different packages. The extension must handle all
     of them.
   """
-
-  decision """
+  decision      """
     Support multiple test runners through format-specific parsers:
     jest-json, vitest-json, playwright-json, junit-xml (Cypress/Mocha),
     mocha-json, and TAP (Node.js test runner). Each parser is a separate
@@ -118,8 +105,7 @@ decision multi_runner_test_collection "Multi-Runner Test Collection" {
     files or accepts an explicit --runner flag. In monorepos, per-package
     runner detection is used.
   """
-
-  consequences [
+  consequences  [
     "Covers the vast majority of TS/JS test setups",
     "Auto-detection reduces user friction",
     "Per-package runner detection handles mixed monorepos",
@@ -130,17 +116,15 @@ decision multi_runner_test_collection "Multi-Runner Test Collection" {
 }
 
 decision framework_aware_inference "Framework-Aware Inference Signals" {
-  status   accepted
-  date     2026-04-24
-
-  context """
+  status       accepted
+  date         2026-04-24
+  context      """
     Generic TypeScript analysis misses domain signals that framework
     conventions provide. A NestJS @Controller is a stronger behavior
     signal than a plain exported function. An Angular @Injectable is
     a service pattern. The inference system needs framework context.
   """
-
-  decision """
+  decision     """
     The scanner detects frameworks (from package.json + config files)
     and uses framework-specific heuristics to boost inference signals.
     Framework detection is done once per project scan. Inference signals
@@ -148,7 +132,6 @@ decision framework_aware_inference "Framework-Aware Inference Signals" {
     on framework presence (e.g., @Controller in a NestJS project gets
     0.95 confidence; in a non-NestJS project gets 0.5).
   """
-
   consequences [
     "Higher inference accuracy for framework-heavy codebases",
     "Framework detection is fast (file existence checks)",

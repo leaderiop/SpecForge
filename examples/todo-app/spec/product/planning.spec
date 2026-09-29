@@ -14,10 +14,7 @@ milestone mvp "Minimum Viable Product" {
   priority      high
   features      [task_management]
   modules       [core]
-  exit_criteria [
-    "create / complete / list behaviors verified",
-    "zero E-level diagnostics",
-  ]
+  exit_criteria ["create / complete / list behaviors verified", "zero E-level diagnostics"]
 }
 
 deliverable todo_cli "todo CLI" {

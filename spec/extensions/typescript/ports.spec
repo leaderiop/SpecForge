@@ -1,12 +1,11 @@
 // @specforge/typescript extension ports
 
-use "types/errors"
 use "extensions/typescript/types"
+use "types/errors"
 
 port TsSourceScanner {
   direction outbound
   category  "source/typescript"
-
   method scanFile(path: string) -> Result<TsSourceItem[], EmitterError>
   method scanDirectory(root: string, config: TsExtensionConfig) -> Result<TsScanResult, EmitterError>
   method resolveBarrelExport(barrel_path: string, symbol_name: string) -> Result<TsSourceAnchor, EmitterError>
@@ -17,7 +16,6 @@ port TsSourceScanner {
 port TsProjectDetector {
   direction outbound
   category  "source/typescript"
-
   method detectMonorepo(root: string) -> Result<TsMonorepoInfo, EmitterError>
   method detectFrameworks(root: string) -> Result<TsFrameworkDetection[], EmitterError>
   method readPackageJson(path: string) -> Result<FieldMap, EmitterError>

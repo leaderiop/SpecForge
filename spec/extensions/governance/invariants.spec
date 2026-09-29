@@ -10,9 +10,7 @@ invariant rpn_arithmetic_integrity "RPN Arithmetic Integrity" {
     The same MUST hold for the post_mitigation sub-block. The compiler MUST
     emit E005 on mismatch.
   """
-  risk low
-
+  risk      low
   verify property "rpn equals severity times occurrence times detection when all fields are present"
   verify unit "E005 is emitted when rpn does not match the arithmetic product"
-
 }

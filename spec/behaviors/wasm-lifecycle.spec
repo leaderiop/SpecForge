@@ -1,13 +1,14 @@
 // Wasm module lifecycle behaviors — load, init, validate, deps, sorting,
 // install, upgrade, uninstall, manifest validation, integrity
 
+use "events/wasm-lifecycle"
 use "invariants/extensions"
 use "invariants/wasm"
-use "types/wasm"
+use "ports/outbound"
 use "types/config"
 use "types/errors"
-use "ports/outbound"
-use "events/wasm-lifecycle"
+use "types/wasm"
+
 // -- Wasm Module Lifecycle -----
 
 behavior load_wasm_module "Load Wasm Module" {
@@ -15,22 +16,24 @@ behavior load_wasm_module "Load Wasm Module" {
   category   command
   types      [ManifestV2, ExtensionError]
   ports      [WasmRuntime]
-  consumes   [manifest_validated, wasm_integrity_verified, extension_install_completed, extension_upgrade_completed]
-
+  consumes   [
+    manifest_validated,
+    wasm_integrity_verified,
+    extension_install_completed,
+    extension_upgrade_completed,
+  ]
   requires {
-    manifest_validated_fired "manifest_validated event has fired, confirming manifest schema and required fields are valid"
+    manifest_validated_fired      "manifest_validated event has fired, confirming manifest schema and required fields are valid"
     wasm_integrity_verified_fired "wasm_integrity_verified event has fired, confirming SHA256 hash matches lock file"
-    wasm_runtime_available "WasmRuntime port is available for module loading"
+    wasm_runtime_available        "WasmRuntime port is available for module loading"
   }
-
   ensures {
-    extension_loaded_emitted "extension_loaded event is emitted on successful module load"
+    extension_loaded_emitted     "extension_loaded event is emitted on successful module load"
     extension_loaded_via_runtime "the binary is loaded into the runtime engine (component compilation itself is cached by the engine — see compile_wasm_component_with_cache)"
-    tampered_binary_refused "a binary whose hash no longer matches the specforge.lock pin is refused with E033"
-    missing_binary_diagnosed "missing .wasm binary produces ExtensionError diagnostic"
+    tampered_binary_refused      "a binary whose hash no longer matches the specforge.lock pin is refused with E033"
+    missing_binary_diagnosed     "missing .wasm binary produces ExtensionError diagnostic"
   }
-
-  contract """
+  contract   """
     When the compiler loads an extension, it MUST locate the .wasm binary
     from the manifest's wasmPath, verify its content hash against the
     specforge.lock pin (refusing a mismatch with E033; legacy entries
@@ -39,9 +42,7 @@ behavior load_wasm_module "Load Wasm Module" {
     compile_wasm_component_with_cache). Missing .wasm files MUST produce
     an ExtensionError diagnostic.
   """
-
-  produces [extension_loaded]
-
+  produces   [extension_loaded]
   verify unit "loads .wasm binary from manifest path"
   verify unit "tampered installed binary refused via E033 lockfile pin"
   verify unit "legacy lockfile entry without hash loads unchanged"
@@ -55,19 +56,16 @@ behavior initialize_wasm_extension "Initialize Wasm Extension" {
   types      [ManifestV2, ExtensionLifecycleState]
   ports      [WasmRuntime]
   consumes   [extension_loaded]
-
   requires {
     extension_loaded_fired "extension_loaded event has fired, confirming Wasm module is loaded into runtime"
-    registries_populated "entity kinds, edge types, and validation rules are registered into KindRegistry and FieldRegistry before initialize() is called"
+    registries_populated   "entity kinds, edge types, and validation rules are registered into KindRegistry and FieldRegistry before initialize() is called"
   }
-
   ensures {
     extension_initialized_emitted "extension_initialized event is emitted on successful initialization"
-    lifecycle_state_updated "extension lifecycle transitions to initialized on success or failed on error"
-    no_manifest_override "initialize() does not re-register or override manifest-declared registrations"
+    lifecycle_state_updated       "extension lifecycle transitions to initialized on success or failed on error"
+    no_manifest_override          "initialize() does not re-register or override manifest-declared registrations"
   }
-
-  contract """
+  contract   """
     After loading a Wasm module, the compiler MUST call the extension's
     initialize() export. The initialize() call allows the extension to
     perform runtime setup (e.g., validating its own configuration).
@@ -88,9 +86,7 @@ behavior initialize_wasm_extension "Initialize Wasm Extension" {
     receives the registered state but MUST NOT re-register or override
     manifest-declared registrations.
   """
-
-  produces [extension_initialized]
-
+  produces   [extension_initialized]
   verify unit "calls initialize() export on loaded module"
   verify unit "lifecycle transitions to initialized on success"
   verify unit "lifecycle transitions to failed on error"
@@ -103,28 +99,23 @@ behavior call_extension_validators "Call Extension Validators" {
   types      [ManifestV2, ExtensionLifecycleState]
   ports      [WasmRuntime]
   consumes   [extension_initialized, extensions_sorted]
-
   requires {
     extension_initialized_fired "extension_initialized event has fired for all extensions"
-    extensions_sorted_fired "extensions_sorted event has fired, confirming topological order is computed"
+    extensions_sorted_fired     "extensions_sorted event has fired, confirming topological order is computed"
   }
-
   ensures {
     extension_validated_emitted "extension_validated event is emitted for each extension after validate() completes"
-    diagnostics_collected "all diagnostics emitted via host function are collected by the compiler"
-    validation_continues "validation continues to next extension after errors in any single extension"
+    diagnostics_collected       "all diagnostics emitted via host function are collected by the compiler"
+    validation_continues        "validation continues to next extension after errors in any single extension"
   }
-
-  contract """
+  contract   """
     After all extensions are initialized, the compiler MUST call each
     extension's validate() export in topological order determined by
     peer dependencies. Extensions MUST emit diagnostics via the
     specforge.emit_diagnostic host function. The compiler MUST
     collect all diagnostics and continue to the next extension.
   """
-
-  produces [extension_validated]
-
+  produces   [extension_validated]
   verify unit "calls validate() in topological order"
   verify unit "diagnostics emitted via host function are collected"
   verify unit "validation continues to next extension after errors"
@@ -137,26 +128,21 @@ behavior validate_extension_peer_dependencies "Validate Extension Peer Dependenc
   invariants [peer_dependency_satisfaction]
   category   validation
   types      [PeerDependency, ManifestV2, ExtensionError]
-
   requires {
     manifests_loaded "all extension manifests have been loaded and parsed"
   }
-
   ensures {
     peer_dependencies_validated_emitted "peer_dependencies_validated event is emitted when all peers are satisfied"
-    unsatisfied_peers_diagnosed "unsatisfied peer dependencies produce hard error diagnostics"
+    unsatisfied_peers_diagnosed         "unsatisfied peer dependencies produce hard error diagnostics"
   }
-
-  contract """
+  contract   """
     Before initializing extensions, the compiler MUST check that all
     declared peer dependencies are satisfied. For each peer dependency,
     the referenced extension MUST be installed and its version MUST match
     the declared semver range. Unsatisfied peers MUST produce a hard
     error diagnostic.
   """
-
-  produces [peer_dependencies_validated]
-
+  produces   [peer_dependencies_validated]
   verify unit "satisfied peer dependency passes"
   verify unit "missing peer produces hard error"
   verify unit "version mismatch produces hard error"
@@ -168,26 +154,21 @@ behavior topological_sort_extensions "Topological Sort Extensions" {
   category   command
   types      [PeerDependency, ManifestV2]
   consumes   [peer_dependencies_validated]
-
   requires {
     peer_dependencies_validated_fired "peer_dependencies_validated event has fired, confirming all peer dependencies are satisfied"
   }
-
   ensures {
     extensions_sorted_emitted "extensions_sorted event is emitted with the computed topological order"
-    sort_deterministic "sort is deterministic with ties broken by extension name"
-    cycles_diagnosed "cycles in peer dependencies produce an error diagnostic"
+    sort_deterministic        "sort is deterministic with ties broken by extension name"
+    cycles_diagnosed          "cycles in peer dependencies produce an error diagnostic"
   }
-
-  contract """
+  contract   """
     The compiler MUST compute a topological order over installed extensions
     based on their peer dependencies. Extensions with no dependencies MUST
     be loaded first. Cycles in peer dependencies MUST produce an error
     diagnostic. The sort MUST be deterministic — ties broken by extension name.
   """
-
-  produces [extensions_sorted]
-
+  produces   [extensions_sorted]
   verify unit "extensions sorted in dependency order"
   verify unit "cycle in peer dependencies produces error"
   verify unit "deterministic ordering on ties"
@@ -197,24 +178,25 @@ behavior topological_sort_extensions "Topological Sort Extensions" {
 // -- Extension Lifecycle -----
 
 behavior install_wasm_extension "Install Wasm Extension" {
-  invariants [wasm_compile_cache_integrity, extension_operation_atomicity, offline_first_extension_resolution]
+  invariants [
+    wasm_compile_cache_integrity,
+    extension_operation_atomicity,
+    offline_first_extension_resolution,
+  ]
   category   command
   types      [ManifestV2, ExtensionInstallResult, ExtensionSource, ExtensionError]
   ports      [WasmRuntime, FileSystem]
-
   requires {
     extension_source_available "extension source (registry, local path, or git) is reachable"
-    filesystem_available "FileSystem port is available for writing .wasm binary and specforge.json"
+    filesystem_available       "FileSystem port is available for writing .wasm binary and specforge.json"
   }
-
   ensures {
     extension_install_completed_emitted "extension_install_completed event is emitted on successful install"
-    integrity_verified "SHA256 integrity of downloaded .wasm binary is verified before placement"
-    atomic_install_enforced "on failure at any step, all changes are rolled back — no partial installs"
-    config_updated "specforge.json is updated with the extension entry"
+    integrity_verified                  "SHA256 integrity of downloaded .wasm binary is verified before placement"
+    atomic_install_enforced             "on failure at any step, all changes are rolled back — no partial installs"
+    config_updated                      "specforge.json is updated with the extension entry"
   }
-
-  contract """
+  contract   """
     When specforge add <pkg> is invoked, the system MUST resolve the
     extension from its source (registry, local path, or git), download
     the .wasm binary, verify its SHA256 integrity, place it in the
@@ -225,9 +207,7 @@ behavior install_wasm_extension "Install Wasm Extension" {
     caches the artifact (see compile_wasm_component_with_cache), so a
     slow network or large binary never blocks install.
   """
-
-  produces [extension_install_completed]
-
+  produces   [extension_install_completed]
   verify unit "resolves extension from registry"
   verify unit "resolves extension from local path"
   verify unit "verifies SHA256 integrity of downloaded .wasm"
@@ -243,19 +223,16 @@ behavior upgrade_wasm_extension "Upgrade Wasm Extension" {
   category   mutation
   types      [ManifestV2, PeerDependency, ExtensionInstallResult, ExtensionError]
   ports      [WasmRuntime, FileSystem]
-
   requires {
     extension_installed "target extension is currently installed with a valid manifest"
-    source_available "extension source is reachable for version check"
+    source_available    "extension source is reachable for version check"
   }
-
   ensures {
     extension_upgrade_completed_emitted "extension_upgrade_completed event is emitted on successful upgrade"
-    binary_replaced "the installed .wasm binary is replaced and the lock entry records the new hash"
-    peer_compatibility_enforced "breaking peer dependency changes are rejected without --force"
+    binary_replaced                     "the installed .wasm binary is replaced and the lock entry records the new hash"
+    peer_compatibility_enforced         "breaking peer dependency changes are rejected without --force"
   }
-
-  contract """
+  contract   """
     When specforge extension upgrade is invoked, the system MUST check the
     source for a newer version, validate peer dependency compatibility
     with all installed extensions, and replace the .wasm binary. The lock
@@ -266,9 +243,7 @@ behavior upgrade_wasm_extension "Upgrade Wasm Extension" {
     --force, the upgrade MUST be rejected with a diagnostic listing the
     incompatible peers.
   """
-
-  produces [extension_upgrade_completed]
-
+  produces   [extension_upgrade_completed]
   verify unit "checks source for newer version"
   verify unit "validates peer dependency compatibility"
   verify unit "replaces binary and records new lock hash"
@@ -281,24 +256,25 @@ behavior upgrade_wasm_extension "Upgrade Wasm Extension" {
 // is the user-facing CLI entry point. This behavior handles all Wasm-specific
 // cleanup; remove_extension handles CLI interaction and post-removal messaging.
 behavior uninstall_wasm_extension "Uninstall Wasm Extension" {
-  invariants [peer_dependency_satisfaction, extension_load_order_determinism, extension_operation_atomicity]
+  invariants [
+    peer_dependency_satisfaction,
+    extension_load_order_determinism,
+    extension_operation_atomicity,
+  ]
   category   command
   types      [ManifestV2, ExtensionInstallResult, ExtensionError]
   ports      [WasmRuntime, FileSystem]
-
   requires {
     extension_installed_ready "target extension is currently installed and its manifest is loaded"
-    filesystem_available "FileSystem port is available for removing binary and updating config"
+    filesystem_available      "FileSystem port is available for removing binary and updating config"
   }
-
   ensures {
-    extension_unloaded_emitted "extension_unloaded event is emitted after the extension is unloaded"
+    extension_unloaded_emitted     "extension_unloaded event is emitted after the extension is unloaded"
     wasm_extension_removed_emitted "wasm_extension_removed event is emitted after full cleanup"
-    dependent_check_enforced "removal is rejected when dependents exist unless --force is provided"
-    atomic_uninstall_enforced "on failure, all changes are rolled back"
+    dependent_check_enforced       "removal is rejected when dependents exist unless --force is provided"
+    atomic_uninstall_enforced      "on failure, all changes are rolled back"
   }
-
-  contract """
+  contract   """
     When called by remove_extension (behaviors/extensions.spec), the system
     MUST perform the full Wasm lifecycle cleanup: remove the extension entry
     from specforge.json, delete the .wasm binary from the project, and
@@ -310,9 +286,7 @@ behavior uninstall_wasm_extension "Uninstall Wasm Extension" {
     cache keys include binary content. On failure, the system MUST
     rollback all changes.
   """
-
-  produces [extension_unloaded, wasm_extension_removed]
-
+  produces   [extension_unloaded, wasm_extension_removed]
   verify unit "removes extension entry from specforge.json"
   verify unit "deletes .wasm binary from project"
   verify unit "rolls back on failure"
@@ -327,18 +301,15 @@ behavior validate_extension_manifest "Validate Extension Manifest" {
   types      [ManifestV2, ExtensionError]
   ports      [FileSystem]
   consumes   [manifest_loaded]
-
   requires {
     manifest_loaded_fired "manifest_loaded event has fired, confirming sidecar manifest.json has been parsed"
   }
-
   ensures {
     manifest_validated_emitted "manifest_validated event is emitted on successful validation"
     invalid_manifest_diagnosed "manifests with missing required fields or invalid manifest_version produce hard error"
-    schema_validated "manifest schema is validated via validate_manifest_v2_schema"
+    schema_validated           "manifest schema is validated via validate_manifest_v2_schema"
   }
-
-  contract """
+  contract   """
     This is the single entry point for manifest validation. The compiler
     MUST call this behavior once per extension manifest. It delegates to
     validate_manifest_v2_schema for schema validation. The entity_kinds
@@ -349,9 +320,7 @@ behavior validate_extension_manifest "Validate Extension Manifest" {
     a hard error with diagnostic code E028. Future manifest versions
     MUST be rejected until the compiler is updated to support them.
   """
-
-  produces [manifest_validated]
-
+  produces   [manifest_validated]
   verify unit "valid manifest passes validation"
   verify unit "missing required fields produce hard error"
   verify unit "unknown fields produce warning"
@@ -365,27 +334,22 @@ behavior verify_wasm_integrity "Verify Wasm Integrity" {
   types      [ManifestV2, LockFileEntry, ExtensionError]
   ports      [FileSystem]
   consumes   [lock_file_read]
-
   requires {
     lock_file_read_fired "lock_file_read event has fired, confirming lock file entries with expected hashes are available"
     filesystem_available "FileSystem port is available for reading .wasm binaries"
   }
-
   ensures {
-    wasm_integrity_verified_emitted "wasm_integrity_verified event is emitted when hash matches"
+    wasm_integrity_verified_emitted     "wasm_integrity_verified event is emitted when hash matches"
     wasm_integrity_check_failed_emitted "wasm_integrity_check_failed event is emitted on hash mismatch"
-    tampering_diagnosed "hash mismatches produce hard error diagnostic indicating potential tampering"
+    tampering_diagnosed                 "hash mismatches produce hard error diagnostic indicating potential tampering"
   }
-
-  contract """
+  contract   """
     The system MUST verify the SHA256 hash of each .wasm binary against
     the wasm_hash recorded in specforge.lock. Hash mismatches MUST produce
     a hard error diagnostic indicating potential tampering. The --skip-verify
     flag MUST bypass integrity checks with a warning.
   """
-
-  produces [wasm_integrity_verified, wasm_integrity_check_failed]
-
+  produces   [wasm_integrity_verified, wasm_integrity_check_failed]
   verify unit "matching hash passes verification"
   verify unit "mismatched hash produces hard error"
   verify unit "--skip-verify bypasses check with warning"
@@ -400,28 +364,23 @@ behavior load_extension_grammar "Load Extension Grammar" {
   types      [GrammarContribution, GrammarCacheEntry, GrammarError]
   ports      [WasmRuntime, FileSystem]
   consumes   [extension_manifests_loaded]
-
   requires {
     extension_manifests_loaded_fired "extension_manifests_loaded event has fired, confirming grammar contributions are declared"
-    wasm_runtime_available "WasmRuntime port is available for loading grammar binaries"
+    wasm_runtime_available           "WasmRuntime port is available for loading grammar binaries"
   }
-
   ensures {
     grammar_loaded_emitted "grammar_loaded event is emitted on successful grammar load"
-    grammar_cached "successfully loaded grammars are cached via cache_grammar_artifacts"
+    grammar_cached         "successfully loaded grammars are cached via cache_grammar_artifacts"
     load_failure_diagnosed "loading failures produce GrammarError diagnostic without crashing"
   }
-
-  contract """
+  contract   """
     The system MUST load a grammar .wasm binary from the path declared in
     a GrammarContribution. Before loading, the system MUST validate the
     binary via validate_grammar_wasm. Successfully loaded grammars MUST be
     cached via cache_grammar_artifacts. Loading failures MUST produce a
     GrammarError diagnostic without crashing the compiler.
   """
-
-  produces [grammar_loaded]
-
+  produces   [grammar_loaded]
   verify unit "valid grammar .wasm loads successfully"
   verify unit "invalid grammar path produces GrammarError"
   verify unit "loaded grammar is cached for subsequent use"
@@ -433,18 +392,15 @@ behavior validate_grammar_wasm "Validate Grammar Wasm" {
   invariants [grammar_injection_isolation]
   category   validation
   types      [GrammarContribution, GrammarError]
-
   requires {
     grammar_binary_available "grammar .wasm binary exists at the declared path"
   }
-
   ensures {
-    abi_version_checked "ABI version is validated against host runtime's supported version"
-    size_limit_enforced "binary size does not exceed configured limit (default 10MB)"
+    abi_version_checked      "ABI version is validated against host runtime's supported version"
+    size_limit_enforced      "binary size does not exceed configured limit (default 10MB)"
     language_export_verified "Wasm binary exports the expected tree-sitter language function"
   }
-
-  contract """
+  contract   """
     The system MUST validate a tree-sitter grammar .wasm binary before
     loading. Validation MUST check: (1) the Wasm binary exports the
     expected tree-sitter language function, (2) the ABI version matches
@@ -453,7 +409,6 @@ behavior validate_grammar_wasm "Validate Grammar Wasm" {
     MUST produce a GrammarError with expected vs actual version. Oversized
     binaries MUST be rejected with a diagnostic.
   """
-
   verify unit "valid grammar passes all validation checks"
   verify unit "missing language export produces GrammarError"
   verify unit "ABI version mismatch produces GrammarError with versions"
@@ -465,19 +420,16 @@ behavior compose_grammar_injections "Compose Grammar Injections" {
   invariants [grammar_composition_determinism, grammar_injection_isolation]
   category   command
   types      [GrammarContribution, GrammarConflictPolicy, KindRegistryEntry]
-
   requires {
-    grammars_loaded "all grammar contributions have been loaded and validated"
+    grammars_loaded         "all grammar contributions have been loaded and validated"
     kind_registry_populated "KindRegistry contains all declared entity kinds for mapping"
   }
-
   ensures {
     grammars_composed_emitted "grammars_composed event is emitted with coherent grammar configuration"
     composition_deterministic "same set of extensions and policy always produces the same result"
-    conflict_policy_applied "grammar conflicts resolved according to GrammarConflictPolicy"
+    conflict_policy_applied   "grammar conflicts resolved according to GrammarConflictPolicy"
   }
-
-  contract """
+  contract   """
     The system MUST compose grammar contributions from all loaded extensions
     into a coherent grammar configuration. Each entity kind MUST be mapped
     to at most one grammar .wasm (unless namespace policy is active). When
@@ -487,9 +439,7 @@ behavior compose_grammar_injections "Compose Grammar Injections" {
     The composition result MUST be deterministic given the same set of
     extensions and policy.
   """
-
-  produces [grammars_composed]
-
+  produces   [grammars_composed]
   verify unit "single grammar per entity kind maps correctly"
   verify unit "conflict with error policy produces diagnostic"
   verify unit "conflict with priority policy selects higher priority"
@@ -503,20 +453,17 @@ behavior dispatch_body_parser "Dispatch Body Parser" {
   category   command
   types      [BodyParserContribution, BodyParserError, FieldMap]
   ports      [WasmRuntime]
-
   requires {
     body_parser_registered "body parser contribution is registered for the target entity kind"
     wasm_runtime_available "WasmRuntime port is available for invoking parser export"
   }
-
   ensures {
-    body_parsed_emitted "body_parsed event is emitted on successful parse"
+    body_parsed_emitted     "body_parsed event is emitted on successful parse"
     output_schema_validated "returned JSON is validated against declared output schema if present"
-    timeout_enforced "timeout enforcement applies (configurable, default 5000ms)"
-    fallback_on_failure "on parser crash, timeout, or schema violation, body is treated as raw string field"
+    timeout_enforced        "timeout enforcement applies (configurable, default 5000ms)"
+    fallback_on_failure     "on parser crash, timeout, or schema violation, body is treated as raw string field"
   }
-
-  contract """
+  contract   """
     This behavior owns all Wasm execution mechanics for body parsing.
     When called by delegate_body_parsing_to_extension (behaviors/parsing.spec),
     the system MUST invoke the extension's body parse Wasm export with
@@ -530,9 +477,7 @@ behavior dispatch_body_parser "Dispatch Body Parser" {
     orchestrator (delegate_body_parsing_to_extension) handles only
     iteration and FieldMap replacement.
   """
-
-  produces [body_parsed]
-
+  produces   [body_parsed]
   verify unit "body parser called for entity kind with registered parser"
   verify unit "parser output validated against declared schema"
   verify unit "parser timeout produces BodyParserError"
@@ -547,19 +492,16 @@ behavior cache_grammar_artifacts "Cache Grammar Artifacts" {
   category   command
   types      [GrammarCacheEntry, GrammarContribution]
   ports      [FileSystem]
-
   requires {
-    grammar_validated "grammar .wasm binary has passed validation checks"
+    grammar_validated    "grammar .wasm binary has passed validation checks"
     filesystem_available "FileSystem port is available for writing cache entries"
   }
-
   ensures {
-    cache_key_composite "cache key combines content hash and ABI version"
-    cache_hit_skips_loading "cache hits skip grammar loading and validation on subsequent loads"
+    cache_key_composite         "cache key combines content hash and ABI version"
+    cache_hit_skips_loading     "cache hits skip grammar loading and validation on subsequent loads"
     cache_invalidation_enforced "cache is invalidated on content hash change, ABI version change, or specforge clean"
   }
-
-  contract """
+  contract   """
     The system MUST cache loaded grammar artifacts using a content-hash +
     ABI version composite cache key. Cache hits MUST skip grammar loading
     and validation. Cache MUST be invalidated when: (1) the grammar .wasm
@@ -567,7 +509,6 @@ behavior cache_grammar_artifacts "Cache Grammar Artifacts" {
     cached artifact is missing. Grammar artifacts are stored under the
     project's .specforge cache directory.
   """
-
   verify unit "cache key combines content hash and ABI version"
   verify unit "cache hit skips grammar loading"
   verify unit "content hash change invalidates cache"

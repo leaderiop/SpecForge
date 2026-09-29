@@ -1,16 +1,15 @@
 // Embeddings extension — entity embedding search feature
 
 use "extensions/embeddings/behaviors"
-feature entity_embedding_search "Entity Embedding Search" {
-  status     proposed
 
-  problem """
+feature entity_embedding_search "Entity Embedding Search" {
+  status   proposed
+  problem  """
     Agents need semantic search over spec entities to find relevant context
     by meaning rather than exact ID matching. Current graph queries require
     knowing entity IDs or kinds upfront, limiting discoverability for agents
     working with unfamiliar specifications.
   """
-
   solution """
     Entity embedding generation and vector-based semantic search. Each entity's
     contract, title, and relationships are embedded into a vector space.

@@ -5,27 +5,25 @@
 use "extensions/formal/types"
 
 invariant fa_layering_dag "Specification Layering DAG" {
-  guarantee   """
+  guarantee """
     The refines edges between behaviors MUST form a directed acyclic
     graph (DAG). Cycles in refinement chains MUST produce E041 error
     diagnostics. This ensures well-founded layering from abstract
     specifications to concrete implementations.
   """
-  risk        high
-
+  risk      high
   verify property "refines edges form a DAG with no cycles"
   verify unit "cycle in refinement chain produces E041"
 }
 
 invariant fa_condition_consistency "Structured Condition Consistency" {
-  guarantee   """
+  guarantee """
     In an ensures block, condition descriptions MUST NOT reference
     identifiers that are absent from the corresponding requires block
     or the entity's own scope (types, ports, invariants fields). This
     prevents postconditions from depending on undefined state.
   """
-  risk        medium
-
+  risk      medium
   verify unit "ensures referencing unknown identifier detected"
   verify unit "ensures referencing requires identifier passes"
 }
@@ -34,40 +32,37 @@ invariant fa_condition_consistency "Structured Condition Consistency" {
 // Conditions are inline fields, not standalone entities.
 
 invariant fa_property_entity_reachability "Property Entity Reachability" {
-  guarantee   """
+  guarantee """
     Every property entity MUST be referenced by at least one Satisfies
     edge from a behavior. Unreferenced property entities produce W123
     warning. This prevents orphaned temporal assertions that exist in
     the graph but no behavior claims to satisfy.
   """
-  risk        low
-
+  risk      low
   verify unit "property with Satisfies edge passes"
   verify unit "property with no incoming edges produces W123"
 }
 
 invariant fa_axiom_entity_reachability "Axiom Entity Reachability" {
-  guarantee   """
+  guarantee """
     Every axiom entity MUST be referenced by at least one AssumedBy
     edge from a condition. Unreferenced axiom entities produce W126
     warning. This prevents orphaned assumptions that no condition
     depends on.
   """
-  risk        low
-
+  risk      low
   verify unit "axiom with AssumedBy edge passes"
   verify unit "axiom with no incoming edges produces W126"
 }
 
 invariant fa_protocol_entity_reachability "Protocol Entity Reachability" {
-  guarantee   """
+  guarantee """
     Every protocol entity MUST be referenced by at least one
     FollowsProtocol edge from an event. Unreferenced protocol entities
     produce W128 warning. This prevents orphaned sync contracts that
     no event follows.
   """
-  risk        low
-
+  risk      low
   verify unit "protocol with FollowsProtocol edge passes"
   verify unit "protocol with no incoming edges produces W128"
 }
@@ -78,8 +73,7 @@ invariant fa_refinement_entity_reachability "Refinement Entity Reachability" {
     RefinementRefinesAbstract/RefinementRefinesConcrete edges, or be linked
     via RefinementChainsToRefinement from another refinement. Unreferenced refinement entities produce W131.
   """
-  risk low
-
+  risk      low
   verify unit "refinement with abstract_entity and concrete_entity edges passes"
   verify unit "refinement with only RefinementChainsToRefinement incoming passes"
   verify unit "refinement with no edges produces W131"
@@ -90,8 +84,7 @@ invariant fa_refinement_chain_dag "Refinement Chain Link DAG" {
     RefinementChainsToRefinement edges between refinement entities MUST form a DAG.
     Cycles produce E041 error.
   """
-  risk high
-
+  risk      high
   verify property "RefinementChainsToRefinement edges form a DAG"
   verify unit "cycle in RefinementChainsToRefinement produces E041"
 }
@@ -101,8 +94,7 @@ invariant fa_process_entity_reachability "Process Entity Reachability" {
     Every process entity MUST be referenced by at least one ParticipatesIn
     edge from an event. Unreferenced process entities produce W134.
   """
-  risk low
-
+  risk      low
   verify unit "process with ParticipatesIn edge passes"
   verify unit "process with no incoming edges produces W134"
 }
@@ -112,8 +104,7 @@ invariant fa_process_composition_dag "Process Composition DAG" {
     ProcessComposition edges between process entities MUST form a DAG.
     Cycles produce E042 error.
   """
-  risk high
-
+  risk      high
   verify property "ProcessComposition edges form a DAG"
   verify unit "cycle in ProcessComposition produces E042"
 }

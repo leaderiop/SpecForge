@@ -7,7 +7,6 @@ type Task "A unit of work the user wants to track" {
   status      TaskStatus
   createdAt   timestamp @readonly
   completedAt timestamp @optional
-
   verify unit "completedAt is set exactly when status is done"
 }
 
@@ -18,14 +17,12 @@ type TaskStatus = open | in_progress | done | archived
 type CreateTaskCommand {
   title       string
   description string @optional
-
   verify unit "rejects a blank title"
 }
 
 // Command payload for completing a task.
 type CompleteTaskCommand {
   taskId string
-
   verify unit "rejects an empty taskId"
 }
 
@@ -34,15 +31,13 @@ type TaskNotFoundError {
   _tag    "TaskNotFoundError" @literal
   taskId  string
   message string
-
   verify unit "message names the missing taskId"
 }
 
 // Error returned when a title fails validation.
 type InvalidTitleError {
-  _tag    "InvalidTitleError" @literal
-  reason  string
-
+  _tag   "InvalidTitleError" @literal
+  reason string
   verify unit "reason says why the title was rejected"
 }
 
@@ -50,7 +45,6 @@ type InvalidTitleError {
 type TaskCreatedPayload {
   taskId string @readonly
   title  string
-
   verify unit "round-trips through JSON unchanged"
 }
 
@@ -58,6 +52,5 @@ type TaskCreatedPayload {
 type TaskCompletedPayload {
   taskId      string @readonly
   completedAt timestamp
-
   verify unit "round-trips through JSON unchanged"
 }

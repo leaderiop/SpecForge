@@ -9,8 +9,7 @@ invariant library_dag "Library DAG" {
     graph. The compiler MUST detect and reject circular library dependencies
     with an E007 diagnostic.
   """
-  risk medium
-
+  risk      medium
   verify property "an acyclic library dependency graph is accepted"
   verify unit "a circular library dependency produces E007"
 }
@@ -24,8 +23,7 @@ invariant module_dag "Module DAG" {
     The depends_on edges between module entities MUST form a directed
     acyclic graph. Cycles are detected by E007 and rejected.
   """
-  risk high
-
+  risk      high
   verify property "acyclic module dependency graph is accepted"
   verify unit "circular module dependency produces E007"
 }
@@ -35,8 +33,7 @@ invariant milestone_dag "Milestone DAG" {
     The depends_on edges between milestone entities MUST form a directed
     acyclic graph. Cycles are detected by E015 and rejected.
   """
-  risk high
-
+  risk      high
   verify property "acyclic milestone dependency graph is accepted"
   verify unit "circular milestone dependency produces E015"
 }
@@ -46,8 +43,7 @@ invariant feature_dag "Feature DAG" {
     The depends_on edges between feature entities MUST form a directed
     acyclic graph. Cycles produce a W045 warning.
   """
-  risk medium
-
+  risk      medium
   verify property "acyclic feature dependency graph is accepted"
   verify unit "circular feature dependency produces W045"
 }
@@ -57,8 +53,7 @@ invariant deliverable_dag "Deliverable DAG" {
     The depends_on edges between deliverable entities MUST form a
     directed acyclic graph. Cycles are detected by E052 and rejected.
   """
-  risk high
-
+  risk      high
   verify property "acyclic deliverable dependency graph is accepted"
   verify unit "circular deliverable dependency produces E052"
 }
@@ -68,8 +63,7 @@ invariant release_dag "Release DAG" {
     The depends_on edges between release entities MUST form a directed
     acyclic graph. Cycles produce a W092 warning.
   """
-  risk medium
-
+  risk      medium
   verify property "acyclic release dependency graph is accepted"
   verify unit "circular release dependency produces W092"
 }
@@ -83,8 +77,7 @@ invariant pe_feature_non_testable "Feature Non-Testable" {
     Feature entities MUST have testable=false in the manifest. Features
     are planning constructs tested indirectly through behavior chains.
   """
-  risk medium
-
+  risk      medium
   verify unit "feature kind has testable=false"
 }
 
@@ -93,8 +86,7 @@ invariant pe_persona_non_testable "Persona Non-Testable" {
     Persona entities MUST have testable=false in the manifest. Personas
     are reference entities describing user roles, not testable contracts.
   """
-  risk medium
-
+  risk      medium
   verify unit "persona kind has testable=false"
 }
 
@@ -103,8 +95,7 @@ invariant pe_channel_non_testable "Channel Non-Testable" {
     Channel entities MUST have testable=false in the manifest. Channels
     are reference entities describing interaction mediums.
   """
-  risk medium
-
+  risk      medium
   verify unit "channel kind has testable=false"
 }
 
@@ -113,8 +104,7 @@ invariant pe_release_non_testable "Release Non-Testable" {
     Release entities MUST have testable=false in the manifest. Releases
     are coordination constructs, not testable contracts.
   """
-  risk medium
-
+  risk      medium
   verify unit "release kind has testable=false"
 }
 
@@ -124,8 +114,7 @@ invariant pe_product_verify_support "Product Verify Support" {
     supportsVerify=true to enable verify acceptance annotations.
     Other product entity kinds retain supportsVerify=false.
   """
-  risk medium
-
+  risk      medium
   verify unit "feature, deliverable, milestone have supportsVerify=true"
   verify unit "journey, module, term, persona, channel, release have supportsVerify=false"
 }
@@ -140,8 +129,7 @@ invariant deliverable_lifecycle_consistency "Deliverable Lifecycle Consistency" 
     Shipped deliverables MUST have completed milestones. Deprecated
     deliverables MUST have a documented reason.
   """
-  risk high
-
+  risk      high
   verify unit "deliverable status follows valid transitions"
 }
 
@@ -151,8 +139,7 @@ invariant persona_lifecycle_consistency "Persona Lifecycle Consistency" {
     status transitions MUST follow the declared state machine
     (active->deprecated, deprecated is terminal).
   """
-  risk medium
-
+  risk      medium
   verify unit "deprecated persona has reason"
   verify unit "persona status follows valid transitions"
 }
@@ -163,8 +150,7 @@ invariant channel_lifecycle_consistency "Channel Lifecycle Consistency" {
     status transitions MUST follow the declared state machine
     (active->deprecated, deprecated is terminal).
   """
-  risk medium
-
+  risk      medium
   verify unit "deprecated channel has reason"
   verify unit "channel status follows valid transitions"
 }
@@ -174,8 +160,7 @@ invariant persona_channel_lifecycle "Persona and Channel Lifecycle" {
     Persona and channel entities MUST have valid lifecycle states.
     The status field, when present, MUST be a valid enum value.
   """
-  risk medium
-
+  risk      medium
   verify unit "persona status is valid PersonaStatus enum"
   verify unit "channel status is valid ChannelStatus enum"
 }
@@ -186,8 +171,7 @@ invariant milestone_status_consistency "Milestone Status Consistency" {
     Completed milestones MUST have exit criteria. Blocked milestones
     SHOULD have dependencies.
   """
-  risk medium
-
+  risk      medium
   verify unit "milestone status is valid and consistent with exit criteria"
 }
 
@@ -196,8 +180,7 @@ invariant pe_release_lifecycle_consistency "Release Lifecycle Consistency" {
     Released releases MUST have all deliverables in shipped status.
     Recalled releases MUST have a documented reason.
   """
-  risk high
-
+  risk      high
   verify unit "released release has all shipped deliverables"
   verify unit "recalled release has reason"
 }
@@ -208,8 +191,7 @@ invariant pe_release_status_transition "Release Status Transition" {
     planned->in_progress, in_progress->released, released->recalled.
     Recalled is terminal.
   """
-  risk medium
-
+  risk      medium
   verify unit "release status follows valid transitions"
 }
 
@@ -223,8 +205,7 @@ invariant deliverable_journey_module_consistency "Deliverable Journey-Module Con
     of features assigned to the deliverable's modules. Gaps produce
     I049 info diagnostics.
   """
-  risk medium
-
+  risk      medium
   verify unit "deliverable journey features are covered by module features"
 }
 
@@ -234,8 +215,7 @@ invariant milestone_feature_module_consistency "Milestone Feature-Module Consist
     milestone's modules via ModuleFeature edges. Gaps produce I051
     info diagnostics.
   """
-  risk medium
-
+  risk      medium
   verify unit "milestone features are covered by milestone modules"
 }
 
@@ -244,8 +224,7 @@ invariant module_feature_reachability "Module-Feature Reachability" {
     Every module SHOULD have at least one feature assigned via
     ModuleFeature edges. Modules without features produce I067.
   """
-  risk low
-
+  risk      low
   verify unit "module with features has reachable feature set"
 }
 
@@ -255,8 +234,7 @@ invariant pe_deliverable_chain_integrity "Deliverable Chain Integrity" {
     consistent. Features scheduled in milestones that belong to a
     deliverable MUST be covered by the deliverable's modules.
   """
-  risk medium
-
+  risk      medium
   verify unit "end-to-end deliverable chain is consistent"
 }
 
@@ -271,8 +249,7 @@ invariant pe_ownership_field_awareness "Ownership Field Awareness" {
     (module, term, journey, persona, channel) intentionally lack
     ownership fields.
   """
-  risk low
-
+  risk      low
   verify unit "owner field exists on feature, milestone, deliverable, release"
   verify unit "owner field absent on module, term, journey, persona, channel"
 }
@@ -283,8 +260,7 @@ invariant pe_owner_string_consistency "Owner String Consistency" {
     strings within Levenshtein distance 2 produce I085 diagnostics
     suggesting normalization.
   """
-  risk low
-
+  risk      low
   verify unit "similar owner strings are detected"
 }
 
@@ -293,8 +269,7 @@ invariant pe_tags_per_entity_kind "Tags Per Entity Kind" {
     All 9 product entity kinds declare a tags field (string[] @optional).
     Singleton tag detection spans all kinds for maximum coverage.
   """
-  risk low
-
+  risk      low
   verify unit "all 9 entity kinds have tags field"
 }
 
@@ -303,8 +278,7 @@ invariant tag_cross_kind_awareness "Tag Cross-Kind Awareness" {
     Tags used on entities of 3 or more different kinds produce I071
     info diagnostics suggesting kind-specific prefixes.
   """
-  risk low
-
+  risk      low
   verify unit "cross-kind tag on 3+ kinds produces I071"
 }
 
@@ -314,8 +288,7 @@ invariant term_alias_uniqueness "Term Alias Uniqueness" {
     Conflicts between aliases or between an alias and a term ID
     produce W086 warnings.
   """
-  risk medium
-
+  risk      medium
   verify unit "duplicate term aliases produce W086"
 }
 
@@ -329,8 +302,7 @@ invariant pe_effort_weighted_completion "Effort-Weighted Completion" {
     Default weights: xs=1, s=2, m=3, l=5, xl=8. Features without
     effort default to the weight of m.
   """
-  risk medium
-
+  risk      medium
   verify unit "effort weights are applied correctly"
   verify unit "missing effort defaults to m weight"
 }
@@ -340,8 +312,7 @@ invariant pe_effort_enum_validity "Effort Enum Validity" {
     The effort field on features MUST contain a valid Effort enum
     value (xs, s, m, l, xl). Invalid values produce W095.
   """
-  risk low
-
+  risk      low
   verify unit "invalid effort value produces W095"
 }
 
@@ -354,8 +325,7 @@ invariant pe_surface_response_envelope "Surface Response Envelope" {
     All MCP resource responses MUST use the ProductSurfaceResponse
     envelope with status, data, and optional error fields.
   """
-  risk high
-
+  risk      high
   verify unit "MCP resources return ProductSurfaceResponse envelope"
 }
 
@@ -364,8 +334,7 @@ invariant pe_surface_error_consistency "Surface Error Consistency" {
     All product surfaces MUST use exactly three error codes:
     ENTITY_NOT_FOUND, GRAPH_NOT_READY, INVALID_INPUT.
   """
-  risk high
-
+  risk      high
   verify unit "surface errors use the three defined error codes"
 }
 
@@ -375,8 +344,7 @@ invariant pe_list_pagination_correctness "List Pagination Correctness" {
     pre-pagination count, has_more is total > offset + returned count,
     limit defaults to 100, offset defaults to 0.
   """
-  risk high
-
+  risk      high
   verify unit "pagination metadata is correct"
 }
 
@@ -386,8 +354,7 @@ invariant pe_cross_extension_query_isolation "Cross-Extension Query Isolation" {
     Query results MUST be identical regardless of which other
     extensions are installed.
   """
-  risk high
-
+  risk      high
   verify unit "product queries ignore foreign edges"
 }
 
@@ -397,8 +364,7 @@ invariant pe_queries_derived_not_standard "Queries Are Derived, Not Standard" {
     Graph Protocol standard. Alternative compilers need not implement
     these queries to be compliant.
   """
-  risk low
-
+  risk      low
   verify unit "queries are documented as derived convenience"
 }
 
@@ -408,8 +374,7 @@ invariant pe_partial_graph_traversability "Partial Graph Traversability" {
     of validation state. Entities with validation errors MUST still
     be traversable and appear in query results.
   """
-  risk medium
-
+  risk      medium
   verify unit "entities with errors appear in query results"
 }
 
@@ -419,8 +384,7 @@ invariant pe_rendering_completeness "Rendering Completeness" {
     in the Graph Protocol JSON output. The core emitter handles all
     entity kinds uniformly.
   """
-  risk medium
-
+  risk      medium
   verify unit "all 9 entity kinds appear in export output"
 }
 
@@ -434,8 +398,7 @@ invariant pe_milestone_temporal_consistency "Milestone Temporal Consistency" {
     start_date MUST be on or before target_date. Both fields MUST
     be valid ISO 8601 date format when present.
   """
-  risk medium
-
+  risk      medium
   verify unit "start_date <= target_date when both present"
 }
 
@@ -445,8 +408,7 @@ invariant pe_blocker_status_consistency "Blocker-Status Consistency" {
     blockers entries. A blocked milestone with neither has no
     documented cause for the block.
   """
-  risk low
-
+  risk      low
   verify unit "blocked milestone has depends_on or blockers"
 }
 
@@ -460,8 +422,7 @@ invariant pe_migration_backward_compat "Migration Backward Compatibility" {
     are always optional. Breaking changes require a major version bump
     with a migration hook.
   """
-  risk high
-
+  risk      high
   verify unit "v1 spec files parse under v1.x without errors"
 }
 
@@ -471,8 +432,7 @@ invariant pe_validation_deterministic "Validation Deterministic" {
     files + optional cache file) always produce identical diagnostic
     output. No time-dependent diagnostics during specforge check.
   """
-  risk high
-
+  risk      high
   verify unit "same inputs produce same diagnostics"
 }
 
@@ -481,7 +441,6 @@ invariant pe_release_version_uniqueness "Release Version Uniqueness" {
     Release version strings MUST be unique across all release entities.
     Duplicate versions produce I091 info diagnostics.
   """
-  risk medium
-
+  risk      medium
   verify unit "duplicate release versions produce I091"
 }

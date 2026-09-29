@@ -4,15 +4,26 @@ use "product/deliverables"
 use "product/milestones"
 
 release alpha "SpecForge Alpha" {
-  description """
+  description  """
     First public release of the SpecForge compiler. Core compilation
     pipeline (parse, resolve, graph, validate, emit) with CLI binary
     and tree-sitter grammar.
   """
   version      "0.1.0"
   status       in_progress
-  deliverables [tree_sitter_specforge_deliverable, specforge_core, specforge_cli_deliverable, specforge_rust_traceability_deliverable]
-  milestones   [structural_parsing, resolution_and_graph, validation_and_errors, output_and_export, project_init]
+  deliverables [
+    tree_sitter_specforge_deliverable,
+    specforge_core,
+    specforge_cli_deliverable,
+    specforge_rust_traceability_deliverable,
+  ]
+  milestones   [
+    structural_parsing,
+    resolution_and_graph,
+    validation_and_errors,
+    output_and_export,
+    project_init,
+  ]
   target_date  "2026-06-01"
   changelog    """
     Initial alpha with core compiler pipeline, CLI binary, and basic
@@ -29,7 +40,7 @@ release alpha "SpecForge Alpha" {
 }
 
 release beta "SpecForge Beta" {
-  description """
+  description  """
     Feature-complete release adding LSP, MCP, incremental compilation,
     formatting, and the zero-entity core architecture. Enables full
     IDE integration and agent consumption.
@@ -37,7 +48,13 @@ release beta "SpecForge Beta" {
   version      "0.5.0"
   status       planned
   deliverables [specforge_cli_deliverable, specforge_lsp_deliverable, specforge_mcp_deliverable]
-  milestones   [lsp_server, ms_code_formatting, zero_entity_core, ms_incremental_compilation, mcp_server]
+  milestones   [
+    lsp_server,
+    ms_code_formatting,
+    zero_entity_core,
+    ms_incremental_compilation,
+    mcp_server,
+  ]
   depends_on   [alpha]
   reason       "Deliver IDE-grade developer experience and agent-first MCP integration before stabilizing the extension runtime."
   owner        "specforge-team"
@@ -46,7 +63,7 @@ release beta "SpecForge Beta" {
 }
 
 release one_zero "SpecForge 1.0" {
-  description """
+  description  """
     Production release with Wasm extension runtime, first-party
     extensions, and schema versioning. The graph protocol schema
     is stabilized.

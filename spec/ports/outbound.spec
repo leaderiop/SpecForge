@@ -1,14 +1,14 @@
 // Outbound ports — interfaces the system requires from the outside world
 
-use "types/core"
 use "types/config"
+use "types/core"
 use "types/diagnostics"
 use "types/errors"
 use "types/wasm"
+
 port FileSystem {
   direction outbound
   category  "io/filesystem"
-
   method readFile(path: string) -> Result<string, EmitterError>
   method writeFile(path: string, content: string) -> Result<void, EmitterError>
   method listFiles(pattern: string) -> Result<string[], EmitterError>
@@ -22,7 +22,6 @@ port FileSystem {
 port SourceParser {
   direction outbound
   category  "compiler/parser"
-
   method parseSource(content: string, path: string) -> Result<SpecFile, ParseError>
   method parseIncremental(content: string, path: string, previousTree: string) -> Result<SpecFile, ParseError>
   verify integration "SourceParser contract is satisfied"
@@ -31,7 +30,6 @@ port SourceParser {
 port GraphSerializer {
   direction outbound
   category  "io/output"
-
   method serializeJson(data: JsonValue) -> Result<string, EmitterError>
   method serializeDot(data: JsonValue) -> Result<string, EmitterError>
   method writeOutput(path: string, content: string) -> Result<void, EmitterError>
@@ -41,7 +39,6 @@ port GraphSerializer {
 port RefValidator {
   direction outbound
   category  "validation/refs"
-
   method validateScheme(scheme: string) -> Result<boolean, never>
   method validateKind(scheme: string, kind: string) -> Result<boolean, never>
   method validateIdentifier(scheme: string, kind: string, identifier: string) -> Result<boolean, ValidationError>
@@ -52,7 +49,6 @@ port RefValidator {
 port WasmRuntime {
   direction outbound
   category  "runtime/wasm"
-
   method loadModule(wasmPath: string) -> Result<string, ExtensionError>
   method callExport(extensionId: string, exportName: string, input: JsonValue) -> Result<JsonValue, ExtensionError>
   method registerHostFunction(name: string, handler: string) -> Result<void, ExtensionError>
@@ -68,7 +64,6 @@ port WasmRuntime {
 port RegistryClient {
   direction outbound
   category  "io/registry"
-
   method fetchExtension(registryUrl: string, name: string) -> Result<RegistryResponse, RegistryError>
   method fetchVersion(registryUrl: string, name: string, version: string) -> Result<RegistryResponse, RegistryError>
   method downloadWasm(registryUrl: string, name: string, version: string) -> Result<string, RegistryError>
@@ -78,4 +73,3 @@ port RegistryClient {
   method validateCredential(credential: RegistryCredential) -> Result<boolean, RegistryError>
   verify integration "RegistryClient contract is satisfied"
 }
-

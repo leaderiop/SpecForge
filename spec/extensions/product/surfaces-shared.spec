@@ -4,20 +4,20 @@
 // contributions (CLI commands, MCP tools, and MCP resources). See surfaces-cli.spec
 // for CLI commands and surfaces-mcp.spec for MCP resources.
 
-use "extensions/product/types"
-use "extensions/product/behaviors-registration"
-use "extensions/product/behaviors-queries"
 use "extensions/product/behaviors-operations"
+use "extensions/product/behaviors-queries"
+use "extensions/product/behaviors-registration"
 use "extensions/product/features"
+use "extensions/product/types"
 
 // ════════════════════════════════════════════════════════════════
 // Surface Error Handling — common error contracts
 // ════════════════════════════════════════════════════════════════
 
 behavior surface_error_handling "Surface Error Handling" {
-  category   command
-  types      [ProductSurfaceError, ProductQueryError]
-  contract   """
+  category command
+  types    [ProductSurfaceError, ProductQueryError]
+  contract """
     All product surface contributions (CLI commands and MCP tools/resources)
     MUST follow consistent error handling:
     1. Entity-not-found: return ProductSurfaceError with code="ENTITY_NOT_FOUND",
@@ -33,20 +33,18 @@ behavior surface_error_handling "Surface Error Handling" {
        as the error data field.
     6. MCP resources return ProductSurfaceResponse with status=error.
   """
-  ensures  {
-    entity_not_found_code  "entity-not-found errors use code ENTITY_NOT_FOUND"
-    graph_not_ready_code   "graph-not-ready errors use code GRAPH_NOT_READY"
-    invalid_input_code     "invalid-input errors use code INVALID_INPUT"
-    suggestion_on_typo     "ENTITY_NOT_FOUND includes suggestion when Levenshtein distance <= 2 match exists"
-    cli_stderr             "CLI error messages are written to stderr, not stdout"
-    cli_exit_one           "CLI commands exit with code 1 on any error"
-    mcp_tool_jsonrpc       "MCP tools return JSON-RPC error response on error"
-    mcp_resource_envelope  "MCP resources return ProductSurfaceResponse with status=error on error"
-    no_panic               "no surface contribution panics on any input"
+  ensures {
+    entity_not_found_code "entity-not-found errors use code ENTITY_NOT_FOUND"
+    graph_not_ready_code  "graph-not-ready errors use code GRAPH_NOT_READY"
+    invalid_input_code    "invalid-input errors use code INVALID_INPUT"
+    suggestion_on_typo    "ENTITY_NOT_FOUND includes suggestion when Levenshtein distance <= 2 match exists"
+    cli_stderr            "CLI error messages are written to stderr, not stdout"
+    cli_exit_one          "CLI commands exit with code 1 on any error"
+    mcp_tool_jsonrpc      "MCP tools return JSON-RPC error response on error"
+    mcp_resource_envelope "MCP resources return ProductSurfaceResponse with status=error on error"
+    no_panic              "no surface contribution panics on any input"
   }
-
   features [pe_surface_contributions]
-
   verify unit "entity-not-found returns ENTITY_NOT_FOUND code"
   verify unit "graph-not-ready returns GRAPH_NOT_READY code"
   verify unit "invalid filter value returns INVALID_INPUT code"
@@ -62,9 +60,9 @@ behavior surface_error_handling "Surface Error Handling" {
 // ════════════════════════════════════════════════════════════════
 
 behavior surface_format_conventions "Surface Format Conventions" {
-  category   command
-  types      [ProductListFilter]
-  contract   """
+  category command
+  types    [ProductListFilter]
+  contract """
     All product CLI commands MUST support a --format flag with three values:
     - json (default): machine-readable JSON on stdout, one root object
     - table: human-readable aligned columns on stdout
@@ -73,7 +71,7 @@ behavior surface_format_conventions "Surface Format Conventions" {
     The --format flag is passed through to MCP tools as a "format" field in
     the JSON Schema input. MCP resources always return JSON (no format flag).
   """
-  ensures  {
+  ensures {
     json_default       "--format defaults to json when omitted"
     json_valid         "json format produces valid JSON parseable by any JSON parser"
     table_aligned      "table format uses fixed-width columns aligned with spaces"
@@ -83,9 +81,7 @@ behavior surface_format_conventions "Surface Format Conventions" {
     mcp_always_json    "MCP resources ignore format parameter and always return JSON"
     utf8_output        "all output is valid UTF-8"
   }
-
   features [pe_surface_contributions]
-
   verify unit "default format is json"
   verify unit "json output is valid JSON"
   verify unit "table output has header and aligned columns"
@@ -98,9 +94,9 @@ behavior surface_format_conventions "Surface Format Conventions" {
 // ════════════════════════════════════════════════════════════════
 
 behavior surface_list_command_contract "Surface List Command Shared Contract" {
-  category   command
-  types      [ProductListFilter, ProductListResult, ProductSurfaceError]
-  contract   """
+  category command
+  types    [ProductListFilter, ProductListResult, ProductSurfaceError]
+  contract """
     All 9 product list commands (product:features, product:journeys,
     product:deliverables, product:milestones, product:modules, product:terms,
     product:personas, product:channels, product:releases) MUST follow a
@@ -130,20 +126,18 @@ behavior surface_list_command_contract "Surface List Command Shared Contract" {
   requires {
     graph_ready "product graph is built and in ready state"
   }
-  ensures  {
-    filter_and_logic      "multiple filters combine with AND logic"
-    invalid_filter_error  "invalid enum filter value returns INVALID_INPUT"
-    sort_deterministic    "tie-break sort by entity ID ascending"
-    sort_field_validated  "invalid sort_by field returns INVALID_INPUT"
-    limit_clamped         "limit clamped to [1, 1000] range"
-    offset_beyond_total   "offset beyond total returns empty list with correct total"
-    pagination_correct    "total reflects filtered count; has_more == (offset + entities.length < total)"
-    empty_graph_ok        "empty graph returns entities=[], total=0, has_more=false"
-    delegates_to_query    "each list command delegates to a common query pipeline"
+  ensures {
+    filter_and_logic     "multiple filters combine with AND logic"
+    invalid_filter_error "invalid enum filter value returns INVALID_INPUT"
+    sort_deterministic   "tie-break sort by entity ID ascending"
+    sort_field_validated "invalid sort_by field returns INVALID_INPUT"
+    limit_clamped        "limit clamped to [1, 1000] range"
+    offset_beyond_total  "offset beyond total returns empty list with correct total"
+    pagination_correct   "total reflects filtered count; has_more == (offset + entities.length < total)"
+    empty_graph_ok       "empty graph returns entities=[], total=0, has_more=false"
+    delegates_to_query   "each list command delegates to a common query pipeline"
   }
-
   features [pe_surface_contributions]
-
   verify unit "filter by status returns only matching entities"
   verify unit "filter by priority returns only matching entities"
   verify unit "combined status+priority filter uses AND logic"
@@ -163,9 +157,9 @@ behavior surface_list_command_contract "Surface List Command Shared Contract" {
 // ════════════════════════════════════════════════════════════════
 
 behavior surface_query_command_contract "Surface Query Command Shared Contract" {
-  category   command
-  types      [ProductSurfaceError, ProductSurfaceResponse]
-  contract   """
+  category command
+  types    [ProductSurfaceError, ProductSurfaceResponse]
+  contract """
     All product query commands (22 original + 9 v1.1 + 5 analytics = 36 total)
     MUST follow a uniform contract:
 
@@ -190,17 +184,15 @@ behavior surface_query_command_contract "Surface Query Command Shared Contract" 
   requires {
     graph_ready "product graph is built and in ready state"
   }
-  ensures  {
-    entity_validated       "entity-scoped queries validate entity existence and kind"
-    fuzzy_suggestion       "ENTITY_NOT_FOUND includes Levenshtein distance <= 2 suggestion"
-    graph_not_ready_error  "queries during rebuild return GRAPH_NOT_READY"
-    delegates_to_port      "each command delegates to a ProductQueryPort method"
-    observability_event    "each query emits its observability event on completion"
-    format_respected       "output respects --format flag"
+  ensures {
+    entity_validated      "entity-scoped queries validate entity existence and kind"
+    fuzzy_suggestion      "ENTITY_NOT_FOUND includes Levenshtein distance <= 2 suggestion"
+    graph_not_ready_error "queries during rebuild return GRAPH_NOT_READY"
+    delegates_to_port     "each command delegates to a ProductQueryPort method"
+    observability_event   "each query emits its observability event on completion"
+    format_respected      "output respects --format flag"
   }
-
   features [pe_surface_contributions]
-
   verify unit "entity-scoped query with valid ID returns typed payload"
   verify unit "entity-scoped query with invalid ID returns ENTITY_NOT_FOUND"
   verify unit "entity-scoped query with close typo returns suggestion"
@@ -214,10 +206,10 @@ behavior surface_query_command_contract "Surface Query Command Shared Contract" 
 // ════════════════════════════════════════════════════════════════
 
 behavior surface_mcp_resource_contract "Surface MCP Resource Shared Contract" {
-  category   query
-  types      [ProductSurfaceResponse, ProductSurfaceError]
-  produces  [pe_mcp_resource_accessed]
-  contract   """
+  category query
+  types    [ProductSurfaceResponse, ProductSurfaceError]
+  produces [pe_mcp_resource_accessed]
+  contract """
     All MCP resources (28 total: 13 original + 6 v1.1 + 9 analytics) MUST
     return a ProductSurfaceResponse envelope:
       { "status": "ok"|"error",
@@ -236,17 +228,15 @@ behavior surface_mcp_resource_contract "Surface MCP Resource Shared Contract" {
     6. _resource is always the URI that was accessed.
     7. Response Content-Type is application/json.
   """
-  ensures  {
-    envelope_always_valid  "every response is a valid ProductSurfaceResponse"
-    timestamp_iso8601      "_timestamp is valid ISO 8601 datetime"
-    resource_uri_present   "_resource matches the accessed URI"
-    content_type_json      "response Content-Type is application/json"
-    read_only_default      "resources are read-only with no side effects"
-    not_found_suggestion   "ENTITY_NOT_FOUND includes fuzzy suggestion when match exists"
+  ensures {
+    envelope_always_valid "every response is a valid ProductSurfaceResponse"
+    timestamp_iso8601     "_timestamp is valid ISO 8601 datetime"
+    resource_uri_present  "_resource matches the accessed URI"
+    content_type_json     "response Content-Type is application/json"
+    read_only_default     "resources are read-only with no side effects"
+    not_found_suggestion  "ENTITY_NOT_FOUND includes fuzzy suggestion when match exists"
   }
-
   features [pe_surface_contributions]
-
   verify unit "every resource returns valid ProductSurfaceResponse envelope"
   verify unit "_timestamp is valid ISO 8601 in every response"
   verify unit "_resource matches the accessed URI"

@@ -1,41 +1,38 @@
 // Incremental compilation behaviors — watch mode and file change handling
 
+use "events/compilation"
 use "invariants/core"
 use "invariants/validation"
 use "invariants/zero-entity-core"
-use "types/core"
-use "types/config"
-use "types/graph"
-use "types/diagnostics"
-use "types/zero-entity-core"
 use "ports/inbound"
 use "ports/outbound"
-use "events/compilation"
+use "types/config"
+use "types/core"
+use "types/diagnostics"
+use "types/graph"
+use "types/zero-entity-core"
+
 behavior watch_file_system_for_changes "Watch File System for Changes" {
   invariants [incremental_correctness, watch_mode_response_latency]
   category   command
   types      [FileEntry]
   ports      [FileSystem]
   produces   [file_changed]
-
   requires {
     watch_mode_active "specforge watch command is active and the file watcher is initialized on the spec root"
   }
-
   ensures {
     file_changed_emitted "file_changed event is produced for every detected file creation, modification, or deletion"
   }
-
-  contract """
+  contract   """
     When specforge watch is active, the system MUST monitor all .spec files
     under the spec root for changes using the OS file watching API.
     File creation, modification, and deletion MUST each trigger
     recompilation of affected files.
   """
-
-  verify unit        "file modification triggers recompilation"
-  verify unit        "file creation triggers recompilation"
-  verify unit        "file deletion triggers recompilation"
+  verify unit "file modification triggers recompilation"
+  verify unit "file creation triggers recompilation"
+  verify unit "file deletion triggers recompilation"
   verify integration "watch detects changes within 100ms"
   verify contract "Watch File System for Changes: file system watching holds for the declared obligations"
   verify unit "specforge.json and .wasm changes classify as config/plugin"
@@ -47,18 +44,15 @@ behavior invalidate_changed_files "Invalidate Changed Files" {
   types      [Graph, Subgraph, FileEntry]
   consumes   [file_changes_coalesced]
   produces   [subgraph_invalidated]
-
   requires {
     file_changes_coalesced_fired "file_changes_coalesced event has fired, providing a batch of changed files from the debounce stage"
   }
-
   ensures {
-    invalidation_set_computed "Invalidation set contains the changed files plus all transitive importers"
+    invalidation_set_computed    "Invalidation set contains the changed files plus all transitive importers"
     subgraph_invalidated_emitted "subgraph_invalidated event is produced with the computed invalidation set"
-    unrelated_files_untouched "Files outside the invalidation set are not re-parsed"
+    unrelated_files_untouched    "Files outside the invalidation set are not re-parsed"
   }
-
-  contract """
+  contract   """
     When a coalesced batch of file changes is received from the debounce
     stage, the system MUST compute the
     invalidation set: the changed file plus all files that transitively
@@ -71,7 +65,6 @@ behavior invalidate_changed_files "Invalidate Changed Files" {
     added to the graph, then dependents of any files that import it
     MUST be invalidated.
   """
-
   verify unit "changed file is in invalidation set"
   verify unit "direct importers are in invalidation set"
   verify unit "transitive importers are in invalidation set"
@@ -92,24 +85,20 @@ behavior rebuild_affected_subgraph "Rebuild Affected Subgraph" {
   // This is a correctness gate, not a parallel join barrier.
   consumes   [subgraph_invalidated, import_dag_updated]
   produces   [incremental_rebuild_complete]
-
   requires {
     subgraph_invalidated "subgraph_invalidated event has fired, providing the set of invalidated files"
-    import_dag_updated "import_dag_updated event has fired, confirming the import DAG reflects latest file dependencies"
+    import_dag_updated   "import_dag_updated event has fired, confirming the import DAG reflects latest file dependencies"
   }
-
   ensures {
     graph_reflects_reparse "In-memory graph reflects the re-parsed state of all invalidated files"
-    stale_removed "Stale nodes and edges from invalidated files are removed"
-    new_added "New nodes and edges from re-parsed files are added"
-    rebuild_event_fired "incremental_rebuild_complete event fires with accurate rebuilt file and node counts"
+    stale_removed          "Stale nodes and edges from invalidated files are removed"
+    new_added              "New nodes and edges from re-parsed files are added"
+    rebuild_event_fired    "incremental_rebuild_complete event fires with accurate rebuilt file and node counts"
   }
-
   maintains {
     unaffected_subgraph_intact "Nodes and edges from non-invalidated files remain unchanged throughout rebuild"
   }
-
-  contract """
+  contract   """
     After re-parsing invalidated files using SourceParser.parseIncremental,
     the system MUST remove stale nodes and edges from the graph using
     the mutable graph interface (per [maintain_mutable_graph]), then add
@@ -124,42 +113,43 @@ behavior rebuild_affected_subgraph "Rebuild Affected Subgraph" {
     deferred to the extension validation phase after the subgraph is
     rebuilt.
   """
-
-  verify unit        "stale nodes are removed"
-  verify unit        "new nodes are added"
-  verify property    "incremental rebuild equals cold rebuild"
-  verify unit        "debug --verify-incremental performs cold rebuild comparison"
+  verify unit "stale nodes are removed"
+  verify unit "new nodes are added"
+  verify property "incremental rebuild equals cold rebuild"
+  verify unit "debug --verify-incremental performs cold rebuild comparison"
   verify contract "Rebuild Affected Subgraph: affected subgraph rebuild holds — subgraph_invalidated, import_dag_updated, graph_reflects_reparse, stale_removed, new_added, rebuild_event_fired, unaffected_subgraph_intact"
 }
 
 behavior emit_incremental_diagnostics "Emit Incremental Diagnostics" {
-  invariants [multi_error_collection, incremental_correctness, diagnostic_determinism, zero_domain_knowledge_core, watch_mode_response_latency]
+  invariants [
+    multi_error_collection,
+    incremental_correctness,
+    diagnostic_determinism,
+    zero_domain_knowledge_core,
+    watch_mode_response_latency,
+  ]
   category   command
   types      [DiagnosticBag, DiagnosticsDelta]
   consumes   [incremental_rebuild_complete, graph_delta_computed, incremental_validators_dispatched]
   produces   [incremental_diagnostics_complete]
-
   requires {
-    incremental_rebuild_complete_fired "incremental_rebuild_complete event has fired, confirming subgraph rebuild is done"
-    graph_delta_computed_fired "graph_delta_computed event has fired, providing the diff between old and new graph"
+    incremental_rebuild_complete_fired      "incremental_rebuild_complete event has fired, confirming subgraph rebuild is done"
+    graph_delta_computed_fired              "graph_delta_computed event has fired, providing the diff between old and new graph"
     incremental_validators_dispatched_fired "incremental_validators_dispatched event has fired, confirming extension validators have run"
   }
-
   ensures {
-    diagnostics_refreshed "Diagnostics from invalidated files are replaced with fresh validation results"
+    diagnostics_refreshed           "Diagnostics from invalidated files are replaced with fresh validation results"
     unchanged_diagnostics_preserved "Diagnostics from non-invalidated files remain unchanged"
     incremental_diagnostics_emitted "incremental_diagnostics_complete event fires with the merged diagnostic bag"
   }
-
   maintains {
     non_invalidated_diagnostics_stable "Diagnostics for files outside the invalidation set are not modified"
   }
-
   // These three events form a sequential chain, not a parallel fan-in:
   // incremental_rebuild_complete → graph_delta_computed → incremental_validators_dispatched
   // Listing all three as consumed events is a completeness declaration,
   // not a parallel join. The behavior activates on the last event.
-  contract """
+  contract   """
     After incremental rebuild, the system MUST re-validate the affected
     subgraph and emit updated diagnostics. This behavior MUST wait for
     both compute_graph_delta and dispatch_incremental_validators to
@@ -177,7 +167,6 @@ behavior emit_incremental_diagnostics "Emit Incremental Diagnostics" {
     interaction. This behavior orchestrates the diagnostic collection,
     not the extension invocation directly.
   """
-
   verify unit "diagnostics from changed files are refreshed"
   verify unit "diagnostics from unchanged files are preserved"
   verify unit "total diagnostic set matches full rebuild"
@@ -191,17 +180,14 @@ behavior debounce_file_changes "Debounce File Changes" {
   types      [FileEntry, CompilerConfig]
   consumes   [file_changed]
   produces   [file_changes_coalesced]
-
   requires {
     file_changed_fired "At least one file_changed event has been received from the file watcher"
   }
-
   ensures {
-    coalesced_batch_produced "file_changes_coalesced event fires with the union of all changed files within the debounce window"
+    coalesced_batch_produced          "file_changes_coalesced event fires with the union of all changed files within the debounce window"
     redundant_recompilation_prevented "Multiple rapid changes to the same file result in a single recompilation"
   }
-
-  contract """
+  contract   """
     When multiple file_changed events arrive in rapid succession (e.g.,
     save-all or editor reformatting), the system MUST coalesce them into a
     single invalidation batch. A configurable debounce window (default 50ms)
@@ -210,7 +196,6 @@ behavior debounce_file_changes "Debounce File Changes" {
     batch MUST include the union of all changed files within the debounce
     window.
   """
-
   verify unit "rapid successive changes coalesced into single batch"
   verify unit "debounce window prevents redundant recompilation"
   verify unit "coalesced batch includes union of all changed files"
@@ -226,17 +211,14 @@ behavior track_import_dag_incrementally "Track Import DAG Incrementally" {
   types      [Graph, FileEntry]
   consumes   [subgraph_invalidated]
   produces   [import_dag_updated]
-
   requires {
     subgraph_invalidated_fired "subgraph_invalidated event has fired, identifying the set of files to re-parse"
   }
-
   ensures {
     import_dag_updated_emitted "import_dag_updated event fires after the DAG reflects added and removed use imports"
-    cycle_detection_rerun "Import cycle detection (E003) has been re-run across the full import DAG"
+    cycle_detection_rerun      "Import cycle detection (E003) has been re-run across the full import DAG"
   }
-
-  contract """
+  contract   """
     When a file is re-parsed during incremental compilation, the system
     MUST update the file-level import DAG to reflect any added or removed
     use import statements. Added imports MUST create new edges in the file
@@ -247,7 +229,6 @@ behavior track_import_dag_incrementally "Track Import DAG Incrementally" {
     the invalidation set. The import DAG MUST remain consistent with the
     result of a full rebuild.
   """
-
   verify unit "added use import creates file dependency edge"
   verify unit "removed use import deletes file dependency edge"
   verify unit "cycle detection re-runs after import DAG update"
@@ -258,27 +239,28 @@ behavior track_import_dag_incrementally "Track Import DAG Incrementally" {
 // ── Incremental Graph Delta ───────────────────────────────────
 
 behavior compute_graph_delta "Compute Graph Delta" {
-  invariants [incremental_correctness, graph_traversal_integrity, diagnostic_determinism, graph_delta_determinism]
+  invariants [
+    incremental_correctness,
+    graph_traversal_integrity,
+    diagnostic_determinism,
+    graph_delta_determinism,
+  ]
   category   query
   types      [Graph, GraphDelta, NodeChange, ModifiedNodeChange]
   consumes   [incremental_rebuild_complete]
   produces   [graph_delta_computed]
-
   requires {
     previous_graph_available "Previous graph snapshot is available for comparison"
     new_graph_available      "Newly compiled graph is available for comparison"
   }
-
   ensures {
-    complete_diff          "GraphDelta is a complete symmetric diff of the two graphs"
-    deterministic_sort     "All arrays in GraphDelta are sorted by EntityId.raw (lexicographic)"
+    complete_diff      "GraphDelta is a complete symmetric diff of the two graphs"
+    deterministic_sort "All arrays in GraphDelta are sorted by EntityId.raw (lexicographic)"
   }
-
   maintains {
-    delta_equivalence      "Applying the delta to the previous graph produces a state identical to the new graph"
+    delta_equivalence "Applying the delta to the previous graph produces a state identical to the new graph"
   }
-
-  contract """
+  contract   """
     After an incremental rebuild completes, the system MUST diff the
     previous graph state against the new graph state to produce a
     GraphDelta. The delta MUST enumerate all added nodes, removed nodes,
@@ -292,7 +274,6 @@ behavior compute_graph_delta "Compute Graph Delta" {
     mode (the compiler's debug build configuration or --verify-incremental), old_value and
     new_value MUST always be populated regardless of configuration.
   """
-
   verify unit "added nodes appear in delta"
   verify unit "removed nodes appear in delta"
   verify unit "modified nodes list changed fields"
@@ -310,21 +291,17 @@ behavior dispatch_incremental_validators "Dispatch Incremental Validators" {
   ports      [WasmRuntime]
   consumes   [graph_delta_computed]
   produces   [incremental_validators_dispatched]
-
   requires {
-    delta_computed         "graph_delta_computed event has fired and GraphDelta is available"
+    delta_computed "graph_delta_computed event has fired and GraphDelta is available"
   }
-
   ensures {
     all_validators_invoked "All extension validators invoked with appropriate input (delta or full graph)"
     event_produced         "incremental_validators_dispatched event produced on completion"
   }
-
   maintains {
-    topological_order      "Dispatch follows topological extension order regardless of delta content"
+    topological_order "Dispatch follows topological extension order regardless of delta content"
   }
-
-  contract """
+  contract   """
     After a graph delta is computed, the system MUST dispatch validation
     to extensions. Extensions that declare incremental=true in their
     manifest MUST receive only the GraphDelta. Extensions without
@@ -336,7 +313,6 @@ behavior dispatch_incremental_validators "Dispatch Incremental Validators" {
     incremental validation. Dispatch MUST follow the topological
     extension order.
   """
-
   verify unit "incremental extension receives delta only"
   verify unit "non-incremental extension receives full graph"
   verify unit "dispatch follows topological order"
@@ -353,18 +329,15 @@ behavior notify_delta_subscribers "Notify Delta Subscribers" {
   ports      [LspProtocol]
   consumes   [graph_delta_computed]
   produces   [delta_subscribers_notified]
-
   requires {
     graph_delta_computed_fired "graph_delta_computed event has fired, providing the GraphDelta for notification"
   }
-
   ensures {
-    lsp_notified "LSP subscribers receive semantic token staleness notifications for affected files"
-    diagnostics_delta_delivered "DiagnosticsDelta (added and removed diagnostics) is delivered to subscribers"
+    lsp_notified                       "LSP subscribers receive semantic token staleness notifications for affected files"
+    diagnostics_delta_delivered        "DiagnosticsDelta (added and removed diagnostics) is delivered to subscribers"
     delta_subscribers_notified_emitted "delta_subscribers_notified event fires after all notifications are dispatched"
   }
-
-  contract """
+  contract   """
     After a graph delta is computed, the system MUST notify LSP
     subscribers. The LSP MUST receive notification that semantic tokens
     for affected files are stale; the LSP client then re-requests full
@@ -375,7 +348,6 @@ behavior notify_delta_subscribers "Notify Delta Subscribers" {
     pipeline. MCP notification is handled separately by
     notify_graph_delta_via_mcp (behaviors/mcp-server.spec).
   """
-
   verify unit "LSP receives semantic token updates for affected files"
   verify unit "diagnostics delta includes added and removed"
   verify unit "slow subscriber does not block pipeline"
@@ -388,18 +360,15 @@ behavior validate_delta_correctness "Validate Delta Correctness" {
   types      [Graph, GraphDelta]
   consumes   [graph_delta_computed]
   produces   [delta_validation_failed, delta_validation_passed]
-
   requires {
     graph_delta_available "graph_delta_computed event has fired and GraphDelta is available for verification"
-    debug_mode_active "Debug build configuration or --verify-incremental CLI flag is active"
+    debug_mode_active     "Debug build configuration or --verify-incremental CLI flag is active"
   }
-
   ensures {
-    delta_verified "Delta applied to previous graph produces state identical to new graph, or assertion failure raised"
+    delta_verified           "Delta applied to previous graph produces state identical to new graph, or assertion failure raised"
     validation_event_emitted "delta_validation_passed or delta_validation_failed event is produced"
   }
-
-  contract """
+  contract   """
     In debug mode, after computing a graph delta, the system MUST verify
     correctness by applying the delta to the previous graph state and
     comparing the result with the new graph state. Any discrepancy MUST
@@ -413,7 +382,6 @@ behavior validate_delta_correctness "Validate Delta Correctness" {
     in release builds for CI use. This check MUST be disabled in release
     builds (without --verify-incremental) to avoid performance overhead.
   """
-
   verify unit "delta applied to old graph equals new graph"
   verify unit "discrepancy triggers debug assertion with descriptive message"
   verify unit "check disabled in release builds"

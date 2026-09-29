@@ -1,7 +1,7 @@
 // Modules — code packages that implement features
 
-use "extensions/testing/features"
 use "extensions/cargo-test/features"
+use "extensions/testing/features"
 use "extensions/vitest/features"
 use "features/extensions"
 use "features/formatting"
@@ -65,7 +65,7 @@ module specforge_validator "specforge-validator" {
 module specforge_emitter "specforge-emitter" {
   family      core
   description "Serializes graph to JSON, DOT, and agent-optimized formats"
-  features [
+  features    [
     json_and_dot_render,
     traceability_serialization,
     agent_export,
@@ -103,7 +103,7 @@ module specforge_cli "specforge-cli" {
   family      platform
   description "CLI binary: init, check, export, format, watch, trace, stats, and extension management"
   features    [project_initialization, ci_integration]
-  depends_on [
+  depends_on  [
     specforge_parser,
     specforge_resolver,
     specforge_graph,
@@ -118,7 +118,7 @@ module specforge_cli "specforge-cli" {
 module specforge_lsp "specforge-lsp" {
   family      platform
   description "LSP server: navigation, completion, diagnostics, refactoring"
-  features [
+  features    [
     go_to_definition_and_references,
     hover_and_autocomplete,
     rename_refactoring,
@@ -126,7 +126,7 @@ module specforge_lsp "specforge-lsp" {
     code_actions,
     outline_and_symbol_search,
   ]
-  depends_on [
+  depends_on  [
     specforge_parser,
     specforge_resolver,
     specforge_graph,
@@ -139,7 +139,7 @@ module specforge_lsp "specforge-lsp" {
 module specforge_mcp "specforge-mcp" {
   family      platform
   description "MCP server: resources, tools, notifications, prompts for AI agent integration"
-  features [
+  features    [
     mcp_resource_exposure,
     mcp_core_tools,
     mcp_navigation_tools,
@@ -148,7 +148,7 @@ module specforge_mcp "specforge-mcp" {
     mcp_delta_notifications,
     mcp_prompts,
   ]
-  depends_on [
+  depends_on  [
     specforge_graph,
     specforge_validator,
     specforge_emitter,

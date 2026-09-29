@@ -13,7 +13,16 @@ use "types/zero-entity-core"
 
 behavior fa_declare_manifest "Declare @specforge/formal Manifest" {
   category command
-  types    [ManifestV2, CompilerPassDeclaration, FeatureFlagDeclaration, FormalProperty, FormalAxiom, FormalProtocol, FormalRefinement, FormalProcess]
+  types    [
+    ManifestV2,
+    CompilerPassDeclaration,
+    FeatureFlagDeclaration,
+    FormalProperty,
+    FormalAxiom,
+    FormalProtocol,
+    FormalRefinement,
+    FormalProcess,
+  ]
   contract """
     The @specforge/formal extension MUST declare a v2 manifest with name
     "@specforge/formal", manifestVersion 2. The manifest MUST declare
@@ -82,11 +91,11 @@ behavior fa_declare_manifest "Declare @specforge/formal Manifest" {
     required for basic SpecForge usage.
   """
   requires {
-    valid_manifest_version   "manifestVersion == 2"
-    valid_extension_name     "name == '@specforge/formal'"
-    wasm_module_exists       "wasmPath points to a compiled Wasm binary"
+    valid_manifest_version "manifestVersion == 2"
+    valid_extension_name   "name == '@specforge/formal'"
+    wasm_module_exists     "wasmPath points to a compiled Wasm binary"
   }
-  ensures  {
+  ensures {
     five_entity_kinds        "entityKinds contains property, axiom, protocol, refinement, process (all testable=false, supports_verify=false)"
     thirteen_edge_types      "edgeTypes contains BehaviorRequiresInvariant, BehaviorEnsuresInvariant, BehaviorMaintainsInvariant, BehaviorSatisfiesProperty, BehaviorRefinesBehavior, EventFollowsProtocol, EventParticipatesInProcess, PropertyDependsOnInvariant, AxiomAssumesInvariant, RefinementRefinesAbstract, RefinementRefinesConcrete, RefinementChainsToRefinement, ProcessComposesProcess"
     assumes_edge             "AxiomAssumesInvariant: source=axiom, target=invariant"
@@ -111,9 +120,7 @@ behavior fa_declare_manifest "Declare @specforge/formal Manifest" {
     sandbox_restricted       "sandbox_policy declares network_access=false, file_system_access=read-only"
     host_api_declared        "host_api_version is 1.0.0"
   }
-
   features [fa_progressive_warnings]
-
   verify unit "manifest name is @specforge/formal"
   verify unit "manifest declares 5 entity kinds (property, axiom, protocol, refinement, process)"
   verify unit "manifest declares 13 edge types"

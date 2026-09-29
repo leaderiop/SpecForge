@@ -14,21 +14,20 @@ behavior ge_declare_manifest "Declare @specforge/governance Manifest" {
     FailureModeInvariant), and all associated validation rules.
   """
   requires {
-    valid_manifest_version   "manifestVersion == 2"
-    valid_extension_name     "name == '@specforge/governance'"
+    valid_manifest_version "manifestVersion == 2"
+    valid_extension_name   "name == '@specforge/governance'"
   }
-  ensures  {
-    three_entity_kinds       "entityKinds.length == 3"
-    four_edge_types          "edgeTypes.length == 4"
-    all_kinds_named          "entityKinds contains decision, constraint, failure_mode"
-    all_edges_named          "edgeTypes contains DecisionInvariant, ConstrainsBehavior, ProtectsInvariant, FailureModeInvariant"
-    contributes_declared     "contributes declares entities=true and validators=true"
-    optional_peer_dep        "peer_dependencies contains @specforge/software ^1.0 (optional, for ConstrainsBehavior cross-extension edge targeting behavior kind)"
-    sandbox_restricted       "sandbox_policy declares network_access=false, file_system_access=read-only, max_memory_mb=256, max_execution_ms=5000"
-    host_api_declared        "host_api_version is 1.0.0"
-    starter_tmpl_declared    "starter_template is templates/decision.spec"
+  ensures {
+    three_entity_kinds    "entityKinds.length == 3"
+    four_edge_types       "edgeTypes.length == 4"
+    all_kinds_named       "entityKinds contains decision, constraint, failure_mode"
+    all_edges_named       "edgeTypes contains DecisionInvariant, ConstrainsBehavior, ProtectsInvariant, FailureModeInvariant"
+    contributes_declared  "contributes declares entities=true and validators=true"
+    optional_peer_dep     "peer_dependencies contains @specforge/software ^1.0 (optional, for ConstrainsBehavior cross-extension edge targeting behavior kind)"
+    sandbox_restricted    "sandbox_policy declares network_access=false, file_system_access=read-only, max_memory_mb=256, max_execution_ms=5000"
+    host_api_declared     "host_api_version is 1.0.0"
+    starter_tmpl_declared "starter_template is templates/decision.spec"
   }
-
   verify unit "manifest name is @specforge/governance"
   verify unit "manifest declares exactly 3 entity kinds"
   verify unit "manifest declares exactly 4 edge types"
@@ -41,24 +40,22 @@ behavior ge_declare_manifest "Declare @specforge/governance Manifest" {
 }
 
 invariant ge_manifest_three_entity_kinds "Three Entity Kinds" {
-  guarantee   """
+  guarantee """
     The @specforge/governance manifest MUST declare exactly 3 entity kinds:
     decision, constraint, failure_mode. All three are declarative records
     with testable=false and supportsVerify=false.
   """
-  risk        high
-
+  risk      high
   verify property "manifest entityKinds array has exactly 3 entries"
 }
 
 invariant ge_manifest_four_edge_types "Four Edge Types" {
-  guarantee   """
+  guarantee """
     The @specforge/governance manifest MUST declare exactly 4 edge types:
     DecisionInvariant (decision->invariant), ConstrainsBehavior
     (constraint->behavior, cross-extension), ProtectsInvariant
     (constraint->invariant), FailureModeInvariant (failure_mode->invariant).
   """
-  risk        medium
-
+  risk      medium
   verify property "manifest edgeTypes array has exactly 4 entries"
 }

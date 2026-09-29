@@ -9,7 +9,19 @@ term graph_protocol "Graph Protocol" {
   definition "The JSON schema output format produced by specforge export. Contains all entities, edges, metadata, and schema version. The graph protocol is the primary contract between SpecForge and its consumers (agents, dashboards, CI tools)."
   context    "Used in export commands, MCP resources, and agent consumption. The graph is the product — not the compiler, not the DSL."
   aliases    ["graph_schema", "entity_graph"]
-  see_also   [surface_contribution, traceability_chain, t_entity_enhancement, impact_analysis, schema_evolution, lifecycle_consistency, owner, effort, release_entity, blocker, release_status_lifecycle]
+  see_also   [
+    surface_contribution,
+    traceability_chain,
+    t_entity_enhancement,
+    impact_analysis,
+    schema_evolution,
+    lifecycle_consistency,
+    owner,
+    effort,
+    release_entity,
+    blocker,
+    release_status_lifecycle,
+  ]
   tags       ["core", "output"]
 }
 
@@ -25,7 +37,14 @@ term diagnostic "Diagnostic" {
   definition "A compiler message emitted during validation with a severity level (error, warning, info), a unique code (E/W/I prefix + number), a source location (file, line, column), and a human-readable message. Diagnostics are the primary feedback mechanism for spec quality."
   context    "E-codes block compilation, W-codes warn but pass, I-codes inform. Each extension owns a range of diagnostic codes. Diagnostics include source context and did-you-mean suggestions."
   aliases    ["compiler_message", "validation_error"]
-  see_also   [orphan_entity, cycle_detection, declarative_validation, health_score, graph_diff, fuzzy_matching]
+  see_also   [
+    orphan_entity,
+    cycle_detection,
+    declarative_validation,
+    health_score,
+    graph_diff,
+    fuzzy_matching,
+  ]
   tags       ["core", "validation"]
 }
 

@@ -10,8 +10,7 @@ invariant zero_compiler_dependency "Zero Compiler Dependency" {
     The only coupling MUST be the specforge-report.json schema and the
     graph export JSON format — both are data contracts, not Rust types.
   """
-  risk critical
-
+  risk      critical
   verify property "no compiler crate appears in dependency tree"
   verify unit "Cargo.toml has no path dependency on crates/*"
 }
@@ -23,8 +22,7 @@ invariant drop_guard_correctness "Drop Guard Correctness" {
     during Drop, and pass otherwise. It MUST NOT interfere with the
     test harness panic handling.
   """
-  risk high
-
+  risk      high
   verify unit "non-panicking test records pass"
   verify unit "panicking test records fail"
   verify unit "guard records exactly once per test"
@@ -37,8 +35,7 @@ invariant atexit_write_once "Atexit Write-Once Guarantee" {
     per process, even when multiple test threads complete concurrently.
     It MUST use std::sync::Once to guarantee single invocation.
   """
-  risk high
-
+  risk      high
   verify unit "report written exactly once with multiple test threads"
   verify unit "report contains all recorded entries"
 }
@@ -51,8 +48,7 @@ invariant convention_separator_unambiguous "Convention Separator Unambiguous" {
     be deterministic and produce the same output for the same input across
     all platforms.
   """
-  risk medium
-
+  risk      medium
   verify property "slugify is deterministic for all valid verify descriptions"
   verify unit "double underscore splits correctly"
   verify unit "entity IDs with single underscores are not misinterpreted"
@@ -66,8 +62,7 @@ invariant graceful_degradation "Graceful Degradation" {
     summary. Tests MUST still compile and run normally. No hard failure
     MUST occur from missing specforge tooling.
   """
-  risk high
-
+  risk      high
   verify unit "build.rs succeeds when specforge is not on PATH"
   verify unit "tests compile without graph export present"
   verify unit "atexit handler skips summary when graph.json is missing"
@@ -83,8 +78,7 @@ invariant should_panic_expectation "Should Panic Expectation" {
     (`--ignored`, `--include-ignored`) its body runs and its real result is
     recorded.
   """
-  risk medium
-
+  risk      medium
   verify unit "should_panic test that panics records pass"
   verify unit "an ignored test runs and is recorded only when libtest is asked to run it"
 }
@@ -97,7 +91,6 @@ invariant single_registration "Single Registration" {
     binary (a leftover #[test] above the attribute) MUST fail with a
     message telling the user to remove the #[test].
   """
-  risk high
-
+  risk      high
   verify unit "a test registered twice fails its second run"
 }

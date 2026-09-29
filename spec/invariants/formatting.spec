@@ -1,14 +1,14 @@
 // Formatting invariants — guarantees the formatter must always uphold
 
 use "types/formatting"
+
 invariant formatting_idempotency "Formatting Idempotency" {
   guarantee """
     Applying the formatter to an already-formatted file MUST produce identical output.
     Formally: format(format(x)) == format(x) for all valid .spec inputs. Any
     violation of this invariant is a P0 bug.
   """
-  risk high
-
+  risk      high
   verify property "formatting an already-formatted file produces identical output"
   verify property "random valid .spec files satisfy format(format(x)) == format(x)"
 }
@@ -19,8 +19,7 @@ invariant comment_preservation "Comment Preservation" {
     Every comment present in the input MUST appear in the output at the correct
     attachment point. Comment content MUST NOT be modified.
   """
-  risk high
-
+  risk      high
   verify property "every comment in input appears in formatted output"
   verify unit "trailing comments remain attached to their preceding node"
   verify unit "leading comments remain attached to their following node"
@@ -35,8 +34,7 @@ invariant formatting_consistency "Formatting Consistency" {
     guarantee: format_with_parse_errors preserves unparseable text verbatim,
     so two files with differently-shaped parse errors MAY produce different output.
   """
-  risk medium
-
+  risk      medium
   verify property "two files differing only in whitespace produce identical formatted output"
   verify unit "tab-indented and space-indented inputs produce the same output"
 }
@@ -47,8 +45,7 @@ invariant config_defaults_valid "Config Defaults Valid" {
     MUST themselves form a valid configuration. Falling back to defaults MUST
     always produce a usable formatter configuration, never an error state.
   """
-  risk low
-
+  risk      low
   verify unit "default FormatConfig passes validation"
   verify unit "fallback from invalid config produces usable FormatConfig"
 }
@@ -61,9 +58,7 @@ invariant discover_completeness "Discovery Completeness" {
     Every valid .spec file under spec_root MUST either be formatted or
     explicitly excluded via configuration.
   """
-
-  risk medium
-
+  risk      medium
   verify unit "all .spec files under spec_root are discovered"
   verify unit "no .spec files are silently skipped"
 }
@@ -76,8 +71,7 @@ invariant format_rule_determinism "Format Rule Determinism" {
     idempotency guarantees stability across re-application, while determinism
     guarantees stability across independent invocations with identical inputs.
   """
-  risk medium
-
+  risk      medium
   verify property "same input and config produce identical output across CLI and LSP"
   verify property "same input and config produce identical output across platforms"
 }
@@ -90,8 +84,7 @@ invariant formatting_semantic_preservation "Formatting Semantic Preservation" {
     whitespace and comment positioning MAY change. Any formatting operation
     that alters the entity graph is a P0 bug.
   """
-  risk high
-
+  risk      high
   verify property "format(spec) parses to an identical entity graph as spec"
   verify unit "formatting does not alter entity IDs, field values, or reference lists"
 }
@@ -106,8 +99,7 @@ invariant format_rule_priority "Format Rule Application Order" {
     priority level MUST be applied in extension load order.
     All compilers MUST produce identical output for the same input and config.
   """
-  risk medium
-
+  risk      medium
   verify unit "indent rule takes precedence over spacing rule on same whitespace region"
   verify property "rule priority order is deterministic across invocations"
 }

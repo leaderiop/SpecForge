@@ -4,14 +4,12 @@ use "behaviors/infer"
 use "types/infer"
 
 feature infer_progress_tracking "Inference Progress Tracking" {
-
-  problem """
+  problem  """
     When an AI agent infers specs from a codebase, there is no way to track
     which source files have been analyzed, which entities were produced, or
     what remains. Without progress tracking, agents re-analyze already-covered
     files, miss uncovered areas, and cannot resume across sessions.
   """
-
   solution """
     A specforge-infer.json manifest at the project root tracks analyzed source
     files (with content hashes for staleness detection), produced entity IDs,
@@ -21,20 +19,17 @@ feature infer_progress_tracking "Inference Progress Tracking" {
     read the manifest on startup and skip already-analyzed files. The manifest
     supports multiple source_roots for workspace projects.
   """
-
-  status proposed
+  status   proposed
   priority high
 }
 
 feature infer_plan_mode "Inference Plan Mode" {
-
-  problem """
+  problem  """
     Agents starting inference on a new codebase don't know the optimal order
     for entity kinds. Inferring events before types leads to broken references.
     Inferring behaviors before types means type entities don't exist yet for
     linking. Without guidance, agents waste time fixing ordering issues.
   """
-
   solution """
     The specforge://prompts/infer prompt gains two new scopes: scope=plan
     returns a prioritized work plan with kinds ordered by dependency (types
@@ -42,20 +37,17 @@ feature infer_plan_mode "Inference Plan Mode" {
     target_spec_directory hint; scope=workflow returns the step-by-step
     agent protocol with tool names and retry patterns.
   """
-
-  status proposed
+  status   proposed
   priority high
 }
 
 feature infer_gap_analysis "Inference Gap Analysis" {
-
-  problem """
+  problem  """
     After partial inference, there is no way to measure how much of the
     codebase has been covered by specs. Developers and agents cannot identify
     which modules or directories still need attention, leading to blind spots
     in specification coverage.
   """
-
   solution """
     The specforge.infer_gaps MCP tool scans source files for public items
     (using regex-based detection for Rust in v1, explicitly marked approximate),
@@ -64,20 +56,17 @@ feature infer_gap_analysis "Inference Gap Analysis" {
     and line. The CLI surfaces this via specforge infer-status --gaps-detail.
     Real language-specific detection deferred to extension surface commands.
   """
-
-  status proposed
+  status   proposed
   priority medium
 }
 
 feature infer_quality_diagnostics "Inference Quality Diagnostics" {
-
-  problem """
+  problem  """
     AI-inferred specs may become stale when source code changes, or may have
     been generated in large batches without human review. Without provenance-
     aware diagnostics, there is no way to identify which inferred specs need
     attention.
   """
-
   solution """
     Two new info-level diagnostics under the --lint=inferred profile:
     I200 (source anchor stale — source file changed since inference),
@@ -85,7 +74,6 @@ feature infer_quality_diagnostics "Inference Quality Diagnostics" {
     threshold configurable via inference.density_threshold). These fire only
     when specforge-infer.json exists and the lint profile is active.
   """
-
-  status proposed
+  status   proposed
   priority low
 }

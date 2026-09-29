@@ -1,15 +1,14 @@
 // @specforge/software features — capability groupings
 
 use "behaviors/validation"
-feature se_gherkin_bridge "Gherkin Bridge" {
 
-  problem """
+feature se_gherkin_bridge "Gherkin Bridge" {
+  problem  """
     Behavior entities need a way to reference Gherkin .feature files for
     BDD traceability. This is a domain-specific concern — not all spec
     domains use Cucumber/BDD — so it must be an extension responsibility,
     not a core grammar construct.
   """
-
   solution """
     The @specforge/software extension declares a gherkin field with type
     string_list and file_reference=true on behavior entities via the
@@ -21,14 +20,12 @@ feature se_gherkin_bridge "Gherkin Bridge" {
 }
 
 feature se_core_entity_kinds "Core Entity Kind Registration" {
-
-  problem """
+  problem  """
     The @specforge/software extension must register 6 entity kinds with
     full metadata, 9 edge types, field definitions, validation rules,
     verify kinds, and LSP metadata. Without this registration, the
     compiler has zero knowledge of software engineering domain concepts.
   """
-
   solution """
     A comprehensive manifest declaration provides all entity kinds with
     testability flags, verify kind allowlists, LSP metadata (semantic
@@ -39,14 +36,12 @@ feature se_core_entity_kinds "Core Entity Kind Registration" {
 }
 
 feature se_validation_suite "Software Validation Suite" {
-
-  problem """
+  problem  """
     Without domain-specific validation rules, the compiler can only
     perform structural checks. Orphan entities, unverified testables,
     invalid trigger references, and type annotation errors go undetected.
     Users receive no warnings about specification quality issues.
   """
-
   solution """
     Declarative validation rules (W001-W005, W007-W010, E051, E004)
     detect common specification quality issues: orphan entities without

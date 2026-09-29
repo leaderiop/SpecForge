@@ -14,15 +14,14 @@
 use "behaviors/formatting"
 use "types/core"
 use "types/formatting"
-feature code_formatting "Code Formatting" {
 
-  problem """
+feature code_formatting "Code Formatting" {
+  problem  """
     .spec files accumulate inconsistent formatting over time — varying indentation,
     trailing whitespace, ragged alignment, and unsorted imports. This creates noisy
     diffs, wastes AI agent tokens on style variations, and slows code review. There
     is no way to enforce a canonical style across a project or in CI.
   """
-
   solution """
     A CST-based formatter that walks the tree-sitter concrete syntax tree, applies
     deterministic formatting rules, and writes canonically formatted output. The
@@ -33,13 +32,11 @@ feature code_formatting "Code Formatting" {
 }
 
 feature lsp_formatting "LSP Formatting" {
-
-  problem """
+  problem  """
     Developers must manually format .spec files or rely on CLI commands after editing.
     Without textDocument/formatting support in the LSP server, format-on-save is not
     available and developers produce inconsistently formatted files.
   """
-
   solution """
     The LSP server implements textDocument/formatting and textDocument/rangeFormatting
     using the same formatting engine as the CLI. Format-on-save triggers full-document

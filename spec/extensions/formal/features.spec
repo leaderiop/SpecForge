@@ -4,15 +4,15 @@
 // Two new features: graph annotations and progressive warnings.
 
 use "extensions/formal/analyze-commands"
+use "extensions/formal/behaviors"
 use "extensions/formal/coverage-tracking"
 use "extensions/formal/event-graph-linting"
 use "extensions/formal/specification-layering"
 use "extensions/formal/structured-conditions"
 use "extensions/formal/validation-rules"
-use "extensions/formal/behaviors"
 
 feature fa_structured_conditions "Structured Conditions" {
-  problem   """
+  problem  """
     Behavior contract fields are free-form prose. Preconditions and
     postconditions are mixed together in a single text block. There is
     no structured way to declare named conditions, check consistency,
@@ -20,7 +20,7 @@ feature fa_structured_conditions "Structured Conditions" {
     cannot reliably extract preconditions from prose. Conditions that
     apply to multiple behaviors must be duplicated inline.
   """
-  solution  """
+  solution """
     Structured requires/ensures/maintains blocks with named conditions
     augment (not replace) prose contracts (progressive specification
     depth Level 2). Inline blocks produce ConditionEntry nodes in the
@@ -45,14 +45,14 @@ feature fa_structured_conditions "Structured Conditions" {
 }
 
 feature fa_specification_layering "Specification Layering" {
-  problem   """
+  problem  """
     There is no way to express that a behavior is an abstract
     specification refined by concrete implementations. The existing
     entity graph is flat — all behaviors are at the same level. This
     makes it impossible to model progressive elaboration from high-
     level requirements to detailed implementation behaviors.
   """
-  solution  """
+  solution """
     The abstract/refines mechanism creates layering chains between
     behaviors. Abstract behaviors serve as specification-only entries.
     Concrete behaviors declare refines to build a DAG. The layering
@@ -72,14 +72,14 @@ feature fa_specification_layering "Specification Layering" {
 }
 
 feature fa_event_graph_linting "Event Graph Linting" {
-  problem   """
+  problem  """
     Event entities declare producers but the compiler performs no
     event flow analysis. Circular event dependencies, payload type
     mismatches, unmatched producers, and retry loops are invisible
     until runtime. Distributed system failures are the hardest bugs
     to reproduce.
   """
-  solution  """
+  solution """
     The event_graph_analyze compiler pass builds an event-behavior
     bipartite graph and performs structural event flow analysis.
     Tarjan's SCC algorithm detects unmitigated cycles (E034 — checks
@@ -100,14 +100,14 @@ feature fa_event_graph_linting "Event Graph Linting" {
 }
 
 feature fa_coverage_tracking "Coverage Tracking" {
-  problem   """
+  problem  """
     There is no way to know whether formal properties (conditions,
     invariants, layering chains) are verified by existing tests.
     Coverage is binary (has test / no test) rather than graduated.
     Coverage tracking items are invisible — users cannot see what
     remains unverified.
   """
-  solution  """
+  solution """
     The coverage_tracking pass generates machine-readable items
     categorized as condition_coverage, invariant_coverage,
     layering_coverage, or process_coverage. Each item tracks discharge status across 5
@@ -120,13 +120,13 @@ feature fa_coverage_tracking "Coverage Tracking" {
 }
 
 feature fa_analyze_commands "Formal Analysis CLI Commands" {
-  problem   """
+  problem  """
     Formal analysis results are only available as part of the full
     compilation pipeline. There is no way to run specific analyses
     in isolation, get machine-readable output for CI integration,
     or fail builds on formal violations.
   """
-  solution  """
+  solution """
     The specforge analyze subcommands (conditions, layering,
     event-graph, all) run individual or combined analysis passes.
     Each supports --json for machine-readable output and --strict
@@ -135,13 +135,13 @@ feature fa_analyze_commands "Formal Analysis CLI Commands" {
 }
 
 feature fa_graph_annotations "Graph Annotations" {
-  problem   """
+  problem  """
     Analysis results are emitted as diagnostics but not attached to
     the entity graph. Agents cannot query per-node analysis results
     without parsing diagnostic output. There is no structured way to
     ask "what did the condition check find for this behavior?"
   """
-  solution  """
+  solution """
     Each analysis pass annotates graph nodes with structured results
     (FormalAnalysisAnnotation). Annotations are queryable via the
     graph protocol and included in export formats. Agent-optimized
@@ -152,14 +152,14 @@ feature fa_graph_annotations "Graph Annotations" {
 }
 
 feature fa_temporal_properties "Temporal Properties" {
-  problem   """
+  problem  """
     There is no way to declare temporal/behavioral assertions (safety,
     liveness, fairness) as first-class entities. Such properties are
     distinct from point-in-time conditions: they assert behavior over
     TIME. Without a property entity, temporal assertions are scattered
     across prose contracts and cannot be queried or traced.
   """
-  solution  """
+  solution """
     The property entity kind represents a temporal/behavioral assertion
     with a kind classifier (safety/liveness/fairness). Behaviors
     declare which properties they satisfy via the satisfies field,
@@ -170,13 +170,13 @@ feature fa_temporal_properties "Temporal Properties" {
 }
 
 feature fa_axiom_foundations "Axiom Foundations" {
-  problem   """
+  problem  """
     Conditions implicitly depend on assumptions that are never stated.
     For example, a condition "database is available" rests on the
     unstated assumption that the network is reachable. Without explicit
     axioms, these foundations are invisible and cannot be traced.
   """
-  solution  """
+  solution """
     The axiom entity kind represents an assumed-true foundation that
     conditions depend on. Axioms require no proof and generate no
     coverage tracking items. Conditions reference axioms via the
@@ -186,13 +186,13 @@ feature fa_axiom_foundations "Axiom Foundations" {
 }
 
 feature fa_protocol_contracts "Protocol Contracts" {
-  problem   """
+  problem  """
     Synchronization constraints are declared as inline sync blocks on
     individual events. When multiple events share the same sync
     contract, the constraint is duplicated. There is no way to declare
     a shared protocol and have events reference it.
   """
-  solution  """
+  solution """
     The protocol entity kind represents a shared synchronization
     contract with ordering, timeout, and delivery semantics. Events
     reference protocols via the follows_protocol field, creating
@@ -204,13 +204,13 @@ feature fa_protocol_contracts "Protocol Contracts" {
 }
 
 feature fa_refinement_layering "Refinement Entities" {
-  problem   """
+  problem  """
     Specification layering is expressed only through field annotations
     (abstract/refines) on behaviors. The abstract-to-concrete mapping has
     no first-class graph representation. Condition deltas are implicit.
     Multi-level refinement chains cannot be queried as connected subgraphs.
   """
-  solution  """
+  solution """
     The refinement entity kind captures abstract-to-concrete behavior
     mappings as first-class graph nodes with condition deltas and proof
     status. RefinementRefinesAbstract/RefinementRefinesConcrete edges connect
@@ -221,14 +221,14 @@ feature fa_refinement_layering "Refinement Entities" {
 }
 
 feature fa_process_modeling "Process Modeling" {
-  problem   """
+  problem  """
     Event graph linting operates at the event-behavior bipartite graph
     level but has no concept of communicating processes. Events participate
     in sync blocks but cannot be grouped into logical processes with
     alphabets, states, and composition operators. Deadlock analysis cannot
     reason about process-level composition.
   """
-  solution  """
+  solution """
     The process entity kind models CSP-style communicating processes with
     alphabet (event set), states, and composition operators. ParticipatesIn
     edges connect events to processes. ProcessComposition edges model
@@ -238,13 +238,13 @@ feature fa_process_modeling "Process Modeling" {
 }
 
 feature fa_progressive_warnings "Progressive Warning Levels" {
-  problem   """
+  problem  """
     All formal analysis warnings (W028-W040, W058, W123-W136) fire at the same level.
     New users are overwhelmed by formal analysis warnings they cannot
     act on yet. There is no way to gradually increase warning
     strictness as the project matures.
   """
-  solution  """
+  solution """
     Three warning levels (onboarding, standard, strict) control which
     warnings are emitted. Formal analysis warnings (W028-W040, W058, W123-W136) require
     warning_level=strict. Basic warnings (W001-W010) fire at all

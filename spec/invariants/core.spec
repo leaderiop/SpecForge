@@ -7,8 +7,7 @@ invariant spec_root_singleton "Spec Root Singleton" {
     file declares project identity (name, version), installed extensions,
     and provider configurations.
   """
-  risk medium
-
+  risk      medium
   verify property "a project with exactly one specforge.json is accepted"
 }
 
@@ -21,8 +20,7 @@ invariant init_config_validity "Init Config Validity" {
     invariant ensures the seconds-to-value principle: init followed
     by check MUST never fail due to malformed configuration.
   """
-  risk high
-
+  risk      high
   verify property "specforge init output is always valid SpecForgeJsonConfig JSON"
   verify unit "specforge init followed by specforge check produces zero config errors"
 }
@@ -36,8 +34,7 @@ invariant multi_error_collection "Multi-Error Collection" {
   // detect_dangling_references is a post-resolution integrity check (detects
   // resolver bugs), not a user-facing diagnostic emitter — E003 is emitted
   // by link_entity_references during resolution.
-  risk high
-
+  risk      high
   verify property "a file with N errors produces exactly N error diagnostics in one pass"
   verify unit "the compiler does not halt after the first error"
 }
@@ -49,8 +46,7 @@ invariant string_interning_consistency "String Interning Consistency" {
     interned key. Comparison by interned key MUST be equivalent to
     comparison by string value.
   """
-  risk high
-
+  risk      high
   verify property "interning the same string twice returns the same key"
   verify unit "comparison by interned key is equivalent to comparison by string value"
 }
@@ -61,8 +57,7 @@ invariant import_dag "Import DAG" {
     The compiler MUST detect and reject circular imports with an E003
     diagnostic that names the cycle participants.
   """
-  risk medium
-
+  risk      medium
   verify property "an acyclic import graph is accepted without diagnostics"
   verify unit "a circular import produces E003 naming the cycle participants"
 }
@@ -74,8 +69,7 @@ invariant entity_id_uniqueness "Entity ID Uniqueness" {
     but the same raw ID are forbidden. The compiler MUST reject duplicate IDs
     with an E002 diagnostic that names both declaration sites.
   """
-  risk high
-
+  risk      high
   verify property "all unique entity IDs across files are accepted"
   verify unit "a duplicate entity ID produces E002 naming both declaration sites"
 }
@@ -87,9 +81,7 @@ invariant graph_traversal_integrity "Graph Traversal Integrity" {
     reachable node along a traversal path MUST be included. Traversal
     order MUST be deterministic for identical graph inputs.
   """
-
-  risk high
-
+  risk      high
   verify property "traversal from any node visits every reachable node exactly once"
   verify unit "identical graph inputs produce identical traversal results"
 }
@@ -101,8 +93,7 @@ invariant incremental_correctness "Incremental Correctness" {
     cold rebuild of the same source files. No stale nodes or edges
     MUST remain from the previous compilation.
   """
-  risk high
-
+  risk      high
   verify property "incremental recompilation produces the same graph as a full rebuild"
   verify unit "no stale nodes or edges remain after incremental recompilation"
 }
@@ -116,8 +107,7 @@ invariant graph_delta_determinism "Graph Delta Determinism" {
     depend on hash-map iteration order, filesystem order, or any
     non-deterministic source.
   """
-  risk medium
-
+  risk      medium
   verify property "identical graph pairs produce identical GraphDelta across 100 runs"
   verify unit "GraphDelta arrays are sorted by EntityId.raw"
 }
@@ -130,8 +120,7 @@ invariant graph_schema_completeness "Graph Schema Completeness" {
     omitted. The schema MUST accurately reflect the testable, singleton,
     and field definitions for each kind.
   """
-  risk medium
-
+  risk      medium
   verify property "schema contains every registered kind and edge type"
   verify unit "newly registered extension kind appears in schema"
 }
@@ -144,8 +133,7 @@ invariant schema_version_backward_compatibility "Schema Version Backward Compati
     loading and interpreting Graph Protocol JSON produced by any version
     within the same major version range.
   """
-  risk high
-
+  risk      high
   verify property "Graph Protocol JSON from previous major version is readable"
   verify unit "breaking change on minor version increment is rejected"
 }
@@ -155,8 +143,7 @@ invariant watch_mode_response_latency "Watch Mode Response Latency" {
     File-change-to-diagnostics in watch mode MUST complete within 100ms
     for single-file changes.
   """
-  risk medium
-
+  risk      medium
   verify performance "single-file change produces diagnostics within 100ms"
 }
 
@@ -167,8 +154,7 @@ invariant token_budget_subgraph_consistency "Token Budget Subgraph Consistency" 
     nodes. Truncated entity IDs MUST be listed in the truncated_entities
     response field.
   """
-  risk medium
-
+  risk      medium
   verify property "truncated subgraph contains no dangling edges"
   verify unit "truncated_entities field lists all omitted entity IDs"
 }
@@ -182,8 +168,7 @@ invariant query_file_grammar_consistency "Query File Grammar Consistency" {
     grammar version. A grammar change that adds, removes, or renames a
     rule MUST trigger review of all .scm files for broken references.
   """
-  risk medium
-
+  risk      medium
   verify integration "highlights.scm loads without error against current grammar"
   verify integration "folds.scm loads without error against current grammar"
   verify integration "indents.scm loads without error against current grammar"
@@ -197,8 +182,7 @@ invariant dry_run_side_effect_freedom "Dry-Run Side-Effect Freedom" {
     bug. This applies to specforge migrate --dry-run, specforge format --check,
     specforge format --diff, and any future commands that support dry-run mode.
   """
-  risk high
-
+  risk      high
   verify unit "--dry-run produces output without modifying files"
   verify unit "--check produces output without modifying files"
   verify property "no file write operations occur during dry-run execution"
@@ -211,8 +195,7 @@ invariant source_span_completeness "Source Span Completeness" {
     source text. No AST node MUST have a zero-length span unless it
     represents a synthetic node inserted by error recovery.
   """
-  risk high
-
+  risk      high
   verify property "all AST nodes have non-zero source spans"
   verify unit "source spans survive error recovery"
 }

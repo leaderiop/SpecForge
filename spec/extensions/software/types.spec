@@ -1,105 +1,106 @@
 // @specforge/software extension types — entity kind shapes + formal methods
 
-use "types/zero-entity-core"
 use "types/core"
+use "types/zero-entity-core"
+
 // ── Entity Kind Shapes ───────────────────────────────────────
 
 type SoftwareBehavior {
-  contract       string
-  invariants     EntityId[]       @optional
-  types          EntityId[]       @optional
-  ports          EntityId[]       @optional
-  produces       EntityId[]       @optional
-  consumers      EntityId[]       @optional
-  category       BehaviorCategory @optional
-  abstract       boolean          @optional
-  refines        EntityId         @optional
-  requires       RequiresBlock    @optional
-  ensures        EnsuresBlock     @optional
-  maintains      MaintainsBlock   @optional
-  tests          string[]         @optional
-  gherkin        string[]         @optional
+  contract   string
+  invariants EntityId[]       @optional
+  types      EntityId[]       @optional
+  ports      EntityId[]       @optional
+  produces   EntityId[]       @optional
+  consumers  EntityId[]       @optional
+  category   BehaviorCategory @optional
+  abstract   boolean          @optional
+  refines    EntityId         @optional
+  requires   RequiresBlock    @optional
+  ensures    EnsuresBlock     @optional
+  maintains  MaintainsBlock   @optional
+  tests      string[]         @optional
+  gherkin    string[]         @optional
   verify unit "SoftwareBehavior schema is valid"
 }
 
 type SoftwareInvariant {
-  guarantee      string
-  enforced_by    EntityId[]       @optional
-  risk           RiskLevel        @optional
+  guarantee   string
+  enforced_by EntityId[] @optional
+  risk        RiskLevel  @optional
   verify unit "SoftwareInvariant schema is valid"
 }
 
 type SoftwareFeature {
-  behaviors      EntityId[]
-  problem        string           @optional
-  solution       string           @optional
+  behaviors EntityId[]
+  problem   string @optional
+  solution  string @optional
   verify unit "SoftwareFeature schema is valid"
 }
 
 type SoftwareEvent {
-  trigger        EntityId
-  channel        string           @optional
-  payload        EntityId         @optional
-  consumers      EntityId[]       @optional
-  sync           SyncBlock        @optional
+  trigger   EntityId
+  channel   string     @optional
+  payload   EntityId   @optional
+  consumers EntityId[] @optional
+  sync      SyncBlock  @optional
   verify unit "SoftwareEvent schema is valid"
 }
 
 type SoftwareTypeDef {
-  kind           TypeDefKind      @optional
-  fields         TypeFieldDef[]   @optional
+  kind   TypeDefKind    @optional
+  fields TypeFieldDef[] @optional
   verify unit "SoftwareTypeDef schema is valid"
 }
 
 type SoftwarePort {
-  direction      PortDirection
-  category       string           @optional
-  methods        PortOperation[]  @optional
+  direction PortDirection
+  category  string          @optional
+  methods   PortOperation[] @optional
   verify unit "SoftwarePort schema is valid"
 }
 
 // ── Formal Methods Types ─────────────────────────────────────
 
 type ContractCondition {
-  name           string           @readonly
-  description    string
+  name        string @readonly
+  description string
   verify unit "ContractCondition schema is valid"
 }
 
 type RequiresBlock {
-  conditions     ContractCondition[]
+  conditions ContractCondition[]
   verify unit "RequiresBlock schema is valid"
 }
 
 type EnsuresBlock {
-  conditions     ContractCondition[]
+  conditions ContractCondition[]
   verify unit "EnsuresBlock schema is valid"
 }
 
 type MaintainsBlock {
-  conditions     ContractCondition[]
+  conditions ContractCondition[]
   verify unit "MaintainsBlock schema is valid"
 }
 
 type SyncBlock {
-  barrier        EntityId[]       @optional
-  timeout        string           @optional
+  barrier EntityId[] @optional
+  timeout string     @optional
   verify unit "SyncBlock schema is valid"
 }
 
 type PortOperation {
-  name           string           @readonly
-  inputType      string           @optional
-  outputType     string           @optional
-  requires       RequiresBlock    @optional
-  ensures        EnsuresBlock     @optional
+  name       string        @readonly
+  inputType  string        @optional
+  outputType string        @optional
+  requires   RequiresBlock @optional
+  ensures    EnsuresBlock  @optional
   verify unit "PortOperation schema is valid"
 }
 
 type RefinementChain {
-  abstractId     EntityId         @readonly
-  concreteIds    EntityId[]
-  depth          integer
+  abstractId  EntityId @readonly
+  concreteIds EntityId[]
+  depth       integer
   verify unit "RefinementChain schema is valid"
 }
 
@@ -116,10 +117,10 @@ type BehaviorCategory = command | query | handler | saga | projection
 type TypeDefKind = struct | union | enum
 
 type TypeFieldDef {
-  name           string           @readonly
-  fieldType      string
-  annotations    FieldAnnotation[] @optional
-  refined        string           @optional
+  name        string            @readonly
+  fieldType   string
+  annotations FieldAnnotation[] @optional
+  refined     string            @optional
   verify unit "TypeFieldDef schema is valid"
 }
 

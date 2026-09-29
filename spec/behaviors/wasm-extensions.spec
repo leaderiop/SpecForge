@@ -1,17 +1,18 @@
 // Extension entity kinds, enhancements, conflicts, queries, contributions,
 // collectors, discovery, lock files, and doctor
 
-use "invariants/wasm"
-use "invariants/validation"
+use "events/wasm-extensions"
 use "invariants/extensions"
-use "types/wasm"
-use "types/zero-entity-core"
+use "invariants/validation"
+use "invariants/wasm"
+use "ports/inbound"
+use "ports/outbound"
 use "types/config"
 use "types/errors"
 use "types/graph"
-use "ports/inbound"
-use "ports/outbound"
-use "events/wasm-extensions"
+use "types/wasm"
+use "types/zero-entity-core"
+
 // -- Query Extensions -----
 
 behavior provide_extension_query_extensions "Provide Extension Query Extensions" {
@@ -20,18 +21,15 @@ behavior provide_extension_query_extensions "Provide Extension Query Extensions"
   types      [ManifestV2, QueryExtension, QueryFileKind, ExtensionError]
   ports      [WasmRuntime]
   consumes   [extension_manifests_loaded]
-
   requires {
     extension_manifests_loaded_fired "extension_manifests_loaded event has fired, confirming manifests with queryExtensions are available"
   }
-
   ensures {
     query_extensions_loaded_emitted "query_extensions_loaded event is emitted after valid patterns are stored"
-    invalid_patterns_warned "invalid query patterns produce warning diagnostic without blocking extension loading"
-    patterns_stored "valid patterns are stored alongside extension registration data"
+    invalid_patterns_warned         "invalid query patterns produce warning diagnostic without blocking extension loading"
+    patterns_stored                 "valid patterns are stored alongside extension registration data"
   }
-
-  contract """
+  contract   """
     When an extension manifest declares queryExtensions, the compiler
     MUST extract the .scm query patterns and make them available to
     the LSP and editor tooling. Query patterns MUST be validated for
@@ -41,9 +39,7 @@ behavior provide_extension_query_extensions "Provide Extension Query Extensions"
     MUST be stored alongside the extension's registration data for
     retrieval during query composition.
   """
-
-  produces [query_extensions_loaded]
-
+  produces   [query_extensions_loaded]
   verify unit "valid query extension stored in extension registration"
   verify unit "invalid query pattern produces warning diagnostic"
   verify unit "invalid pattern does not block extension loading"
@@ -56,18 +52,15 @@ behavior compose_query_files_from_extensions "Compose Query Files From Extension
   category   query
   types      [QueryExtension, QueryFileKind]
   consumes   [query_extensions_loaded]
-
   requires {
     query_extensions_loaded_fired "query_extensions_loaded event has fired, confirming all extension query patterns are available"
   }
-
   ensures {
     query_files_composed_emitted "query_files_composed event is emitted with the final composed query"
-    composition_deterministic "same set of extensions always produces the same final query"
-    base_queries_first "base queries appear first in composed output, extensions appended"
+    composition_deterministic    "same set of extensions always produces the same final query"
+    base_queries_first           "base queries appear first in composed output, extensions appended"
   }
-
-  contract """
+  contract   """
     The LSP MUST compose final query files by concatenating base
     queries with extension query extensions in extension load order. The
     composition MUST follow the string concatenation pattern: base
@@ -77,9 +70,7 @@ behavior compose_query_files_from_extensions "Compose Query Files From Extension
     to catch cross-pattern conflicts. Composition MUST be deterministic
     — the same set of extensions always produces the same final query.
   """
-
-  produces [query_files_composed]
-
+  produces   [query_files_composed]
   verify unit "base queries come first in composed output"
   verify unit "extension query extensions appended in load order"
   verify unit "#match? predicates work in composed query"
@@ -94,18 +85,15 @@ behavior reject_reserved_entity_kind "Reject Reserved Entity Kind" {
   category   command
   types      [KindRegistryEntry, ManifestV2]
   consumes   [extension_manifests_loaded]
-
   requires {
     extension_manifests_loaded_fired "extension_manifests_loaded event has fired, confirming entity kind registrations are pending"
   }
-
   ensures {
     reserved_entity_kind_rejected_emitted "reserved_entity_kind_rejected event is emitted when a structural keyword collision is detected"
-    rejection_before_registration "rejection returns error to calling extension before the kind is registered"
-    invalid_identifiers_rejected "invalid identifier characters are rejected"
+    rejection_before_registration         "rejection returns error to calling extension before the kind is registered"
+    invalid_identifiers_rejected          "invalid identifier characters are rejected"
   }
-
-  contract """
+  contract   """
     The KindRegistry MUST reject entity kind names that match structural
     DSL keywords parsed by dedicated grammar rules: spec, use, define, ref,
     verify, true, false. These are the ONLY core-reserved words —
@@ -120,9 +108,7 @@ behavior reject_reserved_entity_kind "Reject Reserved Entity Kind" {
     return an error to the calling extension before the kind is registered.
     Invalid identifier characters MUST also be rejected.
   """
-
-  produces [reserved_entity_kind_rejected]
-
+  produces   [reserved_entity_kind_rejected]
   verify unit "rejects structural keyword 'spec'"
   verify unit "rejects DSL syntax word 'define'"
   verify unit "rejects literal token 'true'"
@@ -142,17 +128,14 @@ behavior detect_entity_kind_collision "Detect Entity Kind Collision" {
   category   validation
   types      [ManifestV2, ExtensionError, EntityKindConflict]
   consumes   [extension_manifests_loaded]
-
   requires {
     extension_manifests_loaded_fired "extension_manifests_loaded event has fired, confirming all entity kind declarations are available for collision checking"
   }
-
   ensures {
     entity_kind_conflict_detected_emitted "entity_kind_conflict_detected event is emitted when a collision is found"
-    all_collision_types_checked "structural keyword collisions (E023), define block collisions (E022), and inter-extension collisions (E026) are all checked"
+    all_collision_types_checked           "structural keyword collisions (E023), define block collisions (E022), and inter-extension collisions (E026) are all checked"
   }
-
-  contract """
+  contract   """
     The host MUST detect when two extensions attempt to register the same
     entity kind name. This behavior acts as the orchestrator for all kind
     collision checks: it delegates to reject_reserved_entity_kind for
@@ -162,9 +145,7 @@ behavior detect_entity_kind_collision "Detect Entity Kind Collision" {
     collisions (E026). The compiler never arbitrates domain-level
     conflicts.
   """
-
-  produces [entity_kind_conflict_detected]
-
+  produces   [entity_kind_conflict_detected]
   verify unit "two extensions registering same kind produces conflict"
   verify unit "collision with structural keyword produces E023"
   verify unit "collision with define block produces E022"
@@ -180,19 +161,16 @@ behavior load_extension_manifest "Load Extension Manifest" {
   types      [ManifestV2, ExtensionError]
   ports      [FileSystem]
   produces   [manifest_loaded]
-
   requires {
     extension_discovered "installed extension has been discovered with a known path to its sidecar manifest.json"
     filesystem_available "FileSystem port is available for reading manifest files"
   }
-
   ensures {
-    manifest_loaded_emitted "manifest_loaded event is emitted after successful parse of sidecar manifest.json"
-    malformed_manifest_diagnosed "malformed manifests produce ExtensionError diagnostic"
+    manifest_loaded_emitted          "manifest_loaded event is emitted after successful parse of sidecar manifest.json"
+    malformed_manifest_diagnosed     "malformed manifests produce ExtensionError diagnostic"
     initialization_sequence_followed "per-extension initialization follows the documented 7-step sequence"
   }
-
-  contract """
+  contract   """
     When the compiler discovers an installed extension, it MUST locate
     and parse the extension's sidecar manifest.json file alongside the
     .wasm binary. Malformed manifests MUST produce a ExtensionError
@@ -216,7 +194,6 @@ behavior load_extension_manifest "Load Extension Manifest" {
     point at which extension code executes. This sequence is repeated
     per extension in topological order (see topological_sort_extensions).
   """
-
   verify unit "sidecar JSON parsed into ManifestV2"
   verify unit "malformed sidecar produces ExtensionError"
   verify unit "bundled extensions loaded from bundled resources directory"
@@ -228,18 +205,15 @@ behavior register_entity_enhancements "Register Entity Enhancements" {
   invariants [enhancement_field_uniqueness, enhancement_builtin_precedence]
   category   command
   types      [ManifestV2, FieldEnhancement, DynamicEdgeType]
-
   requires {
     manifests_validated "all extension manifests have been validated and entity kinds registered"
   }
-
   ensures {
-    enhancement_registered_emitted "enhancement_registered event is emitted after fields are registered in FieldRegistry"
-    registration_before_resolve "registration completes before the resolve phase begins"
+    enhancement_registered_emitted   "enhancement_registered event is emitted after fields are registered in FieldRegistry"
+    registration_before_resolve      "registration completes before the resolve phase begins"
     registration_order_deterministic "registration order follows extensions array order in specforge.json"
   }
-
-  contract """
+  contract   """
     When an extension manifest declares entity enhancements, the compiler
     MUST parse the enhancement declarations, validate that the target
     entity kinds exist (an unknown target kind is an I004 info diagnostic), register the field-to-edge mappings in the
@@ -252,9 +226,7 @@ behavior register_entity_enhancements "Register Entity Enhancements" {
     An enhancement field MUST NOT overwrite a field the kind already
     declares.
   """
-
-  produces [enhancement_registered]
-
+  produces   [enhancement_registered]
   verify unit "enhancement fields registered in FieldRegistry"
   verify unit "unknown target kind produces I004 info diagnostic"
   verify unit "enhancement of a kind owned by an extension that is not loaded is skipped silently"
@@ -269,19 +241,22 @@ behavior register_entity_enhancements "Register Entity Enhancements" {
 behavior detect_enhancement_conflicts "Detect Enhancement Conflicts" {
   invariants [enhancement_field_uniqueness, enhancement_builtin_precedence]
   category   validation
-  types      [EnhancementConflict, FieldEnhancement, EnhancedFieldType, EnumFieldType, ReferenceFieldType]
-
+  types      [
+    EnhancementConflict,
+    FieldEnhancement,
+    EnhancedFieldType,
+    EnumFieldType,
+    ReferenceFieldType,
+  ]
   requires {
     enhancements_being_registered "enhancement registration is in progress with field-to-entity mappings being processed"
   }
-
   ensures {
     enhancement_conflict_detected_emitted "enhancement_conflict_detected event is emitted when two extensions register the same field for the same entity kind"
-    grammar_conflicts_hard_error "conflicts with grammar-level constructs always produce hard error E018"
-    conflict_record_complete "conflict record includes both extension identities and conflicting field types"
+    grammar_conflicts_hard_error          "conflicts with grammar-level constructs always produce hard error E018"
+    conflict_record_complete              "conflict record includes both extension identities and conflicting field types"
   }
-
-  contract """
+  contract   """
     During enhancement registration, the compiler MUST detect when two
     extensions register the same field name for the same entity kind. Each
     conflict MUST be recorded with both extension identities and the
@@ -290,9 +265,7 @@ behavior detect_enhancement_conflicts "Detect Enhancement Conflicts" {
     error (E018). Conflicts between extensions MUST be resolved according
     to the configured enhancement_policy.
   """
-
-  produces [enhancement_conflict_detected]
-
+  produces   [enhancement_conflict_detected]
   verify unit "same (entity, field) from two extensions produces conflict"
   verify unit "conflict with grammar-level construct produces E018"
   verify unit "conflict record includes both extension identities"
@@ -305,18 +278,15 @@ behavior resolve_enhancement_conflicts "Resolve Enhancement Conflicts" {
   category   query
   types      [EnhancementConflict, ConflictResolution, EnhancementPolicy]
   consumes   [enhancement_conflict_detected]
-
   requires {
     enhancement_conflict_detected_fired "enhancement_conflict_detected event has fired, confirming conflicts exist to resolve"
   }
-
   ensures {
     enhancement_conflict_resolved_emitted "enhancement_conflict_resolved event is emitted after policy is applied"
-    error_policy_enforced "with error policy, unresolved conflicts produce E017 diagnostics"
-    overrides_precedence "explicit enhancement_overrides in specforge.json take precedence over policy"
+    error_policy_enforced                 "with error policy, unresolved conflicts produce E017 diagnostics"
+    overrides_precedence                  "explicit enhancement_overrides in specforge.json take precedence over policy"
   }
-
-  contract """
+  contract   """
     When enhancement conflicts are detected, the compiler MUST apply
     the configured enhancement policy. With policy "error" (default and
     only v1 policy), unresolved conflicts MUST produce E017 diagnostics.
@@ -324,9 +294,7 @@ behavior resolve_enhancement_conflicts "Resolve Enhancement Conflicts" {
     over the policy. Additional policies (priority, namespace) are
     deferred to a future phase.
   """
-
-  produces [enhancement_conflict_resolved]
-
+  produces   [enhancement_conflict_resolved]
   verify unit "error policy produces E017 for unresolved conflicts"
   verify unit "explicit override takes precedence over policy"
   verify contract "Resolve Enhancement Conflicts: enhancement conflict resolution holds — enhancement_conflict_detected_fired, enhancement_conflict_resolved_emitted, error_policy_enforced, overrides_precedence"
@@ -340,19 +308,16 @@ behavior dispatch_contribution_exports "Dispatch Contribution Exports" {
   types      [ManifestV2, ExtensionContributions, ExtensionError]
   ports      [WasmRuntime]
   consumes   [contribution_exports_validated, contribution_toggled, collector_report_ingested]
-
   requires {
     contribution_exports_validated_fired "contribution_exports_validated event has fired, confirming all declared exports exist"
-    wasm_runtime_available "WasmRuntime port is available for calling contribution exports"
+    wasm_runtime_available               "WasmRuntime port is available for calling contribution exports"
   }
-
   ensures {
     contribution_exports_dispatched_emitted "contribution_exports_dispatched event is emitted after all contributions are called"
-    missing_export_diagnosed "missing exports for declared contributions produce E020"
-    renderers_refreshed_on_ingestion "renderer contributions are re-dispatched after collector_report_ingested, but not entity/validator/provider/parser"
+    missing_export_diagnosed                "missing exports for declared contributions produce E020"
+    renderers_refreshed_on_ingestion        "renderer contributions are re-dispatched after collector_report_ingested, but not entity/validator/provider/parser"
   }
-
-  contract """
+  contract   """
     When an extension declares contributions in its manifest, the compiler
     MUST route calls to the extension's namespaced Wasm exports based on
     the contribution type. Entity contributions MUST call initialize()
@@ -381,9 +346,7 @@ behavior dispatch_contribution_exports "Dispatch Contribution Exports" {
     provider, and parser contributions are NOT re-dispatched on collector
     ingestion.
   """
-
-  produces [contribution_exports_dispatched]
-
+  produces   [contribution_exports_dispatched]
   verify unit "entity contributions dispatched to initialize() and validate()"
   verify unit "validator contributions dispatched to validate()"
   verify unit "renderer contributions dispatched to render()"
@@ -401,19 +364,16 @@ behavior enforce_per_call_site_permissions "Enforce Per-Call-Site Permissions" {
   category   command
   types      [ManifestV2, SandboxPolicy]
   ports      [WasmRuntime]
-
   requires {
-    sandbox_policy_ready "sandbox policy has been computed for the extension"
+    sandbox_policy_ready    "sandbox policy has been computed for the extension"
     contribution_type_known "the contribution type of the current export call site is known"
   }
-
   ensures {
     contribution_permission_denied_emitted "contribution_permission_denied event is emitted when unauthorized host function is called"
-    per_call_site_enforced "permissions are enforced per export call site, not per extension"
-    unauthorized_calls_rejected "calls to unauthorized host functions are rejected"
+    per_call_site_enforced                 "permissions are enforced per export call site, not per extension"
+    unauthorized_calls_rejected            "calls to unauthorized host functions are rejected"
   }
-
-  contract """
+  contract   """
     Host function permissions MUST be enforced per export call site, not
     per extension. An extension's validator export MUST only access query_graph
     and emit_diagnostic. An extension's renderer export MUST additionally
@@ -431,9 +391,7 @@ behavior enforce_per_call_site_permissions "Enforce Per-Call-Site Permissions" {
     enforcement via enforce_surface_sandbox (behaviors/surface-contributions.spec).
     This behavior covers compile-time contribution call sites only.
   """
-
-  produces [contribution_permission_denied]
-
+  produces   [contribution_permission_denied]
   verify unit "validator export limited to query_graph and emit_diagnostic"
   verify unit "renderer export additionally allows emit_file"
   verify unit "provider export additionally allows http_get"
@@ -449,19 +407,16 @@ behavior validate_contribution_exports "Validate Contribution Exports" {
   category   validation
   types      [ManifestV2, ExtensionError]
   ports      [WasmRuntime]
-
   requires {
-    extension_loaded_ready "extension .wasm binary has been loaded into the runtime"
+    extension_loaded_ready          "extension .wasm binary has been loaded into the runtime"
     manifest_contributions_declared "extension manifest declares compile-time contributions to validate"
   }
-
   ensures {
-    contribution_exports_validated_emitted "contribution_exports_validated event is emitted when all declared exports are present"
+    contribution_exports_validated_emitted        "contribution_exports_validated event is emitted when all declared exports are present"
     contribution_export_validation_failed_emitted "contribution_export_validation_failed event is emitted when exports are missing"
-    missing_exports_diagnosed "missing exports produce E020 diagnostic listing expected export names"
+    missing_exports_diagnosed                     "missing exports produce E020 diagnostic listing expected export names"
   }
-
-  contract """
+  contract   """
     After loading an extension, the compiler MUST verify that the .wasm binary
     exports all functions required by its declared compile-time contributions.
     Missing exports MUST produce an E020 diagnostic listing the expected export
@@ -469,9 +424,7 @@ behavior validate_contribution_exports "Validate Contribution Exports" {
     Surface contribution exports (cmd__, mcp__) are validated separately by
     validate_surface_exports (behaviors/surface-contributions.spec).
   """
-
-  produces [contribution_exports_validated, contribution_export_validation_failed]
-
+  produces   [contribution_exports_validated, contribution_export_validation_failed]
   verify unit "all declared contribution exports present passes"
   verify unit "missing contribution export produces E020"
   verify unit "extra exports beyond contributions are ignored"
@@ -483,19 +436,16 @@ behavior toggle_extension_contributions "Toggle Extension Contributions" {
   category   command
   types      [ManifestV2, ExtensionContributions]
   ports      [CompilerApi]
-
   requires {
     extension_loaded_ready "extension is loaded and initialized before contributions can be toggled"
-    config_available "specforge.json configuration is available for reading contribution toggle state"
+    config_available       "specforge.json configuration is available for reading contribution toggle state"
   }
-
   ensures {
-    contribution_toggled_emitted "contribution_toggled event is emitted after toggle state is applied"
+    contribution_toggled_emitted   "contribution_toggled event is emitted after toggle state is applied"
     disabled_contributions_skipped "disabled contributions are skipped during dispatch"
-    sole_provider_warned "disabling the only entity provider for a kind produces W028 warning"
+    sole_provider_warned           "disabling the only entity provider for a kind produces W028 warning"
   }
-
-  contract """
+  contract   """
     The specforge.json configuration MUST support enabling or disabling
     individual contributions from an extension. Disabled contributions MUST
     be skipped during dispatch. The extension MUST still be loaded and
@@ -503,9 +453,7 @@ behavior toggle_extension_contributions "Toggle Extension Contributions" {
     Disabling the only entity provider for a kind MUST produce a W028
     warning listing the affected entity kind.
   """
-
-  produces [contribution_toggled]
-
+  produces   [contribution_toggled]
   verify unit "disabled contribution is skipped during dispatch"
   verify unit "extension still loaded when some contributions disabled"
   verify unit "re-enabled contribution resumes normal dispatch"
@@ -525,17 +473,14 @@ behavior register_collector_contributions "Register Collector Contributions" {
   category   query
   types      [ManifestV2, CollectorContribution, CollectorAutoDetect]
   ports      [WasmRuntime]
-
   requires {
     manifest_declares_collectors "an enabled extension's handshake raises the collectors flag and its describe payload lists collectors"
   }
-
   ensures {
-    collectors_listed "every declared collector is listed with its extension, export, detection files, command and report location"
+    collectors_listed       "every declared collector is listed with its extension, export, detection files, command and report location"
     default_report_location "a collector that names no report location reads .specforge/reports/<name>.json"
   }
-
-  contract """
+  contract   """
     Collectors come from the `collectors` describe payload of each enabled
     extension, in manifest order. A collector names its pure export
     (`collect__<name>`), the project-root files that select it, the argv
@@ -544,9 +489,7 @@ behavior register_collector_contributions "Register Collector Contributions" {
     relative to the project root. A collector without a report location
     reads `.specforge/reports/<name>.json`.
   """
-
-  produces [collector_registered]
-
+  produces   [collector_registered]
   verify unit "collector contribution parsed from manifest"
   verify contract "Register Collector Contributions: collector contribution registration holds — manifest_declares_collectors, collectors_listed, default_report_location"
 }
@@ -559,19 +502,16 @@ behavior auto_detect_collector "Auto-Detect Collector" {
   types      [CollectorContribution, CollectorAutoDetect]
   ports      [FileSystem]
   consumes   [collector_registered]
-
   requires {
     collector_registered_fired "collector_registered event has fired, confirming collectors are available for auto-detection"
   }
-
   ensures {
-    all_matches_selected "every collector whose detection files exist at the project root is selected"
+    all_matches_selected    "every collector whose detection files exist at the project root is selected"
     runner_flag_selects_one "--runner selects exactly the collector with that name or extension"
-    single_collector_used "a single enabled collector is used without detection"
-    no_match_diagnosed "no collector, no match among several or an unknown --runner is E058, listing the available collectors"
+    single_collector_used   "a single enabled collector is used without detection"
+    no_match_diagnosed      "no collector, no match among several or an unknown --runner is E058, listing the available collectors"
   }
-
-  contract """
+  contract   """
     Without `--runner`, `specforge collect` selects every collector whose
     detection files exist at the project root; the last segment of a
     detection pattern may use `*` wildcards (`vitest.config.*`). A project
@@ -582,9 +522,7 @@ behavior auto_detect_collector "Auto-Detect Collector" {
     selected, the command fails with E058 and lists the collectors that are
     available.
   """
-
-  produces []
-
+  produces   []
   verify unit "file pattern match selects collector"
   verify unit "wildcards match within the last path segment"
   verify unit "no match emits E058 with available collectors"
@@ -597,18 +535,15 @@ behavior approve_collector_command "Approve Collector Command" {
   category   validation
   types      [CollectorContribution]
   ports      [FileSystem]
-
   requires {
     command_declared "the selected collector declares a command"
   }
-
   ensures {
-    consent_outside_project "approvals are stored in the user-level consent store, never in the project"
+    consent_outside_project   "approvals are stored in the user-level consent store, never in the project"
     changed_command_reprompts "an approval covers one project, extension, collector and exact argv; any change asks again"
-    non_interactive_refuses "without a terminal, or with JSON output, an unapproved command is refused with E059 unless --yes is passed"
+    non_interactive_refuses   "without a terminal, or with JSON output, an unapproved command is refused with E059 unless --yes is passed"
   }
-
-  contract """
+  contract   """
     `specforge collect` runs a collector's command only after the user
     approves it. It shows the extension, the project root and the exact
     command, asks once, and remembers the answer per project, extension,
@@ -621,9 +556,7 @@ behavior approve_collector_command "Approve Collector Command" {
     existing report. The MCP server never prompts and runs only approved
     commands.
   """
-
-  produces []
-
+  produces   []
   verify unit "consent is keyed by project, extension and command"
   verify integration "unapproved command without a terminal fails with E059 and runs nothing"
   verify integration "--yes runs the declared command"
@@ -635,19 +568,16 @@ behavior run_collector_command "Run Collector Command" {
   category   command
   types      [CollectorContribution]
   ports      [FileSystem]
-
   requires {
     command_approved "approve_collector_command allowed the command"
   }
-
   ensures {
-    report_inside_project "a report location outside the project (absolute or with ..) is refused with E058"
-    stale_report_ignored "an earlier run's report is never read: a report file is removed before the command starts, and only report-directory files written during the run are read"
-    report_path_exported "the command runs in the project root with SPECFORGE_REPORT set to the absolute report path and {report} expanded"
+    report_inside_project  "a report location outside the project (absolute or with ..) is refused with E058"
+    stale_report_ignored   "an earlier run's report is never read: a report file is removed before the command starts, and only report-directory files written during the run are read"
+    report_path_exported   "the command runs in the project root with SPECFORGE_REPORT set to the absolute report path and {report} expanded"
     failing_tests_recorded "a non-zero exit is not an error when a report was written; no report is E045"
   }
-
-  contract """
+  contract   """
     The host, not the extension, runs the approved command: extensions stay
     pure wasm with no process access. The report location must stay inside
     the project. So that an old report can't pass for a new run, the host
@@ -660,9 +590,7 @@ behavior run_collector_command "Run Collector Command" {
     nowhere under MCP. Test runners exit non-zero when tests fail, so the
     exit status only matters when no report was written, which is E045.
   """
-
-  produces []
-
+  produces   []
   verify unit "report path must stay inside the project"
   verify unit "run ignores stale reports and sets the report env"
   verify unit "command line expands the report placeholder"
@@ -674,18 +602,15 @@ behavior dispatch_collector "Dispatch Collector" {
   category   query
   types      [CollectorContribution, CollectorDispatchInput, CollectorReport, WasmTrapInfo]
   ports      [WasmRuntime, FileSystem]
-
   requires {
     report_available "the collector's report exists: a file, or a directory of *.json files"
   }
-
   ensures {
     collector_dispatched_emitted "collector_dispatched event is emitted after the export returns"
-    report_files_passed "the export receives every report file with its project-relative path and text"
-    traps_reported "a trap or malformed answer is E028"
+    report_files_passed          "the export receives every report file with its project-relative path and text"
+    traps_reported               "a trap or malformed answer is E028"
   }
-
-  contract """
+  contract   """
     The host reads the report (the file itself, or every `*.json` file
     directly inside a report directory, in path order) and passes the files
     to the collector's pure export as `{"reports": [{"path", "content"}]}`.
@@ -695,9 +620,7 @@ behavior dispatch_collector "Dispatch Collector" {
     skipped. A trap or an answer that doesn't parse is E028. `--no-run`
     and `--report` skip running and dispatch an existing report.
   """
-
-  produces [collector_dispatched]
-
+  produces   [collector_dispatched]
   verify unit "reads a file or every json file in a directory"
   verify contract "Dispatch Collector: collector dispatch holds — report_available, collector_dispatched_emitted, report_files_passed, traps_reported"
 }
@@ -708,21 +631,18 @@ behavior ingest_collector_report "Ingest Collector Report" {
   types      [CollectorReport, Graph]
   ports      [FileSystem]
   consumes   [collector_dispatched]
-
   requires {
     collector_dispatched_fired "collector_dispatched event has fired with the export's answer"
-    graph_available "the compiled graph is available to check entity IDs"
+    graph_available            "the compiled graph is available to check entity IDs"
   }
-
   ensures {
     collector_report_ingested_emitted "collector_report_ingested event is emitted after the report is written"
-    runner_results_replaced "a runner's earlier results are replaced; other runners' results are kept"
-    unknown_entities_warned "results for undeclared entities are dropped with W115"
-    skipped_not_recorded "skipped tests are counted but not recorded"
-    merged_report_written "the merged results are written to specforge-report.json, which analyze reads by default"
+    runner_results_replaced           "a runner's earlier results are replaced; other runners' results are kept"
+    unknown_entities_warned           "results for undeclared entities are dropped with W115"
+    skipped_not_recorded              "skipped tests are counted but not recorded"
+    merged_report_written             "the merged results are written to specforge-report.json, which analyze reads by default"
   }
-
-  contract """
+  contract   """
     Each runner's answer is merged into `specforge-report.json`: the
     runner's earlier results are removed and its new ones added, so several
     runners can report on one project. Every recorded test carries its
@@ -732,9 +652,7 @@ behavior ingest_collector_report "Ingest Collector Report" {
     counted but not recorded. `specforge analyze` reads the written report
     without `--test-results`.
   """
-
-  produces [collector_report_ingested]
-
+  produces   [collector_report_ingested]
   verify unit "merge replaces only the same runner"
   verify integration "collect then analyze scores the recorded tests"
   verify contract "Ingest Collector Report: collector report ingestion holds — collector_dispatched_fired, graph_available, collector_report_ingested_emitted, runner_results_replaced, unknown_entities_warned, skipped_not_recorded, merged_report_written"
@@ -743,22 +661,23 @@ behavior ingest_collector_report "Ingest Collector Report" {
 // -- Discovery & Configuration -----
 
 behavior discover_extensions "Discover Extensions" {
-  invariants [extension_load_order_determinism, registry_integrity, offline_first_extension_resolution]
+  invariants [
+    extension_load_order_determinism,
+    registry_integrity,
+    offline_first_extension_resolution,
+  ]
   category   command
   types      [ExtensionSource, ManifestV2, ExtensionError]
   ports      [WasmRuntime]
-
   requires {
     registries_configured "at least one registry source (npm, OCI, GitHub Releases) is configured"
   }
-
   ensures {
     extensions_discovered_emitted "extensions_discovered event is emitted with aggregated discovery results"
-    network_failure_graceful "network failures produce warning diagnostic without aborting discovery"
-    results_complete "results include extension name, available versions, description, and source registry"
+    network_failure_graceful      "network failures produce warning diagnostic without aborting discovery"
+    results_complete              "results include extension name, available versions, description, and source registry"
   }
-
-  contract """
+  contract   """
     The system MUST query configured registries to discover available
     extensions and check for updates to installed extensions. Discovery
     MUST search all configured registry sources (npm, OCI, GitHub Releases)
@@ -770,9 +689,7 @@ behavior discover_extensions "Discover Extensions" {
     parsing is handled by parse_extension_specifier — this behavior is
     responsible for the registry query and result aggregation.
   """
-
-  produces [extensions_discovered]
-
+  produces   [extensions_discovered]
   verify unit "queries configured registries for available extensions"
   verify unit "checks for updates to installed extensions"
   verify unit "aggregates results across multiple registries"
@@ -788,19 +705,16 @@ behavior run_doctor_check "Run Doctor Check" {
   types      [ManifestV2, EnhancementConflict, FieldEnhancement]
   ports      [FileSystem]
   consumes   [enhancement_registered, wasm_trap_caught]
-
   requires {
     enhancement_registered_fired "enhancement_registered event has fired, confirming FieldRegistry is built"
-    filesystem_available "FileSystem port is available for reading extension manifests"
+    filesystem_available         "FileSystem port is available for reading extension manifests"
   }
-
   ensures {
     doctor_check_completed_emitted "doctor_check_completed event is emitted after all checks finish"
-    report_produced "human-readable report listing extensions, enhancements, and conflicts is produced"
-    json_output_supported "--json flag produces machine-readable JSON output for CI integration"
+    report_produced                "human-readable report listing extensions, enhancements, and conflicts is produced"
+    json_output_supported          "--json flag produces machine-readable JSON output for CI integration"
   }
-
-  contract """
+  contract   """
     When specforge doctor is invoked, the system MUST load all extension
     manifests, build the FieldRegistry, detect all conflicts, and
     produce a human-readable report listing installed extensions, their
@@ -809,9 +723,7 @@ behavior run_doctor_check "Run Doctor Check" {
     edge label conflicts). The --json flag MUST produce machine-readable
     JSON output for CI integration.
   """
-
-  produces [doctor_check_completed]
-
+  produces   [doctor_check_completed]
   verify unit "doctor lists all installed extensions with enhancement counts"
   verify unit "doctor lists all enhancements grouped by entity kind"
   verify unit "doctor reports conflicts with resolution suggestions"
@@ -826,26 +738,21 @@ behavior parse_extension_specifier "Parse Extension Specifier" {
   invariants [registry_integrity]
   category   command
   types      [ExtensionSpecifier, ExtensionSource, ExtensionError]
-
   requires {
     specifier_string_provided "a raw extension specifier string is provided for parsing"
   }
-
   ensures {
     extension_specifier_parsed_emitted "extension_specifier_parsed event is emitted with structured source descriptor"
-    invalid_specifier_diagnosed "invalid specifiers produce ExtensionError diagnostic with expected format"
+    invalid_specifier_diagnosed        "invalid specifiers produce ExtensionError diagnostic with expected format"
   }
-
-  contract """
+  contract   """
     The system MUST parse extension specifier strings into structured
     source descriptors. Supported formats: "@scope/name@version" for
     registry extensions, "./path" for local extensions, and "git:url#ref"
     for git-sourced extensions. Invalid specifiers MUST produce a
     ExtensionError diagnostic with the expected format.
   """
-
-  produces [extension_specifier_parsed]
-
+  produces   [extension_specifier_parsed]
   verify unit "@scope/name@version parsed as registry source"
   verify unit "./path parsed as local source"
   verify unit "git:url#ref parsed as git source"
@@ -859,27 +766,22 @@ behavior resolve_extension_source "Resolve Extension Source" {
   types      [ManifestV2, ExtensionSpecifier, ExtensionSource, ExtensionError]
   ports      [FileSystem, RegistryClient]
   consumes   [extension_specifier_parsed]
-
   requires {
     extension_specifier_parsed_fired "extension_specifier_parsed event has fired, confirming structured source descriptor is available"
-    source_ports_available "FileSystem and RegistryClient ports are available for resolution"
+    source_ports_available           "FileSystem and RegistryClient ports are available for resolution"
   }
-
   ensures {
     extension_source_resolved_emitted "extension_source_resolved event is emitted with concrete manifest and .wasm binary"
-    resolution_failure_diagnosed "resolution failures produce ExtensionError diagnostic"
+    resolution_failure_diagnosed      "resolution failures produce ExtensionError diagnostic"
   }
-
-  contract """
+  contract   """
     Given a parsed extension specifier, the system MUST resolve it to a
     concrete manifest and .wasm binary. Registry sources MUST query the
     registry API. Local sources MUST read from the filesystem. Git sources
     MUST clone or fetch the repository at the specified ref. Resolution
     failures MUST produce a ExtensionError diagnostic.
   """
-
-  produces [extension_source_resolved]
-
+  produces   [extension_source_resolved]
   verify unit "registry source resolves via registry API"
   verify unit "local source resolves from filesystem"
   verify unit "git source resolves from repository"
@@ -894,19 +796,16 @@ behavior write_lock_file "Write Lock File" {
   category   command
   types      [ManifestV2, LockFile, LockFileEntry]
   ports      [FileSystem]
-
   requires {
-    extensions_resolved "all extensions have been resolved with exact versions and wasm hashes"
+    extensions_resolved  "all extensions have been resolved with exact versions and wasm hashes"
     filesystem_available "FileSystem port is available for writing lock file"
   }
-
   ensures {
     lock_file_written_emitted "lock_file_written event is emitted after successful write"
-    output_deterministic "same inputs always produce byte-identical lock file output"
-    write_atomic "lock file is written atomically to prevent corruption"
+    output_deterministic      "same inputs always produce byte-identical lock file output"
+    write_atomic              "lock file is written atomically to prevent corruption"
   }
-
-  contract """
+  contract   """
     After resolving all extensions, the system MUST write a specforge.lock
     file containing the exact resolved version and SHA256 wasm_hash for
     each installed extension. The lock file format MUST be deterministic —
@@ -914,9 +813,7 @@ behavior write_lock_file "Write Lock File" {
     timestamp is metadata excluded from the determinism guarantee. The
     lock file MUST be written atomically to prevent corruption.
   """
-
-  produces [lock_file_written]
-
+  produces   [lock_file_written]
   verify unit "lock file contains exact versions and wasm hashes"
   verify unit "lock file output is deterministic"
   verify unit "lock file written atomically"
@@ -929,27 +826,22 @@ behavior read_lock_file "Read Lock File" {
   types      [ManifestV2, LockFile, LockFileEntry, ExtensionError]
   ports      [FileSystem]
   consumes   [all_files_parsed]
-
   requires {
     all_files_parsed_fired "all_files_parsed event has fired, confirming spec files are parsed"
-    filesystem_available "FileSystem port is available for reading lock file"
+    filesystem_available   "FileSystem port is available for reading lock file"
   }
-
   ensures {
-    lock_file_read_emitted "lock_file_read event is emitted after lock file is processed"
-    locked_versions_used "locked versions are used instead of resolving from sources when lock file exists"
+    lock_file_read_emitted  "lock_file_read event is emitted after lock file is processed"
+    locked_versions_used    "locked versions are used instead of resolving from sources when lock file exists"
     malformed_lock_graceful "malformed lock files produce warning and fall back to fresh resolution"
   }
-
-  contract """
+  contract   """
     When a specforge.lock file exists, the system MUST use locked versions
     instead of resolving from sources. Missing lock entries for declared
     extensions MUST trigger resolution and lock file update. Malformed lock
     files MUST produce a warning and fall back to fresh resolution.
   """
-
-  produces [lock_file_read]
-
+  produces   [lock_file_read]
   verify unit "locked versions used when lock file exists"
   verify unit "missing lock entry triggers resolution"
   verify unit "malformed lock file produces warning and falls back"
@@ -959,24 +851,26 @@ behavior read_lock_file "Read Lock File" {
 // ── Extension Update ──────────────────────────────────────────
 
 behavior update_all_extensions "Update All Extensions" {
-  invariants [wasm_sandbox_integrity, peer_dependency_satisfaction, wasm_compile_cache_integrity, extension_operation_atomicity]
+  invariants [
+    wasm_sandbox_integrity,
+    peer_dependency_satisfaction,
+    wasm_compile_cache_integrity,
+    extension_operation_atomicity,
+  ]
   category   command
   types      [ManifestV2, LockFileEntry, ExtensionError]
   ports      [WasmRuntime]
-
   requires {
     extensions_installed "at least one extension is installed with a valid manifest"
     registries_reachable "configured registries are reachable for version checks"
   }
-
   ensures {
     batch_update_completed_emitted "batch_update_completed event is emitted after all upgrades are applied"
-    semver_constraints_respected "upgrades respect semver constraints, major bumps skipped without --major"
-    lock_hashes_refreshed "updated lock entries record the new binary hashes"
-    atomic_rollback_on_failure "if any upgrade fails, all changes are rolled back"
+    semver_constraints_respected   "upgrades respect semver constraints, major bumps skipped without --major"
+    lock_hashes_refreshed          "updated lock entries record the new binary hashes"
+    atomic_rollback_on_failure     "if any upgrade fails, all changes are rolled back"
   }
-
-  contract """
+  contract   """
     When specforge update is invoked, the system MUST check all installed
     extensions for newer versions by querying their configured registries.
     The system MUST upgrade each extension to the latest compatible version
@@ -987,9 +881,7 @@ behavior update_all_extensions "Update All Extensions" {
     applying changes. If any upgrade fails, the system MUST roll back all
     changes and report the failure.
   """
-
-  produces [batch_update_completed]
-
+  produces   [batch_update_completed]
   verify unit "newer versions detected from registry"
   verify unit "semver-compatible upgrades applied"
   verify unit "major version skipped without --major flag"
@@ -1004,19 +896,16 @@ behavior refresh_lock_file "Refresh Lock File" {
   category   command
   types      [LockFileEntry, ManifestV2]
   ports      [WasmRuntime, FileSystem]
-
   requires {
-    lock_file_exists "specforge.lock file exists with entries to refresh"
+    lock_file_exists     "specforge.lock file exists with entries to refresh"
     registries_reachable "configured registries are reachable for re-resolution"
   }
-
   ensures {
     lock_file_refreshed_emitted "lock_file_refreshed event is emitted after lock file is regenerated"
-    versions_unchanged "pinned versions are not changed during refresh"
-    hashes_verified "SHA256 hashes of all installed .wasm binaries are verified against lock entries"
+    versions_unchanged          "pinned versions are not changed during refresh"
+    hashes_verified             "SHA256 hashes of all installed .wasm binaries are verified against lock entries"
   }
-
-  contract """
+  contract   """
     When specforge update --lock is invoked, the system MUST re-resolve all
     extension specifiers from their configured registries without changing
     pinned versions. The system MUST verify SHA256 hashes of all installed
@@ -1024,9 +913,7 @@ behavior refresh_lock_file "Refresh Lock File" {
     produce a warning diagnostic. The lock file MUST be regenerated with
     current resolution metadata including timestamps and registry URLs.
   """
-
-  produces [lock_file_refreshed]
-
+  produces   [lock_file_refreshed]
   verify unit "specifiers re-resolved without version changes"
   verify unit "SHA256 hashes verified against lock entries"
   verify unit "mismatched hash produces warning"

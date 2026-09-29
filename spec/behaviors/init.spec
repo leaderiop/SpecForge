@@ -1,36 +1,39 @@
 // Initialization behaviors — project scaffolding
 
-use "invariants/core"
-use "invariants/zero-entity-core"
-use "invariants/wasm"
-use "invariants/extensions"
-use "types/config"
-use "ports/outbound"
 use "behaviors/wasm-extensions"
 use "events/compilation"
+use "invariants/core"
+use "invariants/extensions"
+use "invariants/wasm"
+use "invariants/zero-entity-core"
+use "ports/outbound"
+use "types/config"
+
 // L5: project_initialized event boundary — scaffold_new_project fires
 // project_initialized when extensions are selected; graceful_zero_extension_init
 // fires it when zero extensions are selected. These are mutually exclusive paths
 // in interactive mode (exactly one fires per init invocation).
 behavior scaffold_new_project "Scaffold New Project" {
   category   command
-  invariants [spec_root_singleton, init_config_validity, zero_domain_knowledge_core, authentication_never_gates_core_use]
+  invariants [
+    spec_root_singleton,
+    init_config_validity,
+    zero_domain_knowledge_core,
+    authentication_never_gates_core_use,
+  ]
   types      [CompilerConfig, InitConfig, InitError, ProjectConfig]
   ports      [FileSystem]
   produces   [project_initialized]
-
   requires {
     filesystem_available "FileSystem port is available for writing project files"
-    no_existing_project "No specforge.json or specforge.spec exists in the current directory or any ancestor directory"
+    no_existing_project  "No specforge.json or specforge.spec exists in the current directory or any ancestor directory"
   }
-
   ensures {
-    valid_config_created "A syntactically valid specforge.json is created with the user-provided project name and version"
-    schema_field_included "Generated config includes a $schema field for IDE autocomplete"
+    valid_config_created        "A syntactically valid specforge.json is created with the user-provided project name and version"
+    schema_field_included       "Generated config includes a $schema field for IDE autocomplete"
     project_initialized_emitted "project_initialized event is emitted after successful scaffolding"
   }
-
-  contract """
+  contract   """
     When specforge init is invoked in an empty directory,
     the system MUST create a specforge.json file with the user-provided
     project name and version. The generated config MUST include the
@@ -45,15 +48,14 @@ behavior scaffold_new_project "Scaffold New Project" {
     MUST default to the directory name and prompt the user for confirmation
     or override.
   """
-
-  verify unit        "scaffold creates valid specforge.json"
-  verify unit        "scaffold includes $schema field in generated config"
-  verify unit        "scaffold rejects when specforge.json already exists"
-  verify unit        "scaffold rejects when a parent directory contains specforge.json"
+  verify unit "scaffold creates valid specforge.json"
+  verify unit "scaffold includes $schema field in generated config"
+  verify unit "scaffold rejects when specforge.json already exists"
+  verify unit "scaffold rejects when a parent directory contains specforge.json"
   verify performance "full init-check-export cycle completes in under 60 seconds"
   verify integration "scaffold in non-empty directory preserves existing files"
   verify integration "scaffolded project passes init-check-export cycle"
-  verify unit        "init adds the generated report files to .gitignore without duplicating entries"
+  verify unit "init adds the generated report files to .gitignore without duplicating entries"
   verify contract "Scaffold New Project: new project scaffolding holds — filesystem_available, no_existing_project, valid_config_created, schema_field_included, project_initialized_emitted"
 }
 
@@ -66,19 +68,16 @@ behavior scaffold_starter_spec_file "Scaffold Starter Spec File" {
   // Deliberately passive: declared as data (C12-13) so the event-graph
   // lint can enforce the absence, not just a comment.
   produces   []
-
   requires {
-    config_created "specforge.json has been created by the parent scaffold_new_project step"
+    config_created       "specforge.json has been created by the parent scaffold_new_project step"
     filesystem_available "FileSystem port is available for writing the starter spec file"
   }
-
   ensures {
-    starter_file_created "A starter .spec file is created alongside specforge.json"
+    starter_file_created   "A starter .spec file is created alongside specforge.json"
     structural_syntax_only "Starter file uses only structural syntax when no extensions contribute templates"
-    zero_diagnostic_pass "Starter file passes specforge check with zero diagnostics regardless of installed extensions"
+    zero_diagnostic_pass   "Starter file passes specforge check with zero diagnostics regardless of installed extensions"
   }
-
-  contract """
+  contract   """
     During specforge init, after creating specforge.json, the system
     MUST create a starter .spec file (e.g., hello.spec) demonstrating
     the basic DSL syntax using only structural syntax: generic entity
@@ -93,12 +92,11 @@ behavior scaffold_starter_spec_file "Scaffold Starter Spec File" {
     are installed. This behavior delivers on Principle 8 (seconds to
     value): the user can run specforge check immediately after init.
   """
-
-  verify unit        "starter spec file is created alongside specforge.json"
-  verify unit        "starter spec file passes specforge check with zero errors"
-  verify unit        "starter file uses only structural syntax when no extensions contribute templates"
-  verify unit        "starter file contains no domain-specific keywords from extensions"
-  verify unit        "starter file content is deterministic for same extension set"
+  verify unit "starter spec file is created alongside specforge.json"
+  verify unit "starter spec file passes specforge check with zero errors"
+  verify unit "starter file uses only structural syntax when no extensions contribute templates"
+  verify unit "starter file contains no domain-specific keywords from extensions"
+  verify unit "starter file content is deterministic for same extension set"
   verify integration "extension-contributed starter templates are used when available"
   verify integration "extension-contributed starter file passes specforge check with zero errors"
   verify integration "the software starter passes specforge check with no warnings"
@@ -112,20 +110,17 @@ behavior interactive_extension_selection "Interactive Extension Selection" {
   invariants [spec_root_singleton, init_config_validity, zero_domain_knowledge_core]
   types      [CompilerConfig, BundledExtensionCatalog, BundledExtensionEntry]
   ports      [FileSystem, RegistryClient]
-
   requires {
-    tty_or_fallback_ready "Either a TTY is available for interactive prompts or non-TTY fallback path is ready"
+    tty_or_fallback_ready    "Either a TTY is available for interactive prompts or non-TTY fallback path is ready"
     catalog_source_available "At least one extension catalog source is reachable (registry, local cache, or bundled index), or graceful degradation to zero extensions is prepared"
   }
-
   ensures {
-    selected_in_config "Selected extensions appear in the generated specforge.json extensions list"
-    unselected_excluded "Unselected extensions are absent from the generated config"
+    selected_in_config      "Selected extensions appear in the generated specforge.json extensions list"
+    unselected_excluded     "Unselected extensions are absent from the generated config"
     no_default_preselection "No extensions are pre-selected by default"
-    non_tty_graceful "When no TTY is available, interactive prompts are skipped and zero extensions are selected"
+    non_tty_graceful        "When no TTY is available, interactive prompts are skipped and zero extensions are selected"
   }
-
-  contract """
+  contract   """
     During specforge init, the system MUST discover available extensions
     (from registry, local cache, or bundled index) and present them for
     interactive selection. The system SHOULD indicate commonly-used
@@ -142,7 +137,6 @@ behavior interactive_extension_selection "Interactive Extension Selection" {
     unavailable, the system MUST proceed with zero extensions and emit
     an I-level diagnostic explaining that no extension catalog was available.
   """
-
   verify unit "selected extensions appear in generated config"
   verify unit "unselected extensions are absent from generated config"
   verify unit "no extensions are pre-selected by default"
@@ -160,21 +154,18 @@ behavior non_interactive_init "Non-Interactive Init" {
   types      [CompilerConfig, InitConfig, InitOutput, InitError, BundledExtensionCatalog]
   ports      [FileSystem, RegistryClient]
   produces   [project_initialized]
-
   requires {
-    name_flag_provided "--name flag is provided with a valid project name"
+    name_flag_provided   "--name flag is provided with a valid project name"
     filesystem_available "FileSystem port is available for writing project files"
-    no_existing_project "No specforge.json or specforge.spec exists in the current directory or any ancestor directory"
+    no_existing_project  "No specforge.json or specforge.spec exists in the current directory or any ancestor directory"
   }
-
   ensures {
     config_identical_to_interactive "Generated specforge.json is structurally identical to one created interactively with the same inputs"
-    all_prompts_skipped "All interactive prompts are skipped"
-    json_output_supported "When --format=json is specified, output is a JSON object with project_root, config_path, spec_file_path, extensions_installed"
-    project_initialized_emitted "project_initialized event is emitted after successful non-interactive init"
+    all_prompts_skipped             "All interactive prompts are skipped"
+    json_output_supported           "When --format=json is specified, output is a JSON object with project_root, config_path, spec_file_path, extensions_installed"
+    project_initialized_emitted     "project_initialized event is emitted after successful non-interactive init"
   }
-
-  contract """
+  contract   """
     When specforge init is invoked with --name and optional --extensions
     flags, the system MUST skip all interactive prompts and create the
     project non-interactively. This enables CI pipelines, scripts, and
@@ -190,7 +181,6 @@ behavior non_interactive_init "Non-Interactive Init" {
     MUST reject the operation with a diagnostic naming the unresolvable
     extension and exit code 1.
   """
-
   verify unit "non-interactive init creates valid specforge.json"
   verify unit "non-interactive init skips all prompts"
   verify unit "non-interactive init with --extensions populates extensions list"
@@ -208,25 +198,27 @@ behavior non_interactive_init "Non-Interactive Init" {
 // handled by the write_lock_file behavior — see behaviors/wasm-extensions.spec.
 behavior add_extension_to_existing_project "Add Extension to Existing Project" {
   category   command
-  invariants [spec_root_singleton, init_config_validity, peer_dependency_satisfaction, zero_domain_knowledge_core]
+  invariants [
+    spec_root_singleton,
+    init_config_validity,
+    peer_dependency_satisfaction,
+    zero_domain_knowledge_core,
+  ]
   types      [CompilerConfig, InitError]
   ports      [FileSystem, RegistryClient]
   produces   [extension_added]
-
   requires {
     existing_project_found "A specforge.json exists in the current directory or an ancestor directory as resolved by find_project_root()"
-    extension_resolvable "Extension specifier can be resolved via registry, bundled index, or local cache"
+    extension_resolvable   "Extension specifier can be resolved via registry, bundled index, or local cache"
   }
-
   ensures {
-    extension_appended "Extension is added to the extensions list in specforge.json"
-    no_duplicate_added "Already-installed extensions are not duplicated"
-    other_fields_preserved "No other fields in specforge.json are modified"
-    peer_deps_satisfied "Unsatisfied peer dependencies produce E-level diagnostics and reject the operation"
+    extension_appended      "Extension is added to the extensions list in specforge.json"
+    no_duplicate_added      "Already-installed extensions are not duplicated"
+    other_fields_preserved  "No other fields in specforge.json are modified"
+    peer_deps_satisfied     "Unsatisfied peer dependencies produce E-level diagnostics and reject the operation"
     extension_added_emitted "extension_added event is emitted after successful addition"
   }
-
-  contract """
+  contract   """
     When specforge add <extension-specifier> is invoked on an existing project,
     the system MUST add the extension to the extensions list in specforge.json.
     The extension specifier MUST accept @scope/name@version syntax; version
@@ -245,15 +237,14 @@ behavior add_extension_to_existing_project "Add Extension to Existing Project" {
     specifier cannot be resolved, the system MUST reject the operation with
     a diagnostic naming the unresolvable extension.
   """
-
-  verify unit        "add extension appends to extensions list"
-  verify unit        "add enables a builtin's required peers but not its optional ones"
-  verify unit        "add duplicate extension is a no-op with info message"
-  verify unit        "add extension with no specforge.json rejects with error and exit code 1"
-  verify unit        "add unresolvable extension rejects with diagnostic"
-  verify unit        "add extension with @scope/name@version resolves version via parse_extension_specifier"
-  verify unit        "add extension without version resolves to latest compatible version"
-  verify unit        "add extension with unsatisfied peer dependencies emits error diagnostics and rejects"
+  verify unit "add extension appends to extensions list"
+  verify unit "add enables a builtin's required peers but not its optional ones"
+  verify unit "add duplicate extension is a no-op with info message"
+  verify unit "add extension with no specforge.json rejects with error and exit code 1"
+  verify unit "add unresolvable extension rejects with diagnostic"
+  verify unit "add extension with @scope/name@version resolves version via parse_extension_specifier"
+  verify unit "add extension without version resolves to latest compatible version"
+  verify unit "add extension with unsatisfied peer dependencies emits error diagnostics and rejects"
   verify integration "add extension preserves all other config fields"
   verify contract "Add Extension to Existing Project: adding extension to existing project holds — existing_project_found, extension_resolvable, extension_appended, no_duplicate_added, other_fields_preserved, peer_deps_satisfied, extension_added_emitted"
 }
@@ -264,20 +255,17 @@ behavior graceful_zero_extension_init "Graceful Zero-Extension Init" {
   types      [CompilerConfig]
   ports      [FileSystem]
   produces   [project_initialized]
-
   requires {
     zero_extensions_selected "Init completed with zero extensions selected (either by user choice or non-TTY fallback)"
-    filesystem_available "FileSystem port is available for writing project files"
+    filesystem_available     "FileSystem port is available for writing project files"
   }
-
   ensures {
-    empty_extensions_list "Generated specforge.json has an empty extensions list"
-    structural_starter_valid "Generated starter spec file passes specforge check with zero errors"
-    valid_graph_exportable "specforge export produces a valid Graph Protocol JSON with structural entities"
+    empty_extensions_list       "Generated specforge.json has an empty extensions list"
+    structural_starter_valid    "Generated starter spec file passes specforge check with zero errors"
+    valid_graph_exportable      "specforge export produces a valid Graph Protocol JSON with structural entities"
     project_initialized_emitted "project_initialized event is emitted after successful zero-extension init"
   }
-
-  contract """
+  contract   """
     When specforge init completes with zero extensions selected,
     the system MUST still produce a valid specforge.json with an
     empty extensions list. The generated starter .spec file MUST
@@ -290,9 +278,8 @@ behavior graceful_zero_extension_init "Graceful Zero-Extension Init" {
     and Principle 8 (seconds to value): even a project with zero
     domain extensions provides value.
   """
-
-  verify unit        "zero-extension init creates valid specforge.json with empty extensions"
-  verify unit        "zero-extension starter file passes specforge check"
+  verify unit "zero-extension init creates valid specforge.json with empty extensions"
+  verify unit "zero-extension starter file passes specforge check"
   verify integration "zero-extension project produces valid graph via specforge export"
   verify integration "graceful_zero_extension_init completes full init-check-export cycle in under 60 seconds"
   verify unit "zero-extension config produces empty extensions array []"
@@ -301,19 +288,16 @@ behavior graceful_zero_extension_init "Graceful Zero-Extension Init" {
 
 behavior find_project_root "Find Project Root" {
   category   internal
-
   requires {
     filesystem_available "FileSystem port is available for directory traversal and symlink resolution"
   }
-
   ensures {
     closest_wins_enforced "The first directory containing specforge.json or specforge.spec (from cwd upward) is returned"
-    json_precedence "Within a single directory, specforge.json takes precedence over specforge.spec"
-    symlinks_resolved "Symlinks are resolved before path comparison to prevent infinite loops"
-    none_on_missing "If neither file is found up to filesystem root, None is returned"
+    json_precedence       "Within a single directory, specforge.json takes precedence over specforge.spec"
+    symlinks_resolved     "Symlinks are resolved before path comparison to prevent infinite loops"
+    none_on_missing       "If neither file is found up to filesystem root, None is returned"
   }
-
-  contract """
+  contract   """
     The system MUST locate the project root by walking from the current
     directory upward to the filesystem root. At each directory level,
     the system MUST check for both specforge.json and specforge.spec
@@ -330,7 +314,6 @@ behavior find_project_root "Find Project Root" {
   types      [CompilerConfig]
   ports      [FileSystem]
   invariants [spec_root_singleton]
-
   verify unit "specforge.json found in current directory"
   verify unit "specforge.json found in ancestor directory"
   verify unit "specforge.spec found when specforge.json is absent at same level"

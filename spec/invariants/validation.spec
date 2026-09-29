@@ -7,11 +7,9 @@ invariant reference_resolution_completeness "Reference Resolution Completeness" 
     for unresolvable soft references (cross-extension). No reference MUST be
     silently ignored.
   """
-  risk high
-
+  risk      high
   verify property "every entity ID in a reference list resolves to a declared entity or emits a diagnostic"
   verify unit "E003 is emitted for broken hard references and I004 for broken soft references"
-
 }
 
 invariant diagnostic_determinism "Diagnostic Determinism" {
@@ -20,11 +18,9 @@ invariant diagnostic_determinism "Diagnostic Determinism" {
     diagnostics in the same order. No diagnostic MUST depend on filesystem
     iteration order, hashmap ordering, or wall-clock time.
   """
-  risk medium
-
+  risk      medium
   verify property "identical source files produce identical diagnostics in the same order"
   verify unit "diagnostic output does not depend on filesystem iteration order or hashmap ordering"
-
 }
 
 // testable_entity_classification is defined in invariants/zero-entity-core.spec
@@ -38,8 +34,7 @@ invariant validation_pipeline_ordering "Validation Phase Ordering" {
     validators is not mandated — they MAY execute concurrently as co-consumers
     of graph_built.
   """
-  risk medium
-
+  risk      medium
   verify integration "all validators complete before aggregate_diagnostic_summary fires"
   verify property "no diagnostic reaches aggregate_diagnostic_summary before both validator categories complete"
 }
@@ -50,7 +45,6 @@ invariant diagnostic_code_uniqueness "Diagnostic Code Uniqueness" {
     (core or extension). No two validation rules may emit the same code.
     Allocation ranges are partitioned between core and extensions.
   """
-  risk high
-
+  risk      high
   verify property "Diagnostic Code Uniqueness guarantee holds"
 }

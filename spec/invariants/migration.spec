@@ -8,8 +8,7 @@ invariant migration_idempotency "Migration Idempotency" {
     source content and version pair — no external state may influence
     the result.
   """
-  risk medium
-
+  risk      medium
   verify property "running migrate twice produces identical files"
   verify unit "file already at target version is unchanged"
 }
@@ -22,8 +21,7 @@ invariant migration_backup_safety "Migration Backup Safety" {
     original file. If backup creation fails (e.g., disk full, permission
     denied), the migration MUST abort for that file without modifying it.
   """
-  risk high
-
+  risk      high
   verify unit "backup created before file modification"
   verify unit "backup is byte-for-byte copy of original"
   verify unit "failed backup aborts migration for that file"
@@ -38,8 +36,7 @@ invariant migration_atomicity "Migration Atomicity" {
     partially written file can exist on disk, even if the process is
     interrupted mid-write.
   """
-  risk high
-
+  risk      high
   verify unit "migration writes to temporary file then renames"
   verify unit "interrupted write leaves original file intact"
   verify unit "failed rename does not corrupt original file"
@@ -54,8 +51,7 @@ invariant migration_event_ordering "Migration Event Ordering" {
     depend on this ordering (e.g., pre-migration snapshot capture)
     MUST receive events in the guaranteed sequence.
   """
-  risk high
-
+  risk      high
   verify property "migration_starting always precedes migration_started"
   verify property "migration_started always precedes migration_complete"
   verify property "migration_complete always precedes extension_migration_hooks_complete"
@@ -72,8 +68,7 @@ invariant migration_semantic_preservation "Migration Semantic Preservation" {
     edge is a breaking change and MUST be flagged by
     validate_post_migration_integrity.
   """
-  risk high
-
+  risk      high
   verify property "pre-migration and post-migration entity graphs are structurally identical"
   verify unit "migration that only changes formatting preserves graph structure"
 }
@@ -85,7 +80,7 @@ invariant migration_cross_extension_stability "Migration Cross-Extension Referen
     after migration. References to entities in uninstalled extensions
     MUST retain their soft-resolution status (I004).
   """
-  risk medium
+  risk      medium
   verify integration "cross-extension references resolve identically after migration"
   verify unit "soft-resolution I004 references preserved after migration"
 }

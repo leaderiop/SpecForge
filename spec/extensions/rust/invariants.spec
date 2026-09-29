@@ -8,8 +8,7 @@ invariant entity_mapping_precedence "Entity Mapping Precedence" {
     mappings MUST exist after resolution — conflicts MUST produce
     diagnostics. Spec files carry no test paths (ADR 0002).
   """
-  risk high
-
+  risk      high
   verify property "the proc macro attribute always overrides the naming convention"
   verify unit "ambiguous mappings produce diagnostics"
 }

@@ -12,19 +12,18 @@
 // See also: migration_as_core_infrastructure ADR in governance/decisions.spec.
 
 use "behaviors/migration"
-use "types/migration"
-use "invariants/migration"
 use "events/compilation"
+use "invariants/migration"
+use "types/migration"
+
 feature spec_file_migration "Spec File Migration" {
   // MCP: provide_mcp_migrate_tool in features/mcp.spec::mcp_mutation_tools
-
-  problem """
+  problem  """
     As the .spec file format evolves across versions, existing projects
     accumulate files in older formats. There is no automated way to detect
     version mismatches, preview changes, or migrate files to the current
     format while ensuring structural integrity is preserved.
   """
-
   solution """
     specforge migrate detects format version mismatches, transforms .spec
     files to the current version with automatic backups, supports --dry-run

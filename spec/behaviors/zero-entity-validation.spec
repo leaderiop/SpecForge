@@ -1,15 +1,16 @@
 // Zero-entity core — declarative validation engine and field validation
 
-use "invariants/zero-entity-core"
+use "events/compilation"
 use "invariants/core"
-use "types/zero-entity-core"
-use "types/core"
+use "invariants/zero-entity-core"
+use "ports/outbound"
 use "types/config"
+use "types/core"
 use "types/diagnostics"
 use "types/errors"
 use "types/wasm"
-use "ports/outbound"
-use "events/compilation"
+use "types/zero-entity-core"
+
 // -- Declarative Validation --------------------------------------------------
 
 // No consumes — synchronous helper called by register_validation_rules_from_manifest
@@ -17,17 +18,14 @@ behavior parse_validation_rule_pattern "Parse Validation Rule Pattern" {
   invariants [zero_domain_knowledge_core, declarative_validation_determinism]
   category   command
   types      [ValidationRulePattern, ValidationPatternKind, FieldConstraint]
-
   requires {
     manifest_rules_available "Extension manifest's validationRules array is accessible as structured data"
   }
-
   ensures {
-    patterns_parsed "Each validationRules entry parsed into a well-formed ValidationRulePattern"
+    patterns_parsed     "Each validationRules entry parsed into a well-formed ValidationRulePattern"
     unrecognized_warned "Unrecognized pattern kinds produce warning diagnostics with extension name"
   }
-
-  contract """
+  contract   """
     When the compiler reads a extension manifest's validationRules array,
     it MUST parse each entry into a ValidationRulePattern. The check
     field MUST be one of the recognized pattern kinds: no_incoming_edges,
@@ -35,7 +33,6 @@ behavior parse_validation_rule_pattern "Parse Validation Rule Pattern" {
     cycle_detection, file_exists. Unrecognized pattern kinds MUST produce
     a warning diagnostic with the extension name and invalid kind.
   """
-
   verify unit "parses no_incoming_edges pattern from manifest"
   verify unit "parses missing_field_when_flag_set pattern from manifest"
   verify unit "unrecognized pattern kind produces warning"
@@ -51,22 +48,18 @@ behavior execute_validation_pattern "Execute Validation Pattern" {
   ports      [WasmRuntime]
   consumes   [graph_built]
   produces   [declarative_validation_executed]
-
   requires {
-    patterns_parsed     "ValidationRulePattern is parsed and well-formed"
-    graph_available     "Compiled graph is available for querying"
+    patterns_parsed "ValidationRulePattern is parsed and well-formed"
+    graph_available "Compiled graph is available for querying"
   }
-
   ensures {
     all_entities_matched "Pattern matched against all applicable entities in the graph"
     violations_diagnosed "Diagnostics emitted for every pattern violation"
   }
-
   maintains {
     deterministic_order "Patterns executed in code-sorted order producing identical diagnostics across runs"
   }
-
-  contract """
+  contract   """
     The declarative validation engine MUST execute each registered pattern
     against the compiled graph. no_incoming_edges MUST check that every
     entity of the target kind has at least one incoming edge. no_outgoing_edges
@@ -80,7 +73,6 @@ behavior execute_validation_pattern "Execute Validation Pattern" {
     register_custom_validation_patterns. Each pattern violation MUST
     produce a diagnostic with the configured code and severity.
   """
-
   verify unit "no_incoming_edges detects orphan entities"
   verify unit "no_outgoing_edges detects entities with zero outgoing edges"
   verify unit "an edge rule counts only edges of its edge type and is dropped when no extension declares the kind at its far end"
@@ -97,18 +89,15 @@ behavior emit_diagnostic_from_pattern "Emit Diagnostic From Pattern" {
   invariants [zero_domain_knowledge_core, declarative_validation_determinism]
   category   command
   types      [ValidationRulePattern, Diagnostic]
-
   requires {
     violation_detected "A declarative validation pattern has detected a violation for an entity"
     pattern_configured "The pattern's messageTemplate, code, and severity fields are available"
   }
-
   ensures {
-    diagnostic_emitted "Diagnostic emitted with interpolated message, configured code, and correct severity"
+    diagnostic_emitted    "Diagnostic emitted with interpolated message, configured code, and correct severity"
     template_interpolated "All interpolation variables ({id}, {kind}, {field}, {value}) resolved in messageTemplate"
   }
-
-  contract """
+  contract   """
     When a declarative validation pattern detects a violation, the engine
     MUST emit a diagnostic using the pattern's messageTemplate with
     interpolation variables: {id} for the entity ID, {kind} for the
@@ -116,7 +105,6 @@ behavior emit_diagnostic_from_pattern "Emit Diagnostic From Pattern" {
     The diagnostic code MUST be the pattern's code field. The severity
     MUST match the pattern's severity field (error, warning, info).
   """
-
   verify unit "message template interpolates {id} and {kind}"
   verify unit "message template interpolates {field} and {value}"
   verify unit "diagnostic code matches pattern code"
@@ -125,23 +113,24 @@ behavior emit_diagnostic_from_pattern "Emit Diagnostic From Pattern" {
 }
 
 behavior register_extension_validation_rules "Register Extension Validation Rules" {
-  invariants [zero_domain_knowledge_core, declarative_validation_determinism, registry_population_before_validation]
+  invariants [
+    zero_domain_knowledge_core,
+    declarative_validation_determinism,
+    registry_population_before_validation,
+  ]
   category   command
   types      [ValidationRulePattern, ManifestV2]
   consumes   [extension_manifests_loaded]
-
   requires {
     extension_manifests_loaded_fired "extension_manifests_loaded event has fired, confirming all manifests are parsed and accessible"
-    individual_rules_parsed "Per-extension validation rules already parsed by register_validation_rules_from_manifest"
+    individual_rules_parsed          "Per-extension validation rules already parsed by register_validation_rules_from_manifest"
   }
-
   ensures {
-    unified_rule_set_produced "Single validation rule set aggregated from all installed extensions"
+    unified_rule_set_produced    "Single validation rule set aggregated from all installed extensions"
     deterministic_order_enforced "Rules sorted by code for deterministic execution order"
-    duplicate_codes_warned "Duplicate diagnostic codes across extensions produce warnings"
+    duplicate_codes_warned       "Duplicate diagnostic codes across extensions produce warnings"
   }
-
-  contract """
+  contract   """
     During extension loading, the compiler MUST collect all validationRules
     from all installed extensions into a single validation rule set. This
     behavior operates at the cross-extension level — it aggregates rules
@@ -154,7 +143,6 @@ behavior register_extension_validation_rules "Register Extension Validation Rule
     field registered as required, so required fields are enforced without
     each extension declaring its own rule.
   """
-
   verify unit "rules from multiple extensions are collected"
   verify unit "duplicate codes across extensions produce warning"
   verify unit "rules sorted by code for deterministic order"
@@ -170,18 +158,15 @@ behavior register_custom_validation_patterns "Register Custom Validation Pattern
   refs       [provide_host_function_query_graph]
   ports      [WasmRuntime]
   consumes   [extension_manifests_loaded]
-
   requires {
     extension_manifests_loaded_fired "extension_manifests_loaded event has fired, confirming all manifests are parsed and accessible"
-    wasm_runtime_available "WasmRuntime port is available for resolving and dispatching Wasm exports"
+    wasm_runtime_available           "WasmRuntime port is available for resolving and dispatching Wasm exports"
   }
-
   ensures {
     custom_patterns_registered "Custom validation patterns registered alongside declarative patterns"
-    wasm_functions_resolved "wasm_function fields resolved to Wasm exports or warnings emitted for unresolvable names"
+    wasm_functions_resolved    "wasm_function fields resolved to Wasm exports or warnings emitted for unresolvable names"
   }
-
-  contract """
+  contract   """
     When an extension declares validation rules with check kind "custom",
     the compiler MUST resolve the wasm_function field to a Wasm export in
     the extension's module. The custom pattern MUST be registered alongside
@@ -195,7 +180,6 @@ behavior register_custom_validation_patterns "Register Custom Validation Pattern
     configured code, severity, and message template. Unresolvable
     wasm_function names MUST produce a warning at registration time.
   """
-
   verify unit "custom pattern registered with wasm_function reference"
   verify unit "unresolvable wasm_function produces warning"
   verify unit "custom pattern dispatched to Wasm runtime during validation"
@@ -210,18 +194,15 @@ behavior detect_unknown_entity_fields "Detect Unknown Entity Fields" {
   category   validation
   types      [FieldRegistryEntry, KindRegistryEntry, Diagnostic]
   consumes   [registries_populated, define_blocks_registered]
-
   requires {
-    registries_populated_fired "registries_populated event has fired, confirming FieldRegistry and KindRegistry are fully populated"
+    registries_populated_fired     "registries_populated event has fired, confirming FieldRegistry and KindRegistry are fully populated"
     define_blocks_registered_fired "define_blocks_registered event has fired, confirming project-defined kinds are registered"
   }
-
   ensures {
     unknown_fields_diagnosed "W020 warning emitted for every unrecognized field name on registered entity kinds"
-    cascading_avoided "Field validation skipped for entities with unregistered kinds (already E024)"
+    cascading_avoided        "Field validation skipped for entities with unregistered kinds (already E024)"
   }
-
-  contract """
+  contract   """
     During Phase 2 semantic validation, the compiler MUST scan all parsed
     entity blocks whose kind is registered in the KindRegistry and check
     each field name against the FieldRegistry for that kind. Every field
@@ -235,7 +216,6 @@ behavior detect_unknown_entity_fields "Detect Unknown Entity Fields" {
     itself is unregistered (already reported as E024), field validation
     MUST be skipped for that entity to avoid cascading diagnostics.
   """
-
   verify unit "unregistered field name produces W020"
   verify unit "W020 includes field name, entity kind, and source span"
   verify unit "registered field name does not produce W020"
@@ -252,17 +232,14 @@ behavior detect_duplicate_entity_kinds "Detect Duplicate Entity Kinds" {
   invariants [zero_domain_knowledge_core, registry_population_before_validation]
   category   validation
   types      [ManifestV2, ManifestEntityKind, KindRegistryEntry, Diagnostic]
-
   requires {
     manifests_loading "Extension manifests are being loaded and entity kinds are being registered into KindRegistry"
   }
-
   ensures {
     collisions_detected "E026 diagnostic emitted when two extensions register the same entity kind keyword"
     first_wins_enforced "First extension in topological order owns the kind on collision"
   }
-
-  contract """
+  contract   """
     When two extensions register the same entity kind keyword, the compiler
     MUST detect the collision during registry population. The first extension
     in topological order MUST own the kind. The second registration MUST
@@ -271,7 +248,6 @@ behavior detect_duplicate_entity_kinds "Detect Duplicate Entity Kinds" {
     which handles the user-facing resolution — this behavior handles the
     registry-level detection during manifest loading.
   """
-
   verify unit "duplicate kind from two extensions produces E026"
   verify unit "first extension in topological order owns the kind"
   verify unit "single extension registering a kind produces no diagnostic"
@@ -283,18 +259,15 @@ behavior validate_peer_dependencies "Validate Peer Dependencies" {
   category   validation
   types      [ManifestV2, PeerDependency, ExtensionError]
   produces   [extension_loading_failed]
-
   requires {
     manifests_available "All declared extension manifests have been loaded and their peer_dependencies fields are accessible"
   }
-
   ensures {
     dependencies_validated "Every peer dependency checked against installed extensions for semver compatibility"
-    unsatisfied_blocked "Unsatisfied peer dependencies produce hard error diagnostics and prevent registry population"
+    unsatisfied_blocked    "Unsatisfied peer dependencies produce hard error diagnostics and prevent registry population"
     loading_failed_emitted "extension_loading_failed event emitted for extensions with unmet dependencies"
   }
-
-  contract """
+  contract   """
     During extension loading, the compiler MUST validate that every
     peer dependency declared in an extension's manifest is satisfied by
     an installed extension at a compatible semver version. Unsatisfied
@@ -303,7 +276,6 @@ behavior validate_peer_dependencies "Validate Peer Dependencies" {
     before registry population to prevent partial registration from
     extensions with unmet dependencies.
   """
-
   verify unit "satisfied peer dependency passes validation"
   verify unit "missing peer dependency produces hard error"
   verify unit "incompatible version produces hard error with required range"
@@ -315,18 +287,15 @@ behavior validate_extension_testability "Validate Extension Testability" {
   invariants [testable_entity_classification, zero_domain_knowledge_core]
   category   validation
   types      [Diagnostic, KindRegistryEntry]
-  consumes  [registries_populated]
-
+  consumes   [registries_populated]
   requires {
     registries_populated_fired "registries_populated event has fired, confirming all entity kinds are registered with their flags"
   }
-
   ensures {
-    flag_consistency_checked "Every KindRegistryEntry's testable and supportsVerify flags checked for consistency"
+    flag_consistency_checked     "Every KindRegistryEntry's testable and supportsVerify flags checked for consistency"
     advisory_diagnostics_emitted "W017 or I006 diagnostics emitted for inconsistent flag combinations"
   }
-
-  contract """
+  contract   """
     This behavior checks boolean flag consistency generically across all
     extension-declared entity kinds. The validator MUST detect inconsistencies
     between an extension manifest's testable and supportsVerify flags
@@ -348,7 +317,6 @@ behavior validate_extension_testability "Validate Extension Testability" {
     registries_populated → validation_complete window). The W017 and I006
     diagnostics are advisory — they do not block compilation.
   """
-
   verify unit "testable kind without supportsVerify produces W017"
   verify unit "testable kind with supportsVerify=true passes"
   verify unit "kind with supportsVerify but not testable produces I006"

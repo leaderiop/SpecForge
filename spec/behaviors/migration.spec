@@ -1,35 +1,33 @@
 // Migration behaviors — spec file format version migration
 
+use "events/compilation"
 use "invariants/core"
 use "invariants/migration"
 use "invariants/validation"
 use "invariants/wasm"
 use "invariants/zero-entity-core"
-use "types/core"
-use "types/migration"
-use "types/diagnostics"
-use "types/graph"
-use "types/wasm"
-use "types/zero-entity-core"
 use "ports/inbound"
 use "ports/outbound"
-use "events/compilation"
+use "types/core"
+use "types/diagnostics"
+use "types/graph"
+use "types/migration"
+use "types/wasm"
+use "types/zero-entity-core"
+
 behavior detect_format_version_mismatch "Detect Format Version Mismatch" {
   invariants [multi_error_collection, zero_domain_knowledge_core, diagnostic_determinism]
   category   validation
   types      [SpecFile, FormatVersion]
-
   requires {
     spec_file_available "A .spec file is being parsed and its content is accessible"
   }
-
   ensures {
-    version_mismatch_reported "I007 info diagnostic emitted when detected version differs from expected version"
+    version_mismatch_reported    "I007 info diagnostic emitted when detected version differs from expected version"
     unsupported_version_rejected "E019 diagnostic emitted for format versions outside the supported range"
-    parsing_continues "Parsing proceeds with best-effort compatibility regardless of version mismatch"
+    parsing_continues            "Parsing proceeds with best-effort compatibility regardless of version mismatch"
   }
-
-  contract """
+  contract   """
     During parsing, the system MUST detect when a .spec file uses an older
     format version than the compiler expects. The detected version and the
     expected version MUST be reported as an I007 info diagnostic. The system
@@ -51,7 +49,6 @@ behavior detect_format_version_mismatch "Detect Format Version Mismatch" {
     or newer than current) MUST produce an E019 diagnostic with upgrade
     guidance indicating which compiler version supports that format.
   """
-
   verify unit "older format version detected and reported as I007"
   verify unit "current format version produces no diagnostic"
   verify unit "missing format version treated as oldest supported"
@@ -67,27 +64,30 @@ behavior detect_format_version_mismatch "Detect Format Version Mismatch" {
 // directly (v1→v3). Each step is a self-contained transform function. This
 // ensures that each version boundary is validated independently.
 behavior migrate_spec_files_in_place "Migrate Spec Files In Place" {
-  invariants [multi_error_collection, migration_idempotency, migration_backup_safety, migration_atomicity, migration_semantic_preservation, zero_domain_knowledge_core]
+  invariants [
+    multi_error_collection,
+    migration_idempotency,
+    migration_backup_safety,
+    migration_atomicity,
+    migration_semantic_preservation,
+    zero_domain_knowledge_core,
+  ]
   category   mutation
   types      [SpecFile, MigrationResult, MigrationSummary, MigrationBackup]
   ports      [CompilerApi, FileSystem]
   produces   [migration_starting, migration_started, migration_complete]
-
   requires {
-    files_exist           "All .spec files targeted for migration exist on disk and are readable"
-    valid_target_version  "Target version is a valid format version"
+    files_exist          "All .spec files targeted for migration exist on disk and are readable"
+    valid_target_version "Target version is a valid format version"
   }
-
   ensures {
-    files_at_target       "All successfully migrated files are at the target version"
-    summary_emitted       "migration_summary diagnostic emitted with accurate counts"
-    complete_event_fired  "migration_complete event fires after all files are processed"
+    files_at_target      "All successfully migrated files are at the target version"
+    summary_emitted      "migration_summary diagnostic emitted with accurate counts"
+    complete_event_fired "migration_complete event fires after all files are processed"
   }
-
   maintains {
     semantic_preservation "Migrated files preserve all entity IDs, references, and field values from the source version"
   }
-
   // Temporal distinction between migration events:
   //   migration_starting — fires before any file I/O begins (intent signal).
   //     Consumers use this to capture pre-migration snapshots while the
@@ -95,8 +95,7 @@ behavior migrate_spec_files_in_place "Migrate Spec Files In Place" {
   //   migration_started — fires after the backup is created but before
   //     transforms run (point of no return). At this point, backups exist
   //     and the system is committed to attempting the migration.
-
-  contract """
+  contract   """
     When specforge migrate is invoked, the system MUST first capture a
     pre-migration snapshot of all .spec files (content hash per file) and
     the current graph state before any transforms are applied. The system
@@ -120,7 +119,6 @@ behavior migrate_spec_files_in_place "Migrate Spec Files In Place" {
     The FileSystem port is required for reading source files, writing
     backups, writing temporary files, and performing atomic renames.
   """
-
   verify contract "Migrate Spec Files In Place: in-place migration holds — semantic_preservation"
   verify unit "files migrated from source to target version"
   verify unit "backup created before modification"
@@ -133,24 +131,26 @@ behavior migrate_spec_files_in_place "Migrate Spec Files In Place" {
 }
 
 behavior generate_migration_diff "Generate Migration Diff" {
-  invariants [diagnostic_determinism, migration_idempotency, dry_run_side_effect_freedom, zero_domain_knowledge_core]
+  invariants [
+    diagnostic_determinism,
+    migration_idempotency,
+    dry_run_side_effect_freedom,
+    zero_domain_knowledge_core,
+  ]
   category   query
   types      [SpecFile, MigrationResult, MigrationDiff]
   ports      [CompilerApi]
   produces   [migration_diff_generated]
-
   requires {
     spec_files_available "All .spec files targeted for migration exist on disk and are readable"
-    dry_run_flag_set "The --dry-run flag is specified on the migrate command"
+    dry_run_flag_set     "The --dry-run flag is specified on the migrate command"
   }
-
   ensures {
-    diff_produced "Unified diff of all migration changes is computed and displayed"
-    no_files_modified "No .spec files are modified on disk during dry-run"
+    diff_produced                    "Unified diff of all migration changes is computed and displayed"
+    no_files_modified                "No .spec files are modified on disk during dry-run"
     migration_diff_generated_emitted "migration_diff_generated event fires with the computed diff"
   }
-
-  contract """
+  contract   """
     When specforge migrate --dry-run is invoked, the system MUST compute
     and display the unified diff of all changes that would be applied without
     modifying any files. The diff MUST use POSIX standard unified diff format
@@ -164,7 +164,6 @@ behavior generate_migration_diff "Generate Migration Diff" {
     containing path, before/after content hashes, and a list of changed
     line ranges.
   """
-
   verify unit "dry-run shows unified diff without modifying files"
   verify unit "diff format is compatible with patch(1)"
   verify unit "each file diff labeled with file path"
@@ -174,7 +173,15 @@ behavior generate_migration_diff "Generate Migration Diff" {
 }
 
 behavior validate_post_migration_integrity "Validate Post-Migration Integrity" {
-  invariants [multi_error_collection, graph_traversal_integrity, migration_event_ordering, diagnostic_determinism, migration_semantic_preservation, migration_cross_extension_stability, zero_domain_knowledge_core]
+  invariants [
+    multi_error_collection,
+    graph_traversal_integrity,
+    migration_event_ordering,
+    diagnostic_determinism,
+    migration_semantic_preservation,
+    migration_cross_extension_stability,
+    zero_domain_knowledge_core,
+  ]
   category   validation
   types      [Graph, DiagnosticBag]
   ports      [CompilerApi, GraphSerializer]
@@ -182,18 +189,15 @@ behavior validate_post_migration_integrity "Validate Post-Migration Integrity" {
   // (extension_migration_hooks_complete).
   consumes   [extension_migration_hooks_complete]
   produces   [migration_validation_complete]
-
   requires {
     extension_hooks_complete_fired "extension_migration_hooks_complete event has fired, confirming all extension migration hooks have run"
   }
-
   ensures {
-    structural_equivalence_checked "Post-migration graph compared against pre-migration graph at the Graph Protocol level"
-    differences_reported "Any structural differences reported as warnings"
+    structural_equivalence_checked        "Post-migration graph compared against pre-migration graph at the Graph Protocol level"
+    differences_reported                  "Any structural differences reported as warnings"
     migration_validation_complete_emitted "migration_validation_complete event fires after validation finishes"
   }
-
-  contract """
+  contract   """
     This behavior validates instance-level integrity (entity IDs, edges,
     field values) after migration. Schema-level backward compatibility is
     handled separately by verify_graph_protocol_compatibility_after_migration.
@@ -206,7 +210,6 @@ behavior validate_post_migration_integrity "Validate Post-Migration Integrity" {
     source positions. Any structural differences MUST be reported as
     warnings. New diagnostics introduced by migration MUST be reported.
   """
-
   verify unit "post-migration check runs automatically"
   verify unit "structural equivalence verified between pre and post graphs"
   verify unit "structural differences reported as warnings"
@@ -221,17 +224,14 @@ behavior capture_pre_migration_schema_snapshot "Capture Pre-Migration Schema Sna
   ports      [CompilerApi]
   consumes   [migration_starting]
   produces   [pre_migration_snapshot_captured]
-
   requires {
     migration_starting_fired "migration_starting event has fired, signaling that migration intent is declared but no file I/O has begun"
   }
-
   ensures {
-    snapshot_captured "PreMigrationSnapshot contains node kinds, edge types, and field definitions from the current graph schema"
+    snapshot_captured                       "PreMigrationSnapshot contains node kinds, edge types, and field definitions from the current graph schema"
     pre_migration_snapshot_captured_emitted "pre_migration_snapshot_captured event fires with the captured snapshot"
   }
-
-  contract """
+  contract   """
     Before migration begins, the system MUST capture the current graph
     schema (node kinds, edge types, field definitions) into a
     PreMigrationSnapshot structure to enable before/after comparison.
@@ -241,7 +241,6 @@ behavior capture_pre_migration_schema_snapshot "Capture Pre-Migration Schema Sna
     stored for later use by
     verify_graph_protocol_compatibility_after_migration.
   """
-
   verify unit "pre-migration schema snapshot captured on migration_starting event"
   verify unit "snapshot includes node kinds, edge types, and field definitions"
   verify unit "snapshot persists in memory across migration_starting to extension_migration_hooks_complete"
@@ -249,28 +248,39 @@ behavior capture_pre_migration_schema_snapshot "Capture Pre-Migration Schema Sna
 }
 
 behavior verify_graph_protocol_compatibility_after_migration "Verify Graph Protocol Compatibility After Migration" {
-  invariants [graph_traversal_integrity, graph_schema_completeness, migration_event_ordering, migration_cross_extension_stability, zero_domain_knowledge_core]
+  invariants [
+    graph_traversal_integrity,
+    graph_schema_completeness,
+    migration_event_ordering,
+    migration_cross_extension_stability,
+    zero_domain_knowledge_core,
+  ]
   category   validation
-  types      [Graph, FormatVersion, MigrationResult, SchemaVersion, SchemaEntityKind, SchemaEdgeType, PreMigrationSnapshot]
+  types      [
+    Graph,
+    FormatVersion,
+    MigrationResult,
+    SchemaVersion,
+    SchemaEntityKind,
+    SchemaEdgeType,
+    PreMigrationSnapshot,
+  ]
   ports      [CompilerApi]
   // Single-phase comparison: waits for the pre-migration snapshot and
   // the terminal migration event (extension_migration_hooks_complete).
   // Runs exactly once after both are available — no multi-phase logic.
   consumes   [pre_migration_snapshot_captured, extension_migration_hooks_complete]
   produces   [graph_protocol_compatibility_verified]
-
   requires {
     pre_migration_snapshot_available "pre_migration_snapshot_captured event has fired, providing the before-state schema snapshot"
-    extension_hooks_complete "extension_migration_hooks_complete event has fired, confirming the fully-migrated state is ready"
+    extension_hooks_complete         "extension_migration_hooks_complete event has fired, confirming the fully-migrated state is ready"
   }
-
   ensures {
-    compatibility_verified "Schema-level backward compatibility check completed against pre-migration snapshot"
-    breaking_changes_warned "W053 warning emitted for any breaking schema changes detected"
+    compatibility_verified               "Schema-level backward compatibility check completed against pre-migration snapshot"
+    breaking_changes_warned              "W053 warning emitted for any breaking schema changes detected"
     graph_protocol_compatibility_emitted "graph_protocol_compatibility_verified event fires after comparison"
   }
-
-  contract """
+  contract   """
     This behavior validates schema-level backward compatibility of the
     Graph Protocol after migration. Instance-level integrity (entity IDs,
     edges, field values) is handled separately by
@@ -303,7 +313,6 @@ behavior verify_graph_protocol_compatibility_after_migration "Verify Graph Proto
     versioning (SchemaVersion) per Principle 6: breaking changes require
     migration paths. See also: graph_protocol_versioning in features/output.spec.
   """
-
   verify unit "migration that changes entity structure triggers schema check"
   verify unit "migration that only changes formatting skips schema check"
   verify unit "breaking graph change emits W053 warning"
@@ -325,21 +334,17 @@ behavior rollback_failed_migration "Rollback Failed Migration" {
   ports      [FileSystem]
   consumes   [migration_started]
   produces   [migration_rolled_back]
-
   requires {
     migration_started "migration_started event has been emitted, providing the set of migrated files with backups"
   }
-
   ensures {
-    files_restored "All original files are restored from their .bak backups"
+    files_restored         "All original files are restored from their .bak backups"
     rollback_event_emitted "migration_rolled_back event is emitted with accurate restored, skipped, and failed counts"
   }
-
   maintains {
     backup_file_preservation ".bak backup files are never deleted during rollback (preserved for user inspection)"
   }
-
-  contract """
+  contract   """
     The behavior consumes migration_started to identify the set of files
     that have backups. Rollback is triggered via the --rollback CLI flag
     after post-migration validation detects structural differences.
@@ -358,7 +363,6 @@ behavior rollback_failed_migration "Rollback Failed Migration" {
     file set created during migration_started), NOT as an execution trigger.
     Rollback is triggered imperatively via the --rollback CLI flag.
   """
-
   verify unit "restores migrated files from .bak backups"
   verify unit "missing .bak file produces warning and skips"
   verify unit "restore is atomic per file"
@@ -372,26 +376,29 @@ behavior invoke_extension_migration_hooks "Invoke Extension Migration Hooks" {
   // collected into the DiagnosticBag (not fail-fast) — each hook failure is
   // an independent error that must be reported alongside others.
   category   command
-  invariants [multi_error_collection, migration_idempotency, wasm_sandbox_integrity, extension_isolation, extension_load_order_determinism, migration_cross_extension_stability]
+  invariants [
+    multi_error_collection,
+    migration_idempotency,
+    wasm_sandbox_integrity,
+    extension_isolation,
+    extension_load_order_determinism,
+    migration_cross_extension_stability,
+  ]
   types      [MigrationResult, ExtensionLifecycleState, WasmTrapInfo, ManifestV2]
   ports      [CompilerApi, WasmRuntime]
   consumes   [migration_complete]
   produces   [extension_migration_hooks_complete]
-
   requires {
-    migration_complete     "migration_complete event MUST have fired, confirming all .spec files have been migrated"
+    migration_complete "migration_complete event MUST have fired, confirming all .spec files have been migrated"
   }
-
   ensures {
-    all_hooks_invoked      "Every installed extension's migration hook has been invoked"
-    hooks_event_emitted    "extension_migration_hooks_complete event emitted"
+    all_hooks_invoked   "Every installed extension's migration hook has been invoked"
+    hooks_event_emitted "extension_migration_hooks_complete event emitted"
   }
-
   maintains {
-    extension_isolation    "A failing extension hook does not prevent invocation of remaining hooks"
+    extension_isolation "A failing extension hook does not prevent invocation of remaining hooks"
   }
-
-  contract """
+  contract   """
     When migrating spec files, the compiler MUST invoke each installed
     extension's migration hook — a Wasm export whose name is declared in
     the extension manifest's `migration_hook` field on ManifestV2
@@ -433,7 +440,6 @@ behavior invoke_extension_migration_hooks "Invoke Extension Migration Hooks" {
     a trap — the compiler MUST terminate the hook execution, collect a
     WasmTrapInfo diagnostic, and continue with the next extension.
   """
-
   verify unit "extension with migration_hook field has it invoked during migrate"
   verify unit "extension without migration_hook field is skipped silently"
   verify unit "extension with empty migration_hook field is skipped silently"

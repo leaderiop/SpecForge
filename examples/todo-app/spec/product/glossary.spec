@@ -5,8 +5,8 @@ term task "task" {
     A unit of work the user wants to track. Has a title, a status, and
     timestamps. Identified by a unique id.
   """
-  aliases  ["to-do", "item"]
-  see_also [done]
+  aliases    ["to-do", "item"]
+  see_also   [done]
 }
 
 term done "done" {

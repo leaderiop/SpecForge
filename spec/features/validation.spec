@@ -3,21 +3,20 @@
 // is extension-driven via the declarative validation engine. These features cover
 // only core structural validation behaviors.
 
-use "behaviors/resolution"
-use "behaviors/graph"
-use "behaviors/validation"
 use "behaviors/error-reporting"
+use "behaviors/graph"
 use "behaviors/output"
+use "behaviors/resolution"
+use "behaviors/validation"
 use "behaviors/zero-entity-registries"
 use "behaviors/zero-entity-validation"
-feature reference_resolution "Reference Resolution" {
 
-  problem """
+feature reference_resolution "Reference Resolution" {
+  problem  """
     .spec files reference entities across multiple files via use imports
     and reference lists. Broken imports, circular dependencies, and
     unresolvable cross-extension references must be detected.
   """
-
   solution """
     The resolver processes use imports, links entity references, detects
     import cycles (E003), and resolves cross-extension references with soft
@@ -27,13 +26,11 @@ feature reference_resolution "Reference Resolution" {
 }
 
 feature graph_construction "Graph Construction" {
-
-  problem """
+  problem  """
     After resolution, entities and their resolved references must be
     assembled into an in-memory typed entity graph for validation,
     export, and querying.
   """
-
   solution """
     The graph builder constructs an in-memory directed graph from
     resolved ASTs. Nodes represent entities with kind and fields. Edges
@@ -42,13 +39,11 @@ feature graph_construction "Graph Construction" {
 }
 
 feature structural_validation "Structural Validation" {
-
-  problem """
+  problem  """
     The compiled graph may contain structural inconsistencies: dangling
     references, duplicate IDs, orphan structural nodes, and missing
     file references.
   """
-
   solution """
     Core structural validation passes check the graph for: dangling
     reference integrity (resolver bug detection), duplicate IDs (E002), orphan structural nodes
@@ -68,13 +63,11 @@ feature diagnostic_reporting "Diagnostic Reporting" {
   // appear in features/output.spec::ci_integration. This is intentional:
   // ci_integration describes the CI/CD output perspective, while this feature
   // describes the validation-diagnostic perspective.
-
-  problem """
+  problem  """
     Validation diagnostics must be formatted with source context, fuzzy
     suggestions for typos, and aggregated into a final summary for
     human and machine consumption.
   """
-
   solution """
     Diagnostics are formatted with source snippets and underline markers
     pointing to the exact source location. Fuzzy matching suggests
@@ -101,13 +94,11 @@ feature diagnostic_reporting "Diagnostic Reporting" {
 // appear in multiple features when it serves multiple user-facing
 // capabilities.
 feature zero_entity_validation "Zero-Entity Validation" {
-
-  problem """
+  problem  """
     Without extension-aware validation, entity keywords and field names
     from uninstalled or misconfigured extensions go undetected, producing
     silent graph corruption or misleading diagnostics.
   """
-
   solution """
     Group the four zero-entity validation behaviors under a dedicated
     feature: detect_unknown_entity_kinds checks keywords against the

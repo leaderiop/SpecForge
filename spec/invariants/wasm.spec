@@ -7,8 +7,7 @@ invariant wasm_sandbox_integrity "Wasm Sandbox Integrity" {
     memory region unless explicitly permitted by the sandbox policy.
     Any sandbox violation MUST trap the extension and emit a diagnostic.
   """
-  risk high
-
+  risk      high
   verify property "no extension can read or write outside its sandbox boundaries"
   verify unit "sandbox violation traps the extension and emits a diagnostic"
 }
@@ -19,8 +18,7 @@ invariant extension_load_order_determinism "Extension Load Order Determinism" {
     the same topological load order on every invocation. The ordering
     MUST be deterministic and reproducible across platforms.
   """
-  risk medium
-
+  risk      medium
   verify property "same extension set produces identical load order across 100 runs"
   verify unit "load order is deterministic across different platforms"
 }
@@ -32,8 +30,7 @@ invariant peer_dependency_satisfaction "Peer Dependency Satisfaction" {
     Unsatisfied peer dependencies MUST produce an error diagnostic (E-level), not
     a silent degradation.
   """
-  risk high
-
+  risk      high
   verify unit "satisfied peer dependencies pass validation"
   verify unit "unsatisfied peer dependency produces an error diagnostic"
   verify unit "peer with wrong version range produces an error diagnostic"
@@ -53,8 +50,7 @@ invariant wasm_compile_cache_integrity "Wasm Compile Cache Integrity" {
     by the specforge.lock hash pin: a binary that no longer matches its
     recorded hash MUST be refused at load time (E033).
   """
-  risk medium
-
+  risk      medium
   verify property "a cache artifact from different bytes or engine config is never reused"
   verify unit "corrupted cache entry falls back to fresh compilation"
   verify unit "tampered installed binary refused via lockfile hash pin (E033)"
@@ -67,8 +63,7 @@ invariant extension_isolation "Extension Isolation" {
     extensions MUST continue execution normally. The failed extension MUST be
     excluded from subsequent phases in the current compilation.
   """
-  risk high
-
+  risk      high
   verify property "extension trap does not affect other extensions"
   verify unit "failed extension excluded from subsequent phases"
 }
@@ -80,8 +75,7 @@ invariant host_function_type_safety "Host Function Type Safety" {
     produce an ExtensionError diagnostic, not undefined behavior. The host
     MUST validate all extension-provided data before processing.
   """
-  risk high
-
+  risk      high
   verify unit "malformed extension input produces ExtensionError"
   verify unit "valid extension input is processed correctly"
 }
@@ -98,8 +92,7 @@ invariant entity_kind_uniqueness "Entity Kind Uniqueness" {
     extension load time. The compiler never arbitrates conflicts —
     extension authors resolve collisions via renames or peer dependencies.
   """
-  risk high
-
+  risk      high
   verify property "no two extensions can silently register the same entity kind"
   verify unit "built-in keyword rejection is unconditional"
 }
@@ -113,8 +106,7 @@ invariant enhancement_field_uniqueness "Enhancement Field Uniqueness" {
     according to the configured enhancement_policy or produce a hard
     error. The resolution MUST be deterministic and explicit.
   """
-  risk medium
-
+  risk      medium
   verify property "no two extensions can silently claim the same field"
   verify unit "conflict resolution is deterministic across runs"
 }
@@ -129,8 +121,7 @@ invariant enhancement_builtin_precedence "Enhancement Built-in Precedence" {
     shadow them MUST produce E018 regardless of enhancement_policy
     configuration.
   """
-  risk high
-
+  risk      high
   verify unit "enhancement shadowing grammar-level construct produces E018"
   verify unit "E018 not configurable via enhancement_policy"
 }
@@ -145,8 +136,7 @@ invariant collector_output_conformance "Collector Output Conformance" {
     rest of a run. Recorded statuses are only `pass` and `fail`; skipped
     tests are never recorded as proof.
   """
-  risk medium
-
+  risk      medium
   verify unit "unknown entity ID in collector entry produces W115"
   verify unit "skipped tests are not recorded as proof"
 }
@@ -160,8 +150,7 @@ invariant registry_integrity "Registry Integrity" {
     produce a hard error diagnostic and abort installation. The trust level
     of the source MUST be recorded in specforge.lock.
   """
-  risk high
-
+  risk      high
   verify unit "SHA256 match passes verification"
   verify unit "SHA256 mismatch produces hard error and aborts"
   verify unit "trust level recorded in lock file"
@@ -173,8 +162,7 @@ invariant extension_operation_atomicity "Extension Operation Atomicity" {
     On failure, all changes MUST be rolled back — no partial installs,
     no orphaned files, no inconsistent lock state.
   """
-  risk high
-
+  risk      high
   verify unit "failed install rolls back to previous state"
   verify unit "interrupted upgrade preserves original extension"
   verify integration "concurrent install and uninstall are serialized"
@@ -186,8 +174,7 @@ invariant credential_secrecy "Registry Credential Secrecy" {
     specforge.json, or included in diagnostic output. Only token
     presence/absence and validity status may be reported.
   """
-  risk high
-
+  risk      high
   verify unit "registry token is not included in log output"
   verify unit "diagnostic messages report credential presence not value"
   verify property "no log line contains raw token string"
@@ -202,7 +189,7 @@ invariant renderer_output_restriction "Renderer Output Restriction" {
     end users or deployed to production. SpecForge provides context;
     agents produce code.
   """
-  risk high
+  risk      high
   verify unit "emit_file rejects blacklisted code extensions"
   verify unit "renderer output restricted to allowed_output_extensions"
   verify property "no renderer can bypass emit_file extension whitelist"
@@ -217,9 +204,7 @@ invariant grammar_composition_determinism "Grammar Composition Determinism" {
     results. Extension load order MUST NOT affect which grammar is
     selected for a given entity kind.
   """
-
-  risk critical
-
+  risk      critical
   verify property "same extensions + same policy = same grammar mapping"
   verify unit "extension load order does not affect grammar selection"
 }
@@ -231,9 +216,7 @@ invariant grammar_injection_isolation "Grammar Injection Isolation" {
     to their declared entity_kinds only. A malformed or crashing grammar
     MUST NOT prevent other grammars from loading or functioning.
   """
-
-  risk high
-
+  risk      high
   verify property "grammar scoped to declared entity_kinds only"
   verify unit "malformed grammar does not affect other extensions"
 }
@@ -246,9 +229,7 @@ invariant body_parser_output_conformance "Body Parser Output Conformance" {
     rejected with a BodyParserError, and the system MUST fall back
     to treating the body as a raw string field.
   """
-
-  risk high
-
+  risk      high
   verify property "parser output always conforms to declared schema"
   verify unit "non-conforming output produces BodyParserError"
   verify mutation "removing output validation allows invalid fields through"
@@ -261,9 +242,7 @@ invariant surface_schema_validity "Surface Schema Validity" {
     constraints. Invalid schemas MUST produce E055. Unknown argument types
     MUST produce E055.
   """
-
-  risk medium
-
+  risk      medium
   verify unit "valid MCP tool schema passes validation"
   verify unit "invalid MCP tool schema produces E055"
   verify unit "known command arg type passes validation"

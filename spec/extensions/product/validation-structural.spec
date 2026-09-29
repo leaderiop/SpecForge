@@ -17,13 +17,11 @@ behavior detect_orphan_journeys "Detect Orphan Journeys" {
     validation pattern that detects journeys not referenced by any
     deliverable. Orphan journeys MUST produce a W042 warning.
   """
-  ensures  {
+  ensures {
     fires_when_orphan      "journey with zero incoming DeliverableJourney edges produces W042"
     suppresses_deliverable "journey in at least one deliverable suppresses W042"
   }
-
   features [pe_validation_suite]
-
   verify unit "journey not in any deliverable produces W042"
   verify unit "journey in a deliverable suppresses W042"
 }
@@ -36,13 +34,11 @@ behavior detect_orphan_modules "Detect Orphan Modules" {
     validation pattern that detects modules not bundled in any
     deliverable. Orphan modules MUST produce a W044 warning.
   """
-  ensures  {
+  ensures {
     fires_when_orphan      "module with zero incoming DeliverableModule edges produces W044"
     suppresses_deliverable "module in at least one deliverable suppresses W044"
   }
-
   features [pe_validation_suite]
-
   verify unit "module not in any deliverable produces W044"
   verify unit "module in a deliverable suppresses W044"
 }
@@ -56,13 +52,11 @@ behavior detect_orphan_terms "Detect Orphan Terms" {
     other entity's see_also or other reference fields. Unreferenced
     terms MUST produce an I010 info diagnostic.
   """
-  ensures  {
+  ensures {
     fires_when_orphan     "term with zero incoming TermSeeAlso edges produces I010"
     suppresses_referenced "term referenced by at least one see_also suppresses I010"
   }
-
   features [pe_validation_suite]
-
   verify unit "term referenced by see_also suppresses I010"
   verify unit "term not referenced anywhere produces I010"
 }
@@ -77,13 +71,11 @@ behavior detect_orphan_personas "Detect Orphan Personas" {
     I046 info diagnostic. Info-level respects incremental adoption —
     personas may be declared before journeys reference them.
   """
-  ensures  {
+  ensures {
     fires_when_orphan     "persona with zero incoming JourneyPersona edges produces I046"
     suppresses_referenced "persona referenced by at least one journey suppresses I046"
   }
-
   features [pe_validation_suite]
-
   verify unit "persona referenced by a journey suppresses I046"
   verify unit "persona not referenced by any journey produces I046"
 }
@@ -98,13 +90,11 @@ behavior detect_orphan_channels "Detect Orphan Channels" {
     I047 info diagnostic. Info-level respects incremental adoption —
     channels may be declared before journeys reference them.
   """
-  ensures  {
+  ensures {
     fires_when_orphan     "channel with zero incoming JourneyChannel edges produces I047"
     suppresses_referenced "channel referenced by at least one journey suppresses I047"
   }
-
   features [pe_validation_suite]
-
   verify unit "channel referenced by a journey suppresses I047"
   verify unit "channel not referenced by any journey produces I047"
 }
@@ -113,20 +103,18 @@ behavior detect_module_cycles "Detect Module Cycles" {
   category   validation
   invariants [module_dag]
   types      [Diagnostic]
-  produces  [pe_module_cycle_detected]
+  produces   [pe_module_cycle_detected]
   contract   """
     The @specforge/product extension MUST declare a cycle_detection
     validation pattern for the ModuleDependsOn edge type among module
     entities. Cycles MUST produce an E007 diagnostic naming the
     modules in the cycle.
   """
-  ensures    {
+  ensures {
     cycle_detected "module dependency cycle produces E007 naming all cycle members"
     acyclic_passes "acyclic module graph produces no E007"
   }
-
-  features [pe_validation_suite]
-
+  features   [pe_validation_suite]
   verify unit "module cycle produces E007"
   verify unit "acyclic module graph passes"
 }
@@ -135,20 +123,18 @@ behavior detect_milestone_cycles "Detect Milestone Cycles" {
   category   validation
   invariants [milestone_dag]
   types      [Diagnostic]
-  produces  [pe_milestone_cycle_detected]
+  produces   [pe_milestone_cycle_detected]
   contract   """
     The @specforge/product extension MUST declare a cycle_detection
     validation pattern for the MilestoneDependsOn edge type among
     milestone entities. Cycles MUST produce an E015 diagnostic naming
     the milestones in the cycle.
   """
-  ensures    {
+  ensures {
     cycle_detected "milestone dependency cycle produces E015 naming all cycle members"
     acyclic_passes "acyclic milestone graph produces no E015"
   }
-
-  features [pe_validation_suite]
-
+  features   [pe_validation_suite]
   verify unit "milestone cycle produces E015"
   verify unit "acyclic milestone graph passes"
 }
@@ -157,20 +143,18 @@ behavior detect_feature_dependency_cycles "Detect Feature Dependency Cycles" {
   category   validation
   invariants [feature_dag]
   types      [Diagnostic, ProductCycleDetectedPayload]
-  produces  [pe_feature_cycle_detected]
+  produces   [pe_feature_cycle_detected]
   contract   """
     The @specforge/product extension MUST declare a cycle_detection
     validation pattern for the FeatureDependsOn edge type among feature
     entities. Cycles MUST produce a W045 warning naming the features
     in the cycle.
   """
-  ensures    {
+  ensures {
     cycle_detected "feature dependency cycle produces W045 naming all cycle members"
     acyclic_passes "acyclic feature dependency graph produces no W045"
   }
-
-  features [pe_validation_suite]
-
+  features   [pe_validation_suite]
   verify unit "feature dependency cycle produces W045"
   verify unit "acyclic feature dependency graph passes"
 }
@@ -179,20 +163,18 @@ behavior detect_deliverable_cycles "Detect Deliverable Cycles" {
   category   validation
   invariants [deliverable_dag]
   types      [Diagnostic, ProductDeliverableCycleDetectedPayload]
-  produces  [pe_deliverable_cycle_detected]
+  produces   [pe_deliverable_cycle_detected]
   contract   """
     The @specforge/product extension MUST declare a cycle_detection
     validation pattern for the DeliverableDependsOn edge type among
     deliverable entities. Cycles MUST produce an E052 diagnostic naming
     the deliverables in the cycle.
   """
-  ensures    {
+  ensures {
     cycle_detected "deliverable dependency cycle produces E052 naming all cycle members"
     acyclic_passes "acyclic deliverable graph produces no E052"
   }
-
-  features [pe_validation_suite]
-
+  features   [pe_validation_suite]
   verify unit "deliverable cycle produces E052"
   verify unit "acyclic deliverable graph passes"
 }
@@ -205,13 +187,11 @@ behavior detect_deliverables_with_no_journeys "Detect Deliverables with No Journ
     validation pattern that detects deliverables with an empty journeys
     list. Deliverables with no journeys MUST produce a W043 warning.
   """
-  ensures  {
+  ensures {
     fires_when_empty     "deliverable with empty journeys list produces W043"
     suppresses_non_empty "deliverable with at least one journey suppresses W043"
   }
-
   features [pe_validation_suite]
-
   verify unit "deliverable with no journeys produces W043"
   verify unit "deliverable with journeys suppresses W043"
 }
@@ -225,13 +205,11 @@ behavior detect_deliverables_with_no_modules "Detect Deliverables with No Module
     list. Deliverables with no modules MUST produce a W046 warning.
     A deliverable without modules has no structural decomposition.
   """
-  ensures  {
+  ensures {
     fires_when_empty     "deliverable with empty modules list produces W046"
     suppresses_non_empty "deliverable with at least one module suppresses W046"
   }
-
   features [pe_validation_suite]
-
   verify unit "deliverable with no modules produces W046"
   verify unit "deliverable with modules suppresses W046"
 }
@@ -245,14 +223,12 @@ behavior detect_empty_milestones "Detect Empty Milestones" {
     list AND an empty modules list. Empty milestones MUST produce a W049
     warning. A milestone with at least one feature or one module is valid.
   """
-  ensures  {
-    fires_when_both_empty  "milestone with empty features and empty modules produces W049"
-    suppresses_features    "milestone with at least one feature suppresses W049"
-    suppresses_modules     "milestone with at least one module suppresses W049"
+  ensures {
+    fires_when_both_empty "milestone with empty features and empty modules produces W049"
+    suppresses_features   "milestone with at least one feature suppresses W049"
+    suppresses_modules    "milestone with at least one module suppresses W049"
   }
-
   features [pe_validation_suite]
-
   verify unit "milestone with no features and no modules produces W049"
   verify unit "milestone with features suppresses W049"
   verify unit "milestone with modules suppresses W049"
@@ -271,15 +247,13 @@ behavior detect_milestone_feature_module_gap "Detect Milestone Feature-Module Ga
     produce an I051 info diagnostic per uncovered feature.
     Each I051 MUST identify both milestone ID and uncovered feature ID.
   """
-  ensures    {
-    fires_per_uncovered  "each uncovered feature in the milestone produces one I051"
-    identifies_both      "I051 diagnostic identifies both milestone ID and uncovered feature ID"
-    suppresses_covered   "milestone where all features are covered by modules produces no I051"
-    no_modules_no_fire   "milestone with no modules produces no I051"
+  ensures {
+    fires_per_uncovered "each uncovered feature in the milestone produces one I051"
+    identifies_both     "I051 diagnostic identifies both milestone ID and uncovered feature ID"
+    suppresses_covered  "milestone where all features are covered by modules produces no I051"
+    no_modules_no_fire  "milestone with no modules produces no I051"
   }
-
-  features [pe_validation_suite]
-
+  features   [pe_validation_suite]
   verify unit "milestone with matching feature and module assignments produces no I051"
   verify unit "milestone with feature not in any module produces I051"
   verify unit "milestone with no modules produces no I051"
@@ -299,15 +273,13 @@ behavior detect_deliverable_journey_module_gap "Detect Deliverable Journey-Modul
     Gaps SHOULD produce an I049 info diagnostic per uncovered feature.
     Each I049 MUST identify both deliverable ID and uncovered feature ID.
   """
-  ensures    {
-    fires_per_uncovered  "each uncovered journey feature in the deliverable produces one I049"
-    identifies_both      "I049 diagnostic identifies both deliverable ID and uncovered feature ID"
-    suppresses_covered   "deliverable where all journey features are in modules produces no I049"
-    no_journeys_no_fire  "deliverable with no journeys produces no I049"
+  ensures {
+    fires_per_uncovered "each uncovered journey feature in the deliverable produces one I049"
+    identifies_both     "I049 diagnostic identifies both deliverable ID and uncovered feature ID"
+    suppresses_covered  "deliverable where all journey features are in modules produces no I049"
+    no_journeys_no_fire "deliverable with no journeys produces no I049"
   }
-
-  features [pe_validation_suite]
-
+  features   [pe_validation_suite]
   verify unit "deliverable with matching journey and module features produces no I049"
   verify unit "deliverable with journey feature not in any module produces I049"
   verify unit "deliverable with no journeys produces no I049"
@@ -324,13 +296,11 @@ behavior detect_modules_with_no_features "Detect Modules With No Features" {
     Info-level respects incremental adoption — modules may be declared
     before features are assigned.
   """
-  ensures  {
+  ensures {
     fires_when_empty     "module with empty features list produces I067"
     suppresses_non_empty "module with at least one feature suppresses I067"
   }
-
   features [pe_validation_suite]
-
   verify unit "module with features suppresses I067"
   verify unit "module with empty features produces I067"
 }
@@ -345,13 +315,11 @@ behavior detect_features_with_no_acceptance "Detect Features with No Acceptance 
     an I048 info diagnostic. Info-level respects incremental adoption —
     acceptance criteria can be added progressively.
   """
-  ensures  {
-    fires_when_missing  "feature with empty or missing acceptance produces I048"
-    suppresses_present  "feature with non-empty acceptance suppresses I048"
+  ensures {
+    fires_when_missing "feature with empty or missing acceptance produces I048"
+    suppresses_present "feature with non-empty acceptance suppresses I048"
   }
-
   features [pe_validation_suite]
-
   verify unit "feature with no acceptance criteria produces I048"
   verify unit "feature with acceptance criteria suppresses I048"
 }
@@ -365,14 +333,12 @@ behavior detect_completed_milestone_without_criteria "Detect Completed Milestone
     milestone without exit criteria means there is no verifiable
     definition of "done." Produces a W057 warning.
   """
-  ensures  {
+  ensures {
     fires_completed_empty    "completed milestone with empty exit_criteria produces W057"
     suppresses_with_criteria "completed milestone with non-empty exit_criteria suppresses W057"
     suppresses_non_completed "non-completed milestone without exit_criteria suppresses W057"
   }
-
   features [pe_validation_suite]
-
   verify unit "completed milestone with exit_criteria suppresses W057"
   verify unit "completed milestone without exit_criteria produces W057"
   verify unit "planned milestone without exit_criteria suppresses W057"
@@ -392,16 +358,14 @@ behavior detect_unanchored_exit_criteria "Detect Unanchored Exit Criteria" {
     This is informational only — prose exit criteria are valid but weaker
     for automated planning queries.
   """
-  ensures  {
-    fires_prose_only      "exit criterion with no entity ID reference produces I075"
-    suppresses_anchored   "exit criterion referencing an existing entity ID suppresses I075"
-    per_criterion         "I075 fires per unanchored criterion, not per milestone"
-    ignores_empty         "empty exit_criteria array produces no I075 (covered by W057)"
-    non_completed_ok      "non-completed milestones with unanchored criteria still produce I075"
+  ensures {
+    fires_prose_only    "exit criterion with no entity ID reference produces I075"
+    suppresses_anchored "exit criterion referencing an existing entity ID suppresses I075"
+    per_criterion       "I075 fires per unanchored criterion, not per milestone"
+    ignores_empty       "empty exit_criteria array produces no I075 (covered by W057)"
+    non_completed_ok    "non-completed milestones with unanchored criteria still produce I075"
   }
-
   features [pe_validation_suite]
-
   verify unit "prose-only exit criterion produces I075"
   verify unit "exit criterion containing entity ID suppresses I075"
   verify unit "milestone with mixed criteria fires I075 only for unanchored ones"
@@ -424,15 +388,13 @@ behavior detect_singleton_tags "Detect Singleton Tags" {
     are mutual singletons (each similar only to the other), both get
     I052 diagnostics.
   """
-  ensures    {
-    global_scope         "singleton detection spans all 9 product entity kinds"
-    one_per_tag          "each singleton tag produces exactly one I052 diagnostic"
-    closest_suggestion   "suggestion is the closest tag by Levenshtein distance with alphabetical tiebreak"
-    mutual_singletons    "when two tags are mutual singletons, both produce I052"
+  ensures {
+    global_scope       "singleton detection spans all 9 product entity kinds"
+    one_per_tag        "each singleton tag produces exactly one I052 diagnostic"
+    closest_suggestion "suggestion is the closest tag by Levenshtein distance with alphabetical tiebreak"
+    mutual_singletons  "when two tags are mutual singletons, both produce I052"
   }
-
   features [pe_validation_suite]
-
   verify unit "tag appearing on one entity produces I052"
   verify unit "tag appearing on two or more entities suppresses I052"
   verify unit "singleton tag with similar tag includes suggestion in payload"
@@ -454,15 +416,13 @@ behavior detect_tag_namespace_collision "Detect Tag Namespace Collision" {
     vs "core-feature"). This is informational only — cross-kind tags
     are valid and often intentional for cross-cutting categorization.
   """
-  ensures  {
+  ensures {
     fires_three_or_more_kinds     "tag on entities of 3+ different kinds produces I071"
     suppresses_two_or_fewer_kinds "tag on entities of 1-2 kinds suppresses I071"
     identifies_kinds              "I071 lists which entity kinds share the tag"
     suggestion_includes_prefixes  "I071 suggests kind-specific prefixes"
   }
-
   features [pe_validation_suite]
-
   verify unit "tag on features and modules only suppresses I071"
   verify unit "tag on features, modules, and milestones produces I071"
   verify unit "I071 identifies the entity kinds sharing the tag"
@@ -482,17 +442,15 @@ behavior detect_term_asymmetric_see_also "Detect Term Asymmetric See-Also Links"
     I096 is informational — asymmetric links are valid but may indicate
     an oversight in vocabulary cross-referencing.
   """
-  ensures  {
-    fires_asymmetric       "term A referencing term B via see_also without reciprocal B->A produces I096 on term A"
-    suppresses_mutual      "term A and term B with mutual see_also references produce no I096"
-    suppresses_isolated    "term with empty see_also produces no I096"
-    suppresses_non_term    "see_also reference to a non-term entity is excluded from I096 (covered by I056)"
-    per_pair_diagnostic    "each asymmetric pair produces one I096 on the referencing term"
-    identifies_both        "I096 includes both term IDs and suggests adding reciprocal see_also"
+  ensures {
+    fires_asymmetric    "term A referencing term B via see_also without reciprocal B->A produces I096 on term A"
+    suppresses_mutual   "term A and term B with mutual see_also references produce no I096"
+    suppresses_isolated "term with empty see_also produces no I096"
+    suppresses_non_term "see_also reference to a non-term entity is excluded from I096 (covered by I056)"
+    per_pair_diagnostic "each asymmetric pair produces one I096 on the referencing term"
+    identifies_both     "I096 includes both term IDs and suggests adding reciprocal see_also"
   }
-
   features [pe_validation_suite]
-
   verify unit "flags A->B without B->A"
   verify unit "no flag when mutual see_also"
   verify unit "no flag for isolated terms with empty see_also"
@@ -511,15 +469,13 @@ behavior detect_flow_step_structure "Detect Flow Step Structure" {
     informational only — free-form flow steps are valid per
     pe_journey_flow_opaque, but numbered prefixes improve agent parsability.
   """
-  ensures  {
-    fires_no_number_prefix    "flow step not starting with a digit followed by period produces I072"
-    suppresses_numbered       "flow step starting with '1. ...' suppresses I072"
-    per_step_diagnostic       "I072 fires per non-numbered step, not per journey"
-    identifies_step_index     "I072 includes the step index within the flow"
+  ensures {
+    fires_no_number_prefix "flow step not starting with a digit followed by period produces I072"
+    suppresses_numbered    "flow step starting with '1. ...' suppresses I072"
+    per_step_diagnostic    "I072 fires per non-numbered step, not per journey"
+    identifies_step_index  "I072 includes the step index within the flow"
   }
-
   features [pe_validation_suite]
-
   verify unit "flow step without number prefix produces I072"
   verify unit "flow step with '1. Developer runs...' suppresses I072"
   verify unit "journey with mixed numbered and unnumbered steps fires I072 per unnumbered step"

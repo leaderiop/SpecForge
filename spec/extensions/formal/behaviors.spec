@@ -8,7 +8,13 @@ use "types/zero-entity-core"
 
 behavior fa_annotate_graph_with_results "Annotate Graph with Analysis Results" {
   category command
-  types    [FormalAnalysisAnnotation, ConditionAnalysisResult, LayeringAnalysisResult, CycleAnalysisResult, CoverageAnalysisResult]
+  types    [
+    FormalAnalysisAnnotation,
+    ConditionAnalysisResult,
+    LayeringAnalysisResult,
+    CycleAnalysisResult,
+    CoverageAnalysisResult,
+  ]
   contract """
     After each analysis pass completes, annotate the relevant graph
     nodes with structured analysis results (FormalAnalysisAnnotation).
@@ -16,10 +22,10 @@ behavior fa_annotate_graph_with_results "Annotate Graph with Analysis Results" {
     export formats when --include-annotations is set.
   """
   requires {
-    pass_completed         "at least one analysis pass has completed"
-    graph_available        "entity graph is available for annotation"
+    pass_completed  "at least one analysis pass has completed"
+    graph_available "entity graph is available for annotation"
   }
-  ensures  {
+  ensures {
     condition_annotations  "condition_check pass results annotated on behavior nodes"
     layering_annotations   "layering_verify pass results annotated on behavior nodes"
     refinement_annotations "layering_verify pass results annotated on refinement nodes"
@@ -29,9 +35,7 @@ behavior fa_annotate_graph_with_results "Annotate Graph with Analysis Results" {
     queryable              "annotations queryable via query_graph host function"
     export_included        "annotations included in export when --include-annotations flag is set"
   }
-
   features [fa_graph_annotations]
-
   verify unit "condition analysis results annotated on behavior nodes"
   verify unit "layering analysis results annotated on behavior nodes"
   verify unit "cycle analysis results annotated on event nodes"
@@ -47,21 +51,19 @@ behavior fa_declare_graph_views "Declare Named Graph Views" {
     subset. Views are registered in the graph protocol and available
     via specforge export --view=<name>.
   """
-  ensures  {
-    behavior_overview      "behavior-overview view: all behaviors with their features, invariants, and verify statements"
-    type_graph             "type-graph view: all types with ExtendsType and UsesType edges"
-    event_flow             "event-flow view: all events with Produces/Consumes edges and sync blocks"
-    traceability_chain     "traceability-chain view: verify statements -> tests -> coverage items"
-    formal_analysis        "formal-analysis view: all nodes with FormalAnalysisAnnotation attached"
-    property_graph         "property-graph view: all property entities with Satisfies edges from behaviors and PropertyDependsOn edges to invariants"
-    axiom_graph            "axiom-graph view: all axiom entities with AssumedBy edges from invariants"
-    protocol_graph         "protocol-graph view: all protocol entities with FollowsProtocol edges from events"
-    refinement_graph       "refinement-graph view: all refinement entities with RefinementRefinesAbstract/RefinementRefinesConcrete edges to behaviors and RefinementChainsToRefinement edges"
-    process_graph          "process-graph view: all process entities with ParticipatesIn edges from events and ProcessComposition edges"
+  ensures {
+    behavior_overview  "behavior-overview view: all behaviors with their features, invariants, and verify statements"
+    type_graph         "type-graph view: all types with ExtendsType and UsesType edges"
+    event_flow         "event-flow view: all events with Produces/Consumes edges and sync blocks"
+    traceability_chain "traceability-chain view: verify statements -> tests -> coverage items"
+    formal_analysis    "formal-analysis view: all nodes with FormalAnalysisAnnotation attached"
+    property_graph     "property-graph view: all property entities with Satisfies edges from behaviors and PropertyDependsOn edges to invariants"
+    axiom_graph        "axiom-graph view: all axiom entities with AssumedBy edges from invariants"
+    protocol_graph     "protocol-graph view: all protocol entities with FollowsProtocol edges from events"
+    refinement_graph   "refinement-graph view: all refinement entities with RefinementRefinesAbstract/RefinementRefinesConcrete edges to behaviors and RefinementChainsToRefinement edges"
+    process_graph      "process-graph view: all process entities with ParticipatesIn edges from events and ProcessComposition edges"
   }
-
   features [fa_graph_annotations]
-
   verify unit "behavior-overview view contains behaviors, features, invariants"
   verify unit "type-graph view contains types with ExtendsType edges"
   verify unit "event-flow view contains events with Produces/Consumes edges"

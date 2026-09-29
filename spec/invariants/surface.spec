@@ -8,12 +8,10 @@ invariant surface_contribution_uniqueness "Surface Contribution Uniqueness" {
     be unique across all extensions. Duplicate contributions MUST produce
     E039 at extension load time.
   """
-  risk medium
-
+  risk      medium
   verify property "no two extensions can register the same CLI command ID"
   verify property "no two extensions can register the same MCP tool name"
   verify unit "duplicate surface contribution produces E039"
-
 }
 
 invariant surface_sandbox_ceiling "Surface Sandbox Ceiling" {
@@ -24,10 +22,8 @@ invariant surface_sandbox_ceiling "Surface Sandbox Ceiling" {
     SandboxPolicy. Surface dispatch MUST enforce the ceiling before
     calling any Wasm export.
   """
-  risk high
-
+  risk      high
   verify property "sandbox override cannot expand beyond type ceiling"
   verify unit "MCP resource with fs_write override is rejected"
   verify unit "CLI command sandbox intersected with extension sandbox policy"
-
 }

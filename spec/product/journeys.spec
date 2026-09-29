@@ -2,10 +2,8 @@
 // SpecForge is the structured context standard for AI agents.
 // The graph is the product — consumed by any agent for any task.
 
-use "product/personas"
-use "product/channels"
-use "extensions/testing/features"
 use "extensions/cargo-test/features"
+use "extensions/testing/features"
 use "extensions/vitest/features"
 use "features/extensions"
 use "features/formatting"
@@ -19,7 +17,9 @@ use "features/project-init"
 use "features/validation"
 use "features/wasm"
 use "features/zero-entity-core"
+use "product/channels"
 use "product/features"
+use "product/personas"
 
 // ── Developer + CLI ──────────────────────────────────────────
 

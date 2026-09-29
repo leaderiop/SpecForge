@@ -10,26 +10,24 @@
 
 use "invariants/wasm"
 use "invariants/zero-entity-core"
+use "ports/outbound"
 use "types/wasm"
 use "types/zero-entity-core"
-use "ports/outbound"
+
 behavior compute_extension_query_scope "Compute Extension Query Scope" {
   invariants [wasm_sandbox_integrity, host_function_type_safety]
   category   query
   types      [HostFunctionBinding, ManifestV2, SandboxPolicy]
   ports      [WasmRuntime]
-
   requires {
-    manifest_available "extension manifest is loaded with query_scope and peer dependency declarations"
+    manifest_available      "extension manifest is loaded with query_scope and peer dependency declarations"
     kind_registry_populated "KindRegistry contains all declared entity kinds from all loaded extensions"
   }
-
   ensures {
     scope_computed "query scope is computed based on manifest declarations (own kinds, peer kinds, or all)"
-    scope_cached "computed scope is cached per extension for the duration of the compilation"
+    scope_cached   "computed scope is cached per extension for the duration of the compilation"
   }
-
-  contract """
+  contract   """
     Before serving a query_graph call, the runtime MUST compute the
     calling extension's query scope. The scope is derived from the
     extension's manifest: it includes all entity kinds declared by
@@ -41,7 +39,6 @@ behavior compute_extension_query_scope "Compute Extension Query Scope" {
     and its peers are included. The computed scope MUST be cached
     per extension for the duration of the compilation.
   """
-
   verify unit "default query_scope exposes full graph"
   verify unit "query_scope 'own' limits to extension and peer kinds"
   verify unit "explicit query_scope list limits to listed kinds"
@@ -54,18 +51,15 @@ behavior provide_host_function_query_graph "Provide Host Function: query_graph" 
   category   query
   types      [HostFunctionBinding]
   ports      [WasmRuntime]
-
   requires {
-    graph_built "compiled graph is available for querying"
+    graph_built          "compiled graph is available for querying"
     query_scope_computed "extension's query scope has been computed by compute_extension_query_scope"
   }
-
   ensures {
     valid_json_returned "query_graph returns valid JSON graph string"
-    scope_enforced "restricted-scope extensions receive filtered subgraph, not the full graph"
+    scope_enforced      "restricted-scope extensions receive filtered subgraph, not the full graph"
   }
-
-  contract """
+  contract   """
     The specforge.query_graph host function MUST expose the compiled
     graph as a JSON string to the calling extension. The graph MUST include
     all entities, edges, and metadata accessible to the extension based
@@ -73,7 +67,6 @@ behavior provide_host_function_query_graph "Provide Host Function: query_graph" 
     Extensions with query_scope "all" (default) receive the full graph.
     Extensions with restricted scope receive a filtered subgraph.
   """
-
   verify unit "query_graph returns valid JSON graph"
   verify unit "graph includes entities and edges"
   verify unit "restricted scope returns filtered subgraph"
@@ -85,24 +78,20 @@ behavior provide_host_function_emit_diagnostic "Provide Host Function: emit_diag
   category   query
   types      [HostFunctionBinding]
   ports      [WasmRuntime]
-
   requires {
     diagnostic_collection_available "compiler's diagnostic collection is available for appending"
   }
-
   ensures {
-    diagnostic_added "diagnostic is added to the compiler's diagnostic collection"
-    rendered_like_core "extension diagnostics are rendered identically to core diagnostics"
+    diagnostic_added        "diagnostic is added to the compiler's diagnostic collection"
+    rendered_like_core      "extension diagnostics are rendered identically to core diagnostics"
     malformed_input_trapped "malformed diagnostic input produces Wasm trap"
   }
-
-  contract """
+  contract   """
     The specforge.emit_diagnostic host function MUST accept a diagnostic
     object with severity, code, message, and optional source span. The
     diagnostic MUST be added to the compiler's diagnostic collection and
     rendered like core diagnostics.
   """
-
   verify unit "emit_diagnostic adds to compiler diagnostic collection"
   verify unit "extension diagnostics rendered like core diagnostics"
   verify unit "malformed diagnostic input produces Wasm trap"
@@ -124,19 +113,16 @@ behavior provide_host_function_add_graph_node "Provide Host Function: add_graph_
   category   query
   types      [HostFunctionBinding, ManifestV2]
   ports      [WasmRuntime]
-
   requires {
     entity_kind_declared "entity kind for the node is declared in a loaded extension manifest"
-    graph_available "mutable graph is available for adding node instances"
+    graph_available      "mutable graph is available for adding node instances"
   }
-
   ensures {
-    node_added "graph node instance is added for declared entity kind with validated field values"
+    node_added               "graph node instance is added for declared entity kind with validated field values"
     undeclared_kind_rejected "nodes with undeclared entity kinds are rejected"
-    node_participates "added nodes participate in resolution and validation like parser-produced nodes"
+    node_participates        "added nodes participate in resolution and validation like parser-produced nodes"
   }
-
-  contract """
+  contract   """
     The specforge.add_graph_node host function MUST accept a graph node
     instance with an entity kind, ID, and field values. The entity kind
     MUST already be declared in the extension's manifest — this function
@@ -146,7 +132,6 @@ behavior provide_host_function_add_graph_node "Provide Host Function: add_graph_
     declared schema. Added nodes MUST participate in resolution and
     validation like parser-produced nodes.
   """
-
   verify unit "adds graph node instance for declared entity kind"
   verify unit "rejects node for undeclared entity kind"
   verify unit "validates field values against kind schema"
@@ -158,20 +143,17 @@ behavior provide_host_function_add_graph_edge "Provide Host Function: add_graph_
   category   query
   types      [HostFunctionBinding]
   ports      [WasmRuntime]
-
   requires {
-    edge_type_declared "edge label corresponds to an edge type declared in a loaded extension manifest"
+    edge_type_declared      "edge label corresponds to an edge type declared in a loaded extension manifest"
     source_and_target_exist "both source and target nodes exist in the graph"
   }
-
   ensures {
-    edge_added "graph edge instance is added for declared edge type"
+    edge_added                "graph edge instance is added for declared edge type"
     undeclared_label_rejected "edges with undeclared labels are rejected"
-    missing_nodes_rejected "edges with missing source or target nodes are rejected"
-    edge_participates "added edges participate in graph queries and validation like parser-produced edges"
+    missing_nodes_rejected    "edges with missing source or target nodes are rejected"
+    edge_participates         "added edges participate in graph queries and validation like parser-produced edges"
   }
-
-  contract """
+  contract   """
     The specforge.add_graph_edge host function MUST accept a graph edge
     instance with a label, source node ID, and target node ID. The edge
     label MUST correspond to an edge type already declared in a loaded
@@ -181,7 +163,6 @@ behavior provide_host_function_add_graph_edge "Provide Host Function: add_graph_
     nodes MUST exist in the graph. Added edges MUST participate in
     graph queries and validation like parser-produced edges.
   """
-
   verify unit "adds graph edge instance for declared edge type"
   verify unit "rejects edge for undeclared edge label"
   verify unit "rejects edge when source or target node missing"
@@ -193,20 +174,17 @@ behavior provide_host_function_read_file "Provide Host Function: read_file" {
   category   query
   types      [HostFunctionBinding, SandboxPolicy]
   ports      [WasmRuntime, FileSystem]
-
   requires {
     parser_call_site "call originates from a parser contribution export (not validator, renderer, or provider)"
-    spec_root_known "project's spec root path is known for path scoping enforcement"
+    spec_root_known  "project's spec root path is known for path scoping enforcement"
   }
-
   ensures {
-    path_scoped "resolved path is under the project's spec root; paths escaping via .. are rejected"
-    pattern_restricted "file path matches one of the calling extension's declared parser file patterns"
-    size_limited "files exceeding max_read_file_size (default 1MB) are rejected, not truncated"
+    path_scoped         "resolved path is under the project's spec root; paths escaping via .. are rejected"
+    pattern_restricted  "file path matches one of the calling extension's declared parser file patterns"
+    size_limited        "files exceeding max_read_file_size (default 1MB) are rejected, not truncated"
     non_parser_rejected "calls from non-parser contribution exports return permission error"
   }
-
-  contract """
+  contract   """
     The specforge.read_file host function MUST accept a file path and return
     the file content as a string to the calling extension. The host MUST
     enforce all of the following constraints:
@@ -225,7 +203,6 @@ behavior provide_host_function_read_file "Provide Host Function: read_file" {
     contribution exports. Calls from validators, renderers, providers, or
     entity contributions MUST return a permission error.
   """
-
   verify unit "reads file under spec root successfully"
   verify unit "rejects path escaping spec root via .."
   verify unit "rejects file not matching declared parser patterns"
@@ -240,19 +217,16 @@ behavior provide_host_function_emit_file "Provide Host Function: emit_file" {
   category   query
   types      [HostFunctionBinding, SandboxPolicy]
   ports      [WasmRuntime, FileSystem]
-
   requires {
     output_directory_known "project output directory is known for path validation"
-    sandbox_policy_ready "sandbox policy with allowed_output_extensions is computed for the extension"
+    sandbox_policy_ready   "sandbox policy with allowed_output_extensions is computed for the extension"
   }
-
   ensures {
-    path_scoped_to_output "file path is validated to be within project output directory"
+    path_scoped_to_output        "file path is validated to be within project output directory"
     extension_allowlist_enforced "only files with allowed extensions (.json, .html, .csv, .svg, .dot, .xml, .txt, .pdf) are written"
-    no_code_generation "code file extensions (.rs, .py, .js, .ts, .go, etc.) are always rejected"
+    no_code_generation           "code file extensions (.rs, .py, .js, .ts, .go, etc.) are always rejected"
   }
-
-  contract """
+  contract   """
     The specforge.emit_file host function MUST accept a file path and
     content from the extension. Valid files MUST be written to disk
     relative to the project output directory. The host MUST reject
@@ -274,7 +248,6 @@ behavior provide_host_function_emit_file "Provide Host Function: emit_file" {
     configuration files, or executable artifacts — SpecForge provides
     context, agents produce output.
   """
-
   verify unit "valid file path within output directory is written"
   verify unit "file path outside output directory is rejected"
   verify unit "file with non-allowed extension is rejected"
@@ -294,20 +267,17 @@ behavior provide_host_function_http_get "Provide Host Function: http_get" {
   category   query
   types      [HostFunctionBinding, SandboxPolicy]
   ports      [WasmRuntime]
-
   requires {
-    provider_call_site "call originates from a provider contribution export (not validator, renderer, or entity)"
+    provider_call_site   "call originates from a provider contribution export (not validator, renderer, or entity)"
     sandbox_policy_ready "sandbox policy with allowed_domains and timeout configuration is computed"
   }
-
   ensures {
     domain_allowlist_enforced "requests to disallowed domains are rejected"
-    timeout_enforced "per-request timeout (default 5s) and total budget (15s) are enforced"
-    timeout_produces_warning "timeout failures produce W-level warning, not hard error"
-    non_provider_rejected "calls from non-provider contribution exports return permission error"
+    timeout_enforced          "per-request timeout (default 5s) and total budget (15s) are enforced"
+    timeout_produces_warning  "timeout failures produce W-level warning, not hard error"
+    non_provider_rejected     "calls from non-provider contribution exports return permission error"
   }
-
-  contract """
+  contract   """
     The specforge.http_get host function MUST fetch a URL and return
     the response body to the calling extension. The URL MUST be validated
     against the sandbox policy's allowed domains. Requests to disallowed
@@ -321,7 +291,6 @@ behavior provide_host_function_http_get "Provide Host Function: http_get" {
     validators, renderers, or entities contributions MUST return a
     permission error.
   """
-
   verify unit "allowed domain returns response body"
   verify unit "disallowed domain is rejected"
   verify unit "timeout is enforced"

@@ -5,39 +5,41 @@
 //   - Resources (6): graph, schema, context, brief, diagnostics, entity
 //   - Notifications (2): graph delta, diagnostics delta
 
-use "invariants/core"
-use "invariants/validation"
-use "invariants/mcp"
-use "invariants/zero-entity-core"
-use "events/mcp"
 use "events/compilation"
-use "types/graph"
-use "types/output"
-use "types/diagnostics"
-use "types/mcp"
-use "types/core"
-use "types/config"
+use "events/mcp"
+use "invariants/core"
+use "invariants/mcp"
+use "invariants/validation"
+use "invariants/zero-entity-core"
 use "ports/inbound"
 use "ports/outbound"
+use "types/config"
+use "types/core"
+use "types/diagnostics"
+use "types/graph"
+use "types/mcp"
+use "types/output"
+
 behavior mcp_initialize "MCP Initialize" {
   types      [McpCapabilities, CompilerConfig]
   category   command
   ports      [CompilerApi, WasmRuntime]
   produces   [mcp_initialized, mcp_initialization_failed]
-  invariants [zero_domain_knowledge_core, mcp_structured_error_responses, registry_population_before_validation]
-
+  invariants [
+    zero_domain_knowledge_core,
+    mcp_structured_error_responses,
+    registry_population_before_validation,
+  ]
   requires {
     compiler_api_available "CompilerApi port is available and project root has been located"
     wasm_runtime_available "WasmRuntime port is available for loading extension manifests"
   }
-
   ensures {
-    capabilities_returned "McpCapabilities returned containing all registered tools, resources, and prompts"
+    capabilities_returned        "McpCapabilities returned containing all registered tools, resources, and prompts"
     surface_contributions_merged "Surface-contributed tools and resources merged with core before advertisement"
-    mcp_initialized_emitted "mcp_initialized event emitted on success, mcp_initialization_failed on failure"
+    mcp_initialized_emitted      "mcp_initialized event emitted on success, mcp_initialization_failed on failure"
   }
-
-  contract """
+  contract   """
     The MCP server MUST compile the current project graph, load all
     extension manifests, register all tools/resources/prompts from
     installed extensions (including surface-contributed MCP tools and
@@ -46,7 +48,6 @@ behavior mcp_initialize "MCP Initialize" {
     tools and resources before capability advertisement. The server
     MUST NOT accept tool/resource calls before initialization completes.
   """
-
   verify unit "initialization registers all tools from installed extensions"
   verify unit "initialization rejects tool calls before completion"
   verify unit "all core tools registered before accepting requests"
@@ -62,24 +63,20 @@ behavior mcp_shutdown "MCP Shutdown" {
   ports      [CompilerApi, WasmRuntime]
   produces   [mcp_server_shutdown, mcp_subscription_removed]
   invariants [mcp_subscription_cleanup, mcp_structured_error_responses]
-
   requires {
     server_initialized "MCP server has been initialized (mcp_initialized has fired)"
   }
-
   ensures {
     notifications_flushed "All pending notifications flushed before exit"
     subscriptions_removed "All active subscriptions unsubscribed and mcp_subscription_removed emitted"
     wasm_engines_released "All Wasm engine instances released"
-    shutdown_emitted "mcp_server_shutdown event emitted"
+    shutdown_emitted      "mcp_server_shutdown event emitted"
   }
-
-  contract """
+  contract   """
     The MCP server MUST flush all pending notifications, unsubscribe
     all active subscriptions, release Wasm engine instances, and exit
     cleanly.
   """
-
   verify unit "shutdown flushes pending notifications"
   verify unit "shutdown releases Wasm engine instances"
   verify unit "shutdown unsubscribes all active subscriptions"
@@ -92,20 +89,17 @@ behavior list_mcp_resources "List MCP Resources" {
   invariants [mcp_structured_error_responses, mcp_tool_idempotency]
   category   query
   ports      [McpProtocol, CompilerApi]
-  types [McpResourceDescriptor]
-  produces [mcp_discovery_invoked]
-
+  types      [McpResourceDescriptor]
+  produces   [mcp_discovery_invoked]
   requires {
     server_initialized "MCP server has been initialized and all extensions loaded"
   }
-
   ensures {
     complete_list_returned "All registered resource descriptors returned including extension-contributed"
-    disabled_excluded "Disabled surface contributions excluded from the list"
-    discovery_emitted "mcp_discovery_invoked event emitted"
+    disabled_excluded      "Disabled surface contributions excluded from the list"
+    discovery_emitted      "mcp_discovery_invoked event emitted"
   }
-
-  contract """
+  contract   """
     The MCP server MUST return all registered resource descriptors,
     including both core-provided and extension-contributed capabilities.
     Extension-contributed MCP resources (from manifest surfaces.mcp_resources)
@@ -113,7 +107,6 @@ behavior list_mcp_resources "List MCP Resources" {
     MUST be excluded. The list MUST be complete and reflect the current set
     of loaded extensions.
   """
-
   verify unit "returns all registered resource descriptors after extension load"
   verify unit "returns core-provided descriptors when no extensions installed"
   verify unit "reflects resources from newly loaded extension"
@@ -124,20 +117,17 @@ behavior list_mcp_tools "List MCP Tools" {
   invariants [mcp_structured_error_responses, mcp_tool_idempotency]
   category   query
   ports      [McpProtocol, CompilerApi]
-  types [McpToolDescriptor, McpToolCategory]
-  produces [mcp_discovery_invoked]
-
+  types      [McpToolDescriptor, McpToolCategory]
+  produces   [mcp_discovery_invoked]
   requires {
     server_initialized "MCP server has been initialized and all extensions loaded"
   }
-
   ensures {
     complete_list_returned "All registered tool descriptors returned including auto-promoted CLI commands"
-    disabled_excluded "Disabled surface contributions excluded from the list"
-    discovery_emitted "mcp_discovery_invoked event emitted"
+    disabled_excluded      "Disabled surface contributions excluded from the list"
+    discovery_emitted      "mcp_discovery_invoked event emitted"
   }
-
-  contract """
+  contract   """
     The MCP server MUST return all registered tool descriptors,
     including both core-provided and extension-contributed capabilities.
     Extension-contributed MCP tools (from manifest surfaces.mcp_tools)
@@ -145,7 +135,6 @@ behavior list_mcp_tools "List MCP Tools" {
     Disabled surface contributions MUST be excluded. The list MUST be
     complete and reflect the current set of loaded extensions.
   """
-
   verify unit "returns all registered tool descriptors after extension load"
   verify unit "returns core-provided descriptors when no extensions installed"
   verify unit "reflects tools from newly loaded extension"
@@ -157,24 +146,20 @@ behavior list_mcp_prompts "List MCP Prompts" {
   invariants [mcp_structured_error_responses, mcp_tool_idempotency]
   category   query
   ports      [McpProtocol, CompilerApi]
-  types [McpPromptDescriptor, McpPromptArgument]
-  produces [mcp_discovery_invoked]
-
+  types      [McpPromptDescriptor, McpPromptArgument]
+  produces   [mcp_discovery_invoked]
   requires {
     server_initialized "MCP server has been initialized and all extensions loaded"
   }
-
   ensures {
     complete_list_returned "All registered prompt descriptors returned including extension-contributed"
-    discovery_emitted "mcp_discovery_invoked event emitted"
+    discovery_emitted      "mcp_discovery_invoked event emitted"
   }
-
-  contract """
+  contract   """
     The MCP server MUST return all registered prompt descriptors,
     including both core-provided and extension-contributed capabilities.
     The list MUST be complete and reflect the current set of loaded extensions.
   """
-
   verify unit "returns all registered prompt descriptors after extension load"
   verify unit "returns core-provided descriptors when no extensions installed"
   verify unit "reflects prompts from newly loaded extension"
@@ -186,23 +171,25 @@ behavior list_mcp_prompts "List MCP Prompts" {
 // ---------------------------------------------------------------------------
 
 behavior expose_graph_as_mcp_resource "Expose Graph as MCP Resource" {
-  invariants [graph_traversal_integrity, graph_schema_completeness, diagnostic_determinism, mcp_structured_error_responses]
+  invariants [
+    graph_traversal_integrity,
+    graph_schema_completeness,
+    diagnostic_determinism,
+    mcp_structured_error_responses,
+  ]
   category   command
   types      [Graph, GraphProtocolSchema, McpResourceDescriptor]
   ports      [McpProtocol, CompilerApi]
   consumes   [validation_complete]
   produces   [mcp_resource_read]
-
   requires {
     validation_complete_fired "validation_complete event has fired, confirming compilation is done"
   }
-
   ensures {
-    graph_json_returned "Graph Protocol JSON returned with embedded schema and schema_version"
+    graph_json_returned   "Graph Protocol JSON returned with embedded schema and schema_version"
     resource_read_emitted "mcp_resource_read event emitted"
   }
-
-  contract """
+  contract   """
     In MCP server mode, the system MUST register a specforge://graph resource
     that returns the current compiled graph as Graph Protocol JSON. The resource
     MUST refresh on each recompilation. The output MUST be equivalent to
@@ -211,7 +198,6 @@ behavior expose_graph_as_mcp_resource "Expose Graph as MCP Resource" {
     to serve_graph_resource (behaviors/output-schema.spec) for actual graph serving;
     this behavior's role is exposing it via the MCP transport protocol.
   """
-
   verify unit "specforge://graph resource returns full Graph Protocol JSON"
   verify unit "resource refreshes after recompilation"
   verify unit "output includes embedded schema and schema_version"
@@ -220,23 +206,25 @@ behavior expose_graph_as_mcp_resource "Expose Graph as MCP Resource" {
 }
 
 behavior expose_schema_as_mcp_resource "Expose Schema as MCP Resource" {
-  invariants [graph_schema_completeness, diagnostic_determinism, mcp_structured_error_responses, mcp_type_schema_versioning]
+  invariants [
+    graph_schema_completeness,
+    diagnostic_determinism,
+    mcp_structured_error_responses,
+    mcp_type_schema_versioning,
+  ]
   category   command
   types      [GraphProtocolSchema, McpResourceDescriptor]
   ports      [McpProtocol, CompilerApi]
   consumes   [validation_complete]
   produces   [mcp_resource_read]
-
   requires {
     validation_complete_fired "validation_complete event has fired, confirming compilation is done"
   }
-
   ensures {
-    schema_json_returned "GraphProtocolSchema returned as JSON reflecting current compilation state"
+    schema_json_returned  "GraphProtocolSchema returned as JSON reflecting current compilation state"
     resource_read_emitted "mcp_resource_read event emitted"
   }
-
-  contract """
+  contract   """
     In MCP server mode, the system MUST register a specforge://schema resource
     that returns the current GraphProtocolSchema as JSON. The resource MUST
     reflect the current compilation state and update when extensions are added
@@ -244,67 +232,68 @@ behavior expose_schema_as_mcp_resource "Expose Schema as MCP Resource" {
     parsing the full graph. Delegates schema serialization to
     serve_schema_resource (behaviors/output-schema.spec).
   """
-
   verify unit "specforge://schema resource returns GraphProtocolSchema JSON"
   verify unit "schema updates when extensions change"
   verify contract "Expose Schema as MCP Resource: schema MCP resource holds — validation_complete_fired, schema_json_returned, resource_read_emitted"
 }
 
 behavior expose_context_as_mcp_resource "Expose Context as MCP Resource" {
-  invariants [graph_traversal_integrity, graph_schema_completeness, diagnostic_determinism, mcp_structured_error_responses]
+  invariants [
+    graph_traversal_integrity,
+    graph_schema_completeness,
+    diagnostic_determinism,
+    mcp_structured_error_responses,
+  ]
   category   command
   types      [Graph, AgentExportConfig, McpResourceDescriptor]
   ports      [McpProtocol, CompilerApi]
   consumes   [validation_complete]
   produces   [mcp_resource_read]
-
   requires {
     validation_complete_fired "validation_complete event has fired, confirming compilation is done"
   }
-
   ensures {
     context_format_returned "Token-optimized context format returned equivalent to --format=context"
-    resource_read_emitted "mcp_resource_read event emitted"
+    resource_read_emitted   "mcp_resource_read event emitted"
   }
-
-  contract """
+  contract   """
     In MCP server mode, the system MUST register a specforge://context resource
     that returns the current graph in a token-optimized context format. The output
     MUST be equivalent to specforge export --format=context. The resource MUST
     refresh after each recompilation. Agents SHOULD prefer this resource when they
     need full project understanding within a constrained token budget.
   """
-
   verify unit "specforge://context resource returns token-optimized format"
   verify unit "resource refreshes after recompilation"
   verify contract "Expose Context as MCP Resource: context MCP resource holds — validation_complete_fired, context_format_returned, resource_read_emitted"
 }
 
 behavior expose_brief_as_mcp_resource "Expose Brief as MCP Resource" {
-  invariants [graph_traversal_integrity, graph_schema_completeness, diagnostic_determinism, mcp_structured_error_responses]
+  invariants [
+    graph_traversal_integrity,
+    graph_schema_completeness,
+    diagnostic_determinism,
+    mcp_structured_error_responses,
+  ]
   category   command
   types      [Graph, AgentExportConfig, McpResourceDescriptor]
   ports      [McpProtocol, CompilerApi]
   consumes   [validation_complete]
   produces   [mcp_resource_read]
-
   requires {
     validation_complete_fired "validation_complete event has fired, confirming compilation is done"
   }
-
   ensures {
     brief_format_returned "Minimal IDs-and-edges format returned equivalent to --format=brief"
     resource_read_emitted "mcp_resource_read event emitted"
   }
-
-  contract """
+  contract   """
     In MCP server mode, the system MUST register a specforge://brief resource
     that returns the graph in a minimal IDs-and-edges format. The output MUST
     be equivalent to specforge export --format=brief. The resource MUST refresh
     after each recompilation. This format is intended for agents that only need
     structural awareness without full entity details.
   """
-
   verify unit "specforge://brief resource returns minimal IDs and edges format"
   verify unit "resource refreshes after recompilation"
   verify contract "Expose Brief as MCP Resource: brief MCP resource holds — validation_complete_fired, brief_format_returned, resource_read_emitted"
@@ -317,24 +306,20 @@ behavior expose_diagnostics_as_mcp_resource "Expose Diagnostics as MCP Resource"
   ports      [McpProtocol, CompilerApi]
   consumes   [validation_complete]
   produces   [mcp_resource_read]
-
   requires {
     validation_complete_fired "validation_complete event has fired, confirming compilation is done"
   }
-
   ensures {
-    diagnostics_returned "DiagnosticBag returned as JSON with severity, code, message, file, and span"
+    diagnostics_returned  "DiagnosticBag returned as JSON with severity, code, message, file, and span"
     resource_read_emitted "mcp_resource_read event emitted"
   }
-
-  contract """
+  contract   """
     In MCP server mode, the system MUST register a specforge://diagnostics
     resource that returns the current DiagnosticBag as JSON. The resource MUST
     update after each recompilation. The output MUST include all diagnostics
     with severity, code, message, file path, and span. Agents MAY poll this
     resource to check project health without triggering a new compilation.
   """
-
   verify unit "specforge://diagnostics resource returns current DiagnosticBag as JSON"
   verify unit "resource updates after recompilation"
   verify unit "each diagnostic includes severity, code, message, file, and span"
@@ -342,30 +327,31 @@ behavior expose_diagnostics_as_mcp_resource "Expose Diagnostics as MCP Resource"
 }
 
 behavior expose_entity_as_mcp_resource "Expose Per-Entity MCP Resource" {
-  invariants [graph_traversal_integrity, graph_schema_completeness, diagnostic_determinism, mcp_structured_error_responses]
+  invariants [
+    graph_traversal_integrity,
+    graph_schema_completeness,
+    diagnostic_determinism,
+    mcp_structured_error_responses,
+  ]
   category   command
   types      [Graph, Node, Edge, McpResourceDescriptor]
   ports      [McpProtocol, CompilerApi]
   consumes   [validation_complete]
   produces   [mcp_resource_read]
-
   requires {
     validation_complete_fired "validation_complete event has fired, confirming compilation is done"
   }
-
   ensures {
-    subgraph_returned "Target node and all directly connected nodes and edges returned as subgraph"
+    subgraph_returned     "Target node and all directly connected nodes and edges returned as subgraph"
     resource_read_emitted "mcp_resource_read event emitted"
   }
-
-  contract """
+  contract   """
     In MCP server mode, the system MUST register a specforge://graph/{entity_id}
     resource template that returns a single entity and its immediate neighbors as
     a subgraph. The resource MUST include the target node, all directly connected
     nodes, and the edges between them. If the entity_id does not exist, the
     resource MUST return a 404 error. The resource MUST refresh after recompilation.
   """
-
   verify unit "specforge://graph/{entity_id} returns entity and its neighbors"
   verify unit "non-existent entity_id returns 404 error"
   verify unit "malformed entity_id returns 400 error"
@@ -381,24 +367,26 @@ behavior expose_entity_as_mcp_resource "Expose Per-Entity MCP Resource" {
 // (behaviors/incremental.spec). It adapts the delta notification to the
 // MCP transport protocol.
 behavior notify_graph_delta_via_mcp "Notify Graph Delta via MCP" {
-  invariants [incremental_correctness, graph_traversal_integrity, mcp_structured_error_responses, mcp_subscription_cleanup]
+  invariants [
+    incremental_correctness,
+    graph_traversal_integrity,
+    mcp_structured_error_responses,
+    mcp_subscription_cleanup,
+  ]
   category   command
   types      [GraphDelta, McpSubscription]
   ports      [McpProtocol, CompilerApi]
   consumes   [graph_delta_computed]
   produces   [mcp_delta_notified, mcp_subscription_created, mcp_subscription_removed]
-
   requires {
     graph_delta_computed_fired "graph_delta_computed event has fired after incremental rebuild"
   }
-
   ensures {
-    subscribers_notified "All subscribed MCP clients receive notifications/graph_changed with GraphDelta payload"
+    subscribers_notified       "All subscribed MCP clients receive notifications/graph_changed with GraphDelta payload"
     no_notification_when_empty "Notification suppressed when no clients are subscribed"
-    delta_notified_emitted "mcp_delta_notified event emitted after notification delivery"
+    delta_notified_emitted     "mcp_delta_notified event emitted after notification delivery"
   }
-
-  contract """
+  contract   """
     When an incremental rebuild completes in MCP server mode, the system MUST
     send a notifications/graph_changed notification to all subscribed MCP
     clients. The notification payload MUST include the GraphDelta describing
@@ -406,7 +394,6 @@ behavior notify_graph_delta_via_mcp "Notify Graph Delta via MCP" {
     subscribe and unsubscribe from delta notifications. If no clients are
     subscribed, the notification MUST be suppressed.
   """
-
   verify unit "graph_changed notification sent after incremental rebuild"
   verify unit "notification includes GraphDelta payload"
   verify unit "unsubscribed clients do not receive notifications"
@@ -416,24 +403,26 @@ behavior notify_graph_delta_via_mcp "Notify Graph Delta via MCP" {
 }
 
 behavior notify_diagnostics_delta_via_mcp "Notify Diagnostics Delta via MCP" {
-  invariants [incremental_correctness, diagnostic_determinism, mcp_structured_error_responses, mcp_subscription_cleanup]
+  invariants [
+    incremental_correctness,
+    diagnostic_determinism,
+    mcp_structured_error_responses,
+    mcp_subscription_cleanup,
+  ]
   category   command
   types      [DiagnosticsDelta, McpSubscription]
   ports      [McpProtocol, CompilerApi]
   consumes   [validation_complete]
   produces   [mcp_delta_notified, mcp_subscription_created, mcp_subscription_removed]
-
   requires {
     validation_complete_fired "validation_complete event has fired after compilation"
   }
-
   ensures {
-    subscribers_notified "All subscribed MCP clients receive notifications/diagnostics_changed"
-    unchanged_suppressed "Notification suppressed when diagnostics are unchanged or no clients subscribed"
+    subscribers_notified   "All subscribed MCP clients receive notifications/diagnostics_changed"
+    unchanged_suppressed   "Notification suppressed when diagnostics are unchanged or no clients subscribed"
     delta_notified_emitted "mcp_delta_notified event emitted after notification delivery"
   }
-
-  contract """
+  contract   """
     When validation completes in MCP server mode, the system MUST send a
     notifications/diagnostics_changed notification to all subscribed MCP clients.
     The notification payload MUST include added and removed diagnostics since the
@@ -441,7 +430,6 @@ behavior notify_diagnostics_delta_via_mcp "Notify Diagnostics Delta via MCP" {
     no clients are subscribed or the diagnostics are unchanged, the notification
     MUST be suppressed.
   """
-
   verify unit "diagnostics_changed notification sent after validation"
   verify unit "payload includes added and removed diagnostics"
   verify unit "unsubscribed clients do not receive notifications"
@@ -459,19 +447,16 @@ behavior handle_mcp_protocol_error "Handle MCP Protocol Error" {
   types      [McpError, JsonRpcErrorCode, McpErrorCode]
   ports      [McpProtocol]
   produces   [mcp_protocol_error_handled]
-
   requires {
     mcp_protocol_available "McpProtocol port is available and server is accepting requests"
   }
-
   ensures {
     standard_error_returned "JSON-RPC 2.0 standard error code returned with human-readable message"
-    no_state_leaked "Error response does not leak internal state (stack traces, file paths, memory addresses)"
-    server_operational "Server remains operational after protocol error"
-    error_handled_emitted "mcp_protocol_error_handled event emitted"
+    no_state_leaked         "Error response does not leak internal state (stack traces, file paths, memory addresses)"
+    server_operational      "Server remains operational after protocol error"
+    error_handled_emitted   "mcp_protocol_error_handled event emitted"
   }
-
-  contract """
+  contract   """
     When the MCP server receives a malformed JSON-RPC request (parse error,
     invalid method, missing required params), it MUST respond with the
     standard JSON-RPC 2.0 error codes: -32700 (Parse error), -32600
@@ -480,7 +465,6 @@ behavior handle_mcp_protocol_error "Handle MCP Protocol Error" {
     or leak internal state (stack traces, file paths, memory addresses).
     The error response MUST include a human-readable message field.
   """
-
   verify unit "malformed JSON produces -32700 Parse error"
   verify unit "invalid method produces -32601 Method not found"
   verify unit "missing required params produces -32602 Invalid params"
@@ -502,17 +486,14 @@ behavior handle_mcp_request_cancellation "Handle MCP Request Cancellation" {
   types      [McpError]
   ports      [McpProtocol, CompilerApi]
   produces   [mcp_request_cancelled]
-
   requires {
     mcp_protocol_available "McpProtocol port is available and server is accepting requests"
   }
-
   ensures {
-    cancellation_safe "Server state remains consistent after cancellation — no crash or corruption"
+    cancellation_safe         "Server state remains consistent after cancellation — no crash or corruption"
     request_cancelled_emitted "mcp_request_cancelled event emitted when operation is cancelled"
   }
-
-  contract """
+  contract   """
     When a notifications/cancelled message arrives referencing an in-progress
     request ID, the server MUST cancel the operation if possible and respond
     with appropriate status. If the operation has already completed, the
@@ -521,7 +502,6 @@ behavior handle_mcp_request_cancellation "Handle MCP Request Cancellation" {
     and return a partial result or cancellation acknowledgment. The server
     MUST NOT crash or enter an inconsistent state due to cancellation.
   """
-
   verify unit "cancellation of in-progress request stops operation"
   verify unit "cancellation of completed request is a no-op"
   verify unit "server state remains consistent after cancellation"
@@ -535,25 +515,21 @@ behavior guard_mcp_reinitialization "Guard MCP Reinitialization" {
   types      [McpCapabilities]
   ports      [McpProtocol]
   produces   [mcp_protocol_error_handled]
-
   requires {
     server_initialized "MCP server has already been initialized (first initialize completed)"
   }
-
   ensures {
-    reinit_rejected "JSON-RPC error -32600 returned for duplicate initialize request"
-    session_unaffected "Existing session continues unaffected — no state reset or resource leak"
+    reinit_rejected       "JSON-RPC error -32600 returned for duplicate initialize request"
+    session_unaffected    "Existing session continues unaffected — no state reset or resource leak"
     error_handled_emitted "mcp_protocol_error_handled event emitted"
   }
-
-  contract """
+  contract   """
     When an already-initialized MCP server receives another initialize
     request, it MUST respond with a JSON-RPC error (-32600 Invalid Request)
     per MCP protocol specification. The server MUST NOT re-initialize,
     reset state, or leak resources. The existing session MUST continue
     unaffected.
   """
-
   verify unit "second initialize request returns -32600 error"
   verify unit "existing session continues after rejected reinitialization"
   verify unit "no resources leaked on rejected reinitialization"

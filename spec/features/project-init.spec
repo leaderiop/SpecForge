@@ -2,16 +2,15 @@
 
 use "behaviors/init"
 use "behaviors/mcp-operations"
-feature project_initialization "Project Initialization" {
 
-  problem """
+feature project_initialization "Project Initialization" {
+  problem  """
     New users and AI agents need a quick way to scaffold a SpecForge
     project that produces a consumable graph. The correct file structure,
     specforge.json configuration, and optional extension selection must
     work without reading documentation first. CI pipelines and automated
     tooling need a non-interactive path to the same outcome.
   """
-
   solution """
     Interactive specforge init command that generates specforge.json
     with project name, version, and selected extensions, plus a starter

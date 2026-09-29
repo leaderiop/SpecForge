@@ -18,16 +18,14 @@ behavior fa_analyze_conditions "Analyze Conditions Command" {
     postcondition reachability results, layering compliance results.
   """
   requires {
-    graph_available        "compiled entity graph is available"
+    graph_available "compiled entity graph is available"
   }
-  ensures  {
-    condition_report       "report shows condition analysis for all behaviors with requires/ensures"
-    json_output            "with --json flag, output is machine-readable JSON"
-    strict_exit_code       "with --strict flag, any violation exits non-zero"
+  ensures {
+    condition_report "report shows condition analysis for all behaviors with requires/ensures"
+    json_output      "with --json flag, output is machine-readable JSON"
+    strict_exit_code "with --strict flag, any violation exits non-zero"
   }
-
   features [fa_analyze_commands]
-
   verify unit "analyze conditions reports all behaviors with requires/ensures"
   verify unit "analyze conditions --json produces JSON output"
   verify unit "analyze conditions --strict exits non-zero on violation"
@@ -40,13 +38,11 @@ behavior fa_analyze_layering "Analyze Layering Command" {
     The specforge analyze layering command MUST run the
     layering_verify pass in isolation and report results.
   """
-  ensures  {
-    layering_report        "report shows all layering chains with completeness status"
-    json_output            "with --json flag, output is machine-readable JSON"
+  ensures {
+    layering_report "report shows all layering chains with completeness status"
+    json_output     "with --json flag, output is machine-readable JSON"
   }
-
   features [fa_analyze_commands]
-
   verify unit "analyze layering reports all abstract/concrete chains"
   verify unit "analyze layering --json produces JSON output"
 }
@@ -58,36 +54,32 @@ behavior fa_analyze_event_graph "Analyze Event Graph Command" {
     The specforge analyze event-graph command MUST run the
     event_graph_analyze pass in isolation and report results.
   """
-  ensures  {
-    event_graph_report     "report shows cycles, retry cycles, unmatched producers, channel mismatches"
-    json_output            "with --json flag, output is machine-readable JSON"
+  ensures {
+    event_graph_report "report shows cycles, retry cycles, unmatched producers, channel mismatches"
+    json_output        "with --json flag, output is machine-readable JSON"
   }
-
   features [fa_analyze_commands]
-
   verify unit "analyze event-graph reports cycles and retry cycles"
   verify unit "analyze event-graph --json produces JSON output"
 }
 
 behavior fa_analyze_all "Analyze All Command" {
   category command
-  types     [FormalAnalysisResult]
+  types    [FormalAnalysisResult]
   contract """
     The specforge analyze all command MUST run condition_check,
     layering_verify, and event_graph_analyze in pipeline order and
     produce a unified report.
   """
   requires {
-    graph_available        "compiled entity graph is available"
+    graph_available "compiled entity graph is available"
   }
-  ensures  {
-    unified_report         "report combines condition, layering, and event graph analysis"
-    json_output            "with --json flag, output is machine-readable JSON"
-    strict_exit_code       "with --strict flag, any violation exits non-zero (for CI)"
+  ensures {
+    unified_report   "report combines condition, layering, and event graph analysis"
+    json_output      "with --json flag, output is machine-readable JSON"
+    strict_exit_code "with --strict flag, any violation exits non-zero (for CI)"
   }
-
   features [fa_analyze_commands]
-
   verify unit "analyze all runs all three passes in pipeline order"
   verify unit "analyze all --strict exits non-zero on any violation"
   verify unit "analyze all --json produces unified JSON report"

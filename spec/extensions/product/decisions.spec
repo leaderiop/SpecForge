@@ -113,8 +113,7 @@ decision pe_all_non_testable "All Product Entities Non-Testable" {
     "W017 (testable entity without verify) never fires for product entities",
     "Simpler mental model — product entities plan, domain entities execute",
   ]
-
-  invariants [pe_feature_non_testable, pe_persona_non_testable, pe_channel_non_testable]
+  invariants   [pe_feature_non_testable, pe_persona_non_testable, pe_channel_non_testable]
 }
 
 decision pe_term_see_also_term_only "TermSeeAlso Edge Restricted to Term-to-Term" {
@@ -275,8 +274,7 @@ decision pe_tags_on_all_kinds "Tags Field on All Entity Kinds" {
     "I052 singleton tag detection spans the full product graph",
     "Slight field overhead on every entity — justified by cross-cutting value",
   ]
-
-  invariants [pe_tags_per_entity_kind]
+  invariants   [pe_tags_per_entity_kind]
 }
 
 decision pe_reverse_query_symmetry "Reverse Query Symmetry" {
@@ -516,8 +514,7 @@ decision pe_deliverable_lifecycle "Deliverable Lifecycle via Status Field" {
     "Three new diagnostic codes: W085, I065, I066",
     "Absent status treated as draft — no breaking change for existing specs",
   ]
-
-  invariants [deliverable_lifecycle_consistency]
+  invariants   [deliverable_lifecycle_consistency]
 }
 
 decision pe_term_isolation_boundary "Term Isolation as Design Boundary" {
@@ -635,8 +632,7 @@ decision pe_typed_surface_schemas "Typed Surface Schemas" {
     "surfaces.spec file contains 30 surface behaviors with full contracts",
     "Schema changes require updating both types.spec and surfaces.spec",
   ]
-
-  invariants [pe_surface_response_envelope, pe_surface_error_consistency]
+  invariants   [pe_surface_response_envelope, pe_surface_error_consistency]
 }
 
 decision pe_list_pagination "List Command Pagination" {
@@ -664,8 +660,7 @@ decision pe_list_pagination "List Command Pagination" {
     "Offset/limit is less efficient than cursors for deep pagination but simpler",
     "No consistency guarantee between pages during concurrent edits",
   ]
-
-  invariants [pe_list_pagination_correctness]
+  invariants   [pe_list_pagination_correctness]
 }
 
 decision pe_three_output_formats "Three Output Formats" {
@@ -746,8 +741,7 @@ decision pe_adopt_cross_extension_query_isolation "Cross-Extension Query Isolati
     "No false dependencies between product queries and peer extensions",
     "Deterministic query results regardless of installed extensions",
   ]
-
-  invariants [pe_manifest_nine_entity_kinds]
+  invariants   [pe_manifest_nine_entity_kinds]
 }
 
 decision pe_cross_extension_enhancement_receiving "Cross-Extension Enhancement Receiving" {
@@ -806,8 +800,7 @@ decision pe_tag_semantics "Tag Naming Conventions" {
     "No namespacing — simplicity over hierarchy for v1",
     "Empty strings silently dropped — no diagnostic noise for trailing commas",
   ]
-
-  invariants [pe_tags_per_entity_kind]
+  invariants   [pe_tags_per_entity_kind]
 }
 
 decision pe_extension_versioning "Extension Versioning Strategy" {
@@ -913,8 +906,7 @@ decision pe_persona_channel_reason "Reason Field on Persona and Channel" {
     "Two new diagnostic codes consuming from the reserved I-code range",
     "Reason content is opaque — presence-only validation per pe_reason_content_opaque",
   ]
-
-  invariants [persona_lifecycle_consistency, channel_lifecycle_consistency]
+  invariants   [persona_lifecycle_consistency, channel_lifecycle_consistency]
 }
 
 decision pe_surface_observability "Surface Operation Observability Events" {
@@ -999,8 +991,7 @@ decision pe_tag_cross_kind_awareness "Tag Cross-Kind Awareness" {
     "Prefix suggestion is opt-in convention, not enforced",
     "No namespacing added — keeps tag model simple per pe_tag_semantics",
   ]
-
-  invariants [tag_cross_kind_awareness]
+  invariants   [tag_cross_kind_awareness]
 }
 
 decision pe_priority_asymmetry "Priority Field Asymmetry" {
@@ -1501,13 +1492,13 @@ decision pe_chain_validation_rules "End-to-End Chain Validation Rules" {
 // ---------------------------------------------------------------------------
 
 decision pe_ownership_as_fields "Ownership as String Fields" {
-  status     accepted
-  context    """
+  status       accepted
+  context      """
     Product managers need to know who owns features, milestones, deliverables,
     and releases. Options: (a) owner as entity reference to persona, (b) owner
     as free-form string, (c) a dedicated assignment entity.
   """
-  decision   """
+  decision     """
     Owner is a free-form string field (@optional) on feature, milestone,
     deliverable, and release. Contributors is a string list field. No entity
     references — supports any naming convention. I080 encourages assignment.
@@ -1522,17 +1513,17 @@ decision pe_ownership_as_fields "Ownership as String Fields" {
     "Entity reference to persona — rejected: breaks domain neutrality",
     "Dedicated assignment entity — rejected: over-engineering for a string field",
   ]
-  tags ["ownership", "v1-1"]
+  tags         ["ownership", "v1-1"]
 }
 
 decision pe_effort_t_shirt_sizing "Effort as T-Shirt Sizes" {
-  status     accepted
-  context    """
+  status       accepted
+  context      """
     Feature-count milestone completion is misleading — a trivial feature and
     a month-long epic both count as 1. Options: numeric story points,
     Fibonacci sequence, t-shirt sizes, or hours estimation.
   """
-  decision   """
+  decision     """
     T-shirt sizes (xs, s, m, l, xl) mapped to Fibonacci weights (1, 2, 3, 5, 8).
     Applied to features only. Features without effort default to m=3 in queries.
   """
@@ -1546,17 +1537,17 @@ decision pe_effort_t_shirt_sizing "Effort as T-Shirt Sizes" {
     "Numeric story points — rejected: false precision, calibration overhead",
     "Hours/days — rejected: estimation anxiety, varies by person",
   ]
-  tags ["effort", "estimation", "v1-1"]
+  tags         ["effort", "estimation", "v1-1"]
 }
 
 decision pe_release_ninth_entity "Release as Ninth Entity Kind" {
-  status     accepted
-  context    """
+  status       accepted
+  context      """
     Multiple deliverables ship together as coordinated releases. The 8-entity
     model had no way to answer 'what ships together?' Options: version-field
     grouping, tag-based grouping, or first-class release entity.
   """
-  decision   """
+  decision     """
     Add release as the 9th product entity kind. Releases group deliverables
     via ReleaseDeliverable edges and target milestones via ReleaseMilestone
     edges. Lifecycle: planned->in_progress->released->recalled. Two new edge
@@ -1573,16 +1564,16 @@ decision pe_release_ninth_entity "Release as Ninth Entity Kind" {
     "Tag-based grouping — rejected: no lifecycle, no dependency tracking",
     "Milestone as release proxy — rejected: milestones are planning, not shipping",
   ]
-  tags ["release", "entity-model", "v1-1"]
+  tags         ["release", "entity-model", "v1-1"]
 }
 
 decision pe_temporal_start_date "Start Date on Milestones" {
-  status     accepted
-  context    """
+  status       accepted
+  context      """
     Milestones had only target_date. Without start dates, duration cannot be
     computed and critical path analysis is topology-only.
   """
-  decision   """
+  decision     """
     Add start_date (string @optional, ISO 8601) to milestones. I087 validates
     format. Extended temporal consistency (I064) checks start_date <= target_date
     and dependency ordering.
@@ -1596,16 +1587,16 @@ decision pe_temporal_start_date "Start Date on Milestones" {
     "Infer from predecessor — rejected: fragile, milestones can overlap",
     "Date range type — rejected: over-engineering for two dates",
   ]
-  tags ["temporal", "planning", "v1-1"]
+  tags         ["temporal", "planning", "v1-1"]
 }
 
 decision pe_blockers_on_milestones "External Blockers on Milestones" {
-  status     accepted
-  context    """
+  status       accepted
+  context      """
     Blocked milestones only had depends_on for internal dependencies.
     External blockers could not be documented structurally.
   """
-  decision   """
+  decision     """
     Add blockers (string[] @optional) to milestones. Free-text descriptions
     of external impediments. I084 detects blocked milestones with neither
     depends_on nor blockers.
@@ -1619,17 +1610,17 @@ decision pe_blockers_on_milestones "External Blockers on Milestones" {
     "Blocker entity — rejected: over-engineering for temporary notes",
     "depends_on with strings — rejected: breaks EntityId[] semantics",
   ]
-  tags ["blockers", "planning", "v1-1"]
+  tags         ["blockers", "planning", "v1-1"]
 }
 
 decision pe_acceptance_criteria_future "Structured Acceptance Criteria" {
-  status     proposed
-  reason     "Deferred to entity_enhancement from @specforge/software"
-  context    """
+  status       proposed
+  reason       "Deferred to entity_enhancement from @specforge/software"
+  context      """
     Feature acceptance criteria are free-form string[]. Structured acceptance
     would allow traceability from feature->acceptance->behavior->test.
   """
-  decision   """
+  decision     """
     Defer structured acceptance to a future entity_enhancement from
     @specforge/software. The software extension can add acceptance_behaviors
     (EntityId[]) to features, linking acceptance to behaviors. This keeps
@@ -1640,19 +1631,17 @@ decision pe_acceptance_criteria_future "Structured Acceptance Criteria" {
     "Acceptance-behavior linking is a software engineering concern",
     "Until implemented, acceptance criteria remain unstructured",
   ]
-  alternatives [
-    "Add acceptance_behaviors to product — rejected: couples product to software",
-  ]
-  tags ["acceptance", "cross-extension", "v1-1"]
+  alternatives ["Add acceptance_behaviors to product — rejected: couples product to software"]
+  tags         ["acceptance", "cross-extension", "v1-1"]
 }
 
 decision pe_journey_flow_feature_linking "Journey Flow Feature Linking" {
-  status     accepted
-  context    """
+  status       accepted
+  context      """
     Journey flow steps are string[] with no structural validation. Users
     naturally write [feature_id] in flow steps but this is never validated.
   """
-  decision   """
+  decision     """
     Validate bracketed references in flow steps against the journey's declared
     features list. I090 for unresolvable references. Lightweight structure
     without requiring a flow DSL.
@@ -1666,18 +1655,18 @@ decision pe_journey_flow_feature_linking "Journey Flow Feature Linking" {
     "Structured flow DSL — rejected: too complex, breaks existing flows",
     "Keep purely free-text — rejected: misses easy validation opportunity",
   ]
-  tags ["journeys", "validation", "v1-1"]
+  tags         ["journeys", "validation", "v1-1"]
 }
 
 decision pe_release_v1_1_migration "Release Entity v1.1 Migration Path" {
-  status     accepted
-  context    """
+  status       accepted
+  context      """
     The release entity kind was introduced in v1.1 as the 9th product entity.
     Projects authored under v1.0 do not use release entities. When a v1.0
     project upgrades to v1.1, the question is: does anything break, and what
     happens to existing spec files that contain no release blocks?
   """
-  decision   """
+  decision     """
     Release entity adoption is fully additive and requires zero migration:
     1. The release kind is registered during pe_register_entity_kinds alongside
        the other 8 kinds — no conditional registration path.
@@ -1709,17 +1698,17 @@ decision pe_release_v1_1_migration "Release Entity v1.1 Migration Path" {
     "Conditional kind registration — rejected: adds branching to registration chain",
     "Separate extension for releases — rejected: release is structurally coupled to deliverable and milestone",
   ]
-  tags ["migration", "release", "v1-1", "backward-compatibility"]
+  tags         ["migration", "release", "v1-1", "backward-compatibility"]
 }
 
 decision pe_cross_extension_query_depth "Cross-Extension Query Depth" {
-  status     proposed
-  reason     "Deferred until extension interop protocol is stable"
-  context    """
+  status       proposed
+  reason       "Deferred until extension interop protocol is stable"
+  context      """
     Product queries traverse only the 16 product-owned edge types. Cross-extension
     queries require following foreign edges.
   """
-  decision   """
+  decision     """
     Defer cross-extension reverse queries. The 16-edge isolation guarantees
     are valuable for predictability. Cross-extension queries should be provided
     by extensions via surface contributions.
@@ -1733,7 +1722,7 @@ decision pe_cross_extension_query_depth "Cross-Extension Query Depth" {
     "Opt-in cross-extension traversal — rejected: breaks isolation invariant",
     "Wrapper queries — rejected: creates hard dependency on software extension",
   ]
-  tags ["cross-extension", "isolation", "v1-1"]
+  tags         ["cross-extension", "isolation", "v1-1"]
 }
 
 decision pe_ownership_field_exclusion "Ownership Field Exclusion Rationale" {
@@ -1788,9 +1777,8 @@ decision pe_ownership_field_exclusion "Ownership Field Exclusion Rationale" {
     "Owner on modules too — rejected: redundant with feature-level ownership",
     "Configurable ownership fields — rejected: over-engineering for v1.1",
   ]
-
-  invariants [pe_ownership_field_awareness]
-  tags ["ownership", "v1-1", "entity-model"]
+  invariants   [pe_ownership_field_awareness]
+  tags         ["ownership", "v1-1", "entity-model"]
 }
 
 // ════════════════════════════════════════════════════════════════
@@ -2012,11 +2000,10 @@ decision pe_deterministic_time_queries "Deterministic Time-Dependent Queries" {
 }
 
 decision pe_cursor_pagination_decision "Cursor-Based Pagination for Matrix Queries" {
-  status     accepted
-  date       "2026-03-13"
-  deciders   ["specforge-core"]
-
-  context """
+  status       accepted
+  date         "2026-03-13"
+  deciders     ["specforge-core"]
+  context      """
     Matrix queries (persona-coverage-matrix, module-coupling, channel-coverage-matrix,
     owner-workload, feature-overlap) can produce result sets that grow quadratically
     with the number of entities. For a project with 2000+ entities, a coverage matrix
@@ -2036,7 +2023,7 @@ decision pe_cursor_pagination_decision "Cursor-Based Pagination for Matrix Queri
     through opaque cursors that encode the position, making results consistent
     even if entities change between pages.
   """
-  decision """
+  decision     """
     Matrix queries MUST support cursor-based pagination via PaginatedQueryInput:
     - cursor: opaque string encoding the current position (null for first page)
     - page_size: maximum entries per page (default 50, max 500)
@@ -2064,8 +2051,7 @@ decision pe_cursor_pagination_decision "Cursor-Based Pagination for Matrix Queri
     "Default page_size of 50 fits comfortably within MCP context budgets",
     "Maximum page_size of 500 prevents accidental full-matrix dumps",
   ]
-
-  tags ["pagination", "queries", "scalability", "matrix-queries", "mcp"]
+  tags         ["pagination", "queries", "scalability", "matrix-queries", "mcp"]
 }
 
 decision pe_enable_product_verify "Enable Verify Annotations on Product Entities" {
@@ -2113,7 +2099,6 @@ decision pe_enable_product_verify "Enable Verify Annotations on Product Entities
     "External acceptance test files are linked via file_reference mechanism",
     "ADR pe_nine_entity_kinds consequence 'All 9 kinds are non-testable' remains true",
   ]
-
-  invariants [pe_product_verify_support, pe_feature_non_testable]
-  tags ["traceability", "verify", "product-entities", "vision-alignment"]
+  invariants   [pe_product_verify_support, pe_feature_non_testable]
+  tags         ["traceability", "verify", "product-entities", "vision-alignment"]
 }

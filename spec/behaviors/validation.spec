@@ -1,33 +1,35 @@
 // Validation behaviors — core graph validation rules
 
+use "events/compilation"
 use "invariants/core"
 use "invariants/validation"
 use "invariants/zero-entity-core"
+use "ports/outbound"
 use "types/core"
-use "types/graph"
 use "types/diagnostics"
 use "types/errors"
+use "types/graph"
 use "types/zero-entity-core"
-use "ports/outbound"
-use "events/compilation"
+
 behavior detect_dangling_references "Detect Dangling References" {
-  invariants [reference_resolution_completeness, diagnostic_determinism, validation_pipeline_ordering]
+  invariants [
+    reference_resolution_completeness,
+    diagnostic_determinism,
+    validation_pipeline_ordering,
+  ]
   category   validation
   types      [Diagnostic, EntityId, ValidationCode, Severity, ValidationError, Graph, Edge]
-  consumes  [graph_built]
+  consumes   [graph_built]
   // Diagnostics from this validator flow into the declarative_validation_executed
   // aggregate and ultimately to validation_complete. No separate event produced.
-
   requires {
     graph_built_fired "graph_built event has fired, confirming the in-memory graph is fully constructed"
   }
-
   ensures {
     resolver_integrity_verified "Every reference list entry has a corresponding graph edge, or an internal error is raised"
-    no_duplicate_diagnostics "E003 diagnostics already emitted by link_entity_references are not re-emitted"
+    no_duplicate_diagnostics    "E003 diagnostics already emitted by link_entity_references are not re-emitted"
   }
-
-  contract """
+  contract   """
     This behavior is a post-resolution integrity assertion. User-facing
     E003 diagnostics are emitted by link_entity_references during resolution.
     This behavior delegates to link_entity_references for E003 emission.
@@ -36,7 +38,6 @@ behavior detect_dangling_references "Detect Dangling References" {
     reference list entry has a corresponding graph edge — if not, it
     indicates a resolver bug, not a user error.
   """
-
   verify unit "reference without corresponding graph edge indicates resolver bug"
   verify unit "reference with corresponding graph edge passes"
   verify unit "empty graph with zero edges produces no dangling reference diagnostic"
@@ -47,24 +48,20 @@ behavior detect_duplicate_entity_ids "Detect Duplicate Entity IDs" {
   invariants [string_interning_consistency, entity_id_uniqueness]
   category   validation
   types      [Diagnostic, DuplicateIdError]
-  consumes  [all_files_parsed]
+  consumes   [all_files_parsed]
   // Diagnostics from this validator flow into the declarative_validation_executed
   // aggregate and ultimately to validation_complete. No separate event produced.
-
   requires {
     all_files_parsed "all_files_parsed event has fired, confirming every .spec file is parsed and entity IDs collected"
   }
-
   ensures {
     duplicate_ids_diagnosed "Every duplicate entity ID has an E002 diagnostic emitted naming both declaration sites"
   }
-
-  contract """
+  contract   """
     The validator MUST detect entity IDs declared more than once across
     all .spec files. Duplicate IDs MUST produce an E002 diagnostic that
     names both declaration sites (file, line, column).
   """
-
   verify unit "duplicate ID in same file produces E002"
   verify unit "duplicate ID across files produces E002"
   verify unit "E002 includes both source locations"
@@ -102,13 +99,16 @@ behavior detect_duplicate_entity_ids "Detect Duplicate Entity IDs" {
 // entity) are extension-defined ValidationRulePatterns.
 
 behavior detect_orphan_refs "Detect Orphan Structural Nodes" {
-  invariants [reference_resolution_completeness, diagnostic_determinism, validation_pipeline_ordering]
+  invariants [
+    reference_resolution_completeness,
+    diagnostic_determinism,
+    validation_pipeline_ordering,
+  ]
   category   validation
   types      [Diagnostic, EntityId, Graph]
-  consumes  [graph_built]
+  consumes   [graph_built]
   // Diagnostics from this validator flow into the declarative_validation_executed
   // aggregate and ultimately to validation_complete. No separate event produced.
-
   // H1: ref and spec are grammar-level structural constructs — parsed by the
   // core grammar (like `use` and `define`), NOT extension-defined entity kinds.
   // Because they are structural, their orphan detection belongs in core, not in
@@ -116,17 +116,14 @@ behavior detect_orphan_refs "Detect Orphan Structural Nodes" {
   // detection declare a `no_incoming_edges` ValidationRulePattern in their
   // extension manifest, which the declarative validation engine handles
   // separately.
-
   requires {
     graph_built_fired "graph_built event has fired, confirming the in-memory graph is fully constructed with all edges"
   }
-
   ensures {
-    orphans_detected "All structural nodes (ref, spec) with zero incoming edges produce W012 warnings"
+    orphans_detected       "All structural nodes (ref, spec) with zero incoming edges produce W012 warnings"
     referenced_nodes_clean "Structural nodes with at least one incoming edge produce no warning"
   }
-
-  contract """
+  contract   """
     The core validator MUST detect orphan nodes of ANY structural node
     type (ref, spec) that have zero incoming edges in the compiled
     graph. Orphan structural nodes MUST produce a W012 warning
@@ -143,7 +140,6 @@ behavior detect_orphan_refs "Detect Orphan Structural Nodes" {
     extension manifest, which the declarative validation engine
     handles separately.
   """
-
   verify unit "unreferenced ref produces W012"
   verify unit "referenced ref suppresses W012"
   verify unit "unreferenced structural node of any grammar-level kind produces W012"
@@ -171,21 +167,18 @@ behavior validate_file_reference_paths "Validate File Reference Paths" {
   invariants [reference_resolution_completeness, validation_pipeline_ordering]
   types      [Diagnostic]
   ports      [FileSystem]
-  consumes  [graph_built]
+  consumes   [graph_built]
   // Diagnostics from this validator flow into the declarative_validation_executed
   // aggregate and ultimately to validation_complete. No separate event produced.
-
   requires {
-    graph_built_fired "graph_built event has fired, confirming the in-memory graph is fully constructed"
+    graph_built_fired    "graph_built event has fired, confirming the in-memory graph is fully constructed"
     filesystem_available "FileSystem port is available for checking file existence"
   }
-
   ensures {
     missing_files_diagnosed "Every non-existent file path in a file-reference field produces an E016 diagnostic"
-    existing_files_pass "File-reference fields pointing to existing files produce no diagnostic"
+    existing_files_pass     "File-reference fields pointing to existing files produce no diagnostic"
   }
-
-  contract """
+  contract   """
     This behavior performs generic file-path validation for any entity
     field whose extension metadata declares it as a file reference.
     The validation is domain-agnostic: the core does not interpret the
@@ -203,7 +196,6 @@ behavior validate_file_reference_paths "Validate File Reference Paths" {
     as missing_field_when_flag_set ValidationRulePatterns in the owning
     extension manifest and executed by the declarative validation engine.
   """
-
   verify unit "non-existent file reference produces E016"
   verify unit "existing file reference passes silently"
   verify unit "multiple file references in same entity each validated independently"

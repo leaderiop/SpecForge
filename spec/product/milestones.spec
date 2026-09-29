@@ -36,15 +36,15 @@ use "product/modules"
 // ════════════════════════════════════════════════════════════════
 
 milestone structural_parsing "Phase 1: Structural Parsing" {
-  description "Tree-sitter grammar and parser crate that turns .spec files into typed AST nodes with multi-error recovery."
-  status      completed
-  start_date  "2025-04-15"
-  target_date "2025-06-01"
-  owner       "specforge-team"
-  contributors ["specforge-team"]
-  features    [spec_file_parsing, error_recovery_during_parsing, editor_query_files]
-  modules     [tree_sitter_specforge, specforge_parser, specforge_common]
-  tags        ["h1", "core"]
+  description   "Tree-sitter grammar and parser crate that turns .spec files into typed AST nodes with multi-error recovery."
+  status        completed
+  start_date    "2025-04-15"
+  target_date   "2025-06-01"
+  owner         "specforge-team"
+  contributors  ["specforge-team"]
+  features      [spec_file_parsing, error_recovery_during_parsing, editor_query_files]
+  modules       [tree_sitter_specforge, specforge_parser, specforge_common]
+  tags          ["h1", "core"]
   exit_criteria [
     "Tree-sitter grammar parses any keyword name { fields } block",
     "Multi-error recovery: N syntax errors produce N diagnostics, not 1",
@@ -54,16 +54,16 @@ milestone structural_parsing "Phase 1: Structural Parsing" {
 }
 
 milestone resolution_and_graph "Phase 2: Resolution & Graph Construction" {
-  description "Import resolution and mutable entity graph that links all intra-project references across files."
-  status      completed
-  start_date  "2025-06-01"
-  target_date "2025-07-15"
-  owner       "specforge-team"
-  contributors ["specforge-team"]
-  depends_on  [structural_parsing]
-  features    [reference_resolution, graph_construction]
-  modules     [specforge_resolver, specforge_graph]
-  tags        ["h1", "core"]
+  description   "Import resolution and mutable entity graph that links all intra-project references across files."
+  status        completed
+  start_date    "2025-06-01"
+  target_date   "2025-07-15"
+  owner         "specforge-team"
+  contributors  ["specforge-team"]
+  depends_on    [structural_parsing]
+  features      [reference_resolution, graph_construction]
+  modules       [specforge_resolver, specforge_graph]
+  tags          ["h1", "core"]
   exit_criteria [
     "All intra-project references linked across files",
     "Import cycles detected and reported as E003",
@@ -74,16 +74,16 @@ milestone resolution_and_graph "Phase 2: Resolution & Graph Construction" {
 }
 
 milestone validation_and_errors "Phase 3: Validation & Error Reporting" {
-  description "Structural and semantic validation with ariadne-powered diagnostic reporting and CI exit codes."
-  status      completed
-  start_date  "2025-07-15"
-  target_date "2025-08-30"
-  owner       "specforge-team"
-  contributors ["specforge-team"]
-  depends_on  [resolution_and_graph]
-  features    [structural_validation, diagnostic_reporting, ci_integration, product_validation]
-  modules     [specforge_validator, specforge_cli]
-  tags        ["h1", "core"]
+  description   "Structural and semantic validation with ariadne-powered diagnostic reporting and CI exit codes."
+  status        completed
+  start_date    "2025-07-15"
+  target_date   "2025-08-30"
+  owner         "specforge-team"
+  contributors  ["specforge-team"]
+  depends_on    [resolution_and_graph]
+  features      [structural_validation, diagnostic_reporting, ci_integration, product_validation]
+  modules       [specforge_validator, specforge_cli]
+  tags          ["h1", "core"]
   exit_criteria [
     "specforge check passes on SpecForge's own .spec files",
     "Diagnostics include source context with line/column spans",
@@ -94,16 +94,16 @@ milestone validation_and_errors "Phase 3: Validation & Error Reporting" {
 }
 
 milestone output_and_export "Phase 4: Output & Agent Export" {
-  description "Graph serialization to JSON, DOT, and agent-optimized formats with multi-resolution queries and deterministic output."
-  status      completed
-  start_date  "2025-08-30"
-  target_date "2025-10-15"
-  owner       "specforge-team"
-  contributors ["specforge-team"]
-  depends_on  [validation_and_errors]
-  features    [json_and_dot_render, traceability_serialization, agent_export, product_graph_rendering]
-  modules     [specforge_emitter]
-  tags        ["h1", "core"]
+  description   "Graph serialization to JSON, DOT, and agent-optimized formats with multi-resolution queries and deterministic output."
+  status        completed
+  start_date    "2025-08-30"
+  target_date   "2025-10-15"
+  owner         "specforge-team"
+  contributors  ["specforge-team"]
+  depends_on    [validation_and_errors]
+  features      [json_and_dot_render, traceability_serialization, agent_export, product_graph_rendering]
+  modules       [specforge_emitter]
+  tags          ["h1", "core"]
   exit_criteria [
     "Graph Protocol JSON schema published and stable",
     "specforge export --format=context produces token-optimized output",
@@ -117,16 +117,16 @@ milestone output_and_export "Phase 4: Output & Agent Export" {
 }
 
 milestone project_init "Phase 5: Project Initialization" {
-  description "Project scaffolding via specforge init with interactive extension selection and specforge.json configuration."
-  status      completed
-  start_date  "2025-10-15"
-  target_date "2025-11-01"
-  owner       "specforge-team"
-  contributors ["specforge-team"]
-  depends_on  [output_and_export]
-  features    [project_initialization]
-  modules     [specforge_cli]
-  tags        ["h1", "platform"]
+  description   "Project scaffolding via specforge init with interactive extension selection and specforge.json configuration."
+  status        completed
+  start_date    "2025-10-15"
+  target_date   "2025-11-01"
+  owner         "specforge-team"
+  contributors  ["specforge-team"]
+  depends_on    [output_and_export]
+  features      [project_initialization]
+  modules       [specforge_cli]
+  tags          ["h1", "platform"]
   exit_criteria [
     "specforge init creates specforge.json and starter .spec file",
     "Full init > check > export pipeline completes in under 60 seconds",
@@ -137,16 +137,16 @@ milestone project_init "Phase 5: Project Initialization" {
 }
 
 milestone ms_incremental_compilation "Phase 6: Incremental Compilation" {
-  description "File watching with debounced incremental rebuild, graph deltas, and import DAG tracking for minimal invalidation."
-  status      completed
-  start_date  "2025-10-15"
-  target_date "2025-11-15"
-  owner       "specforge-team"
-  contributors ["specforge-team"]
-  depends_on  [output_and_export]
-  features    [incremental_compilation, incremental_graph_deltas]
-  modules     [specforge_watch]
-  tags        ["h1", "core"]
+  description   "File watching with debounced incremental rebuild, graph deltas, and import DAG tracking for minimal invalidation."
+  status        completed
+  start_date    "2025-10-15"
+  target_date   "2025-11-15"
+  owner         "specforge-team"
+  contributors  ["specforge-team"]
+  depends_on    [output_and_export]
+  features      [incremental_compilation, incremental_graph_deltas]
+  modules       [specforge_watch]
+  tags          ["h1", "core"]
   exit_criteria [
     "specforge watch delivers diagnostics within 100ms of file change",
     "Incremental rebuild matches cold rebuild (validated by property tests)",
@@ -157,14 +157,14 @@ milestone ms_incremental_compilation "Phase 6: Incremental Compilation" {
 }
 
 milestone lsp_server "Phase 7: LSP Server" {
-  description "Full Language Server Protocol implementation with navigation, completion, refactoring, live diagnostics, and semantic tokens."
-  status      completed
-  start_date  "2025-11-15"
-  target_date "2025-12-15"
-  owner       "specforge-team"
-  contributors ["specforge-team"]
-  depends_on  [ms_incremental_compilation]
-  features [
+  description   "Full Language Server Protocol implementation with navigation, completion, refactoring, live diagnostics, and semantic tokens."
+  status        completed
+  start_date    "2025-11-15"
+  target_date   "2025-12-15"
+  owner         "specforge-team"
+  contributors  ["specforge-team"]
+  depends_on    [ms_incremental_compilation]
+  features      [
     lsp_lifecycle,
     go_to_definition_and_references,
     hover_and_autocomplete,
@@ -174,8 +174,8 @@ milestone lsp_server "Phase 7: LSP Server" {
     code_actions,
     outline_and_symbol_search,
   ]
-  modules     [specforge_lsp]
-  tags        ["h1", "platform"]
+  modules       [specforge_lsp]
+  tags          ["h1", "platform"]
   exit_criteria [
     "Go-to-definition and find-references work across files",
     "Hover shows entity details, contract text, and reference count",
@@ -189,16 +189,16 @@ milestone lsp_server "Phase 7: LSP Server" {
 }
 
 milestone ms_code_formatting "Phase 8: Code Formatting" {
-  description "Idempotent code formatter with CST-preserving comment handling, CLI check mode, and LSP formatting integration."
-  status      completed
-  start_date  "2025-10-15"
-  target_date "2025-11-30"
-  owner       "specforge-team"
-  contributors ["specforge-team"]
-  depends_on  [output_and_export]
-  features    [code_formatting, lsp_formatting]
-  modules     [specforge_formatter]
-  tags        ["h1", "tooling"]
+  description   "Idempotent code formatter with CST-preserving comment handling, CLI check mode, and LSP formatting integration."
+  status        completed
+  start_date    "2025-10-15"
+  target_date   "2025-11-30"
+  owner         "specforge-team"
+  contributors  ["specforge-team"]
+  depends_on    [output_and_export]
+  features      [code_formatting, lsp_formatting]
+  modules       [specforge_formatter]
+  tags          ["h1", "tooling"]
   exit_criteria [
     "format(format(x)) == format(x) verified by property tests",
     "All comments preserved after formatting",
@@ -215,14 +215,14 @@ milestone ms_code_formatting "Phase 8: Code Formatting" {
 // ════════════════════════════════════════════════════════════════
 
 milestone zero_entity_core "Phase 9: Zero-Entity Core Architecture" {
-  description "Core compiler refactored to have zero hardcoded entity types. All domain vocabulary comes from extensions via ManifestV2 declarations."
-  status      completed
-  start_date  "2025-12-01"
-  target_date "2026-01-15"
-  owner       "specforge-team"
-  contributors ["specforge-team"]
-  depends_on  [ms_code_formatting]
-  features [
+  description   "Core compiler refactored to have zero hardcoded entity types. All domain vocabulary comes from extensions via ManifestV2 declarations."
+  status        completed
+  start_date    "2025-12-01"
+  target_date   "2026-01-15"
+  owner         "specforge-team"
+  contributors  ["specforge-team"]
+  depends_on    [ms_code_formatting]
+  features      [
     declarative_validation_rules,
     extension_manifest,
     dynamic_entity_registration,
@@ -235,8 +235,8 @@ milestone zero_entity_core "Phase 9: Zero-Entity Core Architecture" {
     extension_driven_code_actions,
     extension_driven_coverage,
   ]
-  modules     [specforge_wasm]
-  tags        ["h2", "architecture"]
+  modules       [specforge_wasm]
+  tags          ["h2", "architecture"]
   exit_criteria [
     "Core compiler has zero hardcoded entity types — all from extensions",
     "KindRegistry boots empty and is populated exclusively from manifests",
@@ -253,14 +253,14 @@ milestone zero_entity_core "Phase 9: Zero-Entity Core Architecture" {
 }
 
 milestone wasm_runtime "Phase 10: Wasm Extension Runtime" {
-  description "Wasm component runtime with compile caching, sandbox enforcement, host function API, peer dependency validation, and surface contribution dispatch."
-  status      completed
-  start_date  "2026-01-15"
-  target_date "2026-02-01"
-  owner       "specforge-team"
-  contributors ["specforge-team"]
-  depends_on  [zero_entity_core]
-  features [
+  description   "Wasm component runtime with compile caching, sandbox enforcement, host function API, peer dependency validation, and surface contribution dispatch."
+  status        completed
+  start_date    "2026-01-15"
+  target_date   "2026-02-01"
+  owner         "specforge-team"
+  contributors  ["specforge-team"]
+  depends_on    [zero_entity_core]
+  features      [
     wasm_extension_runtime,
     wasm_host_function_api,
     wasm_performance_optimization,
@@ -275,8 +275,8 @@ milestone wasm_runtime "Phase 10: Wasm Extension Runtime" {
     product_impact_and_whatif,
     product_graph_diff,
   ]
-  modules     [specforge_wasm, specforge_provider_gh]
-  tags        ["h2", "runtime"]
+  modules       [specforge_wasm, specforge_provider_gh]
+  tags          ["h2", "runtime"]
   exit_criteria [
     "Wasm extensions load, initialize, and validate without errors",
     "All 8 host functions work correctly (query, diagnostic, node, edge, file, http)",
@@ -294,14 +294,14 @@ milestone wasm_runtime "Phase 10: Wasm Extension Runtime" {
 }
 
 milestone extension_ecosystem "Phase 11: Extension Ecosystem" {
-  description "Full extension lifecycle: install, upgrade, remove, author, build, test, publish. Registry integration, lock management, and grammar contributions."
-  status      completed
-  start_date  "2026-02-01"
-  target_date "2026-02-28"
-  owner       "specforge-team"
-  contributors ["specforge-team"]
-  depends_on  [wasm_runtime]
-  features [
+  description   "Full extension lifecycle: install, upgrade, remove, author, build, test, publish. Registry integration, lock management, and grammar contributions."
+  status        completed
+  start_date    "2026-02-01"
+  target_date   "2026-02-28"
+  owner         "specforge-team"
+  contributors  ["specforge-team"]
+  depends_on    [wasm_runtime]
+  features      [
     extension_management,
     wasm_extension_installation,
     wasm_lock_management,
@@ -320,7 +320,7 @@ milestone extension_ecosystem "Phase 11: Extension Ecosystem" {
     entity_embedding_search,
     markdown_documentation_generation,
   ]
-  modules [
+  modules       [
     specforge_package_formal,
     specforge_package_product,
     specforge_package_governance,
@@ -330,7 +330,7 @@ milestone extension_ecosystem "Phase 11: Extension Ecosystem" {
     specforge_test_lib,
     specforge_test_macros_lib,
   ]
-  tags        ["h2", "ecosystem"]
+  tags          ["h2", "ecosystem"]
   exit_criteria [
     "Full install/upgrade/remove lifecycle for Wasm extensions",
     "specforge.lock pins exact versions with SHA256 integrity hashes",
@@ -347,16 +347,16 @@ milestone extension_ecosystem "Phase 11: Extension Ecosystem" {
 }
 
 milestone software_extension_v1 "Phase 11a: @specforge/software Extension v1" {
-  description "First-party domain extension implementing behavior, invariant, event, type, and port entity kinds for software engineering specifications."
-  status      completed
-  start_date  "2026-03-01"
-  target_date "2026-04-15"
-  owner       "specforge-team"
-  contributors ["specforge-team"]
-  depends_on  [zero_entity_core, wasm_runtime]
-  features    [se_core_entity_kinds, se_validation_suite, se_gherkin_bridge]
-  modules     [specforge_package_software]
-  tags        ["h2", "extension"]
+  description   "First-party domain extension implementing behavior, invariant, event, type, and port entity kinds for software engineering specifications."
+  status        completed
+  start_date    "2026-03-01"
+  target_date   "2026-04-15"
+  owner         "specforge-team"
+  contributors  ["specforge-team"]
+  depends_on    [zero_entity_core, wasm_runtime]
+  features      [se_core_entity_kinds, se_validation_suite, se_gherkin_bridge]
+  modules       [specforge_package_software]
+  tags          ["h2", "extension"]
   exit_criteria [
     "manifest.json declares 5 entity kinds with all fields, testability, and LSP metadata",
     "manifest.json declares 14 edge types with source/target constraints",
@@ -368,16 +368,16 @@ milestone software_extension_v1 "Phase 11a: @specforge/software Extension v1" {
 }
 
 milestone schema_versioning "Phase 12: Graph Protocol Schema Versioning" {
-  description "Self-describing graph protocol schema embedded in exports with version auto-computation, breaking change detection, and schema negotiation."
-  status      completed
-  start_date  "2025-10-15"
-  target_date "2025-11-30"
-  owner       "specforge-team"
-  contributors ["specforge-team"]
-  depends_on  [output_and_export]
-  features    [self_describing_graph_protocol, graph_protocol_versioning]
-  modules     [specforge_emitter, specforge_cli]
-  tags        ["h2", "schema"]
+  description   "Self-describing graph protocol schema embedded in exports with version auto-computation, breaking change detection, and schema negotiation."
+  status        completed
+  start_date    "2025-10-15"
+  target_date   "2025-11-30"
+  owner         "specforge-team"
+  contributors  ["specforge-team"]
+  depends_on    [output_and_export]
+  features      [self_describing_graph_protocol, graph_protocol_versioning]
+  modules       [specforge_emitter, specforge_cli]
+  tags          ["h2", "schema"]
   exit_criteria [
     "Self-describing schema embedded in every graph export",
     "Schema version auto-computed from registry contents",
@@ -388,15 +388,15 @@ milestone schema_versioning "Phase 12: Graph Protocol Schema Versioning" {
 }
 
 milestone mcp_server "Phase 13: MCP Server" {
-  description "Model Context Protocol server exposing graph resources, core/navigation/mutation/project tools, delta notifications, and guided prompts."
-  status      completed
-  start_date  "2025-12-15"
-  target_date "2026-01-31"
-  owner       "specforge-team"
-  contributors ["specforge-team"]
-  depends_on  [schema_versioning]
-  modules     [specforge_mcp]
-  features [
+  description   "Model Context Protocol server exposing graph resources, core/navigation/mutation/project tools, delta notifications, and guided prompts."
+  status        completed
+  start_date    "2025-12-15"
+  target_date   "2026-01-31"
+  owner         "specforge-team"
+  contributors  ["specforge-team"]
+  depends_on    [schema_versioning]
+  modules       [specforge_mcp]
+  features      [
     mcp_lifecycle,
     mcp_resource_exposure,
     mcp_core_tools,
@@ -408,7 +408,7 @@ milestone mcp_server "Phase 13: MCP Server" {
     mcp_protocol_compliance,
     mcp_discovery,
   ]
-  tags        ["h2", "platform"]
+  tags          ["h2", "platform"]
   exit_criteria [
     "MCP server initializes and shuts down cleanly per protocol spec",
     "All 6 resources registered and return current graph state",
@@ -422,16 +422,16 @@ milestone mcp_server "Phase 13: MCP Server" {
 }
 
 milestone migration "Phase 14: Migration" {
-  description "Spec file migration with dry-run preview, backup, post-migration validation, rollback, and extension migration hook invocation."
-  status      completed
-  start_date  "2026-05-01"
-  target_date "2026-06-30"
-  owner       "specforge-team"
-  contributors ["specforge-team"]
-  depends_on  [extension_ecosystem]
-  features    [spec_file_migration]
-  modules     [specforge_cli, specforge_wasm]
-  tags        ["h3", "tooling"]
+  description   "Spec file migration with dry-run preview, backup, post-migration validation, rollback, and extension migration hook invocation."
+  status        completed
+  start_date    "2026-05-01"
+  target_date   "2026-06-30"
+  owner         "specforge-team"
+  contributors  ["specforge-team"]
+  depends_on    [extension_ecosystem]
+  features      [spec_file_migration]
+  modules       [specforge_cli, specforge_wasm]
+  tags          ["h3", "tooling"]
   exit_criteria [
     "specforge migrate --dry-run shows unified diff of all proposed changes",
     "Backup created before in-place transformation",

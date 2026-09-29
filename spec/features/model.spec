@@ -3,8 +3,7 @@
 use "behaviors/model"
 
 feature logical_data_model "Logical Data Model Visualization" {
-
-  problem """
+  problem  """
     Users and AI agents have no way to visualize the schema-level structure
     of a SpecForge project — which entity kinds exist, what fields they have,
     and how they relate to each other via edge types. The existing specforge
@@ -12,7 +11,6 @@ feature logical_data_model "Logical Data Model Visualization" {
     a human- or agent-readable data model. The existing specforge export
     --format=dot shows instance-level graphs, not schema structure.
   """
-
   solution """
     specforge model renders the schema-level meta-model as a logical data
     model in five formats: Markdown (default, LLM-friendly), Mermaid
@@ -29,13 +27,11 @@ feature logical_data_model "Logical Data Model Visualization" {
 }
 
 feature model_multi_format "Multi-Format Model Output" {
-
-  problem """
+  problem  """
     Different consumers need different output formats: terminals need
     readable text, GitHub needs Mermaid, Graphviz users need DOT, ERD
     tools need JSON or DBML, and LLMs need structured prose.
   """
-
   solution """
     Five format renderers share a single ModelIntermediate IR. Markdown
     is the default for terminal and LLM use. Mermaid erDiagram renders
@@ -47,13 +43,11 @@ feature model_multi_format "Multi-Format Model Output" {
 }
 
 feature model_filtering "Model Filtering and Scoping" {
-
-  problem """
+  problem  """
     With 23+ entity kinds across 4 extensions, the full model is noisy.
     Users need to focus on specific extensions, entity kinds, or
     neighborhoods of the kind graph.
   """
-
   solution """
     Three filtering dimensions: --extension narrows to a single
     extension's entity kinds. --kinds filters to specific entity kind
@@ -65,14 +59,12 @@ feature model_filtering "Model Filtering and Scoping" {
 }
 
 feature model_agent_access "Model Access for AI Agents" {
-
-  problem """
+  problem  """
     AI agents consuming spec graphs need to understand the schema structure
     to make correct first-attempt modifications. The raw GraphProtocolSchema
     JSON contains compiler metadata (testable, singleton, incremental) that
     is noise for agents trying to understand entity relationships.
   """
-
   solution """
     The specforge.model MCP tool exposes the logical data model in all
     five formats with the same filtering options as the CLI. The default

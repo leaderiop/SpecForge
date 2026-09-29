@@ -12,8 +12,7 @@ invariant te_testable_kinds_from_one_table "Testability, Allowed Verify Kinds, a
     (@specforge/software), constraint and failure_mode
     (@specforge/governance).
   """
-  risk medium
-
+  risk      medium
   verify unit "testing makes software and governance kinds testable with their verify kinds"
 }
 
@@ -24,8 +23,7 @@ invariant te_owners_declare_no_test_vocabulary "Kind Owners Declare No Test Voca
     verify rules of their own. Without @specforge/testing a project has
     no test obligations: W004 and W009 never fire.
   """
-  risk medium
-
+  risk      medium
   verify unit "software kinds declare no testability of their own"
 }
 
@@ -38,8 +36,7 @@ invariant traceability_chain_integrity "Traceability Chain Integrity" {
     graph declares; a result naming any other entity is dropped with a
     W115 warning rather than counted as proof.
   """
-  risk high
-
+  risk      high
   verify property "every file-reference field references an existing file"
   verify unit "unknown entity ID in collector entry produces W115"
 }

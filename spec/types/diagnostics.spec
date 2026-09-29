@@ -1,13 +1,14 @@
 // Diagnostic types — compiler messages and validation codes
 
 use "types/core"
+
 type Diagnostic {
-  code       ValidationCode  @readonly
+  code       ValidationCode @readonly
   severity   Severity
   message    string
-  span       SourceSpan      @readonly
-  context    string          @optional
-  suggestion string          @optional
+  span       SourceSpan     @readonly
+  context    string         @optional
+  suggestion string         @optional
   verify unit "Diagnostic schema is valid"
 }
 
@@ -16,8 +17,8 @@ type Diagnostic {
 // The canonical string form is used in diagnostics, documentation, and
 // cross-references throughout the spec.
 type ValidationCode {
-  prefix     CodePrefix
-  number     integer
+  prefix CodePrefix
+  number integer
   verify unit "ValidationCode schema is valid"
 }
 

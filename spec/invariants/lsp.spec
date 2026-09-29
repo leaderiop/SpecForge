@@ -4,8 +4,7 @@ invariant lsp_response_latency "LSP Response Latency" {
     typing. Completion, hover, go-to-definition, and formatting responses
     MUST return within 200ms for projects under 1000 entities.
   """
-  risk medium
-
+  risk      medium
   verify property "LSP Response Latency guarantee holds"
 }
 
@@ -18,8 +17,7 @@ invariant lsp_extension_reload_consistency "LSP Extension Reload Consistency" {
     NOT serve stale semantic tokens, completions, or hover information
     for entity kinds that were added or removed.
   """
-  risk medium
-
+  risk      medium
   verify unit "adding an extension while LSP is running updates KindRegistry atomically"
   verify unit "removing an extension while LSP is running removes kinds from KindRegistry atomically"
   verify unit "semantic token legend reflects current extensions after reload"
@@ -30,8 +28,7 @@ invariant rename_atomicity "Rename Atomicity" {
     A rename operation MUST update all files atomically — either all files
     are updated or none are. Partial updates MUST NOT persist.
   """
-  risk high
-
+  risk      high
   verify property "Rename Atomicity guarantee holds"
 }
 
@@ -41,7 +38,7 @@ invariant lsp_text_edit_non_overlapping "LSP TextEdit Non-Overlapping" {
     overlapping ranges. The LSP specification requires non-overlapping edits;
     overlapping edits cause undefined client behavior.
   """
-  risk high
+  risk      high
   verify property "no LSP response contains overlapping TextEdit ranges"
   verify unit "formatting response TextEdits are sorted and non-overlapping"
 }
@@ -54,8 +51,7 @@ invariant lsp_state_concurrency_safety "LSP State Concurrency Safety" {
     reads and writes MUST NOT deadlock, and writes to different documents
     MUST NOT interfere.
   """
-  risk high
-
+  risk      high
   verify unit "multiple concurrent readers complete without blocking each other"
   verify unit "concurrent readers see consistent graph and document state"
   verify unit "interleaved read and write operations do not deadlock"
@@ -68,7 +64,6 @@ invariant lsp_utf16_positions "LSP UTF-16 Positions" {
     code units, as the Language Server Protocol requires, so non-ASCII text
     before the cursor never shifts the word, range or edit it resolves to.
   """
-  risk medium
-
+  risk      medium
   verify unit "word_at_position extracts words using utf16 columns"
 }

@@ -16,6 +16,7 @@
 
 use "behaviors/output"
 use "behaviors/output-schema"
+
 // markdown_documentation_generation moved to spec/extensions/markdown-renderer/
 // Vision: "SpecForge does not produce documentation." Markdown rendering is
 // a renderer contribution from the @specforge/markdown-renderer extension.
@@ -23,12 +24,10 @@ use "behaviors/output-schema"
 feature json_and_dot_render "JSON and DOT Render" {
   // render_extension_defined_dot_shapes is owned by extension_driven_visualization
   // in zero-entity-core.spec; serialize_dot_visualization delegates to it.
-
-  problem """
+  problem  """
     External tools (dashboards, analyzers, visualizers) need machine-readable
     access to the spec graph. The graph must be exportable in standard formats.
   """
-
   solution """
     specforge render json exports the full graph as JSON conforming to the
     Graph Protocol schema — the versioned, open interchange format that any
@@ -36,17 +35,16 @@ feature json_and_dot_render "JSON and DOT Render" {
     format graph compatible with Graphviz for visualization.
   """
 }
+
 // Note: specforge export (--format=context|graph|brief) is defined in product/capabilities.spec as an agent-facing command distinct from specforge render
 
 feature traceability_serialization "Traceability Serialization" {
-
-  problem """
+  problem  """
     Architects and auditors need to trace entities upstream and downstream
     through the graph. Manual traceability matrices are error-prone and
     always stale. AI agents produce implementation plans that must be
     validated against the spec graph to ensure completeness and consistency.
   """
-
   solution """
     specforge trace computes and serializes traceability chains by traversing the
     graph across all registered edge types. Single-entity trace shows
@@ -62,14 +60,12 @@ feature traceability_serialization "Traceability Serialization" {
 }
 
 feature agent_export "Agent-Optimized Export" {
-
-  problem """
+  problem  """
     AI agents need structured, token-efficient context from the spec graph.
     Full JSON export wastes context window. Agents need scoped, multi-resolution
     access to exactly the subgraph relevant to their task. Agents operating
     in MCP server mode need resource-based access without CLI invocation.
   """
-
   solution """
     specforge export provides agent-optimized formats: context (token-optimized
     with contracts and relationships), brief (IDs and contracts only), and
@@ -82,13 +78,11 @@ feature agent_export "Agent-Optimized Export" {
 }
 
 feature ci_integration "CI Integration" {
-
-  problem """
+  problem  """
     CI pipelines need a single command that validates all .spec files,
     exits with an appropriate code, and produces deterministic output
     suitable for automated checks.
   """
-
   solution """
     specforge check parses, resolves, and validates without writing files.
     Exit code 0 for clean, 1 for errors. --strict treats warnings as errors.
@@ -103,15 +97,13 @@ feature ci_integration "CI Integration" {
 }
 
 feature self_describing_graph_protocol "Self-Describing Graph Protocol" {
-
-  problem """
+  problem  """
     The Graph Protocol JSON export contains nodes and edges but no schema
     describing what entity kinds exist, what fields they have, or what edge
     types connect them. Agents consuming the graph must rely on external
     documentation or heuristics to understand the graph structure, reducing
     first-attempt accuracy.
   """
-
   solution """
     Self-describing schema embedded in Graph Protocol exports. After all
     extension registries are populated, the compiler serializes the
@@ -127,13 +119,11 @@ feature self_describing_graph_protocol "Self-Describing Graph Protocol" {
 }
 
 feature graph_protocol_versioning "Graph Protocol Versioning" {
-
-  problem """
+  problem  """
     The Graph Protocol schema evolves as extensions add entity kinds and edge
     types, but there is no versioning mechanism. Agents consuming the graph
     cannot negotiate compatible versions, and breaking changes are undetectable.
   """
-
   solution """
     Semantic versioning for the Graph Protocol schema. Agents request a
     specific version via --schema-version or MCP query parameter; the system

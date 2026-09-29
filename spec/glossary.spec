@@ -6,7 +6,6 @@
 // is a singleton — only one per project — so extension terms are grouped
 // under clearly labeled section headers below.
 
-
 // ── Compiler Pipeline ──────────────────────────────────────
 
 term t_spec_file "spec file" {
@@ -14,8 +13,22 @@ term t_spec_file "spec file" {
     A source file with the .spec extension containing entity declarations
     in the SpecForge DSL. Parsed by the compiler into an AST.
   """
-  aliases ["dot-spec file", ".spec file"]
-  see_also   [t_parser, t_extension, t_spec_root, t_zero_entity_core, t_sandbox_policy, t_wasm_trap, t_fuel_metering, t_enhancement_policy, t_structured_conditions, t_coverage_tracking_item, t_event_graph_linting, t_specification_depth_level, t_rpn]
+  aliases    ["dot-spec file", ".spec file"]
+  see_also   [
+    t_parser,
+    t_extension,
+    t_spec_root,
+    t_zero_entity_core,
+    t_sandbox_policy,
+    t_wasm_trap,
+    t_fuel_metering,
+    t_enhancement_policy,
+    t_structured_conditions,
+    t_coverage_tracking_item,
+    t_event_graph_linting,
+    t_specification_depth_level,
+    t_rpn,
+  ]
 }
 
 term t_compiler_pipeline "compiler pipeline" {
@@ -34,7 +47,7 @@ term t_compiler_pipeline "compiler pipeline" {
     edge type set) are fully populated from Phase 1. Within each phase, stages
     are sequential — resolution completes before validation begins.
   """
-  aliases ["pipeline", "compilation pipeline"]
+  aliases    ["pipeline", "compilation pipeline"]
   see_also   [t_resolver, t_validator, t_emitter, t_spec_file]
 }
 
@@ -43,7 +56,7 @@ term t_parser "parser" {
     The first compiler stage. Uses a Tree-sitter grammar to transform
     .spec source text into a per-file Abstract Syntax Tree (AST).
   """
-  context "SpecForge uses Tree-sitter, not a hand-written recursive descent parser."
+  context    "SpecForge uses Tree-sitter, not a hand-written recursive descent parser."
   see_also   [t_grammar_injection]
 }
 
@@ -54,7 +67,7 @@ term t_resolver "resolver" {
     pending edges for the graph builder to materialize. Processes files
     in topological order (dependencies first).
   """
-  aliases ["reference resolver", "import resolver"]
+  aliases    ["reference resolver", "import resolver"]
   see_also   [t_use_import, t_in_memory_graph, t_soft_reference]
 }
 
@@ -64,7 +77,7 @@ term t_in_memory_graph "in-memory graph" {
     parsed .spec files. Serves as the compiler's database — no external database
     required. Mutable and incrementally updatable for watch mode.
   """
-  aliases ["graph", "spec graph", "entity graph"]
+  aliases    ["graph", "spec graph", "entity graph"]
 }
 
 term t_validator "validator" {
@@ -83,7 +96,7 @@ term t_emitter "emitter" {
     is NOT a SpecForge concern — AI agents generate code by consuming the
     Graph Protocol.
   """
-  aliases ["renderer"]
+  aliases    ["renderer"]
   see_also   [t_renderer, t_agent_context]
 }
 
@@ -97,7 +110,7 @@ term t_diagnostic "diagnostic" {
     every emitting source. Third-party extensions use E900-E998,
     W900-W998, I900-I998 (I999 is core).
   """
-  aliases ["compiler diagnostic", "validation message"]
+  aliases    ["compiler diagnostic", "validation message"]
 }
 
 // ── Entity Model ───────────────────────────────────────────
@@ -119,7 +132,7 @@ term t_entity_id "entity ID" {
     (letters, digits, underscores, 2-60 chars, starts with a letter). No
     enforced case convention — projects choose their own naming style.
   """
-  aliases ["ID", "entity identifier"]
+  aliases    ["ID", "entity identifier"]
   see_also   [t_string_interning]
 }
 
@@ -129,8 +142,8 @@ term t_use_import "use import" {
     into scope for reference resolution. Syntax: use path/to/file.
     The .spec extension is implicit.
   """
-  aliases ["import", "use directive"]
-  context "Not the same as a programming language import — brings spec symbols into scope, not code."
+  aliases    ["import", "use directive"]
+  context    "Not the same as a programming language import — brings spec symbols into scope, not code."
   see_also   [t_reference_list]
 }
 
@@ -148,7 +161,7 @@ term t_soft_reference "soft reference" {
     extension is not installed. Emits I004 (info) instead of E003 (error)
     when the referenced entity's extension is missing.
   """
-  context "Used for cross-extension references when the target extension is not installed."
+  context    "Used for cross-extension references when the target extension is not installed."
   see_also   [t_diagnostic]
 }
 
@@ -163,8 +176,8 @@ term t_extension "extension" {
     @specforge/software, @specforge/product, @specforge/governance. Domain
     extensions: @specforge/atomic-design, @specforge/compliance, @specforge/api-design.
   """
-  aliases ["plugin", "domain extension"]
-  context "Terraform-exact model: core has zero domain knowledge, all vocabulary from extensions. 'Extension' is the canonical term for entity IDs and code references; 'plugin' is accepted as a human-facing alias only."
+  aliases    ["plugin", "domain extension"]
+  context    "Terraform-exact model: core has zero domain knowledge, all vocabulary from extensions. 'Extension' is the canonical term for entity IDs and code references; 'plugin' is accepted as a human-facing alias only."
   see_also   [t_provider, t_peer_dependency]
 }
 
@@ -175,7 +188,7 @@ term t_provider "provider" {
     identifier patterns, resolves URLs, and supports multiple aliased instances.
     Example: @specforge/gh for GitHub references.
   """
-  context "A contribution type within an extension — extends ref validation, not the entity model."
+  context    "A contribution type within an extension — extends ref validation, not the entity model."
 }
 
 term t_renderer "renderer" {
@@ -187,7 +200,7 @@ term t_renderer "renderer" {
     consuming the Graph Protocol. Renderers produce supplementary artifacts
     only.
   """
-  context "A contribution type for non-code outputs only. Code generation is the responsibility of AI agents, not SpecForge. Renamed from 'exporter' to avoid confusion with code generation."
+  context    "A contribution type for non-code outputs only. Code generation is the responsibility of AI agents, not SpecForge. Renamed from 'exporter' to avoid confusion with code generation."
   see_also   [t_drift_detection]
 }
 
@@ -200,7 +213,7 @@ term t_incremental_compilation "incremental compilation" {
     files, rebuilding affected subgraph edges, and re-validating the
     affected subgraph. Target: <100ms file-change-to-diagnostics.
   """
-  aliases ["incremental recompilation", "watch mode"]
+  aliases    ["incremental recompilation", "watch mode"]
 }
 
 term t_string_interning "string interning" {
@@ -210,7 +223,7 @@ term t_string_interning "string interning" {
     equality instead of character-by-character. SpecForge uses the
     lasso crate for this.
   """
-  context "An implementation detail that affects performance, not user-visible behavior."
+  context    "An implementation detail that affects performance, not user-visible behavior."
   see_also   [t_incremental_compilation]
 }
 
@@ -220,7 +233,7 @@ term t_spec_root "spec root" {
     identity (name, version), installed extensions, provider
     configurations, personas, and surfaces. Exactly one per project.
   """
-  aliases ["project root", "spec block"]
+  aliases    ["project root", "spec block"]
 }
 
 term t_domain_vocabulary "domain vocabulary" {
@@ -231,8 +244,8 @@ term t_domain_vocabulary "domain vocabulary" {
     its own. Extensions for different domains contribute entirely different
     entity kinds.
   """
-  aliases ["vocabulary", "domain model"]
-  context "The zero-entity core architecture means vocabulary is 100% extension-defined."
+  aliases    ["vocabulary", "domain model"]
+  context    "The zero-entity core architecture means vocabulary is 100% extension-defined."
 }
 
 term t_zero_entity_core "zero-entity core" {
@@ -243,8 +256,8 @@ term t_zero_entity_core "zero-entity core" {
     validates constraints — but has no opinion about what entity types exist.
     Domain semantics are entirely defined by installable extensions.
   """
-  aliases ["zero-core", "entity-free core"]
-  context "Terraform-exact analogy: Terraform core has zero infrastructure knowledge, SpecForge core has zero domain knowledge."
+  aliases    ["zero-core", "entity-free core"]
+  context    "Terraform-exact analogy: Terraform core has zero infrastructure knowledge, SpecForge core has zero domain knowledge."
   see_also   [t_domain_vocabulary]
 }
 
@@ -257,8 +270,8 @@ term t_graph_protocol "graph protocol" {
     SpecForge's primary product: a structured, validated, cross-referenced
     representation of human intent that any agent can consume for any task.
   """
-  aliases ["Graph Protocol", "agent context protocol"]
-  context "The graph schema is the standard. The compiler and DSL are implementation details."
+  aliases    ["Graph Protocol", "agent context protocol"]
+  context    "The graph schema is the standard. The compiler and DSL are implementation details."
   see_also   [t_multi_resolution_query]
 }
 
@@ -270,7 +283,7 @@ term t_agent_context "agent context" {
     representation. Any AI agent (coding, PM, compliance, docs, security) can
     consume it.
   """
-  aliases ["context export", "agent-context output"]
+  aliases    ["context export", "agent-context output"]
   see_also   [t_port]
 }
 
@@ -283,7 +296,7 @@ term t_multi_resolution_query "multi-resolution query" {
     specforge query --scope and --hop flags. Inspired by Large Concept
     Models research on operating at the right abstraction level.
   """
-  aliases ["scoped query", "resolution query"]
+  aliases    ["scoped query", "resolution query"]
   see_also   [t_query_extension]
 }
 
@@ -309,8 +322,8 @@ term t_generic_entity_block "generic entity block" {
     ref, use, and define have separate dedicated grammar rules due
     to unique structural syntax (ref uses scheme:identifier format).
   """
-  aliases ["generic_entity_block", "entity_block"]
-  context "Part of the zero-entity core architecture. The grammar is keyword-agnostic."
+  aliases    ["generic_entity_block", "entity_block"]
+  context    "Part of the zero-entity core architecture. The grammar is keyword-agnostic."
   see_also   [t_graph_protocol]
 }
 
@@ -344,8 +357,8 @@ term t_query_extension "query extension" {
     extension-specific entity types. Composed with base query files by
     string concatenation in extension load order.
   """
-  aliases ["query extension pattern", ".scm extension"]
-  context "Part of Tier 2 of the 3-tier highlighting architecture. See RES-22."
+  aliases    ["query extension pattern", ".scm extension"]
+  context    "Part of Tier 2 of the 3-tier highlighting architecture. See RES-22."
   see_also   [t_semantic_token]
 }
 
@@ -357,7 +370,7 @@ term t_semantic_token "semantic token" {
     classify entity keywords, enhanced fields, and cross-extension
     references that static query files cannot capture.
   """
-  context "Part of Tier 3 of the 3-tier highlighting architecture. See RES-22."
+  context    "Part of Tier 3 of the 3-tier highlighting architecture. See RES-22."
   see_also   [t_glossary_entity_enhancement, t_entity_id]
 }
 
@@ -370,10 +383,9 @@ term t_wasm "Wasm" {
     wasip2 components that run in a sandboxed environment via the
     wasmtime Component Model runtime.
   """
-  aliases ["WebAssembly", ".wasm"]
+  aliases    ["WebAssembly", ".wasm"]
   see_also   [t_compile_cache, t_grammar_composition]
 }
-
 
 term t_host_function "host function" {
   definition """
@@ -387,7 +399,7 @@ term t_host_function "host function" {
     allow extensions to add graph node and edge instances at runtime.
     Entity kinds and edge types are declared in extension manifests.
   """
-  aliases ["host fn"]
+  aliases    ["host fn"]
   see_also   [t_linear_memory]
 }
 
@@ -409,7 +421,7 @@ term t_compile_cache "compile cache" {
     recompiling, reducing extension load to <50ms. Platform-specific —
     engine config is part of the key.
   """
-  aliases ["AOT compilation", "ahead-of-time compilation"]
+  aliases    ["AOT compilation", "ahead-of-time compilation"]
 }
 
 term t_peer_dependency "peer dependency" {
@@ -438,7 +450,7 @@ term t_edk "EDK" {
     Rust, Go, JavaScript/TypeScript, and other languages with Wasm
     compilation targets. Accessed via specforge extension init.
   """
-  aliases ["Extension Development Kit"]
+  aliases    ["Extension Development Kit"]
   see_also   [t_host_function]
 }
 
@@ -450,7 +462,7 @@ term t_glossary_entity_enhancement "entity enhancement" {
     Conflicts between extensions are resolved via configurable enhancement
     policies.
   """
-  aliases ["field enhancement", "enhancement"]
+  aliases    ["field enhancement", "enhancement"]
   see_also   [t_body_parser]
 }
 
@@ -461,7 +473,7 @@ term t_wasm_trap "Wasm trap" {
     runtime catches all traps and converts them to Result errors.
     Trapped extensions transition to the failed lifecycle state.
   """
-  aliases ["trap", "Wasm fault"]
+  aliases    ["trap", "Wasm fault"]
 }
 
 term t_fuel_metering "fuel metering" {
@@ -471,7 +483,7 @@ term t_fuel_metering "fuel metering" {
     consumes fuel; when the fuel budget is exhausted, the extension
     traps. Prevents runaway extensions from blocking compilation.
   """
-  aliases ["fuel"]
+  aliases    ["fuel"]
 }
 
 term t_content_addressed_cache "content-addressed cache" {
@@ -493,7 +505,7 @@ term t_enhancement_policy "enhancement policy" {
     warning emitted), namespace (conflicting fields prefixed with
     extension name). Configured in specforge.json.
   """
-  aliases ["conflict policy"]
+  aliases    ["conflict policy"]
 }
 
 // ── @specforge/formal Terms ──────────────────────────────────
@@ -513,8 +525,8 @@ term t_structured_conditions "structured conditions" {
     checked for internal consistency (not mathematically proven) by the
     condition_consistency pass of @specforge/formal.
   """
-  aliases ["Design by Contract", "DbC", "pre/postconditions"]
-  see_also [t_coverage_tracking_item]
+  aliases    ["Design by Contract", "DbC", "pre/postconditions"]
+  see_also   [t_coverage_tracking_item]
 }
 
 term t_refinement_chain "refinement chain" {
@@ -526,7 +538,7 @@ term t_refinement_chain "refinement chain" {
     concrete_entity. Checked by the layering_verify compiler pass:
     cycles produce E041, dropped ensures conditions E031.
   """
-  aliases ["refinement path", "specification layering", "B-Method Refinement"]
+  aliases    ["refinement path", "specification layering", "B-Method Refinement"]
 }
 
 term t_event_graph_linting "event graph linting" {
@@ -537,8 +549,8 @@ term t_event_graph_linting "event graph linting" {
     of @specforge/formal. Flags unmitigated cycles instead of claiming
     formal deadlock detection.
   """
-  aliases ["sync block", "CSP synchronization", "CSP Event Flow Analysis", "deadlock detection"]
-  see_also [t_coverage_tracking_item]
+  aliases    ["sync block", "CSP synchronization", "CSP Event Flow Analysis", "deadlock detection"]
+  see_also   [t_coverage_tracking_item]
 }
 
 term t_coverage_tracking_item "coverage tracking item" {
@@ -550,8 +562,8 @@ term t_coverage_tracking_item "coverage tracking item" {
     from "verification obligation" because these are heuristic structural
     checks, not machine-checked proofs.
   """
-  aliases ["verification obligation", "proof obligation"]
-  see_also [t_refinement_chain]
+  aliases    ["verification obligation", "proof obligation"]
+  see_also   [t_refinement_chain]
 }
 
 term t_specification_depth_level "specification depth level" {
@@ -560,7 +572,7 @@ term t_specification_depth_level "specification depth level" {
     prose, entity_graph, conditions, invariants, proofs. Each level adds
     machine-checkable rigor without requiring the next. Per RES-25.
   """
-  aliases ["progressive formality", "formality levels"]
+  aliases    ["progressive formality", "formality levels"]
 }
 
 term t_formal_property "formal property" {
@@ -570,7 +582,7 @@ term t_formal_property "formal property" {
     conditions describe point-in-time state, properties describe behavior
     across a sequence of states.
   """
-  see_also [t_structured_conditions]
+  see_also   [t_structured_conditions]
 }
 
 term t_formal_process "formal process" {
@@ -581,7 +593,7 @@ term t_formal_process "formal process" {
     other processes. The event-graph-linting counterpart to a state
     machine.
   """
-  see_also [t_event_graph_linting]
+  see_also   [t_event_graph_linting]
 }
 
 // ── @specforge/governance Terms ──────────────────────────────
@@ -592,7 +604,7 @@ term t_rpn "RPN" {
     in an FMEA failure_mode block. Higher RPN means higher risk priority.
     The compiler validates the arithmetic (E005).
   """
-  aliases ["risk priority number"]
+  aliases    ["risk priority number"]
 }
 
 // ── @specforge/rust Terms ────────────────────────────────────
@@ -604,7 +616,7 @@ term t_specforge_test "specforge-test" {
     Drop-based TestGuard for recording test results. The attribute
     registers the test itself; @specforge/cargo-test collects the results.
   """
-  aliases ["specforge test crate"]
+  aliases    ["specforge test crate"]
   see_also   [t_specforge_test_macros, t_test_guard]
 }
 
@@ -614,7 +626,7 @@ term t_specforge_test_macros "specforge-test-macros" {
     attribute. Its expansion calls into specforge-test for the runtime
     guard.
   """
-  aliases ["specforge test macros crate"]
+  aliases    ["specforge test macros crate"]
 }
 
 term t_test_guard "test guard" {
@@ -624,7 +636,7 @@ term t_test_guard "test guard" {
     means pass, true means fail (inverted under #[should_panic]). Results
     are written to target/specforge/ via an atexit handler.
   """
-  aliases ["TestGuard", "drop guard"]
+  aliases    ["TestGuard", "drop guard"]
 }
 
 term t_naming_convention "naming convention" {
@@ -654,7 +666,7 @@ term t_traceability_chain "traceability chain" {
     extensions — different extension combinations produce different chains.
     Every link is compiler-checked.
   """
-  aliases ["trace chain", "traceability path"]
+  aliases    ["trace chain", "traceability path"]
 }
 
 term t_spec_coverage "spec coverage" {
@@ -664,7 +676,7 @@ term t_spec_coverage "spec coverage" {
     entities (kinds @specforge/testing makes testable) have recorded
     passing test results. `specforge analyze coverage --min` gates on it.
   """
-  aliases ["specification coverage"]
+  aliases    ["specification coverage"]
 }
 
 term t_verify_statement "verify statement" {
@@ -687,7 +699,7 @@ term t_specforge_report_json "specforge-report.json" {
     (name, pass/fail, the verify obligation, duration, and the runner that
     recorded it) for any testable entity kind.
   """
-  aliases ["coverage report", "test report"]
+  aliases    ["coverage report", "test report"]
 }
 
 term t_collect_command "collect command" {
@@ -697,7 +709,7 @@ term t_collect_command "collect command" {
     command after the user approves it (or parses an existing report
     with --no-run), and records the results in specforge-report.json.
   """
-  aliases ["specforge collect"]
+  aliases    ["specforge collect"]
   see_also   [t_specforge_report_json]
 }
 
@@ -708,7 +720,7 @@ term t_entity_mapping "entity mapping" {
     vitest test metadata in TypeScript. Explicit linkage takes precedence
     over naming conventions; spec files carry no test paths.
   """
-  aliases ["test-to-entity mapping", "entity resolution"]
+  aliases    ["test-to-entity mapping", "entity resolution"]
   see_also   [t_specforge_test, t_naming_convention]
 }
 
@@ -724,7 +736,7 @@ term t_port "port" {
     Ports are declarative specifications — AI agents consume port
     declarations from the Graph Protocol.
   """
-  context "Extension-defined entity kind from @specforge/software. In this domain, port means a hexagonal architecture port, not a network port."
+  context    "Extension-defined entity kind from @specforge/software. In this domain, port means a hexagonal architecture port, not a network port."
   see_also   [t_traceability_chain]
 }
 
@@ -748,5 +760,5 @@ term t_drift_checksum "drift checksum" {
     current spec state. This is a renderer extension concern, not a
     core compiler feature.
   """
-  aliases ["checksum header", "@specforge-checksum"]
+  aliases    ["checksum header", "@specforge-checksum"]
 }

@@ -9,8 +9,8 @@
 // W131-W133: refinement entity validation
 // W134-W136: process entity validation
 
-use "extensions/formal/types"
 use "extensions/formal/invariants"
+use "extensions/formal/types"
 use "types/zero-entity-core"
 
 // ── Feature Coverage Validation (W058) ──────────────────────
@@ -28,18 +28,16 @@ behavior fa_validate_w058_feature_coverage_mismatch "W058: Feature Coverage Mism
     Requires warning_level=strict to fire.
   """
   requires {
-    layering_chains_built  "layering chains are fully constructed"
-    features_resolved      "feature references in behaviors are resolved"
-    strict_warning_level   "warning_level is set to strict"
+    layering_chains_built "layering chains are fully constructed"
+    features_resolved     "feature references in behaviors are resolved"
+    strict_warning_level  "warning_level is set to strict"
   }
-  ensures  {
-    covering_passes        "behavior whose conditions structurally cover feature requirements produces no diagnostic"
-    uncovering_warned      "behavior not structurally covering feature requirements produces W058 warning"
-    correct_template       "message template is: behavior '{id}' may not satisfy requirements of feature '{feature_id}': {reason} (structural check only)"
+  ensures {
+    covering_passes   "behavior whose conditions structurally cover feature requirements produces no diagnostic"
+    uncovering_warned "behavior not structurally covering feature requirements produces W058 warning"
+    correct_template  "message template is: behavior '{id}' may not satisfy requirements of feature '{feature_id}': {reason} (structural check only)"
   }
-
   features [fa_specification_layering]
-
   verify unit "behavior covering feature requirements passes"
   verify unit "behavior not covering feature requirements produces W058"
   verify unit "W058 severity is warning (not error)"
@@ -61,18 +59,16 @@ behavior fa_validate_orphan_property "W123: Orphan Property" {
     it should either be referenced via the satisfies field or removed.
     Requires warning_level=strict to fire.
   """
-  requires   {
-    graph_built            "entity graph is fully constructed with all edges"
-    strict_warning_level   "warning_level is set to strict"
+  requires {
+    graph_built          "entity graph is fully constructed with all edges"
+    strict_warning_level "warning_level is set to strict"
   }
-  ensures    {
-    orphan_detected        "property with no incoming Satisfies edges produces W123 warning"
-    referenced_passes      "property with at least one incoming Satisfies edge produces no diagnostic"
-    correct_template       "message template is: property '{id}' is not satisfied by any behavior"
+  ensures {
+    orphan_detected   "property with no incoming Satisfies edges produces W123 warning"
+    referenced_passes "property with at least one incoming Satisfies edge produces no diagnostic"
+    correct_template  "message template is: property '{id}' is not satisfied by any behavior"
   }
-
-  features [fa_temporal_properties]
-
+  features   [fa_temporal_properties]
   verify unit "property with no incoming Satisfies edges produces W123"
   verify unit "property with Satisfies edge passes"
   verify unit "W123 only fires at warning_level=strict"
@@ -86,14 +82,12 @@ behavior fa_validate_empty_property_description "W124: Empty Property Descriptio
     Properties are temporal assertions — a blank description makes the
     property opaque to agents and reviewers.
   """
-  ensures  {
-    empty_warned           "property with empty description produces W124 warning"
-    non_empty_passes       "property with non-empty description passes"
-    correct_template       "message template is: property '{id}' has empty description"
+  ensures {
+    empty_warned     "property with empty description produces W124 warning"
+    non_empty_passes "property with non-empty description passes"
+    correct_template "message template is: property '{id}' has empty description"
   }
-
   features [fa_temporal_properties]
-
   verify unit "property with empty description produces W124"
   verify unit "property with non-empty description passes"
 }
@@ -106,14 +100,12 @@ behavior fa_validate_property_without_kind "W125: Property Without Kind" {
     (safety/liveness/fairness) classifies the temporal assertion and
     is required for meaningful graph queries and agent consumption.
   """
-  ensures  {
-    missing_warned         "property with no kind field produces W125 warning"
-    present_passes         "property with kind field produces no diagnostic"
-    correct_template       "message template is: property '{id}' has no kind (safety/liveness/fairness)"
+  ensures {
+    missing_warned   "property with no kind field produces W125 warning"
+    present_passes   "property with kind field produces no diagnostic"
+    correct_template "message template is: property '{id}' has no kind (safety/liveness/fairness)"
   }
-
   features [fa_temporal_properties]
-
   verify unit "property with no kind produces W125"
   verify unit "property with kind=safety passes"
   verify unit "property with kind=liveness passes"
@@ -132,18 +124,16 @@ behavior fa_validate_orphan_axiom "W126: Orphan Axiom" {
     either be referenced via the assumes field or removed.
     Requires warning_level=strict to fire.
   """
-  requires   {
-    graph_built            "entity graph is fully constructed with all edges"
-    strict_warning_level   "warning_level is set to strict"
+  requires {
+    graph_built          "entity graph is fully constructed with all edges"
+    strict_warning_level "warning_level is set to strict"
   }
-  ensures    {
-    orphan_detected        "axiom with no incoming AssumedBy edges produces W126 warning"
-    referenced_passes      "axiom with at least one incoming AssumedBy edge produces no diagnostic"
-    correct_template       "message template is: axiom '{id}' is not assumed by any condition"
+  ensures {
+    orphan_detected   "axiom with no incoming AssumedBy edges produces W126 warning"
+    referenced_passes "axiom with at least one incoming AssumedBy edge produces no diagnostic"
+    correct_template  "message template is: axiom '{id}' is not assumed by any condition"
   }
-
-  features [fa_axiom_foundations]
-
+  features   [fa_axiom_foundations]
   verify unit "axiom with no incoming AssumedBy edges produces W126"
   verify unit "axiom with AssumedBy edge passes"
   verify unit "W126 only fires at warning_level=strict"
@@ -157,14 +147,12 @@ behavior fa_validate_empty_axiom_description "W127: Empty Axiom Description" {
     Axioms are assumed-true foundations — a blank description makes
     the assumption invisible and unjustifiable.
   """
-  ensures  {
-    empty_warned           "axiom with empty description produces W127 warning"
-    non_empty_passes       "axiom with non-empty description passes"
-    correct_template       "message template is: axiom '{id}' has empty description"
+  ensures {
+    empty_warned     "axiom with empty description produces W127 warning"
+    non_empty_passes "axiom with non-empty description passes"
+    correct_template "message template is: axiom '{id}' has empty description"
   }
-
   features [fa_axiom_foundations]
-
   verify unit "axiom with empty description produces W127"
   verify unit "axiom with non-empty description passes"
 }
@@ -181,18 +169,16 @@ behavior fa_validate_orphan_protocol "W128: Orphan Protocol" {
     should either be referenced via the follows_protocol field or removed.
     Requires warning_level=strict to fire.
   """
-  requires   {
-    graph_built            "entity graph is fully constructed with all edges"
-    strict_warning_level   "warning_level is set to strict"
+  requires {
+    graph_built          "entity graph is fully constructed with all edges"
+    strict_warning_level "warning_level is set to strict"
   }
-  ensures    {
-    orphan_detected        "protocol with no incoming FollowsProtocol edges produces W128 warning"
-    referenced_passes      "protocol with at least one incoming FollowsProtocol edge produces no diagnostic"
-    correct_template       "message template is: protocol '{id}' is not followed by any event"
+  ensures {
+    orphan_detected   "protocol with no incoming FollowsProtocol edges produces W128 warning"
+    referenced_passes "protocol with at least one incoming FollowsProtocol edge produces no diagnostic"
+    correct_template  "message template is: protocol '{id}' is not followed by any event"
   }
-
-  features [fa_protocol_contracts]
-
+  features   [fa_protocol_contracts]
   verify unit "protocol with no incoming FollowsProtocol edges produces W128"
   verify unit "protocol with FollowsProtocol edge passes"
   verify unit "W128 only fires at warning_level=strict"
@@ -206,14 +192,12 @@ behavior fa_validate_empty_protocol_description "W129: Empty Protocol Descriptio
     Protocols are synchronization contracts — a blank description makes
     the contract opaque to agents and event graph analysis.
   """
-  ensures  {
-    empty_warned           "protocol with empty description produces W129 warning"
-    non_empty_passes       "protocol with non-empty description passes"
-    correct_template       "message template is: protocol '{id}' has empty description"
+  ensures {
+    empty_warned     "protocol with empty description produces W129 warning"
+    non_empty_passes "protocol with non-empty description passes"
+    correct_template "message template is: protocol '{id}' has empty description"
   }
-
   features [fa_protocol_contracts]
-
   verify unit "protocol with empty description produces W129"
   verify unit "protocol with non-empty description passes"
 }
@@ -228,16 +212,14 @@ behavior fa_validate_protocol_ordering_conflict "W130: Protocol Ordering Conflic
     found, the protocol is misconfigured.
   """
   requires {
-    graph_built            "entity graph is fully constructed with all edges"
+    graph_built "entity graph is fully constructed with all edges"
   }
-  ensures  {
-    missing_event_warned   "protocol ordering referencing non-existent event produces W130 warning"
-    valid_ordering_passes  "protocol ordering with all valid event references produces no diagnostic"
-    correct_template       "message template is: protocol '{id}' ordering references unknown event '{event_id}'"
+  ensures {
+    missing_event_warned  "protocol ordering referencing non-existent event produces W130 warning"
+    valid_ordering_passes "protocol ordering with all valid event references produces no diagnostic"
+    correct_template      "message template is: protocol '{id}' ordering references unknown event '{event_id}'"
   }
-
   features [fa_protocol_contracts]
-
   verify unit "protocol ordering referencing non-existent event produces W130"
   verify unit "protocol ordering with all valid events passes"
   verify unit "protocol with empty ordering passes (no ordering to validate)"
@@ -256,18 +238,16 @@ behavior fa_validate_orphan_refinement "W131: Orphan Refinement" {
     from all behaviors and other refinements — it should either be
     connected or removed. Requires warning_level=strict to fire.
   """
-  requires   {
-    graph_built            "entity graph is fully constructed with all edges"
-    strict_warning_level   "warning_level is set to strict"
+  requires {
+    graph_built          "entity graph is fully constructed with all edges"
+    strict_warning_level "warning_level is set to strict"
   }
-  ensures    {
-    orphan_detected        "refinement with no refinement edges produces W131 warning"
-    referenced_passes      "refinement with at least one refinement edge produces no diagnostic"
-    correct_template       "message template is: refinement '{id}' is not connected to any behavior or refinement chain"
+  ensures {
+    orphan_detected   "refinement with no refinement edges produces W131 warning"
+    referenced_passes "refinement with at least one refinement edge produces no diagnostic"
+    correct_template  "message template is: refinement '{id}' is not connected to any behavior or refinement chain"
   }
-
-  features [fa_refinement_layering]
-
+  features   [fa_refinement_layering]
   verify unit "refinement with no edges produces W131"
   verify unit "refinement with abstract_entity and concrete_entity edges passes"
   verify unit "refinement with RefinementChainsToRefinement edge passes"
@@ -282,14 +262,12 @@ behavior fa_validate_empty_refinement_description "W132: Empty Refinement Descri
     Refinements capture abstract-to-concrete mappings — a blank description
     makes the mapping opaque to agents and reviewers.
   """
-  ensures  {
-    empty_warned           "refinement with empty description produces W132 warning"
-    non_empty_passes       "refinement with non-empty description passes"
-    correct_template       "message template is: refinement '{id}' has empty description"
+  ensures {
+    empty_warned     "refinement with empty description produces W132 warning"
+    non_empty_passes "refinement with non-empty description passes"
+    correct_template "message template is: refinement '{id}' has empty description"
   }
-
   features [fa_refinement_layering]
-
   verify unit "refinement with empty description produces W132"
   verify unit "refinement with non-empty description passes"
 }
@@ -304,16 +282,14 @@ behavior fa_validate_refinement_without_delta "W133: Refinement Without Conditio
     Requires warning_level=strict to fire.
   """
   requires {
-    strict_warning_level   "warning_level is set to strict"
+    strict_warning_level "warning_level is set to strict"
   }
-  ensures  {
-    missing_warned         "refinement with no conditions field produces W133 warning"
-    present_passes         "refinement with conditions field produces no diagnostic"
-    correct_template       "message template is: refinement '{id}' has no condition delta"
+  ensures {
+    missing_warned   "refinement with no conditions field produces W133 warning"
+    present_passes   "refinement with conditions field produces no diagnostic"
+    correct_template "message template is: refinement '{id}' has no condition delta"
   }
-
   features [fa_refinement_layering]
-
   verify unit "refinement with no conditions produces W133"
   verify unit "refinement with conditions passes"
   verify unit "W133 only fires at warning_level=strict"
@@ -330,16 +306,14 @@ behavior fa_validate_refinement_self_reference "E041b: Refinement Self-Reference
     it creates a trivial cycle. Produces E041 error.
   """
   requires {
-    graph_built            "entity graph is fully constructed with all edges"
+    graph_built "entity graph is fully constructed with all edges"
   }
-  ensures  {
-    self_ref_detected      "refinement with abstract_entity == concrete_entity produces E041 error"
-    distinct_passes        "refinement with distinct abstract_entity and concrete_entity produces no diagnostic"
-    correct_template       "message template is: refinement '{id}' maps behavior '{behavior_id}' to itself"
+  ensures {
+    self_ref_detected "refinement with abstract_entity == concrete_entity produces E041 error"
+    distinct_passes   "refinement with distinct abstract_entity and concrete_entity produces no diagnostic"
+    correct_template  "message template is: refinement '{id}' maps behavior '{behavior_id}' to itself"
   }
-
   features [fa_refinement_layering]
-
   verify unit "refinement with abstract_entity == concrete_entity produces E041"
   verify unit "refinement with distinct IDs passes"
 }
@@ -356,18 +330,16 @@ behavior fa_validate_orphan_process "W134: Orphan Process" {
     in — it should either have events assigned to its alphabet or be
     removed. Requires warning_level=strict to fire.
   """
-  requires   {
-    graph_built            "entity graph is fully constructed with all edges"
-    strict_warning_level   "warning_level is set to strict"
+  requires {
+    graph_built          "entity graph is fully constructed with all edges"
+    strict_warning_level "warning_level is set to strict"
   }
-  ensures    {
-    orphan_detected        "process with no incoming ParticipatesIn edges produces W134 warning"
-    referenced_passes      "process with at least one incoming ParticipatesIn edge produces no diagnostic"
-    correct_template       "message template is: process '{id}' has no events participating in it"
+  ensures {
+    orphan_detected   "process with no incoming ParticipatesIn edges produces W134 warning"
+    referenced_passes "process with at least one incoming ParticipatesIn edge produces no diagnostic"
+    correct_template  "message template is: process '{id}' has no events participating in it"
   }
-
-  features [fa_process_modeling]
-
+  features   [fa_process_modeling]
   verify unit "process with no incoming ParticipatesIn edges produces W134"
   verify unit "process with ParticipatesIn edge passes"
   verify unit "W134 only fires at warning_level=strict"
@@ -381,14 +353,12 @@ behavior fa_validate_empty_process_description "W135: Empty Process Description"
     Processes model communicating sequential processes — a blank description
     makes the process opaque to agents and event graph analysis.
   """
-  ensures  {
-    empty_warned           "process with empty description produces W135 warning"
-    non_empty_passes       "process with non-empty description passes"
-    correct_template       "message template is: process '{id}' has empty description"
+  ensures {
+    empty_warned     "process with empty description produces W135 warning"
+    non_empty_passes "process with non-empty description passes"
+    correct_template "message template is: process '{id}' has empty description"
   }
-
   features [fa_process_modeling]
-
   verify unit "process with empty description produces W135"
   verify unit "process with non-empty description passes"
 }
@@ -403,16 +373,14 @@ behavior fa_validate_process_without_alphabet "W136: Process Without Alphabet" {
     Requires warning_level=strict to fire.
   """
   requires {
-    strict_warning_level   "warning_level is set to strict"
+    strict_warning_level "warning_level is set to strict"
   }
-  ensures  {
-    missing_warned         "process with empty or absent alphabet produces W136 warning"
-    present_passes         "process with non-empty alphabet produces no diagnostic"
-    correct_template       "message template is: process '{id}' has no alphabet (no events declared)"
+  ensures {
+    missing_warned   "process with empty or absent alphabet produces W136 warning"
+    present_passes   "process with non-empty alphabet produces no diagnostic"
+    correct_template "message template is: process '{id}' has no alphabet (no events declared)"
   }
-
   features [fa_process_modeling]
-
   verify unit "process with empty alphabet produces W136"
   verify unit "process with non-empty alphabet passes"
   verify unit "W136 only fires at warning_level=strict"

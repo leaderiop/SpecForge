@@ -9,6 +9,7 @@
 use "behaviors/extensions"
 use "behaviors/wasm-lifecycle"
 use "invariants/extensions"
+
 // Invariants (offline_first_extension_resolution, registry_api_openness) are
 // enforced transitively through behaviors — features inherit invariant coverage
 // from their behavior composition lists.
@@ -17,13 +18,11 @@ use "invariants/extensions"
 // (add_extension_to_existing_project behavior). specforge remove and specforge extensions
 // are managed here. See also features/wasm.spec for install/uninstall lifecycle.
 feature extension_management "Extension Management" {
-
-  problem """
+  problem  """
     The core compiler has zero built-in entity types. Teams need to
     install extensions that provide the entity kinds they use, and the
     compiler must gracefully handle references to uninstalled extensions.
   """
-
   solution """
     Contribution-based extension model with nine contribution types (entities, validators, renderers, providers, parsers, collectors, grammars, body_parsers, verify_kinds — with prompts deferred to Phase 2):
     specforge remove manages
@@ -38,13 +37,11 @@ feature extension_management "Extension Management" {
 }
 
 feature provider_based_ref_validation "Provider-Based Ref Validation" {
-
-  problem """
+  problem  """
     External references with custom schemes need pluggable validation —
     typos in reference identifiers should be caught at compile time, not
     discovered during a review.
   """
-
   solution """
     Provider model: providers are Wasm modules that register ref schemes
     and kinds. The compiler delegates validation to the appropriate
@@ -59,15 +56,13 @@ feature extension_registry "Extension Registry" {
   // Cross-feature: registry_api_openness invariant also references
   // publish_schema_specification from features/output.spec — the open registry
   // API schema is part of the Graph Protocol publishing surface.
-
-  problem """
+  problem  """
     Extensions are currently resolved from local paths or direct URLs.
     There is no registry API for discovering, searching, or publishing
     extensions. Without a registry, the H2 ecosystem cannot grow —
     extension authors have no standard way to share their work and
     users have no way to discover available extensions.
   """
-
   solution """
     Registry API with configurable endpoints and an open, published API
     specification (per P6: "the standard is the moat"). The registry API
@@ -88,14 +83,12 @@ feature extension_registry "Extension Registry" {
 }
 
 feature registry_authentication "Registry Authentication" {
-
-  problem """
+  problem  """
     Extension registries may require authentication for private or enterprise
     extensions. There is no mechanism to configure credentials, authenticate
     requests, or manage trust levels for private registries. Without
     authentication, organizations cannot use private extension repositories.
   """
-
   solution """
     Registry credential management via specforge registry login and
     specforge registry logout. Credentials are stored as environment variable

@@ -14,14 +14,12 @@ use "types/zero-entity-core"
 // Distinct from condition: conditions are point-in-time state,
 // properties are assertions about behavior over TIME.
 
-
 type PropertyKind = safety | liveness | fairness
 
 type FormalProperty {
   description string
   kind        PropertyKind
   references  EntityId[] @optional
-
   verify property "FormalProperty"
 }
 
@@ -31,9 +29,8 @@ type FormalProperty {
 
 type FormalAxiom {
   description   string
-  justification string @optional
+  justification string     @optional
   references    EntityId[] @optional
-
   verify property "FormalAxiom"
 }
 
@@ -43,11 +40,10 @@ type FormalAxiom {
 
 type FormalProtocol {
   description string
-  ordering    string[] @optional
-  timeout     string @optional
+  ordering    string[]          @optional
+  timeout     string            @optional
   delivery    DeliverySemantics @optional
-  references  EntityId[] @optional
-
+  references  EntityId[]        @optional
   verify property "FormalProtocol"
 }
 
@@ -55,42 +51,37 @@ type FormalProtocol {
 // First-class entity kind for specification layering.
 // Captures abstract->concrete behavior mapping as a graph node.
 
-
 type RefinementStatus = proposed | verified | discharged
 
 type FormalRefinement {
-  description string
+  description     string
   abstract_entity EntityId
   concrete_entity EntityId
-  conditions  ConditionDelta @optional
-  status      RefinementStatus @optional
-  references  EntityId[] @optional
-
+  conditions      ConditionDelta   @optional
+  status          RefinementStatus @optional
+  references      EntityId[]       @optional
   verify property "FormalRefinement"
 }
 
 // ── Process Entity Kind ─────────────────────────────────────
 // CSP-style communicating process with alphabet, states, composition.
 
-
 type CompositionOperator = parallel | sequential | choice | interleaving
 
 type FormalProcess {
   description string
-  alphabet    EntityId[] @optional
-  states      ProcessState[] @optional
+  alphabet    EntityId[]          @optional
+  states      ProcessState[]      @optional
   composition CompositionOperator @optional
-  references  EntityId[] @optional
-
+  references  EntityId[]          @optional
   verify property "FormalProcess"
 }
 
 type ProcessState {
-  name        string @readonly
-  description string @optional
+  name        string  @readonly
+  description string  @optional
   initial     boolean @optional
   accepting   boolean @optional
-
   verify property "ProcessState"
 }
 
@@ -99,7 +90,6 @@ type ProcessState {
 type ConditionEntry {
   name        string @readonly
   description string
-
   verify property "ConditionEntry"
 }
 
@@ -110,23 +100,20 @@ type ConditionEntry {
 
 // ── Event Graph Linting Types ───────────────────────────────
 
-
 type DeliverySemantics = at_most_once | at_least_once | exactly_once
 
 // ── Specification Layering Types ────────────────────────────
 
 type RefinementStep {
-  fromId    EntityId @readonly
-  toId      EntityId @readonly
+  fromId     EntityId       @readonly
+  toId       EntityId       @readonly
   conditions ConditionDelta @optional
-
   verify property "RefinementStep"
 }
 
 type ConditionDelta {
   added_ensures    string[] @optional
   removed_requires string[] @optional
-
   verify property "ConditionDelta"
 }
 
@@ -141,13 +128,14 @@ type CoverageTrackingItem {
   kind         CoverageTrackingKind
   description  string
   status       CoverageDischargeStatus
-  dischargedBy string @optional
-
+  dischargedBy string   @optional
   verify property "CoverageTrackingItem"
 }
 
-
-type CoverageTrackingKind = condition_coverage | invariant_coverage | layering_coverage | process_coverage
+type CoverageTrackingKind = condition_coverage
+  | invariant_coverage
+  | layering_coverage
+  | process_coverage
 
 // Extended from 3 to 5 statuses per expert recommendation:
 // test_written: test exists but has not yet been executed
@@ -164,21 +152,21 @@ type EventGraphAnalysisReport {
   unmatched_count    integer
   channel_mismatches integer
   timed_out          boolean @optional
-
   verify property "EventGraphAnalysisReport"
 }
 
 // ── Graph Annotation Types ──────────────────────────────────
 // Analysis results attached as node properties for agent consumption
 
-
-type FormalAnalysisResult = ConditionAnalysisResult | LayeringAnalysisResult | CycleAnalysisResult | CoverageAnalysisResult
+type FormalAnalysisResult = ConditionAnalysisResult
+  | LayeringAnalysisResult
+  | CycleAnalysisResult
+  | CoverageAnalysisResult
 
 type FormalAnalysisAnnotation {
-  entity_id   EntityId @readonly
-  pass_name   string @readonly
-  result      FormalAnalysisResult
-
+  entity_id EntityId @readonly
+  pass_name string   @readonly
+  result    FormalAnalysisResult
   verify property "FormalAnalysisAnnotation"
 }
 
@@ -187,36 +175,32 @@ type ConditionAnalysisResult {
   reachable      boolean
   contradictions string[] @optional
   warnings       string[] @optional
-
   verify property "ConditionAnalysisResult"
 }
 
 type LayeringAnalysisResult {
-  complete       boolean
-  chain_depth    integer
-  missing_concretes string[] @optional
+  complete            boolean
+  chain_depth         integer
+  missing_concretes   string[] @optional
   contract_violations string[] @optional
-
   verify property "LayeringAnalysisResult"
 }
 
 type CycleAnalysisResult {
-  has_cycles     boolean
-  cycle_count    integer
-  mitigated      boolean
-  cycle_paths    string[][] @optional
-
+  has_cycles  boolean
+  cycle_count integer
+  mitigated   boolean
+  cycle_paths string[][] @optional
   verify property "CycleAnalysisResult"
 }
 
 type CoverageAnalysisResult {
-  total_items    integer
-  pending        integer
-  test_written   integer
-  test_failing   integer
-  test_covered   integer
-  heuristic_ok   integer
-
+  total_items  integer
+  pending      integer
+  test_written integer
+  test_failing integer
+  test_covered integer
+  heuristic_ok integer
   verify property "CoverageAnalysisResult"
 }
 
@@ -224,6 +208,5 @@ type CoverageAnalysisResult {
 // Renamed from FormalityLevel per terminology rename.
 // Level 4 requires test_covered obligations; heuristic_ok alone
 // is insufficient for the highest depth level.
-
 
 type SpecificationDepthLevel = prose | entity_graph | conditions | invariants | proofs

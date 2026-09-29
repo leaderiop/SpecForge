@@ -4,17 +4,17 @@
 // what happens when peer dependencies are absent. This is Phase 4 of
 // the 10-expert analysis recommendations.
 
-use "types/zero-entity-core"
-use "types/wasm"
 use "types/diagnostics"
+use "types/wasm"
+use "types/zero-entity-core"
 
 // ---------------------------------------------------------------------------
 // Pattern 1: Software Team
 // ---------------------------------------------------------------------------
 
 behavior cp_software_team "Composition Pattern: Software Team" {
-  category   command
-  features   [pe_cross_extension_cooperation]
+  category command
+  features [pe_cross_extension_cooperation]
   contract """
     When @specforge/product, @specforge/software, @specforge/coverage,
     and @specforge/governance are all installed, the full software
@@ -60,7 +60,6 @@ behavior cp_software_team "Composition Pattern: Software Team" {
     coverage_traces_four   "Coverage discovers 4 testable kinds: behavior, invariant, event, constraint"
     all_validation_fires   "Validation rules from all 4 extensions execute"
   }
-
   verify unit "16 entity kinds registered across product, software, governance"
   verify unit "Implements edge resolves behavior to feature without I004"
   verify unit "MilestoneBehavior edge resolves milestone to behavior"
@@ -74,8 +73,8 @@ behavior cp_software_team "Composition Pattern: Software Team" {
 // ---------------------------------------------------------------------------
 
 behavior cp_regulated_team "Composition Pattern: Regulated Team" {
-  category   command
-  features   [pe_cross_extension_cooperation]
+  category command
+  features [pe_cross_extension_cooperation]
   contract """
     When @specforge/product, @specforge/software, @specforge/coverage,
     @specforge/governance, and @specforge/compliance are all installed,
@@ -113,13 +112,12 @@ behavior cp_regulated_team "Composition Pattern: Regulated Team" {
     compliance_installed "@specforge/compliance is installed"
   }
   ensures {
-    twenty_entity_kinds       "KindRegistry contains exactly 20 entity kinds from 4 entity-declaring extensions"
-    dual_traceability_chains  "Software and compliance traceability chains coexist independently"
-    compliance_enhancements   "journey gains controls field, deliverable gains regulations field"
-    coverage_traces_five      "Coverage discovers 5 testable kinds across software, governance, compliance"
-    no_cross_chain_conflicts  "Validation rules from software and compliance do not interfere"
+    twenty_entity_kinds      "KindRegistry contains exactly 20 entity kinds from 4 entity-declaring extensions"
+    dual_traceability_chains "Software and compliance traceability chains coexist independently"
+    compliance_enhancements  "journey gains controls field, deliverable gains regulations field"
+    coverage_traces_five     "Coverage discovers 5 testable kinds across software, governance, compliance"
+    no_cross_chain_conflicts "Validation rules from software and compliance do not interfere"
   }
-
   verify unit "20 entity kinds registered across product, software, governance, compliance"
   verify unit "journey has both items (product) and controls (compliance enhancement) fields"
   verify unit "deliverable has both journeys (product) and regulations (compliance enhancement) fields"
@@ -133,8 +131,8 @@ behavior cp_regulated_team "Composition Pattern: Regulated Team" {
 // ---------------------------------------------------------------------------
 
 behavior cp_compliance_only "Composition Pattern: Compliance-Only" {
-  category   command
-  features   [pe_cross_extension_cooperation]
+  category command
+  features [pe_cross_extension_cooperation]
   contract """
     When only @specforge/product and @specforge/compliance are installed
     (no @specforge/software, no @specforge/governance), the graph supports
@@ -168,9 +166,9 @@ behavior cp_compliance_only "Composition Pattern: Compliance-Only" {
     @specforge/software. The reference is stored but unresolved.
   """
   requires {
-    product_installed      "@specforge/product is installed"
-    compliance_installed   "@specforge/compliance is installed"
-    software_not_installed "@specforge/software is NOT installed"
+    product_installed        "@specforge/product is installed"
+    compliance_installed     "@specforge/compliance is installed"
+    software_not_installed   "@specforge/software is NOT installed"
     governance_not_installed "@specforge/governance is NOT installed"
   }
   ensures {
@@ -180,7 +178,6 @@ behavior cp_compliance_only "Composition Pattern: Compliance-Only" {
     compliance_chain_complete "regulation -> control -> evidence -> audit edges all resolve"
     software_refs_emit_i004   "References to behavior or invariant emit I004 info diagnostic"
   }
-
   verify unit "12 entity kinds registered across product and compliance"
   verify unit "feature has items field but NOT behaviors field"
   verify unit "milestone has items field but NOT behaviors field"
@@ -193,8 +190,8 @@ behavior cp_compliance_only "Composition Pattern: Compliance-Only" {
 // ---------------------------------------------------------------------------
 
 behavior cp_minimal "Composition Pattern: Minimal (Product Only)" {
-  category   command
-  features   [pe_cross_extension_cooperation]
+  category command
+  features [pe_cross_extension_cooperation]
   contract """
     When only @specforge/product is installed, the graph contains the
     minimal domain vocabulary: what ships, to whom, when. No software
@@ -228,18 +225,17 @@ behavior cp_minimal "Composition Pattern: Minimal (Product Only)" {
     and add extensions incrementally as needs grow.
   """
   requires {
-    product_installed        "@specforge/product is installed"
+    product_installed          "@specforge/product is installed"
     no_other_entity_extensions "No other entity-declaring extensions are installed"
   }
   ensures {
-    eight_entity_kinds         "KindRegistry contains exactly 8 entity kinds from product"
-    nine_edge_types            "EdgeRegistry contains exactly 9 edge types from product"
-    no_enhancements            "No entity enhancements are active"
-    product_validation_fires   "Product validation rules (E007-E009, W041-W044, I010) fire"
-    zero_testable_entities     "No testable entity kinds are registered"
-    no_i004_within_product     "All intra-product references resolve without I004"
+    eight_entity_kinds       "KindRegistry contains exactly 8 entity kinds from product"
+    nine_edge_types          "EdgeRegistry contains exactly 9 edge types from product"
+    no_enhancements          "No entity enhancements are active"
+    product_validation_fires "Product validation rules (E007-E009, W041-W044, I010) fire"
+    zero_testable_entities   "No testable entity kinds are registered"
+    no_i004_within_product   "All intra-product references resolve without I004"
   }
-
   verify unit "8 entity kinds registered from product only"
   verify unit "9 edge types registered from product only"
   verify unit "feature has problem, solution, items but no behaviors field"
@@ -253,8 +249,8 @@ behavior cp_minimal "Composition Pattern: Minimal (Product Only)" {
 // ---------------------------------------------------------------------------
 
 behavior cp_missing_product_from_software "Missing @specforge/product: Software Features Field" {
-  types [PeerDependency]
-  category   command
+  types    [PeerDependency]
+  category command
   contract """
     When @specforge/software is installed but @specforge/product is NOT
     installed, and a behavior entity declares a features field referencing
@@ -289,19 +285,18 @@ behavior cp_missing_product_from_software "Missing @specforge/product: Software 
     resolve on the next compilation without any .spec file changes.
   """
   requires {
-    software_installed     "@specforge/software is installed"
-    product_not_installed  "@specforge/product is NOT installed"
-    features_field_used    "A behavior entity declares features [...]"
+    software_installed    "@specforge/software is installed"
+    product_not_installed "@specforge/product is NOT installed"
+    features_field_used   "A behavior entity declares features [...]"
   }
   ensures {
-    reference_stored       "The features reference list is parsed and stored"
-    i004_emitted           "I004 info diagnostic emitted for unresolved feature kind"
-    e003_not_emitted       "E003 error is NOT emitted for cross-extension soft references"
-    enhancements_skipped   "entity_enhancements targeting product kinds are silently ignored"
-    edge_type_loaded       "Implements edge type exists in EdgeRegistry but no instances created"
-    future_resolution      "Installing @specforge/product resolves the references without .spec changes"
+    reference_stored     "The features reference list is parsed and stored"
+    i004_emitted         "I004 info diagnostic emitted for unresolved feature kind"
+    e003_not_emitted     "E003 error is NOT emitted for cross-extension soft references"
+    enhancements_skipped "entity_enhancements targeting product kinds are silently ignored"
+    edge_type_loaded     "Implements edge type exists in EdgeRegistry but no instances created"
+    future_resolution    "Installing @specforge/product resolves the references without .spec changes"
   }
-
   verify unit "features field parsed and stored when product not installed"
   verify unit "I004 names the kind no enabled extension provides"
   verify unit "E003 not emitted for soft cross-extension reference"
@@ -310,8 +305,8 @@ behavior cp_missing_product_from_software "Missing @specforge/product: Software 
 }
 
 behavior cp_missing_software_from_governance "Missing @specforge/software: Governance Cross-Refs" {
-  types [PeerDependency]
-  category   command
+  types    [PeerDependency]
+  category command
   contract """
     When @specforge/governance is installed but @specforge/software is
     NOT installed, and governance entities reference software kinds:
@@ -347,18 +342,17 @@ behavior cp_missing_software_from_governance "Missing @specforge/software: Gover
     Only cross-extension edges to software kinds are affected.
   """
   requires {
-    governance_installed     "@specforge/governance is installed"
-    software_not_installed   "@specforge/software is NOT installed"
-    cross_refs_used          "Governance entities declare references targeting software kinds"
+    governance_installed   "@specforge/governance is installed"
+    software_not_installed "@specforge/software is NOT installed"
+    cross_refs_used        "Governance entities declare references targeting software kinds"
   }
   ensures {
-    references_stored        "Cross-extension reference lists are parsed and stored"
-    i004_emitted             "I004 info diagnostic emitted for each unresolved software kind"
-    e003_not_emitted         "E003 error is NOT emitted — peer dependency is optional"
-    governance_still_works   "decision, constraint, failure_mode entities function normally"
-    cross_edges_not_created  "ConstrainsBehavior and related edges exist in registry but no instances created"
+    references_stored       "Cross-extension reference lists are parsed and stored"
+    i004_emitted            "I004 info diagnostic emitted for each unresolved software kind"
+    e003_not_emitted        "E003 error is NOT emitted — peer dependency is optional"
+    governance_still_works  "decision, constraint, failure_mode entities function normally"
+    cross_edges_not_created "ConstrainsBehavior and related edges exist in registry but no instances created"
   }
-
   verify unit "constrains field parsed and stored when software not installed"
   verify unit "I004 emitted for unresolved behavior kind reference"
   verify unit "I004 emitted for unresolved invariant kind reference"
@@ -367,8 +361,8 @@ behavior cp_missing_software_from_governance "Missing @specforge/software: Gover
 }
 
 behavior cp_validation_rules_skip_absent_kinds "Validation Rules Skip Absent Target Kinds" {
-  types [ValidationRulePattern, KindRegistryEntry]
-  category   command
+  types    [ValidationRulePattern, KindRegistryEntry]
+  category command
   contract """
     Validation rules declared in extension manifests include a target_kind
     field that specifies which entity kind the rule applies to. When the
@@ -402,17 +396,16 @@ behavior cp_validation_rules_skip_absent_kinds "Validation Rules Skip Absent Tar
     activate only when the full composition is present.
   """
   requires {
-    validation_rules_loaded  "Extension manifests have been loaded and validation rules extracted"
-    kind_registry_populated  "KindRegistry is populated from installed extensions"
+    validation_rules_loaded "Extension manifests have been loaded and validation rules extracted"
+    kind_registry_populated "KindRegistry is populated from installed extensions"
   }
   ensures {
-    absent_kind_skipped      "Rules with target_kind not in KindRegistry are silently skipped"
-    present_kind_fires       "Rules with target_kind in KindRegistry execute normally"
-    no_diagnostic_for_skip   "No error, warning, or info diagnostic emitted for skipped rules"
-    intra_extension_always   "Rules targeting kinds from the same extension always fire"
-    o1_skip_check            "Skip check is O(1) hash lookup per rule"
+    absent_kind_skipped    "Rules with target_kind not in KindRegistry are silently skipped"
+    present_kind_fires     "Rules with target_kind in KindRegistry execute normally"
+    no_diagnostic_for_skip "No error, warning, or info diagnostic emitted for skipped rules"
+    intra_extension_always "Rules targeting kinds from the same extension always fire"
+    o1_skip_check          "Skip check is O(1) hash lookup per rule"
   }
-
   verify unit "validation rule with absent target_kind is silently skipped"
   verify unit "validation rule with present target_kind fires normally"
   verify unit "no diagnostic emitted when rule skipped due to absent kind"
@@ -420,8 +413,8 @@ behavior cp_validation_rules_skip_absent_kinds "Validation Rules Skip Absent Tar
 }
 
 behavior cp_milestone_behavior_edge_absent "Product MilestoneBehavior Edge When Software Absent" {
-  types [ManifestEdgeType, PeerDependency]
-  category   command
+  types    [ManifestEdgeType, PeerDependency]
+  category command
   contract """
     The MilestoneBehavior edge is declared in @specforge/software's
     manifest with source_kind="milestone" (product) and
@@ -461,14 +454,13 @@ behavior cp_milestone_behavior_edge_absent "Product MilestoneBehavior Edge When 
     software_not_installed "@specforge/software is NOT installed"
   }
   ensures {
-    no_milestone_behavior_edge   "MilestoneBehavior edge type not in EdgeRegistry"
-    no_behaviors_field           "milestone entity kind does not have behaviors field"
-    unknown_field_diagnostic     "Using behaviors field on milestone emits field validation error"
-    milestone_feature_works      "MilestoneFeature edge (product-internal) works normally"
-    items_field_works            "milestone items field accepts any reference"
-    graceful_degradation         "Milestones remain functional for product-level planning"
+    no_milestone_behavior_edge "MilestoneBehavior edge type not in EdgeRegistry"
+    no_behaviors_field         "milestone entity kind does not have behaviors field"
+    unknown_field_diagnostic   "Using behaviors field on milestone emits field validation error"
+    milestone_feature_works    "MilestoneFeature edge (product-internal) works normally"
+    items_field_works          "milestone items field accepts any reference"
+    graceful_degradation       "Milestones remain functional for product-level planning"
   }
-
   verify unit "MilestoneBehavior edge absent when software not installed"
   verify unit "milestone has no behaviors field when software not installed"
   verify unit "behaviors field on milestone emits unknown field diagnostic"

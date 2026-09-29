@@ -4,15 +4,20 @@
 // validation rules, and field-level validation for product entities.
 
 use "extensions/product/invariants"
-use "extensions/product/types"
 use "extensions/product/ports"
+use "extensions/product/types"
 use "product/features"
-use "types/zero-entity-core"
 use "types/diagnostics"
+use "types/zero-entity-core"
 
 behavior pe_register_entity_kinds "Register Product Entity Kinds" {
   category   command
-  invariants [pe_feature_non_testable, pe_persona_non_testable, pe_channel_non_testable, pe_product_verify_support]
+  invariants [
+    pe_feature_non_testable,
+    pe_persona_non_testable,
+    pe_channel_non_testable,
+    pe_product_verify_support,
+  ]
   types      [
     ManifestEntityKind,
     ProductFeature,
@@ -28,16 +33,16 @@ behavior pe_register_entity_kinds "Register Product Entity Kinds" {
     ProductEntityRegistrationPayload,
     RegistrationError,
   ]
-  produces  [pe_entity_kinds_registered]
+  produces   [pe_entity_kinds_registered]
   contract   """
     The @specforge/product extension MUST register 9 entity kinds with
     full metadata in the KindRegistry.
   """
-  requires   {
-    manifest_loaded        "ManifestV2 is parsed and schema-validated"
-    no_duplicate_kinds     "KindRegistry has no entries with names matching this extension's kinds"
+  requires {
+    manifest_loaded    "ManifestV2 is parsed and schema-validated"
+    no_duplicate_kinds "KindRegistry has no entries with names matching this extension's kinds"
   }
-  ensures    {
+  ensures {
     journey_registered     "KindRegistry contains journey: testable=false, supportsVerify=false, semanticToken=class, lspIcon=Module, dotShape=hexagon"
     deliverable_registered "KindRegistry contains deliverable: testable=false, supportsVerify=true, semanticToken=class, lspIcon=Package, dotShape=box3d"
     milestone_registered   "KindRegistry contains milestone: testable=false, supportsVerify=true, semanticToken=class, lspIcon=Calendar, dotShape=tab"
@@ -49,10 +54,8 @@ behavior pe_register_entity_kinds "Register Product Entity Kinds" {
     release_registered     "KindRegistry contains release: testable=false, supportsVerify=false, semanticToken=class, lspIcon=Symbol, dotShape=box"
     nine_kinds_total       "KindRegistry has exactly 9 domain entries after registration"
   }
-
-  ports    [ProductRegistrationPort, KindRegistryPort]
-  features [pe_core_entity_kinds, product_entity_registration]
-
+  ports      [ProductRegistrationPort, KindRegistryPort]
+  features   [pe_core_entity_kinds, product_entity_registration]
   verify unit "journey registered with testable=false"
   verify unit "deliverable registered with testable=false, supportsVerify=true"
   verify unit "milestone registered with dotShape=tab"
@@ -67,15 +70,15 @@ behavior pe_register_entity_kinds "Register Product Entity Kinds" {
 behavior pe_register_edge_types "Register Product Edge Types" {
   category command
   types    [ManifestEdgeType, ProductEdgeTypesRegisteredPayload]
-  produces  [pe_edge_types_registered]
+  produces [pe_edge_types_registered]
   contract """
     The @specforge/product extension MUST register 16 edge types that
     model relationships between the 9 entity kinds.
   """
   requires {
-    kinds_registered       "all 9 entity kinds are in KindRegistry"
+    kinds_registered "all 9 entity kinds are in KindRegistry"
   }
-  ensures  {
+  ensures {
     journey_feature        "EdgeTypeSet contains JourneyFeature (journey->feature)"
     deliverable_journey    "EdgeTypeSet contains DeliverableJourney (deliverable->journey)"
     module_depends_on      "EdgeTypeSet contains ModuleDependsOn (module->module)"
@@ -94,10 +97,8 @@ behavior pe_register_edge_types "Register Product Edge Types" {
     release_milestone      "EdgeTypeSet contains ReleaseMilestone (release->milestone)"
     sixteen_edges_total    "EdgeTypeSet has exactly 16 entries"
   }
-
   ports    [ProductRegistrationPort, EdgeTypeRegistryPort]
   features [pe_core_entity_kinds, product_entity_registration]
-
   verify unit "all 16 edge types registered in edge set"
   verify unit "JourneyFeature edge has sourceKind=journey and targetKind=feature"
   verify unit "ModuleDependsOn edge has sourceKind=module and targetKind=module"
@@ -118,7 +119,7 @@ behavior pe_register_edge_types "Register Product Edge Types" {
 behavior pe_register_field_definitions "Register Product Field Definitions" {
   category command
   types    [ManifestField, ManifestEntityKind, ProductFieldsRegisteredPayload]
-  produces  [pe_field_definitions_registered]
+  produces [pe_field_definitions_registered]
   contract """
     The @specforge/product extension MUST register field definitions for
     each entity kind with name, type, edge mapping, and target kind.
@@ -126,21 +127,19 @@ behavior pe_register_field_definitions "Register Product Field Definitions" {
   requires {
     kinds_and_edges_registered "all 9 kinds and 16 edge types are registered"
   }
-  ensures  {
-    feature_fields         "feature has: problem(string), solution(string), priority(Priority), status(string), acceptance(string[]), depends_on(reference[]->feature, FeatureDependsOn), reason(string), tags(string[])"
-    journey_fields         "journey has: persona(reference->persona, JourneyPersona), description(string), channels(reference[]->channel, JourneyChannel), features(reference[]->feature, JourneyFeature), flow(string[]), priority(Priority), tags(string[])"
-    deliverable_fields     "deliverable has: artifact_type(ArtifactType), status(DeliverableStatus), journeys(reference[]->journey, DeliverableJourney), modules(reference[]->module, DeliverableModule), version(string), milestones(reference[]->milestone, DeliverableMilestone), depends_on(reference[]->deliverable, DeliverableDependsOn), reason(string), tags(string[])"
-    milestone_fields       "milestone has: status(MilestoneStatus), features(reference[]->feature, MilestoneFeature), exit_criteria(string[]), target_date(string), modules(reference[]->module, MilestoneModule), depends_on(reference[]->milestone, MilestoneDependsOn), priority(Priority), reason(string), tags(string[])"
-    module_fields          "module has: family(string), description(string), features(reference[]->feature, ModuleFeature), depends_on(reference[]->module, ModuleDependsOn), tags(string[])"
-    term_fields            "term has: definition(string), context(string), aliases(string[]), see_also(reference[]->term, TermSeeAlso), tags(string[])"
-    persona_fields         "persona has: description(string), technical_level(TechnicalLevel), goals(string[]), pain_points(string[]), status(PersonaStatus), tags(string[])"
-    channel_fields         "channel has: description(string), interaction_model(InteractionModel), status(ChannelStatus), tags(string[])"
-    status_defaults        "status fields declare default_value: feature.status='proposed', milestone.status='planned', deliverable.status='draft', persona.status='active', channel.status='active', release.status='planned'"
+  ensures {
+    feature_fields     "feature has: problem(string), solution(string), priority(Priority), status(string), acceptance(string[]), depends_on(reference[]->feature, FeatureDependsOn), reason(string), tags(string[])"
+    journey_fields     "journey has: persona(reference->persona, JourneyPersona), description(string), channels(reference[]->channel, JourneyChannel), features(reference[]->feature, JourneyFeature), flow(string[]), priority(Priority), tags(string[])"
+    deliverable_fields "deliverable has: artifact_type(ArtifactType), status(DeliverableStatus), journeys(reference[]->journey, DeliverableJourney), modules(reference[]->module, DeliverableModule), version(string), milestones(reference[]->milestone, DeliverableMilestone), depends_on(reference[]->deliverable, DeliverableDependsOn), reason(string), tags(string[])"
+    milestone_fields   "milestone has: status(MilestoneStatus), features(reference[]->feature, MilestoneFeature), exit_criteria(string[]), target_date(string), modules(reference[]->module, MilestoneModule), depends_on(reference[]->milestone, MilestoneDependsOn), priority(Priority), reason(string), tags(string[])"
+    module_fields      "module has: family(string), description(string), features(reference[]->feature, ModuleFeature), depends_on(reference[]->module, ModuleDependsOn), tags(string[])"
+    term_fields        "term has: definition(string), context(string), aliases(string[]), see_also(reference[]->term, TermSeeAlso), tags(string[])"
+    persona_fields     "persona has: description(string), technical_level(TechnicalLevel), goals(string[]), pain_points(string[]), status(PersonaStatus), tags(string[])"
+    channel_fields     "channel has: description(string), interaction_model(InteractionModel), status(ChannelStatus), tags(string[])"
+    status_defaults    "status fields declare default_value: feature.status='proposed', milestone.status='planned', deliverable.status='draft', persona.status='active', channel.status='active', release.status='planned'"
   }
-
   ports    [FieldRegistryPort]
   features [pe_core_entity_kinds, product_entity_registration]
-
   verify unit "feature problem field registered as string type"
   verify unit "feature depends_on field registered with FeatureDependsOn edge"
   verify unit "journey features field registered with JourneyFeature edge"
@@ -165,15 +164,13 @@ behavior pe_register_validation_rules "Register Product Validation Rules" {
   requires {
     field_definitions_registered "all field definitions for 9 kinds and 16 edge types are in FieldRegistry"
   }
-  ensures  {
-    rules_registered       "all diagnostic codes (E007-E009, E015, E052, W041-W046, W049, W057, W075-W095, I010, I046-I097) are registered as declarative validation rules"
-    rules_sorted           "rules are sorted by diagnostic code for deterministic execution"
-    rules_count            "69 rules total: field validation (W077-W086, W095, I050, I053, I056, I061, I062, I068, I095, E008, E009), structural (W041-W046, W049, W057, I010, I046-I052, I067, I071, I072, I075, I096, W075, W076, W086), lifecycle (W087-W094, I054-I060, I063-I066, I069-I070, I073-I079, I080-I091, I092-I094, I097, W092-W093), DAG (E007, E015, E052, W045)"
+  ensures {
+    rules_registered "all diagnostic codes (E007-E009, E015, E052, W041-W046, W049, W057, W075-W095, I010, I046-I097) are registered as declarative validation rules"
+    rules_sorted     "rules are sorted by diagnostic code for deterministic execution"
+    rules_count      "69 rules total: field validation (W077-W086, W095, I050, I053, I056, I061, I062, I068, I095, E008, E009), structural (W041-W046, W049, W057, I010, I046-I052, I067, I071, I072, I075, I096, W075, W076, W086), lifecycle (W087-W094, I054-I060, I063-I066, I069-I070, I073-I079, I080-I091, I092-I094, I097, W092-W093), DAG (E007, E015, E052, W045)"
   }
-
   ports    [ProductValidationPort]
   features [pe_core_entity_kinds, pe_validation_suite, product_validation]
-
   verify unit "validation rules registered from manifest"
   verify unit "rules include E007-E009, E015, E052, W041-W046, W049, W057, W075-W095, I010, I046-I097"
   verify unit "rules sorted by diagnostic code"
@@ -183,41 +180,37 @@ behavior pe_validate_persona_fields "Validate Persona Fields" {
   invariants [persona_channel_lifecycle]
   category   validation
   types      [ProductPersona, TechnicalLevel, Diagnostic]
-  produces  [pe_query_failed]
+  produces   [pe_query_failed]
   contract   """
     The @specforge/product extension MUST validate that persona entities
     have a non-empty description field and that technical_level, when
     present, is a valid TechnicalLevel enum value. Invalid technical_level
     values MUST produce a W081 warning.
   """
-  ensures    {
-    description_required   "persona without description produces a diagnostic"
-    technical_level_valid  "persona with invalid technical_level produces W081"
+  ensures {
+    description_required  "persona without description produces a diagnostic"
+    technical_level_valid "persona with invalid technical_level produces W081"
   }
-
-  features [pe_validation_suite]
-
+  features   [pe_validation_suite]
   verify unit "persona with valid fields passes"
   verify unit "persona with invalid technical_level produces diagnostic"
 }
 
 behavior pe_validate_channel_fields "Validate Channel Fields" {
-  category   validation
-  types      [ProductChannel, InteractionModel, Diagnostic, ProductValidationPayload]
-  produces  [pe_validation_complete]
-  contract   """
+  category validation
+  types    [ProductChannel, InteractionModel, Diagnostic, ProductValidationPayload]
+  produces [pe_validation_complete]
+  contract """
     The @specforge/product extension MUST validate that channel entities
     have a non-empty description field and that interaction_model is a
     valid InteractionModel enum value. Invalid interaction_model values
     MUST produce a W082 warning.
   """
-  ensures    {
-    description_required      "channel without description produces a diagnostic"
-    interaction_model_valid   "channel with invalid interaction_model produces W082"
+  ensures {
+    description_required    "channel without description produces a diagnostic"
+    interaction_model_valid "channel with invalid interaction_model produces W082"
   }
-
   features [pe_validation_suite]
-
   verify unit "channel with valid fields passes"
   verify unit "channel with invalid interaction_model produces diagnostic"
 }
@@ -226,19 +219,17 @@ behavior pe_validate_deliverable_completeness "Validate Deliverable Completeness
   invariants [pe_validation_deterministic]
   category   validation
   types      [ProductDeliverable, Diagnostic, ProductDiagnosticCounts]
-  produces  [pe_validation_summary]
+  produces   [pe_validation_summary]
   contract   """
     The @specforge/product extension MUST validate deliverable completeness
     by checking both journeys (W043) and modules (W046). A deliverable
     with neither journeys nor modules is structurally empty.
   """
-  ensures    {
-    journeys_checked   "deliverable with no journeys produces W043"
-    modules_checked    "deliverable with no modules produces W046"
+  ensures {
+    journeys_checked "deliverable with no journeys produces W043"
+    modules_checked  "deliverable with no modules produces W046"
   }
-
-  features [pe_validation_suite]
-
+  features   [pe_validation_suite]
   verify unit "deliverable with journeys and modules passes both checks"
   verify unit "deliverable with no journeys produces W043"
   verify unit "deliverable with no modules produces W046"
@@ -248,7 +239,7 @@ behavior pe_validate_milestone_status "Validate Milestone Status Consistency" {
   invariants [milestone_status_consistency]
   category   validation
   types      [ProductMilestone, MilestoneStatus, Diagnostic, ProductEntityDiagnostic]
-  produces  [pe_validation_rule_fired]
+  produces   [pe_validation_rule_fired]
   contract   """
     The @specforge/product extension MUST validate milestone status consistency.
     This behavior orchestrates three underlying validation rules:
@@ -256,12 +247,10 @@ behavior pe_validate_milestone_status "Validate Milestone Status Consistency" {
     detect_completed_milestone_without_criteria (W057 for completed without exit_criteria),
     detect_blocked_milestone_without_dependency (I057 for blocked without depends_on).
   """
-  ensures    {
-    delegates_to_rules  "milestone status validation delegates to three individual validation rules"
-    all_three_executed  "W079, W057, and I057 validation rules are all executed during milestone validation"
+  ensures {
+    delegates_to_rules "milestone status validation delegates to three individual validation rules"
+    all_three_executed "W079, W057, and I057 validation rules are all executed during milestone validation"
   }
-
-  features [pe_validation_suite]
-
+  features   [pe_validation_suite]
   verify unit "milestone status validation runs all three sub-rules"
 }

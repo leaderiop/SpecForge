@@ -1,17 +1,16 @@
 // Incremental compilation feature
 
-use "behaviors/incremental"
 use "behaviors/graph"
+use "behaviors/incremental"
 use "behaviors/lsp"
+
 feature incremental_compilation "Incremental Compilation" {
   // Bridge: shared_incremental_pipeline (peer behavior, also listed in live_diagnostics in features/lsp.spec)
-
-  problem """
+  problem  """
     Full recompilation on every file change is too slow for interactive
     development. With 500+ .spec files, users need sub-100ms feedback
     when editing a single file.
   """
-
   solution """
     Watch mode monitors the filesystem for changes, debounces rapid edits,
     computes the minimal invalidation set (changed file + transitive
@@ -27,15 +26,13 @@ feature incremental_graph_deltas "Incremental Graph Deltas" {
   // See behaviors/mcp-server.spec for the MCP delta notification behavior.
   // Cross-feature: emit_incremental_diagnostics (incremental_compilation) consumes
   // graph_delta_computed as a sequential prerequisite before emitting updated diagnostics.
-
-  problem """
+  problem  """
     After incremental recompilation, subscribers (LSP, MCP, agents) receive
     the full graph and must diff it themselves to determine what changed.
     This wastes computation and token budget. Agents in live workflows
     need precise change information to update their context incrementally
     rather than re-reading the entire graph.
   """
-
   solution """
     First-class GraphDelta events after incremental rebuilds. The compiler
     diffs previous and new graph states, producing a delta with added/removed/

@@ -1,22 +1,22 @@
 // Core domain types — fundamental data shapes
 
 type SpecFile {
-  path       string    @readonly
-  imports    ImportDeclaration[]
-  entities   Entity[]
-  errors     ParseError[]  @optional
+  path     string       @readonly
+  imports  ImportDeclaration[]
+  entities Entity[]
+  errors   ParseError[] @optional
   verify unit "SpecFile schema is valid"
 }
 
 type Entity {
-  id         EntityId  @readonly  @unique
-  kind       EntityKind
+  id          EntityId   @readonly @unique
+  kind        EntityKind
   // title is a grammar-level positional element (the string after keyword + id),
   // NOT a FieldRegistry entry. It is parsed by the generic_entity_block rule
   // and stored here for display, but does not participate in field validation.
-  title      string
-  fields     FieldMap
-  source_span SourceSpan  @readonly
+  title       string
+  fields      FieldMap
+  source_span SourceSpan @readonly
   verify unit "Entity schema is valid"
 }
 
@@ -24,8 +24,8 @@ type Entity {
 // different kinds but the same raw ID are forbidden. See entity_id_uniqueness
 // invariant in invariants/core.spec.
 type EntityId {
-  kind       EntityKind @readonly
-  raw        string     @readonly  @unique
+  kind EntityKind @readonly
+  raw  string     @readonly @unique
   verify unit "EntityId schema is valid"
 }
 
@@ -41,18 +41,18 @@ type EntityId {
 // parsing and validation in core.
 // See zero-entity-core architecture.
 type EntityKind {
-  raw        string     @readonly
+  raw string @readonly
   verify unit "EntityKind schema is valid"
 }
 
 type FieldMap {
-  entries    FieldEntry[]
+  entries FieldEntry[]
   verify unit "FieldMap schema is valid"
 }
 
 type FieldEntry {
-  key        string
-  value      FieldValue
+  key   string
+  value FieldValue
   verify unit "FieldEntry schema is valid"
 }
 
@@ -62,37 +62,37 @@ type FieldEntry {
 type FieldValue = StringValue | ReferenceList | StringList | Block | VerifyList
 
 type StringValue {
-  _tag       "StringValue"    @literal
-  content    string
+  _tag    "StringValue" @literal
+  content string
   verify unit "StringValue schema is valid"
 }
 
 type ReferenceList {
-  _tag       "ReferenceList"  @literal
-  ids        EntityId[]
+  _tag "ReferenceList" @literal
+  ids  EntityId[]
   verify unit "ReferenceList schema is valid"
 }
 
 type StringList {
-  _tag       "StringList"     @literal
-  items      string[]
+  _tag  "StringList" @literal
+  items string[]
   verify unit "StringList schema is valid"
 }
 
 type Block {
-  _tag       "Block"          @literal
-  entries    FieldEntry[]
+  _tag    "Block" @literal
+  entries FieldEntry[]
   verify unit "Block schema is valid"
 }
 
 type VerifyList {
-  _tag       "VerifyList"     @literal
-  items      VerifyStatement[]
+  _tag  "VerifyList" @literal
+  items VerifyStatement[]
   verify unit "VerifyList schema is valid"
 }
 
 type VerifyStatement {
-  kind       VerifyKind
+  kind        VerifyKind
   description string
   verify unit "VerifyStatement schema is valid"
 }
@@ -101,37 +101,37 @@ type VerifyStatement {
 // Extensions declare allowedVerifyKinds per entity kind in their manifest.
 // The core compiler does not define any built-in verify kinds.
 type VerifyKind {
-  raw        string     @readonly
+  raw string @readonly
   verify unit "VerifyKind schema is valid"
 }
 
 // Opaque JSON value for Wasm host function I/O.
 // Serialized as serde_json::Value in Rust.
 type JsonValue {
-  _tag       "JsonValue"     @literal
-  raw        string
+  _tag "JsonValue" @literal
+  raw  string
   verify unit "JsonValue schema is valid"
 }
 
 type SourceSpan {
-  file       string    @readonly
-  start_line integer   @readonly
-  start_col  integer   @readonly
-  end_line   integer   @readonly
-  end_col    integer   @readonly
+  file       string  @readonly
+  start_line integer @readonly
+  start_col  integer @readonly
+  end_line   integer @readonly
+  end_col    integer @readonly
   verify unit "SourceSpan schema is valid"
 }
 
 type TextEdit {
-  file_path  string    @readonly
-  range      SourceSpan
-  new_text   string
+  file_path string @readonly
+  range     SourceSpan
+  new_text  string
   verify unit "TextEdit schema is valid"
 }
 
 type ImportDeclaration {
-  path           string
-  selected_ids   EntityId[]      @optional
+  path         string
+  selected_ids EntityId[] @optional
   verify unit "ImportDeclaration schema is valid"
 }
 

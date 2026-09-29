@@ -4,46 +4,52 @@
 //   - Mutation Tools (6): format, rename, init, add_extension, remove_extension, migrate
 //   - Project Management Tools (5): extensions, providers, doctor, collect, render
 
+use "events/compilation"
+use "events/mcp"
 use "invariants/core"
-use "invariants/validation"
 use "invariants/formatting"
 use "invariants/mcp"
+use "invariants/validation"
 use "invariants/zero-entity-core"
-use "events/mcp"
-use "events/compilation"
-use "types/graph"
-use "types/output"
-use "types/diagnostics"
-use "types/mcp"
-use "types/core"
-use "types/migration"
-use "types/config"
-use "types/formatting"
 use "ports/inbound"
 use "ports/outbound"
+use "types/config"
+use "types/core"
+use "types/diagnostics"
+use "types/formatting"
+use "types/graph"
+use "types/mcp"
+use "types/migration"
+use "types/output"
+
 // ---------------------------------------------------------------------------
 // Mutation Tools
 // ---------------------------------------------------------------------------
 
 behavior provide_mcp_format_tool "Provide MCP Format Tool" {
-  invariants [diagnostic_determinism, formatting_idempotency, mcp_structured_error_responses, comment_preservation, formatting_consistency, format_rule_determinism, dry_run_side_effect_freedom]
+  invariants [
+    diagnostic_determinism,
+    formatting_idempotency,
+    mcp_structured_error_responses,
+    comment_preservation,
+    formatting_consistency,
+    format_rule_determinism,
+    dry_run_side_effect_freedom,
+  ]
   category   query
   types      [McpFormatResult, FormatDiff, McpToolDescriptor]
   ports      [McpProtocol, CompilerApi, FileSystem]
   produces   [mcp_tool_invoked, mcp_mutation_completed]
-
   requires {
     filesystem_available "FileSystem port is available for reading and writing spec files"
   }
-
   ensures {
-    files_formatted "Spec files formatted according to canonical style"
-    check_mode_readonly "In check mode, no files modified"
+    files_formatted            "Spec files formatted according to canonical style"
+    check_mode_readonly        "In check mode, no files modified"
     mutation_completed_emitted "mcp_mutation_completed event emitted after formatting (unless check mode)"
-    tool_invoked_emitted "mcp_tool_invoked event emitted"
+    tool_invoked_emitted       "mcp_tool_invoked event emitted"
   }
-
-  contract """
+  contract   """
     In MCP server mode, the system MUST register a specforge.format tool that
     accepts paths?[] (optional file paths, defaults to all), check? (optional
     boolean, report only without modifying), and diff? (optional boolean, return
@@ -51,7 +57,6 @@ behavior provide_mcp_format_tool "Provide MCP Format Tool" {
     In check mode, the tool MUST NOT modify files. In diff mode, the tool MUST
     return FormatDiff entries for each changed file.
   """
-
   verify unit "specforge.format formats spec files"
   verify unit "check mode reports without modifying files"
   verify unit "diff mode returns FormatDiff entries"
@@ -60,26 +65,29 @@ behavior provide_mcp_format_tool "Provide MCP Format Tool" {
 }
 
 behavior provide_mcp_rename_tool "Provide MCP Rename Tool" {
-  invariants [entity_id_uniqueness, graph_traversal_integrity, diagnostic_determinism, mcp_structured_error_responses, dry_run_side_effect_freedom]
+  invariants [
+    entity_id_uniqueness,
+    graph_traversal_integrity,
+    diagnostic_determinism,
+    mcp_structured_error_responses,
+    dry_run_side_effect_freedom,
+  ]
   category   mutation
   types      [McpRenameResult, TextEdit, McpToolDescriptor]
   ports      [McpProtocol, CompilerApi, FileSystem]
   produces   [mcp_tool_invoked, mcp_mutation_completed]
-
   requires {
-    graph_available "Compiled graph is available via CompilerApi"
+    graph_available      "Compiled graph is available via CompilerApi"
     filesystem_available "FileSystem port is available for updating spec files"
   }
-
   ensures {
-    references_updated "Entity renamed and all references updated across all spec files"
-    recompilation_triggered "Recompilation triggered after successful rename with updated diagnostics returned"
-    dry_run_safe "When dry_run is true, no files modified"
+    references_updated         "Entity renamed and all references updated across all spec files"
+    recompilation_triggered    "Recompilation triggered after successful rename with updated diagnostics returned"
+    dry_run_safe               "When dry_run is true, no files modified"
     mutation_completed_emitted "mcp_mutation_completed event emitted after rename"
-    tool_invoked_emitted "mcp_tool_invoked event emitted"
+    tool_invoked_emitted       "mcp_tool_invoked event emitted"
   }
-
-  contract """
+  contract   """
     In MCP server mode, the system MUST register a specforge.rename tool that
     accepts entity_id (required), new_name (required), and dry_run? (optional
     boolean, default false). The tool MUST rename the entity and update all
@@ -91,7 +99,6 @@ behavior provide_mcp_rename_tool "Provide MCP Rename Tool" {
     a validation error. After a successful rename, the tool MUST trigger
     recompilation and return updated diagnostics in the response.
   """
-
   verify unit "specforge.rename renames entity and all references"
   verify unit "non-existent entity returns error response"
   verify unit "invalid new_name returns validation error"
@@ -104,25 +111,28 @@ behavior provide_mcp_rename_tool "Provide MCP Rename Tool" {
 // to scaffold a new project elsewhere. For bootstrapping the very first
 // project, use the CLI: specforge init.
 behavior provide_mcp_init_tool "Provide MCP Init Tool" {
-  invariants [diagnostic_determinism, init_config_validity, mcp_structured_error_responses, zero_domain_knowledge_core, spec_root_singleton]
+  invariants [
+    diagnostic_determinism,
+    init_config_validity,
+    mcp_structured_error_responses,
+    zero_domain_knowledge_core,
+    spec_root_singleton,
+  ]
   category   query
   types      [McpInitResult, McpToolDescriptor]
   ports      [McpProtocol, CompilerApi, FileSystem]
   produces   [mcp_tool_invoked, mcp_mutation_completed, project_initialized]
-
   requires {
     filesystem_available "FileSystem port is available for creating project directory and files"
   }
-
   ensures {
-    project_created "specforge.json and spec directory scaffolded at specified path"
-    path_outside_current "Target path verified to be outside current project's spec_root"
-    extensions_validated "When extensions specified, manifests validated and added to config"
+    project_created             "specforge.json and spec directory scaffolded at specified path"
+    path_outside_current        "Target path verified to be outside current project's spec_root"
+    extensions_validated        "When extensions specified, manifests validated and added to config"
     project_initialized_emitted "project_initialized event emitted on success"
-    tool_invoked_emitted "mcp_tool_invoked event emitted"
+    tool_invoked_emitted        "mcp_tool_invoked event emitted"
   }
-
-  contract """
+  contract   """
     In MCP server mode, the system MUST register a specforge.init tool that
     accepts path (required, target directory for the new project), name
     (required), extensions?[] (optional list of extension names to install),
@@ -137,7 +147,6 @@ behavior provide_mcp_init_tool "Provide MCP Init Tool" {
     parameter. Interactive extension selection (TTY prompting) is only
     available via the CLI init command.
   """
-
   verify unit "specforge.init creates specforge.json project"
   verify unit "extensions installed when specified"
   verify unit "default version is 0.1.0"
@@ -151,25 +160,27 @@ behavior provide_mcp_init_tool "Provide MCP Init Tool" {
 }
 
 behavior provide_mcp_add_extension_tool "Provide MCP Add Extension Tool" {
-  invariants [diagnostic_determinism, mcp_structured_error_responses, init_config_validity, dry_run_side_effect_freedom]
+  invariants [
+    diagnostic_determinism,
+    mcp_structured_error_responses,
+    init_config_validity,
+    dry_run_side_effect_freedom,
+  ]
   category   query
   types      [McpExtensionInfo, McpToolDescriptor]
   ports      [McpProtocol, CompilerApi, FileSystem]
   produces   [mcp_tool_invoked, mcp_mutation_completed, extension_added]
-
   requires {
     filesystem_available "FileSystem port is available for updating specforge.json"
   }
-
   ensures {
-    extension_installed "Extension added to specforge.json with manifest validated"
-    wasm_downloaded "Wasm module downloaded if extension is remote"
+    extension_installed     "Extension added to specforge.json with manifest validated"
+    wasm_downloaded         "Wasm module downloaded if extension is remote"
     extension_added_emitted "extension_added event emitted on success"
-    dry_run_safe "When dry_run is true, no files modified and preview returned"
-    tool_invoked_emitted "mcp_tool_invoked event emitted"
+    dry_run_safe            "When dry_run is true, no files modified and preview returned"
+    tool_invoked_emitted    "mcp_tool_invoked event emitted"
   }
-
-  contract """
+  contract   """
     In MCP server mode, the system MUST register a specforge.add_extension
     tool that accepts extension (required, name or path) and dry_run?
     (optional boolean, default false). When dry_run is true, the tool MUST
@@ -182,7 +193,6 @@ behavior provide_mcp_add_extension_tool "Provide MCP Add Extension Tool" {
     response indicating the extension is already present without modifying
     specforge.json.
   """
-
   verify unit "specforge.add_extension adds extension to config"
   verify unit "already-installed extension returns info without modifying config"
   verify unit "wasm module downloaded for remote extensions"
@@ -193,25 +203,27 @@ behavior provide_mcp_add_extension_tool "Provide MCP Add Extension Tool" {
 }
 
 behavior provide_mcp_remove_extension_tool "Provide MCP Remove Extension Tool" {
-  invariants [diagnostic_determinism, mcp_structured_error_responses, init_config_validity, dry_run_side_effect_freedom]
+  invariants [
+    diagnostic_determinism,
+    mcp_structured_error_responses,
+    init_config_validity,
+    dry_run_side_effect_freedom,
+  ]
   category   query
   types      [McpRemoveExtensionResult, McpToolDescriptor]
   ports      [McpProtocol, CompilerApi, FileSystem]
   produces   [mcp_tool_invoked, mcp_mutation_completed]
-
   requires {
     filesystem_available "FileSystem port is available for updating specforge.json"
   }
-
   ensures {
-    extension_removed "Extension removed from specforge.json"
-    orphan_warning_produced "Warning included when removal leaves orphan entities"
-    dry_run_safe "When dry_run is true, no files modified and preview returned"
+    extension_removed          "Extension removed from specforge.json"
+    orphan_warning_produced    "Warning included when removal leaves orphan entities"
+    dry_run_safe               "When dry_run is true, no files modified and preview returned"
     mutation_completed_emitted "mcp_mutation_completed event emitted after removal"
-    tool_invoked_emitted "mcp_tool_invoked event emitted"
+    tool_invoked_emitted       "mcp_tool_invoked event emitted"
   }
-
-  contract """
+  contract   """
     In MCP server mode, the system MUST register a specforge.remove_extension
     tool that accepts extension (required, name) and dry_run? (optional
     boolean, default false). When dry_run is true, the tool MUST return a
@@ -224,7 +236,6 @@ behavior provide_mcp_remove_extension_tool "Provide MCP Remove Extension Tool" {
     the tool MUST return an error response with code "extension_not_found"
     and a message identifying the unknown extension name.
   """
-
   verify unit "specforge.remove_extension removes extension from config"
   verify unit "orphan entities produce a warning"
   verify unit "non-installed extension returns extension_not_found error"
@@ -238,20 +249,17 @@ behavior provide_mcp_migrate_tool "Provide MCP Migrate Tool" {
   types      [MigrationResult, MigrationSummary, McpToolDescriptor]
   ports      [McpProtocol, CompilerApi, FileSystem]
   produces   [mcp_tool_invoked, mcp_mutation_completed]
-
   requires {
     filesystem_available "FileSystem port is available for reading and writing spec files"
   }
-
   ensures {
-    migrations_applied "Pending migrations detected and applied to spec files"
-    post_migration_validated "Post-migration validation performed with errors reported"
-    dry_run_safe "In dry_run mode, diff returned without modifying files"
+    migrations_applied         "Pending migrations detected and applied to spec files"
+    post_migration_validated   "Post-migration validation performed with errors reported"
+    dry_run_safe               "In dry_run mode, diff returned without modifying files"
     mutation_completed_emitted "mcp_mutation_completed event emitted after migration"
-    tool_invoked_emitted "mcp_tool_invoked event emitted"
+    tool_invoked_emitted       "mcp_tool_invoked event emitted"
   }
-
-  contract """
+  contract   """
     In MCP server mode, the system MUST register a specforge.migrate tool
     that accepts dry_run? (optional boolean, default false) and
     target_version? (optional string, format "major.minor"). The tool MUST
@@ -259,7 +267,6 @@ behavior provide_mcp_migrate_tool "Provide MCP Migrate Tool" {
     tool MUST return the diff without modifying any files. After migration,
     the tool MUST validate the result and report any post-migration errors.
   """
-
   verify unit "specforge.migrate applies pending migrations"
   verify unit "dry_run returns diff without modifying files"
   verify unit "post-migration validation reports errors"
@@ -276,24 +283,20 @@ behavior provide_mcp_extensions_tool "Provide MCP Extensions Tool" {
   types      [McpExtensionInfo, McpToolDescriptor]
   ports      [McpProtocol, CompilerApi]
   produces   [mcp_tool_invoked]
-
   requires {
     compiler_api_available "CompilerApi port is available for querying loaded extensions"
   }
-
   ensures {
-    extensions_listed "All installed extensions returned with name, version, entity kinds, and status"
-    config_reflected "Response reflects current specforge.json configuration"
+    extensions_listed    "All installed extensions returned with name, version, entity kinds, and status"
+    config_reflected     "Response reflects current specforge.json configuration"
     tool_invoked_emitted "mcp_tool_invoked event emitted"
   }
-
-  contract """
+  contract   """
     In MCP server mode, the system MUST register a specforge.extensions tool
     with no required parameters. The tool MUST return a list of all installed
     extensions including name, version, entity kinds contributed, and status.
     The response MUST reflect the current specforge.json configuration.
   """
-
   verify unit "specforge.extensions lists all installed extensions"
   verify unit "each entry includes name, version, entity kinds, and status"
   verify contract "Provide MCP Extensions Tool: MCP extensions tool holds — compiler_api_available, extensions_listed, config_reflected, tool_invoked_emitted"
@@ -305,23 +308,19 @@ behavior provide_mcp_providers_tool "Provide MCP Providers Tool" {
   types      [McpProviderInfo, McpToolDescriptor]
   ports      [McpProtocol, CompilerApi]
   produces   [mcp_tool_invoked]
-
   requires {
     compiler_api_available "CompilerApi port is available for querying configured providers"
   }
-
   ensures {
-    providers_listed "All configured providers returned with scheme, alias, extension, and status"
+    providers_listed     "All configured providers returned with scheme, alias, extension, and status"
     tool_invoked_emitted "mcp_tool_invoked event emitted"
   }
-
-  contract """
+  contract   """
     In MCP server mode, the system MUST register a specforge.providers tool
     with no required parameters. The tool MUST return a list of all configured
     providers including scheme, alias, extension, and status. Providers supply
     external reference validation via registered schemes.
   """
-
   verify unit "specforge.providers lists all configured providers"
   verify unit "each entry includes scheme, alias, extension, and status"
   verify contract "Provide MCP Providers Tool: MCP providers tool holds — compiler_api_available, providers_listed, tool_invoked_emitted"
@@ -333,25 +332,21 @@ behavior provide_mcp_doctor_tool "Provide MCP Doctor Tool" {
   types      [McpDoctorReport, McpToolDescriptor, McpDoctorFinding]
   ports      [McpProtocol, CompilerApi]
   produces   [mcp_tool_invoked]
-
   requires {
     compiler_api_available "CompilerApi port is available for project health inspection"
   }
-
   ensures {
-    health_checked "Project health checked: extension conflicts, stale cache, missing fields, version mismatches, orphans"
+    health_checked            "Project health checked: extension conflicts, stale cache, missing fields, version mismatches, orphans"
     resolution_steps_provided "Deterministic resolution steps included for each detected issue"
-    tool_invoked_emitted "mcp_tool_invoked event emitted"
+    tool_invoked_emitted      "mcp_tool_invoked event emitted"
   }
-
-  contract """
+  contract   """
     In MCP server mode, the system MUST register a specforge.doctor tool with
     no required parameters. The tool MUST check project health: extension
     conflicts, stale Wasm cache entries, missing specforge.json fields, version
     mismatches, and orphan entities. The response MUST include detected issues
     and deterministic resolution steps.
   """
-
   verify unit "specforge.doctor detects extension conflicts"
   verify unit "response checks wasm cache integrity"
   verify unit "response provides deterministic resolution steps"
@@ -364,20 +359,17 @@ behavior provide_mcp_collect_tool "Provide MCP Collect Tool" {
   types      [McpCollectResult, McpToolDescriptor]
   ports      [McpProtocol, CompilerApi, FileSystem]
   produces   [mcp_tool_invoked]
-
   requires {
-    filesystem_available "FileSystem port is available for reading test results and writing report"
+    filesystem_available   "FileSystem port is available for reading test results and writing report"
     compiler_api_available "CompilerApi port is available for extension collector dispatch"
   }
-
   ensures {
-    report_emitted "specforge-report.json emitted with test-to-entity mappings"
-    collector_delegated "Collection delegated to the enabled extensions' collectors"
-    never_prompts "the tool never asks for approval: it runs only commands the user already approved"
+    report_emitted       "specforge-report.json emitted with test-to-entity mappings"
+    collector_delegated  "Collection delegated to the enabled extensions' collectors"
+    never_prompts        "the tool never asks for approval: it runs only commands the user already approved"
     tool_invoked_emitted "mcp_tool_invoked event emitted"
   }
-
-  contract """
+  contract   """
     In MCP server mode, the system MUST register a specforge.collect tool
     that accepts runner? (a collector name or extension; detected from
     project files when omitted), run? (default false) and path? (the
@@ -391,7 +383,6 @@ behavior provide_mcp_collect_tool "Provide MCP Collect Tool" {
     result lists each runner's counts, the W115 diagnostics and the path of
     the written specforge-report.json.
   """
-
   verify unit "specforge.collect parses test results and maps to entities"
   verify unit "specforge.collect refuses to run an unapproved command"
   verify unit "a project without a collector returns an E058 error"
@@ -404,19 +395,16 @@ behavior provide_mcp_render_tool "Provide MCP Render Tool" {
   types      [McpRenderResult, McpToolDescriptor]
   ports      [McpProtocol, CompilerApi, FileSystem]
   produces   [mcp_tool_invoked]
-
   requires {
-    graph_available "Compiled graph is available via CompilerApi"
+    graph_available      "Compiled graph is available via CompilerApi"
     filesystem_available "FileSystem port is available for writing output files"
   }
-
   ensures {
-    files_written "Output files written to out_dir by the matching renderer"
-    files_listed "Response lists all files written"
+    files_written        "Output files written to out_dir by the matching renderer"
+    files_listed         "Response lists all files written"
     tool_invoked_emitted "mcp_tool_invoked event emitted"
   }
-
-  contract """
+  contract   """
     In MCP server mode, the system MUST register a specforge.render tool that
     accepts format (required, a format string matching a registered renderer)
     and out_dir (required, output directory path). The tool MUST invoke the
@@ -432,7 +420,6 @@ behavior provide_mcp_render_tool "Provide MCP Render Tool" {
     Unrecognized format strings MUST return an error listing available renderers.
     The response MUST list all files written.
   """
-
   verify unit "specforge.render writes output files to out_dir"
   verify unit "registered renderer invoked for matching format"
   verify unit "unrecognized format returns error listing available renderers"

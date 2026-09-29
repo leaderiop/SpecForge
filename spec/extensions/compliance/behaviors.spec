@@ -3,13 +3,13 @@
 use "extensions/compliance/features"
 use "extensions/compliance/manifest"
 use "extensions/compliance/types"
-behavior ce_validate_compliance_graph "Validate Compliance Graph" {
-  types [ComplianceRegulation, ComplianceControl, ComplianceEvidence, ComplianceAudit]
 
+behavior ce_validate_compliance_graph "Validate Compliance Graph" {
+  types      [ComplianceRegulation, ComplianceControl, ComplianceEvidence, ComplianceAudit]
   category   validation
   invariants [ce_manifest_four_entity_kinds, ce_manifest_four_edge_types]
-  features [compliance_validation]
-  contract """
+  features   [compliance_validation]
+  contract   """
     The @specforge/compliance extension MUST validate the regulation -> control
     -> evidence traceability chain. Every regulation MUST have at least one
     control (W102). Every control MUST be governed by at least one regulation
@@ -18,19 +18,16 @@ behavior ce_validate_compliance_graph "Validate Compliance Graph" {
     MUST be implemented as declarative patterns in the extension manifest,
     executed by the core's execute_validation_pattern engine.
   """
-
   verify unit "regulation without controls produces W102"
   verify unit "orphan control produces W101"
   verify unit "implemented control without evidence produces W103"
   verify unit "expired evidence produces W104"
   verify unit "valid compliance chain passes without warnings"
-
 }
 
 behavior ce_render_compliance_matrix "Render Compliance Matrix" {
-  types [ComplianceRegulation, ComplianceControl, ComplianceEvidence]
-
-  category   query
+  types    [ComplianceRegulation, ComplianceControl, ComplianceEvidence]
+  category query
   features [compliance_reporting]
   contract """
     The @specforge/compliance extension MUST provide a renderer contribution
@@ -40,11 +37,9 @@ behavior ce_render_compliance_matrix "Render Compliance Matrix" {
     be highlighted. The renderer MUST use the specforge.emit_file host function
     to write the matrix as a non-code output (HTML or Markdown table).
   """
-
   verify unit "matrix lists all regulations as rows"
   verify unit "matrix lists all controls as columns"
   verify unit "maturity level shown at intersections"
   verify unit "controls without evidence highlighted"
   verify unit "output written via emit_file host function"
-
 }
