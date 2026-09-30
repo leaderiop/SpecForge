@@ -639,6 +639,11 @@ fn default_prompts() -> Vec<McpPromptDescriptor> {
                     description: "Entity ID to review (optional, reviews all if omitted)".into(),
                     required: false,
                 },
+                McpPromptArgument {
+                    name: "depth".into(),
+                    description: "Neighbor hops around entity_id to include (default 1)".into(),
+                    required: false,
+                },
             ]),
         },
         McpPromptDescriptor {
@@ -646,13 +651,13 @@ fn default_prompts() -> Vec<McpPromptDescriptor> {
             description: "Identify traceability gaps for a plan".into(),
             arguments: Some(vec![
                 McpPromptArgument {
-                    name: "entity_id".into(),
-                    description: "Entity ID to trace".into(),
-                    required: true,
+                    name: "plan".into(),
+                    description: "AgentPlan JSON ({\"entries\": [{\"entity_id\", \"action\"}]}) to check against the graph".into(),
+                    required: false,
                 },
                 McpPromptArgument {
-                    name: "plan".into(),
-                    description: "Plan JSON to validate against graph".into(),
+                    name: "entity_id".into(),
+                    description: "Entity ID to trace when no plan is given".into(),
                     required: false,
                 },
             ]),

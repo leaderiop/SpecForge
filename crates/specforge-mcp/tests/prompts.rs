@@ -84,8 +84,30 @@ fn test_server() -> McpServer {
         label: "behaviors".into(),
     });
     state.graph = graph;
+    state.kind_registry.register(kind_entry("behavior", true));
+    state.kind_registry.register(kind_entry("invariant", true));
+    state.kind_registry.register(kind_entry("feature", false));
 
     server
+}
+
+fn kind_entry(kind: &str, testable: bool) -> specforge_registry::KindRegistryEntry {
+    specforge_registry::KindRegistryEntry {
+        kind_name: kind.into(),
+        description: None,
+        source_extension: "@test/ext".into(),
+        testable,
+        singleton: false,
+        supports_verify: testable,
+        allowed_verify_kinds: Vec::new(),
+        has_body_parser: false,
+        semantic_token: None,
+        lsp_icon: None,
+        dot_shape: None,
+        dot_color: None,
+        dot_fillcolor: None,
+        open_fields: false,
+    }
 }
 
 fn call_prompt(server: &mut McpServer, name: &str, args: Value) -> Value {
@@ -192,65 +214,128 @@ fn context_prompt_includes_edges() {
 
 // --- specforge://prompts/review ---
 
-// B:provide_mcp_review_prompt — verify unit "returns findings"
+fn review(server: &mut McpServer, args: Value) -> Value {
+    let resp = call_prompt(server, "specforge://prompts/review", args);
+    serde_json::from_str(&prompt_text(&resp)).unwrap_or_else(|_| panic!("{resp}"))
+}
+
+fn reviewed_ids(review: &Value) -> Vec<&str> {
+    review["coverage_summary"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|c| c["entity_id"].as_str().unwrap())
+        .collect()
+}
+
+fn finding_ids<'a>(review: &'a Value, about: &str) -> Vec<&'a str> {
+    review["findings"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter(|f| f["message"].as_str().unwrap().contains(about))
+        .map(|f| f["entity_id"].as_str().unwrap())
+        .collect()
+}
+
 #[specforge_test(
     behavior = "provide_mcp_review_prompt",
     verify = "specforge://prompts/review returns coverage analysis"
 )]
-fn review_prompt_returns_findings() {
+fn review_prompt_analyzes_the_coverage_of_testable_entities() {
     let mut server = test_server();
-    let resp = call_prompt(&mut server, "specforge://prompts/review", json!({}));
-    let text = prompt_text(&resp);
-    let parsed: Value = serde_json::from_str(&text).unwrap();
-    assert!(parsed["findings"].is_array());
-    assert!(parsed["coverage_summary"].is_array());
+
+    let parsed = review(&mut server, json!({}));
+
+    // beta is a feature: not testable, so not reviewed.
+    assert_eq!(reviewed_ids(&parsed), ["alpha", "gamma_orphan"], "{parsed}");
+    let alpha = &parsed["coverage_summary"][0];
+    assert_eq!(alpha["status"], "uncovered", "{parsed}");
+    assert_eq!(alpha["declared"], true);
+    assert_eq!(alpha["unproven"], json!(["test alpha"]));
 }
 
-// B:provide_mcp_review_prompt — verify unit "detects uncovered entities"
 #[specforge_test(
     behavior = "provide_mcp_review_prompt",
     verify = "response identifies entities with missing verification coverage"
 )]
-fn review_prompt_detects_uncovered() {
+fn review_prompt_flags_testable_entities_without_verify() {
     let mut server = test_server();
-    let resp = call_prompt(&mut server, "specforge://prompts/review", json!({}));
-    let text = prompt_text(&resp);
-    let parsed: Value = serde_json::from_str(&text).unwrap();
-    let findings = parsed["findings"].as_array().unwrap();
-    // beta (feature) and gamma_orphan (invariant) have no verify declarations
-    let uncovered: Vec<&Value> = findings
-        .iter()
-        .filter(|f| f["message"].as_str().unwrap().contains("no verify"))
-        .collect();
-    assert!(uncovered.len() >= 2);
+    let parsed = review(&mut server, json!({}));
+    assert_eq!(
+        finding_ids(&parsed, "no verify"),
+        ["gamma_orphan"],
+        "{parsed}"
+    );
 }
 
-// B:provide_mcp_review_prompt — verify unit "detects orphan entities"
 #[specforge_test(
     behavior = "provide_mcp_review_prompt",
     verify = "detects orphan entities"
 )]
 fn review_prompt_detects_orphans() {
     let mut server = test_server();
-    let resp = call_prompt(&mut server, "specforge://prompts/review", json!({}));
-    let text = prompt_text(&resp);
-    let parsed: Value = serde_json::from_str(&text).unwrap();
-    let findings = parsed["findings"].as_array().unwrap();
-    let orphan_findings: Vec<&Value> = findings
-        .iter()
-        .filter(|f| f["message"].as_str().unwrap().contains("orphan"))
-        .collect();
-    assert!(!orphan_findings.is_empty());
+    let parsed = review(&mut server, json!({}));
+    assert_eq!(
+        finding_ids(&parsed, "is an orphan"),
+        ["gamma_orphan"],
+        "{parsed}"
+    );
+}
+
+#[specforge_test(
+    behavior = "provide_mcp_review_prompt",
+    verify = "depth parameter controls neighbor traversal depth"
+)]
+fn review_depth_bounds_the_neighborhood() {
+    let mut server = test_server();
+    // alpha <- beta -> delta: delta is two hops from alpha.
+    let mut delta = server.state().graph.node("alpha").unwrap().clone();
+    delta.id = EntityId {
+        raw: "delta".into(),
+    };
+    server.state_mut().graph.add_node(delta);
+    server.state_mut().graph.add_edge(Edge {
+        source: "beta".into(),
+        target: "delta".into(),
+        label: "behaviors".into(),
+    });
+
+    let default = review(&mut server, json!({"entity_id": "alpha"}));
+    assert_eq!(reviewed_ids(&default), ["alpha"], "depth defaults to 1");
+    let two = review(&mut server, json!({"entity_id": "alpha", "depth": 2}));
+    assert_eq!(reviewed_ids(&two), ["alpha", "delta"]);
+    let zero = review(&mut server, json!({"entity_id": "delta", "depth": 0}));
+    assert_eq!(reviewed_ids(&zero), ["delta"]);
+
+    let unknown = call_prompt(
+        &mut server,
+        "specforge://prompts/review",
+        json!({"entity_id": "no_such_entity"}),
+    );
+    assert!(unknown["error"].is_object(), "{unknown}");
+}
+
+#[specforge_test(
+    behavior = "provide_mcp_review_prompt",
+    verify = "review prompt returns empty findings when no testable entities exist"
+)]
+fn review_of_a_graph_without_testable_entities_is_empty() {
+    let mut server = test_server();
+    // Only beta, a feature with no verify and no edges, is left.
+    server.state_mut().graph.remove_node("alpha");
+    server.state_mut().graph.remove_node("gamma_orphan");
+
+    let parsed = review(&mut server, json!({}));
+
+    assert_eq!(parsed["findings"], json!([]), "{parsed}");
+    assert_eq!(parsed["coverage_summary"], json!([]), "{parsed}");
 }
 
 // --- specforge://prompts/trace ---
 
-// B:provide_mcp_trace_prompt — verify unit "returns trace gaps"
-#[specforge_test(
-    behavior = "provide_mcp_trace_prompt",
-    verify = "specforge://prompts/trace identifies gaps in plan"
-)]
-fn trace_prompt_returns_gaps() {
+#[test]
+fn trace_prompt_for_an_entity_lists_its_chain() {
     let mut server = test_server();
     let resp = call_prompt(
         &mut server,
@@ -263,11 +348,7 @@ fn trace_prompt_returns_gaps() {
     assert!(parsed["unverified_entities"].is_array());
 }
 
-// B:provide_mcp_trace_prompt — verify unit "identifies unverified entities in trace"
-#[specforge_test(
-    behavior = "provide_mcp_trace_prompt",
-    verify = "response returns identified gaps with gap context"
-)]
+#[test]
 fn trace_prompt_identifies_unverified() {
     let mut server = test_server();
     let resp = call_prompt(
@@ -291,6 +372,129 @@ fn trace_prompt_unknown_entity() {
         json!({"entity_id": "nonexistent"}),
     );
     assert!(resp["error"].is_object());
+}
+
+/// The trace prompt's result for `plan`, passed as a JSON string the way
+/// MCP prompt arguments arrive.
+fn trace_plan(server: &mut McpServer, plan: Value) -> Value {
+    let resp = call_prompt(
+        server,
+        "specforge://prompts/trace",
+        json!({"plan": plan.to_string()}),
+    );
+    serde_json::from_str(&prompt_text(&resp)).unwrap_or_else(|_| panic!("{resp}"))
+}
+
+fn gap_triples(result: &Value) -> Vec<(String, String, String)> {
+    let mut gaps: Vec<(String, String, String)> = result["coverage_gaps"]
+        .as_array()
+        .unwrap_or_else(|| panic!("no coverage_gaps in {result}"))
+        .iter()
+        .map(|g| {
+            (
+                g["source_entity"].as_str().unwrap().to_string(),
+                g["target_entity"].as_str().unwrap().to_string(),
+                g["missing_link_type"].as_str().unwrap().to_string(),
+            )
+        })
+        .collect();
+    gaps.sort();
+    gaps
+}
+
+#[specforge_test(
+    behavior = "provide_mcp_trace_prompt",
+    verify = "specforge://prompts/trace identifies gaps in plan"
+)]
+fn trace_prompt_finds_the_gaps_in_a_plan() {
+    let mut server = test_server();
+
+    // ghost doesn't exist; alpha is testable, has obligations, and is missing.
+    let result = trace_plan(
+        &mut server,
+        json!({"plan_id": "p1", "entries": [
+            {"entity_id": "beta", "action": "modify"},
+            {"entity_id": "ghost", "action": "create"}
+        ]}),
+    );
+
+    let owned = |a: &str, b: &str, c: &str| (a.to_string(), b.to_string(), c.to_string());
+    assert_eq!(
+        gap_triples(&result),
+        [
+            owned("plan", "alpha", "missing_plan_entry"),
+            owned("plan", "ghost", "unresolved_entity"),
+        ],
+        "{result}"
+    );
+}
+
+#[specforge_test(
+    behavior = "provide_mcp_trace_prompt",
+    verify = "response returns identified gaps with gap context"
+)]
+fn trace_prompt_explains_each_gap() {
+    let mut server = test_server();
+
+    // beta depends on alpha, yet the plan does beta first.
+    let result = trace_plan(
+        &mut server,
+        json!({"entries": [{"entity_id": "beta"}, {"entity_id": "alpha"}]}),
+    );
+
+    let gaps = result["coverage_gaps"].as_array().unwrap();
+    assert_eq!(gaps.len(), 1, "{result}");
+    assert_eq!(gaps[0]["missing_link_type"], "ordering");
+    assert_eq!(
+        gaps[0]["gap_context"],
+        "'beta' depends on 'alpha' (via behaviors), but 'alpha' appears later in the plan"
+    );
+    let again = trace_plan(
+        &mut server,
+        json!({"entries": [{"entity_id": "beta"}, {"entity_id": "alpha"}]}),
+    );
+    assert_eq!(result, again, "gap context is deterministic");
+}
+
+#[specforge_test(
+    behavior = "provide_mcp_trace_prompt",
+    verify = "affected entities are listed"
+)]
+fn trace_prompt_lists_the_entities_a_plan_affects() {
+    let mut server = test_server();
+
+    let result = trace_plan(&mut server, json!({"entries": [{"entity_id": "beta"}]}));
+
+    // beta and what its chain reaches; gamma_orphan is untouched.
+    assert_eq!(
+        result["affected_entities"],
+        json!(["alpha", "beta"]),
+        "{result}"
+    );
+    assert_eq!(result["unverified_entities"], json!(["beta"]), "{result}");
+}
+
+#[specforge_test(
+    behavior = "provide_mcp_trace_prompt",
+    verify = "malformed plan JSON returns validation error"
+)]
+fn trace_prompt_rejects_a_malformed_plan() {
+    let mut server = test_server();
+    let error = |server: &mut McpServer, plan: &str| {
+        let resp = call_prompt(server, "specforge://prompts/trace", json!({"plan": plan}));
+        resp["error"]["message"]
+            .as_str()
+            .unwrap_or_else(|| panic!("no error for {plan}: {resp}"))
+            .to_string()
+    };
+
+    assert!(error(&mut server, "{not json").contains("not valid JSON"));
+    assert!(error(&mut server, "[1, 2]").contains("entries"));
+    let message = error(
+        &mut server,
+        r#"{"entries": [{"entity_id": "beta"}, {"id": "x"}]}"#,
+    );
+    assert!(message.contains("entries[1].entity_id"), "{message}");
 }
 
 // --- specforge://prompts/explore ---
@@ -411,76 +615,6 @@ fn context_zero_extensions() {
     assert!(resp["result"]["messages"].is_array());
 }
 
-#[test]
-fn review_depth_parameter() {
-    let mut server = test_server();
-    let resp = call_prompt(
-        &mut server,
-        "specforge://prompts/review",
-        json!({"entity_id": "alpha"}),
-    );
-    assert!(resp["result"]["messages"].is_array());
-}
-
-#[test]
-fn review_empty_findings_no_testable() {
-    let mut server = McpServer::new();
-    let req = json!({"jsonrpc":"2.0","id":1,"method":"initialize","params":{}});
-    server.handle_message(&req.to_string());
-
-    // Add only non-testable entities (features have no verify)
-    let state = server.state_mut();
-    let mut graph = Graph::new();
-    graph.add_node(Node {
-        id: EntityId {
-            raw: "some_feature".into(),
-        },
-        kind: EntityKind {
-            raw: "feature".into(),
-        },
-        title: Some("Some Feature".into()),
-        fields: FieldMap::new(),
-        source_span: span(),
-        methods: Vec::new(),
-    });
-    state.graph = graph;
-
-    let resp = call_prompt(&mut server, "specforge://prompts/review", json!({}));
-    let text = prompt_text(&resp);
-    let parsed: Value = serde_json::from_str(&text).unwrap();
-    // Features have no verify, so no coverage findings about missing verify
-    assert!(parsed["findings"].is_array());
-}
-
-// B:provide_mcp_review_prompt — verify unit "review prompt returns empty findings when no testable entities"
-#[specforge_test(
-    behavior = "provide_mcp_review_prompt",
-    verify = "review prompt returns empty findings when no testable entities exist"
-)]
-fn review_empty_findings() {
-    let mut server = McpServer::new();
-    let req = json!({"jsonrpc":"2.0","id":1,"method":"initialize","params":{}});
-    server.handle_message(&req.to_string());
-    server.state_mut().graph = Graph::new();
-
-    let resp = call_prompt(&mut server, "specforge://prompts/review", json!({}));
-    let text = prompt_text(&resp);
-    let parsed: Value = serde_json::from_str(&text).unwrap();
-    assert!(parsed["findings"].as_array().unwrap().is_empty());
-}
-
-#[test]
-fn trace_malformed_plan() {
-    let mut server = test_server();
-    let resp = call_prompt(
-        &mut server,
-        "specforge://prompts/trace",
-        json!({"plan": "not_json_object"}),
-    );
-    // Should handle gracefully — either error or result, but no crash
-    assert!(resp["error"].is_object() || resp["result"].is_object());
-}
-
 // B:provide_mcp_explore_prompt — verify unit "entity_id focuses exploration on that entity"
 #[specforge_test(
     behavior = "provide_mcp_explore_prompt",
@@ -525,20 +659,6 @@ fn explore_high_connectivity() {
         high_conn.contains(&json!("beta")),
         "beta (has edges) should be in high_connectivity"
     );
-}
-
-// B:provide_mcp_review_prompt — verify unit "reviews all entities when entity_id is omitted"
-#[specforge_test(
-    behavior = "provide_mcp_review_prompt",
-    verify = "specforge://prompts/review returns coverage analysis"
-)]
-fn review_all_entities_when_no_filter() {
-    let mut server = test_server();
-    let resp = call_prompt(&mut server, "specforge://prompts/review", json!({}));
-    let text = prompt_text(&resp);
-    let parsed: Value = serde_json::from_str(&text).unwrap();
-    assert!(parsed["findings"].is_array());
-    assert!(parsed["coverage_summary"].is_array());
 }
 
 // B:provide_mcp_context_prompt — verify unit "context includes contract text"
@@ -622,45 +742,4 @@ fn review_coverage_matches_the_coverage_tool() {
     let alpha = &parsed["coverage_summary"][0];
     assert_eq!(alpha["status"], "covered", "{parsed}");
     assert_eq!(alpha["linked"], true);
-}
-
-#[test]
-fn review_empty_findings_no_testable_entities() {
-    // Create a server with only non-testable entities (no verify statements)
-    let mut server = McpServer::new();
-    let req = json!({"jsonrpc":"2.0","id":1,"method":"initialize","params":{}});
-    server.handle_message(&req.to_string());
-
-    let state = server.state_mut();
-    let mut graph = specforge_graph::Graph::new();
-    let mut fields = specforge_parser::FieldMap::new();
-    fields.push(
-        "problem".into(),
-        specforge_parser::FieldValue::String("a problem".into()),
-    );
-    graph.add_node(specforge_graph::Node {
-        id: specforge_parser::EntityId {
-            raw: "feat1".into(),
-        },
-        kind: specforge_parser::EntityKind {
-            raw: "feature".into(),
-        },
-        title: Some("Feature 1".into()),
-        fields,
-        source_span: specforge_common::SourceSpan {
-            file: "test.spec".into(),
-            start_line: 1,
-            start_col: 0,
-            end_line: 3,
-            end_col: 0,
-        },
-        methods: Vec::new(),
-    });
-    state.graph = graph;
-
-    let resp = call_prompt(&mut server, "specforge://prompts/review", json!({}));
-    let text = prompt_text(&resp);
-    let parsed: Value = serde_json::from_str(&text).unwrap();
-    // Features are not testable — review should return empty or minimal findings
-    assert!(parsed["findings"].is_array());
 }

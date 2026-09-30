@@ -1,18 +1,45 @@
 use serde_json::Value;
 use specforge_graph::FieldValue;
 
-use crate::protocol::JsonRpcResponse;
+use crate::protocol::{JsonRpcResponse, error_codes};
 use crate::state::McpState;
 
 pub fn get(state: &McpState, args: Value, id: Option<Value>) -> JsonRpcResponse {
     let entity_filter = args.get("entity_id").and_then(|v| v.as_str());
+    let depth = args.get("depth").and_then(|v| v.as_u64()).unwrap_or(1) as usize;
 
-    let nodes: Vec<_> = state
+    // The entity and its neighbors up to `depth` hops, or the whole graph.
+    let in_scope: Option<std::collections::HashSet<String>> = match entity_filter {
+        Some(entity_id) => match state.graph.subgraph_depth(entity_id, depth) {
+            Some(sub) => Some(sub.nodes().iter().map(|n| n.id.raw.to_string()).collect()),
+            None => {
+                return JsonRpcResponse::error(
+                    id,
+                    error_codes::INVALID_PARAMS,
+                    format!("Entity not found: {entity_id}"),
+                );
+            }
+        },
+        None => None,
+    };
+    // Coverage is about testable entities only, as `specforge.coverage` reports.
+    let mut nodes: Vec<_> = state
         .graph
         .nodes()
         .into_iter()
-        .filter(|n| entity_filter.is_none() || entity_filter == Some(n.id.raw.as_str()))
+        .filter(|n| {
+            in_scope
+                .as_ref()
+                .is_none_or(|ids| ids.contains(n.id.raw.as_str()))
+        })
+        .filter(|n| {
+            state
+                .kind_registry
+                .get(n.kind.raw.as_str())
+                .is_some_and(|kind| kind.testable)
+        })
         .collect();
+    nodes.sort_by(|a, b| a.id.raw.as_str().cmp(b.id.raw.as_str()));
 
     let mut findings: Vec<Value> = Vec::new();
     let mut coverage: Vec<Value> = Vec::new();

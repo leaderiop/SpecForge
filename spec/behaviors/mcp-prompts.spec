@@ -111,7 +111,8 @@ behavior provide_mcp_trace_prompt "Provide MCP Trace Prompt" {
   }
   contract   """
     In MCP server mode, the system MUST register a specforge://prompts/trace
-    prompt that accepts plan (required, inline JSON describing intended changes).
+    prompt that accepts plan (inline JSON describing intended changes) or, in
+    its place, entity_id (trace that one entity's chain).
     The prompt MUST perform gap analysis against the current graph, identify
     entities affected by the plan, flag missing traceability links, and return
     identified gaps with deterministic gap context.

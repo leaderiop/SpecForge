@@ -18,7 +18,7 @@ mod schema;
 mod search;
 mod stats;
 mod suggest_fixes;
-mod trace;
+pub(crate) mod trace;
 mod validate;
 
 use serde_json::{Value, json};

@@ -58,9 +58,57 @@ pub fn call(state: &McpState, args: Value, id: Option<Value>) -> JsonRpcResponse
     }
 }
 
-/// Gap analysis of an agent plan (`{"entries": [{"entity_id"}]}`) against
-/// the graph, by `validate_plan`, as an `McpTracePlanResult`.
+/// Gap analysis of an agent plan against the graph, as an
+/// `McpTracePlanResult`.
 fn plan_gaps(state: &McpState, plan: &Value, id: Option<Value>) -> JsonRpcResponse {
+    let analysis = match analyze_plan(state, plan) {
+        Ok(analysis) => analysis,
+        Err(message) => return JsonRpcResponse::error(id, error_codes::INVALID_PARAMS, message),
+    };
+    let body = serde_json::json!({
+        "affected_entities": analysis.entries,
+        "gaps": analysis.gaps,
+    });
+    JsonRpcResponse::success(
+        id,
+        serde_json::json!({
+            "content": [{
+                "type": "text",
+                "text": body.to_string()
+            }]
+        }),
+    )
+}
+
+/// An agent plan checked against the graph by `validate_plan`.
+pub(crate) struct PlanAnalysis {
+    /// Plan entries that name an entity in the graph, in plan order.
+    pub entries: Vec<String>,
+    /// `McpTraceGap`s: unresolved entries, missing entries, bad ordering.
+    pub gaps: Vec<Value>,
+}
+
+/// Check `plan` — an `AgentPlan` object, or JSON text of one — against the
+/// graph. `Err` describes why it isn't a plan.
+pub(crate) fn analyze_plan(state: &McpState, plan: &Value) -> Result<PlanAnalysis, String> {
+    let parsed;
+    let plan = match plan {
+        Value::String(text) => {
+            parsed = serde_json::from_str::<Value>(text)
+                .map_err(|e| format!("plan is not valid JSON: {e}"))?;
+            &parsed
+        }
+        other => other,
+    };
+    let Some(entries) = plan.get("entries").and_then(|e| e.as_array()) else {
+        return Err("plan must be an AgentPlan object with an entries array".into());
+    };
+    for (i, entry) in entries.iter().enumerate() {
+        if !entry.get("entity_id").is_some_and(|v| v.is_string()) {
+            return Err(format!("plan.entries[{i}].entity_id must be a string"));
+        }
+    }
+
     let testable: Vec<&str> = state
         .kind_registry
         .iter()
@@ -68,7 +116,7 @@ fn plan_gaps(state: &McpState, plan: &Value, id: Option<Value>) -> JsonRpcRespon
         .map(|(kind, _)| kind.as_str())
         .collect();
     let result = specforge_emitter::validate_plan(&state.graph, plan, &testable);
-    let gaps: Vec<Value> = result
+    let gaps = result
         .gaps
         .iter()
         .map(|gap| {
@@ -80,17 +128,8 @@ fn plan_gaps(state: &McpState, plan: &Value, id: Option<Value>) -> JsonRpcRespon
             })
         })
         .collect();
-    let body = serde_json::json!({
-        "affected_entities": result.validated_entries,
-        "gaps": gaps,
-    });
-    JsonRpcResponse::success(
-        id,
-        serde_json::json!({
-            "content": [{
-                "type": "text",
-                "text": body.to_string()
-            }]
-        }),
-    )
+    Ok(PlanAnalysis {
+        entries: result.validated_entries,
+        gaps,
+    })
 }
