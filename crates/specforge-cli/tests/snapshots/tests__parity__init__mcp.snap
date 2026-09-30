@@ -1,0 +1,27 @@
+---
+source: crates/specforge-cli/tests/parity.rs
+expression: mcp_snap
+---
+{
+  "check": {
+    "diagnostics": [],
+    "ok": true
+  },
+  "config": {
+    "extensions": [],
+    "name": "demo",
+    "version": "0.1.0"
+  },
+  "files": {
+    "spec/specforge.spec": "spec \"demo\" {\n  version \"0.1.0\"\n}\n"
+  },
+  "ok": true,
+  "payload": {
+    "config_file": "specforge.json",
+    "extensions_installed": [],
+    "name": "demo",
+    "project_path": "[ROOT]",
+    "starter_file": "spec/specforge.spec",
+    "version": "0.1.0"
+  }
+}

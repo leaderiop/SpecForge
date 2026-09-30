@@ -28,6 +28,7 @@ mod format_corpus;
 mod init;
 #[allow(deprecated)]
 mod migrate;
+mod parity;
 mod pipeline;
 mod product_commands;
 mod query;
