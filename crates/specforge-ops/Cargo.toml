@@ -12,6 +12,8 @@ print_stdout = "deny"
 
 [dependencies]
 serde_json = { workspace = true }
+specforge-emitter = { path = "../specforge-emitter" }
+specforge-graph = { path = "../specforge-graph" }
 specforge-registry = { workspace = true }
 
 [dev-dependencies]

@@ -134,11 +134,17 @@ behavior provide_mcp_export_tool "Provide MCP Export Tool" {
   contract   """
     In MCP server mode, the system MUST register a specforge.export tool that
     accepts format (required: context|brief|graph), scope? (optional entityId
-    to restrict to subgraph), and max_tokens? (optional integer token budget).
-    The tool MUST return the graph in the requested agent-optimized format.
-    When max_tokens is specified, the output MUST be truncated to fit within
-    the budget, prioritizing high-connectivity nodes. The output MUST conform
-    to the Graph Protocol schema.
+    to restrict to subgraph), max_tokens? (optional integer token budget),
+    with_schema? and no_schema? (optional booleans). The tool MUST return the
+    graph in the requested agent-optimized format. When max_tokens is
+    specified, the output MUST be truncated to fit within the budget,
+    prioritizing high-connectivity nodes. The output MUST conform to the
+    Graph Protocol schema. The tool MUST produce the export specforge export
+    produces for the same arguments, through the same function and schema
+    policy: a full graph export is Graph Protocol 2.0 with the schema
+    embedded, a scoped one carries a schema_ref, and context, brief and a
+    budgeted export leave the schema out unless with_schema is true;
+    no_schema leaves it out of a graph export (format 1.0).
   """
   verify unit "specforge.export tool returns graph in requested format"
   verify unit "scope parameter restricts to subgraph"
@@ -146,6 +152,8 @@ behavior provide_mcp_export_tool "Provide MCP Export Tool" {
   verify unit "all three formats (context, brief, graph) supported"
   verify contract "Provide MCP Export Tool: MCP export tool holds — graph_available, format_produced, token_budget_enforced, tool_invoked_emitted"
   verify unit "unknown format returns error"
+  verify integration "the graph export is the document specforge export --format graph writes, Graph Protocol 2.0 with the schema embedded"
+  verify integration "with_schema embeds the schema in a context, brief or budgeted export, and no_schema leaves it out of a graph export"
 }
 
 behavior provide_mcp_trace_tool "Provide MCP Trace Tool" {

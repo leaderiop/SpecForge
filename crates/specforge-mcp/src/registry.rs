@@ -365,7 +365,9 @@ pub fn default_tools() -> Vec<McpToolDescriptor> {
                 "properties": {
                     "format": { "type": "string", "enum": ["graph", "context", "brief"], "default": "graph" },
                     "scope": { "type": "string", "description": "Scope to entity subgraph" },
-                    "max_tokens": { "type": "integer", "description": "Optional token budget; truncates the export to the most central entities that fit" }
+                    "max_tokens": { "type": "integer", "description": "Optional token budget; truncates the export to the most central entities that fit" },
+                    "with_schema": { "type": "boolean", "description": "Embed the Graph Protocol schema in a context, brief or budgeted graph export (a full graph export embeds it already); under max_tokens it counts toward the budget" },
+                    "no_schema": { "type": "boolean", "description": "Leave the schema out of a graph export (Graph Protocol 1.0)" }
                 }
             }),
             category: Some("core".into()),

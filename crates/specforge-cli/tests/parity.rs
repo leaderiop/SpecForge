@@ -104,8 +104,10 @@ const EXPECTED_DIVERGENCES: &[(&str, Aspect, &str)] = &[
         Aspect::Check,
         "MCP left the builtin enabled",
     ),
-    // export (O2): the CLI keeps `.specforge/schema-cache.json` for the W053
-    // check; the MCP export tool (Graph Protocol 1.0, no schema) does not.
+    // export: both surfaces export through `specforge_ops::export` (O2), but
+    // only the CLI keeps `.specforge/schema-cache.json` for its W053 check.
+    // The MCP export tool is a read-only query with nowhere to show W053: if
+    // it rewrote the cache, the next CLI export would miss the warning.
     (
         "export",
         Aspect::Files,
@@ -682,4 +684,125 @@ fn parity_export() {
 #[test]
 fn parity_analyze() {
     parity("analyze");
+}
+
+// ── export: one function, one schema policy (O2, ADR 0004 D3-a) ─────────────
+
+/// An initialized MCP server on `root`.
+fn mcp_on(root: &Path) -> McpServer {
+    let mut server = McpServer::with_project_root(root.to_path_buf());
+    let init = json!({"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {}});
+    server.handle_message(&init.to_string());
+    server
+}
+
+/// The JSON document an MCP request answered with: a tool's text content,
+/// or a resource's.
+fn mcp_document(server: &mut McpServer, method: &str, params: Value) -> Value {
+    let req = json!({"jsonrpc": "2.0", "id": 2, "method": method, "params": params});
+    let resp: Value =
+        serde_json::from_str(&server.handle_message(&req.to_string()).unwrap()).unwrap();
+    let text = resp["result"]["content"][0]["text"]
+        .as_str()
+        .or_else(|| resp["result"]["contents"][0]["text"].as_str())
+        .unwrap_or_else(|| panic!("no document in {resp}"));
+    serde_json::from_str(text).unwrap()
+}
+
+fn mcp_export(root: &Path, arguments: Value) -> Value {
+    mcp_document(
+        &mut mcp_on(root),
+        "tools/call",
+        json!({"name": "specforge.export", "arguments": arguments}),
+    )
+}
+
+fn cli_export(root: &Path, flags: &[&str]) -> Value {
+    let out = cli()
+        .arg("export")
+        .arg(root)
+        .args(flags)
+        .current_dir(root)
+        .output()
+        .unwrap();
+    assert!(out.status.success(), "{out:?}");
+    serde_json::from_slice(&out.stdout).unwrap()
+}
+
+#[specforge_test_macros::test(
+    behavior = "provide_mcp_export_tool",
+    verify = "the graph export is the document specforge export --format graph writes, Graph Protocol 2.0 with the schema embedded"
+)]
+fn mcp_graph_export_is_the_cli_export() {
+    let dir = tempfile::tempdir().unwrap();
+    project(dir.path());
+
+    let mcp = mcp_export(dir.path(), json!({"format": "graph"}));
+    let cli = cli_export(dir.path(), &["--format", "graph"]);
+
+    assert_eq!(mcp["format_version"], "2.0", "{mcp}");
+    assert!(mcp["schema"].is_object(), "{mcp}");
+    assert_eq!(mcp, cli);
+}
+
+#[specforge_test_macros::test(
+    behavior = "provide_mcp_export_tool",
+    verify = "with_schema embeds the schema in a context, brief or budgeted export, and no_schema leaves it out of a graph export"
+)]
+fn mcp_export_schema_flags_are_the_cli_flags() {
+    let dir = tempfile::tempdir().unwrap();
+    project(dir.path());
+
+    for format in ["context", "brief"] {
+        let plain = mcp_export(dir.path(), json!({"format": format}));
+        assert!(plain.get("schema").is_none(), "{format}: {plain}");
+        let with = mcp_export(dir.path(), json!({"format": format, "with_schema": true}));
+        assert!(with["schema"].is_object(), "{format}: {with}");
+        assert_eq!(
+            with,
+            cli_export(dir.path(), &["--format", format, "--with-schema"])
+        );
+    }
+
+    let budgeted = mcp_export(
+        dir.path(),
+        json!({"format": "graph", "max_tokens": 100000, "with_schema": true}),
+    );
+    assert!(budgeted["schema"].is_object(), "{budgeted}");
+
+    let without = mcp_export(dir.path(), json!({"format": "graph", "no_schema": true}));
+    assert_eq!(without["format_version"], "1.0", "{without}");
+    assert!(without.get("schema").is_none(), "{without}");
+    assert_eq!(
+        without,
+        cli_export(dir.path(), &["--format", "graph", "--no-schema"])
+    );
+}
+
+#[specforge_test_macros::test(
+    behavior = "serve_graph_resource",
+    verify = "specforge://graph under max_tokens stays within the budget, as the budgeted export does"
+)]
+fn graph_resource_under_a_budget_is_the_budgeted_export() {
+    let dir = tempfile::tempdir().unwrap();
+    project(dir.path());
+    let budget = 300;
+
+    let resource = mcp_document(
+        &mut mcp_on(dir.path()),
+        "resources/read",
+        json!({"uri": format!("specforge://graph?max_tokens={budget}")}),
+    );
+
+    // The schema alone is thousands of tokens: a budgeted graph leaves it out.
+    assert!(resource.get("schema").is_none(), "{resource}");
+    let estimate = specforge_emitter::estimate_tokens(&resource.to_string());
+    assert!(
+        estimate <= budget,
+        "{estimate} tokens > {budget}: {resource}"
+    );
+    assert_eq!(
+        resource,
+        cli_export(dir.path(), &["--format", "graph", "--max-tokens", "300"])
+    );
 }

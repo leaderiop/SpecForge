@@ -104,6 +104,28 @@ fn enable_in_config(root: &Path, name: &str, version: &str) {
     let _ = specforge_ops::config::add_extension(root, name, &format!("{name}@{version}"));
 }
 
+/// The session's graph exported through the shared operation, with the
+/// schema its extensions produce: the one export behind `specforge.export`,
+/// `specforge.render` and `specforge://graph` (ADR 0004 D3-a).
+pub(crate) fn export_graph(
+    state: &McpState,
+    request: &specforge_ops::export::Request,
+) -> Result<String, specforge_ops::OpError> {
+    let schema = specforge_emitter::generate_schema(
+        &state.kind_registry,
+        &state.edge_registry,
+        &state.field_registry,
+        &state.extension_info,
+    );
+    let project = specforge_ops::export::Project {
+        graph: &state.graph,
+        kinds: &state.kind_registry,
+        fields: &state.field_registry,
+        schema: &schema,
+    };
+    specforge_ops::export::export(&project, request)
+}
+
 // ── format ──────────────────────────────────────────────────────────────────
 
 fn format_op(state: &McpState, args: Value, id: Option<Value>) -> JsonRpcResponse {
@@ -269,7 +291,8 @@ fn rename_op(state: &mut McpState, args: Value, id: Option<Value>) -> JsonRpcRes
         let Ok(text) = std::fs::read_to_string(&path) else {
             return err_invalid(id, format!("failed to read {}", path.display()));
         };
-        let renamed = apply_line_edits(&text, edits.iter().filter(|e| e.file == *file));
+        let renamed =
+            specforge_graph::rename::apply_edits(&text, edits.iter().filter(|e| e.file == *file));
         if let Err(e) = std::fs::write(&path, renamed) {
             return err_invalid(id, format!("failed to write {}: {e}", path.display()));
         }
@@ -277,33 +300,6 @@ fn rename_op(state: &mut McpState, args: Value, id: Option<Value>) -> JsonRpcRes
     state.recompile(&root);
     result["diagnostics"] = serde_json::to_value(&state.diagnostics).unwrap_or_default();
     ok(id, result)
-}
-
-/// `text` with each edit's byte range on its 1-based line replaced.
-fn apply_line_edits<'a>(
-    text: &str,
-    edits: impl Iterator<Item = &'a specforge_graph::rename::RenameEdit>,
-) -> String {
-    let mut by_line: std::collections::BTreeMap<usize, Vec<&specforge_graph::rename::RenameEdit>> =
-        std::collections::BTreeMap::new();
-    for edit in edits {
-        by_line.entry(edit.line).or_default().push(edit);
-    }
-    let mut out = String::with_capacity(text.len());
-    for (index, line) in text.split_inclusive('\n').enumerate() {
-        let Some(line_edits) = by_line.get_mut(&(index + 1)) else {
-            out.push_str(line);
-            continue;
-        };
-        // Right to left, so earlier columns stay valid.
-        line_edits.sort_by_key(|e| std::cmp::Reverse(e.start_col));
-        let mut line = line.to_string();
-        for edit in line_edits.iter() {
-            line.replace_range(edit.start_col..edit.end_col, &edit.new_text);
-        }
-        out.push_str(&line);
-    }
-    out
 }
 
 // ── init ────────────────────────────────────────────────────────────────────
@@ -1073,24 +1069,16 @@ fn render_op(state: &McpState, args: Value, id: Option<Value>) -> JsonRpcRespons
         );
     };
 
-    use specforge_emitter::{EmitFormat, EmitOptions, emit};
-    let emit_format = match format {
-        "json" => EmitFormat::Json,
-        "dot" => EmitFormat::Dot,
-        "context" => EmitFormat::Context,
-        _ => EmitFormat::Brief,
+    // "json" is the full graph export: Graph Protocol 2.0 with the schema,
+    // as `specforge export --format graph` writes it.
+    let request = specforge_ops::export::Request {
+        format: format.parse().ok(),
+        scope: args.get("scope").and_then(|v| v.as_str()),
+        ..specforge_ops::export::Request::default()
     };
-    let output = match emit(
-        &state.graph,
-        &EmitOptions {
-            format: emit_format,
-            scope: args.get("scope").and_then(|v| v.as_str()),
-            field_registry: Some(&state.field_registry),
-            ..EmitOptions::default()
-        },
-    ) {
+    let output = match export_graph(state, &request) {
         Ok(text) => text,
-        Err(e) => return err_invalid(id, format!("render failed: {e}")),
+        Err(e) => return err_invalid(id, format!("render failed: {}", e.message)),
     };
 
     // With out_dir the rendering lands on disk; without it, inline.

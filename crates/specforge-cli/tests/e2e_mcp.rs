@@ -523,7 +523,9 @@ fn mcp_tool_export_graph_format() {
     let resp = find_response(&responses, 1).expect("should get response for id 1");
     assert!(resp["error"].is_null(), "should not be error: {}", resp);
     let content = parse_tool_content(resp);
-    assert_eq!(content["schema_version"], "0.1.0", "{content}");
+    // Graph Protocol 2.0 with the schema, as `specforge export` writes it.
+    assert_eq!(content["format_version"], "2.0", "{content}");
+    assert!(content["schema"].is_object(), "{content}");
     // The whole graph: every entity and every reference.
     assert_eq!(
         node_ids(&content),

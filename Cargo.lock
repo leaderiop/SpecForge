@@ -2979,6 +2979,8 @@ name = "specforge-ops"
 version = "0.1.0"
 dependencies = [
  "serde_json",
+ "specforge-emitter",
+ "specforge-graph",
  "specforge-registry",
  "specforge-test",
  "specforge-test-macros",

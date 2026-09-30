@@ -9,6 +9,7 @@
 //! JSON-RPC stream). The crate denies `clippy::print_stdout`.
 
 pub mod config;
+pub mod export;
 pub mod registry;
 
 use std::borrow::Cow;
