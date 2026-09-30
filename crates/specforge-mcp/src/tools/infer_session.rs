@@ -156,7 +156,15 @@ fn handle_mark_analyzed(
     let abs_path = project_root.join(&source_file);
     let content_hash = match inference::compute_content_hash(&abs_path) {
         Ok(h) => h,
-        Err(e) => return JsonRpcResponse::error(id, error_codes::INTERNAL_ERROR, e),
+        // Name the file as the agent did: the absolute path would leak
+        // where the server's project lives.
+        Err(_) => {
+            return JsonRpcResponse::error(
+                id,
+                error_codes::INTERNAL_ERROR,
+                format!("failed to read {source_file}"),
+            );
+        }
     };
 
     manifest.upsert_source_entry(SourceFileEntry {

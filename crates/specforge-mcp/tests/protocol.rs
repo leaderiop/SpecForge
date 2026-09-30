@@ -155,12 +155,45 @@ fn missing_tool_name_returns_32602() {
     verify = "error response does not leak internal state"
 )]
 fn error_does_not_leak_internal_state() {
-    let mut server = McpServer::new();
-    let resp = call(&mut server, "nonexistent_method", json!({}));
-    let error = &resp["error"];
-    assert!(error.is_object());
-    assert!(error.get("graph").is_none());
-    assert!(error.get("diagnostics").is_none());
+    let (mut server, project) = server_with_corrupt_inference_manifest();
+    let root = project.path().to_str().unwrap().to_string();
+    let failing = [
+        ("nonexistent_method", json!({})),
+        // Internal failure: the inference manifest does not parse.
+        (
+            "tools/call",
+            json!({"name": "specforge.infer_session", "arguments": {"action": "start"}}),
+        ),
+    ];
+    let mut responses: Vec<Value> = failing
+        .into_iter()
+        .map(|(method, params)| call(&mut server, method, params))
+        .collect();
+    // Internal failure: a file read inside the project root fails.
+    std::fs::remove_file(project.path().join("specforge-infer.json")).unwrap();
+    responses.push(call(
+        &mut server,
+        "tools/call",
+        json!({"name": "specforge.infer_session",
+            "arguments": {"action": "mark_analyzed", "source_file": "src/missing.rs"}}),
+    ));
+
+    for resp in responses {
+        let error = resp["error"]
+            .as_object()
+            .unwrap_or_else(|| panic!("expected an error: {resp}"));
+        let mut keys: Vec<&str> = error.keys().map(String::as_str).collect();
+        keys.sort_unstable();
+        assert!(
+            keys == ["code", "message"] || keys == ["code", "data", "message"],
+            "only code/message/data: {resp}"
+        );
+        let message = error["message"].as_str().unwrap();
+        assert!(!message.is_empty());
+        for leak in [root.as_str(), "panicked", "RUST_BACKTRACE", ".rs:", "0x"] {
+            assert!(!message.contains(leak), "{leak:?} leaks in {message:?}");
+        }
+    }
 }
 
 // B:handle_mcp_protocol_error — verify unit "server remains operational after protocol error"
@@ -182,7 +215,22 @@ fn server_operational_after_protocol_error() {
     verify = "returns -32603 for internal error"
 )]
 fn internal_error_code_defined() {
-    assert_eq!(specforge_mcp::protocol::error_codes::INTERNAL_ERROR, -32603);
+    let (mut server, _project) = server_with_corrupt_inference_manifest();
+    let resp = call(
+        &mut server,
+        "tools/call",
+        json!({"name": "specforge.infer_session", "arguments": {"action": "start"}}),
+    );
+    assert_eq!(resp["error"]["code"], -32603, "{resp}");
+    assert!(
+        resp["error"]["message"]
+            .as_str()
+            .unwrap()
+            .contains("specforge-infer.json"),
+        "{resp}"
+    );
+    // The server stays up.
+    assert!(call(&mut server, "ping", json!({}))["result"].is_object());
 }
 
 #[specforge_test(
@@ -235,9 +283,19 @@ fn missing_required_params_produces_invalid_params() {
     });
     let resp_str = server.handle_message(&req.to_string()).unwrap();
     let resp: serde_json::Value = serde_json::from_str(&resp_str).unwrap();
-    // Should produce an error (either -32602 for invalid params or tool-level error)
-    assert!(
-        resp["error"].is_object() || resp["result"]["isError"] == true,
-        "missing required params should produce error"
+    assert_eq!(resp["error"]["code"], -32602, "{resp}");
+    assert_eq!(
+        resp["error"]["message"],
+        "Missing required parameter: entity_id"
     );
+}
+
+/// An initialized server over a temp project whose inference manifest is
+/// corrupt, so reading it fails inside the server.
+fn server_with_corrupt_inference_manifest() -> (McpServer, tempfile::TempDir) {
+    let project = tempfile::tempdir().unwrap();
+    std::fs::write(project.path().join("specforge-infer.json"), "{ not json").unwrap();
+    let mut server = init_server();
+    server.state_mut().project_root = Some(project.path().to_path_buf());
+    (server, project)
 }
