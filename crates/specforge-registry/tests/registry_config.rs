@@ -162,8 +162,8 @@ fn duplicate_alias_produces_warning() {
     assert_eq!(registries.len(), 2);
     let warning = diagnostics
         .iter()
-        .find(|d| d.code == "W-REG-001")
-        .expect("expected W-REG-001 diagnostic");
+        .find(|d| d.code == "W140")
+        .expect("expected W140 diagnostic");
     assert_eq!(warning.severity, Severity::Warning);
     assert!(warning.message.contains("Duplicate registry alias"));
     assert!(warning.message.contains("dup"));
@@ -208,8 +208,8 @@ fn invalid_json_produces_error() {
     assert!(registries.is_empty());
     let error = diagnostics
         .iter()
-        .find(|d| d.code == "E-REG-001")
-        .expect("expected E-REG-001 diagnostic");
+        .find(|d| d.code == "E066")
+        .expect("expected E066 diagnostic");
     assert_eq!(error.severity, Severity::Error);
 }
 

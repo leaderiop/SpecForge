@@ -56,7 +56,7 @@ pub fn run(
                 OutputFormat::Json => {
                     let output = json!({
                         "error": format!("git source '{}' not yet supported", url),
-                        "code": "E-ADD-001",
+                        "code": "E063",
                     });
                     println!("{}", serde_json::to_string_pretty(&output).unwrap());
                 }

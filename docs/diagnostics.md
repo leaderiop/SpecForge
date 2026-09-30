@@ -12,8 +12,10 @@ or is listed but never emitted.
 
 Codes follow the pattern `E###` (error), `W###` (warning) and `I###` (info);
 `A###` codes are `specforge analyze` findings, whose severity the pass sets.
-Each entry's `Level` is the severity every emit site uses, and a test checks
-the emit sites against it. The ranges `E900`-`E998`, `W900`-`W998` and `I900`-`I998` are reserved for
+The registry client keeps its own family, `R###` and `R-<AREA>-###`, whose
+prefix doesn't state the severity; no other family is accepted. Each entry's
+`Level` is the severity every emit site uses, and a test checks the emit sites
+against it. The ranges `E900`-`E998`, `W900`-`W998` and `I900`-`I998` are reserved for
 third-party extensions and never appear in this catalog; `I999` is a core code.
 
 Regenerate this page after editing the catalog:
@@ -112,8 +114,9 @@ E001: Parse error
 
 A `.spec` file could not be parsed — invalid syntax such as a missing brace,
 unclosed string, or malformed field at the reported location; the same code also
-covers an internal reparse failure in the language server. Fix the syntax at the
-reported span and re-save.
+covers an internal reparse failure in the language server, and the formatter's
+parser producing no syntax tree at all. Fix the syntax at the reported span and
+re-save.
 
 Owner: core
 Level: error
@@ -279,8 +282,9 @@ Level: error
 E019: Unsupported format version
 
 A `.spec` file's `// specforge-format: MAJOR.MINOR` header declares a version
-newer than this build supports, or the header itself doesn't parse. Lower the
-declared version or upgrade SpecForge.
+newer than this build supports, or the header itself doesn't parse; `specforge
+migrate --target-version` reports the same for a target it can't parse or
+doesn't support. Lower the declared version or upgrade SpecForge.
 
 Owner: core
 Level: error
@@ -418,8 +422,9 @@ E030: Invalid extension manifest
 An extension's manifest is unreadable, isn't valid JSON, or fails schema
 validation — a wrong `manifestVersion`, a missing `name`/`version`/`wasmPath`,
 an empty grammar/body-parser/analyzer contribution field, or a sandbox policy
-that allowlists a code file extension for output. Fix the manifest according to
-the reported detail.
+that allowlists a code file extension for output. `specforge publish` reports it
+for a `manifest.json` that doesn't parse. Fix the manifest according to the
+reported detail.
 
 Owner: core
 Level: error
@@ -460,9 +465,10 @@ Level: error
 E033: Lock file error
 
 `specforge.lock` couldn't be serialized, written, read, or parsed, or the hash
-it records for an installed extension no longer matches the binary on disk.
-Delete the lock file and reinstall extensions, or reinstall the specific
-extension whose binary changed.
+it records for an installed extension no longer matches the binary on disk;
+`specforge update` reports it when there is no lock file to update. Delete the
+lock file and reinstall extensions, reinstall the specific extension whose
+binary changed, or run `specforge add` first.
 
 Owner: core
 Level: error
@@ -524,9 +530,11 @@ Level: error
 ```
 E040: Missing extension project file
 
-`specforge extension build` or `validate` was run against a directory that's
-missing its `Cargo.toml` or `manifest.json`. Run the command from a scaffolded
-extension project, or create the missing file.
+`specforge extension build`, `extension validate` or `publish` was run against a
+directory that's missing its `Cargo.toml` or `manifest.json`, or (`publish`) the
+Wasm binary the manifest's `wasmPath` names, or one of those files couldn't be
+read. Run the command from a scaffolded extension project, build the binary, or
+create the missing file.
 
 Owner: core
 Level: error
@@ -579,6 +587,20 @@ E046: Metric bounds are contradictory
 `specforge analyze --prove`'s SMT solver found the declared `constraint` metric
 bounds mutually unsatisfiable; the cited bounds form the conflicting core. Relax
 or correct one of the listed bounds.
+
+Owner: core
+Level: error
+```
+
+## E048
+
+```
+E048: Proof coverage below the minimum
+
+`specforge analyze coverage --min N` found that fewer than N% of testable
+entities are proven, where an entity is proven when a passing test names each of
+its `verify` obligations or a formal claim discharges it. Prove more
+obligations, or lower the threshold. The run exits 1.
 
 Owner: core
 Level: error
@@ -756,6 +778,74 @@ block listing the dropped entity IDs, and, with `--with-schema`, the embedded
 schema, which is never cut short. The budget is below that fixed part, so no
 export fits. Raise the budget, or drop `--with-schema` when the schema alone is
 over it.
+
+Owner: core
+Level: error
+```
+
+## E063
+
+```
+E063: Unsupported extension source
+
+`specforge add` was given a `git+https://...` extension specifier. It parses,
+but installing from git isn't supported yet. Install from a registry
+(`name@version`) or from a local `.wasm` path instead.
+
+Owner: core
+Level: error
+```
+
+## E064
+
+```
+E064: Invalid scaffold request
+
+`specforge new` can't scaffold what was asked: only `--extension` projects are
+supported, the extension name is empty or is a scoped name that isn't
+`@scope/name`, or the destination directory already exists. Pass `--extension`,
+fix the name, or pick a destination that doesn't exist yet.
+
+Owner: core
+Level: error
+```
+
+## E065
+
+```
+E065: Extension scaffold failed
+
+`specforge new --extension` couldn't write the project: creating a directory or
+writing one of the generated files failed. Check permissions and free space at
+the destination, remove the partial project, and retry.
+
+Owner: core
+Level: error
+```
+
+## E066
+
+```
+E066: Invalid registry configuration
+
+The registry configuration in `specforge.json` can't be read: the file isn't
+valid JSON, `registries` isn't an array, or an entry at the reported index is
+missing a required field or has the wrong type. That part of the configuration
+is ignored. Fix the reported entry.
+
+Owner: core
+Level: error
+```
+
+## E067
+
+```
+E067: Coverage gate without the coverage pass
+
+`specforge analyze --min N` gates on proof coverage, which the `coverage` pass
+of `@specforge/testing` computes, but that pass didn't run: the extension isn't
+enabled, or `--pass` selected a different pass. Enable it with `specforge add
+@specforge/testing`, and run the `coverage` (or `all`) pass. The run exits 2.
 
 Owner: core
 Level: error
@@ -1034,6 +1124,388 @@ see the rest.
 
 Owner: core
 Level: info
+```
+
+## R-AUTH-020
+
+```
+R-AUTH-020: Stored registry token expired
+
+The token `specforge login` stored for this registry expired at the reported
+time. Log in again with a new token: `specforge login --registry <alias> --token
+<NEW_TOKEN>`.
+
+Owner: core
+Level: error
+```
+
+## R-AUTH-021
+
+```
+R-AUTH-021: Stored registry token unreadable
+
+The OS keyring entry that holds this registry's token is missing or can't be
+read, although the credentials file refers to it. Log in again: `specforge login
+--registry <alias> --token <NEW_TOKEN>`.
+
+Owner: core
+Level: error
+```
+
+## R-LOGIN-001
+
+```
+R-LOGIN-001: No login token given
+
+`specforge login` was run without a token. Pass one with `--token <TOKEN>`.
+
+Owner: core
+Level: error
+```
+
+## R-LOGIN-002
+
+```
+R-LOGIN-002: Login token not stored
+
+`specforge login` couldn't store the token in the OS keyring or in the fallback
+file `~/.specforge/credentials.json`. Check that the keyring service is
+available and that `~/.specforge` is writable.
+
+Owner: core
+Level: error
+```
+
+## R-OPS-001
+
+```
+R-OPS-001: No registry for the package
+
+No configured registry serves this package: none has a scope that matches it,
+and none is marked as the default (or no registries are configured at all). Add
+a `registries` entry to `specforge.json` with a matching scope, or mark one
+`"default_registry": true`.
+
+Owner: core
+Level: error
+```
+
+## R-OPS-002
+
+```
+R-OPS-002: Package integrity check failed
+
+The SHA-256 hash of the downloaded package doesn't match the hash the registry
+published for it, so the download is corrupt or was tampered with. Retry the
+download; if it keeps failing, don't install the package.
+
+Owner: core
+Level: error
+```
+
+## R-OPS-003
+
+```
+R-OPS-003: Manifest not serializable
+
+`specforge publish` couldn't serialize the extension manifest to JSON for the
+upload. This is a SpecForge bug, not a mistake in your manifest; please report
+it.
+
+Owner: core
+Level: error
+```
+
+## R-RES-001
+
+```
+R-RES-001: Package not in the registry
+
+The registry has no package with this name. Check the package name and which
+registry the configuration sends it to.
+
+Owner: core
+Level: error
+```
+
+## R-RES-002
+
+```
+R-RES-002: No published versions
+
+The registry lists the package, but no version of it (or no version with a valid
+semver number). Ask the publisher to publish a release, or install from another
+source.
+
+Owner: core
+Level: error
+```
+
+## R-RES-003
+
+```
+R-RES-003: Invalid version range
+
+The version range isn't valid semver range syntax. Use a range such as `^1.0`,
+`~2.3` or `>=1.0.0 <2.0.0`, or `latest`.
+
+Owner: core
+Level: error
+```
+
+## R-RES-004
+
+```
+R-RES-004: No version satisfies the range
+
+The registry has versions of the package, but none inside the requested range;
+the message lists the available ones. Widen the range, or pick one of the listed
+versions.
+
+Owner: core
+Level: error
+```
+
+## R-RES-005
+
+```
+R-RES-005: Unresolvable version diamond
+
+Several extensions require this package in ranges that no single published
+version satisfies (see ADR 0001). Upgrade the requirer with the narrowest range,
+or pin a compatible version manually.
+
+Owner: core
+Level: error
+```
+
+## R-RES-006
+
+```
+R-RES-006: Locked peer breaks a version diamond
+
+The extension being added requires a peer at a version the lock file doesn't
+have, and the message names a version that would satisfy every requirer. No
+command pins peer versions yet: reinstall the peer at that version by hand, then
+run `specforge add` again.
+
+Owner: core
+Level: error
+```
+
+## R-TRUST-001
+
+```
+R-TRUST-001: Unsigned package
+
+The registry package carries no publisher signature, so where it came from can't
+be verified. Install it anyway only if you trust the source, with
+`--allow-unsigned`.
+
+Owner: core
+Level: error
+```
+
+## R-TRUST-002
+
+```
+R-TRUST-002: Invalid package signature
+
+The package's signature is malformed, or it doesn't verify: the Wasm binary or
+the manifest isn't what the publisher signed. Don't install the package.
+
+Owner: core
+Level: error
+```
+
+## R-TRUST-003
+
+```
+R-TRUST-003: Publisher key changed
+
+The package is signed with a different key than the one pinned for it when it
+was first installed (trust on first use). That can be a key rotation or a
+compromised publisher. If you trust the new key, re-run with `--yes` or add it
+to `trusted_keys`.
+
+Owner: core
+Level: error
+```
+
+## R-TRUST-004
+
+```
+R-TRUST-004: Signature metadata mismatch
+
+The key ID the registry reports for the package differs from the key ID inside
+its signature, so the registry metadata was edited apart from the signature or
+is stale. Don't install the package, and check the registry.
+
+Owner: core
+Level: error
+```
+
+## R-TRUST-005
+
+```
+R-TRUST-005: Publisher key denied
+
+The package is signed with a key listed in `denied_keys` in your known-keys
+file. Remove the key from `denied_keys` only if you trust it again.
+
+Owner: core
+Level: error
+```
+
+## R-TRUST-006
+
+```
+R-TRUST-006: Known-keys file not writable
+
+The publisher key pinned for the package couldn't be saved to
+`~/.specforge/known-keys.json`. Check the permissions on that file and its
+directory.
+
+Owner: core
+Level: error
+```
+
+## R001
+
+```
+R001: Registry authentication failed
+
+The registry rejected the request as unauthenticated (HTTP 401), or the
+credentials its `auth` configuration names couldn't be read; a request is
+retried once with re-read credentials first. Log in again with `specforge login
+--registry <alias> --token <TOKEN>`.
+
+Owner: core
+Level: error
+```
+
+## R002
+
+```
+R002: Registry access forbidden
+
+The registry accepted the credentials but refused the request (HTTP 403). Check
+your permissions for the registry or the package scope.
+
+Owner: core
+Level: error
+```
+
+## R003
+
+```
+R003: Registry rate limit
+
+The registry is rate limiting requests (HTTP 429); the message says how long to
+wait. Retry after that delay.
+
+Owner: core
+Level: warning
+```
+
+## R004
+
+```
+R004: Registry request timed out
+
+A request to the registry didn't answer in time. Check the network connection
+and the registry URL, or try again later.
+
+Owner: core
+Level: error
+```
+
+## R005
+
+```
+R005: Registry network error
+
+A request to the registry failed at the network level. Check the network
+connection and the registry URL.
+
+Owner: core
+Level: error
+```
+
+## R006
+
+```
+R006: Package version not found
+
+The registry answered 404 for the package or version. Check the package name and
+version.
+
+Owner: core
+Level: error
+```
+
+## R007
+
+```
+R007: Version already published
+
+`specforge publish` tried to publish a version that already exists for the
+package, and published versions are immutable. Bump the version in the manifest
+and publish again.
+
+Owner: core
+Level: error
+```
+
+## R010
+
+```
+R010: Registry token variable not set
+
+The registry's `auth` configuration reads the token from an environment variable
+that isn't set. Set it (`export <VAR>=<token>`) or change the registry's `auth`
+configuration.
+
+Owner: core
+Level: error
+```
+
+## R011
+
+```
+R011: Registry token file unreadable
+
+The registry's `auth` configuration reads the token from a file that can't be
+read. Check that the file exists and is readable, or change the registry's
+`auth` configuration.
+
+Owner: core
+Level: error
+```
+
+## R012
+
+```
+R012: Credentials file unreadable
+
+`~/.specforge/credentials.json` can't be read, or isn't in the expected format.
+Check its permissions, or delete it and log in again.
+
+Owner: core
+Level: error
+```
+
+## R013
+
+```
+R013: Credentials file not writable
+
+The credentials couldn't be saved: creating `~/.specforge`, serializing the
+credentials, or writing `~/.specforge/credentials.json` failed. Check the
+permissions on `~/.specforge`.
+
+Owner: core
+Level: error
 ```
 
 ## W001
@@ -1723,6 +2195,20 @@ Owner: @specforge/formal
 Level: warning
 ```
 
+## W097
+
+```
+W097: Test record for an unknown entity
+
+`specforge analyze` read a recorded test result (in `specforge-report.json`) for
+an entity ID that no spec declares, so the result counts toward nothing; a `did
+you mean` hint names a close match when there is one. Fix the entity ID the test
+names, or declare the entity.
+
+Owner: core
+Level: warning
+```
+
 ## W098
 
 ```
@@ -2044,6 +2530,45 @@ don't guarantee it yet, and its `verify property` obligation stays unproven.
 Strengthen the declared constraint bounds or weaken the claim. Use `--strict` to
 fail the run on it. This code was E047 until it was renumbered to match its
 severity.
+
+Owner: core
+Level: warning
+```
+
+## W140
+
+```
+W140: Duplicate registry alias
+
+Two entries in `registries` in `specforge.json` share an alias, so the alias
+doesn't name one registry. Give each registry a unique alias.
+
+Owner: core
+Level: warning
+```
+
+## W141
+
+```
+W141: Invalid formatter configuration
+
+The formatter's `.specforgefmt.toml` can't be read, isn't valid TOML, or sets
+`indent_width` (an integer from 1 to 16), `use_tabs` (a boolean) or `max_width`
+(an integer from 40 to 200) to an invalid value. The formatter uses the default
+for anything it can't use. Fix the reported setting.
+
+Owner: core
+Level: warning
+```
+
+## W142
+
+```
+W142: Unparseable region left unformatted
+
+The formatter hit a parse error in a `.spec` file. It keeps the reported line
+range exactly as written and formats the rest. Fix the syntax there (see E001)
+and format again.
 
 Owner: core
 Level: warning

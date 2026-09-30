@@ -9,8 +9,9 @@
 /// One diagnostic code and what it means.
 #[derive(Debug, Clone, Copy)]
 pub struct CodeEntry {
-    /// `E###` (error), `W###` (warning), `I###` (info), or `A###` (an
-    /// `analyze` pass finding, whose severity the pass sets).
+    /// `E###` (error), `W###` (warning), `I###` (info), `A###` (an
+    /// `analyze` pass finding, whose severity the pass sets), or the
+    /// registry client's `R###` / `R-<AREA>-###`.
     pub code: &'static str,
     /// Short human-readable name.
     pub title: &'static str,
@@ -79,7 +80,8 @@ pub fn run(code: &str) -> i32 {
         None => {
             eprintln!("unknown diagnostic code: {code}");
             eprintln!(
-                "hint: codes follow the pattern E### (error), W### (warning), I### (info), A### (analyze finding)"
+                "hint: codes follow the pattern E### (error), W### (warning), I### (info), A### (analyze finding); \
+                 registry client codes are R### and R-<AREA>-###"
             );
             eprintln!(
                 "hint: E900-E998, W900-W998 and I900-I998 are reserved for third-party extensions; \
@@ -158,8 +160,10 @@ or is listed but never emitted.
 
 Codes follow the pattern `E###` (error), `W###` (warning) and `I###` (info);
 `A###` codes are `specforge analyze` findings, whose severity the pass sets.
-Each entry's `Level` is the severity every emit site uses, and a test checks
-the emit sites against it. The ranges `E900`-`E998`, `W900`-`W998` and `I900`-`I998` are reserved for
+The registry client keeps its own family, `R###` and `R-<AREA>-###`, whose
+prefix doesn't state the severity; no other family is accepted. Each entry's
+`Level` is the severity every emit site uses, and a test checks the emit sites
+against it. The ranges `E900`-`E998`, `W900`-`W998` and `I900`-`I998` are reserved for
 third-party extensions and never appear in this catalog; `I999` is a core code.
 
 Regenerate this page after editing the catalog:
@@ -218,7 +222,7 @@ pub const CATALOG: &[CodeEntry] = &[
         title: "Parse error",
         owner: "core",
         level: Level::Error,
-        explanation: "A `.spec` file could not be parsed — invalid syntax such as a missing brace, unclosed string, or malformed field at the reported location; the same code also covers an internal reparse failure in the language server. Fix the syntax at the reported span and re-save.",
+        explanation: "A `.spec` file could not be parsed — invalid syntax such as a missing brace, unclosed string, or malformed field at the reported location; the same code also covers an internal reparse failure in the language server, and the formatter's parser producing no syntax tree at all. Fix the syntax at the reported span and re-save.",
     },
     CodeEntry {
         code: "E002",
@@ -309,7 +313,7 @@ pub const CATALOG: &[CodeEntry] = &[
         title: "Unsupported format version",
         owner: "core",
         level: Level::Error,
-        explanation: "A `.spec` file's `// specforge-format: MAJOR.MINOR` header declares a version newer than this build supports, or the header itself doesn't parse. Lower the declared version or upgrade SpecForge.",
+        explanation: "A `.spec` file's `// specforge-format: MAJOR.MINOR` header declares a version newer than this build supports, or the header itself doesn't parse; `specforge migrate --target-version` reports the same for a target it can't parse or doesn't support. Lower the declared version or upgrade SpecForge.",
     },
     CodeEntry {
         code: "E020",
@@ -379,7 +383,7 @@ pub const CATALOG: &[CodeEntry] = &[
         title: "Invalid extension manifest",
         owner: "core",
         level: Level::Error,
-        explanation: "An extension's manifest is unreadable, isn't valid JSON, or fails schema validation — a wrong `manifestVersion`, a missing `name`/`version`/`wasmPath`, an empty grammar/body-parser/analyzer contribution field, or a sandbox policy that allowlists a code file extension for output. Fix the manifest according to the reported detail.",
+        explanation: "An extension's manifest is unreadable, isn't valid JSON, or fails schema validation — a wrong `manifestVersion`, a missing `name`/`version`/`wasmPath`, an empty grammar/body-parser/analyzer contribution field, or a sandbox policy that allowlists a code file extension for output. `specforge publish` reports it for a `manifest.json` that doesn't parse. Fix the manifest according to the reported detail.",
     },
     CodeEntry {
         code: "E031",
@@ -400,7 +404,7 @@ pub const CATALOG: &[CodeEntry] = &[
         title: "Lock file error",
         owner: "core",
         level: Level::Error,
-        explanation: "`specforge.lock` couldn't be serialized, written, read, or parsed, or the hash it records for an installed extension no longer matches the binary on disk. Delete the lock file and reinstall extensions, or reinstall the specific extension whose binary changed.",
+        explanation: "`specforge.lock` couldn't be serialized, written, read, or parsed, or the hash it records for an installed extension no longer matches the binary on disk; `specforge update` reports it when there is no lock file to update. Delete the lock file and reinstall extensions, reinstall the specific extension whose binary changed, or run `specforge add` first.",
     },
     CodeEntry {
         code: "E035",
@@ -435,7 +439,7 @@ pub const CATALOG: &[CodeEntry] = &[
         title: "Missing extension project file",
         owner: "core",
         level: Level::Error,
-        explanation: "`specforge extension build` or `validate` was run against a directory that's missing its `Cargo.toml` or `manifest.json`. Run the command from a scaffolded extension project, or create the missing file.",
+        explanation: "`specforge extension build`, `extension validate` or `publish` was run against a directory that's missing its `Cargo.toml` or `manifest.json`, or (`publish`) the Wasm binary the manifest's `wasmPath` names, or one of those files couldn't be read. Run the command from a scaffolded extension project, build the binary, or create the missing file.",
     },
     CodeEntry {
         code: "E041",
@@ -464,6 +468,13 @@ pub const CATALOG: &[CodeEntry] = &[
         owner: "core",
         level: Level::Error,
         explanation: "`specforge analyze --prove`'s SMT solver found the declared `constraint` metric bounds mutually unsatisfiable; the cited bounds form the conflicting core. Relax or correct one of the listed bounds.",
+    },
+    CodeEntry {
+        code: "E048",
+        title: "Proof coverage below the minimum",
+        owner: "core",
+        level: Level::Error,
+        explanation: "`specforge analyze coverage --min N` found that fewer than N% of testable entities are proven, where an entity is proven when a passing test names each of its `verify` obligations or a formal claim discharges it. Prove more obligations, or lower the threshold. The run exits 1.",
     },
     CodeEntry {
         code: "E051",
@@ -548,6 +559,41 @@ pub const CATALOG: &[CodeEntry] = &[
         owner: "core",
         level: Level::Error,
         explanation: "`specforge export --max-tokens` (or the MCP `export` tool's `max_tokens`) keeps the most central entities that fit the budget, but some of the export never shrinks: the envelope (`format_version`, `schema_version`), the `token_budget` block listing the dropped entity IDs, and, with `--with-schema`, the embedded schema, which is never cut short. The budget is below that fixed part, so no export fits. Raise the budget, or drop `--with-schema` when the schema alone is over it.",
+    },
+    CodeEntry {
+        code: "E063",
+        title: "Unsupported extension source",
+        owner: "core",
+        level: Level::Error,
+        explanation: "`specforge add` was given a `git+https://...` extension specifier. It parses, but installing from git isn't supported yet. Install from a registry (`name@version`) or from a local `.wasm` path instead.",
+    },
+    CodeEntry {
+        code: "E064",
+        title: "Invalid scaffold request",
+        owner: "core",
+        level: Level::Error,
+        explanation: "`specforge new` can't scaffold what was asked: only `--extension` projects are supported, the extension name is empty or is a scoped name that isn't `@scope/name`, or the destination directory already exists. Pass `--extension`, fix the name, or pick a destination that doesn't exist yet.",
+    },
+    CodeEntry {
+        code: "E065",
+        title: "Extension scaffold failed",
+        owner: "core",
+        level: Level::Error,
+        explanation: "`specforge new --extension` couldn't write the project: creating a directory or writing one of the generated files failed. Check permissions and free space at the destination, remove the partial project, and retry.",
+    },
+    CodeEntry {
+        code: "E066",
+        title: "Invalid registry configuration",
+        owner: "core",
+        level: Level::Error,
+        explanation: "The registry configuration in `specforge.json` can't be read: the file isn't valid JSON, `registries` isn't an array, or an entry at the reported index is missing a required field or has the wrong type. That part of the configuration is ignored. Fix the reported entry.",
+    },
+    CodeEntry {
+        code: "E067",
+        title: "Coverage gate without the coverage pass",
+        owner: "core",
+        level: Level::Error,
+        explanation: "`specforge analyze --min N` gates on proof coverage, which the `coverage` pass of `@specforge/testing` computes, but that pass didn't run: the extension isn't enabled, or `--pass` selected a different pass. Enable it with `specforge add @specforge/testing`, and run the `coverage` (or `all`) pass. The run exits 2.",
     },
     CodeEntry {
         code: "I002",
@@ -695,6 +741,216 @@ pub const CATALOG: &[CodeEntry] = &[
         owner: "core",
         level: Level::Info,
         explanation: "More diagnostics were produced than the 100-diagnostic display limit, so only the first batch is shown. Fix the listed diagnostics and rerun the compiler to see the rest.",
+    },
+    CodeEntry {
+        code: "R-AUTH-020",
+        title: "Stored registry token expired",
+        owner: "core",
+        level: Level::Error,
+        explanation: "The token `specforge login` stored for this registry expired at the reported time. Log in again with a new token: `specforge login --registry <alias> --token <NEW_TOKEN>`.",
+    },
+    CodeEntry {
+        code: "R-AUTH-021",
+        title: "Stored registry token unreadable",
+        owner: "core",
+        level: Level::Error,
+        explanation: "The OS keyring entry that holds this registry's token is missing or can't be read, although the credentials file refers to it. Log in again: `specforge login --registry <alias> --token <NEW_TOKEN>`.",
+    },
+    CodeEntry {
+        code: "R-LOGIN-001",
+        title: "No login token given",
+        owner: "core",
+        level: Level::Error,
+        explanation: "`specforge login` was run without a token. Pass one with `--token <TOKEN>`.",
+    },
+    CodeEntry {
+        code: "R-LOGIN-002",
+        title: "Login token not stored",
+        owner: "core",
+        level: Level::Error,
+        explanation: "`specforge login` couldn't store the token in the OS keyring or in the fallback file `~/.specforge/credentials.json`. Check that the keyring service is available and that `~/.specforge` is writable.",
+    },
+    CodeEntry {
+        code: "R-OPS-001",
+        title: "No registry for the package",
+        owner: "core",
+        level: Level::Error,
+        explanation: "No configured registry serves this package: none has a scope that matches it, and none is marked as the default (or no registries are configured at all). Add a `registries` entry to `specforge.json` with a matching scope, or mark one `\"default_registry\": true`.",
+    },
+    CodeEntry {
+        code: "R-OPS-002",
+        title: "Package integrity check failed",
+        owner: "core",
+        level: Level::Error,
+        explanation: "The SHA-256 hash of the downloaded package doesn't match the hash the registry published for it, so the download is corrupt or was tampered with. Retry the download; if it keeps failing, don't install the package.",
+    },
+    CodeEntry {
+        code: "R-OPS-003",
+        title: "Manifest not serializable",
+        owner: "core",
+        level: Level::Error,
+        explanation: "`specforge publish` couldn't serialize the extension manifest to JSON for the upload. This is a SpecForge bug, not a mistake in your manifest; please report it.",
+    },
+    CodeEntry {
+        code: "R-RES-001",
+        title: "Package not in the registry",
+        owner: "core",
+        level: Level::Error,
+        explanation: "The registry has no package with this name. Check the package name and which registry the configuration sends it to.",
+    },
+    CodeEntry {
+        code: "R-RES-002",
+        title: "No published versions",
+        owner: "core",
+        level: Level::Error,
+        explanation: "The registry lists the package, but no version of it (or no version with a valid semver number). Ask the publisher to publish a release, or install from another source.",
+    },
+    CodeEntry {
+        code: "R-RES-003",
+        title: "Invalid version range",
+        owner: "core",
+        level: Level::Error,
+        explanation: "The version range isn't valid semver range syntax. Use a range such as `^1.0`, `~2.3` or `>=1.0.0 <2.0.0`, or `latest`.",
+    },
+    CodeEntry {
+        code: "R-RES-004",
+        title: "No version satisfies the range",
+        owner: "core",
+        level: Level::Error,
+        explanation: "The registry has versions of the package, but none inside the requested range; the message lists the available ones. Widen the range, or pick one of the listed versions.",
+    },
+    CodeEntry {
+        code: "R-RES-005",
+        title: "Unresolvable version diamond",
+        owner: "core",
+        level: Level::Error,
+        explanation: "Several extensions require this package in ranges that no single published version satisfies (see ADR 0001). Upgrade the requirer with the narrowest range, or pin a compatible version manually.",
+    },
+    CodeEntry {
+        code: "R-RES-006",
+        title: "Locked peer breaks a version diamond",
+        owner: "core",
+        level: Level::Error,
+        explanation: "The extension being added requires a peer at a version the lock file doesn't have, and the message names a version that would satisfy every requirer. No command pins peer versions yet: reinstall the peer at that version by hand, then run `specforge add` again.",
+    },
+    CodeEntry {
+        code: "R-TRUST-001",
+        title: "Unsigned package",
+        owner: "core",
+        level: Level::Error,
+        explanation: "The registry package carries no publisher signature, so where it came from can't be verified. Install it anyway only if you trust the source, with `--allow-unsigned`.",
+    },
+    CodeEntry {
+        code: "R-TRUST-002",
+        title: "Invalid package signature",
+        owner: "core",
+        level: Level::Error,
+        explanation: "The package's signature is malformed, or it doesn't verify: the Wasm binary or the manifest isn't what the publisher signed. Don't install the package.",
+    },
+    CodeEntry {
+        code: "R-TRUST-003",
+        title: "Publisher key changed",
+        owner: "core",
+        level: Level::Error,
+        explanation: "The package is signed with a different key than the one pinned for it when it was first installed (trust on first use). That can be a key rotation or a compromised publisher. If you trust the new key, re-run with `--yes` or add it to `trusted_keys`.",
+    },
+    CodeEntry {
+        code: "R-TRUST-004",
+        title: "Signature metadata mismatch",
+        owner: "core",
+        level: Level::Error,
+        explanation: "The key ID the registry reports for the package differs from the key ID inside its signature, so the registry metadata was edited apart from the signature or is stale. Don't install the package, and check the registry.",
+    },
+    CodeEntry {
+        code: "R-TRUST-005",
+        title: "Publisher key denied",
+        owner: "core",
+        level: Level::Error,
+        explanation: "The package is signed with a key listed in `denied_keys` in your known-keys file. Remove the key from `denied_keys` only if you trust it again.",
+    },
+    CodeEntry {
+        code: "R-TRUST-006",
+        title: "Known-keys file not writable",
+        owner: "core",
+        level: Level::Error,
+        explanation: "The publisher key pinned for the package couldn't be saved to `~/.specforge/known-keys.json`. Check the permissions on that file and its directory.",
+    },
+    CodeEntry {
+        code: "R001",
+        title: "Registry authentication failed",
+        owner: "core",
+        level: Level::Error,
+        explanation: "The registry rejected the request as unauthenticated (HTTP 401), or the credentials its `auth` configuration names couldn't be read; a request is retried once with re-read credentials first. Log in again with `specforge login --registry <alias> --token <TOKEN>`.",
+    },
+    CodeEntry {
+        code: "R002",
+        title: "Registry access forbidden",
+        owner: "core",
+        level: Level::Error,
+        explanation: "The registry accepted the credentials but refused the request (HTTP 403). Check your permissions for the registry or the package scope.",
+    },
+    CodeEntry {
+        code: "R003",
+        title: "Registry rate limit",
+        owner: "core",
+        level: Level::Warning,
+        explanation: "The registry is rate limiting requests (HTTP 429); the message says how long to wait. Retry after that delay.",
+    },
+    CodeEntry {
+        code: "R004",
+        title: "Registry request timed out",
+        owner: "core",
+        level: Level::Error,
+        explanation: "A request to the registry didn't answer in time. Check the network connection and the registry URL, or try again later.",
+    },
+    CodeEntry {
+        code: "R005",
+        title: "Registry network error",
+        owner: "core",
+        level: Level::Error,
+        explanation: "A request to the registry failed at the network level. Check the network connection and the registry URL.",
+    },
+    CodeEntry {
+        code: "R006",
+        title: "Package version not found",
+        owner: "core",
+        level: Level::Error,
+        explanation: "The registry answered 404 for the package or version. Check the package name and version.",
+    },
+    CodeEntry {
+        code: "R007",
+        title: "Version already published",
+        owner: "core",
+        level: Level::Error,
+        explanation: "`specforge publish` tried to publish a version that already exists for the package, and published versions are immutable. Bump the version in the manifest and publish again.",
+    },
+    CodeEntry {
+        code: "R010",
+        title: "Registry token variable not set",
+        owner: "core",
+        level: Level::Error,
+        explanation: "The registry's `auth` configuration reads the token from an environment variable that isn't set. Set it (`export <VAR>=<token>`) or change the registry's `auth` configuration.",
+    },
+    CodeEntry {
+        code: "R011",
+        title: "Registry token file unreadable",
+        owner: "core",
+        level: Level::Error,
+        explanation: "The registry's `auth` configuration reads the token from a file that can't be read. Check that the file exists and is readable, or change the registry's `auth` configuration.",
+    },
+    CodeEntry {
+        code: "R012",
+        title: "Credentials file unreadable",
+        owner: "core",
+        level: Level::Error,
+        explanation: "`~/.specforge/credentials.json` can't be read, or isn't in the expected format. Check its permissions, or delete it and log in again.",
+    },
+    CodeEntry {
+        code: "R013",
+        title: "Credentials file not writable",
+        owner: "core",
+        level: Level::Error,
+        explanation: "The credentials couldn't be saved: creating `~/.specforge`, serializing the credentials, or writing `~/.specforge/credentials.json` failed. Check the permissions on `~/.specforge`.",
     },
     CodeEntry {
         code: "W001",
@@ -1068,6 +1324,13 @@ pub const CATALOG: &[CodeEntry] = &[
         explanation: "A `behavior` entity declares a `requires` clause (an obligation on callers) but no `ensures` clause (a guarantee in return). Add an `ensures` clause describing what the behavior guarantees when its `requires` is satisfied.",
     },
     CodeEntry {
+        code: "W097",
+        title: "Test record for an unknown entity",
+        owner: "core",
+        level: Level::Warning,
+        explanation: "`specforge analyze` read a recorded test result (in `specforge-report.json`) for an entity ID that no spec declares, so the result counts toward nothing; a `did you mean` hint names a close match when there is one. Fix the entity ID the test names, or declare the entity.",
+    },
+    CodeEntry {
         code: "W098",
         title: "SMT solver unavailable",
         owner: "core",
@@ -1235,6 +1498,27 @@ pub const CATALOG: &[CodeEntry] = &[
         level: Level::Warning,
         explanation: "`specforge analyze --prove` found that a `claim` isn't guaranteed by the declared metric bounds: the SMT solver found a counterexample that satisfies every bound while violating the claim. The claim isn't wrong; the bounds just don't guarantee it yet, and its `verify property` obligation stays unproven. Strengthen the declared constraint bounds or weaken the claim. Use `--strict` to fail the run on it. This code was E047 until it was renumbered to match its severity.",
     },
+    CodeEntry {
+        code: "W140",
+        title: "Duplicate registry alias",
+        owner: "core",
+        level: Level::Warning,
+        explanation: "Two entries in `registries` in `specforge.json` share an alias, so the alias doesn't name one registry. Give each registry a unique alias.",
+    },
+    CodeEntry {
+        code: "W141",
+        title: "Invalid formatter configuration",
+        owner: "core",
+        level: Level::Warning,
+        explanation: "The formatter's `.specforgefmt.toml` can't be read, isn't valid TOML, or sets `indent_width` (an integer from 1 to 16), `use_tabs` (a boolean) or `max_width` (an integer from 40 to 200) to an invalid value. The formatter uses the default for anything it can't use. Fix the reported setting.",
+    },
+    CodeEntry {
+        code: "W142",
+        title: "Unparseable region left unformatted",
+        owner: "core",
+        level: Level::Warning,
+        explanation: "The formatter hit a parse error in a `.spec` file. It keeps the reported line range exactly as written and formats the rest. Fix the syntax there (see E001) and format again.",
+    },
 ];
 
 /// Codes that are no longer emitted, with the code that replaced them (if
@@ -1262,7 +1546,29 @@ mod tests {
     }
 
     /// Third-party extensions own E900–E998 / W900–W998 / I900–I998.
+    /// The registry client's code areas (`R-RES-005`), catalogued as they
+    /// are (ADR 0004 D6-c). The grammar is frozen: no new area, no new family.
+    const REGISTRY_AREAS: &[&str] = &["AUTH", "LOGIN", "OPS", "RES", "TRUST"];
+
+    /// `E###`/`W###`/`I###`/`A###`, or the registry client's `R###` and
+    /// `R-<AREA>-###`.
+    fn is_allowed_shape(code: &str) -> bool {
+        let digits = |s: &str| s.len() == 3 && s.bytes().all(|c| c.is_ascii_digit());
+        if let Some(rest) = code.strip_prefix("R-") {
+            return rest
+                .split_once('-')
+                .is_some_and(|(area, n)| REGISTRY_AREAS.contains(&area) && digits(n));
+        }
+        code.len() == 4
+            && matches!(code.as_bytes()[0], b'E' | b'W' | b'I' | b'A' | b'R')
+            && digits(&code[1..])
+    }
+
     fn is_third_party(code: &str) -> bool {
+        let b = code.as_bytes();
+        if b.len() != 4 || !matches!(b[0], b'E' | b'W' | b'I') {
+            return false;
+        }
         let n: u32 = code[1..].parse().unwrap_or(0);
         (900..=998).contains(&n)
     }
@@ -1297,14 +1603,13 @@ mod tests {
             }
         }
         for entry in CATALOG {
-            let b = entry.code.as_bytes();
-            let shaped = b.len() == 4
-                && matches!(b[0], b'E' | b'W' | b'I' | b'A')
-                && b[1..].iter().all(u8::is_ascii_digit);
-            if !shaped {
+            if !is_allowed_shape(entry.code) {
                 problems.push(format!(
-                    "{}: not of the form E###/W###/I###/A###",
-                    entry.code
+                    "{}: not of the form E###/W###/I###/A###; R### and R-<AREA>-### (AREA one \
+                     of {}) are kept only for the registry client, so a new code takes the \
+                     next free E/W/I/A number",
+                    entry.code,
+                    REGISTRY_AREAS.join(", ")
                 ));
             } else if is_third_party(entry.code) {
                 problems.push(format!(
@@ -1479,18 +1784,64 @@ mod tests {
         out
     }
 
-    /// Find `"E###"`-style literals on a line, each with the byte range of
-    /// the quoted literal.
+    /// The end of a code-shaped token starting at `b[i]`: one uppercase
+    /// letter, optional `-AREA` segments, then three digits (`E001`, `R013`,
+    /// `R-RES-005`, `E-PUB-001`), not followed by another word character.
+    /// Any such family is found, so an emitter can't hide a code behind a
+    /// new shape; the catalog decides which families are allowed.
+    fn code_shape_end(b: &[u8], i: usize) -> Option<usize> {
+        if !b.get(i)?.is_ascii_uppercase() {
+            return None;
+        }
+        let mut j = i + 1;
+        let mut segments = 0;
+        while b.get(j) == Some(&b'-') && b.get(j + 1).is_some_and(u8::is_ascii_uppercase) {
+            j += 1;
+            while b.get(j).is_some_and(u8::is_ascii_uppercase) {
+                j += 1;
+            }
+            segments += 1;
+        }
+        if segments > 0 {
+            if b.get(j) != Some(&b'-') {
+                return None;
+            }
+            j += 1;
+        }
+        if !(j..j + 3).all(|k| b.get(k).is_some_and(u8::is_ascii_digit)) {
+            return None;
+        }
+        let end = j + 3;
+        let word = |c: &u8| c.is_ascii_alphanumeric() || *c == b'_';
+        (!b.get(end).is_some_and(word)).then_some(end)
+    }
+
+    /// Find diagnostic codes in string literals on a line, each with the
+    /// byte range around it: a whole literal (`"E028"`, `"R-RES-005"`), a
+    /// code printed in brackets after a severity (`"error[E048]: ..."`), or
+    /// a literal that starts with the code (`"W097: ..."`). Single-letter
+    /// families are limited to E, W, I, A, R and F, so strings like
+    /// `"X509"` aren't codes.
     fn code_literals(line: &str) -> Vec<(&str, std::ops::Range<usize>)> {
         let b = line.as_bytes();
         let mut found = Vec::new();
-        for i in 0..b.len().saturating_sub(5) {
-            if b[i] == b'"'
-                && matches!(b[i + 1], b'E' | b'W' | b'I' | b'A')
-                && b[i + 2..i + 5].iter().all(u8::is_ascii_digit)
-                && b[i + 5] == b'"'
-            {
-                found.push((&line[i + 1..i + 5], i..i + 6));
+        for i in 1..b.len() {
+            let Some(end) = code_shape_end(b, i) else {
+                continue;
+            };
+            let code = &line[i..end];
+            if code.len() == 4 && !matches!(b[i], b'E' | b'W' | b'I' | b'A' | b'R' | b'F') {
+                continue;
+            }
+            let after = b.get(end).copied();
+            let quoted = b[i - 1] == b'"' && matches!(after, Some(b'"') | Some(b':'));
+            let bracketed = b[i - 1] == b'['
+                && after == Some(b']')
+                && ["error", "warning", "info"]
+                    .iter()
+                    .any(|w| line[..i - 1].ends_with(w));
+            if quoted || bracketed {
+                found.push((code, i - 1..end + 1));
             }
         }
         found
@@ -1602,19 +1953,23 @@ mod tests {
         sites
     }
 
-    /// Every `E###`/`W###`/`I###`/`A###` word in `text`, with its line number.
+    /// Every code-shaped word in `text` (see [`code_shape_end`]; single-letter
+    /// families E, W, I, A, R and F), with its line number.
     fn cited_codes(text: &str) -> Vec<(usize, &str)> {
-        let word = |c: u8| c.is_ascii_alphanumeric() || c == b'_';
+        let word = |c: u8| c.is_ascii_alphanumeric() || c == b'_' || c == b'-';
         let mut found = Vec::new();
         for (index, line) in text.lines().enumerate() {
             let b = line.as_bytes();
-            for i in 0..b.len().saturating_sub(3) {
-                if matches!(b[i], b'E' | b'W' | b'I' | b'A')
-                    && b[i + 1..i + 4].iter().all(u8::is_ascii_digit)
-                    && (i == 0 || !word(b[i - 1]))
-                    && (i + 4 == b.len() || !word(b[i + 4]))
-                {
-                    found.push((index + 1, &line[i..i + 4]));
+            for i in 0..b.len() {
+                if i > 0 && word(b[i - 1]) {
+                    continue;
+                }
+                let Some(end) = code_shape_end(b, i) else {
+                    continue;
+                };
+                let single = end - i == 4;
+                if !single || matches!(b[i], b'E' | b'W' | b'I' | b'A' | b'R' | b'F') {
+                    found.push((index + 1, &line[i..end]));
                 }
             }
         }

@@ -17,7 +17,7 @@ pub fn run(path: &Path, format: OutputFormat) -> i32 {
         print_error(
             format,
             "no manifest.json found in current directory",
-            "E-PUB-001",
+            "E040",
         );
         return 1;
     }
@@ -28,7 +28,7 @@ pub fn run(path: &Path, format: OutputFormat) -> i32 {
             print_error(
                 format,
                 &format!("failed to read manifest.json: {}", e),
-                "E-PUB-001",
+                "E040",
             );
             return 1;
         }
@@ -44,11 +44,7 @@ pub fn run(path: &Path, format: OutputFormat) -> i32 {
     let manifest: ManifestV2 = match serde_json::from_str(&manifest_content) {
         Ok(m) => m,
         Err(e) => {
-            print_error(
-                format,
-                &format!("invalid manifest.json: {}", e),
-                "E-PUB-002",
-            );
+            print_error(format, &format!("invalid manifest.json: {}", e), "E030");
             return 1;
         }
     };
@@ -59,7 +55,7 @@ pub fn run(path: &Path, format: OutputFormat) -> i32 {
         print_error(
             format,
             &format!("wasm binary not found at '{}'", wasm_path.display()),
-            "E-PUB-003",
+            "E040",
         );
         return 1;
     }
@@ -70,7 +66,7 @@ pub fn run(path: &Path, format: OutputFormat) -> i32 {
             print_error(
                 format,
                 &format!("failed to read wasm binary: {}", e),
-                "E-PUB-003",
+                "E040",
             );
             return 1;
         }

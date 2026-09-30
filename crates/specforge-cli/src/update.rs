@@ -21,7 +21,7 @@ pub fn run(
             print_error(
                 format,
                 "no lock file found. Run `specforge add` first.",
-                "E-UPD-001",
+                "E033",
             );
             return 1;
         }

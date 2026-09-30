@@ -83,7 +83,7 @@ fn parse_config_file(
         Ok(c) => c,
         Err(e) => {
             diagnostics.push(Diagnostic {
-                code: "F001".into(),
+                code: "W141".into(),
                 severity: specforge_common::Severity::Warning,
                 message: format!("Failed to read config file {}: {}", path.display(), e),
                 span: None,
@@ -97,7 +97,7 @@ fn parse_config_file(
         Ok(t) => t,
         Err(e) => {
             diagnostics.push(Diagnostic {
-                code: "F002".into(),
+                code: "W141".into(),
                 severity: specforge_common::Severity::Warning,
                 message: format!("Invalid TOML in {}: {}", path.display(), e),
                 span: None,
@@ -114,7 +114,7 @@ fn parse_config_file(
             Some(n) if (1..=16).contains(&n) => config.indent_width = n as usize,
             _ => {
                 diagnostics.push(Diagnostic {
-                    code: "F003".into(),
+                    code: "W141".into(),
                     severity: specforge_common::Severity::Warning,
                     message: format!(
                         "Invalid indent_width in {}: expected integer 1-16, using default {}",
@@ -133,7 +133,7 @@ fn parse_config_file(
             Some(b) => config.use_tabs = b,
             None => {
                 diagnostics.push(Diagnostic {
-                    code: "F003".into(),
+                    code: "W141".into(),
                     severity: specforge_common::Severity::Warning,
                     message: format!(
                         "Invalid use_tabs in {}: expected boolean, using default {}",
@@ -152,7 +152,7 @@ fn parse_config_file(
             Some(n) if (40..=200).contains(&n) => config.max_width = n as usize,
             _ => {
                 diagnostics.push(Diagnostic {
-                    code: "F003".into(),
+                    code: "W141".into(),
                     severity: specforge_common::Severity::Warning,
                     message: format!(
                         "Invalid max_width in {}: expected integer 40-200, using default {}",
@@ -289,7 +289,7 @@ mod tests {
         let (config, diags) = load_config(root, root);
         assert_eq!(config.indent_width, 2); // default
         assert_eq!(diags.len(), 1);
-        assert_eq!(diags[0].code, "F003");
+        assert_eq!(diags[0].code, "W141");
     }
 
     #[specforge_test_macros::test(

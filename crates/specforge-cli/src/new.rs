@@ -14,13 +14,13 @@ pub fn run(name: &str, extension: bool, path: &Path, format: OutputFormat) -> i3
         print_error(
             format,
             "only `--extension` scaffolding is supported right now",
-            "R-NEW-001",
+            "E064",
         );
         return 1;
     }
 
     if let Err(message) = validate_name(name) {
-        print_error(format, &message, "R-NEW-002");
+        print_error(format, &message, "E064");
         return 1;
     }
 
@@ -29,13 +29,13 @@ pub fn run(name: &str, extension: bool, path: &Path, format: OutputFormat) -> i3
         print_error(
             format,
             &format!("destination '{}' already exists", dir.display()),
-            "R-NEW-003",
+            "E064",
         );
         return 1;
     }
 
     if let Err(message) = scaffold(&dir, name) {
-        print_error(format, &message, "R-NEW-004");
+        print_error(format, &message, "E065");
         return 1;
     }
 

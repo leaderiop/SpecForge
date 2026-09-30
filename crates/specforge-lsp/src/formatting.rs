@@ -185,7 +185,7 @@ mod tests {
         let source = "behavior foo \"Foo\" {\n  contract \"good\"\n}\n\n{{{broken\n\nbehavior bar \"Bar\" {\n      contract \"also good\"\n}\n";
         let (_edits, diags) = format_document(source, None, None, None);
         // Should not crash, should produce some output
-        let has_warning = diags.iter().any(|d| d.code == "F011");
+        let has_warning = diags.iter().any(|d| d.code == "W142");
         assert!(has_warning, "should have parse error diagnostic");
     }
 
@@ -265,7 +265,7 @@ mod tests {
         let source = "behavior foo \"Foo\" {\n  contract \"good\"\n}\n\n{{{broken\n\nbehavior bar \"Bar\" {\n  contract \"ok\"\n}\n";
         let (edits, diags) = format_document_range(source, 3, 5, None, None, None);
         // Should not crash and should report error
-        let has_warning = diags.iter().any(|d| d.code == "F011");
+        let has_warning = diags.iter().any(|d| d.code == "W142");
         assert!(
             has_warning || edits.is_empty(),
             "parse errors in range should be handled gracefully"
@@ -316,7 +316,7 @@ mod tests {
         }
         // ensures: no errors
         assert!(
-            diags.iter().all(|d| d.code != "F010"),
+            diags.iter().all(|d| d.code != "E001"),
             "should not have fatal parse errors"
         );
     }

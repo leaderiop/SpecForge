@@ -99,7 +99,7 @@ fn publish_without_manifest_json_output() {
 
     assert!(!output.status.success());
     let json: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
-    assert_eq!(json["code"], "E-PUB-001");
+    assert_eq!(json["code"], "E040");
 }
 
 #[test]

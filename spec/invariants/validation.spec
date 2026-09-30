@@ -41,8 +41,9 @@ invariant validation_pipeline_ordering "Validation Phase Ordering" {
 
 invariant diagnostic_code_uniqueness "Diagnostic Code Uniqueness" {
   guarantee """
-    Each diagnostic code (E###, W###, I###) MUST have exactly one owner
-    (core or extension). No two validation rules may emit the same code.
+    Each diagnostic code (E###, W###, I###, A###, and the registry
+    client's R### and R-<AREA>-###) MUST have exactly one owner (core or
+    extension). No two validation rules may emit the same code.
     Allocation ranges are partitioned between core and extensions.
   """
   risk      high

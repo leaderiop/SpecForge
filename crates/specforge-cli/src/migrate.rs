@@ -49,7 +49,7 @@ pub fn run(
                 ver
             }
             Err(e) => {
-                eprintln!("E015: invalid target version '{v}': {e}");
+                eprintln!("E019: invalid target version '{v}': {e}");
                 return 1;
             }
         },

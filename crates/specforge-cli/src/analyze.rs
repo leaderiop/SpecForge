@@ -246,7 +246,7 @@ pub fn run(
             .find(|r| r.name == specforge_emitter::analyze::COVERAGE_PASS);
         let Some(coverage_report) = coverage_report else {
             eprintln!(
-                "error[E048]: --min requires the coverage pass (pass=coverage or all) from @specforge/testing — enable it with `specforge add @specforge/testing`"
+                "error[E067]: --min requires the coverage pass (pass=coverage or all) from @specforge/testing — enable it with `specforge add @specforge/testing`"
             );
             return 2;
         };

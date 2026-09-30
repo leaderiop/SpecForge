@@ -168,6 +168,28 @@ fn migrate_unknown_target_version_produces_error() {
     );
 }
 
+// A target version that doesn't parse is the same E019, not another
+// owner's code (it used to print E015, @specforge/product's milestone cycle).
+#[test]
+fn migrate_unparseable_target_version_reports_e019() {
+    let tmp = TempDir::new().unwrap();
+    let root = tmp.path();
+    setup_project(root);
+    Command::cargo_bin("specforge")
+        .unwrap()
+        .args([
+            "migrate",
+            "--target-version=not-a-version",
+            "--path",
+            root.to_str().unwrap(),
+        ])
+        .assert()
+        .code(1)
+        .stderr(predicate::str::contains(
+            "E019: invalid target version 'not-a-version'",
+        ));
+}
+
 // ===================================================================
 // Phase B: Format Version Detection
 // ===================================================================

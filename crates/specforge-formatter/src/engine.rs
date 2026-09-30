@@ -33,7 +33,7 @@ pub fn format_source(source: &str, config: &FormatConfig) -> FormatResult {
             return FormatResult {
                 formatted: source.to_string(),
                 diagnostics: vec![Diagnostic {
-                    code: "F010".into(),
+                    code: "E001".into(),
                     severity: specforge_common::Severity::Error,
                     message: "Failed to parse source".into(),
                     span: None,
@@ -53,7 +53,7 @@ pub fn format_source(source: &str, config: &FormatConfig) -> FormatResult {
     if has_errors {
         for (start_row, end_row) in &error_regions {
             diagnostics.push(Diagnostic {
-                code: "F011".into(),
+                code: "W142".into(),
                 severity: specforge_common::Severity::Warning,
                 message: format!(
                     "Parse error at lines {}-{}, error region preserved verbatim",
@@ -1080,10 +1080,10 @@ mod tests {
     fn test_parse_error_diagnostics() {
         let input = "behavior foo \"Foo\" {\n  contract \"good\"\n}\n{{{broken\n";
         let result = format_source(input, &FormatConfig::default());
-        let has_error_diag = result.diagnostics.iter().any(|d| d.code == "F011");
+        let has_error_diag = result.diagnostics.iter().any(|d| d.code == "W142");
         assert!(
             has_error_diag,
-            "should have F011 diagnostic: {:?}",
+            "should have W142 diagnostic: {:?}",
             result.diagnostics
         );
     }
@@ -1780,15 +1780,15 @@ mod tests {
             "error_regions_preserved: error content should be in output"
         );
 
-        // ensures: parse_error_diagnosed — F011 diagnostic emitted with line ranges
+        // ensures: parse_error_diagnosed — W142 diagnostic emitted with line ranges
         let error_diags: Vec<_> = result
             .diagnostics
             .iter()
-            .filter(|d| d.code == "F011")
+            .filter(|d| d.code == "W142")
             .collect();
         assert!(
             !error_diags.is_empty(),
-            "parse_error_diagnosed: should have F011 diagnostic"
+            "parse_error_diagnosed: should have W142 diagnostic"
         );
         assert!(
             error_diags[0].message.contains("lines"),
