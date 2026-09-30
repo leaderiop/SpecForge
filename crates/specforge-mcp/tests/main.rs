@@ -13,6 +13,7 @@ mod protocol;
 mod resources;
 mod revision;
 mod schema_reflection;
+mod served_project;
 mod subscriptions;
 mod surface_wiring;
 mod tools_core;

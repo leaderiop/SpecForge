@@ -1,10 +1,10 @@
 use serde_json::Value;
 use std::path::PathBuf;
 
-use crate::registry::register_extension_surfaces;
 use crate::state::McpState;
 use crate::tool::ToolOutcome;
 use specforge_emitter::analyze::{AnalysisContext, TestReport, run_pass};
+use specforge_project::CompiledProject;
 
 /// `specforge.analyze` — run the analysis passes (coverage, contracts) plus
 /// extension-owned compiler passes over the project and return structured
@@ -22,31 +22,39 @@ pub fn call(state: &mut McpState, args: Value) -> ToolOutcome {
         .and_then(|v| v.as_bool())
         .unwrap_or(false);
 
-    // Recompile only when a root is available and the caller did not opt
-    // into the cached graph; a rootless server analyzes its existing state.
-    if let Some(root) = &path
-        && (!use_cached || state.graph.node_count() == 0)
-    {
-        let result = state.compile(root);
-        state.graph = result.graph;
-        state.diagnostics = result.diagnostics;
-        state.kind_registry = result.kind_registry;
-        state.field_registry = result.field_registry;
-        state.edge_registry = result.edge_registry;
-        state.extension_info = result.extension_info;
-        state.surface_entries = result.surface_entries;
-        state.manifests = result.manifests;
-        state.spec_root = Some(result.spec_root);
-        state.project_root = Some(root.clone());
-
-        state
-            .tool_registry
-            .retain(|t| t.category.as_deref() != Some("extension"));
-        state.resource_registry.retain(|r| {
-            r.uri.starts_with("specforge://") && !r.uri.starts_with("specforge://ext/")
-        });
-        register_extension_surfaces(state, &result.manifest_surfaces);
-    }
+    // A path naming another project is analyzed for this call only: the
+    // server keeps serving its own. Otherwise the served project is
+    // recompiled unless the caller opted into the cached graph; a rootless
+    // server analyzes its existing state.
+    let other: Option<(PathBuf, CompiledProject)> = match &path {
+        Some(root) if state.serves_other_than(root) => {
+            Some((root.clone(), state.compile_project(root)))
+        }
+        Some(root) => {
+            if !use_cached || state.graph.node_count() == 0 {
+                state.recompile(root);
+            }
+            None
+        }
+        None => None,
+    };
+    let state: &McpState = state;
+    let (graph, kind_registry, field_registry, manifests, project_root) = match &other {
+        Some((root, project)) => (
+            &project.graph,
+            &project.env.registries.kinds,
+            &project.env.registries.fields,
+            project.env.registries.manifests.as_slice(),
+            Some(root.as_path()),
+        ),
+        None => (
+            &state.graph,
+            &state.kind_registry,
+            &state.field_registry,
+            state.manifests.as_slice(),
+            state.project_root.as_deref(),
+        ),
+    };
 
     let strict = args
         .get("strict")
@@ -60,7 +68,10 @@ pub fn call(state: &mut McpState, args: Value) -> ToolOutcome {
         Some(named) => {
             specforge_emitter::coverage::read_report_file(&PathBuf::from(named)).map(Some)
         }
-        None => super::coverage::recorded_report(state),
+        None => match project_root {
+            Some(root) => specforge_emitter::coverage::read_report(root),
+            None => Ok(None),
+        },
     };
     let parsed_report: Option<TestReport> = match read {
         Ok(report) => report,
@@ -70,10 +81,10 @@ pub fn call(state: &mut McpState, args: Value) -> ToolOutcome {
     let proved_claims: std::collections::HashSet<String> = std::collections::HashSet::new();
     let context = AnalysisContext {
         proved_claims: Some(&proved_claims),
-        graph: &state.graph,
-        kind_registry: &state.kind_registry,
-        field_registry: &state.field_registry,
-        project_root: state.project_root.as_deref(),
+        graph,
+        kind_registry,
+        field_registry,
+        project_root,
         test_results: parsed_report.as_ref(),
     };
 
@@ -131,13 +142,14 @@ pub fn call(state: &mut McpState, args: Value) -> ToolOutcome {
 
     // Extension-owned passes run through the Wasm runtime, same as the CLI
     // (RES-25 ordering: declared `after` constraints are advisory here too).
-    if !state.manifests.is_empty() && state.project_root.is_some() {
-        let root = state.project_root.clone().unwrap();
-        let runtime = specforge_component::project_runtime(&root);
+    if !manifests.is_empty()
+        && let Some(root) = project_root
+    {
+        let runtime = state.wasm_runtime(root);
         let extension_reports = specforge_emitter::analyze::run_extension_passes(
-            &state.manifests,
+            manifests,
             &context,
-            &runtime,
+            runtime.as_ref(),
             &requested,
         );
         for mut report in extension_reports {

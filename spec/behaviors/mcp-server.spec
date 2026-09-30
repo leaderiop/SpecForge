@@ -29,6 +29,7 @@ behavior mcp_initialize "MCP Initialize" {
     zero_domain_knowledge_core,
     mcp_structured_error_responses,
     registry_population_before_validation,
+    mcp_served_project_consistency,
   ]
   requires {
     compiler_api_available "CompilerApi port is available and project root has been located"

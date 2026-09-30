@@ -24,9 +24,16 @@ pub fn call(state: &mut McpState, args: Value) -> ToolOutcome {
         .and_then(|v| v.as_bool())
         .unwrap_or(false);
 
-    if !use_cached || state.diagnostics.is_empty() {
-        state.recompile(&root);
-    }
+    // A path naming another project is validated for this call only: the
+    // server keeps serving its own.
+    let reported: Vec<specforge_common::Diagnostic> = if state.serves_other_than(&root) {
+        state.compile_project(&root).diagnostics()
+    } else {
+        if !use_cached || state.diagnostics.is_empty() {
+            state.recompile(&root);
+        }
+        state.diagnostics.clone()
+    };
 
     let strict = args
         .get("strict")
@@ -34,10 +41,8 @@ pub fn call(state: &mut McpState, args: Value) -> ToolOutcome {
         .unwrap_or(false);
     // Strict promotes warnings before filtering, so a promoted warning
     // counts as an error for `severity_filter` and `isError` alike.
-    let promoted: Vec<specforge_common::Diagnostic> = state
-        .diagnostics
-        .iter()
-        .cloned()
+    let promoted: Vec<specforge_common::Diagnostic> = reported
+        .into_iter()
         .map(|mut d| {
             if strict && d.severity == specforge_common::Severity::Warning {
                 d.severity = specforge_common::Severity::Error;
