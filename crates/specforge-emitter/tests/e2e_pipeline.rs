@@ -132,6 +132,52 @@ type Manifest "M" {
     );
 }
 
+// B:se_validate_port_methods — the primitives docs/entities/type.md and
+// port.md document (`number`, `integer`, `boolean`, `timestamp`, and
+// `never` for an impossible error channel) are valid port method types.
+#[specforge_test(
+    behavior = "se_validate_port_methods",
+    verify = "port method with valid type references passes"
+)]
+fn port_method_documented_primitives_pass_e004() {
+    let ctx = compile_with_builtins(
+        &["@specforge/software"],
+        &[(
+            "main.spec",
+            r#"spec "t" { version "0.1.0" }
+port Clock "Clock" {
+  direction outbound
+  category  "time"
+  method now() -> Result<timestamp, never>
+  method exists(path: string) -> boolean
+  method size(path: string) -> Result<integer, never>
+  method ratio(a: number, b: number) -> number
+  verify integration "contract satisfied"
+}
+port Broken "Broken" {
+  direction outbound
+  category  "broken"
+  method send(payload: Undeclared) -> void
+  verify integration "contract satisfied"
+}
+"#,
+        )],
+    );
+
+    let e004: Vec<_> = ctx
+        .diagnostics
+        .iter()
+        .filter(|d| d.code == "E004")
+        .map(|d| d.message.as_str())
+        .collect();
+    // The undeclared type still fails, so the rule ran; the primitives don't.
+    assert_eq!(
+        e004,
+        vec!["port 'Broken' method 'send' references unknown type 'Undeclared'"],
+        "only the undeclared type is an E004"
+    );
+}
+
 // B:parse_all_block_types — verify unit "a domain field named `kind` on a type is not flagged as an invalid meta-kind"
 #[specforge_test(
     behavior = "parse_all_block_types",
