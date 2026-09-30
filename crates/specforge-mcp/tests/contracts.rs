@@ -434,17 +434,31 @@ fn contract_shutdown() {
     assert_eq!(late["error"]["code"], -32600, "{late}");
 }
 
-// NOT LINKED to "Provide MCP Query Tool: MCP query tool holds — …": unknown
-// kinds are filtered silently, but no I-level diagnostic reports them
-// (unknown_kinds_reported), and no diagnostic code exists for one yet.
-#[test]
+/// The I020 report for an unknown kind in a `kinds` filter.
+fn unknown_kind(kind: &str, suggestion: Option<&str>) -> Value {
+    json!({
+        "code": "I020",
+        "severity": "Info",
+        "message": format!("unknown entity kind '{kind}'"),
+        "span": null,
+        "suggestion": suggestion.map(|s| format!("did you mean '{s}'?")),
+    })
+}
+
+#[specforge_test(
+    behavior = "provide_mcp_query_tool",
+    verify = "Provide MCP Query Tool: MCP query tool holds — graph_available, subgraph_returned, unknown_kinds_reported, tool_invoked_emitted"
+)]
 fn contract_query() {
     let mut server = test_server();
-    let parsed = tool(
+    // graph_available: the tool reads the server's compiled graph.
+    assert_eq!(server.state().graph.node_count(), 2);
+    let resp = call_tool(
         &mut server,
         "specforge.query",
         json!({"entity_id": "alpha"}),
     );
+    let parsed = tool_json(&resp);
     // subgraph_returned: alpha and its neighbor beta, with the edge.
     assert_eq!(node_ids(&parsed), ["alpha", "beta"]);
     assert_eq!(
@@ -455,16 +469,43 @@ fn contract_query() {
         find(&parsed["nodes"], "id", "alpha")["fields"]["contract"],
         "MUST work"
     );
+    // Only known kinds asked for: nothing to report.
+    assert!(resp["result"]["_meta"].is_null(), "{resp}");
 
-    // A kind filter keeps only matching nodes; an unknown kind is dropped.
-    let filtered = tool(
-        &mut server,
-        "specforge.query",
-        json!({"entity_id": "alpha", "kinds": ["behavior", "nonexistent"]}),
+    // unknown_kinds_reported: the kind filter keeps only matching nodes,
+    // unknown kinds are dropped, and each one is reported with I020 in the
+    // response metadata, with a suggestion when a known kind is close.
+    let filtered_args =
+        json!({"entity_id": "alpha", "kinds": ["behavior", "behaviour", "nonexistent"]});
+    let filtered = call_tool(&mut server, "specforge.query", filtered_args.clone());
+    assert!(filtered["result"]["isError"].is_null(), "{filtered}");
+    assert_eq!(node_ids(&tool_json(&filtered)), ["alpha"]);
+    assert_eq!(
+        filtered["result"]["_meta"]["diagnostics"],
+        json!([
+            unknown_kind("behaviour", Some("behavior")),
+            unknown_kind("nonexistent", None),
+        ])
     );
-    assert_eq!(node_ids(&filtered), ["alpha"]);
 
-    assert_tool_invoked(&server, "specforge.query");
+    // tool_invoked_emitted: one event per call, naming the entity.
+    assert_eq!(
+        events(&server, "mcp_tool_invoked"),
+        [
+            json!({
+                "toolName": "specforge.query",
+                "category": "core",
+                "params": json!({"entity_id": "alpha"}).to_string(),
+                "entityId": "alpha",
+            }),
+            json!({
+                "toolName": "specforge.query",
+                "category": "core",
+                "params": filtered_args.to_string(),
+                "entityId": "alpha",
+            }),
+        ]
+    );
 }
 
 #[specforge_test(
@@ -614,14 +655,14 @@ fn contract_trace() {
     assert_tool_invoked(&server, "specforge.trace");
 }
 
-// NOT LINKED to "Provide MCP Search Tool: MCP search tool holds — …":
-// unknown kinds are filtered silently, but no I-level diagnostic reports
-// them (unknown_kinds_reported), and no diagnostic code exists for one yet.
-#[test]
+#[specforge_test(
+    behavior = "provide_mcp_search_tool",
+    verify = "Provide MCP Search Tool: MCP search tool holds — graph_available, filtered_results_returned, unknown_kinds_reported, tool_invoked_emitted"
+)]
 fn contract_search() {
     let mut server = test_server();
-    let ids = |results: &Value| -> Vec<String> {
-        results
+    let ids = |resp: &Value| -> Vec<String> {
+        tool_json(resp)
             .as_array()
             .unwrap()
             .iter()
@@ -629,33 +670,79 @@ fn contract_search() {
             .collect()
     };
 
-    let by_text = tool(&mut server, "specforge.search", json!({"query": "alpha"}));
+    // graph_available: results come from the server's compiled graph.
+    let by_text = call_tool(&mut server, "specforge.search", json!({"query": "alpha"}));
     assert_eq!(ids(&by_text), ["alpha"]);
-    assert_eq!(by_text[0]["file_path"], "test.spec");
+    let hit = &tool_json(&by_text)[0];
+    assert_eq!(hit["kind"], "behavior");
+    assert_eq!(hit["title"], "Alpha");
+    assert_eq!(hit["file_path"], "test.spec");
+    assert_eq!(hit["line"], 1);
+    assert!(by_text["result"]["_meta"].is_null(), "{by_text}");
 
-    // Filters combine with AND: kind feature and an empty query is beta.
-    let by_kind = tool(
+    // filtered_results_returned: filters combine with AND — kind feature
+    // and an empty query is beta; kind feature and text alpha is nothing.
+    let by_kind = call_tool(
         &mut server,
         "specforge.search",
         json!({"query": "", "kinds": ["feature"]}),
     );
     assert_eq!(ids(&by_kind), ["beta"]);
-    let both = tool(
+    let both = call_tool(
         &mut server,
         "specforge.search",
         json!({"query": "alpha", "kinds": ["feature"]}),
     );
     assert_eq!(ids(&both), Vec::<String>::new());
 
-    // An unknown kind matches nothing and is not an error.
-    let unknown = tool(
+    // unknown_kinds_reported: unknown kinds match nothing, are not an
+    // error, and each one is reported with I020 in the response metadata.
+    let unknown = call_tool(
         &mut server,
         "specforge.search",
-        json!({"query": "", "kinds": ["nonexistent"]}),
+        json!({"query": "", "kinds": ["featur", "nonexistent"]}),
     );
+    assert!(unknown["result"]["isError"].is_null(), "{unknown}");
     assert_eq!(ids(&unknown), Vec::<String>::new());
+    assert_eq!(
+        unknown["result"]["_meta"]["diagnostics"],
+        json!([
+            unknown_kind("featur", Some("feature")),
+            unknown_kind("nonexistent", None),
+        ])
+    );
+    // A known kind beside an unknown one still filters.
+    let mixed = call_tool(
+        &mut server,
+        "specforge.search",
+        json!({"query": "", "kinds": ["behavior", "behaviour"]}),
+    );
+    assert_eq!(ids(&mixed), ["alpha"]);
+    assert_eq!(
+        mixed["result"]["_meta"]["diagnostics"],
+        json!([unknown_kind("behaviour", Some("behavior"))])
+    );
 
-    assert_tool_invoked(&server, "specforge.search");
+    // tool_invoked_emitted: one event per call, carrying its arguments.
+    let invoked = events(&server, "mcp_tool_invoked");
+    let params: Vec<&str> = invoked
+        .iter()
+        .map(|p| {
+            assert_eq!(p["toolName"], "specforge.search", "{p}");
+            assert_eq!(p["category"], "core", "{p}");
+            p["params"].as_str().unwrap()
+        })
+        .collect();
+    assert_eq!(
+        params,
+        [
+            json!({"query": "alpha"}).to_string(),
+            json!({"query": "", "kinds": ["feature"]}).to_string(),
+            json!({"query": "alpha", "kinds": ["feature"]}).to_string(),
+            json!({"query": "", "kinds": ["featur", "nonexistent"]}).to_string(),
+            json!({"query": "", "kinds": ["behavior", "behaviour"]}).to_string(),
+        ]
+    );
 }
 
 #[specforge_test(

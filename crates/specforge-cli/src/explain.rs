@@ -490,6 +490,12 @@ pub const CATALOG: &[CodeEntry] = &[
         explanation: "An extension command would normally be auto-promoted to an MCP tool named `specforge.<ext>.<command>`, but an explicit MCP tool with that name already exists. The explicit tool definition takes precedence, so no action is needed unless the name collision was unintended.",
     },
     CodeEntry {
+        code: "I020",
+        title: "Unknown entity kind in a filter",
+        owner: "core",
+        explanation: "A `kinds` filter passed to the `specforge.query` or `specforge.search` MCP tool names a kind that no loaded extension defines and no entity has. The kind matches nothing and is dropped from the filter; the report rides in the tool result's `_meta.diagnostics`, with a `did you mean` suggestion when a known kind is close. Fix the spelling, or enable the extension that defines the kind.",
+    },
+    CodeEntry {
         code: "I046",
         title: "Unreferenced persona",
         owner: "@specforge/product",

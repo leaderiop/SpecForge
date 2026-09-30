@@ -39,6 +39,7 @@ pub fn call(state: &McpState, args: Value, id: Option<Value>) -> JsonRpcResponse
         .and_then(|v| v.as_array())
         .map(|arr| arr.iter().filter_map(|v| v.as_str()).collect())
         .unwrap_or_default();
+    let unknown_kinds = super::unknown_kind_diagnostics(state, &kind_filter);
 
     let limit = args.get("limit").and_then(|v| v.as_u64()).unwrap_or(20) as usize;
     let field_filter = args.get("field").and_then(|v| v.as_str());
@@ -134,13 +135,16 @@ pub fn call(state: &McpState, args: Value, id: Option<Value>) -> JsonRpcResponse
         })
         .collect();
 
-    JsonRpcResponse::success(
-        id,
-        serde_json::json!({
-            "content": [{
-                "type": "text",
-                "text": serde_json::to_string_pretty(&results).unwrap()
-            }]
-        }),
+    super::with_diagnostics_meta(
+        JsonRpcResponse::success(
+            id,
+            serde_json::json!({
+                "content": [{
+                    "type": "text",
+                    "text": serde_json::to_string_pretty(&results).unwrap()
+                }]
+            }),
+        ),
+        &unknown_kinds,
     )
 }

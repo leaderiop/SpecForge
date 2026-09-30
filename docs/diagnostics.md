@@ -797,6 +797,20 @@ unless the name collision was unintended.
 Owner: core
 ```
 
+## I020
+
+```
+I020: Unknown entity kind in a filter
+
+A `kinds` filter passed to the `specforge.query` or `specforge.search` MCP tool
+names a kind that no loaded extension defines and no entity has. The kind
+matches nothing and is dropped from the filter; the report rides in the tool
+result's `_meta.diagnostics`, with a `did you mean` suggestion when a known kind
+is close. Fix the spelling, or enable the extension that defines the kind.
+
+Owner: core
+```
+
 ## I046
 
 ```

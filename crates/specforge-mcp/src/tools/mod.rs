@@ -40,6 +40,58 @@ pub(crate) fn tool_error(id: Option<Value>, message: String) -> JsonRpcResponse 
     )
 }
 
+/// An I020 report for each kind in a `kinds` filter that no registered
+/// extension defines and no entity has, in the order given, with a
+/// `did you mean` suggestion when a known kind is close. The filter still
+/// drops them: they match no entity.
+pub(crate) fn unknown_kind_diagnostics(
+    state: &McpState,
+    kinds: &[&str],
+) -> Vec<specforge_common::Diagnostic> {
+    let mut known: Vec<&str> = state
+        .kind_registry
+        .keywords()
+        .map(String::as_str)
+        .chain(state.graph.nodes().into_iter().map(|n| n.kind.raw.as_str()))
+        .collect();
+    known.sort_unstable();
+    known.dedup();
+
+    let mut reported: Vec<&str> = Vec::new();
+    let mut diagnostics = Vec::new();
+    for &kind in kinds {
+        if known.binary_search(&kind).is_ok() || reported.contains(&kind) {
+            continue;
+        }
+        reported.push(kind);
+        let mut diag =
+            specforge_common::Diagnostic::info("I020", format!("unknown entity kind '{kind}'"));
+        if let Some(close) = specforge_common::find_close_match(kind, known.iter().copied()) {
+            diag = diag.with_suggestion(format!("did you mean '{close}'?"));
+        }
+        diagnostics.push(diag);
+    }
+    diagnostics
+}
+
+/// Attach `diagnostics` to a successful tool result as its response
+/// metadata (`_meta.diagnostics`); no diagnostics, no metadata.
+pub(crate) fn with_diagnostics_meta(
+    mut response: JsonRpcResponse,
+    diagnostics: &[specforge_common::Diagnostic],
+) -> JsonRpcResponse {
+    if diagnostics.is_empty() {
+        return response;
+    }
+    if let Some(result) = response.result.as_mut().and_then(Value::as_object_mut) {
+        result.insert(
+            "_meta".into(),
+            json!({ "diagnostics": serde_json::to_value(diagnostics).unwrap_or_default() }),
+        );
+    }
+    response
+}
+
 /// Whether a mutation tool call changes files, with each tool's defaults:
 /// format's check and diff modes and every dry run only report, and
 /// report-only calls complete no mutation.

@@ -31,6 +31,7 @@ pub fn call(state: &McpState, args: Value, id: Option<Value>) -> JsonRpcResponse
         .and_then(|v| v.as_array())
         .map(|arr| arr.iter().filter_map(|v| v.as_str()).collect())
         .unwrap_or_default();
+    let unknown_kinds = super::unknown_kind_diagnostics(state, &kinds);
 
     let fmt = match format {
         "context" => EmitFormat::Context,
@@ -71,7 +72,7 @@ pub fn call(state: &McpState, args: Value, id: Option<Value>) -> JsonRpcResponse
                 }
             }
 
-            tool_result(id, result)
+            super::with_diagnostics_meta(tool_result(id, result), &unknown_kinds)
         }
         Err(err) => JsonRpcResponse::error(id, error_codes::INVALID_PARAMS, err.to_string()),
     }
