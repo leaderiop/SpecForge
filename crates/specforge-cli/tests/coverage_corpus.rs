@@ -179,11 +179,11 @@ fn fx1_analyze_coverage_today() {
     let pass = analyze_coverage(tmp.path());
     let summary = &pass["summary"];
 
-    // Testable: login, logout, reset_password, Status, Payload, and the
-    // formal property no_lost_login. The property is there only because
-    // the pass input labels testability from `supports_verify` (S4).
-    assert_eq!(summary["testable_total"], 6, "{summary}");
-    assert_eq!(summary["testable_verified"], 4, "{summary}");
+    // Testable: login, logout, reset_password, Status and Payload, as in
+    // stats. The formal property accepts verify statements but its kind is
+    // not testable (S4).
+    assert_eq!(summary["testable_total"], 5, "{summary}");
+    assert_eq!(summary["testable_verified"], 3, "{summary}");
     assert_eq!(summary["obligations"], 4, "{summary}");
     assert_eq!(
         summary["test_results"]["obligations_proven"], 2,
@@ -277,9 +277,9 @@ fn fx1_mcp_coverage_today() {
 fn todo_app_analyze_and_stats_today() {
     let example = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../examples/todo-app");
     let pass = analyze_coverage(&example);
-    // 19 = stats' 18 testable entities + the formal property
-    // no_lost_completion, labelled testable from `supports_verify` (S4).
-    assert_eq!(pass["summary"]["testable_total"], 19, "{}", pass["summary"]);
+    // The same 18 testable entities stats counts; the formal property
+    // no_lost_completion is not testable (S4).
+    assert_eq!(pass["summary"]["testable_total"], 18, "{}", pass["summary"]);
     let a001: Vec<String> = findings(&pass)
         .into_iter()
         .filter(|(code, _)| code == "A001")
@@ -289,7 +289,6 @@ fn todo_app_analyze_and_stats_today() {
         a001,
         [
             "failure_mode 'lost_task' declares no verify obligations",
-            "property 'no_lost_completion' declares no verify obligations",
             "type 'TaskStatus' declares no verify obligations",
         ]
     );

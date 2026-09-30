@@ -301,13 +301,14 @@ pub fn run_extension_passes(
 
     let host = ProtocolHost::new(runtime);
     let raw_entities = crate::compile::build_validation_entities(ctx_graph);
+    // Whether the entity counts toward coverage: its kind is declared
+    // testable. A kind that merely accepts `verify` statements (a formal
+    // `property`) does not count.
+    let testable_kinds = crate::coverage::testable_kinds(input.kind_registry);
     let entities: Vec<serde_json::Value> = raw_entities
         .iter()
         .map(|e| {
-            let testable = input
-                .kind_registry
-                .get(e.kind.as_str())
-                .is_some_and(|entry| entry.supports_verify);
+            let testable = testable_kinds.contains(e.kind.as_str());
             serde_json::json!({
                 "id": e.id,
                 "kind": e.kind,

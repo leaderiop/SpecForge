@@ -848,3 +848,35 @@ invariant responsive "System Stays Responsive" {
         "the proved claim must discharge the verify property obligation"
     );
 }
+
+// A formal `property` accepts verify statements (`supports_verify`) but its
+// kind is not declared testable, so it stays out of the coverage
+// denominator and is never A001 (plan 02, S4).
+#[specforge_test(
+    invariant = "testable_entity_classification",
+    verify = "testable=false entity excluded from coverage"
+)]
+fn analyze_coverage_leaves_out_kinds_not_declared_testable() {
+    let dir = project(concat!(
+        "behavior b1 \"Saves\" {\n  contract \"The system MUST save\"\n",
+        "  verify unit \"b1 saves\"\n}\n",
+        "property p1 \"Nothing is lost\" {\n  property_type safety\n",
+        "  expression \"nothing is ever lost\"\n}\n",
+    ));
+    fs::write(
+        dir.path().join("specforge.json"),
+        r#"{"extensions": ["@specforge/software", "@specforge/formal", "@specforge/testing"]}"#,
+    )
+    .unwrap();
+    let (doc, _) = json_body(&dir, &["coverage"]);
+    let coverage = coverage(&doc);
+    assert_eq!(coverage["summary"]["testable_total"], 1, "{coverage}");
+    assert_eq!(coverage["summary"]["testable_verified"], 1, "{coverage}");
+    let a001: Vec<&serde_json::Value> = coverage["findings"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter(|f| f["code"] == "A001")
+        .collect();
+    assert!(a001.is_empty(), "the property is not testable: {a001:?}");
+}
