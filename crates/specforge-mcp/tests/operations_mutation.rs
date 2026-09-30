@@ -956,11 +956,7 @@ fn migrate_returns_result() {
     let mut server = test_server();
     // The fixture is already at the current format version — an honest
     // migrate is a no-op, not a fake migration.
-    let resp = call_tool(
-        &mut server,
-        "specforge.migrate",
-        json!({"from_version": "0.1.0", "to_version": "0.2.0"}),
-    );
+    let resp = call_tool(&mut server, "specforge.migrate", json!({}));
     let text = tool_text(&resp);
     let parsed: Value = serde_json::from_str(&text).unwrap();
     assert_eq!(parsed["migrated"], false);
@@ -1097,11 +1093,7 @@ fn add_extension_invalid_specifier() {
 #[test]
 fn migrate_dry_run() {
     let mut server = test_server();
-    let resp = call_tool(
-        &mut server,
-        "specforge.migrate",
-        json!({"from_version": "0.1.0", "to_version": "0.2.0", "dry_run": true}),
-    );
+    let resp = call_tool(&mut server, "specforge.migrate", json!({"dry_run": true}));
     let text = tool_text(&resp);
     let parsed: Value = serde_json::from_str(&text).unwrap();
     assert_eq!(parsed["dry_run"], true);
@@ -1111,11 +1103,7 @@ fn migrate_dry_run() {
 #[test]
 fn migrate_post_validation() {
     let mut server = test_server();
-    let resp = call_tool(
-        &mut server,
-        "specforge.migrate",
-        json!({"from_version": "0.1.0", "to_version": "0.2.0"}),
-    );
+    let resp = call_tool(&mut server, "specforge.migrate", json!({}));
     let text = tool_text(&resp);
     let parsed: Value = serde_json::from_str(&text).unwrap();
     assert!(parsed["changes"].is_array() || parsed["migrated"].is_boolean());
@@ -1367,4 +1355,64 @@ fn migrate_contract() {
         [migration(1), migration(0)]
     );
     assert!(invoked(&server, "specforge.migrate"));
+}
+
+/// `test_server` whose project also holds `old.spec`, in format 0.9.
+fn server_with_old_spec() -> (McpServer, std::path::PathBuf) {
+    let server = test_server();
+    let root = server.state().project_root.clone().unwrap();
+    std::fs::write(
+        root.join("old.spec"),
+        "// specforge-format: 0.9\nbehavior gamma \"Gamma\" {\n}\n",
+    )
+    .unwrap();
+    (server, root)
+}
+
+#[specforge_test(
+    behavior = "provide_mcp_migrate_tool",
+    verify = "target_version selects the format version to migrate to"
+)]
+fn migrate_target_version_selects_the_version() {
+    let (mut server, root) = server_with_old_spec();
+    let resp = call_tool(
+        &mut server,
+        "specforge.migrate",
+        json!({"target_version": "1.0", "no_backup": true}),
+    );
+    let result: Value = serde_json::from_str(&tool_text(&resp)).unwrap();
+    assert_eq!(result["migrated"], true, "{result}");
+    assert_eq!(result["from_version"], "0.9", "{result}");
+    assert_eq!(result["to_version"], "1.0", "{result}");
+    assert!(
+        std::fs::read_to_string(root.join("old.spec"))
+            .unwrap()
+            .starts_with("// specforge-format: 1.0"),
+    );
+    // no_backup: no .bak copy beside the migrated file.
+    assert!(
+        !files_under(&root)
+            .keys()
+            .any(|p| p.extension().is_some_and(|e| e == "bak"))
+    );
+}
+
+#[specforge_test(
+    behavior = "provide_mcp_migrate_tool",
+    verify = "a malformed or unsupported target_version is refused without modifying files"
+)]
+fn migrate_refuses_a_bad_target_version() {
+    let (mut server, root) = server_with_old_spec();
+    let before = files_under(&root);
+    for (target, code) in [("99.0", "E019"), ("latest", "E015")] {
+        let resp = call_tool(
+            &mut server,
+            "specforge.migrate",
+            json!({"target_version": target}),
+        );
+        let message = resp["error"]["message"].as_str().unwrap_or_default();
+        assert!(message.starts_with(code), "{target}: {resp}");
+        assert!(message.contains(target), "{target}: {resp}");
+    }
+    assert_eq!(files_under(&root), before);
 }

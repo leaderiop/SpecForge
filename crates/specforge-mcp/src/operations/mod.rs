@@ -774,11 +774,28 @@ fn migrate_op(state: &McpState, args: Value, id: Option<Value>) -> JsonRpcRespon
         .get("no_backup")
         .and_then(|v| v.as_bool())
         .unwrap_or(false);
+    // The format version to migrate to, checked as `specforge migrate
+    // --target-version` checks it.
+    let target = match args.get("target_version").and_then(|v| v.as_str()) {
+        None => specforge_migrate::CURRENT_FORMAT_VERSION,
+        Some(v) => match v.parse::<specforge_migrate::FormatVersion>() {
+            Ok(version) if version > specforge_migrate::MAX_SUPPORTED_VERSION => {
+                return err_invalid(
+                    id,
+                    format!(
+                        "E019: unsupported target version {version} (max supported: {})",
+                        specforge_migrate::MAX_SUPPORTED_VERSION
+                    ),
+                );
+            }
+            Ok(version) => version,
+            Err(e) => return err_invalid(id, format!("E015: invalid target version '{v}': {e}")),
+        },
+    };
 
     if !path.join("specforge.json").is_file() {
         return err_invalid(id, "no specforge.json found in the project root");
     }
-    let target = specforge_migrate::CURRENT_FORMAT_VERSION;
     // The format version lives in each spec file's header, so the spec
     // files say whether a migration is pending: preview first.
     let preview = specforge_migrate::migrate_project(&path, &target, true, true);
@@ -989,7 +1006,6 @@ fn collect_op(state: &McpState, args: Value, id: Option<Value>) -> JsonRpcRespon
     };
     let runner = args
         .get("runner")
-        .or_else(|| args.get("collector"))
         .and_then(|v| v.as_str())
         .filter(|r| *r != "auto");
     let run = args.get("run").and_then(|v| v.as_bool()).unwrap_or(false);

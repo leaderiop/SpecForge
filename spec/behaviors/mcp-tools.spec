@@ -547,8 +547,9 @@ behavior provide_mcp_analyze_tool "Provide MCP Analyze Tool" {
     that runs the same analysis passes as `specforge analyze`: the core
     `contracts` pass and every extension-owned pass (such as
     @specforge/testing's coverage), or only the one named by `pass`. It
-    accepts `strict` (warnings become errors) and `test_results` (a
-    specforge-report.json path). Without `test_results` it MUST read the
+    accepts `strict` (warnings become errors), `test_results` (a
+    specforge-report.json path) and `use_cached` (analyze the last compiled
+    graph instead of recompiling). Without `test_results` it MUST read the
     project's own specforge-report.json when one exists, as the CLI does,
     so proof coverage never silently drops. The result MUST list each pass with its
     findings and summary, plus an `ok` flag that is false when any finding

@@ -81,24 +81,12 @@ fn handler_reads(source: &str) -> Result<BTreeSet<String>, String> {
     Ok(reads)
 }
 
-/// Tools whose schema still disagrees with their handler; T1 of the MCP
-/// tool-table plan fixes them. Each entry must still drift, so the fix has
-/// to remove it.
-const KNOWN_DRIFT: &[&str] = &[
-    "specforge.add_extension",      // reads allow_unsigned, unadvertised
-    "specforge.analyze",            // reads use_cached, unadvertised
-    "specforge.collect",            // reads the collector alias, unadvertised
-    "specforge.migrate",            // advertises from_version/to_version, reads dry_run/no_backup
-    "specforge.outline_extensions", // reads deps, unadvertised
-];
-
 #[specforge_test(
     behavior = "list_mcp_tools",
     verify = "each core tool's input schema advertises exactly the arguments its handler reads"
 )]
 fn each_core_tool_schema_advertises_exactly_what_its_handler_reads() {
     let mut drift = Vec::new();
-    let mut fixed = Vec::new();
     for tool in specforge_mcp::registry::default_tools() {
         let source = handler_source(&tool.name)
             .unwrap_or_else(|| panic!("{}: no handler source found", tool.name));
@@ -111,21 +99,14 @@ fn each_core_tool_schema_advertises_exactly_what_its_handler_reads() {
             .unwrap_or_default();
         let hidden: Vec<&String> = read.difference(&advertised).collect();
         let ignored: Vec<&String> = advertised.difference(&read).collect();
-        let drifts = !hidden.is_empty() || !ignored.is_empty();
-        match (drifts, KNOWN_DRIFT.contains(&tool.name.as_str())) {
-            (true, false) => drift.push(format!(
+        if !hidden.is_empty() || !ignored.is_empty() {
+            drift.push(format!(
                 "{}: read but not advertised {hidden:?}; advertised but never read {ignored:?}",
                 tool.name
-            )),
-            (false, true) => fixed.push(tool.name.clone()),
-            _ => {}
+            ));
         }
     }
     assert!(drift.is_empty(), "schema drift: {drift:#?}");
-    assert!(
-        fixed.is_empty(),
-        "no longer drifting; remove from KNOWN_DRIFT: {fixed:?}"
-    );
 }
 
 #[test]

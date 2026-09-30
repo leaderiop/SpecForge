@@ -183,7 +183,9 @@ behavior provide_mcp_add_extension_tool "Provide MCP Add Extension Tool" {
   contract   """
     In MCP server mode, the system MUST register a specforge.add_extension
     tool that accepts specifier (required, @scope/name[@version] or a .wasm
-    path) and dry_run? (optional boolean, default false). When dry_run is true, the tool MUST
+    path), dry_run? (optional boolean, default false) and allow_unsigned?
+    (optional boolean, default false: accept a registry package with no
+    publisher signature). When dry_run is true, the tool MUST
     return a preview of the changes without modifying specforge.json or
     downloading any Wasm modules. The tool MUST add
     the extension to specforge.json, download the Wasm module if remote, and
@@ -261,8 +263,13 @@ behavior provide_mcp_migrate_tool "Provide MCP Migrate Tool" {
   }
   contract   """
     In MCP server mode, the system MUST register a specforge.migrate tool
-    that accepts dry_run? (optional boolean, default false) and
-    target_version? (optional string, format "major.minor"). The tool MUST
+    that accepts dry_run? (optional boolean, default false),
+    target_version? (optional string, format "major.minor", default the
+    current format version), no_backup? (optional boolean, default false:
+    skip the .bak backups) and path? (the project root; the initialized
+    root when omitted). A malformed target_version is an E015 error and one
+    above the highest supported format version an E019 error, and neither
+    modifies any file. The tool MUST
     detect and apply pending migrations to spec files. In dry_run mode, the
     tool MUST return the diff without modifying any files. After migration,
     the tool MUST validate the result and report any post-migration errors.
@@ -270,6 +277,8 @@ behavior provide_mcp_migrate_tool "Provide MCP Migrate Tool" {
   verify unit "specforge.migrate applies pending migrations"
   verify unit "dry_run returns diff without modifying files"
   verify unit "post-migration validation reports errors"
+  verify unit "target_version selects the format version to migrate to"
+  verify unit "a malformed or unsupported target_version is refused without modifying files"
   verify contract "Provide MCP Migrate Tool: MCP migrate tool holds — filesystem_available, migrations_applied, post_migration_validated, dry_run_safe, mutation_completed_emitted, tool_invoked_emitted"
 }
 
