@@ -1,7 +1,6 @@
-use serde_json::Value;
 use specforge_emitter::{EmitFormat, EmitOptions, emit};
 
-use crate::protocol::{JsonRpcResponse, error_codes};
+use crate::resources::{ReadOutcome, ResourceText, invalid_params};
 use crate::state::McpState;
 
 /// `specforge://context` and `specforge://context/{entity_id}` —
@@ -10,7 +9,7 @@ use crate::state::McpState;
 /// `depth=<n>` bounds the traversal, `kinds=a,b` filters node kinds,
 /// `max_tokens=<n>` budgets the payload. Scoped exports reference the
 /// published schema (`schema_ref`) instead of embedding it (C6-07).
-pub fn read(state: &McpState, uri: &str, id: Option<Value>) -> JsonRpcResponse {
+pub fn read(state: &McpState, uri: &str) -> ReadOutcome {
     let (base, query) = crate::resources::split_query(uri);
     let mut parsed = crate::resources::parse_query(query);
     if parsed.root.is_none() {
@@ -36,16 +35,7 @@ pub fn read(state: &McpState, uri: &str, id: Option<Value>) -> JsonRpcResponse {
     );
 
     match json_str {
-        Ok(payload) => JsonRpcResponse::success(
-            id,
-            serde_json::json!({
-                "contents": [{
-                    "uri": base,
-                    "mimeType": "application/json",
-                    "text": payload
-                }]
-            }),
-        ),
-        Err(err) => JsonRpcResponse::error(id, error_codes::INVALID_PARAMS, err.to_string()),
+        Ok(payload) => Ok(ResourceText::json(base, payload)),
+        Err(err) => Err(invalid_params(err.to_string())),
     }
 }

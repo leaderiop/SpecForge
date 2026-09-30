@@ -1,10 +1,10 @@
 use serde_json::Value;
 use std::path::PathBuf;
 
-use crate::protocol::{JsonRpcResponse, error_codes};
 use crate::state::McpState;
+use crate::tool::ToolOutcome;
 
-pub fn call(state: &mut McpState, args: Value, id: Option<Value>) -> JsonRpcResponse {
+pub fn call(state: &mut McpState, args: Value) -> ToolOutcome {
     let path = args
         .get("path")
         .and_then(|v| v.as_str())
@@ -14,11 +14,7 @@ pub fn call(state: &mut McpState, args: Value, id: Option<Value>) -> JsonRpcResp
     let root = match path {
         Some(p) => p,
         None => {
-            return JsonRpcResponse::error(
-                id,
-                error_codes::INVALID_PARAMS,
-                "No project root available",
-            );
+            return ToolOutcome::invalid_params("No project root available");
         }
     };
 
@@ -65,14 +61,5 @@ pub fn call(state: &mut McpState, args: Value, id: Option<Value>) -> JsonRpcResp
     let filtered: Vec<specforge_common::Diagnostic> = diagnostics.into_iter().cloned().collect();
     let diag_json = specforge_emitter::serialize_diagnostics(&filtered);
 
-    JsonRpcResponse::success(
-        id,
-        serde_json::json!({
-            "content": [{
-                "type": "text",
-                "text": diag_json
-            }],
-            "isError": has_errors
-        }),
-    )
+    ToolOutcome::text(diag_json).flagged(has_errors)
 }

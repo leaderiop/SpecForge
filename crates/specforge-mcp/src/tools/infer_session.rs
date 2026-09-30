@@ -2,8 +2,9 @@ use serde_json::{Value, json};
 
 use specforge_common::inference::{self, InferenceManifest, SourceFileEntry};
 
-use crate::protocol::{JsonRpcResponse, error_codes};
+use crate::protocol::error_codes;
 use crate::state::McpState;
+use crate::tool::ToolOutcome;
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct InferenceSession {
@@ -15,53 +16,38 @@ pub struct InferenceSession {
     pub status: String,
 }
 
-pub fn call(state: &McpState, args: Value, id: Option<Value>) -> JsonRpcResponse {
+pub fn call(state: &McpState, args: Value) -> ToolOutcome {
     let project_root = match &state.project_root {
         Some(p) => p.clone(),
         None => {
-            return JsonRpcResponse::error(
-                id,
-                error_codes::INVALID_REQUEST,
-                "No project root available",
-            );
+            return ToolOutcome::refused(error_codes::INVALID_REQUEST, "No project root available");
         }
     };
 
     let action = match args.get("action").and_then(|v| v.as_str()) {
         Some(a) => a,
         None => {
-            return JsonRpcResponse::error(
-                id,
-                error_codes::INVALID_PARAMS,
+            return ToolOutcome::invalid_params(
                 "Missing required parameter: action (start | mark_analyzed | end)",
             );
         }
     };
 
     match action {
-        "start" => handle_start(state, &args, &project_root, id),
-        "mark_analyzed" => handle_mark_analyzed(state, &args, &project_root, id),
-        "end" => handle_end(state, &args, &project_root, id),
-        _ => JsonRpcResponse::error(
-            id,
-            error_codes::INVALID_PARAMS,
-            format!(
-                "Unknown action: '{}'. Expected: start, mark_analyzed, end",
-                action
-            ),
-        ),
+        "start" => handle_start(state, &args, &project_root),
+        "mark_analyzed" => handle_mark_analyzed(state, &args, &project_root),
+        "end" => handle_end(state, &args, &project_root),
+        _ => ToolOutcome::invalid_params(format!(
+            "Unknown action: '{}'. Expected: start, mark_analyzed, end",
+            action
+        )),
     }
 }
 
-fn handle_start(
-    _state: &McpState,
-    args: &Value,
-    project_root: &std::path::Path,
-    id: Option<Value>,
-) -> JsonRpcResponse {
+fn handle_start(_state: &McpState, args: &Value, project_root: &std::path::Path) -> ToolOutcome {
     let mut manifest = match inference::load_inference_manifest(project_root) {
         Ok(m) => m,
-        Err(e) => return JsonRpcResponse::error(id, error_codes::INTERNAL_ERROR, e),
+        Err(e) => return ToolOutcome::refused(error_codes::INTERNAL_ERROR, e),
     };
 
     let agent = args
@@ -96,8 +82,7 @@ fn handle_start(
 
     let sessions_json = read_sessions_from_manifest(project_root);
     if sessions_json.iter().any(|s| s.status == "active") {
-        return JsonRpcResponse::error(
-            id,
+        return ToolOutcome::refused(
             error_codes::INVALID_REQUEST,
             "Another inference session is already active. End it first.",
         );
@@ -107,34 +92,24 @@ fn handle_start(
     sessions.push(session);
 
     if let Err(e) = write_sessions_to_manifest(project_root, &manifest, &sessions) {
-        return JsonRpcResponse::error(id, error_codes::INTERNAL_ERROR, e);
+        return ToolOutcome::refused(error_codes::INTERNAL_ERROR, e);
     }
 
-    JsonRpcResponse::success(
-        id,
-        json!({
-            "content": [{ "type": "text", "text": json!({
-                "session_id": session_id,
-                "status": "active"
-            }).to_string() }]
-        }),
-    )
+    ToolOutcome::ok(json!({
+        "session_id": session_id,
+        "status": "active"
+    }))
 }
 
 fn handle_mark_analyzed(
     _state: &McpState,
     args: &Value,
     project_root: &std::path::Path,
-    id: Option<Value>,
-) -> JsonRpcResponse {
+) -> ToolOutcome {
     let source_file = match args.get("source_file").and_then(|v| v.as_str()) {
         Some(f) => f.to_string(),
         None => {
-            return JsonRpcResponse::error(
-                id,
-                error_codes::INVALID_PARAMS,
-                "Missing required parameter: source_file",
-            );
+            return ToolOutcome::invalid_params("Missing required parameter: source_file");
         }
     };
 
@@ -150,7 +125,7 @@ fn handle_mark_analyzed(
 
     let mut manifest = match inference::load_inference_manifest(project_root) {
         Ok(m) => m,
-        Err(e) => return JsonRpcResponse::error(id, error_codes::INTERNAL_ERROR, e),
+        Err(e) => return ToolOutcome::refused(error_codes::INTERNAL_ERROR, e),
     };
 
     let abs_path = project_root.join(&source_file);
@@ -159,8 +134,7 @@ fn handle_mark_analyzed(
         // Name the file as the agent did: the absolute path would leak
         // where the server's project lives.
         Err(_) => {
-            return JsonRpcResponse::error(
-                id,
+            return ToolOutcome::refused(
                 error_codes::INTERNAL_ERROR,
                 format!("failed to read {source_file}"),
             );
@@ -176,35 +150,21 @@ fn handle_mark_analyzed(
 
     let sessions = read_sessions_from_manifest(project_root);
     if let Err(e) = write_sessions_to_manifest(project_root, &manifest, &sessions) {
-        return JsonRpcResponse::error(id, error_codes::INTERNAL_ERROR, e);
+        return ToolOutcome::refused(error_codes::INTERNAL_ERROR, e);
     }
 
-    JsonRpcResponse::success(
-        id,
-        json!({
-            "content": [{ "type": "text", "text": json!({
-                "source_file": source_file,
-                "entities_produced": entities,
-                "status": "recorded"
-            }).to_string() }]
-        }),
-    )
+    ToolOutcome::ok(json!({
+        "source_file": source_file,
+        "entities_produced": entities,
+        "status": "recorded"
+    }))
 }
 
-fn handle_end(
-    _state: &McpState,
-    args: &Value,
-    project_root: &std::path::Path,
-    id: Option<Value>,
-) -> JsonRpcResponse {
+fn handle_end(_state: &McpState, args: &Value, project_root: &std::path::Path) -> ToolOutcome {
     let session_id = match args.get("session_id").and_then(|v| v.as_str()) {
         Some(s) => s.to_string(),
         None => {
-            return JsonRpcResponse::error(
-                id,
-                error_codes::INVALID_PARAMS,
-                "Missing required parameter: session_id",
-            );
+            return ToolOutcome::invalid_params("Missing required parameter: session_id");
         }
     };
 
@@ -215,16 +175,15 @@ fn handle_end(
         .to_string();
 
     if status != "completed" && status != "paused" {
-        return JsonRpcResponse::error(
-            id,
-            error_codes::INVALID_PARAMS,
-            format!("Invalid status: '{}'. Expected: completed, paused", status),
-        );
+        return ToolOutcome::invalid_params(format!(
+            "Invalid status: '{}'. Expected: completed, paused",
+            status
+        ));
     }
 
     let manifest = match inference::load_inference_manifest(project_root) {
         Ok(m) => m,
-        Err(e) => return JsonRpcResponse::error(id, error_codes::INTERNAL_ERROR, e),
+        Err(e) => return ToolOutcome::refused(error_codes::INTERNAL_ERROR, e),
     };
 
     let mut sessions = read_sessions_from_manifest(project_root);
@@ -235,30 +194,24 @@ fn handle_end(
             s.ended_at = Some(now_iso8601());
         }
         Some(_) => {
-            return JsonRpcResponse::error(
-                id,
+            return ToolOutcome::refused(
                 error_codes::INVALID_REQUEST,
                 format!("Session '{}' is not active", session_id),
             );
         }
         None => {
-            return super::tool_error(id, format!("Unknown session_id: '{}'", session_id));
+            return ToolOutcome::failed(format!("Unknown session_id: '{}'", session_id));
         }
     }
 
     if let Err(e) = write_sessions_to_manifest(project_root, &manifest, &sessions) {
-        return JsonRpcResponse::error(id, error_codes::INTERNAL_ERROR, e);
+        return ToolOutcome::refused(error_codes::INTERNAL_ERROR, e);
     }
 
-    JsonRpcResponse::success(
-        id,
-        json!({
-            "content": [{ "type": "text", "text": json!({
-                "session_id": session_id,
-                "status": status
-            }).to_string() }]
-        }),
-    )
+    ToolOutcome::ok(json!({
+        "session_id": session_id,
+        "status": status
+    }))
 }
 
 fn generate_session_id() -> String {

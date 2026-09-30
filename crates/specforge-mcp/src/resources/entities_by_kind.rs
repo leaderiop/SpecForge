@@ -1,10 +1,9 @@
 use serde_json::json;
 
-use crate::protocol::JsonRpcResponse;
+use crate::resources::{ReadOutcome, ResourceText};
 use crate::state::McpState;
-use serde_json::Value;
 
-pub fn read(state: &McpState, kind: &str, id: Option<Value>) -> JsonRpcResponse {
+pub fn read(state: &McpState, kind: &str) -> ReadOutcome {
     let entities: Vec<serde_json::Value> = state
         .graph
         .nodes_by_kind(kind)
@@ -19,14 +18,8 @@ pub fn read(state: &McpState, kind: &str, id: Option<Value>) -> JsonRpcResponse 
         .collect();
 
     let text = serde_json::to_string(&entities).unwrap();
-    JsonRpcResponse::success(
-        id,
-        json!({
-            "contents": [{
-                "uri": format!("specforge://entities/{}", kind),
-                "mimeType": "application/json",
-                "text": text,
-            }]
-        }),
-    )
+    Ok(ResourceText::json(
+        format!("specforge://entities/{}", kind),
+        text,
+    ))
 }

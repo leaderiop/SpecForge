@@ -8,8 +8,43 @@ mod schema;
 
 use serde_json::Value;
 
-use crate::protocol::{JsonRpcResponse, error_codes};
+use crate::protocol::{JsonRpcError, JsonRpcResponse, error_codes};
 use crate::state::McpState;
+
+/// The one text content a resource read returns.
+pub(crate) struct ResourceText {
+    pub uri: String,
+    pub mime_type: String,
+    pub text: String,
+}
+
+impl ResourceText {
+    pub fn json(uri: impl Into<String>, text: impl Into<String>) -> Self {
+        Self {
+            uri: uri.into(),
+            mime_type: "application/json".into(),
+            text: text.into(),
+        }
+    }
+
+    /// The `resources/read` result: the only place that builds `contents`.
+    fn into_result(self) -> Value {
+        serde_json::json!({
+            "contents": [{
+                "uri": self.uri,
+                "mimeType": self.mime_type,
+                "text": self.text,
+            }]
+        })
+    }
+}
+
+/// What a resource read produced, or why it was refused.
+pub(crate) type ReadOutcome = Result<ResourceText, JsonRpcError>;
+
+pub(crate) fn invalid_params(message: impl Into<String>) -> JsonRpcError {
+    JsonRpcError::new(error_codes::INVALID_PARAMS, message)
+}
 
 pub fn handle_resource_read(
     state: &mut McpState,
@@ -31,49 +66,46 @@ pub fn handle_resource_read(
         }
     };
 
-    let response = read(state, &uri, id);
-    // A read that returned content: its format is the MIME type it carries.
-    let format = response
-        .result
-        .as_ref()
-        .and_then(|r| r["contents"][0]["mimeType"].as_str())
-        .map(str::to_string);
-    if let Some(format) = format {
-        state.push_event(
-            "mcp_resource_read",
-            serde_json::json!({"resourceUri": uri, "format": format}),
-        );
+    match read(state, &uri) {
+        Ok(content) => {
+            // A read that returned content: its format is its MIME type.
+            state.push_event(
+                "mcp_resource_read",
+                serde_json::json!({"resourceUri": uri, "format": content.mime_type}),
+            );
+            JsonRpcResponse::success(id, content.into_result())
+        }
+        Err(error) => JsonRpcResponse::from_error(id, error),
     }
-    response
 }
 
-fn read(state: &mut McpState, uri: &str, id: Option<Value>) -> JsonRpcResponse {
+fn read(state: &mut McpState, uri: &str) -> ReadOutcome {
     let uri = uri.to_string();
     // Query strings (?root=&depth=&kinds=&max_tokens=) ride on the
     // resource URIs (C9-06); specforge://context/{entity_id} scopes via its
     // path segment.
     match uri.as_str() {
         u if u == "specforge://graph" || u.starts_with("specforge://graph?") => {
-            graph::read(state, u, id)
+            graph::read(state, u)
         }
-        "specforge://schema" => schema::read(state, id),
+        "specforge://schema" => schema::read(state),
         u if u == "specforge://context"
             || u.starts_with("specforge://context?")
             || u.starts_with("specforge://context/") =>
         {
-            context::read(state, u, id)
+            context::read(state, u)
         }
         u if u == "specforge://brief" || u.starts_with("specforge://brief?") => {
-            brief::read(state, u, id)
+            brief::read(state, u)
         }
-        "specforge://diagnostics" => diagnostics::read(state, id),
+        "specforge://diagnostics" => diagnostics::read(state),
         _ if uri.starts_with("specforge://graph/") => {
             let entity_id = &uri["specforge://graph/".len()..];
-            entity::read(state, entity_id, id)
+            entity::read(state, entity_id)
         }
         _ if uri.starts_with("specforge://entities/") => {
             let kind = &uri["specforge://entities/".len()..];
-            entities_by_kind::read(state, kind, id)
+            entities_by_kind::read(state, kind)
         }
         _ if uri.starts_with("specforge://ext/") => {
             // Extension-contributed resource: dispatch through the Wasm
@@ -83,18 +115,12 @@ fn read(state: &mut McpState, uri: &str, id: Option<Value>) -> JsonRpcResponse {
                     && e.enabled
                     && matches_uri_template(&e.contribution_name, &uri)
             }) else {
-                return JsonRpcResponse::error(
-                    id,
-                    error_codes::INVALID_PARAMS,
-                    format!("Unknown resource URI: {}", uri),
-                );
+                return Err(invalid_params(format!("Unknown resource URI: {}", uri)));
             };
             let Some(root) = state.project_root.clone() else {
-                return JsonRpcResponse::error(
-                    id,
-                    error_codes::INVALID_PARAMS,
+                return Err(invalid_params(
                     "Extension resources need a project root; pass {\"path\": ...} to specforge.analyze first",
-                );
+                ));
             };
             let runtime = specforge_component::project_runtime(&root);
             match specforge_wasm::dispatch_surface_mcp_resource(
@@ -103,28 +129,15 @@ fn read(state: &mut McpState, uri: &str, id: Option<Value>) -> JsonRpcResponse {
                 &uri,
                 &runtime,
             ) {
-                Ok((content, mime)) => JsonRpcResponse::success(
-                    id,
-                    serde_json::json!({
-                        "contents": [{
-                            "uri": uri,
-                            "mimeType": mime,
-                            "text": String::from_utf8_lossy(&content),
-                        }]
-                    }),
-                ),
-                Err(diag) => JsonRpcResponse::error(
-                    id,
-                    error_codes::INVALID_PARAMS,
-                    format!("{}: {}", diag.code, diag.message),
-                ),
+                Ok((content, mime)) => Ok(ResourceText {
+                    text: String::from_utf8_lossy(&content).into_owned(),
+                    uri,
+                    mime_type: mime,
+                }),
+                Err(diag) => Err(invalid_params(format!("{}: {}", diag.code, diag.message))),
             }
         }
-        _ => JsonRpcResponse::error(
-            id,
-            error_codes::INVALID_PARAMS,
-            format!("Unknown resource URI: {}", uri),
-        ),
+        _ => Err(invalid_params(format!("Unknown resource URI: {}", uri))),
     }
 }
 

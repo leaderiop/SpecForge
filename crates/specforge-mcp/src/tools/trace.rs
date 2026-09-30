@@ -1,20 +1,16 @@
 use serde_json::Value;
 
-use crate::protocol::{JsonRpcResponse, error_codes};
 use crate::state::McpState;
+use crate::tool::ToolOutcome;
 
-pub fn call(state: &McpState, args: Value, id: Option<Value>) -> JsonRpcResponse {
+pub fn call(state: &McpState, args: Value) -> ToolOutcome {
     if let Some(plan) = args.get("plan") {
-        return plan_gaps(state, plan, id);
+        return plan_gaps(state, plan);
     }
     let entity_id = match args.get("entity_id").and_then(|v| v.as_str()) {
         Some(e) => e,
         None => {
-            return JsonRpcResponse::error(
-                id,
-                error_codes::INVALID_PARAMS,
-                "Missing required parameter: entity_id or plan",
-            );
+            return ToolOutcome::invalid_params("Missing required parameter: entity_id or plan");
         }
     };
 
@@ -30,8 +26,7 @@ pub fn call(state: &McpState, args: Value, id: Option<Value>) -> JsonRpcResponse
             {
                 Ok(json) => serde_json::from_str(&json).unwrap_or(serde_json::Value::Null),
                 Err(e) => {
-                    return JsonRpcResponse::error(
-                        id,
+                    return ToolOutcome::refused(
                         crate::protocol::error_codes::INTERNAL_ERROR,
                         e.to_string(),
                     );
@@ -50,40 +45,24 @@ pub fn call(state: &McpState, args: Value, id: Option<Value>) -> JsonRpcResponse
                 obj.insert("gaps".into(), serde_json::json!(gaps));
             }
 
-            JsonRpcResponse::success(
-                id,
-                serde_json::json!({
-                    "content": [{
-                        "type": "text",
-                        "text": trace_val.to_string()
-                    }]
-                }),
-            )
+            ToolOutcome::ok(trace_val)
         }
-        Err(err) => JsonRpcResponse::error(id, error_codes::INVALID_PARAMS, err.to_string()),
+        Err(err) => ToolOutcome::invalid_params(err.to_string()),
     }
 }
 
 /// Gap analysis of an agent plan against the graph, as an
 /// `McpTracePlanResult`.
-fn plan_gaps(state: &McpState, plan: &Value, id: Option<Value>) -> JsonRpcResponse {
+fn plan_gaps(state: &McpState, plan: &Value) -> ToolOutcome {
     let analysis = match analyze_plan(state, plan) {
         Ok(analysis) => analysis,
-        Err(message) => return JsonRpcResponse::error(id, error_codes::INVALID_PARAMS, message),
+        Err(message) => return ToolOutcome::invalid_params(message),
     };
     let body = serde_json::json!({
         "affected_entities": analysis.entries,
         "gaps": analysis.gaps,
     });
-    JsonRpcResponse::success(
-        id,
-        serde_json::json!({
-            "content": [{
-                "type": "text",
-                "text": body.to_string()
-            }]
-        }),
-    )
+    ToolOutcome::ok(body)
 }
 
 /// An agent plan checked against the graph by `validate_plan`.

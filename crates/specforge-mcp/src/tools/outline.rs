@@ -1,17 +1,13 @@
 use serde_json::Value;
 
-use crate::protocol::{JsonRpcResponse, error_codes};
 use crate::state::McpState;
+use crate::tool::ToolOutcome;
 
-pub fn call(state: &McpState, args: Value, id: Option<Value>) -> JsonRpcResponse {
+pub fn call(state: &McpState, args: Value) -> ToolOutcome {
     let file = match args.get("file").and_then(|v| v.as_str()) {
         Some(f) => f,
         None => {
-            return JsonRpcResponse::error(
-                id,
-                error_codes::INVALID_PARAMS,
-                "Missing required parameter: file",
-            );
+            return ToolOutcome::invalid_params("Missing required parameter: file");
         }
     };
 
@@ -22,11 +18,7 @@ pub fn call(state: &McpState, args: Value, id: Option<Value>) -> JsonRpcResponse
         None => std::path::Path::new(file).exists(),
     };
     if nodes.is_empty() && !on_disk {
-        return JsonRpcResponse::error(
-            id,
-            error_codes::INVALID_PARAMS,
-            format!("File not found: {file}"),
-        );
+        return ToolOutcome::invalid_params(format!("File not found: {file}"));
     }
 
     let mut entries: Vec<Value> = nodes
@@ -73,15 +65,7 @@ pub fn call(state: &McpState, args: Value, id: Option<Value>) -> JsonRpcResponse
     // Sort by line number
     entries.sort_by_key(|e| e["range"]["start_line"].as_u64().unwrap_or(0));
 
-    JsonRpcResponse::success(
-        id,
-        serde_json::json!({
-            "content": [{
-                "type": "text",
-                "text": serde_json::to_string_pretty(&entries).unwrap()
-            }]
-        }),
-    )
+    ToolOutcome::ok(Value::Array(entries))
 }
 
 fn range(span: &specforge_common::SourceSpan) -> Value {

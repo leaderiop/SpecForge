@@ -1,10 +1,9 @@
-use serde_json::Value;
 use std::collections::BTreeMap;
 
-use crate::protocol::JsonRpcResponse;
+use crate::resources::{ReadOutcome, ResourceText};
 use crate::state::McpState;
 
-pub fn read(state: &McpState, id: Option<Value>) -> JsonRpcResponse {
+pub fn read(state: &McpState) -> ReadOutcome {
     // Derive schema from the graph (same approach as tools/schema.rs)
     // This ensures the schema resource returns actual data even without extension registries
     let mut kinds: BTreeMap<String, Vec<String>> = BTreeMap::new();
@@ -40,14 +39,5 @@ pub fn read(state: &McpState, id: Option<Value>) -> JsonRpcResponse {
 
     let schema_json = schema.to_string();
 
-    JsonRpcResponse::success(
-        id,
-        serde_json::json!({
-            "contents": [{
-                "uri": "specforge://schema",
-                "mimeType": "application/json",
-                "text": schema_json
-            }]
-        }),
-    )
+    Ok(ResourceText::json("specforge://schema", schema_json))
 }

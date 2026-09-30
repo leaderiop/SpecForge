@@ -27,12 +27,27 @@ pub struct JsonRpcResponse {
     pub error: Option<JsonRpcError>,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Clone, Serialize)]
 pub struct JsonRpcError {
     pub code: i64,
     pub message: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub data: Option<Value>,
+}
+
+impl JsonRpcError {
+    pub fn new(code: i64, message: impl Into<String>) -> Self {
+        Self {
+            code,
+            message: message.into(),
+            data: None,
+        }
+    }
+
+    pub fn with_data(mut self, data: Value) -> Self {
+        self.data = Some(data);
+        self
+    }
 }
 
 impl JsonRpcResponse {
@@ -46,15 +61,15 @@ impl JsonRpcResponse {
     }
 
     pub fn error(id: Option<Value>, code: i64, message: impl Into<String>) -> Self {
+        Self::from_error(id, JsonRpcError::new(code, message))
+    }
+
+    pub fn from_error(id: Option<Value>, error: JsonRpcError) -> Self {
         Self {
             jsonrpc: "2.0",
             id,
             result: None,
-            error: Some(JsonRpcError {
-                code,
-                message: message.into(),
-                data: None,
-            }),
+            error: Some(error),
         }
     }
 
@@ -64,16 +79,7 @@ impl JsonRpcResponse {
         message: impl Into<String>,
         data: Value,
     ) -> Self {
-        Self {
-            jsonrpc: "2.0",
-            id,
-            result: None,
-            error: Some(JsonRpcError {
-                code,
-                message: message.into(),
-                data: Some(data),
-            }),
-        }
+        Self::from_error(id, JsonRpcError::new(code, message).with_data(data))
     }
 }
 

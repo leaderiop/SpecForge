@@ -1,9 +1,9 @@
 use serde_json::{Value, json};
 
-use crate::protocol::JsonRpcResponse;
 use crate::state::McpState;
+use crate::tool::ToolOutcome;
 
-pub fn call(state: &McpState, arguments: Value, id: Option<Value>) -> JsonRpcResponse {
+pub fn call(state: &McpState, arguments: Value) -> ToolOutcome {
     let kind = arguments.get("kind").and_then(|v| v.as_str()).unwrap_or("");
 
     let entities: Vec<Value> = if kind.is_empty() {
@@ -36,11 +36,5 @@ pub fn call(state: &McpState, arguments: Value, id: Option<Value>) -> JsonRpcRes
             .collect()
     };
 
-    let text = serde_json::to_string(&entities).unwrap();
-    JsonRpcResponse::success(
-        id,
-        json!({
-            "content": [{ "type": "text", "text": text }]
-        }),
-    )
+    ToolOutcome::ok(Value::Array(entities))
 }

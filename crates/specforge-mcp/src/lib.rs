@@ -8,6 +8,7 @@ pub mod registry;
 pub mod resources;
 pub mod state;
 pub mod subscriptions;
+pub mod tool;
 pub mod tools;
 pub mod types;
 

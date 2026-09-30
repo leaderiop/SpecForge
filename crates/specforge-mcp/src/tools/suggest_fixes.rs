@@ -1,18 +1,14 @@
 use serde_json::Value;
 
-use crate::protocol::{JsonRpcResponse, error_codes};
 use crate::state::McpState;
+use crate::tool::ToolOutcome;
 
-pub fn call(state: &McpState, args: Value, id: Option<Value>) -> JsonRpcResponse {
+pub fn call(state: &McpState, args: Value) -> ToolOutcome {
     let entity = match args.get("entity_id").and_then(|v| v.as_str()) {
         Some(entity_id) => match state.graph.node(entity_id) {
             Some(node) => Some(node),
             None => {
-                return JsonRpcResponse::error(
-                    id,
-                    error_codes::INVALID_PARAMS,
-                    format!("Entity not found: {entity_id}"),
-                );
+                return ToolOutcome::invalid_params(format!("Entity not found: {entity_id}"));
             }
         },
         None => None,
@@ -40,13 +36,5 @@ pub fn call(state: &McpState, args: Value, id: Option<Value>) -> JsonRpcResponse
         })
         .collect();
 
-    JsonRpcResponse::success(
-        id,
-        serde_json::json!({
-            "content": [{
-                "type": "text",
-                "text": serde_json::to_string_pretty(&suggestions).unwrap()
-            }]
-        }),
-    )
+    ToolOutcome::ok(Value::Array(suggestions))
 }

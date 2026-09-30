@@ -1,25 +1,21 @@
 use serde_json::Value;
 use specforge_graph::FieldValue;
 
-use crate::protocol::{JsonRpcResponse, error_codes};
 use crate::state::McpState;
+use crate::tool::ToolOutcome;
 
-pub fn call(state: &McpState, args: Value, id: Option<Value>) -> JsonRpcResponse {
+pub fn call(state: &McpState, args: Value) -> ToolOutcome {
     let entity_id = match args.get("entity_id").and_then(|v| v.as_str()) {
         Some(e) => e,
         None => {
-            return JsonRpcResponse::error(
-                id,
-                error_codes::INVALID_PARAMS,
-                "Missing required parameter: entity_id",
-            );
+            return ToolOutcome::invalid_params("Missing required parameter: entity_id");
         }
     };
 
     let node = match state.graph.node(entity_id) {
         Some(n) => n,
         None => {
-            return super::tool_error(id, format!("Entity not found: {}", entity_id));
+            return ToolOutcome::failed(format!("Entity not found: {}", entity_id));
         }
     };
 
@@ -70,7 +66,7 @@ pub fn call(state: &McpState, args: Value, id: Option<Value>) -> JsonRpcResponse
     // The same classification `specforge.coverage` reports.
     let report = match super::coverage::recorded_report(state) {
         Ok(report) => report,
-        Err(e) => return super::coverage::report_error_result(id, &e, "specforge.inspect"),
+        Err(e) => return super::coverage::report_error_result(&e, "specforge.inspect"),
     };
     let coverage_status = super::coverage::EntityCoverage::of(node, report.as_ref()).status();
 
@@ -97,15 +93,7 @@ pub fn call(state: &McpState, args: Value, id: Option<Value>) -> JsonRpcResponse
         "diagnostics": entity_diagnostics
     });
 
-    JsonRpcResponse::success(
-        id,
-        serde_json::json!({
-            "content": [{
-                "type": "text",
-                "text": result.to_string()
-            }]
-        }),
-    )
+    ToolOutcome::ok(result)
 }
 
 /// Whether `diagnostic` is about `node`: its span lies within the node's,

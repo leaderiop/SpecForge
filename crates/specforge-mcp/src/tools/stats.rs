@@ -1,9 +1,9 @@
 use serde_json::Value;
 
-use crate::protocol::JsonRpcResponse;
 use crate::state::McpState;
+use crate::tool::ToolOutcome;
 
-pub fn call(state: &McpState, _args: Value, id: Option<Value>) -> JsonRpcResponse {
+pub fn call(state: &McpState, _args: Value) -> ToolOutcome {
     // Coverage is over the kinds the extensions declare testable; with no
     // testable kind named, it could only ever be 0.
     let testable_kinds: Vec<&str> =
@@ -34,13 +34,5 @@ pub fn call(state: &McpState, _args: Value, id: Option<Value>) -> JsonRpcRespons
         }
     });
 
-    JsonRpcResponse::success(
-        id,
-        serde_json::json!({
-            "content": [{
-                "type": "text",
-                "text": result.to_string()
-            }]
-        }),
-    )
+    ToolOutcome::ok(result)
 }

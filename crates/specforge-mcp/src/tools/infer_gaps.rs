@@ -5,39 +5,29 @@ use specforge_common::inference;
 use specforge_common::inference::discovery::SourceDiscoveryConfig;
 use specforge_emitter::scanner_dispatch;
 
-use crate::protocol::JsonRpcResponse;
 use crate::state::McpState;
+use crate::tool::ToolOutcome;
 
-pub fn call(state: &McpState, _args: Value, id: Option<Value>) -> JsonRpcResponse {
+pub fn call(state: &McpState, _args: Value) -> ToolOutcome {
     let project_root = match &state.project_root {
         Some(p) => p.clone(),
         None => {
-            return JsonRpcResponse::success(
-                id,
-                json!({
-                    "content": [{ "type": "text", "text": json!({
-                        "total_pub_items": 0,
-                        "covered_items": 0,
-                        "gaps": [],
-                        "approximate": false,
-                        "message": "No project root available"
-                    }).to_string() }]
-                }),
-            );
+            return ToolOutcome::ok(json!({
+                "total_pub_items": 0,
+                "covered_items": 0,
+                "gaps": [],
+                "approximate": false,
+                "message": "No project root available"
+            }));
         }
     };
 
     let manifest = match inference::load_inference_manifest(&project_root) {
         Ok(m) => m,
         Err(e) => {
-            return JsonRpcResponse::success(
-                id,
-                json!({
-                    "content": [{ "type": "text", "text": json!({
-                        "error": e,
-                    }).to_string() }]
-                }),
-            );
+            return ToolOutcome::ok(json!({
+                "error": e,
+            }));
         }
     };
 
@@ -107,10 +97,5 @@ pub fn call(state: &McpState, _args: Value, id: Option<Value>) -> JsonRpcRespons
         "by_directory": dir_breakdown,
     });
 
-    JsonRpcResponse::success(
-        id,
-        json!({
-            "content": [{ "type": "text", "text": result.to_string() }]
-        }),
-    )
+    ToolOutcome::ok(result)
 }

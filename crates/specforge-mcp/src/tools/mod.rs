@@ -26,19 +26,7 @@ use specforge_registry::SurfaceType;
 
 use crate::protocol::{JsonRpcResponse, error_codes};
 use crate::state::McpState;
-
-/// Tool-execution failure result: the tool ran but the domain state did
-/// not match (C9-00/C9-12 — execution errors are results with isError,
-/// not protocol-level -32602).
-pub(crate) fn tool_error(id: Option<Value>, message: String) -> JsonRpcResponse {
-    JsonRpcResponse::success(
-        id,
-        serde_json::json!({
-            "content": [{ "type": "text", "text": message.clone() }],
-            "isError": true,
-        }),
-    )
-}
+use crate::tool::{ToolOutcome, envelope};
 
 /// An I020 report for each kind in a `kinds` filter that no registered
 /// extension defines and no entity has, in the order given, with a
@@ -74,59 +62,25 @@ pub(crate) fn unknown_kind_diagnostics(
     diagnostics
 }
 
-/// Attach `diagnostics` to a successful tool result as its response
-/// metadata (`_meta.diagnostics`); no diagnostics, no metadata.
-pub(crate) fn with_diagnostics_meta(
-    mut response: JsonRpcResponse,
-    diagnostics: &[specforge_common::Diagnostic],
-) -> JsonRpcResponse {
-    if diagnostics.is_empty() {
-        return response;
-    }
-    if let Some(result) = response.result.as_mut().and_then(Value::as_object_mut) {
-        result.insert(
-            "_meta".into(),
-            json!({ "diagnostics": serde_json::to_value(diagnostics).unwrap_or_default() }),
-        );
-    }
-    response
-}
-
 /// A failed extension call as a failed tool result.
-fn extension_error(id: Option<Value>, diag: &specforge_common::Diagnostic) -> JsonRpcResponse {
-    JsonRpcResponse::success(
-        id,
-        json!({
-            "content": [{ "type": "text", "text": format!("{}: {}", diag.code, diag.message) }],
-            "isError": true,
-        }),
-    )
+fn extension_error(diag: &specforge_common::Diagnostic) -> ToolOutcome {
+    ToolOutcome::failed(format!("{}: {}", diag.code, diag.message))
 }
 
 /// An auto-promoted command's run as a tool result: its stdout, then its
 /// stderr when it wrote any; a nonzero exit code fails the call.
 fn command_tool_result(
-    id: Option<Value>,
     outcome: Result<specforge_wasm::CommandOutput, specforge_common::Diagnostic>,
-) -> JsonRpcResponse {
+) -> ToolOutcome {
     match outcome {
         Ok(output) => {
-            let mut content = vec![json!({
-                "type": "text",
-                "text": String::from_utf8_lossy(&output.stdout),
-            })];
+            let mut blocks = vec![String::from_utf8_lossy(&output.stdout).into_owned()];
             if !output.stderr.is_empty() {
-                content.push(json!({
-                    "type": "text",
-                    "text": String::from_utf8_lossy(&output.stderr),
-                }));
+                blocks.push(String::from_utf8_lossy(&output.stderr).into_owned());
             }
-            JsonRpcResponse::success(
-                id,
-                json!({ "content": content, "isError": output.exit_code != 0 }),
-            )
+            ToolOutcome::texts(blocks, output.exit_code != 0)
         }
-        Err(diag) => extension_error(id, &diag),
+        Err(diag) => extension_error(&diag),
     }
 }
 
@@ -230,123 +184,18 @@ pub fn handle_tool_call(state: &mut McpState, params: Value, id: Option<Value>) 
 
     let is_mutation = MUTATION_TOOLS.contains(&name) && writes(name, &arguments);
 
-    let response = match name {
-        // Core tools
-        "specforge.query" => query::call(state, arguments, id),
-        "specforge.validate" => validate::call(state, arguments, id),
-        "specforge.export" => export::call(state, arguments, id),
-        "specforge.trace" => trace::call(state, arguments, id),
-        "specforge.search" => search::call(state, arguments, id),
-        "specforge.schema" => schema::call(state, arguments, id),
-        "specforge.model" => model::call(state, arguments, id),
-        "specforge.coverage" => coverage::call(state, arguments, id),
-        "specforge.analyze" => analyze::call(state, arguments, id),
-        "specforge.stats" => stats::call(state, arguments, id),
-        // Navigation tools
-        "specforge.list" => list::call(state, arguments, id),
-        "specforge.inspect" => inspect::call(state, arguments, id),
-        "specforge.find_definition" => find_definition::call(state, arguments, id),
-        "specforge.find_references" => find_references::call(state, arguments, id),
-        "specforge.outline" => outline::call(state, arguments, id),
-        "specforge.outline_extensions" => outline_extensions::call(state, arguments, id),
-        "specforge.suggest_fixes" => suggest_fixes::call(state, arguments, id),
-        // Inference tools
-        "specforge.infer_progress" => infer_progress::call(state, arguments, id),
-        "specforge.infer_session" => infer_session::call(state, arguments, id),
-        "specforge.infer_gaps" => infer_gaps::call(state, arguments, id),
-        // Source anchoring tools
-        "specforge.find_implementation" => find_implementation::call(state, arguments, id),
-        "specforge.find_spec_for_source" => find_spec_for_source::call(state, arguments, id),
-        // Operations
-        "specforge.format"
-        | "specforge.rename"
-        | "specforge.init"
-        | "specforge.add_extension"
-        | "specforge.remove_extension"
-        | "specforge.migrate"
-        | "specforge.extensions"
-        | "specforge.providers"
-        | "specforge.doctor"
-        | "specforge.collect"
-        | "specforge.render" => crate::operations::handle_operation(state, name, arguments, id),
-        _ => {
-            // Registered extension tool from surface contributions: execute
-            // through the Wasm runtime (WASM-only migration, Phase 4).
-            let extension_tool = state.surface_entries.iter().find(|e| {
-                (e.surface_type == SurfaceType::McpTool
-                    || e.surface_type == SurfaceType::AutoPromotedTool)
-                    && e.contribution_name == name
-                    && e.enabled
-            });
+    let mut outcome = dispatch(state, name, arguments);
+    for (event, params) in outcome.take_events() {
+        state.push_event(event, params);
+    }
 
-            if let Some(entry) = extension_tool {
-                let Some(root) = state.project_root.clone() else {
-                    return JsonRpcResponse::error(
-                        id,
-                        error_codes::INVALID_PARAMS,
-                        format!(
-                            "Extension tool '{}' needs a project root; pass {{\"path\": ...}} to specforge.analyze first",
-                            name
-                        ),
-                    );
-                };
-                let runtime = state.wasm_runtime(&root);
-                let input = serde_json::to_vec(&arguments).unwrap_or_default();
-                if entry.surface_type == SurfaceType::AutoPromotedTool {
-                    // An auto-promoted CLI command runs its cmd__ export.
-                    command_tool_result(
-                        id,
-                        specforge_wasm::dispatch_surface_command(
-                            &entry.extension_name,
-                            &entry.export_name,
-                            &input,
-                            runtime.as_ref(),
-                        ),
-                    )
-                } else {
-                    match specforge_wasm::dispatch_surface_mcp_tool(
-                        &entry.extension_name,
-                        &entry.export_name,
-                        &input,
-                        runtime.as_ref(),
-                    ) {
-                        Ok(value) => JsonRpcResponse::success(
-                            id,
-                            json!({
-                                "content": [{
-                                    "type": "text",
-                                    "text": serde_json::to_string_pretty(&value).unwrap_or_default(),
-                                }],
-                                "isError": false,
-                            }),
-                        ),
-                        Err(diag) => extension_error(id, &diag),
-                    }
-                }
-            } else {
-                // MCP spec (tools/call): an unrecognized tool is an Invalid
-                // params protocol error — see the "Unknown tool" example in
-                // docs/mcp-specification-summary.md.
-                JsonRpcResponse::error(
-                    id,
-                    error_codes::INVALID_PARAMS,
-                    format!("Unknown tool: {}", name),
-                )
-            }
-        }
-    };
-
-    if is_mutation && response.error.is_none() {
-        // The tool's own structured result is the outcome.
-        let result = response.result.as_ref();
-        let success = result.is_some_and(|r| r["isError"] != true);
-        let outcome = result
-            .and_then(|r| r["content"][0]["text"].as_str())
-            .and_then(|text| serde_json::from_str::<Value>(text).ok());
-        let (files_changed, entities_affected) = match outcome.as_ref() {
-            Some(outcome) if success => mutation_effect(name, outcome),
-            _ => (0, 0),
-        };
+    // A refused call ran nothing; a run reports what its structured
+    // result says it changed.
+    if is_mutation && !outcome.is_refused() {
+        let success = outcome.succeeded();
+        let (files_changed, entities_affected) = outcome
+            .success_payload()
+            .map_or((0, 0), |payload| mutation_effect(name, payload));
         state.push_event(
             "mcp_mutation_completed",
             json!({
@@ -358,5 +207,91 @@ pub fn handle_tool_call(state: &mut McpState, params: Value, id: Option<Value>) 
         );
     }
 
-    response
+    envelope(outcome, id)
+}
+
+/// Run the tool `name` with `arguments`.
+fn dispatch(state: &mut McpState, name: &str, arguments: Value) -> ToolOutcome {
+    match name {
+        // Core tools
+        "specforge.query" => query::call(state, arguments),
+        "specforge.validate" => validate::call(state, arguments),
+        "specforge.export" => export::call(state, arguments),
+        "specforge.trace" => trace::call(state, arguments),
+        "specforge.search" => search::call(state, arguments),
+        "specforge.schema" => schema::call(state, arguments),
+        "specforge.model" => model::call(state, arguments),
+        "specforge.coverage" => coverage::call(state, arguments),
+        "specforge.analyze" => analyze::call(state, arguments),
+        "specforge.stats" => stats::call(state, arguments),
+        // Navigation tools
+        "specforge.list" => list::call(state, arguments),
+        "specforge.inspect" => inspect::call(state, arguments),
+        "specforge.find_definition" => find_definition::call(state, arguments),
+        "specforge.find_references" => find_references::call(state, arguments),
+        "specforge.outline" => outline::call(state, arguments),
+        "specforge.outline_extensions" => outline_extensions::call(state, arguments),
+        "specforge.suggest_fixes" => suggest_fixes::call(state, arguments),
+        // Inference tools
+        "specforge.infer_progress" => infer_progress::call(state, arguments),
+        "specforge.infer_session" => infer_session::call(state, arguments),
+        "specforge.infer_gaps" => infer_gaps::call(state, arguments),
+        // Source anchoring tools
+        "specforge.find_implementation" => find_implementation::call(state, arguments),
+        "specforge.find_spec_for_source" => find_spec_for_source::call(state, arguments),
+        // Operations
+        "specforge.format"
+        | "specforge.rename"
+        | "specforge.init"
+        | "specforge.add_extension"
+        | "specforge.remove_extension"
+        | "specforge.migrate"
+        | "specforge.extensions"
+        | "specforge.providers"
+        | "specforge.doctor"
+        | "specforge.collect"
+        | "specforge.render" => crate::operations::handle_operation(state, name, arguments, None),
+        _ => extension_tool(state, name, arguments),
+    }
+}
+
+/// A registered extension tool from surface contributions, run through the
+/// Wasm runtime (WASM-only migration, Phase 4).
+fn extension_tool(state: &McpState, name: &str, arguments: Value) -> ToolOutcome {
+    let Some(entry) = state.surface_entries.iter().find(|e| {
+        (e.surface_type == SurfaceType::McpTool || e.surface_type == SurfaceType::AutoPromotedTool)
+            && e.contribution_name == name
+            && e.enabled
+    }) else {
+        // MCP spec (tools/call): an unrecognized tool is an Invalid params
+        // protocol error — see the "Unknown tool" example in
+        // docs/mcp-specification-summary.md.
+        return ToolOutcome::invalid_params(format!("Unknown tool: {}", name));
+    };
+    let Some(root) = state.project_root.clone() else {
+        return ToolOutcome::invalid_params(format!(
+            "Extension tool '{}' needs a project root; pass {{\"path\": ...}} to specforge.analyze first",
+            name
+        ));
+    };
+    let runtime = state.wasm_runtime(&root);
+    let input = serde_json::to_vec(&arguments).unwrap_or_default();
+    if entry.surface_type == SurfaceType::AutoPromotedTool {
+        // An auto-promoted CLI command runs its cmd__ export.
+        return command_tool_result(specforge_wasm::dispatch_surface_command(
+            &entry.extension_name,
+            &entry.export_name,
+            &input,
+            runtime.as_ref(),
+        ));
+    }
+    match specforge_wasm::dispatch_surface_mcp_tool(
+        &entry.extension_name,
+        &entry.export_name,
+        &input,
+        runtime.as_ref(),
+    ) {
+        Ok(value) => ToolOutcome::ok(value),
+        Err(diag) => extension_error(&diag),
+    }
 }

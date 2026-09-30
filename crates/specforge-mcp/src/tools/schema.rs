@@ -1,10 +1,10 @@
 use serde_json::Value;
 use std::collections::BTreeMap;
 
-use crate::protocol::JsonRpcResponse;
 use crate::state::McpState;
+use crate::tool::ToolOutcome;
 
-pub fn call(state: &McpState, args: Value, id: Option<Value>) -> JsonRpcResponse {
+pub fn call(state: &McpState, args: Value) -> ToolOutcome {
     let kind_filter = args.get("kind").and_then(|v| v.as_str());
 
     let mut kinds: BTreeMap<String, Vec<String>> = BTreeMap::new();
@@ -71,13 +71,5 @@ pub fn call(state: &McpState, args: Value, id: Option<Value>) -> JsonRpcResponse
         schema["validation_rules"] = Value::Array(rules);
     }
 
-    JsonRpcResponse::success(
-        id,
-        serde_json::json!({
-            "content": [{
-                "type": "text",
-                "text": schema.to_string()
-            }]
-        }),
-    )
+    ToolOutcome::ok(schema)
 }

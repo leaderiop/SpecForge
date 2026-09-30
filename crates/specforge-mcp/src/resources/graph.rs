@@ -3,7 +3,7 @@ use specforge_emitter::{
     EmitFormat, EmitOptions, emit, filter_graph_within_budget, generate_schema,
 };
 
-use crate::protocol::{JsonRpcResponse, error_codes};
+use crate::resources::{ReadOutcome, ResourceText, invalid_params};
 use crate::state::McpState;
 
 /// `specforge://graph` — full corpus, or scoped via query parameters
@@ -11,7 +11,7 @@ use crate::state::McpState;
 /// traversal, `kinds=a,b` filters node kinds, `max_tokens=<n>` budgets the
 /// payload. Scoped exports reference the published schema (`schema_ref`)
 /// instead of embedding it (C6-07).
-pub fn read(state: &McpState, uri: &str, id: Option<Value>) -> JsonRpcResponse {
+pub fn read(state: &McpState, uri: &str) -> ReadOutcome {
     let (base, query) = crate::resources::split_query(uri);
     let parsed = crate::resources::parse_query(query);
 
@@ -71,18 +71,8 @@ pub fn read(state: &McpState, uri: &str, id: Option<Value>) -> JsonRpcResponse {
         Ok(payload) => {
             let contents: Value =
                 serde_json::from_str(&payload).expect("graph emit always produces JSON");
-            JsonRpcResponse::success(id, resource_contents(base, contents))
+            Ok(ResourceText::json(base, contents.to_string()))
         }
-        Err(err) => JsonRpcResponse::error(id, error_codes::INVALID_PARAMS, err.to_string()),
+        Err(err) => Err(invalid_params(err.to_string())),
     }
-}
-
-fn resource_contents(uri: &str, contents: Value) -> Value {
-    serde_json::json!({
-        "contents": [{
-            "uri": uri,
-            "mimeType": "application/json",
-            "text": contents.to_string()
-        }]
-    })
 }

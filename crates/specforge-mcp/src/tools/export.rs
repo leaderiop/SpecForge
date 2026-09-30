@@ -1,10 +1,10 @@
 use serde_json::Value;
 use specforge_emitter::{EmitFormat, EmitOptions, emit};
 
-use crate::protocol::{JsonRpcResponse, error_codes};
 use crate::state::McpState;
+use crate::tool::ToolOutcome;
 
-pub fn call(state: &McpState, args: Value, id: Option<Value>) -> JsonRpcResponse {
+pub fn call(state: &McpState, args: Value) -> ToolOutcome {
     let format = args
         .get("format")
         .and_then(|v| v.as_str())
@@ -16,11 +16,7 @@ pub fn call(state: &McpState, args: Value, id: Option<Value>) -> JsonRpcResponse
         "brief" => EmitFormat::Brief,
         "graph" => EmitFormat::Json,
         _ => {
-            return JsonRpcResponse::error(
-                id,
-                error_codes::INVALID_PARAMS,
-                format!("Unknown format: {}", format),
-            );
+            return ToolOutcome::invalid_params(format!("Unknown format: {}", format));
         }
     };
 
@@ -37,15 +33,7 @@ pub fn call(state: &McpState, args: Value, id: Option<Value>) -> JsonRpcResponse
     };
 
     match emit(&state.graph, &options) {
-        Ok(json_str) => JsonRpcResponse::success(
-            id,
-            serde_json::json!({
-                "content": [{
-                    "type": "text",
-                    "text": json_str
-                }]
-            }),
-        ),
-        Err(err) => JsonRpcResponse::error(id, error_codes::INVALID_PARAMS, err.to_string()),
+        Ok(json_str) => ToolOutcome::text(json_str),
+        Err(err) => ToolOutcome::invalid_params(err.to_string()),
     }
 }

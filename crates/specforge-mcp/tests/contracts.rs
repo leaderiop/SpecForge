@@ -502,7 +502,7 @@ fn contract_query() {
     let filtered_args =
         json!({"entity_id": "alpha", "kinds": ["behavior", "behaviour", "nonexistent"]});
     let filtered = call_tool(&mut server, "specforge.query", filtered_args.clone());
-    assert!(filtered["result"]["isError"].is_null(), "{filtered}");
+    assert_ne!(filtered["result"]["isError"], true, "{filtered}");
     assert_eq!(node_ids(&tool_json(&filtered)), ["alpha"]);
     assert_eq!(
         filtered["result"]["_meta"]["diagnostics"],
@@ -728,7 +728,7 @@ fn contract_search() {
         "specforge.search",
         json!({"query": "", "kinds": ["featur", "nonexistent"]}),
     );
-    assert!(unknown["result"]["isError"].is_null(), "{unknown}");
+    assert_ne!(unknown["result"]["isError"], true, "{unknown}");
     assert_eq!(ids(&unknown), Vec::<String>::new());
     assert_eq!(
         unknown["result"]["_meta"]["diagnostics"],

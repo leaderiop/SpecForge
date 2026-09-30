@@ -3,8 +3,8 @@ use specforge_emitter::analyze::{ReportedTest, TestReport};
 use specforge_emitter::coverage::ReportError;
 use specforge_graph::Node;
 
-use crate::protocol::JsonRpcResponse;
 use crate::state::McpState;
+use crate::tool::ToolOutcome;
 
 /// How a report's recorded status names a passing test.
 const PASSING_STATUS: &str = "pass";
@@ -44,19 +44,8 @@ pub(crate) fn report_mcp_error(error: &ReportError, tool: &str) -> Value {
 }
 
 /// [`report_mcp_error`] as the tool's `isError` result.
-pub(crate) fn report_error_result(
-    id: Option<Value>,
-    error: &ReportError,
-    tool: &str,
-) -> JsonRpcResponse {
-    let error = report_mcp_error(error, tool);
-    JsonRpcResponse::success(
-        id,
-        serde_json::json!({
-            "content": [{ "type": "text", "text": error.to_string() }],
-            "isError": true,
-        }),
-    )
+pub(crate) fn report_error_result(error: &ReportError, tool: &str) -> ToolOutcome {
+    ToolOutcome::failed_with(report_mcp_error(error, tool))
 }
 
 /// How an entity's recorded tests cover its `verify` obligations: the
@@ -109,10 +98,10 @@ impl<'a> EntityCoverage<'a> {
     }
 }
 
-pub fn call(state: &McpState, args: Value, id: Option<Value>) -> JsonRpcResponse {
+pub fn call(state: &McpState, args: Value) -> ToolOutcome {
     let report = match recorded_report(state) {
         Ok(report) => report,
-        Err(e) => return report_error_result(id, &e, "specforge.coverage"),
+        Err(e) => return report_error_result(&e, "specforge.coverage"),
     };
     let entity_filter = args.get("entity_id").and_then(|v| v.as_str());
     let kind_filter = args.get("kind").and_then(|v| v.as_str());
@@ -148,13 +137,5 @@ pub fn call(state: &McpState, args: Value, id: Option<Value>) -> JsonRpcResponse
         })
         .collect();
 
-    JsonRpcResponse::success(
-        id,
-        serde_json::json!({
-            "content": [{
-                "type": "text",
-                "text": serde_json::to_string_pretty(&results).unwrap()
-            }]
-        }),
-    )
+    ToolOutcome::ok(Value::Array(results))
 }
