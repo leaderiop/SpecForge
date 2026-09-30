@@ -7,7 +7,15 @@ use crate::pipeline;
 pub fn run(path: &Path, format: OutputFormat) -> i32 {
     let ctx = pipeline::compile(path);
 
-    let stats = compute_stats_with_diagnostics(&ctx.graph, &[], &ctx.diagnostics);
+    // Coverage is over the kinds the extensions declare testable; with no
+    // testable kind named, it could only ever be 0.
+    let testable_kinds: Vec<&str> = ctx
+        .kind_registry
+        .iter()
+        .filter(|(_, kind)| kind.testable)
+        .map(|(name, _)| name.as_str())
+        .collect();
+    let stats = compute_stats_with_diagnostics(&ctx.graph, &testable_kinds, &ctx.diagnostics);
 
     match format {
         OutputFormat::Json => print_json(&stats),
@@ -25,6 +33,11 @@ fn print_human(stats: &ProjectStats) {
     println!("Edges:    {}", stats.total_edges);
     println!("Orphans:  {}", stats.orphan_count);
     println!("Verified: {}", stats.verified_count);
+    println!(
+        "Coverage: {}% of {} testable",
+        stats.coverage_pct.round(),
+        stats.testable_count
+    );
     if stats.error_count > 0 || stats.warning_count > 0 || stats.info_count > 0 {
         println!(
             "Diagnostics: {} errors, {} warnings, {} info",
