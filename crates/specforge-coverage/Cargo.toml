@@ -1,0 +1,21 @@
+[package]
+name = "specforge-coverage"
+description = "The coverage rule of @specforge/testing: which obligations a project's recorded tests prove, per entity and in summary; linked by the extension's Wasm pass and the host surfaces"
+edition.workspace = true
+version.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[lints.clippy]
+# Linked into the MCP server, whose stdout is the JSON-RPC stream.
+print_stdout = "deny"
+
+# Pure: serde only, so it builds for wasm32-wasip2 inside the testing
+# extension. Keep it out of the SDK and protocol-types (every blob reads those).
+[dependencies]
+serde = { workspace = true }
+
+[dev-dependencies]
+serde_json = { workspace = true }
+specforge-test = { workspace = true }
+specforge-test-macros = { workspace = true }

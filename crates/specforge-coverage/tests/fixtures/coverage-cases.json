@@ -1,0 +1,287 @@
+[
+  {
+    "name": "an obligation is proven by a passing test that names it",
+    "input": {
+      "entities": [{"id": "create_user", "kind": "behavior", "testable": true,
+        "verify_kinds": ["unit", "unit"],
+        "verify_texts": ["rejects a duplicate email", "stores a hashed password"]}],
+      "test_results": {"runner": "cargo-test", "results": {"create_user": {"tests": [
+        {"name": "dup", "status": "pass", "verify": "rejects a duplicate email"},
+        {"name": "hash", "status": "pass", "verify": "stores a hashed password"}]}}}
+    },
+    "expect": {
+      "findings": [],
+      "verdicts": {
+        "create_user": {"obligations": 2, "proven": 2, "unproven": [], "undeclared": [], "tests": 2, "failing": 0, "is_proven": true, "status": "covered"}
+      },
+      "summary": {
+        "testable_total": 1, "testable_verified": 1, "obligations": 2, "obligation_kinds": {"unit": 2},
+        "invariant_enforced": 0, "invariant_orphans": 0,
+        "discharge_funnel": {"entities_with_obligations": 1, "entities_proven": 1, "report_failures": 0, "formally_discharged": 0},
+        "test_results": {"runner": "cargo-test", "entities_recorded": 1, "tests_recorded": 2, "tests_failed": 0, "entities_proven": 1, "obligations_proven": 2},
+        "invariants": []
+      }
+    }
+  },
+  {
+    "name": "unnamed and failing tests leave obligations unproven",
+    "input": {
+      "entities": [{"id": "create_user", "kind": "behavior", "testable": true,
+        "verify_kinds": ["unit", "unit"],
+        "verify_texts": ["rejects a duplicate email", "stores a hashed password"]}],
+      "test_results": {"runner": "cargo-test", "results": {"create_user": {"tests": [
+        {"name": "any", "status": "pass"},
+        {"name": "hash", "status": "fail", "verify": "stores a hashed password"}]}}}
+    },
+    "expect": {
+      "findings": [
+        {"code": "A015", "entity": "create_user", "severity": "warning",
+          "message": "behavior 'create_user' has 2 obligation(s) no passing test proves: \"rejects a duplicate email\", \"stores a hashed password\"",
+          "suggestion": "link a test to each obligation by its text (`verify = \"...\"` in the test's annotation)"},
+        {"code": "A014", "entity": "create_user", "severity": "error",
+          "message": "behavior 'create_user' has 1 failing test(s) in the test results: hash",
+          "suggestion": null}
+      ],
+      "verdicts": {
+        "create_user": {"obligations": 2, "proven": 0, "unproven": ["rejects a duplicate email", "stores a hashed password"], "undeclared": [], "tests": 2, "failing": 1, "is_proven": false, "status": "partial"}
+      },
+      "summary": {
+        "testable_total": 1, "testable_verified": 1, "obligations": 2, "obligation_kinds": {"unit": 2},
+        "invariant_enforced": 0, "invariant_orphans": 0,
+        "discharge_funnel": {"entities_with_obligations": 1, "entities_proven": 0, "report_failures": 1, "formally_discharged": 0},
+        "test_results": {"runner": "cargo-test", "entities_recorded": 1, "tests_recorded": 2, "tests_failed": 1, "entities_proven": 0, "obligations_proven": 0},
+        "invariants": []
+      }
+    }
+  },
+  {
+    "name": "a test naming an undeclared obligation is reported",
+    "input": {
+      "entities": [{"id": "create_user", "kind": "behavior", "testable": true,
+        "verify_kinds": ["unit", "unit"],
+        "verify_texts": ["rejects a duplicate email", "stores a hashed password"]}],
+      "test_results": {"runner": "cargo-test", "results": {"create_user": {"tests": [
+        {"name": "dup", "status": "pass", "verify": "rejects a duplicate email"},
+        {"name": "hash", "status": "pass", "verify": "stores a hashed pasword"}]}}}
+    },
+    "expect": {
+      "findings": [
+        {"code": "A015", "entity": "create_user", "severity": "warning",
+          "message": "behavior 'create_user' has 1 obligation(s) no passing test proves: \"stores a hashed password\"",
+          "suggestion": "link a test to each obligation by its text (`verify = \"...\"` in the test's annotation)"},
+        {"code": "A016", "entity": "create_user", "severity": "warning",
+          "message": "tests name obligation(s) behavior 'create_user' does not declare: \"stores a hashed pasword\"",
+          "suggestion": "fix the test's `verify` text to match the spec's statement exactly, or add the statement"}
+      ],
+      "verdicts": {
+        "create_user": {"obligations": 2, "proven": 1, "unproven": ["stores a hashed password"], "undeclared": ["stores a hashed pasword"], "tests": 2, "failing": 0, "is_proven": false, "status": "partial"}
+      },
+      "summary": {
+        "testable_total": 1, "testable_verified": 1, "obligations": 2, "obligation_kinds": {"unit": 2},
+        "invariant_enforced": 0, "invariant_orphans": 0,
+        "discharge_funnel": {"entities_with_obligations": 1, "entities_proven": 0, "report_failures": 0, "formally_discharged": 0},
+        "test_results": {"runner": "cargo-test", "entities_recorded": 1, "tests_recorded": 2, "tests_failed": 0, "entities_proven": 0, "obligations_proven": 1},
+        "invariants": []
+      }
+    }
+  },
+  {
+    "name": "an entailed formal claim discharges property obligations",
+    "input": {
+      "entities": [{"id": "unique_ids", "kind": "invariant", "testable": true, "incoming_edge_count": 1,
+        "verify_kinds": ["property", "unit"],
+        "verify_texts": ["ids never collide", "a second insert fails"]}],
+      "test_results": {"results": {}},
+      "proved_claims": ["unique_ids"]
+    },
+    "expect": {
+      "findings": [
+        {"code": "A015", "entity": "unique_ids", "severity": "warning",
+          "message": "invariant 'unique_ids' has 1 obligation(s) no passing test proves: \"a second insert fails\"",
+          "suggestion": "link a test to each obligation by its text (`verify = \"...\"` in the test's annotation)"}
+      ],
+      "verdicts": {
+        "unique_ids": {"obligations": 2, "proven": 1, "unproven": ["a second insert fails"], "undeclared": [], "tests": 0, "failing": 0, "is_proven": false, "status": "partial"}
+      },
+      "summary": {
+        "testable_total": 1, "testable_verified": 1, "obligations": 2, "obligation_kinds": {"property": 1, "unit": 1},
+        "invariant_enforced": 1, "invariant_orphans": 0,
+        "discharge_funnel": {"entities_with_obligations": 1, "entities_proven": 0, "report_failures": 0, "formally_discharged": 1},
+        "test_results": {"runner": null, "entities_recorded": 0, "tests_recorded": 0, "tests_failed": 0, "entities_proven": 0, "obligations_proven": 1},
+        "invariants": [{"risk": "unspecified", "total": 1, "unverified": 0}]
+      }
+    }
+  },
+  {
+    "name": "without recorded results obligations are not scored",
+    "input": {
+      "entities": [{"id": "create_user", "kind": "behavior", "testable": true,
+        "verify_kinds": ["unit", "unit"],
+        "verify_texts": ["rejects a duplicate email", "stores a hashed password"]}],
+      "proved_claims": ["create_user"]
+    },
+    "expect": {
+      "findings": [],
+      "verdicts": {
+        "create_user": {"obligations": 2, "proven": 0, "unproven": ["rejects a duplicate email", "stores a hashed password"], "undeclared": [], "tests": 0, "failing": 0, "is_proven": false, "status": "uncovered"}
+      },
+      "summary": {
+        "testable_total": 1, "testable_verified": 1, "obligations": 2, "obligation_kinds": {"unit": 2},
+        "invariant_enforced": 0, "invariant_orphans": 0,
+        "discharge_funnel": {"entities_with_obligations": 1, "entities_proven": 0, "report_failures": 0, "formally_discharged": 0},
+        "test_results": null,
+        "invariants": []
+      }
+    }
+  },
+  {
+    "name": "a formal proof without tests discharges every obligation but does not prove the entity",
+    "input": {
+      "entities": [{"id": "no_lost_login", "kind": "property", "testable": false,
+        "verify_kinds": ["property"], "verify_texts": ["no login is lost"]}],
+      "test_results": {"runner": "cargo-test", "results": {}},
+      "proved_claims": ["no_lost_login"]
+    },
+    "expect": {
+      "findings": [],
+      "verdicts": {
+        "no_lost_login": {"obligations": 1, "proven": 1, "unproven": [], "undeclared": [], "tests": 0, "failing": 0, "is_proven": false, "status": "covered"}
+      },
+      "summary": {
+        "testable_total": 0, "testable_verified": 0, "obligations": 1, "obligation_kinds": {"property": 1},
+        "invariant_enforced": 0, "invariant_orphans": 0,
+        "discharge_funnel": {"entities_with_obligations": 1, "entities_proven": 0, "report_failures": 0, "formally_discharged": 1},
+        "test_results": {"runner": "cargo-test", "entities_recorded": 0, "tests_recorded": 0, "tests_failed": 0, "entities_proven": 0, "obligations_proven": 1},
+        "invariants": []
+      }
+    }
+  },
+  {
+    "name": "the fx1 corpus: an entity of any kind with passing tests counts as proven",
+    "input": {
+      "entities": [
+        {"id": "login", "kind": "behavior", "testable": true,
+          "verify_kinds": ["unit"], "verify_texts": ["login succeeds with valid credentials"]},
+        {"id": "Status", "kind": "type", "testable": true},
+        {"id": "Payload", "kind": "type", "testable": true,
+          "verify_kinds": ["unit"], "verify_texts": ["Payload schema is valid"]},
+        {"id": "signin", "kind": "feature", "testable": false},
+        {"id": "no_lost_login", "kind": "property", "testable": false,
+          "verify_kinds": ["unit"], "verify_texts": ["no login is lost"]}
+      ],
+      "test_results": {"runner": "cargo-test", "results": {
+        "login": {"tests": [{"name": "login_ok", "status": "pass", "verify": "login succeeds with valid credentials"}]},
+        "Payload": {"tests": [{"name": "payload_ok", "status": "pass", "verify": "Payload schema is valid"}]},
+        "signin": {"tests": [{"name": "signin_flow", "status": "pass"}]}
+      }}
+    },
+    "expect": {
+      "findings": [
+        {"code": "A001", "entity": "Status", "severity": "warning",
+          "message": "type 'Status' declares no verify obligations",
+          "suggestion": "add a `verify unit` or `verify property` statement"},
+        {"code": "A015", "entity": "no_lost_login", "severity": "warning",
+          "message": "property 'no_lost_login' has 1 obligation(s) no passing test proves: \"no login is lost\"",
+          "suggestion": "link a test to each obligation by its text (`verify = \"...\"` in the test's annotation)"}
+      ],
+      "verdicts": {
+        "login": {"obligations": 1, "proven": 1, "unproven": [], "undeclared": [], "tests": 1, "failing": 0, "is_proven": true, "status": "covered"},
+        "Status": {"obligations": 0, "proven": 0, "unproven": [], "undeclared": [], "tests": 0, "failing": 0, "is_proven": false, "status": "uncovered"},
+        "Payload": {"obligations": 1, "proven": 1, "unproven": [], "undeclared": [], "tests": 1, "failing": 0, "is_proven": true, "status": "covered"},
+        "signin": {"obligations": 0, "proven": 0, "unproven": [], "undeclared": [], "tests": 1, "failing": 0, "is_proven": true, "status": "uncovered"},
+        "no_lost_login": {"obligations": 1, "proven": 0, "unproven": ["no login is lost"], "undeclared": [], "tests": 0, "failing": 0, "is_proven": false, "status": "uncovered"}
+      },
+      "summary": {
+        "testable_total": 3, "testable_verified": 2, "obligations": 3, "obligation_kinds": {"unit": 3},
+        "invariant_enforced": 0, "invariant_orphans": 0,
+        "discharge_funnel": {"entities_with_obligations": 3, "entities_proven": 3, "report_failures": 0, "formally_discharged": 0},
+        "test_results": {"runner": "cargo-test", "entities_recorded": 3, "tests_recorded": 3, "tests_failed": 0, "entities_proven": 3, "obligations_proven": 2},
+        "invariants": []
+      }
+    }
+  },
+  {
+    "name": "invariants are tallied by risk, orphans counted, A002 an error when high risk",
+    "input": {
+      "entities": [
+        {"id": "inv_high", "kind": "invariant", "testable": true, "fields": {"risk": "high"}},
+        {"id": "inv_medium", "kind": "invariant", "testable": true, "fields": {"risk": "medium"}, "incoming_edge_count": 2},
+        {"id": "inv_none", "kind": "invariant", "testable": true, "incoming_edge_count": 1,
+          "verify_kinds": ["property"], "verify_texts": ["holds"]},
+        {"id": "inv_verified", "kind": "invariant", "testable": true, "fields": {"risk": "high"}, "incoming_edge_count": 1,
+          "verify_kinds": ["unit", "", "property"], "verify_texts": ["a", "b", "c"]}
+      ]
+    },
+    "expect": {
+      "findings": [
+        {"code": "A001", "entity": "inv_high", "severity": "warning",
+          "message": "invariant 'inv_high' declares no verify obligations",
+          "suggestion": "add a `verify unit` or `verify property` statement"},
+        {"code": "A002", "entity": "inv_high", "severity": "error",
+          "message": "invariant 'inv_high' declares no verify obligations",
+          "suggestion": "high-risk invariant: add at least one `verify property` obligation"},
+        {"code": "A001", "entity": "inv_medium", "severity": "warning",
+          "message": "invariant 'inv_medium' declares no verify obligations",
+          "suggestion": "add a `verify unit` or `verify property` statement"},
+        {"code": "A002", "entity": "inv_medium", "severity": "warning",
+          "message": "invariant 'inv_medium' declares no verify obligations",
+          "suggestion": "add a `verify property` or `verify unit` obligation"}
+      ],
+      "verdicts": {
+        "inv_high": {"obligations": 0, "proven": 0, "unproven": [], "undeclared": [], "tests": 0, "failing": 0, "is_proven": false, "status": "uncovered"},
+        "inv_medium": {"obligations": 0, "proven": 0, "unproven": [], "undeclared": [], "tests": 0, "failing": 0, "is_proven": false, "status": "uncovered"},
+        "inv_none": {"obligations": 1, "proven": 0, "unproven": ["holds"], "undeclared": [], "tests": 0, "failing": 0, "is_proven": false, "status": "uncovered"},
+        "inv_verified": {"obligations": 3, "proven": 0, "unproven": ["a", "b", "c"], "undeclared": [], "tests": 0, "failing": 0, "is_proven": false, "status": "uncovered"}
+      },
+      "summary": {
+        "testable_total": 4, "testable_verified": 2, "obligations": 4, "obligation_kinds": {"property": 2, "unit": 1, "untyped": 1},
+        "invariant_enforced": 3, "invariant_orphans": 1,
+        "discharge_funnel": {"entities_with_obligations": 2, "entities_proven": 0, "report_failures": 0, "formally_discharged": 0},
+        "test_results": null,
+        "invariants": [
+          {"risk": "high", "total": 2, "unverified": 1},
+          {"risk": "medium", "total": 1, "unverified": 1},
+          {"risk": "unspecified", "total": 1, "unverified": 0}
+        ]
+      }
+    }
+  },
+  {
+    "name": "report entries for entities the graph lacks are recorded but prove nothing",
+    "input": {
+      "entities": [
+        {"id": "b_behavior", "kind": "behavior", "testable": true,
+          "verify_kinds": ["unit"], "verify_texts": ["works"]},
+        {"id": "a_behavior", "kind": "behavior", "testable": true,
+          "verify_kinds": ["unit"], "verify_texts": ["works"]}
+      ],
+      "test_results": {"runner": "vitest", "results": {
+        "a_behavior": {"tests": [
+          {"name": "works", "status": "pass", "verify": "works"},
+          {"status": "fail"}]},
+        "ghost": {"tests": [{"name": "g", "status": "pass", "verify": "anything"}]}
+      }}
+    },
+    "expect": {
+      "findings": [
+        {"code": "A014", "entity": "a_behavior", "severity": "error",
+          "message": "behavior 'a_behavior' has 1 failing test(s) in the test results: <unnamed>",
+          "suggestion": null},
+        {"code": "A015", "entity": "b_behavior", "severity": "warning",
+          "message": "behavior 'b_behavior' has 1 obligation(s) no passing test proves: \"works\"",
+          "suggestion": "link a test to each obligation by its text (`verify = \"...\"` in the test's annotation)"}
+      ],
+      "verdicts": {
+        "a_behavior": {"obligations": 1, "proven": 1, "unproven": [], "undeclared": [], "tests": 2, "failing": 1, "is_proven": false, "status": "partial"},
+        "b_behavior": {"obligations": 1, "proven": 0, "unproven": ["works"], "undeclared": [], "tests": 0, "failing": 0, "is_proven": false, "status": "uncovered"}
+      },
+      "summary": {
+        "testable_total": 2, "testable_verified": 2, "obligations": 2, "obligation_kinds": {"unit": 2},
+        "invariant_enforced": 0, "invariant_orphans": 0,
+        "discharge_funnel": {"entities_with_obligations": 2, "entities_proven": 0, "report_failures": 1, "formally_discharged": 0},
+        "test_results": {"runner": "vitest", "entities_recorded": 2, "tests_recorded": 3, "tests_failed": 1, "entities_proven": 0, "obligations_proven": 1},
+        "invariants": []
+      }
+    }
+  }
+]
