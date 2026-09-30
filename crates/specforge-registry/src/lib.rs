@@ -37,9 +37,11 @@ pub use compilation::{
     ProviderSchemeRegistry,
     RegisteredBodyParser,
     RegisteredGrammar,
+    RegistryBuild,
     SchemeRegistryEntry,
     // populate
     apply_entity_enhancements,
+    build_registries,
     detect_circular_peer_dependencies,
     // validate
     detect_duplicate_entity_kinds,

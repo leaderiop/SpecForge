@@ -1,3 +1,4 @@
+mod build;
 pub mod contributions;
 pub mod define;
 pub mod detection;
@@ -7,6 +8,7 @@ pub mod provider;
 mod validate;
 pub mod validation_engine;
 
+pub use build::{RegistryBuild, build_registries};
 pub use contributions::{
     GrammarConflictPolicy, RegisteredBodyParser, RegisteredGrammar,
     register_body_parser_contributions, register_grammar_contributions,

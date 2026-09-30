@@ -1,18 +1,14 @@
 use specforge_common::{Diagnostic, Severity, load_project_config};
 use specforge_graph::{Graph, GraphConfig, build_graph, build_graph_with_config};
 use specforge_registry::{
-    EdgeRegistry, FieldRegistry, KindRegistry, ManifestV2, SurfaceContributions,
-    SurfaceRegistryEntry,
+    EdgeRegistry, FieldRegistry, KindRegistry, ManifestV2, RegistryBuild, SurfaceContributions,
+    SurfaceRegistryEntry, build_registries,
     compilation::{
         detect_identifier_length_violations, detect_mistyped_references,
         detect_reserved_entity_ids, detect_unknown_entity_fields, detect_unknown_entity_kinds,
     },
-    generate_required_field_rules, populate_registries, register_surface_contributions,
     validate_manifest, validate_manifest_consistency_with_peers,
-    validation_engine::{
-        ValidationEntity, ValidationRulePattern, execute_pattern, parse_all_rule_patterns,
-        resolve_edge_rules,
-    },
+    validation_engine::{ValidationEntity, ValidationRulePattern, execute_pattern},
 };
 use specforge_resolver::{ResolvedProject, resolve_project};
 use specforge_validator::{ValidatorConfig, validate_with_config};
@@ -43,7 +39,7 @@ pub struct CompilationContext {
     pub spec_root: std::path::PathBuf,
 }
 
-/// Run the full 14-step compilation pipeline.
+/// Run the full compilation pipeline.
 ///
 /// This is the single source of truth for compilation. All consumers
 /// (CLI, MCP, LSP) should call this to get consistent results.
@@ -68,66 +64,64 @@ pub fn compile_with_runtime(path: &Path, runtime: Option<&dyn WasmRuntime>) -> C
         None => Vec::new(),
     };
 
-    // 3. Populate registries
-    let (kind_reg, field_reg, edge_reg, pop_diags) = populate_registries(&manifests);
-    diagnostics.extend(pop_diags);
+    // 3. Build the registries, rules and derived graph inputs from them.
+    let build = build_registries(manifests);
+    diagnostics.extend(build.registry_diagnostics.iter().cloned());
 
-    // 4. Parse validation rules from manifests
-    let rule_inputs: Vec<(String, Vec<_>)> = manifests
-        .iter()
-        .map(|m| (m.name.clone(), m.validation_rules.clone()))
-        .collect();
-    let (mut patterns, rule_diags) = parse_all_rule_patterns(&rule_inputs);
-    diagnostics.extend(rule_diags);
-    resolve_edge_rules(&mut patterns, &edge_reg, &kind_reg);
-
-    // 4a. Auto-generated E006 rules for fields marked required: true.
-    // Originless (host-generated, declarative — no custom-rule dispatch).
-    let required_field_rules = generate_required_field_rules(&field_reg);
-    patterns.extend(required_field_rules.into_iter().map(|p| (p, String::new())));
-
-    // 5. Build keyword->extension index for I004 messages.
-    //
-    // KNOWN GAP: build_graph_with_config only emits I004 for keywords that
-    // are NOT installed but ARE present in this map. Deriving the map from
-    // the installed manifests makes the two sets identical, so I004 can
-    // never fire. The intended source is the registry catalog (every
-    // extension the client knows about, installed or not) - that requires
-    // an offline catalog cache written by `specforge update`/`search`.
-    // Until that cache exists, keep the map in sync with the manifests so
-    // the structure is correct once the catalog lands.
-    let known_extension_keywords: HashMap<String, String> = manifests
-        .iter()
-        .flat_map(|m| {
-            m.entity_kinds
-                .iter()
-                .map(move |k| (k.keyword.clone(), m.name.clone()))
-        })
-        .collect();
-
-    let bidirectional_pairs = field_reg.bidirectional_pairs();
-
-    // 6. Build GraphConfig from registries. Body-parser E001 suppression and
-    // single-reference resolution live in build_graph_with_config itself so
-    // every consumer (CLI, watch pipeline, LSP) gets identical semantics.
-    let body_parser_kinds: HashSet<String> = manifests
-        .iter()
-        .flat_map(|m| m.entity_kinds.iter())
-        .filter(|k| k.has_body_parser)
-        .map(|k| k.keyword.clone())
-        .collect();
-    // 7. Resolve project (use configured spec_root, default to project root)
+    // 4. Resolve project (use configured spec_root, default to project root)
     let spec_root = match &config.spec_root {
         Some(sr) => path.join(sr),
         None => path.to_path_buf(),
     };
     let resolved = resolve_project(&spec_root);
     diagnostics.extend(resolved.diagnostics.clone());
+    let graph_config = graph_config_for(&build, &resolved);
+
+    // 5. Build graph
+    let spec_files: Vec<_> = resolved.files.iter().map(|f| f.spec_file.clone()).collect();
+    let (graph, build_diags) = build_graph_with_config(&spec_files, &graph_config);
+    diagnostics.extend(build_diags);
+
+    // 6. Core validation, registry checks and extension rules.
+    diagnostics.extend(check_graph(
+        &graph,
+        &GraphChecks {
+            spec_root: &spec_root,
+            kind_registry: &build.kinds,
+            field_registry: &build.fields,
+            rules: &build.rules,
+            runtime,
+        },
+    ));
+
+    // 7. Surface conflicts come last.
+    diagnostics.extend(build.surface_diagnostics.iter().cloned());
+
+    CompilationContext {
+        graph,
+        kind_registry: build.kinds,
+        field_registry: build.fields,
+        edge_registry: build.edges,
+        diagnostics,
+        resolved,
+        validation_patterns: build.rules.iter().map(|(p, _)| p.clone()).collect(),
+        extension_rules: build.rules,
+        extension_info: build.extension_info,
+        surface_entries: build.surfaces,
+        manifest_surfaces: build.manifest_surfaces,
+        manifests: build.manifests,
+        spec_root,
+    }
+}
+
+/// The graph build's inputs from a registry build and the resolved files.
+fn graph_config_for(build: &RegistryBuild, resolved: &ResolvedProject) -> GraphConfig {
+    // Body-parser kinds own syntax the core grammar does not parse.
     let suppressed_parse_error_ranges: Vec<(String, usize, usize)> = resolved
         .files
         .iter()
         .flat_map(|f| f.spec_file.entities.iter())
-        .filter(|e| body_parser_kinds.contains(e.kind.raw.as_str()))
+        .filter(|e| build.body_parser_kinds.contains(e.kind.raw.as_str()))
         .map(|e| {
             (
                 e.span.file.as_str().to_string(),
@@ -136,82 +130,19 @@ pub fn compile_with_runtime(path: &Path, runtime: Option<&dyn WasmRuntime>) -> C
             )
         })
         .collect();
-    let single_reference_fields: HashSet<(String, String)> = if kind_reg.is_empty() {
-        HashSet::new()
-    } else {
-        field_reg
-            .iter()
-            .filter(|(_, _, entry)| {
-                entry.field_type == specforge_registry::ManifestFieldType::Reference
-            })
-            .map(|(kind, field, _)| (kind.to_string(), field.to_string()))
-            .collect()
-    };
-    let graph_config = GraphConfig {
-        installed_keywords: kind_reg.keywords().cloned().collect(),
+    GraphConfig {
+        installed_keywords: build.kinds.keywords().cloned().collect(),
         known_provider_schemes: HashSet::new(),
-        known_extension_keywords,
-        bidirectional_pairs,
+        // KNOWN GAP: build_graph_with_config only emits I004 for keywords
+        // that are NOT installed but ARE present in this map. Deriving the
+        // map from the installed manifests makes the two sets identical,
+        // so I004 can never fire (removed in plan 05, step R4).
+        known_extension_keywords: build.keyword_owners.clone(),
+        bidirectional_pairs: build.bidirectional_pairs.clone(),
         suppressed_parse_error_ranges,
-        single_reference_fields,
-        absent_reference_targets: field_reg.absent_reference_targets(&kind_reg),
-        field_coercions: crate::field_types::field_coercions(&field_reg),
-    };
-
-    // 8. Build graph
-    let spec_files: Vec<_> = resolved.files.iter().map(|f| f.spec_file.clone()).collect();
-    let (graph, build_diags) = build_graph_with_config(&spec_files, &graph_config);
-    diagnostics.extend(build_diags);
-
-    // 9-12. Core validation, registry checks and extension rules.
-    diagnostics.extend(check_graph(
-        &graph,
-        &GraphChecks {
-            spec_root: &spec_root,
-            kind_registry: &kind_reg,
-            field_registry: &field_reg,
-            rules: &patterns,
-            runtime,
-        },
-    ));
-
-    // 13. (Conditional field validation now handled by extension validation rules
-    //     via the ConditionalFieldRequired pattern kind — no hardcoded rules.)
-
-    // 14. Build extension info for schema generation
-    let extension_info: Vec<(String, String)> = manifests
-        .iter()
-        .map(|m| (m.name.clone(), m.version.clone()))
-        .collect();
-
-    // 15. Register surface contributions (MCP tools, resources, CLI commands)
-    let surface_inputs: Vec<(String, Option<_>)> = manifests
-        .iter()
-        .map(|m| (m.name.clone(), m.surfaces.clone()))
-        .collect();
-    let (surface_entries, surface_diags) = register_surface_contributions(&surface_inputs);
-    diagnostics.extend(surface_diags);
-
-    // Collect raw manifest surfaces for MCP descriptor generation
-    let manifest_surfaces: Vec<(String, SurfaceContributions)> = manifests
-        .iter()
-        .filter_map(|m| m.surfaces.as_ref().map(|s| (m.name.clone(), s.clone())))
-        .collect();
-
-    CompilationContext {
-        graph,
-        kind_registry: kind_reg,
-        field_registry: field_reg,
-        edge_registry: edge_reg,
-        diagnostics,
-        resolved,
-        validation_patterns: patterns.iter().map(|(p, _)| p.clone()).collect(),
-        extension_rules: patterns,
-        extension_info,
-        surface_entries,
-        manifest_surfaces,
-        manifests,
-        spec_root,
+        single_reference_fields: build.single_reference_fields.clone(),
+        absent_reference_targets: build.absent_reference_targets.clone(),
+        field_coercions: crate::field_types::field_coercions(&build.fields),
     }
 }
 
