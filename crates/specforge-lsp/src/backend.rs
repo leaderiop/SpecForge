@@ -1635,14 +1635,8 @@ impl LanguageServer for Backend {
         let state = self.state.read().await;
         let content = file_content(&state, &file_path);
 
-        let testable: Vec<String> = state
-            .kind_registry()
-            .iter()
-            .filter(|(_, entry)| entry.supports_verify)
-            .map(|(name, _)| name.clone())
-            .collect();
-        let testable_refs: Vec<&str> = testable.iter().map(|s| s.as_str()).collect();
-        let mut actions = code_actions_missing_verify(state.graph(), &file_path, &testable_refs);
+        let mut actions =
+            code_actions_missing_verify(state.graph(), &file_path, state.kind_registry());
 
         // C4-09: E003/E025 diagnostics with a did-you-mean suggestion
         // become one-tap rename quickfixes.

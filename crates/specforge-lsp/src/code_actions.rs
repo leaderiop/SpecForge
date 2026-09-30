@@ -110,19 +110,23 @@ pub fn code_actions_from_diagnostics(diagnostics: &[Diagnostic], content: &str) 
 pub fn code_actions_missing_verify(
     graph: &Graph,
     file: &str,
-    testable_kinds: &[&str],
+    kinds: &specforge_registry::KindRegistry,
 ) -> Vec<CodeAction> {
     graph
         .nodes_in_file(file)
         .into_iter()
-        .filter(|n| testable_kinds.contains(&n.kind.raw.as_str()))
-        .filter(|n| {
-            // Check if entity has any verify fields already
-            n.fields.get("verify").is_none()
-        })
-        .map(|n| {
-            let stub = format!("  verify unit \"{} — TODO\"", n.id.raw);
-            CodeAction {
+        .filter(|n| n.fields.get("verify").is_none())
+        .filter_map(|n| {
+            let kind = kinds
+                .get(n.kind.raw.as_str())
+                .filter(|entry| entry.supports_verify)?;
+            // The kind's first allowed verify kind; unit when it names none.
+            let verify_kind = kind
+                .allowed_verify_kinds
+                .first()
+                .map_or("unit", String::as_str);
+            let stub = format!("  verify {verify_kind} \"{} — TODO\"", n.id.raw);
+            Some(CodeAction {
                 entity_id: n.id.raw.to_string(),
                 file: n.source_span.file.to_string(),
                 action_kind: "quickfix".into(),
@@ -130,7 +134,7 @@ pub fn code_actions_missing_verify(
                 edit_text: stub,
                 insert_line: n.source_span.end_line,
                 replace_cols: None,
-            }
+            })
         })
         .collect()
 }

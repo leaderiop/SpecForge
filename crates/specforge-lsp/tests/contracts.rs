@@ -497,6 +497,30 @@ fn code_action_create_entity_stub_contract() {
 }
 
 // B:code_actions_for_missing_verify — verify contract "requires/ensures consistency for missing verify code actions"
+/// A registry where `kinds` accept verify statements of `verify_kinds`.
+fn verifiable(kinds: &[&str], verify_kinds: &[&str]) -> specforge_registry::KindRegistry {
+    let mut registry = specforge_registry::KindRegistry::new();
+    for kind in kinds {
+        registry.register(specforge_registry::KindRegistryEntry {
+            kind_name: kind.to_string(),
+            description: None,
+            source_extension: "@test/ext".into(),
+            testable: true,
+            singleton: false,
+            supports_verify: true,
+            allowed_verify_kinds: verify_kinds.iter().map(|k| k.to_string()).collect(),
+            has_body_parser: false,
+            semantic_token: None,
+            lsp_icon: None,
+            dot_shape: None,
+            dot_color: None,
+            dot_fillcolor: None,
+            open_fields: false,
+        });
+    }
+    registry
+}
+
 #[specforge_test(
     behavior = "code_actions_for_missing_verify",
     verify = "Code Actions for Missing Verify: missing verify code actions holds — kind_registry_available, graph_available, quickfix_offered, verify_stubs_produced, no_code_generated"
@@ -507,7 +531,8 @@ fn code_actions_for_missing_verify_contract() {
     let mut g = Graph::new();
     g.add_node(node_at("my_behavior", "behavior", "a.spec", 5, 0));
 
-    let actions = specforge_lsp::code_actions_missing_verify(&g, "a.spec", &["behavior"]);
+    let actions =
+        specforge_lsp::code_actions_missing_verify(&g, "a.spec", &verifiable(&["behavior"], &[]));
 
     assert!(
         !actions.is_empty(),
