@@ -220,6 +220,39 @@ fn shutdown_keeps_pending_notifications_for_the_host() {
     assert_eq!(notifications[0]["method"], "specforge/graphChanged");
 }
 
+#[specforge_test(
+    behavior = "mcp_server_shutdown",
+    verify = "emits mcp_server_shutdown with correct counts when MCP server shuts down"
+)]
+fn shutdown_event_counts_what_it_released() {
+    let dir = project();
+    let mut server = init_with_project(&dir);
+    for uri in ["specforge://graph", "specforge://diagnostics"] {
+        call(&mut server, "resources/subscribe", json!({"uri": uri}));
+    }
+    evolve_project(&dir, "fresh_added");
+    call(
+        &mut server,
+        "resources/read",
+        json!({"uri": "specforge://diagnostics"}),
+    );
+    let pending = server.state().notification_outbox.len();
+    assert!(pending > 0, "the rebuild queued notifications");
+
+    call(&mut server, "shutdown", json!({}));
+
+    let event = server
+        .state()
+        .events
+        .iter()
+        .find(|e| e.name == "mcp_server_shutdown")
+        .expect("mcp_server_shutdown emitted");
+    assert_eq!(event.params["pending_notifications_flushed"], pending);
+    assert_eq!(event.params["subscriptions_released"], 2);
+    // The server holds no Wasm engine between requests.
+    assert_eq!(event.params["wasm_engines_released"], 0);
+}
+
 /// C9-01 contract: no subscribers → notification suppressed.
 #[test]
 fn recompile_without_subscribers_emits_nothing() {

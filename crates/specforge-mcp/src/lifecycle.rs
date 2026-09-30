@@ -121,8 +121,19 @@ pub fn handle_shutdown(state: &mut McpState, id: Option<Value>) -> JsonRpcRespon
         );
     }
 
-    state.push_event("mcp_server_shutdown", serde_json::json!({}));
+    let pending_notifications = state.notification_outbox.len();
+    let subscriptions: usize = state.subscriptions.values().map(Vec::len).sum();
     state.shutdown();
+    // Compiles build and drop their own Wasm runtime, so no engine outlives
+    // a request.
+    state.push_event(
+        "mcp_server_shutdown",
+        serde_json::json!({
+            "pending_notifications_flushed": pending_notifications,
+            "subscriptions_released": subscriptions,
+            "wasm_engines_released": 0,
+        }),
+    );
     JsonRpcResponse::success(id, serde_json::json!({}))
 }
 
