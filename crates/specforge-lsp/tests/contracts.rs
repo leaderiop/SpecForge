@@ -663,13 +663,6 @@ fn shared_incremental_pipeline_contract() {
         state.diagnostics("file:///a.spec").is_empty(),
         "diagnostics must be pushable"
     );
-
-    // Pipeline parity: debounce and dispatch order are shared constants
-    assert_ne!(specforge_lsp::DEBOUNCE_MS, 0, "debounce must be shared");
-    assert!(
-        !specforge_lsp::validator_dispatch_order().is_empty(),
-        "dispatch order must be shared"
-    );
 }
 
 #[test]

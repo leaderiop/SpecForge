@@ -79,12 +79,6 @@ pub fn source_span_to_lsp_range(span: &specforge_common::SourceSpan) -> LspRange
     }
 }
 
-/// Debounce window in milliseconds shared between CLI watch and LSP modes.
-/// Both pipelines must use the same value for pipeline parity.
-pub const DEBOUNCE_MS: u64 = 50;
-
-/// Returns the canonical validator dispatch order shared between CLI and LSP.
-/// Both pipelines must dispatch validators in this order for deterministic diagnostics.
-pub fn validator_dispatch_order() -> Vec<&'static str> {
-    vec!["parse", "resolve", "validate", "emit"]
-}
+/// Quiet window the reparse worker waits for before recompiling: the one
+/// `specforge watch` uses, so both coalesce edits the same way.
+pub const DEBOUNCE_WINDOW: std::time::Duration = specforge_watch::DEFAULT_DEBOUNCE_WINDOW;

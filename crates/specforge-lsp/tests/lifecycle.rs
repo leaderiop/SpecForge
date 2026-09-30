@@ -201,31 +201,9 @@ fn graph_update_serves_all_features() {
 }
 
 #[test]
-fn cli_and_lsp_share_debounce_window() {
-    // The debounce window is a constant shared between CLI watch and LSP.
-    // Both must use the same value to ensure pipeline parity.
-    let lsp_debounce = specforge_lsp::DEBOUNCE_MS;
-    assert!(lsp_debounce > 0, "debounce window must be positive");
-    assert!(
-        lsp_debounce <= 200,
-        "debounce window must be reasonable (<=200ms)"
-    );
-}
-
-#[test]
-fn cli_and_lsp_share_validator_dispatch_order() {
-    // The validator dispatch order is a shared constant/function between CLI and LSP.
-    // Both must produce the same ordering to ensure deterministic diagnostics.
-    let order = specforge_lsp::validator_dispatch_order();
-    assert!(
-        !order.is_empty(),
-        "validator dispatch order must be non-empty"
-    );
-
-    // Order must be deterministic — calling twice yields the same result
-    let order2 = specforge_lsp::validator_dispatch_order();
+fn lsp_debounces_like_watch() {
     assert_eq!(
-        order, order2,
-        "validator dispatch order must be deterministic"
+        specforge_lsp::DEBOUNCE_WINDOW,
+        specforge_watch::DEFAULT_DEBOUNCE_WINDOW
     );
 }

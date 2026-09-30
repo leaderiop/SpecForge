@@ -33,10 +33,6 @@ use crate::formatting::{EditorOptions, format_document, format_document_range};
 use crate::document::utf16_col_to_byte_offset;
 use crate::{byte_col_to_utf16, utf16_len};
 
-/// Debounce quiet-window for `did_change` reparse (milliseconds): the
-/// worker coalesces requests until the stream is quiet this long.
-const DEBOUNCE_MS: u64 = 150;
-
 pub struct Backend {
     client: Client,
     state: Arc<RwLock<LspState>>,
@@ -66,13 +62,10 @@ impl Backend {
         tokio::spawn(async move {
             while let Some(first) = update_rx.recv().await {
                 // Coalesce everything already queued, then hold off until
-                // the stream is quiet for DEBOUNCE_MS.
+                // the stream is quiet for DEBOUNCE_WINDOW.
                 let mut pending = vec![first];
-                while let Ok(Some(next)) = tokio::time::timeout(
-                    std::time::Duration::from_millis(DEBOUNCE_MS),
-                    update_rx.recv(),
-                )
-                .await
+                while let Ok(Some(next)) =
+                    tokio::time::timeout(crate::DEBOUNCE_WINDOW, update_rx.recv()).await
                 {
                     pending.push(next);
                 }
