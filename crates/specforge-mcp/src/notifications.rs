@@ -11,11 +11,35 @@ use crate::subscriptions::subscribers;
 use specforge_common::Diagnostic;
 use specforge_graph::Graph;
 
+/// What changed between two graphs. Node ID lists are sorted; edge lists
+/// are sorted by (source, target, label).
 pub struct GraphDelta {
     pub added_nodes: Vec<String>,
     pub removed_nodes: Vec<String>,
-    pub added_edges: usize,
-    pub removed_edges: usize,
+    /// Nodes present in both graphs whose kind, title, fields (verify list
+    /// included), methods or outgoing edges differ. Source positions are
+    /// ignored: moving an entity is not a modification.
+    pub modified_nodes: Vec<String>,
+    pub added_edges: Vec<EdgeChange>,
+    pub removed_edges: Vec<EdgeChange>,
+}
+
+impl GraphDelta {
+    pub fn is_empty(&self) -> bool {
+        self.added_nodes.is_empty()
+            && self.removed_nodes.is_empty()
+            && self.modified_nodes.is_empty()
+            && self.added_edges.is_empty()
+            && self.removed_edges.is_empty()
+    }
+}
+
+/// One edge in a [`GraphDelta`].
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, serde::Serialize)]
+pub struct EdgeChange {
+    pub source: String,
+    pub target: String,
+    pub label: String,
 }
 
 pub struct DiagnosticsDelta {
@@ -24,16 +48,106 @@ pub struct DiagnosticsDelta {
 }
 
 pub fn compute_graph_delta(old: &Graph, new: &Graph) -> GraphDelta {
-    let old_ids: std::collections::HashSet<String> =
-        old.nodes().iter().map(|n| n.id.raw.to_string()).collect();
-    let new_ids: std::collections::HashSet<String> =
-        new.nodes().iter().map(|n| n.id.raw.to_string()).collect();
+    use std::collections::BTreeSet;
+
+    let old_ids: BTreeSet<&str> = old.nodes().iter().map(|n| n.id.raw.as_str()).collect();
+    let new_ids: BTreeSet<&str> = new.nodes().iter().map(|n| n.id.raw.as_str()).collect();
+    let old_edges = edge_set(old);
+    let new_edges = edge_set(new);
 
     GraphDelta {
-        added_nodes: new_ids.difference(&old_ids).cloned().collect(),
-        removed_nodes: old_ids.difference(&new_ids).cloned().collect(),
-        added_edges: new.edge_count().saturating_sub(old.edge_count()),
-        removed_edges: old.edge_count().saturating_sub(new.edge_count()),
+        added_nodes: new_ids
+            .difference(&old_ids)
+            .map(|s| s.to_string())
+            .collect(),
+        removed_nodes: old_ids
+            .difference(&new_ids)
+            .map(|s| s.to_string())
+            .collect(),
+        modified_nodes: old_ids
+            .intersection(&new_ids)
+            .filter(|id| node_content(old, id) != node_content(new, id))
+            .map(|s| s.to_string())
+            .collect(),
+        added_edges: new_edges.difference(&old_edges).cloned().collect(),
+        removed_edges: old_edges.difference(&new_edges).cloned().collect(),
+    }
+}
+
+fn edge_set(graph: &Graph) -> std::collections::BTreeSet<EdgeChange> {
+    graph
+        .edges()
+        .iter()
+        .map(|e| EdgeChange {
+            source: e.source.to_string(),
+            target: e.target.to_string(),
+            label: e.label.to_string(),
+        })
+        .collect()
+}
+
+/// A node's content with every source position stripped, for comparing
+/// the same node across two builds: kind, title, fields keyed by name
+/// (verify list included), methods, and sorted outgoing edges.
+fn node_content(graph: &Graph, id: &str) -> Value {
+    let Some(node) = graph.node(id) else {
+        return Value::Null;
+    };
+    let mut fields: Vec<(String, Value)> = node
+        .fields
+        .entries()
+        .iter()
+        .map(|entry| {
+            let value = serde_json::json!({
+                "value": serde_json::to_value(&entry.value).unwrap_or_default(),
+                "annotations": serde_json::to_value(&entry.annotations).unwrap_or_default(),
+            });
+            (entry.key.to_string(), without_spans(value))
+        })
+        .collect();
+    fields.sort_by(|a, b| a.0.cmp(&b.0));
+    let methods: Vec<Value> = node
+        .methods
+        .iter()
+        .map(|m| {
+            serde_json::json!({
+                "name": m.name,
+                "params": serde_json::to_value(&m.params).unwrap_or_default(),
+                "returns": m.returns,
+            })
+        })
+        .collect();
+    let mut outgoing: Vec<(String, String)> = graph
+        .edges_from(id)
+        .iter()
+        .map(|e| (e.label.to_string(), e.target.to_string()))
+        .collect();
+    outgoing.sort();
+    serde_json::json!({
+        "kind": node.kind.raw.as_str(),
+        "title": node.title,
+        "fields": fields,
+        "methods": methods,
+        "outgoing": outgoing,
+    })
+}
+
+/// Drop the positions formal expressions carry: a serialized `SpannedExpr`
+/// (`{"expr": .., "span": ..}`) becomes its bare `expr`.
+fn without_spans(value: Value) -> Value {
+    match value {
+        Value::Object(mut map) => {
+            if map.len() == 2 && map.contains_key("span") && map.contains_key("expr") {
+                return without_spans(map.remove("expr").unwrap_or_default());
+            }
+            Value::Object(
+                map.into_iter()
+                    .map(|(k, v)| (k, without_spans(v)))
+                    .collect(),
+            )
+        }
+        Value::Array(items) => Value::Array(items.into_iter().map(without_spans).collect()),
+        other => other,
     }
 }
 
@@ -99,6 +213,7 @@ pub fn format_graph_notification(delta: &GraphDelta) -> Value {
         "params": {
             "added_nodes": delta.added_nodes,
             "removed_nodes": delta.removed_nodes,
+            "modified_nodes": delta.modified_nodes,
             "added_edges": delta.added_edges,
             "removed_edges": delta.removed_edges
         }
@@ -152,11 +267,7 @@ pub fn enqueue_compile_notifications(
 ) {
     if !subscribers(state, GRAPH_CHANNEL).is_empty() {
         let graph_delta = compute_graph_delta(previous_graph, &state.graph);
-        if !graph_delta.added_nodes.is_empty()
-            || !graph_delta.removed_nodes.is_empty()
-            || graph_delta.added_edges > 0
-            || graph_delta.removed_edges > 0
-        {
+        if !graph_delta.is_empty() {
             state
                 .notification_outbox
                 .push(format_graph_notification(&graph_delta));
@@ -167,6 +278,7 @@ pub fn enqueue_compile_notifications(
                     "subscriberCount": subscribers(state, GRAPH_CHANNEL).len(),
                     "addedNodes": graph_delta.added_nodes.len(),
                     "removedNodes": graph_delta.removed_nodes.len(),
+                    "modifiedNodes": graph_delta.modified_nodes.len(),
                 }),
             );
         }

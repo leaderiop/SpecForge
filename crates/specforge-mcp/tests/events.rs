@@ -402,7 +402,7 @@ fn event_mcp_delta_notified() {
     assert_eq!(
         only_event(&server, "mcp_delta_notified"),
         json!({"notificationType": "graph", "subscriberCount": 1,
-            "addedNodes": 2, "removedNodes": 0})
+            "addedNodes": 2, "removedNodes": 0, "modifiedNodes": 0})
     );
 }
 

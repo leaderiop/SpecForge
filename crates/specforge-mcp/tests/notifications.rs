@@ -6,7 +6,7 @@ use specforge_mcp::notifications::{
 };
 use specforge_mcp::state::McpState;
 use specforge_mcp::subscriptions;
-use specforge_parser::{EntityId, EntityKind, FieldMap};
+use specforge_parser::{EntityId, EntityKind, FieldMap, FieldValue, parse_expression};
 use specforge_test::prelude::*;
 
 /// B:notify_graph_delta_via_mcp — verify unit "enqueue delivers one
@@ -142,8 +142,9 @@ fn graph_notification_format() {
         serde_json::json!({
             "added_nodes": ["alpha"],
             "removed_nodes": [],
-            "added_edges": 0,
-            "removed_edges": 0
+            "modified_nodes": [],
+            "added_edges": [],
+            "removed_edges": []
         })
     );
 
@@ -290,4 +291,45 @@ fn diagnostics_unsubscribed_no_notification() {
     let delta = compute_diagnostics_delta(&empty, &empty);
     assert!(delta.added.is_empty());
     assert!(delta.removed.is_empty());
+}
+
+/// alpha carrying a formal `metric` expression parsed from `src`, declared
+/// at `line`.
+fn metric_node(src: &str, line: usize) -> Node {
+    let mut fields = FieldMap::new();
+    fields.push(
+        "metric".into(),
+        FieldValue::Expression(vec![parse_expression(src).unwrap()]),
+    );
+    let mut node = node("alpha");
+    node.fields = fields;
+    node.source_span.start_line = line;
+    node.source_span.end_line = line + 4;
+    node
+}
+
+fn graph_of(node: Node) -> Graph {
+    let mut graph = Graph::new();
+    graph.add_node(node);
+    graph
+}
+
+#[specforge_test(
+    behavior = "notify_graph_delta_via_mcp",
+    verify = "moving an entity is not a modification"
+)]
+fn expression_positions_are_not_a_modification() {
+    // Same expression, shifted: the entity moved and the expression's
+    // columns moved with it.
+    let before = graph_of(metric_node("latency < 100ms", 1));
+    let after = graph_of(metric_node("   latency < 100ms", 9));
+    let delta = compute_graph_delta(&before, &after);
+    assert!(delta.is_empty(), "{:?}", delta.modified_nodes);
+
+    // A changed bound is a modification.
+    let tighter = graph_of(metric_node("latency < 50ms", 1));
+    assert_eq!(
+        compute_graph_delta(&before, &tighter).modified_nodes,
+        ["alpha"]
+    );
 }

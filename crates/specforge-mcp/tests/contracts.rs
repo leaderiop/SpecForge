@@ -2085,9 +2085,6 @@ fn rebuild(server: &mut McpServer) {
     assert!(resp["error"].is_null(), "{resp}");
 }
 
-// The spec's GraphDelta names modified nodes too; the server's delta has
-// added/removed node ids and net edge counts only, so a rebuild that only
-// changes an entity's fields notifies nobody. That part is not asserted.
 #[specforge_test(
     behavior = "notify_graph_delta_via_mcp",
     verify = "Notify Graph Delta via MCP: graph delta MCP notification holds — graph_delta_computed_fired, subscribers_notified, no_notification_when_empty, delta_notified_emitted"
@@ -2122,17 +2119,45 @@ fn contract_graph_notification() {
             "params": {
                 "added_nodes": ["gamma"],
                 "removed_nodes": ["beta"],
-                "added_edges": 0,
-                "removed_edges": 1,
+                "modified_nodes": [],
+                "added_edges": [],
+                "removed_edges": [{"source": "beta", "target": "alpha", "label": "behaviors"}],
             },
         })]
     );
 
-    // delta_notified_emitted: once, for the one delivered delta.
+    // subscribers_notified: a rebuild that only changes gamma's fields
+    // reports gamma as modified.
+    std::fs::write(
+        &spec,
+        "behavior alpha \"Alpha\" {\n}\nbehavior gamma \"Gamma\" {\n  contract \"now defined\"\n}\n",
+    )
+    .unwrap();
+    rebuild(&mut server);
+    assert_eq!(
+        server.take_notifications(),
+        [json!({
+            "jsonrpc": "2.0",
+            "method": "specforge/graphChanged",
+            "params": {
+                "added_nodes": [],
+                "removed_nodes": [],
+                "modified_nodes": ["gamma"],
+                "added_edges": [],
+                "removed_edges": [],
+            },
+        })]
+    );
+
+    // delta_notified_emitted: once per delivered delta.
     assert_eq!(
         events(&server, "mcp_delta_notified"),
-        [json!({"notificationType": "graph", "subscriberCount": 1,
-            "addedNodes": 1, "removedNodes": 1})]
+        [
+            json!({"notificationType": "graph", "subscriberCount": 1,
+                "addedNodes": 1, "removedNodes": 1, "modifiedNodes": 0}),
+            json!({"notificationType": "graph", "subscriberCount": 1,
+                "addedNodes": 0, "removedNodes": 0, "modifiedNodes": 1}),
+        ]
     );
 
     // An unchanged rebuild sends nothing.
@@ -2145,7 +2170,114 @@ fn contract_graph_notification() {
     std::fs::write(&spec, "behavior alpha \"Alpha\" {\n}\n").unwrap();
     rebuild(&mut server);
     assert!(server.take_notifications().is_empty());
-    assert_eq!(events(&server, "mcp_delta_notified").len(), 1);
+    assert_eq!(events(&server, "mcp_delta_notified").len(), 2);
+}
+
+/// The server over the [`attach_project`] project, built once, with the
+/// default client subscribed to graph deltas.
+fn subscribed_graph_server() -> (McpServer, PathBuf) {
+    let (mut server, spec) = project_server();
+    rebuild(&mut server);
+    subscribe(&mut server, "specforge://graph");
+    assert!(server.take_notifications().is_empty());
+    (server, spec)
+}
+
+/// The `modified_nodes` of the one graph notification a rebuild sends.
+fn modified_after_rebuild(server: &mut McpServer) -> Value {
+    rebuild(server);
+    let sent = server.take_notifications();
+    assert_eq!(sent.len(), 1, "{sent:?}");
+    assert_eq!(sent[0]["method"], "specforge/graphChanged");
+    sent[0]["params"]["modified_nodes"].clone()
+}
+
+#[specforge_test(
+    behavior = "notify_graph_delta_via_mcp",
+    verify = "a field-only edit is reported as a modified node"
+)]
+fn field_only_edits_are_modified_nodes() {
+    let (mut server, spec) = subscribed_graph_server();
+
+    // A new field on alpha.
+    std::fs::write(
+        &spec,
+        "behavior alpha \"Alpha\" {\n  contract \"first\"\n}\nfeature beta \"Beta\" {\n    behaviors [alpha]\n}\n",
+    )
+    .unwrap();
+    assert_eq!(modified_after_rebuild(&mut server), json!(["alpha"]));
+
+    // A changed field value.
+    std::fs::write(
+        &spec,
+        "behavior alpha \"Alpha\" {\n  contract \"second\"\n}\nfeature beta \"Beta\" {\n    behaviors [alpha]\n}\n",
+    )
+    .unwrap();
+    assert_eq!(modified_after_rebuild(&mut server), json!(["alpha"]));
+
+    // A new verify line.
+    std::fs::write(
+        &spec,
+        "behavior alpha \"Alpha\" {\n  contract \"second\"\n  verify unit \"it works\"\n}\nfeature beta \"Beta\" {\n    behaviors [alpha]\n}\n",
+    )
+    .unwrap();
+    assert_eq!(modified_after_rebuild(&mut server), json!(["alpha"]));
+
+    // Two titles at once: the list is sorted.
+    std::fs::write(
+        &spec,
+        "behavior alpha \"Alpha 2\" {\n  contract \"second\"\n  verify unit \"it works\"\n}\nfeature beta \"Beta 2\" {\n    behaviors [alpha]\n}\n",
+    )
+    .unwrap();
+    assert_eq!(
+        modified_after_rebuild(&mut server),
+        json!(["alpha", "beta"])
+    );
+
+    assert_eq!(
+        events(&server, "mcp_delta_notified")
+            .iter()
+            .map(|e| e["modifiedNodes"].clone())
+            .collect::<Vec<_>>(),
+        [json!(1), json!(1), json!(1), json!(2)]
+    );
+}
+
+#[specforge_test(
+    behavior = "notify_graph_delta_via_mcp",
+    verify = "moving an entity is not a modification"
+)]
+fn moving_an_entity_is_not_a_modification() {
+    let (mut server, spec) = subscribed_graph_server();
+
+    // Blank lines above alpha shift every span.
+    std::fs::write(
+        &spec,
+        "\n\n\nbehavior alpha \"Alpha\" {\n}\nfeature beta \"Beta\" {\n    behaviors [alpha]\n}\n",
+    )
+    .unwrap();
+    rebuild(&mut server);
+    assert!(server.take_notifications().is_empty());
+
+    // Swapping the two entities moves both.
+    std::fs::write(
+        &spec,
+        "feature beta \"Beta\" {\n    behaviors [alpha]\n}\n\nbehavior alpha \"Alpha\" {\n}\n",
+    )
+    .unwrap();
+    rebuild(&mut server);
+    assert!(server.take_notifications().is_empty());
+
+    // Moving alpha to another file.
+    std::fs::write(
+        spec.with_file_name("moved.spec"),
+        "behavior alpha \"Alpha\" {\n}\n",
+    )
+    .unwrap();
+    std::fs::write(&spec, "feature beta \"Beta\" {\n    behaviors [alpha]\n}\n").unwrap();
+    rebuild(&mut server);
+    assert!(server.take_notifications().is_empty());
+    assert!(events(&server, "mcp_delta_notified").is_empty());
 }
 
 #[specforge_test(

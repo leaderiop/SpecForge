@@ -395,6 +395,8 @@ behavior notify_graph_delta_via_mcp "Notify Graph Delta via MCP" {
   """
   verify unit "graph_changed notification sent after incremental rebuild"
   verify unit "notification includes GraphDelta payload"
+  verify unit "a field-only edit is reported as a modified node"
+  verify unit "moving an entity is not a modification"
   verify unit "unsubscribed clients do not receive notifications"
   verify unit "no notification when no clients subscribed"
   verify unit "clients can subscribe and unsubscribe from delta notifications"
