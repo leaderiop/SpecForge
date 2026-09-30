@@ -14,7 +14,7 @@ pub fn run(path: &Path, format: OutputFormat) -> i32 {
     entries.sort_by(|a, b| a.name.cmp(&b.name));
 
     // Builtins enabled in specforge.json ship with the binary: no lock entry.
-    let mut builtins = crate::builtins::enabled(path);
+    let mut builtins = specforge_ops::extension::enabled_builtins(path);
     builtins.sort_unstable();
     builtins.dedup();
 

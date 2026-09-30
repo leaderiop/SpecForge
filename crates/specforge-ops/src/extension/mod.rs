@@ -1,9 +1,11 @@
 //! Extension management: the operations behind `specforge add`, `remove`,
 //! `extensions` and their MCP tools.
 
+mod add;
 mod diamond;
 mod remove;
 
+pub use add::{AddOutcome, AddRequest, Source, Trust, add, parse};
 pub use diamond::check_diamonds;
 pub use remove::{RemoveOutcome, RemoveRequest, remove};
 
@@ -32,6 +34,34 @@ pub fn builtin_name(specifier: &str) -> Option<&'static str> {
         .iter()
         .map(|(builtin, _)| *builtin)
         .find(|builtin| *builtin == name)
+}
+
+/// Builtins enabled in the project's `specforge.json`, in declaration order.
+pub fn enabled_builtins(root: &Path) -> Vec<&'static str> {
+    specforge_common::load_project_config(root)
+        .extensions
+        .iter()
+        .filter_map(|entry| builtin_name(entry))
+        .collect()
+}
+
+/// Builtins that `name` requires: its non-optional peer dependencies that
+/// are themselves builtins, read from its handshake.
+pub fn required_builtin_peers(name: &str) -> Vec<&'static str> {
+    let runtime = specforge_component::ComponentRuntime::new();
+    if specforge_component::builtins::load_builtins_for(&runtime, &[name.to_string()]).is_err() {
+        return Vec::new();
+    }
+    let host = specforge_wasm::protocol::ProtocolHost::new(&runtime);
+    let Ok(handshake) = host.handshake(name) else {
+        return Vec::new();
+    };
+    handshake
+        .peer_dependencies
+        .iter()
+        .filter(|peer| !peer.optional)
+        .filter_map(|peer| builtin_name(&peer.name))
+        .collect()
 }
 
 /// `specforge.lock` at the project root.

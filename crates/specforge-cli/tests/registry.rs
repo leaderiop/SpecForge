@@ -403,6 +403,64 @@ fn builtins_and_local_wasm_install_without_registry() {
 }
 
 // ---------------------------------------------------------------
+// Registry installs against a local fake registry
+// ---------------------------------------------------------------
+
+pub(crate) fn greet_wasm() -> Vec<u8> {
+    std::fs::read(
+        std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../../fixtures/greet-extension/greet.wasm"),
+    )
+    .expect("the greet fixture is vendored")
+}
+
+/// A project whose only registry is `registry`.
+pub(crate) fn project_on(registry: &crate::fake_registry::FakeRegistry) -> TempDir {
+    let dir = TempDir::new().unwrap();
+    let config = serde_json::json!({
+        "name": "p",
+        "version": "0.1.0",
+        "extensions": ["@specforge/software"],
+        "registries": registry.config_entry(),
+    });
+    std::fs::write(dir.path().join("specforge.json"), config.to_string()).unwrap();
+    dir
+}
+
+#[specforge_test(
+    behavior = "add_extension_to_existing_project",
+    verify = "add extension without version resolves to latest compatible version"
+)]
+fn add_without_a_version_installs_the_latest() {
+    use crate::fake_registry::{FakeRegistry, Package};
+    let registry = FakeRegistry::serve(vec![
+        Package::new("@sdk/greet", "0.1.0", greet_wasm()),
+        Package::new("@sdk/greet", "0.2.0", greet_wasm()),
+    ]);
+    let dir = project_on(&registry);
+    let home = TempDir::new().unwrap();
+
+    let output = specforge_cmd()
+        .args(["add", "@sdk/greet", "--allow-unsigned", "--format", "json"])
+        .arg("--path")
+        .arg(dir.path())
+        .env("HOME", home.path())
+        .output()
+        .unwrap();
+
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stdout)
+    );
+    let json: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
+    assert_eq!(json["name"], "@sdk/greet", "{json}");
+    assert_eq!(json["version"], "0.2.0", "{json}");
+    let lock = std::fs::read_to_string(dir.path().join("specforge.lock")).unwrap();
+    assert!(lock.contains("\"0.2.0\""), "{lock}");
+}
+
+// ---------------------------------------------------------------
 // Guard: no source names specforge.dev
 // ---------------------------------------------------------------
 

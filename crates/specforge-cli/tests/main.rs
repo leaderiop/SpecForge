@@ -23,6 +23,8 @@ mod export;
 mod export_version;
 mod extension_authoring;
 mod extensions;
+#[allow(dead_code)]
+mod fake_registry;
 mod field_types;
 #[allow(deprecated)]
 mod format;

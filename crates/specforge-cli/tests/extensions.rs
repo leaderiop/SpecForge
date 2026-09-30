@@ -1135,7 +1135,7 @@ fn add_rejects_invalid_specifier() {
         .assert()
         .code(1)
         .stderr(predicates::str::contains(
-            "error: invalid extension specifier: 'not-valid'",
+            "error[E054]: invalid extension specifier: 'not-valid'",
         ))
         .stderr(predicates::str::contains(
             "use format: 'name@version', './local/path', or 'git+https://...'",

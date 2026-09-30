@@ -1,6 +1,5 @@
 mod add;
 mod analyze;
-mod builtins;
 mod check;
 mod collect;
 mod color;
