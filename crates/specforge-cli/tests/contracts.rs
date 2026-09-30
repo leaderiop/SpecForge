@@ -13,41 +13,56 @@ fn specforge_cmd() -> Command {
     verify = "Find Project Root: project root discovery holds — filesystem_available, closest_wins_enforced, json_precedence, symlinks_resolved, none_on_missing"
 )]
 fn find_project_root_contract() {
-    use specforge_common::find_project_root;
+    assert_find_project_root_contract();
+}
 
-    // Requires: directory containing specforge.json (or ancestor does)
-    // Ensures: correct root returned; None when not found
+/// Every clause of the find_project_root contract, on one directory tree.
+pub(crate) fn assert_find_project_root_contract() {
+    use specforge_common::{find_project_root, load_project_config};
+
+    // filesystem_available: a real directory tree to walk.
     let dir = TempDir::new().unwrap();
-    fs::write(dir.path().join("specforge.json"), "{}").unwrap();
-    let child = dir.path().join("sub").join("deep");
-    fs::create_dir_all(&child).unwrap();
+    let top = dir.path().canonicalize().unwrap();
+    fs::write(top.join("specforge.json"), r#"{"name":"outer"}"#).unwrap();
+    let inner = top.join("inner");
+    let deep = inner.join("a").join("b");
+    fs::create_dir_all(&deep).unwrap();
+    fs::write(inner.join("specforge.spec"), "").unwrap();
 
-    // From the deep child, should find the root with specforge.json
-    let root = find_project_root(&child);
+    // closest_wins_enforced: the nearest config wins, even a specforge.spec
+    // under an ancestor's specforge.json; outside `inner` the ancestor wins.
+    assert_eq!(find_project_root(&deep), Some(inner.clone()));
+    let sibling = top.join("sibling");
+    fs::create_dir_all(&sibling).unwrap();
+    assert_eq!(find_project_root(&sibling), Some(top.clone()));
+
+    // json_precedence: with both files in one directory, that directory is
+    // the root and its configuration comes from specforge.json.
+    fs::write(inner.join("specforge.json"), r#"{"name":"inner-json"}"#).unwrap();
+    assert_eq!(find_project_root(&deep), Some(inner.clone()));
     assert_eq!(
-        root.unwrap(),
-        dir.path().canonicalize().unwrap(),
-        "must find project root from nested directory"
+        load_project_config(&inner).name.as_deref(),
+        Some("inner-json")
     );
 
-    // From current dir, also works
-    let direct = find_project_root(dir.path());
-    assert_eq!(
-        direct.unwrap(),
-        dir.path().canonicalize().unwrap(),
-        "must find project root from current directory"
-    );
+    // symlinks_resolved: a link to `deep` placed directly under `top`
+    // resolves to `inner`; walking the link's own path would reach `top`.
+    #[cfg(unix)]
+    {
+        let link = top.join("link");
+        std::os::unix::fs::symlink(&deep, &link).unwrap();
+        assert_eq!(find_project_root(&link), Some(inner.clone()));
+    }
 
-    // Empty dir with no config
+    // none_on_missing: a tree with no config up to the filesystem root.
     let empty = TempDir::new().unwrap();
-    let empty_child = empty.path().join("nothing");
-    fs::create_dir_all(&empty_child).unwrap();
-    let result = find_project_root(&empty_child);
-    if let Some(found) = result {
-        assert!(
-            !found.starts_with(empty.path().canonicalize().unwrap()),
-            "must not find root in empty hierarchy"
-        );
+    let empty_dir = empty.path().canonicalize().unwrap().join("nothing");
+    fs::create_dir_all(&empty_dir).unwrap();
+    let config_above = empty_dir
+        .ancestors()
+        .any(|a| a.join("specforge.json").exists() || a.join("specforge.spec").exists());
+    if !config_above {
+        assert_eq!(find_project_root(&empty_dir), None);
     }
 }
 
@@ -61,32 +76,50 @@ fn scaffold_new_project_contract() {
     // Ensures: specforge.json + spec/ directory created with valid content
     let dir = TempDir::new().unwrap();
 
+    // filesystem_available; project_initialized_emitted: init reports it.
     specforge_cmd()
         .args(["init", "--name", "contract-test"])
         .current_dir(dir.path())
         .assert()
-        .success();
+        .success()
+        .stdout(predicates::str::contains(
+            "Initialized project 'contract-test'",
+        ));
 
-    // specforge.json exists and is valid
-    let config_path = dir.path().join("specforge.json");
-    assert!(config_path.exists(), "specforge.json must be created");
+    assert_scaffold_contract(dir.path(), "contract-test");
+}
+
+/// The scaffold_new_project clauses after `init --name <name>` ran
+/// successfully in `dir`, then a second init there.
+pub(crate) fn assert_scaffold_contract(dir: &std::path::Path, name: &str) {
+    // valid_config_created
+    let config_path = dir.join("specforge.json");
     let content = fs::read_to_string(&config_path).unwrap();
     let json: serde_json::Value =
         serde_json::from_str(&content).expect("specforge.json must be valid JSON");
-    assert_eq!(json["name"], "contract-test", "name must match input");
-    assert!(json["version"].is_string(), "version must be present");
-    assert!(json["extensions"].is_array(), "extensions must be an array");
-    assert!(json["spec_root"].is_string(), "spec_root must be present");
-
-    // spec/ directory with starter file
-    let spec_dir = dir.path().join("spec");
-    assert!(spec_dir.exists(), "spec/ directory must be created");
-    let starter = spec_dir.join("hello.spec");
-    assert!(starter.exists(), "starter spec file must be created");
-    assert!(
-        !fs::read_to_string(&starter).unwrap().is_empty(),
-        "starter must not be empty"
+    assert_eq!(json["name"], name, "name must match input");
+    assert_eq!(json["version"], "0.1.0");
+    assert_eq!(json["extensions"], serde_json::json!([]));
+    assert_eq!(json["spec_root"], "spec");
+    // schema_field_included
+    assert_eq!(
+        json["$schema"],
+        "https://specforge.dev/schema/specforge.json"
     );
+    // The spec root it names exists with the starter file.
+    assert!(dir.join("spec").join("hello.spec").is_file());
+
+    // no_existing_project: a second init in the same directory fails and
+    // leaves the existing configuration alone.
+    let edited = content.replace("0.1.0", "9.9.9");
+    fs::write(&config_path, &edited).unwrap();
+    specforge_cmd()
+        .args(["init", "--name", "second"])
+        .current_dir(dir)
+        .assert()
+        .failure()
+        .stderr(predicates::str::contains("already"));
+    assert_eq!(fs::read_to_string(&config_path).unwrap(), edited);
 }
 
 // B:non_interactive_init — verify contract "requires/ensures consistency for non-interactive init"

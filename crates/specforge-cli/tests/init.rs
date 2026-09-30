@@ -79,18 +79,27 @@ fn find_project_root_closest_wins() {
     verify = "specforge.json takes precedence over specforge.spec in same directory"
 )]
 fn find_project_root_json_precedence() {
-    use specforge_common::find_project_root;
+    use specforge_common::{find_project_root, load_project_config};
 
-    // Both files exist — function returns the directory (precedence is implicit:
-    // json is checked first, but result is the same directory either way).
-    // The real test: if parent has specforge.spec and child has specforge.json,
-    // child wins because closest-wins, not because of file type.
+    // Both files in one directory: that directory is the root, and the
+    // project's configuration is the one specforge.json declares.
     let dir = TempDir::new().unwrap();
-    fs::write(dir.path().join("specforge.json"), "{}").unwrap();
-    fs::write(dir.path().join("specforge.spec"), "").unwrap();
+    fs::write(
+        dir.path().join("specforge.json"),
+        r#"{"name":"from-json","spec_root":"json_specs"}"#,
+    )
+    .unwrap();
+    fs::write(
+        dir.path().join("specforge.spec"),
+        "spec \"from-spec\" {\n  version \"9.9.9\"\n}\n",
+    )
+    .unwrap();
 
-    let root = find_project_root(dir.path());
-    assert_eq!(root.unwrap(), dir.path().canonicalize().unwrap());
+    let root = find_project_root(dir.path()).unwrap();
+    assert_eq!(root, dir.path().canonicalize().unwrap());
+    let config = load_project_config(&root);
+    assert_eq!(config.name.as_deref(), Some("from-json"));
+    assert_eq!(config.spec_root.as_deref(), Some("json_specs"));
 }
 
 #[specforge_test(
@@ -1049,34 +1058,7 @@ fn non_interactive_unknown_extension_rejected() {
     verify = "Find Project Root: project root discovery holds — filesystem_available, closest_wins_enforced, json_precedence, symlinks_resolved, none_on_missing"
 )]
 fn find_project_root_contract_in_init() {
-    use specforge_common::find_project_root;
-
-    // Requires: FileSystem port available for directory traversal
-    // Ensures: closest-wins, json precedence, symlinks resolved, None on missing
-    let dir = TempDir::new().unwrap();
-    fs::write(dir.path().join("specforge.json"), "{}").unwrap();
-    let child = dir.path().join("sub").join("deep");
-    fs::create_dir_all(&child).unwrap();
-
-    // Closest-wins from nested directory
-    let root = find_project_root(&child);
-    assert_eq!(root.unwrap(), dir.path().canonicalize().unwrap());
-
-    // Direct lookup also works
-    let direct = find_project_root(dir.path());
-    assert_eq!(direct.unwrap(), dir.path().canonicalize().unwrap());
-
-    // None when no config exists
-    let empty = TempDir::new().unwrap();
-    let empty_child = empty.path().join("nothing");
-    fs::create_dir_all(&empty_child).unwrap();
-    let result = find_project_root(&empty_child);
-    if let Some(found) = result {
-        assert!(
-            !found.starts_with(empty.path().canonicalize().unwrap()),
-            "must not find root in empty hierarchy"
-        );
-    }
+    crate::contracts::assert_find_project_root_contract();
 }
 
 #[specforge_test(
@@ -1117,34 +1099,32 @@ fn scaffold_new_project_contract_in_init() {
         .failure();
 }
 
-#[specforge_test(
-    behavior = "scaffold_starter_spec_file",
-    verify = "extension-contributed starter templates are used when available"
-)]
+// Not linked to "extension-contributed starter templates are used when
+// available": init never reads a manifest's `starter_template`; the
+// software starter is hard-coded in the CLI (crates/specforge-cli/src/init.rs).
+// This checks what init does: a software project gets the software starter.
+#[test]
 fn starter_uses_extension_templates_when_available() {
-    let dir = TempDir::new().unwrap();
+    let starter_for = |extensions: Option<&str>| {
+        let dir = TempDir::new().unwrap();
+        let mut cmd = specforge_cmd();
+        cmd.args(["init", "--name", "ext-template"]);
+        if let Some(ext) = extensions {
+            cmd.args(["--extensions", ext]);
+        }
+        cmd.current_dir(dir.path()).assert().success();
+        fs::read_to_string(dir.path().join("spec").join("hello.spec")).unwrap()
+    };
 
-    // Init with an extension — starter file may include extension-contributed content
-    specforge_cmd()
-        .args([
-            "init",
-            "--name",
-            "ext-template",
-            "--extensions",
-            "@specforge/software",
-        ])
-        .current_dir(dir.path())
-        .assert()
-        .success();
-
-    let starter = dir.path().join("spec").join("hello.spec");
-    assert!(starter.exists(), "starter spec file must exist");
-    let content = fs::read_to_string(&starter).unwrap();
-    assert!(!content.is_empty(), "starter file must not be empty");
-
-    // When an extension is installed, the starter MAY contain
-    // extension-contributed content (domain keywords). At minimum,
-    // the file must exist and be non-empty.
+    let software = starter_for(Some("@specforge/software"));
+    let structural = starter_for(None);
+    assert_ne!(software, structural);
+    assert!(
+        software.contains("behavior authenticate_user "),
+        "{software}"
+    );
+    assert!(software.contains("event user_logged_in "), "{software}");
+    assert!(!structural.contains("behavior "), "{structural}");
 }
 
 #[specforge_test(
@@ -1217,26 +1197,77 @@ fn non_interactive_init_contract_in_init() {
     //          JSON output supported, project_initialized emitted
     let dir = TempDir::new().unwrap();
 
+    // name_flag_provided, filesystem_available, all_prompts_skipped: with
+    // --name and a closed stdin, init runs to completion.
+    // project_initialized_emitted: it reports the initialized project.
     let output = specforge_cmd()
         .args(["init", "--name", "ni-contract"])
         .current_dir(dir.path())
-        .write_stdin("") // empty stdin — must not hang
+        .write_stdin("")
+        .timeout(std::time::Duration::from_secs(30))
         .output()
         .unwrap();
-
     assert!(
         output.status.success(),
         "must succeed without interactive input"
     );
+    assert!(
+        String::from_utf8_lossy(&output.stdout).contains("Initialized project 'ni-contract'"),
+        "{}",
+        String::from_utf8_lossy(&output.stdout)
+    );
 
-    let config_path = dir.path().join("specforge.json");
-    assert!(config_path.exists(), "config must be created");
-
-    let content = fs::read_to_string(&config_path).unwrap();
-    let json: serde_json::Value = serde_json::from_str(&content).unwrap();
+    // config_identical_to_interactive: the same config as a plain `init`
+    // in a directory of that name, which takes every default.
+    let parent = TempDir::new().unwrap();
+    let named = parent.path().join("ni-contract");
+    fs::create_dir(&named).unwrap();
+    specforge_cmd()
+        .arg("init")
+        .current_dir(&named)
+        .assert()
+        .success();
+    let config = fs::read_to_string(dir.path().join("specforge.json")).unwrap();
+    assert_eq!(
+        config,
+        fs::read_to_string(named.join("specforge.json")).unwrap()
+    );
+    let json: serde_json::Value = serde_json::from_str(&config).unwrap();
     assert_eq!(json["name"], "ni-contract");
-    assert!(json["version"].is_string());
-    assert!(json["extensions"].is_array());
+
+    // no_existing_project: init again in the same directory fails.
+    specforge_cmd()
+        .args(["init", "--name", "ni-contract"])
+        .current_dir(dir.path())
+        .assert()
+        .failure();
+    assert_eq!(
+        fs::read_to_string(dir.path().join("specforge.json")).unwrap(),
+        config
+    );
+
+    // json_output_supported: --format json prints the InitOutput.
+    let json_dir = TempDir::new().unwrap();
+    let output = specforge_cmd()
+        .args(["init", "--name", "ni-json", "--format", "json"])
+        .current_dir(json_dir.path())
+        .output()
+        .unwrap();
+    assert!(output.status.success());
+    let out: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
+    let root = json_dir.path().canonicalize().unwrap();
+    let root_of = |key: &str| {
+        std::path::PathBuf::from(out[key].as_str().unwrap())
+            .canonicalize()
+            .unwrap()
+    };
+    assert_eq!(root_of("project_root"), root);
+    assert_eq!(root_of("config_path"), root.join("specforge.json"));
+    assert_eq!(
+        root_of("spec_file_path"),
+        root.join("spec").join("hello.spec")
+    );
+    assert_eq!(out["extensions_installed"], serde_json::json!([]));
 }
 
 #[specforge_test(
