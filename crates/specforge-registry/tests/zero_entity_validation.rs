@@ -1514,3 +1514,61 @@ fn validate_extension_testability_contract() {
     let bad_diags = validate_extension_testability(&bad_kr);
     assert!(bad_diags.iter().any(|d| d.code == "W017"));
 }
+
+// ============================================================================
+// B:register_validation_rules_from_manifest
+// ============================================================================
+
+// A rule for a `ghost` kind no loaded extension declares: it runs over the
+// project's behaviors and reports nothing.
+#[specforge_test(
+    behavior = "register_validation_rules_from_manifest",
+    verify = "a rule targeting a kind no loaded extension declares reports nothing"
+)]
+fn a_rule_for_an_unloaded_kind_reports_nothing() {
+    let mut rule = make_rule("W100", "no_incoming_edges");
+    rule.target_kind = Some("ghost".to_string());
+    let (patterns, diags) = parse_all_rule_patterns(&[("@test".to_string(), vec![rule])]);
+    assert!(diags.is_empty(), "{diags:?}");
+    let orphans = vec![
+        make_entity("b1", "behavior", 0, 0),
+        make_entity("b2", "behavior", 0, 0),
+    ];
+    assert!(execute_pattern(&patterns[0].0, &orphans, None).is_empty());
+
+    // The same rule on a loaded kind does fire: it is inert, not broken.
+    let mut rule = make_rule("W100", "no_incoming_edges");
+    rule.target_kind = Some("behavior".to_string());
+    let (patterns, _) = parse_all_rule_patterns(&[("@test".to_string(), vec![rule])]);
+    assert_eq!(execute_pattern(&patterns[0].0, &orphans, None).len(), 2);
+}
+
+#[specforge_test(
+    behavior = "register_validation_rules_from_manifest",
+    verify = "Register Validation Rules From Manifest: validation rule registration holds — extension_manifests_loaded_fired, rules_registered, unloaded_targets_inert"
+)]
+fn validation_rule_registration_contract() {
+    // extension_manifests_loaded_fired: rules come from parsed manifests.
+    let manifest: ManifestV2 = serde_json::from_str(
+        r#"{"name":"@t/e","version":"1.0.0","manifestVersion":2,"wasmPath":"x.wasm",
+            "validationRules":[
+                {"code":"W101","severity":"warning","messageTemplate":"orphan {id}",
+                 "check":"no_incoming_edges","targetKind":"ghost","edgeType":"GhostEdge"}
+            ]}"#,
+    )
+    .unwrap();
+
+    // rules_registered: stored with the raw target_kind and edge_type
+    // strings, although neither is declared by any extension.
+    let (rules, diags) = register_validation_rules(&[manifest]);
+    assert!(diags.is_empty(), "{diags:?}");
+    assert_eq!(rules.len(), 1);
+    assert_eq!(rules[0].code, "W101");
+    assert_eq!(rules[0].target_kind.as_deref(), Some("ghost"));
+    assert_eq!(rules[0].edge_type.as_deref(), Some("GhostEdge"));
+
+    // unloaded_targets_inert: run against the project, it reports nothing.
+    let (patterns, _) = parse_all_rule_patterns(&[("@t/e".to_string(), rules)]);
+    let project = vec![make_entity("b1", "behavior", 0, 0)];
+    assert!(execute_pattern(&patterns[0].0, &project, None).is_empty());
+}

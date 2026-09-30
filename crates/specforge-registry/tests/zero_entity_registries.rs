@@ -1732,25 +1732,6 @@ fn validation_rule_invalid_ref_warning() {
     assert!(!diags.iter().any(|d| d.severity == Severity::Error));
 }
 
-// Not linked to the contract: nothing checks a registered rule's target_kind
-// or edge_type against the registries after population, so the
-// deferred_validation_complete and invalid_refs_warned clauses are unbuilt (a
-// rule naming an unknown kind never fires, silently).
-#[test]
-fn validation_rule_contract() {
-    let m: ManifestV2 = serde_json::from_str(
-        r#"{"name":"@t/e","version":"1.0.0","manifestVersion":2,"wasmPath":"x.wasm",
-            "validationRules":[
-                {"code":"W100","severity":"warning","messageTemplate":"test","check":"no_incoming_edges"}
-            ]}"#,
-    )
-    .unwrap();
-    let (rules, diags) = register_validation_rules(&[m]);
-    assert_eq!(rules.len(), 1);
-    assert_eq!(rules[0].code, "W100");
-    assert!(diags.is_empty());
-}
-
 // ===========================================================================
 // B:register_extension_validation_rules (3 verifies — from spec)
 // ===========================================================================

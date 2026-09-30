@@ -1919,11 +1919,10 @@ fn compute_version_contract() {
 }
 
 // B:negotiate_schema_version — verify contract "requires/ensures consistency for schema version negotiation"
-// B:persist_schema_cache — verify contract "requires/ensures consistency for schema cache persistence"
-#[specforge_test(
-    behavior = "persist_schema_cache",
-    verify = "Persist Schema Cache: schema cache persistence holds — schema_generated_fired, cache_written_atomically, cache_always_updated, schema_cache_persisted_emitted"
-)]
+// Not linked to the Persist Schema Cache contract: no compilation path calls
+// persist_schema_cache, so schema_cache_persisted is never emitted. This only
+// shows the call writes atomically and round-trips.
+#[test]
 fn persist_cache_contract() {
     let dir = tempfile::tempdir().unwrap();
     let schema = sample_schema();
@@ -1931,7 +1930,6 @@ fn persist_cache_contract() {
     persist_schema_cache(&schema, dir.path()).unwrap();
     // ensures: cache_written_atomically
     assert!(!dir.path().join(".schema-cache.tmp").exists());
-    // ensures: cache_always_updated
     assert!(dir.path().join("schema-cache.json").exists());
 
     let loaded = load_schema_cache(dir.path()).unwrap().unwrap();

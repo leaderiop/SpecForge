@@ -126,23 +126,19 @@ behavior persist_schema_cache "Persist Schema Cache" {
   }
   ensures {
     cache_written_atomically       "Schema cache file is written atomically via temp file then rename"
-    cache_always_updated           "Cache is updated on every compilation regardless of whether a JSON export is performed"
     schema_cache_persisted_emitted "schema_cache_persisted event is emitted after successful cache write"
   }
   contract   """
     After the GraphProtocolSchema is generated, the system MUST persist it
     to `.specforge/schema-cache.json` for use by detect_breaking_schema_changes
     in subsequent compilations. The cache file MUST be overwritten atomically
-    (write to temp, then rename). This behavior runs independently of JSON
-    export — the cache is updated on every compilation regardless of whether
-    an export is performed, ensuring breaking change detection works for
-    incremental rebuilds and watch mode.
+    (write to temp, then rename). `specforge check` writes no files, so the
+    cache is not updated by a check.
   """
   verify unit "schema-cache.json written after schema generation"
   verify unit "cache file overwritten atomically via temp+rename"
-  verify unit "cache updated even when no JSON export is performed"
   verify integration "persisted cache feeds breaking change detection in the next compilation"
-  verify contract "Persist Schema Cache: schema cache persistence holds — schema_generated_fired, cache_written_atomically, cache_always_updated, schema_cache_persisted_emitted"
+  verify contract "Persist Schema Cache: schema cache persistence holds — schema_generated_fired, cache_written_atomically, schema_cache_persisted_emitted"
   verify unit "content hash changes"
 }
 

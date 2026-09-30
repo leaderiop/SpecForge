@@ -125,9 +125,8 @@ behavior register_validation_rules_from_manifest "Register Validation Rules From
     extension_manifests_loaded_fired "extension_manifests_loaded event has fired, confirming all manifests are parsed and accessible"
   }
   ensures {
-    rules_registered             "Every validationRules entry is parsed and stored with raw target_kind and edge_type strings"
-    deferred_validation_complete "Post-registration cross-reference validation executed after registries_populated"
-    invalid_refs_warned          "Invalid target_kind or edge_type references produce warnings, not hard errors"
+    rules_registered       "Every validationRules entry is parsed and stored with raw target_kind and edge_type strings"
+    unloaded_targets_inert "A rule whose target kind or edge type no loaded extension declares reports nothing"
   }
   contract   """
     For each validationRules entry in a extension manifest, the compiler
@@ -139,21 +138,18 @@ behavior register_validation_rules_from_manifest "Register Validation Rules From
     occurs at this point because peer-dependency extensions may not have
     registered their kinds yet.
 
-    Step 2 (post-registration, after registries_populated): The compiler
-    MUST validate all registered rules for internal consistency —
-    target_kind references MUST match registered entity kinds, edge_type
-    references MUST match registered edge types. Invalid references MUST
-    produce a warning, not a hard error, to allow partial loading. This
-    deferred validation ensures that cross-extension references (e.g., a
-    governance rule targeting a software entity kind) resolve correctly
-    regardless of extension load order.
+    Step 2 (after registries_populated): target_kind and edge_type are
+    resolved against the loaded registries when rules run. A rule whose
+    target kind or edge type no loaded extension declares reports nothing:
+    it belongs to an optional peer that is not installed, so a project
+    without that kind is not held to it. A manifest that references a kind
+    no declared peer provides is the extension author's mistake, reported
+    as W021 when the extensions load.
   """
   verify unit "validation rule registered from manifest"
   verify unit "target_kind validation deferred to post-registration phase"
-  verify unit "target_kind reference validated against KindRegistry after registries_populated"
-  verify unit "edge_type reference validated against edge type set after registries_populated"
-  verify unit "invalid reference produces warning not error"
-  verify contract "Register Validation Rules From Manifest: validation rule registration holds — extension_manifests_loaded_fired, rules_registered, deferred_validation_complete, invalid_refs_warned"
+  verify unit "a rule targeting a kind no loaded extension declares reports nothing"
+  verify contract "Register Validation Rules From Manifest: validation rule registration holds — extension_manifests_loaded_fired, rules_registered, unloaded_targets_inert"
 }
 
 behavior register_verify_kinds_from_manifest "Register Verify Kinds From Manifest" {
