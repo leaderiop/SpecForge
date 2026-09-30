@@ -27,7 +27,7 @@ feature incremental_graph_deltas "Incremental Graph Deltas" {
   // Cross-feature: emit_incremental_diagnostics (incremental_compilation) consumes
   // graph_delta_computed as a sequential prerequisite before emitting updated diagnostics.
   problem  """
-    After incremental recompilation, subscribers (LSP, MCP, agents) receive
+    After incremental recompilation, subscribers (MCP, agents) receive
     the full graph and must diff it themselves to determine what changed.
     This wastes computation and token budget. Agents in live workflows
     need precise change information to update their context incrementally
@@ -37,7 +37,9 @@ feature incremental_graph_deltas "Incremental Graph Deltas" {
     First-class GraphDelta events after incremental rebuilds. The compiler
     diffs previous and new graph states, producing a delta with added/removed/
     modified nodes and edges. Extensions with incremental support receive only
-    the delta. LSP gets targeted semantic token updates. Debug mode validates
-    delta correctness by round-tripping.
+    the delta. The LSP does not subscribe to deltas: it recompiles on its
+    own document changes and asks the editor to refresh semantic tokens
+    when the graph changed. Debug mode validates delta correctness by
+    round-tripping.
   """
 }

@@ -29,6 +29,9 @@ pub struct LspState {
     runtime: Option<std::sync::Arc<specforge_component::ComponentRuntime>>,
     /// The project's spec root, for file-reference checks.
     spec_root: std::path::PathBuf,
+    /// [`LspState::token_signature`] as of the last recompile, so a
+    /// recompile can tell whether the client's semantic tokens went stale.
+    last_token_signature: u64,
     shutdown: bool,
 }
 
@@ -40,7 +43,7 @@ impl Default for LspState {
 
 impl LspState {
     pub fn new() -> Self {
-        Self {
+        let mut state = Self {
             documents: HashMap::new(),
             diagnostics: HashMap::new(),
             pipeline: IncrementalPipeline::empty(),
@@ -51,8 +54,43 @@ impl LspState {
             known_extension_keywords: HashMap::new(),
             runtime: None,
             spec_root: std::path::PathBuf::new(),
+            last_token_signature: 0,
             shutdown: false,
+        };
+        state.last_token_signature = state.token_signature();
+        state
+    }
+
+    /// A digest of everything in the graph and registries that semantic
+    /// tokens depend on beyond a document's own text: each entity's ID,
+    /// kind and title, and each kind's `semantic_token` classification.
+    /// Spans are left out, so an edit that only moves text (whitespace)
+    /// keeps the signature.
+    pub fn token_signature(&self) -> u64 {
+        use std::hash::{Hash, Hasher};
+        let mut hasher = std::collections::hash_map::DefaultHasher::new();
+        for node in self.graph().nodes() {
+            node.id.raw.as_str().hash(&mut hasher);
+            node.kind.raw.as_str().hash(&mut hasher);
+            node.title.hash(&mut hasher);
         }
+        let mut kinds: Vec<(&String, Option<&String>)> = self
+            .kind_registry
+            .iter()
+            .map(|(keyword, entry)| (keyword, entry.semantic_token.as_ref()))
+            .collect();
+        kinds.sort();
+        kinds.hash(&mut hasher);
+        hasher.finish()
+    }
+
+    /// Record the current [`LspState::token_signature`]; true when it
+    /// differs from the one recorded at the previous recompile.
+    pub fn record_token_signature(&mut self) -> bool {
+        let signature = self.token_signature();
+        let changed = signature != self.last_token_signature;
+        self.last_token_signature = signature;
+        changed
     }
 
     pub fn open_document(&mut self, uri: &str, content: &str) {

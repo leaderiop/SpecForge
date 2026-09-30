@@ -325,33 +325,35 @@ behavior notify_delta_subscribers "Notify Delta Subscribers" {
   invariants [incremental_correctness, diagnostic_determinism, graph_traversal_integrity]
   category   command
   types      [GraphDelta, DiagnosticsDelta]
-  // MCP notification is handled by notify_graph_delta_via_mcp in behaviors/mcp-server.spec
-  ports      [LspProtocol]
+  // MCP notification is handled by notify_graph_delta_via_mcp in behaviors/mcp-server.spec.
+  // The LSP is not a delta subscriber: provide_semantic_tokens in behaviors/lsp.spec
+  // owns its semantic token refresh.
   consumes   [graph_delta_computed]
   produces   [delta_subscribers_notified]
   requires {
     graph_delta_computed_fired "graph_delta_computed event has fired, providing the GraphDelta for notification"
   }
   ensures {
-    lsp_notified                       "LSP subscribers receive semantic token staleness notifications for affected files"
+    affected_files_delivered           "Each subscriber receives the files the delta affects"
     diagnostics_delta_delivered        "DiagnosticsDelta (added and removed diagnostics) is delivered to subscribers"
     delta_subscribers_notified_emitted "delta_subscribers_notified event fires after all notifications are dispatched"
   }
   contract   """
-    After a graph delta is computed, the system MUST notify LSP
-    subscribers. The LSP MUST receive notification that semantic tokens
-    for affected files are stale; the LSP client then re-requests full
-    semantic tokens (SemanticTokenDelta push is deferred to a future
-    iteration). Diagnostics MUST be updated as a DiagnosticsDelta
-    (added and removed diagnostics). Notification delivery MUST be
-    non-blocking — a slow subscriber MUST NOT delay the compilation
-    pipeline. MCP notification is handled separately by
-    notify_graph_delta_via_mcp (behaviors/mcp-server.spec).
+    After a graph delta is computed, the system MUST notify every
+    registered delta subscriber with the GraphDelta and the files it
+    affects. Diagnostics MUST be updated as a DiagnosticsDelta (added and
+    removed diagnostics). Notification delivery MUST be non-blocking — a
+    slow subscriber MUST NOT delay the compilation pipeline. The LSP does
+    not subscribe to these deltas: it recompiles on its own document
+    changes and asks its client to refresh semantic tokens
+    (provide_semantic_tokens, behaviors/lsp.spec). MCP notification is
+    handled separately by notify_graph_delta_via_mcp
+    (behaviors/mcp-server.spec).
   """
-  verify unit "LSP receives semantic token updates for affected files"
+  verify unit "subscribers receive the files the delta affects"
   verify unit "diagnostics delta includes added and removed"
   verify unit "slow subscriber does not block pipeline"
-  verify contract "Notify Delta Subscribers: delta subscriber notification holds — graph_delta_computed_fired, lsp_notified, diagnostics_delta_delivered, delta_subscribers_notified_emitted"
+  verify contract "Notify Delta Subscribers: delta subscriber notification holds — graph_delta_computed_fired, affected_files_delivered, diagnostics_delta_delivered, delta_subscribers_notified_emitted"
 }
 
 behavior validate_delta_correctness "Validate Delta Correctness" {

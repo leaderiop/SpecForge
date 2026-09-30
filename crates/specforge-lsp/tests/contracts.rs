@@ -563,6 +563,131 @@ fn provide_semantic_tokens_contract() {
     );
 }
 
+const TOKENS_REFRESH: &str = "workspace/semanticTokens/refresh";
+
+/// `didChange` params replacing `uri`'s whole text.
+fn replace_all(uri: &str, version: i32, text: &str) -> serde_json::Value {
+    serde_json::json!({
+        "textDocument": {"uri": uri, "version": version},
+        "contentChanges": [{"text": text}],
+    })
+}
+
+/// A session whose client declares `workspace.semanticTokens.refreshSupport`
+/// as `refresh_support`, with `text` open at `uri` and its first compile done.
+async fn session_with_open(refresh_support: bool, uri: &str, text: &str) -> wire::Session {
+    let caps = serde_json::json!({
+        "workspace": {"semanticTokens": {"refreshSupport": refresh_support}},
+    });
+    let (mut session, _) = wire::Session::start_with_capabilities(None, caps).await;
+    session.open(uri, text).await;
+    session.diagnostics(uri).await;
+    session
+}
+
+const LOGIN: &str = "behavior login \"Login\" {\n  contract \"x\"\n}\n";
+
+#[specforge_test(
+    behavior = "provide_semantic_tokens",
+    verify = "a recompile that changes the graph asks the client to refresh semantic tokens"
+)]
+#[tokio::test]
+async fn graph_changing_recompile_requests_token_refresh() {
+    let uri = "file:///buffer/refresh.spec";
+    let mut session = session_with_open(true, uri, LOGIN).await;
+    // Opening compiled `login` into an empty graph: that is a change too.
+    assert!(
+        session
+            .notification(TOKENS_REFRESH, |_| true)
+            .await
+            .is_some(),
+        "the first compile of an entity must ask for a refresh"
+    );
+
+    // didChange adds an entity: the recompiled graph differs.
+    let grown = format!("{LOGIN}\ninvariant quota \"Quota\" {{\n}}\n");
+    session
+        .notify("textDocument/didChange", replace_all(uri, 2, &grown))
+        .await;
+    session.diagnostics(uri).await;
+    assert!(
+        session
+            .notification(TOKENS_REFRESH, |_| true)
+            .await
+            .is_some(),
+        "adding an entity must ask the client to refresh semantic tokens"
+    );
+}
+
+#[specforge_test(
+    behavior = "provide_semantic_tokens",
+    verify = "a recompile that changes nothing token-relevant sends no semantic token refresh"
+)]
+#[tokio::test]
+async fn whitespace_only_recompile_sends_no_token_refresh() {
+    let uri = "file:///buffer/whitespace.spec";
+    let mut session = session_with_open(true, uri, LOGIN).await;
+    session.notification(TOKENS_REFRESH, |_| true).await;
+
+    // Same entities, kinds and titles; only the layout moves.
+    let spaced = format!("\n\n{}", LOGIN.replace("  contract", "      contract"));
+    session
+        .notify("textDocument/didChange", replace_all(uri, 2, &spaced))
+        .await;
+    session.diagnostics(uri).await;
+    let refresh = session
+        .notification_within(
+            TOKENS_REFRESH,
+            std::time::Duration::from_millis(500),
+            |_| true,
+        )
+        .await;
+    assert!(refresh.is_none(), "a whitespace-only edit must not refresh");
+
+    // A retitle does change what is highlighted: it refreshes.
+    session
+        .notify(
+            "textDocument/didChange",
+            replace_all(uri, 3, &spaced.replace("\"Login\"", "\"Sign in\"")),
+        )
+        .await;
+    session.diagnostics(uri).await;
+    assert!(
+        session
+            .notification(TOKENS_REFRESH, |_| true)
+            .await
+            .is_some(),
+        "a changed title must ask for a refresh"
+    );
+}
+
+#[specforge_test(
+    behavior = "provide_semantic_tokens",
+    verify = "no semantic token refresh is sent to a client without refreshSupport"
+)]
+#[tokio::test]
+async fn client_without_refresh_support_never_gets_token_refresh() {
+    let uri = "file:///buffer/no_refresh.spec";
+    let mut session = session_with_open(false, uri, LOGIN).await;
+
+    let grown = format!("{LOGIN}\ninvariant quota \"Quota\" {{\n}}\n");
+    session
+        .notify("textDocument/didChange", replace_all(uri, 2, &grown))
+        .await;
+    session.diagnostics(uri).await;
+    let refresh = session
+        .notification_within(
+            TOKENS_REFRESH,
+            std::time::Duration::from_millis(500),
+            |_| true,
+        )
+        .await;
+    assert!(
+        refresh.is_none(),
+        "a client that did not declare refreshSupport must never be asked"
+    );
+}
+
 // B:code_action_create_entity_stub — verify contract "requires/ensures consistency for create entity stub"
 #[specforge_test(
     behavior = "code_action_create_entity_stub",
@@ -806,7 +931,8 @@ pub(crate) mod wire {
         reader: DuplexStream,
         next_id: i64,
         server: JoinHandle<()>,
-        /// Server notifications not yet taken by `notification`.
+        /// Server notifications and server-to-client requests (already
+        /// answered) not yet taken by `notification`.
         pending: Vec<Value>,
     }
 
@@ -828,6 +954,15 @@ pub(crate) mod wire {
         /// `initialized`, and wait until workspace indexing has ended.
         /// Returns the session and the `initialize` result.
         pub(crate) async fn start(root: Option<&Path>) -> (Session, Value) {
+            Self::start_with_capabilities(root, json!({})).await
+        }
+
+        /// [`Self::start`] with the client declaring `capabilities` in
+        /// its `initialize` request.
+        pub(crate) async fn start_with_capabilities(
+            root: Option<&Path>,
+            capabilities: Value,
+        ) -> (Session, Value) {
             let (client_to_server, server_stdin) = tokio::io::duplex(1 << 20);
             let (server_stdout, server_to_client) = tokio::io::duplex(1 << 20);
             let (service, socket) = LspService::new(specforge_lsp::backend::Backend::new);
@@ -847,7 +982,7 @@ pub(crate) mod wire {
             let init = session
                 .request(
                     "initialize",
-                    json!({"processId": null, "rootUri": root_uri, "capabilities": {}}),
+                    json!({"processId": null, "rootUri": root_uri, "capabilities": capabilities}),
                 )
                 .await;
             session.notify("initialized", json!({})).await;
@@ -907,7 +1042,7 @@ pub(crate) mod wire {
                 if msg.get("method").is_none() && msg["id"] == id {
                     return msg;
                 }
-                if msg.get("id").is_none() {
+                if msg.get("method").is_some() {
                     self.pending.push(msg);
                 }
             }
@@ -918,8 +1053,9 @@ pub(crate) mod wire {
             self.write(&msg).await;
         }
 
-        /// The params of the first `method` notification matching `pred`,
-        /// kept or arriving within `wait`; it is taken, the others kept.
+        /// The params of the first `method` notification (or answered
+        /// server-to-client request) matching `pred`, kept or arriving
+        /// within `wait`; it is taken, the others kept.
         pub(crate) async fn notification_within(
             &mut self,
             method: &str,
@@ -936,7 +1072,7 @@ pub(crate) mod wire {
                 if hit(&msg) {
                     return Some(msg["params"].clone());
                 }
-                if msg.get("id").is_none() {
+                if msg.get("method").is_some() {
                     self.pending.push(msg);
                 }
             }

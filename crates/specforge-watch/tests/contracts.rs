@@ -253,11 +253,11 @@ fn dispatch_incremental_validators_contract() {
     );
 }
 
-// B:notify_delta_subscribers — contract not linked: its `lsp_notified` clause
-// ("LSP subscribers receive semantic token staleness notifications") has no
-// product counterpart (no LSP delta subscriber, no semantic-token refresh).
-// This proves the delivery half: every subscriber gets exactly the payload.
-#[test]
+// B:notify_delta_subscribers — every subscriber gets exactly the payload.
+#[specforge_test(
+    behavior = "notify_delta_subscribers",
+    verify = "Notify Delta Subscribers: delta subscriber notification holds — graph_delta_computed_fired, affected_files_delivered, diagnostics_delta_delivered, delta_subscribers_notified_emitted"
+)]
 fn notify_delta_subscribers_contract() {
     type Received = (Vec<String>, Vec<String>, Vec<String>, Vec<String>);
     struct Recorder {
@@ -308,22 +308,26 @@ fn notify_delta_subscribers_contract() {
         removed: vec![diag("E002")],
     };
 
-    // delta_subscribers_notified: one dispatch per subscriber.
+    // delta_subscribers_notified_emitted: notify returns once every
+    // subscriber has been dispatched (one handle each), and joining them
+    // completes every delivery.
     let handles = notify_delta_subscribers(&subscribers, &delta, &diag_delta);
     assert_eq!(handles.len(), 3, "one notification per subscriber");
     for h in handles {
         h.join().unwrap();
     }
-
-    // diagnostics_delta_delivered: each subscriber got exactly this payload, once.
-    let expected: Received = (
-        vec!["fresh".to_string()],
-        vec!["E003".to_string()],
-        vec!["E002".to_string()],
-        vec!["a.spec".to_string(), "b.spec".to_string()],
-    );
     let seen = seen.lock().unwrap();
-    assert_eq!(*seen, vec![expected.clone(), expected.clone(), expected]);
+    assert_eq!(seen.len(), 3, "every subscriber notified exactly once");
+
+    for (added_nodes, diags_added, diags_removed, files) in seen.iter() {
+        // graph_delta_computed_fired: the computed delta itself arrives.
+        assert_eq!(*added_nodes, vec!["fresh".to_string()]);
+        // affected_files_delivered: the files the delta affects.
+        assert_eq!(*files, vec!["a.spec".to_string(), "b.spec".to_string()]);
+        // diagnostics_delta_delivered: both halves of the DiagnosticsDelta.
+        assert_eq!(*diags_added, vec!["E003".to_string()]);
+        assert_eq!(*diags_removed, vec!["E002".to_string()]);
+    }
 }
 
 // B:rebuild_affected_subgraph — verify contract "requires/ensures consistency for affected subgraph rebuild"

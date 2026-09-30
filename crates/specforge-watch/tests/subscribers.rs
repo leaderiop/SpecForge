@@ -192,13 +192,12 @@ fn slow_subscriber_does_not_block_other_subscribers() {
     assert_eq!(slow_done.load(Ordering::SeqCst), 1);
 }
 
-// ── affected files forwarded to subscribers ───────────────────
-// Not linked to "LSP receives semantic token updates for affected files":
-// no LSP delta subscriber exists (the LSP does not consume these
-// notifications nor push semantic-token refreshes), so this only proves the
-// forwarding half.
+// ── subscribers receive the files the delta affects ───────────
 
-#[test]
+#[spec(
+    behavior = "notify_delta_subscribers",
+    verify = "subscribers receive the files the delta affects"
+)]
 fn subscriber_receives_affected_files() {
     let files = Arc::new(Mutex::new(Vec::new()));
     let subscriber = AffectedFilesRecorder {

@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 use tokio::sync::mpsc;
 use tokio::sync::{Mutex, RwLock};
 use tower_lsp::jsonrpc::Result;
@@ -42,17 +43,22 @@ pub struct Backend {
     /// whole-graph pass runs at a time and the state lock is never held
     /// across a keystroke storm.
     update_tx: mpsc::UnboundedSender<Url>,
+    /// Whether the client declared `workspace.semanticTokens.refreshSupport`
+    /// at initialize: only then is it sent `workspace/semanticTokens/refresh`.
+    tokens_refresh_support: Arc<AtomicBool>,
 }
 
 impl Backend {
     pub fn new(client: Client) -> Self {
         let state = Arc::new(RwLock::new(LspState::new()));
         let (update_tx, mut update_rx) = mpsc::unbounded_channel::<Url>();
+        let tokens_refresh_support = Arc::new(AtomicBool::new(false));
 
         // Serialized latest-wins reparse worker (C4-03). Exits when the
         // Backend (and its sender) is dropped.
         let worker_state = Arc::clone(&state);
         let worker_client = client.clone();
+        let worker_refresh_support = Arc::clone(&tokens_refresh_support);
         tokio::spawn(async move {
             while let Some(first) = update_rx.recv().await {
                 // Coalesce everything already queued, then hold off until
@@ -85,6 +91,12 @@ impl Backend {
                             .await;
                     }
                 }
+                Self::refresh_semantic_tokens_if_stale(
+                    &worker_state,
+                    &worker_client,
+                    &worker_refresh_support,
+                )
+                .await;
             }
         });
 
@@ -95,6 +107,27 @@ impl Backend {
             workspace_roots: Arc::new(Mutex::new(Vec::new())),
             spec_root: Arc::new(Mutex::new(None)),
             update_tx,
+            tokens_refresh_support,
+        }
+    }
+
+    /// After a recompile: when the graph changed in anything semantic
+    /// tokens depend on (entity IDs, kinds, titles, the kind registry's
+    /// classification), ask a client that declared refreshSupport to
+    /// re-request tokens. The LSP does not subscribe to watch deltas; this
+    /// is how open editors learn their highlighting went stale. The request
+    /// is sent from its own task so a slow client never stalls a recompile.
+    async fn refresh_semantic_tokens_if_stale(
+        state: &RwLock<LspState>,
+        client: &Client,
+        refresh_support: &AtomicBool,
+    ) {
+        let stale = state.write().await.record_token_signature();
+        if stale && refresh_support.load(Ordering::Relaxed) {
+            let client = client.clone();
+            tokio::spawn(async move {
+                let _ = client.semantic_tokens_refresh().await;
+            });
         }
     }
 
@@ -678,6 +711,15 @@ fn formatter_edits_to_lsp(
 #[tower_lsp::async_trait]
 impl LanguageServer for Backend {
     async fn initialize(&self, params: InitializeParams) -> Result<InitializeResult> {
+        let refresh_support = params
+            .capabilities
+            .workspace
+            .as_ref()
+            .and_then(|w| w.semantic_tokens.as_ref())
+            .and_then(|t| t.refresh_support)
+            .unwrap_or(false);
+        self.tokens_refresh_support
+            .store(refresh_support, Ordering::Relaxed);
         let root = params
             .root_uri
             .as_ref()
@@ -831,6 +873,7 @@ impl LanguageServer for Backend {
         let spec_root = self.spec_root.lock().await.clone();
         let client = self.client.clone();
         let state = Arc::clone(&self.state);
+        let refresh_support = Arc::clone(&self.tokens_refresh_support);
         tokio::spawn(async move {
             let token = NumberOrString::String("specforge-index".into());
             let _ = client
@@ -928,6 +971,7 @@ impl LanguageServer for Backend {
                     client.publish_diagnostics(file_uri, diags, version).await;
                 }
             }
+            Self::refresh_semantic_tokens_if_stale(&state, &client, &refresh_support).await;
 
             client
                 .send_notification::<tower_lsp::lsp_types::notification::Progress>(ProgressParams {
@@ -966,6 +1010,12 @@ impl LanguageServer for Backend {
                 .publish_diagnostics(file_uri, diags, Some(version))
                 .await;
         }
+        Self::refresh_semantic_tokens_if_stale(
+            &self.state,
+            &self.client,
+            &self.tokens_refresh_support,
+        )
+        .await;
     }
 
     async fn did_change(&self, params: DidChangeTextDocumentParams) {
@@ -1154,6 +1204,15 @@ impl LanguageServer for Backend {
                 }
             }
         }
+        // One check for the whole batch: an extension reload (new kind
+        // classifications), a deletion or an on-disk edit may all have
+        // changed what open editors highlight.
+        Self::refresh_semantic_tokens_if_stale(
+            &self.state,
+            &self.client,
+            &self.tokens_refresh_support,
+        )
+        .await;
     }
 
     async fn hover(&self, params: HoverParams) -> Result<Option<Hover>> {

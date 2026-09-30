@@ -507,7 +507,15 @@ behavior provide_semantic_tokens "Provide Semantic Tokens" {
     registered grammar contributions, semantic token classification MAY
     delegate to the extension grammar for finer-grained highlighting
     within entity bodies. Semantic token updates MUST use the shared
-    incremental pipeline.
+    incremental pipeline. The LSP does not subscribe to watch-mode graph
+    deltas: it recompiles on its own document changes, and after a
+    recompile whose graph differs from the previous one in anything that
+    affects tokens (an entity ID, kind or title, or the KindRegistry's
+    semantic_token classification) it MUST send
+    workspace/semanticTokens/refresh so the client re-requests tokens. It
+    MUST send the refresh only to a client that declared
+    workspace.semanticTokens.refreshSupport at initialize, and MUST NOT
+    send it after a recompile that changed nothing token-relevant.
   """
   verify unit "entity ID declaration uses its kind's semantic_token from the KindRegistry"
   verify unit "structural keywords are classified as keyword"
@@ -525,6 +533,9 @@ behavior provide_semantic_tokens "Provide Semantic Tokens" {
   verify contract "Provide Semantic Tokens: semantic tokens holds — graph_available, kind_registry_available, tokens_classified, structural_keywords_enforced, extension_delegation_applied"
   verify unit "entity ID declarations carry the declaration modifier"
   verify unit "entity keywords classified as 'type'"
+  verify integration "a recompile that changes the graph asks the client to refresh semantic tokens"
+  verify integration "a recompile that changes nothing token-relevant sends no semantic token refresh"
+  verify integration "no semantic token refresh is sent to a client without refreshSupport"
 }
 
 behavior complete_field_names "Complete Field Names" {
