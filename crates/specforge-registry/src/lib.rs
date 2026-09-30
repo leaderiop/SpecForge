@@ -30,7 +30,7 @@ pub use manifest::types::{
 
 // --- Compilation / extension logic ---
 pub use compilation::{
-    EntityRefInfo,
+    EntityView,
     GrammarConflictPolicy,
     HOST_API_VERSION,
     ProviderConfig,

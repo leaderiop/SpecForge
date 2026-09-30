@@ -4,7 +4,7 @@ use specforge_registry::{
     EdgeRegistry, FieldRegistry, KindRegistry, ManifestV2, RegistryBuild, SurfaceContributions,
     SurfaceRegistryEntry,
     compilation::{
-        detect_identifier_length_violations, detect_mistyped_references,
+        EntityView, detect_identifier_length_violations, detect_mistyped_references,
         detect_reserved_entity_ids, detect_unknown_entity_fields, detect_unknown_entity_kinds,
     },
     validate_manifest, validate_manifest_consistency_with_peers,
@@ -102,84 +102,18 @@ pub fn check_graph(graph: &Graph, checks: &GraphChecks) -> Vec<Diagnostic> {
 
     // Unknown kinds, identifiers and fields, against the registries.
     if !kind_reg.is_empty() {
-        let entity_kind_info: Vec<_> = graph
-            .nodes()
-            .iter()
-            .map(|n| {
-                (
-                    n.kind.raw.to_string(),
-                    n.id.raw.to_string(),
-                    n.source_span.clone(),
-                )
-            })
-            .collect();
-        let kind_diags = detect_unknown_entity_kinds(&entity_kind_info, kind_reg, None);
-        diagnostics.extend(kind_diags);
+        let views = entity_views(graph);
+        diagnostics.extend(detect_unknown_entity_kinds(&views, kind_reg, None));
 
         // E013 / E014: the documented identifier contract, now enforced —
         // reserved words and the 2-60 length bound from entity-model.md.
-        let reserved_diags = detect_reserved_entity_ids(&entity_kind_info, kind_reg);
-        diagnostics.extend(reserved_diags);
-        let length_diags = detect_identifier_length_violations(&entity_kind_info);
-        diagnostics.extend(length_diags);
+        diagnostics.extend(detect_reserved_entity_ids(&views, kind_reg));
+        diagnostics.extend(detect_identifier_length_violations(&views));
 
-        let entity_field_info: Vec<_> = graph
-            .nodes()
-            .iter()
-            .map(|n| {
-                let field_names: Vec<String> = n
-                    .fields
-                    .entries()
-                    .iter()
-                    .map(|e| e.key.to_string())
-                    .collect();
-                (
-                    n.kind.raw.to_string(),
-                    n.id.raw.to_string(),
-                    field_names,
-                    n.source_span.clone(),
-                )
-            })
-            .collect();
-        let field_diags = detect_unknown_entity_fields(&entity_field_info, kind_reg, field_reg);
-        diagnostics.extend(field_diags);
+        diagnostics.extend(detect_unknown_entity_fields(&views, kind_reg, field_reg));
 
         // Reference fields against their target_kind constraints (E022).
-        let node_kind_index: HashMap<String, String> = graph
-            .nodes()
-            .iter()
-            .map(|n| (n.id.raw.to_string(), n.kind.raw.to_string()))
-            .collect();
-        let entity_ref_info: Vec<_> = graph
-            .nodes()
-            .iter()
-            .map(|n| {
-                let ref_fields: Vec<(String, Vec<String>)> = n
-                    .fields
-                    .entries()
-                    .iter()
-                    .filter_map(|e| {
-                        if let specforge_parser::FieldValue::ReferenceList(refs) = &e.value {
-                            Some((
-                                e.key.to_string(),
-                                refs.iter().map(|r| r.id.clone()).collect(),
-                            ))
-                        } else {
-                            None
-                        }
-                    })
-                    .collect();
-                (
-                    n.kind.raw.to_string(),
-                    n.id.raw.to_string(),
-                    ref_fields,
-                    n.source_span.clone(),
-                )
-            })
-            .collect();
-        let ref_diags =
-            detect_mistyped_references(&entity_ref_info, field_reg, kind_reg, &node_kind_index);
-        diagnostics.extend(ref_diags);
+        diagnostics.extend(detect_mistyped_references(&views, field_reg, kind_reg));
 
         // Values that can't be their field's declared type (E061).
         diagnostics.extend(crate::field_types::check_field_value_types(
@@ -198,6 +132,31 @@ pub fn check_graph(graph: &Graph, checks: &GraphChecks) -> Vec<Diagnostic> {
     diagnostics.extend(extension_diags);
 
     diagnostics
+}
+
+/// Every node of the graph as the registry checks see it.
+fn entity_views(graph: &Graph) -> Vec<EntityView<'_>> {
+    graph
+        .nodes()
+        .iter()
+        .map(|n| EntityView {
+            kind: n.kind.raw.as_str(),
+            id: n.id.raw.as_str(),
+            span: &n.source_span,
+            fields: n.fields.entries().iter().map(|e| e.key.as_str()).collect(),
+            references: n
+                .fields
+                .entries()
+                .iter()
+                .filter_map(|e| match &e.value {
+                    specforge_parser::FieldValue::ReferenceList(refs) => {
+                        Some((e.key.as_str(), refs.iter().map(|r| r.id.as_str()).collect()))
+                    }
+                    _ => None,
+                })
+                .collect(),
+        })
+        .collect()
 }
 
 /// Lightweight compilation: resolve + build graph + core validation only.

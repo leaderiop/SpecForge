@@ -12,6 +12,7 @@
 //! - validate_peer_dependencies (4)
 
 use specforge_common::{Severity, SourceSpan, Sym};
+use specforge_registry::compilation::EntityView;
 use specforge_registry::validation_engine::{
     ValidationEntity, ValidationPatternKind, ValidationRulePattern, WasmValidationRuntime,
     execute_pattern, interpolate_template, parse_all_rule_patterns, parse_rule_pattern,
@@ -36,6 +37,11 @@ fn span() -> SourceSpan {
         end_line: 1,
         end_col: 0,
     }
+}
+
+/// A span that outlives the test's entity views.
+fn pinned(span: SourceSpan) -> &'static SourceSpan {
+    Box::leak(Box::new(span))
 }
 
 fn make_rule(code: &str, check: &str) -> ManifestValidationRule {
@@ -1017,12 +1023,8 @@ fn register_custom_validation_patterns_contract() {
 )]
 fn unregistered_field_name_produces_w020() {
     let (kind_reg, field_reg, _, _) = populate_registries(&[software_manifest()]);
-    let entities = vec![(
-        "behavior".to_string(),
-        "b1".to_string(),
-        vec!["unknown_field".to_string()],
-        span(),
-    )];
+    let entities =
+        vec![EntityView::new("behavior", "b1", pinned(span())).with_fields(&["unknown_field"])];
     let diags = specforge_registry::compilation::detect_unknown_entity_fields(
         &entities, &kind_reg, &field_reg,
     );
@@ -1046,12 +1048,7 @@ fn w020_includes_field_name_entity_kind_and_source_span() {
         end_line: 5,
         end_col: 20,
     };
-    let entities = vec![(
-        "behavior".to_string(),
-        "b1".to_string(),
-        vec!["bogus_field".to_string()],
-        s,
-    )];
+    let entities = vec![EntityView::new("behavior", "b1", &s).with_fields(&["bogus_field"])];
     let diags = specforge_registry::compilation::detect_unknown_entity_fields(
         &entities, &kind_reg, &field_reg,
     );
@@ -1074,12 +1071,8 @@ fn w020_includes_field_name_entity_kind_and_source_span() {
 )]
 fn registered_field_name_does_not_produce_w020() {
     let (kind_reg, field_reg, _, _) = populate_registries(&[software_manifest()]);
-    let entities = vec![(
-        "behavior".to_string(),
-        "b1".to_string(),
-        vec!["contract".to_string()],
-        span(),
-    )];
+    let entities =
+        vec![EntityView::new("behavior", "b1", pinned(span())).with_fields(&["contract"])];
     let diags = specforge_registry::compilation::detect_unknown_entity_fields(
         &entities, &kind_reg, &field_reg,
     );
@@ -1092,12 +1085,8 @@ fn registered_field_name_does_not_produce_w020() {
 )]
 fn structural_fields_not_checked_against_field_registry() {
     let (kind_reg, field_reg, _, _) = populate_registries(&[software_manifest()]);
-    let entities = vec![(
-        "behavior".to_string(),
-        "b1".to_string(),
-        vec!["title".to_string(), "verify".to_string()],
-        span(),
-    )];
+    let entities =
+        vec![EntityView::new("behavior", "b1", pinned(span())).with_fields(&["title", "verify"])];
     let diags = specforge_registry::compilation::detect_unknown_entity_fields(
         &entities, &kind_reg, &field_reg,
     );
@@ -1111,12 +1100,8 @@ fn structural_fields_not_checked_against_field_registry() {
 fn verify_on_non_testable_kind_produces_w020() {
     let (mut kind_reg, field_reg, _, _) = populate_registries(&[software_manifest()]);
     kind_reg.get_mut("behavior").unwrap().supports_verify = false;
-    let entities = vec![(
-        "behavior".to_string(),
-        "b1".to_string(),
-        vec!["title".to_string(), "verify".to_string()],
-        span(),
-    )];
+    let entities =
+        vec![EntityView::new("behavior", "b1", pinned(span())).with_fields(&["title", "verify"])];
     let diags = specforge_registry::compilation::detect_unknown_entity_fields(
         &entities, &kind_reg, &field_reg,
     );
@@ -1137,12 +1122,9 @@ fn verify_on_non_testable_kind_produces_w020() {
 )]
 fn field_validation_skipped_when_entity_kind_is_unregistered() {
     let (kind_reg, field_reg, _, _) = populate_registries(&[software_manifest()]);
-    let entities = vec![(
-        "nonexistent_kind".to_string(),
-        "x1".to_string(),
-        vec!["some_field".to_string()],
-        span(),
-    )];
+    let entities = vec![
+        EntityView::new("nonexistent_kind", "x1", pinned(span())).with_fields(&["some_field"]),
+    ];
     let diags = specforge_registry::compilation::detect_unknown_entity_fields(
         &entities, &kind_reg, &field_reg,
     );
@@ -1159,35 +1141,21 @@ fn field_validation_skipped_when_entity_kind_is_unregistered() {
 fn detect_unknown_entity_fields_contract() {
     let (kind_reg, field_reg, _, _) = populate_registries(&[software_manifest()]);
     // ensures: unknown field → W020
-    let e1 = vec![(
-        "behavior".to_string(),
-        "b1".to_string(),
-        vec!["unknown_field".to_string()],
-        span(),
-    )];
+    let e1 =
+        vec![EntityView::new("behavior", "b1", pinned(span())).with_fields(&["unknown_field"])];
     assert!(
         specforge_registry::compilation::detect_unknown_entity_fields(&e1, &kind_reg, &field_reg)
             .iter()
             .any(|d| d.code == "W020")
     );
     // ensures: registered field → no W020
-    let e2 = vec![(
-        "behavior".to_string(),
-        "b2".to_string(),
-        vec!["contract".to_string()],
-        span(),
-    )];
+    let e2 = vec![EntityView::new("behavior", "b2", pinned(span())).with_fields(&["contract"])];
     assert!(
         specforge_registry::compilation::detect_unknown_entity_fields(&e2, &kind_reg, &field_reg)
             .is_empty()
     );
     // ensures: unregistered kind → skipped
-    let e3 = vec![(
-        "unknown_kind".to_string(),
-        "x".to_string(),
-        vec!["field".to_string()],
-        span(),
-    )];
+    let e3 = vec![EntityView::new("unknown_kind", "x", pinned(span())).with_fields(&["field"])];
     assert!(
         specforge_registry::compilation::detect_unknown_entity_fields(&e3, &kind_reg, &field_reg)
             .is_empty()

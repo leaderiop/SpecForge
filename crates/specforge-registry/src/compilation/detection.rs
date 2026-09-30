@@ -39,19 +39,56 @@ impl KeywordExtensionIndex {
     }
 }
 
+/// One entity as the registry checks see it: a borrowed view of a graph
+/// node, so the checks need no copy of the graph.
+#[derive(Debug, Clone)]
+pub struct EntityView<'a> {
+    pub kind: &'a str,
+    pub id: &'a str,
+    pub span: &'a SourceSpan,
+    /// Field names, in source order.
+    pub fields: Vec<&'a str>,
+    /// Reference-list fields, each with its target IDs.
+    pub references: Vec<(&'a str, Vec<&'a str>)>,
+}
+
+impl<'a> EntityView<'a> {
+    /// A view with no fields.
+    pub fn new(kind: &'a str, id: &'a str, span: &'a SourceSpan) -> Self {
+        Self {
+            kind,
+            id,
+            span,
+            fields: Vec::new(),
+            references: Vec::new(),
+        }
+    }
+
+    pub fn with_fields(mut self, fields: &[&'a str]) -> Self {
+        self.fields.extend_from_slice(fields);
+        self
+    }
+
+    pub fn with_reference(mut self, field: &'a str, targets: &[&'a str]) -> Self {
+        self.references.push((field, targets.to_vec()));
+        self
+    }
+}
+
 /// Detect unknown entity kinds by checking each parsed keyword against the KindRegistry.
 /// Structural keywords (spec, ref, use, define) are always valid.
 /// Returns E024 diagnostics for unknown keywords.
 pub fn detect_unknown_entity_kinds(
-    entities: &[(String, String, SourceSpan)], // (keyword, id, span)
+    entities: &[EntityView],
     kind_reg: &KindRegistry,
     index: Option<&KeywordExtensionIndex>,
 ) -> Vec<Diagnostic> {
     let structural = ["spec", "ref", "use", "define"];
     let mut diagnostics = Vec::new();
 
-    for (keyword, id, span) in entities {
-        if structural.contains(&keyword.as_str()) {
+    for entity in entities {
+        let (keyword, id, span) = (entity.kind, entity.id, entity.span);
+        if structural.contains(&keyword) {
             continue;
         }
         if kind_reg.contains(keyword) {
@@ -103,12 +140,13 @@ pub fn reserved_entity_id_words(kind_reg: &KindRegistry) -> std::collections::BT
 /// E013: entity IDs that collide with reserved words. Documented in
 /// entity-model.md ("Reserved Words") long before it was enforced.
 pub fn detect_reserved_entity_ids(
-    entities: &[(String, String, SourceSpan)], // (kind, id, span)
+    entities: &[EntityView],
     kind_reg: &KindRegistry,
 ) -> Vec<Diagnostic> {
     let reserved = reserved_entity_id_words(kind_reg);
     let mut diagnostics = Vec::new();
-    for (_kind, id, span) in entities {
+    for entity in entities {
+        let (id, span) = (entity.id, entity.span);
         if !reserved.contains(id) {
             continue;
         }
@@ -130,11 +168,10 @@ pub fn detect_reserved_entity_ids(
 
 /// E014: identifier length contract (2-60 chars) — the documented naming
 /// convention, previously unenforced (the grammar terminal accepts 1+).
-pub fn detect_identifier_length_violations(
-    entities: &[(String, String, SourceSpan)], // (kind, id, span)
-) -> Vec<Diagnostic> {
+pub fn detect_identifier_length_violations(entities: &[EntityView]) -> Vec<Diagnostic> {
     let mut diagnostics = Vec::new();
-    for (_kind, id, span) in entities {
+    for entity in entities {
+        let (id, span) = (entity.id, entity.span);
         let len = id.chars().count();
         if (2..=60).contains(&len) {
             continue;
@@ -161,13 +198,14 @@ pub fn detect_identifier_length_violations(
 /// extension made testable (`supports_verify`), e.g. via @specforge/testing.
 /// Entities with unregistered kinds are skipped to avoid cascading diagnostics.
 pub fn detect_unknown_entity_fields(
-    entities: &[(String, String, Vec<String>, SourceSpan)], // (kind, id, field_names, span)
+    entities: &[EntityView],
     kind_reg: &KindRegistry,
     field_reg: &FieldRegistry,
 ) -> Vec<Diagnostic> {
     let mut diagnostics = Vec::new();
 
-    for (kind, id, field_names, span) in entities {
+    for entity in entities {
+        let (kind, id, span) = (entity.kind, entity.id, entity.span);
         // Skip entities with unregistered kinds — already E024
         let Some(entry) = kind_reg.get(kind) else {
             continue;
@@ -178,8 +216,8 @@ pub fn detect_unknown_entity_fields(
             continue;
         }
 
-        for field_name in field_names {
-            let accepted = match field_name.as_str() {
+        for &field_name in &entity.fields {
+            let accepted = match field_name {
                 "title" => true,
                 "verify" => entry.supports_verify,
                 _ => field_reg.contains(kind, field_name),
@@ -319,29 +357,28 @@ pub fn detect_unknown_verify_kinds(
     diagnostics
 }
 
-/// Per-entity reference field data: (entity_kind, entity_id, ref_fields, span).
-pub type EntityRefInfo = (String, String, Vec<(String, Vec<String>)>, SourceSpan);
-
 /// Detect mistyped references: reference list fields whose target entities exist
 /// but are the wrong entity kind according to the FieldRegistry's target_kind constraint.
 ///
-/// For example, `features [some_behavior_id]` where `some_behavior_id` is a behavior,
-/// not a feature, produces W022.
+/// `entities` is the whole project: a target exists when one of them has
+/// its ID. For example, `features [some_behavior_id]` where
+/// `some_behavior_id` is a behavior, not a feature, produces E022.
 pub fn detect_mistyped_references(
-    entities: &[EntityRefInfo],
+    entities: &[EntityView],
     field_reg: &FieldRegistry,
     kind_reg: &KindRegistry,
-    node_kind_index: &HashMap<String, String>,
 ) -> Vec<Diagnostic> {
+    let node_kind_index: HashMap<&str, &str> = entities.iter().map(|e| (e.id, e.kind)).collect();
     let mut diagnostics = Vec::new();
 
-    for (entity_kind, entity_id, ref_fields, span) in entities {
+    for entity in entities {
+        let (entity_kind, entity_id, span) = (entity.kind, entity.id, entity.span);
         // Skip entities whose kind is not registered (already E024)
         if !kind_reg.contains(entity_kind) {
             continue;
         }
 
-        for (field_name, target_ids) in ref_fields {
+        for &(field_name, ref target_ids) in &entity.references {
             // Look up the field's target_kind constraint
             let expected_kind = match field_reg.get(entity_kind, field_name) {
                 Some(entry) => match &entry.target_kind {
@@ -351,9 +388,9 @@ pub fn detect_mistyped_references(
                 None => continue, // Unknown field — already W020
             };
 
-            for target_id in target_ids {
+            for &target_id in target_ids {
                 // Only check targets that exist in the graph (missing = E001)
-                if let Some(actual_kind) = node_kind_index.get(target_id.as_str())
+                if let Some(&actual_kind) = node_kind_index.get(target_id)
                     && actual_kind != expected_kind
                 {
                     diagnostics.push(Diagnostic {
@@ -453,6 +490,11 @@ mod tests {
             end_line: 1,
             end_col: 0,
         }
+    }
+
+    /// A span that outlives the test's entity views.
+    fn pinned(span: SourceSpan) -> &'static SourceSpan {
+        Box::leak(Box::new(span))
     }
 
     // -- B:collapse_grammar_to_generic_entity_block --
@@ -622,10 +664,10 @@ mod tests {
     #[test]
     fn test_known_keyword_passes_semantic_validation() {
         let (kind_reg, _, _, _) = populate_registries(&[software_manifest()]);
-        let entities = vec![(
-            "behavior".to_string(),
-            "my_beh".to_string(),
-            span("test.spec"),
+        let entities = vec![EntityView::new(
+            "behavior",
+            "my_beh",
+            pinned(span("test.spec")),
         )];
         let diags = detect_unknown_entity_kinds(&entities, &kind_reg, None);
         assert!(diags.is_empty());
@@ -635,7 +677,11 @@ mod tests {
     #[test]
     fn test_unknown_keyword_produces_e024() {
         let (kind_reg, _, _, _) = populate_registries(&[software_manifest()]);
-        let entities = vec![("xyzzy".to_string(), "my_xyz".to_string(), span("test.spec"))];
+        let entities = vec![EntityView::new(
+            "xyzzy",
+            "my_xyz",
+            pinned(span("test.spec")),
+        )];
         let diags = detect_unknown_entity_kinds(&entities, &kind_reg, None);
         assert!(
             diags
@@ -648,12 +694,10 @@ mod tests {
     #[test]
     fn test_field_validation_uses_field_registry() {
         let (kind_reg, field_reg, _, _) = populate_registries(&[software_manifest()]);
-        let entities = vec![(
-            "behavior".to_string(),
-            "my_beh".to_string(),
-            vec!["contract".to_string(), "unknown_field".to_string()],
-            span("test.spec"),
-        )];
+        let entities = vec![
+            EntityView::new("behavior", "my_beh", pinned(span("test.spec")))
+                .with_fields(&["contract", "unknown_field"]),
+        ];
         let diags = detect_unknown_entity_fields(&entities, &kind_reg, &field_reg);
         assert!(
             diags
@@ -669,10 +713,10 @@ mod tests {
         // Phase 2 functions require populated registries as parameters.
         // With empty registries, all keywords would be unknown.
         let empty_reg = KindRegistry::new();
-        let entities = vec![(
-            "behavior".to_string(),
-            "my_beh".to_string(),
-            span("test.spec"),
+        let entities = vec![EntityView::new(
+            "behavior",
+            "my_beh",
+            pinned(span("test.spec")),
         )];
         let diags = detect_unknown_entity_kinds(&entities, &empty_reg, None);
         // "behavior" is unknown because registry is empty
@@ -700,12 +744,8 @@ mod tests {
 
         // Now Phase 2: both extension kinds AND define kinds are known
         let entities = vec![
-            ("behavior".to_string(), "b1".to_string(), span("test.spec")),
-            (
-                "user_story".to_string(),
-                "us1".to_string(),
-                span("test.spec"),
-            ),
+            EntityView::new("behavior", "b1", pinned(span("test.spec"))),
+            EntityView::new("user_story", "us1", pinned(span("test.spec"))),
         ];
         let diags = detect_unknown_entity_kinds(&entities, &kind_reg, None);
         assert!(
@@ -720,19 +760,17 @@ mod tests {
         let (kind_reg, field_reg, _, _) = populate_registries(&[software_manifest()]);
         // ensures: all blocks checked — known passes, unknown diagnosed
         let entities = vec![
-            ("behavior".to_string(), "b1".to_string(), span("a.spec")),
-            ("xyzzy".to_string(), "x1".to_string(), span("b.spec")),
+            EntityView::new("behavior", "b1", pinned(span("a.spec"))),
+            EntityView::new("xyzzy", "x1", pinned(span("b.spec"))),
         ];
         let kind_diags = detect_unknown_entity_kinds(&entities, &kind_reg, None);
         assert_eq!(kind_diags.len(), 1);
         assert_eq!(kind_diags[0].code, "E024");
         // ensures: fields validated
-        let field_entities = vec![(
-            "behavior".to_string(),
-            "b1".to_string(),
-            vec!["contract".to_string(), "bad_field".to_string()],
-            span("a.spec"),
-        )];
+        let field_entities = vec![
+            EntityView::new("behavior", "b1", pinned(span("a.spec")))
+                .with_fields(&["contract", "bad_field"]),
+        ];
         let field_diags = detect_unknown_entity_fields(&field_entities, &kind_reg, &field_reg);
         assert!(field_diags.iter().any(|d| d.code == "W020"));
     }
@@ -746,7 +784,7 @@ mod tests {
         let mut entries = HashMap::new();
         entries.insert("behavior".to_string(), "@specforge/software".to_string());
         let index = KeywordExtensionIndex::from_entries(entries);
-        let entities = vec![("behavior".to_string(), "b1".to_string(), span("test.spec"))];
+        let entities = vec![EntityView::new("behavior", "b1", pinned(span("test.spec")))];
         let diags = detect_unknown_entity_kinds(&entities, &kind_reg, Some(&index));
         assert!(
             diags[0]
@@ -762,7 +800,7 @@ mod tests {
     fn test_e024_keyword_not_in_index_suggests_search() {
         let kind_reg = KindRegistry::new();
         let index = KeywordExtensionIndex::new();
-        let entities = vec![("xyzzy".to_string(), "x1".to_string(), span("test.spec"))];
+        let entities = vec![EntityView::new("xyzzy", "x1", pinned(span("test.spec")))];
         let diags = detect_unknown_entity_kinds(&entities, &kind_reg, Some(&index));
         assert!(
             diags[0]
@@ -793,7 +831,7 @@ mod tests {
         entries.insert("behavior".to_string(), "@specforge/software".to_string());
         let index = KeywordExtensionIndex::from_entries(entries);
         // ensures: known keyword gets extension suggestion
-        let e1 = vec![("behavior".to_string(), "b1".to_string(), span("test.spec"))];
+        let e1 = vec![EntityView::new("behavior", "b1", pinned(span("test.spec")))];
         let d1 = detect_unknown_entity_kinds(&e1, &kind_reg, Some(&index));
         assert!(
             d1[0]
@@ -803,7 +841,7 @@ mod tests {
                 .contains("@specforge/software")
         );
         // ensures: unknown keyword gets search suggestion
-        let e2 = vec![("xyzzy".to_string(), "x1".to_string(), span("test.spec"))];
+        let e2 = vec![EntityView::new("xyzzy", "x1", pinned(span("test.spec")))];
         let d2 = detect_unknown_entity_kinds(&e2, &kind_reg, Some(&index));
         assert!(
             d2[0]
@@ -820,10 +858,10 @@ mod tests {
     #[test]
     fn test_unregistered_keyword_produces_e024() {
         let (kind_reg, _, _, _) = populate_registries(&[software_manifest()]);
-        let entities = vec![(
-            "unknown_thing".to_string(),
-            "u1".to_string(),
-            span("test.spec"),
+        let entities = vec![EntityView::new(
+            "unknown_thing",
+            "u1",
+            pinned(span("test.spec")),
         )];
         let diags = detect_unknown_entity_kinds(&entities, &kind_reg, None);
         assert_eq!(diags.len(), 1);
@@ -841,7 +879,7 @@ mod tests {
             end_line: 42,
             end_col: 10,
         };
-        let entities = vec![("unknown_thing".to_string(), "u1".to_string(), s.clone())];
+        let entities = vec![EntityView::new("unknown_thing", "u1", &s)];
         let diags = detect_unknown_entity_kinds(&entities, &kind_reg, None);
         assert!(diags[0].message.contains("unknown_thing"));
         assert!(diags[0].message.contains("my/file.spec"));
@@ -852,7 +890,7 @@ mod tests {
     #[test]
     fn test_registered_keyword_no_e024() {
         let (kind_reg, _, _, _) = populate_registries(&[software_manifest()]);
-        let entities = vec![("behavior".to_string(), "b1".to_string(), span("test.spec"))];
+        let entities = vec![EntityView::new("behavior", "b1", pinned(span("test.spec")))];
         let diags = detect_unknown_entity_kinds(&entities, &kind_reg, None);
         assert!(diags.is_empty());
     }
@@ -861,10 +899,10 @@ mod tests {
     #[test]
     fn test_define_block_keywords_not_checked() {
         let kind_reg = KindRegistry::new(); // empty
-        let entities = vec![(
-            "define".to_string(),
-            "my_define".to_string(),
-            span("test.spec"),
+        let entities = vec![EntityView::new(
+            "define",
+            "my_define",
+            pinned(span("test.spec")),
         )];
         let diags = detect_unknown_entity_kinds(&entities, &kind_reg, None);
         // "define" is a structural keyword, should NOT produce E024
@@ -876,11 +914,11 @@ mod tests {
     fn test_detect_unknown_entity_kinds_contract() {
         let (kind_reg, _, _, _) = populate_registries(&[software_manifest()]);
         // ensures: unknown → E024
-        let unknown = vec![("xyzzy".to_string(), "x1".to_string(), span("t.spec"))];
+        let unknown = vec![EntityView::new("xyzzy", "x1", pinned(span("t.spec")))];
         let d1 = detect_unknown_entity_kinds(&unknown, &kind_reg, None);
         assert!(d1.iter().any(|d| d.code == "E024"));
         // ensures: registered → no E024
-        let known = vec![("behavior".to_string(), "b1".to_string(), span("t.spec"))];
+        let known = vec![EntityView::new("behavior", "b1", pinned(span("t.spec")))];
         let d2 = detect_unknown_entity_kinds(&known, &kind_reg, None);
         assert!(d2.is_empty());
     }
@@ -891,12 +929,10 @@ mod tests {
     #[test]
     fn test_unregistered_field_name_produces_w020() {
         let (kind_reg, field_reg, _, _) = populate_registries(&[software_manifest()]);
-        let entities = vec![(
-            "behavior".to_string(),
-            "b1".to_string(),
-            vec!["unknown_field".to_string()],
-            span("test.spec"),
-        )];
+        let entities = vec![
+            EntityView::new("behavior", "b1", pinned(span("test.spec")))
+                .with_fields(&["unknown_field"]),
+        ];
         let diags = detect_unknown_entity_fields(&entities, &kind_reg, &field_reg);
         assert!(
             diags
@@ -916,12 +952,7 @@ mod tests {
             end_line: 10,
             end_col: 7,
         };
-        let entities = vec![(
-            "behavior".to_string(),
-            "b1".to_string(),
-            vec!["bad_field".to_string()],
-            s,
-        )];
+        let entities = vec![EntityView::new("behavior", "b1", &s).with_fields(&["bad_field"])];
         let diags = detect_unknown_entity_fields(&entities, &kind_reg, &field_reg);
         let d = &diags[0];
         assert!(d.message.contains("bad_field"));
@@ -933,12 +964,10 @@ mod tests {
     #[test]
     fn test_registered_field_name_no_w020() {
         let (kind_reg, field_reg, _, _) = populate_registries(&[software_manifest()]);
-        let entities = vec![(
-            "behavior".to_string(),
-            "b1".to_string(),
-            vec!["contract".to_string(), "invariants".to_string()],
-            span("test.spec"),
-        )];
+        let entities = vec![
+            EntityView::new("behavior", "b1", pinned(span("test.spec")))
+                .with_fields(&["contract", "invariants"]),
+        ];
         let diags = detect_unknown_entity_fields(&entities, &kind_reg, &field_reg);
         assert!(diags.is_empty());
     }
@@ -947,12 +976,10 @@ mod tests {
     #[test]
     fn test_structural_fields_not_checked() {
         let (kind_reg, field_reg, _, _) = populate_registries(&[software_manifest()]);
-        let entities = vec![(
-            "behavior".to_string(),
-            "b1".to_string(),
-            vec!["title".to_string(), "verify".to_string()],
-            span("test.spec"),
-        )];
+        let entities = vec![
+            EntityView::new("behavior", "b1", pinned(span("test.spec")))
+                .with_fields(&["title", "verify"]),
+        ];
         let diags = detect_unknown_entity_fields(&entities, &kind_reg, &field_reg);
         assert!(diags.is_empty(), "structural fields should be skipped");
     }
@@ -961,12 +988,9 @@ mod tests {
     #[test]
     fn test_field_validation_skipped_for_unregistered_kind() {
         let (kind_reg, field_reg, _, _) = populate_registries(&[software_manifest()]);
-        let entities = vec![(
-            "xyzzy".to_string(), // not registered
-            "x1".to_string(),
-            vec!["any_field".to_string()],
-            span("test.spec"),
-        )];
+        let entities = vec![
+            EntityView::new("xyzzy", "x1", pinned(span("test.spec"))).with_fields(&["any_field"]),
+        ];
         let diags = detect_unknown_entity_fields(&entities, &kind_reg, &field_reg);
         assert!(
             diags.is_empty(),
@@ -979,32 +1003,21 @@ mod tests {
     fn test_detect_unknown_entity_fields_contract() {
         let (kind_reg, field_reg, _, _) = populate_registries(&[software_manifest()]);
         // ensures: unknown field → W020
-        let e1 = vec![(
-            "behavior".to_string(),
-            "b1".to_string(),
-            vec!["bad".to_string()],
-            span("t.spec"),
-        )];
+        let e1 =
+            vec![EntityView::new("behavior", "b1", pinned(span("t.spec"))).with_fields(&["bad"])];
         assert!(
             detect_unknown_entity_fields(&e1, &kind_reg, &field_reg)
                 .iter()
                 .any(|d| d.code == "W020")
         );
         // ensures: registered field → no W020
-        let e2 = vec![(
-            "behavior".to_string(),
-            "b1".to_string(),
-            vec!["contract".to_string()],
-            span("t.spec"),
-        )];
+        let e2 = vec![
+            EntityView::new("behavior", "b1", pinned(span("t.spec"))).with_fields(&["contract"]),
+        ];
         assert!(detect_unknown_entity_fields(&e2, &kind_reg, &field_reg).is_empty());
         // ensures: unregistered kind → skipped
-        let e3 = vec![(
-            "xyzzy".to_string(),
-            "x1".to_string(),
-            vec!["anything".to_string()],
-            span("t.spec"),
-        )];
+        let e3 =
+            vec![EntityView::new("xyzzy", "x1", pinned(span("t.spec"))).with_fields(&["anything"])];
         assert!(detect_unknown_entity_fields(&e3, &kind_reg, &field_reg).is_empty());
     }
 
@@ -1014,10 +1027,10 @@ mod tests {
     #[test]
     fn test_reserved_entity_id_produces_e013() {
         let (kind_reg, _, _, _) = populate_registries(&[software_manifest()]);
-        let entities = vec![(
-            "behavior".to_string(),
-            "behavior".to_string(), // ID collides with the keyword itself
-            span("t.spec"),
+        let entities = vec![EntityView::new(
+            "behavior",
+            "behavior",
+            pinned(span("t.spec")),
         )];
         let diags = detect_reserved_entity_ids(&entities, &kind_reg);
         assert_eq!(diags.len(), 1);
@@ -1030,7 +1043,7 @@ mod tests {
     #[test]
     fn test_structural_keywords_reserved_without_extensions() {
         let kind_reg = KindRegistry::new();
-        let entities = vec![("spec".to_string(), "define".to_string(), span("t.spec"))];
+        let entities = vec![EntityView::new("spec", "define", pinned(span("t.spec")))];
         let diags = detect_reserved_entity_ids(&entities, &kind_reg);
         assert_eq!(diags.len(), 1);
         assert_eq!(diags[0].code, "E013");
@@ -1041,12 +1054,8 @@ mod tests {
     fn test_normal_ids_pass_reserved_check() {
         let (kind_reg, _, _, _) = populate_registries(&[software_manifest()]);
         let entities = vec![
-            (
-                "behavior".to_string(),
-                "login_flow".to_string(),
-                span("t.spec"),
-            ),
-            ("spec".to_string(), "my_project".to_string(), span("t.spec")),
+            EntityView::new("behavior", "login_flow", pinned(span("t.spec"))),
+            EntityView::new("spec", "my_project", pinned(span("t.spec"))),
         ];
         assert!(detect_reserved_entity_ids(&entities, &kind_reg).is_empty());
     }
@@ -1056,13 +1065,17 @@ mod tests {
     // B:detect_identifier_length_violations — verify unit "1-char and >60-char identifiers produce E014"
     #[test]
     fn test_identifier_length_bounds() {
-        let short = vec![("behavior".to_string(), "x".to_string(), span("t.spec"))];
+        let short = vec![EntityView::new("behavior", "x", pinned(span("t.spec")))];
         let d1 = detect_identifier_length_violations(&short);
         assert_eq!(d1.len(), 1);
         assert_eq!(d1[0].code, "E014");
 
         let long_id = "a".repeat(61);
-        let long = vec![("behavior".to_string(), long_id, span("t.spec"))];
+        let long = vec![EntityView::new(
+            "behavior",
+            &long_id,
+            pinned(span("t.spec")),
+        )];
         let d2 = detect_identifier_length_violations(&long);
         assert_eq!(d2.len(), 1);
         assert_eq!(d2[0].code, "E014");
@@ -1071,9 +1084,10 @@ mod tests {
     // B:detect_identifier_length_violations — verify unit "bounds are inclusive: 2 and 60 chars pass"
     #[test]
     fn test_identifier_length_bounds_inclusive() {
+        let sixty = "a".repeat(60);
         let ok = vec![
-            ("behavior".to_string(), "ab".to_string(), span("t.spec")),
-            ("behavior".to_string(), "a".repeat(60), span("t.spec")),
+            EntityView::new("behavior", "ab", pinned(span("t.spec"))),
+            EntityView::new("behavior", &sixty, pinned(span("t.spec"))),
         ];
         assert!(detect_identifier_length_violations(&ok).is_empty());
     }
@@ -1319,15 +1333,12 @@ mod tests {
     fn test_correct_kind_reference_no_diagnostic() {
         let (sw, prod) = two_extension_manifests();
         let (kind_reg, field_reg, _, _) = populate_registries(&[sw, prod]);
-        let mut node_kind_index = HashMap::new();
-        node_kind_index.insert("inv1".to_string(), "invariant".to_string());
-        let entities = vec![(
-            "behavior".to_string(),
-            "b1".to_string(),
-            vec![("invariants".to_string(), vec!["inv1".to_string()])],
-            span("test.spec"),
-        )];
-        let diags = detect_mistyped_references(&entities, &field_reg, &kind_reg, &node_kind_index);
+        let s = span("test.spec");
+        let entities = vec![
+            EntityView::new("behavior", "b1", &s).with_reference("invariants", &["inv1"]),
+            EntityView::new("invariant", "inv1", &s),
+        ];
+        let diags = detect_mistyped_references(&entities, &field_reg, &kind_reg);
         assert!(
             diags.is_empty(),
             "correct kind should produce no diagnostic, got: {:?}",
@@ -1340,16 +1351,13 @@ mod tests {
     fn test_wrong_kind_reference_produces_e022() {
         let (sw, prod) = two_extension_manifests();
         let (kind_reg, field_reg, _, _) = populate_registries(&[sw, prod]);
-        let mut node_kind_index = HashMap::new();
-        node_kind_index.insert("some_behavior".to_string(), "behavior".to_string());
+        let s = span("test.spec");
         // Put a behavior ID in the "features" field which expects feature
-        let entities = vec![(
-            "behavior".to_string(),
-            "b1".to_string(),
-            vec![("features".to_string(), vec!["some_behavior".to_string()])],
-            span("test.spec"),
-        )];
-        let diags = detect_mistyped_references(&entities, &field_reg, &kind_reg, &node_kind_index);
+        let entities = vec![
+            EntityView::new("behavior", "b1", &s).with_reference("features", &["some_behavior"]),
+            EntityView::new("behavior", "some_behavior", &s),
+        ];
+        let diags = detect_mistyped_references(&entities, &field_reg, &kind_reg);
         assert_eq!(diags.len(), 1);
         assert_eq!(diags[0].code, "E022");
         assert!(diags[0].message.contains("some_behavior"));
@@ -1362,16 +1370,13 @@ mod tests {
     fn test_no_target_kind_constraint_no_diagnostic() {
         let (sw, prod) = two_extension_manifests();
         let (kind_reg, field_reg, _, _) = populate_registries(&[sw, prod]);
-        let mut node_kind_index = HashMap::new();
-        node_kind_index.insert("anything".to_string(), "whatever".to_string());
+        let s = span("test.spec");
         // "refs" field has no target_kind
-        let entities = vec![(
-            "behavior".to_string(),
-            "b1".to_string(),
-            vec![("refs".to_string(), vec!["anything".to_string()])],
-            span("test.spec"),
-        )];
-        let diags = detect_mistyped_references(&entities, &field_reg, &kind_reg, &node_kind_index);
+        let entities = vec![
+            EntityView::new("behavior", "b1", &s).with_reference("refs", &["anything"]),
+            EntityView::new("whatever", "anything", &s),
+        ];
+        let diags = detect_mistyped_references(&entities, &field_reg, &kind_reg);
         assert!(
             diags.is_empty(),
             "unconstrained field should produce no diagnostic"
@@ -1383,14 +1388,12 @@ mod tests {
     fn test_nonexistent_target_skipped() {
         let (sw, prod) = two_extension_manifests();
         let (kind_reg, field_reg, _, _) = populate_registries(&[sw, prod]);
-        let node_kind_index = HashMap::new(); // empty — target doesn't exist
-        let entities = vec![(
-            "behavior".to_string(),
-            "b1".to_string(),
-            vec![("invariants".to_string(), vec!["nonexistent".to_string()])],
-            span("test.spec"),
-        )];
-        let diags = detect_mistyped_references(&entities, &field_reg, &kind_reg, &node_kind_index);
+        let s = span("test.spec");
+        // No entity has the target's ID.
+        let entities = vec![
+            EntityView::new("behavior", "b1", &s).with_reference("invariants", &["nonexistent"]),
+        ];
+        let diags = detect_mistyped_references(&entities, &field_reg, &kind_reg);
         assert!(
             diags.is_empty(),
             "nonexistent target should be skipped (E001 handles it)"
@@ -1402,15 +1405,12 @@ mod tests {
     fn test_unregistered_entity_kind_skipped() {
         let (sw, prod) = two_extension_manifests();
         let (kind_reg, field_reg, _, _) = populate_registries(&[sw, prod]);
-        let mut node_kind_index = HashMap::new();
-        node_kind_index.insert("x".to_string(), "behavior".to_string());
-        let entities = vec![(
-            "unknown_kind".to_string(),
-            "u1".to_string(),
-            vec![("features".to_string(), vec!["x".to_string()])],
-            span("test.spec"),
-        )];
-        let diags = detect_mistyped_references(&entities, &field_reg, &kind_reg, &node_kind_index);
+        let s = span("test.spec");
+        let entities = vec![
+            EntityView::new("unknown_kind", "u1", &s).with_reference("features", &["x"]),
+            EntityView::new("behavior", "x", &s),
+        ];
+        let diags = detect_mistyped_references(&entities, &field_reg, &kind_reg);
         assert!(diags.is_empty(), "unregistered kind should be skipped");
     }
 
@@ -1419,20 +1419,14 @@ mod tests {
     fn test_multiple_wrong_kind_refs_produce_multiple_e022() {
         let (sw, prod) = two_extension_manifests();
         let (kind_reg, field_reg, _, _) = populate_registries(&[sw, prod]);
-        let mut node_kind_index = HashMap::new();
-        node_kind_index.insert("b1".to_string(), "behavior".to_string());
-        node_kind_index.insert("b2".to_string(), "behavior".to_string());
+        let s = span("test.spec");
         // Two behavior IDs in "features" field (expects feature)
-        let entities = vec![(
-            "behavior".to_string(),
-            "my_beh".to_string(),
-            vec![(
-                "features".to_string(),
-                vec!["b1".to_string(), "b2".to_string()],
-            )],
-            span("test.spec"),
-        )];
-        let diags = detect_mistyped_references(&entities, &field_reg, &kind_reg, &node_kind_index);
+        let entities = vec![
+            EntityView::new("behavior", "my_beh", &s).with_reference("features", &["b1", "b2"]),
+            EntityView::new("behavior", "b1", &s),
+            EntityView::new("behavior", "b2", &s),
+        ];
+        let diags = detect_mistyped_references(&entities, &field_reg, &kind_reg);
         assert_eq!(diags.len(), 2);
         assert!(diags.iter().all(|d| d.code == "E022"));
     }
@@ -1442,17 +1436,13 @@ mod tests {
     fn test_cross_extension_typed_reference_validated() {
         let (sw, prod) = two_extension_manifests();
         let (kind_reg, field_reg, _, _) = populate_registries(&[sw, prod]);
-        let mut node_kind_index = HashMap::new();
-        node_kind_index.insert("f1".to_string(), "feature".to_string());
-        node_kind_index.insert("b1".to_string(), "behavior".to_string());
+        let s = span("test.spec");
         // feature.behaviors should accept behavior — correct cross-extension ref
-        let entities = vec![(
-            "feature".to_string(),
-            "f1".to_string(),
-            vec![("behaviors".to_string(), vec!["b1".to_string()])],
-            span("test.spec"),
-        )];
-        let diags = detect_mistyped_references(&entities, &field_reg, &kind_reg, &node_kind_index);
+        let entities = vec![
+            EntityView::new("feature", "f1", &s).with_reference("behaviors", &["b1"]),
+            EntityView::new("behavior", "b1", &s),
+        ];
+        let diags = detect_mistyped_references(&entities, &field_reg, &kind_reg);
         assert!(diags.is_empty(), "correct cross-extension ref should pass");
     }
 
@@ -1461,16 +1451,13 @@ mod tests {
     fn test_e022_message_includes_all_details() {
         let (sw, prod) = two_extension_manifests();
         let (kind_reg, field_reg, _, _) = populate_registries(&[sw, prod]);
-        let mut node_kind_index = HashMap::new();
-        node_kind_index.insert("inv1".to_string(), "invariant".to_string());
+        let s = span("test.spec");
         // Put invariant in "features" field (expects feature)
-        let entities = vec![(
-            "behavior".to_string(),
-            "my_beh".to_string(),
-            vec![("features".to_string(), vec!["inv1".to_string()])],
-            span("test.spec"),
-        )];
-        let diags = detect_mistyped_references(&entities, &field_reg, &kind_reg, &node_kind_index);
+        let entities = vec![
+            EntityView::new("behavior", "my_beh", &s).with_reference("features", &["inv1"]),
+            EntityView::new("invariant", "inv1", &s),
+        ];
+        let diags = detect_mistyped_references(&entities, &field_reg, &kind_reg);
         assert_eq!(diags.len(), 1);
         let msg = &diags[0].message;
         assert!(msg.contains("inv1"), "should mention target id");
